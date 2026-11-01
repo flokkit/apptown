@@ -44,7 +44,7 @@ func TestStepAttemptObservationChecksScopeAttemptAndOwnerTogether(t *testing.T) 
 			stepID := step
 			attempt := storedStep(t, q.db, step).Attempt
 			wantRun := RunRef{ID: run.ID, ProjectID: run.ProjectID}
-			want := InferenceObservation{State: RunRunning, LiveAttempt: true, Owner: "payer"}
+			want := inferenceObservation{State: RunRunning, LiveAttempt: true, Owner: "payer"}
 			var wantErr error
 			invalid := false
 			ctx, cancel := context.WithCancel(context.Background())
@@ -134,7 +134,7 @@ func TestStepAttemptObservationChecksScopeAttemptAndOwnerTogether(t *testing.T) 
 			q.db.Pool().SetMaxOpenConns(1)
 			ref, out, err := ObserveStepAttemptIn(ctx, q.db, stepID, attempt)
 			if wantErr != nil || invalid {
-				if err == nil || (wantErr != nil && !errors.Is(err, wantErr)) || out != (InferenceObservation{}) || ref != (RunRef{}) {
+				if err == nil || (wantErr != nil && !errors.Is(err, wantErr)) || out != (inferenceObservation{}) || ref != (RunRef{}) {
 					t.Fatalf("invalid observation %+v %+v: %v", ref, out, err)
 				}
 			} else if err != nil || out != want || ref != wantRun {

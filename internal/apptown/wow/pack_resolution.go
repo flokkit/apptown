@@ -18,10 +18,10 @@ import (
 // exactly what a version holds whatever the library publishes since. Packs
 // do not include one another; a project combines several (Combine).
 
-// ErrUnpinned refuses a pack version that names an item the library does
+// errUnpinned refuses a pack version that names an item the library does
 // not have: it could not pin it, and a later item of that name would take
 // its place in every project on the version.
-var ErrUnpinned = fault.New(fault.Invalid, "a pack version names only items it can pin")
+var errUnpinned = fault.New(fault.Invalid, "a pack version names only items it can pin")
 
 // pinSource is what resolution needs from the library: an item's current
 // pin. ok is false when the library lacks it; pinned is false for a
@@ -123,8 +123,8 @@ type Publication struct {
 	At stamp.Time `json:"at"`
 }
 
-// PublicationsOf is a pack's versions as recorded, newest first.
-func (s *Packs) PublicationsOf(ctx context.Context, name string) ([]Publication, error) {
+// publicationsOf is a pack's versions as recorded, newest first.
+func (s *packs) publicationsOf(ctx context.Context, name string) ([]Publication, error) {
 	q := wowsql.New(s.db.SQL())
 	p, err := packByNameIn(ctx, q, name)
 	if err != nil {

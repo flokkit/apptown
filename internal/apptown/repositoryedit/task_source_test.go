@@ -1,11 +1,12 @@
 package repositoryedit
 
 import (
-	"github.com/flokkit/apptown/internal/ids/idstest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 )

@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -28,7 +30,7 @@ func TestProjectMemberWriteFailureSemantics(t *testing.T) {
 			if _, err := s.EnsureUser(context.Background(), "new-member"); err != nil {
 				t.Fatal(err)
 			}
-			restore := db.FailNextStatement(tc.marker)
+			restore := dbtest.NextStatementFailure(db, tc.marker)
 			defer restore()
 			err := s.AddProjectMember(context.Background(), idstest.N(42), "new-member", access.RoleProjectViewer, "owner")
 			if tc.wantErr != (err != nil) {

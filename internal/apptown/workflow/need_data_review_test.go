@@ -37,11 +37,11 @@ func TestADeployResetThroughAnEarlierStepAcceptsNothing(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		c, err := attempts.Start(t.Context(), s, s.Type)
+		c, err := attempts.start(t.Context(), s, s.Type, ids.Nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := attempts.Finish(t.Context(), c, StepOutcome{Status: state, Evidence: json.RawMessage(`{}`)}); err != nil {
+		if err := attempts.finish(t.Context(), c, StepOutcome{Status: state, Evidence: json.RawMessage(`{}`)}); err != nil {
 			t.Fatal(err)
 		}
 	}

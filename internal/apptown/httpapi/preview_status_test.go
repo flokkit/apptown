@@ -1,10 +1,11 @@
 package httpapi
 
 import (
+	"testing"
+
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"testing"
 )
 
 func TestPreviewDiscoveryDoesNotAssertRuntimeHealth(t *testing.T) {

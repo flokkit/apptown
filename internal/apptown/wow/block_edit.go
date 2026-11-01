@@ -23,7 +23,7 @@ type BlockPatch struct {
 	Checks *[]check.Declaration `json:"checks"`
 }
 
-var ErrStockBlock = fault.New(fault.Conflict, "an AppTown-shipped (stock) guidance block is read-only and auto-upgrades on release")
+var errStockBlock = fault.New(fault.Conflict, "an AppTown-shipped (stock) guidance block is read-only and auto-upgrades on release")
 
 // EditBlock keeps tags and the entire prose/check version in one transaction.
 // Comparisons happen after the row lock, so parallel partial edits preserve
@@ -46,10 +46,10 @@ func (s *Service) EditBlock(ctx context.Context, id ids.ID, patch BlockPatch, ac
 			return err
 		}
 		if held.Origin == "stock" {
-			return fmt.Errorf("%q: %w", held.Name, ErrStockBlock)
+			return fmt.Errorf("%q: %w", held.Name, errStockBlock)
 		}
 		if patch.Tags != nil {
-			if err := oneEdit(q.SetBlockTags(ctx, wowsql.SetBlockTagsParams{ID: id, Tags: NormalizeTags(*patch.Tags), At: now})); err != nil {
+			if err := oneEdit(q.SetBlockTags(ctx, wowsql.SetBlockTagsParams{ID: id, Tags: normalizeTags(*patch.Tags), At: now})); err != nil {
 				return err
 			}
 		}
@@ -111,7 +111,7 @@ func bumpBlockIn(ctx context.Context, tx *database.Tx, r wowsql.GuidanceBlock, b
 	}
 	q := wowsql.New(tx.SQL())
 	next := r.LatestVersion + 1
-	if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(at.UTC()), BlockID: r.ID, Version: next, Body: body, Checks: []byte(checks), At: at.UTC(), Source: AuthoredHere.Source, Signer: AuthoredHere.Signer}); err != nil {
+	if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(at.UTC()), BlockID: r.ID, Version: next, Body: body, Checks: []byte(checks), At: at.UTC(), Source: authoredHere.Source, Signer: authoredHere.Signer}); err != nil {
 		return err
 	}
 	if err := oneEdit(q.AdvanceBlockVersion(ctx, wowsql.AdvanceBlockVersionParams{ID: r.ID, Version: next, At: at.UTC()})); err != nil {
@@ -120,9 +120,9 @@ func bumpBlockIn(ctx context.Context, tx *database.Tx, r wowsql.GuidanceBlock, b
 	return audit.At(at).RecordIn(ctx, tx, who, ids.Nil, "guidance.block.updated", r.Name, map[string]any{"blockId": r.ID, "version": next})
 }
 
-// ErrUnknownTool is a check naming, in its appliesTo, a tool the tool
+// errUnknownTool is a check naming, in its appliesTo, a tool the tool
 // versions list does not have: a tool no part could be built with here.
-var ErrUnknownTool = fault.New(fault.Invalid, "a check's appliesTo names only tools the tool versions list has")
+var errUnknownTool = fault.New(fault.Invalid, "a check's appliesTo names only tools the tool versions list has")
 
 // checkAppliesToTools holds each tool a check's appliesTo names to the tool
 // versions list, as a pack's tools are held to its lines.
@@ -130,7 +130,7 @@ func (s *Service) checkAppliesToTools(checks []check.Declaration) error {
 	for _, c := range checks {
 		for _, tool := range check.AppliesTools(c.AppliesTo) {
 			if s.packs.lines == nil || !s.packs.lines.HasTool(tool) {
-				return fmt.Errorf("%w: check %s names tool:%s, which is not in the tool versions this AppTown has", ErrUnknownTool, c.Name, tool)
+				return fmt.Errorf("%w: check %s names tool:%s, which is not in the tool versions this AppTown has", errUnknownTool, c.Name, tool)
 			}
 		}
 	}

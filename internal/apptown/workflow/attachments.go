@@ -33,12 +33,12 @@ func NewAttachments(db *database.DB, authority access.Authorizer, files GitWorks
 
 const MaxAttachmentBytes = 20 << 20
 
-type AttachmentAdded struct {
+type attachmentAdded struct {
 	Name   string
 	Bytes  int
 	SHA256 string
 }
-type Attachment struct {
+type attachment struct {
 	Name  string
 	Bytes int64
 }
@@ -64,42 +64,42 @@ func (a Attachments) admit(ctx context.Context, id ids.ID, action commandAction)
 
 // Add never replaces an attachment. Workspace copying and the addition receipt
 // remain best effort after the canonical file is written.
-func (a Attachments) Add(ctx context.Context, id ids.ID, name string, body []byte) (AttachmentAdded, error) {
+func (a Attachments) Add(ctx context.Context, id ids.ID, name string, body []byte) (attachmentAdded, error) {
 	project, who, err := a.admit(ctx, id, actionAttachChange)
 	if err != nil {
-		return AttachmentAdded{}, err
+		return attachmentAdded{}, err
 	}
 	ch, err := readChangeInProject(ctx, a.changes.db, id, project)
 	if err != nil {
-		return AttachmentAdded{}, err
+		return attachmentAdded{}, err
 	}
 	if ch.State == ChangeShipped || ch.State == ChangeAbandoned {
-		return AttachmentAdded{}, fault.New(fault.Conflict, fmt.Sprintf("change #%d is %s", id, ch.State))
+		return attachmentAdded{}, fault.New(fault.Conflict, fmt.Sprintf("change #%d is %s", id, ch.State))
 	}
 	name, err = attachmentName(name)
 	if err != nil {
-		return AttachmentAdded{}, err
+		return attachmentAdded{}, err
 	}
 	if len(body) > MaxAttachmentBytes {
-		return AttachmentAdded{}, fault.New(fault.Invalid, "attachment too large")
+		return attachmentAdded{}, fault.New(fault.Invalid, "attachment too large")
 	}
 	dir := a.files.AttachmentDir(id)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return AttachmentAdded{}, err
+		return attachmentAdded{}, err
 	}
 	out, err := os.OpenFile(filepath.Join(dir, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if errors.Is(err, fs.ErrExist) {
-		return AttachmentAdded{}, fault.New(fault.Conflict, fmt.Sprintf("this change already has an attachment named %s; remove it first", name))
+		return attachmentAdded{}, fault.New(fault.Conflict, fmt.Sprintf("this change already has an attachment named %s; remove it first", name))
 	}
 	if err != nil {
-		return AttachmentAdded{}, err
+		return attachmentAdded{}, err
 	}
 	if _, err := out.Write(body); err != nil {
 		_ = out.Close()
-		return AttachmentAdded{}, err
+		return attachmentAdded{}, err
 	}
 	if err := out.Close(); err != nil {
-		return AttachmentAdded{}, err
+		return attachmentAdded{}, err
 	}
 	if err := a.files.SyncAttachments(ctx, id, a.files.Paths().ChangeWorkspace(id)); err != nil {
 		log.Printf("change %d: copying attachments: %v", id, err)
@@ -107,14 +107,14 @@ func (a Attachments) Add(ctx context.Context, id ids.ID, name string, body []byt
 	sum := sha256.Sum256(body)
 	digest := hex.EncodeToString(sum[:])
 	audit.At(a.changes.now()).BestEffort(ctx, a.changes.db, who.Receipt, project, "change.attachment-added", fmt.Sprintf("change %d: %s", id, name), map[string]any{"sha256": digest, "bytes": len(body)})
-	return AttachmentAdded{name, len(body), digest}, nil
+	return attachmentAdded{name, len(body), digest}, nil
 }
 
-func (a Attachments) List(ctx context.Context, id ids.ID) ([]Attachment, error) {
+func (a Attachments) List(ctx context.Context, id ids.ID) ([]attachment, error) {
 	if _, _, err := a.admit(ctx, id, actionReadChange); err != nil {
 		return nil, err
 	}
-	return a.files.Attachments(id)
+	return a.files.attachments(id)
 }
 
 // File admits the name before the transport's confined untrusted-file serving.

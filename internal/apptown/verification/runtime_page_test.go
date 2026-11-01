@@ -27,7 +27,7 @@ func TestTheRuntimePageProbeAsksTheFrontDoorsRoot(t *testing.T) {
 				w.WriteHeader(tc.root)
 			}))
 			t.Cleanup(front.Close)
-			if got := (Runtime{}).Probe(context.Background(), Target{FrontDoor: front.URL, Naked: "http://127.0.0.1:1"}, "page"); got.Outcome != tc.want {
+			if got := (Runtime{}).Probe(context.Background(), guidanceTarget{FrontDoor: front.URL, Naked: "http://127.0.0.1:1"}, "page"); got.Outcome != tc.want {
 				t.Fatalf("root answering %d judged %+v", tc.root, got)
 			}
 		})

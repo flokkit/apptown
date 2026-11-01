@@ -37,16 +37,16 @@ type finishedAttempt struct {
 	Step *Step
 }
 
-func (s stepAttempts) Finish(ctx context.Context, claim *Step, outcome StepOutcome) error {
+func (s stepAttempts) finish(ctx context.Context, claim *Step, outcome StepOutcome) error {
 	if claim == nil || claim.OwnedAttempt() == 0 {
 		return ErrStepAttemptLost
 	}
-	return s.db.InTx(ctx, func(tx *database.Tx) error { _, err := s.FinishIn(ctx, tx, claim, outcome); return err })
+	return s.db.InTx(ctx, func(tx *database.Tx) error { _, err := s.finishIn(ctx, tx, claim, outcome); return err })
 }
 
-// FinishIn lets rework commit outcome and continuation together. It owns current
+// finishIn lets rework commit outcome and continuation together. It owns current
 // scope lookup/locking rather than accepting caller-supplied current database rows.
-func (s stepAttempts) FinishIn(ctx context.Context, tx *database.Tx, claim *Step, outcome StepOutcome) (finishedAttempt, error) {
+func (s stepAttempts) finishIn(ctx context.Context, tx *database.Tx, claim *Step, outcome StepOutcome) (finishedAttempt, error) {
 	if claim == nil {
 		return finishedAttempt{}, ErrStepAttemptLost
 	}
@@ -65,7 +65,7 @@ func (s stepAttempts) FinishIn(ctx context.Context, tx *database.Tx, claim *Step
 	if owned.ownedProjectID != run.ProjectID || owned.RunID != run.ID || current.Attempt != owned.OwnedAttempt() || current.Status != StatusRunning || current.OverrideBy != "" || run.Status != RunRunning || run.CurrentStage != current.Stage {
 		return finishedAttempt{}, fmt.Errorf("step %d: %w", current.ID, ErrStepAttemptLost)
 	}
-	if _, err := current.Status.Transition(MoveStepFinish, outcome.Status); err != nil {
+	if _, err := current.Status.transition(moveStepFinish, outcome.Status); err != nil {
 		return finishedAttempt{}, err
 	}
 	// One time for the finish and what it made, on AppTown's clock.
@@ -166,7 +166,7 @@ func (s stepAttempts) endAbandoned(ctx context.Context, claim *Step) error {
 // endAbandonedStepIn ends one running step of an abandoned run in error,
 // with its receipt.
 func endAbandonedStepIn(ctx context.Context, tx *database.Tx, runID ids.ID, step *Step, at time.Time) error {
-	next, err := step.Status.Transition(MoveStepFinish, StatusError)
+	next, err := step.Status.transition(moveStepFinish, StatusError)
 	if err != nil {
 		return err
 	}

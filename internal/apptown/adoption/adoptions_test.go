@@ -31,7 +31,7 @@ func TestAdvanceRecordsRevisionsWithReceiptsAndSettlesDrift(t *testing.T) {
 			return r, nil
 		}
 	}
-	first, err := ads.Advance(t.Context(), pid, AdoptionEdit, "first", "alice", false, resolve(ReceiptBlock{Name: "lang/go", BlockID: idstest.N(1), Version: 1}))
+	first, err := ads.advance(t.Context(), pid, AdoptionEdit, "first", "alice", false, resolve(ReceiptBlock{Name: "lang/go", BlockID: idstest.N(1), Version: 1}))
 	if err != nil || first.Revision != 1 || first.Kind != AdoptionEdit {
 		t.Fatalf("first: %+v %v", first, err)
 	}
@@ -51,7 +51,7 @@ func TestAdvanceRecordsRevisionsWithReceiptsAndSettlesDrift(t *testing.T) {
 	if err := New(db, Dependencies{}).NoteDrift(t.Context(), pid, "drifted again"); err != nil {
 		t.Fatal(err)
 	}
-	same, err := ads.Advance(t.Context(), pid, AdoptionEdit, "nothing new", "alice", false, resolve(ReceiptBlock{Name: "lang/go", BlockID: idstest.N(1), Version: 1}))
+	same, err := ads.advance(t.Context(), pid, AdoptionEdit, "nothing new", "alice", false, resolve(ReceiptBlock{Name: "lang/go", BlockID: idstest.N(1), Version: 1}))
 	if err != nil || same.ID != first.ID {
 		t.Fatalf("unchanged: %+v %v", same, err)
 	}
@@ -64,7 +64,7 @@ func TestAdvanceRecordsRevisionsWithReceiptsAndSettlesDrift(t *testing.T) {
 
 	// A receipt that cannot be written rolls the revision back with it.
 	dbtest.FailNextStatement(t, db, "INSERT INTO audit_log")
-	if _, err := ads.Advance(t.Context(), pid, AdoptionEdit, "second", "alice", false, resolve(ReceiptBlock{Name: "lang/go", BlockID: idstest.N(1), Version: 2})); err == nil {
+	if _, err := ads.advance(t.Context(), pid, AdoptionEdit, "second", "alice", false, resolve(ReceiptBlock{Name: "lang/go", BlockID: idstest.N(1), Version: 2})); err == nil {
 		t.Fatal("a revision without its receipt was reported as recorded")
 	}
 	if revs := revisionsOf(t, db, pid); len(revs) != 1 {
@@ -74,11 +74,11 @@ func TestAdvanceRecordsRevisionsWithReceiptsAndSettlesDrift(t *testing.T) {
 		t.Fatalf("revision without receipt moved the aggregate: %+v", cur)
 	}
 
-	history, _ := ads.History(t.Context(), pid, 10)
+	history, _ := ads.history(t.Context(), pid, 10)
 	if len(history) != 1 || len(history[0].Receipt.Guidance) != 0 {
 		t.Fatalf("history is light: %+v", history)
 	}
-	if _, err := ads.Current(t.Context(), idstest.N(999999)); !errors.Is(err, sql.ErrNoRows) {
+	if _, err := ads.current(t.Context(), idstest.N(999999)); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("absence is sql.ErrNoRows: %v", err)
 	}
 }
@@ -129,17 +129,17 @@ func TestARecordedRevisionRequestsItsProjectsReview(t *testing.T) {
 			return r, nil
 		}
 	}
-	if _, err := ads.Advance(t.Context(), pid, AdoptionEdit, "adopt go", "alice", false, resolve(1)); err != nil {
+	if _, err := ads.advance(t.Context(), pid, AdoptionEdit, "adopt go", "alice", false, resolve(1)); err != nil {
 		t.Fatal(err)
 	}
-	if len(requests.asked) != 1 || requests.asked[0].ProjectID() != pid || requests.asked[0].Revision() != 2 || !requests.current[0] {
+	if len(requests.asked) != 1 || requests.asked[0].ProjectID() != pid || requests.asked[0].revision != 2 || !requests.current[0] {
 		t.Fatalf("the change's request: %+v current %v", requests.asked, requests.current)
 	}
-	if _, err := ads.Advance(t.Context(), pid, AdoptionEdit, "nothing new", "alice", false, resolve(1)); err != nil || len(requests.asked) != 1 {
+	if _, err := ads.advance(t.Context(), pid, AdoptionEdit, "nothing new", "alice", false, resolve(1)); err != nil || len(requests.asked) != 1 {
 		t.Fatalf("a reviewed no-op requested a review: %v %+v", err, requests.asked)
 	}
 	requests.refuse = errors.New("the queue is unavailable")
-	if _, err := ads.Advance(t.Context(), pid, AdoptionEdit, "go v2", "alice", false, resolve(2)); err == nil {
+	if _, err := ads.advance(t.Context(), pid, AdoptionEdit, "go v2", "alice", false, resolve(2)); err == nil {
 		t.Fatal("a revision whose review could not be requested was recorded")
 	}
 	if revs := revisionsOf(t, db, pid); len(revs) != 2 {

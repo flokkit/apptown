@@ -28,7 +28,7 @@ func TestRunAttachedSourceScans(t *testing.T) {
 
 	f.Effects.report = scannerSARIF(2) // writes .apptown/semgrep.sarif with 2 results
 	src := projectTree(t)
-	results, findings, errs := f.Scanners.RunSourceScans(context.Background(), src, "test", "", "")
+	results, findings, errs := f.Scanners.runSourceScans(context.Background(), src, "test", "", "")
 
 	if errs != 0 {
 		t.Fatalf("unexpected scan errors: %d", errs)
@@ -63,7 +63,7 @@ func TestStoppedScannerDiscoveryIsNotAPass(t *testing.T) {
 	})
 	stopped, cancel := context.WithCancel(t.Context())
 	cancel()
-	results, findings, errs := f.Scanners.RunSourceScans(stopped, projectTree(t), "test", "", "")
+	results, findings, errs := f.Scanners.runSourceScans(stopped, projectTree(t), "test", "", "")
 	if errs == 0 || len(results) != 1 || results[0].Verdict != workflow.VerdictError || len(findings) != 0 {
 		t.Fatalf("scans after their caller stopped: errors %d, results %+v, findings %d; want one errored result", errs, results, len(findings))
 	}
@@ -81,7 +81,7 @@ func TestAScannerThatClearsItsEntrypointRunsItsCommandWhole(t *testing.T) {
 		"report": ".apptown/semgrep.sarif", "network": true, "format": "sarif", "kind": "sast", "target": "source",
 	})
 	f.Effects.report = scannerSARIF(0)
-	f.Scanners.RunSourceScans(context.Background(), projectTree(t), "test", "", "")
+	f.Scanners.runSourceScans(context.Background(), projectTree(t), "test", "", "")
 	f.Effects.mu.Lock()
 	defer f.Effects.mu.Unlock()
 	if len(f.Effects.requests) != 1 || !f.Effects.requests[0].NoEntrypoint || !slices.Equal(f.Effects.requests[0].Argv, command) || f.Effects.requests[0].Network != "" {

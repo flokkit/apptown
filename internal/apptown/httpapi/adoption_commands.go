@@ -35,7 +35,7 @@ func NewAdoptionCommands(adoption *adoption.Service, whatIfs *conformance.Servic
 
 // Prepare: POST /projects/{slug}/adoption/prepare {packs?, additions?}
 func (h AdoptionCommands) Prepare(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -58,7 +58,7 @@ func (h AdoptionCommands) Prepare(w http.ResponseWriter, r *http.Request) {
 // is refused when that is no longer what the project would adopt; the
 // Change's brief names the what-if.
 func (h AdoptionCommands) Adopt(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -134,7 +134,7 @@ func (h AdoptionCommands) Adopt(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 422, "cannot be adopted as asked: %s", strings.Join(c.Problems, "; "))
 			return
 		}
-		who := Actor(r)
+		who := actor(r)
 		if len(c.Weakens) > 0 {
 			may, err := h.holds(r.Context(), Principal(r), access.CapStandardsPacks, access.Resource{Type: "instance"})
 			if err != nil {
@@ -185,7 +185,7 @@ func (h AdoptionCommands) Adopt(w http.ResponseWriter, r *http.Request) {
 // would run now: the lane, its acceptance's sentence and the landing's, or
 // why none is offered. A client shows these and sends back what it showed.
 func (h AdoptionCommands) InAdvance(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

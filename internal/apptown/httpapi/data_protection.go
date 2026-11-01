@@ -36,7 +36,7 @@ type (
 	FinalCopies struct {
 		Copies []dataprotection.FinalCopy `json:"copies"`
 	}
-	DeploymentProtection = dataprotection.Protection
+	deploymentProtection = dataprotection.Protection
 )
 
 // Store: GET /backup-store.
@@ -64,7 +64,7 @@ func (h DataProtection) AttachStore(w http.ResponseWriter, r *http.Request) {
 
 // Protection: GET /projects/{slug}/deployments/{name}/protection.
 func (h DataProtection) Protection(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -73,7 +73,7 @@ func (h DataProtection) Protection(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	WriteJSON(w, 200, DeploymentProtection(*out))
+	WriteJSON(w, 200, deploymentProtection(*out))
 }
 
 // Copy: POST /projects/{slug}/deployments/{name}/copies — a copy to the
@@ -102,7 +102,7 @@ func (h DataProtection) Rehearse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h DataProtection) start(w http.ResponseWriter, r *http.Request, begin func(context.Context, ids.ID, string) (*operations.Operation, error)) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -111,12 +111,12 @@ func (h DataProtection) start(w http.ResponseWriter, r *http.Request, begin func
 		WriteFault(w, err)
 		return
 	}
-	WriteAdmitted(w, op)
+	writeAdmitted(w, op)
 }
 
 // FinalCopies: GET /projects/{slug}/final-copies.
 func (h DataProtection) FinalCopies(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -132,10 +132,8 @@ func (h DataProtection) FinalCopies(w http.ResponseWriter, r *http.Request) {
 // deployment's release started from a copy on its own target, behind the
 // AppTown's access gate.
 type (
-	// RestoredCopyState is one restored copy.
-	RestoredCopyState = dataprotection.RestoredCopy
-	// GateEntry is what a redeemed ticket lets a gate do.
-	GateEntry = dataprotection.GateEntryGrant
+	// gateEntry is what a redeemed ticket lets a gate do.
+	gateEntry = dataprotection.GateEntryGrant
 )
 
 // StartRestoredCopy: POST /projects/{slug}/deployments/{name}/restored-copies
@@ -161,15 +159,15 @@ func (h DataProtection) TakeDownRestoredCopy(w http.ResponseWriter, r *http.Requ
 		WriteFault(w, err)
 		return
 	}
-	WriteAdmitted(w, op)
+	writeAdmitted(w, op)
 }
 
 func (h DataProtection) restoredCopyPath(w http.ResponseWriter, r *http.Request) (ids.ID, ids.ID, bool) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return ids.Nil, ids.Nil, false
 	}
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return ids.Nil, ids.Nil, false
@@ -195,6 +193,6 @@ func (h DataProtection) RedeemGateTicket(w http.ResponseWriter, r *http.Request)
 			WriteFault(w, err)
 			return
 		}
-		WriteJSON(w, 200, GateEntry(grant))
+		WriteJSON(w, 200, gateEntry(grant))
 	})
 }

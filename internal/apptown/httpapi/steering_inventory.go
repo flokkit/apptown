@@ -6,26 +6,26 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// SteeringSources describes live agent-facing facts, shared with execution.
-type SteeringSources interface {
+// steeringSources describes live agent-facing facts, shared with execution.
+type steeringSources interface {
 	Registry(ctx context.Context) (string, error)
 	Integrations(context.Context, ids.ID) (string, error)
 }
 
-type DelegationSource interface {
+type delegationSource interface {
 	Delegation(ctx context.Context) string
 }
 
 // PlatformSteering is immutable platform text supplied by composition.
 type PlatformSteering struct{ Complaints, Hygiene, Runtime, Docker string }
-type SteeringInventory struct {
-	source     SteeringSources
-	delegation DelegationSource
+type steeringInventory struct {
+	source     steeringSources
+	delegation delegationSource
 	text       PlatformSteering
 }
 
-func NewSteeringInventory(source SteeringSources, delegation DelegationSource, text PlatformSteering) SteeringInventory {
-	return SteeringInventory{source: source, delegation: delegation, text: text}
+func NewSteeringInventory(source steeringSources, delegation delegationSource, text PlatformSteering) steeringInventory {
+	return steeringInventory{source: source, delegation: delegation, text: text}
 }
 
 type steeringSection struct {
@@ -44,7 +44,7 @@ type steeringSection struct {
 // carry); a project adds its own integrations section. Empty sections are
 // left out: what is not written costs nothing. A source that cannot be
 // read is an error, never a section left out.
-func (s SteeringInventory) sections(ctx context.Context, projectID ids.ID) ([]steeringSection, error) {
+func (s steeringInventory) sections(ctx context.Context, projectID ids.ID) ([]steeringSection, error) {
 	registries, err := s.source.Registry(ctx)
 	if err != nil {
 		return nil, err

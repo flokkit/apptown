@@ -4,12 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/audit"
-	"github.com/flokkit/apptown/internal/apptown/integration"
-	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/apptown/secret"
-	"github.com/flokkit/apptown/internal/database"
-	"github.com/flokkit/apptown/internal/fault"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,6 +12,14 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/integration"
+	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/secret"
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/fault"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -432,7 +434,7 @@ func TestTheMergeRequestStepSaysWhoOpenedTheChange(t *testing.T) {
 			}
 			restore := func() {}
 			if recordFailure != "" {
-				restore = a.DB.FailNextStatement(recordFailure)
+				restore = dbtest.NextStatementFailure(a.DB, recordFailure)
 			}
 			if err := a.Work.ExecuteStep(a.asEngine(context.Background()), step); err != nil {
 				restore()

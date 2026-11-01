@@ -34,7 +34,7 @@ func TestPackInstallationKeepsExistingPoliciesAndSealsExactCandidate(t *testing.
 	if err := json.Unmarshal(encoded, &roundTrip); err != nil {
 		t.Fatal(err)
 	}
-	if err := validatePackApplication(roundTrip); !errors.Is(err, ErrPackApplication) {
+	if err := validatePackApplication(roundTrip); !errors.Is(err, errPackApplication) {
 		t.Fatalf("transport candidate acquired pack authority: %v", err)
 	}
 }
@@ -59,12 +59,12 @@ func TestPackApplicationSealRejectsMutation(t *testing.T) {
 				t.Fatal(err)
 			}
 			mutate(c)
-			if err := validatePackApplication(*c); !errors.Is(err, ErrPackApplication) {
+			if err := validatePackApplication(*c); !errors.Is(err, errPackApplication) {
 				t.Fatalf("mutation kept pack authority: %v", err)
 			}
 		})
 	}
-	if err := validatePackApplication(Candidate{}); !errors.Is(err, ErrPackApplication) {
+	if err := validatePackApplication(Candidate{}); !errors.Is(err, errPackApplication) {
 		t.Fatalf("unprepared candidate acquired pack authority: %v", err)
 	}
 }

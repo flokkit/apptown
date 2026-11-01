@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 )
@@ -38,7 +40,7 @@ func TestAdminNetworksGETRequiresReadablePolicy(t *testing.T) {
 	if w := call("PUT", "192.0.2.1", `{"expected":[],"networks":["192.0.2.0/24"]}`); w.Code != 200 {
 		t.Fatal(w.Body)
 	}
-	restore := db.FailNextStatement("-- name: InstanceSetting :one")
+	restore := dbtest.NextStatementFailure(db, "-- name: InstanceSetting :one")
 	w := call("GET", "192.0.2.1", "")
 	restore()
 	if w.Code != 500 {

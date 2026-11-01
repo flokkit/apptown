@@ -37,12 +37,12 @@ func (s *Service) Create(ctx context.Context, in ChangeDraft) (*Change, error) {
 // CreateWith admits a Change with join run inside its admission transaction
 // (see AdmissionParticipant). A join error leaves no Change; a workspace
 // preparation failure after commit returns the recorded Change with the error.
-func (s *Service) CreateWith(ctx context.Context, in ChangeDraft, join AdmissionParticipant) (*Change, error) {
+func (s *Service) CreateWith(ctx context.Context, in ChangeDraft, join admissionParticipant) (*Change, error) {
 	who, err := s.require(ctx, operationPermission{Action: actionCreateChange, ProjectID: in.ProjectID})
 	if err != nil {
 		return nil, err
 	}
-	return s.creator.CreateWith(ctx, in, who, join)
+	return s.creator.createWith(ctx, in, who, join)
 }
 func (s *Service) Edit(ctx context.Context, in ChangeEdit) (*Change, error) {
 	project, who, err := s.changeScope(ctx, in.ID, actionEditBrief)
@@ -60,7 +60,7 @@ func (s *Service) Import(ctx context.Context, in ImportBranch) (*Change, error) 
 	if err != nil {
 		return nil, err
 	}
-	return s.importer.Import(ctx, in, who)
+	return s.importer.importChange(ctx, in, who)
 }
 func (s *Service) Uplift(ctx context.Context, in Uplift) (*Change, error) {
 	if s == nil {

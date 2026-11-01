@@ -70,7 +70,7 @@ func invocationRunnerFixture(t *testing.T, runner Runner) (*Service, InvokeChang
 
 // failingParticipant writes through the admission transaction and then fails,
 // so a surviving receipt would show that the participant was not rolled back.
-func failingParticipant(t *testing.T) AdmissionParticipant {
+func failingParticipant(t *testing.T) admissionParticipant {
 	return func(ctx context.Context, tx *database.Tx, ch *Change) error {
 		if ch == nil || ch.ID.IsZero() {
 			t.Error("participant ran without the admitted Change")
@@ -115,8 +115,8 @@ func TestCreateAndRunRejectsBeforeEffectsAndRollsBackAdmission(t *testing.T) {
 		t.Run(failure, func(t *testing.T) {
 			t.Parallel()
 			s, in := invocationFixture(t)
-			s.starter.runtime.Prepare = func(context.Context, *Run) error { t.Error("rejected invocation prepared a workspace"); return nil }
-			s.starter.runtime.Dispatch = func(context.Context, *Run) error { t.Error("rejected invocation dispatched"); return nil }
+			s.starter.runtime.prepare = func(context.Context, *Run) error { t.Error("rejected invocation prepared a workspace"); return nil }
+			s.starter.runtime.dispatch = func(context.Context, *Run) error { t.Error("rejected invocation dispatched"); return nil }
 			switch failure {
 			case "create authority", "invoke authority":
 				s.authority = authorityFunc(func(_ context.Context, p operationPermission) (string, error) {
@@ -128,12 +128,12 @@ func TestCreateAndRunRejectsBeforeEffectsAndRollsBackAdmission(t *testing.T) {
 			case "unknown workflow":
 				in.Workflow = "missing"
 			case "required artifact":
-				s.starter.runtime.Missing = func(context.Context, ids.ID, *schema.Spec) (string, error) { return "spec-final", nil }
+				s.starter.runtime.missing = func(context.Context, ids.ID, *schema.Spec) (string, error) { return "spec-final", nil }
 			case "stage insert":
 				dbtest.FailNextStatement(t, s.db, "INSERT INTO steps")
 			case "adoption changed":
-				resolve := s.starter.runtime.Resolve
-				s.starter.runtime.Resolve = func(ctx context.Context, req StartRequest, source StartSource) (PreparedRun, error) {
+				resolve := s.starter.runtime.resolve
+				s.starter.runtime.resolve = func(ctx context.Context, req StartRequest, source StartSource) (PreparedRun, error) {
 					def, err := resolve(ctx, req, source)
 					if err != nil {
 						return def, err
@@ -159,7 +159,7 @@ func TestCreateAndRunCommitsBeforePreparationAndReadinessBeforeDispatch(t *testi
 	t.Parallel()
 	s, in := invocationFixture(t)
 	prepared, dispatched := 0, 0
-	s.starter.runtime.Prepare = func(ctx context.Context, run *Run) error {
+	s.starter.runtime.prepare = func(ctx context.Context, run *Run) error {
 		prepared++
 		// These reads use another connection: admission really committed.
 		wantEqual(t, "change run", storedChange(t, s.db, run.ChangeID).RunID, run.ID)
@@ -167,7 +167,7 @@ func TestCreateAndRunCommitsBeforePreparationAndReadinessBeforeDispatch(t *testi
 		wantRunReady(t, s.db, run.ID, false)
 		return nil
 	}
-	s.starter.runtime.Dispatch = func(ctx context.Context, run *Run) error {
+	s.starter.runtime.dispatch = func(ctx context.Context, run *Run) error {
 		dispatched++
 		wantRunReady(t, s.db, run.ID, true)
 		return nil
@@ -200,7 +200,7 @@ func TestCreateAndRunSettlesPreparationFailureWithoutAbandonGrant(t *testing.T) 
 					t.Fatal(err)
 				}
 			} else {
-				s.starter.runtime.Prepare = func(ctx context.Context, run *Run) error {
+				s.starter.runtime.prepare = func(ctx context.Context, run *Run) error {
 					switch failure {
 					case "cancelled":
 						cancel()
@@ -211,7 +211,7 @@ func TestCreateAndRunSettlesPreparationFailureWithoutAbandonGrant(t *testing.T) 
 						dbtest.FailNextStatement(t, s.db, "-- name: ChangeForUpdate")
 						return errors.New("workspace failed")
 					case "already ready":
-						if err := s.runAdmissions.Prepared(ctx, run.ID); err != nil {
+						if err := s.runAdmissions.records.prepared(ctx, run.ID); err != nil {
 							return err
 						}
 						return errors.New("concurrent preparer finished")
@@ -219,7 +219,7 @@ func TestCreateAndRunSettlesPreparationFailureWithoutAbandonGrant(t *testing.T) 
 					return nil
 				}
 			}
-			s.starter.runtime.Dispatch = func(context.Context, *Run) error { t.Error("failed preparation dispatched"); return nil }
+			s.starter.runtime.dispatch = func(context.Context, *Run) error { t.Error("failed preparation dispatched"); return nil }
 			ch, run, err := s.CreateAndRun(ctx, in)
 			if err == nil || ch == nil || run == nil || !strings.Contains(err.Error(), fmt.Sprintf("change %d run %d", ch.ID, run.ID)) {
 				t.Fatalf("lost committed identities: %+v %+v %v", ch, run, err)

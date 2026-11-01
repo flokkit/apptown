@@ -36,11 +36,11 @@ type Usage struct {
 	} `json:"cost"`
 }
 
-// Entry is one line of the record, reduced to what AppTown reads. One
+// entry is one line of the record, reduced to what AppTown reads. One
 // JSON object per line under pi's session directory: a "session" header,
 // then "model_change" / "thinking_level_change" marks and "message"
 // entries whose role is user, assistant or toolResult.
-type Entry struct {
+type entry struct {
 	Type     string    // "session" | "model_change" | "message" | ...
 	At       time.Time // the line's timestamp; zero when absent or unparsable
 	Role     string    // message entries: user | assistant | toolResult
@@ -48,7 +48,7 @@ type Entry struct {
 	Model    string
 	Usage    Usage
 	Text     string // the text parts, joined by newlines (thinking excluded)
-	Tools    []ToolCall
+	Tools    []toolCall
 	// An assistant entry that ended in an error (the model call failed: no
 	// credit, a bad key, a provider outage): stopReason "error" and the raw
 	// provider message. Without surfacing this the chat looks busy forever.
@@ -56,27 +56,27 @@ type Entry struct {
 	ErrorMessage string
 }
 
-// Failed: the helper's turn ended without an answer, a model error or the
+// failed: the helper's turn ended without an answer, a model error or the
 // person pressing stop (pi records that as stopReason "aborted").
-func (e Entry) Failed() bool {
+func (e entry) failed() bool {
 	return e.Role == "assistant" && (e.StopReason == "error" || e.StopReason == "aborted")
 }
 
-// Aborted: the person stopped the turn.
-func (e Entry) Aborted() bool { return e.Role == "assistant" && e.StopReason == "aborted" }
+// aborted: the person stopped the turn.
+func (e entry) aborted() bool { return e.Role == "assistant" && e.StopReason == "aborted" }
 
-// HasText: the entry says something visible (not just thinking or tools).
-func (e Entry) HasText() bool { return strings.TrimSpace(e.Text) != "" }
+// hasText: the entry says something visible (not just thinking or tools).
+func (e entry) hasText() bool { return strings.TrimSpace(e.Text) != "" }
 
-// ToolCall is one tool the helper called in an entry.
-type ToolCall struct {
+// toolCall is one tool the helper called in an entry.
+type toolCall struct {
 	Name string
 	Args map[string]any
 }
 
-// Detail picks the one argument worth showing beside a tool's name in a
+// detail picks the one argument worth showing beside a tool's name in a
 // chat bubble: the command, the path, the pattern, the URL.
-func (t ToolCall) Detail() string {
+func (t toolCall) detail() string {
 	for _, k := range []string{"command", "path", "file_path", "pattern", "url"} {
 		if v, ok := t.Args[k].(string); ok {
 			return v
@@ -101,7 +101,7 @@ type Reader struct {
 // reads only a regular file, opened through a root on the record's directory
 // so a link cannot lead it elsewhere, up to the size it had when opened, and
 // it skips a line longer than maxLine without holding it.
-func (r *Reader) Next() ([]Entry, error) {
+func (r *Reader) Next() ([]entry, error) {
 	f, err := openRecord(r.Path)
 	if err != nil {
 		return nil, err
@@ -118,7 +118,7 @@ func (r *Reader) Next() ([]Entry, error) {
 		return nil, err
 	}
 	rd := bufio.NewReaderSize(io.LimitReader(f, fi.Size()-r.Off), 64<<10)
-	var out []Entry
+	var out []entry
 	for {
 		line, n, complete := readLine(rd)
 		if !complete {
@@ -126,7 +126,7 @@ func (r *Reader) Next() ([]Entry, error) {
 		}
 		r.Off += n
 		if line != "" {
-			if e, ok := ParseLine(line); ok {
+			if e, ok := parseLine(line); ok {
 				out = append(out, e)
 			}
 		}
@@ -184,13 +184,13 @@ func openRecord(path string) (*os.File, error) {
 	return f, nil
 }
 
-// ParseLine decodes one record line. Lines that are not JSON objects
+// parseLine decodes one record line. Lines that are not JSON objects
 // (blank, corrupt) are skipped, not errors: the record is append-only and
 // a bad line is pi's, not ours.
-func ParseLine(line string) (Entry, bool) {
+func parseLine(line string) (entry, bool) {
 	line = strings.TrimSpace(line)
 	if !strings.HasPrefix(line, "{") {
-		return Entry{}, false
+		return entry{}, false
 	}
 	var raw struct {
 		Type      string `json:"type"`
@@ -206,9 +206,9 @@ func ParseLine(line string) (Entry, bool) {
 		} `json:"message"`
 	}
 	if json.Unmarshal([]byte(line), &raw) != nil {
-		return Entry{}, false
+		return entry{}, false
 	}
-	e := Entry{Type: raw.Type, Role: raw.Message.Role, Provider: raw.Message.Provider,
+	e := entry{Type: raw.Type, Role: raw.Message.Role, Provider: raw.Message.Provider,
 		Model: raw.Message.Model, Usage: raw.Message.Usage,
 		StopReason: raw.Message.StopReason, ErrorMessage: raw.Message.ErrorMessage}
 	if raw.Timestamp != "" {
@@ -232,7 +232,7 @@ func ParseLine(line string) (Entry, bool) {
 				}
 				e.Text += p.Text
 			case "toolCall":
-				t := ToolCall{Name: p.Name}
+				t := toolCall{Name: p.Name}
 				_ = json.Unmarshal(p.Arguments, &t.Args)
 				e.Tools = append(e.Tools, t)
 			}
@@ -268,10 +268,10 @@ type Message struct {
 	Stopped bool `json:"stopped,omitempty"`
 }
 
-// HelperErrorText turns a provider's error into a sentence a person can
+// helperErrorText turns a provider's error into a sentence a person can
 // act on. Provider JSON ({"error":{"message":…}}) is unwrapped; anything
 // else is shown trimmed.
-func HelperErrorText(raw string) string {
+func helperErrorText(raw string) string {
 	msg := strings.TrimSpace(raw)
 	if i := strings.Index(msg, "{"); i >= 0 {
 		var body struct {
@@ -304,23 +304,23 @@ func HelperErrorText(raw string) string {
 // lives on the change page). Zero Since shows everything.
 type Transcript struct {
 	Dir   string
-	Since time.Time
+	since time.Time
 
 	mu   sync.Mutex
 	file string
 	rd   Reader
 	msgs []Message
-	last *Entry
+	last *entry
 	err  error // the last read's failure, nil when it read
 }
 
-// SessionFiles is every record file this chat owns, oldest first: the
+// sessionFiles is every record file this chat owns, oldest first: the
 // pinned "console" session or the continued lane agent's own; names are
 // timestamp-prefixed, so sorted order is chronological.
 // Only regular files count: the agent writes this directory, and a link or
 // a device there is not a record. A folder that does not exist holds no
 // records; one that cannot be read is an error, never "no records".
-func (t *Transcript) SessionFiles() ([]string, error) {
+func (t *Transcript) sessionFiles() ([]string, error) {
 	dir := filepath.Join(t.Dir, "sessions")
 	entries, err := os.ReadDir(dir)
 	if errors.Is(err, os.ErrNotExist) {
@@ -339,19 +339,11 @@ func (t *Transcript) SessionFiles() ([]string, error) {
 	return out, nil
 }
 
-// Offset is the reader's position in the newest record, for tests of the
-// resume.
-func (t *Transcript) Offset() int64 {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.rd.Off
-}
-
 // refresh reads whatever the newest record file has appended since the
 // last call and folds it into the bubbles. Caller holds t.mu.
 func (t *Transcript) refresh() {
 	// A record that cannot be read is never taken for no record.
-	files, err := t.SessionFiles()
+	files, err := t.sessionFiles()
 	if err != nil {
 		t.err = err
 		return
@@ -372,19 +364,19 @@ func (t *Transcript) refresh() {
 			continue
 		}
 		t.last = &e
-		if !t.Since.IsZero() && e.At.Before(t.Since) {
+		if !t.since.IsZero() && e.At.Before(t.since) {
 			continue // the lane's turns, before this chat existed
 		}
 		if e.Role != "user" && e.Role != "assistant" {
 			continue // toolResults are forensic; the terminal has them
 		}
-		if e.Failed() {
+		if e.failed() {
 			// The helper's turn ended without an answer: a model error, or
 			// the person pressed stop. Say so in the chat, as the helper, so
 			// the "building…" state clears and the person knows where things
 			// stand.
-			m := Message{I: len(t.msgs), Role: "helper", Text: HelperErrorText(e.ErrorMessage), Error: true}
-			if e.Aborted() {
+			m := Message{I: len(t.msgs), Role: "helper", Text: helperErrorText(e.ErrorMessage), Error: true}
+			if e.aborted() {
 				m = Message{I: len(t.msgs), Role: "helper", Stopped: true,
 					Text: "I stopped — you pressed stop. Say what you'd rather have and I'll carry on from here."}
 			}
@@ -394,7 +386,7 @@ func (t *Transcript) refresh() {
 			t.msgs = append(t.msgs, m)
 			continue
 		}
-		if !e.HasText() && len(e.Tools) == 0 {
+		if !e.hasText() && len(e.Tools) == 0 {
 			continue // pure thinking entries stay under the hood
 		}
 		m := Message{I: len(t.msgs), Role: map[string]string{"user": "you", "assistant": "helper"}[e.Role], Text: e.Text}
@@ -405,17 +397,17 @@ func (t *Transcript) refresh() {
 			m.Tools = append(m.Tools, struct {
 				Name   string `json:"name"`
 				Detail string `json:"detail,omitempty"`
-			}{tc.Name, strs.Truncate(tc.Detail(), 80)})
+			}{tc.Name, strs.Truncate(tc.detail(), 80)})
 		}
 		t.msgs = append(t.msgs, m)
 	}
 }
 
-// Messages is the conversation as chat bubbles, oldest first: shared by
+// messages is the conversation as chat bubbles, oldest first: shared by
 // the live chat poll, the change transcript and the narrative (session
 // files outlive their containers; the words are part of the change's
 // story).
-func (t *Transcript) Messages() []Message {
+func (t *Transcript) messages() []Message {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.refresh()
@@ -424,9 +416,9 @@ func (t *Transcript) Messages() []Message {
 	return out
 }
 
-// ReadMessages is Messages, with the failure to read the record when there
+// readMessages is Messages, with the failure to read the record when there
 // was one: a record that cannot be read is not a chat with no words.
-func (t *Transcript) ReadMessages() ([]Message, error) {
+func (t *Transcript) readMessages() ([]Message, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.refresh()
@@ -444,7 +436,7 @@ func (t *Transcript) ReadMessages() ([]Message, error) {
 // same structural signal the UI's green bubble uses; the moment the
 // helper claims "done" is exactly the moment worth verifying.
 func (t *Transcript) TurnHandedBack() bool {
-	files, err := t.SessionFiles()
+	files, err := t.sessionFiles()
 	if err != nil || len(files) == 0 {
 		return false
 	}
@@ -456,13 +448,13 @@ func (t *Transcript) TurnHandedBack() bool {
 	defer t.mu.Unlock()
 	t.refresh()
 	last := t.last
-	return last != nil && last.Role == "assistant" && (last.Failed() || (last.HasText() && len(last.Tools) == 0))
+	return last != nil && last.Role == "assistant" && (last.failed() || (last.hasText() && len(last.Tools) == 0))
 }
 
 // LatestSessionFile returns the newest session record and its size: the
 // before/after marker the submit path uses to verify a message landed.
 func (t *Transcript) LatestSessionFile() (string, int64) {
-	files, err := t.SessionFiles()
+	files, err := t.sessionFiles()
 	if err != nil || len(files) == 0 {
 		return "", 0
 	}

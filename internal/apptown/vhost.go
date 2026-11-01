@@ -262,12 +262,12 @@ func (a *App) vhostPort(ctx context.Context, container string) int {
 	return port
 }
 
-// VHost is the outermost handler: requests for a tier hostname are
+// vHost is the outermost handler: requests for a tier hostname are
 // reverse-proxied to the app's local port (WebSockets included —
 // httputil.ReverseProxy handles the upgrade); everything else falls
 // through to AppTown itself. Proxied apps see their own traffic —
 // AppTown auth does not apply inside an app's world.
-func (a *App) VHost(next http.Handler) http.Handler {
+func (a *App) vHost(next http.Handler) http.Handler {
 	if len(a.cfg.tierDomains) == 0 {
 		return next
 	}

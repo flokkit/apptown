@@ -15,9 +15,9 @@ type WhatIfReadsDependencies struct {
 // what a pack version's checks would say about projects' main. It is
 // hypothetical, never a project's standing. Agents read it; starting one
 // and moving a recommendation stay with people and the API.
-func NewWhatIfReads(deps WhatIfReadsDependencies) []Tool {
+func NewWhatIfReads(deps WhatIfReadsDependencies) []toolEntry {
 	h := whatIfReads{conformance: deps.Conformance}
-	return []Tool{{
+	return []toolEntry{{
 		Name:  "get_what_if",
 		order: 22,
 		Description: "Experimental. Returns a what-if: what a pack version's checks would say about projects' committed main beside the checks they adopted, for projects on the pack or joining it. " +

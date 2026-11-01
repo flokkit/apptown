@@ -14,16 +14,16 @@ import (
 // for it, with its volume key <prefix>need-<slug>-<need>).
 type StackLayout struct {
 	Stack   string
-	Volumes []StackVolume
-	mounts  map[string]Mount // volume name -> its mount
+	Volumes []stackVolume
+	mounts  map[string]mount // volume name -> its mount
 	needs   map[string]bool
 }
 
-// Mount is a volume's place in a service.
-type Mount struct{ Service, Path string }
+// mount is a volume's place in a service.
+type mount struct{ Service, Path string }
 
 // MountOf is where the stack mounts a volume, if anywhere.
-func (l StackLayout) MountOf(volume string) (Mount, bool) {
+func (l StackLayout) MountOf(volume string) (mount, bool) {
 	m, ok := l.mounts[volume]
 	return m, ok
 }
@@ -45,8 +45,8 @@ func ReadLayout(stack, base, compose string) (StackLayout, error) {
 	if err := yaml.Unmarshal([]byte(compose), &file); err != nil {
 		return StackLayout{}, err
 	}
-	byKey := map[string]StackVolume{}
-	l := StackLayout{Stack: stack, Volumes: vols, mounts: map[string]Mount{}, needs: map[string]bool{}}
+	byKey := map[string]stackVolume{}
+	l := StackLayout{Stack: stack, Volumes: vols, mounts: map[string]mount{}, needs: map[string]bool{}}
 	for _, v := range vols {
 		byKey[v.Key] = v
 		if v.Need != "" {
@@ -64,7 +64,7 @@ func ReadLayout(stack, base, compose string) (StackLayout, error) {
 			// the path the app was given is the one Compose reads.
 			path = deploy.ComposeRead(path)
 			if v, ok := byKey[key]; ok {
-				l.mounts[v.Name] = Mount{Service: service, Path: path}
+				l.mounts[v.Name] = mount{Service: service, Path: path}
 			}
 		}
 	}

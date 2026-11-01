@@ -74,7 +74,7 @@ func newTargetHTTPWorld(t *testing.T, options ...digitalocean.Options) *targetHT
 	if err := identity.SeedAdministrator(t.Context(), "bls"); err != nil {
 		t.Fatal(err)
 	}
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	var cloud digitalocean.Options
 	if len(options) > 0 {
 		cloud = options[0]
@@ -169,4 +169,8 @@ func targetDOWorld(t *testing.T) (*targetHTTPWorld, *dofake.API) {
 	w := newTargetHTTPWorld(t, digitalocean.Options{APIBase: server.URL})
 	writeTargetSecret(t, w, "DIGITALOCEAN_ACCESS_TOKEN=dop_v1_test\n")
 	return w, api
+}
+
+func newDockerFake() *dockerfake.Daemon {
+	return dockerfake.New()
 }

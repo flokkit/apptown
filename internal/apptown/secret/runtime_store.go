@@ -27,10 +27,10 @@ func (a *Service) Stores() ([]StoreInfo, error) {
 		Name: StoreInternal, Title: "Built-in store", Available: true,
 		Note: "Part of AppTown itself: no separate service, nothing to run. Values are kept in AppTown's own database, obfuscated with a key AppTown generated. That stops accidental disclosure; it is not a vault, and anyone holding the database can read the values. For anything that matters, connect a real secret store.",
 	}}
-	inf := StoreInfo{Name: StoreInfisical, Title: "Infisical", Available: infisicalConfig(file).Configured(),
+	inf := StoreInfo{Name: StoreInfisical, Title: "Infisical", Available: infisicalConfig(file).configured(),
 		Note: "A binding names a key in the Infisical project and environment this AppTown is configured for. Values never enter AppTown's database."}
 	if !inf.Available {
-		inf.Note = "N" + ErrInfisicalNotSetUp.Error()[1:] + "."
+		inf.Note = "N" + errInfisicalNotSetUp.Error()[1:] + "."
 	}
 	return append(out, inf), nil
 }
@@ -59,7 +59,7 @@ func (a *Service) InfisicalValues(ctx context.Context) (map[string]string, error
 		return nil, err
 	}
 	cfg := infisicalConfig(file)
-	if !cfg.Configured() {
+	if !cfg.configured() {
 		return nil, errors.New("Infisical is not set up on this AppTown (secrets.env)")
 	}
 	m, err := a.infisicalFetch(ctx, cfg)
@@ -69,9 +69,9 @@ func (a *Service) InfisicalValues(ctx context.Context) (map[string]string, error
 	return m, nil
 }
 
-// ErrInfisicalNotSetUp is an Infisical store this AppTown has no
+// errInfisicalNotSetUp is an Infisical store this AppTown has no
 // credentials for: its message says what goes in secrets.env.
-var ErrInfisicalNotSetUp = errors.New("not set up on this AppTown: INFISICAL_URL, INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET and INFISICAL_PROJECT_ID go in secrets.env")
+var errInfisicalNotSetUp = errors.New("not set up on this AppTown: INFISICAL_URL, INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET and INFISICAL_PROJECT_ID go in secrets.env")
 
 // AvailableProviders is the set of stores this AppTown can use now, by the
 // name their integrations carry as provider: the built-in store always,
@@ -101,8 +101,8 @@ func (a *Service) CheckInfisical(ctx context.Context) error {
 		return err
 	}
 	cfg := infisicalConfig(file)
-	if !cfg.Configured() {
-		return ErrInfisicalNotSetUp
+	if !cfg.configured() {
+		return errInfisicalNotSetUp
 	}
 	_, err = a.infisicalFetch(ctx, cfg)
 	return err
@@ -112,6 +112,6 @@ func (a *Service) CheckInfisical(ctx context.Context) error {
 // needs; the first use makes it. It says the store's key is readable, not
 // that every stored value decrypts.
 func (a *Service) CheckBuiltIn(ctx context.Context) error {
-	_, err := a.Vault.Key(ctx)
+	_, err := a.Vault.key(ctx)
 	return err
 }

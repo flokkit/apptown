@@ -13,7 +13,8 @@ import (
 
 func TestDiskFakeLeavesOtherResultCommandsWithTheirOwner(t *testing.T) {
 	t.Parallel()
-	disk := &diskspacetest.Daemon{Answer: func() containerresulttest.Answer { return containerresulttest.Answer{Answer: []byte("disk")} }}
+	disk := &diskDaemon{}
+	disk.Answer = func() (int, []byte, string) { return 0, []byte("disk"), "" }
 	other := &containerresulttest.Daemon{Answers: func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
 		return containerresulttest.Answer{Answer: []byte("other")}, c.Script == "other command"
 	}}
@@ -42,3 +43,6 @@ func TestDiskFakeLeavesOtherResultCommandsWithTheirOwner(t *testing.T) {
 		t.Fatalf("other owner lost cleanup: %d", other.Removed)
 	}
 }
+
+// diskDaemon composes the disk and result protocols for this package's tests.
+type diskDaemon = diskspacetest.Daemon

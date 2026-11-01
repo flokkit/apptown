@@ -31,16 +31,16 @@ func TestReviewTerminalRecordRejectsLateWrites(t *testing.T) {
 	if err != nil || terminal.Verdicts != 1 {
 		t.Fatalf("finish: %+v %v", terminal, err)
 	}
-	if err := s.progress(context.Background(), *rev); !errors.Is(err, ErrReviewClosed) {
+	if err := s.progress(context.Background(), *rev); !errors.Is(err, errReviewClosed) {
 		t.Fatalf("late progress: %v", err)
 	}
-	if _, err := s.recordVerdict(context.Background(), verdictAdmission{Verdict: v}); !errors.Is(err, ErrReviewClosed) {
+	if _, err := s.recordVerdict(context.Background(), verdictAdmission{Verdict: v}); !errors.Is(err, errReviewClosed) {
 		t.Fatalf("late verdict: %v", err)
 	}
-	if _, err := s.snapshotExceptions(context.Background(), rev.ID, id); !errors.Is(err, ErrReviewClosed) {
+	if _, err := s.snapshotExceptions(context.Background(), rev.ID, id); !errors.Is(err, errReviewClosed) {
 		t.Fatalf("late exception: %v", err)
 	}
-	if _, err := s.finish(context.Background(), *rev, ReviewError); !errors.Is(err, ErrReviewClosed) {
+	if _, err := s.finish(context.Background(), *rev, ReviewError); !errors.Is(err, errReviewClosed) {
 		t.Fatalf("second outcome: %v", err)
 	}
 	saved, err := readReview(context.Background(), s.db, rev.ID)
@@ -83,7 +83,7 @@ func TestReviewFinishSerializesWithVerdictAdmission(t *testing.T) {
 		}()
 		close(start)
 		insertErr, outcome := <-inserted, <-finished
-		if outcome.err != nil || (insertErr != nil && !errors.Is(insertErr, ErrReviewClosed)) {
+		if outcome.err != nil || (insertErr != nil && !errors.Is(insertErr, errReviewClosed)) {
 			t.Fatalf("concurrent settlement: %v %v", insertErr, outcome.err)
 		}
 		count := 0

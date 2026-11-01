@@ -26,7 +26,7 @@ func TestGuidanceDiffRubricsJudgeTheCheckedCommit(t *testing.T) {
 			repo := a.projectRepoPath("step1-review")
 			publish := func() { gittest.Run(t, repo, "fetch", ws, "HEAD:refs/heads/"+ch.Branch) }
 			seen := false
-			installCheckEffects(t, a, checkOverrides{run: func(req ExecRequest) ExecOutcome {
+			installCheckEffects(t, a, checkOverrides{run: func(req execRequest) execOutcome {
 				if !seen {
 					seen = true
 					body, err := os.ReadFile(filepath.Join(req.Workspace, "source.txt"))
@@ -39,7 +39,7 @@ func TestGuidanceDiffRubricsJudgeTheCheckedCommit(t *testing.T) {
 						publish()
 					}
 				}
-				return ExecOutcome{}
+				return execOutcome{}
 			}})
 			run := step1ReviewRun(t, a, ch)
 			publish() // The project copy initially holds the base, before this local work.
@@ -74,7 +74,7 @@ func TestTheAcceptanceDiffIsTheCheckedCommits(t *testing.T) {
 			a, ch := step1ReviewGuidance(t, true, `[{"appliesTo": ["repository"], "name":"source","evaluator":"sh","sh":"true"}]`)
 			ws := (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(ch.ID)
 			moved := false
-			installCheckEffects(t, a, checkOverrides{run: func(req ExecRequest) ExecOutcome {
+			installCheckEffects(t, a, checkOverrides{run: func(req execRequest) execOutcome {
 				if !moved {
 					moved = true
 					if bad {
@@ -85,7 +85,7 @@ func TestTheAcceptanceDiffIsTheCheckedCommits(t *testing.T) {
 					}
 					commitFolder(t, ws)
 				}
-				return ExecOutcome{}
+				return execOutcome{}
 			}})
 			run := step1ReviewRun(t, a, ch)
 			writeFile(t, ws, ".gitignore", "artifacts/\n")

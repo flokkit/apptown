@@ -29,7 +29,7 @@ func feedbackClockFixture(t *testing.T) (*Service, *Run, map[string]ids.ID) {
 		Steps:   []schema.Step{{Name: "review", Uses: "agent/review"}, {Name: "accept", Uses: "approval"}},
 	}}})
 	svc := newServiceWithAuthority(q.db, Dependencies{Now: steppingClock(), Automatic: []string{"agent/pi", "agent/review"}}, allowProject(run.ProjectID))
-	svc.dispatcher.Stop()
+	svc.dispatcher.stop()
 	stepIDs := map[string]ids.ID{}
 	for _, name := range []string{"build", "review", "accept"} {
 		stepIDs[name] = admittedStepID(t, q, run, name)
@@ -44,11 +44,11 @@ func finishForTest(t *testing.T, svc *Service, id ids.ID, status StepState) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	claim, err := svc.stepAttempts.Start(context.Background(), snapshot, snapshot.Type)
+	claim, err := svc.stepAttempts.start(context.Background(), snapshot, snapshot.Type, ids.Nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.stepAttempts.Finish(context.Background(), claim, StepOutcome{Status: status}); err != nil {
+	if err := svc.stepAttempts.finish(context.Background(), claim, StepOutcome{Status: status}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -153,7 +153,7 @@ func TestANoteInALaterStageIsNewerThanAnEarlierRejection(t *testing.T) {
 		{Name: "finish", OnEnter: []schema.Step{{Name: "build", Uses: "agent/pi"}}},
 	}})
 	svc := newServiceWithAuthority(q.db, Dependencies{Now: steppingClock(), Automatic: []string{"agent/pi", "agent/review"}}, allowProject(run.ProjectID))
-	svc.dispatcher.Stop()
+	svc.dispatcher.stop()
 	ctx := context.Background()
 	people(t, q.db, "verified-person")
 	plan, accept := admittedStepID(t, q, run, "write-plan"), admittedStepID(t, q, run, "accept-plan")
@@ -163,7 +163,7 @@ func TestANoteInALaterStageIsNewerThanAnEarlierRejection(t *testing.T) {
 	if _, err := svc.Approve(ctx, Approval{StepID: accept, Decision: VoteApprove, Comment: "fine"}); err != nil {
 		t.Fatal(err)
 	}
-	svc.advancer = newAdvancer(q.db, advanceRuntime{Stages: svc.stages, Checks: policyAdvanceChecks{q.db}, clocked: svc.clocked})
+	svc.advancer = newAdvancer(q.db, advanceRuntime{stages: svc.stages, checks: policyAdvanceChecks{q.db}, clocked: svc.clocked})
 	if _, err := svc.Advance(ctx, run.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -223,8 +223,7 @@ func TestARunsAndChangesOwnTimesAreAppTownsClock(t *testing.T) {
 	}
 	admissions := newRunAdmissions(db, NewStages(nil, func(string) bool { return false }), nil)
 	admissions.records.clocked = clocked{now}
-	run, err := admissions.Create(ctx, StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "operator"},
-		PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "finish"}}}})
+	run, err := admissions.records.create(ctx, StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "operator"}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "finish"}}}})
 	if err != nil {
 		t.Fatal(err)
 	}

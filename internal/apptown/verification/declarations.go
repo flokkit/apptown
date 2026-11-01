@@ -30,7 +30,7 @@ func ChecksOfReceipt(ctx context.Context, adoptions *adoption.Service, ad *adopt
 	if err != nil {
 		return nil, err
 	}
-	return Declarations(checks), nil
+	return declarations(checks), nil
 }
 
 // changeChecks are the checks a change is judged on outside a run: the

@@ -43,22 +43,22 @@ func (k Kind) String() string {
 	return fmt.Sprintf("kind(%d)", k)
 }
 
-// Classified is implemented by an error that knows its Kind. Owners with their
+// classified is implemented by an error that knows its Kind. Owners with their
 // own error types (a denial with a code, a conflict with detail) implement it
 // rather than wrapping.
-type Classified interface {
+type classified interface {
 	error
 	FaultKind() Kind
 }
 
-// Error is an error with a Kind. It wraps an underlying error when there is one.
-type Error struct {
+// classifiedError is an error with a Kind. It wraps an underlying error when there is one.
+type classifiedError struct {
 	kind Kind
 	msg  string
 	err  error
 }
 
-func (e *Error) Error() string {
+func (e *classifiedError) Error() string {
 	switch {
 	case e.msg != "" && e.err != nil:
 		return e.msg + ": " + e.err.Error()
@@ -70,22 +70,22 @@ func (e *Error) Error() string {
 	return e.kind.String()
 }
 
-func (e *Error) Unwrap() error   { return e.err }
-func (e *Error) FaultKind() Kind { return e.kind }
+func (e *classifiedError) Unwrap() error   { return e.err }
+func (e *classifiedError) FaultKind() Kind { return e.kind }
 
 // New returns a classified error with a message, for an owner's sentinel:
 //
 //	var ErrConflict = fault.New(fault.Conflict, "the record changed")
 //
 // errors.Is still matches the sentinel by identity.
-func New(kind Kind, msg string) error { return &Error{kind: kind, msg: msg} }
+func New(kind Kind, msg string) error { return &classifiedError{kind: kind, msg: msg} }
 
 // Wrap classifies err, keeping it in the chain. A nil err stays nil.
 func Wrap(kind Kind, err error) error {
 	if err == nil {
 		return nil
 	}
-	return &Error{kind: kind, err: err}
+	return &classifiedError{kind: kind, err: err}
 }
 
 // Message is what the caller should read. A sentinel made with New only names
@@ -94,9 +94,9 @@ func Wrap(kind Kind, err error) error {
 // complete in itself, so only its words read, without the context layers
 // added on the way out.
 func Message(err error) string {
-	var c Classified
+	var c classified
 	if errors.As(err, &c) {
-		if _, sentinel := c.(*Error); !sentinel {
+		if _, sentinel := c.(*classifiedError); !sentinel {
 			return c.Error()
 		}
 	}
@@ -109,23 +109,23 @@ func Message(err error) string {
 // KindOf reports the Kind of the first classified error in err's chain, or
 // Internal when nothing in the chain says.
 func KindOf(err error) Kind {
-	var c Classified
+	var c classified
 	if errors.As(err, &c) {
 		return c.FaultKind()
 	}
 	return Internal
 }
 
-// Coded is implemented by an error that carries a stable machine code, such as
+// coded is implemented by an error that carries a stable machine code, such as
 // a denial's reason code, for clients that branch on it.
-type Coded interface {
+type coded interface {
 	error
 	FaultCode() string
 }
 
 // CodeOf returns the code of the first coded error in err's chain, or "".
 func CodeOf(err error) string {
-	var c Coded
+	var c coded
 	if errors.As(err, &c) {
 		return c.FaultCode()
 	}

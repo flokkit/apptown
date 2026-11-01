@@ -28,19 +28,19 @@ import (
 // deployment that runs a release already.
 const TriggerPreRelease = "pre-release"
 
-// ReleaseWitness is what a landing learned about a standing deployment's
+// releaseWitness is what a landing learned about a standing deployment's
 // data before releasing onto it, and checks against afterwards.
-type ReleaseWitness struct {
-	// Copy is the set taken before the release; nil when none was needed,
+type releaseWitness struct {
+	// copy is the set taken before the release; nil when none was needed,
 	// and Passed says why (never released, holds no data, its target keeps
 	// its own backups).
-	Copy   *Backup
-	Passed string
+	copy   *Backup
+	passed string
 	// missing is why no copy could be taken of data the deployment names:
 	// not a pass, and not complete.
 	missing string
-	// Notes are what was not witnessed, and why: shown, not failures.
-	Notes []string
+	// notes are what was not witnessed, and why: shown, not failures.
+	notes []string
 
 	synthetic bool
 	dk        docker.Scope
@@ -57,31 +57,31 @@ type needFacts struct {
 
 // Complete says the copy taken before the release holds all the data:
 // true when none was needed.
-func (w *ReleaseWitness) Complete() bool {
-	return w.missing == "" && (w.Copy == nil || w.Copy.Status == BackupOK)
+func (w *releaseWitness) Complete() bool {
+	return w.missing == "" && (w.copy == nil || w.copy.Status == BackupOK)
 }
 
 // CopyWords say what the copy taken before the release is, for a person:
 // its id and status, or why none was taken.
-func (w *ReleaseWitness) CopyWords() string {
+func (w *releaseWitness) CopyWords() string {
 	switch {
 	case w.missing != "":
 		return "no copy could be taken before this release: " + w.missing
-	case w.Copy == nil:
-		return "no copy was taken before this release: " + w.Passed
-	case w.Copy.Status == BackupOK:
-		return fmt.Sprintf("the copy taken before this release is backup %s (complete)", w.Copy.ID)
+	case w.copy == nil:
+		return "no copy was taken before this release: " + w.passed
+	case w.copy.Status == BackupOK:
+		return fmt.Sprintf("the copy taken before this release is backup %s (complete)", w.copy.ID)
 	}
 	var missing []string
-	for _, it := range w.Copy.Items {
+	for _, it := range w.copy.Items {
 		if it.Error != "" {
 			missing = append(missing, it.Error)
 		}
 	}
-	if len(missing) == 0 && w.Copy.Error != "" {
-		missing = append(missing, w.Copy.Error)
+	if len(missing) == 0 && w.copy.Error != "" {
+		missing = append(missing, w.copy.Error)
 	}
-	return fmt.Sprintf("the copy taken before this release is backup %s, %s: %s", w.Copy.ID, w.Copy.Status, strings.Join(missing, "; "))
+	return fmt.Sprintf("the copy taken before this release is backup %s, %s: %s", w.copy.ID, w.copy.Status, strings.Join(missing, "; "))
 }
 
 // BeforeRelease takes the copy a landing takes before it releases onto
@@ -90,18 +90,18 @@ func (w *ReleaseWitness) CopyWords() string {
 // go). A deployment never released, holding no data, or on a target that
 // keeps its own backups needs no copy; an error is a copy that could not be
 // taken, which is not "nothing to copy".
-func (s *Service) BeforeRelease(ctx context.Context, projectID ids.ID, deploymentName string, synthetic bool) (*ReleaseWitness, error) {
-	w := &ReleaseWitness{synthetic: synthetic}
+func (s *Service) BeforeRelease(ctx context.Context, projectID ids.ID, deploymentName string, synthetic bool) (*releaseWitness, error) {
+	w := &releaseWitness{synthetic: synthetic}
 	dep, err := s.deployments.ByName(ctx, projectID, deploymentName)
 	if errors.Is(err, sql.ErrNoRows) {
-		w.Passed = "it has never been released"
+		w.passed = "it has never been released"
 		return w, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("reading the deployment %s: %w", deploymentName, err)
 	}
 	if !dep.Standing() || dep.ReleaseSHA == "" {
-		w.Passed = "nothing is released there yet"
+		w.passed = "nothing is released there yet"
 		return w, nil
 	}
 	t, err := s.targets.ByID(ctx, dep.TargetID)
@@ -109,36 +109,36 @@ func (s *Service) BeforeRelease(ctx context.Context, projectID ids.ID, deploymen
 		return nil, fmt.Errorf("%s: reading its deployment target: %w", deploymentName, err)
 	}
 	if err := t.HoldsBackups(); err != nil {
-		w.Passed = err.Error()
-		w.Notes = append(w.Notes, "its data is on "+t.Name+", which AppTown does not witness")
+		w.passed = err.Error()
+		w.notes = append(w.notes, "its data is on "+t.Name+", which AppTown does not witness")
 		return w, nil
 	}
 	b, err := s.takeBackup(ctx, projectID, deploymentName, TriggerPreRelease, "apptown-system")
 	switch {
-	case errors.Is(err, ErrNothingToBackUp):
-		w.Passed = "it holds no data"
-	case errors.Is(err, ErrHeldDataAbsent):
+	case errors.Is(err, errNothingToBackUp):
+		w.passed = "it holds no data"
+	case errors.Is(err, errHeldDataAbsent):
 		// Named and not there is not "nothing to copy": the release could
 		// boot on new, empty storage in its place.
 		w.missing = "the data its release names is not on its host"
 	case err != nil:
 		return nil, fmt.Errorf("taking the copy before this release: %w", err)
 	default:
-		w.Copy = b
+		w.copy = b
 	}
 	if t.DataAccess() != deployment.DataOnDockerHost {
-		w.Notes = append(w.Notes, "its needs' data is on "+t.Name+", which AppTown does not witness")
+		w.notes = append(w.notes, "its needs' data is on "+t.Name+", which AppTown does not witness")
 		return w, nil
 	}
 	if err := s.readNeeds(ctx, w, dep, t); err != nil {
-		w.Notes = append(w.Notes, "its needs' data was not witnessed: "+err.Error())
+		w.notes = append(w.notes, "its needs' data was not witnessed: "+err.Error())
 	}
 	return w, nil
 }
 
 // readNeeds reads, for each need the running release declares that keeps
 // data, its service's storage and measures.
-func (s *Service) readNeeds(ctx context.Context, w *ReleaseWitness, dep *deployment.Deployment, t *deployment.Target) error {
+func (s *Service) readNeeds(ctx context.Context, w *releaseWitness, dep *deployment.Deployment, t *deployment.Target) error {
 	dk, err := s.hosts.DockerScope(ctx, t)
 	if err != nil {
 		return err
@@ -169,9 +169,9 @@ func (s *Service) readNeeds(ctx context.Context, w *ReleaseWitness, dep *deploym
 			return fmt.Errorf("the %s service: %v", need, err)
 		}
 		if f.measure == "" {
-			w.Notes = append(w.Notes, "the "+need+" need declares no measure, so how much it holds is not witnessed")
+			w.notes = append(w.notes, "the "+need+" need declares no measure, so how much it holds is not witnessed")
 		} else if f.measures, err = measureNeed(ctx, dk, f.container, f.measure); err != nil {
-			w.Notes = append(w.Notes, fmt.Sprintf("how much the %s need held before was not read (%v), so it is not compared", need, err))
+			w.notes = append(w.notes, fmt.Sprintf("how much the %s need held before was not read (%v), so it is not compared", need, err))
 		}
 		w.needs = append(w.needs, f)
 	}
@@ -229,8 +229,8 @@ var continuityFloors = map[string]int64{"rows": 20, "objects": 5, "keys": 5, "ta
 // is wrong with its data: problems fail the release step; notes are what
 // was not compared. declared is the needs the new release declares: one it
 // no longer declares is not compared.
-func (w *ReleaseWitness) After(ctx context.Context, declared []string) (problems, notes []string) {
-	notes = append(notes, w.Notes...)
+func (w *releaseWitness) After(ctx context.Context, declared []string) (problems, notes []string) {
+	notes = append(notes, w.notes...)
 	for _, f := range w.needs {
 		if !slices.Contains(declared, f.need) {
 			notes = append(notes, "the "+f.need+" need is no longer declared, so its data is not compared")

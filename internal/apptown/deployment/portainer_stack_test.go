@@ -1,13 +1,14 @@
 package deployment
 
 import (
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
-	"github.com/flokkit/apptown/internal/ids/idstest"
-	"github.com/flokkit/apptown/internal/trust/trusttest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/trust/trusttest"
 )
 
 // The stack stages the admitted commit, and includes only the trust bundle

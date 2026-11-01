@@ -10,8 +10,6 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/stamp"
 
-	"github.com/flokkit/apptown/internal/database"
-
 	"strconv"
 
 	"testing"
@@ -39,13 +37,13 @@ func TestDispositionReadsAreScopedCheckedAndBatched(t *testing.T) {
 		}
 	}
 	dbtest.FailNextStatement(t, db, "FROM dispositions")
-	if rows, err := readDispositions(context.Background(), db, projects, true, time.Now()); rows != nil || !errors.Is(err, database.ErrInjectedFailure) {
+	if rows, err := readDispositions(context.Background(), db, projects, true, time.Now()); rows != nil || !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("failed read returned rows: %+v %v", rows, err)
 	}
 	if _, err := queries(db).InsertDisposition(context.Background(), conformancesql.InsertDispositionParams{ID: ids.New(stamp.Of(time.Now()).Time), ProjectID: projects[len(projects)-1], Identifier: "corrupt", Status: "invalid-kind", Justification: "test", By: "reviewer", CreatedAt: stamp.Of(time.Now()).Time}); err != nil {
 		t.Fatal(err)
 	}
-	if rows, err := readDispositions(context.Background(), db, projects, true, time.Now()); rows != nil || !errors.Is(err, ErrDispositionKind) {
+	if rows, err := readDispositions(context.Background(), db, projects, true, time.Now()); rows != nil || !errors.Is(err, errDispositionKind) {
 		t.Fatalf("corrupt row returned partial evidence: %+v %v", rows, err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

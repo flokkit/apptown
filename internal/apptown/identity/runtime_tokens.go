@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/durable"
@@ -34,20 +33,6 @@ type Workload struct {
 	StepID    ids.ID
 	Attempt   int64
 	SessionID string
-}
-
-// Who is the actor the workload's acts are recorded against: its principal
-// as it was admitted and the way it acts (a run step, a chat), never its
-// name looked up again.
-func (w Workload) Who() access.Actor {
-	a := access.Actor{Principal: w.Principal, Name: w.Actor}
-	switch w.Kind {
-	case "step":
-		a.Via = access.ViaRunStep
-	case "console":
-		a.Via = access.ViaChat + ":" + w.SessionID
-	}
-	return a
 }
 
 // RuntimeTokenKeyFile is the name, under AppTown's data directory, of the

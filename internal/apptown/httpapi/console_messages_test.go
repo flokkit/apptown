@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/conversation"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -103,7 +105,7 @@ func TestConsoleMessageHTTPKeepsSuccessfulDeliveryWhenNamingFails(t *testing.T) 
 	}
 	_, _, session, h := consoleHTTPFixture(t, map[string]string{conversation.ProjectLabel: fmt.Sprint(f.ProjectID), conversation.ChangeLabel: fmt.Sprint(change.ID)})
 	h.db = f.DB
-	t.Cleanup(f.DB.FailNextStatement("-- name: EditChangeTitle :execrows"))
+	t.Cleanup(dbtest.NextStatementFailure(f.DB, "-- name: EditChangeTitle :execrows"))
 	r := httptest.NewRequest("POST", "/", strings.NewReader(`{"text":"Build a little game"}`)).WithContext(f.Context)
 	r.SetPathValue("sid", session.ID)
 	w := httptest.NewRecorder()
@@ -209,7 +211,7 @@ func TestAChatsViewMasksASecretItsRecordKeeps(t *testing.T) {
 func TestAPageOfMessagesTakesOneMaskSnapshot(t *testing.T) {
 	t.Parallel()
 	snapshots := 0
-	m := Mask(func(context.Context) func(string) string {
+	m := mask(func(context.Context) func(string) string {
 		snapshots++
 		return func(s string) string { return s }
 	})
@@ -221,7 +223,7 @@ func TestAPageOfMessagesTakesOneMaskSnapshot(t *testing.T) {
 			Detail string `json:"detail,omitempty"`
 		}{Name: "bash", Detail: "ls"})
 	}
-	m.Messages(context.Background(), msgs)
+	m.messages(context.Background(), msgs)
 	if snapshots != 1 {
 		t.Fatalf("%d snapshots for one page", snapshots)
 	}

@@ -139,7 +139,7 @@ func TestDevComposeServesABuiltStaticSiteFromItsExportedBuild(t *testing.T) {
 		t.Fatalf("the static site's probe does not use the file server's port 80: %s", hc)
 	}
 	want := []DevStaticBuild{{Part: "web", Context: ".", Target: "site", Output: "dist", Folder: ".apptown/static/web"}}
-	if got := DevStaticBuilds(c); !reflect.DeepEqual(got, want) {
+	if got := devStaticBuilds(c); !reflect.DeepEqual(got, want) {
 		t.Fatalf("builds = %+v, want %+v", got, want)
 	}
 }

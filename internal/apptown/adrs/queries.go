@@ -5,10 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/project"
 	"math"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/project"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -24,7 +25,7 @@ func record(r adrssql.Adr, slug, name string, changeNumber int64) (Record, error
 		return Record{}, err
 	}
 	return Record{ID: r.ID, ProjectID: r.ProjectID, ProjectSlug: slug, ProjectName: name,
-		Number: r.Number, Title: r.Title, Status: state, StatusLabel: state.Display(), BodyMD: r.BodyMd, Tags: r.Tags,
+		Number: r.Number, Title: r.Title, Status: state, StatusLabel: state.display(), BodyMD: r.BodyMd, Tags: r.Tags,
 		SupersedesID: r.SupersedesID, ChangeID: r.ChangeID, ChangeNumber: changeNumber,
 		CreatedAt: r.CreatedAt.UTC().Format(time.RFC3339Nano), UpdatedAt: r.UpdatedAt.UTC().Format(time.RFC3339Nano)}, nil
 }
@@ -49,7 +50,7 @@ func readProjectID(ctx context.Context, db database.Queryer, id ids.ID) (ids.ID,
 }
 func readRecords(ctx context.Context, db database.Queryer, f Filter, idList []ids.ID) ([]Record, error) {
 	if f.Limit < 0 || f.Limit > math.MaxInt32 {
-		return nil, ErrInput
+		return nil, errInput
 	}
 	if f.ProjectSlug != "" {
 		id, err := project.IDBySlugIn(ctx, db, f.ProjectSlug)
@@ -120,7 +121,7 @@ func containsTag(tags, want string) bool {
 // through the Work result/receipt commit; no detached match authorizes a write.
 func MatchingIn(ctx context.Context, tx *database.Tx, req MatchRequest) ([]Match, error) {
 	if req.ProjectID.IsZero() || req.ChangeID.IsZero() {
-		return nil, ErrInput
+		return nil, errInput
 	}
 	if _, e := req.State.Value(); e != nil {
 		return nil, e
@@ -149,7 +150,7 @@ func MatchingIn(ctx context.Context, tx *database.Tx, req MatchRequest) ([]Match
 // project authorization, its project-first lock, and commit/rollback.
 func RemoveProjectIn(ctx context.Context, tx *database.Tx, projectID ids.ID) error {
 	if projectID.IsZero() {
-		return ErrInput
+		return errInput
 	}
 	q := queries(tx)
 	if e := q.DeleteADRsForProject(ctx, projectID); e != nil {
@@ -160,7 +161,7 @@ func RemoveProjectIn(ctx context.Context, tx *database.Tx, projectID ids.ID) err
 		return e
 	}
 	if remaining {
-		return ErrConflict
+		return errConflict
 	}
 	return nil
 }
@@ -175,7 +176,7 @@ func readChangeSummaries(ctx context.Context, db database.Queryer, projectID, ch
 		if e != nil {
 			return nil, e
 		}
-		out = append(out, ChangeSummary{ID: r.ID, Number: r.Number, Title: r.Title, Status: state, StatusLabel: state.Display(), Tags: r.Tags})
+		out = append(out, ChangeSummary{ID: r.ID, Number: r.Number, Title: r.Title, Status: state, StatusLabel: state.display(), Tags: r.Tags})
 	}
 	return out, nil
 }
@@ -184,7 +185,7 @@ func requireOne(n int64, err error) error {
 		return err
 	}
 	if n != 1 {
-		return ErrConflict
+		return errConflict
 	}
 	return nil
 }
@@ -197,7 +198,7 @@ func requireChange(ctx context.Context, tx *database.Tx, projectID ids.ID, id id
 		return e
 	}
 	if !owned {
-		return fmt.Errorf("%w: linked Change belongs to another project or is missing", ErrInput)
+		return fmt.Errorf("%w: linked Change belongs to another project or is missing", errInput)
 	}
 	return nil
 }

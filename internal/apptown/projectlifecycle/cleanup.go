@@ -39,24 +39,24 @@ func CleanupKey(projectID ids.ID, round int) string {
 	return fmt.Sprintf("project/%s/%d", projectID, round)
 }
 
-// CleanupSessions lists and removes the deleted project's console sessions.
-type CleanupSessions interface {
+// cleanupSessions lists and removes the deleted project's console sessions.
+type cleanupSessions interface {
 	List(ctx context.Context, m console.Match) []*console.Session
 	Remove(ctx context.Context, id string) error
 	RemoveEnded(m console.Match) error
 }
 
-// CleanupPreviews retires the previews named by the frozen cleanup inventory.
+// previewCleaner retires the previews named by the frozen cleanup inventory.
 // None of these operations requires the deleted run or change records.
-type CleanupPreviews interface {
+type previewCleaner interface {
 	RemoveReleaseForGood(context.Context, ids.ID, string, int64) error
 	RemoveRunForGood(context.Context, ids.ID) error
 	RemoveRunStepsForGood(context.Context, []ids.ID) error
 	RemoveChangeForGood(context.Context, ids.ID) error
 }
 
-// GitLabClient verifies the saved identity using one current credential snapshot.
-type GitLabClient interface {
+// gitLabClient verifies the saved identity using one current credential snapshot.
+type gitLabClient interface {
 	VerifyRecorded(context.Context, scm.RepositoryIdentity) (scm.VerifiedRepository, error)
 }
 
@@ -67,12 +67,12 @@ type GitLabClient interface {
 // the same name cannot be touched.
 type Cleanup struct {
 	Projects *project.Projects
-	Sessions CleanupSessions
+	Sessions cleanupSessions
 	// Docker is used only by the project-cache owner; Preview owns preview resources.
 	Docker *docker.Scope
 	// Previews owns local and worker preview resources and their snapshots.
-	Previews CleanupPreviews
-	GitLab   GitLabClient
+	Previews previewCleaner
+	GitLab   gitLabClient
 	DB       *database.DB
 	DataDir  string
 	// Now is AppTown's clock, which stamps the cleanup's receipts and

@@ -73,9 +73,9 @@ type RemoteAgent struct {
 
 var _ console.Agent = (*RemoteAgent)(nil)
 
-// RecordAsOfFile, in a session's directory on AppTown, holds the time of
+// recordAsOfFile, in a session's directory on AppTown, holds the time of
 // the last good copy of the chat's record from its worker.
-const RecordAsOfFile = "record-as-of"
+const recordAsOfFile = "record-as-of"
 
 func (a *RemoteAgent) init() {
 	a.once.Do(func() {
@@ -128,7 +128,7 @@ func (a *RemoteAgent) sendBlob(ctx context.Context, path string) (string, error)
 	if sent {
 		return sum, nil
 	}
-	if err := a.Sessions.EnsureBlob(ctx, sum, body); err != nil {
+	if err := a.Sessions.ensureBlob(ctx, sum, body); err != nil {
 		return "", err
 	}
 	a.mu.Lock()
@@ -155,7 +155,7 @@ func (a *RemoteAgent) Start(ctx context.Context, in console.Launch) error {
 	}
 	raw := sha256.Sum256(files)
 	if hex.EncodeToString(raw[:]) != st.FilesDigest {
-		if _, err := a.Sessions.PutFiles(ctx, in.ID, bytes.NewReader(files)); err != nil {
+		if _, err := a.Sessions.putFiles(ctx, in.ID, bytes.NewReader(files)); err != nil {
 			return err
 		}
 	}
@@ -164,7 +164,7 @@ func (a *RemoteAgent) Start(ctx context.Context, in console.Launch) error {
 			return err
 		}
 	}
-	if _, err := a.Sessions.Start(ctx, in.ID); err != nil {
+	if _, err := a.Sessions.start(ctx, in.ID); err != nil {
 		return err
 	}
 	a.copyRecord(in.ID)
@@ -188,7 +188,7 @@ func (a *RemoteAgent) sendSource(ctx context.Context, in console.Launch) error {
 		return err
 	}
 	defer f.Close()
-	_, err = a.Sessions.PutSource(ctx, in.ID, branch, commit, f)
+	_, err = a.Sessions.putSource(ctx, in.ID, branch, commit, f)
 	return err
 }
 
@@ -233,30 +233,30 @@ func (a *RemoteAgent) Status(ctx context.Context, id string) (console.Status, er
 		Attached: st.Agent.Attached, SidecarExists: st.Docker.Exists, SidecarRunning: st.Docker.Running, ScriptExists: st.Script.Exists}, nil
 }
 
-// ErrNotConfirmed: AppTown could not confirm a message reached the chat.
+// errNotConfirmed: AppTown could not confirm a message reached the chat.
 // It may or may not have; the person decides whether to send it again.
-var ErrNotConfirmed = errors.New("not confirmed: the message may or may not have reached the chat")
+var errNotConfirmed = errors.New("not confirmed: the message may or may not have reached the chat")
 
 func (a *RemoteAgent) Deliver(ctx context.Context, in console.Launch, text string) error {
 	a.init()
-	if err := a.Sessions.Deliver(ctx, in.ID, text); err != nil {
-		return fmt.Errorf("%w (%w)", ErrNotConfirmed, err)
+	if err := a.Sessions.deliver(ctx, in.ID, text); err != nil {
+		return fmt.Errorf("%w (%w)", errNotConfirmed, err)
 	}
 	a.copyNow(in)
 	return nil
 }
 
 func (a *RemoteAgent) Interrupt(ctx context.Context, id string) error {
-	return a.Sessions.Interrupt(ctx, id)
+	return a.Sessions.interrupt(ctx, id)
 }
 
 func (a *RemoteAgent) Attach(ctx context.Context, id string, size console.Size) (console.Terminal, error) {
-	return a.Sessions.Terminal(ctx, id, size)
+	return a.Sessions.terminal(ctx, id, size)
 }
 
 func (a *RemoteAgent) Stop(ctx context.Context, id string) error {
 	_, err := a.Sessions.Stop(ctx, id)
-	if errors.Is(err, ErrNoSession) {
+	if errors.Is(err, errNoSession) {
 		return nil
 	}
 	return err
@@ -265,7 +265,7 @@ func (a *RemoteAgent) Stop(ctx context.Context, id string) error {
 // Remove rebuilds: the worker takes the runtime away and keeps the session.
 func (a *RemoteAgent) Remove(ctx context.Context, id string) error {
 	_, err := a.Sessions.Rebuild(ctx, id)
-	if errors.Is(err, ErrNoSession) {
+	if errors.Is(err, errNoSession) {
 		return nil
 	}
 	return err
@@ -287,10 +287,10 @@ func (a *RemoteAgent) Remove(ctx context.Context, id string) error {
 func (a *RemoteAgent) End(ctx context.Context, id string) error {
 	a.init()
 	a.stopCopying(id)
-	if _, err := a.Sessions.Stop(ctx, id); errors.Is(err, ErrSessionRemoved) {
+	if _, err := a.Sessions.Stop(ctx, id); errors.Is(err, errRemoteSessionRemoved) {
 		_, err := a.Sessions.Remove(ctx, id)
 		return err
-	} else if err != nil && !errors.Is(err, ErrNoSession) {
+	} else if err != nil && !errors.Is(err, errNoSession) {
 		return fmt.Errorf("stopping the chat before its last save: %w", err)
 	}
 	if a.Ending != nil {
@@ -301,7 +301,7 @@ func (a *RemoteAgent) End(ctx context.Context, id string) error {
 	if err := a.copyOnce(ctx, id); err != nil {
 		// Only the worker saying the session is unknown or already removed
 		// excuses the last copy; a failed or incomplete copy never does.
-		if !errors.Is(err, ErrNoSession) && !errors.Is(err, ErrSessionRemoved) {
+		if !errors.Is(err, errNoSession) && !errors.Is(err, errRemoteSessionRemoved) {
 			return fmt.Errorf("copying the chat's record before it ends: %w", err)
 		}
 		st, serr := a.Sessions.Status(ctx, id)
@@ -368,7 +368,7 @@ func (a *RemoteAgent) copyRecord(id string) {
 			ctx, cancel := context.WithTimeout(a.ctx, 30*time.Second)
 			err := a.copyOnce(ctx, id)
 			cancel()
-			if errors.Is(err, ErrNoSession) || errors.Is(err, ErrSessionRemoved) {
+			if errors.Is(err, errNoSession) || errors.Is(err, errRemoteSessionRemoved) {
 				a.stopCopying(id)
 				return
 			}
@@ -437,7 +437,7 @@ func (a *RemoteAgent) copyOnce(ctx context.Context, id string) error {
 	m.Lock()
 	defer m.Unlock()
 	asOf := clock.Or(a.Now)().UTC()
-	files, err := a.Sessions.Records(ctx, id)
+	files, err := a.Sessions.records(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -461,7 +461,7 @@ func (a *RemoteAgent) copyOnce(ctx context.Context, id string) error {
 			have = 0
 		}
 		for have < f.Size {
-			chunk, err := a.Sessions.Record(ctx, id, f.Name, have)
+			chunk, err := a.Sessions.record(ctx, id, f.Name, have)
 			if err != nil {
 				return err
 			}
@@ -492,17 +492,17 @@ func (a *RemoteAgent) copyOnce(ctx context.Context, id string) error {
 	// truncation and its write would read the chat as never copied. The
 	// .tmp name stays on AppTown (filesTar leaves it out); the copy's
 	// lock keeps one writer.
-	tmp := filepath.Join(dir, RecordAsOfFile+".tmp")
+	tmp := filepath.Join(dir, recordAsOfFile+".tmp")
 	if err := os.WriteFile(tmp, []byte(asOf.Format(time.RFC3339)+"\n"), 0o644); err != nil {
 		return err
 	}
-	return os.Rename(tmp, filepath.Join(dir, RecordAsOfFile))
+	return os.Rename(tmp, filepath.Join(dir, recordAsOfFile))
 }
 
 // RecordAsOf reads when a chat's record was last copied from its worker,
 // from its session directory on AppTown; zero when never.
 func RecordAsOf(dir string) time.Time {
-	raw, err := os.ReadFile(filepath.Join(dir, RecordAsOfFile))
+	raw, err := os.ReadFile(filepath.Join(dir, recordAsOfFile))
 	if err != nil {
 		return time.Time{}
 	}
@@ -514,7 +514,7 @@ func RecordAsOf(dir string) time.Time {
 
 // apptownOnly are the session directory's names that stay on AppTown: the
 // record with its credential, and AppTown's copy of the chat's record.
-var apptownOnly = []string{console.MetaFile, console.EndedFile, RecordAsOfFile}
+var apptownOnly = []string{console.MetaFile, console.EndedFile, recordAsOfFile}
 
 // filesTar is the chat's files as the worker receives them: the session
 // directory without the worker's own names or AppTown's. Names are

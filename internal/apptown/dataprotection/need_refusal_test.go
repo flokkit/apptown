@@ -44,7 +44,7 @@ func TestARehearsalRefusesAWithdrawnNeedDeclaration(t *testing.T) {
 		t.Fatal(err)
 	}
 	op := w.rehearse()
-	if endedAs(op, OperationVerified) {
+	if endedAs(op, operationVerified) {
 		t.Fatalf("legacy password declaration rehearsed as verified: %s", op.Detail)
 	}
 	if !strings.Contains(op.Detail, "AppTown sets the password") {

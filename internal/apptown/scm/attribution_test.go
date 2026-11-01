@@ -237,7 +237,7 @@ func mergeRequestDriver(t *testing.T) (*gitDriver, *gitlabtest.Server, Source) {
 func TestAMergeRequestIsDescribedBeforeAppTownMergesIt(t *testing.T) {
 	t.Parallel()
 	driver, fake, source := mergeRequestDriver(t)
-	result, err := driver.Execute(context.Background(), source, Prepared{Kind: ProviderMerge, Expected: source.Candidate}, "observe")
+	result, err := driver.Execute(context.Background(), source, Prepared{Kind: providerMerge, Expected: source.Candidate}, "observe")
 	if err != nil || result.Result != source.Candidate {
 		t.Fatalf("merge: %+v %v", result, err)
 	}
@@ -257,7 +257,7 @@ func TestAMergeRequestIsNotMergedWhenItsDescriptionIsRefused(t *testing.T) {
 	t.Parallel()
 	driver, fake, source := mergeRequestDriver(t)
 	fake.RefuseDescriptions(&gitlabtest.Refusal{Status: 403, Message: "403 Forbidden"})
-	_, err := driver.Execute(context.Background(), source, Prepared{Kind: ProviderMerge, Expected: source.Candidate}, "observe")
+	_, err := driver.Execute(context.Background(), source, Prepared{Kind: providerMerge, Expected: source.Candidate}, "observe")
 	if err == nil || !strings.Contains(err.Error(), "could not record the approvals on merge request !7") {
 		t.Fatalf("refused description: %v", err)
 	}
@@ -265,7 +265,7 @@ func TestAMergeRequestIsNotMergedWhenItsDescriptionIsRefused(t *testing.T) {
 		t.Fatalf("merged without its description: %+v", merges)
 	}
 	fake.RefuseDescriptions(nil)
-	if _, err := driver.Execute(context.Background(), source, Prepared{Kind: ProviderMerge, Expected: source.Candidate}, "observe"); err != nil {
+	if _, err := driver.Execute(context.Background(), source, Prepared{Kind: providerMerge, Expected: source.Candidate}, "observe"); err != nil {
 		t.Fatalf("retry: %v", err)
 	}
 }
@@ -279,7 +279,7 @@ func TestAMergeRequestMergedOnGitLabIsNotDescribedAsAppTowns(t *testing.T) {
 	gittest.RunAsTester(t, source.Repository, "push", "-q", "origin", source.Candidate+":refs/heads/main")
 	fake.Update("71", 7, func(mr *gitlab.MergeRequest) { mr.State = "merged" })
 	plan, err := driver.Prepare(context.Background(), source, "")
-	if err != nil || plan.Kind != Existing {
+	if err != nil || plan.Kind != existing {
 		t.Fatalf("a merged request was not settled as existing: %+v %v", plan, err)
 	}
 	if got := fake.Descriptions("71", 7); len(got) != 0 {

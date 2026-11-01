@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/flokkit/apptown/internal/enum"
 )
 
@@ -55,9 +56,9 @@ type DepartureLabel uint8
 
 const (
 	DepartureRunning DepartureLabel = iota + 1
-	DepartureDeploying
-	DepartureDeployed
-	DepartureFailed
+	departureDeploying
+	departureDeployed
+	departureFailed
 )
 
 var departureCodec = enum.Set[DepartureLabel]{Names: []string{"running", "deploying", "deployed", "failed"}, Invalid: "invalid-departure-label", Err: errors.New("invalid departure label"), ScanLabel: "value"}
@@ -69,11 +70,11 @@ func (s *DepartureLabel) UnmarshalJSON(b []byte) error { return departureCodec.R
 func (s ReleaseState) DepartureLabel() DepartureLabel {
 	switch s {
 	case Releasing:
-		return DepartureDeploying
+		return departureDeploying
 	case Released:
-		return DepartureDeployed
+		return departureDeployed
 	case ReleaseFailed:
-		return DepartureFailed
+		return departureFailed
 	default:
 		return 0
 	}

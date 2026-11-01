@@ -18,26 +18,26 @@ const (
 	BackupOK BackupState = iota + 1
 	BackupPartial
 	BackupFailed
-	BackupPruned
+	backupPruned
 )
 
 // backupStateCodec spells each BackupState in storage and JSON.
 var backupStateCodec = enum.Set[BackupState]{
 	Names:     []string{"ok", "partial", "failed", "pruned"},
 	Invalid:   "invalid-backup-state",
-	Err:       ErrBackupState,
+	Err:       errBackupState,
 	ScanLabel: "value",
 }
 
 var (
-	ErrBackupState      = errors.New("invalid backup state")
-	ErrBackupTransition = errors.New("invalid backup transition")
+	errBackupState      = errors.New("invalid backup state")
+	errBackupTransition = errors.New("invalid backup transition")
 )
 
 func (s BackupState) String() string { return backupStateCodec.String(s) }
 
-// Taken is the rule when a set has been written: what its items say.
-func Taken(failedItems, totalItems int) BackupState {
+// taken is the rule when a set has been written: what its items say.
+func taken(failedItems, totalItems int) BackupState {
 	switch {
 	case totalItems > 0 && failedItems == totalItems:
 		return BackupFailed
@@ -48,27 +48,15 @@ func Taken(failedItems, totalItems int) BackupState {
 	}
 }
 
-// Holds reports whether the set's files still hold data worth restoring.
-func (s BackupState) Holds() bool { return s == BackupOK || s == BackupPartial }
+// holds reports whether the set's files still hold data worth restoring.
+func (s BackupState) holds() bool { return s == BackupOK || s == BackupPartial }
 
-// Restorable is the admission rule for a restore.
-func (s BackupState) Restorable() error {
-	if s.Holds() {
+// restorable is the admission rule for a restore.
+func (s BackupState) restorable() error {
+	if s.holds() {
 		return nil
 	}
-	return fmt.Errorf("%w: a %s set cannot be restored", ErrBackupTransition, s)
-}
-
-// Pruned is the rule when the retention sweep removed the set's files. A set
-// already pruned stays pruned, so recording the removal again is harmless; a
-// failed set has no files and is never pruned.
-func (s BackupState) Pruned() (BackupState, error) {
-	switch s {
-	case BackupOK, BackupPartial, BackupPruned:
-		return BackupPruned, nil
-	default:
-		return 0, fmt.Errorf("%w: a %s set has nothing to prune", ErrBackupTransition, s)
-	}
+	return fmt.Errorf("%w: a %s set cannot be restored", errBackupTransition, s)
 }
 
 func (s BackupState) Value() (driver.Value, error) { return backupStateCodec.Value(s) }

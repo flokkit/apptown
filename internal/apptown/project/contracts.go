@@ -3,8 +3,9 @@ package project
 import (
 	"context"
 	"database/sql"
-	"github.com/flokkit/apptown/internal/ids"
 	"time"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/project/internal/projectsql"
 	"github.com/flokkit/apptown/internal/clock"
@@ -19,8 +20,8 @@ type Contracts struct {
 	clock func() time.Time
 }
 
-// Snapshotted reports whether the contract at a commit was already recorded.
-func (c *Contracts) Snapshotted(ctx context.Context, projectID ids.ID, sha string) (bool, error) {
+// snapshotted reports whether the contract at a commit was already recorded.
+func (c *Contracts) snapshotted(ctx context.Context, projectID ids.ID, sha string) (bool, error) {
 	return queries(c.db).ContractSnapshotExists(ctx, projectsql.ContractSnapshotExistsParams{ProjectID: projectID, Sha: sha})
 }
 

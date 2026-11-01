@@ -32,7 +32,7 @@ const (
 
 	OriginBuiltIn     = "built-in"
 	OriginAttached    = "attached"
-	OriginProvisioned = "provisioned"
+	originProvisioned = "provisioned"
 )
 
 // Target is one row of the targets table.
@@ -89,8 +89,8 @@ type OfferCaps struct {
 }
 
 var (
-	ErrTargetMissing  = fault.New(fault.NotFound, "target does not exist")
-	ErrTargetConflict = fault.New(fault.Conflict, "target operation refused")
+	errTargetMissing  = fault.New(fault.NotFound, "target does not exist")
+	errTargetConflict = fault.New(fault.Conflict, "target operation refused")
 	ErrOfferMissing   = fault.New(fault.NotFound, "offer does not exist")
 )
 
@@ -192,29 +192,29 @@ func (s *Targets) Put(ctx context.Context, t *Target) (*Target, error) {
 	return targetRecord(deploymentsql.New(s.db.SQL()).PutTarget(ctx, putTargetParams(t, s.now())))
 }
 
-// Attachment is what a person's attach of a target records: what was
+// attachment is what a person's attach of a target records: what was
 // attached (target.attached) and what the check before it answered
 // (target.checked).
-type Attachment struct {
+type attachment struct {
 	By               string
 	Attached, Answer map[string]any
 }
 
 // receipts writes an attach's two receipts in the caller's transaction.
-func (at Attachment) receipts(ctx context.Context, tx *database.Tx, now time.Time, name string) error {
+func (at attachment) receipts(ctx context.Context, tx *database.Tx, now time.Time, name string) error {
 	if err := audit.At(now).RecordIn(ctx, tx, at.By, ids.Nil, "target.attached", name, at.Attached); err != nil {
 		return err
 	}
 	return audit.At(now).RecordIn(ctx, tx, at.By, ids.Nil, "target.checked", name, at.Answer)
 }
 
-// Attach creates a target under an unused name, with its receipts in the same
+// attach creates a target under an unused name, with its receipts in the same
 // transaction: where projects may deploy is not changed without its record.
-func (s *Targets) Attach(ctx context.Context, t *Target, at Attachment) (*Target, error) {
+func (s *Targets) attach(ctx context.Context, t *Target, at attachment) (*Target, error) {
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (*Target, error) { return s.attachIn(ctx, tx, t, at) })
 }
 
-func (s *Targets) attachIn(ctx context.Context, tx *database.Tx, t *Target, at Attachment) (*Target, error) {
+func (s *Targets) attachIn(ctx context.Context, tx *database.Tx, t *Target, at attachment) (*Target, error) {
 	if _, err := t.Status.Value(); err != nil {
 		return nil, err
 	}
@@ -252,7 +252,7 @@ func putTargetParams(t *Target, now time.Time) deploymentsql.PutTargetParams {
 	}
 }
 
-// Sync records a target AppTown derives from configuration — the built-in
+// sync records a target AppTown derives from configuration — the built-in
 // host at every start, an App Platform account's target from its connector,
 // the intranet's Portainer from AppTown configuration. A new target is created
 // as given. An existing one keeps the administrator's settings
@@ -261,7 +261,7 @@ func putTargetParams(t *Target, now time.Time) deploymentsql.PutTargetParams {
 // receipt by who, with before and after, commit together, as an edit's would.
 // An unchanged sync writes nothing. A retired target stays as it is. Status
 // belongs to checks and retirement, so a sync never changes it.
-func (s *Targets) Sync(ctx context.Context, t *Target, who string) (*Target, error) {
+func (s *Targets) sync(ctx context.Context, t *Target, who string) (*Target, error) {
 	now := s.now()
 	if _, err := t.Status.Value(); err != nil {
 		return nil, err
@@ -329,17 +329,17 @@ func configurationChanges(stored, next *Target) (before, after map[string]any) {
 	return before, after
 }
 
-// LockAvailableTargetIn takes a shared lock on a target inside a caller's
+// lockAvailableTargetIn takes a shared lock on a target inside a caller's
 // transaction and refuses one that is not available. Binding and offering
 // take it before writing their own rows; retirement takes the target's
 // update lock, so no new binding or offer can slip past its decision.
-func LockAvailableTargetIn(ctx context.Context, tx *database.Tx, id ids.ID) error {
+func lockAvailableTargetIn(ctx context.Context, tx *database.Tx, id ids.ID) error {
 	t, err := targetRecord(deploymentsql.New(tx.SQL()).TargetForShare(ctx, id))
 	if err != nil {
 		return err
 	}
 	if err := t.Status.Available(); err != nil {
-		return fmt.Errorf("%w: %s: %w", ErrTargetConflict, t.Name, err)
+		return fmt.Errorf("%w: %s: %w", errTargetConflict, t.Name, err)
 	}
 	return nil
 }
@@ -374,12 +374,12 @@ func readOffers(ctx context.Context, q *deploymentsql.Queries, targetID ids.ID) 
 // replaces the caps. Invalid limits and vocabulary are refused before any
 // write; unavailable targets are refused under the transaction lock.
 func (s *Targets) Offer(ctx context.Context, t *Target, group string, caps OfferCaps, who string) error {
-	if err := ValidateCaps(caps); err != nil {
+	if err := validateCaps(caps); err != nil {
 		return fault.Wrap(fault.Unprocessable, err)
 	}
 	now := s.now()
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
-		if err := LockAvailableTargetIn(ctx, tx, t.ID); err != nil {
+		if err := lockAvailableTargetIn(ctx, tx, t.ID); err != nil {
 			return err
 		}
 		offerer, err := identity.ActorIn(ctx, tx, who)
@@ -419,14 +419,14 @@ func (s *Targets) RevokeOffer(ctx context.Context, t *Target, offerID ids.ID, wh
 // target retired since the caller read it.
 func (s *Targets) RecordCheck(ctx context.Context, t *Target, answered bool, who string, payload any) (TargetState, error) {
 	now := s.now()
-	next, err := t.Status.Checked(answered)
+	next, err := t.Status.checked(answered)
 	if err != nil {
-		return 0, fmt.Errorf("%w: %s: %w", ErrTargetConflict, t.Name, err)
+		return 0, fmt.Errorf("%w: %s: %w", errTargetConflict, t.Name, err)
 	}
 	return next, s.db.InTx(ctx, func(tx *database.Tx) error {
 		if _, err := deploymentsql.New(tx.SQL()).CheckTarget(ctx, deploymentsql.CheckTargetParams{Status: next.String(), UpdatedAt: now, ID: t.ID, RetiredState: TargetRetired.String()}); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return fmt.Errorf("%w: could not record the check for %s; it may have been retired", ErrTargetConflict, t.Name)
+				return fmt.Errorf("%w: could not record the check for %s; it may have been retired", errTargetConflict, t.Name)
 			}
 			return err
 		}
@@ -450,7 +450,7 @@ func (s *Targets) Retire(ctx context.Context, name, who string) error {
 		}
 		t, err := targetRecord(deploymentsql.New(tx.SQL()).TargetByNameForUpdate(ctx, name))
 		if errors.Is(err, sql.ErrNoRows) {
-			return ErrTargetMissing
+			return errTargetMissing
 		}
 		if err != nil {
 			return err
@@ -460,14 +460,14 @@ func (s *Targets) Retire(ctx context.Context, name, who string) error {
 			return err
 		}
 		if hasDefault {
-			return fmt.Errorf("%w: clear or replace project release defaults before retiring this target", ErrTargetConflict)
+			return fmt.Errorf("%w: clear or replace project release defaults before retiring this target", errTargetConflict)
 		}
 		bound, err := deploymentsql.New(tx.SQL()).BoundTargetDeployments(ctx, deploymentsql.BoundTargetDeploymentsParams{TargetID: t.ID, Kind: Standing.String()})
 		if err != nil {
 			return err
 		}
 		boundNames, _ := bound.(string)
-		next, err := t.Retire(boundNames)
+		next, err := t.retire(boundNames)
 		if errors.Is(err, ErrTargetRetired) {
 			return nil
 		}
@@ -514,23 +514,23 @@ func (s *Targets) Retire(ctx context.Context, name, who string) error {
 // back up: a scheduled backup there is skipped, not failed.
 var ErrTargetKeepsBackups = errors.New("it keeps its own backups; AppTown backs up what it holds on a Docker host or a Portainer environment it talks to")
 
-// DataAccess is how AppTown reaches the data of a target's deployments
+// dataAccess is how AppTown reaches the data of a target's deployments
 // for its own copies: on a Docker host it talks to; in a Portainer
 // environment, through Portainer's Docker proxy (Providers.PortainerDataScope);
 // on a managed platform, through the provider and the target's copy runner;
 // or not at all, on a target that holds no data (a bucket website). Data
 // work asks this, not the target's kind.
-type DataAccess uint8
+type dataAccess uint8
 
 const (
-	DataAccessNone DataAccess = iota
+	dataAccessNone dataAccess = iota
 	DataOnDockerHost
 	DataThroughPortainer
 	DataOnManagedPlatform
 )
 
 // DataAccess is how AppTown reaches this target's deployments' data.
-func (t *Target) DataAccess() DataAccess {
+func (t *Target) DataAccess() dataAccess {
 	switch t.Kind {
 	case KindDockerHost:
 		return DataOnDockerHost
@@ -539,7 +539,7 @@ func (t *Target) DataAccess() DataAccess {
 	case KindDOApp:
 		return DataOnManagedPlatform
 	}
-	return DataAccessNone
+	return dataAccessNone
 }
 
 // HoldsBackups says whether AppTown backs up what stands on this target

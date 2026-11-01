@@ -1,10 +1,11 @@
 package adoption
 
 import (
-	"github.com/flokkit/apptown/internal/database"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/database"
 )
 
 // A pull keeps a workflow that a lane another of the project's packs carries

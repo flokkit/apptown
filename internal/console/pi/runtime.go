@@ -485,7 +485,7 @@ func (r *Runtime) Script(ctx context.Context, in console.Launch, script string, 
 				return errors.Join(err, rerr)
 			}
 		}
-		return &ExecError{Err: err, Stderr: strs.Truncate(strings.TrimSpace(stderr.String()), 2000)}
+		return &execError{Err: err, Stderr: strs.Truncate(strings.TrimSpace(stderr.String()), 2000)}
 	}
 	return nil
 }
@@ -512,14 +512,14 @@ func (r *Runtime) scriptExists(id string) (bool, error) {
 	return true, nil
 }
 
-// ExecError is a script that failed in the container.
-type ExecError struct {
+// execError is a script that failed in the container.
+type execError struct {
 	Err    error
 	Stderr string
 }
 
-func (e *ExecError) Error() string { return fmt.Sprintf("%v: %s", e.Err, e.Stderr) }
-func (e *ExecError) Unwrap() error { return e.Err }
+func (e *execError) Error() string { return fmt.Sprintf("%v: %s", e.Err, e.Stderr) }
+func (e *execError) Unwrap() error { return e.Err }
 
 // End is Remove: a runtime on this machine has nothing else to fence.
 func (r *Runtime) End(ctx context.Context, id string) error { return r.Remove(ctx, id) }

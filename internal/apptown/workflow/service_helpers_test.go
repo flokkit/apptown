@@ -11,7 +11,7 @@ import (
 type Runtime struct {
 	Advancement *advancer
 	Automatic   []string
-	Abandonment AbandonRecorder
+	Abandonment abandonRecorder
 	Starter     *starter
 }
 
@@ -20,7 +20,7 @@ type Runtime struct {
 func newService(db *database.DB, authority operationAuthority, runtime Runtime) *Service {
 	s := newServiceWithAuthority(db, Dependencies{Repositories: &scm.RepositoryLocks{}, Automatic: runtime.Automatic, Abandonment: runtime.Abandonment}, authority)
 	s.starter, s.advancer = runtime.Starter, runtime.Advancement
-	s.dispatcher.Stop()
+	s.dispatcher.stop()
 	return s
 }
 

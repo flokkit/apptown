@@ -41,8 +41,8 @@ func TestRemovingEveryPreviewWaitsForABootsLock(t *testing.T) {
 	go func() {
 		defer close(done)
 		req := httptest.NewRequest("DELETE", "/v1/previews", nil)
-		req.Header.Set(PreviewSessionHeader, "1")
-		req.Header.Set(PreviewSeqHeader, "1")
+		req.Header.Set(previewSessionHeader, "1")
+		req.Header.Set(previewSeqHeader, "1")
 		s.deletePreviews(httptest.NewRecorder(), req)
 	}()
 	// The deletion reaching its first removal is the synchronisation point.

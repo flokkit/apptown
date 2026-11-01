@@ -30,9 +30,9 @@ import (
 
 var (
 	ErrAlreadyBootstrapped = errors.New("an account already exists — sign in")
-	ErrRealAccount         = fault.New(fault.Conflict, "accounts are kept for the record")
-	ErrProtectedGroup      = fault.New(fault.Conflict, "a built-in or personal group cannot be deleted")
-	ErrNoSuchName          = fault.New(fault.NotFound, "no such name")
+	errRealAccount         = fault.New(fault.Conflict, "accounts are kept for the record")
+	errProtectedGroup      = fault.New(fault.Conflict, "a built-in or personal group cannot be deleted")
+	errNoSuchName          = fault.New(fault.NotFound, "no such name")
 )
 
 // Account is a person and their account state; it carries no database handle.
@@ -88,10 +88,10 @@ type directoryStore struct {
 
 func (d *directoryStore) now() time.Time { return clock.Or(d.clock)() }
 
-// Ensure records a name seen on the wire and returns its grant-derived role;
+// ensureRole records a name seen on the wire and returns its grant-derived role;
 // an unknown name becomes a member with no password. A name AppTown would
 // read as something else (ValidName) is refused and not recorded.
-func (d *directoryStore) Ensure(ctx context.Context, username string) (string, error) {
+func (d *directoryStore) ensureRole(ctx context.Context, username string) (string, error) {
 	a, err := d.ensure(ctx, username)
 	return a.Role, err
 }
@@ -113,16 +113,9 @@ func (d *directoryStore) ensure(ctx context.Context, username string) (Account, 
 	return accountIn(ctx, d.db, row, now)
 }
 
-// Disabled reports whether a name may not act as an account: it is
-// disabled, or there is no account by that name (removed, or never seen),
-// which is refused the same way rather than treated as enabled.
-func (d *directoryStore) Disabled(ctx context.Context, username string) (bool, error) {
-	return DisabledIn(ctx, d.db, username)
-}
-
-// DisabledIn is Disabled through q, for the authority adapters other
+// disabledIn is Disabled through q, for the authority adapters other
 // domains hand their transactions to.
-func DisabledIn(ctx context.Context, q database.Queryer, username string) (bool, error) {
+func disabledIn(ctx context.Context, q database.Queryer, username string) (bool, error) {
 	u, err := queries(q).UserByName(ctx, username)
 	found, err := database.Lookup(err)
 	return !found || u.DisabledAt.Valid, err
@@ -133,16 +126,16 @@ func DisabledIn(ctx context.Context, q database.Queryer, username string) (bool,
 // alone by the account of that name.
 func PrincipalDisabledIn(ctx context.Context, q database.Queryer, pr access.Principal) (bool, error) {
 	if pr.ID.IsZero() {
-		return DisabledIn(ctx, q, pr.Name)
+		return disabledIn(ctx, q, pr.Name)
 	}
 	u, err := queries(q).UserByPrincipal(ctx, pr.ID)
 	found, err := database.Lookup(err)
 	return !found || u.DisabledAt.Valid, err
 }
 
-// OfferGroups is every live group an offer can be made to: the built-in
+// offerGroups is every live group an offer can be made to: the built-in
 // group and the ordinary ones, never a personal group.
-func (d *directoryStore) OfferGroups(ctx context.Context) ([]string, error) {
+func (d *directoryStore) offerGroups(ctx context.Context) ([]string, error) {
 	groups, err := queries(d.db).GroupsLive(ctx)
 	out := []string{}
 	for _, g := range groups {
@@ -154,15 +147,15 @@ func (d *directoryStore) OfferGroups(ctx context.Context) ([]string, error) {
 	return out, err
 }
 
-// DefaultGroup is where a person's projects go by default, "" when unset.
-func (d *directoryStore) DefaultGroup(ctx context.Context, username string) (string, error) {
+// defaultGroup is where a person's projects go by default, "" when unset.
+func (d *directoryStore) defaultGroup(ctx context.Context, username string) (string, error) {
 	u, err := queries(d.db).UserByName(ctx, username)
 	_, err = database.Lookup(err)
 	return u.DefaultGroup, err
 }
 
-// Users is every account with its groups.
-func (d *directoryStore) Users(ctx context.Context) ([]Account, error) {
+// users is every account with its groups.
+func (d *directoryStore) users(ctx context.Context) ([]Account, error) {
 	q := queries(d.db)
 	rows, err := q.UsersAll(ctx)
 	if err != nil {
@@ -229,10 +222,10 @@ func bootstrapIn(ctx context.Context, tx *database.Tx, user, passwordHash string
 	if err != nil {
 		return Account{}, err
 	}
-	if err := AdminGrantIn(ctx, tx, user, user, now); err != nil {
+	if err := adminGrantIn(ctx, tx, user, user, now); err != nil {
 		return Account{}, err
 	}
-	if err := DefaultsIn(ctx, tx, false, now); err != nil {
+	if err := defaultsIn(ctx, tx, false, now); err != nil {
 		return Account{}, err
 	}
 	if err := completeSetupIn(ctx, tx); err != nil {
@@ -291,7 +284,7 @@ func changeAccountIn(ctx context.Context, tx *database.Tx, edit accountEdit, by 
 	} else if edit.Disabled != nil {
 		a.Disabled, a.disabledAt = false, stamp.Time{}
 	}
-	followup := a.SetPassword(edit.PasswordHash)
+	followup := a.setPassword(edit.PasswordHash)
 	if edit.DefaultGroup != nil {
 		a.DefaultGroup = *edit.DefaultGroup
 	}
@@ -309,14 +302,14 @@ func changeAccountIn(ctx context.Context, tx *database.Tx, edit accountEdit, by 
 	}
 	// An empty role (the operator's password reset) leaves authority as it is.
 	if edit.Role == "admin" {
-		if err := AdminGrantIn(ctx, tx, edit.Name, by, now); err != nil {
+		if err := adminGrantIn(ctx, tx, edit.Name, by, now); err != nil {
 			return err
 		}
 	} else if edit.Role != "" {
-		if err := RevokeAdminGrantsIn(ctx, tx, edit.Name, by, now); err != nil {
+		if err := revokeAdminGrantsIn(ctx, tx, edit.Name, by, now); err != nil {
 			return err
 		}
-		if root, err := RootIn(ctx, tx, edit.Name, now); err != nil {
+		if root, err := rootIn(ctx, tx, edit.Name, now); err != nil {
 			return err
 		} else if root {
 			return errors.New("administrator authority is inherited from a group; change that grant or membership")
@@ -339,12 +332,12 @@ func removeNameIn(ctx context.Context, tx *database.Tx, name, by string, now tim
 		return err
 	}
 	if !found {
-		return fmt.Errorf("%w: %s", ErrNoSuchName, name)
+		return fmt.Errorf("%w: %s", errNoSuchName, name)
 	}
 	if real, err := realAccountIn(ctx, tx, u); err != nil {
 		return err
 	} else if real {
-		return fmt.Errorf("%w: %s has signed in or acted — disable the account instead", ErrRealAccount, name)
+		return fmt.Errorf("%w: %s has signed in or acted — disable the account instead", errRealAccount, name)
 	}
 	revoked, err := revokeEverythingIn(ctx, tx, name, by, now)
 	if err != nil {
@@ -470,9 +463,9 @@ func revokeEverythingIn(ctx context.Context, tx *database.Tx, name, by string, n
 
 // --- groups -------------------------------------------------------------------------
 
-// Groups is every live group with its members, built-in first, then
+// groups is every live group with its members, built-in first, then
 // personal, then the rest by name.
-func (d *directoryStore) Groups(ctx context.Context) ([]Group, error) {
+func (d *directoryStore) groups(ctx context.Context) ([]Group, error) {
 	q := queries(d.db)
 	rows, err := q.GroupsLive(ctx)
 	if err != nil {
@@ -506,9 +499,9 @@ func (d *directoryStore) GroupKind(ctx context.Context, name string) (string, er
 	return g.Kind, nil
 }
 
-// GroupNames is every live group a project could be created in: personal
+// groupNames is every live group a project could be created in: personal
 // groups first, then the rest by name; the built-in group never.
-func (d *directoryStore) GroupNames(ctx context.Context) ([]string, error) {
+func (d *directoryStore) groupNames(ctx context.Context) ([]string, error) {
 	groups, err := queries(d.db).GroupsLive(ctx)
 	if err != nil {
 		return nil, err
@@ -532,10 +525,10 @@ func deleteGroupIn(ctx context.Context, tx *database.Tx, name, by string, at tim
 		return err
 	}
 	if !found {
-		return fmt.Errorf("%w: no such group %s", ErrNoSuchName, name)
+		return fmt.Errorf("%w: no such group %s", errNoSuchName, name)
 	}
 	if g.Kind == "built-in" || g.Kind == "personal" {
-		return fmt.Errorf("%w: %s is a %s group", ErrProtectedGroup, name, g.Kind)
+		return fmt.Errorf("%w: %s is a %s group", errProtectedGroup, name, g.Kind)
 	}
 	if err := clearGroupMembersIn(ctx, tx, name); err != nil {
 		return err
@@ -550,9 +543,9 @@ func deleteGroupIn(ctx context.Context, tx *database.Tx, name, by string, at tim
 	return audit.At(at).RecordIn(ctx, tx, by, ids.Nil, "group.deleted", name, nil)
 }
 
-// RoleIn reads the current account role inside the caller's checked
+// roleIn reads the current account role inside the caller's checked
 // observation, its grants judged live as of at.
-func RoleIn(ctx context.Context, q database.Queryer, username string, at time.Time) (string, bool, error) {
+func roleIn(ctx context.Context, q database.Queryer, username string, at time.Time) (string, bool, error) {
 	u, err := queries(q).UserByName(ctx, username)
 	found, err := database.Lookup(err)
 	if err != nil || !found {

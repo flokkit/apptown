@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/project"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/project"
 
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/conversation"
@@ -83,7 +84,7 @@ func TestConsoleLifecycleHTTPValidatesBeforeAdmissionAndEndsOnlyItsSession(t *te
 		t.Fatalf("console model file must use the gateway and session credential: %v", err)
 	}
 	// Maintenance must observe the same runtime selected for console launches.
-	session.SetLastUsed(time.Now().Add(-3 * time.Hour))
+	moveClock(a, 3*time.Hour)
 	if got := a.reaper.Containers(context.Background(), true); !slices.Contains(got, "apptown-console-"+session.ID) || !agent.Running(session.ID) {
 		t.Fatalf("maintenance dry run did not observe the selected runtime: %v", got)
 	}
@@ -113,7 +114,7 @@ func TestConsoleLifecycleHTTPValidatesBeforeAdmissionAndEndsOnlyItsSession(t *te
 		t.Fatalf("end again: %d %s", w.Code, w.Body.String())
 	}
 	// Daemon shutdown releases control while preserving long-lived sessions.
-	a.StopConsoles(r.Context())
+	a.stopConsoles(r.Context())
 	if _, err := a.Console.Get(t.Context(), other.Session.ID); err != nil || !agent.Running(other.Session.ID) {
 		t.Fatalf("shutdown must retain the borrowed runtime and session: %v", err)
 	}

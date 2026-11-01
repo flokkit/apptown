@@ -34,10 +34,10 @@ func TestRootMembershipChangesPreserveAnEnabledAdministrator(t *testing.T) {
 		func() error { return s.DeleteGroup(ctx, "operators", admittedPrincipal(t, s, "alice")) },
 		func() error { _, err := s.Revoke(ctx, id, "alice"); return err },
 	} {
-		if err := command(); !errors.Is(err, ErrLastAdministrator) {
+		if err := command(); !errors.Is(err, errLastAdministrator) {
 			t.Fatalf("last root: %v", err)
 		}
-		root, err := RootIn(ctx, s.db, "alice", time.Now())
+		root, err := rootIn(ctx, s.db, "alice", time.Now())
 		if err != nil || !root {
 			t.Fatalf("root lost after refused command: %v %v", root, err)
 		}
@@ -48,7 +48,7 @@ func TestRootMembershipChangesPreserveAnEnabledAdministrator(t *testing.T) {
 	if err := s.SaveGroup(ctx, GroupChange{Name: "operators"}, admittedPrincipal(t, s, "backup")); err != nil {
 		t.Fatal(err)
 	}
-	if root, err := RootIn(ctx, s.db, "alice", time.Now()); err != nil || root {
+	if root, err := rootIn(ctx, s.db, "alice", time.Now()); err != nil || root {
 		t.Fatalf("membership removal not observed: %v %v", root, err)
 	}
 }
@@ -108,10 +108,10 @@ func TestExpiringTheLastRootGrantIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := s.Grant(context.Background(), Spec{SubjectType: "user", Subject: "root", Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, By: "root"}, "2000-01-01T00:00:00Z")
-	if !errors.Is(err, ErrLastAdministrator) {
+	if !errors.Is(err, errLastAdministrator) {
 		t.Fatalf("expired last root: %v", err)
 	}
-	if root, err := RootIn(context.Background(), s.db, "root", time.Now()); err != nil || !root {
+	if root, err := rootIn(context.Background(), s.db, "root", time.Now()); err != nil || !root {
 		t.Fatalf("root lost: %v %v", root, err)
 	}
 }

@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/attention"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/conversation"
@@ -745,7 +747,7 @@ func TestTheRouteGuardAnswers503WhenAuthorityCannotBeReadOrRecorded(t *testing.T
 		{"owner", "GET", "/api/v1/projects/game", "", "-- name: ActiveGrantsOfPrincipal"},
 		{"outsider", "POST", "/api/v1/authz/grants", grant, "-- name: AppendReceipt"},
 	} {
-		restore := a.DB.FailNextStatement(tc.failed)
+		restore := dbtest.NextStatementFailure(a.DB, tc.failed)
 		w := authzCall(h, tc.who, tc.method, tc.path, tc.body)
 		restore()
 		if w.Code != 503 {
@@ -822,7 +824,7 @@ func TestAChatOfADisabledPersonIsRefused(t *testing.T) {
 		t.Error("disabling its opener ended the change's chat")
 	}
 	// An account that cannot be read is not an enabled one.
-	restore := a.DB.FailNextStatement("-- name: UserByPrincipal :one")
+	restore := dbtest.NextStatementFailure(a.DB, "-- name: UserByPrincipal :one")
 	w := get(paths[0])
 	restore()
 	if w.Code != 503 {
@@ -837,7 +839,7 @@ func TestPersonPersistenceFailureStopsAPIAdmission(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			a := testApp(t, Config{AuthMode: mode, AuthHeader: "X-Test-User", AuthProxySecret: "test-proxy-secret"})
 			var seen *authIdentity
-			h := a.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { seen = identityFrom(r); w.WriteHeader(204) }))
+			h := a.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { seen = identityFrom(r); w.WriteHeader(204) }))
 			call := func() *httptest.ResponseRecorder {
 				r := httptest.NewRequest("GET", "/api/v1/me", nil)
 				r.Header.Set("X-AppTown-Actor", "person")
@@ -847,7 +849,7 @@ func TestPersonPersistenceFailureStopsAPIAdmission(t *testing.T) {
 				h.ServeHTTP(w, r)
 				return w
 			}
-			restore := a.DB.FailNextStatement("-- name: TouchUser")
+			restore := dbtest.NextStatementFailure(a.DB, "-- name: TouchUser")
 			defer restore()
 			if w := call(); w.Code != 503 || seen != nil {
 				t.Fatalf("failed persistence admitted identity: %d %+v", w.Code, seen)

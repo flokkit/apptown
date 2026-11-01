@@ -2,8 +2,9 @@ package appcontract
 
 import (
 	"encoding/json"
-	"gopkg.in/yaml.v3"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestMemoryDefaultsArePositiveMemoryOnly(t *testing.T) {

@@ -64,15 +64,15 @@ func ValidImage(ref string) bool { return imageRef.MatchString(ref) }
 // CheckLabel marks what checks leave on a machine, so its sweep finds it.
 const CheckLabel = dockerlabel.Class + "=check"
 
-// DockerCLI runs one docker command (the arguments after the binary) on a
+// dockerCLI runs one docker command (the arguments after the binary) on a
 // machine's Docker, with stdin when given, and answers with its output.
-type DockerCLI func(ctx context.Context, stdin io.Reader, args ...string) ([]byte, error)
+type dockerCLI func(ctx context.Context, stdin io.Reader, args ...string) ([]byte, error)
 
-// Build runs one image build on the Docker a DockerCLI runs: the build's
+// build runs one image build on the Docker a DockerCLI runs: the build's
 // own arguments, its context last. It is the one build rule's
 // (dockerbuild.Daemon.Build): the daemon's own builder named, the extra
 // certificates as the build's secret, AppTown's label.
-type Build func(ctx context.Context, args ...string) ([]byte, error)
+type build func(ctx context.Context, args ...string) ([]byte, error)
 
 // PrepareImage answers an ImageRequest on this runner's Docker, which is
 // this machine's (a worker's own).
@@ -92,7 +92,7 @@ func (r Runner) PrepareImage(ctx context.Context, req ImageRequest) ImageAnswer 
 // PrepareImage answers an ImageRequest on the Docker that docker runs,
 // building through build. A failure is Err, never an empty answer that
 // reads as "no image".
-func PrepareImage(ctx context.Context, docker DockerCLI, build Build, req ImageRequest) (answer ImageAnswer) {
+func PrepareImage(ctx context.Context, docker dockerCLI, build build, req ImageRequest) (answer ImageAnswer) {
 	if req.Anonymous {
 		if req.Registry != nil {
 			return ImageAnswer{Err: "anonymous image preparation cannot include registry credentials"}
@@ -191,7 +191,7 @@ func PrepareImage(ctx context.Context, docker DockerCLI, build Build, req ImageR
 // InspectImage answers whether ref is on the Docker: found, not found (the
 // daemon says there is no such image), or an error (it could not be asked,
 // or its answer could not be read). Only "not found" is a cache miss.
-func InspectImage(ctx context.Context, docker DockerCLI, ref string) (ImageAnswer, bool, error) {
+func InspectImage(ctx context.Context, docker dockerCLI, ref string) (ImageAnswer, bool, error) {
 	out, err := docker(ctx, nil, "image", "inspect", "--format", "{{json .Id}} {{json (index .Config \"Labels\")}}", ref)
 	if err != nil {
 		said := strings.ToLower(string(out) + " " + err.Error())
@@ -213,7 +213,7 @@ func InspectImage(ctx context.Context, docker DockerCLI, ref string) (ImageAnswe
 // scratch, that selects the same Docker context as the ambient
 // configuration: the context's own records are shared, not copied, and the
 // folder holds nothing else until the request's login writes to it.
-func requestConfig(ctx context.Context, docker DockerCLI, scratch string) (string, error) {
+func requestConfig(ctx context.Context, docker dockerCLI, scratch string) (string, error) {
 	out, err := docker(ctx, nil, "context", "show")
 	if err != nil {
 		return "", fmt.Errorf("asking Docker which context it uses: %v: %s", err, bounded(out))

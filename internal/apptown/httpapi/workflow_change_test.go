@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/ids"
@@ -63,7 +65,7 @@ func TestChangeCreationRecordsExplicitChatNamingIntent(t *testing.T) {
 func TestChangeListReadFailureAtHTTP(t *testing.T) {
 	t.Parallel()
 	f := newWorkflowHTTPFixture(t, false)
-	t.Cleanup(f.DB.FailNextStatement("FROM changes wi LEFT JOIN runs r"))
+	t.Cleanup(dbtest.NextStatementFailure(f.DB, "FROM changes wi LEFT JOIN runs r"))
 	r := httptest.NewRequest("GET", "/api/v1/projects/shop/changes", nil).WithContext(f.Context)
 	r.SetPathValue("slug", "shop")
 	w := httptest.NewRecorder()
@@ -76,7 +78,7 @@ func TestChangeListReadFailureAtHTTP(t *testing.T) {
 func TestHandlePatchChangeFailsWithoutPartialWrite(t *testing.T) {
 	t.Parallel()
 	f := newWorkflowHTTPFixture(t, false)
-	t.Cleanup(f.DB.FailNextStatement("INSERT INTO audit_log"))
+	t.Cleanup(dbtest.NextStatementFailure(f.DB, "INSERT INTO audit_log"))
 	r := httptest.NewRequest("PATCH", fmt.Sprintf("/api/v1/changes/%d", f.ChangeID), strings.NewReader(`{"expectedEditRevision":0,"title":"human","body":"new brief"}`)).WithContext(f.Context)
 	r.SetPathValue("id", fmt.Sprint(f.ChangeID))
 	w := httptest.NewRecorder()
@@ -101,7 +103,7 @@ func TestChangeCreationHTTPRequiresInitiatorReceipt(t *testing.T) {
 		h.CreateChange(w, r)
 		return w
 	}
-	t.Cleanup(f.DB.FailNextStatement("INSERT INTO audit_log"))
+	t.Cleanup(dbtest.NextStatementFailure(f.DB, "INSERT INTO audit_log"))
 	if response := call(); response.Code != 422 {
 		t.Fatalf("unrecorded creation HTTP %d: %s", response.Code, response.Body.String())
 	}

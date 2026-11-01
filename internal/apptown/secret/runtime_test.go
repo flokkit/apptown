@@ -133,7 +133,7 @@ func TestAnInfisicalThatCannotBeReadFailsRuntimeLookup(t *testing.T) {
 	if values, err := s.InfisicalValues(t.Context()); err == nil || values != nil {
 		t.Fatalf("Infisical values with Infisical down: %v %v", values, err)
 	}
-	if got := s.Mask(t.Context(), "the token is remote-token-value"); strings.Contains(got, "remote-token-value") {
+	if got := s.Masker(t.Context())("the token is remote-token-value"); strings.Contains(got, "remote-token-value") {
 		t.Fatalf("masking lost the value Infisical answered before: %q", got)
 	}
 }

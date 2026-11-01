@@ -34,7 +34,7 @@ func TestAnAssessmentSaysWhyEachCheckWasNotJudged(t *testing.T) {
 	}
 	f := Fleet{runtime: &Runtime{}}
 
-	got := reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{probe, tree, diff, odd}, assessInput{NoApp: "main's deployment runs another commit", NoJudge: conformance.NotAssessedRubricsNotIncluded}))
+	got := reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{probe, tree, diff, odd}, assessInput{noApp: "main's deployment runs another commit", noJudge: conformance.NotAssessedRubricsNotIncluded}))
 	for name, want := range map[string]conformance.NotAssessed{"page": conformance.NotAssessedNoRunningApp, "tone": conformance.NotAssessedRubricsNotIncluded,
 		"small": conformance.NotAssessedJudgesAChange, "mystery": conformance.NotAssessedNoEvaluator} {
 		if a := got[name]; a.State != conformance.CannotAssess || a.Reason != want {
@@ -48,15 +48,15 @@ func TestAnAssessmentSaysWhyEachCheckWasNotJudged(t *testing.T) {
 	failing := func(err error) func([]check.Item, string) (map[int]check.Verdict, *llmMetadata, error) {
 		return func([]check.Item, string) (map[int]check.Verdict, *llmMetadata, error) { return nil, nil, err }
 	}
-	got = reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{tree}, assessInput{Judge: failing(errors.New("provider down"))}))
+	got = reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{tree}, assessInput{judge: failing(errors.New("provider down"))}))
 	if a := got["tone"]; a.State != conformance.CannotAssess || a.Reason != conformance.NotAssessedError || a.Detail != "provider down" {
 		t.Errorf("a judge that failed: %+v", a)
 	}
-	got = reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{tree}, assessInput{Judge: failing(nil)}))
+	got = reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{tree}, assessInput{judge: failing(nil)}))
 	if a := got["tone"]; a.State != conformance.CannotAssess || a.Reason != conformance.NotAssessedError {
 		t.Errorf("an item the judge passed over: %+v", a)
 	}
-	got = reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{tree, diff}, assessInput{Diff: "+line", Tool: ToolContext{BuildDir: projectTree(t)}, Judge: func(items []check.Item, _ string) (map[int]check.Verdict, *llmMetadata, error) {
+	got = reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{tree, diff}, assessInput{diff: "+line", tool: toolContext{BuildDir: projectTree(t)}, judge: func(items []check.Item, _ string) (map[int]check.Verdict, *llmMetadata, error) {
 		return map[int]check.Verdict{1: {Item: 1, Verdict: "fail", Note: "curt"}, 2: {Item: 2, Verdict: "pass"}}, nil, nil
 	}}))
 	if a := got["tone"]; a.State != conformance.DoesNotConform || a.Reason != "" || len(a.Findings) != 1 {
@@ -68,13 +68,13 @@ func TestAnAssessmentSaysWhyEachCheckWasNotJudged(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(500) }))
 	t.Cleanup(srv.Close)
-	app := &runningApp{Target: Target{FrontDoor: srv.URL}, Still: func() bool { return true }}
-	got = reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{probe}, assessInput{Running: app}))
+	app := &runningApp{target: guidanceTarget{FrontDoor: srv.URL}, still: func() bool { return true }}
+	got = reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{probe}, assessInput{running: app}))
 	if a := got["page"]; a.State != conformance.DoesNotConform || a.Reason != "" || len(a.Findings) != 1 || a.Findings[0].Fingerprint != conformance.Fingerprint(probe, "") {
 		t.Errorf("a probe of the app serving the commit: %+v", a)
 	}
-	app.Still = func() bool { return false }
-	got = reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{probe}, assessInput{Running: app}))
+	app.still = func() bool { return false }
+	got = reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{probe}, assessInput{running: app}))
 	if a := got["page"]; a.State != conformance.CannotAssess || a.Reason != conformance.NotAssessedNoRunningApp {
 		t.Errorf("an app that changed while probed: %+v", a)
 	}

@@ -27,7 +27,7 @@ func settlementFixture(t *testing.T, spec schema.Spec) (*database.DB, *Run) {
 type policyAdvanceChecks struct{ db *database.DB }
 
 func (c policyAdvanceChecks) RefreshLaw(ctx context.Context, run *Run) error {
-	return projectLaws(c.db).Refresh(ctx, run)
+	return projectLaws(c.db).refresh(ctx, run)
 }
 func (policyAdvanceChecks) Merge(context.Context, *Run) (MergeResult, error) {
 	return MergeResult{Allowed: true}, nil
@@ -35,8 +35,8 @@ func (policyAdvanceChecks) Merge(context.Context, *Run) (MergeResult, error) {
 
 func policyEngine(db *database.DB, completionCalls *int) *advancer {
 	return newAdvancer(db, advanceRuntime{
-		Stages: NewStages(nil, func(string) bool { return false }), Checks: policyAdvanceChecks{db},
-		Completion: completionRecorderFunc(func(context.Context, *database.Tx, CompletedRun) (ReleaseReceipt, error) {
+		stages: NewStages(nil, func(string) bool { return false }), checks: policyAdvanceChecks{db},
+		completion: completionRecorderFunc(func(context.Context, *database.Tx, CompletedRun) (ReleaseReceipt, error) {
 			*completionCalls++
 			return ReleaseReceipt{}, nil
 		}),
@@ -88,7 +88,7 @@ func TestWorkflowGateIsRecheckedBeforeSettlement(t *testing.T) {
 					// sql-guarantee: Law refresh and settlement lockRunSnapshotIn compares the whole Run, including UpdatedAt; TransitionRun also stamps updated_at and could reject the snapshot without checking status, so change only status at this original interference point.
 					completionExec(t, store, `UPDATE runs SET status='abandoned' WHERE id=$1`, run.ID)
 				}
-				out, err := policyEngine(store, &completionCalls).AdvanceRun(context.Background(), run, "test")
+				out, err := policyEngine(store, &completionCalls).advanceRun(context.Background(), run, "test")
 				if err != nil && !errors.Is(err, ErrRunMoved) || err == nil && out != nil && out.Advanced {
 					t.Fatalf("stale decision advanced: %+v %v", out, err)
 				}
@@ -143,7 +143,7 @@ func TestWorkflowStageReceiptSurvivesInventoryChangesAndMissingSteps(t *testing.
 	// nor deleting an old scanner can reduce the stage's expected checks.
 	// sql-guarantee: Delete only the second previously receipted scanner while preserving the first check and stage receipt; DeleteProjectSteps removes the whole inventory and no owner operation deletes an individual admitted check.
 	completionExec(t, store, `DELETE FROM steps WHERE run_id=$1 AND name='security:second'`, run.ID)
-	out, err := policyEngine(store, &completionCalls).AdvanceRun(context.Background(), run, "system")
+	out, err := policyEngine(store, &completionCalls).advanceRun(context.Background(), run, "system")
 	if err != nil && !errors.Is(err, ErrRunMoved) || err == nil && out != nil && out.Advanced {
 		t.Fatalf("lost scanner completed: %+v %v", out, err)
 	}
@@ -152,7 +152,7 @@ func TestWorkflowStageReceiptSurvivesInventoryChangesAndMissingSteps(t *testing.
 	}
 	// A failed read cannot be mistaken for no required checks.
 	dbtest.FailNextStatement(t, store, "SELECT COALESCE(payload_json->'checks'")
-	out, err = policyEngine(store, &completionCalls).AdvanceRun(context.Background(), run, "system")
+	out, err = policyEngine(store, &completionCalls).advanceRun(context.Background(), run, "system")
 	if err == nil || errors.Is(err, ErrRunMoved) {
 		t.Fatalf("lost read completed: %+v %v", out, err)
 	}

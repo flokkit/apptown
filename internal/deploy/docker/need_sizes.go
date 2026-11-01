@@ -2,9 +2,10 @@ package docker
 
 import (
 	"fmt"
+	"slices"
+
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
-	"slices"
 )
 
 // sizedServices is shared by prepared worker values and direct host execution.

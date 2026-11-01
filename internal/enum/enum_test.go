@@ -37,7 +37,7 @@ func TestSetCodecRoundTripsWordsAndRefusesEverythingElse(t *testing.T) {
 		}
 	}
 	for _, v := range []color{0, 3} {
-		if colors.String(v) != "invalid-color" || colors.Valid(v) {
+		if colors.String(v) != "invalid-color" || colors.valid(v) {
 			t.Fatalf("value %d must be invalid", v)
 		}
 		if _, err := colors.Value(v); !errors.Is(err, errColor) || err.Error() != "invalid color: "+map[color]string{0: "0", 3: "3"}[v] {

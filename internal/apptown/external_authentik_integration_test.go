@@ -24,9 +24,9 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/execfile"
 	"github.com/flokkit/apptown/internal/execution"
+	testinputs "github.com/flokkit/apptown/internal/execution/executiontest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/poll"
-	"github.com/flokkit/apptown/internal/testinputs"
 )
 
 const authentikProofImage = "ghcr.io/goauthentik/server:2026.8.3@sha256:ab9b4e8cc4ab3f8d1198d2db6aeea66bafea1963b3f2843589e0d163f97d9849"

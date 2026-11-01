@@ -93,7 +93,7 @@ func TestAnUnresolvedDelegateModelStagesNoHome(t *testing.T) {
 		if _, err := home.Stage(t.Context(), t.TempDir(), idstest.N(7)); !errors.Is(err, unread) {
 			t.Fatalf("%s: workspace home: %v", delegate, err)
 		}
-		if _, err := home.SentHome(t.Context(), idstest.N(7), home.Labels(t.Context())); !errors.Is(err, unread) {
+		if _, err := home.SentHome(t.Context(), idstest.N(7), home.labelsFor(t.Context())); !errors.Is(err, unread) {
 			t.Fatalf("%s: sent home: %v", delegate, err)
 		}
 	}

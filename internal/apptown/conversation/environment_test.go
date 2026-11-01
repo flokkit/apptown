@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/model"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -20,7 +22,7 @@ func TestUnpinnedChatFollowsTheSlot(t *testing.T) {
 	t.Parallel()
 	db := databaseSuite.New(t)
 	slots := model.New(db)
-	env := Environment{models: model.NewSelection(slots)}
+	env := environment{models: model.NewSelection(slots)}
 	if err := slots.Set(context.Background(), "chat", ids.Nil, "", "standard", "openrouter/openai/gpt-5.6-luna", "fixture"); err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +35,7 @@ func TestUnpinnedChatFollowsTheSlot(t *testing.T) {
 		t.Fatalf("a pinned chat keeps its model, got %q", got)
 	}
 	// An unread slot is an error, not the model the chat was born with.
-	defer db.FailNextStatement("FROM model_slots")()
+	defer dbtest.NextStatementFailure(db, "FROM model_slots")()
 	if got, err := env.chatModelFor(t.Context(), born); err == nil {
 		t.Fatalf("an unread chat slot answered %q", got)
 	}
@@ -77,7 +79,7 @@ func TestAResumedChatFetchesItsOwnProjectAfterItsAddressIsTaken(t *testing.T) {
 	a = move(a, "later")
 	b := create("ledger")
 	people := identity.New(db, identity.Config{})
-	env := Environment{projects: project.New(db, nil), identity: people, cfg: EnvironmentConfig{APIURL: "http://apptown.test"}}
+	env := environment{projects: project.New(db, nil), identity: people, cfg: EnvironmentConfig{APIURL: "http://apptown.test"}}
 	remote, err := env.chatRemote(ctx, chat)
 	if err != nil {
 		t.Fatal(err)

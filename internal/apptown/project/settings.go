@@ -21,11 +21,11 @@ type SettingsPatch struct {
 	Icon             *string `json:"icon"`
 	Blurb            *string `json:"blurb"`
 }
-type SettingsChange struct{ Before, After Project }
+type settingsChange struct{ Before, After Project }
 
 var (
-	ErrSettingsChanged          = fault.New(fault.Conflict, "project name changed; retry the edit")
-	ErrSettingsRevisionRequired = fault.New(fault.Invalid, "send the settings revision the edit started from (expectedRevision)")
+	errSettingsChanged          = fault.New(fault.Conflict, "project name changed; retry the edit")
+	errSettingsRevisionRequired = fault.New(fault.Invalid, "send the settings revision the edit started from (expectedRevision)")
 	// ErrSettingsMoved carries a code so a client can tell it from other
 	// conflicts, such as a taken slug, and offer the person the new values.
 	ErrSettingsMoved error = settingsMoved{}
@@ -47,8 +47,8 @@ func (settingsMoved) FaultCode() string     { return "settings-moved" }
 // advances the revision. A changed nonempty description belongs to the
 // person; empty returns ownership to generation. Repeating the current
 // nonempty description does not transfer ownership.
-func UpdateSettingsIn(ctx context.Context, tx *database.Tx, id ids.ID, reservedSlug string, in SettingsPatch) (SettingsChange, error) {
-	var result SettingsChange
+func UpdateSettingsIn(ctx context.Context, tx *database.Tx, id ids.ID, reservedSlug string, in SettingsPatch) (settingsChange, error) {
+	var result settingsChange
 	q := queries(tx)
 	held, err := q.ProjectByIDForUpdate(ctx, id)
 	if err != nil {
@@ -61,10 +61,10 @@ func UpdateSettingsIn(ctx context.Context, tx *database.Tx, id ids.ID, reservedS
 	}
 	result.Before = record(held)
 	if held.Slug != reservedSlug {
-		return result, ErrSettingsChanged
+		return result, errSettingsChanged
 	}
 	if in.ExpectedRevision == nil {
-		return result, ErrSettingsRevisionRequired
+		return result, errSettingsRevisionRequired
 	}
 	if *in.ExpectedRevision != held.SettingsRevision {
 		return result, ErrSettingsMoved

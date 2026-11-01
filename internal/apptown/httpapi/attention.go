@@ -1,8 +1,9 @@
 package httpapi
 
 import (
-	"github.com/flokkit/apptown/internal/apptown/attention"
 	"net/http"
+
+	"github.com/flokkit/apptown/internal/apptown/attention"
 )
 
 type Attention struct{ service *attention.Service }

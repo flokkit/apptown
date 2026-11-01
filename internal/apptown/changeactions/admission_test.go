@@ -72,7 +72,7 @@ func TestImmediateAdmissionCallersUseAtomicWorkAndPreserveInputs(t *testing.T) {
 				}
 				return s.CreateAndStart(ctx, &p, "scheduled", "Repair engine", "brief", "test")
 			}
-			clear := db.FailNextStatement("INSERT INTO steps")
+			clear := dbtest.NextStatementFailure(db, "INSERT INTO steps")
 			ch, run, err := call()
 			clear()
 			if err == nil || ch != nil || run != nil {
@@ -98,7 +98,7 @@ func TestImmediateAdmissionCallersUseAtomicWorkAndPreserveInputs(t *testing.T) {
 			}
 			// A failed optional notice neither undoes the admission nor escapes
 			// as a command failure. The owner still exposes the admitted run.
-			clear = db.FailNextStatement("-- name: InsertRunEvent")
+			clear = dbtest.NextStatementFailure(db, "-- name: InsertRunEvent")
 			s.RecordConsoleInvocation(ctx, run.ID, "operator", "console/test")
 			clear()
 			snapshot, err := work.Snapshot(ctx, run.ID, workflow.DetailView)

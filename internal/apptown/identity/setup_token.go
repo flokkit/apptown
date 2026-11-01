@@ -20,14 +20,14 @@ import (
 // ErrSetupToken refuses a first account made without the setup token.
 var ErrSetupToken = errors.New("the setup token is missing or wrong")
 
-// SetupTokenError names where the token is, so the person can fetch it.
-type SetupTokenError struct{ Path string }
+// setupTokenError names where the token is, so the person can fetch it.
+type setupTokenError struct{ Path string }
 
-func (e *SetupTokenError) Error() string {
+func (e *setupTokenError) Error() string {
 	return fmt.Sprintf("%v: it is in %s on AppTown's host", ErrSetupToken, e.Path)
 }
 
-func (e *SetupTokenError) Unwrap() error { return ErrSetupToken }
+func (e *setupTokenError) Unwrap() error { return ErrSetupToken }
 
 // EnsureSetupToken makes the setup token while setup is not complete (the
 // durable setup marker NeedsBootstrap reads; accounts recorded in open mode
@@ -78,7 +78,7 @@ func (s *Service) checkSetupToken(ctx context.Context, given string) error {
 		return err
 	}
 	if want == "" || given == "" || subtle.ConstantTimeCompare([]byte(want), []byte(strings.TrimSpace(given))) != 1 {
-		return &SetupTokenError{Path: s.cfg.SetupTokenPath}
+		return &setupTokenError{Path: s.cfg.SetupTokenPath}
 	}
 	return nil
 }

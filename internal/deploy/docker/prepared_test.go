@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 	"os"
 	"reflect"
 	"regexp"
@@ -22,7 +21,7 @@ import (
 
 // recordingClient records every Docker command, and answers ports.
 type recordingClient struct {
-	disk  diskspacetest.Daemon
+	disk  diskDaemon
 	mu    sync.Mutex
 	calls []string
 }
@@ -56,7 +55,7 @@ func (c *recordingClient) Run(_ context.Context, _ string, req Command) ([]byte,
 
 type upProbe struct{}
 
-func (upProbe) Check(context.Context, Scope, string, string, time.Duration, RenderedProbe) (bool, string) {
+func (upProbe) Check(context.Context, Scope, string, string, time.Duration, renderedProbe) (bool, string) {
 	return true, ""
 }
 
@@ -295,7 +294,7 @@ func TestPreparedValuesBelongToTheirContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(preparedContract, "public: true") || SameContract(other, c) {
+	if !strings.Contains(preparedContract, "public: true") || sameContract(other, c) {
 		t.Fatal("the substitute contract is not another one")
 	}
 	q, err := PrepareBoot(t.Context(), live, nil, "app", "", ws, other)

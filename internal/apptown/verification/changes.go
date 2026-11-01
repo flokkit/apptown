@@ -29,16 +29,16 @@ type Changes struct {
 	db          *database.DB
 	adoption    *adoption.Service
 	scanners    *Scanners
-	evaluator   *Evaluator
+	evaluator   *evaluator
 	dataDir     string
-	workerChats WorkerChats
+	workerChats workerChats
 	baseline    *baselineCache
 	clock       func() time.Time
 }
 
-// WorkerChats are the chats on the worker a check saves first
+// workerChats are the chats on the worker a check saves first
 // (changeconsole.Saves).
-type WorkerChats interface {
+type workerChats interface {
 	// HeldBy names the chat on the worker that holds ch; "" when none does.
 	HeldBy(ctx context.Context, ch *workflow.Change) (string, error)
 	// SaveFirst saves the chat holder names.
@@ -95,8 +95,8 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 	// The exec-image tier builds the app image once, content-addressed by the
 	// commit, and the land gate reuses it — so running it here costs a shared
 	// build, not a duplicate one, and it never costs a wasted land spin.
-	toolResults, toolFindings, toolErrors := v.scanners.RunToolChecks(ctx, checks,
-		ToolContext{Context: ctx, ProjectID: ch.ProjectID, SHA: headSHA, BuildDir: src, AllowBuild: true},
+	toolResults, toolFindings, toolErrors := v.scanners.runToolChecks(ctx, checks,
+		toolContext{Context: ctx, ProjectID: ch.ProjectID, SHA: headSHA, BuildDir: src, AllowBuild: true},
 		fmt.Sprintf("apptown-check-%d", id))
 	results = append(results, toolResults...)
 	findings = append(findings, toolFindings...)
@@ -114,7 +114,7 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 	if err != nil {
 		return nil, err
 	}
-	scanResults, scanFindings, scanErrs := v.scanners.RunSourceScans(ctx, src, fmt.Sprintf("apptown-check-%d", id), read, forkBase)
+	scanResults, scanFindings, scanErrs := v.scanners.runSourceScans(ctx, src, fmt.Sprintf("apptown-check-%d", id), read, forkBase)
 	results = append(results, scanResults...)
 	shErrors += scanErrs
 	// And the landing's image scan point (trivy by default), on the image
@@ -122,7 +122,7 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 	// at or above high that this change introduced (soak finding 8: an
 	// image finding first seen at the landing needs a person to send the
 	// change back). Feedback like the rest; the landing scans again.
-	imageResults, imageFindings, imageErrs := v.scanners.RunImageScans(ctx, ch.ProjectID, src, headSHA, read, forkBase, fmt.Sprintf("apptown-check-%d", id))
+	imageResults, imageFindings, imageErrs := v.scanners.runImageScans(ctx, ch.ProjectID, src, headSHA, read, forkBase, fmt.Sprintf("apptown-check-%d", id))
 	results = append(results, imageResults...)
 	scanFindings = append(scanFindings, imageFindings...)
 	shErrors += imageErrs
@@ -212,26 +212,6 @@ type Selection struct {
 	Published bool
 }
 
-// CheckedCommit selects the repository and commit a check of ch reads.
-//
-// A named commit must be a full object id (refused before git sees it) and
-// the change's own work on AppTown: in the history of the change's
-// folder's HEAD (the local path, where the agent commits in place), of
-// the change's branch in the project's hub (published), or of one of the
-// change's scratch refs there (a step on a worker pushed it for checking:
-// scm.ScratchRef). Anything else, including a commit only on a
-// sibling's branch, is a CommitNotOnAppTownError. Published is the tip of the
-// change's branch in the hub, read once: that commit is checked, never the
-// folder's, and a branch the hub does not have is a NothingPublishedError.
-// A selection naming a commit and asking for the published tip is refused
-// as invalid. Neither is the change's latest commit on AppTown: the
-// folder's HEAD, or the published branch when the folder is absent or
-// behind work saved there.
-func (v *Changes) CheckedCommit(ctx context.Context, ch *workflow.Change, sel Selection) (repo, sha string, err error) {
-	repo, sha, _, err = v.checkedCommit(ctx, ch, sel)
-	return repo, sha, err
-}
-
 // checkedCommit is CheckedCommit, saying too whether the commit is the
 // change's only as a step's scratch work.
 func (v *Changes) checkedCommit(ctx context.Context, ch *workflow.Change, sel Selection) (repo, sha string, scratch bool, err error) {
@@ -298,10 +278,10 @@ func (v *Changes) checkedCommit(ctx context.Context, ch *workflow.Change, sel Se
 func publishedTip(ctx context.Context, hub string, ch *workflow.Change) (repo, sha string, err error) {
 	ref := "refs/heads/" + ch.Branch
 	if ch.Branch == "" || !gitexec.IsRepo(hub) {
-		return "", "", &NothingPublishedError{Change: ch.ID, Branch: ch.Branch}
+		return "", "", &nothingPublishedError{Change: ch.ID, Branch: ch.Branch}
 	}
 	if _, err := gitexec.OutputBytes(ctx, hub, nil, "show-ref", "--verify", "--quiet", ref); err != nil {
-		return "", "", &NothingPublishedError{Change: ch.ID, Branch: ch.Branch}
+		return "", "", &nothingPublishedError{Change: ch.ID, Branch: ch.Branch}
 	}
 	sha, err = gitexec.ResolveCommit(ctx, hub, ref)
 	if err != nil || !gitexec.IsObjectID(sha) {
@@ -310,20 +290,20 @@ func publishedTip(ctx context.Context, hub string, ch *workflow.Change) (repo, s
 	return hub, sha, nil
 }
 
-// NothingPublishedError refuses a check of a change's published tip when
+// nothingPublishedError refuses a check of a change's published tip when
 // AppTown has no branch for it: nothing has been published to check.
-type NothingPublishedError struct {
+type nothingPublishedError struct {
 	Change ids.ID
 	Branch string
 }
 
-func (e *NothingPublishedError) Error() string {
+func (e *nothingPublishedError) Error() string {
 	if e.Branch == "" {
 		return fmt.Sprintf("change #%d has no branch, so nothing is published to check", e.Change)
 	}
 	return fmt.Sprintf("change #%d has nothing published to check: AppTown has no branch %s for it", e.Change, e.Branch)
 }
-func (e *NothingPublishedError) FaultKind() fault.Kind { return fault.NotFound }
+func (e *nothingPublishedError) FaultKind() fault.Kind { return fault.NotFound }
 
 // within reports whether commit is tip or in its history in repo. Any
 // failure (the commit absent, tip unborn) is "no": the caller refuses.
@@ -435,8 +415,8 @@ func (v *Changes) baselineFor(ctx context.Context, tools toolversions.Snapshot, 
 	}
 	defer cleanup()
 	results, findings, _ := v.evaluator.runShChecks(ctx, tools.Images.Sh, checks, src, prefix+"-base")
-	toolResults, toolFindings, _ := v.scanners.RunToolChecks(ctx, checks,
-		ToolContext{Context: ctx, ProjectID: projectID, SHA: baseSHA, BuildDir: src, AllowBuild: false}, prefix+"-base")
+	toolResults, toolFindings, _ := v.scanners.runToolChecks(ctx, checks,
+		toolContext{Context: ctx, ProjectID: projectID, SHA: baseSHA, BuildDir: src, AllowBuild: false}, prefix+"-base")
 	results = append(results, toolResults...)
 	findings = append(findings, toolFindings...)
 	if ctx.Err() != nil {

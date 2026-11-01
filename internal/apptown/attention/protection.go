@@ -116,7 +116,7 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 			add("restore-unavailable", "Data recovery is currently unavailable", "Open deployment protection to inspect the recovery requirements.", SeverityWarning, reading.ObservedAt)
 		}
 		if !reading.Rehearsed {
-			add("rehearsal", "Recovery has not been rehearsed", "A successful data copy does not prove application recovery.", SeverityAdvisory, reading.ObservedAt)
+			add("rehearsal", "Recovery has not been rehearsed", "A successful data copy does not prove application recovery.", severityAdvisory, reading.ObservedAt)
 		}
 		if reading.Rehearsed && !reading.RehearsalPassed {
 			if reading.RehearsalOutcome == dataprotection.RehearsalFailed {
@@ -137,7 +137,7 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 			}
 		}
 		if !reading.RestoreTested {
-			add("restore-test", "Recovery has not been tested on its platform", "A rehearsal does not replace a restore test on the deployment's own platform.", SeverityAdvisory, reading.ObservedAt)
+			add("restore-test", "Recovery has not been tested on its platform", "A rehearsal does not replace a restore test on the deployment's own platform.", severityAdvisory, reading.ObservedAt)
 		}
 	}
 	return out, nil

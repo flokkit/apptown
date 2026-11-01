@@ -69,15 +69,15 @@ import (
 // data.
 
 var (
-	// ErrNoRehearsalHost: no Docker host is kept for rehearsals, and the
+	// errNoRehearsalHost: no Docker host is kept for rehearsals, and the
 	// deployment's data is on none AppTown reaches (a Portainer
 	// environment, a static bucket, App Platform without a copy runner).
-	ErrNoRehearsalHost = fault.New(fault.Conflict, "No host to rehearse this deployment on. A platform administrator can keep a Docker host for rehearsals in its target settings.")
-	// ErrRehearsalNotStopped: a rehearsal runs to its end and takes itself
+	errNoRehearsalHost = fault.New(fault.Conflict, "No host to rehearse this deployment on. A platform administrator can keep a Docker host for rehearsals in its target settings.")
+	// errRehearsalNotStopped: a rehearsal runs to its end and takes itself
 	// down; it is not stopped part way.
-	ErrRehearsalNotStopped = fault.New(fault.Conflict, "a restore rehearsal is not stopped part way: it takes everything it made down when it ends")
-	// ErrRehearsalSource: what the rehearsal would start from is missing.
-	ErrRehearsalSource = fault.New(fault.Conflict, "this deployment cannot be rehearsed")
+	errRehearsalNotStopped = fault.New(fault.Conflict, "a restore rehearsal is not stopped part way: it takes everything it made down when it ends")
+	// errRehearsalSource: what the rehearsal would start from is missing.
+	errRehearsalSource = fault.New(fault.Conflict, "this deployment cannot be rehearsed")
 )
 
 // Rehearsal outcomes, as recorded.
@@ -143,19 +143,6 @@ const RehearsalUnknown = "unknown: AppTown stopped while it ran"
 
 const egressNotBlocked = "outbound network not blocked"
 
-// LastRehearsal is a deployment's last restore rehearsal, nil when it was
-// never rehearsed. It is the latest rehearsal operation's answer: one that
-// ended without recording a rehearsal (AppTown stopped while it ran, or it
-// failed before it could) reads unknown or failed, with the last recorded
-// rehearsal kept beside it as history.
-func (s *Service) LastRehearsal(ctx context.Context, projectID ids.ID, name string) (*RehearsalRef, error) {
-	dep, err := s.deployments.ByName(ctx, projectID, name)
-	if found, lerr := database.Lookup(err); lerr != nil || !found {
-		return nil, lerr
-	}
-	return s.lastRehearsalOf(ctx, dep)
-}
-
 // lastRehearsalOf reads a deployment's last rehearsal by the deployment
 // the operations ran on, never by its name.
 func (s *Service) lastRehearsalOf(ctx context.Context, dep *deployment.Deployment) (*RehearsalRef, error) {
@@ -173,7 +160,7 @@ func (s *Service) lastRehearsalOf(ctx context.Context, dep *deployment.Deploymen
 	if s.ops == nil {
 		return recorded, nil
 	}
-	o, err := s.ops.LatestEnded(ctx, deployment.SubjectOf(dep), OperationRehearsal)
+	o, err := s.ops.LatestEnded(ctx, deployment.SubjectOf(dep), operationRehearsal)
 	if err != nil {
 		return nil, err
 	}
@@ -249,11 +236,11 @@ func (s *Service) rehearsalHost(ctx context.Context, dep *deployment.Deployment)
 	case own.DataAccess() == deployment.DataOnManagedPlatform && own.CopyRunner() != "":
 		runner, err := s.targets.ByName(ctx, own.CopyRunner())
 		if err != nil || runner.DataAccess() != deployment.DataOnDockerHost {
-			return nil, false, ErrNoRehearsalHost
+			return nil, false, errNoRehearsalHost
 		}
 		return runner, true, nil
 	}
-	return nil, false, ErrNoRehearsalHost
+	return nil, false, errNoRehearsalHost
 }
 
 // rehearsalScope is how AppTown reaches a rehearsal host's daemon.
@@ -296,7 +283,7 @@ func (s *Service) planRehearsal(ctx context.Context, projectID ids.ID, name stri
 		return nil, err
 	}
 	if number == 0 {
-		return nil, fmt.Errorf("%w: %s has served no release", ErrRehearsalSource, name)
+		return nil, fmt.Errorf("%w: %s has served no release", errRehearsalSource, name)
 	}
 	if p.release, err = s.releases.ByNumber(ctx, projectID, number); err != nil {
 		return nil, err
@@ -307,7 +294,7 @@ func (s *Service) planRehearsal(ctx context.Context, projectID ids.ID, name stri
 		}
 	}
 	if p.bundle == nil || p.bundle.ProjectID != projectID {
-		return nil, fmt.Errorf("%w: release %d records no images to run", ErrRehearsalSource, number)
+		return nil, fmt.Errorf("%w: release %d records no images to run", errRehearsalSource, number)
 	}
 	if p.host, p.shared, err = s.rehearsalHost(ctx, dep); err != nil {
 		return nil, err
@@ -315,7 +302,7 @@ func (s *Service) planRehearsal(ctx context.Context, projectID ids.ID, name stri
 	// The host the release was deployed to holds its images by ID; any
 	// other host pulls them by digest from a registry.
 	if p.host.ID != dep.TargetID && !p.bundle.ByDigest() {
-		return nil, fmt.Errorf("%w: release %d was not published to a registry, so %s cannot run its images; attach a registry to the project, land a new change so it is published, then use a release of that published bundle", ErrRehearsalSource, number, p.host.Name)
+		return nil, fmt.Errorf("%w: release %d was not published to a registry, so %s cannot run its images; attach a registry to the project, land a new change so it is published, then use a release of that published bundle", errRehearsalSource, number, p.host.Name)
 	}
 	if _, err := rehearsalOrigin(dep); err != nil {
 		return nil, err
@@ -328,7 +315,7 @@ func (s *Service) planRehearsal(ctx context.Context, projectID ids.ID, name stri
 func rehearsalOrigin(dep *deployment.Deployment) (string, error) {
 	u, err := url.Parse(dep.URL)
 	if err != nil || u.Hostname() == "" {
-		return "", fmt.Errorf("%w: %s has no recorded address to rehearse it at", ErrRehearsalSource, dep.Name)
+		return "", fmt.Errorf("%w: %s has no recorded address to rehearse it at", errRehearsalSource, dep.Name)
 	}
 	return u.Hostname(), nil
 }
@@ -347,7 +334,7 @@ func (s *Service) rehearsalSet(ctx context.Context, projectID ids.ID, name strin
 				return &sets[i], nil
 			}
 		}
-		return nil, ErrNoSet
+		return nil, errNoSet
 	}
 	b, err := backupRecord(protectionsql.New(s.db.SQL()).BackupByIDAnywhere(ctx, id))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -357,18 +344,18 @@ func (s *Service) rehearsalSet(ctx context.Context, projectID ids.ID, name strin
 		return nil, err
 	}
 	if b.Status != BackupOK || (b.Store != StoreBackupStore && b.Store != StoreAppTownDisk) {
-		return nil, fmt.Errorf("%w: set %d is not a whole copy (%s, %s)", ErrRehearsalSource, b.ID, b.Store, b.Status)
+		return nil, fmt.Errorf("%w: set %d is not a whole copy (%s, %s)", errRehearsalSource, b.ID, b.Store, b.Status)
 	}
 	// Which of the set's items the release can be filled from is decided
 	// when the release's contract is read (rehearse).
 	if b.ProjectID != projectID || b.Deployment != name {
-		return nil, fmt.Errorf("%w: set %d is a copy of another deployment", ErrRehearsalSource, id)
+		return nil, fmt.Errorf("%w: set %d is a copy of another deployment", errRehearsalSource, id)
 	}
 	return &b, nil
 }
 
-// ErrNoSet: a deployment with no good set to rehearse from.
-var ErrNoSet error = &deployment.Unavailable{Reason: "no-copy", Why: "There is no good backup of its data yet."}
+// errNoSet: a deployment with no good set to rehearse from.
+var errNoSet error = &deployment.Unavailable{Reason: "no-copy", Why: "There is no good backup of its data yet."}
 
 // RequestRehearsal starts a restore rehearsal of a standing deployment from
 // set (0: its newest good copy). Production data may move to another
@@ -386,7 +373,7 @@ func (s *Service) RequestRehearsal(ctx context.Context, projectID ids.ID, name s
 	if err != nil {
 		return nil, err
 	}
-	return s.admit(ctx, p.dep, OperationRehearsal, actor, []string{deployment.DataHold(p.dep)}, map[string]any{"backup": p.set.ID}, nil)
+	return s.admit(ctx, p.dep, operationRehearsal, actor, []string{deployment.DataHold(p.dep)}, map[string]any{"backup": p.set.ID}, nil)
 }
 
 // rehearsalPlace names what a rehearsal makes, all of it on the rehearsal
@@ -443,11 +430,11 @@ func (s *Service) clearPlace(ctx context.Context, place rehearsalPlace) []string
 	return left
 }
 
-// SweepRehearsals removes what every ended rehearsal still owns: one the
+// sweepRehearsals removes what every ended rehearsal still owns: one the
 // AppTown stopped in the middle of (settled unknown at start), or whose
 // take-down left something. Each place is marked cleared only when nothing
 // is left; one whose operation is still live is left to it.
-func (s *Service) SweepRehearsals(ctx context.Context) (cleared int, left []string, err error) {
+func (s *Service) sweepRehearsals(ctx context.Context) (cleared int, left []string, err error) {
 	q := protectionsql.New(s.db.SQL())
 	rows, err := q.UnclearedRehearsalPlaces(ctx)
 	if err != nil {
@@ -597,20 +584,20 @@ func (s *Service) runRehearsal(ctx context.Context, t *tracker) (runEnd, string,
 	// the host, so a prune or a move cannot remove it meanwhile.
 	files, err := lockBackupFiles(s.backupRoot(), false)
 	if err != nil {
-		return OperationFailed, "nothing was made: the backups on AppTown's disk could not be locked for reading: " + err.Error(), result
+		return operationFailed, "nothing was made: the backups on AppTown's disk could not be locked for reading: " + err.Error(), result
 	}
 	staged := sync.OnceFunc(func() { _ = files.Close() })
 	defer staged()
 	p, err := s.planRehearsal(ctx, t.op.ProjectID, t.op.Deployment, set)
 	if err != nil {
-		return OperationFailed, "nothing was made: " + err.Error(), result
+		return operationFailed, "nothing was made: " + err.Error(), result
 	}
 	place := placeOf(t.op.ID, p.host.Name, p.shared)
 	facts.Images, facts.SharedHost = p.bundle.Parts, p.shared
 	t.end(ctx, fmt.Sprintf("%s, release %d, on %s", setWords(p.set), p.release.Number, hostWords(p.host.Name, p.shared)), 0)
 
 	if err := t.allowed(ctx); err != nil {
-		return OperationFailed, "nothing was made: " + err.Error(), result
+		return operationFailed, "nothing was made: " + err.Error(), result
 	}
 	// What it makes is recorded before it is made, so a restart's sweep
 	// finds it.
@@ -619,7 +606,7 @@ func (s *Service) runRehearsal(ctx context.Context, t *tracker) (runEnd, string,
 		err = protectionsql.New(s.db.SQL()).RecordRehearsalPlace(ctx, protectionsql.RecordRehearsalPlaceParams{OperationID: t.op.ID, ProjectID: t.op.ProjectID, PlaceJson: raw, At: s.now()})
 	}
 	if err != nil {
-		return OperationFailed, "nothing was made: recording the rehearsal's place: " + err.Error(), result
+		return operationFailed, "nothing was made: recording the rehearsal's place: " + err.Error(), result
 	}
 	result["place"] = place
 	state, failedStep, detail := s.rehearse(ctx, t, p, place, &facts, staged)
@@ -641,20 +628,20 @@ func (s *Service) runRehearsal(ctx context.Context, t *tracker) (runEnd, string,
 	}
 
 	outcome := RehearsalFailed
-	if state == OperationVerified {
+	if state == operationVerified {
 		outcome = RehearsalPassed
 		if !slices.ContainsFunc(facts.Checks, func(c RehearsalCheck) bool { return strings.HasPrefix(c.Name, "data ") }) {
 			outcome = RehearsalPassedNoData
 		}
 	}
 	if err := s.recordRehearsal(ctx, t, p, outcome, failedStep, facts); err != nil {
-		return OperationFailed, "the rehearsal ran but was not recorded: " + err.Error(), result
+		return operationFailed, "the rehearsal ran but was not recorded: " + err.Error(), result
 	}
 	result["outcome"] = outcome
 	if len(left) > 0 {
 		detail += " Not everything it made was removed; the daily sweep tries again: " + strings.Join(left, "; ")
-		if state == OperationVerified {
-			state = OperationFailed
+		if state == operationVerified {
+			state = operationFailed
 		}
 	}
 	return state, detail, result
@@ -668,7 +655,7 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 	sh := tools.Images.Sh
 	fail := func(step, why string) (runEnd, string, string) {
 		t.fail(ctx, why)
-		return OperationFailed, step, fmt.Sprintf("the rehearsal of %s from set %d failed while %s: %s", p.dep.Name, p.set.ID, step, why)
+		return operationFailed, step, fmt.Sprintf("the rehearsal of %s from set %d failed while %s: %s", p.dep.Name, p.set.ID, step, why)
 	}
 	step := "reading the release's source"
 	t.begin(ctx, step)
@@ -757,7 +744,7 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 	for _, m := range moves {
 		step = fmt.Sprintf("copying set %d's copy of %s from %s to %s", p.set.ID, m.from.Name, from, host.Name)
 		if err := t.allowed(ctx); err != nil {
-			return OperationFailed, step, fmt.Sprintf("the rehearsal of %s stopped before %s: %v", p.dep.Name, step, err)
+			return operationFailed, step, fmt.Sprintf("the rehearsal of %s stopped before %s: %v", p.dep.Name, step, err)
 		}
 		t.begin(ctx, step)
 		if err := s.stageOnHost(ctx, dk, read, m.from, place.Copy, sh); err != nil {
@@ -822,7 +809,7 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 	}
 	step = fmt.Sprintf("starting the needs of release %d on %s", p.release.Number, host.Name)
 	if err := t.allowed(ctx); err != nil {
-		return OperationFailed, step, fmt.Sprintf("the rehearsal of %s stopped before %s: %v", p.dep.Name, step, err)
+		return operationFailed, step, fmt.Sprintf("the rehearsal of %s stopped before %s: %v", p.dep.Name, step, err)
 	}
 	t.begin(ctx, step)
 	var withheld []string
@@ -892,7 +879,7 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 	t.end(ctx, strings.Join(answers, ", "), 0)
 	// The paths and status codes are in the step above and in the record;
 	// the sentence a person reads first says what was asked.
-	return OperationVerified, "", fmt.Sprintf("Release %d started from %s on %s and answered %s.", p.release.Number, setWords(p.set), hostWords(host.Name, p.shared), checkWords(facts.Checks))
+	return operationVerified, "", fmt.Sprintf("Release %d started from %s on %s and answered %s.", p.release.Number, setWords(p.set), hostWords(host.Name, p.shared), checkWords(facts.Checks))
 }
 
 // readItem writes one item of a set to w and answers how many bytes it

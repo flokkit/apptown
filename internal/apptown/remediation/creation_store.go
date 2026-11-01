@@ -25,21 +25,21 @@ type CreationRequest struct {
 	Findings          []conformance.Observation
 }
 
-// Creations freezes a whole job: the job row, its items and the receipt.
-type Creations struct {
+// creations freezes a whole job: the job row, its items and the receipt.
+type creations struct {
 	db    *database.DB
 	clock func() time.Time // AppTown's clock; nil is the real one
 }
 
-func (s Creations) now() time.Time { return clock.Or(s.clock)() }
+func (s creations) now() time.Time { return clock.Or(s.clock)() }
 
-func NewCreations(db *database.DB, now func() time.Time) Creations {
-	return Creations{db: db, clock: now}
+func NewCreations(db *database.DB, now func() time.Time) creations {
+	return creations{db: db, clock: now}
 }
 
 // The job, every queued item and their opening receipt become visible together.
 // Only a committed result may be returned to the caller or offered to workers.
-func (s Creations) Create(ctx context.Context, in CreationRequest) (*Remediation, []Item, error) {
+func (s creations) Create(ctx context.Context, in CreationRequest) (*Remediation, []Item, error) {
 	at := s.now()
 	if len(in.Findings) == 0 {
 		return nil, nil, fmt.Errorf("nothing to fix in that scope — no findings a person has not already excepted or that need confirming first")

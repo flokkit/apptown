@@ -23,7 +23,7 @@ func (assertionADRPermit) Require(context.Context, access.Permission) (access.Ca
 	return access.Caller{Principal: access.Principal{Name: "fixture"}, Verified: true}, nil
 }
 
-func assertionOwnerFixture(t *testing.T, typ, cfg string) (*Assertions, *Run, ids.ID) {
+func assertionOwnerFixture(t *testing.T, typ, cfg string) (*assertions, *Run, ids.ID) {
 	t.Helper()
 	var config map[string]any
 	decoder := json.NewDecoder(strings.NewReader(cfg))

@@ -68,7 +68,7 @@ func (g gitlabAt) Client(ctx context.Context) (*gitlab.Client, error) {
 
 // cleanupFixture is a cleanup over a fresh database and the given GitLab,
 // with the deletion of project 100 recorded under plan.
-func cleanupFixture(t *testing.T, gl GitLabClient, plan CleanupPlan) Cleanup {
+func cleanupFixture(t *testing.T, gl gitLabClient, plan CleanupPlan) Cleanup {
 	t.Helper()
 	db := databaseSuite.New(t)
 	if plan.ReleasePreviews == nil {

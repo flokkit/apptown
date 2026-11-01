@@ -29,14 +29,14 @@ func isUnjudged(state Outcome) bool {
 	return state == CannotAssess || state == EvaluationError
 }
 
-// CompareReviews never treats a renamed project or a different check version as
+// compareReviews never treats a renamed project or a different check version as
 // the same evaluated subject merely because its display text matches.
-func CompareReviews(previousID ids.ID, cur, prev []Verdict) *ReviewDelta {
+func compareReviews(previousID ids.ID, cur, prev []Verdict) *ReviewDelta {
 	previousProjects := map[ids.ID]bool{}
 	prevBy := map[CheckIdentity]Outcome{}
 	for _, v := range prev {
 		previousProjects[v.ProjectID] = true
-		prevBy[v.Identity()] = v.State
+		prevBy[v.identity()] = v.State
 	}
 	compared := map[ids.ID]bool{}
 	d := &ReviewDelta{Previous: previousID}
@@ -45,7 +45,7 @@ func CompareReviews(previousID ids.ID, cur, prev []Verdict) *ReviewDelta {
 			continue
 		}
 		compared[v.ProjectID] = true
-		k := v.Identity()
+		k := v.identity()
 		p, had := prevBy[k]
 		label := v.ProjectSlug + " · " + v.Check
 		switch {

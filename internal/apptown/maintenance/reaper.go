@@ -14,13 +14,13 @@ import (
 	"github.com/flokkit/apptown/internal/toolversions"
 )
 
-type ConsoleRuntime interface {
+type consoleRuntime interface {
 	Status(context.Context, string) (console.Status, error)
 }
 type Dependencies struct {
 	Docker   docker.Scope
 	Sessions *console.Service
-	Runtime  ConsoleRuntime
+	Runtime  consoleRuntime
 	// ToolVersions names the shell image a cache pass runs its reads and
 	// removals in, one snapshot per pass.
 	ToolVersions toolversions.Source
@@ -32,7 +32,7 @@ type Reaper struct {
 	db       *database.DB
 	docker   docker.Scope
 	sessions *console.Service
-	runtime  ConsoleRuntime
+	runtime  consoleRuntime
 	dataDir  string
 	clock    func() time.Time
 	tools    toolversions.Source

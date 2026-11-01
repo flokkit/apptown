@@ -27,13 +27,13 @@ const (
 	ViaCopy           MainVia = "copy"
 	ViaGenesis        MainVia = "genesis"
 	ViaIntegrityAdopt MainVia = "integrity-adopt"
-	ViaBackfill       MainVia = "backfill"
-	ViaUpgrade        MainVia = "upgrade" // apptown upgrade's rename commit
+	viaBackfill       MainVia = "backfill"
+	viaUpgrade        MainVia = "upgrade" // apptown upgrade's rename commit
 )
 
-// ErrMainChanged: the recorded main changed between a move's preparation and
+// errMainChanged: the recorded main changed between a move's preparation and
 // its settlement. The caller's whole settlement rolls back.
-var ErrMainChanged = errors.New("the recorded main changed while this move was settled; retry")
+var errMainChanged = errors.New("the recorded main changed while this move was settled; retry")
 
 // RecordedMain is where a project's main stood when AppTown last moved it.
 type RecordedMain struct {
@@ -56,13 +56,13 @@ func ReadMain(ctx context.Context, q database.Queryer, projectID ids.ID) (Record
 	return RecordedMain{Branch: row.Branch, SHA: row.Sha, Via: row.Via, RunID: row.RunID, RecordedAt: row.RecordedAt}, true, nil
 }
 
-// MainMove is a hub's main read back after a move, ready to be recorded in
+// mainMove is a hub's main read back after a move, ready to be recorded in
 // the transaction that settles the move. Prepare it while holding the
 // project's repository lock, after the ref moved; it never takes the lock.
 // The record only goes forward: a main that does not descend from the
 // recorded commit, or that cannot be read, is not recorded, and the old
 // record (or unknown) stays.
-type MainMove struct {
+type mainMove struct {
 	projectID             ids.ID
 	branch, sha, previous string
 	known, record         bool
@@ -70,17 +70,17 @@ type MainMove struct {
 
 // PrepareMainMove reads the hub's main and the current record. It runs Git, so
 // it is called before the caller's transaction opens.
-func PrepareMainMove(ctx context.Context, q database.Queryer, hub string, projectID ids.ID, branch string) (MainMove, error) {
+func PrepareMainMove(ctx context.Context, q database.Queryer, hub string, projectID ids.ID, branch string) (mainMove, error) {
 	if projectID.IsZero() || hub == "" || branch == "" {
-		return MainMove{}, fmt.Errorf("recording main requires its project, hub and branch")
+		return mainMove{}, fmt.Errorf("recording main requires its project, hub and branch")
 	}
-	m := MainMove{projectID: projectID, branch: branch, sha: gitexec.HubRef(ctx, hub, "refs/heads/"+branch)}
+	m := mainMove{projectID: projectID, branch: branch, sha: gitexec.HubRef(ctx, hub, "refs/heads/"+branch)}
 	if err := ctx.Err(); err != nil {
-		return MainMove{}, err
+		return mainMove{}, err
 	}
 	recorded, known, err := ReadMain(ctx, q, projectID)
 	if err != nil {
-		return MainMove{}, err
+		return mainMove{}, err
 	}
 	m.previous, m.known = recorded.SHA, known
 	switch {
@@ -96,13 +96,10 @@ func PrepareMainMove(ctx context.Context, q database.Queryer, hub string, projec
 	return m, nil
 }
 
-// Read is the hub's main as read at preparation, "" when it could not be read.
-func (m MainMove) Read() string { return m.sha }
-
 // RecordIn records the prepared main in the caller's transaction, compared and
 // set against the record read at preparation.
 // at is AppTown's time of the move.
-func (m MainMove) RecordIn(ctx context.Context, tx *database.Tx, via MainVia, runID ids.ID, at time.Time) error {
+func (m mainMove) RecordIn(ctx context.Context, tx *database.Tx, via MainVia, runID ids.ID, at time.Time) error {
 	if !m.record {
 		return nil
 	}
@@ -118,7 +115,7 @@ func (m MainMove) RecordIn(ctx context.Context, tx *database.Tx, via MainVia, ru
 		return err
 	}
 	if n != 1 {
-		return ErrMainChanged
+		return errMainChanged
 	}
 	return nil
 }
@@ -181,11 +178,11 @@ func commits(n int) string {
 // MainStanding is ReadMainStanding against the branches' database: the
 // project view's reading of where main stands.
 func (p *Branches) MainStanding(ctx context.Context, hub string, projectID ids.ID, branch string) (MainStanding, error) {
-	return ReadMainStanding(ctx, p.db, hub, projectID, branch)
+	return readMainStanding(ctx, p.db, hub, projectID, branch)
 }
 
-// ReadMainStanding reads the record and the hub, without the repository lock.
-func ReadMainStanding(ctx context.Context, q database.Queryer, hub string, projectID ids.ID, branch string) (MainStanding, error) {
+// readMainStanding reads the record and the hub, without the repository lock.
+func readMainStanding(ctx context.Context, q database.Queryer, hub string, projectID ids.ID, branch string) (MainStanding, error) {
 	recorded, known, err := ReadMain(ctx, q, projectID)
 	if err != nil {
 		return MainStanding{}, err

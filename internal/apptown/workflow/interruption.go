@@ -30,7 +30,7 @@ type InterruptedSteps struct{ Interrupted, PreservedCalls int64 }
 // runs it again. Any other is marked orphaned, which the dispatcher resumes.
 func InterruptStepsIn(ctx context.Context, tx *database.Tx, preserve []ids.ID, ended []string, at time.Time) (InterruptedSteps, error) {
 	var out InterruptedSteps
-	next, err := StatusRunning.Transition(MoveStepFinish, StatusError)
+	next, err := StatusRunning.transition(moveStepFinish, StatusError)
 	if err != nil {
 		return out, err
 	}

@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"fmt"
+
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
@@ -23,9 +24,9 @@ type Declared struct {
 	Needs     []string // the services the app needs (postgres, redis, …)
 }
 
-// Declarations reads a project's contract; the second result is false
+// declarations reads a project's contract; the second result is false
 // when the project has none that can be read.
-type Declarations interface {
+type declarations interface {
 	Declared(context.Context, ids.ID) (Declared, bool)
 }
 
@@ -36,10 +37,10 @@ type Inventory struct {
 	retained    *Retained
 	targets     *Targets
 	providers   *Providers
-	declared    Declarations
+	declared    declarations
 }
 
-func NewInventory(db *database.DB, declared Declarations) *Inventory {
+func newInventory(db *database.DB, declared declarations) *Inventory {
 	return &Inventory{deployments: NewDeployments(db), needs: NewNeedStore(db, nil), retained: NewRetained(db), declared: declared}
 }
 
@@ -146,7 +147,7 @@ func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resourc
 				Hosts: []deploy.ResourceHost{{ProjectID: e.ProjectID, DeploymentID: e.ID, Project: e.Project, Deployment: e.Name, Need: o.Need}}})
 		}
 	}
-	retained, err := inv.retained.OpenForTarget(ctx, t.ID)
+	retained, err := inv.retained.openForTarget(ctx, t.ID)
 	if err != nil {
 		return nil, fmt.Errorf("reading what was left at %s: %w", t.Name, err)
 	}

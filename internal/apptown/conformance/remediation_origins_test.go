@@ -66,14 +66,14 @@ func TestRemediationOriginsRejectMissingOrAlteredEvidence(t *testing.T) {
 	changedCheck.Check = "invented check"
 	stale := original
 	stale.State = Stale
-	for _, observation := range []Observation{Unassessed(previous.Reference()), Recorded(changedRecord), changedSubject, changedCheck, stale} {
+	for _, observation := range []Observation{Unassessed(previous.reference()), Recorded(changedRecord), changedSubject, changedCheck, stale} {
 		tx, err := store.db.Begin(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
 		err = ValidateRemediationOriginsIn(context.Background(), tx, []Observation{observation})
 		_ = tx.Rollback()
-		if !errors.Is(err, ErrOriginsChanged) {
+		if !errors.Is(err, errOriginsChanged) {
 			t.Fatalf("altered origin admitted: %+v %v", observation, err)
 		}
 	}
@@ -85,7 +85,7 @@ func TestRemediationOriginsRejectMissingOrAlteredEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback() }()
-	if err := ValidateRemediationOriginsIn(context.Background(), tx, []Observation{original}); !errors.Is(err, ErrOriginsChanged) {
+	if err := ValidateRemediationOriginsIn(context.Background(), tx, []Observation{original}); !errors.Is(err, errOriginsChanged) {
 		t.Fatalf("cleared origin admitted: %v", err)
 	}
 }
@@ -93,7 +93,7 @@ func TestRemediationOriginsRejectMissingOrAlteredEvidence(t *testing.T) {
 func TestRemediationOriginsPreserveExpiredExceptionInterpretation(t *testing.T) {
 	t.Parallel()
 	store, previous, _ := verdictReceiptFixtureWithOutcome(t, "sh", Excepted)
-	observation := Observe(previous, CurrentContext{Check: previous.Reference(), HeadSHA: previous.SHA, ExceptionActive: false})
+	observation := observe(previous, currentContext{Check: previous.reference(), HeadSHA: previous.SHA, ExceptionActive: false})
 	tx, err := store.db.Begin(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -102,7 +102,7 @@ func TestRemediationOriginsPreserveExpiredExceptionInterpretation(t *testing.T) 
 	if err := ValidateRemediationOriginsIn(context.Background(), tx, []Observation{observation}); err != nil {
 		t.Fatalf("expired exception hid underlying finding: %v", err)
 	}
-	if err := ValidateRemediationOriginsIn(context.Background(), tx, []Observation{Recorded(previous)}); !errors.Is(err, ErrOriginsChanged) {
+	if err := ValidateRemediationOriginsIn(context.Background(), tx, []Observation{Recorded(previous)}); !errors.Is(err, errOriginsChanged) {
 		t.Fatalf("active exception became a finding: %v", err)
 	}
 }
@@ -118,7 +118,7 @@ func TestRemediationOriginsRequireCurrentAIConfirmationAndCheckedReads(t *testin
 		defer func() { _ = tx.Rollback() }()
 		return ValidateRemediationOriginsIn(ctx, tx, []Observation{Recorded(previous)})
 	}
-	if err := check(context.Background()); !errors.Is(err, ErrOriginsChanged) {
+	if err := check(context.Background()); !errors.Is(err, errOriginsChanged) {
 		t.Fatalf("unconfirmed AI finding admitted: %v", err)
 	}
 	if _, err := store.confirm(context.Background(), confirmationRequest{VerdictID: previous.ID, By: "reviewer"}); err != nil {
@@ -128,7 +128,7 @@ func TestRemediationOriginsRequireCurrentAIConfirmationAndCheckedReads(t *testin
 		t.Fatalf("confirmed finding refused: %v", err)
 	}
 	dbtest.FailNextStatement(t, store.db, "FROM conformance_adjudications")
-	if err := check(context.Background()); err == nil || errors.Is(err, ErrOriginsChanged) {
+	if err := check(context.Background()); err == nil || errors.Is(err, errOriginsChanged) {
 		t.Fatalf("read failure looked like changed evidence: %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

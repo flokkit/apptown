@@ -27,11 +27,11 @@ func TestStaleCheckRefreshDispatchAndRestart(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				claim, err := attempts.Start(ctx, step, kind)
+				claim, err := attempts.start(ctx, step, kind, ids.Nil)
 				if err != nil {
 					t.Fatal(err)
 				}
-				if err := attempts.Finish(ctx, claim, StepOutcome{Status: StatusPass}); err != nil {
+				if err := attempts.finish(ctx, claim, StepOutcome{Status: StatusPass}); err != nil {
 					t.Fatal(err)
 				}
 			}

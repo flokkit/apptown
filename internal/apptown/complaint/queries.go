@@ -21,6 +21,6 @@ func record(r complaintsql.Complaint, slug, name string) Complaint {
 		AnsweredAt: stamp.Time{NullTime: r.AnsweredAt}, ArchivedAt: stamp.Time{NullTime: r.ArchivedAt},
 		Project: slug, ProjectName: name, About: r.About, PackVersion: r.PackVersion,
 	}
-	c.State = StateOf(c.Answer, c.ArchivedAt.Valid).String()
+	c.State = stateOf(c.Answer, c.ArchivedAt.Valid).String()
 	return c
 }

@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/clock/clocktest"
+
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/console/consoletest"
 )
@@ -203,8 +205,9 @@ func TestAChangeConsole(t *testing.T) {
 // A project being deleted admits no chat and identifies nobody until released.
 func TestDeletionBlocksAProject(t *testing.T) {
 	ctx := context.Background()
+	manual := clocktest.NewManual(time.Now())
 	agent := consoletest.NewAgent()
-	chats := console.New(console.Dependencies{Agent: agent, Config: console.Config{DataDir: t.TempDir()}})
+	chats := console.New(console.Dependencies{Agent: agent, Config: console.Config{DataDir: t.TempDir(), Now: manual.Now}})
 	open := console.OpenRequest{Scope: "project:p", Labels: map[string]string{"project": "7"}, Workspace: console.Workspace{Path: "/tmp/p"}, Actor: "bls"}
 	s, err := chats.Open(ctx, open)
 	if err != nil {
@@ -213,8 +216,7 @@ func TestDeletionBlocksAProject(t *testing.T) {
 	if _, err := chats.Block("project", "7"); err == nil {
 		t.Fatal("a project with a fresh chat cannot be deleted")
 	}
-	old := time.Now().Add(-time.Hour)
-	s.SetLastUsed(old)
+	manual.Advance(time.Hour)
 	release, err := chats.Block("project", "7")
 	if err != nil {
 		t.Fatal(err)
@@ -251,8 +253,7 @@ func TestRecordRoundTrip(t *testing.T) {
 	data := t.TempDir()
 	chats := console.New(console.Dependencies{Agent: consoletest.NewAgent(), Config: console.Config{DataDir: data}})
 	used := time.Now().Add(-42 * time.Minute).Truncate(time.Second)
-	s := chats.Restore(console.Meta{ID: "abc123", Scope: "project:p", Labels: map[string]string{"started": "7"}, Token: "tok", CreatedAt: time.Now(), Checkout: "/elsewhere/checkout"})
-	s.SetLastUsed(used)
+	s := chats.Restore(console.Meta{ID: "abc123", Scope: "project:p", Labels: map[string]string{"started": "7"}, Token: "tok", CreatedAt: time.Now(), Checkout: "/elsewhere/checkout", LastUsed: used})
 	if err := s.Persist(); err != nil {
 		t.Fatal(err)
 	}
@@ -427,13 +428,14 @@ func (a endingAgent) End(ctx context.Context, id string) error {
 // ended: its last save needs the change the deletion would remove.
 func TestDeletionWaitsForAnEndingChat(t *testing.T) {
 	ctx := context.Background()
+	manual := clocktest.NewManual(time.Now())
 	agent := endingAgent{Agent: consoletest.NewAgent(), started: make(chan struct{}), release: make(chan struct{})}
-	chats := console.New(console.Dependencies{Agent: agent, Config: console.Config{DataDir: t.TempDir()}})
+	chats := console.New(console.Dependencies{Agent: agent, Config: console.Config{DataDir: t.TempDir(), Now: manual.Now}})
 	s, err := chats.Open(ctx, console.OpenRequest{Scope: "project:p", Labels: map[string]string{"project": "7"}, Workspace: console.Workspace{Path: "/tmp/p"}, Actor: "bls"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.SetLastUsed(time.Now().Add(-time.Hour))
+	manual.Advance(time.Hour)
 	ended := make(chan error, 1)
 	go func() { _, err := chats.End(ctx, s.ID); ended <- err }()
 	<-agent.started

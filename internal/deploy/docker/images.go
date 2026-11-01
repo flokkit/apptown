@@ -15,11 +15,11 @@ import (
 	"github.com/flokkit/apptown/internal/strs"
 )
 
-// PrepareImages prepares each selected app and init image once, on the
+// prepareImages prepares each selected app and init image once, on the
 // selected daemon. Standing containers run image IDs, never a tag another
 // generation can replace. Static files travel in an image too; no runtime
 // mount retains the staging directory.
-func (h *Host) PrepareImages(ctx context.Context, t BootRequest, c *appcontract.Plan) (*appcontract.Plan, error) {
+func (h *Host) prepareImages(ctx context.Context, t BootRequest, c *appcontract.Plan) (*appcontract.Plan, error) {
 	cc := *c
 	cc.Parts = append([]appcontract.Part(nil), c.Parts...)
 	cc.Init = append([]appcontract.InitContainer(nil), c.Init...)
@@ -54,7 +54,7 @@ func (h *Host) PrepareImages(ctx context.Context, t BootRequest, c *appcontract.
 			if err != nil {
 				return "", err
 			}
-			if err := PackStaticBuild(ctx, t.Docker, root, *sb, server, port, image); err != nil {
+			if err := packStaticBuild(ctx, t.Docker, root, *sb, server, port, image); err != nil {
 				return "", err
 			}
 			if err := t.own.created(deploy.Owned{Kind: "image", ID: image}); err != nil {
@@ -85,13 +85,13 @@ func (h *Host) PrepareImages(ctx context.Context, t BootRequest, c *appcontract.
 			}
 			args = append(args, root)
 			if out, err := t.Docker.Build(ctx, args...); err != nil {
-				return "", BuildFailure("building selected Docker source", out, err)
+				return "", buildFailure("building selected Docker source", out, err)
 			}
 			if err := t.own.created(deploy.Owned{Kind: "image", ID: tag}); err != nil {
 				return "", err
 			}
 			image = tag
-		} else if !IsLocalBuildTag(image) && !strings.HasPrefix(image, "sha256:") {
+		} else if !isLocalBuildTag(image) && !strings.HasPrefix(image, "sha256:") {
 			if err := h.login(ctx, t.Docker, image); err != nil {
 				return "", fmt.Errorf("pulling selected image %s: %w", image, err)
 			}

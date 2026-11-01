@@ -3,6 +3,8 @@ package workflow
 import (
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/fault"
@@ -19,7 +21,7 @@ func TestChangeResourceRequiresItsCurrentProject(t *testing.T) {
 	if err != nil || got.Type != "change" || got.ID != ch.ID.String() || got.ChangeID != ch.ID || got.ProjectID != pid || got.ProjectName != "Scope" {
 		t.Fatalf("change resource: %+v %v", got, err)
 	}
-	restore := db.FailNextStatement("-- name: ProjectByID :one")
+	restore := dbtest.NextStatementFailure(db, "-- name: ProjectByID :one")
 	got, err = ChangeResource(t.Context(), projects, ch)
 	restore()
 	if fault.KindOf(err) != fault.Unavailable || got != (access.Resource{}) {

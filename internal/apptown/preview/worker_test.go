@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"maps"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +15,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/deploy"
@@ -205,7 +206,7 @@ func TestAWorkerPreviewsFailuresSayWhoseTheyAre(t *testing.T) {
 	ch := Change{ID: idstest.N(9), ProjectID: projectID}
 
 	wd.reconfigure(s, nil, func(e *deployment.EnvironmentDependencies) { e.Routes.PreviewDomain = "" })
-	if _, err := s.RehearseChange(context.Background(), ch, false); !errors.Is(err, ErrNoDomain) || len(w.boots) != 0 {
+	if _, err := s.RehearseChange(context.Background(), ch, false); !errors.Is(err, errNoDomain) || len(w.boots) != 0 {
 		t.Fatalf("without a preview domain: %v, boots %d", err, len(w.boots))
 	}
 	wd.reconfigure(s, nil, func(e *deployment.EnvironmentDependencies) { e.Routes.PreviewDomain = "preview.example" })
@@ -219,7 +220,7 @@ func TestAWorkerPreviewsFailuresSayWhoseTheyAre(t *testing.T) {
 
 	w.err = errors.New("connection refused")
 	_, err = s.RehearseChange(context.Background(), ch, false)
-	var unavailable *UnavailableError
+	var unavailable *unavailableError
 	if !errors.As(err, &unavailable) || errors.As(err, &be) {
 		t.Fatalf("a worker that cannot be asked: %v", err)
 	}
@@ -326,7 +327,7 @@ func TestAWorkerPreviewOpensForProbing(t *testing.T) {
 		t.Fatalf("%v %v", ok, err)
 	}
 	defer p.Close()
-	if p.FrontDoor != "https://change-00000000-0009-7000-8000-000000000000.preview.example" || p.Incarnation != "tree+digest" || !strings.HasPrefix(p.Naked, "http://127.0.0.1:") {
+	if p.FrontDoor != "https://change-00000000-0009-7000-8000-000000000000.preview.example" || p.incarnation != "tree+digest" || !strings.HasPrefix(p.Naked, "http://127.0.0.1:") {
 		t.Fatalf("opened %+v", p)
 	}
 	req, _ := http.NewRequest("GET", p.Naked+"/ready", nil)
@@ -426,7 +427,7 @@ func TestNoPreviewBootsOnTheWorkerUntilItsStartUpClearIsConfirmed(t *testing.T) 
 	s.startClear.pending = true
 	s.startClear.mu.Unlock()
 	_, err := s.RehearseChange(context.Background(), Change{ID: idstest.N(9), ProjectID: projectID}, false)
-	var unavailable *UnavailableError
+	var unavailable *unavailableError
 	if !errors.As(err, &unavailable) || len(w.boots) != 1 {
 		t.Fatalf("a boot before the removal was confirmed: %v, boots %d", err, len(w.boots))
 	}
@@ -565,7 +566,7 @@ func TestAWorkerThatLostItsOrderIsClaimedAgain(t *testing.T) {
 	s.worker = w
 	writePreviewBootFixture(t, filepath.Join(dir, "workspaces", "change-00000000-0009-7000-8000-000000000000"))
 	_, err := s.RehearseChange(context.Background(), Change{ID: idstest.N(9), ProjectID: projectID}, false)
-	var unavailable *UnavailableError
+	var unavailable *unavailableError
 	if !errors.As(err, &unavailable) {
 		t.Fatalf("a boot the worker refused for its lost order: %v", err)
 	}

@@ -1,10 +1,11 @@
 package digitalocean
 
 import (
-	"github.com/flokkit/apptown/internal/deploy"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 // A lost connection and an answered rejection have different meanings.

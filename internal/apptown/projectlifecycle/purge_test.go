@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/gitlab"
 
@@ -467,7 +469,7 @@ func TestPurgeOwnerReadFailureLeavesRepositoryAndBackupsUntouched(t *testing.T) 
 	}
 	touched := false
 	w.sets.after = func() { touched = true }
-	t.Cleanup(w.db.FailNextStatement("ProjectByID"))
+	t.Cleanup(dbtest.NextStatementFailure(w.db, "ProjectByID"))
 	op, err := w.ops.RunHere(t.Context(), st.Purge.ID)
 	if err != nil || op.State != operations.Failed {
 		t.Fatalf("purge: %+v %v", op, err)

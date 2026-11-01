@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/identity/internal/accesssql"
 )
 
@@ -96,7 +98,7 @@ func TestOAuthResolutionFailureSemantics(t *testing.T) {
 	testAccounts(t, db, "alice")
 	ctx := context.Background()
 	for _, marker := range []string{"-- name: TokenByHashAndKind", "-- name: DelegationByID :one", "-- name: TouchUser"} {
-		restore := db.FailNextStatement(marker)
+		restore := dbtest.NextStatementFailure(db, marker)
 		got, err := s.ResolveOAuth(ctx, pair.Access, AudienceUser)
 		restore()
 		if err == nil || errors.Is(err, ErrOAuthCredential) || got.Principal.Name != "" {
@@ -105,7 +107,7 @@ func TestOAuthResolutionFailureSemantics(t *testing.T) {
 	}
 	// Last-use metadata is best effort; account facts above are required.
 	for _, marker := range []string{"-- name: TouchDelegation"} {
-		restore := db.FailNextStatement(marker)
+		restore := dbtest.NextStatementFailure(db, marker)
 		got, err := s.ResolveOAuth(ctx, pair.Access, AudienceUser)
 		restore()
 		if err != nil || got.Principal.Name != "alice" || got.Principal.Role != "member" {
@@ -123,7 +125,7 @@ func TestOAuthTokenRevocationSettlement(t *testing.T) {
 			if err := s.RevokeOAuthToken(ctx, "unknown"); err != nil {
 				t.Fatal(err)
 			}
-			restore := db.FailNextStatement(marker)
+			restore := dbtest.NextStatementFailure(db, marker)
 			err := s.RevokeOAuthToken(ctx, pair.Refresh)
 			restore()
 			if err == nil {

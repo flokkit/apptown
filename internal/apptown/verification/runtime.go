@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/flokkit/apptown/internal/apptown/project"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -67,7 +68,7 @@ func NewRuntime(d RuntimeDependencies) *Runtime {
 }
 
 // repo is a project's repository in this AppTown's data directory.
-func (o Runtime) repo(t Target) (string, error) {
+func (o Runtime) repo(t guidanceTarget) (string, error) {
 	return (project.RepositoryRef{ID: t.ProjectID, Slug: t.Slug}).Path(o.dataDir)
 }
 
@@ -77,7 +78,7 @@ func (o Runtime) repo(t Target) (string, error) {
 // A recorded release whose contract cannot be read is unknown, never the
 // working tree's contract instead: a server contract in the workspace would
 // pass an unreadable static release.
-func (o Runtime) browserExpectation(ctx context.Context, t Target) (check.BrowserExpectation, string) {
+func (o Runtime) browserExpectation(ctx context.Context, t guidanceTarget) (check.BrowserExpectation, string) {
 	var c *appcontract.Contract
 	var err error
 	switch {
@@ -127,7 +128,7 @@ func (o Runtime) browserExpectation(ctx context.Context, t Target) (check.Browse
 // the container was started with is read from that exact container, before
 // and after the probe: a container replaced in between makes the answer
 // unknown, never a verdict about the wrong one.
-func (o Runtime) judgeBrowser(ctx context.Context, t Target) check.ProbeVerdict {
+func (o Runtime) judgeBrowser(ctx context.Context, t guidanceTarget) check.ProbeVerdict {
 	want, why := o.browserExpectation(ctx, t)
 	if why != "" {
 		return check.ProbeVerdict{Outcome: check.CannotAssess, Detail: why, Fault: true}
@@ -157,8 +158,8 @@ func (o Runtime) judgeBrowser(ctx context.Context, t Target) check.ProbeVerdict 
 	return verdict
 }
 
-// Target is where a project's standing main deployment answers.
-type Target struct {
+// guidanceTarget is where a project's standing main deployment answers.
+type guidanceTarget struct {
 	ProjectID ids.ID
 	Slug      string
 	Container string
@@ -191,8 +192,8 @@ type Target struct {
 // observation on the deployment's own target, asked now
 // (ObserveContainerNow): an attached host is asked over its own connection,
 // and what cannot be observed is unknown or unavailable, never "not running".
-func (o Runtime) standingTarget(ctx context.Context, projectID ids.ID) (Target, *deployment.Deployment, string, bool) {
-	var t Target
+func (o Runtime) standingTarget(ctx context.Context, projectID ids.ID) (guidanceTarget, *deployment.Deployment, string, bool) {
+	var t guidanceTarget
 	t.ProjectID = projectID
 	e, err := o.deployment.Deployments.ByName(ctx, projectID, "main")
 	if err == nil {
@@ -225,7 +226,7 @@ func (o Runtime) standingTarget(ctx context.Context, projectID ids.ID) (Target, 
 // (ServedRevision), and a recheck that says the same container still serves
 // that commit after a probe. A deployment that cannot be resolved, or whose
 // commit cannot be named, is a reason instead.
-func (o Runtime) mainAt(ctx context.Context, projectID ids.ID) (t Target, commit string, still func() bool, why string) {
+func (o Runtime) mainAt(ctx context.Context, projectID ids.ID) (t guidanceTarget, commit string, still func() bool, why string) {
 	t, e, why, ok := o.standingTarget(ctx, projectID)
 	if !ok {
 		return t, "", nil, why
@@ -243,7 +244,7 @@ func (o Runtime) mainAt(ctx context.Context, projectID ids.ID) (t Target, commit
 
 // declaredReadinessPath is the public part's declared readiness HTTP path at
 // the commit the deployment serves (falling back to the repo head).
-func (o Runtime) declaredReadinessPath(ctx context.Context, t Target) (string, bool) {
+func (o Runtime) declaredReadinessPath(ctx context.Context, t guidanceTarget) (string, bool) {
 	repo, pathErr := o.repo(t)
 	if pathErr != nil {
 		return "", false
@@ -284,11 +285,11 @@ func readinessPathOf(c *appcontract.Contract) (string, bool) {
 	return "", false
 }
 
-// Observe is the production runtime evaluator: resolve the
+// observe is the production runtime evaluator: resolve the
 // standing deployment, resolve the path, probe both doors. source is the
 // commit the review recorded; a probe of the contract judges that commit
 // ("" is the default branch as it stands).
-func (o Runtime) Observe(ctx context.Context, projectID ids.ID, source, probe string) (state conformance.Outcome, detail string) {
+func (o Runtime) observe(ctx context.Context, projectID ids.ID, source, probe string) (state conformance.Outcome, detail string) {
 	ps, err := check.ParseProbe(probe)
 	if err != nil {
 		return conformance.EvaluationError, err.Error()
@@ -300,7 +301,7 @@ func (o Runtime) Observe(ctx context.Context, projectID ids.ID, source, probe st
 		if rev == "" {
 			rev = p.DefaultBranch
 		}
-		v := o.memoryDeclared(ctx, Target{ProjectID: projectID, Slug: p.Slug, Revision: rev})
+		v := o.memoryDeclared(ctx, guidanceTarget{ProjectID: projectID, Slug: p.Slug, Revision: rev})
 		return outcomeOf(v.Outcome), v.Detail
 	}
 	t, _, why, ok := o.standingTarget(ctx, projectID)
@@ -361,7 +362,7 @@ const readinessReadStopped = "the check was stopped before the app's contract co
 // review goes through Observe). It answers in the judge's own
 // words, with whether an unknown answer is AppTown's own fault: the gate
 // records an evaluation, not a stored verdict.
-func (o Runtime) Probe(ctx context.Context, t Target, probe string) check.ProbeVerdict {
+func (o Runtime) Probe(ctx context.Context, t guidanceTarget, probe string) check.ProbeVerdict {
 	ps, err := check.ParseProbe(probe)
 	if err != nil {
 		return check.ProbeVerdict{Outcome: check.Error, Detail: err.Error()}
@@ -395,7 +396,7 @@ func (o Runtime) Probe(ctx context.Context, t Target, probe string) check.ProbeV
 
 // bothDoors judges one probe spec against a resolved target's two addresses,
 // and says the answer in conformance's vocabulary.
-func bothDoors(ctx context.Context, t Target, ps check.ProbeSpec) (conformance.Outcome, string) {
+func bothDoors(ctx context.Context, t guidanceTarget, ps check.ProbeSpec) (conformance.Outcome, string) {
 	state, detail := check.ProbeBothDoors(ctx, check.HTTPProber, t.FrontDoor, t.Naked, ps)
 	return outcomeOf(state), detail
 }
@@ -413,7 +414,7 @@ func outcomeOf(o check.Outcome) conformance.Outcome {
 // declaredReadinessPathAt reads the readiness path from the target's own
 // tree when it names one (a change may have moved it), else from the
 // project as the standing deployment resolver does.
-func (o Runtime) declaredReadinessPathAt(ctx context.Context, t Target) (string, bool) {
+func (o Runtime) declaredReadinessPathAt(ctx context.Context, t guidanceTarget) (string, bool) {
 	var c *appcontract.Contract
 	switch {
 	case t.Recorded != nil:

@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
@@ -53,7 +55,7 @@ func TestAttachHostTarget(t *testing.T) {
 		t.Fatal("failed probe saved target")
 	}
 	// Where projects may deploy is not changed without its receipt.
-	restore := w.db.FailNextStatement("-- name: AppendReceipt")
+	restore := dbtest.NextStatementFailure(w.db, "-- name: AppendReceipt")
 	code, out := call("POST", "/api/v1/targets", `{"name":"droplet","host":"ssh://deploy@droplet.example:2222","keyFrom":"DROPLET_KEY","domain":"*.apps.example.com"}`, "")
 	restore()
 	if code == 200 {
@@ -204,7 +206,7 @@ func TestAttachDigitalOceanTarget(t *testing.T) {
 	}
 	// The connector is saved with its receipt; the target is not saved
 	// without the attach's.
-	restore := w.db.FailStatementAfter("-- name: AppendReceipt", 1)
+	restore := dbtest.StatementFailureAfter(w.db, "-- name: AppendReceipt", 1)
 	code, out := call(`{"kind":"do-app","name":"do-nyc","tokenFrom":"DIGITALOCEAN_ACCESS_TOKEN","region":"nyc","registry":"team"}`)
 	restore()
 	if code == 200 {
@@ -392,7 +394,7 @@ func TestAttachTargetUnavailableLookupStopsBeforeProviderProbe(t *testing.T) {
 				calls++
 				return []byte("29.7.2 on Debian, 0/0 containers\n"), nil
 			}))
-			t.Cleanup(w.db.FailNextStatement("-- name: TargetByName :one"))
+			t.Cleanup(dbtest.NextStatementFailure(w.db, "-- name: TargetByName :one"))
 			body := fmt.Sprintf(`{"name":"unavailable","host":"ssh://root@host","keyFrom":"DROPLET_KEY","dryRun":%t}`, dryRun)
 			code, _ := targetCall(t, w.targets.AttachTarget, "POST", "/api/v1/targets", body, nil)
 			if code != 500 || calls != 0 {

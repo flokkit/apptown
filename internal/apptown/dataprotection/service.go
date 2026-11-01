@@ -63,8 +63,8 @@ func (s *core) now() time.Time { return clock.Or(s.clock)() }
 // the manifest is for a person or a tool holding the set without AppTown,
 // so it says what it is and where the set lives relative to its root.
 const (
-	BackupManifestFormat  = "flokkit.backup-set"
-	BackupManifestVersion = 1
+	backupManifestFormat  = "flokkit.backup-set"
+	backupManifestVersion = 1
 )
 
 // backupManifest is a set's record as written beside its copies: the record's
@@ -92,7 +92,7 @@ func (s *core) manifest(ctx context.Context, b Backup) ([]byte, error) {
 		}
 		path = filepath.ToSlash(rel)
 	}
-	return json.MarshalIndent(backupManifest{Format: BackupManifestFormat, Version: BackupManifestVersion, Backup: b, Path: path}, "", "  ")
+	return json.MarshalIndent(backupManifest{Format: backupManifestFormat, Version: backupManifestVersion, Backup: b, Path: path}, "", "  ")
 }
 
 // StarterDependencies are what a fill from a copy runs on.
@@ -119,18 +119,18 @@ type StarterDependencies struct {
 	Now     func() time.Time
 }
 
-// Starter is data protection's side of starting a deployment from a copy
+// starter is data protection's side of starting a deployment from a copy
 // (deployment.CopyStarter). It is built before Deployment's service, which
 // is given it, and the data protection Service is built over the same one.
-type Starter struct{ *core }
+type starter struct{ *core }
 
 // NewStarter builds the fill a deployment started from a copy runs.
-func NewStarter(db *database.DB, deps StarterDependencies) *Starter {
+func NewStarter(db *database.DB, deps StarterDependencies) *starter {
 	owned := deps.Deployments
 	if owned == nil {
 		owned = deployment.NewDeployments(db) // a reader only: it stamps nothing
 	}
-	return &Starter{&core{db: db, authority: deps.Authority, still: deps.Still, authorityProjects: deps.Projects, targets: deps.Targets, needs: deployment.NewNeedStore(db, deps.Now), hosts: deps.Hosts, env: deps.Environment,
+	return &starter{&core{db: db, authority: deps.Authority, still: deps.Still, authorityProjects: deps.Projects, targets: deps.Targets, needs: deployment.NewNeedStore(db, deps.Now), hosts: deps.Hosts, env: deps.Environment,
 		providers: deps.Providers, catalog: deps.Catalog, secrets: deps.Secrets, owned: owned, sources: deps.Sources, dataDir: deps.DataDir, clock: deps.Now}}
 }
 
@@ -143,7 +143,7 @@ func NewStarter(db *database.DB, deps StarterDependencies) *Starter {
 // these touch, through its participants.
 type Service struct {
 	*core
-	starter      *Starter
+	starter      *starter
 	deployments  *deployment.Deployments
 	releases     *deployment.Releases
 	bundles      *deployment.Bundles
@@ -184,10 +184,10 @@ type Dependencies struct {
 
 // New builds data protection over the Starter's records and collaborators
 // and registers its operation kinds with the ledger.
-func New(starter *Starter, deps Dependencies) *Service {
+func New(starter *starter, deps Dependencies) *Service {
 	s := &Service{core: starter.core, starter: starter, deployments: deps.Deployments, releases: deps.Releases, bundles: deps.Bundles,
 		retained: deps.Retained, outcomes: deps.Outcomes, backups: NewBackups(starter.db), projects: deps.Projects, integrations: deps.Integrations,
-		ops: deps.Operations, restored: deps.RestoredCopies, applied: deps.Applied, nativeFresh: NativeReadFor}
+		ops: deps.Operations, restored: deps.RestoredCopies, applied: deps.Applied, nativeFresh: nativeReadFor}
 	s.backups.clock = starter.clock
 	s.registerKinds()
 	return s

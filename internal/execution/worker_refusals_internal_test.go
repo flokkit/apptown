@@ -61,7 +61,7 @@ func TestARefusalOfTwoClassesIsTheFirst(t *testing.T) {
 	err := refusedWith(func(w http.ResponseWriter) {
 		WriteRefusal(w, http.StatusUnprocessableEntity, fmt.Errorf("%w: %w", ErrStartRefused, ErrExpired))
 	})
-	if got := classOf(err); len(got) != 1 || got[0] != RefusalExpired {
+	if got := classOf(err); len(got) != 1 || got[0] != refusalExpired {
 		t.Fatalf("read as %v (%v)", got, err)
 	}
 }

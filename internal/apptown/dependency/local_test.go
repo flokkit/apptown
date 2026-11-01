@@ -2,13 +2,14 @@ package dependency
 
 import (
 	"context"
-	"github.com/flokkit/apptown/internal/apptown/dependency/internal/dependencysql"
 	"io/fs"
 	"reflect"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/dependency/internal/dependencysql"
 
 	"github.com/flokkit/apptown/stock"
 )

@@ -34,7 +34,7 @@ func TestEvalCopiesArePlacedOnEvalTargetsOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	evalHost, err := s.Targets.Put(ctx, &Target{Name: "evals", Kind: KindDockerHost, Origin: OriginAttached, Status: TargetReady,
-		Address: map[string]any{"host": "ssh://deploy@127.0.0.3", "keyFrom": "REMOTE_KEY"}, Ingress: map[string]any{"domain": "eval.example.com", IngressEvals: true}})
+		Address: map[string]any{"host": "ssh://deploy@127.0.0.3", "keyFrom": "REMOTE_KEY"}, Ingress: map[string]any{"domain": "eval.example.com", ingressEvals: true}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,17 +117,17 @@ func TestAnAttachedDockerHostIsKeptForEvalsByAnEdit(t *testing.T) {
 	}
 	yes, no := true, false
 	rev := host.SettingsRevision
-	if _, err := targets.EditSettings(ctx, "host", TargetSettingsEdit{ExpectedRevision: &rev, Evals: &yes}, "alice"); !errors.Is(err, ErrTargetEvals) {
+	if _, err := targets.EditSettings(ctx, "host", TargetSettingsEdit{ExpectedRevision: &rev, Evals: &yes}, "alice"); !errors.Is(err, errTargetEvals) {
 		t.Fatalf("no domain, no eval domain: %v", err)
 	}
 	domain := "eval.example.com"
 	kept, err := targets.EditSettings(ctx, "host", TargetSettingsEdit{ExpectedRevision: &rev, Domain: &domain, Evals: &yes}, "alice")
-	if err != nil || !kept.ForEvals() {
+	if err != nil || !kept.forEvals() {
 		t.Fatalf("kept for evals: %+v %v", kept, err)
 	}
 	rev = kept.SettingsRevision
 	back, err := targets.EditSettings(ctx, "host", TargetSettingsEdit{ExpectedRevision: &rev, Evals: &no}, "alice")
-	if err != nil || back.ForEvals() {
+	if err != nil || back.forEvals() {
 		t.Fatalf("returned to ordinary work: %+v %v", back, err)
 	}
 }
@@ -220,7 +220,7 @@ func TestAnUnreadableRegistryCredentialIsNotAnAnonymousRead(t *testing.T) {
 	integrations := integration.NewService(db, integration.Dependencies{Projects: projects, Secrets: secret.NewService(db, secret.Config{DataDir: dir})})
 	s := New(context.Background(), db, assembled(db, testRuntime{DataDir: dir, Projects: projects, Integrations: integrations}, Dependencies{}))
 	p := &Providers{env: s.env}
-	if got, err := s.env.ReleaseLogin(t.Context(), id); err != nil || got != nil {
+	if got, err := s.env.releaseLogin(t.Context(), id); err != nil || got != nil {
 		t.Fatalf("no registry attached: %+v %v", got, err)
 	}
 	if got, err := p.releaseCredential(t.Context(), id, "registry.example/team/shop:latest"); err != nil || got != (oci.Credential{}) {
@@ -236,7 +236,7 @@ func TestAnUnreadableRegistryCredentialIsNotAnAnonymousRead(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(dir, "secrets.env"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := s.env.ReleaseLogin(t.Context(), id); err == nil || got != nil {
+	if got, err := s.env.releaseLogin(t.Context(), id); err == nil || got != nil {
 		t.Fatalf("an unreadable credential: %+v %v", got, err)
 	}
 	if got, err := p.releaseCredential(t.Context(), id, "registry.example/team/shop:latest"); err == nil || got != (oci.Credential{}) {
@@ -286,7 +286,7 @@ func TestRegistryDestinationRefusalReachesPublicationAndLogin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	login, err := env.ReleaseLogin(t.Context(), id)
+	login, err := env.releaseLogin(t.Context(), id)
 	if err != nil || login == nil || login.Host != "index.docker.io" || sourceCredential(false, repo, "docker.io/team/base:tag") != repo.Credential {
 		t.Fatalf("canonical resolver/selector: %+v %v", login, err)
 	}
@@ -296,7 +296,7 @@ func TestRegistryDestinationRefusalReachesPublicationAndLogin(t *testing.T) {
 	if got, err := env.ReleaseRepository(t.Context(), id); err == nil || got != (oci.Repository{}) {
 		t.Fatalf("unsafe publication repository: %+v %v", got, err)
 	}
-	if got, err := env.ReleaseLogin(t.Context(), id); err == nil || got != nil {
+	if got, err := env.releaseLogin(t.Context(), id); err == nil || got != nil {
 		t.Fatalf("unsafe Docker login: %+v %v", got, err)
 	}
 }

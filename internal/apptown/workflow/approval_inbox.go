@@ -7,14 +7,14 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// ApprovalInboxItem combines canonical records with display labels. Observing a
+// approvalInboxItem combines canonical records with display labels. Observing a
 // pending approval does not establish eligibility to vote on it.
-type ApprovalInboxItem struct {
+type approvalInboxItem struct {
 	StepContext
 	ProjectSlug, ProjectName, ChangeTitle string
 }
 
-func (s *Service) ApprovalInbox(ctx context.Context, project ids.ID) ([]ApprovalInboxItem, error) {
+func (s *Service) ApprovalInbox(ctx context.Context, project ids.ID) ([]approvalInboxItem, error) {
 	if _, err := s.require(ctx, operationPermission{Action: actionIdentify}); err != nil {
 		return nil, err
 	}
@@ -26,7 +26,7 @@ func (s *Service) ApprovalInbox(ctx context.Context, project ids.ID) ([]Approval
 	if err != nil {
 		return nil, err
 	}
-	out := make([]ApprovalInboxItem, 0, len(rows))
+	out := make([]approvalInboxItem, 0, len(rows))
 	for _, row := range rows {
 		run, err := runRecord(row.Run, nil)
 		if err != nil {
@@ -36,7 +36,7 @@ func (s *Service) ApprovalInbox(ctx context.Context, project ids.ID) ([]Approval
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, ApprovalInboxItem{StepContext: StepContext{Run: run, Step: step}, ProjectSlug: row.ProjectSlug, ProjectName: row.ProjectName, ChangeTitle: row.ChangeTitle})
+		out = append(out, approvalInboxItem{StepContext: StepContext{Run: run, Step: step}, ProjectSlug: row.ProjectSlug, ProjectName: row.ProjectName, ChangeTitle: row.ChangeTitle})
 	}
 	return out, nil
 }

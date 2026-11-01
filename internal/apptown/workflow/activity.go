@@ -16,8 +16,8 @@ type ActivityState string
 
 const (
 	ActivityWorking      ActivityState = "working"
-	ActivityAgentWorking ActivityState = "agent working"
-	ActivityQueued       ActivityState = "queued"
+	activityAgentWorking ActivityState = "agent working"
+	activityQueued       ActivityState = "queued"
 	ActivityBlocked      ActivityState = "blocked"
 	ActivityWaiting      ActivityState = "waiting on you"
 	ActivityReady        ActivityState = "ready to advance"
@@ -38,7 +38,7 @@ func (a Activity) Active() bool {
 	return a.State != ActivityAbandoned && a.State != ActivityDone
 }
 
-type SlotWait func(ids.ID) (binding string, ahead int, waiting bool)
+type slotWait func(ids.ID) (binding string, ahead int, waiting bool)
 type workflowActivityStep struct {
 	id                   ids.ID
 	attempt              int64
@@ -64,7 +64,7 @@ type workflowActivityRun struct {
 }
 type workflowActivityGraph map[ids.ID]*workflowActivityRun
 
-func (g workflowActivityGraph) classify(id ids.ID, wait SlotWait, path map[ids.ID]bool) (Activity, error) {
+func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.ID]bool) (Activity, error) {
 	run := g[id]
 	if run == nil {
 		return Activity{}, fmt.Errorf("run %d is missing from the activity snapshot", id)
@@ -120,7 +120,7 @@ func (g workflowActivityGraph) classify(id ids.ID, wait SlotWait, path map[ids.I
 			}
 			state := ActivityWorking
 			if step.kind == "agent/pi" {
-				state = ActivityAgentWorking
+				state = activityAgentWorking
 			}
 			return Activity{State: state, Detail: step.name}, nil
 		case step.kind == "approval" && step.state == StatusPending:
@@ -141,7 +141,7 @@ func (g workflowActivityGraph) classify(id ids.ID, wait SlotWait, path map[ids.I
 		}
 	}
 	if pendingAgent != "" {
-		return Activity{State: ActivityQueued, Detail: pendingAgent}, nil
+		return Activity{State: activityQueued, Detail: pendingAgent}, nil
 	}
 	// The stage's own work still to run (a gate dispatched a moment after
 	// the step before it finished) is AppTown working: neither a person's

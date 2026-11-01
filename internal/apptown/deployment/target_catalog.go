@@ -25,7 +25,7 @@ var kindCatalog = []KindInfo{
 	// with their drivers; nothing in the UI changes.
 }
 
-func DescribeKind(kind string) KindInfo {
+func describeKind(kind string) KindInfo {
 	for _, k := range kindCatalog {
 		if k.Kind == kind {
 			return k
@@ -38,7 +38,7 @@ func DescribeKind(kind string) KindInfo {
 // describes this AppTown's own host; a Docker host attached over SSH is
 // described by its origin, placed at its hostname, never as "this AppTown".
 func DescribeTarget(t *Target) KindInfo {
-	k := DescribeKind(t.Kind)
+	k := describeKind(t.Kind)
 	if t.Kind == KindDockerHost && t.Origin != OriginBuiltIn {
 		k.Title, k.Family, k.Vendor, k.Region = "Docker host", "attached", "over SSH", "hostname"
 	}

@@ -22,7 +22,7 @@ func TestConfigAcceptsTheDocumentedEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Listen != DefaultListen || cfg.Upstream.String() != "http://web:8080" ||
+	if cfg.Listen != defaultListen || cfg.Upstream.String() != "http://web:8080" ||
 		cfg.AppTown.String() != "https://forge.example" || cfg.Secret != testSecret {
 		t.Fatalf("got %+v", cfg)
 	}

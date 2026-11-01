@@ -10,9 +10,9 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// InferenceObservation is a step attempt's run state, whether the attempt is
+// inferenceObservation is a step attempt's run state, whether the attempt is
 // still the live one, and the run's billing owner, read in one snapshot.
-type InferenceObservation struct {
+type inferenceObservation struct {
 	State       RunState
 	LiveAttempt bool
 	Owner       string
@@ -28,19 +28,19 @@ type InferenceObservation struct {
 // and callers admit only a running run whose live attempt this is. Historical
 // runs without a recorded initiator keep their run attribution; a blank
 // recorded owner stays distinct from an absent owner record.
-func ObserveStepAttemptIn(ctx context.Context, q database.Queryer, stepID ids.ID, attempt int64) (RunRef, InferenceObservation, error) {
+func ObserveStepAttemptIn(ctx context.Context, q database.Queryer, stepID ids.ID, attempt int64) (RunRef, inferenceObservation, error) {
 	if stepID.IsZero() || attempt < 0 {
-		return RunRef{}, InferenceObservation{}, fmt.Errorf("a step attempt needs a step and a valid attempt")
+		return RunRef{}, inferenceObservation{}, fmt.Errorf("a step attempt needs a step and a valid attempt")
 	}
 	row, err := workflowsql.New(q.SQL()).StepAttemptObservation(ctx, workflowsql.StepAttemptObservationParams{
 		StepID: stepID, Attempt: attempt, RunningStepState: StatusRunning.String(),
 	})
 	if err != nil {
-		return RunRef{}, InferenceObservation{}, err
+		return RunRef{}, inferenceObservation{}, err
 	}
 	state, err := ParseRunState(row.Status)
 	if err != nil {
-		return RunRef{}, InferenceObservation{}, err
+		return RunRef{}, inferenceObservation{}, err
 	}
-	return RunRef{ID: row.RunID, ProjectID: row.ProjectID}, InferenceObservation{State: state, LiveAttempt: row.LiveAttempt, Owner: row.Owner, OwnerPrincipal: row.OwnerPrincipal}, nil
+	return RunRef{ID: row.RunID, ProjectID: row.ProjectID}, inferenceObservation{State: state, LiveAttempt: row.LiveAttempt, Owner: row.Owner, OwnerPrincipal: row.OwnerPrincipal}, nil
 }

@@ -27,19 +27,19 @@ import (
 // app volumes after a slug change, say) are never one file, and evidence and
 // restore follow the volume (placeCopies).
 
-// ErrNothingToBackUp is a deployment whose list records no data volume and
+// errNothingToBackUp is a deployment whose list records no data volume and
 // whose running release declares none: a scheduled backup of it is
 // skipped, not failed. It is never said when either could not be read.
-var ErrNothingToBackUp = errors.New("the deployment holds no data: its list records no data volume and its release declares none — there is nothing to back up")
+var errNothingToBackUp = errors.New("the deployment holds no data: its list records no data volume and its release declares none — there is nothing to back up")
 
-// ErrDataNotKnown is a deployment whose data could not be read: its
+// errDataNotKnown is a deployment whose data could not be read: its
 // release, its list or its host. Nothing is said to be held or not held.
-var ErrDataNotKnown = fault.New(fault.Unavailable, "what this deployment holds is not known")
+var errDataNotKnown = fault.New(fault.Unavailable, "what this deployment holds is not known")
 
-// ErrHeldDataAbsent is a deployment whose list or release names data
+// errHeldDataAbsent is a deployment whose list or release names data
 // none of which is on its host: nothing could be copied, which is not the
 // same as holding nothing.
-var ErrHeldDataAbsent = fault.New(fault.Conflict, "the deployment's list or release names data, but none of it is on its host; nothing was copied")
+var errHeldDataAbsent = fault.New(fault.Conflict, "the deployment's list or release names data, but none of it is on its host; nothing was copied")
 
 // heldItems is what a deployment holds: on a Docker host with the
 // release contract it runs and the host's scope it was read through.
@@ -63,15 +63,15 @@ func (s *core) heldData(ctx context.Context, dep *deployment.Deployment, t *depl
 	case t.DataAccess() == deployment.DataThroughPortainer:
 		dk, err := s.providers.PortainerDataScope(ctx, t)
 		if err != nil {
-			return heldItems{}, fmt.Errorf("%w: %w", ErrDataNotKnown, err)
+			return heldItems{}, fmt.Errorf("%w: %w", errDataNotKnown, err)
 		}
 		p, err := project.ByIDIn(ctx, s.db, dep.ProjectID)
 		if err != nil {
-			return heldItems{}, fmt.Errorf("%w: reading the project: %v", ErrDataNotKnown, err)
+			return heldItems{}, fmt.Errorf("%w: reading the project: %v", errDataNotKnown, err)
 		}
 		layout, err := s.portainerLayout(ctx, t, dep, p.Slug)
 		if err != nil {
-			return heldItems{}, fmt.Errorf("%w: %v", ErrDataNotKnown, err)
+			return heldItems{}, fmt.Errorf("%w: %v", errDataNotKnown, err)
 		}
 		held, err := s.heldOnPortainer(ctx, dk, layout, dep)
 		held.dk, held.layout = dk, &layout
@@ -80,11 +80,11 @@ func (s *core) heldData(ctx context.Context, dep *deployment.Deployment, t *depl
 		dk, err := s.hosts.DockerScope(ctx, t)
 		if err != nil {
 			// Not known, and why: an AppTown with no local Docker refuses by name.
-			return heldItems{}, fmt.Errorf("%w: %w", ErrDataNotKnown, err)
+			return heldItems{}, fmt.Errorf("%w: %w", errDataNotKnown, err)
 		}
 		p, err := project.ByIDIn(ctx, s.db, dep.ProjectID)
 		if err != nil {
-			return heldItems{}, fmt.Errorf("%w: reading the project: %v", ErrDataNotKnown, err)
+			return heldItems{}, fmt.Errorf("%w: reading the project: %v", errDataNotKnown, err)
 		}
 		held, err := s.heldOnHost(ctx, dk, p.Slug, dep)
 		held.dk = dk
@@ -102,7 +102,7 @@ func (s *core) heldData(ctx context.Context, dep *deployment.Deployment, t *depl
 // be read.
 func (s *core) heldOnHost(ctx context.Context, dk docker.Scope, slug string, dep *deployment.Deployment) (heldItems, error) {
 	unknown := func(format string, a ...any) (heldItems, error) {
-		return heldItems{}, fmt.Errorf("%w: %s", ErrDataNotKnown, fmt.Sprintf(format, a...))
+		return heldItems{}, fmt.Errorf("%w: %s", errDataNotKnown, fmt.Sprintf(format, a...))
 	}
 	owned, err := s.owned.Owned(ctx, dep.ID)
 	if err != nil {
@@ -117,11 +117,11 @@ func (s *core) heldOnHost(ctx context.Context, dk docker.Scope, slug string, dep
 	case err != nil:
 		return unknown("%v", err)
 	case !named:
-		return heldItems{}, ErrNothingToBackUp
+		return heldItems{}, errNothingToBackUp
 	case len(items) == 0:
 		// Data its sources name, none of it on the host, is not "nothing to
 		// back up": nothing was there to copy, and that is said.
-		return heldItems{}, ErrHeldDataAbsent
+		return heldItems{}, errHeldDataAbsent
 	}
 	if err := oneFileEach(items); err != nil {
 		return heldItems{}, err
@@ -304,7 +304,7 @@ func unreadNeed(ctx context.Context, dk docker.Scope, stackID, need, why string)
 
 // appVolumeItem copies the app's data volume while the app runs.
 func appVolumeItem(chownImage, vol string) backupPlanItem {
-	return backupPlanItem{Kind: "volume", Name: vol, Volume: vol, File: vol + ".tar.gz", How: "tar of the volume " + vol, Copy: CopyLiveFiles,
+	return backupPlanItem{Kind: "volume", Name: vol, Volume: vol, File: vol + ".tar.gz", How: "tar of the volume " + vol, Copy: copyLiveFiles,
 		Step: docker.Step{Image: chownImage, Options: []string{"--entrypoint", "", "--network", "none", "-v", vol + ":/src:ro"}, Argv: []string{"tar", "cz", "-C", "/src", "."}}}
 }
 

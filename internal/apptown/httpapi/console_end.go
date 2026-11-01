@@ -5,12 +5,12 @@ import (
 	"net/http"
 )
 
-type ConsoleEnd struct{ end ConsoleEnder }
+type ConsoleEnd struct{ end consoleEnder }
 
-func NewConsoleEnd(end ConsoleEnder) ConsoleEnd { return ConsoleEnd{end: end} }
+func NewConsoleEnd(end consoleEnder) ConsoleEnd { return ConsoleEnd{end: end} }
 
-// ConsoleEnder ends a chat for the caller, who must be allowed to act on it.
-type ConsoleEnder interface {
+// consoleEnder ends a chat for the caller, who must be allowed to act on it.
+type consoleEnder interface {
 	EndBy(context.Context, string) error
 }
 

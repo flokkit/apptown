@@ -23,7 +23,7 @@ func outcomeFixture(t *testing.T, kind string) (stepAttempts, *Step) {
 		t.Fatal(err)
 	}
 	owner := newStepAttempts(q.db, func(k string) bool { return k == kind })
-	claim, err := owner.Start(context.Background(), snapshot, kind)
+	claim, err := owner.start(context.Background(), snapshot, kind, ids.Nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func outcomeFixture(t *testing.T, kind string) (stepAttempts, *Step) {
 }
 func TestStepOutcomeRequiresCommittedCurrentClaim(t *testing.T) {
 	t.Parallel()
-	if err := newStepAttempts(nil, nil).Finish(context.Background(), nil, StepOutcome{}); !errors.Is(err, ErrStepAttemptLost) {
+	if err := newStepAttempts(nil, nil).finish(context.Background(), nil, StepOutcome{}); !errors.Is(err, ErrStepAttemptLost) {
 		t.Fatalf("nil claim: %v", err)
 	}
 	for _, change := range []string{"read", "retarget", "moved run", "attempt", "run closed", "stage", "override", "invalid outcome"} {
@@ -65,7 +65,7 @@ func TestStepOutcomeRequiresCommittedCurrentClaim(t *testing.T) {
 			case "invalid outcome":
 				status = StatusPending
 			}
-			if err := owner.Finish(context.Background(), claim, StepOutcome{Status: status, Evidence: json.RawMessage(`{"reason":"late"}`)}); err == nil {
+			if err := owner.finish(context.Background(), claim, StepOutcome{Status: status, Evidence: json.RawMessage(`{"reason":"late"}`)}); err == nil {
 				t.Fatal("invalid claim published outcome")
 			}
 			wantStepState(t, owner.db, id, StatusRunning)
@@ -77,7 +77,7 @@ func TestStepOutcomeProtectsReceiptIdentityAndExactEvidence(t *testing.T) {
 	t.Parallel()
 	owner, claim := outcomeFixture(t, "agent/pi")
 	outcome := StepOutcome{Status: StatusPass, Evidence: json.RawMessage(`{"large":9007199254740993}`), Details: json.RawMessage(`{"step":"spoof","status":"fail","attempt":99,"large":9007199254740993}`)}
-	if err := owner.Finish(context.Background(), claim, outcome); err != nil {
+	if err := owner.finish(context.Background(), claim, outcome); err != nil {
 		t.Fatal(err)
 	}
 	finished := wantStepState(t, owner.db, claim.ID, StatusPass)
@@ -87,7 +87,7 @@ func TestStepOutcomeProtectsReceiptIdentityAndExactEvidence(t *testing.T) {
 		t.Fatalf("sendback kept after the outcome: %s", finished.Config)
 	}
 	wantRunEventCount(t, owner.db, claim.RunID, 1, kindWith("step.finished", "step", "accept", "status", "pass", "attempt", "1", "large", "9007199254740993"))
-	if err := owner.Finish(context.Background(), claim, outcome); !errors.Is(err, ErrStepAttemptLost) {
+	if err := owner.finish(context.Background(), claim, outcome); !errors.Is(err, ErrStepAttemptLost) {
 		t.Fatalf("second outcome: %v", err)
 	}
 	current, err := readStep(context.Background(), owner.db, claim.ID)
@@ -116,7 +116,7 @@ func TestStepOutcomeWriteReceiptAndContinuationAreAtomic(t *testing.T) {
 				outcome.Details = json.RawMessage(`[]`)
 			}
 			err := owner.db.InTx(context.Background(), func(tx *database.Tx) error {
-				result, err := owner.FinishIn(context.Background(), tx, claim, outcome)
+				result, err := owner.finishIn(context.Background(), tx, claim, outcome)
 				if err != nil {
 					return err
 				}
@@ -165,7 +165,7 @@ func TestStepOutcomeCancelsWaitAndRejectsScopeMovedDuringLock(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			done := make(chan error, 1)
-			go func() { done <- owner.Finish(ctx, claim, StepOutcome{Status: StatusPass}) }()
+			go func() { done <- owner.finish(ctx, claim, StepOutcome{Status: StatusPass}) }()
 			dbtest.WaitForLock(t, owner.db, "-- name: ProjectForUpdate")
 			if cancelWait {
 				cancel()
@@ -205,7 +205,7 @@ func TestStepOutcomeKeepsFeedbackUntilAgentSuccess(t *testing.T) {
 			if kind == "agent/pi" {
 				status = StatusFail
 			}
-			if err := owner.Finish(context.Background(), claim, StepOutcome{Status: status, Evidence: json.RawMessage(`{"result":"recorded"}`)}); err != nil {
+			if err := owner.finish(context.Background(), claim, StepOutcome{Status: status, Evidence: json.RawMessage(`{"result":"recorded"}`)}); err != nil {
 				t.Fatal(err)
 			}
 			finished := wantStepState(t, owner.db, claim.ID, status)
@@ -218,7 +218,7 @@ func TestStepOutcomeKeepsFeedbackUntilAgentSuccess(t *testing.T) {
 
 // stepArtifactsOf reads a run's artifacts and artifact.added receipts through
 // the owner's reads, bodies included, binary ones as bytes.
-func stepArtifactsOf(t *testing.T, db *database.DB, runID ids.ID) ([]ArtifactBody, []Event) {
+func stepArtifactsOf(t *testing.T, db *database.DB, runID ids.ID) ([]artifactBodyPart, []Event) {
 	t.Helper()
 	artifacts, err := readWorkflowArtifacts(context.Background(), db, workflowArtifactQuery{RunID: runID, View: artifactBody})
 	if err != nil {
@@ -251,7 +251,7 @@ func producedArtifacts() []StepArtifact {
 func TestStepOutcomeRecordsArtifactsWithThePass(t *testing.T) {
 	t.Parallel()
 	owner, claim := outcomeFixture(t, "agent/pi")
-	if err := owner.Finish(context.Background(), claim, StepOutcome{Status: StatusPass, Evidence: json.RawMessage(`{}`), Artifacts: producedArtifacts()}); err != nil {
+	if err := owner.finish(context.Background(), claim, StepOutcome{Status: StatusPass, Evidence: json.RawMessage(`{}`), Artifacts: producedArtifacts()}); err != nil {
 		t.Fatal(err)
 	}
 	step, err := readStep(context.Background(), owner.db, claim.ID)
@@ -310,7 +310,7 @@ func TestStepOutcomeArtifactFailureRecordsNoPass(t *testing.T) {
 				completionExec(t, owner.db, `CREATE FUNCTION veto_artifact_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.kind='artifact.added' THEN RAISE EXCEPTION 'receipt refused'; END IF; RETURN NEW; END $$`)
 				completionExec(t, owner.db, `CREATE TRIGGER veto_artifact_receipt BEFORE INSERT ON run_events FOR EACH ROW EXECUTE FUNCTION veto_artifact_receipt()`)
 			}
-			if err := owner.Finish(context.Background(), claim, StepOutcome{Status: StatusPass, Evidence: json.RawMessage(`{}`), Artifacts: artifacts}); err == nil {
+			if err := owner.finish(context.Background(), claim, StepOutcome{Status: StatusPass, Evidence: json.RawMessage(`{}`), Artifacts: artifacts}); err == nil {
 				t.Fatal("outcome recorded without its artifacts")
 			}
 			step, err := readStep(context.Background(), owner.db, claim.ID)
@@ -330,10 +330,10 @@ func TestStepOutcomeReplayWritesArtifactsOnce(t *testing.T) {
 	t.Parallel()
 	owner, claim := outcomeFixture(t, "agent/pi")
 	outcome := StepOutcome{Status: StatusPass, Evidence: json.RawMessage(`{}`), Artifacts: producedArtifacts()}
-	if err := owner.Finish(context.Background(), claim, outcome); err != nil {
+	if err := owner.finish(context.Background(), claim, outcome); err != nil {
 		t.Fatal(err)
 	}
-	if err := owner.Finish(context.Background(), claim, outcome); !errors.Is(err, ErrStepAttemptLost) {
+	if err := owner.finish(context.Background(), claim, outcome); !errors.Is(err, ErrStepAttemptLost) {
 		t.Fatalf("replayed settlement: %v", err)
 	}
 	artifacts, added := stepArtifactsOf(t, owner.db, claim.RunID)
@@ -353,7 +353,7 @@ func TestStepOutcomeKeepsSameNamedArtifactsOfDifferentKindsOnce(t *testing.T) {
 		{ArtifactDraft: ArtifactDraft{Kind: "report", Name: "result.txt", Body: "the report"}, By: "agent:accept"},
 		{ArtifactDraft: ArtifactDraft{Kind: "file", Name: "result.txt", Body: "the file"}},
 	}}
-	if err := owner.Finish(context.Background(), claim, outcome); err != nil {
+	if err := owner.finish(context.Background(), claim, outcome); err != nil {
 		t.Fatal(err)
 	}
 	replay := outcome
@@ -361,7 +361,7 @@ func TestStepOutcomeKeepsSameNamedArtifactsOfDifferentKindsOnce(t *testing.T) {
 		{ArtifactDraft: ArtifactDraft{Kind: "report", Name: "result.txt", Body: "a different report"}, By: "agent:accept"},
 		{ArtifactDraft: ArtifactDraft{Kind: "file", Name: "result.txt", Body: "a different file"}},
 	}
-	if err := owner.Finish(context.Background(), claim, replay); !errors.Is(err, ErrStepAttemptLost) {
+	if err := owner.finish(context.Background(), claim, replay); !errors.Is(err, ErrStepAttemptLost) {
 		t.Fatalf("replayed settlement: %v", err)
 	}
 	artifacts, added := stepArtifactsOf(t, owner.db, claim.RunID)

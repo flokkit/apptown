@@ -80,7 +80,7 @@ func TestAnImageSavedToATarPublishesByItsDigest(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer short.Close()
-	if _, err := Publish(ctx, short, Repository{Name: repo}, "change-1-part-web", "linux/amd64"); !errors.Is(err, ErrMalformed) {
+	if _, err := Publish(ctx, short, Repository{Name: repo}, "change-1-part-web", "linux/amd64"); !errors.Is(err, errMalformed) {
 		t.Fatalf("a tar without a layer published: %v", err)
 	}
 	if got := tags(t, repo); len(got) != 0 {

@@ -29,8 +29,8 @@ func contains(list []string, s string) bool {
 	return false
 }
 
-// ValidateCaps refuses negative limits and unknown audience or data classes.
-func ValidateCaps(caps OfferCaps) error {
+// validateCaps refuses negative limits and unknown audience or data classes.
+func validateCaps(caps OfferCaps) error {
 	if caps.MaxStanding < 0 {
 		return fmt.Errorf("standing deployment limit must be zero (unlimited) or greater")
 	}
@@ -93,13 +93,13 @@ func selectOffer(t *Target, ownerGroup string, offers []Offer) (*Offer, error) {
 	if who == "" {
 		who = "this project's group"
 	}
-	return nil, &OfferDeniedError{fmt.Sprintf("%s is not offered to %s — an administrator offers targets to groups under Integrations → Deployment targets", t.Name, who)}
+	return nil, &offerDeniedError{fmt.Sprintf("%s is not offered to %s — an administrator offers targets to groups under Integrations → Deployment targets", t.Name, who)}
 }
 
-// Permits is the sentence for a deployment the offer's caps refuse, or "".
+// permits is the sentence for a deployment the offer's caps refuse, or "".
 // standing is how many standing deployments the project already has on the
 // target, not counting the one being bound.
-func (o *Offer) Permits(t *Target, projectSlug string, attrs Attributes, standing int) string {
+func (o *Offer) permits(t *Target, projectSlug string, attrs Attributes, standing int) string {
 	if o.Implicit {
 		return ""
 	}

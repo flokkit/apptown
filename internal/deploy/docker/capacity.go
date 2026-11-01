@@ -13,31 +13,31 @@ import (
 	"github.com/flokkit/apptown/internal/dockerlabel"
 )
 
-// HostInfo is what a daemon says it can give containers: its memory and
+// hostInfo is what a daemon says it can give containers: its memory and
 // CPUs (docker info: the host's, or its container's limits when the
 // daemon itself runs in one), and the folder its data lives in.
-type HostInfo struct {
+type hostInfo struct {
 	MemoryBytes int64
 	CPUs        int
 	DataRoot    string
 }
 
 // ReadHostInfo asks the daemon what it can give containers.
-func ReadHostInfo(ctx context.Context, dk Scope) (HostInfo, error) {
+func ReadHostInfo(ctx context.Context, dk Scope) (hostInfo, error) {
 	out, err := dk.Run(ctx, "info", "--format", "{{.MemTotal}}\t{{.NCPU}}\t{{.DockerRootDir}}")
 	if err != nil {
-		return HostInfo{}, fmt.Errorf("docker info: %v: %s", err, strings.TrimSpace(string(out)))
+		return hostInfo{}, fmt.Errorf("docker info: %v: %s", err, strings.TrimSpace(string(out)))
 	}
 	f := strings.Split(strings.TrimSpace(string(out)), "\t")
 	if len(f) != 3 {
-		return HostInfo{}, fmt.Errorf("docker info answered %q", strings.TrimSpace(string(out)))
+		return hostInfo{}, fmt.Errorf("docker info answered %q", strings.TrimSpace(string(out)))
 	}
 	mem, err1 := strconv.ParseInt(f[0], 10, 64)
 	cpus, err2 := strconv.Atoi(f[1])
 	if err1 != nil || err2 != nil || mem <= 0 || cpus <= 0 || f[2] == "" {
-		return HostInfo{}, fmt.Errorf("docker info answered %q", strings.TrimSpace(string(out)))
+		return hostInfo{}, fmt.Errorf("docker info answered %q", strings.TrimSpace(string(out)))
 	}
-	return HostInfo{MemoryBytes: mem, CPUs: cpus, DataRoot: f[2]}, nil
+	return hostInfo{MemoryBytes: mem, CPUs: cpus, DataRoot: f[2]}, nil
 }
 
 // ContainerLimit is the limit Docker enforces on one running container,

@@ -5,12 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/flokkit/apptown/internal/oidclogin"
 	"net/http"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"sync"
+
+	"github.com/flokkit/apptown/internal/oidclogin"
 
 	"github.com/flokkit/apptown/internal/apptown/instanceupdate"
 	"github.com/flokkit/apptown/internal/version"
@@ -266,9 +267,9 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	// AppTown's database is dumped where AppTown runs its containers: its
 	// own Docker when it has one (the built-in database is only there),
 	// otherwise its worker.
-	a.dumps = dumpPlace{Tasks: local, Scratch: filepath.Join(cfg.dataDir, "dump-tasks"), Profile: "local-docker", Now: cfg.clock.Now}
+	a.dumps = dumpPlace{tasks: local, scratch: filepath.Join(cfg.dataDir, "dump-tasks"), profile: "local-docker", now: cfg.clock.Now}
 	if cfg.noLocalDocker {
-		a.dumps = dumpPlace{Tasks: *cfg.worker, Results: *cfg.worker, Profile: "worker", Now: cfg.clock.Now}
+		a.dumps = dumpPlace{tasks: *cfg.worker, results: *cfg.worker, profile: "worker", now: cfg.clock.Now}
 	}
 	a.tasks = &workflowexec.TaskRunner{Records: records, Driver: local,
 		Requests: filepath.Join(cfg.dataDir, "tasks"),

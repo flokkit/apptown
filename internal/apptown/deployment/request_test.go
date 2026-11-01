@@ -178,19 +178,19 @@ func TestRequestReleaseCheckedSelection(t *testing.T) {
 			case "foreign-bundle":
 				other := createTestProject(t, s.db, "other", "Other")
 				in.BundleID = cutBundleFixture(t, s.db, other, "selected", BundleOrigin{})
-				want = ErrBundleMissing
+				want = errBundleMissing
 			case "missing-bundle":
 				in.BundleID = idstest.N(99999)
-				want = ErrBundleMissing
+				want = errBundleMissing
 			case "no-bundle":
 				if _, err := deploymentsql.New(s.db.SQL()).RemoveProjectReleaseBundles(ctx, in.ProjectID); err != nil {
 					t.Fatal(err)
 				}
 				in.BundleID = ids.Nil
-				want = ErrNoBundle
+				want = errNoBundle
 			case "landing":
 				mutateStoredDeployment(t, s.db, in.ProjectID, in.DeploymentName, func(r *deploymentsql.Deployment) { r.Feed = "landing" })
-				want = ErrFedByLanding
+				want = errFedByLanding
 			case "preview":
 				r, err := deploymentsql.New(s.db.SQL()).DeploymentByName(ctx, deploymentsql.DeploymentByNameParams{ProjectID: in.ProjectID, Name: in.DeploymentName})
 				if err != nil {
@@ -199,23 +199,23 @@ func TestRequestReleaseCheckedSelection(t *testing.T) {
 				if _, err := deploymentsql.New(s.db.SQL()).DeleteDeployment(ctx, r.ID); err != nil {
 					t.Fatal(err)
 				}
-				storedDeploymentFixture(t, s.db, deploymentsql.EnsureStandingParams{ID: ids.New(time.Now()), ProjectID: r.ProjectID, Name: r.Name, Kind: Preview.String(), TargetID: r.TargetID, Feed: r.Feed, Audience: r.Audience, DataClass: r.DataClass})
-				want = ErrPreviewNotDeployed
+				storedDeploymentFixture(t, s.db, deploymentsql.EnsureStandingParams{ID: ids.New(time.Now()), ProjectID: r.ProjectID, Name: r.Name, Kind: preview.String(), TargetID: r.TargetID, Feed: r.Feed, Audience: r.Audience, DataClass: r.DataClass})
+				want = errPreviewNotDeployed
 			case "retargeted":
 				sources.before = func() {
 					mutateStoredDeployment(t, s.db, in.ProjectID, in.DeploymentName, func(r *deploymentsql.Deployment) { r.TargetID = idstest.N(999999) })
 				}
-				want = ErrPlacementChanged
+				want = errPlacementChanged
 			case "attributes-changed":
 				sources.before = func() {
 					mutateStoredDeployment(t, s.db, in.ProjectID, in.DeploymentName, func(r *deploymentsql.Deployment) { r.Audience = "public" })
 				}
-				want = ErrPlacementChanged
+				want = errPlacementChanged
 			case "generation-changed":
 				sources.before = func() {
 					mutateStoredDeployment(t, s.db, in.ProjectID, in.DeploymentName, func(r *deploymentsql.Deployment) { r.DesiredGeneration++ })
 				}
-				want = ErrPlacementChanged
+				want = errPlacementChanged
 			case "cancelled":
 				var cancel context.CancelFunc
 				ctx, cancel = context.WithCancel(ctx)
@@ -297,7 +297,7 @@ func TestALandingFedDeploymentTakesTheBundleItRuns(t *testing.T) {
 		if err != nil || got.ID.IsZero() {
 			t.Fatalf("the bundle it runs, again: %+v %v", got, err)
 		}
-		if err := w.s.ExecuteRelease(t.Context(), got.ID); errors.Is(err, ErrFedByLanding) {
+		if err := w.s.ExecuteRelease(t.Context(), got.ID); errors.Is(err, errFedByLanding) {
 			t.Fatalf("the accepted release was refused when it ran: %v", err)
 		}
 	})
@@ -306,7 +306,7 @@ func TestALandingFedDeploymentTakesTheBundleItRuns(t *testing.T) {
 		w := setup(t, true)
 		other := w.in
 		other.BundleID = cutBundleFixture(t, w.s.db, w.in.ProjectID, w.running.ContractRevision, BundleOrigin{})
-		if got, err := w.s.RequestRelease(t.Context(), other); !errors.Is(err, ErrFedByLanding) || !got.ID.IsZero() {
+		if got, err := w.s.RequestRelease(t.Context(), other); !errors.Is(err, errFedByLanding) || !got.ID.IsZero() {
 			t.Fatalf("a same-revision bundle can carry other images: %+v %v", got, err)
 		}
 	})
@@ -316,21 +316,21 @@ func TestALandingFedDeploymentTakesTheBundleItRuns(t *testing.T) {
 		if _, _, err := w.s.Outcomes.Admit(t.Context(), Start{DeploymentID: w.dep.ID, TargetID: w.dep.TargetID, Key: "landing", Inputs: Inputs{Revision: "newer"}}); err != nil {
 			t.Fatal(err)
 		}
-		if got, err := w.s.RequestRelease(t.Context(), w.in); !errors.Is(err, ErrFedByLanding) || !got.ID.IsZero() {
+		if got, err := w.s.RequestRelease(t.Context(), w.in); !errors.Is(err, errFedByLanding) || !got.ID.IsZero() {
 			t.Fatalf("a landing under way decides what runs next: %+v %v", got, err)
 		}
 	})
 	t.Run("what runs is not known", func(t *testing.T) {
 		t.Parallel()
 		w := setup(t, false) // the attempt names no bundle, release or run
-		if got, err := w.s.RequestRelease(t.Context(), w.in); !errors.Is(err, ErrFedByLanding) || !got.ID.IsZero() {
+		if got, err := w.s.RequestRelease(t.Context(), w.in); !errors.Is(err, errFedByLanding) || !got.ID.IsZero() {
 			t.Fatalf("an unknown running bundle is not a match: %+v %v", got, err)
 		}
 	})
 	t.Run("an unreadable generation is not an unknown success", func(t *testing.T) {
 		t.Parallel()
 		w := setup(t, true)
-		restore := w.s.db.FailNextStatement("-- name: CompletedAttempt")
+		restore := dbtest.NextStatementFailure(w.s.db, "-- name: CompletedAttempt")
 		bundle, err := w.s.runningBundle(t.Context(), w.dep)
 		restore()
 		if err == nil || !bundle.IsZero() {
@@ -354,7 +354,7 @@ func TestALandingFedDeploymentTakesTheBundleItRuns(t *testing.T) {
 		if why, note, err := w.s.uncopiedData(t.Context(), w.dep, nil, w.running.ID, true, "alice"); err != nil || why != "" || note == "" {
 			t.Fatalf("explicit uncopied data acceptance: why=%q note=%q err=%v", why, note, err)
 		}
-		if got, err := w.s.RequestRelease(t.Context(), w.in); !errors.Is(err, ErrFedByLanding) || !got.ID.IsZero() {
+		if got, err := w.s.RequestRelease(t.Context(), w.in); !errors.Is(err, errFedByLanding) || !got.ID.IsZero() {
 			t.Fatalf("historical release without generation inputs cannot establish what runs: %+v %v", got, err)
 		}
 	})
@@ -390,7 +390,7 @@ func TestRequestReleaseConcurrentAdmission(t *testing.T) {
 	for err := range results {
 		if err == nil {
 			accepted++
-		} else if !errors.Is(err, ErrReleaseInFlight) {
+		} else if !errors.Is(err, errReleaseInFlight) {
 			t.Fatal(err)
 		}
 	}
@@ -419,7 +419,7 @@ func TestExecuteReleaseClaimAndPlacement(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected execution failure")
 			}
-			if scenario != "preparation-failed" && !errors.Is(err, ErrPlacementChanged) {
+			if scenario != "preparation-failed" && !errors.Is(err, errPlacementChanged) {
 				t.Fatal(err)
 			}
 			calls := sources.calls
@@ -559,7 +559,7 @@ func TestRequestReleaseRefusesUnreadableOrIncompatibleContract(t *testing.T) {
 				}
 			}
 			got, err := s.RequestRelease(context.Background(), in)
-			var contract *ContractReadError
+			var contract *contractReadError
 			refusals := map[string]string{"integration-need": "errors is an integration, not a need", "password": "AppTown sets the password", "same-variable": "DATABASE_URL is given by pg-alt and postgres"}
 			if scenario == "incompatible" || scenario == "browser-values" || refusals[scenario] != "" {
 				if !errors.Is(err, ErrRefusedContract) {

@@ -10,15 +10,15 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// Catalogue supplies authorization facts before the authorized Project service
+// catalogue supplies authorization facts before the authorized Project service
 // is constructed. It contains no policy, cache or caller-facing project content.
-type Catalogue struct{ db *database.DB }
+type catalogue struct{ db *database.DB }
 
-func NewCatalogue(db *database.DB) Catalogue { return Catalogue{db: db} }
+func NewCatalogue(db *database.DB) catalogue { return catalogue{db: db} }
 
 // ProjectResources returns complete project scope facts, optionally for one ID.
 // Zero selects the catalogue; a missing positive ID yields an empty catalogue.
-func (c Catalogue) ProjectResources(ctx context.Context, id ids.ID) ([]access.Resource, error) {
+func (c catalogue) ProjectResources(ctx context.Context, id ids.ID) ([]access.Resource, error) {
 	rows, err := projectsql.New(c.db.SQL()).ProjectAuthorityCatalogue(ctx, id)
 	if err != nil {
 		return nil, err

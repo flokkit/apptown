@@ -6,15 +6,15 @@ import (
 	"fmt"
 )
 
-// RecoveryReport counts what startup recovery did: attempts queued for
+// recoveryReport counts what startup recovery did: attempts queued for
 // observation, and deployments whose records contradicted each other and
 // now need a person (each logged and in the ledger).
-type RecoveryReport struct{ Queued, NeedsAttention int }
+type recoveryReport struct{ Queued, NeedsAttention int }
 
-type StartupStore interface {
+type startupStore interface {
 	InterruptedAttempts(ctx context.Context) ([]Attempt, error)
-	ContradictorySettlements(ctx context.Context) ([]Contradiction, error)
-	Uncertain(context.Context, Attempt, error) (Outcome, error)
+	ContradictorySettlements(ctx context.Context) ([]contradiction, error)
+	Uncertain(context.Context, Attempt, error) (deploymentOutcome, error)
 	NeedsAttention(context.Context, Attempt, error) error
 }
 
@@ -24,8 +24,8 @@ type StartupStore interface {
 // not stop startup: it is marked as needing attention (its readiness
 // uncertain, a ledger line), and the others are recovered as usual. Only a
 // failure to read the records, or to record the mark, stops startup.
-func PrepareRecovery(ctx context.Context, store StartupStore) (RecoveryReport, error) {
-	var report RecoveryReport
+func PrepareRecovery(ctx context.Context, store startupStore) (recoveryReport, error) {
+	var report recoveryReport
 	attempts, err := store.InterruptedAttempts(ctx)
 	if err != nil {
 		return report, err
@@ -53,7 +53,7 @@ func PrepareRecovery(ctx context.Context, store StartupStore) (RecoveryReport, e
 		if err != nil {
 			return report, fmt.Errorf("scheduling recovery for deployment %d attempt %d: %w", at.DeploymentID, at.ID, err)
 		}
-		if out == Uncertain {
+		if out == outcomeUncertain {
 			report.Queued++
 		}
 	}
@@ -64,5 +64,5 @@ func PrepareRecovery(ctx context.Context, store StartupStore) (RecoveryReport, e
 // (an attempt open while its deployment reads settled), not a failure to
 // read or write them.
 func contradicted(err error) bool {
-	return errors.Is(err, ErrReadinessTransition) || errors.Is(err, ErrOutcomeConflict) || errors.Is(err, ErrAttemptTransition)
+	return errors.Is(err, errReadinessTransition) || errors.Is(err, errOutcomeConflict) || errors.Is(err, errAttemptTransition)
 }

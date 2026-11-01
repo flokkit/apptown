@@ -26,7 +26,7 @@ func NewDeploymentListing(projects *project.Projects, deployment *deployment.Ser
 
 // Deployments formats the checked domain listing for the project UI.
 func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

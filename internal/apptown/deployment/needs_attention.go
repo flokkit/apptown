@@ -27,8 +27,8 @@ import (
 // person presses Check again, which observes the deployment and settles it
 // through the usual settlement (Service.CheckAgain).
 
-// Contradiction is a release still releasing after its attempt ended.
-type Contradiction struct {
+// contradiction is a release still releasing after its attempt ended.
+type contradiction struct {
 	Attempt   Attempt
 	Status    AttemptState
 	ReleaseID ids.ID
@@ -36,23 +36,23 @@ type Contradiction struct {
 
 // ContradictorySettlements lists every release still releasing after its
 // deployment attempt ended.
-func (s *Outcomes) ContradictorySettlements(ctx context.Context) ([]Contradiction, error) {
+func (s *Outcomes) ContradictorySettlements(ctx context.Context) ([]contradiction, error) {
 	rows, err := deploymentsql.New(s.db.SQL()).ContradictorySettlements(ctx, deploymentsql.ContradictorySettlementsParams{
 		ReleaseState:    Releasing.String(),
 		DoneState:       AttemptDone.String(),
 		FailedState:     AttemptFailed.String(),
-		SupersededState: AttemptSuperseded.String(),
+		SupersededState: attemptSuperseded.String(),
 	})
 	if err != nil {
 		return nil, err
 	}
-	out := make([]Contradiction, 0, len(rows))
+	out := make([]contradiction, 0, len(rows))
 	for _, r := range rows {
 		var status AttemptState
 		if err := status.Scan(r.Status); err != nil {
 			return nil, fmt.Errorf("deployment attempt %d: %w", r.AttemptID, err)
 		}
-		out = append(out, Contradiction{Attempt: Attempt{ID: r.AttemptID, DeploymentID: r.DeploymentID, Generation: r.Generation}, Status: status, ReleaseID: r.ReleaseID})
+		out = append(out, contradiction{Attempt: Attempt{ID: r.AttemptID, DeploymentID: r.DeploymentID, Generation: r.Generation}, Status: status, ReleaseID: r.ReleaseID})
 	}
 	return out, nil
 }
@@ -76,24 +76,24 @@ func (s *Outcomes) NeedsAttention(ctx context.Context, at Attempt, cause error) 
 		q := deploymentsql.New(tx.SQL())
 		changed := false
 		if status == AttemptRunning {
-			next, err := status.Transition(AttemptUncertain)
+			next, err := status.transition(AttemptUncertain)
 			if err != nil {
 				return struct{}{}, err
 			}
 			if _, err := q.UncertainAttempt(ctx, deploymentsql.UncertainAttemptParams{
-				Status: next.String(), Terminal: next.Terminal(), ID: at.ID,
+				Status: next.String(), Terminal: next.terminal(), ID: at.ID,
 				ObservedJson: json.RawMessage(jsonText(map[string]any{"_recovery": map[string]any{"reason": cause.Error(), "at": now}})),
 			}); err != nil {
 				return struct{}{}, err
 			}
 			changed = true
 		}
-		if status.Open() {
+		if status.open() {
 			if err := s.followups.EnqueueIn(ctx, tx, jobs.Request{Operation: RecoveryJob, Key: fmt.Sprint(at.ID)}); err != nil {
 				return struct{}{}, err
 			}
 		}
-		doubted, err := dep.Readiness.Doubted()
+		doubted, err := dep.Readiness.doubted()
 		if err != nil {
 			return struct{}{}, err
 		}
@@ -112,23 +112,23 @@ func (s *Outcomes) NeedsAttention(ctx context.Context, at Attempt, cause error) 
 	return err
 }
 
-// SettleStranded settles a release left releasing after its attempt ended,
+// settleStranded settles a release left releasing after its attempt ended,
 // as its attempt's own settlement would have: outcome is the attempt's
 // outcome as now observed (done with an active observation, or failed), and
 // the release follows it in the usual release settlement. The deployment's
 // readiness, if it was doubted and nothing else is open, is read again from
 // what this settles.
-func (s *Outcomes) SettleStranded(ctx context.Context, c Contradiction, outcome AttemptState, o deploy.Observation, reason string) (Outcome, error) {
+func (s *Outcomes) settleStranded(ctx context.Context, c contradiction, outcome AttemptState, o deploy.Observation, reason string) (deploymentOutcome, error) {
 	// A settlement of what was observed: written though the caller stops.
 	ctx = context.WithoutCancel(ctx)
 	now := s.now()
-	return database.Transact(ctx, s.db, func(tx *database.Tx) (Outcome, error) {
+	return database.Transact(ctx, s.db, func(tx *database.Tx) (deploymentOutcome, error) {
 		dep, status, _, err := lockDeploymentIn(ctx, tx, c.Attempt)
 		if err != nil {
 			return "", err
 		}
-		if status != c.Status || status.Open() {
-			return "", fmt.Errorf("%w: attempt %d is now %s", ErrOutcomeConflict, c.Attempt.ID, status)
+		if status != c.Status || status.open() {
+			return "", fmt.Errorf("%w: attempt %d is now %s", errOutcomeConflict, c.Attempt.ID, status)
 		}
 		in, err := deploymentInputsIn(ctx, tx, c.Attempt)
 		if err != nil {
@@ -212,9 +212,9 @@ func (s *Service) CheckAgain(ctx context.Context, projectID ids.ID, name string)
 		return result, err
 	}
 	if !uncertain.IsZero() {
-		r, err := s.Recover(ctx, uncertain)
+		r, err := s.recover(ctx, uncertain)
 		if err != nil && r.Outcome == "" {
-			r.Outcome, r.Reason = string(Uncertain), err.Error()
+			r.Outcome, r.Reason = string(outcomeUncertain), err.Error()
 		}
 		result.Checked = append(result.Checked, r)
 	}
@@ -228,10 +228,10 @@ func (s *Service) CheckAgain(ctx context.Context, projectID ids.ID, name string)
 }
 
 // checkStranded observes and settles one release left releasing.
-func (s *Service) checkStranded(ctx context.Context, dep *Deployment, c Contradiction) RecoveryResult {
+func (s *Service) checkStranded(ctx context.Context, dep *Deployment, c contradiction) RecoveryResult {
 	r := RecoveryResult{Attempt: c.Attempt.ID}
 	settle := func(outcome AttemptState, o deploy.Observation, reason string) RecoveryResult {
-		if _, err := s.Outcomes.SettleStranded(ctx, c, outcome, o, reason); err != nil {
+		if _, err := s.Outcomes.settleStranded(ctx, c, outcome, o, reason); err != nil {
 			r.Outcome, r.Reason = "unknown", "settling release: "+err.Error()
 			return r
 		}
@@ -242,7 +242,7 @@ func (s *Service) checkStranded(ctx context.Context, dep *Deployment, c Contradi
 		return settle(c.Status, deploy.Observation{}, fmt.Sprintf("its deployment attempt %d ended %s", c.Attempt.ID, c.Status))
 	}
 	if c.Attempt.Generation != dep.DesiredGeneration {
-		return settle(AttemptSuperseded, deploy.Observation{}, "superseded by a newer deployment generation")
+		return settle(attemptSuperseded, deploy.Observation{}, "superseded by a newer deployment generation")
 	}
 	source := s.recoverySource()
 	snapshot, err := source.LoadAttempt(ctx, c.Attempt.ID)

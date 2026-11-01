@@ -25,14 +25,14 @@ const imageFailOn = "high"
 // there is nothing earlier to compare with, and that is not a fault.
 const firstReleaseNote = "first release: there is no earlier image to compare with, so every finding counts as new"
 
-// RunImageScans is apptown check's view of the landing's image scan point:
+// runImageScans is apptown check's view of the landing's image scan point:
 // every attached, non-manual scanner whose target is the built image runs
 // against the image of the checked commit, compared with the same base the
 // landing's scan-image step uses, and judged as that step judges
 // (dispositions applied, carried findings apart, failing at imageFailOn).
 // The answer is feedback: nothing is recorded, and the landing scans the
 // image it lands again. findings are the failing ones.
-func (s *Scanners) RunImageScans(ctx context.Context, projectID ids.ID, src, sha, repo, baseSHA, namePrefix string) (results Results, findings []conformance.Finding, scanErrors int) {
+func (s *Scanners) runImageScans(ctx context.Context, projectID ids.ID, src, sha, repo, baseSHA, namePrefix string) (results Results, findings []conformance.Finding, scanErrors int) {
 	attached, err := s.attachedScanners(ctx)
 	if err != nil {
 		return Results{{Check: "image scanners", Evaluator: "scanner", Verdict: workflow.VerdictError, AppTownFault: true,

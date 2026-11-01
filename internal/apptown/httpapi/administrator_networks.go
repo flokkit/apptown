@@ -9,10 +9,10 @@ import (
 
 type AdministratorNetworks struct {
 	access  *identity.Service
-	address ClientAddress
+	address clientAddress
 }
 
-func NewAdministratorNetworks(access *identity.Service, address ClientAddress) AdministratorNetworks {
+func NewAdministratorNetworks(access *identity.Service, address clientAddress) AdministratorNetworks {
 	return AdministratorNetworks{access: access, address: address}
 }
 
@@ -43,7 +43,7 @@ func (h AdministratorNetworks) AdminNetworks(w http.ResponseWriter, r *http.Requ
 	})
 }
 
-type ClientAddress interface{ ClientIP(*http.Request) net.IP }
+type clientAddress interface{ ClientIP(*http.Request) net.IP }
 
 // AdministratorNetworksView is the fence around administration and where the
 // caller stands relative to it.

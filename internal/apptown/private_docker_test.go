@@ -40,9 +40,9 @@ func TestAStepHasPrivateDockerOnlyWhenItDeclaresIt(t *testing.T) {
 			name = "declared"
 		}
 		called, got := false, false
-		installFakePi(t, a, func(_ int, req ExecRequest) ExecOutcome {
+		installFakePi(t, a, func(_ int, req execRequest) execOutcome {
 			called, got = true, envValue(req, "DOCKER_HOST") != ""
-			return ExecOutcome{Output: piSays("done")}
+			return execOutcome{Output: piSays("done")}
 		})
 		a.Work.ExecuteStep(a.asEngine(context.Background()), step.ID)
 		if !called || got != want[name] {
@@ -62,7 +62,7 @@ func TestPrivateDockerTurnedOffRefusesADeclaringStep(t *testing.T) {
 	daemon := newSurvivingContainers()
 	a.docker = docker.Scope{Client: daemon}
 	_, stepID := admittedAgentStep(t, a, `{"prompt":"do it","docker":true}`)
-	f := installFakePi(t, a, func(int, ExecRequest) ExecOutcome { return ExecOutcome{Output: piSays("done")} })
+	f := installFakePi(t, a, func(int, execRequest) execOutcome { return execOutcome{Output: piSays("done")} })
 	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
 	status, ev := stepStatus(t, a, stepID)
 	if reason, _ := ev["reason"].(string); status != workflow.StatusError || !strings.Contains(reason, "-private-docker=false") {

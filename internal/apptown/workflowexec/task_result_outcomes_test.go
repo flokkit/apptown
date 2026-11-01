@@ -73,7 +73,7 @@ func TestAHoldThatCannotBeRecordedIsCollectedAgain(t *testing.T) {
 	t.Parallel()
 	var db *database.DB
 	a, fake, step, _ := runOnResultWorkerWith(t, map[string]string{"only-copy.txt": "keep this work\n"},
-		corruptResult(func() { t.Cleanup(db.FailStatements("-- name: HoldAttempt", 3)) }), func(a *taskAppTown) { db = a.db })
+		corruptResult(func() { t.Cleanup(dbtest.StatementFailures(db, "-- name: HoldAttempt", 3)) }), func(a *taskAppTown) { db = a.db })
 	if attempt := requireRunning(t, a, fake, step); attempt.Observed != tasks.Collecting {
 		t.Fatalf("the attempt is %s, want collecting", attempt.Observed)
 	}
@@ -124,7 +124,7 @@ func TestAStepEndedBeforeItsResultWasKeptHoldsTheWorkspace(t *testing.T) {
 	t.Parallel()
 	var db *database.DB
 	a, fake, step, run := runOnResultWorkerWith(t, map[string]string{"only-copy.txt": "keep this work\n"},
-		corruptResult(func() { t.Cleanup(db.FailStatements("-- name: HoldAttempt", 3)) }), func(a *taskAppTown) { db = a.db })
+		corruptResult(func() { t.Cleanup(dbtest.StatementFailures(db, "-- name: HoldAttempt", 3)) }), func(a *taskAppTown) { db = a.db })
 	requireRunning(t, a, fake, step)
 	if _, err := a.work.Abandon(a.ctx, workflow.StopWork{RunID: run.ID, Reason: "stopped while collecting"}); err != nil {
 		t.Fatal(err)
@@ -199,7 +199,7 @@ func TestAPublicationNotSettledIsPublishedNotRefused(t *testing.T) {
 func failSettlementOnce(db **database.DB) func(int, http.ResponseWriter, *httptest.ResponseRecorder) {
 	return func(n int, w http.ResponseWriter, reply *httptest.ResponseRecorder) {
 		if n == 1 {
-			(*db).FailNextStatement("-- name: SettlePublication")
+			dbtest.NextStatementFailure(*db, "-- name: SettlePublication")
 		}
 		pass(w, reply)
 	}
@@ -447,7 +447,7 @@ func TestRecoverySettlesAPublicationWhoseSettlementKeptFailing(t *testing.T) {
 	a, fake, step, run := runOnResultWorkerWith(t, map[string]string{"published.txt": "work\n"},
 		func(n int, w http.ResponseWriter, reply *httptest.ResponseRecorder) {
 			if n == 1 {
-				restore = db.FailStatements("-- name: SettlePublication", 100)
+				restore = dbtest.StatementFailures(db, "-- name: SettlePublication", 100)
 				t.Cleanup(restore)
 			}
 			pass(w, reply)
@@ -468,7 +468,7 @@ func TestAPendingPublicationResumesAtRestart(t *testing.T) {
 	a, fake, step, run := runOnResultWorkerWith(t, map[string]string{"published.txt": "work\n"},
 		func(n int, w http.ResponseWriter, reply *httptest.ResponseRecorder) {
 			if n == 1 {
-				restore = db.FailStatements("-- name: BeginPublication", 100)
+				restore = dbtest.StatementFailures(db, "-- name: BeginPublication", 100)
 				t.Cleanup(restore)
 			}
 			pass(w, reply)

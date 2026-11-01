@@ -51,10 +51,10 @@ type checked struct {
 	Candidate string
 }
 
-// Selected is the one commit a run's gates read, resolved once: the
+// selected is the one commit a run's gates read, resolved once: the
 // repository that holds it and its full ID. Candidate is the commit when it
 // is a landing's pinned candidate, and empty for any other run.
-type Selected struct {
+type selected struct {
 	Repo, Commit, Candidate string
 }
 
@@ -71,19 +71,19 @@ type Selected struct {
 //
 // Source that is missing or cannot be read is an error, never a check of
 // the live folder, and never a pass.
-func SelectCommit(ctx context.Context, db database.Queryer, dataDir string, run *workflow.Run, source workflow.Source) (Selected, error) {
+func SelectCommit(ctx context.Context, db database.Queryer, dataDir string, run *workflow.Run, source workflow.Source) (selected, error) {
 	rev, pinned, err := checkedRevision(ctx, db, run.ID)
 	if err != nil {
-		return Selected{}, err
+		return selected{}, err
 	}
-	var s Selected
+	var s selected
 	project, err := source.Repository(dataDir)
 	if err != nil {
-		return Selected{}, err
+		return selected{}, err
 	}
 	ws, err := source.Workspace(dataDir)
 	if err != nil {
-		return Selected{}, err
+		return selected{}, err
 	}
 	switch {
 	case pinned:
@@ -91,7 +91,7 @@ func SelectCommit(ctx context.Context, db database.Queryer, dataDir string, run 
 	case source.RepoBacked() && ws != project:
 		read, err := scm.ComparisonRepository(ctx, project, ws)
 		if err != nil {
-			return Selected{}, fmt.Errorf("reading the run's work: %w", err)
+			return selected{}, fmt.Errorf("reading the run's work: %w", err)
 		}
 		s.Repo = read
 		if read != ws {
@@ -100,14 +100,14 @@ func SelectCommit(ctx context.Context, db database.Queryer, dataDir string, run 
 	default:
 		s.Repo = ws
 		if !gitexec.IsRepo(s.Repo) {
-			return Selected{}, fmt.Errorf("a check reads a commit, and this run's folder has no repository")
+			return selected{}, fmt.Errorf("a check reads a commit, and this run's folder has no repository")
 		}
 	}
 	if s.Commit, err = gitexec.Output(ctx, s.Repo, "rev-parse", "--verify", rev+"^{commit}"); err != nil {
 		if s.Repo == project && !pinned {
-			return Selected{}, fmt.Errorf("reading the commit to check: the run's folder is absent or behind, and its branch %s is not in the project's repository: %w", source.Branch, err)
+			return selected{}, fmt.Errorf("reading the commit to check: the run's folder is absent or behind, and its branch %s is not in the project's repository: %w", source.Branch, err)
 		}
-		return Selected{}, fmt.Errorf("reading the commit to check: %w", err)
+		return selected{}, fmt.Errorf("reading the commit to check: %w", err)
 	}
 	s.Commit = strings.TrimSpace(s.Commit)
 	return s, nil

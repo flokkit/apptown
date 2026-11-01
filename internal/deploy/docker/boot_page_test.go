@@ -2,7 +2,6 @@ package docker
 
 import (
 	"context"
-	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -19,7 +18,7 @@ import (
 // server's port, so the boot's own probes reach a real HTTP app.
 type pageClient struct {
 	port string
-	disk *diskspacetest.Daemon
+	disk *diskDaemon
 }
 
 func (c pageClient) Run(_ context.Context, _ string, req Command) ([]byte, error) {
@@ -64,7 +63,7 @@ func TestAGateBootFailsAnAppThatRefusesItsFrontPage(t *testing.T) {
 		t.Fatal(err)
 	}
 	boot := func(pageCheck bool, host string) (BootResult, error) {
-		return NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: pageClient{port: u.Port(), disk: &diskspacetest.Daemon{}}},
+		return NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: pageClient{port: u.Port(), disk: &diskDaemon{}}},
 			Name: "apptown-preview-run-4", StackID: "pv4", Workspace: t.TempDir(), Slug: "shop", Deployment: "preview", Probe: time.Second,
 			Scratch: t.TempDir(), PageCheck: pageCheck, VisitorHost: host}, c)
 	}
@@ -92,7 +91,7 @@ func TestAGateBootFailsAnAppThatRefusesItsFrontPage(t *testing.T) {
 // pathProbe answers every probe but one path's.
 type pathProbe struct{ refuses string }
 
-func (p pathProbe) Check(ctx context.Context, _ Scope, _, _ string, _ time.Duration, probe RenderedProbe) (bool, string) {
+func (p pathProbe) Check(ctx context.Context, _ Scope, _, _ string, _ time.Duration, probe renderedProbe) (bool, string) {
 	return probe.Path != p.refuses, ""
 }
 
@@ -106,8 +105,8 @@ func TestAStaticSiteBootRequiresAppTownsFileServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	boot := func(probe Prober) error {
-		_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: probe}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: pageClient{port: "1", disk: &diskspacetest.Daemon{}}},
+	boot := func(probe prober) error {
+		_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: probe}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: pageClient{port: "1", disk: &diskDaemon{}}},
 			Name: "apptown-preview-run-5", StackID: "pv5", Workspace: t.TempDir(), Slug: "site", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir()}, c)
 		return err
 	}
@@ -123,10 +122,10 @@ func TestAStaticSiteBootRequiresAppTownsFileServer(t *testing.T) {
 // ReleasePath and anything else at every other path; it notes each probe.
 type witnessProbe struct {
 	serves string
-	asked  *[]RenderedProbe
+	asked  *[]renderedProbe
 }
 
-func (p witnessProbe) Check(ctx context.Context, _ Scope, _, _ string, _ time.Duration, probe RenderedProbe) (bool, string) {
+func (p witnessProbe) Check(ctx context.Context, _ Scope, _, _ string, _ time.Duration, probe renderedProbe) (bool, string) {
 	*p.asked = append(*p.asked, probe)
 	return probe.Path != appcontract.ReleasePath || probe.Release == p.serves, ""
 }
@@ -170,7 +169,7 @@ func TestAStandingStaticSiteIsWitnessedServingItsRelease(t *testing.T) {
 				}
 				return nil, nil
 			}}
-			var asked []RenderedProbe
+			var asked []renderedProbe
 			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: witnessProbe{serves: tc.serves, asked: &asked}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client},
 				Name: "apptown-env-site-main", StackID: "env-site-main", Workspace: t.TempDir(), Slug: "site", Deployment: "main", Probe: time.Second, Scratch: t.TempDir(),
 				Revision: tc.revision, Recorded: tc.recorded}, c)
@@ -216,11 +215,11 @@ func TestAProbeForAReleaseNeedsThatReleasesMarker(t *testing.T) {
 	t.Cleanup(app.Close)
 	dk := Scope{Client: &fakeClient{out: "true"}}
 	probe := &Probe{}
-	if up, _ := probe.check(t.Context(), dk, "app", app.URL, 2*time.Second, RenderedProbe{Path: appcontract.ReleasePath, Release: "web@new"}, answerOnce); !up {
+	if up, _ := probe.check(t.Context(), dk, "app", app.URL, 2*time.Second, renderedProbe{Path: appcontract.ReleasePath, Release: "web@new"}, answerOnce); !up {
 		t.Fatal("the exact answer was not up")
 	}
 	for _, want := range []string{"web@ne", "web@new2", "web@old"} {
-		if up, _ := probe.check(t.Context(), dk, "app", app.URL, 1100*time.Millisecond, RenderedProbe{Path: appcontract.ReleasePath, Release: want}, answerOnce); up {
+		if up, _ := probe.check(t.Context(), dk, "app", app.URL, 1100*time.Millisecond, renderedProbe{Path: appcontract.ReleasePath, Release: want}, answerOnce); up {
 			t.Fatalf("%q answered for %q", served, want)
 		}
 	}

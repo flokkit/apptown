@@ -8,7 +8,7 @@ func TestCatalogRejectsUnboundPoliciesBeforeInvocation(t *testing.T) {
 		t.Fatal("invalid tool reached its command")
 		return nil, nil
 	}
-	for _, tool := range []Tool{
+	for _, tool := range []toolEntry{
 		{Name: "missing"},
 		{Name: "unnamed-contract", command: ownerCommand("", run)},
 		{Name: "unknown-policy", command: toolCommand{"unknown", "test", run}},
@@ -22,7 +22,7 @@ func TestCatalogRejectsUnboundPoliciesBeforeInvocation(t *testing.T) {
 					t.Fatal("invalid catalogue constructed")
 				}
 			}()
-			Assemble([]Tool{tool})
+			Assemble([]toolEntry{tool})
 		})
 	}
 }

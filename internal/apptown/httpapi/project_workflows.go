@@ -38,7 +38,7 @@ type ProjectWorkflowRow struct {
 }
 
 func (h ProjectWorkflows) ListWorkflows(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -76,7 +76,7 @@ func (h ProjectWorkflows) ListWorkflows(w http.ResponseWriter, r *http.Request) 
 // library (core and extras) with whether this project selected it, and
 // the system workflows that apply regardless.
 func (h ProjectWorkflows) ProjectLanes(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

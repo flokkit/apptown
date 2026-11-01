@@ -109,7 +109,7 @@ func TestNarrativeBuilderAccountsForRejectedAndEmptyResults(t *testing.T) {
 					return narrativeEvidence{Text: "LIVE EVIDENCE"}, nil
 				},
 			}
-			err := b.Refresh(ctx, source.Change.ID)
+			err := b.refresh(ctx, source.Change.ID)
 			if (err == nil) != (mode == "success") {
 				t.Fatalf("refresh %s: %v", mode, err)
 			}
@@ -268,7 +268,7 @@ func TestEmptyCommittedNarrativeSkipsModelAndPreservesPublicationChecks(t *testi
 					return "", nil, nil
 				}),
 			}
-			err := b.Refresh(asPerson("test"), source.Change.ID)
+			err := b.refresh(asPerson("test"), source.Change.ID)
 			if changed && !errors.Is(err, workflow.ErrNarrativeChanged) || !changed && err != nil {
 				t.Fatalf("publication: %v", err)
 			}

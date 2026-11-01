@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/database/query"
+
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
@@ -48,12 +50,11 @@ func transcriptProjectIn(t *testing.T, db *database.DB, slug string) *transcript
 	project := workflowTestProject(t, db, slug, slug, "")
 	change := admissionTestChange(t, db, project, "another change")
 	admissions := newRunAdmissions(db, NewStages(nil, func(kind string) bool { return kind == "agent/pi" }), nil)
-	run, err := admissions.Create(context.Background(), StartRequest{ProjectID: project, ChangeID: change, WorkflowName: "test", InputsJSON: "{}", requestedBy: "operator"},
-		PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: transcriptSpec()})
+	run, err := admissions.records.create(context.Background(), StartRequest{ProjectID: project, ChangeID: change, WorkflowName: "test", InputsJSON: "{}", requestedBy: "operator"}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: transcriptSpec()})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := admissions.Prepared(context.Background(), run.ID); err != nil {
+	if err := admissions.records.prepared(context.Background(), run.ID); err != nil {
 		t.Fatal(err)
 	}
 	return transcriptAgentOf(t, db, run)
@@ -78,7 +79,7 @@ func (f *transcriptAgent) start(t *testing.T) (*Step, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	claim, err := f.attempts.Start(context.Background(), snapshot, "agent/pi")
+	claim, err := f.attempts.start(context.Background(), snapshot, "agent/pi", ids.Nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +92,7 @@ func (f *transcriptAgent) start(t *testing.T) (*Step, string) {
 
 func (f *transcriptAgent) finish(t *testing.T, claim *Step) {
 	t.Helper()
-	if err := f.attempts.Finish(context.Background(), claim, StepOutcome{Status: StatusFail, Evidence: []byte(`{}`)}); err != nil {
+	if err := f.attempts.finish(context.Background(), claim, StepOutcome{Status: StatusFail, Evidence: []byte(`{}`)}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -260,7 +261,7 @@ func TestAFailedReceiptUpdateKeepsThePreviousCapture(t *testing.T) {
 		t.Fatal(err)
 	}
 	dbtest.FailNextStatement(t, f.db, "-- name: RecordAgentTranscript")
-	if err := f.record(claim, session, 2, d2, ""); !errors.Is(err, database.ErrInjectedFailure) {
+	if err := f.record(claim, session, 2, d2, ""); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("the failed update: %v", err)
 	}
 	f.readsBytes(t, claim.Attempt, one)
@@ -474,7 +475,7 @@ type reviewS5RenewBeforeReferenceQuery struct {
 	renew func()
 }
 
-func (q reviewS5RenewBeforeReferenceQuery) SQL() database.Handle {
+func (q reviewS5RenewBeforeReferenceQuery) SQL() query.Handle {
 	q.renew()
 	return q.db.SQL()
 }

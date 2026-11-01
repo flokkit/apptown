@@ -3,10 +3,11 @@ package apptown
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/status"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/apptown/status"
 
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/dbtest"

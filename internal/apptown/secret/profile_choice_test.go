@@ -74,14 +74,14 @@ func TestSecretsFollowTheDeploymentsOneProfile(t *testing.T) {
 // own, as it always has.
 func TestASecretSpecWithoutADefaultUsesItsFirstProfile(t *testing.T) {
 	t.Parallel()
-	spec := &Spec{Profiles: map[string]map[string]DeclaredSecret{"staging": {}, "production": {}}}
+	spec := &spec{Profiles: map[string]map[string]declaredSecret{"staging": {}, "production": {}}}
 	if got := SpecProfile(spec, "production"); got != "production" {
 		t.Errorf("a declared profile: %q", got)
 	}
 	if got := SpecProfile(spec, "large"); got != "production" {
 		t.Errorf("an undeclared profile in a file without default: %q, want its first, production", got)
 	}
-	spec.Profiles["default"] = map[string]DeclaredSecret{}
+	spec.Profiles["default"] = map[string]declaredSecret{}
 	if got := SpecProfile(spec, "large"); got != "default" {
 		t.Errorf("an undeclared profile in a file with default: %q", got)
 	}

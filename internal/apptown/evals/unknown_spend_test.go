@@ -29,18 +29,18 @@ import (
 // call never counted.
 func TestAnAcknowledgementCoversOnlyTheUnknownSpendSeen(t *testing.T) {
 	t.Parallel()
-	w := buildEvalWorld(t, 5, func(db *database.DB) Spend { return usage.New(db) })
+	w := buildEvalWorld(t, 5, func(db *database.DB) spend { return usage.New(db) })
 	requests := usage.NewRequests(w.db)
 	e := w.start(t, "alice")
 	pass := func() *Eval {
 		t.Helper()
 		// End the working arms, so the pass asks to start the next.
 		for _, a := range w.eval(t, e.ID).Arms {
-			if a.State == ArmWorking {
+			if a.State == armWorking {
 				w.work.runs[a.ChangeID] = []*workflow.Run{{ID: a.RunID, Status: workflow.RunAbandoned}}
 			}
 		}
-		if err := w.service.Pass(context.Background()); err != nil {
+		if err := w.service.pass(context.Background()); err != nil {
 			t.Fatal(err)
 		}
 		return w.eval(t, e.ID)
@@ -51,7 +51,7 @@ func TestAnAcknowledgementCoversOnlyTheUnknownSpendSeen(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	var copyID ids.ID
@@ -81,22 +81,22 @@ func TestAnAcknowledgementCoversOnlyTheUnknownSpendSeen(t *testing.T) {
 	}
 
 	settle(open(time.Hour), "the provider reported no usage") // X
-	if got := pass(); got.State != StateHeld {
+	if got := pass(); got.State != stateHeld {
 		t.Fatalf("1: unknown spend holds the eval: %+v", got)
 	}
 	proceed()
 
 	a := open(time.Hour)
-	if got := pass(); got.State != StateRunning {
+	if got := pass(); got.State != stateRunning {
 		t.Fatalf("2: a call in flight holds nothing: %+v", got)
 	}
 	settle(a, "")
-	if got := pass(); got.State != StateRunning {
+	if got := pass(); got.State != stateRunning {
 		t.Fatalf("3: a call settling complete holds nothing: %+v", got)
 	}
 
 	settle(open(time.Hour), "the provider reported no usage") // B
-	if got := pass(); got.State != StateHeld {
+	if got := pass(); got.State != stateHeld {
 		t.Fatalf("4: a later unknown charge holds the eval again: %+v", got)
 	}
 	proceed()
@@ -104,7 +104,7 @@ func TestAnAcknowledgementCoversOnlyTheUnknownSpendSeen(t *testing.T) {
 	// A time of zero has run out by the next statement on the database's
 	// own clock: a settlement that never comes.
 	c := open(0)
-	if got := pass(); got.State != StateHeld {
+	if got := pass(); got.State != stateHeld {
 		t.Fatalf("5: a call whose settlement never came holds the eval: %+v", got)
 	}
 	proceed()
@@ -115,7 +115,7 @@ func TestAnAcknowledgementCoversOnlyTheUnknownSpendSeen(t *testing.T) {
 	if settle(c, "") {
 		t.Fatal("5: a settlement after the acknowledgement made acknowledged spend known")
 	}
-	if got := pass(); got.State != StateRunning {
+	if got := pass(); got.State != stateRunning {
 		t.Fatalf("5: acknowledged, the eval runs on: %+v", got)
 	}
 }

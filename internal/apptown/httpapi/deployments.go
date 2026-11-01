@@ -37,8 +37,8 @@ type (
 		FinalBackup *dataprotection.FinalSet `json:"finalBackup,omitempty"`
 		Orphans     []string                 `json:"orphans"`
 	}
-	// DeploymentChecked is what Check again observed and settled.
-	DeploymentChecked = deployment.CheckResult
+	// deploymentChecked is what Check again observed and settled.
+	deploymentChecked = deployment.CheckResult
 	// DeploymentAIModels is each AI models key a deployment owns, with its
 	// allowance and spend at OpenRouter now, or why that is unknown.
 	DeploymentAIModels struct {
@@ -67,7 +67,7 @@ type DeploymentConfigurationRequest struct {
 // deployment settings (§2.7): a standing deployment bound to an offered
 // target; startFrom names a copy its first release fills its data from.
 func (h Deployments) CreateDeployment(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -93,7 +93,7 @@ func (h Deployments) CreateDeployment(w http.ResponseWriter, r *http.Request) {
 // reported. withoutFinalCopy, naming the deployment, is the person's choice
 // to take down one whose final copy cannot be taken now, keeping its data.
 func (h Deployments) DeleteDeployment(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -106,7 +106,7 @@ func (h Deployments) DeleteDeployment(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if taken.Operation != nil {
-			WriteAdmitted(w, taken.Operation)
+			writeAdmitted(w, taken.Operation)
 			return
 		}
 		result := *taken.Removed
@@ -123,7 +123,7 @@ func (h Deployments) DeleteDeployment(w http.ResponseWriter, r *http.Request) {
 // promotion or manual (§4.2). A protected deployment takes the release
 // grant. Returns the release number; the release page is the record.
 func (h Deployments) DeployDeployment(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -142,7 +142,7 @@ func (h Deployments) DeployDeployment(w http.ResponseWriter, r *http.Request) {
 // target and settles what it observes (deployment.Service.CheckAgain). It
 // never deploys anything.
 func (h Deployments) CheckAgain(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -151,13 +151,13 @@ func (h Deployments) CheckAgain(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	WriteJSON(w, 200, DeploymentChecked(result))
+	WriteJSON(w, 200, deploymentChecked(result))
 }
 
 // AIModels: GET /api/v1/projects/{slug}/deployments/{name}/ai-models — the
 // AI models keys the deployment owns and what OpenRouter says of each now.
 func (h Deployments) AIModels(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -186,7 +186,7 @@ type DeployRequest struct {
 // the profile and each part's limits the running generation applied, its
 // operator's override, and its memory use now.
 func (h Deployments) DeploymentResources(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -202,7 +202,7 @@ func (h Deployments) DeploymentResources(w http.ResponseWriter, r *http.Request)
 // the settled generation's runtime facts, part by part, its limit events and
 // any crash-loop hold (deployment.Service.Diagnostics).
 func (h Deployments) DeploymentDiagnostics(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -221,7 +221,7 @@ func (h Deployments) DeploymentDiagnostics(w http.ResponseWriter, r *http.Reques
 func (h Deployments) DeploymentLog(w http.ResponseWriter, r *http.Request) {
 	// A log can hold the app's secrets: no browser or proxy keeps it.
 	w.Header().Set("Cache-Control", "private, no-store")
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -256,7 +256,7 @@ func (h Deployments) ClearResourceOverride(w http.ResponseWriter, r *http.Reques
 }
 
 func (h Deployments) resourceOverride(w http.ResponseWriter, r *http.Request, set bool) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

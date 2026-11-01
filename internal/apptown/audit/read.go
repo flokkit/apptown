@@ -45,7 +45,7 @@ type Filter struct {
 }
 
 const (
-	DefaultLimit = 50
+	defaultLimit = 50
 	MaxLimit     = 500
 )
 
@@ -53,7 +53,7 @@ const (
 func Recent(ctx context.Context, q database.Queryer, f Filter) ([]Entry, error) {
 	limit := f.Limit
 	if limit < 1 || limit > MaxLimit {
-		limit = DefaultLimit
+		limit = defaultLimit
 	}
 	payload := []byte("{}")
 	if f.PayloadContains != nil {

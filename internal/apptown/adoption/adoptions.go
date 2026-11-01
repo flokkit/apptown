@@ -20,7 +20,7 @@ import (
 	"github.com/flokkit/apptown/internal/stamp"
 )
 
-const ResolverVersion = 1
+const resolverVersion = 1
 
 type ReceiptBlock struct {
 	Position int    `json:"position"`
@@ -61,7 +61,7 @@ type Receipt struct {
 // EmptyReceipt is a receipt with every list present, so a stored receipt
 // never carries null lists.
 func EmptyReceipt() Receipt {
-	return Receipt{Resolver: ResolverVersion, Guidance: []ReceiptBlock{}, Workflows: []ReceiptWorkflow{}, Policies: []ReceiptPolicy{}, Extensions: []string{}}
+	return Receipt{Resolver: resolverVersion, Guidance: []ReceiptBlock{}, Workflows: []ReceiptWorkflow{}, Policies: []ReceiptPolicy{}, Extensions: []string{}}
 }
 
 // Digest is a receipt's identity.
@@ -71,14 +71,14 @@ func Digest(r Receipt) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// HashText is the short hash used for workflow YAML and policy options.
-func HashText(s string) string {
+// hashText is the short hash used for workflow YAML and policy options.
+func hashText(s string) string {
 	sum := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(sum[:])[:16]
 }
 
-// ImportsOf turns a receipt's guidance into the import shape readers use.
-func (r Receipt) ImportsOf() []Import {
+// importsOf turns a receipt's guidance into the import shape readers use.
+func (r Receipt) importsOf() []Import {
 	out := make([]Import, 0, len(r.Guidance))
 	for _, b := range r.Guidance {
 		out = append(out, Import{Position: b.Position, BlockID: b.BlockID, Name: b.Name, Version: b.Version, Disabled: b.Disabled})
@@ -86,8 +86,8 @@ func (r Receipt) ImportsOf() []Import {
 	return out
 }
 
-// Diff says in words what differs between two receipts.
-func Diff(from, to Receipt) string {
+// diff says in words what differs between two receipts.
+func diff(from, to Receipt) string {
 	var out []string
 	key := func(b ReceiptBlock) string {
 		return fmt.Sprintf("%s@%d%s", b.Name, b.Version, map[bool]string{true: " (disabled)", false: ""}[b.Disabled])
@@ -162,7 +162,7 @@ type RecordedRevision struct {
 type adoptionStore struct {
 	db      *database.DB
 	clock   func() time.Time // AppTown's clock; nil is the real one
-	reviews ReviewRequests   // see Dependencies.Reviews
+	reviews reviewRequester  // see Dependencies.Reviews
 }
 
 func newAdoptions(db *database.DB) *adoptionStore { return &adoptionStore{db: db} }
@@ -180,7 +180,7 @@ func CurrentReceiptIn(ctx context.Context, q database.Queryer, projectID ids.ID)
 	return adoptionRecord(r)
 }
 
-func (s *adoptionStore) Current(ctx context.Context, projectID ids.ID) (*RecordedRevision, error) {
+func (s *adoptionStore) current(ctx context.Context, projectID ids.ID) (*RecordedRevision, error) {
 	return CurrentReceiptIn(ctx, s.db, projectID)
 }
 
@@ -193,13 +193,13 @@ func ByIDIn(ctx context.Context, q database.Queryer, id ids.ID) (*RecordedRevisi
 	return adoptionRecord(r)
 }
 
-func (s *adoptionStore) ByID(ctx context.Context, id ids.ID) (*RecordedRevision, error) {
+func (s *adoptionStore) byID(ctx context.Context, id ids.ID) (*RecordedRevision, error) {
 	return ByIDIn(ctx, s.db, id)
 }
 
-// History is a project's revisions newest first, without their receipts:
+// history is a project's revisions newest first, without their receipts:
 // the list is light, the current revision carries the receipt.
-func (s *adoptionStore) History(ctx context.Context, projectID ids.ID, limit int) ([]RecordedRevision, error) {
+func (s *adoptionStore) history(ctx context.Context, projectID ids.ID, limit int) ([]RecordedRevision, error) {
 	rows, err := adoptionsql.New(s.db.SQL()).AdoptionHistory(ctx, adoptionsql.AdoptionHistoryParams{ProjectID: projectID, Limit: int32(limit)})
 	out := make([]RecordedRevision, 0, len(rows))
 	if err != nil {
@@ -222,8 +222,8 @@ func (s *adoptionStore) History(ctx context.Context, projectID ids.ID, limit int
 // It is stamped at, the caller's clock (AppTown's), by which the ways of
 // working it adopted are later resolved as of that time.
 func RecordIn(ctx context.Context, tx *database.Tx, projectID ids.ID, revision int64, kind AdoptionKind, reason string, receipt Receipt, by string, at time.Time) error {
-	if !kind.Standing() {
-		return ErrAdoptionKind
+	if !kind.standing() {
+		return errAdoptionKind
 	}
 	current, err := ensureCurrentForUpdateIn(ctx, tx, projectID)
 	if err != nil {
@@ -240,7 +240,7 @@ func RecordIn(ctx context.Context, tx *database.Tx, projectID ids.ID, revision i
 	// This participant records an explicit revision. Reviewed edits choose reuse
 	// in Adoptions.Advance before reaching persistence.
 	plan.reuse = false
-	next, event, err := current.Advance(plan, revision-1)
+	next, event, err := current.advance(plan, revision-1)
 	if err != nil {
 		return err
 	}
@@ -251,14 +251,14 @@ func RecordIn(ctx context.Context, tx *database.Tx, projectID ids.ID, revision i
 
 var ErrRevisionUnavailable = errors.New("recorded adoption revision is unavailable")
 
-// Advance records the project's resolved union as its next revision, or
+// advance records the project's resolved union as its next revision, or
 // returns the current one when nothing changed (clearing the project's
 // drift note either way: a resolve is a review). With always, it records a
 // revision even when the receipt is unchanged: the change is one the receipt
 // does not show, such as a pack membership move. The project row is locked
 // before the resolve, so a flip cannot interleave between what was read
 // and what is written; the resolve reads through the same transaction.
-func (s *adoptionStore) Advance(ctx context.Context, projectID ids.ID, kind AdoptionKind, reason, by string, always bool, resolve func(tx *database.Tx, prior *RecordedRevision, now time.Time) (Receipt, error)) (*RecordedRevision, error) {
+func (s *adoptionStore) advance(ctx context.Context, projectID ids.ID, kind AdoptionKind, reason, by string, always bool, resolve func(tx *database.Tx, prior *RecordedRevision, now time.Time) (Receipt, error)) (*RecordedRevision, error) {
 	now := s.now()
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (*RecordedRevision, error) {
 		current, err := ensureCurrentForUpdateIn(ctx, tx, projectID)
@@ -287,7 +287,7 @@ func (s *adoptionStore) Advance(ctx context.Context, projectID ids.ID, kind Adop
 			return nil, err
 		}
 		plan.reuse = plan.reuse && !always
-		next, event, err := current.Advance(plan, current.Revision)
+		next, event, err := current.advance(plan, current.Revision)
 		if err != nil {
 			return nil, err
 		}

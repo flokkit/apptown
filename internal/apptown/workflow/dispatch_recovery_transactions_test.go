@@ -82,7 +82,7 @@ func TestWorkflowRecoveryUsesPinnedSequenceAndRecordedScanners(t *testing.T) {
 		t.Fatalf("recovery plan=%+v, original=%+v", plan, ready)
 	}
 	var calls []ids.ID
-	d := newDispatcher(db, dispatcherConfig{Life: context.Background(), Runners: map[string]func(ids.ID){
+	d := newDispatcher(db, dispatcherConfig{life: context.Background(), runners: map[string]func(ids.ID){
 		"scan": func(stepID ids.ID) {
 			step, err := readStep(context.Background(), db, stepID)
 			if err != nil {
@@ -95,9 +95,9 @@ func TestWorkflowRecoveryUsesPinnedSequenceAndRecordedScanners(t *testing.T) {
 		},
 		"deploy": func(stepID ids.ID) { calls = append(calls, stepID) },
 		"script": func(stepID ids.ID) { calls = append(calls, stepID) },
-	}, Stages: recoveryStageEffects{}, Report: func(err error) { t.Error(err) }})
-	d.RestartPending(nil)
-	d.Wait()
+	}, stages: recoveryStageEffects{}, report: func(err error) { t.Error(err) }})
+	d.restartPending(nil)
+	d.wait()
 	if len(calls) != 0 {
 		t.Fatalf("replayed completed work or deployed past failure: %v", calls)
 	}
@@ -125,22 +125,22 @@ func TestWorkflowRecoveryAdvancesFinishedChecksThroughTheGate(t *testing.T) {
 	transitionStoredStepForTest(t, db, ready[0].ID, StatusPass)
 
 	checks := advancementScopeChecks{refresh: func(context.Context, *Run) error { return nil }}
-	advancer := newAdvancer(db, advanceRuntime{Checks: checks, Completion: completionRecorderFunc(noCompletionEffects)})
+	advancer := newAdvancer(db, advanceRuntime{checks: checks, completion: completionRecorderFunc(noCompletionEffects)})
 	attempts := 0
 	stages := recoveryAdvancement{advance: func(runID ids.ID) {
 		attempts++
-		if _, err := advancer.Advance(context.Background(), runID, "system"); err != nil {
+		if _, err := advancer.advance(context.Background(), runID, "system"); err != nil {
 			t.Error(err)
 		}
 	}}
-	dispatcher := newDispatcher(db, dispatcherConfig{Life: context.Background(),
-		Runners: map[string]func(ids.ID){"script": func(ids.ID) { t.Error("finished check was replayed") }},
-		Stages:  stages,
-		Report:  func(err error) { t.Error(err) },
+	dispatcher := newDispatcher(db, dispatcherConfig{life: context.Background(),
+		runners: map[string]func(ids.ID){"script": func(ids.ID) { t.Error("finished check was replayed") }},
+		stages:  stages,
+		report:  func(err error) { t.Error(err) },
 	})
 
-	dispatcher.RestartPending(nil)
-	dispatcher.Wait()
+	dispatcher.restartPending(nil)
+	dispatcher.wait()
 	run, err := readRun(context.Background(), db, id)
 	if err != nil || run.Status != RunRunning || attempts != 1 {
 		t.Fatalf("approval gate bypassed: run=%+v attempts=%d err=%v", run, attempts, err)
@@ -163,15 +163,15 @@ func TestWorkflowRecoveryAdvancesFinishedChecksThroughTheGate(t *testing.T) {
 		t.Fatal("approval step not stored")
 	}
 	transitionStoredStepForTest(t, db, approvalID, StatusPass)
-	dispatcher.RestartPending(nil)
-	dispatcher.Wait()
+	dispatcher.restartPending(nil)
+	dispatcher.wait()
 	run, err = readRun(context.Background(), db, id)
 	if err != nil || run.Status != RunDone || attempts != 2 {
 		t.Fatalf("ready stage did not finish: run=%+v attempts=%d err=%v", run, attempts, err)
 	}
 
-	dispatcher.RestartPending(nil)
-	dispatcher.Wait()
+	dispatcher.restartPending(nil)
+	dispatcher.wait()
 	if attempts != 2 {
 		t.Fatalf("completed run recovered again: attempts=%d", attempts)
 	}
@@ -191,7 +191,7 @@ func TestWorkflowRecoveryRecordsAgentContinuationBeforeRunning(t *testing.T) {
 				completionExec(t, db, `ALTER TABLE run_events ADD CONSTRAINT reject_resume CHECK (kind!='step.resumed')`)
 			}
 			called, reported := false, false
-			d := newDispatcher(db, dispatcherConfig{Life: context.Background(), Runners: map[string]func(ids.ID){"agent/pi": func(stepID ids.ID) {
+			d := newDispatcher(db, dispatcherConfig{life: context.Background(), runners: map[string]func(ids.ID){"agent/pi": func(stepID ids.ID) {
 				called = true
 				prepared, err := readStep(context.Background(), db, stepID)
 				if err != nil {
@@ -212,9 +212,9 @@ func TestWorkflowRecoveryRecordsAgentContinuationBeforeRunning(t *testing.T) {
 				if err := requireAttemptWrite(workflowsql.New(db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), Status: StatusPass.String(), EvidenceJson: stored.Evidence, ID: stepID, Attempt: stored.Attempt, ExpectedStatus: stored.Status.String()})); err != nil {
 					t.Error(err)
 				}
-			}}, Stages: recoveryStageEffects{}, Report: func(error) { reported = true }})
-			d.RestartPending(nil)
-			d.Wait()
+			}}, stages: recoveryStageEffects{}, report: func(error) { reported = true }})
+			d.restartPending(nil)
+			d.wait()
 			if called == failReceipt || reported != failReceipt {
 				t.Fatalf("called=%v reported=%v", called, reported)
 			}

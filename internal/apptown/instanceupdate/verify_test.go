@@ -157,7 +157,7 @@ func signatureFixtureAt(t *testing.T, tag, commit, signer, oidc string, sums []b
 	}
 	leafTemplate.ExtraExtensions = append(leafTemplate.ExtraExtensions, pkix.Extension{Id: asn1.ObjectIdentifier(ctx509.OIDExtensionCTSCT), Value: encoded})
 	leaf := fixtureCert(t, leafTemplate, caCert, leafKey.Public(), caKey)
-	statement, err := json.Marshal(map[string]any{"_type": "https://in-toto.io/Statement/v1", "subject": []any{map[string]any{"name": ChecksumsName, "digest": map[string]string{"sha256": hashBytes(sums)}}}, "predicateType": "https://apptown.dev/release-checksums/v1", "predicate": map[string]any{}})
+	statement, err := json.Marshal(map[string]any{"_type": "https://in-toto.io/Statement/v1", "subject": []any{map[string]any{"name": checksumsName, "digest": map[string]string{"sha256": hashBytes(sums)}}}, "predicateType": "https://apptown.dev/release-checksums/v1", "predicate": map[string]any{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -240,7 +240,7 @@ func newSignedFixture(t *testing.T) signedFixture {
 	t.Helper()
 	f := signedFixture{tag: "v1.1.0", notes: []byte("## Release\nSigned notes.\n")}
 	commit := strings.Repeat("a", 40)
-	m := Manifest{Format: 2, Version: f.tag, Commit: commit, Notes: Artifact{Name: NotesName, SHA256: hashBytes(f.notes), Size: int64(len(f.notes))}, Archives: map[string]Artifact{}, Images: map[string]Image{}, Compatibility: Compatibility{Schema: Range{167, 177}, Layout: Range{1, 2}, SchemaResult: 177, LayoutResult: 2, CLIProtocol: 1, DaemonWorkerProtocol: 2, WorkerProtocol: Range{1, 2}}}
+	m := Manifest{Format: 2, Version: f.tag, Commit: commit, Notes: Artifact{Name: notesName, SHA256: hashBytes(f.notes), Size: int64(len(f.notes))}, Archives: map[string]Artifact{}, Images: map[string]Image{}, Compatibility: Compatibility{Schema: Range{167, 177}, Layout: Range{1, 2}, SchemaResult: 177, LayoutResult: 2, CLIProtocol: 1, DaemonWorkerProtocol: 2, WorkerProtocol: Range{1, 2}}}
 	for _, p := range []string{"linux/amd64", "linux/arm64", "darwin/amd64", "darwin/arm64"} {
 		m.Archives[p] = Artifact{Name: "apptown-1.1.0-" + strings.ReplaceAll(p, "/", "-") + ".tar.gz", SHA256: hashBytes([]byte(p)), Size: 1}
 	}
@@ -252,7 +252,7 @@ func newSignedFixture(t *testing.T) signedFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.checksums = []byte(hashBytes(f.manifest) + "  " + ManifestName + "\n" + hashBytes(f.notes) + "  " + NotesName + "\n")
+	f.checksums = []byte(hashBytes(f.manifest) + "  " + manifestName + "\n" + hashBytes(f.notes) + "  " + notesName + "\n")
 	for _, p := range []string{"linux/amd64", "linux/arm64", "darwin/amd64", "darwin/arm64"} {
 		a := m.Archives[p]
 		f.checksums = append(f.checksums, []byte(a.SHA256+"  "+a.Name+"\n")...)

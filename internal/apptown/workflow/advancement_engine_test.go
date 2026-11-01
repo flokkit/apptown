@@ -403,3 +403,17 @@ func TestWorkflowEngineEndsARunWithNothingToChange(t *testing.T) {
 		})
 	}
 }
+
+// Test setup delegates to the operations used by production.
+func (a *advancer) advance(ctx context.Context, id ids.ID, who string) (*AdvanceResult, error) {
+	return a.engine.advance(ctx, id, who)
+}
+
+// Test setup delegates to the operations used by production.
+func (w advanceEngine) advance(ctx context.Context, runID ids.ID, who string) (*AdvanceResult, error) {
+	run, err := w.records.runByID(ctx, runID)
+	if err != nil {
+		return nil, err
+	}
+	return w.advanceRun(ctx, run, who)
+}

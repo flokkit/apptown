@@ -2,8 +2,9 @@ package adoption
 
 import (
 	"context"
-	"github.com/flokkit/apptown/internal/ids"
 	"time"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption/internal/adoptionsql"
 	"github.com/flokkit/apptown/internal/database"
@@ -14,8 +15,8 @@ type laneStore struct{ db *database.DB }
 
 func newLanes(db *database.DB) *laneStore { return &laneStore{db: db} }
 
-// Selected: the selection row decides; no row means not selected.
-func (s *laneStore) Selected(ctx context.Context, projectID ids.ID, name string) (bool, error) {
+// selected: the selection row decides; no row means not selected.
+func (s *laneStore) selected(ctx context.Context, projectID ids.ID, name string) (bool, error) {
 	r, err := adoptionsql.New(s.db.SQL()).ProjectLane(ctx, adoptionsql.ProjectLaneParams{ProjectID: projectID, Name: name})
 	if found, err := database.Lookup(err); err != nil || !found {
 		return false, err
@@ -29,10 +30,10 @@ func setLaneIn(ctx context.Context, tx *database.Tx, projectID ids.ID, name stri
 	return err
 }
 
-// SelectOnlyIn makes exactly the named lanes a project's selection,
+// selectOnlyIn makes exactly the named lanes a project's selection,
 // inside the caller's transaction, at the caller's clock: every other
 // selection is turned off.
-func SelectOnlyIn(ctx context.Context, tx *database.Tx, projectID ids.ID, names []string, at time.Time) error {
+func selectOnlyIn(ctx context.Context, tx *database.Tx, projectID ids.ID, names []string, at time.Time) error {
 	q := adoptionsql.New(tx.SQL())
 	if _, err := q.DeselectProjectLanes(ctx, adoptionsql.DeselectProjectLanesParams{ProjectID: projectID, UpdatedAt: at.UTC()}); err != nil {
 		return err

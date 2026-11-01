@@ -165,7 +165,7 @@ func mutateStoredDeployment(t *testing.T, db *database.DB, projectID ids.ID, nam
 
 func cutBundleFixture(t *testing.T, db *database.DB, projectID ids.ID, revision string, origin BundleOrigin) ids.ID {
 	t.Helper()
-	id, err := NewBundles(db).Cut(t.Context(), projectID, revision, nil, nil, nil, origin)
+	id, err := newBundles(db).Cut(t.Context(), projectID, revision, nil, nil, nil, origin)
 	if err != nil {
 		t.Fatal(err)
 	}

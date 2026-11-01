@@ -23,8 +23,8 @@ type Kind int
 const (
 	KindWorkflow Kind = iota
 	KindGuidance
-	KindPolicy
-	KindPack
+	kindPolicy
+	kindPack
 )
 
 // shippedNames is the names the release ships, by kind. A nil set is a kind
@@ -73,19 +73,19 @@ func readShipped(deps Dependencies) shippedNames {
 	}
 	set(KindGuidance, names, skipped == 0)
 
-	policies, err := ReadStockPolicies(deps.Stock)
+	policies, err := readStockPolicies(deps.Stock)
 	names = make([]string, 0, len(policies))
 	for _, p := range policies {
 		names = append(names, p.Name)
 	}
-	set(KindPolicy, names, err == nil)
+	set(kindPolicy, names, err == nil)
 
 	packs, err := ReadStockPacks(deps.Stock)
 	names = make([]string, 0, len(packs))
 	for _, p := range packs {
 		names = append(names, p.Name)
 	}
-	set(KindPack, names, err == nil)
+	set(kindPack, names, err == nil)
 	return out
 }
 
@@ -95,9 +95,9 @@ func (k Kind) String() string {
 		return "workflow"
 	case KindGuidance:
 		return "guidance"
-	case KindPolicy:
+	case kindPolicy:
 		return "policy"
-	case KindPack:
+	case kindPack:
 		return "pack"
 	}
 	return "unknown"
@@ -116,16 +116,16 @@ func (s *Service) Withdrawn(k Kind, origin, name string) bool {
 // withdrawUnshippedPacks turns off each stock pack the release no longer
 // ships, so new projects are not offered it; the projects on it stay on it.
 func (s *Service) withdrawUnshippedPacks(ctx context.Context) {
-	all, err := s.packs.All(ctx)
+	all, err := s.packs.all(ctx)
 	if err != nil {
 		log.Printf("stock packs: reading which are no longer shipped: %v", err)
 		return
 	}
 	for _, p := range all {
-		if !p.Enabled || !s.Withdrawn(KindPack, p.Origin, p.Name) {
+		if !p.Enabled || !s.Withdrawn(kindPack, p.Origin, p.Name) {
 			continue
 		}
-		if err := s.packs.SetEnabled(ctx, p.Name, false, "apptown-system"); err != nil {
+		if err := s.packs.setEnabled(ctx, p.Name, false, "apptown-system"); err != nil {
 			log.Printf("stock pack %s: no longer shipped, but turning it off failed: %v", p.Name, err)
 			continue
 		}

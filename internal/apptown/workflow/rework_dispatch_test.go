@@ -65,7 +65,7 @@ func TestReworkCommandsDispatchOnlyCommittedWork(t *testing.T) {
 				}}, Report: func(err error) { t.Error(err) }}, allowProject(run.ProjectID))
 				// This package tests command-to-dispatch ordering; Git preparation and
 				// advancement composition have their own integration tests.
-				service.advancer = newAdvancer(owner.db, advanceRuntime{Stages: service.stages, Assertions: service.assertions, Checks: advancementScopeChecks{refresh: func(context.Context, *Run) error { return nil }}, Completion: completionRecorderFunc(noCompletionEffects)})
+				service.advancer = newAdvancer(owner.db, advanceRuntime{stages: service.stages, assertions: service.assertions, checks: advancementScopeChecks{refresh: func(context.Context, *Run) error { return nil }}, completion: completionRecorderFunc(noCompletionEffects)})
 				service.dispatcher.prepare = nil
 				service.dispatcher.advance = func(ids.ID) {}
 				t.Cleanup(service.Stop)
@@ -176,7 +176,7 @@ func TestWorkflowReworkRecoversCommittedIntent(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					agent, err = service.stepAttempts.Start(ctx, current, current.Type)
+					agent, err = service.stepAttempts.start(ctx, current, current.Type, ids.Nil)
 					if err != nil {
 						t.Fatal(err)
 					}

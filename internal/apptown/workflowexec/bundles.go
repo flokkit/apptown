@@ -14,7 +14,7 @@ import (
 // cutBundle records what a landing built, read from the daemon it booted
 // on, and names that target: the images exist there and nowhere else. The
 // deploy step's attempt commits it, only while it still owns the step.
-func (a *Shipping) cutBundle(task *workflow.Execution, projectID ids.ID, tree string, landed deployment.LandingResult, contractBytes []byte, from deployment.BundleOrigin) (ids.ID, error) {
+func (a *shipping) cutBundle(task *workflow.Execution, projectID ids.ID, tree string, landed deployment.LandingResult, contractBytes []byte, from deployment.BundleOrigin) (ids.ID, error) {
 	parts, init := landed.Images(task.Context())
 	from.TargetID, from.By = landed.TargetID, task
 	return a.deployment.Bundles.Cut(task.Context(), projectID, tree, parts, init, contractBytes, from)

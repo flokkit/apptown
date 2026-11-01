@@ -24,13 +24,13 @@ const (
 var targetStateCodec = enum.Set[TargetState]{
 	Names:     []string{"ready", "unreachable", "retired"},
 	Invalid:   "invalid-target-state",
-	Err:       ErrTargetState,
+	Err:       errTargetState,
 	ScanLabel: "value",
 }
 
 var (
 	ErrTargetRetired = errors.New("target is retired")
-	ErrTargetState   = errors.New("invalid target state")
+	errTargetState   = errors.New("invalid target state")
 )
 
 func (s TargetState) String() string { return targetStateCodec.String(s) }
@@ -44,15 +44,15 @@ func (s TargetState) Available() error {
 	case TargetRetired:
 		return ErrTargetRetired
 	default:
-		return fmt.Errorf("%w: %d", ErrTargetState, s)
+		return fmt.Errorf("%w: %d", errTargetState, s)
 	}
 }
 
 // Offerable: only a target that answered its last check may take new work.
 func (s TargetState) Offerable() bool { return s == TargetReady }
 
-// Checked is the one rule for recording a check's answer.
-func (s TargetState) Checked(answered bool) (TargetState, error) {
+// checked is the one rule for recording a check's answer.
+func (s TargetState) checked(answered bool) (TargetState, error) {
 	if err := s.Available(); err != nil {
 		return 0, err
 	}
@@ -62,10 +62,10 @@ func (s TargetState) Checked(answered bool) (TargetState, error) {
 	return TargetUnreachable, nil
 }
 
-// Retire is the one rule for taking a target out of service. Retiring an
+// retire is the one rule for taking a target out of service. Retiring an
 // already retired target is refused with ErrTargetRetired so a caller can
 // treat it as already done rather than as a change.
-func (s TargetState) Retire() (TargetState, error) {
+func (s TargetState) retire() (TargetState, error) {
 	if err := s.Available(); err != nil {
 		return 0, err
 	}
@@ -86,10 +86,10 @@ func (s *TargetState) UnmarshalJSON(data []byte) error {
 type TargetLabel uint8
 
 const (
-	TargetCheckUnknown TargetLabel = iota + 1
-	TargetWorking
-	TargetCheckFailed
-	TargetCheckStopped
+	targetCheckUnknown TargetLabel = iota + 1
+	targetWorking
+	targetCheckFailed
+	targetCheckStopped
 )
 
 var targetLabelCodec = enum.Set[TargetLabel]{Names: []string{"unknown", "working", "failed", "stopped"}, Invalid: "invalid-target-label", Err: errors.New("invalid target label"), ScanLabel: "value"}
@@ -101,12 +101,12 @@ func (s *TargetLabel) UnmarshalJSON(b []byte) error { return targetLabelCodec.Re
 func (s TargetState) Display() TargetLabel {
 	switch s {
 	case TargetReady:
-		return TargetWorking
+		return targetWorking
 	case TargetUnreachable:
-		return TargetCheckFailed
+		return targetCheckFailed
 	case TargetRetired:
-		return TargetCheckStopped
+		return targetCheckStopped
 	default:
-		return TargetCheckUnknown
+		return targetCheckUnknown
 	}
 }

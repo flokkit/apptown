@@ -15,10 +15,10 @@ import (
 )
 
 const (
-	ManifestName  = "UPDATE-MANIFEST.json"
-	NotesName     = "RELEASE-NOTES.md"
-	ChecksumsName = "SHA256SUMS"
-	BundleName    = "SHA256SUMS.sigstore.json"
+	manifestName  = "UPDATE-MANIFEST.json"
+	notesName     = "RELEASE-NOTES.md"
+	checksumsName = "SHA256SUMS"
+	bundleName    = "SHA256SUMS.sigstore.json"
 )
 
 // Manifest binds every artifact to one authenticated release. It names what a
@@ -80,7 +80,7 @@ func (m Manifest) validate(tag string) error {
 	if m.Format != 2 || !validTag(tag) || m.Version != tag || !hexOf(m.Commit, 40) {
 		return fmt.Errorf("unsupported update manifest identity")
 	}
-	if m.Notes.Name != NotesName || !validArtifact(m.Notes) {
+	if m.Notes.Name != notesName || !validArtifact(m.Notes) {
 		return fmt.Errorf("invalid release notes identity")
 	}
 	if len(m.Archives) != 4 || len(m.Images) != 3 {

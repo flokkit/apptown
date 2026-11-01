@@ -7,9 +7,9 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 )
 
-type ExecRequest = execution.Request
+type execRequest = execution.Request
 
-type ExecOutcome = execution.Outcome
+type execOutcome = execution.Outcome
 
 // DockerAvailable pings the daemon once; used for a friendly startup warning.
 // An AppTown with no local Docker has none to ping.

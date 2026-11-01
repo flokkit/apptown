@@ -59,7 +59,7 @@ func (d *Driver) Sample(ctx context.Context, in ReadinessSample, allowed func(co
 	if err != nil {
 		return unknown, err
 	}
-	if err := VerifyIdentity(id, before, in.Image); err != nil {
+	if err := verifyIdentity(id, before, in.Image); err != nil {
 		return unknown, err
 	}
 	token, err := readinessRuntimeToken(before)
@@ -95,7 +95,7 @@ func (d *Driver) Sample(ctx context.Context, in ReadinessSample, allowed func(co
 	if err != nil {
 		return unknown, err
 	}
-	if err := VerifyIdentity(id, after, in.Image); err != nil {
+	if err := verifyIdentity(id, after, in.Image); err != nil {
 		return unknown, err
 	}
 	afterToken, err := readinessRuntimeToken(after)

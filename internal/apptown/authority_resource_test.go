@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -27,7 +29,7 @@ func TestHTTPAuthorityScopeFailureStopsEvenAdministrator(t *testing.T) {
 		{"/api/v1/authz/me?project=game", "GET", "", "-- name: ProjectBySlug :one", 0},
 	} {
 		t.Run(tc.method+tc.path+tc.marker, func(t *testing.T) {
-			restore := a.DB.FailStatementAfter(tc.marker, tc.skip)
+			restore := dbtest.StatementFailureAfter(a.DB, tc.marker, tc.skip)
 			w := authzCall(h, "boss", tc.method, tc.path, tc.body)
 			restore()
 			if w.Code != 503 {
@@ -58,7 +60,7 @@ func TestGrantCleanupDistinguishesAbsentFromUnavailableProject(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		restore := a.DB.FailNextStatement("-- name: ProjectByID :one")
+		restore := dbtest.NextStatementFailure(a.DB, "-- name: ProjectByID :one")
 		w := authzCall(h, "boss", "DELETE", "/api/v1/authz/grants/"+id.String(), "")
 		restore()
 		if w.Code != 503 {
@@ -89,7 +91,7 @@ func TestMCPAuthorityScopeFailureDoesNotOmitOrCreate(t *testing.T) {
 		{"get_project", 0, map[string]any{"slug": "app"}},
 		{"create_change", 1, map[string]any{"slug": "app", "title": "must not be created"}},
 	} {
-		restore := a.DB.FailStatementAfter("-- name: ProjectByID :one", tc.skip)
+		restore := dbtest.StatementFailureAfter(a.DB, "-- name: ProjectByID :one", tc.skip)
 		w := mcp_post(a, boss, "", mcp_rpc(7, "tools/call", map[string]any{"name": tc.tool, "arguments": tc.args}))
 		restore()
 		var response struct {
@@ -122,7 +124,7 @@ func TestContributionScopeFailureMintsNoTicket(t *testing.T) {
 	}
 	// Work.Change's authority read and the contribution's project read precede
 	// the additional current resource lookup in contribution admission.
-	restore := a.DB.FailStatementAfter("-- name: ProjectByID :one", 2)
+	restore := dbtest.StatementFailureAfter(a.DB, "-- name: ProjectByID :one", 2)
 	got, err := contributionsFor(a).Checkout(asPerson("boss"), ch.ID)
 	restore()
 	if fault.KindOf(err) != fault.Unavailable || got.Token != "" || got.Ticket != nil {

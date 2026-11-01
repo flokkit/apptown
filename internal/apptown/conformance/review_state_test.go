@@ -11,7 +11,7 @@ func TestReviewLifecycleIsTerminal(t *testing.T) {
 	all := []ReviewState{0, ReviewQueued, ReviewRunning, ReviewDone, ReviewError}
 	for _, from := range all {
 		for _, to := range all {
-			next, err := from.Transition(to)
+			next, err := from.transition(to)
 			legal := from == ReviewRunning && (to == ReviewDone || to == ReviewError) ||
 				from == ReviewQueued && (to == ReviewRunning || to == ReviewError)
 			if legal && (err != nil || next != to) {
@@ -23,7 +23,7 @@ func TestReviewLifecycleIsTerminal(t *testing.T) {
 		}
 	}
 	for _, s := range []ReviewState{ReviewQueued, ReviewDone, ReviewError} {
-		if err := s.RequireRunning(); !errors.Is(err, ErrReviewClosed) {
+		if err := s.requireRunning(); !errors.Is(err, errReviewClosed) {
 			t.Fatalf("terminal review admitted work: %s %v", s, err)
 		}
 	}
@@ -53,7 +53,7 @@ func TestReviewStateOwnsItsRepresentations(t *testing.T) {
 	}
 	for _, bad := range []any{nil, "", "paused", "stale", "RUNNING", 1, []byte("unknown")} {
 		got := ReviewDone
-		if err := got.Scan(bad); !errors.Is(err, ErrReviewState) || got != ReviewDone {
+		if err := got.Scan(bad); !errors.Is(err, errReviewState) || got != ReviewDone {
 			t.Fatalf("invalid database state changed a record: %v -> %s %v", bad, got, err)
 		}
 	}
@@ -63,10 +63,10 @@ func TestReviewStateOwnsItsRepresentations(t *testing.T) {
 			t.Fatalf("invalid wire state changed a record: %s -> %s %v", bad, got, err)
 		}
 	}
-	if _, err := ReviewState(0).Value(); !errors.Is(err, ErrReviewState) {
+	if _, err := ReviewState(0).Value(); !errors.Is(err, errReviewState) {
 		t.Fatalf("uninitialized state accepted for storage: %v", err)
 	}
-	if _, err := json.Marshal(ReviewState(0)); !errors.Is(err, ErrReviewState) {
+	if _, err := json.Marshal(ReviewState(0)); !errors.Is(err, errReviewState) {
 		t.Fatalf("uninitialized state accepted on wire: %v", err)
 	}
 }
@@ -74,7 +74,7 @@ func TestReviewStateOwnsItsRepresentations(t *testing.T) {
 func TestReviewDisplayDistinguishesWorkFromCheckResults(t *testing.T) {
 	t.Parallel()
 	for state, want := range map[ReviewState]string{0: "unknown", ReviewQueued: "waiting", ReviewRunning: "working", ReviewDone: "finished", ReviewError: "failed"} {
-		if got := state.Display().String(); got != want {
+		if got := state.display().String(); got != want {
 			t.Fatalf("%s: %s, want %s", state, got, want)
 		}
 	}

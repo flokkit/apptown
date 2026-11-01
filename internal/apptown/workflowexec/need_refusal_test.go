@@ -45,7 +45,7 @@ func TestAnAgentIsToldOfTheNeedsAReleaseRefusesAndTestsRefuseThem(t *testing.T) 
 			if err := os.WriteFile(filepath.Join(staged, ".apptown/app.yaml"), []byte(body), 0644); err != nil {
 				t.Fatal(err)
 			}
-			commands := &Commands{catalog: f.exec.dependencies}
+			commands := &commands{catalog: f.exec.dependencies}
 			_, _, unknown, _, err := commands.testServices(t.Context(), staged)
 			if err == nil && len(unknown) == 0 {
 				t.Error("workflow tests accepted a withdrawn declaration")

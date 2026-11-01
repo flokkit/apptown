@@ -10,7 +10,7 @@ import (
 )
 
 type fakeClient struct {
-	disk  diskspacetest.Daemon
+	disk  diskDaemon
 	hosts []string
 	args  [][]string
 	out   string
@@ -51,11 +51,11 @@ func (f *fakeClient) Run(_ context.Context, host string, req Command) ([]byte, e
 func TestScopeCarriesItsHost(t *testing.T) {
 	c := &fakeClient{out: "a\nb\n\nc\n"}
 	local := Scope{Client: c}
-	if local.Remote() {
+	if local.remote() {
 		t.Fatal("AppTown's own daemon is not remote")
 	}
 	remote := local.WithHost("ssh://droplet", "203.0.113.5", "apps.example")
-	if !remote.Remote() || remote.Hostname != "203.0.113.5" || remote.Domain != "apps.example" || remote.Client != c {
+	if !remote.remote() || remote.Hostname != "203.0.113.5" || remote.Domain != "apps.example" || remote.Client != c {
 		t.Fatalf("attached host: %+v", remote)
 	}
 	if lines := remote.Lines(context.Background(), "ps"); len(lines) != 3 || lines[2] != "c" {
@@ -116,3 +116,6 @@ func ownBuilderAnswer(args []string) ([]byte, bool) {
 	}
 	return nil, false
 }
+
+// diskDaemon composes the disk and result protocols for this package's tests.
+type diskDaemon = diskspacetest.Daemon

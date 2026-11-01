@@ -100,24 +100,24 @@ func TestDockerNameInverses(t *testing.T) {
 			t.Errorf("parsePreviewChangeID accepted %q", bad)
 		}
 	}
-	if s, ok := StackOfNetwork("apptown-net-pvsnap-change-00000000-0007-7000-8000-000000000000"); !ok || s != "pvsnap-change-00000000-0007-7000-8000-000000000000" {
+	if s, ok := stackOfNetwork("apptown-net-pvsnap-change-00000000-0007-7000-8000-000000000000"); !ok || s != "pvsnap-change-00000000-0007-7000-8000-000000000000" {
 		t.Fatalf("stackOfNetwork: %q %v", s, ok)
 	}
 	for _, bad := range []string{"bridge", "forge-net-pvsnap-change-00000000-0007-7000-8000-000000000000"} {
-		if _, ok := StackOfNetwork(bad); ok {
+		if _, ok := stackOfNetwork(bad); ok {
 			t.Errorf("%s is not an AppTown network", bad)
 		}
 	}
-	if c, ok := ContainerOfDataVolume("apptown-data-apptown-preview-run-00000000-0038-7000-8000-000000000000"); !ok || c != "apptown-preview-run-00000000-0038-7000-8000-000000000000" {
+	if c, ok := containerOfDataVolume("apptown-data-apptown-preview-run-00000000-0038-7000-8000-000000000000"); !ok || c != "apptown-preview-run-00000000-0038-7000-8000-000000000000" {
 		t.Fatalf("containerOfDataVolume: %q %v", c, ok)
 	}
-	if _, ok := ContainerOfDataVolume("forge-data-forge-preview-run-00000000-0038-7000-8000-000000000000"); ok {
+	if _, ok := containerOfDataVolume("forge-data-forge-preview-run-00000000-0038-7000-8000-000000000000"); ok {
 		t.Error("containerOfDataVolume read a forge- volume")
 	}
-	if !IsLocalBuildTag("apptown-preview-build-change-7") || IsLocalBuildTag("registry.example/app:1") || IsLocalBuildTag("forge-preview-build-change-7") {
+	if !isLocalBuildTag("apptown-preview-build-change-7") || isLocalBuildTag("registry.example/app:1") || isLocalBuildTag("forge-preview-build-change-7") {
 		t.Error("isLocalBuildTag")
 	}
-	if !IsNamedVolume("apptown-need-dep-3b89d1da8075-postgres") || IsNamedVolume("forge-need-env-shop-main-postgres") || !Named("apptown-dep-3b89d1da8075") || Named("forge-env-shop-main") {
+	if !isNamedVolume("apptown-need-dep-3b89d1da8075-postgres") || isNamedVolume("forge-need-env-shop-main-postgres") || !Named("apptown-dep-3b89d1da8075") || Named("forge-env-shop-main") {
 		t.Error("IsNamedVolume or Named")
 	}
 }

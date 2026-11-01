@@ -40,13 +40,13 @@ func ContainerEvents(ctx context.Context, dk Scope, since, until time.Time) ([]C
 	if err != nil {
 		return nil, fmt.Errorf("docker events: %v: %s", err, strings.TrimSpace(string(out)))
 	}
-	return ParseContainerEvents(out)
+	return parseContainerEvents(out)
 }
 
-// ParseContainerEvents reads docker events' JSON lines. A line that is
+// parseContainerEvents reads docker events' JSON lines. A line that is
 // not an event AppTown reads is an error, never skipped: a skipped
 // event would read as one that did not happen.
-func ParseContainerEvents(out []byte) ([]ContainerEvent, error) {
+func parseContainerEvents(out []byte) ([]ContainerEvent, error) {
 	var events []ContainerEvent
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		if strings.TrimSpace(line) == "" {

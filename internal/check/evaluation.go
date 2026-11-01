@@ -54,16 +54,16 @@ func (o Outcome) String() string {
 	return "invalid-outcome"
 }
 
-// Tokens is what a model call cost, as the judge observed it. What that means
+// tokens is what a model call cost, as the judge observed it. What that means
 // in money, and whose budget it lands on, is the caller's business.
-type Tokens struct {
+type tokens struct {
 	Input  int64
 	Output int64
 }
 
-// Evidence is what the judge recorded about HOW it judged: the evaluator's own
+// evidence is what the judge recorded about HOW it judged: the evaluator's own
 // identity, the hash of the exact material it looked at, and its output.
-type Evidence struct {
+type evidence struct {
 	EvaluatorVersion string // the identity a verdict keys on; unchanged strings
 	Hash             string // hash of the evidence bundle judged
 	PromptHash       string // model calls only
@@ -73,7 +73,7 @@ type Evidence struct {
 	Output           string
 	ExitCode         *int
 	Duration         time.Duration
-	Tokens           Tokens
+	Tokens           tokens
 }
 
 // Evaluation is one declaration against one source in one mode.
@@ -84,7 +84,7 @@ type Evaluation struct {
 	Detail      string
 	Findings    []Finding
 	Occurrences []string
-	Evidence    Evidence
+	Evidence    evidence
 	// Fault: the judge failed, not the tree. A change must never be sent back
 	// to its author over one.
 	Fault bool

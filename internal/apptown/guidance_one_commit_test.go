@@ -13,7 +13,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/toolversions"
 	"github.com/flokkit/apptown/stock"
@@ -56,9 +55,9 @@ func TestGuidanceChecksRefuseAFolderWithoutARepository(t *testing.T) {
 	t.Parallel()
 	a, ch := step1ReviewGuidance(t, false, `[{"appliesTo": ["repository"], "name":"clean","evaluator":"sh","sh":"true"}]`)
 	var folders []string
-	installCheckEffects(t, a, checkOverrides{run: func(req ExecRequest) ExecOutcome {
+	installCheckEffects(t, a, checkOverrides{run: func(req execRequest) execOutcome {
 		folders = append(folders, req.Workspace)
-		return ExecOutcome{}
+		return execOutcome{}
 	}})
 	run := step1ReviewRun(t, a, ch)
 	result := reviewExecute(t, a, run, "guidance")
@@ -83,10 +82,10 @@ func TestGuidanceChecksKeepImageAndSourceOnOneCommit(t *testing.T) {
 	}
 	gittest.Run(t, ws, "add", "-f", ".apptown/app.yaml", "source.txt")
 	gittest.Run(t, ws, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "first")
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	a.docker.Client = daemon
 	moved := false
-	installCheckEffects(t, a, checkOverrides{run: func(req ExecRequest) ExecOutcome {
+	installCheckEffects(t, a, checkOverrides{run: func(req execRequest) execOutcome {
 		if !moved {
 			body, err := os.ReadFile(filepath.Join(req.Workspace, "source.txt"))
 			if err != nil || string(body) != "first" {
@@ -99,7 +98,7 @@ func TestGuidanceChecksKeepImageAndSourceOnOneCommit(t *testing.T) {
 			gittest.Run(t, ws, "add", "source.txt")
 			gittest.Run(t, ws, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "concurrent commit")
 		}
-		return ExecOutcome{}
+		return execOutcome{}
 	}})
 	run := step1ReviewRun(t, a, ch)
 	checked := gittest.Run(t, ws, "rev-parse", "HEAD")
@@ -142,10 +141,10 @@ func TestAGuidanceStepKeepsTheToolVersionsItStartedWith(t *testing.T) {
 		t.Fatal(err)
 	}
 	var images []string
-	installCheckEffects(t, a, checkOverrides{run: func(req ExecRequest) ExecOutcome {
+	installCheckEffects(t, a, checkOverrides{run: func(req execRequest) execOutcome {
 		images = append(images, req.Image)
 		a.cfg.stock.Tools.Install(newer)
-		return ExecOutcome{}
+		return execOutcome{}
 	}})
 	result := reviewExecute(t, a, step1ReviewRun(t, a, ch), "guidance")
 	// Two checks on the change's tree, and its base judged alike.

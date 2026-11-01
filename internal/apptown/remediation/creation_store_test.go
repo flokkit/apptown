@@ -13,7 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/poll"
 )
 
-func remediationCreationFixture(t *testing.T) (Creations, CreationRequest) {
+func remediationCreationFixture(t *testing.T) (creations, CreationRequest) {
 	t.Helper()
 	db := testDB(t)
 	alpha := createTestProject(t, db, "alpha", "Alpha", "")
@@ -193,12 +193,12 @@ func TestRemediationCreationIsInvisibleToWorkersUntilCommit(t *testing.T) {
 		t.Fatalf("uncommitted creation visible: %+v", counts)
 	}
 	receiptCount(t, store.db, 0, "")
-	scheduler := NewSchedule(store.db, nil)
+	scheduler := newSchedule(store.db, nil)
 	queue, err := scheduler.Queue(context.Background())
 	if err != nil || len(queue.Jobs) != 0 {
 		t.Fatalf("worker saw partial job: %+v %v", queue, err)
 	}
-	if err := scheduler.CloseFinished(context.Background()); err != nil {
+	if err := scheduler.closeFinished(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if err := blocker.Commit(); err != nil {

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -44,7 +46,7 @@ func TestServiceReadsCurrentGrantsAndRequiresReceipt(t *testing.T) {
 		t.Fatal(err)
 	}
 	var denied *access.Denied
-	restore := db.FailNextStatement("-- name: AppendReceipt")
+	restore := dbtest.NextStatementFailure(db, "-- name: AppendReceipt")
 	if _, err := svc.Require(context.Background(), pr, p); err == nil || errors.As(err, &denied) {
 		t.Fatalf("an unrecorded denial became a policy result: %v", err)
 	}
@@ -52,7 +54,7 @@ func TestServiceReadsCurrentGrantsAndRequiresReceipt(t *testing.T) {
 	if _, err := svc.Require(context.Background(), pr, p); !errors.As(err, &denied) {
 		t.Fatalf("revocation was not observed: %v", err)
 	}
-	restore = db.FailNextStatement("-- name: UserByName :one")
+	restore = dbtest.NextStatementFailure(db, "-- name: UserByName :one")
 	if _, err := svc.Explain(context.Background(), pr, p); err == nil || errors.As(err, &denied) {
 		t.Fatalf("unreadable account became a policy result: %v", err)
 	}

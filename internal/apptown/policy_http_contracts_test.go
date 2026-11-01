@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/wow"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/wow"
 
 	"strings"
 	"testing"

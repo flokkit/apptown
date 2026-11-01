@@ -12,10 +12,10 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// ChangeVerifier is the committed-tree command shared with other transports.
+// changeVerifier is the committed-tree command shared with other transports.
 // sel is the commit the caller asks about (verification.Selection). The
 // owner decides whether it can answer for it.
-type ChangeVerifier interface {
+type changeVerifier interface {
 	Check(ctx context.Context, ch *workflow.Change, sel verification.Selection) (map[string]any, error)
 }
 
@@ -30,10 +30,10 @@ type ChangeCheckRequest struct {
 }
 type ChangeChecks struct {
 	db      database.Queryer
-	checker ChangeVerifier
+	checker changeVerifier
 }
 
-func NewChangeChecks(db database.Queryer, checker ChangeVerifier) ChangeChecks {
+func NewChangeChecks(db database.Queryer, checker changeVerifier) ChangeChecks {
 	return ChangeChecks{db: db, checker: checker}
 }
 
@@ -46,7 +46,7 @@ func NewChangeChecks(db database.Queryer, checker ChangeVerifier) ChangeChecks {
 // gate, so they're out of scope here — this reports only what can actually
 // block a landing and that the agent can act on.
 func (h ChangeChecks) Check(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -58,7 +58,7 @@ func (h ChangeChecks) Check(w http.ResponseWriter, r *http.Request) {
 	}
 	// A run token may check ONLY its own change — a step agent's whole
 	// authority is "verify the work I am doing", never a lever on siblings.
-	if who := Actor(r); strings.HasPrefix(who, "run/") {
+	if who := actor(r); strings.HasPrefix(who, "run/") {
 		runID, _ := ids.Parse(strings.TrimPrefix(who, "run/"))
 		run, err := workflow.ReadRunIn(r.Context(), h.db, runID)
 		if err != nil {

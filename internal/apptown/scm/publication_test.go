@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/execfile"
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -53,7 +55,7 @@ func (f *publicationFixture) writer(name string) string {
 	return dir
 }
 
-func (f *publicationFixture) publish(from string, grant Grant) (Published, error) {
+func (f *publicationFixture) publish(from string, grant Grant) (publishedResult, error) {
 	return f.publisher.Publish(context.Background(), Publication{ProjectID: f.projectID, Repository: f.hub, Branch: "work", From: from, Grant: grant})
 }
 
@@ -95,7 +97,7 @@ func TestPublishingNeverOverwritesAnotherWritersCommits(t *testing.T) {
 	}
 	commitIn(t, second, "second writer, unaware of the first")
 	_, err := f.publish(second, grant)
-	var moved *BranchMoved
+	var moved *branchMoved
 	if !errors.As(err, &moved) || !moved.NotForward {
 		t.Fatalf("publishing a commit that does not build on the branch = %v, want a not-forward refusal", err)
 	}
@@ -112,8 +114,8 @@ func TestAHandoverRefusesTheEarlierHoldersFastForward(t *testing.T) {
 	commitIn(t, stale, "late result of the replaced run")
 	// The takeover publishes nothing: only ownership changes.
 	f.advance("chat:1")
-	if _, err := f.publish(stale, Grant{Generation: run.Generation}); !errors.Is(err, ErrAuthoritySuperseded) {
-		t.Fatalf("stale fast-forward after a handover = %v, want %v", err, ErrAuthoritySuperseded)
+	if _, err := f.publish(stale, Grant{Generation: run.Generation}); !errors.Is(err, errAuthoritySuperseded) {
+		t.Fatalf("stale fast-forward after a handover = %v, want %v", err, errAuthoritySuperseded)
 	}
 	if f.tip() != before {
 		t.Fatalf("branch moved to %s after a refused publication", f.tip())
@@ -139,8 +141,8 @@ func TestRewindingDoesNotReviveAReplacedAttempt(t *testing.T) {
 	if f.tip() != base {
 		t.Fatalf("branch = %s after the rewind, want base %s", f.tip(), base)
 	}
-	if _, err := f.publish(a, Grant{Generation: attemptA.Generation}); !errors.Is(err, ErrAuthoritySuperseded) {
-		t.Fatalf("attempt A's delayed publication from the same base = %v, want %v", err, ErrAuthoritySuperseded)
+	if _, err := f.publish(a, Grant{Generation: attemptA.Generation}); !errors.Is(err, errAuthoritySuperseded) {
+		t.Fatalf("attempt A's delayed publication from the same base = %v, want %v", err, errAuthoritySuperseded)
 	}
 }
 
@@ -154,7 +156,7 @@ func TestARewindIsNeverSideways(t *testing.T) {
 	}
 	commitIn(t, other, "unrelated")
 	_, err := f.publisher.Publish(context.Background(), Publication{ProjectID: f.projectID, Repository: f.hub, Branch: "work", From: other, Rewind: true, Grant: grant})
-	var moved *BranchMoved
+	var moved *branchMoved
 	if !errors.As(err, &moved) || f.tip() != kept {
 		t.Fatalf("sideways move allowed as a rewind: %v, branch %s", err, f.tip())
 	}
@@ -172,7 +174,7 @@ func TestAPublisherThatExpectedAnotherTipIsRefused(t *testing.T) {
 	late := f.writer("late")
 	commitIn(t, late, "builds on the new tip, but started from the old one")
 	_, err := f.publisher.Publish(context.Background(), Publication{ProjectID: f.projectID, Repository: f.hub, Branch: "work", From: late, Expected: started, Grant: grant})
-	var refused *BranchMoved
+	var refused *branchMoved
 	if !errors.As(err, &refused) || refused.Expected != started {
 		t.Fatalf("publishing from an outdated expected tip = %v", err)
 	}
@@ -183,8 +185,8 @@ func TestActingForTheHolderRequiresTheCurrentHolder(t *testing.T) {
 	f.advance("ticket:7")
 	w := f.writer("w")
 	commitIn(t, w, "desktop push")
-	if _, err := f.publish(w, Grant{Holder: "ticket:6"}); !errors.Is(err, ErrAuthoritySuperseded) {
-		t.Fatalf("an earlier ticket = %v, want %v", err, ErrAuthoritySuperseded)
+	if _, err := f.publish(w, Grant{Holder: "ticket:6"}); !errors.Is(err, errAuthoritySuperseded) {
+		t.Fatalf("an earlier ticket = %v, want %v", err, errAuthoritySuperseded)
 	}
 	if _, err := f.publish(w, Grant{Holder: "ticket:7"}); err != nil {
 		t.Fatalf("the current ticket: %v", err)
@@ -214,8 +216,8 @@ func TestAHandoverWaitsForAGitProcessThatOutlivedAppTown(t *testing.T) {
 	}
 	if _, err := database.Transact(context.Background(), f.db, func(tx *database.Tx) (Authority, error) {
 		return AdvanceAuthorityIn(context.Background(), tx, f.projectID, "work", "chat:1")
-	}); !errors.Is(err, ErrPublicationUnsettled) {
-		t.Fatalf("handover while the old git may still move the branch = %v, want %v", err, ErrPublicationUnsettled)
+	}); !errors.Is(err, errPublicationUnsettled) {
+		t.Fatalf("handover while the old git may still move the branch = %v, want %v", err, errPublicationUnsettled)
 	}
 	if err := survivor.Commit(); err != nil {
 		t.Fatal(err)
@@ -279,8 +281,8 @@ func TestAnUnsettledPublicationHoldsTheNextOne(t *testing.T) {
 	defer func() { _ = held.Commit() }()
 	next := f.writer("next")
 	commitIn(t, next, "waits")
-	if _, err := f.publish(next, Grant{Generation: gen}); !errors.Is(err, ErrPublicationUnsettled) {
-		t.Fatalf("publication while another is unsettled = %v, want %v", err, ErrPublicationUnsettled)
+	if _, err := f.publish(next, Grant{Generation: gen}); !errors.Is(err, errPublicationUnsettled) {
+		t.Fatalf("publication while another is unsettled = %v, want %v", err, errPublicationUnsettled)
 	}
 }
 
@@ -292,7 +294,7 @@ func TestTheFirstHandoverRevokesTheInitialGeneration(t *testing.T) {
 	commitIn(t, stale, "work admitted before the first handover")
 	after := f.advance("ticket:1")
 	_, err := f.publish(stale, Grant{Generation: before.Generation})
-	if !errors.Is(err, ErrAuthoritySuperseded) {
+	if !errors.Is(err, errAuthoritySuperseded) {
 		t.Fatalf("initial grant %d still publishes after handover to %+v: %v", before.Generation, after, err)
 	}
 }
@@ -407,7 +409,7 @@ func TestAPublicationsOutcomeIsClassified(t *testing.T) {
 	grant := Grant{Generation: f.authority().Generation}
 	w, late := f.writer("w"), f.writer("late")
 	proposed := commitIn(t, w, "applied, not settled")
-	restore := f.db.FailNextStatement("-- name: SettlePublication")
+	restore := dbtest.NextStatementFailure(f.db, "-- name: SettlePublication")
 	defer restore()
 	got, err := f.publish(w, grant)
 	if !errors.Is(err, ErrPublicationApplied) || Refused(err) || got.Tip != proposed || !got.Changed || f.tip() != proposed {
@@ -427,7 +429,7 @@ func TestAPublicationsOutcomeIsClassified(t *testing.T) {
 	if _, err := f.publish(w, grant); !Refused(err) {
 		t.Fatalf("a superseded publication = %v, want a refusal", err)
 	}
-	for _, err := range []error{ErrPublicationUnknown, ErrPublicationUnsettled, errors.New("the database is gone")} {
+	for _, err := range []error{errPublicationUnknown, errPublicationUnsettled, errors.New("the database is gone")} {
 		if Refused(err) {
 			t.Fatalf("%v is taken as a refusal", err)
 		}
@@ -445,7 +447,7 @@ func TestAnUnreadableBranchLeavesItsPublicationUnknown(t *testing.T) {
 	w := f.writer("w")
 	gittest.RunAsTester(t, w, "checkout", "-q", "-b", "fresh")
 	proposed := commitIn(t, w, "the branch's first publication")
-	t.Cleanup(f.db.FailNextStatement("-- name: SettlePublication"))
+	t.Cleanup(dbtest.NextStatementFailure(f.db, "-- name: SettlePublication"))
 	if _, err := f.publisher.Publish(context.Background(), Publication{ProjectID: f.projectID, Repository: f.hub, Branch: "fresh", From: w,
 		Grant: Grant{Generation: 1}}); !errors.Is(err, ErrPublicationApplied) {
 		t.Fatalf("the settlement fault was not exercised: %v", err)
@@ -487,7 +489,7 @@ func TestAPublicationWhoseRepositoryIsGoneStaysUnknown(t *testing.T) {
 	}
 	if _, err := database.Transact(context.Background(), f.db, func(tx *database.Tx) (Authority, error) {
 		return AdvanceAuthorityIn(context.Background(), tx, f.projectID, "work", "chat:1")
-	}); !errors.Is(err, ErrPublicationUnsettled) {
-		t.Fatalf("handover past an unknown publication = %v, want %v", err, ErrPublicationUnsettled)
+	}); !errors.Is(err, errPublicationUnsettled) {
+		t.Fatalf("handover past an unknown publication = %v, want %v", err, errPublicationUnsettled)
 	}
 }

@@ -197,11 +197,11 @@ func TestProviderAssociationRefusesChangedURLBeforeOrdinaryAndProxyRequests(t *t
 func wireIntranet(t *testing.T, s *Service, base, key string) {
 	t.Helper()
 	if _, err := s.Targets.ByName(t.Context(), IntranetTargetName); err != nil {
-		if _, err := s.Targets.Put(t.Context(), &Target{Name: IntranetTargetName, Kind: KindPortainer, Provider: IntranetConnection, Origin: OriginAttached, Status: TargetReady, Address: map[string]any{AddressEnvironment: "docker"}}); err != nil {
+		if _, err := s.Targets.Put(t.Context(), &Target{Name: IntranetTargetName, Kind: KindPortainer, Provider: intranetConnection, Origin: OriginAttached, Status: TargetReady, Address: map[string]any{addressEnvironment: "docker"}}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := s.env.integrations.Bindings.Save(t.Context(), IntranetConnection, "deploy", "portainer", `{"urlFrom":"PT_URL","apiKeyFrom":"PT_KEY","appsDomainFrom":"PT_APPS"}`, "alice"); err != nil {
+	if _, err := s.env.integrations.Bindings.Save(t.Context(), intranetConnection, "deploy", "portainer", `{"urlFrom":"PT_URL","apiKeyFrom":"PT_KEY","appsDomainFrom":"PT_APPS"}`, "alice"); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(s.hosts.settings.DataDir, "secrets.env"), []byte("PT_URL="+base+"\nPT_KEY="+key+"\nPT_APPS=apps.example\n"), 0600); err != nil {
@@ -221,7 +221,7 @@ func TestIntranetStartObservesProviderScopeOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	binding, err := s.env.integrations.Bindings.ByName(t.Context(), IntranetConnection)
+	binding, err := s.env.integrations.Bindings.ByName(t.Context(), intranetConnection)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,7 +280,7 @@ func TestProviderAssociationNumericEndpointKeepsEditableDisplaySettings(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if target.Address[AddressEnvironment] != "docker" {
+	if target.Address[addressEnvironment] != "docker" {
 		t.Fatalf("numeric endpoint lost observed display name: %v", target.Address)
 	}
 	domain, environment := "changed.example", "docker"

@@ -23,9 +23,9 @@ import (
 // connector, under the copy's own repository, with the connector's
 // credential, which AppTown uses and never hands to the copy.
 
-// ErrNoIntegrations refuses an integration effect for a project whose
+// errNoIntegrations refuses an integration effect for a project whose
 // purpose allows none: an eval copy.
-var ErrNoIntegrations = fault.New(fault.Unprocessable, "this project is an eval copy, which is given no integrations")
+var errNoIntegrations = fault.New(fault.Unprocessable, "this project is an eval copy, which is given no integrations")
 
 // refusesIntegrations is asked before any integration effect for
 // projectID: Project's purpose for it, read through q. A project Project
@@ -36,7 +36,7 @@ func refusesIntegrations(ctx context.Context, q database.Queryer, projectID ids.
 		return err
 	}
 	if !purpose.Integrations() {
-		return ErrNoIntegrations
+		return errNoIntegrations
 	}
 	return nil
 }

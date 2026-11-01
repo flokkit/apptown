@@ -20,7 +20,7 @@ import (
 
 // Ordinary admission persists the Change and its attribution before preparing
 // a workspace. Keep storage and commit faults beside their owner.
-func creationFixture(t *testing.T) (Creator, ChangeDraft) {
+func creationFixture(t *testing.T) (creator, ChangeDraft) {
 	t.Helper()
 	db := testDB(t)
 	id := workflowTestProject(t, db, "create", "Create", "main")

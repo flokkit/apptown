@@ -19,8 +19,8 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// IntranetConnection is the configured intranet's Portainer connection.
-const IntranetConnection = "portainer-deploy"
+// intranetConnection is the configured intranet's Portainer connection.
+const intranetConnection = "portainer-deploy"
 
 // observeIntranetScope records the configured intranet target's provider
 // scope the first time a start finds it without one, as attachment does
@@ -40,7 +40,7 @@ func (s *Service) observeIntranetScope(ctx context.Context, target *Target, who 
 	var binding *integration.Binding
 	var err error
 	if target.ConnectionID.IsZero() {
-		binding, err = s.env.integrations.Bindings.ByName(ctx, IntranetConnection)
+		binding, err = s.env.integrations.Bindings.ByName(ctx, intranetConnection)
 	} else {
 		binding, err = s.env.integrations.Bindings.ByID(ctx, target.ConnectionID)
 	}
@@ -51,7 +51,7 @@ func (s *Service) observeIntranetScope(ctx context.Context, target *Target, who 
 	if err != nil {
 		return err
 	}
-	cfg.EnvName, _ = target.Address[AddressEnvironment].(string)
+	cfg.EnvName, _ = target.Address[addressEnvironment].(string)
 	endpoint, err := portainer.EndpointID(ctx, cfg)
 	if err != nil {
 		return err

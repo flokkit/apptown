@@ -2,8 +2,9 @@ package workflow
 
 import (
 	"encoding/json"
-	"github.com/flokkit/apptown/internal/apptown/status"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/apptown/status"
 )
 
 func TestChangeDisplayPreservesWaitingFailureAndLanding(t *testing.T) {
@@ -34,7 +35,7 @@ func TestChangeDisplayPreservesWaitingFailureAndLanding(t *testing.T) {
 }
 
 func TestActivityLabelsKeepWaitingPartyAndProgress(t *testing.T) {
-	for state, want := range map[ActivityState]string{ActivityWorking: "working", ActivityAgentWorking: "working", ActivityQueued: "waiting", ActivityWaiting: "waiting for you", ActivityReady: "waiting", ActivityBlocked: "failed"} {
+	for state, want := range map[ActivityState]string{ActivityWorking: "working", activityAgentWorking: "working", activityQueued: "waiting", ActivityWaiting: "waiting for you", ActivityReady: "waiting", ActivityBlocked: "failed"} {
 		if got := state.Display().String(); got != want {
 			t.Errorf("%s: %s, want %s", state, got, want)
 		}
@@ -90,7 +91,7 @@ func TestStepLabelsPreserveUnreadEvidenceExceptionsAndEndedRuns(t *testing.T) {
 func TestRunLabelsDescribeWorkRatherThanRuntime(t *testing.T) {
 	t.Parallel()
 	for state, want := range map[RunState]status.DisplayStatus{RunRunning: status.DisplayWorking, RunDone: status.DisplayFinished, RunAbandoned: status.DisplayStopped, 0: status.DisplayUnknown} {
-		if got := state.Display(); got != want {
+		if got := state.display(); got != want {
 			t.Errorf("%v: got %v, want %v", state, got, want)
 		}
 	}

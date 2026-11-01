@@ -10,7 +10,6 @@ import (
 	"github.com/flokkit/apptown/internal/dbtest"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/database"
 )
 
 func TestRemediationCandidateWorkScopeAndFailedRead(t *testing.T) {
@@ -44,9 +43,9 @@ func TestRemediationCandidateWorkScopeAndFailedRead(t *testing.T) {
 			case "failed read":
 				dbtest.FailNextStatement(t, a.db, "JOIN changes c")
 			}
-			items, err := (NewReconciliation(a.db, a.work, a.ctx, nil)).Candidates()
+			items, err := (NewReconciliation(a.db, a.work, a.ctx, nil)).candidates()
 			if test == "failed read" {
-				if !errors.Is(err, database.ErrInjectedFailure) || items != nil {
+				if !errors.Is(err, dbtest.ErrInjectedFailure) || items != nil {
 					t.Fatalf("failed read became no candidates: %+v %v", items, err)
 				}
 				return
@@ -65,7 +64,7 @@ func TestRemediationLandedWorkReadFailureRollsBack(t *testing.T) {
 	before := a.snapshot(t)
 	dbtest.FailNextStatement(t, a.db, "JOIN changes c")
 	out, err := store.Record(context.Background(), item, Outcome{Kind: "landed"})
-	if !errors.Is(err, database.ErrInjectedFailure) || out != nil {
+	if !errors.Is(err, dbtest.ErrInjectedFailure) || out != nil {
 		t.Fatalf("failed landed observation: %+v %v", out, err)
 	}
 	if a.snapshot(t) != before {

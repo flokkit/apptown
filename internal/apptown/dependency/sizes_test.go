@@ -1,12 +1,13 @@
 package dependency
 
 import (
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
-	"github.com/flokkit/apptown/stock"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/stock"
 )
 
 func TestCatalogueSizeRequiresACompleteLocalConfiguration(t *testing.T) {

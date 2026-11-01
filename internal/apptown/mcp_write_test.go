@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -223,7 +225,7 @@ func TestMCPAbandonWhoseReReadFailsSaysSo(t *testing.T) {
 	id := idstest.Parse(t, sc["id"].(string))
 	// The tool reads the change once to authorize the act and once after
 	// it; the second read fails.
-	t.Cleanup(a.DB.FailStatementAfter("-- name: ChangeByID ", 1))
+	t.Cleanup(dbtest.StatementFailureAfter(a.DB, "-- name: ChangeByID ", 1))
 	w := mcp_post(a, boss, "", mcp_rpc(7, "tools/call", map[string]any{"name": "abandon_change", "arguments": map[string]any{"id": id, "reason": "not needed"}}))
 	var resp struct{ Error *rpcError }
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil || resp.Error == nil || !strings.Contains(resp.Error.Message, "Change "+id.String()+" is abandoned, but it could not be read again") {

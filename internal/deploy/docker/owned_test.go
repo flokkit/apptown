@@ -188,7 +188,7 @@ func TestTearDownDeletesExactlyTheList(t *testing.T) {
 			h.unknown["volume unreachable"] = true // unknown is not gone
 			h.inUse["reg/shop@sha256:bb"] = true
 			h.refuse["network apptown-net-env-shop-main"] = true
-			out := TearDownOwned(context.Background(), h.scope(), list, "serving", backedUp, nil)
+			out := tearDownOwned(context.Background(), h.scope(), list, "serving", backedUp, nil)
 			wantRemoved := []string{"container pg", "image reg/shop@sha256:aa"}
 			wantDeleted := []string{"container apptown-svc-env-shop-main-postgres", "image reg/shop@sha256:aa"}
 			if backedUp {
@@ -240,7 +240,7 @@ func TestASyntheticResetDeletesOnlyARecordedNeedVolume(t *testing.T) {
 			}}}
 			own := Ownership{Record: func(deploy.Owned) error { return nil }, Needs: map[string]string{"postgres": "/var/lib/postgresql/data"}}
 			if recorded {
-				own.Recorded = []deploy.Owned{{Kind: "volume", ID: vol, Data: true, Need: "postgres"}}
+				own.priorResources = []deploy.Owned{{Kind: "volume", ID: vol, Data: true, Need: "postgres"}}
 			}
 			_, err := EnsureStandingServices(context.Background(), dk, "env-shop-main", []deploy.ServiceSpec{{Name: "postgres", Image: "postgres:16"}}, "synthetic", own)
 			if !recorded {
@@ -271,7 +271,7 @@ func TestAStandingStackSaysWhichProjectAndDeploymentItIsFor(t *testing.T) {
 	t.Parallel()
 	h := newOwnedHost()
 	info := dockerlabel.Informational("shop", "main")
-	own := Ownership{Needs: map[string]string{"postgres": "/var/lib/postgresql/data"}, Info: info}
+	own := Ownership{Needs: map[string]string{"postgres": "/var/lib/postgresql/data"}, info: info}
 	if _, err := EnsureStandingServices(context.Background(), h.scope(), "dep-3b89d1da8075", []deploy.ServiceSpec{{Name: "postgres", Image: "postgres:16"}}, "synthetic", own); err != nil {
 		t.Fatal(err)
 	}

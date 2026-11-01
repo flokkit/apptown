@@ -40,7 +40,7 @@ func (w *dataWorld) finalSet() *Backup {
 	if err != nil || res.Operation == nil {
 		w.t.Fatalf("take-down: %+v %v", res, err)
 	}
-	if op := w.run(res.Operation); !endedAs(op, OperationVerified) {
+	if op := w.run(res.Operation); !endedAs(op, operationVerified) {
 		w.t.Fatalf("take-down %s: %s", op.State, op.Detail)
 	}
 	finals, err := w.s.FinalCopies(context.Background(), w.project)
@@ -199,7 +199,7 @@ func TestATakeDownNeverDeletesAClusterHoldingOtherData(t *testing.T) {
 			if err != nil || res.Operation == nil {
 				t.Fatalf("take-down again: %+v %v", res, err)
 			}
-			if op := w.run(res.Operation); !endedAs(op, OperationVerified) {
+			if op := w.run(res.Operation); !endedAs(op, operationVerified) {
 				t.Fatalf("take-down again %s: %s", op.State, op.Detail)
 			}
 			if state := w.api.Snapshot(); len(state.DeletedClusters) != 1 {
@@ -286,7 +286,7 @@ func TestADataOperationIsSingleAndKeepsReleasesAwayFromATakeDown(t *testing.T) {
 	if r, err := w.restart(); err != nil || r.Settled != 0 || r.Requeued != 0 {
 		t.Fatalf("a restart touched a queued operation whose job waits: %+v %v", r, err)
 	}
-	if got := w.run(first); !endedAs(got, OperationNotVerified) {
+	if got := w.run(first); !endedAs(got, operationNotVerified) {
 		t.Fatalf("the queued copy, run by its job: %s %s", got.State, got.Detail)
 	}
 	// A take-down that is live keeps releases away.
@@ -332,7 +332,7 @@ func TestTheDeploymentSaysHowItsDataIsProtected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := w.run(op); !endedAs(got, OperationNotVerified) {
+	if got := w.run(op); !endedAs(got, operationNotVerified) {
 		t.Fatalf("copy %s: %s", got.State, got.Detail)
 	}
 	p, err = w.s.DeploymentProtection(ctx, w.project, "prod")
@@ -345,14 +345,14 @@ func TestTheDeploymentSaysHowItsDataIsProtected(t *testing.T) {
 	}
 	// A fresh copy covers its database, named by its place; data outside
 	// the deployment stays not assessed.
-	if !slices.Equal(p.Coverage.Assessed, []string{"postgres · " + it.Where}) || !slices.Equal(p.Coverage.NotAssessed, []string{OutsideNotAssessed}) {
+	if !slices.Equal(p.Coverage.Assessed, []string{"postgres · " + it.Where}) || !slices.Equal(p.Coverage.NotAssessed, []string{outsideNotAssessed}) {
 		t.Fatalf("coverage after a copy: %+v", p.Coverage)
 	}
 	drill, err := w.s.RequestDrill(ctx, w.project, "prod")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := w.run(drill); !endedAs(got, OperationVerified) {
+	if got := w.run(drill); !endedAs(got, operationVerified) {
 		t.Fatalf("drill %s: %s", got.State, got.Detail)
 	}
 	if dbs, _ := w.s.providers.ManagedData(w.target).Databases(ctx, id); len(dbs) != 2 {
@@ -390,7 +390,7 @@ func TestTheDeploymentSaysHowItsDataIsProtected(t *testing.T) {
 		t.Fatalf("an unread list: %+v %+v %v", p.Operations, p.Unknown, err)
 	}
 	dbtest.FailNextStatement(t, w.db, "-- name: NeedInstances")
-	if _, err := w.s.RequestCopy(ctx, w.project, "prod"); !errors.Is(err, ErrDataNotKnown) {
+	if _, err := w.s.RequestCopy(ctx, w.project, "prod"); !errors.Is(err, errDataNotKnown) {
 		t.Fatalf("a copy of an unread list: %v", err)
 	}
 }
@@ -448,7 +448,7 @@ func TestTheDeploymentSaysWhyEachDataOperationCannotStart(t *testing.T) {
 	if err != nil || !p.OffHost || !ops.Copy.Available || ops.Copy.Why != "" || !ops.FinalCopy.Available || !ops.StartFromCopy.Available || ops.Check.Available || ops.Check.Reason != "no-copy" {
 		t.Fatalf("with a copy runner, before a copy: %+v %v", ops, err)
 	}
-	if _, err := w.s.RequestDrill(ctx, w.project, "prod"); !errors.Is(err, ErrNoCopy) || err.Error() != ops.Check.Why {
+	if _, err := w.s.RequestDrill(ctx, w.project, "prod"); !errors.Is(err, errNoCopy) || err.Error() != ops.Check.Why {
 		t.Fatalf("a check before any copy: %v (the card says %+v)", err, ops.Check)
 	}
 	if c := CopiesOn(w.target); c == nil || !c.Available {
@@ -458,7 +458,7 @@ func TestTheDeploymentSaysWhyEachDataOperationCannotStart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := w.run(op); !endedAs(got, OperationNotVerified) {
+	if got := w.run(op); !endedAs(got, operationNotVerified) {
 		t.Fatalf("copy %s: %s", got.State, got.Detail)
 	}
 	if p, err = w.s.DeploymentProtection(ctx, w.project, "prod"); err != nil || !p.Operations.Check.Available {
@@ -472,10 +472,10 @@ func TestTheBackupStoreIsAttachedOnlyAfterItsCheck(t *testing.T) {
 	t.Parallel()
 	w := newDataWorld(t)
 	ctx := context.Background()
-	if _, err := w.s.AttachStore(ctx, AttachStore{Endpoint: w.store.API.URL, Region: "syd1", Bucket: "no-such-bucket", AccessKeyFrom: "STORE_KEY", SecretKeyFrom: "STORE_SECRET"}); !errors.Is(err, ErrStoreCheck) {
+	if _, err := w.s.AttachStore(ctx, AttachStore{Endpoint: w.store.API.URL, Region: "syd1", Bucket: "no-such-bucket", AccessKeyFrom: "STORE_KEY", SecretKeyFrom: "STORE_SECRET"}); !errors.Is(err, errStoreCheck) {
 		t.Fatalf("a missing bucket: %v", err)
 	}
-	if _, err := w.s.AttachStore(ctx, AttachStore{Endpoint: "not a url", Region: "syd1", Bucket: "forge-copies", AccessKeyFrom: "STORE_KEY", SecretKeyFrom: "STORE_SECRET"}); !errors.Is(err, ErrStoreInput) {
+	if _, err := w.s.AttachStore(ctx, AttachStore{Endpoint: "not a url", Region: "syd1", Bucket: "forge-copies", AccessKeyFrom: "STORE_KEY", SecretKeyFrom: "STORE_SECRET"}); !errors.Is(err, errStoreInput) {
 		t.Fatalf("a bad endpoint: %v", err)
 	}
 	w.auth.set("bob", "platform:manage-deploy-targets")
@@ -513,7 +513,7 @@ func TestAStoreCopyIsNeverRestoredInPlace(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := w.s.restoreBackup(context.Background(), nil, w.project, "prod", set.ID, "alice")
-	if !errors.Is(err, ErrRestoreMismatch) || !strings.Contains(err.Error(), "start a new deployment from it") {
+	if !errors.Is(err, errRestoreMismatch) || !strings.Contains(err.Error(), "start a new deployment from it") {
 		t.Fatalf("restore in place: %v", err)
 	}
 	if unchecked, err := w.s.uncheckedItems(context.Background(), set); err != nil || len(unchecked) != 0 {
@@ -580,7 +580,7 @@ func TestTheProvidersBackupsAreNotAskedOnEveryRead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := observer.Run(ctx, dep.ID, identity); err != nil {
+	if err := observer.run(ctx, dep.ID, identity); err != nil {
 		t.Fatal(err)
 	}
 	warm, err := observer.Snapshot(ctx, dep.ID)
@@ -630,7 +630,7 @@ func TestATakeDownAndAReleaseNeverBothGetIn(t *testing.T) {
 	if !errors.As(err, &running) || started == nil || running.Holder.ID != started.ID {
 		t.Fatalf("a release admitted beside a take-down: %v", err)
 	}
-	if op := w.run(started); !endedAs(op, OperationVerified) {
+	if op := w.run(started); !endedAs(op, operationVerified) {
 		t.Fatalf("take-down %s: %s", op.State, op.Detail)
 	}
 
@@ -710,7 +710,7 @@ func TestAStoreIsNotReplacedUnderTheSetsItHolds(t *testing.T) {
 		t.Fatalf("the set does not say where it is: %+v", set)
 	}
 	w.store.AddBucket("elsewhere")
-	if _, err := w.s.AttachStore(ctx, AttachStore{Endpoint: w.store.API.URL, Region: "syd1", Bucket: "elsewhere", AccessKeyFrom: "STORE_KEY", SecretKeyFrom: "STORE_SECRET"}); !errors.Is(err, ErrStoreHoldsSets) {
+	if _, err := w.s.AttachStore(ctx, AttachStore{Endpoint: w.store.API.URL, Region: "syd1", Bucket: "elsewhere", AccessKeyFrom: "STORE_KEY", SecretKeyFrom: "STORE_SECRET"}); !errors.Is(err, errStoreHoldsSets) {
 		t.Fatalf("another bucket attached over a held set: %v", err)
 	}
 	if st, _ := w.s.Store(ctx); st.Bucket != "forge-copies" {
@@ -821,7 +821,7 @@ func TestATakeDownWhoseAuthorityWasWithdrawnDeletesNothing(t *testing.T) {
 	if rel, log := w.release("prod"); rel.State != deployment.Released {
 		t.Fatalf("a release beside a copy %s:\n%s", rel.State, log)
 	}
-	if got := w.run(copying); !endedAs(got, OperationNotVerified) {
+	if got := w.run(copying); !endedAs(got, operationNotVerified) {
 		t.Fatalf("the copy: %s %s", got.State, got.Detail)
 	}
 	res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
@@ -931,7 +931,7 @@ func TestAFailedCopyStaysTheLastWordAfterOtherWork(t *testing.T) {
 	// Drills until the card's history shows no copy at all.
 	showsACopy := func(p *Protection) bool {
 		for _, op := range p.Recent {
-			if op.Kind == OperationCopy {
+			if op.Kind == operationCopy {
 				return true
 			}
 		}
@@ -946,7 +946,7 @@ func TestAFailedCopyStaysTheLastWordAfterOtherWork(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := w.run(drill); !endedAs(got, OperationVerified) {
+		if got := w.run(drill); !endedAs(got, operationVerified) {
 			t.Fatalf("drill %s: %s", got.State, got.Detail)
 		}
 		p, it = protection()
@@ -988,7 +988,7 @@ func TestADrillIsDueByAppTownsOwnClock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := w.run(op); !endedAs(got, OperationNotVerified) {
+	if got := w.run(op); !endedAs(got, operationNotVerified) {
 		t.Fatalf("copy %s: %s", got.State, got.Detail)
 	}
 	set, err := w.s.newestStoreSet(ctx, w.project, "prod")
@@ -1002,7 +1002,7 @@ func TestADrillIsDueByAppTownsOwnClock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := w.run(drill); !endedAs(got, OperationVerified) {
+	if got := w.run(drill); !endedAs(got, operationVerified) {
 		t.Fatalf("drill %s: %s", got.State, got.Detail)
 	}
 	if w.s.drillDue(ctx, dep, set) {
@@ -1029,17 +1029,17 @@ func TestAManagedInstanceAppTownCannotCopyStaysInTheList(t *testing.T) {
 	}
 	w.protect()
 	requested := map[string]any{"name": "forge-ledger-prod", "engine": "pg", "database": "app", "user": "app"}
-	if err := w.s.Needs.RecordIntent(ctx, dep.ID, "postgres", requested); err != nil {
+	if err := deployment.NewNeedStore(w.db, nil).RecordIntent(ctx, dep.ID, "postgres", requested); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.s.Needs.RecordIdentity(ctx, dep.ID, "postgres", requested, "db-stopped", "forge-ledger-prod"); err != nil {
+	if err := deployment.NewNeedStore(w.db, nil).RecordIdentity(ctx, dep.ID, "postgres", requested, "db-stopped", "forge-ledger-prod"); err != nil {
 		t.Fatal(err)
 	}
 	p, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 	if err != nil || p.Unknown != "" || len(p.Items) != 1 || p.Items[0].Copy != CopyNone || !strings.Contains(p.Items[0].CopyNote, "names no instance") || p.Operations.FinalCopy.Available {
 		t.Fatalf("an instance AppTown cannot copy: %+v %v", p, err)
 	}
-	if _, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"}); !errors.Is(err, ErrNoFinalCopy) {
+	if _, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"}); !errors.Is(err, errNoFinalCopy) {
 		t.Fatalf("a take-down with nothing it can copy: %v", err)
 	}
 	if deleted := w.api.Snapshot().DeletedClusters; len(deleted) != 0 {
@@ -1063,7 +1063,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	q := &protectionObservationRequests{}
 	calls := 0
 	fail, replace := false, false
-	result := &Protection{DataClass: "production", Items: []ItemProtection{{Need: "database", Copy: CopyStale, Volume: "/private-store", Native: &NativeBackups{ObservedAt: first, Count: 1}}}, Coverage: Coverage{NotAssessed: []string{OutsideNotAssessed}}}
+	result := &Protection{DataClass: "production", Items: []ItemProtection{{Need: "database", Copy: CopyStale, Volume: "/private-store", Native: &NativeBackups{ObservedAt: first, Count: 1}}}, Coverage: Coverage{NotAssessed: []string{outsideNotAssessed}}}
 	o := &ProtectionObserver{db: testDB(t), queue: q, now: func() time.Time { return now }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return &dep, identity, nil }, read: func(context.Context, ids.ID, string) (*Protection, error) {
 		calls++
 		if replace {
@@ -1080,7 +1080,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 			t.Fatalf("cold read: %+v %v", got, err)
 		}
 	}
-	if err := o.Run(t.Context(), dep.ID, identity); err != nil {
+	if err := o.run(t.Context(), dep.ID, identity); err != nil {
 		t.Fatal(err)
 	}
 	got, err := o.Snapshot(t.Context(), dep.ID)
@@ -1089,7 +1089,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	}
 	got.Items[0].Copy = CopyFresh
 	now = now.Add(30 * time.Minute)
-	if err := o.Run(t.Context(), dep.ID, identity); err != nil {
+	if err := o.run(t.Context(), dep.ID, identity); err != nil {
 		t.Fatal(err)
 	}
 	got, err = o.Snapshot(t.Context(), dep.ID)
@@ -1098,7 +1098,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	}
 	fail = true
 	now = now.Add(time.Minute)
-	if err := o.Run(t.Context(), dep.ID, identity); err == nil {
+	if err := o.run(t.Context(), dep.ID, identity); err == nil {
 		t.Fatal("provider error lost")
 	}
 	got, err = o.Snapshot(t.Context(), dep.ID)
@@ -1108,7 +1108,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	fail = false
 	replace = true
 	old := identity
-	if err := o.Run(t.Context(), dep.ID, old); err != nil {
+	if err := o.run(t.Context(), dep.ID, old); err != nil {
 		t.Fatal(err)
 	}
 	got, err = o.Snapshot(t.Context(), dep.ID)
@@ -1118,7 +1118,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	replace = false
 	result.Items[0].Copy = CopyFresh
 	result.Items[0].Native.ObservedAt = now
-	if err := o.Run(t.Context(), dep.ID, identity); err != nil {
+	if err := o.run(t.Context(), dep.ID, identity); err != nil {
 		t.Fatal(err)
 	}
 	got, err = o.Snapshot(t.Context(), dep.ID)
@@ -1147,7 +1147,7 @@ func TestProtectionSnapshotsDoNotWaitForProviderAndRefuseCanceledPublication(t *
 		t.Fatal(err)
 	}
 	done := make(chan error, 1)
-	go func() { done <- o.Run(ctx, dep.ID, identity) }()
+	go func() { done <- o.run(ctx, dep.ID, identity) }()
 	<-started
 	got, err := o.Snapshot(t.Context(), dep.ID)
 	if err != nil || !got.Unknown || !got.AttemptedAt.IsZero() || q.calls != 0 {

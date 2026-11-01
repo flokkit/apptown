@@ -1,4 +1,4 @@
-package testinputs
+package executiontest
 
 import (
 	"io/fs"
@@ -14,7 +14,7 @@ import (
 // nothing from the standard library or the module cache, whose content is
 // fixed by the toolchain and go.sum.
 func TestGoBuildReadsTheModuleSourcesABinaryIsBuiltFrom(t *testing.T) {
-	root, err := filepath.Abs("../..")
+	root, err := filepath.Abs("../../..")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestEveryChildGoBuildNamesItsSources(t *testing.T) {
 		"cmd/apptown-worker/env_flags_test.go":   "builds the package under test",
 		"cmd/apptown-worker/docker_flag_test.go": "builds the package under test",
 	}
-	root, err := filepath.Abs("../..")
+	root, err := filepath.Abs("../../..")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestEveryChildGoBuildNamesItsSources(t *testing.T) {
 		}
 		found++
 		rel, _ := filepath.Rel(root, path)
-		if _, ok := exempt[rel]; !ok && !strings.Contains(string(src), "testinputs.GoBuild(") {
+		if _, ok := exempt[rel]; !ok && !strings.Contains(string(src), "testinputs.GoBuild(") && !strings.Contains(string(src), "inputs.GoBuild(") {
 			t.Errorf("%s builds with go build in a child process without testinputs.GoBuild", rel)
 		}
 		return nil

@@ -107,13 +107,13 @@ func carriedScans(head, base []Evaluation) map[[2]int]bool {
 	return out
 }
 
-// Judged is one head evaluation with its provenance: the findings it carries
+// judged is one head evaluation with its provenance: the findings it carries
 // as the base leaves them (an introduced finding names only what is new),
 // split into what this tree introduced and what the base already reported. A
 // finding that can be neither — a boolean check failing on both trees, with no
 // occurrences to compare — is in neither list, and the provenance says
 // Undecided: a reader judges the diff.
-type Judged struct {
+type judged struct {
 	Evaluation
 	Provenance  Provenance
 	Own         []Finding
@@ -150,7 +150,7 @@ type Judged struct {
 // commit is, whether it is on the protected branch, and which checks are
 // judged absolutely whatever the base says, are the caller's facts —
 // established before the base evaluations are handed over.
-func Classify(head, base []Evaluation, baseKnown bool) []Judged {
+func Classify(head, base []Evaluation, baseKnown bool) []judged {
 	exact := map[string]bool{}
 	items := map[string][]string{}
 	unassessed := map[string]bool{} // checks the base could not be judged on
@@ -164,9 +164,9 @@ func Classify(head, base []Evaluation, baseKnown bool) []Judged {
 		}
 	}
 	scans := carriedScans(head, base)
-	out := make([]Judged, 0, len(head))
+	out := make([]judged, 0, len(head))
 	for hi, ev := range head {
-		j := Judged{Evaluation: ev}
+		j := judged{Evaluation: ev}
 		j.Findings = append([]Finding(nil), ev.Findings...) // the head's own slice is not rewritten
 		undecided := false
 		for i, f := range ev.Findings {

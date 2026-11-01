@@ -102,7 +102,7 @@ func TestARestoreWritesNothingUnlessEveryPartIsStopped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("restore: %v", err)
 	}
-	if res.Started == nil || *res.Started || len(res.NotStarted) != 1 || !strings.Contains(res.NotStarted[0], worker) || res.Status != RestoreNotVerified {
+	if res.Started == nil || *res.Started || len(res.NotStarted) != 1 || !strings.Contains(res.NotStarted[0], worker) || res.Status != restoreNotVerified {
 		t.Fatalf("a part that would not start is named, the data's status stands: %+v", res)
 	}
 }
@@ -139,7 +139,7 @@ func TestARestoreNamesAPartThatIsNotThere(t *testing.T) {
 	if err != nil {
 		t.Fatalf("restore: %v", err)
 	}
-	if res.Status != RestoreNotVerified || res.Started == nil || *res.Started || res.Ready != nil ||
+	if res.Status != restoreNotVerified || res.Started == nil || *res.Started || res.Ready != nil ||
 		len(res.NotStarted) != 1 || !strings.Contains(res.NotStarted[0], worker) || !strings.Contains(res.NotStarted[0], "not there") {
 		t.Fatalf("the data is back and the missing worker is named: %+v", res)
 	}
@@ -241,7 +241,7 @@ func TestARestoreOperationFailsAndNamesAPartThatIsNotThere(t *testing.T) {
 	if op.State.String() != "failed" || !strings.Contains(op.Detail, worker) {
 		t.Errorf("a missing part fails the restore, named: %s %q", op.State, op.Detail)
 	}
-	if res.Status != RestoreNotVerified || res.Started == nil || *res.Started || res.Ready != nil ||
+	if res.Status != restoreNotVerified || res.Started == nil || *res.Started || res.Ready != nil ||
 		len(res.NotStarted) != 1 || !strings.Contains(res.NotStarted[0], worker) || !strings.Contains(res.NotStarted[0], "not there") {
 		t.Fatalf("the data is back and the missing worker is named: %+v", res)
 	}

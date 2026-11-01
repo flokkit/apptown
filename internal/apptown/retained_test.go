@@ -55,7 +55,7 @@ func TestRetainedSettlementChecksAuthorityAndHTTPOutcome(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Deployment.Needs.RecordIntent(ctx, configured.Deployment.ID, "postgres", map[string]any{"name": "demo-db"}); err != nil {
+	if err := deployment.NewNeedStore(a.DB, a.cfg.clock.Now).RecordIntent(ctx, configured.Deployment.ID, "postgres", map[string]any{"name": "demo-db"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.DataProtection.Remove(ctx, dataprotection.RemoveDeployment{ProjectID: idstest.N(1), Name: "staging"}); err != nil {

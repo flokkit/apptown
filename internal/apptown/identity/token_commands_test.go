@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 )
@@ -67,7 +69,7 @@ func TestTokenCommandsCheckCurrentAdministrator(t *testing.T) {
 				var err error
 				switch op {
 				case "issue":
-					var issued IssuedToken
+					var issued issuedToken
 					issued, err = s.IssueToken(context.Background(), NewToken{Purpose: "cli", Name: "new", Role: "admin"}, pr)
 					if !allowed && issued.Plaintext != "" {
 						t.Fatal("denied issue exposed a credential")
@@ -120,7 +122,7 @@ func TestTokenPurposeIsChosenKeptAndRequired(t *testing.T) {
 	ctx := context.Background()
 	s, pr := tokenCommandFixture(t)
 	for _, purpose := range []string{"", "robot"} {
-		if _, err := s.IssueToken(ctx, NewToken{Name: "unchosen", Purpose: purpose}, pr); !errors.Is(err, ErrTokenPurpose) {
+		if _, err := s.IssueToken(ctx, NewToken{Name: "unchosen", Purpose: purpose}, pr); !errors.Is(err, errTokenPurpose) {
 			t.Fatalf("purpose %q: %v", purpose, err)
 		}
 	}
@@ -230,7 +232,7 @@ func TestTokenCommandsRequirePersistenceAndReceipts(t *testing.T) {
 				}
 				restore := func() {}
 				if marker != "" {
-					restore = s.db.FailNextStatement(marker)
+					restore = dbtest.NextStatementFailure(s.db, marker)
 				}
 				if failure == "skipped write" {
 					restore = vetoGroupWrite(t, s.db, "auth_tokens", operation)
@@ -264,7 +266,7 @@ func TestTokenCommandsRequirePersistenceAndReceipts(t *testing.T) {
 				if stored := storedTokens(t, s.db); len(stored) != 1 {
 					t.Fatalf("partial issuance: %d", len(stored))
 				}
-				if _, _, _, ok, err := s.tokens.Resolve(context.Background(), existing.Plaintext); err != nil || !ok {
+				if _, _, _, ok, err := s.tokens.resolveToken(context.Background(), existing.Plaintext); err != nil || !ok {
 					t.Fatal("failed revoke ended live token")
 				}
 				if count := tokenReceipts(t, s.db); count != 1 {
@@ -333,13 +335,13 @@ func TestTokenReadFailureCannotReturnMetadataOrRevoke(t *testing.T) {
 	if _, err := s.IssueToken(ctx, NewToken{Purpose: "cli", Name: "cli"}, pr); err != nil {
 		t.Fatal(err)
 	}
-	restore := s.db.FailNextStatement("-- name: AuthTokensAll")
+	restore := dbtest.NextStatementFailure(s.db, "-- name: AuthTokensAll")
 	all, err := s.Tokens(ctx, pr)
 	restore()
 	if err == nil || all != nil {
 		t.Fatal("failed list returned metadata")
 	}
-	restore = s.db.FailNextStatement("-- name: AuthTokenByNameForUpdate")
+	restore = dbtest.NextStatementFailure(s.db, "-- name: AuthTokenByNameForUpdate")
 	revoked, err := s.RevokeToken(ctx, "cli", pr)
 	restore()
 	if err == nil || revoked {

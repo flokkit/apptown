@@ -137,7 +137,7 @@ func TestAnExistingAccountIsDisabledWhateverItsName(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RemoveName(ctx, sso, ops); !errors.Is(err, ErrRealAccount) {
+	if err := s.RemoveName(ctx, sso, ops); !errors.Is(err, errRealAccount) {
 		t.Fatalf("an account that acted is kept: %v", err)
 	}
 	if err := s.SaveUser(ctx, AccountChange{Username: sso, Disabled: &yes}, ops); err != nil {
@@ -146,7 +146,7 @@ func TestAnExistingAccountIsDisabledWhateverItsName(t *testing.T) {
 	if _, err := s.EnsureUser(ctx, sso); err != nil {
 		t.Fatal(err)
 	}
-	if disabled, err := s.Disabled(ctx, sso); err != nil || !disabled {
+	if disabled, err := disabledIn(ctx, s.db, sso); err != nil || !disabled {
 		t.Fatalf("a sighting after disabling leaves it disabled: %v %v", err, disabled)
 	}
 	read := access.Permission{Capability: access.CapProjectRead, Resource: access.Resource{Type: "project", ID: idstest.N(1).String(), ProjectID: idstest.N(1)}}
@@ -184,7 +184,7 @@ func TestAnExistingAccountIsDisabledWhateverItsName(t *testing.T) {
 		if err := s.SaveUser(ctx, AccountChange{Username: name, Disabled: &yes}, ops); err != nil {
 			t.Fatalf("disabling the old row %s: %v", name, err)
 		}
-		if disabled, err := s.Disabled(ctx, name); err != nil || !disabled {
+		if disabled, err := disabledIn(ctx, s.db, name); err != nil || !disabled {
 			t.Fatalf("%s disabled: %v %v", name, err, disabled)
 		}
 	}

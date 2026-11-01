@@ -88,7 +88,7 @@ func (h Targets) CheckTarget(w http.ResponseWriter, r *http.Request) {
 	if c.Registry != nil {
 		payload["registry"] = c.Registry
 	}
-	status, err := h.deployment.Targets.RecordCheck(r.Context(), t, c.OK, Actor(r), payload)
+	status, err := h.deployment.Targets.RecordCheck(r.Context(), t, c.OK, actor(r), payload)
 	if err != nil {
 		WriteFault(w, err)
 		return
@@ -112,7 +112,7 @@ func (h Targets) RetireTarget(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 400, "confirm must equal the target name: send %s", confirm)
 			return
 		}
-		if err := h.deployment.Targets.Retire(r.Context(), name, Actor(r)); err != nil {
+		if err := h.deployment.Targets.Retire(r.Context(), name, actor(r)); err != nil {
 			WriteFault(w, err)
 			return
 		}

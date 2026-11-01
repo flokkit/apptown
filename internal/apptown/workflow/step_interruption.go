@@ -8,10 +8,10 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 )
 
-// StepStop stops a running step's agent and names what it stopped: its
+// stepStop stops a running step's agent and names what it stopped: its
 // recorded tasks, confirmed by their backend, or its container. Work decides
 // who may stop a step and when; the caller supplies the effect.
-type StepStop func(context.Context, *Step) ([]string, error)
+type stepStop func(context.Context, *Step) ([]string, error)
 
 var (
 	errStepNotInterruptible = fault.New(fault.Unprocessable, "only an agent or review step can be interrupted")
@@ -23,7 +23,7 @@ var (
 // starts a lane: a person who may only look cannot stop another's step. The
 // step's runner sees its process end and records the outcome; the run's
 // record names who stopped it.
-func (s *Service) InterruptStep(ctx context.Context, stepID ids.ID, stop StepStop) ([]string, error) {
+func (s *Service) InterruptStep(ctx context.Context, stepID ids.ID, stop stepStop) ([]string, error) {
 	actor, err := s.stepAct(ctx, stepID, actionInterruptStep)
 	if err != nil {
 		return nil, err

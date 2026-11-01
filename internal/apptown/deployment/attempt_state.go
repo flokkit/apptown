@@ -19,52 +19,52 @@ const (
 	AttemptUncertain
 	AttemptDone
 	AttemptFailed
-	AttemptSuperseded
+	attemptSuperseded
 )
 
 // attemptStateCodec spells each AttemptState in storage and JSON.
 var attemptStateCodec = enum.Set[AttemptState]{
 	Names:     []string{"running", "uncertain", "done", "failed", "superseded"},
 	Invalid:   "invalid-attempt-state",
-	Err:       ErrAttemptState,
+	Err:       errAttemptState,
 	ScanLabel: "value",
 }
 
 var (
-	ErrAttemptState      = errors.New("invalid attempt state")
-	ErrAttemptTransition = errors.New("invalid attempt transition")
+	errAttemptState      = errors.New("invalid attempt state")
+	errAttemptTransition = errors.New("invalid attempt transition")
 )
 
 func (s AttemptState) String() string { return attemptStateCodec.String(s) }
 
-// Open reports whether the attempt may still receive an outcome.
-func (s AttemptState) Open() bool { return s == AttemptRunning || s == AttemptUncertain }
+// open reports whether the attempt may still receive an outcome.
+func (s AttemptState) open() bool { return s == AttemptRunning || s == AttemptUncertain }
 
-// Terminal is the stored flag's meaning: no further outcome can be recorded.
-func (s AttemptState) Terminal() bool {
-	return s == AttemptDone || s == AttemptFailed || s == AttemptSuperseded
+// terminal is the stored flag's meaning: no further outcome can be recorded.
+func (s AttemptState) terminal() bool {
+	return s == AttemptDone || s == AttemptFailed || s == attemptSuperseded
 }
 
-// Transition is the one rule for changing a stored attempt state. Running may
+// transition is the one rule for changing a stored attempt state. Running may
 // become uncertain (the runner was lost) or end; uncertain may only end; an
 // ended attempt stays ended.
-func (s AttemptState) Transition(next AttemptState) (AttemptState, error) {
-	if !s.Open() {
-		return 0, fmt.Errorf("%w: attempt is already %s", ErrAttemptTransition, s)
+func (s AttemptState) transition(next AttemptState) (AttemptState, error) {
+	if !s.open() {
+		return 0, fmt.Errorf("%w: attempt is already %s", errAttemptTransition, s)
 	}
 	switch next {
-	case AttemptDone, AttemptFailed, AttemptSuperseded:
+	case AttemptDone, AttemptFailed, attemptSuperseded:
 		return next, nil
 	case AttemptUncertain:
 		if s == AttemptRunning {
 			return next, nil
 		}
 	}
-	return 0, fmt.Errorf("%w: %s to %s", ErrAttemptTransition, s, next)
+	return 0, fmt.Errorf("%w: %s to %s", errAttemptTransition, s, next)
 }
 
 // Outcome names the ended state a completion or failure asks for.
-func OutcomeState(failed bool) AttemptState {
+func outcomeState(failed bool) AttemptState {
 	if failed {
 		return AttemptFailed
 	}

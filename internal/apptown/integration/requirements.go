@@ -3,11 +3,12 @@ package integration
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
+
 	"github.com/flokkit/apptown/internal/apptown/integration/internal/integrationsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
-	"slices"
-	"strings"
 )
 
 // HasCapabilitiesIn keeps the required project attachments and their matching

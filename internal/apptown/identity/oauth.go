@@ -30,27 +30,27 @@ import (
 
 const (
 	AudienceUser  = "/mcp/user"
-	CodeTTL       = 10 * time.Minute
+	codeTTL       = 10 * time.Minute
 	AccessTTL     = time.Hour
-	RefreshTTL    = 30 * 24 * time.Hour
+	refreshTTL    = 30 * 24 * time.Hour
 	AccessPrefix  = "apptown_mcp_"
-	RefreshPrefix = "apptown_rt_"
-	ClientPrefix  = "fc_"
+	refreshPrefix = "apptown_rt_"
+	clientPrefix  = "fc_"
 
 	TicketPrefix = "apptown_git_"
-	TicketTTL    = 20 * time.Minute
+	ticketTTL    = 20 * time.Minute
 	// TicketKindGit is the object-capability kind of a change git ticket.
 	TicketKindGit = "git-change"
 )
 
-// Client is a registered OAuth client.
-type Client struct {
+// oauthClient is a registered OAuth client.
+type oauthClient struct {
 	ID, Name     string
 	RedirectURIs []string
 }
 
-func client(r accesssql.OauthClient) Client {
-	c := Client{ID: r.ClientID, Name: r.Name}
+func client(r accesssql.OauthClient) oauthClient {
+	c := oauthClient{ID: r.ClientID, Name: r.Name}
 	// A list that does not decode allows no redirect at all: the decoder can
 	// fill part of a slice before it fails, and part of a list is not one.
 	if err := json.Unmarshal([]byte(r.RedirectUris), &c.RedirectURIs); err != nil {
@@ -121,15 +121,15 @@ type oauthStore struct {
 
 func (o *oauthStore) now() time.Time { return clock.Or(o.clock)() }
 
-// RegisterClient records a self-registering client with its receipt.
-func (o *oauthStore) RegisterClient(ctx context.Context, name string, redirectURIs []string) (Client, error) {
-	c := Client{ID: ClientPrefix + RandomHex(12), Name: strings.TrimSpace(name), RedirectURIs: redirectURIs}
+// registerClient records a self-registering client with its receipt.
+func (o *oauthStore) registerClient(ctx context.Context, name string, redirectURIs []string) (oauthClient, error) {
+	c := oauthClient{ID: clientPrefix + RandomHex(12), Name: strings.TrimSpace(name), RedirectURIs: redirectURIs}
 	if c.Name == "" {
 		c.Name = "a coding agent"
 	}
 	uris, err := strs.JSON(redirectURIs)
 	if err != nil {
-		return Client{}, err
+		return oauthClient{}, err
 	}
 	at := o.now()
 	err = o.db.InTx(ctx, func(tx *database.Tx) error {
@@ -141,8 +141,8 @@ func (o *oauthStore) RegisterClient(ctx context.Context, name string, redirectUR
 	return c, err
 }
 
-// ClientByID is a client, nil when unknown.
-func (o *oauthStore) ClientByID(ctx context.Context, id string) (*Client, error) {
+// clientByID is a client, nil when unknown.
+func (o *oauthStore) clientByID(ctx context.Context, id string) (*oauthClient, error) {
 	r, err := queries(o.db).ClientByID(ctx, id)
 	found, err := database.Lookup(err)
 	if err != nil || !found {
@@ -152,14 +152,14 @@ func (o *oauthStore) ClientByID(ctx context.Context, id string) (*Client, error)
 	return &c, nil
 }
 
-// IssueCode records a person's consent and returns the code once, with
+// issueCode records a person's consent and returns the code once, with
 // the `oauth.authorized` receipt in the same transaction.
-func (o *oauthStore) IssueCode(ctx context.Context, c Client, user, redirectURI string, scopes []string, resource, challenge string) (string, error) {
+func (o *oauthStore) issueCode(ctx context.Context, c oauthClient, user, redirectURI string, scopes []string, resource, challenge string) (string, error) {
 	code := RandomHex(32)
 	now := o.now().UTC()
 	err := o.db.InTx(ctx, func(tx *database.Tx) error {
 		if _, err := queries(tx).InsertCode(ctx, accesssql.InsertCodeParams{CodeHash: HashToken(code), ClientID: c.ID, Username: user, RedirectUri: redirectURI,
-			Scopes: strings.Join(scopes, " "), Resource: resource, CodeChallenge: challenge, AuthTime: now, ExpiresAt: now.Add(CodeTTL)}); err != nil {
+			Scopes: strings.Join(scopes, " "), Resource: resource, CodeChallenge: challenge, AuthTime: now, ExpiresAt: now.Add(codeTTL)}); err != nil {
 			return err
 		}
 		return audit.At(now).RecordIn(ctx, tx, user, ids.Nil, "oauth.authorized", c.Name, map[string]any{"clientId": c.ID, "scopes": scopes})
@@ -170,8 +170,8 @@ func (o *oauthStore) IssueCode(ctx context.Context, c Client, user, redirectURI 
 	return code, nil
 }
 
-// CodeByValue is the record behind a presented code, nil when unknown.
-func (o *oauthStore) CodeByValue(ctx context.Context, value string) (*authorizationCode, error) {
+// codeByValue is the record behind a presented code, nil when unknown.
+func (o *oauthStore) codeByValue(ctx context.Context, value string) (*authorizationCode, error) {
 	r, err := queries(o.db).CodeByHash(ctx, HashToken(value))
 	found, err := database.Lookup(err)
 	if err != nil || !found {
@@ -181,9 +181,9 @@ func (o *oauthStore) CodeByValue(ctx context.Context, value string) (*authorizat
 	return &c, nil
 }
 
-// RevokeMintedBy ends what a replayed code minted: every token of the
+// revokeMintedBy ends what a replayed code minted: every token of the
 // delegations this client got for this person since the code was used.
-func (o *oauthStore) RevokeMintedBy(ctx context.Context, c *authorizationCode) error {
+func (o *oauthStore) revokeMintedBy(ctx context.Context, c *authorizationCode) error {
 	if !c.Used.Valid {
 		return nil
 	}
@@ -191,13 +191,13 @@ func (o *oauthStore) RevokeMintedBy(ctx context.Context, c *authorizationCode) e
 	return err
 }
 
-// Exchange consumes a code once and mints the delegation with its first
+// exchange consumes a code once and mints the delegation with its first
 // token pair, the client's last-use stamp and the `oauth.connected`
 // receipt, all in one transaction. The consuming update decides by its
 // affected rows: two concurrent exchanges of one code see one success and
 // one replay (replayed=true, nothing minted). A failure anywhere leaves
 // the code unused so the client may retry.
-func (o *oauthStore) Exchange(ctx context.Context, value string, c *authorizationCode, clientName, authMethod string) (delegationID ids.ID, pair Pair, replayed bool, err error) {
+func (o *oauthStore) exchange(ctx context.Context, value string, c *authorizationCode, clientName, authMethod string) (delegationID ids.ID, pair Pair, replayed bool, err error) {
 	now := o.now().UTC()
 	err = o.db.InTx(ctx, func(tx *database.Tx) error {
 		q := queries(tx)
@@ -225,7 +225,7 @@ func (o *oauthStore) Exchange(ctx context.Context, value string, c *authorizatio
 		}
 		d, err := q.InsertDelegation(ctx, accesssql.InsertDelegationParams{ID: ids.New(now), Username: c.User, ClientID: c.ClientID, ClientName: clientName, Audience: AudienceUser,
 			ScopesJson: scopes, AuthTime: sql.NullTime{Time: c.AuthTime, Valid: true}, AuthMethod: authMethod, CreatedAt: now,
-			ExpiresAt: sql.NullTime{Time: now.Add(RefreshTTL), Valid: true}})
+			ExpiresAt: sql.NullTime{Time: now.Add(refreshTTL), Valid: true}})
 		if err != nil {
 			return err
 		}
@@ -244,10 +244,10 @@ func (o *oauthStore) Exchange(ctx context.Context, value string, c *authorizatio
 
 // mintPairIn records a new token pair minted at now, the caller's clock.
 func mintPairIn(ctx context.Context, tx *database.Tx, delegationID ids.ID, now time.Time) (Pair, error) {
-	p := Pair{Access: AccessPrefix + RandomHex(24), Refresh: RefreshPrefix + RandomHex(24)}
+	p := Pair{Access: AccessPrefix + RandomHex(24), Refresh: refreshPrefix + RandomHex(24)}
 	now = now.UTC()
 	n, err := queries(tx).InsertTokenPair(ctx, accesssql.InsertTokenPairParams{DelegationID: delegationID, At: now,
-		AccessHash: HashToken(p.Access), AccessExpires: now.Add(AccessTTL), RefreshHash: HashToken(p.Refresh), RefreshExpires: now.Add(RefreshTTL)})
+		AccessHash: HashToken(p.Access), AccessExpires: now.Add(AccessTTL), RefreshHash: HashToken(p.Refresh), RefreshExpires: now.Add(refreshTTL)})
 	if err == nil && n != 2 {
 		err = errors.New("token pair was not recorded")
 	}
@@ -261,9 +261,9 @@ type tokenRecord struct {
 	Revoked      bool
 }
 
-// Token is the record behind a presented token of one kind, nil when
+// token is the record behind a presented token of one kind, nil when
 // unknown.
-func (o *oauthStore) Token(ctx context.Context, tok, kind string) (*tokenRecord, error) {
+func (o *oauthStore) token(ctx context.Context, tok, kind string) (*tokenRecord, error) {
 	r, err := queries(o.db).TokenByHashAndKind(ctx, accesssql.TokenByHashAndKindParams{TokenHash: HashToken(tok), Kind: kind})
 	found, err := database.Lookup(err)
 	if err != nil || !found {
@@ -272,16 +272,16 @@ func (o *oauthStore) Token(ctx context.Context, tok, kind string) (*tokenRecord,
 	return &tokenRecord{DelegationID: r.DelegationID, Expires: r.ExpiresAt, Revoked: r.RevokedAt.Valid}, nil
 }
 
-// DelegationOfToken is the delegation behind any token, found=false when
+// delegationOfToken is the delegation behind any token, found=false when
 // unknown (RFC 7009: an unknown token is not an error).
-func (o *oauthStore) DelegationOfToken(ctx context.Context, tok string) (ids.ID, bool, error) {
+func (o *oauthStore) delegationOfToken(ctx context.Context, tok string) (ids.ID, bool, error) {
 	r, err := queries(o.db).TokenByHash(ctx, HashToken(tok))
 	found, err := database.Lookup(err)
 	return r.DelegationID, found, err
 }
 
-// Connection is one delegation whatever its state, nil when unknown.
-func (o *oauthStore) Connection(ctx context.Context, id ids.ID) (*Delegation, error) {
+// connection is one delegation whatever its state, nil when unknown.
+func (o *oauthStore) connection(ctx context.Context, id ids.ID) (*Delegation, error) {
 	r, err := queries(o.db).DelegationByID(ctx, id)
 	found, err := database.Lookup(err)
 	if err != nil || !found {
@@ -291,8 +291,8 @@ func (o *oauthStore) Connection(ctx context.Context, id ids.ID) (*Delegation, er
 	return &c, nil
 }
 
-// Connections is a person's live delegations, newest first, or everyone's.
-func (o *oauthStore) Connections(ctx context.Context, user string, all bool) ([]Delegation, error) {
+// connections is a person's live delegations, newest first, or everyone's.
+func (o *oauthStore) connections(ctx context.Context, user string, all bool) ([]Delegation, error) {
 	q := queries(o.db)
 	var rows []accesssql.DelegationsNamed
 	var err error
@@ -308,10 +308,10 @@ func (o *oauthStore) Connections(ctx context.Context, user string, all bool) ([]
 	return out, err
 }
 
-// Revoke ends a delegation and every token it carries, with the
+// revoke ends a delegation and every token it carries, with the
 // `oauth.disconnected` receipt, in one transaction; a revoke never
 // half-happens. An unknown delegation is ErrNoSuchName.
-func (o *oauthStore) Revoke(ctx context.Context, id ids.ID, by string) error {
+func (o *oauthStore) revoke(ctx context.Context, id ids.ID, by string) error {
 	return o.db.InTx(ctx, func(tx *database.Tx) error { return revokeDelegationIn(ctx, tx, id, by, o.now().UTC()) })
 }
 
@@ -325,7 +325,7 @@ func revokeDelegationIn(ctx context.Context, tx *database.Tx, id ids.ID, by stri
 		return err
 	}
 	if !found {
-		return ErrNoSuchName
+		return errNoSuchName
 	}
 	object := connection(accesssql.DelegationsNamed(d))
 	object.end(at)
@@ -338,12 +338,12 @@ func revokeDelegationIn(ctx context.Context, tx *database.Tx, id ids.ID, by stri
 	return audit.At(at).RecordIn(ctx, tx, by, ids.Nil, "oauth.disconnected", d.ClientName, map[string]any{"delegationId": id, "user": d.Username})
 }
 
-// SweepExpired drops what can never be presented again: expired consents,
+// sweepExpired drops what can never be presented again: expired consents,
 // used or expired codes, expired or long-revoked tokens, expired or spent
 // tickets; and marks expired delegations revoked so the connected-agents
 // list stays honest. Delegations themselves are kept as the record of a
 // person's consent.
-func (o *oauthStore) SweepExpired(ctx context.Context) error {
+func (o *oauthStore) sweepExpired(ctx context.Context) error {
 	q := queries(o.db)
 	now := o.now().UTC()
 	cutoff := now.Add(-24 * time.Hour)
@@ -379,22 +379,22 @@ type Ticket struct {
 	RevokedAt    stamp.Time
 }
 
-// Tickets is the supported API over git tickets.
-type Tickets struct {
+// tickets is the supported API over git tickets.
+type tickets struct {
 	db    *database.DB
 	clock func() time.Time // nil is the real clock
 }
 
-func NewTickets(db *database.DB) *Tickets { return &Tickets{db: db} }
+func newTickets(db *database.DB) *tickets { return &tickets{db: db} }
 
-func (t *Tickets) now() time.Time { return clock.Or(t.clock)() }
+func (t *tickets) now() time.Time { return clock.Or(t.clock)() }
 
-// Mint writes the capability and returns its plaintext once.
-func (t *Tickets) Mint(ctx context.Context, user string, delegationID, changeID ids.ID, ref, expectedTip string) (string, *Ticket, error) {
+// mint writes the capability and returns its plaintext once.
+func (t *tickets) mint(ctx context.Context, user string, delegationID, changeID ids.ID, ref, expectedTip string) (string, *Ticket, error) {
 	tok := TicketPrefix + RandomHex(24)
 	constraints := map[string]any{"ref": ref, "expected_tip": expectedTip, "operations": []string{"fetch-main", "fetch-change", "push-change"}}
 	now := t.now().UTC()
-	exp := now.Add(TicketTTL)
+	exp := now.Add(ticketTTL)
 	constraintsJSON, err := rawJSON(constraints)
 	if err != nil {
 		return "", nil, err
@@ -407,9 +407,9 @@ func (t *Tickets) Mint(ctx context.Context, user string, delegationID, changeID 
 	return tok, &Ticket{ID: r, User: user, DelegationID: delegationID, ChangeID: changeID, Ref: ref, ExpectedTip: expectedTip, ExpiresAt: exp.Format(time.RFC3339)}, nil
 }
 
-// ByToken resolves a presented ticket that is live: unexpired, unrevoked,
+// byToken resolves a presented ticket that is live: unexpired, unrevoked,
 // not yet consumed. Nil otherwise.
-func (t *Tickets) ByToken(ctx context.Context, tok string) (*Ticket, error) {
+func (t *tickets) byToken(ctx context.Context, tok string) (*Ticket, error) {
 	if !strings.HasPrefix(tok, TicketPrefix) {
 		return nil, nil
 	}
@@ -448,9 +448,9 @@ func ticket(r accesssql.ObjectCapabilitiesNamed) (Ticket, error) {
 	return k, nil
 }
 
-// Consume locks the capability, applies its rule, and saves it with its receipt.
+// consume locks the capability, applies its rule, and saves it with its receipt.
 // The guarded full-row write still detects a veto or a concurrently spent ticket.
-func (t *Tickets) Consume(ctx context.Context, id ids.ID) (bool, error) {
+func (t *tickets) consume(ctx context.Context, id ids.ID) (bool, error) {
 	return database.Transact(ctx, t.db, func(tx *database.Tx) (bool, error) {
 		q := queries(tx)
 		r, err := q.TicketByIDForUpdate(ctx, id)
@@ -463,7 +463,7 @@ func (t *Tickets) Consume(ctx context.Context, id ids.ID) (bool, error) {
 			return false, err
 		}
 		at := t.now()
-		if err := k.Consume(at.UTC()); err != nil {
+		if err := k.consume(at.UTC()); err != nil {
 			return false, nil
 		}
 		n, err := q.ConsumeTicket(ctx, accesssql.ConsumeTicketParams{
@@ -485,9 +485,9 @@ func (t *Tickets) Consume(ctx context.Context, id ids.ID) (bool, error) {
 	})
 }
 
-// RevokeForChange ends every live ticket on a change: when it lands, is
+// revokeForChange ends every live ticket on a change: when it lands, is
 // abandoned, or a run takes the workspace.
-func (t *Tickets) RevokeForChange(ctx context.Context, changeID ids.ID) error {
+func (t *tickets) revokeForChange(ctx context.Context, changeID ids.ID) error {
 	_, err := queries(t.db).RevokeChangeTickets(ctx, accesssql.RevokeChangeTicketsParams{RevokedAt: t.now().UTC(), Kind: TicketKindGit, ResourceID: changeID.String()})
 	return err
 }

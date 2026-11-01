@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/tasks"
 	"github.com/flokkit/apptown/internal/progress"
 
@@ -165,7 +167,7 @@ func TestAnInvocationWhoseUsageCannotBeRecordedStops(t *testing.T) {
 			}))
 			source := workflow.Source{ProjectID: idstest.N(1), RunID: idstest.N(5), RootRunID: idstest.N(5), WorkflowName: "w", WorkflowVersion: 1}
 			step := &workflow.Step{ID: idstest.N(9), Attempt: 1, Name: "implement"}
-			t.Cleanup(db.FailNextStatement("-- name: RecordUsageOnce"))
+			t.Cleanup(dbtest.NextStatementFailure(db, "-- name: RecordUsageOnce"))
 			var result piResult
 			if worker {
 				r := invocationResult{piResult: piResult{Events: events}}

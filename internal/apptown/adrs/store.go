@@ -29,7 +29,7 @@ func lockProject(ctx context.Context, tx *database.Tx, id ids.ID) error {
 }
 func insertRecord(ctx context.Context, tx *database.Tx, in Create, supersedesID ids.ID, at time.Time) (Record, error) {
 	if strings.TrimSpace(in.Title) == "" {
-		return Record{}, fmt.Errorf("%w: title is required", ErrInput)
+		return Record{}, fmt.Errorf("%w: title is required", errInput)
 	}
 	if err := requireChange(ctx, tx, in.ProjectID, in.ChangeID); err != nil {
 		return Record{}, err
@@ -40,7 +40,7 @@ func insertRecord(ctx context.Context, tx *database.Tx, in Create, supersedesID 
 	}
 	saved, err := queries(tx).InsertADR(ctx, adrssql.InsertADRParams{ID: ids.New(at), ProjectID: in.ProjectID, Number: number, Title: in.Title, Status: Draft.String(), BodyMd: in.BodyMD, Tags: normalizeTags(in.Tags), SupersedesID: supersedesID, ChangeID: in.ChangeID, At: at})
 	if errors.Is(err, sql.ErrNoRows) {
-		err = ErrConflict
+		err = errConflict
 	}
 	if err != nil {
 		return Record{}, err
@@ -74,7 +74,7 @@ func (s store) successor(ctx context.Context, projectID ids.ID, in Successor, wh
 			return Record{}, err
 		}
 		if old.Status != Accepted {
-			return Record{}, fmt.Errorf("%w: only accepted ADRs may have a successor", ErrTransition)
+			return Record{}, fmt.Errorf("%w: only accepted ADRs may have a successor", errTransition)
 		}
 		if in.Title == "" {
 			in.Title = old.Title
@@ -136,10 +136,10 @@ func textUnmoved(old Record, in Edit) error {
 			return nil
 		}
 		if expected == nil {
-			return ErrTextExpected
+			return errTextExpected
 		}
 		if norm(*expected) != stored {
-			return ErrTextMoved
+			return errTextMoved
 		}
 		return nil
 	}
@@ -158,15 +158,15 @@ func textUnmoved(old Record, in Edit) error {
 // Public commands cannot ask for the private retire act directly.
 func editIn(ctx context.Context, tx *database.Tx, old Record, in Edit, at time.Time) (Record, error) {
 	v := old
-	if old.Status.Locked() && (in.Title != nil || in.BodyMD != nil) {
-		return Record{}, ErrImmutable
+	if old.Status.locked() && (in.Title != nil || in.BodyMD != nil) {
+		return Record{}, errImmutable
 	}
 	if err := textUnmoved(old, in); err != nil {
 		return Record{}, err
 	}
 	if in.Title != nil {
 		if strings.TrimSpace(*in.Title) == "" {
-			return Record{}, fmt.Errorf("%w: title is required", ErrInput)
+			return Record{}, fmt.Errorf("%w: title is required", errInput)
 		}
 		v.Title = *in.Title
 	}
@@ -198,11 +198,11 @@ func editIn(ctx context.Context, tx *database.Tx, old Record, in Edit, at time.T
 			// Restoring a previously accepted successor preserves its original
 			// retirement. It must not retire the predecessor for a second time.
 			if previous.Status != Superseded {
-				return Record{}, fmt.Errorf("%w: predecessor retirement is missing", ErrConflict)
+				return Record{}, fmt.Errorf("%w: predecessor retirement is missing", errConflict)
 			}
 		} else {
 			if previous.Status != Accepted {
-				return Record{}, fmt.Errorf("%w: predecessor is no longer accepted", ErrConflict)
+				return Record{}, fmt.Errorf("%w: predecessor is no longer accepted", errConflict)
 			}
 			if _, err := editIn(ctx, tx, previous, Edit{ID: previous.ID, Decision: retire}, at); err != nil {
 				return Record{}, err

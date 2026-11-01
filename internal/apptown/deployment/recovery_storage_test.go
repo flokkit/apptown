@@ -45,7 +45,7 @@ func TestDeploymentCheckpointIsAtomicGuardedAndImmutable(t *testing.T) {
 	checkpoint := s.Checkpoint(context.Background(), at)
 	values := map[string]any{"appId": "app-original", "deploymentId": "deployment-original"}
 	dbtest.FailNextStatement(t, f.db, "UPDATE deployment_attempts SET observed_json")
-	if err := checkpoint(values); !errors.Is(err, database.ErrInjectedFailure) {
+	if err := checkpoint(values); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("checkpoint write: %v", err)
 	}
 	if a := storedAttempt(t, f.db, at.ID); string(a.ObservedJson) != "{}" {
@@ -110,7 +110,7 @@ func TestDeploymentAdmissionAndSettingsPreservePreparedTarget(t *testing.T) {
 	if _, _, err := s.Admit(context.Background(), deploymentStartFor(dep, "stale", "selected")); err == nil {
 		t.Fatal("admitted a release prepared for a different target")
 	}
-	dep, err = f.outcomes.DeploymentByID(context.Background(), dep.ID)
+	dep, err = f.outcomes.deploymentByID(context.Background(), dep.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +161,7 @@ func TestDeploymentUncertaintyRacesAdmissionWithoutSplitOwnership(t *testing.T) 
 	results := race(2, func(i int) int {
 		if i == 0 {
 			_, created, err := s.Admit(context.Background(), deploymentStartFor(dep, "next", "next"))
-			if errors.Is(err, ErrUncertain) {
+			if errors.Is(err, errUncertain) {
 				return 0
 			}
 			if err != nil || !created {
@@ -175,7 +175,7 @@ func TestDeploymentUncertaintyRacesAdmissionWithoutSplitOwnership(t *testing.T) 
 			t.Error(err)
 			return -1
 		}
-		if out == Uncertain {
+		if out == outcomeUncertain {
 			return 2
 		}
 		if out == Superseded {
@@ -185,7 +185,7 @@ func TestDeploymentUncertaintyRacesAdmissionWithoutSplitOwnership(t *testing.T) 
 		return -1
 	})
 	if count(results, 1) == 1 {
-		if a := storedAttempt(t, f.db, at.ID); a.Status != AttemptSuperseded.String() {
+		if a := storedAttempt(t, f.db, at.ID); a.Status != attemptSuperseded.String() {
 			t.Fatalf("superseded attempt: %s", a.Status)
 		}
 		if r := storedRelease(t, f.db, dep.ProjectID, releaseID); r.State != ReleaseFailed {
@@ -206,7 +206,7 @@ func TestDeploymentUncertaintyRacesAdmissionWithoutSplitOwnership(t *testing.T) 
 func TestDeploymentRecoveryMissingAttemptDiffersFromFailedRead(t *testing.T) {
 	t.Parallel()
 	f, _ := deploymentOutcomeFixture(t)
-	r := Recoverer{Source: recoverySourceForTest(f.outcomes, nil)}
+	r := recoverer{Source: recoverySourceForTest(f.outcomes, nil)}
 	result, err := r.Run(context.Background(), idstest.N(999))
 	if err != nil || result.Outcome != "absent" {
 		t.Fatalf("missing attempt: %+v %v", result, err)
@@ -244,19 +244,19 @@ func TestDeploymentUncertaintyAndObservationQueueCommitTogether(t *testing.T) {
 			} else {
 				dbtest.FailNextStatement(t, f.db, statement)
 			}
-			if _, err := s.Uncertain(context.Background(), at, context.DeadlineExceeded); err == nil || (statement != "INSERT INTO jobs" && !errors.Is(err, database.ErrInjectedFailure)) {
+			if _, err := s.Uncertain(context.Background(), at, context.DeadlineExceeded); err == nil || (statement != "INSERT INTO jobs" && !errors.Is(err, dbtest.ErrInjectedFailure)) {
 				t.Fatalf("uncertainty write: %v", err)
 			}
 			// The key's presence, not its value: a "_recovery": null left behind is still a recovery mark.
 			if a := storedAttempt(t, f.db, at.ID); a.Status != AttemptRunning.String() || hasObservedKey(t, a, "_recovery") {
 				t.Fatalf("rolled-back uncertainty left the attempt %s %s", a.Status, a.ObservedJson)
 			}
-			if d := storedDeployment(t, f.db, dep.ID); d.Readiness != Reconciling {
+			if d := storedDeployment(t, f.db, dep.ID); d.Readiness != reconciling {
 				t.Fatalf("rolled-back uncertainty left the deployment %s", d.Readiness)
 			}
 			wantN(t, "queued jobs", queuedJobs(t, f.db, "", ""), 0)
 			for i := 0; i < 2; i++ {
-				if out, err := s.Uncertain(context.Background(), at, context.DeadlineExceeded); err != nil || out != Uncertain {
+				if out, err := s.Uncertain(context.Background(), at, context.DeadlineExceeded); err != nil || out != outcomeUncertain {
 					t.Fatalf("uncertain outcome: %s %v", out, err)
 				}
 			}
@@ -267,7 +267,7 @@ func TestDeploymentUncertaintyAndObservationQueueCommitTogether(t *testing.T) {
 			if r := storedRelease(t, f.db, dep.ProjectID, releaseID); r.State != Releasing {
 				t.Fatalf("release under uncertainty: %s", r.State)
 			}
-			if _, _, err := s.Admit(context.Background(), deploymentStartFor(dep, "next", "next")); !errors.Is(err, ErrUncertain) {
+			if _, _, err := s.Admit(context.Background(), deploymentStartFor(dep, "next", "next")); !errors.Is(err, errUncertain) {
 				t.Fatalf("conflicting admission: %v", err)
 			}
 			if out, err := s.Complete(context.Background(), deploymentCompletionFor(at, "recovered")); err != nil || out != Applied {
@@ -303,7 +303,7 @@ func TestDeploymentRecoveryClassifiesObservationAndReplaysWithoutProvider(t *tes
 				t.Fatal(err)
 			}
 			calls := 0
-			r := Recoverer{Store: s, Source: recoverySourceForTest(s, func(context.Context, *Deployment) (deploy.Driver, error) {
+			r := recoverer{Store: s, Source: recoverySourceForTest(s, func(context.Context, *Deployment) (deploy.Driver, error) {
 				return storedRecoveryDriver{resume: func(ctx context.Context, placement deploy.Placement, generation int64, checkpoint map[string]any) (deploy.Observation, error) {
 					calls++
 					if generation != at.Generation || checkpoint["providerId"] != "original" {
@@ -345,7 +345,7 @@ func TestDeploymentRecoveryCancellationDoesNotPublishSuccess(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	r := Recoverer{Store: s, Source: recoverySourceForTest(s, func(context.Context, *Deployment) (deploy.Driver, error) {
+	r := recoverer{Store: s, Source: recoverySourceForTest(s, func(context.Context, *Deployment) (deploy.Driver, error) {
 		return storedRecoveryDriver{resume: func(context.Context, deploy.Placement, int64, map[string]any) (deploy.Observation, error) {
 			cancel()
 			return deploymentCompletionFor(at, "late").Observed, nil
@@ -362,6 +362,6 @@ func TestDeploymentRecoveryCancellationDoesNotPublishSuccess(t *testing.T) {
 
 // Generic recovery storage fixtures have no Portainer diagnostic permission.
 // Production uses the Service's captured-authority binding instead.
-func recoverySourceForTest(store *Outcomes, driver func(context.Context, *Deployment) (deploy.Driver, error)) RecoverySource {
+func recoverySourceForTest(store *Outcomes, driver func(context.Context, *Deployment) (deploy.Driver, error)) recoveryReader {
 	return recoverySource{store: store, driver: driver}
 }

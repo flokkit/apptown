@@ -34,7 +34,6 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/deploy/s3bucket/s3fake"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/oci"
@@ -362,7 +361,7 @@ func newDataWorldWith(t *testing.T, opts dataWorldOptions) *dataWorld {
 	w.buckets = newFakeBuckets(w.store, func() []map[string]any { return w.api.Snapshot().SpacesKeys }, s3kind.Copy)
 	var client docker.Client = opts.docker
 	if client == nil {
-		daemon := dockerfake.New()
+		daemon := newDockerFake()
 		daemon.SetCommandReply(func(c docker.Command) ([]byte, error, bool) {
 			if out, err, ok := w.buckets.reply(c); ok {
 				return out, err, true
@@ -514,11 +513,11 @@ func (w *dataWorld) opsOn(name string) ([]operations.Operation, error) {
 // verified are success with that verification, done is success without.
 func endedAs(op *operations.Operation, end runEnd) bool {
 	switch end {
-	case OperationVerified:
+	case operationVerified:
 		return op.State == operations.Succeeded && op.Verification == operations.Verified
-	case OperationNotVerified:
+	case operationNotVerified:
 		return op.State == operations.Succeeded && op.Verification == operations.NotVerified
-	case OperationDone:
+	case operationDone:
 		return op.State == operations.Succeeded && op.Verification == ""
 	}
 	return op.State == operations.Failed
@@ -527,7 +526,7 @@ func endedAs(op *operations.Operation, end runEnd) bool {
 // clusterOf is the managed instance a deployment's postgres is recorded on.
 func (w *dataWorld) clusterOf(dep *deployment.Deployment) map[string]any {
 	w.t.Helper()
-	insts, err := w.s.Needs.ForDeployment(context.Background(), dep.ID)
+	insts, err := deployment.NewNeedStore(w.db, nil).ForDeployment(context.Background(), dep.ID)
 	if err != nil || len(insts) != 1 {
 		w.t.Fatalf("need instances: %v %v", insts, err)
 	}
@@ -603,7 +602,7 @@ func TestATakenDownDeploymentComesBackFromItsFinalCopy(t *testing.T) {
 		t.Fatalf("take-down door: %+v %v", res, err)
 	}
 	op := w.run(res.Operation)
-	if !endedAs(op, OperationVerified) {
+	if !endedAs(op, operationVerified) {
 		t.Fatalf("take-down %s: %s\n%+v", op.State, op.Detail, op.Steps)
 	}
 	// The order: the app went before the copy, and the cluster only after
@@ -644,7 +643,7 @@ func TestATakenDownDeploymentComesBackFromItsFinalCopy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	item := set.GoodCopy("need", "postgres")
+	item := set.goodCopy("need", "postgres")
 	if set.Store != StoreBackupStore || item == nil || item.Instance != oldID || item.Database != "app" || item.Format != "pg-custom" || item.AsUser != "app" {
 		t.Fatalf("final set: %+v", set)
 	}

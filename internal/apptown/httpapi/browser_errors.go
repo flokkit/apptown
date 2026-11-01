@@ -5,9 +5,9 @@ import (
 	"net/http"
 )
 
-type BrowserErrors struct{ reporting BrowserErrorConfig }
+type BrowserErrors struct{ reporting browserErrorConfig }
 
-func NewBrowserErrors(reporting BrowserErrorConfig) BrowserErrors {
+func NewBrowserErrors(reporting browserErrorConfig) BrowserErrors {
 	return BrowserErrors{reporting: reporting}
 }
 
@@ -25,7 +25,7 @@ func (h BrowserErrors) BrowserErrors(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, BrowserErrorReporting{DSN: dsn, Release: release})
 }
 
-type BrowserErrorConfig interface {
+type browserErrorConfig interface {
 	BrowserConfig(ctx context.Context) (dsn, release string, ok bool)
 }
 

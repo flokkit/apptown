@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/flokkit/apptown/internal/execution"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/execution"
 
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 )

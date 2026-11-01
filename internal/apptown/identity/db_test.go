@@ -75,7 +75,7 @@ func testIssueToken(s *Service, name, user, role, by string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var issued IssuedToken
+	var issued issuedToken
 	err = s.db.InTx(ctx, func(tx *database.Tx) error {
 		var err error
 		issued, err = issueTokenIn(ctx, tx, in, by, time.Now())

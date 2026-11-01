@@ -8,16 +8,16 @@ import (
 
 func TestDecisionLifecycle(t *testing.T) {
 	t.Parallel()
-	states := []State{Draft, Proposed, Accepted, Rejected, Deprecated, Superseded}
+	states := []State{Draft, proposed, Accepted, rejected, Deprecated, Superseded}
 	cases := []struct {
 		act  Decision
 		next [6]State
 	}{
-		{Redraft, [6]State{Draft, Draft, 0, Draft, 0, 0}},
-		{Propose, [6]State{Proposed, Proposed, 0, 0, 0, 0}},
+		{redraft, [6]State{Draft, Draft, 0, Draft, 0, 0}},
+		{Propose, [6]State{proposed, proposed, 0, 0, 0, 0}},
 		{Accept, [6]State{Accepted, Accepted, Accepted, 0, Accepted, 0}},
-		{Reject, [6]State{Rejected, Rejected, 0, Rejected, 0, 0}},
-		{Deprecate, [6]State{0, 0, Deprecated, 0, Deprecated, 0}},
+		{reject, [6]State{rejected, rejected, 0, rejected, 0, 0}},
+		{deprecate, [6]State{0, 0, Deprecated, 0, Deprecated, 0}},
 		{retire, [6]State{0, 0, Superseded, 0, 0, Superseded}},
 		{255, [6]State{}},
 	}
@@ -31,18 +31,18 @@ func TestDecisionLifecycle(t *testing.T) {
 	}
 	for _, s := range []State{0, 255} {
 		for _, c := range cases {
-			if got, err := s.decide(c.act); got != 0 || !errors.Is(err, ErrState) {
+			if got, err := s.decide(c.act); got != 0 || !errors.Is(err, errState) {
 				t.Fatalf("invalid state acted: %s %v", got, err)
 			}
 		}
 	}
-	if act, err := ParseDecision("superseded"); act != 0 || !errors.Is(err, ErrTransition) {
+	if act, err := ParseDecision("superseded"); act != 0 || !errors.Is(err, errTransition) {
 		t.Fatalf("manual retirement admitted: %d %v", act, err)
 	}
 }
 func TestStateEncodingIsStrict(t *testing.T) {
 	t.Parallel()
-	for _, s := range []State{Draft, Proposed, Accepted, Rejected, Deprecated, Superseded} {
+	for _, s := range []State{Draft, proposed, Accepted, rejected, Deprecated, Superseded} {
 		data, err := json.Marshal(s)
 		if err != nil || string(data) != `"`+s.String()+`"` {
 			t.Fatalf("wire state: %s %v", data, err)
@@ -67,15 +67,15 @@ func TestStateEncodingIsStrict(t *testing.T) {
 	}
 	for _, raw := range []any{nil, 2, "unknown", []byte("")} {
 		got := Accepted
-		if err := got.Scan(raw); !errors.Is(err, ErrState) || got != Accepted {
+		if err := got.Scan(raw); !errors.Is(err, errState) || got != Accepted {
 			t.Fatalf("invalid stored value: %s %v", got, err)
 		}
 	}
 	for _, s := range []State{0, 255} {
-		if _, err := s.Value(); !errors.Is(err, ErrState) {
+		if _, err := s.Value(); !errors.Is(err, errState) {
 			t.Fatalf("invalid write: %v", err)
 		}
-		if _, err := json.Marshal(s); !errors.Is(err, ErrState) {
+		if _, err := json.Marshal(s); !errors.Is(err, errState) {
 			t.Fatalf("invalid JSON: %v", err)
 		}
 	}

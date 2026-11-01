@@ -58,34 +58,34 @@ import (
 // data. The gate secret is never recorded: the row keeps its SHA-256, so a
 // gate's redemption can be told to be this copy's.
 
-// RestoredCopyWarning is what the card says of what a restored copy can
+// restoredCopyWarning is what the card says of what a restored copy can
 // still do outside: withholding secrets reduces outside effects, it does
 // not prevent them.
-const RestoredCopyWarning = "AppTown integration secrets are withheld and background workers are stopped. Outbound calls are not blocked: this copy can still send mail, payments or webhooks using configuration or credentials in its data."
+const restoredCopyWarning = "AppTown integration secrets are withheld and background workers are stopped. Outbound calls are not blocked: this copy can still send mail, payments or webhooks using configuration or credentials in its data."
 
-// ProviderBoundary names who outside AppTown can read a restored copy.
-const ProviderBoundary = "DigitalOcean team Owners and Members with console access can read this copy, its gate secret and its logs, as they can production's."
+// providerBoundary names who outside AppTown can read a restored copy.
+const providerBoundary = "DigitalOcean team Owners and Members with console access can read this copy, its gate secret and its logs, as they can production's."
 
 var (
-	// ErrRestoredCopy: a restored copy cannot be made or changed.
-	ErrRestoredCopy = fault.New(fault.Conflict, "this restored copy cannot do that")
-	// ErrNoGate: this AppTown has no gate image, so it makes no restored copy.
-	ErrNoGate = fault.New(fault.Conflict, "this AppTown has no access gate image: start it with -restore-gate-image <ref@sha256:...> and its public address, so restored copies have a door only AppTown opens")
-	// ErrGateCredential refuses a redemption that does not come from a
+	// errRestoredCopy: a restored copy cannot be made or changed.
+	errRestoredCopy = fault.New(fault.Conflict, "this restored copy cannot do that")
+	// errNoGate: this AppTown has no gate image, so it makes no restored copy.
+	errNoGate = fault.New(fault.Conflict, "this AppTown has no access gate image: start it with -restore-gate-image <ref@sha256:...> and its public address, so restored copies have a door only AppTown opens")
+	// errGateCredential refuses a redemption that does not come from a
 	// standing copy's gate.
-	ErrGateCredential = fault.New(fault.Forbidden, "not a restored copy's gate")
-	// ErrTicket refuses a ticket that was used, has expired, or is not this
+	errGateCredential = fault.New(fault.Forbidden, "not a restored copy's gate")
+	// errTicket refuses a ticket that was used, has expired, or is not this
 	// copy's running check's.
-	ErrTicket = fault.New(fault.Forbidden, "this ticket was already used, has expired or is not this copy's check")
-	// ErrRestoreNotStopped: a restored copy's start runs to its end, which
+	errTicket = fault.New(fault.Forbidden, "this ticket was already used, has expired or is not this copy's check")
+	// errRestoreNotStopped: a restored copy's start runs to its end, which
 	// takes down what it made.
-	ErrRestoreNotStopped = fault.New(fault.Conflict, "a restored copy's start is not stopped part way: it takes the copy down itself when its checks are recorded")
-	// ErrRestoredCopyEndNotStopped: a restored copy's take-down runs to its
+	errRestoreNotStopped = fault.New(fault.Conflict, "a restored copy's start is not stopped part way: it takes the copy down itself when its checks are recorded")
+	// errRestoredCopyEndNotStopped: a restored copy's take-down runs to its
 	// end; one stopped half way would leave production data standing.
-	ErrRestoredCopyEndNotStopped = fault.New(fault.Conflict, "a restored copy's take-down is not stopped part way: stopping it would leave production data standing")
-	// ErrRestoredCopiesStand: a deployment with a restored copy standing is
+	errRestoredCopyEndNotStopped = fault.New(fault.Conflict, "a restored copy's take-down is not stopped part way: stopping it would leave production data standing")
+	// errRestoredCopiesStand: a deployment with a restored copy standing is
 	// not taken down.
-	ErrRestoredCopiesStand = fault.New(fault.Conflict, "restored copies of this deployment still stand")
+	errRestoredCopiesStand = fault.New(fault.Conflict, "restored copies of this deployment still stand")
 )
 
 // RestoredCopyDependencies is what restored copies ask of the world.
@@ -97,7 +97,7 @@ type RestoredCopyDependencies struct {
 	// of AppTown's own check.
 	AppTown string
 	// Secrets gives a restored copy only what its rehearsal profile names.
-	Secrets RestoredCopySecrets
+	Secrets restoredCopySecrets
 	// HTTP asks the app through its gate; nil is a client of its own.
 	HTTP *http.Client
 	// Grace is how long the checks wait for the app to answer; 0 is 3 minutes.
@@ -106,12 +106,12 @@ type RestoredCopyDependencies struct {
 	TicketFor time.Duration
 }
 
-// RestoredCopySecrets resolves a restored copy's secrets against the
+// restoredCopySecrets resolves a restored copy's secrets against the
 // bindings of the deployment it copies, by the rehearsal profile rule: a
 // bound secret only when the profile (which must not inherit) names it,
 // generated ones made fresh, nothing required. Withheld names each secret
 // it was not given.
-type RestoredCopySecrets interface {
+type restoredCopySecrets interface {
 	ResolveRestoredCopy(ctx context.Context, project deployment.Application, source, staged string, c *appcontract.Contract) (secrets deploy.ConsumerSecrets, withheld []string, err error)
 }
 
@@ -152,7 +152,7 @@ func restoredCopyRecord(r protectionsql.RestoredCopy) (*RestoredCopy, error) {
 	c := &RestoredCopy{ID: r.ID, Number: r.Number, Source: r.Source, Deployment: r.Deployment, Backup: r.BackupID, Release: r.ReleaseNumber, Target: r.Target,
 		AskedBy: r.AskedBy, AskedByPrincipal: r.AskedByPrincipal, StartedAt: stamp.Of(r.StartedAt),
 		Outcome: r.Outcome, FailedAt: r.FailedStep, CheckedAt: stamp.Time{NullTime: r.CheckedAt}, EndedAt: stamp.Time{NullTime: r.EndedAt},
-		EndDetail: r.EndDetail, Operation: r.OperationID, Warning: RestoredCopyWarning, Boundary: ProviderBoundary}
+		EndDetail: r.EndDetail, Operation: r.OperationID, Warning: restoredCopyWarning, Boundary: providerBoundary}
 	if err := json.Unmarshal(r.FactsJson, &c.Facts); err != nil {
 		return nil, fmt.Errorf("restored copy %d facts: %w", r.ID, err)
 	}
@@ -179,9 +179,9 @@ func readinessPassed(f RehearsalFacts) bool {
 	return false
 }
 
-// RestoredCopiesOf are a deployment's restored copies, newest first: every
+// restoredCopiesOf are a deployment's restored copies, newest first: every
 // one standing, and the last limit ended.
-func (s *Service) RestoredCopiesOf(ctx context.Context, dep *deployment.Deployment, limit int) ([]RestoredCopy, error) {
+func (s *Service) restoredCopiesOf(ctx context.Context, dep *deployment.Deployment, limit int) ([]RestoredCopy, error) {
 	rows, err := protectionsql.New(s.db.SQL()).RestoredCopiesOf(ctx, protectionsql.RestoredCopiesOfParams{SourceID: dep.ID, RowLimit: int64(limit)})
 	if err != nil {
 		return nil, err
@@ -197,10 +197,10 @@ func (s *Service) RestoredCopiesOf(ctx context.Context, dep *deployment.Deployme
 	return out, nil
 }
 
-// LastRestoreTest is a deployment's last restore test that got as far as
+// lastRestoreTest is a deployment's last restore test that got as far as
 // an answer or an end, nil when it was never tested on its platform. A
 // rehearsal never stands in for it.
-func (s *Service) LastRestoreTest(ctx context.Context, dep *deployment.Deployment) (*RestoredCopy, error) {
+func (s *Service) lastRestoreTest(ctx context.Context, dep *deployment.Deployment) (*RestoredCopy, error) {
 	r, err := protectionsql.New(s.db.SQL()).LatestRestoreTest(ctx, dep.ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -240,15 +240,15 @@ func (s *Service) planRestoredCopy(ctx context.Context, projectID ids.ID, name s
 	// The platform is decided before this AppTown's own setup: configuring a
 	// gate does not make a restored copy possible where none runs.
 	if p.target.HoldsBackups() == nil {
-		return nil, ErrRestoreTestAppPlatform
+		return nil, errRestoreTestAppPlatform
 	}
 	// The gate is placed by the provider's renderer; App Platform is the one
 	// that can (an internal service there has no public route).
 	if p.target.DataAccess() != deployment.DataOnManagedPlatform || p.target.NeedsMode != "managed" {
-		return nil, fmt.Errorf("%w: %s is not an App Platform target that makes its databases; a restored copy runs where its source runs, behind a gate only App Platform places so far", ErrRestoredCopy, p.target.Name)
+		return nil, fmt.Errorf("%w: %s is not an App Platform target that makes its databases; a restored copy runs where its source runs, behind a gate only App Platform places so far", errRestoredCopy, p.target.Name)
 	}
 	if s.restored.GateImage == "" || s.restored.AppTown == "" {
-		return nil, ErrNoGate
+		return nil, errNoGate
 	}
 	if s.restored.Secrets == nil {
 		return nil, errors.New("restored copies are not configured")
@@ -267,11 +267,11 @@ func (s *Service) planRestoredCopy(ctx context.Context, projectID ids.ID, name s
 			return nil, err
 		}
 		if p.set.ProjectID != projectID || p.set.Deployment != name {
-			return nil, fmt.Errorf("%w: set %d is a copy of another deployment", ErrRestoredCopy, set)
+			return nil, fmt.Errorf("%w: set %d is a copy of another deployment", errRestoredCopy, set)
 		}
 	}
 	// The newest set too: a restored copy fills managed databases only.
-	if err := managedFillable(p.set, ErrRestoredCopy); err != nil {
+	if err := managedFillable(p.set, errRestoredCopy); err != nil {
 		return nil, err
 	}
 	if p.set.DataClass == "production" && dep.DataClass != "production" {
@@ -282,7 +282,7 @@ func (s *Service) planRestoredCopy(ctx context.Context, projectID ids.ID, name s
 		return nil, err
 	}
 	if number == 0 {
-		return nil, fmt.Errorf("%w: %s has served no release", ErrRestoredCopy, name)
+		return nil, fmt.Errorf("%w: %s has served no release", errRestoredCopy, name)
 	}
 	if p.release, err = s.releases.ByNumber(ctx, projectID, number); err != nil {
 		return nil, err
@@ -293,7 +293,7 @@ func (s *Service) planRestoredCopy(ctx context.Context, projectID ids.ID, name s
 		}
 	}
 	if p.bundle == nil || !p.bundle.ByDigest() || p.bundle.ProjectID != projectID {
-		return nil, fmt.Errorf("%w: release %d was not published to a registry, so it cannot be run again by its images; attach a registry to the project, land a new change so it is published, then use a release of that published bundle", ErrRestoredCopy, number)
+		return nil, fmt.Errorf("%w: release %d was not published to a registry, so it cannot be run again by its images; attach a registry to the project, land a new change so it is published, then use a release of that published bundle", errRestoredCopy, number)
 	}
 	// The release's bundle under the target's rules (its platform, and App
 	// Platform's one image per repository), when the copy is asked for and
@@ -321,7 +321,7 @@ func (s *Service) RequestRestoredCopy(ctx context.Context, projectID ids.ID, nam
 	if err != nil {
 		return nil, err
 	}
-	return s.admit(ctx, p.dep, OperationRestore, actor, []string{deployment.DataHold(p.dep)}, map[string]any{"backup": p.set.ID}, nil)
+	return s.admit(ctx, p.dep, operationRestore, actor, []string{deployment.DataHold(p.dep)}, map[string]any{"backup": p.set.ID}, nil)
 }
 
 // newGateSecret is 32 random bytes, as the gate reads them (64 hex).
@@ -349,11 +349,11 @@ func (s *Service) runRestore(ctx context.Context, t *tracker) (runEnd, string, m
 	t.begin(ctx, "choosing the copy and the release")
 	p, err := s.planRestoredCopy(ctx, t.op.ProjectID, t.op.Deployment, set)
 	if err != nil {
-		return OperationFailed, "nothing was made: " + err.Error(), result
+		return operationFailed, "nothing was made: " + err.Error(), result
 	}
 	t.end(ctx, fmt.Sprintf("set %d, release %d, on %s", p.set.ID, p.release.Number, p.target.Name), 0)
 	if err := t.allowed(ctx); err != nil {
-		return OperationFailed, "nothing was made: " + err.Error(), result
+		return operationFailed, "nothing was made: " + err.Error(), result
 	}
 
 	q := protectionsql.New(s.db.SQL())
@@ -361,21 +361,21 @@ func (s *Service) runRestore(ctx context.Context, t *tracker) (runEnd, string, m
 	// take-down can tell its app from another of the same name.
 	marker, err := newGateSecret()
 	if err != nil {
-		return OperationFailed, "nothing was made: " + err.Error(), result
+		return operationFailed, "nothing was made: " + err.Error(), result
 	}
 	asker := t.op.Authority.Actor()
 	row, err := q.InsertRestoredCopy(ctx, protectionsql.InsertRestoredCopyParams{ID: ids.New(s.now()), ProjectID: p.dep.ProjectID, Source: p.dep.Name, SourceID: p.dep.ID,
 		OperationID: t.op.ID, BackupID: p.set.ID, AskedBy: t.op.AskedBy, AskedByPrincipal: asker.Principal, AskedByVia: asker.Via, AppMarker: marker, At: s.now()})
 	if err != nil {
-		return OperationFailed, "nothing was made: recording the copy: " + err.Error(), result
+		return operationFailed, "nothing was made: recording the copy: " + err.Error(), result
 	}
 	result["copy"] = row.ID
 	if err := t.record(ctx, "copy", row.ID); err != nil {
-		return OperationFailed, "nothing was made: " + err.Error(), result
+		return operationFailed, "nothing was made: " + err.Error(), result
 	}
 	secret, err := newGateSecret()
 	if err != nil {
-		return OperationFailed, "nothing was made: " + err.Error(), result
+		return operationFailed, "nothing was made: " + err.Error(), result
 	}
 
 	t.begin(ctx, "making the place")
@@ -384,7 +384,7 @@ func (s *Service) runRestore(ctx context.Context, t *tracker) (runEnd, string, m
 		Name: restoredCopyName(row.Number), TargetID: p.target.ID, DataClass: p.dep.DataClass, BackupID: p.set.ID, At: placed})
 	if err != nil {
 		s.endRestoredCopy(ctx, row.ID, "nothing was made: "+err.Error())
-		return OperationFailed, "nothing was made: making its deployment record: " + err.Error(), result
+		return operationFailed, "nothing was made: making its deployment record: " + err.Error(), result
 	}
 	err = s.db.InTx(ctx, func(tx *database.Tx) error {
 		n, err := protectionsql.New(tx.SQL()).PlaceRestoredCopy(ctx, protectionsql.PlaceRestoredCopyParams{ID: row.ID, Deployment: dep.Name, DeploymentID: dep.ID, ReleaseNumber: p.release.Number,
@@ -455,12 +455,12 @@ func (s *Service) runRestore(ctx context.Context, t *tracker) (runEnd, string, m
 	// The copy is taken down as soon as its check is recorded.
 	left := s.takeDownRestored(ctx, t, row.ID, dep, nil)
 	detail := fmt.Sprintf("release %d on set %d's data on %s answered %s", p.release.Number, p.set.ID, p.target.Name, answers)
-	state := OperationVerified
+	state := operationVerified
 	if !passed {
-		state, detail = OperationFailed, "the restored copy did not pass: "+detail
+		state, detail = operationFailed, "the restored copy did not pass: "+detail
 	}
 	if left != "" {
-		state, detail = OperationFailed, detail+"; "+left
+		state, detail = operationFailed, detail+"; "+left
 	}
 	return state, detail, result
 }
@@ -501,7 +501,7 @@ func (s *Service) restoreFailed(ctx context.Context, t *tracker, copyID ids.ID, 
 	if left := s.takeDownRestored(ctx, t, copyID, dep, nil); left != "" {
 		detail += "; " + left
 	}
-	return OperationFailed, detail, result
+	return operationFailed, detail, result
 }
 
 // safeWords is a restored copy's failure as it may be shown: a safe
@@ -1153,11 +1153,11 @@ func (s *Service) TakeDownRestoredCopy(ctx context.Context, projectID ids.ID, id
 		return nil, err
 	}
 	if r.EndedAt.Valid {
-		return nil, fmt.Errorf("%w: copy %d was taken down at %s", ErrRestoredCopy, id, r.EndedAt.Time.Format(time.RFC3339))
+		return nil, fmt.Errorf("%w: copy %d was taken down at %s", errRestoredCopy, id, r.EndedAt.Time.Format(time.RFC3339))
 	}
 	dep, err := s.deployments.ByID(ctx, r.DeploymentID)
 	if err != nil || dep.Kind != deployment.Restored {
-		return nil, fmt.Errorf("%w: copy %d is still starting; it is taken down when its start ends", ErrRestoredCopy, id)
+		return nil, fmt.Errorf("%w: copy %d is still starting; it is taken down when its start ends", errRestoredCopy, id)
 	}
 	return s.admit(ctx, dep, OperationRestoredCopyEnd, actor, []string{deployment.SubjectOf(dep)}, map[string]any{"copy": id}, nil)
 }
@@ -1167,19 +1167,19 @@ func (s *Service) TakeDownRestoredCopy(ctx context.Context, projectID ids.ID, id
 func (s *Service) runRestoredTakeDown(ctx context.Context, t *tracker) (runEnd, string, map[string]any) {
 	dep, err := s.deployments.ByName(ctx, t.op.ProjectID, t.op.Deployment)
 	if err != nil {
-		return OperationFailed, "the restored copy's deployment could not be read: " + err.Error(), nil
+		return operationFailed, "the restored copy's deployment could not be read: " + err.Error(), nil
 	}
 	if err := t.allowed(ctx); err != nil {
-		return OperationFailed, "nothing was changed: " + err.Error(), nil
+		return operationFailed, "nothing was changed: " + err.Error(), nil
 	}
 	r, err := protectionsql.New(s.db.SQL()).RestoredCopyByDeployment(ctx, dep.ID)
 	if err != nil {
-		return OperationFailed, "the restored copy's record could not be read: " + err.Error(), nil
+		return operationFailed, "the restored copy's record could not be read: " + err.Error(), nil
 	}
 	if left := s.takeDownRestored(ctx, t, r.ID, dep, t.allowed); left != "" {
-		return OperationFailed, left, map[string]any{"copy": r.ID}
+		return operationFailed, left, map[string]any{"copy": r.ID}
 	}
-	return OperationDone, "taken down; no final copy was taken (its data is a copy of a copy)", map[string]any{"copy": r.ID}
+	return operationDone, "taken down; no final copy was taken (its data is a copy of a copy)", map[string]any{"copy": r.ID}
 }
 
 // issueTicket records a one-use ticket to a copy's gate for holder, kept
@@ -1221,12 +1221,12 @@ type GateEntryGrant struct {
 // at once at most one succeeds: see redeemCheckTicket.
 func (s *Service) RedeemGateTicket(ctx context.Context, secret, ticket string) (GateEntryGrant, error) {
 	if secret == "" || ticket == "" {
-		return GateEntryGrant{}, ErrGateCredential
+		return GateEntryGrant{}, errGateCredential
 	}
 	q := protectionsql.New(s.db.SQL())
 	r, err := q.RestoredCopyByGateSecret(ctx, digestOf(secret))
 	if errors.Is(err, sql.ErrNoRows) {
-		return GateEntryGrant{}, ErrGateCredential
+		return GateEntryGrant{}, errGateCredential
 	}
 	if err != nil {
 		return GateEntryGrant{}, err
@@ -1236,7 +1236,7 @@ func (s *Service) RedeemGateTicket(ctx context.Context, secret, ticket string) (
 		at := s.now()
 		used, err := protectionsql.New(tx.SQL()).RedeemGateTicket(ctx, protectionsql.RedeemGateTicketParams{TicketSha256: digestOf(ticket), CopyID: r.ID, At: at})
 		if errors.Is(err, sql.ErrNoRows) {
-			return ErrTicket
+			return errTicket
 		}
 		if err != nil {
 			return err
@@ -1254,17 +1254,17 @@ func (s *Service) RedeemGateTicket(ctx context.Context, secret, ticket string) (
 // (deployment.gate-checked) names AppTown.
 func (s *Service) redeemCheckTicket(ctx context.Context, tx *database.Tx, r protectionsql.RestoredCopy, checkOp ids.ID, at time.Time) (GateEntryGrant, error) {
 	if checkOp != r.OperationID || s.ops == nil {
-		return GateEntryGrant{}, ErrTicket
+		return GateEntryGrant{}, errTicket
 	}
 	start, err := s.ops.ByID(ctx, checkOp)
 	if errors.Is(err, operations.ErrMissing) {
-		return GateEntryGrant{}, ErrTicket
+		return GateEntryGrant{}, errTicket
 	}
 	if err != nil {
 		return GateEntryGrant{}, err
 	}
 	if !start.State.Live() {
-		return GateEntryGrant{}, ErrTicket
+		return GateEntryGrant{}, errTicket
 	}
 	grant := GateEntryGrant{Person: operations.SystemActor, Until: at.UTC().Add(gateCheckFor)}
 	return grant, audit.At(at).RecordIn(ctx, tx, operations.SystemActor, r.ProjectID, "deployment.gate-checked", r.Source, map[string]any{
@@ -1272,11 +1272,11 @@ func (s *Service) redeemCheckTicket(ctx context.Context, tx *database.Tx, r prot
 		"meaning": "AppTown's own check of the restored copy's gate: a ticket its start issued to itself, redeemed once through the gate; nobody entered"})
 }
 
-// SweepRestoredCopies takes down every restored copy a start left standing
+// sweepRestoredCopies takes down every restored copy a start left standing
 // (one AppTown stopped in the middle of, or whose take-down failed): each
 // by a take-down operation of its own. A copy whose start made no
 // deployment record made nothing, and is ended.
-func (s *Service) SweepRestoredCopies(ctx context.Context) (started int, skipped []string, err error) {
+func (s *Service) sweepRestoredCopies(ctx context.Context) (started int, skipped []string, err error) {
 	if s.ops == nil {
 		return 0, nil, nil
 	}

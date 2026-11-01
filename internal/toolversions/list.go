@@ -34,13 +34,13 @@ type List struct {
 // The runtime tools and the line this build runs of each. A line is the
 // build's choice; the list says what it means exactly.
 const (
-	ToolSh            = "apptown-sh"
-	ToolDF            = "apptown-df"
-	ToolStaticServer  = "static-server"
-	ToolPrivateDocker = "private-docker"
+	toolSh            = "apptown-sh"
+	toolDF            = "apptown-df"
+	toolStaticServer  = "static-server"
+	toolPrivateDocker = "private-docker"
 )
 
-var runtimeLines = map[string]string{ToolSh: "1", ToolDF: "1", ToolStaticServer: "2", ToolPrivateDocker: "27"}
+var runtimeLines = map[string]string{toolSh: "1", toolDF: "1", toolStaticServer: "2", toolPrivateDocker: "27"}
 
 // Parse reads a tool versions document and validates it: every entry has an
 // exact version, and every image names a digest.
@@ -97,9 +97,9 @@ type Images struct {
 	Sh, DF, StaticServer, PrivateDocker string
 }
 
-// Images reads the runtime images from the list: each runtime tool at this
+// images reads the runtime images from the list: each runtime tool at this
 // build's line, its run image.
-func (l *List) Images() (Images, error) {
+func (l *List) images() (Images, error) {
 	get := func(tool string) (string, error) {
 		line := runtimeLines[tool]
 		e, ok := l.Tools[tool][line]
@@ -117,7 +117,7 @@ func (l *List) Images() (Images, error) {
 	for _, f := range []struct {
 		tool string
 		to   *string
-	}{{ToolSh, &im.Sh}, {ToolDF, &im.DF}, {ToolStaticServer, &im.StaticServer}, {ToolPrivateDocker, &im.PrivateDocker}} {
+	}{{toolSh, &im.Sh}, {toolDF, &im.DF}, {toolStaticServer, &im.StaticServer}, {toolPrivateDocker, &im.PrivateDocker}} {
 		if *f.to, err = get(f.tool); err != nil {
 			return Images{}, err
 		}

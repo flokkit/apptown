@@ -19,7 +19,7 @@ func NewRetention(deployment *deployment.Service, projects *project.Projects) Re
 
 // project's torn-down deployments left behind.
 func (h Retention) ProjectRetained(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -51,11 +51,11 @@ func (h Retention) Retained(w http.ResponseWriter, r *http.Request) {
 // note} — a person says what became of it: released (deleted at the
 // provider) or kept (stays on purpose). AppTown records the word.
 func (h Retention) SettleRetained(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad retained resource id")
 		return

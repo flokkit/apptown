@@ -1,18 +1,18 @@
 package wow
 
-// BlockTier is a guidance block's reach: an ordinary block a project
+// blockTier is a guidance block's reach: an ordinary block a project
 // imports, or a platform block that rides on every repo-backed project.
-type BlockTier uint8
+type blockTier uint8
 
 const (
-	TierOrdinary BlockTier = iota + 1
+	tierOrdinary blockTier = iota + 1
 	TierPlatform
 )
 
 // The stored words: ” for ordinary, 'platform' for AppTown's own contract.
-func (t BlockTier) String() string {
+func (t blockTier) String() string {
 	switch t {
-	case TierOrdinary:
+	case tierOrdinary:
 		return ""
 	case TierPlatform:
 		return "platform"

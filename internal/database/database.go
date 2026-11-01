@@ -322,8 +322,8 @@ func Transact[T any](ctx context.Context, db *DB, fn func(*Tx) (T, error)) (T, e
 	return result, nil
 }
 
-// Wrap adopts an existing pool. It does not migrate, seed or open another pool.
-func Wrap(pool *sql.DB) *DB { return &DB{raw: pool} }
+// wrap adopts an existing pool. It does not migrate, seed or open another pool.
+func wrap(pool *sql.DB) *DB { return &DB{raw: pool} }
 
 // Open opens and checks a pool without applying application schema or data.
 func Open(url string) (*DB, error) { return OpenWith(url, nil) }
@@ -340,7 +340,7 @@ func OpenWith(url string, dial pgconn.DialFunc) (*DB, error) {
 		_ = pool.Close() // unchecked-error: ping failure is returned; closing the unusable pool cannot make opening succeed.
 		return nil, fmt.Errorf("database: %w", err)
 	}
-	return Wrap(pool), nil
+	return wrap(pool), nil
 }
 
 // Pool is for infrastructure adapters such as River and schema installation.

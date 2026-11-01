@@ -26,7 +26,7 @@ type Driver struct {
 type Dependencies struct {
 	// ConnectionID is the immutable connector selected by the deployment owner.
 	ConnectionID ids.ID
-	Docker       Docker
+	Docker       docker
 	Client       func(context.Context) (*Client, Config, error)
 	Slug         string // the application, for naming on the platform
 	Needs        deploy.NeedRecorder
@@ -42,11 +42,11 @@ type Dependencies struct {
 	// Repository records the project's DOCR repository AppTown created on
 	// this account; nil records nothing, and then a take-down never empties
 	// it.
-	Repository RepositoryOwner
+	Repository repositoryOwner
 	// Holdings is the deployment's owned list, where its bucket and Spaces
 	// key are recorded; Secrets keeps the key's secret. Without them the s3
 	// need is refused.
-	Holdings Holdings
+	Holdings holdings
 	Secrets  KeySecrets
 	// Installation is this installation's id, carried by what the driver
 	// makes: an app's spec variable InstanceEnv, a cluster's InstallationTag.
@@ -69,11 +69,11 @@ type Options struct {
 	// semantics); until is the end of the
 	// platform's new name's grace (zero: none).
 	ProbeFrontDoor func(ctx context.Context, url string, expect int, until time.Time, logf func(string, ...any)) error
-	// Resolve looks a host name up in DNS; nil is the system resolver.
-	Resolve func(ctx context.Context, host string) error
-	// Dial opens the front door checks' connections (host:port); nil is a
+	// resolve looks a host name up in DNS; nil is the system resolver.
+	resolve func(ctx context.Context, host string) error
+	// dial opens the front door checks' connections (host:port); nil is a
 	// net.Dialer as the standard HTTP transport uses.
-	Dial func(ctx context.Context, network, address string) (net.Conn, error)
+	dial func(ctx context.Context, network, address string) (net.Conn, error)
 	// Now is the driver's clock, for its deadlines and the platform's new
 	// name's grace; nil is the real clock.
 	Now func() time.Time
@@ -81,9 +81,9 @@ type Options struct {
 	// one. BucketSuffix makes a bucket's name unique; nil is random.
 	SpacesEndpoint func(region string) string
 	BucketSuffix   func() string
-	// GrantWait is how long a new bucket's key grant is asked again while
+	// grantWait is how long a new bucket's key grant is asked again while
 	// DigitalOcean refuses it; zero is a minute.
-	GrantWait time.Duration
+	grantWait time.Duration
 }
 
 // NewDriver snapshots settings and collaborators; no process-wide hooks are read.
@@ -95,7 +95,7 @@ func NewDriver(deps Dependencies, options Options) *Driver {
 		options.DBPoll = 15 * time.Second
 	}
 	if options.RegistryHost == "" {
-		options.RegistryHost = RegistryHost
+		options.RegistryHost = registryHost
 	}
 	if options.PushImage == nil {
 		options.PushImage = (*Driver).pushImage
@@ -106,12 +106,12 @@ func NewDriver(deps Dependencies, options Options) *Driver {
 	if options.OwnDatabase == nil {
 		options.OwnDatabase = ownDatabase
 	}
-	if options.Dial == nil {
-		options.Dial = (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext
+	if options.dial == nil {
+		options.dial = (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext
 	}
 	// The app's own front door: the deployments use (internal/trust).
 	transport := trust.Transport(trust.Deployments)
-	transport.DialContext = options.Dial
+	transport.DialContext = options.dial
 	frontDoor := &http.Client{Timeout: 15 * time.Second, Transport: transport}
 	options.Now = clock.Or(options.Now)
 	if options.SpacesEndpoint == nil {
@@ -120,8 +120,8 @@ func NewDriver(deps Dependencies, options Options) *Driver {
 	if options.BucketSuffix == nil {
 		options.BucketSuffix = randomSuffix
 	}
-	if options.GrantWait <= 0 {
-		options.GrantWait = time.Minute
+	if options.grantWait <= 0 {
+		options.grantWait = time.Minute
 	}
 	if options.ProbeFrontDoor == nil {
 		interval, now := options.PollInterval, options.Now
@@ -129,8 +129,8 @@ func NewDriver(deps Dependencies, options Options) *Driver {
 			return probeFrontDoor(ctx, frontDoor, url, expect, until, logf, interval, now)
 		}
 	}
-	if options.Resolve == nil {
-		options.Resolve = func(ctx context.Context, host string) error {
+	if options.resolve == nil {
+		options.resolve = func(ctx context.Context, host string) error {
 			_, err := net.DefaultResolver.LookupHost(ctx, host)
 			return err
 		}
@@ -203,7 +203,7 @@ func (d *Driver) RemoveApp(ctx context.Context, appID string) error {
 	if err != nil {
 		return err
 	}
-	if err := c.Call(ctx, "DELETE", "/v2/apps/"+appID, nil, nil); err != nil && !IsStatus(err, 404) {
+	if err := c.Call(ctx, "DELETE", "/v2/apps/"+appID, nil, nil); err != nil && !isStatus(err, 404) {
 		return err
 	}
 	return nil
@@ -218,7 +218,7 @@ func (d *Driver) RemoveApp(ctx context.Context, appID string) error {
 // it wrote the answer down. A lookup that fails is an error, never "none".
 type Made struct {
 	AppID    string
-	Clusters []MadeCluster
+	Clusters []madeCluster
 	// NotOurs names what was found by name but does not carry this
 	// deployment's mark: it is somebody else's, and is never deleted.
 	NotOurs []string
@@ -239,8 +239,8 @@ func carriesMarker(app *doApp, marker string) bool {
 	return false
 }
 
-// MadeCluster is one cluster found by name and markers.
-type MadeCluster struct{ ID, Name string }
+// madeCluster is one cluster found by name and markers.
+type madeCluster struct{ ID, Name string }
 
 // FindMade looks up what p's start may have made, by name.
 func (d *Driver) FindMade(ctx context.Context, p deploy.Placement) (Made, error) {
@@ -272,7 +272,7 @@ func (d *Driver) FindMade(ctx context.Context, p deploy.Placement) (Made, error)
 	// AppTown's to delete.
 	tags := clusterTags(d.Slug, p.Name)
 	if db != nil && containsString(db.Tags, tags[1]) && containsString(db.Tags, tags[2]) {
-		out.Clusters = append(out.Clusters, MadeCluster{ID: db.ID, Name: db.Name})
+		out.Clusters = append(out.Clusters, madeCluster{ID: db.ID, Name: db.Name})
 	}
 	return out, nil
 }

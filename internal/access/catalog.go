@@ -35,7 +35,7 @@ func GrantScope(s ScopeKind) bool {
 	return false
 }
 
-type Definition struct {
+type definition struct {
 	Description string
 	// Inherits lists the scope kinds an instance/group grant of this capability
 	// reaches DOWN into (§3 table). Empty = a grant applies only at the scope it
@@ -50,7 +50,7 @@ const (
 	CapInstanceUpdates    Capability = "instance:updates"
 	CapInstitutionRead    Capability = "institution:read-structure"
 
-	CapProjectList              Capability = "project:list"
+	capProjectList              Capability = "project:list"
 	CapProjectRead              Capability = "project:read"
 	CapProjectCreate            Capability = "project:create"
 	CapProjectConfigure         Capability = "project:configure"
@@ -150,12 +150,12 @@ const (
 // projects they own. project:create flows instance -> group. Nothing else.
 var readInherits = []ScopeKind{ScopeGroup, ScopeProject}
 
-var Definitions = map[Capability]Definition{
+var Definitions = map[Capability]definition{
 	CapInstanceReadPublic: {"read the explicitly public instance surface", readInherits, "read"},
 	CapInstanceUpdates:    {"check authenticated AppTown releases", nil, "admin"},
 	CapInstitutionRead:    {"see users, groups, roles and grants", nil, "read"},
 
-	CapProjectList:              {"discover visible projects", readInherits, "read"},
+	capProjectList:              {"discover visible projects", readInherits, "read"},
 	CapProjectRead:              {"read one project's source-facing state", readInherits, "read"},
 	CapProjectCreate:            {"create a project for an allowed owning group", []ScopeKind{ScopeGroup}, "mutate"},
 	CapProjectConfigure:         {"change ordinary project metadata", nil, "mutate"},
@@ -238,8 +238,8 @@ var Definitions = map[Capability]Definition{
 	CapSecretReveal: {"reveal a secret's value held by the built-in store, on the record (administrators only)", nil, "mutate"},
 }
 
-// AllCapabilities is the sorted catalog, for the sovereign role and the API.
-func AllCapabilities() []Capability {
+// allCapabilities is the sorted catalog, for the sovereign role and the API.
+func allCapabilities() []Capability {
 	out := make([]Capability, 0, len(Definitions))
 	for c := range Definitions {
 		out = append(out, c)
@@ -263,8 +263,8 @@ func Inherits(c Capability, to ScopeKind) bool {
 	return false
 }
 
-// Role is a named capability bundle shipped with AppTown.
-type Role struct {
+// role is a named capability bundle shipped with AppTown.
+type role struct {
 	Name        string
 	Title       string // the answerable office, in product words
 	Description string
@@ -279,7 +279,7 @@ type Role struct {
 const (
 	RoleInstanceAdmin     = "instance-administrator"
 	RoleStandardsAdmin    = "standards-administrator"
-	RoleExecutionAdmin    = "execution-administrator"
+	roleExecutionAdmin    = "execution-administrator"
 	RoleReleaseManager    = "release-manager"
 	RoleAuditor           = "auditor"
 	RoleProjectCreator    = "project-creator"
@@ -293,31 +293,31 @@ const (
 )
 
 var (
-	ReadCaps = []Capability{CapProjectList, CapProjectRead, CapChangeList, CapChangeRead, CapRunRead,
+	readCaps = []Capability{capProjectList, CapProjectRead, CapChangeList, CapChangeRead, CapRunRead,
 		CapEvidenceRead, CapConformanceRead, CapReleaseRead, CapDeploymentRead, CapSecretRead}
-	ContributorCaps = append(append([]Capability{}, ReadCaps...),
+	contributorCaps = append(append([]Capability{}, readCaps...),
 		CapChangeCreate, CapChangeUpdateBrief, CapChangeNarrative, CapChangeWriteRevision, CapChangeAttach, CapChangeRunChecks,
 		CapChangePreview, CapChangeInvokeLane, CapChangeRequestLand, CapEvidenceAttach,
 		CapConformanceRev)
-	MaintainerCaps = append(append([]Capability{}, ContributorCaps...),
+	maintainerCaps = append(append([]Capability{}, contributorCaps...),
 		CapChangeLand, CapChangeAbandon, CapChangeSendBack, CapRunOperate, CapDeploymentOperate,
 		CapProjectServices, CapProjectIntegrations, CapProjectGuidance, CapProjectWorkflow,
 		CapProjectWayOfWorking, CapProjectImport, CapConformanceFix, CapConformanceAI,
 		CapProjectManageMembers, CapSecretBind, CapDeploymentDeploy)
-	OwnerCaps = append(append([]Capability{}, MaintainerCaps...),
+	ownerCaps = append(append([]Capability{}, maintainerCaps...),
 		CapProjectStandingApproval, CapProjectConfigure, CapProjectDelete, CapProjectModelProfile, CapDeploymentBind, CapDeploymentTeardown, CapDeploymentRestore)
 	// Administration capabilities summarized by the account menu.
 	AmenderCaps = []Capability{CapStandardsGuidance, CapStandardsPacks, CapStandardsPolicies,
 		CapExecWorkflows, CapIntegrationServices, CapIntegrationDeps}
 )
 
-var StockRoles = []Role{
+var StockRoles = []role{
 	{Name: RoleInstanceAdmin, Title: "Instance administrator", Scope: ScopeInstance, Surfaced: true,
-		Description: "The sovereign: holds every capability on this instance.", Caps: AllCapabilities()},
+		Description: "The sovereign: holds every capability on this instance.", Caps: allCapabilities()},
 	{Name: RoleStandardsAdmin, Title: "Standards administrator", Scope: ScopeInstance,
 		Description: "Manages guidance, packs and policies (the amender).",
 		Caps:        []Capability{CapStandardsGuidance, CapStandardsPacks, CapStandardsPolicies, CapStandardsEvals}},
-	{Name: RoleExecutionAdmin, Title: "Execution administrator", Scope: ScopeInstance,
+	{Name: roleExecutionAdmin, Title: "Execution administrator", Scope: ScopeInstance,
 		Description: "Manages executable workflow definitions.",
 		Caps:        []Capability{CapExecWorkflows}},
 	{Name: RoleReleaseManager, Title: "Release manager", Scope: ScopeTarget,
@@ -325,10 +325,10 @@ var StockRoles = []Role{
 		Caps:        []Capability{CapReleaseRead, CapReleasePromote, CapDeploymentRead, CapDeploymentDeploy}},
 	{Name: RoleAuditor, Title: "Auditor", Scope: ScopeInstance,
 		Description: "Reads everything, changes nothing.",
-		Caps:        append(append([]Capability{}, ReadCaps...), CapInstitutionRead, CapAuditRead, CapStandardsEvals)},
+		Caps:        append(append([]Capability{}, readCaps...), CapInstitutionRead, CapAuditRead, CapStandardsEvals)},
 	{Name: RoleProjectCreator, Title: "Project creator", Scope: ScopeInstance, Surfaced: true,
 		Description: "Creates projects through approved creation profiles.",
-		Caps:        []Capability{CapProjectCreate, CapProjectList}},
+		Caps:        []Capability{CapProjectCreate, capProjectList}},
 
 	{Name: RoleGroupMember, Title: "Group member", Scope: ScopeGroup, Surfaced: true,
 		Description: "Belongs to the group. Carries no project capability by itself.", Caps: []Capability{}},
@@ -337,22 +337,22 @@ var StockRoles = []Role{
 		Caps:        []Capability{CapProjectCreate}},
 
 	{Name: RoleProjectViewer, Title: "Project viewer", Scope: ScopeProject, Surfaced: true,
-		Description: "Reads the project, its changes, runs, evidence and deployments.", Caps: ReadCaps},
+		Description: "Reads the project, its changes, runs, evidence and deployments.", Caps: readCaps},
 	{Name: RoleProjectContrib, Title: "Project contributor", Scope: ScopeProject, Surfaced: true,
 		Description: "Opens changes, contributes revisions, runs checks, previews, hands off for landing.",
-		Caps:        ContributorCaps},
+		Caps:        contributorCaps},
 	{Name: RoleProjectMaintainer, Title: "Project maintainer", Scope: ScopeProject, Surfaced: true,
 		Description: "Contributor plus landing, abandoning, operating runs and deployments, and project configuration.",
-		Caps:        MaintainerCaps},
+		Caps:        maintainerCaps},
 	{Name: RoleProjectApprover, Title: "Project approver", Scope: ScopeProject, Surfaced: true,
 		Description: "Approves at approval steps that name them. Need not write code or land.",
-		Caps:        append(append([]Capability{}, ReadCaps...), CapChangeApprove, CapChangeOverride, CapExceptionApprove, CapExceptionRevoke)},
+		Caps:        append(append([]Capability{}, readCaps...), CapChangeApprove, CapChangeOverride, CapExceptionApprove, CapExceptionRevoke)},
 	{Name: RoleProjectOwner, Title: "Project owner", Scope: ScopeProject, Surfaced: true,
 		Description: "Maintainer plus membership, configuration and deletion authority.",
-		Caps:        OwnerCaps},
+		Caps:        ownerCaps},
 }
 
-func RoleByName(name string) *Role {
+func RoleByName(name string) *role {
 	for i := range StockRoles {
 		if StockRoles[i].Name == name {
 			return &StockRoles[i]
@@ -362,7 +362,7 @@ func RoleByName(name string) *Role {
 }
 
 // Holds reports whether a role bundles a capability.
-func (rv *Role) Holds(c Capability) bool {
+func (rv *role) Holds(c Capability) bool {
 	for _, x := range rv.Caps {
 		if x == c {
 			return true

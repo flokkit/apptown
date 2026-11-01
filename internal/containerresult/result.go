@@ -62,8 +62,8 @@ type Spec struct {
 	Now func() time.Time
 }
 
-// DefaultMax bounds an answer whose Spec gives no bound.
-const DefaultMax = 1 << 20
+// defaultMax bounds an answer whose Spec gives no bound.
+const defaultMax = 1 << 20
 
 // Class is the apptown.class of a throwaway result container, and Prefix
 // begins its name.
@@ -87,13 +87,13 @@ const lifetime = 10 * time.Minute
 // when the caller has stopped.
 const removalBound = time.Minute
 
-// ErrNoResult is a command that exited 0 and left no answer: what it
+// errNoResult is a command that exited 0 and left no answer: what it
 // would have said is unknown.
-var ErrNoResult = errors.New("the command left no answer")
+var errNoResult = errors.New("the command left no answer")
 
-// ErrNoContainer is a RunIn whose container the daemon does not have: it
+// errNoContainer is a RunIn whose container the daemon does not have: it
 // was removed, or is not yet made, when the script was to run in it.
-var ErrNoContainer = errors.New("no such container")
+var errNoContainer = errors.New("no such container")
 
 // ExitError is a command that exited non-zero. Said is what the container
 // printed, clipped, for an error's text only: it is never an answer.
@@ -241,7 +241,7 @@ func RunIn(ctx context.Context, dk Docker, container string, s Spec) ([]byte, er
 		if strings.Contains(string(out), "No such container: "+container) {
 			// The CLI's words for the daemon's answer, with its status 1,
 			// which is not the script's.
-			return nil, fmt.Errorf("running in %s: %w", container, ErrNoContainer)
+			return nil, fmt.Errorf("running in %s: %w", container, errNoContainer)
 		}
 		var exit interface{ ExitCode() int }
 		if errors.As(err, &exit) && exit.ExitCode() > 0 && exit.ExitCode() < 125 {
@@ -252,7 +252,7 @@ func RunIn(ctx context.Context, dk Docker, container string, s Spec) ([]byte, er
 		return nil, step("running in", container, err, out)
 	}
 	answer, err := copyOut(ctx, dk, container, path, limitOf(s))
-	if errors.Is(err, ErrNoResult) {
+	if errors.Is(err, errNoResult) {
 		return nil, fmt.Errorf("%w in container %s", err, container)
 	}
 	return validateAnswer(answer, err, s)
@@ -274,7 +274,7 @@ func limitOf(s Spec) int64 {
 	if s.Max > 0 {
 		return s.Max
 	}
-	return DefaultMax
+	return defaultMax
 }
 
 // copyOut copies path out of container with docker cp into a folder of
@@ -288,13 +288,13 @@ func copyOut(ctx context.Context, dk Docker, container, path string, limit int64
 	local := filepath.Join(dir, "answer")
 	if out, err := dk(ctx, nil, "cp", container+":"+path, local); err != nil {
 		if missing(out) {
-			return nil, ErrNoResult
+			return nil, errNoResult
 		}
 		return nil, step("copying the answer out of", container, err, out)
 	}
 	f, err := os.Open(local)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, ErrNoResult
+		return nil, errNoResult
 	}
 	if err != nil {
 		return nil, err

@@ -58,7 +58,7 @@ type ReleaseChangeTitle struct {
 // ListReleases: GET /api/v1/projects/{slug}/releases — newest first,
 // with the titles of the Changes each release carries.
 func (h ReleaseHistory) ListReleases(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -121,11 +121,11 @@ func (h ReleaseHistory) ListReleases(w http.ResponseWriter, r *http.Request) {
 // PERMALINK. A release is an institutional event; this page is its record:
 // who, when, which commit, which bytes (digest), which changes it carried.
 func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
-	num, err := PathNumber(r, "number")
+	num, err := pathNumber(r, "number")
 	if err != nil {
 		WriteError(w, 400, "bad release number")
 		return

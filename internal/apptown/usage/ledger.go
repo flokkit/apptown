@@ -60,14 +60,14 @@ type Entry struct {
 // Ledger is the supported API over the ledger and its cursors.
 type Ledger struct {
 	db *database.DB
-	// Now is AppTown's clock, which stamps an observation and judges a
+	// clock is AppTown's clock, which stamps an observation and judges a
 	// report's window and a pending line's time; nil is the real one.
-	Now func() time.Time
+	clock func() time.Time
 }
 
 func New(db *database.DB) *Ledger { return &Ledger{db: db} }
 
-func (l *Ledger) now() time.Time { return clock.Or(l.Now)() }
+func (l *Ledger) now() time.Time { return clock.Or(l.clock)() }
 
 // Record appends one observation. A complete observation with nothing
 // spent (Total and CostMicros both 0) is a no-op. incomplete, when not "",
@@ -133,8 +133,8 @@ func (l *Ledger) RecordOnce(ctx context.Context, key string, e Entry, u Totals, 
 	})
 }
 
-// Observation is what was recorded for one keyed observation.
-type Observation struct {
+// observation is what was recorded for one keyed observation.
+type observation struct {
 	Totals Totals
 	// Incomplete says why Totals may be lower than what was spent; "" when
 	// the observation was complete.
@@ -142,13 +142,13 @@ type Observation struct {
 }
 
 // Observed reads the observation recorded under key; false when none was.
-func (l *Ledger) Observed(ctx context.Context, key string) (Observation, bool, error) {
+func (l *Ledger) Observed(ctx context.Context, key string) (observation, bool, error) {
 	r, err := usagesql.New(l.db.SQL()).ObservationByKey(ctx, key)
 	found, err := database.Lookup(err)
 	if err != nil || !found {
-		return Observation{}, false, err
+		return observation{}, false, err
 	}
-	return Observation{Totals: Totals{Input: r.Input, Output: r.Output, CacheRead: r.CacheRead, CacheWrite: r.CacheWrite, Total: r.Total, CostMicros: r.CostMicros}, Incomplete: r.Incomplete}, true, nil
+	return observation{Totals: Totals{Input: r.Input, Output: r.Output, CacheRead: r.CacheRead, CacheWrite: r.CacheWrite, Total: r.Total, CostMicros: r.CostMicros}, Incomplete: r.Incomplete}, true, nil
 }
 
 // Cursor is how far a session file has been read; 0 when never.
@@ -221,20 +221,20 @@ type Line struct {
 	Input, Output, Total, CostMicros int64
 }
 
-// DayKind is one day's spending by kind, for the stacked chart.
-type DayKind struct {
+// dayKind is one day's spending by kind, for the stacked chart.
+type dayKind struct {
 	Day, Kind         string
 	Total, CostMicros int64
 }
 
-// Report is the usage page: totals and the rollups over a window.
-type Report struct {
+// report is the usage page: totals and the rollups over a window.
+type report struct {
 	WindowDays int
 	Totals     Totals
 	ByKind     []Line
 	ByModel    []Line
 	ByDay      []Line // chronological
-	ByDayKind  []DayKind
+	ByDayKind  []dayKind
 	ByWorkflow []Line // when scoped to a project
 	ByProject  []Line // when not
 }
@@ -244,26 +244,26 @@ type Report struct {
 // respective filters; the caller must authorize the scope. Dimension lists are
 // capped at 50 groups, so they need not sum to Totals. A failed query returns an
 // error and a possibly partial Report, which must not be treated as complete.
-func (l *Ledger) Summary(ctx context.Context, windowDays int, projectID ids.ID, workflow string) (Report, error) {
-	scope := Scope{Instance: true}
+func (l *Ledger) Summary(ctx context.Context, windowDays int, projectID ids.ID, workflow string) (report, error) {
+	scope := usageScope{Instance: true}
 	if !projectID.IsZero() {
-		scope = Scope{Projects: []ids.ID{projectID}}
+		scope = usageScope{Projects: []ids.ID{projectID}}
 	}
 	return l.summary(ctx, windowDays, scope, workflow, !projectID.IsZero())
 }
 
-// Scope is the usage a report covers: the whole instance, including usage
+// usageScope is the usage a report covers: the whole instance, including usage
 // attributed to no project, or only the listed projects. An empty list
 // selects nothing, never the instance.
-type Scope struct {
+type usageScope struct {
 	Instance bool
 	Projects []ids.ID
 }
 
 // summary reads one report; byWorkflow breaks spending down by workflow
 // (one project's report), otherwise by project.
-func (l *Ledger) summary(ctx context.Context, windowDays int, scope Scope, workflow string, byWorkflow bool) (Report, error) {
-	rep := Report{WindowDays: windowDays}
+func (l *Ledger) summary(ctx context.Context, windowDays int, scope usageScope, workflow string, byWorkflow bool) (report, error) {
+	rep := report{WindowDays: windowDays}
 	now := l.now().UTC()
 	since := now.AddDate(0, 0, -windowDays)
 	projects := scope.Projects
@@ -300,9 +300,9 @@ func (l *Ledger) summary(ctx context.Context, windowDays int, scope Scope, workf
 	if err != nil {
 		return rep, err
 	}
-	rep.ByDayKind = make([]DayKind, 0, len(days))
+	rep.ByDayKind = make([]dayKind, 0, len(days))
 	for _, d := range days {
-		rep.ByDayKind = append(rep.ByDayKind, DayKind{Day: d.Day, Kind: d.Kind, Total: d.Total, CostMicros: d.CostMicros})
+		rep.ByDayKind = append(rep.ByDayKind, dayKind{Day: d.Day, Kind: d.Kind, Total: d.Total, CostMicros: d.CostMicros})
 	}
 	if byWorkflow {
 		rep.ByWorkflow, err = group("workflow")

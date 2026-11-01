@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 )
 
@@ -154,7 +156,7 @@ func TestAdministrationRequiresReadableCurrentFacts(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			restore := s.db.FailNextStatement(marker)
+			restore := dbtest.NextStatementFailure(s.db, marker)
 			err = s.SaveGroup(context.Background(), GroupChange{Name: "must-not-exist"}, pr)
 			restore()
 			var denied *access.Denied

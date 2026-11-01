@@ -62,7 +62,7 @@ type ProviderSession struct {
 	DefaultNamespace int
 }
 
-type RepositoryProvider interface {
+type repositoryProvider interface {
 	Snapshot(context.Context, *ProviderScope) (ProviderSession, error)
 }
 

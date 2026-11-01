@@ -173,7 +173,7 @@ func TestARestoreIsAdmittedAsAnOperationAndChangesNothingUntilItRuns(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if op.Kind != OperationRestoreSet || op.State != operations.Queued {
+	if op.Kind != operationRestoreSet || op.State != operations.Queued {
 		t.Fatalf("the restore's operation: %s %s", op.Kind, op.State)
 	}
 	if ran := d.lines()[before:]; slices.ContainsFunc(ran, func(l string) bool { return strings.HasPrefix(l, "stop ") }) {
@@ -210,7 +210,7 @@ func TestARestoreOperationRecordsEachStepAndItsReceipt(t *testing.T) {
 	t.Parallel()
 	s, db, _, _, pid, b := restoreWorld(t, "rb")
 	op, res := restoreThroughOperation(t, s, pid, "main", b.ID)
-	if op.State != operations.Succeeded || op.Verification != operations.NotVerified || res == nil || res.Status != RestoreNotVerified {
+	if op.State != operations.Succeeded || op.Verification != operations.NotVerified || res == nil || res.Status != restoreNotVerified {
 		t.Fatalf("the restore: %s %s %q %+v", op.State, op.Verification, op.Detail, res)
 	}
 	var steps []string
@@ -424,7 +424,7 @@ func TestARestoreAsksAgainBeforeItsEffects(t *testing.T) {
 func TestAnInterruptedRestoreOfAStoppedAppKeepsItsConfirmedItems(t *testing.T) {
 	t.Parallel()
 	words := restoreInterrupted(operations.Operation{Result: map[string]any{
-		"items": []RestoredItem{{Kind: "volume", Name: "app-data", Outcome: RestoreCopied}},
+		"items": []RestoredItem{{Kind: "volume", Name: "app-data", Outcome: restoreCopied}},
 	}})
 	if !strings.Contains(words, "app-data copied") || strings.Contains(words, "No item was confirmed restored") || !strings.Contains(words, "It stopped no container.") {
 		t.Fatalf("an interrupted restore must keep its confirmed item: %q", words)

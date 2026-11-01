@@ -59,7 +59,7 @@ var (
 	slugRe        = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 	ErrSlug       = fault.New(fault.Invalid, "slug must be lowercase letters, digits and dashes, starting with a letter or digit")
 	ErrSlugTaken  = fault.New(fault.Conflict, "that project address has already been assigned; choose another")
-	ErrNotDeleted = errors.New("the project row was not deleted")
+	errNotDeleted = errors.New("the project row was not deleted")
 )
 
 // SlugShape is the shape a slug must have, for messages.
@@ -137,8 +137,6 @@ func (s *Projects) ByServingLabel(ctx context.Context, label string) (Project, e
 	return record(r), nil
 }
 
-func (s *Projects) Slugs(ctx context.Context) ([]string, error) { return SlugsIn(ctx, s.db) }
-
 // Spec is what a project is made from.
 type Spec struct {
 	// ID is the id the caller chose for the project, as a client may choose
@@ -202,7 +200,7 @@ func (s *Projects) Remove(ctx context.Context, id ids.ID) error {
 func RemoveIn(ctx context.Context, tx *database.Tx, id ids.ID, who string, payload map[string]any, at time.Time) error {
 	r, err := queries(tx).ProjectByID(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		return ErrNotDeleted
+		return errNotDeleted
 	}
 	if err != nil {
 		return err
@@ -212,7 +210,7 @@ func RemoveIn(ctx context.Context, tx *database.Tx, id ids.ID, who string, paylo
 		return err
 	}
 	if n == 0 {
-		return ErrNotDeleted
+		return errNotDeleted
 	}
 	if who == "" {
 		return nil

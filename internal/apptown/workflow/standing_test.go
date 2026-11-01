@@ -500,11 +500,11 @@ func TestStandingUpliftRechecksActualAdoptionConsentAfterSourceInspection(t *tes
 	}
 	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}
 	admissions := newRunAdmissions(a.DB, NewStages(nil, func(string) bool { return false }), nil)
-	run, err := admissions.Create(ctx, StartRequest{ProjectID: a.ProjectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "owner"}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: spec, AdoptionID: change.TargetAdoptionID})
+	run, err := admissions.records.create(ctx, StartRequest{ProjectID: a.ProjectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "owner"}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: spec, AdoptionID: change.TargetAdoptionID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = admissions.Prepared(ctx, run.ID); err != nil {
+	if err = admissions.records.prepared(ctx, run.ID); err != nil {
 		t.Fatal(err)
 	}
 	definition.Projects[0].Workflow = "test"

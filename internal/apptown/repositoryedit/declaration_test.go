@@ -83,7 +83,7 @@ func TestNeedEditsLeaveTheAppAndOtherNeedsAsWritten(t *testing.T) {
 	before := tree(t, []byte(richContract))
 
 	// A round trip of what was read changes nothing and opens nothing.
-	if _, err := editDeclaration(repo, asRead()); !errors.Is(err, ErrNeedsUnchanged) {
+	if _, err := editDeclaration(repo, asRead()); !errors.Is(err, errNeedsUnchanged) {
 		t.Fatalf("a no-op edit must be refused as unchanged: %v", err)
 	}
 

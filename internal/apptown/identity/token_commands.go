@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	ErrTokenName    = fault.New(fault.Invalid, "name required")
-	ErrTokenPurpose = fault.New(fault.Invalid, "purpose required: cli (your own command line) or agent (a coding agent's connection)")
+	errTokenName    = fault.New(fault.Invalid, "name required")
+	errTokenPurpose = fault.New(fault.Invalid, "purpose required: cli (your own command line) or agent (a coding agent's connection)")
 )
 
 // NewToken is a token to make. Purpose is required and has no default: an
@@ -28,19 +28,19 @@ var (
 // agent does not inherit its person's administration).
 type NewToken struct{ Name, User, Role, Purpose string }
 
-// IssuedToken releases plaintext only after the token and receipt commit.
+// issuedToken releases plaintext only after the token and receipt commit.
 // Token metadata, used for subsequent listing, never contains credential material.
-type IssuedToken struct {
+type issuedToken struct {
 	Token     Token
 	Plaintext string
 }
 
 func (in NewToken) prepare(pr access.Principal) (NewToken, error) {
 	if in.Name == "" {
-		return NewToken{}, ErrTokenName
+		return NewToken{}, errTokenName
 	}
 	if !access.ValidTokenPurpose(in.Purpose) {
-		return NewToken{}, ErrTokenPurpose
+		return NewToken{}, errTokenPurpose
 	}
 	if in.User == "" {
 		in.User = pr.Name
@@ -65,8 +65,8 @@ func (t *Token) revoke(at time.Time) bool {
 	return true
 }
 
-func (s *Service) IssueToken(ctx context.Context, in NewToken, pr access.Principal) (IssuedToken, error) {
-	var issued IssuedToken
+func (s *Service) IssueToken(ctx context.Context, in NewToken, pr access.Principal) (issuedToken, error) {
+	var issued issuedToken
 	err := s.administer(ctx, pr, access.CapIdentityAuth, func(tx *database.Tx, now time.Time) error {
 		prepared, err := in.prepare(pr)
 		if err != nil {
@@ -78,7 +78,7 @@ func (s *Service) IssueToken(ctx context.Context, in NewToken, pr access.Princip
 			// at each use (administratorFor, access.Decide).
 			prepared.Role = "member"
 			if prepared.Purpose == access.TokenCLI {
-				root, err := RootIn(ctx, tx, prepared.User, now)
+				root, err := rootIn(ctx, tx, prepared.User, now)
 				if err != nil {
 					return err
 				}
@@ -91,31 +91,31 @@ func (s *Service) IssueToken(ctx context.Context, in NewToken, pr access.Princip
 		return err
 	})
 	if err != nil {
-		return IssuedToken{}, err
+		return issuedToken{}, err
 	}
 	return issued, nil
 }
 
-func issueTokenIn(ctx context.Context, tx *database.Tx, in NewToken, by string, now time.Time) (IssuedToken, error) {
+func issueTokenIn(ctx context.Context, tx *database.Tx, in NewToken, by string, now time.Time) (issuedToken, error) {
 	plaintext := TokenPrefix + RandomHex(24)
 	// The token belongs to the account's principal: a later account with
 	// this name is someone else, and the token is not theirs. A token made
 	// for a name with no account yet records the account, as a grant does.
 	if err := recordPersonIn(ctx, tx, in.User, now); err != nil {
-		return IssuedToken{}, err
+		return issuedToken{}, err
 	}
 	name, err := queries(tx).InsertAuthToken(ctx, accesssql.InsertAuthTokenParams{Name: in.Name, Username: in.User, Role: in.Role, TokenHash: HashToken(plaintext), Purpose: in.Purpose, CreatedAt: now.UTC()})
 	if err != nil {
-		return IssuedToken{}, err
+		return issuedToken{}, err
 	}
 	row, err := queries(tx).AuthTokenByName(ctx, name)
 	if err != nil {
-		return IssuedToken{}, err
+		return issuedToken{}, err
 	}
 	if err := audit.At(now).RecordIn(ctx, tx, by, ids.Nil, "token.created", in.Name, map[string]any{"user": in.User, "role": in.Role, "purpose": in.Purpose}); err != nil {
-		return IssuedToken{}, err
+		return issuedToken{}, err
 	}
-	return IssuedToken{Token: token(row), Plaintext: plaintext}, nil
+	return issuedToken{Token: token(row), Plaintext: plaintext}, nil
 }
 
 // Tokens lists live and revoked metadata under the same current-administrator

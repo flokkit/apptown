@@ -20,7 +20,7 @@ func TestCompletionTaskChecksStateAndClassifiesFailures(t *testing.T) {
 		t.Fatalf("unfinished Run admitted: %v", err)
 	}
 	transitionStoredRunForTest(t, q.db, run.ID, "", RunDone)
-	for _, effect := range []CompletionEffect{CompletionCleanup, CompletionAdopt, CompletionLand, CompletionParent} {
+	for _, effect := range []CompletionEffect{CompletionCleanup, CompletionAdopt, CompletionLand, completionParent} {
 		task, err := service.FollowUp(ctx, fmt.Sprintf("%d/%s", run.ID, effect))
 		if err != nil || task.Removed || task.Run.ID != run.ID || task.Effect != effect {
 			t.Fatalf("task %+v %v", task, err)

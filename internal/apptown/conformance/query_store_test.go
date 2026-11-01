@@ -121,7 +121,7 @@ func TestReviewQueriesPropagateFailuresAndCancellation(t *testing.T) {
 	if got, err := s.historical(ctx, reviews[3]); err == nil || got != nil {
 		t.Fatalf("prior confirmations: %+v %v", got, err)
 	}
-	if got, err := s.detail(ctx, idstest.N(999999)); got != nil || !errors.Is(err, ErrNoReview) || fault.KindOf(err) != fault.NotFound {
+	if got, err := s.detail(ctx, idstest.N(999999)); got != nil || !errors.Is(err, errNoReview) || fault.KindOf(err) != fault.NotFound {
 		t.Fatalf("missing detail: %+v %v", got, err)
 	}
 	cancelled, cancel := context.WithCancel(ctx)

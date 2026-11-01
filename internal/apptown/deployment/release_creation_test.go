@@ -15,7 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/dbtest"
 )
 
-func releaseCreationFixture(t *testing.T, source ReleaseSource) (*database.DB, *Releases, ReleaseDraft) {
+func releaseCreationFixture(t *testing.T, source releaseSource) (*database.DB, *Releases, ReleaseDraft) {
 	t.Helper()
 	db := testDB(t)
 	p := createTestProject(t, db, "release-create", "Release create")
@@ -27,7 +27,7 @@ func releaseCreationFixture(t *testing.T, source ReleaseSource) (*database.DB, *
 
 func TestReleaseCreationMembership(t *testing.T) {
 	t.Parallel()
-	for _, source := range []ReleaseSource{ReleaseFromBundle, ReleaseFromBranch} {
+	for _, source := range []releaseSource{ReleaseFromBundle, ReleaseFromBranch} {
 		t.Run(string(source), func(t *testing.T) {
 			db, store, draft := releaseCreationFixture(t, source)
 			// sql-guarantee: TestReleaseCreationMembership needs one historical row numbered seven to distinguish MAX(number)+1 from COUNT(*)+1; CreateRelease only allocates numbers, and its January 2 date is the branch cutoff.
@@ -99,7 +99,7 @@ func TestAReleaseCarriesTheChangesClosedBeforeItByAppTownsClock(t *testing.T) {
 		db, store, draft := releaseCreationFixture(t, ReleaseFromBundle)
 		now := steppingClock()
 		store.clock = now
-		bundles := NewBundles(db)
+		bundles := newBundles(db)
 		bundles.clock = now
 		before := shippedChangeAt(t, db, draft.ProjectID, now())
 		bundle, err := bundles.Cut(t.Context(), draft.ProjectID, "selected", nil, nil, nil, BundleOrigin{})
@@ -217,7 +217,7 @@ func TestReleaseCreationConcurrencyAndScope(t *testing.T) {
 	db, store, draft := releaseCreationFixture(t, ReleaseFromBundle)
 	results := race(8, func(int) int {
 		if _, err := store.Start(context.Background(), draft, "one winner"); err != nil {
-			if !errors.Is(err, ErrReleaseInFlight) {
+			if !errors.Is(err, errReleaseInFlight) {
 				t.Error(err)
 			}
 			return 0
@@ -234,7 +234,7 @@ func TestReleaseCreationConcurrencyAndScope(t *testing.T) {
 		t.Fatalf("independent deployment: %+v %v", r, err)
 	}
 	other.Source = ReleaseFromBranch
-	if _, err := store.Start(context.Background(), other, "project-wide admission"); !errors.Is(err, ErrReleaseInFlight) {
+	if _, err := store.Start(context.Background(), other, "project-wide admission"); !errors.Is(err, errReleaseInFlight) {
 		t.Fatalf("intranet admission ignored another release: %v", err)
 	}
 	wantN(t, "releases", everyRelease(t, db), 2)

@@ -134,7 +134,7 @@ func TestAPublishedImageIsConfirmedByItsDigest(t *testing.T) {
 	if got.Reference() != repo+"@"+img.digest() {
 		t.Fatalf("reference %q", got.Reference())
 	}
-	confirmed, err := Confirm(ctx, Repository{Name: repo}, img.digest())
+	confirmed, err := confirm(ctx, Repository{Name: repo}, img.digest())
 	if err != nil || confirmed != want {
 		t.Fatalf("confirmed %+v %v", confirmed, err)
 	}
@@ -175,13 +175,13 @@ func TestABlobThatIsShortLongOrMismatchedIsRefusedAndNothingIsTagged(t *testing.
 				}
 				img.files[path] = change(img.files[path])
 				_, err := Publish(ctx, img.files, Repository{Name: repo}, "forge-run7-a1-web", "linux/amd64")
-				if !errors.Is(err, ErrMalformed) {
+				if !errors.Is(err, errMalformed) {
 					t.Fatalf("a %s %s published: %v", name, which, err)
 				}
 				if got := tags(t, repo); len(got) != 0 {
 					t.Fatalf("a %s %s left tags %v", name, which, got)
 				}
-				if _, err := Confirm(ctx, Repository{Name: repo}, img.digest()); !errors.Is(err, ErrNotFound) {
+				if _, err := confirm(ctx, Repository{Name: repo}, img.digest()); !errors.Is(err, errNotFound) {
 					t.Fatalf("a %s %s left its manifest: %v", name, which, err)
 				}
 			})
@@ -226,7 +226,7 @@ func TestAnIndexAttestationsOrAnotherPlatformAreRefused(t *testing.T) {
 			img := newImage(t, c.arch, "a layer")
 			c.change(t, img)
 			_, err := Publish(context.Background(), img.files, Repository{Name: repo}, "forge-run7-a1-web", "linux/amd64")
-			if !errors.Is(err, ErrUnsupported) || !strings.Contains(err.Error(), c.says) {
+			if !errors.Is(err, errUnsupported) || !strings.Contains(err.Error(), c.says) {
 				t.Fatalf("%s: %v", name, err)
 			}
 			if got := tags(t, repo); len(got) != 0 {
@@ -271,7 +271,7 @@ func TestAReadBackNamingSomethingElseIsNoPublication(t *testing.T) {
 			repo := newRegistry(t, wrap) + "/team/app"
 			img := newImage(t, "amd64", "a layer")
 			got, err := Publish(context.Background(), img.files, Repository{Name: repo}, "forge-run7-a1-web", "linux/amd64")
-			if !errors.Is(err, ErrMalformed) || got != (Image{}) {
+			if !errors.Is(err, errMalformed) || got != (Image{}) {
 				t.Fatalf("a read-back with %s published %+v: %v", name, got, err)
 			}
 		})
@@ -300,7 +300,7 @@ func TestUnauthorisedUnavailableAndNotFoundAreDistinct(t *testing.T) {
 	guarded := newRegistry(t, requiring("apptown", "right")) + "/team/app"
 	img := newImage(t, "amd64", "a layer")
 	_, err := Publish(ctx, img.files, Repository{Name: guarded, Credential: Credential{Username: "apptown", Password: "wrong"}}, "t", "linux/amd64")
-	if !errors.Is(err, ErrUnauthorised) || errors.Is(err, ErrUnavailable) || errors.Is(err, ErrNotFound) {
+	if !errors.Is(err, errUnauthorised) || errors.Is(err, ErrUnavailable) || errors.Is(err, errNotFound) {
 		t.Fatalf("a refused credential: %v", err)
 	}
 	// Who refused is read from the answer.
@@ -311,10 +311,10 @@ func TestUnauthorisedUnavailableAndNotFoundAreDistinct(t *testing.T) {
 	if _, err := Publish(ctx, img.files, right, "t", "linux/amd64"); err != nil {
 		t.Fatalf("the right credential: %v", err)
 	}
-	if _, err := Confirm(ctx, Repository{Name: guarded}, img.digest()); !errors.Is(err, ErrUnauthorised) {
+	if _, err := confirm(ctx, Repository{Name: guarded}, img.digest()); !errors.Is(err, errUnauthorised) {
 		t.Fatalf("an anonymous read-back: %v", err)
 	}
-	if _, err := Confirm(ctx, right, digestOf([]byte("never written"))); !errors.Is(err, ErrNotFound) || errors.Is(err, ErrUnauthorised) {
+	if _, err := confirm(ctx, right, digestOf([]byte("never written"))); !errors.Is(err, errNotFound) || errors.Is(err, errUnauthorised) {
 		t.Fatalf("a missing image: %v", err)
 	}
 
@@ -322,13 +322,13 @@ func TestUnauthorisedUnavailableAndNotFoundAreDistinct(t *testing.T) {
 	gone.Close()
 	closed := strings.TrimPrefix(gone.URL, "http://") + "/team/app"
 	_, err = Publish(ctx, img.files, Repository{Name: closed}, "t", "linux/amd64")
-	if !errors.Is(err, ErrUnavailable) || errors.Is(err, ErrUnauthorised) || errors.Is(err, ErrNotFound) {
+	if !errors.Is(err, ErrUnavailable) || errors.Is(err, errUnauthorised) || errors.Is(err, errNotFound) {
 		t.Fatalf("an unreachable registry: %v", err)
 	}
 	if _, ok := RefusedBy(err); ok {
 		t.Fatalf("an unreachable registry read as a refusal: %v", err)
 	}
-	if _, err := Confirm(ctx, Repository{Name: closed}, img.digest()); !errors.Is(err, ErrUnavailable) {
+	if _, err := confirm(ctx, Repository{Name: closed}, img.digest()); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("an unreachable read-back: %v", err)
 	}
 }
@@ -420,18 +420,18 @@ func TestACopyKeepsItsDigest(t *testing.T) {
 		t.Fatalf("copied from the index %+v %v, want %s", fromIndex, err, arm.digest())
 	}
 	for _, d := range []string{amd.digest(), arm.digest()} {
-		if _, err := Confirm(ctx, dst, d); err != nil {
+		if _, err := confirm(ctx, dst, d); err != nil {
 			t.Fatalf("%s not in the destination: %v", d, err)
 		}
 	}
-	if _, err := Copy(ctx, Source{Reference: src + ":arm"}, dst, "x", "linux/amd64"); !errors.Is(err, ErrUnsupported) {
+	if _, err := Copy(ctx, Source{Reference: src + ":arm"}, dst, "x", "linux/amd64"); !errors.Is(err, errUnsupported) {
 		t.Fatalf("an image for another platform: %v", err)
 	}
 	putIndex(t, src, "arm-only", arm)
-	if _, err := Copy(ctx, Source{Reference: src + ":arm-only"}, dst, "x", "linux/amd64"); !errors.Is(err, ErrUnsupported) {
+	if _, err := Copy(ctx, Source{Reference: src + ":arm-only"}, dst, "x", "linux/amd64"); !errors.Is(err, errUnsupported) {
 		t.Fatalf("an index with no image for the platform: %v", err)
 	}
-	if _, err := Copy(ctx, Source{Reference: src + ":never"}, dst, "x", "linux/amd64"); !errors.Is(err, ErrNotFound) {
+	if _, err := Copy(ctx, Source{Reference: src + ":never"}, dst, "x", "linux/amd64"); !errors.Is(err, errNotFound) {
 		t.Fatalf("a missing source: %v", err)
 	}
 }
@@ -471,7 +471,7 @@ func TestATagNamesTheImageByItsDigest(t *testing.T) {
 		t.Fatalf("the tag moved to %q: %v", answer("release-3-part-web"), err)
 	}
 	missing := "sha256:" + strings.Repeat("0", 64)
-	if err := Tag(ctx, repo, missing, "release-4-part-web"); !errors.Is(err, ErrNotFound) || answer("release-4-part-web") != "" {
+	if err := Tag(ctx, repo, missing, "release-4-part-web"); !errors.Is(err, errNotFound) || answer("release-4-part-web") != "" {
 		t.Fatalf("tagging an image the registry does not have: %v", err)
 	}
 }
@@ -489,7 +489,7 @@ func TestPlatformsAreNormalisedAndUnknownIsRefused(t *testing.T) {
 		}
 	}
 	for _, in := range [][2]string{{"linux", ""}, {"linux", "unknown"}, {"linux", "riscv64"}, {"linux", "i386"}, {"windows", "x86_64"}, {"", "x86_64"}} {
-		if got, err := Platform(in[0], in[1]); !errors.Is(err, ErrUnsupported) || got != "" {
+		if got, err := Platform(in[0], in[1]); !errors.Is(err, errUnsupported) || got != "" {
 			t.Errorf("%v: %q %v, want refused", in, got, err)
 		}
 	}
@@ -503,11 +503,11 @@ func TestACopySourceTakesDockersOrdinaryNames(t *testing.T) {
 	cancel() // stop at the first registry request: only parsing is under test
 	to := Repository{Name: "registry.example.com/team/app"}
 	for _, ref := range []string{"redis:7", "docker.io/redis:7", "example/cache:7", "index.docker.io/library/redis:7"} {
-		if _, err := Copy(ctx, Source{Reference: ref}, to, "release", "linux/amd64"); errors.Is(err, ErrMalformed) {
+		if _, err := Copy(ctx, Source{Reference: ref}, to, "release", "linux/amd64"); errors.Is(err, errMalformed) {
 			t.Errorf("%s refused before the registry was asked: %v", ref, err)
 		}
 	}
-	if _, err := Copy(ctx, Source{Reference: "Not A Reference!"}, to, "release", "linux/amd64"); !errors.Is(err, ErrMalformed) {
+	if _, err := Copy(ctx, Source{Reference: "Not A Reference!"}, to, "release", "linux/amd64"); !errors.Is(err, errMalformed) {
 		t.Fatalf("invalid syntax: %v", err)
 	}
 }
@@ -525,7 +525,7 @@ func TestADeletedImageIsGone(t *testing.T) {
 	if err := Delete(ctx, Repository{Name: repo}, img.digest()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Confirm(ctx, Repository{Name: repo}, img.digest()); !errors.Is(err, ErrNotFound) {
+	if _, err := confirm(ctx, Repository{Name: repo}, img.digest()); !errors.Is(err, errNotFound) {
 		t.Fatalf("still there: %v", err)
 	}
 	if err := Delete(ctx, Repository{Name: repo}, img.digest()); err != nil {

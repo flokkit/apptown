@@ -184,7 +184,7 @@ func TestAnAdmissionThatFailsLeavesNeitherRowNorJob(t *testing.T) {
 		t.Run(statement, func(t *testing.T) {
 			t.Parallel()
 			w := newWorld(t)
-			t.Cleanup(w.db.FailNextStatement(statement))
+			t.Cleanup(dbtest.NextStatementFailure(w.db, statement))
 			if _, err := w.admit("project:7/deployment:1"); err == nil {
 				t.Fatal("an admission whose " + statement + " failed was admitted")
 			}
@@ -518,7 +518,7 @@ func TestASettlementWithoutItsReceiptKeepsTheHolds(t *testing.T) {
 	w := newWorld(t)
 	op := w.mustAdmit("project:7/deployment:1")
 	w.body = func(context.Context, operations.Operation, *operations.StepLog) operations.Outcome {
-		w.t.Cleanup(w.db.FailNextStatement("INSERT INTO audit_log"))
+		w.t.Cleanup(dbtest.NextStatementFailure(w.db, "INSERT INTO audit_log"))
 		return operations.Outcome{State: operations.Succeeded}
 	}
 	if _, err := w.ops.Run(context.Background(), op.ID); err == nil {
@@ -561,7 +561,7 @@ func TestCancelStopsQueuedAtOnceAndAsksRunningToStop(t *testing.T) {
 		settled = append(settled, out)
 		return nil
 	}
-	restore := w.db.FailNextStatement("INSERT INTO audit_log")
+	restore := dbtest.NextStatementFailure(w.db, "INSERT INTO audit_log")
 	if _, err := w.ops.Cancel(ctx, queued.ID); err == nil {
 		t.Fatal("a queued cancel without its ended receipt succeeded")
 	}

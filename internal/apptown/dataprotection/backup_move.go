@@ -30,10 +30,10 @@ import (
 // the checked objects, so nothing reads it again, and a person removes it
 // (stock/docs/guides/deployment-backups.md). The move logs its name first.
 
-// MoveSetsToStore moves every set still on AppTown's disk to the
+// moveSetsToStore moves every set still on AppTown's disk to the
 // attached store; without a store there is nothing to move. It answers
 // how many moved and, for each that stayed, why.
-func (s *Service) MoveSetsToStore(ctx context.Context) (moved int, left []string, err error) {
+func (s *Service) moveSetsToStore(ctx context.Context) (moved int, left []string, err error) {
 	store, err := s.Store(ctx)
 	if err != nil || store == nil {
 		return 0, nil, err
@@ -83,7 +83,7 @@ func (s *Service) MoveSetsToStore(ctx context.Context) (moved int, left []string
 			note := "not moved to the backup store: " + why
 			if !strings.Contains(b.Error, note) {
 				// Said on the set though the move's context ended.
-				if err := s.backups.Note(context.WithoutCancel(ctx), b.ID, note); err != nil {
+				if err := s.backups.note(context.WithoutCancel(ctx), b.ID, note); err != nil {
 					return moved, left, err
 				}
 			}
@@ -147,12 +147,12 @@ func (s *Service) moveSet(ctx context.Context, c *s3bucket.Client, store *Backup
 	return "", nil
 }
 
-// ClearStaging removes what takes and restores left staged on AppTown's
+// clearStaging removes what takes and restores left staged on AppTown's
 // disk more than a day ago: an AppTown that stopped mid-take leaves its
 // staging folder. An operation's own staging is removed when it ends.
 // A folder's age is its modification time, which the operating system
 // stamped, so it is judged by the system clock, not AppTown's.
-func (s *Service) ClearStaging() (int, error) {
+func (s *Service) clearStaging() (int, error) {
 	now := clock.System()
 	dir := filepath.Join(DiskDirectory(s.dataDir), ".staging")
 	entries, err := os.ReadDir(dir)

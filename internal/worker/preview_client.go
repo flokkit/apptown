@@ -64,8 +64,8 @@ func (p Previews) stamp(req *http.Request) {
 	if session == "" {
 		session = processSession
 	}
-	req.Header.Set(PreviewSessionHeader, session)
-	req.Header.Set(PreviewSeqHeader, strconv.FormatInt(lastSeq.Add(1), 10))
+	req.Header.Set(previewSessionHeader, session)
+	req.Header.Set(previewSeqHeader, strconv.FormatInt(lastSeq.Add(1), 10))
 }
 
 // Previews is AppTown's side of previews on a worker: boot an incarnation
@@ -175,7 +175,7 @@ func (p Previews) State(ctx context.Context, name string) (PreviewState, error) 
 var ErrClaimRequired = errors.New("the worker lost the order of its previews' requests, and must be claimed again")
 
 func claimRequired(resp *http.Response) bool {
-	return resp.StatusCode == http.StatusConflict && resp.Header.Get(PreviewClaimHeader) == "required"
+	return resp.StatusCode == http.StatusConflict && resp.Header.Get(previewClaimHeader) == "required"
 }
 
 func (p Previews) state(req *http.Request) (PreviewState, error) {

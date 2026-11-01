@@ -11,19 +11,19 @@ import (
 	"golang.org/x/net/html"
 )
 
-// Fetcher gets a URL's status and body.
-type Fetcher interface {
+// fetcher gets a URL's status and body.
+type fetcher interface {
 	Fetch(ctx context.Context, url string) (int, string, error)
 }
 
-// FetcherFunc adapts a function to Fetcher.
-type FetcherFunc func(ctx context.Context, url string) (int, string, error)
+// fetcherFunc adapts a function to Fetcher.
+type fetcherFunc func(ctx context.Context, url string) (int, string, error)
 
-func (f FetcherFunc) Fetch(ctx context.Context, url string) (int, string, error) { return f(ctx, url) }
+func (f fetcherFunc) Fetch(ctx context.Context, url string) (int, string, error) { return f(ctx, url) }
 
 // HTTPFetcher is the real fetcher: a plain GET, redirects unfollowed, the
 // body read up to a megabyte.
-var HTTPFetcher = FetcherFunc(func(ctx context.Context, url string) (int, string, error) {
+var HTTPFetcher = fetcherFunc(func(ctx context.Context, url string) (int, string, error) {
 	resp, err := probeClient.Get(url)
 	if err != nil {
 		return 0, "", err
@@ -74,7 +74,7 @@ type ProbeVerdict struct {
 // strict because looser ones were fooled: a mention of the path, a <base
 // href>, a template and nomodule must not pass for a loader, and an AppTown
 // delivery fault must be cannot-assess, never a pass or rework for the app.
-func JudgeBrowserEnv(ctx context.Context, f Fetcher, base string, want BrowserExpectation) ProbeVerdict {
+func JudgeBrowserEnv(ctx context.Context, f fetcher, base string, want BrowserExpectation) ProbeVerdict {
 	unknown := func(detail string) ProbeVerdict {
 		return ProbeVerdict{Outcome: CannotAssess, Detail: detail, Fault: true}
 	}

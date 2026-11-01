@@ -20,10 +20,10 @@ func TestAScannersTestConnectionAsksForItsImageWhereChecksRun(t *testing.T) {
 		t.Error("the worker was asked for an image while this AppTown has Docker")
 		return execution.ImageAnswer{}
 	}
-	if h := TestScannerImage(t.Context(), "", &docker.Scope{Client: dockerfake.New()}, never); h.OK || h.Detail != "image is required" {
+	if h := TestScannerImage(t.Context(), "", &docker.Scope{Client: newDockerFake()}, never); h.OK || h.Detail != "image is required" {
 		t.Fatalf("no image: %+v", h)
 	}
-	local := dockerfake.New()
+	local := newDockerFake()
 	if h := TestScannerImage(t.Context(), "scanner:1", &docker.Scope{Client: local}, never); !h.OK || h.Detail != "image present locally" {
 		t.Fatalf("a local image: %+v", h)
 	}
@@ -41,7 +41,7 @@ func TestAScannersTestConnectionAsksForItsImageWhereChecksRun(t *testing.T) {
 	}
 	// A daemon that cannot answer is not one that lacks the image: nothing
 	// is pulled, and the answer says it is unknown.
-	unknown := dockerfake.New()
+	unknown := newDockerFake()
 	unknown.SetReply(func(args []string) ([]byte, error, bool) {
 		switch args[0] {
 		case "image":
@@ -72,4 +72,8 @@ func TestAScannersTestConnectionAsksForItsImageWhereChecksRun(t *testing.T) {
 	if len(asked) != 2 || asked[0].Tag != "scanner:1" || asked[0].Pull != "scanner:1" {
 		t.Fatalf("the worker was asked %+v", asked)
 	}
+}
+
+func newDockerFake() *dockerfake.Daemon {
+	return dockerfake.New()
 }

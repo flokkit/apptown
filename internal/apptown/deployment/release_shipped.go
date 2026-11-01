@@ -11,12 +11,12 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// Shipped is what a change's newest released release put live, and what the
+// shipped is what a change's newest released release put live, and what the
 // release before it on the same deployment had: the commit each was built
 // from. Previous is zero when no earlier release on that deployment was
 // released. A commit is "" when its release recorded none (a release from
 // before releases recorded their source), and the caller says it is unknown.
-type Shipped struct {
+type shipped struct {
 	Deployment     string
 	Number         int64
 	Commit         string
@@ -26,7 +26,7 @@ type Shipped struct {
 
 // ShippedBy is what the change's newest released release shipped; nil when
 // no release carrying the change was released.
-func (s *Releases) ShippedBy(ctx context.Context, projectID, changeID ids.ID) (*Shipped, error) {
+func (s *Releases) ShippedBy(ctx context.Context, projectID, changeID ids.ID) (*shipped, error) {
 	carried, err := s.ForChange(ctx, projectID, changeID)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (s *Releases) ShippedBy(ctx context.Context, projectID, changeID ids.ID) (*
 		return nil, nil
 	}
 	q := deploymentsql.New(s.db.SQL())
-	out := &Shipped{Deployment: rel.Deployment, Number: rel.Number}
+	out := &shipped{Deployment: rel.Deployment, Number: rel.Number}
 	if out.Commit, err = shippedCommit(ctx, q, rel); err != nil {
 		return nil, err
 	}

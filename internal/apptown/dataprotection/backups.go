@@ -170,9 +170,9 @@ func (s *Backups) Record(ctx context.Context, b *Backup, who string) (ids.ID, er
 	return id, err
 }
 
-// Note adds to a recorded set's error what was found after it was
+// note adds to a recorded set's error what was found after it was
 // recorded (its manifest could not be written).
-func (s *Backups) Note(ctx context.Context, id ids.ID, note string) error {
+func (s *Backups) note(ctx context.Context, id ids.ID, note string) error {
 	n, err := protectionsql.New(s.db.SQL()).NoteBackupError(ctx, protectionsql.NoteBackupErrorParams{ID: id, Note: note})
 	if err == nil && n != 1 {
 		err = fmt.Errorf("set %d is not recorded", id)
@@ -220,8 +220,8 @@ func (s *Backups) ForDeployment(ctx context.Context, projectID ids.ID, deploymen
 	return out, nil
 }
 
-// All is every set AppTown holds, newest first, with the project's name.
-func (s *Backups) All(ctx context.Context, limit int) ([]ProjectBackup, error) {
+// all is every set AppTown holds, newest first, with the project's name.
+func (s *Backups) all(ctx context.Context, limit int) ([]ProjectBackup, error) {
 	rows, err := protectionsql.New(s.db.SQL()).ProjectBackups(ctx, int64(limit))
 	out := []ProjectBackup{}
 	if err != nil {
@@ -246,9 +246,9 @@ func (s *Backups) ByID(ctx context.Context, projectID ids.ID, deployment string,
 	return &b, nil
 }
 
-// InProject is one of a project's sets, whichever deployment it was taken
+// inProject is one of a project's sets, whichever deployment it was taken
 // of: a restore can put a taken-down deployment's final set into another.
-func (s *Backups) InProject(ctx context.Context, projectID ids.ID, id ids.ID) (*Backup, error) {
+func (s *Backups) inProject(ctx context.Context, projectID ids.ID, id ids.ID) (*Backup, error) {
 	b, err := backupRecord(protectionsql.New(s.db.SQL()).BackupInProject(ctx, protectionsql.BackupInProjectParams{ProjectID: projectID, ID: id}))
 	if err != nil {
 		return nil, err
@@ -268,14 +268,14 @@ func (b *Backup) storeName() string {
 // TriggerPreRestore names the safety set a restore takes first.
 const TriggerPreRestore = "pre-restore"
 
-// SafetyCopy reports whether the set was taken to protect a restore. A
+// safetyCopy reports whether the set was taken to protect a restore. A
 // safety copy must not prune the older set the restore is about to read;
 // ordinary sets resume retention after it.
-func (b *Backup) SafetyCopy() bool { return b.Trigger == TriggerPreRestore }
+func (b *Backup) safetyCopy() bool { return b.Trigger == TriggerPreRestore }
 
-// GoodCopy is the set's copy of an item that was taken without error, or
+// goodCopy is the set's copy of an item that was taken without error, or
 // nil when the set holds none: only a good copy is ever restored.
-func (b *Backup) GoodCopy(kind, name string) *BackupItem {
+func (b *Backup) goodCopy(kind, name string) *BackupItem {
 	for i := range b.Items {
 		if b.Items[i].Kind == kind && b.Items[i].Name == name && b.Items[i].Error == "" {
 			return &b.Items[i]
@@ -292,7 +292,7 @@ func (s *Service) DeploymentSets(ctx context.Context, projectID ids.ID, deployme
 // AllSets are every set AppTown holds, newest first, with each one's
 // project.
 func (s *Service) AllSets(ctx context.Context, limit int) ([]ProjectBackup, error) {
-	return s.backups.All(ctx, limit)
+	return s.backups.all(ctx, limit)
 }
 
 // backupFields avoids promoting JSON methods into embedding records.

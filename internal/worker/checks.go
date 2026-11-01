@@ -102,7 +102,7 @@ func (s *Server) runCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx, lifetime := bounded(w, r, checkGrace)
-	defer lifetime.Stop()
+	defer lifetime.stop()
 	mr, err := r.MultipartReader()
 	if err != nil {
 		http.Error(w, "a check is a multipart request: "+err.Error(), http.StatusBadRequest)
@@ -137,7 +137,7 @@ func (s *Server) runCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	timeout := time.Duration(spec.TimeoutSeconds) * time.Second
-	lifetime.For(timeout + checkGrace)
+	lifetime.forKey(timeout + checkGrace)
 	// The deadline the sweep judges the check's folder and container by,
 	// on the worker's clock (SweepChecks).
 	deadline := s.now().Add(timeout + checkGrace)
@@ -359,7 +359,7 @@ func (s *Server) checkImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx, lifetime := bounded(w, r, checkGrace+30*time.Minute)
-	defer lifetime.Stop()
+	defer lifetime.stop()
 	mr, err := r.MultipartReader()
 	if err != nil {
 		http.Error(w, "an image request is multipart: "+err.Error(), http.StatusBadRequest)
@@ -476,9 +476,9 @@ func bounded(w http.ResponseWriter, r *http.Request, initial time.Duration) (con
 	return ctx, l
 }
 
-// For moves the end to d from now, once the request says how long it may
+// forKey moves the end to d from now, once the request says how long it may
 // take.
-func (l *lifetime) For(d time.Duration) {
+func (l *lifetime) forKey(d time.Duration) {
 	l.timer.Reset(d)
 	l.readFor(d)
 }
@@ -489,7 +489,7 @@ func (l *lifetime) readFor(d time.Duration) {
 	_ = l.rc.SetReadDeadline(clock.System().Add(d)) // a test's recorder has no connection
 }
 
-func (l *lifetime) Stop() { l.timer.Stop(); l.cancel() }
+func (l *lifetime) stop() { l.timer.Stop(); l.cancel() }
 
 // contextBody is a request body whose reads end when its context does,
 // whatever the connection is doing.

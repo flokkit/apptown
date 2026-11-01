@@ -146,7 +146,7 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 			defer server.Close()
 			scope := Scope{Version: 1, APIBase: server.URL, EndpointID: 3, DaemonID: "daemon"}
 			now := time.Unix(1234, 0).UTC()
-			d := Driver{TargetID: r.Target, ReadinessTimeout: 100 * time.Millisecond, Now: func() time.Time { return now }, Allowed: func(context.Context) error {
+			d := Driver{TargetID: r.Target, readinessTimeout: 100 * time.Millisecond, Now: func() time.Time { return now }, Allowed: func(context.Context) error {
 				if revoked {
 					return errors.New("release permission revoked")
 				}
@@ -159,7 +159,7 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 				return &Target{PortainerURL: server.URL, Scope: &copy}, nil
 			}}
 			if mode == "explicit-streak" {
-				d.ReadinessTimeout = 5 * time.Second
+				d.readinessTimeout = 5 * time.Second
 			}
 			d.Diagnostics = func(context.Context, Target) (Diagnostic, func() error, error) {
 				daemon := containerresulttest.Daemon{Answers: func(c containerresulttest.Command) (containerresulttest.Answer, bool) {

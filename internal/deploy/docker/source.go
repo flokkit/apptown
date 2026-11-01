@@ -44,7 +44,7 @@ func PrepareSource(ctx context.Context, repo, revision, slug string, services []
 	if err != nil {
 		return deploy.Artifact{}, cleanup, err
 	}
-	art, err := SourceAt(tree.Directory, tree.Revision, slug, services)
+	art, err := sourceAt(tree.Directory, tree.Revision, slug, services)
 	if err != nil {
 		cleanup()
 		return deploy.Artifact{}, func() {}, err
@@ -52,7 +52,7 @@ func PrepareSource(ctx context.Context, repo, revision, slug string, services []
 	return art, cleanup, nil
 }
 
-func SourceAt(ws, commit, slug string, services []deploy.ServiceSpec) (deploy.Artifact, error) {
+func sourceAt(ws, commit, slug string, services []deploy.ServiceSpec) (deploy.Artifact, error) {
 	c, err := ReadSelectedContract(ws)
 	if err != nil {
 		return deploy.Artifact{}, fmt.Errorf("selected Docker source requires .apptown/app.yaml: %w", err)
@@ -108,7 +108,7 @@ func SourceArtifact(source deploy.Source, services []deploy.ServiceSpec) (deploy
 	}
 	if c.SecretSpecPath != "" {
 		// The declaration can be optional, but its selected path cannot escape.
-		if _, err := RelativePath(ws, c.SecretSpecPath); err != nil {
+		if _, err := relativePath(ws, c.SecretSpecPath); err != nil {
 			return deploy.Artifact{}, err
 		}
 	}
@@ -135,7 +135,7 @@ func RestoreSource(ctx context.Context, repo, slug, raw string) (deploy.Artifact
 	return PrepareSource(ctx, repo, in.Revision, slug, in.Services)
 }
 
-func RelativePath(root, path string) (string, error) {
+func relativePath(root, path string) (string, error) {
 	clean := filepath.Clean(path)
 	if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("Docker source path %q must stay inside the selected tree", path)
@@ -165,7 +165,7 @@ func ReadSelectedContract(root string) (*appcontract.Contract, error) {
 }
 
 func SelectedPath(root, path string) (string, error) {
-	full, err := RelativePath(root, path)
+	full, err := relativePath(root, path)
 	if err != nil {
 		return "", err
 	}
@@ -181,7 +181,7 @@ func SelectedPath(root, path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if _, err := RelativePath(base, rel); err != nil {
+	if _, err := relativePath(base, rel); err != nil {
 		return "", fmt.Errorf("selected source %q escapes through a symlink", path)
 	}
 	return full, nil

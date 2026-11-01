@@ -14,7 +14,7 @@ import (
 
 var (
 	ErrCaller     = errors.New("SCM requires an authorized Work operation")
-	ErrUnresolved = errors.New("default branch moved without the recorded merge operation; inspect it before retrying")
+	errUnresolved = errors.New("default branch moved without the recorded merge operation; inspect it before retrying")
 	// ErrLeftPending: some pending merges could not be inspected. Each stays
 	// pending, holding its landing until it is inspected again; the others
 	// were inspected.
@@ -55,18 +55,18 @@ type Source struct {
 	Attribution *Attribution
 }
 
-func (s Source) RepositoryBacked() bool { return s.Repository != "" }
+func (s Source) repositoryBacked() bool { return s.Repository != "" }
 func (s Source) validate() error {
 	if s.RunID.IsZero() || s.ProjectID.IsZero() {
 		return ErrCaller
 	}
-	if s.RepositoryBacked() && (s.Branch == "" || s.DefaultBranch == "") {
+	if s.repositoryBacked() && (s.Branch == "" || s.DefaultBranch == "") {
 		return fmt.Errorf("merge source is missing its branch identity")
 	}
-	if !s.RepositoryBacked() && s.DefaultBranch != "" {
+	if !s.repositoryBacked() && s.DefaultBranch != "" {
 		return fmt.Errorf("merge source has no repository")
 	}
-	if s.MR.IID < 0 || ((s.MR.IID != 0) != (s.MR.Project != "")) || (s.MR.IID != 0 && !s.RepositoryBacked()) {
+	if s.MR.IID < 0 || ((s.MR.IID != 0) != (s.MR.Project != "")) || (s.MR.IID != 0 && !s.repositoryBacked()) {
 		return fmt.Errorf("merge source has an invalid provider request")
 	}
 	return nil
@@ -79,10 +79,10 @@ type Refusal struct {
 
 func (r Refusal) refused() bool { return r.Reason != "" }
 
-// Work resolves an explicit operation context, never an actor label from a
+// work resolves an explicit operation context, never an actor label from a
 // command. Missing authority and unavailable scope are errors. Inspection has
 // separate permission and cannot admit new work.
-type Work interface {
+type work interface {
 	Prepare(context.Context, Purpose, ids.ID) (Claim, error)
 	RequireInspection(context.Context) error
 }
@@ -101,7 +101,7 @@ type ReceiptKind uint8
 
 const (
 	Completed ReceiptKind = iota + 1
-	Cancelled
+	cancelled
 )
 
 type Receipt struct {
@@ -124,7 +124,7 @@ func (r Receipt) Event() (string, error) {
 			return "", fmt.Errorf("merge completion receipt requires its branch and result")
 		}
 		return "merge.completed", nil
-	case Cancelled:
+	case cancelled:
 		if r.Reason == "" {
 			return "", fmt.Errorf("merge cancellation receipt requires its reason")
 		}
@@ -147,20 +147,20 @@ type Result struct {
 	Refusal          Refusal
 }
 
-type PlanKind uint8
+type planKind uint8
 
 const (
-	Empty PlanKind = iota + 1
-	Existing
+	empty planKind = iota + 1
+	existing
 	LocalMerge
-	ProviderMerge
-	Blocked
+	providerMerge
+	blocked
 )
 
 // Prepared describes checked external facts. Only the service can turn it into
 // a durable intent or a committed receipt; drivers do not choose SCM transitions.
 type Prepared struct {
-	Kind             PlanKind
+	Kind             planKind
 	Expected, Result string
 	ReuseRecorded    bool
 	Conflicts, Drift []string
@@ -173,16 +173,16 @@ type Execution struct {
 	Unchanged bool
 	Conflicts []string
 }
-type InspectionKind uint8
+type inspectionKind uint8
 
 const (
-	Found InspectionKind = iota + 1
-	Unchanged
-	Unresolved
+	Found inspectionKind = iota + 1
+	unchanged
+	unresolved
 )
 
 type Inspection struct {
-	Kind   InspectionKind
+	Kind   inspectionKind
 	Result string
 }
 

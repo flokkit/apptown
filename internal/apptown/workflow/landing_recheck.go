@@ -38,10 +38,10 @@ type LandingRechecked struct {
 	Failed []string
 }
 
-// LandingWork publishes a change folder's committed work under its
+// landingWork publishes a change folder's committed work under its
 // holder's grant before a landing picks its candidate (the chat's, or a
 // momentary request's when nobody holds the change).
-type LandingWork interface {
+type landingWork interface {
 	PublishForLanding(ctx context.Context, change *Change) error
 }
 
@@ -81,7 +81,7 @@ func (s *Service) RecheckLanding(ctx context.Context, in LandingRecheck) (Landin
 			return LandingRechecked{}, err
 		}
 	}
-	out, err := s.landingRechecks.Recheck(ctx, in)
+	out, err := s.landingRechecks.recheck(ctx, in)
 	if err == nil && len(out.Names) > 0 {
 		s.DispatchCommittedRetry(out.RunID)
 	}
@@ -97,28 +97,28 @@ func (s *Service) RecheckLandingIn(ctx context.Context, tx *database.Tx, in Land
 		return LandingRechecked{}, err
 	}
 	in.who = actor.Receipt
-	return s.landingRechecks.RecheckIn(ctx, tx, in)
+	return s.landingRechecks.recheckRunIn(ctx, tx, in)
 }
 
-// LandingRetryBudget owns external retry accounting; Work owns check selection.
-type LandingRetryBudget interface {
+// landingRetryBudget owns external retry accounting; Work owns check selection.
+type landingRetryBudget interface {
 	ChargeIn(context.Context, *database.Tx, ids.ID, ids.ID, LandingRetry) error
 }
 
 type landingRechecks struct {
 	db        *database.DB
 	automatic []string
-	budget    LandingRetryBudget
+	budget    landingRetryBudget
 	clocked
 }
 
-func newLandingRechecks(db *database.DB, automatic []string, budget LandingRetryBudget) landingRechecks {
+func newLandingRechecks(db *database.DB, automatic []string, budget landingRetryBudget) landingRechecks {
 	return landingRechecks{db: db, automatic: slices.Clone(automatic), budget: budget}
 }
 
-// Recheck intent, old evidence, receipts and the advancement fence commit
+// recheck intent, old evidence, receipts and the advancement fence commit
 // together. No runner starts until this transaction has committed.
-func (s landingRechecks) Recheck(ctx context.Context, req LandingRecheck) (LandingRechecked, error) {
+func (s landingRechecks) recheck(ctx context.Context, req LandingRecheck) (LandingRechecked, error) {
 	req = req.frozen()
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (LandingRechecked, error) {
 		return s.recheckIn(ctx, tx, req)
@@ -126,7 +126,7 @@ func (s landingRechecks) Recheck(ctx context.Context, req LandingRecheck) (Landi
 }
 
 // Reconciliation can include the recheck in its guarded action transaction.
-func (s landingRechecks) RecheckIn(ctx context.Context, tx *database.Tx, req LandingRecheck) (LandingRechecked, error) {
+func (s landingRechecks) recheckRunIn(ctx context.Context, tx *database.Tx, req LandingRecheck) (LandingRechecked, error) {
 	return s.recheckIn(ctx, tx, req.frozen())
 }
 
@@ -150,7 +150,7 @@ func (s landingRechecks) recheckIn(ctx context.Context, tx *database.Tx, req Lan
 	if change.ProjectID != projectID {
 		return result, ErrRunMoved
 	}
-	if !change.State.CanRun() {
+	if !change.State.canRun() {
 		return result, fmt.Errorf("change %d is %s; it cannot be rechecked", req.ChangeID, change.State)
 	}
 	run, err := runRecord(workflowsql.New(tx.SQL()).ActiveLandingForUpdate(ctx, workflowsql.ActiveLandingForUpdateParams{ChangeID: req.ChangeID, ProjectID: projectID, Status: RunRunning.String()}))

@@ -3,11 +3,12 @@ package apptown
 import (
 	"context"
 	"encoding/json"
+	"strconv"
+
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
-	"strconv"
 
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/gitlab"

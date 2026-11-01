@@ -117,8 +117,8 @@ func (p Placed) Reap(ctx context.Context, alive map[string]bool) error {
 	return errors.Join(p.Local.Reap(ctx, alive), p.Remote.Reap(ctx, remote))
 }
 
-// ErrNoLocalChats refuses running a chat on an AppTown that runs none.
-var ErrNoLocalChats = errors.New("this chat ran on AppTown, which no longer runs chats")
+// errNoLocalChats refuses running a chat on an AppTown that runs none.
+var errNoLocalChats = errors.New("this chat ran on AppTown, which no longer runs chats")
 
 // NoLocal is the local runtime of an AppTown that runs no chats
 // (-no-local-docker). That AppTown's start was refused while a chat placed on
@@ -129,12 +129,12 @@ type NoLocal struct{}
 
 var _ Agent = NoLocal{}
 
-func (NoLocal) Start(context.Context, Launch) error                    { return ErrNoLocalChats }
-func (NoLocal) Stale(context.Context, Launch) (bool, error)            { return false, ErrNoLocalChats }
+func (NoLocal) Start(context.Context, Launch) error                    { return errNoLocalChats }
+func (NoLocal) Stale(context.Context, Launch) (bool, error)            { return false, errNoLocalChats }
 func (NoLocal) Status(context.Context, string) (Status, error)         { return Status{}, nil }
-func (NoLocal) Deliver(context.Context, Launch, string) error          { return ErrNoLocalChats }
-func (NoLocal) Interrupt(context.Context, string) error                { return ErrNoLocalChats }
-func (NoLocal) Attach(context.Context, string, Size) (Terminal, error) { return nil, ErrNoLocalChats }
+func (NoLocal) Deliver(context.Context, Launch, string) error          { return errNoLocalChats }
+func (NoLocal) Interrupt(context.Context, string) error                { return errNoLocalChats }
+func (NoLocal) Attach(context.Context, string, Size) (Terminal, error) { return nil, errNoLocalChats }
 func (NoLocal) Stop(context.Context, string) error                     { return nil }
 func (NoLocal) Remove(context.Context, string) error                   { return nil }
 func (NoLocal) End(context.Context, string) error                      { return nil }

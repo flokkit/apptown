@@ -453,10 +453,10 @@ func normalizeSARIF(report []byte, source, kind string) ([]Finding, error) {
 			// Trivy says which package, in the message: "Package: libc6 /
 			// Installed Version: … / Fixed Version: …". Lift it so the
 			// findings table says what to bump, not just a CVE id.
-			if pkg := SARIFMessageField(r.Message.Text, "Package"); pkg != "" {
+			if pkg := sarifMessageField(r.Message.Text, "Package"); pkg != "" {
 				f.Package = &PackageRef{Name: pkg,
-					Version: SARIFMessageField(r.Message.Text, "Installed Version"),
-					FixedIn: SARIFMessageField(r.Message.Text, "Fixed Version")}
+					Version: sarifMessageField(r.Message.Text, "Installed Version"),
+					FixedIn: sarifMessageField(r.Message.Text, "Fixed Version")}
 				f.Title = fmt.Sprintf("%s in %s %s", r.RuleID, pkg, f.Package.Version)
 				if f.Package.FixedIn != "" {
 					f.Title += " (fixed in " + f.Package.FixedIn + ")"
@@ -520,8 +520,8 @@ func envelope(report []byte, list string) error {
 	return nil
 }
 
-// SARIFMessageField: "Label: value" out of a multi-line SARIF message.
-func SARIFMessageField(text, label string) string {
+// sarifMessageField: "Label: value" out of a multi-line SARIF message.
+func sarifMessageField(text, label string) string {
 	for _, line := range strings.Split(text, "\n") {
 		if v, ok := strings.CutPrefix(strings.TrimSpace(line), label+":"); ok {
 			return strings.TrimSpace(v)

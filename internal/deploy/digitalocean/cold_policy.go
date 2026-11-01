@@ -3,10 +3,11 @@ package digitalocean
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/clock"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/clock"
 
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )

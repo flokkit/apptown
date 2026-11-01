@@ -90,7 +90,7 @@ func (s *Service) PackPullPlan(ctx context.Context, projectID ids.ID, pack wow.P
 		system[e.Name] = e.Doc.Metadata.System
 		selected := e.Doc.Metadata.System
 		if !selected {
-			if selected, err = s.lanes.Selected(ctx, projectID, e.Name); err != nil {
+			if selected, err = s.lanes.selected(ctx, projectID, e.Name); err != nil {
 				return plan, err
 			}
 		}

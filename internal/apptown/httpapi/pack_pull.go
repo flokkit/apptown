@@ -16,15 +16,15 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// PackPuller moves a project's membership of a pack to its latest version,
+// packPuller moves a project's membership of a pack to its latest version,
 // closing what that leaves behind (projectlifecycle.Service).
-type PackPuller interface {
+type packPuller interface {
 	PullPack(ctx context.Context, p *project.Project, pack wow.Pack, who string) (adoption.Pulled, error)
 }
 
 type PackPull struct {
 	adoption  *adoption.Service
-	lifecycle PackPuller
+	lifecycle packPuller
 	projects  *project.Projects
 	access    *identity.Service
 	ways      *wow.Service
@@ -32,13 +32,13 @@ type PackPull struct {
 	now       func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
-func NewPackPull(adoption *adoption.Service, lifecycle PackPuller, projects *project.Projects, access *identity.Service, ways *wow.Service, db *database.DB, now func() time.Time) PackPull {
+func NewPackPull(adoption *adoption.Service, lifecycle packPuller, projects *project.Projects, access *identity.Service, ways *wow.Service, db *database.DB, now func() time.Time) PackPull {
 	return PackPull{adoption: adoption, lifecycle: lifecycle, projects: projects, access: access, ways: ways, db: db, now: now}
 }
 
 // PackPullPlan: GET /projects/{slug}/pack/pull-plan[?pack=name]
 func (h PackPull) PackPullPlan(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -62,7 +62,7 @@ func (h PackPull) PackPullPlan(w http.ResponseWriter, r *http.Request) {
 // 1): blocks the pack now carries are listed for a person to add under
 // Guidance, and a contradicting one is refused there too. Amend-gated.
 func (h PackPull) PackPull(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -80,13 +80,13 @@ func (h PackPull) PackPull(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 422, "%v", err)
 			return
 		}
-		pulled, err := h.lifecycle.PullPack(r.Context(), p, *pack, Actor(r))
+		pulled, err := h.lifecycle.PullPack(r.Context(), p, *pack, actor(r))
 		if err != nil {
 			WriteFault(w, err)
 			return
 		}
 		plan := pulled.Plan
-		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), p.ID, "pack.pulled", pack.Name, map[string]any{
+		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, actor(r), p.ID, "pack.pulled", pack.Name, map[string]any{
 			"installed": pulled.Installed, "removed": pulled.Removed, "guidanceNotAdopted": plan.Guidance, "conflicting": plan.Conflicting,
 			"keptReferenced": plan.KeptReferenced, "deprecatedSkipped": plan.Deprecated})
 		// Guidance is not adopted here: what the pack carries that the project

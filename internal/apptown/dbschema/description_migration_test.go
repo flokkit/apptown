@@ -1,10 +1,11 @@
 package dbschema
 
 import (
-	"github.com/flokkit/apptown/internal/ids"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 func TestMigration193PreservesExistingDescriptionsAsPersonsWords(t *testing.T) {

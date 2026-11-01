@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"slices"
 	"strings"
 	"testing"
@@ -231,7 +230,7 @@ func TestAContainerEventIsReadAsDockerReportsIt(t *testing.T) {
 {"status":"die","id":"a1","Type":"container","Action":"die","Actor":{"ID":"a1","Attributes":{"name":"apptown-env-shop-main","exitCode":"137","apptown.deployment":"01a1","apptown.generation":"4"}},"time":1760000000,"timeNano":1760000000200000000}
 {"status":"kill","id":"b2","Type":"container","Action":"kill","Actor":{"ID":"b2","Attributes":{"name":"apptown-svc-env-shop-main-postgres","signal":"15"}},"time":1760000001,"timeNano":1760000001000000000}
 `)
-	events, err := ParseContainerEvents(out)
+	events, err := parseContainerEvents(out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,13 +245,13 @@ func TestAContainerEventIsReadAsDockerReportsIt(t *testing.T) {
 	if events[1].Deployment != "01a1" || events[1].Generation != "4" || events[2].Deployment != "" || events[2].Generation != "" {
 		t.Errorf("identity labels: %+v", events)
 	}
-	if _, err := ParseContainerEvents([]byte("not json\n")); err == nil {
+	if _, err := parseContainerEvents([]byte("not json\n")); err == nil {
 		t.Error("an unreadable line was skipped")
 	}
-	if _, err := ParseContainerEvents([]byte(`{"Action":"oom","Actor":{"Attributes":{}},"timeNano":1}` + "\n")); err == nil {
+	if _, err := parseContainerEvents([]byte(`{"Action":"oom","Actor":{"Attributes":{}},"timeNano":1}` + "\n")); err == nil {
 		t.Error("an event naming no container was accepted")
 	}
-	if got, _ := ParseContainerEvents(nil); len(got) != 0 {
+	if got, _ := parseContainerEvents(nil); len(got) != 0 {
 		t.Errorf("no output read as events: %v", got)
 	}
 }
@@ -399,12 +398,12 @@ func TestABootIsRefusedOnADaemonShortOfDisk(t *testing.T) {
 			}
 			return nil, nil
 		}}
-		f.disk.Answer = func() containerresulttest.Answer {
+		f.disk.Answer = func() (int, []byte, string) {
 			out, err := tc.disk()
 			if err != nil {
-				return containerresulttest.Answer{Code: 125, Said: string(out)}
+				return 125, nil, string(out)
 			}
-			return containerresulttest.Answer{Answer: out}
+			return 0, out, ""
 		}
 
 		_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Probe: reviewUp{}}).Boot(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: f}, Name: "apptown-preview-x", StackID: "pvx", Workspace: t.TempDir(), Probe: time.Second}, c)

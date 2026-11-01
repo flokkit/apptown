@@ -6,13 +6,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
@@ -40,7 +41,7 @@ func removeNamespace(t *testing.T, namespace string) {
 func putInput(t *testing.T, blobs worker.SessionClient, path string, content []byte, mode os.FileMode) execution.Input {
 	t.Helper()
 	sum, body := blobOf(t, content)
-	if err := blobs.EnsureBlob(context.Background(), sum, body); err != nil {
+	if err := worker.SessionClientEnsureBlob(blobs, context.Background(), sum, body); err != nil {
 		t.Fatal(err)
 	}
 	return execution.Input{Blob: sum, Path: path, Mode: mode}

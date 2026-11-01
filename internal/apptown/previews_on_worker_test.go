@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/project"
 	"io"
 	"maps"
 	"net"
@@ -20,6 +19,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/project"
 
 	"github.com/flokkit/apptown/internal/apptown/conversation"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"

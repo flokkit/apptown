@@ -8,6 +8,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/containerresult"
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
+
 	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 )
@@ -15,14 +16,16 @@ import (
 // Daemon answers only disk commands using the shared result fake. Each test
 // daemon owns an instance; unrelated result consumers remain unclaimed.
 type Daemon struct {
-	Answer  func() containerresulttest.Answer
+	Answer  func() (int, []byte, string)
 	once    sync.Once
 	results containerresulttest.Daemon
 }
 
 // Started counts the containers the disk reads started: the standing
 // reader, made or started again.
-func (d *Daemon) Started() int { return d.results.Started }
+func (d *Daemon) Started() int {
+	return d.results.StartedCount()
+}
 
 // IsCreate recognizes the making of a daemon's standing disk reader.
 func IsCreate(args []string) bool {
@@ -45,15 +48,16 @@ func (d *Daemon) Run(args []string) ([]byte, error, bool) {
 		return nil, nil, true
 	}
 	d.once.Do(func() {
-		d.results.Answers = func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
-			if c.Script != "df -Pk /d" {
-				return containerresulttest.Answer{}, false
+		d.results.Configure(func(image, container, script string, args, env []string) (int, []byte, string, bool) {
+			if script != "df -Pk /d" {
+				return 0, nil, "", false
 			}
 			if d.Answer != nil {
-				return d.Answer(), true
+				code, data, said := d.Answer()
+				return code, data, said, true
 			}
-			return containerresulttest.Answer{Answer: []byte(RoomyAnswer)}, true
-		}
+			return 0, []byte(RoomyAnswer), "", true
+		})
 	})
 	return d.results.Run(args)
 }
@@ -113,3 +117,5 @@ func (d *Daemon) IsRead(args []string) bool {
 	}
 	return false
 }
+
+func (d *Daemon) SetAnswer(answer func() (int, []byte, string)) { d.Answer = answer }

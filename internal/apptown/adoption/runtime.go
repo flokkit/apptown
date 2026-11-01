@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/ids"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/wow"
@@ -48,17 +49,17 @@ func (s *Service) Resolve(ctx context.Context, source Source) (Resolved, error) 
 		return Resolved{}, err
 	}
 	value := Adoption{ProjectID: source.ProjectID, Revision: revision.Revision, recorded: revision}
-	return value.Resolve(ctx, s.deps.Ways)
+	return value.resolve(ctx, s.deps.Ways)
 }
 
-// Resolve is the adopted value's rule for turning its immutable pins into text.
+// resolve is the adopted value's rule for turning its immutable pins into text.
 // A metadata-only current value has no receipt and cannot infer one from history.
-func (a Adoption) Resolve(ctx context.Context, cat Catalog) (Resolved, error) {
+func (a Adoption) resolve(ctx context.Context, cat catalog) (Resolved, error) {
 	revision, err := (Source{ProjectID: a.ProjectID, Revision: a.recorded}).receipt("guidance")
 	if err != nil {
 		return Resolved{}, err
 	}
-	result, err := compileGuidance(ctx, cat, revision.Receipt.ImportsOf(), fmt.Sprintf("revision %d: ", revision.Revision))
+	result, err := compileGuidance(ctx, cat, revision.Receipt.importsOf(), fmt.Sprintf("revision %d: ", revision.Revision))
 	return result, err
 }
 
@@ -68,7 +69,7 @@ func (a Adoption) Resolve(ctx context.Context, cat Catalog) (Resolved, error) {
 // project with no skill keeps its text and hash, and the hash still
 // witnesses each skill. Pinned versions are immutable, so the bodies need
 // not come from a snapshot. where prefixes an error with the imports' source.
-func compileGuidance(ctx context.Context, cat Catalog, imports []Import, where string) (Resolved, error) {
+func compileGuidance(ctx context.Context, cat catalog, imports []Import, where string) (Resolved, error) {
 	result := Resolved{Imports: imports}
 	var parts, whole []string
 	owner := map[string]string{} // skill name → the item carrying it
@@ -80,7 +81,7 @@ func compileGuidance(ctx context.Context, cat Catalog, imports []Import, where s
 			return result, fmt.Errorf("%s%s has no pinned version", where, im.Name)
 		}
 		if cat == nil {
-			return result, ErrCatalogUnavailable
+			return result, errCatalogUnavailable
 		}
 		block, err := cat.Block(ctx, wow.BlockRef{ID: im.BlockID, Version: im.Version})
 		if err != nil {
@@ -148,7 +149,7 @@ func (s *Service) Checks(ctx context.Context, source Source) ([]DeclaredCheck, e
 			return nil, fmt.Errorf("revision %d: %s has no pinned version", revision.Revision, b.Name)
 		}
 		if s.deps.Ways == nil {
-			return nil, ErrCatalogUnavailable
+			return nil, errCatalogUnavailable
 		}
 		version, err := s.deps.Ways.Block(ctx, wow.BlockRef{ID: b.BlockID, Version: b.Version})
 		if err != nil {
@@ -173,7 +174,7 @@ func (s *Service) ResolveBlock(ctx context.Context, source Source, name string) 
 		return "", 0, err
 	}
 	if s.deps.Ways == nil {
-		return "", 0, ErrCatalogUnavailable
+		return "", 0, errCatalogUnavailable
 	}
 	block, err := s.deps.Ways.Block(ctx, wow.BlockRef{Name: name})
 	if err != nil {
@@ -219,7 +220,7 @@ func (s *Service) WorkflowVersion(ctx context.Context, source Source, name strin
 			return 0, "", fmt.Errorf("adopted workflow %s has no pinned version", name)
 		}
 		if s.deps.Ways == nil {
-			return 0, "", ErrCatalogUnavailable
+			return 0, "", errCatalogUnavailable
 		}
 		wf, err := s.deps.Ways.Workflow(ctx, wow.WorkflowRef{Name: name, Version: w.Version})
 		if err != nil {
@@ -255,7 +256,7 @@ func (s *Service) Workflow(ctx context.Context, in WorkflowRequest) (*ResolvedWo
 		return nil, err
 	}
 	if s.deps.Ways == nil {
-		return nil, ErrCatalogUnavailable
+		return nil, errCatalogUnavailable
 	}
 	metadata, err := s.deps.Ways.Workflow(ctx, wow.WorkflowRef{Name: name, ResolveSystem: true, MetadataOnly: true})
 	if err != nil {

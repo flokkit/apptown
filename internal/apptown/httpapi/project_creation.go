@@ -40,7 +40,7 @@ func (h ProjectCreation) Create(w http.ResponseWriter, r *http.Request) {
 		if _, ok := AuthorizeRequest(h.access, w, r, access.CapProjectCreate, access.Resource{Type: "group", ID: group}, access.Context{}); !ok {
 			return
 		}
-		p, err := h.lifecycle.Create(r.Context(), projectlifecycle.Draft{Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, Group: group, Actor: Actor(r), Packs: in.Packs})
+		p, err := h.lifecycle.Create(r.Context(), projectlifecycle.Draft{Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, Group: group, Actor: actor(r), Packs: in.Packs})
 		if err != nil {
 			WriteFault(w, err)
 			return

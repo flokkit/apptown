@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/ids"
 	"slices"
 	"sort"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
@@ -100,8 +101,8 @@ type RuleMove struct {
 	To   int    `json:"to"`
 }
 
-// Back says the move takes the rule to an older version or out of force.
-func (m RuleMove) Back() bool { return m.From != 0 && (m.To == 0 || m.To < m.From) }
+// back says the move takes the rule to an older version or out of force.
+func (m RuleMove) back() bool { return m.From != 0 && (m.To == 0 || m.To < m.From) }
 
 func (m RuleMove) String() string {
 	switch {
@@ -121,12 +122,12 @@ type CheckSummary struct {
 	Expects string `json:"expects,omitempty"`
 }
 
-type candidateBuilder struct{ ways Catalog }
+type candidateBuilder struct{ ways catalog }
 
 // Prepare describes an exact candidate without changing project state.
 func (s *Service) Prepare(ctx context.Context, projectID ids.ID, req Request) (*Candidate, error) {
 	if s.deps.Ways == nil {
-		return nil, ErrCatalogUnavailable
+		return nil, errCatalogUnavailable
 	}
 	current, err := s.CurrentReceipt(ctx, projectID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -145,7 +146,7 @@ func (s *Service) Prepare(ctx context.Context, projectID ids.ID, req Request) (*
 	}
 	if len(c.Problems) == 0 {
 		state := Adoption{ProjectID: projectID, Revision: current.Revision}
-		if _, err := state.Prepare(*c, func(required []string) error {
+		if _, err := state.prepare(*c, func(required []string) error {
 			return s.requireCapabilities(ctx, s.db, projectID, required)
 		}); err != nil {
 			return nil, err
@@ -296,7 +297,7 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 		if at := strings.LastIndex(origin, "@"); at > 0 {
 			origin = fmt.Sprintf("%s@%d", origin[:at], version)
 		}
-		wfs = append(wfs, ReceiptWorkflow{Name: e.Name, Version: version, Origin: origin, YAMLHash: HashText(yamlSrc), System: e.Doc.Metadata.System})
+		wfs = append(wfs, ReceiptWorkflow{Name: e.Name, Version: version, Origin: origin, YAMLHash: hashText(yamlSrc), System: e.Doc.Metadata.System})
 	}
 	receipt.Workflows = wfs
 	c.Receipt = receipt
@@ -383,7 +384,7 @@ func (a candidateBuilder) readPacks(ctx context.Context, picks []PackPick, hasSt
 // (hasStarter). None is an empty list.
 func (s *Service) PacksProblems(ctx context.Context, picks []PackPick, hasStarter func(string) bool) ([]string, error) {
 	if s.deps.Ways == nil {
-		return nil, ErrCatalogUnavailable
+		return nil, errCatalogUnavailable
 	}
 	a := candidateBuilder{ways: s.deps.Ways}
 	set := a.readPacks(ctx, picks, hasStarter)
@@ -729,7 +730,7 @@ func (a candidateBuilder) weakenings(ctx context.Context, prior *RecordedRevisio
 func (c *Candidate) MovesBack() []string {
 	out := []string{}
 	for _, m := range c.Moves {
-		if m.Back() {
+		if m.back() {
 			out = append(out, m.String())
 		}
 	}

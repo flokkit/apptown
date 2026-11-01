@@ -1,8 +1,9 @@
 package apptown
 
 import (
-	"github.com/flokkit/apptown/internal/apptown/project"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/apptown/project"
 )
 
 func TestWorkflowCompletionRequiresReleaseMembership(t *testing.T) {

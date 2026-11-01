@@ -15,7 +15,7 @@ func TestRunStateLifecycle(t *testing.T) {
 	states := []RunState{0, RunRunning, RunDone, RunAbandoned, 255}
 	for _, from := range states {
 		for _, to := range states {
-			got, err := from.Transition(to)
+			got, err := from.transition(to)
 			allowed := from == RunRunning && (to == RunRunning || to == RunDone || to == RunAbandoned)
 			if allowed {
 				if err != nil || got != to {

@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/deploy"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/flokkit/apptown/internal/deploy"
 
 	"github.com/flokkit/apptown/internal/trust"
 )
@@ -56,7 +57,7 @@ func (c *Client) RegistryName(ctx context.Context) (string, error) {
 		} `json:"registry"`
 	}
 	if err := c.Call(ctx, "GET", "/v2/registry", nil, &got); err != nil {
-		if IsStatus(err, 404) {
+		if isStatus(err, 404) {
 			return "", nil
 		}
 		return "", err
@@ -64,7 +65,7 @@ func (c *Client) RegistryName(ctx context.Context) (string, error) {
 	return got.Registry.Name, nil
 }
 
-type APIError struct {
+type apiError struct {
 	Status int
 	ID     string
 	Msg    string
@@ -72,9 +73,9 @@ type APIError struct {
 
 // Refused says DigitalOcean answered that it would not do what was asked
 // (a 4xx): the effect did not happen. A 5xx says nothing about that.
-func (e *APIError) Refused() bool { return e.Status >= 400 && e.Status < 500 }
+func (e *apiError) Refused() bool { return e.Status >= 400 && e.Status < 500 }
 
-func (e *APIError) Error() string {
+func (e *apiError) Error() string {
 	return fmt.Sprintf("DigitalOcean answered %d (%s): %s", e.Status, e.ID, e.Msg)
 }
 
@@ -109,7 +110,7 @@ func (c *Client) Call(ctx context.Context, method, path string, body any, out an
 			Message string `json:"message"`
 		}
 		_ = json.Unmarshal(raw, &e)
-		return &APIError{Status: res.StatusCode, ID: e.ID, Msg: e.Message}
+		return &apiError{Status: res.StatusCode, ID: e.ID, Msg: e.Message}
 	}
 	if out != nil && len(raw) > 0 {
 		return json.Unmarshal(raw, out)
@@ -159,7 +160,7 @@ func listAll[T any](ctx context.Context, c *Client, path, key string) ([]T, erro
 
 const maxListPages = 100
 
-func IsStatus(err error, code int) bool {
-	var e *APIError
+func isStatus(err error, code int) bool {
+	var e *apiError
 	return errors.As(err, &e) && e.Status == code
 }

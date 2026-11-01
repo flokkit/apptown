@@ -1,8 +1,9 @@
 package httpapi
 
 import (
-	"github.com/flokkit/apptown/internal/apptown/status"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/status"
 
 	"github.com/flokkit/apptown/internal/ids"
 

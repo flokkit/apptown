@@ -46,7 +46,7 @@ func TestADerivedValueIsTheOwnersAloneAndTheSameEachTime(t *testing.T) {
 	if elsewhere := derive(NewVault(testDB(t)), "need:deployment:a", "postgres.password"); elsewhere == first {
 		t.Fatal("another AppTown, with its own key, derives this AppTown's value")
 	}
-	if values, err := v.Current(t.Context()); err != nil || len(values) != 0 {
+	if values, err := v.current(t.Context()); err != nil || len(values) != 0 {
 		t.Fatalf("deriving stored something: %d values %v", len(values), err)
 	}
 }

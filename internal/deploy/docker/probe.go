@@ -11,11 +11,11 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
-// RenderedProbe is one deployment's concrete readiness probe, derived from a
+// renderedProbe is one deployment's concrete readiness probe, derived from a
 // part's intent (or a synthesized default) shaped by the ingress contract. It is
 // what probeApp actually executes — the render's whole job is turning topology-
 // neutral intent into this.
-type RenderedProbe struct {
+type renderedProbe struct {
 	Policy      *appcontract.HealthPolicy
 	PolicyError error
 	Path        string            // HTTP path to hit (default "/")
@@ -38,8 +38,8 @@ type RenderedProbe struct {
 // and the deployment's front-door headers (ingress.go). Declaring nothing
 // yields the §8 default — GET / shaped by the front door — so a naive app boots
 // without writing a probe line. Topology (the header) never comes from the app.
-func RenderColdBootProbe(pub *appcontract.Part, frontDoor map[string]string) RenderedProbe {
-	rp := RenderedProbe{Path: "/"}
+func RenderColdBootProbe(pub *appcontract.Part, frontDoor map[string]string) renderedProbe {
+	rp := renderedProbe{Path: "/"}
 	policy, err := readinessPolicy(pub)
 	rp.PolicyError = err
 	if policy.Explicit {

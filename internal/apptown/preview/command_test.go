@@ -36,7 +36,7 @@ func TestPreviewCommandAdmission(t *testing.T) {
 			defer cancel()
 			denied := errors.New("required receipt failed")
 			ch := Change{ID: idstest.N(7), ProjectID: idstest.N(3), SourceRevision: "selected"}
-			var runtime *Runtime
+			var runtime *previewRuntime
 			authorityCalls := 0
 			authority := previewSourceFunc(func(context.Context, ids.ID) (Change, error) {
 				authorityCalls++
@@ -77,7 +77,7 @@ func TestPreviewCommandAdmission(t *testing.T) {
 			if scenario == "cancelled" && (!errors.Is(err, context.Canceled) || authorityCalls != 0) {
 				t.Fatalf("cancellation: %v calls=%d", err, authorityCalls)
 			}
-			if runtime.Inspect(context.Background(), ChangeKey(idstest.N(7)), previewFacts{}).State != Cold {
+			if runtime.inspect(context.Background(), changeKey(idstest.N(7)), previewFacts{}).State != cold {
 				t.Fatal("rejected command changed runtime")
 			}
 		})
@@ -86,7 +86,7 @@ func TestPreviewCommandAdmission(t *testing.T) {
 
 func TestPreviewCommandSelectionResultAndFailure(t *testing.T) {
 	t.Parallel()
-	var runtime *Runtime
+	var runtime *previewRuntime
 	selected := Change{ID: idstest.N(7), ProjectID: idstest.N(3), SourceRevision: "historical"}
 	failed := errors.New("provider did not boot")
 	calls := 0
@@ -99,7 +99,7 @@ func TestPreviewCommandSelectionResultAndFailure(t *testing.T) {
 		}),
 		Host: previewHostFunc(func(_ context.Context, ch Change, restart bool) (Result, error) {
 			calls++
-			if ch != selected || !restart || runtime.Inspect(context.Background(), ChangeKey(ch.ID), previewFacts{}).State != Starting {
+			if ch != selected || !restart || runtime.inspect(context.Background(), changeKey(ch.ID), previewFacts{}).State != stateStarting {
 				t.Fatalf("host selection/ownership: %+v restart=%t", ch, restart)
 			}
 			out := Result{ProjectID: idstest.N(999), URL: "http://preview", Revision: "resolved", HostPort: 1234}
@@ -115,14 +115,14 @@ func TestPreviewCommandSelectionResultAndFailure(t *testing.T) {
 	if !errors.Is(err, failed) || !errors.As(err, &execution) || out != (Result{}) {
 		t.Fatalf("failure leaked success: %+v %v", out, err)
 	}
-	if got := runtime.Inspect(context.Background(), ChangeKey(idstest.N(7)), previewFacts{}); got.State != Broken || got.Reason != failed.Error() {
+	if got := runtime.inspect(context.Background(), changeKey(idstest.N(7)), previewFacts{}); got.State != Broken || got.Reason != failed.Error() {
 		t.Fatalf("settlement: %+v", got)
 	}
 	out, err = s.RequestChangePreview(previewCaller(), Selection{ChangeID: idstest.N(7), Restart: true})
 	if err != nil || out != (Result{ProjectID: idstest.N(3), URL: "http://preview", Revision: "resolved", HostPort: 1234}) {
 		t.Fatalf("retry: %+v %v", out, err)
 	}
-	if got := runtime.Inspect(context.Background(), ChangeKey(idstest.N(7)), previewFacts{URL: out.URL}); got.State != Live || got.Reason != "" {
+	if got := runtime.inspect(context.Background(), changeKey(idstest.N(7)), previewFacts{URL: out.URL}); got.State != live || got.Reason != "" {
 		t.Fatalf("retry settlement: %+v", got)
 	}
 }
@@ -145,11 +145,11 @@ func TestCancelledPreviewRestartDoesNotReapAnotherBoot(t *testing.T) {
 		}),
 	})
 	runtime := &s.runtime
-	owner, err := runtime.Begin(context.Background(), ChangeKey(idstest.N(7)))
+	owner, err := runtime.begin(context.Background(), changeKey(idstest.N(7)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer owner.Finish(nil)
+	defer owner.finish(nil)
 	done := make(chan error, 1)
 	go func() {
 		_, err := s.RequestChangePreview(ctx, Selection{ChangeID: idstest.N(7), Restart: true})
@@ -169,7 +169,7 @@ func TestCancelledPreviewRestartDoesNotReapAnotherBoot(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("cancelled waiter did not finish")
 	}
-	if runtime.Inspect(context.Background(), ChangeKey(idstest.N(7)), previewFacts{}).State != Starting {
+	if runtime.inspect(context.Background(), changeKey(idstest.N(7)), previewFacts{}).State != stateStarting {
 		t.Fatal("cancelled restart settled the owner's boot")
 	}
 }
@@ -193,7 +193,7 @@ func (previewSourceFunc) Console(context.Context, string) (Console, error) {
 func TestPreviewPermissionBeforeRuntime(t *testing.T) {
 	t.Parallel()
 	denied := errors.New("decision receipt unavailable")
-	var runtime *Runtime
+	var runtime *previewRuntime
 	source := previewSourceFunc(func(context.Context, ids.ID) (Change, error) {
 		return Change{ID: idstest.N(7), ProjectID: idstest.N(3)}, nil
 	})
@@ -212,7 +212,7 @@ func TestPreviewPermissionBeforeRuntime(t *testing.T) {
 	if _, err := s.RequestChangePreview(previewCaller(), Selection{ChangeID: idstest.N(7), Restart: true}); !errors.Is(err, denied) {
 		t.Fatal(err)
 	}
-	if got := runtime.Inspect(context.Background(), ChangeKey(idstest.N(7)), previewFacts{}); got.State != Cold {
+	if got := runtime.inspect(context.Background(), changeKey(idstest.N(7)), previewFacts{}); got.State != cold {
 		t.Fatalf("denied command took runtime: %+v", got)
 	}
 }
@@ -224,8 +224,8 @@ func (f previewPermissionFunc) Require(ctx context.Context, p access.Permission)
 }
 
 // previewFacts is an observation of where a preview is served, as given.
-type previewFacts Observation
+type previewFacts observation
 
-func (f previewFacts) ObservePreview(context.Context) Observation {
-	return Observation(f)
+func (f previewFacts) ObservePreview(context.Context) observation {
+	return observation(f)
 }

@@ -42,7 +42,7 @@ func newRestartWorld(t *testing.T) restartWorld {
 	}
 	w := restartWorld{a: a, run: run, source: workflowSourceForTest(t, a, run), stepID: stepID, seen: &[]string{}}
 	w.hub, w.ws, w.base = requireLocation(t)(w.source.Repository(a.cfg.dataDir)), requireLocation(t)(w.source.Workspace(a.cfg.dataDir)), w.source.RunBaseSHA
-	installFakePi(t, a, func(n int, req ExecRequest) ExecOutcome {
+	installFakePi(t, a, func(n int, req execRequest) execOutcome {
 		if n > 1 {
 			_, err := os.Stat(filepath.Join(req.Workspace, "stray.txt"))
 			*w.seen = append(*w.seen, fmt.Sprintf("%s stray=%t branch=%s", gittest.Run(t, req.Workspace, "rev-parse", "HEAD"), err == nil, scm.Ref(t.Context(), w.hub, "refs/heads/"+w.source.Branch)))
@@ -50,7 +50,7 @@ func newRestartWorld(t *testing.T) restartWorld {
 		if err := os.WriteFile(filepath.Join(req.Workspace, "work.txt"), []byte(fmt.Sprintf("attempt %d\n", n)), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		return ExecOutcome{Output: piSays("done")}
+		return execOutcome{Output: piSays("done")}
 	})
 	if err := a.Work.ExecuteStep(a.asEngine(context.Background()), stepID); err != nil {
 		t.Fatal(err)

@@ -40,7 +40,7 @@ type RestoreCheck string
 
 const (
 	RestoreUnconfirmed RestoreCheck = "unconfirmed"
-	RestoreGone        RestoreCheck = "gone"
+	restoreGone        RestoreCheck = "gone"
 	// RestoreFilling is a built-in deployment whose rebuild puts its data
 	// back (dataprotection's fill): only that rebuild runs it, and its end
 	// lifts the hold.
@@ -54,44 +54,44 @@ const (
 
 // ReleaseOrigin says whether AppTown shipped a release.
 const (
-	OriginShipped              = "shipped"
-	OriginObservedAfterRestore = "observed-after-restore"
+	originShipped              = "shipped"
+	originObservedAfterRestore = "observed-after-restore"
 )
 
 var (
-	// ErrUnconfirmedSinceRestore refuses an effect on a deployment whose
+	// errUnconfirmedSinceRestore refuses an effect on a deployment whose
 	// provider has not been read since AppTown was restored.
-	ErrUnconfirmedSinceRestore = fault.New(fault.Conflict, "not yet confirmed since AppTown was restored: AppTown acts on it once its provider says what it runs")
-	// ErrGoneSinceRestore refuses an effect other than a take-down on a
+	errUnconfirmedSinceRestore = fault.New(fault.Conflict, "not yet confirmed since AppTown was restored: AppTown acts on it once its provider says what it runs")
+	// errGoneSinceRestore refuses an effect other than a take-down on a
 	// deployment its provider no longer has.
-	ErrGoneSinceRestore = fault.New(fault.Conflict, "gone from its provider since AppTown was restored: take it down, or release it again once AppTown can rebuild it")
-	// ErrFillingSinceRestore refuses anything but its rebuild for a built-in
+	errGoneSinceRestore = fault.New(fault.Conflict, "gone from its provider since AppTown was restored: take it down, or release it again once AppTown can rebuild it")
+	// errFillingSinceRestore refuses anything but its rebuild for a built-in
 	// deployment waiting for its data.
-	ErrFillingSinceRestore = fault.New(fault.Conflict, "waiting for its data since AppTown was restored: its rebuild puts the data back before the app starts")
-	// ErrNotFilledSinceRestore refuses the automatic rebuild of a built-in
+	errFillingSinceRestore = fault.New(fault.Conflict, "waiting for its data since AppTown was restored: its rebuild puts the data back before the app starts")
+	// errNotFilledSinceRestore refuses the automatic rebuild of a built-in
 	// deployment whose data did not come back after a restore.
-	ErrNotFilledSinceRestore = fault.New(fault.Conflict, "not started since AppTown was restored, because its data did not come back: release it to start it without that data, then restore its data from its backups")
+	errNotFilledSinceRestore = fault.New(fault.Conflict, "not started since AppTown was restored, because its data did not come back: release it to start it without that data, then restore its data from its backups")
 )
 
 // HeldAfterRestore refuses any effect on a held deployment.
 func (e *Deployment) HeldAfterRestore() error {
 	switch e.RestoreCheck {
 	case RestoreUnconfirmed:
-		return fmt.Errorf("%s is %w", e.Name, ErrUnconfirmedSinceRestore)
-	case RestoreGone:
-		return fmt.Errorf("%s is %w", e.Name, ErrGoneSinceRestore)
+		return fmt.Errorf("%s is %w", e.Name, errUnconfirmedSinceRestore)
+	case restoreGone:
+		return fmt.Errorf("%s is %w", e.Name, errGoneSinceRestore)
 	case RestoreFilling:
-		return fmt.Errorf("%s is %w", e.Name, ErrFillingSinceRestore)
+		return fmt.Errorf("%s is %w", e.Name, errFillingSinceRestore)
 	}
 	return nil
 }
 
-// TakeDownHeldAfterRestore refuses a take-down of a deployment not yet
+// takeDownHeldAfterRestore refuses a take-down of a deployment not yet
 // confirmed: it would delete from records that may be stale. A gone one
 // may be taken down: that removes AppTown's records of it.
-func (e *Deployment) TakeDownHeldAfterRestore() error {
+func (e *Deployment) takeDownHeldAfterRestore() error {
 	if e.RestoreCheck == RestoreUnconfirmed {
-		return fmt.Errorf("%s is %w", e.Name, ErrUnconfirmedSinceRestore)
+		return fmt.Errorf("%s is %w", e.Name, errUnconfirmedSinceRestore)
 	}
 	return nil
 }
@@ -175,8 +175,8 @@ func heldAfterRestoreIn(ctx context.Context, tx *database.Tx, deploymentID ids.I
 // heldKinds are the targets whose deployments a restore holds.
 var heldKinds = []string{KindDOApp, KindPortainer}
 
-// Held is a deployment a restore held.
-type Held struct {
+// held is a deployment a restore held.
+type held struct {
 	ID        ids.ID
 	ProjectID ids.ID
 	Name      string
@@ -184,23 +184,23 @@ type Held struct {
 
 // HoldAfterRestore holds every standing deployment on App Platform or
 // Portainer, in the restored database before AppTown first starts.
-func (s *Deployments) HoldAfterRestore(ctx context.Context) ([]Held, error) {
+func (s *Deployments) HoldAfterRestore(ctx context.Context) ([]held, error) {
 	rows, err := deploymentsql.New(s.db.SQL()).HoldStandingAfterRestore(ctx, deploymentsql.HoldStandingAfterRestoreParams{
 		Held: string(RestoreUnconfirmed), UpdatedAt: s.now(), Standing: Standing.String(), Kinds: heldKinds})
 	if err != nil {
 		return nil, err
 	}
-	out := make([]Held, len(rows))
+	out := make([]held, len(rows))
 	for i, r := range rows {
-		out[i] = Held{ID: r.ID, ProjectID: r.ProjectID, Name: r.Name}
+		out[i] = held{ID: r.ID, ProjectID: r.ProjectID, Name: r.Name}
 	}
 	return out, nil
 }
 
-// CheckAfterRestore asks the provider of each held deployment what it runs
+// checkRestoredDeployments asks the provider of each held deployment what it runs
 // and settles what it can. One deployment's failure is logged and the
 // others go on. A deployment with an attempt open waits for it to end.
-func (s *Service) CheckAfterRestore(ctx context.Context) error {
+func (s *Service) checkRestoredDeployments(ctx context.Context) error {
 	held, err := deploymentsql.New(s.db.SQL()).DeploymentsHeldAfterRestore(ctx, string(RestoreUnconfirmed))
 	if err != nil {
 		return err
@@ -244,7 +244,7 @@ func (s *Service) checkAfterRestore(ctx context.Context, id ids.ID) error {
 	recorded := record.RecordedRunning(dep.Placement(), released)
 	switch {
 	case o.Rollout == "absent" && o.Running == "":
-		return s.settleRestoreCheck(ctx, dep, RestoreGone, "deployment.gone-after-restore", map[string]any{"recorded": recorded})
+		return s.settleRestoreCheck(ctx, dep, restoreGone, "deployment.gone-after-restore", map[string]any{"recorded": recorded})
 	case o.Running == "":
 		return nil // nothing named as running yet (a first rollout): asked again
 	case o.Running == recorded:
@@ -291,7 +291,7 @@ func (s *Service) adoptAfterRestore(ctx context.Context, dep *Deployment, t *Tar
 		}
 		number, err := releasesql.New(tx.SQL()).RecordObservedRelease(ctx, releasesql.RecordObservedReleaseParams{
 			ID: ids.New(now), ProjectID: dep.ProjectID, State: Released.String(), Deployment: dep.Name, DeploymentID: dep.ID,
-			Generation: dep.ObservedGeneration, ExternalRef: running, At: now, Origin: OriginObservedAfterRestore,
+			Generation: dep.ObservedGeneration, ExternalRef: running, At: now, Origin: originObservedAfterRestore,
 			Notes: fmt.Sprintf("observed on %s after AppTown was restored; AppTown did not ship this (it had recorded %s)", t.Name, orNone(recorded)),
 		})
 		if err != nil {
@@ -314,10 +314,10 @@ func (s *Service) handBundle(ctx context.Context, dep *Deployment) (ids.ID, erro
 	}
 	q := releasesql.New(s.db.SQL())
 	origin, err := q.NewestReleasedOrigin(ctx, releasesql.NewestReleasedOriginParams{DeploymentID: dep.ID, Released: Released.String()})
-	if found, err := database.Lookup(err); err != nil || !found || origin != OriginObservedAfterRestore {
+	if found, err := database.Lookup(err); err != nil || !found || origin != originObservedAfterRestore {
 		return ids.Nil, err
 	}
-	bundle, err := q.NewestShippedBundle(ctx, releasesql.NewestShippedBundleParams{DeploymentID: dep.ID, Released: Released.String(), Shipped: OriginShipped})
+	bundle, err := q.NewestShippedBundle(ctx, releasesql.NewestShippedBundleParams{DeploymentID: dep.ID, Released: Released.String(), Shipped: originShipped})
 	if found, err := database.Lookup(err); err != nil || !found {
 		return ids.Nil, err
 	}

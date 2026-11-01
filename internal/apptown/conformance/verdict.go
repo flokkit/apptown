@@ -2,6 +2,7 @@ package conformance
 
 import (
 	"encoding/json"
+
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -42,7 +43,7 @@ type CheckIdentity struct {
 	Check     string
 }
 
-func (v Verdict) Identity() CheckIdentity {
+func (v Verdict) identity() CheckIdentity {
 	return CheckIdentity{v.ProjectID, v.Block, v.Version, v.Check}
 }
 
@@ -56,5 +57,5 @@ type VerdictView struct {
 }
 
 func (v Verdict) MarshalJSON() ([]byte, error) {
-	return json.Marshal(VerdictView{VerdictFields(v), v.State.Label()})
+	return json.Marshal(VerdictView{VerdictFields(v), v.State.label()})
 }

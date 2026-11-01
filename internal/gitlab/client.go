@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -56,10 +55,10 @@ func (g *Client) Do(ctx context.Context, method, path string, body any, out any)
 	if method != http.MethodGet {
 		ctx = context.WithoutCancel(ctx)
 	}
-	return g.DoContext(ctx, method, path, body, out)
+	return g.doContext(ctx, method, path, body, out)
 }
 
-func (g *Client) DoContext(ctx context.Context, method, path string, body any, out any) error {
+func (g *Client) doContext(ctx context.Context, method, path string, body any, out any) error {
 	status, raw, err := g.Raw(ctx, method, path, body)
 	if err != nil {
 		return err
@@ -105,12 +104,6 @@ func (g *Client) Raw(ctx context.Context, method, path string, body any) (int, [
 		return res.StatusCode, nil, fmt.Errorf("GitLab response exceeds %d bytes", limit)
 	}
 	return res.StatusCode, raw, nil
-}
-
-// CreateProject creates a private project and returns its clone URL and path.
-func (g *Client) CreateProject(ctx context.Context, name string, namespaceID int) (cloneURL, pathNS string, err error) {
-	p, err := g.CreateRepository(ctx, name, namespaceID, "")
-	return p.HTTPURL, p.PathNS, err
 }
 
 // CreateRepository returns the provider identity as well as its observed location.
@@ -159,33 +152,9 @@ func (g *Client) ArchiveProject(ctx context.Context, id int64) error {
 	return g.Do(ctx, "POST", fmt.Sprintf("/projects/%d/archive", id), nil, nil)
 }
 
-// ArchiveRename frees the original path and archives the renamed remote.
-// Archive failure is logged after a successful rename.
-func (g *Client) ArchiveRename(ctx context.Context, pathNS, newPath string) error {
-	id := url.PathEscape(pathNS)
-	if err := g.Do(ctx, "PUT", "/projects/"+id, map[string]any{"name": newPath, "path": newPath}, nil); err != nil {
-		return fmt.Errorf("rename: %w", err)
-	}
-	// The rename changed the path — address the archive call by the NEW path.
-	ns := pathNS
-	if i := strings.LastIndex(pathNS, "/"); i >= 0 {
-		ns = pathNS[:i+1]
-	} else {
-		ns = ""
-	}
-	// Archiving needs Owner on the project; AppTown's token is typically
-	// Maintainer (rename works, archive 403s). The rename is what frees the
-	// name and protects against collisions — archive is belt-and-braces, so
-	// its failure is reported in the log, not to the caller.
-	if err := g.Do(ctx, "POST", "/projects/"+url.PathEscape(ns+newPath)+"/archive", nil, nil); err != nil {
-		log.Printf("gitlab archive of %s (renamed ok): %v", newPath, err)
-	}
-	return nil
-}
-
 func (g *Client) GetMR(ctx context.Context, projectPath string, iid int) (*MergeRequest, error) {
 	var mr MergeRequest
-	err := g.DoContext(ctx, "GET", fmt.Sprintf("/projects/%s/merge_requests/%d", url.PathEscape(projectPath), iid), nil, &mr)
+	err := g.doContext(ctx, "GET", fmt.Sprintf("/projects/%s/merge_requests/%d", url.PathEscape(projectPath), iid), nil, &mr)
 	return &mr, err
 }
 
@@ -202,13 +171,13 @@ func (g *Client) CreateMR(ctx context.Context, projectPath, source, target, titl
 // runs quick actions found in a saved description as this token's owner, so
 // a caller sends only text it has made inert.
 func (g *Client) UpdateMRDescription(ctx context.Context, projectPath string, iid int, description string) error {
-	return g.DoContext(ctx, "PUT", fmt.Sprintf("/projects/%s/merge_requests/%d", url.PathEscape(projectPath), iid),
+	return g.doContext(ctx, "PUT", fmt.Sprintf("/projects/%s/merge_requests/%d", url.PathEscape(projectPath), iid),
 		map[string]any{"description": description}, nil)
 }
 
 // MergeMR merges a merge request only if its head is sha, never squashed.
 func (g *Client) MergeMR(ctx context.Context, projectPath string, iid int, sha, message string) error {
-	return g.DoContext(ctx, "PUT", fmt.Sprintf("/projects/%s/merge_requests/%d/merge", url.PathEscape(projectPath), iid),
+	return g.doContext(ctx, "PUT", fmt.Sprintf("/projects/%s/merge_requests/%d/merge", url.PathEscape(projectPath), iid),
 		struct {
 			Message string `json:"merge_commit_message"`
 			SHA     string `json:"sha"`
@@ -231,7 +200,7 @@ type MergeSettings struct {
 
 func (g *Client) MergeSettings(ctx context.Context, projectPath string) (MergeSettings, error) {
 	var s MergeSettings
-	err := g.DoContext(ctx, "GET", "/projects/"+url.PathEscape(projectPath), nil, &s)
+	err := g.doContext(ctx, "GET", "/projects/"+url.PathEscape(projectPath), nil, &s)
 	return s, err
 }
 
@@ -242,7 +211,7 @@ func (g *Client) BranchHead(ctx context.Context, projectPath, branch string) (st
 			ID string `json:"id"`
 		} `json:"commit"`
 	}
-	err := g.DoContext(ctx, "GET", "/projects/"+url.PathEscape(projectPath)+"/repository/branches/"+url.PathEscape(branch), nil, &b)
+	err := g.doContext(ctx, "GET", "/projects/"+url.PathEscape(projectPath)+"/repository/branches/"+url.PathEscape(branch), nil, &b)
 	return b.Commit.ID, err
 }
 

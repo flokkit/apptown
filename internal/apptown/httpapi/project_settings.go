@@ -24,12 +24,12 @@ func (h ProjectSettings) PatchProject(w http.ResponseWriter, r *http.Request) {
 	if !RequireAdmin(h.access, w, r) {
 		return
 	}
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
 	jsonCommand(w, r, jsonBody{}, func(in project.SettingsPatch) {
-		out, err := h.lifecycle.UpdateSettings(r.Context(), p.ID, in, Actor(r))
+		out, err := h.lifecycle.UpdateSettings(r.Context(), p.ID, in, actor(r))
 		if err != nil {
 			WriteFault(w, err)
 			return

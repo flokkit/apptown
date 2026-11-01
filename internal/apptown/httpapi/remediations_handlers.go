@@ -66,7 +66,7 @@ func (h Remediations) StartRemediation(w http.ResponseWriter, r *http.Request) {
 			WriteJSON(w, 200, RemediationPreview{Items: len(findings), Projects: len(projects), Findings: findings})
 			return
 		}
-		m, items, err := h.fixes.Start(r.Context(), in.Scope, strings.TrimSpace(in.Ref), Actor(r), in.Concurrency)
+		m, items, err := h.fixes.Start(r.Context(), in.Scope, strings.TrimSpace(in.Ref), actor(r), in.Concurrency)
 		if err != nil {
 			// Unclassified failures keep the 422 this route has always answered.
 			WriteFaultOr(w, err, http.StatusUnprocessableEntity)
@@ -79,7 +79,7 @@ func (h Remediations) StartRemediation(w http.ResponseWriter, r *http.Request) {
 
 // Remediation: GET /api/v1/conformance/remediations/{id}
 func (h Remediations) Remediation(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -109,7 +109,7 @@ func (h Remediations) Remediation(w http.ResponseWriter, r *http.Request) {
 
 // RemediationAction: POST /api/v1/conformance/remediations/{id}/{action}
 func (h Remediations) RemediationAction(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -117,11 +117,11 @@ func (h Remediations) RemediationAction(w http.ResponseWriter, r *http.Request) 
 	var aerr error
 	switch r.PathValue("action") {
 	case "pause":
-		aerr = h.fixes.Pause(r.Context(), id, Actor(r))
+		aerr = h.fixes.Pause(r.Context(), id, actor(r))
 	case "resume":
-		aerr = h.fixes.Resume(r.Context(), id, Actor(r))
+		aerr = h.fixes.Resume(r.Context(), id, actor(r))
 	case "cancel":
-		aerr = h.fixes.Cancel(r.Context(), id, Actor(r))
+		aerr = h.fixes.Cancel(r.Context(), id, actor(r))
 	default:
 		WriteError(w, 404, "unknown action")
 		return
@@ -136,13 +136,13 @@ func (h Remediations) RemediationAction(w http.ResponseWriter, r *http.Request) 
 
 // RemediationItemAction: POST /api/v1/conformance/remediations/{id}/items/{item}/{action}
 func (h Remediations) RemediationItemAction(w http.ResponseWriter, r *http.Request) {
-	jobID, err := PathID(r, "id")
+	jobID, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad remediation id")
 		return
 	}
 
-	itemID, err := PathID(r, "item")
+	itemID, err := pathID(r, "item")
 	if err != nil {
 		WriteError(w, 400, "bad item id")
 		return
@@ -154,9 +154,9 @@ func (h Remediations) RemediationItemAction(w http.ResponseWriter, r *http.Reque
 		var aerr error
 		switch r.PathValue("action") {
 		case "retry":
-			aerr = h.fixes.RetryItem(r.Context(), jobID, itemID, Actor(r), in.Note)
+			aerr = h.fixes.RetryItem(r.Context(), jobID, itemID, actor(r), in.Note)
 		case "skip":
-			aerr = h.fixes.SkipItem(r.Context(), jobID, itemID, Actor(r), strs.FirstNonBlank(in.Reason, in.Note))
+			aerr = h.fixes.SkipItem(r.Context(), jobID, itemID, actor(r), strs.FirstNonBlank(in.Reason, in.Note))
 		default:
 			WriteError(w, 404, "unknown action")
 			return
@@ -184,7 +184,7 @@ func (h Remediations) Workers(w http.ResponseWriter, r *http.Request) {
 				WriteError(w, 422, "unknown worker kind %q (only %s exists yet)", in.Kind, remediation.WorkerKindRemediation)
 				return
 			}
-			if err := h.fixes.SetWorkerCount(r.Context(), in.Kind, in.Count, Actor(r)); err != nil {
+			if err := h.fixes.SetWorkerCount(r.Context(), in.Kind, in.Count, actor(r)); err != nil {
 				WriteError(w, 422, "%v", err)
 				return
 			}

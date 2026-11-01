@@ -19,9 +19,9 @@ func ParseSizeName(value any) (string, error) {
 	return name, nil
 }
 
-// CheckNeedSizes refuses competing source declarations. Applied operator cap
+// checkNeedSizes refuses competing source declarations. Applied operator cap
 // overrides are separate recorded decisions, not source declarations.
-func (c *Contract) CheckNeedSizes() error {
+func (c *Contract) checkNeedSizes() error {
 	for _, name := range c.Needs {
 		if _, selected := c.NeedSizes[name]; selected {
 			if _, declared := c.NeedResources[name]; declared {

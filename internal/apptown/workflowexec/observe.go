@@ -28,13 +28,13 @@ type observer struct {
 	duration metric.Float64Histogram
 	queued   metric.Float64Histogram
 	attempts metric.Int64Counter
-	links    AttemptLinks
+	links    attemptLinks
 	clock    func() time.Time // AppTown's clock, which times an attempt; nil is the real one
 }
 
 func (o observer) now() time.Time { return clock.Or(o.clock)() }
 
-func newObserver(tracer trace.Tracer, meter metric.Meter, links AttemptLinks, now func() time.Time) observer {
+func newObserver(tracer trace.Tracer, meter metric.Meter, links attemptLinks, now func() time.Time) observer {
 	if tracer == nil {
 		tracer = nooptrace.NewTracerProvider().Tracer("forge/workflowexec")
 	}
@@ -72,13 +72,13 @@ type stepAttempt struct {
 	runID    ids.ID
 	stepID   ids.ID
 	attempt  int64
-	links    AttemptLinks
+	links    attemptLinks
 	done     sync.Once
 }
 
-// AttemptLinks lets another owner find a running attempt's span, so an
+// attemptLinks lets another owner find a running attempt's span, so an
 // inference request can link to the step it served. Nil means no links.
-type AttemptLinks interface {
+type attemptLinks interface {
 	Publish(runID ids.ID, stepID ids.ID, attempt int64, sc trace.SpanContext)
 	Forget(runID ids.ID, stepID ids.ID, attempt int64)
 }

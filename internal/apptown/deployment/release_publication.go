@@ -28,12 +28,12 @@ import (
 // (PublishRelease) before anything is deployed. Docker hosts pull those
 // digests; nothing is built on a target.
 
-// ReleaseImage is one distinct image of a release, under the build's name
+// releaseImage is one distinct image of a release, under the build's name
 // for it: part-<part> or init-<step>, after the part or init step that first
 // declares it. The two prefixes keep a part's name and an init step's apart
 // whatever they are called (a part named init-migrate and an init step
 // migrate are different images).
-type ReleaseImage struct {
+type releaseImage struct {
 	Name string
 	// Build is the tree folder an image is built from (build:), and Static
 	// the folder a static site's files are packed from, into the file
@@ -48,14 +48,14 @@ type ReleaseImage struct {
 }
 
 // IsStatic says the image is a static site's: the file server's image.
-func (img ReleaseImage) IsStatic() bool {
+func (img releaseImage) IsStatic() bool {
 	return img.Static != "" || img.StaticBuild != (appcontract.StaticBuild{})
 }
 
 // Dockerfile is a static site's image: its files in the file server's
 // image, with the command that serves them (docker.StaticSiteDockerfile),
 // as a Docker host's own build of it is (docker.PrepareImages).
-func (img ReleaseImage) Dockerfile(server string) (string, error) {
+func (img releaseImage) Dockerfile(server string) (string, error) {
 	if server == "" {
 		return "", fmt.Errorf("no static server image: the tool versions name it")
 	}
@@ -65,7 +65,7 @@ func (img ReleaseImage) Dockerfile(server string) (string, error) {
 // ReleasePlan is what a release is made of: its distinct images, in the
 // contract's order, and which of them each part and init step runs.
 type ReleasePlan struct {
-	Images      []ReleaseImage
+	Images      []releaseImage
 	Parts, Init map[string]string // part or init step -> image name
 }
 
@@ -74,8 +74,8 @@ type ReleasePlan struct {
 // declares the same.
 func PlanRelease(c *appcontract.Contract) ReleasePlan {
 	plan := ReleasePlan{Parts: map[string]string{}, Init: map[string]string{}}
-	named := map[ReleaseImage]string{}
-	add := func(name string, img ReleaseImage) string {
+	named := map[releaseImage]string{}
+	add := func(name string, img releaseImage) string {
 		if n, ok := named[img]; ok {
 			return n
 		}
@@ -84,16 +84,16 @@ func PlanRelease(c *appcontract.Contract) ReleasePlan {
 		plan.Images = append(plan.Images, img)
 		return name
 	}
-	declared := func(build, static string, sb *appcontract.StaticBuild, image string, port int) ReleaseImage {
+	declared := func(build, static string, sb *appcontract.StaticBuild, image string, port int) releaseImage {
 		switch {
 		case sb != nil:
-			return ReleaseImage{StaticBuild: *sb, Port: port}
+			return releaseImage{StaticBuild: *sb, Port: port}
 		case static != "":
-			return ReleaseImage{Static: static, Port: port}
+			return releaseImage{Static: static, Port: port}
 		case build != "":
-			return ReleaseImage{Build: build}
+			return releaseImage{Build: build}
 		}
-		return ReleaseImage{Source: image}
+		return releaseImage{Source: image}
 	}
 	for _, p := range c.Parts {
 		plan.Parts[p.Name] = add("part-"+p.Name, declared(p.Build, p.Static, p.StaticBuild, p.Image, p.Port))
@@ -104,9 +104,9 @@ func PlanRelease(c *appcontract.Contract) ReleasePlan {
 	return plan
 }
 
-// ErrNoReleaseRegistry: a release built on the worker is published to the
+// errNoReleaseRegistry: a release built on the worker is published to the
 // project's container-registry attachment, and it has none.
-var ErrNoReleaseRegistry = fmt.Errorf("%w: this project has no container registry for its releases; attach one", ErrReleaseRefused)
+var errNoReleaseRegistry = fmt.Errorf("%w: this project has no container registry for its releases; attach one", ErrReleaseRefused)
 
 // LandingRegistry is the repository a landing publishes its release to.
 // A project with no container registry is first given the one
@@ -120,7 +120,7 @@ var ErrNoReleaseRegistry = fmt.Errorf("%w: this project has no container registr
 // credential.
 func (s *Service) LandingRegistry(ctx context.Context, projectID ids.ID, who string, receipt map[string]any) (oci.Repository, error) {
 	if s.env.integrations == nil {
-		return oci.Repository{}, ErrNoReleaseRegistry
+		return oci.Repository{}, errNoReleaseRegistry
 	}
 	if purpose, err := s.env.Purpose(ctx, projectID); err != nil {
 		return oci.Repository{}, err
@@ -315,7 +315,7 @@ func sourceCredential(withheld bool, repo oci.Repository, source string) oci.Cre
 // named but not held) is the refusal, before anything is built.
 func (s *Service) PublishesLanding(ctx context.Context, projectID ids.ID) (bool, error) {
 	_, err := s.env.ReleaseRepository(ctx, projectID)
-	if errors.Is(err, ErrNoReleaseRegistry) {
+	if errors.Is(err, errNoReleaseRegistry) {
 		return false, nil
 	}
 	return err == nil, err

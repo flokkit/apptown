@@ -40,10 +40,10 @@ import (
 // A step that needs what the worker cannot provide yet is refused before
 // any effect (WorkerRefusal), and never falls back to AppTown's host.
 
-// AgentTaskDriver is a worker's task driver, which also reports the agent
+// agentTaskDriver is a worker's task driver, which also reports the agent
 // image it runs agent steps in and the result files a task left
 // (execution.WorkerTasks).
-type AgentTaskDriver interface {
+type agentTaskDriver interface {
 	execution.TaskDriver
 	AgentImage(context.Context) (execution.AgentImage, error)
 	Results(context.Context, execution.TaskRef) (map[string]execution.ResultFile, error)
@@ -58,26 +58,26 @@ type AgentWorker struct {
 }
 
 // driver is the worker's driver, as an agent step needs it.
-func (w *AgentWorker) driver() (AgentTaskDriver, error) {
+func (w *AgentWorker) driver() (agentTaskDriver, error) {
 	if w == nil || w.Tasks == nil {
 		return nil, errors.New("this AppTown has no worker for agent steps")
 	}
-	d, ok := w.Tasks.Driver.(AgentTaskDriver)
+	d, ok := w.Tasks.Driver.(agentTaskDriver)
 	if !ok {
 		return nil, fmt.Errorf("AppTown's task backend (%s) cannot run agent steps: it reports no agent image or result files", w.Tasks.backend())
 	}
 	return d, nil
 }
 
-// WorkerRefusal: the step needs what the worker cannot provide yet, or what
+// workerRefusal: the step needs what the worker cannot provide yet, or what
 // it needs could not be read. It is refused before any effect.
-type WorkerRefusal struct{ Reason string }
+type workerRefusal struct{ Reason string }
 
-func (r *WorkerRefusal) Error() string { return r.Reason }
+func (r *workerRefusal) Error() string { return r.Reason }
 
 // needsWhatTheWorkerLacks refuses a step for something it needs.
 func needsWhatTheWorkerLacks(what string) error {
-	return &WorkerRefusal{Reason: "this step needs " + what + ", which AppTown's worker cannot provide yet; it is not run on AppTown's own machine instead"}
+	return &workerRefusal{Reason: "this step needs " + what + ", which AppTown's worker cannot provide yet; it is not run on AppTown's own machine instead"}
 }
 
 // Where an agent on a worker finds what AppTown sends it (read-only, under
@@ -236,14 +236,14 @@ func (a *Executor) privateOnWorker(ctx context.Context, c workerAgentCall, cfg *
 			return nil, nil, err
 		}
 		if !commitPattern.MatchString(c.commit) {
-			return nil, nil, &WorkerRefusal{Reason: fmt.Sprintf("the app's declared needs could not be read: %q is not a commit", c.commit)}
+			return nil, nil, &workerRefusal{Reason: fmt.Sprintf("the app's declared needs could not be read: %q is not a commit", c.commit)}
 		}
 		raw, err := docker.ContractFileAt(ctx, hub, c.commit)
 		if errors.Is(err, docker.ErrNoContract) {
 			raw, err = nil, nil
 		}
 		if err != nil {
-			return nil, nil, &WorkerRefusal{Reason: "the app's declared needs could not be read from commit " + c.commit + ": " + err.Error()}
+			return nil, nil, &workerRefusal{Reason: "the app's declared needs could not be read from commit " + c.commit + ": " + err.Error()}
 		}
 		var contract *appcontract.Contract
 		if raw != nil {
@@ -270,7 +270,7 @@ func (a *Executor) privateOnWorker(ctx context.Context, c workerAgentCall, cfg *
 		return nil, nil, nil
 	}
 	if k.useDind && !a.cfg.PrivateDocker {
-		return nil, nil, &WorkerRefusal{Reason: privateDockerOff}
+		return nil, nil, &workerRefusal{Reason: privateDockerOff}
 	}
 	p := &execution.PrivateDocker{Daemon: k.useDind, Services: services}
 	if k.useDind {
@@ -281,7 +281,7 @@ func (a *Executor) privateOnWorker(ctx context.Context, c workerAgentCall, cfg *
 		p.Mirror = mirror
 	}
 	if err := p.Valid(privateLimits(a.worker.Tasks.Profile.Limits)); err != nil {
-		return nil, nil, &WorkerRefusal{Reason: "the step's private Docker: " + err.Error()}
+		return nil, nil, &workerRefusal{Reason: "the step's private Docker: " + err.Error()}
 	}
 	return p, env, nil
 }
@@ -292,12 +292,12 @@ func (a *Executor) privateOnWorker(ctx context.Context, c workerAgentCall, cfg *
 func (a *Executor) admitOnWorker(ctx context.Context, c workerAgentCall) (agentConfig, agentKnobs, error) {
 	var cfg agentConfig
 	if err := json.Unmarshal(c.step.Config, &cfg); err != nil {
-		return cfg, agentKnobs{}, &WorkerRefusal{Reason: "the step's recorded configuration could not be read: " + err.Error()}
+		return cfg, agentKnobs{}, &workerRefusal{Reason: "the step's recorded configuration could not be read: " + err.Error()}
 	}
 	// resolveAgentKnobs takes an unreadable definition as declaring nothing;
 	// what a step needs is never read that way here.
 	if _, err := c.run.Definition(); err != nil {
-		return cfg, agentKnobs{}, &WorkerRefusal{Reason: "the run's recorded definition could not be read: " + err.Error()}
+		return cfg, agentKnobs{}, &workerRefusal{Reason: "the run's recorded definition could not be read: " + err.Error()}
 	}
 	k := a.resolveAgentKnobs(c.run, &cfg)
 	if c.review != nil {
@@ -313,9 +313,9 @@ func (a *Executor) admitOnWorker(ctx context.Context, c workerAgentCall) (agentC
 func (a *Executor) refuseOnWorker(c workerAgentCall, cfg *agentConfig, k agentKnobs) error {
 	switch {
 	case !c.source.RepoBacked():
-		return &WorkerRefusal{Reason: "this step's project is not repository-backed, and AppTown's worker works only from a repository's commit; it is not run on AppTown's own machine instead"}
+		return &workerRefusal{Reason: "this step's project is not repository-backed, and AppTown's worker works only from a repository's commit; it is not run on AppTown's own machine instead"}
 	case executorRefusal(c.run, cfg) != "":
-		return &WorkerRefusal{Reason: executorRefusal(c.run, cfg)}
+		return &workerRefusal{Reason: executorRefusal(c.run, cfg)}
 	case k.image != a.cfg.Image:
 		return needsWhatTheWorkerLacks(fmt.Sprintf("its own agent image %q", k.image))
 	case string(cfg.Scm) != "":
@@ -339,7 +339,7 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 		return workerAgentRequest{}, fmt.Errorf("an invocation needs its claimed attempt and a name (attempt %d, %q)", step.Attempt, c.invocation)
 	}
 	if image.Name == "" || len(image.Labels) == 0 {
-		return workerAgentRequest{}, &WorkerRefusal{Reason: "the worker reported no labels for its agent image, so what this step is promised (subagents, extensions) cannot be checked against it"}
+		return workerAgentRequest{}, &workerRefusal{Reason: "the worker reported no labels for its agent image, so what this step is promised (subagents, extensions) cannot be checked against it"}
 	}
 	labels := piharness.MapLabels(image.Labels)
 	home, err := a.home.SentHome(ctx, run.ProjectID, labels)

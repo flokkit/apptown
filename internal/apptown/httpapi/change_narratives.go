@@ -16,11 +16,11 @@ type ChangeNarratives struct {
 	work       *workflow.Service
 	projects   *project.Projects
 	access     *identity.Service
-	narratives NarrativeRefresher
+	narratives narrativeRefresher
 	authMode   string
 }
 
-func NewChangeNarratives(work *workflow.Service, projects *project.Projects, access *identity.Service, narratives NarrativeRefresher, authMode string) ChangeNarratives {
+func NewChangeNarratives(work *workflow.Service, projects *project.Projects, access *identity.Service, narratives narrativeRefresher, authMode string) ChangeNarratives {
 	return ChangeNarratives{work: work, projects: projects, access: access, narratives: narratives, authMode: authMode}
 }
 
@@ -28,7 +28,7 @@ func NewChangeNarratives(work *workflow.Service, projects *project.Projects, acc
 // living narrative now (the automatic triggers are run completion and
 // console session end; this is the cockpit's refresh).
 func (h ChangeNarratives) DistillChange(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -54,7 +54,7 @@ func (h ChangeNarratives) DistillChange(w http.ResponseWriter, r *http.Request) 
 // ImportBranch: POST /api/v1/projects/{slug}/import {branch, title} —
 // adopt an outside branch as a Change with reconstructed provenance.
 func (h ChangeNarratives) ImportBranch(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -79,9 +79,9 @@ func (h ChangeNarratives) ImportBranch(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// NarrativeRefresher refreshes a Change's narrative now, or queues a
+// narrativeRefresher refreshes a Change's narrative now, or queues a
 // refresh (Request).
-type NarrativeRefresher interface {
+type narrativeRefresher interface {
 	Request(context.Context, ids.ID) error
 	Refresh(context.Context, ids.ID) error
 }

@@ -69,7 +69,7 @@ func TestABundleIsCommittedOnlyByTheAttemptThatOwnsTheStep(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	project := createTestProject(t, db, "game", "Game")
-	bundles := NewBundles(db)
+	bundles := newBundles(db)
 	parts := map[string]string{"web": releaseRepo + digestA}
 	cut := func(c *claimedAttempt) (ids.ID, error) {
 		return bundles.Cut(t.Context(), project, "tree", parts, nil, []byte("app: {}"), digestOrigin(c))
@@ -112,7 +112,7 @@ func TestADigestBundleNamesItsRegistryPlatformAndBuild(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	project := createTestProject(t, db, "game", "Game")
-	bundles := NewBundles(db)
+	bundles := newBundles(db)
 	claim := &claimedAttempt{db: db, project: project, run: idstest.N(7), step: idstest.N(70), at: 1}
 	parts, init := map[string]string{"web": releaseRepo + digestA, "cache": releaseRepo + digestB}, map[string]string{"migrate": releaseRepo + digestA}
 	// Each is refused with its reason, before the database's own form
@@ -170,7 +170,7 @@ func TestAGenerationFollowsItsPinnedBundleAfterALaterAttemptCommitsAnother(t *te
 	t.Parallel()
 	db := testDB(t)
 	project := createTestProject(t, db, "game", "Game")
-	s := &Service{db: db, Bundles: NewBundles(db)}
+	s := &Service{db: db, Bundles: newBundles(db)}
 	cut := func(at int64, digest string) ids.ID {
 		t.Helper()
 		id, err := s.Bundles.Cut(t.Context(), project, "tree", map[string]string{"web": releaseRepo + digest}, nil, nil,
@@ -221,7 +221,7 @@ func TestDigestImagesOfADamagedBundleIsAnError(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	project := createTestProject(t, db, "game", "Game")
-	bundles := NewBundles(db)
+	bundles := newBundles(db)
 	id, err := bundles.Cut(t.Context(), project, "tree", map[string]string{"web": releaseRepo + digestA}, nil, []byte("app: {}"),
 		digestOrigin(&claimedAttempt{db: db, project: project, run: idstest.N(7), step: idstest.N(70), at: 1}))
 	if err != nil {

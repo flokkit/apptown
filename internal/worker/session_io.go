@@ -371,11 +371,11 @@ func (s *Server) putSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer os.Remove(spool.Name())
-	n, err := io.Copy(spool, io.LimitReader(r.Body, MaxBundleBytes+1))
+	n, err := io.Copy(spool, io.LimitReader(r.Body, maxBundleBytes+1))
 	if cerr := spool.Close(); err == nil {
 		err = cerr
 	}
-	if err != nil || n > MaxBundleBytes {
+	if err != nil || n > maxBundleBytes {
 		http.Error(w, "the source bundle is unreadable or too large", http.StatusBadRequest)
 		return
 	}
@@ -486,7 +486,7 @@ func (s *Server) save(w http.ResponseWriter, r *http.Request) {
 	}
 	defer os.Remove(spool.Name())
 	defer spool.Close()
-	limited := &limitWriter{w: spool, n: MaxBundleBytes}
+	limited := &limitWriter{w: spool, n: maxBundleBytes}
 	err = ex.Script(r.Context(), in, saveScript, []string{"BASE=" + base, "LEFTOVERS=" + leftovers}, limited)
 	var exit interface{ ExitCode() int }
 	if errors.As(err, &exit) && exit.ExitCode() == 3 {

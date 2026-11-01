@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/project"
 )
@@ -35,7 +37,7 @@ func TestReviewHTTPReportsStorageFailureInsteadOfMissingHistory(t *testing.T) {
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Cleanup(db.FailNextStatement(tc.fragment))
+			t.Cleanup(dbtest.NextStatementFailure(db, tc.fragment))
 			w := httptest.NewRecorder()
 			tc.handler(w)
 			if w.Code != 500 {

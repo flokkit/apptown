@@ -19,10 +19,10 @@ func (f infisicalHTTP) Do(r *http.Request) (*http.Response, error) { return f(r)
 func secretResponse(status int, body string) (*http.Response, error) {
 	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body))}, nil
 }
-func secretConfig() InfisicalConfig {
-	return InfisicalConfig{URL: "https://secrets.test", ClientID: "identity", ClientSecret: "bootstrap", ProjectID: "project"}
+func secretConfig() infisicalSettings {
+	return infisicalSettings{URL: "https://secrets.test", ClientID: "identity", ClientSecret: "bootstrap", ProjectID: "project"}
 }
-func staleSecrets(s *Infisical) { s.mu.Lock(); s.fetched = time.Time{}; s.mu.Unlock() }
+func staleSecrets(s *infisical) { s.mu.Lock(); s.fetched = time.Time{}; s.mu.Unlock() }
 func awaitSecretSignal(t *testing.T, c <-chan struct{}) {
 	t.Helper()
 	select {
@@ -38,7 +38,7 @@ func awaitSecretSignal(t *testing.T, c <-chan struct{}) {
 // Kills: a failed refresh answering the last values it read.
 func TestInfisicalCacheIdentityAndAFailedRefreshAnswersNoValues(t *testing.T) {
 	t.Parallel()
-	var s Infisical
+	var s infisical
 	var logins, reads atomic.Int32
 	var status atomic.Int32
 	client := infisicalHTTP(func(r *http.Request) (*http.Response, error) {
@@ -53,22 +53,22 @@ func TestInfisicalCacheIdentityAndAFailedRefreshAnswersNoValues(t *testing.T) {
 		return secretResponse(200, `{"secrets":[{"secretKey":"TOKEN","secretValue":"value"}]}`)
 	})
 	cfg := secretConfig()
-	first, err := s.Resolve(context.Background(), cfg, client)
-	if err != nil || first.Values["TOKEN"] != "value" || first.Transition != RefreshUnchanged {
+	first, err := s.resolve(context.Background(), cfg, client)
+	if err != nil || first.Values["TOKEN"] != "value" || first.Transition != refreshUnchanged {
 		t.Fatalf("initial: %+v %v", first, err)
 	}
 	first.Values["TOKEN"] = "caller-mutation"
-	cached, err := s.Resolve(context.Background(), cfg, client)
+	cached, err := s.resolve(context.Background(), cfg, client)
 	if err != nil || cached.Values["TOKEN"] != "value" || reads.Load() != 1 || logins.Load() != 1 {
 		t.Fatalf("cache alias or miss: %+v %v", cached, err)
 	}
 	staleSecrets(&s)
 	status.Store(503)
 	for i := range 2 {
-		result, err := s.Resolve(context.Background(), cfg, client)
-		expected := RefreshUnchanged
+		result, err := s.resolve(context.Background(), cfg, client)
+		expected := refreshUnchanged
 		if i == 0 {
-			expected = RefreshFailed
+			expected = refreshFailed
 		}
 		if err == nil || strings.Contains(err.Error(), "must-not-leak") || result.Values != nil || result.Transition != expected {
 			t.Fatalf("failed refresh: %+v %v", result, err)
@@ -78,23 +78,23 @@ func TestInfisicalCacheIdentityAndAFailedRefreshAnswersNoValues(t *testing.T) {
 		t.Fatal("the last values read are not kept for masking")
 	}
 	status.Store(0)
-	recovered, err := s.Resolve(context.Background(), cfg, client)
-	if err != nil || recovered.Transition != RefreshRecovered || logins.Load() != 1 {
+	recovered, err := s.resolve(context.Background(), cfg, client)
+	if err != nil || recovered.Transition != refreshRecovered || logins.Load() != 1 {
 		t.Fatalf("recovery: %+v %v", recovered, err)
 	}
 	staleSecrets(&s)
 	status.Store(401)
-	if _, err := s.Resolve(context.Background(), cfg, client); err == nil {
+	if _, err := s.resolve(context.Background(), cfg, client); err == nil {
 		t.Fatal("missing 401 failure")
 	}
 	status.Store(0)
-	if _, err := s.Resolve(context.Background(), cfg, client); err != nil || logins.Load() != 2 {
+	if _, err := s.resolve(context.Background(), cfg, client); err != nil || logins.Load() != 2 {
 		t.Fatalf("401 did not reauthenticate: %v logins=%d", err, logins.Load())
 	}
 	// A new bootstrap identity must not receive values cached for the old one.
 	cfg.ClientSecret = "rotated"
 	status.Store(503)
-	result, err := s.Resolve(context.Background(), cfg, client)
+	result, err := s.resolve(context.Background(), cfg, client)
 	if err == nil || result.Values != nil || logins.Load() != 3 {
 		t.Fatalf("identity reused old values: %+v %v", result, err)
 	}
@@ -121,8 +121,8 @@ func TestInfisicalEncodesNamespaceAndAuthenticatesRequests(t *testing.T) {
 	cfg.URL = server.URL
 	cfg.Path = "/a & b"
 	cfg.Environment = "preview&test"
-	var s Infisical
-	result, err := s.Resolve(context.Background(), cfg, server.Client())
+	var s infisical
+	result, err := s.resolve(context.Background(), cfg, server.Client())
 	if err != nil || result.Values == nil || len(result.Values) != 0 {
 		t.Fatalf("empty namespace: %+v %v", result, err)
 	}
@@ -144,7 +144,7 @@ func TestInfisicalCancellationDuringLoginOrSecretBody(t *testing.T) {
 	for _, body := range []bool{false, true} {
 		t.Run(fmt.Sprint(body), func(t *testing.T) {
 			t.Parallel()
-			var s Infisical
+			var s infisical
 			entered, done := make(chan struct{}), make(chan struct{})
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -159,13 +159,13 @@ func TestInfisicalCancellationDuringLoginOrSecretBody(t *testing.T) {
 				<-r.Context().Done()
 				return nil, r.Context().Err()
 			})
-			var result SecretResolution
+			var result secretResolution
 			var err error
-			go func() { result, err = s.Resolve(ctx, secretConfig(), client); close(done) }()
+			go func() { result, err = s.resolve(ctx, secretConfig(), client); close(done) }()
 			awaitSecretSignal(t, entered)
 			cancel()
 			awaitSecretSignal(t, done)
-			if !errors.Is(err, context.Canceled) || result.Values != nil || result.Transition != RefreshUnchanged {
+			if !errors.Is(err, context.Canceled) || result.Values != nil || result.Transition != refreshUnchanged {
 				t.Fatalf("cancelled refresh: %+v %v", result, err)
 			}
 			s.mu.Lock()
@@ -179,7 +179,7 @@ func TestInfisicalCancellationDuringLoginOrSecretBody(t *testing.T) {
 
 func TestInfisicalWaiterCancelsWithoutCancellingRefresh(t *testing.T) {
 	t.Parallel()
-	var s Infisical
+	var s infisical
 	entered, release, finished := make(chan struct{}), make(chan struct{}), make(chan struct{})
 	var requests atomic.Int32
 	client := infisicalHTTP(func(r *http.Request) (*http.Response, error) {
@@ -197,13 +197,13 @@ func TestInfisicalWaiterCancelsWithoutCancellingRefresh(t *testing.T) {
 	})
 	ownerCtx, stop := context.WithTimeout(context.Background(), 3*time.Second)
 	defer stop()
-	var owner SecretResolution
+	var owner secretResolution
 	var ownerErr error
-	go func() { owner, ownerErr = s.Resolve(ownerCtx, secretConfig(), client); close(finished) }()
+	go func() { owner, ownerErr = s.resolve(ownerCtx, secretConfig(), client); close(finished) }()
 	awaitSecretSignal(t, entered)
 	waiterCtx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
 	defer cancel()
-	waiter, err := s.Resolve(waiterCtx, secretConfig(), client)
+	waiter, err := s.resolve(waiterCtx, secretConfig(), client)
 	if !errors.Is(err, context.DeadlineExceeded) || waiter.Values != nil {
 		t.Fatalf("cancelled waiter: %+v %v", waiter, err)
 	}
@@ -221,7 +221,7 @@ func TestInfisicalWaiterCancelsWithoutCancellingRefresh(t *testing.T) {
 
 func TestInfisicalLiveWaiterCanReplaceCancelledRefresher(t *testing.T) {
 	t.Parallel()
-	var s Infisical
+	var s infisical
 	entered, firstDone, waiterDone := make(chan struct{}), make(chan struct{}), make(chan struct{})
 	var logins atomic.Int32
 	client := infisicalHTTP(func(r *http.Request) (*http.Response, error) {
@@ -237,17 +237,17 @@ func TestInfisicalLiveWaiterCanReplaceCancelledRefresher(t *testing.T) {
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go func() { s.Resolve(ctx, secretConfig(), client); close(firstDone) }()
+	go func() { s.resolve(ctx, secretConfig(), client); close(firstDone) }()
 	awaitSecretSignal(t, entered)
 	live, stop := context.WithTimeout(context.Background(), 3*time.Second)
 	defer stop()
-	var result SecretResolution
+	var result secretResolution
 	var err error
-	go func() { result, err = s.Resolve(live, secretConfig(), client); close(waiterDone) }()
+	go func() { result, err = s.resolve(live, secretConfig(), client); close(waiterDone) }()
 	cancel()
 	awaitSecretSignal(t, firstDone)
 	awaitSecretSignal(t, waiterDone)
-	if err != nil || result.Values["K"] != "V" || result.Transition != RefreshUnchanged || logins.Load() != 2 {
+	if err != nil || result.Values["K"] != "V" || result.Transition != refreshUnchanged || logins.Load() != 2 {
 		t.Fatalf("live caller poisoned: %+v %v logins=%d", result, err, logins.Load())
 	}
 }
@@ -256,7 +256,7 @@ func TestInfisicalRejectsIncompleteResponsesWithoutReplacingCache(t *testing.T) 
 	for _, body := range []string{`{}`, `{"secrets":null}`, `{"secrets":[`, strings.Repeat("x", (4<<20)+1)} {
 		t.Run(fmt.Sprint(len(body)), func(t *testing.T) {
 			t.Parallel()
-			var s Infisical
+			var s infisical
 			cfg := secretConfig()
 			client := infisicalHTTP(func(r *http.Request) (*http.Response, error) {
 				if r.Method == "POST" {
@@ -264,8 +264,8 @@ func TestInfisicalRejectsIncompleteResponsesWithoutReplacingCache(t *testing.T) 
 				}
 				return secretResponse(200, body)
 			})
-			result, err := s.Resolve(context.Background(), cfg, client)
-			if err == nil || result.Values != nil || result.Transition != RefreshFailed {
+			result, err := s.resolve(context.Background(), cfg, client)
+			if err == nil || result.Values != nil || result.Transition != refreshFailed {
 				t.Fatalf("accepted incomplete secrets: %+v %v", result, err)
 			}
 		})
@@ -274,7 +274,7 @@ func TestInfisicalRejectsIncompleteResponsesWithoutReplacingCache(t *testing.T) 
 
 func TestInfisicalCancelledRefreshPreservesWarmCache(t *testing.T) {
 	t.Parallel()
-	var s Infisical
+	var s infisical
 	cfg := secretConfig()
 	ready := infisicalHTTP(func(r *http.Request) (*http.Response, error) {
 		if r.Method == "POST" {
@@ -282,7 +282,7 @@ func TestInfisicalCancelledRefreshPreservesWarmCache(t *testing.T) {
 		}
 		return secretResponse(200, `{"secrets":[{"secretKey":"K","secretValue":"kept"}]}`)
 	})
-	if _, err := s.Resolve(context.Background(), cfg, ready); err != nil {
+	if _, err := s.resolve(context.Background(), cfg, ready); err != nil {
 		t.Fatal(err)
 	}
 	staleSecrets(&s)
@@ -294,21 +294,21 @@ func TestInfisicalCancelledRefreshPreservesWarmCache(t *testing.T) {
 		<-r.Context().Done()
 		return nil, r.Context().Err()
 	})
-	var cancelled SecretResolution
+	var cancelled secretResolution
 	var err error
-	go func() { cancelled, err = s.Resolve(ctx, cfg, blocked); close(done) }()
+	go func() { cancelled, err = s.resolve(ctx, cfg, blocked); close(done) }()
 	awaitSecretSignal(t, entered)
 	cancel()
 	awaitSecretSignal(t, done)
-	if !errors.Is(err, context.Canceled) || cancelled.Values != nil || cancelled.Transition != RefreshUnchanged {
+	if !errors.Is(err, context.Canceled) || cancelled.Values != nil || cancelled.Transition != refreshUnchanged {
 		t.Fatalf("cancelled: %+v %v", cancelled, err)
 	}
 	if s.lastKnown(cfg)["K"] != "kept" {
 		t.Fatal("cancellation dropped the values read before")
 	}
 	unavailable := infisicalHTTP(func(*http.Request) (*http.Response, error) { return secretResponse(503, "private") })
-	failed, err := s.Resolve(context.Background(), cfg, unavailable)
-	if err == nil || failed.Values != nil || failed.Transition != RefreshFailed {
+	failed, err := s.resolve(context.Background(), cfg, unavailable)
+	if err == nil || failed.Values != nil || failed.Transition != refreshFailed {
 		t.Fatalf("cancellation changed cache or health: %+v %v", failed, err)
 	}
 }
@@ -320,7 +320,7 @@ func TestInfisicalAgesOnItsClock(t *testing.T) {
 	t.Parallel()
 	var at atomic.Int64
 	at.Store(time.Now().Add(-72 * time.Hour).Unix())
-	s := Infisical{clock: func() time.Time { return time.Unix(at.Load(), 0) }}
+	s := infisical{clock: func() time.Time { return time.Unix(at.Load(), 0) }}
 	var logins, reads atomic.Int32
 	client := infisicalHTTP(func(r *http.Request) (*http.Response, error) {
 		if r.Method == "POST" {
@@ -332,7 +332,7 @@ func TestInfisicalAgesOnItsClock(t *testing.T) {
 	})
 	resolve := func(wantLogins, wantReads int32) {
 		t.Helper()
-		if _, err := s.Resolve(context.Background(), secretConfig(), client); err != nil || logins.Load() != wantLogins || reads.Load() != wantReads {
+		if _, err := s.resolve(context.Background(), secretConfig(), client); err != nil || logins.Load() != wantLogins || reads.Load() != wantReads {
 			t.Fatalf("logins %d reads %d, want %d %d: %v", logins.Load(), reads.Load(), wantLogins, wantReads, err)
 		}
 	}

@@ -31,10 +31,10 @@ type Scope struct {
 	// Config is a Docker configuration folder of this scope's own, for one
 	// boot (WithBootConfig); "" is the ambient one.
 	Config string
-	// Lifetime bounds every command through this scope: when it ends, each
+	// ownerContext bounds every command through this scope: when it ends, each
 	// command still running is stopped (a boot's lifetime, WithLifetime). nil
 	// is no bound beyond each command's own.
-	Lifetime context.Context
+	ownerContext context.Context
 	// Now is the clock a container's apptown.created label is stamped from,
 	// which the reaper judges a container's age by; nil is the real one.
 	Now func() time.Time
@@ -42,11 +42,11 @@ type Scope struct {
 	// requests and answers but not attached streams (Portainer's Docker
 	// proxy): a step that streams runs as a job instead (RunStep).
 	NoStreams bool
-	// Redact replaces the values a boot generated (its needs' credentials)
+	// redact replaces the values a boot generated (its needs' credentials)
 	// in what a failure keeps of a container's own output, before that is
 	// cut short (Boot sets it once its needs are resolved); nil keeps the
 	// text. It is never applied to what AppTown compares or acts on.
-	Redact func(string) string
+	redact func(string) string
 	// Instance is the installation id every container, volume and network
 	// made through this scope is labelled with (dockerlabel.Instance): the
 	// inventory reports as not accounted for only what carries it. "" labels
@@ -54,15 +54,15 @@ type Scope struct {
 	Instance string
 }
 
-// Installs reports whether a thing labelled with installation was made by
+// installs reports whether a thing labelled with installation was made by
 // this scope's installation; with no id of its own, nothing is.
-func (dk Scope) Installs(installation string) bool {
+func (dk Scope) installs(installation string) bool {
 	return dk.Instance != "" && installation == dk.Instance
 }
 
-// InstanceLabel is the --label argument naming this scope's installation;
+// instanceLabel is the --label argument naming this scope's installation;
 // none when it has no id.
-func (dk Scope) InstanceLabel() []string {
+func (dk Scope) instanceLabel() []string {
 	if dk.Instance == "" {
 		return nil
 	}
@@ -71,28 +71,28 @@ func (dk Scope) InstanceLabel() []string {
 
 // redacted is a container's own output as a failure may keep it (Redact).
 func (dk Scope) redacted(out []byte) string {
-	if dk.Redact == nil {
+	if dk.redact == nil {
 		return string(out)
 	}
-	return dk.Redact(string(out))
+	return dk.redact(string(out))
 }
 
 // WithLifetime is dk with every command bounded by ctx.
 func (dk Scope) WithLifetime(ctx context.Context) Scope {
-	dk.Lifetime = ctx
+	dk.ownerContext = ctx
 	return dk
 }
 
 // lifetime is what bounds a wait between this scope's commands (a probe's
 // interval, a stack's grace): its Lifetime, or nothing when it has none.
 func (dk Scope) lifetime(ctx context.Context) context.Context {
-	if dk.Lifetime != nil {
-		return dk.Lifetime
+	if dk.ownerContext != nil {
+		return dk.ownerContext
 	}
 	return ctx
 }
 
-func (dk Scope) Remote() bool { return dk.Host != "" }
+func (dk Scope) remote() bool { return dk.Host != "" }
 
 func (dk Scope) Run(ctx context.Context, args ...string) ([]byte, error) {
 	return dk.Command(ctx, Command{Args: args})
@@ -231,7 +231,7 @@ func (dk Scope) ProbeURL(hostPort int) string {
 	return fmt.Sprintf("http://%s:%d", dk.Hostname, hostPort)
 }
 
-// PublishAddress is the address a container's port is published on. On
+// publishAddress is the address a container's port is published on. On
 // AppTown's own daemon it is loopback: AppTown is on the same host and
 // its proxy (vhost.go) is the only front door, so a wider bind would open a
 // LAN path around the proxy's header sanitisation. On an attached host it
@@ -240,23 +240,23 @@ func (dk Scope) ProbeURL(hostPort int) string {
 // published port (ProbeURL, FrontDoor). A loopback bind on that host is
 // reachable from neither. Who else may reach the port is the host's
 // firewall, the operator's.
-func (dk Scope) PublishAddress() string {
+func (dk Scope) publishAddress() string {
 	if dk.Host == "" {
 		return "127.0.0.1"
 	}
 	return "0.0.0.0"
 }
 
-// DialAddress is host:port for a published port: loopback here, the
+// dialAddress is host:port for a published port: loopback here, the
 // attached host by address there.
-func (dk Scope) DialAddress(hostPort int) string {
+func (dk Scope) dialAddress(hostPort int) string {
 	if dk.Host == "" {
 		return fmt.Sprintf("127.0.0.1:%d", hostPort)
 	}
 	return fmt.Sprintf("%s:%d", dk.Hostname, hostPort)
 }
 
-// RoutesDeployment says whether the host's ingress serves this deployment
+// routesDeployment says whether the host's ingress serves this deployment
 // at <slug>.<domain>: the host has an ingress domain (only an attached host
 // does; a scope naming it for its address only, as attachedFrontDoor
 // builds, has no Host), and the deployment is main. The project's name is
@@ -265,7 +265,7 @@ func (dk Scope) DialAddress(hostPort int) string {
 // and splits requests between them, so a second deployment carrying main's
 // route would take main's visitors (soak finding 55). Any other deployment
 // is reached at the host and its published port.
-func (dk Scope) RoutesDeployment(deployment string) bool {
+func (dk Scope) routesDeployment(deployment string) bool {
 	return dk.Domain != "" && deployment == "main"
 }
 
@@ -274,7 +274,7 @@ func (dk Scope) RoutesDeployment(deployment string) bool {
 // design/subsystems/ingress.md), else the host by address and published
 // port.
 func (dk Scope) FrontDoor(servingLabel, deployment string, hostPort int) string {
-	if dk.RoutesDeployment(deployment) {
+	if dk.routesDeployment(deployment) {
 		return "https://" + servingLabel + "." + dk.Domain
 	}
 	return fmt.Sprintf("http://%s:%d", dk.Hostname, hostPort)
@@ -319,22 +319,11 @@ func (dk Scope) Lines(ctx context.Context, args ...string) []string {
 	return lines
 }
 
-// ReapStack removes a throwaway stack: every container labelled as owned by
-// it (its services, and any init container still standing), then its
-// network. Exact label matches — nothing is reaped by name coincidence.
-func (dk Scope) ReapStack(ctx context.Context, stackID string) {
-	// A clean-up: it runs though the caller stops.
-	ctx = context.WithoutCancel(ctx)
-	if err := dk.RemoveStack(ctx, stackID); err != nil {
-		log.Printf("reaping stack %s: %v", stackID, err) // best effort, but never silent
-	}
-}
-
-// RemoveStack is ReapStack for a caller that must know it worked: a failed
+// removeOwnedStack is ReapStack for a caller that must know it worked: a failed
 // listing or removal is returned, so a cleanup cannot record a stack removed
 // while its services still run. Its containers are throwaway and go with
 // their anonymous volumes; a named volume stays.
-func (dk Scope) RemoveStack(ctx context.Context, stackID string) error {
+func (dk Scope) removeOwnedStack(ctx context.Context, stackID string) error {
 	return dk.removeStack(ctx, stackID, dk.RemoveWithVolumes)
 }
 

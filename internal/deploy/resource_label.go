@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+
 	"github.com/flokkit/apptown/internal/enum"
 )
 
@@ -12,12 +13,12 @@ import (
 type ResourceLabel uint8
 
 const (
-	ResourceUnknown ResourceLabel = iota + 1
-	ResourceRunning
-	ResourceStopped
-	ResourceWorking
-	ResourceFailed
-	ResourcePassed
+	resourceUnknown ResourceLabel = iota + 1
+	resourceRunning
+	resourceStopped
+	resourceWorking
+	resourceFailed
+	resourcePassed
 )
 
 var resourceLabelCodec = enum.Set[ResourceLabel]{Names: []string{"unknown", "running", "stopped", "working", "failed", "passed"}, Invalid: "invalid-resource-label", Err: errors.New("invalid resource label"), ScanLabel: "value"}
@@ -26,20 +27,20 @@ func (s ResourceLabel) String() string                { return resourceLabelCode
 func (s ResourceLabel) Value() (driver.Value, error)  { return resourceLabelCodec.Value(s) }
 func (s ResourceLabel) MarshalJSON() ([]byte, error)  { return resourceLabelCodec.JSON(s) }
 func (s *ResourceLabel) UnmarshalJSON(b []byte) error { return resourceLabelCodec.ReadJSON(s, b) }
-func (r Resource) Display() ResourceLabel {
+func (r Resource) display() ResourceLabel {
 	switch r.Status {
 	case "active", "online", "running":
-		return ResourceRunning
+		return resourceRunning
 	case "ready", "reconciled":
-		return ResourcePassed
+		return resourcePassed
 	case "exited", "absent", "stopped":
-		return ResourceStopped
+		return resourceStopped
 	case "deploying", "creating", "reconciling", "rolling":
-		return ResourceWorking
+		return resourceWorking
 	case "error", "failed":
-		return ResourceFailed
+		return resourceFailed
 	default:
-		return ResourceUnknown
+		return resourceUnknown
 	}
 }
 
@@ -52,5 +53,5 @@ type ResourceView struct {
 }
 
 func (r Resource) MarshalJSON() ([]byte, error) {
-	return json.Marshal(ResourceView{ResourceFields(r), r.Display()})
+	return json.Marshal(ResourceView{ResourceFields(r), r.display()})
 }

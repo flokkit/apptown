@@ -12,7 +12,7 @@ import (
 // failed write or read is reported, never mistaken for success.
 func FailNextStatement(t testing.TB, db *database.DB, fragment string) {
 	t.Helper()
-	t.Cleanup(db.FailNextStatement(fragment))
+	t.Cleanup(NextStatementFailure(db, fragment))
 }
 
 // Count fails the test unless q, a single-count query, answers want. It is

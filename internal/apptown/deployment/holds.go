@@ -59,8 +59,8 @@ func takeDownHeldIn(ctx context.Context, tx *database.Tx, projectID, deploymentI
 	return nil
 }
 
-// RunningOperation is the live operation on a deployment, nil when none is.
-func (s *Service) RunningOperation(ctx context.Context, dep *Deployment) (*operations.Operation, error) {
+// runningOperation is the live operation on a deployment, nil when none is.
+func (s *Service) runningOperation(ctx context.Context, dep *Deployment) (*operations.Operation, error) {
 	if s.ops == nil {
 		return nil, nil
 	}

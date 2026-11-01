@@ -37,9 +37,9 @@ import (
 // verify before anything uses it.
 
 var (
-	// ErrNotReachable: nothing of the deployment's data is reached for a
+	// errNotReachable: nothing of the deployment's data is reached for a
 	// copy on its target.
-	ErrNotReachable error = &deployment.Unavailable{Reason: "not-reachable", Why: "Nothing the deployment holds is copied by AppTown on its target."}
+	errNotReachable error = &deployment.Unavailable{Reason: "not-reachable", Why: "Nothing the deployment holds is copied by AppTown on its target."}
 )
 
 // CopiesOn says whether AppTown can run copies of the managed data of
@@ -78,7 +78,7 @@ func managedProvider(t *deployment.Target) string {
 func (s *core) heldManaged(ctx context.Context, dep *deployment.Deployment, t *deployment.Target) (heldItems, error) {
 	insts, err := s.needs.ForDeployment(ctx, dep.ID)
 	if err != nil {
-		return heldItems{}, fmt.Errorf("%w: reading the deployment's need instances: %v", ErrDataNotKnown, err)
+		return heldItems{}, fmt.Errorf("%w: reading the deployment's need instances: %v", errDataNotKnown, err)
 	}
 	provider := managedProvider(t)
 	var out []backupPlanItem
@@ -110,7 +110,7 @@ func (s *core) heldManaged(ctx context.Context, dep *deployment.Deployment, t *d
 	}
 	owned, err := s.owned.Owned(ctx, dep.ID)
 	if err != nil {
-		return heldItems{}, fmt.Errorf("%w: reading the deployment's list: %v", ErrDataNotKnown, err)
+		return heldItems{}, fmt.Errorf("%w: reading the deployment's list: %v", errDataNotKnown, err)
 	}
 	for _, o := range owned {
 		if o.Kind != digitalocean.KindBucket || !o.Data {
@@ -130,7 +130,7 @@ func (s *core) heldManaged(ctx context.Context, dep *deployment.Deployment, t *d
 		out = append(out, it)
 	}
 	if len(out) == 0 {
-		return heldItems{}, ErrNothingToBackUp
+		return heldItems{}, errNothingToBackUp
 	}
 	return heldItems{items: out}, nil
 }
@@ -163,7 +163,7 @@ func (s *core) bucketData(ctx context.Context, t *deployment.Target, dep *deploy
 // nothing, which a managed operation reads as an empty list.
 func (s *core) managedList(ctx context.Context, dep *deployment.Deployment, t *deployment.Target) ([]backupPlanItem, error) {
 	held, err := s.heldManaged(ctx, dep, t)
-	if errors.Is(err, ErrNothingToBackUp) {
+	if errors.Is(err, errNothingToBackUp) {
 		return nil, nil
 	}
 	return held.items, err
@@ -258,7 +258,7 @@ func (s *Service) takeStoreCopy(ctx context.Context, t *tracker, dep *deployment
 		return nil, err
 	}
 	if len(items) == 0 {
-		return nil, ErrNotReachable
+		return nil, errNotReachable
 	}
 	c, store, err := s.storeClient(ctx)
 	if err != nil {
@@ -325,7 +325,7 @@ func (s *Service) takeStoreCopy(ctx context.Context, t *tracker, dep *deployment
 			failed++
 		}
 	}
-	b.Status = Taken(failed, len(b.Items))
+	b.Status = taken(failed, len(b.Items))
 	if b.Status == BackupFailed {
 		b.Error = b.Items[0].Error
 	}
@@ -346,15 +346,15 @@ func (s *Service) takeStoreCopy(ctx context.Context, t *tracker, dep *deployment
 		note := "the manifest could not be written beside the copies: " + err.Error()
 		// The set is recorded: its caveat is too, though the upload's
 		// context ended.
-		if nerr := s.backups.Note(context.WithoutCancel(ctx), id, note); nerr != nil {
+		if nerr := s.backups.note(context.WithoutCancel(ctx), id, note); nerr != nil {
 			return nil, fmt.Errorf("set %d: %s, and that could not be recorded: %w", id, note, nerr)
 		}
 		b.Error = strings.TrimSpace(b.Error + " " + note)
 	}
-	if trigger != TriggerTakeDown && t.withdrawn == nil {
+	if trigger != triggerTakeDown && t.withdrawn == nil {
 		if err := t.allowed(ctx); err != nil {
 			t.note = "older copies were not pruned: " + err.Error()
-		} else if err := s.PruneSets(ctx, dep.ProjectID, dep.Name, keepFor(dep.DataClass)); err != nil {
+		} else if err := s.pruneSets(ctx, dep.ProjectID, dep.Name, keepFor(dep.DataClass)); err != nil {
 			t.note = "older copies were not pruned: " + err.Error()
 		}
 	}

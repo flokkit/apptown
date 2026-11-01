@@ -191,22 +191,22 @@ func (s Schedules) carriedBy(ctx context.Context, projectID ids.ID) ([]carried, 
 	return out, nil
 }
 
-// ProjectSchedules is what a project's schedules will do and last did.
+// projectSchedules is what a project's schedules will do and last did.
 // EvalCopy: the project is an eval's throwaway copy, which runs no
 // schedule, so none is listed.
-type ProjectSchedules struct {
+type projectSchedules struct {
 	EvalCopy  bool
-	Schedules []ProjectSchedule
+	Schedules []projectSchedule
 }
 
-// ProjectSchedule is one schedule a project carries, named by its source:
+// projectSchedule is one schedule a project carries, named by its source:
 // today always the adopted workflow version that declares it. Cron is read
 // in UTC, AppTown's time. Next is when the scheduler will next fire it,
 // from its own record and its own cron parser; Due says that time has
 // passed and the next tick fires it. Last is the last firing, nil when it
 // never fired. Problem says why the schedule could not be read; Next and
 // Last are then unknown, not absent.
-type ProjectSchedule struct {
+type projectSchedule struct {
 	Workflow     string
 	Version      int
 	Cron         string
@@ -222,23 +222,23 @@ type ProjectSchedule struct {
 // schedule not yet armed is armed at the scheduler's next tick and fires
 // first at its next time after that. Missed firings are never replayed, so
 // a past Next means one firing at the next tick, not a backlog.
-func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (ProjectSchedules, error) {
+func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (projectSchedules, error) {
 	// An eval's throwaway copy runs only what its eval starts in it.
 	if !p.Purpose.Schedules() {
-		return ProjectSchedules{EvalCopy: true, Schedules: []ProjectSchedule{}}, nil
+		return projectSchedules{EvalCopy: true, Schedules: []projectSchedule{}}, nil
 	}
 	projectID := p.ID
 	carried, err := s.carriedBy(ctx, projectID)
 	if err != nil {
-		return ProjectSchedules{}, err
+		return projectSchedules{}, err
 	}
 	records, err := workflow.ScheduleRecordsIn(ctx, s.DB, projectID)
 	if err != nil {
-		return ProjectSchedules{}, err
+		return projectSchedules{}, err
 	}
-	out := ProjectSchedules{Schedules: []ProjectSchedule{}}
+	out := projectSchedules{Schedules: []projectSchedule{}}
 	for _, c := range carried {
-		ps := ProjectSchedule{Workflow: c.workflow, Version: c.version, Cron: c.trigger.Cron, SkipIfActive: c.skipIfActive()}
+		ps := projectSchedule{Workflow: c.workflow, Version: c.version, Cron: c.trigger.Cron, SkipIfActive: c.skipIfActive()}
 		if c.err != nil {
 			ps.Problem = "its workflow could not be read: " + c.err.Error()
 			out.Schedules = append(out.Schedules, ps)

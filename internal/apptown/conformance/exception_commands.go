@@ -15,7 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/stamp"
 )
 
-var ErrInvalidException = fault.New(fault.Invalid, "invalid exception")
+var errInvalidException = fault.New(fault.Invalid, "invalid exception")
 
 type ExceptionRequest struct {
 	ProjectID                        ids.ID
@@ -26,7 +26,7 @@ type ExceptionRequest struct {
 }
 
 func (s *Service) CreateDisposition(ctx context.Context, in ExceptionRequest) (*Disposition, error) {
-	who, err := s.require(ctx, Permission{Action: CreateException, ProjectID: in.ProjectID})
+	who, err := s.require(ctx, permission{Action: createException, ProjectID: in.ProjectID})
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func (s *Service) CreateDisposition(ctx context.Context, in ExceptionRequest) (*
 	in.Package = strings.TrimSpace(in.Package)
 	in.Justification = strings.TrimSpace(in.Justification)
 	if in.ProjectID.IsZero() || !in.Kind.valid() || in.Justification == "" || (in.Fingerprint == "" && in.Identifier == "") {
-		return nil, fmt.Errorf("%w: project, kind, justification and finding identity are required", ErrInvalidException)
+		return nil, fmt.Errorf("%w: project, kind, justification and finding identity are required", errInvalidException)
 	}
 	return database.Transact(ctx, s.records.db, func(tx *database.Tx) (*Disposition, error) {
 		if err := lockConformanceProject(ctx, tx, in.ProjectID); err != nil {
@@ -87,18 +87,18 @@ func (s *Service) Disposition(ctx context.Context, id ids.ID) (*Disposition, err
 	if err != nil {
 		return nil, database.Missing(err)
 	}
-	if _, err := s.require(ctx, Permission{Action: ReadProject, ProjectID: record.ProjectID}); err != nil {
+	if _, err := s.require(ctx, permission{Action: readProject, ProjectID: record.ProjectID}); err != nil {
 		return nil, err
 	}
 	return record, nil
 }
 
-type Revocation struct {
+type revocation struct {
 	ID, ProjectID ids.ID
 	By            string
 }
 
-func (s *Service) RevokeDisposition(ctx context.Context, id ids.ID) (*Revocation, error) {
+func (s *Service) RevokeDisposition(ctx context.Context, id ids.ID) (*revocation, error) {
 	if _, err := s.caller(ctx); err != nil {
 		return nil, err
 	}
@@ -106,11 +106,11 @@ func (s *Service) RevokeDisposition(ctx context.Context, id ids.ID) (*Revocation
 	if err != nil {
 		return nil, err
 	}
-	who, err := s.require(ctx, Permission{Action: RevokeException, ProjectID: record.ProjectID})
+	who, err := s.require(ctx, permission{Action: revokeException, ProjectID: record.ProjectID})
 	if err != nil {
 		return nil, err
 	}
-	return database.Transact(ctx, s.records.db, func(tx *database.Tx) (*Revocation, error) {
+	return database.Transact(ctx, s.records.db, func(tx *database.Tx) (*revocation, error) {
 		if err := lockConformanceProject(ctx, tx, record.ProjectID); err != nil {
 			return nil, err
 		}
@@ -125,7 +125,7 @@ func (s *Service) RevokeDisposition(ctx context.Context, id ids.ID) (*Revocation
 		if err := audit.At(s.records.now()).RecordIn(ctx, tx, who, saved.ProjectID, "disposition.revoked", fmt.Sprint(saved.ID), exceptionRevoked{Identifier: saved.Identifier, Fingerprint: saved.Fingerprint}); err != nil {
 			return nil, err
 		}
-		return &Revocation{ID: saved.ID, ProjectID: saved.ProjectID, By: who}, nil
+		return &revocation{ID: saved.ID, ProjectID: saved.ProjectID, By: who}, nil
 	})
 }
 

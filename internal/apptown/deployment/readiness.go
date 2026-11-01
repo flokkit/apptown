@@ -16,7 +16,7 @@ type Readiness uint8
 
 const (
 	Reconciled Readiness = iota + 1
-	Reconciling
+	reconciling
 	ReadinessUncertain
 	ReadinessFailed
 )
@@ -25,32 +25,32 @@ const (
 var readinessCodec = enum.Set[Readiness]{
 	Names:     []string{"reconciled", "reconciling", "uncertain", "failed"},
 	Invalid:   "invalid-readiness",
-	Err:       ErrReadiness,
+	Err:       errReadiness,
 	ScanLabel: "value",
 }
 
 var (
-	ErrReadiness           = errors.New("invalid readiness")
-	ErrReadinessTransition = errors.New("invalid readiness transition")
+	errReadiness           = errors.New("invalid readiness")
+	errReadinessTransition = errors.New("invalid readiness transition")
 )
 
 func (s Readiness) String() string { return readinessCodec.String(s) }
 
-// Admitted is the rule when a new generation is admitted: whatever stood
+// admitted is the rule when a new generation is admitted: whatever stood
 // before, the deployment is now reconciling toward it.
-func (s Readiness) Admitted() (Readiness, error) {
+func (s Readiness) admitted() (Readiness, error) {
 	if s < Reconciled || s > ReadinessFailed {
-		return 0, fmt.Errorf("%w: %d", ErrReadiness, s)
+		return 0, fmt.Errorf("%w: %d", errReadiness, s)
 	}
-	return Reconciling, nil
+	return reconciling, nil
 }
 
-// Settled is the rule when an admitted attempt ends: a done attempt makes
+// settled is the rule when an admitted attempt ends: a done attempt makes
 // the deployment reconciled, a failed one failed. Only a reconciling or
 // uncertain deployment has an attempt to settle.
-func (s Readiness) Settled(outcome AttemptState) (Readiness, error) {
-	if s != Reconciling && s != ReadinessUncertain {
-		return 0, fmt.Errorf("%w: nothing is being reconciled while %s", ErrReadinessTransition, s)
+func (s Readiness) settled(outcome AttemptState) (Readiness, error) {
+	if s != reconciling && s != ReadinessUncertain {
+		return 0, fmt.Errorf("%w: nothing is being reconciled while %s", errReadinessTransition, s)
 	}
 	switch outcome {
 	case AttemptDone:
@@ -58,28 +58,28 @@ func (s Readiness) Settled(outcome AttemptState) (Readiness, error) {
 	case AttemptFailed:
 		return ReadinessFailed, nil
 	default:
-		return 0, fmt.Errorf("%w: an attempt that is %s settles nothing", ErrReadinessTransition, outcome)
+		return 0, fmt.Errorf("%w: an attempt that is %s settles nothing", errReadinessTransition, outcome)
 	}
 }
 
-// Lost is the rule when the runner of an admitted attempt is gone before
+// lost is the rule when the runner of an admitted attempt is gone before
 // its outcome: the deployment is uncertain until observed.
-func (s Readiness) Lost() (Readiness, error) {
+func (s Readiness) lost() (Readiness, error) {
 	switch s {
-	case Reconciling, ReadinessUncertain:
+	case reconciling, ReadinessUncertain:
 		return ReadinessUncertain, nil
 	default:
-		return 0, fmt.Errorf("%w: nothing is being reconciled while %s", ErrReadinessTransition, s)
+		return 0, fmt.Errorf("%w: nothing is being reconciled while %s", errReadinessTransition, s)
 	}
 }
 
-// Doubted is the rule when a deployment's own records contradict each other
+// doubted is the rule when a deployment's own records contradict each other
 // (an attempt still open while it reads reconciled, a release still
 // releasing after its attempt ended): whatever it read, its standing is
 // uncertain until a person has it observed (Service.CheckAgain).
-func (s Readiness) Doubted() (Readiness, error) {
+func (s Readiness) doubted() (Readiness, error) {
 	if s < Reconciled || s > ReadinessFailed {
-		return 0, fmt.Errorf("%w: %d", ErrReadiness, s)
+		return 0, fmt.Errorf("%w: %d", errReadiness, s)
 	}
 	return ReadinessUncertain, nil
 }

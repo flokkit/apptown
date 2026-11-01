@@ -71,7 +71,7 @@ type attachedDaemon struct {
 }
 
 func newAttachedDaemon() *attachedDaemon {
-	d := &attachedDaemon{Daemon: dockerfake.New(), hosts: map[string]int{}, images: map[string]bool{}, ran: map[string]string{}}
+	d := &attachedDaemon{Daemon: newDockerFake(), hosts: map[string]int{}, images: map[string]bool{}, ran: map[string]string{}}
 	d.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) < 2 || args[0] != "image" {
 			return nil, nil, false
@@ -699,7 +699,7 @@ func TestAppPlatformRefusesADigestBundleOfAnotherPlatform(t *testing.T) {
 	}
 	origin := digestOrigin(&claimedAttempt{db: w.db, project: w.project, run: idstest.N(7), step: idstest.N(70), at: 1})
 	origin.Platform = "linux/arm64"
-	id, err := NewBundles(w.db).Cut(t.Context(), w.project, w.revision, map[string]string{"web": releaseRepo + digestA}, nil, []byte(multipartApp), origin)
+	id, err := newBundles(w.db).Cut(t.Context(), w.project, w.revision, map[string]string{"web": releaseRepo + digestA}, nil, []byte(multipartApp), origin)
 	if err != nil {
 		t.Fatal(err)
 	}

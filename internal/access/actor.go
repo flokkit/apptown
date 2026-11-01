@@ -22,19 +22,19 @@ type Actor struct {
 // "<way>:<subject>" (token-cli:laptop, chat:<id>, run-step:<step>).
 const (
 	ViaSession    = "session"
-	ViaHeader     = "header"
-	ViaOpen       = "open"
-	ViaTokenCLI   = "token-cli"
+	viaHeader     = "header"
+	viaOpen       = "open"
+	viaTokenCLI   = "token-cli"
 	ViaTokenAgent = "token-agent"
 	ViaOAuth      = "oauth"
 	ViaChat       = "chat"
 	ViaRunStep    = "run-step"
 	ViaTicket     = "ticket"
-	ViaBinding    = "binding"
-	ViaSchedule   = "schedule"
-	ViaEval       = "eval"
-	ViaWhatIf     = "what-if"
-	ViaAnonymous  = "anonymous"
+	viaBinding    = "binding"
+	viaSchedule   = "schedule"
+	viaEval       = "eval"
+	viaWhatIf     = "what-if"
+	viaAnonymous  = "anonymous"
 )
 
 // Actor is the principal as an act records it.
@@ -42,23 +42,23 @@ func (pr Principal) Actor() Actor {
 	a := Actor{Principal: pr.ID, Name: pr.Name}
 	switch {
 	case pr.Kind == "anonymous":
-		a.Via = ViaAnonymous
+		a.Via = viaAnonymous
 	case pr.Instrument == "console":
 		a.Via = ViaChat + ":" + pr.ConsoleID
 	case pr.Instrument == "run":
 		a.Via = ViaRunStep
 	case pr.Instrument == SystemInstrument && pr.Via == "binding":
-		a.Via = ViaBinding + ":" + strings.TrimPrefix(pr.Credential, "system:binding/")
+		a.Via = viaBinding + ":" + strings.TrimPrefix(pr.Credential, "system:binding/")
 	case pr.Via == "session":
 		a.Via = ViaSession
 	case pr.Via == "proxy":
-		a.Via = ViaHeader
+		a.Via = viaHeader
 	case pr.Via == "open":
-		a.Via = ViaOpen
+		a.Via = viaOpen
 	case pr.Via == "token" && pr.Purpose == TokenAgent:
 		a.Via = ViaTokenAgent + ":" + strings.TrimPrefix(pr.Credential, "token:")
 	case pr.Via == "token":
-		a.Via = ViaTokenCLI + ":" + strings.TrimPrefix(pr.Credential, "token:")
+		a.Via = viaTokenCLI + ":" + strings.TrimPrefix(pr.Credential, "token:")
 	case pr.Via == "oauth":
 		a.Via = ViaOAuth + ":" + pr.DelegationID.String()
 	default:
@@ -81,7 +81,7 @@ func (a Actor) Way() string {
 // the way of acting; who the person is, is the principal's to say.
 func (a Actor) Assents() bool {
 	switch a.Way() {
-	case ViaSession, ViaHeader, ViaOpen, ViaTokenCLI:
+	case ViaSession, viaHeader, viaOpen, viaTokenCLI:
 		return true
 	}
 	return false

@@ -26,11 +26,11 @@ func TestAdoptionRuntimeSourcesPropagateFailedWorkflowCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 	dbtest.FailNextStatement(t, db, "name: WorkflowCatalog")
-	if got, err := s.Prepare(t.Context(), pid, Request{}); got != nil || !errors.Is(err, database.ErrInjectedFailure) {
+	if got, err := s.Prepare(t.Context(), pid, Request{}); got != nil || !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("failed catalog produced a candidate with workflows omitted: %+v %v", got, err)
 	}
 	dbtest.FailNextStatement(t, db, "name: WorkflowCatalog")
-	if _, err := s.Union(t.Context(), pid, prior); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := s.Union(t.Context(), pid, prior); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("failed catalog produced a successful union: %v", err)
 	}
 	if cur := currentOf(t, db, pid); cur.Revision != 1 {

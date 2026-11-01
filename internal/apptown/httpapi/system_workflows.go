@@ -54,14 +54,14 @@ func (h SystemWorkflows) PutSystemWorkflow(w http.ResponseWriter, r *http.Reques
 		}
 
 		if in.Name == "" || in.Name == in.Stock {
-			if err := h.ways.ResetSystemWorkflow(r.Context(), in.Stock, Actor(r)); err != nil {
+			if err := h.ways.ResetSystemWorkflow(r.Context(), in.Stock, actor(r)); err != nil {
 				WriteFault(w, err)
 				return
 			}
 			WriteJSON(w, 200, Done{OK: true})
 			return
 		}
-		if err := h.ways.BindSystemWorkflow(r.Context(), in.Stock, in.Name, Actor(r)); err != nil {
+		if err := h.ways.BindSystemWorkflow(r.Context(), in.Stock, in.Name, actor(r)); err != nil {
 			WriteFault(w, err)
 			return
 		}

@@ -27,7 +27,7 @@ func NewInventoryReadings(db *database.DB, now func() time.Time) *InventoryReadi
 }
 func inventoryIdentityFor(t *Target) string { return fmt.Sprintf("%s/%d", t.ID, t.SettingsRevision) }
 
-type InventoryObservation struct {
+type inventoryObservation struct {
 	LastFailedAt                      time.Time
 	LastFailure                       string
 	Items                             []deploy.Resource
@@ -53,15 +53,15 @@ func (c *InventoryReadings) Invalidate(ctx context.Context, name string) error {
 	}
 	return deploymentsql.New(c.db.SQL()).InvalidateReading(ctx, deploymentsql.InvalidateReadingParams{Subject: name, Kind: "inventory"})
 }
-func (c *InventoryReadings) SnapshotForTarget(ctx context.Context, t *Target) (InventoryObservation, error) {
+func (c *InventoryReadings) SnapshotForTarget(ctx context.Context, t *Target) (inventoryObservation, error) {
 	row, err := deploymentsql.New(c.db.SQL()).Reading(ctx, deploymentsql.ReadingParams{Subject: t.Name, Kind: "inventory"})
 	if errors.Is(err, sql.ErrNoRows) || err == nil && row.Identity != inventoryIdentityFor(t) {
-		return InventoryObservation{Unknown: true, Stale: true}, nil
+		return inventoryObservation{Unknown: true, Stale: true}, nil
 	}
 	if err != nil {
-		return InventoryObservation{Unknown: true, Stale: true}, err
+		return inventoryObservation{Unknown: true, Stale: true}, err
 	}
-	var out InventoryObservation
+	var out inventoryObservation
 	if err = json.Unmarshal(row.Payload, &out); err != nil {
 		return out, err
 	}
@@ -89,7 +89,7 @@ func (c *InventoryReadings) Finish(ctx context.Context, t *Target, generation in
 		old.LastFailure = old.Reason
 	} else {
 		lastAt, lastFailure := old.LastFailedAt, old.LastFailure
-		old = InventoryObservation{LastFailedAt: lastAt, LastFailure: lastFailure, Items: items, Shared: shared, ObservedAt: now, AttemptedAt: now}
+		old = inventoryObservation{LastFailedAt: lastAt, LastFailure: lastFailure, Items: items, Shared: shared, ObservedAt: now, AttemptedAt: now}
 		for _, r := range MergeInventory(recorded, items) {
 			if r.Record == deploy.RecordMissing {
 				old.Missing = append(old.Missing, r)

@@ -318,7 +318,7 @@ func TestHostedAppProxyPreservesPublicOriginAndRequest(t *testing.T) {
 	r.Header.Set("X-Forwarded-For", "spoofed")
 	r.Header.Set("Connection", "X-Forwarded-Proto")
 	w := httptest.NewRecorder()
-	a.VHost(http.NotFoundHandler()).ServeHTTP(w, r)
+	a.vHost(http.NotFoundHandler()).ServeHTTP(w, r)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("proxy: %d %s", w.Code, w.Body.String())
 	}

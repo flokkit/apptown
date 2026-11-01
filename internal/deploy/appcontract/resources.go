@@ -20,9 +20,9 @@ type Resources struct {
 // Declared says whether any limit is declared.
 func (r Resources) Declared() bool { return r.MemoryBytes > 0 || r.CPUs > 0 }
 
-// Over is r with each field other declares replacing r's: a profile that
+// over is r with each field other declares replacing r's: a profile that
 // declares memory alone keeps the base's cpu.
-func (r Resources) Over(other Resources) Resources {
+func (r Resources) over(other Resources) Resources {
 	if other.MemoryBytes > 0 {
 		r.MemoryBytes = other.MemoryBytes
 	}
@@ -58,9 +58,9 @@ const MinMemoryBytes = 32 << 20
 // as MiB, Kubernetes and Score read it as decimal megabytes.
 func ParseMemory(s string) (int64, error) { return parseMemory(s, false) }
 
-// ParseMemoryV1 reads a memory as a version-1 contract or a catalogue default
+// parseMemoryV1 reads a memory as a version-1 contract or a catalogue default
 // writes it: "Mi"/"Gi", or "M"/"G" meaning the same (MiB, GiB).
-func ParseMemoryV1(s string) (int64, error) { return parseMemory(s, true) }
+func parseMemoryV1(s string) (int64, error) { return parseMemory(s, true) }
 
 func parseMemory(s string, bareMeansBinary bool) (int64, error) {
 	v := strings.TrimSpace(s)
@@ -181,8 +181,8 @@ type ProfilePart struct {
 // DefaultProfile is the base: the parts as `app:` declares them.
 const DefaultProfile = "default"
 
-// PreviewProfile is the profile a preview uses when a file declares it.
-const PreviewProfile = "preview"
+// previewProfile is the profile a preview uses when a file declares it.
+const previewProfile = "preview"
 
 var profileNameRe = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 
@@ -280,7 +280,7 @@ func (c *Contract) ForProfile(name string) *Contract {
 		if !ok {
 			continue
 		}
-		out.Parts[i].Resources = out.Parts[i].Resources.Over(ch.Resources)
+		out.Parts[i].Resources = out.Parts[i].Resources.over(ch.Resources)
 		if len(ch.Env) > 0 {
 			out.Parts[i].Env = MergeEnv(out.Parts[i].Env, ch.Env)
 		}
@@ -305,7 +305,7 @@ func overNeeds(c *Contract, over func(string) (Resources, bool)) map[string]Reso
 	for _, n := range c.Needs {
 		r, declared := c.NeedResources[n]
 		if o, ok := over(n); ok {
-			r, declared = r.Over(o), true
+			r, declared = r.over(o), true
 		}
 		if declared && r.Declared() {
 			if out == nil {
@@ -328,7 +328,7 @@ func (c *Contract) WithResources(over map[string]Resources) *Contract {
 	out.Parts = append([]Part(nil), c.Parts...)
 	for i := range out.Parts {
 		if r, ok := over[out.Parts[i].Name]; ok {
-			out.Parts[i].Resources = out.Parts[i].Resources.Over(r)
+			out.Parts[i].Resources = out.Parts[i].Resources.over(r)
 		}
 	}
 	out.NeedResources = overNeeds(c, func(n string) (Resources, bool) { r, ok := over[n]; return r, ok })
@@ -378,8 +378,8 @@ type ProfileChoice string
 
 const (
 	ProfileChosen  ProfileChoice = "chosen"  // an explicit choice for the deployment
-	ProfilePreview ProfileChoice = "preview" // a preview, and a file declares preview
-	ProfileBase    ProfileChoice = "default" // nothing else applies
+	profilePreview ProfileChoice = "preview" // a preview, and a file declares preview
+	profileBase    ProfileChoice = "default" // nothing else applies
 )
 
 // DeploymentProfile is the one profile a deployment uses, whichever file
@@ -391,8 +391,8 @@ func DeploymentProfile(chosen, deployment string, declared map[string]bool) (str
 	if chosen != "" && (declared[chosen] || chosen == DefaultProfile) {
 		return chosen, ProfileChosen
 	}
-	if deployment == PreviewProfile && declared[PreviewProfile] {
-		return PreviewProfile, ProfilePreview
+	if deployment == previewProfile && declared[previewProfile] {
+		return previewProfile, profilePreview
 	}
-	return DefaultProfile, ProfileBase
+	return DefaultProfile, profileBase
 }

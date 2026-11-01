@@ -14,7 +14,7 @@ import (
 // the pipe's other end.
 func TestARecordReplacedByAPipeDoesNotBlockTheReader(t *testing.T) {
 	dir, path := writeRecord(t, record)
-	files, err := (&Transcript{Dir: dir}).SessionFiles()
+	files, err := (&Transcript{Dir: dir}).sessionFiles()
 	if err != nil || len(files) != 1 || files[0] != path {
 		t.Fatalf("files: %v", files)
 	}

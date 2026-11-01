@@ -4,6 +4,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 )
@@ -32,7 +34,7 @@ func TestSecretUnbindHTTPDistinguishesReadFailureFromAbsence(t *testing.T) {
 		NewSecrets(secrets, projects, nil, db, "", nil).UnbindSecret(w, r)
 		return w
 	}
-	t.Cleanup(db.FailNextStatement("-- name: BindingByName :one"))
+	t.Cleanup(dbtest.NextStatementFailure(db, "-- name: BindingByName :one"))
 	if w := request(); w.Code != 500 {
 		t.Fatalf("read failure: %d %s", w.Code, w.Body)
 	}

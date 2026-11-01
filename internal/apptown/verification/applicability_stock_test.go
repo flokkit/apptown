@@ -334,7 +334,7 @@ func TestAScanPointScannerAppliesWhereTheContractSaysAndItsEmptyExitFails(t *tes
 			f.Effects.report, f.Effects.exit = `{"results":[]}`, tc.exit
 			src := t.TempDir()
 			writeTree(t, src, tc.files)
-			results, findings, errs := f.Scanners.RunSourceScans(context.Background(), src, "test", "", "")
+			results, findings, errs := f.Scanners.runSourceScans(context.Background(), src, "test", "", "")
 			if errs != 0 || len(results) != 1 {
 				t.Fatalf("%d errors, %+v", errs, results)
 			}

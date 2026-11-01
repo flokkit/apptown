@@ -19,13 +19,13 @@ func TestContractSnapshots(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := NewContracts(db)
-	if done, err := c.Snapshotted(context.Background(), id, "abc"); err != nil || done {
+	if done, err := c.snapshotted(context.Background(), id, "abc"); err != nil || done {
 		t.Fatalf("nothing yet: %v %v", err, done)
 	}
 	if err := c.Snapshot(context.Background(), id, "abc", "present", "app-yaml", "apiVersion: v1", ""); err != nil {
 		t.Fatal(err)
 	}
-	if done, _ := c.Snapshotted(context.Background(), id, "abc"); !done {
+	if done, _ := c.snapshotted(context.Background(), id, "abc"); !done {
 		t.Fatal("recorded")
 	}
 	if err := c.Snapshot(context.Background(), id, "abc", "invalid", "app-yaml", "", "bad yaml"); err != nil {

@@ -18,43 +18,43 @@ type Browse struct {
 	Query         string
 	PriorityIDs   []ids.ID
 }
-type Page struct {
+type page struct {
 	Projects []Project
 	Total    int64
 }
 
-func (s *Projects) Browse(ctx context.Context, in Browse) (Page, error) {
+func (s *Projects) Browse(ctx context.Context, in Browse) (page, error) {
 	if in.Limit < 1 || in.Limit > 100 || in.Offset < 0 {
-		return Page{}, fmt.Errorf("project page requires limit 1–100 and a nonnegative offset")
+		return page{}, fmt.Errorf("project page requires limit 1–100 and a nonnegative offset")
 	}
 	idList, err := s.authority.VisibleProjects(ctx, access.CapProjectRead)
 	if err != nil {
-		return Page{}, err
+		return page{}, err
 	}
-	out := Page{Projects: []Project{}}
+	out := page{Projects: []Project{}}
 	if len(idList) == 0 {
 		return out, ctx.Err()
 	}
 	tx, err := s.db.ReadSnapshot(ctx)
 	if err != nil {
-		return Page{}, err
+		return page{}, err
 	}
 	defer tx.Rollback()
 	q := projectsql.New(tx.SQL())
 	query := strings.ToLower(strings.TrimSpace(in.Query))
 	out.Total, err = q.VisibleProjectCount(ctx, projectsql.VisibleProjectCountParams{ProjectIds: idList, Query: query})
 	if err != nil {
-		return Page{}, err
+		return page{}, err
 	}
 	rows, err := q.ProjectPage(ctx, projectsql.ProjectPageParams{ProjectIds: idList, Query: query, PriorityIds: in.PriorityIDs, RowLimit: int64(in.Limit), RowOffset: int64(in.Offset)})
 	if err != nil {
-		return Page{}, err
+		return page{}, err
 	}
 	for _, r := range rows {
 		out.Projects = append(out.Projects, record(r))
 	}
 	if err := tx.Commit(); err != nil {
-		return Page{}, err
+		return page{}, err
 	}
 	return out, nil
 }

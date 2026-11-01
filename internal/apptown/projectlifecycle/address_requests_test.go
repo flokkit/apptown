@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -107,7 +109,7 @@ func TestCreationResultFailureRollsBackAddressOwnershipAndAudit(t *testing.T) {
 		t.Run(statement, func(t *testing.T) {
 			f, ctx := requestedOwner(t)
 			in := Draft{RequestID: requestID(), Slug: "atomic-request", Name: "Atomic"}
-			restore := f.db.FailNextStatement(statement)
+			restore := dbtest.NextStatementFailure(f.db, statement)
 			_, err := f.lifecycle.Create(ctx, in)
 			restore()
 			if err == nil {
@@ -138,7 +140,7 @@ func TestRenameReceiptFailureLeavesTheProjectWhereItWas(t *testing.T) {
 	}
 	next, rev := "next", p.SettingsRevision
 	patch := project.SettingsPatch{ExpectedRevision: &rev, Slug: &next}
-	restore := f.db.FailNextStatement("INSERT INTO audit_log")
+	restore := dbtest.NextStatementFailure(f.db, "INSERT INTO audit_log")
 	_, err = f.lifecycle.UpdateSettings(ctx, p.ID, patch, "boss")
 	restore()
 	if err == nil {

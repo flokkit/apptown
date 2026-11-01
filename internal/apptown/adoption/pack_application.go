@@ -6,22 +6,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/ids"
 	"slices"
 	"sort"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/ids"
+
 	"github.com/flokkit/apptown/internal/apptown/wow"
 )
 
-var ErrPackApplication = errors.New("pack application must be prepared by Adoption and remain unchanged")
+var errPackApplication = errors.New("pack application must be prepared by Adoption and remain unchanged")
 
 // PreparePack creates a complete installation from exact published pins:
 // every pick's guidance, lanes, policies and extensions, none above another.
 // Packs that disagree are the candidate's problems, and it is not adopted.
 func (s *Service) PreparePack(ctx context.Context, projectID ids.ID, picks []PackPick) (*Candidate, error) {
 	if len(picks) == 0 {
-		return nil, ErrPackApplication
+		return nil, errPackApplication
 	}
 	c, err := s.Prepare(ctx, projectID, Request{Packs: picks, Additions: []string{}})
 	if err != nil {
@@ -73,7 +74,7 @@ func preparePackInstallation(c *Candidate, policies []Policy, setup wow.PackSetu
 		if err != nil {
 			return nil, err
 		}
-		c.Receipt.Policies = append(c.Receipt.Policies, ReceiptPolicy{Name: policy.Name, Rule: policy.Rule, ConfigHash: HashText(canonJSON(string(config))), Origin: policy.Origin})
+		c.Receipt.Policies = append(c.Receipt.Policies, ReceiptPolicy{Name: policy.Name, Rule: policy.Rule, ConfigHash: hashText(canonJSON(string(config))), Origin: policy.Origin})
 	}
 	c.Receipt.Extensions = slices.Clone(c.Receipt.Extensions)
 	for _, extension := range setup.Extensions {
@@ -108,14 +109,14 @@ func packApplicationSeal(c Candidate) (string, error) {
 }
 func validatePackApplication(c Candidate) error {
 	if c.applicationSeal == "" {
-		return ErrPackApplication
+		return errPackApplication
 	}
 	seal, err := packApplicationSeal(c)
 	if err != nil {
 		return err
 	}
 	if seal != c.applicationSeal {
-		return ErrPackApplication
+		return errPackApplication
 	}
 	return nil
 }
@@ -124,7 +125,7 @@ func validatePackApplication(c Candidate) error {
 // to the prepared direct pack command, never a selection or serialized uplift.
 func requireSelectionCandidate(c Candidate) error {
 	if c.applicationSeal != "" || len(c.Installation.Policies) != 0 || len(c.Installation.Extensions) != 0 {
-		return fmt.Errorf("installation requires the direct pack command: %w", ErrPackApplication)
+		return fmt.Errorf("installation requires the direct pack command: %w", errPackApplication)
 	}
 	return nil
 }

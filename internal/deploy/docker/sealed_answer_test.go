@@ -21,8 +21,8 @@ func TestASealedProbesStatusIsItsAnswerFile(t *testing.T) {
 		err    error
 	}{
 		{[]byte("204\n\n"), 204, nil},
-		{nil, 0, ErrNoAnswer},
-		{[]byte("garbage\n"), 0, ErrNoAnswer},
+		{nil, 0, errNoAnswer},
+		{[]byte("garbage\n"), 0, errNoAnswer},
 	} {
 		results := &containerresulttest.Daemon{Answers: func(containerresulttest.Command) (containerresulttest.Answer, bool) {
 			return containerresulttest.Answer{Answer: tc.answer}, true

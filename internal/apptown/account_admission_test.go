@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 )
@@ -32,7 +34,7 @@ func TestAccountReadFailureRejectsHTTPIdentity(t *testing.T) {
 			} else {
 				req.Header.Set("Authorization", "Bearer "+issued.Plaintext)
 			}
-			restore := a.DB.FailNextStatement(tc.marker)
+			restore := dbtest.NextStatementFailure(a.DB, tc.marker)
 			w := httptest.NewRecorder()
 			h.ServeHTTP(w, req)
 			restore()
@@ -61,7 +63,7 @@ func TestMCPUnavailableCredentialDoesNotChallengeForReplacement(t *testing.T) {
 		{"personal account", agent.Plaintext, "-- name: TouchUser"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			restore := a.DB.FailNextStatement(tc.marker)
+			restore := dbtest.NextStatementFailure(a.DB, tc.marker)
 			w := mcpWith(h, tc.token, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}`)
 			restore()
 			if w.Code != http.StatusServiceUnavailable || w.Header().Get("WWW-Authenticate") != "" {

@@ -13,9 +13,9 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 )
 
-// ErrModelOutsideArm is a model call for an eval copy with a model its arm
+// errModelOutsideArm is a model call for an eval copy with a model its arm
 // does not run: refused before it is sent, and read as "could not assess".
-var ErrModelOutsideArm = fault.New(fault.Unprocessable, "could not assess: the model is not one this eval arm runs")
+var errModelOutsideArm = fault.New(fault.Unprocessable, "could not assess: the model is not one this eval arm runs")
 
 // AdmitModel is the one model choice, and the spend gate, at every model
 // dispatch for a project: AppTown's own calls (checks, narratives,
@@ -32,17 +32,17 @@ func (g *Gate) AdmitModel(ctx context.Context, projectID ids.ID, pattern string)
 		return err
 	}
 	if !slices.Contains(allowed, pattern) {
-		return fmt.Errorf("%w: %s (it runs %v)", ErrModelOutsideArm, pattern, allowed)
+		return fmt.Errorf("%w: %s (it runs %v)", errModelOutsideArm, pattern, allowed)
 	}
-	if err := g.Admit(ctx, projectID); err != nil {
+	if err := g.admit(ctx, projectID); err != nil {
 		return fmt.Errorf("could not assess: %w", err)
 	}
 	return nil
 }
 
-// ErrNotTheJudge is a call through the judge's door that is not the
+// errNotTheJudge is a call through the judge's door that is not the
 // judging of an eval copy by its recorded judge.
-var ErrNotTheJudge = fault.New(fault.Unprocessable, "could not assess: the judge's door admits only an eval's recorded judge for its copies")
+var errNotTheJudge = fault.New(fault.Unprocessable, "could not assess: the judge's door admits only an eval's recorded judge for its copies")
 
 // AdmitJudge is the model choice of the judge's door: the one door an eval's comparison sends its rubric calls through. It admits only
 // the judge recorded for the copy's Change at start (the baseline's fast
@@ -57,16 +57,16 @@ func (g *Gate) AdmitJudge(ctx context.Context, projectID ids.ID, pattern string)
 		return err
 	}
 	if !copy {
-		return fmt.Errorf("%w: project %d is not an eval copy", ErrNotTheJudge, projectID)
+		return fmt.Errorf("%w: project %d is not an eval copy", errNotTheJudge, projectID)
 	}
 	plan, err := planOfCopyIn(ctx, g.db, projectID)
 	if err != nil {
 		return err
 	}
 	if plan.Judge == "" || plan.Judge != pattern {
-		return fmt.Errorf("%w: %s (the judge is %q)", ErrNotTheJudge, pattern, plan.Judge)
+		return fmt.Errorf("%w: %s (the judge is %q)", errNotTheJudge, pattern, plan.Judge)
 	}
-	if err := g.Admit(ctx, projectID); err != nil {
+	if err := g.admit(ctx, projectID); err != nil {
 		return fmt.Errorf("could not assess: %w", err)
 	}
 	return nil

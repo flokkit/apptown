@@ -10,14 +10,14 @@ import (
 	"time"
 )
 
-// AdvisoryFix is a fixed-version claim from a parsed advisory, not permission
+// advisoryFix is a fixed-version claim from a parsed advisory, not permission
 // to change a dependency or proof that software has no other vulnerabilities.
-type AdvisoryFix struct{ ID, Modified, Package, Before, After string }
+type advisoryFix struct{ ID, Modified, Package, Before, After string }
 
 // NPMAdvisoryFix interprets only complete npm SEMVER introduced/fixed ranges.
 // Every matching affected entry participates, including explicit versions.
-func NPMAdvisoryFix(raw []byte, pkg, before, after string) (AdvisoryFix, error) {
-	var out AdvisoryFix
+func NPMAdvisoryFix(raw []byte, pkg, before, after string) (advisoryFix, error) {
+	var out advisoryFix
 	if _, err := object(raw); err != nil {
 		return out, err
 	}
@@ -120,7 +120,7 @@ func NPMAdvisoryFix(raw []byte, pkg, before, after string) (AdvisoryFix, error) 
 	if !matched || !oldAffected || newAffected || !fixed {
 		return out, errors.New("advisory does not prove this exact affected-to-fixed transition")
 	}
-	return AdvisoryFix{ID: doc.ID, Modified: doc.Modified, Package: pkg, Before: before, After: after}, nil
+	return advisoryFix{ID: doc.ID, Modified: doc.Modified, Package: pkg, Before: before, After: after}, nil
 }
 func advisoryVersion(s string) ([]uint64, error) {
 	if !stableVersion.MatchString(s) {

@@ -74,7 +74,7 @@ func TestTargetRetirementCompetesWithBindingsAndOffers(t *testing.T) {
 					err = targets.Offer(context.Background(), target, "*", OfferCaps{}, "alice")
 				}
 				if err != nil {
-					if !errors.Is(err, ErrTargetConflict) {
+					if !errors.Is(err, errTargetConflict) {
 						t.Error(err)
 					}
 					return 0
@@ -158,7 +158,7 @@ func TestTargetRetirementRollsBackMissingRecords(t *testing.T) {
 			}
 			mustExec(t, db, `CREATE FUNCTION veto_target_retirement() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN `+body+` END $$`)
 			mustExec(t, db, `CREATE TRIGGER veto_target_retirement BEFORE `+operation+` ON `+table+` FOR EACH ROW EXECUTE FUNCTION veto_target_retirement()`)
-			if err := targets.Retire(context.Background(), target.Name, "alice"); err == nil || errors.Is(err, ErrTargetMissing) {
+			if err := targets.Retire(context.Background(), target.Name, "alice"); err == nil || errors.Is(err, errTargetMissing) {
 				t.Fatalf("missing write was accepted or mistaken for a missing target: %v", err)
 			}
 			if s := targetStatus(t, targets, target.ID); s != TargetReady {
@@ -314,8 +314,8 @@ func TestConcurrentTargetAttachmentHasOneWinner(t *testing.T) {
 	saved := make([]*Target, 2)
 	codes := race(2, func(i int) int {
 		var err error
-		saved[i], err = targets.Attach(t.Context(), &Target{Name: "same-name", Kind: KindDockerHost, Origin: OriginAttached,
-			Address: map[string]any{"host": fmt.Sprintf("host-%d", i)}, Status: TargetReady}, Attachment{By: "fixture", Attached: map[string]any{"candidate": i}, Answer: map[string]any{"candidate": i}})
+		saved[i], err = targets.attach(t.Context(), &Target{Name: "same-name", Kind: KindDockerHost, Origin: OriginAttached,
+			Address: map[string]any{"host": fmt.Sprintf("host-%d", i)}, Status: TargetReady}, attachment{By: "fixture", Attached: map[string]any{"candidate": i}, Answer: map[string]any{"candidate": i}})
 		if err == nil {
 			return 1
 		}
@@ -361,8 +361,8 @@ func TestDuplicateTargetAttachmentPreservesActiveAndRetiredRecords(t *testing.T)
 		t.Run(fmt.Sprint(retired), func(t *testing.T) {
 			db := testDB(t)
 			targets := NewTargets(db, noRetirement{})
-			initial, err := targets.Attach(t.Context(), &Target{Name: "kept", Kind: KindDockerHost, Provider: "original", Origin: OriginAttached,
-				Address: map[string]any{"host": "original"}, Ingress: map[string]any{"domain": "original.example"}, NeedsMode: "emulators", Status: TargetReady}, Attachment{By: "fixture"})
+			initial, err := targets.attach(t.Context(), &Target{Name: "kept", Kind: KindDockerHost, Provider: "original", Origin: OriginAttached,
+				Address: map[string]any{"host": "original"}, Ingress: map[string]any{"domain": "original.example"}, NeedsMode: "emulators", Status: TargetReady}, attachment{By: "fixture"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -379,9 +379,9 @@ func TestDuplicateTargetAttachmentPreservesActiveAndRetiredRecords(t *testing.T)
 			if err != nil {
 				t.Fatal(err)
 			}
-			replacement := &Target{Name: initial.Name, Kind: KindS3Bucket, Provider: "replacement", Origin: OriginProvisioned,
+			replacement := &Target{Name: initial.Name, Kind: KindS3Bucket, Provider: "replacement", Origin: originProvisioned,
 				Address: map[string]any{"endpoint": "other"}, Ingress: map[string]any{"domain": "other.example"}, NeedsMode: "managed", Status: TargetReady}
-			if _, err = targets.Attach(t.Context(), replacement, Attachment{By: "fixture"}); fault.KindOf(err) != fault.Conflict {
+			if _, err = targets.attach(t.Context(), replacement, attachment{By: "fixture"}); fault.KindOf(err) != fault.Conflict {
 				t.Fatalf("duplicate attachment: %v", err)
 			}
 			after, err := targets.ByName(t.Context(), initial.Name)
@@ -436,15 +436,15 @@ func TestCloudAttachmentCommitsOnlyWithANewBindingAndTarget(t *testing.T) {
 			}
 			switch scenario {
 			case "binding-insert":
-				t.Cleanup(db.FailNextStatement("-- name: CreateBinding"))
+				t.Cleanup(dbtest.NextStatementFailure(db, "-- name: CreateBinding"))
 			case "first-receipt":
-				t.Cleanup(db.FailStatementAfter("-- name: AppendReceipt", 0))
+				t.Cleanup(dbtest.StatementFailureAfter(db, "-- name: AppendReceipt", 0))
 			case "second-receipt":
-				t.Cleanup(db.FailStatementAfter("-- name: AppendReceipt", 1))
+				t.Cleanup(dbtest.StatementFailureAfter(db, "-- name: AppendReceipt", 1))
 			case "third-receipt":
-				t.Cleanup(db.FailStatementAfter("-- name: AppendReceipt", 2))
+				t.Cleanup(dbtest.StatementFailureAfter(db, "-- name: AppendReceipt", 2))
 			}
-			saved, err := service.AttachCloudTarget(t.Context(), "account", map[string]any{"tokenFrom": "NEW", "region": "nyc"}, Attachment{By: "fixture"})
+			saved, err := service.attachCloudTarget(t.Context(), "account", map[string]any{"tokenFrom": "NEW", "region": "nyc"}, attachment{By: "fixture"})
 			if scenario == "success" {
 				if err != nil || saved == nil || saved.Address["region"] != "nyc" || saved.Address["instanceSize"] != "basic-xxs" || saved.Address["dbSize"] != "db-s-1vcpu-1gb" {
 					t.Fatalf("cloud target: %+v %v", saved, err)
@@ -499,7 +499,7 @@ func TestCloudAttachmentValidatesConfigurationBeforeDefaults(t *testing.T) {
 		db := testDB(t)
 		integrations := integration.NewService(db, integration.Dependencies{})
 		service := &Service{db: db, Targets: NewTargets(db, noRetirement{}), providers: &Providers{integrations: integrations}}
-		if _, err := service.AttachCloudTarget(t.Context(), "invalid", config, Attachment{By: "fixture"}); fault.KindOf(err) != fault.Invalid {
+		if _, err := service.attachCloudTarget(t.Context(), "invalid", config, attachment{By: "fixture"}); fault.KindOf(err) != fault.Invalid {
 			t.Fatalf("invalid config %v: %v", config, err)
 		}
 		if _, err := integrations.Bindings.ByName(t.Context(), "invalid"); !errors.Is(err, sql.ErrNoRows) {

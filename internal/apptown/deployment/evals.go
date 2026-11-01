@@ -26,13 +26,13 @@ import (
 // at each door that places a deployment on a target: a landing, a deploy
 // request and its execution, a binding, and a standing rebuild.
 
-// IngressEvals is the ingress key marking an attached Docker host for
+// ingressEvals is the ingress key marking an attached Docker host for
 // evals: its domain is the eval domain, and it takes eval copies only.
-const IngressEvals = "evals"
+const ingressEvals = "evals"
 
-// ForEvals says whether the target is an attached host marked for evals.
-func (t *Target) ForEvals() bool {
-	marked, _ := t.Ingress[IngressEvals].(bool)
+// forEvals says whether the target is an attached host marked for evals.
+func (t *Target) forEvals() bool {
+	marked, _ := t.Ingress[ingressEvals].(bool)
 	return marked && t.Origin == OriginAttached && t.Kind == KindDockerHost
 }
 
@@ -51,10 +51,10 @@ func (s *Service) refusesPlacement(ctx context.Context, projectID ids.ID, t *Tar
 			return refused("this project is an eval copy, served only on the eval domain, and this AppTown has none: start it with -tier-domain eval=<domain>, or attach a Docker host for evals")
 		}
 		return nil
-	case copy && !t.ForEvals():
+	case copy && !t.forEvals():
 		return refused("this project is an eval copy, and %s is not an eval target: copies deploy only to this AppTown's own host on the eval domain, or to a Docker host attached for evals", t.Name)
-	case !copy && t.Reserved() != "":
-		return refused("%s is kept for %s and takes nothing else; deploy this project to another target", t.Name, t.Reserved())
+	case !copy && t.reserved() != "":
+		return refused("%s is kept for %s and takes nothing else; deploy this project to another target", t.Name, t.reserved())
 	}
 	return nil
 }
@@ -72,7 +72,7 @@ func (s *Service) evalLandingTarget(ctx context.Context, name string) (*Target, 
 	var builtIn *Target
 	for _, t := range targets {
 		switch {
-		case t.ForEvals() && t.Status.Offerable():
+		case t.forEvals() && t.Status.Offerable():
 			eval = append(eval, t)
 		case t.Origin == OriginBuiltIn && t.Kind == KindDockerHost && t.Name == s.hosts.settings.BuiltInTarget:
 			builtIn = t
@@ -93,9 +93,9 @@ func (s *Service) evalLandingTarget(ctx context.Context, name string) (*Target, 
 	return nil, refused("deployment %s of an eval copy has nowhere to go: start this AppTown with -tier-domain eval=<domain>, or attach a Docker host for evals", name)
 }
 
-// ForProject is the routing a project's addresses use: for an eval copy,
+// forProject is the routing a project's addresses use: for an eval copy,
 // the eval domain stands for both the preview and the main domain.
-func (r Routing) ForProject(copy bool) Routing {
+func (r Routing) forProject(copy bool) Routing {
 	if copy {
 		r.PreviewScheme, r.PreviewDomain = r.EvalScheme, r.EvalDomain
 		r.MainScheme, r.MainDomain = r.EvalScheme, r.EvalDomain

@@ -3,18 +3,19 @@ package operations
 import (
 	"database/sql/driver"
 	"errors"
+
 	"github.com/flokkit/apptown/internal/enum"
 )
 
 type OperationLabel uint8
 
 const (
-	LabelUnknown  OperationLabel = 1
-	LabelWaiting  OperationLabel = 2
-	LabelWorking  OperationLabel = 3
-	LabelFinished OperationLabel = 4
-	LabelFailed   OperationLabel = 5
-	LabelStopped  OperationLabel = 6
+	labelUnknown  OperationLabel = 1
+	labelWaiting  OperationLabel = 2
+	labelWorking  OperationLabel = 3
+	labelFinished OperationLabel = 4
+	labelFailed   OperationLabel = 5
+	labelStopped  OperationLabel = 6
 )
 
 var labelCodec = enum.Set[OperationLabel]{Names: []string{"unknown", "waiting", "working", "finished", "failed", "stopped"}, Invalid: "invalid-status-label", Err: errors.New("invalid status label"), ScanLabel: "value"}
@@ -27,16 +28,16 @@ func (s *OperationLabel) UnmarshalJSON(b []byte) error { return labelCodec.ReadJ
 func (o Operation) label() OperationLabel {
 	switch o.State {
 	case Queued:
-		return LabelWaiting
+		return labelWaiting
 	case Running:
-		return LabelWorking
+		return labelWorking
 	case Succeeded:
-		return LabelFinished
+		return labelFinished
 	case Failed:
-		return LabelFailed
+		return labelFailed
 	case Cancelled:
-		return LabelStopped
+		return labelStopped
 	default:
-		return LabelUnknown
+		return labelUnknown
 	}
 }

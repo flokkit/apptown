@@ -6,12 +6,11 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 )
 
 func TestReapPreviewOrphansSparesDeploymentsAndSteps(t *testing.T) {
 	t.Parallel()
-	f := dockerfake.New()
+	f := newDockerFake()
 	f.SetReply(func(args []string) ([]byte, error, bool) {
 		call := strings.Join(args, " ")
 		switch {
@@ -65,7 +64,7 @@ func TestReapPreviewOrphansSparesDeploymentsAndSteps(t *testing.T) {
 // stack's service goes with its anonymous volumes, a deployment's stays.
 func TestTheStartUpSweepRemovesAPreviewStacksServiceAndLeavesADeployments(t *testing.T) {
 	t.Parallel()
-	f := dockerfake.New()
+	f := newDockerFake()
 	scope := docker.Scope{Client: f}
 	for name, owner := range map[string]string{"svc-preview": "pvsnap-change-7", "svc-main": "env-letterbox-main"} {
 		if _, err := f.Run(context.Background(), "", docker.Command{Args: []string{"run", "-d", "--name", name,

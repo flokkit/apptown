@@ -14,9 +14,9 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// ErrNotCopied is a project's adoption that cannot be given to another
+// errNotCopied is a project's adoption that cannot be given to another
 // project exactly.
-var ErrNotCopied = errors.New("the project's way of working cannot be copied exactly")
+var errNotCopied = errors.New("the project's way of working cannot be copied exactly")
 
 // PrepareCopy prepares for dst, a project just created, exactly the
 // adoption src is on now: the same pack memberships at the same versions,
@@ -90,7 +90,7 @@ func (s *Service) prepareCopy(ctx context.Context, dst, src ids.ID, target Recei
 		return nil, err
 	}
 	if c.Digest != Digest(target) {
-		return nil, fmt.Errorf("%w: the copy's adoption would differ from the source's", ErrNotCopied)
+		return nil, fmt.Errorf("%w: the copy's adoption would differ from the source's", errNotCopied)
 	}
 	return c, nil
 }
@@ -125,7 +125,7 @@ func (s *Service) PrepareCopyUplift(ctx context.Context, dst, src ids.ID, picks 
 		return nil, err
 	}
 	if !slices.Equal(current.Receipt.Policies, target.Policies) || !slices.Equal(current.Receipt.Extensions, target.Extensions) {
-		return nil, fmt.Errorf("%w: the move changes installed policies or extensions, which an adoption Change does not install", ErrNotCopied)
+		return nil, fmt.Errorf("%w: the move changes installed policies or extensions, which an adoption Change does not install", errNotCopied)
 	}
 	memberships, err := ProjectPacksIn(ctx, s.db, dst)
 	if err != nil {
@@ -169,8 +169,8 @@ type CopySource struct {
 	Revision int64  `json:"revision,omitempty"`
 }
 
-// CopyPurpose is Project's answer to whether a project is an eval's copy.
-type CopyPurpose interface {
+// copyPurpose is Project's answer to whether a project is an eval's copy.
+type copyPurpose interface {
 	IsEvalCopyIn(ctx context.Context, q database.Queryer, projectID ids.ID) (bool, error)
 }
 
@@ -207,14 +207,14 @@ func (s *Service) validateCopyIn(ctx context.Context, q database.Queryer, projec
 		return fmt.Errorf("reading the source project's adoption: %w", err)
 	}
 	if Digest(source.Receipt) != c.Digest {
-		return fmt.Errorf("%w: the source's way of working changed since the copy was prepared", ErrNotCopied)
+		return fmt.Errorf("%w: the source's way of working changed since the copy was prepared", errNotCopied)
 	}
 	picks, err := currentPicksIn(ctx, q, c.CopyOf.Project)
 	if err != nil {
 		return err
 	}
 	if !slices.Equal(picks, c.Packs) {
-		return fmt.Errorf("%w: the source's packs changed since the copy was prepared", ErrNotCopied)
+		return fmt.Errorf("%w: the source's packs changed since the copy was prepared", errNotCopied)
 	}
 	return nil
 }
@@ -239,7 +239,7 @@ func (s *Service) CopyTarget(ctx context.Context, src ids.ID, picks []PackPick) 
 		return Receipt{}, nil, err
 	}
 	if len(c.Problems) > 0 {
-		return Receipt{}, nil, fmt.Errorf("%w: %s", ErrNotCopied, strings.Join(c.Problems, "; "))
+		return Receipt{}, nil, fmt.Errorf("%w: %s", errNotCopied, strings.Join(c.Problems, "; "))
 	}
 	return c.Receipt, picks, nil
 }

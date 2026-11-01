@@ -13,21 +13,21 @@ import (
 type ConsoleCreation struct {
 	projects *project.Projects
 	access   *identity.Service
-	opener   ConsoleOpener
+	opener   consoleOpener
 	view     ConsoleSessions
 	authMode string
 }
 
-func NewConsoleCreation(projects *project.Projects, access *identity.Service, opener ConsoleOpener, view ConsoleSessions, authMode string) ConsoleCreation {
+func NewConsoleCreation(projects *project.Projects, access *identity.Service, opener consoleOpener, view ConsoleSessions, authMode string) ConsoleCreation {
 	return ConsoleCreation{projects: projects, access: access, opener: opener, view: view, authMode: authMode}
 }
 
-type ConsoleOpener interface {
+type consoleOpener interface {
 	Open(context.Context, *project.Project, conversation.ProjectOpen, string) (*console.Session, error)
 }
 
 func (h ConsoleCreation) ConsoleCreate(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -35,12 +35,12 @@ func (h ConsoleCreation) ConsoleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonCommand(w, r, jsonBody{optional: true}, func(in conversation.ProjectOpen) {
-		s, err := h.opener.Open(r.Context(), p, in, Actor(r))
+		s, err := h.opener.Open(r.Context(), p, in, actor(r))
 		if err != nil {
 			WriteFault(w, err)
 			return
 		}
-		WriteJSON(w, 201, ConsoleOpened{Session: h.view.View(r, s)})
+		WriteJSON(w, 201, ConsoleOpened{Session: h.view.view(r, s)})
 	})
 }
 

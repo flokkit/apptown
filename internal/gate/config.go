@@ -48,12 +48,12 @@ type Config struct {
 	Roots *x509.CertPool
 }
 
-// TrustEnv is the variable the extra certificates arrive in, as every
+// trustEnv is the variable the extra certificates arrive in, as every
 // container AppTown starts is given them (internal/trust.EnvVar).
-const TrustEnv = "APPTOWN_TRUST"
+const trustEnv = "APPTOWN_TRUST"
 
-// DefaultListen is the address used when GATE_LISTEN is not set.
-const DefaultListen = ":8080"
+// defaultListen is the address used when GATE_LISTEN is not set.
+const defaultListen = ":8080"
 
 // ConfigFromEnv reads GATE_LISTEN, GATE_UPSTREAM, GATE_SECRET and
 // GATE_APPTOWN through getenv. It refuses a missing or malformed value rather
@@ -62,7 +62,7 @@ const DefaultListen = ":8080"
 func ConfigFromEnv(getenv func(string) string) (Config, error) {
 	cfg := Config{Listen: strings.TrimSpace(getenv("GATE_LISTEN"))}
 	if cfg.Listen == "" {
-		cfg.Listen = DefaultListen
+		cfg.Listen = defaultListen
 	}
 	var problems []error
 
@@ -84,10 +84,10 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 	}
 	cfg.AppTown = origin
 
-	if script := getenv(TrustEnv); script != "" {
+	if script := getenv(trustEnv); script != "" {
 		roots, err := extraRoots(script)
 		if err != nil {
-			problems = append(problems, fmt.Errorf("%s: %w", TrustEnv, err))
+			problems = append(problems, fmt.Errorf("%s: %w", trustEnv, err))
 		}
 		cfg.Roots = roots
 	}

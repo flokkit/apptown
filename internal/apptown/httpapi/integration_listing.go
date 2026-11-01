@@ -18,13 +18,13 @@ import (
 type IntegrationListing struct {
 	integrations *integration.Service
 	deployment   *deployment.Service
-	health       ConnectorHealth
+	health       connectorHealth
 	docker       *docker.Scope
 	formats      []string
 	now          func() time.Time // AppTown's clock, which dates a health reading
 }
 
-func NewIntegrationListing(integrations *integration.Service, deployment *deployment.Service, health ConnectorHealth, docker *docker.Scope, formats []string, now func() time.Time) IntegrationListing {
+func NewIntegrationListing(integrations *integration.Service, deployment *deployment.Service, health connectorHealth, docker *docker.Scope, formats []string, now func() time.Time) IntegrationListing {
 	return IntegrationListing{integrations: integrations, deployment: deployment, health: health, docker: docker, formats: slices.Clone(formats), now: clock.Or(now)}
 }
 

@@ -3,6 +3,7 @@ package deployment
 import (
 	"database/sql/driver"
 	"errors"
+
 	"github.com/flokkit/apptown/internal/enum"
 )
 
@@ -10,15 +11,15 @@ import (
 type ProgressLabel uint8
 
 const (
-	ProgressLabelUnknown ProgressLabel = iota + 1
-	ProgressLabelDeployed
-	ProgressLabelDeploying
-	ProgressLabelFailed
-	ProgressLabelPassed
-	ProgressLabelWorking
-	ProgressLabelStopped
-	ProgressLabelWaiting
-	ProgressLabelExcepted
+	progressLabelUnknown ProgressLabel = iota + 1
+	progressLabelDeployed
+	progressLabelDeploying
+	progressLabelFailed
+	progressLabelPassed
+	progressLabelWorking
+	progressLabelStopped
+	progressLabelWaiting
+	progressLabelExcepted
 )
 
 var progressLabelCodec = enum.Set[ProgressLabel]{Names: []string{"unknown", "deployed", "deploying", "failed", "passed", "working", "stopped", "waiting", "excepted"}, Invalid: "invalid-display-label", Err: errors.New("invalid display label"), ScanLabel: "value"}
@@ -30,48 +31,48 @@ func (s ProgressLabel) MarshalJSON() ([]byte, error) { return progressLabelCodec
 func (s Readiness) Display() ProgressLabel {
 	switch s {
 	case Reconciled:
-		return ProgressLabelDeployed
-	case Reconciling:
-		return ProgressLabelDeploying
+		return progressLabelDeployed
+	case reconciling:
+		return progressLabelDeploying
 	case ReadinessFailed:
-		return ProgressLabelFailed
+		return progressLabelFailed
 	default:
-		return ProgressLabelUnknown
+		return progressLabelUnknown
 	}
 }
 func (s RestoreCheck) Display() ProgressLabel {
 	switch s {
-	case RestoreGone, RestoreNotFilled:
-		return ProgressLabelFailed
+	case restoreGone, RestoreNotFilled:
+		return progressLabelFailed
 	case RestoreFilling:
-		return ProgressLabelWorking
+		return progressLabelWorking
 	case RestoreUnconfirmed:
-		return ProgressLabelWaiting
+		return progressLabelWaiting
 	default:
-		return ProgressLabelUnknown
+		return progressLabelUnknown
 	}
 }
-func (s NeedState) Display() ProgressLabel {
+func (s needState) Display() ProgressLabel {
 	switch s {
 	case NeedReady:
-		return ProgressLabelPassed
-	case NeedCreating:
-		return ProgressLabelWorking
-	case NeedFailed:
-		return ProgressLabelFailed
-	case NeedOrphaned:
-		return ProgressLabelStopped
+		return progressLabelPassed
+	case needCreating:
+		return progressLabelWorking
+	case needFailed:
+		return progressLabelFailed
+	case needOrphaned:
+		return progressLabelStopped
 	default:
-		return ProgressLabelUnknown
+		return progressLabelUnknown
 	}
 }
 
 func (s *ProgressLabel) UnmarshalJSON(b []byte) error { return progressLabelCodec.ReadJSON(s, b) }
 
-// OverrideDisplay distinguishes a requested override from one the generation applies.
-func OverrideDisplay(applied bool) ProgressLabel {
+// overrideDisplay distinguishes a requested override from one the generation applies.
+func overrideDisplay(applied bool) ProgressLabel {
 	if applied {
-		return ProgressLabelExcepted
+		return progressLabelExcepted
 	}
-	return ProgressLabelWaiting
+	return progressLabelWaiting
 }

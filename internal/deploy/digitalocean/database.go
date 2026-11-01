@@ -131,7 +131,7 @@ func (d *Driver) FulfilNeed(ctx context.Context, p deploy.Placement, need string
 			Database doDatabase `json:"database"`
 		}
 		switch err := c.Call(ctx, "GET", "/v2/databases/"+id, nil, &got); {
-		case IsStatus(err, 404):
+		case isStatus(err, 404):
 		case err != nil:
 			return deploy.NeedBinding{}, nil, fmt.Errorf("reading the cluster %s: %w", id, err)
 		default:
@@ -199,10 +199,10 @@ func (d *Driver) FulfilNeed(ctx context.Context, p deploy.Placement, need string
 		db = &got.Database
 	}
 	// The database and the user inside it, idempotently.
-	if err := c.Call(ctx, "POST", "/v2/databases/"+db.ID+"/dbs", map[string]any{"name": dbName}, nil); err != nil && !IsStatus(err, 422) && !IsStatus(err, 409) {
+	if err := c.Call(ctx, "POST", "/v2/databases/"+db.ID+"/dbs", map[string]any{"name": dbName}, nil); err != nil && !isStatus(err, 422) && !isStatus(err, 409) {
 		return deploy.NeedBinding{}, nil, fmt.Errorf("creating database %s: %w", dbName, err)
 	}
-	if err := c.Call(ctx, "POST", "/v2/databases/"+db.ID+"/users", map[string]any{"name": dbUser}, nil); err != nil && !IsStatus(err, 422) && !IsStatus(err, 409) {
+	if err := c.Call(ctx, "POST", "/v2/databases/"+db.ID+"/users", map[string]any{"name": dbUser}, nil); err != nil && !isStatus(err, 422) && !isStatus(err, 409) {
 		return deploy.NeedBinding{}, nil, fmt.Errorf("creating user %s: %w", dbUser, err)
 	}
 	// Postgres 15 took CREATE on the public schema away from everyone but

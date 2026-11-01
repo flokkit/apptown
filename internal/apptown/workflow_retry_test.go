@@ -10,7 +10,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/database"
 )
 
 // Transport keeps the domain refusal's text even when an operation wraps it.
@@ -50,7 +49,7 @@ func TestSendBackRollsBackQueuedAbandonment(t *testing.T) {
 	beforeJobs := queueRecord(t, a)
 	beforeWork := workflowResetSnapshot(t, a.DB)
 	dbtest.FailNextStatement(t, a.DB, "INSERT INTO workflow_continuations")
-	if _, err := a.Work.SendBack(ctx, workflow.SendBack{ChangeID: source.ChangeID, Note: "revise the work"}); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := a.Work.SendBack(ctx, workflow.SendBack{ChangeID: source.ChangeID, Note: "revise the work"}); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("continuation failure: %v", err)
 	}
 	if afterJobs := queueRecord(t, a); afterJobs != beforeJobs || workflowResetSnapshot(t, a.DB) != beforeWork {

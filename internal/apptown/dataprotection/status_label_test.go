@@ -2,15 +2,16 @@ package dataprotection
 
 import (
 	"encoding/json"
-	"github.com/flokkit/apptown/internal/apptown/dataprotection/internal/protectionsql"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/apptown/dataprotection/internal/protectionsql"
 )
 
 func TestBackupLabelsKeepPartialFailuresVisible(t *testing.T) {
 	for _, tc := range []struct {
 		state BackupState
 		want  BackupLabel
-	}{{BackupOK, LabelFinished}, {BackupPartial, LabelFailed}, {BackupFailed, LabelFailed}, {BackupPruned, LabelFinished}} {
+	}{{BackupOK, labelFinished}, {BackupPartial, labelFailed}, {BackupFailed, labelFailed}, {backupPruned, labelFinished}} {
 		b, err := backupRecord(protectionsql.Backup{Status: tc.state.String()}, nil)
 		if err != nil {
 			t.Fatal(err)
@@ -37,7 +38,7 @@ func TestBackupLabelsKeepPartialFailuresVisible(t *testing.T) {
 
 // Removing an old copy is retention, not an interrupted backup job.
 func TestPrunedBackupIsFinished(t *testing.T) {
-	if got := (Backup{Status: BackupPruned}).label().String(); got != "finished" {
+	if got := (Backup{Status: backupPruned}).label().String(); got != "finished" {
 		t.Fatalf("pruned backup reads as %q; want finished", got)
 	}
 }

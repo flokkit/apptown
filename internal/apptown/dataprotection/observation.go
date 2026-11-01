@@ -8,20 +8,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/dataprotection/internal/protectionsql"
-	"github.com/flokkit/apptown/internal/database"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/dataprotection/internal/protectionsql"
+	"github.com/flokkit/apptown/internal/database"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// ProtectionObservationQueue admits work only. Identical unfinished subjects
+// protectionObservationQueue admits work only. Identical unfinished subjects
 // coalesce in the durable queue, including while the provider read is running.
-type ProtectionObservationQueue interface {
+type protectionObservationQueue interface {
 	RequestProtectionObservation(context.Context, ids.ID, string) error
 }
 
@@ -67,13 +68,13 @@ type ProtectionSnapshot struct {
 // Caller authority must be checked before selecting a deployment for Snapshot.
 type ProtectionObserver struct {
 	db      *database.DB
-	queue   ProtectionObservationQueue
+	queue   protectionObservationQueue
 	now     func() time.Time
 	resolve func(context.Context, ids.ID) (*deployment.Deployment, string, error)
 	read    func(context.Context, ids.ID, string) (*Protection, error)
 }
 
-func NewProtectionObserver(service *Service, queue ProtectionObservationQueue) *ProtectionObserver {
+func NewProtectionObserver(service *Service, queue protectionObservationQueue) *ProtectionObserver {
 	return &ProtectionObserver{db: service.db, queue: queue, now: service.now, read: service.DeploymentProtection, resolve: func(ctx context.Context, id ids.ID) (*deployment.Deployment, string, error) {
 		dep, err := service.deployments.ByID(ctx, id)
 		if err != nil {
@@ -141,7 +142,7 @@ func protectionSnapshotAt(s ProtectionSnapshot, now time.Time) ProtectionSnapsho
 	return s
 }
 
-func (o *ProtectionObserver) Run(ctx context.Context, id ids.ID, identity string) error {
+func (o *ProtectionObserver) run(ctx context.Context, id ids.ID, identity string) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	dep, current, err := o.resolve(ctx, id)
@@ -213,7 +214,7 @@ func observedProtection(p *Protection, at time.Time) ProtectionSnapshot {
 		out.Reason = "The deployment's data could not be read."
 	}
 	for _, limit := range p.Coverage.NotAssessed {
-		if limit != OutsideNotAssessed {
+		if limit != outsideNotAssessed {
 			out.Unassessed = true
 			out.Unknown = true
 			if out.Reason == "" {
@@ -241,7 +242,7 @@ func observedProtection(p *Protection, at time.Time) ProtectionSnapshot {
 		if item.LastCopy != nil {
 			row.CopyAt = mustTime(item.LastCopy.TakenAt)
 		}
-		if item.Copy == CopyUnknown {
+		if item.Copy == copyUnknown {
 			out.Unknown = true
 			out.Reason = "The latest data copy was interrupted."
 		}
@@ -274,7 +275,7 @@ func (o *ProtectionObserver) RunJob(ctx context.Context, key string, _ map[strin
 	if !ok || idErr != nil || id.IsZero() || digestErr != nil || len(digest) != sha256.Size {
 		return nil, jobs.Permanent(errors.New("invalid protection observation identity"))
 	}
-	return nil, o.Run(ctx, id, identity)
+	return nil, o.run(ctx, id, identity)
 }
 
 // Request admits a periodic background check for the current local identity.

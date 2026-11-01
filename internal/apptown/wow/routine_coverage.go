@@ -73,7 +73,7 @@ func (s RoutineTransitions) CheckTransitionsIn(ctx context.Context, tx *database
 			}
 		}
 	}
-	return s.CheckIn(ctx, tx, wanted)
+	return s.checkIn(ctx, tx, wanted)
 }
 
 func routineCoveredMoves(before, after routinePublication, covered map[RoutinePublicationTransition]bool) {

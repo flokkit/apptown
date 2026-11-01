@@ -21,7 +21,7 @@ func init() {
 		wiregen.Named{Name: "RestoreResult", Value: dataprotection.RestoreResult{}},
 		wiregen.Named{Name: "DeploymentRemoved", Value: DeploymentRemoved{}},
 		wiregen.Named{Name: "ReleaseRequested", Value: ReleaseRequested{}},
-		wiregen.Named{Name: "DeploymentChecked", Value: DeploymentChecked{}},
+		wiregen.Named{Name: "DeploymentChecked", Value: deploymentChecked{}},
 		wiregen.Named{Name: "DeploymentAIModels", Value: DeploymentAIModels{}},
 		wiregen.Named{Name: "DeploymentResources", Value: deployment.DeploymentResources{}},
 		wiregen.Named{Name: "DeploymentDiagnostics", Value: deployment.Diagnostics{}},

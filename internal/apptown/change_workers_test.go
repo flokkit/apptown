@@ -210,7 +210,7 @@ func TestARecheckChecksTheChatsNewCommit(t *testing.T) {
 // nothing labelled as writing the folder is left; asking removes it.
 func TestSomethingStillWritingTheFolderKeepsTheChangeHeld(t *testing.T) {
 	t.Parallel()
-	for name, outcome := range map[string]ExecOutcome{
+	for name, outcome := range map[string]execOutcome{
 		"a timeout whose removal failed": {TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("Docker removal not confirmed")},
 		"a lost Docker connection":       {RunErr: errors.New("Docker attach connection lost"), ExitCode: 125},
 	} {
@@ -220,7 +220,7 @@ func TestSomethingStillWritingTheFolderKeepsTheChangeHeld(t *testing.T) {
 			a.docker = docker.Scope{Client: daemon}
 			runID, stepID := admittedAgentStep(t, a, `{"prompt":"do it"}`)
 			var container string
-			installFakePi(t, a, func(_ int, req ExecRequest) ExecOutcome {
+			installFakePi(t, a, func(_ int, req execRequest) execOutcome {
 				container = req.Name
 				daemon.survive(req)
 				return outcome

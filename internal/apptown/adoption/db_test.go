@@ -72,7 +72,7 @@ func noCurrent(t *testing.T, db *database.DB, pid ids.ID) {
 func revisionsOf(t *testing.T, db *database.DB, pid ids.ID) []RecordedRevision {
 	t.Helper()
 	const page = 1000
-	h, err := newAdoptions(db).History(t.Context(), pid, page)
+	h, err := newAdoptions(db).history(t.Context(), pid, page)
 	if err != nil || len(h) == page {
 		t.Fatalf("revisions of %d: %d %v", pid, len(h), err)
 	}

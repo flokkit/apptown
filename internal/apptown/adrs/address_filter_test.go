@@ -1,9 +1,11 @@
 package adrs
 
 import (
+	"testing"
+
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/database"
-	"testing"
+	"github.com/flokkit/apptown/internal/dbtest"
 )
 
 func TestADRAddressFilterReadsTheCurrentAddress(t *testing.T) {
@@ -35,7 +37,7 @@ func TestADRAddressFilterReadsTheCurrentAddress(t *testing.T) {
 			t.Fatalf("missing/mixed scope became unfiltered: %+v %v", rows, err)
 		}
 	}
-	restore := db.FailNextStatement("-- name: ProjectIDBySlug")
+	restore := dbtest.NextStatementFailure(db, "-- name: ProjectIDBySlug")
 	rows, err = s.List(ctx, Filter{ProjectSlug: next})
 	restore()
 	if err == nil || rows != nil {

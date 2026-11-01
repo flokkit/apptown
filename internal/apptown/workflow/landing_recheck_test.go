@@ -29,11 +29,11 @@ func landingRecheckOwnerFixture(t *testing.T) (queries, *Run, ids.ID) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	claim, err := attempts.Start(context.Background(), step, "scan")
+	claim, err := attempts.start(context.Background(), step, "scan", ids.Nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := attempts.Finish(context.Background(), claim, StepOutcome{Status: StatusFail, Evidence: json.RawMessage(`{"number":9007199254740993}`)}); err != nil {
+	if err := attempts.finish(context.Background(), claim, StepOutcome{Status: StatusFail, Evidence: json.RawMessage(`{"number":9007199254740993}`)}); err != nil {
 		t.Fatal(err)
 	}
 	return q, run, id
@@ -57,18 +57,18 @@ func TestLandingRecheckBudgetAndResetCommitTogether(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	in := LandingRecheck{ChangeID: run.ChangeID, RunID: run.ID, who: "alice", Remediation: &LandingRetry{ItemID: idstest.N(7)}}
-	if got, err := owner.Recheck(ctx, in); err == nil || len(got.Names) != 0 {
+	if got, err := owner.recheck(ctx, in); err == nil || len(got.Names) != 0 {
 		t.Fatalf("suppressed receipt: %+v %v", got, err)
 	}
 	wantEventCount(t, q.db, 6, anyEvent)
 	wantStepState(t, q.db, id, StatusFail)
 	wantRetryRevision(t, q.db, run.ID, 0)
 	completionExec(t, q.db, `DROP TRIGGER veto_landing_retry ON run_events`)
-	got, err := owner.Recheck(ctx, in)
+	got, err := owner.recheck(ctx, in)
 	if err != nil || len(got.Names) != 1 {
 		t.Fatalf("retry: %+v %v", got, err)
 	}
-	if got, err = owner.Recheck(ctx, in); err != nil || len(got.Names) != 0 {
+	if got, err = owner.recheck(ctx, in); err != nil || len(got.Names) != 0 {
 		t.Fatalf("replay: %+v %v", got, err)
 	}
 	if calls != 2 {
@@ -92,7 +92,7 @@ func TestLandingRecheckRechecksChangeProjectAfterLock(t *testing.T) {
 	defer cancel()
 	done := make(chan error, 1)
 	go func() {
-		_, err := newLandingRechecks(q.db, []string{"scan"}, nil).Recheck(ctx, LandingRecheck{ChangeID: run.ChangeID})
+		_, err := newLandingRechecks(q.db, []string{"scan"}, nil).recheck(ctx, LandingRecheck{ChangeID: run.ChangeID})
 		done <- err
 	}()
 	dbtest.WaitForLock(t, q.db, "-- name: ProjectForUpdate")

@@ -50,13 +50,13 @@ const (
 // clone makes, so the apptown runs no Git in it. A FolderRefusal says why.
 var ErrFolderRefused = errors.New("the folder's Git metadata is not AppTown's own clone")
 
-// FolderRefusal is a refused folder and the reason.
-type FolderRefusal struct{ Folder, Reason string }
+// folderRefusal is a refused folder and the reason.
+type folderRefusal struct{ Folder, Reason string }
 
-func (e *FolderRefusal) Error() string {
+func (e *folderRefusal) Error() string {
 	return fmt.Sprintf("%s: %s: %s", e.Folder, ErrFolderRefused, e.Reason)
 }
-func (e *FolderRefusal) Is(target error) bool { return target == ErrFolderRefused }
+func (e *folderRefusal) Is(target error) bool { return target == ErrFolderRefused }
 
 // folderLocks holds one lock per folder path. The apptown runs one process per
 // data directory, so a process-wide lock is the whole of it.
@@ -194,7 +194,7 @@ func confined(ctx context.Context, folder string, args ...string) (string, error
 // that cannot be read is an error, not a refusal.
 func CheckFolder(ctx context.Context, folder string) error {
 	refuse := func(format string, args ...any) error {
-		return &FolderRefusal{Folder: folder, Reason: fmt.Sprintf(format, args...)}
+		return &folderRefusal{Folder: folder, Reason: fmt.Sprintf(format, args...)}
 	}
 	if info, err := os.Lstat(folder); err != nil {
 		return fmt.Errorf("reading the folder %s: %w", folder, err)
@@ -222,7 +222,7 @@ func CheckFolder(ctx context.Context, folder string) error {
 		}
 		return nil
 	}); err != nil {
-		var refusal *FolderRefusal
+		var refusal *folderRefusal
 		if errors.As(err, &refusal) {
 			return err
 		}

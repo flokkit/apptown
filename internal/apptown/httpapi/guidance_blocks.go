@@ -3,8 +3,9 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
-	"github.com/flokkit/apptown/internal/apptown/schema"
 	"net/http"
+
+	"github.com/flokkit/apptown/internal/apptown/schema"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -48,7 +49,7 @@ func (h GuidanceBlocks) CreateBlock(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 400, "%v", err)
 			return
 		}
-		b, err := h.ways.CreateBlock(r.Context(), in.Name, in.BodyMD, in.Tags, Actor(r))
+		b, err := h.ways.CreateBlock(r.Context(), in.Name, in.BodyMD, in.Tags, actor(r))
 		if err != nil {
 			// Unclassified failures keep the 409 this route has always answered.
 			WriteFaultOr(w, err, http.StatusConflict)
@@ -59,7 +60,7 @@ func (h GuidanceBlocks) CreateBlock(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h GuidanceBlocks) GetBlock(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -69,7 +70,7 @@ func (h GuidanceBlocks) GetBlock(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, 404, "no such block")
 		return
 	}
-	version, ok := QueryInt(w, r, "version", b.LatestVersion)
+	version, ok := queryInt(w, r, "version", b.LatestVersion)
 	if !ok {
 		return
 	}
@@ -100,7 +101,7 @@ func (h GuidanceBlocks) PatchBlock(w http.ResponseWriter, r *http.Request) {
 	if _, ok := AuthorizeRequest(h.access, w, r, access.CapStandardsGuidance, access.Resource{Type: "instance"}, access.Context{}); !ok {
 		return
 	}
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -135,7 +136,7 @@ func (h GuidanceBlocks) PatchBlock(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		out, err := h.ways.EditBlock(r.Context(), id, wow.BlockPatch{Tags: in.Tags, BodyMD: in.BodyMD, Checks: in.Checks}, Actor(r))
+		out, err := h.ways.EditBlock(r.Context(), id, wow.BlockPatch{Tags: in.Tags, BodyMD: in.BodyMD, Checks: in.Checks}, actor(r))
 		if err != nil {
 			WriteFault(w, err)
 			return

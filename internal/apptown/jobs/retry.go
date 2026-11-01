@@ -19,7 +19,7 @@ type RunOperations struct {
 	RunID     ids.ID
 }
 
-type RetryResult struct {
+type retryResult struct {
 	Pending bool
 	Retried int
 }
@@ -27,15 +27,15 @@ type RetryResult struct {
 // RetryRunOperationsIn locks the entire selection until the caller's transaction
 // ends. Terminal failures are explicitly retried through River; completed jobs
 // remain completed. No workers start and no separate connection is acquired.
-func RetryRunOperationsIn(ctx context.Context, tx *sql.Tx, in RunOperations) (RetryResult, error) {
+func RetryRunOperationsIn(ctx context.Context, tx *sql.Tx, in RunOperations) (retryResult, error) {
 	if in.Operation == "" || in.RunID.IsZero() {
-		return RetryResult{}, fmt.Errorf("retry requires an operation and positive run ID")
+		return retryResult{}, fmt.Errorf("retry requires an operation and positive run ID")
 	}
 	rows, err := jobsql.New(tx).RunOperationsForUpdate(ctx, jobsql.RunOperationsForUpdateParams{Kind: (Request{}).Kind(), Operation: in.Operation, RunID: in.RunID.String()})
 	if err != nil {
-		return RetryResult{}, err
+		return retryResult{}, err
 	}
-	var out RetryResult
+	var out retryResult
 	var retry []int64
 	for _, r := range rows {
 		id, state := r.ID, rivertype.JobState(r.State)
@@ -50,13 +50,13 @@ func RetryRunOperationsIn(ctx context.Context, tx *sql.Tx, in RunOperations) (Re
 	if len(retry) == 0 {
 		return out, nil
 	}
-	producer, err := Producer(nil)
+	producer, err := producer(nil)
 	if err != nil {
-		return RetryResult{}, err
+		return retryResult{}, err
 	}
 	for _, id := range retry {
 		if _, err := producer.JobRetryTx(ctx, tx, id); err != nil {
-			return RetryResult{}, err
+			return retryResult{}, err
 		}
 		out.Retried++
 	}

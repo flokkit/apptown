@@ -57,11 +57,11 @@ import (
 
 const (
 	HealthTick             = 15 * time.Second // how often the loop sweeps
-	HealthGraceFloor       = 30 * time.Second // startupGrace is never shorter than this on a live env
+	healthGraceFloor       = 30 * time.Second // startupGrace is never shorter than this on a live env
 	HealthFailThreshold    = 3                // consecutive misses before a restart
-	HealthSuccessThreshold = 2                // consecutive passes to clear
-	HealthBackoffBase      = 15 * time.Second // first backoff after a restart
-	HealthBackoffCap       = 5 * time.Minute  // a crash-loop is held here, not hammered
+	healthSuccessThreshold = 2                // consecutive passes to clear
+	healthBackoffBase      = 15 * time.Second // first backoff after a restart
+	healthBackoffCap       = 5 * time.Minute  // a crash-loop is held here, not hammered
 	CrashLoopRestarts      = 5                // Docker restarts within the window that make a crash loop
 	CrashLoopWindow        = 10 * time.Minute // Docker restarts an instant exit 7× in 12s; a healthy app never 5× in 10m
 )
@@ -115,17 +115,6 @@ type HealthController struct {
 func NewHealthController(deps HealthDependencies) *HealthController {
 	return &HealthController{deps: deps, state: map[string]*partHealth{}}
 }
-
-// Seed records observations for a container, for tests of the sweep.
-func (c *HealthController) Seed(container string, fails int) {
-	c.state[container] = &partHealth{fails: fails}
-}
-
-// Watching says whether the controller holds observations for a container.
-func (c *HealthController) Watching(container string) bool { _, ok := c.state[container]; return ok }
-
-// Clock replaces the controller's clock, for tests of the crash-loop window.
-func (c *HealthController) Clock(now func() time.Time) { c.deps.Now = now }
 
 func (c *HealthController) now() time.Time { return clock.Or(c.deps.Now)() }
 
@@ -206,21 +195,21 @@ func (c *HealthController) Sweep(ctx context.Context) {
 			continue
 		}
 		ph.lastProbe = c.now()
-		probe := RenderLivenessProbe(pub)
+		probe := renderLivenessProbe(pub)
 		grace := probe.Grace
-		if grace < HealthGraceFloor {
-			grace = HealthGraceFloor
+		if grace < healthGraceFloor {
+			grace = healthGraceFloor
 		}
 		if within := withinStartupGrace(ctx, dk, e.Container, grace); within {
 			continue
 		}
-		ok := ProbeLiveness(ctx, dk, e.Container, e.HostPort, probe, c.deps.FrontDoor())
+		ok := probeLiveness(ctx, dk, e.Container, e.HostPort, probe, c.deps.FrontDoor())
 		if !ok && ctx.Err() != nil {
 			return // a probe the controller's stop cut short is not a failure
 		}
 		if ok {
 			ph.fails = 0
-			if ph.passes++; ph.passes >= HealthSuccessThreshold {
+			if ph.passes++; ph.passes >= healthSuccessThreshold {
 				ph.restarts, ph.passes = 0, 0 // recovered — clear the backoff
 			}
 			continue
@@ -232,9 +221,9 @@ func (c *HealthController) Sweep(ctx context.Context) {
 		}
 		// Unhealthy. Respect capped exponential backoff so a crash-loop is held
 		// and surfaced, not restarted in a tight loop.
-		backoff := HealthBackoffBase << ph.restarts
-		if backoff > HealthBackoffCap || backoff <= 0 {
-			backoff = HealthBackoffCap
+		backoff := healthBackoffBase << ph.restarts
+		if backoff > healthBackoffCap || backoff <= 0 {
+			backoff = healthBackoffCap
 		}
 		if !ph.lastRestart.IsZero() && c.now().Sub(ph.lastRestart) < backoff {
 			continue // still holding it down
@@ -338,15 +327,15 @@ func (c *HealthController) restart(ctx context.Context, e Watched, dk Scope, ph 
 	}
 }
 
-// RenderLivenessProbe derives the LIVENESS probe for the public part — the one
+// renderLivenessProbe derives the LIVENESS probe for the public part — the one
 // the health controller (§6) acts on. Liveness drives RESTART, so its default is
 // deliberately dependency-free (§8): a TCP connect to the mapped port, which on
 // a real host means "the process is up and listening." That default almost never
 // false-restarts a healthy app; a part that wants hang-detection declares an
 // http/exec liveness explicitly. Never carries checksDeps (guardrail §5.1,
 // enforced at parse).
-func RenderLivenessProbe(pub *appcontract.Part) RenderedProbe {
-	rp := RenderedProbe{Path: "/"}
+func renderLivenessProbe(pub *appcontract.Part) renderedProbe {
+	rp := renderedProbe{Path: "/"}
 	policy, err := livenessPolicy(pub)
 	rp.PolicyError = err
 	if policy.Explicit {
@@ -393,13 +382,13 @@ func withinStartupGrace(ctx context.Context, dk Scope, container string, grace t
 	return clock.System().Sub(ts) < grace
 }
 
-// ProbeLiveness executes one rendered liveness probe against a running env
+// probeLiveness executes one rendered liveness probe against a running env
 // container: an in-container exec, a TCP connect to the mapped port, or a
 // platform HTTP GET (shaped by AppTown front door so a hardened app doesn't
 // 301 the check — the same signal the cold-boot render sends). Any transport
 // error, or an answer the readiness rule refuses (appcontract.Ready), is a
 // miss.
-func ProbeLiveness(ctx context.Context, dk Scope, container string, hostPort int, rp RenderedProbe, headers map[string]string) bool {
+func probeLiveness(ctx context.Context, dk Scope, container string, hostPort int, rp renderedProbe, headers map[string]string) bool {
 	if rp.PolicyError != nil {
 		return false
 	}
@@ -417,7 +406,7 @@ func ProbeLiveness(ctx context.Context, dk Scope, container string, hostPort int
 		_, err := dk.Run(ctx, append([]string{"exec", container}, rp.Exec...)...)
 		return err == nil
 	case rp.TCP:
-		conn, err := (&net.Dialer{Timeout: timeout}).DialContext(ctx, "tcp", dk.DialAddress(hostPort))
+		conn, err := (&net.Dialer{Timeout: timeout}).DialContext(ctx, "tcp", dk.dialAddress(hostPort))
 		if err != nil {
 			return false
 		}

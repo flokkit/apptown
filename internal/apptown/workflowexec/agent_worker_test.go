@@ -246,7 +246,7 @@ func agentOnWorkerFixtureFor(t *testing.T, purpose project.Purpose, config map[s
 	// AppTown's own Docker has an agent image with other labels than the
 	// worker's: a request built from them would promise what the worker's
 	// image does not carry.
-	host := dockerfake.New()
+	host := newDockerFake()
 	host.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) > 1 && args[0] == "image" && args[1] == "inspect" {
 			labels, _ := json.Marshal(map[string]string{piharness.SubagentsLabel: hostSubagents, "apptown.pi-lsp.version": "host-lsp-1"})
@@ -628,7 +628,7 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 				c.adjust(t, f)
 			}
 			_, err := f.exec.prepareAgentOnWorker(context.Background(), f.call)
-			var refusal *WorkerRefusal
+			var refusal *workerRefusal
 			if !errors.As(err, &refusal) || !strings.Contains(err.Error(), c.reason) {
 				t.Fatalf("refusal: %v (want %q)", err, c.reason)
 			}
@@ -700,7 +700,7 @@ func (unreadableExtensions) EnabledExtensions(context.Context, ids.ID) ([]string
 }
 
 func isRefusal(err error, reason string) bool {
-	var refusal *WorkerRefusal
+	var refusal *workerRefusal
 	return errors.As(err, &refusal) && strings.Contains(err.Error(), reason)
 }
 
@@ -1006,7 +1006,7 @@ func TestPrivateDockerTurnedOffRefusesAStepOnAWorker(t *testing.T) {
 	f.exec.cfg.PrivateDocker = false
 	f.worker.imageAllowed = false
 	_, err := f.exec.prepareAgentOnWorker(context.Background(), f.call)
-	var refusal *WorkerRefusal
+	var refusal *workerRefusal
 	if !errors.As(err, &refusal) || !strings.Contains(refusal.Reason, "this AppTown was started with -private-docker=false") {
 		t.Fatalf("turned off: %v", err)
 	}

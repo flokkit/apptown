@@ -123,7 +123,7 @@ func newScannerOwnerFixture(t *testing.T) scannerOwnerFixture {
 	}
 	ctx := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "bls", Via: "session"}, Verified: true})
 	service := conformance.New(db, access.Checked{Authority: identity.Scoped(directory, "conformance"), Projects: projects}, noAdoptedChecks{}, nil)
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	scope := docker.Scope{Client: daemon}
 	effects := &scannerEffects{t: t}
 	scanners := NewScanners(ScannerDependencies{DB: db, Docker: &scope, Executor: daemonExecutor(scope), Conformance: service,

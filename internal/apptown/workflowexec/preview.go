@@ -22,7 +22,7 @@ import (
 
 // RunPreview executes a preview step: start the app from the run workspace on
 // an ephemeral port; the URL becomes an artifact (the gate's materialization).
-func (a *Shipping) RunPreview(task *workflow.Execution) {
+func (a *shipping) RunPreview(task *workflow.Execution) {
 	step := task.Step()
 	run := task.Run()
 	var cfg previewConfig
@@ -141,7 +141,7 @@ func (a *Shipping) RunPreview(task *workflow.Execution) {
 // url, booted from commit: the home page, and the pages the run's report
 // names on its `Pages:` line. Each picture is an artifact of the run; the
 // answer is the boot's evidence of them.
-func (a *Shipping) screenshots(ctx context.Context, run *workflow.Run, url, commit string) map[string]any {
+func (a *shipping) screenshots(ctx context.Context, run *workflow.Run, url, commit string) map[string]any {
 	ev := map[string]any{"commit": commit}
 	if a.shots == nil {
 		ev["unavailable"] = "this AppTown takes no screenshots"
@@ -174,7 +174,7 @@ func (a *Shipping) screenshots(ctx context.Context, run *workflow.Run, url, comm
 	}
 	shots := []map[string]any{}
 	for _, s := range c.Shots {
-		id, err := workflow.AddArtifactIn(context.WithoutCancel(ctx), a.db, run.ID, ScreenshotKind, s.Path+" · "+s.View, url, string(s.PNG), a.now())
+		id, err := workflow.AddArtifactIn(context.WithoutCancel(ctx), a.db, run.ID, screenshotKind, s.Path+" · "+s.View, url, string(s.PNG), a.now())
 		if err != nil {
 			ev["missing"] = append(c.Missing, s.Path+" · "+s.View+": not recorded: "+err.Error())
 			continue
@@ -189,8 +189,8 @@ func (a *Shipping) screenshots(ctx context.Context, run *workflow.Run, url, comm
 	return ev
 }
 
-// ScreenshotKind is the artifact kind of AppTown's pictures of a preview.
-const ScreenshotKind = "screenshot"
+// screenshotKind is the artifact kind of AppTown's pictures of a preview.
+const screenshotKind = "screenshot"
 
 // previewConfig is a preview step's options.
 type previewConfig struct {

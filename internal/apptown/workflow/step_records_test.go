@@ -9,6 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 func TestStepStateRejectsInvalidStoredRecords(t *testing.T) {
@@ -41,11 +42,11 @@ func TestStepAttemptCannotFinishWithNonOutcome(t *testing.T) {
 				t.Fatal(err)
 			}
 			attempts := newStepAttempts(q.db, func(kind string) bool { return kind == "scan" })
-			step, err = attempts.Start(context.Background(), step, "scan")
+			step, err = attempts.start(context.Background(), step, "scan", ids.Nil)
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = attempts.Finish(context.Background(), step, StepOutcome{Status: state, Evidence: []byte(`{"Result":"invalid"}`)})
+			err = attempts.finish(context.Background(), step, StepOutcome{Status: state, Evidence: []byte(`{"Result":"invalid"}`)})
 			if !errors.Is(err, errStepState) && !errors.Is(err, errStepTransition) {
 				t.Fatalf("invalid outcome admitted: %v", err)
 			}
@@ -53,7 +54,7 @@ func TestStepAttemptCannotFinishWithNonOutcome(t *testing.T) {
 				t.Fatalf("claimed step: %+v", s)
 			}
 			wantEventCount(t, q.db, 0, ofKind("step.finished"))
-			if err := attempts.Finish(context.Background(), step, StepOutcome{Status: StatusPass, Evidence: []byte(`{"Result":"valid"}`)}); err != nil {
+			if err := attempts.finish(context.Background(), step, StepOutcome{Status: StatusPass, Evidence: []byte(`{"Result":"valid"}`)}); err != nil {
 				t.Fatal(err)
 			}
 			wantEventCount(t, q.db, 1, ofKind("step.finished"))

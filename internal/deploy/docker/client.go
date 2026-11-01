@@ -141,14 +141,14 @@ func (dk Scope) Command(ctx context.Context, req Command) ([]byte, error) {
 	if dk.Client == nil {
 		return nil, errors.New("Docker scope has no command client")
 	}
-	if dk.Lifetime != nil {
-		if err := dk.Lifetime.Err(); err != nil {
+	if dk.ownerContext != nil {
+		if err := dk.ownerContext.Err(); err != nil {
 			return nil, fmt.Errorf("the boot's time is up: %w", err)
 		}
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithCancel(ctx)
 		defer cancel()
-		defer context.AfterFunc(dk.Lifetime, cancel)()
+		defer context.AfterFunc(dk.ownerContext, cancel)()
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -172,13 +172,4 @@ func (dk Scope) ToFile(ctx context.Context, path string, args ...string) error {
 		return fmt.Errorf("%w: %s", runErr, strs.Truncate(strings.TrimSpace(string(out)), 300))
 	}
 	return closeErr
-}
-
-func (dk Scope) FromFile(ctx context.Context, path string, args ...string) ([]byte, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	return dk.Command(ctx, Command{Args: args, Stdin: f})
 }

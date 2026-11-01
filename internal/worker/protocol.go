@@ -17,12 +17,12 @@ import (
 // a worker installed before its AppTown (the demo's order) still serves the
 // AppTown it replaces.
 const (
-	ProtocolHeader = "X-AppTown-Worker-Protocol"
-	// Protocol is what this build's AppTown speaks. 2: a task's observation
+	protocolHeader = "X-AppTown-Worker-Protocol"
+	// protocol is what this build's AppTown speaks. 2: a task's observation
 	// says whether Docker killed it at its memory limit (OOMKilled), and a
 	// AppTown that settles scripts by it must not hear a worker that cannot
 	// say, which would read every such kill as an ordinary exit.
-	Protocol = 2
+	protocol = 2
 	// ProtocolMin and ProtocolMax are what this build's worker serves: 1
 	// for one release, so a worker installed first serves its old AppTown.
 	ProtocolMin = 1
@@ -43,7 +43,7 @@ func served(next http.Handler) http.Handler { return servedRange(ProtocolMin, Pr
 // servedRange is served for a worker serving min to max.
 func servedRange(min, max int, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h := r.Header.Get(ProtocolHeader)
+		h := r.Header.Get(protocolHeader)
 		if n, err := strconv.Atoi(h); err != nil || n < min || n > max {
 			http.Error(w, fmt.Sprintf("this worker (%s) serves AppTown protocols %d to %d; AppTown speaks %q: install AppTown and its worker from the same release",
 				version.String(), min, max, h), http.StatusUpgradeRequired)
@@ -71,6 +71,6 @@ type protocolTransport struct{ next http.RoundTripper }
 
 func (t protocolTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	r = r.Clone(r.Context())
-	r.Header.Set(ProtocolHeader, strconv.Itoa(Protocol))
+	r.Header.Set(protocolHeader, strconv.Itoa(protocol))
 	return t.next.RoundTrip(r)
 }

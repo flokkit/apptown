@@ -2,11 +2,12 @@ package httpapi
 
 import (
 	"encoding/json"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 
 	"gopkg.in/yaml.v3"
 )

@@ -56,14 +56,14 @@ func TestARemovedNameTakenAgainInheritsNothing(t *testing.T) {
 func TestACapturedCallerStaysThePersonItWasAdmittedAs(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	s := New(testDB(t), Config{SessionTTL: SessionTTL})
+	s := New(testDB(t), Config{sessionTTL: SessionTTL})
 	testGrantRoot(t, s, "ops")
 	testAccounts(t, s.db, "carol")
 	tok, err := issueSessionIn(ctx, s.db, "carol", SessionTTL, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, sessionID, ok, err := s.sessions.Resolve(ctx, tok)
+	_, sessionID, ok, err := s.sessions.resolve(ctx, tok)
 	if err != nil || !ok {
 		t.Fatalf("session: %v %v", ok, err)
 	}
@@ -71,7 +71,7 @@ func TestACapturedCallerStaysThePersonItWasAdmittedAs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	captured := access.Principal{ID: carol.PrincipalID, Kind: "user", Name: "carol", Via: "session", Credential: SessionCredential(sessionID)}
+	captured := access.Principal{ID: carol.PrincipalID, Kind: "user", Name: "carol", Via: "session", Credential: sessionCredential(sessionID)}
 	create := access.Permission{Capability: access.CapProjectCreate, Resource: access.Resource{Type: "instance"}}
 	// Given to carol, the grant is hers; disabled, she is stopped.
 	if _, err := s.Grant(ctx, Spec{SubjectType: "user", Subject: "carol", Role: access.RoleProjectCreator, Scope: access.ScopeInstance, By: "ops"}, ""); err != nil {

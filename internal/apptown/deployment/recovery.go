@@ -10,43 +10,43 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 )
 
-var ErrAttemptAbsent = errors.New("deployment attempt is absent")
+var errAttemptAbsent = errors.New("deployment attempt is absent")
 
-type Snapshot struct {
+type snapshot struct {
 	Attempt    Attempt
 	Status     AttemptState
 	Checkpoint map[string]any
 }
 
-// RecoveryTarget binds the recorded deployment to observation. Preparing it
+// recoveryTarget binds the recorded deployment to observation. Preparing it
 // may read admitted inputs and bind a provider, but must perform no provider I/O.
 // It contains no source checkout or capability to create/apply a deployment.
-type RecoveryTarget struct {
+type recoveryTarget struct {
 	ReleaseID         ids.ID
 	TargetID          ids.ID
 	DesiredGeneration int64
-	Observer          Observer
+	Observer          observer
 }
 
-type RecoverySource interface {
-	LoadAttempt(context.Context, ids.ID) (Snapshot, error)
-	PrepareObservation(context.Context, Attempt) (RecoveryTarget, error)
+type recoveryReader interface {
+	LoadAttempt(context.Context, ids.ID) (snapshot, error)
+	PrepareObservation(context.Context, Attempt) (recoveryTarget, error)
 }
 
-type Observer interface {
+type observer interface {
 	Resume(context.Context, Attempt, map[string]any, func(string, ...any)) (deploy.Observation, error)
 }
 
 // Each operation is an atomic persistence boundary. Complete/Fail include the
 // release and receipts; Uncertain includes the durable recovery job. Implementors
 // recheck generation/attempt ownership inside the transaction, after provider I/O.
-type SettlementStore interface {
-	Complete(context.Context, Completion) (Outcome, error)
-	Fail(context.Context, Attempt, error) (Outcome, error)
-	Uncertain(context.Context, Attempt, error) (Outcome, error)
+type settlementStore interface {
+	Complete(context.Context, Completion) (deploymentOutcome, error)
+	Fail(context.Context, Attempt, error) (deploymentOutcome, error)
+	Uncertain(context.Context, Attempt, error) (deploymentOutcome, error)
 }
 
-type Reporter interface {
+type reporter interface {
 	Log(releaseID ids.ID, format string, args ...any)
 	Applied(ids.ID)
 }
@@ -57,24 +57,24 @@ type RecoveryResult struct {
 	Reason  string `json:"reason,omitempty"`
 }
 
-// Recoverer can only observe existing effects. Jobs own retry and lifetime.
-type Recoverer struct {
-	Source   RecoverySource
-	Store    SettlementStore
-	Reporter Reporter
+// recoverer can only observe existing effects. Jobs own retry and lifetime.
+type recoverer struct {
+	Source   recoveryReader
+	Store    settlementStore
+	Reporter reporter
 }
 
-func (r Recoverer) Run(ctx context.Context, id ids.ID) (RecoveryResult, error) {
+func (r recoverer) Run(ctx context.Context, id ids.ID) (RecoveryResult, error) {
 	result := RecoveryResult{Attempt: id}
 	snapshot, err := r.Source.LoadAttempt(ctx, id)
-	if errors.Is(err, ErrAttemptAbsent) {
+	if errors.Is(err, errAttemptAbsent) {
 		result.Outcome, result.Reason = "absent", "the deployment attempt no longer exists"
 		return result, nil
 	}
 	if err != nil {
 		return result, err
 	}
-	if !snapshot.Status.Open() {
+	if !snapshot.Status.open() {
 		result.Outcome = snapshot.Status.String()
 		return result, nil
 	}
@@ -91,7 +91,7 @@ func (r Recoverer) Run(ctx context.Context, id ids.ID) (RecoveryResult, error) {
 			return result, fmt.Errorf("recording uncertainty: %w (observation: %w)", err, cause)
 		}
 		result.Outcome, result.Reason = string(out), cause.Error()
-		if out != Uncertain {
+		if out != outcomeUncertain {
 			return result, nil
 		}
 		logf("deployment outcome is uncertain: %v; automatic recovery will only check the existing deployment", cause)

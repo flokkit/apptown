@@ -11,13 +11,13 @@ type Attempt struct {
 	Generation   int64
 }
 
-type Outcome string
+type deploymentOutcome string
 
 const (
-	Uncertain      Outcome = "uncertain"
-	Applied        Outcome = "applied"
-	AlreadyApplied Outcome = "already-applied"
-	Superseded     Outcome = "superseded"
+	outcomeUncertain deploymentOutcome = "uncertain"
+	Applied          deploymentOutcome = "applied"
+	alreadyApplied   deploymentOutcome = "already-applied"
+	Superseded       deploymentOutcome = "superseded"
 )
 
 type Completion struct {

@@ -6,13 +6,13 @@ import (
 	"sort"
 )
 
-// PublicProvider is the credential boundary for generated agent configuration:
+// publicProvider is the credential boundary for generated agent configuration:
 // a provider as a harness may see it. There is no field for an upstream
 // credential, so a harness adapter cannot render one by mistake, and the view
 // is checked against every private binding before it is released. Which
 // harness consumes it, and in what file format, is that harness's business;
 // this package names no harness.
-type PublicProvider struct {
+type publicProvider struct {
 	Name, URL, API string
 	Metadata       map[string]any
 	Models         []map[string]any
@@ -22,14 +22,14 @@ type PublicProvider struct {
 // only, proxy URLs under baseURL, and no credential anywhere in it. A binding
 // whose metadata carries a credential refuses the whole projection rather than
 // releasing a partial one.
-func (catalog Catalog) PublicProviders(ctx context.Context, baseURL string) ([]PublicProvider, error) {
+func (catalog Catalog) PublicProviders(ctx context.Context, baseURL string) ([]publicProvider, error) {
 	ps, err := catalog.providers(ctx)
 	if err != nil {
 		return nil, err
 	}
-	public := make([]PublicProvider, 0, len(ps))
+	public := make([]publicProvider, 0, len(ps))
 	for name, p := range ps {
-		view := PublicProvider{Name: name, URL: baseURL + "/providers/" + name, API: p.api, Metadata: p.metadata}
+		view := publicProvider{Name: name, URL: baseURL + "/providers/" + name, API: p.api, Metadata: p.metadata}
 		for id, m := range p.models {
 			if p.allows(id) {
 				view.Models = append(view.Models, m)
@@ -56,7 +56,7 @@ func (catalog Catalog) PublicProviders(ctx context.Context, baseURL string) ([]P
 
 // credentialIn reports whether any string reachable from the view, including
 // map keys, contains one of the provider's credentials.
-func credentialIn(view PublicProvider, p *inferenceProvider) bool {
+func credentialIn(view publicProvider, p *inferenceProvider) bool {
 	if containsInferenceCredential(view.Name, p) || containsInferenceCredential(view.URL, p) || containsInferenceCredential(view.API, p) {
 		return true
 	}

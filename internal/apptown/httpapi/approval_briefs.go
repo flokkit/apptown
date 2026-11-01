@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/project"
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/apptown/project"
 
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -18,17 +19,17 @@ import (
 
 type ApprovalBriefs struct {
 	work       *workflow.Service
-	selection  ModelSelection
+	selection  modelSelection
 	completion modelcall.Completer
 	db         *database.DB
 	dataDir    string
 }
 
-func NewApprovalBriefs(work *workflow.Service, selection ModelSelection, completion modelcall.Completer, db *database.DB, dataDir string) ApprovalBriefs {
+func NewApprovalBriefs(work *workflow.Service, selection modelSelection, completion modelcall.Completer, db *database.DB, dataDir string) ApprovalBriefs {
 	return ApprovalBriefs{work: work, selection: selection, completion: completion, db: db, dataDir: dataDir}
 }
 func (h ApprovalBriefs) ApprovalBrief(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -58,7 +59,7 @@ func (h ApprovalBriefs) ApprovalBrief(w http.ResponseWriter, r *http.Request) {
 // ApprovalQuestion: GET /api/v1/steps/{id}/question — what approving the
 // step agrees to, for a client to show before it sends the decision.
 func (h ApprovalBriefs) ApprovalQuestion(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return

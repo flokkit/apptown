@@ -27,7 +27,7 @@ func (landingOccupied) FaultCode() string     { return "landing-occupied" }
 
 type runStartStore struct {
 	db     *database.DB
-	stages Stages
+	stages stages
 	chats  Presence // whether a holder of a change has ended
 	clocked
 }
@@ -131,7 +131,7 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 			if step.Type != "workflow/call" || step.Stage != parent.CurrentStage || step.Status != StatusPending || step.Attempt != req.parentStepAttempt || step.OverrideBy != "" || (req.parentStepConfig != "" && req.parentStepConfig != string(step.Config)) {
 				return nil, fmt.Errorf("parent call step %d is no longer runnable", req.parentStepID)
 			}
-			if _, err := step.Status.Transition(MoveStepStart, StatusRunning); err != nil {
+			if _, err := step.Status.transition(moveStepStart, StatusRunning); err != nil {
 				return nil, err
 			}
 			parentStage, parentStepName = step.Stage, step.Name
@@ -141,7 +141,7 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 		if err != nil {
 			return nil, err
 		}
-		if !change.State.CanRun() {
+		if !change.State.canRun() {
 			return nil, fmt.Errorf("change #%d is %s — only in-progress changes take runs", req.ChangeID, change.State)
 		}
 		if !change.TargetAdoptionID.IsZero() {
@@ -251,7 +251,7 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 		return nil, err
 	}
 	if req.parentRunID.IsZero() && !req.ChangeID.IsZero() {
-		act := AttachChangeRun
+		act := attachChangeRun
 		if def.Spec.Role == "landing" {
 			act = LandChange
 		}

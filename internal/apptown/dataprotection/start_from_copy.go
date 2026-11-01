@@ -43,7 +43,7 @@ type FinalCopy struct {
 // "start from the final copy of <name>". They are kept with the project.
 func (s *Service) FinalCopies(ctx context.Context, projectID ids.ID) ([]FinalCopy, error) {
 	rows, err := protectionsql.New(s.db.SQL()).FinalStoreSets(ctx, protectionsql.FinalStoreSetsParams{ProjectID: projectID, Store: StoreBackupStore,
-		FinalTrigger: TriggerTakeDown, OkState: BackupOK.String()})
+		FinalTrigger: triggerTakeDown, OkState: BackupOK.String()})
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (s *Service) FinalCopies(ctx context.Context, projectID ids.ID) ([]FinalCop
 // a new managed database can be filled from (startSet), deployment:restore
 // in the set's project and in the destination's, and a production copy
 // only into production.
-func (s *Starter) CheckStart(ctx context.Context, set, destinationProject ids.ID, dataClass string) error {
+func (s *starter) CheckStart(ctx context.Context, set, destinationProject ids.ID, dataClass string) error {
 	b, err := s.startSet(ctx, set)
 	if err != nil {
 		return err
@@ -96,7 +96,7 @@ func (s *Starter) CheckStart(ctx context.Context, set, destinationProject ids.ID
 // alone, so one item's pass says nothing of another's. The first release
 // of a deployment that starts from set is refused on a non-empty answer
 // unless a person accepts it (deployment.DeploySelection.AcceptUncheckedCopy).
-func (s *Starter) UncheckedStart(ctx context.Context, set ids.ID) (string, error) {
+func (s *starter) UncheckedStart(ctx context.Context, set ids.ID) (string, error) {
 	b, err := s.startSet(ctx, set)
 	if err != nil {
 		return "", err
@@ -201,7 +201,7 @@ func managedFillable(b *Backup, refused error) error {
 // before production data goes into it (an operation's admitting
 // authority); a release passes nil, its authority having been decided when
 // it was admitted.
-func (s *Starter) FillStart(ctx context.Context, in deployment.StartFill) (deployment.StartReceipt, error) {
+func (s *starter) FillStart(ctx context.Context, in deployment.StartFill) (deployment.StartReceipt, error) {
 	current, t, logf, safe, allowed := in.Deployment, in.Target, in.Logf, in.Safe, in.Allowed
 	if allowed == nil {
 		allowed = func(context.Context) error { return nil }
@@ -340,7 +340,7 @@ func (s *Starter) FillStart(ctx context.Context, in deployment.StartFill) (deplo
 
 // CheckStartAuthority checks a queued release's captured caller against current
 // restore grants on both projects. It does not substitute a background caller.
-func (s *Starter) CheckStartAuthority(ctx context.Context, set, destinationProject ids.ID, dataClass string, captured access.Principal) error {
+func (s *starter) CheckStartAuthority(ctx context.Context, set, destinationProject ids.ID, dataClass string, captured access.Principal) error {
 	b, err := s.startSet(ctx, set)
 	if err != nil {
 		return err

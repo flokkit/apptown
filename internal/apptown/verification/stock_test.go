@@ -204,7 +204,7 @@ func TestFrontendIgnoreCheckWaitsForAFrontend(t *testing.T) {
 // buildCheckNeedsItsDockerfile: a check on a part built from a Dockerfile is
 // not judged when no part is declared, and once one is, a missing Dockerfile
 // is a failure that says so, never a pass.
-func buildCheckNeedsItsDockerfile(t *testing.T, evaluator *Evaluator, check conformance.DeclaredCheck, tools ...string) {
+func buildCheckNeedsItsDockerfile(t *testing.T, evaluator *evaluator, check conformance.DeclaredCheck, tools ...string) {
 	t.Helper()
 	none := t.TempDir()
 	writeTree(t, none, map[string]string{"README.md": "hi"})

@@ -26,19 +26,19 @@ import (
 // own doors (boot, ExecuteRelease) judge authority and settings again, and
 // a setting removed after the check still refuses there.
 
-// PreflightCategory is the stable kind of a preflight refusal.
-type PreflightCategory string
+// preflightCategory is the stable kind of a preflight refusal.
+type preflightCategory string
 
 const (
 	// PreflightMissingSettings: required settings nothing provides for
 	// the deployment.
-	PreflightMissingSettings PreflightCategory = "missing-settings"
-	// PreflightRefused: the release cannot run there as declared.
-	PreflightRefused PreflightCategory = "refused"
-	// PreflightUnassessable: something the check must read (a secret
+	PreflightMissingSettings preflightCategory = "missing-settings"
+	// preflightRefused: the release cannot run there as declared.
+	preflightRefused preflightCategory = "refused"
+	// preflightUnassessable: something the check must read (a secret
 	// store, the deployment's records) could not be read. Not a pass, and
 	// not a claim that a setting is absent.
-	PreflightUnassessable PreflightCategory = "unassessable"
+	preflightUnassessable preflightCategory = "unassessable"
 )
 
 // PreflightInput is the selected release: the deployment and the
@@ -65,7 +65,7 @@ type PreflightCheck struct {
 // show and keep: setting names, never values, endpoints or a store's own
 // error.
 type PreflightError struct {
-	Category PreflightCategory
+	Category preflightCategory
 	Check    PreflightCheck
 	// Missing and Consumers are the missing settings and the parts and
 	// init steps (init-<name>) they would reach.
@@ -86,7 +86,7 @@ func (e *PreflightError) Error() string {
 // FaultKind: an unassessable check is a dependency unavailable; a refusal
 // is a release the current state cannot accept.
 func (e *PreflightError) FaultKind() fault.Kind {
-	if e.Category == PreflightUnassessable {
+	if e.Category == preflightUnassessable {
 		return fault.Unavailable
 	}
 	return fault.Unprocessable
@@ -142,12 +142,12 @@ func (s *Service) preflight(ctx context.Context, check PreflightCheck, projectID
 	if why, err := s.env.RefusesContract(ctx, t, c); err != nil {
 		return preflightRefusal(check, err, fmt.Sprintf("what %s provides could not be read", t.Name))
 	} else if why != "" {
-		return &PreflightError{Category: PreflightRefused, Check: check, Reason: why}
+		return &PreflightError{Category: preflightRefused, Check: check, Reason: why}
 	}
 	if why, err := s.env.RefusesBrowserValues(ctx, t.Kind, projectID, c); err != nil {
 		return unassessable(check, "the values the integrations give the page could not be read")
 	} else if why != "" {
-		return &PreflightError{Category: PreflightRefused, Check: check, Reason: why}
+		return &PreflightError{Category: preflightRefused, Check: check, Reason: why}
 	}
 	if err := s.env.registrable(ctx, c); err != nil {
 		return preflightRefusal(check, err, "the needs this app registers could not be read")
@@ -176,9 +176,9 @@ func preflightRefusal(check PreflightCheck, err error, reading string) error {
 	case fault.Internal, fault.Unavailable:
 		return unassessable(check, reading)
 	}
-	return &PreflightError{Category: PreflightRefused, Check: check, Reason: fault.Message(err)}
+	return &PreflightError{Category: preflightRefused, Check: check, Reason: fault.Message(err)}
 }
 
 func unassessable(check PreflightCheck, reason string) error {
-	return &PreflightError{Category: PreflightUnassessable, Check: check, Reason: reason, Next: "the release was not built; deploy again when it can be read"}
+	return &PreflightError{Category: preflightUnassessable, Check: check, Reason: reason, Next: "the release was not built; deploy again when it can be read"}
 }

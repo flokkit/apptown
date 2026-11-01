@@ -3,10 +3,11 @@ package maintenance
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/execution"
 	"testing"
 	"testing/synctest"
 	"time"
+
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 type workerProbeFunc func(context.Context) (execution.WorkerAvailability, error)

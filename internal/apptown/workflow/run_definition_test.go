@@ -54,7 +54,7 @@ func TestRunAndFirstStageUseSameFrozenDeclaration(t *testing.T) {
 	config := map[string]any{"on": "source", "precise": json.Number("9007199254740993")}
 	def.Spec.Stages[0].Steps = []schema.Step{{Name: "check", Uses: "scan", With: config}}
 	owner = newRunAdmissions(db, NewStages(mutatingStartScanners{mutate: func() { config["precise"] = json.Number("7"); def.Spec.Stages[0].Steps[0].Name = "changed" }}, func(string) bool { return false }), nil)
-	run, err := owner.Create(context.Background(), req, def)
+	run, err := owner.records.create(context.Background(), req, def)
 	if err != nil {
 		t.Fatal(err)
 	}

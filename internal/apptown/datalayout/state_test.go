@@ -15,7 +15,7 @@ import (
 // never writes.
 func TestLayoutReadAcceptsOnlyTheCurrentLayout(t *testing.T) {
 	root := t.TempDir()
-	if _, err := ReadVersion(root); !errors.Is(err, ErrOldLayout) {
+	if _, err := readVersion(root); !errors.Is(err, errOldLayout) {
 		t.Fatalf("missing marker: %v", err)
 	}
 	if entries, err := os.ReadDir(root); err != nil || len(entries) != 0 {
@@ -24,11 +24,11 @@ func TestLayoutReadAcceptsOnlyTheCurrentLayout(t *testing.T) {
 	for _, tc := range []struct {
 		body string
 		want error
-	}{{"2\n", nil}, {"1\n", ErrOldLayout}, {"3\n", ErrNewerLayout}, {"0\n", errAny}, {"-1\n", errAny}, {"future", errAny}} {
+	}{{"2\n", nil}, {"1\n", errOldLayout}, {"3\n", ErrNewerLayout}, {"0\n", errAny}, {"-1\n", errAny}, {"future", errAny}} {
 		if err := os.WriteFile(filepath.Join(root, "layout"), []byte(tc.body), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		version, err := ReadVersion(root)
+		version, err := readVersion(root)
 		switch {
 		case tc.want == nil && (err != nil || version != Version):
 			t.Fatalf("%q: %d %v", tc.body, version, err)
@@ -50,7 +50,7 @@ func TestInitializeMarksOnlyADirectoryWithoutProjectRepositories(t *testing.T) {
 	if err := Initialize(missing); err != nil {
 		t.Fatal(err)
 	}
-	if version, err := ReadVersion(missing); err != nil || version != Version {
+	if version, err := readVersion(missing); err != nil || version != Version {
 		t.Fatalf("new directory: %d %v", version, err)
 	}
 	seeded := t.TempDir()
@@ -60,7 +60,7 @@ func TestInitializeMarksOnlyADirectoryWithoutProjectRepositories(t *testing.T) {
 	if err := Initialize(seeded); err != nil {
 		t.Fatalf("a directory seeded before its first start: %v", err)
 	}
-	if version, err := ReadVersion(seeded); err != nil || version != Version {
+	if version, err := readVersion(seeded); err != nil || version != Version {
 		t.Fatalf("seeded directory: %d %v", version, err)
 	}
 	if err := Initialize(seeded); err != nil {
@@ -70,7 +70,7 @@ func TestInitializeMarksOnlyADirectoryWithoutProjectRepositories(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(old, "workspaces", "project-original"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := Initialize(old); !errors.Is(err, ErrOldLayout) {
+	if err := Initialize(old); !errors.Is(err, errOldLayout) {
 		t.Fatalf("a layout 1 directory: %v", err)
 	}
 	if _, err := os.Lstat(filepath.Join(old, "layout")); !errors.Is(err, os.ErrNotExist) {

@@ -77,10 +77,10 @@ func (in WhatIfRequest) CheckAlso() error {
 // worker. Interrupted: AppTown stopped or restarted before it finished;
 // it is not resumed, and projects it did not reach were not evaluated.
 const (
-	WhatIfQueued      = "queued"
-	WhatIfRunning     = "running"
+	whatIfQueued      = "queued"
+	whatIfRunning     = "running"
 	WhatIfDone        = "done"
-	WhatIfError       = "error"
+	whatIfError       = "error"
 	WhatIfInterrupted = "interrupted"
 )
 
@@ -98,18 +98,18 @@ const (
 	WhatIfWouldPass      = "would-pass"         // fails today; passes under the version
 	WhatIfUnchanged      = "unchanged"          // the same answer both ways
 	WhatIfNotAssessed    = "not-assessed"       // the version's side could not be judged
-	WhatIfNotApplicable  = "not-applicable"     // the version's check applies to nothing the project declares
-	WhatIfNoLongerNeeded = "no-longer-required" // the version does not carry the check
+	whatIfNotApplicable  = "not-applicable"     // the version's check applies to nothing the project declares
+	whatIfNoLongerNeeded = "no-longer-required" // the version does not carry the check
 	// A rule (a guidance block, or "workflow <name>") whose version taking
 	// the version changes: Block names it, Check is empty, and
 	// CurrentVersion/ProposedVersion say from and to (zero: not in force).
 	// They are facts about the candidate, not check answers. Going back is
 	// allowed; these rows make it visible, never folded into "no new
 	// failures".
-	WhatIfRuleAdded    = "added"         // newly in force
-	WhatIfNewerVersion = "newer-version" // the rule's version goes up
+	whatIfRuleAdded    = "added"         // newly in force
+	whatIfNewerVersion = "newer-version" // the rule's version goes up
 	WhatIfOlderVersion = "older-version" // the rule's version goes down
-	WhatIfRemoved      = "removed"       // the rule is no longer in force
+	whatIfRemoved      = "removed"       // the rule is no longer in force
 )
 
 // RuleMoveResult names a rule move from one version to another; zero is not
@@ -117,28 +117,28 @@ const (
 func RuleMoveResult(from, to int) string {
 	switch {
 	case from == 0:
-		return WhatIfRuleAdded
+		return whatIfRuleAdded
 	case to == 0:
-		return WhatIfRemoved
+		return whatIfRemoved
 	case to < from:
 		return WhatIfOlderVersion
 	}
-	return WhatIfNewerVersion
+	return whatIfNewerVersion
 }
 
-// RuleMove says the row is a rule whose version the candidate changes, not
+// ruleMove says the row is a rule whose version the candidate changes, not
 // a check.
-func (r WhatIfRow) RuleMove() bool {
+func (r WhatIfRow) ruleMove() bool {
 	switch r.Result {
-	case WhatIfRuleAdded, WhatIfNewerVersion, WhatIfOlderVersion, WhatIfRemoved:
+	case whatIfRuleAdded, whatIfNewerVersion, WhatIfOlderVersion, whatIfRemoved:
 		return true
 	}
 	return false
 }
 
-// MovesBack says the row takes a rule to an older version or out of force.
-func (r WhatIfRow) MovesBack() bool {
-	return r.Result == WhatIfOlderVersion || r.Result == WhatIfRemoved
+// movesBack says the row takes a rule to an older version or out of force.
+func (r WhatIfRow) movesBack() bool {
+	return r.Result == WhatIfOlderVersion || r.Result == whatIfRemoved
 }
 
 // NotAssessed is why a check was not judged in a what-if or an eval's
@@ -209,9 +209,9 @@ func (u NotAssessed) Words() string {
 	return string(u)
 }
 
-// Remedy says what would make a check with this reason assessable, so a
+// remedy says what would make a check with this reason assessable, so a
 // reason that keeps coming back points at what to change.
-func (u NotAssessed) Remedy() string {
+func (u NotAssessed) remedy() string {
 	switch u {
 	case NotAssessedError:
 		return "the check itself could not answer; if it keeps happening, the check needs fixing"
@@ -246,7 +246,7 @@ func WhatIfResult(current, proposed *Outcome) string {
 	// the version makes not applicable says so, never an improvement, and
 	// one not applicable today compares as one that was not carried.
 	if proposed != nil && *proposed == NotApplicable {
-		return WhatIfNotApplicable
+		return whatIfNotApplicable
 	}
 	if current != nil && *current == NotApplicable {
 		current = nil
@@ -255,7 +255,7 @@ func WhatIfResult(current, proposed *Outcome) string {
 	judged := func(o *Outcome) bool { return o != nil && (*o == Conforms || failing(o)) }
 	switch {
 	case proposed == nil:
-		return WhatIfNoLongerNeeded
+		return whatIfNoLongerNeeded
 	case !judged(proposed) || (current != nil && !judged(current)):
 		return WhatIfNotAssessed
 	case failing(proposed) && !failing(current):
@@ -353,8 +353,8 @@ func alsoWords(also []PackVersion) string {
 	return ", or of " + strings.Join(parts, ", or of ")
 }
 
-// ErrNoWhatIf is the absence of a what-if a caller addressed.
-var ErrNoWhatIf = fault.New(fault.NotFound, "no such what-if")
+// errNoWhatIf is the absence of a what-if a caller addressed.
+var errNoWhatIf = fault.New(fault.NotFound, "no such what-if")
 
 // WhatIfRun is a claimed what-if: its projects, their source and
 // exceptions read without writing, the version's checks, and its own rows.
@@ -380,7 +380,7 @@ func (s *Service) AdmitWhatIfIn(ctx context.Context, tx *database.Tx, in WhatIfR
 	if err := in.CheckAlso(); err != nil {
 		return ids.Nil, err
 	}
-	who, err := s.require(ctx, Permission{Action: RunWhatIf, Projects: slices.Clone(in.Projects)})
+	who, err := s.require(ctx, permission{Action: runWhatIf, Projects: slices.Clone(in.Projects)})
 	if err != nil {
 		return ids.Nil, err
 	}
@@ -515,7 +515,7 @@ func (r *WhatIfRun) Finish(ctx context.Context, walkErr error) error {
 	case errors.Is(walkErr, ErrInterrupted):
 		state, detail = WhatIfInterrupted, "AppTown stopped this what-if before it finished; projects it did not reach were not evaluated"
 	case walkErr != nil:
-		state, detail = WhatIfError, walkErr.Error()
+		state, detail = whatIfError, walkErr.Error()
 	}
 	_, err := queries(r.service.db).FinishWhatIf(ctx, conformancesql.FinishWhatIfParams{ID: r.id, State: state, Detail: detail, At: r.service.records.now().UTC()})
 	return err
@@ -524,13 +524,13 @@ func (r *WhatIfRun) Finish(ctx context.Context, walkErr error) error {
 // WhatIf reads one what-if with its rows. Reading the fleet's conformance
 // is an instance grant, which reaches every project's rows.
 func (s *Service) WhatIf(ctx context.Context, id ids.ID) (*WhatIf, error) {
-	if _, err := s.require(ctx, Permission{Action: ReadFleet}); err != nil {
+	if _, err := s.require(ctx, permission{Action: readFleet}); err != nil {
 		return nil, err
 	}
 	return readConformance(ctx, s.db, func(db database.Queryer) (*WhatIf, error) {
 		r, err := queries(db).WhatIfByID(ctx, id)
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("%w %d", ErrNoWhatIf, id)
+			return nil, fmt.Errorf("%w %d", errNoWhatIf, id)
 		}
 		if err != nil {
 			return nil, err
@@ -543,7 +543,7 @@ func (s *Service) WhatIf(ctx context.Context, id ids.ID) (*WhatIf, error) {
 // projects' answers, for the list under Conformance. Reading the fleet's
 // conformance is an instance grant.
 func (s *Service) RecentWhatIfs(ctx context.Context, max int) ([]WhatIf, error) {
-	if _, err := s.require(ctx, Permission{Action: ReadFleet}); err != nil {
+	if _, err := s.require(ctx, permission{Action: readFleet}); err != nil {
 		return nil, err
 	}
 	return readConformance(ctx, s.db, func(db database.Queryer) ([]WhatIf, error) {
@@ -565,7 +565,7 @@ func (s *Service) RecentWhatIfs(ctx context.Context, max int) ([]WhatIf, error) 
 
 // LatestWhatIf is the newest what-if of a pack version, nil when none ran.
 func (s *Service) LatestWhatIf(ctx context.Context, pack string, version int64) (*WhatIf, error) {
-	if _, err := s.require(ctx, Permission{Action: ReadFleet}); err != nil {
+	if _, err := s.require(ctx, permission{Action: readFleet}); err != nil {
 		return nil, err
 	}
 	return readConformance(ctx, s.db, func(db database.Queryer) (*WhatIf, error) {
@@ -625,8 +625,8 @@ func whatIfWithRows(ctx context.Context, db database.Queryer, r conformancesql.W
 			slugs[p.ID] = p.Slug
 		}
 	}
-	out.Projects = WhatIfByProject(selected, out.Rows, slugs, r.State != WhatIfQueued && r.State != WhatIfRunning)
-	out.Fleet, out.MovesBackProjects = WhatIfFleetGaps(out.Rows), WhatIfMovesBackProjects(out.Projects)
+	out.Projects = whatIfByProject(selected, out.Rows, slugs, r.State != whatIfQueued && r.State != whatIfRunning)
+	out.Fleet, out.MovesBackProjects = whatIfFleetGaps(out.Rows), whatIfMovesBackProjects(out.Projects)
 	return out, nil
 }
 

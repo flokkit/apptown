@@ -16,8 +16,8 @@ import (
 
 // --- Run ------------------------------------------------------------------------------
 
-// Advancement is what a run says should happen next, given what is recorded.
-type Advancement struct {
+// advancement is what a run says should happen next, given what is recorded.
+type advancement struct {
 	Required []string // checks the stage declares
 	Missing  []string // required checks that were never recorded
 	Blocked  []*Step  // steps holding the gate
@@ -26,30 +26,30 @@ type Advancement struct {
 	Next     string   // the stage to enter, when neither blocked nor complete
 }
 
-// Passed: the gate let the run through, to a merge, the next stage or completion.
-func (a Advancement) Passed() bool { return len(a.Missing) == 0 && len(a.Blocked) == 0 }
+// passed: the gate let the run through, to a merge, the next stage or completion.
+func (a advancement) passed() bool { return len(a.Missing) == 0 && len(a.Blocked) == 0 }
 
-// Advance judges the run's current stage: are the declared checks recorded
+// advance judges the run's current stage: are the declared checks recorded
 // and passing, and if so what follows. Only a running run can be judged.
-func (run *Run) Advance(steps []*Step, recorded []Check) (Advancement, error) {
+func (run *Run) advance(steps []*Step, recorded []Check) (advancement, error) {
 	if run.Status != RunRunning {
-		return Advancement{}, fmt.Errorf("run %d is %s, not running", run.ID, run.Status)
+		return advancement{}, fmt.Errorf("run %d is %s, not running", run.ID, run.Status)
 	}
 	spec, stage, err := run.currentStage()
 	if err != nil {
-		return Advancement{}, err
+		return advancement{}, err
 	}
 	gate, err := evaluateGate(stage, recorded, steps)
 	if err != nil {
-		return Advancement{}, err
+		return advancement{}, err
 	}
-	a := Advancement{Required: gate.Required, Missing: gate.Missing, Blocked: gate.Blocking}
-	if !a.Passed() {
+	a := advancement{Required: gate.Required, Missing: gate.Missing, Blocked: gate.Blocking}
+	if !a.passed() {
 		return a, nil
 	}
 	next, err := nextStage(spec, run.CurrentStage, !run.ParentRunID.IsZero())
 	if err != nil {
-		return Advancement{}, err
+		return advancement{}, err
 	}
 	a.Merge, a.Complete, a.Next = next.Merge, next.Completing, next.Stage
 	return a, nil
@@ -68,9 +68,9 @@ func (run *Run) currentStage() (*schema.Spec, *schema.Stage, error) {
 	return spec, stage, nil
 }
 
-// Decides: a decision on the step is one this run is waiting for, in the
+// decides: a decision on the step is one this run is waiting for, in the
 // stage it is in now.
-func (run *Run) Decides(step *Step) error {
+func (run *Run) decides(step *Step) error {
 	if run.Status != RunRunning || step.RunID != run.ID || step.Stage != run.CurrentStage {
 		return errStepDecisionConflict
 	}
@@ -79,12 +79,12 @@ func (run *Run) Decides(step *Step) error {
 
 // --- Change ----------------------------------------------------------------------------
 
-// Apply moves the change by the act, or refuses: the state machine and what
+// apply moves the change by the act, or refuses: the state machine and what
 // a run attachment needs. The caller checks that a named run is the change's
 // own root work.
-func (c ChangeLifecycle) Apply(move ChangeMove) (ChangeLifecycle, error) {
+func (c changeLifecycle) apply(move ChangeMove) (changeLifecycle, error) {
 	switch move.Action {
-	case AttachChangeRun, LandChange, ResumeChange:
+	case attachChangeRun, LandChange, resumeChange:
 		if move.RunID.IsZero() {
 			return c, fmt.Errorf("Change work attachment needs a run")
 		}
@@ -93,11 +93,11 @@ func (c ChangeLifecycle) Apply(move ChangeMove) (ChangeLifecycle, error) {
 			return c, fmt.Errorf("this Change act cannot attach a run")
 		}
 	}
-	next, err := c.State.Transition(move.Action)
+	next, err := c.State.transition(move.Action)
 	if err != nil {
 		return c, err
 	}
-	if move.Action == CancelChangeLanding && next == c.State {
+	if move.Action == cancelChangeLanding && next == c.State {
 		return c, nil // nothing to cancel
 	}
 	out := c
@@ -110,56 +110,56 @@ func (c ChangeLifecycle) Apply(move ChangeMove) (ChangeLifecycle, error) {
 
 // --- Step ------------------------------------------------------------------------------
 
-// ApprovalOutcome is a vote's effect: the round after it, the evidence to
+// approvalOutcome is a vote's effect: the round after it, the evidence to
 // save, the step's status, and whether the round is still open.
-type ApprovalOutcome struct {
+type approvalOutcome struct {
 	Round    ApprovalEvidence
 	Evidence json.RawMessage
 	Status   StepState
 	Pending  bool
 }
 
-// Approve judges a vote against the step's own configuration and the round
+// approve judges a vote against the step's own configuration and the round
 // so far: only an approval step, only one not yet decided or overridden,
 // one vote per person, quorum from distinct votes, a rejection closes the
 // round. It does not know whether an agent is still revising the work.
 // Approve casts vote; at is AppTown's time of the vote, used when the
 // vote carries none.
-func (s *Step) Approve(vote ApprovalVote, at time.Time) (ApprovalOutcome, error) {
+func (s *Step) approve(vote ApprovalVote, at time.Time) (approvalOutcome, error) {
 	if s.Type != "approval" {
-		return ApprovalOutcome{}, fmt.Errorf("step %q is not an approval step: %w", s.Name, errStepApprovalInput)
+		return approvalOutcome{}, fmt.Errorf("step %q is not an approval step: %w", s.Name, errStepApprovalInput)
 	}
 	if s.OverrideBy != "" {
-		return ApprovalOutcome{}, errStepDecisionConflict
+		return approvalOutcome{}, errStepDecisionConflict
 	}
 	if s.Status == StatusPass || s.Status == StatusFail {
-		return ApprovalOutcome{}, fmt.Errorf("this approval is already decided: %w", errStepDecisionConflict)
+		return approvalOutcome{}, fmt.Errorf("this approval is already decided: %w", errStepDecisionConflict)
 	}
 	cfg, err := ReadApprovalConfig(s.Config)
 	if err != nil {
-		return ApprovalOutcome{}, err
+		return approvalOutcome{}, err
 	}
 	document, err := readApprovalDocument(s.Evidence)
 	if err != nil {
-		return ApprovalOutcome{}, err
+		return approvalOutcome{}, err
 	}
 	if vote.At == "" {
 		vote.At = at.UTC().Format(time.RFC3339Nano)
 	}
 	round, status, pending, err := document.evidence.cast(s.Status, cfg, vote)
 	if err != nil {
-		return ApprovalOutcome{}, err
+		return approvalOutcome{}, err
 	}
 	body, err := document.encode(round)
 	if err != nil {
-		return ApprovalOutcome{}, err
+		return approvalOutcome{}, err
 	}
-	return ApprovalOutcome{Round: round, Evidence: body, Status: status, Pending: pending}, nil
+	return approvalOutcome{Round: round, Evidence: body, Status: status, Pending: pending}, nil
 }
 
-// Override passes the step on a person's say-so, with their reason: only a
+// override passes the step on a person's say-so, with their reason: only a
 // step not already overridden, and only from a state an override may leave.
-func (s *Step) Override(by, reason string) (StepState, error) {
+func (s *Step) override(by, reason string) (StepState, error) {
 	if strings.TrimSpace(reason) == "" {
 		return 0, errOverrideReason
 	}
@@ -169,7 +169,7 @@ func (s *Step) Override(by, reason string) (StepState, error) {
 	if s.OverrideBy != "" {
 		return 0, errStepDecisionConflict
 	}
-	next, err := s.Status.Transition(MoveStepOverride, StatusPass)
+	next, err := s.Status.transition(moveStepOverride, StatusPass)
 	if err != nil {
 		return 0, errStepDecisionConflict
 	}

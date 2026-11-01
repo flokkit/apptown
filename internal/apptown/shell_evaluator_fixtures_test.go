@@ -18,7 +18,7 @@ import (
 // tgLocalSh points the conformance executor at the local shell for the test.
 func tgLocalSh(t *testing.T, a *App) {
 	t.Helper()
-	installCheckEffects(t, a, checkOverrides{run: func(req ExecRequest) ExecOutcome {
+	installCheckEffects(t, a, checkOverrides{run: func(req execRequest) execOutcome {
 		return agentenv.Execute(a.processRunner, context.Background(), execution.Local, req, time.Now())
 	}})
 }

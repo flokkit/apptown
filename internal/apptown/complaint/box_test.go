@@ -20,10 +20,10 @@ import (
 
 // The three states are derived from the record, never stored.
 func TestStateIsDerived(t *testing.T) {
-	if StateOf("", false) != New || StateOf("fixed", false) != Answered || StateOf("fixed", true) != Archived || StateOf("", true) != Archived {
+	if stateOf("", false) != newLocal || stateOf("fixed", false) != answered || stateOf("fixed", true) != stateArchived || stateOf("", true) != stateArchived {
 		t.Fatal("state rule wrong")
 	}
-	if New.String() != "new" || State(0).String() != "invalid-complaint-state" {
+	if newLocal.String() != "new" || state(0).String() != "invalid-complaint-state" {
 		t.Fatal("state words wrong")
 	}
 }
@@ -34,7 +34,7 @@ func TestBoxLifecycle(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	box := NewBox(db, nil, nil)
-	if _, err := box.File(t.Context(), Entry{Text: "  "}); !errors.Is(err, ErrText) {
+	if _, err := box.File(t.Context(), Entry{Text: "  "}); !errors.Is(err, errText) {
 		t.Fatalf("blank text must be refused: %v", err)
 	}
 	pid, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
@@ -80,10 +80,10 @@ func TestBoxLifecycle(t *testing.T) {
 	if err := box.Delete(context.Background(), inRun, "ops"); err != nil {
 		t.Fatal(err)
 	}
-	if err := box.Answer(context.Background(), id, " ", "ops"); !errors.Is(err, ErrAnswer) {
+	if err := box.Answer(context.Background(), id, " ", "ops"); !errors.Is(err, errAnswer) {
 		t.Fatalf("blank answer must be refused: %v", err)
 	}
-	if err := box.Answer(context.Background(), idstest.N(9999), "no", "ops"); !errors.Is(err, ErrMissing) {
+	if err := box.Answer(context.Background(), idstest.N(9999), "no", "ops"); !errors.Is(err, errMissing) {
 		t.Fatalf("unknown complaint: %v", err)
 	}
 	if err := box.Answer(context.Background(), id, "fixed in #12", "ops"); err != nil {
@@ -99,7 +99,7 @@ func TestBoxLifecycle(t *testing.T) {
 	if err := box.Archive(context.Background(), id, "ops"); err != nil {
 		t.Fatal(err)
 	}
-	if err := box.Archive(context.Background(), id, "ops"); !errors.Is(err, ErrMissing) {
+	if err := box.Archive(context.Background(), id, "ops"); !errors.Is(err, errMissing) {
 		t.Fatalf("archiving twice: %v", err)
 	}
 	all, _ = box.All(context.Background(), 10)
@@ -109,7 +109,7 @@ func TestBoxLifecycle(t *testing.T) {
 	if err := box.Delete(context.Background(), id, "ops"); err != nil {
 		t.Fatal(err)
 	}
-	if err := box.Delete(context.Background(), id, "ops"); !errors.Is(err, ErrMissing) {
+	if err := box.Delete(context.Background(), id, "ops"); !errors.Is(err, errMissing) {
 		t.Fatalf("deleting twice: %v", err)
 	}
 	if n := receipts(t, db, "complaint.deleted", id.String()); n != 1 {
@@ -231,7 +231,7 @@ func TestAppTownQueueTakesOnlyAnEvalsComplaintsAboutAppTown(t *testing.T) {
 		t.Fatal(err)
 	}
 	box := NewBox(db, packsFor{real: "go-small@4", copy: "go-small@4"}, nil)
-	if _, err := box.File(ctx, Entry{ProjectID: real, Text: "x", About: "the model"}); !errors.Is(err, ErrAbout) {
+	if _, err := box.File(ctx, Entry{ProjectID: real, Text: "x", About: "the model"}); !errors.Is(err, errAbout) {
 		t.Fatalf("an about outside the three is refused: %v", err)
 	}
 	filed := map[string]ids.ID{}
@@ -239,7 +239,7 @@ func TestAppTownQueueTakesOnlyAnEvalsComplaintsAboutAppTown(t *testing.T) {
 		key     string
 		project ids.ID
 		about   string
-	}{{"real-wow", real, AboutWayOfWorking}, {"real-default", real, ""}, {"copy-forge", copy, AboutAppTown}, {"copy-wow", copy, AboutWayOfWorking}, {"copy-project", copy, AboutProject}} {
+	}{{"real-wow", real, AboutWayOfWorking}, {"real-default", real, ""}, {"copy-forge", copy, aboutAppTown}, {"copy-wow", copy, AboutWayOfWorking}, {"copy-project", copy, aboutProject}} {
 		id, err := box.File(ctx, Entry{ProjectID: f.project, Source: "run", Text: f.key, About: f.about})
 		if err != nil {
 			t.Fatal(err)
@@ -264,10 +264,10 @@ func TestAppTownQueueTakesOnlyAnEvalsComplaintsAboutAppTown(t *testing.T) {
 	if c := got[filed["real-wow"]]; c.About != AboutWayOfWorking || c.PackVersion != "go-small@4" || !c.EvalID.IsZero() {
 		t.Fatalf("a way-of-working complaint outside evals, with its packs: %+v", c)
 	}
-	if c := got[filed["real-default"]]; c.About != AboutAppTown {
+	if c := got[filed["real-default"]]; c.About != aboutAppTown {
 		t.Fatalf("about defaults to AppTown: %+v", c)
 	}
-	if c := got[filed["copy-forge"]]; c.EvalID != idstest.N(9) || c.About != AboutAppTown {
+	if c := got[filed["copy-forge"]]; c.EvalID != idstest.N(9) || c.About != aboutAppTown {
 		t.Fatalf("an eval's AppTown complaint reaches the queue marked with its eval: %+v", c)
 	}
 }
@@ -288,7 +288,7 @@ func TestTheBoxKeepsTimeByAppTownsClock(t *testing.T) {
 	if err != nil || len(all) != 1 || all[0].At != filed.Format(time.RFC3339) {
 		t.Fatalf("filed %+v %v, want it at AppTown's %v", all, err, filed)
 	}
-	archived := filed.Add(Retention - time.Hour)
+	archived := filed.Add(retention - time.Hour)
 	at.Store(archived.Unix())
 	if n, err := box.Expire(context.Background()); err != nil || n != 0 {
 		t.Fatalf("expired %d within the retention: %v", n, err)
@@ -299,7 +299,7 @@ func TestTheBoxKeepsTimeByAppTownsClock(t *testing.T) {
 	if all, _ = box.All(context.Background(), 10); !all[0].ArchivedAt.Time.Equal(archived) {
 		t.Fatalf("archived at %v, want %v", all[0].ArchivedAt, archived)
 	}
-	at.Store(filed.Add(Retention + time.Hour).Unix())
+	at.Store(filed.Add(retention + time.Hour).Unix())
 	if n, err := box.Expire(context.Background()); err != nil || n != 1 {
 		t.Fatalf("expired %d past the retention: %v", n, err)
 	}

@@ -204,7 +204,7 @@ func (s *RepositoryAttachments) Attach(ctx context.Context, in AttachmentRequest
 	if found && params != intent.parameters {
 		return RepositoryIdentity{}, fault.New(fault.Conflict, "attachment request parameters changed; resume the original upstream choice")
 	}
-	origin, err := ReadOrigin(ctx, repo)
+	origin, err := readOrigin(ctx, repo)
 	if err != nil {
 		return RepositoryIdentity{}, err
 	}

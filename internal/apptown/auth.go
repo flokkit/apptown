@@ -86,10 +86,10 @@ func (a *App) ensureUser(ctx context.Context, username string) (string, ids.ID, 
 	return account.Role, account.PrincipalID, nil
 }
 
-// AuthMiddleware resolves identity for every /api request. Resolution order:
+// authMiddleware resolves identity for every /api request. Resolution order:
 // bearer token → session cookie (internal mode) → trusted proxy header
 // (trusted-header mode) → actor header (open mode only) → 401.
-func (a *App) AuthMiddleware(next http.Handler) http.Handler {
+func (a *App) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.URL.Path, "/api/") {
 			next.ServeHTTP(w, r) // static SPA; the fronting proxy guards it

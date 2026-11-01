@@ -32,7 +32,7 @@ func releaseOutcomeFixture(t *testing.T) (*outcomeFixture, *Deployment, ids.ID, 
 // its start event (the only event on the instance), and no receipt.
 func assertReleaseUnsettled(t *testing.T, f *outcomeFixture, dep *Deployment, releaseID ids.ID, at Attempt) {
 	t.Helper()
-	if d := storedDeployment(t, f.db, dep.ID); d.ObservedGeneration != 0 || d.Readiness != Reconciling {
+	if d := storedDeployment(t, f.db, dep.ID); d.ObservedGeneration != 0 || d.Readiness != reconciling {
 		t.Fatalf("deployment settled: observed %d %s", d.ObservedGeneration, d.Readiness)
 	}
 	if a := storedAttempt(t, f.db, at.ID); a.Status != AttemptRunning.String() || string(a.ObservedJson) != "{}" || a.FinishedAt.Valid {
@@ -81,7 +81,7 @@ func TestDeploymentReleaseRollsBackEveryCompletionWrite(t *testing.T) {
 				} else {
 					_, err = f.outcomes.Complete(context.Background(), deploymentCompletionFor(at, "selected"))
 				}
-				if !errors.Is(err, database.ErrInjectedFailure) {
+				if !errors.Is(err, dbtest.ErrInjectedFailure) {
 					t.Fatalf("outcome did not propagate write failure: %v", err)
 				}
 				assertReleaseUnsettled(t, f, dep, releaseID, at)
@@ -122,7 +122,7 @@ func TestDeploymentReleaseSupersessionSettlesOldReleaseAtomically(t *testing.T) 
 	s := f.outcomes
 	start := deploymentStartFor(dep, "next", "next")
 	dbtest.FailNextStatement(t, f.db, "INSERT INTO release_events")
-	if _, _, err := s.Admit(context.Background(), start); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, _, err := s.Admit(context.Background(), start); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("supersession receipt failure: %v", err)
 	}
 	if a := storedAttempt(t, f.db, old.ID); a.Status != AttemptRunning.String() || !a.SupersededBy.IsZero() {
@@ -157,11 +157,11 @@ func TestDeploymentReleaseSupersessionSettlesOldReleaseAtomically(t *testing.T) 
 		t.Fatalf("late completion: %s %v", out, err)
 	}
 	wantN(t, "release events", releaseEvents(t, f.db, releaseID), 2)
-	if d := storedDeployment(t, f.db, dep.ID); d.DesiredGeneration != next.Generation || d.ObservedGeneration != 0 || d.Readiness != Reconciling {
+	if d := storedDeployment(t, f.db, dep.ID); d.DesiredGeneration != next.Generation || d.ObservedGeneration != 0 || d.Readiness != reconciling {
 		t.Fatalf("deployment after late completion: desired %d observed %d %s", d.DesiredGeneration, d.ObservedGeneration, d.Readiness)
 	}
 	wantCount(t, "deployments reconciling the next generation", deploymentsWhere(t, f.db, func(d *Deployment) bool {
-		return d.DesiredGeneration == next.Generation && d.ObservedGeneration == 0 && d.Readiness == Reconciling
+		return d.DesiredGeneration == next.Generation && d.ObservedGeneration == 0 && d.Readiness == reconciling
 	}), 1)
 }
 
@@ -191,18 +191,18 @@ func TestDeploymentReleasePreparationFailureHasOneReceipt(t *testing.T) {
 	// Generated :execrows must prevent committing a receipt for that non-write.
 	mustExec(t, f.db, `CREATE FUNCTION veto_release_update() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
 	mustExec(t, f.db, `CREATE TRIGGER veto_release_update BEFORE UPDATE ON releases FOR EACH ROW EXECUTE FUNCTION veto_release_update()`)
-	if _, err := s.FailUnstartedRelease(t.Context(), releaseID, errors.New("preparation")); !errors.Is(err, ErrOutcomeConflict) {
+	if _, err := s.FailUnstartedRelease(t.Context(), releaseID, errors.New("preparation")); !errors.Is(err, errOutcomeConflict) {
 		t.Fatalf("zero-row write reported success: %v", err)
 	}
 	assertPreparationUnsettled(t, f, releaseID)
 	mustExec(t, f.db, `DROP TRIGGER veto_release_update ON releases`)
 	mustExec(t, f.db, `DROP FUNCTION veto_release_update()`)
 	dbtest.FailNextStatement(t, f.db, "INSERT INTO audit_log")
-	if _, err := s.FailUnstartedRelease(t.Context(), releaseID, errors.New("preparation")); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := s.FailUnstartedRelease(t.Context(), releaseID, errors.New("preparation")); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("preparation audit failure: %v", err)
 	}
 	assertPreparationUnsettled(t, f, releaseID)
-	for _, want := range []Outcome{Applied, AlreadyApplied} {
+	for _, want := range []deploymentOutcome{Applied, alreadyApplied} {
 		if out, err := s.FailUnstartedRelease(t.Context(), releaseID, errors.New("preparation")); err != nil || out != want {
 			t.Fatalf("preparation outcome: %s %v, want %s", out, err, want)
 		}
@@ -248,7 +248,7 @@ func TestDeploymentReleaseRequiresEverySettlementRecord(t *testing.T) {
 				}
 				mustExec(t, f.db, `CREATE FUNCTION veto_settlement() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
 				mustExec(t, f.db, `CREATE TRIGGER veto_settlement BEFORE `+operation+` ON `+table+` FOR EACH ROW EXECUTE FUNCTION veto_settlement()`)
-				settle := func() (Outcome, error) {
+				settle := func() (deploymentOutcome, error) {
 					if failed {
 						return f.outcomes.Fail(context.Background(), at, deploy.Terminal(errors.New("provider refused")))
 					}

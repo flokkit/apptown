@@ -36,7 +36,7 @@ func TestPreviewDeploymentsAreRowsWhileTheyRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dep.Kind != Preview || dep.ChangeID != idstest.N(7) || dep.ObservedGeneration != 2 || dep.URL != "http://x" {
+	if dep.Kind != preview || dep.ChangeID != idstest.N(7) || dep.ObservedGeneration != 2 || dep.URL != "http://x" {
 		t.Fatalf("preview row: %+v", dep)
 	}
 	if err := s.Deployments.ForgetPreview(t.Context(), idstest.N(7)); err != nil {

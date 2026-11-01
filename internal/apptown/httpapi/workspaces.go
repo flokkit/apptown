@@ -31,7 +31,7 @@ func NewWorkspaces(db *database.DB, dataDir string) Workspaces {
 // resolves outside), a directory is a listing AppTown writes, and a file
 // is served as untrusted: never as a page that runs on AppTown's origin.
 func (h Workspaces) Workspace(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return

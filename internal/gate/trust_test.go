@@ -41,7 +41,7 @@ func TestTheGateTrustsTheExtraAuthoritiesInTheScript(t *testing.T) {
 		t.Cleanup(app.Close)
 		cfg, err := ConfigFromEnv(func(k string) string {
 			return map[string]string{"GATE_UPSTREAM": app.URL, "GATE_SECRET": testSecret,
-				"GATE_APPTOWN": fmt.Sprintf("https://localhost:%d", port), TrustEnv: trustScript}[k]
+				"GATE_APPTOWN": fmt.Sprintf("https://localhost:%d", port), trustEnv: trustScript}[k]
 		})
 		if err != nil {
 			t.Fatalf("config: %v", err)
@@ -74,7 +74,7 @@ func TestTheGateTrustsTheExtraAuthoritiesInTheScript(t *testing.T) {
 		t.Fatal("without the script the gate redeemed with an AppTown it cannot trust")
 	}
 	if _, err := ConfigFromEnv(func(k string) string {
-		return map[string]string{"GATE_UPSTREAM": "http://web:8080", "GATE_SECRET": testSecret, "GATE_APPTOWN": "https://forge.example", TrustEnv: "echo no certificate"}[k]
+		return map[string]string{"GATE_UPSTREAM": "http://web:8080", "GATE_SECRET": testSecret, "GATE_APPTOWN": "https://forge.example", trustEnv: "echo no certificate"}[k]
 	}); err == nil {
 		t.Fatal("a trust script with no certificate was accepted")
 	}

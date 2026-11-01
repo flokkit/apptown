@@ -32,7 +32,7 @@ func (s *Instructions) Registry(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return RegistrySteering(bound), nil
+	return registrySteering(bound), nil
 }
 
 // Integrations is the generated-steering contribution: per attached

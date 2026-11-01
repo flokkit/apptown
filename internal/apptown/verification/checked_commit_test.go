@@ -103,7 +103,7 @@ func TestCheckedCommitIsTheNamedCommitOrARefusal(t *testing.T) {
 		}
 	}
 	for name, commit := range map[string]string{"not on AppTown": elsewhere, "only on a sibling's branch": sibling, "only on another change's scratch ref": othersScratch} {
-		_, sha, err := changes.CheckedCommit(ctx, ch, Selection{Commit: commit})
+		_, sha, err := changes.resolveCheckedCommit(ctx, ch, Selection{Commit: commit})
 		var refused *CommitNotOnAppTownError
 		if !errors.As(err, &refused) || refused.Commit != commit || sha != "" || fault.KindOf(err) != fault.NotFound {
 			t.Fatalf("%s: read %q (%v), want a refusal naming %s", name, sha, err, commit)
@@ -117,31 +117,37 @@ func TestCheckedCommitIsTheNamedCommitOrARefusal(t *testing.T) {
 	// Each of these would name a commit if git read it (the folder's HEAD, an
 	// abbreviation of its commit, an option); none is a full object id.
 	for _, commit := range []string{"HEAD", inFolder[:12], strings.ToUpper(inFolder), "--output=" + inFolder[:31], "refs/heads/change-00000000-0007-7000-8000-000000000000"} {
-		_, sha, err := changes.CheckedCommit(ctx, ch, Selection{Commit: commit})
+		_, sha, err := changes.resolveCheckedCommit(ctx, ch, Selection{Commit: commit})
 		if fault.KindOf(err) != fault.Invalid || sha != "" || !strings.Contains(err.Error(), "not a full commit id") {
 			t.Fatalf("%q: read %q (%v), want it refused as not a commit id", commit, sha, err)
 		}
 	}
 	// A commit and the published tip together is not one question.
-	if _, sha, err := changes.CheckedCommit(ctx, ch, Selection{Commit: inFolder, Published: true}); fault.KindOf(err) != fault.Invalid || sha != "" {
+	if _, sha, err := changes.resolveCheckedCommit(ctx, ch, Selection{Commit: inFolder, Published: true}); fault.KindOf(err) != fault.Invalid || sha != "" {
 		t.Fatalf("a commit and the published tip: read %q (%v), want it refused as invalid", sha, err)
 	}
 	// A change whose branch the hub does not have has nothing published,
 	// though its folder has commits.
 	unpublished := &workflow.Change{ID: idstest.N(7), ProjectID: pid, Branch: "change-00000000-0008-7000-8000-000000000000"}
 	for _, c := range []*workflow.Change{unpublished, {ID: idstest.N(7), ProjectID: pid}} {
-		_, sha, err := changes.CheckedCommit(ctx, c, Selection{Published: true})
-		var nothing *NothingPublishedError
+		_, sha, err := changes.resolveCheckedCommit(ctx, c, Selection{Published: true})
+		var nothing *nothingPublishedError
 		if !errors.As(err, &nothing) || sha != "" || fault.KindOf(err) != fault.NotFound || !strings.Contains(err.Error(), "nothing published to check") && !strings.Contains(err.Error(), "nothing is published to check") {
 			t.Fatalf("branch %q: read %q (%v), want a refusal: nothing published", c.Branch, sha, err)
 		}
 	}
 	// The whole check refuses before anything runs: this Changes has no
 	// checks, scanners or evaluator to run.
-	if out, err := changes.Check(ctx, unpublished, Selection{Published: true}); !errors.As(err, new(*NothingPublishedError)) || out != nil {
+	if out, err := changes.Check(ctx, unpublished, Selection{Published: true}); !errors.As(err, new(*nothingPublishedError)) || out != nil {
 		t.Fatalf("a check of an unpublished change answered %v (%v)", out, err)
 	}
 	if out, err := changes.Check(ctx, ch, Selection{Commit: elsewhere}); !errors.As(err, new(*CommitNotOnAppTownError)) || out != nil {
 		t.Fatalf("a check of a commit not on AppTown answered %v (%v)", out, err)
 	}
+}
+
+// Test setup delegates to the operations used by production.
+func (v *Changes) resolveCheckedCommit(ctx context.Context, ch *workflow.Change, sel Selection) (repo, sha string, err error) {
+	repo, sha, _, err = v.checkedCommit(ctx, ch, sel)
+	return repo, sha, err
 }

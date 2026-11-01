@@ -6,9 +6,9 @@ import "github.com/flokkit/apptown/internal/apptown/status"
 // and Next separately, so a short word loses neither the reason nor an action.
 func (s ActivityState) Display() status.DisplayStatus {
 	switch s {
-	case ActivityWorking, ActivityAgentWorking:
+	case ActivityWorking, activityAgentWorking:
 		return status.DisplayWorking
-	case ActivityQueued:
+	case activityQueued:
 		return status.DisplayWaiting
 	case ActivityWaiting:
 		return status.DisplayWaitingForYou
@@ -103,8 +103,8 @@ func (s Step) displayLabel() status.DisplayStatus {
 	}
 }
 
-// Display describes execution progress without claiming a runtime is running.
-func (s RunState) Display() status.DisplayStatus {
+// display describes execution progress without claiming a runtime is running.
+func (s RunState) display() status.DisplayStatus {
 	switch s {
 	case RunRunning:
 		return status.DisplayWorking
@@ -117,8 +117,8 @@ func (s RunState) Display() status.DisplayStatus {
 	}
 }
 
-// Display keeps failures on main and undecided findings out of the current change's failures.
-func (c CheckReceipt) Display() status.DisplayStatus {
+// display keeps failures on main and undecided findings out of the current change's failures.
+func (c CheckReceipt) display() status.DisplayStatus {
 	switch c.Verdict {
 	case VerdictPass:
 		return status.DisplayPassed

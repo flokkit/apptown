@@ -10,7 +10,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 )
 
 // A copy staged on a rehearsal host is held there to the set's record: the
@@ -27,7 +26,7 @@ func TestACopyStagedOnTheHostIsHeldToTheSetsRecord(t *testing.T) {
 		return 4, "aaaa", err
 	}
 	for _, short := range []bool{false, true} {
-		d := dockerfake.New()
+		d := newDockerFake()
 		var env []string
 		d.SetCommandReply(func(c docker.Command) ([]byte, error, bool) {
 			if c.Args[0] != "run" {

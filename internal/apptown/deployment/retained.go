@@ -66,7 +66,7 @@ type RetentionState uint8
 const (
 	RetainedOpen RetentionState = iota + 1
 	RetainedReleased
-	RetainedKept
+	retainedKept
 )
 
 // retentionStateCodec spells each RetentionState in storage and JSON.
@@ -79,17 +79,17 @@ var retentionStateCodec = enum.Set[RetentionState]{
 
 var (
 	ErrRetentionState  = fault.New(fault.Unprocessable, "invalid retention state")
-	ErrRetainedSettled = errors.New("retained resource is already settled")
+	errRetainedSettled = errors.New("retained resource is already settled")
 	ErrRetainedMissing = fault.New(fault.NotFound, "no open retained resource")
 )
 
 func (s RetentionState) String() string { return retentionStateCodec.String(s) }
 
-// Settle is the one rule: an open record becomes released, once its
+// settle is the one rule: an open record becomes released, once its
 // person has deleted it at the provider.
-func (s RetentionState) Settle(to RetentionState) (RetentionState, error) {
+func (s RetentionState) settle(to RetentionState) (RetentionState, error) {
 	if s != RetainedOpen {
-		return 0, fmt.Errorf("%w: it is %s", ErrRetainedSettled, s)
+		return 0, fmt.Errorf("%w: it is %s", errRetainedSettled, s)
 	}
 	if to != RetainedReleased {
 		return 0, fmt.Errorf("%w: a retained resource is settled released once it is deleted at the provider, not %s", ErrRetentionState, to)
@@ -299,8 +299,8 @@ func (s *Retained) ForProject(ctx context.Context, projectID ids.ID) ([]Retained
 	return s.list(ctx, deploymentsql.RetainedResourcesParams{ProjectOnly: true, ProjectID: projectID})
 }
 
-// OpenForTarget is what is still held at a target from torn-down deployments.
-func (s *Retained) OpenForTarget(ctx context.Context, targetID ids.ID) ([]RetainedResource, error) {
+// openForTarget is what is still held at a target from torn-down deployments.
+func (s *Retained) openForTarget(ctx context.Context, targetID ids.ID) ([]RetainedResource, error) {
 	return s.list(ctx, deploymentsql.RetainedResourcesParams{TargetOnly: true, TargetID: targetID, Disposition: RetainedOpen.String()})
 }
 func (s *Retained) CountOpen(ctx context.Context, targetID ids.ID) (int, error) {
@@ -331,7 +331,7 @@ func (s *Service) SettleRetained(ctx context.Context, in SettleRetained) error {
 	if actor.Principal.Name == "" {
 		return errors.New("retained settlement caller required")
 	}
-	to, err := RetainedOpen.Settle(in.Disposition)
+	to, err := RetainedOpen.settle(in.Disposition)
 	if err != nil {
 		return err
 	}

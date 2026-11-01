@@ -54,10 +54,10 @@ func (w commandAuthority) mayApprove(ctx context.Context, run *Run, step *Step, 
 	return err
 }
 
-// LandingMeans supplies what the project's landing approvals would say if
+// landingMeaning supplies what the project's landing approvals would say if
 // its landing started now, in order, so an acceptance can show and record
 // them.
-type LandingMeans interface {
+type landingMeaning interface {
 	LandingMeans(ctx context.Context, projectID ids.ID) ([]string, error)
 }
 

@@ -94,10 +94,10 @@ func TestContextAndFaultScopesFollowEveryHandle(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tx.Rollback()
-	restore := a.FailNextStatement("INSERT INTO scope_probe")
+	restore := dbtest.NextStatementFailure(a, "INSERT INTO scope_probe")
 	defer restore()
 	execTest(t, b, `INSERT INTO scope_probe VALUES (1)`)
-	if _, err := tx.SQL().ExecContext(context.Background(), `INSERT INTO scope_probe VALUES (1)`); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := tx.SQL().ExecContext(context.Background(), `INSERT INTO scope_probe VALUES (1)`); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("transaction lost pool fault: %v", err)
 	}
 	if _, err := tx.SQL().ExecContext(context.Background(), `INSERT INTO scope_probe VALUES (2)`); err != nil {
@@ -140,7 +140,7 @@ func TestContextAndFaultScopesFollowEveryHandle(t *testing.T) {
 			return err
 		},
 	} {
-		cleanup := a.FailNextStatement("SELECT 42")
+		cleanup := dbtest.NextStatementFailure(a, "SELECT 42")
 		err := run()
 		cleanup()
 		if err == nil {
@@ -148,15 +148,15 @@ func TestContextAndFaultScopesFollowEveryHandle(t *testing.T) {
 		}
 	}
 	// An older cleanup cannot clear the next installed failure.
-	newer := a.FailNextStatement("INSERT INTO scope_probe")
+	newer := dbtest.NextStatementFailure(a, "INSERT INTO scope_probe")
 	defer newer()
 	restore()
-	if _, err := native.ExecContext(context.Background(), `INSERT INTO scope_probe VALUES (3)`); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := native.ExecContext(context.Background(), `INSERT INTO scope_probe VALUES (3)`); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("old cleanup cleared newer fault: %v", err)
 	}
-	cleanup := a.FailNextStatement("SET TRANSACTION")
+	cleanup := dbtest.NextStatementFailure(a, "SET TRANSACTION")
 	defer cleanup()
-	if snapshot, err := a.ReadSnapshot(context.Background()); snapshot != nil || !errors.Is(err, database.ErrInjectedFailure) {
+	if snapshot, err := a.ReadSnapshot(context.Background()); snapshot != nil || !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("snapshot skipped checked begin: %+v %v", snapshot, err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

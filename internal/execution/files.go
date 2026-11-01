@@ -29,16 +29,16 @@ type File struct {
 // Bounds on what a request's files may be: they are small generated
 // configuration, never a way to send a tree.
 const (
-	MaxFiles     = 32
-	MaxFileBytes = 1 << 20 // all of a request's files together
+	maxFiles     = 32
+	maxFileBytes = 1 << 20 // all of a request's files together
 )
 
 // ValidFiles says whether files may be presented to a container: each at an
 // absolute, clean path of its own, outside the tree (/work) and history
 // (/history), with permission bits only, within the bounds.
 func ValidFiles(files []File) error {
-	if len(files) > MaxFiles {
-		return fmt.Errorf("%d generated files, over the %d limit", len(files), MaxFiles)
+	if len(files) > maxFiles {
+		return fmt.Errorf("%d generated files, over the %d limit", len(files), maxFiles)
 	}
 	seen := map[string]bool{}
 	total := 0
@@ -61,8 +61,8 @@ func ValidFiles(files []File) error {
 		}
 		total += len(f.Content)
 	}
-	if total > MaxFileBytes {
-		return fmt.Errorf("the generated files are %d bytes, over the %d limit", total, MaxFileBytes)
+	if total > maxFileBytes {
+		return fmt.Errorf("the generated files are %d bytes, over the %d limit", total, maxFileBytes)
 	}
 	return nil
 }

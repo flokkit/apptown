@@ -1,9 +1,10 @@
 package httpapi
 
 import (
-	"github.com/flokkit/apptown/internal/apptown/status"
 	"net/http"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/apptown/status"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -25,7 +26,7 @@ func NewProjectOverview(projects *project.Projects, work *workflow.Service, data
 
 // ProjectOverview: GET /projects/{slug}/overview
 func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

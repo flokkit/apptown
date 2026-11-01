@@ -99,7 +99,7 @@ func TestScreenshotsReadOnlyWhatWasAskedAndTaken(t *testing.T) {
 	big := base64.StdEncoding.EncodeToString(append([]byte("\x89PNG\r\n\x1a\n"), make([]byte, maxShotBytes)...))
 	base, _ := url.Parse("https://p.example/")
 	s := NewScreenshots(Executor{AgentImage: "agent"}, nil)
-	wants := []want{{"1-desktop", "/", Desktop}, {"1-phone", "/", Phone}, {"2-desktop", "/a", Desktop}, {"3-desktop", "/b", Desktop}, {"4-desktop", "/c", Desktop}}
+	wants := []want{{"1-desktop", "/", desktop}, {"1-phone", "/", phone}, {"2-desktop", "/a", desktop}, {"3-desktop", "/b", desktop}, {"4-desktop", "/c", desktop}}
 	_ = s.request(t.TempDir(), base, wants)
 	c := readCapture(shotsReportOf(t,
 		map[string]string{"name": "1-desktop", "png": png},

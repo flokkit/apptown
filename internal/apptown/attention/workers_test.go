@@ -2,10 +2,11 @@ package attention
 
 import (
 	"context"
-	"github.com/flokkit/apptown/internal/apptown/maintenance"
-	"github.com/flokkit/apptown/internal/execution"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/maintenance"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 type workerEvidence struct{ value maintenance.WorkerSnapshot }

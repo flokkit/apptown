@@ -196,7 +196,7 @@ func (h Configuration) DevCompose(w http.ResponseWriter, r *http.Request) {
 		}
 		out := DevComposition{Compose: compose, Env: env, Procfile: generateProcfile(c)}
 		if in.Mode == "full" {
-			out.StaticBuilds = DevStaticBuilds(c)
+			out.StaticBuilds = devStaticBuilds(c)
 		}
 		WriteJSON(w, 200, out)
 	})

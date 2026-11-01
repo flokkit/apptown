@@ -22,11 +22,11 @@ type GroupChange struct {
 	Members           []string
 }
 
-var ErrGroupName = fault.New(fault.Invalid, "group name (slug) required")
+var errGroupName = fault.New(fault.Invalid, "group name (slug) required")
 
 func (in GroupChange) prepare() (Group, error) {
 	if !directoryName.MatchString(in.Name) {
-		return Group{}, ErrGroupName
+		return Group{}, errGroupName
 	}
 	g := Group{Name: in.Name, Description: in.Description}
 	err := g.replaceMembers(in.Members)

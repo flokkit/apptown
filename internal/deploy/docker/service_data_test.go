@@ -6,7 +6,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 )
 
 // A preview's or an agent step's need that keeps data gets a disposable
@@ -15,7 +14,7 @@ import (
 // service with no data path gets no volume.
 func TestAThrowawayNeedThatKeepsDataGetsADisposableFolderThere(t *testing.T) {
 	t.Parallel()
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	dk := docker.Scope{Client: daemon}
 	svcs := []deploy.ServiceSpec{{Name: "s3", Image: "versity/versitygw:v1.8.0", Data: "/data"}, {Name: "cache", Image: "redis:7"}}
 	if _, cleanup, err := docker.StartServices(t.Context(), dk, "preview-9", svcs); err != nil {

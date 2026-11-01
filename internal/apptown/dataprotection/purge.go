@@ -52,7 +52,7 @@ func (s *Service) TakeDownForDeletion(ctx context.Context, projectID ids.ID, nam
 // removed is named and keeps its record, so the next purge tries it again.
 func (s *Service) PurgeProjectBackups(ctx context.Context, projectID ids.ID, allowed func(context.Context) error) (removed int, left []string, err error) {
 	q := protectionsql.New(s.db.SQL())
-	rows, err := q.ProjectBackupsToPurge(ctx, protectionsql.ProjectBackupsToPurgeParams{ProjectID: projectID, PrunedState: BackupPruned.String()})
+	rows, err := q.ProjectBackupsToPurge(ctx, protectionsql.ProjectBackupsToPurgeParams{ProjectID: projectID, PrunedState: backupPruned.String()})
 	if err != nil {
 		return 0, nil, err
 	}
@@ -60,7 +60,7 @@ func (s *Service) PurgeProjectBackups(ctx context.Context, projectID ids.ID, all
 	if err != nil {
 		return removed, left, err
 	}
-	if _, err := q.RemovePurgedBackups(ctx, protectionsql.RemovePurgedBackupsParams{ProjectID: projectID, PrunedState: BackupPruned.String()}); err != nil {
+	if _, err := q.RemovePurgedBackups(ctx, protectionsql.RemovePurgedBackupsParams{ProjectID: projectID, PrunedState: backupPruned.String()}); err != nil {
 		return removed, left, fmt.Errorf("the sets were removed, but their records were not: %w", err)
 	}
 	return removed, left, nil
@@ -70,7 +70,7 @@ func (s *Service) PurgeProjectBackups(ctx context.Context, projectID ids.ID, all
 // were kept (their records already gone), 30 days after each deletion.
 func (s *Service) PurgeOrphanBackups(ctx context.Context, now time.Time) (removed int, left []string, err error) {
 	q := protectionsql.New(s.db.SQL())
-	rows, err := q.OrphanBackupsDue(ctx, protectionsql.OrphanBackupsDueParams{PrunedState: BackupPruned.String(), Now: now})
+	rows, err := q.OrphanBackupsDue(ctx, protectionsql.OrphanBackupsDueParams{PrunedState: backupPruned.String(), Now: now})
 	if err != nil {
 		return 0, nil, err
 	}
@@ -78,7 +78,7 @@ func (s *Service) PurgeOrphanBackups(ctx context.Context, now time.Time) (remove
 	if err != nil {
 		return removed, left, err
 	}
-	if _, err := q.RemoveOrphanBackupRecords(ctx, BackupPruned.String()); err != nil {
+	if _, err := q.RemoveOrphanBackupRecords(ctx, backupPruned.String()); err != nil {
 		return removed, left, fmt.Errorf("the sets were removed, but their records were not: %w", err)
 	}
 	return removed, left, nil

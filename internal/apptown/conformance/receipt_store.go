@@ -22,9 +22,9 @@ import (
 )
 
 var (
-	ErrAlreadyConfirmed = fault.New(fault.Conflict, "verdict is already confirmed")
-	ErrNotConfirmable   = fault.New(fault.Unprocessable, "only an AI does-not-conform verdict can be confirmed")
-	ErrVerdictChanged   = fault.New(fault.Conflict, "previous verdict or confirmation changed; run the review again")
+	errAlreadyConfirmed = fault.New(fault.Conflict, "verdict is already confirmed")
+	errNotConfirmable   = fault.New(fault.Unprocessable, "only an AI does-not-conform verdict can be confirmed")
+	errVerdictChanged   = fault.New(fault.Conflict, "previous verdict or confirmation changed; run the review again")
 )
 
 type confirmationRequest struct {
@@ -62,7 +62,7 @@ func (s reviewStore) confirm(ctx context.Context, req confirmationRequest) (*Adj
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (*Adjudication, error) {
 		named, err := queries(tx).VerdictByID(ctx, req.VerdictID)
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("%w %d", ErrNoVerdict, req.VerdictID)
+			return nil, fmt.Errorf("%w %d", errNoVerdict, req.VerdictID)
 		}
 		if err != nil {
 			return nil, err
@@ -79,15 +79,15 @@ func (s reviewStore) confirm(ctx context.Context, req confirmationRequest) (*Adj
 		if err != nil {
 			return nil, err
 		}
-		if !v.Confirmable() {
-			return nil, fmt.Errorf("%w (this one is %s by %s)", ErrNotConfirmable, v.State, v.Evaluator)
+		if !v.confirmable() {
+			return nil, fmt.Errorf("%w (this one is %s by %s)", errNotConfirmable, v.State, v.Evaluator)
 		}
 		existing, err := readAdjudications(ctx, tx, []ids.ID{v.ID})
 		if err != nil {
 			return nil, err
 		}
 		if len(existing) > 0 {
-			return nil, fmt.Errorf("%w: %d", ErrAlreadyConfirmed, v.ID)
+			return nil, fmt.Errorf("%w: %d", errAlreadyConfirmed, v.ID)
 		}
 		at := s.now()
 		confirmer, err := identity.ActorIn(ctx, tx, req.By)
@@ -128,7 +128,7 @@ type verdictAdmission struct {
 }
 
 func fixRequired(ctx context.Context, db database.Queryer, prev, next Verdict) (bool, error) {
-	if !prev.FixedBy(next) {
+	if !prev.fixedBy(next) {
 		return false, nil
 	}
 	if prev.Evaluator != "llm" {

@@ -12,14 +12,15 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
-	"github.com/flokkit/apptown/internal/ids"
 	"io/fs"
 	"maps"
 	"regexp"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/ids"
 
 	"gopkg.in/yaml.v3"
 
@@ -30,35 +31,35 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 )
 
-// Origin says who wrote a kind: the platform (stock) or a person (custom).
+// origin says who wrote a kind: the platform (stock) or a person (custom).
 // Stock kinds are refreshed at boot and are read-only through the API.
-type Origin uint8
+type origin uint8
 
 const (
-	Stock Origin = iota + 1
-	Custom
+	originStock origin = iota + 1
+	custom
 )
 
-var ErrOrigin = errors.New("invalid dependency origin")
+var errOrigin = errors.New("invalid dependency origin")
 
-func (o Origin) String() string {
+func (o origin) String() string {
 	switch o {
-	case Stock:
+	case originStock:
 		return "stock"
-	case Custom:
+	case custom:
 		return ""
 	}
 	return "invalid-origin"
 }
 
-func ParseOrigin(text string) (Origin, error) {
+func parseOrigin(text string) (origin, error) {
 	switch text {
 	case "stock":
-		return Stock, nil
+		return originStock, nil
 	case "":
-		return Custom, nil
+		return custom, nil
 	}
-	return 0, fmt.Errorf("%w: %q", ErrOrigin, text)
+	return 0, fmt.Errorf("%w: %q", errOrigin, text)
 }
 
 // Kind is one catalogued dependency.
@@ -232,15 +233,15 @@ type Copy struct {
 
 // Where a copy's commands run beside a running need (Copy.RunIn).
 const (
-	RunInService = "service"
-	RunInClient  = "client"
+	runInService = "service"
+	runInClient  = "client"
 )
 
 // InClient says the commands run in a client container beside the need.
-func (c *Copy) InClient() bool { return c != nil && c.RunIn == RunInClient }
+func (c *Copy) InClient() bool { return c != nil && c.RunIn == runInClient }
 
-// CopyTokens are the parts of a connection a copy's Env may name.
-var CopyTokens = []string{"host", "port", "database", "user", "password", "sslmode"}
+// copyTokens are the parts of a connection a copy's Env may name.
+var copyTokens = []string{"host", "port", "database", "user", "password", "sslmode"}
 
 var tokenRe = regexp.MustCompile(`\{([a-zA-Z0-9_]+)\}`)
 
@@ -280,21 +281,21 @@ type Native struct {
 // names one of them; it cannot add one, nor grant itself another
 // credential.
 const (
-	ReachConnect        = "connect"
-	FromNamedHost       = "named-host"
-	CredentialAppUser   = "app-user"
-	NativeDOBackups     = "do-database-backups"
-	ManagedDatabaseKind = "managed-database"
-	// BucketKind is a provider's object storage bucket made for one
+	reachConnect        = "connect"
+	fromNamedHost       = "named-host"
+	credentialAppUser   = "app-user"
+	nativeDOBackups     = "do-database-backups"
+	managedDatabaseKind = "managed-database"
+	// bucketKind is a provider's object storage bucket made for one
 	// deployment (App Platform: a Spaces bucket and a key for it alone).
-	BucketKind = "bucket"
+	bucketKind = "bucket"
 )
 
 var slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 
 var (
 	ErrSpec    = fault.New(fault.Invalid, "invalid dependency kind")
-	ErrStock   = fault.New(fault.Conflict, "stock dependency")
+	errStock   = fault.New(fault.Conflict, "stock dependency")
 	ErrUnknown = errors.New("unknown dependency")
 )
 
@@ -347,8 +348,8 @@ func Parse(y string) (*Kind, error) {
 // StatusExperimental marks a kind that is useful but not yet proven; its
 // description starts with ExperimentalPrefix and says what it lacks.
 const (
-	StatusExperimental = "experimental"
-	ExperimentalPrefix = "Experimental:"
+	statusExperimental = "experimental"
+	experimentalPrefix = "Experimental:"
 )
 
 // checkStatus refuses an unknown status, a status the description does not
@@ -357,18 +358,18 @@ const (
 // before the field (clones of a stock kind) keep reading, and keep their
 // badge.
 func (k *Kind) checkStatus() error {
-	says := strings.HasPrefix(strings.TrimSpace(k.Description), ExperimentalPrefix)
+	says := strings.HasPrefix(strings.TrimSpace(k.Description), experimentalPrefix)
 	switch k.Status {
 	case "":
 		if says {
-			k.Status = StatusExperimental
+			k.Status = statusExperimental
 		}
-	case StatusExperimental:
+	case statusExperimental:
 		if !says {
-			return fmt.Errorf("%w: dependency %q has status: %s, so its description starts %q and says what it lacks", ErrSpec, k.Capability, StatusExperimental, ExperimentalPrefix)
+			return fmt.Errorf("%w: dependency %q has status: %s, so its description starts %q and says what it lacks", ErrSpec, k.Capability, statusExperimental, experimentalPrefix)
 		}
 	default:
-		return fmt.Errorf("%w: dependency %q: status %q is not one AppTown knows (leave it out, or %s)", ErrSpec, k.Capability, k.Status, StatusExperimental)
+		return fmt.Errorf("%w: dependency %q: status %q is not one AppTown knows (leave it out, or %s)", ErrSpec, k.Capability, k.Status, statusExperimental)
 	}
 	if strings.ContainsAny(k.Summary, "\r\n") {
 		return fmt.Errorf("%w: dependency %q: summary is one line", ErrSpec, k.Capability)
@@ -438,29 +439,29 @@ func (k *Kind) checkGenerate() error {
 	return nil
 }
 
-// CommonParameters are the need parameters every kind takes, beside its
+// commonParameters are the need parameters every kind takes, beside its
 // own. size and resources are read by the contract itself and never reach
 // the kind as parameters.
-var CommonParameters = []string{"disposable"}
+var commonParameters = []string{"disposable"}
 
-// ReservedParameters are words no kind may take as a parameter: a later
+// reservedParameters are words no kind may take as a parameter: a later
 // form naming two needs of one kind (needs: {reports: {kind: postgres,
 // prefix: REPORTS_}}) would use them, and it stays additive only while no
 // app can already have written them.
-var ReservedParameters = []string{"kind", "prefix", "as"}
+var reservedParameters = []string{"kind", "prefix", "as"}
 
 // checkParameters refuses a kind whose parameters claim a reserved word.
 func (k *Kind) checkParameters() error {
-	for _, name := range k.AcceptedParameters() {
-		if slices.Contains(ReservedParameters, name) {
-			return fmt.Errorf("%w: dependency %q takes the parameter %q, a word kept for naming needs (%s)", ErrSpec, k.Capability, name, strings.Join(ReservedParameters, ", "))
+	for _, name := range k.acceptedParameters() {
+		if slices.Contains(reservedParameters, name) {
+			return fmt.Errorf("%w: dependency %q takes the parameter %q, a word kept for naming needs (%s)", ErrSpec, k.Capability, name, strings.Join(reservedParameters, ", "))
 		}
 	}
 	return nil
 }
 
-// AcceptedParameters are the parameters a need of this kind may set, sorted.
-func (k *Kind) AcceptedParameters() []string {
+// acceptedParameters are the parameters a need of this kind may set, sorted.
+func (k *Kind) acceptedParameters() []string {
 	set := map[string]bool{}
 	for name := range k.Defaults {
 		set[name] = true
@@ -468,7 +469,7 @@ func (k *Kind) AcceptedParameters() []string {
 	for _, name := range k.Parameters {
 		set[name] = true
 	}
-	for _, name := range CommonParameters {
+	for _, name := range commonParameters {
 		set[name] = true
 	}
 	out := make([]string, 0, len(set))
@@ -479,9 +480,9 @@ func (k *Kind) AcceptedParameters() []string {
 	return out
 }
 
-// Names are the variables the kind gives an app: what it provides, or,
+// names are the variables the kind gives an app: what it provides, or,
 // for a kind that declares no contract, what it injects.
-func (k *Kind) Names() []string {
+func (k *Kind) names() []string {
 	set := map[string]bool{}
 	for name := range k.Provides {
 		set[name] = true
@@ -536,21 +537,21 @@ func (k *Kind) checkCopy() error {
 			return bad("that fills a new place without all of format, import and client")
 		}
 		switch c.RunIn {
-		case "", RunInService:
-		case RunInClient:
+		case "", runInService:
+		case runInClient:
 			if blank(c.Client) {
 				return bad("that runs in a client container with no client image")
 			}
 		default:
-			return bad(fmt.Sprintf("that runs in %q; a copy runs in its %s or a %s container", c.RunIn, RunInService, RunInClient))
+			return bad(fmt.Sprintf("that runs in %q; a copy runs in its %s or a %s container", c.RunIn, runInService, runInClient))
 		}
 		if c.Format != "" && !slugRe.MatchString(c.Format) {
 			return fmt.Errorf("%w: dependency %q: copy format must be a slug, got %q", ErrSpec, k.Capability, c.Format)
 		}
 		for name, value := range c.Env {
 			for _, m := range tokenRe.FindAllStringSubmatch(value, -1) {
-				if !slices.Contains(CopyTokens, m[1]) {
-					return fmt.Errorf("%w: dependency %q: copy env %s names {%s}; a connection has %s", ErrSpec, k.Capability, name, m[1], strings.Join(CopyTokens, ", "))
+				if !slices.Contains(copyTokens, m[1]) {
+					return fmt.Errorf("%w: dependency %q: copy env %s names {%s}; a connection has %s", ErrSpec, k.Capability, name, m[1], strings.Join(copyTokens, ", "))
 				}
 			}
 		}
@@ -563,18 +564,18 @@ func (k *Kind) checkCopy() error {
 			// A cluster is deleted only when every database on it no copy
 			// covers says it holds nothing: a managed database declares that
 			// check. A bucket is the deployment's alone.
-			if cloud.Kind == ManagedDatabaseKind && strings.TrimSpace(k.Copy.Empty) == "" {
-				return fmt.Errorf("%w: dependency %q on %s: a %s reached for a copy declares the check that a database holds nothing (copy.empty)", ErrSpec, k.Capability, provider, ManagedDatabaseKind)
+			if cloud.Kind == managedDatabaseKind && strings.TrimSpace(k.Copy.Empty) == "" {
+				return fmt.Errorf("%w: dependency %q on %s: a %s reached for a copy declares the check that a database holds nothing (copy.empty)", ErrSpec, k.Capability, provider, managedDatabaseKind)
 			}
-			if r.How != ReachConnect || r.From != FromNamedHost || r.Credential != CredentialAppUser {
+			if r.How != reachConnect || r.From != fromNamedHost || r.Credential != credentialAppUser {
 				return fmt.Errorf("%w: dependency %q on %s: AppTown reaches a cloud instance by connect, from the named host, as the app's user (how: %s, from: %s, credential: %s), got how %q, from %q, credential %q",
-					ErrSpec, k.Capability, provider, ReachConnect, FromNamedHost, CredentialAppUser, r.How, r.From, r.Credential)
+					ErrSpec, k.Capability, provider, reachConnect, fromNamedHost, credentialAppUser, r.How, r.From, r.Credential)
 			}
-			if cloud.Kind != ManagedDatabaseKind && cloud.Kind != BucketKind {
-				return fmt.Errorf("%w: dependency %q on %s: only a %s or a %s is reached for a copy, not %q", ErrSpec, k.Capability, provider, ManagedDatabaseKind, BucketKind, cloud.Kind)
+			if cloud.Kind != managedDatabaseKind && cloud.Kind != bucketKind {
+				return fmt.Errorf("%w: dependency %q on %s: only a %s or a %s is reached for a copy, not %q", ErrSpec, k.Capability, provider, managedDatabaseKind, bucketKind, cloud.Kind)
 			}
 		}
-		if n := cloud.Native; n != nil && !(provider == "digitalocean" && n.Mechanism == NativeDOBackups) {
+		if n := cloud.Native; n != nil && !(provider == "digitalocean" && n.Mechanism == nativeDOBackups) {
 			return fmt.Errorf("%w: dependency %q on %s: AppTown reads no native protection called %q there", ErrSpec, k.Capability, provider, n.Mechanism)
 		}
 	}
@@ -621,7 +622,7 @@ func (c *Catalog) SyncStock(ctx context.Context, fsys fs.FS, dir string) (synced
 			shipped = append(shipped, strings.TrimSuffix(e.Name(), ".yaml"))
 		}
 	}
-	if _, err := queries(c.db).DeleteStockDependencyKindsNotShipped(ctx, dependencysql.DeleteStockDependencyKindsNotShippedParams{Origin: Stock.String(), Shipped: shipped}); err != nil {
+	if _, err := queries(c.db).DeleteStockDependencyKindsNotShipped(ctx, dependencysql.DeleteStockDependencyKindsNotShippedParams{Origin: originStock.String(), Shipped: shipped}); err != nil {
 		return nil, nil, fmt.Errorf("removing the stock dependency kinds this release no longer ships: %w", err)
 	}
 	for _, e := range entries {
@@ -646,14 +647,14 @@ func (c *Catalog) SyncStock(ctx context.Context, fsys fs.FS, dir string) (synced
 			// The shipped file is stored as it is, unreadable, in place of
 			// whatever the stock kind was before.
 			if err := queries(c.db).SyncStockDependencyKind(ctx, dependencysql.SyncStockDependencyKindParams{
-				Capability: name, SpecYaml: string(raw), Origin: Stock.String(), UpdatedAt: c.now(),
+				Capability: name, SpecYaml: string(raw), Origin: originStock.String(), UpdatedAt: c.now(),
 			}); err != nil {
 				return synced, skipped, fmt.Errorf("recording the unreadable stock dependency kind %s: %w", name, err)
 			}
 			continue
 		}
 		if err := queries(c.db).SyncStockDependencyKind(ctx, dependencysql.SyncStockDependencyKindParams{
-			Capability: d.Capability, SpecYaml: string(raw), Origin: Stock.String(), UpdatedAt: c.now(),
+			Capability: d.Capability, SpecYaml: string(raw), Origin: originStock.String(), UpdatedAt: c.now(),
 		}); err != nil {
 			return synced, skipped, fmt.Errorf("syncing the stock dependency kind %s: %w", d.Capability, err)
 		}
@@ -725,16 +726,16 @@ func (c *Catalog) Save(ctx context.Context, y, who string) (*Kind, error) {
 			return err
 		}
 		if err == nil {
-			origin, parseErr := ParseOrigin(row.Origin)
+			origin, parseErr := parseOrigin(row.Origin)
 			if parseErr != nil {
 				return parseErr
 			}
-			if origin == Stock {
-				return fmt.Errorf("%w: %q is a stock dependency — clone it under a new capability", ErrStock, d.Capability)
+			if origin == originStock {
+				return fmt.Errorf("%w: %q is a stock dependency — clone it under a new capability", errStock, d.Capability)
 			}
 		}
 		if _, err := queries(tx).SaveCustomDependencyKind(ctx, dependencysql.SaveCustomDependencyKindParams{
-			Capability: d.Capability, SpecYaml: y, Origin: Custom.String(), UpdatedAt: now,
+			Capability: d.Capability, SpecYaml: y, Origin: custom.String(), UpdatedAt: now,
 		}); err != nil {
 			return err
 		}

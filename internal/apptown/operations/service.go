@@ -508,9 +508,9 @@ func projectResource(projectID ids.ID) access.Resource {
 // errMoved is a settlement that lost its row to another transition.
 var errMoved = errors.New("its state moved")
 
-// ErrNotCancellable refuses a cancel of a running operation whose kind is
+// errNotCancellable refuses a cancel of a running operation whose kind is
 // not stopped part way.
-var ErrNotCancellable = fault.New(fault.Conflict, "this operation is not stopped part way once it has started")
+var errNotCancellable = fault.New(fault.Conflict, "this operation is not stopped part way once it has started")
 
 // Cancel asks a live operation to stop, as a caller with its kind's
 // capability. A queued one has done nothing, so it is cancelled at once; a
@@ -545,7 +545,7 @@ func (s *Service) Cancel(ctx context.Context, id ids.ID) (*Operation, error) {
 		if k.CancelRefusal != nil {
 			return nil, k.CancelRefusal
 		}
-		return nil, ErrNotCancellable
+		return nil, errNotCancellable
 	}
 	n, err := operationssql.New(s.db.SQL()).RequestOperationCancel(ctx, operationssql.RequestOperationCancelParams{ID: id, At: s.now()})
 	if err != nil {

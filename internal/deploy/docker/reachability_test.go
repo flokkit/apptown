@@ -3,9 +3,10 @@ package docker
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/deploy"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 func TestExpiredSweepDoesNotClaimDockerIsUnreachable(t *testing.T) {

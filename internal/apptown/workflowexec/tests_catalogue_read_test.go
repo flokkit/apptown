@@ -3,6 +3,8 @@ package workflowexec
 import (
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/execution"
@@ -23,7 +25,7 @@ func TestACatalogueReadFailureCannotBecomePassingTests(t *testing.T) {
 		return execution.Outcome{Termination: execution.Exited, ExitCode: 0}
 	}
 	run := testsRun(t, f, ch)
-	t.Cleanup(f.db.FailNextStatement("-- name: DependencyKindByCapability"))
+	t.Cleanup(dbtest.NextStatementFailure(f.db, "-- name: DependencyKindByCapability"))
 	step := f.execute(t, run, "tests")
 	if step.Status != workflow.StatusError || ran {
 		t.Fatalf("failed postgres read: status=%s ran=%v evidence=%s", step.Status, ran, step.Evidence)

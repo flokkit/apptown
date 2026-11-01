@@ -102,7 +102,7 @@ func doReleaseWorldNeeding(t *testing.T, more string) (*Service, *dofake.API, *d
 	}
 	var service *Service
 	service = New(context.Background(), db, assembled(db, testRuntime{DataDir: dir, Needs: catalog, Secrets: secret.NewService(db, secret.Config{DataDir: dir}), Drivers: map[string]DriverFactory{KindDOApp: func(context.Context, *Target, *Deployment) (deploy.Driver, error) {
-		return digitalocean.NewDriver(digitalocean.Dependencies{Slug: "expense", Needs: service.Needs, Client: func(context.Context) (*digitalocean.Client, digitalocean.Config, error) {
+		return digitalocean.NewDriver(digitalocean.Dependencies{Slug: "expense", Needs: service.needs, Client: func(context.Context) (*digitalocean.Client, digitalocean.Config, error) {
 			return &digitalocean.Client{Base: server.URL, HTTP: server.Client()}, digitalocean.Config{Region: "syd", Registry: "forge-test", DBSize: "db-s-1vcpu-1gb", InstanceSize: "basic-xxs"}, nil
 		}}, options), nil
 	}}}, Dependencies{Followups: recoveryJobFollowups{}, Releases: ReleaseDependencies{Authority: &requestAuthority{}, Still: &requestAuthority{}, Sources: doReleaseSource{project: ReleaseProject{Application: Application{ID: pid, Slug: "expense"}, Repository: repo}, contract: contract, revision: revision}, Secrets: doReleaseSecrets{}, Queue: doReleaseQueue{}}}))

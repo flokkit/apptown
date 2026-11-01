@@ -15,7 +15,7 @@ func TestMaskReplacesStoredValuesLongestFirst(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := NewService(nil, Config{DataDir: dir})
-	got := s.Mask(t.Context(), "a=abcd1234efgh b=abcd1234efgh-and-more port 5432")
+	got := s.Masker(t.Context())("a=abcd1234efgh b=abcd1234efgh-and-more port 5432")
 	if got != "a=[secret] b=[secret] port 5432" {
 		t.Fatalf("masked: %q", got)
 	}
@@ -34,7 +34,7 @@ func TestMaskCoversTheBuiltInStore(t *testing.T) {
 	if _, err := s.Vault.Put(t.Context(), "deployment:demo/main", "API_KEY", "typed-in-value-98765", "bls"); err != nil {
 		t.Fatal(err)
 	}
-	if got := s.Mask(t.Context(), "echo typed-in-value-98765; was old-value-123456"); got != "echo [secret]; was old-value-123456" {
+	if got := s.Masker(t.Context())("echo typed-in-value-98765; was old-value-123456"); got != "echo [secret]; was old-value-123456" {
 		t.Fatalf("masked: %q", got)
 	}
 }

@@ -47,14 +47,14 @@ type CatalogChange struct {
 }
 
 var (
-	ErrCatalogName    = fault.New(fault.Invalid, "name must look like uplift/go-version")
+	errCatalogName    = fault.New(fault.Invalid, "name must look like uplift/go-version")
 	ErrCatalogMissing = errors.New("no catalog change named")
 )
 
-// ReadStockCatalog reads the catalog the release ships (catalog.yaml), each
+// readStockCatalog reads the catalog the release ships (catalog.yaml), each
 // entry named in the catalog's shape and its definition valid. A file that
 // does not read is an error, never an empty catalog.
-func ReadStockCatalog(fsys fs.FS) ([]CatalogChange, error) {
+func readStockCatalog(fsys fs.FS) ([]CatalogChange, error) {
 	raw, err := fs.ReadFile(fsys, "catalog.yaml")
 	if err != nil {
 		return nil, err
@@ -68,23 +68,23 @@ func ReadStockCatalog(fsys fs.FS) ([]CatalogChange, error) {
 	seen := map[string]bool{}
 	for i := range doc.Catalog {
 		c := &doc.Catalog[i]
-		if !ValidName(c.Name) {
-			return nil, fmt.Errorf("catalog.yaml: %q: %w (%s)", c.Name, ErrCatalogName, NameShape)
+		if !validName(c.Name) {
+			return nil, fmt.Errorf("catalog.yaml: %q: %w (%s)", c.Name, errCatalogName, nameShape)
 		}
 		if seen[c.Name] {
 			return nil, fmt.Errorf("catalog.yaml: %q is listed twice", c.Name)
 		}
 		seen[c.Name] = true
-		if err := c.Definition.Validate(); err != nil {
+		if err := c.Definition.validate(); err != nil {
 			return nil, fmt.Errorf("catalog.yaml: %s: %w", c.Name, err)
 		}
 	}
 	return doc.Catalog, nil
 }
 
-// Validate is what a definition must have: the workflow that runs it and
+// validate is what a definition must have: the workflow that runs it and
 // uniquely named params. An absent type is "chore".
-func (d *CatalogDef) Validate() error {
+func (d *CatalogDef) validate() error {
 	if strings.TrimSpace(d.Workflow) == "" {
 		return fmt.Errorf("definition needs a workflow (the one that runs it)")
 	}

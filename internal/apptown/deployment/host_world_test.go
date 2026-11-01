@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -47,7 +49,7 @@ func hostWorld(t *testing.T, publicHost string) (*Service, *database.DB, *docker
 		t.Fatal(err)
 	}
 	port, _ := strconv.Atoi(portText)
-	client := dockerfake.New()
+	client := newDockerFake()
 	client.SetPort(port)
 	s := New(context.Background(), db, assembled(db, testRuntime{Scope: docker.Scope{Client: client}, Probe: &docker.Probe{Settle: time.Millisecond}, DataDir: dir, Projects: projects, Secrets: secrets, Integrations: integrations, Needs: catalog, BuiltInTarget: "local", Routes: Routing{PublicHost: publicHost}}, Dependencies{}))
 	if _, err := s.Targets.Put(context.Background(), &Target{Name: "local", Kind: KindDockerHost, Origin: OriginBuiltIn, Status: TargetReady}); err != nil {
@@ -92,13 +94,13 @@ func TestAPortAddressWithAPublicHostIsMarkedForAppTownHostOnly(t *testing.T) {
 		}
 		for name, want := range map[string]bool{"dev": c.dev, "main": c.main} {
 			d := &Deployment{ProjectID: projectID, Name: name, Kind: Standing, TargetID: local.ID, HostPort: 40001}
-			if got := s.Reach(t.Context(), "p", d); got.HostOnly != want {
+			if got := s.reach(t.Context(), "p", d); got.HostOnly != want {
 				t.Errorf("public host %q, main domain %q: %s reached at %+v, want host-only %v", c.publicHost, c.mainDomain, name, got, want)
 			}
 		}
 	}
 	s, _, _, _, projectID := hostWorld(t, "forge.example")
-	if got := s.Reach(t.Context(), "p", &Deployment{ProjectID: projectID, Name: "x", URL: "https://elsewhere.example"}); got.HostOnly || got.URL != "https://elsewhere.example" {
+	if got := s.reach(t.Context(), "p", &Deployment{ProjectID: projectID, Name: "x", URL: "https://elsewhere.example"}); got.HostOnly || got.URL != "https://elsewhere.example" {
 		t.Fatalf("recorded address: %+v", got)
 	}
 }
@@ -118,7 +120,7 @@ func TestAnAttachedHostShowsTheProjectsNameForMainOnly(t *testing.T) {
 	}
 	for name, want := range map[string]string{"main": "https://p.apps.example.com", "fresh": "http://droplet.example:40002"} {
 		d := &Deployment{ProjectID: projectID, Name: name, Kind: Standing, TargetID: attached.ID, HostPort: 40002, URL: "https://p.apps.example.com"}
-		if got := s.Reach(t.Context(), "p", d); got.URL != want || got.HostOnly {
+		if got := s.reach(t.Context(), "p", d); got.URL != want || got.HostOnly {
 			t.Errorf("%s reached at %+v, want %s", name, got, want)
 		}
 	}
@@ -173,17 +175,17 @@ func TestDockerAddressesUseCapturedServingIdentityAndRefuseUnavailableIdentity(t
 		want   string
 	}{{local, "https://p.main.example"}, {attached, "https://p.apps.example"}} {
 		dep := &Deployment{ProjectID: pid, Name: "main", Kind: Standing, TargetID: tc.target.ID, HostPort: 40001}
-		if got := s.Reach(t.Context(), "caller-display", dep); got.URL != tc.want {
+		if got := s.reach(t.Context(), "caller-display", dep); got.URL != tc.want {
 			t.Fatalf("captured address=%+v want %s", got, tc.want)
 		}
-		clear := db.FailNextStatement("-- name: ProjectByID")
-		got := s.Reach(t.Context(), "caller-display", dep)
+		clear := dbtest.NextStatementFailure(db, "-- name: ProjectByID")
+		got := s.reach(t.Context(), "caller-display", dep)
 		clear()
 		if got.URL != "" {
 			t.Fatalf("unavailable identity synthesized address: %+v", got)
 		}
 		daemon.ResetCommands()
-		clear = db.FailNextStatement("-- name: ProjectByID")
+		clear = dbtest.NextStatementFailure(db, "-- name: ProjectByID")
 		_, err := s.providers.Driver(t.Context(), tc.target, dep)
 		clear()
 		if err == nil || len(daemon.Commands()) != 0 {

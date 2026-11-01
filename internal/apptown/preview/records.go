@@ -17,12 +17,12 @@ type servedRecord struct {
 	// made numbers the record among all records, as they are made: a claim
 	// forgets only records made before it began.
 	made        int64
-	Incarnation string
-	Source      string
-	Public      docker.PublicPrepared
-	// At is when this incarnation was booted, on AppTown's clock: a reuse
+	incarnation string
+	source      string
+	public      docker.PublicPrepared
+	// at is when this incarnation was booted, on AppTown's clock: a reuse
 	// of the same incarnation keeps the first boot's time.
-	At time.Time
+	at time.Time
 }
 
 // servedPreviews holds the records by preview name, in memory: an AppTown
@@ -69,8 +69,8 @@ func (s *Service) recordServedSince(name string, discards int, r servedRecord) b
 	}
 	s.served.made++
 	r.made = s.served.made
-	if prior, ok := s.served.m.Load(name); ok && prior.(servedRecord).Incarnation == r.Incarnation && !prior.(servedRecord).At.IsZero() {
-		r.At = prior.(servedRecord).At // the same software, reused: built when it first was
+	if prior, ok := s.served.m.Load(name); ok && prior.(servedRecord).incarnation == r.incarnation && !prior.(servedRecord).at.IsZero() {
+		r.at = prior.(servedRecord).at // the same software, reused: built when it first was
 	}
 	s.served.m.Store(name, r)
 	return true

@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/preview/internal/previewsql"
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"os"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
@@ -66,11 +67,11 @@ func (s *Service) RemoveReleaseForGood(ctx context.Context, projectID ids.ID, se
 	if projectID.IsZero() || !project.ValidSlug(servingLabel) || number <= 0 {
 		return fmt.Errorf("invalid retained release preview identity")
 	}
-	interval, err := s.runtime.Begin(ctx, ReleaseKey(projectID, number))
+	interval, err := s.runtime.begin(ctx, releaseKey(projectID, number))
 	if err != nil {
 		return err
 	}
-	defer func() { interval.Finish(err) }()
+	defer func() { interval.finish(err) }()
 	name := docker.PreviewLabelName(docker.ReleasePreviewLabel(servingLabel, number))
 	defer s.holdPreview(name)()
 	s.discardDecided(name)

@@ -24,17 +24,17 @@ func NewRefusedStepWork(db database.Queryer, dataDir string) RefusedStepWork {
 // Git bundle of the step attempt's refused result: fetch it to repair the
 // commits.
 func (h RefusedStepWork) Bundle(w http.ResponseWriter, r *http.Request) {
-	run, err := PathID(r, "id")
+	run, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
 	}
-	step, err := PathID(r, "step")
+	step, err := pathID(r, "step")
 	if err != nil {
 		WriteError(w, 400, "bad step id")
 		return
 	}
-	attempt, err := PathNumber(r, "attempt")
+	attempt, err := pathNumber(r, "attempt")
 	if err != nil || attempt < 1 {
 		WriteError(w, 400, "bad attempt")
 		return

@@ -26,7 +26,7 @@ import (
 // fails while rmfail does. It records every command. before, when set, runs
 // first (a test holds a command there); reply, when set, may answer instead.
 type fileDocker struct {
-	disk   diskspacetest.Daemon
+	disk   diskDaemon
 	dir    string
 	mu     sync.Mutex
 	calls  []string
@@ -372,3 +372,6 @@ func TestTheWorkerTrimsItsBuildCacheToTheBudget(t *testing.T) {
 		t.Fatalf("trimmed with %v", got)
 	}
 }
+
+// diskDaemon composes the disk and result protocols for this package's tests.
+type diskDaemon = diskspacetest.Daemon

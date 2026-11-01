@@ -20,12 +20,12 @@ import (
 // The kinds of tenant, in the order a page lists the ones that are not a
 // deployment.
 const (
-	TenantDeployment = "deployment" // a standing deployment's (or a restored copy's) parts and needs
-	TenantPreviews   = "previews"   // every change's preview on the host
-	TenantWork       = "work"       // steps, chats and their caches
-	TenantAppTown    = "apptown"    // AppTown's own containers (its database); apptownd itself is in "the host itself" or its own container
-	TenantUnrecorded = "unrecorded" // forge-labelled containers no record or known class names
-	TenantOther      = "other"      // containers AppTown did not start
+	tenantDeployment = "deployment" // a standing deployment's (or a restored copy's) parts and needs
+	tenantPreviews   = "previews"   // every change's preview on the host
+	tenantWork       = "work"       // steps, chats and their caches
+	tenantAppTown    = "apptown"    // AppTown's own containers (its database); apptownd itself is in "the host itself" or its own container
+	tenantUnrecorded = "unrecorded" // forge-labelled containers no record or known class names
+	tenantOther      = "other"      // containers AppTown did not start
 )
 
 // Tenant is one holder of a fixed host's memory and CPUs: what its running
@@ -64,23 +64,23 @@ var workClasses = map[string]bool{"step": true, "console": true, "console-dind":
 func tenantOf(l docker.ContainerLimit, owners containerOwners, deps map[ids.ID]ProjectDeployment) (kind, name string, dep *ProjectDeployment) {
 	if p, ok := owners.of(l.Name); ok {
 		if d, ok := deps[p.deployment]; ok {
-			if d.Kind == Preview {
-				return TenantPreviews, "previews", nil
+			if d.Kind == preview {
+				return tenantPreviews, "previews", nil
 			}
-			return TenantDeployment, d.Project + "/" + d.Name, &d
+			return tenantDeployment, d.Project + "/" + d.Name, &d
 		}
 	}
 	switch {
 	case !l.AppTown:
-		return TenantOther, "other containers", nil
+		return tenantOther, "other containers", nil
 	case l.Class == "preview" || l.Class == "service":
-		return TenantPreviews, "previews", nil
+		return tenantPreviews, "previews", nil
 	case workClasses[l.Class]:
-		return TenantWork, "agent work", nil
+		return tenantWork, "agent work", nil
 	case l.Class == "infra" || l.Class == diskspace.ReaderClass:
-		return TenantAppTown, "AppTown", nil
+		return tenantAppTown, "AppTown", nil
 	}
-	return TenantUnrecorded, "AppTown containers not on record", nil
+	return tenantUnrecorded, "AppTown containers not on record", nil
 }
 
 // tenantsOf counts each running container once under its tenant. Use is

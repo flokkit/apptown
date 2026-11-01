@@ -69,7 +69,7 @@ func editDeclaration(repo string, needs []NeedSelection) ([]byte, error) {
 		needMap[n.Capability] = entry
 	}
 	if existing != nil && reflect.DeepEqual(needMap, existing) || existing == nil && len(needMap) == 0 {
-		return nil, ErrNeedsUnchanged
+		return nil, errNeedsUnchanged
 	}
 	if len(needMap) > 0 {
 		root["needs"] = needMap
@@ -95,8 +95,8 @@ func editDeclaration(repo string, needs []NeedSelection) ([]byte, error) {
 	return out, nil
 }
 
-// ErrNeedsUnchanged refuses an edit that would declare what is declared now.
-var ErrNeedsUnchanged = errors.New("these are the services declared now; nothing to change")
+// errNeedsUnchanged refuses an edit that would declare what is declared now.
+var errNeedsUnchanged = errors.New("these are the services declared now; nothing to change")
 
 // DeclarationVersion names the app.yaml an edit starts from: a hash of its
 // bytes, or "" when there is none.

@@ -26,13 +26,13 @@ func TestLookups(t *testing.T) {
 	if _, found, _ := b.FirstName(t.Context(), "nothing"); found {
 		t.Fatal("none")
 	}
-	if snap, found, err := b.FirstNamed(t.Context(), "cloud-account", ""); err != nil || !found || snap.Name != "hub" {
+	if snap, found, err := b.firstNamed(t.Context(), "cloud-account", ""); err != nil || !found || snap.Name != "hub" {
 		t.Fatalf("first named: %v %v %+v", err, found, snap)
 	}
-	if snap, found, _ := b.FirstNamed(t.Context(), "cloud-account", "syd"); !found || snap.Provider != "digitalocean" || snap.ConfigJSON == "" {
+	if snap, found, _ := b.firstNamed(t.Context(), "cloud-account", "syd"); !found || snap.Provider != "digitalocean" || snap.ConfigJSON == "" {
 		t.Fatalf("named: %v %+v", found, snap)
 	}
-	if _, found, _ := b.FirstNamed(t.Context(), "cloud-account", "mars"); found {
+	if _, found, _ := b.firstNamed(t.Context(), "cloud-account", "mars"); found {
 		t.Fatal("unknown name")
 	}
 }

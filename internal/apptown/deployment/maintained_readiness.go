@@ -3,10 +3,11 @@ package deployment
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/clock"
 	"log"
 	"sort"
 	"time"
+
+	"github.com/flokkit/apptown/internal/clock"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/deploy"
@@ -38,14 +39,14 @@ func overlayReadiness(v RuntimeObservation, r listingRecord, e readinessEntry, n
 	// A historical successful deployment or a running container is not a current
 	// health observation. Only the separate exact-generation sample can supply it.
 	compatible := v.State == RuntimeRunning && v.Rollout == "active" && v.Health != "unhealthy" && (e.observed.Running == "" || v.running == e.observed.Running)
-	v.Health, v.HealthObservedAt, v.HealthGeneration, v.HealthArtifact = "unknown", time.Time{}, 0, ""
+	v.Health, v.healthObservedAt, v.healthGeneration, v.healthArtifact = "unknown", time.Time{}, 0, ""
 	at := e.observed.HealthObservedAt
 	if !compatible || !r.deployment.Standing() || r.deployment.HeldAfterRestore() != nil || r.deployment.DesiredGeneration != r.deployment.ObservedGeneration || v.Stale || e.err != nil || e.key != observationKey(r) || e.artifact == "" ||
 		e.observed.ArtifactHash != e.artifact || e.observed.Generation != r.deployment.ObservedGeneration ||
 		at.IsZero() || at.After(now) || now.Sub(at) > readinessFreshFor(e) {
 		return v
 	}
-	v.Health, v.HealthObservedAt, v.HealthGeneration, v.HealthArtifact = e.observed.Health, at, e.observed.Generation, e.artifact
+	v.Health, v.healthObservedAt, v.healthGeneration, v.healthArtifact = e.observed.Health, at, e.observed.Generation, e.artifact
 	return v
 }
 

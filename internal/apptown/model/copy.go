@@ -35,7 +35,7 @@ func (s Selection) ArmSlots(ctx context.Context, projectID ids.ID, profile strin
 		if !projectID.IsZero() {
 			pattern, _, _, err = s.Resolve(ctx, projectID, slot)
 		} else {
-			pattern, _, _, err = s.slots.Resolve(ctx, ids.Nil, profile, slot)
+			pattern, _, _, err = s.slots.resolve(ctx, ids.Nil, profile, slot)
 		}
 		if err != nil {
 			return nil, err
@@ -63,7 +63,7 @@ func (s *Slots) CopyModels(ctx context.Context, from, to ids.ID, profile string,
 		return err
 	}
 	if !ValidProfile(profile) {
-		return ErrProfileName
+		return errProfileName
 	}
 	if err := project.New(s.db, nil).SetModelProfile(ctx, to, profile); err != nil {
 		return fmt.Errorf("setting the copy's model profile: %w", err)

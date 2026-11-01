@@ -23,7 +23,7 @@ func (c *copyStarter) FillStart(_ context.Context, in StartFill) (StartReceipt, 
 
 // startFromWorld is a deployment that has never run, starting from set 7,
 // and a release admitted to fill set admitted.
-func startFromWorld(t *testing.T, starter CopyStarter, admitted ids.ID) (*Service, *Deployment, NumberedRelease) {
+func startFromWorld(t *testing.T, starter copyLauncher, admitted ids.ID) (*Service, *Deployment, NumberedRelease) {
 	t.Helper()
 	s, _, _, dep := removalFixture(t)
 	s.starter = starter

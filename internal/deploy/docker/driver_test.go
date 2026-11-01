@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 	"slices"
 	"strings"
 	"testing"
@@ -20,7 +19,7 @@ import (
 
 // fakeDaemon answers the few questions the driver asks a Docker daemon.
 type fakeDaemon struct {
-	disk    diskspacetest.Daemon
+	disk    diskDaemon
 	calls   [][]string
 	exists  bool
 	running bool
@@ -127,7 +126,7 @@ func TestDriverRunsAPlacementFromSource(t *testing.T) {
 	// Resume from what was noted: the proof is verified against the host,
 	// and current health is not invented.
 	place.Container, place.Generation, place.URL = name, 1, o.URL
-	resumed, err := Resume(ctx, Scope{Client: daemon}, place, 1, noted)
+	resumed, err := resume(ctx, Scope{Client: daemon}, place, 1, noted)
 	if err != nil || resumed.Rollout != "active" || resumed.Health != "unknown" {
 		t.Fatalf("resume: %+v err=%v", resumed, err)
 	}
@@ -389,7 +388,7 @@ func TestARecordedBootWithAMissingImageChangesNothing(t *testing.T) {
 	}}
 	_, err = NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Name: ByKey(idstest.N(7)).App(), StackID: ByKey(idstest.N(7)).Stack(), Workspace: t.TempDir(), Docker: Scope{Client: fake}, Persistent: true,
 		Identity: &deploy.DockerIdentity{Deployment: "7", Generation: 2}, Recorded: &RecordedImages{Parts: map[string]string{"game": "sha256:gone"}}}, c)
-	if !errors.Is(err, ErrRecordedImageMissing) || !AsBootError(err).BeforeEffects() {
+	if !errors.Is(err, ErrRecordedImageMissing) || AsBootError(err).Phase != PhaseResolve {
 		t.Fatalf("a missing recorded image: %v", err)
 	}
 	for _, args := range fake.args {

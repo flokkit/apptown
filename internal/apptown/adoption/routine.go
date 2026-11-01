@@ -14,9 +14,9 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// RoutinePublications is the publication owner's consent check, in the same
+// routinePublications is the publication owner's consent check, in the same
 // transaction as the project inventory. Callers cannot supply classification IDs.
-type RoutinePublications interface {
+type routinePublications interface {
 	CheckTransitionsIn(context.Context, *database.Tx, []wow.RoutinePublicationTransition) ([]wow.RoutinePublicationClassification, error)
 }
 

@@ -3,9 +3,10 @@ package deployment
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/ids"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/database"

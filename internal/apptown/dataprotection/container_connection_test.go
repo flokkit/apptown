@@ -6,7 +6,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/stock"
 )
 
@@ -38,7 +37,7 @@ func TestACopyReachesANeedWithTheCredentialsItsContainerWasStartedWith(t *testin
 		// A container from before: the constants it was started with.
 		{"postgres", `"POSTGRES_DB=app","POSTGRES_USER=app","POSTGRES_PASSWORD=app"`, "app", "app", "app"},
 	} {
-		client := dockerfake.New()
+		client := newDockerFake()
 		client.SetReply(func(args []string) ([]byte, error, bool) {
 			if len(args) == 4 && args[0] == "inspect" && args[2] == "{{json .Config}}" {
 				return []byte(`{"Image":"x","Env":[` + tc.env + `]}`), nil, true

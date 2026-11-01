@@ -136,7 +136,7 @@ func TestEachTargetRefusesWhatItCannotRunBeforeAnyEffect(t *testing.T) {
 	t.Parallel()
 	targets := map[string]*Target{}
 	for _, kind := range matrixKinds {
-		targets[kind] = &Target{Name: "the " + kind + " target", Kind: kind, Capabilities: StockCapabilities(kind, []string{"postgres", "redis", "s3"}), NeedsMode: stockNeedsMode(kind)}
+		targets[kind] = &Target{Name: "the " + kind + " target", Kind: kind, Capabilities: stockCapabilities(kind, []string{"postgres", "redis", "s3"}), NeedsMode: stockNeedsMode(kind)}
 	}
 	providers := &Providers{hosts: &Hosts{}}
 	for _, r := range targetMatrix {
@@ -153,7 +153,7 @@ func TestEachTargetRefusesWhatItCannotRunBeforeAnyEffect(t *testing.T) {
 				t.Errorf("%s on %s: the check expects %q and the table says %q", r.row, kind, want, cell)
 			}
 			tg := targets[kind]
-			why := tg.RefusesContract(c)
+			why := tg.refusesContract(c)
 			if why == "" && r.bundle != nil && kind == KindDOApp {
 				if err := providers.RefusesBundle(context.Background(), r.bundle, tg); err != nil {
 					why = err.Error()

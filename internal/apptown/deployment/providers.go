@@ -165,7 +165,7 @@ func (p *Providers) dockerDriver(ctx context.Context, t *Target, dep *Deployment
 	return &docker.Driver{Allowed: docker.AuthorisedWhenRequested,
 		ServingLabel: owner.ServingLabel,
 		Scope:        func(ctx context.Context) (docker.Scope, error) { return p.hosts.DockerScope(ctx, t) },
-		Boot:         p.env.Host(dep.ProjectID, p.env.NeedCredentials(NeedSecretsScope(dep.ID)), func(slug string) KeyOwner { return deploymentKeys(p.db, p.clock, dep, slug) }),
+		Boot:         p.env.host(dep.ProjectID, p.env.NeedCredentials(NeedSecretsScope(dep.ID)), func(slug string) KeyOwner { return deploymentKeys(p.db, p.clock, dep, slug) }),
 		URL: func(servingLabel, name string, port int) (string, error) {
 			reach, err := dockerReach(p.env.RoutesFor(ctx, dep.ProjectID), t, servingLabel, name, port)
 			return reach.URL, err
@@ -175,7 +175,7 @@ func (p *Providers) dockerDriver(ctx context.Context, t *Target, dep *Deployment
 				p.afterRelease(dep.ProjectID, pl.Name)
 			}
 		},
-		Registry: func() (*docker.RegistryCredential, error) { return p.env.ReleaseLogin(ctx, dep.ProjectID) },
+		Registry: func() (*docker.RegistryCredential, error) { return p.env.releaseLogin(ctx, dep.ProjectID) },
 		Scratch:  p.hosts.BootScratch(),
 		Owner:    ownedRecorder{db: p.db, deployment: dep.ID, now: p.clock},
 		Storage:  storageRecorder{db: p.db, deployment: dep.ID, now: p.clock},
@@ -298,7 +298,7 @@ func (p *Providers) PortainerConfig(ctx context.Context, target *Target) (*porta
 	cfg.PortainerURL = scope.APIBase
 	cfg.Scope = &scope
 	cfg.AppsDomain, _ = t.Ingress["domain"].(string)
-	cfg.EnvName, _ = t.Address[AddressEnvironment].(string)
+	cfg.EnvName, _ = t.Address[addressEnvironment].(string)
 	cfg.Installation = p.installation
 	return cfg, nil
 }
@@ -359,10 +359,10 @@ func (p *Providers) PortainerDataScope(ctx context.Context, t *Target) (docker.S
 	return dk, nil
 }
 
-// S3BucketConfig is an s3-bucket target's store, from its own record: the
+// s3BucketConfig is an s3-bucket target's store, from its own record: the
 // endpoint, region, website address template and the names of the secrets
 // holding its key pair.
-func S3BucketConfig(t *Target) s3bucket.Config {
+func s3BucketConfig(t *Target) s3bucket.Config {
 	str := func(k string) string { v, _ := t.Address[k].(string); return v }
 	return s3bucket.Config{Endpoint: str("endpoint"), Region: str("region"), WebsiteTemplate: str("websiteEndpoint"), AccessKeyFrom: str("accessKeyFrom"), SecretKeyFrom: str("secretKeyFrom")}
 }
@@ -548,7 +548,7 @@ func (p *Providers) s3BucketClientFor(targetID ids.ID) func(context.Context) (*s
 		if err != nil {
 			return nil, s3bucket.Config{}, err
 		}
-		cfg := S3BucketConfig(current)
+		cfg := s3BucketConfig(current)
 		c, err := p.S3BucketClient(ctx, cfg)
 		if err != nil {
 			return nil, cfg, deploy.Terminal(err)
@@ -596,7 +596,7 @@ func (p *Providers) PrepareNeeds(ctx context.Context, d deploy.Driver, t *Target
 		}
 		// The need is fulfilled on the target: its record is written though
 		// the caller has gone.
-		if err := p.needs.RecordFulfilled(context.WithoutCancel(ctx), dep.ID, need, b.Native, handle); err != nil {
+		if err := p.needs.recordFulfilled(context.WithoutCancel(ctx), dep.ID, need, b.Native, handle); err != nil {
 			return nil, err
 		}
 	}
@@ -655,8 +655,8 @@ func (p *Providers) RefusesBundle(ctx context.Context, b *ReleaseBundle, t *Targ
 	return nil
 }
 
-// Running asks the driver as a fact when it can inspect, else observes.
-func (p *Providers) Running(ctx context.Context, d deploy.Driver, dep *Deployment) (bool, error) {
+// running asks the driver as a fact when it can inspect, else observes.
+func (p *Providers) running(ctx context.Context, d deploy.Driver, dep *Deployment) (bool, error) {
 	if i, ok := d.(deploy.Inspector); ok {
 		return i.Inspect(ctx, dep.Placement())
 	}
@@ -678,7 +678,7 @@ func (p *Providers) needSecrets(dep *Deployment) digitalocean.KeySecrets {
 // (anonymous). A registry that cannot be read is an error, never anonymous.
 func (p *Providers) releaseCredential(ctx context.Context, projectID ids.ID, ref string) (oci.Credential, error) {
 	repo, err := p.env.ReleaseRepository(ctx, projectID)
-	if errors.Is(err, ErrNoReleaseRegistry) {
+	if errors.Is(err, errNoReleaseRegistry) {
 		return oci.Credential{}, nil
 	}
 	if err != nil {

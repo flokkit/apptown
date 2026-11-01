@@ -3,10 +3,11 @@ package docker
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/deploy"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 func TestResolvedNeedCommandAndCapArePreparedWithoutChangingInputs(t *testing.T) {
@@ -73,7 +74,7 @@ func TestStandingCommandInspectionFailureIsNotAMatch(t *testing.T) {
 				}
 				return nil, nil
 			}}
-			drift, err := ServiceDrift(t.Context(), Scope{Client: client}, "db", deploy.ServiceSpec{Name: "db", Command: []string{"--same"}})
+			drift, err := serviceDrift(t.Context(), Scope{Client: client}, "db", deploy.ServiceSpec{Name: "db", Command: []string{"--same"}})
 			if raw == "" || raw == "invalid" {
 				if err == nil {
 					t.Fatal("unreadable command treated as match")
@@ -84,7 +85,7 @@ func TestStandingCommandInspectionFailureIsNotAMatch(t *testing.T) {
 		})
 	}
 	client := &fakeClient{reply: func(Command) ([]byte, error) { return nil, errors.New("daemon unavailable") }}
-	if _, err := ServiceDrift(t.Context(), Scope{Client: client}, "db", deploy.ServiceSpec{Name: "db", Command: []string{"--same"}}); err == nil {
+	if _, err := serviceDrift(t.Context(), Scope{Client: client}, "db", deploy.ServiceSpec{Name: "db", Command: []string{"--same"}}); err == nil {
 		t.Fatal("failed inspection treated as match")
 	}
 }

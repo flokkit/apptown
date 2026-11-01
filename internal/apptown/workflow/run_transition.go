@@ -17,7 +17,7 @@ var ErrRunMoved = errors.New("workflow stage or status changed")
 // This never updates the caller's detached snapshot or returns partial success.
 // at is AppTown's time of the move.
 func TransitionRunIn(ctx context.Context, tx *database.Tx, expected *Run, next RunState, stage string, at time.Time) error {
-	state, err := expected.Status.Transition(next)
+	state, err := expected.Status.transition(next)
 	if err != nil {
 		return err
 	}

@@ -12,7 +12,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/console/consoletest"
-	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/stock"
@@ -20,7 +19,7 @@ import (
 
 func TestImageSweepRequiresAValidExpiredAge(t *testing.T) {
 	t.Parallel()
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	now := time.Now()
 	rows := []string{
 		"apptown-conform:short\t?",
@@ -90,7 +89,7 @@ func TestTheDockerReapersDoNothingWithNoLocalDocker(t *testing.T) {
 func TestImageSweepReapsImagesWhoseOwnerNoLongerExists(t *testing.T) {
 	t.Parallel()
 	for _, readable := range []bool{true, false} {
-		daemon := dockerfake.New()
+		daemon := newDockerFake()
 		daemon.SetReply(func(args []string) ([]byte, error, bool) {
 			if len(args) > 1 && args[0] == "image" && args[1] == "ls" {
 				return []byte("apptown-preview-build-apptown-preview-run-00000000-002a-7000-8000-000000000000:latest\napptown-preview-build-apptown-preview-change-00000000-0009-7000-8000-000000000000-web:latest"), nil, true
@@ -119,7 +118,7 @@ func TestAContainersAgeIsJudgedOnAppTownsClock(t *testing.T) {
 	t.Parallel()
 	apptownNow := time.Now().Add(72 * time.Hour).UTC()
 	created := apptownNow.Add(-3 * time.Hour)
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) > 0 && args[0] == "ps" {
 			return []byte("apptown-step-00000006-7932-7000-8000-000000000000\tstep\t" + created.Format(time.RFC3339) + "\t00000006-7932-7000-8000-000000000000\tc1\n" +
@@ -138,7 +137,7 @@ func TestAContainersAgeIsJudgedOnAppTownsClock(t *testing.T) {
 // it: it is tried again each sweep, and named only once it goes.
 // Not parallel: it reads the process's log.
 func TestAnImageInUseIsKeptQuietly(t *testing.T) {
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	old := time.Now().Add(-48 * time.Hour).UTC().Format("2006-01-02 15:04:05 -0700 MST")
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		switch {
@@ -168,18 +167,18 @@ func TestAnImageInUseIsKeptQuietly(t *testing.T) {
 // write to their project's volume.
 func TestTheCacheSweepVisitsEveryProjectsCache(t *testing.T) {
 	t.Parallel()
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	var listed []string
-	daemon.SetResults(func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+	daemon.SetResults(func(c dockerfake.ResultCommand) (dockerfake.ResultAnswer, bool) {
 		if c.Script != cacheListing {
-			return containerresulttest.Answer{}, false
+			return dockerfake.ResultAnswer{}, false
 		}
 		for _, a := range c.Args {
 			if strings.HasSuffix(a, ":/apptown-cache") {
 				listed = append(listed, strings.TrimSuffix(a, ":/apptown-cache"))
 			}
 		}
-		return containerresulttest.Answer{}, true // no listing came back
+		return dockerfake.ResultAnswer{}, true // no listing came back
 	})
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		line := strings.Join(args, " ")
@@ -211,12 +210,12 @@ func TestTheCacheSweepVisitsEveryProjectsCache(t *testing.T) {
 // Kills: a read that registers its removal before checking for the stop.
 func TestACacheSweepStoppedMidwayAsksDockerNothingMore(t *testing.T) {
 	t.Parallel()
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	ctx, stop := context.WithCancel(t.Context())
 	defer stop()
-	daemon.SetResults(func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+	daemon.SetResults(func(c dockerfake.ResultCommand) (dockerfake.ResultAnswer, bool) {
 		stop() // the shutdown arrives while the first volume is read
-		return containerresulttest.Answer{Answer: []byte{}}, true
+		return dockerfake.ResultAnswer{Answer: []byte{}}, true
 	})
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		if strings.HasPrefix(strings.Join(args, " "), "volume ls") {
@@ -234,7 +233,7 @@ func TestACacheSweepStoppedMidwayAsksDockerNothingMore(t *testing.T) {
 
 func TestUnavailableProjectCacheDiscoveryStartsNoSweep(t *testing.T) {
 	t.Parallel()
-	d := dockerfake.New()
+	d := newDockerFake()
 	d.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) > 1 && args[0] == "volume" && args[1] == "ls" {
 			return nil, errors.New("daemon unavailable"), true

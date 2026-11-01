@@ -60,7 +60,7 @@ func (s *Service) callFrom(ctx context.Context, parent *Run, step *Step, in Work
 	if s.starter == nil {
 		return nil, fmt.Errorf("Run execution is unavailable")
 	}
-	return s.starter.Start(ctx, StartRequest{
+	return s.starter.start(ctx, StartRequest{
 		ProjectID: parent.ProjectID, ChangeID: parent.ChangeID, WorkflowName: in.Workflow, InputsJSON: string(in.Inputs),
 		parentRunID: parent.ID, parentStepID: step.ID, parentStepAttempt: step.Attempt, parentStepConfig: string(step.Config),
 		requestedBy: actor.InferenceOwner, owner: actor.Owner, receiptActor: actor.Receipt,
@@ -89,7 +89,7 @@ func (s *Service) startChangeRun(ctx context.Context, in StartChangeRun, action 
 	if s.starter == nil {
 		return nil, fmt.Errorf("Run execution is unavailable")
 	}
-	return s.starter.Start(ctx, StartRequest{ProjectID: project, ChangeID: change.ID, WorkflowName: in.Workflow, InputsJSON: string(in.Inputs), requestedBy: actor.InferenceOwner, owner: actor.Owner, receiptActor: actor.Receipt})
+	return s.starter.start(ctx, StartRequest{ProjectID: project, ChangeID: change.ID, WorkflowName: in.Workflow, InputsJSON: string(in.Inputs), requestedBy: actor.InferenceOwner, owner: actor.Owner, receiptActor: actor.Receipt})
 }
 
 // StartSource says what a start of this request would start from: its
@@ -115,5 +115,5 @@ func (s *Service) AdmitRunIn(ctx context.Context, tx *database.Tx, in StartReque
 	}
 	in.requestedBy, in.owner, in.receiptActor = actor.InferenceOwner, actor.Owner, actor.Receipt
 	in.landingBy = s.landingBy(ctx, in)
-	return s.runAdmissions.CreateIn(ctx, tx, in, def)
+	return s.runAdmissions.createIn(ctx, tx, in, def)
 }

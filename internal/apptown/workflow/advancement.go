@@ -19,43 +19,43 @@ type advanceChecks interface {
 	Merge(context.Context, *Run) (MergeResult, error)
 }
 type advanceRuntime struct {
-	Stages     Stages
-	Assertions *Assertions
-	Checks     advanceChecks
-	Completion CompletionRecorder
-	// Carry applies an accepted change's acceptance to the approvals waiting
+	stages     stages
+	assertions *assertions
+	checks     advanceChecks
+	completion completionRecorder
+	// carry applies an accepted change's acceptance to the approvals waiting
 	// in a landing's current stage; nil carries nothing.
-	Carry func(context.Context, *Run) (bool, error)
-	// EndNothing closes a change whose run found nothing to change; nil
+	carry func(context.Context, *Run) (bool, error)
+	// endNothing closes a change whose run found nothing to change; nil
 	// leaves such a run waiting at its approval.
-	EndNothing func(context.Context, *Run) error
+	endNothing func(context.Context, *Run) error
 	clocked
 }
 type advancer struct{ engine advanceEngine }
 
 func newAdvancer(db *database.DB, runtime advanceRuntime) *advancer {
-	owner := advanceStore{db, runtime.Stages, runtime.Completion, runtime.clocked}
-	return &advancer{advanceEngine{records: owner, carry: runtime.Carry, endNothing: runtime.EndNothing,
+	owner := advanceStore{db, runtime.stages, runtime.completion, runtime.clocked}
+	return &advancer{advanceEngine{records: owner, carry: runtime.carry, endNothing: runtime.endNothing,
 		refreshLaw: func(ctx context.Context, run *Run) error {
 			if err := requireRunReady(ctx, db, run.ID); err != nil {
 				return err
 			}
-			if runtime.Checks == nil {
+			if runtime.checks == nil {
 				return fmt.Errorf("current advancement checks are unavailable")
 			}
-			return runtime.Checks.RefreshLaw(ctx, run)
+			return runtime.checks.RefreshLaw(ctx, run)
 		},
 		merge: func(ctx context.Context, run *Run) (MergeResult, error) {
-			if runtime.Checks == nil {
+			if runtime.checks == nil {
 				return MergeResult{}, fmt.Errorf("merge admission is unavailable")
 			}
-			return runtime.Checks.Merge(ctx, run)
+			return runtime.checks.Merge(ctx, run)
 		},
 		assert: func(ctx context.Context, id ids.ID) (*Step, error) {
-			if runtime.Assertions == nil {
+			if runtime.assertions == nil {
 				return nil, fmt.Errorf("assertion evaluation is unavailable")
 			}
-			return runtime.Assertions.Evaluate(ctx, Assertion{StepID: id})
+			return runtime.assertions.Evaluate(ctx, Assertion{StepID: id})
 		},
 		note: func(ctx context.Context, id ids.ID, kind string, in advanceBlockedReceipt) {
 			if repeat, err := repeatsRefusal(ctx, db, id, in); err != nil {
@@ -70,12 +70,7 @@ func newAdvancer(db *database.DB, runtime advanceRuntime) *advancer {
 	}}
 }
 
-// Advance returns committed ready steps. The assembly dispatches them only
-// after success; a failed settlement never returns a partial dispatch plan.
-func (a *advancer) Advance(ctx context.Context, id ids.ID, who string) (*AdvanceResult, error) {
-	return a.engine.advance(ctx, id, who)
-}
-func (a *advancer) AdvanceRun(ctx context.Context, run *Run, who string) (*AdvanceResult, error) {
+func (a *advancer) advanceRun(ctx context.Context, run *Run, who string) (*AdvanceResult, error) {
 	return a.engine.advanceRun(ctx, run, who)
 }
 func (s *Service) Advance(ctx context.Context, id ids.ID) (*AdvanceResult, error) {
@@ -124,7 +119,7 @@ func (s *Service) AdvanceFrom(ctx context.Context, run *Run) (*AdvanceResult, er
 	if s.advancer == nil {
 		return nil, fmt.Errorf("advancement runtime is unavailable")
 	}
-	out, err := s.advancer.AdvanceRun(ctx, run, actor.Receipt)
+	out, err := s.advancer.advanceRun(ctx, run, actor.Receipt)
 	s.dispatchAdvanced(run.ID, out, err)
 	return out, err
 }
@@ -135,7 +130,7 @@ func (s *Service) advancePrepared(ctx context.Context, run *Run, who string) (*A
 	if s.advancer == nil || s.starter == nil {
 		return nil, fmt.Errorf("advancement runtime is unavailable")
 	}
-	if err := s.starter.PrepareScoped(ctx, run); err != nil {
+	if err := s.starter.prepareScoped(ctx, run); err != nil {
 		return nil, err
 	}
 	current, err := readScopedRun(ctx, s.db, run.ID, run.ProjectID)
@@ -145,7 +140,7 @@ func (s *Service) advancePrepared(ctx context.Context, run *Run, who string) (*A
 	if !sameRunScope(current, run) {
 		return nil, ErrRunMoved
 	}
-	out, err := s.advancer.AdvanceRun(ctx, current, who)
+	out, err := s.advancer.advanceRun(ctx, current, who)
 	s.dispatchAdvanced(run.ID, out, err)
 	return out, err
 }

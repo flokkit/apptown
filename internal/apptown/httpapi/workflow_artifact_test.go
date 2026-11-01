@@ -3,6 +3,8 @@ package httpapi
 import (
 	"net/http/httptest"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/dbtest"
 )
 
 func TestWorkflowArtifactHTTPMissingAndUnavailable(t *testing.T) {
@@ -16,7 +18,7 @@ func TestWorkflowArtifactHTTPMissingAndUnavailable(t *testing.T) {
 	if out.Code != 404 {
 		t.Fatalf("missing artifact: %d", out.Code)
 	}
-	t.Cleanup(f.DB.FailNextStatement("SELECT a.run_id,r.project_id FROM artifacts"))
+	t.Cleanup(dbtest.NextStatementFailure(f.DB, "SELECT a.run_id,r.project_id FROM artifacts"))
 	out = httptest.NewRecorder()
 	h.GetArtifact(out, r)
 	if out.Code != 500 {

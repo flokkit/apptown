@@ -23,50 +23,41 @@ const (
 var releaseStateCodec = enum.Set[ReleaseState]{
 	Names:     []string{"releasing", "released", "failed"},
 	Invalid:   "invalid-release-state",
-	Err:       ErrReleaseState,
+	Err:       errReleaseState,
 	ScanLabel: "value",
 }
 
 var (
-	ErrReleaseState      = errors.New("invalid release state")
-	ErrReleaseTransition = errors.New("invalid release transition")
+	errReleaseState      = errors.New("invalid release state")
+	errReleaseTransition = errors.New("invalid release transition")
 )
 
 func (s ReleaseState) String() string { return releaseStateCodec.String(s) }
 
-// Open reports whether the release is still waiting on its attempt.
-func (s ReleaseState) Open() bool { return s == Releasing }
+// open reports whether the release is still waiting on its attempt.
+func (s ReleaseState) open() bool { return s == Releasing }
 
-// Settled is the rule when the release's attempt ends: done releases it;
+// settled is the rule when the release's attempt ends: done releases it;
 // failed or superseded fails it. Only a releasing release settles.
-func (s ReleaseState) Settled(outcome AttemptState) (ReleaseState, error) {
-	if !s.Open() {
-		return 0, fmt.Errorf("%w: release is already %s", ErrReleaseTransition, s)
+func (s ReleaseState) settled(outcome AttemptState) (ReleaseState, error) {
+	if !s.open() {
+		return 0, fmt.Errorf("%w: release is already %s", errReleaseTransition, s)
 	}
 	switch outcome {
 	case AttemptDone:
 		return Released, nil
-	case AttemptFailed, AttemptSuperseded:
+	case AttemptFailed, attemptSuperseded:
 		return ReleaseFailed, nil
 	default:
-		return 0, fmt.Errorf("%w: an attempt that is %s settles nothing", ErrReleaseTransition, outcome)
+		return 0, fmt.Errorf("%w: an attempt that is %s settles nothing", errReleaseTransition, outcome)
 	}
 }
 
 // ForOutcome names the settled state an ended attempt asks for, without
 // checking the current state; SettledState checks it.
-func ReleaseOutcome(outcome AttemptState) (ReleaseState, error) { return Releasing.Settled(outcome) }
+func releaseOutcome(outcome AttemptState) (ReleaseState, error) { return Releasing.settled(outcome) }
 
-// Interrupted is the rule at startup for a release whose runner died with
-// no durable attempt behind it: it failed.
-func (s ReleaseState) Interrupted() (ReleaseState, error) {
-	if !s.Open() {
-		return 0, fmt.Errorf("%w: release is already %s", ErrReleaseTransition, s)
-	}
-	return ReleaseFailed, nil
-}
-
-func ParseReleaseState(text string) (ReleaseState, error) { return releaseStateCodec.Parse(text) }
+func parseReleaseState(text string) (ReleaseState, error) { return releaseStateCodec.Parse(text) }
 
 func (s ReleaseState) Value() (driver.Value, error) { return releaseStateCodec.Value(s) }
 

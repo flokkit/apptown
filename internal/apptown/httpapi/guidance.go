@@ -16,14 +16,14 @@ type Guidance struct {
 	adoption  *adoption.Service
 	projects  *project.Projects
 	lifecycle *projectlifecycle.Service
-	inventory SteeringInventory
+	inventory steeringInventory
 }
 
-func NewGuidance(ways *wow.Service, adoption *adoption.Service, projects *project.Projects, lifecycle *projectlifecycle.Service, inventory SteeringInventory) Guidance {
+func NewGuidance(ways *wow.Service, adoption *adoption.Service, projects *project.Projects, lifecycle *projectlifecycle.Service, inventory steeringInventory) Guidance {
 	return Guidance{ways: ways, adoption: adoption, projects: projects, lifecycle: lifecycle, inventory: inventory}
 }
 func (h Guidance) GetProjectGuidance(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -61,7 +61,7 @@ func (h Guidance) GetProjectGuidance(w http.ResponseWriter, r *http.Request) {
 // ordered import list. version 0 means "pin to current latest" — the stored
 // pin is always concrete.
 func (h Guidance) PutProjectGuidance(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -82,7 +82,7 @@ func (h Guidance) PutProjectGuidance(w http.ResponseWriter, r *http.Request) {
 			WriteFault(w, err)
 			return
 		}
-		if err := h.lifecycle.ReplaceGuidance(r.Context(), p, in.ExpectedRevision, resolved, Actor(r)); err != nil {
+		if err := h.lifecycle.ReplaceGuidance(r.Context(), p, in.ExpectedRevision, resolved, actor(r)); err != nil {
 			WriteFault(w, err)
 			return
 		}

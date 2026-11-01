@@ -18,15 +18,15 @@ type reworkStore struct {
 }
 
 type reworkedResult struct {
-	RunID   ids.ID
-	AgentID ids.ID
+	runID   ids.ID
+	agentID ids.ID
 	refusal error
 }
 
 // requestIn records a single continuation. Pending agent state is the durable
 // dispatch intent, understood by normal stage recovery without another worker.
 func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, source *Step, human bool) (reworkedResult, error) {
-	result := reworkedResult{RunID: run.ID}
+	result := reworkedResult{runID: run.ID}
 	if run.Status != RunRunning || run.CurrentStage != source.Stage || source.Status != StatusFail || source.OverrideBy != "" {
 		return result, nil
 	}
@@ -80,7 +80,7 @@ func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, s
 			return result, err
 		}
 	}
-	if _, err := agent.Status.Transition(MoveStepReset, StatusPending); err != nil {
+	if _, err := agent.Status.transition(moveStepReset, StatusPending); err != nil {
 		return result, err
 	}
 	if err := requireAttemptWrite(workflowsql.New(tx.SQL()).ReworkAgent(ctx, workflowsql.ReworkAgentParams{ID: agent.ID, Attempt: agent.Attempt})); err != nil {
@@ -96,7 +96,7 @@ func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, s
 	if err := invalidateRunDecisionIn(ctx, tx, run, s.now()); err != nil {
 		return result, err
 	}
-	result.AgentID = agent.ID
+	result.agentID = agent.ID
 	return result, nil
 }
 
@@ -104,7 +104,7 @@ func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, s
 // continuation commit together, so a restart cannot lose that decision.
 func (s reworkStore) fail(ctx context.Context, claim *Step, outcome StepOutcome) (reworkedResult, error) {
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (reworkedResult, error) {
-		finished, err := newStepAttempts(s.db, nil).FinishIn(ctx, tx, claim, outcome)
+		finished, err := newStepAttempts(s.db, nil).finishIn(ctx, tx, claim, outcome)
 		if err != nil {
 			return reworkedResult{}, err
 		}
@@ -133,8 +133,8 @@ func resetApprovalIn(ctx context.Context, tx *database.Tx, step *Step) error {
 // receipt and any rejection/rework in the caller's transaction.
 func (s reworkStore) approveIn(ctx context.Context, tx *database.Tx, run *Run, step *Step, vote ApprovalVote) (reworkedResult, error) {
 	user, decision := vote.Approver, vote.Decision
-	result := reworkedResult{RunID: run.ID}
-	if err := run.Decides(step); err != nil {
+	result := reworkedResult{runID: run.ID}
+	if err := run.decides(step); err != nil {
 		return result, fmt.Errorf("approval is not in an active workflow stage: %w", err)
 	}
 	if step.Type == "approval" && step.Status != StatusPass && step.Status != StatusFail {
@@ -169,7 +169,7 @@ func (s reworkStore) approveIn(ctx context.Context, tx *database.Tx, run *Run, s
 	}
 	// One AppTown time for the vote and the step's decision.
 	at := s.now()
-	outcome, err := step.Approve(vote, at)
+	outcome, err := step.approve(vote, at)
 	if err != nil {
 		return result, err
 	}
@@ -230,7 +230,7 @@ func (s *Service) dispatchRework(result reworkedResult) {
 		s.dispatcher.report(result.refusal)
 		return
 	}
-	if !result.AgentID.IsZero() {
-		s.dispatcher.DispatchAgain(DispatchPlan{RunID: result.RunID, Steps: []ReadyStep{{ID: result.AgentID, Type: "agent/pi"}}})
+	if !result.agentID.IsZero() {
+		s.dispatcher.dispatchAgain(DispatchPlan{RunID: result.runID, Steps: []ReadyStep{{ID: result.agentID, Type: "agent/pi"}}})
 	}
 }

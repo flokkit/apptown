@@ -14,7 +14,7 @@ import (
 // apply: named in the catalog's shape, with a workflow that ships too.
 func TestTheShippedCatalogReadsAndEachEntryValidates(t *testing.T) {
 	t.Parallel()
-	entries, err := ReadStockCatalog(stock.FS)
+	entries, err := readStockCatalog(stock.FS)
 	if err != nil || len(entries) == 0 {
 		t.Fatalf("the shipped catalog: %d entries, %v", len(entries), err)
 	}
@@ -45,7 +45,7 @@ func TestABrokenCatalogFileIsAnError(t *testing.T) {
 		if body != "" {
 			fsys["catalog.yaml"] = &fstest.MapFile{Data: []byte(body)}
 		}
-		if entries, err := ReadStockCatalog(fsys); err == nil {
+		if entries, err := readStockCatalog(fsys); err == nil {
 			t.Errorf("%s: read as %+v", name, entries)
 		}
 	}
@@ -82,14 +82,14 @@ func TestCatalogDefRendersItsTemplates(t *testing.T) {
 	if _, err := def.Render("hello {{ghost}}", map[string]string{"goVersion": "1.27"}); err == nil || !strings.Contains(err.Error(), "no param") {
 		t.Errorf("orphan placeholder must error, got %v", err)
 	}
-	if err := (&CatalogDef{}).Validate(); err == nil {
+	if err := (&CatalogDef{}).validate(); err == nil {
 		t.Error("a definition without a workflow is refused")
 	}
-	if err := (&CatalogDef{Workflow: "w", Params: []CatalogParam{{Name: "a"}, {Name: "a"}}}).Validate(); err == nil {
+	if err := (&CatalogDef{Workflow: "w", Params: []CatalogParam{{Name: "a"}, {Name: "a"}}}).validate(); err == nil {
 		t.Error("a duplicate param is refused")
 	}
 	chore := &CatalogDef{Workflow: "w"}
-	if err := chore.Validate(); err != nil || chore.Type != "chore" {
+	if err := chore.validate(); err != nil || chore.Type != "chore" {
 		t.Errorf("an absent type is chore: %v %q", err, chore.Type)
 	}
 }

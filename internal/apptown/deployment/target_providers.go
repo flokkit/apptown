@@ -55,10 +55,10 @@ func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
 		log.Printf("targets: the built-in and intranet targets are left as recorded: %v", catalogErr)
 	}
 	if !s.hosts.settings.NoLocalDocker && catalogErr == nil { // with no local daemon there is no built-in host
-		_, err := s.Targets.Sync(ctx, &Target{
+		_, err := s.Targets.sync(ctx, &Target{
 			Name: s.hosts.settings.BuiltInTarget, Kind: KindDockerHost, Provider: "", Origin: OriginBuiltIn,
 			Address:      map[string]any{"daemon": "local"},
-			Capabilities: StockCapabilities(KindDockerHost, emulators),
+			Capabilities: stockCapabilities(KindDockerHost, emulators),
 			Ingress:      map[string]any{"binding": "apptown-vhost", "domains": ingressDomains},
 			NeedsMode:    stockNeedsMode(KindDockerHost), Status: TargetReady,
 		}, who)
@@ -76,10 +76,10 @@ func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
 		log.Printf("targets: the intranet target is not recorded: its settings could not be read: %v", err)
 	}
 	if err == nil {
-		intranet, err := s.Targets.Sync(ctx, &Target{
+		intranet, err := s.Targets.sync(ctx, &Target{
 			Name: IntranetTargetName, Kind: KindPortainer, Provider: "portainer-deploy", Origin: OriginAttached,
-			Address:      map[string]any{"url": cfg.PortainerURL, AddressEnvironment: DefaultPortainerEnvironment, "tier": cfg.ReleaseDeployment},
-			Capabilities: StockCapabilities(KindPortainer, emulators),
+			Address:      map[string]any{"url": cfg.PortainerURL, addressEnvironment: defaultPortainerEnvironment, "tier": cfg.ReleaseDeployment},
+			Capabilities: stockCapabilities(KindPortainer, emulators),
 			Ingress:      map[string]any{"binding": "traefik", "domain": cfg.AppsDomain},
 			NeedsMode:    stockNeedsMode(KindPortainer), Status: TargetReady,
 		}, who)
@@ -93,11 +93,11 @@ func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
 	}
 }
 
-// StockCapabilities is what a kind of target offers as AppTown records it
+// stockCapabilities is what a kind of target offers as AppTown records it
 // (deploy-targets.md, "What each target supports"); emulators are the need
 // kinds this AppTown can run locally. An administrator may later change
 // PersistentVolumes and Previews on a target (target_settings.go).
-func StockCapabilities(kind string, emulators []string) TargetCapabilities {
+func stockCapabilities(kind string, emulators []string) TargetCapabilities {
 	switch kind {
 	case KindDockerHost:
 		return TargetCapabilities{PersistentVolumes: true, Previews: true, OwnLiveness: false, Rollout: []string{"replace"}, Needs: emulators}
@@ -133,27 +133,27 @@ func (s *Service) SeedCloudTargets(ctx context.Context, who string) {
 	}
 	// Best effort per connector: the next start or connector save seeds again.
 	for _, n := range names {
-		if _, err := s.SeedCloudTarget(ctx, n, who); err != nil {
+		if _, err := s.seedCloudTarget(ctx, n, who); err != nil {
 			log.Printf("seeding the cloud target for %s: %v", n, err)
 		}
 	}
 }
 
-// SeedCloudTarget records the App Platform target a DigitalOcean account
+// seedCloudTarget records the App Platform target a DigitalOcean account
 // offers, from the account's connector config. Idempotent. The connector
 // owns the region, registry and sizes; the copy runner, domain and other
 // settings an administrator edits are kept (Targets.Sync).
-func (s *Service) SeedCloudTarget(ctx context.Context, account, who string) (*Target, error) {
+func (s *Service) seedCloudTarget(ctx context.Context, account, who string) (*Target, error) {
 	cfg, err := s.providers.DigitalOceanConfig(ctx, account)
 	if err != nil {
 		return nil, err
 	}
-	return s.Targets.Sync(ctx, cloudTarget(account, cfg), who)
+	return s.Targets.sync(ctx, cloudTarget(account, cfg), who)
 }
 
-// AttachCloudTarget creates an account binding and its target together. It
+// attachCloudTarget creates an account binding and its target together. It
 // refuses either existing name rather than editing configuration through attach.
-func (s *Service) AttachCloudTarget(ctx context.Context, account string, config map[string]any, at Attachment) (*Target, error) {
+func (s *Service) attachCloudTarget(ctx context.Context, account string, config map[string]any, at attachment) (*Target, error) {
 	config = maps.Clone(config)
 	for _, key := range []string{"tokenFrom", "region", "registry", "instanceSize", "dbSize"} {
 		value, present := config[key]
@@ -193,7 +193,7 @@ func cloudTarget(account string, cfg digitalocean.Config) *Target {
 	return &Target{
 		Name: account, Kind: KindDOApp, Provider: account, Origin: OriginAttached,
 		Address:      map[string]any{"region": cfg.Region, "registry": cfg.Registry, "instanceSize": cfg.InstanceSize, "dbSize": cfg.DBSize},
-		Capabilities: StockCapabilities(KindDOApp, nil),
+		Capabilities: stockCapabilities(KindDOApp, nil),
 		Ingress:      map[string]any{"binding": "provider-issued", "domain": "ondigitalocean.app"},
 		NeedsMode:    stockNeedsMode(KindDOApp), Status: TargetReady,
 	}
@@ -218,8 +218,8 @@ type RegistryReading struct {
 	ReadAt   string `json:"readAt,omitempty"`
 }
 
-// Words say the reading in a sentence.
-func (r RegistryReading) Words() string {
+// words say the reading in a sentence.
+func (r RegistryReading) words() string {
 	switch {
 	case r.Unknown != "":
 		return "container registry unknown: " + r.Unknown
@@ -253,9 +253,9 @@ func readRegistry(ctx context.Context, c *digitalocean.Client) RegistryReading {
 	return RegistryReading{Registry: name, Tier: r.Tier, Included: r.Included, Used: len(r.Repositories), Full: r.Full(), Gate: r.Holds(digitalocean.GateRepository)}
 }
 
-// DigitalOceanRegistry reads the account's container registry: one per
+// digitalOceanRegistry reads the account's container registry: one per
 // account, created on the first release under the name the connector gives.
-func (p *Providers) DigitalOceanRegistry(ctx context.Context, cfg digitalocean.Config) (RegistryReading, error) {
+func (p *Providers) digitalOceanRegistry(ctx context.Context, cfg digitalocean.Config) (RegistryReading, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	c, err := p.DigitalOceanClient(ctx, cfg)
@@ -265,9 +265,9 @@ func (p *Providers) DigitalOceanRegistry(ctx context.Context, cfg digitalocean.C
 	return readRegistry(ctx, c), nil
 }
 
-// TargetCheck is a target's answer to a check: whether it answered, in
+// targetCheck is a target's answer to a check: whether it answered, in
 // words, and for an App Platform target its registry's reading.
-type TargetCheck struct {
+type targetCheck struct {
 	OK       bool
 	Detail   string
 	Registry *RegistryReading
@@ -276,12 +276,12 @@ type TargetCheck struct {
 // CheckTarget asks a target whether it answers: the daemon for a Docker
 // host, the API for Portainer and a cloud account. A kind with no check
 // yet says so rather than pretending.
-func (p *Providers) CheckTarget(ctx context.Context, t *Target) TargetCheck {
+func (p *Providers) CheckTarget(ctx context.Context, t *Target) targetCheck {
 	if t.Kind == KindDOApp {
 		return p.checkAppPlatform(ctx, t)
 	}
 	ok, detail := p.checkTarget(ctx, t)
-	return TargetCheck{OK: ok, Detail: detail}
+	return targetCheck{OK: ok, Detail: detail}
 }
 
 func (p *Providers) checkTarget(ctx context.Context, t *Target) (ok bool, detail string) {
@@ -293,11 +293,11 @@ func (p *Providers) checkTarget(ctx context.Context, t *Target) (ok bool, detail
 			}
 			return false, "the Docker daemon did not answer"
 		}
-		addr, keyFrom, err := HostTargetAddress(t)
+		addr, keyFrom, err := hostTargetAddress(t)
 		if err != nil {
 			return false, err.Error()
 		}
-		return p.hosts.ProbeHostTarget(ctx, t.Name, addr, keyFrom)
+		return p.hosts.probeHostTarget(ctx, t.Name, addr, keyFrom)
 	case KindPortainer:
 		cfg, err := p.PortainerConfig(ctx, t)
 		if err != nil {
@@ -309,23 +309,23 @@ func (p *Providers) checkTarget(ctx context.Context, t *Target) (ok bool, detail
 		}
 		return true, fmt.Sprintf("Portainer answers; endpoint %d (%s)", id, portainer.PlatformText(ctx, cfg, id))
 	case KindS3Bucket:
-		return p.CheckS3Bucket(ctx, S3BucketConfig(t))
+		return p.checkS3Bucket(ctx, s3BucketConfig(t))
 	}
 	return false, "no check yet for a " + t.Kind + " target"
 }
 
 // checkAppPlatform asks DigitalOcean for the account and reads its
 // container registry.
-func (p *Providers) checkAppPlatform(ctx context.Context, t *Target) TargetCheck {
+func (p *Providers) checkAppPlatform(ctx context.Context, t *Target) targetCheck {
 	cfg, err := p.DigitalOceanConfig(ctx, t.Provider)
 	if err != nil {
-		return TargetCheck{Detail: "the cloud account is not bound: " + strs.Truncate(err.Error(), 160)}
+		return targetCheck{Detail: "the cloud account is not bound: " + strs.Truncate(err.Error(), 160)}
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	c, err := p.DigitalOceanClient(ctx, cfg)
 	if err != nil {
-		return TargetCheck{Detail: strs.Truncate(err.Error(), 160)}
+		return targetCheck{Detail: strs.Truncate(err.Error(), 160)}
 	}
 	var acct struct {
 		Account struct {
@@ -334,19 +334,19 @@ func (p *Providers) checkAppPlatform(ctx context.Context, t *Target) TargetCheck
 		} `json:"account"`
 	}
 	if err := c.Call(ctx, "GET", "/v2/account", nil, &acct); err != nil {
-		return TargetCheck{Detail: "DigitalOcean did not answer: " + strs.Truncate(err.Error(), 160)}
+		return targetCheck{Detail: "DigitalOcean did not answer: " + strs.Truncate(err.Error(), 160)}
 	}
 	reg := readRegistry(ctx, c)
-	return TargetCheck{OK: true, Detail: fmt.Sprintf("DigitalOcean answers for %s (%s); %s", acct.Account.Email, acct.Account.Status, reg.Words()), Registry: &reg}
+	return targetCheck{OK: true, Detail: fmt.Sprintf("DigitalOcean answers for %s (%s); %s", acct.Account.Email, acct.Account.Status, reg.words()), Registry: &reg}
 }
 
-// S3BucketWords is what attaching and checking a bucket target say about
+// s3BucketWords is what attaching and checking a bucket target say about
 // the key and the buckets, every time, in these words.
-const S3BucketWords = "AppTown creates one bucket per deployment, so this key must be able to create buckets: a full-access key, which can read, write and configure every bucket in its team (not Droplets or the control panel). Use a key made for AppTown alone, and a team of its own where other data must be out of its reach. Don't store anything else in a deployment's bucket: taking the deployment down deletes it"
+const s3BucketWords = "AppTown creates one bucket per deployment, so this key must be able to create buckets: a full-access key, which can read, write and configure every bucket in its team (not Droplets or the control panel). Use a key made for AppTown alone, and a team of its own where other data must be out of its reach. Don't store anything else in a deployment's bucket: taking the deployment down deletes it"
 
-// CheckS3Bucket asks the store whether the key pair is accepted, by
+// checkS3Bucket asks the store whether the key pair is accepted, by
 // listing the account's buckets.
-func (p *Providers) CheckS3Bucket(ctx context.Context, cfg s3bucket.Config) (bool, string) {
+func (p *Providers) checkS3Bucket(ctx context.Context, cfg s3bucket.Config) (bool, string) {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	c, err := p.S3BucketClient(ctx, cfg)
@@ -357,7 +357,7 @@ func (p *Providers) CheckS3Bucket(ctx context.Context, cfg s3bucket.Config) (boo
 	if err != nil {
 		return false, "the store did not accept the key pair: " + strs.Truncate(err.Error(), 200)
 	}
-	return true, fmt.Sprintf("%s answers in %s; the key sees %d buckets. %s", cfg.Endpoint, cfg.Region, len(names), S3BucketWords)
+	return true, fmt.Sprintf("%s answers in %s; the key sees %d buckets. %s", cfg.Endpoint, cfg.Region, len(names), s3BucketWords)
 }
 
 // CheckCloudAccount is the connector's health check: the account call.

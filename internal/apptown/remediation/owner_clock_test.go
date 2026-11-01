@@ -38,13 +38,13 @@ func TestEveryRemediationTimeIsTheOwnersClock(t *testing.T) {
 	store := NewReconciliation(f.db, f.work, f.ctx, now)
 	observed := observeRemediation(t, store, item)
 	decision := Decide(observed)
-	if decision.Action != ActionStuck {
+	if decision.Action != actionStuck {
 		t.Fatalf("a failed attempt's decision: %+v", decision)
 	}
 	if applied, err := store.Apply(context.Background(), observed, decision); err != nil || applied == nil {
 		t.Fatalf("apply: %+v %v", applied, err)
 	}
-	if err := NewSchedule(f.db, now).CloseFinished(context.Background()); err != nil {
+	if err := newSchedule(f.db, now).closeFinished(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	job, err := readJob(context.Background(), f.db, item.RemediationID)
@@ -126,7 +126,7 @@ func TestARemediationReceiptCarriesItsRecordsTime(t *testing.T) {
 
 	f.prepare(t, run.ID)
 	store := NewReconciliation(f.db, f.work, f.ctx, clk.Now)
-	if _, err := store.Apply(context.Background(), observeRemediation(t, store, item), Decision{Action: ActionPhase, State: ItemAccepting, Reason: "moved on"}); err != nil {
+	if _, err := store.Apply(context.Background(), observeRemediation(t, store, item), decision{Action: actionPhase, State: ItemAccepting, Reason: "moved on"}); err != nil {
 		t.Fatal(err)
 	}
 	same("a phase", f.item(t, item.ID).UpdatedAt)
@@ -150,7 +150,7 @@ func TestARemediationReceiptCarriesItsRecordsTime(t *testing.T) {
 	same("a skip", f.item(t, item.ID).UpdatedAt)
 
 	reading := clk.Next()
-	if err := NewPools(f.db, clk.Now).Set(context.Background(), "remediation", 2, "alice"); err != nil {
+	if err := newPools(f.db, clk.Now).set(context.Background(), "remediation", 2, "alice"); err != nil {
 		t.Fatal(err)
 	}
 	if _, receipt := latest("workers.set"); !receipt.Equal(reading) {

@@ -120,12 +120,12 @@ func TestADatabaseLookupFailureKeepsTheCopyUntilTheSweepSucceeds(t *testing.T) {
 	if got := w.run(op); got.State != operations.Failed || !strings.Contains(got.Detail, "whether anything stands is unknown") {
 		t.Fatalf("operation = %+v", got)
 	}
-	copies, err := w.s.RestoredCopiesOf(ctx, w.prod, 5)
+	copies, err := w.s.restoredCopiesOf(ctx, w.prod, 5)
 	if err != nil || copies[0].EndedAt.Valid || len(w.api.Snapshot().Apps) != 2 {
 		t.Fatalf("a lookup failure ended the copy: %v %v", copies, err)
 	}
 	w.api.Fail("GET", "/v2/databases", 0)
-	n, _, err := w.s.SweepRestoredCopies(ctx)
+	n, _, err := w.s.sweepRestoredCopies(ctx)
 	if err != nil || n != 1 {
 		t.Fatalf("sweep: %d %v", n, err)
 	}
@@ -133,7 +133,7 @@ func TestADatabaseLookupFailureKeepsTheCopyUntilTheSweepSucceeds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := w.run(&ops[0]); !endedAs(got, OperationDone) {
+	if got := w.run(&ops[0]); !endedAs(got, operationDone) {
 		t.Fatalf("retry = %+v", got)
 	}
 	if state := w.api.Snapshot(); len(state.Apps) != 1 || len(state.Databases) != 1 {

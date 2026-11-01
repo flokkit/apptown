@@ -54,16 +54,6 @@ type AdvanceResult struct {
 	FollowUpsPending bool        `json:"followUpsPending"`
 }
 
-// advance is the single gate-enforced path to the next stage or completion.
-// who is recorded in the ledger ("system" for automatic advancement).
-func (w advanceEngine) advance(ctx context.Context, runID ids.ID, who string) (*AdvanceResult, error) {
-	run, err := w.records.runByID(ctx, runID)
-	if err != nil {
-		return nil, err
-	}
-	return w.advanceRun(ctx, run, who)
-}
-
 // advanceRun retains the caller's stage and retry revision through the final
 // conditional write. Delayed child handoffs must not reread a newer stage and
 // mistake it for the stage whose call just completed.
@@ -129,12 +119,12 @@ func (w advanceEngine) advanceRun(ctx context.Context, run *Run, who string) (*A
 		return nil, err
 	}
 	// The run judges; the engine records the judgement and does what it named.
-	decision, err := run.Advance(steps, recorded)
+	decision, err := run.advance(steps, recorded)
 	if err != nil {
 		return nil, err
 	}
 	res.Required, res.Missing, res.Blocking = decision.Required, decision.Missing, decision.Blocked
-	if _, ok := decision.NothingToChange(steps); ok && w.endNothing != nil && !run.ChangeID.IsZero() && run.ParentRunID.IsZero() {
+	if _, ok := decision.nothingToChange(steps); ok && w.endNothing != nil && !run.ChangeID.IsZero() && run.ParentRunID.IsZero() {
 		if err := w.endNothing(ctx, run); err == nil {
 			res.Advanced, res.Blocking, res.RunStatus = true, nil, RunAbandoned
 			return res, nil
@@ -143,7 +133,7 @@ func (w advanceEngine) advanceRun(ctx context.Context, run *Run, who string) (*A
 			log.Printf("run %s: ending a change with nothing to change: %v", runID, err)
 		}
 	}
-	if !decision.Passed() {
+	if !decision.passed() {
 		blockedBy := make([]string, len(decision.Blocked))
 		for i, s := range decision.Blocked {
 			blockedBy[i] = s.Name

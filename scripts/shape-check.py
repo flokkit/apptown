@@ -338,7 +338,7 @@ def standalone():
 # (design/architecture/record-store-style.md). Three places are legitimately
 # raw and are not counted: dbschema writes the migrations, database is the
 # driver layer, dbtest creates and drops the databases a test runs in.
-HANDWRITTEN_EXEMPT = {"internal/apptown/dbschema", "internal/database", "internal/dbtest"}
+HANDWRITTEN_EXEMPT = {"internal/apptown/dbschema", "internal/database", "internal/database/query", "internal/dbtest"}
 SQL_STATEMENT = re.compile(r"\b(SELECT\s|INSERT\s+INTO\s|UPDATE\s+[a-z_]+\s+SET|DELETE\s+FROM\s)", re.I)
 
 def handwritten():
@@ -383,7 +383,7 @@ TEST_SQL_MARKER = re.compile(r"sql-guarantee:\s*\S", re.I)
 TEST_WRITE = re.compile(r"\b(INSERT\s+INTO\s|UPDATE\s+[a-z_]+\s+SET|DELETE\s+FROM\s)", re.I)
 # A fault injector is handed the TEXT of a statement to fail. That string names
 # a statement; it does not run one, so it is not test SQL.
-FAULT_CALLS = {"failNextStatement", "FailNextStatement", "WaitForLock", "failStatement"}
+FAULT_CALLS = {"failNextStatement", "FailNextStatement", "WaitForLock", "failStatement", "NextStatementFailure", "StatementFailures", "StatementFailureAfter"}
 # The same distinction structurally, for selectors built outside a call: a real
 # statement is complete ("INSERT INTO t(..) VALUES (..)"), a selector is a
 # prefix ("INSERT INTO jobs", "UPDATE changes SET state=").
@@ -528,7 +528,7 @@ ROOT_HINT = ("internal/apptown is the composition root (design/architecture/layo
              "package, transport code in httpapi/mcpapi; if this file really is assembly or a "
              "cross-owner guarantee, merge it into an existing root file or raise the baseline "
              "in scripts/shape-baseline.json in this commit and say why.")
-HINTS = {"rootfiles": ROOT_HINT, "roottests": ROOT_HINT,
+HINTS = {"unusedexports": "keep new declarations private unless another package uses them in production; -v lists the counted exports.", "rootfiles": ROOT_HINT, "roottests": ROOT_HINT,
          "workflowexports": "a new exported name in internal/apptown/workflow: keep it private unless another package needs it "
                             "(a test in another package is not a reason: use the owner's operations). -v lists every exported name.",
          "droppederrors": "a dropped error from a decode (its zero value stands in for what was stored: an empty set, no pins, "
@@ -833,17 +833,57 @@ def check_shell_suppressions(baseline, root=None):
     return not found
 
 
+
+def unused_exports(root=None, executable=None):
+    command = [executable] if executable else ["go", "run", os.path.join(ROOT, "scripts/shape-unused-exports.go")]
+    result = subprocess.run(command + ["-production"],
+                            cwd=root or ROOT, capture_output=True, text=True, check=True)
+    return [f"{r['File']}:{r['Line']}: {r['Name']} ({r['Kind']})"
+            for r in json.loads(result.stdout) if not r["Production"] and r["Category"] != "excluded"]
+
+
+def test_support_imports(root=None):
+    result = subprocess.run(["go", "run", os.path.join(ROOT, "scripts/shape-test-support.go"), root or ROOT],
+                            cwd=ROOT, capture_output=True, text=True, check=True)
+    return json.loads(result.stdout)
+
+
+def check_test_support(baseline):
+    found = test_support_imports()
+    if "testsupportimports" in baseline:
+        found.append("testsupportimports is a hard rule; remove its count baseline")
+    print(f"shape testsupportimports {len(found):4}  required    0  {'WORSE' if found else 'ok'}")
+    for line in found:
+        print("   ", line)
+    return not found
+
+def tightened_counts(counts, baseline):
+    return {k: min(len(v), baseline[k]) if k == "unusedexports" and k in baseline else len(v)
+            for k, v in counts.items()}
+
+
+def export_key(line):
+    # Source lines move when unrelated declarations change.
+    file, _, declaration = line.split(":", 2)
+    return file + ":" + declaration.strip()
+
+
+def new_unused_exports(found, accepted):
+    return [line for line in found if export_key(line) not in accepted]
+
+
 def main():
     tighten = "--tighten" in sys.argv
     verbose = "-v" in sys.argv
     test_writes, test_reads = test_sql()
     agents = agent_boundaries()
     requests = request_boundaries()
-    counts = {"layering": layering(), "doors": doors(), "transport": transport(), "methods": methods(), "fields": fields(), "constructors": constructors(), "aliases": aliases(), "standalone": standalone(), "callbacks": callbacks(), "handwritten": handwritten(), "testwrites": test_writes, "testreads": test_reads, "agentpolicy": agents["policy"], "harnesswork": agents["settlement"], "testhomes": testhomes(), "harnessimports": harness_imports(), "jsondecode": requests["jsondecode"], "routepolicies": requests["routepolicies"], "rootfiles": root_files(), "roottests": root_files(tests=True), "transportaudit": transport_audit(), "transportdb": transport_db(), "hubpaths": hub_paths(), "kindbranches": kind_branches(), "historycomments": history_comments(), "testexecwrites": test_exec_writes(), "testexecfixtures": test_exec_fixtures(), "droppederrors": dropped_decodes(), "workflowexports": workflow_exports()}
+    counts = {"layering": layering(), "doors": doors(), "transport": transport(), "methods": methods(), "fields": fields(), "constructors": constructors(), "aliases": aliases(), "standalone": standalone(), "callbacks": callbacks(), "handwritten": handwritten(), "testwrites": test_writes, "testreads": test_reads, "agentpolicy": agents["policy"], "harnesswork": agents["settlement"], "testhomes": testhomes(), "harnessimports": harness_imports(), "jsondecode": requests["jsondecode"], "routepolicies": requests["routepolicies"], "rootfiles": root_files(), "roottests": root_files(tests=True), "transportaudit": transport_audit(), "transportdb": transport_db(), "hubpaths": hub_paths(), "kindbranches": kind_branches(), "historycomments": history_comments(), "testexecwrites": test_exec_writes(), "testexecfixtures": test_exec_fixtures(), "droppederrors": dropped_decodes(), "workflowexports": workflow_exports(), "unusedexports": unused_exports()}
     path = os.path.join(ROOT, "scripts", "shape-baseline.json")
     baseline = json.load(open(path)) if os.path.exists(path) else {}
     shell_ok = check_shell_suppressions(baseline)
-    ok = shell_ok
+    support_ok = check_test_support(baseline)
+    ok = shell_ok and support_ok
     for rule, found in counts.items():
         n, b = len(found), baseline.get(rule)
         mark = "ok" if b is None or n <= b else "WORSE"
@@ -851,13 +891,20 @@ def main():
         if b is not None and n > b:
             ok = False
             if rule in HINTS:
+                if rule == "unusedexports":
+                    accepted = json.load(open(os.path.join(ROOT, "scripts", "shape-unused-exports-baseline.json")))
+                    for line in new_unused_exports(found, accepted):
+                        print("   ", line)
                 print("   ", HINTS[rule])
         # A count rule's list is every file, not the offending one: -v shows it.
         if verbose or (b is not None and n > b and rule not in HINTS):
             for line in found:
                 print("   ", line)
-    if shell_ok and (tighten or not baseline):
-        json.dump({k: len(v) for k, v in counts.items()}, open(path, "w"), indent=2)
+    if shell_ok and support_ok and (tighten or not baseline):
+        json.dump(tightened_counts(counts, baseline), open(path, "w"), indent=2)
+        accepted_path = os.path.join(ROOT, "scripts", "shape-unused-exports-baseline.json")
+        if len(counts["unusedexports"]) <= baseline.get("unusedexports", len(counts["unusedexports"])):
+            json.dump(sorted(export_key(line) for line in counts["unusedexports"]), open(accepted_path, "w"), indent=2)
         print("baseline written:", os.path.relpath(path, ROOT))
     sys.exit(0 if ok else 1)
 

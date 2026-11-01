@@ -13,14 +13,14 @@ import (
 	"github.com/flokkit/apptown/internal/trailer"
 )
 
-// Changes answers whether a project has ever had a Change.
-type Changes interface {
+// changes answers whether a project has ever had a Change.
+type changes interface {
 	ProjectHasAny(ctx context.Context, projectID ids.ID) (bool, error)
 }
 
-// ErrProjectEstablished refuses a direct write to an established project's
+// errProjectEstablished refuses a direct write to an established project's
 // main. Its code lets a client tell it from other conflicts.
-var ErrProjectEstablished error = projectEstablished{}
+var errProjectEstablished error = projectEstablished{}
 
 type projectEstablished struct{}
 
@@ -89,7 +89,7 @@ func (s *Service) requireGenesis(ctx context.Context, projectID ids.ID) error {
 		return fmt.Errorf("reading whether the project has changes: %w", err)
 	}
 	if has {
-		return ErrProjectEstablished
+		return errProjectEstablished
 	}
 	return nil
 }

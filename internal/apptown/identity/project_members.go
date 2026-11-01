@@ -16,8 +16,8 @@ import (
 
 var (
 	ErrMemberGrantee = fault.New(fault.Invalid, "grantee (username or group:<name>) required")
-	ErrMemberRole    = fault.New(fault.Invalid, "choose a project role: viewer, contributor, maintainer, approver or owner")
-	ErrMemberSubject = fault.New(fault.Invalid, "a member must be a user or group")
+	errMemberRole    = fault.New(fault.Invalid, "choose a project role: viewer, contributor, maintainer, approver or owner")
+	errMemberSubject = fault.New(fault.Invalid, "a member must be a user or group")
 )
 
 // ParseSubject accepts a username or an explicitly prefixed user/group name.
@@ -44,11 +44,11 @@ func (s *Service) AddProjectMember(ctx context.Context, projectID ids.ID, grante
 	}
 	rv := access.RoleByName(role)
 	if rv == nil || rv.Scope != access.ScopeProject {
-		return ErrMemberRole
+		return errMemberRole
 	}
 	st, subj := ParseSubject(grantee)
 	if st != "user" && st != "group" {
-		return ErrMemberSubject
+		return errMemberSubject
 	}
 	if st == "user" {
 		if err := ValidName(subj); err != nil {

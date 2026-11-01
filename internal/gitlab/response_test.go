@@ -36,7 +36,7 @@ func TestIncompleteGitLabResponsesNeverReportSuccess(t *testing.T) {
 			client.http.Transport = responseTransport(func(*http.Request) (*http.Response, error) {
 				return &http.Response{StatusCode: tc.status, Body: tc.body()}, nil
 			})
-			err = client.DoContext(context.Background(), http.MethodDelete, "/projects/1", nil, nil)
+			err = client.doContext(context.Background(), http.MethodDelete, "/projects/1", nil, nil)
 			if err == nil {
 				t.Fatal("incomplete response reported success")
 			}
@@ -79,7 +79,7 @@ func TestGitLabRawResponsePreservesStatusAndCompleteBodies(t *testing.T) {
 				t.Fatal("incomplete body exposed as usable result")
 			}
 			if tc.status == 404 {
-				err = client.DoContext(context.Background(), http.MethodDelete, "/projects/1", nil, nil)
+				err = client.doContext(context.Background(), http.MethodDelete, "/projects/1", nil, nil)
 				var failure *HTTPError
 				if !errors.As(err, &failure) || failure.Status != 404 {
 					t.Fatalf("complete absent response lost HTTP classification: %v", err)

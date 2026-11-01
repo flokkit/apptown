@@ -11,29 +11,29 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 )
 
-// WiringMode chooses whether connection work starts in a chat or a workflow.
+// wiringMode chooses whether connection work starts in a chat or a workflow.
 // Callers must parse external strings; the command also rejects constructed
 // unknown values. Only an omitted external value selects the workflow default.
-type WiringMode string
+type wiringMode string
 
 const (
-	WiringChat     WiringMode = "chat"
-	WiringWorkflow WiringMode = "workflow"
+	wiringChat     wiringMode = "chat"
+	wiringWorkflow wiringMode = "workflow"
 )
 
-func ParseWiringMode(raw string) (WiringMode, error) {
+func ParseWiringMode(raw string) (wiringMode, error) {
 	if raw == "" {
-		return WiringWorkflow, nil
+		return wiringWorkflow, nil
 	}
-	mode := WiringMode(raw)
+	mode := wiringMode(raw)
 	if err := mode.validate(); err != nil {
 		return "", err
 	}
 	return mode, nil
 }
-func (m WiringMode) validate() error {
+func (m wiringMode) validate() error {
 	switch m {
-	case WiringChat, WiringWorkflow:
+	case wiringChat, wiringWorkflow:
 		return nil
 	}
 	return fault.Wrap(fault.Invalid, fmt.Errorf("mode must be chat or workflow"))
@@ -41,7 +41,7 @@ func (m WiringMode) validate() error {
 
 // Wiring asks for the Change that wires a project's attachment into its app.
 type Wiring struct {
-	Mode       WiringMode
+	Mode       wiringMode
 	Capability string
 	Draft      workflow.ChangeDraft
 	Workflow   string // the workflow a WiringWorkflow run starts
@@ -71,7 +71,7 @@ func (s *Service) OpenWiring(ctx context.Context, in Wiring) (*workflow.Change, 
 		}
 		return audit.At(s.now()).RecordIn(ctx, tx, in.Who, ch.ProjectID, "integration.wire", in.Capability, map[string]any{"change": ch.ID, "mode": in.Mode})
 	}
-	if in.Mode == WiringChat {
+	if in.Mode == wiringChat {
 		ch, err := s.work.CreateWith(ctx, in.Draft, link)
 		return ch, nil, err
 	}

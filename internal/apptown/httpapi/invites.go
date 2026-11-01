@@ -16,7 +16,7 @@ import (
 type Invites struct {
 	access   *identity.Service
 	browser  BrowserSession
-	address  ClientAddress
+	address  clientAddress
 	internal bool // invites set passwords, which only internal sign-in uses
 }
 
@@ -48,7 +48,7 @@ type (
 	}
 )
 
-func NewInvites(access *identity.Service, browser BrowserSession, address ClientAddress, internal bool) Invites {
+func NewInvites(access *identity.Service, browser BrowserSession, address clientAddress, internal bool) Invites {
 	return Invites{access: access, browser: browser, address: address, internal: internal}
 }
 
@@ -114,7 +114,7 @@ func (h Invites) ListInvites(w http.ResponseWriter, r *http.Request) {
 
 // RevokeInvite: DELETE /api/v1/invites/{id}
 func (h Invites) RevokeInvite(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "invite id must be an id")
 		return

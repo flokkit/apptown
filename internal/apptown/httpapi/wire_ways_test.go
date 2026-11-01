@@ -39,7 +39,7 @@ func init() {
 		wiregen.Named{Name: "PolicyLibraryList", Value: PolicyLibraryList{}},
 		wiregen.Named{Name: "PolicyUsageList", Value: PolicyUsageList{}},
 		wiregen.Named{Name: "ProjectAdoptionRecord", Value: ProjectAdoptionRecord{}},
-		wiregen.Named{Name: "ProjectDeletionState", Value: ProjectDeletionState{}},
+		wiregen.Named{Name: "ProjectDeletionState", Value: projectDeletionState{}},
 		wiregen.Named{Name: "ProjectCleanupList", Value: ProjectCleanupList{}},
 		wiregen.Named{Name: "ProjectManifestView", Value: ProjectManifestView{}},
 		wiregen.Named{Name: "ProjectOverviewView", Value: ProjectOverviewView{}},

@@ -77,7 +77,7 @@ func TestAnUnverifiedAsyncEdgeRefusesEvenExplicitNoCopy(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := s.TakeBackup(ctx, pid, "lan", "bls"); !errors.Is(err, ErrDataNotKnown) || !strings.Contains(err.Error(), "explicit provider association") {
+	if _, err := s.TakeBackup(ctx, pid, "lan", "bls"); !errors.Is(err, errDataNotKnown) || !strings.Contains(err.Error(), "explicit provider association") {
 		t.Fatalf("a backup there: %v", err)
 	}
 	for _, choice := range []string{"", "lan"} {

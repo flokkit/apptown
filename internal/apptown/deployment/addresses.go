@@ -378,7 +378,7 @@ func (s *Service) admitAddressIn(ctx context.Context, tx *database.Tx, dep *Depl
 func (s *Service) checkAddressSnapshot(ctx context.Context, dep *Deployment, target *Target, snapshot *AddressSnapshot) error {
 	if target.Kind != KindPortainer {
 		if snapshot != nil {
-			return ErrPlacementChanged
+			return errPlacementChanged
 		}
 		return nil
 	}
@@ -389,7 +389,7 @@ func (s *Service) checkAddressSnapshot(ctx context.Context, dep *Deployment, tar
 		return err
 	}
 	if snapshot.DeploymentID != dep.ID || snapshot.TargetID != target.ID {
-		return ErrPlacementChanged
+		return errPlacementChanged
 	}
 	q := deploymentsql.New(s.db.SQL())
 	row, err := q.DeploymentAddressSettings(ctx, dep.ID)

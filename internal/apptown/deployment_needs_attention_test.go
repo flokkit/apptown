@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/attention"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -262,7 +261,7 @@ func TestCheckAgainFailsAnAttemptWithNoRecordOfItsBoot(t *testing.T) {
 // Missing refreshes beyond the disk limit must still raise the item.
 func TestAttentionDiskStaysFreshThroughObserverCadence(t *testing.T) {
 	t.Parallel()
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	a := testApp(t, Config{DockerClient: daemon})
 	target, err := a.Deployment.Targets.Put(t.Context(), &deployment.Target{Name: "local", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
 	if err != nil {
@@ -361,7 +360,7 @@ func TestAttentionDiskStaysFreshThroughObserverCadence(t *testing.T) {
 // and in Attention, even while repeated attempts record newer failure times.
 func TestOfflineHostKeepsLastGoodTimeInCapacityAndAttention(t *testing.T) {
 	t.Parallel()
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	a := testApp(t, Config{DockerClient: daemon})
 	target := attachTarget(t, a, "remote", "host.example.test")
 	observer := deployment.NewCapacityObserver(a.Deployment)

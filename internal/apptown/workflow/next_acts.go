@@ -9,27 +9,27 @@ const (
 	// NextApprove decides the approval the run waits on
 	// (POST /steps/{id}/approve).
 	NextApprove NextActKind = "approve"
-	// NextOverride overrules a failed check that blocks the stage, with a
+	// nextOverride overrules a failed check that blocks the stage, with a
 	// reason (POST /steps/{id}/override).
-	NextOverride NextActKind = "override"
-	// NextRework gives the stage's agent another round
+	nextOverride NextActKind = "override"
+	// nextRework gives the stage's agent another round
 	// (POST /steps/{id}/run).
-	NextRework NextActKind = "rework"
-	// NextRetry runs a step that stopped the stage again
+	nextRework NextActKind = "rework"
+	// nextRetry runs a step that stopped the stage again
 	// (POST /steps/{id}/run).
-	NextRetry NextActKind = "retry"
+	nextRetry NextActKind = "retry"
 	// NextAdvance moves the run on from a stage that has all it needs
 	// (POST /runs/{id}/advance).
 	NextAdvance NextActKind = "advance"
-	// NextRestartLanding lands the change again under the current rules,
+	// nextRestartLanding lands the change again under the current rules,
 	// after they changed while the landing waited
 	// (POST /runs/{id}/restart-landing).
-	NextRestartLanding NextActKind = "restart-landing"
+	nextRestartLanding NextActKind = "restart-landing"
 	// NextLand starts the change's landing (POST /changes/{id}/land).
 	NextLand NextActKind = "land"
-	// NextSendBack sends the change's work back to its agent with a note
+	// nextSendBack sends the change's work back to its agent with a note
 	// (POST /changes/{id}/sendback).
-	NextSendBack NextActKind = "send-back"
+	nextSendBack NextActKind = "send-back"
 	// nextAbandon closes a blocked change with a reason
 	// (POST /changes/{id}/abandon). Unlike the other acts it is offered only
 	// to a reader who may abandon the change.
@@ -87,10 +87,10 @@ func nextActs(run *Run, steps []*Step, a Activity, runnable func(string) bool, l
 		case a.State == ActivityWaiting && ownApproval && s.Type == "approval" && s.Status == StatusPending:
 			acts = append(acts, NextAct{Act: NextApprove, StepID: s.ID, Step: s.Name})
 		case a.State == ActivityBlocked && s.Type != "approval" && s.OverrideBy == "" && overridable(s.Status):
-			acts = append(acts, NextAct{Act: NextOverride, StepID: s.ID, Step: s.Name})
+			acts = append(acts, NextAct{Act: nextOverride, StepID: s.ID, Step: s.Name})
 		}
 		if a.State == ActivityBlocked && stopped && s.Type != "approval" && !running && runnable != nil && runnable(s.Type) {
-			retries = append(retries, NextAct{Act: NextRetry, StepID: s.ID, Step: s.Name})
+			retries = append(retries, NextAct{Act: nextRetry, StepID: s.ID, Step: s.Name})
 		}
 		rulesChanged = rulesChanged || (landing && s.Type == "policy/current" && stopped)
 	}
@@ -99,10 +99,10 @@ func nextActs(run *Run, steps []*Step, a Activity, runnable func(string) bool, l
 	// call step runs while the run waits on its child. A queued agent never
 	// gets here: the classifier calls its run queued.
 	if agent != nil && !running {
-		acts = append(acts, NextAct{Act: NextRework, StepID: agent.ID, Step: agent.Name})
+		acts = append(acts, NextAct{Act: nextRework, StepID: agent.ID, Step: agent.Name})
 	}
 	if a.State == ActivityBlocked && rulesChanged {
-		acts = append(acts, NextAct{Act: NextRestartLanding})
+		acts = append(acts, NextAct{Act: nextRestartLanding})
 	}
 	return acts
 }
@@ -113,7 +113,7 @@ func overridable(state StepState) bool {
 	if state != StatusFail && state != StatusError {
 		return false
 	}
-	_, err := state.Transition(MoveStepOverride, StatusPass)
+	_, err := state.transition(moveStepOverride, StatusPass)
 	return err == nil
 }
 
@@ -131,8 +131,8 @@ func ChangeActs(ch *Change, current *RunSnapshot, merged, mayAbandon bool) []Nex
 	if ch.State == ChangeInProgress && !running && !queued {
 		acts = append(acts, NextAct{Act: NextLand})
 	}
-	if ch.State.CanRun() && !merged && running && current.State == ActivityBlocked {
-		acts = append(acts, NextAct{Act: NextSendBack})
+	if ch.State.canRun() && !merged && running && current.State == ActivityBlocked {
+		acts = append(acts, NextAct{Act: nextSendBack})
 		if mayAbandon {
 			acts = append(acts, NextAct{Act: nextAbandon})
 		}

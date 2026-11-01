@@ -196,7 +196,7 @@ func (s *core) fill(ctx context.Context, dep *deployment.Deployment, t *deployme
 		}
 	}
 	held, err := s.heldOnHost(ctx, dk, p.Slug, dep)
-	if errors.Is(err, ErrNothingToBackUp) && !b.holdsGood() {
+	if errors.Is(err, errNothingToBackUp) && !b.holdsGood() {
 		return nil // nothing kept, nothing to put back
 	}
 	if err != nil {
@@ -208,7 +208,7 @@ func (s *core) fill(ctx context.Context, dep *deployment.Deployment, t *deployme
 	}
 	for _, m := range moves {
 		r := s.restoreItem(ctx, nil, dk, m, filepath.Join(b.Path, m.item.File), sh)
-		if r.Outcome == RestoreFailed {
+		if r.Outcome == restoreFailed {
 			return fmt.Errorf("putting %s %s back from set %s: %s", r.Kind, r.Name, b.ID, r.Detail)
 		}
 	}

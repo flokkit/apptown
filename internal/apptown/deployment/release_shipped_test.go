@@ -46,7 +46,7 @@ func TestShippedByComparesWithThePreviousReleaseOnTheDeployment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Shipped{Deployment: "main", Number: 4, Commit: "c4", Previous: 1, PreviousCommit: "c1"}
+	want := shipped{Deployment: "main", Number: 4, Commit: "c4", Previous: 1, PreviousCommit: "c1"}
 	if got == nil || *got != want {
 		t.Fatalf("shipped: %+v, want %+v", got, want)
 	}
@@ -56,7 +56,7 @@ func TestShippedByComparesWithThePreviousReleaseOnTheDeployment(t *testing.T) {
 	// sql-guarantee: as above.
 	mustExec(t, db, `INSERT INTO release_changes(release_id,change_id) VALUES ($1,$2)`, release(6, Released.String(), "preview", "p6"), other)
 	got, err = store.ShippedBy(ctx, p, other)
-	if want := (Shipped{Deployment: "preview", Number: 6, Commit: "p6"}); err != nil || got == nil || *got != want {
+	if want := (shipped{Deployment: "preview", Number: 6, Commit: "p6"}); err != nil || got == nil || *got != want {
 		t.Fatalf("first release: %+v %v, want %+v", got, err, want)
 	}
 }

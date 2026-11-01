@@ -9,7 +9,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -140,9 +139,9 @@ func TestWorkOverviewReadFailuresAndBounds(t *testing.T) {
 				dbtest.FailNextStatement(t, q.db, "FROM steps s JOIN runs r")
 				_, err = service.RunningSteps(ctx)
 			case "visibility":
-				service.authority = aggregateAuthority{operationAuthority: service.authority, read: func(context.Context, commandAction) ([]ids.ID, error) { return nil, database.ErrInjectedFailure }}
+				service.authority = aggregateAuthority{operationAuthority: service.authority, read: func(context.Context, commandAction) ([]ids.ID, error) { return nil, dbtest.ErrInjectedFailure }}
 				_, err = service.ChangeHistory(ctx, HistoryQuery{})
-				if !errors.Is(err, database.ErrInjectedFailure) {
+				if !errors.Is(err, dbtest.ErrInjectedFailure) {
 					t.Fatalf("lost visibility failure: %v", err)
 				}
 			case "history limit":

@@ -40,7 +40,7 @@ type Artifact struct {
 // claim, shown apart from what AppTown checked.
 func (a Artifact) ReportedByAgent() bool { return a.Kind == agentReportKind }
 
-type ArtifactBody struct {
+type artifactBodyPart struct {
 	Artifact
 	Raw []byte
 }
@@ -111,7 +111,7 @@ func (q queries) scopedSnapshot(ctx context.Context, id ids.ID, view ReadView, p
 	}
 	return snapshot, nil
 }
-func readWorkflowSnapshot(ctx context.Context, db database.Queryer, id ids.ID, view ReadView, wait SlotWait, project ids.ID, automatic func(string) bool) (*RunSnapshot, error) {
+func readWorkflowSnapshot(ctx context.Context, db database.Queryer, id ids.ID, view ReadView, wait slotWait, project ids.ID, automatic func(string) bool) (*RunSnapshot, error) {
 	run, err := readScopedRun(ctx, db, id, project)
 	if err != nil {
 		return nil, err
@@ -151,7 +151,7 @@ func readWorkflowSnapshot(ctx context.Context, db database.Queryer, id ids.ID, v
 			return nil, err
 		}
 		if queued {
-			out.State, out.StateDetail, out.LandingQueued = ActivityQueued, "landing", true
+			out.State, out.StateDetail, out.LandingQueued = activityQueued, "landing", true
 		}
 	}
 	out.Events, err = readWorkflowEvents(ctx, db, id, view)
@@ -205,7 +205,7 @@ func runEnding(reason string, run *Run, steps []*Step) string {
 
 // Most detail reads already have every fact required to classify activity. Only
 // a running child call needs a graph query, in this same database snapshot.
-func readWorkflowSnapshotActivity(ctx context.Context, db database.Queryer, run *Run, steps []*Step, wait SlotWait) (Activity, error) {
+func readWorkflowSnapshotActivity(ctx context.Context, db database.Queryer, run *Run, steps []*Step, wait slotWait) (Activity, error) {
 	if run.Status == RunAbandoned {
 		reason, err := workflowsql.New(db.SQL()).RunAbandonmentReason(ctx, run.ID)
 		return Activity{State: ActivityAbandoned, Detail: reason}, err
@@ -263,7 +263,7 @@ func (s *RunSnapshot) PinnedGuidance() json.RawMessage {
 	}
 	return latest.Payload
 }
-func readWorkflowArtifacts(ctx context.Context, db database.Queryer, query workflowArtifactQuery) ([]ArtifactBody, error) {
+func readWorkflowArtifacts(ctx context.Context, db database.Queryer, query workflowArtifactQuery) ([]artifactBodyPart, error) {
 	if query.RunID.IsZero() && query.ID.IsZero() {
 		return nil, fmt.Errorf("artifact reads require a run or artifact identity")
 	}
@@ -279,7 +279,7 @@ func readWorkflowArtifacts(ctx context.Context, db database.Queryer, query workf
 	if err != nil {
 		return nil, err
 	}
-	artifacts := make([]ArtifactBody, 0, len(rows))
+	artifacts := make([]artifactBodyPart, 0, len(rows))
 	for _, row := range rows {
 		if row.Binary && row.Body != "" {
 			return nil, fmt.Errorf("artifact %d has both text and binary bodies", row.ID)
@@ -292,7 +292,7 @@ func readWorkflowArtifacts(ctx context.Context, db database.Queryer, query workf
 			}
 			body = body[:end]
 		}
-		artifacts = append(artifacts, ArtifactBody{Artifact: Artifact{ID: row.ID, RunID: row.RunID, Kind: row.Kind, Name: row.Name, Ref: row.Ref, Body: body, BodyBytes: row.BodySize, CreatedAt: row.CreatedAt.Format(time.RFC3339Nano), Binary: row.Binary}, Raw: row.RawBody})
+		artifacts = append(artifacts, artifactBodyPart{Artifact: Artifact{ID: row.ID, RunID: row.RunID, Kind: row.Kind, Name: row.Name, Ref: row.Ref, Body: body, BodyBytes: row.BodySize, CreatedAt: row.CreatedAt.Format(time.RFC3339Nano), Binary: row.Binary}, Raw: row.RawBody})
 	}
 	return artifacts, nil
 }

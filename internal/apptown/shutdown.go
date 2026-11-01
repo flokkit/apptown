@@ -20,7 +20,7 @@ func (a *App) ShutdownBackground(ctx context.Context) error {
 	// it ran are being killed with AppTown), and the sooner Work knows,
 	// the fewer such failures reach it before it does.
 	workflows := a.Work.BeginShutdown()
-	a.StopConsoles(ctx) // cancel local Docker control; session containers survive
+	a.stopConsoles(ctx) // cancel local Docker control; session containers survive
 	ctx, cancel := context.WithTimeout(ctx, backgroundShutdownGrace)
 	defer cancel()
 	var errs []error

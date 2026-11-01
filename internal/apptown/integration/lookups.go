@@ -25,12 +25,12 @@ func (s *Bindings) NamesByProvider(ctx context.Context, capability, provider str
 
 // FirstName is the first binding of a capability by name.
 func (s *Bindings) FirstName(ctx context.Context, capability string) (string, bool, error) {
-	r, found, err := s.FirstNamed(ctx, capability, "")
+	r, found, err := s.firstNamed(ctx, capability, "")
 	return r.Name, found, err
 }
 
-// FirstNamed selects the requested name or the first name of its capability.
-func (s *Bindings) FirstNamed(ctx context.Context, capability, name string) (Binding, bool, error) {
+// firstNamed selects the requested name or the first name of its capability.
+func (s *Bindings) firstNamed(ctx context.Context, capability, name string) (Binding, bool, error) {
 	rows, err := integrationsql.New(s.db.SQL()).Bindings(ctx)
 	if err != nil {
 		return Binding{}, false, err

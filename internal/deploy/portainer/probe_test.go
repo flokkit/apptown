@@ -59,7 +59,7 @@ func TestDiagnosticUsesExactContainerNamespaceAndBoundedVerdict(t *testing.T) {
 				}
 				return containerresulttest.Answer{Answer: []byte(answer)}, true
 			}}
-			d := Diagnostic{Allowed: func(context.Context) error {
+			d := Diagnostic{allowed: func(context.Context) error {
 				if mode == "revoked" {
 					return errors.New("standing grant revoked")
 				}
@@ -99,7 +99,7 @@ func TestIdleReadinessSamplingStartsOneContainerPerHost(t *testing.T) {
 	daemon := containerresulttest.Daemon{Answers: func(containerresulttest.Command) (containerresulttest.Answer, bool) {
 		return containerresulttest.Answer{Answer: []byte("200\n")}, true
 	}}
-	d := Diagnostic{Allowed: func(context.Context) error { return nil }, Command: func(ctx context.Context, env []string, args ...string) ([]byte, error) {
+	d := Diagnostic{allowed: func(context.Context) error { return nil }, Command: func(ctx context.Context, env []string, args ...string) ([]byte, error) {
 		out, err, ok := daemon.RunEnv(args, env)
 		if !ok {
 			return nil, fmt.Errorf("unexpected command %v", args)

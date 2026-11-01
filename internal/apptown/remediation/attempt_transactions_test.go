@@ -30,7 +30,7 @@ func TestItemCommandsRequireTheirRecordedParentBeforeMutation(t *testing.T) {
 		},
 		func() error { return store.Skip(context.Background(), idstest.N(999999), item.ID, "alice", "skip") },
 	} {
-		if err := run(); !errors.Is(err, ErrItemScope) || fault.KindOf(err) != fault.NotFound {
+		if err := run(); !errors.Is(err, errItemScope) || fault.KindOf(err) != fault.NotFound {
 			t.Fatalf("foreign parent: %v", err)
 		}
 		if f.snapshot(t) != before {
@@ -47,7 +47,7 @@ func TestItemCommandsRequireTheirRecordedParentBeforeMutation(t *testing.T) {
 			return store.Skip(context.Background(), item.RemediationID, idstest.N(1<<40), "alice", "skip")
 		},
 	} {
-		if err := run(); !errors.Is(err, ErrItemScope) || errors.Is(err, sql.ErrNoRows) {
+		if err := run(); !errors.Is(err, errItemScope) || errors.Is(err, sql.ErrNoRows) {
 			t.Fatalf("unknown item: %v", err)
 		}
 	}
@@ -68,7 +68,7 @@ func TestRemediationRetryAtomicAndSafeAgainstJobCompletion(t *testing.T) {
 			if err := store.Failed(context.Background(), item, "retry feedback"); err != nil {
 				t.Fatal(err)
 			}
-			if err := store.Close(context.Background(), item.RemediationID); err != nil {
+			if err := store.close(context.Background(), item.RemediationID); err != nil {
 				t.Fatal(err)
 			}
 			before := f.snapshot(t)
@@ -92,7 +92,7 @@ func TestRemediationRetryAtomicAndSafeAgainstJobCompletion(t *testing.T) {
 		if i == 0 {
 			err = store.Retry(context.Background(), item.RemediationID, item.ID, "alice", note)
 		} else {
-			err = store.Close(context.Background(), item.RemediationID)
+			err = store.close(context.Background(), item.RemediationID)
 		}
 		if err != nil {
 			t.Error(err)
@@ -122,9 +122,9 @@ func TestRemediationAttemptCancellationAndBusyGuards(t *testing.T) {
 			var err error
 			switch change {
 			case "paused":
-				err = store.Status(context.Background(), item.RemediationID, []string{RemRunning}, RemPaused, "alice")
+				err = store.status(context.Background(), item.RemediationID, []string{RemRunning}, RemPaused, "alice")
 			case "cancelled":
-				err = store.Status(context.Background(), item.RemediationID, []string{RemRunning}, RemCancelled, "alice")
+				err = store.status(context.Background(), item.RemediationID, []string{RemRunning}, RemCancelled, "alice")
 			case "skipped":
 				err = store.Skip(context.Background(), item.RemediationID, item.ID, "alice", "not needed")
 			case "new feedback":
@@ -141,7 +141,7 @@ func TestRemediationAttemptCancellationAndBusyGuards(t *testing.T) {
 			case "landing":
 				f.moveChange(t, item, workflow.LandChange)
 			case "pool paused":
-				err = NewPools(f.db, nil).Set(context.Background(), WorkerKindRemediation, 0, "alice")
+				err = newPools(f.db, nil).set(context.Background(), WorkerKindRemediation, 0, "alice")
 			}
 			if err != nil {
 				t.Fatal(err)
@@ -161,7 +161,7 @@ func TestRemediationAttemptCancellationAndBusyGuards(t *testing.T) {
 			if _, err := store.Start(context.Background(), item, def, "worker"); err != nil {
 				t.Error(err)
 			}
-		} else if err := store.Status(context.Background(), item.RemediationID, []string{RemRunning}, RemCancelled, "alice"); err != nil {
+		} else if err := store.status(context.Background(), item.RemediationID, []string{RemRunning}, RemCancelled, "alice"); err != nil {
 			t.Error(err)
 		}
 		return 0
@@ -183,7 +183,7 @@ func TestRemediationAttemptCancellationAndBusyGuards(t *testing.T) {
 func TestRemediationAttemptPoolAdmissionIsSharedAcrossProjects(t *testing.T) {
 	t.Parallel()
 	f, store, item, def := attemptFixture(t, false)
-	if err := NewPools(f.db, nil).Set(context.Background(), WorkerKindRemediation, 1, "alice"); err != nil {
+	if err := newPools(f.db, nil).set(context.Background(), WorkerKindRemediation, 1, "alice"); err != nil {
 		t.Fatal(err)
 	}
 	other := f.job(t, 0, f.project(t, "other"))[0]
@@ -340,7 +340,7 @@ func TestRemediationAttemptProjectAndJobLimits(t *testing.T) {
 			} else {
 				// Creation freezes the entire scope; adding an item to a running job is
 				// not a supported operation. Retire the unused single-project job first.
-				if err := store.Status(context.Background(), item.RemediationID, []string{RemRunning}, RemCancelled, "alice"); err != nil {
+				if err := store.status(context.Background(), item.RemediationID, []string{RemRunning}, RemCancelled, "alice"); err != nil {
 					t.Fatal(err)
 				}
 				items := f.job(t, 1, item.ProjectID, f.project(t, "other"))
@@ -378,14 +378,14 @@ func TestRemediationAttemptBusyRetryDoesNotBlockOtherProjects(t *testing.T) {
 	f, _, item, _ := attemptFixture(t, true)
 	f.retryExecution(t, item, workflow.StatusRunning)
 	other := f.job(t, 0, f.project(t, "other"))[0]
-	queue, err := NewSchedule(f.db, nil).Queue(context.Background())
+	queue, err := newSchedule(f.db, nil).Queue(context.Background())
 	if err != nil || len(queue.Jobs) != 2 || len(queue.Jobs[0].Items) != 0 || len(queue.Jobs[1].Items) != 1 || queue.Jobs[1].Items[0].ID != other.ID {
 		t.Fatalf("busy retry blocked a free project: %+v %v", queue, err)
 	}
 	if err := f.execution.Finish(workflow.StepOutcome{Status: workflow.StatusFail}, nil); err != nil {
 		t.Fatal(err)
 	}
-	queue, err = NewSchedule(f.db, nil).Queue(context.Background())
+	queue, err = newSchedule(f.db, nil).Queue(context.Background())
 	if err != nil || len(queue.Jobs) != 2 || len(queue.Jobs[0].Items) != 1 || len(queue.Jobs[1].Items) != 1 || queue.Jobs[0].Items[0].ID != item.ID || queue.Jobs[1].Items[0].ID != other.ID {
 		t.Fatalf("blocked prior run prevented retry: %+v %v", queue, err)
 	}
@@ -418,13 +418,13 @@ func TestRemediationControlsRollBackWithTheirReceipts(t *testing.T) {
 			var err error
 			switch action {
 			case "cancel":
-				err = store.Status(context.Background(), item.RemediationID, []string{RemRunning}, RemCancelled, "alice")
+				err = store.status(context.Background(), item.RemediationID, []string{RemRunning}, RemCancelled, "alice")
 			case "pause":
-				err = store.Status(context.Background(), item.RemediationID, []string{RemRunning}, RemPaused, "alice")
+				err = store.status(context.Background(), item.RemediationID, []string{RemRunning}, RemPaused, "alice")
 			case "skip":
 				err = store.Skip(context.Background(), item.RemediationID, item.ID, "alice", "no longer needed")
 			case "close":
-				err = store.Close(context.Background(), item.RemediationID)
+				err = store.close(context.Background(), item.RemediationID)
 			}
 			if err == nil {
 				t.Fatal("receipt failure hidden")

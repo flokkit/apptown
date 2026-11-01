@@ -13,13 +13,12 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/remediation/internal/remediationsql"
 	"github.com/flokkit/apptown/internal/apptown/usage"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
-func outcomeFixture(t *testing.T) (*attemptScenario, Outcomes, Item, StartDefinition) {
+func outcomeFixture(t *testing.T) (*attemptScenario, outcomes, Item, StartDefinition) {
 	t.Helper()
 	f, starts, queued, def := attemptFixture(t, false)
 	if run, err := starts.Start(context.Background(), queued, def, "worker"); err != nil || run == nil {
@@ -54,7 +53,7 @@ func TestRemediationShippedChangeThatStillFailsBecomesStuck(t *testing.T) {
 	f, outcomes, item, _ := outcomeFixture(t)
 	f.moveChange(t, item, workflow.ShipChange)
 	item = f.outcome(t, item, Outcome{Kind: "landed"})
-	verifier := NewVerifier(outcomes, func(_ context.Context, got Item) Review {
+	verifier := newVerifier(outcomes, func(_ context.Context, got Item) Review {
 		if got.ID != item.ID || got.ChangeID != item.ChangeID {
 			t.Fatalf("verification scope: %+v", got)
 		}
@@ -78,7 +77,7 @@ func TestRemediationOutcomeRollsBackEveryRelatedRecord(t *testing.T) {
 				if kind == "landed" {
 					item = f.outcome(t, item, Outcome{Kind: "stuck", Reason: "earlier failure"})
 					f.moveChange(t, item, workflow.ShipChange)
-					if err := NewAttempts(f.db, f.work, f.ctx, nil).Close(context.Background(), item.RemediationID); err != nil {
+					if err := NewAttempts(f.db, f.work, f.ctx, nil).close(context.Background(), item.RemediationID); err != nil {
 						t.Fatal(err)
 					}
 				} else if kind == "verified" {
@@ -127,12 +126,12 @@ func TestRemediationOutcomeOnceAndStuckThenLandedAccounting(t *testing.T) {
 	}
 	receiptCount(t, f.db, 1, "remediation.item.stuck")
 	item = f.item(t, item.ID)
-	if err := (NewAttempts(f.db, nil, context.Background(), nil)).Close(context.Background(), item.RemediationID); err != nil {
+	if err := (NewAttempts(f.db, nil, context.Background(), nil)).close(context.Background(), item.RemediationID); err != nil {
 		t.Fatal(err)
 	}
 	f.moveChange(t, item, workflow.ShipChange)
 	item = f.outcome(t, item, Outcome{Kind: "landed"})
-	if item.CostMicros != 100 || item.State != ItemVerifying {
+	if item.CostMicros != 100 || item.State != itemVerifying {
 		t.Fatalf("landing recounted the same spend: %+v", item)
 	}
 	oneJob(t, f.db, item.RemediationID, func(j Remediation) bool { return j.Status == RemRunning && !j.FinishedAt.Valid })
@@ -218,7 +217,7 @@ func TestRemediationVerificationRejectsDelayedResults(t *testing.T) {
 				}
 			})
 			var calls atomic.Int32
-			v := NewVerifier(NewOutcomes(f.db, nil), func(context.Context, Item) Review {
+			v := newVerifier(NewOutcomes(f.db, nil), func(context.Context, Item) Review {
 				calls.Add(1)
 				close(entered)
 				<-release
@@ -272,7 +271,7 @@ func TestRemediationVerificationWriteFailureRecovers(t *testing.T) {
 	f.moveChange(t, item, workflow.ShipChange)
 	item = f.outcome(t, item, Outcome{Kind: "landed"})
 	before := f.snapshot(t)
-	verifier := NewVerifier(NewOutcomes(f.db, nil), func(context.Context, Item) Review {
+	verifier := newVerifier(NewOutcomes(f.db, nil), func(context.Context, Item) Review {
 		return Review{ID: idstest.N(42), State: conformance.Conforms}
 	})
 	dbtest.FailNextStatement(t, f.db, "INSERT INTO audit_log")
@@ -315,13 +314,13 @@ func TestRemediationOutcomeLandedBeforeReviewAndJobCloseRace(t *testing.T) {
 			if current, err := store.Record(context.Background(), item, Outcome{Kind: "landed"}); err != nil || current == nil {
 				t.Errorf("landing: %+v %v", current, err)
 			}
-		} else if err := (NewAttempts(f.db, nil, context.Background(), nil)).Close(context.Background(), item.RemediationID); err != nil {
+		} else if err := (NewAttempts(f.db, nil, context.Background(), nil)).close(context.Background(), item.RemediationID); err != nil {
 			t.Error(err)
 		}
 		return 0
 	})
 	oneJob(t, f.db, item.RemediationID, func(j Remediation) bool { return j.Status == RemRunning && !j.FinishedAt.Valid })
-	oneItem(t, f.db, item.ID, func(i Item) bool { return i.State == ItemVerifying })
+	oneItem(t, f.db, item.ID, func(i Item) bool { return i.State == itemVerifying })
 }
 
 func TestRemediationOutcomeSkipAcceptanceIncludesHistoryAndCost(t *testing.T) {
@@ -341,7 +340,7 @@ func TestRemediationOutcomeSkipAcceptanceIncludesHistoryAndCost(t *testing.T) {
 			}
 			err := NewAttempts(f.db, f.work, f.ctx, nil).Skip(context.Background(), item.RemediationID, item.ID, "alice", "needs a different approach")
 			if fail {
-				if !errors.Is(err, database.ErrInjectedFailure) || f.snapshot(t) != before {
+				if !errors.Is(err, dbtest.ErrInjectedFailure) || f.snapshot(t) != before {
 					t.Fatal("failed skip was not atomic")
 				}
 				if steps := f.approvals(t, item.RunID); len(steps) != 1 || steps[0].Status != workflow.StatusPending {
@@ -377,7 +376,7 @@ func TestRemediationOutcomeLandingPreservesPauseAndCancellation(t *testing.T) {
 			f, _, item, _ := outcomeFixture(t)
 			item = f.outcome(t, item, Outcome{Kind: "stuck", Reason: "blocked"})
 			f.moveChange(t, item, workflow.ShipChange)
-			if err := NewAttempts(f.db, f.work, f.ctx, nil).Status(context.Background(), item.RemediationID, []string{RemRunning}, status, "alice"); err != nil {
+			if err := NewAttempts(f.db, f.work, f.ctx, nil).status(context.Background(), item.RemediationID, []string{RemRunning}, status, "alice"); err != nil {
 				t.Fatal(err)
 			}
 			f.outcome(t, item, Outcome{Kind: "landed"})
@@ -396,14 +395,14 @@ func TestAStoppedReviewLeavesTheItemVerifying(t *testing.T) {
 	f.moveChange(t, item, workflow.ShipChange)
 	item = f.outcome(t, item, Outcome{Kind: "landed"})
 	stopped, cancel := context.WithCancel(context.Background())
-	verifier := NewVerifier(NewOutcomes(f.db, nil), func(ctx context.Context, _ Item) Review {
+	verifier := newVerifier(NewOutcomes(f.db, nil), func(ctx context.Context, _ Item) Review {
 		cancel() // the worker stops during the review
 		return Review{State: conformance.EvaluationError, Detail: ctx.Err().Error()}
 	})
 	if err := verifier.Verify(stopped, item); err == nil {
 		t.Fatal("stopped review reported as verified")
 	}
-	if current := f.item(t, item.ID); current.State != ItemVerifying {
+	if current := f.item(t, item.ID); current.State != itemVerifying {
 		t.Fatalf("item after its review was stopped: %+v", current)
 	}
 	var calls atomic.Int32

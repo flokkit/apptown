@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/database/query"
+
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
@@ -23,24 +25,24 @@ import (
 )
 
 type policyCountedQueries struct {
-	database.Handle
+	query.Handle
 	reads int
 }
 
-func (d *policyCountedQueries) SQL() database.Handle { return d.Handle.WithExecutor(d) }
+func (d *policyCountedQueries) SQL() query.Handle { return dbtest.WithExecutor(d.Handle, d) }
 
 func (d *policyCountedQueries) ExecContext(ctx context.Context, q string, args ...any) (sql.Result, error) {
-	return d.DBTX.ExecContext(ctx, q, args...)
+	return d.Executor.ExecContext(ctx, q, args...)
 }
 
 func (d *policyCountedQueries) QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error) {
 	d.reads++
-	return d.DBTX.QueryContext(ctx, q, args...)
+	return d.Executor.QueryContext(ctx, q, args...)
 }
 
 func (d *policyCountedQueries) QueryRowContext(ctx context.Context, q string, args ...any) *sql.Row {
 	d.reads++
-	return d.DBTX.QueryRowContext(ctx, q, args...)
+	return d.Executor.QueryRowContext(ctx, q, args...)
 }
 
 func policyProject(t *testing.T, db *database.DB, slug string) ids.ID {
@@ -70,11 +72,11 @@ func TestCheckPolicyRules(t *testing.T) {
 		{Name: "d", Rule: "requireTests"},
 	}
 	for _, p := range bad {
-		if _, err := CheckPolicy(&p); !errors.Is(err, wow.ErrPolicyDeclaration) {
+		if _, err := checkPolicy(&p); !errors.Is(err, wow.ErrPolicyDeclaration) {
 			t.Fatalf("%s accepted: %v", p.Name, err)
 		}
 	}
-	req, err := CheckPolicy(&Policy{Name: "ok", Rule: "scanFailOnCeiling", With: map[string]any{"max": "high", "extra": 1}})
+	req, err := checkPolicy(&Policy{Name: "ok", Rule: "scanFailOnCeiling", With: map[string]any{"max": "high", "extra": 1}})
 	if err != nil || req.Max != "high" {
 		t.Fatalf("extra options are kept but not judged: %+v %v", req, err)
 	}
@@ -89,10 +91,10 @@ func TestPoliciesInstallAndLibraryWithReceipts(t *testing.T) {
 	ps := newPolicies(db)
 	catalog := wow.NewPolicies(db)
 	pid := adoptionTestProject(t, db, "pol", "Pol")
-	if err := ps.Install(t.Context(), pid, "bad", "", "requireTests", nil, "", "alice"); !errors.Is(err, wow.ErrPolicyDeclaration) {
+	if err := ps.install(t.Context(), pid, "bad", "", "requireTests", nil, "", "alice"); !errors.Is(err, wow.ErrPolicyDeclaration) {
 		t.Fatalf("a malformed policy was installed: %v", err)
 	}
-	if err := ps.Install(t.Context(), pid, "scan-first", "scan before deploy", "requireStepBefore", map[string]any{"uses": "deploy", "requires": "scan"}, "", "alice"); err != nil {
+	if err := ps.install(t.Context(), pid, "scan-first", "scan before deploy", "requireStepBefore", map[string]any{"uses": "deploy", "requires": "scan"}, "", "alice"); err != nil {
 		t.Fatal(err)
 	}
 	if n := countOf(policiesOf(t, db, pid), func(p Policy) bool { return p.Name == "scan-first" }); n != 1 {
@@ -101,12 +103,12 @@ func TestPoliciesInstallAndLibraryWithReceipts(t *testing.T) {
 	if n := receiptsWhere(t, db, pid, "policy.installed", func(e audit.Entry) bool { return e.Actor == "alice" }); n != 1 {
 		t.Fatalf("install receipts: %d", n)
 	}
-	if err := ps.Remove(t.Context(), idstest.N(1<<40), "alice"); !errors.Is(err, ErrNoProjectPolicy) || fault.KindOf(err) != fault.NotFound || errors.Is(err, sql.ErrNoRows) {
+	if err := ps.remove(t.Context(), idstest.N(1<<40), "alice"); !errors.Is(err, errNoProjectPolicy) || fault.KindOf(err) != fault.NotFound || errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("removing an unknown project policy: %v", err)
 	}
 	// A receipt that cannot be written rolls the install back with it.
 	dbtest.FailNextStatement(t, db, "INSERT INTO audit_log")
-	if err := ps.Install(t.Context(), pid, "second", "", "requireCapabilityBound", map[string]any{"capability": "scanner"}, "", "alice"); err == nil {
+	if err := ps.install(t.Context(), pid, "second", "", "requireCapabilityBound", map[string]any{"capability": "scanner"}, "", "alice"); err == nil {
 		t.Fatal("an install without its receipt was reported as done")
 	}
 	if n := countOf(policiesOf(t, db, pid), func(p Policy) bool { return p.Name == "second" }); n != 0 { // pid is the only project
@@ -167,22 +169,22 @@ func TestPolicyInstallationValidatesBeforeWritingAndChecksSuppression(t *testing
 	db := testDB(t)
 	pid := policyProject(t, db, "policy-install")
 	ps := newPolicies(db)
-	if err := ps.Install(t.Context(), pid, "invalid", "", "requireStepBefore", map[string]any{"step": "scan", "before": "deploy"}, "", "apptown-system"); !errors.Is(err, wow.ErrPolicyDeclaration) {
+	if err := ps.install(t.Context(), pid, "invalid", "", "requireStepBefore", map[string]any{"step": "scan", "before": "deploy"}, "", "apptown-system"); !errors.Is(err, wow.ErrPolicyDeclaration) {
 		t.Fatalf("no-op policy installed: %v", err)
 	}
 	if p := policiesOf(t, db, pid); len(p) != 0 { // pid is the only project
 		t.Fatalf("no-op policy installed: %+v", p)
 	}
 	options := map[string]any{"uses": "deploy", "requires": "scan"}
-	if err := ps.Install(t.Context(), pid, "valid", "", "requireStepBefore", options, "", "apptown-system"); err != nil {
+	if err := ps.install(t.Context(), pid, "valid", "", "requireStepBefore", options, "", "apptown-system"); err != nil {
 		t.Fatal(err)
 	}
 	policyExec(t, db, `CREATE FUNCTION veto_policy_install() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
 	policyExec(t, db, `CREATE TRIGGER veto_policy_install BEFORE INSERT OR UPDATE ON policies FOR EACH ROW EXECUTE FUNCTION veto_policy_install()`)
-	if err := ps.Install(t.Context(), pid, "valid", "new words", "requireStepBefore", options, "", "apptown-system"); err == nil {
+	if err := ps.install(t.Context(), pid, "valid", "new words", "requireStepBefore", options, "", "apptown-system"); err == nil {
 		t.Fatal("suppressed policy update returned success")
 	}
-	if err := ps.Install(t.Context(), pid, "second", "", "requireStepBefore", options, "", "apptown-system"); err == nil {
+	if err := ps.install(t.Context(), pid, "second", "", "requireStepBefore", options, "", "apptown-system"); err == nil {
 		t.Fatal("suppressed policy insert returned success")
 	}
 	if p := policiesOf(t, db, pid); len(p) != 1 || p[0].Name != "valid" || p[0].Description != "" {
@@ -194,12 +196,12 @@ func TestPolicyDeclarationReadErrorsDoNotBecomeEmptyViolations(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	pid := policyProject(t, db, "policy-read-error")
-	if err := newPolicies(db).Install(t.Context(), pid, "scan-first", "", "requireStepBefore", map[string]any{"uses": "deploy", "requires": "scan"}, "", "alice"); err != nil {
+	if err := newPolicies(db).install(t.Context(), pid, "scan-first", "", "requireStepBefore", map[string]any{"uses": "deploy", "requires": "scan"}, "", "alice"); err != nil {
 		t.Fatal(err)
 	}
 	dbtest.FailNextStatement(t, db, "FROM policies")
 	violations, err := New(db, Dependencies{}).CheckWorkflow(context.Background(), db, pid, "landing", &schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "ship", Steps: []schema.Step{{Name: "deploy", Uses: "deploy"}}}}})
-	if violations != nil || !errors.Is(err, database.ErrInjectedFailure) {
+	if violations != nil || !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("unreadable policies became conformance: %+v %v", violations, err)
 	}
 }
@@ -209,7 +211,7 @@ func TestPolicyReportBatchesWorkflowSelectionAndCapabilityFacts(t *testing.T) {
 	db := testDB(t)
 	pid := policyProject(t, db, "policy-report")
 	s := New(db, Dependencies{Ways: wow.New(db, wow.Dependencies{})})
-	if err := newPolicies(db).Install(t.Context(), pid, "scan-first", "", "requireStepBefore", map[string]any{"uses": "deploy", "requires": "scan"}, "", "alice"); err != nil {
+	if err := newPolicies(db).install(t.Context(), pid, "scan-first", "", "requireStepBefore", map[string]any{"uses": "deploy", "requires": "scan"}, "", "alice"); err != nil {
 		t.Fatal(err)
 	}
 	wf := wow.NewWorkflows(db)
@@ -231,7 +233,7 @@ func TestPolicyReportBatchesWorkflowSelectionAndCapabilityFacts(t *testing.T) {
 	if err != nil || len(violations) != 11 || counted.reads != 3 {
 		t.Fatalf("selection: violations=%d reads=%d %v", len(violations), counted.reads, err)
 	}
-	if err := newPolicies(db).Install(t.Context(), pid, "scan-first", "", "requireCapabilityBound", map[string]any{"capability": "scanner"}, "", "alice"); err != nil {
+	if err := newPolicies(db).install(t.Context(), pid, "scan-first", "", "requireCapabilityBound", map[string]any{"capability": "scanner"}, "", "alice"); err != nil {
 		t.Fatal(err)
 	}
 	counted = &policyCountedQueries{Handle: db.SQL()}
@@ -265,7 +267,7 @@ func TestServicePolicyDoorsObserveCapabilities(t *testing.T) {
 		t.Fatalf("service evaluations: %+v %v", evaluations, err)
 	}
 	pid := adoptionTestProject(t, db, "bound", "Bound")
-	if err := newPolicies(db).Install(ctx, pid, "scanner-bound", "", "requireCapabilityBound", map[string]any{"capability": "scanner"}, "", "alice"); err != nil {
+	if err := newPolicies(db).install(ctx, pid, "scanner-bound", "", "requireCapabilityBound", map[string]any{"capability": "scanner"}, "", "alice"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.ProjectConformance(ctx, db, pid); err != nil {

@@ -16,10 +16,10 @@ import (
 	"github.com/flokkit/apptown/internal/durable"
 )
 
-// MaxTranscriptBytes bounds one step session's transcript AppTown keeps.
+// maxTranscriptBytes bounds one step session's transcript AppTown keeps.
 // It matches the largest input a worker task accepts, so a kept transcript
 // can always be sent back to continue its session.
-const MaxTranscriptBytes = 64 << 20
+const maxTranscriptBytes = 64 << 20
 
 // Pi finds a session's file again by the id in its first line, the session
 // header, not by the file's name (design/operations/workers.md). The header
@@ -50,8 +50,8 @@ func CheckTranscript(raw []byte, session string) string {
 	switch {
 	case len(raw) == 0:
 		return "the transcript is empty"
-	case len(raw) > MaxTranscriptBytes:
-		return fmt.Sprintf("the transcript is larger than %d MiB", MaxTranscriptBytes>>20)
+	case len(raw) > maxTranscriptBytes:
+		return fmt.Sprintf("the transcript is larger than %d MiB", maxTranscriptBytes>>20)
 	}
 	first, rest, _ := bytes.Cut(raw, []byte("\n"))
 	got := headerSession(first)
@@ -81,7 +81,7 @@ func StepTranscript(dir, session string) (raw []byte, reason string) {
 	case len(files) > 1:
 		return nil, fmt.Sprintf("%d transcripts name session %q", len(files), session)
 	}
-	raw, err := readRegular(files[0], MaxTranscriptBytes)
+	raw, err := readRegular(files[0], maxTranscriptBytes)
 	if err != nil {
 		return nil, "reading the transcript: " + err.Error()
 	}
@@ -113,7 +113,7 @@ func ResumeTranscript(dir, session string, raw []byte, now time.Time) error {
 	target := filepath.Join(dir, now.UTC().Format("2006-01-02T15-04-05-000Z")+"_"+session+".jsonl")
 	if len(files) == 1 {
 		target = files[0]
-		if current, err := readRegular(target, MaxTranscriptBytes); err == nil && bytes.Equal(current, raw) {
+		if current, err := readRegular(target, maxTranscriptBytes); err == nil && bytes.Equal(current, raw) {
 			return nil // already the kept bytes: the file Pi wrote stays as it is
 		}
 	}

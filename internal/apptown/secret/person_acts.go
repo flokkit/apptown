@@ -17,7 +17,7 @@ import (
 // already be in force.
 func (a *Service) BindStored(ctx context.Context, projectID ids.ID, slug, deployment, name, value, who string) (Binding, error) {
 	if value == "" {
-		return Binding{}, ErrEmpty
+		return Binding{}, errEmpty
 	}
 	sealed, err := a.Vault.seal(ctx, value)
 	if err != nil {
@@ -40,17 +40,17 @@ func (a *Service) BindStored(ctx context.Context, projectID ids.ID, slug, deploy
 	return b, tx.Commit()
 }
 
-// HeldElsewhere is a secret whose value another store holds, which is where
+// heldElsewhere is a secret whose value another store holds, which is where
 // a person reads it.
-type HeldElsewhere struct{ Name, Deployment, Store string }
+type heldElsewhere struct{ Name, Deployment, Store string }
 
-func (e *HeldElsewhere) Error() string {
+func (e *heldElsewhere) Error() string {
 	return fmt.Sprintf("%s in %s is held by %s, which is where to read it", e.Name, e.Deployment, e.Store)
 }
-func (e *HeldElsewhere) FaultKind() fault.Kind { return fault.Conflict }
+func (e *heldElsewhere) FaultKind() fault.Kind { return fault.Conflict }
 
-// Revealed is a built-in value a person read, with the version they saw.
-type Revealed struct {
+// revealed is a built-in value a person read, with the version they saw.
+type revealed struct {
 	Value   string
 	Version int
 }
@@ -59,27 +59,27 @@ type Revealed struct {
 // receipt (who, which secret, which deployment and version, never the value)
 // is written first, and no receipt, no value. A binding or value that cannot
 // be read is the error, never "not bound".
-func (a *Service) Reveal(ctx context.Context, projectID ids.ID, deployment, name, who string) (Revealed, error) {
+func (a *Service) Reveal(ctx context.Context, projectID ids.ID, deployment, name, who string) (revealed, error) {
 	bindings, err := a.Bindings.For(ctx, projectID, deployment)
 	if err != nil {
-		return Revealed{}, err
+		return revealed{}, err
 	}
 	b, ok := bindings[name]
 	if !ok {
-		return Revealed{}, ErrBindingMissing
+		return revealed{}, ErrBindingMissing
 	}
 	if b.Store != StoreInternal {
-		return Revealed{}, &HeldElsewhere{Name: name, Deployment: deployment, Store: b.Store}
+		return revealed{}, &heldElsewhere{Name: name, Deployment: deployment, Store: b.Store}
 	}
 	value, version, err := a.Vault.Get(ctx, b.Ref, name)
 	if errors.Is(err, ErrNotStored) {
-		return Revealed{}, fault.Wrap(fault.NotFound, err)
+		return revealed{}, fault.Wrap(fault.NotFound, err)
 	}
 	if err != nil {
-		return Revealed{}, err
+		return revealed{}, err
 	}
 	if err := audit.At(a.now()).Record(ctx, a.Vault.db, who, projectID, "secret.revealed", name, map[string]any{"deployment": deployment, "version": version}); err != nil {
-		return Revealed{}, err
+		return revealed{}, err
 	}
-	return Revealed{Value: value, Version: version}, nil
+	return revealed{Value: value, Version: version}, nil
 }

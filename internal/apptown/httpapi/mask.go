@@ -6,14 +6,14 @@ import (
 	"github.com/flokkit/apptown/internal/console"
 )
 
-// Mask gives a function replacing known secret values in text AppTown
+// mask gives a function replacing known secret values in text AppTown
 // shows, from one read of the stores (secret.Service.Masker); nil shows
 // text as it is.
-type Mask func(context.Context) func(string) string
+type mask func(context.Context) func(string) string
 
-// Messages is a chat's messages as a view shows them: their words and tool
+// messages is a chat's messages as a view shows them: their words and tool
 // details masked. The messages given are not changed.
-func (m Mask) Messages(ctx context.Context, msgs []console.Message) []console.Message {
+func (m mask) messages(ctx context.Context, msgs []console.Message) []console.Message {
 	if m == nil {
 		return msgs
 	}

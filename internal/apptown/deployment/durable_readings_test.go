@@ -129,7 +129,7 @@ func TestInventoryReadingsSurviveRestartAndKeepFailedCheckEvidence(t *testing.T)
 // failed, including an old complete empty list.
 func TestPartialCapacityCheckCannotRenewTenantPresence(t *testing.T) {
 	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
-	for _, tenants := range [][]Tenant{nil, {{Name: "app", Kind: TenantDeployment, ReadAt: at, Containers: 1, Used: Figure{Known: true, Value: 10, ReadAt: at}, Promised: Figure{Known: true, Value: 20, ReadAt: at}}}} {
+	for _, tenants := range [][]Tenant{nil, {{Name: "app", Kind: tenantDeployment, ReadAt: at, Containers: 1, Used: Figure{Known: true, Value: 10, ReadAt: at}, Promised: Figure{Known: true, Value: 20, ReadAt: at}}}} {
 		old := TargetCapacity{ReadAt: at, TenantsAt: at, Tenants: tenants}
 		now := at.Add(6*time.Hour + time.Second)
 		partial := mergeCapacity(old, TargetCapacity{ReadAt: now, Memory: &ResourceCapacity{Total: known(100)}, Disk: &DiskCapacity{ReadAt: now, Free: known(90), Total: known(100)}}, now)

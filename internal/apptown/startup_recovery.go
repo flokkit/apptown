@@ -48,7 +48,7 @@ func (a *App) RecoverInterruptedWork(ctx context.Context) error {
 	// as interrupted and their spend lines are locked in as unknown. The
 	// AppTown's own calls go through the gateway on every instance, with or
 	// without its runtime listener, so this runs on every writable start.
-	if err := a.RecoverInferenceRequests(ctx); err != nil {
+	if err := a.recoverInferenceRequests(ctx); err != nil {
 		return fmt.Errorf("closing interrupted model calls: %w", err)
 	}
 	// A project being deleted or deleted keeps its chats blocked: the
@@ -58,7 +58,7 @@ func (a *App) RecoverInterruptedWork(ctx context.Context) error {
 	}
 	// A hub without its no-push hook accepts every push, past governed
 	// landing: AppTown does not serve one.
-	if err := a.InstallNoPushHooks(); err != nil {
+	if err := a.installNoPushHooks(); err != nil {
 		return fmt.Errorf("project hubs that would accept pushes past landing; repair them before starting:\n%w", err)
 	}
 	log.Printf("startup repair: committed in %s; interrupted steps marked for recovery=%d, river rows settled=%d, orphaned releases failed=%d, interrupted reviews ended=%d, interrupted what-ifs settled=%d, operations settled unknown=%d, queued operations requeued=%d; preserved child workflow calls=%d, steps with recorded tasks=%d, releases owned by queued jobs or deployment attempts=%d", a.cfg.clock.Now().Sub(started).Round(time.Millisecond), report.steps, report.jobs.Settled, report.releases, report.reviews, report.whatIfs, report.operations.Settled, report.operations.Requeued, report.childCalls, report.taskSteps, report.durableReleases)

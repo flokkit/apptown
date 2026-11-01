@@ -388,7 +388,7 @@ func witnessRelease(ctx context.Context, client *http.Client, url, release strin
 // platformDomain is the domain App Platform issues app names under.
 const platformDomain = ".ondigitalocean.app"
 
-// ProviderNameGrace is how long after an app is created its
+// providerNameGracePeriod is how long after an app is created its
 // provider-issued name may fail to answer without that being a failure. A
 // resolver that asked for the name before the platform published it keeps
 // "no such host" for the zone's negative-cache time (ondigitalocean.app's
@@ -397,7 +397,7 @@ const platformDomain = ".ondigitalocean.app"
 // AAAA records come and go from one look-up to the next. The grace is that
 // half hour plus five minutes for the platform to publish the name; after
 // it, a name that does not answer is asked like any other.
-const ProviderNameGrace = 35 * time.Minute
+const providerNameGracePeriod = 35 * time.Minute
 
 // providerNameGrace is when the grace of url's host ends, when the host is
 // the platform's own name for an app created at created; zero for any other
@@ -407,7 +407,7 @@ func providerNameGrace(rawURL string, created time.Time) time.Time {
 	if err != nil || created.IsZero() || !strings.HasSuffix(u.Hostname(), platformDomain) {
 		return time.Time{}
 	}
-	return created.Add(ProviderNameGrace)
+	return created.Add(providerNameGracePeriod)
 }
 
 // notYet reports whether a front door request failed, before until, only
@@ -445,7 +445,7 @@ func (d *Driver) awaitProviderName(ctx context.Context, rawURL string, until tim
 	host := u.Hostname()
 	waited := false
 	for {
-		err := d.options.Resolve(ctx, host)
+		err := d.options.resolve(ctx, host)
 		var dnsErr *net.DNSError
 		if err == nil || !errors.As(err, &dnsErr) || !dnsErr.IsNotFound {
 			if waited && err == nil {
@@ -497,17 +497,11 @@ func probeFrontDoor(ctx context.Context, client *http.Client, url string, expect
 }
 
 func classifyDO(err error) error {
-	var e *APIError
+	var e *apiError
 	if errors.As(err, &e) && (e.Status == 400 || e.Status == 401 || e.Status == 403 || e.Status == 422) {
 		return deploy.Terminal(err)
 	}
 	return err
-}
-
-// WaitDeployment polls the app's in-progress deployment to ACTIVE, or
-// explains the failing step in the platform's words.
-func (d *Driver) WaitDeployment(ctx context.Context, c *Client, appID, depID string, logf func(string, ...any)) (*doDeployment, error) {
-	return d.waitDeployment(ctx, c, appID, depID, true, logf)
 }
 
 // waitDeployment is WaitDeployment; tails says whether a failing
@@ -645,7 +639,7 @@ func (d *Driver) observe(ctx context.Context, p deploy.Placement) (deploy.Observ
 		App doApp `json:"app"`
 	}
 	if err := c.Call(ctx, "GET", "/v2/apps/"+appID, nil, &got); err != nil {
-		if IsStatus(err, 404) {
+		if isStatus(err, 404) {
 			return o, nil
 		}
 		return o, err
@@ -689,7 +683,7 @@ func (d *Driver) teardown(ctx context.Context, p deploy.Placement, generation in
 		App doApp `json:"app"`
 	}
 	if err := c.Call(ctx, "GET", "/v2/apps/"+appID, nil, &got); err != nil {
-		if IsStatus(err, 404) {
+		if isStatus(err, 404) {
 			return nil
 		}
 		return err
@@ -698,7 +692,7 @@ func (d *Driver) teardown(ctx context.Context, p deploy.Placement, generation in
 	if expected == "" || got.App.ID != appID || got.App.ActiveDeployment == nil || got.App.ActiveDeployment.ID != expected || (got.App.PendingDeployment != nil && got.App.PendingDeployment.ID != expected) || (got.App.InProgressDeployment != nil && got.App.InProgressDeployment.ID != expected) {
 		return errors.New("provider deployment differs from the recorded selection; refusing app removal")
 	}
-	if err := c.Call(ctx, "DELETE", "/v2/apps/"+appID, nil, nil); err != nil && !IsStatus(err, 404) {
+	if err := c.Call(ctx, "DELETE", "/v2/apps/"+appID, nil, nil); err != nil && !isStatus(err, 404) {
 		return err
 	}
 	return nil

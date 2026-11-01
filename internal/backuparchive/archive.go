@@ -45,9 +45,9 @@ type Digest struct {
 	Bytes  int64  `json:"bytes"`
 }
 
-// Writer adds entries to a new archive. Close finishes it; an archive whose
+// writer adds entries to a new archive. Close finishes it; an archive whose
 // Close did not succeed is not one.
-type Writer struct {
+type writer struct {
 	enc io.WriteCloser
 	gz  *gzip.Writer
 	tw  *tar.Writer
@@ -58,7 +58,7 @@ type Writer struct {
 }
 
 // NewWriter starts an archive written to dst, encrypted for passphrase.
-func NewWriter(dst io.Writer, passphrase string) (*Writer, error) {
+func NewWriter(dst io.Writer, passphrase string) (*writer, error) {
 	if len(passphrase) < MinPassphrase {
 		return nil, fmt.Errorf("the passphrase must be at least %d characters", MinPassphrase)
 	}
@@ -74,11 +74,11 @@ func NewWriter(dst io.Writer, passphrase string) (*Writer, error) {
 		return nil, err
 	}
 	gz := gzip.NewWriter(enc)
-	return &Writer{enc: enc, gz: gz, tw: tar.NewWriter(gz)}, nil
+	return &writer{enc: enc, gz: gz, tw: tar.NewWriter(gz)}, nil
 }
 
 // Bytes adds a regular file holding data, mode 0600.
-func (w *Writer) Bytes(name string, data []byte) error {
+func (w *writer) Bytes(name string, data []byte) error {
 	if err := w.tw.WriteHeader(&tar.Header{Typeflag: tar.TypeReg, Name: name, Mode: 0o600, Size: int64(len(data))}); err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (w *Writer) Bytes(name string, data []byte) error {
 
 // File adds the regular file at src under name, with its mode, and says
 // what was written. A file that changes size while it is read fails.
-func (w *Writer) File(name, src string) (Digest, error) {
+func (w *writer) File(name, src string) (Digest, error) {
 	f, err := os.Open(src)
 	if err != nil {
 		return Digest{}, err
@@ -104,7 +104,7 @@ func (w *Writer) File(name, src string) (Digest, error) {
 	return w.file(name, f, fi)
 }
 
-func (w *Writer) file(name string, f *os.File, fi fs.FileInfo) (Digest, error) {
+func (w *writer) file(name string, f *os.File, fi fs.FileInfo) (Digest, error) {
 	if err := w.tw.WriteHeader(&tar.Header{Typeflag: tar.TypeReg, Name: name, Mode: int64(fi.Mode().Perm()), Size: fi.Size(), ModTime: fi.ModTime()}); err != nil {
 		return Digest{}, err
 	}
@@ -125,7 +125,7 @@ func (w *Writer) file(name string, f *os.File, fi fs.FileInfo) (Digest, error) {
 // holds. A file removed while the tree is walked is left out, as are
 // sockets, pipes and devices (named in Left); anything else that cannot be
 // read fails.
-func (w *Writer) Tree(prefix, root string, skip func(rel string) bool) error {
+func (w *writer) Tree(prefix, root string, skip func(rel string) bool) error {
 	return filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		rel, rerr := filepath.Rel(root, p)
 		if rerr != nil {
@@ -182,7 +182,7 @@ func (w *Writer) Tree(prefix, root string, skip func(rel string) bool) error {
 }
 
 // Close finishes the tar, the compression and the encryption, in that order.
-func (w *Writer) Close() error {
+func (w *writer) Close() error {
 	if err := w.tw.Close(); err != nil {
 		return err
 	}

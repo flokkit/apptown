@@ -13,11 +13,11 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// WorkerChats are a change's chats on the worker, live and ended, with
+// workerChats are a change's chats on the worker, live and ended, with
 // where their work stands (design/operations/workers.md, "Chats on the
 // worker").
 // The owner is changeconsole.Service.
-type WorkerChats interface {
+type workerChats interface {
 	WorkerChats(ctx context.Context, ch *workflow.Change) ([]changeconsole.WorkerChat, error)
 	// RefusedBundle writes an ended chat's refused last save as a Git bundle.
 	RefusedBundle(ctx context.Context, ch *workflow.Change, chat string, w io.Writer) error
@@ -51,7 +51,7 @@ type WorkerChatList struct {
 
 // workerChatView is a chat on the worker as the change's page shows it.
 func workerChatView(c changeconsole.WorkerChat) WorkerChatView {
-	v := WorkerChatView{Chat: c.ID, Live: c.Live, Saved: ConsoleSaveOf(c.LastSave, c.HasSave, c.SaveErr)}
+	v := WorkerChatView{Chat: c.ID, Live: c.Live, Saved: consoleSaveOf(c.LastSave, c.HasSave, c.SaveErr)}
 	if !c.RecordAsOf.IsZero() {
 		at := c.RecordAsOf
 		v.RecordAsOf = &at
@@ -75,9 +75,9 @@ func (h ChangeWorkerChats) workerChatViews(ctx context.Context, ch *workflow.Cha
 	return out, nil
 }
 
-// ConsoleSaveOf is a chat's last save as the pages show it: an unreadable
+// consoleSaveOf is a chat's last save as the pages show it: an unreadable
 // record is "unknown", never no save.
-func ConsoleSaveOf(save repositoryedit.ChatSave, ok bool, err error) *ConsoleSave {
+func consoleSaveOf(save repositoryedit.ChatSave, ok bool, err error) *ConsoleSave {
 	switch {
 	case err != nil:
 		return &ConsoleSave{Outcome: "unknown", Reason: "its last save could not be read: " + err.Error()}
@@ -89,10 +89,10 @@ func ConsoleSaveOf(save repositoryedit.ChatSave, ok bool, err error) *ConsoleSav
 
 type ChangeWorkerChats struct {
 	db    database.Queryer
-	chats WorkerChats
+	chats workerChats
 }
 
-func NewChangeWorkerChats(db database.Queryer, chats WorkerChats) ChangeWorkerChats {
+func NewChangeWorkerChats(db database.Queryer, chats workerChats) ChangeWorkerChats {
 	return ChangeWorkerChats{db: db, chats: chats}
 }
 
@@ -146,7 +146,7 @@ func (h ChangeWorkerChats) RefusedBundle(w http.ResponseWriter, r *http.Request)
 }
 
 func (h ChangeWorkerChats) change(w http.ResponseWriter, r *http.Request) (*workflow.Change, bool) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return nil, false

@@ -37,7 +37,7 @@ func (s runAdmissions) Source(ctx context.Context, in StartRequest) (StartSource
 		}
 	}
 	if in.parentRunID.IsZero() && out.Change != nil {
-		if !out.Change.State.CanRun() {
+		if !out.Change.State.canRun() {
 			return out, fmt.Errorf("change #%d is %s — only in-progress changes take runs", out.Change.ID, out.Change.State)
 		}
 		flights, err := workflowsql.New(tx.SQL()).ActiveChangeFlightsMeta(ctx, workflowsql.ActiveChangeFlightsMetaParams{ProjectID: in.ProjectID, ChangeID: in.ChangeID})

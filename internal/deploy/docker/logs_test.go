@@ -32,7 +32,7 @@ func TestARecentLogIsOneBoundedRead(t *testing.T) {
 	if want := []string{"logs", "--tail", "200", "--timestamps", "apptown-svc-env-game-main-worker"}; !slices.Equal(req.Args, want) {
 		t.Fatalf("asked %v, want %v", req.Args, want)
 	}
-	if req.Timeout != LogReadWithin || req.Stdout != nil || req.Stderr != nil {
+	if req.Timeout != logReadWithin || req.Stdout != nil || req.Stderr != nil {
 		t.Fatalf("the read is not bounded by its deadline: %+v", req)
 	}
 

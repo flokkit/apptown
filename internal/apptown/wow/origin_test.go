@@ -22,8 +22,8 @@ func TestEveryVersionSaysItsSourceAndSigner(t *testing.T) {
 			t.Fatalf("%s: %+v", c.Kind, c)
 		}
 	}
-	shipped := Origin{Source: SourceFlokkit, Signer: "shipped with AppTown v9.9.9, unsigned"}
-	pubs, err := s.packs.PublicationsOf(t.Context(), "go")
+	shipped := Origin{Source: sourceFlokkit, Signer: "shipped with AppTown v9.9.9, unsigned"}
+	pubs, err := s.packs.publicationsOf(t.Context(), "go")
 	if err != nil || pubs[0].Origin != shipped {
 		t.Fatalf("a stock pack version: %+v %v", pubs, err)
 	}
@@ -44,13 +44,13 @@ func TestEveryVersionSaysItsSourceAndSigner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if vs, err := s.BlockVersions(t.Context(), mine.ID); err != nil || vs[0].Origin != AuthoredHere {
+	if vs, err := s.BlockVersions(t.Context(), mine.ID); err != nil || vs[0].Origin != authoredHere {
 		t.Fatalf("an authored block version: %+v %v", vs, err)
 	}
 	if _, err := s.packs.Publish(t.Context(), "ours", "", `{"guidance":["build/registries"]}`, ""); err != nil {
 		t.Fatal(err)
 	}
-	if pubs, err := s.packs.PublicationsOf(t.Context(), "ours"); err != nil || pubs[0].Origin != AuthoredHere {
+	if pubs, err := s.packs.publicationsOf(t.Context(), "ours"); err != nil || pubs[0].Origin != authoredHere {
 		t.Fatalf("an authored pack version: %+v %v", pubs, err)
 	}
 }

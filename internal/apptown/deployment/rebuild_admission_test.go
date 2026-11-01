@@ -36,7 +36,7 @@ func TestDockerRebuildAdmissionAndAuditAreAtomic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrong := deploy.DockerIdentity{Deployment: dep.Label(), Generation: at.Generation, Artifact: "wrong"}
+	wrong := deploy.DockerIdentity{Deployment: dep.label(), Generation: at.Generation, Artifact: "wrong"}
 	if err := store.Checkpoint(context.Background(), at)(wrong.Checkpoint("container")); err == nil {
 		t.Fatal("checkpoint changed admitted artifact")
 	}

@@ -75,7 +75,7 @@ func (h ServiceKinds) SaveServiceKind(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 400, "%v", err)
 			return
 		}
-		if err := h.integrations.ServiceKinds.Save(r.Context(), k.Capability, in.YAML, k.Title, Actor(r)); err != nil {
+		if err := h.integrations.ServiceKinds.Save(r.Context(), k.Capability, in.YAML, k.Title, actor(r)); err != nil {
 			WriteFault(w, err)
 			return
 		}
@@ -90,7 +90,7 @@ func (h ServiceKinds) DeleteServiceKind(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	capability := r.PathValue("capability")
-	if err := h.integrations.ServiceKinds.Delete(r.Context(), capability, Actor(r)); err != nil {
+	if err := h.integrations.ServiceKinds.Delete(r.Context(), capability, actor(r)); err != nil {
 		WriteFault(w, err)
 		return
 	}

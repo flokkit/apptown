@@ -131,7 +131,7 @@ func TestRoutineConsentRequiresCurrentHumanAndStandardsAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	check := func() error {
-		return db.InTx(ctx, func(tx *database.Tx) error { _, e := s.CheckIn(ctx, tx, []ids.ID{r.ID}); return e })
+		return db.InTx(ctx, func(tx *database.Tx) error { _, e := s.checkIn(ctx, tx, []ids.ID{r.ID}); return e })
 	}
 	if err = check(); err != nil {
 		t.Fatalf("current classification refused: %v", err)
@@ -189,7 +189,7 @@ func TestRestoredRoutineConsentRequiresNewLocalAct(t *testing.T) {
 	if err = DisableRestoredRoutineClassifications(ctx, db, time.Now()); err == nil {
 		t.Fatal("restore ignored missing revocation audit")
 	}
-	if err = db.InTx(ctx, func(tx *database.Tx) error { _, e := s.CheckIn(ctx, tx, []ids.ID{r.ID}); return e }); err != nil {
+	if err = db.InTx(ctx, func(tx *database.Tx) error { _, e := s.checkIn(ctx, tx, []ids.ID{r.ID}); return e }); err != nil {
 		t.Fatalf("failed restore revoke did not roll back: %v", err)
 	}
 	for range 2 {
@@ -197,7 +197,7 @@ func TestRestoredRoutineConsentRequiresNewLocalAct(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err = db.InTx(ctx, func(tx *database.Tx) error { _, e := s.CheckIn(ctx, tx, []ids.ID{r.ID}); return e }); err == nil {
+	if err = db.InTx(ctx, func(tx *database.Tx) error { _, e := s.checkIn(ctx, tx, []ids.ID{r.ID}); return e }); err == nil {
 		t.Fatal("restored consent remained usable")
 	}
 	if got := receipts(t, db, "publication.routine-revoked", r.ID.String()); len(got) != 1 {
@@ -250,7 +250,7 @@ func TestRoutineConsentClaimLockOrdersRevocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tx.Rollback()
-	if _, err = s.CheckIn(ctx, tx, []ids.ID{r.ID}); err != nil {
+	if _, err = s.checkIn(ctx, tx, []ids.ID{r.ID}); err != nil {
 		t.Fatal(err)
 	}
 	done := make(chan error, 1)
@@ -267,7 +267,7 @@ func TestRoutineConsentClaimLockOrdersRevocation(t *testing.T) {
 	if err = <-done; err != nil {
 		t.Fatal(err)
 	}
-	if err = db.InTx(ctx, func(tx *database.Tx) error { _, e := s.CheckIn(ctx, tx, []ids.ID{r.ID}); return e }); err == nil {
+	if err = db.InTx(ctx, func(tx *database.Tx) error { _, e := s.checkIn(ctx, tx, []ids.ID{r.ID}); return e }); err == nil {
 		t.Fatal("claim after committed revocation succeeded")
 	}
 }
@@ -290,7 +290,7 @@ func TestRoutinePackConsentRoundTripsCompletePublishedMaterial(t *testing.T) {
 	if _, err := packs.CutOnPinChange(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := packs.Recommend(ctx, "base", 2, "standards-manager", ids.Nil); err != nil {
+	if err := packs.recommend(ctx, "base", 2, "standards-manager", ids.Nil); err != nil {
 		t.Fatal(err)
 	}
 	pack, err := packs.ByName(ctx, "base")
@@ -310,7 +310,7 @@ func TestRoutinePackConsentRoundTripsCompletePublishedMaterial(t *testing.T) {
 	if err != nil || len(history) != 1 || history[0].Question.Digest != question.Digest {
 		t.Fatalf("JSONB roundtrip: %+v %v", history, err)
 	}
-	if err = db.InTx(ctx, func(tx *database.Tx) error { _, e := s.CheckIn(ctx, tx, []ids.ID{r.ID}); return e }); err != nil {
+	if err = db.InTx(ctx, func(tx *database.Tx) error { _, e := s.checkIn(ctx, tx, []ids.ID{r.ID}); return e }); err != nil {
 		t.Fatalf("published pack could not be checked after persistence: %v", err)
 	}
 	covered := []RoutinePublicationTransition{transition, {Kind: "block", ID: in.Transition.ID, From: 2, To: 3}}
@@ -346,7 +346,7 @@ func TestRoutinePackConsentRoundTripsCompletePublishedMaterial(t *testing.T) {
 			if _, err := db.SQL().ExecContext(context.Background(), `UPDATE guidance_block_versions SET body_md=$1,source=$2,signer=$3 WHERE block_id=$4 AND version=$5`, changed.Body, changed.Source, changed.Signer, in.Transition.ID, 3); err != nil {
 				t.Fatal(err)
 			}
-			if err := db.InTx(ctx, func(tx *database.Tx) error { _, e := s.CheckIn(ctx, tx, []ids.ID{r.ID}); return e }); err == nil {
+			if err := db.InTx(ctx, func(tx *database.Tx) error { _, e := s.checkIn(ctx, tx, []ids.ID{r.ID}); return e }); err == nil {
 				t.Fatal("captured nested publication material changed without refusal")
 			}
 		})
@@ -369,7 +369,7 @@ func TestRoutineConsentDoesNotOutliveItsEnabledIssuerIdentity(t *testing.T) {
 	principal := access.Principal{ID: boss.PrincipalID, Name: boss.Username, Kind: "user", Via: "session"}
 	manager := access.WithCaller(t.Context(), access.Caller{Principal: principal, Verified: true})
 	check := func() error {
-		return db.InTx(ctx, func(tx *database.Tx) error { _, e := s.CheckIn(ctx, tx, []ids.ID{record.ID}); return e })
+		return db.InTx(ctx, func(tx *database.Tx) error { _, e := s.checkIn(ctx, tx, []ids.ID{record.ID}); return e })
 	}
 	disabled := true
 	if err = people.SaveUser(manager, identity.AccountChange{Username: "standards-manager", Disabled: &disabled}, principal); err != nil {

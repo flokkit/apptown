@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +14,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"

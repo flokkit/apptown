@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -47,7 +46,7 @@ func TestReleaseChangeBatchChecksBothProjectsAndKeepsEmptyLists(t *testing.T) {
 		t.Fatalf("historic membership lost %+v: %v", contents, err)
 	}
 	dbtest.FailNextStatement(t, q.db, "SELECT rel.id AS release_id")
-	if _, err := s.ReleaseChanges(ctx, run.ProjectID, []ids.ID{release}); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := s.ReleaseChanges(ctx, run.ProjectID, []ids.ID{release}); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("hidden release failure: %v", err)
 	}
 }

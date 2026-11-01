@@ -13,7 +13,7 @@ import (
 )
 
 type LaneCommandsDependencies struct {
-	Scope    Scope
+	Scope    scope
 	Work     *workflow.Service
 	Adoption *adoption.Service
 	DB       *database.DB
@@ -22,16 +22,16 @@ type LaneCommandsDependencies struct {
 	Now func() time.Time
 }
 type laneCommands struct {
-	scope    Scope
+	scope    scope
 	work     *workflow.Service
 	adoption *adoption.Service
 	db       *database.DB
 	now      func() time.Time
 }
 
-func NewLaneCommands(deps LaneCommandsDependencies) []Tool {
+func NewLaneCommands(deps LaneCommandsDependencies) []toolEntry {
 	h := laneCommands{scope: deps.Scope, work: deps.Work, adoption: deps.Adoption, db: deps.DB, now: deps.Now}
-	return []Tool{{Name: "create_change",
+	return []toolEntry{{Name: "create_change",
 		order: 10, Description: "Opens a Change on a project in your name: a title and, in `intent`, what should be done and why. " + "With `lane` (a workflow the project can run, e.g. \"implement\"), AppTown's own agent starts on it at once; without, the Change is open and waiting for work.", InputSchema: schemaObject(map[string]any{"slug": slugArg, "title": schemaString("A short title for the Change, in plain words."), "intent": schemaString("What should be done and why — the brief the agent (or a person) works from."), "lane": schemaString("Optional: a lane to start on it now, e.g. \"implement\" or \"quick-change\" (get_project lists them)."), "type": schemaString("Optional: feature (default), fix, chore.")}, "slug", "title"),
 		command: ownerCommand("lane_commands.createChange", h.createChange),
 	},

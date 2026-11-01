@@ -43,7 +43,7 @@ type DockerTasks struct {
 	// address is passed on each call, so nothing the CLI would look up again
 	// can move a call to another daemon. A zero Daemon follows the CLI's own
 	// selection (the worker's own daemon, tests).
-	Daemon DockerSelection
+	Daemon dockerSelection
 	// Namespace keeps one installation's containers apart from another's on
 	// a shared Docker daemon: it is part of every container name.
 	Namespace string

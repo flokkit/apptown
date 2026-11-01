@@ -138,7 +138,7 @@ func TestMemoryIsReadAndWrittenAsAppYamlWritesIt(t *testing.T) {
 		}
 	}
 	for in, want := range map[string]int64{"32M": 32 << 20, "512M": 512 << 20, "512Mi": 512 << 20, "1G": 1 << 30, "2Gi": 2 << 30} {
-		got, err := ParseMemoryV1(in)
+		got, err := parseMemoryV1(in)
 		if err != nil || got != want {
 			t.Errorf("ParseMemoryV1(%q) = %d, %v; want %d", in, got, err, want)
 		}
@@ -163,10 +163,10 @@ func TestADeploymentUsesOneProfileWhicheverFileDeclaresIt(t *testing.T) {
 	}{
 		{"production", "main", declared, "production", ProfileChosen},
 		{"production", "preview", declared, "production", ProfileChosen},
-		{"", "preview", declared, "preview", ProfilePreview},
-		{"", "preview", map[string]bool{"production": true}, "default", ProfileBase},
-		{"", "main", declared, "default", ProfileBase},
-		{"staging", "main", declared, "default", ProfileBase}, // a choice no file declares any more
+		{"", "preview", declared, "preview", profilePreview},
+		{"", "preview", map[string]bool{"production": true}, "default", profileBase},
+		{"", "main", declared, "default", profileBase},
+		{"staging", "main", declared, "default", profileBase}, // a choice no file declares any more
 		{"default", "preview", declared, "default", ProfileChosen},
 	} {
 		got, how := DeploymentProfile(c.chosen, c.deployment, c.declared)

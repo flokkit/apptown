@@ -14,7 +14,7 @@ import (
 )
 
 type PreviewsDependencies struct {
-	Scope Scope
+	Scope scope
 	Work  *workflow.Service
 	// Previews boots the change's preview; Preview says its state.
 	Previews *preview.Service
@@ -27,7 +27,7 @@ type PreviewsDependencies struct {
 	Now func() time.Time
 }
 type previews struct {
-	scope    Scope
+	scope    scope
 	work     *workflow.Service
 	previews *preview.Service
 	preview  interface {
@@ -37,9 +37,9 @@ type previews struct {
 	now func() time.Time
 }
 
-func NewPreviews(deps PreviewsDependencies) []Tool {
+func NewPreviews(deps PreviewsDependencies) []toolEntry {
 	h := previews{scope: deps.Scope, work: deps.Work, previews: deps.Previews, preview: deps.Preview, db: deps.DB, now: deps.Now}
-	return []Tool{{Name: "preview_change",
+	return []toolEntry{{Name: "preview_change",
 		order: 13, Description: "Boots the Change as it is now and returns the URL to open it at, so you can try the app before handing it off.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id.")}, "id"), command: ownerCommand("previews.previewChange", h.previewChange)}}
 }
 func (h previews) previewChange(c *Call, args map[string]any) (any, error) {

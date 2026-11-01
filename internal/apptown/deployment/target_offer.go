@@ -11,8 +11,8 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 )
 
-// GroupDirectory resolves the instance's groups without owning their records.
-type GroupDirectory interface {
+// groupDirectory resolves the instance's groups without owning their records.
+type groupDirectory interface {
 	GroupKind(context.Context, string) (string, error)
 }
 

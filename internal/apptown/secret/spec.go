@@ -54,14 +54,14 @@ type secretSpecScope struct {
 	Secrets []string `toml:"secrets"`
 }
 
-// Spec is AppTown's reading of a declaration.
-type Spec struct {
+// spec is AppTown's reading of a declaration.
+type spec struct {
 	Name     string
 	Revision string
 	// Profiles: profile name → secret name → entry, AFTER default-inheritance
 	// (a non-default profile inherits every entry of `default` it does not
 	// override, unless its defaults table says inherit = false).
-	Profiles map[string]map[string]DeclaredSecret
+	Profiles map[string]map[string]declaredSecret
 	// Inherits says whether a profile other than default took default's
 	// entries: false only where its defaults table says inherit = false.
 	// A restore rehearsal's allow-list must not inherit (ResolveRehearsal).
@@ -75,7 +75,7 @@ type Spec struct {
 	Ignored []string
 }
 
-type DeclaredSecret struct {
+type declaredSecret struct {
 	Name        string
 	Description string
 	Required    bool
@@ -88,7 +88,7 @@ type DeclaredSecret struct {
 
 // ReadSpec reads the declaration from a workspace. present is false
 // when the file does not exist — an app without secrets declares nothing.
-func ReadSpec(ws, path string) (spec *Spec, present bool, err error) {
+func ReadSpec(ws, path string) (spec *spec, present bool, err error) {
 	if path == "" {
 		path = SpecFile
 	}
@@ -109,7 +109,7 @@ func ReadSpec(ws, path string) (spec *Spec, present bool, err error) {
 	return spec, true, nil
 }
 
-func ParseSpec(raw []byte) (*Spec, error) {
+func ParseSpec(raw []byte) (*spec, error) {
 	var doc secretSpecDoc
 	md, err := toml.Decode(string(raw), &doc)
 	if err != nil {
@@ -135,8 +135,8 @@ func ParseSpec(raw []byte) (*Spec, error) {
 	if len(doc.Profiles) == 0 {
 		return nil, fmt.Errorf("at least one [profiles.<name>] table is required")
 	}
-	out := &Spec{Name: doc.Project.Name, Revision: doc.Project.Revision,
-		Profiles: map[string]map[string]DeclaredSecret{}, Inherits: map[string]bool{}, Scopes: map[string][]string{}}
+	out := &spec{Name: doc.Project.Name, Revision: doc.Project.Revision,
+		Profiles: map[string]map[string]declaredSecret{}, Inherits: map[string]bool{}, Scopes: map[string][]string{}}
 	if len(doc.Project.Extends) > 0 {
 		out.Ignored = append(out.Ignored, "[project] extends (AppTown reads one file)")
 	}
@@ -177,8 +177,8 @@ func ParseSpec(raw []byte) (*Spec, error) {
 		profiles[pname] = rp
 	}
 	sort.Strings(names)
-	convert := func(pname, sname string, e secretSpecEntry) DeclaredSecret {
-		s := DeclaredSecret{Name: sname, Description: e.Description, Required: true}
+	convert := func(pname, sname string, e secretSpecEntry) declaredSecret {
+		s := declaredSecret{Name: sname, Description: e.Description, Required: true}
 		if e.Default != nil {
 			s.Default, s.HasDefault = *e.Default, true
 		}
@@ -210,7 +210,7 @@ func ParseSpec(raw []byte) (*Spec, error) {
 	base := profiles["default"]
 	for _, pname := range names {
 		rp := profiles[pname]
-		eff := map[string]DeclaredSecret{}
+		eff := map[string]declaredSecret{}
 		if pname != "default" && rp.inherit {
 			for sname, e := range base.entries {
 				eff[sname] = convert("default", sname, e)
@@ -242,7 +242,7 @@ func ParseSpec(raw []byte) (*Spec, error) {
 }
 
 // ProfileNames lists the declared profiles, default first.
-func (s *Spec) ProfileNames() []string {
+func (s *spec) ProfileNames() []string {
 	var out []string
 	for n := range s.Profiles {
 		if n != "default" {
@@ -257,14 +257,14 @@ func (s *Spec) ProfileNames() []string {
 }
 
 // SecretsIn lists a profile's secrets in name order.
-func (s *Spec) SecretsIn(profile string) []DeclaredSecret {
+func (s *spec) SecretsIn(profile string) []declaredSecret {
 	eff := s.Profiles[profile]
 	names := make([]string, 0, len(eff))
 	for n := range eff {
 		names = append(names, n)
 	}
 	sort.Strings(names)
-	out := make([]DeclaredSecret, 0, len(names))
+	out := make([]declaredSecret, 0, len(names))
 	for _, n := range names {
 		out = append(out, eff[n])
 	}
@@ -273,7 +273,7 @@ func (s *Spec) SecretsIn(profile string) []DeclaredSecret {
 
 // ConsumersOf: which consumers receive a secret. No scopes → everyone
 // (the empty slice with all=true).
-func (s *Spec) ConsumersOf(name string) (consumers []string, all bool) {
+func (s *spec) ConsumersOf(name string) (consumers []string, all bool) {
 	if len(s.Scopes) == 0 {
 		return nil, true
 	}
@@ -291,7 +291,7 @@ func (s *Spec) ConsumersOf(name string) (consumers []string, all bool) {
 // CheckScopesAgainst verifies every scope names a consumer the contract has:
 // an app part by name, or an init step as init-<name>. A typo here would
 // silently starve a container of its secrets, so it is a refusal.
-func (s *Spec) CheckScopesAgainst(c *appcontract.Contract) error {
+func (s *spec) CheckScopesAgainst(c *appcontract.Contract) error {
 	if len(s.Scopes) == 0 {
 		return nil
 	}

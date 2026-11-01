@@ -9,7 +9,7 @@ func TestWhatIfLabelsKeepComparisonsAndUnknownDistinct(t *testing.T) {
 	for _, tc := range []struct {
 		outcome string
 		want    CheckLabel
-	}{{WhatIfNewFailures, CheckFailed}, {WhatIfNoNewFailures, CheckPassed}, {WhatIfCouldNotAssess, CheckUnknown}, {WhatIfNotEvaluated, CheckUnknown}, {WhatIfNotYetJudged, CheckUnknown}} {
+	}{{WhatIfNewFailures, checkFailed}, {WhatIfNoNewFailures, checkPassed}, {whatIfCouldNotAssess, checkUnknown}, {whatIfNotEvaluated, checkUnknown}, {whatIfNotYetJudged, checkUnknown}} {
 		raw, err := json.Marshal(WhatIfProject{Outcome: tc.outcome})
 		if err != nil {
 			t.Fatal(err)
@@ -25,7 +25,7 @@ func TestWhatIfLabelsKeepComparisonsAndUnknownDistinct(t *testing.T) {
 	for _, tc := range []struct {
 		result string
 		want   CheckLabel
-	}{{WhatIfWouldFail, CheckFailed}, {WhatIfWouldPass, CheckPassed}, {WhatIfNotAssessed, CheckUnknown}, {WhatIfNotApplicable, CheckNotApplicable}} {
+	}{{WhatIfWouldFail, checkFailed}, {WhatIfWouldPass, checkPassed}, {WhatIfNotAssessed, checkUnknown}, {whatIfNotApplicable, checkNotApplicable}} {
 		raw, _ := json.Marshal(WhatIfRow{Result: tc.result})
 		var got struct{ StatusLabel CheckLabel }
 		if err := json.Unmarshal(raw, &got); err != nil {
@@ -41,7 +41,7 @@ func TestUnchangedWhatIfRetainsTheKnownVerdict(t *testing.T) {
 	for _, tc := range []struct {
 		proposed string
 		want     CheckLabel
-	}{{"conforms", CheckPassed}, {"does-not-conform", CheckFailed}, {"excepted", CheckExcepted}, {"", CheckUnknown}} {
+	}{{"conforms", checkPassed}, {"does-not-conform", checkFailed}, {"excepted", checkExcepted}, {"", checkUnknown}} {
 		raw, err := json.Marshal(WhatIfRow{Result: WhatIfUnchanged, Proposed: tc.proposed})
 		if err != nil {
 			t.Fatal(err)

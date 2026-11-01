@@ -6,7 +6,7 @@ import (
 )
 
 func TestKindWords(t *testing.T) {
-	for _, k := range []Kind{Standing, Preview} {
+	for _, k := range []Kind{Standing, preview} {
 		stored, err := k.Value()
 		var read Kind
 		if err != nil || read.Scan(stored) != nil || read != k {
@@ -21,11 +21,11 @@ func TestKindWords(t *testing.T) {
 	if _, err := zero.Value(); err == nil {
 		t.Fatal("the zero kind was stored")
 	}
-	body, err := json.Marshal(struct{ Kind Kind }{Preview})
+	body, err := json.Marshal(struct{ Kind Kind }{preview})
 	if err != nil || string(body) != `{"Kind":"preview"}` {
 		t.Fatalf("json: %s %v", body, err)
 	}
-	if !(&Deployment{Kind: Standing}).Standing() || (&Deployment{Kind: Preview}).Standing() {
+	if !(&Deployment{Kind: Standing}).Standing() || (&Deployment{Kind: preview}).Standing() {
 		t.Fatal("Standing does not tell the kinds apart")
 	}
 }

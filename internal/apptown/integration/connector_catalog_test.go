@@ -17,13 +17,13 @@ func TestPresetURLsComeFromCatalogDefaults(t *testing.T) {
 	if len(reg.Presets) == 0 {
 		t.Fatal("no registry presets")
 	}
-	defaults := CatalogDefaults{}
+	defaults := catalogDefaults{}
 	for _, p := range InstancePresets(reg, defaults).Presets {
 		if u, _ := p.Config["url"].(string); u != "" {
 			t.Fatalf("with no mirror configured, preset %s must suggest no URL, got %q", p.Name, u)
 		}
 	}
-	defaults = CatalogDefaults{MirrorBase: "https://mirror.example.com/"}
+	defaults = catalogDefaults{MirrorBase: "https://mirror.example.com/"}
 	for _, p := range InstancePresets(reg, defaults).Presets {
 		u, _ := p.Config["url"].(string)
 		if u == "" || u[:len("https://mirror.example.com/repository/")] != "https://mirror.example.com/repository/" {

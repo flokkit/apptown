@@ -28,14 +28,14 @@ import (
 
 // Deployment's operation kinds.
 const (
-	OperationCopy     = "deployment.copy"
-	OperationDrill    = "deployment.drill"
+	operationCopy     = "deployment.copy"
+	operationDrill    = "deployment.drill"
 	OperationTakeDown = "deployment.take-down"
-	// OperationRehearsal is a restore rehearsal.
-	OperationRehearsal = "deployment.rehearsal"
-	// OperationRestore starts a restored copy; OperationRestoredCopyEnd
+	// operationRehearsal is a restore rehearsal.
+	operationRehearsal = "deployment.rehearsal"
+	// operationRestore starts a restored copy; OperationRestoredCopyEnd
 	// takes one down.
-	OperationRestore         = "deployment.restored-copy"
+	operationRestore         = "deployment.restored-copy"
 	OperationRestoredCopyEnd = "deployment.restored-copy-end"
 )
 
@@ -44,20 +44,20 @@ const (
 type runEnd uint8
 
 const (
-	// OperationVerified: done, and what it made was shown to come back.
-	OperationVerified runEnd = iota + 1
-	// OperationNotVerified: done, and nothing checked that it comes back.
-	OperationNotVerified
-	// OperationDone: done; verification does not apply.
-	OperationDone
-	// OperationFailed: it stopped; its detail names what is left and where.
-	OperationFailed
+	// operationVerified: done, and what it made was shown to come back.
+	operationVerified runEnd = iota + 1
+	// operationNotVerified: done, and nothing checked that it comes back.
+	operationNotVerified
+	// operationDone: done; verification does not apply.
+	operationDone
+	// operationFailed: it stopped; its detail names what is left and where.
+	operationFailed
 )
 
 // A copy or a drill that has started is not stopped part way.
 var (
-	ErrCopyNotStopped  = fault.New(fault.Conflict, "a copy that has started runs to its end; it can be cancelled only while it waits to start")
-	ErrDrillNotStopped = fault.New(fault.Conflict, "a check that has started runs to its end and removes what it made; it can be cancelled only while it waits to start")
+	errCopyNotStopped  = fault.New(fault.Conflict, "a copy that has started runs to its end; it can be cancelled only while it waits to start")
+	errDrillNotStopped = fault.New(fault.Conflict, "a check that has started runs to its end and removes what it made; it can be cancelled only while it waits to start")
 )
 
 // registerKinds registers deployment's operation kinds with the ledger.
@@ -76,8 +76,8 @@ func (s *Service) registerKinds() {
 		// A copy and a drill run to their end once started: each is one
 		// item at a time, and stopping one part way leaves nothing useful.
 		// A queued one is cancelled like any other.
-		{Name: OperationCopy, Capability: access.CapDeploymentDeploy, CancelRefusal: ErrCopyNotStopped, Execute: body(s.runCopy)},
-		{Name: OperationDrill, Capability: access.CapDeploymentRestore, CancelRefusal: ErrDrillNotStopped, Execute: body(s.runDrill)},
+		{Name: operationCopy, Capability: access.CapDeploymentDeploy, CancelRefusal: errCopyNotStopped, Execute: body(s.runCopy)},
+		{Name: operationDrill, Capability: access.CapDeploymentRestore, CancelRefusal: errDrillNotStopped, Execute: body(s.runDrill)},
 		// A take-down stops as asked at the boundaries between its phases:
 		// before the app is deleted, before the final copy, before the
 		// copy is checked and before each cluster is deleted.
@@ -96,14 +96,14 @@ func (s *Service) registerKinds() {
 		})},
 		// A rehearsal and a restored copy are not stopped part way: each
 		// takes itself down when it ends.
-		{Name: OperationRehearsal, Capability: access.CapDeploymentRestore, CancelRefusal: ErrRehearsalNotStopped, Execute: body(s.runRehearsal)},
-		{Name: OperationRestore, Capability: access.CapDeploymentRestore, CancelRefusal: ErrRestoreNotStopped, Execute: body(s.runRestore)},
-		{Name: OperationRestoredCopyEnd, Capability: access.CapDeploymentRestore, CancelRefusal: ErrRestoredCopyEndNotStopped, Execute: body(s.runRestoredTakeDown)},
+		{Name: operationRehearsal, Capability: access.CapDeploymentRestore, CancelRefusal: errRehearsalNotStopped, Execute: body(s.runRehearsal)},
+		{Name: operationRestore, Capability: access.CapDeploymentRestore, CancelRefusal: errRestoreNotStopped, Execute: body(s.runRestore)},
+		{Name: OperationRestoredCopyEnd, Capability: access.CapDeploymentRestore, CancelRefusal: errRestoredCopyEndNotStopped, Execute: body(s.runRestoredTakeDown)},
 		// A restore of a set over a deployment runs to its end once started;
 		// it needs the deploy grant, as its door always has. Its receipt is
 		// written with its end, and an AppTown's stop leaves what it may have
 		// stopped named, never started on a guess (restore_operation.go).
-		{Name: OperationRestoreSet, Capability: access.CapDeploymentDeploy, CancelRefusal: ErrRestoreSetNotStopped, Execute: body(s.runRestoreSet),
+		{Name: operationRestoreSet, Capability: access.CapDeploymentDeploy, CancelRefusal: errRestoreSetNotStopped, Execute: body(s.runRestoreSet),
 			SettleIn: s.settleRestore, Interrupted: restoreInterrupted},
 	} {
 		k.Read = access.CapDeploymentRead
@@ -118,18 +118,18 @@ func (s *Service) registerKinds() {
 // not removed) is not a success: it fails (or is unknown, when whether it
 // was removed is not known), keeping its verification as a fact.
 func outcomeOf(end runEnd, detail string, result map[string]any, t *tracker) operations.Outcome {
-	if t.note != "" && end != OperationFailed {
+	if t.note != "" && end != operationFailed {
 		detail = strings.TrimSpace(detail + " " + t.note)
 	}
 	out := operations.Outcome{Detail: detail, Result: result}
 	switch end {
-	case OperationVerified:
+	case operationVerified:
 		out.State, out.Verification = operations.Succeeded, operations.Verified
-	case OperationNotVerified:
+	case operationNotVerified:
 		out.State, out.Verification = operations.Succeeded, operations.NotVerified
-	case OperationDone:
+	case operationDone:
 		out.State = operations.Succeeded
-	case OperationFailed:
+	case operationFailed:
 		out.State = operations.Failed
 	default:
 		out.State = operations.Unknown

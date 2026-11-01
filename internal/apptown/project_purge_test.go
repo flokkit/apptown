@@ -50,6 +50,7 @@ func purgeFixture(t *testing.T) (*App, *fakeDocker, []string) {
 }
 
 func purgeFixtureState(t *testing.T, live bool) (*App, *fakeDocker, []string) {
+
 	t.Helper()
 	f := newFakeDocker()
 	a := workAuthorityFixture(t, Config{DockerClient: f})
@@ -438,7 +439,7 @@ func TestProjectDeletionConsoleAdmissionAndLiveRefusal(t *testing.T) {
 	if l, err := a.Projects.Lifecycle(context.Background(), idstest.N(1)); err != nil || l.State != project.Active {
 		t.Fatalf("a refused deletion changed the project: %+v %v", l, err)
 	}
-	s.SetLastUsed(time.Now().Add(-time.Hour))
+	moveClock(a, time.Hour)
 	if w := authzCall(h, "boss", "DELETE", "/api/v1/projects/game", `{"confirm":"game"}`); w.Code != 202 {
 		t.Fatalf("deletion with an idle chat: %d %s", w.Code, w.Body.String())
 	}
@@ -451,7 +452,7 @@ func TestProjectDeletionConsoleAdmissionAndLiveRefusal(t *testing.T) {
 	}
 	// The block never holds the application mutex across SQL or cleanup.
 	stopped := make(chan struct{})
-	go func() { a.StopConsoles(context.Background()); close(stopped) }()
+	go func() { a.stopConsoles(context.Background()); close(stopped) }()
 	select {
 	case <-stopped:
 	case <-time.After(time.Second):
@@ -475,8 +476,8 @@ func TestConsoleRejectedTokenDoesNotBlockProjectDeletion(t *testing.T) {
 	used := time.Now().Add(-time.Hour)
 	m := consoleMetaFor("private", idstest.N(1), ids.Nil)
 	m.Token = "secret"
+	m.LastUsed = used
 	s := a.Console.Restore(m)
-	s.SetLastUsed(used)
 	for _, handler := range []func(http.ResponseWriter, *http.Request){httpapi.NewConsolePreview(a.Console, a.Preview, a.DB, a.cfg.publicHost, nil).ConsolePreview, httpapi.NewConsoleInvocation(a.Console, a.Projects, a.Ways, a.Work, a.changeActions, a.DB, a.cfg.publicHost, nil).ConsoleInvoke, httpapi.NewConsoleChanges(a.Console, a.Work, a.changeActions, a.DB).ConsoleLand, httpapi.NewConsoleChanges(a.Console, a.Work, a.changeActions, a.DB).ConsoleRecheck} {
 		req := httptest.NewRequest("POST", "/api/v1/console/private/preview", nil)
 		req.SetPathValue("sid", s.ID)

@@ -206,7 +206,7 @@ func previewOwner(t *testing.T, db *database.DB, dataDir string, projects *proje
 	integrations := integration.NewService(db, integration.Dependencies{Kinds: catalog, Projects: projects, Secrets: secrets})
 	return preview.New(db, preview.Dependencies{
 		Worker: previews, Targets: targets, Deployments: deployment.NewDeployments(db), Projects: projects, Integrations: integrations, DataDir: dataDir,
-		Hosts: deployment.NewHosts(targets, secrets, deployment.HostSettings{Scope: docker.Scope{Client: dockerfake.New()}, DataDir: dataDir}),
+		Hosts: deployment.NewHosts(targets, secrets, deployment.HostSettings{Scope: docker.Scope{Client: newDockerFake()}, DataDir: dataDir}),
 		Environment: deployment.NewEnvironment(deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Secrets: secrets, Needs: catalog, Integrations: integrations,
 			Routes: deployment.Routing{PreviewScheme: "https", PreviewDomain: "preview.example.com"}, Projects: projects}),
 	})
@@ -307,4 +307,8 @@ func eventually(t *testing.T, what string, cond func() bool) {
 	if !poll.Until(context.Background(), 10*time.Second, 10*time.Millisecond, cond) {
 		t.Fatalf("never: %s", what)
 	}
+}
+
+func newDockerFake() *dockerfake.Daemon {
+	return dockerfake.New()
 }

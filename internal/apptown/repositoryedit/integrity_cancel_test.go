@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -86,7 +88,7 @@ func TestADiscardWhoseRequestIsNotRecordedChangesNothing(t *testing.T) {
 	db, dataDir, id, tracked, untracked := driftFixture(t)
 	editor := NewIntegrity(&scm.RepositoryLocks{}, execution.Runner{}, nil, db, dataDir, nil)
 	p := &project.Project{ID: id, Slug: "drift", DefaultBranch: "main"}
-	restore := db.FailNextStatement("-- name: AppendReceipt")
+	restore := dbtest.NextStatementFailure(db, "-- name: AppendReceipt")
 	_, err := editor.Resolve(t.Context(), p, "discard", "admin")
 	restore()
 	if err == nil {

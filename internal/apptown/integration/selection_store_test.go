@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/integration/internal/integrationsql"
 )
 
@@ -67,7 +69,7 @@ func TestBindingSelectionPreservesOrderVersionsAndTransactions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Cleanup(db.FailNextStatement("-- name: Bindings :many"))
+	t.Cleanup(dbtest.NextStatementFailure(db, "-- name: Bindings :many"))
 	if _, err := Selected(context.Background(), db, "errors", ""); err == nil || errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("failure became absence: %v", err)
 	}

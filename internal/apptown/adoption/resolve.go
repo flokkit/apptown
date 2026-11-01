@@ -3,8 +3,9 @@ package adoption
 import (
 	"context"
 	"fmt"
-	"github.com/flokkit/apptown/internal/ids"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption/internal/adoptionsql"
 	"github.com/flokkit/apptown/internal/apptown/wow"
@@ -17,17 +18,17 @@ import (
 // (a newly selected one at the library's latest), the policies, the
 // extensions, and the packs.
 type resolver struct {
-	workflows Catalog
+	workflows catalog
 	db        *database.DB
 }
 
-func newResolver(db *database.DB, ways Catalog) *resolver {
+func newResolver(db *database.DB, ways catalog) *resolver {
 	return &resolver{workflows: ways, db: db}
 }
 
-// Union records an explicit edit's view: existing selections retain their
+// union records an explicit edit's view: existing selections retain their
 // pins; newly selected workflows take the version selected at this edit.
-func (rs *resolver) Union(ctx context.Context, projectID ids.ID, prior *RecordedRevision) (Receipt, error) {
+func (rs *resolver) union(ctx context.Context, projectID ids.ID, prior *RecordedRevision) (Receipt, error) {
 	return rs.unionIn(ctx, rs.db, projectID, prior)
 }
 func (rs *resolver) unionIn(ctx context.Context, q database.Queryer, projectID ids.ID, prior *RecordedRevision) (Receipt, error) {
@@ -53,7 +54,7 @@ func (rs *resolver) unionIn(ctx context.Context, q database.Queryer, projectID i
 		}
 	}
 	if rs.workflows == nil {
-		return r, ErrCatalogUnavailable
+		return r, errCatalogUnavailable
 	}
 	entries, err := rs.workflows.Workflows(ctx)
 	if err != nil {
@@ -75,7 +76,7 @@ func (rs *resolver) unionIn(ctx context.Context, q database.Queryer, projectID i
 		if at := strings.LastIndex(origin, "@"); at > 0 {
 			origin = fmt.Sprintf("%s@%d", origin[:at], version) // the version the project runs, not the library's newest
 		}
-		r.Workflows = append(r.Workflows, ReceiptWorkflow{Name: e.Name, Version: version, Origin: origin, YAMLHash: HashText(yamlSrc), System: e.Doc.Metadata.System})
+		r.Workflows = append(r.Workflows, ReceiptWorkflow{Name: e.Name, Version: version, Origin: origin, YAMLHash: hashText(yamlSrc), System: e.Doc.Metadata.System})
 	}
 	if r.Policies, err = policyReceiptLinesIn(ctx, q, projectID); err != nil {
 		return r, err

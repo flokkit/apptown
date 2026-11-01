@@ -5,27 +5,28 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/flokkit/apptown/internal/apptown/project/internal/projectsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
-	"time"
 )
 
 var ErrRequestReused = fault.New(fault.Conflict, "this request was already used for different project input")
 var ErrRequestRequired = fault.New(fault.Invalid, "send a requestId for this project operation")
 
-// CreationClaim exists in the caller's transaction. Fresh must be completed
+// creationClaim exists in the caller's transaction. Fresh must be completed
 // before commit; otherwise the caller must return an error and roll back.
-type CreationClaim struct {
+type creationClaim struct {
 	ID, ProjectID            ids.ID
 	Fresh                    bool
 	InputHash, ResolvedGroup string
 	Result                   Project
 }
 
-func ClaimCreationIn(ctx context.Context, tx *database.Tx, at time.Time, actor, request ids.ID) (CreationClaim, error) {
-	var out CreationClaim
+func ClaimCreationIn(ctx context.Context, tx *database.Tx, at time.Time, actor, request ids.ID) (creationClaim, error) {
+	var out creationClaim
 	if actor.IsZero() || request.IsZero() {
 		return out, ErrRequestRequired
 	}
@@ -35,7 +36,7 @@ func ClaimCreationIn(ctx context.Context, tx *database.Tx, at time.Time, actor, 
 		return out, err
 	}
 	if n == 1 {
-		return CreationClaim{ID: id, ProjectID: pid, Fresh: true}, nil
+		return creationClaim{ID: id, ProjectID: pid, Fresh: true}, nil
 	}
 	row, err := queries(tx).ProjectCreationRequest(ctx, projectsql.ProjectCreationRequestParams{ActorID: actor, RequestID: request})
 	if err != nil {
@@ -45,9 +46,9 @@ func ClaimCreationIn(ctx context.Context, tx *database.Tx, at time.Time, actor, 
 		return out, fmt.Errorf("project creation request has no committed result")
 	}
 	result, err := requestResult(*row.ResultJson, row.ProjectID)
-	return CreationClaim{ID: row.ID, ProjectID: row.ProjectID, InputHash: row.InputHash.String, ResolvedGroup: row.ResolvedGroup.String, Result: result}, err
+	return creationClaim{ID: row.ID, ProjectID: row.ProjectID, InputHash: row.InputHash.String, ResolvedGroup: row.ResolvedGroup.String, Result: result}, err
 }
-func CompleteCreationIn(ctx context.Context, tx *database.Tx, claim CreationClaim, hash, group string) error {
+func CompleteCreationIn(ctx context.Context, tx *database.Tx, claim creationClaim, hash, group string) error {
 	raw, err := snapshotResult(ctx, tx, claim.ProjectID)
 	if err != nil {
 		return err

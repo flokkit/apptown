@@ -18,12 +18,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/ids"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/preview"
 
@@ -38,14 +39,14 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
-// Narratives queues a refresh of a change's generated narrative.
-type Narratives interface {
+// narratives queues a refresh of a change's generated narrative.
+type narratives interface {
 	Request(ctx context.Context, changeID ids.ID) error
 }
 
-// FolderPublisher publishes a change folder's committed work under a
+// folderPublisher publishes a change folder's committed work under a
 // holder's grant (workcommands.Preparation.PublishChangeFolder).
-type FolderPublisher interface {
+type folderPublisher interface {
 	PublishChangeFolder(ctx context.Context, p *project.Project, ch *workflow.Change, holder string) ([]string, error)
 }
 
@@ -55,8 +56,8 @@ type Dependencies struct {
 	Sessions   *console.Service
 	Chats      conversation.Chats
 	Previews   *preview.Service
-	Narratives Narratives
-	Folders    FolderPublisher
+	Narratives narratives
+	Folders    folderPublisher
 	DataDir    string
 	// Stop is closed when AppTown stops: rehearsal loops end.
 	Stop <-chan struct{}
@@ -73,8 +74,8 @@ type Service struct {
 	sessions   *console.Service
 	chats      conversation.Chats
 	previews   *preview.Service
-	narratives Narratives
-	folders    FolderPublisher
+	narratives narratives
+	folders    folderPublisher
 	dataDir    string
 	stop       <-chan struct{}
 	engine     context.Context

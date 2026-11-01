@@ -186,7 +186,7 @@ func (d *Deletion) RetryCleanup(ctx context.Context, projectID ids.ID, who strin
 			if live, err := d.deps.Queue.LiveIn(ctx, tx, projectID, current.Round); err != nil {
 				return err
 			} else if live {
-				return ErrCleanupStillRunning
+				return errCleanupStillRunning
 			}
 		}
 		round, err := project.RestartDeletionIn(ctx, tx, projectID)

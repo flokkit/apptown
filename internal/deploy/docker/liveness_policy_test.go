@@ -88,11 +88,11 @@ func TestLivenessOmittedExecKeepsCallerDeadline(t *testing.T) {
 			}
 			return nil, nil
 		})}
-		rp := RenderedProbe{Exec: []string{"check"}}
+		rp := renderedProbe{Exec: []string{"check"}}
 		if explicit {
 			rp.Policy = &appcontract.HealthPolicy{Explicit: true, Timeout: time.Second}
 		}
-		if !ProbeLiveness(context.Background(), dk, "captured", 0, rp, nil) || !seen {
+		if !probeLiveness(context.Background(), dk, "captured", 0, rp, nil) || !seen {
 			t.Fatal("exec not sampled")
 		}
 	}

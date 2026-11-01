@@ -3,8 +3,9 @@ package httpapi
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/ids"
 	"net/http"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -14,11 +15,11 @@ import (
 
 type SCMRemotes struct {
 	projects    *project.Projects
-	provider    RepositoryProvider
+	provider    repositoryProvider
 	attachments *scm.RepositoryAttachments
 }
 
-func NewSCMRemotes(projects *project.Projects, provider RepositoryProvider, attachments *scm.RepositoryAttachments) SCMRemotes {
+func NewSCMRemotes(projects *project.Projects, provider repositoryProvider, attachments *scm.RepositoryAttachments) SCMRemotes {
 	return SCMRemotes{projects: projects, provider: provider, attachments: attachments}
 }
 
@@ -78,7 +79,7 @@ type RemoteAttached struct {
 // {url} attaches an existing GitLab repo; {create: true} creates one via the
 // API. Either way the default branch is pushed.
 func (h SCMRemotes) AttachRemote(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -92,7 +93,7 @@ func (h SCMRemotes) AttachRemote(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-type RepositoryProvider interface {
+type repositoryProvider interface {
 	Client(ctx context.Context) (*gitlab.Client, error)
 }
 
@@ -109,7 +110,7 @@ type RemoteRequest struct {
 }
 
 func (h SCMRemotes) RemoteState(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

@@ -5,10 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/apptown/status"
 	"math"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/status"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -21,7 +22,7 @@ import (
 // collaborator observes a slot queue; it cannot read or mutate Work storage.
 type queries struct {
 	db   *database.DB
-	wait SlotWait
+	wait slotWait
 	// automatic: the step kinds that run without a person, which a step
 	// run accepts again (with assertions); nil for reads offering no acts.
 	automatic func(string) bool
@@ -70,7 +71,7 @@ func (q queries) list(ctx context.Context, query RunQuery) ([]RunSummary, error)
 	return rows, nil
 }
 
-func readWorkflowSummaries(ctx context.Context, db database.Queryer, query RunQuery, wait SlotWait) ([]RunSummary, error) {
+func readWorkflowSummaries(ctx context.Context, db database.Queryer, query RunQuery, wait slotWait) ([]RunSummary, error) {
 	if query.Limit < 0 || query.Limit > math.MaxInt32 {
 		return nil, fmt.Errorf("invalid workflow list bounds")
 	}
@@ -104,7 +105,7 @@ func readWorkflowSummaries(ctx context.Context, db database.Queryer, query RunQu
 		if err != nil {
 			return nil, err
 		}
-		rows = append(rows, RunSummary{StatusLabel: state.Display(), ID: row.ID, Number: row.Number, Status: state, CurrentStage: row.CurrentStage, WorkflowName: row.WorkflowName, WorkflowVersion: int(row.WorkflowVersion), Kind: row.Kind, ChangeID: row.ChangeID, ChangeNumber: row.ChangeNumber, ItemTitle: row.ItemTitle, ProjectSlug: row.ProjectSlug, CreatedAt: row.CreatedAt.Format(time.RFC3339Nano), UpdatedAt: row.UpdatedAt.Format(time.RFC3339Nano)})
+		rows = append(rows, RunSummary{StatusLabel: state.display(), ID: row.ID, Number: row.Number, Status: state, CurrentStage: row.CurrentStage, WorkflowName: row.WorkflowName, WorkflowVersion: int(row.WorkflowVersion), Kind: row.Kind, ChangeID: row.ChangeID, ChangeNumber: row.ChangeNumber, ItemTitle: row.ItemTitle, ProjectSlug: row.ProjectSlug, CreatedAt: row.CreatedAt.Format(time.RFC3339Nano), UpdatedAt: row.UpdatedAt.Format(time.RFC3339Nano)})
 	}
 	idList := make([]ids.ID, 0, len(rows))
 	for _, row := range rows {

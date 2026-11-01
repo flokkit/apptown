@@ -30,7 +30,7 @@ import (
 // RunDeploy executes a deploy step: run the app as the project deployment
 // (stable name + port), replacing any previous release. This is an effect —
 // place it after the acceptance gate in workflows.
-func (a *Shipping) RunDeploy(task *workflow.Execution) {
+func (a *shipping) RunDeploy(task *workflow.Execution) {
 	step := task.Step()
 	stepID := step.ID
 	run := task.Run()

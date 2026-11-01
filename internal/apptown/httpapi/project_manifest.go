@@ -17,17 +17,17 @@ type ProjectManifest struct {
 	adoption *adoption.Service
 	db       *database.DB
 	dataDir  string
-	stores   SecretStores
+	stores   secretStores
 }
 
-// SecretStores is the secret owner's answer to which stores this AppTown
+// secretStores is the secret owner's answer to which stores this AppTown
 // can use now, by provider name; a secrets file that cannot be read is an
 // error.
-type SecretStores interface {
+type secretStores interface {
 	AvailableProviders() (map[string]bool, error)
 }
 
-func NewProjectManifest(projects *project.Projects, adoption *adoption.Service, db *database.DB, dataDir string, stores SecretStores) ProjectManifest {
+func NewProjectManifest(projects *project.Projects, adoption *adoption.Service, db *database.DB, dataDir string, stores secretStores) ProjectManifest {
 	return ProjectManifest{projects: projects, adoption: adoption, db: db, dataDir: dataDir, stores: stores}
 }
 
@@ -36,7 +36,7 @@ func NewProjectManifest(projects *project.Projects, adoption *adoption.Service, 
 // origins, pinned guidance, instance bindings. The wizard's landing view and
 // the audit answer to "how is this project set up".
 func (h ProjectManifest) ProjectManifest(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

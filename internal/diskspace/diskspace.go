@@ -24,18 +24,18 @@ type Space struct {
 	FreeBytes  int64
 }
 
-// MinFloor is the least free space new work is admitted with, however
+// minFloor is the least free space new work is admitted with, however
 // small the filesystem.
-const MinFloor = 1 << 30
+const minFloor = 1 << 30
 
-// MaxFloor caps the floor on a large filesystem: a twentieth of a 3.6 TiB
+// maxFloor caps the floor on a large filesystem: a twentieth of a 3.6 TiB
 // disk is 186 GiB, far more than any one pull, build or task needs, and
 // refusing work with that much free reads as a fault.
-const MaxFloor = 20 << 30
+const maxFloor = 20 << 30
 
 // Floor is the free space below which new work is refused on s: a
 // twentieth of the filesystem, but at least MinFloor and at most MaxFloor.
-func (s Space) Floor() int64 { return max(MinFloor, min(MaxFloor, s.TotalBytes/20)) }
+func (s Space) Floor() int64 { return max(minFloor, min(maxFloor, s.TotalBytes/20)) }
 
 // Warning is the free space below which a warning is shown: a tenth of the
 // filesystem. Small filesystems never warn later than their refusal floor.
@@ -61,7 +61,7 @@ func Admit(what string, s Space, err error) error {
 	}
 	if s.Refuses() {
 		return fmt.Errorf("%w: %s has %s free of %s; new work needs at least %s free. Remove what is no longer needed there (old images, stopped containers, released work) and try again",
-			ErrRefused, what, Bytes(s.FreeBytes), Bytes(s.TotalBytes), Bytes(s.Floor()))
+			ErrRefused, what, bytes(s.FreeBytes), bytes(s.TotalBytes), bytes(s.Floor()))
 	}
 	return nil
 }
@@ -74,13 +74,13 @@ func AdmitAdding(what string, s Space, err error, size int64) error {
 	}
 	if s.FreeBytes-size < s.Floor() {
 		return fmt.Errorf("%w: %s has %s free of %s; writing %s more would leave less than %s free. Remove what is no longer needed there and try again",
-			ErrRefused, what, Bytes(s.FreeBytes), Bytes(s.TotalBytes), Bytes(size), Bytes(s.Floor()))
+			ErrRefused, what, bytes(s.FreeBytes), bytes(s.TotalBytes), bytes(size), bytes(s.Floor()))
 	}
 	return nil
 }
 
-// Bytes is n in binary units, to one decimal place: "26.7 GiB".
-func Bytes(n int64) string {
+// bytes is n in binary units, to one decimal place: "26.7 GiB".
+func bytes(n int64) string {
 	const unit = 1024
 	if n < unit {
 		return strconv.FormatInt(n, 10) + " B"
@@ -93,9 +93,9 @@ func Bytes(n int64) string {
 	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTP"[exp])
 }
 
-// ParseDF reads df -Pk's filesystem line: total and available, in
+// parseDF reads df -Pk's filesystem line: total and available, in
 // kibibytes. Other lines before it (a pull's progress, a notice) are left.
-func ParseDF(out []byte) (Space, error) {
+func parseDF(out []byte) (Space, error) {
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 	if len(lines) < 2 {
 		return Space{}, fmt.Errorf("df answered %q", strings.TrimSpace(string(out)))

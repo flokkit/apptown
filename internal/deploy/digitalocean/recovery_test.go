@@ -30,7 +30,7 @@ func TestDORecoveryRequiresExactIdentityAndCancelsPolling(t *testing.T) {
 	defer server.Close()
 	d := NewDriver(Dependencies{}, Options{PollInterval: time.Minute})
 	start := time.Now()
-	_, err := d.WaitDeployment(ctx, &Client{Base: server.URL, HTTP: server.Client()}, "app", "deployment", func(string, ...any) { cancel() })
+	_, err := d.waitDeployment(ctx, &Client{Base: server.URL, HTTP: server.Client()}, "app", "deployment", true, func(string, ...any) { cancel() })
 	if !errors.Is(err, context.Canceled) || time.Since(start) > time.Second {
 		t.Fatalf("poll ignored cancellation: %v after %s", err, time.Since(start))
 	}

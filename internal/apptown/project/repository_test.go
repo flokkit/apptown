@@ -1,11 +1,12 @@
 package project
 
 import (
-	"github.com/flokkit/apptown/internal/ids"
-	"github.com/flokkit/apptown/internal/ids/idstest"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 func TestRepositoryLocationUsesImmutableIdentityWithoutFilesystemEffects(t *testing.T) {

@@ -18,13 +18,13 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
-
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 )
 
 type Daemon struct {
 	mu                sync.Mutex
+	unframe           func([]string) []string
 	commands          [][]string
 	running           map[string]bool
 	volumes           map[string]bool
@@ -42,8 +42,9 @@ type Daemon struct {
 	disk              string                 // what df says of the data folder's filesystem
 	port              int
 	reply             func([]string) ([]byte, error, bool)
-	results           *containerresulttest.Daemon
-	diskResults       diskspacetest.Daemon
+	results           Results
+	resultsEnabled    bool
+	diskResults       Disk
 	commandReply      func(docker.Command) ([]byte, error, bool)
 	configs           []string              // each command's --config, "" for the ambient one
 	published         map[string]*published // nil: every container answers at port (PublishPorts)
@@ -119,7 +120,10 @@ func (p *published) close() {
 }
 
 func New() *Daemon {
-	return &Daemon{running: make(map[string]bool), stopped: make(map[string]bool), restarts: make(map[string]int), exitCodes: make(map[string]int), oomKilled: make(map[string]bool), labels: make(map[string]map[string]string), started: make(map[string][2][]string), limits: make(map[string][2]int64), host: "8589934592\t8\t/var/lib/docker", port: 43210, disk: dfLines(100<<30, 90<<30)}
+	results, disk, unframe := &containerresulttest.Daemon{}, &diskspacetest.Daemon{}, containerresulttest.UnframeArgs
+	d := &Daemon{results: results, diskResults: disk, unframe: unframe, running: make(map[string]bool), stopped: make(map[string]bool), restarts: make(map[string]int), exitCodes: make(map[string]int), oomKilled: make(map[string]bool), labels: make(map[string]map[string]string), started: make(map[string][2][]string), limits: make(map[string][2]int64), host: "8589934592\t8\t/var/lib/docker", port: 43210, disk: dfLines(100<<30, 90<<30)}
+	disk.SetAnswer(func() (int, []byte, string) { return 0, []byte(d.disk), "" })
+	return d
 }
 
 func (d *Daemon) SetPort(port int) {
@@ -170,10 +174,17 @@ func publishedPort(args []string) (fixed int, ok bool) {
 // answers says, before anything else this daemon does; ok false leaves a
 // call to the rest. The containers keep their stdout to themselves, as a
 // daemon that lost it would.
-func (d *Daemon) SetResults(answers func(containerresulttest.Command) (containerresulttest.Answer, bool)) {
+func (d *Daemon) SetResults(answers func(ResultCommand) (ResultAnswer, bool)) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.results = &containerresulttest.Daemon{Answers: answers}
+	d.resultsEnabled = true
+	d.results.Configure(func(image, container, script string, args, env []string) (int, []byte, string, bool) {
+		if answers == nil {
+			return 0, nil, "", false
+		}
+		a, ok := answers(ResultCommand{Image: image, Container: container, Script: script, Args: args, Env: env})
+		return a.Code, a.Answer, a.Said, ok
+	})
 }
 
 func (d *Daemon) SetReply(reply func([]string) ([]byte, error, bool)) {
@@ -243,7 +254,7 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 	// daemon's containers run the frame, so what it records and answers is
 	// the command inside, and a copy it writes is framed
 	// (containerresulttest.WriteString).
-	req.Args = containerresulttest.UnframeArgs(req.Args)
+	req.Args = d.unframe(req.Args)
 	// A container is named by its ID as by its name, as Docker names it:
 	// the fake keeps state by name, so an ID it printed is read as that name.
 	args := append([]string(nil), req.Args...)
@@ -256,14 +267,12 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 	if len(args) == 0 {
 		return nil, nil
 	}
-	if d.results != nil && !d.diskResults.Owns(args) {
+	if d.resultsEnabled && !d.diskResults.Owns(args) {
 		if out, err, ok := d.results.RunEnv(args, req.Env); ok {
 			return out, err
 		}
 	}
-	if d.diskResults.Answer == nil {
-		d.diskResults.Answer = func() containerresulttest.Answer { return containerresulttest.Answer{Answer: []byte(d.disk)} }
-	}
+
 	// The standing disk reader is the disk fake's, ahead of the containers
 	// this daemon keeps for everything else.
 	if d.diskResults.Owns(args) {
@@ -737,4 +746,27 @@ func (d *Daemon) SetStorageContainer(name, image, volume, path string) {
 		d.storageContainers = map[string]map[string]any{}
 	}
 	d.storageContainers[name] = map[string]any{"Id": d.created(name), "Image": ImageID(image), "Config": map[string]string{"Image": image}, "Mounts": []map[string]string{{"Type": "volume", "Name": volume, "Destination": path}}}
+}
+
+// ResultCommand is the container command a scripted answer describes.
+type ResultCommand struct {
+	Image, Container, Script string
+	Args, Env                []string
+}
+type ResultAnswer struct {
+	Code   int
+	Answer []byte
+	Said   string
+}
+
+// Results and Disk are supplied by the composing test.
+type Results interface {
+	RunEnv([]string, []string) ([]byte, error, bool)
+	Configure(func(string, string, string, []string, []string) (int, []byte, string, bool))
+}
+type Disk interface {
+	Run([]string) ([]byte, error, bool)
+	Owns([]string) bool
+	IsRead([]string) bool
+	SetAnswer(func() (int, []byte, string))
 }

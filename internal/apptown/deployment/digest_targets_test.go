@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
-	"github.com/flokkit/apptown/internal/deploy"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -16,6 +14,9 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
+	"github.com/flokkit/apptown/internal/deploy"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -184,7 +185,7 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 	}
 	p.s.SeedCloudTargets(t.Context(), "fixture")
 	// The fixture uses the same explicit verified attachment as an operator.
-	if _, err := p.s.AttachPortainerTarget(t.Context(), PortainerAttachment{Name: IntranetTargetName, EndpointID: 3, Environment: DefaultPortainerEnvironment, URLFrom: "PORTAINER_URL", APIKeyFrom: "PORTAINER_API_KEY", Domain: "apps.example"}); err != nil {
+	if _, err := p.s.AttachPortainerTarget(t.Context(), PortainerAttachment{Name: IntranetTargetName, EndpointID: 3, Environment: defaultPortainerEnvironment, URLFrom: "PORTAINER_URL", APIKeyFrom: "PORTAINER_API_KEY", Domain: "apps.example"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -715,7 +716,7 @@ func TestAnIntranetReleaseOfAnUnpublishedLandingIsRefusedWithoutABuild(t *testin
 			t.Fatalf("%s: a refused release made one: %d before, %d after (%v)", what, len(before), len(after), err)
 		}
 	}
-	refused("no bundle", ErrNoBundle)
+	refused("no bundle", errNoBundle)
 	cutBundleFixture(t, p.db, p.project, p.revision, BundleOrigin{})
 	refused("a bundle of image IDs", ErrReleaseRefused)
 	p.expectAppTownDockerIdle(t)

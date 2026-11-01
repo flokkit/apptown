@@ -147,7 +147,7 @@ func (h ModelSlots) PutModelSlot(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		if err := h.models.Set(r.Context(), in.Slot, pid, in.Project, profile, in.Pattern, Actor(r)); err != nil {
+		if err := h.models.Set(r.Context(), in.Slot, pid, in.Project, profile, in.Pattern, actor(r)); err != nil {
 			WriteError(w, 500, "saving the model slot: %v", err)
 			return
 		}
@@ -158,7 +158,7 @@ func (h ModelSlots) PutModelSlot(w http.ResponseWriter, r *http.Request) {
 // PutProjectModelProfile: PUT /api/v1/projects/{slug}/model-profile
 // {profile} — one visible act assigns a project its demand level.
 func (h ModelSlots) PutProjectModelProfile(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -182,7 +182,7 @@ func (h ModelSlots) PutProjectModelProfile(w http.ResponseWriter, r *http.Reques
 			WriteError(w, 500, "saving the model profile: %v", err)
 			return
 		}
-		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), p.ID, "model-profile.set", in.Profile, map[string]any{"project": p.Slug})
+		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, actor(r), p.ID, "model-profile.set", in.Profile, map[string]any{"project": p.Slug})
 		WriteJSON(w, 200, Done{OK: true})
 	})
 }

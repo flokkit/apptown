@@ -87,7 +87,7 @@ func TestABundleWithNoSingleDefaultIsRefused(t *testing.T) {
 	b := bundleOf(t, src, "main", "work-in-flight")
 	hub := filepath.Join(t.TempDir(), "project-x")
 	_, err := SeedFromBundle(ctx, hub, b, "")
-	var why *SourceRefused
+	var why *sourceRefused
 	if !errors.As(err, &why) || !strings.Contains(why.Why, "main, work-in-flight") || fault.KindOf(err) != fault.Invalid {
 		t.Fatalf("an ambiguous bundle = %v", err)
 	}
@@ -111,7 +111,7 @@ func TestASeedRefusesANameThatIsNotABranchName(t *testing.T) {
 	for _, branch := range []string{"-main", "HEAD", "main..x", "main.lock", "@{-1}"} {
 		hub := filepath.Join(t.TempDir(), "project-x")
 		_, err := SeedFromRemote(ctx, hub, gitexec.Remote{URL: "https://example.invalid/x.git"}, branch)
-		var why *SourceRefused
+		var why *sourceRefused
 		if !errors.As(err, &why) || !strings.Contains(why.Why, "is not a branch name") {
 			t.Fatalf("branch %q: %v", branch, err)
 		}
@@ -245,7 +245,7 @@ func TestTheURLPolicyAdmitsOnlyPublicHTTPS(t *testing.T) {
 		"https://mcast.example/a.git", "https://127.0.0.1/a.git", "https://[::1]/a.git", "https://nowhere.example/a.git",
 	} {
 		_, err := policy.Check(ctx, raw)
-		var why *SourceRefused
+		var why *sourceRefused
 		if !errors.As(err, &why) {
 			t.Fatalf("%s was admitted: %v", raw, err)
 		}

@@ -1,4 +1,4 @@
-// Package testinputs makes the repository files a test hands to a child
+// Package executiontest makes the repository files a test hands to a child
 // process inputs of that test's cached result.
 //
 // Go's test cache reuses a package's passing result while the test binary,
@@ -8,7 +8,7 @@
 // binary built with go build — is not among them, so editing it alone would
 // replay a stale pass. A test calls Files or GoBuild before starting that
 // process: reading the files in the test process records them.
-package testinputs
+package executiontest
 
 import (
 	"io/fs"

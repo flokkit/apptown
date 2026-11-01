@@ -85,11 +85,11 @@ func TestWorkflowDispatchRecoveryPreservesEntryFailures(t *testing.T) {
 				s.set(idstest.N(1), StatusPass)
 				s.set(idstest.N(2), StatusFail)
 				wantCalls = []ids.ID{idstest.N(4)}
-				d.RestartPending(nil)
+				d.restartPending(nil)
 			} else {
-				d.Dispatch(s.p, false)
+				d.dispatch(s.p, false)
 			}
-			d.Wait()
+			d.wait()
 			if !reflect.DeepEqual(s.calls, wantCalls) {
 				t.Fatalf("runners = %v, want %v", s.calls, wantCalls)
 			}
@@ -105,8 +105,8 @@ func TestWorkflowDispatchRecoveryContinuesOrphansOnly(t *testing.T) {
 	d, s := testDispatcher([]ReadyStep{{idstest.N(1), "script", true, "done"}, {idstest.N(2), "agent/pi", true, "agent"}, {idstest.N(3), "script", false, "check"}})
 	s.set(idstest.N(1), StatusPass)
 	s.states[idstest.N(2)] = dispatchState{Status: StatusError, Orphaned: true, Active: true}
-	d.RestartPending(nil)
-	d.Wait()
+	d.restartPending(nil)
+	d.wait()
 	if !reflect.DeepEqual(s.calls, []ids.ID{idstest.N(2), idstest.N(3)}) || !reflect.DeepEqual(s.resumes, []ids.ID{idstest.N(2)}) {
 		t.Fatalf("runners=%v resumes=%v", s.calls, s.resumes)
 	}
@@ -119,9 +119,9 @@ func TestWorkflowDispatchGroupsRecoveredGateScans(t *testing.T) {
 	release := make(chan struct{})
 	var once sync.Once
 	unblock := func() { once.Do(func() { close(release) }) }
-	defer func() { unblock(); d.Wait() }()
+	defer func() { unblock(); d.wait() }()
 	d.runners["scan"] = func(id ids.ID) { started <- id; <-release; s.ran(id, StatusPass) }
-	d.RestartPending(nil)
+	d.restartPending(nil)
 	for i := 0; i < 2; i++ {
 		select {
 		case <-started:
@@ -130,7 +130,7 @@ func TestWorkflowDispatchGroupsRecoveredGateScans(t *testing.T) {
 		}
 	}
 	unblock()
-	d.Wait()
+	d.wait()
 	if len(s.calls) != 2 || s.advances != 1 {
 		t.Fatalf("runners=%v advances=%d", s.calls, s.advances)
 	}
@@ -142,20 +142,20 @@ func TestWorkflowDispatchTracksRecoveryAndDeduplicatesActiveStage(t *testing.T) 
 	started, release := make(chan struct{}), make(chan struct{})
 	var once sync.Once
 	unblock := func() { once.Do(func() { close(release) }) }
-	defer func() { unblock(); d.Wait() }()
+	defer func() { unblock(); d.wait() }()
 	d.runners["script"] = func(id ids.ID) { close(started); <-release; s.ran(id, StatusPass) }
-	d.RestartPending(nil)
+	d.restartPending(nil)
 	select {
 	case <-started:
 	case <-time.After(5 * time.Second):
 		t.Fatal("recovery did not start")
 	}
-	if d.Dispatch(s.p, false) {
+	if d.dispatch(s.p, false) {
 		t.Fatal("same active stage accepted twice")
 	}
-	d.RestartPending(nil)
+	d.restartPending(nil)
 	waited := make(chan struct{})
-	go func() { d.Wait(); close(waited) }()
+	go func() { d.wait(); close(waited) }()
 	select {
 	case <-waited:
 		t.Fatal("wait ignored recovered work")
@@ -179,16 +179,16 @@ func TestWorkflowDispatchStopDrainsRunningAndLeavesQueuedSteps(t *testing.T) {
 		started, release := make(chan struct{}), make(chan struct{})
 		var once sync.Once
 		unblock := func() { once.Do(func() { close(release) }) }
-		defer func() { unblock(); d.Wait() }()
+		defer func() { unblock(); d.wait() }()
 		d.runners["script"] = func(id ids.ID) { close(started); <-release; s.ran(id, StatusPass) }
-		d.Dispatch(s.p, false)
+		d.dispatch(s.p, false)
 		select {
 		case <-started:
 		case <-time.After(5 * time.Second):
 			t.Fatal("runner did not start")
 		}
 		stopped := make(chan struct{})
-		go func() { d.Stop(); close(stopped) }()
+		go func() { d.stop(); close(stopped) }()
 		// Once every goroutine in the bubble is blocked, Stop has closed
 		// admission and waits on the first runner, still blocked.
 		synctest.Wait()
@@ -206,7 +206,7 @@ func TestWorkflowDispatchStopDrainsRunningAndLeavesQueuedSteps(t *testing.T) {
 		case <-time.After(5 * time.Second):
 			t.Fatal("stop did not drain")
 		}
-		if s.states[idstest.N(2)].Status != StatusPending || s.advances != 0 || d.Dispatch(s.p, false) {
+		if s.states[idstest.N(2)].Status != StatusPending || s.advances != 0 || d.dispatch(s.p, false) {
 			t.Fatal("stopped dispatcher started more work")
 		}
 	})
@@ -221,8 +221,8 @@ func TestWorkflowDispatchStopsOnReadFailureOrInactiveStage(t *testing.T) {
 		} else {
 			s.states[idstest.N(1)] = dispatchState{Status: StatusPending, Active: false}
 		}
-		d.Dispatch(s.p, false)
-		d.Wait()
+		d.dispatch(s.p, false)
+		d.wait()
 		if len(s.calls) != 0 || s.advances != 0 {
 			t.Fatalf("runners=%v advances=%d", s.calls, s.advances)
 		}
@@ -239,25 +239,25 @@ func TestWorkflowDispatchWaitIncludesNextStage(t *testing.T) {
 	started, release := make(chan struct{}), make(chan struct{})
 	var once sync.Once
 	unblock := func() { once.Do(func() { close(release) }) }
-	defer func() { unblock(); d.Wait() }()
+	defer func() { unblock(); d.wait() }()
 	d.runners["next"] = func(id ids.ID) { close(started); <-release; s.ran(id, StatusPass) }
 	d.advance = func(runID ids.ID) {
 		s.mu.Lock()
 		s.advances++
 		n := s.advances
 		s.mu.Unlock()
-		if n == 1 && !d.Dispatch(DispatchPlan{RunID: runID, Steps: []ReadyStep{{idstest.N(2), "next", false, "next"}}}, false) {
+		if n == 1 && !d.dispatch(DispatchPlan{RunID: runID, Steps: []ReadyStep{{idstest.N(2), "next", false, "next"}}}, false) {
 			t.Error("next stage was rejected while its predecessor finished")
 		}
 	}
-	d.Dispatch(s.p, false)
+	d.dispatch(s.p, false)
 	select {
 	case <-started:
 	case <-time.After(5 * time.Second):
 		t.Fatal("next stage did not start")
 	}
 	waited := make(chan struct{})
-	go func() { d.Wait(); close(waited) }()
+	go func() { d.wait(); close(waited) }()
 	select {
 	case <-waited:
 		t.Fatal("wait returned with the next stage running")
@@ -281,11 +281,11 @@ func TestWorkflowDispatchRetainsReworkRequestedByActiveStage(t *testing.T) {
 		s.ran(id, StatusFail)
 		s.set(idstest.N(1), StatusPending)
 		plan := DispatchPlan{RunID: idstest.N(7), Steps: []ReadyStep{{idstest.N(1), "agent/pi", false, "build"}}}
-		d.DispatchAgain(plan)
-		d.DispatchAgain(plan)
+		d.dispatchAgain(plan)
+		d.dispatchAgain(plan)
 	}
-	d.Dispatch(s.p, false)
-	d.Wait()
+	d.dispatch(s.p, false)
+	d.wait()
 	if !reflect.DeepEqual(s.calls, []ids.ID{idstest.N(1), idstest.N(2), idstest.N(1)}) {
 		t.Fatalf("lost or duplicated rework: %v", s.calls)
 	}
@@ -326,9 +326,9 @@ func TestDispatcherFailedRestartNoticeStopsBeforeExecution(t *testing.T) {
 	completionExec(t, q.db, `ALTER TABLE run_events ADD CONSTRAINT reject_dispatch_notice CHECK (kind!='steps.redispatched')`)
 	called := false
 	var reported []error
-	d := newDispatcher(q.db, dispatcherConfig{Life: context.Background(), Runners: map[string]func(ids.ID){"script": func(ids.ID) { called = true }}, Report: func(err error) { reported = append(reported, err) }})
-	d.RestartPending(nil)
-	d.Wait()
+	d := newDispatcher(q.db, dispatcherConfig{life: context.Background(), runners: map[string]func(ids.ID){"script": func(ids.ID) { called = true }}, report: func(err error) { reported = append(reported, err) }})
+	d.restartPending(nil)
+	d.wait()
 	if called || len(reported) != 1 {
 		t.Fatalf("called=%v errors=%v", called, reported)
 	}
@@ -348,20 +348,20 @@ func TestDispatcherFreezesTheRunnerRegistry(t *testing.T) {
 			return
 		}
 		attempts := newStepAttempts(q.db, func(kind string) bool { return kind == "script" })
-		claim, err := attempts.Start(context.Background(), snapshot, "script")
+		claim, err := attempts.start(context.Background(), snapshot, "script", ids.Nil)
 		if err != nil {
 			t.Error(err)
 			return
 		}
-		if err := attempts.Finish(context.Background(), claim, StepOutcome{Status: StatusPass, Evidence: []byte(`{}`)}); err != nil {
+		if err := attempts.finish(context.Background(), claim, StepOutcome{Status: StatusPass, Evidence: []byte(`{}`)}); err != nil {
 			t.Error(err)
 		}
 	}}
-	d := newDispatcher(q.db, dispatcherConfig{Life: context.Background(), Runners: runners, Report: func(err error) { t.Error(err) }})
+	d := newDispatcher(q.db, dispatcherConfig{life: context.Background(), runners: runners, report: func(err error) { t.Error(err) }})
 	runners["script"] = func(ids.ID) { t.Error("caller changed an admitted runner") }
 	delete(runners, "script")
-	d.Dispatch(DispatchPlan{RunID: run.ID, Steps: []ReadyStep{{ID: step, Type: "script", Name: "accept"}}}, false)
-	d.Wait()
+	d.dispatch(DispatchPlan{RunID: run.ID, Steps: []ReadyStep{{ID: step, Type: "script", Name: "accept"}}}, false)
+	d.wait()
 	if !called {
 		t.Fatal("frozen runner did not execute")
 	}
@@ -377,9 +377,9 @@ func TestDispatcherReportsPanicsAndDrainsWithoutAdvancing(t *testing.T) {
 		for typ := range d.runners {
 			d.runners[typ] = func(ids.ID) { panic("runner broke") }
 		}
-		d.Dispatch(s.p, false)
-		d.Wait()
-		d.Stop()
+		d.dispatch(s.p, false)
+		d.wait()
+		d.stop()
 		if s.advances != 0 || len(s.errors) == 0 {
 			t.Fatalf("advances=%d errors=%v", s.advances, s.errors)
 		}
@@ -410,9 +410,9 @@ func TestDispatcherStartsNoStepWhileNewWorkIsHeld(t *testing.T) {
 			return ctx.Err()
 		}
 	}
-	d := newDispatcher(q.db, dispatcherConfig{Life: context.Background(), Runners: map[string]func(ids.ID){"script": func(ids.ID) { ran <- struct{}{} }},
-		Report: func(err error) { t.Error(err) }, Hold: hold})
-	d.Dispatch(DispatchPlan{RunID: run.ID, Steps: []ReadyStep{{ID: step, Type: "script", Name: "accept"}}}, false)
+	d := newDispatcher(q.db, dispatcherConfig{life: context.Background(), runners: map[string]func(ids.ID){"script": func(ids.ID) { ran <- struct{}{} }},
+		report: func(err error) { t.Error(err) }, hold: hold})
+	d.dispatch(DispatchPlan{RunID: run.ID, Steps: []ReadyStep{{ID: step, Type: "script", Name: "accept"}}}, false)
 	select {
 	case <-ran:
 		t.Fatal("a step started while new work was held")
@@ -424,5 +424,5 @@ func TestDispatcherStartsNoStepWhileNewWorkIsHeld(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("the step did not start once new work was released")
 	}
-	d.Stop()
+	d.stop()
 }

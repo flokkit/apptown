@@ -53,14 +53,14 @@ type dispatcher struct {
 	tasks        sync.WaitGroup
 }
 
-func (d *dispatcher) Dispatch(plan DispatchPlan, recovering bool) bool {
+func (d *dispatcher) dispatch(plan DispatchPlan, recovering bool) bool {
 	return d.admit(plan, recovering, false)
 }
 
 // A running stage can request rework of its own first step. Coalesce that
 // request and admit it after the current task returns instead of dropping it.
 // The pending step in the database survives a stop or process restart.
-func (d *dispatcher) DispatchAgain(plan DispatchPlan) bool {
+func (d *dispatcher) dispatchAgain(plan DispatchPlan) bool {
 	return d.admit(plan, false, true)
 }
 
@@ -105,7 +105,7 @@ func (d *dispatcher) admit(plan DispatchPlan, recovering, again bool) bool {
 			delete(d.again, key)
 			d.mu.Unlock()
 			if ok {
-				d.DispatchAgain(next)
+				d.dispatchAgain(next)
 			}
 		}()
 		defer d.reportPanic("workflow dispatch")
@@ -135,7 +135,7 @@ func (d *dispatcher) admit(plan DispatchPlan, recovering, again bool) bool {
 	return true
 }
 
-func (d *dispatcher) RestartPending(adopt []ids.ID) {
+func (d *dispatcher) restartPending(adopt []ids.ID) {
 	runs, err := d.records.RestartCandidates(d.life)
 	if err != nil {
 		d.report(fmt.Errorf("recovering workflow dispatch: %w", err))
@@ -168,7 +168,7 @@ func (d *dispatcher) RestartPending(adopt []ids.ID) {
 			d.report(fmt.Errorf("run %d: recovering stage: %w", id, err))
 			continue
 		}
-		d.Dispatch(plan, true)
+		d.dispatch(plan, true)
 	}
 }
 
@@ -176,14 +176,14 @@ func (d *dispatcher) RestartPending(adopt []ids.ID) {
 // also closes admission and leaves unstarted steps pending for recovery. A
 // runner already in progress finishes under its existing timeout/cancellation
 // policy; this owner does not claim to cancel every kind of external work.
-func (d *dispatcher) Wait() { d.tasks.Wait() }
-func (d *dispatcher) Stop() {
-	<-d.BeginStop()
+func (d *dispatcher) wait() { d.tasks.Wait() }
+func (d *dispatcher) stop() {
+	<-d.beginStop()
 }
 
 // Close admission synchronously; joining already-running stages is separate so
 // the daemon can share one deadline with HTTP and its other workers.
-func (d *dispatcher) BeginStop() <-chan struct{} {
+func (d *dispatcher) beginStop() <-chan struct{} {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.stopDone != nil {
@@ -192,7 +192,7 @@ func (d *dispatcher) BeginStop() <-chan struct{} {
 	d.stopped = true
 	d.stopDone = make(chan struct{})
 	go func() {
-		d.Wait()
+		d.wait()
 		close(d.stopDone)
 	}()
 	return d.stopDone
@@ -204,7 +204,7 @@ func (d *dispatcher) beginShutdown() <-chan struct{} {
 	d.mu.Lock()
 	d.shuttingDown = true
 	d.mu.Unlock()
-	return d.BeginStop()
+	return d.beginStop()
 }
 
 func (d *dispatcher) isShuttingDown() bool {
@@ -283,7 +283,7 @@ func (d *dispatcher) executeStep(runID ids.ID, step ReadyStep, halted string) (f
 		return false, false
 	}
 	if step.OnEnter && halted != "" {
-		if state.Runnable() {
+		if state.runnable() {
 			if err := d.records.Skip(d.life, runID, step.ID, halted); err != nil {
 				d.report(fmt.Errorf("run %d step %d: recording skip: %w", runID, step.ID, err))
 				return false, false
@@ -311,7 +311,7 @@ func (d *dispatcher) executeStep(runID ids.ID, step ReadyStep, halted string) (f
 		}
 		return state.Status == StatusFail || state.Status == StatusError, true
 	}
-	if state.Runnable() {
+	if state.runnable() {
 		if state.Orphaned {
 			resumed, err := d.records.Resume(d.life, runID, step.ID)
 			if err != nil {
@@ -386,36 +386,36 @@ type dispatchStageHooks interface {
 }
 
 type dispatcherConfig struct {
-	Life       context.Context // the dispatcher's lifetime: its reads stop with it
-	Runners    map[string]func(ids.ID)
-	Recoverers map[string]func(ids.ID)
-	Stages     dispatchStageHooks
-	Report     func(error)
-	Now        func() time.Time // AppTown's clock; nil is the real one
-	// Hold waits before a step starts while AppTown holds new work (a
+	life       context.Context // the dispatcher's lifetime: its reads stop with it
+	runners    map[string]func(ids.ID)
+	recoverers map[string]func(ids.ID)
+	stages     dispatchStageHooks
+	report     func(error)
+	now        func() time.Time // AppTown's clock; nil is the real one
+	// hold waits before a step starts while AppTown holds new work (a
 	// whole-AppTown backup's brief pause); nil never holds.
-	Hold func(context.Context) error
+	hold func(context.Context) error
 }
 
 // newDispatcher owns its records and freezes the runner registry. Plans describe
 // already-admitted Work; every execution still checks the current stored Step.
 func newDispatcher(db *database.DB, runtime dispatcherConfig) *dispatcher {
-	runners := maps.Clone(runtime.Runners)
+	runners := maps.Clone(runtime.runners)
 	records := newDispatchPlans(db, slices.Sorted(maps.Keys(runners)))
-	records.clock = runtime.Now
-	d := &dispatcher{life: runtime.Life, records: records, runners: runners, recover: maps.Clone(runtime.Recoverers), report: runtime.Report, hold: runtime.Hold}
+	records.clock = runtime.now
+	d := &dispatcher{life: runtime.life, records: records, runners: runners, recover: maps.Clone(runtime.recoverers), report: runtime.report, hold: runtime.hold}
 	if d.report == nil {
 		d.report = func(error) {}
 	}
-	if runtime.Stages != nil {
-		d.prepare = runtime.Stages.Prepare
-		d.advance = runtime.Stages.Advance
+	if runtime.stages != nil {
+		d.prepare = runtime.stages.Prepare
+		d.advance = runtime.stages.Advance
 	}
 	if d.advance == nil {
 		d.advance = func(ids.ID) {}
 	}
 	d.refused = func(id ids.ID) bool {
-		refused, err := lastRefusedBySystem(runtime.Life, db, id)
+		refused, err := lastRefusedBySystem(runtime.life, db, id)
 		return err == nil && refused
 	}
 	d.note = func(id ids.ID, kind string, payload dispatchNotice) error {
@@ -423,7 +423,7 @@ func newDispatcher(db *database.DB, runtime dispatcherConfig) *dispatcher {
 		if err != nil {
 			return err
 		}
-		return RecordNotice(context.WithoutCancel(runtime.Life), db, Notice{RunID: id, Kind: kind, Payload: raw, At: clock.Or(runtime.Now)()})
+		return RecordNotice(context.WithoutCancel(runtime.life), db, Notice{RunID: id, Kind: kind, Payload: raw, At: clock.Or(runtime.now)()})
 	}
 	return d
 }

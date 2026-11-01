@@ -219,7 +219,7 @@ func TestIntegrationTheRoundTripKeepsTheRecords(t *testing.T) {
 		t.Fatalf("take-down again: %+v %v", res, err)
 	}
 	op := w.run(res.Operation)
-	if !endedAs(op, OperationVerified) {
+	if !endedAs(op, operationVerified) {
 		t.Fatalf("take-down %s: %s\n%+v", op.State, op.Detail, op.Steps)
 	}
 	if got := appDatabases(); got != "0" {

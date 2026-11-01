@@ -37,9 +37,9 @@ import (
 // ScanTimeout bounds one scanner run.
 const ScanTimeout = 5 * time.Minute
 
-// Scanners is the catalogue a tool check's name is looked up in. Resolving a
+// scanners is the catalogue a tool check's name is looked up in. Resolving a
 // name to an attached, configured tool is the caller's: the judge only asks.
-type Scanners interface {
+type scanners interface {
 	Scanner(name string) (Scanner, bool)
 }
 
@@ -94,8 +94,8 @@ func (j *Judge) EvaluateTool(d Declared, src Source, mode Mode, namePrefix strin
 // part's.
 const PartFolderVar = "${PART_FOLDER}"
 
-// PartFolderPath is the folder's path in the container.
-func PartFolderPath(folder string) string {
+// partFolderPath is the folder's path in the container.
+func partFolderPath(folder string) string {
 	if folder == "" || folder == "." {
 		return "/work"
 	}
@@ -110,7 +110,7 @@ func (j *Judge) toolInImage(d Declared, s Scanner, src Source, mode Mode) Evalua
 		return cannot(d, mode, "no built app image to run this check inside")
 	}
 	code, output := j.RunImage(src.Image, s.Command, src.Env)
-	ev := Evaluation{Declared: d, Mode: mode, Evidence: Evidence{ExitCode: &code, Image: src.Image}}
+	ev := Evaluation{Declared: d, Mode: mode, Evidence: evidence{ExitCode: &code, Image: src.Image}}
 	switch {
 	case code == 0:
 		ev.Outcome = Conforms
@@ -118,9 +118,9 @@ func (j *Judge) toolInImage(d Declared, s Scanner, src Source, mode Mode) Evalua
 		// The tool itself failed to run (an unhandled exception, an import
 		// error), not the app failing a check — a crash is an ERROR, never a
 		// conformance failure someone is told to "fix".
-		ev.Outcome, ev.Detail = Error, ToolSummary(s.Name, output)
+		ev.Outcome, ev.Detail = Error, toolSummary(s.Name, output)
 	default:
-		ev.Outcome, ev.Detail = DoesNotConform, ToolSummary(s.Name, output)
+		ev.Outcome, ev.Detail = DoesNotConform, toolSummary(s.Name, output)
 	}
 	return ev
 }
@@ -153,7 +153,7 @@ func (j *Judge) toolOnSource(d Declared, s Scanner, src Source, pl Place, mode M
 	structured := s.Format != "" && s.Report != ""
 	argv := make([]string, len(s.Command))
 	for i, a := range s.Command {
-		argv[i] = strings.ReplaceAll(a, PartFolderVar, PartFolderPath(pl.Folder))
+		argv[i] = strings.ReplaceAll(a, PartFolderVar, partFolderPath(pl.Folder))
 	}
 	req := s.Request(src.Tree, argv)
 	req.Name, req.Report = execution.UniqueName(namePrefix+"-tool"), s.Report
@@ -212,7 +212,7 @@ func (j *Judge) toolOnSource(d Declared, s Scanner, src Source, pl Place, mode M
 		ev.Outcome = Conforms
 		return ev
 	}
-	ev.Outcome, ev.Detail = DoesNotConform, ToolSummary(s.Name, string(outcome.Output))
+	ev.Outcome, ev.Detail = DoesNotConform, toolSummary(s.Name, string(outcome.Output))
 	return ev
 }
 
@@ -234,9 +234,9 @@ func ReportLost(name string) string {
 	return name + ": report lost (nothing it printed arrived)"
 }
 
-// ToolSummary trims a tool's raw output to a one-glance detail line. It is
+// toolSummary trims a tool's raw output to a one-glance detail line. It is
 // only asked of a tool that failed, so no output is a lost report.
-func ToolSummary(tool, output string) string {
+func toolSummary(tool, output string) string {
 	out := strings.TrimSpace(output)
 	if out == "" {
 		return ReportLost(tool)

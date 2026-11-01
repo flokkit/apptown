@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/database/query"
+
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/dbschema"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -270,22 +272,22 @@ func readOnly(t *testing.T, db *database.DB) *Service {
 
 // Real round-trip instrumentation retains the pool's fault scope.
 type countedQueries struct {
-	database.Handle
+	query.Handle
 	reads, writes int
 }
 
-func (d *countedQueries) SQL() database.Handle { return d.Handle.WithExecutor(d) }
+func (d *countedQueries) SQL() query.Handle { return dbtest.WithExecutor(d.Handle, d) }
 func (d *countedQueries) ExecContext(ctx context.Context, q string, args ...any) (sql.Result, error) {
 	d.writes++
-	return d.DBTX.ExecContext(ctx, q, args...)
+	return d.Executor.ExecContext(ctx, q, args...)
 }
 func (d *countedQueries) QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error) {
 	d.reads++
-	return d.DBTX.QueryContext(ctx, q, args...)
+	return d.Executor.QueryContext(ctx, q, args...)
 }
 func (d *countedQueries) QueryRowContext(ctx context.Context, q string, args ...any) *sql.Row {
 	d.reads++
-	return d.DBTX.QueryRowContext(ctx, q, args...)
+	return d.Executor.QueryRowContext(ctx, q, args...)
 }
 
 // race runs n copies of f started on one signal and returns their results.

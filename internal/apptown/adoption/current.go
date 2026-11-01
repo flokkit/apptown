@@ -84,12 +84,12 @@ func (s *Service) NoteDrift(ctx context.Context, projectID ids.ID, note string) 
 		if err != nil {
 			return err
 		}
-		event := current.NoteDrift(note)
+		event := current.noteDrift(note)
 		_, err = adoptionsql.New(tx.SQL()).SetCurrentDrift(ctx, adoptionsql.SetCurrentDriftParams{ProjectID: event.ProjectID, DriftNote: event.Drift})
 		return err
 	})
 }
-func (s *Service) ClearDrift(ctx context.Context, projectID ids.ID) error {
+func (s *Service) clearDrift(ctx context.Context, projectID ids.ID) error {
 	return s.NoteDrift(ctx, projectID, "")
 }
 func (s *Service) ProjectsWithRevisions(ctx context.Context) ([]ids.ID, error) {
@@ -104,5 +104,5 @@ func CurrentReceiptIDIn(ctx context.Context, q database.Queryer, projectID ids.I
 
 // TargetOwnedIn checks the immutable uplift target identity, without interpreting its body.
 func TargetOwnedIn(ctx context.Context, q database.Queryer, projectID, changeID, receiptID ids.ID, digest string) (bool, error) {
-	return adoptionsql.New(q.SQL()).TargetOwned(ctx, adoptionsql.TargetOwnedParams{ReceiptID: receiptID, ProjectID: projectID, ChangeID: changeID, Kind: AdoptionTarget.String(), Digest: digest})
+	return adoptionsql.New(q.SQL()).TargetOwned(ctx, adoptionsql.TargetOwnedParams{ReceiptID: receiptID, ProjectID: projectID, ChangeID: changeID, Kind: adoptionTarget.String(), Digest: digest})
 }

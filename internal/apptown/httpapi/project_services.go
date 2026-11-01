@@ -54,7 +54,7 @@ type (
 // ListProjectServices: GET /projects/{slug}/services — the declared needs,
 // which contract form the project is on, and the declaration's version.
 func (h ProjectServices) ListProjectServices(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -91,7 +91,7 @@ func (h ProjectServices) ListProjectServices(w http.ResponseWriter, r *http.Requ
 // .apptown/app.yaml. {needs, direct: true} seeds a new project's main instead,
 // refused once the project has a Change.
 func (h ProjectServices) SetProjectServices(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -111,7 +111,7 @@ func (h ProjectServices) SetProjectServices(w http.ResponseWriter, r *http.Reque
 		if in.Needs == nil {
 			in.Needs = []repositoryedit.NeedSelection{}
 		}
-		ch, err := h.editor.SetServices(r.Context(), p, repositoryedit.ServicesEdit{Needs: in.Needs, Title: in.Title, Actor: Actor(r), Direct: in.Direct, ExpectedDeclaration: in.ExpectedDeclaration})
+		ch, err := h.editor.SetServices(r.Context(), p, repositoryedit.ServicesEdit{Needs: in.Needs, Title: in.Title, Actor: actor(r), Direct: in.Direct, ExpectedDeclaration: in.ExpectedDeclaration})
 		if err != nil {
 			WriteFault(w, err)
 			return

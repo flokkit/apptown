@@ -114,7 +114,7 @@ func newWorld(t *testing.T, publicHost, secretsEnv string) *world {
 		t.Fatal(err)
 	}
 	port, _ := strconv.Atoi(portText)
-	w.client = dockerfake.New()
+	w.client = newDockerFake()
 	w.client.SetPort(port)
 	w.host = deployment.HostSettings{Scope: docker.Scope{Client: w.client}, DataDir: w.dir, BuiltInTarget: "local"}
 	w.env = deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Secrets: w.secrets, Integrations: integration.NewService(db, integration.Dependencies{Projects: w.projects, Secrets: w.secrets}),

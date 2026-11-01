@@ -29,13 +29,13 @@ type SessionClient struct {
 }
 
 var (
-	// ErrSessionRemoved: the worker removed the session, and will not start
+	// errRemoteSessionRemoved: the worker removed the session, and will not start
 	// it again.
-	ErrSessionRemoved = errors.New("the worker removed this session")
-	// ErrNoSession: the worker has no record of the session.
-	ErrNoSession = errors.New("the worker has no such session")
-	// ErrSessionBusy: the worker refused to rebuild a running chat.
-	ErrSessionBusy = errors.New("the chat is busy")
+	errRemoteSessionRemoved = errors.New("the worker removed this session")
+	// errNoSession: the worker has no record of the session.
+	errNoSession = errors.New("the worker has no such session")
+	// errRemoteSessionBusy: the worker refused to rebuild a running chat.
+	errRemoteSessionBusy = errors.New("the chat is busy")
 )
 
 // transport is the one worker transport (execution.WorkerClient).
@@ -60,11 +60,11 @@ func refusal(resp *http.Response) error {
 	}
 	switch resp.StatusCode {
 	case http.StatusConflict:
-		return fmt.Errorf("%w: %v", ErrSessionRemoved, err)
+		return fmt.Errorf("%w: %v", errRemoteSessionRemoved, err)
 	case http.StatusNotFound:
-		return fmt.Errorf("%w: %v", ErrNoSession, err)
+		return fmt.Errorf("%w: %v", errNoSession, err)
 	case http.StatusLocked:
-		return fmt.Errorf("%w: %v", ErrSessionBusy, err)
+		return fmt.Errorf("%w: %v", errRemoteSessionBusy, err)
 	}
 	return err
 }
@@ -77,8 +77,8 @@ func (c SessionClient) Put(ctx context.Context, id string, spec SessionSpec) (Se
 	return st, c.call(ctx, http.MethodPut, sessionPath(id, ""), spec, &st)
 }
 
-// Start makes the session's container and private daemon run.
-func (c SessionClient) Start(ctx context.Context, id string) (SessionStatus, error) {
+// start makes the session's container and private daemon run.
+func (c SessionClient) start(ctx context.Context, id string) (SessionStatus, error) {
 	var st SessionStatus
 	return st, c.call(ctx, http.MethodPost, sessionPath(id, "/start"), nil, &st)
 }
@@ -120,39 +120,39 @@ func (c SessionClient) send(ctx context.Context, method, path string, body io.Re
 	return c.transport().Send(ctx, method, path, body, "application/x-tar", out, maxSessionAnswer, refusal)
 }
 
-// EnsureBlob sends a blob (a tar with one entry named "content", named by
+// ensureBlob sends a blob (a tar with one entry named "content", named by
 // its SHA-256) unless the worker has it.
-func (c SessionClient) EnsureBlob(ctx context.Context, sum string, tar []byte) error {
+func (c SessionClient) ensureBlob(ctx context.Context, sum string, tar []byte) error {
 	return c.transport().EnsureBlob(ctx, sum, tar)
 }
 
-// PutFiles replaces the session's files with the tar.
-func (c SessionClient) PutFiles(ctx context.Context, id string, tar io.Reader) (SessionStatus, error) {
+// putFiles replaces the session's files with the tar.
+func (c SessionClient) putFiles(ctx context.Context, id string, tar io.Reader) (SessionStatus, error) {
 	var st SessionStatus
 	return st, c.send(ctx, http.MethodPut, sessionPath(id, "/files"), tar, &st)
 }
 
-// Deliver types a message into the chat. An error means it may or may not
+// deliver types a message into the chat. An error means it may or may not
 // have arrived.
-func (c SessionClient) Deliver(ctx context.Context, id, text string) error {
+func (c SessionClient) deliver(ctx context.Context, id, text string) error {
 	var out struct{}
 	return c.call(ctx, http.MethodPost, sessionPath(id, "/deliver"), DeliverRequest{Text: text}, &out)
 }
 
-// Interrupt stops the chat's current turn.
-func (c SessionClient) Interrupt(ctx context.Context, id string) error {
+// interrupt stops the chat's current turn.
+func (c SessionClient) interrupt(ctx context.Context, id string) error {
 	var out struct{}
 	return c.call(ctx, http.MethodPost, sessionPath(id, "/interrupt"), nil, &out)
 }
 
-// Records lists the chat's record files.
-func (c SessionClient) Records(ctx context.Context, id string) ([]RecordFile, error) {
+// records lists the chat's record files.
+func (c SessionClient) records(ctx context.Context, id string) ([]RecordFile, error) {
 	var out []RecordFile
 	return out, c.call(ctx, http.MethodGet, sessionPath(id, "/records"), nil, &out)
 }
 
-// Record reads a record file from an offset.
-func (c SessionClient) Record(ctx context.Context, id, name string, from int64) ([]byte, error) {
+// record reads a record file from an offset.
+func (c SessionClient) record(ctx context.Context, id, name string, from int64) ([]byte, error) {
 	resp, err := c.transport().Do(ctx, http.MethodGet, sessionPath(id, "/records/"+url.PathEscape(name))+"?from="+strconv.FormatInt(from, 10), nil, nil)
 	if err != nil {
 		return nil, err
@@ -168,8 +168,8 @@ func (c SessionClient) Record(ctx context.Context, id, name string, from int64) 
 	return body, nil
 }
 
-// Terminal opens the chat's terminal on the worker.
-func (c SessionClient) Terminal(ctx context.Context, id string, size console.Size) (console.Terminal, error) {
+// terminal opens the chat's terminal on the worker.
+func (c SessionClient) terminal(ctx context.Context, id string, size console.Size) (console.Terminal, error) {
 	// A terminal lasts as long as it is open: a client's overall timeout
 	// would cut it, and would leave its connection unwritable.
 	hc := http.Client{}
@@ -239,8 +239,8 @@ func (c SessionClient) Reach(ctx context.Context, urls []string) ([]Reach, error
 	return out, c.call(ctx, http.MethodPost, "/v1/reach", ReachRequest{URLs: urls}, &out)
 }
 
-// PutSource sends the bundle the chat's work tree is made from.
-func (c SessionClient) PutSource(ctx context.Context, id, branch, commit string, bundle io.Reader) (SessionStatus, error) {
+// putSource sends the bundle the chat's work tree is made from.
+func (c SessionClient) putSource(ctx context.Context, id, branch, commit string, bundle io.Reader) (SessionStatus, error) {
 	var st SessionStatus
 	q := url.Values{"branch": {branch}, "commit": {commit}}
 	return st, c.send(ctx, http.MethodPut, sessionPath(id, "/source?"+q.Encode()), bundle, &st)
@@ -274,15 +274,15 @@ func (c SessionClient) Save(ctx context.Context, id, base, leftovers, dest strin
 	if err != nil {
 		return "", err
 	}
-	n, err := io.Copy(f, io.LimitReader(resp.Body, MaxBundleBytes+1))
+	n, err := io.Copy(f, io.LimitReader(resp.Body, maxBundleBytes+1))
 	if cerr := f.Close(); err == nil {
 		err = cerr
 	}
 	if err != nil {
 		return "", fmt.Errorf("%w: receiving the chat's save: %w", execution.ErrWorkerUnavailable, err)
 	}
-	if n > MaxBundleBytes {
-		return "", fmt.Errorf("%w: the chat's save is larger than %d bytes", gitexec.ErrBundleRefused, MaxBundleBytes)
+	if n > maxBundleBytes {
+		return "", fmt.Errorf("%w: the chat's save is larger than %d bytes", gitexec.ErrBundleRefused, maxBundleBytes)
 	}
 	return head, nil
 }

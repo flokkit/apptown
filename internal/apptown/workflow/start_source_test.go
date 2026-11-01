@@ -46,7 +46,7 @@ func TestStartSourceOwnsScopeAndAdoptionLineage(t *testing.T) {
 	if _, err := owner.Source(ctx, foreign); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("foreign Change: %v", err)
 	}
-	parent, err := owner.Create(ctx, req, def)
+	parent, err := owner.records.create(ctx, req, def)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestStartSourceClassifiesFailedLandingWithoutMutatingIt(t *testing.T) {
 			if scenario != "working" {
 				def.Spec.Role = "landing"
 			}
-			run, err := owner.Create(ctx, req, def)
+			run, err := owner.records.create(ctx, req, def)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -127,11 +127,11 @@ func TestRunDepthLimitIsOwnedBySourceAndTransactionalAdmission(t *testing.T) {
 	ctx := context.Background()
 	pinStartFixture(t, owner, req, &def)
 	for depth := 1; depth <= MaxCallDepth; depth++ {
-		run, err := owner.Create(ctx, req, def)
+		run, err := owner.records.create(ctx, req, def)
 		if err != nil {
 			t.Fatalf("depth %d: %v", depth, err)
 		}
-		if err := owner.Prepared(ctx, run.ID); err != nil {
+		if err := owner.records.prepared(ctx, run.ID); err != nil {
 			t.Fatal(err)
 		}
 		req.parentRunID = run.ID
@@ -139,7 +139,7 @@ func TestRunDepthLimitIsOwnedBySourceAndTransactionalAdmission(t *testing.T) {
 	if _, err := owner.Source(ctx, req); err == nil || !strings.Contains(err.Error(), "call depth cap") {
 		t.Fatalf("source depth: %v", err)
 	}
-	if run, err := owner.Create(ctx, req, def); run != nil || err == nil || !strings.Contains(err.Error(), "call depth cap") {
+	if run, err := owner.records.create(ctx, req, def); run != nil || err == nil || !strings.Contains(err.Error(), "call depth cap") {
 		t.Fatalf("transactional depth: %+v %v", run, err)
 	}
 	wantRunCount(t, owner.records.db, MaxCallDepth, nil)
@@ -148,7 +148,7 @@ func TestRunDepthLimitIsOwnedBySourceAndTransactionalAdmission(t *testing.T) {
 func TestChildStartRefusesAMissingParentAdoption(t *testing.T) {
 	t.Parallel()
 	owner, req, def := runAdmissionFixture(t)
-	parent, err := owner.Create(t.Context(), req, def)
+	parent, err := owner.records.create(t.Context(), req, def)
 	if err != nil {
 		t.Fatal(err)
 	}

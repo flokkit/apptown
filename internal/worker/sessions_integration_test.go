@@ -68,7 +68,7 @@ func TestIntegrationASessionOnARealWorker(t *testing.T) {
 	if _, err := client.Put(ctx, id, worker.SessionSpec{Image: "apptown-agent", AgentSession: "console", Docker: true, Mirror: mirror}); err != nil {
 		t.Fatal(err)
 	}
-	st, err := client.Start(ctx, id)
+	st, err := worker.SessionClientStart(client, ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestIntegrationASessionOnARealWorker(t *testing.T) {
 	if err != nil || !st.Known || !st.Agent.Exists {
 		t.Fatalf("after a worker restart: %+v %v", st, err)
 	}
-	if st, err = client.Start(ctx, id); err != nil || !st.Agent.Running {
+	if st, err = worker.SessionClientStart(client, ctx, id); err != nil || !st.Agent.Running {
 		t.Fatalf("started again after the restart: %+v %v", st, err)
 	}
 
@@ -163,7 +163,7 @@ func TestIntegrationASessionOnARealWorker(t *testing.T) {
 	if left := w.Docker("network", "ls", "--filter", "label=apptown.console="+id, "--format", "{{.Name}}"); left != "" {
 		t.Fatalf("network left on the worker's Docker: %s", left)
 	}
-	if _, err := client.Start(ctx, id); !errors.Is(err, worker.ErrSessionRemoved) {
+	if _, err := worker.SessionClientStart(client, ctx, id); !errors.Is(err, worker.ErrSessionRemoved) {
 		t.Fatalf("starting a removed session: %v", err)
 	}
 }

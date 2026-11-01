@@ -32,9 +32,9 @@ func NewOutcomes(db *database.DB, followups jobs.Enqueuer) *Outcomes {
 	return &Outcomes{db: db, followups: followups}
 }
 
-var ErrUncertain = errors.New("deployment outcome is uncertain")
+var errUncertain = errors.New("deployment outcome is uncertain")
 
-var ErrOutcomeConflict = errors.New("deployment attempt already has a different outcome")
+var errOutcomeConflict = errors.New("deployment attempt already has a different outcome")
 
 // Admit binds a deployment-scoped idempotency key to immutable inputs and a
 // generation. A new attempt atomically supersedes running predecessors and their
@@ -63,11 +63,11 @@ func (s *Outcomes) Admit(ctx context.Context, in Start) (Attempt, bool, error) {
 		return at, false, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	dep, err := LockDeploymentIn(ctx, tx, deploymentID)
+	dep, err := lockDeploymentRecordIn(ctx, tx, deploymentID)
 	if err != nil {
 		return Attempt{}, false, err
 	}
-	if err := dep.Bound(in.TargetID); err != nil {
+	if err := dep.bound(in.TargetID); err != nil {
 		return Attempt{}, false, err
 	}
 	at.Generation = dep.DesiredGeneration
@@ -82,7 +82,7 @@ func (s *Outcomes) Admit(ctx context.Context, in Start) (Attempt, bool, error) {
 		if err != nil {
 			return Attempt{}, false, err
 		}
-		if !stored.Same(in.Inputs) {
+		if !stored.same(in.Inputs) {
 			return Attempt{}, false, fmt.Errorf("deployment key %q already names different inputs", key)
 		}
 		if err := tx.Commit(); err != nil {
@@ -103,14 +103,14 @@ func (s *Outcomes) Admit(ctx context.Context, in Start) (Attempt, bool, error) {
 	// release of it is the decision to start it as it is, and lifts that.
 	if dep.RestoreCheck == RestoreNotFilled {
 		if in.Inputs.Rebuild {
-			return Attempt{}, false, fmt.Errorf("%s is %w: %w", dep.Name, ErrNotFilledSinceRestore, ErrReleaseRefused)
+			return Attempt{}, false, fmt.Errorf("%s is %w: %w", dep.Name, errNotFilledSinceRestore, ErrReleaseRefused)
 		}
 		if _, err := deploymentsql.New(tx.SQL()).SettleRestoreCheck(ctx, deploymentsql.SettleRestoreCheckParams{
 			Next: "", UpdatedAt: now, ID: dep.ID, Current: string(RestoreNotFilled)}); err != nil {
 			return Attempt{}, false, err
 		}
 	}
-	nextGeneration, admitted, err := dep.Admit(in.BaseGeneration)
+	nextGeneration, admitted, err := dep.admit(in.BaseGeneration)
 	if err != nil {
 		return Attempt{}, false, err
 	}
@@ -119,7 +119,7 @@ func (s *Outcomes) Admit(ctx context.Context, in Start) (Attempt, bool, error) {
 		return Attempt{}, false, err
 	}
 	if !uncertainID.IsZero() {
-		return Attempt{}, false, fmt.Errorf("%w: AppTown doesn't know how this deployment's last attempt (%s) ended. Press Check again on the deployment to find out", ErrUncertain, uncertainID)
+		return Attempt{}, false, fmt.Errorf("%w: AppTown doesn't know how this deployment's last attempt (%s) ended. Press Check again on the deployment to find out", errUncertain, uncertainID)
 	}
 	if !in.Inputs.ReleaseID.IsZero() {
 		r, err := deploymentReleaseIn(ctx, tx, in.Inputs.ReleaseID)
@@ -129,8 +129,8 @@ func (s *Outcomes) Admit(ctx context.Context, in Start) (Attempt, bool, error) {
 		if err := r.belongsTo(dep); err != nil {
 			return Attempt{}, false, err
 		}
-		if !r.state.Open() && !(r.state == Released && r.generation == 0) {
-			return Attempt{}, false, ErrOutcomeConflict
+		if !r.state.open() && !(r.state == Released && r.generation == 0) {
+			return Attempt{}, false, errOutcomeConflict
 		}
 		if r.revision != "" && r.revision != in.Inputs.Revision {
 			return Attempt{}, false, fmt.Errorf("release %d revision differs from requested deployment", r.id)
@@ -162,7 +162,7 @@ func (s *Outcomes) Admit(ctx context.Context, in Start) (Attempt, bool, error) {
 		return Attempt{}, false, err
 	}
 	if _, err := deploymentsql.New(tx.SQL()).SupersedeAttempts(ctx, deploymentsql.SupersedeAttemptsParams{
-		Status:       AttemptSuperseded.String(),
+		Status:       attemptSuperseded.String(),
 		SupersededBy: at.ID,
 		FinishedAt:   sql.NullTime{Time: now, Valid: true},
 		DeploymentID: deploymentID,
@@ -176,7 +176,7 @@ func (s *Outcomes) Admit(ctx context.Context, in Start) (Attempt, bool, error) {
 		if err != nil {
 			return Attempt{}, false, err
 		}
-		if err := settleDeploymentReleaseIn(ctx, tx, p, dep, inputs, AttemptSuperseded, deploy.Observation{}, "", now); err != nil {
+		if err := settleDeploymentReleaseIn(ctx, tx, p, dep, inputs, attemptSuperseded, deploy.Observation{}, "", now); err != nil {
 			return Attempt{}, false, err
 		}
 	}
@@ -197,8 +197,8 @@ func (s *Outcomes) Admit(ctx context.Context, in Start) (Attempt, bool, error) {
 // Complete settles an observed result and its associated release in one
 // transaction. It rechecks attempt ownership and observation identity. Replay
 // retains stored evidence; a superseded result cannot replace current placement.
-func (s *Outcomes) Complete(ctx context.Context, in Completion) (Outcome, error) {
-	if err := in.Attempt.Completes(in.Observed); err != nil {
+func (s *Outcomes) Complete(ctx context.Context, in Completion) (deploymentOutcome, error) {
+	if err := in.Attempt.completes(in.Observed); err != nil {
 		return "", err
 	}
 	return s.finish(ctx, in, nil)
@@ -206,21 +206,21 @@ func (s *Outcomes) Complete(ctx context.Context, in Completion) (Outcome, error)
 
 // Fail records a confirmed failure and its associated release atomically.
 // cause must be nonnil. Use Uncertain when the provider outcome is unknown.
-func (s *Outcomes) Fail(ctx context.Context, at Attempt, cause error) (Outcome, error) {
+func (s *Outcomes) Fail(ctx context.Context, at Attempt, cause error) (deploymentOutcome, error) {
 	if cause == nil {
 		return "", errors.New("deployment failure requires a cause")
 	}
 	return s.finish(ctx, Completion{Attempt: at}, cause)
 }
 
-func (s *Outcomes) finish(ctx context.Context, in Completion, cause error) (Outcome, error) {
+func (s *Outcomes) finish(ctx context.Context, in Completion, cause error) (deploymentOutcome, error) {
 	ctx = context.WithoutCancel(ctx) // the effect is done: its settlement is written though ctx has ended
 	now := s.now()
 	at := in.Attempt
 	if at.ID.IsZero() || at.DeploymentID.IsZero() || at.Generation == 0 {
 		return "", errors.New("deployment outcome requires an admitted attempt and generation")
 	}
-	return database.Transact(ctx, s.db, func(tx *database.Tx) (Outcome, error) {
+	return database.Transact(ctx, s.db, func(tx *database.Tx) (deploymentOutcome, error) {
 		dep, status, storedObservation, err := lockDeploymentIn(ctx, tx, at)
 		if err != nil {
 			return "", err
@@ -229,7 +229,7 @@ func (s *Outcomes) finish(ctx context.Context, in Completion, cause error) (Outc
 		if err != nil {
 			return "", err
 		}
-		verdict, err := at.Settle(dep, status, cause != nil)
+		verdict, err := at.settle(dep, status, cause != nil)
 		if err != nil {
 			return "", err
 		}
@@ -238,7 +238,7 @@ func (s *Outcomes) finish(ctx context.Context, in Completion, cause error) (Outc
 			if verdict.Changed {
 				if _, err := deploymentsql.New(tx.SQL()).FinishSupersededAttempt(ctx, deploymentsql.FinishSupersededAttemptParams{
 					Status:     verdict.Next.String(),
-					Terminal:   verdict.Next.Terminal(),
+					Terminal:   verdict.Next.terminal(),
 					FinishedAt: sql.NullTime{Time: now, Valid: true},
 					ID:         at.ID,
 				}); err != nil {
@@ -249,13 +249,13 @@ func (s *Outcomes) finish(ctx context.Context, in Completion, cause error) (Outc
 				return "", err
 			}
 			return Superseded, nil
-		case AlreadyApplied:
+		case alreadyApplied:
 			// Replay acknowledges the stored outcome; it never substitutes the
 			// replay's URL, artifact or failure message for the original evidence.
 			if err := settleStoredDeploymentReleaseIn(ctx, tx, at, dep, inputs, status, storedObservation, now); err != nil {
 				return "", err
 			}
-			return AlreadyApplied, nil
+			return alreadyApplied, nil
 		}
 		next, readiness := verdict.Next, verdict.Readiness
 		data, err := json.Marshal(in.Observed)
@@ -315,7 +315,7 @@ func (s *Outcomes) finish(ctx context.Context, in Completion, cause error) (Outc
 		}
 		if _, err := deploymentsql.New(tx.SQL()).FinishAttempt(ctx, deploymentsql.FinishAttemptParams{
 			Status:       next.String(),
-			Terminal:     next.Terminal(),
+			Terminal:     next.terminal(),
 			ObservedJson: json.RawMessage(evidence),
 			FinishedAt:   sql.NullTime{Time: now, Valid: true},
 			ID:           at.ID,
@@ -350,7 +350,7 @@ func settleStoredDeploymentReleaseIn(ctx context.Context, tx *database.Tx, at At
 		if err := json.Unmarshal([]byte(evidence), &failure); err != nil {
 			return fmt.Errorf("attempt %d failure: %w", at.ID, err)
 		}
-	case AttemptSuperseded:
+	case attemptSuperseded:
 	default:
 		return fmt.Errorf("attempt %d is still %s", at.ID, status)
 	}

@@ -30,10 +30,10 @@ type SignedIn struct {
 	Principal access.Principal
 	Token     string
 }
-type SessionIssueError struct{ Cause error }
+type sessionIssueError struct{ Cause error }
 
-func (e *SessionIssueError) Error() string { return fmt.Sprintf("creating your session: %v", e.Cause) }
-func (e *SessionIssueError) Unwrap() error { return e.Cause }
+func (e *sessionIssueError) Error() string { return fmt.Sprintf("creating your session: %v", e.Cause) }
+func (e *sessionIssueError) Unwrap() error { return e.Cause }
 
 type AdministratorDenied struct{ Reason string }
 
@@ -172,7 +172,7 @@ func (s *Service) passwordSession(ctx context.Context, a Account) (SignedIn, err
 		}
 		token, err := issueSessionIn(ctx, tx, a.Username, s.sessions.ttl, s.now())
 		if err != nil {
-			return "", &SessionIssueError{Cause: err}
+			return "", &sessionIssueError{Cause: err}
 		}
 		return token, nil
 	})
@@ -185,7 +185,7 @@ func (s *Service) passwordSession(ctx context.Context, a Account) (SignedIn, err
 	return SignedIn{Principal: a.principal("session"), Token: token}, nil
 }
 func (s *Service) SessionIdentity(ctx context.Context, presented string) (access.Principal, error) {
-	user, id, found, err := s.sessions.Resolve(ctx, presented)
+	user, id, found, err := s.sessions.resolve(ctx, presented)
 	if !found {
 		return access.Principal{}, err
 	}
@@ -198,7 +198,7 @@ func (s *Service) SessionIdentity(ctx context.Context, presented string) (access
 		return access.Principal{}, err
 	}
 	pr := a.principal("session")
-	pr.Credential = SessionCredential(id)
+	pr.Credential = sessionCredential(id)
 	return pr, nil
 }
 func (s *Service) PersonalTokenIdentity(ctx context.Context, presented string, from net.IP) (access.Principal, error) {
@@ -214,7 +214,7 @@ func (s *Service) PersonalTokenIdentity(ctx context.Context, presented string, f
 		return access.Principal{}, err
 	}
 	pr := a.tokenPrincipal(row.Role, row.Purpose)
-	pr.Credential = TokenCredential(row.Name)
+	pr.Credential = tokenCredential(row.Name)
 	user := row.Username
 	if pr.Role == "admin" {
 		if err := s.administratorAdmission(ctx, user, from, "token"); err != nil {

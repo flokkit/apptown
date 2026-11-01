@@ -73,7 +73,7 @@ func (l landingAtMerge) owner(driver scm.Driver) *Merges {
 func (l landingAtMerge) service(driver scm.Driver) *Service {
 	s := newServiceWithAuthority(l.db, Dependencies{DataDir: l.dir, Laws: policyLawRules{}, Abandonment: abandonRecorderFunc(noAbandonEffects),
 		Merge: mergeEffectsTest{driver: driver, observed: func(scm.Result) {}}}, allowProject(l.run.ProjectID))
-	s.dispatcher.Stop()
+	s.dispatcher.stop()
 	return s
 }
 
@@ -93,7 +93,7 @@ func (l landingAtMerge) call(t *testing.T) MergeCall {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return MergeCall{Purpose: MergeForAssertion, Run: *run, Step: *step, Source: source}
+	return MergeCall{Purpose: mergeForAssertion, Run: *run, Step: *step, Source: source}
 }
 
 // record is SCM's merge record for the landing, read as startup inspection

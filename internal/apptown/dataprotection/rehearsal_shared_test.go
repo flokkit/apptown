@@ -129,7 +129,7 @@ func TestWithNoHostKeptARehearsalRunsOnTheAppsOwnHostAndSaysSo(t *testing.T) {
 	t.Parallel()
 	w := newSharedRehearsalWorld(t)
 	op := w.rehearse(t)
-	if !endedAs(op, OperationVerified) {
+	if !endedAs(op, operationVerified) {
 		t.Fatalf("rehearsal %s: %s", op.State, op.Detail)
 	}
 	if !strings.Contains(op.Detail, "on remote (shared, not set aside for rehearsals)") {
@@ -178,7 +178,7 @@ func TestAKeptHostTakesEveryRehearsal(t *testing.T) {
 	if kept, err = w.s.Targets.EditSettings(ctx, "rehearse-1", deployment.TargetSettingsEdit{ExpectedRevision: &kept.SettingsRevision, Rehearsals: &yes}, "admin"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.s.RequestRehearsal(ctx, w.project, "main", ids.Nil); !errors.Is(err, ErrRehearsalSource) || !strings.Contains(err.Error(), "rehearse-1 cannot run its images") {
+	if _, err := w.s.RequestRehearsal(ctx, w.project, "main", ids.Nil); !errors.Is(err, errRehearsalSource) || !strings.Contains(err.Error(), "rehearse-1 cannot run its images") {
 		t.Fatalf("a release not in a registry, rehearsed on a kept host: %v", err)
 	}
 	if _, err := w.s.Targets.RecordCheck(ctx, kept, false, "admin", nil); err != nil {
@@ -212,7 +212,7 @@ func TestARehearsalHoldsADiskSetToItsRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	op := w.rehearse(t)
-	if endedAs(op, OperationVerified) || !strings.Contains(op.Detail, "the set records") {
+	if endedAs(op, operationVerified) || !strings.Contains(op.Detail, "the set records") {
 		t.Fatalf("a changed set: %s %s", op.State, op.Detail)
 	}
 	for _, c := range w.host.Commands() {

@@ -32,7 +32,7 @@ func (s Selection) profile(ctx context.Context, projectID ids.ID) (string, error
 	if err != nil {
 		return "", fmt.Errorf("reading the project's model profile: %w", err)
 	}
-	return ProfileOf(p.ModelProfile), nil
+	return profileOf(p.ModelProfile), nil
 }
 
 // Resolve selects against the project's current profile and current slot mappings.
@@ -44,5 +44,5 @@ func (s Selection) Resolve(ctx context.Context, projectID ids.ID, requested stri
 	if err != nil {
 		return "", "", "", err
 	}
-	return s.slots.Resolve(ctx, projectID, proj, requested)
+	return s.slots.resolve(ctx, projectID, proj, requested)
 }

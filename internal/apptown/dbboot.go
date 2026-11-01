@@ -291,9 +291,9 @@ func waitForDB(ctx context.Context, url string) error {
 // and writes. The upgrade test's fixtures carry the marker file.
 const DataLayoutVersion = datalayout.Version
 
-// ErrNewerDataLayout: the data directory was written by a newer build, whose
+// errNewerDataLayout: the data directory was written by a newer build, whose
 // files this build would misread. Downgrades are not supported.
-var ErrNewerDataLayout = datalayout.ErrNewerLayout
+var errNewerDataLayout = datalayout.ErrNewerLayout
 
 // PrepareDataLayout refuses a data directory in another layout and marks one
 // with no project repository as this layout (datalayout.Initialize), before

@@ -27,11 +27,11 @@ func (brokenBody) Close() error { return nil }
 func TestASessionRefusalThatCannotBeReadIsTheWorkerUnavailable(t *testing.T) {
 	t.Parallel()
 	cut := &http.Response{StatusCode: http.StatusNotFound, Status: "404 Not Found", Header: http.Header{}, Body: brokenBody{strings.NewReader("no such")}}
-	if err := refusal(cut); !errors.Is(err, execution.ErrWorkerUnavailable) || errors.Is(err, ErrNoSession) {
+	if err := refusal(cut); !errors.Is(err, execution.ErrWorkerUnavailable) || errors.Is(err, errNoSession) {
 		t.Fatalf("a refusal cut short: %v", err)
 	}
 	whole := &http.Response{StatusCode: http.StatusNotFound, Status: "404 Not Found", Header: http.Header{}, Body: io.NopCloser(strings.NewReader("no such session"))}
-	if err := refusal(whole); !errors.Is(err, ErrNoSession) || !strings.Contains(err.Error(), "no such session") {
+	if err := refusal(whole); !errors.Is(err, errNoSession) || !strings.Contains(err.Error(), "no such session") {
 		t.Fatalf("a whole refusal: %v", err)
 	}
 }

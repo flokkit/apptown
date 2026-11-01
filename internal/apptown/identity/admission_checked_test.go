@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 )
 
@@ -28,7 +30,7 @@ func TestAdmissionRequiresReadableAccount(t *testing.T) {
 		{"token", func() (access.Principal, error) { return s.PersonalTokenIdentity(ctx, token, nil) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			restore := s.db.FailNextStatement("-- name: TouchUser")
+			restore := dbtest.NextStatementFailure(s.db, "-- name: TouchUser")
 			pr, err := tc.resolve()
 			restore()
 			if err == nil || pr.Name != "" {
@@ -41,13 +43,13 @@ func TestAdmissionRequiresReadableAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	restore := s.db.FailNextStatement("-- name: TouchUser")
+	restore := dbtest.NextStatementFailure(s.db, "-- name: TouchUser")
 	resolved, err := s.ResolveOAuth(ctx, pair.Access, AudienceUser)
 	restore()
 	if err == nil || resolved.Principal.Name != "" {
 		t.Fatalf("OAuth admitted unreadable account %q: %v", resolved.Principal.Name, err)
 	}
-	restore = s.db.FailNextStatement("-- name: UserByName")
+	restore = dbtest.NextStatementFailure(s.db, "-- name: UserByName")
 	signed, err := s.SignIn(ctx, PasswordLogin{Username: "alice", Password: "admission-password"})
 	restore()
 	if err == nil || signed.Token != "" {
@@ -86,13 +88,13 @@ func TestCredentialLastUseRemainsBestEffort(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	restore := s.db.FailNextStatement("-- name: TouchSession")
+	restore := dbtest.NextStatementFailure(s.db, "-- name: TouchSession")
 	pr, err := s.SessionIdentity(ctx, session)
 	restore()
 	if err != nil || pr.Name != "alice" {
 		t.Fatalf("session stamp became authority: %+v %v", pr, err)
 	}
-	restore = s.db.FailNextStatement("-- name: TouchAuthToken")
+	restore = dbtest.NextStatementFailure(s.db, "-- name: TouchAuthToken")
 	pr, err = s.PersonalTokenIdentity(ctx, token, nil)
 	restore()
 	if err != nil || pr.Name != "alice" {

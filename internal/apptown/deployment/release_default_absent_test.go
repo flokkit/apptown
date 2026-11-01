@@ -2,9 +2,10 @@ package deployment
 
 import (
 	"errors"
-	"github.com/flokkit/apptown/internal/fault"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/fault"
 )
 
 // Missing configuration names the explicit setup action, never a database
@@ -14,7 +15,7 @@ func TestMissingReleaseDefaultIsSaidPlainly(t *testing.T) {
 	s, in, _, sources := requestFixture(t)
 	s.configuration.Projects = sources
 	_, err := s.RequestDefaultRelease(t.Context(), DefaultReleaseSelection{ProjectID: in.ProjectID})
-	if !errors.Is(err, ErrNoReleaseDefault) || fault.KindOf(err) != fault.Unprocessable {
+	if !errors.Is(err, errNoReleaseDefault) || fault.KindOf(err) != fault.Unprocessable {
 		t.Fatalf("no default: %v", err)
 	}
 	if msg := err.Error(); strings.Contains(msg, "sql") || !strings.Contains(msg, "choose a release environment") {

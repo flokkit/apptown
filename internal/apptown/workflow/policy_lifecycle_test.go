@@ -91,12 +91,12 @@ func TestPolicyRefreshFollowsCurrentRulesWithoutInventingGates(t *testing.T) {
 	db, run := policyGateFixture(t)
 	laws, ctx := projectLaws(db), context.Background()
 	// Without a standing gate a refresh observes nothing: enforcement belongs to merge admission.
-	if err := laws.Refresh(ctx, run); err != nil {
+	if err := laws.refresh(ctx, run); err != nil {
 		t.Fatal(err)
 	}
 	wantStepCount(t, db, 0, nil)
 	gate := pausedByLaw(t, db, run)
-	if err := laws.Refresh(ctx, run); err != nil {
+	if err := laws.refresh(ctx, run); err != nil {
 		t.Fatal(err)
 	}
 	wantStepState(t, db, gate, StatusNeedsHuman)
@@ -104,20 +104,20 @@ func TestPolicyRefreshFollowsCurrentRulesWithoutInventingGates(t *testing.T) {
 	// An unchanged decision does not rewrite its history.
 	completionExec(t, db, `CREATE FUNCTION reject_policy_rewrite() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'unexpected rewrite'; END $$`)
 	completionExec(t, db, `CREATE TRIGGER reject_policy_rewrite BEFORE UPDATE ON steps FOR EACH ROW EXECUTE FUNCTION reject_policy_rewrite()`)
-	if err := laws.Refresh(ctx, run); err != nil {
+	if err := laws.refresh(ctx, run); err != nil {
 		t.Fatalf("unchanged decision rewritten: %v", err)
 	}
 	completionExec(t, db, `DROP TRIGGER reject_policy_rewrite ON steps`)
 	// Rules withdrawn: the pause clears with its receipt, as an observation rather than an override.
 	removePolicies(t, db, run.ProjectID)
-	if err := laws.Refresh(ctx, run); err != nil {
+	if err := laws.refresh(ctx, run); err != nil {
 		t.Fatal(err)
 	}
 	wantEqual(t, "override", wantStepState(t, db, gate, StatusPass).OverrideBy, "")
 	wantEventCount(t, db, 1, ofKind("law.satisfied"))
 	// An automatic pass does not exempt the landing from a later amendment.
 	installPolicy(t, db, run.ProjectID, "new-amendment", "requireStepBefore", map[string]any{"uses": "deploy", "requires": "tests"})
-	if err := laws.Refresh(ctx, run); err != nil {
+	if err := laws.refresh(ctx, run); err != nil {
 		t.Fatal(err)
 	}
 	wantStepCount(t, db, 1, func(s *Step) bool { return s.Type == "policy/current" })
@@ -133,7 +133,7 @@ func TestPolicyRefreshKeepsStandingOverridesAndEarlierStageHistory(t *testing.T)
 		db, run := policyGateFixture(t)
 		gate := pausedByLaw(t, db, run)
 		overrideScopeStep(t, db, workflowsql.OverrideStepParams{At: time.Now(), ID: gate, OverrideBy: "alice", OverrideReason: "shipping under the pinned rules"})
-		if err := projectLaws(db).Refresh(context.Background(), run); err != nil {
+		if err := projectLaws(db).refresh(context.Background(), run); err != nil {
 			t.Fatal(err)
 		}
 		wantEqual(t, "override", wantStepState(t, db, gate, StatusPass).OverrideBy, "alice")
@@ -149,7 +149,7 @@ func TestPolicyRefreshKeepsStandingOverridesAndEarlierStageHistory(t *testing.T)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := projectLaws(db).Refresh(context.Background(), run); err != nil {
+		if err := projectLaws(db).refresh(context.Background(), run); err != nil {
 			t.Fatal(err)
 		}
 		wantStepCount(t, db, 1, nil)
@@ -179,7 +179,7 @@ func TestPolicyReadFailuresAndInvalidDeclarationsLeaveThePauseStanding(t *testin
 					return nil, wow.ErrPolicyDeclaration
 				}))
 			}
-			err := laws.Refresh(context.Background(), run)
+			err := laws.refresh(context.Background(), run)
 			if err == nil {
 				t.Fatalf("%s cleared the pause", failure)
 			}
@@ -219,7 +219,7 @@ func TestPolicyRefreshDecisionAndReceiptCommitTogether(t *testing.T) {
 				completionExec(t, db, `CREATE FUNCTION veto_policy() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN `+body+` END $$`)
 				completionExec(t, db, trigger+" FOR EACH ROW EXECUTE FUNCTION veto_policy()")
 			}
-			if err := projectLaws(db).Refresh(context.Background(), run); err == nil {
+			if err := projectLaws(db).refresh(context.Background(), run); err == nil {
 				t.Fatalf("%s survived", failure)
 			}
 			wantStepState(t, db, gate, StatusNeedsHuman)
@@ -251,7 +251,7 @@ func TestPolicyRefreshScopeAndCancellationStopTheDecision(t *testing.T) {
 				// sql-guarantee: Invalidate the law refresh's detached pinned definition without changing status, stage or revision; admission fixes definition_json and no generated run mutation rewrites it.
 				completionExec(t, db, `UPDATE runs SET definition_json='{}' WHERE id=$1`, run.ID)
 			}
-			if err := projectLaws(db).Refresh(context.Background(), run); !errors.Is(err, ErrRunMoved) {
+			if err := projectLaws(db).refresh(context.Background(), run); !errors.Is(err, ErrRunMoved) {
 				t.Fatalf("stale refresh: %v", err)
 			}
 			wantStepState(t, db, gate, StatusNeedsHuman)
@@ -272,7 +272,7 @@ func TestPolicyRefreshScopeAndCancellationStopTheDecision(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		done := make(chan error, 1)
-		go func() { done <- projectLaws(db).Refresh(ctx, run) }()
+		go func() { done <- projectLaws(db).refresh(ctx, run) }()
 		dbtest.WaitForLock(t, db, "-- name: ProjectForUpdate")
 		cancel()
 		select {
@@ -298,7 +298,7 @@ func TestPolicyCapabilityLookupUsesItsTransaction(t *testing.T) {
 	db.Pool().SetMaxOpenConns(1)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	if err := projectLaws(db).Refresh(ctx, run); err != nil {
+	if err := projectLaws(db).refresh(ctx, run); err != nil {
 		t.Fatalf("capability evaluation: %v", err)
 	}
 	wantJSONField(t, "evidence", wantStepState(t, db, gate, StatusNeedsHuman).Evidence, "violations.0.policy", "scan-first")

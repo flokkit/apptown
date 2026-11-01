@@ -7,7 +7,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// DataCopyCheck says why AppTown cannot copy the data a deployment holds
+// dataCopyCheck says why AppTown cannot copy the data a deployment holds
 // now, "" when it can or when it holds none (data protection answers it).
 // A release onto a deployment whose data cannot be copied could change that
 // data with no copy to go back to, whatever the release changes: a schema
@@ -15,7 +15,7 @@ import (
 // refused unless a person accepts releasing over uncopied data, which the
 // release records (design/subsystems/deployment.md, "Releasing over data the
 // AppTown cannot copy").
-type DataCopyCheck interface {
+type dataCopyCheck interface {
 	CannotCopy(ctx context.Context, dep *Deployment, t *Target) string
 }
 

@@ -82,7 +82,7 @@ func detectTestCommand(dir string) string {
 }
 
 // RunTests executes a tests step.
-func (a *Commands) RunTests(task *workflow.Execution) {
+func (a *commands) RunTests(task *workflow.Execution) {
 	defer reportPanic(a.panics, "RunTests")
 	step := task.Step()
 	stepID := step.ID
@@ -344,7 +344,7 @@ func recordTestReport(evidence map[string]any, o execution.Outcome, output strin
 // them, the needs the catalog does not know, and where the app's secret
 // declaration is. No declaration is no needs; one that cannot be read
 // leaves the tests' setting unknown.
-func (a *Commands) testServices(ctx context.Context, staged string) (services []deploy.ServiceSpec, env, unknown []string, specPath string, err error) {
+func (a *commands) testServices(ctx context.Context, staged string) (services []deploy.ServiceSpec, env, unknown []string, specPath string, err error) {
 	c, err := docker.ReadWorkspaceContract(staged)
 	switch {
 	case errors.Is(err, docker.ErrNoContract):

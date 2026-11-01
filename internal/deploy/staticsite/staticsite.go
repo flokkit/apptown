@@ -41,8 +41,8 @@ const MaxBytes = 200 << 20
 // InstanceKey is reserved too: a bucket website's private mark naming the
 // installation that made the bucket (s3bucket), never a site's file.
 var (
-	EnvKey      = strings.TrimPrefix("/_apptown/env.js", "/")
-	ReleaseKey  = strings.TrimPrefix(appcontract.ReleasePath, "/")
+	envKey      = strings.TrimPrefix("/_apptown/env.js", "/")
+	releaseKey  = strings.TrimPrefix(appcontract.ReleasePath, "/")
 	InstanceKey = "_apptown/instance"
 )
 
@@ -56,8 +56,8 @@ const (
 	Marker
 )
 
-// File is one object of a published set.
-type File struct {
+// file is one object of a published set.
+type file struct {
 	Key         string
 	Body        []byte
 	ContentType string
@@ -66,12 +66,12 @@ type File struct {
 
 // NoStore: entry files and AppTown's files are never cached, so a
 // reload asks for the current page and values.
-func (f File) NoStore() bool { return f.Pass != Assets }
+func (f file) NoStore() bool { return f.Pass != Assets }
 
 // Set is one publication: its files in upload order, its identity (what
 // the marker answers) and a digest over every key and body.
 type Set struct {
-	Files    []File
+	Files    []file
 	Identity string
 	Digest   string
 }
@@ -86,11 +86,11 @@ func (s Set) Keys() []string {
 	return out
 }
 
-// Identity is what a publication's marker answers:
+// identity is what a publication's marker answers:
 // <part>@<revision>+<set>, where <set> names the image and the browser
 // values together, so the same revision published with other values is
 // another publication. It is computed before the marker is written.
-func Identity(release, imageDigest string, browser map[string]string) (string, error) {
+func identity(release, imageDigest string, browser map[string]string) (string, error) {
 	values, err := canonical(browser)
 	if err != nil {
 		return "", err
@@ -114,7 +114,7 @@ func Publish(files []oci.File, release, imageDigest string, browser map[string]s
 	if release == "" {
 		return Set{}, errors.New("a published site needs its release identity")
 	}
-	id, err := Identity(release, imageDigest, browser)
+	id, err := identity(release, imageDigest, browser)
 	if err != nil {
 		return Set{}, err
 	}
@@ -125,18 +125,18 @@ func Publish(files []oci.File, release, imageDigest string, browser map[string]s
 	var set Set
 	for _, f := range files {
 		key := strings.TrimPrefix(path.Clean("/"+f.Path), "/")
-		if key == EnvKey || key == ReleaseKey || key == InstanceKey {
+		if key == envKey || key == releaseKey || key == InstanceKey {
 			continue
 		}
 		pass := Assets
 		if ext := strings.ToLower(path.Ext(key)); ext == ".html" || ext == ".htm" {
 			pass = Entries
 		}
-		set.Files = append(set.Files, File{Key: key, Body: f.Body, ContentType: contentType(key), Pass: pass})
+		set.Files = append(set.Files, file{Key: key, Body: f.Body, ContentType: contentType(key), Pass: pass})
 	}
 	set.Files = append(set.Files,
-		File{Key: EnvKey, Body: []byte(docker.BrowserEnvScript(values)), ContentType: "text/javascript; charset=utf-8", Pass: Entries},
-		File{Key: ReleaseKey, Body: []byte(id), ContentType: "text/plain; charset=utf-8", Pass: Marker})
+		file{Key: envKey, Body: []byte(docker.BrowserEnvScript(values)), ContentType: "text/javascript; charset=utf-8", Pass: Entries},
+		file{Key: releaseKey, Body: []byte(id), ContentType: "text/plain; charset=utf-8", Pass: Marker})
 	sort.SliceStable(set.Files, func(i, j int) bool {
 		if set.Files[i].Pass != set.Files[j].Pass {
 			return set.Files[i].Pass < set.Files[j].Pass

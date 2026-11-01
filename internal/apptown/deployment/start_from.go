@@ -42,14 +42,14 @@ var (
 	errNoCopyStarter = errors.New("starting a deployment from a copy is not configured")
 )
 
-// CopyStarter is data protection's side of starting a deployment from a
+// copyLauncher is data protection's side of starting a deployment from a
 // copy: whether the caller may start a deployment of destinationProject
 // holding dataClass from a set (the set must be a whole store copy a new
 // managed database can be filled from; deployment:restore in the set's
 // project and the destination's; production only into production), which
 // of the set's items were not shown to come back by their last check of it
 // (UncheckedStart, "" when none), and the fill itself.
-type CopyStarter interface {
+type copyLauncher interface {
 	CheckStart(ctx context.Context, setID ids.ID, destinationProject ids.ID, dataClass string) error
 	UncheckedStart(ctx context.Context, setID ids.ID) (string, error)
 	FillStart(ctx context.Context, in StartFill) (StartReceipt, error)

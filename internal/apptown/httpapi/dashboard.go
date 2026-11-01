@@ -31,7 +31,7 @@ func (h Dashboard) Dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	// The operations the caller asked for that failed, or whose outcome is
 	// not known, wait on them until they put them away.
-	ended, err := h.operations.EndedFor(r.Context(), Actor(r))
+	ended, err := h.operations.EndedFor(r.Context(), actor(r))
 	if err != nil {
 		WriteFault(w, err)
 		return

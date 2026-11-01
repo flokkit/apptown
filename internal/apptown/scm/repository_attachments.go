@@ -25,7 +25,7 @@ type RepositoryAttachments struct {
 	db        *database.DB
 	projects  *project.Projects
 	authority access.Checked
-	provider  RepositoryProvider
+	provider  repositoryProvider
 	locks     *RepositoryLocks
 	dataDir   string
 	clock     func() time.Time
@@ -34,7 +34,7 @@ type RepositoryAttachments struct {
 type AttachmentDependencies struct {
 	Projects  *project.Projects
 	Authority access.Checked
-	Provider  RepositoryProvider
+	Provider  repositoryProvider
 	Locks     *RepositoryLocks
 	DataDir   string
 	Now       func() time.Time
@@ -164,7 +164,7 @@ func (s *RepositoryAttachments) resolveLocked(ctx context.Context, projectID ids
 	if err != nil {
 		return VerifiedRepository{}, err
 	}
-	origin, err := ReadOrigin(ctx, repo)
+	origin, err := readOrigin(ctx, repo)
 	if err != nil {
 		return VerifiedRepository{}, err
 	}

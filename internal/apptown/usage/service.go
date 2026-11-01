@@ -24,7 +24,7 @@ type Service struct {
 // now is AppTown's clock (nil the real one).
 func NewService(db *database.DB, authority access.ReadAuthorizer, now func() time.Time) *Service {
 	ledger, requests := New(db), NewRequests(db)
-	ledger.Now, requests.Now = now, now
+	ledger.clock, requests.clock = now, now
 	return &Service{Ledger: ledger, Requests: requests, authority: authority}
 }
 
@@ -42,16 +42,16 @@ type Query struct {
 // project; anyone else, and every run or chat (bound to one project), sees
 // only the projects they can read, so the totals and every breakdown leave
 // other projects out.
-func (s *Service) Report(ctx context.Context, q Query) (Report, error) {
+func (s *Service) Report(ctx context.Context, q Query) (report, error) {
 	if s.authority == nil {
-		return Report{}, access.ErrAuthorityUnavailable
+		return report{}, access.ErrAuthorityUnavailable
 	}
 	if !q.ProjectID.IsZero() {
 		res := access.Resource{Type: "project", ID: q.ProjectID.String(), ProjectID: q.ProjectID}
 		if _, err := s.authority.Require(ctx, access.Permission{Capability: access.CapProjectRead, Resource: res, Context: access.Context{Route: "usage"}}); err != nil {
-			return Report{}, err
+			return report{}, err
 		}
-		return s.Ledger.summary(ctx, q.WindowDays, Scope{Projects: []ids.ID{q.ProjectID}}, q.Workflow, true)
+		return s.Ledger.summary(ctx, q.WindowDays, usageScope{Projects: []ids.ID{q.ProjectID}}, q.Workflow, true)
 	}
 	// A run or a chat is bound to its project even when its person reads the
 	// whole instance, and an instance decision does not check that binding.
@@ -61,14 +61,14 @@ func (s *Service) Report(ctx context.Context, q Query) (Report, error) {
 		var denied *access.Denied
 		switch {
 		case err == nil:
-			return s.Ledger.summary(ctx, q.WindowDays, Scope{Instance: true}, q.Workflow, false)
+			return s.Ledger.summary(ctx, q.WindowDays, usageScope{Instance: true}, q.Workflow, false)
 		case !errors.As(err, &denied):
-			return Report{}, err
+			return report{}, err
 		}
 	}
 	idList, err := s.authority.VisibleProjects(ctx, access.CapProjectRead)
 	if err != nil {
-		return Report{}, err
+		return report{}, err
 	}
-	return s.Ledger.summary(ctx, q.WindowDays, Scope{Projects: idList}, q.Workflow, false)
+	return s.Ledger.summary(ctx, q.WindowDays, usageScope{Projects: idList}, q.Workflow, false)
 }

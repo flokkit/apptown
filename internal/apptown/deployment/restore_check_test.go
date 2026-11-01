@@ -110,7 +110,7 @@ func TestNothingActsOnADeploymentHeldAfterARestore(t *testing.T) {
 		t.Fatalf("held %+v, %v", held, err)
 	}
 	prepared := sources.calls
-	if err := s.ExecuteRelease(ctx, queued.ID); !errors.Is(err, ErrUnconfirmedSinceRestore) {
+	if err := s.ExecuteRelease(ctx, queued.ID); !errors.Is(err, errUnconfirmedSinceRestore) {
 		t.Fatalf("a queued release of a held deployment ran: %v", err)
 	}
 	if sources.calls != prepared || len(driver.seen()) != 0 {
@@ -119,13 +119,13 @@ func TestNothingActsOnADeploymentHeldAfterARestore(t *testing.T) {
 	if r := storedRelease(t, s.db, in.ProjectID, queued.ID); r.State != ReleaseFailed {
 		t.Fatalf("the queued release is %s", r.State)
 	}
-	if _, err := s.RequestRelease(ctx, in); !errors.Is(err, ErrUnconfirmedSinceRestore) {
+	if _, err := s.RequestRelease(ctx, in); !errors.Is(err, errUnconfirmedSinceRestore) {
 		t.Fatalf("a new release of a held deployment was accepted: %v", err)
 	}
-	if _, _, err := s.Outcomes.Admit(ctx, Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "late", Inputs: Inputs{Revision: "selected"}}); !errors.Is(err, ErrUnconfirmedSinceRestore) {
+	if _, _, err := s.Outcomes.Admit(ctx, Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "late", Inputs: Inputs{Revision: "selected"}}); !errors.Is(err, errUnconfirmedSinceRestore) {
 		t.Fatalf("an attempt was admitted for a held deployment: %v", err)
 	}
-	if err := storedDeployment(t, s.db, dep.ID).TakeDownHeldAfterRestore(); !errors.Is(err, ErrUnconfirmedSinceRestore) {
+	if err := storedDeployment(t, s.db, dep.ID).takeDownHeldAfterRestore(); !errors.Is(err, errUnconfirmedSinceRestore) {
 		t.Fatalf("a take-down of an unconfirmed deployment is allowed: %v", err)
 	}
 }
@@ -147,13 +147,13 @@ func TestOnlyTheRebuildRunsADeploymentWaitingForItsData(t *testing.T) {
 	if err := s.Deployments.HoldForFill(ctx, []ids.ID{dep.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ExecuteRelease(ctx, queued.ID); !errors.Is(err, ErrFillingSinceRestore) {
+	if err := s.ExecuteRelease(ctx, queued.ID); !errors.Is(err, errFillingSinceRestore) {
 		t.Fatalf("a queued release ran before the fill: %v", err)
 	}
-	if _, err := s.RequestRelease(ctx, in); !errors.Is(err, ErrFillingSinceRestore) {
+	if _, err := s.RequestRelease(ctx, in); !errors.Is(err, errFillingSinceRestore) {
 		t.Fatalf("a new release was accepted before the fill: %v", err)
 	}
-	if _, _, err := s.Outcomes.Admit(ctx, Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "landing", Inputs: Inputs{Revision: "selected"}}); !errors.Is(err, ErrFillingSinceRestore) {
+	if _, _, err := s.Outcomes.Admit(ctx, Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "landing", Inputs: Inputs{Revision: "selected"}}); !errors.Is(err, errFillingSinceRestore) {
 		t.Fatalf("a landing's attempt was admitted before the fill: %v", err)
 	}
 	base := dep.DesiredGeneration
@@ -163,7 +163,7 @@ func TestOnlyTheRebuildRunsADeploymentWaitingForItsData(t *testing.T) {
 	if len(driver.seen()) != 0 {
 		t.Fatalf("the provider was asked %v", driver.seen())
 	}
-	if err := storedDeployment(t, s.db, dep.ID).TakeDownHeldAfterRestore(); err != nil {
+	if err := storedDeployment(t, s.db, dep.ID).takeDownHeldAfterRestore(); err != nil {
 		t.Fatalf("a take-down of a deployment waiting for its data is refused: %v", err)
 	}
 }
@@ -195,11 +195,11 @@ func TestTheCheckAfterARestoreSettlesWhatTheProviderSays(t *testing.T) {
 			if _, err := s.Deployments.HoldAfterRestore(ctx); err != nil {
 				t.Fatal(err)
 			}
-			if err := s.CheckAfterRestore(ctx); err != nil {
+			if err := s.checkRestoredDeployments(ctx); err != nil {
 				t.Fatal(err)
 			}
 			got := storedDeployment(t, s.db, dep.ID)
-			want := map[string]RestoreCheck{"same": "", "other": "", "gone": RestoreGone, "unreadable": RestoreUnconfirmed, "rolling": RestoreUnconfirmed}[scenario]
+			want := map[string]RestoreCheck{"same": "", "other": "", "gone": restoreGone, "unreadable": RestoreUnconfirmed, "rolling": RestoreUnconfirmed}[scenario]
 			if got.RestoreCheck != want {
 				t.Fatalf("held %q, want %q", got.RestoreCheck, want)
 			}
@@ -211,7 +211,7 @@ func TestTheCheckAfterARestoreSettlesWhatTheProviderSays(t *testing.T) {
 			case "other":
 				wantN(t, "releases", released, 1)
 				r := released[0]
-				if r.Origin != OriginObservedAfterRestore || r.State != Released || r.ExternalRef != "dep-9" || !r.BundleID.IsZero() || r.ApprovedBy != "" {
+				if r.Origin != originObservedAfterRestore || r.State != Released || r.ExternalRef != "dep-9" || !r.BundleID.IsZero() || r.ApprovedBy != "" {
 					t.Fatalf("the adopted release: %+v", r)
 				}
 				if got.Handle["deploymentId"] != "dep-9" || got.ReleaseSHA != "" {
@@ -221,10 +221,10 @@ func TestTheCheckAfterARestoreSettlesWhatTheProviderSays(t *testing.T) {
 					return strings.Contains(string(e.Payload), "dep-1") && strings.Contains(string(e.Payload), "dep-9")
 				}), 1)
 			case "gone":
-				if err := got.HeldAfterRestore(); !errors.Is(err, ErrGoneSinceRestore) {
+				if err := got.HeldAfterRestore(); !errors.Is(err, errGoneSinceRestore) {
 					t.Fatalf("a gone deployment is not held: %v", err)
 				}
-				if err := got.TakeDownHeldAfterRestore(); err != nil {
+				if err := got.takeDownHeldAfterRestore(); err != nil {
 					t.Fatalf("a gone deployment cannot be taken down: %v", err)
 				}
 			default:
@@ -232,7 +232,7 @@ func TestTheCheckAfterARestoreSettlesWhatTheProviderSays(t *testing.T) {
 			}
 			// Asked again, a settled deployment is not asked about.
 			driver.observed, driver.err = deploy.Observation{Rollout: "active", Running: "dep-42"}, nil
-			if err := s.CheckAfterRestore(ctx); err != nil {
+			if err := s.checkRestoredDeployments(ctx); err != nil {
 				t.Fatal(err)
 			}
 			if scenario != "unreadable" && scenario != "rolling" && len(everyRelease(t, s.db)) != len(released) {
@@ -268,7 +268,7 @@ func TestTheRecordedReleaseCanBeDeployedAgainAfterAnAdoption(t *testing.T) {
 	if _, err := s.Deployments.HoldAfterRestore(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.CheckAfterRestore(ctx); err != nil {
+	if err := s.checkRestoredDeployments(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.RequestRelease(ctx, in); err != nil {
@@ -276,7 +276,7 @@ func TestTheRecordedReleaseCanBeDeployedAgainAfterAnAdoption(t *testing.T) {
 	}
 	other := in
 	other.BundleID = cutBundleFixture(t, s.db, in.ProjectID, "selected", BundleOrigin{})
-	if _, err := s.RequestRelease(ctx, other); !errors.Is(err, ErrFedByLanding) {
+	if _, err := s.RequestRelease(ctx, other); !errors.Is(err, errFedByLanding) {
 		t.Fatalf("another bundle was taken by hand on a landing-fed deployment: %v", err)
 	}
 }

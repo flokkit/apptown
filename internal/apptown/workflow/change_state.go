@@ -39,49 +39,49 @@ var (
 func (s ChangeState) String() string { return changeStateCodec.String(s) }
 
 func (s ChangeState) Closed() bool { return s == ChangeShipped || s == ChangeAbandoned }
-func (s ChangeState) CanRun() bool { return s == ChangeInProgress || s == ChangeLanding }
+func (s ChangeState) canRun() bool { return s == ChangeInProgress || s == ChangeLanding }
 
 type ChangeAction uint8
 
 const (
-	AttachChangeRun ChangeAction = iota + 1
+	attachChangeRun ChangeAction = iota + 1
 	LandChange
-	ResumeChange
-	CancelChangeLanding
+	resumeChange
+	cancelChangeLanding
 	ShipChange
-	AbandonChange
+	abandonChange
 )
 
 // transition is the only rule for persisted Change lifecycle changes. Commands
 // name an act; callers cannot choose an arbitrary next state. A detached record
 // does not authorize a write: the participant reads and guards the current row.
-func (s ChangeState) Transition(act ChangeAction) (ChangeState, error) {
+func (s ChangeState) transition(act ChangeAction) (ChangeState, error) {
 	if _, err := s.Value(); err != nil {
 		return 0, err
 	}
 	switch act {
-	case AttachChangeRun:
-		if s.CanRun() {
+	case attachChangeRun:
+		if s.canRun() {
 			return s, nil
 		}
 	case LandChange:
-		if s.CanRun() {
+		if s.canRun() {
 			return ChangeLanding, nil
 		}
-	case ResumeChange:
-		if s.CanRun() {
+	case resumeChange:
+		if s.canRun() {
 			return ChangeInProgress, nil
 		}
-	case CancelChangeLanding:
+	case cancelChangeLanding:
 		if s == ChangeLanding {
 			return ChangeInProgress, nil
 		}
 		return s, nil // cancelling a run must not reopen a closed Change
 	case ShipChange:
-		if s.CanRun() {
+		if s.canRun() {
 			return ChangeShipped, nil
 		}
-	case AbandonChange:
+	case abandonChange:
 		if !s.Closed() {
 			return ChangeAbandoned, nil
 		}
@@ -184,8 +184,8 @@ func (c *Change) LandsWithoutCode() bool {
 type RequestMet string
 
 const (
-	RequestMetYes     RequestMet = "yes"
-	RequestMetPartly  RequestMet = "partly"
+	requestMetYes     RequestMet = "yes"
+	requestMetPartly  RequestMet = "partly"
 	RequestMetNo      RequestMet = "no"
 	RequestMetUnknown RequestMet = "unknown"
 )
@@ -193,7 +193,7 @@ const (
 // parseRequestMet reads a stored or written answer; anything else is unknown.
 func parseRequestMet(text string) RequestMet {
 	switch m := RequestMet(strings.ToLower(strings.TrimSpace(text))); m {
-	case RequestMetYes, RequestMetPartly, RequestMetNo:
+	case requestMetYes, requestMetPartly, RequestMetNo:
 		return m
 	}
 	return RequestMetUnknown

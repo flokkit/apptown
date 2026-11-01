@@ -25,11 +25,11 @@ func repositoryList(t *testing.T) *List {
 func TestTheStockListNamesEveryRuntimeImageByDigest(t *testing.T) {
 	t.Parallel()
 	l := repositoryList(t)
-	im, err := l.Images()
+	im, err := l.images()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for tool, ref := range map[string]string{ToolSh: im.Sh, ToolDF: im.DF, ToolStaticServer: im.StaticServer, ToolPrivateDocker: im.PrivateDocker} {
+	for tool, ref := range map[string]string{toolSh: im.Sh, toolDF: im.DF, toolStaticServer: im.StaticServer, toolPrivateDocker: im.PrivateDocker} {
 		if !strings.Contains(ref, "@sha256:") {
 			t.Errorf("%s: %q names no digest", tool, ref)
 		}
@@ -58,7 +58,7 @@ func TestAListThatCannotBeTrustedIsRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := l.Images(); err == nil {
+	if _, err := l.images(); err == nil {
 		t.Error("a list without the runtime images gave a set")
 	}
 }

@@ -63,7 +63,7 @@ func TestChangeRecordBatchAndUpliftSelectionKeepScope(t *testing.T) {
 		t.Fatal("invalid Change ID accepted")
 	}
 	dbtest.FailNextStatement(t, q.db, "-- name: VisibleChanges")
-	if _, err := s.ChangeRecords(ctx, ids.Nil, []ids.ID{run.ChangeID}); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := s.ChangeRecords(ctx, ids.Nil, []ids.ID{run.ChangeID}); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("hidden batch failure: %v", err)
 	}
 }
@@ -100,7 +100,7 @@ func TestRunningWorkflowCountRetainsNameProjectAndLifecycle(t *testing.T) {
 		t.Fatalf("completed count %d: %v", n, err)
 	}
 	dbtest.FailNextStatement(t, q.db, "SELECT COUNT(*) FROM runs")
-	if _, err := RunningWorkflowCountIn(ctx, q.db, run.ProjectID, run.WorkflowName); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := RunningWorkflowCountIn(ctx, q.db, run.ProjectID, run.WorkflowName); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("hidden count failure: %v", err)
 	}
 }

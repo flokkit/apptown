@@ -35,7 +35,7 @@ import (
 // judged, with the boot's error, and those at or above failOn hold the step.
 // A candidate with no runtime contract has nothing to boot or hold.
 func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run, checks []conformance.DeclaredCheck, contractDir, commit, failOn, candidate string) (results Results, findings []conformance.Finding, unjudged []string) {
-	var target *Target
+	var target *guidanceTarget
 	var served *preview.Served
 	var why string
 	// landing: a pinned landing that needs its candidate's preview, which
@@ -132,7 +132,7 @@ func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run
 			why = "runtime checks need the project's name to mint its preview address; it could not be read"
 			return
 		}
-		target = &Target{ProjectID: run.ProjectID, Slug: slug, Container: served.Name,
+		target = &guidanceTarget{ProjectID: run.ProjectID, Slug: slug, Container: served.Name,
 			FrontDoor: served.FrontDoor, Naked: served.Naked, ContractDir: contractDir, Served: served, Recorded: served.Recorded}
 	}
 	defer func() { served.Close() }()
@@ -168,7 +168,7 @@ func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run
 			// tree it is unknown, never judged on another commit.
 			ev.Detail = "the checked tree is not available"
 			if contractDir != "" {
-				v := a.runtime.Probe(ctx, Target{ProjectID: run.ProjectID, ContractDir: contractDir}, sc.Check.Probe)
+				v := a.runtime.Probe(ctx, guidanceTarget{ProjectID: run.ProjectID, ContractDir: contractDir}, sc.Check.Probe)
 				ev.Outcome, ev.Detail, ev.Fault = v.Outcome, v.Detail, v.Fault
 			}
 		} else if target != nil {
@@ -252,7 +252,7 @@ func (a *Guidance) runtimeBaseline(ctx context.Context, projectID ids.ID, slug s
 			continue
 		}
 		ev := check.Evaluation{Declared: sc.Declared(), Mode: check.Gate}
-		v := a.runtime.Probe(ctx, Target{ProjectID: projectID, Slug: slug, Revision: base}, sc.Check.Probe)
+		v := a.runtime.Probe(ctx, guidanceTarget{ProjectID: projectID, Slug: slug, Revision: base}, sc.Check.Probe)
 		ev.Outcome, ev.Detail = v.Outcome, v.Detail
 		if v.Outcome == check.DoesNotConform {
 			ev.Findings = []check.Finding{{Fingerprint: conformance.Fingerprint(sc, "")}}
@@ -262,13 +262,13 @@ func (a *Guidance) runtimeBaseline(ctx context.Context, projectID ids.ID, slug s
 	if len(running) == 0 {
 		return out
 	}
-	return append(out, probeMainAtBase(ctx, running, base, func() (Target, string, func() bool, string) { return a.runtime.mainAt(ctx, projectID) }, a.runtime.Probe)...)
+	return append(out, probeMainAtBase(ctx, running, base, func() (guidanceTarget, string, func() bool, string) { return a.runtime.mainAt(ctx, projectID) }, a.runtime.Probe)...)
 }
 
 // probeMainAtBase probes each check against main's deployment when it
 // serves base, re-asking after each probe that the same container still
 // serves it. at resolves main's deployment and the commit it serves.
-func probeMainAtBase(ctx context.Context, failing []conformance.DeclaredCheck, base string, at func() (Target, string, func() bool, string), probe func(context.Context, Target, string) check.ProbeVerdict) []check.Evaluation {
+func probeMainAtBase(ctx context.Context, failing []conformance.DeclaredCheck, base string, at func() (guidanceTarget, string, func() bool, string), probe func(context.Context, guidanceTarget, string) check.ProbeVerdict) []check.Evaluation {
 	target, commit, still, why := at()
 	if why == "" && commit != base {
 		why = fmt.Sprintf("main's deployment runs %s, not this change's base %s", strs.ShortSHA(commit), strs.ShortSHA(base))

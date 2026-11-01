@@ -12,11 +12,11 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// RefusesContract is the sentence for a contract the target cannot express
+// refusesContract is the sentence for a contract the target cannot express
 // (§4.1 step 1; healthchecks.md §4.4's refusal, generalised), or "": an
 // app that keeps data in a directory needs persistent volumes, and an app
 // whose needs a managed-needs target cannot fulfil cannot stand there.
-func (t *Target) RefusesContract(c *appcontract.Contract) string {
+func (t *Target) refusesContract(c *appcontract.Contract) string {
 	var healthErr error
 	switch t.Kind {
 	case KindDockerHost:
@@ -42,7 +42,7 @@ func (t *Target) RefusesContract(c *appcontract.Contract) string {
 	if healthErr != nil {
 		return healthErr.Error()
 	}
-	if t.Kind == KindS3Bucket && !StaticOnly(c) {
+	if t.Kind == KindS3Bucket && !staticOnly(c) {
 		return fmt.Sprintf("%s serves only a static-only app: one public static part, no init steps and no needs — this app needs a container target", t.Name)
 	}
 	if !t.Capabilities.PersistentVolumes {
@@ -65,9 +65,9 @@ func (t *Target) RefusesContract(c *appcontract.Contract) string {
 	return ""
 }
 
-// StaticOnly says whether c is a static site and nothing else: one part,
+// staticOnly says whether c is a static site and nothing else: one part,
 // public and static, no init steps, no needs. A bucket can serve only that.
-func StaticOnly(c *appcontract.Contract) bool {
+func staticOnly(c *appcontract.Contract) bool {
 	return c != nil && len(c.Parts) == 1 && c.Parts[0].Public && c.Parts[0].IsStatic() && len(c.Init) == 0 && len(c.Needs) == 0
 }
 
@@ -80,43 +80,43 @@ func refusal(why string) error {
 }
 
 var (
-	ErrPreviewNotDeployed = fault.New(fault.Conflict, "a preview is not deployed to; it follows its change")
-	ErrFedByLanding       = fault.New(fault.Conflict, "fed by landing: every landing deploys it")
+	errPreviewNotDeployed = fault.New(fault.Conflict, "a preview is not deployed to; it follows its change")
+	errFedByLanding       = fault.New(fault.Conflict, "fed by landing: every landing deploys it")
 )
 
-var ErrMainNotRemoved = fault.New(fault.Conflict, "main is the deployment every landing feeds; it cannot be removed")
+var errMainNotRemoved = fault.New(fault.Conflict, "main is the deployment every landing feeds; it cannot be removed")
 
-// Removable says whether a deployment may be torn down on purpose: main is
+// removable says whether a deployment may be torn down on purpose: main is
 // the deployment every landing feeds, so it is never removed by hand.
-func (e *Deployment) Removable() error {
+func (e *Deployment) removable() error {
 	if e.Name == "main" {
-		return ErrMainNotRemoved
+		return errMainNotRemoved
 	}
 	return nil
 }
 
-// DeployableByHand says whether someone may deploy to this deployment on
+// deployableByHand says whether someone may deploy to this deployment on
 // purpose: a preview follows its change, and a landing-fed deployment is
 // deployed by every landing, so neither takes a deploy by hand.
-func (e *Deployment) DeployableByHand() error {
+func (e *Deployment) deployableByHand() error {
 	if !e.Standing() {
-		return ErrPreviewNotDeployed
+		return errPreviewNotDeployed
 	}
 	if e.Feed == "landing" {
-		return fmt.Errorf("%s is %w", e.Name, ErrFedByLanding)
+		return fmt.Errorf("%s is %w", e.Name, errFedByLanding)
 	}
 	return nil
 }
 
-// DeployableByHandAt is DeployableByHand for a deploy of bundle, given the
+// deployableByHandAt is DeployableByHand for a deploy of bundle, given the
 // bundle the deployment is known to run (0: not known, see runningBundle). A
 // landing-fed deployment takes by hand only that bundle: deploying what runs
 // again changes nothing a landing would choose. The caller may also supply the
 // explicitly recorded recovery bundle selected by handBundle after a restore.
 // Historical software without either provenance remains unknown.
-func (e *Deployment) DeployableByHandAt(bundle, running ids.ID) error {
-	err := e.DeployableByHand()
-	if errors.Is(err, ErrFedByLanding) && !running.IsZero() && bundle == running {
+func (e *Deployment) deployableByHandAt(bundle, running ids.ID) error {
+	err := e.deployableByHand()
+	if errors.Is(err, errFedByLanding) && !running.IsZero() && bundle == running {
 		return nil
 	}
 	return err

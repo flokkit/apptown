@@ -56,7 +56,7 @@ func (h Conformance) ListReviews(w http.ResponseWriter, r *http.Request) {
 // state plus the verdicts recorded so far, in evaluation order. This is the
 // activity feed: while status=running the verdicts accrue project-by-project.
 func (h Conformance) ReviewDetail(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad review id")
 		return
@@ -71,7 +71,7 @@ func (h Conformance) ReviewDetail(w http.ResponseWriter, r *http.Request) {
 
 // ProjectConformanceHistory: GET /api/v1/conformance/projects/{slug}/history
 func (h Conformance) ProjectConformanceHistory(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -86,7 +86,7 @@ func (h Conformance) ProjectConformanceHistory(w http.ResponseWriter, r *http.Re
 // ConfirmVerdict: POST /api/v1/conformance/verdicts/{id}/confirm {note}
 // — a person says an AI flag is real. Immutable, keyed to this verdict only.
 func (h Conformance) ConfirmVerdict(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad verdict id")
 		return
@@ -106,7 +106,7 @@ func (h Conformance) ConfirmVerdict(w http.ResponseWriter, r *http.Request) {
 
 // ProjectFixes: GET /api/v1/conformance/projects/{slug}/fixes
 func (h Conformance) ProjectFixes(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

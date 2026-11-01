@@ -9,13 +9,13 @@ import (
 func TestTargetStateChecksMoveBetweenReadyAndUnreachable(t *testing.T) {
 	t.Parallel()
 	for _, from := range []TargetState{TargetReady, TargetUnreachable} {
-		if got, err := from.Checked(true); err != nil || got != TargetReady {
+		if got, err := from.checked(true); err != nil || got != TargetReady {
 			t.Fatalf("%s answered: %s %v", from, got, err)
 		}
-		if got, err := from.Checked(false); err != nil || got != TargetUnreachable {
+		if got, err := from.checked(false); err != nil || got != TargetUnreachable {
 			t.Fatalf("%s silent: %s %v", from, got, err)
 		}
-		if got, err := from.Retire(); err != nil || got != TargetRetired {
+		if got, err := from.retire(); err != nil || got != TargetRetired {
 			t.Fatalf("%s retire: %s %v", from, got, err)
 		}
 	}
@@ -23,10 +23,10 @@ func TestTargetStateChecksMoveBetweenReadyAndUnreachable(t *testing.T) {
 
 func TestRetiredTargetIsTerminal(t *testing.T) {
 	t.Parallel()
-	if _, err := TargetRetired.Checked(true); !errors.Is(err, ErrTargetRetired) {
+	if _, err := TargetRetired.checked(true); !errors.Is(err, ErrTargetRetired) {
 		t.Fatalf("a check never revives a retired target: %v", err)
 	}
-	if _, err := TargetRetired.Retire(); !errors.Is(err, ErrTargetRetired) {
+	if _, err := TargetRetired.retire(); !errors.Is(err, ErrTargetRetired) {
 		t.Fatalf("retiring twice is refused as already done: %v", err)
 	}
 	if TargetRetired.Available() == nil || TargetRetired.Offerable() {
@@ -43,7 +43,7 @@ func TestTargetStateZeroValueIsInvalidEverywhere(t *testing.T) {
 	if _, err := zero.Value(); err == nil {
 		t.Fatal("the zero value cannot be stored")
 	}
-	if err := zero.Available(); !errors.Is(err, ErrTargetState) {
+	if err := zero.Available(); !errors.Is(err, errTargetState) {
 		t.Fatalf("the zero value is not available: %v", err)
 	}
 	if _, err := zero.MarshalJSON(); err == nil {
@@ -53,7 +53,7 @@ func TestTargetStateZeroValueIsInvalidEverywhere(t *testing.T) {
 	if err := s.Scan("retired"); err != nil || s != TargetRetired {
 		t.Fatalf("scan: %s %v", s, err)
 	}
-	if err := s.Scan("gone"); !errors.Is(err, ErrTargetState) {
+	if err := s.Scan("gone"); !errors.Is(err, errTargetState) {
 		t.Fatalf("an unknown stored state is an error, never accepted: %v", err)
 	}
 	body, err := json.Marshal(struct{ Status TargetState }{TargetUnreachable})
@@ -70,7 +70,7 @@ func TestTargetCheckLabelsAreSeparateFromAppRuntime(t *testing.T) {
 	if got := TargetReady.Display().String(); got != "working" {
 		t.Fatalf("host state is not plain: %s", got)
 	}
-	for state, want := range map[TargetState]TargetLabel{TargetReady: TargetWorking, TargetUnreachable: TargetCheckFailed, TargetRetired: TargetCheckStopped, 0: TargetCheckUnknown} {
+	for state, want := range map[TargetState]TargetLabel{TargetReady: targetWorking, TargetUnreachable: targetCheckFailed, TargetRetired: targetCheckStopped, 0: targetCheckUnknown} {
 		if got := state.Display(); got != want {
 			t.Errorf("%s: %s, want %s", state, got, want)
 		}

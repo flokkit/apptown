@@ -19,14 +19,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/execution"
 
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
-
-	"github.com/flokkit/apptown/internal/database"
 )
 
 func TestConstructionHasNoDatabaseOrFilesystemEffects(t *testing.T) {
@@ -34,7 +34,7 @@ func TestConstructionHasNoDatabaseOrFilesystemEffects(t *testing.T) {
 	db := testDB(t)
 	// SQL with a word separator, including a swallowed seeding failure, consumes
 	// this fault. The fault injector reserves an empty fragment for disabled faults.
-	restore := db.FailNextStatement(" ")
+	restore := dbtest.NextStatementFailure(db, " ")
 	defer restore()
 	dir := filepath.Join(t.TempDir(), "not-created")
 	a, err := New(context.Background(), db, Config{DataDir: dir, AuthMode: "internal", Stock: testStock(t)})
@@ -42,7 +42,7 @@ func TestConstructionHasNoDatabaseOrFilesystemEffects(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: a statement that must still find the pending fault, proving construction ran no SQL; not a read
-	if _, err := db.SQL().ExecContext(context.Background(), "SELECT 42"); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := db.SQL().ExecContext(context.Background(), "SELECT 42"); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("construction consumed the statement fault: %v", err)
 	}
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
@@ -103,7 +103,7 @@ func TestConfigurationIsAnIsolatedSnapshot(t *testing.T) {
 	// Different authentication modes on one database retain their own behavior.
 	for i, a := range []*App{first, second} {
 		w := httptest.NewRecorder()
-		a.AuthMiddleware(a.Handler()).ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/me", nil))
+		a.authMiddleware(a.Handler()).ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/me", nil))
 		if (w.Code == 401) != (i == 0) {
 			t.Fatalf("instance %d authentication: %d", i, w.Code)
 		}
@@ -545,7 +545,7 @@ func TestABackupWithoutItsRecordFailsItsJob(t *testing.T) {
 	a := testApp(t, Config{UsingBuiltinDB: true, DockerClient: newFakeDocker(), DataDir: builtinDataDir(t)})
 	place, _ := dumpsOn(t, false, func(execution.TaskSpec) ([]byte, int, string) { return gz(t, "-- fixture database dump\n"), 0, "" })
 	a.dumps = *place
-	restore := a.DB.FailNextStatement("-- name: AppendReceipt")
+	restore := dbtest.NextStatementFailure(a.DB, "-- name: AppendReceipt")
 	_, err := apptownJobKinds(a)["db-backup"].Run(t.Context(), "daily", nil)
 	restore()
 	if err == nil {

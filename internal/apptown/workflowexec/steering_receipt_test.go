@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/execution"
@@ -29,7 +31,7 @@ func TestALocalAgentRequiresItsSteeringArtifact(t *testing.T) {
 				return execution.Outcome{Output: piSays("done")}
 			})
 			if failed {
-				t.Cleanup(a.db.FailNextStatement("INSERT INTO artifacts"))
+				t.Cleanup(dbtest.NextStatementFailure(a.db, "INSERT INTO artifacts"))
 			}
 			if err := a.work.ExecuteStep(a.ctx, stepID); err != nil {
 				t.Fatal(err)
@@ -100,7 +102,7 @@ func TestAWorkerAgentRequiresItsSteeringArtifactBeforeReservation(t *testing.T) 
 			a.tasks.Driver = driver
 			a.agents.worker = &AgentWorker{Tasks: a.tasks}
 			if failed {
-				t.Cleanup(a.db.FailNextStatement("INSERT INTO artifacts"))
+				t.Cleanup(dbtest.NextStatementFailure(a.db, "INSERT INTO artifacts"))
 			}
 			if err := a.work.ExecuteStep(a.ctx, stepID); err != nil {
 				t.Fatal(err)

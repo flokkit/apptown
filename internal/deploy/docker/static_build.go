@@ -14,7 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
-// PackStaticBuild builds a declared static site on dk and packs its output
+// packStaticBuild builds a declared static site on dk and packs its output
 // into the file server's image, tagged tag (design/subsystems/deploy-targets.md,
 // "Static sites and readiness"):
 //
@@ -28,8 +28,8 @@ import (
 //
 // Both builds go through Scope.Build, so they run on the daemon AppTown
 // selected and its own builder, never on a Buildx builder chosen elsewhere.
-func PackStaticBuild(ctx context.Context, dk Scope, contextDir string, sb appcontract.StaticBuild, server string, port int, tag string) error {
-	site, done, err := ExportStaticBuild(ctx, dk, contextDir, sb)
+func packStaticBuild(ctx context.Context, dk Scope, contextDir string, sb appcontract.StaticBuild, server string, port int, tag string) error {
+	site, done, err := exportStaticBuild(ctx, dk, contextDir, sb)
 	if err != nil {
 		return err
 	}
@@ -40,16 +40,16 @@ func PackStaticBuild(ctx context.Context, dk Scope, contextDir string, sb appcon
 	}
 	defer remove()
 	if out, err := dk.Build(ctx, "-t", tag, "-f", dockerfile, site); err != nil {
-		return BuildFailure("packing the static site into the file server's image", out, err)
+		return buildFailure("packing the static site into the file server's image", out, err)
 	}
 	return nil
 }
 
-// ExportStaticBuild runs a declared static site's build on dk and answers
+// exportStaticBuild runs a declared static site's build on dk and answers
 // its output folder, checked (ConfineStaticExport), and done, which removes
 // the export. The build is Scope.Build's: the selected daemon's own
 // builder, for its own platform (the site is files).
-func ExportStaticBuild(ctx context.Context, dk Scope, contextDir string, sb appcontract.StaticBuild) (site string, done func(), err error) {
+func exportStaticBuild(ctx context.Context, dk Scope, contextDir string, sb appcontract.StaticBuild) (site string, done func(), err error) {
 	export, err := os.MkdirTemp("", "apptown-static-export-")
 	if err != nil {
 		return "", func() {}, err
@@ -57,7 +57,7 @@ func ExportStaticBuild(ctx context.Context, dk Scope, contextDir string, sb appc
 	done = func() { _ = os.RemoveAll(export) }
 	if out, err := dk.Build(ctx, StaticExportArgs(sb.Target, contextDir, export)...); err != nil {
 		done()
-		return "", func() {}, BuildFailure("building the static site", out, err)
+		return "", func() {}, buildFailure("building the static site", out, err)
 	}
 	if site, err = ConfineStaticExport(ctx, export, sb.Output); err != nil {
 		done()

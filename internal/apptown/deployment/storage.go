@@ -68,7 +68,7 @@ func (r storageRecorder) Establish(ctx context.Context, b deploy.StorageBinding)
 		return err
 	}
 	_, err := database.Transact(ctx, r.db, func(tx *database.Tx) (bool, error) {
-		dep, err := LockDeploymentIn(ctx, tx, r.deployment)
+		dep, err := lockDeploymentRecordIn(ctx, tx, r.deployment)
 		if err != nil {
 			return false, err
 		}
@@ -100,7 +100,7 @@ func establishStorageIn(ctx context.Context, tx *database.Tx, dep *Deployment, b
 
 func (r storageRecorder) Retire(ctx context.Context, need, volume string) error {
 	_, err := database.Transact(ctx, r.db, func(tx *database.Tx) (bool, error) {
-		dep, err := LockDeploymentIn(ctx, tx, r.deployment)
+		dep, err := lockDeploymentRecordIn(ctx, tx, r.deployment)
 		if err != nil {
 			return false, err
 		}
@@ -191,7 +191,7 @@ func (r storageRestoreRecorder) Restore(ctx context.Context, source *deploy.Stor
 		return errors.New("physical restore changed the source engine")
 	}
 	_, err = database.Transact(ctx, r.db, func(tx *database.Tx) (bool, error) {
-		dep, err := LockDeploymentIn(ctx, tx, r.deployment)
+		dep, err := lockDeploymentRecordIn(ctx, tx, r.deployment)
 		if err != nil {
 			return false, err
 		}

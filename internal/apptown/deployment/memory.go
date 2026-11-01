@@ -63,13 +63,13 @@ type PartMemory struct {
 	Reason     string `json:"reason,omitempty"` // why it is unknown
 }
 
-// ObservedMemory is each part's memory use now, asked of the deployment's
+// observedMemory is each part's memory use now, asked of the deployment's
 // own target: a Docker host's daemon reports each part's container. A
 // target that does not report it (App Platform, Portainer), a daemon that
 // cannot be asked, or a part it does not report is unknown with the
 // reason: never zero, and never "within its limit". The parts are those
 // the settled generation recorded, else the public part alone.
-func (s *Service) ObservedMemory(ctx context.Context, d *Deployment) ([]PartMemory, error) {
+func (s *Service) observedMemory(ctx context.Context, d *Deployment) ([]PartMemory, error) {
 	applied, err := s.SettledApplied(ctx, d)
 	if err != nil {
 		return nil, err
@@ -146,12 +146,12 @@ func (s *Service) ObservedMemory(ctx context.Context, d *Deployment) ([]PartMemo
 	return out, nil
 }
 
-// GenerationMemory is a deployment's memory as its recorded generation runs
+// generationMemory is a deployment's memory as its recorded generation runs
 // it: the commit that generation serves and each part's use, observed while
 // its public container stayed that generation. Commit is "" with the reason
 // when that cannot be established: the deployment is changing, or its
 // container cannot be asked.
-type GenerationMemory struct {
+type generationMemory struct {
 	Commit string
 	Parts  []PartMemory
 	Reason string
@@ -164,22 +164,22 @@ type GenerationMemory struct {
 // (a rollout starts new parts before it replaces the public container, and a
 // failed one can leave them running). Otherwise it answers for nothing, with
 // the reason.
-func (s *Service) MemoryOfRecordedGeneration(ctx context.Context, d *Deployment) (GenerationMemory, error) {
+func (s *Service) MemoryOfRecordedGeneration(ctx context.Context, d *Deployment) (generationMemory, error) {
 	served := s.ServedRevision(ctx, d)
 	if served.Commit == "" {
-		return GenerationMemory{Reason: served.Reason}, nil
+		return generationMemory{Reason: served.Reason}, nil
 	}
-	parts, err := s.ObservedMemory(ctx, d)
+	parts, err := s.observedMemory(ctx, d)
 	if err != nil {
-		return GenerationMemory{}, err
+		return generationMemory{}, err
 	}
 	if why, err := s.unsettledReason(ctx, d); err != nil || why != "" {
-		return GenerationMemory{Reason: why}, err
+		return generationMemory{Reason: why}, err
 	}
 	if again := s.ServedRevision(ctx, d); again.Commit != served.Commit || again.ContainerID != served.ContainerID {
-		return GenerationMemory{Reason: "the deployment changed while it was being observed"}, nil
+		return generationMemory{Reason: "the deployment changed while it was being observed"}, nil
 	}
-	return GenerationMemory{Commit: served.Commit, Parts: parts}, nil
+	return generationMemory{Commit: served.Commit, Parts: parts}, nil
 }
 
 // unsettledReason says why a deployment, read again now, is not settled on
@@ -271,7 +271,7 @@ func (s *Service) Resources(ctx context.Context, projectID ids.ID, name string) 
 	if err != nil {
 		return DeploymentResources{}, err
 	}
-	observed, err := s.ObservedMemory(ctx, dep)
+	observed, err := s.observedMemory(ctx, dep)
 	if err != nil {
 		return DeploymentResources{}, err
 	}
@@ -296,7 +296,7 @@ func (s *Service) Resources(ctx context.Context, projectID ids.ID, name string) 
 		if !ok {
 			p = applied.Services[n]
 		}
-		pr := PartResource{OverrideLabel: ProgressLabelUnknown, SuppliedService: supplied, MemoryDefault: p.MemoryDefault, MemoryUnlimited: p.MemoryUnlimited, Part: n, Public: p.Public, Need: p.Need, Memory: p.Resources.MemoryWords(), CPU: p.Resources.CPUWords(), RunsOn: p.RunsOn}
+		pr := PartResource{OverrideLabel: progressLabelUnknown, SuppliedService: supplied, MemoryDefault: p.MemoryDefault, MemoryUnlimited: p.MemoryUnlimited, Part: n, Public: p.Public, Need: p.Need, Memory: p.Resources.MemoryWords(), CPU: p.Resources.CPUWords(), RunsOn: p.RunsOn}
 		if p.Size != nil {
 			pr.Size = p.Size.Name
 		}
@@ -312,7 +312,7 @@ func (s *Service) Resources(ctx context.Context, projectID ids.ID, name string) 
 		if o, ok := overrides[n]; ok {
 			pr.Override = &o
 			pr.OverrideApplied = applied.Recorded() && p.Override == o.Resources && p.MemoryUnlimited == o.MemoryUnlimited
-			pr.OverrideLabel = OverrideDisplay(pr.OverrideApplied)
+			pr.OverrideLabel = overrideDisplay(pr.OverrideApplied)
 		}
 		if m, ok := use[n]; ok {
 			pr.Observed = m
@@ -322,10 +322,10 @@ func (s *Service) Resources(ctx context.Context, projectID ids.ID, name string) 
 		out.Parts = append(out.Parts, pr)
 	}
 	if len(out.Parts) == 0 && len(observed) == 1 {
-		out.Parts = append(out.Parts, PartResource{OverrideLabel: ProgressLabelUnknown, Memory: "not recorded", CPU: "not recorded", Public: true, Observed: observed[0]})
+		out.Parts = append(out.Parts, PartResource{OverrideLabel: progressLabelUnknown, Memory: "not recorded", CPU: "not recorded", Public: true, Observed: observed[0]})
 	}
 	out.Share = s.share(ctx, dep, out.Parts, applied)
-	out.LimitsKnown, out.LimitsSource = s.LimitEventsSource(ctx, dep)
+	out.LimitsKnown, out.LimitsSource = s.limitEventsSource(ctx, dep)
 	if out.Limits, err = s.LimitSummary(ctx, dep, 24*time.Hour); err != nil {
 		return DeploymentResources{}, err
 	}

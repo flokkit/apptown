@@ -102,12 +102,12 @@ func (s releaseSource) fetch(ctx context.Context, tag string) (signedRelease, er
 	}
 	base := "https://github.com/flokkit/apptown/releases/download/" + url.PathEscape(tag) + "/"
 	documents := make(map[string][]byte, 4)
-	for _, name := range []string{ManifestName, ChecksumsName, BundleName, NotesName} {
+	for _, name := range []string{manifestName, checksumsName, bundleName, notesName} {
 		limit := int64(maxDocument)
-		if name == ChecksumsName {
+		if name == checksumsName {
 			limit = 16 << 10
 		}
-		if name == NotesName {
+		if name == notesName {
 			limit = 256 << 10
 		}
 		body, _, status, err := s.http.get(ctx, base+name, "", limit)
@@ -119,7 +119,7 @@ func (s releaseSource) fetch(ctx context.Context, tag string) (signedRelease, er
 		}
 		documents[name] = body
 	}
-	release, err := s.verify.verify(ctx, tag, documents[ManifestName], documents[ChecksumsName], documents[BundleName], documents[NotesName])
+	release, err := s.verify.verify(ctx, tag, documents[manifestName], documents[checksumsName], documents[bundleName], documents[notesName])
 	if err != nil {
 		return signedRelease{}, fmt.Errorf("%w: %w", errAuthentication, err)
 	}

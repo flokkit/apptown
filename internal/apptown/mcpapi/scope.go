@@ -11,19 +11,19 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
 
-type Scope struct {
+type scope struct {
 	projects  *project.Projects
 	authority *identity.Service
 }
 
-func NewScope(projects *project.Projects, authority *identity.Service) Scope {
-	return Scope{projects, authority}
+func NewScope(projects *project.Projects, authority *identity.Service) scope {
+	return scope{projects, authority}
 }
-func (s Scope) bySlug(ctx context.Context, slug string) (*project.Project, error) {
+func (s scope) bySlug(ctx context.Context, slug string) (*project.Project, error) {
 	p, err := s.projects.BySlug(ctx, slug)
 	return &p, err
 }
-func (s Scope) mayRead(c *Call, p *project.Project) (bool, error) {
+func (s scope) mayRead(c *Call, p *project.Project) (bool, error) {
 	res, err := s.projects.AuthorityResource(c.Context, p.ID)
 	if err != nil {
 		return false, err
@@ -35,7 +35,7 @@ func (s Scope) mayRead(c *Call, p *project.Project) (bool, error) {
 // readable returns the project with this id if the caller may read it. A
 // missing project and one the caller may not see are refused alike; a failed
 // read is an error, not "no such project".
-func (s Scope) readable(c *Call, id ids.ID, refusal error) (*project.Project, error) {
+func (s scope) readable(c *Call, id ids.ID, refusal error) (*project.Project, error) {
 	p, err := s.projects.ByID(c.Context, id)
 	if absent(err) {
 		return nil, refusal
@@ -50,7 +50,7 @@ func (s Scope) readable(c *Call, id ids.ID, refusal error) (*project.Project, er
 	}
 	return &p, nil
 }
-func (s Scope) projectForRead(c *Call, slug string) (*project.Project, error) {
+func (s scope) projectForRead(c *Call, slug string) (*project.Project, error) {
 	if slug == "" {
 		return nil, refuse("say which project: pass its slug (list_projects shows them)")
 	}
@@ -69,7 +69,7 @@ func (s Scope) projectForRead(c *Call, slug string) (*project.Project, error) {
 	}
 	return p, nil
 }
-func (s Scope) changeForRead(work *workflow.Service, c *Call, args map[string]any) (*workflow.Change, *project.Project, error) {
+func (s scope) changeForRead(work *workflow.Service, c *Call, args map[string]any) (*workflow.Change, *project.Project, error) {
 	id, err := argID(args, "id")
 	if err != nil {
 		return nil, nil, err
@@ -88,7 +88,7 @@ func (s Scope) changeForRead(work *workflow.Service, c *Call, args map[string]an
 	}
 	return ch, p, nil
 }
-func (s Scope) runForRead(work *workflow.Service, c *Call, args map[string]any) (*workflow.Run, *project.Project, error) {
+func (s scope) runForRead(work *workflow.Service, c *Call, args map[string]any) (*workflow.Run, *project.Project, error) {
 	id, err := argID(args, "id")
 	if err != nil {
 		return nil, nil, err
@@ -107,7 +107,7 @@ func (s Scope) runForRead(work *workflow.Service, c *Call, args map[string]any) 
 	}
 	return run, p, nil
 }
-func (s Scope) changeForWrite(work *workflow.Service, c *Call, args map[string]any) (*workflow.Change, *project.Project, error) {
+func (s scope) changeForWrite(work *workflow.Service, c *Call, args map[string]any) (*workflow.Change, *project.Project, error) {
 	ch, p, err := s.changeForRead(work, c, args)
 	if err != nil {
 		return nil, nil, err
@@ -117,7 +117,7 @@ func (s Scope) changeForWrite(work *workflow.Service, c *Call, args map[string]a
 	}
 	return ch, p, nil
 }
-func (s Scope) authorize(c *Call, tool string, cap access.Capability, res access.Resource) error {
+func (s scope) authorize(c *Call, tool string, cap access.Capability, res access.Resource) error {
 	pr := c.principal()
 	dec, err := s.authority.Decide(c.Context, pr, access.Permission{Capability: cap, Resource: res, Context: access.Context{Consequential: true, Route: "mcp:" + tool}})
 	if err != nil {

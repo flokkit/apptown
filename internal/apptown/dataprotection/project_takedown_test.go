@@ -100,7 +100,7 @@ func takeDownWithProject(t *testing.T, name string) {
 		t.Fatalf("project deletion took no final copy: %+v", res)
 	}
 	ops, err := w.ops.OnSubject(ctx, deployment.SubjectOf(dep), 10)
-	if err != nil || len(ops) != 1 || ops[0].Kind != OperationTakeDown || !endedAs(&ops[0], OperationVerified) {
+	if err != nil || len(ops) != 1 || ops[0].Kind != OperationTakeDown || !endedAs(&ops[0], operationVerified) {
 		t.Fatalf("the take-down operation: %+v %v", ops, err)
 	}
 	var names []string
@@ -124,7 +124,7 @@ func takeDownWithProject(t *testing.T, name string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	item := set.GoodCopy("need", "postgres")
+	item := set.goodCopy("need", "postgres")
 	if set.Store != StoreBackupStore || item == nil || item.Instance != clusterID {
 		t.Fatalf("the final set: %+v", set)
 	}
@@ -283,7 +283,7 @@ func TestATakeDownThatCannotTakeAFinalCopyIsRefusedUnlessChosen(t *testing.T) {
 		"project deletion": func() error { _, err := w.s.TakeDownWithProject(ctx, w.project, "prod"); return err },
 	} {
 		err := takeDown()
-		if !errors.Is(err, ErrNoFinalCopy) || !errors.Is(err, deployment.ErrNoCopyRunner) || fault.CodeOf(err) != "no-final-copy" || !strings.Contains(err.Error(), deployment.ErrNoCopyRunner.Error()) {
+		if !errors.Is(err, errNoFinalCopy) || !errors.Is(err, deployment.ErrNoCopyRunner) || fault.CodeOf(err) != "no-final-copy" || !strings.Contains(err.Error(), deployment.ErrNoCopyRunner.Error()) {
 			t.Errorf("%s with no final copy possible: %v", door, err)
 		}
 	}
@@ -332,7 +332,7 @@ func TestAChoiceToKeepTheDataIsRefusedOnceAFinalCopyIsPossible(t *testing.T) {
 	}
 	w.nameRunner("local") // an administrator fixes it while the choice is open
 	res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"})
-	if !errors.Is(err, ErrFinalCopyPossible) || fault.CodeOf(err) != "final-copy-possible" || res.Operation != nil || res.Removed != nil {
+	if !errors.Is(err, errFinalCopyPossible) || fault.CodeOf(err) != "final-copy-possible" || res.Operation != nil || res.Removed != nil {
 		t.Fatalf("a stale choice to keep the data: %+v %v", res, err)
 	}
 	if ops, err := w.opsOn("prod"); err != nil || len(ops) != 0 {
@@ -355,7 +355,7 @@ func TestDeploymentDoorsAskTheProjectsLifecycle(t *testing.T) {
 	t.Parallel()
 	w, _, _ := releasedProd(t)
 	ctx := context.Background()
-	if got := w.run(mustOp(t)(w.s.RequestCopy(ctx, w.project, "prod"))); !endedAs(got, OperationNotVerified) {
+	if got := w.run(mustOp(t)(w.s.RequestCopy(ctx, w.project, "prod"))); !endedAs(got, operationNotVerified) {
 		t.Fatalf("the copy: %s %s", got.State, got.Detail)
 	}
 	move := func(to string) {
@@ -428,7 +428,7 @@ func TestPurgingAProjectRemovesItsCopiesInTheStore(t *testing.T) {
 	t.Parallel()
 	w, _, _ := releasedProd(t)
 	ctx := context.Background()
-	if got := w.run(mustOp(t)(w.s.RequestCopy(ctx, w.project, "prod"))); !endedAs(got, OperationNotVerified) {
+	if got := w.run(mustOp(t)(w.s.RequestCopy(ctx, w.project, "prod"))); !endedAs(got, operationNotVerified) {
 		t.Fatalf("the copy: %s %s", got.State, got.Detail)
 	}
 	if len(w.store.Keys("forge-copies")) == 0 {
@@ -482,7 +482,7 @@ func TestDockerDataDoorsAskTheProjectsLifecycle(t *testing.T) {
 	if err != nil || got["skipped"] == nil {
 		t.Fatalf("a scheduled backup in a project being deleted: %v %v", got, err)
 	}
-	if moved, left, err := w.s.MoveSetsToStore(ctx); err != nil || moved != 0 || len(left) != 0 {
+	if moved, left, err := w.s.moveSetsToStore(ctx); err != nil || moved != 0 || len(left) != 0 {
 		t.Fatalf("the off-host move of a project being deleted: %d %v %v", moved, left, err)
 	}
 	if cmds := w.client.Commands(); len(cmds) != 0 {
@@ -517,8 +517,8 @@ func TestAPurgeRemovesFailedAndPartialSets(t *testing.T) {
 	for _, b := range []Backup{
 		{ProjectID: w.project, Deployment: "prod", TakenAt: now, Trigger: "scheduled", Path: disk, Status: BackupFailed, Store: StoreAppTownDisk},
 		{ProjectID: w.project, Deployment: "prod", TakenAt: now, Trigger: "scheduled", Status: BackupFailed, Store: StoreAppTownDisk},
-		{ProjectID: w.project, Deployment: "prod", TakenAt: now, Trigger: TriggerTakeDown, Path: "ledger/prod/partial", Status: BackupPartial, Store: StoreBackupStore, StoreBucket: store.Bucket, StoreEndpoint: store.Endpoint},
-		{ProjectID: w.project, Deployment: "prod", TakenAt: now, Trigger: TriggerTakeDown, Status: BackupFailed, Store: StoreBackupStore},
+		{ProjectID: w.project, Deployment: "prod", TakenAt: now, Trigger: triggerTakeDown, Path: "ledger/prod/partial", Status: BackupPartial, Store: StoreBackupStore, StoreBucket: store.Bucket, StoreEndpoint: store.Endpoint},
+		{ProjectID: w.project, Deployment: "prod", TakenAt: now, Trigger: triggerTakeDown, Status: BackupFailed, Store: StoreBackupStore},
 		{ProjectID: idstest.N(999999), Deployment: "prod", TakenAt: now, Trigger: "scheduled", Status: BackupFailed, Store: StoreAppTownDisk},
 	} {
 		if _, err := w.s.backups.Record(ctx, &b, "apptown-system"); err != nil {

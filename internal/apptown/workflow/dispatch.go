@@ -40,7 +40,7 @@ type dispatchState struct {
 	Orphaned, Active bool
 }
 
-func (s dispatchState) Runnable() bool { return s.Status == StatusPending || s.Orphaned }
+func (s dispatchState) runnable() bool { return s.Status == StatusPending || s.Orphaned }
 func (w dispatchPlans) State(ctx context.Context, runID, stepID ids.ID) (dispatchState, error) {
 	var state dispatchState
 	row, err := workflowsql.New(w.db.SQL()).DispatchStepState(ctx, workflowsql.DispatchStepStateParams{RunID: runID, ID: stepID})
@@ -155,7 +155,7 @@ func (w dispatchPlans) Skip(ctx context.Context, runID, stepID ids.ID, after str
 		if current.Status != StatusPending && !restartOrphan(current) {
 			return nil
 		}
-		if _, err := current.Status.Transition(MoveStepSkip, StatusSkipped); err != nil {
+		if _, err := current.Status.transition(moveStepSkip, StatusSkipped); err != nil {
 			return err
 		}
 		evidence, err := json.Marshal(struct {
@@ -194,7 +194,7 @@ func (w dispatchPlans) Resume(ctx context.Context, runID, stepID ids.ID) (bool, 
 	if run.ID != runID || run.Status != RunRunning || run.CurrentStage != current.Stage || current.OverrideBy != "" || !slices.Contains(w.automatic, current.Type) || !restartOrphan(current) {
 		return false, nil
 	}
-	if _, err := current.Status.Transition(MoveStepReset, StatusPending); err != nil {
+	if _, err := current.Status.transition(moveStepReset, StatusPending); err != nil {
 		return false, err
 	}
 	count, err := workflowsql.New(tx.SQL()).DispatchResume(ctx, workflowsql.DispatchResumeParams{ID: stepID, RunID: runID})

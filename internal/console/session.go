@@ -29,9 +29,9 @@ const (
 	MetaFile      = "session.json"          // present = alive
 	EndedFile     = "ended.json"            // the record after End: skipped by recovery, read by the transcript
 	SteeringFile  = "steering.md"           // the prompt the agent reads: authored text, the provision's notes, the notices
-	AuthoredFile  = "steering.authored.md"  // the authored part, as handed to Open
-	NoticesFile   = "notices.md"            // what the console told the agent since: resumes
-	StagedFile    = "staged.json"           // the files the last provision placed, for replacement
+	authoredFile  = "steering.authored.md"  // the authored part, as handed to Open
+	noticesFile   = "notices.md"            // what the console told the agent since: resumes
+	stagedFile    = "staged.json"           // the files the last provision placed, for replacement
 	RehearsedFile = "rehearsed-fingerprint" // the change console's boot-rehearsal memory
 	SavedFile     = "saved.json"            // the opener's record of the chat's last save to its branch
 )
@@ -113,9 +113,9 @@ type Workspace struct {
 type State string
 
 const (
-	Attached State = "attached" // a terminal is open on it
-	Detached State = "detached" // the agent runs, nobody is watching
-	Stopped  State = "stopped"  // the agent is stopped; files intact; a message wakes it
+	attached State = "attached" // a terminal is open on it
+	detached State = "detached" // the agent runs, nobody is watching
+	stopped  State = "stopped"  // the agent is stopped; files intact; a message wakes it
 	Dead     State = "dead"     // the agent runtime is gone; the next message rebuilds it
 	// Unavailable: the runtime could not be asked (a worker that cannot be
 	// reached); what runs is unknown, never assumed gone.
@@ -126,7 +126,7 @@ const (
 type Turn string
 
 const (
-	Working    Turn = "working"
+	working    Turn = "working"
 	HandedBack Turn = "handed-back"
 )
 
@@ -214,15 +214,15 @@ func (s *Session) Idle(now time.Time, limit time.Duration) bool {
 	return s.viewers == 0 && !s.lastUsed.IsZero() && now.Sub(s.lastUsed) > limit
 }
 
-// Active: watched, or used within the window. Purge and remediation ask this.
-func (s *Session) Active(now time.Time, within time.Duration) bool {
+// active: watched, or used within the window. Purge and remediation ask this.
+func (s *Session) active(now time.Time, within time.Duration) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.viewers > 0 || (!s.lastUsed.IsZero() && now.Sub(s.lastUsed) < within)
 }
 
-// UsesWorkspace: the session's checkout is this workspace or lies under it.
-func (s *Session) UsesWorkspace(workspace string) bool {
+// usesWorkspace: the session's checkout is this workspace or lies under it.
+func (s *Session) usesWorkspace(workspace string) bool {
 	workspace = filepath.Clean(workspace)
 	checkout := filepath.Clean(s.Checkout)
 	return checkout == workspace || strings.HasPrefix(checkout, workspace+string(os.PathSeparator))
@@ -238,7 +238,7 @@ func (s *Session) record() *Transcript {
 	s.recOnce.Do(func() {
 		s.rec.Dir = s.Dir
 		if s.AgentSession != "" && s.AgentSession != AgentSession {
-			s.rec.Since = s.CreatedAt
+			s.rec.since = s.CreatedAt
 		}
 	})
 	return &s.rec
@@ -246,24 +246,24 @@ func (s *Session) record() *Transcript {
 
 // Records is every session file the conversation owns, oldest first: what
 // usage accounting reads. A folder that cannot be read is an error.
-func (s *Session) Records() ([]string, error) { return s.record().SessionFiles() }
+func (s *Session) Records() ([]string, error) { return s.record().sessionFiles() }
 
 // Messages is the conversation as chat bubbles, oldest first.
-func (s *Session) Messages() []Message { return s.record().Messages() }
+func (s *Session) Messages() []Message { return s.record().messages() }
 
-// ReadMessages is Messages, with the failure to read the record when there
+// readMessages is Messages, with the failure to read the record when there
 // was one.
-func (s *Session) ReadMessages() ([]Message, error) { return s.record().ReadMessages() }
+func (s *Session) readMessages() ([]Message, error) { return s.record().readMessages() }
 
 // HandedBack: the agent has finished its turn.
 func (s *Session) HandedBack() bool { return s.record().TurnHandedBack() }
 
-// Turn is the agent's turn state for the chat page.
-func (s *Session) Turn() Turn {
+// turn is the agent's turn state for the chat page.
+func (s *Session) turn() Turn {
 	if s.HandedBack() {
 		return HandedBack
 	}
-	return Working
+	return working
 }
 
 // Activity is the turn as another page reads it: empty before the first
@@ -272,21 +272,12 @@ func (s *Session) Activity() Turn {
 	if len(s.Messages()) == 0 {
 		return ""
 	}
-	return s.Turn()
+	return s.turn()
 }
-
-// RecordOffset is the transcript reader's position in the newest record,
-// for tests of the resume.
-func (s *Session) RecordOffset() int64 { return s.record().Offset() }
 
 // LatestRecord is the newest session file and its size: the marker delivery
 // verification measures growth past.
 func (s *Session) LatestRecord() (string, int64) { return s.record().LatestSessionFile() }
-
-// UserMessageAppended: has a user message entered the record since the marker?
-func (s *Session) UserMessageAppended(file string, off int64) bool {
-	return s.record().UserMessageAppended(file, off)
-}
 
 // --- the record on disk ---------------------------------------------------------
 
@@ -340,13 +331,6 @@ func readRecord(path string) (Meta, error) {
 	return meta, nil
 }
 
-// SetLastUsed sets the idle clock; recovery and tests use it.
-func (s *Session) SetLastUsed(t time.Time) {
-	s.mu.Lock()
-	s.lastUsed = t
-	s.mu.Unlock()
-}
-
 // --- the prompt: one file, one writer --------------------------------------------
 //
 // The agent reads SteeringFile. The console composes it from the authored
@@ -357,7 +341,7 @@ func (s *Session) SetLastUsed(t time.Time) {
 const notesMarker = "\n<!-- console:provision -->\n"
 
 func (s *Session) composeSteering(notes string) error {
-	authored, err := os.ReadFile(filepath.Join(s.Dir, AuthoredFile))
+	authored, err := os.ReadFile(filepath.Join(s.Dir, authoredFile))
 	if err != nil {
 		return err
 	}
@@ -365,7 +349,7 @@ func (s *Session) composeSteering(notes string) error {
 	if strings.TrimSpace(notes) != "" {
 		text += notesMarker + notes + notesMarker
 	}
-	if notices, err := os.ReadFile(filepath.Join(s.Dir, NoticesFile)); err == nil {
+	if notices, err := os.ReadFile(filepath.Join(s.Dir, noticesFile)); err == nil {
 		text += string(notices)
 	}
 	return os.WriteFile(filepath.Join(s.Dir, SteeringFile), []byte(text), 0o644)
@@ -374,7 +358,7 @@ func (s *Session) composeSteering(notes string) error {
 // notice tells the agent something at its next launch; numbered, dated,
 // kept, and appended to the prompt at once so a launch that follows sees it.
 func (s *Session) notice(text string) error {
-	path := filepath.Join(s.Dir, NoticesFile)
+	path := filepath.Join(s.Dir, noticesFile)
 	prior, _ := os.ReadFile(path)
 	n := strings.Count(string(prior), "\n## Notice ") + 1
 	line := fmt.Sprintf("\n## Notice %d (%s)\n\n%s\n", n, s.clock().UTC().Format(time.RFC3339), text)
@@ -433,7 +417,7 @@ func place(dir string, files map[string]Staged) error {
 // configuration or credential taken away would stay and drop out of the
 // inventory that removes it later.
 func stage(dir string, files map[string]Staged) error {
-	manifest := filepath.Join(dir, StagedFile)
+	manifest := filepath.Join(dir, stagedFile)
 	var previous []string
 	raw, err := os.ReadFile(manifest)
 	switch {

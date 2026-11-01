@@ -18,7 +18,7 @@ type fakeStore struct {
 func (f *fakeStore) kind(label string, versioned bool) SyncKind {
 	return SyncKind{
 		Label: label, Versioned: versioned,
-		ReceiptSeeded: label + ".seeded", ReceiptUpdated: label + ".updated",
+		receiptSeeded: label + ".seeded", ReceiptUpdated: label + ".updated",
 		Current: func(name string) (string, bool, bool, error) {
 			if f.failRead[name] {
 				return "", false, false, errors.New("boom")
@@ -36,7 +36,7 @@ func (f *fakeStore) kind(label string, versioned bool) SyncKind {
 			f.versions[it.Name]++
 			return f.versions[it.Name], nil
 		},
-		Touch: func(it SyncItem) error { f.touched = append(f.touched, it.Name); return nil },
+		touch: func(it SyncItem) error { f.touched = append(f.touched, it.Name); return nil },
 	}
 }
 

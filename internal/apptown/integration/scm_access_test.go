@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/project"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,6 +14,9 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/dbtest"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/secret"
@@ -213,7 +215,7 @@ func TestAnSCMTokenThatCannotBeRecordedIsRevoked(t *testing.T) {
 		db := testDB(t)
 		id := createTestProject(t, db, "app", "App")
 		service := scmService(t, db, srv.URL)
-		restore := db.FailNextStatement(failed)
+		restore := dbtest.NextStatementFailure(db, failed)
 		env, why := service.SCMEnvironment(context.Background(), id, "https://gitlab.test/group/app.git", "read")
 		restore()
 		if env != nil || why == "" {

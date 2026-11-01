@@ -40,7 +40,7 @@ func TestUndeclaredReadinessIsANonConformance(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, ".apptown", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	v := observer.Probe(context.Background(), Target{Slug: "x", ContractDir: dir}, "readiness")
+	v := observer.Probe(context.Background(), guidanceTarget{Slug: "x", ContractDir: dir}, "readiness")
 	state, detail := v.Outcome, v.Detail
 	if state != check.DoesNotConform || !strings.Contains(detail, "health.readiness.http") {
 		t.Fatalf("want does-not-conform with the fix in words, got %s: %s", state, detail)
@@ -70,7 +70,7 @@ func TestStaticPartReadinessIsItsRootAnswering(t *testing.T) {
 		}
 	}))
 	defer site.Close()
-	v := Runtime{}.Probe(context.Background(), Target{Slug: "x", ContractDir: dir, FrontDoor: site.URL, Naked: site.URL}, "readiness")
+	v := Runtime{}.Probe(context.Background(), guidanceTarget{Slug: "x", ContractDir: dir, FrontDoor: site.URL, Naked: site.URL}, "readiness")
 	mu.Lock()
 	defer mu.Unlock()
 	if v.Outcome != check.Conforms || len(asked) != 2 || asked[0] != "/" || asked[1] != "/" {
@@ -78,7 +78,7 @@ func TestStaticPartReadinessIsItsRootAnswering(t *testing.T) {
 	}
 	empty := httptest.NewServer(http.NotFoundHandler())
 	defer empty.Close()
-	if v := (Runtime{}).Probe(context.Background(), Target{Slug: "x", ContractDir: dir, FrontDoor: empty.URL, Naked: empty.URL}, "readiness"); v.Outcome != check.DoesNotConform {
+	if v := (Runtime{}).Probe(context.Background(), guidanceTarget{Slug: "x", ContractDir: dir, FrontDoor: empty.URL, Naked: empty.URL}, "readiness"); v.Outcome != check.DoesNotConform {
 		t.Fatalf("a static site whose root does not answer is a finding: %s %s", v.Outcome, v.Detail)
 	}
 }

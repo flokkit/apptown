@@ -28,7 +28,7 @@ func previewResponse(out preview.Result, hostOnly bool) changePreviewResponse {
 	return changePreviewResponse{URL: out.URL, HostOnly: hostOnly, Commit: revision}
 }
 func writePreviewError(w http.ResponseWriter, err error, appFailureStatus int) {
-	if WriteRefusal(w, err) {
+	if writeRefusal(w, err) {
 		return
 	}
 	code := 500

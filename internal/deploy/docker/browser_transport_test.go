@@ -32,7 +32,7 @@ func TestNothingButAppTownSetsAStaticPartsBrowserValues(t *testing.T) {
 			} else {
 				secrets = map[string]string{BrowserEnvVar: "private-review-canary"}
 			}
-			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).StartAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "review-browser", Workspace: t.TempDir()}, part, "", secrets)
+			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).startAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "review-browser", Workspace: t.TempDir()}, part, "", secrets)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -60,7 +60,7 @@ func TestNothingButAppTownSetsAStaticPartsBrowserValues(t *testing.T) {
 func TestAnUnreadableBrowserValueLeavesTheRunningContainer(t *testing.T) {
 	t.Parallel()
 	client := &fakeClient{reply: func(Command) ([]byte, error) { return nil, nil }}
-	_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Integrations: unreadableBrowser{}}).StartAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "serving", Workspace: t.TempDir()}, &appcontract.Part{Static: ".", Port: 8080}, "", nil)
+	_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Integrations: unreadableBrowser{}}).startAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "serving", Workspace: t.TempDir()}, &appcontract.Part{Static: ".", Port: 8080}, "", nil)
 	if err == nil || !strings.Contains(err.Error(), "browser may be given") {
 		t.Fatalf("want the read failure, got %v", err)
 	}
@@ -105,7 +105,7 @@ func TestBrowserValuesAreReadBeforeTheStackChanges(t *testing.T) {
 					req.Persistent, req.ReleaseImage, req.StackID = false, releaseImage, "release-preview-review"
 					c.Parts, c.Init = c.Parts[:1], nil
 				}
-				var browser Contributions = unreadableBrowser{}
+				var browser contributions = unreadableBrowser{}
 				if readable {
 					browser = givenBrowser{}
 				}
@@ -160,7 +160,7 @@ func (reviewNoSecrets) Resolve(context.Context, string, string, string, *appcont
 
 type reviewUp struct{}
 
-func (reviewUp) Check(context.Context, Scope, string, string, time.Duration, RenderedProbe) (bool, string) {
+func (reviewUp) Check(context.Context, Scope, string, string, time.Duration, renderedProbe) (bool, string) {
 	return true, ""
 }
 
@@ -195,7 +195,7 @@ func TestIntegrationVariablesAreReadBeforeTheStackChanges(t *testing.T) {
 		}
 	}
 	client.args = nil
-	if _, err := host.StartAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "serving", Workspace: t.TempDir()}, &appcontract.Part{Image: "web:1", Port: 8080}, "", nil); err == nil {
+	if _, err := host.startAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "serving", Workspace: t.TempDir()}, &appcontract.Part{Image: "web:1", Port: 8080}, "", nil); err == nil {
 		t.Fatal("the app started without its integration variables")
 	}
 	if len(client.args) != 0 {

@@ -2,8 +2,9 @@ package docker
 
 import (
 	"context"
-	"github.com/flokkit/apptown/internal/clock"
 	"time"
+
+	"github.com/flokkit/apptown/internal/clock"
 
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/poll"

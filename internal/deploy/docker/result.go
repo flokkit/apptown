@@ -34,14 +34,14 @@ func (dk Scope) resultCLI(ctx context.Context, env []string, args ...string) ([]
 // it made runs past ctx (and so past the lifetime), which it could not if
 // every command were still bound by the lifetime.
 func (dk Scope) outlived(ctx context.Context) (context.Context, Scope, func()) {
-	if dk.Lifetime == nil {
+	if dk.ownerContext == nil {
 		return ctx, dk, func() {}
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	stop := context.AfterFunc(dk.Lifetime, cancel)
-	if dk.Lifetime.Err() != nil {
+	stop := context.AfterFunc(dk.ownerContext, cancel)
+	if dk.ownerContext.Err() != nil {
 		cancel()
 	}
-	dk.Lifetime = nil
+	dk.ownerContext = nil
 	return ctx, dk, func() { stop(); cancel() }
 }

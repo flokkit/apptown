@@ -9,20 +9,20 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ReservedEnvPrefix begins the names AppTown keeps for itself: a variable
+// reservedEnvPrefix begins the names AppTown keeps for itself: a variable
 // AppTown adds in a 1.x release starts with it, so no app that followed
 // the contract already uses that name.
-const ReservedEnvPrefix = "APPTOWN_"
+const reservedEnvPrefix = "APPTOWN_"
 
 // ReservedEnvName says why an app may not set name in a part's environment
 // or declare it as a secret, or "" when it may: AppTown sets it on every
 // part (AppTownSetEnv), or it starts with ReservedEnvPrefix.
 func ReservedEnvName(name string) string {
 	switch {
-	case slices.Contains(AppTownSetEnv, name):
+	case slices.Contains(appTownSetEnv, name):
 		return "only AppTown sets it"
-	case strings.HasPrefix(name, ReservedEnvPrefix):
-		return "names starting " + ReservedEnvPrefix + " are AppTown's"
+	case strings.HasPrefix(name, reservedEnvPrefix):
+		return "names starting " + reservedEnvPrefix + " are AppTown's"
 	}
 	return ""
 }
@@ -46,7 +46,7 @@ func (e environment) read(forPart bool) (map[string]string, error) {
 		if !envNameRe.MatchString(name) {
 			return nil, fmt.Errorf("environment: %q is not an environment variable name (letters, digits and _, not starting with a digit)", name)
 		}
-		if why := ReservedEnvName(name); why != "" && (forPart || strings.HasPrefix(name, ReservedEnvPrefix)) {
+		if why := ReservedEnvName(name); why != "" && (forPart || strings.HasPrefix(name, reservedEnvPrefix)) {
 			return nil, fmt.Errorf("environment: %s is AppTown's (%s); name it something else", name, why)
 		}
 		n := e[name]

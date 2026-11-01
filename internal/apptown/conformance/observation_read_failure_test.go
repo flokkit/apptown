@@ -3,6 +3,8 @@ package conformance
 import (
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -18,7 +20,7 @@ func TestCurrentObservationDoesNotHideFailedEvidenceRead(t *testing.T) {
 	if len(observations) != 1 || observations[0].ProjectID != projectID || observations[0].Record != nil || observations[0].State != NotScanned {
 		t.Fatalf("absence: %+v", observations)
 	}
-	t.Cleanup(db.FailNextStatement("FROM conformance_verdicts"))
+	t.Cleanup(dbtest.NextStatementFailure(db, "FROM conformance_verdicts"))
 	if vs, err := service.View(caller("t"), ids.Nil); err == nil || vs != nil {
 		t.Fatalf("failed lookup became absence: %+v %v", vs, err)
 	}

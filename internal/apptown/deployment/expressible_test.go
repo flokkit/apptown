@@ -15,28 +15,28 @@ func TestTargetRefusesContract(t *testing.T) {
 	needs := &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true}}, Needs: []string{"postgres", "redis"}}
 	host := &Target{Name: "box", Kind: KindDockerHost, Capabilities: TargetCapabilities{PersistentVolumes: true}, NeedsMode: "emulators"}
 	cloud := &Target{Name: "cloud", Kind: KindDOApp, Capabilities: TargetCapabilities{Needs: []string{"postgres"}}, NeedsMode: "managed"}
-	if why := host.RefusesContract(keeps); why != "" {
+	if why := host.refusesContract(keeps); why != "" {
 		t.Fatalf("a host with volumes takes a data directory: %s", why)
 	}
-	if why := cloud.RefusesContract(keeps); !strings.Contains(why, "persistent volumes") {
+	if why := cloud.refusesContract(keeps); !strings.Contains(why, "persistent volumes") {
 		t.Fatalf("a hostless target refuses a data directory with the ruling: %q", why)
 	}
-	if why := host.RefusesContract(needs); why != "" {
+	if why := host.refusesContract(needs); why != "" {
 		t.Fatalf("emulated needs are not judged against the target's managed list: %s", why)
 	}
-	if why := cloud.RefusesContract(needs); !strings.Contains(why, "needs redis") {
+	if why := cloud.refusesContract(needs); !strings.Contains(why, "needs redis") {
 		t.Fatalf("a managed-needs target refuses a need it cannot fulfil: %q", why)
 	}
 }
 
 func TestDeployableByHand(t *testing.T) {
-	if err := (&Deployment{Kind: Preview, Feed: "landing"}).DeployableByHand(); !errors.Is(err, ErrPreviewNotDeployed) {
+	if err := (&Deployment{Kind: preview, Feed: "landing"}).deployableByHand(); !errors.Is(err, errPreviewNotDeployed) {
 		t.Fatalf("a preview follows its change: %v", err)
 	}
-	if err := (&Deployment{Kind: Standing, Name: "main", Feed: "landing"}).DeployableByHand(); !errors.Is(err, ErrFedByLanding) || !strings.HasPrefix(err.Error(), "main is") {
+	if err := (&Deployment{Kind: Standing, Name: "main", Feed: "landing"}).deployableByHand(); !errors.Is(err, errFedByLanding) || !strings.HasPrefix(err.Error(), "main is") {
 		t.Fatalf("a landing-fed deployment is deployed by landing: %v", err)
 	}
-	if err := (&Deployment{Kind: Standing, Name: "staging", Feed: "promotion"}).DeployableByHand(); err != nil {
+	if err := (&Deployment{Kind: Standing, Name: "staging", Feed: "promotion"}).deployableByHand(); err != nil {
 		t.Fatalf("a promotion-fed deployment takes a deploy by hand: %v", err)
 	}
 }
@@ -45,24 +45,24 @@ func TestDeployableByHand(t *testing.T) {
 // another bundle, or software without recorded provenance, remains landing's.
 func TestDeployableByHandAtTheBundleItRuns(t *testing.T) {
 	main := &Deployment{Kind: Standing, Name: "main", Feed: "landing"}
-	if err := main.DeployableByHandAt(idstest.N(5), idstest.N(5)); err != nil {
+	if err := main.deployableByHandAt(idstest.N(5), idstest.N(5)); err != nil {
 		t.Fatalf("what runs may be deployed again: %v", err)
 	}
 	for _, c := range [][2]ids.ID{{idstest.N(6), idstest.N(5)}, {idstest.N(5), ids.Nil}, {ids.Nil, ids.Nil}} {
-		if err := main.DeployableByHandAt(c[0], c[1]); !errors.Is(err, ErrFedByLanding) {
+		if err := main.deployableByHandAt(c[0], c[1]); !errors.Is(err, errFedByLanding) {
 			t.Fatalf("bundle %s with %s running is landing's: %v", c[0], c[1], err)
 		}
 	}
-	if err := (&Deployment{Kind: Preview, Feed: "landing"}).DeployableByHandAt(idstest.N(5), idstest.N(5)); !errors.Is(err, ErrPreviewNotDeployed) {
+	if err := (&Deployment{Kind: preview, Feed: "landing"}).deployableByHandAt(idstest.N(5), idstest.N(5)); !errors.Is(err, errPreviewNotDeployed) {
 		t.Fatalf("a preview follows its change, whatever it runs: %v", err)
 	}
 }
 
 func TestRemovable(t *testing.T) {
-	if err := (&Deployment{Name: "main"}).Removable(); !errors.Is(err, ErrMainNotRemoved) {
+	if err := (&Deployment{Name: "main"}).removable(); !errors.Is(err, errMainNotRemoved) {
 		t.Fatalf("main is never removed by hand: %v", err)
 	}
-	if err := (&Deployment{Name: "staging"}).Removable(); err != nil {
+	if err := (&Deployment{Name: "staging"}).removable(); err != nil {
 		t.Fatalf("another deployment may be torn down: %v", err)
 	}
 }
@@ -72,16 +72,16 @@ func TestTargetsRefuseUnexecutedHealthPolicyBeforePreparation(t *testing.T) {
 		c := &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true, Static: "site", Intent: &appcontract.Health{Readiness: &appcontract.Probe{HTTP: "/ready", Period: "5s"}}}}}
 		target := &Target{Kind: kind, Capabilities: TargetCapabilities{PersistentVolumes: true}}
 		if kind == KindS3Bucket {
-			if target.RefusesContract(c) == "" {
+			if target.refusesContract(c) == "" {
 				t.Fatal("bucket accepted ignored runtime policy")
 			}
 			continue
 		}
-		if why := target.RefusesContract(c); why != "" {
+		if why := target.refusesContract(c); why != "" {
 			t.Fatalf("%s valid public policy: %s", kind, why)
 		}
 		c.Parts = append(c.Parts, appcontract.Part{Name: "worker", Intent: &appcontract.Health{Readiness: &appcontract.Probe{HTTP: "/ready", Period: "5s"}}})
-		if target.RefusesContract(c) == "" {
+		if target.refusesContract(c) == "" {
 			t.Fatalf("%s accepted unexecuted worker readiness", kind)
 		}
 	}

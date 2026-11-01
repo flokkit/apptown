@@ -39,10 +39,10 @@ func removalFixture(t *testing.T) (*Service, *configurationWorld, *removalDriver
 	driver := &removalDriver{}
 	s.providers.drivers = map[string]DriverFactory{KindDOApp: func(context.Context, *Target, *Deployment) (deploy.Driver, error) { return driver, nil }}
 	dep := configureForTest(t, s, in)
-	if err := s.Needs.RecordIntent(context.Background(), dep.ID, "postgres", map[string]any{"name": "retained-pg"}); err != nil {
+	if err := s.needs.RecordIntent(context.Background(), dep.ID, "postgres", map[string]any{"name": "retained-pg"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Needs.RecordIdentity(context.Background(), dep.ID, "postgres", nil, "db-1", "retained-pg"); err != nil {
+	if err := s.needs.RecordIdentity(context.Background(), dep.ID, "postgres", nil, "db-1", "retained-pg"); err != nil {
 		t.Fatal(err)
 	}
 	return s, w, driver, dep

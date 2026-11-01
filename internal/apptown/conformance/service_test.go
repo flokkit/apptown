@@ -12,7 +12,7 @@ import (
 )
 
 type testActorKey struct{}
-type testAuthority struct{ check func(Permission) error }
+type testAuthority struct{ check func(permission) error }
 
 func (a testAuthority) Actor(ctx context.Context) (string, error) {
 	who, _ := ctx.Value(testActorKey{}).(string)
@@ -21,7 +21,7 @@ func (a testAuthority) Actor(ctx context.Context) (string, error) {
 	}
 	return who, nil
 }
-func (a testAuthority) Require(ctx context.Context, p Permission) (string, error) {
+func (a testAuthority) Require(ctx context.Context, p permission) (string, error) {
 	who, err := a.Actor(ctx)
 	if err != nil {
 		return "", err
@@ -82,9 +82,9 @@ func TestReviewExecutionOwnsItsIdentityAndAdmittedInputs(t *testing.T) {
 	t.Parallel()
 	db, id := reviewFixture(t)
 	source := &testSource{head: "committed-before-evaluation"}
-	service := newServiceWithAuthority(db, testAuthority{check: func(p Permission) error {
-		if p.Action != RunReview || len(p.Projects) != 1 || p.Projects[0] != id {
-			return ErrScope
+	service := newServiceWithAuthority(db, testAuthority{check: func(p permission) error {
+		if p.Action != runReview || len(p.Projects) != 1 || p.Projects[0] != id {
+			return errScope
 		}
 		p.Projects[0] = idstest.N(999999)
 		return nil
@@ -124,7 +124,7 @@ func TestReviewExecutionOwnsItsIdentityAndAdmittedInputs(t *testing.T) {
 	if saved.SHA != head.SHA || saved.ProjectSlug != "reviewed" || saved.Check != "clean" || saved.ReviewID != execution.Review().ID || execution.Review().Actor != "verified-person" {
 		t.Fatalf("unbound identity: %+v %+v", saved, execution.Review())
 	}
-	if _, err := pending.Commit(context.Background(), nil); !errors.Is(err, ErrVerdictChanged) {
+	if _, err := pending.Commit(context.Background(), nil); !errors.Is(err, errVerdictChanged) {
 		t.Fatalf("duplicate admission: %v", err)
 	}
 	if err := execution.Progress(context.Background(), 1, "reviewed"); err != nil {
@@ -134,7 +134,7 @@ func TestReviewExecutionOwnsItsIdentityAndAdmittedInputs(t *testing.T) {
 	if err != nil || finished.Verdicts != 1 {
 		t.Fatalf("finish: %+v %v", finished, err)
 	}
-	if _, err := pending.Commit(context.Background(), nil); !errors.Is(err, ErrReviewClosed) {
+	if _, err := pending.Commit(context.Background(), nil); !errors.Is(err, errReviewClosed) {
 		t.Fatalf("terminal write: %v", err)
 	}
 	wantHeld(t, "verdicts", heldRecords(t, db).Verdicts, 1)

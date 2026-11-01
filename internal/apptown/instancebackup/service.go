@@ -11,22 +11,22 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// Database is the database a backup dumps, the built-in one or the -db-url
+// databaseFiles is the database a backup dumps, the built-in one or the -db-url
 // one (the composition root's databaseDump): Dump writes a whole gzipped
 // plain dump at path, without owners or privileges so it loads into the
 // built-in database, or nothing; DumpClientVersion is the pg_dump that does
 // it.
-type Database interface {
+type databaseFiles interface {
 	Dump(ctx context.Context, path string) error
 	DumpClientVersion(ctx context.Context) (string, error)
 }
 
-// BuiltinDatabase is AppTown's built-in database, which the composition
+// builtinDatabase is AppTown's built-in database, which the composition
 // root makes, names and dumps (dbboot.go), and which a restore always loads
 // into: Names is what db.env says its container and database are (false:
 // there is none), Ensure starts or makes it and answers its URL once it
 // answers.
-type BuiltinDatabase interface {
+type builtinDatabase interface {
 	Names() (container, database string, ok bool)
 	Ensure(ctx context.Context) (url string, err error)
 }
@@ -36,7 +36,7 @@ type Dependencies struct {
 	DB      *database.DB
 	DataDir string
 	// Database is the database AppTown runs on, which a backup dumps.
-	Database    Database
+	Database    databaseFiles
 	Protection  *dataprotection.Service
 	Deployment  *deployment.Service
 	Deployments *deployment.Deployments

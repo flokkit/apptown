@@ -32,7 +32,7 @@ type feedbackBinding struct {
 // name is ""), nil when there is none with a url; a read that fails is an
 // error.
 func (s *Service) feedbackBindingNamed(ctx context.Context, name string) (*feedbackBinding, error) {
-	b, found, err := s.Bindings.FirstNamed(ctx, CapFeedback, name)
+	b, found, err := s.Bindings.firstNamed(ctx, CapFeedback, name)
 	if err != nil || !found {
 		return nil, err
 	}

@@ -27,10 +27,10 @@ func (f abandonRecorderFunc) RecordAbandonIn(ctx context.Context, tx *database.T
 	return f(ctx, tx, in)
 }
 func noAbandonEffects(context.Context, *database.Tx, AbandonEffects) error { return nil }
-func abandonFixture(t *testing.T) (Abandonments, *Run) {
+func abandonFixture(t *testing.T) (abandonments, *Run) {
 	t.Helper()
 	admissions, req, def := runAdmissionFixture(t)
-	run, err := admissions.Create(context.Background(), req, def)
+	run, err := admissions.records.create(context.Background(), req, def)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,7 +238,7 @@ func TestFailedLandingSupersessionRechecksCurrentWork(t *testing.T) {
 			ctx := context.Background()
 			pinStartFixture(t, admissions, req, &def)
 			def.Spec.Role = "landing"
-			run, err := admissions.Create(ctx, req, def)
+			run, err := admissions.records.create(ctx, req, def)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -274,7 +274,7 @@ func TestFailedLandingSupersessionRechecksCurrentWork(t *testing.T) {
 			case "read failure":
 				dbtest.FailNextStatement(t, db, "-- name: AbandonFailedLandingEligible")
 			}
-			out, err := NewAbandonments(db, abandonRecorderFunc(noAbandonEffects), &scm.RepositoryLocks{}).SupersedeFailedLanding(ctx, source.Superseded[0], "work")
+			out, err := NewAbandonments(db, abandonRecorderFunc(noAbandonEffects), &scm.RepositoryLocks{}).supersedeFailedLanding(ctx, source.Superseded[0], "work")
 			if change == "none" {
 				if err != nil || len(out.RunIDs) != 1 {
 					t.Fatalf("failed landing: %+v %v", out, err)

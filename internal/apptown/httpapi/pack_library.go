@@ -41,7 +41,7 @@ func (h PackLibrary) SetPackEnabled(w http.ResponseWriter, r *http.Request) {
 	jsonCommand(w, r, jsonBody{}, func(in struct {
 		Enabled bool `json:"enabled"`
 	}) {
-		if err := h.ways.OfferPack(r.Context(), name, in.Enabled, Actor(r)); err != nil {
+		if err := h.ways.OfferPack(r.Context(), name, in.Enabled, actor(r)); err != nil {
 			WriteFault(w, err)
 			return
 		}
@@ -110,7 +110,7 @@ func (h PackLibrary) SavePack(w http.ResponseWriter, r *http.Request) {
 			WriteFault(w, err)
 			return
 		}
-		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), ids.Nil, "pack.saved", in.Name, map[string]any{
+		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, actor(r), ids.Nil, "pack.saved", in.Name, map[string]any{
 			"guidance": len(in.Guidance), "workflows": in.Workflows, "policies": len(in.Policies), "warnings": warnings})
 		WriteJSON(w, 200, PackSaved{OK: true, Version: int64(version), Warnings: warnings})
 	})
@@ -122,7 +122,7 @@ func (h PackLibrary) DeletePack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := r.PathValue("name")
-	if err := h.ways.DeletePack(r.Context(), name, Actor(r)); err != nil {
+	if err := h.ways.DeletePack(r.Context(), name, actor(r)); err != nil {
 		WriteFault(w, err)
 		return
 	}
@@ -177,7 +177,7 @@ func (h PackLibrary) RecommendPackVersion(w http.ResponseWriter, r *http.Request
 				return
 			}
 		}
-		if err := h.ways.RecommendPack(r.Context(), name, in.Version, Actor(r), in.WhatIf); err != nil {
+		if err := h.ways.RecommendPack(r.Context(), name, in.Version, actor(r), in.WhatIf); err != nil {
 			WriteFault(w, err)
 			return
 		}

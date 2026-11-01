@@ -2,6 +2,7 @@ package verification
 
 import (
 	"context"
+
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
@@ -17,30 +18,30 @@ import (
 
 // assessInput is what an assessment may use beyond the tree.
 type assessInput struct {
-	Tool ToolContext // the tree, its commit, exceptions and whether an image may be built
-	// Sh is the shell image of the unit's tool versions snapshot: one
+	tool toolContext // the tree, its commit, exceptions and whether an image may be built
+	// sh is the shell image of the unit's tool versions snapshot: one
 	// what-if or one comparison uses one for every tree it judges.
-	Sh string
-	// Label names the containers the checks run in.
-	Label string
-	// Running is the app serving exactly this commit, when one does:
+	sh string
+	// label names the containers the checks run in.
+	label string
+	// running is the app serving exactly this commit, when one does:
 	// runtime probes are judged against it. Without it they are not
 	// assessed, for NoApp's reason and detail.
-	Running *runningApp
-	NoApp   string
-	// Judge judges model rubrics, one checklist for all of them; nil leaves
+	running *runningApp
+	noApp   string
+	// judge judges model rubrics, one checklist for all of them; nil leaves
 	// them not assessed for NoJudge. Diff is the change a diff rubric
 	// judges; without one a diff rubric judges nothing here.
-	Judge   func(items []check.Item, diff string) (map[int]check.Verdict, *llmMetadata, error)
-	NoJudge conformance.NotAssessed
-	Diff    string
+	judge   func(items []check.Item, diff string) (map[int]check.Verdict, *llmMetadata, error)
+	noJudge conformance.NotAssessed
+	diff    string
 }
 
 // runningApp is a deployment serving the commit, and a way to ask that it
 // still does after each probe.
 type runningApp struct {
-	Target Target
-	Still  func() bool
+	target guidanceTarget
+	still  func() bool
 }
 
 // assessChecks answers every check once. Shell and tool checks run on the
@@ -55,8 +56,8 @@ func (f Fleet) assessChecks(ctx context.Context, checks []conformance.DeclaredCh
 	}
 	// Rubrics and probes judged once for the app are settled first when they
 	// apply to nothing the tree's contract declares (what-if, an eval).
-	if in.Tool.BuildDir != "" {
-		src := CheckSource(in.Tool.BuildDir)
+	if in.tool.BuildDir != "" {
+		src := CheckSource(in.tool.BuildDir)
 		var settled, more []decided
 		checks, settled = splitApplicable(checks, "runtime", src, check.Posture)
 		checks, more = splitApplicable(checks, "llm", src, check.Posture)
@@ -76,7 +77,7 @@ func (f Fleet) assessChecks(ctx context.Context, checks []conformance.DeclaredCh
 			tools = append(tools, sc)
 		case check.IsRuntime(sc.Check):
 			runtime = append(runtime, sc)
-		case check.Evaluator(sc.Check) == "llm" && (check.Scope(sc.Check) == conformance.ScopeTree || in.Diff != ""):
+		case check.Evaluator(sc.Check) == "llm" && (check.Scope(sc.Check) == conformance.ScopeTree || in.diff != ""):
 			rubrics = append(rubrics, sc)
 		case check.Evaluator(sc.Check) == "llm":
 			notJudged(sc, conformance.NotAssessedJudgesAChange, "")
@@ -85,23 +86,23 @@ func (f Fleet) assessChecks(ctx context.Context, checks []conformance.DeclaredCh
 		}
 	}
 	if len(posture)+len(tools) > 0 {
-		out = append(out, f.assessTree(ctx, in.Sh, posture, tools, in.Tool, in.Label)...)
+		out = append(out, f.assessTree(ctx, in.sh, posture, tools, in.tool, in.label)...)
 	}
-	var probe func(context.Context, Target, string) check.ProbeVerdict
+	var probe func(context.Context, guidanceTarget, string) check.ProbeVerdict
 	if f.runtime != nil {
 		probe = f.runtime.Probe
 	}
 	for _, sc := range runtime {
-		if ps, err := check.ParseProbe(sc.Check.Probe); err == nil && !ps.NeedsApp() && in.Tool.BuildDir != "" && probe != nil {
+		if ps, err := check.ParseProbe(sc.Check.Probe); err == nil && !ps.NeedsApp() && in.tool.BuildDir != "" && probe != nil {
 			// The tree being assessed answers it; no running app is needed.
-			out = append(out, probeRunning(ctx, sc, runningApp{Target: Target{ProjectID: in.Tool.ProjectID, ContractDir: in.Tool.BuildDir}, Still: func() bool { return true }}, probe))
+			out = append(out, probeRunning(ctx, sc, runningApp{target: guidanceTarget{ProjectID: in.tool.ProjectID, ContractDir: in.tool.BuildDir}, still: func() bool { return true }}, probe))
 			continue
 		}
-		if in.Running == nil {
-			notJudged(sc, conformance.NotAssessedNoRunningApp, in.NoApp)
+		if in.running == nil {
+			notJudged(sc, conformance.NotAssessedNoRunningApp, in.noApp)
 			continue
 		}
-		out = append(out, probeRunning(ctx, sc, *in.Running, probe))
+		out = append(out, probeRunning(ctx, sc, *in.running, probe))
 	}
 	if len(rubrics) > 0 {
 		out = append(out, judgeRubrics(rubrics, in)...)
@@ -112,15 +113,15 @@ func (f Fleet) assessChecks(ctx context.Context, checks []conformance.DeclaredCh
 // probeRunning judges one runtime probe against the app serving the
 // commit. An app that changed while it was probed answered for another
 // commit, so its answer is not this one's.
-func probeRunning(ctx context.Context, sc conformance.DeclaredCheck, app runningApp, probe func(context.Context, Target, string) check.ProbeVerdict) treeAssessment {
+func probeRunning(ctx context.Context, sc conformance.DeclaredCheck, app runningApp, probe func(context.Context, guidanceTarget, string) check.ProbeVerdict) treeAssessment {
 	a := treeAssessment{Check: sc, State: conformance.CannotAssess, Reason: conformance.NotAssessedError}
 	if probe == nil {
 		a.Reason, a.Detail = conformance.NotAssessedNoRunningApp, "AppTown cannot observe deployments here"
 		return a
 	}
-	v := probe(ctx, app.Target, sc.Check.Probe)
+	v := probe(ctx, app.target, sc.Check.Probe)
 	switch {
-	case !app.Still():
+	case !app.still():
 		a.Reason, a.Detail = conformance.NotAssessedNoRunningApp, "the deployment changed while it was being probed"
 	case v.Outcome == check.Conforms:
 		a.State, a.Reason, a.Detail = conformance.Conforms, "", v.Detail
@@ -138,15 +139,15 @@ func probeRunning(ctx context.Context, sc conformance.DeclaredCheck, app running
 // with the provider's words.
 func judgeRubrics(rubrics []conformance.DeclaredCheck, in assessInput) []treeAssessment {
 	var out []treeAssessment
-	if in.Judge == nil {
+	if in.judge == nil {
 		for _, sc := range rubrics {
-			out = append(out, treeAssessment{Check: sc, State: conformance.CannotAssess, Reason: in.NoJudge})
+			out = append(out, treeAssessment{Check: sc, State: conformance.CannotAssess, Reason: in.noJudge})
 		}
 		return out
 	}
 	declared := declaredAll(rubrics)
-	items := append(check.TreeItems(declared, in.Tool.BuildDir), check.DiffItems(declared, in.Diff)...)
-	byItem, meta, err := in.Judge(items, in.Diff)
+	items := append(check.TreeItems(declared, in.tool.BuildDir), check.DiffItems(declared, in.diff)...)
+	byItem, meta, err := in.judge(items, in.diff)
 	for i, it := range items {
 		sc := adoptedFor(rubrics, it.Declared)
 		if err != nil {

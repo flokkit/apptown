@@ -106,7 +106,7 @@ func (h SetupModel) SetupModel(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		// secrets.env: append or replace the key's line. 0600 — it holds values.
-		if err := h.secrets.SetBootstrap(r.Context(), secretName, in.Key, Actor(r)); err != nil {
+		if err := h.secrets.SetBootstrap(r.Context(), secretName, in.Key, actor(r)); err != nil {
 			WriteError(w, 500, "writing secrets.env: %v", err)
 			return
 		}
@@ -120,7 +120,7 @@ func (h SetupModel) SetupModel(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 500, "saving the default model: %v", err)
 			return
 		}
-		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), ids.Nil, "setup.model", in.Provider, map[string]any{"model": model, "secret": secretName})
+		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, actor(r), ids.Nil, "setup.model", in.Provider, map[string]any{"model": model, "secret": secretName})
 		WriteJSON(w, 200, ModelConfigured{OK: true, Model: model})
 	})
 }

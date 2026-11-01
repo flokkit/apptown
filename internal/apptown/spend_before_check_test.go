@@ -45,12 +45,12 @@ func TestNarrativeRefreshRefusesBeforeSpending(t *testing.T) {
 			return "TITLE: Blue cat\nASKED: yes\n\nThe cat is blue now.", &modelcall.Usage{}, nil
 		}),
 	}
-	err := b.Refresh(asPerson("vic"), fixtureWork(t, a).Change)
+	err := b.refresh(asPerson("vic"), fixtureWork(t, a).Change)
 	var denied *access.Denied
 	if !errors.As(err, &denied) || calls != 0 {
 		t.Fatalf("a viewer's refresh: %v, %d model call(s)", err, calls)
 	}
-	if err := b.Refresh(asPerson("jenny"), fixtureWork(t, a).Change); err != nil || calls != 1 {
+	if err := b.refresh(asPerson("jenny"), fixtureWork(t, a).Change); err != nil || calls != 1 {
 		t.Fatalf("a contributor's refresh: %v, %d model call(s)", err, calls)
 	}
 	ch, err := a.Work.Change(asPerson("vic"), fixtureWork(t, a).Change)

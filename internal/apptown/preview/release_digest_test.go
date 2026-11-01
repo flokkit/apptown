@@ -7,11 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/worker"
 	"maps"
 	"path/filepath"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/worker"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/database"
@@ -157,8 +158,8 @@ func TestAPublishedReleasesPreviewBootsOnTheWorkerFromItsDigests(t *testing.T) {
 	if err := s.ReconcileWorkerPreviews(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if !w.holds(name) || !s.ServedOnWorker(name) {
-		t.Fatalf("the release's preview is not kept as one AppTown booted: held %v, recorded %v", w.holds(name), s.ServedOnWorker(name))
+	if !w.holds(name) || !s.servedOnWorker(name) {
+		t.Fatalf("the release's preview is not kept as one AppTown booted: held %v, recorded %v", w.holds(name), s.servedOnWorker(name))
 	}
 }
 
@@ -173,7 +174,7 @@ func TestInTheNoLocalDockerModeOnlyPublishedReleasesArePreviewed(t *testing.T) {
 	s, w, local, b, published, recorded := releasePreviewWorld(t)
 	// As an AppTown started with -no-local-docker.
 	s.hosts = deployment.NewHosts(s.targets, nil, deployment.HostSettings{Scope: s.hosts.Local(), DataDir: s.dataDir, BuiltInTarget: s.hosts.BuiltInTarget(), NoLocalDocker: true})
-	if _, err := s.RequestReleasePreview(context.Background(), ReleaseSelection{ProjectID: b.ProjectID, Number: recorded}); !errors.Is(err, ErrReleaseNoLocalDocker) {
+	if _, err := s.RequestReleasePreview(context.Background(), ReleaseSelection{ProjectID: b.ProjectID, Number: recorded}); !errors.Is(err, errReleaseNoLocalDocker) {
 		t.Fatalf("a release recorded on a daemon: %v", err)
 	}
 	if len(w.boots) != 0 || len(local()) != 0 {
@@ -203,7 +204,7 @@ func TestALocalReleasePreviewIsNotRoutedToTheWorker(t *testing.T) {
 	if !strings.Contains(strings.Join(local(), "\n"), wantOrigin) || strings.Contains(strings.Join(local(), "\n"), "https://*.preview.example") {
 		t.Fatalf("local historical preview origins: %v", local())
 	}
-	if name := docker.PreviewLabelName(docker.ReleasePreviewLabel("p", recorded)); s.ServedOnWorker(name) {
+	if name := docker.PreviewLabelName(docker.ReleasePreviewLabel("p", recorded)); s.servedOnWorker(name) {
 		t.Fatalf("%s is routed to the worker", name)
 	}
 }

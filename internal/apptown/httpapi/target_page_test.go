@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 
@@ -145,7 +147,7 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 	// Records that cannot be read claim nothing and permit nothing:
 	// the removal is refused before Docker is asked to delete anything.
 	w.docker.ResetCommands()
-	restore := w.db.FailNextStatement("-- name: OwnedByDeployment")
+	restore := dbtest.NextStatementFailure(w.db, "-- name: OwnedByDeployment")
 	if code, out := call(`{"kind":"volume","name":"apptown-need-env-ri-main-postgres","confirm":"apptown-need-env-ri-main-postgres"}`); code != 503 || !strings.Contains(out["error"].(string), "records could not be read") {
 		t.Fatalf("a removal with its records unread: %d %v", code, out)
 	}
@@ -153,7 +155,7 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 	if len(w.docker.Commands()) != 0 {
 		t.Fatalf("a removal with its records unread reached Docker: %v", w.docker.Commands())
 	}
-	restore = w.db.FailNextStatement("-- name: OwnedByDeployment")
+	restore = dbtest.NextStatementFailure(w.db, "-- name: OwnedByDeployment")
 	if code, _ := targetCall(t, w.infra.Infrastructure, "GET", "/api/v1/infrastructure", "", nil); code == 200 {
 		t.Fatal("the infrastructure page read its records as complete when they could not be read")
 	}
@@ -164,7 +166,7 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 	// A removal cannot be undone: without its request on the record, Docker
 	// is not asked.
 	w.docker.ResetCommands()
-	restore = w.db.FailNextStatement("-- name: AppendReceipt")
+	restore = dbtest.NextStatementFailure(w.db, "-- name: AppendReceipt")
 	code, out := call(`{"kind":"container","name":"apptown-dep-orphan","confirm":"apptown-dep-orphan"}`)
 	restore()
 	removed := false

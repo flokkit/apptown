@@ -222,7 +222,7 @@ make that sufficient here:
   expires every stored result before the tests run; compiled packages stay.
 - A test that hands repository files to a child process (a script, a
   `docker build` context, a binary built with `go build`) reads them first
-  with `internal/testinputs`, so they are its inputs too. A test whose outcome
+  with `internal/execution/executiontest`, so they are its inputs too. A test whose outcome
   depends on what it downloads while it runs (a seed build's package
   installs) is listed in `scripts/ci-uncached-tests.txt` and runs with
   `-count=1` every time; nothing detects a missing line.

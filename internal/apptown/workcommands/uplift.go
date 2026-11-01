@@ -65,9 +65,9 @@ func (a Uplift) OpenUplift(ctx context.Context, in adoption.UpliftRequest) (adop
 	return out, nil
 }
 
-// ErrInAdvanceQuestionChanged refuses a yes in advance given to sentences
+// errInAdvanceQuestionChanged refuses a yes in advance given to sentences
 // that are not what the project's adoption would ask now.
-var ErrInAdvanceQuestionChanged = fault.New(fault.Conflict, "what a yes in advance means on this project has changed since it was shown; read it again")
+var errInAdvanceQuestionChanged = fault.New(fault.Conflict, "what a yes in advance means on this project has changed since it was shown; read it again")
 
 // inAdvance checks a yes in advance against what the project's adoption
 // asks now: the same sentences, in order, as the person was shown, and a
@@ -96,7 +96,7 @@ func givenInAdvance(slug string, q workflow.InAdvanceQuestion, shown []string) (
 		return nil, fault.New(fault.Conflict, "no yes in advance on "+slug+": "+q.NotOffered)
 	}
 	if !slices.Equal(q.Shown(), shown) {
-		return nil, ErrInAdvanceQuestionChanged
+		return nil, errInAdvanceQuestionChanged
 	}
 	return &workflow.InAdvanceGiven{Workflow: q.Workflow, Shown: slices.Clone(shown)}, nil
 }

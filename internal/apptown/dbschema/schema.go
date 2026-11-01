@@ -613,15 +613,15 @@ func Latest() int { return latestSchemaVersion() }
 // Version is the schema version a database is at.
 func Version(ctx context.Context, db *database.DB) (int, error) { return schemaVersion(ctx, db) }
 
-// Queryer is what reads a database outside AppTown's own handle (a restore
+// queryer is what reads a database outside AppTown's own handle (a restore
 // reads the database it just loaded, before AppTown opens it).
-type Queryer interface {
+type queryer interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
 // PublicTables is how many tables the database's public schema holds: none
 // in one a restore may load into.
-func PublicTables(ctx context.Context, q Queryer) (int, error) {
+func PublicTables(ctx context.Context, q queryer) (int, error) {
 	var n int
 	err := q.QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'`).Scan(&n)
 	return n, err
@@ -629,7 +629,7 @@ func PublicTables(ctx context.Context, q Queryer) (int, error) {
 
 // RowsIn is how many rows a table holds, named as a plain dump names it
 // (schema.table, either part quoted or not).
-func RowsIn(ctx context.Context, q Queryer, table string) (int64, error) {
+func RowsIn(ctx context.Context, q queryer, table string) (int64, error) {
 	schema, name, ok := strings.Cut(table, ".")
 	if !ok {
 		schema, name = "public", table

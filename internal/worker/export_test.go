@@ -28,3 +28,19 @@ func AbandonAt(point, key string) func() {
 	}
 	return func() { abandonAt = previous }
 }
+
+const PreviewSeqHeader = previewSeqHeader
+const PreviewSessionHeader = previewSessionHeader
+const ProtocolHeader = protocolHeader
+const RecordAsOfFile = recordAsOfFile
+
+var ErrNoSession = errNoSession
+var ErrNotConfirmed = errNotConfirmed
+var ErrSessionBusy = errRemoteSessionBusy
+var ErrSessionRemoved = errRemoteSessionRemoved
+var SessionClientEnsureBlob = (SessionClient).ensureBlob
+var SessionClientPutFiles = (SessionClient).putFiles
+var SessionClientPutSource = (SessionClient).putSource
+var SessionClientRecord = (SessionClient).record
+var SessionClientStart = (SessionClient).start
+var SessionClientTerminal = (SessionClient).terminal

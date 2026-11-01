@@ -45,7 +45,7 @@ func TestGuidanceGateCannotPassWithoutExceptionEvidence(t *testing.T) {
 	}
 	commitFolder(t, requireLocation(t)(source.Workspace(a.cfg.dataDir)))
 	calls := 0
-	installCheckEffects(t, a, checkOverrides{run: func(ExecRequest) ExecOutcome { calls++; return ExecOutcome{} }})
+	installCheckEffects(t, a, checkOverrides{run: func(execRequest) execOutcome { calls++; return execOutcome{} }})
 	dbtest.FailNextStatement(t, a.DB, "FROM dispositions")
 	if err := a.Work.ExecuteStep(a.asEngine(context.Background()), step.ID); err != nil {
 		t.Fatal(err)

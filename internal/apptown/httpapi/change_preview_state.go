@@ -12,23 +12,23 @@ import (
 
 type ChangePreviewState struct {
 	db       *database.DB
-	previews ChangePreviewObserver
+	previews changePreviewObserver
 }
 
-func NewChangePreviewState(db *database.DB, previews ChangePreviewObserver) ChangePreviewState {
+func NewChangePreviewState(db *database.DB, previews changePreviewObserver) ChangePreviewState {
 	return ChangePreviewState{db: db, previews: previews}
 }
 
 // ChangePreviewState: GET /changes/{id}/preview — what the try-it
 // button should say (deploy.go previewState). Cheap enough to poll.
 func (h ChangePreviewState) ChangePreviewState(w http.ResponseWriter, r *http.Request) {
-	ch, ok := ChangeFromPath(h.db, w, r)
+	ch, ok := changeFromPath(h.db, w, r)
 	if !ok {
 		return
 	}
 	WriteJSON(w, 200, h.previews.State(r.Context(), ch))
 }
 
-type ChangePreviewObserver interface {
+type changePreviewObserver interface {
 	State(context.Context, *workflow.Change) preview.Status
 }

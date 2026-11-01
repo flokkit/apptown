@@ -2,6 +2,7 @@ package scm
 
 import (
 	"context"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -54,7 +55,7 @@ func (s *RepositoryAttachments) State(ctx context.Context, projectID ids.ID) (At
 	if err != nil {
 		return AttachmentState{}, err
 	}
-	origin, err := ReadOrigin(ctx, repo)
+	origin, err := readOrigin(ctx, repo)
 	if err != nil {
 		return AttachmentState{}, err
 	}

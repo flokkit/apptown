@@ -30,7 +30,7 @@ func TestTargetRecorderOwnsReceiptAndCandidateIdentity(t *testing.T) {
 	if decoded.Digest != Digest(decoded.Receipt) || len(decoded.RequiredCapabilities) != 1 || decoded.RequiredCapabilities[0] != "registry" {
 		t.Fatalf("target document changed: %+v", decoded)
 	}
-	if r, err := ByIDIn(t.Context(), db, target.ID); err != nil || r.ProjectID != candidate.ProjectID || r.Revision != 0 || r.ChangeID != idstest.N(19) || r.Kind != AdoptionTarget || r.Digest != candidate.Digest || r.CreatedBy != "alice" {
+	if r, err := ByIDIn(t.Context(), db, target.ID); err != nil || r.ProjectID != candidate.ProjectID || r.Revision != 0 || r.ChangeID != idstest.N(19) || r.Kind != adoptionTarget || r.Digest != candidate.Digest || r.CreatedBy != "alice" {
 		t.Fatalf("stored target: %+v %v", r, err)
 	}
 	if cur := currentOf(t, db, candidate.ProjectID); cur.Revision != 0 {
@@ -53,7 +53,7 @@ func TestTargetCandidateMustMatchItsImmutableReceipt(t *testing.T) {
 	t.Parallel()
 	receipt := EmptyReceipt()
 	candidate := Candidate{ExpectedRevision: 3, Receipt: receipt, Digest: Digest(receipt)}
-	target := RecordedRevision{ProjectID: idstest.N(7), ChangeID: idstest.N(9), Kind: AdoptionTarget, Receipt: receipt, Digest: Digest(receipt)}
+	target := RecordedRevision{ProjectID: idstest.N(7), ChangeID: idstest.N(9), Kind: adoptionTarget, Receipt: receipt, Digest: Digest(receipt)}
 	if err := target.checkTarget(idstest.N(7), idstest.N(9), 3, candidate); err != nil {
 		t.Fatal(err)
 	}

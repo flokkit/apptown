@@ -183,8 +183,8 @@ func TestOnlyAStackAppTownCreatedIsRecorded(t *testing.T) {
 			}))
 			defer server.Close()
 			book := &stackBook{}
-			_, err := (Execution{DeploymentID: idstest.N(7), Config: Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL, EnvName: "lan"}, EndpointID: 3, Stack: "shop-lan", Compose: scopeFixtureCompose("services: {}"), Owner: book, Log: func(string, ...any) {}}).
-				Execute(context.Background(), 1, func(map[string]any) error { return nil })
+			_, err := (execution{deploymentID: idstest.N(7), config: Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL, EnvName: "lan"}, endpointID: 3, stack: "shop-lan", compose: scopeFixtureCompose("services: {}"), owner: book, log: func(string, ...any) {}}).
+				execute(context.Background(), 1, func(map[string]any) error { return nil })
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -21,7 +21,7 @@ func TestStagingFailsWhenItCannotRemoveWhatTheLastWakePlaced(t *testing.T) {
 		if err := stage(dir, map[string]Staged{"pi/models.json": {Data: []byte(`{"key":"old"}`)}}); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(dir, StagedFile), []byte("not an inventory"), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, stagedFile), []byte("not an inventory"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		if err := stage(dir, map[string]Staged{}); err == nil {
@@ -30,7 +30,7 @@ func TestStagingFailsWhenItCannotRemoveWhatTheLastWakePlaced(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(dir, "pi/models.json")); err != nil {
 			t.Fatalf("the earlier file is gone, so the test proves nothing: %v", err)
 		}
-		if raw, _ := os.ReadFile(filepath.Join(dir, StagedFile)); string(raw) != "not an inventory" {
+		if raw, _ := os.ReadFile(filepath.Join(dir, stagedFile)); string(raw) != "not an inventory" {
 			t.Fatalf("the inventory was rewritten without the earlier file: %q", raw)
 		}
 	})

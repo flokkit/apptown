@@ -26,7 +26,7 @@ func NewProjectPolicies(projects *project.Projects, access *identity.Service, wa
 // ListPolicies: GET /projects/{slug}/policies — policies plus the live
 // conformance matrix.
 func (h ProjectPolicies) ListPolicies(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -51,7 +51,7 @@ func (h ProjectPolicies) ListPolicies(w http.ResponseWriter, r *http.Request) {
 
 // CreatePolicy: POST /projects/{slug}/policies
 func (h ProjectPolicies) CreatePolicy(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -86,7 +86,7 @@ func (h ProjectPolicies) CreatePolicy(w http.ResponseWriter, r *http.Request) {
 		if in.FromLibrary != "" {
 			origin = "library/" + in.FromLibrary
 		}
-		if err := h.adoption.InstallPolicy(r.Context(), p.ID, in.Name, in.Description, in.Rule, in.With, origin, Actor(r)); err != nil {
+		if err := h.adoption.InstallPolicy(r.Context(), p.ID, in.Name, in.Description, in.Rule, in.With, origin, actor(r)); err != nil {
 			WriteFault(w, err)
 			return
 		}
@@ -99,12 +99,12 @@ func (h ProjectPolicies) DeletePolicy(w http.ResponseWriter, r *http.Request) {
 	if _, ok := AuthorizeRequest(h.access, w, r, access.CapStandardsPolicies, access.Resource{Type: "instance"}, access.Context{}); !ok {
 		return
 	}
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
 	}
-	if err := h.adoption.RemovePolicy(r.Context(), id, Actor(r)); err != nil {
+	if err := h.adoption.RemovePolicy(r.Context(), id, actor(r)); err != nil {
 		WriteFault(w, err)
 		return
 	}

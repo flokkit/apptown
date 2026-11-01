@@ -107,7 +107,7 @@ func llmDeployment(t *testing.T, s *Service, db *database.DB, projectID ids.ID, 
 }
 
 func bootDeployment(s *Service, client *dockerfake.Daemon, dep *Deployment, c *appcontract.Contract, ws string) (docker.BootResult, error) {
-	return s.env.Host(dep.ProjectID, s.env.NeedCredentials(NeedSecretsScope(dep.ID)), func(slug string) KeyOwner { return deploymentKeys(s.db, s.clock, dep, slug) }).Boot(
+	return s.env.host(dep.ProjectID, s.env.NeedCredentials(NeedSecretsScope(dep.ID)), func(slug string) KeyOwner { return deploymentKeys(s.db, s.clock, dep, slug) }).Boot(
 		context.Background(), docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Docker: docker.Scope{Client: client}, Name: "forge-p-" + dep.Name, StackID: "p-" + dep.Name, Workspace: ws, Slug: "p", Deployment: dep.Name, Probe: time.Second}, c)
 }
 
@@ -230,7 +230,7 @@ func TestTargetsAreNotAskedForRegisteredNeeds(t *testing.T) {
 	s, _, _, _, _ := llmWorld(t, true)
 	c, _ := llmContract(t, "app:\n  web:\n    image: reg.example/app:1\n    ports: [\"8080\"]\n    public: true\nneeds:\n  llm: {}\n  postgres: {}\n")
 	managed := &Target{Name: "cloud", Kind: KindDOApp, NeedsMode: "managed", Capabilities: TargetCapabilities{Needs: []string{"postgres"}}}
-	if managed.RefusesContract(c) == "" {
+	if managed.refusesContract(c) == "" {
 		t.Fatal("fixture: the target itself cannot provide llm")
 	}
 	if why, err := s.env.RefusesContract(t.Context(), managed, c); err != nil || why != "" {

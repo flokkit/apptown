@@ -54,7 +54,7 @@ func TestRenderColdBootProbe(t *testing.T) {
 	if p := RenderColdBootProbe(tcp, fd); p.Path != "" {
 		t.Fatalf("a readiness with no http path rendered %q", p.Path)
 	}
-	if up, why := (&Probe{}).Check(context.Background(), Scope{}, "c", "http://127.0.0.1:1", time.Second, RenderedProbe{}); up || !strings.Contains(why, "names no path") {
+	if up, why := (&Probe{}).Check(context.Background(), Scope{}, "c", "http://127.0.0.1:1", time.Second, renderedProbe{}); up || !strings.Contains(why, "names no path") {
 		t.Fatalf("a probe with no path: up %v, %q", up, why)
 	}
 }
@@ -63,19 +63,19 @@ func TestRenderColdBootProbe(t *testing.T) {
 // declared http/exec liveness renders to that instead.
 func TestRenderLivenessProbe(t *testing.T) {
 	t.Parallel()
-	if p := RenderLivenessProbe(nil); !p.TCP {
+	if p := renderLivenessProbe(nil); !p.TCP {
 		t.Fatalf("no intent → TCP default, got %+v", p)
 	}
 	bare := &appcontract.Part{Name: "web", Public: true}
-	if p := RenderLivenessProbe(bare); !p.TCP {
+	if p := renderLivenessProbe(bare); !p.TCP {
 		t.Fatalf("no health block → TCP default, got %+v", p)
 	}
 	httpL := &appcontract.Part{Intent: &appcontract.Health{Liveness: &appcontract.Probe{HTTP: "/livez", Expect: 200}}}
-	if p := RenderLivenessProbe(httpL); p.TCP || p.Path != "/livez" || p.Expect != 200 {
+	if p := renderLivenessProbe(httpL); p.TCP || p.Path != "/livez" || p.Expect != 200 {
 		t.Fatalf("http liveness: %+v", p)
 	}
 	execL := &appcontract.Part{Intent: &appcontract.Health{Liveness: &appcontract.Probe{Exec: []any{"pgrep", "-f", "worker"}}}}
-	if p := RenderLivenessProbe(execL); len(p.Exec) != 3 || p.Exec[0] != "pgrep" {
+	if p := renderLivenessProbe(execL); len(p.Exec) != 3 || p.Exec[0] != "pgrep" {
 		t.Fatalf("exec liveness: %+v", p)
 	}
 }

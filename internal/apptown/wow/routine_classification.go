@@ -224,11 +224,11 @@ func (s RoutineTransitions) Revoke(ctx context.Context, id ids.ID) (RoutinePubli
 	})
 }
 
-// CheckIn joins an owner's authoritative claim transaction. Lock order is
+// checkIn joins an owner's authoritative claim transaction. Lock order is
 // project/run/rule, then classification UUIDs. The returned evidence confers no
 // other authority; revoke updates these same rows. Assessment uses a short
 // transaction and must not later treat its result as an executable grant.
-func (s RoutineTransitions) CheckIn(ctx context.Context, tx *database.Tx, wanted []ids.ID) ([]RoutinePublicationClassification, error) {
+func (s RoutineTransitions) checkIn(ctx context.Context, tx *database.Tx, wanted []ids.ID) ([]RoutinePublicationClassification, error) {
 	if s.identity == nil {
 		return nil, access.ErrAuthorityUnavailable
 	}

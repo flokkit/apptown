@@ -39,8 +39,8 @@ type BlockUse struct {
 	Disabled    bool   `json:"disabled"`
 }
 
-// UsedBy is which projects import a block, at any version.
-func (s *libraryStore) UsedBy(ctx context.Context, blockID ids.ID) ([]BlockUse, error) {
+// usedBy is which projects import a block, at any version.
+func (s *libraryStore) usedBy(ctx context.Context, blockID ids.ID) ([]BlockUse, error) {
 	rows, err := adoptionsql.New(s.db.SQL()).BlockUses(ctx, blockID)
 	out := make([]BlockUse, 0, len(rows))
 	for _, r := range rows {
@@ -49,8 +49,8 @@ func (s *libraryStore) UsedBy(ctx context.Context, blockID ids.ID) ([]BlockUse, 
 	return out, err
 }
 
-// Imports is a project's manifest in position order.
-func (s *libraryStore) Imports(ctx context.Context, projectID ids.ID) ([]Import, error) {
+// imports is a project's manifest in position order.
+func (s *libraryStore) imports(ctx context.Context, projectID ids.ID) ([]Import, error) {
 	return importsIn(ctx, s.db, projectID)
 }
 func importsIn(ctx context.Context, q database.Queryer, projectID ids.ID) ([]Import, error) {
@@ -63,9 +63,9 @@ func importsIn(ctx context.Context, q database.Queryer, projectID ids.ID) ([]Imp
 	return out, err
 }
 
-// PutImports replaces a project's manifest in one transaction, so a
+// putImports replaces a project's manifest in one transaction, so a
 // manifest is never half-written.
-func (s *libraryStore) PutImports(ctx context.Context, projectID ids.ID, pins []wow.ResolvedPin) error {
+func (s *libraryStore) putImports(ctx context.Context, projectID ids.ID, pins []wow.ResolvedPin) error {
 	return s.db.InTx(ctx, func(tx *database.Tx) error { return PutImportsIn(ctx, tx, projectID, pins, clock.Or(s.clock)()) })
 }
 
@@ -84,11 +84,11 @@ func PutImportsIn(ctx context.Context, tx *database.Tx, projectID ids.ID, pins [
 	return nil
 }
 
-// Compile deterministically materializes a project's effective guidance:
+// compile deterministically materializes a project's effective guidance:
 // enabled imports, in manifest order, pinned bodies, joined with
 // separators. The hash is the identity of what actually steered a run.
-func (s *libraryStore) Compile(ctx context.Context, projectID ids.ID) (Resolved, error) {
-	imports, err := s.Imports(ctx, projectID)
+func (s *libraryStore) compile(ctx context.Context, projectID ids.ID) (Resolved, error) {
+	imports, err := s.imports(ctx, projectID)
 	if err != nil {
 		return Resolved{}, err
 	}
@@ -99,9 +99,9 @@ func (s *libraryStore) Compile(ctx context.Context, projectID ids.ID) (Resolved,
 	return compiled, nil
 }
 
-// PlatformBlocksMissingFrom is the platform-tier blocks a project does
+// platformBlocksMissingFrom is the platform-tier blocks a project does
 // not import, by name: what creation gives every repo-backed project.
-func (s *libraryStore) PlatformBlocksMissingFrom(ctx context.Context, projectID ids.ID) ([]wow.Block, error) {
+func (s *libraryStore) platformBlocksMissingFrom(ctx context.Context, projectID ids.ID) ([]wow.Block, error) {
 	rows, err := adoptionsql.New(s.db.SQL()).MissingPlatformBlocks(ctx, adoptionsql.MissingPlatformBlocksParams{ProjectID: projectID, Tier: wow.TierPlatform.String()})
 	out := make([]wow.Block, 0, len(rows))
 	for _, r := range rows {
@@ -110,10 +110,10 @@ func (s *libraryStore) PlatformBlocksMissingFrom(ctx context.Context, projectID 
 	return out, err
 }
 
-// AppendPlatformImport adds a platform block after a project's own
+// appendPlatformImport adds a platform block after a project's own
 // imports at the block's latest version, with its receipt, in one
 // transaction.
-func (s *libraryStore) AppendPlatformImport(ctx context.Context, projectID ids.ID, b wow.Block) error {
+func (s *libraryStore) appendPlatformImport(ctx context.Context, projectID ids.ID, b wow.Block) error {
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		q := adoptionsql.New(tx.SQL())
 		pos, err := q.NextImportPosition(ctx, projectID)
@@ -129,10 +129,10 @@ func (s *libraryStore) AppendPlatformImport(ctx context.Context, projectID ids.I
 
 type libraryStore struct {
 	db    *database.DB
-	ways  Catalog
+	ways  catalog
 	clock func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
-func newLibrary(db *database.DB, ways Catalog) *libraryStore {
+func newLibrary(db *database.DB, ways catalog) *libraryStore {
 	return &libraryStore{db: db, ways: ways}
 }

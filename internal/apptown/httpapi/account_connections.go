@@ -35,7 +35,7 @@ func (h Accounts) ListDelegations(w http.ResponseWriter, r *http.Request) {
 // anyone's for whoever may manage authentication; never through an agent's
 // credential.
 func (h Accounts) RevokeDelegation(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return

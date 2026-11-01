@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/inference"
 	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/ids"
@@ -192,7 +194,7 @@ func TestInferenceRecoveryPreservesConversationFiles(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := a.RecoverInferenceRequests(context.Background()); err != nil {
+	if err := a.recoverInferenceRequests(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	for _, path := range files {
@@ -201,9 +203,9 @@ func TestInferenceRecoveryPreservesConversationFiles(t *testing.T) {
 			t.Fatalf("recovery changed %s: %v", path, err)
 		}
 	}
-	restore := a.DB.FailNextStatement("-- name: LockInAllPendingLines")
+	restore := dbtest.NextStatementFailure(a.DB, "-- name: LockInAllPendingLines")
 	defer restore()
-	if err := a.RecoverInferenceRequests(context.Background()); err == nil {
+	if err := a.recoverInferenceRequests(context.Background()); err == nil {
 		t.Fatal("recovery hid a database failure")
 	}
 }

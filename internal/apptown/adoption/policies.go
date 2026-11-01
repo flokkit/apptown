@@ -43,9 +43,9 @@ type Violation struct {
 	Detail   string `json:"detail"`
 }
 
-// Evaluation is a policy with its capability facts frozen for one set of
+// evaluation is a policy with its capability facts frozen for one set of
 // judgements, so many workflows do not reread the same instance binding.
-type Evaluation struct {
+type evaluation struct {
 	Name, Rule, Reading string
 	Requirement         wow.Requirement
 	Bound               bool
@@ -53,7 +53,7 @@ type Evaluation struct {
 
 // PrepareEvaluations checks each policy and freezes the capability facts
 // once. It reads through q, so a caller's transaction sees its own facts.
-func PrepareEvaluations(ctx context.Context, q database.Queryer, policies []Policy) ([]Evaluation, error) {
+func PrepareEvaluations(ctx context.Context, q database.Queryer, policies []Policy) ([]evaluation, error) {
 	return prepareEvaluations(ctx, q, policies, integrationCapabilities{})
 }
 
@@ -68,15 +68,15 @@ type integrationCapabilities struct{}
 func (integrationCapabilities) CapabilitiesForShareIn(ctx context.Context, q database.Queryer) ([]string, error) {
 	return integration.CapabilitiesForShareIn(ctx, q)
 }
-func prepareEvaluations(ctx context.Context, q database.Queryer, policies []Policy, capabilities policyCapabilityObserver) ([]Evaluation, error) {
-	evaluations := make([]Evaluation, 0, len(policies))
+func prepareEvaluations(ctx context.Context, q database.Queryer, policies []Policy, capabilities policyCapabilityObserver) ([]evaluation, error) {
+	evaluations := make([]evaluation, 0, len(policies))
 	needsBindings := false
 	for _, policy := range policies {
-		requirement, err := CheckPolicy(&policy)
+		requirement, err := checkPolicy(&policy)
 		if err != nil {
 			return nil, err
 		}
-		evaluations = append(evaluations, Evaluation{Name: policy.Name, Rule: policy.Rule, Reading: wow.Reading(policy.Rule, policy.With), Requirement: requirement})
+		evaluations = append(evaluations, evaluation{Name: policy.Name, Rule: policy.Rule, Reading: wow.Reading(policy.Rule, policy.With), Requirement: requirement})
 		needsBindings = needsBindings || policy.Rule == "requireCapabilityBound"
 	}
 	if needsBindings {
@@ -111,7 +111,7 @@ func ReadProjectPolicies(ctx context.Context, q database.Queryer, projectID ids.
 		if err != nil {
 			return nil, err
 		}
-		if _, err := CheckPolicy(&p); err != nil {
+		if _, err := checkPolicy(&p); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -184,9 +184,9 @@ func FormatViolations(vs []Violation) string {
 	return strings.Join(parts, "; ")
 }
 
-// Install upserts a project's policy by name, validated first, with its
+// install upserts a project's policy by name, validated first, with its
 // receipt in the same transaction.
-func (s *policyStore) Install(ctx context.Context, projectID ids.ID, name, description, rule string, with map[string]any, origin, who string) error {
+func (s *policyStore) install(ctx context.Context, projectID ids.ID, name, description, rule string, with map[string]any, origin, who string) error {
 	if _, err := wow.CheckPolicyAuthored(name, rule, with); err != nil {
 		return err
 	}
@@ -226,23 +226,23 @@ func policyReceiptLinesIn(ctx context.Context, q database.Queryer, projectID ids
 	rows, err := adoptionsql.New(q.SQL()).ProjectPolicies(ctx, projectID)
 	out := make([]ReceiptPolicy, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, ReceiptPolicy{Name: r.Name, Rule: r.Rule, Origin: r.Origin, ConfigHash: HashText(canonJSON(string(r.ConfigJson)))})
+		out = append(out, ReceiptPolicy{Name: r.Name, Rule: r.Rule, Origin: r.Origin, ConfigHash: hashText(canonJSON(string(r.ConfigJson)))})
 	}
 	return out, err
 }
 
-// ErrNoProjectPolicy is the absence of the project policy a caller named by
+// errNoProjectPolicy is the absence of the project policy a caller named by
 // id, so callers never need the store's sql.ErrNoRows to answer it.
-var ErrNoProjectPolicy = fault.New(fault.NotFound, "no project policy has id")
+var errNoProjectPolicy = fault.New(fault.NotFound, "no project policy has id")
 
-// Remove deletes a project's policy by id with its receipt: the audited
+// remove deletes a project's policy by id with its receipt: the audited
 // escape hatch. An unknown id is ErrNoProjectPolicy.
-func (s *policyStore) Remove(ctx context.Context, id ids.ID, who string) error {
+func (s *policyStore) remove(ctx context.Context, id ids.ID, who string) error {
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		q := adoptionsql.New(tx.SQL())
 		p, err := q.PolicyByID(ctx, id)
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w %d", ErrNoProjectPolicy, id)
+			return fmt.Errorf("%w %d", errNoProjectPolicy, id)
 		}
 		if err != nil {
 			return err
@@ -254,20 +254,20 @@ func (s *policyStore) Remove(ctx context.Context, id ids.ID, who string) error {
 	})
 }
 
-// PolicyAdoption is a project holding a policy of a given name.
-type PolicyAdoption struct {
+// policyAdoption is a project holding a policy of a given name.
+type policyAdoption struct {
 	Policy      string
 	ProjectID   ids.ID
 	ProjectSlug string
 	ProjectName string
 }
 
-// Adoptions is every (policy name, project) pair, for usage counts.
-func (s *policyStore) Adoptions(ctx context.Context) ([]PolicyAdoption, error) {
+// adoptions is every (policy name, project) pair, for usage counts.
+func (s *policyStore) adoptions(ctx context.Context) ([]policyAdoption, error) {
 	rows, err := adoptionsql.New(s.db.SQL()).PolicyAdoptions(ctx)
-	var out []PolicyAdoption
+	var out []policyAdoption
 	for _, r := range rows {
-		out = append(out, PolicyAdoption{Policy: r.Name, ProjectID: r.ProjectID, ProjectSlug: r.Slug, ProjectName: r.ProjectName})
+		out = append(out, policyAdoption{Policy: r.Name, ProjectID: r.ProjectID, ProjectSlug: r.Slug, ProjectName: r.ProjectName})
 	}
 	return out, err
 }
@@ -282,8 +282,8 @@ func policyRecord(r adoptionsql.Policy) (Policy, error) {
 	return p, nil
 }
 
-// CheckPolicy validates an installed declaration using the catalog's one rule.
-func CheckPolicy(p *Policy) (wow.Requirement, error) { return wow.CheckPolicy(p.Name, p.Rule, p.With) }
+// checkPolicy validates an installed declaration using the catalog's one rule.
+func checkPolicy(p *Policy) (wow.Requirement, error) { return wow.CheckPolicy(p.Name, p.Rule, p.With) }
 
 type policyStore struct {
 	db    *database.DB
@@ -293,4 +293,4 @@ type policyStore struct {
 func newPolicies(db *database.DB) *policyStore { return &policyStore{db: db} }
 
 // Detail is the violation sentence for one workflow, or "".
-func (e Evaluation) Detail(spec *schema.Spec) string { return e.Requirement.Evaluate(spec, e.Bound) }
+func (e evaluation) Detail(spec *schema.Spec) string { return e.Requirement.Evaluate(spec, e.Bound) }

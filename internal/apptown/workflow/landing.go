@@ -18,7 +18,7 @@ var errLandingAcceptanceChanged = errors.New("accepted Work or its pinned landin
 
 type landings struct {
 	db        *database.DB
-	adoptions LandingAdoptions
+	adoptions landingAdoptions
 	// eligible decides whether the accepter's yes counts for a landing
 	// approval. Without it no acceptance is carried.
 	eligible approvalEligibility
@@ -234,11 +234,11 @@ func (s landings) recordLandingAdoptionIn(ctx context.Context, tx *database.Tx, 
 // It is read in the same transaction as the acceptance and its receipts.
 type AdoptionPairRequest struct{ ProjectID, FromID, ToID ids.ID }
 type AdoptionPair struct{ From, To int64 } // revisions
-type LandingAdoptions interface {
+type landingAdoptions interface {
 	RevisionsIn(context.Context, database.Queryer, AdoptionPairRequest) (AdoptionPair, error)
 }
 
-func newLandings(db *database.DB, adoptions LandingAdoptions) landings {
+func newLandings(db *database.DB, adoptions landingAdoptions) landings {
 	return landings{db: db, adoptions: adoptions}
 }
 

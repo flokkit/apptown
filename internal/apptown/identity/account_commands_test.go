@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"golang.org/x/crypto/bcrypt"
@@ -109,12 +111,12 @@ func TestAccountCommandOwnsPasswordAndDefaults(t *testing.T) {
 func TestBootstrapSessionFailureRollsBack(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	s := New(testDB(t), Config{SessionTTL: time.Hour})
+	s := New(testDB(t), Config{sessionTTL: time.Hour})
 	in := NewAccount{Username: "first-admin", Password: "first-password"}
-	restore := s.db.FailNextStatement("-- name: InsertSession")
+	restore := dbtest.NextStatementFailure(s.db, "-- name: InsertSession")
 	signed, err := s.Bootstrap(ctx, in)
 	restore()
-	var issue *SessionIssueError
+	var issue *sessionIssueError
 	if !errors.As(err, &issue) || signed.Token != "" || signed.Principal.Name != "" {
 		t.Fatalf("failed session returned a bootstrap identity: %v", err)
 	}
@@ -170,13 +172,13 @@ func TestCompletedSetupCannotReopenAfterAuthorityLoss(t *testing.T) {
 func TestSetupMarkerFailureRollsBackRootSeed(t *testing.T) {
 	t.Parallel()
 	s := New(testDB(t), Config{})
-	restore := s.db.FailNextStatement("-- name: PutInstanceSetting")
+	restore := dbtest.NextStatementFailure(s.db, "-- name: PutInstanceSetting")
 	err := s.SeedAdministrator(context.Background(), "root")
 	restore()
 	if err == nil {
 		t.Fatal("root seed succeeded without setup marker")
 	}
-	if root, err := RootIn(context.Background(), s.db, "root", time.Now()); err != nil || root {
+	if root, err := rootIn(context.Background(), s.db, "root", time.Now()); err != nil || root {
 		t.Fatalf("partial root seed: %v %v", root, err)
 	}
 	if needs, err := s.NeedsBootstrap(context.Background()); err != nil || !needs {
@@ -219,7 +221,7 @@ func TestOperatorPasswordResetIsTheAccountChange(t *testing.T) {
 		t.Fatalf("new password: role %q, %v", signed.Principal.Role, err)
 	}
 	receipts, err := audit.Recent(ctx, s.db, audit.Filter{KindPrefix: "user.saved", Subject: "root"})
-	if err != nil || len(receipts) != 2 || receipts[0].Actor != OperatorActor {
+	if err != nil || len(receipts) != 2 || receipts[0].Actor != operatorActor {
 		t.Fatalf("receipts %+v, %v", receipts, err)
 	}
 	if strings.Contains(string(receipts[0].Payload), password) {
@@ -229,14 +231,14 @@ func TestOperatorPasswordResetIsTheAccountChange(t *testing.T) {
 	if _, err := s.ResetPassword(ctx, "away"); err != nil {
 		t.Fatal(err)
 	}
-	if off, err := s.Disabled(ctx, "away"); err != nil || !off {
+	if off, err := disabledIn(ctx, s.db, "away"); err != nil || !off {
 		t.Fatalf("reset re-enabled a disabled account: %v %v", off, err)
 	}
 	if role, _, err := s.Role(ctx, "away"); err != nil || role != "member" {
 		t.Fatalf("reset changed a member's role: %q %v", role, err)
 	}
 
-	if _, err := s.ResetPassword(ctx, "nobody"); !errors.Is(err, ErrNoSuchName) {
+	if _, err := s.ResetPassword(ctx, "nobody"); !errors.Is(err, errNoSuchName) {
 		t.Fatalf("unknown name: %v", err)
 	}
 	if _, found, err := s.Role(ctx, "nobody"); err != nil || found {
@@ -293,7 +295,7 @@ func TestAccountStateChangeWithoutRoleKeepsAuthority(t *testing.T) {
 				t.Errorf("%s disabled=%v: %d direct administrator grants, want %d", c.name, disabled, got, c.direct)
 			}
 		}
-		if root, err := RootIn(ctx, s.db, c.name, time.Now()); err != nil || !root {
+		if root, err := rootIn(ctx, s.db, c.name, time.Now()); err != nil || !root {
 			t.Errorf("%s is no longer an administrator after disable and enable: %v %v", c.name, root, err)
 		}
 	}

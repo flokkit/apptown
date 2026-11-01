@@ -23,7 +23,7 @@ func NewTraces(work *workflow.Service, ways *wow.Service, db *database.DB) Trace
 	return Traces{work: work, ways: ways, db: db}
 }
 func (h Traces) Trace(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return

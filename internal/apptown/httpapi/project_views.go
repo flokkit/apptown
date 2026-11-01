@@ -26,16 +26,16 @@ type ProjectViews struct {
 	adrs       *adrs.Service
 	deployment *deployment.Service
 	runner     execution.Runner
-	mains      MainStandings
+	mains      mainStandings
 	dataDir    string
 }
 
-// MainStandings reads where a project's main stands against AppTown's record (scm.Branches).
-type MainStandings interface {
+// mainStandings reads where a project's main stands against AppTown's record (scm.Branches).
+type mainStandings interface {
 	MainStanding(ctx context.Context, hub string, projectID ids.ID, branch string) (scm.MainStanding, error)
 }
 
-func NewProjectViews(projects *project.Projects, work *workflow.Service, adrs *adrs.Service, deployments *deployment.Service, runner execution.Runner, mains MainStandings, dataDir string) ProjectViews {
+func NewProjectViews(projects *project.Projects, work *workflow.Service, adrs *adrs.Service, deployments *deployment.Service, runner execution.Runner, mains mainStandings, dataDir string) ProjectViews {
 	return ProjectViews{projects: projects, work: work, adrs: adrs, deployment: deployments, runner: runner, mains: mains, dataDir: dataDir}
 }
 func (h ProjectViews) ListProjects(w http.ResponseWriter, r *http.Request) {
@@ -129,7 +129,7 @@ func (h ProjectViews) ListProjects(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h ProjectViews) GetProject(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

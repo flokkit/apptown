@@ -14,7 +14,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
-	"github.com/flokkit/apptown/internal/testinputs"
+	testinputs "github.com/flokkit/apptown/internal/execution/executiontest"
 )
 
 // testdata/sealed-app is an app behind a host allow-list built from

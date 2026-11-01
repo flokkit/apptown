@@ -27,10 +27,10 @@ import (
 // A part matches when it matches any of the words; repository stands alone.
 const (
 	AppliesRepository = "repository"
-	AppliesPart       = "part"
-	AppliesBuild      = "build"
+	appliesPart       = "part"
+	appliesBuild      = "build"
 	AppliesStatic     = "static"
-	AppliesContainer  = "container"
+	appliesContainer  = "container"
 	appliesTool       = "tool:"
 )
 
@@ -77,9 +77,9 @@ func ValidateAppliesTo(words []string) error {
 			if len(words) > 1 {
 				return fmt.Errorf("appliesTo: repository stands alone")
 			}
-		case w == AppliesPart, w == AppliesBuild, w == AppliesStatic, w == AppliesContainer:
+		case w == appliesPart, w == appliesBuild, w == AppliesStatic, w == appliesContainer:
 		case strings.HasPrefix(w, appliesTool):
-			if !ValidToolName(strings.TrimPrefix(w, appliesTool)) {
+			if !validToolName(strings.TrimPrefix(w, appliesTool)) {
 				return fmt.Errorf("appliesTo: %q is not a tool name (lower case letters, digits and dashes)", w)
 			}
 		default:
@@ -89,9 +89,9 @@ func ValidateAppliesTo(words []string) error {
 	return nil
 }
 
-// ValidToolName is the spelling a tool name has, in appliesTo and in a
+// validToolName is the spelling a tool name has, in appliesTo and in a
 // contract's part tools.
-func ValidToolName(s string) bool {
+func validToolName(s string) bool {
 	if s == "" || s[0] < 'a' || s[0] > 'z' {
 		return false
 	}
@@ -118,9 +118,9 @@ func AppliesTools(words []string) []string {
 func matches(p Part, words []string) bool {
 	for _, w := range words {
 		switch {
-		case w == AppliesPart:
+		case w == appliesPart:
 			return true
-		case w == AppliesBuild || w == AppliesStatic || w == AppliesContainer:
+		case w == appliesBuild || w == AppliesStatic || w == appliesContainer:
 			if slices.Contains(p.Kinds, w) {
 				return true
 			}
@@ -221,13 +221,13 @@ func describeWords(words []string) string {
 		switch {
 		case strings.HasPrefix(w, appliesTool):
 			tools = append(tools, strings.TrimPrefix(w, appliesTool))
-		case w == AppliesBuild:
+		case w == appliesBuild:
 			kinds = append(kinds, "built from a Dockerfile")
 		case w == AppliesStatic:
 			kinds = append(kinds, "a static site")
-		case w == AppliesContainer:
+		case w == appliesContainer:
 			kinds = append(kinds, "run as a container")
-		case w == AppliesPart:
+		case w == appliesPart:
 			kinds = append(kinds, "declared")
 		}
 	}

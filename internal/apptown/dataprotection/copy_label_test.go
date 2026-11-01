@@ -6,8 +6,8 @@ func TestCopyLabelsKeepOldOrMissingCopiesSeparateFromUnreachableHosts(t *testing
 	for _, tc := range []struct {
 		state CopyState
 		label CopyLabel
-	}{{CopyFresh, CopyLabelFresh}, {CopyStale, CopyLabelOverdue}, {CopyUnknown, CopyLabelUnknown}, {CopyNone, CopyLabelMissing}, {CopyDisposable, CopyLabelDisposable}} {
-		if got := tc.state.Label(); got != tc.label {
+	}{{CopyFresh, copyLabelFresh}, {CopyStale, copyLabelOverdue}, {copyUnknown, copyLabelUnknown}, {CopyNone, copyLabelMissing}, {CopyDisposable, copyLabelDisposable}} {
+		if got := tc.state.label(); got != tc.label {
 			t.Fatalf("%s: %s", tc.state, got)
 		}
 	}

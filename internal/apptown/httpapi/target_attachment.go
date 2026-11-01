@@ -1,8 +1,9 @@
 package httpapi
 
 import (
-	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"net/http"
+
+	"github.com/flokkit/apptown/internal/apptown/deployment"
 )
 
 // AttachTarget: POST /targets — add a deployment target. Kinds: a
@@ -85,7 +86,7 @@ func (h Targets) EditTarget(w http.ResponseWriter, r *http.Request) {
 	}) {
 		saved, err := h.deployment.Targets.EditSettings(r.Context(), r.PathValue("name"), deployment.TargetSettingsEdit{
 			ExpectedRevision: in.ExpectedRevision, Domain: in.Domain, PersistentVolumes: in.PersistentVolumes, Previews: in.Previews, NeedsMode: in.NeedsMode, Evals: in.Evals, Rehearsals: in.Rehearsals, CopyRunner: in.CopyRunner, Environment: in.Environment,
-		}, Actor(r))
+		}, actor(r))
 		if err != nil {
 			WriteFault(w, err)
 			return

@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -47,7 +49,7 @@ func TestDeploymentRemovalChecksAuthorityAndHTTPOutcome(t *testing.T) {
 		t.Fatal("denied caller reached provider")
 	}
 	a.grant(t, "owner", access.CapDeploymentTeardown)
-	t.Cleanup(a.db.FailNextStatement("-- name: UserByName :one"))
+	t.Cleanup(dbtest.NextStatementFailure(a.db, "-- name: UserByName :one"))
 	if w := deploymentRequest(h.DeleteDeployment, "owner", http.MethodDelete, path, values); w.Code != 500 {
 		t.Fatalf("unread authority: %d %s", w.Code, w.Body.String())
 	}

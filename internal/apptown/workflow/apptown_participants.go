@@ -118,8 +118,6 @@ const (
 	ScheduleSkipped ScheduleOutcome = "skipped"
 	// ScheduleFailed: the firing's change or run could not be started.
 	ScheduleFailed ScheduleOutcome = "failed"
-	// ScheduleUnknown: recorded before outcomes were kept (schema 144).
-	ScheduleUnknown ScheduleOutcome = "unknown"
 )
 
 // ScheduleRecord is a schedule's firing record: when it last fired (or was

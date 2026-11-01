@@ -178,7 +178,7 @@ func TestRunAdmissionRequiresOwnershipReadinessAndRelationshipWrites(t *testing.
 			case "readiness":
 				table = "run_starts"
 			case "landing relationship":
-				parent, err := s.Create(ctx, req, def)
+				parent, err := s.records.create(ctx, req, def)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -189,11 +189,11 @@ func TestRunAdmissionRequiresOwnershipReadinessAndRelationshipWrites(t *testing.
 				before = 1
 			case "child attempt":
 				def.Spec.Stages[0].Steps = []schema.Step{{Name: "call", Uses: "workflow/call"}}
-				parent, err := s.Create(ctx, req, def)
+				parent, err := s.records.create(ctx, req, def)
 				if err != nil {
 					t.Fatal(err)
 				}
-				if err := s.Prepared(ctx, parent.ID); err != nil {
+				if err := s.records.prepared(ctx, parent.ID); err != nil {
 					t.Fatal(err)
 				}
 				step := admittedStepID(t, queries{db: db}, parent, "call")
@@ -203,7 +203,7 @@ func TestRunAdmissionRequiresOwnershipReadinessAndRelationshipWrites(t *testing.
 			}
 			completionExec(t, db, `CREATE FUNCTION veto_admission() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF `+condition+` THEN RETURN NULL; END IF; RETURN NEW; END $$`)
 			completionExec(t, db, fmt.Sprintf(`CREATE TRIGGER veto_admission BEFORE %s ON %s FOR EACH ROW EXECUTE FUNCTION veto_admission()`, event, table))
-			if run, err := s.Create(ctx, req, def); run != nil || err == nil {
+			if run, err := s.records.create(ctx, req, def); run != nil || err == nil {
 				t.Fatalf("missing %s published run: %+v %v", record, run, err)
 			}
 			wantRunCount(t, db, before, nil)
@@ -230,7 +230,7 @@ func TestRunAdmissionCancellationReleasesProjectLockWait(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	done := make(chan error, 1)
-	go func() { _, err := s.Create(ctx, req, def); done <- err }()
+	go func() { _, err := s.records.create(ctx, req, def); done <- err }()
 	dbtest.WaitForLock(t, db, "-- name: ProjectForUpdate")
 	cancel()
 	select {
@@ -250,16 +250,16 @@ func TestRunAdmissionPreservesExactInputsAndRejectsInvalidPlans(t *testing.T) {
 	for _, invalid := range []string{"null", "[]", "bad"} {
 		bad := req
 		bad.InputsJSON = invalid
-		if run, err := s.Create(ctx, bad, def); run != nil || err == nil {
+		if run, err := s.records.create(ctx, bad, def); run != nil || err == nil {
 			t.Fatalf("invalid inputs %s: %+v %v", invalid, run, err)
 		}
 	}
 	invalid := def
 	invalid.Events = []StartEvent{{Kind: "external.fact", Payload: []byte("broken")}}
-	if run, err := s.Create(ctx, req, invalid); run != nil || err == nil {
+	if run, err := s.records.create(ctx, req, invalid); run != nil || err == nil {
 		t.Fatalf("invalid receipt: %+v %v", run, err)
 	}
-	run, err := s.Create(ctx, req, def)
+	run, err := s.records.create(ctx, req, def)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,23 +275,23 @@ func TestRunReadinessRequiresItsReceipt(t *testing.T) {
 	t.Parallel()
 	admissions, req, def := runAdmissionFixture(t)
 	ctx := context.Background()
-	run, err := admissions.Create(ctx, req, def)
+	run, err := admissions.records.create(ctx, req, def)
 	if err != nil {
 		t.Fatal(err)
 	}
 	db := admissions.records.db
 	completionExec(t, db, `CREATE FUNCTION veto_readiness_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.kind='run.ready' THEN RETURN NULL; END IF; RETURN NEW; END $$`)
 	completionExec(t, db, `CREATE TRIGGER veto_readiness_receipt BEFORE INSERT ON run_events FOR EACH ROW EXECUTE FUNCTION veto_readiness_receipt()`)
-	if err := admissions.Prepared(ctx, run.ID); err == nil {
+	if err := admissions.records.prepared(ctx, run.ID); err == nil {
 		t.Fatal("published readiness without a receipt")
 	}
 	wantRunReady(t, db, run.ID, false)
 	wantRunEventCount(t, db, run.ID, 0, ofKind("run.ready"))
 	completionExec(t, db, `DROP TRIGGER veto_readiness_receipt ON run_events`)
-	if err := admissions.Prepared(ctx, run.ID); err != nil {
+	if err := admissions.records.prepared(ctx, run.ID); err != nil {
 		t.Fatal(err)
 	}
-	if err := admissions.Prepared(ctx, run.ID); err != nil {
+	if err := admissions.records.prepared(ctx, run.ID); err != nil {
 		t.Fatal(err)
 	}
 	wantRunEventCount(t, db, run.ID, 1, ofKind("run.ready"))
@@ -305,30 +305,30 @@ func TestRunReadinessRequiresItsPersistedFlagBeforeDispatch(t *testing.T) {
 	completionExec(t, db, `CREATE TRIGGER veto_readiness_flag BEFORE UPDATE ON run_starts FOR EACH ROW EXECUTE FUNCTION veto_readiness_flag()`)
 	dispatched := false
 	starter := newStarter(db, admissions.records.stages, nil, startRuntime{
-		Source:   func(context.Context, StartRequest) (StartSource, error) { return StartSource{}, nil },
-		Resolve:  func(context.Context, StartRequest, StartSource) (PreparedRun, error) { return def, nil },
-		Prepare:  func(context.Context, *Run) error { return nil },
-		Dispatch: func(context.Context, *Run) error { dispatched = true; return nil },
+		source:   func(context.Context, StartRequest) (StartSource, error) { return StartSource{}, nil },
+		resolve:  func(context.Context, StartRequest, StartSource) (PreparedRun, error) { return def, nil },
+		prepare:  func(context.Context, *Run) error { return nil },
+		dispatch: func(context.Context, *Run) error { dispatched = true; return nil },
 	}, clocked{})
-	run, err := starter.Start(context.Background(), req)
+	run, err := starter.start(context.Background(), req)
 	if run == nil || err == nil || dispatched {
 		t.Fatalf("unready start dispatched: run=%+v err=%v dispatched=%v", run, err, dispatched)
 	}
 	wantRunReady(t, db, run.ID, false)
 	wantEventCount(t, db, 0, ofKind("run.ready"))
 	completionExec(t, db, `DROP TRIGGER veto_readiness_flag ON run_starts`)
-	if err := starter.Prepare(context.Background(), run.ID); err != nil {
+	if err := starter.prepare(context.Background(), run.ID); err != nil {
 		t.Fatal(err)
 	}
-	if err := admissions.Prepared(context.Background(), run.ID); err != nil {
+	if err := admissions.records.prepared(context.Background(), run.ID); err != nil {
 		t.Fatal(err)
 	}
 	wantRunEventCount(t, db, run.ID, 1, ofKind("run.ready"))
 	dbtest.FailNextStatement(t, db, "-- name: RunStartByID")
-	if err := admissions.Prepared(context.Background(), run.ID); err == nil {
+	if err := admissions.records.prepared(context.Background(), run.ID); err == nil {
 		t.Fatal("failed idempotence observation reported success")
 	}
-	if err := admissions.Prepared(context.Background(), idstest.N(999999)); err == nil {
+	if err := admissions.records.prepared(context.Background(), idstest.N(999999)); err == nil {
 		t.Fatal("missing readiness row reported success")
 	}
 }

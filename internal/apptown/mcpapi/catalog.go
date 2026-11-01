@@ -25,7 +25,7 @@ type Refusal string
 
 func (r Refusal) Error() string { return string(r) }
 
-type Tool struct {
+type toolEntry struct {
 	order             int // stable descriptor order, declared with the tool rather than a second catalog
 	Name, Description string
 	InputSchema       map[string]any
@@ -48,7 +48,7 @@ func filteredCommand(contract string, run func(*Call, map[string]any) (any, erro
 func publicCommand(contract string, run func(*Call, map[string]any) (any, error)) toolCommand {
 	return toolCommand{"public", contract, run}
 }
-func (t Tool) validate() error {
+func (t toolEntry) validate() error {
 	if t.Name == "" || t.command.run == nil || strings.TrimSpace(t.command.contract) == "" {
 		return fmt.Errorf("tool %q requires a name, command and policy contract", t.Name)
 	}
@@ -58,7 +58,7 @@ func (t Tool) validate() error {
 	}
 	return fmt.Errorf("tool %q has no explicit policy", t.Name)
 }
-func (t Tool) Run(c *Call, args map[string]any) (any, error) {
+func (t toolEntry) Run(c *Call, args map[string]any) (any, error) {
 	if err := t.validate(); err != nil {
 		return nil, err
 	}
@@ -66,11 +66,11 @@ func (t Tool) Run(c *Call, args map[string]any) (any, error) {
 }
 
 // Policy identifies the reviewed command boundary, not an inferred permission.
-func (t Tool) Policy() (kind, contract string) { return t.command.kind, t.command.contract }
+func (t toolEntry) Policy() (kind, contract string) { return t.command.kind, t.command.contract }
 
-type Catalog []Tool
+type Catalog []toolEntry
 
-func (c Catalog) ByName(name string) *Tool {
+func (c Catalog) ByName(name string) *toolEntry {
 	for i := range c {
 		if c[i].Name == name {
 			return &c[i]
@@ -78,15 +78,9 @@ func (c Catalog) ByName(name string) *Tool {
 	}
 	return nil
 }
-func (c Catalog) Descriptors() []map[string]any {
-	out := make([]map[string]any, 0, len(c))
-	for _, t := range c {
-		out = append(out, map[string]any{"name": t.Name, "description": t.Description, "inputSchema": t.InputSchema})
-	}
-	return out
-}
+
 func refuse(format string, args ...any) error { return Refusal(fmt.Sprintf(format, args...)) }
-func (t *Tool) CheckArgs(args map[string]any) string {
+func (t *toolEntry) CheckArgs(args map[string]any) string {
 	props, _ := t.InputSchema["properties"].(map[string]any)
 	for k := range args {
 		if _, ok := props[k]; !ok {
@@ -164,7 +158,7 @@ func argNumber(args map[string]any, key string) (int64, error) {
 var slugArg = schemaString("The project's slug — the short name in its URL, e.g. \"reading-list\".")
 
 // Assemble preserves published descriptor order across independently bound groups.
-func Assemble(groups ...[]Tool) Catalog {
+func Assemble(groups ...[]toolEntry) Catalog {
 	var out Catalog
 	for _, group := range groups {
 		out = append(out, group...)

@@ -12,24 +12,24 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 )
 
-// Action identifies a supported operation; authority maps it to current policy.
-type Action uint8
+// action identifies a supported operation; authority maps it to current policy.
+type action uint8
 
 const (
-	ReadFleet Action = iota + 1
-	ReadProject
-	RunReview
-	ConfirmFlag
-	CreateException
-	RevokeException
-	// RunWhatIf admits a what-if: the same grant as a review for a person,
+	readFleet action = iota + 1
+	readProject
+	runReview
+	confirmFlag
+	createException
+	revokeException
+	// runWhatIf admits a what-if: the same grant as a review for a person,
 	// but a distinct act, so a scope that may request a project's standing
 	// review (an adoption's, a remediation's) cannot judge other versions.
-	RunWhatIf
+	runWhatIf
 )
 
-type Permission struct {
-	Action Action
+type permission struct {
+	Action action
 	// ProjectID scopes a project operation. Projects scopes review admission;
 	// nil means the fleet, an explicit empty selection means no projects.
 	ProjectID ids.ID
@@ -40,11 +40,11 @@ type Permission struct {
 // a command is never authority. Missing context or an unavailable decision fails.
 type operationAuthority interface {
 	Actor(context.Context) (string, error)
-	Require(context.Context, Permission) (string, error)
+	Require(context.Context, permission) (string, error)
 }
 
 var ErrCallerRequired = &access.Denied{Code: "caller_required", Reason: "conformance requires an authenticated operation context"}
-var ErrScope = fault.New(fault.Conflict, "operation is outside this review's admitted scope")
+var errScope = fault.New(fault.Conflict, "operation is outside this review's admitted scope")
 var ErrSource = errors.New("committed project source is unavailable; run the review again when it is available")
 
 type SourceHead struct{ SHA, Unavailable string }
@@ -60,14 +60,14 @@ type CheckVersion struct {
 	Version int    `json:"version"`
 }
 
-type CheckSource interface {
+type checkSource interface {
 	HistoricalChecksIn(context.Context, database.Queryer, []CheckVersion) ([]DeclaredCheck, error)
 	ChecksIn(context.Context, database.Queryer, []ids.ID) (map[ids.ID][]DeclaredCheck, error)
 }
 
 // Source is the two inputs of a review: its repository head and its checks.
 type Source interface {
-	CheckSource
+	checkSource
 	Head(context.Context, ProjectSource) (SourceHead, error)
 }
 
@@ -80,7 +80,7 @@ type Service struct {
 	source    Source
 }
 
-func (s *Service) require(ctx context.Context, p Permission) (string, error) {
+func (s *Service) require(ctx context.Context, p permission) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
@@ -127,43 +127,43 @@ func (s *Service) sourceHead(ctx context.Context, p Project) (SourceHead, error)
 }
 
 func (s *Service) Reviews(ctx context.Context, limit int) ([]ReviewSummary, error) {
-	if _, err := s.require(ctx, Permission{Action: ReadFleet}); err != nil {
+	if _, err := s.require(ctx, permission{Action: readFleet}); err != nil {
 		return nil, err
 	}
 	return s.records.summaries(ctx, limit)
 }
 func (s *Service) Review(ctx context.Context, id ids.ID) (*ReviewDetail, error) {
-	if _, err := s.require(ctx, Permission{Action: ReadFleet}); err != nil {
+	if _, err := s.require(ctx, permission{Action: readFleet}); err != nil {
 		return nil, err
 	}
 	return s.records.detail(ctx, id)
 }
 func (s *Service) ProjectHistory(ctx context.Context, id ids.ID, limit int) ([]HistoryPoint, error) {
-	if _, err := s.require(ctx, Permission{Action: ReadProject, ProjectID: id}); err != nil {
+	if _, err := s.require(ctx, permission{Action: readProject, ProjectID: id}); err != nil {
 		return nil, err
 	}
 	return s.records.projectHistory(ctx, id, limit)
 }
 func (s *Service) ProjectFixes(ctx context.Context, id ids.ID, limit int) ([]Fix, error) {
-	if _, err := s.require(ctx, Permission{Action: ReadProject, ProjectID: id}); err != nil {
+	if _, err := s.require(ctx, permission{Action: readProject, ProjectID: id}); err != nil {
 		return nil, err
 	}
 	return s.records.projectFixes(ctx, id, limit)
 }
-func (s *Service) LatestStanding(ctx context.Context, id ids.ID, slug string) (*RecordedStanding, error) {
-	if _, err := s.require(ctx, Permission{Action: ReadProject, ProjectID: id}); err != nil {
+func (s *Service) LatestStanding(ctx context.Context, id ids.ID, slug string) (*recordedStanding, error) {
+	if _, err := s.require(ctx, permission{Action: readProject, ProjectID: id}); err != nil {
 		return nil, err
 	}
 	return s.records.latestStanding(ctx, id, slug)
 }
 func (s *Service) Dispositions(ctx context.Context, id ids.ID, active bool) ([]Disposition, error) {
-	if _, err := s.require(ctx, Permission{Action: ReadProject, ProjectID: id}); err != nil {
+	if _, err := s.require(ctx, permission{Action: readProject, ProjectID: id}); err != nil {
 		return nil, err
 	}
 	return readDispositions(ctx, s.records.db, []ids.ID{id}, active, s.records.now())
 }
 func (s *Service) AdoptedChecks(ctx context.Context, id ids.ID) ([]DeclaredCheck, error) {
-	if _, err := s.require(ctx, Permission{Action: ReadProject, ProjectID: id}); err != nil {
+	if _, err := s.require(ctx, permission{Action: readProject, ProjectID: id}); err != nil {
 		return nil, err
 	}
 	checks, err := readAdoptedChecks(ctx, s.records.db, s.records.checks, []ids.ID{id})
@@ -179,7 +179,7 @@ type Confirmation struct {
 }
 
 func (s *Service) Confirm(ctx context.Context, in Confirmation) (*Adjudication, error) {
-	who, err := s.require(ctx, Permission{Action: ConfirmFlag})
+	who, err := s.require(ctx, permission{Action: confirmFlag})
 	if err != nil {
 		return nil, err
 	}

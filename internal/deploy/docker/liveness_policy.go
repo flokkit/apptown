@@ -46,14 +46,14 @@ func (c *HealthController) explicitLiveness(ctx context.Context, e Watched, dk S
 		ph.runtimeToken = token
 	}
 	grace := policy.StartupGrace
-	if grace < HealthGraceFloor {
-		grace = HealthGraceFloor
+	if grace < healthGraceFloor {
+		grace = healthGraceFloor
 	}
 	if c.now().Sub(rt.State.StartedAt) < grace {
 		return true
 	}
-	probe := RenderLivenessProbe(pub)
-	ok := ProbeLiveness(ctx, dk, rt.ID, e.HostPort, probe, c.deps.FrontDoor())
+	probe := renderLivenessProbe(pub)
+	ok := probeLiveness(ctx, dk, rt.ID, e.HostPort, probe, c.deps.FrontDoor())
 	after, err := Inspect(ctx, dk, e.Container)
 	if ctx.Err() != nil || err != nil || after.ID != rt.ID || after.State == nil || !after.State.StartedAt.Equal(rt.State.StartedAt) || !after.Running {
 		ph.fails, ph.passes = 0, 0
@@ -72,9 +72,9 @@ func (c *HealthController) explicitLiveness(ctx context.Context, e Watched, dk S
 	if ph.fails < policy.FailureThreshold {
 		return true
 	}
-	backoff := HealthBackoffBase << ph.restarts
-	if backoff <= 0 || backoff > HealthBackoffCap {
-		backoff = HealthBackoffCap
+	backoff := healthBackoffBase << ph.restarts
+	if backoff <= 0 || backoff > healthBackoffCap {
+		backoff = healthBackoffCap
 	}
 	if !ph.lastRestart.IsZero() && c.now().Sub(ph.lastRestart) < backoff {
 		return true

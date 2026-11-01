@@ -15,9 +15,9 @@ import (
 	"github.com/flokkit/apptown/internal/routinechange"
 )
 
-// RoutineInspector uses committed objects and the existing check executor; it
+// routineInspector uses committed objects and the existing check executor; it
 // never prepares a workspace or changes source to make it assessable.
-type RoutineInspector struct {
+type routineInspector struct {
 	dataDir      string
 	locks        *scm.RepositoryLocks
 	executor     Executor
@@ -25,8 +25,8 @@ type RoutineInspector struct {
 	advisoryRead func(context.Context, string, string, []byte) ([]byte, error)
 }
 
-func NewRoutineInspector(dataDir string, locks *scm.RepositoryLocks, executor Executor) RoutineInspector {
-	return RoutineInspector{dataDir: dataDir, locks: locks, executor: executor, imageReader: oci.Observe, advisoryRead: readRoutineAdvisory}
+func NewRoutineInspector(dataDir string, locks *scm.RepositoryLocks, executor Executor) routineInspector {
+	return routineInspector{dataDir: dataDir, locks: locks, executor: executor, imageReader: oci.Observe, advisoryRead: readRoutineAdvisory}
 }
 
 type routineTree struct {
@@ -38,7 +38,7 @@ type routineTree struct {
 	npm, image                                               bool
 }
 
-func (r RoutineInspector) observe(ctx context.Context, source workflow.Source) (out routineTree, err error) {
+func (r routineInspector) observe(ctx context.Context, source workflow.Source) (out routineTree, err error) {
 	repo, err := source.Repository(r.dataDir)
 	if err != nil {
 		return out, err
@@ -163,17 +163,17 @@ func (r RoutineInspector) observe(ctx context.Context, source workflow.Source) (
 	return out, nil
 }
 
-func (r RoutineInspector) InspectRoutine(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (workflow.StandingInspection, error) {
+func (r routineInspector) InspectRoutine(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (workflow.StandingInspection, error) {
 	return r.inspectRoutine(ctx, source, categories, false)
 }
 
 // InspectRoutineWithAdoption is used only after Adoption verified a nonempty,
 // completely classified target. An empty Git diff alone remains insufficient.
-func (r RoutineInspector) InspectRoutineWithAdoption(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (workflow.StandingInspection, error) {
+func (r routineInspector) InspectRoutineWithAdoption(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (workflow.StandingInspection, error) {
 	return r.inspectRoutine(ctx, source, categories, true)
 }
 
-func (r RoutineInspector) inspectRoutine(ctx context.Context, source workflow.Source, categories workflow.StandingCategories, adoption bool) (out workflow.StandingInspection, err error) {
+func (r routineInspector) inspectRoutine(ctx context.Context, source workflow.Source, categories workflow.StandingCategories, adoption bool) (out workflow.StandingInspection, err error) {
 	out.Classifier = routinechange.Version + "+node-digest-v1+osv-npm-v1"
 	out.Classification = "cannot-assess"
 	before, err := r.observe(ctx, source)

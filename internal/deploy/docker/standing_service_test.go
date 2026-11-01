@@ -29,11 +29,11 @@ func TestStandingServiceIsReconciledAgainstTheContract(t *testing.T) {
 	}
 	dk := Scope{Client: client}
 	svc := deploy.ServiceSpec{Name: "postgres", Image: "postgres:16", Env: map[string]string{"POSTGRES_USER": "app", "POSTGRES_DB": "app", "POSTGRES_PASSWORD": "new"}}
-	if d, err := ServiceDrift(context.Background(), dk, "apptown-svc-env-x-main-postgres", svc); err != nil || strings.Join(d, ",") != "POSTGRES_DB,POSTGRES_PASSWORD,POSTGRES_USER" {
+	if d, err := serviceDrift(context.Background(), dk, "apptown-svc-env-x-main-postgres", svc); err != nil || strings.Join(d, ",") != "POSTGRES_DB,POSTGRES_PASSWORD,POSTGRES_USER" {
 		t.Fatalf("drift: %v", d)
 	}
 	same := deploy.ServiceSpec{Name: "postgres", Image: "postgres:16", Env: map[string]string{"POSTGRES_USER": "tps", "POSTGRES_DB": "tps", "POSTGRES_PASSWORD": "old"}}
-	if d, err := ServiceDrift(context.Background(), dk, "apptown-svc-env-x-main-postgres", same); err != nil || len(d) != 0 {
+	if d, err := serviceDrift(context.Background(), dk, "apptown-svc-env-x-main-postgres", same); err != nil || len(d) != 0 {
 		t.Fatalf("no drift expected: %v", d)
 	}
 	// Non-synthetic data, or data of no known class: refused, nothing removed.

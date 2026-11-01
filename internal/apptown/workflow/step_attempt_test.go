@@ -10,6 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
@@ -22,7 +23,7 @@ func TestStepClaimCannotBeRetargetedOrGrantedByRead(t *testing.T) {
 		t.Fatal(err)
 	}
 	admissions := newStepAttempts(q.db, func(kind string) bool { return kind == "script" })
-	claim, err := admissions.Start(ctx, snapshot, "script")
+	claim, err := admissions.start(ctx, snapshot, "script", ids.Nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +56,7 @@ func TestStepAdmissionDoesNotIssueClaimWhenReceiptCannotCommit(t *testing.T) {
 	}
 	admissions := newStepAttempts(q.db, func(kind string) bool { return kind == "script" })
 	dbtest.FailNextStatement(t, q.db, "INSERT INTO run_events")
-	if claim, err := admissions.Start(ctx, snapshot, "script"); claim != nil || err == nil {
+	if claim, err := admissions.start(ctx, snapshot, "script", ids.Nil); claim != nil || err == nil {
 		t.Fatalf("uncommitted claim: %+v %v", claim, err)
 	}
 	current, err := readStep(ctx, q.db, id)
@@ -64,7 +65,7 @@ func TestStepAdmissionDoesNotIssueClaimWhenReceiptCannotCommit(t *testing.T) {
 	}
 	// Admission wrote run.created, stage.entered and run.ready; rejection adds nothing.
 	wantEventCount(t, q.db, 3, anyEvent)
-	if _, err := admissions.Start(ctx, snapshot, "script"); err != nil {
+	if _, err := admissions.start(ctx, snapshot, "script", ids.Nil); err != nil {
 		t.Fatal(err)
 	}
 	wantEventCount(t, q.db, 1, ofKind("step.started"))
@@ -111,7 +112,7 @@ func TestStepAttemptRejectsUnrunnableSnapshots(t *testing.T) {
 					t.Fatalf("advance stored stage: %d %v", n, err)
 				}
 			}
-			if _, err := owner.Start(ctx, step, "scan"); !errors.Is(err, ErrStepAttemptLost) {
+			if _, err := owner.start(ctx, step, "scan", ids.Nil); !errors.Is(err, ErrStepAttemptLost) {
 				t.Fatalf("admission: %v", err)
 			}
 			if step.OwnedAttempt() != 0 {

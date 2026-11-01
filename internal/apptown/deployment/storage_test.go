@@ -1,13 +1,14 @@
 package deployment
 
 import (
-	"github.com/flokkit/apptown/internal/database"
-	"github.com/flokkit/apptown/internal/dbtest"
-	"github.com/flokkit/apptown/internal/ids"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/deploy"
 )

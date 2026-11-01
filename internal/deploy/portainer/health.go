@@ -54,7 +54,7 @@ func (d *Driver) diagnostic(ctx context.Context, cfg *Target) (Diagnostic, func(
 	if diagnostic.Command == nil {
 		return Diagnostic{}, nil, errors.Join(errors.New("Portainer diagnostic transport is unavailable"), close())
 	}
-	diagnostic.Allowed = func(ctx context.Context) error {
+	diagnostic.allowed = func(ctx context.Context) error {
 		if err := d.Allowed(ctx); err != nil {
 			return err
 		}
@@ -119,7 +119,7 @@ func (d *Driver) sample(ctx context.Context, cfg *Target, p deploy.Placement, ex
 	if expected.Readiness.Target != d.TargetID || d.ExpectedArtifact == "" || expected.ArtifactHash != d.ExpectedArtifact {
 		return out, errors.New("Portainer readiness target or artifact differs from admitted owner inputs")
 	}
-	if err := diagnostic.Allowed(ctx); err != nil {
+	if err := diagnostic.allowed(ctx); err != nil {
 		return out, err
 	}
 	stacks, err := ListStacks(ctx, cfg)
@@ -148,7 +148,7 @@ func (d *Driver) sample(ctx context.Context, cfg *Target, p deploy.Placement, ex
 	if again != id || before.RuntimeToken != after.RuntimeToken {
 		return after, errors.New("Portainer public container changed during readiness sampling")
 	}
-	if err := diagnostic.Allowed(ctx); err != nil {
+	if err := diagnostic.allowed(ctx); err != nil {
 		return after, err
 	}
 	if expected.Readiness.Public.Policy != nil && after.RuntimeToken == "" {
@@ -169,7 +169,7 @@ func (d *Driver) sample(ctx context.Context, cfg *Target, p deploy.Placement, ex
 }
 
 func (d *Driver) awaitReadiness(ctx context.Context, cfg *Target, p deploy.Placement, expected *expectedRelease, diagnostic Diagnostic) (deploy.Observation, error) {
-	wait := d.ReadinessTimeout
+	wait := d.readinessTimeout
 	if wait <= 0 {
 		wait = 90 * time.Second
 	}

@@ -37,9 +37,9 @@ func TestNarrativeParserRequiresACompleteValidNote(t *testing.T) {
 		met            RequestMet
 	}{
 		{"TITLE: t\nASKED: no — only the tab title changed\n\nThe note.", "The note.", "only the tab title changed", RequestMetNo},
-		{"TITLE: t\nASKED: partly, the second button is missing\n\nThe note.", "The note.", "the second button is missing", RequestMetPartly},
-		{"TITLE: t\nASKED: yes\n\nThe note.", "The note.", "", RequestMetYes},
-		{"TITLE: t\nASKED: Yes. all of it\n\nThe note.", "The note.", "", RequestMetYes},
+		{"TITLE: t\nASKED: partly, the second button is missing\n\nThe note.", "The note.", "the second button is missing", requestMetPartly},
+		{"TITLE: t\nASKED: yes\n\nThe note.", "The note.", "", requestMetYes},
+		{"TITLE: t\nASKED: Yes. all of it\n\nThe note.", "The note.", "", requestMetYes},
 		{"TITLE: t\nASKED: unknown\n\nThe note.", "The note.", "", RequestMetUnknown},
 		{"TITLE: t\nASKED: probably\n\nThe note.", "The note.", "", RequestMetUnknown},
 		{"TITLE: t\n\nThe note.", "The note.", "", RequestMetUnknown},
@@ -97,14 +97,14 @@ func TestNarrativeEvidenceStatesUnreadArtifactAndKeepsWholeRequest(t *testing.T)
 	body := strings.Repeat("r", 5000)
 	out := NarrativeEvidence(NarrativeSource{
 		Change:    &Change{Body: body},
-		Artifacts: []NarrativeArtifact{{Kind: "report", Body: strings.Repeat("a", narrativeBudget+10)}},
+		Artifacts: []narrativeArtifact{{Kind: "report", Body: strings.Repeat("a", narrativeBudget+10)}},
 	}, "")
 	if !strings.Contains(out, body) || !strings.Contains(out, "ARTIFACT report (first 120000 of 120010 bytes shown; the rest was not read)") {
 		t.Fatalf("evidence: request whole and artifact truncation stated: %.300s", out)
 	}
 	withReport := NarrativeEvidence(NarrativeSource{
 		Change:      &Change{},
-		Runs:        []NarrativeRun{{Name: "build", Steps: []string{"check/tests (command)"}}},
+		Runs:        []narrativeRunView{{Name: "build", Steps: []string{"check/tests (command)"}}},
 		AgentReport: "I reviewed it and found nothing",
 	}, "")
 	if !strings.Contains(withReport, "REPORTED BY THE AGENT (its own claim, not checked by AppTown)") || !strings.Contains(withReport, "steps of this workflow: check/tests (command)") {

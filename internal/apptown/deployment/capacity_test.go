@@ -71,7 +71,7 @@ func TestANeedIsSizedOnItsDeploymentAndChangedInPlace(t *testing.T) {
 		t.Fatalf("the page does not show the database's size: %+v", r.Parts)
 	}
 	// Its memory use is a need's row, so the memory check judges it as one.
-	observed, err := w.s.ObservedMemory(t.Context(), mustDeployment(t, w, "prod"))
+	observed, err := w.s.observedMemory(t.Context(), mustDeployment(t, w, "prod"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func TestLimitEventsAreRecordedForEveryStandingDeployment(t *testing.T) {
 	w.s.RecordLimitEvents(t.Context())
 
 	read := func(name string) []LimitEvent {
-		got, err := w.s.LimitEvents(t.Context(), mustDeployment(t, w, name), t0.Add(-time.Hour))
+		got, err := w.s.limitEvents(t.Context(), mustDeployment(t, w, name), t0.Add(-time.Hour))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -289,7 +289,7 @@ func TestLimitEventsAreRecordedForEveryStandingDeployment(t *testing.T) {
 	if err != nil || len(summary) != 1 || summary[0].Count != 2 || summary[0].Kind != LimitExited {
 		t.Errorf("prod's summary: %+v %v", summary, err)
 	}
-	if known, words := w.s.LimitEventsSource(t.Context(), mustDeployment(t, w, "prod")); !known || !strings.Contains(words, "a gap is possible") {
+	if known, words := w.s.limitEventsSource(t.Context(), mustDeployment(t, w, "prod")); !known || !strings.Contains(words, "a gap is possible") {
 		t.Errorf("where prod's events come from: %v %q", known, words)
 	}
 }
@@ -310,7 +310,7 @@ func TestLimitEventsAreKeptThirtyDays(t *testing.T) {
 		}
 	}
 	w.s.pruneLimitEvents(t.Context())
-	got, err := w.s.LimitEvents(t.Context(), dep, now.Add(-40*24*time.Hour))
+	got, err := w.s.limitEvents(t.Context(), dep, now.Add(-40*24*time.Hour))
 	if err != nil || len(got) != 1 || got[0].At.Before(now.Add(-30*24*time.Hour)) {
 		t.Fatalf("after pruning: %+v %v", got, err)
 	}
@@ -616,7 +616,7 @@ func TestAFirstReleasesKillIsRecordedBeforeAnythingSettles(t *testing.T) {
 		return nil, nil, false
 	})
 	w.s.HealthController().Sweep(t.Context())
-	got, err := w.s.LimitEvents(t.Context(), first, at.Add(-time.Hour))
+	got, err := w.s.limitEvents(t.Context(), first, at.Add(-time.Hour))
 	if err != nil || len(got) != 2 || got[0].Kind != LimitOutOfMemory || got[1].Part != "postgres" {
 		t.Fatalf("the first release's kills: %+v %v", got, err)
 	}
@@ -665,7 +665,7 @@ func TestAStoppedContainersExitIsNeverRecordedAsItsOwn(t *testing.T) {
 	lab += eventLine("kill", cc, t0.Add(14*time.Second), 0) + eventLine("die", cc, t0.Add(16*time.Second), 143) +
 		eventLine("die", docker.Current.Service(stack, "d"), t0.Add(20*time.Second), 2)
 	w.s.RecordLimitEvents(t.Context())
-	got, err := w.s.LimitEvents(t.Context(), mustDeployment(t, w, "prod"), t0.Add(-time.Hour))
+	got, err := w.s.limitEvents(t.Context(), mustDeployment(t, w, "prod"), t0.Add(-time.Hour))
 	if err != nil || len(got) != 2 || got[0].Part != "b" || got[1].Part != "d" {
 		t.Fatalf("recorded %+v %v: only B and D exited on their own", got, err)
 	}

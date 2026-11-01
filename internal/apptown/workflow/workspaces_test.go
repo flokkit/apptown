@@ -48,7 +48,7 @@ func workspaceFixture(t *testing.T) (workspaces, ChangeRef, string) {
 func changeWorkspacePath(w workspaces, ref ChangeRef) string {
 	return filepath.Join(w.git.Paths().DataDir, "workspaces", fmt.Sprintf("change-%d", ref.ID))
 }
-func workspaceGit(t *testing.T, g Git, path string, args ...string) string {
+func workspaceGit(t *testing.T, g git, path string, args ...string) string {
 	t.Helper()
 	out, err := g.(GitWorkspace).git(context.Background(), path, args...)
 	if err != nil {
@@ -77,7 +77,7 @@ func TestWorkspacePreservesDefaultBaseStandaloneCloneAndHumanWork(t *testing.T) 
 	if err := os.WriteFile(filepath.Join(attachments, "reference.txt"), []byte("original reference"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.PrepareChange(context.Background(), ref); err != nil {
+	if err := w.prepareChange(context.Background(), ref); err != nil {
 		t.Fatal(err)
 	}
 	wantEqual(t, "change base", storedChange(t, w.db, ref.ID).BaseSHA, base)
@@ -111,7 +111,7 @@ func TestWorkspacePreservesDefaultBaseStandaloneCloneAndHumanWork(t *testing.T) 
 	}
 	// Preparing the folder again, for its next holder, keeps the human work:
 	// it is committed as the previous worker's, never discarded or changed.
-	if err := w.PrepareChange(context.Background(), ref); err != nil {
+	if err := w.prepareChange(context.Background(), ref); err != nil {
 		t.Fatal(err)
 	}
 	if data, err := os.ReadFile(filepath.Join(path, "human.txt")); err != nil || string(data) != "unsaved human work" {
@@ -149,7 +149,7 @@ func TestWorkspaceGitFailuresLeaveNoHalfConfiguredClone(t *testing.T) {
 				}
 				return (execution.Runner{}).Run(ctx, backend, in)
 			})}
-			if err := w.PrepareChange(context.Background(), ref); !errors.Is(err, failure) || !hit {
+			if err := w.prepareChange(context.Background(), ref); !errors.Is(err, failure) || !hit {
 				t.Fatalf("Git failure escaped: %v, hit %v", err, hit)
 			}
 			wantEqual(t, "change base", storedChange(t, w.db, ref.ID).BaseSHA, "")
@@ -160,7 +160,7 @@ func TestWorkspaceGitFailuresLeaveNoHalfConfiguredClone(t *testing.T) {
 				t.Fatalf("staging left: %v %v", leftovers, err)
 			}
 			w.git = GitWorkspace{DataDir: w.git.Paths().DataDir}
-			if err := w.PrepareChange(context.Background(), ref); err != nil {
+			if err := w.prepareChange(context.Background(), ref); err != nil {
 				t.Fatalf("explicit retry: %v", err)
 			}
 		})
@@ -186,7 +186,7 @@ func TestWorkspaceRefusesPointerMetadataAndDifferentCheckout(t *testing.T) {
 					t.Fatal(err)
 				}
 			case "wrong branch":
-				if err := w.PrepareChange(context.Background(), ref); err != nil {
+				if err := w.prepareChange(context.Background(), ref); err != nil {
 					t.Fatal(err)
 				}
 				workspaceGit(t, w.git, path, "checkout", "-b", "human-experiment")
@@ -196,7 +196,7 @@ func TestWorkspaceRefusesPointerMetadataAndDifferentCheckout(t *testing.T) {
 			case "missing historical branch":
 				scopeChangeBase(t, w.db, ref.ID, "witnessed")
 			}
-			if err := w.PrepareChange(context.Background(), ref); err == nil {
+			if err := w.prepareChange(context.Background(), ref); err == nil {
 				t.Fatal("invalid workspace reported ready")
 			}
 			if mode == "wrong branch" {
@@ -255,7 +255,7 @@ func TestWorkspaceRechecksChangeAndProjectAfterGit(t *testing.T) {
 				}
 				return out
 			})}
-			err := w.PrepareChange(context.Background(), ref)
+			err := w.prepareChange(context.Background(), ref)
 			if err == nil || !once {
 				t.Fatalf("stale source accepted: %v, injected %v", err, once)
 			}
@@ -290,7 +290,7 @@ func TestWorkspaceChangePublicationFailureKeepsIdentityForExplicitRetry(t *testi
 				completionExec(t, w.db, `CREATE FUNCTION veto() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN `+action+` END $$`)
 				completionExec(t, w.db, trigger+` FOR EACH ROW EXECUTE FUNCTION veto()`)
 			}
-			if err := w.PrepareChange(context.Background(), ref); err == nil {
+			if err := w.prepareChange(context.Background(), ref); err == nil {
 				t.Fatal("unrecorded base reported prepared")
 			}
 			wantEqual(t, "change base", storedChange(t, w.db, ref.ID).BaseSHA, "")
@@ -298,7 +298,7 @@ func TestWorkspaceChangePublicationFailureKeepsIdentityForExplicitRetry(t *testi
 			if fault == "suppressed" || fault == "deferred" {
 				completionExec(t, w.db, `DROP TRIGGER veto ON changes`)
 			}
-			if err := w.PrepareChange(context.Background(), ref); err != nil {
+			if err := w.prepareChange(context.Background(), ref); err != nil {
 				t.Fatalf("explicit preparation retry: %v", err)
 			}
 			if storedChange(t, w.db, ref.ID).BaseSHA == "" {
@@ -341,7 +341,7 @@ func TestRunWorkspacePublishesBothBasesAndReceiptAtomically(t *testing.T) {
 				completionExec(t, w.db, `CREATE FUNCTION veto() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN `+action+` END $$`)
 				completionExec(t, w.db, trigger+` FOR EACH ROW EXECUTE FUNCTION veto()`)
 			}
-			err := w.PrepareRun(context.Background(), run)
+			err := w.prepareRun(context.Background(), run)
 			if fault != "none" {
 				if err == nil {
 					t.Fatal("partial run preparation succeeded")
@@ -352,7 +352,7 @@ func TestRunWorkspacePublishesBothBasesAndReceiptAtomically(t *testing.T) {
 				if strings.HasPrefix(fault, "suppressed") || strings.HasPrefix(fault, "deferred") {
 					completionExec(t, w.db, `DROP TRIGGER veto ON `+map[string]string{"suppressed run": "runs", "suppressed change": "changes", "suppressed receipt": "run_events", "deferred receipt": "run_events"}[fault])
 				}
-				err = w.PrepareRun(context.Background(), run)
+				err = w.prepareRun(context.Background(), run)
 			}
 			if err != nil {
 				t.Fatalf("prepare/retry: %v", err)
@@ -391,7 +391,7 @@ func TestRunWorkspaceRejectsLateStateScopeAndRevision(t *testing.T) {
 				}
 				return out
 			})}
-			if err := w.PrepareRun(context.Background(), run); !errors.Is(err, errWorkspaceChanged) || !once {
+			if err := w.prepareRun(context.Background(), run); !errors.Is(err, errWorkspaceChanged) || !once {
 				t.Fatalf("stale run: %v injected %v", err, once)
 			}
 			wantEqual(t, "run base", storedRunRow(t, w.db, run.ID).BaseSha, "")
@@ -438,7 +438,7 @@ func TestWorkspaceCancellationReachesLocksAndGit(t *testing.T) {
 				})}
 			}
 			done := make(chan error, 1)
-			go func() { done <- w.PrepareChange(ctx, ref) }()
+			go func() { done <- w.prepareChange(ctx, ref) }()
 			switch mode {
 			case "project":
 				dbtest.WaitForLock(t, w.db, "-- name: ProjectForUpdate")
@@ -478,7 +478,7 @@ func TestRunWorkspaceReleasesSnapshotBeforeGitWithOneConnection(t *testing.T) {
 	})}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := w.PrepareRun(ctx, run); err != nil || !observed {
+	if err := w.prepareRun(ctx, run); err != nil || !observed {
 		t.Fatalf("snapshot held during Git: %v, observed %v", err, observed)
 	}
 	wantEqual(t, "run base", storedRunRow(t, w.db, run.ID).BaseSha, base)
@@ -488,9 +488,9 @@ func TestWorkspaceImportedBaseAndAttachmentErrorsRemainExplicit(t *testing.T) {
 	i, in, base := importFixture(t)
 	w := newWorkspaces(i.creator.records.db, i.git, i.locks)
 	i.creator.prepare = func(ctx context.Context, created CreatedChange) error {
-		return w.PrepareChange(ctx, ChangeRef{ID: created.Change.ID, ProjectID: in.ProjectID})
+		return w.prepareChange(ctx, ChangeRef{ID: created.Change.ID, ProjectID: in.ProjectID})
 	}
-	ch, err := i.Import(context.Background(), in, "alice")
+	ch, err := i.importChange(context.Background(), in, "alice")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -508,7 +508,7 @@ func TestWorkspaceImportedBaseAndAttachmentErrorsRemainExplicit(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "attachments"), []byte("broken canonical directory"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.PrepareChange(context.Background(), ChangeRef{ID: ch.ID, ProjectID: ch.ProjectID}); err == nil {
+	if err := w.prepareChange(context.Background(), ChangeRef{ID: ch.ID, ProjectID: ch.ProjectID}); err == nil {
 		t.Fatal("attachment read failure was hidden")
 	}
 	wantEqual(t, "change base", storedChange(t, w.db, ch.ID).BaseSHA, base)

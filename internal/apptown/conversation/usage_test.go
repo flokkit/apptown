@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/usage"
@@ -200,7 +202,7 @@ func TestAFailedHarvestKeepsItsSpendForTheNext(t *testing.T) {
 	ledger := usage.New(db)
 	s, path := recordSession(t, fixtureLines(t))
 	s.Labels = map[string]string{ProjectLabel: idstest.N(1).String()}
-	restore := db.FailNextStatement("INSERT INTO token_usage")
+	restore := dbtest.NextStatementFailure(db, "INSERT INTO token_usage")
 	if err := HarvestUsage(t.Context(), ledger, s); err == nil {
 		t.Fatal("a failed spend write harvested")
 	}

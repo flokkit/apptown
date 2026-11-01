@@ -51,11 +51,11 @@ func retryFixtureWithSpec(t *testing.T, spec schema.Spec) (stepRetries, *Run, id
 		if err != nil {
 			t.Fatal(err)
 		}
-		claim, err := attempts.Start(context.Background(), snapshot, snapshot.Type)
+		claim, err := attempts.start(context.Background(), snapshot, snapshot.Type, ids.Nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := attempts.Finish(context.Background(), claim, StepOutcome{Status: outcome.state, Evidence: outcome.evidence}); err != nil {
+		if err := attempts.finish(context.Background(), claim, StepOutcome{Status: outcome.state, Evidence: outcome.evidence}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -124,7 +124,7 @@ func TestRetryRequiresEveryWriteAndReceipt(t *testing.T) {
 				completionExec(t, owner.db, `CREATE TRIGGER veto_retry_revision BEFORE UPDATE ON runs FOR EACH ROW EXECUTE FUNCTION veto_retry_revision()`)
 			}
 			result, err := owner.retryExpected(context.Background(), retryIntent{RetryCommand: RetryCommand{StepID: id, Mode: RetryContinue, Feedback: "exact words"}}, nil)
-			if err == nil || result != (Retried{}) {
+			if err == nil || result != (retried{}) {
 				t.Fatalf("partial retry: %+v %v", result, err)
 			}
 			wantStepState(t, owner.db, id, StatusPass)
@@ -180,11 +180,11 @@ func TestRetryConcurrentRequestsAndBusyPrerequisites(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				claim, err := attempts.Start(context.Background(), snapshot, snapshot.Type)
+				claim, err := attempts.start(context.Background(), snapshot, snapshot.Type, ids.Nil)
 				if err != nil {
 					t.Fatal(err)
 				}
-				if err := attempts.Finish(context.Background(), claim, StepOutcome{Status: StatusPass, Evidence: []byte(`{}`)}); err != nil {
+				if err := attempts.finish(context.Background(), claim, StepOutcome{Status: StatusPass, Evidence: []byte(`{}`)}); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -313,7 +313,7 @@ func TestRetryServiceRequiresAuthorityAndRechecksItsSnapshot(t *testing.T) {
 				}
 				wantEventCount(t, owner.db, 1, kindWith("step.retried", "by", "verified"))
 			} else {
-				if err == nil || result != (Retried{}) {
+				if err == nil || result != (retried{}) {
 					t.Fatalf("changed %s accepted: %+v %v", change, result, err)
 				}
 				wantEventCount(t, owner.db, 7, anyEvent) // Admission and two completed attempts only.

@@ -31,11 +31,11 @@ import (
 // RunAgentReview run their outcome logic without Docker or a model.
 type fakePi struct {
 	mu    sync.Mutex
-	calls []ExecRequest
-	on    func(n int, req ExecRequest) ExecOutcome // n is 1-based
+	calls []execRequest
+	on    func(n int, req execRequest) execOutcome // n is 1-based
 }
 
-func installFakePi(t *testing.T, a *App, on func(n int, req ExecRequest) ExecOutcome) *fakePi {
+func installFakePi(t *testing.T, a *App, on func(n int, req execRequest) execOutcome) *fakePi {
 	t.Helper()
 	f := &fakePi{on: on}
 	a.Work.Stop()
@@ -49,7 +49,7 @@ func installFakePi(t *testing.T, a *App, on func(n int, req ExecRequest) ExecOut
 // (piharness.CapturedArgv) would: the stream it prints is written to the
 // events file the argv names, which is where the result is read; on sees
 // pi's own argv.
-func (f *fakePi) Run(_ context.Context, _ string, req ExecRequest) ExecOutcome {
+func (f *fakePi) Run(_ context.Context, _ string, req execRequest) execOutcome {
 	events, inner, captured := pitest.CapturedEvents(req.Argv)
 	if captured {
 		req.Argv = inner
@@ -65,10 +65,10 @@ func (f *fakePi) Run(_ context.Context, _ string, req ExecRequest) ExecOutcome {
 	return out
 }
 
-func (f *fakePi) requests() []ExecRequest {
+func (f *fakePi) requests() []execRequest {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return append([]ExecRequest(nil), f.calls...)
+	return append([]execRequest(nil), f.calls...)
 }
 
 // piSays is a pi --mode json transcript with one assistant turn of text.
@@ -108,7 +108,7 @@ func agentTestApp(t *testing.T, configs ...Config) *App {
 	return a
 }
 
-func hasMount(req ExecRequest, suffix string) bool {
+func hasMount(req execRequest, suffix string) bool {
 	for _, m := range req.Mounts {
 		if strings.HasSuffix(m, suffix) {
 			return true
@@ -117,7 +117,7 @@ func hasMount(req ExecRequest, suffix string) bool {
 	return false
 }
 
-func envValue(req ExecRequest, key string) string {
+func envValue(req execRequest, key string) string {
 	for _, e := range req.Env {
 		if v, ok := strings.CutPrefix(e, key+"="); ok {
 			return v
@@ -187,7 +187,7 @@ func writeVerdict(t *testing.T, ws, body string) {
 // resume and fixup copies must pass the same mounts, or they lose the CLI.
 func TestReviewInvocationsAllCarryCLIAndRunToken(t *testing.T) {
 	t.Parallel()
-	check := func(t *testing.T, a *App, runID ids.ID, reqs []ExecRequest) {
+	check := func(t *testing.T, a *App, runID ids.ID, reqs []execRequest) {
 		t.Helper()
 		for i, req := range reqs {
 			if !hasMount(req, ":"+agentenv.CLIDir+"/apptown:ro") {
@@ -222,14 +222,14 @@ func TestReviewInvocationsAllCarryCLIAndRunToken(t *testing.T) {
 		a := agentTestApp(t)
 		runID, stepID := admittedReviewStep(t, a, "p")
 		var liveTokens []ids.ID
-		f := installFakePi(t, a, func(n int, req ExecRequest) ExecOutcome {
+		f := installFakePi(t, a, func(n int, req execRequest) execOutcome {
 			// The token must be LIVE while pi runs, not just present.
 			who, _ := inferenceIdentityFor(a).AuthenticateStep(context.Background(), envValue(req, "APPTOWN_SESSION_TOKEN"))
 			liveTokens = append(liveTokens, who.RunID)
 			if n == 2 {
 				writeVerdict(t, req.Workspace, `{"verdict":"pass","summary":"all claims hold","findings":[]}`)
 			}
-			return ExecOutcome{Output: piSays("working")}
+			return execOutcome{Output: piSays("working")}
 		})
 		a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
 		reqs := f.requests()
@@ -252,14 +252,14 @@ func TestReviewInvocationsAllCarryCLIAndRunToken(t *testing.T) {
 		t.Parallel()
 		a := agentTestApp(t)
 		runID, stepID := admittedReviewStep(t, a, "p")
-		f := installFakePi(t, a, func(n int, req ExecRequest) ExecOutcome {
+		f := installFakePi(t, a, func(n int, req execRequest) execOutcome {
 			switch n {
 			case 1:
 				writeVerdict(t, req.Workspace, `{"verdict":"pa`) // truncated mid-write
 			case 2:
 				writeVerdict(t, req.Workspace, `{"verdict":"fail","summary":"claims X, diff lacks X","findings":["X missing"]}`)
 			}
-			return ExecOutcome{Output: piSays("working")}
+			return execOutcome{Output: piSays("working")}
 		})
 		a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
 		reqs := f.requests()
@@ -278,7 +278,7 @@ func TestReviewInvocationsAllCarryCLIAndRunToken(t *testing.T) {
 	})
 }
 
-func reviewHasArg(req ExecRequest, arg string) bool {
+func reviewHasArg(req execRequest, arg string) bool {
 	for _, x := range req.Argv {
 		if x == arg {
 			return true

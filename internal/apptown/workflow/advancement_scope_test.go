@@ -39,8 +39,8 @@ func TestAdvanceServiceDoesNotPublishMovedProjectResults(t *testing.T) {
 				}
 				return nil
 			}}
-			owner := newAdvancer(q.db, advanceRuntime{Checks: checks})
-			service := newService(q.db, allowProject(run.ProjectID), Runtime{Advancement: owner, Starter: newStarter(q.db, Stages{}, nil, startRuntime{}, clocked{})})
+			owner := newAdvancer(q.db, advanceRuntime{checks: checks})
+			service := newService(q.db, allowProject(run.ProjectID), Runtime{Advancement: owner, Starter: newStarter(q.db, stages{}, nil, startRuntime{}, clocked{})})
 			out, err := service.Advance(context.Background(), run.ID)
 			if err == nil || out != nil {
 				t.Fatalf("moved project's result escaped: %+v %v", out, err)

@@ -58,7 +58,7 @@ type narratives struct {
 }
 
 func (n narratives) Refresh(ctx context.Context, changeID ids.ID) error {
-	return n.builder.Refresh(ctx, changeID)
+	return n.builder.refresh(ctx, changeID)
 }
 
 // Request queues a refresh of the Change. A request while one is queued or
@@ -86,7 +86,7 @@ func (n narratives) RunJob(ctx context.Context, key string, _ map[string]any) (m
 	if err != nil || changeID.IsZero() || "change/"+changeID.String() != key {
 		return nil, jobs.Permanent(fmt.Errorf("invalid narrative key %q", key))
 	}
-	if err := n.builder.Refresh(n.engine(ctx), changeID); err != nil {
+	if err := n.builder.refresh(n.engine(ctx), changeID); err != nil {
 		return nil, err
 	}
 	return map[string]any{"changeId": changeID}, nil

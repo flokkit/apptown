@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adrs"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -299,19 +301,19 @@ func TestADRHTTPReturnsLifecycleOptionsAndAcceptsEmptySuccessorBody(t *testing.T
 		out = httptest.NewRecorder()
 		switch path {
 		case "get":
-			t.Cleanup(db.FailNextStatement("SELECT project_id FROM adrs"))
+			t.Cleanup(dbtest.NextStatementFailure(db, "SELECT project_id FROM adrs"))
 			NewADRs(service, projects).GetADR(out, req)
 		case "create":
 			req = httptest.NewRequest("POST", "/api/v1/projects/proj/adrs", strings.NewReader(`{"title":"unrecorded"}`))
 			req.SetPathValue("slug", "proj")
 			req = req.WithContext(adrCaller(access.Principal{Kind: "user", Name: "bls", Via: "session"}))
-			t.Cleanup(db.FailNextStatement("INSERT INTO audit_log"))
+			t.Cleanup(dbtest.NextStatementFailure(db, "INSERT INTO audit_log"))
 			NewADRs(service, projects).CreateADR(out, req)
 		case "edit":
 			req = httptest.NewRequest("PATCH", "/api/v1/adrs/"+v.ID.String(), strings.NewReader(`{"status":"deprecated"}`))
 			req.SetPathValue("id", v.ID.String())
 			req = req.WithContext(adrCaller(access.Principal{Kind: "user", Name: "bls", Via: "session"}))
-			t.Cleanup(db.FailNextStatement("INSERT INTO audit_log"))
+			t.Cleanup(dbtest.NextStatementFailure(db, "INSERT INTO audit_log"))
 			NewADRs(service, projects).PatchADR(out, req)
 		}
 		if out.Code != 500 {
@@ -323,7 +325,7 @@ func TestADRHTTPReturnsLifecycleOptionsAndAcceptsEmptySuccessorBody(t *testing.T
 func TestADRPolicyReadFailureCannotAuthorizeMutation(t *testing.T) {
 	t.Parallel()
 	db, service, projects, pid := adrHTTPFixture(t)
-	t.Cleanup(db.FailNextStatement("-- name: ActiveGrants"))
+	t.Cleanup(dbtest.NextStatementFailure(db, "-- name: ActiveGrants"))
 	r := httptest.NewRequest("POST", "/", strings.NewReader(`{"title":"unrecorded"}`)).WithContext(adrCaller(access.Principal{Kind: "user", Name: "bls", Via: "session"}))
 	r.SetPathValue("slug", "proj")
 	w := httptest.NewRecorder()

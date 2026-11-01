@@ -25,9 +25,9 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// Environment prepares a launch without owning session lifetime or provider keys.
+// environment prepares a launch without owning session lifetime or provider keys.
 // The console runtime calls it again on restart, so model and service facts are live.
-type Environment struct {
+type environment struct {
 	db           *database.DB
 	projects     *project.Projects
 	models       model.Selection
@@ -66,10 +66,10 @@ type EnvironmentConfig struct {
 	NoPrivateDocker  bool
 }
 
-func NewEnvironment(db *database.DB, deps EnvironmentDependencies, cfg EnvironmentConfig) *Environment {
-	return &Environment{db: db, projects: deps.Projects, models: deps.Models, bindings: deps.Bindings, instructions: deps.Instructions, home: deps.Home, cli: deps.CLI, credentials: deps.Credentials, identity: deps.Identity, cfg: cfg, clock: deps.Now}
+func NewEnvironment(db *database.DB, deps EnvironmentDependencies, cfg EnvironmentConfig) *environment {
+	return &environment{db: db, projects: deps.Projects, models: deps.Models, bindings: deps.Bindings, instructions: deps.Instructions, home: deps.Home, cli: deps.CLI, credentials: deps.Credentials, identity: deps.Identity, cfg: cfg, clock: deps.Now}
 }
-func (e *Environment) Prepare(ctx context.Context, s *console.Session) (console.Provision, error) {
+func (e *environment) Prepare(ctx context.Context, s *console.Session) (console.Provision, error) {
 	if err := agentenv.RequireInferenceRuntime(e.cfg.InferenceEnabled, execution.Docker); err != nil {
 		return console.Provision{}, err
 	}
@@ -190,7 +190,7 @@ func (e *Environment) Prepare(ctx context.Context, s *console.Session) (console.
 // person pinned one, else the project's chat slot (whose chain ends at the
 // default slot) as resolved at this moment. A failed resolution is an error,
 // never the model the session was born with.
-func (e *Environment) chatModelFor(ctx context.Context, s *console.Session) (string, error) {
+func (e *environment) chatModelFor(ctx context.Context, s *console.Session) (string, error) {
 	if s.ModelPinned {
 		return s.Model, nil
 	}
@@ -202,7 +202,7 @@ func (e *Environment) chatModelFor(ctx context.Context, s *console.Session) (str
 // the id the chat was opened with (its address may have moved, and another
 // project may have it now): fetch main, read-only, that project only. A
 // project that is gone has none.
-func (e *Environment) chatRemote(ctx context.Context, s *console.Session) ([]string, error) {
+func (e *environment) chatRemote(ctx context.Context, s *console.Session) ([]string, error) {
 	p, err := e.projects.ByID(ctx, Of(s).ProjectID)
 	if fault.KindOf(err) == fault.NotFound {
 		return nil, nil
@@ -217,7 +217,7 @@ func (e *Environment) chatRemote(ctx context.Context, s *console.Session) ([]str
 // APPTOWN_MAIN_REMOTE, a plain URL, and git configuration that sends the pull
 // token to that URL only. The token is never part of the URL, so a remote,
 // an error message or a pasted command does not carry it.
-func (e *Environment) gitRemote(ctx context.Context, p project.Project) ([]string, error) {
+func (e *environment) gitRemote(ctx context.Context, p project.Project) ([]string, error) {
 	if e.cfg.APIURL == "" {
 		return nil, nil
 	}

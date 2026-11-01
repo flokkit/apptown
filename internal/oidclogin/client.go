@@ -26,8 +26,8 @@ var ErrRejected = errors.New("external sign-in evidence was refused; start sign-
 // callback's issuer or endpoints. Secret is used for this exchange only.
 type Configuration struct{ Issuer, ClientID, Secret, Callback string }
 
-// Evidence is signed provider identity, not permission or an account name.
-type Evidence struct {
+// evidence is signed provider identity, not permission or an account name.
+type evidence struct {
 	Issuer, Subject string
 	AuthenticatedAt time.Time
 }
@@ -146,9 +146,9 @@ func (c *Client) Begin(ctx context.Context, cfg Configuration, state, nonce, ver
 
 // Complete exchanges one authorization code and verifies signed identity. The
 // caller must have consumed its browser-bound transaction before invoking it.
-func (c *Client) Complete(ctx context.Context, cfg Configuration, code, nonce, verifier string, fresh bool) (Evidence, error) {
+func (c *Client) Complete(ctx context.Context, cfg Configuration, code, nonce, verifier string, fresh bool) (evidence, error) {
 	if code == "" || nonce == "" || len(verifier) < 43 {
-		return Evidence{}, ErrRejected
+		return evidence{}, ErrRejected
 	}
 	var unavailable atomic.Bool
 	local := *c
@@ -160,47 +160,47 @@ func (c *Client) Complete(ctx context.Context, cfg Configuration, code, nonce, v
 	defer cancel()
 	p, o, err := c.discover(ctx, cfg)
 	if err != nil {
-		return Evidence{}, err
+		return evidence{}, err
 	}
 	ctx = oidc.ClientContext(ctx, c.http)
 	token, err := o.Exchange(ctx, code, oauth2.VerifierOption(verifier))
 	if err != nil {
 		if ctx.Err() != nil {
-			return Evidence{}, ErrUnavailable
+			return evidence{}, ErrUnavailable
 		}
 		var r *oauth2.RetrieveError
 		if errors.As(err, &r) && r.Response != nil && r.Response.StatusCode < 500 {
-			return Evidence{}, ErrRejected
+			return evidence{}, ErrRejected
 		}
-		return Evidence{}, ErrUnavailable
+		return evidence{}, ErrUnavailable
 	}
 	raw, ok := token.Extra("id_token").(string)
 	if !ok {
-		return Evidence{}, ErrRejected
+		return evidence{}, ErrRejected
 	}
 	checked, err := p.VerifierContext(ctx, &oidc.Config{ClientID: cfg.ClientID, Now: c.now}).Verify(ctx, raw)
 	if err != nil {
 		if ctx.Err() != nil || unavailable.Load() {
-			return Evidence{}, ErrUnavailable
+			return evidence{}, ErrUnavailable
 		}
-		return Evidence{}, ErrRejected
+		return evidence{}, ErrRejected
 	}
 	if checked.Nonce != nonce || strings.TrimSpace(checked.Subject) == "" {
-		return Evidence{}, ErrRejected
+		return evidence{}, ErrRejected
 	}
 	var claims struct {
 		AuthorizedParty string `json:"azp"`
 		AuthTime        int64  `json:"auth_time"`
 	}
 	if checked.Claims(&claims) != nil || (claims.AuthorizedParty != "" && claims.AuthorizedParty != cfg.ClientID) || (len(checked.Audience) > 1 && claims.AuthorizedParty != cfg.ClientID) {
-		return Evidence{}, ErrRejected
+		return evidence{}, ErrRejected
 	}
-	e := Evidence{Issuer: cfg.Issuer, Subject: checked.Subject}
+	e := evidence{Issuer: cfg.Issuer, Subject: checked.Subject}
 	if claims.AuthTime > 0 {
 		e.AuthenticatedAt = time.Unix(claims.AuthTime, 0)
 	}
 	if fresh && (e.AuthenticatedAt.IsZero() || e.AuthenticatedAt.Before(c.now().Add(-5*time.Minute)) || e.AuthenticatedAt.After(c.now().Add(30*time.Second))) {
-		return Evidence{}, ErrRejected
+		return evidence{}, ErrRejected
 	}
 	return e, nil
 }

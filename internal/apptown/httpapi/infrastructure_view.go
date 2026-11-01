@@ -205,6 +205,6 @@ type InfrastructureView struct {
 	Shared string `json:"shared,omitempty"`
 }
 
-type InventoryCache interface {
+type inventoryCache interface {
 	Live(context.Context, *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool, bool)
 }

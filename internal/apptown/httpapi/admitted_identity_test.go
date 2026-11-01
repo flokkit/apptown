@@ -2,9 +2,10 @@ package httpapi
 
 import (
 	"context"
+	"testing"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
-	"testing"
 )
 
 // testAdmittedPrincipal reads a fixture's existing person without creating

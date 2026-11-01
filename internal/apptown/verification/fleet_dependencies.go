@@ -12,20 +12,20 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-type Reporter interface {
+type reporter interface {
 	Report(kind, where, message string, tags map[string]string, stack string)
 }
 type Fleet struct {
 	checks    *conformance.Service
-	evaluator *Evaluator
+	evaluator *evaluator
 	scanners  *Scanners
 	selection model.Selection
 	ledger    *usage.Ledger
 	db        *database.DB
-	reporting Reporter
+	reporting reporter
 	dataDir   string
 	// candidates prepares what a project would adopt, for a what-if.
-	candidates CandidatePreparer
+	candidates candidatePreparer
 	// runtime observes deployments: a what-if probes the app serving the
 	// commit it reads. Nil where AppTown observes none.
 	runtime *Runtime
@@ -35,15 +35,15 @@ type Fleet struct {
 
 type FleetDependencies struct {
 	Checks    *conformance.Service
-	Evaluator *Evaluator
+	Evaluator *evaluator
 	Scanners  *Scanners
 	Selection model.Selection
 	Ledger    *usage.Ledger
 	DB        *database.DB
-	Reporting Reporter
+	Reporting reporter
 	DataDir   string
 	// Candidates is Adoption's candidate preparation, for what-ifs.
-	Candidates CandidatePreparer
+	Candidates candidatePreparer
 	// Runtime observes deployments, for what-ifs' runtime probes.
 	Runtime *Runtime
 	// Jobs queues the jobs that run admitted reviews and what-ifs.
@@ -63,5 +63,5 @@ func (f Fleet) judgeChecklist(ctx context.Context, call modelcall.Call, items []
 	if call.Model, _, _, err = f.selection.Resolve(ctx, call.ProjectID, "fast"); err != nil {
 		return nil, nil, err
 	}
-	return f.evaluator.Checklist(ctx, call, items, diff)
+	return f.evaluator.checklist(ctx, call, items, diff)
 }

@@ -13,9 +13,9 @@ type OperationReadsDependencies struct {
 // how a long action someone started (a copy, a check, a take-down) stands.
 // A tool that starts one answers its id; this follows it. The owner
 // decides who may read it; one the caller may not read is missing.
-func NewOperationReads(deps OperationReadsDependencies) []Tool {
+func NewOperationReads(deps OperationReadsDependencies) []toolEntry {
 	h := operationReads{ops: deps.Operations}
-	return []Tool{{
+	return []toolEntry{{
 		Name:  "get_operation",
 		order: 24,
 		Description: "Returns an operation: a long action someone asked for, such as a data copy, a restore check or a take-down. " +

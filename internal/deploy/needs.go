@@ -2,8 +2,9 @@ package deploy
 
 import (
 	"context"
-	"github.com/flokkit/apptown/internal/ids"
 	"time"
+
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // NeedRecorder is where a driver that provisions a need on its target

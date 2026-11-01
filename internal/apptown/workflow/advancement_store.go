@@ -12,8 +12,8 @@ import (
 
 type advanceStore struct {
 	db         *database.DB
-	stages     Stages
-	completion CompletionRecorder
+	stages     stages
+	completion completionRecorder
 	clocked
 }
 
@@ -84,7 +84,7 @@ func settleAdvanceIn(ctx context.Context, tx *database.Tx, expected *Run, next s
 	if err != nil {
 		return nil, err
 	}
-	if !gate.Passed() {
+	if !gate.passed() {
 		return nil, ErrRunMoved
 	}
 	return spec, nil

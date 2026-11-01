@@ -2,9 +2,10 @@ package progress
 
 import (
 	"fmt"
-	"github.com/flokkit/apptown/internal/ids"
 	"sync"
 	"time"
+
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // Heartbeat opens a live feed for a long, output-silent step and ticks
@@ -33,7 +34,7 @@ func (f *Feeds) Heartbeat(stepID ids.ID, phase string) func() {
 	return func() {
 		once.Do(func() {
 			close(done)
-			f.Discard(stepID)
+			f.discard(stepID)
 		})
 	}
 }

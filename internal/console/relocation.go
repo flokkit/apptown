@@ -16,17 +16,17 @@ import (
 	"github.com/flokkit/apptown/internal/durable"
 )
 
-// RelocationRecord is a strictly read live session record. Ended records are
+// relocationRecord is a strictly read live session record. Ended records are
 // historical evidence and remain untouched. This never resumes or reaps agents.
-type RelocationRecord struct {
+type relocationRecord struct {
 	Meta Meta
-	File string
+	file string
 	raw  []byte
 }
 
 // RelocationRecords returns the complete readable inventory or an error. An
 // unreadable record is not an absent session and cannot be silently omitted.
-func RelocationRecords(dataDir string) ([]RelocationRecord, error) {
+func RelocationRecords(dataDir string) ([]relocationRecord, error) {
 	root := filepath.Join(dataDir, "console")
 	if info, err := os.Lstat(root); errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
@@ -39,7 +39,7 @@ func RelocationRecords(dataDir string) ([]RelocationRecord, error) {
 	if err != nil {
 		return nil, err
 	}
-	var records []RelocationRecord
+	var records []relocationRecord
 	var unknown []string
 	owned := map[string]bool{}
 	for _, entry := range entries {
@@ -88,7 +88,7 @@ func RelocationRecords(dataDir string) ([]RelocationRecord, error) {
 			owned[filepath.Base(meta.Checkout)] = true
 		}
 		if !ended {
-			records = append(records, RelocationRecord{Meta: meta, File: path, raw: raw})
+			records = append(records, relocationRecord{Meta: meta, file: path, raw: raw})
 		}
 	}
 	for _, name := range unknown {
@@ -101,7 +101,7 @@ func RelocationRecords(dataDir string) ([]RelocationRecord, error) {
 
 // RefuseWriter observes the full runtime status. An absent primary container
 // does not prove a private daemon or workspace script stopped writing.
-func (r RelocationRecord) RefuseWriter(ctx context.Context, agent Agent) error {
+func (r relocationRecord) RefuseWriter(ctx context.Context, agent Agent) error {
 	if agent == nil {
 		return fmt.Errorf("console %s has no observable runtime", r.Meta.ID)
 	}
@@ -125,12 +125,12 @@ type CheckoutEdit struct {
 	AfterDigest  string `json:"afterDigest"`
 }
 
-func (r RelocationRecord) CheckoutEdit(to string) (CheckoutEdit, error) {
+func (r relocationRecord) CheckoutEdit(to string) (CheckoutEdit, error) {
 	raw, err := rewriteCheckout(r.raw, r.Meta.Checkout, to)
 	if err != nil {
 		return CheckoutEdit{}, err
 	}
-	return CheckoutEdit{File: r.File, Before: r.Meta.Checkout, After: to, BeforeDigest: recordDigest(r.raw), AfterDigest: recordDigest(raw)}, nil
+	return CheckoutEdit{File: r.file, Before: r.Meta.Checkout, After: to, BeforeDigest: recordDigest(r.raw), AfterDigest: recordDigest(raw)}, nil
 }
 
 // Apply changes only checkout, preserving ownership, credentials and unknown

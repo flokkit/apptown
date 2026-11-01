@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -143,7 +145,7 @@ func TestConfirmationHTTPDistinguishesCommandErrors(t *testing.T) {
 	if got := call(idstest.N(999999)); got != http.StatusNotFound {
 		t.Fatalf("missing verdict status: %d", got)
 	}
-	t.Cleanup(db.FailNextStatement("FROM conformance_adjudications"))
+	t.Cleanup(dbtest.NextStatementFailure(db, "FROM conformance_adjudications"))
 	if got := call(flagged.ID); got != http.StatusInternalServerError {
 		t.Fatalf("read failure status: %d", got)
 	}

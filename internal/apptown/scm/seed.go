@@ -24,14 +24,14 @@ import (
 // starting from existing code never replaces a project's repository.
 var ErrRepositoryEstablished = fault.New(fault.Conflict, "the project already has a repository; only a new, empty project can start from existing code")
 
-// SourceRefused is a source AppTown will not fetch from, with why.
-type SourceRefused struct{ Why string }
+// sourceRefused is a source AppTown will not fetch from, with why.
+type sourceRefused struct{ Why string }
 
-func (e *SourceRefused) Error() string         { return e.Why }
-func (e *SourceRefused) FaultKind() fault.Kind { return fault.Invalid }
+func (e *sourceRefused) Error() string         { return e.Why }
+func (e *sourceRefused) FaultKind() fault.Kind { return fault.Invalid }
 
 func refused(format string, args ...any) error {
-	return &SourceRefused{Why: fmt.Sprintf(format, args...)}
+	return &sourceRefused{Why: fmt.Sprintf(format, args...)}
 }
 
 // URLPolicy decides which https repositories AppTown's server may fetch.
@@ -162,7 +162,7 @@ func SeedFromBundle(ctx context.Context, dir, bundle, branch string) (string, er
 	if err != nil {
 		return "", refused("that is not a Git bundle: %v", err)
 	}
-	branch, err = BundleDefault(string(out), branch)
+	branch, err = bundleDefault(string(out), branch)
 	if err != nil {
 		return "", err
 	}
@@ -178,10 +178,10 @@ func SeedFromBundle(ctx context.Context, dir, bundle, branch string) (string, er
 	})
 }
 
-// BundleDefault chooses a bundle's default branch from its list of heads
+// bundleDefault chooses a bundle's default branch from its list of heads
 // ("<sha> <ref>" lines): want when given and present, else the branch its
 // HEAD names, else its only branch.
-func BundleDefault(heads, want string) (string, error) {
+func bundleDefault(heads, want string) (string, error) {
 	branches := map[string]string{}
 	head := ""
 	for _, line := range strings.Split(strings.TrimSpace(heads), "\n") {

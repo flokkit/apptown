@@ -49,10 +49,10 @@ func (c *Catalog) RefusesNeeds(ctx context.Context, needs []string, params map[s
 	}
 	for _, need := range needs {
 		k := kinds[need]
-		if why := k.RefusesDeclaration(params[need]); why != "" {
+		if why := k.refusesDeclaration(params[need]); why != "" {
 			return why, nil
 		}
-		for _, name := range k.Names() {
+		for _, name := range k.names() {
 			gives[name] = append(gives[name], need)
 		}
 	}
@@ -69,9 +69,9 @@ func (c *Catalog) RefusesNeeds(ctx context.Context, needs []string, params map[s
 	return "", nil
 }
 
-// RefusesDeclaration says why the kind cannot be declared as a need with
+// refusesDeclaration says why the kind cannot be declared as a need with
 // these parameters, or "".
-func (k *Kind) RefusesDeclaration(params map[string]string) string {
+func (k *Kind) refusesDeclaration(params map[string]string) string {
 	if k.Integration {
 		return fmt.Sprintf("%s is an integration, not a need: attach it to the project under Settings › Integrations and remove %s from needs: in .apptown/app.yaml; the app is given its values while it is attached and must run without them", k.Capability, k.Capability)
 	}
@@ -87,7 +87,7 @@ func (k *Kind) RefusesDeclaration(params map[string]string) string {
 	}
 	// A parameter the kind does not take would do nothing today and
 	// something once the kind learns it: refused, never ignored.
-	accepted := k.AcceptedParameters()
+	accepted := k.acceptedParameters()
 	var unknown []string
 	for name := range params {
 		if !slices.Contains(accepted, name) {

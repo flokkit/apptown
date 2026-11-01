@@ -14,19 +14,19 @@ import (
 
 type PackAssistance struct {
 	ways       *wow.Service
-	offer      PackOffer
-	selection  ModelSelection
+	offer      packOffer
+	selection  modelSelection
 	completion modelcall.Completer
 }
 
-// PackOffer is the owner's answer to "may a new project take these packs
+// packOffer is the owner's answer to "may a new project take these packs
 // together" (projectlifecycle.Service.OfferedPacks): the rule creation
 // applies, so the interview never suggests what creation would refuse.
-type PackOffer interface {
+type packOffer interface {
 	OfferedPacks(ctx context.Context, names []string) ([]*wow.Pack, error)
 }
 
-func NewPackAssistance(ways *wow.Service, offer PackOffer, selection ModelSelection, completion modelcall.Completer) PackAssistance {
+func NewPackAssistance(ways *wow.Service, offer packOffer, selection modelSelection, completion modelcall.Completer) PackAssistance {
 	return PackAssistance{ways: ways, offer: offer, selection: selection, completion: completion}
 }
 

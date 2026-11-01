@@ -65,10 +65,10 @@ func issueSessionIn(ctx context.Context, q database.Queryer, username string, tt
 	return tok, nil
 }
 
-// Resolve is the person behind a cookie value and the session's id (its
+// resolve is the person behind a cookie value and the session's id (its
 // non-secret reference), false for an unknown or expired session; an
 // expired row is removed on sight.
-func (s *sessionStore) Resolve(ctx context.Context, tok string) (username string, id ids.ID, ok bool, err error) {
+func (s *sessionStore) resolve(ctx context.Context, tok string) (username string, id ids.ID, ok bool, err error) {
 	q := queries(s.db)
 	row, err := q.SessionByHash(ctx, HashToken(tok))
 	found, err := database.Lookup(err)
@@ -83,9 +83,9 @@ func (s *sessionStore) Resolve(ctx context.Context, tok string) (username string
 	return row.Username, row.ID, true, q.TouchSession(ctx, accesssql.TouchSessionParams{TokenHash: row.TokenHash, At: now.UTC()})
 }
 
-// End is a logout: the row goes, so a cookie value that leaks afterwards
+// end is a logout: the row goes, so a cookie value that leaks afterwards
 // names nothing.
-func (s *sessionStore) End(ctx context.Context, tok string) error {
+func (s *sessionStore) end(ctx context.Context, tok string) error {
 	_, err := queries(s.db).DeleteSession(ctx, HashToken(tok))
 	return err
 }
@@ -113,14 +113,6 @@ type tokenStore struct {
 	now func() time.Time
 }
 
-// Resolve is the person, the role and the purpose a live token was minted
-// with, false for an unknown or revoked token; a use is stamped. The role
-// is the token's bound; the caller narrows it to the person's current role.
-func (t *tokenStore) Resolve(ctx context.Context, tok string) (user, role, purpose string, ok bool, err error) {
-	row, ok, err := t.resolve(ctx, tok)
-	return row.Username, row.Role, row.Purpose, ok, err
-}
-
 func (t *tokenStore) resolve(ctx context.Context, tok string) (accesssql.AuthTokensNamed, bool, error) {
 	q := queries(t.db)
 	row, err := q.AuthTokenByHash(ctx, HashToken(tok))
@@ -134,18 +126,18 @@ func (t *tokenStore) resolve(ctx context.Context, tok string) (accesssql.AuthTok
 // --- the account's own credential facts -------------------------------------------
 
 // access.Role is an account's grant-derived role, found=false for an unknown name.
-func (d *directoryStore) Role(ctx context.Context, username string) (role string, found bool, err error) {
-	return RoleIn(ctx, d.db, username, d.now())
+func (d *directoryStore) role(ctx context.Context, username string) (role string, found bool, err error) {
+	return roleIn(ctx, d.db, username, d.now())
 }
 
-// NeedsBootstrap reports whether initial authority setup has never completed.
-func (d *directoryStore) NeedsBootstrap(ctx context.Context) (bool, error) {
+// needsBootstrap reports whether initial authority setup has never completed.
+func (d *directoryStore) needsBootstrap(ctx context.Context) (bool, error) {
 	return queries(d.db).NeedsBootstrap(ctx)
 }
 
-// SeedAdministrator promotes a listed account to admin at startup, creating
+// seedAdministrator promotes a listed account to admin at startup, creating
 // it if needed. This explicit startup seed writes the root grant atomically.
-func (d *directoryStore) SeedAdministrator(ctx context.Context, username string) error {
+func (d *directoryStore) seedAdministrator(ctx context.Context, username string) error {
 	if err := ValidName(username); err != nil {
 		return err
 	}
@@ -161,7 +153,7 @@ func (d *directoryStore) SeedAdministrator(ctx context.Context, username string)
 		if _, err := queries(tx).SeedAdministrator(ctx, accesssql.SeedAdministratorParams{Username: username, PrincipalID: person, At: now.UTC()}); err != nil {
 			return err
 		}
-		if err := AdminGrantIn(ctx, tx, username, "apptown-startup", now); err != nil {
+		if err := adminGrantIn(ctx, tx, username, "apptown-startup", now); err != nil {
 			return err
 		}
 		return completeSetupIn(ctx, tx)

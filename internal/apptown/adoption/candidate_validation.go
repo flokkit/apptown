@@ -31,7 +31,7 @@ func (s *Service) validateCandidateIn(ctx context.Context, q database.Queryer, p
 		return fmt.Errorf("candidate digest does not match its receipt")
 	}
 	if s.deps.Ways == nil {
-		return ErrCatalogUnavailable
+		return errCatalogUnavailable
 	}
 	blocks := make(map[string]ReceiptBlock, len(c.Receipt.Guidance))
 	blockIDs := make(map[ids.ID]bool, len(c.Receipt.Guidance))
@@ -77,7 +77,7 @@ func (s *Service) validateCandidateIn(ctx context.Context, q database.Queryer, p
 		if err != nil {
 			return fmt.Errorf("candidate workflow %s: %w", workflow.Name, err)
 		}
-		if observed.Name != workflow.Name || observed.Version != workflow.Version || HashText(observed.YAML) != workflow.YAMLHash || doc.Metadata.System != workflow.System {
+		if observed.Name != workflow.Name || observed.Version != workflow.Version || hashText(observed.YAML) != workflow.YAMLHash || doc.Metadata.System != workflow.System {
 			return fmt.Errorf("candidate workflow %q does not match its exact publication", workflow.Name)
 		}
 		workflows[workflow.Name] = workflow
@@ -171,7 +171,7 @@ func (s *Service) validateInstallationIn(ctx context.Context, q database.Queryer
 		if policy.Name == "" || installed[policy.Name] {
 			return fmt.Errorf("invalid or duplicate installed policy %q", policy.Name)
 		}
-		if _, err := CheckPolicy(&policy); err != nil {
+		if _, err := checkPolicy(&policy); err != nil {
 			return err
 		}
 		installed[policy.Name] = true
@@ -208,5 +208,5 @@ func policyReceipt(policy Policy) (ReceiptPolicy, error) {
 	if err != nil {
 		return ReceiptPolicy{}, fmt.Errorf("policy %q: %w", policy.Name, err)
 	}
-	return ReceiptPolicy{Name: policy.Name, Rule: policy.Rule, ConfigHash: HashText(canonJSON(config)), Origin: policy.Origin}, nil
+	return ReceiptPolicy{Name: policy.Name, Rule: policy.Rule, ConfigHash: hashText(canonJSON(config)), Origin: policy.Origin}, nil
 }

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/model"
@@ -59,14 +61,14 @@ func TestSetupModelWritesSecrets(t *testing.T) {
 			t.Fatalf("the key in the file is not %s: %v", want, err)
 		}
 	}
-	restore := db.FailNextStatement("-- name: AppendReceipt")
+	restore := dbtest.NextStatementFailure(db, "-- name: AppendReceipt")
 	code := again("sk-ant-unrecorded")
 	restore()
 	if code == 200 {
 		t.Fatal("a key change whose request was not recorded succeeded")
 	}
 	keyIs("sk-ant-test-123")
-	restore = db.FailStatementAfter("-- name: AppendReceipt", 1)
+	restore = dbtest.StatementFailureAfter(db, "-- name: AppendReceipt", 1)
 	code = again("sk-ant-test-456")
 	restore()
 	if code == 200 {
@@ -205,7 +207,7 @@ func TestSetupModelFailsWhenItsBindingIsNotRecorded(t *testing.T) {
 	h := NewSetupModel(secrets, integration.NewService(db, integration.Dependencies{Secrets: secrets}), models, db, nil)
 	req := httptest.NewRequest("POST", "/api/v1/setup/model", strings.NewReader(`{"provider":"anthropic","key":"sk-ant-test-123","model":"anthropic/claude-sonnet-9"}`))
 	req = req.WithContext(access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "bls", Via: "session"}, Verified: true}))
-	defer db.FailNextStatement("INSERT INTO integrations")()
+	defer dbtest.NextStatementFailure(db, "INSERT INTO integrations")()
 	w := httptest.NewRecorder()
 	h.SetupModel(w, req)
 	if w.Code != 500 || !strings.Contains(w.Body.String(), "key was saved") {

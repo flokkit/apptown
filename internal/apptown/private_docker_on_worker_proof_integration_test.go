@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,6 +13,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 
 	"github.com/flokkit/apptown/internal/execfile"
 	"github.com/flokkit/apptown/stock"

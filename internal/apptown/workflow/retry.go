@@ -104,7 +104,7 @@ type UncopiedDataAcceptance struct {
 
 const uncopiedDataKey = "acceptUncopiedData"
 
-type Retried struct{ RunID, StepID ids.ID }
+type retried struct{ RunID, StepID ids.ID }
 
 // DispatchCommittedRetry is the transaction owner's post-commit handoff for
 // RecheckLandingIn. Interactive callers use complete commands instead.
@@ -117,22 +117,22 @@ func (s *Service) DispatchCommittedRetry(runID ids.ID) {
 		s.dispatcher.report(fmt.Errorf("run %d: retry committed; dispatch needs recovery: %w", runID, err))
 		return
 	}
-	s.dispatcher.DispatchAgain(plan)
+	s.dispatcher.dispatchAgain(plan)
 }
 
 // RetryStep authorizes the observed step, commits its guarded reset and receipts,
 // then schedules dispatch. No runner starts inside the transaction.
-func (s *Service) RetryStep(ctx context.Context, in RetryCommand) (Retried, error) {
+func (s *Service) RetryStep(ctx context.Context, in RetryCommand) (retried, error) {
 	if _, err := s.require(ctx, operationPermission{Action: actionIdentify}); err != nil {
-		return Retried{}, err
+		return retried{}, err
 	}
 	p, err := (stepDecisionStore{db: s.db, clocked: s.clocked}).prepare(ctx, in.StepID)
 	if err != nil {
-		return Retried{}, err
+		return retried{}, err
 	}
 	actor, err := s.requireActor(ctx, operationPermission{Action: actionRetryAttempt, ProjectID: p.scope.ProjectID, ChangeID: p.scope.ChangeID, RunID: p.scope.RunID})
 	if err != nil {
-		return Retried{}, err
+		return retried{}, err
 	}
 	// Releasing over data AppTown could not copy is a person's own
 	// decision, as an approval is: never through a chat, an agent's
@@ -140,7 +140,7 @@ func (s *Service) RetryStep(ctx context.Context, in RetryCommand) (Retried, erro
 	if in.AcceptUncopiedData {
 		c, _ := access.CallerFrom(ctx)
 		if who := c.Principal.Actor(); !c.Verified || !who.Assents() {
-			return Retried{}, &RetryError{RetryInvalid, fmt.Sprintf("releasing over data AppTown could not copy is a person's own decision, given in their browser or with their command-line token, not %s", wayWords(who))}
+			return retried{}, &RetryError{RetryInvalid, fmt.Sprintf("releasing over data AppTown could not copy is a person's own decision, given in their browser or with their command-line token, not %s", wayWords(who))}
 		}
 	}
 	result, err := s.stepRetries.retryExpected(ctx, retryIntent{RetryCommand: in, RunID: p.scope.RunID, Actor: actor}, &p)
@@ -168,39 +168,39 @@ func newStepRetries(db *database.DB, automatic []string) stepRetries {
 	return stepRetries{db: db, automatic: slices.Clone(automatic)}
 }
 
-func (s stepRetries) retryExpected(ctx context.Context, req retryIntent, expected *stepDecisionSnapshot) (Retried, error) {
+func (s stepRetries) retryExpected(ctx context.Context, req retryIntent, expected *stepDecisionSnapshot) (retried, error) {
 	now := s.now()
-	return database.Transact(ctx, s.db, func(tx *database.Tx) (Retried, error) { return s.retryLocked(ctx, tx, req, expected, now) })
+	return database.Transact(ctx, s.db, func(tx *database.Tx) (retried, error) { return s.retryLocked(ctx, tx, req, expected, now) })
 }
 
-// RetryIn composes an already-admitted send-back with the same checked
+// retryStepIn composes an already-admitted send-back with the same checked
 // writer, at the send-back's time now: the retry's writes and receipts are
 // the send-back's.
-func (s stepRetries) RetryIn(ctx context.Context, tx *database.Tx, req retryIntent, now time.Time) (Retried, error) {
+func (s stepRetries) retryStepIn(ctx context.Context, tx *database.Tx, req retryIntent, now time.Time) (retried, error) {
 	return s.retryLocked(ctx, tx, req, nil, now)
 }
 
-func (s stepRetries) retryLocked(ctx context.Context, tx *database.Tx, req retryIntent, expected *stepDecisionSnapshot, now time.Time) (Retried, error) {
+func (s stepRetries) retryLocked(ctx context.Context, tx *database.Tx, req retryIntent, expected *stepDecisionSnapshot, now time.Time) (retried, error) {
 	run, step, err := lockStep(ctx, tx, req.StepID)
 	if err != nil {
-		return Retried{}, err
+		return retried{}, err
 	}
 	if err := refuseUnlessActive(ctx, tx, run.ProjectID); err != nil {
-		return Retried{}, err
+		return retried{}, err
 	}
 	if expected != nil && !expected.matches(run, step) {
-		return Retried{}, &RetryError{RetryConflict, "step changed after retry authorization"}
+		return retried{}, &RetryError{RetryConflict, "step changed after retry authorization"}
 	}
 	if (!req.RunID.IsZero() && req.RunID != run.ID) || run.Status != RunRunning || run.CurrentStage != step.Stage {
-		return Retried{}, &RetryError{RetryConflict, "this step is no longer in an active stage; use the change's send-back action to request more work"}
+		return retried{}, &RetryError{RetryConflict, "this step is no longer in an active stage; use the change's send-back action to request more work"}
 	}
 	if err := requireRunReady(ctx, tx, run.ID); err != nil {
-		return Retried{}, err
+		return retried{}, err
 	}
 	if err := s.retryIn(ctx, tx, run, step, req, now); err != nil {
-		return Retried{}, err
+		return retried{}, err
 	}
-	return Retried{run.ID, step.ID}, nil
+	return retried{run.ID, step.ID}, nil
 }
 
 // retryIn writes the retry at the operation's time now.
@@ -242,7 +242,7 @@ func (s stepRetries) retryIn(ctx context.Context, tx *database.Tx, run *Run, ste
 	}
 	if entryStep(stage, step) {
 		for _, prior := range steps {
-			if prior.ID.Compare(step.ID) < 0 && entryStep(stage, prior) && !prior.Status.Judged() {
+			if prior.ID.Compare(step.ID) < 0 && entryStep(stage, prior) && !prior.Status.judged() {
 				return &RetryError{RetryConflict, fmt.Sprintf("retry %q first; this step depends on it", prior.Name)}
 			}
 		}
@@ -300,7 +300,7 @@ func (s stepRetries) retryIn(ctx context.Context, tx *database.Tx, run *Run, ste
 			return err
 		}
 	}
-	if _, err := step.Status.Transition(MoveStepReset, StatusPending); err != nil {
+	if _, err := step.Status.transition(moveStepReset, StatusPending); err != nil {
 		return err
 	}
 	config, err := json.Marshal(cfg)
@@ -330,7 +330,7 @@ func invalidateRetryDependentsIn(ctx context.Context, tx *database.Tx, stage *sc
 		if step.ID == source.ID || (entryStep(stage, step) && step.ID.Compare(source.ID) < 0) {
 			continue
 		}
-		if _, err := step.Status.Transition(MoveStepReset, StatusPending); err != nil {
+		if _, err := step.Status.transition(moveStepReset, StatusPending); err != nil {
 			return err
 		}
 		if err := recordReceiptIn(ctx, tx, source.RunID, "step.invalidated", retryInvalidation{step.Name, step.ID, source.Name, step.Status, step.Evidence, step.OverrideBy}, at); err != nil {

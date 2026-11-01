@@ -12,8 +12,8 @@ import (
 func TestAStepLeftRunningByItsRunnerHoldsTheStepsAfterIt(t *testing.T) {
 	d, s := testDispatcher([]ReadyStep{{idstest.N(1), "script", true, "build"}, {idstest.N(2), "deploy", true, "deploy"}})
 	d.runners["script"] = func(id ids.ID) { s.ran(id, StatusRunning) }
-	d.Dispatch(s.p, false)
-	d.Wait()
+	d.dispatch(s.p, false)
+	d.wait()
 	if len(s.calls) != 1 || s.advances != 0 {
 		t.Fatalf("runner left build running, but calls=%v advances=%d", s.calls, s.advances)
 	}

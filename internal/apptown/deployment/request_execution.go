@@ -29,7 +29,7 @@ type ReleaseDependencies struct {
 	Still     operations.Authorities
 	Sources   ReleaseSources
 	Secrets   ReleaseSecrets
-	Queue     ReleaseQueue
+	Queue     releaseQueue
 }
 
 // ExecuteRelease executes previously authorized queued work. It commits a claim
@@ -134,7 +134,7 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		return fail(err)
 	}
 	if bundle.ProjectID != rel.ProjectID {
-		return fail(ErrBundleMissing)
+		return fail(errBundleMissing)
 	}
 	if err := s.refusesPlacement(ctx, rel.ProjectID, t); err != nil {
 		return fail(err)
@@ -166,11 +166,11 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if why, err := s.env.RefusesBrowserValues(ctx, t.Kind, rel.ProjectID, c); err != nil || why != "" {
 		return fail(errors.Join(err, refusal(why)))
 	}
-	req := preparedRelease{Allowed: allowed, Bundle: bundle, Source: deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: bundle.Parts, Init: bundle.Init, Published: bundle.ByDigest(), Platform: bundle.BuiltFrom.Platform}, Actor: rel.ApprovedBy, BaseGeneration: &placement.BaseGeneration}
-	req.Address = address
+	req := preparedRelease{allowed: allowed, bundle: bundle, source: deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: bundle.Parts, Init: bundle.Init, Published: bundle.ByDigest(), Platform: bundle.BuiltFrom.Platform}, actor: rel.ApprovedBy, baseGeneration: &placement.BaseGeneration}
+	req.address = address
 	if address != nil {
 		ingress := address.Ingress.Clone()
-		req.Source.Ingress = &ingress
+		req.source.Ingress = &ingress
 	}
 	var staged string
 	var cleanup func()
@@ -180,15 +180,15 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		// A digest bundle's images are pulled by digest; without local
 		// Docker a bundle of image IDs is reused on the target that holds
 		// them; otherwise the host builds the source, as before.
-		req.Source.Images, req.Source.Init, err = s.bundleImages(ctx, bundle, t)
+		req.source.Images, req.source.Init, err = s.bundleImages(ctx, bundle, t)
 		if err != nil {
 			return fail(err)
 		}
 		var art deploy.Artifact
 		art, cleanup, err = docker.PrepareSource(ctx, project.Repository, revision, project.Slug, nil)
 		if err == nil {
-			staged, req.Source.Contract, req.Source.Revision = art.Source.Workspace, art.Source.Contract, art.Source.Revision
-			req.Artifact = &art
+			staged, req.source.Contract, req.source.Revision = art.Source.Workspace, art.Source.Contract, art.Source.Revision
+			req.artifact = &art
 		}
 	} else {
 		var tree deploy.SourceTree
@@ -199,7 +199,7 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		return fail(fmt.Errorf("staging the committed tree: %w", err))
 	}
 	defer cleanup()
-	req.Source.Workspace = staged
+	req.source.Workspace = staged
 	// The contract this release runs: the deployment's profile and its
 	// operators' overrides over the committed declaration, recorded with
 	// the generation so a rebuild runs the same. A target that rounds
@@ -210,8 +210,8 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if err != nil {
 		return fail(err)
 	}
-	req.Committed = req.Source.Contract
-	effective, applied, err := s.effectiveContract(ctx, dep, staged, req.Committed)
+	req.committed = req.source.Contract
+	effective, applied, err := s.effectiveContract(ctx, dep, staged, req.committed)
 	if err != nil {
 		return fail(err)
 	}
@@ -221,14 +221,14 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if err := s.preflight(ctx, check, rel.ProjectID, t, project.Slug, staged, effective); err != nil {
 		return fail(err)
 	}
-	if req.Applied, err = applied.Fitted(ctx, d, effective); err != nil {
+	if req.applied, err = applied.Fitted(ctx, d, effective); err != nil {
 		return fail(err)
 	}
-	req.Source.Contract = effective
+	req.source.Contract = effective
 	if err := allowed(ctx); err != nil {
 		return fail(err)
 	}
-	req.Secrets, req.SecretNames, err = s.release.Secrets.ResolveRelease(ctx, project.Application, dep.Name, staged, req.Source.Contract)
+	req.secrets, req.secretNames, err = s.release.Secrets.ResolveRelease(ctx, project.Application, dep.Name, staged, req.source.Contract)
 	if err != nil {
 		return fail(err)
 	}
@@ -236,16 +236,16 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	// registers them as its boot reads the app's values; any other target
 	// is given them with the app's secrets.
 	if t.Kind != KindDockerHost {
-		if err := s.env.refuseRegisteredSecretCollisions(ctx, req.Source.Contract, req.Secrets); err != nil {
+		if err := s.env.refuseRegisteredSecretCollisions(ctx, req.source.Contract, req.secrets); err != nil {
 			return fail(err)
 		}
-		registered, err := s.env.registerNeedsChecked(ctx, req.Source.Contract, deploymentKeys(s.db, s.clock, dep, project.Slug), allowed)
+		registered, err := s.env.registerNeedsChecked(ctx, req.source.Contract, deploymentKeys(s.db, s.clock, dep, project.Slug), allowed)
 		if err != nil {
 			return fail(err)
 		}
 		if len(registered) > 0 {
-			req.Secrets = registeredSecrets{inner: req.Secrets, env: registered}
-			req.SecretNames = append(req.SecretNames, slices.Sorted(maps.Keys(registered))...)
+			req.secrets = registeredSecrets{inner: req.secrets, env: registered}
+			req.secretNames = append(req.secretNames, slices.Sorted(maps.Keys(registered))...)
 		}
 		// A Docker host and a driver that says so (integrationsGiver) give
 		// an app with a runtime its attached integrations' values; a static
@@ -254,7 +254,7 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		if err := allowed(ctx); err != nil {
 			return fail(err)
 		}
-		if _, gives := d.(integrationsGiver); !gives && !StaticOnly(req.Source.Contract) {
+		if _, gives := d.(integrationsGiver); !gives && !staticOnly(req.source.Contract) {
 			if err := s.noteUndeliveredIntegrations(ctx, rel.ID, rel.ProjectID, t); err != nil {
 				return fail(err)
 			}

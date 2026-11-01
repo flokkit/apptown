@@ -1,9 +1,10 @@
 package httpapi
 
 import (
+	"net/http"
+
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/ids"
-	"net/http"
 )
 
 type StandingApprovals struct{ owner workflow.StandingRules }
@@ -49,7 +50,7 @@ func (h StandingApprovals) Enable(w http.ResponseWriter, r *http.Request) {
 	})
 }
 func (h StandingApprovals) History(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad rule identity")
 		return
@@ -67,7 +68,7 @@ type StandingDisable struct {
 }
 
 func (h StandingApprovals) Disable(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad rule identity")
 		return
@@ -88,7 +89,7 @@ type StandingAssess struct {
 }
 
 func (h StandingApprovals) Assess(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad rule identity")
 		return

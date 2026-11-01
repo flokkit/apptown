@@ -8,7 +8,7 @@ import (
 )
 
 func TestNamedVolumeExistenceFollowsSuccessfulCreationAndRemoval(t *testing.T) {
-	d := New()
+	d := newDaemon()
 	scope := docker.Scope{Client: d}
 	exists := func(want bool) {
 		t.Helper()
@@ -37,4 +37,22 @@ func TestNamedVolumeExistenceFollowsSuccessfulCreationAndRemoval(t *testing.T) {
 		t.Fatal(err)
 	}
 	exists(false)
+}
+
+func newDaemon() *Daemon {
+	return New()
+}
+
+// Installing a disk fake must not enable a different result protocol and
+// hide containers recorded by the ordinary daemon state.
+func TestUnconfiguredResultsLeaveContainerListingsWithTheDaemon(t *testing.T) {
+	t.Parallel()
+	scope := docker.Scope{Client: newDaemon()}
+	if _, err := scope.Run(t.Context(), "run", "-d", "--name", "leftover", "--label", "apptown.class=container-result", "busybox"); err != nil {
+		t.Fatal(err)
+	}
+	out, err := scope.Run(t.Context(), "ps", "-aq", "--filter", "label=apptown.class=container-result")
+	if err != nil || string(out) != "leftover" {
+		t.Fatalf("recorded result container disappeared: %q %v", out, err)
+	}
 }

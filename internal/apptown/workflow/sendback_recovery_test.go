@@ -61,7 +61,7 @@ func TestWorkflowRetryRecoveryAndOldLandingFence(t *testing.T) {
 			old := &dispatcher{records: plans}
 			// Commit while the original dispatch owner is stopped, or simulate
 			// process loss before calling dispatch at all.
-			old.Stop()
+			old.stop()
 			result, err := s.sendBack(context.Background(), source.ChangeID, "recover these words", "alice", "", source.ProjectID)
 			if err != nil {
 				t.Fatal(err)
@@ -71,7 +71,7 @@ func TestWorkflowRetryRecoveryAndOldLandingFence(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if old.DispatchAgain(plan) {
+				if old.dispatchAgain(plan) {
 					t.Fatal("stopped dispatcher accepted a retry")
 				}
 			}
@@ -83,15 +83,15 @@ func TestWorkflowRetryRecoveryAndOldLandingFence(t *testing.T) {
 					recordScopeStep(t, s.db, workflowsql.RecordApprovalParams{At: time.Now(), ID: id, Status: "pass"})
 				}
 			}
-			d := newDispatcher(s.db, dispatcherConfig{Life: context.Background(), Runners: runners, Report: func(err error) { t.Error(err) }})
+			d := newDispatcher(s.db, dispatcherConfig{life: context.Background(), runners: runners, report: func(err error) { t.Error(err) }})
 			d.prepare = func(id ids.ID) error { return (runStartStore{db: s.db}).prepared(context.Background(), id) }
-			d.RestartPending(nil)
-			d.Wait()
+			d.restartPending(nil)
+			d.wait()
 			if len(calls) != 2 || calls[0] != result.StepID {
 				t.Fatalf("recovered work: %v", calls)
 			}
 			wantRunReady(t, s.db, result.RunID, true)
-			if _, err := newLandings(s.db, nil).AdvanceAccepted(context.Background(), source.ID, acceptedLandingRuntime{}); err != nil {
+			if _, err := newLandings(s.db, nil).advanceAccepted(context.Background(), source.ID, acceptedLandingRuntime{}); err != nil {
 				t.Fatal(err)
 			}
 			// Even after the replacement finishes, a caller that passed an

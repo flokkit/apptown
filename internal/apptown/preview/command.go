@@ -25,9 +25,9 @@ type Console struct {
 	Actor               string
 }
 
-// Sources resolves a change and a console session through their owners'
+// sources resolves a change and a console session through their owners'
 // checked doors.
-type Sources interface {
+type sources interface {
 	Change(context.Context, ids.ID) (Change, error)
 	Console(context.Context, string) (Console, error)
 	// Pin settles an authorized preview's source: a change a chat on the
@@ -88,7 +88,7 @@ func (s *Service) RequestChangePreview(ctx context.Context, in Selection) (Resul
 	if ch, err = s.sources.Pin(ctx, ch); err != nil {
 		return Result{}, err
 	}
-	out, err := s.runtime.BootChange(ctx, ch, in.Restart, s.host)
+	out, err := s.runtime.bootChange(ctx, ch, in.Restart, s.host)
 	if err != nil {
 		return Result{}, &ExecutionError{Cause: err}
 	}

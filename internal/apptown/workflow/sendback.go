@@ -24,7 +24,7 @@ type SendBack struct {
 type sendBackStore struct {
 	db           *database.DB
 	automatic    []string
-	abandonments Abandonments
+	abandonments abandonments
 	chats        Presence
 	clocked
 }
@@ -34,17 +34,17 @@ type sendBackStore struct {
 // step. A change no agent works on (a person's, opened with no run) has no
 // round to give: its landing stops, the change is back in progress for its
 // person to push a fix, and the answer names no run.
-func (s *Service) SendBack(ctx context.Context, in SendBack) (Retried, error) {
+func (s *Service) SendBack(ctx context.Context, in SendBack) (retried, error) {
 	if _, err := s.require(ctx, operationPermission{Action: actionIdentify}); err != nil {
-		return Retried{}, err
+		return retried{}, err
 	}
 	project, err := workflowsql.New(s.db.SQL()).ChangeProjectMeta(ctx, in.ChangeID)
 	if err != nil {
-		return Retried{}, database.Missing(err)
+		return retried{}, database.Missing(err)
 	}
 	actor, err := s.requireActor(ctx, operationPermission{Action: actionSendBackChange, ProjectID: project, ChangeID: in.ChangeID})
 	if err != nil {
-		return Retried{}, err
+		return retried{}, err
 	}
 	landingBy := s.landingBy(ctx, StartRequest{ProjectID: project, ChangeID: in.ChangeID})
 	result, err := s.sendbacks.sendBack(ctx, in.ChangeID, in.Note, actor.Receipt, landingBy, project)
@@ -70,9 +70,9 @@ func sendBackSummary(note string) string {
 // Selection, landing abandonment, continuation creation and feedback share the
 // project's completion lock. Neither stale HTTP objects nor old landing jobs
 // can make the change point back at superseded work.
-func (s sendBackStore) sendBack(ctx context.Context, changeID ids.ID, note, who, landingBy string, expected ids.ID) (Retried, error) {
+func (s sendBackStore) sendBack(ctx context.Context, changeID ids.ID, note, who, landingBy string, expected ids.ID) (retried, error) {
 	now := s.now()
-	var result Retried
+	var result retried
 	if strings.TrimSpace(note) == "" {
 		return result, &RetryError{RetryInvalid, "say what to change — the note is what the agent works from"}
 	}
@@ -85,7 +85,7 @@ func (s sendBackStore) sendBack(ctx context.Context, changeID ids.ID, note, who,
 		return result, err
 	}
 	defer closure.Close()
-	return database.Transact(ctx, s.db, func(tx *database.Tx) (Retried, error) {
+	return database.Transact(ctx, s.db, func(tx *database.Tx) (retried, error) {
 		q := workflowsql.New(tx.SQL())
 		if _, err := q.ProjectForUpdate(ctx, projectID); err != nil {
 			return result, err
@@ -105,7 +105,7 @@ func (s sendBackStore) sendBack(ctx context.Context, changeID ids.ID, note, who,
 		if lockedProject != projectID || (!expected.IsZero() && expected != projectID) {
 			return result, &RetryError{RetryConflict, "Change scope changed after authorization"}
 		}
-		if !state.CanRun() {
+		if !state.canRun() {
 			return result, &RetryError{RetryConflict, fmt.Sprintf("change #%d is %s; only open work can be sent back", changeID, state)}
 		}
 		if err := checkClosureIn(ctx, tx, closure, projectID, changeID, ids.Nil); err != nil {
@@ -140,10 +140,10 @@ func (s sendBackStore) sendBack(ctx context.Context, changeID ids.ID, note, who,
 			return result, &RetryError{RetryConflict, "wait for the running steps to finish before sending the work back"}
 		}
 		if run.Status == RunRunning && run.CurrentStage == agent.Stage {
-			if _, err := newStepRetries(s.db, s.automatic).RetryIn(ctx, tx, retryIntent{RetryCommand: RetryCommand{StepID: agent.ID, Mode: RetryContinue, Feedback: note}, RunID: run.ID, Actor: commandActor{Receipt: who}}, now); err != nil {
+			if _, err := newStepRetries(s.db, s.automatic).retryStepIn(ctx, tx, retryIntent{RetryCommand: RetryCommand{StepID: agent.ID, Mode: RetryContinue, Feedback: note}, RunID: run.ID, Actor: commandActor{Receipt: who}}, now); err != nil {
 				return result, err
 			}
-			result = Retried{run.ID, agent.ID}
+			result = retried{run.ID, agent.ID}
 		} else {
 			// Stop any root being replaced, including all its active descendants.
 			roots, err := q.SendBackActiveRoots(ctx, changeID)
@@ -160,7 +160,7 @@ func (s sendBackStore) sendBack(ctx context.Context, changeID ids.ID, note, who,
 				return result, err
 			}
 		}
-		if _, err := TransitionChangeIn(ctx, tx, projectID, changeID, ChangeMove{Action: ResumeChange, RunID: result.RunID}, now); err != nil {
+		if _, err := TransitionChangeIn(ctx, tx, projectID, changeID, ChangeMove{Action: resumeChange, RunID: result.RunID}, now); err != nil {
 			return result, err
 		}
 		if err := audit.At(now).RecordIn(ctx, tx, who, projectID, "change.sendback", fmt.Sprintf("change %d run %d", changeID, result.RunID), sendBackReceipt{Note: note, SourceRunID: run.ID, StepID: result.StepID}); err != nil {
@@ -176,29 +176,29 @@ func (s sendBackStore) sendBack(ctx context.Context, changeID ids.ID, note, who,
 // back in progress) and the note is recorded with who sent it back. The
 // person then pushes a fix and lands it again. With no landing running there
 // is nothing to send back: the change is already the person's to push to.
-func (s sendBackStore) returnToPersonIn(ctx context.Context, tx *database.Tx, closure *scm.Closure, projectID, changeID ids.ID, note, who string, now time.Time) (Retried, error) {
+func (s sendBackStore) returnToPersonIn(ctx context.Context, tx *database.Tx, closure *scm.Closure, projectID, changeID ids.ID, note, who string, now time.Time) (retried, error) {
 	q := workflowsql.New(tx.SQL())
 	busy, err := q.SendBackBusy(ctx, changeID)
 	if err != nil {
-		return Retried{}, err
+		return retried{}, err
 	}
 	if busy {
-		return Retried{}, &RetryError{RetryConflict, "wait for the running steps to finish before sending the work back"}
+		return retried{}, &RetryError{RetryConflict, "wait for the running steps to finish before sending the work back"}
 	}
 	roots, err := q.SendBackActiveRoots(ctx, changeID)
 	if err != nil {
-		return Retried{}, err
+		return retried{}, err
 	}
 	if len(roots) == 0 {
-		return Retried{}, &RetryError{RetryUnavailable, "nothing is running on this change and no agent works on it: it is in progress, so push your fix to its branch, then land it"}
+		return retried{}, &RetryError{RetryUnavailable, "nothing is running on this change and no agent works on it: it is in progress, so push your fix to its branch, then land it"}
 	}
 	for _, id := range roots {
 		if _, err := s.abandonments.abandonIn(ctx, tx, Abandonment{RunID: id, Who: who, Reason: "sent back with a note: " + sendBackSummary(note)}, projectID, closure); err != nil {
-			return Retried{}, err
+			return retried{}, err
 		}
 	}
 	if err := audit.At(now).RecordIn(ctx, tx, who, projectID, "change.sendback", fmt.Sprintf("change %d", changeID), sendBackReceipt{Note: note, StoppedLandings: roots}); err != nil {
-		return Retried{}, err
+		return retried{}, err
 	}
-	return Retried{}, nil
+	return retried{}, nil
 }

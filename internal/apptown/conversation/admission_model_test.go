@@ -27,7 +27,7 @@ func TestAChatIsRefusedWhenNoModelIsSetUp(t *testing.T) {
 	}
 	admission := &Admission{models: model.NewSelection(model.New(db))}
 	_, err = admission.Open(t.Context(), &project.Project{ID: id, Slug: "game"}, ProjectOpen{}, "owner")
-	var refused *AdmissionConflict
+	var refused *admissionConflict
 	if !errors.As(err, &refused) || err.Error() != model.NoModelRefusal {
 		t.Fatalf("a chat with no model: %v", err)
 	}

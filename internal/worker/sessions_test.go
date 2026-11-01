@@ -151,7 +151,7 @@ func TestASessionRunsItsChatAndPrivateDockerOnTheWorker(t *testing.T) {
 	if _, err := client.Put(ctx, "abc123", chatSpec()); err != nil {
 		t.Fatal(err)
 	}
-	st, err := client.Start(ctx, "abc123")
+	st, err := worker.SessionClientStart(client, ctx, "abc123")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +192,7 @@ func TestARemovedSessionIsNeverStartedAgain(t *testing.T) {
 	gate, running := make(chan struct{}), make(chan struct{})
 	fake.with(func() { fake.runGate, fake.running = gate, running })
 	started := make(chan error, 1)
-	go func() { _, err := client.Start(ctx, "abc123"); started <- err }()
+	go func() { _, err := worker.SessionClientStart(client, ctx, "abc123"); started <- err }()
 	<-running
 	removed := make(chan error, 1)
 	go func() { _, err := client.Remove(ctx, "abc123"); removed <- err }()
@@ -209,7 +209,7 @@ func TestARemovedSessionIsNeverStartedAgain(t *testing.T) {
 	if err := <-removed; err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.Start(ctx, "abc123"); !errors.Is(err, worker.ErrSessionRemoved) {
+	if _, err := worker.SessionClientStart(client, ctx, "abc123"); !errors.Is(err, worker.ErrSessionRemoved) {
 		t.Fatalf("starting a removed session: %v", err)
 	}
 	if _, err := client.Put(ctx, "abc123", chatSpec()); !errors.Is(err, worker.ErrSessionRemoved) {
@@ -240,7 +240,7 @@ func TestARemovalIsDoneOnlyWhenNothingOfTheSessionRemains(t *testing.T) {
 	if _, err := client.Put(ctx, "abc123", chatSpec()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.Start(ctx, "abc123"); err != nil {
+	if _, err := worker.SessionClientStart(client, ctx, "abc123"); err != nil {
 		t.Fatal(err)
 	}
 	files := filepath.Dir(fake.launch(0).Dir)
@@ -251,7 +251,7 @@ func TestARemovalIsDoneOnlyWhenNothingOfTheSessionRemains(t *testing.T) {
 	if _, err := os.Stat(files); err != nil {
 		t.Fatalf("the files went before the runtime did: %v", err)
 	}
-	if _, err := client.Start(ctx, "abc123"); !errors.Is(err, worker.ErrSessionRemoved) {
+	if _, err := worker.SessionClientStart(client, ctx, "abc123"); !errors.Is(err, worker.ErrSessionRemoved) {
 		t.Fatalf("a half-removed session started: %v", err)
 	}
 	fake.with(func() { fake.keepDocker = false })
@@ -295,7 +295,7 @@ func TestStoppingOrRebuildingKeepsTheSession(t *testing.T) {
 	if _, err := client.Put(ctx, "abc123", chatSpec()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.Start(ctx, "abc123"); err != nil {
+	if _, err := worker.SessionClientStart(client, ctx, "abc123"); err != nil {
 		t.Fatal(err)
 	}
 	files := fake.launch(0).Dir
@@ -315,7 +315,7 @@ func TestStoppingOrRebuildingKeepsTheSession(t *testing.T) {
 	if _, err := client.Put(ctx, "abc123", spec); err != nil {
 		t.Fatal(err)
 	}
-	if st, err := client.Start(ctx, "abc123"); err != nil || !st.Agent.Running {
+	if st, err := worker.SessionClientStart(client, ctx, "abc123"); err != nil || !st.Agent.Running {
 		t.Fatalf("started again: %+v %v", st, err)
 	}
 	if got := fake.launch(1); got.Image != "apptown-agent:newer" || got.Dir != files {
@@ -337,7 +337,7 @@ func TestARestartedWorkerKeepsItsSessions(t *testing.T) {
 		if _, err := client.Put(ctx, id, chatSpec()); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := client.Start(ctx, id); err != nil {
+		if _, err := worker.SessionClientStart(client, ctx, id); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -368,7 +368,7 @@ func TestARestartedWorkerKeepsItsSessions(t *testing.T) {
 	if st, err := client.Status(ctx, "live1"); err != nil || !st.Known || st.Removed {
 		t.Fatalf("a live session after restart: %+v %v", st, err)
 	}
-	if _, err := client.Start(ctx, "ended1"); !errors.Is(err, worker.ErrSessionRemoved) {
+	if _, err := worker.SessionClientStart(client, ctx, "ended1"); !errors.Is(err, worker.ErrSessionRemoved) {
 		t.Fatalf("a removed session after restart: %v", err)
 	}
 }
@@ -570,7 +570,7 @@ func TestAStopIsDoneOnlyWhenNothingRuns(t *testing.T) {
 	if _, err := client.Put(ctx, "abc123", chatSpec()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.Start(ctx, "abc123"); err != nil {
+	if _, err := worker.SessionClientStart(client, ctx, "abc123"); err != nil {
 		t.Fatal(err)
 	}
 	fake.with(func() { fake.keepDockerRunning = true })
@@ -591,7 +591,7 @@ func TestAStopOrRemovalLeavingASaveContainerIsNotDone(t *testing.T) {
 	if _, err := client.Put(ctx, "abc123", chatSpec()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.Start(ctx, "abc123"); err != nil {
+	if _, err := worker.SessionClientStart(client, ctx, "abc123"); err != nil {
 		t.Fatal(err)
 	}
 	fake.with(func() { fake.keepScript = true })
@@ -627,7 +627,7 @@ func TestARestartedWorkerKeepsTheBlobsChatContainersMount(t *testing.T) {
 	for _, name := range []string{"old cli", "new cli", "orphan"} {
 		body := tarOf(t, entry{name: "content", body: name})
 		sums[name] = digest(body)
-		if err := client.EnsureBlob(ctx, sums[name], body); err != nil {
+		if err := worker.SessionClientEnsureBlob(client, ctx, sums[name], body); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -636,7 +636,7 @@ func TestARestartedWorkerKeepsTheBlobsChatContainersMount(t *testing.T) {
 	if _, err := client.Put(ctx, "chat1", spec); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.Start(ctx, "chat1"); err != nil {
+	if _, err := worker.SessionClientStart(client, ctx, "chat1"); err != nil {
 		t.Fatal(err)
 	}
 	spec.Mounts = []worker.SessionMount{{Blob: sums["new cli"], Target: "/opt/apptown/bin/apptown"}}

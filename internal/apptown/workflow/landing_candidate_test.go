@@ -9,6 +9,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // A new candidate is new evidence: gates that ran on the old one, passed or
@@ -20,14 +21,13 @@ func TestANewLandingCandidateRerunsItsSourceGates(t *testing.T) {
 	db, change := changeEditFixture(t, ChangeDraft{Title: "A landing"})
 	every := func(string) bool { return true }
 	admissions := newRunAdmissions(db, NewStages(nil, every), nil)
-	run, err := admissions.Create(ctx, StartRequest{ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "land", InputsJSON: "{}", requestedBy: "operator"},
-		PreparedRun{Workflow: DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "gates", Steps: []schema.Step{
-			{Name: "catch-up", Uses: "reconcile"}, {Name: "tests", Uses: "tests"}, {Name: "scan-source", Uses: "scan"},
-		}}}}})
+	run, err := admissions.records.create(ctx, StartRequest{ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "land", InputsJSON: "{}", requestedBy: "operator"}, PreparedRun{Workflow: DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "gates", Steps: []schema.Step{
+		{Name: "catch-up", Uses: "reconcile"}, {Name: "tests", Uses: "tests"}, {Name: "scan-source", Uses: "scan"},
+	}}}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := admissions.Prepared(ctx, run.ID); err != nil {
+	if err := admissions.records.prepared(ctx, run.ID); err != nil {
 		t.Fatal(err)
 	}
 	attempts := newStepAttempts(db, every)
@@ -37,7 +37,7 @@ func TestANewLandingCandidateRerunsItsSourceGates(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		claim, err := attempts.Start(ctx, snapshot, snapshot.Type)
+		claim, err := attempts.start(ctx, snapshot, snapshot.Type, ids.Nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -46,7 +46,7 @@ func TestANewLandingCandidateRerunsItsSourceGates(t *testing.T) {
 	finish := func(claim *Step, status StepState, candidate string) {
 		t.Helper()
 		evidence, _ := json.Marshal(map[string]string{"candidate": candidate})
-		if err := attempts.Finish(ctx, claim, StepOutcome{Status: status, Evidence: evidence}); err != nil {
+		if err := attempts.finish(ctx, claim, StepOutcome{Status: status, Evidence: evidence}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -168,11 +168,11 @@ func TestAMergeRefusesUnboundChecksAndApprovalsLeftBehind(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		claim, err := attempts.Start(ctx, snapshot, snapshot.Type)
+		claim, err := attempts.start(ctx, snapshot, snapshot.Type, ids.Nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := attempts.Finish(ctx, claim, StepOutcome{Status: StatusPass, Evidence: json.RawMessage(`{}`)}); err != nil {
+		if err := attempts.finish(ctx, claim, StepOutcome{Status: StatusPass, Evidence: json.RawMessage(`{}`)}); err != nil {
 			t.Fatal(err)
 		}
 		if refusal, err := landingCandidateRefusal(ctx, q.db, run.ID, pinned); err != nil || refusal == "" {

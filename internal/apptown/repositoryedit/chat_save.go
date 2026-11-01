@@ -38,11 +38,11 @@ const (
 	ChatSaveRefused  = "refused"       // the commit was not published; see Reason
 	ChatSaveUnknown  = "not-confirmed" // the worker could not answer; nothing was published
 	ChatSaveNoChange = "nothing-new"   // the chat has no commits since the branch's tip
-	ChatSaveSkipped  = "skipped"       // the change is closed, or the chat no longer holds it
-	// ChatSaveDiscarded: the chat's project was deleted, and its change with
+	chatSaveSkipped  = "skipped"       // the change is closed, or the chat no longer holds it
+	// chatSaveDiscarded: the chat's project was deleted, and its change with
 	// it; there is nowhere to save to, and what the chat had not saved is
 	// discarded, with a receipt.
-	ChatSaveDiscarded = "discarded"
+	chatSaveDiscarded = "discarded"
 )
 
 // ChatSave is one save's result: what the change page and the chat are told.
@@ -65,7 +65,7 @@ type ChatSave struct {
 // be kept, or an outcome not confirmed, keeps it.
 func (s ChatSave) Settled() bool {
 	switch s.Outcome {
-	case ChatSaved, ChatSaveNoChange, ChatSaveSkipped, ChatSaveDiscarded:
+	case ChatSaved, ChatSaveNoChange, chatSaveSkipped, chatSaveDiscarded:
 		return true
 	case ChatSaveRefused:
 		return s.Kept != ""
@@ -80,11 +80,11 @@ type ChatRef struct {
 	ChangeID  ids.ID
 }
 
-// SaveFetch writes a bundle of the chat's commits since base to dest and
+// saveFetch writes a bundle of the chat's commits since base to dest and
 // answers the commit it holds; "" when there is nothing new
 // (worker.RemoteAgent.Save). The bundle names that commit by the saveRef
 // given to SaveChat.
-type SaveFetch func(ctx context.Context, base, dest string) (tip string, err error)
+type saveFetch func(ctx context.Context, base, dest string) (tip string, err error)
 
 // RefusedChatRef is where a chat's refused commit is kept in the project's
 // repository, for its download.
@@ -98,7 +98,7 @@ func RefusedChatRef(session string) string { return "refs/apptown/refused/chat-"
 // whose project was deleted (its change went with it) can never be saved:
 // its unsaved work is discarded, and the ledger says so. at is AppTown's
 // time of the save.
-func SaveChat(ctx context.Context, db *database.DB, dataDir string, branches *scm.Branches, publisher Publisher, chat ChatRef, fetch SaveFetch, saveRef string, at time.Time) ChatSave {
+func SaveChat(ctx context.Context, db *database.DB, dataDir string, branches *scm.Branches, publisher Publisher, chat ChatRef, fetch saveFetch, saveRef string, at time.Time) ChatSave {
 	now := at.UTC()
 	refuse := func(reason string) ChatSave { return ChatSave{At: now, Outcome: ChatSaveRefused, Reason: reason} }
 	unknown := func(err error) ChatSave {
@@ -113,7 +113,7 @@ func SaveChat(ctx context.Context, db *database.DB, dataDir string, branches *sc
 	}
 	// A change being landed still takes its chat's work: a recheck collects it.
 	if ch.State.Closed() {
-		return ChatSave{At: now, Outcome: ChatSaveSkipped, Reason: fmt.Sprintf("change %d is %s and takes no more work", ch.Number, ch.State)}
+		return ChatSave{At: now, Outcome: chatSaveSkipped, Reason: fmt.Sprintf("change %d is %s and takes no more work", ch.Number, ch.State)}
 	}
 	p, err := project.ByIDIn(ctx, db, chat.ProjectID)
 	if err != nil {
@@ -125,7 +125,7 @@ func SaveChat(ctx context.Context, db *database.DB, dataDir string, branches *sc
 		return unknown(err)
 	}
 	if authority.Holder != holder {
-		return ChatSave{At: now, Outcome: ChatSaveSkipped, Reason: fmt.Sprintf("this chat no longer holds change %s#%d", p.Slug, ch.Number)}
+		return ChatSave{At: now, Outcome: chatSaveSkipped, Reason: fmt.Sprintf("this chat no longer holds change %s#%d", p.Slug, ch.Number)}
 	}
 	hub, err := p.Repository(dataDir)
 	if err != nil {
@@ -235,7 +235,7 @@ func discardIfDeleted(ctx context.Context, db *database.DB, chat ChatRef, now ti
 	if err := audit.Append(ctx, db, now.Format(time.RFC3339), "chat/"+chat.Session, ids.Nil, "chat.save-discarded", fmt.Sprintf("change %d", chat.ChangeID), string(payload)); err != nil {
 		return ChatSave{At: now, Outcome: ChatSaveUnknown, Reason: fmt.Sprintf("%s, but its receipt could not be written: %v", reason, err)}
 	}
-	return ChatSave{At: now, Outcome: ChatSaveDiscarded, Reason: reason}
+	return ChatSave{At: now, Outcome: chatSaveDiscarded, Reason: reason}
 }
 
 // clearRefused removes a chat's kept refusal, best effort: what is shown as

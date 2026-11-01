@@ -1,16 +1,17 @@
 package httpapi
 
 import (
-	"github.com/flokkit/apptown/internal/ids"
 	"net/http"
+
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 func (h Deployments) addressIDs(w http.ResponseWriter, r *http.Request) (ids.ID, ids.ID, bool) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return ids.Nil, ids.Nil, false
 	}
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, http.StatusBadRequest, "invalid deployment identity")
 		return ids.Nil, ids.Nil, false

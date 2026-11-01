@@ -70,7 +70,7 @@ type Deployment struct {
 // Label is the name the deployment carries on its host: container labels and
 // boot proofs. A deployment made before the identity cutover keeps its old
 // integer, which its containers carry; one made after uses its UUID.
-func (e *Deployment) Label() deploy.HostLabel {
+func (e *Deployment) label() deploy.HostLabel {
 	if e.HostLabel != "" {
 		return deploy.HostLabel(e.HostLabel)
 	}
@@ -78,7 +78,7 @@ func (e *Deployment) Label() deploy.HostLabel {
 }
 
 func (e *Deployment) Placement() deploy.Placement {
-	p := deploy.Placement{ID: e.ID, Label: e.Label(), Name: e.Name, Generation: e.ObservedGeneration,
+	p := deploy.Placement{ID: e.ID, Label: e.label(), Name: e.Name, Generation: e.ObservedGeneration,
 		URL: e.URL, Handle: e.Handle, Container: e.Container, HostPort: e.HostPort}
 	if e.Kind == Restored {
 		p.Gate = &deploy.Gate{}
@@ -136,8 +136,8 @@ func (at Attributes) Validate() error {
 
 var (
 	deploymentNameRe      = regexp.MustCompile(`^[a-z][a-z0-9-]{0,30}$`)
-	ErrDeploymentName     = errors.New("a deployment name is a short lowercase word")
-	ErrDeploymentAdmitted = fault.New(fault.Conflict, "the deployment has an admitted generation; changing its target or making it protected requires a migration")
+	errDeploymentName     = errors.New("a deployment name is a short lowercase word")
+	errDeploymentAdmitted = fault.New(fault.Conflict, "the deployment has an admitted generation; changing its target or making it protected requires a migration")
 )
 
 // PreviewName is a preview deployment's name: one per change.
@@ -218,9 +218,9 @@ func (s *Deployments) ForProject(ctx context.Context, projectID ids.ID) ([]*Depl
 	return out, nil
 }
 
-// LockDeploymentIn reads a deployment under its row lock inside a caller's
+// lockDeploymentRecordIn reads a deployment under its row lock inside a caller's
 // transaction: the serialization point for admission and outcomes.
-func LockDeploymentIn(ctx context.Context, tx *database.Tx, id ids.ID) (*Deployment, error) {
+func lockDeploymentRecordIn(ctx context.Context, tx *database.Tx, id ids.ID) (*Deployment, error) {
 	return deploymentRecord(deploymentsql.New(tx.SQL()).DeploymentForUpdate(ctx, id))
 }
 
@@ -237,7 +237,7 @@ func (s *Deployments) EnsureStanding(ctx context.Context, projectID ids.ID, name
 
 func validateStanding(name string, at Attributes) error {
 	if !deploymentNameRe.MatchString(name) {
-		return fmt.Errorf("%w (got %q)", ErrDeploymentName, name)
+		return fmt.Errorf("%w (got %q)", errDeploymentName, name)
 	}
 	if strings.HasPrefix(name, "preview") {
 		return errors.New("preview is the name of a kind, not of a standing deployment")
@@ -258,7 +258,7 @@ func ensureStandingIn(ctx context.Context, tx *database.Tx, projectID ids.ID, na
 		return nil, err
 	}
 	{
-		if err := LockAvailableTargetIn(ctx, tx, targetID); err != nil {
+		if err := lockAvailableTargetIn(ctx, tx, targetID); err != nil {
 			return nil, err
 		}
 		if err := nameFreeOfDataIn(ctx, tx, projectID, name, targetID); err != nil {
@@ -275,7 +275,7 @@ func ensureStandingIn(ctx context.Context, tx *database.Tx, projectID ids.ID, na
 			UpdatedAt: now.UTC(),
 		}))
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("%s: %w", name, ErrDeploymentAdmitted)
+			return nil, fmt.Errorf("%s: %w", name, errDeploymentAdmitted)
 		}
 		if err != nil {
 			return nil, err
@@ -296,7 +296,7 @@ func (s *Deployments) RecordPreview(ctx context.Context, projectID, changeID, ta
 	_, err := deploymentsql.New(s.db.SQL()).RecordPreview(ctx, deploymentsql.RecordPreviewParams{ID: ids.New(now),
 		ProjectID:  projectID,
 		Name:       PreviewName(changeID),
-		Kind:       Preview.String(),
+		Kind:       preview.String(),
 		ChangeID:   changeID,
 		TargetID:   targetID,
 		HandleJson: json.RawMessage(string(handle)),
@@ -311,7 +311,7 @@ func (s *Deployments) RecordPreview(ctx context.Context, projectID, changeID, ta
 // ForgetPreview drops a change's preview row: the container it named is gone.
 func (s *Deployments) ForgetPreview(ctx context.Context, changeID ids.ID) error {
 	ctx = context.WithoutCancel(ctx) // the preview is removed: its row goes though ctx has ended
-	_, err := deploymentsql.New(s.db.SQL()).ForgetPreview(ctx, deploymentsql.ForgetPreviewParams{Kind: Preview.String(), ChangeID: changeID})
+	_, err := deploymentsql.New(s.db.SQL()).ForgetPreview(ctx, deploymentsql.ForgetPreviewParams{Kind: preview.String(), ChangeID: changeID})
 	return err
 }
 

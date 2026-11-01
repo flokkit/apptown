@@ -57,10 +57,10 @@ func (s stepDecisionStore) override(ctx context.Context, expected stepDecisionSn
 		if err != nil {
 			return nil, err
 		}
-		if err := run.Decides(current); err != nil {
+		if err := run.decides(current); err != nil {
 			return nil, err
 		}
-		if _, err := current.Override(who, reason); err != nil {
+		if _, err := current.override(who, reason); err != nil {
 			return nil, err
 		}
 		overrider, err := identity.ActorIn(ctx, tx, who)

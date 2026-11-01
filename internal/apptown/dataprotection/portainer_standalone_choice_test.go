@@ -15,7 +15,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/integration"
-	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/deploy/portainer/portainerfake"
@@ -73,7 +72,7 @@ func TestVerifiedStandaloneWithoutCopyKeepsDataAfterExplicitChoice(t *testing.T)
 			t.Fatal(err)
 		}
 	}
-	if _, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "lan"}); !errors.Is(err, ErrNoFinalCopy) {
+	if _, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "lan"}); !errors.Is(err, errNoFinalCopy) {
 		t.Fatalf("no-copy refusal: %v", err)
 	}
 	if deleted != 0 {
@@ -101,15 +100,15 @@ func TestVerifiedStandaloneWithoutCopyKeepsDataAfterExplicitChoice(t *testing.T)
 }
 
 func TestDefaultPortainerReleaseRemovalRevokesOnlyItsIssuedKey(t *testing.T) {
-	daemon := dockerfake.New()
-	daemon.SetResults(func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+	daemon := newDockerFake()
+	daemon.SetResults(func(c dockerfake.ResultCommand) (dockerfake.ResultAnswer, bool) {
 		if c.Script == "printf apptown-readiness-v1" {
-			return containerresulttest.Answer{Answer: []byte("apptown-readiness-v1")}, true
+			return dockerfake.ResultAnswer{Answer: []byte("apptown-readiness-v1")}, true
 		}
 		if strings.Contains(c.Script, "PROBE_PATH") {
-			return containerresulttest.Answer{Answer: []byte("200\n")}, true
+			return dockerfake.ResultAnswer{Answer: []byte("200\n")}, true
 		}
-		return containerresulttest.Answer{}, false
+		return dockerfake.ResultAnswer{}, false
 	})
 	w := newDataWorldWith(t, dataWorldOptions{docker: daemon, contract: []byte("app:\n  web: {build: ., public: true, ports: [\"8080\"]}\nneeds:\n  llm: {}\n")})
 	type stack struct {

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
@@ -15,7 +17,7 @@ func TestCreateChangeHTTPFailedAdmissionLeavesNoChange(t *testing.T) {
 	t.Parallel()
 	f := newWorkflowHTTPFixture(t, true)
 	h := NewChangeAdmission(f.Projects, f.Access, f.Work, changeactions.New(f.Work, f.DB), f.DB, "open")
-	clear := f.DB.FailNextStatement("INSERT INTO steps")
+	clear := dbtest.NextStatementFailure(f.DB, "INSERT INTO steps")
 	r := httptest.NewRequest("POST", "/", strings.NewReader(`{"title":"do not orphan","workflow":"test"}`)).WithContext(f.Context)
 	r.SetPathValue("slug", "shop")
 	w := httptest.NewRecorder()
@@ -39,7 +41,7 @@ func TestCreateChangeHTTPPostCommitFailureNamesTheAdmittedWork(t *testing.T) {
 			f := newWorkflowHTTPFixture(t, true)
 			h := NewChangeAdmission(f.Projects, f.Access, f.Work, changeactions.New(f.Work, f.DB), f.DB, "open")
 			if failure == "preparation" {
-				t.Cleanup(f.DB.FailNextStatement("UPDATE run_starts SET ready"))
+				t.Cleanup(dbtest.NextStatementFailure(f.DB, "UPDATE run_starts SET ready"))
 			} else {
 				f.Work.Stop()
 			}

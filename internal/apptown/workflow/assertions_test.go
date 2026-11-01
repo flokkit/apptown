@@ -104,7 +104,7 @@ func TestAssertionSourceFailureAndMalformedConfigurationDoNotBecomeVerdicts(t *t
 				// QueryRow's fault is an actual failed PostgreSQL statement;
 				// multi-row queries can return the injected error directly.
 				var pgerr *pgconn.PgError
-				if !errors.Is(err, database.ErrInjectedFailure) && !(errors.As(err, &pgerr) && pgerr.Code == "42883") {
+				if !errors.Is(err, dbtest.ErrInjectedFailure) && !(errors.As(err, &pgerr) && pgerr.Code == "42883") {
 					t.Fatalf("wrong read error: %v", err)
 				}
 			}
@@ -156,7 +156,7 @@ func TestAssertionMergeResultRequiresItsPreparedScope(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			s, run, id := assertionOwnerFixture(t, "scm/merged", `{}`)
-			s.merge = mergeObserverFunc(func(context.Context, MergeAssertion) (MergeObservation, error) {
+			s.merge = mergeObserverFunc(func(context.Context, mergeAssertion) (MergeObservation, error) {
 				switch name {
 				case "run ended":
 					// sql-guarantee: assertionScope.matches compares the whole Run, including UpdatedAt; TransitionRun also stamps updated_at and could reject the snapshot without checking status, so change only status at this original interference point.
@@ -202,7 +202,7 @@ func TestAssertionMergeDoesNotHoldAConnectionOrShareItsSnapshot(t *testing.T) {
 	t.Parallel()
 	s, run, id := assertionOwnerFixture(t, "scm/merged", `{}`)
 	s.db.Pool().SetMaxOpenConns(1)
-	s.merge = mergeObserverFunc(func(ctx context.Context, copy MergeAssertion) (MergeObservation, error) {
+	s.merge = mergeObserverFunc(func(ctx context.Context, copy mergeAssertion) (MergeObservation, error) {
 		if _, err := readRun(ctx, s.db, copy.Source.RunID); err != nil {
 			return MergeObservation{}, err
 		}
@@ -222,7 +222,7 @@ func TestAssertionConcurrentMergeResultsHaveOneWinner(t *testing.T) {
 	t.Parallel()
 	s, _, id := assertionOwnerFixture(t, "scm/merged", `{}`)
 	entered, release := make(chan struct{}, 2), make(chan struct{})
-	s.merge = mergeObserverFunc(func(context.Context, MergeAssertion) (MergeObservation, error) {
+	s.merge = mergeObserverFunc(func(context.Context, mergeAssertion) (MergeObservation, error) {
 		entered <- struct{}{}
 		<-release
 		return MergeObservation{Merged: true}, nil
@@ -308,7 +308,7 @@ func TestAssertionAdmissionPreservesOverridesAndRejectsInactiveWork(t *testing.T
 			case "old stage":
 				transitionScopeRun(t, s.db, workflowsql.TransitionRunParams{At: time.Now(), ID: run.ID, NextStage: "later"})
 			}
-			s.merge = mergeObserverFunc(func(context.Context, MergeAssertion) (MergeObservation, error) {
+			s.merge = mergeObserverFunc(func(context.Context, mergeAssertion) (MergeObservation, error) {
 				t.Error("ineligible step performed external work")
 				return MergeObservation{}, nil
 			})
@@ -330,7 +330,7 @@ func TestAssertionCancelledExternalResultCannotCommit(t *testing.T) {
 	s, _, id := assertionOwnerFixture(t, "scm/merged", `{}`)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	s.merge = mergeObserverFunc(func(context.Context, MergeAssertion) (MergeObservation, error) {
+	s.merge = mergeObserverFunc(func(context.Context, mergeAssertion) (MergeObservation, error) {
 		cancel()
 		return MergeObservation{Merged: true}, nil
 	})
@@ -342,9 +342,9 @@ func TestAssertionCancelledExternalResultCannotCommit(t *testing.T) {
 	wantEventCount(t, s.db, 3, anyEvent)
 }
 
-type mergeObserverFunc func(context.Context, MergeAssertion) (MergeObservation, error)
+type mergeObserverFunc func(context.Context, mergeAssertion) (MergeObservation, error)
 
-func (f mergeObserverFunc) ObserveMerge(ctx context.Context, in MergeAssertion) (MergeObservation, error) {
+func (f mergeObserverFunc) ObserveMerge(ctx context.Context, in mergeAssertion) (MergeObservation, error) {
 	return f(ctx, in)
 }
 
@@ -354,7 +354,7 @@ func TestAssertionMergeRefusesChangedSourceMetadata(t *testing.T) {
 		t.Run(mutation, func(t *testing.T) {
 			t.Parallel()
 			owner, run, id := assertionOwnerFixture(t, "scm/merged", `{}`)
-			owner.merge = mergeObserverFunc(func(context.Context, MergeAssertion) (MergeObservation, error) {
+			owner.merge = mergeObserverFunc(func(context.Context, mergeAssertion) (MergeObservation, error) {
 				switch mutation {
 				case "default branch":
 					if err := project.New(owner.db, nil).SetDefaultBranch(context.Background(), run.ProjectID, "trunk"); err != nil {

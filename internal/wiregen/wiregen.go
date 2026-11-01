@@ -23,8 +23,8 @@ type Named struct {
 	Value any
 }
 
-// Generator declares types in the order they are first reached.
-type Generator struct {
+// typeGenerator declares types in the order they are first reached.
+type typeGenerator struct {
 	// Mapped types are written as the given TypeScript, not declared: for
 	// types that encode themselves (a timestamp, a raw JSON value).
 	Mapped map[reflect.Type]string
@@ -34,16 +34,16 @@ type Generator struct {
 	queue  []reflect.Type
 }
 
-func New() *Generator {
-	return &Generator{Mapped: map[reflect.Type]string{}, names: map[reflect.Type]string{}, used: map[string]reflect.Type{}}
+func New() *typeGenerator {
+	return &typeGenerator{Mapped: map[reflect.Type]string{}, names: map[reflect.Type]string{}, used: map[string]reflect.Type{}}
 }
 
 // Map writes values of v's type as ts.
-func (g *Generator) Map(v any, ts string) { g.Mapped[reflect.TypeOf(v)] = ts }
+func (g *typeGenerator) Map(v any, ts string) { g.Mapped[reflect.TypeOf(v)] = ts }
 
 // Declare adds the named types and everything they reach, and returns the
 // TypeScript source.
-func (g *Generator) Declare(types ...Named) (string, error) {
+func (g *typeGenerator) Declare(types ...Named) (string, error) {
 	for _, n := range types {
 		t := reflect.TypeOf(n.Value)
 		if err := g.name(t, n.Name); err != nil {
@@ -69,7 +69,7 @@ var builtin = map[string]bool{"Record": true, "Partial": true, "Required": true,
 	"Array": true, "Promise": true, "Map": true, "Set": true, "Date": true, "Error": true, "Object": true,
 	"String": true, "Number": true, "Boolean": true}
 
-func (g *Generator) name(t reflect.Type, name string) error {
+func (g *typeGenerator) name(t reflect.Type, name string) error {
 	if builtin[name] {
 		return fmt.Errorf("%v would be named %s, which shadows TypeScript's own; name it explicitly", t, name)
 	}
@@ -88,7 +88,7 @@ var (
 )
 
 // declare writes one named type's declaration.
-func (g *Generator) declare(t reflect.Type) (string, error) {
+func (g *typeGenerator) declare(t reflect.Type) (string, error) {
 	name := g.names[t]
 	if words, ok := enumWords(t); ok {
 		quoted := make([]string, len(words))
@@ -120,7 +120,7 @@ func (g *Generator) declare(t reflect.Type) (string, error) {
 // fields lists a struct's JSON fields as TypeScript members. Every
 // collected field's type is reached, in order, even one a collision drops:
 // that order decides where the declarations it queues are written.
-func (g *Generator) fields(t reflect.Type) ([]string, error) {
+func (g *typeGenerator) fields(t reflect.Type) ([]string, error) {
 	ts := map[*field]string{}
 	all := collect(t, 0)
 	for i := range all {
@@ -243,7 +243,7 @@ func collect(t reflect.Type, depth int) []field {
 }
 
 // ref is how a field of type t is written.
-func (g *Generator) ref(t reflect.Type) (string, error) {
+func (g *typeGenerator) ref(t reflect.Type) (string, error) {
 	if ts, ok := g.Mapped[t]; ok {
 		return ts, nil
 	}
@@ -293,7 +293,7 @@ func (g *Generator) ref(t reflect.Type) (string, error) {
 	return "", fmt.Errorf("no TypeScript for %v", t)
 }
 
-func (g *Generator) enqueue(t reflect.Type) (string, error) {
+func (g *typeGenerator) enqueue(t reflect.Type) (string, error) {
 	if err := g.name(t, t.Name()); err != nil {
 		return "", err
 	}

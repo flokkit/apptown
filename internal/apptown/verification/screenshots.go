@@ -18,14 +18,14 @@ import (
 	"github.com/flokkit/apptown/internal/trust"
 )
 
-// Screenshots are AppTown's pictures of the preview a run's boot step
+// screenshots are AppTown's pictures of the preview a run's boot step
 // booted: what a person approving the change sees of the app, taken by
 // AppTown, never supplied by the agent. The browser runs where checks run, in the agent image (its Chromium headless shell,
 // driven over the DevTools protocol by shoot.mjs), with egress, loading the
 // preview's own address: it sees what a visitor sees, and never runs in
 // AppTown's process. A page whose top frame leaves the preview's origin
 // is not pictured: a picture of another site is no evidence of this one.
-type Screenshots struct {
+type screenshots struct {
 	executor Executor
 	// local, on an AppTown serving itself from its own authority (the
 	// desktop trial), is how a container reaches it.
@@ -44,8 +44,8 @@ type LocalAuthority struct {
 
 // NewScreenshots takes pictures through the check executor; local is the
 // AppTown's own authority, nil when it has none.
-func NewScreenshots(executor Executor, local *LocalAuthority) *Screenshots {
-	return &Screenshots{executor: executor, local: local}
+func NewScreenshots(executor Executor, local *LocalAuthority) *screenshots {
+	return &screenshots{executor: executor, local: local}
 }
 
 //go:embed shoot.mjs
@@ -59,29 +59,29 @@ const (
 	// maxShotBytes bounds one picture: a viewport-sized PNG is tens of
 	// kilobytes; a bigger one is not kept.
 	maxShotBytes = 1 << 20
-	// MaxNamedPages is how many pages a report may name, the home page
+	// maxNamedPages is how many pages a report may name, the home page
 	// apart.
-	MaxNamedPages = 3
+	maxNamedPages = 3
 	maxPagePath   = 200
 	shotsReport   = ".apptown/screenshots.json"
 	shotsDir      = "/apptown-shots"
 )
 
-// View is a browser window a page is shown in.
-type View struct {
+// view is a browser window a page is shown in.
+type view struct {
 	Name          string
 	Width, Height int
 	Phone         bool
 }
 
 var (
-	Desktop = View{Name: "desktop", Width: 1280, Height: 800}
-	Phone   = View{Name: "phone", Width: 390, Height: 844, Phone: true}
+	desktop = view{Name: "desktop", Width: 1280, Height: 800}
+	phone   = view{Name: "phone", Width: 390, Height: 844, Phone: true}
 )
 
-// Shot is one picture: the page's path, the window it was shown in, and
+// shot is one picture: the page's path, the window it was shown in, and
 // the PNG.
-type Shot struct {
+type shot struct {
 	Path string
 	View string
 	PNG  []byte
@@ -90,7 +90,7 @@ type Shot struct {
 // Capture is a capture's answer: the pictures taken, the pages not
 // pictured and why, or why nothing could be (Unavailable).
 type Capture struct {
-	Shots       []Shot
+	Shots       []shot
 	Missing     []string
 	Unavailable string
 }
@@ -120,7 +120,7 @@ func NamedPages(report string) (pages, ignored []string) {
 			case p == "" || p == "/":
 			case len(p) > maxPagePath || !pagePath.MatchString(p) || strings.HasPrefix(p, "//"):
 				ignored = append(ignored, strs.Truncate(p, 80))
-			case len(pages) >= MaxNamedPages:
+			case len(pages) >= maxNamedPages:
 				ignored = append(ignored, p)
 			default:
 				pages = append(pages, p)
@@ -134,7 +134,7 @@ func NamedPages(report string) (pages, ignored []string) {
 // shotsCommand is the container's command: the local authority's prelude
 // when there is one, then the driver, with every page an argument of its
 // own, never part of the script.
-func (s *Screenshots) shotsCommand() string {
+func (s *screenshots) shotsCommand() string {
 	// The extra certificates first, Chromium's store included.
 	cmd := trust.Run + "\n"
 	if s.local != nil {
@@ -146,12 +146,12 @@ func (s *Screenshots) shotsCommand() string {
 type want struct {
 	name string
 	path string
-	view View
+	view view
 }
 
 // request is what the executor runs for the pictures of base's pages, in
 // tree.
-func (s *Screenshots) request(tree string, base *url.URL, wants []want) execution.Request {
+func (s *screenshots) request(tree string, base *url.URL, wants []want) execution.Request {
 	argv := []string{"sh", "-c", s.shotsCommand(), "shoot", "/work/" + shotsReport}
 	for _, w := range wants {
 		page := *base
@@ -173,7 +173,7 @@ func (s *Screenshots) request(tree string, base *url.URL, wants []want) executio
 // Take pictures the preview at base (its public address, as the boot
 // recorded it): the home page in a desktop and a phone window, and each
 // named page in a desktop window.
-func (s *Screenshots) Take(ctx context.Context, base string, pages []string) Capture {
+func (s *screenshots) Take(ctx context.Context, base string, pages []string) Capture {
 	if s == nil || s.executor.Run == nil {
 		return Capture{Unavailable: "AppTown has no check executor to take screenshots with"}
 	}
@@ -184,9 +184,9 @@ func (s *Screenshots) Take(ctx context.Context, base string, pages []string) Cap
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return Capture{Unavailable: fmt.Sprintf("the preview's address %q is not a web address", base)}
 	}
-	wants := []want{{"1-desktop", "/", Desktop}, {"1-phone", "/", Phone}}
+	wants := []want{{"1-desktop", "/", desktop}, {"1-phone", "/", phone}}
 	for i, p := range pages {
-		wants = append(wants, want{fmt.Sprintf("%d-desktop", i+2), p, Desktop})
+		wants = append(wants, want{fmt.Sprintf("%d-desktop", i+2), p, desktop})
 	}
 	tree, err := os.MkdirTemp("", "apptown-shots-")
 	if err != nil {
@@ -258,7 +258,7 @@ func readCapture(report []byte, wants []want) Capture {
 		case !strings.HasPrefix(string(png), "\x89PNG\r\n\x1a\n"):
 			c.Missing = append(c.Missing, label+": not a PNG")
 		default:
-			c.Shots = append(c.Shots, Shot{Path: w.path, View: w.view.Name, PNG: png})
+			c.Shots = append(c.Shots, shot{Path: w.path, View: w.view.Name, PNG: png})
 		}
 	}
 	if len(c.Shots) == 0 {

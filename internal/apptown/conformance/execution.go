@@ -51,7 +51,7 @@ type Execution struct {
 // (AdmitReviewIn).
 func (s *Service) BeginReview(ctx context.Context, in ReviewRequest) (*Execution, error) {
 	in.Projects = slices.Clone(in.Projects)
-	who, err := s.require(ctx, Permission{Action: RunReview, Projects: slices.Clone(in.Projects)})
+	who, err := s.require(ctx, permission{Action: runReview, Projects: slices.Clone(in.Projects)})
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (s *Service) BeginReview(ctx context.Context, in ReviewRequest) (*Execution
 // commits alone. The record keeps the request; the job names only its ID.
 func (s *Service) AdmitReviewIn(ctx context.Context, tx *database.Tx, in ReviewRequest) (*Review, error) {
 	in.Projects = slices.Clone(in.Projects)
-	who, err := s.require(ctx, Permission{Action: RunReview, Projects: slices.Clone(in.Projects)})
+	who, err := s.require(ctx, permission{Action: runReview, Projects: slices.Clone(in.Projects)})
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ func (e *Execution) project(ctx context.Context, id ids.ID) (Project, error) {
 			return p, nil
 		}
 	}
-	return Project{}, ErrScope
+	return Project{}, errScope
 }
 
 // Source pins one committed head for each project. Missing source fails the
@@ -215,7 +215,7 @@ func (e *Execution) Progress(ctx context.Context, done int, current string) erro
 		found = found || p.Slug == current
 	}
 	if !found {
-		return ErrScope
+		return errScope
 	}
 	next := e.review
 	next.ProjectsTotal = len(e.projects)
@@ -241,7 +241,7 @@ func (e *Execution) Finish(ctx context.Context, result Completion, state ReviewS
 		return nil, fmt.Errorf("invalid review completion")
 	}
 	if e.planned && (result.Projects > len(e.projects) || result.ProjectsDone > len(e.projects)) {
-		return nil, ErrScope
+		return nil, errScope
 	}
 	next := e.review
 	next.Projects = result.Projects
@@ -266,18 +266,18 @@ type Assessment struct {
 	EvaluatorVersion, ExceptedBy, EvidenceHash string
 }
 
-type PendingVerdict struct {
+type pendingVerdict struct {
 	service   *Service
 	admission verdictAdmission
 	previous  Verdict
 	needsFix  bool
 }
 
-func (p *PendingVerdict) Previous() Verdict      { return p.previous }
-func (p *PendingVerdict) Verdict() Verdict       { return p.admission.Verdict }
-func (p *PendingVerdict) NeedsAttribution() bool { return p.needsFix }
+func (p *pendingVerdict) Previous() Verdict      { return p.previous }
+func (p *pendingVerdict) Verdict() Verdict       { return p.admission.Verdict }
+func (p *pendingVerdict) NeedsAttribution() bool { return p.needsFix }
 
-func (e *Execution) PrepareVerdict(ctx context.Context, in Assessment) (*PendingVerdict, error) {
+func (e *Execution) PrepareVerdict(ctx context.Context, in Assessment) (*pendingVerdict, error) {
 	if _, err := in.State.Value(); err != nil {
 		return nil, err
 	}
@@ -300,7 +300,7 @@ func (e *Execution) PrepareVerdict(ctx context.Context, in Assessment) (*Pending
 		return nil, err
 	}
 	if declared == nil || (!in.Check.ProjectID.IsZero() && in.Check.ProjectID != in.ProjectID) {
-		return nil, ErrScope
+		return nil, errScope
 	}
 	source, err := e.Source(ctx, in.ProjectID)
 	if err != nil {
@@ -319,12 +319,12 @@ func (e *Execution) PrepareVerdict(ctx context.Context, in Assessment) (*Pending
 	if err != nil {
 		return nil, err
 	}
-	return &PendingVerdict{service: e.service, admission: verdictAdmission{Verdict: v, PreviousID: previous.ID}, previous: previous, needsFix: needed}, nil
+	return &pendingVerdict{service: e.service, admission: verdictAdmission{Verdict: v, PreviousID: previous.ID}, previous: previous, needsFix: needed}, nil
 }
 
 // Commit rechecks the previous verdict, required confirmation and running
 // review in the same transaction as the verdict, fix and required audit.
-func (p *PendingVerdict) Commit(ctx context.Context, fix *FixAttribution) (Verdict, error) {
+func (p *pendingVerdict) Commit(ctx context.Context, fix *FixAttribution) (Verdict, error) {
 	request := p.admission
 	if fix != nil {
 		copy := *fix

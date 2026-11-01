@@ -2,6 +2,7 @@ package verification
 
 import (
 	"context"
+
 	"github.com/flokkit/apptown/internal/apptown/project"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -11,12 +12,12 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-type Source struct {
+type source struct {
 	adoption *adoption.Service
 	dataDir  string
 }
 
-func (s Source) Head(ctx context.Context, p conformance.ProjectSource) (conformance.SourceHead, error) {
+func (s source) Head(ctx context.Context, p conformance.ProjectSource) (conformance.SourceHead, error) {
 	if err := ctx.Err(); err != nil {
 		return conformance.SourceHead{}, err
 	}
@@ -28,7 +29,7 @@ func (s Source) Head(ctx context.Context, p conformance.ProjectSource) (conforma
 }
 
 // ChecksIn is the live fleet source; Work's gates use their admitted receipt.
-func (s Source) ChecksIn(ctx context.Context, q database.Queryer, idList []ids.ID) (map[ids.ID][]conformance.DeclaredCheck, error) {
+func (s source) ChecksIn(ctx context.Context, q database.Queryer, idList []ids.ID) (map[ids.ID][]conformance.DeclaredCheck, error) {
 	rows, err := s.adoption.ChecksIn(ctx, q, idList)
 	if err != nil {
 		return nil, err
@@ -42,7 +43,7 @@ func (s Source) ChecksIn(ctx context.Context, q database.Queryer, idList []ids.I
 	return out, nil
 }
 
-func (s Source) HistoricalChecksIn(ctx context.Context, q database.Queryer, versions []conformance.CheckVersion) ([]conformance.DeclaredCheck, error) {
+func (s source) HistoricalChecksIn(ctx context.Context, q database.Queryer, versions []conformance.CheckVersion) ([]conformance.DeclaredCheck, error) {
 	refs := make([]adoption.CheckVersion, len(versions))
 	for i, v := range versions {
 		refs[i] = adoption.CheckVersion{Block: v.Block, Version: v.Version}
@@ -51,15 +52,15 @@ func (s Source) HistoricalChecksIn(ctx context.Context, q database.Queryer, vers
 	if err != nil {
 		return nil, err
 	}
-	return Declarations(rows), nil
+	return declarations(rows), nil
 }
 
 // NewSource binds adopted declarations and bounded committed-head observation.
-func NewSource(a *adoption.Service, dataDir string) Source {
-	return Source{adoption: a, dataDir: dataDir}
+func NewSource(a *adoption.Service, dataDir string) source {
+	return source{adoption: a, dataDir: dataDir}
 }
 
-func Declarations(checks []adoption.DeclaredCheck) []conformance.DeclaredCheck {
+func declarations(checks []adoption.DeclaredCheck) []conformance.DeclaredCheck {
 	var out []conformance.DeclaredCheck
 	for _, c := range checks {
 		out = append(out, conformance.DeclaredCheck{Block: c.Block, Version: c.Version, Check: conformance.CheckDeclaration(c.Check)})

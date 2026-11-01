@@ -22,10 +22,10 @@ import (
 // standards:manage-packs, which no agent credential carries. No project
 // moves: adopting stays a separate act.
 
-// ErrNoPackVersion is a recommendation of a version the pack never had.
-var ErrNoPackVersion = fault.New(fault.NotFound, "the pack has no such version")
+// errNoPackVersion is a recommendation of a version the pack never had.
+var errNoPackVersion = fault.New(fault.NotFound, "the pack has no such version")
 
-// Recommend makes version the pack's recommended one, with its receipt.
+// recommend makes version the pack's recommended one, with its receipt.
 // Recommending the version already recommended changes nothing.
 //
 // whatIf, when not zero, is the what-if the person decided on, which the
@@ -33,34 +33,34 @@ var ErrNoPackVersion = fault.New(fault.NotFound, "the pack has no such version")
 // recommendation of the version already recommended moves nothing and
 // records nothing; with a what-if it is ErrAlreadyRecommended, so the
 // basis is never reported as recorded when it was not.
-func (s *Packs) Recommend(ctx context.Context, name string, version int64, who string, whatIf ids.ID) error {
+func (s *packs) recommend(ctx context.Context, name string, version int64, who string, whatIf ids.ID) error {
 	now := s.now()
 	return s.db.InTx(ctx, func(tx *database.Tx) error { return s.recommendIn(ctx, tx, now, name, version, who, whatIf) })
 }
 
-// ErrAlreadyRecommended is a recommendation, naming a what-if, of the
+// errAlreadyRecommended is a recommendation, naming a what-if, of the
 // version already recommended: nothing moved and nothing was recorded.
-var ErrAlreadyRecommended = fault.New(fault.Conflict, "that version is already recommended; nothing changed and the what-if was not recorded")
+var errAlreadyRecommended = fault.New(fault.Conflict, "that version is already recommended; nothing changed and the what-if was not recorded")
 
 // recommendIn recommends at the operation's time now.
-func (s *Packs) recommendIn(ctx context.Context, tx *database.Tx, now time.Time, name string, version int64, who string, whatIf ids.ID) error {
+func (s *packs) recommendIn(ctx context.Context, tx *database.Tx, now time.Time, name string, version int64, who string, whatIf ids.ID) error {
 	now = now.UTC()
 	q := wowsql.New(tx.SQL())
 	p, err := q.PackByNameForUpdate(ctx, name)
 	if errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("%w %q", ErrNoPack, name)
+		return fmt.Errorf("%w %q", errNoPack, name)
 	}
 	if err != nil {
 		return err
 	}
 	if _, err := q.PackVersion(ctx, wowsql.PackVersionParams{PackID: p.ID, Version: version}); errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("%s v%d: %w", name, version, ErrNoPackVersion)
+		return fmt.Errorf("%s v%d: %w", name, version, errNoPackVersion)
 	} else if err != nil {
 		return err
 	}
 	if p.RecommendedVersion == version {
 		if !whatIf.IsZero() {
-			return ErrAlreadyRecommended
+			return errAlreadyRecommended
 		}
 		return nil
 	}
@@ -86,13 +86,13 @@ type PackHistory struct {
 	Versions    []Publication `json:"versions"`
 }
 
-// History reads a pack's page. Absence is ErrNoPack.
-func (s *Packs) History(ctx context.Context, name string) (*PackHistory, error) {
+// history reads a pack's page. Absence is ErrNoPack.
+func (s *packs) history(ctx context.Context, name string) (*PackHistory, error) {
 	p, err := packByNameIn(ctx, wowsql.New(s.db.SQL()), name)
 	if err != nil {
 		return nil, err
 	}
-	versions, err := s.PublicationsOf(ctx, name)
+	versions, err := s.publicationsOf(ctx, name)
 	if err != nil {
 		return nil, err
 	}

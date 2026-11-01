@@ -3,6 +3,7 @@ package jobs
 import (
 	"database/sql/driver"
 	"errors"
+
 	"github.com/flokkit/apptown/internal/enum"
 )
 
@@ -10,12 +11,12 @@ import (
 type JobLabel uint8
 
 const (
-	Unknown JobLabel = iota + 1
-	Waiting
-	Working
-	Finished
-	Failed
-	Stopped
+	unknown JobLabel = iota + 1
+	waiting
+	working
+	finished
+	failed
+	stopped
 )
 
 var labelCodec = enum.Set[JobLabel]{Names: []string{"unknown", "waiting", "working", "finished", "failed", "stopped"}, Invalid: "invalid-job-label", Err: errors.New("invalid job label"), ScanLabel: "value"}
@@ -27,16 +28,16 @@ func (s *JobLabel) UnmarshalJSON(b []byte) error { return labelCodec.ReadJSON(s,
 func stateLabel(s string) JobLabel {
 	switch s {
 	case "available", "retryable", "scheduled", "pending":
-		return Waiting
+		return waiting
 	case "running":
-		return Working
+		return working
 	case "completed":
-		return Finished
+		return finished
 	case "discarded":
-		return Failed
+		return failed
 	case "cancelled":
-		return Stopped
+		return stopped
 	default:
-		return Unknown
+		return unknown
 	}
 }

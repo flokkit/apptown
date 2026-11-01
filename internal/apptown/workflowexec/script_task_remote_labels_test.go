@@ -21,7 +21,7 @@ func (remoteStub) Collect(context.Context, string, string, string, string) (stri
 // local request's labels as they were.
 func TestARemoteTaskDoesNotClaimAppTownsFolder(t *testing.T) {
 	plan := scriptPlan{repository: "repo", request: execution.Request{Workspace: "/controller/change", Mounts: []string{"/host:/container"}, ExtraHosts: []string{"host:1.2.3.4"}, Labels: []string{"apptown.writes=/controller/change", "apptown.step=42"}}}
-	a := Commands{tasks: &TaskRunner{Remote: remoteStub{}}}
+	a := commands{tasks: &TaskRunner{Remote: remoteStub{}}}
 	attempt := tasks.Attempt{}
 	attempt.Source = "commit"
 	got := a.taskSpec(attempt, plan)

@@ -3,9 +3,10 @@ package evals
 import (
 	"context"
 	"encoding/json"
-	"github.com/flokkit/apptown/internal/apptown/status"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/status"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -125,7 +126,7 @@ type ArmCost struct {
 
 // Scorecard reads an eval's scorecard for someone who may read evals.
 func (s *Service) Scorecard(ctx context.Context, id ids.ID) (*Scorecard, error) {
-	e, err := s.Get(ctx, id)
+	e, err := s.get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +219,7 @@ func tally(arms []Arm, costs map[ids.ID]ArmCost) (out []Tally, comparable, notCo
 			byChange[a.SourceChangeID] = p
 			order = append(order, a.SourceChangeID)
 		}
-		if a.Arm == ArmBaseline {
+		if a.Arm == armBaseline {
 			p.baseline = a
 		} else {
 			p.variant = a

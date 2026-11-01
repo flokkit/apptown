@@ -7,13 +7,13 @@ import (
 
 func TestNeedWords(t *testing.T) {
 	t.Parallel()
-	var n NeedState
+	var n needState
 	for _, word := range []string{"creating", "ready", "failed", "orphaned"} {
 		if err := n.Scan(word); err != nil || n.String() != word {
 			t.Fatalf("need scan %q: %s %v", word, n, err)
 		}
 	}
-	if err := n.Scan("done"); !errors.Is(err, ErrNeedState) {
+	if err := n.Scan("done"); !errors.Is(err, errNeedState) {
 		t.Fatalf("an unknown need word is refused: %v", err)
 	}
 }

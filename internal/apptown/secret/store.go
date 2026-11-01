@@ -36,11 +36,11 @@ const (
 )
 
 var (
-	ErrEmpty          = errors.New("an empty value is not a secret")
+	errEmpty          = errors.New("an empty value is not a secret")
 	ErrNotStored      = errors.New("no stored value")
-	ErrVersionGone    = errors.New("secret version is no longer stored")
+	errVersionGone    = errors.New("secret version is no longer stored")
 	ErrBindingMissing = fault.New(fault.NotFound, "secret binding does not exist")
-	ErrMalformed      = errors.New("stored value is malformed")
+	errMalformed      = errors.New("stored value is malformed")
 )
 
 // Scope is where a value lives in the built-in store: a generated value's
@@ -52,10 +52,10 @@ func Scope(slug, deployment, domain string) string {
 	return "env:" + slug + ":" + deployment
 }
 
-// LockValueIn serialises work on one secret's value across database
+// lockValueIn serialises work on one secret's value across database
 // clients, including its first write when there is no row to lock. A hash
 // collision only serialises unrelated secrets; it cannot mix them.
-func LockValueIn(ctx context.Context, tx *database.Tx, scope, name string) error {
+func lockValueIn(ctx context.Context, tx *database.Tx, scope, name string) error {
 	return queries(tx).LockSecretValue(ctx, secretsql.LockSecretValueParams{Column1: scope, Column2: name})
 }
 
@@ -67,10 +67,10 @@ type Vault struct {
 
 func (v *Vault) now() time.Time { return clock.Or(v.clock)().UTC() }
 
-// Key is the instance's obfuscation key, minted on first use. Exactly one
+// key is the instance's obfuscation key, minted on first use. Exactly one
 // key ever: the insert does nothing when another writer got there first,
 // and everyone reads back whichever key won. Minting leaves a receipt.
-func (v *Vault) Key(ctx context.Context) ([]byte, error) {
+func (v *Vault) key(ctx context.Context) ([]byte, error) {
 	if h, err := v.setting(ctx); err != nil || h != "" {
 		if err != nil {
 			return nil, err
@@ -135,20 +135,20 @@ func (v *Vault) open(ctx context.Context, stored string) (string, error) {
 func openWith(gcm cipher.AEAD, stored string) (string, error) {
 	raw, err := base64.StdEncoding.DecodeString(stored)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrMalformed, err)
+		return "", fmt.Errorf("%w: %w", errMalformed, err)
 	}
 	if len(raw) < gcm.NonceSize() {
-		return "", ErrMalformed
+		return "", errMalformed
 	}
 	plain, err := gcm.Open(nil, raw[:gcm.NonceSize()], raw[gcm.NonceSize():], nil)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrMalformed, err)
+		return "", fmt.Errorf("%w: %w", errMalformed, err)
 	}
 	return string(plain), nil
 }
 
 func (v *Vault) cipher(ctx context.Context) (cipher.AEAD, error) {
-	key, err := v.Key(ctx)
+	key, err := v.key(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func (v *Vault) cipher(ctx context.Context) (cipher.AEAD, error) {
 // version. The value is never logged; only its name and version are.
 func (v *Vault) Put(ctx context.Context, scope, name, value, who string) (int, error) {
 	if strings.TrimSpace(value) == "" {
-		return 0, ErrEmpty
+		return 0, errEmpty
 	}
 	sealed, err := v.seal(ctx, value)
 	if err != nil {
@@ -182,7 +182,7 @@ func (v *Vault) Put(ctx context.Context, scope, name, value, who string) (int, e
 
 // putIn writes a sealed value's next version in the caller's transaction.
 func (v *Vault) putIn(ctx context.Context, tx *database.Tx, scope, name, sealed, who string) (int, error) {
-	if err := LockValueIn(ctx, tx, scope, name); err != nil {
+	if err := lockValueIn(ctx, tx, scope, name); err != nil {
 		return 0, err
 	}
 	at := v.now()
@@ -214,9 +214,9 @@ func (v *Vault) Get(ctx context.Context, scope, name string) (value string, vers
 	return value, version, nil
 }
 
-// Current is every stored secret's current value, opened: what masking
+// current is every stored secret's current value, opened: what masking
 // replaces. A value that cannot be opened is an error, never skipped.
-func (v *Vault) Current(ctx context.Context) ([]string, error) {
+func (v *Vault) current(ctx context.Context) ([]string, error) {
 	if v == nil || v.db == nil {
 		return nil, nil
 	}
@@ -253,7 +253,7 @@ const derivedPurpose = "forge need credentials v1"
 // built-in value: obfuscation, not encryption. A value changes only when
 // the store's key does.
 func (v *Vault) Derived(ctx context.Context, scope, name string) (string, error) {
-	key, err := v.Key(ctx)
+	key, err := v.key(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -271,7 +271,7 @@ func (v *Vault) Derived(ctx context.Context, scope, name string) (string, error)
 // that owner has gone (an AI models key revoked at take-down).
 func (v *Vault) Delete(ctx context.Context, scope, name string) error {
 	return v.db.InTx(ctx, func(tx *database.Tx) error {
-		if err := LockValueIn(ctx, tx, scope, name); err != nil {
+		if err := lockValueIn(ctx, tx, scope, name); err != nil {
 			return err
 		}
 		_, err := queries(tx).DeleteSecretValue(ctx, secretsql.DeleteSecretValueParams{Scope: scope, Name: name})
@@ -294,18 +294,18 @@ type Binding struct {
 	UpdatedByPrincipal ids.ID `json:"updatedByPrincipal,omitzero"`
 }
 
-// Bindings is the supported API over secret_bindings. A change takes the
+// bindings is the supported API over secret_bindings. A change takes the
 // project lock, then the value's scope lock, so a shared generated value
 // is safe while another deployment binds or unbinds it.
-type Bindings struct {
+type bindings struct {
 	db    *database.DB
 	clock func() time.Time
 }
 
-func (s *Bindings) now() time.Time { return clock.Or(s.clock)().UTC() }
+func (s *bindings) now() time.Time { return clock.Or(s.clock)().UTC() }
 
 // For is one deployment's bindings by name.
-func (s *Bindings) For(ctx context.Context, projectID ids.ID, deployment string) (map[string]Binding, error) {
+func (s *bindings) For(ctx context.Context, projectID ids.ID, deployment string) (map[string]Binding, error) {
 	rows, err := queries(s.db).BindingsForDeployment(ctx, secretsql.BindingsForDeploymentParams{
 		ProjectID: projectID, Deployment: deployment,
 	})
@@ -319,7 +319,7 @@ func (s *Bindings) For(ctx context.Context, projectID ids.ID, deployment string)
 	return out, nil
 }
 
-func (s *Bindings) begin(ctx context.Context, projectID ids.ID) (*database.Tx, error) {
+func (s *bindings) begin(ctx context.Context, projectID ids.ID) (*database.Tx, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -333,7 +333,7 @@ func (s *Bindings) begin(ctx context.Context, projectID ids.ID) (*database.Tx, e
 
 // Put binds a name, with its receipt; a built-in binding must point at a
 // stored version.
-func (s *Bindings) Put(ctx context.Context, projectID ids.ID, b Binding) error {
+func (s *bindings) Put(ctx context.Context, projectID ids.ID, b Binding) error {
 	tx, err := s.begin(ctx, projectID)
 	if err != nil {
 		return err
@@ -347,9 +347,9 @@ func (s *Bindings) Put(ctx context.Context, projectID ids.ID, b Binding) error {
 
 // putIn writes a binding and its secret.bound receipt in a transaction
 // begun by begin (the project's bindings locked).
-func (s *Bindings) putIn(ctx context.Context, tx *database.Tx, projectID ids.ID, b Binding) error {
+func (s *bindings) putIn(ctx context.Context, tx *database.Tx, projectID ids.ID, b Binding) error {
 	if b.Store == StoreInternal {
-		if err := LockValueIn(ctx, tx, b.Ref, b.Name); err != nil {
+		if err := lockValueIn(ctx, tx, b.Ref, b.Name); err != nil {
 			return err
 		}
 		exists, err := queries(tx).SecretValueVersionExists(ctx, secretsql.SecretValueVersionExistsParams{
@@ -359,7 +359,7 @@ func (s *Bindings) putIn(ctx context.Context, tx *database.Tx, projectID ids.ID,
 			return err
 		}
 		if !exists {
-			return fmt.Errorf("%w: secret %s version %s; set it again", ErrVersionGone, b.Name, b.Version)
+			return fmt.Errorf("%w: secret %s version %s; set it again", errVersionGone, b.Name, b.Version)
 		}
 	}
 	gen := 0
@@ -384,7 +384,7 @@ func (s *Bindings) putIn(ctx context.Context, tx *database.Tx, projectID ids.ID,
 
 // Unbind removes a binding and, for the built-in store, every stored
 // version nothing else binds any more, with the receipt.
-func (s *Bindings) Unbind(ctx context.Context, projectID ids.ID, deployment, name, who string) error {
+func (s *bindings) Unbind(ctx context.Context, projectID ids.ID, deployment, name, who string) error {
 	tx, err := s.begin(ctx, projectID)
 	if err != nil {
 		return err
@@ -401,7 +401,7 @@ func (s *Bindings) Unbind(ctx context.Context, projectID ids.ID, deployment, nam
 	}
 	store, ref := held.Store, held.Ref
 	if store == StoreInternal {
-		if err := LockValueIn(ctx, tx, ref, name); err != nil {
+		if err := lockValueIn(ctx, tx, ref, name); err != nil {
 			return err
 		}
 	}
@@ -427,18 +427,18 @@ func (s *Bindings) Unbind(ctx context.Context, projectID ids.ID, deployment, nam
 	return tx.Commit()
 }
 
-// Profiles is a deployment's chosen declared profile.
-type Profiles struct {
+// profiles is a deployment's chosen declared profile.
+type profiles struct {
 	db    *database.DB
 	clock func() time.Time
 }
 
-func NewProfiles(db *database.DB, now func() time.Time) *Profiles {
-	return &Profiles{db: db, clock: now}
+func newProfiles(db *database.DB, now func() time.Time) *profiles {
+	return &profiles{db: db, clock: now}
 }
 
 // Chosen is the explicit choice, empty when none was made.
-func (p *Profiles) Chosen(ctx context.Context, projectID ids.ID, deployment string) (string, error) {
+func (p *profiles) Chosen(ctx context.Context, projectID ids.ID, deployment string) (string, error) {
 	row, err := queries(p.db).ChosenProfile(ctx, secretsql.ChosenProfileParams{ProjectID: projectID, Deployment: deployment})
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil
@@ -448,7 +448,7 @@ func (p *Profiles) Chosen(ctx context.Context, projectID ids.ID, deployment stri
 
 // Set chooses a deployment's profile, which decides the secrets it is
 // given, with its receipt in the same transaction.
-func (p *Profiles) Set(ctx context.Context, projectID ids.ID, deployment, profile, who string) error {
+func (p *profiles) Set(ctx context.Context, projectID ids.ID, deployment, profile, who string) error {
 	return p.db.InTx(ctx, func(tx *database.Tx) error {
 		if err := queries(tx).SetProfile(ctx, secretsql.SetProfileParams{
 			ProjectID: projectID, Deployment: deployment, Profile: profile,

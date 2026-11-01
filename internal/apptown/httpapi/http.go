@@ -117,20 +117,20 @@ func WriteError(w http.ResponseWriter, code int, format string, args ...any) {
 	WriteJSON(w, code, map[string]string{"error": fmt.Sprintf(format, args...)})
 }
 
-// PathID reads a record's id from the path.
-func PathID(r *http.Request, name string) (ids.ID, error) {
+// pathID reads a record's id from the path.
+func pathID(r *http.Request, name string) (ids.ID, error) {
 	return ids.Parse(r.PathValue(name))
 }
 
-// PathNumber reads a number from the path: an attempt, or a number within
+// pathNumber reads a number from the path: an attempt, or a number within
 // a project (a release's).
-func PathNumber(r *http.Request, name string) (int64, error) {
+func pathNumber(r *http.Request, name string) (int64, error) {
 	return strconv.ParseInt(r.PathValue(name), 10, 64)
 }
 
-// QueryInt reads an optional integer query parameter: dflt when absent,
+// queryInt reads an optional integer query parameter: dflt when absent,
 // 400 (and false) when present but not a number.
-func QueryInt(w http.ResponseWriter, r *http.Request, name string, dflt int) (int, bool) {
+func queryInt(w http.ResponseWriter, r *http.Request, name string, dflt int) (int, bool) {
 	v := r.URL.Query().Get(name)
 	if v == "" {
 		return dflt, true

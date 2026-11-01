@@ -30,7 +30,7 @@ func TestARehearsalKeepsItsToolVersionsThroughItsBoot(t *testing.T) {
 	second.Images.DF = "second-df"
 	w.host.afterStage = func() { tools.Install(second) }
 	op := w.rehearse(t)
-	if !endedAs(op, OperationVerified) {
+	if !endedAs(op, operationVerified) {
 		t.Fatalf("rehearsal %s: %s", op.State, op.Detail)
 	}
 	for _, args := range w.host.Commands() {

@@ -27,8 +27,8 @@ type Effects interface {
 	Observe(ctx context.Context, projectID ids.ID, source, probe string) (conformance.Outcome, string)
 }
 
-// Evaluator translates library judgments into the receipts shared by all checks.
-type Evaluator struct {
+// evaluator translates library judgments into the receipts shared by all checks.
+type evaluator struct {
 	effects Effects
 	clock   func() time.Time // AppTown's clock, which times a shell check; nil is the real one
 	// tools names the shell image sh checks run in: each unit of work (a
@@ -39,19 +39,19 @@ type Evaluator struct {
 
 // NewEvaluator runs checks through e; now is AppTown's clock, by which a
 // shell check's duration is measured; tools names the images.
-func NewEvaluator(e Effects, now func() time.Time, tools toolversions.Source) *Evaluator {
-	return &Evaluator{effects: e, clock: now, tools: tools}
+func NewEvaluator(e Effects, now func() time.Time, tools toolversions.Source) *evaluator {
+	return &evaluator{effects: e, clock: now, tools: tools}
 }
 
 // snapshot is the tool versions a unit of work starting now uses
 // throughout; with none, it names no image and sh checks error.
-func (e *Evaluator) snapshot() toolversions.Snapshot {
+func (e *evaluator) snapshot() toolversions.Snapshot {
 	if e == nil || e.tools == nil {
 		return toolversions.Snapshot{}
 	}
 	return e.tools.Current()
 }
-func (e *Evaluator) Observe(ctx context.Context, projectID ids.ID, source, probe string) (conformance.Outcome, string) {
+func (e *evaluator) observe(ctx context.Context, projectID ids.ID, source, probe string) (conformance.Outcome, string) {
 	return e.effects.Observe(ctx, projectID, source, probe)
 }
 
@@ -69,10 +69,10 @@ type llmMetadata struct {
 
 // judge runs its commands on ctx, the caller's; sh checks in sh, the
 // caller's unit's shell image.
-func (e *Evaluator) judge(ctx context.Context, sh string) *check.Judge {
+func (e *evaluator) judge(ctx context.Context, sh string) *check.Judge {
 	return &check.Judge{Run: func(req execution.Request) execution.Outcome { return e.effects.Run(ctx, req) }, Now: e.clock, ShImage: sh}
 }
-func (e *Evaluator) runShChecks(ctx context.Context, sh string, checks []conformance.DeclaredCheck, src, namePrefix string) (results Results, findings []conformance.Finding, shErrors int) {
+func (e *evaluator) runShChecks(ctx context.Context, sh string, checks []conformance.DeclaredCheck, src, namePrefix string) (results Results, findings []conformance.Finding, shErrors int) {
 	for _, ev := range e.judge(ctx, sh).EvaluateSh(declaredAll(checks), CheckSource(src), check.Gate, namePrefix) {
 		res := resultOf(ev)
 		res.DurationMs = new(ev.Evidence.Duration.Milliseconds())
@@ -86,12 +86,12 @@ func (e *Evaluator) runShChecks(ctx context.Context, sh string, checks []conform
 	return results, findings, shErrors
 }
 
-// Checklist judges items in one checklist question, asked as call (its
+// checklist judges items in one checklist question, asked as call (its
 // purpose, project, run and model; Judge for an eval comparison's rubric).
 // Each paid attempt writes its own spend line in the gateway; the metadata
 // adds up what the attempts cost, failed ones included, for callers' own
 // budgets.
-func (e *Evaluator) Checklist(ctx context.Context, call modelcall.Call, items []check.Item, diff string) (map[int]check.Verdict, *llmMetadata, error) {
+func (e *evaluator) checklist(ctx context.Context, call modelcall.Call, items []check.Item, diff string) (map[int]check.Verdict, *llmMetadata, error) {
 	if call.Model == "" {
 		return nil, nil, fmt.Errorf("no fast model slot bound")
 	}

@@ -117,7 +117,7 @@ func (s *Service) LandingTarget(ctx context.Context, projectID ids.ID, name stri
 	}
 	var offered []*Target
 	for _, t := range targets {
-		if t.Kind != KindDockerHost || t.Origin != OriginAttached || !t.Status.Offerable() || t.Reserved() != "" {
+		if t.Kind != KindDockerHost || t.Origin != OriginAttached || !t.Status.Offerable() || t.reserved() != "" {
 			continue
 		}
 		offer, why := s.Targets.OfferFor(ctx, t, project.OwnerGroup)
@@ -129,7 +129,7 @@ func (s *Service) LandingTarget(ctx context.Context, projectID ids.ID, name stri
 		if err != nil {
 			return nil, err
 		}
-		if offer.Permits(t, project.Slug, attrs, standing) == "" {
+		if offer.permits(t, project.Slug, attrs, standing) == "" {
 			offered = append(offered, t)
 		}
 	}
@@ -196,13 +196,13 @@ func (s *Service) generationBundle(ctx context.Context, projectID ids.ID, in Inp
 	case !in.BundleID.IsZero():
 		b, err := lookupBundle(s.Bundles.ByID(ctx, in.BundleID))
 		if b != nil && b.ProjectID != projectID {
-			return nil, ErrBundleMissing
+			return nil, errBundleMissing
 		}
 		return b, err
 	case !in.ReleaseID.IsZero():
 		b, err := lookupBundle(bundleRecord(q.BundleOfRelease(ctx, in.ReleaseID)))
 		if b != nil && b.ProjectID != projectID {
-			return nil, ErrBundleMissing
+			return nil, errBundleMissing
 		}
 		return b, err
 	case !in.ReleaseRun.IsZero():

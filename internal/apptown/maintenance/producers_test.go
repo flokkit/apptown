@@ -13,7 +13,6 @@ import (
 	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/stock"
@@ -33,7 +32,7 @@ func TestAStepsContainersAgeOnAppTownsClock(t *testing.T) {
 	// The step's private daemon, as the workshop starts it.
 	var mu sync.Mutex
 	var dindRun []string
-	starting := dockerfake.New()
+	starting := newDockerFake()
 	starting.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) > 0 && args[0] == "run" {
 			mu.Lock()
@@ -56,7 +55,7 @@ func TestAStepsContainersAgeOnAppTownsClock(t *testing.T) {
 		strings.Join([]string{step.Name, "step", labelValue(step.Labels, "apptown.created"), labelValue(step.Labels, "apptown.owner"), "c-step"}, "\t"),
 		strings.Join([]string{"apptown-dind-step-00000000-03e7-7000-8000-000000000000", "dind", labelValue(dind, "apptown.created"), labelValue(dind, "apptown.owner"), "c-dind"}, "\t"),
 	}
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) > 0 && args[0] == "ps" {
 			return []byte(strings.Join(rows, "\n")), nil, true
@@ -102,7 +101,7 @@ func TestAStepsNetworksCarryTheOwnerTheReaperReads(t *testing.T) {
 	t.Parallel()
 	var mu sync.Mutex
 	made := map[string][]string{} // network name -> its labels
-	starting := dockerfake.New()
+	starting := newDockerFake()
 	starting.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) > 2 && args[0] == "network" && args[1] == "create" {
 			mu.Lock()
@@ -136,7 +135,7 @@ func TestAStepsNetworksCarryTheOwnerTheReaperReads(t *testing.T) {
 		rows = append(rows, strings.Join([]string{"id-" + n, n, labelValue(labels, "apptown.class"), labelValue(labels, "apptown.owner")}, "\t"))
 	}
 	mu.Unlock()
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) > 1 && args[0] == "network" && args[1] == "ls" {
 			return []byte(strings.Join(rows, "\n")), nil, true

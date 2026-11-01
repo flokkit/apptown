@@ -56,9 +56,9 @@ type StandingProcedure struct {
 	Landing    StandingPurpose `json:"landing"`
 }
 
-// StandingProcedures resolves declarations and current law under the caller's
+// standingProcedures resolves declarations and current law under the caller's
 // project lock. The workflow owner separately checks approval eligibility.
-type StandingProcedures interface {
+type standingProcedures interface {
 	StandingProcedure(context.Context, database.Queryer, ids.ID, string) (StandingProcedure, error)
 }
 type StandingDestination struct {
@@ -68,9 +68,9 @@ type StandingDestination struct {
 	Name              string
 }
 
-// StandingDestinations reads an exact deployment/target pair. Its owner retains
+// standingDestinations reads an exact deployment/target pair. Its owner retains
 // lifecycle and resource construction; no provider effect belongs in this read.
-type StandingDestinations interface {
+type standingDestinations interface {
 	StandingDestination(context.Context, database.Queryer, ids.ID, StandingEnvironment) (StandingDestination, error)
 }
 type StandingProjectMeaning struct {

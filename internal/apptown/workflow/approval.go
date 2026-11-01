@@ -312,7 +312,7 @@ func (e ApprovalEvidence) cast(status StepState, cfg ApprovalConfig, vote Approv
 	if strings.TrimSpace(vote.Approver) == "" {
 		return ApprovalEvidence{}, 0, false, errStepDecisionCaller
 	}
-	if _, err := status.Transition(MoveStepVote, status); err != nil {
+	if _, err := status.transition(moveStepVote, status); err != nil {
 		return ApprovalEvidence{}, 0, false, fmt.Errorf("this approval is already decided: %w: %w", errStepDecisionConflict, err)
 	}
 	previous := status
@@ -343,7 +343,7 @@ func (e ApprovalEvidence) cast(status StepState, cfg ApprovalConfig, vote Approv
 			status = StatusPass
 		}
 	}
-	if _, err := previous.Transition(MoveStepVote, status); err != nil {
+	if _, err := previous.transition(moveStepVote, status); err != nil {
 		return ApprovalEvidence{}, 0, false, err
 	}
 	return next, status, pending, nil
@@ -352,7 +352,7 @@ func (e ApprovalEvidence) cast(status StepState, cfg ApprovalConfig, vote Approv
 // reopen retains the rejected round as history and feedback, with no votes
 // counting toward the next round. Only a failed approval can be reopened.
 func (e ApprovalEvidence) reopen(status StepState) (ApprovalEvidence, error) {
-	if _, err := status.Transition(MoveStepReopen, StatusPending); err != nil {
+	if _, err := status.transition(moveStepReopen, StatusPending); err != nil {
 		return ApprovalEvidence{}, fmt.Errorf("only a rejected approval can reopen: %w", err)
 	}
 	if err := e.validate(); err != nil {
@@ -373,7 +373,7 @@ func (e ApprovalEvidence) reopen(status StepState) (ApprovalEvidence, error) {
 }
 
 func (e ApprovalEvidence) withdraw(status StepState, cfg ApprovalConfig, withdrawal ApprovalWithdrawal) (ApprovalEvidence, StepState, error) {
-	nextState, err := status.Transition(MoveStepWithdraw, StatusFail)
+	nextState, err := status.transition(moveStepWithdraw, StatusFail)
 	if err != nil {
 		return ApprovalEvidence{}, 0, err
 	}

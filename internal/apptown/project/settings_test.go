@@ -72,7 +72,7 @@ func TestSettingsPatchIsAtomicAndPreservesOmissions(t *testing.T) {
 		t.Fatalf("omitted or emptied fields: %+v %v", after, err)
 	}
 	next := after.SettingsRevision
-	if err := patchSettings(db, id, "old-reservation", SettingsPatch{ExpectedRevision: &next, Icon: &changed}); !errors.Is(err, ErrSettingsChanged) {
+	if err := patchSettings(db, id, "old-reservation", SettingsPatch{ExpectedRevision: &next, Icon: &changed}); !errors.Is(err, errSettingsChanged) {
 		t.Fatalf("stale reservation: %v", err)
 	}
 }
@@ -120,7 +120,7 @@ func TestSettingsEditNeedsItsRevision(t *testing.T) {
 	t.Parallel()
 	db, id := settingsFixture(t)
 	icon := "new"
-	if err := patchSettings(db, id, "settings", SettingsPatch{Icon: &icon}); !errors.Is(err, ErrSettingsRevisionRequired) {
+	if err := patchSettings(db, id, "settings", SettingsPatch{Icon: &icon}); !errors.Is(err, errSettingsRevisionRequired) {
 		t.Fatalf("edit without a revision: %v", err)
 	}
 	if after, err := ByIDIn(context.Background(), db, id); err != nil || after.Icon != "old" || after.SettingsRevision != 0 {

@@ -38,7 +38,7 @@ func TestAdmittedMergeDetachesCallerAndRechecksBeforeEffect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	call := MergeCall{Purpose: MergeForAssertion, Run: *run, Step: *step, Source: source}
+	call := MergeCall{Purpose: mergeForAssertion, Run: *run, Step: *step, Source: source}
 	permission, err := NewMergeAdmission(q.db, policyLawRules{}).Prepare(ctx, call)
 	if err != nil || permission.Admitted == nil {
 		t.Fatalf("admission %+v %v", permission, err)
@@ -82,7 +82,7 @@ func TestAdmittedMergeDetachesCallerAndRechecksBeforeEffect(t *testing.T) {
 	if !errors.Is(err, errMergeCaller) {
 		t.Fatalf("stale effect admitted: %v", err)
 	}
-	if _, err = (&AdmittedMerge{}).Context(ctx, ""); !errors.Is(err, errMergeCaller) {
+	if _, err = (&admittedMerge{}).Context(ctx, ""); !errors.Is(err, errMergeCaller) {
 		t.Fatalf("empty claim minted: %v", err)
 	}
 }
@@ -169,7 +169,7 @@ func TestMergeAdmissionRejectsForeignOrWrongAssertionStep(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			call := MergeCall{Purpose: MergeForAssertion, Run: *run, Step: *step, Source: source}
+			call := MergeCall{Purpose: mergeForAssertion, Run: *run, Step: *step, Source: source}
 			permission, err := NewMergeAdmission(q.db, nil).Prepare(context.Background(), call)
 			if permission.Admitted != nil || !errors.Is(err, errMergeCaller) {
 				t.Fatalf("%s admitted: %+v %v", scenario, permission, err)
@@ -199,7 +199,7 @@ func TestAMergeIsAdmittedOnlyWhileItsEvalMayProceed(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		permission, err := NewMergeAdmission(q.db, policyLawRules{}).WithEvalGate(refusingEvalGate{why}).Prepare(ctx, MergeCall{Purpose: MergeForAssertion, Run: *run, Step: *step, Source: source})
+		permission, err := NewMergeAdmission(q.db, policyLawRules{}).withEvalGate(refusingEvalGate{why}).Prepare(ctx, MergeCall{Purpose: mergeForAssertion, Run: *run, Step: *step, Source: source})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -241,7 +241,7 @@ func TestTheEvalGateHoldsAtTheClaimThatMerges(t *testing.T) {
 	}
 	why, reads := "", 0
 	gate := flippingEvalGate{&why, &reads}
-	permission, err := NewMergeAdmission(q.db, policyLawRules{}).WithEvalGate(gate).Prepare(ctx, MergeCall{Purpose: MergeForAssertion, Run: *run, Step: *step, Source: source})
+	permission, err := NewMergeAdmission(q.db, policyLawRules{}).withEvalGate(gate).Prepare(ctx, MergeCall{Purpose: mergeForAssertion, Run: *run, Step: *step, Source: source})
 	if err != nil || permission.Admitted == nil {
 		t.Fatalf("admission: %+v %v", permission, err)
 	}

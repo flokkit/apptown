@@ -12,8 +12,8 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// ChangeLabel is display metadata, without a second lifecycle representation.
-type ChangeLabel struct {
+// changeLabel is display metadata, without a second lifecycle representation.
+type changeLabel struct {
 	ID          ids.ID
 	Number      int64
 	Title, Type string
@@ -23,7 +23,7 @@ type ChangeLabel struct {
 // receipts. Both the release and Change must belong to the admitted project.
 // Work does not interpret release states or alter membership. One batch serves
 // a release list; unknown/foreign release IDs have empty contents.
-func (s *Service) ReleaseChanges(ctx context.Context, project ids.ID, idList []ids.ID) (map[ids.ID][]ChangeLabel, error) {
+func (s *Service) ReleaseChanges(ctx context.Context, project ids.ID, idList []ids.ID) (map[ids.ID][]changeLabel, error) {
 	if project.IsZero() {
 		return nil, fmt.Errorf("release Changes require project scope")
 	}
@@ -35,13 +35,13 @@ func (s *Service) ReleaseChanges(ctx context.Context, project ids.ID, idList []i
 	}
 	return readReleaseChanges(ctx, s.db, project, idList)
 }
-func readReleaseChanges(ctx context.Context, q database.Queryer, project ids.ID, idList []ids.ID) (map[ids.ID][]ChangeLabel, error) {
-	out := make(map[ids.ID][]ChangeLabel, len(idList))
+func readReleaseChanges(ctx context.Context, q database.Queryer, project ids.ID, idList []ids.ID) (map[ids.ID][]changeLabel, error) {
+	out := make(map[ids.ID][]changeLabel, len(idList))
 	for _, id := range idList {
 		if id.IsZero() {
 			return nil, fmt.Errorf("release IDs must be positive")
 		}
-		out[id] = []ChangeLabel{}
+		out[id] = []changeLabel{}
 	}
 	if len(idList) == 0 {
 		return out, ctx.Err()
@@ -51,14 +51,14 @@ func readReleaseChanges(ctx context.Context, q database.Queryer, project ids.ID,
 		return nil, err
 	}
 	for _, row := range rows {
-		out[row.ReleaseID] = append(out[row.ReleaseID], ChangeLabel{ID: row.ChangeID, Number: row.Number, Title: row.Title, Type: row.Type})
+		out[row.ReleaseID] = append(out[row.ReleaseID], changeLabel{ID: row.ChangeID, Number: row.Number, Title: row.Title, Type: row.Type})
 	}
 	return out, nil
 }
 
 // ShippedChangesSince uses the strict closing-time cutoff of the release plan.
 // A zero time selects all timestamped shipped history. Zero limit is uncapped.
-func (s *Service) ShippedChangesSince(ctx context.Context, project ids.ID, after time.Time, limit int) ([]ChangeLabel, error) {
+func (s *Service) ShippedChangesSince(ctx context.Context, project ids.ID, after time.Time, limit int) ([]changeLabel, error) {
 	if project.IsZero() || limit < 0 || limit > math.MaxInt32 {
 		return nil, fmt.Errorf("shipped Changes require scope and valid limit")
 	}
@@ -72,9 +72,9 @@ func (s *Service) ShippedChangesSince(ctx context.Context, project ids.ID, after
 	if err != nil {
 		return nil, database.Missing(err)
 	}
-	out := make([]ChangeLabel, 0, len(rows))
+	out := make([]changeLabel, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, ChangeLabel{ID: row.ID, Number: row.Number, Title: row.Title, Type: row.Type})
+		out = append(out, changeLabel{ID: row.ID, Number: row.Number, Title: row.Title, Type: row.Type})
 	}
 	return out, nil
 }

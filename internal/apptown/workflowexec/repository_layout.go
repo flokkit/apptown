@@ -13,22 +13,22 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 )
 
-// RelocationRequest is the exact persisted admission, read without sending it
+// relocationRequest is the exact persisted admission, read without sending it
 // to a provider. Its Task may contain credentials; it is never journaled/logged.
-type RelocationRequest struct {
+type relocationRequest struct {
 	Attempt tasks.Attempt
 	Task    execution.TaskSpec
 }
 
 // RelocationRequests reads unreleased local/remote admissions before layout
 // effects. A missing/unreadable request is unknown, not an empty workspace.
-func RelocationRequests(ctx context.Context, db database.Queryer, dataDir string) ([]RelocationRequest, error) {
+func RelocationRequests(ctx context.Context, db database.Queryer, dataDir string) ([]relocationRequest, error) {
 	attempts, err := tasks.RelocationAttemptsIn(ctx, db)
 	if err != nil {
 		return nil, err
 	}
 	reader := TaskRunner{Requests: filepath.Join(dataDir, "tasks")}
-	out := make([]RelocationRequest, 0, len(attempts))
+	out := make([]relocationRequest, 0, len(attempts))
 	for _, attempt := range attempts {
 		req, found, err := reader.storedRequest(attempt.Operation)
 		if err != nil {
@@ -40,7 +40,7 @@ func RelocationRequests(ctx context.Context, db database.Queryer, dataDir string
 		if req.Task.Key != attempt.Operation || req.Task.Request != attempt.Digest {
 			return nil, fmt.Errorf("task %s request does not match its admission", attempt.Operation)
 		}
-		out = append(out, RelocationRequest{Attempt: attempt, Task: req.Task})
+		out = append(out, relocationRequest{Attempt: attempt, Task: req.Task})
 	}
 	return out, nil
 }
@@ -48,7 +48,7 @@ func RelocationRequests(ctx context.Context, db database.Queryer, dataDir string
 // RefuseMovedPaths preserves the exact admitted request. Even a remote task's
 // source repository is a local input for resending its bundle; SharedWorkspace
 // is an opaque backend key and is deliberately never interpreted as a path.
-func (r RelocationRequest) RefuseMovedPaths(references []repositorylayout.Reference, oldRoot, newRoot string) error {
+func (r relocationRequest) RefuseMovedPaths(references []repositorylayout.Reference, oldRoot, newRoot string) error {
 	paths := []string{}
 	if r.Task.Workspace != "" {
 		paths = append(paths, r.Task.Workspace)
@@ -81,7 +81,7 @@ func (r RelocationRequest) RefuseMovedPaths(references []repositorylayout.Refere
 // RefuseWriter observes only the originally selected backend. An unavailable
 // backend, ambiguous identity, or private writer without a release receipt does
 // not become evidence that it is safe to change workspace metadata.
-func (r RelocationRequest) RefuseWriter(ctx context.Context, driver execution.TaskDriver, backend string) error {
+func (r relocationRequest) RefuseWriter(ctx context.Context, driver execution.TaskDriver, backend string) error {
 	if driver == nil || backend != r.Attempt.Backend {
 		return fmt.Errorf("task %s backend cannot be observed for relocation", r.Attempt.Operation)
 	}

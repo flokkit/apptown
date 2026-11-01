@@ -13,12 +13,12 @@ import (
 // what AppTown needs.
 func TestOwnServerIsOneOfTheSupportedMajors(t *testing.T) {
 	t.Parallel()
-	for major := OwnPostgresMin; major <= OwnPostgresMax; major++ {
+	for major := ownPostgresMin; major <= OwnPostgresMax; major++ {
 		if err := OwnServerSupported(major*10000 + 15); err != nil {
 			t.Fatalf("PostgreSQL %d: %v", major, err)
 		}
 	}
-	for _, major := range []int{OwnPostgresMin - 1, OwnPostgresMax + 1} {
+	for _, major := range []int{ownPostgresMin - 1, OwnPostgresMax + 1} {
 		err := OwnServerSupported(major*10000 + 2)
 		if err == nil || !strings.Contains(err.Error(), "AppTown needs PostgreSQL") || !strings.HasSuffix(err.Error(), "this server is "+strconv.Itoa(major)) {
 			t.Fatalf("PostgreSQL %d: %v", major, err)

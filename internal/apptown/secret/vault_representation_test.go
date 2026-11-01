@@ -32,12 +32,12 @@ func TestInternalStoreObfuscates(t *testing.T) {
 	if stored := row.Value; stored == "hunter3" || strings.Contains(stored, "hunter") {
 		t.Fatalf("value stored in the clear: %q", stored)
 	}
-	k1, err := service.Vault.Key(t.Context())
+	k1, err := service.Vault.key(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, _ = service.Vault.Put(t.Context(), "env:p:main", "OTHER", "x", "bls")
-	if k2, _ := service.Vault.Key(t.Context()); len(k1) != 32 || string(k2) != string(k1) {
+	if k2, _ := service.Vault.key(t.Context()); len(k1) != 32 || string(k2) != string(k1) {
 		t.Fatal("the obfuscation key must be minted once and kept")
 	}
 	if _, err := service.Vault.Put(t.Context(), "env:p:main", "EMPTY", "  ", "bls"); err == nil {

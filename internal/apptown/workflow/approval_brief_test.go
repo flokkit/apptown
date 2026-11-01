@@ -62,7 +62,7 @@ func TestApprovalBriefSnapshotAndCacheInvalidation(t *testing.T) {
 		t.Fatal("non-approval brief admitted")
 	}
 	dbtest.FailNextStatement(t, q.db, "SELECT a.id,a.run_id")
-	if _, err := s.ApprovalBrief(ctx, approval); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := s.ApprovalBrief(ctx, approval); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("hidden cache failure: %v", err)
 	}
 }

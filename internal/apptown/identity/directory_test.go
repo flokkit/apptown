@@ -25,10 +25,10 @@ func TestAccounts(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	d := &directoryStore{db: db}
-	if role, err := d.Ensure(context.Background(), "drifter"); err != nil || role != "member" {
+	if role, err := d.ensureRole(context.Background(), "drifter"); err != nil || role != "member" {
 		t.Fatalf("ensure: %v %q", err, role)
 	}
-	if role, err := d.Ensure(context.Background(), "drifter"); err != nil || role != "member" {
+	if role, err := d.ensureRole(context.Background(), "drifter"); err != nil || role != "member" {
 		t.Fatalf("ensure again: %v %q", err, role)
 	}
 	if _, err := New(db, Config{}).Bootstrap(context.Background(), NewAccount{Username: "root", Password: "first-password"}); err != nil {
@@ -37,27 +37,27 @@ func TestAccounts(t *testing.T) {
 	if _, err := New(db, Config{}).Bootstrap(context.Background(), NewAccount{Username: "again", Password: "other-password"}); !errors.Is(err, ErrAlreadyBootstrapped) {
 		t.Fatalf("second bootstrap: %v", err)
 	}
-	if role, _ := d.Ensure(context.Background(), "root"); role != "admin" {
+	if role, _ := d.ensureRole(context.Background(), "root"); role != "admin" {
 		t.Fatalf("bootstrap makes an administrator: %q", role)
 	}
 	grants, _ := ActiveGrantsIn(context.Background(), db, access.Principal{Kind: "user", Name: "root"}, time.Now())
 	if !HasRole(grants, access.RoleInstanceAdmin, access.ScopeInstance, "") {
 		t.Fatal("bootstrap seeds the sovereign grant")
 	}
-	users, err := d.Users(context.Background())
+	users, err := d.users(context.Background())
 	if err != nil || len(users) != 2 || users[0].Username != "drifter" || users[0].HasPassword || !users[1].HasPassword || users[1].Role != "admin" {
 		t.Fatalf("users: %v %+v", err, users)
 	}
-	if err := testRemoveName(db, "root", "ops"); !errors.Is(err, ErrRealAccount) {
+	if err := testRemoveName(db, "root", "ops"); !errors.Is(err, errRealAccount) {
 		t.Fatalf("a real account stays: %v", err)
 	}
-	if err := testRemoveName(db, "nobody", "ops"); !errors.Is(err, ErrNoSuchName) {
+	if err := testRemoveName(db, "nobody", "ops"); !errors.Is(err, errNoSuchName) {
 		t.Fatalf("unknown name: %v", err)
 	}
 	if err := testRemoveName(db, "drifter", "ops"); err != nil {
 		t.Fatal(err)
 	}
-	if users, _ := d.Users(context.Background()); len(users) != 1 {
+	if users, _ := d.users(context.Background()); len(users) != 1 {
 		t.Fatal("the bare name is gone")
 	}
 	if n := len(ledger(t, db, "auth.bootstrap")) + len(ledger(t, db, "user.name-removed")); n != 2 {
@@ -76,10 +76,10 @@ func TestSaveFollowsTheRole(t *testing.T) {
 		t.Fatal(err)
 	}
 	yes := true
-	if err := testSaveAccount(db, accountEdit{Name: "root", Role: "member"}, "ops"); !errors.Is(err, ErrLastAdministrator) {
+	if err := testSaveAccount(db, accountEdit{Name: "root", Role: "member"}, "ops"); !errors.Is(err, errLastAdministrator) {
 		t.Fatalf("demoting the last administrator: %v", err)
 	}
-	if err := testSaveAccount(db, accountEdit{Name: "root", Role: "admin", Disabled: &yes}, "ops"); !errors.Is(err, ErrLastAdministrator) {
+	if err := testSaveAccount(db, accountEdit{Name: "root", Role: "admin", Disabled: &yes}, "ops"); !errors.Is(err, errLastAdministrator) {
 		t.Fatalf("disabling the last administrator: %v", err)
 	}
 	if err := testSaveAccount(db, accountEdit{Name: "alice", Role: "admin", PasswordHash: "h2"}, "ops"); err != nil {
@@ -98,10 +98,10 @@ func TestSaveFollowsTheRole(t *testing.T) {
 	if err := testSaveAccount(db, accountEdit{Name: "root", Role: "member", Disabled: &yes}, "ops"); err != nil {
 		t.Fatal(err)
 	}
-	if disabled, err := d.Disabled(context.Background(), "root"); err != nil || !disabled {
+	if disabled, err := disabledIn(context.Background(), d.db, "root"); err != nil || !disabled {
 		t.Fatalf("disabled: %v %v", err, disabled)
 	}
-	if disabled, err := d.Disabled(context.Background(), "ghost"); err != nil || !disabled {
+	if disabled, err := disabledIn(context.Background(), d.db, "ghost"); err != nil || !disabled {
 		t.Fatalf("an unknown name is refused like a disabled one: %v %v", err, disabled)
 	}
 	if _, err := queries(db).SessionByHash(context.Background(), "t1"); !errors.Is(err, sql.ErrNoRows) {
@@ -116,7 +116,7 @@ func TestSaveFollowsTheRole(t *testing.T) {
 	if err := testSaveAccount(db, accountEdit{Name: "alice", Role: "admin", DefaultGroup: &group}, "ops"); err != nil {
 		t.Fatal(err)
 	}
-	if def, err := d.DefaultGroup(context.Background(), "alice"); err != nil || def != "kids" {
+	if def, err := d.defaultGroup(context.Background(), "alice"); err != nil || def != "kids" {
 		t.Fatalf("default group: %v %q", err, def)
 	}
 }
@@ -131,7 +131,7 @@ func TestGroups(t *testing.T) {
 	if err := testSaveAccount(db, accountEdit{Name: "root", Role: "admin", PasswordHash: "h"}, "setup"); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return DefaultsIn(context.Background(), tx, false, time.Now()) }); err != nil {
+	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return defaultsIn(context.Background(), tx, false, time.Now()) }); err != nil {
 		t.Fatal(err)
 	}
 	if err := New(db, Config{}).SaveGroup(context.Background(), GroupChange{Name: "kids", Description: "the children", Members: []string{"jude", "root"}}, admittedPrincipal(t, New(db, Config{}), "root")); err != nil {
@@ -140,7 +140,7 @@ func TestGroups(t *testing.T) {
 	if err := New(db, Config{}).SaveGroup(context.Background(), GroupChange{Name: "kids", Description: "the children, revised", Members: []string{"jude"}}, admittedPrincipal(t, New(db, Config{}), "root")); err != nil {
 		t.Fatal(err)
 	}
-	groups, err := d.Groups(context.Background())
+	groups, err := d.groups(context.Background())
 	if err != nil || len(groups) != 3 || groups[0].Kind != "built-in" || groups[1].Name != "root" || groups[1].Kind != "personal" {
 		t.Fatalf("groups: %v %+v", err, groups)
 	}
@@ -153,19 +153,19 @@ func TestGroups(t *testing.T) {
 	if kind, _ := d.GroupKind(context.Background(), "nope"); kind != "" {
 		t.Fatalf("unknown group kind: %q", kind)
 	}
-	if names, _ := d.GroupNames(context.Background()); len(names) != 2 || names[0] != "root" || names[1] != "kids" {
+	if names, _ := d.groupNames(context.Background()); len(names) != 2 || names[0] != "root" || names[1] != "kids" {
 		t.Fatalf("creatable groups, personal first: %v", names)
 	}
-	if err := testDeleteGroup(db, "root", "ops"); !errors.Is(err, ErrProtectedGroup) {
+	if err := testDeleteGroup(db, "root", "ops"); !errors.Is(err, errProtectedGroup) {
 		t.Fatalf("a personal group stays: %v", err)
 	}
-	if err := testDeleteGroup(db, GroupAllUsers, "ops"); !errors.Is(err, ErrProtectedGroup) {
+	if err := testDeleteGroup(db, GroupAllUsers, "ops"); !errors.Is(err, errProtectedGroup) {
 		t.Fatalf("the built-in group stays: %v", err)
 	}
 	if err := testDeleteGroup(db, "kids", "ops"); err != nil {
 		t.Fatal(err)
 	}
-	if groups, _ := d.Groups(context.Background()); len(groups) != 2 {
+	if groups, _ := d.groups(context.Background()); len(groups) != 2 {
 		t.Fatal("deleted")
 	}
 	if receipts := len(ledger(t, db, "group.saved")) + len(ledger(t, db, "group.deleted")); receipts != 3 {
@@ -298,7 +298,7 @@ func TestAnAccountThatActedIsDisabledNotRemoved(t *testing.T) {
 		}
 	}
 	for _, name := range []string{"sso", "agent", "browser"} {
-		if err := s.RemoveName(ctx, name, ops); !errors.Is(err, ErrRealAccount) {
+		if err := s.RemoveName(ctx, name, ops); !errors.Is(err, errRealAccount) {
 			t.Fatalf("%s acted, so it is kept: %v", name, err)
 		}
 	}
@@ -309,7 +309,7 @@ func TestAnAccountThatActedIsDisabledNotRemoved(t *testing.T) {
 	if _, err := s.EnsureUser(ctx, "sso"); err != nil {
 		t.Fatal(err)
 	}
-	if disabled, err := s.Disabled(ctx, "sso"); err != nil || !disabled {
+	if disabled, err := disabledIn(ctx, s.db, "sso"); err != nil || !disabled {
 		t.Fatalf("a disabled account seen again stays disabled: %v %v", err, disabled)
 	}
 	if err := s.RemoveName(ctx, "typo", ops); err != nil {
@@ -333,7 +333,7 @@ func TestAnUnknownNameIsRefused(t *testing.T) {
 	}
 	// Everyone signed in reads everything by default: only the missing
 	// account refuses the removed name that reading.
-	if err := s.db.InTx(ctx, func(tx *database.Tx) error { return DefaultsIn(ctx, tx, false, time.Now()) }); err != nil {
+	if err := s.db.InTx(ctx, func(tx *database.Tx) error { return defaultsIn(ctx, tx, false, time.Now()) }); err != nil {
 		t.Fatal(err)
 	}
 	ghost := access.Principal{Kind: "user", Name: "ghost", Via: "session"}
@@ -376,7 +376,7 @@ func TestAGrantRecordsThePersonsAccount(t *testing.T) {
 	if err != nil || len(users) != 1 || users[0].Username != "dana" || users[0].LastSeen.Valid || users[0].Acted {
 		t.Fatalf("the grant's person is an account, never seen: %v %+v", err, users)
 	}
-	if disabled, err := s.Disabled(context.Background(), "dana"); err != nil || disabled {
+	if disabled, err := disabledIn(context.Background(), s.db, "dana"); err != nil || disabled {
 		t.Fatalf("the granted person may act: %v %v", err, disabled)
 	}
 }

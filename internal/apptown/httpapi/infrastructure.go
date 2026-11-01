@@ -30,14 +30,14 @@ type Infrastructure struct {
 	providers   *deployment.Providers
 	projects    *project.Projects
 	db          *database.DB
-	cache       InventoryCache
+	cache       inventoryCache
 	builtinDB   bool
 	dbContainer string
 	dbVolume    string
 	now         func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
-func NewInfrastructure(deployment *deployment.Service, hosts *deployment.Hosts, providers *deployment.Providers, projects *project.Projects, db *database.DB, cache InventoryCache, builtinDB bool, dbContainer string, dbVolume string, now func() time.Time) Infrastructure {
+func NewInfrastructure(deployment *deployment.Service, hosts *deployment.Hosts, providers *deployment.Providers, projects *project.Projects, db *database.DB, cache inventoryCache, builtinDB bool, dbContainer string, dbVolume string, now func() time.Time) Infrastructure {
 	return Infrastructure{deployment: deployment, hosts: hosts, providers: providers, projects: projects, db: db, cache: cache, builtinDB: builtinDB, dbContainer: dbContainer, dbVolume: dbVolume, now: now}
 }
 
@@ -177,7 +177,7 @@ func (h Infrastructure) RemoveInfrastructure(w http.ResponseWriter, r *http.Requ
 		// it happens, and its outcome recorded after.
 		what := map[string]any{"kind": in.Kind, "name": in.Name, "id": in.ID}
 		admit := func() bool {
-			if err := audit.At(clock.Or(h.now)()).Record(r.Context(), h.db, Actor(r), ids.Nil, "infrastructure.remove-requested", t.Name, what); err != nil {
+			if err := audit.At(clock.Or(h.now)()).Record(r.Context(), h.db, actor(r), ids.Nil, "infrastructure.remove-requested", t.Name, what); err != nil {
 				WriteError(w, 503, "not removed: the request could not be recorded: %v", err)
 				return false
 			}
@@ -245,14 +245,14 @@ func (h Infrastructure) RemoveInfrastructure(w http.ResponseWriter, r *http.Requ
 		if err != nil {
 			why := strs.Truncate(strings.TrimSpace(string(out))+" "+err.Error(), 300)
 			failed := map[string]any{"kind": in.Kind, "name": in.Name, "id": in.ID, "error": why}
-			if recErr := audit.At(clock.Or(h.now)()).Record(settle, h.db, Actor(r), ids.Nil, "infrastructure.remove-failed", t.Name, failed); recErr != nil {
+			if recErr := audit.At(clock.Or(h.now)()).Record(settle, h.db, actor(r), ids.Nil, "infrastructure.remove-failed", t.Name, failed); recErr != nil {
 				why += "; and recording that it failed: " + recErr.Error()
 			}
 			WriteError(w, 502, "not removed: %s", why)
 			return
 		}
 		h.deployment.InfrastructureChanged(t.ID)
-		if err := audit.At(clock.Or(h.now)()).Record(settle, h.db, Actor(r), ids.Nil, "infrastructure.removed", t.Name, what); err != nil {
+		if err := audit.At(clock.Or(h.now)()).Record(settle, h.db, actor(r), ids.Nil, "infrastructure.removed", t.Name, what); err != nil {
 			WriteError(w, 500, "%s %s was removed, but its outcome was not recorded: %v", in.Kind, in.Name, err)
 			return
 		}

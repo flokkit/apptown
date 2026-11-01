@@ -45,7 +45,7 @@ func validationCandidate(t *testing.T) (*database.DB, *Service, Candidate) {
 	c := Candidate{ProjectID: pid, Receipt: EmptyReceipt(), Packs: []PackPick{{Pack: "held-pack", Version: 1}}, Installation: Installation{Policies: []Policy{{Name: "required", Rule: "requireCapabilityBound", With: map[string]any{"capability": "registry"}}}, Extensions: []string{"addon"}}}
 	c.Receipt.Packs = []string{"held-pack"}
 	c.Receipt.Guidance = []ReceiptBlock{{BlockID: block, Name: "held-guide", Version: 1}}
-	c.Receipt.Workflows = []ReceiptWorkflow{{Name: "held-flow", Version: 1, YAMLHash: HashText(yaml)}}
+	c.Receipt.Workflows = []ReceiptWorkflow{{Name: "held-flow", Version: 1, YAMLHash: hashText(yaml)}}
 	policy, err := policyReceipt(c.Installation.Policies[0])
 	if err != nil {
 		t.Fatal(err)

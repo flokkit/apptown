@@ -40,24 +40,24 @@ var (
 	errStepTransition = errors.New("invalid step transition")
 )
 
-type StepMove uint8
+type stepMove uint8
 
 const (
-	MoveStepStart StepMove = iota + 1
-	MoveStepFinish
-	MoveStepVote
-	MoveStepReopen
-	MoveStepOverride
-	MoveStepReset
-	MoveStepEvaluate
-	MoveStepWithdraw
-	MoveStepSkip
+	moveStepStart stepMove = iota + 1
+	moveStepFinish
+	moveStepVote
+	moveStepReopen
+	moveStepOverride
+	moveStepReset
+	moveStepEvaluate
+	moveStepWithdraw
+	moveStepSkip
 )
 
-// Transition is the single state rule for each kind of step operation. Stores
+// transition is the single state rule for each kind of step operation. Stores
 // additionally enforce scope, stage, attempt/revision and operation-specific
 // evidence under their existing locks, then commit the state and receipt together.
-func (s StepState) Transition(move StepMove, next StepState) (StepState, error) {
+func (s StepState) transition(move stepMove, next StepState) (StepState, error) {
 	if _, err := s.Value(); err != nil {
 		return 0, err
 	}
@@ -66,23 +66,23 @@ func (s StepState) Transition(move StepMove, next StepState) (StepState, error) 
 	}
 	allowed := false
 	switch move {
-	case MoveStepStart:
+	case moveStepStart:
 		allowed = s == StatusPending && next == StatusRunning
-	case MoveStepFinish:
+	case moveStepFinish:
 		allowed = s == StatusRunning && (next == StatusPass || next == StatusFail || next == StatusNeedsHuman || next == StatusError || next == StatusSkipped || next == StatusNotApplicable)
-	case MoveStepVote:
+	case moveStepVote:
 		allowed = (s == StatusPending || s == StatusNeedsHuman) && (next == s || next == StatusPass || next == StatusFail)
-	case MoveStepReopen:
+	case moveStepReopen:
 		allowed = s == StatusFail && next == StatusPending
-	case MoveStepOverride:
+	case moveStepOverride:
 		allowed = s != StatusRunning && s != StatusPass && s != StatusNotApplicable && next == StatusPass
-	case MoveStepReset:
+	case moveStepReset:
 		allowed = s != StatusRunning && next == StatusPending
-	case MoveStepEvaluate:
+	case moveStepEvaluate:
 		allowed = s != StatusRunning && (next == StatusPass || next == StatusFail || next == StatusNeedsHuman || next == StatusError)
-	case MoveStepWithdraw:
+	case moveStepWithdraw:
 		allowed = (s == StatusPending || s == StatusNeedsHuman) && next == StatusFail
-	case MoveStepSkip:
+	case moveStepSkip:
 		allowed = (s == StatusPending || s == StatusError) && next == StatusSkipped
 	}
 	if !allowed {
@@ -91,13 +91,13 @@ func (s StepState) Transition(move StepMove, next StepState) (StepState, error) 
 	return next, nil
 }
 
-func (s StepState) PassesGate() bool {
+func (s StepState) passesGate() bool {
 	return s == StatusPass || s == StatusSkipped || s == StatusNotApplicable
 }
 
-// Judged says the step judged its subject and let it through: a pass, or
+// judged says the step judged its subject and let it through: a pass, or
 // not applicable. Neither a skip nor an override is a judgement.
-func (s StepState) Judged() bool                     { return s == StatusPass || s == StatusNotApplicable }
+func (s StepState) judged() bool                     { return s == StatusPass || s == StatusNotApplicable }
 func (s StepState) String() string                   { return stepStateCodec.String(s) }
 func parseStepState(text string) (StepState, error)  { return stepStateCodec.Parse(text) }
 func (s StepState) Value() (driver.Value, error)     { return stepStateCodec.Value(s) }

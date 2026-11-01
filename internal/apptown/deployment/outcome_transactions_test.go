@@ -66,7 +66,7 @@ func TestDeploymentOutcomeReplayPreservesOriginalEvidence(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			finish := func(label string) (Outcome, error) {
+			finish := func(label string) (deploymentOutcome, error) {
 				if failure {
 					return s.Fail(context.Background(), at, errors.New(label))
 				}
@@ -77,7 +77,7 @@ func TestDeploymentOutcomeReplayPreservesOriginalEvidence(t *testing.T) {
 			}
 			// The generated row read selects every column, so equal rows mean nothing was rewritten.
 			before := storedAttempt(t, f.db, at.ID)
-			if out, err := finish("different-replay"); err != nil || out != AlreadyApplied {
+			if out, err := finish("different-replay"); err != nil || out != alreadyApplied {
 				t.Fatalf("replayed outcome: %s %v", out, err)
 			}
 			if after := storedAttempt(t, f.db, at.ID); !reflect.DeepEqual(before, after) {
@@ -92,7 +92,7 @@ func TestDeploymentOutcomeReplayPreservesOriginalEvidence(t *testing.T) {
 					t.Fatalf("contradiction rewrote the deployment: %q %q %q", d.ReleaseSHA, d.ImageDigest, d.URL)
 				}
 			}
-			if !errors.Is(conflict, ErrOutcomeConflict) {
+			if !errors.Is(conflict, errOutcomeConflict) {
 				t.Fatalf("contradictory terminal result: %v", conflict)
 			}
 		})
@@ -166,20 +166,20 @@ func TestDeploymentOutcomeRollsBackEveryWrite(t *testing.T) {
 					t.Fatal(err)
 				}
 				dbtest.FailNextStatement(t, f.db, statement)
-				var out Outcome
+				var out deploymentOutcome
 				if failure {
 					out, err = s.Fail(context.Background(), at, errors.New("provider failure"))
 				} else {
 					out, err = s.Complete(context.Background(), deploymentCompletionFor(at, "atomic"))
 				}
-				if !errors.Is(err, database.ErrInjectedFailure) || out != "" {
+				if !errors.Is(err, dbtest.ErrInjectedFailure) || out != "" {
 					t.Fatalf("failed write: %s %v", out, err)
 				}
 				wantCount(t, "untouched running attempts", attemptsWhere(t, f.db, func(a deploymentsql.DeploymentAttempt) bool {
 					return string(a.ObservedJson) == "{}" && !a.FinishedAt.Valid
 				}, AttemptRunning), 1)
 				wantCount(t, "unobserved deployments", deploymentsWhere(t, f.db, func(d *Deployment) bool {
-					return d.DesiredGeneration == 1 && d.ObservedGeneration == 0 && d.Readiness == Reconciling && d.URL == ""
+					return d.DesiredGeneration == 1 && d.ObservedGeneration == 0 && d.Readiness == reconciling && d.URL == ""
 				}), 1)
 				if out, err := s.Complete(context.Background(), deploymentCompletionFor(at, "retry")); err != nil || out != Applied {
 					t.Fatalf("retry after rollback: %s %v", out, err)
@@ -198,7 +198,7 @@ func TestDeploymentOutcomeConcurrentCompletionHasOneWinner(t *testing.T) {
 		t.Fatal(err)
 	}
 	results := race(8, func(i int) int {
-		var out Outcome
+		var out deploymentOutcome
 		var err error
 		if i%2 == 0 {
 			out, err = s.Complete(context.Background(), deploymentCompletionFor(at, fmt.Sprint("winner-", i)))
@@ -208,7 +208,7 @@ func TestDeploymentOutcomeConcurrentCompletionHasOneWinner(t *testing.T) {
 		if out == Applied && err == nil {
 			return 1
 		}
-		if (err == nil && out == AlreadyApplied) || errors.Is(err, ErrOutcomeConflict) {
+		if (err == nil && out == alreadyApplied) || errors.Is(err, errOutcomeConflict) {
 			return 0
 		}
 		t.Errorf("unexpected concurrent result: %s %v", out, err)
@@ -249,7 +249,7 @@ func TestDeploymentOutcomeAdmissionRacesCompletion(t *testing.T) {
 	wantCount(t, "new running attempts", attemptsWhere(t, f.db, func(a deploymentsql.DeploymentAttempt) bool {
 		return a.IdempotencyKey == "new" && a.Generation == 2
 	}, AttemptRunning), 1)
-	if d := storedDeployment(t, f.db, dep.ID); d.DesiredGeneration != 2 || d.ObservedGeneration > 1 || d.Readiness != Reconciling {
+	if d := storedDeployment(t, f.db, dep.ID); d.DesiredGeneration != 2 || d.ObservedGeneration > 1 || d.Readiness != reconciling {
 		t.Fatalf("deployment after the race: desired %d observed %d %s", d.DesiredGeneration, d.ObservedGeneration, d.Readiness)
 	}
 	if out, err := s.Fail(context.Background(), old, errors.New("late failure")); err != nil || out != Superseded {
@@ -293,13 +293,13 @@ func TestDeploymentOutcomeLateCompletionPreservesNewGeneration(t *testing.T) {
 					t.Fatalf("late success: %s %v", out, err)
 				}
 			}
-			if a := storedAttempt(t, f.db, oldID); a.Status != AttemptSuperseded.String() {
+			if a := storedAttempt(t, f.db, oldID); a.Status != attemptSuperseded.String() {
 				t.Fatalf("old attempt: %s", a.Status)
 			}
 			if a := storedAttempt(t, f.db, newID); a.Status != AttemptRunning.String() {
 				t.Fatalf("new attempt: %s", a.Status)
 			}
-			if d := storedDeployment(t, f.db, dep.ID); d.DesiredGeneration != newGen || d.ObservedGeneration != 0 || d.Readiness != Reconciling || d.URL != "" || d.ReleaseSHA != "" {
+			if d := storedDeployment(t, f.db, dep.ID); d.DesiredGeneration != newGen || d.ObservedGeneration != 0 || d.Readiness != reconciling || d.URL != "" || d.ReleaseSHA != "" {
 				t.Fatalf("late outcome touched the new generation: %+v", d)
 			}
 		})
@@ -313,7 +313,7 @@ func TestDeploymentReleaseAdmissionPersistsImmutableInputs(t *testing.T) {
 	start := deploymentStartFor(dep, "immutable", "selected")
 	start.Inputs.Address = &AddressSnapshot{DeploymentID: dep.ID, TargetID: dep.TargetID, Revision: 1, Ingress: deploy.Ingress{Hosts: []string{"selected.apps.example"}, URL: "https://selected.apps.example", CertificateDomain: "apps.example"}}
 	dbtest.FailNextStatement(t, f.db, "INSERT INTO deployment_attempt_inputs")
-	if _, _, err := s.Admit(context.Background(), start); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, _, err := s.Admit(context.Background(), start); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("input persistence failure: %v", err)
 	}
 	wantN(t, "attempts", attemptsIn(t, f.db), 0)
@@ -322,7 +322,7 @@ func TestDeploymentReleaseAdmissionPersistsImmutableInputs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inputs, err := s.InputsFor(context.Background(), at); err != nil || !inputs.Same(start.Inputs) {
+	if inputs, err := s.InputsFor(context.Background(), at); err != nil || !inputs.same(start.Inputs) {
 		t.Fatalf("admitted inputs: %+v %v", inputs, err)
 	}
 	changed := start
@@ -358,7 +358,7 @@ func TestDeploymentReleaseAdmissionRequiresInputRow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inputs, err := f.outcomes.InputsFor(context.Background(), at); err != nil || !inputs.Same(start.Inputs) {
+	if inputs, err := f.outcomes.InputsFor(context.Background(), at); err != nil || !inputs.same(start.Inputs) {
 		t.Fatalf("retry lost its selected inputs: %+v %v", inputs, err)
 	}
 }
@@ -377,7 +377,7 @@ func TestADeploymentsOutcomeIsSettledThoughItsCallerHasGone(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var out Outcome
+		var out deploymentOutcome
 		if uncertain {
 			out, err = f.outcomes.Uncertain(gone, at, errors.New("the effect's answer was lost"))
 		} else {

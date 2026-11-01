@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/usage"
@@ -60,11 +62,11 @@ func TestWorkflowTimingHTTPFailures(t *testing.T) {
 			t.Fatalf("id %q: %d", id, out.Code)
 		}
 	}
-	t.Cleanup(f.DB.FailNextStatement("WITH selected AS"))
+	t.Cleanup(dbtest.NextStatementFailure(f.DB, "WITH selected AS"))
 	if out := callRun(fmt.Sprint(rid)); out.Code != 500 {
 		t.Fatalf("run read failure: %d %s", out.Code, out.Body.String())
 	}
-	t.Cleanup(f.DB.FailNextStatement("WITH selected AS"))
+	t.Cleanup(dbtest.NextStatementFailure(f.DB, "WITH selected AS"))
 	r := httptest.NewRequest("GET", "/api/v1/timing", nil).WithContext(f.Context)
 	w = httptest.NewRecorder()
 	NewTiming(f.Work, usage.New(f.DB)).Timing(w, r)
@@ -149,7 +151,7 @@ func TestTimingReadsEveryTurnFromTheLedger(t *testing.T) {
 		t.Fatalf("summary: %d %s", w.Code, w.Body.String())
 	}
 	// A ledger that cannot be read is a fault, never a cost of 0.
-	t.Cleanup(f.DB.FailNextStatement("SELECT step_id"))
+	t.Cleanup(dbtest.NextStatementFailure(f.DB, "SELECT step_id"))
 	w = httptest.NewRecorder()
 	h.RunTiming(w, r)
 	if w.Code != 500 {

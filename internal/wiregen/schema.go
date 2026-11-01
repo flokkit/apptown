@@ -13,10 +13,10 @@ import (
 // Named types become components, referred to by $ref; an object accepts
 // properties it does not list, since a field may be added.
 type Schemas struct {
-	// Mapped types are written as the given schema, not declared.
-	Mapped map[reflect.Type]map[string]any
-	// Prefix is what a $ref puts before a component's name.
-	Prefix     string
+	// mapped types are written as the given schema, not declared.
+	mapped map[reflect.Type]map[string]any
+	// prefix is what a $ref puts before a component's name.
+	prefix     string
 	Components map[string]map[string]any
 	names      map[reflect.Type]string
 	used       map[string]reflect.Type
@@ -25,12 +25,12 @@ type Schemas struct {
 // NewSchemas writes components referred to as prefix + name, for example
 // "#/components/schemas/".
 func NewSchemas(prefix string) *Schemas {
-	return &Schemas{Mapped: map[reflect.Type]map[string]any{}, Prefix: prefix,
+	return &Schemas{mapped: map[reflect.Type]map[string]any{}, prefix: prefix,
 		Components: map[string]map[string]any{}, names: map[reflect.Type]string{}, used: map[string]reflect.Type{}}
 }
 
 // Map writes values of v's type as schema.
-func (s *Schemas) Map(v any, schema map[string]any) { s.Mapped[reflect.TypeOf(v)] = schema }
+func (s *Schemas) Map(v any, schema map[string]any) { s.mapped[reflect.TypeOf(v)] = schema }
 
 // Ref is the schema of a value of v's type, declaring the components it
 // reaches.
@@ -45,7 +45,7 @@ func (s *Schemas) Named(name string, v any) (map[string]any, error) {
 	if err := s.declare(t); err != nil {
 		return nil, err
 	}
-	return map[string]any{"$ref": s.Prefix + name}, nil
+	return map[string]any{"$ref": s.prefix + name}, nil
 }
 
 func (s *Schemas) name(t reflect.Type, name string) error {
@@ -110,11 +110,11 @@ func (s *Schemas) object(t reflect.Type) (map[string]any, error) {
 
 // ref is how a value of type t is written where it appears.
 func (s *Schemas) ref(t reflect.Type) (map[string]any, error) {
-	if m, ok := s.Mapped[t]; ok {
+	if m, ok := s.mapped[t]; ok {
 		return m, nil
 	}
 	if name, ok := s.names[t]; ok {
-		return map[string]any{"$ref": s.Prefix + name}, nil
+		return map[string]any{"$ref": s.prefix + name}, nil
 	}
 	if _, ok := enumWords(t); ok {
 		return s.enqueue(t)
@@ -180,5 +180,5 @@ func (s *Schemas) enqueue(t reflect.Type) (map[string]any, error) {
 	if err := s.declare(t); err != nil {
 		return nil, err
 	}
-	return map[string]any{"$ref": s.Prefix + t.Name()}, nil
+	return map[string]any{"$ref": s.prefix + t.Name()}, nil
 }

@@ -211,7 +211,7 @@ func TestNoLocalDockerBacksUpAttachedTargetsOnly(t *testing.T) {
 func backupsWhere(t *testing.T, db *database.DB, keep func(ProjectBackup) bool) []ProjectBackup {
 	t.Helper()
 	const limit = 1000
-	all, err := NewBackups(db).All(context.Background(), limit)
+	all, err := NewBackups(db).all(context.Background(), limit)
 	if err != nil {
 		t.Fatal(err)
 	}

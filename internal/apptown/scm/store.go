@@ -226,7 +226,7 @@ func (p *preparedMerge) cancel(ctx context.Context, reason string) error {
 		if err != nil {
 			return struct{}{}, err
 		}
-		receipt := Receipt{Kind: Cancelled, Operation: current.Operation, Reason: reason}
+		receipt := Receipt{Kind: cancelled, Operation: current.Operation, Reason: reason}
 		if _, err := receipt.Event(); err != nil {
 			return struct{}{}, err
 		}
@@ -241,9 +241,9 @@ func (p *preparedMerge) cancel(ctx context.Context, reason string) error {
 // mainMove reads the hub's main back for the settlement. Every caller holds
 // the project's repository lock (Merge, Inspect), so main cannot move between
 // this reading and the settlement's transaction.
-func (p *preparedMerge) mainMove(ctx context.Context) (MainMove, error) {
-	if !p.source.RepositoryBacked() {
-		return MainMove{}, nil
+func (p *preparedMerge) mainMove(ctx context.Context) (mainMove, error) {
+	if !p.source.repositoryBacked() {
+		return mainMove{}, nil
 	}
 	return PrepareMainMove(ctx, p.db, p.source.Repository, p.source.ProjectID, p.source.DefaultBranch)
 }
@@ -251,7 +251,7 @@ func (p *preparedMerge) mainMove(ctx context.Context) (MainMove, error) {
 // recordIn settles a merge: the run's merge slot, Work's receipt and landed
 // commit, and the project's main as read back (which can be later than this
 // merge's result when recovery settles an older merge).
-func (p *preparedMerge) recordIn(ctx context.Context, tx *database.Tx, previous, next intent, via string, move MainMove) error {
+func (p *preparedMerge) recordIn(ctx context.Context, tx *database.Tx, previous, next intent, via string, move mainMove) error {
 	receipt := Receipt{Kind: Completed, Operation: next.Operation, Branch: p.source.Branch, SHA: next.Result, Via: via}
 	if via == "existing-merge" && p.source.MR.IID != 0 {
 		receipt.Via, receipt.IID = "gitlab-mr", p.source.MR.IID

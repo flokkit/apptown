@@ -110,9 +110,9 @@ func (s *Service) Bootstrap(ctx context.Context, in NewAccount) (SignedIn, error
 		if err != nil {
 			return SignedIn{}, err
 		}
-		token, err := issueSessionIn(ctx, tx, a.Username, s.cfg.SessionTTL, now)
+		token, err := issueSessionIn(ctx, tx, a.Username, s.cfg.sessionTTL, now)
 		if err != nil {
-			return SignedIn{}, &SessionIssueError{Cause: err}
+			return SignedIn{}, &sessionIssueError{Cause: err}
 		}
 		return SignedIn{Principal: a.principal("session"), Token: token}, nil
 	})
@@ -149,10 +149,10 @@ func (s *Service) SaveUser(ctx context.Context, in AccountChange, pr access.Prin
 	})
 }
 
-// OperatorActor is who the ledger names for a host operator's break-glass
+// operatorActor is who the ledger names for a host operator's break-glass
 // password reset: someone with AppTown's own settings on its host, not a
 // signed-in account.
-const OperatorActor = "apptown-operator (host)"
+const operatorActor = "apptown-operator (host)"
 
 // ResetPassword is the operator's break-glass for a locked-out account: it
 // gives an existing account a new random password through the same change an
@@ -175,11 +175,11 @@ func (s *Service) ResetPassword(ctx context.Context, username string) (string, e
 	err = s.db.InTx(ctx, func(tx *database.Tx) error {
 		_, err := queries(tx).UserByNameForUpdate(ctx, username)
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w: %s", ErrNoSuchName, username)
+			return fmt.Errorf("%w: %s", errNoSuchName, username)
 		} else if err != nil {
 			return err
 		}
-		return changeAccountIn(ctx, tx, accountEdit{Name: username, PasswordHash: hash}, OperatorActor, s.now())
+		return changeAccountIn(ctx, tx, accountEdit{Name: username, PasswordHash: hash}, operatorActor, s.now())
 	})
 	if err != nil {
 		return "", err

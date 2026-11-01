@@ -98,7 +98,7 @@ func TestABootsFailureNeverHoldsTheNeedsGeneratedCredentials(t *testing.T) {
 			if run := leakedRun(said, password); run != "" {
 				t.Fatalf("the failure keeps %q of the password:\n%s", run, said)
 			}
-			if !strings.Contains(said, Redacted[:4]) {
+			if !strings.Contains(said, redacted[:4]) {
 				t.Fatalf("the failure does not say a value was redacted:\n%s", said)
 			}
 		})

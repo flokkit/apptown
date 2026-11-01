@@ -15,7 +15,7 @@ type ChangeMove struct {
 	Action ChangeAction
 	RunID  ids.ID // attach, land or resume; zero preserves the current association
 }
-type ChangeLifecycle struct {
+type changeLifecycle struct {
 	ID, ProjectID, RunID ids.ID
 	State                ChangeState
 	Type, Branch         string
@@ -25,8 +25,8 @@ type ChangeLifecycle struct {
 // business receipts. A fresh Change is locked here even when admission already
 // read it: earlier work in the same transaction may have cancelled its landing.
 // at is AppTown's time of the move, which closes the Change when it ends.
-func TransitionChangeIn(ctx context.Context, tx *database.Tx, projectID ids.ID, id ids.ID, move ChangeMove, at time.Time) (ChangeLifecycle, error) {
-	var current ChangeLifecycle
+func TransitionChangeIn(ctx context.Context, tx *database.Tx, projectID ids.ID, id ids.ID, move ChangeMove, at time.Time) (changeLifecycle, error) {
+	var current changeLifecycle
 	if id.IsZero() || projectID.IsZero() {
 		return current, fmt.Errorf("invalid Change transition command")
 	}
@@ -34,8 +34,8 @@ func TransitionChangeIn(ctx context.Context, tx *database.Tx, projectID ids.ID, 
 	if err != nil {
 		return current, err
 	}
-	current = ChangeLifecycle{ID: row.ID, ProjectID: row.ProjectID, RunID: row.RunID, State: row.State, Type: row.Type, Branch: row.Branch}
-	next, err := current.Apply(move)
+	current = changeLifecycle{ID: row.ID, ProjectID: row.ProjectID, RunID: row.RunID, State: row.State, Type: row.Type, Branch: row.Branch}
+	next, err := current.apply(move)
 	if err != nil || next == current {
 		return current, err
 	}

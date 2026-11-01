@@ -21,8 +21,8 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// MaxRunning is how many arms of one eval run at once.
-const MaxRunning = 2
+// maxRunning is how many arms of one eval run at once.
+const maxRunning = 2
 
 // The driver moves every running eval along, one pass at a time, from what
 // is recorded: a pass after a restart picks up where the last left off.
@@ -51,7 +51,7 @@ const PassJob = "eval-pass"
 // stopped by shutdown or its budget returns why, not success; the next
 // pass carries on from the tables.
 func (s *Service) RunPassJob(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
-	err := s.Pass(ctx)
+	err := s.pass(ctx)
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -72,8 +72,8 @@ func (s *Service) requestPass(ctx context.Context) {
 	}
 }
 
-// Pass moves every running or held eval along once.
-func (s *Service) Pass(ctx context.Context) error {
+// pass moves every running or held eval along once.
+func (s *Service) pass(ctx context.Context) error {
 	running, err := queries(s.db).RunningEvals(ctx)
 	if err != nil {
 		return err
@@ -101,12 +101,12 @@ func (s *Service) advance(ctx context.Context, e evalssql.Eval) error {
 		switch {
 		case arms[i].running():
 			arms[i] = s.observe(ctx, e, arms[i], arms)
-		case arms[i].State == ArmCopying || arms[i].State == ArmStarting:
+		case arms[i].State == armCopying || arms[i].State == armStarting:
 			// Arms start one at a time within a pass, so one found copying
 			// or starting at the start of a pass was interrupted: its copy
 			// stays linked, counted and visible, left for the eval's deletion.
-			what := map[bool]string{true: "its copy was being made", false: "its lane was starting"}[arms[i].State == ArmCopying]
-			arms[i].State, arms[i].Reason = ArmFailed, "interrupted while "+what+"; the copy is left for the eval's deletion"
+			what := map[bool]string{true: "its copy was being made", false: "its lane was starting"}[arms[i].State == armCopying]
+			arms[i].State, arms[i].Reason = armFailed, "interrupted while "+what+"; the copy is left for the eval's deletion"
 			s.saveArm(ctx, arms[i])
 		}
 	}
@@ -122,11 +122,11 @@ func (s *Service) advance(ctx context.Context, e evalssql.Eval) error {
 				if err := s.abandon(ctx, e, a, why); err != nil {
 					arms[i].Reason = "could not be stopped: " + err.Error()
 				} else {
-					arms[i].State, arms[i].Reason = ArmNotRun, "stopped: "+why
+					arms[i].State, arms[i].Reason = armNotRun, "stopped: "+why
 				}
 				s.saveArm(ctx, arms[i])
-			case a.State == ArmQueued || a.State == ArmCopied:
-				arms[i].State, arms[i].Reason = ArmNotRun, "not run: "+why
+			case a.State == armQueued || a.State == armCopied:
+				arms[i].State, arms[i].Reason = armNotRun, "not run: "+why
 				s.saveArm(ctx, arms[i])
 			}
 		}
@@ -139,12 +139,12 @@ func (s *Service) advance(ctx context.Context, e evalssql.Eval) error {
 		}
 		// Copied arms first: their copies are made, their lanes wait.
 		for i, a := range arms {
-			if a.State == ArmCopied {
+			if a.State == armCopied {
 				arms[i] = s.startLane(ctx, e, a)
 			}
 		}
 		for i, a := range arms {
-			if a.State != ArmQueued {
+			if a.State != armQueued {
 				continue
 			}
 			// Asked for each arm, at that moment, under the eval's lock;
@@ -156,7 +156,7 @@ func (s *Service) advance(ctx context.Context, e evalssql.Eval) error {
 				}
 				break
 			}
-			if running >= MaxRunning {
+			if running >= maxRunning {
 				break
 			}
 			arms[i] = s.startArm(ctx, e, a)
@@ -170,13 +170,13 @@ func (s *Service) advance(ctx context.Context, e evalssql.Eval) error {
 			return nil
 		}
 	}
-	return s.finish(ctx, e, StateFinished, "")
+	return s.finish(ctx, e, stateFinished, "")
 }
 
 // budgetSpent is why the eval's budget stops it, "" while some is left; a
 // spent budget is recorded on the eval (stopping) once.
 func (s *Service) budgetSpent(ctx context.Context, e evalssql.Eval) (string, error) {
-	if e.State == StateStopping {
+	if e.State == stateStopping {
 		return e.Reason, nil
 	}
 	spent, err := s.gate.spent(ctx, s.db, e.ID)
@@ -237,7 +237,7 @@ func (s *Service) saveArm(ctx context.Context, a Arm) {
 // made, stays linked for the eval's deletion.
 func (s *Service) startArm(ctx context.Context, e evalssql.Eval, a Arm) Arm {
 	fail := func(why string, err error) Arm {
-		a.State, a.Reason = ArmFailed, fmt.Sprintf("%s: %v", why, err)
+		a.State, a.Reason = armFailed, fmt.Sprintf("%s: %v", why, err)
 		a.Score.NotComparable = strings.HasPrefix(why, "not comparable")
 		s.saveArm(ctx, a)
 		return a
@@ -268,7 +268,7 @@ func (s *Service) startArm(ctx context.Context, e evalssql.Eval, a Arm) Arm {
 		Slug: fmt.Sprintf("eval-%d-%d", e.ID, a.ID), Name: fmt.Sprintf("Eval %d %s: change %d", e.Number, a.Arm, a.SourceChangeNumber),
 		SourceID: a.SourceProjectID, Commit: source.BaseSHA, Who: who, Packs: picks,
 		Record: func(tx *database.Tx, projectID ids.ID) error {
-			return recordArmCopyIn(ctx, tx, projectID, Copy{EvalID: e.ID, ArmID: a.ID, Arm: a.Arm})
+			return recordArmCopyIn(ctx, tx, projectID, copy{EvalID: e.ID, ArmID: a.ID, Arm: a.Arm})
 		},
 	}
 	// An adoption Change's copy starts where the Change started; the arm's
@@ -287,7 +287,7 @@ func (s *Service) startArm(ctx context.Context, e evalssql.Eval, a Arm) Arm {
 		return a
 	}
 	if p != nil {
-		a.ProjectID, a.State = p.ID, ArmCopying
+		a.ProjectID, a.State = p.ID, armCopying
 	}
 	if err != nil {
 		return fail("not comparable: the copy could not be made", err)
@@ -303,10 +303,10 @@ func (s *Service) startArm(ctx context.Context, e evalssql.Eval, a Arm) Arm {
 	}
 	// A pack-version eval holds the model: both arms run the baseline's,
 	// overrides included.
-	if err := s.deps.Models.CopyModels(ctx, a.SourceProjectID, p.ID, a.Profile, a.Arm == ArmBaseline || e.SubjectKind == SubjectPack, who); err != nil {
+	if err := s.deps.Models.CopyModels(ctx, a.SourceProjectID, p.ID, a.Profile, a.Arm == armBaseline || e.SubjectKind == SubjectPack, who); err != nil {
 		return fail("the copy could not be given its models", err)
 	}
-	a.State = ArmCopied
+	a.State = armCopied
 	s.saveArm(ctx, a)
 	return s.startLane(ctx, e, a)
 }
@@ -317,7 +317,7 @@ func (s *Service) startArm(ctx context.Context, e evalssql.Eval, a Arm) Arm {
 // the arm stays copied, its copy kept, until the starter continues.
 func (s *Service) startLane(ctx context.Context, e evalssql.Eval, a Arm) Arm {
 	fail := func(why string, err error) Arm {
-		a.State, a.Reason = ArmFailed, fmt.Sprintf("%s: %v", why, err)
+		a.State, a.Reason = armFailed, fmt.Sprintf("%s: %v", why, err)
 		s.saveArm(ctx, a)
 		return a
 	}
@@ -336,7 +336,7 @@ func (s *Service) startLane(ctx context.Context, e evalssql.Eval, a Arm) Arm {
 		return fail("reading the original Change", err)
 	}
 	p := struct{ ID ids.ID }{a.ProjectID}
-	a.State = ArmStarting
+	a.State = armStarting
 	s.saveArm(ctx, a)
 	in := s.deps.InCopy(ctx, e.ID, p.ID)
 	var ch *workflow.Change
@@ -355,7 +355,7 @@ func (s *Service) startLane(ctx context.Context, e evalssql.Eval, a Arm) Arm {
 		return fail("its lane could not start", err)
 	}
 	now := s.now()
-	a.RunID, a.StartedAt, a.State = run.ID, &now, ArmWorking
+	a.RunID, a.StartedAt, a.State = run.ID, &now, armWorking
 	s.saveArm(ctx, a)
 	return a
 }
@@ -386,7 +386,7 @@ func (s *Service) openAdoption(ctx context.Context, a Arm, plan armPlan) (*workf
 // admission, with the authority the copy was given its adoption under:
 // the copy's own, which a variant that drops a gating block still needs.
 type copyTarget struct {
-	adoption  Adoption
+	adoption  adoptionState
 	candidate adoption.Candidate
 	copy      ids.ID
 }
@@ -432,7 +432,7 @@ func (s *Service) observe(ctx context.Context, e evalssql.Eval, a Arm, arms []Ar
 		if err != nil {
 			t = s.now()
 		}
-		a.ReadyAt, a.State, changed = &t, ArmLanding, true
+		a.ReadyAt, a.State, changed = &t, armLanding, true
 	}
 	if landing != nil && a.LandingRunID != landing.ID {
 		a.LandingRunID, changed = landing.ID, true
@@ -450,7 +450,7 @@ func (s *Service) observe(ctx context.Context, e evalssql.Eval, a Arm, arms []Ar
 		}
 		a.Score = s.score(in, a, ch, work, landing)
 		s.takeDown(ctx, e, a)
-		a.State, a.Reason, changed = ArmFailed, "it landed, but AppTown could not move the copy to its new way of working: "+why, true
+		a.State, a.Reason, changed = armFailed, "it landed, but AppTown could not move the copy to its new way of working: "+why, true
 	case ch.State == workflow.ChangeShipped:
 		a.Score = s.score(in, a, ch, work, landing)
 		a.Reason = ""
@@ -462,20 +462,20 @@ func (s *Service) observe(ctx context.Context, e evalssql.Eval, a Arm, arms []Ar
 			a.Score.Compared, a.Score.CompareError = s.compare(ctx, e, a, arms)
 		}
 		s.takeDown(ctx, e, a)
-		a.State, changed = ArmScored, true
+		a.State, changed = armScored, true
 	case ch.State == workflow.ChangeAbandoned:
 		a.Score = s.score(in, a, ch, work, landing)
-		a.State, a.Reason, changed = ArmFailed, "the Change was abandoned", true
+		a.State, a.Reason, changed = armFailed, "the Change was abandoned", true
 	case work != nil && work.Status == workflow.RunAbandoned:
 		a.Score = s.score(in, a, ch, work, landing)
-		a.State, a.Reason, changed = ArmFailed, "its run ended before the work was ready to land", true
+		a.State, a.Reason, changed = armFailed, "its run ended before the work was ready to land", true
 	case landing != nil && landing.Status == workflow.RunAbandoned && ch.State != workflow.ChangeLanding:
 		a.Score = s.score(in, a, ch, work, landing)
-		a.State, a.Reason, changed = ArmFailed, "its landing ended without landing", true
+		a.State, a.Reason, changed = armFailed, "its landing ended without landing", true
 	default:
 		if why := s.stopIfBlocked(ctx, e, a, work, landing); why != "" {
 			a.Score = s.score(in, a, ch, work, landing)
-			a.State, a.Reason, changed = ArmFailed, why, true
+			a.State, a.Reason, changed = armFailed, why, true
 		}
 	}
 	if changed {

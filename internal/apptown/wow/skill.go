@@ -40,8 +40,8 @@ var skillName = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 const maxSkillDescription = 1024
 
-// ErrSkill is a body whose skill marker is malformed.
-var ErrSkill = fault.New(fault.Invalid, "a guidance body carries at most one skill, with a description and a how-to")
+// errSkill is a body whose skill marker is malformed.
+var errSkill = fault.New(fault.Invalid, "a guidance body carries at most one skill, with a description and a how-to")
 
 // SplitSkill returns a block's always-read rules and its skill, or the body
 // unchanged and no skill when it has no marker. A body with more than one
@@ -54,24 +54,24 @@ func SplitSkill(blockName, body string) (rules string, skill *Skill, err error) 
 		return body, nil, nil
 	case 1:
 	default:
-		return "", nil, fmt.Errorf("%w: guidance %s has %d skill markers; a block carries at most one skill", ErrSkill, blockName, len(marks))
+		return "", nil, fmt.Errorf("%w: guidance %s has %d skill markers; a block carries at most one skill", errSkill, blockName, len(marks))
 	}
 	m := marks[0]
 	if !strings.HasSuffix(strings.TrimRight(body[m[0]:m[1]], " \t"), "-->") {
-		return "", nil, fmt.Errorf("%w: guidance %s: the skill marker is one line ending in -->", ErrSkill, blockName)
+		return "", nil, fmt.Errorf("%w: guidance %s: the skill marker is one line ending in -->", errSkill, blockName)
 	}
 	description := strings.TrimSpace(body[m[2]:m[3]])
 	how := strings.TrimSpace(body[m[1]:])
 	name := strings.ReplaceAll(blockName, "/", "-")
 	switch {
 	case description == "":
-		return "", nil, fmt.Errorf("%w: guidance %s: the skill marker needs a description saying what the how-to covers and when to load it", ErrSkill, blockName)
+		return "", nil, fmt.Errorf("%w: guidance %s: the skill marker needs a description saying what the how-to covers and when to load it", errSkill, blockName)
 	case len(description) > maxSkillDescription:
-		return "", nil, fmt.Errorf("%w: guidance %s: the skill's description is %d characters; the limit is %d", ErrSkill, blockName, len(description), maxSkillDescription)
+		return "", nil, fmt.Errorf("%w: guidance %s: the skill's description is %d characters; the limit is %d", errSkill, blockName, len(description), maxSkillDescription)
 	case how == "":
-		return "", nil, fmt.Errorf("%w: guidance %s: the skill marker is followed by nothing; the how-to goes below it", ErrSkill, blockName)
+		return "", nil, fmt.Errorf("%w: guidance %s: the skill marker is followed by nothing; the how-to goes below it", errSkill, blockName)
 	case len(name) > 64 || !skillName.MatchString(name):
-		return "", nil, fmt.Errorf("%w: guidance %s cannot carry a skill: a skill's name (%q) is lowercase letters, digits and single hyphens, at most 64", ErrSkill, blockName, name)
+		return "", nil, fmt.Errorf("%w: guidance %s cannot carry a skill: a skill's name (%q) is lowercase letters, digits and single hyphens, at most 64", errSkill, blockName, name)
 	}
 	return strings.TrimRight(body[:m[0]], " \t\n"), &Skill{Name: name, Description: description, Body: how}, nil
 }

@@ -73,7 +73,7 @@ func (r previewKeyRecorder) Forget(ctx context.Context, k integration.HeldKey) e
 	return err
 }
 
-// ReleaseEndedPreviewKeys revokes the key of every preview that no longer
+// releaseEndedPreviewKeys revokes the key of every preview that no longer
 // stands where previews run and is not booting. The place previews run is
 // asked, not AppTown's memory of them: however a preview ended (stopped,
 // discarded, reaped for age, removed with its project, reconciled away,
@@ -83,7 +83,7 @@ func (r previewKeyRecorder) Forget(ctx context.Context, k integration.HeldKey) e
 // A place that cannot be asked keeps every key it might
 // hold until it answers. A revoke that fails becomes a retained row naming
 // the key, for a person to revoke by hand.
-func (s *Service) ReleaseEndedPreviewKeys(ctx context.Context) error {
+func (s *Service) releaseEndedPreviewKeys(ctx context.Context) error {
 	q := previewsql.New(s.db.SQL())
 	rows, err := q.AllPreviewOwned(ctx)
 	if err != nil {
@@ -116,7 +116,7 @@ func (s *Service) previewStands(ctx context.Context, name string) (bool, error) 
 	if s.PreviewsOnWorker() {
 		names, err := s.worker.List(ctx)
 		if err != nil {
-			return false, &UnavailableError{Cause: err}
+			return false, &unavailableError{Cause: err}
 		}
 		if slices.Contains(names, name) {
 			return true, nil
@@ -169,7 +169,7 @@ func (s *Service) RunPreviewKeyRelease(ctx context.Context) {
 	t := time.NewTicker(time.Minute)
 	defer t.Stop()
 	for {
-		if err := s.ReleaseEndedPreviewKeys(ctx); err != nil {
+		if err := s.releaseEndedPreviewKeys(ctx); err != nil {
 			log.Printf("releasing ended previews' AI models keys: %v", err)
 		}
 		select {

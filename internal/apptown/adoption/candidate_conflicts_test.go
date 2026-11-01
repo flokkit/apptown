@@ -21,7 +21,7 @@ func TestCandidateValidationPreservesPreparationProblems(t *testing.T) {
 	if err == nil || err.Error() != want || fault.KindOf(err) != fault.Unprocessable {
 		t.Fatalf("preparation problems were hidden, admitted or unclassified: %v (%s)", err, fault.KindOf(err))
 	}
-	_, err = Adoption{ProjectID: candidate.ProjectID}.Prepare(candidate, nil)
+	_, err = Adoption{ProjectID: candidate.ProjectID}.prepare(candidate, nil)
 	if err == nil || err.Error() != want || fault.KindOf(err) != fault.Unprocessable {
 		t.Fatalf("Prepare hid, admitted or left unclassified the problems: %v (%s)", err, fault.KindOf(err))
 	}

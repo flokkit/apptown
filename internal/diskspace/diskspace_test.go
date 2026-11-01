@@ -13,7 +13,7 @@ import (
 // never an empty disk.
 func TestTheDiskIsReadAsDFReportsIt(t *testing.T) {
 	t.Parallel()
-	d, err := ParseDF([]byte("Unable to find image 'busybox' locally\nFilesystem           1024-blocks    Used Available Capacity Mounted on\nrpool/docker         754000000 50000000 704000000   7% /d\n"))
+	d, err := parseDF([]byte("Unable to find image 'busybox' locally\nFilesystem           1024-blocks    Used Available Capacity Mounted on\nrpool/docker         754000000 50000000 704000000   7% /d\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +21,7 @@ func TestTheDiskIsReadAsDFReportsIt(t *testing.T) {
 		t.Fatalf("disk %+v", d)
 	}
 	for _, bad := range []string{"df: /d: No such file or directory\n", "Filesystem 1024-blocks Used Available Capacity Mounted on\nx 0 0 0 0% /d\n"} {
-		if _, err := ParseDF([]byte(bad)); err == nil {
+		if _, err := parseDF([]byte(bad)); err == nil {
 			t.Errorf("%q was accepted", bad)
 		}
 	}

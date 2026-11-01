@@ -105,7 +105,7 @@ func (e *Environment) RoutesFor(ctx context.Context, projectID ids.ID) Routing {
 	if err != nil {
 		log.Printf("project %d: asking its purpose for its address: %v", projectID, err)
 	}
-	return e.routes.ForProject(purpose.EvalDomainOnly())
+	return e.routes.forProject(purpose.EvalDomainOnly())
 }
 
 func (e *Environment) FrontDoorHeaders() map[string]string {
@@ -134,7 +134,7 @@ func (e *Environment) PublicOrigins(ctx context.Context) string {
 	return strings.Join(out, ",")
 }
 
-// Host is the built-in Docker host for one project, built from its actual
+// host is the built-in Docker host for one project, built from its actual
 // owners: its secrets broker, the dependency catalog and its emulators, the
 // registry connectors, the attached integrations' contributions and the
 // routes. The collaborators close over the project, so the host never asks
@@ -144,7 +144,7 @@ func (e *Environment) PublicOrigins(ctx context.Context) string {
 // preview being booted (NeedCredentials). keys is who an AI models key is
 // made for when the app needs one (the same owner, by the project's slug);
 // nil makes none, for a caller that only reads what a boot would be.
-func (e *Environment) Host(projectID ids.ID, creds dependency.Credentials, keys func(slug string) KeyOwner) *docker.Host {
+func (e *Environment) host(projectID ids.ID, creds dependency.Credentials, keys func(slug string) KeyOwner) *docker.Host {
 	return docker.NewHost(e.hostDependencies(projectID, creds, keys))
 }
 
@@ -155,7 +155,7 @@ func (e *Environment) NeedCredentials(scope string) dependency.Credentials {
 	if e.secrets != nil {
 		vault = e.secrets.Vault
 	}
-	return NeedCredentials(vault, scope)
+	return needCredentials(vault, scope)
 }
 
 func (e *Environment) hostDependencies(projectID ids.ID, creds dependency.Credentials, keys func(slug string) KeyOwner) docker.Dependencies {
@@ -190,7 +190,7 @@ func (e *Environment) PrepareBoot(ctx context.Context, projectID ids.ID, slug, d
 		}
 		return docker.Prepared{}, &docker.BootError{Phase: docker.PhaseResolve, Err: err}
 	}
-	c, _, err = e.DefaultMemory(ctx, c, applied)
+	c, _, err = e.defaultMemory(ctx, c, applied)
 	if err != nil {
 		return docker.Prepared{}, err
 	}
@@ -287,7 +287,7 @@ func (e *Environment) ResolveDockerStack(ctx context.Context, c *appcontract.Con
 // named but not held is refused, never read as anonymous.
 func (e *Environment) ReleaseRepository(ctx context.Context, projectID ids.ID) (oci.Repository, error) {
 	if e.integrations == nil {
-		return oci.Repository{}, ErrNoReleaseRegistry
+		return oci.Repository{}, errNoReleaseRegistry
 	}
 	purpose, err := e.Purpose(ctx, projectID)
 	if err != nil {
@@ -305,15 +305,15 @@ func (e *Environment) ReleaseRepository(ctx context.Context, projectID ids.ID) (
 		return oci.Repository{}, refused("%v", err)
 	}
 	if ri == nil {
-		return oci.Repository{}, ErrNoReleaseRegistry
+		return oci.Repository{}, errNoReleaseRegistry
 	}
 	return oci.Repository{Name: ri.Repo, Credential: oci.Credential{Username: ri.Username, Password: ri.Token}}, nil
 }
 
-// ReleaseLogin is the credential a project's images by digest are pulled
+// releaseLogin is the credential a project's images by digest are pulled
 // with: its container-registry attachment's, or nil (anonymous) when none
 // is attached. An attachment or credential that cannot be read is an error.
-func (e *Environment) ReleaseLogin(ctx context.Context, projectID ids.ID) (*docker.RegistryCredential, error) {
+func (e *Environment) releaseLogin(ctx context.Context, projectID ids.ID) (*docker.RegistryCredential, error) {
 	if e.integrations == nil {
 		return nil, nil
 	}
@@ -330,7 +330,7 @@ func (e *Environment) BundleLogin(ctx context.Context, projectID ids.ID, b *Rele
 	if login, err := e.copyReleaseLogin(ctx, projectID, b); err != nil || login != nil {
 		return login, err
 	}
-	return e.ReleaseLogin(ctx, projectID)
+	return e.releaseLogin(ctx, projectID)
 }
 
 // copyReleaseLogin is how an eval copy's published images are pulled where
@@ -431,11 +431,11 @@ func (e *Environment) targetContract(ctx context.Context, c *appcontract.Contrac
 	return &cc, nil
 }
 
-// RegisteredKeys is where the keys a boot's registered needs make are
+// registeredKeys is where the keys a boot's registered needs make are
 // recorded: a deployment's owned list (Deployment's recorder), or a
 // preview's (Preview's). Held is what the owner holds now; Record and
 // Forget are called as OpenRouter confirms a key and as one is replaced.
-type RegisteredKeys interface {
+type registeredKeys interface {
 	Held(ctx context.Context) ([]integration.HeldKey, error)
 	integration.KeyRecorder
 }
@@ -446,7 +446,7 @@ type KeyOwner struct {
 	Name      string // the key's name at OpenRouter
 	Scope     string // where its value is kept
 	Preview   bool
-	Keys      RegisteredKeys
+	Keys      registeredKeys
 }
 
 var injectRef = regexp.MustCompile(`\$\{([a-z_]+)\}`)
@@ -549,13 +549,13 @@ func (e *Environment) RefusesContract(ctx context.Context, t *Target, c *appcont
 		return why, err
 	}
 	if t.Kind == KindS3Bucket {
-		return t.RefusesContract(c), nil
+		return t.refusesContract(c), nil
 	}
 	tc, err := e.targetContract(ctx, c)
 	if err != nil {
 		return "", err
 	}
-	return t.RefusesContract(tc), nil
+	return t.refusesContract(tc), nil
 }
 
 // refusesNeeds is the catalogue's refusal of c's needs as declared, the

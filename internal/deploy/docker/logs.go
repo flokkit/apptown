@@ -16,13 +16,13 @@ import (
 const (
 	LogMaxLines   = 200
 	LogMaxBytes   = 64 << 10
-	LogReadWithin = 10 * time.Second
+	logReadWithin = 10 * time.Second
 )
 
-// RecentLog is what one read of a container's log returned: its newest
+// recentLog is what one read of a container's log returned: its newest
 // lines, oldest first. Truncated says older output may exist that is not
 // shown: the read reached its line bound, or was cut to its size bound.
-type RecentLog struct {
+type recentLog struct {
 	Text      string
 	Truncated bool
 }
@@ -37,24 +37,24 @@ var ErrLogUnreadable = errors.New("the host did not give the container's log")
 // LogMaxBytes, within LogReadWithin. A container that is absent is
 // ErrContainerAbsent; any other failure is ErrLogUnreadable with only a
 // timeout or cancellation said.
-func ReadRecentLog(ctx context.Context, dk Scope, container string) (RecentLog, error) {
-	out, err := dk.Command(ctx, Command{Args: []string{"logs", "--tail", strconv.Itoa(LogMaxLines), "--timestamps", container}, Timeout: LogReadWithin})
+func ReadRecentLog(ctx context.Context, dk Scope, container string) (recentLog, error) {
+	out, err := dk.Command(ctx, Command{Args: []string{"logs", "--tail", strconv.Itoa(LogMaxLines), "--timestamps", container}, Timeout: logReadWithin})
 	switch {
 	case ctx.Err() != nil:
-		return RecentLog{}, fmt.Errorf("%w: the read was cancelled", ErrLogUnreadable)
+		return recentLog{}, fmt.Errorf("%w: the read was cancelled", ErrLogUnreadable)
 	case err != nil && absentIn(out, container):
-		return RecentLog{}, fmt.Errorf("%w: %s", ErrContainerAbsent, container)
+		return recentLog{}, fmt.Errorf("%w: %s", ErrContainerAbsent, container)
 	case err != nil && errors.Is(err, context.DeadlineExceeded):
-		return RecentLog{}, fmt.Errorf("%w: it did not answer within %s", ErrLogUnreadable, LogReadWithin)
+		return recentLog{}, fmt.Errorf("%w: it did not answer within %s", ErrLogUnreadable, logReadWithin)
 	case err != nil:
-		return RecentLog{}, ErrLogUnreadable
+		return recentLog{}, ErrLogUnreadable
 	}
 	return boundLog(out), nil
 }
 
 // boundLog keeps the newest LogMaxLines lines and, of those, the newest
 // LogMaxBytes, starting at a whole line where one fits.
-func boundLog(out []byte) RecentLog {
+func boundLog(out []byte) recentLog {
 	text := strings.TrimRight(string(out), "\n")
 	lines := strings.Split(text, "\n")
 	cut := len(lines) >= LogMaxLines
@@ -67,7 +67,7 @@ func boundLog(out []byte) RecentLog {
 			text = text[i+1:]
 		}
 	}
-	return RecentLog{Text: text, Truncated: cut}
+	return recentLog{Text: text, Truncated: cut}
 }
 
 // absentIn says whether a failed command's output is the daemon saying it

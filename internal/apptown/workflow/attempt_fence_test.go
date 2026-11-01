@@ -8,6 +8,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // A participant's write fenced by a claimed attempt runs only while that
@@ -25,7 +26,7 @@ func TestAFencedWriteRunsOnlyWhileItsAttemptOwnsTheStep(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		step, err := attempts.Start(ctx, snapshot, snapshot.Type)
+		step, err := attempts.start(ctx, snapshot, snapshot.Type, ids.Nil)
 		if err != nil {
 			t.Fatal(err)
 		}

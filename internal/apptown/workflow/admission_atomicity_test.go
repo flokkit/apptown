@@ -27,10 +27,10 @@ func TestCreateRunRollsBackWhole(t *testing.T) {
 	admissions, req, def := runAdmissionFixture(t)
 	db := admissions.records.db
 	starter := newStarter(db, NewStages(nil, func(string) bool { return false }), nil, startRuntime{
-		Source:   func(context.Context, StartRequest) (StartSource, error) { return StartSource{}, nil },
-		Resolve:  func(context.Context, StartRequest, StartSource) (PreparedRun, error) { return def, nil },
-		Prepare:  func(context.Context, *Run) error { return nil },
-		Dispatch: func(context.Context, *Run) error { return nil },
+		source:   func(context.Context, StartRequest) (StartSource, error) { return StartSource{}, nil },
+		resolve:  func(context.Context, StartRequest, StartSource) (PreparedRun, error) { return def, nil },
+		prepare:  func(context.Context, *Run) error { return nil },
+		dispatch: func(context.Context, *Run) error { return nil },
 	}, clocked{})
 	service := newService(db, authorityFunc(func(context.Context, operationPermission) (string, error) { return "operator", nil }), Runtime{Starter: starter})
 	var runsBefore, eventsBefore int

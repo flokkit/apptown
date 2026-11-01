@@ -67,16 +67,16 @@ func (g GitWorkspace) AttachmentDir(changeID ids.ID) string {
 	return filepath.Join(g.DataDir, "changes", fmt.Sprintf("%d", changeID), "attachments")
 }
 
-// Attachments distinguishes an absent directory from unavailable contents.
-func (g GitWorkspace) Attachments(changeID ids.ID) ([]Attachment, error) {
+// attachments distinguishes an absent directory from unavailable contents.
+func (g GitWorkspace) attachments(changeID ids.ID) ([]attachment, error) {
 	entries, err := os.ReadDir(g.AttachmentDir(changeID))
 	if errors.Is(err, os.ErrNotExist) {
-		return []Attachment{}, nil
+		return []attachment{}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	out := []Attachment{}
+	out := []attachment{}
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
@@ -85,13 +85,13 @@ func (g GitWorkspace) Attachments(changeID ids.ID) ([]Attachment, error) {
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, Attachment{Name: e.Name(), Bytes: info.Size()})
+		out = append(out, attachment{Name: e.Name(), Bytes: info.Size()})
 	}
 	return out, nil
 }
 
 func (g GitWorkspace) AttachmentNames(changeID ids.ID) ([]string, error) {
-	attachments, err := g.Attachments(changeID)
+	attachments, err := g.attachments(changeID)
 	if err != nil {
 		return nil, err
 	}

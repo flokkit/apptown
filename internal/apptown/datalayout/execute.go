@@ -19,7 +19,7 @@ import (
 // serving requests. oldRoot is the durable archive manifest's data directory
 // on restore and root otherwise; with the same root there is nothing to do.
 func Relocate(ctx context.Context, db *database.DB, root, oldRoot, instance string, observers Observers) error {
-	if _, err := ReadVersion(root); err != nil {
+	if _, err := readVersion(root); err != nil {
 		return err
 	}
 	j, found, err := readJournal(root, instance)

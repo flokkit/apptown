@@ -25,7 +25,7 @@ func TestADeploymentRecordsTheBucketItOwns(t *testing.T) {
 	if err := s.Deployments.RecordOwned(context.Background(), dep.ID, "bucket", "forge-p-main-1"); err != nil {
 		t.Fatalf("recording the same bucket again: %v", err)
 	}
-	if err := s.Deployments.RecordOwned(context.Background(), dep.ID, "bucket", "forge-p-main-2"); !errors.Is(err, ErrOwnsAnother) {
+	if err := s.Deployments.RecordOwned(context.Background(), dep.ID, "bucket", "forge-p-main-2"); !errors.Is(err, errOwnsAnother) {
 		t.Fatalf("another bucket in its place: %v", err)
 	}
 	got, err := s.Deployments.ByID(context.Background(), dep.ID)
@@ -42,7 +42,7 @@ func TestADeploymentRecordsTheBucketItOwns(t *testing.T) {
 func TestABucketTargetServesOnlyAStaticOnlyApp(t *testing.T) {
 	bucket := &Target{Name: "spaces", Kind: KindS3Bucket, NeedsMode: "managed"}
 	static := &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true, Static: "dist"}}}
-	if why := bucket.RefusesContract(static); why != "" {
+	if why := bucket.refusesContract(static); why != "" {
 		t.Fatalf("a static-only app: %s", why)
 	}
 	for name, c := range map[string]*appcontract.Contract{
@@ -51,7 +51,7 @@ func TestABucketTargetServesOnlyAStaticOnlyApp(t *testing.T) {
 		"init steps":    {Parts: static.Parts, Init: []appcontract.InitContainer{{Name: "seed", Image: "seed:1"}}},
 		"needs":         {Parts: static.Parts, Needs: []string{"postgres"}},
 	} {
-		if why := bucket.RefusesContract(c); !strings.Contains(why, "static-only") {
+		if why := bucket.refusesContract(c); !strings.Contains(why, "static-only") {
 			t.Fatalf("%s: %q", name, why)
 		}
 	}

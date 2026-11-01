@@ -13,24 +13,24 @@ type State uint8
 
 const (
 	Draft State = iota + 1
-	Proposed
+	proposed
 	Accepted
-	Rejected
+	rejected
 	Deprecated
 	Superseded
 )
 
-var ErrState = fault.New(fault.Unprocessable, "invalid ADR state")
-var ErrTransition = fault.New(fault.Unprocessable, "cannot transition ADR")
-var ErrImmutable = fault.New(fault.Conflict, "accepted ADR content is immutable; propose a successor instead")
-var ErrConflict = fault.New(fault.Conflict, "ADR changed or its required write was not recorded")
-var ErrInput = fault.New(fault.Invalid, "invalid ADR input")
+var errState = fault.New(fault.Unprocessable, "invalid ADR state")
+var errTransition = fault.New(fault.Unprocessable, "cannot transition ADR")
+var errImmutable = fault.New(fault.Conflict, "accepted ADR content is immutable; propose a successor instead")
+var errConflict = fault.New(fault.Conflict, "ADR changed or its required write was not recorded")
+var errInput = fault.New(fault.Invalid, "invalid ADR input")
 
-// ErrTextExpected refuses a text edit that does not say what text it started
+// errTextExpected refuses a text edit that does not say what text it started
 // from; ErrTextMoved refuses one whose starting text is no longer stored, so
 // two people editing one decision cannot silently replace each other's text.
-var ErrTextExpected = fault.New(fault.Invalid, "send the text this edit started from (expected) for each field it changes")
-var ErrTextMoved error = textMoved{}
+var errTextExpected = fault.New(fault.Invalid, "send the text this edit started from (expected) for each field it changes")
+var errTextMoved error = textMoved{}
 
 type textMoved struct{}
 
@@ -44,11 +44,11 @@ func (s State) String() string {
 	switch s {
 	case Draft:
 		return "draft"
-	case Proposed:
+	case proposed:
 		return "proposed"
 	case Accepted:
 		return "accepted"
-	case Rejected:
+	case rejected:
 		return "rejected"
 	case Deprecated:
 		return "deprecated"
@@ -57,18 +57,18 @@ func (s State) String() string {
 	}
 	return "invalid-adr-state"
 }
-func (s State) Locked() bool { return s == Accepted || s == Deprecated || s == Superseded }
+func (s State) locked() bool { return s == Accepted || s == Deprecated || s == Superseded }
 func ParseState(text string) (State, error) {
-	for _, s := range []State{Draft, Proposed, Accepted, Rejected, Deprecated, Superseded} {
+	for _, s := range []State{Draft, proposed, Accepted, rejected, Deprecated, Superseded} {
 		if s.String() == text {
 			return s, nil
 		}
 	}
-	return 0, fmt.Errorf("%w: %q", ErrState, text)
+	return 0, fmt.Errorf("%w: %q", errState, text)
 }
 func (s State) Value() (driver.Value, error) {
 	if s < Draft || s > Superseded {
-		return nil, ErrState
+		return nil, errState
 	}
 	return s.String(), nil
 }
@@ -80,7 +80,7 @@ func (s *State) Scan(v any) error {
 	case []byte:
 		text = string(v)
 	default:
-		return ErrState
+		return errState
 	}
 	next, err := ParseState(text)
 	if err == nil {
@@ -108,11 +108,11 @@ func (s *State) UnmarshalJSON(data []byte) error {
 type Decision uint8
 
 const (
-	Redraft Decision = iota + 1
+	redraft Decision = iota + 1
 	Propose
 	Accept
-	Reject
-	Deprecate
+	reject
+	deprecate
 	retire
 )
 
@@ -123,17 +123,17 @@ func ParseDecision(text string) (Decision, error) {
 	}
 	switch s {
 	case Draft:
-		return Redraft, nil
-	case Proposed:
+		return redraft, nil
+	case proposed:
 		return Propose, nil
 	case Accepted:
 		return Accept, nil
-	case Rejected:
-		return Reject, nil
+	case rejected:
+		return reject, nil
 	case Deprecated:
-		return Deprecate, nil
+		return deprecate, nil
 	}
-	return 0, fmt.Errorf("%w: supersession requires an accepted successor", ErrTransition)
+	return 0, fmt.Errorf("%w: supersession requires an accepted successor", errTransition)
 }
 func (s State) decide(act Decision) (State, error) {
 	if _, err := s.Value(); err != nil {
@@ -141,15 +141,15 @@ func (s State) decide(act Decision) (State, error) {
 	}
 	next := State(0)
 	switch act {
-	case Redraft:
+	case redraft:
 		next = Draft
 	case Propose:
-		next = Proposed
+		next = proposed
 	case Accept:
 		next = Accepted
-	case Reject:
-		next = Rejected
-	case Deprecate:
+	case reject:
+		next = rejected
+	case deprecate:
 		next = Deprecated
 	case retire:
 		next = Superseded
@@ -160,18 +160,18 @@ func (s State) decide(act Decision) (State, error) {
 	allowed := false
 	switch s {
 	case Draft:
-		allowed = next == Proposed || next == Accepted || next == Rejected
-	case Proposed:
-		allowed = next == Draft || next == Accepted || next == Rejected
+		allowed = next == proposed || next == Accepted || next == rejected
+	case proposed:
+		allowed = next == Draft || next == Accepted || next == rejected
 	case Accepted:
 		allowed = next == Deprecated || next == Superseded
-	case Rejected:
+	case rejected:
 		allowed = next == Draft
 	case Deprecated:
 		allowed = next == Accepted
 	}
 	if !allowed {
-		return 0, fmt.Errorf("%w: %s cannot act %d", ErrTransition, s, act)
+		return 0, fmt.Errorf("%w: %s cannot act %d", errTransition, s, act)
 	}
 	return next, nil
 }

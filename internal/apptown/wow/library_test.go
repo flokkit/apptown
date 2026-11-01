@@ -13,7 +13,7 @@ func TestLibraryCreateAndBump(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	lib := NewLibrary(db)
-	if _, err := lib.Create(t.Context(), "Bad Name", "body", "", "alice"); !errors.Is(err, ErrBlockName) {
+	if _, err := lib.Create(t.Context(), "Bad Name", "body", "", "alice"); !errors.Is(err, errBlockName) {
 		t.Fatalf("a name outside the shape is refused: %v", err)
 	}
 	b, err := lib.Create(t.Context(), "prose/plain-words", "Say it plainly.", " tone , prose,", "alice")
@@ -26,12 +26,12 @@ func TestLibraryCreateAndBump(t *testing.T) {
 	if err := lib.Bump(t.Context(), b.ID, "Say it plainly, always.", "", "bob", b.Name); err != nil {
 		t.Fatal(err)
 	}
-	again, _ := lib.ByID(t.Context(), b.ID)
-	body, _ := lib.VersionBody(t.Context(), b.ID, 2)
+	again, _ := lib.byID(t.Context(), b.ID)
+	body, _ := lib.versionBody(t.Context(), b.ID, 2)
 	if again.LatestVersion != 2 || body != "Say it plainly, always." {
 		t.Fatalf("bump: %+v %q", again, body)
 	}
-	versions, _ := lib.Versions(t.Context(), b.ID)
+	versions, _ := lib.versions(t.Context(), b.ID)
 	if len(versions) != 2 || versions[0].Version != 2 {
 		t.Fatalf("history newest first: %+v", versions)
 	}
@@ -40,7 +40,7 @@ func TestLibraryCreateAndBump(t *testing.T) {
 	if err := lib.Bump(t.Context(), b.ID, "third", "", "bob", b.Name); err == nil {
 		t.Fatal("a bump without its receipt was reported as done")
 	}
-	if versions, err := lib.Versions(t.Context(), b.ID); err != nil || len(versions) != 2 {
+	if versions, err := lib.versions(t.Context(), b.ID); err != nil || len(versions) != 2 {
 		t.Fatalf("a failed bump kept its version: %+v %v", versions, err)
 	}
 }
@@ -73,7 +73,7 @@ func TestGuidanceVersionsDistinctUnderRace(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	versions, err := lib.Versions(t.Context(), b.ID)
+	versions, err := lib.versions(t.Context(), b.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestGuidanceVersionsDistinctUnderRace(t *testing.T) {
 	if len(distinct) != edits+1 || len(versions) != edits+1 {
 		t.Fatalf("versions under race: %+v", versions)
 	}
-	if latest, err := lib.ByID(t.Context(), b.ID); err != nil || latest.LatestVersion != edits+1 {
+	if latest, err := lib.byID(t.Context(), b.ID); err != nil || latest.LatestVersion != edits+1 {
 		t.Fatalf("latest version: %+v %v", latest, err)
 	}
 }

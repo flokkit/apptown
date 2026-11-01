@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/ids"
 	"slices"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	checkpkg "github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/database"

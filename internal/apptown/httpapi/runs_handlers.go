@@ -9,7 +9,7 @@ import (
 )
 
 func (h Runs) Advance(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -23,7 +23,7 @@ func (h Runs) Advance(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Runs) StepRun(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -57,7 +57,7 @@ func (h Runs) StepRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Runs) Approve(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -78,7 +78,7 @@ func (h Runs) Approve(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Runs) Override(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -99,7 +99,7 @@ func (h Runs) Override(w http.ResponseWriter, r *http.Request) {
 // stops counting as in-flight everywhere status='running' gates. Child runs
 // (workflow/call) are abandoned with their root.
 func (h Runs) AbandonRun(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return

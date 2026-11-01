@@ -88,22 +88,22 @@ func (h *Hosts) ProjectRepository(ref project.RepositoryRef) (string, error) {
 
 var sshHostRe = regexp.MustCompile(`^ssh://([a-z_][a-z0-9_.-]*)@([A-Za-z0-9.-]+)(?::(\d{1,5}))?$`)
 
-// SSHAddress is a parsed ssh://user@host[:port].
-type SSHAddress struct {
+// sshAddress is a parsed ssh://user@host[:port].
+type sshAddress struct {
 	User, Host string
 	Port       int
 }
 
-func ParseSSHAddress(s string) (SSHAddress, error) {
+func parseSSHAddress(s string) (sshAddress, error) {
 	m := sshHostRe.FindStringSubmatch(strings.TrimSpace(s))
 	if m == nil {
-		return SSHAddress{}, fmt.Errorf("the address must look like ssh://user@host or ssh://user@host:port")
+		return sshAddress{}, fmt.Errorf("the address must look like ssh://user@host or ssh://user@host:port")
 	}
-	a := SSHAddress{User: m[1], Host: m[2], Port: 22}
+	a := sshAddress{User: m[1], Host: m[2], Port: 22}
 	if m[3] != "" {
 		n, _ := strconv.Atoi(m[3])
 		if n < 1 || n > 65535 {
-			return SSHAddress{}, fmt.Errorf("port %s is not a port", m[3])
+			return sshAddress{}, fmt.Errorf("port %s is not a port", m[3])
 		}
 		a.Port = n
 	}
@@ -116,7 +116,7 @@ func sshAlias(targetName string) string { return "apptown-target-" + targetName 
 
 // sshStanza renders the config block for one target, between markers
 // AppTown owns so it can replace exactly its own block later.
-func sshStanza(targetName string, addr SSHAddress, keyPath string) string {
+func sshStanza(targetName string, addr sshAddress, keyPath string) string {
 	return fmt.Sprintf("# BEGIN apptown target %s\nHost %s\n  HostName %s\n  User %s\n  Port %d\n  IdentityFile %s\n  IdentitiesOnly yes\n  StrictHostKeyChecking accept-new\n  ConnectTimeout 15\n# END apptown target %s\n",
 		targetName, sshAlias(targetName), addr.Host, addr.User, addr.Port, keyPath, targetName)
 }
@@ -227,7 +227,7 @@ func (h *Hosts) materialiseTargetKey(ctx context.Context, targetName, keyFrom st
 // prepareHostTarget makes the target reachable — key on disk, ssh stanza
 // in place — and returns the DOCKER_HOST to use. It is what a check and an
 // attachment both do first.
-func (h *Hosts) prepareHostTarget(ctx context.Context, name string, addr SSHAddress, keyFrom string) (string, error) {
+func (h *Hosts) prepareHostTarget(ctx context.Context, name string, addr sshAddress, keyFrom string) (string, error) {
 	keyPath, err := h.materialiseTargetKey(ctx, name, keyFrom)
 	if err != nil {
 		return "", err
@@ -238,8 +238,8 @@ func (h *Hosts) prepareHostTarget(ctx context.Context, name string, addr SSHAddr
 	return "ssh://" + sshAlias(name), nil
 }
 
-// ProbeHostTarget asks the remote daemon to answer. ok and words.
-func (h *Hosts) ProbeHostTarget(ctx context.Context, name string, addr SSHAddress, keyFrom string) (bool, string) {
+// probeHostTarget asks the remote daemon to answer. ok and words.
+func (h *Hosts) probeHostTarget(ctx context.Context, name string, addr sshAddress, keyFrom string) (bool, string) {
 	dockerHost, err := h.prepareHostTarget(ctx, name, addr, keyFrom)
 	if err != nil {
 		return false, err.Error()
@@ -251,16 +251,16 @@ func (h *Hosts) ProbeHostTarget(ctx context.Context, name string, addr SSHAddres
 	return true, "docker " + strings.TrimSpace(string(out))
 }
 
-// HostTargetAddress reads an attached Docker host's address from its row.
-func HostTargetAddress(t *Target) (SSHAddress, string, error) {
+// hostTargetAddress reads an attached Docker host's address from its row.
+func hostTargetAddress(t *Target) (sshAddress, string, error) {
 	host, _ := t.Address["host"].(string)
 	keyFrom, _ := t.Address["keyFrom"].(string)
-	addr, err := ParseSSHAddress(host)
+	addr, err := parseSSHAddress(host)
 	if err != nil {
-		return SSHAddress{}, "", err
+		return sshAddress{}, "", err
 	}
 	if keyFrom == "" {
-		return SSHAddress{}, "", fmt.Errorf("the target names no secret for its key")
+		return sshAddress{}, "", fmt.Errorf("the target names no secret for its key")
 	}
 	return addr, keyFrom, nil
 }
@@ -272,9 +272,9 @@ func sshKeyFileName(targetName string) string {
 	return hex.EncodeToString(sum[:6]) + ".key"
 }
 
-// ErrNotDockerHost is a Docker daemon asked of a target that is not a
+// errNotDockerHost is a Docker daemon asked of a target that is not a
 // Docker host (App Platform, Portainer, a bucket).
-var ErrNotDockerHost = errors.New("deployment requires a Docker host target")
+var errNotDockerHost = errors.New("deployment requires a Docker host target")
 
 // Deployment execution uses its selected target, and returns configuration
 // errors instead of falling back to another daemon.
@@ -283,7 +283,7 @@ func (h *Hosts) DockerScope(ctx context.Context, t *Target) (docker.Scope, error
 		return docker.Scope{}, err
 	}
 	if t == nil || t.Kind != KindDockerHost {
-		return docker.Scope{}, ErrNotDockerHost
+		return docker.Scope{}, errNotDockerHost
 	}
 	if t.Origin == OriginBuiltIn && h.settings.NoLocalDocker {
 		return docker.Scope{}, ErrNoLocalDocker
@@ -294,7 +294,7 @@ func (h *Hosts) DockerScope(ctx context.Context, t *Target) (docker.Scope, error
 	if t.Origin != OriginAttached {
 		return docker.Scope{}, fmt.Errorf("Docker target %s has no supported connection", t.Name)
 	}
-	addr, keyFrom, err := HostTargetAddress(t)
+	addr, keyFrom, err := hostTargetAddress(t)
 	if err != nil {
 		return docker.Scope{}, err
 	}
@@ -339,7 +339,7 @@ func (h *Hosts) Watched(ctx context.Context, deployments *Deployments) []docker.
 			log.Printf("health controller: %s/%s: %v", e.Project, e.Name, err)
 			continue
 		}
-		out = append(out, docker.Watched{DeploymentID: e.ID, ProjectID: e.ProjectID, Identity: deploy.DockerIdentity{Deployment: e.Label(), Generation: e.ObservedGeneration}, Slug: e.Project, Name: e.Name, HostPort: e.HostPort, Container: e.Container, Docker: dk})
+		out = append(out, docker.Watched{DeploymentID: e.ID, ProjectID: e.ProjectID, Identity: deploy.DockerIdentity{Deployment: e.label(), Generation: e.ObservedGeneration}, Slug: e.Project, Name: e.Name, HostPort: e.HostPort, Container: e.Container, Docker: dk})
 	}
 	return out
 }

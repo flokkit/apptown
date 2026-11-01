@@ -14,7 +14,7 @@ func (h Secrets) SetInstanceSecret(w http.ResponseWriter, r *http.Request) {
 		Value string `json:"value"`
 	}) {
 		name := r.PathValue("name")
-		if err := h.secrets.SetInstance(r.Context(), name, in.Value, Actor(r)); err != nil {
+		if err := h.secrets.SetInstance(r.Context(), name, in.Value, actor(r)); err != nil {
 			WriteFault(w, err)
 			return
 		}
@@ -26,7 +26,7 @@ func (h Secrets) SetInstanceSecret(w http.ResponseWriter, r *http.Request) {
 // takes a credential out of AppTown's secrets file.
 func (h Secrets) RemoveInstanceSecret(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
-	if err := h.secrets.RemoveInstance(r.Context(), name, Actor(r)); err != nil {
+	if err := h.secrets.RemoveInstance(r.Context(), name, actor(r)); err != nil {
 		WriteFault(w, err)
 		return
 	}

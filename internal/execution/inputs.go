@@ -49,7 +49,7 @@ const ToolCacheMount = "/apptown-cache/mise-cache"
 // Bounds on a request's inputs: enough for an agent's steering, resources,
 // attachments and AppTown CLI, never a way to send a tree.
 const (
-	MaxInputs          = 256
+	maxInputs          = 256
 	MaxInputBytes      = 64 << 20  // one input
 	MaxInputTotalBytes = 512 << 20 // all of a request's inputs
 )
@@ -105,8 +105,8 @@ func (in Input) WithBlob(blob []byte) (Input, error) {
 // checked here for inputs carrying their content, and by the backend, which
 // knows every blob's size, for all.
 func ValidInputs(inputs []Input) error {
-	if len(inputs) > MaxInputs {
-		return fmt.Errorf("%d inputs, over the %d limit", len(inputs), MaxInputs)
+	if len(inputs) > maxInputs {
+		return fmt.Errorf("%d inputs, over the %d limit", len(inputs), maxInputs)
 	}
 	seen := map[string]bool{}
 	var total int64
@@ -173,9 +173,9 @@ type Result struct {
 
 // Bounds on a request's result files.
 const (
-	MaxResults          = 16
+	maxResults          = 16
 	MaxResultBytes      = 64 << 20 // one result's Max
-	MaxResultTotalBytes = 96 << 20 // all of a request's Max together
+	maxResultTotalBytes = 96 << 20 // all of a request's Max together
 )
 
 var resultNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
@@ -184,8 +184,8 @@ var resultNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
 // clean path of its own in the tree or the state folder, with a maximum
 // size within the bounds.
 func ValidResults(results []Result) error {
-	if len(results) > MaxResults {
-		return fmt.Errorf("%d result files, over the %d limit", len(results), MaxResults)
+	if len(results) > maxResults {
+		return fmt.Errorf("%d result files, over the %d limit", len(results), maxResults)
 	}
 	names, paths := map[string]bool{}, map[string]bool{}
 	var total int64
@@ -205,8 +205,8 @@ func ValidResults(results []Result) error {
 		}
 		total += r.Max
 	}
-	if total > MaxResultTotalBytes {
-		return fmt.Errorf("the result files may be %d bytes together, over the %d limit", total, MaxResultTotalBytes)
+	if total > maxResultTotalBytes {
+		return fmt.Errorf("the result files may be %d bytes together, over the %d limit", total, maxResultTotalBytes)
 	}
 	return nil
 }

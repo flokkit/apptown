@@ -42,9 +42,9 @@ import (
 // ledger) removes its backup sets, its hub repository and its records,
 // and archives its GitLab copy.
 
-// CleanupQueue queues a deleted project's cleanup inside the caller's
+// cleanupQueue queues a deleted project's cleanup inside the caller's
 // transaction: the job commits with the purge or a retry, or not at all.
-type CleanupQueue interface {
+type cleanupQueue interface {
 	EnqueueCleanupIn(ctx context.Context, tx *database.Tx, projectID ids.ID, round int) error
 	// LiveIn says whether the round's job is still queued or running.
 	LiveIn(ctx context.Context, tx *database.Tx, projectID ids.ID, round int) (bool, error)
@@ -52,8 +52,8 @@ type CleanupQueue interface {
 	EnqueuePassIn(ctx context.Context, tx *database.Tx, projectID ids.ID, after time.Time) error
 }
 
-// ErrCleanupStillRunning refuses a retry while the round's job is still live.
-var ErrCleanupStillRunning = fault.New(fault.Conflict, "that project's cleanup is still being tried; wait for it to finish or give up")
+// errCleanupStillRunning refuses a retry while the round's job is still live.
+var errCleanupStillRunning = fault.New(fault.Conflict, "that project's cleanup is still being tried; wait for it to finish or give up")
 
 // CleanupPlan is everything a purge commits to remove outside the database
 // once the records are gone: the identifiers a cleanup needs are read
@@ -85,44 +85,44 @@ type CleanupPlan struct {
 	GitLabArchive      string                   `json:"gitlabArchive,omitempty"`   // the name it is archived under
 }
 
-// GitLabProjects observes the repository identity owned by a deleted project.
-type GitLabProjects interface {
+// gitLabProjects observes the repository identity owned by a deleted project.
+type gitLabProjects interface {
 	ResolveForDeletion(context.Context, ids.ID) (scm.VerifiedRepository, error)
 }
 
-// DeletionData is what a deletion asks of data protection: taking one of
+// deletionData is what a deletion asks of data protection: taking one of
 // the project's deployments down under the deletion's binding, and
 // removing backup sets at purge.
-type DeletionData interface {
+type deletionData interface {
 	TakeDownForDeletion(ctx context.Context, projectID ids.ID, name string, binding access.Principal) (*operations.Operation, error)
 	PurgeProjectBackups(ctx context.Context, projectID ids.ID, allowed func(context.Context) error) (int, []string, error)
 	PurgeOrphanBackups(ctx context.Context, now time.Time) (int, []string, error)
 }
 
-// DeletionRecords are the project's deployments as the deletion reads them.
-type DeletionRecords interface {
+// deletionRecords are the project's deployments as the deletion reads them.
+type deletionRecords interface {
 	ForProject(ctx context.Context, projectID ids.ID) ([]*deployment.Deployment, error)
 }
 
-// EvalSources names the live evals with arms working from a project's code.
-type EvalSources interface {
+// evalSources names the live evals with arms working from a project's code.
+type evalSources interface {
 	LiveEvalsFromIn(ctx context.Context, tx *database.Tx, projectID ids.ID) ([]ids.ID, error)
 }
 
 // DeletionDependencies is what a deletion is built from.
 type DeletionDependencies struct {
-	Sessions ConsoleAdmission
-	Records  DeletionRecords
-	Data     DeletionData
-	GitLab   GitLabProjects
+	Sessions consoleAdmission
+	Records  deletionRecords
+	Data     deletionData
+	GitLab   gitLabProjects
 	// Archive archives the GitLab copy (Cleanup.archiveGitLab).
 	Archive    Cleanup
-	Queue      CleanupQueue
+	Queue      cleanupQueue
 	Operations *operations.Service
 	// Authority checks the person asking: delete, restore, purge now.
 	Authority access.Authorizer
 	// Evals are live work too: an eval's arms copy from the project.
-	Evals EvalSources
+	Evals evalSources
 	// Now is the clock the grace and kept periods are measured by; nil
 	// means time.Now.
 	Now func() time.Time
@@ -146,10 +146,10 @@ const (
 	// DefaultKeptDays is how long a deleted project is kept before it is
 	// purged, unless the instance setting says otherwise.
 	DefaultKeptDays = 30
-	// KeptDaysSetting is the instance setting that changes it.
-	KeptDaysSetting = "project.kept-days"
-	// PurgeKind is the purge's operation kind.
-	PurgeKind = "project.purge"
+	// keptDaysSetting is the instance setting that changes it.
+	keptDaysSetting = "project.kept-days"
+	// purgeKind is the purge's operation kind.
+	purgeKind = "project.purge"
 	// DeletionPassJob and PurgePassJob are the lifecycle's River passes.
 	DeletionPassJob = "project-deletion-pass"
 	PurgePassJob    = "project-purge-pass"
@@ -158,22 +158,22 @@ const (
 func NewDeletion(lifecycle *Service, deps DeletionDependencies) *Deletion {
 	d := &Deletion{lifecycle: lifecycle, deps: deps, held: map[ids.ID]func(){}, now: clock.Or(deps.Now)}
 	if deps.Operations != nil {
-		deps.Operations.Register(operations.Kind{Name: PurgeKind, Capability: access.CapProjectDelete, Read: access.CapProjectRead,
-			CancelRefusal: ErrPurgeNotStopped, Execute: d.runPurge})
+		deps.Operations.Register(operations.Kind{Name: purgeKind, Capability: access.CapProjectDelete, Read: access.CapProjectRead,
+			CancelRefusal: errPurgeNotStopped, Execute: d.runPurge})
 	}
 	return d
 }
 
-// ErrPurgeNotStopped: a purge removes things that do not come back; it is
+// errPurgeNotStopped: a purge removes things that do not come back; it is
 // not stopped part way.
-var ErrPurgeNotStopped = fault.New(fault.Conflict, "a purge is not stopped part way: what it removed does not come back")
+var errPurgeNotStopped = fault.New(fault.Conflict, "a purge is not stopped part way: what it removed does not come back")
 
-// DeletionConflict is a deletion refused by the project's state.
-type DeletionConflict struct{ Err error }
+// deletionConflict is a deletion refused by the project's state.
+type deletionConflict struct{ Err error }
 
-func (e *DeletionConflict) Error() string         { return e.Err.Error() }
-func (e *DeletionConflict) FaultKind() fault.Kind { return fault.Conflict }
-func (e *DeletionConflict) Unwrap() error         { return e.Err }
+func (e *deletionConflict) Error() string         { return e.Err.Error() }
+func (e *deletionConflict) FaultKind() fault.Kind { return fault.Conflict }
+func (e *deletionConflict) Unwrap() error         { return e.Err }
 
 // Status is where a project's deletion stands, as its page shows it.
 type Status struct {
@@ -211,7 +211,7 @@ func (d *Deletion) require(ctx context.Context, projectID ids.ID, route string, 
 // keptFor is how long a deleted project is kept (the instance setting).
 func (d *Deletion) keptFor(ctx context.Context) time.Duration {
 	days := DefaultKeptDays
-	if v, err := identity.InstanceSettingIn(ctx, d.lifecycle.db, KeptDaysSetting); err == nil && v != "" {
+	if v, err := identity.InstanceSettingIn(ctx, d.lifecycle.db, keptDaysSetting); err == nil && v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			days = n
 		}
@@ -248,7 +248,7 @@ func (d *Deletion) request(ctx context.Context, projectID ids.ID, actor access.P
 	}
 	reheld, err := d.hold(projectID)
 	if err != nil {
-		return Status{}, &DeletionConflict{Err: err}
+		return Status{}, &deletionConflict{Err: err}
 	}
 	kept := d.keptFor(ctx)
 	if synthetic {
@@ -279,7 +279,7 @@ func (d *Deletion) request(ctx context.Context, projectID ids.ID, actor access.P
 					return err
 				}
 				if len(idList) > 0 {
-					return &DeletionConflict{Err: fault.New(fault.Conflict, fmt.Sprintf("live evals copy from this project (%s); let them finish, or stop them, first", evalList(idList)))}
+					return &deletionConflict{Err: fault.New(fault.Conflict, fmt.Sprintf("live evals copy from this project (%s); let them finish, or stop them, first", evalList(idList)))}
 				}
 			}
 		}
@@ -315,7 +315,7 @@ func (d *Deletion) request(ctx context.Context, projectID ids.ID, actor access.P
 			d.release(projectID)
 		}
 		if errors.Is(err, workflow.ErrProjectBusy) || errors.Is(err, project.ErrNotActive) {
-			return Status{}, &DeletionConflict{Err: err}
+			return Status{}, &deletionConflict{Err: err}
 		}
 		return Status{}, err
 	}
@@ -726,7 +726,7 @@ func (d *Deletion) admitPurge(ctx context.Context, projectID ids.ID, authority a
 	}
 	prior := false
 	for _, op := range earlier {
-		if op.Kind != PurgeKind {
+		if op.Kind != purgeKind {
 			continue
 		}
 		prior = true
@@ -765,7 +765,7 @@ func (d *Deletion) admitPurge(ctx context.Context, projectID ids.ID, authority a
 		if err := project.StartPurgeIn(ctx, tx, projectID, d.now()); err != nil {
 			return nil, err
 		}
-		return d.deps.Operations.AdmitIn(ctx, tx, operations.Spec{Kind: PurgeKind, ProjectID: projectID, Subject: subjectOf(projectID), Authority: authority, Input: input})
+		return d.deps.Operations.AdmitIn(ctx, tx, operations.Spec{Kind: purgeKind, ProjectID: projectID, Subject: subjectOf(projectID), Authority: authority, Input: input})
 	})
 }
 

@@ -4,14 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5/pgconn"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 func TestRunReadinessRefusesMissingAndUnpreparedExecution(t *testing.T) {
@@ -35,7 +37,7 @@ func TestRunReadinessRefusesMissingAndUnpreparedExecution(t *testing.T) {
 				}
 				switch boundary {
 				case "claim":
-					claim, err := newStepAttempts(q.db, func(string) bool { return true }).Start(ctx, step, "script")
+					claim, err := newStepAttempts(q.db, func(string) bool { return true }).start(ctx, step, "script", ids.Nil)
 					if err == nil || claim != nil {
 						t.Fatalf("unprepared run received claim: %+v %v", claim, err)
 					}
@@ -89,7 +91,7 @@ func TestRunReadinessProtectsAssertionObservationAndRestart(t *testing.T) {
 				completionExec(t, owner.db, `UPDATE run_starts SET ready=false`)
 			}
 			called := false
-			owner.merge = mergeObserverFunc(func(context.Context, MergeAssertion) (MergeObservation, error) {
+			owner.merge = mergeObserverFunc(func(context.Context, mergeAssertion) (MergeObservation, error) {
 				called = true
 				return MergeObservation{Merged: true}, nil
 			})
@@ -146,12 +148,12 @@ func TestRunReadinessGuardsChildRetryAndAdvancement(t *testing.T) {
 				t.Fatalf("retry readiness: %v", err)
 			}
 			wantEventCount(t, owner.db, 0, ofKind("step.retried"))
-			_, err = newAdvancer(owner.db, advanceRuntime{}).Advance(ctx, run.ID, "alice")
+			_, err = newAdvancer(owner.db, advanceRuntime{}).advance(ctx, run.ID, "alice")
 			if !errors.As(err, &refused) || refused.missing != missing {
 				t.Fatalf("advancement reached effects: %v", err)
 			}
 			admissions := newRunAdmissions(owner.db, NewStages(nil, func(string) bool { return false }), nil)
-			_, err = admissions.Create(ctx, StartRequest{ProjectID: run.ProjectID, ChangeID: run.ChangeID, parentRunID: run.ID, WorkflowName: "child", InputsJSON: "{}", requestedBy: "alice"}, PreparedRun{Workflow: DefinitionRef{Name: "child", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "child", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}})
+			_, err = admissions.records.create(ctx, StartRequest{ProjectID: run.ProjectID, ChangeID: run.ChangeID, parentRunID: run.ID, WorkflowName: "child", InputsJSON: "{}", requestedBy: "alice"}, PreparedRun{Workflow: DefinitionRef{Name: "child", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "child", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}})
 			if !errors.As(err, &refused) || refused.missing != missing {
 				t.Fatalf("child readiness: %v", err)
 			}
@@ -224,7 +226,7 @@ func TestRunReadinessPreservesAdmittedOutcomeWithoutRework(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			claim, err := newStepAttempts(owner.db, func(string) bool { return true }).Start(ctx, step, "agent/review")
+			claim, err := newStepAttempts(owner.db, func(string) bool { return true }).start(ctx, step, "agent/review", ids.Nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -238,7 +240,7 @@ func TestRunReadinessPreservesAdmittedOutcomeWithoutRework(t *testing.T) {
 			}
 			result, err := (reworkStore{db: owner.db}).fail(ctx, claim, StepOutcome{Status: StatusFail, Evidence: []byte(`{"reason":"needs changes"}`), Rework: true})
 			var refused runReadinessError
-			if err != nil || !result.AgentID.IsZero() || !errors.As(result.refusal, &refused) || refused.missing != missing {
+			if err != nil || !result.agentID.IsZero() || !errors.As(result.refusal, &refused) || refused.missing != missing {
 				t.Fatalf("admitted outcome/rework: %+v %v", result, err)
 			}
 			wantStepState(t, owner.db, review, StatusFail)
@@ -253,11 +255,11 @@ func TestHistoricalAcceptedWorkStartsFreshLandingPreparation(t *testing.T) {
 	t.Parallel()
 	admissions, request, definition := runAdmissionFixture(t)
 	ctx := context.Background()
-	source, err := admissions.Create(ctx, request, definition)
+	source, err := admissions.records.create(ctx, request, definition)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := admissions.Prepared(ctx, source.ID); err != nil {
+	if err := admissions.records.prepared(ctx, source.ID); err != nil {
 		t.Fatal(err)
 	}
 	transitionStoredRunForTest(t, admissions.records.db, source.ID, "", RunDone)
@@ -268,7 +270,7 @@ func TestHistoricalAcceptedWorkStartsFreshLandingPreparation(t *testing.T) {
 	request.WorkflowName = "land"
 	definition.Workflow.Name = "land"
 	definition.Spec.Role = "landing"
-	landing, err := admissions.Create(ctx, request, definition)
+	landing, err := admissions.records.create(ctx, request, definition)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,14 +278,14 @@ func TestHistoricalAcceptedWorkStartsFreshLandingPreparation(t *testing.T) {
 		t.Fatalf("new landing start: %+v %v", start, ok)
 	}
 	prepared := 0
-	preparer := &starter{records: admissions.records, runtime: startRuntime{Prepare: func(_ context.Context, actual *Run) error {
+	preparer := &starter{records: admissions.records, runtime: startRuntime{prepare: func(_ context.Context, actual *Run) error {
 		if actual.ID != landing.ID {
 			t.Fatal("prepared historical source")
 		}
 		prepared++
 		return nil
 	}}}
-	if err := preparer.Prepare(ctx, landing.ID); err != nil || prepared != 1 {
+	if err := preparer.prepare(ctx, landing.ID); err != nil || prepared != 1 {
 		t.Fatalf("landing preparation: %d %v", prepared, err)
 	}
 	if _, ok := seenRunStart(t, admissions.records.db, source.ID); ok {
@@ -301,7 +303,7 @@ func TestReadinessReadFailureCannotAdmitExecution(t *testing.T) {
 		t.Fatal(err)
 	}
 	dbtest.FailNextStatement(t, q.db, "-- name: RunStartByID")
-	claim, err := newStepAttempts(q.db, func(string) bool { return true }).Start(ctx, step, "script")
+	claim, err := newStepAttempts(q.db, func(string) bool { return true }).start(ctx, step, "script", ids.Nil)
 	// QueryRow faults are surfaced by Scan as PostgreSQL's missing-function
 	// error; the Exec sentinel is not the contract of this injection path.
 	var injected *pgconn.PgError
@@ -309,7 +311,7 @@ func TestReadinessReadFailureCannotAdmitExecution(t *testing.T) {
 		t.Fatalf("read failure admitted execution or lost its cause: %+v %v", claim, err)
 	}
 	wantRunEventCount(t, q.db, run.ID, 0, ofKind("step.started"))
-	if claim, err := newStepAttempts(q.db, func(string) bool { return true }).Start(ctx, step, "script"); err != nil || claim == nil {
+	if claim, err := newStepAttempts(q.db, func(string) bool { return true }).start(ctx, step, "script", ids.Nil); err != nil || claim == nil {
 		t.Fatalf("ready control: %+v %v", claim, err)
 	}
 }
@@ -342,7 +344,7 @@ func TestRunReadinessRefusesLandingPublicationAndReset(t *testing.T) {
 			if calls != 0 || !errors.As(err, &refused) || refused.missing != missing {
 				t.Fatalf("landing preflight: calls=%d err=%v", calls, err)
 			}
-			_, err = a.Work.landingRechecks.Recheck(ctx, LandingRecheck{ChangeID: a.ChangeID})
+			_, err = a.Work.landingRechecks.recheck(ctx, LandingRecheck{ChangeID: a.ChangeID})
 			if !errors.As(err, &refused) || refused.missing != missing {
 				t.Fatalf("landing reset owner: %v", err)
 			}

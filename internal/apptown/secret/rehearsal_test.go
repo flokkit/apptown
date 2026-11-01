@@ -50,7 +50,7 @@ func TestARehearsalGetsOnlyTheSecretsItsProfileNames(t *testing.T) {
 		}
 	}
 	const head = "[project]\nname = \"orders\"\nrevision = \"1.0\"\n[profiles.default]\nSMTP_PASSWORD = { description = \"production mail\" }\nLOOKUP_KEY = { description = \"lookups\" }\nAWS_SECRET_ACCESS_KEY = { description = \"uploads bucket\" }\nSECRET_KEY_BASE = { description = \"signing\", generate = true }\n"
-	resolve := func(t *testing.T, spec string) (Rehearsal, error) {
+	resolve := func(t *testing.T, spec string) (rehearsal, error) {
 		t.Helper()
 		ws := t.TempDir()
 		if err := os.WriteFile(filepath.Join(ws, SpecFile), []byte(head+spec), 0o600); err != nil {
@@ -58,7 +58,7 @@ func TestARehearsalGetsOnlyTheSecretsItsProfileNames(t *testing.T) {
 		}
 		return s.ResolveRehearsal(t.Context(), id, "prod", ws, c)
 	}
-	held := func(t *testing.T, r Rehearsal, want map[string]string, withheld ...string) {
+	held := func(t *testing.T, r rehearsal, want map[string]string, withheld ...string) {
 		t.Helper()
 		env := r.Delivery.EnvFor("web")
 		for name, value := range want {

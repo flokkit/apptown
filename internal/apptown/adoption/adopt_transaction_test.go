@@ -46,7 +46,7 @@ func TestAdoptInSettlesSelectionsAndReceiptTogether(t *testing.T) {
 	candidate.Installation = Installation{Policies: []Policy{{Name: "needs-registry", Rule: "requireCapabilityBound", With: map[string]any{"capability": "registry"}}}, Extensions: []string{"agent-addon"}}
 	candidate.Receipt.Packs = []string{"atomic-pack"}
 	candidate.Receipt.Guidance = []ReceiptBlock{{BlockID: blockID, Name: "atomic-guide", Version: 1}}
-	candidate.Receipt.Workflows = []ReceiptWorkflow{{Name: "selected-lane", Version: 1, YAMLHash: HashText(selectedYAML)}, {Name: "system-lane", Version: 1, System: true, YAMLHash: HashText(systemYAML)}}
+	candidate.Receipt.Workflows = []ReceiptWorkflow{{Name: "selected-lane", Version: 1, YAMLHash: hashText(selectedYAML)}, {Name: "system-lane", Version: 1, System: true, YAMLHash: hashText(systemYAML)}}
 	policy, err := policyReceipt(candidate.Installation.Policies[0])
 	if err != nil {
 		t.Fatal(err)

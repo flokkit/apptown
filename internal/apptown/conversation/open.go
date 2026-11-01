@@ -99,7 +99,7 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 		// message. Refused before anything is reserved or started, with
 		// the sentence workflow admission uses.
 		if chosen == "" {
-			return nil, &AdmissionConflict{Err: errors.New(model.NoModelRefusal)}
+			return nil, &admissionConflict{Err: errors.New(model.NoModelRefusal)}
 		}
 	}
 	onWorker, err := c.onWorker(in)
@@ -111,7 +111,7 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 		var err error
 		change, err = c.work.Change(ctx, in.ChangeID)
 		if err != nil || change.ProjectID != p.ID {
-			return nil, ErrNoChange
+			return nil, errNoChange
 		}
 		// A landing change is admitted only to take its stopped landing to
 		// chat: the continuation below stops the landing, which returns the
@@ -120,7 +120,7 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 			return nil, notInProgress(change)
 		}
 		if change.Branch == "" {
-			return nil, &AdmissionConflict{Err: fmt.Errorf("change #%d has no branch (project is not repo-backed)", change.ID)}
+			return nil, &admissionConflict{Err: fmt.Errorf("change #%d has no branch (project is not repo-backed)", change.ID)}
 		}
 	}
 
@@ -128,13 +128,13 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 	// request after a completed purge finds no project.
 	release, err := ReserveProject(ctx, c.sessions, c.db, p.ID)
 	if err != nil {
-		return nil, &AdmissionConflict{Err: fmt.Errorf("opening console: %w", err)}
+		return nil, &admissionConflict{Err: fmt.Errorf("opening console: %w", err)}
 	}
 	defer release()
 
 	var cont *laneContinuation
 	if !in.ContinueStep.IsZero() && change == nil {
-		return nil, &AdmissionConflict{Err: fmt.Errorf("continuing a lane needs a change")}
+		return nil, &admissionConflict{Err: fmt.Errorf("continuing a lane needs a change")}
 	}
 	// One chat per change: opening a change's chat again returns the one it
 	// has. Opens of one change are serialised, so a second waits for the first
@@ -147,7 +147,7 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 		// beside it).
 		if !in.ContinueStep.IsZero() {
 			if cont, err = continueLane(c.dataDir, ctx, c.work, change, in.ContinueStep, who); err != nil {
-				return nil, &AdmissionConflict{Err: err}
+				return nil, &admissionConflict{Err: err}
 			}
 			// A landing is ended by stopping its own run; a step of any
 			// other run leaves the change landing, and the chat is refused.
@@ -189,7 +189,7 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 		}); err != nil {
 			var held *workflow.ChangeHeld
 			if errors.As(err, &held) {
-				return nil, &AdmissionConflict{Err: err}
+				return nil, &admissionConflict{Err: err}
 			}
 			return nil, err
 		}
@@ -255,14 +255,14 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 		req.Workspace = console.Workspace{Path: snapshot, Owned: true}
 	}
 
-	guidance, err := c.steering.Guidance(ctx, p)
+	guidance, err := c.steering.guidance(ctx, p)
 	if err != nil {
 		return nil, fmt.Errorf("reading the project's guidance: %w", err)
 	}
-	req.Files = SkillFiles(guidance)
+	req.Files = skillFiles(guidance)
 	req.Steering = c.steering.Console(ctx, p, c.harness.Delegation(ctx), guidance)
 	if change != nil {
-		changeSteering, err := c.steering.Change(change)
+		changeSteering, err := c.steering.change(change)
 		if err != nil {
 			return nil, fmt.Errorf("reading change attachments: %w", err)
 		}
@@ -324,9 +324,9 @@ func (l *changeLocks) lock(id ids.ID) func() {
 // landing one names the way in: taking its stopped landing step to chat.
 func notInProgress(change *workflow.Change) error {
 	if change.State == workflow.ChangeLanding {
-		return &AdmissionConflict{Err: fmt.Errorf("change #%d is landing — a chat opens on it only by taking the landing's stopped step to chat, which ends the landing", change.ID)}
+		return &admissionConflict{Err: fmt.Errorf("change #%d is landing — a chat opens on it only by taking the landing's stopped step to chat, which ends the landing", change.ID)}
 	}
-	return &AdmissionConflict{Err: fmt.Errorf("change #%d is %s — consoles attach to in-progress changes", change.ID, change.State)}
+	return &admissionConflict{Err: fmt.Errorf("change #%d is %s — consoles attach to in-progress changes", change.ID, change.State)}
 }
 
 func (c *Admission) onWorker(in ProjectOpen) (bool, error) {
@@ -345,17 +345,17 @@ func (c *Admission) onWorker(in ProjectOpen) (bool, error) {
 			return true, nil
 		}
 		if c.noLocal {
-			return false, &AdmissionConflict{Err: fmt.Errorf("%w, and this AppTown runs no chats itself", cannot)}
+			return false, &admissionConflict{Err: fmt.Errorf("%w, and this AppTown runs no chats itself", cannot)}
 		}
 		if in.Placement == PlaceOnWorker {
-			return false, &AdmissionConflict{Err: cannot}
+			return false, &admissionConflict{Err: cannot}
 		}
 		return false, nil
 	case PlaceOnAppTown:
 		if c.noLocal {
-			return false, &AdmissionConflict{Err: fmt.Errorf("this AppTown runs no chats itself; open the chat on the worker")}
+			return false, &admissionConflict{Err: fmt.Errorf("this AppTown runs no chats itself; open the chat on the worker")}
 		}
 		return false, nil
 	}
-	return false, &AdmissionConflict{Err: fmt.Errorf("unknown placement %q: %s or %s", in.Placement, PlaceOnAppTown, PlaceOnWorker)}
+	return false, &admissionConflict{Err: fmt.Errorf("unknown placement %q: %s or %s", in.Placement, PlaceOnAppTown, PlaceOnWorker)}
 }

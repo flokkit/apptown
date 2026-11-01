@@ -47,7 +47,7 @@ func TestAKindIsExperimentalInDataAndProseTogether(t *testing.T) {
 		}
 	}
 	d, err := Parse(redis + "status: experimental\ndescription: \"Experimental: no app has shipped with it yet.\"\nsummary: A cache.\n")
-	if err != nil || d.Status != StatusExperimental || d.Summary != "A cache." {
+	if err != nil || d.Status != statusExperimental || d.Summary != "A cache." {
 		t.Fatalf("experimental kind: %v %+v", err, d)
 	}
 }
@@ -65,7 +65,7 @@ func TestASavedExperimentalKindWithoutStatusStaysReadableAndExperimental(t *test
 		t.Fatalf("save: %v", err)
 	}
 	got, err := c.ByCapability(ctx, "cache-clone")
-	if err != nil || got.Status != StatusExperimental || got.Summary != "" {
+	if err != nil || got.Status != statusExperimental || got.Summary != "" {
 		t.Fatalf("lookup: %v %+v", err, got)
 	}
 	all, err := c.All(ctx)
@@ -74,7 +74,7 @@ func TestASavedExperimentalKindWithoutStatusStaysReadableAndExperimental(t *test
 	}
 	found := false
 	for _, k := range all {
-		found = found || (k.Capability == "cache-clone" && k.Status == StatusExperimental)
+		found = found || (k.Capability == "cache-clone" && k.Status == statusExperimental)
 	}
 	if !found {
 		t.Fatal("the saved kind is missing from the catalogue, or lost its status")
@@ -158,7 +158,7 @@ func TestCatalogStockAndCustom(t *testing.T) {
 	if !errors.Is(err, ErrStockUnreadable) || !strings.Contains(err.Error(), "broken.yaml") || len(synced) != 1 || synced[0] != "redis" || len(skipped) != 1 || !strings.HasPrefix(skipped[0], "broken.yaml: ") {
 		t.Fatalf("sync: %v %v %v", err, synced, skipped)
 	}
-	if _, err := c.Save(context.Background(), redis, "bls"); !errors.Is(err, ErrStock) {
+	if _, err := c.Save(context.Background(), redis, "bls"); !errors.Is(err, errStock) {
 		t.Fatalf("saving over stock: %v", err)
 	}
 	if _, err := c.Save(context.Background(), "capability: x\n", "bls"); !errors.Is(err, ErrSpec) {
@@ -333,7 +333,7 @@ func TestStockPostgresDeclaresItsCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 	do := d.Cloud["digitalocean"]
-	if d.Copy == nil || d.Copy.Format != "pg-custom" || do.Reach == nil || do.Reach.How != ReachConnect || do.Native == nil || do.Native.Mechanism != NativeDOBackups {
+	if d.Copy == nil || d.Copy.Format != "pg-custom" || do.Reach == nil || do.Reach.How != reachConnect || do.Native == nil || do.Native.Mechanism != nativeDOBackups {
 		t.Fatalf("postgres: copy %+v digitalocean %+v", d.Copy, do)
 	}
 }

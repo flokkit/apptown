@@ -19,18 +19,18 @@ const (
 	// excepted today would fail because its exception does not cover the
 	// version's check.
 	WhatIfNewFailures = "new-failures"
-	// WhatIfCouldNotAssess: something the version changes could not be
+	// whatIfCouldNotAssess: something the version changes could not be
 	// judged; the project is not shown as clear.
-	WhatIfCouldNotAssess = "could-not-assess"
+	whatIfCouldNotAssess = "could-not-assess"
 	// WhatIfNoNewFailures: everything the version changes was judged and
 	// nothing new fails.
 	WhatIfNoNewFailures = "no-new-failures"
-	// WhatIfNotEvaluated: the what-if ended (stopped or interrupted)
+	// whatIfNotEvaluated: the what-if ended (stopped or interrupted)
 	// before it reached the project.
-	WhatIfNotEvaluated = "not-evaluated"
-	// WhatIfNotYetJudged: the what-if is queued or running and has not
+	whatIfNotEvaluated = "not-evaluated"
+	// whatIfNotYetJudged: the what-if is queued or running and has not
 	// reached the project yet. It is not an answer and not an end.
-	WhatIfNotYetJudged = "not-yet-judged"
+	whatIfNotYetJudged = "not-yet-judged"
 )
 
 // WhatIfCheck is one check in a project's answer.
@@ -129,11 +129,11 @@ type WhatIfFleetGap struct {
 	Projects int         `json:"projects"`
 }
 
-// WhatIfFleetGaps groups, across projects, the checks the version carries
+// whatIfFleetGaps groups, across projects, the checks the version carries
 // and could not judge, by check and reason, most projects first. A
 // whole-project row (no main, not adoptable, nothing to judge) is its own
 // entry with no block.
-func WhatIfFleetGaps(rows []WhatIfRow) []WhatIfFleetGap {
+func whatIfFleetGaps(rows []WhatIfRow) []WhatIfFleetGap {
 	type key struct {
 		block, check string
 		reason       NotAssessed
@@ -152,7 +152,7 @@ func WhatIfFleetGaps(rows []WhatIfRow) []WhatIfFleetGap {
 	}
 	out := make([]WhatIfFleetGap, 0, len(seen))
 	for k, projects := range seen {
-		out = append(out, WhatIfFleetGap{Block: k.block, Check: k.check, Reason: k.reason, Words: k.reason.Words(), Remedy: k.reason.Remedy(), Projects: len(projects)})
+		out = append(out, WhatIfFleetGap{Block: k.block, Check: k.check, Reason: k.reason, Words: k.reason.Words(), Remedy: k.reason.remedy(), Projects: len(projects)})
 	}
 	slices.SortFunc(out, func(a, b WhatIfFleetGap) int {
 		return cmp.Or(cmp.Compare(b.Projects, a.Projects), cmp.Compare(a.Block, b.Block), cmp.Compare(a.Check, b.Check), cmp.Compare(a.Reason, b.Reason))
@@ -160,9 +160,9 @@ func WhatIfFleetGaps(rows []WhatIfRow) []WhatIfFleetGap {
 	return out
 }
 
-// WhatIfMovesBackProjects counts the projects the version moves a rule
+// whatIfMovesBackProjects counts the projects the version moves a rule
 // back on.
-func WhatIfMovesBackProjects(projects []WhatIfProject) int {
+func whatIfMovesBackProjects(projects []WhatIfProject) int {
 	n := 0
 	for _, p := range projects {
 		if p.Score.MovesBack > 0 {
@@ -178,23 +178,23 @@ func judgedOutcome(state string) bool {
 
 // checkRow: a row that answers one check (not a rule move, not the whole
 // project).
-func checkRow(r WhatIfRow) bool { return r.Block != "" && r.Check != "" && !r.RuleMove() }
+func checkRow(r WhatIfRow) bool { return r.Block != "" && r.Check != "" && !r.ruleMove() }
 
 // versionSideUnjudged: a check the version carries and could not judge.
 func versionSideUnjudged(r WhatIfRow) bool {
 	return checkRow(r) && r.Proposed != "" && !judgedOutcome(r.Proposed)
 }
 
-// WhatIfByProject is each selected project's answer, in selection order,
+// whatIfByProject is each selected project's answer, in selection order,
 // then any project with rows the selection does not name (a what-if over
 // the whole estate stores no list). slugs names the selected projects
 // without rows; one it lacks reads "project #ID". ended says the what-if
 // has stopped: a project without rows is then not evaluated, and before it
 // is not yet judged.
-func WhatIfByProject(selected []ids.ID, rows []WhatIfRow, slugs map[ids.ID]string, ended bool) []WhatIfProject {
-	pending := WhatIfNotYetJudged
+func whatIfByProject(selected []ids.ID, rows []WhatIfRow, slugs map[ids.ID]string, ended bool) []WhatIfProject {
+	pending := whatIfNotYetJudged
 	if ended {
-		pending = WhatIfNotEvaluated
+		pending = whatIfNotEvaluated
 	}
 	byID := map[ids.ID]*WhatIfProject{}
 	order := []ids.ID{}
@@ -224,10 +224,10 @@ func WhatIfByProject(selected []ids.ID, rows []WhatIfRow, slugs map[ids.ID]strin
 			p.CandidateDigest = r.CandidateDigest
 		}
 		answered[r.ProjectID] = true
-		if r.RuleMove() {
-			p.Moves = append(p.Moves, WhatIfMove{Rule: r.Block, From: r.CurrentVersion, To: r.ProposedVersion, Back: r.MovesBack()})
+		if r.ruleMove() {
+			p.Moves = append(p.Moves, WhatIfMove{Rule: r.Block, From: r.CurrentVersion, To: r.ProposedVersion, Back: r.movesBack()})
 			p.Score.RuleChanges++
-			if r.MovesBack() {
+			if r.movesBack() {
 				p.Score.MovesBack++
 			}
 			continue
@@ -273,20 +273,20 @@ func WhatIfByProject(selected []ids.ID, rows []WhatIfRow, slugs map[ids.ID]strin
 		p.Score.NewFailures, p.Score.Fixed = len(p.NewFailures), p.Fixed
 		for _, reason := range NotAssessedReasons {
 			if n := reasons[id][reason]; n > 0 {
-				p.NotAssessedBy = append(p.NotAssessedBy, WhatIfReasonCount{Reason: reason, Words: reason.Words(), Remedy: reason.Remedy(), Count: n})
+				p.NotAssessedBy = append(p.NotAssessedBy, WhatIfReasonCount{Reason: reason, Words: reason.Words(), Remedy: reason.remedy(), Count: n})
 				delete(reasons[id], reason)
 			}
 		}
 		// A reason outside the known set (an older row) is still counted.
 		for _, reason := range slices.Sorted(maps.Keys(reasons[id])) {
-			p.NotAssessedBy = append(p.NotAssessedBy, WhatIfReasonCount{Reason: reason, Words: reason.Words(), Remedy: reason.Remedy(), Count: reasons[id][reason]})
+			p.NotAssessedBy = append(p.NotAssessedBy, WhatIfReasonCount{Reason: reason, Words: reason.Words(), Remedy: reason.remedy(), Count: reasons[id][reason]})
 		}
 		switch {
 		case !answered[id]:
 		case len(p.NewFailures) > 0:
 			p.Outcome = WhatIfNewFailures
 		case len(p.NotAssessed) > 0:
-			p.Outcome = WhatIfCouldNotAssess
+			p.Outcome = whatIfCouldNotAssess
 		default:
 			p.Outcome = WhatIfNoNewFailures
 		}
@@ -316,13 +316,13 @@ func WhatIfOutcomeWords(outcome string) string {
 	switch outcome {
 	case WhatIfNewFailures:
 		return "new failures"
-	case WhatIfCouldNotAssess:
+	case whatIfCouldNotAssess:
 		return "could not assess"
 	case WhatIfNoNewFailures:
 		return "no new failures"
-	case WhatIfNotEvaluated:
+	case whatIfNotEvaluated:
 		return "not evaluated"
-	case WhatIfNotYetJudged:
+	case whatIfNotYetJudged:
 		return "not yet judged"
 	}
 	return outcome

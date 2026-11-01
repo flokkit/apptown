@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/gitexec"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/flokkit/apptown/internal/gitexec"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -135,7 +136,7 @@ func (d *gitDriver) Prepare(ctx context.Context, source Source, previous string)
 		return Prepared{}, ctx.Err()
 	}
 	if out.Termination == execution.Exited && out.ExitCode == 1 {
-		return Prepared{Kind: Empty}, nil
+		return Prepared{Kind: empty}, nil
 	}
 	if out.RunErr != nil {
 		return Prepared{}, fmt.Errorf("reading workflow branch: %w", out.RunErr)
@@ -157,7 +158,7 @@ func (d *gitDriver) Prepare(ctx context.Context, source Source, previous string)
 		} else if err := d.checkedTreeLanded(ctx, source, head); err != nil {
 			return Prepared{}, err
 		}
-		return Prepared{Kind: Existing, Result: head, ReuseRecorded: reuse}, nil
+		return Prepared{Kind: existing, Result: head, ReuseRecorded: reuse}, nil
 	}
 	drift, err := Drift(ctx, d.runner, repo)
 	if err != nil {
@@ -168,7 +169,7 @@ func (d *gitDriver) Prepare(ctx context.Context, source Source, previous string)
 		if err != nil {
 			return Prepared{}, err
 		}
-		return Prepared{Kind: Blocked, Drift: drift, DriftDiff: strs.Truncate(diff, 8192)}, nil
+		return Prepared{Kind: blocked, Drift: drift, DriftDiff: strs.Truncate(diff, 8192)}, nil
 	}
 	if err := pinnedLanding(ctx, source, head); err != nil {
 		return Prepared{}, err
@@ -231,7 +232,7 @@ func pinnedLanding(ctx context.Context, source Source, head string) error {
 	return nil
 }
 func (d *gitDriver) Execute(ctx context.Context, source Source, plan Prepared, operation string) (Execution, error) {
-	if plan.Kind == ProviderMerge {
+	if plan.Kind == providerMerge {
 		return d.executeMR(ctx, source, plan)
 	}
 	if plan.Kind != LocalMerge {
@@ -279,9 +280,9 @@ func (d *gitDriver) Inspect(ctx context.Context, source Source, record Record) (
 		return Inspection{Kind: Found, Result: found}, nil
 	}
 	if head == record.Expected {
-		return Inspection{Kind: Unchanged}, nil
+		return Inspection{Kind: unchanged}, nil
 	}
-	return Inspection{Kind: Unresolved}, nil
+	return Inspection{Kind: unresolved}, nil
 }
 func (d *gitDriver) mergeCommit(ctx context.Context, repo, branch, operation string) (string, error) {
 	out, err := d.git(ctx, repo, nil, "log", "--format=%H", "-n", "1", "--extended-regexp", "--grep=^"+trailer.Operation+": "+regexp.QuoteMeta(operation)+"$", "refs/heads/"+branch)
@@ -331,7 +332,7 @@ func (d *gitDriver) prepareMR(ctx context.Context, source Source) (Prepared, err
 			return Prepared{}, fmt.Errorf("this merge request landed a different commit than the checked candidate; create a new merge request")
 		}
 		sha, err := d.confirmMR(ctx, source, tip, current)
-		return Prepared{Kind: Existing, Result: sha}, err
+		return Prepared{Kind: existing, Result: sha}, err
 	case "opened":
 		head, err := d.revision(ctx, source.Repository, "refs/heads/"+source.DefaultBranch)
 		if err != nil {
@@ -371,13 +372,13 @@ func (d *gitDriver) prepareMR(ctx context.Context, source Source) (Prepared, err
 	if current.SHA != tip || current.State != "opened" || current.SourceBranch != source.Branch || current.TargetBranch != source.DefaultBranch || current.Squash {
 		return Prepared{}, fmt.Errorf("merge request changed or has not observed the checked candidate; retry")
 	}
-	return Prepared{Kind: ProviderMerge, Expected: tip}, nil
+	return Prepared{Kind: providerMerge, Expected: tip}, nil
 }
 
-// ErrMergeRequestSettings: the provider cannot guarantee that merging the
+// errMergeRequestSettings: the provider cannot guarantee that merging the
 // request lands exactly the checked candidate; the landing is refused with
 // the setting to change, or it lands directly.
-var ErrMergeRequestSettings = errors.New("this merge request cannot land the checked candidate exactly")
+var errMergeRequestSettings = errors.New("this merge request cannot land the checked candidate exactly")
 
 // checkedMergeSettings refuses provider settings under which a merge could
 // differ from the checked candidate: a plain merge commit (combines the
@@ -385,18 +386,18 @@ var ErrMergeRequestSettings = errors.New("this merge request cannot land the che
 // commit instead of the checked one).
 func checkedMergeSettings(settings gitlab.MergeSettings, mr *gitlab.MergeRequest) error {
 	if settings.MergeMethod != "ff" && settings.MergeMethod != "rebase_merge" {
-		return fmt.Errorf("%w: the GitLab project merges with plain merge commits (%q); set its merge method to fast-forward, or merge commit with semi-linear history, or land directly", ErrMergeRequestSettings, settings.MergeMethod)
+		return fmt.Errorf("%w: the GitLab project merges with plain merge commits (%q); set its merge method to fast-forward, or merge commit with semi-linear history, or land directly", errMergeRequestSettings, settings.MergeMethod)
 	}
 	if settings.SquashOption == "always" || mr.Squash {
-		return fmt.Errorf("%w: the merge request would squash its commits; turn squashing off for it (the project's squash option must not be \"always\"), or land directly", ErrMergeRequestSettings)
+		return fmt.Errorf("%w: the merge request would squash its commits; turn squashing off for it (the project's squash option must not be \"always\"), or land directly", errMergeRequestSettings)
 	}
 	// Rebasing on the provider lands rebased copies of the candidate's
 	// commits onto whatever the target is by then, not the candidate.
 	if settings.AutomaticRebase == nil {
-		return fmt.Errorf("%w: GitLab does not say whether this project rebases automatically before merging; land directly", ErrMergeRequestSettings)
+		return fmt.Errorf("%w: GitLab does not say whether this project rebases automatically before merging; land directly", errMergeRequestSettings)
 	}
 	if *settings.AutomaticRebase {
-		return fmt.Errorf("%w: the GitLab project rebases automatically before merging; turn that off, or land directly", ErrMergeRequestSettings)
+		return fmt.Errorf("%w: the GitLab project rebases automatically before merging; turn that off, or land directly", errMergeRequestSettings)
 	}
 	return nil
 }

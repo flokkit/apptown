@@ -49,7 +49,7 @@ func (s *Service) AttachPortainerTarget(ctx context.Context, in PortainerAttachm
 	if !project.ValidSlug(in.Name) {
 		return nil, fault.New(fault.Invalid, "target name must be a slug")
 	}
-	in.Domain, err = NormalizeTargetDomain(in.Domain)
+	in.Domain, err = normalizeTargetDomain(in.Domain)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (s *Service) AttachPortainerTarget(ctx context.Context, in PortainerAttachm
 	}
 	scopeJSON := json.RawMessage(encoded)
 	at := s.now()
-	target := &Target{ID: ids.New(at), Name: in.Name, Kind: KindPortainer, ConnectionID: in.ConnectionID, ProviderScope: scopeJSON, Address: map[string]any{AddressEnvironment: in.Environment, "endpoint": endpoint}, Origin: OriginAttached, Capabilities: StockCapabilities(KindPortainer, needs), Ingress: map[string]any{"binding": "traefik", "domain": in.Domain}, NeedsMode: "emulators", Status: TargetReady}
+	target := &Target{ID: ids.New(at), Name: in.Name, Kind: KindPortainer, ConnectionID: in.ConnectionID, ProviderScope: scopeJSON, Address: map[string]any{addressEnvironment: in.Environment, "endpoint": endpoint}, Origin: OriginAttached, Capabilities: stockCapabilities(KindPortainer, needs), Ingress: map[string]any{"binding": "traefik", "domain": in.Domain}, NeedsMode: "emulators", Status: TargetReady}
 	if in.DryRun {
 		return target, nil
 	}

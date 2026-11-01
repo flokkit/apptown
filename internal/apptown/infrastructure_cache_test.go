@@ -355,7 +355,7 @@ func TestInfrastructureScheduleChecksAllTargetsWithoutReaders(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := f.Snapshot().ListRequests
-	if err := infrastructureChecksFor(a).Request(t.Context()); err != nil {
+	if err := infrastructureChecksFor(a).request(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	runQueuedJobForTest(t, a, infrastructureCheckJob, passScheduledKey)

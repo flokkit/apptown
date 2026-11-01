@@ -32,26 +32,26 @@ func TestOnlyRecommendingMovesTheRecommendedVersion(t *testing.T) {
 	if _, err := packs.Publish(t.Context(), "team", "Team", `{"guidance":[]}`, ""); err != nil {
 		t.Fatal(err)
 	}
-	if v, err := packs.PublishNamed(t.Context(), "team", "Team", `{"guidance":[],"toolchain":"go"}`, "", "with go"); err != nil || v != 2 {
+	if v, err := packs.publishNamed(t.Context(), "team", "Team", `{"guidance":[],"toolchain":"go"}`, "", "with go"); err != nil || v != 2 {
 		t.Fatalf("second version: %d %v", v, err)
 	}
-	history, err := packs.History(t.Context(), "team")
+	history, err := packs.history(t.Context(), "team")
 	if err != nil || history.Recommended != 1 || history.Latest != 2 || history.Versions[0].Name != "with go" || history.Versions[0].BasedOn != 1 {
 		t.Fatalf("a saved version is not recommended, and names its base: %+v %v", history, err)
 	}
-	if offered, err := packs.OfferedContentsOf(t.Context(), "team"); err != nil || offered.Version != 1 || offered.Toolchain != "" {
+	if offered, err := packs.offeredContentsOf(t.Context(), "team"); err != nil || offered.Version != 1 || offered.Toolchain != "" {
 		t.Fatalf("new projects get the recommended version's contents: %+v %v", offered, err)
 	}
-	if err := packs.Recommend(t.Context(), "team", 9, "alice", ids.Nil); !errors.Is(err, ErrNoPackVersion) {
+	if err := packs.recommend(t.Context(), "team", 9, "alice", ids.Nil); !errors.Is(err, errNoPackVersion) {
 		t.Fatalf("a version the pack never had: %v", err)
 	}
-	if err := packs.Recommend(t.Context(), "team", 2, "alice", ids.Nil); err != nil {
+	if err := packs.recommend(t.Context(), "team", 2, "alice", ids.Nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := packs.Recommend(t.Context(), "team", 2, "alice", ids.Nil); err != nil {
+	if err := packs.recommend(t.Context(), "team", 2, "alice", ids.Nil); err != nil {
 		t.Fatal(err)
 	}
-	if offered, _ := packs.OfferedContentsOf(t.Context(), "team"); offered.Version != 2 || offered.Toolchain != "go" {
+	if offered, _ := packs.offeredContentsOf(t.Context(), "team"); offered.Version != 2 || offered.Toolchain != "go" {
 		t.Fatalf("recommending moves what is offered: %+v", offered)
 	}
 	if got := receipts(t, db, "pack.recommended", "team"); len(got) != 1 || got[0].Actor != "alice" || canonJSON(string(got[0].Payload)) != `{"from":1,"to":2}` {
@@ -61,7 +61,7 @@ func TestOnlyRecommendingMovesTheRecommendedVersion(t *testing.T) {
 	if _, err := packs.Publish(t.Context(), "team", "Team", `{"toolchain":"node"}`, ""); err != nil {
 		t.Fatal(err)
 	}
-	if err := packs.Recommend(t.Context(), "team", 3, "alice", idstest.N(7)); err != nil {
+	if err := packs.recommend(t.Context(), "team", 3, "alice", idstest.N(7)); err != nil {
 		t.Fatal(err)
 	}
 	named := 0
@@ -75,7 +75,7 @@ func TestOnlyRecommendingMovesTheRecommendedVersion(t *testing.T) {
 	}
 	// Naming a what-if for the version already recommended moves nothing,
 	// records nothing and says so.
-	if err := packs.Recommend(t.Context(), "team", 3, "alice", idstest.N(8)); !errors.Is(err, ErrAlreadyRecommended) {
+	if err := packs.recommend(t.Context(), "team", 3, "alice", idstest.N(8)); !errors.Is(err, errAlreadyRecommended) {
 		t.Fatalf("a what-if for the recommended version: %v", err)
 	}
 	if got := receipts(t, db, "pack.recommended", "team"); len(got) != 2 {
@@ -97,7 +97,7 @@ func TestAStockPacksNewVersionWaitsForAPerson(t *testing.T) {
 	if _, err := packs.Publish(t.Context(), "go-small", "Go", `{"guidance":["go/a"]}`, "stock"); err != nil {
 		t.Fatal(err)
 	}
-	if first, _ := packs.History(t.Context(), "go-small"); first.Recommended != 1 {
+	if first, _ := packs.history(t.Context(), "go-small"); first.Recommended != 1 {
 		t.Fatalf("a first version is recommended: %+v", first)
 	}
 	if _, err := packs.Publish(t.Context(), "go-small", "Go", `{"guidance":["go/a"],"toolchain":"go"}`, "stock"); err != nil {
@@ -110,17 +110,17 @@ func TestAStockPacksNewVersionWaitsForAPerson(t *testing.T) {
 	if _, err := packs.CutOnPinChange(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	stock, _ := packs.History(t.Context(), "go-small")
+	stock, _ := packs.history(t.Context(), "go-small")
 	if stock.Latest != 3 || stock.Recommended != 1 {
 		t.Fatalf("stock latest %d recommended %d", stock.Latest, stock.Recommended)
 	}
 	if got := receipts(t, db, "pack.recommended", "go-small"); len(got) != 0 {
 		t.Fatalf("no one recommended it: %+v", got)
 	}
-	if err := packs.Recommend(t.Context(), "go-small", 3, "alice", ids.Nil); err != nil {
+	if err := packs.recommend(t.Context(), "go-small", 3, "alice", ids.Nil); err != nil {
 		t.Fatal(err)
 	}
-	if stock, _ := packs.History(t.Context(), "go-small"); stock.Recommended != 3 {
+	if stock, _ := packs.history(t.Context(), "go-small"); stock.Recommended != 3 {
 		t.Fatalf("a person's recommendation moves it: %+v", stock)
 	}
 }

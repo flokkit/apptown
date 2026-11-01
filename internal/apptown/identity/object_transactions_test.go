@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -21,7 +23,7 @@ func connectedService(t *testing.T) (*Service, *database.DB, ids.ID, Pair) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	id, found, err := s.oauth.DelegationOfToken(context.Background(), pair.Access)
+	id, found, err := s.oauth.delegationOfToken(context.Background(), pair.Access)
 	if err != nil || !found {
 		t.Fatalf("connection: %d %v %v", id, found, err)
 	}
@@ -34,13 +36,13 @@ func TestRefreshTransactionRollsBackFailedWrites(t *testing.T) {
 		t.Run(marker, func(t *testing.T) {
 			t.Parallel()
 			s, db, _, pair := connectedService(t)
-			restore := db.FailNextStatement(marker)
-			failed, err := s.Refresh(context.Background(), pair.Refresh)
+			restore := dbtest.NextStatementFailure(db, marker)
+			failed, err := s.RefreshForClient(context.Background(), pair.Refresh, "")
 			restore()
 			if err == nil || failed.Access != "" || failed.Refresh != "" {
 				t.Fatalf("failed rotation returned a pair: %+v %v", failed, err)
 			}
-			token, err := s.oauth.Token(context.Background(), pair.Refresh, "refresh")
+			token, err := s.oauth.token(context.Background(), pair.Refresh, "refresh")
 			if err != nil || token == nil || token.Revoked {
 				t.Fatalf("failed rotation spent the credential: %+v %v", token, err)
 			}
@@ -49,7 +51,7 @@ func TestRefreshTransactionRollsBackFailedWrites(t *testing.T) {
 			if err := db.SQL().QueryRowContext(context.Background(), `SELECT count(*) FROM oauth_tokens`).Scan(&n); err != nil || n != 2 {
 				t.Fatalf("failed rotation left minted tokens: %d %v", n, err)
 			}
-			if _, err := s.Refresh(context.Background(), pair.Refresh); err != nil {
+			if _, err := s.RefreshForClient(context.Background(), pair.Refresh, ""); err != nil {
 				t.Fatalf("explicit retry: %v", err)
 			}
 		})
@@ -59,12 +61,12 @@ func TestRefreshTransactionRollsBackFailedWrites(t *testing.T) {
 func TestRefreshLeakReceiptCommitsOrRollsBackWithRevocation(t *testing.T) {
 	t.Parallel()
 	s, db, id, pair := connectedService(t)
-	next, err := s.Refresh(context.Background(), pair.Refresh)
+	next, err := s.RefreshForClient(context.Background(), pair.Refresh, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	restore := db.FailNextStatement("INSERT INTO audit_log")
-	_, err = s.Refresh(context.Background(), pair.Refresh)
+	restore := dbtest.NextStatementFailure(db, "INSERT INTO audit_log")
+	_, err = s.RefreshForClient(context.Background(), pair.Refresh, "")
 	restore()
 	if err == nil || errors.Is(err, ErrLeaked) {
 		t.Fatalf("failed revocation reported a committed leak: %v", err)
@@ -73,18 +75,18 @@ func TestRefreshLeakReceiptCommitsOrRollsBackWithRevocation(t *testing.T) {
 	if err != nil || !d.LiveAt(time.Now()) {
 		t.Fatalf("failed receipt ended delegation: %+v %v", d, err)
 	}
-	at, err := s.oauth.Token(context.Background(), next.Access, "access")
+	at, err := s.oauth.token(context.Background(), next.Access, "access")
 	if err != nil || at == nil || at.Revoked {
 		t.Fatal("failed receipt revoked tokens")
 	}
-	if _, err := s.Refresh(context.Background(), pair.Refresh); !errors.Is(err, ErrLeaked) {
+	if _, err := s.RefreshForClient(context.Background(), pair.Refresh, ""); !errors.Is(err, ErrLeaked) {
 		t.Fatalf("reuse: %v", err)
 	}
 	d, err = s.Connection(context.Background(), id)
 	if err != nil || d.LiveAt(time.Now()) {
 		t.Fatalf("ErrLeaked returned before revocation committed: %+v %v", d, err)
 	}
-	at, err = s.oauth.Token(context.Background(), next.Access, "access")
+	at, err = s.oauth.token(context.Background(), next.Access, "access")
 	if err != nil || at == nil || !at.Revoked {
 		t.Fatal("leak left winner's token live")
 	}
@@ -99,10 +101,10 @@ func TestRefreshChecksIdentityBinding(t *testing.T) {
 	if _, err := s.RefreshForClient(context.Background(), pair.Refresh, "another-client"); !errors.Is(err, ErrClientMismatch) {
 		t.Fatalf("client mismatch: %v", err)
 	}
-	if _, err := s.Refresh(context.Background(), "missing"); !errors.Is(err, ErrUnknownRefresh) {
+	if _, err := s.RefreshForClient(context.Background(), "missing", ""); !errors.Is(err, ErrUnknownRefresh) {
 		t.Fatalf("unknown token: %v", err)
 	}
-	if _, err := s.Refresh(context.Background(), pair.Refresh); err != nil {
+	if _, err := s.RefreshForClient(context.Background(), pair.Refresh, ""); err != nil {
 		t.Fatalf("binding refusal consumed the token: %v", err)
 	}
 }
@@ -116,7 +118,7 @@ func TestRefreshRejectsPartialTokenWrites(t *testing.T) {
 			pair := first
 			if operation == "revoke" {
 				var err error
-				pair, err = s.Refresh(context.Background(), first.Refresh)
+				pair, err = s.RefreshForClient(context.Background(), first.Refresh, "")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -132,21 +134,21 @@ func TestRefreshRejectsPartialTokenWrites(t *testing.T) {
 			if _, err := db.SQL().ExecContext(context.Background(), statement); err != nil {
 				t.Fatal(err)
 			}
-			if got, err := s.Refresh(context.Background(), first.Refresh); err == nil || errors.Is(err, ErrLeaked) || got.Access != "" {
+			if got, err := s.RefreshForClient(context.Background(), first.Refresh, ""); err == nil || errors.Is(err, ErrLeaked) || got.Access != "" {
 				t.Fatalf("partial %s succeeded: %+v %v", operation, got, err)
 			}
 			d, err := s.Connection(context.Background(), id)
 			if err != nil || !d.LiveAt(time.Now()) {
 				t.Fatal("partial write ended delegation")
 			}
-			at, err := s.oauth.Token(context.Background(), pair.Access, "access")
+			at, err := s.oauth.token(context.Background(), pair.Access, "access")
 			if err != nil || at == nil || at.Revoked {
 				t.Fatal("partial write altered existing token")
 			}
 			if _, err := db.SQL().ExecContext(context.Background(), `DROP TRIGGER veto_token ON oauth_tokens`); err != nil {
 				t.Fatal(err)
 			}
-			_, err = s.Refresh(context.Background(), first.Refresh)
+			_, err = s.RefreshForClient(context.Background(), first.Refresh, "")
 			if operation == "mint" && err != nil {
 				t.Fatal(err)
 			}
@@ -162,10 +164,10 @@ func TestRefreshCancellationDoesNotSpendCredential(t *testing.T) {
 	s, _, _, pair := connectedService(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := s.Refresh(ctx, pair.Refresh); !errors.Is(err, context.Canceled) {
+	if _, err := s.RefreshForClient(ctx, pair.Refresh, ""); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled refresh: %v", err)
 	}
-	if _, err := s.Refresh(context.Background(), pair.Refresh); err != nil {
+	if _, err := s.RefreshForClient(context.Background(), pair.Refresh, ""); err != nil {
 		t.Fatalf("cancelled operation spent token: %v", err)
 	}
 }
@@ -179,7 +181,7 @@ func TestTicketReceiptFailureAndConcurrentConsumption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	restore := db.FailNextStatement("INSERT INTO audit_log")
+	restore := dbtest.NextStatementFailure(db, "INSERT INTO audit_log")
 	consumed, err := s.ConsumeTicket(context.Background(), ticket.ID)
 	restore()
 	if err == nil || consumed {

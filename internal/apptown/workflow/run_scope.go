@@ -13,15 +13,15 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 )
 
-// RunScope is a recorded run binding for trusted readers. It grants no mutation
+// runScope is a recorded run binding for trusted readers. It grants no mutation
 // authority and resolves its project afresh on each use.
-type RunScope struct {
+type runScope struct {
 	db *database.DB
 	id ids.ID
 }
 
-func (s *Service) RunScope(id ids.ID) RunScope { return RunScope{db: s.db, id: id} }
-func (r RunScope) ProjectID(ctx context.Context) (ids.ID, error) {
+func (s *Service) RunScope(id ids.ID) runScope { return runScope{db: s.db, id: id} }
+func (r runScope) ProjectID(ctx context.Context) (ids.ID, error) {
 	if r.db == nil || r.id.IsZero() {
 		return ids.Nil, ErrCallerRequired
 	}

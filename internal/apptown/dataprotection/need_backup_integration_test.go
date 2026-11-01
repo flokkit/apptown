@@ -41,7 +41,7 @@ func TestIntegrationRedisBackupRestoresIntoAFreshDeployment(t *testing.T) {
 	}
 
 	res, err := s.restoreBackup(context.Background(), nil, pid, "fresh", b.ID, "bls")
-	if err != nil || res.Status != RestoreDone || len(res.Items) != 1 || res.Items[0].Outcome != RestoreVerified {
+	if err != nil || res.Status != restoreDone || len(res.Items) != 1 || res.Items[0].Outcome != restoreVerified {
 		t.Fatalf("restore: %+v %v", res, err)
 	}
 	cli(t, redisOf["fresh"], "GET first", "1")
@@ -90,7 +90,7 @@ func TestIntegrationPostgresBackupRestoresInPlaceAndIsVerified(t *testing.T) {
 		t.Fatalf("take: %+v %v", b, err)
 	}
 	res, err := s.restoreBackup(context.Background(), nil, pid, "fresh", b.ID, "bls")
-	if err != nil || res.Status != RestoreDone || len(res.Items) != 1 || res.Items[0].Outcome != RestoreVerified {
+	if err != nil || res.Status != restoreDone || len(res.Items) != 1 || res.Items[0].Outcome != restoreVerified {
 		t.Fatalf("restore: %+v %v", res, err)
 	}
 	if got := psql(t, pgOf["fresh"], "SELECT string_agg(n::text, ',' ORDER BY n) FROM ledger"); got != "41,42" {

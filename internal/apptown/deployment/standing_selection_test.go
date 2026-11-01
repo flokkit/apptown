@@ -1,10 +1,11 @@
 package deployment
 
 import (
+	"testing"
+
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
-	"testing"
 )
 
 func TestStandingConsentSelectionRequiresExactProjectEnvironmentAndTarget(t *testing.T) {

@@ -32,7 +32,7 @@ func (dk Scope) Labels(class, owner string) []string {
 		"--label", dockerlabel.Class + "=" + class,
 		"--label", dockerlabel.Owner + "=" + owner,
 		"--label", dockerlabel.Created + "=" + clock.Or(dk.Now)().UTC().Format(time.RFC3339),
-	}, dk.InstanceLabel()...)
+	}, dk.instanceLabel()...)
 }
 
 // TeardownBound is how long a step's returned teardown may take: it runs
@@ -56,7 +56,7 @@ func StartServices(ctx context.Context, dk Scope, id string, svcs []deploy.Servi
 	cleanup := func() {
 		teardown, cancel := context.WithTimeout(context.WithoutCancel(ctx), TeardownBound)
 		defer cancel()
-		if err := dk.RemoveStack(teardown, id); err != nil {
+		if err := dk.removeOwnedStack(teardown, id); err != nil {
 			log.Printf("tearing down stack %s: %v", id, err) // the reaper's backstop takes what is left
 		}
 	}
@@ -109,14 +109,14 @@ func runServiceContainersWith(ctx context.Context, dk Scope, id, network string,
 			args = append(args, "--rm")
 		}
 		args = append(args, dk.Labels(opts.class, id)...)
-		args = append(args, own.Info...)
-		args = append(args, ResourceArgs(svc.Resources)...)
+		args = append(args, own.info...)
+		args = append(args, resourceArgs(svc.Resources)...)
 		args = append(args, execution.LogFlags()...)
 		for k, v := range svc.Env {
 			args = append(args, "-e", k+"="+v)
 		}
 		if svc.AppPart {
-			args = append(args, trust.ContainerArgs(!dk.Remote())...)
+			args = append(args, trust.ContainerArgs(!dk.remote())...)
 		}
 		args = append(args, healthArgs(svc.Health)...)
 		// A need gets a disposable folder where it keeps its data: an
@@ -234,10 +234,10 @@ func waitStackHealthy(ctx context.Context, dk Scope, svcs []deploy.ServiceSpec, 
 	return declared, nil
 }
 
-// PreparePreviewBuilds builds each explicit build context once. Different
+// preparePreviewBuilds builds each explicit build context once. Different
 // contexts cannot silently share the public image. Only the private plan
 // receives tags.
-func PreparePreviewBuilds(ctx context.Context, dk Scope, ws, name string, c *appcontract.Plan) error {
+func preparePreviewBuilds(ctx context.Context, dk Scope, ws, name string, c *appcontract.Plan) error {
 	built := map[string]string{}
 	prepare := func(build, part string) (string, error) {
 		if image := built[build]; image != "" {
@@ -247,13 +247,13 @@ func PreparePreviewBuilds(ctx context.Context, dk Scope, ws, name string, c *app
 		if len(built) > 0 {
 			tag = Current.BuildTag(name + "-" + part)
 		}
-		buildDir, cleanup, err := StagedBuildContext(ctx, ws, build)
+		buildDir, cleanup, err := stagedBuildContext(ctx, ws, build)
 		if err != nil {
 			return "", err
 		}
 		defer cleanup()
 		if out, err := buildPreviewImage(ctx, dk, tag, buildDir); err != nil {
-			return "", BuildFailure("building the app image", out, err)
+			return "", buildFailure("building the app image", out, err)
 		}
 		built[build] = tag
 		return tag, nil
@@ -337,7 +337,7 @@ func runInitContainers(ctx context.Context, dk Scope, id, network string, c *app
 		for k, v := range secrets.EnvFor("init-" + it.Name) {
 			args = append(args, "-e", k+"="+v)
 		}
-		args = append(args, trust.ContainerArgs(!dk.Remote())...)
+		args = append(args, trust.ContainerArgs(!dk.remote())...)
 		args = append(args, img)
 		args = append(args, it.Command...)
 		if out, err := dk.Run(ctx, args...); err != nil {
@@ -369,7 +369,7 @@ func bringUpParts(ctx context.Context, dk Scope, id, name, ws, network string, c
 			return nil, "", err
 		}
 	}
-	if err := PreparePreviewBuilds(ctx, dk, ws, name, c); err != nil {
+	if err := preparePreviewBuilds(ctx, dk, ws, name, c); err != nil {
 		return nil, "", err
 	}
 	if err := runInitContainers(ctx, dk, id, network, c, secrets); err != nil {
@@ -380,7 +380,7 @@ func bringUpParts(ctx context.Context, dk Scope, id, name, ws, network string, c
 		// class env (never idle-reaped) and restart unless-stopped. Preview
 		// and run stacks stay throwaway.
 		opts := serviceRunOptions{class: "service"}
-		if own.Persistent {
+		if own.persistent {
 			opts = serviceRunOptions{class: "env", persistent: true}
 		}
 		if err := runServiceContainersWith(ctx, dk, id, network, extra, opts, own); err != nil {
@@ -390,12 +390,12 @@ func bringUpParts(ctx context.Context, dk Scope, id, name, ws, network string, c
 	return c, network, nil
 }
 
-// ServiceDrift names what differs between a standing service container
+// serviceDrift names what differs between a standing service container
 // and the service the contract declares now: "entrypoint", "command",
 // "image", or env keys whose values moved. Empty when the container still
 // serves the declaration. An entrypoint or command the declaration leaves
 // to the image is not compared: the image's own is not known here.
-func ServiceDrift(ctx context.Context, dk Scope, cname string, svc deploy.ServiceSpec) ([]string, error) {
+func serviceDrift(ctx context.Context, dk Scope, cname string, svc deploy.ServiceSpec) ([]string, error) {
 	var drift []string
 	inspected := func(what, field string) ([]string, error) {
 		var have []string
@@ -464,12 +464,12 @@ func ServiceDrift(ctx context.Context, dk Scope, cname string, svc deploy.Servic
 // replaced; anything else is refused with the words, never silently replaced.
 func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs []deploy.ServiceSpec, dataClass string, own Ownership) (string, error) {
 	// A changed catalogue selector cannot discard a previously witnessed engine.
-	if own.Storage != nil {
+	if own.storage != nil {
 		for _, svc := range svcs {
 			if svc.KeepsImage && own.Needs[svc.Name] != "" {
 				continue
 			}
-			_, found, err := own.Storage.Get(ctx, svc.Name, Current.NeedVolume(stackID, svc.Name))
+			_, found, err := own.storage.Get(ctx, svc.Name, Current.NeedVolume(stackID, svc.Name))
 			if err != nil {
 				return "", err
 			}
@@ -480,8 +480,8 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 	}
 	// A logical fill requires empty targets for every engine, not only the first
 	// service reached by the start loop. No engine starts on partial admission.
-	if own.RestoreStorage != nil {
-		if own.Storage == nil {
+	if own.restoreStorage != nil {
+		if own.storage == nil {
 			return "", errors.New("restore has no storage evidence owner")
 		}
 		for _, svc := range svcs {
@@ -496,7 +496,7 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 			if exists {
 				return "", fmt.Errorf("restore refuses preexisting engine-data volume %s; recover it explicitly before retrying", volume)
 			}
-			binding, found, err := own.Storage.Get(ctx, svc.Name, volume)
+			binding, found, err := own.storage.Get(ctx, svc.Name, volume)
 			if err != nil {
 				return "", err
 			}
@@ -504,7 +504,7 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 			if found {
 				source = &binding
 			}
-			if _, _, err := restoreEngine(ctx, dk, svc, own.Needs[svc.Name], source, own.RestoreStorage); err != nil {
+			if _, _, err := restoreEngine(ctx, dk, svc, own.Needs[svc.Name], source, own.restoreStorage); err != nil {
 				return "", err
 			}
 
@@ -528,7 +528,7 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 		}
 		path := own.Needs[svc.Name]
 		runImage := svc.Image
-		if svc.KeepsImage && path != "" && own.Storage != nil {
+		if svc.KeepsImage && path != "" && own.storage != nil {
 			runImage, err = bindService(ctx, dk, stackID, cname, path, svc, there, own)
 			if err != nil {
 				return network, fmt.Errorf("admitting the %s engine: %w", svc.Name, err)
@@ -536,7 +536,7 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 		}
 		// Without the container, the requested image is not evidence of the
 		// engine that wrote retained data. Refuse before any writable start.
-		if !there && svc.KeepsImage && path != "" && own.Storage == nil {
+		if !there && svc.KeepsImage && path != "" && own.storage == nil {
 			vol := Current.NeedVolume(stackID, svc.Name)
 			retained, err := dk.Exists(ctx, "volume", "inspect", vol)
 			if err != nil {
@@ -547,7 +547,7 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 			}
 		}
 		if there {
-			drift, err := ServiceDrift(ctx, dk, cname, svc)
+			drift, err := serviceDrift(ctx, dk, cname, svc)
 			if err != nil {
 				return network, err
 			}
@@ -573,7 +573,7 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 				if err := replaceDrifted(ctx, dk, stackID, cname, svc, drift, dataClass, own); err != nil {
 					return network, err
 				}
-				if svc.KeepsImage && path != "" && own.Storage != nil {
+				if svc.KeepsImage && path != "" && own.storage != nil {
 					exists, err := dk.Exists(ctx, "volume", "inspect", Current.NeedVolume(stackID, svc.Name))
 					if err != nil {
 						return network, err
@@ -593,8 +593,8 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 			// class=env: a deployed deployment's own service — persistent,
 			// never idle-reaped (it lives with the env).
 			args = append(args, dk.Labels("env", stackID)...)
-			args = append(args, own.Info...)
-			args = append(args, ResourceArgs(svc.Resources)...)
+			args = append(args, own.info...)
+			args = append(args, resourceArgs(svc.Resources)...)
 			args = append(args, execution.LogFlags()...)
 			for k, v := range svc.Env {
 				args = append(args, "-e", k+"="+v)
@@ -628,11 +628,11 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 
 // Data volumes: handing a volume to the user the app image runs as.
 
-// HandVolumeToImageUser makes a data volume owned by the user an image
+// handVolumeToImageUser makes a data volume owned by the user an image
 // declares (USER in its Dockerfile), resolving a name to a uid inside the
 // image. Root, no USER, or an image without a shell to resolve a name:
 // nothing is done and the volume keeps its ownership.
-func HandVolumeToImageUser(ctx context.Context, dk Scope, volume, image, chownImage string) {
+func handVolumeToImageUser(ctx context.Context, dk Scope, volume, image, chownImage string) {
 	if chownImage == "" {
 		return
 	}
@@ -640,7 +640,7 @@ func HandVolumeToImageUser(ctx context.Context, dk Scope, volume, image, chownIm
 	if err != nil {
 		return
 	}
-	uid, gid, ok := ParseImageUser(strings.TrimSpace(string(out)))
+	uid, gid, ok := parseImageUser(strings.TrimSpace(string(out)))
 	if !ok {
 		return
 	}
@@ -668,10 +668,10 @@ func HandVolumeToImageUser(ctx context.Context, dk Scope, volume, image, chownIm
 		chownImage, "chown", "-R", uid+":"+gid, "/mnt")
 }
 
-// ParseImageUser reads a Dockerfile USER value ("app", "10001",
+// parseImageUser reads a Dockerfile USER value ("app", "10001",
 // "10001:10001", "app:app") into uid and gid parts; ok is false for an
 // unset or root user.
-func ParseImageUser(s string) (uid, gid string, ok bool) {
+func parseImageUser(s string) (uid, gid string, ok bool) {
 	s = strings.TrimSpace(s)
 	if s == "" || s == "root" || s == "0" {
 		return "", "", false
@@ -727,7 +727,7 @@ func isNumeric(s string) bool {
 // BuildKit puts the compiler/test failure after its setup and progress output.
 // Keep the end of long logs so previews and console feedback retain the cause,
 // while bounding the error sent through HTTP, session messages and audit rows.
-func BuildFailure(operation string, output []byte, cause error) error {
+func buildFailure(operation string, output []byte, cause error) error {
 	const limit = 16 * 1024
 	detail := strings.TrimSpace(string(output))
 	if len(detail) > limit {
@@ -779,7 +779,7 @@ func holdServiceLimits(ctx context.Context, dk Scope, cname string, want appcont
 		}
 		return true, nil
 	}
-	if out, err := dk.Run(ctx, append(append([]string{"update"}, ResourceArgs(want)...), cname)...); err != nil {
+	if out, err := dk.Run(ctx, append(append([]string{"update"}, resourceArgs(want)...), cname)...); err != nil {
 		return false, fmt.Errorf("applying its declared limits: %v: %s", err, strings.TrimSpace(string(out)))
 	}
 	return false, nil
@@ -847,8 +847,8 @@ func replaceDrifted(ctx context.Context, dk Scope, stackID, cname string, svc de
 		if err := dk.RemoveVolume(ctx, vol); err != nil {
 			return fmt.Errorf("removing the %s service's data volume %s to recreate it: %w", svc.Name, vol, err)
 		}
-		if own.Storage != nil {
-			if err := own.Storage.Retire(ctx, svc.Name, vol); err != nil {
+		if own.storage != nil {
+			if err := own.storage.Retire(ctx, svc.Name, vol); err != nil {
 				return fmt.Errorf("retiring the deleted %s volume's engine evidence: %w", svc.Name, err)
 			}
 		}

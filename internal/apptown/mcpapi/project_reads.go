@@ -17,7 +17,7 @@ import (
 )
 
 type ProjectReadsDependencies struct {
-	Scope       Scope
+	Scope       scope
 	Work        *workflow.Service
 	Adoption    *adoption.Service
 	Ways        *wow.Service
@@ -27,7 +27,7 @@ type ProjectReadsDependencies struct {
 	DataDir     string
 }
 type projectReads struct {
-	scope       Scope
+	scope       scope
 	work        *workflow.Service
 	adoption    *adoption.Service
 	ways        *wow.Service
@@ -37,9 +37,9 @@ type projectReads struct {
 	dataDir     string
 }
 
-func NewProjectReads(deps ProjectReadsDependencies) []Tool {
+func NewProjectReads(deps ProjectReadsDependencies) []toolEntry {
 	h := projectReads{scope: deps.Scope, work: deps.Work, adoption: deps.Adoption, ways: deps.Ways, conformance: deps.Conformance, deployments: deps.Deployments, db: deps.DB, dataDir: deps.DataDir}
-	return []Tool{{
+	return []toolEntry{{
 		Name:        "list_projects",
 		order:       0,
 		Description: "Returns the projects you can see, each with its slug, name, way of working, default branch, the URL of its main deployment if one is deployed, and how many Changes are open.",

@@ -93,7 +93,7 @@ exec httpd -f -p 8080 -h /srv`
 	}
 	defer os.RemoveAll(dir)
 	cfg := &Target{PortainerURL: server.URL, PortainerKey: "fixture-key", Scope: &Scope{Version: 1, APIBase: server.URL, EndpointID: 3, DaemonID: "fixture"}}
-	proxy, err := StartDockerProxy(dir, Environment{ID: 3, Type: 1}, func(context.Context) (*Target, error) { return cfg, nil })
+	proxy, err := StartDockerProxy(dir, deploymentEnvironment{ID: 3, Type: 1}, func(context.Context) (*Target, error) { return cfg, nil })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ exec httpd -f -p 8080 -h /srv`
 			t.Errorf("close owned proxy: %v", err)
 		}
 	}()
-	diagnostic := Diagnostic{Allowed: func(context.Context) error { return nil }, Command: func(ctx context.Context, env []string, args ...string) ([]byte, error) {
+	diagnostic := Diagnostic{allowed: func(context.Context) error { return nil }, Command: func(ctx context.Context, env []string, args ...string) ([]byte, error) {
 		if args[0] == "create" {
 			for i, arg := range args {
 				if arg == "--name" {

@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/dbtest"
 )
 
 func exchangeFixture(t *testing.T, s *Service) CodeExchange {
@@ -57,10 +59,10 @@ func TestCodeExchangeValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.ExchangeCode(ctx, in); !errors.Is(err, ErrCodeReplay) {
+	if _, err := s.ExchangeCode(ctx, in); !errors.Is(err, errCodeReplay) {
 		t.Fatalf("replay: %v", err)
 	}
-	token, err := s.oauth.Token(context.Background(), pair.Access, "access")
+	token, err := s.oauth.token(context.Background(), pair.Access, "access")
 	if err != nil || token == nil || !token.Revoked {
 		t.Fatalf("replay did not revoke: %+v %v", token, err)
 	}
@@ -74,7 +76,7 @@ func TestCodeExchangeSettlement(t *testing.T) {
 			s := New(db, Config{})
 			in := exchangeFixture(t, s)
 			ctx := context.Background()
-			restore := db.FailNextStatement(marker)
+			restore := dbtest.NextStatementFailure(db, marker)
 			pair, err := s.ExchangeCode(ctx, in)
 			restore()
 			if err == nil || pair.Access != "" || pair.Refresh != "" {
@@ -107,7 +109,7 @@ func TestCodeExchangeConcurrentClaim(t *testing.T) {
 	for err := range results {
 		if err == nil {
 			successes++
-		} else if !errors.Is(err, ErrCodeReplay) {
+		} else if !errors.Is(err, errCodeReplay) {
 			t.Fatal(err)
 		}
 	}
@@ -136,7 +138,7 @@ func TestCodeReplayAfterStaleReadRevokesWinningTokens(t *testing.T) {
 	s := New(testDB(t), Config{})
 	ctx := context.Background()
 	in := exchangeFixture(t, s)
-	stale, err := s.oauth.CodeByValue(ctx, in.Code)
+	stale, err := s.oauth.codeByValue(ctx, in.Code)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,11 +163,11 @@ func TestCodeReplayAfterStaleReadRevokesWinningTokens(t *testing.T) {
 	}
 	delegation.CreatedAt = consumed
 	saveStoredDelegation(t, s.db, delegation)
-	if _, err := s.exchangeCode(ctx, in, stale); !errors.Is(err, ErrCodeReplay) {
+	if _, err := s.exchangeCode(ctx, in, stale); !errors.Is(err, errCodeReplay) {
 		t.Fatalf("stale exchange: %v", err)
 	}
 	for _, entry := range []struct{ value, kind string }{{winner.Access, "access"}, {winner.Refresh, "refresh"}} {
-		token, err := s.oauth.Token(context.Background(), entry.value, entry.kind)
+		token, err := s.oauth.token(context.Background(), entry.value, entry.kind)
 		if err != nil || token == nil || !token.Revoked {
 			t.Fatalf("winning %s credential survived replay: %+v %v", entry.kind, token, err)
 		}

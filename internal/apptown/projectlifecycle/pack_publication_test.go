@@ -3,8 +3,10 @@ package projectlifecycle
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/apptown/wow"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/apptown/wow"
+	"github.com/flokkit/apptown/internal/dbtest"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 )
@@ -12,7 +14,7 @@ import (
 func TestProjectCreationAndReceiptCommitTogether(t *testing.T) {
 	t.Parallel()
 	f := newOwnerFixture(t, true)
-	t.Cleanup(f.db.FailNextStatement("INSERT INTO project_adoptions"))
+	t.Cleanup(dbtest.NextStatementFailure(f.db, "INSERT INTO project_adoptions"))
 	if _, err := f.lifecycle.Create(context.Background(), Draft{Slug: "atomic", Name: "Atomic", Actor: "bls"}); err == nil {
 		t.Fatal("receipt failure hidden")
 	}
@@ -44,7 +46,7 @@ func TestPackApplyRecordsPinsAndRollsBackSetup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(f.db.FailNextStatement("INSERT INTO project_packs"))
+	t.Cleanup(dbtest.NextStatementFailure(f.db, "INSERT INTO project_packs"))
 	ctx := adoption.WithSystemAuthority(context.Background(), p.ID)
 	if _, err := f.lifecycle.ApplyPack(ctx, p, []*wow.Pack{pk}, "bls"); err == nil {
 		t.Fatal("membership failure hidden")

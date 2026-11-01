@@ -100,8 +100,8 @@ func ForProject(projectID ids.ID) console.Match {
 	return console.Match{Labels: map[string]string{ProjectLabel: projectID.String()}}
 }
 
-// Scope names the project, Change and resumed producer owning a conversation.
-type Scope struct {
+// scope names the project, Change and resumed producer owning a conversation.
+type scope struct {
 	ProjectID ids.ID
 	ChangeID  ids.ID
 	RunID     ids.ID
@@ -110,8 +110,8 @@ type Scope struct {
 	Slug      string
 }
 
-func FromLabels(labels map[string]string) Scope {
-	return Scope{
+func FromLabels(labels map[string]string) scope {
+	return scope{
 		ProjectID: labelID(labels, ProjectLabel),
 		ChangeID:  labelID(labels, ChangeLabel),
 		RunID:     labelID(labels, RunLabel),
@@ -120,4 +120,4 @@ func FromLabels(labels map[string]string) Scope {
 		Slug:      labels[SlugLabel],
 	}
 }
-func Of(s *console.Session) Scope { return FromLabels(s.Labels) }
+func Of(s *console.Session) scope { return FromLabels(s.Labels) }

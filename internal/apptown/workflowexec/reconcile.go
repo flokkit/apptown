@@ -26,7 +26,7 @@ import (
 
 // RunReconcile pins the change's branch as published as the landing's
 // candidate when it already contains the hub's main.
-func (a *Repositories) RunReconcile(task *workflow.Execution) {
+func (a *repositories) RunReconcile(task *workflow.Execution) {
 	run := task.Run()
 	finish := func(status workflow.StepState, evidence map[string]any) {
 		task.Settle(workflow.EncodeOutcome(status, evidence, nil))

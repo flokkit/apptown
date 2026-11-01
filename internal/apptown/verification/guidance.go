@@ -325,8 +325,8 @@ func (a *Guidance) judgeDeclared(ctx context.Context, scope conformance.RunScope
 	// staged tree; exec-image self-checks run inside the app image, shared
 	// (content-addressed by commit) with apptown check so it is not built twice.
 	// The gate runs the full set (AllowBuild).
-	toolResults, toolFindings, toolErrors := a.scanners.RunToolChecks(ctx, checks,
-		ToolContext{Context: conformance.WithRun(ctx, scope), ProjectID: run.ProjectID, SHA: at.Commit, BuildDir: at.Src, AllowBuild: true}, prefix)
+	toolResults, toolFindings, toolErrors := a.scanners.runToolChecks(ctx, checks,
+		toolContext{Context: conformance.WithRun(ctx, scope), ProjectID: run.ProjectID, SHA: at.Commit, BuildDir: at.Src, AllowBuild: true}, prefix)
 	j.results = append(j.results, toolResults...)
 	j.findings = append(j.findings, toolFindings...)
 	j.errors += toolErrors

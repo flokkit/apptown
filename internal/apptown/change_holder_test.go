@@ -480,7 +480,7 @@ func TestACheckoutDoesNotRemoveAWorkerThatTookTheChangeSince(t *testing.T) {
 			if code == 201 {
 				// The fake console starts no container: model the runtime with
 				// the label console/pi gives it.
-				d.survive(ExecRequest{Name: "apptown-console-" + id, Labels: []string{docker.WritesLabel + "=" + w.folder}})
+				d.survive(execRequest{Name: "apptown-console-" + id, Labels: []string{docker.WritesLabel + "=" + w.folder}})
 			}
 			chat <- opened{id, code}
 		}()
@@ -514,7 +514,7 @@ func TestAStuckChatOnAFreeChangeKeepsItAndStartupGoesOn(t *testing.T) {
 	id := w.legacyChat(t)
 	d := newSurvivingContainers()
 	runtime := "apptown-console-" + id
-	d.survive(ExecRequest{Name: runtime, Labels: []string{docker.WritesLabel + "=" + w.folder}})
+	d.survive(execRequest{Name: runtime, Labels: []string{docker.WritesLabel + "=" + w.folder}})
 	w.a.docker = docker.Scope{Client: d}
 	rebuildRoutes(w.a)
 	w.agent.FailRemove(id, 1)
@@ -552,12 +552,12 @@ func TestALandingsAgentGateDoesNotRemoveTheHoldingChat(t *testing.T) {
 	d := newSurvivingContainers()
 	d.allowRemoval()
 	name := "apptown-console-" + id
-	d.survive(ExecRequest{Name: name, Labels: []string{docker.WritesLabel + "=" + w.folder}})
+	d.survive(execRequest{Name: name, Labels: []string{docker.WritesLabel + "=" + w.folder}})
 	w.a.docker = docker.Scope{Client: d}
 	defineWorkflows(t, w.a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{{Name: "review", Uses: "agent/review"}}}}}})
-	f := installFakePi(t, w.a, func(_ int, req ExecRequest) ExecOutcome {
+	f := installFakePi(t, w.a, func(_ int, req execRequest) execOutcome {
 		writeVerdict(t, req.Workspace, `{"verdict":"pass","summary":"checked","findings":[]}`)
-		return ExecOutcome{Output: piSays("checked")}
+		return execOutcome{Output: piSays("checked")}
 	})
 	// holderWorld replaces the runner registry; restore production runners.
 	rebuildWork(t, w.a, func(deps *workflow.Dependencies) {
@@ -697,10 +697,10 @@ func TestAReviewWrapUpWaitsForTheReviewerBeforeIt(t *testing.T) {
 	a.docker = docker.Scope{Client: daemon}
 	_, stepID := admittedReviewStep(t, a, "review-wrapup")
 	calls := 0
-	installFakePi(t, a, func(_ int, req ExecRequest) ExecOutcome {
+	installFakePi(t, a, func(_ int, req execRequest) execOutcome {
 		calls++
 		daemon.survive(req)
-		return ExecOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("old reviewer still runs")}
+		return execOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("old reviewer still runs")}
 	})
 	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
 	if calls != 1 {
@@ -720,7 +720,7 @@ func TestASurvivingWrapUpKeepsTheChangeWhateverAnEarlierOneDid(t *testing.T) {
 	runID, stepID := admittedReviewStep(t, a, "review-name")
 	calls := 0
 	var firstResume, secondResume string
-	installFakePi(t, a, func(_ int, req ExecRequest) ExecOutcome {
+	installFakePi(t, a, func(_ int, req execRequest) execOutcome {
 		calls++
 		switch calls {
 		case 2:
@@ -729,9 +729,9 @@ func TestASurvivingWrapUpKeepsTheChangeWhateverAnEarlierOneDid(t *testing.T) {
 		case 4:
 			secondResume = req.Name
 			daemon.survive(req)
-			return ExecOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("second wrap-up survives")}
+			return execOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("second wrap-up survives")}
 		}
-		return ExecOutcome{Output: piSays("reviewing")}
+		return execOutcome{Output: piSays("reviewing")}
 	})
 	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
 	if status, _ := stepStatus(t, a, stepID); status != workflow.StatusPass {
@@ -765,12 +765,12 @@ func TestAnAgentsPrivateDockerKeepsItsRunsChange(t *testing.T) {
 	a.docker = docker.Scope{Client: daemon}
 	runID, stepID := admittedAgentStep(t, a, `{"prompt":"do it","skills":["skill/implementation"],"docker":true}`)
 	called := false
-	installFakePi(t, a, func(_ int, req ExecRequest) ExecOutcome {
+	installFakePi(t, a, func(_ int, req execRequest) execOutcome {
 		called = true
 		if envValue(req, "DOCKER_HOST") == "" {
 			t.Error("the private daemon was not provisioned")
 		}
-		return ExecOutcome{TimedOut: true, RunErr: context.DeadlineExceeded}
+		return execOutcome{TimedOut: true, RunErr: context.DeadlineExceeded}
 	})
 	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
 	private := ""

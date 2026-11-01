@@ -160,7 +160,7 @@ func TestPolicyDiagnosticSharesTimeoutWithStaticIdentity(t *testing.T) {
 					return containerresulttest.Answer{Answer: []byte("204\n")}, true
 				}}
 				start := time.Now()
-				d := Diagnostic{Allowed: func(ctx context.Context) error { return ctx.Err() }, Command: func(ctx context.Context, env []string, args ...string) ([]byte, error) {
+				d := Diagnostic{allowed: func(ctx context.Context) error { return ctx.Err() }, Command: func(ctx context.Context, env []string, args ...string) ([]byte, error) {
 					if args[0] == "exec" {
 						select {
 						case <-time.After(tc.delay):

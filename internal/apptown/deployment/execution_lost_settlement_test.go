@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/ids"
@@ -40,7 +39,7 @@ func TestDeploymentExecutionLostSettlementQueuesObservationWithoutReexecution(t 
 				}
 				return deploymentCompletionFor(at, "selected").Observed, nil
 			})
-			if !errors.Is(err, database.ErrInjectedFailure) || deploy.IsTerminal(err) || result.Outcome != Uncertain || notified != 0 {
+			if !errors.Is(err, dbtest.ErrInjectedFailure) || deploy.IsTerminal(err) || result.Outcome != outcomeUncertain || notified != 0 {
 				t.Fatalf("%+v %v notified=%d", result, err, notified)
 			}
 			if a := storedAttempt(t, f.db, result.Attempt.ID); a.Status != AttemptUncertain.String() || a.FinishedAt.Valid {
@@ -62,7 +61,7 @@ func TestDeploymentExecutionLostSettlementQueuesObservationWithoutReexecution(t 
 				t.Fatalf("replay repeated execution: %+v %v calls=%d", replay, err, executions)
 			}
 
-			recoverer := Recoverer{Store: store, Source: recoverySourceForTest(store, func(context.Context, *Deployment) (deploy.Driver, error) {
+			recoverer := recoverer{Store: store, Source: recoverySourceForTest(store, func(context.Context, *Deployment) (deploy.Driver, error) {
 				return storedRecoveryDriver{resume: func(_ context.Context, _ deploy.Placement, generation int64, noted map[string]any) (deploy.Observation, error) {
 					if generation != result.Attempt.Generation || noted["providerID"] != "original" {
 						t.Fatal("recovery lost identity")

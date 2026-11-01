@@ -144,7 +144,7 @@ func TestServiceAdmissionFailuresNeverExecute(t *testing.T) {
 				case "driver refuses":
 					// A refusal found while preparing (a merge request's
 					// settings, a moved main) asks the provider nothing.
-					return Prepared{}, fmt.Errorf("%w: plain merge commits", ErrMergeRequestSettings)
+					return Prepared{}, fmt.Errorf("%w: plain merge commits", errMergeRequestSettings)
 				case "write":
 					dbtest.FailNextStatement(t, db, "INSERT INTO run_merges")
 				case "work moved":
@@ -232,9 +232,9 @@ func TestServiceInspectionNeverReplaysAndRequiresAudit(t *testing.T) {
 				case "found":
 					return Inspection{Kind: Found, Result: "proven"}, nil
 				case "unchanged":
-					return Inspection{Kind: Unchanged}, nil
+					return Inspection{Kind: unchanged}, nil
 				default:
-					return Inspection{Kind: Unresolved}, nil
+					return Inspection{Kind: unresolved}, nil
 				}
 			}}
 			switch outcome {
@@ -281,7 +281,7 @@ func TestServiceRejectsDriverPlansThatChangeProvider(t *testing.T) {
 		t.Run(fmt.Sprint(provider), func(t *testing.T) {
 			t.Parallel()
 			service, claim := serviceFixture(t)
-			kind := ProviderMerge
+			kind := providerMerge
 			if provider {
 				claim.source.MR = MergeRequest{Project: "one/repo", IID: 3}
 				kind = LocalMerge
@@ -329,7 +329,7 @@ func TestInspectionDoesNotRelabelALocalIntentAsAProviderMerge(t *testing.T) {
 // at the provider — and the recorded result is kept.
 func TestARecordedLandingNeverMergesAgain(t *testing.T) {
 	t.Parallel()
-	for _, kind := range []PlanKind{LocalMerge, ProviderMerge, Existing} {
+	for _, kind := range []planKind{LocalMerge, providerMerge, existing} {
 		t.Run(fmt.Sprint(kind), func(t *testing.T) {
 			t.Parallel()
 			service, claim := serviceFixture(t)
@@ -355,7 +355,7 @@ func TestARecordedLandingNeverMergesAgain(t *testing.T) {
 					return Execution{Result: "second"}, nil
 				},
 			}
-			if _, err := service.Merge(ctx, claim.source.RunID, again); !errors.Is(err, ErrMergeFinal) {
+			if _, err := service.Merge(ctx, claim.source.RunID, again); !errors.Is(err, errMergeFinal) {
 				t.Fatalf("second merge of a recorded landing: %v, want ErrMergeFinal", err)
 			}
 			record, err := service.Read(ctx, claim.source.RunID)

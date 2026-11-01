@@ -48,7 +48,7 @@ func (v releaseVerifier) verify(ctx context.Context, tag string, manifest, check
 	if err != nil {
 		return out, err
 	}
-	if entries[ManifestName] != hashBytes(manifest) || entries[NotesName] != hashBytes(notes) || m.Notes.SHA256 != hashBytes(notes) || m.Notes.Size != int64(len(notes)) {
+	if entries[manifestName] != hashBytes(manifest) || entries[notesName] != hashBytes(notes) || m.Notes.SHA256 != hashBytes(notes) || m.Notes.Size != int64(len(notes)) {
 		return out, fmt.Errorf("release manifest or notes digest does not match")
 	}
 	for _, archive := range m.Archives {

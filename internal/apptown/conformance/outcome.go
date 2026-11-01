@@ -24,11 +24,11 @@ const (
 var outcomeCodec = enum.Set[Outcome]{
 	Names:     []string{"conforms", "does-not-conform", "excepted", "not-applicable", "cannot-assess", "error"},
 	Invalid:   "invalid-outcome",
-	Err:       ErrOutcome,
+	Err:       errOutcome,
 	ScanLabel: "database value",
 }
 
-var ErrOutcome = errors.New("invalid conformance outcome")
+var errOutcome = errors.New("invalid conformance outcome")
 
 func (o Outcome) String() string { return outcomeCodec.String(o) }
 

@@ -79,7 +79,7 @@ func newSpacesAccount(t *testing.T) *spacesAccount {
 		Holdings: a.holdings,
 		Secrets:  a.secrets,
 	}, Options{SpacesEndpoint: func(string) string { return a.store.API.URL }, BucketSuffix: func() string { return "abcd1234" },
-		PollInterval: time.Millisecond, GrantWait: time.Second})
+		PollInterval: time.Millisecond, grantWait: time.Second})
 	return a
 }
 
@@ -166,7 +166,7 @@ func TestAnS3NeedOnAppPlatformIsABucketAndAKeyForItAlone(t *testing.T) {
 	if !slices.Equal(owned, want) {
 		t.Fatalf("owned %+v, want %+v", owned, want)
 	}
-	if a.secrets[SpacesSecretName] != b.Secret["AWS_SECRET_ACCESS_KEY"] {
+	if a.secrets[spacesSecretName] != b.Secret["AWS_SECRET_ACCESS_KEY"] {
 		t.Fatal("the key's secret is not kept")
 	}
 	app := &s3bucket.Client{Endpoint: a.store.API.URL, Region: "syd1", AccessKey: b.Env["AWS_ACCESS_KEY_ID"], SecretKey: "x"}
@@ -260,7 +260,7 @@ func TestAKeyWhoseSecretIsGoneIsReplaced(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	delete(a.secrets, SpacesSecretName)
+	delete(a.secrets, spacesSecretName)
 	second, _, err := a.fulfil(t)
 	if err != nil {
 		t.Fatal(err)
@@ -294,7 +294,7 @@ func TestTakeDownDeletesTheKeyAndTheBucketOnlyWhenItsDataMayGo(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(a.keyNames()) != 0 || a.secrets[SpacesSecretName] != "" {
+			if len(a.keyNames()) != 0 || a.secrets[spacesSecretName] != "" {
 				t.Fatalf("the key outlived the take-down: %v %v", a.keyNames(), a.secrets)
 			}
 			buckets := a.store.Buckets()
@@ -410,7 +410,7 @@ func TestTheBucketsCopyIsGivenTheDeploymentsOwnKey(t *testing.T) {
 	if conn, err := spaces.BucketConnection(context.Background(), b.Env["S3_BUCKET"]); err != nil || conn.Host != "syd1.digitaloceanspaces.com" || conn.Port != 443 || conn.SSLMode != "require" {
 		t.Fatalf("on Spaces: %+v %v", conn, err)
 	}
-	delete(a.secrets, SpacesSecretName)
+	delete(a.secrets, spacesSecretName)
 	if _, err := a.driver.BucketConnection(context.Background(), b.Env["S3_BUCKET"]); err == nil {
 		t.Fatal("a key whose secret is gone gave a connection")
 	}

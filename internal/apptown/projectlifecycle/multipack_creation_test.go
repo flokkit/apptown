@@ -3,8 +3,9 @@ package projectlifecycle
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 )
 
 // Packs that pin a block at different versions are refused before a project

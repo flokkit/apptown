@@ -18,9 +18,9 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/conversation"
 	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/execution"
+	testinputs "github.com/flokkit/apptown/internal/execution/executiontest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
-	"github.com/flokkit/apptown/internal/testinputs"
 )
 
 // Uses the pinned harness's actual model runtime and native SDKs, not a

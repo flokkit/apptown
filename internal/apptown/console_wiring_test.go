@@ -43,7 +43,7 @@ func TestConsoleLoopsStop(t *testing.T) {
 		a.changeConsole.Rehearse(context.Background(), s2)
 		close(loop2)
 	}()
-	a.StopConsoles(context.Background())
+	a.stopConsoles(context.Background())
 	for name, ch := range map[string]chan struct{}{"round": roundDone, "rehearse loop": loop2} {
 		select {
 		case <-ch:
@@ -64,11 +64,12 @@ func TestConsoleIdleStopSkipsEndedSessions(t *testing.T) {
 	a := testApp(t, Config{ConsoleAgent: agent})
 	m := consoleMetaFor("idle1", idstest.N(1), ids.Nil)
 	m.Checkout = t.TempDir()
+	m.LastUsed = time.Now().Add(-time.Hour)
 	s := a.Console.Restore(m)
 	if err := agent.Start(context.Background(), console.Launch{ID: s.ID, Dir: s.Dir}); err != nil {
 		t.Fatal(err)
 	}
-	s.SetLastUsed(time.Now().Add(-time.Hour))
+
 	a.consoleIdleStop(context.Background())
 	if agent.Running(s.ID) {
 		t.Fatal("the idle round did not stop the agent")

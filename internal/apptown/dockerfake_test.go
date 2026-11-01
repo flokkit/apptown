@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/deploy"
@@ -29,7 +30,7 @@ import (
 // boot and reaper tests assert the recorded sequence: the argv order IS the
 // behaviour.
 type fakeDocker struct {
-	disk              diskspacetest.Daemon
+	disk              diskDaemon
 	command           dockerClientFunc
 	mu                sync.Mutex
 	calls             [][]string
@@ -478,3 +479,6 @@ func runLimits(args []string, was string) string {
 	}
 	return fmt.Sprintf("%d %d", mem, nano)
 }
+
+// diskDaemon composes the disk and result protocols for this package's tests.
+type diskDaemon = diskspacetest.Daemon

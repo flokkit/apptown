@@ -16,7 +16,7 @@ func TestPublicOperationsRequireExplicitAuthority(t *testing.T) {
 	t.Parallel()
 	s, p := fixture(t)
 	v := create(t, s, p, "record")
-	for _, auth := range []access.ReadAuthorizer{nil, permitFunc(func(context.Context, access.Permission) (string, error) { return "", nil }), permitFunc(func(context.Context, access.Permission) (string, error) { return "", ErrCallerRequired })} {
+	for _, auth := range []access.ReadAuthorizer{nil, permitFunc(func(context.Context, access.Permission) (string, error) { return "", nil }), permitFunc(func(context.Context, access.Permission) (string, error) { return "", errCallerRequired })} {
 		denied := New(s.records.db, auth, nil, nil)
 		operations := []func() error{
 			func() error { _, err := denied.Get(testCaller(), v.ID); return err },
@@ -35,7 +35,7 @@ func TestPublicOperationsRequireExplicitAuthority(t *testing.T) {
 		}
 		before := snapshot(t, s.records.db)
 		for _, op := range operations {
-			if err := op(); !errors.Is(err, ErrCallerRequired) {
+			if err := op(); !errors.Is(err, errCallerRequired) {
 				t.Fatalf("missing authority admitted operation: %v", err)
 			}
 		}
@@ -85,7 +85,7 @@ func TestRoutingScopeRequiresVerifiedCaller(t *testing.T) {
 	s, p := fixture(t)
 	v := create(t, s, p, "scope")
 	for _, ctx := range []context.Context{context.Background(), access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "alice"}})} {
-		if _, err := s.ProjectID(ctx, v.ID); !errors.Is(err, ErrCallerRequired) {
+		if _, err := s.ProjectID(ctx, v.ID); !errors.Is(err, errCallerRequired) {
 			t.Fatalf("unverified scope lookup: %v", err)
 		}
 	}

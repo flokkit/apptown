@@ -5,7 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
@@ -32,8 +33,8 @@ func TestRecordKeepsExactAttributionAndFailure(t *testing.T) {
   AND workflow_name='' AND workflow_version=0 AND session_id=''`).Scan(&count, &brief, &narrative); err != nil || count != 2 || brief != 1 || narrative != 1 {
 		t.Fatalf("attributed rows: all=%d brief=%d narrative=%d %v", count, brief, narrative, err)
 	}
-	t.Cleanup(db.FailNextStatement("INSERT INTO token_usage"))
-	if err := ledger.Record(context.Background(), Entry{Kind: "approval-brief", ProjectID: idstest.N(42), RunID: idstest.N(7)}, totals, ""); !errors.Is(err, database.ErrInjectedFailure) {
+	t.Cleanup(dbtest.NextStatementFailure(db, "INSERT INTO token_usage"))
+	if err := ledger.Record(context.Background(), Entry{Kind: "approval-brief", ProjectID: idstest.N(42), RunID: idstest.N(7)}, totals, ""); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("write failure: %v", err)
 	}
 	// sql-guarantee: The failed write must leave no row of any attribution, which no rollup can prove.

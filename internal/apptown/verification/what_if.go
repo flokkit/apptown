@@ -32,10 +32,10 @@ import (
 // them, under a spend limit asked before each project's checklist. A check
 // not judged says why.
 
-// CandidatePreparer is Adoption's preparation of a candidate: it describes
+// candidatePreparer is Adoption's preparation of a candidate: it describes
 // what a project would adopt and changes nothing. ProjectsBelow is who holds
 // a pack below a version, among the projects the caller may read.
-type CandidatePreparer interface {
+type candidatePreparer interface {
 	Prepare(ctx context.Context, projectID ids.ID, req adoption.Request) (*adoption.Candidate, error)
 	PicksWith(ctx context.Context, projectID ids.ID, pack string, version int64, also ...adoption.PackPick) ([]adoption.PackPick, error)
 	ProjectsBelow(ctx context.Context, pack string, version int64) ([]adoption.ProjectRef, error)
@@ -281,12 +281,12 @@ func (f Fleet) whatIfProject(ctx context.Context, run *conformance.WhatIfRun, in
 		if allowBuild {
 			*builds++
 		}
-		assess := assessInput{Sh: sh, Tool: ToolContext{Context: ctx, Exceptions: append([]conformance.Disposition{}, exceptions...), ProjectID: p.ID, SHA: head.SHA, BuildDir: src, AllowBuild: allowBuild},
-			Label: fmt.Sprintf("apptown-what-if-%d-%d", run.ID(), p.ID)}
+		assess := assessInput{sh: sh, tool: toolContext{Context: ctx, Exceptions: append([]conformance.Disposition{}, exceptions...), ProjectID: p.ID, SHA: head.SHA, BuildDir: src, AllowBuild: allowBuild},
+			label: fmt.Sprintf("apptown-what-if-%d-%d", run.ID(), p.ID)}
 		if runtime > 0 {
-			assess.Running, assess.NoApp = f.servingCommit(ctx, p.ID, head.SHA)
+			assess.running, assess.noApp = f.servingCommit(ctx, p.ID, head.SHA)
 		}
-		assess.Judge, assess.NoJudge, err = f.whatIfJudge(ctx, run, in, p.ID, &spend)
+		assess.judge, assess.noJudge, err = f.whatIfJudge(ctx, run, in, p.ID, &spend)
 		if err != nil {
 			cleanup()
 			return nil, spend, err
@@ -406,7 +406,7 @@ func (f Fleet) servingCommit(ctx context.Context, projectID ids.ID, sha string) 
 	case commit != sha:
 		return nil, fmt.Sprintf("main's deployment runs %s, not %s", strs.ShortSHA(commit), strs.ShortSHA(sha))
 	}
-	return &runningApp{Target: t, Still: still}, ""
+	return &runningApp{target: t, still: still}, ""
 }
 
 // whatIfJudge is how a project's model rubrics are judged in a what-if:

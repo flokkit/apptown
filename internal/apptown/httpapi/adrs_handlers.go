@@ -37,7 +37,7 @@ func (h ADRs) ADRLibrary(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h ADRs) ListProjectADRs(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -50,7 +50,7 @@ func (h ADRs) ListProjectADRs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h ADRs) CreateADR(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -70,7 +70,7 @@ func (h ADRs) CreateADR(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h ADRs) GetADR(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -84,7 +84,7 @@ func (h ADRs) GetADR(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h ADRs) PatchADR(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -122,7 +122,7 @@ func (h ADRs) PatchADR(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h ADRs) SupersedeADR(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
