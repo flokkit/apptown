@@ -12,6 +12,7 @@ import (
 	"go/types"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -98,8 +99,21 @@ func dynamicProtocol(fn *types.Func) bool {
 	return false
 }
 
+// linkerStamped names the variables the build sets with -ldflags -X: no Go
+// code refers to them, and -X silently ignores a name that is not there.
+var linkerStamped = map[string]bool{}
+
+var stampFlag = regexp.MustCompile(`-X ([\w./-]+)\.(\w+)=`)
+
 func main() {
 	root, err := os.Getwd()
+	for _, build := range []string{"Makefile", "deploy/Dockerfile"} {
+		if b, err := os.ReadFile(filepath.Join(root, build)); err == nil {
+			for _, m := range stampFlag.FindAllStringSubmatch(string(b), -1) {
+				linkerStamped[m[1]+"."+m[2]] = true
+			}
+		}
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -253,6 +267,9 @@ func main() {
 				}
 				if support(r.Package) {
 					reason = "deliberate test-support package"
+				}
+				if owner == "" && linkerStamped[p.PkgPath+"."+id.Name] {
+					reason = "set by the linker at build (-X)"
 				}
 				if reason != "" {
 					r.Category = "excluded"
