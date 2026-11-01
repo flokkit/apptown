@@ -47,7 +47,7 @@ it('uses the app observation on phones even when the first tier has no deploymen
   const root = createRoot(el)
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/deployments/table']}><Routes><Route path="/deployments/:gtab" element={<Deployments />} /></Routes></MemoryRouter></QueryClientProvider>))
-    await vi.waitFor(() => expect(el.querySelector('.glance-state .chip.pass')?.textContent).toContain('running'))
+    await vi.waitFor(() => expect(el.querySelector('.glance-state .chip.pass')?.textContent).toContain('working'))
     expect(el.querySelector('.glance-name')?.textContent).toContain('Ledger')
     expect(el.querySelector('.glance-fact')?.textContent).toContain('1 deployment')
     expect(el.querySelector('.glance-more')?.textContent).toContain('Production')

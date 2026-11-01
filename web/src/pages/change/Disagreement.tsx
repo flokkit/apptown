@@ -1,3 +1,4 @@
+import { Status } from '../../Status'
 import { PRODUCT } from '../../brand'
 import { Link } from 'react-router-dom'
 import type { Artifact, RunDetail, Step } from '../../api'
@@ -72,7 +73,7 @@ export function Disagreement({ detail, codeTab }: { detail: RunDetail; codeTab: 
           <div className="ch-label">What the checks found</div>
           {verdicts.map((v) => (
             <div key={v.step.id} className="ch-verdict">
-              <div className="row"><span className="chip fail">{v.step.status === 'error' ? 'error' : 'failed'}</span><strong>{v.step.name}</strong><span className="muted">{v.who}</span></div>
+              <div className="row"><Status word="failed" help="Fix what this check found, then run the check again." /><strong>{v.step.name}</strong><span className="muted">{v.who}</span></div>
               {v.text && <pre className="ch-verdict-text">{v.text}</pre>}
               {v.reviewerPassed && <div className="muted small">The reviewer itself passed it: “{v.reviewerPassed}”</div>}
               {v.findings.length > 0 && <ol className="ch-findings">{v.findings.map((f, i) => <li key={i}>{f}</li>)}</ol>}

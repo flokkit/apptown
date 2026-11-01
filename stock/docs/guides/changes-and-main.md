@@ -297,3 +297,16 @@ is shut, at both layers a workspace could reach:
 `main` is written by exactly one thing — the landing flow — and it stays
 that way whether you're polite or not. Pull is a read, and reads are free;
 the push to `main` is *the* governed act, and it's the only one there is.
+
+## Re-run a blocked landing's checks
+
+After fixing the problem that blocked a landing, run its failed gates again:
+
+```sh
+apptown recheck calendar#7
+```
+
+Name the change as `project#number` or its change ID, as with `apptown land`.
+The change is a positional argument. `recheck` does not take `-c`.
+Inside that change's chat, `apptown recheck` without an argument uses the
+chat's change. Approvals still need someone with permission to give them.

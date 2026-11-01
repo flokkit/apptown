@@ -48,11 +48,11 @@ export default function GuidanceBlockPage() {
       <div className="muted small"><Link to="/guidance">Guidance</Link></div>
       <div>
         <h1 style={{ marginBottom: 0 }}>{block.name.split('/').at(-1)!.replaceAll('-', ' ')}</h1>
-        <details><summary>Technical details</summary><span className="chip">v{shownVersion}{viewingOld ? ` (latest is v${block.latestVersion})` : ''}</span>
-        <span className="chip" title={sizeTitle(block.bytes)}>{fmtSize(block.bytes)}</span>
+        <details><summary>Technical details</summary><span className="badge">v{shownVersion}{viewingOld ? ` (latest is v${block.latestVersion})` : ''}</span>
+        <span className="badge" title={sizeTitle(block.bytes)}>{fmtSize(block.bytes)}</span>
         {block.origin === 'stock'
-          ? <span className="chip" title={`Ships with ${PRODUCT}; read-only, updates with each release`}>{PRODUCT}</span>
-          : <span className="chip pass" title="You authored this · editable">yours</span>}
+          ? <span className="badge" title={`Ships with ${PRODUCT}; read-only, updates with each release`}>{PRODUCT}</span>
+          : <span className="badge" title="You authored this · editable">yours</span>}
       <div className="muted small" style={{ marginBottom: 12 }}>
         <p><code>{block.name}</code></p>tags: {block.tags || '—'} · versions:{' '}
         {versions.map((v) => (
@@ -110,9 +110,9 @@ export default function GuidanceBlockPage() {
           {(view.checks ?? []).map((c) => (
             <div key={c.name} style={{ marginTop: 8 }}>
               <div className="row">
-                <span className={`chip ${c.severity === 'high' ? 'fail' : c.severity === 'note' ? '' : 'pending'}`}>{c.severity}</span>
+                <span className="badge">{c.severity}</span>
                 <strong className="small">{c.title || c.name}</strong>{c.title && <code className="muted small">{c.name}</code>}
-                <span className="chip">{c.evaluator}</span>
+                <span className="badge">{c.evaluator}</span>
                 <span className="muted small">
                   {c.evaluator === 'llm' && (c.scope ?? 'diff') === 'diff'
                     ? 'judged at landing only, on the change\'s diff · advisory, never blocks'

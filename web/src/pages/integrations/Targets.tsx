@@ -1,7 +1,7 @@
 import { useHostStates } from '../../hostState'
 import { PhoneDetails } from '../../GlanceRow'
 import { useNarrow } from '../../chrome'
-import { STATUS_LIGHT, Status } from '../../Status'
+import { Status } from '../../Status'
 import { offerTarget, targetOffer } from '../../targetCommands'
 import { PRODUCT } from '../../brand'
 import { useState } from 'react'
@@ -80,14 +80,14 @@ function TargetCard({ t, groups, onChanged }: { t: TargetView; groups: string[];
 
   return (
     <div className="conn-card" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
-      {narrow && <div className="host-row"><strong><Link to={`/infrastructure/${t.name}`}>{t.displayLabel || t.name}</Link></strong><Status word={state.word} tone={state.word === 'working' ? 'pass' : STATUS_LIGHT[state.word]} /><span className="muted small">{state.summary || `${t.deployments.length} ${t.deployments.length === 1 ? 'app' : 'apps'}`}</span></div>}
+      {narrow && <div className="host-row"><strong><Link to={`/infrastructure/${t.name}`}>{t.displayLabel || t.name}</Link></strong><Status observation word={state.word} /><span className="muted small">{state.summary || `${t.deployments.length} ${t.deployments.length === 1 ? 'app' : 'apps'}`}</span></div>}
       <PhoneDetails>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontWeight: 700 }}><Link to={`/infrastructure/${t.name}`}>{t.displayLabel || t.name}</Link></div>
           <div className="muted small">{placeOf(t.kindInfo, t.address)}{domain ? ` · *.${domain}` : ''}</div>
         </div>
-        <Status word={state.word} tone={state.word === 'working' ? 'pass' : STATUS_LIGHT[state.word]} help={state.help} />
+        <Status observation word={state.word} help={state.help} />
       </div>
       <div className="muted small">{facts.join(' · ')}</div>
 
@@ -96,7 +96,7 @@ function TargetCard({ t, groups, onChanged }: { t: TargetView; groups: string[];
         {t.offers.length === 0 && <span className="muted">nobody yet, so projects cannot deploy here</span>}
         <span className="row" style={{ display: 'inline-flex', gap: 6 }}>
           {t.offers.map((o) => (
-            <span key={o.id || 'implicit'} className="chip accent" title={o.implicit ? 'offered to everyone by construction' : `offered by ${o.createdBy}`}>
+            <span key={o.id || 'implicit'} className="badge accent" title={o.implicit ? 'offered to everyone by construction' : `offered by ${o.createdBy}`}>
               {o.group === '*' ? 'everyone' : o.group}{capsWords(o.caps) ? ` · ${capsWords(o.caps)}` : ''}
               {!o.implicit && (
                 <QuietConfirm label="×" ask={`Withdraw the offer to ${o.group === '*' ? 'everyone' : o.group}? Deployments already bound stay.`}

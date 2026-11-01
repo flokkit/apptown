@@ -1,6 +1,6 @@
 import { useHostStates } from '../../hostState'
 import { GlanceRow } from '../../GlanceRow'
-import { STATUS_LIGHT, Status } from '../../Status'
+import { Status } from '../../Status'
 import { changedTargetSettings, editTarget, NEEDS_MODES, type TargetSettings as SettingsCommand } from '../../targetCommands'
 import { DisplayLabelEdit } from '../../DisplayLabel'
 import { PRODUCT } from '../../brand'
@@ -21,7 +21,7 @@ const resourceWord = (r: Resource) => {
   const noun = r.kind === 'volume' ? 'data volume' : r.kind
   return need ? `${noun} for ${need}` : noun
 }
-import { fmtStamp, lastSeen } from '../../format'
+import { fmtStamp, lastSeen, readingAge } from '../../format'
 import type { InfrastructureTargets, RegistryReading, TargetPage } from '../../wire.gen'
 import { shownActor } from '../../systemActors'
 
@@ -44,7 +44,7 @@ export function RegistryLine({ r }: { r: RegistryReading }) {
     <div className="small" style={{ marginTop: 6 }}>
       Container registry {r.registry}: {r.tier} plan, {used}
       {r.gate && <span className="muted"> (one holds {PRODUCT}'s gate image, for restored copies)</span>}
-      {r.full && <> · <span className="chip fail">plan full</span> a project that has not released here before cannot until the plan is upgraded or a deployment is taken down</>}
+      {r.full && <> · <Status observation word="failed" help="The registry plan is full. Upgrade the plan or remove an unused repository before deploying another app." /> a project that has not released here before cannot until the plan is upgraded or a deployment is taken down</>}
       <span className="muted">{when}</span>
     </div>
   )
@@ -103,7 +103,7 @@ export function TargetPage() {
 
             <div className="muted">{domain ? `*.${domain}` : 'App address not set'}</div>
           </div>
-          <Status word={state.word} tone={state.word === 'working' ? 'pass' : STATUS_LIGHT[state.word]} help={state.help} />
+          <Status observation word={state.word} help={state.help} />
         </div>
         {t.kind === 'do-app' && <p>Cloud hosting: apps update without downtime.</p>}
         {t.retained > 0 && <p className="error">{t.retained} old {t.retained === 1 ? 'resource may still cost' : 'resources may still cost'} money. <a href="#target-resources" onClick={() => { const details = document.getElementById('target-resources') as HTMLDetailsElement | null; if (details) details.open = true }}>Review {t.retained === 1 ? 'it' : 'them'}.</a></p>}
@@ -130,12 +130,12 @@ export function TargetPage() {
                     <GlanceRow name={0} state={2} labels={["App", "Address", "State", "Audience", "Data", "Resources"]} key={e.project + '/' + e.name}>
                       <td><Link to={`/projects/${e.project}/settings/deployments`}>{e.project}/{e.name}</Link>{e.generation ? <span className="muted"> gen {e.generation}</span> : null}</td>
                       <td>{e.url ? <a href={e.url} target="_blank" rel="noreferrer">{e.url.replace(/^https?:\/\//, '')}</a> : <span className="muted">—</span>}</td>
-                      <td><Status word={e.statusLabel} tone={STATUS_LIGHT[e.statusLabel]} help={`Deployment: ${e.readiness}.`} /></td>
+                      <td><Status observation word={e.statusLabel} help={`Deployment: ${e.readiness}.`} /></td>
                       <td>{e.audience}</td>
                       <td>{e.data}</td>
                       <td>{mine.length === 0
                         ? <span className="muted">{here ? 'nothing found at the target' : '…'}</span>
-                        : mine.map((r) => <span key={r.kind + r.name}>{resourceWord(r)} <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} help={r.name + (r.record === 'missing' ? ' · recorded, gone from the target' : '')} /></span>)}</td>
+                        : mine.map((r) => <span key={r.kind + r.name}>{resourceWord(r)} <Status observation word={r.statusLabel} help={r.name + (r.record === 'missing' ? ' · recorded, gone from the target' : '')} /></span>)}</td>
                     </GlanceRow>
                   )
                 })}
@@ -188,7 +188,7 @@ export function TargetPage() {
           ? <div className="muted small">Not offered to anyone, so projects cannot deploy here. Offer it from the <Link to="/integrations/targets">targets list</Link>.</div>
           : t.offers.map((o) => (
             <div key={o.id || 'implicit'} className="small">
-              <span className="chip accent">{o.group === '*' ? 'everyone' : o.group}</span>{' '}
+              <span className="badge accent">{o.group === '*' ? 'everyone' : o.group}</span>{' '}
               {capsWords(o.caps) || <span className="muted">no limits</span>}{o.implicit ? <span className="muted"> · by construction</span> : <span className="muted"> · by {o.createdBy}</span>}
             </div>
           ))}
@@ -350,7 +350,7 @@ export function Unaccounted({ here, onChanged }: { here: TargetInfra; onChanged:
   const failed = !here.live && !!here.error
   return (
     <>
-      {here.asOf && <div className="muted small">Inventory {lastSeen(here.asOf)}{here.invalidated ? " · before the latest change" : ""}</div>}
+      {here.asOf && <div className="muted small">Inventory {readingAge(here.asOf, !here.live)}{here.invalidated ? " · before the latest change" : ""}</div>}
       {failed && <div className="error small" style={{ marginBottom: 6 }}>Inventory {here.unknown ? 'is unknown' : 'check failed or is out of date'}: {here.error}{here.asOf ? ` · showing the inventory ${lastSeen(here.asOf)}.` : ' · nothing has been read from it, so what is unaccounted for is not known.'}</div>}
       {here.live || here.asOf
         ? <ResourceTables t={here} onChanged={onChanged} only={(r) => r.record !== 'recorded'} empty={here.live ? 'Nothing unaccounted for.' : `Nothing unaccounted for in the inventory ${lastSeen(here.asOf!)}.`} />

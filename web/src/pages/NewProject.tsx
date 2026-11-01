@@ -106,7 +106,7 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
   if (manifest) {
     return (
       <div style={{ maxWidth: 760 }}>
-        <h1>{manifest.project.name || manifest.project.slug} <span className="chip pass">created</span></h1>
+        <h1>{manifest.project.name || manifest.project.slug} <span className="badge">created</span></h1>
         <div className="card mt-3">
           <ProgressLog lines={progress} />
         </div>
@@ -164,7 +164,7 @@ function StepChips({ step }: { step: number }) {
   return (
     <div className="row" style={{ marginBottom: 18 }}>
       {['Software', 'Way of working', 'Repository'].map((label, i) => (
-        <span key={label} className={`chip ${step === i + 1 ? 'running' : step > i + 1 ? 'pass' : ''}`}>
+        <span key={label} className="badge">
           {step > i + 1 ? '✓ ' : `${i + 1} · `}{label}
         </span>
       ))}
@@ -182,7 +182,7 @@ function ProgressLog({ lines }: { lines: { text: string; warn?: boolean }[] }) {
 export function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuildV0: () => void; onConsole: () => void }) {
   return (
     <div style={{ maxWidth: 760 }}>
-      <h1>{m.project.name} <span className="chip pass">created</span></h1>
+      <h1>{m.project.name} <span className="badge">created</span></h1>
 
       <div className="card">
         <strong>Repository</strong>
@@ -199,7 +199,7 @@ export function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuild
         {m.packs.map((p) => <div key={p.name} className="muted small mt-1">pack <code>{p.name}</code></div>)}
         <div className="row" style={{ marginTop: 'var(--space-2)', gap: 'var(--space-1)' }}>
           {m.workflows.map((w) => (
-            <span key={w.name} className="chip" title={w.origin}>{w.name} v{w.version}</span>
+            <span key={w.name} className="badge" title={w.origin}>{w.name} v{w.version}</span>
           ))}
         </div>
         {m.guidance.length > 0 && (
@@ -214,7 +214,7 @@ export function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuild
         {m.policies.length === 0 && <div className="muted small mt-1">none · add a pack that includes them, or add them under Settings › Way of working</div>}
         {m.policies.map((p) => (
           <div key={p.id} className="muted small mt-1">
-            <span className="chip pass">✓</span> <strong>{p.name}</strong> — {p.description || p.rule}{p.origin ? ` · ${p.origin}` : ''}
+            <span className="badge">✓</span> <strong>{p.name}</strong> — {p.description || p.rule}{p.origin ? ` · ${p.origin}` : ''}
           </div>
         ))}
       </div>
@@ -223,7 +223,7 @@ export function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuild
         <strong>Bindings</strong>
         <div className="row" style={{ marginTop: 'var(--space-2)', gap: 'var(--space-1)' }}>
           {m.bindings.map((b) => (
-            <span key={`${b.capability}/${b.binding}`} className="chip" title={`config sha256:${b.configHash}`}>
+            <span key={`${b.capability}/${b.binding}`} className="badge" title={`config sha256:${b.configHash}`}>
               {b.capability} → {b.binding} v{b.version}
             </span>
           ))}

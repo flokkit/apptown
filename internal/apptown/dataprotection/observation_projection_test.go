@@ -164,4 +164,22 @@ func TestNativeBackupFailureKeepsKnownValuesAndTheFiveMinuteReadBudgetAcrossRest
 	if expired.Unknown == "" {
 		t.Fatalf("native evidence never expired: %+v", expired)
 	}
+	now = now.Add(nativeReadFor + time.Second)
+	w.api.Fail("GET", "/v2/databases/"+id+"/backups", 0)
+	recovered := restarted.nativeOf(t.Context(), md, plan)
+	if recovered.Stale || recovered.Unknown != "" || recovered.CheckFailed || recovered.ObservedAt != now {
+		t.Fatalf("successful refresh stayed old: %+v", recovered)
+	}
+}
+
+func TestNativeReadingFreshnessIsClassifiedByOwner(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	n := &NativeBackups{ObservedAt: at}
+	if nativeBackupAt(n, at.Add(time.Minute)).Stale {
+		t.Fatal("fresh reading marked old")
+	}
+	if !nativeBackupAt(n, at.Add(20*time.Minute)).Stale || n.Unknown != "" {
+		t.Fatalf("old reading: %+v", n)
+	}
 }

@@ -1,5 +1,5 @@
-import { Status, STATUS_LIGHT } from '../Status'
-import { useAttention, attentionState } from '../attention'
+import { Status } from '../Status'
+import { useAttention, attentionState, attentionSummary } from '../attention'
 import { PRODUCT } from '../brand'
 import { RuntimeObservation } from '../runtime'
 import { ProjectListRow, appRunning } from '../ProjectListRow'
@@ -67,13 +67,13 @@ function SetupCard() {
       )}
       {setup.agentImage === 'building' && (
         <div className="card" style={{ marginBottom: 10 }} >
-          <Status word={"working"} tone={STATUS_LIGHT["working"]} /> Building the agent image (first run only) · a few
+          <Status word={"working"} /> Building the agent image (first run only) · a few
           minutes; agents queue until it finishes.
         </div>
       )}
       {setup.agentImage === 'pulling' && (
         <div className="card" style={{ marginBottom: 10 }} >
-          <Status word={"working"} tone={STATUS_LIGHT["working"]} /> Downloading the agent image (first run only) · a few
+          <Status word={"working"} /> Downloading the agent image (first run only) · a few
           minutes; agents queue until it finishes.
         </div>
       )}
@@ -92,13 +92,13 @@ function SetupCard() {
 // shown as 0, and "All quiet" needs both needs-you and running to be read
 // and empty.
 export function homeStatus({ needsYou, running, deployments, operations }: {
-  needsYou: number | null; running: number; deployments: Activity['deployments']; operations: { count: number | null; known: boolean }
+  needsYou: number | null; running: number; deployments: Activity['deployments']; operations: { count: number | null; known: boolean; unknown?: number }
 }): string {
   const parts: string[] = []
   if (needsYou === null) parts.push('could not read what needs you')
   else if (needsYou > 0) parts.push(`${needsYou} needs you`)
   if (running > 0) parts.push(`${running} running`)
-  if (operations.count) parts.push(`${operations.count} host issue${operations.count === 1 ? '' : 's'}`)
+  if (operations.count || operations.unknown) parts.push(attentionSummary(operations.count, operations.unknown ?? 0))
   if (needsYou === 0 && running === 0 && operations.known && operations.count === 0) parts.unshift('All quiet')
   // An app is live when one of its deployments was seen running on the
   // latest check. One whose status is not current (stale or unknown) and
@@ -214,7 +214,7 @@ export default function Dashboard() {
         <ActiveRunList runs={blocked} showProject />
         {waiting.map((a) => (
           <Link key={a.stepId} to={`/changes/${a.changeId}`} className="card row tone-warn" style={{ display: 'flex' }}>
-            <Status word={a.statusLabel} tone={STATUS_LIGHT[a.statusLabel]} help="Waiting for approval" />
+            <Status word={a.statusLabel} help="Waiting for approval" />
             <strong>{a.itemTitle || `change ${a.changeNumber}`}</strong>
             <span className="muted small">{a.projectName}{act?.active.find(r => r.changeId === a.changeId)?.startedAt && ` · ${relTime(act?.active.find(r => r.changeId === a.changeId)!.startedAt)}`}</span>
             <span style={{ flex: 1 }} />
@@ -247,7 +247,7 @@ function EndedOperation({ op }: { op: Operation }) {
   const { run, busy } = useAction(undefined, { affects: ['/dashboard'] })
   return (
     <div className="card row tone-warn" style={{ display: 'flex' }}>
-      <Status word={op.statusLabel} tone={STATUS_LIGHT[op.statusLabel]} help={op.detail} />
+      <Status word={op.statusLabel} help={op.detail} />
       <Link to={`/operations/${op.id}`}><strong>{endedWords(op)}</strong></Link>
       {op.detail && <span className="muted small">{op.detail}</span>}
       <span style={{ flex: 1 }} />

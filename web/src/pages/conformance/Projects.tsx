@@ -1,5 +1,5 @@
 import { useNarrow } from '../../chrome'
-import { Status, STATUS_LIGHT } from '../../Status'
+import { Status } from '../../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ConformanceView, ProjectStanding } from '../../wire.gen'
@@ -76,7 +76,7 @@ export function ProjectsList({ view, base, onCheck }: { view: ConformanceView; b
       {quiet.length > 0 && (
         <div className="card" style={{ marginBottom: 0, padding: '10px 14px', cursor: 'pointer' }} onClick={() => setShowQuiet(!showQuiet)}>
           <span className="muted small">{showQuiet ? '▾' : '▸'} </span>
-          <Status word={quiet[0].statusLabel} tone={STATUS_LIGHT[quiet[0].statusLabel]} />
+          <Status word={quiet[0].statusLabel} />
           <span className="small">{quiet.length} project{quiet.length === 1 ? '' : 's'} meet everything they adopted{showQuiet ? ':' : ` · ${quiet.map((p) => p.name || p.slug).join(', ')}`}</span>
         </div>
       )}

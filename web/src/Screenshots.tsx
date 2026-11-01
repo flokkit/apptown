@@ -1,3 +1,4 @@
+import { fmtStamp } from './format'
 import { useEffect, useState } from 'react'
 import { get } from './api'
 import type { PreviewScreenshots } from './api'
@@ -54,7 +55,7 @@ export function Screenshots({ shots, head, at }: { shots?: PreviewScreenshots; h
       {taken.length > 0 && (
         <>
           <div className="muted small">
-            Taken by {PRODUCT} from commit <code>{(shots.commit ?? '').slice(0, 7) || 'unknown'}</code>{at ? ` at ${new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}: {' '}
+            Taken by {PRODUCT} from commit <code>{(shots.commit ?? '').slice(0, 7) || 'unknown'}</code>{at ? ` at ${fmtStamp(at)}` : ''}: {' '}
             <span className={cmp.kind === 'different' ? 'warn' : undefined}>{cmp.text}.</span>
           </div>
           <div className="shot-row">

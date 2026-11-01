@@ -37,7 +37,7 @@ export function ProjectListRow({ project: p, refreshFailed = false, reason, chil
       </div>
     </div>
     <div className="project-state">
-      {p.hasDeployments === false ? <Status word="none" text="Not deployed" tone="" /> : <RuntimeStatus observation={observation} />}
+      {p.hasDeployments === false ? <Status word="none" /> : <RuntimeStatus observation={observation} />}
       <div className="muted small">{age}</div>
     </div>
     <div className="project-action">

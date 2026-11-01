@@ -1,4 +1,5 @@
-import { Status, STATUS_LIGHT } from './Status'
+import { fmtStamp } from './format'
+import { Status } from './Status'
 import { PRODUCT } from './brand'
 import type { CSSProperties } from 'react'
 import { openAfter, post } from './api'
@@ -23,7 +24,7 @@ type PreviewState = {
 // builtWords says what the running preview was built from, and when.
 export function builtWords(st?: PreviewState): string {
   if (!st?.built) return ''
-  const when = new Date(st.built).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const when = fmtStamp(st.built)
   return st.commit ? `built from commit ${st.commit.slice(0, 7)} at ${when}` : `built from the change's working files at ${when}`
 }
 
@@ -56,7 +57,7 @@ export function TryIt({ changeId, label, style, className }: {
   if (state === 'live' && st?.url && st.hostOnly) {
     return (
       <span className="row" style={{ gap: 6 }}>
-        <Status word={"running"} tone={STATUS_LIGHT["running"]} help={`${st.url} answers on ${PRODUCT}'s host only`} />
+        <Status observation word={"running"} help={`${st.url} answers on ${PRODUCT}'s host only`} />
         <span className="muted small">{hostOnlyWords(st.url)}</span>
         {builtWords(st) && <span className="muted small">{builtWords(st)}</span>}
         <button className="subtle" title="Stop the preview and start it again from the current files"
@@ -83,10 +84,10 @@ export function TryIt({ changeId, label, style, className }: {
   return (
     <span className="row" style={{ gap: 8, flexWrap: 'wrap', minWidth: 0, maxWidth: '100%' }}>
       {state === 'broken' && (
-        <Status word={"failed"} tone={STATUS_LIGHT["failed"]} help={st?.reason} />
+        <Status observation word={"failed"} help={st?.reason} />
       )}
       {state === 'unavailable' && (
-        <Status word={"unknown"} tone={STATUS_LIGHT["unknown"]} help={st?.reason} />
+        <Status observation word={"unknown"} help={st?.reason} />
       )}
       <button className={cls} style={style} onClick={() => boot(`/changes/${changeId}/preview`)}>
         {state === 'broken' || state === 'unavailable' ? '▶ Try again' : label ?? '▶ Try it'}

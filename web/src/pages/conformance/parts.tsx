@@ -1,4 +1,4 @@
-import { Status, STATUS_LIGHT } from '../../Status'
+import { Status } from '../../Status'
 // The pieces every Conformance view shares: the generated types it reads,
 // the words and colours for standings, states and lanes, and the small
 // chips, bars and banners the views are built from.
@@ -49,20 +49,10 @@ export const LANE_LABEL: Record<string, string> = {
   unassessed: 'not yet judged', broken: "couldn't run", na: 'not applicable',
 }
 
-export const ITEM: Record<string, { label: string; tone: string }> = {
-  queued: { label: 'queued', tone: 'draft' },
-  working: { label: 'working', tone: 'running' },
-  accepting: { label: 'waiting on you', tone: 'pending' },
-  landing: { label: 'landing', tone: 'running' },
-  verifying: { label: 'verifying', tone: 'running' },
-  done: { label: 'done', tone: 'pass' },
-  stuck: { label: 'stuck', tone: 'fail' },
-  skipped: { label: 'skipped', tone: 'draft' },
-}
-export const JOB: Record<string, { label: string; tone: string }> = {
-  running: { label: 'running', tone: 'running' }, paused: { label: 'paused', tone: 'pending' },
-  completed: { label: 'completed', tone: 'pass' }, completed_with_stuck: { label: 'completed, some stuck', tone: 'fail' },
-  cancelled: { label: 'cancelled', tone: 'draft' },
+export const ITEM: Record<string, { label: string }> = {
+ queued: {label:'queued'}, working:{label:'working'}, accepting:{label:'waiting on you'},
+ landing:{label:'landing'}, verifying:{label:'verifying'}, done:{label:'done'},
+ stuck:{label:'stuck'}, skipped:{label:'skipped'},
 }
 export const ITEM_COLOR: Record<string, string> = { done: 'var(--ok)', working: 'var(--busy)', accepting: 'var(--warn)', landing: 'var(--busy)', verifying: 'var(--busy)', stuck: 'var(--bad)', queued: 'var(--border-strong)', skipped: 'var(--muted)' }
 
@@ -83,15 +73,15 @@ export const code: CSSProperties = { fontSize: 'var(--fs-xs)', whiteSpace: 'pre-
 // --- small parts ---------------------------------------------------------------------------
 
 export function StandingChip({ label, help, findings, broken = 0 }: { label: import('../../wire.gen').CheckLabel; help: string; findings?: number; broken?: number }) {
-  if (findings !== undefined) return <span className="row" style={{ gap: 4, flexWrap: 'wrap' }}><Status word={label} tone="pending" text={`${findings} ${findings === 1 ? 'finding' : 'findings'}`} help={help} /><BrokenNote broken={broken} /></span>
-  return <Status word={label} tone={STATUS_LIGHT[label]} text={label === 'excepted' ? 'Exception approved' : label === 'unknown' ? 'Not fully checked' : undefined} help={help} />
+  if (findings !== undefined) return <span className="row" style={{ gap: 4, flexWrap: 'wrap' }}><span className="finding-count" title={help}>{findings} {findings === 1 ? 'finding' : 'findings'}</span><BrokenNote broken={broken} /></span>
+  return <Status word={label} help={help} />
 }
 export function BrokenNote({ broken }: { broken: number }) {
   return broken > 0 ? <span className="conformance-broken">· {broken} couldn't run</span> : null
 }
 export function StateChip({ label, help, finding = false, findings = 1 }: { label: import('../../wire.gen').CheckLabel; help?: string; finding?: boolean; findings?: number }) {
-  if (finding) return <Status word={label} tone="pending" text={`${findings} ${findings === 1 ? 'finding' : 'findings'}`} help={help} />
-  return <Status word={label} tone={STATUS_LIGHT[label]} text={label === 'excepted' ? 'Exception approved' : label === 'unknown' ? 'Not checked' : undefined} help={help || (label === 'unknown' ? 'This check has no current result. Open the project for details.' : undefined)} />
+  if (finding) return <span className="finding-count" title={help}>{findings} {findings === 1 ? 'finding' : 'findings'}</span>
+  return <Status word={label} help={help || (label === 'unknown' ? 'This check has no current result. Open the project for details.' : undefined)} />
 }
 
 export function SevDot({ sev }: { sev: string }) {
@@ -255,13 +245,13 @@ export function Evidence({ v, exceptions, adj }: { v: Verdict; exceptions: Dispo
       {v.detail && <pre className="mono" style={code}>{v.detail}</pre>}
       {exc && (
         <div className="small" style={{ borderLeft: '2px solid var(--note)', paddingLeft: 8 }}>
-          <span className="chip overridden" style={{ marginRight: 'var(--space-2)' }}>{exc.status.replace('_', ' ')}</span>
+          <span className="badge" style={{ marginRight: 'var(--space-2)' }}>{exc.status.replace('_', ' ')}</span>
           {covering ? <>{covering.justification} <span className="muted">— {covering.by}{covering.expiresAt ? `, until ${fmtWhen(covering.expiresAt)}` : ''}</span></> : <span className="muted">an exception by {exc.by}</span>}
         </div>
       )}
       {adj && (
         <div className="small" style={{ borderLeft: '2px solid var(--bad)', paddingLeft: 8 }}>
-          <span className="chip fail" style={{ marginRight: 'var(--space-2)' }}>confirmed</span>
+          <span className="muted" style={{ marginRight: 'var(--space-2)' }}>confirmed</span>
           {adj.by} confirmed this finding{adj.note ? `: ${adj.note}` : ''} <span className="muted">· {fmtWhen(adj.createdAt)}</span>
         </div>
       )}

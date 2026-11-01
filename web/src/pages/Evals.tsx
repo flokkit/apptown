@@ -1,4 +1,4 @@
-import { Status, STATUS_LIGHT } from '../Status'
+import { Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -41,7 +41,7 @@ function EvalRow({ e }: { e: Eval }) {
       <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
         <Link to={`/evals/${e.id}`}><strong>Eval {e.number}</strong></Link>
         <span>{e.subject} against what projects run now</span>
-        <Status word={e.statusLabel} tone={STATUS_LIGHT[e.statusLabel]} help={e.reason || e.state} />
+        <Status word={e.statusLabel} help={e.reason || e.state} />
         <span style={{ flex: 1 }} />
         <span className="muted small">started by {e.startedBy} {relTime(e.startedAt)}</span>
       </div>
@@ -180,7 +180,7 @@ export function EvalScorecardPage() {
         <>
           <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
             <h1 style={{ margin: 0 }}>Eval {e.number}: {e.subject}</h1>
-            <Status word={e.statusLabel} tone={STATUS_LIGHT[e.statusLabel]} help={e.reason || e.state} />
+            <Status word={e.statusLabel} help={e.reason || e.state} />
           </div>
           <div className="muted small" style={{ marginTop: 4 }}>
             Started by {e.startedBy} {relTime(e.startedAt)}, meaning “{e.meaning}”
@@ -278,8 +278,8 @@ function ArmCard({ e, a, label, cost, complaints }: { e: EvalScorecard; a: Arm; 
       <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
         <strong>{label}</strong>
         <span className="muted small">{a.profile}</span>
-        <Status word={a.statusLabel} tone={STATUS_LIGHT[a.statusLabel]} help={a.reason || a.state} />
-        {s.notComparable && <span className="chip">not comparable</span>}
+        <Status word={a.statusLabel} help={a.reason || a.state} />
+        {s.notComparable && <span className="badge">not comparable</span>}
       </div>
       {a.reason && <div className="small" style={{ marginTop: 4 }}>{a.reason}</div>}
       {started && s.unreadable && (
@@ -305,7 +305,7 @@ function ArmCard({ e, a, label, cost, complaints }: { e: EvalScorecard; a: Arm; 
       {(s.checks ?? []).length > 0 && (
         <div className="row small" style={{ gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
           <span className="muted">landing gates:</span>
-          {(s.checks ?? []).map((c) => <span key={c.step}>{c.step}: <Status word={c.statusLabel} tone={STATUS_LIGHT[c.statusLabel]} /></span>)}
+          {(s.checks ?? []).map((c) => <span key={c.step}>{c.step}: <Status word={c.statusLabel} /></span>)}
         </div>
       )}
       {a.projectId ? (

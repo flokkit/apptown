@@ -138,7 +138,7 @@ func appRoutes(a *App) []routeSpec {
 		repositoryViews = httpapi.NewRepositoryViews(a.Projects, a.Access, a.DB, a.cfg.dataDir, repositoryedit.NewIntegrity(&a.repositories, a.processRunner, repositoryPublisher{attachments: a.repositoryAttachments, db: a.DB, now: a.cfg.clock.Now}, a.DB, a.cfg.dataDir, a.cfg.clock.Now), a.Deployment.Releases)
 		releaseOperations = httpapi.NewReleaseOperations(a.Projects, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir, a.cfg.clock.Now)
 		projectAttachments = httpapi.NewProjectAttachments(a.Projects, a.Integrations, a.Access, a.changeActions, a.DB, a.cfg.publicHost, a.cfg.clock.Now)
-		integrationListing = httpapi.NewIntegrationListing(a.Integrations, a.Deployment, connectorHealthFor(a), &a.docker, agentenv.RegistryFormats(), a.cfg.clock.Now)
+		integrationListing = httpapi.NewIntegrationListing(a.Integrations, a.Deployment, connectorHealthFor(a))
 		connectors = httpapi.NewConnectors(a.Integrations, a.Access, a.Deployment, connectorHealthFor(a), a.DB, agentenv.RegistryFormats())
 		scmRemotes = httpapi.NewSCMRemotes(a.Projects, repositoryProvider{secrets: a.Secrets}, a.repositoryAttachments)
 		remediationChanges = httpapi.NewRemediationChanges(a.Projects, a.Access, a.conformance, a.Work, a.lifecycle, a.DB, a.authModeName(), a.cfg.clock.Now)
@@ -564,6 +564,7 @@ func appRoutes(a *App) []routeSpec {
 		adminRoute("DELETE /api/v1/secrets/{name}", secrets.RemoveInstanceSecret),
 		requireRoute("POST /api/v1/integrations", connectors.SaveIntegration, access.CapIntegrationConnector, "instance"),
 		requireRoute("POST /api/v1/integrations/test", connectors.TestIntegration, access.CapIntegrationConnector, "instance"),
+		requireRoute("POST /api/v1/integrations/{name}/test", connectors.TestSavedIntegration, access.CapIntegrationConnector, "instance"),
 		requireRoute("DELETE /api/v1/integrations/{name}", connectors.DeleteIntegration, access.CapIntegrationConnector, "instance"),
 		publicRoute("GET /api/v1/scm/namespaces", scmRemotes.SCMNamespaces, "scmRemotes.SCMNamespaces: shared SCM namespace discovery"),
 

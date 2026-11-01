@@ -1,4 +1,4 @@
-import { Status, STATUS_LIGHT } from '../../Status'
+import { Status } from '../../Status'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Run, Step, currentUser, post } from '../../api'
@@ -40,10 +40,11 @@ export function StepCard({ step, onChange, hideApproveForm, expanded, landingMea
   return (
     <div id={`step-${step.id}`} className="card step-card" style={quiet && !more ? { padding: '8px 12px' } : undefined}>
       <div className="row step-head">
-        <Status word={statusLabel} tone={STATUS_LIGHT[statusLabel]} />
+        <Status word={statusLabel === 'passed' && tests && !tests.plain && !(step.type === 'tests' && step.evidence.testCounts) ? 'unknown' : statusLabel} help={tests && !tests.plain ? tests.note : undefined} />
+        {statusLabel === 'failed' && tests && !(step.type === 'tests' && step.evidence.testCounts) && <Status word="unknown" help={tests.note} />}
         <strong>{stepTitle(step)}</strong>
         <span className="muted small">{took}{tests?.plain && ` · ${tests.note}`}</span>
-        {tests && !tests.plain && <span className="chip stale small">{tests.note}</span>}
+        {tests && !tests.plain && <span className="muted small">{tests.note}</span>}
         <span className="step-acts">
           {quiet && (
             <button className="subtle" onClick={() => setMore(!more)}>{more ? 'Hide' : 'Details'}</button>
@@ -210,13 +211,13 @@ export function StepCard({ step, onChange, hideApproveForm, expanded, landingMea
       {step.type === 'guidance/conformance' && step.checkReading && (
         <div style={{ marginTop: 6 }}>
           {step.checkReading.unreadable && (
-            <div className="row"><Status word="unknown" tone={STATUS_LIGHT.unknown} /> <span className="muted small">{step.checkReading.unreadable}</span></div>
+            <div className="row"><Status word="unknown" /> <span className="muted small">{step.checkReading.unreadable}</span></div>
           )}
           {(step.checkReading.checks ?? []).map((c, i) => (
             <div key={i} className="row" style={{ marginTop: 2 }}>
-              <Status word={c.statusLabel} tone={STATUS_LIGHT[c.statusLabel]} />
-              {c.undecided && <span className="chip pending" title="Not known whether this change introduced it; it does not block">undecided</span>}
-              {c.preexisting && <span className="chip" title="Main already fails this check; it does not block">already on main</span>}
+              <Status word={c.statusLabel} />
+              {c.undecided && <span className="badge" title="Not known whether this change introduced it; it does not block">undecided</span>}
+              {c.preexisting && <span className="badge" title="Main already fails this check; it does not block">already on main</span>}
               <span className="small">{c.check}</span>
               <span className="muted small">
                 {c.block} v{c.version} · {c.evaluator}
@@ -285,12 +286,12 @@ export function ChildRunSteps({ childId, childNumber, workflow, live, onChange }
         const reason = s.evidence?.reason
         return (
           <div key={s.id} className="row" style={{ marginTop: 4 }}>
-            <Status word={s.statusLabel} tone={STATUS_LIGHT[s.statusLabel]} />
+            <Status word={s.statusLabel} />
             <span className="small">{s.name}</span>
             <span className="muted small">{s.type}</span>
             {url != null && <a href={url} target="_blank" rel="noreferrer" className="small">{url}</a>}
             {reason != null && s.status !== 'pass' && <span className="muted small">{reason.slice(0, 90)}</span>}
-            {s.checkReading?.unreadable && <span className="chip stale" title={s.checkReading.unreadable}>evidence unreadable</span>}
+            {s.checkReading?.unreadable && <Status word="unknown" help={`${s.checkReading.unreadable} Re-run the check to replace the unreadable evidence.`} />}
             <span style={{ flex: 1 }} />
             {s.type === 'approval' && s.status === 'pending' && (
               <DecisionForm compact stepId={s.id!} means={s.config.means} instructions={s.config.instructions} onDone={onChange} />

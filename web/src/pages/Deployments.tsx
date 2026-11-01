@@ -1,6 +1,6 @@
 import { Tabs } from '../Tabs'
 import { GlanceRow } from '../GlanceRow'
-import { Status, STATUS_LIGHT } from '../Status'
+import { Status } from '../Status'
 import { Fragment, useState } from 'react'
 import { Link, NavLink, useParams } from 'react-router-dom'
 import { useGet } from '../data'
@@ -79,7 +79,7 @@ function DeparturesBoard() {
               {d.releaseNumber ? <Link to={`/projects/${d.slug}/releases/${d.releaseNumber}`}>Release {d.releaseNumber}</Link> : null}{' '}{d.url ? <a href={d.url} target="_blank" rel="noreferrer">{d.label}</a> : d.label}
             </td>
             <td className="muted small" data-label="by">{d.who || '—'}</td>
-            <td className="stack-end"><Status word={d.state} tone={STATUS_LIGHT[d.state]} help={d.reason} />{d.state === 'failed' && <Link to={`/projects/${d.slug}/releases/${d.releaseNumber}`}>Review failure</Link>}</td>
+            <td className="stack-end"><Status word={d.state} help={d.reason} />{d.state === 'failed' && <Link to={`/projects/${d.slug}/releases/${d.releaseNumber}`}>Review failure</Link>}</td>
           </GlanceRow></Fragment>
         ))}
         {moves.length === 0 && <tr><td colSpan={6} className="muted small">{unlisted ? 'No releases yet.' : 'No movement yet.'}</td></tr>}
@@ -131,7 +131,7 @@ function FleetTable() {
 
   const phoneState = (r: Row) => {
     const project = projects.find(p => p.slug === r.slug)
-    if (!project) return <Status word="unknown" tone="unknown" />
+    if (!project) return <Status word="unknown" />
     return project.deployed ? <RuntimeStatus observation={project} /> : <span className="muted small">Not deployed</span>
   }
 

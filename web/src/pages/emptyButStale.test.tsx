@@ -4,6 +4,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
+import { settled } from '../settled'
 import { fmtStamp } from '../format'
 import { getKey, newQueryClient } from '../data'
 import { PoliciesCard } from './project/settings/Working'
@@ -31,6 +32,7 @@ async function emptyThenDown(ui: React.ReactNode, path: string, empty: unknown) 
   await vi.waitFor(() => expect(client.getQueryState(getKey(path))?.status).toBe('success'))
   down = true
   await act(async () => { await client.refetchQueries({ queryKey: getKey(path) }).catch(() => {}) })
+  await settled(client)
   return { el, done: () => { act(() => root.unmount()); client.clear() } }
 }
 

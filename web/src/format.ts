@@ -8,25 +8,22 @@ export function stampDate(ts: string): Date {
 }
 
 // "now", "5m ago", "3h ago", "2d ago". Empty for anything unparseable
-// or in the future — callers put their own words there ("nothing shipped
+// or more than five minutes in the future — callers supply words ("nothing shipped
 // yet").
 export function relTime(ts: string, now = Date.now()): string {
   if (!ts) return ''
   const d = (now - stampDate(ts).getTime()) / 1000
-  if (!(d >= 0)) return ''
+  if (!Number.isFinite(d) || d < -300) return ''
+  if (d < 0) return 'just now'
   if (d < 90) return 'now'
   if (d < 3600) return `${Math.round(d / 60)}m ago`
   if (d < 86400) return `${Math.round(d / 3600)}h ago`
   return `${Math.round(d / 86400)}d ago`
 }
 
-// Relative inside a day, then the date: "09-02 10:11". For tables where a
-// week-old row should say when, not how long ago.
-export function fmtWhen(iso: string, now = Date.now()): string {
-  const mins = (now - stampDate(iso).getTime()) / 60000
-  if (mins >= 0 && mins < 60) return `${Math.max(1, Math.round(mins))}m ago`
-  if (mins >= 0 && mins < 60 * 24) return `${Math.round(mins / 60)}h ago`
-  return iso.slice(5, 16).replace('T', ' ')
+// Event times always use the reader's zone. Freshness uses relTime.
+export function fmtWhen(iso: string, _now = Date.now()): string {
+  return fmtStamp(iso)
 }
 
 export const fmtDuration = (s: number): string => {
@@ -90,10 +87,11 @@ export function count(n: number, one: string, many = one + 's'): string {
 
 // Retained observations use an age, even when the latest check failed.
 export function lastSeen(at: string, now = Date.now()): string {
-  const mins = Math.max(0, Math.floor((now - Date.parse(at)) / 60000))
-  if (!Number.isFinite(mins)) return 'last seen at an unknown time'
-  if (mins < 1) return 'last seen just now'
-  if (mins < 60) return `last seen ${mins} min ago`
-  if (mins < 1440) return `last seen ${Math.floor(mins / 60)} hr ago`
-  return `last seen ${Math.floor(mins / 1440)} days ago`
+  const age = relTime(at, now)
+  return age ? `last seen ${age}` : 'unknown'
+}
+
+// The owner classifies freshness; the browser only formats its reading time.
+export function readingAge(at: string, stale = false, now = Date.now()): string {
+ return stale ? lastSeen(at, now) : `checked ${relTime(at, now) || 'at an unknown time'}`
 }

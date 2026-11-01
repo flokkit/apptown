@@ -1,4 +1,4 @@
-import { Status, STATUS_LIGHT } from '../Status'
+import { Status } from '../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { post } from '../api'
@@ -124,11 +124,11 @@ function Latest({ w }: { w: WhatIf }) {
   return (
     <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
       <Link to={`/conformance/what-ifs/${w.id}`}>Open the what-if</Link>
-      <Status word={w.statusLabel} tone={STATUS_LIGHT[w.statusLabel]} help={w.detail || w.state} />
+      <Status word={w.statusLabel} help={w.detail || w.state} />
       <span className="muted">{w.requestedBy} · {relTime(w.createdAt)}</span>
       {OUTCOME_ORDER.filter((o) => counts[o]).map((o) =>
-        <span key={o}>{counts[o]} <Status word={w.outcomeLabels[o]} tone={STATUS_LIGHT[w.outcomeLabels[o]]} help={OUTCOME_WORDS[o]} /></span>)}
-      {w.movesBackProjects > 0 && <span className="chip moves-back">{w.movesBackProjects} move rules back</span>}
+        <span key={o}>{counts[o]} <Status word={w.outcomeLabels[o]} help={OUTCOME_WORDS[o]} /></span>)}
+      {w.movesBackProjects > 0 && <span className="badge moves-back">{w.movesBackProjects} move rules back</span>}
       <Link to="/conformance/what-ifs" className="muted">all what-ifs</Link>
     </div>
   )

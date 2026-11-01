@@ -125,3 +125,11 @@ SELECT * FROM integrations WHERE id=$1 FOR SHARE;
 -- name: EditBindingDisplayLabel :one
 UPDATE integrations SET display_label=sqlc.arg(display_label)
 WHERE id=sqlc.arg(id) AND display_label=sqlc.arg(expected_label) RETURNING *;
+
+-- name: BindingHealth :one
+SELECT r.payload FROM integration_readings r JOIN integrations i ON i.id=r.id AND i.version=r.version WHERE i.name=$1;
+
+-- name: SaveBindingHealth :exec
+INSERT INTO integration_readings (id, version, payload)
+SELECT i.id, i.version, sqlc.arg(payload) FROM integrations i WHERE i.id=sqlc.arg(id) AND i.version=sqlc.arg(version)
+ON CONFLICT(id) DO UPDATE SET version=excluded.version, payload=excluded.payload;

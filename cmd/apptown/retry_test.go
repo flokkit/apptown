@@ -173,3 +173,32 @@ func TestTheFirstChangeHintNeedsNoModelWhenThereIsNone(t *testing.T) {
 		t.Fatalf("with a model: %s", hint)
 	}
 }
+
+func TestDocumentedRecheckUsesThePositionalChangeReference(t *testing.T) {
+	guide, err := os.ReadFile("../../stock/docs/guides/changes-and-main.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const command = "apptown recheck calendar#7"
+	if !strings.Contains(string(guide), command) || strings.Contains(string(guide), "apptown recheck -c") {
+		t.Fatalf("guide must teach the supported positional reference: %s", guide)
+	}
+	id := idstest.N(308).String()
+	posted := false
+	fakeAppTown(t, func(method, path string) (int, string) {
+		switch path {
+		case "/changes/calendar#7":
+			return 200, `{"change":{"id":"` + id + `"}}`
+		case "/changes/" + id:
+			return 200, `{"projectSlug":"calendar","change":{"number":7}}`
+		case "/changes/" + id + "/recheck":
+			posted = method == "POST"
+			return 200, `{"message":"Checks started.","rerun":[]}`
+		}
+		return 404, `{"error":"unexpected path ` + path + `"}`
+	})
+	out, err := run(t, strings.Fields(strings.TrimPrefix(command, "apptown "))...)
+	if err != nil || !posted || !strings.Contains(out, "Checks started.") {
+		t.Fatalf("documented command: %v posted=%v output=%s", err, posted, out)
+	}
+}

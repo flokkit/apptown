@@ -3,12 +3,12 @@ import { useState } from 'react'
 import { useHostStates } from '../hostState'
 import { useAttention } from '../attention'
 import { GlanceRow } from '../GlanceRow'
-import { STATUS_LIGHT, Status } from '../Status'
+import { Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
-import { fmtBytes, relTime, lastSeen } from '../format'
+import { fmtBytes, relTime, readingAge, lastSeen } from '../format'
 import { DeletedProjects } from './Infrastructure'
 import type { DiskReadings, InfrastructureTargets, Job, JobList, Reading, TargetList } from '../wire.gen'
 import { familyRank } from '../targets'
@@ -71,7 +71,7 @@ export function InfrastructureHome() {
             <Link key={t.target} to={`/infrastructure/${t.target}`} className="conn-card infra-card">
               <div className="host-row">
                 <strong>{v?.displayLabel || t.target}</strong>
-                <Status word={state.word} tone={state.word === 'working' ? 'pass' : STATUS_LIGHT[state.word]} help={state.help} />
+                <Status observation word={state.word} help={state.help} />
                 <span className="muted small">{state.summary || (t.asOf && !t.live ? lastSeen(t.asOf) : missing > 0 ? 'Check missing resources' : unrecorded > 0 ? 'Review resources' : `${envs.length} ${envs.length === 1 ? 'app' : 'apps'}`)}</span>
               </div>
             </Link>
@@ -103,7 +103,7 @@ export function OwnDisks() {
             <span className="muted small">{d.unknown ? 'Disk not known' : d.low ? 'Low on disk' : `${Math.round(100 * (d.freeBytes ?? 0) / (d.totalBytes || 1))}% disk free`}</span>
           </summary>
           <div className="small">{d.what}{d.path && <p><code>{d.path}</code></p>}
-            {d.unknown || `${fmtBytes(d.freeBytes ?? 0)} free of ${fmtBytes(d.totalBytes ?? 0)}`} · {lastSeen(d.readAt)}
+            {d.unknown || `${fmtBytes(d.freeBytes ?? 0)} free of ${fmtBytes(d.totalBytes ?? 0)}`} · {readingAge(d.readAt, d.stale)}
             {d.unknown && !!d.totalBytes && <p>Disk size: {fmtBytes(d.totalBytes)}</p>}
             {d.error && <p className="error">{d.error}</p>}
             {d.refuses && <p>New work is blocked. Check the disk and free space.</p>}
@@ -120,7 +120,7 @@ export function OwnDisks() {
 
 function DiskChip({ d }: { d: Reading }) {
   const word = d.refuses ? 'blocked' : d.unknown ? 'unknown' : d.low ? 'low' : 'working'
-  return <Status word={word} tone={d.unknown ? 'unknown' : d.refuses ? 'fail' : d.low ? 'pending' : 'pass'} />
+  return <Status observation word={word} />
 }
 
 // JobQueue: AppTown's own work (design/subsystems/jobs.md) — open jobs
@@ -159,7 +159,7 @@ function JobQueue() {
                 {groups.slice(0, count).map(({ job: j, count: repeats }) => (
                   <GlanceRow name={0} state={1} fact={2} labels={["Job", "State", "When", "Outcome"]} key={j.id}>
                     <td className="stack-lead">{JOB_WORDS[j.kind] ?? j.kind.replaceAll('-', ' ')}{repeats === 1 && typeof j.receipt?.target === 'string' && <> on {j.receipt.target}</>}{repeats > 1 && <span className="muted"> · {repeats} done</span>}</td>
-                    <td className="stack-end"><Status word={j.statusLabel} tone={STATUS_LIGHT[j.statusLabel]} help={j.error || j.state} />{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</td>
+                    <td className="stack-end"><Status word={j.statusLabel} help={j.error || j.state} />{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</td>
                     <td className="muted">{j.finishedAt ? 'Finished ' : j.startedAt ? 'Started ' : 'Queued '}{relTime(j.finishedAt || j.startedAt || j.createdAt)}</td>
                     <td data-label="outcome" className={j.error ? 'error' : ''}>{jobReceipt(j)}<details className="inline-detail"><summary>Technical details</summary><div>{j.kind}</div><code className="job-key">{j.key}</code></details></td>
                   </GlanceRow>

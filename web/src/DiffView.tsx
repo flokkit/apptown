@@ -64,10 +64,6 @@ export function parseUnifiedDiff(raw: string): DiffFile[] {
   return files.filter((x) => x.path || x.lines.length > 0)
 }
 
-const statusChip: Record<DiffFile['status'], string> = {
-  modified: '', added: 'pass', deleted: 'fail', renamed: 'pending', binary: '',
-}
-
 export default function DiffView({ raw }: { raw: string }) {
   const files = useMemo(() => parseUnifiedDiff(raw), [raw])
   if (files.length === 0) return <div className="muted small">(empty diff)</div>
@@ -87,7 +83,7 @@ export default function DiffView({ raw }: { raw: string }) {
       {files.map((f) => (
         <details key={f.path} id={`diff-${f.path}`} className="diff-file" open={f.lines.length <= 400}>
           <summary>
-            <span className={`chip ${statusChip[f.status]}`}>{f.status}</span>
+            <span className="badge">{f.status}</span>
             <code>{f.status === 'renamed' ? `${f.oldPath} → ${f.path}` : f.path}</code>
             <span className="small" style={{ color: 'var(--ok)' }}>+{f.adds}</span>
             <span className="small" style={{ color: 'var(--bad)' }}>−{f.dels}</span>

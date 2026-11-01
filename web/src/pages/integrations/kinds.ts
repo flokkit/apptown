@@ -30,7 +30,8 @@ export function capabilityMeta(capability: string, catalogTitle?: string): { tit
 //   unchecked  AppTown has no check for this kind (checked is false), so
 //              the reading says nothing either way
 export type HealthState = import('../../wire.gen').HealthStatus
-export function healthState(h: IntegrationHealth): HealthState { return h.stateLabel }
+export function healthIsOld(h: IntegrationHealth, _now?: number): boolean { return !!h.stale }
+export function healthState(h: IntegrationHealth, _now?: number): HealthState { return h.stateLabel }
 export { STATUS_LIGHT as HEALTH_CHIP } from '../../Status'
 
 // What names an integration, counted for its row: "2 projects · 1

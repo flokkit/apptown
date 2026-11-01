@@ -1,3 +1,4 @@
+import { fmtDay } from './format'
 import { useNavigate } from 'react-router-dom'
 import { Finding, findingFixPayload, post } from './api'
 import { QuietPrompt } from './QuietConfirm'
@@ -9,9 +10,6 @@ import type { CreatedChange } from './wire.gen'
 // right-sized alternative to blanket step overrides. One table for the
 // change page and the project's Security tab (debt review, finding 25:
 // the two copies had drifted; this one shows the suppression's words).
-
-const sevChip = (s: string) =>
-  s === 'critical' || s === 'high' ? 'fail' : s === 'medium' || s === 'unknown' ? 'pending' : ''
 
 export function FindingsTable({ findings, projectSlug, onChanged }: {
   findings: Finding[]; projectSlug: string; onChanged: () => void
@@ -41,12 +39,12 @@ export function FindingsTable({ findings, projectSlug, onChanged }: {
           {findings.map((f) => (
             <tr key={f.fingerprint} style={f.disposition ? { opacity: 0.55 } : undefined}>
               <td>
-                <span className={`chip ${sevChip(f.severity)}`}
+                <span className="badge"
                   title={f.severity === 'unknown' ? 'The source database gives no severity; it is treated as high.' : undefined}>
                   {f.severity === 'unknown' ? 'unscored' : f.severity}
                 </span>
-                {f.reached === false && <div><span className="chip" title="osv-scanner call analysis: the vulnerable code is never called by this program.">not reached</span></div>}
-                {f.reached === true && <div><span className="chip pending" title="osv-scanner call analysis: the program CALLS the vulnerable code.">reached</span></div>}
+                {f.reached === false && <div><span className="badge" title="osv-scanner call analysis: the vulnerable code is never called by this program.">not reached</span></div>}
+                {f.reached === true && <div><span className="badge" title="osv-scanner call analysis: the program CALLS the vulnerable code.">reached</span></div>}
               </td>
               <td>
                 <span style={f.disposition ? { textDecoration: 'line-through' } : undefined} title={f.detail ?? ''}>
@@ -55,15 +53,15 @@ export function FindingsTable({ findings, projectSlug, onChanged }: {
                 </span>
                 <span className="muted small"> {f.title.slice(0, 70)}</span>
                 {f.regression === 'undecided' && (
-                  <div className="small"><span className="chip pending">undecided</span> <span className="muted">{f.detail}</span></div>
+                  <div className="small"><span className="badge">undecided</span> <span className="muted">{f.detail}</span></div>
                 )}
                 {(f.regression === 'preexisting' || f.preExisting) && (
-                  <div className="small"><span className="chip">already on main</span></div>
+                  <div className="small"><span className="badge">already on main</span></div>
                 )}
                 {f.disposition && (
                   <div className="muted small" title={f.disposition.justification}>
                     suppressed ({f.disposition.status}) by {f.disposition.by}
-                    {f.disposition.expiresAt ? ` until ${f.disposition.expiresAt.slice(0, 10)}` : ''} — “{f.disposition.justification.slice(0, 80)}”
+                    {f.disposition.expiresAt ? ` until ${fmtDay(f.disposition.expiresAt)}` : ''} — “{f.disposition.justification.slice(0, 80)}”
                   </div>
                 )}
               </td>

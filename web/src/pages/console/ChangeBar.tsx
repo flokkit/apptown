@@ -1,4 +1,4 @@
-import { Status, STATUS_LIGHT } from '../../Status'
+import { Status } from '../../Status'
 import { PRODUCT } from '../../brand'
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
@@ -143,7 +143,7 @@ export function ChangeContext({ view: v }: { view: ChangeView }) {
 // Where the change stands, as one chip: the status card and the chat's
 // folded line (Console.tsx) say it in the same words.
 export function changeChip(v: ChangeView) {
-  return <Status word={v.statusLabel} tone={STATUS_LIGHT[v.statusLabel]} help={v.stateDetail || undefined} />
+  return <Status word={v.statusLabel} help={v.stateDetail || undefined} />
 }
 
 // The change state, REFLECTED not explained: every change this conversation
@@ -158,7 +158,7 @@ export function StartedChanges({ sessionId }: { sessionId: string }) {
   if (!q.data) return q.err ? <ReadStatus q={q} what="the changes this chat started" className="small" /> : null
   const changes = q.data.changes
   if (changes.length === 0) return <StaleNote q={q} />
-  const chip = (c: StartedChange) => <Status word={c.statusLabel} tone={STATUS_LIGHT[c.statusLabel]} help={c.detail || undefined} />
+  const chip = (c: StartedChange) => <Status word={c.statusLabel} help={c.detail || undefined} />
   return (
     <div style={{ marginBottom: 8 }}>
       <StaleNote q={q} />

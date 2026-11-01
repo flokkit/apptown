@@ -1,12 +1,12 @@
 import { GlanceRow } from '../GlanceRow'
-import { Status, STATUS_LIGHT } from '../Status'
+import { Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { del, post, put } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
-import { fmtBytes, fmtWhen, lastSeen } from '../format'
+import { fmtBytes, fmtWhen, readingAge } from '../format'
 import type { BackupStoreState, Coverage, DeploymentProtection, ItemProtection, Operation, OperationAdmitted, RehearsalRef, RestoredCopy } from '../wire.gen'
 import { useNow } from '../hooks'
 import { useHolds } from '../instancePages'
@@ -96,7 +96,7 @@ export function nativeLine(it: ItemProtection): string {
   const who = n.mechanism === 'do-database-backups' ? 'DigitalOcean backups' : n.mechanism
   if (n.unknown) return `${who}: unknown · ${n.unknown}`
   const values = n.count === 0 ? `${who}: none yet` : `${who}: oldest ${fmtWhen(n.oldest ?? '')}, newest ${fmtWhen(n.newest ?? '')}`
-  const age = n.readAt ? ` · ${lastSeen(n.readAt)}` : ''
+  const age = n.readAt ? ` · ${readingAge(n.readAt, n.stale)}` : ''
   return `${values}${age}${n.checkFailed ? ` · Provider backup check failed: ${n.failure}` : ''}`
 }
 
@@ -164,7 +164,7 @@ export function CoverageLines({ c, unknown }: { c: Coverage; unknown?: boolean }
   return (
     <div style={{ overflowWrap: 'anywhere' }}>
       <div className="muted">covers: {c.assessed.length ? [...new Set(c.assessed.map(n => /postgres|maria|database|volume/.test(n) ? 'database' : n))].join(', ') : unknown ? 'nothing assessed' : `no data ${PRODUCT} knows of`}</div>
-      {c.notAssessed.length > 0 && <><div className="muted">Not covered: anything the app stores elsewhere</div><details><summary>Coverage details</summary>{c.notAssessed.map(n => <div key={n}><Status word={c.statusLabel} tone={STATUS_LIGHT[c.statusLabel]} /> {n}</div>)}</details></>}
+      {c.notAssessed.length > 0 && <><div className="muted">Not covered: anything the app stores elsewhere</div><details><summary>Coverage details</summary>{c.notAssessed.map(n => <div key={n}><Status observation word={c.statusLabel} /> {n}</div>)}</details></>}
     </div>
   )
 }
@@ -202,7 +202,7 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
   const shown = (ops ? [ops.copy, ops.check, ...(p.rehearsalNote !== 'never rehearsed: no rehearsal place' ? [ops.rehearsal] : []), ...(p.dataClass === 'production' ? [ops.restore] : [])] : []).filter(applies)
   const whyNot = Array.from(new Set(shown.filter((o) => !o.available && o.why).map((o) => o.why!)))
   const runnerMissing = shown.some((o) => o.reason === 'no-copy-runner')
-  if (p.unknown) return <div className="small"><Status word={"unknown"} tone={STATUS_LIGHT["unknown"]} help={p.unknown} /> couldn't read what this deployment holds<CoverageLines c={p.coverage} unknown /></div>
+  if (p.unknown) return <div className="small"><Status word={"unknown"} help={p.unknown} /> couldn't read what this deployment holds<CoverageLines c={p.coverage} unknown /></div>
   // A deployment that holds no data AppTown knows of says only what is
   // not assessed; one whose take-down would still act on data, or with an
   // operation or copy standing, shows the whole card.
@@ -221,7 +221,7 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
         <div key={`${it.need}:${it.volume ?? ''}`}>
           <span className="muted">{itemLabel(it, p.items)}</span> <b>{it.where}</b>
           <div style={{ marginLeft: 12 }}>
-            <div><Status word={old ? 'unknown' : it.copyLabel} tone={STATUS_LIGHT[old ? 'unknown' : it.copyLabel]} help={old ? `Last answer shown${asRead}.` : undefined} /> {copyLine(it)}</div>
+            <div><Status observation word={old ? 'unknown' : it.copyLabel} help={old ? `Last answer shown${asRead}.` : undefined} /> {copyLine(it)}</div>
             {nativeLine(it) && <div className="muted">{nativeLine(it)}</div>}
             {(!ops || applies(ops.check)) && <div className={it.drill && !it.drill.passed ? 'error' : 'muted'}>{drillLine(it)}</div>}
           </div>
@@ -235,8 +235,8 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
       {p.restoredCopies.filter((c) => !c.endedAt).map((c) => <RestoredCopyLines key={c.id} slug={slug} source={name} copy={c} asRead={asRead} />)}
       {p.running && (
         <div style={{ marginTop: 4 }}>
-          <Status word={old ? 'unknown' : p.running.statusLabel} tone={STATUS_LIGHT[old ? 'unknown' : p.running.statusLabel]} help={stateWords(p.running) + asRead} /> <Link to={`/operations/${p.running.id}`}>{currentStep(p.running)}</Link>
-          {writesStopped(p.running) && <span className="chip fail" style={{ marginLeft: 6 }}>writes stopped{asRead}</span>}
+          <Status word={old ? 'unknown' : p.running.statusLabel} help={stateWords(p.running) + asRead} /> <Link to={`/operations/${p.running.id}`}>{currentStep(p.running)}</Link>
+          {writesStopped(p.running) && <span className="muted" style={{ marginLeft: 6 }}>writes stopped{asRead}</span>}
         </div>
       )}
       {!p.running && last && (
@@ -277,7 +277,7 @@ function RestoredCopyLines({ slug, source, copy: c, asRead }: { slug: string; so
   const { run, busy, err } = useAction()
   return (
     <div style={{ marginTop: 4, marginLeft: 12 }}>
-      <div><span className="chip pending">testing{asRead}</span> {copyHead(c, source)}</div>
+      <div><Status word="working" help={`Testing a restored copy${asRead}. Open the operation to follow its checks.`} /> {copyHead(c, source)}</div>
       {c.outcome && <div className={c.outcome === 'failed' ? 'error' : 'muted'}>checked through the gate: {c.outcome}{c.facts.checks.length ? ` (${c.facts.checks.map((k) => `${k.path} ${k.status}`).join(', ')})` : ''}{gateLine(c) ? ` · ${gateLine(c)}` : ''}</div>}
       {c.protection && <div className="muted">protected by {c.protection}</div>}
       <div className="muted">{c.warning}</div>
@@ -308,9 +308,9 @@ export function OperationPage() {
       <div className="muted small">operation {op.number}{op.subject ? ` · ${op.subject}` : ''}</div>
       <h1 style={{ marginBottom: 4 }}>{kindWords[op.kind] ?? op.kind} of {deploymentOf(op)}</h1>
       <div className="row status-strip" style={{ gap: 8, alignItems: 'center' }}>
-        <Status word={old ? 'unknown' : op.statusLabel} tone={STATUS_LIGHT[old ? 'unknown' : op.statusLabel]} help={stateWords(op) + asRead} />
+        <Status word={old ? 'unknown' : op.statusLabel} help={stateWords(op) + asRead} />
         <span className="muted small">asked by {op.askedBy} {fmtWhen(op.createdAt)}{op.finishedAt ? `, ended ${fmtWhen(op.finishedAt)}` : old || !op.startedAt ? '' : ` · running for ${elapsed(op.startedAt)}`}</span>
-        {writesStopped(op) && <span className="chip fail">writes stopped{asRead}</span>}
+        {writesStopped(op) && <span className="muted">writes stopped{asRead}</span>}
       </div>
       {op.detail && <p style={{ marginTop: 10 }}>{op.detail}</p>}
       <table className="small" style={{ marginTop: 10 }}>
@@ -321,7 +321,7 @@ export function OperationPage() {
               <td>{st.name}{st.detail && <div className={st.failed ? 'error' : 'muted'}>{st.detail}</div>}</td>
               <td className="muted" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(st.started)}</td>
               <td className="muted">{st.ended ? elapsed(st.started, new Date(st.ended).getTime()) : elapsed(st.started)}{st.bytes ? ` · ${fmtBytes(st.bytes)}` : ''}</td>
-              <td>{!st.ended ? <span className="chip running">{old ? 'last read' : 'now'}</span> : st.unknown ? <span className="chip pending">not known</span> : st.failed ? <Status word={"failed"} tone={STATUS_LIGHT["failed"]} /> : <span className="chip pass">done</span>}</td>
+              <td>{!st.ended ? <Status word="working" staleAt={old ? st.started : undefined} /> : st.unknown ? <Status word="unknown" help="The operation did not record an outcome. Open its details before starting another restore." /> : st.failed ? <Status word={"failed"} /> : <Status word="finished" />}</td>
             </GlanceRow>
           ))}
           {op.steps.length === 0 && <tr><td colSpan={4} className="muted">no step has started yet</td></tr>}

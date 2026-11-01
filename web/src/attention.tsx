@@ -9,24 +9,32 @@ export function useAttention() {
   return useGet<AttentionView>(signedIn ? '/attention' : null, { poll: 30000 })
 }
 
+// These are exactly the rows the Attention page renders, shared by every count.
+export function attentionRows(data: AttentionView) {
+  return { items: data.items, sources: data.sources.filter(s => s.unknown && !data.items.some(i => i.unknown && i.key.startsWith(s.key + '/'))) }
+}
+
 export function attentionState(q: Pick<Read<AttentionView>, 'data' | 'refreshFailed' | 'paused'>) {
+  const rows = q.data ? attentionRows(q.data) : null
   return {
-    count: q.data?.items.length ?? null,
-    known: !!q.data && !q.refreshFailed && !q.paused
-      && q.data.sources.every((s) => !s.unknown)
-      && q.data.items.every((i) => !i.unknown),
+    count: rows ? rows.items.filter(i => !i.unknown).length : null,
+    unknown: rows ? rows.sources.length + rows.items.filter(i => i.unknown).length : 0,
+    known: !!rows && !q.refreshFailed && !q.paused && !rows.sources.length && rows.items.every(i => !i.unknown),
   }
+}
+
+export function attentionSummary(count: number | null, unknown: number): string {
+  if (count === null) return 'Status not known'
+  return [count > 0 ? `${count} to fix` : '', unknown > 0 ? `${unknown} not known` : ''].filter(Boolean).join(' · ') || 'All quiet'
 }
 
 export function AttentionBadge() {
   const q = useAttention()
   const state = attentionState(q)
-  if (state.count === 0 && state.known) return null
-  const unknown = q.data ? (q.refreshFailed || q.paused ? Math.max(1, q.data.sources.length) : q.data.sources.filter(s => s.unknown).length) : 0
-  const missing = q.err || q.refreshFailed || state.count === 0 ? 'unknown' : '…'
+  const words = attentionSummary(state.count, state.unknown)
   return <span className="row small">
-    <Link className="attention-badge" to="/attention" aria-label={state.count !== null && (state.count > 0 || unknown > 0) ? `${state.count} need attention${unknown ? `; ${unknown} not known` : state.known ? '' : '; coverage incomplete'}` : `Attention ${missing}`}>
-      <span className="attention-compact" aria-hidden="true">⚠ {state.count ?? missing}{unknown > 0 ? ` · ${unknown} not known` : ''}</span><span className="attention-words">{state.count === null ? `Attention ${missing}` : unknown > 0 ? `${state.count} · ${unknown} not known` : state.count > 0 ? `${state.count} need attention` : `Attention ${missing}`}</span>
+    <Link className="attention-badge" to="/attention" aria-label={words}>
+      <span className="attention-compact" aria-hidden="true">{words}</span><span className="attention-words">{words}</span>
     </Link>
     <StaleNote q={q} inline />
   </span>

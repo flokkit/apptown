@@ -41,14 +41,14 @@ describe("a target's capacity", () => {
     })
     expect(html).toContain('title="docker stats: cannot connect">unknown')
     expect(html).toContain('title="docker info: cannot connect">unknown')
-    expect(html).toContain('overcommitted')
+    expect(html).toContain('2 GB requested; host total 1 GB')
     expect(html).toContain('low: under 10.00 GB free')
   })
   // A host's disk says which filesystem it is and when it was read; below
   // its floor it says new releases are refused, and a disk it could not
   // read says why in words, not only on hover.
   it("says which disk it read, when, and when new releases are refused", () => {
-    const refused = render({ disk: { total: fig(100 * 2 ** 30), free: fig(2 ** 30), low: true, refuses: true, floor: 5 * 2 ** 30, path: '/var/lib/docker', readAt: '2026-10-13T01:58:00Z' } })
+    const refused = render({ disk: { total: fig(100 * 2 ** 30), free: {...fig(2 ** 30), stale:true}, low: true, refuses: true, floor: 5 * 2 ** 30, path: '/var/lib/docker', readAt: '2026-10-13T01:58:00Z' } })
     expect(refused).toContain("disk (Docker&#x27;s data, /var/lib/docker)")
     expect(refused).toContain('new releases refused: under 5.00 GB free')
     expect(refused).toContain('last seen')
@@ -128,13 +128,13 @@ it('leads with host facts and keeps limits, paths and bars behind Details', () =
   expect(front).toContain('2 GB used of 8 GB')
   expect(front).toContain('23 GB free of 49 GB')
   expect(front).toContain('9 running')
-  expect(front).toContain('Apps may need more memory than this host has.')
+  expect(front).toContain('10 GB requested; host total 8 GB')
   expect(front).toContain('<dt>Memory use</dt>')
   expect(front).not.toMatch(/promised|without a set limit|not read|app-0|var\/lib|role="img"/)
   expect(html).toContain('<summary>Details</summary>')
   expect(html).toContain('over by 2.00 GB')
   const unknown = render({ ...c, memory: { ...memory, total: none('host unavailable') } }).split('<details')[0]
-  expect(unknown).toContain('<dt>Memory use</dt><dd>not known</dd>')
+  expect(unknown).toContain('2 GB used; host total unknown: host unavailable')
   expect(unknown).not.toContain('used of')
 })
 
@@ -148,7 +148,7 @@ it('keeps a retained live figure distinct from unknown and shows its own age aft
     const html = render({ stale: true, error: 'The host disk check failed.', readAt,
       disk: { total: { ...fig(100 * 2 ** 30), readAt }, free: old, low: false, refuses: false, readAt } })
     expect(html).toContain('90 GB free of 100 GB')
-    expect(html).toContain('last seen 40 min ago')
+    expect(html).toContain('last seen 40m ago')
     expect(html).toContain('The host disk check failed.')
     const expired = render({ disk: { total: fig(100 * 2 ** 30), free: { ...old, known: false, reason: 'The last successful reading is too old.' }, low: false, refuses: false, readAt } })
     expect(expired).toContain('unknown free of 100 GB')
@@ -166,7 +166,23 @@ it('distinguishes a successful empty tenant list from an unread or expired list'
 it('shows an old reading quietly and marks only a failed check red', () => {
   const old = { stale: true, readAt: new Date(Date.now() - 40 * 60000).toISOString() }
   const html = render(old)
-  expect(html).toContain('last seen 40 min ago')
+  expect(html).toContain('last seen 40m ago')
   expect(html).not.toContain('class="error small"')
   expect(render({ ...old, error: 'The host capacity check failed.' })).toContain('class="error small">The host capacity check failed.')
+})
+
+it('puts requested and available memory beside a warning, and explains unreadable use', () => {
+ const memory = {total:fig(2*2**30), hostUsed:none('The attached daemon does not report whole-host memory use.'),promised:{sum:{apptown:fig(4*2**30),other:fig(0)},limited:count(9,0),unlimited:count(19,0),unread:count(0,0)},overcommitted:true}
+ const html=render({memory})
+ expect(html).toMatch(/capacity-warning[^>]*>[^<]*4 GB requested[^<]*2 GB/)
+ expect(html).toContain('The attached daemon does not report whole-host memory use.')
+ expect(html).toContain('Memory use could not be read')
+ expect(render({memory:{...memory,total:none('Host size unavailable')}})).not.toContain('capacity-warning')
+})
+
+
+it('does not renew old requested memory with a newer capacity wrapper', () => {
+ const old = {stale:true,readAt:new Date(Date.now()-40*60000).toISOString()}
+ const html=render({readAt:new Date().toISOString(),memory:{total:fig(2*2**30),promised:{sum:{apptown:{...fig(4*2**30),...old},other:fig(0)},limited:count(1,0),unlimited:count(0,0),unread:count(0,0)},overcommitted:true}})
+ expect(html).toContain('4 GB requested (last seen 40m ago); host total 2 GB')
 })

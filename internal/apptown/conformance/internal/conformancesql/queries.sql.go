@@ -244,6 +244,87 @@ func (q *Queries) ConformanceProjects(ctx context.Context, arg ConformanceProjec
 	return items, nil
 }
 
+const currentProblemFacts = `-- name: CurrentProblemFacts :many
+SELECT v.id, v.review_id, v.project_id, v.project_slug, v.sha, v.block, v.version, v.check_name, v.evaluator, v.evaluator_ver, v.mode, v.state, v.severity, v.detail, v.created_at, v.excepted_by, v.evidence_hash, p.name AS project_name, p.slug AS current_slug, m.sha AS current_sha,
+ EXISTS(SELECT 1 FROM conformance_adjudications a WHERE a.verdict_id=v.id AND a.kind='confirmed') AS confirmed,
+ EXISTS(SELECT 1 FROM dispositions d WHERE d.id::text = (NULLIF(v.excepted_by,'')::jsonb->>'id') AND (d.expires_at IS NULL OR d.expires_at > $1::timestamptz)) AS exception_active
+FROM conformance_verdicts v
+JOIN projects p ON p.id=v.project_id AND p.purpose='ordinary'
+JOIN project_main m ON m.project_id=p.id AND m.branch=p.default_branch
+WHERE v.id IN (SELECT DISTINCT ON (project_id, block, version, check_name) id
+ FROM conformance_verdicts WHERE project_id=ANY($2::uuid[])
+ ORDER BY project_id, block, version, check_name, id DESC)
+AND EXISTS (
+ SELECT 1 FROM guidance_imports i JOIN guidance_blocks b ON b.id=i.block_id
+ JOIN guidance_block_versions bv ON bv.block_id=b.id AND bv.version=i.version
+ WHERE i.project_id=p.id AND NOT i.disabled AND b.name=v.block AND i.version=v.version
+ AND EXISTS(SELECT 1 FROM jsonb_array_elements(bv.checks_json) c WHERE c->>'name'=v.check_name)
+)
+ORDER BY p.slug, v.id
+`
+
+type CurrentProblemFactsParams struct {
+	At       time.Time
+	Projects []ids.ID
+}
+
+type CurrentProblemFactsRow struct {
+	ConformanceVerdict ConformanceVerdict
+	ProjectName        string
+	CurrentSlug        string
+	CurrentSha         string
+	Confirmed          bool
+	ExceptionActive    bool
+}
+
+// Recorded facts for Attention, in one snapshot. Only currently adopted checks
+// on the recorded main can establish problems; no Git read belongs in polling.
+func (q *Queries) CurrentProblemFacts(ctx context.Context, arg CurrentProblemFactsParams) ([]CurrentProblemFactsRow, error) {
+	rows, err := q.db.QueryContext(ctx, currentProblemFacts, arg.At, pq.Array(arg.Projects))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CurrentProblemFactsRow
+	for rows.Next() {
+		var i CurrentProblemFactsRow
+		if err := rows.Scan(
+			&i.ConformanceVerdict.ID,
+			&i.ConformanceVerdict.ReviewID,
+			&i.ConformanceVerdict.ProjectID,
+			&i.ConformanceVerdict.ProjectSlug,
+			&i.ConformanceVerdict.Sha,
+			&i.ConformanceVerdict.Block,
+			&i.ConformanceVerdict.Version,
+			&i.ConformanceVerdict.CheckName,
+			&i.ConformanceVerdict.Evaluator,
+			&i.ConformanceVerdict.EvaluatorVer,
+			&i.ConformanceVerdict.Mode,
+			&i.ConformanceVerdict.State,
+			&i.ConformanceVerdict.Severity,
+			&i.ConformanceVerdict.Detail,
+			&i.ConformanceVerdict.CreatedAt,
+			&i.ConformanceVerdict.ExceptedBy,
+			&i.ConformanceVerdict.EvidenceHash,
+			&i.ProjectName,
+			&i.CurrentSlug,
+			&i.CurrentSha,
+			&i.Confirmed,
+			&i.ExceptionActive,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const currentVerdicts = `-- name: CurrentVerdicts :many
 
 SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash FROM (

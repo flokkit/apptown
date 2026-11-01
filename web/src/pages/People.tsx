@@ -10,7 +10,7 @@ import { QuietConfirm, QuietPrompt } from '../QuietConfirm'
 import type { AuthMe, Account, AdministratorNetworksView, DelegationList, GrantList, GrantView, Group, GroupList, InviteLink, InviteList, IssuedToken, RoleCatalog, RoleView, TokenList, UserList } from '../wire.gen'
 import { useHolds } from '../instancePages'
 import { grantTitle, subjectLabel, groupLabel } from '../parts/grants'
-import { fmtStamp } from '../format'
+import { fmtStamp, fmtWhen } from '../format'
 import { PageHead } from '../PageHead'
 import { ExternalProviderSettings, MyExternalSignIn } from './ExternalSignIn'
 
@@ -113,7 +113,7 @@ export function AgentsCard({ canEdit }: { canEdit: boolean }) {
           <details><summary>Connections and permissions</summary>
       {connections.map(d => (
         <div key={d.id} className="row small" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span className="chip">{d.clientName}</span>
+          <span className="badge">{d.clientName}</span>
           <span>as <b>{d.user}</b></span>
           <span className="muted">· {d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.includes('apptown:change:create') && d.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</span>
           <span className="muted">Connected {fmtStamp(d.createdAt)}{d.lastUsed ? `, last used ${fmtStamp(d.lastUsed)}` : ''}</span><details><summary>Permissions</summary><p>{d.scopes.join(', ')}</p></details>
@@ -161,7 +161,7 @@ export function AdminNetworksCard({ canEdit }: { canEdit: boolean }) {
       {q.data && <div className="row small" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         {nets.length === 0 && <span className="muted">Anywhere</span>}
         {nets.map((n) => (
-          <span key={n} className="chip">{n}{editable && <>{' '}
+          <span key={n} className="badge">{n}{editable && <>{' '}
             <button className="subtle" aria-label={`remove ${n}`} onClick={() => { void save(nets.filter((x) => x !== n)) }}>×</button></>}
           </span>
         ))}
@@ -217,8 +217,8 @@ export function TokensCard() {
       {tokensQ.data && activeTokens.length === 0 && <p className="muted small">No access tokens yet.</p>}
       {activeTokens.map(t => (
         <div key={t.Name} className="row small">
-          <span className="chip">{t.Name}</span>
-          <span className="muted">{t.User} · {t.Role} · {tokenPurposes[t.Purpose] ?? 'no purpose'} · last used {t.LastUsed ? t.LastUsed.slice(0, 10) : 'never'}</span>
+          <span className="badge">{t.Name}</span>
+          <span className="muted">{t.User} · {t.Role} · {tokenPurposes[t.Purpose] ?? 'no purpose'} · last used {t.LastUsed ? fmtWhen(t.LastUsed) : 'never'}</span>
           <span style={{ flex: 1 }} />
           <QuietConfirm label="revoke" ask={`Revoke token ${t.Name}? Anything using it stops working.`}
             onYes={() => { void run(() => del(`/tokens/${t.Name}`)) }} />
@@ -282,9 +282,9 @@ function RolesCard({ roles, grants, users, groups, act, canEdit }: {
       {byRole.size === 0 && <p className="muted small">No roles assigned.</p>}
       {[...byRole.entries()].map(([title, gs]) => (
         <div key={title} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span className="chip" title={roles.find(r => r.title === title)?.description}>{title}</span>
+          <span className="badge" title={roles.find(r => r.title === title)?.description}>{title}</span>
           {gs.map(g => (
-            <span key={g.id} className="chip" title={[g.reason, g.origin && `origin: ${g.origin}`, `granted by ${g.grantedBy}`].filter(Boolean).join(' · ')}>
+            <span key={g.id} className="badge" title={[g.reason, g.origin && `origin: ${g.origin}`, `granted by ${g.grantedBy}`].filter(Boolean).join(' · ')}>
               {subjectLabel(g)}
               {g.origin === 'profile:transparent' && <span className="muted"> · everyone can read</span>}
               {g.origin === 'profile:open' && <span className="muted"> · open mode</span>}
@@ -338,9 +338,9 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
   const accountTable = (list: Account[]) => <table className="people-accounts">
     <thead><tr><th>Name</th><th>Role</th><th>Last seen</th><th /></tr></thead>
     <tbody>{list.map(u => <tr key={u.username}>
-      <td><strong>{u.username}</strong>{u.disabled && <> <span className="chip">Disabled</span></>}</td>
+      <td><strong>{u.username}</strong>{u.disabled && <> <span className="badge">Disabled</span></>}</td>
       <td>{u.role === 'admin' ? 'Admin' : 'Member'}</td>
-      <td className="muted small">{u.lastSeen ? `seen ${new Date(u.lastSeen).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', ...(new Date(u.lastSeen).getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } as const : {}) })}` : 'never signed in'}</td>
+      <td className="muted small">{u.lastSeen ? `seen ${fmtStamp(u.lastSeen)}` : 'never signed in'}</td>
       <td>{canEdit && <details className="account-actions"><summary aria-label={`Actions for ${u.username}`}>…</summary>
         <div className="account-action-list">
         <label>Role                 {canEdit ? (
@@ -349,7 +349,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
                     <option value="member">member</option>
                     <option value="admin">admin</option>
                   </select>
-                ) : <span className="chip">{u.role}</span>}
+                ) : <span className="badge">{u.role}</span>}
 </label>
         <p className="muted small">Groups: {u.groups.join(', ') || 'None'}</p>
                 {/* A reset link lets the person choose the new password
@@ -441,8 +441,8 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
           {seen.map(u => (
             <div key={u.username} className="row small" style={{ padding: '2px 0' }}>
               <span>{u.username}</span>
-              {u.role === 'admin' && <span className="chip">admin</span>}
-              <span className="muted">last seen {u.lastSeen ? u.lastSeen.slice(0, 10) : '—'}</span>
+              {u.role === 'admin' && <span className="badge">admin</span>}
+              <span className="muted">last seen {u.lastSeen ? fmtWhen(u.lastSeen) : '—'}</span>
               <span style={{ flex: 1 }} />
               {canEdit && <>
                 <QuietPrompt label="claim" yes="Claim"
@@ -508,10 +508,10 @@ export function InvitePerson() {
           <div className="muted small">Waiting to be used</div>
           {pending.map(i => (
             <div key={i.id} className="row small" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span className="chip">{i.username}</span>
+              <span className="badge">{i.username}</span>
               {i.label && <span>{i.label}</span>}
               <span className="muted">
-                {i.purpose === 'password' ? `password reset · made by ${i.invitedBy}` : `${i.role} · invited by ${i.invitedBy}`} · expires {i.expiresAt.slice(0, 10)}
+                {i.purpose === 'password' ? `password reset · made by ${i.invitedBy}` : `${i.role} · invited by ${i.invitedBy}`} · expires {fmtWhen(i.expiresAt)}
               </span>
               <span style={{ flex: 1 }} />
               <QuietConfirm label="withdraw" ask={`Withdraw the ${i.purpose === 'password' ? 'password reset link' : 'invite'} for ${i.username}? The link stops working.`}
@@ -556,7 +556,7 @@ function GroupsCard({ groups, users, act, canEdit }: {
       {groups.length === 0 && <div className="muted small">No groups yet.</div>}
       {groups.filter(g => g.kind === 'built-in' || g.kind === 'personal').map(g => (
         <div key={g.name} className="row small" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span className="chip">{groupLabel(g.name)}</span>
+          <span className="badge">{groupLabel(g.name)}</span>
           <span className="muted">
             {g.kind === 'built-in' ? 'everyone who is signed in; grant this group a role to give everyone that access'
               : 'Personal group'}
@@ -565,7 +565,7 @@ function GroupsCard({ groups, users, act, canEdit }: {
       ))}
       {groups.filter(g => g.kind !== 'built-in' && g.kind !== 'personal').map(g => (
         <div key={g.name} style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span className="chip">{groupLabel(g.name)}</span>
+          <span className="badge">{groupLabel(g.name)}</span>
           {canEdit ? users.map(u => {
             const inG = g.members.includes(u.username)
             return (

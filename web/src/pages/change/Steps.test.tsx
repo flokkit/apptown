@@ -84,7 +84,7 @@ describe('a child run', () => {
     act(() => root.render(<QueryClientProvider client={client}><MemoryRouter>
       <ChildRunSteps childId={CHILD} workflow="checks v1" live={false} onChange={() => {}} />
     </MemoryRouter></QueryClientProvider>))
-    expect(el.textContent).toContain('evidence unreadable')
+    expect(el.textContent).toContain('unreadable check evidence')
     act(() => root.unmount())
   })
 })
@@ -101,7 +101,7 @@ describe('step cards say what the record holds', () => {
     </MemoryRouter></QueryClientProvider>))
     return { el, done: () => act(() => root.unmount()) }
   }
-  const tests = (evidence: object) => ({ id: STEP, runId: RUN, stage: 'check', name: 'tests', type: 'tests', status: 'pass', attempt: 1, overrideBy: '', config: {},
+  const tests = (evidence: object) => ({ id: STEP, runId: RUN, stage: 'check', name: 'tests', type: 'tests', status: 'pass', statusLabel:'passed', attempt: 1, overrideBy: '', config: {},
     evidence: { command: 'go test -json ./...', durationMs: 1200, logTail: 'ok', ...evidence } }) as unknown as Step
   it('shows skips and unknown counts on the folded card', () => {
     for (const [evidence, note] of [
@@ -111,9 +111,18 @@ describe('step cards say what the record holds', () => {
     ] as const) {
       const { el, done } = render(tests(evidence))
       expect(el.querySelector('.step-head')?.textContent).toContain(note)
-      expect(el.querySelector('.step-head .chip.stale') != null).toBe(note !== '44 passed')
+      if (!('testCounts' in evidence)) {
+        expect(el.querySelector('.step-head .chip.unknown')?.textContent).toContain('unknown')
+        expect(el.querySelector('.step-head .chip.pass')).toBeNull()
+      }
       done()
     }
+  })
+  it('keeps a failed tests step failed while marking its unknown count', () => {
+    const {el,done}=render({...tests({testReport:'no report'}),status:'fail',statusLabel:'failed'} as Step)
+    expect(el.querySelector('.step-head .chip.fail')?.textContent).toContain('failed')
+    expect(el.querySelector('.step-head .chip.unknown')?.getAttribute('aria-label')).toContain('Number of tests unknown')
+    done()
   })
   it('names the CLI token an approval came through', () => {
     const { el, done } = render({ id: STEP, runId: RUN, stage: 'approval', name: 'approve-landing', type: 'approval', status: 'pass', attempt: 1, overrideBy: '', config: {},
@@ -130,7 +139,7 @@ it('uses the owner word for an excepted step in Work', () => {
   const root = createRoot(el)
   act(() => root.render(<QueryClientProvider client={newQueryClient()}><MemoryRouter><StepCard step={step} onChange={() => {}} /></MemoryRouter></QueryClientProvider>))
   expect(el.querySelector('.chip')?.textContent).toBe('● excepted')
-  expect(el.querySelector('.chip')?.className).toContain('overridden')
+  expect(el.querySelector('.chip')?.className).not.toContain('fail')
   act(() => root.unmount())
 })
 

@@ -2,12 +2,16 @@
 
 Attention collects current operational conditions in the resources the caller
 can read. Its page, the authenticated top-bar count and Home's Operations
-summary use the same response from `GET /api/v1/attention`. The count includes
-warnings and advisories. Approvals, blocked Changes and the caller's failed
+summary use the same response from `GET /api/v1/attention`. The count includes warnings, advisories, failed integrations and confirmed
+app-check problem rows. Each named row counts once, even when it contains several findings. The header says `<n> to fix · <m> not known`, omits zero
+parts and says `All quiet` only when both counts are zero. Unknown items do
+not also count as confirmed problems. Approvals, blocked Changes and the caller's failed
 operations keep their existing Home groups.
 
 The `attention` owner resolves current project and instance grants before
-selecting sources. Each read checks authority again. Project access grants no
+selecting sources. Infrastructure and backup sources use deployment read grants;
+integrations use the same instance project-read grant as their list; app checks
+use project conformance-read grants. Denied sources are omitted. Each read checks authority again. Project access grants no
 instance-wide disk, worker or inventory visibility. An authority lookup failure
 fails closed; an unavailable source is reported separately from the conditions
 it can still describe. Neither a failed read nor incomplete observation coverage
@@ -51,6 +55,27 @@ means all clear.
 Conditions link to existing infrastructure or deployment evidence and actions.
 Those actions enforce their own current permissions. Global items contain safe
 summaries, not provider errors, credentials, logs or storage paths.
+
+Integration readings come from the integration owner. Kinds with automatic
+checks are collected by jobs every five minutes. Attention never calls a
+provider. An unused connection without configuration is not set up; partial
+configuration or a required missing connection is failed. Only integrations
+with a background check whose latest result failed contribute a row; no
+integration contributes unknown coverage. Kinds without a background check
+read `no automatic check` in muted style. A manual Test connection result keeps
+its last state and age, marked old after fifteen minutes, without expiring into
+unknown. Failed connection rows name directly affected apps.
+
+Conformance supplies one query of stored verdicts, exact confirmations, active
+exceptions, currently adopted checks and recorded main for the authorized
+project selection. Attention polling does not read Git or open a transaction
+per project. Verdicts from before recorded main changed cannot establish current
+problems. Only confirmed findings and broken checks contribute a project row;
+unrun and unassessed projects contribute nothing. The row names its inner count,
+and counts as one item in the header, Attention summary and Home.
+
+The page groups named links under Hosts and deployments, Backups, Integrations
+and App checks. Unknown coverage names its resource, reason and next step.
 
 ## Observation lifecycle
 

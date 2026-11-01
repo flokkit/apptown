@@ -3,33 +3,26 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
-	"slices"
-	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/integration"
-	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/deploy"
-	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
 type IntegrationListing struct {
 	integrations *integration.Service
 	deployment   *deployment.Service
 	health       connectorHealth
-	docker       *docker.Scope
-	formats      []string
-	now          func() time.Time // AppTown's clock, which dates a health reading
 }
 
-func NewIntegrationListing(integrations *integration.Service, deployment *deployment.Service, health connectorHealth, docker *docker.Scope, formats []string, now func() time.Time) IntegrationListing {
-	return IntegrationListing{integrations: integrations, deployment: deployment, health: health, docker: docker, formats: slices.Clone(formats), now: clock.Or(now)}
+func NewIntegrationListing(integrations *integration.Service, deployment *deployment.Service, health connectorHealth) IntegrationListing {
+	return IntegrationListing{integrations: integrations, deployment: deployment, health: health}
 }
 
 // ListIntegrations: GET /api/v1/integrations — bindings, what uses each,
-// and live health.
+// and retained health.
 func (h IntegrationListing) ListIntegrations(w http.ResponseWriter, r *http.Request) {
 	bindings, err := h.integrations.Bindings.All(r.Context())
 	if err != nil {
@@ -66,68 +59,18 @@ func (h IntegrationListing) ListIntegrations(w http.ResponseWriter, r *http.Requ
 		e.ConfigHash = deploy.ConfigHash(b.ConfigJSON)
 		list = append(list, e)
 	}
-	// Health after the rows are materialized (SQLite pool: never query while
-	// iterating).
 	for i := range list {
 		list[i].Testable = h.health.Testable(list[i].Capability)
-		if list[i].Capability == integration.CapContainerRegistry {
-			list[i].Health = h.health.Test(r.Context(), list[i].Capability, list[i].Provider, list[i].Config)
-			continue
+		list[i].Health, err = h.integrations.RecordedHealth(r.Context(), list[i].Name)
+		if err != nil {
+			WriteFault(w, err)
+			return
 		}
-		if list[i].Capability == "registry" {
-			// cheap shape check; the connector Test button does a real probe
-			format, _ := list[i].Config["format"].(string)
-			url, _ := list[i].Config["url"].(string)
-			switch {
-			case !slices.Contains(h.formats, format):
-				list[i].Health = integration.Health{OK: false, Detail: "unknown format " + format}
-			case url == "":
-				list[i].Health = integration.Health{OK: false, Detail: "no url configured"}
-			default:
-				list[i].Health = integration.Health{OK: true, Detail: format + " → " + url}
-			}
-			list[i].Health = list[i].Health.At(h.now())
-			continue
-		}
-		if list[i].Capability == "scanner" {
-			// cheap local check; the connector Test button does real pulls
-			image, _ := list[i].Config["image"].(string)
-			switch {
-			case image == "":
-				list[i].Health = integration.Health{OK: false, Detail: "no image configured"}
-			case h.docker.Absent():
-				list[i].Health = integration.Health{OK: true, Detail: "image " + image + " pulls on the worker on first use"}
-			default:
-				_, found, err := h.docker.Image(r.Context(), image)
-				switch {
-				case err != nil:
-					list[i].Health = integration.Health{OK: false, Detail: err.Error()}
-				case found:
-					list[i].Health = integration.Health{OK: true, Detail: "image " + image + " present"}
-				default:
-					list[i].Health = integration.Health{OK: true, Detail: "image " + image + " not pulled yet (pulls on first use)"}
-				}
-			}
-			list[i].Health = list[i].Health.At(h.now())
-			continue
-		}
-		var se []string
-		if raw, ok := list[i].Config["secretEnv"].([]any); ok {
-			for _, v := range raw {
-				if sv, ok := v.(string); ok {
-					se = append(se, sv)
-				}
-			}
-		}
-		list[i].Health = h.health.Health(r.Context(), list[i].Capability, list[i].Provider, se)
-	}
-	for i := range list {
-		list[i].Health = list[i].Health.ForDisplay()
 	}
 	WriteJSON(w, 200, IntegrationList{Integrations: list})
 }
 
-// IntegrationEntry is one binding with what uses it and its live health;
+// IntegrationEntry is one binding with what uses it and its retained health;
 // its inline credentials are redacted.
 type IntegrationEntry struct {
 	IntegrationView

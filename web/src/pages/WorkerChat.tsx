@@ -1,3 +1,4 @@
+import { fmtStamp } from '../format'
 import { PRODUCT } from '../brand'
 import React from 'react'
 import { useGet } from '../data'
@@ -13,8 +14,7 @@ import type { ConsoleSessionList, ConsoleSessionView, WorkerChatList } from '../
 // must not read as one from this afternoon.
 export function when(t?: string | null): string {
   if (!t) return ''
-  const d = new Date(t)
-  return d.toDateString() === new Date().toDateString() ? d.toLocaleTimeString() : d.toLocaleString()
+  return fmtStamp(t)
 }
 
 // SaveStatus is one worker chat's save line: its last save, and how fresh

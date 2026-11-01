@@ -339,7 +339,7 @@ describe('the what-if page', () => {
     const running = { ...whatIf, statusLabel: 'working', state: 'running', projectsDone: 1, projectsTotal: 4,
       projects: whatIf.projects.map((p, i) => i === 0 ? p : { ...p, statusLabel: 'unknown', outcome: 'not-yet-judged', candidateDigest: undefined, newFailures: [], notAssessed: [], notAssessedBy: [] }) }
     const { el, done } = await render((url) => url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? { recommended: 1 } : running)
-    expect(el.textContent).toContain('workingAppTown restarted 1 of 4')
+    expect(el.textContent).toContain('in progressAppTown restarted 1 of 4')
     expect(el.textContent).toContain('3 ● unknownnot yet judged')
     expect(el.textContent).not.toContain('not evaluated')
     done()

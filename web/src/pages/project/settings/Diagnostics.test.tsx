@@ -55,7 +55,7 @@ describe('a deployment’s diagnostics', () => {
   it('lead with the failing part and what to do, and mark an earlier generation’s event', async () => {
     serve(() => ({ status: 200, body: diagnostics }))
     const { el, done } = await mount()
-    expect(el.textContent).toContain('worker: stopped · exit 137 · killed: out of memory')
+    expect(el.textContent).toContain('worker: ● failedstopped · exit 137 · killed: out of memory')
     expect(el.textContent).toContain('raise its memory')
     expect(el.textContent).not.toContain('web: ')
     await act(async () => { button(el, 'details').click() })
@@ -97,7 +97,7 @@ describe('a deployment’s diagnostics', () => {
     serve(() => ({ status: 502, body: { error: 'AppTown is restarting' } }))
     await act(async () => { await client.refetchQueries({ queryKey: getKey(PATH) }).catch(() => {}) })
     await vi.waitFor(() => expect(el.textContent).toContain('unknown'))
-    expect(el.textContent).toContain('worker: stopped')
+    expect(el.textContent).toContain('worker: ● failedstopped')
     done()
   })
 
@@ -105,8 +105,8 @@ describe('a deployment’s diagnostics', () => {
     const unknown = { ...diagnostics, parts: [diagnostics.parts[0], { ...diagnostics.parts[1], presence: 'unknown', stale: true, reason: 'its container could not be read: it did not answer in time' }] }
     serve(() => ({ status: 200, body: unknown }))
     const { el, done } = await mount()
-    expect(el.textContent).toContain('worker: unknown')
-    expect(el.textContent).not.toContain('worker: stopped')
+    expect(el.textContent).toContain('worker: ● unknown')
+    expect(el.textContent).not.toContain('worker: ● failedstopped')
     await act(async () => { button(el, 'details').click() })
     expect(el.textContent).toContain('exited, exit 137, out of memory')
     done()

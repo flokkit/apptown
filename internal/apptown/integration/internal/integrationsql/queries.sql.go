@@ -285,6 +285,17 @@ func (q *Queries) BindingByNameForUpdate(ctx context.Context, name string) (Inte
 	return i, err
 }
 
+const bindingHealth = `-- name: BindingHealth :one
+SELECT r.payload FROM integration_readings r JOIN integrations i ON i.id=r.id AND i.version=r.version WHERE i.name=$1
+`
+
+func (q *Queries) BindingHealth(ctx context.Context, name string) (json.RawMessage, error) {
+	row := q.db.QueryRowContext(ctx, bindingHealth, name)
+	var payload json.RawMessage
+	err := row.Scan(&payload)
+	return payload, err
+}
+
 const bindingUsers = `-- name: BindingUsers :many
 SELECT i.name AS binding, p.capability, pr.slug, pr.name AS project_name
 FROM project_integrations p
@@ -693,6 +704,23 @@ func (q *Queries) RetireConnector(ctx context.Context, arg RetireConnectorParams
 	var i RetireConnectorRow
 	err := row.Scan(&i.SelectedCount, &i.RemovedCount)
 	return i, err
+}
+
+const saveBindingHealth = `-- name: SaveBindingHealth :exec
+INSERT INTO integration_readings (id, version, payload)
+SELECT i.id, i.version, $1 FROM integrations i WHERE i.id=$2 AND i.version=$3
+ON CONFLICT(id) DO UPDATE SET version=excluded.version, payload=excluded.payload
+`
+
+type SaveBindingHealthParams struct {
+	Payload json.RawMessage
+	ID      ids.ID
+	Version int64
+}
+
+func (q *Queries) SaveBindingHealth(ctx context.Context, arg SaveBindingHealthParams) error {
+	_, err := q.db.ExecContext(ctx, saveBindingHealth, arg.Payload, arg.ID, arg.Version)
+	return err
 }
 
 const saveServiceKind = `-- name: SaveServiceKind :one

@@ -485,6 +485,13 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
     UNIQUE (subject, kind)
 );`,
 	}},
+	{n: 195, note: "retain integration check results for shared operational status", stmts: []string{
+		`CREATE TABLE integration_readings (
+  id UUID PRIMARY KEY REFERENCES integrations(id) ON DELETE CASCADE,
+  version BIGINT NOT NULL,
+  payload JSONB NOT NULL
+);`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

@@ -23,7 +23,7 @@ const page = (unread: RunFindingsView['unread']) => {
 describe("a run's findings on the change page", () => {
   it('shows an unread report with its reason, not "no findings"', () => {
     const html = page([{ name: 'gone', kind: 'scan-report', reason: 'no scanner named "gone" is configured' }])
-    expect(html).toContain('not read')
+    expect(html).toContain('unknown')
     expect(html).toContain('no scanner named')
     expect(html).not.toContain('no findings')
   })

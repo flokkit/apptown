@@ -22,7 +22,7 @@ export function ReadStatus({ q, what, denied, className = '' }: { q: Gated | Gat
   if (missing.length === 0) return null
   if (missing.some((r) => r.denied)) return <div className={`muted ${className}`}>{denied ?? `Not available to you: ${what}.`}</div>
   const failed = missing.find((r) => r.err)
-  if (failed) return <div className={`error ${className}`}><Status word="unknown" tone="unknown" help={`${what.charAt(0).toUpperCase() + what.slice(1)} could not be read: ${failed.reason || failed.err}`} /></div>
+  if (failed) return <div className={`error ${className}`}><Status word="unknown" help={`${what.charAt(0).toUpperCase() + what.slice(1)} could not be read: ${failed.reason || failed.err}`} /></div>
   if (missing.some((r) => r.loading)) return <div className={`muted ${className}`}>Loading…</div>
   return null
 }
@@ -40,7 +40,7 @@ export function StaleNote({ q, className = '', inline = false }: { q: Gated | Ga
   useEffect(() => (shown && scope ? scope.add() : undefined), [shown, scope])
   if (!old) return null
   const full = `Refresh failed (${old.reason}); showing what was read ${old.answeredAt ? fmtStamp(new Date(old.answeredAt).toISOString()) : 'earlier'}.`
-  const mark = <Status word="unknown" tone="unknown" help={full} />
+  const mark = <Status word="unknown" help={full} />
   return inline ? <> {mark}</> : <div className={`stale-note${className ? ` ${className}` : ''}`}>{mark}</div>
 }
 

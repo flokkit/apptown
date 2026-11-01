@@ -13,6 +13,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/evals"
+	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -58,6 +59,7 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 	fleet := fleetReviewsFor(a)
 	disks := a.diskObserver
 	workers := a.workerObserver
+	integrationService, connectionHealth := a.Integrations, connectorHealthFor(a)
 
 	descriptions := projectlifecycle.Descriptions{Service: a.lifecycle, Models: a.modelSelection, Completion: a.inference, Changes: a.Work}
 	kinds := map[string]jobs.Kind{
@@ -74,6 +76,9 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 			marked, err := providers.MarkRecorded(ctx)
 			return map[string]any{"marked": marked}, err
 		}},
+		integration.HealthObservationJob: {Run: func(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
+			return nil, integrationService.ObserveHealth(ctx, key, connectionHealth)
+		}, Timeout: 30 * time.Second},
 		deployment.CapacityObservationJob:       {Run: a.capacityObserver.RunJob, Timeout: 30 * time.Second},
 		dataprotection.ProtectionObservationJob: {Run: a.protectionObserver.RunJob, Timeout: 30 * time.Second},
 		workerObservationJob: {Run: func(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
@@ -139,6 +144,7 @@ var jobBudgets = map[string]int{
 	diskObservationJob:                      1,
 	workerObservationJob:                    1,
 	deployment.CapacityObservationJob:       1,
+	integration.HealthObservationJob:        1,
 	dataprotection.ProtectionObservationJob: 1,
 	"rebuild":                               1,
 	restoreCheckJob:                         1,

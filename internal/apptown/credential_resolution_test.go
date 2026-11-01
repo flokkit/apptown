@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/integration"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -172,7 +173,7 @@ func TestASecretsStoreAnswersForItself(t *testing.T) {
 	a := testApp(t)
 	h := connectorHealthFor(a)
 	ctx := context.Background()
-	if got := h.Health(ctx, "secrets", "infisical", nil); got.OK || !got.Checked || !strings.Contains(got.Detail, "not set up") {
+	if got := h.Health(ctx, "secrets", "infisical", nil); got.OK || got.Checked || got.StateLabel != integration.HealthNotSetUp || !strings.Contains(got.Detail, "not set up") {
 		t.Fatalf("infisical without credentials: %+v", got)
 	}
 	if got := h.Health(ctx, "secrets", "internal", nil); !got.OK || !got.Checked {

@@ -32,8 +32,8 @@ export default function PackPage() {
       <div className="row" style={{ flexWrap: 'wrap' }}>
         <h1 style={{ marginBottom: 0 }}>{h.name}</h1>
         <OriginChip origin={h.origin} />
-        <span className="chip pass" title="New projects get this version; projects on other versions are offered it">recommended v{h.recommended}</span>
-        {h.latest !== h.recommended && <span className="chip" title="The newest version is not recommended yet">v{h.latest} is available</span>}
+        <span className="badge" title="New projects get this version; projects on other versions are offered it">recommended v{h.recommended}</span>
+        {h.latest !== h.recommended && <span className="badge" title="The newest version is not recommended yet">v{h.latest} is available</span>}
       </div>
       <details><summary>About this way of working</summary><p>{h.description}</p></details>
       <StaleNote q={q} />
@@ -51,7 +51,7 @@ export default function PackPage() {
           <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
             <strong>v{v.version}</strong>
             {v.name && <span>“{v.name}”</span>}
-            {v.version === h.recommended && <span className="chip pass">recommended</span>}
+            {v.version === h.recommended && <span className="badge">recommended</span>}
             <span className="muted small">{lineage(v)}</span>
             <span style={{ flex: 1 }} />
             <span className="muted small" title={v.at}>{relTime(v.at)}</span>

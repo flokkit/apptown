@@ -32,7 +32,7 @@ export function FleetVersionsTab() {
                 <td>
                   {p.versions.filter(v => v.projects.length > 0).map((v) => (
                     <div key={v.version} className="small" style={{ marginBottom: 2 }}>
-                      <span className={`chip ${v.version === p.recommended ? 'pass' : v.projects.length > 0 ? 'pending' : ''}`}>v{v.version}</span>{' '}
+                      <span className="badge">v{v.version}</span>{' '}
                       <b>{v.projects.length}</b> project{v.projects.length === 1 ? '' : 's'}
                       {v.projects.length > 0 && <span className="muted"> — {v.projects.map((s, i) => <span key={s}>{i > 0 ? ', ' : ''}<Link to={`/projects/${s}/settings/working`}>{s}</Link></span>)}</span>}
                       {v.note && v.version === p.recommended ? <span className="muted"> · {v.note}</span> : null}

@@ -1,3 +1,4 @@
+import { fmtWhen } from '../../format'
 import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { renderMd } from '../../md'
@@ -32,7 +33,7 @@ export function ConversationLog({ changeId }: { changeId: string }) {
 
 // Who opened a chat and when; a chat moved from another AppTown says so.
 export function chatByline(se: ChatHistoryEntry): string {
-  return `opened ${se.createdAt.slice(0, 16).replace('T', ' ')} by ${se.actor}` +
+  return `opened ${fmtWhen(se.createdAt)} by ${se.actor}` +
     (se.imported ? ` · moved from another ${PRODUCT}, history only` : '')
 }
 

@@ -469,7 +469,8 @@
       "AttentionLabel": {
         "enum": [
           "unknown",
-          "waiting"
+          "waiting",
+          "low"
         ],
         "type": "string"
       },
@@ -1393,10 +1394,16 @@
       },
       "Coverage": {
         "properties": {
+          "href": {
+            "type": "string"
+          },
           "key": {
             "type": "string"
           },
           "name": {
+            "type": "string"
+          },
+          "nextStep": {
             "type": "string"
           },
           "observedAt": {
@@ -1414,6 +1421,8 @@
           }
         },
         "required": [
+          "href",
+          "nextStep",
           "key",
           "name",
           "observedAt",
@@ -1901,7 +1910,8 @@
           "passed",
           "excepted",
           "not applicable",
-          "none"
+          "none",
+          "abandoned"
         ],
         "type": "string"
       },
@@ -2129,6 +2139,9 @@
       },
       "Item": {
         "properties": {
+          "count": {
+            "type": "integer"
+          },
           "detail": {
             "type": "string"
           },
@@ -9459,6 +9472,38 @@
     "/api/v1/integrations/{name}": {
       "delete": {
         "operationId": "deleteIntegrationsName",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "integrations"
+        ],
+        "x-apptown-access": {
+          "capability": "integration:manage-connectors",
+          "kind": "capability",
+          "scope": "instance"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/integrations/{name}/test": {
+      "post": {
+        "operationId": "postIntegrationsNameTest",
         "parameters": [
           {
             "in": "path",

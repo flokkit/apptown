@@ -26,9 +26,10 @@ const (
 	DisplayExcepted
 	DisplayNotApplicable
 	DisplayNone
+	DisplayAbandoned
 )
 
-var displayStatusCodec = enum.Set[DisplayStatus]{Names: []string{"unknown", "working", "waiting", "failed", "stopped", "landed", "finished", "waiting for you", "waiting for checks", "passed", "excepted", "not applicable", "none"}, Invalid: "invalid-display-status", Err: errors.New("invalid display status"), ScanLabel: "value"}
+var displayStatusCodec = enum.Set[DisplayStatus]{Names: []string{"unknown", "working", "waiting", "failed", "stopped", "landed", "finished", "waiting for you", "waiting for checks", "passed", "excepted", "not applicable", "none", "abandoned"}, Invalid: "invalid-display-status", Err: errors.New("invalid display status"), ScanLabel: "value"}
 
 func (s DisplayStatus) String() string               { return displayStatusCodec.String(s) }
 func (s DisplayStatus) Value() (driver.Value, error) { return displayStatusCodec.Value(s) }

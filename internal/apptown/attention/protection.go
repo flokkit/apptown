@@ -46,6 +46,8 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 	}
 	out := Snapshot{Known: true, ObservedAt: clock.Or(p.Now)()}
 	href := "/projects/" + url.PathEscape(project.Slug) + "/settings/deployments"
+	out.Name = projectName + " · backups"
+	out.Href = href
 	for _, dep := range deps {
 		if dep.Kind != deployment.Standing {
 			continue

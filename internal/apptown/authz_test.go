@@ -1004,17 +1004,17 @@ func TestAttentionHTTPFiltersSourcesAndCountsBeforeCurrentGrantReads(t *testing.
 		return v
 	}
 	own := read("owner")
-	if len(own.Items) != 2 || len(own.Sources) != 4 || global.calls != 0 {
+	if len(own.Items) != 2 || len(own.Sources) != 5 || global.calls != 0 {
 		t.Fatal("project reader saw global scope/count", own, global.calls)
 	}
 	beforePrivate := projects.calls[idstest.N(1)]
 	limited := read("outsider")
-	if len(limited.Items) != 1 || len(limited.Sources) != 2 || global.calls != 0 || projects.calls[idstest.N(1)] != beforePrivate || strings.Contains(limited.Items[0].Title, idstest.N(1).String()) {
+	if len(limited.Items) != 1 || len(limited.Sources) != 3 || global.calls != 0 || projects.calls[idstest.N(1)] != beforePrivate || strings.Contains(limited.Items[0].Title, idstest.N(1).String()) {
 		t.Fatal("hidden project/global evidence read or counted", limited, global.calls, projects.calls)
 	}
 	grant := a.addGrant("user", "outsider", "", string(access.CapDeploymentRead), access.ScopeInstance, "", "boss", "")
 	expanded := read("outsider")
-	if len(expanded.Items) != 3 || len(expanded.Sources) != 8 || global.calls != 1 {
+	if len(expanded.Items) != 3 || len(expanded.Sources) != 9 || global.calls != 1 {
 		t.Fatal("explicit instance grant did not expose full authorized snapshot", expanded, global.calls)
 	}
 	if _, err := a.Access.Revoke(t.Context(), grant, "boss"); err != nil {
@@ -1023,7 +1023,7 @@ func TestAttentionHTTPFiltersSourcesAndCountsBeforeCurrentGrantReads(t *testing.
 	globalBefore := global.calls
 	privateBefore := projects.calls[idstest.N(1)]
 	narrowed := read("outsider")
-	if len(narrowed.Items) != 1 || len(narrowed.Sources) != 2 || global.calls != globalBefore || projects.calls[idstest.N(1)] != privateBefore {
+	if len(narrowed.Items) != 1 || len(narrowed.Sources) != 3 || global.calls != globalBefore || projects.calls[idstest.N(1)] != privateBefore {
 		t.Fatal("revoked authority reused cached visible evidence", narrowed, global.calls, projects.calls)
 	}
 	grants, err = a.Access.AllGrants(t.Context())

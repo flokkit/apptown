@@ -108,10 +108,10 @@ type currentConformanceFacts struct {
 	Reviews            []Review
 }
 
-func readCurrentConformance(ctx context.Context, db database.Queryer, source checkSource, at time.Time) (*currentConformanceFacts, error) {
+func readCurrentConformance(ctx context.Context, db database.Queryer, source checkSource, at time.Time, projectIDs ...ids.ID) (*currentConformanceFacts, error) {
 	f := &currentConformanceFacts{Exceptions: map[ids.ID][]Disposition{}}
 	var err error
-	f.Projects, err = readPreparedConformanceProjects(ctx, db, source, nil, true)
+	f.Projects, err = readPreparedConformanceProjects(ctx, db, source, projectIDs, true)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +138,9 @@ func readCurrentConformance(ctx context.Context, db database.Queryer, source che
 	if err != nil {
 		return nil, err
 	}
-	f.Reviews, err = readConformanceReviews(ctx, db)
+	if len(projectIDs) == 0 {
+		f.Reviews, err = readConformanceReviews(ctx, db)
+	}
 	if err != nil {
 		return nil, err
 	}

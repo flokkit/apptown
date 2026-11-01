@@ -2,6 +2,7 @@ package apptown
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os/exec"
 	"time"
@@ -81,7 +82,7 @@ func (h connectorHealth) check(ctx context.Context, capability, provider string,
 		switch provider {
 		case secret.StoreInfisical:
 			if err := h.secrets.CheckInfisical(ctx); err != nil {
-				return integration.Health{OK: false, Detail: strs.Truncate(err.Error(), 200)}, true
+				return integration.Health{NotSetUp: errors.Is(err, secret.ErrInfisicalNotSetUp), OK: false, Detail: strs.Truncate(err.Error(), 200)}, true
 			}
 			return integration.Health{OK: true, Detail: "read its secrets just now"}, true
 		case secret.StoreInternal:
@@ -183,3 +184,39 @@ var draftTested = map[string]bool{
 // Testable says whether Test connection asks a kind's service with its
 // configuration.
 func (h connectorHealth) Testable(capability string) bool { return draftTested[capability] }
+
+// CheckBinding runs in the integration observation job. Reads use its stored result.
+func (h connectorHealth) CheckBinding(ctx context.Context, b integration.Binding) integration.Health {
+	if !b.HasAutomaticCheck() {
+		return integration.Health{}.ForDisplay()
+	}
+	return h.checkBinding(ctx, b, false)
+}
+
+// TestBinding checks a saved connection; only explicit tests pull scanner images.
+func (h connectorHealth) TestBinding(ctx context.Context, b integration.Binding) integration.Health {
+	return h.checkBinding(ctx, b, true)
+}
+
+func (h connectorHealth) checkBinding(ctx context.Context, b integration.Binding, manual bool) integration.Health {
+	var config map[string]any
+	if err := json.Unmarshal([]byte(b.ConfigJSON), &config); err != nil {
+		return integration.Health{Detail: "The integration configuration could not be read."}.At(clock.Or(h.now)())
+	}
+
+	if manual {
+		return h.Test(ctx, b.Capability, b.Provider, config)
+	}
+	if b.Capability == integration.CapContainerRegistry {
+		return h.Test(ctx, b.Capability, b.Provider, config)
+	}
+	var se []string
+	if raw, ok := config["secretEnv"].([]any); ok {
+		for _, v := range raw {
+			if name, ok := v.(string); ok {
+				se = append(se, name)
+			}
+		}
+	}
+	return h.Health(ctx, b.Capability, b.Provider, se)
+}

@@ -89,6 +89,18 @@ func (h Connectors) TestIntegration(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// TestSavedIntegration checks the current saved version and retains its result.
+func (h Connectors) TestSavedIntegration(w http.ResponseWriter, r *http.Request) {
+	jsonCommand(w, r, jsonBody{optional: true}, func(_ struct{}) {
+		result, err := h.integrations.TestSaved(r.Context(), r.PathValue("name"), h.health)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		WriteJSON(w, http.StatusOK, result)
+	})
+}
+
 // SaveIntegration: POST /api/v1/integrations — create/update a USER
 // binding (managed bindings are AppTown's; clone under a new name).
 func (h Connectors) SaveIntegration(w http.ResponseWriter, r *http.Request) {
@@ -190,6 +202,7 @@ func (h Connectors) DeleteIntegration(w http.ResponseWriter, r *http.Request) {
 }
 
 type connectorHealth interface {
+	integration.BindingTester
 	Test(ctx context.Context, capability, provider string, config map[string]any) integration.Health
 	Health(ctx context.Context, capability, provider string, secretEnv []string) integration.Health
 	// Testable: Test connection asks the kind's service with its configuration.

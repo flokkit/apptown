@@ -55,7 +55,11 @@ func (d Disks) Snapshot(ctx context.Context) (Snapshot, error) {
 		} else if r.Refuses || unknown {
 			detail += " The worker refuses new tasks when its disk is below the admission threshold or cannot be read."
 		}
-		out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%q/%q", r.What, r.Path)))), Unknown: unknown, Title: r.What + ": " + title, Detail: r.What + ": " + detail, Href: "/infrastructure", ObservedAt: r.ReadAt, Stale: disk.Stale || unknown})
+		label := labelWaiting
+		if !unknown && !failedStale {
+			label = labelLow
+		}
+		out.Items = append(out.Items, Item{StatusLabel: label, Severity: SeverityWarning, Key: fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%q/%q", r.What, r.Path)))), Unknown: unknown, Title: r.What + ": " + title, Detail: r.What + ": " + detail, Href: "/infrastructure", ObservedAt: r.ReadAt, Stale: disk.Stale || unknown})
 	}
 	return out, err
 }

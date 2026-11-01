@@ -1,3 +1,4 @@
+import { Status } from '../../Status'
 import { Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
@@ -48,16 +49,16 @@ export function cadenceWords(cron: string, next?: string): string {
 
 function LastFiring({ s, slug }: { s: ScheduleView; slug: string }) {
   const last = s.last
-  if (s.problem) return <span><span className="muted">last: unknown · </span><span className="chip unknown" title={s.problem}>could not be read</span></span>
+  if (s.problem) return <span><span className="muted">last: unknown · </span><Status word="unknown" help={`${s.problem} Open workflow settings to check this schedule.`} /></span>
   if (!last) return <span className="muted">last: never</span>
   const when = fmtStamp(last.at)
   switch (last.outcome) {
     case 'opened':
       return <span>last: <Link to={`/changes/${last.changeId}`}>{when} · {last.changeNumber ? `change ${last.changeNumber}` : 'its change'}</Link></span>
     case 'skipped':
-      return <span>last: {when} · <span className="chip">skipped: previous run still active</span></span>
+      return <span>last: {when} · <span className="badge">skipped: previous run still active</span></span>
     case 'failed':
-      return <span>last: {when} · <span className="chip fail">could not start</span></span>
+      return <span>last: {when} · <Status word="failed" help="This schedule could not start a change. Check its workflow settings and permissions." /></span>
     default:
       return <span>last: {when} · <span className="muted">Result not available</span> · <Link to={`/projects/${slug}/settings/working`}>Check why</Link></span>
   }
@@ -65,7 +66,7 @@ function LastFiring({ s, slug }: { s: ScheduleView; slug: string }) {
 
 function NextFiring({ s }: { s: ScheduleView }) {
   if (s.problem || !s.next) return <span className="muted">next: unknown</span>
-  if (s.due) return <span className="chip pending">due now</span>
+  if (s.due) return <span className="badge">due now</span>
   return <span>next: {fmtStamp(s.next)}</span>
 }
 

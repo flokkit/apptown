@@ -1,3 +1,4 @@
+import { Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
@@ -86,11 +87,11 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
             change chat says it is one from its first paint, never the
             project chat while it connects. */}
         {shopId
-          ? <Link className="chip here" to={`/changes/${shopId}`}
+          ? <Link className="badge here" to={`/changes/${shopId}`}
               title="What you and the helper change here is saved onto this change.">{shopName}</Link>
-          : <span className="chip here" title="This chat answers questions, helps set things up and starts work. Building happens in a change chat; the helper gives you the link.">questions &amp; setup</span>}
+          : <span className="badge here" title="This chat answers questions, helps set things up and starts work. Building happens in a change chat; the helper gives you the link.">questions &amp; setup</span>}
         {session?.mayAct && status !== 'attached' && (
-          <span className="chip pending">{status === 'connecting' ? 'connecting…' : 'reconnecting…'}</span>
+          <Status word="not checked yet" help="Connecting to this chat. If it does not connect, reload the page." />
         )}
         <span style={{ flex: 1 }} />
         {session?.mayAct && zoom === 'chat' && <AgentActivity busy={robotBusy} connected={status === 'attached'} />}

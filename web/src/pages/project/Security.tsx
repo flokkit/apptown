@@ -1,4 +1,6 @@
-import { Status, STATUS_LIGHT } from '../../Status'
+import { fmtDay, fmtWhen } from '../../format'
+import { useHolds } from '../../instancePages'
+import { Status } from '../../Status'
 import { Link } from 'react-router-dom'
 import { Finding, del } from '../../api'
 import { FindingsTable } from '../../FindingsTable'
@@ -18,38 +20,37 @@ export type PostureFinding = Finding
 // clean. Only scans that ran, were all read, and found nothing are
 // "nothing found".
 export function FindingsTab({ slug }: { slug: string }) {
+  const canScan = useHolds('change:create', slug)
   const q = useGet<ProjectFindingsView>(`/projects/${slug}/findings`)
   const { data, reload } = q
 
   if (!data) return <ReadStatus q={q} what="the findings" />
   const unread = data.sources.filter((s) => s.unreadable)
+  const nextScan = canScan ? <p><Link to={`/projects/${slug}`}>Open a change to re-run the scan</Link>.</p> : <p>Ask a project member with permission to open a change to re-run the scan.</p>
 
   return (
     <div>
       <StaleNote q={q} />
+      {unread.length > 0 && <div className="status-strip">
+        <p>{unread.length === 1 ? "One scan report couldn't be read; security checks are incomplete." : `${unread.length} scan reports couldn't be read; security checks are incomplete.`}</p>
+        {nextScan}
+      </div>}
       <div className="row" style={{ marginBottom: 12 }}>
-        <Status word={data.statusLabel} tone={STATUS_LIGHT[data.statusLabel]} text={data.repo?.stale ? 'Scan out of date' : undefined} />
-        <span>{data.summary.actionable > 0 ? `${data.summary.actionable} problems to fix` : data.sources.length && !unread.length ? data.repo?.stale ? 'No problems found in the last scan; main has changed since. Open a change to scan the latest code.' : 'No problems found in the last scan.' : 'Scan results not available.'}</span>
+        <Status observation word={data.statusLabel} help={data.repo?.stale ? "Main changed since the last scan. Open a change to scan the latest code." : undefined} />
+        <span>{data.summary.actionable > 0 ? `${data.summary.actionable} problems to fix` : data.sources.length && !unread.length ? data.repo?.stale ? 'No problems found in the last scan; main has changed since.' : 'No problems found in the last scan.' : 'Scan results not available.'}</span>
       </div>
-      {data.repo?.stale && (data.summary.actionable > 0 || unread.length > 0) && <p>Not scanned since main changed. <Link to={`/projects/${slug}`}>Open a change to scan the latest code</Link>.</p>}
-      <details style={{ marginBottom: 12 }}><summary>Scan details</summary>
+      {!unread.length && (data.repo?.stale || !data.sources.length) && nextScan}
+      <details style={{ marginBottom: 12 }}><summary>Technical details</summary>
         {data.sources.length === 0 && <p>No scans yet.</p>}
         {data.sources.map(s => <p key={s.binding}>
-          {s.binding}: {s.unreadable || `${s.findings} problems`} · {s.at.slice(0, 10)} · {s.changeId && <Link to={`/changes/${s.changeId}`}>{s.changeNumber ? `change ${s.changeNumber}` : 'its change'}</Link>}
+          {s.binding}: {s.unreadable || `${s.findings} problems`} · {fmtWhen(s.at)} · {s.changeId && <Link to={`/changes/${s.changeId}`}>{s.changeNumber ? `change ${s.changeNumber}` : 'its change'}</Link>}
         </p>)}
       </details>
 
-      {unread.length > 0 && (
-        <div className="small" style={{ marginBottom: 12 }}>
-          <Status word="unknown" tone="unknown" />{' '}
-          {unread.length === 1 ? 'One scan report' : `${unread.length} scan reports`} could not be read, so {unread.length === 1 ? 'its' : 'their'} findings are unknown:{' '}
-          {unread.map((s) => s.unreadable).join('; ')}.
-        </div>
-      )}
       {data.sources.length === 0
         ? null
         : unread.length > 0
-        ? <div className="muted">No findings in the scans that could be read; the unread ones above may have some.</div>
+        ? <div className="muted">No findings in the scans that could be read; the unread reports may have some.</div>
         : data.statusLabel === 'passed'
         ? null
         : Object.entries(
@@ -66,7 +67,7 @@ export function FindingsTab({ slug }: { slug: string }) {
             return (
               <details key={group} className="diff-file" open={actionable > 0}>
                 <summary>
-                  <span className="chip">
+                  <span className="badge">
                     {actionable > 0 ? `${actionable} actionable` : 'all suppressed'}
                   </span>
                   <code>{group}</code>
@@ -113,11 +114,11 @@ export function SuppressionsTab({ slug }: { slug: string }) {
       {list.length === 0 && <div className="muted">Hidden problems (none)</div>}
       {list.map((d) => (
         <div className="row" key={d.id} style={{ marginTop: 4 }}>
-          <Status word={d.statusLabel} tone={STATUS_LIGHT[d.statusLabel]} help={`${d.status}${d.expiresAt ? ` · until ${d.expiresAt.slice(0, 10)}` : ''}`} />
+          <Status observation word={d.statusLabel} help={`${d.status}${d.expiresAt ? ` · until ${fmtDay(d.expiresAt)}` : ''}`} />
           <span className="small">{d.identifier || d.fingerprint}</span>
           {d.package && <span className="muted small">{d.package}</span>}
           <span className="muted small" title={d.justification}>“{d.justification.slice(0, 70)}…” · {d.by}
-            {d.expiresAt ? `, until ${d.expiresAt.slice(0, 10)}` : ''}</span>
+            {d.expiresAt ? `, until ${fmtDay(d.expiresAt)}` : ''}</span>
           <span style={{ flex: 1 }} />
           <QuietConfirm label="revoke" ask="Revoke this suppression? The finding becomes actionable again immediately." onYes={() => revoke(d.id!)} />
         </div>

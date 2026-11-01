@@ -34,15 +34,15 @@ const press = async (el: HTMLElement, text: string) => act(async () => { [...el.
 
 it('uses amber finding counts and reserves failed for checks that could not run', async () => {
   const el = await show(<><StandingChip label="failed" findings={2} help="Does not conform" /><StateChip label="failed" finding help="warning" /><StateChip label="failed" help="could not execute" /></>)
-  expect(el.querySelectorAll('.chip.pending')).toHaveLength(2)
+  expect(el.querySelectorAll('.finding-count')).toHaveLength(2)
   expect(el.textContent).toContain('2 findings')
   expect(el.textContent).toContain('1 finding')
   expect(el.querySelectorAll('.chip.fail')).toHaveLength(1)
   expect(el.querySelector('.chip.fail')?.textContent).toContain('failed')
 })
 it('omits lights on neutral states', async () => {
-  const el = await show(<Status word="none" tone="" text="Not deployed" />)
-  expect(el.textContent).toBe('Not deployed')
+  const el = await show(<Status word="none" />)
+  expect(el.textContent).toBe('not set up')
   expect(el.querySelector('[aria-hidden]')).toBeNull()
 })
 it.each([false, true])('gives each project identity, a live address and the last change title (phone=%s)', async narrow => {
@@ -111,7 +111,7 @@ it.each([false, true])('names an unlabelled deployment by its tier (phone=%s)', 
 })
 it('keeps a broken check red beside amber findings', async () => {
   const el = await show(<StandingChip label="failed" findings={2} broken={1} help="Mixed results" />)
-  expect(el.querySelector('.chip.pending')?.textContent).toContain('2 findings')
+  expect(el.querySelector('.finding-count')?.textContent).toContain('2 findings')
   expect(el.querySelector('.conformance-broken')?.textContent).toContain("· 1 couldn't run")
 })
 
@@ -124,6 +124,6 @@ it.each([false, true])('keeps failed execution beside findings in list and proje
     const notes = el.querySelectorAll('.conformance-broken')
     expect(notes).toHaveLength(count)
     expect([...notes].every(n => n.textContent === "· 1 couldn't run")).toBe(true)
-    expect(el.querySelector('.chip.pending')?.textContent).toContain('2 findings')
+    expect(el.querySelector('.finding-count')?.textContent).toContain('2 findings')
   }
 })
