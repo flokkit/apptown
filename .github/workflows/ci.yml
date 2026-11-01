@@ -7,11 +7,14 @@
 # is the harness's own disposable container (internal/dbtest), as in local checks.
 name: ci
 
-# Every pull request and queue commit runs every job, documentation-only
-# changes too, so ci-ok always reports. The queue tests what main becomes.
-# Main runs again because only main's caches can be restored by every pull
-# request (a cache saved on a pull request is that pull request's alone).
-# Each landed commit also gets its own result.
+# The merge queue runs every job on the exact commit main becomes,
+# documentation-only changes too; that run is the one that decides. GitHub
+# requires ci-ok on a pull request before it can join the queue, so a pull
+# request run starts only ci-ok, which says that it checked nothing: the
+# same jobs on the pull request would repeat the queue's work, a few minutes
+# earlier, on a commit that never lands. Main runs again because only main's
+# caches can be restored by every queue run, and each landed commit gets its
+# own result; it is after merge, so nothing waits for it.
 on:
   merge_group:
     types: [checks_requested]
@@ -40,6 +43,7 @@ defaults:
 jobs:
   # Go embeds this artifact; frontend validation runs independently below.
   web-build:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -61,6 +65,7 @@ jobs:
           include-hidden-files: true
 
   web:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -91,6 +96,7 @@ jobs:
   # they run every stage once (scripts/ci_workflows_test.py), and check-gate
   # after the others in its job, alone.
   checks:
+    if: github.event_name != 'pull_request'
     needs: web-build
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -171,6 +177,7 @@ jobs:
   # main's fresh runs stored, for packages whose inputs are unchanged; a push
   # to main runs every test fresh and alone saves (ci-test-environment.sh).
   test:
+    if: github.event_name != 'pull_request'
     needs: web-build
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -223,6 +230,7 @@ jobs:
   # path or maintainers' root file, names none of their home-lab hosts, and
   # gitleaks (pinned by version and SHA-256) finds nothing.
   public:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -241,6 +249,7 @@ jobs:
 
   # The silent-DB-write rule (semgrep), as make precheck runs it.
   sql-writes:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -258,7 +267,12 @@ jobs:
     timeout-minutes: 5
     steps:
       - env:
+          EVENT: ${{ github.event_name }}
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
+          if [ "$EVENT" = pull_request ]; then
+            echo "::notice::nothing checked on the pull request: the merge queue runs every job on the commit main becomes"
+            exit 0
+          fi
           echo "job results: $RESULTS"
           for r in $RESULTS; do [ "$r" = success ] || { echo "::error::a required job did not succeed ($r)"; exit 1; }; done

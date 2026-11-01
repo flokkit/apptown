@@ -44,6 +44,17 @@ class TestCache(unittest.TestCase):
         self.assertNotIn('qualification', main)
         self.assertIn('  merge_group:\n    types: [checks_requested]\n', text('ci.yml'))
 
+    def test_pull_requests_start_only_ci_ok(self):
+        ci = text('ci.yml')
+        jobs = re.findall(r'^  ([a-z-]+):\n((?:    .*\n|\n)*)', ci.split('\njobs:\n', 1)[1], re.M)
+        self.assertIn('ci-ok', [name for name, _ in jobs])
+        for name, body in jobs:
+            if name == 'ci-ok':
+                self.assertIn('if: always()', body)
+                self.assertIn('nothing checked on the pull request', body)
+            else:
+                self.assertIn("if: github.event_name != 'pull_request'", body, name)
+
     def test_heavy_matrix_covers_every_release_execution_job(self):
         main = text('heavy-main.yml')
         matrix = re.findall(r'^          - name: (\S+)\n            args: (.*)$', main, re.M)

@@ -1,7 +1,7 @@
 # GitHub: CI and images
 
 The repository, `github.com/flokkit/apptown`, is where AppTown's code lives
-and changes. GitHub Actions tests every pull request and every commit on
+and changes. GitHub Actions tests every merge-queue commit and every commit on
 `main`, and builds the container images on a release tag. The workflows
 are in `.github/workflows/`.
 
@@ -135,12 +135,17 @@ read it.
 
 The repository is public, so standard runners cost nothing.
 
-**`ci.yml`** runs on every pull request, a documentation-only one too, on
-merge-group commits (`checks_requested`), every push to `main`, and by hand.
-A pull request's newer run cancels its older one; main's runs, and runs by
-hand, are each kept. The queue run tests what `main` becomes; main runs it
-again so that each landed commit has its own result and so that main writes
-the caches every pull request restores. Jobs:
+**`ci.yml`** runs every job on merge-group commits (`checks_requested`), a
+documentation-only change too, on every push to `main`, and by hand. The
+queue run tests what `main` becomes and is the run that decides. GitHub
+requires `ci-ok` on a pull request before it can join the queue, so a pull
+request starts only `ci-ok`, which reports that it checked nothing; running
+every job there too repeated the queue's work and added about eight minutes
+to each landing. Landing runs `make check` locally before it opens the pull
+request. A pull request's newer run cancels its older one; main's runs, and
+runs by hand, are each kept. Main runs after merge so that each landed
+commit has its own result and so that main writes the caches every queue
+run restores. Jobs:
 
 - `web`: npm ci, the guides' checks (`make check-docs`, which renders
   links with the Docs page's Markdown library from `web/`), typecheck, Vite
