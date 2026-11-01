@@ -144,7 +144,7 @@ func (s *Service) runSnapshots(runID ids.ID) string {
 func (s *Service) runPreviewHere(ctx context.Context, stepID ids.ID, slug, name, incarnation, visitor string, prepared docker.Prepared, tree string) (RunResult, error) {
 	life, cancel := context.WithTimeout(context.WithoutCancel(ctx), docker.BootLifetime)
 	defer cancel()
-	result, err := s.env.PreparedHost(prepared).Boot(life, docker.BootRequest{Docker: s.hosts.Local().WithLifetime(life), Name: name, StackID: docker.RunStepStackID(stepID), Workspace: tree, Slug: slug,
+	result, err := s.env.PreparedHost(prepared).Boot(life, docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Docker: s.hosts.Local().WithLifetime(life), Name: name, StackID: docker.RunStepStackID(stepID), Workspace: tree, Slug: slug,
 		Deployment: "preview", Services: prepared.Services, Probe: 90 * time.Second, PageCheck: true, VisitorHost: visitor, Incarnation: incarnation, Scratch: s.hosts.BootScratch()}, prepared.Contract)
 	if err != nil {
 		// A boot that failed leaves nothing of the step's preview, at

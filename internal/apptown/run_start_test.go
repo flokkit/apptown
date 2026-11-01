@@ -17,16 +17,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/schema"
 )
 
-// startAdoptionForTest reads the receipt a start resolves, through the
-// admission source Preparation uses.
-func startAdoptionForTest(ctx context.Context, a *App, req workflow.StartRequest) (*adoption.RecordedRevision, error) {
-	source, err := a.Work.StartSource(a.asAppTown(ctx, req.ProjectID, "test"), req)
-	if err != nil {
-		return nil, err
-	}
-	return adoption.ProjectAdoptionIn(ctx, a.DB, req.ProjectID, source.AdoptionID)
-}
-
 // defineWorkflows replaces only external definition lookup. Admission,
 // workspace preparation, attribution and dispatch still belong to Work.
 func defineWorkflows(t *testing.T, a *App, definitions ...workflow.PreparedRun) {

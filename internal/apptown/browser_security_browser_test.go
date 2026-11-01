@@ -136,7 +136,7 @@ func TestBrowserSecurityChromium(t *testing.T) {
 	// Configure the same attachment the browser configuration endpoint owns.
 	pid, _, _ := fleetRepo(t, a, selfErrorsProject, map[string]string{"README.md": "# AppTown"})
 	reportingHost := "reports.other.test:" + port
-	if err := a.Integrations.Attachments.Attach(t.Context(), pid, integration.CapErrors, "glitchtip", fmt.Sprintf(`{"dsn":"https://browserkey@%s/7"}`, reportingHost), integration.Provisioned, "fixture", nil); err != nil {
+	if err := a.Integrations.Attachments.Attach(t.Context(), pid, integration.CapErrors, "glitchtip", fmt.Sprintf(`{"dsn":"https://browserkey@%s/7"}`, reportingHost), "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
 	a.selfErr.checked = time.Time{}
@@ -2516,8 +2516,11 @@ app:
 		}}); err != nil {
 			t.Fatal(err)
 		}
-		for _, trigger := range []string{"pre-release", "release", "scheduled"} {
-			if _, err := a.DataProtection.TakeBackup(ctx, project.ID, "main", trigger, "apptown-system"); err != nil {
+		if _, err := a.DataProtection.BeforeRelease(ctx, project.ID, "main", false); err != nil {
+			t.Fatal(err)
+		}
+		for _, trigger := range []string{"release", "scheduled"} {
+			if _, err := (dataprotection.JobWorker{Service: a.DataProtection, Projects: a.Projects}).Backup(ctx, project.ID.String()+"/main", map[string]any{"trigger": trigger}); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -2541,7 +2544,7 @@ app:
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.DataProtection.TakeBackup(ctx, project.ID, "main", "manual", "sam"); err != nil {
+	if _, err := a.DataProtection.TakeBackup(ctx, project.ID, "main", "sam"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -2598,7 +2601,7 @@ app:
 		t.Fatal(err)
 	}
 
-	if err := a.Integrations.Attachments.Attach(ctx, project.ID, integration.CapContainerRegistry, "design-registry", `{"repo":"registry.example.test/club/newsletter"}`, integration.Entered, "sam", nil); err != nil {
+	if err := a.Integrations.Attachments.Attach(ctx, project.ID, integration.CapContainerRegistry, "design-registry", `{"repo":"registry.example.test/club/newsletter"}`, "sam", nil); err != nil {
 		t.Fatal(err)
 	}
 

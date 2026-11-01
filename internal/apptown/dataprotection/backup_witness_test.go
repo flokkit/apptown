@@ -57,7 +57,7 @@ func TestABackupSaysHowEachItemWasCopied(t *testing.T) {
 		_, err := containerresulttest.WriteString(req.Stdout, "copy")
 		return nil, err
 	})
-	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 	if err != nil || b.Status != BackupOK || len(b.Items) != 4 {
 		t.Fatalf("take: %+v %v", b, err)
 	}
@@ -182,7 +182,7 @@ func TestARestoreReportsWhatWitnessedEachItem(t *testing.T) {
 				}
 				return nil, nil
 			})
-			b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+			b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 			if err != nil || b.Status != BackupOK {
 				t.Fatalf("the set: %+v %v", b, err)
 			}
@@ -342,7 +342,7 @@ func TestABackupNamesDeclaredNeedsItCannotRead(t *testing.T) {
 		}
 		return nil, nil
 	})
-	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 	if err != nil || b.Status != BackupPartial || len(b.Items) != 3 {
 		t.Fatalf("a set missing a declared need's data is partial: %+v %v", b, err)
 	}
@@ -387,7 +387,7 @@ func TestANeedWhoseKindDeclaresNoCopyIsNotInTheSet(t *testing.T) {
 		}
 		return nil, nil
 	})
-	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 	if err != nil {
 		t.Fatal(err)
 	}

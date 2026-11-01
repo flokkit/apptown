@@ -191,7 +191,7 @@ func TestEveryMutatingRouteRefusesWhatItsRuleDoesNotGrant(t *testing.T) {
 		InferenceURL: "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}})
 	configureConsoleModel(t, a)
 	work := fixtureWork(t, a)
-	a.addGrant("user", "viewer", access.RoleProjectViewer, "", access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
+	a.addGrant("user", "viewer", access.RoleProjectViewer, "", access.ScopeProject, idstest.N(1).String(), "boss", "")
 	// The fixture's everyone-is-a-release-manager grant would give the viewer
 	// release:promote; this test's viewer holds Project viewer alone.
 	grants, err := a.Access.GrantsAt(context.Background(), access.ScopeTarget, "*")
@@ -320,7 +320,7 @@ func TestRouteGatesSeparatePairedPermissions(t *testing.T) {
 		"checker":  {access.CapProjectRead, access.CapChangeRunChecks},
 	} {
 		for _, c := range caps {
-			a.addGrant("user", user, "", string(c), access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
+			a.addGrant("user", user, "", string(c), access.ScopeProject, idstest.N(1).String(), "boss", "")
 		}
 	}
 	routes := appRoutes(a)

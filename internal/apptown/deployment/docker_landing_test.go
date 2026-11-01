@@ -40,7 +40,7 @@ func TestLandingExecutorPreservesBootPolicyAndFailureClassification(t *testing.T
 		t.Run(tc.phase, func(t *testing.T) {
 			c := &appcontract.Contract{}
 			checkpointed := false
-			e := landingDeploymentExecution{label: "3", target: docker.BootRequest{Name: "app", Deployment: "main", Persistent: true, PageCheck: true, Probe: 90 * time.Second, Services: []deploy.ServiceSpec{{Name: "postgres", Image: "postgres:16"}}}, contract: c, artifact: "selected",
+			e := landingDeploymentExecution{label: "3", target: docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Name: "app", Deployment: "main", Persistent: true, PageCheck: true, Probe: 90 * time.Second, Services: []deploy.ServiceSpec{{Name: "postgres", Image: "postgres:16"}}}, contract: c, artifact: "selected",
 				url: func(port int) string { return fmt.Sprintf("http://app:%d", port) },
 				boot: func(_ context.Context, target docker.BootRequest, got *appcontract.Contract) (docker.BootResult, error) {
 					if !checkpointed || got != c || !target.Persistent || !target.PageCheck || target.Probe != 90*time.Second || len(target.Services) != 1 || target.Identity == nil || target.Identity.Deployment != "3" || target.Identity.Generation != 2 || target.Identity.Artifact != "selected" {
@@ -70,7 +70,7 @@ func TestLandingExecutorStopsOnCheckpointFailureOrCancellation(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			boots := 0
-			e := landingDeploymentExecution{target: docker.BootRequest{Name: "app"}, url: func(int) string { return "http://app" }, boot: func(context.Context, docker.BootRequest, *appcontract.Contract) (docker.BootResult, error) {
+			e := landingDeploymentExecution{target: docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Name: "app"}, url: func(int) string { return "http://app" }, boot: func(context.Context, docker.BootRequest, *appcontract.Contract) (docker.BootResult, error) {
 				boots++
 				cancel()
 				return docker.BootResult{}, nil
@@ -115,7 +115,7 @@ func TestLandingEvidenceContainsReceiptsWithoutResolvedSecrets(t *testing.T) {
 		}
 	})}
 	receipts := []docker.SecretReceipt{{Name: "DATABASE_URL", Store: "internal", Version: "1", Consumers: []string{"web"}}}
-	e := landingDeploymentExecution{target: docker.BootRequest{Name: "app", Deployment: "main", Docker: scope}, contract: c, result: LandingBoot{URL: "http://app", Boot: docker.BootResult{Stack: docker.ResolvedStack{Plan: appcontract.Prepare(c, nil), Secrets: secret.Delivery{Profile: "main", Receipts: receipts, ByConsumer: map[string]map[string]string{"web": {"DATABASE_URL": "sensitive-value"}}}.Docker()}}}}
+	e := landingDeploymentExecution{target: docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Name: "app", Deployment: "main", Docker: scope}, contract: c, result: LandingBoot{URL: "http://app", Boot: docker.BootResult{Stack: docker.ResolvedStack{Plan: appcontract.Prepare(c, nil), Secrets: secret.Delivery{Profile: "main", Receipts: receipts, ByConsumer: map[string]map[string]string{"web": {"DATABASE_URL": "sensitive-value"}}}.Docker()}}}}
 	// The front-page check the deploy passed is part of its evidence.
 	page := &docker.PageWitness{Path: "/", Host: "shop.example.com", Status: 200, Passed: true, Verdict: "GET / answered 200"}
 	e.result.Boot.Page = page
@@ -156,7 +156,7 @@ func TestAnUnreadableBrowserSettingFailsTheAttemptWithoutStrandingIt(t *testing.
 	host := docker.NewHost(docker.Dependencies{Needs: noNeeds{}, Secrets: noSecrets{}, Integrations: unreadableBrowser{}})
 	raw := `{"version":1,"revision":"selected-revision"}`
 	start := Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "browser-failed", Inputs: Inputs{Revision: "selected-revision", ArtifactHash: deploy.ConfigHash(raw), DockerSource: raw}}
-	e := landingDeploymentExecution{label: dep.Label(), target: docker.BootRequest{Name: "serving", Workspace: t.TempDir(), Persistent: true, Docker: scope}, contract: c, artifact: start.Inputs.ArtifactHash, boot: host.Boot, url: func(int) string { return "http://app" }}
+	e := landingDeploymentExecution{label: dep.Label(), target: docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Name: "serving", Workspace: t.TempDir(), Persistent: true, Docker: scope}, contract: c, artifact: start.Inputs.ArtifactHash, boot: host.Boot, url: func(int) string { return "http://app" }}
 	result, err := (Runner{Store: f.outcomes}).Run(context.Background(), start, e.execute)
 	if err == nil || !strings.Contains(err.Error(), "browser attachment unavailable") {
 		t.Fatalf("expected browser attachment failure, got %v", err)

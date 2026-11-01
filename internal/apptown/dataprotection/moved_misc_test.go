@@ -190,7 +190,7 @@ func TestNoLocalDockerBacksUpAttachedTargetsOnly(t *testing.T) {
 		_, err := containerresulttest.WriteString(req.Stdout, "data")
 		return nil, err, true
 	})
-	b, err := s.TakeBackup(context.Background(), w.project, "main", "manual", "alice")
+	b, err := s.TakeBackup(context.Background(), w.project, "main", "alice")
 	if err != nil || b.Status != BackupOK || len(b.Items) != 1 {
 		t.Fatalf("a backup of the attached target: %+v %v", b, err)
 	}
@@ -198,7 +198,7 @@ func TestNoLocalDockerBacksUpAttachedTargetsOnly(t *testing.T) {
 		t.Fatalf("the backup asked another daemon: %v", other)
 	}
 	w.daemon.ResetCommands()
-	if _, err := s.TakeBackup(context.Background(), w.project, "old", "manual", "alice"); !errors.Is(err, deployment.ErrNoLocalDocker) {
+	if _, err := s.TakeBackup(context.Background(), w.project, "old", "alice"); !errors.Is(err, deployment.ErrNoLocalDocker) {
 		t.Fatalf("a backup on the built-in host: %v", err)
 	}
 	if len(w.daemon.Commands()) != 0 {

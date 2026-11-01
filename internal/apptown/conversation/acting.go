@@ -86,9 +86,14 @@ func viewingOnly(err error, what string) error {
 	return &access.Denied{Code: denied.Code, Reason: fmt.Sprintf("Viewing only: %s this chat needs the %s role.", what, role)}
 }
 
-// Record keeps an act on the chat under the person who did it, naming the
+// RecordEnd records the completed end after changeconsole saves the chat's work.
+func (c Chats) RecordEnd(ctx context.Context, actor string, s *console.Session, detail map[string]any) {
+	c.record(ctx, actor, s, "console.end", detail)
+}
+
+// record keeps an act on the chat under the person who did it, naming the
 // chat's opener too: "bob ended alice's chat".
-func (c Chats) Record(ctx context.Context, actor string, s *console.Session, kind string, detail map[string]any) {
+func (c Chats) record(ctx context.Context, actor string, s *console.Session, kind string, detail map[string]any) {
 	out := map[string]any{"opener": s.Actor}
 	for k, v := range detail {
 		out[k] = v
@@ -105,7 +110,7 @@ func (c Chats) Say(ctx context.Context, s *console.Session, text string) (string
 	if err := c.Sessions.Send(ctx, s.ID, text); err != nil {
 		return actor, err
 	}
-	c.Record(ctx, actor, s, "console.say", nil)
+	c.record(ctx, actor, s, "console.say", nil)
 	return actor, nil
 }
 
@@ -118,7 +123,7 @@ func (c Chats) Interrupt(ctx context.Context, s *console.Session) error {
 	if err := c.Sessions.Interrupt(ctx, s.ID); err != nil {
 		return err
 	}
-	c.Record(ctx, actor, s, "console.interrupt", nil)
+	c.record(ctx, actor, s, "console.interrupt", nil)
 	return nil
 }
 
@@ -132,7 +137,7 @@ func (c Chats) Upload(ctx context.Context, s *console.Session, f console.File) (
 	if err != nil {
 		return att, err
 	}
-	c.Record(ctx, actor, s, "console.upload", map[string]any{"name": att.Name})
+	c.record(ctx, actor, s, "console.upload", map[string]any{"name": att.Name})
 	return att, nil
 }
 
@@ -161,7 +166,7 @@ func (c Chats) Terminal(ctx context.Context, s *console.Session) (console.Termin
 	if err != nil {
 		return nil, err
 	}
-	c.Record(ctx, actor, s, "console.terminal", nil)
+	c.record(ctx, actor, s, "console.terminal", nil)
 	return typist{Terminal: term, may: func() bool { return c.MayAct(ctx, s) }}, nil
 }
 

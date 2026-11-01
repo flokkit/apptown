@@ -18,7 +18,6 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 
-	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -76,7 +75,7 @@ func releasePreviewWorldWithSize(t *testing.T, size bool) (s *Service, w *fakePr
 	s, w, local, dir, projectID := workerPreviewWorld(t)
 	s.authority = releasePreviewAuthorityFunc(func(context.Context, ids.ID) error { return nil })
 	if err := s.integrations.Attachments.Attach(t.Context(), projectID, "container-registry", "missing",
-		`{"repo":"registry.example.com/team/p","username":"robot","token":"preview-token"}`, integration.Entered, "test", nil); err != nil {
+		`{"repo":"registry.example.com/team/p","username":"robot","token":"preview-token"}`, "test", nil); err != nil {
 		t.Fatal(err)
 	}
 	repo := filepath.Join(dir, "workspaces", "project-"+projectID.String())

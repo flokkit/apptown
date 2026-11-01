@@ -96,7 +96,7 @@ func (s *Service) AttachOfferedRegistry(ctx context.Context, projectID ids.ID, w
 	for k, v := range receipt {
 		payload[k] = v
 	}
-	return s.Attachments.Attach(ctx, projectID, CapContainerRegistry, connector.Name, encodeResource(map[string]any{"repo": repo}), Provisioned, who, payload)
+	return s.Attachments.attach(ctx, projectID, CapContainerRegistry, connector.Name, encodeResource(map[string]any{"repo": repo}), Provisioned, who, payload)
 }
 
 // ProvisionRegistry is the linked-construction path: create a per-project
@@ -215,7 +215,7 @@ func (s *Service) ProvisionRegistry(ctx context.Context, p *project.Project, con
 		"token_id": dt.ID,
 	}
 	// The provider made it: its attachment is recorded though ctx has ended.
-	if err := s.Attachments.Attach(context.WithoutCancel(ctx), p.ID, CapContainerRegistry, connector, encodeResource(resource), Provisioned, who, map[string]any{"repo": resource["repo"]}); err != nil {
+	if err := s.Attachments.attach(context.WithoutCancel(ctx), p.ID, CapContainerRegistry, connector, encodeResource(resource), Provisioned, who, map[string]any{"repo": resource["repo"]}); err != nil {
 		return nil, 500, err
 	}
 	return map[string]any{"ok": true, "capability": CapContainerRegistry, "connector": connector,

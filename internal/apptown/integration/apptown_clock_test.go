@@ -44,7 +44,7 @@ func TestAppTownsClockStampsBindingsKindsAndAttachments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Attachments.Attach(t.Context(), id, "mailer", "", `{}`, Entered, "ops", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, "mailer", "", `{}`, "ops", nil); err != nil {
 		t.Fatal(err)
 	}
 	rows, err := AttachedRows(context.Background(), db, id)
@@ -96,7 +96,7 @@ func TestAnIntegrationReceiptCarriesItsRecordsTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Attachments.Attach(t.Context(), id, "mailer", "mail", `{}`, Entered, "ops", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, "mailer", "mail", `{}`, "ops", nil); err != nil {
 		t.Fatal(err)
 	}
 	rows, err := AttachedRows(context.Background(), db, id)

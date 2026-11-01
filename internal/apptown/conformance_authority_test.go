@@ -154,7 +154,7 @@ func TestReviewWithMissingRepositoryFailsExplicitly(t *testing.T) {
 func TestExceptionRequiresApprovalBeforeTakingEffect(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
-	a.addGrant("user", "kid", access.RoleProjectMaintainer, "", access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
+	a.addGrant("user", "kid", access.RoleProjectMaintainer, "", access.ScopeProject, idstest.N(1).String(), "boss", "")
 	ctx := verifiedContext(context.Background(), access.Principal{Kind: "user", Name: "kid", Via: "session"})
 	request := conformance.ExceptionRequest{ProjectID: idstest.N(1), Identifier: "review-me", Kind: conformance.AcceptedRisk, Justification: "risk reviewed"}
 	_, err := a.conformance.CreateDisposition(ctx, request)
@@ -172,7 +172,7 @@ func TestExceptionRequiresApprovalBeforeTakingEffect(t *testing.T) {
 	if n := len(ledgerEntries(t, a, ids.Nil, "disposition.created")); n != 0 {
 		t.Fatalf("refused exception left %d receipts", n)
 	}
-	a.addGrant("user", "kid", "", string(access.CapExceptionApprove), access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
+	a.addGrant("user", "kid", "", string(access.CapExceptionApprove), access.ScopeProject, idstest.N(1).String(), "boss", "")
 	saved, err := a.conformance.CreateDisposition(ctx, request)
 	if err != nil || saved.By != "kid" {
 		t.Fatalf("explicit approval authority: %+v %v", saved, err)

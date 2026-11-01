@@ -17,7 +17,7 @@ import (
 // LandingRecheck is an already-admitted retry, optionally bound to a selected Run.
 type LandingRecheck struct {
 	ChangeID    ids.ID
-	Who         string
+	who         string
 	RunID       ids.ID
 	Remediation *LandingRetry
 }
@@ -52,7 +52,7 @@ func (s *Service) RecheckLanding(ctx context.Context, in LandingRecheck) (Landin
 	if err != nil {
 		return LandingRechecked{}, err
 	}
-	in.Who = actor.Receipt
+	in.who = actor.Receipt
 	// Publication is an effect too: refuse an unprepared landing before Git,
 	// then recheck under the reset transaction's locks below.
 	if err := s.db.InTx(ctx, func(tx *database.Tx) error {
@@ -96,7 +96,7 @@ func (s *Service) RecheckLandingIn(ctx context.Context, tx *database.Tx, in Land
 	if err != nil {
 		return LandingRechecked{}, err
 	}
-	in.Who = actor.Receipt
+	in.who = actor.Receipt
 	return s.landingRechecks.RecheckIn(ctx, tx, in)
 }
 
@@ -230,7 +230,7 @@ func (s landingRechecks) recheckIn(ctx context.Context, tx *database.Tx, req Lan
 		if err := recheckStepIn(ctx, tx, step); err != nil {
 			return LandingRechecked{}, err
 		}
-		payload := landingRecheckReceipt{Step: step.Name, StepID: step.ID, Stage: step.Stage, By: req.Who, Attempt: step.Attempt, PreviousStatus: step.Status, PreviousEvidence: step.Evidence}
+		payload := landingRecheckReceipt{Step: step.Name, StepID: step.ID, Stage: step.Stage, By: req.who, Attempt: step.Attempt, PreviousStatus: step.Status, PreviousEvidence: step.Evidence}
 		if req.Remediation != nil {
 			payload.RemediationItemID = req.Remediation.ItemID
 		}

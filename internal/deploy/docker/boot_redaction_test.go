@@ -89,7 +89,7 @@ func TestABootsFailureNeverHoldsTheNeedsGeneratedCredentials(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, err = NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: reviewNoSecrets{}, Needs: credentialNeed{password}, Probe: &Probe{Settle: time.Millisecond}}).Boot(context.Background(),
-				BootRequest{Docker: Scope{Client: client}, Name: "apptown-preview-creds", StackID: "pvcreds", Workspace: t.TempDir(), Slug: "app", Deployment: "preview", Probe: 200 * time.Millisecond, Scratch: t.TempDir()}, c)
+				BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "apptown-preview-creds", StackID: "pvcreds", Workspace: t.TempDir(), Slug: "app", Deployment: "preview", Probe: 200 * time.Millisecond, Scratch: t.TempDir()}, c)
 			be := AsBootError(err)
 			if err == nil || be.Phase != tc.phase {
 				t.Fatalf("the boot's failure: %v (phase %q)", err, be.Phase)

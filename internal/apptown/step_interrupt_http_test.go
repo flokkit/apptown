@@ -43,7 +43,7 @@ func TestStepInterruptStopsTheStepsContainers(t *testing.T) {
 		if _, err := a.Access.EnsureUser(context.Background(), who); err != nil {
 			t.Fatal(err)
 		}
-		if role != "" && a.addGrant("user", who, role, "", access.ScopeProject, fmt.Sprint(p.ID), "fixture", "bls", "").IsZero() {
+		if role != "" && a.addGrant("user", who, role, "", access.ScopeProject, fmt.Sprint(p.ID), "bls", "").IsZero() {
 			t.Fatalf("granting %s", who)
 		}
 	}

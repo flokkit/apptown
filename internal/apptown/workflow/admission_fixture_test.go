@@ -17,7 +17,7 @@ func admitWorkflowSpec(t *testing.T, spec schema.Spec) (queries, *Run) {
 		return kind == "script" || kind == "scan" || kind == "agent/pi" || kind == "agent/review"
 	}), nil)
 	run, err := admissions.Create(context.Background(), StartRequest{
-		ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", RequestedBy: "operator",
+		ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "operator",
 	}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: spec})
 	if err != nil {
 		t.Fatal(err)

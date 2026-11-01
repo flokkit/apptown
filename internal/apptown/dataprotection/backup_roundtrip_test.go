@@ -120,9 +120,13 @@ func TestBackupPlanAndTake(t *testing.T) {
 		_, err := containerresulttest.WriteString(req.Stdout, "bytes for "+filepath.Base(containerresulttest.Destination(req.Stdout).(*os.File).Name()))
 		return nil, err
 	})
-	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 	if err != nil || b.Status != BackupOK || len(b.Items) != 2 || b.Bytes == 0 || b.Items[1].SHA256 == "" {
 		t.Fatalf("take: %+v %v", b, err)
+	}
+	saved, err := NewBackups(db).ByID(t.Context(), pid, "main", b.ID)
+	if err != nil || saved.Trigger != "manual" || saved.Actor != "bls" {
+		t.Fatalf("manual backup attribution: %+v %v", saved, err)
 	}
 	if !strings.HasPrefix(b.Path, filepath.Join(dir, "backups", "bk", "main")) {
 		t.Fatalf("sets live under the data directory: %s", b.Path)
@@ -153,7 +157,7 @@ func TestBackupPlanAndTake(t *testing.T) {
 		_, err := containerresulttest.WriteString(req.Stdout, "x")
 		return nil, err
 	})
-	if b, err := s.TakeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil || b.Status != BackupPartial || b.Items[1].Error == "" {
+	if b, err := s.takeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil || b.Status != BackupPartial || b.Items[1].Error == "" {
 		t.Fatalf("partial: %+v %v", b, err)
 	}
 	// An export that exited 0 but whose end did not arrive (the daemon lost
@@ -167,7 +171,7 @@ func TestBackupPlanAndTake(t *testing.T) {
 		_, err := containerresulttest.WriteString(req.Stdout, "x")
 		return nil, err
 	})
-	if b, err := s.TakeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil || b.Status != BackupPartial || !strings.Contains(b.Items[1].Error, "cut short") || b.Items[1].SHA256 != "" {
+	if b, err := s.takeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil || b.Status != BackupPartial || !strings.Contains(b.Items[1].Error, "cut short") || b.Items[1].SHA256 != "" {
 		t.Fatalf("a copy cut short: %+v %v", b, err)
 	}
 	// Retention: the newest seven stay.
@@ -176,7 +180,7 @@ func TestBackupPlanAndTake(t *testing.T) {
 		return nil, err
 	})
 	for i := 0; i < 8; i++ {
-		if _, err := s.TakeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil {
+		if _, err := s.takeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -211,7 +215,7 @@ func TestBackupPlanAndTake(t *testing.T) {
 	if _, err := s.Deployments.EnsureStanding(t.Context(), pid, "lan", lan.ID, deployment.Attributes{}.WithDefaults()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.TakeBackup(context.Background(), pid, "lan", "manual", "bls"); !errors.Is(err, ErrDataNotKnown) || errors.Is(err, deployment.ErrTargetKeepsBackups) {
+	if _, err := s.TakeBackup(context.Background(), pid, "lan", "bls"); !errors.Is(err, ErrDataNotKnown) || errors.Is(err, deployment.ErrTargetKeepsBackups) {
 		t.Fatalf("a Portainer deployment whose environment cannot be reached: %v", err)
 	}
 	// The scheduled job says so, and it skips a project gone since the job
@@ -245,7 +249,7 @@ func TestABackupWhoseTargetCannotBeReadIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(db.FailNextStatement("-- name: TargetByID "))
-	if _, err := s.TakeBackup(context.Background(), pid, "lan", "manual", "bls"); err == nil || !strings.Contains(err.Error(), "reading its deployment target") {
+	if _, err := s.TakeBackup(context.Background(), pid, "lan", "bls"); err == nil || !strings.Contains(err.Error(), "reading its deployment target") {
 		t.Fatalf("a backup whose target read failed: %v; want the read's failure", err)
 	}
 	if sets, err := s.backups.ForDeployment(context.Background(), pid, "lan", 10); err != nil || len(sets) != 0 {
@@ -266,7 +270,7 @@ func TestASetWithoutItsManifestSaysSo(t *testing.T) {
 		_, err := containerresulttest.WriteString(req.Stdout, "x")
 		return nil, err
 	})
-	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 	if err != nil || !strings.Contains(b.Error, "the manifest could not be written") {
 		t.Fatalf("take: %+v %v", b, err)
 	}
@@ -312,14 +316,14 @@ func TestRestoreBackup(t *testing.T) {
 		lifecycle = append(lifecycle, strings.Join(req.Args, " "))
 		return nil, nil
 	})
-	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Restore the oldest retained set. Its safety copy would otherwise push
 	// this very source past the retention limit before the first file is read.
 	for i := 1; i < BackupKeep; i++ {
-		if _, err := s.TakeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil {
+		if _, err := s.takeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -364,7 +368,7 @@ func TestRestoreBackup(t *testing.T) {
 	if err == nil || res.Status != RestorePartial {
 		t.Fatalf("a file that does not match its digest is not restored: %v %v", err, res)
 	}
-	if _, err := s.TakeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil {
+	if _, err := s.takeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil {
 		t.Fatal(err)
 	}
 	wantN(t, "held backups", backupsWhere(t, db, func(b ProjectBackup) bool { return b.ProjectID == pid && b.Status.Holds() }), BackupKeep)
@@ -401,7 +405,7 @@ func TestARestoreWhoseSafetySetIsIncompleteWritesNothing(t *testing.T) {
 				lifecycle = append(lifecycle, line)
 				return nil, nil
 			})
-			b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+			b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 			if err != nil || b.Status != BackupOK {
 				t.Fatalf("the set to restore: %+v %v", b, err)
 			}
@@ -418,5 +422,17 @@ func TestARestoreWhoseSafetySetIsIncompleteWritesNothing(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestBackupJobsCannotClaimSafetyCopyTriggers(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	pid := createTestProject(t, db, "job-trigger", "Job trigger")
+	worker := JobWorker{Projects: project.New(db, nil)}
+	for _, trigger := range []string{TriggerPreRestore, TriggerPreRelease} {
+		if _, err := worker.Backup(t.Context(), pid.String()+"/main", map[string]any{"trigger": trigger}); err == nil || !strings.Contains(err.Error(), "not scheduled or release") {
+			t.Fatalf("job asserted %s: %v", trigger, err)
+		}
 	}
 }

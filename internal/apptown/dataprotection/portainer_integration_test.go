@@ -374,7 +374,7 @@ needs:
 		t.Fatalf("%v %s", err, out)
 	}
 
-	b, err := s.TakeBackup(ctx, pid, "customer-a", "manual", "bls")
+	b, err := s.TakeBackup(ctx, pid, "customer-a", "bls")
 	if err != nil || b.Status != BackupOK || len(b.Items) != 3 {
 		t.Fatalf("the set: %+v %v", b, err)
 	}
@@ -528,7 +528,7 @@ func portainerSiblingRecovery(t *testing.T, s *both, pid ids.ID, target *deploym
 	if out, err := dockertest.CombinedOutput("exec", app, "sh", "-c", "echo second-file > /data/notes.txt"); err != nil {
 		t.Fatalf("second file: %v %s", err, out)
 	}
-	backup, err := s.TakeBackup(ctx, pid, dep.Name, "manual", "alice")
+	backup, err := s.TakeBackup(ctx, pid, dep.Name, "alice")
 	if err != nil || backup.Status != BackupOK {
 		t.Fatalf("second backup: %+v %v", backup, err)
 	}

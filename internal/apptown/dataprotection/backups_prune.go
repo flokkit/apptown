@@ -68,7 +68,7 @@ func (s *Backups) pruneSets(ctx context.Context, directory string, old []protect
 	if err != nil {
 		return err
 	}
-	files, err := LockBackupFiles(base, true)
+	files, err := lockBackupFiles(base, true)
 	if err != nil {
 		return err
 	}

@@ -131,7 +131,7 @@ func TestBackupPruningDoesNotWaitForOrDeleteARestoresFiles(t *testing.T) {
 	t.Parallel()
 	store, dir, pid, backups := backupPruningFixture(t)
 	root := filepath.Join(dir, "backups")
-	files, err := LockBackupFiles(root, false)
+	files, err := lockBackupFiles(root, false)
 	if err != nil {
 		t.Fatal(err)
 	}

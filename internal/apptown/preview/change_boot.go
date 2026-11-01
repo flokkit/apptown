@@ -204,7 +204,7 @@ func (h changeBoots) BootPreview(ctx context.Context, ch Change, restart bool) (
 	// preview and swept at restart.
 	life, cancel := context.WithTimeout(context.WithoutCancel(ctx), docker.BootLifetime)
 	defer cancel()
-	res, err := s.env.PreparedHost(prepared).Boot(life, docker.BootRequest{Docker: s.hosts.Local().WithLifetime(life),
+	res, err := s.env.PreparedHost(prepared).Boot(life, docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Docker: s.hosts.Local().WithLifetime(life),
 		Name: name, StackID: docker.ChangeStackID(ch.ID), Workspace: ws, Slug: b.slug,
 		Deployment: "preview", Probe: 45 * time.Second, Incarnation: incarnation, Scratch: s.hosts.BootScratch(),
 	}, prepared.Contract)

@@ -11,7 +11,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -511,7 +510,7 @@ func TestAPortainerStackGivesTheAppItsIntegrationValues(t *testing.T) {
 	t.Parallel()
 	p := newPromotionTargets(t, false)
 	const url, key = "https://feedback.example/in", "feedback-key-canary"
-	if err := p.s.env.integrations.Attachments.Attach(t.Context(), p.project, "feedback", "", `{"appKey":"`+key+`","url":"`+url+`"}`, integration.Entered, "test", nil); err != nil {
+	if err := p.s.env.integrations.Attachments.Attach(t.Context(), p.project, "feedback", "", `{"appKey":"`+key+`","url":"`+url+`"}`, "test", nil); err != nil {
 		t.Fatal(err)
 	}
 	b := p.land(t)

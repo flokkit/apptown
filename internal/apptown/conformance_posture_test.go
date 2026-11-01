@@ -114,7 +114,7 @@ func TestScheduledTriggerRequiresExplicitAuthority(t *testing.T) {
 	if _, _, err := fleetReviewsFor(a).RunFleetReviewWith(testConformanceContext("scheduler"), "scheduled", conformance.ReviewOptions{}); err == nil {
 		t.Fatal("trigger label granted authority")
 	}
-	a.addGrant("user", "scheduler", "", string(access.CapConformanceRev), access.ScopeInstance, "", "fixture", "t", "scheduled review fixture")
+	a.addGrant("user", "scheduler", "", string(access.CapConformanceRev), access.ScopeInstance, "", "t", "scheduled review fixture")
 	rev, _, err := fleetReviewsFor(a).RunFleetReviewWith(testConformanceContext("scheduler"), "scheduled", conformance.ReviewOptions{})
 	if err != nil {
 		t.Fatal(err)

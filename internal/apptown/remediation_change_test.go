@@ -106,7 +106,7 @@ func TestChangeEvidenceRequiresRecordedMergeAndReleaseMembership(t *testing.T) {
 		t.Fatal(err)
 	}
 	pid := project.ID
-	if _, err := a.Access.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "test", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: pid.String(), By: "test", Origin: "fixture"}, ""); err != nil {
+	if _, err := a.Access.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "test", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: pid.String(), By: "test"}, ""); err != nil {
 		t.Fatal(err)
 	}
 	sc := conformance.DeclaredCheck{Block: "example", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "check"}}

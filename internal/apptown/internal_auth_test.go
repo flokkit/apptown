@@ -194,14 +194,14 @@ func TestPrivilegesRequireExplicitCapabilityGrants(t *testing.T) {
 	if grantedCapability(t, a, "anyone", "member", access.CapStandardsGuidance, access.Resource{Type: "instance"}) || grantedCapability(t, a, "anyone", "admin", access.CapStandardsGuidance, access.Resource{Type: "instance"}) {
 		t.Fatal("unclaimed permission or role label granted authority")
 	}
-	a.addGrant("group", "leads", access.RoleStandardsAdmin, "", access.ScopeInstance, "", "fixture", "fixture", "")
+	a.addGrant("group", "leads", access.RoleStandardsAdmin, "", access.ScopeInstance, "", "fixture", "")
 	if !grantedCapability(t, a, "ana", "member", access.CapStandardsGuidance, access.Resource{Type: "instance"}) || grantedCapability(t, a, "outsider", "member", access.CapStandardsGuidance, access.Resource{Type: "instance"}) {
 		t.Fatal("explicit group capability scope not respected")
 	}
 	if grantedCapability(t, a, "ana", "member", access.CapReleasePromote, access.Resource{Type: "release-target", ID: "customer-production"}) {
 		t.Fatal("standards authority granted release access")
 	}
-	a.addGrant("user", "ana", access.RoleReleaseManager, "", access.ScopeTarget, "customer-production", "fixture", "fixture", "")
+	a.addGrant("user", "ana", access.RoleReleaseManager, "", access.ScopeTarget, "customer-production", "fixture", "")
 	if !grantedCapability(t, a, "ana", "member", access.CapReleasePromote, access.Resource{Type: "release-target", ID: "customer-production"}) {
 		t.Fatal("explicit release grant ignored")
 	}
@@ -315,8 +315,8 @@ func TestProjectRosterGate(t *testing.T) {
 	if a.projectMember(idstest.N(1), "kid-a", "member") || a.projectMember(idstest.N(1), "anyone", "admin") {
 		t.Fatal("an empty roster or role label granted authority")
 	}
-	a.addGrant("user", "kid-b", access.RoleProjectMaintainer, "", access.ScopeProject, idstest.N(1).String(), "fixture", "fixture", "")
-	a.addGrant("group", "parents", access.RoleProjectMaintainer, "", access.ScopeProject, idstest.N(1).String(), "fixture", "fixture", "")
+	a.addGrant("user", "kid-b", access.RoleProjectMaintainer, "", access.ScopeProject, idstest.N(1).String(), "fixture", "")
+	a.addGrant("group", "parents", access.RoleProjectMaintainer, "", access.ScopeProject, idstest.N(1).String(), "fixture", "")
 	if a.projectMember(idstest.N(1), "kid-a", "member") {
 		t.Fatal("outside member accepted")
 	}

@@ -12,12 +12,15 @@ import (
 	"syscall"
 )
 
+// LockBackupFiles holds the files for a reader against pruning and moving.
+func LockBackupFiles(directory string) (io.Closer, error) { return lockBackupFiles(directory, false) }
+
 // Restores hold a shared lock on backup files; pruning requires exclusive
 // access. Acquisition never waits. Close explicitly unlocks before releasing
 // the descriptor; a duplicate inherited during process launch must not extend
 // the lease. Process exit also releases it without durable recovery. Keep the
 // lock file outside the prunable tree and never remove it.
-func LockBackupFiles(directory string, exclusive bool) (io.Closer, error) {
+func lockBackupFiles(directory string, exclusive bool) (io.Closer, error) {
 	file, err := os.OpenFile(filepath.Clean(directory)+".retention.lock", os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return nil, err

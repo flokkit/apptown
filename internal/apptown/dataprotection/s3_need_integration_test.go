@@ -145,7 +145,7 @@ func TestIntegrationStockS3IsCopiedThroughItsAPIAndRestoredVerified(t *testing.T
 		t.Fatalf("the store did not keep the headers it was given: %v", want)
 	}
 
-	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 	if err != nil || b.Status != BackupOK || len(b.Items) != 1 || b.Items[0].Copy != CopyDeclared || b.Items[0].Format != "s3-objects" {
 		t.Fatalf("take: %+v %v", b, err)
 	}

@@ -595,7 +595,7 @@ func (s *Service) runRehearsal(ctx context.Context, t *tracker) (runEnd, string,
 	// A set on AppTown's disk is read under the backups lock a restore
 	// reads under, from before it is chosen until its copies are staged on
 	// the host, so a prune or a move cannot remove it meanwhile.
-	files, err := LockBackupFiles(s.backupRoot(), false)
+	files, err := lockBackupFiles(s.backupRoot(), false)
 	if err != nil {
 		return OperationFailed, "nothing was made: the backups on AppTown's disk could not be locked for reading: " + err.Error(), result
 	}
@@ -836,7 +836,7 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 	if err != nil {
 		return fail(step, "the credential the release's images are pulled with: "+err.Error())
 	}
-	req := docker.BootRequest{Name: place.App, StackID: place.Stack, Workspace: tree.Directory, Slug: proj.Slug, Deployment: p.dep.Name,
+	req := docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Name: place.App, StackID: place.Stack, Workspace: tree.Directory, Slug: proj.Slug, Deployment: p.dep.Name,
 		DataClass: "production", Docker: dk, Probe: 90 * time.Second, Sealed: sealed,
 		Recorded: &docker.RecordedImages{Parts: p.bundle.Parts, Init: p.bundle.Init, Login: login, Scratch: s.hosts.BootScratch()}}
 	// The rehearsed release runs as its generation ran it: that

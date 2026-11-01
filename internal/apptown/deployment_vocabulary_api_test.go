@@ -28,7 +28,7 @@ func TestDeploymentVocabularyRoutesKeepAuthorizationAndRetireOldPaths(t *testing
 	if err := a.EnsureAuthorization(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if id := a.addGrant("user", "reader", access.RoleProjectViewer, "", access.ScopeProject, idstest.N(1).String(), "fixture", "boss", ""); id.IsZero() {
+	if id := a.addGrant("user", "reader", access.RoleProjectViewer, "", access.ScopeProject, idstest.N(1).String(), "boss", ""); id.IsZero() {
 		t.Fatal("reader grant was not created")
 	}
 	h := a.Handler()

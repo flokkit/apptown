@@ -92,7 +92,7 @@ func newWiringFixture(t *testing.T) wiringFixture {
 		},
 	})
 	t.Cleanup(work.Stop)
-	if err := integration.NewAttachments(db).Attach(t.Context(), id, "mailer", "smtp", `{"domain":"wire.test"}`, integration.Entered, "operator", nil); err != nil {
+	if err := integration.NewAttachments(db).Attach(t.Context(), id, "mailer", "smtp", `{"domain":"wire.test"}`, "operator", nil); err != nil {
 		t.Fatal(err)
 	}
 	ctx := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{Kind: "user", Name: "operator", Via: "session"}, Receipt: "operator", Verified: true})

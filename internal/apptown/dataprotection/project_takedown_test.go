@@ -465,7 +465,7 @@ func TestDockerDataDoorsAskTheProjectsLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	w.client.ResetCommands()
-	if _, err := w.s.TakeBackup(ctx, w.pid, "main", "manual", "alice"); !errors.Is(err, project.ErrNotActive) {
+	if _, err := w.s.TakeBackup(ctx, w.pid, "main", "alice"); !errors.Is(err, project.ErrNotActive) {
 		t.Fatalf("a backup in a project being deleted: %v", err)
 	}
 	if _, err := w.s.restoreBackup(ctx, nil, w.pid, "main", kept.ID, "alice"); !errors.Is(err, project.ErrNotActive) {

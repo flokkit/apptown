@@ -149,7 +149,7 @@ func restoreWorld(t *testing.T, slug string) (*both, *database.DB, *dockerfake.D
 	d := &restoreDaemon{}
 	setBackupDockerCommand(client, d.answer)
 	client.SetRunning(deployedNames(t, s, pid, "main", slug).App(), true)
-	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 	if err != nil || b.Status != BackupOK {
 		t.Fatalf("the set: %+v %v", b, err)
 	}

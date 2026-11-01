@@ -52,7 +52,7 @@ func (s *Service) MoveSetsToStore(ctx context.Context) (moved int, left []string
 	}
 	// A restore reading a set holds the shared lock: the move waits for
 	// the next day rather than moving a set under it.
-	files, err := LockBackupFiles(base, true)
+	files, err := lockBackupFiles(base, true)
 	if err != nil {
 		return 0, nil, err
 	}

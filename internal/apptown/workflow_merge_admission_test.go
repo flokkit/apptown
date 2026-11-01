@@ -27,8 +27,8 @@ func mergeAdmissionFixture(t *testing.T, required ...string) (*App, workflow.Mer
 	if err := a.lifecycle.InitializeRepository(t.Context(), p, "", ""); err != nil {
 		t.Fatal(err)
 	}
-	a.addGrant("user", "reviewer", access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(projectID), "fixture", "setup", "")
-	a.addGrant("user", "reviewer", access.RoleProjectContrib, "", access.ScopeProject, fmt.Sprint(projectID), "fixture", "setup", "")
+	a.addGrant("user", "reviewer", access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(projectID), "setup", "")
+	a.addGrant("user", "reviewer", access.RoleProjectContrib, "", access.ScopeProject, fmt.Sprint(projectID), "setup", "")
 	spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "finish", Steps: []schema.Step{
 		{Name: "approve", Uses: "approval", With: map[string]any{"approvers": []string{"reviewer"}}},
 		{Name: "merge", Uses: "scm/merged"},

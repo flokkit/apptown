@@ -38,7 +38,7 @@ func mcpWriteFixture(t *testing.T, configs ...Config) (*App, string) {
 	for _, g := range mustRecords(a.Access.GrantsAt(context.Background(), access.ScopeProject, p.ID.String())) {
 		revokeTestGrant(t, a, g.ID, "test")
 	}
-	a.addGrant("user", "viewer", access.RoleProjectViewer, "", access.ScopeProject, p.ID.String(), "", "boss", "")
+	a.addGrant("user", "viewer", access.RoleProjectViewer, "", access.ScopeProject, p.ID.String(), "boss", "")
 	return a, mcp_token(t, a, "boss", "boss", "admin")
 }
 

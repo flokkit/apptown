@@ -44,7 +44,7 @@ func llmWorld(t *testing.T, attached bool) (*world, *openrouterfake.Server) {
 		t.Fatal(err)
 	}
 	if attached {
-		if err := integrations.Attachments.Attach(t.Context(), w.projectID, integration.CapLLM, "openrouter", "{}", integration.Entered, "owner", nil); err != nil {
+		if err := integrations.Attachments.Attach(t.Context(), w.projectID, integration.CapLLM, "openrouter", "{}", "owner", nil); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -13,7 +13,7 @@ import (
 func TestMemberRoutesPreserveAuthorizationAndAttribution(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
-	a.addGrant("user", "owner", access.RoleProjectOwner, "", access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
+	a.addGrant("user", "owner", access.RoleProjectOwner, "", access.ScopeProject, idstest.N(1).String(), "boss", "")
 	h := a.Handler()
 	for _, tc := range []struct {
 		name, who, path, body string

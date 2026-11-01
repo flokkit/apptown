@@ -108,7 +108,7 @@ env:
 	if _, err := services.Bindings.Save(context.Background(), "conn", "mailer", "service", `{"host":"mail.example"}`, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if err := services.Attachments.Attach(t.Context(), pid, "mailer", "conn", "{}", integration.Entered, "fixture", nil); err != nil {
+	if err := services.Attachments.Attach(t.Context(), pid, "mailer", "conn", "{}", "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
 	if w := call("DELETE", "/api/v1/services/mailer", ""); w.Code != 409 {

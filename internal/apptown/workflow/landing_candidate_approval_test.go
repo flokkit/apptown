@@ -13,7 +13,7 @@ func TestANewCandidateNeedsFreshApproval(t *testing.T) {
 	db, change := changeEditFixture(t, ChangeDraft{Title: "landing"})
 	automatic := func(kind string) bool { return kind == "reconcile" || kind == "tests" }
 	admissions := newRunAdmissions(db, NewStages(nil, automatic), nil)
-	run, err := admissions.Create(ctx, StartRequest{ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "land", InputsJSON: "{}", RequestedBy: "operator"}, PreparedRun{
+	run, err := admissions.Create(ctx, StartRequest{ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "land", InputsJSON: "{}", requestedBy: "operator"}, PreparedRun{
 		Workflow: DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "gates", Steps: []schema.Step{
 			{Name: "catch-up", Uses: "reconcile"}, {Name: "tests", Uses: "tests"}, {Name: "approve", Uses: "approval", With: map[string]any{"means": "I approve this source"}},
 		}}}},

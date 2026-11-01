@@ -199,6 +199,13 @@ struct: `Bootstrap(in NewAccount)`, `SaveUser(in AccountChange)`. Keep simple
 identifier lookups idiomatic. Avoid a universal input with flags for unrelated
 operations. Validation errors get a name when callers need to distinguish them.
 
+**Owners decide evidence and authority.** Attribution (who), provenance (where
+from), triggers (why) and authority checks come from the verified caller and
+the owner's call path. Exported operations accept no fields or parameters that
+only their own package should set: outside callers could otherwise assert facts
+the owner must establish. Share an unexported helper or keep the field private;
+shortcuts may chain exported operations without adding such inputs.
+
 **SQL is generated.** Named queries in `queries.sql` (or an owner's per-table
 query files), bound through the
 generated package. Hand-written SQL is not a style choice that lost; it is

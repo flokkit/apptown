@@ -131,7 +131,7 @@ func grantWorkflowHTTPAuthority(t *testing.T, f workflowHTTPFixture) {
 		projectID ids.ID
 	}{{"owner", f.ProjectID}, {"outsider", otherProjectID}} {
 		for _, role := range []string{access.RoleProjectApprover, access.RoleProjectMaintainer} {
-			if _, err := f.Access.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: grant.user, Role: role, Scope: access.ScopeProject, ScopeID: fmt.Sprint(grant.projectID), Origin: "fixture", By: "bls"}, ""); err != nil {
+			if _, err := f.Access.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: grant.user, Role: role, Scope: access.ScopeProject, ScopeID: fmt.Sprint(grant.projectID), By: "bls"}, ""); err != nil {
 				t.Fatal(err)
 			}
 		}

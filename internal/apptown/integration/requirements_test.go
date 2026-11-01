@@ -25,10 +25,10 @@ func requiredAttachmentFixture(t *testing.T) (*database.DB, ids.ID) {
 		}
 	}
 	attachments := NewAttachments(db)
-	if err := attachments.Attach(t.Context(), first, "scm", "git", `{}`, Entered, "tester", nil); err != nil {
+	if err := attachments.Attach(t.Context(), first, "scm", "git", `{}`, "tester", nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := attachments.Attach(t.Context(), second, "errors", "errors", `{}`, Entered, "tester", nil); err != nil {
+	if err := attachments.Attach(t.Context(), second, "errors", "errors", `{}`, "tester", nil); err != nil {
 		t.Fatal(err)
 	}
 	return db, first

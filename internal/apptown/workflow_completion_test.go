@@ -179,7 +179,7 @@ func changeScenarioIn(t *testing.T, a *App, spec schema.Spec, additional ...work
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.addGrant("user", "alice", access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(p.ID), "fixture", "alice", "")
+	a.addGrant("user", "alice", access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(p.ID), "alice", "")
 	ctx := asPerson("alice")
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {
 		deps.Git = fakeGit{}

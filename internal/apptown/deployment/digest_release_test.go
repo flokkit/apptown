@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
@@ -171,7 +170,7 @@ func TestAPullThatFailsIsAnErrorAndAMissingDigestIsRefused(t *testing.T) {
 	}{
 		{name: "credential refused", break_: func(t *testing.T, w *digestWorld, _ *ReleaseBundle) {
 			if err := w.s.env.integrations.Attachments.Attach(t.Context(), w.project, "container-registry", "missing",
-				fmt.Sprintf(`{"repo":%q,"username":%q,"token":"revoked"}`, w.registry.host+"/team/p", digestRegistryUser), integration.Entered, "test", nil); err != nil {
+				fmt.Sprintf(`{"repo":%q,"username":%q,"token":"revoked"}`, w.registry.host+"/team/p", digestRegistryUser), "test", nil); err != nil {
 				t.Fatal(err)
 			}
 		}, want: "unauthorized"},

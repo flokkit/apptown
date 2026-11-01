@@ -39,8 +39,8 @@ func checkMCPReadPolicies(t *testing.T) {
 	gittest.Run(t, repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "contract")
 	adopt(t, a, p.ID, "private-guidance", 1, "[]")
 	public, _, _ := fleetRepo(t, a, "public-project", map[string]string{"README.md": "public"})
-	a.addGrant("group", identity.GroupAllUsers, access.RoleProjectMaintainer, "", access.ScopeProject, fmt.Sprint(public), "fixture", "boss", "")
-	a.addGrant("group", identity.GroupAllUsers, access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(public), "fixture", "boss", "")
+	a.addGrant("group", identity.GroupAllUsers, access.RoleProjectMaintainer, "", access.ScopeProject, fmt.Sprint(public), "boss", "")
+	a.addGrant("group", identity.GroupAllUsers, access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(public), "boss", "")
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "policy", Version: 1}, Spec: schema.Spec{Kind: "lifecycle", Role: "working", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{{Name: "approve", Uses: "approval"}}}}}})
 	var privateChange, privateRun ids.ID
 	for _, pid := range []ids.ID{p.ID, public} {

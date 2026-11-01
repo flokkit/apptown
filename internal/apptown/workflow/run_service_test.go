@@ -30,7 +30,7 @@ func TestRunServiceAdmitsScopeBeforeResolutionAndBindsInferenceOwner(t *testing.
 				Source: func(context.Context, StartRequest) (StartSource, error) { return StartSource{}, nil },
 				Resolve: func(_ context.Context, in StartRequest, _ StartSource) (PreparedRun, error) {
 					resolved++
-					if in.RequestedBy != "payer" || in.ReceiptActor != "payer via instrument" || !in.ParentRunID.IsZero() || !in.AcceptedRunID.IsZero() {
+					if in.requestedBy != "payer" || in.receiptActor != "payer via instrument" || !in.parentRunID.IsZero() || !in.acceptedRunID.IsZero() {
 						t.Fatalf("authority leaked command identity: %+v", in)
 					}
 					return def, nil

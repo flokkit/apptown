@@ -378,7 +378,7 @@ func buildEvalWorld(t *testing.T, changes int, ledger func(*database.DB) Spend) 
 		if _, err := accounts.EnsureUser(context.Background(), who); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := accounts.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: who, Role: access.RoleStandardsAdmin, Scope: access.ScopeInstance, Origin: "test", By: "root"}, ""); err != nil {
+		if _, err := accounts.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: who, Role: access.RoleStandardsAdmin, Scope: access.ScopeInstance, By: "root"}, ""); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -395,7 +395,7 @@ func buildEvalWorld(t *testing.T, changes int, ledger func(*database.DB) Spend) 
 		t.Fatal(err)
 	}
 	for _, who := range []string{"alice", "carol"} {
-		if _, err := accounts.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: who, Role: access.RoleProjectViewer, Scope: access.ScopeProject, ScopeID: shop.String(), Origin: "test", By: "root"}, ""); err != nil {
+		if _, err := accounts.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: who, Role: access.RoleProjectViewer, Scope: access.ScopeProject, ScopeID: shop.String(), By: "root"}, ""); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1055,7 +1055,7 @@ func TestAnArmsDiffIsFoundWithinItsEval(t *testing.T) {
 	if _, err := w.ids.EnsureUser(context.Background(), "dave"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.ids.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "dave", Role: access.RoleStandardsAdmin, Scope: access.ScopeInstance, Origin: "test", By: "root"}, ""); err != nil {
+	if _, err := w.ids.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "dave", Role: access.RoleStandardsAdmin, Scope: access.ScopeInstance, By: "root"}, ""); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.service.ArmDiff(as("dave"), first.ID, first.Arms[0].ID); !errors.As(err, &denied) {

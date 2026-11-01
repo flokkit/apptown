@@ -18,7 +18,7 @@ import (
 // runs it as the placement's container, through the stack boot it is given.
 type Driver struct {
 	Now func() time.Time // completion time of a current readiness sample
-	// Allowed rechecks the caller before boot phases; nil is an unguarded caller.
+	// Allowed is required: a current permission check or AuthorisedWhenRequested.
 	Allowed      func(context.Context) error
 	ServingLabel string                                                          // immutable owner-supplied routing label, independent of source.Slug
 	Scope        func(context.Context) (Scope, error)                            // which daemon: AppTown's own, or an attached host's
@@ -75,6 +75,10 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if d.ServingLabel == "" {
 		return deploy.Observation{}, deploy.Terminal(errors.New("Docker deployment has no serving label"))
 	}
+	if d.Allowed == nil {
+		return deploy.Observation{}, deploy.Terminal(errors.New("Docker deployment requires an authority check or AuthorisedWhenRequested"))
+	}
+
 	source := art.Source
 	slug, ws, c := source.Slug, source.Workspace, source.Contract
 	names, err := NamesOf(p.ID, p.Name)
@@ -112,10 +116,9 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 		Deployment: p.Name, DataClass: d.DataClass, HostPort: p.HostPort, Persistent: true, Probe: 90 * time.Second, Docker: dk,
 		Identity: &id, Services: SourceServices(art), Revision: source.Revision, Fill: d.Fill, Allowed: d.Allowed, Storage: d.Storage, RestoreStorage: d.RestoreStorage,
 	}
-	if d.Allowed != nil {
-		if err := d.Allowed(ctx); err != nil {
-			return deploy.Observation{}, deploy.Terminal(err)
-		}
+
+	if err := d.Allowed(ctx); err != nil {
+		return deploy.Observation{}, deploy.Terminal(err)
 	}
 	if d.Owner != nil {
 		req.Record = func(o deploy.Owned) error { return d.Owner.Created(ctx, o) }

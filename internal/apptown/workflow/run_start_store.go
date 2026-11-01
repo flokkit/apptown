@@ -42,10 +42,10 @@ func existingStartedRun(ctx context.Context, db database.Queryer, req StartReque
 	var row workflowsql.Run
 	var err error
 	switch {
-	case !req.AcceptedRunID.IsZero():
-		row, err = queries.StartedLanding(ctx, workflowsql.StartedLandingParams{WorkRunID: req.AcceptedRunID, ProjectID: req.ProjectID, ChangeID: req.ChangeID})
-	case !req.ParentStepID.IsZero():
-		row, err = queries.StartedChild(ctx, workflowsql.StartedChildParams{ParentRunID: req.ParentRunID, ParentStepID: req.ParentStepID, ProjectID: req.ProjectID, ChangeID: req.ChangeID, ParentStepAttempt: req.ParentStepAttempt + 1})
+	case !req.acceptedRunID.IsZero():
+		row, err = queries.StartedLanding(ctx, workflowsql.StartedLandingParams{WorkRunID: req.acceptedRunID, ProjectID: req.ProjectID, ChangeID: req.ChangeID})
+	case !req.parentStepID.IsZero():
+		row, err = queries.StartedChild(ctx, workflowsql.StartedChildParams{ParentRunID: req.parentRunID, ParentStepID: req.parentStepID, ProjectID: req.ProjectID, ChangeID: req.ChangeID, ParentStepAttempt: req.parentStepAttempt + 1})
 	default:
 		return nil, nil
 	}
@@ -64,10 +64,10 @@ func (s runStartStore) create(ctx context.Context, req StartRequest, def Prepare
 // createIn lets a caller commit its ownership records with the run and stage.
 // Preparation and dispatch remain outside the caller's transaction.
 func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartRequest, def PreparedRun) (*Run, error) {
-	if !req.ParentRunID.IsZero() && def.Spec.Kind != "pipeline" {
+	if !req.parentRunID.IsZero() && def.Spec.Kind != "pipeline" {
 		return nil, fmt.Errorf("callee %q is a %s; only pipeline workflows are callable", req.WorkflowName, def.Spec.Kind)
 	}
-	if !req.AcceptedRunID.IsZero() && (!req.ParentRunID.IsZero() || def.Spec.Role != "landing") {
+	if !req.acceptedRunID.IsZero() && (!req.parentRunID.IsZero() || def.Spec.Role != "landing") {
 		return nil, fmt.Errorf("accepted work must start a root landing")
 	}
 	def, definition, err := freezeRunDefinition(def)
@@ -100,15 +100,15 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 	}
 	expectedAdoption := currentAdoption
 	var parentStepName, parentStage string
-	if !req.ParentRunID.IsZero() {
-		parent, err := runRecord(queries.RunForUpdate(ctx, req.ParentRunID))
+	if !req.parentRunID.IsZero() {
+		parent, err := runRecord(queries.RunForUpdate(ctx, req.parentRunID))
 		if err != nil {
 			return nil, err
 		}
 		if parent.ProjectID != req.ProjectID || parent.ChangeID != req.ChangeID || parent.Status != RunRunning {
-			return nil, fmt.Errorf("parent run %d is not active in this change", req.ParentRunID)
+			return nil, fmt.Errorf("parent run %d is not active in this change", req.parentRunID)
 		}
-		source, err := ReadSourceIn(ctx, tx, RunRef{ID: req.ParentRunID, ProjectID: req.ProjectID})
+		source, err := ReadSourceIn(ctx, tx, RunRef{ID: req.parentRunID, ProjectID: req.ProjectID})
 		if err != nil {
 			return nil, err
 		}
@@ -118,18 +118,18 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 		if !parent.AdoptionID.IsZero() {
 			expectedAdoption = parent.AdoptionID
 		}
-		if err := requireRunReady(ctx, tx, req.ParentRunID); err != nil {
+		if err := requireRunReady(ctx, tx, req.parentRunID); err != nil {
 			return nil, err
 		}
-		if !req.ParentStepID.IsZero() {
-			step, err := stepResult(queries.StepForUpdate(ctx, workflowsql.StepForUpdateParams{ID: req.ParentStepID, RunID: req.ParentRunID}))
+		if !req.parentStepID.IsZero() {
+			step, err := stepResult(queries.StepForUpdate(ctx, workflowsql.StepForUpdateParams{ID: req.parentStepID, RunID: req.parentRunID}))
 			if err != nil {
 				return nil, err
 			}
 			// JSONB storage spacing is not part of configuration identity. Compact
 			// without decoding numbers through float64, just as the snapshot does.
-			if step.Type != "workflow/call" || step.Stage != parent.CurrentStage || step.Status != StatusPending || step.Attempt != req.ParentStepAttempt || step.OverrideBy != "" || (req.ParentStepConfig != "" && req.ParentStepConfig != string(step.Config)) {
-				return nil, fmt.Errorf("parent call step %d is no longer runnable", req.ParentStepID)
+			if step.Type != "workflow/call" || step.Stage != parent.CurrentStage || step.Status != StatusPending || step.Attempt != req.parentStepAttempt || step.OverrideBy != "" || (req.parentStepConfig != "" && req.parentStepConfig != string(step.Config)) {
+				return nil, fmt.Errorf("parent call step %d is no longer runnable", req.parentStepID)
 			}
 			if _, err := step.Status.Transition(MoveStepStart, StatusRunning); err != nil {
 				return nil, err
@@ -158,27 +158,27 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 	if expectedAdoption != def.AdoptionID {
 		return nil, fmt.Errorf("the project's way of working changed while starting the run; start again")
 	}
-	if !req.AcceptedRunID.IsZero() {
-		superseded, err := queries.WasRunSentBack(ctx, req.AcceptedRunID)
+	if !req.acceptedRunID.IsZero() {
+		superseded, err := queries.WasRunSentBack(ctx, req.acceptedRunID)
 		if err != nil {
 			return nil, err
 		}
 		if superseded {
-			return nil, fmt.Errorf("run %d was sent back; its acceptance no longer starts landing", req.AcceptedRunID)
+			return nil, fmt.Errorf("run %d was sent back; its acceptance no longer starts landing", req.acceptedRunID)
 		}
-		valid, err := queries.IsAcceptedWorkingRun(ctx, workflowsql.IsAcceptedWorkingRunParams{ID: req.AcceptedRunID, ProjectID: req.ProjectID, ChangeID: req.ChangeID, Status: RunDone.String()})
+		valid, err := queries.IsAcceptedWorkingRun(ctx, workflowsql.IsAcceptedWorkingRunParams{ID: req.acceptedRunID, ProjectID: req.ProjectID, ChangeID: req.ChangeID, Status: RunDone.String()})
 		if err != nil {
 			return nil, err
 		}
 		if !valid {
-			return nil, fmt.Errorf("run %d is not completed work for this change", req.AcceptedRunID)
+			return nil, fmt.Errorf("run %d is not completed work for this change", req.acceptedRunID)
 		}
-		if err := queries.ReserveLanding(ctx, req.AcceptedRunID); err != nil {
+		if err := queries.ReserveLanding(ctx, req.acceptedRunID); err != nil {
 			return nil, err
 		}
 	}
 	var passed []passedLanding
-	if req.ParentRunID.IsZero() && def.Spec.Role == "landing" {
+	if req.parentRunID.IsZero() && def.Spec.Role == "landing" {
 		occupied, err := queries.HasActiveLanding(ctx, workflowsql.HasActiveLandingParams{ProjectID: req.ProjectID, Status: RunRunning.String()})
 		if err != nil {
 			return nil, err
@@ -198,7 +198,7 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 	}
 	inserted, err := queries.InsertRun(ctx, workflowsql.InsertRunParams{ID: ids.New(at), Number: number, ProjectID: req.ProjectID, WorkflowName: def.Workflow.Name,
 		WorkflowVersion: int64(def.Workflow.Version), WorkflowOrigin: def.Workflow.Origin, Kind: def.Spec.Kind, Status: RunRunning.String(),
-		CurrentStage: first, DefinitionJson: definition, ChangeID: req.ChangeID, ParentRunID: req.ParentRunID, ParentStepID: req.ParentStepID,
+		CurrentStage: first, DefinitionJson: definition, ChangeID: req.ChangeID, ParentRunID: req.parentRunID, ParentStepID: req.parentStepID,
 		InputsJson: json.RawMessage(req.InputsJSON), AdoptionID: def.AdoptionID, CreatedAt: at, UpdatedAt: at})
 	if err != nil {
 		return nil, err
@@ -214,16 +214,16 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 	}
 	// The owner is the requester, resolved at the start, or the parent's
 	// owner as the parent recorded them.
-	owner := req.Owner
+	owner := req.owner
 	if owner.Name == "" {
 		var err error
-		if owner, err = identity.ActorIn(ctx, tx, req.RequestedBy); err != nil {
+		if owner, err = identity.ActorIn(ctx, tx, req.requestedBy); err != nil {
 			return nil, err
 		}
 	}
-	parent := req.ParentRunID
+	parent := req.parentRunID
 	if parent.IsZero() {
-		parent = req.AcceptedRunID
+		parent = req.acceptedRunID
 	}
 	if !parent.IsZero() {
 		inference, err := queries.RunInferenceOwnerByID(ctx, parent)
@@ -250,7 +250,7 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 		}
 		return nil, err
 	}
-	if req.ParentRunID.IsZero() && !req.ChangeID.IsZero() {
+	if req.parentRunID.IsZero() && !req.ChangeID.IsZero() {
 		act := AttachChangeRun
 		if def.Spec.Role == "landing" {
 			act = LandChange
@@ -263,7 +263,7 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 	// and is refused while a chat, another run or a desktop checkout holds
 	// it. A landing takes nothing and only reads; it is refused while a run
 	// or a checkout holds the change, and runs beside the change's chat.
-	if req.ParentRunID.IsZero() {
+	if req.parentRunID.IsZero() {
 		if def.Spec.Role == "landing" {
 			if err := landBesideHolderIn(ctx, tx, RunRef{ID: id, ProjectID: req.ProjectID}, s.chats, s.now()); err != nil {
 				return nil, err
@@ -283,18 +283,18 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 	if _, err := s.stages.EnterIn(ctx, tx, id, &def.Spec, first, at); err != nil {
 		return nil, err
 	}
-	if req.ParentRunID.IsZero() && !req.ChangeID.IsZero() && def.Spec.Role == "landing" {
+	if req.parentRunID.IsZero() && !req.ChangeID.IsZero() && def.Spec.Role == "landing" {
 		if err := recordReceiptIn(ctx, tx, id, "change.landing", changeLandingReceipt{req.ChangeID}, at); err != nil {
 			return nil, err
 		}
 	}
-	if !req.AcceptedRunID.IsZero() {
-		if err := requireRunWrite(queries.AttachAcceptedLanding(ctx, workflowsql.AttachAcceptedLandingParams{LandingRunID: id, WorkRunID: req.AcceptedRunID})); err != nil {
+	if !req.acceptedRunID.IsZero() {
+		if err := requireRunWrite(queries.AttachAcceptedLanding(ctx, workflowsql.AttachAcceptedLandingParams{LandingRunID: id, WorkRunID: req.acceptedRunID})); err != nil {
 			return nil, err
 		}
 	}
-	if !req.ParentStepID.IsZero() {
-		if err := requireRunWrite(queries.SetParentStepAttempt(ctx, workflowsql.SetParentStepAttemptParams{ParentStepAttempt: req.ParentStepAttempt + 1, ID: id})); err != nil {
+	if !req.parentStepID.IsZero() {
+		if err := requireRunWrite(queries.SetParentStepAttempt(ctx, workflowsql.SetParentStepAttemptParams{ParentStepAttempt: req.parentStepAttempt + 1, ID: id})); err != nil {
 			return nil, err
 		}
 		evidence := calledRunEvidence{id, number, def.Workflow.Name, def.Workflow.Version, at.UnixMilli()}
@@ -302,13 +302,13 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 		if err != nil {
 			return nil, err
 		}
-		if err := requireAttemptWrite(queries.StartParentCall(ctx, workflowsql.StartParentCallParams{Status: StatusRunning.String(), StartedAt: sql.NullTime{Time: at, Valid: true}, EvidenceJson: evidenceJSON, ID: req.ParentStepID, OldStatus: StatusPending.String(), Attempt: req.ParentStepAttempt})); err != nil {
+		if err := requireAttemptWrite(queries.StartParentCall(ctx, workflowsql.StartParentCallParams{Status: StatusRunning.String(), StartedAt: sql.NullTime{Time: at, Valid: true}, EvidenceJson: evidenceJSON, ID: req.parentStepID, OldStatus: StatusPending.String(), Attempt: req.parentStepAttempt})); err != nil {
 			return nil, err
 		}
-		if err := recordReceiptIn(ctx, tx, req.ParentRunID, "step.started", stepStartedReceipt{Step: parentStepName, Stage: parentStage, Type: "workflow/call", Attempt: req.ParentStepAttempt + 1}, at); err != nil {
+		if err := recordReceiptIn(ctx, tx, req.parentRunID, "step.started", stepStartedReceipt{Step: parentStepName, Stage: parentStage, Type: "workflow/call", Attempt: req.parentStepAttempt + 1}, at); err != nil {
 			return nil, err
 		}
-		if err := recordReceiptIn(ctx, tx, req.ParentRunID, "run.called", runCalledReceipt{parentStepName, def.Workflow.Name, def.Workflow.Version, id}, at); err != nil {
+		if err := recordReceiptIn(ctx, tx, req.parentRunID, "run.called", runCalledReceipt{parentStepName, def.Workflow.Name, def.Workflow.Version, id}, at); err != nil {
 			return nil, err
 		}
 	}

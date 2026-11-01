@@ -102,7 +102,7 @@ func TestRunStarterCompletedReplayDoesNotResolveOrDispatch(t *testing.T) {
 	t.Parallel()
 	records := &startTestRecords{run: &Run{ID: idstest.N(7), Status: RunDone}, replay: true}
 	starter := &starter{records: records}
-	run, err := starter.Start(context.Background(), StartRequest{ProjectID: idstest.N(1), WorkflowName: "child", ParentRunID: idstest.N(1), ParentStepID: idstest.N(2)})
+	run, err := starter.Start(context.Background(), StartRequest{ProjectID: idstest.N(1), WorkflowName: "child", parentRunID: idstest.N(1), parentStepID: idstest.N(2)})
 	if err != nil || run.ID != idstest.N(7) || !reflect.DeepEqual(records.trace, []string{"lookup"}) {
 		t.Fatalf("replay: %+v %v %v", run, err, records.trace)
 	}

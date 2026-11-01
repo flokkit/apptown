@@ -55,7 +55,7 @@ func TestTransparentReadRevocationSurvivesStartup(t *testing.T) {
 		t.Fatal("reader retained revoked access after restart")
 	}
 	// Revocation changes the bootstrap default, not the ability to grant explicitly.
-	regranted := restarted.addGrant("group", identity.GroupAllUsers, access.RoleAuditor, "", access.ScopeInstance, "", "", "admin", "reopen reads")
+	regranted := restarted.addGrant("group", identity.GroupAllUsers, access.RoleAuditor, "", access.ScopeInstance, "", "admin", "reopen reads")
 	if regranted.IsZero() || regranted == id {
 		t.Fatal("explicit regrant did not create a new grant")
 	}

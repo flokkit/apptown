@@ -346,7 +346,7 @@ func TestAnyProjectReaderLooksAtItsChats(t *testing.T) {
 	if _, err := w.a.Access.EnsureUser(context.Background(), "auditor"); err != nil {
 		t.Fatal(err)
 	}
-	if w.a.addGrant("user", "auditor", access.RoleAuditor, "", access.ScopeInstance, "", "fixture", "boss", "").IsZero() {
+	if w.a.addGrant("user", "auditor", access.RoleAuditor, "", access.ScopeInstance, "", "boss", "").IsZero() {
 		t.Fatal("granting the auditor")
 	}
 	h := w.a.Handler()
@@ -409,7 +409,7 @@ func TestATerminalStopsTakingInputWhenItsTypistLosesTheRole(t *testing.T) {
 			}
 		}
 	}
-	if w.a.addGrant("user", "jenny", access.RoleProjectViewer, "", access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "").IsZero() {
+	if w.a.addGrant("user", "jenny", access.RoleProjectViewer, "", access.ScopeProject, idstest.N(1).String(), "boss", "").IsZero() {
 		t.Fatal("granting jenny viewer")
 	}
 	if err := conn.WriteMessage(websocket.BinaryMessage, []byte("+after")); err != nil {

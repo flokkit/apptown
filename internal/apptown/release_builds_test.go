@@ -568,7 +568,7 @@ func newReleaseWorld(t *testing.T, configure func(*Config)) *releaseWorld {
 	w.worker = &releaseWorker{Tasks: &executionfake.Tasks{}, t: t, arch: "x86_64", layouts: map[string]map[string]layoutFiles{}, released: map[string]bool{}}
 	w.a.tasks.Driver, w.a.tasks.Poll = w.worker, 20*time.Millisecond
 	if err := w.a.Integrations.Attachments.Attach(t.Context(), idstest.N(1), "container-registry", "missing",
-		fmt.Sprintf(`{"repo":%q,"username":%q,"token":%q}`, w.registry.host+"/team/p", registryUser, registryToken), integration.Entered, "test", nil); err != nil {
+		fmt.Sprintf(`{"repo":%q,"username":%q,"token":%q}`, w.registry.host+"/team/p", registryUser, registryToken), "test", nil); err != nil {
 		t.Fatal(err)
 	}
 	// The image-only declarations' images, in the project's own registry.

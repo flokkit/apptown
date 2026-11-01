@@ -273,7 +273,7 @@ func (c *Service) End(ctx context.Context, id, actor string) error {
 			log.Printf("console %s: asking for the narrative: %v", s.ID, err)
 		}
 	}
-	c.chats.Record(ctx, actor, s, "console.end", detail)
+	c.chats.RecordEnd(ctx, actor, s, detail)
 	return nil
 }
 

@@ -86,10 +86,10 @@ func stepAuthorityRunnerFixture(t *testing.T, spec schema.Spec, runners map[stri
 	projectID := workflowTestProject(t, db, "game", "G", "")
 	otherID := workflowTestProject(t, db, "other", "O", "")
 	for _, g := range []identity.Spec{
-		{SubjectType: "user", Subject: "owner", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: fmt.Sprint(projectID), Origin: "fixture", By: "boss"},
-		{SubjectType: "user", Subject: "owner", Role: access.RoleProjectMaintainer, Scope: access.ScopeProject, ScopeID: fmt.Sprint(projectID), Origin: "fixture", By: "boss"},
-		{SubjectType: "user", Subject: "outsider", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: fmt.Sprint(otherID), Origin: "fixture", By: "boss"},
-		{SubjectType: "user", Subject: "outsider", Role: access.RoleProjectMaintainer, Scope: access.ScopeProject, ScopeID: fmt.Sprint(otherID), Origin: "fixture", By: "boss"},
+		{SubjectType: "user", Subject: "owner", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: fmt.Sprint(projectID), By: "boss"},
+		{SubjectType: "user", Subject: "owner", Role: access.RoleProjectMaintainer, Scope: access.ScopeProject, ScopeID: fmt.Sprint(projectID), By: "boss"},
+		{SubjectType: "user", Subject: "outsider", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: fmt.Sprint(otherID), By: "boss"},
+		{SubjectType: "user", Subject: "outsider", Role: access.RoleProjectMaintainer, Scope: access.ScopeProject, ScopeID: fmt.Sprint(otherID), By: "boss"},
 	} {
 		if _, err := directory.Grant(context.Background(), g, ""); err != nil {
 			t.Fatal(err)
@@ -104,7 +104,7 @@ func stepAuthorityRunnerFixture(t *testing.T, spec schema.Spec, runners map[stri
 	if spec.Role == "landing" {
 		workflowName = "land"
 	}
-	run, err := admissions.Create(context.Background(), StartRequest{ProjectID: projectID, ChangeID: change.ID, WorkflowName: workflowName, InputsJSON: "{}", RequestedBy: "owner"}, PreparedRun{Workflow: DefinitionRef{Name: workflowName, Version: 1}, Spec: spec})
+	run, err := admissions.Create(context.Background(), StartRequest{ProjectID: projectID, ChangeID: change.ID, WorkflowName: workflowName, InputsJSON: "{}", requestedBy: "owner"}, PreparedRun{Workflow: DefinitionRef{Name: workflowName, Version: 1}, Spec: spec})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func stepRollbackFixture(t *testing.T) (*stepAuthorityTestRig, context.Context, 
 	if _, err := directory.EnsureUser(context.Background(), "owner"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := directory.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "owner", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: fmt.Sprint(run.ProjectID), Origin: "fixture", By: "boss"}, ""); err != nil {
+	if _, err := directory.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "owner", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: fmt.Sprint(run.ProjectID), By: "boss"}, ""); err != nil {
 		t.Fatal(err)
 	}
 	checked := access.Checked{Authority: identity.Scoped(directory, "workflow"), Projects: project.New(db, identity.Scoped(directory, "project"))}

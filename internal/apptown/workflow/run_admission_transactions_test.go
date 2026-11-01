@@ -85,8 +85,8 @@ func TestRunStartStoreChildPinCommitsBeforeExecution(t *testing.T) {
 		t.Fatal(err)
 	}
 	step := admittedStepID(t, queries{db: store.db}, parent, "call")
-	req.ParentRunID = parent.ID
-	req.ParentStepID = step
+	req.parentRunID = parent.ID
+	req.parentStepID = step
 	dbtest.FailNextStatement(t, store.db, "UPDATE steps SET status=")
 	if _, err := store.create(context.Background(), req, def); err == nil {
 		t.Fatal("child pin failure was hidden")
@@ -166,7 +166,7 @@ func TestRunStartStoreConcurrentAcceptedLanding(t *testing.T) {
 			t.Fatalf("stored run transition: rows=%d err=%v", rows, err)
 		}
 	}
-	req.AcceptedRunID = work.ID
+	req.acceptedRunID = work.ID
 	def.Spec.Role = "landing"
 	runIDs := make([]ids.ID, 8)
 	race(8, func(i int) int {
@@ -220,7 +220,7 @@ func TestRunStartRetriedCallCreatesNewChildAttempt(t *testing.T) {
 		t.Fatal(err)
 	}
 	step := admittedStepID(t, queries{db: store.db}, parent, "call")
-	req.ParentRunID, req.ParentStepID = parent.ID, step
+	req.parentRunID, req.parentStepID = parent.ID, step
 	child, err := store.create(context.Background(), req, def)
 	if err != nil {
 		t.Fatal(err)
@@ -249,7 +249,7 @@ func TestRunStartRetriedCallCreatesNewChildAttempt(t *testing.T) {
 	if _, err := newStepRetries(store.db, []string{"workflow/call"}).retryExpected(context.Background(), retryIntent{RetryCommand: RetryCommand{StepID: step}, Actor: commandActor{Receipt: "alice"}}, nil); err != nil {
 		t.Fatal(err)
 	}
-	req.ParentStepAttempt = child.ParentStepAttempt
+	req.parentStepAttempt = child.ParentStepAttempt
 	second, err := store.create(context.Background(), req, def)
 	if err != nil {
 		t.Fatal(err)
@@ -284,8 +284,8 @@ func TestRunStartChildConfigPreservesExactIdentity(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			req.ParentRunID, req.ParentStepID = parent.ID, id
-			req.ParentStepConfig = string(step.Config)
+			req.parentRunID, req.parentStepID = parent.ID, id
+			req.parentStepConfig = string(step.Config)
 			if changed {
 				if err := requireAttemptWrite(workflowsql.New(store.db.SQL()).RetryStep(context.Background(), workflowsql.RetryStepParams{ID: id, Attempt: step.Attempt, ConfigJson: []byte(`{"workflow":"child","value":9007199254740992}`)})); err != nil {
 					t.Fatal(err)
@@ -320,7 +320,7 @@ func TestRunStartRejectsSuppressedParentAdmission(t *testing.T) {
 		t.Fatal(err)
 	}
 	step := admittedStepID(t, queries{db: store.db}, parent, "call")
-	req.ParentRunID, req.ParentStepID = parent.ID, step
+	req.parentRunID, req.parentStepID = parent.ID, step
 	completionExec(t, store.db, `CREATE FUNCTION suppress_call() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.type='workflow/call' THEN RETURN NULL; END IF; RETURN NEW; END $$`)
 	completionExec(t, store.db, `CREATE TRIGGER suppress_call BEFORE UPDATE ON steps FOR EACH ROW EXECUTE FUNCTION suppress_call()`)
 	child, err := store.create(context.Background(), req, def)
@@ -341,7 +341,7 @@ func TestInferenceOwnerInheritedBeforeChildDispatch(t *testing.T) {
 	admissions, req, def := runAdmissionFixture(t)
 	store := admissions.records
 	def.Spec.Stages[0].Steps = []schema.Step{{Name: "call", Uses: "workflow/call"}}
-	req.RequestedBy = "alice"
+	req.requestedBy = "alice"
 	parent, err := store.create(context.Background(), req, def)
 	if err != nil {
 		t.Fatal(err)
@@ -350,7 +350,7 @@ func TestInferenceOwnerInheritedBeforeChildDispatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	step := admittedStepID(t, queries{db: store.db}, parent, "call")
-	req.ParentRunID, req.ParentStepID, req.RequestedBy = parent.ID, step, "untrusted-child-actor"
+	req.parentRunID, req.parentStepID, req.requestedBy = parent.ID, step, "untrusted-child-actor"
 	child, err := store.create(context.Background(), req, def)
 	if err != nil {
 		t.Fatal(err)
@@ -376,8 +376,8 @@ func TestAbandonmentRacesRunCreation(t *testing.T) {
 				if err := s.prepared(context.Background(), parent.ID); err != nil {
 					t.Fatal(err)
 				}
-				req.ParentRunID = parent.ID
-				req.ParentStepID = admittedStepID(t, queries{db: s.db}, parent, "call")
+				req.parentRunID = parent.ID
+				req.parentStepID = admittedStepID(t, queries{db: s.db}, parent, "call")
 				stop = Abandonment{RunID: parent.ID}
 			}
 			race(2, func(i int) int {

@@ -40,7 +40,7 @@ guidance: "Use the mailer, do not print to stdout."`
 	if _, err := s.Bindings.Save(context.Background(), "smtp", "mailer", "service", `{"host":"smtp.internal"}`, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Attachments.Attach(t.Context(), id, "mailer", "smtp", `{"domain":"shop.example"}`, integration.Provisioned, "fixture", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, "mailer", "smtp", `{"domain":"shop.example"}`, "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
 	doc := instructionsFor(t, db, s, id)
@@ -70,7 +70,7 @@ func TestIntegrationInstructionsSayHowAnAppGetsAIModels(t *testing.T) {
 	if _, err := s.Bindings.Save(context.Background(), "openrouter", integration.CapLLM, "openrouter", `{"provisioningKeyFrom":["OPENROUTER_PROVISIONING_KEY"],"maxLimit":5}`, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Attachments.Attach(t.Context(), id, integration.CapLLM, "openrouter", "{}", integration.Entered, "fixture", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, integration.CapLLM, "openrouter", "{}", "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
 	doc := instructionsFor(t, db, s, id)

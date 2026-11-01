@@ -29,7 +29,7 @@ func TestPendingStepsUsesOneScopedReadForAnyBatch(t *testing.T) {
 					t.Fatal(err)
 				}
 				admissions := newRunAdmissions(q.db, NewStages(nil, func(kind string) bool { return kind == "script" }), nil)
-				admitted, err := admissions.Create(context.Background(), StartRequest{ProjectID: run.ProjectID, ChangeID: change.ID, WorkflowName: "bulk", InputsJSON: "{}", RequestedBy: "operator"}, PreparedRun{Workflow: DefinitionRef{Name: "bulk", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "current"}}}})
+				admitted, err := admissions.Create(context.Background(), StartRequest{ProjectID: run.ProjectID, ChangeID: change.ID, WorkflowName: "bulk", InputsJSON: "{}", requestedBy: "operator"}, PreparedRun{Workflow: DefinitionRef{Name: "bulk", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "current"}}}})
 				if err != nil {
 					t.Fatal(err)
 				}

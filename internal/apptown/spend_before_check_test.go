@@ -21,7 +21,7 @@ func viewerAndContributor(t *testing.T, a *App) {
 		if _, err := a.Access.EnsureUser(context.Background(), who); err != nil {
 			t.Fatal(err)
 		}
-		if a.addGrant("user", who, role, "", access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "").IsZero() {
+		if a.addGrant("user", who, role, "", access.ScopeProject, idstest.N(1).String(), "boss", "").IsZero() {
 			t.Fatalf("granting %s %s", who, role)
 		}
 	}

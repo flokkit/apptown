@@ -12,7 +12,7 @@ import (
 func TestBackupLockReleaseDoesNotDependOnInheritedDescriptorLifetime(t *testing.T) {
 	t.Parallel()
 	root := filepath.Join(t.TempDir(), "backups")
-	held, err := LockBackupFiles(root, false)
+	held, err := lockBackupFiles(root, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,14 +26,14 @@ func TestBackupLockReleaseDoesNotDependOnInheritedDescriptorLifetime(t *testing.
 	syscall.CloseOnExec(fd)
 	inherited := os.NewFile(uintptr(fd), "inherited-backup-lock")
 	defer inherited.Close()
-	if other, err := LockBackupFiles(root, true); err == nil {
+	if other, err := lockBackupFiles(root, true); err == nil {
 		other.Close()
 		t.Fatal("restore did not exclude pruning")
 	}
 	if err := held.Close(); err != nil {
 		t.Fatal(err)
 	}
-	pruning, err := LockBackupFiles(root, true)
+	pruning, err := lockBackupFiles(root, true)
 	if err != nil {
 		t.Fatalf("finished restore's duplicate retained its lock: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestBackupLockReleaseDoesNotDependOnInheritedDescriptorLifetime(t *testing.
 	if err := held.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if other, err := LockBackupFiles(root, true); err == nil {
+	if other, err := lockBackupFiles(root, true); err == nil {
 		other.Close()
 		t.Fatal("old owner released a new owner's lock")
 	}
@@ -51,12 +51,12 @@ func TestBackupLockReleaseDoesNotDependOnInheritedDescriptorLifetime(t *testing.
 func TestBackupLockReleasePreservesOtherRestores(t *testing.T) {
 	t.Parallel()
 	root := filepath.Join(t.TempDir(), "backups")
-	first, err := LockBackupFiles(root, false)
+	first, err := lockBackupFiles(root, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer first.Close()
-	second, err := LockBackupFiles(root, false)
+	second, err := lockBackupFiles(root, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,14 +64,14 @@ func TestBackupLockReleasePreservesOtherRestores(t *testing.T) {
 	if err := first.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if pruning, err := LockBackupFiles(root, true); err == nil {
+	if pruning, err := lockBackupFiles(root, true); err == nil {
 		pruning.Close()
 		t.Fatal("first restore released the second restore's lock")
 	}
 	if err := second.Close(); err != nil {
 		t.Fatal(err)
 	}
-	pruning, err := LockBackupFiles(root, true)
+	pruning, err := lockBackupFiles(root, true)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -45,7 +45,7 @@ func TestBindingsVersionsAndRules(t *testing.T) {
 	}
 	projectID := createTestProject(t, db, "p", "P")
 	attachments := NewAttachments(db)
-	if err := attachments.Attach(t.Context(), projectID, "scanner", "mine", `{}`, Entered, "alice", nil); err != nil {
+	if err := attachments.Attach(t.Context(), projectID, "scanner", "mine", `{}`, "alice", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := bs.Delete(t.Context(), "mine", "alice"); !errors.Is(err, ErrAttached) {
@@ -69,7 +69,7 @@ func TestBindingsVersionsAndRules(t *testing.T) {
 	if err := kinds.Save(context.Background(), "cache", "capability: cache\ntitle: Cache\n", "Cache", "alice"); err != nil {
 		t.Fatal(err)
 	}
-	if err := attachments.Attach(t.Context(), projectID, "cache", "redis", `{}`, Entered, "alice", nil); err != nil {
+	if err := attachments.Attach(t.Context(), projectID, "cache", "redis", `{}`, "alice", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := kinds.Delete(t.Context(), "cache", "alice"); !errors.Is(err, ErrInUse) {
@@ -85,10 +85,26 @@ func TestAttachmentsRulesAndReceipts(t *testing.T) {
 	db := testDB(t)
 	at := NewAttachments(db)
 	p := createTestProject(t, db, "att", "Att")
-	if err := at.Attach(t.Context(), p, "errors", "glitchtip", `{"dsn":"x"}`, "", "alice", nil); err == nil {
+	if err := at.Attach(t.Context(), p, "mailer", "smtp", `{}`, "alice", map[string]any{"provenance": "provisioned", "connector": "forged"}); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := AttachedRows(t.Context(), db, p)
+	if err != nil || len(rows) != 1 || rows[0].Provenance != string(Entered) {
+		t.Fatalf("entered attachment: %+v %v", rows, err)
+	}
+	receipts := integrationReceipts(t, db, "integration.attached", "mailer")
+	var entered map[string]any
+	if len(receipts) != 1 {
+		t.Fatalf("entered receipt: %+v", receipts)
+	}
+	if err := json.Unmarshal(receipts[0].Payload, &entered); err != nil || entered["provenance"] != "entered" || entered["connector"] != "smtp" {
+		t.Fatalf("entered receipt: %s %v", receipts[0].Payload, err)
+	}
+
+	if err := at.attach(t.Context(), p, "errors", "glitchtip", `{"dsn":"x"}`, "", "alice", nil); err == nil {
 		t.Fatal("an attachment without a provenance was recorded")
 	}
-	if err := at.Attach(t.Context(), p, "errors", "glitchtip", `{"dsn":"x"}`, Provisioned, "alice", map[string]any{"providerProject": "att"}); err != nil {
+	if err := at.attach(t.Context(), p, "errors", "glitchtip", `{"dsn":"x"}`, Provisioned, "alice", map[string]any{"providerProject": "att"}); err != nil {
 		t.Fatal(err)
 	}
 	attached := integrationReceipts(t, db, "integration.attached", "errors")

@@ -209,15 +209,15 @@ func TestALandingInAnEvalsCopyCarriesTheEvalsAuthority(t *testing.T) {
 	evalCopyForTest(t, db, copy7, idstest.N(7))
 	authority := evalAuthorityOf(idstest.N(7), "bls")
 	work := evalRunForTest(t, db, copy7, ids.Nil, authority)
-	if got, err := acceptedEvalAuthorityIn(ctx, db, StartRequest{ProjectID: copy7, AcceptedRunID: work.ID}); err != nil || got != authority {
+	if got, err := acceptedEvalAuthorityIn(ctx, db, StartRequest{ProjectID: copy7, acceptedRunID: work.ID}); err != nil || got != authority {
 		t.Fatalf("in the copy: %q %v", got, err)
 	}
 	elsewhere := evalRunForTest(t, db, real, ids.Nil, authority)
-	if got, err := acceptedEvalAuthorityIn(ctx, db, StartRequest{ProjectID: real, AcceptedRunID: elsewhere.ID}); err != nil || got != "" {
+	if got, err := acceptedEvalAuthorityIn(ctx, db, StartRequest{ProjectID: real, acceptedRunID: elsewhere.ID}); err != nil || got != "" {
 		t.Fatalf("outside the copies: %q %v", got, err)
 	}
 	person := evalRunForTest(t, db, copy7, ids.Nil, "lander")
-	if got, err := acceptedEvalAuthorityIn(ctx, db, StartRequest{ProjectID: copy7, AcceptedRunID: person.ID}); err != nil || got != "" {
+	if got, err := acceptedEvalAuthorityIn(ctx, db, StartRequest{ProjectID: copy7, acceptedRunID: person.ID}); err != nil || got != "" {
 		t.Fatalf("a person's authority is not carried this way: %q %v", got, err)
 	}
 }

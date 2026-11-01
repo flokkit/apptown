@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -528,7 +529,7 @@ func TestABackupHoldsNewWorkAndTheBackupFilesAcrossTheDumpAndTheCopy(t *testing.
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 		defer cancel()
 		heldDuring = errors.Is(a.newWork.Wait(ctx), context.DeadlineExceeded)
-		mover, err := dataprotection.LockBackupFiles(filepath.Join(a.cfg.dataDir, "backups"), true)
+		mover, err := exclusiveBackupFiles(filepath.Join(a.cfg.dataDir, "backups"))
 		lockedDuring = err != nil
 		if mover != nil {
 			mover.Close()
@@ -548,7 +549,7 @@ func TestABackupHoldsNewWorkAndTheBackupFilesAcrossTheDumpAndTheCopy(t *testing.
 	if err := a.newWork.Wait(t.Context()); err != nil {
 		t.Fatal("new work is still held after the backup")
 	}
-	if l, err := dataprotection.LockBackupFiles(filepath.Join(a.cfg.dataDir, "backups"), true); err != nil {
+	if l, err := exclusiveBackupFiles(filepath.Join(a.cfg.dataDir, "backups")); err != nil {
 		t.Fatalf("the backup files are still locked: %v", err)
 	} else {
 		l.Close()
@@ -648,7 +649,7 @@ func TestABackupRefusesBeforeItDumps(t *testing.T) {
 			case "no store":
 				in.ToStore = true
 			case "files busy":
-				mover, err := dataprotection.LockBackupFiles(filepath.Join(a.cfg.dataDir, "backups"), true)
+				mover, err := exclusiveBackupFiles(filepath.Join(a.cfg.dataDir, "backups"))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -978,4 +979,16 @@ func TestADumpTaskWhoseEnsureFailedIsReleased(t *testing.T) {
 	if !tasks.released() {
 		t.Fatal("an interrupted Ensure left its task")
 	}
+}
+
+// An independent process holding the retention lock must exclude an archive.
+func exclusiveBackupFiles(directory string) (io.Closer, error) {
+	f, err := os.OpenFile(filepath.Clean(directory)+".retention.lock", os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		return nil, errors.Join(err, f.Close())
+	}
+	return f, nil
 }

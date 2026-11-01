@@ -36,7 +36,7 @@ func (s runAdmissions) Source(ctx context.Context, in StartRequest) (StartSource
 			return out, err
 		}
 	}
-	if in.ParentRunID.IsZero() && out.Change != nil {
+	if in.parentRunID.IsZero() && out.Change != nil {
 		if !out.Change.State.CanRun() {
 			return out, fmt.Errorf("change #%d is %s — only in-progress changes take runs", out.Change.ID, out.Change.State)
 		}
@@ -45,7 +45,7 @@ func (s runAdmissions) Source(ctx context.Context, in StartRequest) (StartSource
 			return out, database.Missing(err)
 		}
 		for _, run := range flights {
-			if in.AcceptedRunID.IsZero() && run.Role == "landing" && run.Active == 0 && run.Failed > 0 {
+			if in.acceptedRunID.IsZero() && run.Role == "landing" && run.Active == 0 && run.Failed > 0 {
 				out.Superseded = append(out.Superseded, RunRef{ID: run.ID, ProjectID: in.ProjectID})
 			} else {
 				return out, fmt.Errorf("change #%d already has a run in flight (run %d)", in.ChangeID, run.ID)
@@ -56,15 +56,15 @@ func (s runAdmissions) Source(ctx context.Context, in StartRequest) (StartSource
 	if err != nil {
 		return out, err
 	}
-	if !in.ParentRunID.IsZero() {
-		parent, err := readScopedRun(ctx, tx, in.ParentRunID, in.ProjectID)
+	if !in.parentRunID.IsZero() {
+		parent, err := readScopedRun(ctx, tx, in.parentRunID, in.ProjectID)
 		if err != nil {
 			return out, err
 		}
 		if parent.ChangeID != in.ChangeID {
 			return out, fmt.Errorf("parent run belongs to another change")
 		}
-		source, err := ReadSourceIn(ctx, tx, RunRef{ID: in.ParentRunID, ProjectID: in.ProjectID})
+		source, err := ReadSourceIn(ctx, tx, RunRef{ID: in.parentRunID, ProjectID: in.ProjectID})
 		if err != nil {
 			return out, err
 		}
@@ -83,14 +83,14 @@ func (s runAdmissions) Source(ctx context.Context, in StartRequest) (StartSource
 func startAdoption(ctx context.Context, db database.Queryer, in StartRequest) (ids.ID, error) {
 	var id ids.ID
 	switch {
-	case !in.ParentRunID.IsZero():
+	case !in.parentRunID.IsZero():
 		var err error
-		id, err = workflowsql.New(db.SQL()).ParentRunAdoptionMeta(ctx, workflowsql.ParentRunAdoptionMetaParams{ID: in.ParentRunID, ProjectID: in.ProjectID})
+		id, err = workflowsql.New(db.SQL()).ParentRunAdoptionMeta(ctx, workflowsql.ParentRunAdoptionMetaParams{ID: in.parentRunID, ProjectID: in.ProjectID})
 		if err != nil {
 			return ids.Nil, database.Missing(err)
 		}
 		if id.IsZero() {
-			return ids.Nil, fmt.Errorf("parent run %d has no recorded adoption", in.ParentRunID)
+			return ids.Nil, fmt.Errorf("parent run %d has no recorded adoption", in.parentRunID)
 		}
 		return id, nil
 	case !in.ChangeID.IsZero():

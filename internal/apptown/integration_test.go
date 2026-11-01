@@ -598,7 +598,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 	// Admit real consent through its owner before archiving. The fixed procedure
 	// collaborator isolates restore provenance from workflow selection (covered
 	// separately); identity, grant checks, revision storage and archive are real.
-	if _, err := app.Access.Grant(ctx, identity.Spec{SubjectType: "user", Subject: "restore-fixture", Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, Origin: "fixture", By: "restore-fixture"}, ""); err != nil {
+	if _, err := app.Access.Grant(ctx, identity.Spec{SubjectType: "user", Subject: "restore-fixture", Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, By: "restore-fixture"}, ""); err != nil {
 		t.Fatal(err)
 	}
 	consentCtx := access.WithCaller(ctx, access.Caller{Verified: true, Principal: access.Principal{ID: testPrincipalOf(t, db, "restore-fixture"), Kind: "user", Name: "restore-fixture", Via: "session"}})

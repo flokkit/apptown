@@ -106,7 +106,7 @@ const preparedContract = "version: 1\napp:\n  web:\n    build: .\n    ports: [\"
 func bootOnce(t *testing.T, deps Dependencies, c *appcontract.Contract, ws string, at time.Time) []string {
 	t.Helper()
 	client := &recordingClient{}
-	if _, err := NewHost(deps).Boot(context.Background(), BootRequest{Docker: Scope{Client: client, Now: func() time.Time { return at }}, Name: "apptown-preview-change-1", StackID: "pvsnap-change-1",
+	if _, err := NewHost(deps).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client, Now: func() time.Time { return at }}, Name: "apptown-preview-change-1", StackID: "pvsnap-change-1",
 		Workspace: ws, Slug: "app", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir()}, c); err != nil {
 		t.Fatalf("boot: %v\n%s", err, strings.Join(client.calls, "\n"))
 	}
@@ -305,7 +305,7 @@ func TestPreparedValuesBelongToTheirContract(t *testing.T) {
 	if q.Public().Digest() == p.Public().Digest() {
 		t.Fatal("another contract with the same answers has the same digest")
 	}
-	_, err = NewHost(sent.Dependencies(upProbe{}, testImages())).Boot(context.Background(), BootRequest{Docker: Scope{Client: &recordingClient{}}, Name: "apptown-preview-change-1",
+	_, err = NewHost(sent.Dependencies(upProbe{}, testImages())).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: &recordingClient{}}, Name: "apptown-preview-change-1",
 		StackID: "pvsnap-change-1", Workspace: ws, Slug: "app", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir()}, other)
 	if err == nil || AsBootError(err).Phase != PhaseSecrets {
 		t.Fatalf("another contract booted with these values: %v", err)

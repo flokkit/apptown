@@ -131,7 +131,7 @@ func markLandingAuthorityIn(ctx context.Context, tx *database.Tx, runID ids.ID, 
 // landingBy is the verified caller's receipt name when they hold
 // change:land on the change, "" otherwise. Asking writes no receipt.
 func (s *Service) landingBy(ctx context.Context, req StartRequest) string {
-	if !req.ParentRunID.IsZero() || req.ChangeID.IsZero() {
+	if !req.parentRunID.IsZero() || req.ChangeID.IsZero() {
 		return ""
 	}
 	actor, err := s.requireActor(ctx, operationPermission{Action: actionLandUnassented, ProjectID: req.ProjectID, ChangeID: req.ChangeID})

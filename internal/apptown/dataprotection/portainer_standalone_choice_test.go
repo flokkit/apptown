@@ -201,7 +201,7 @@ func TestDefaultPortainerReleaseRemovalRevokesOnlyItsIssuedKey(t *testing.T) {
 	if _, err := w.integrations.Bindings.Save(t.Context(), "openrouter", integration.CapLLM, "openrouter", `{"url":"`+keys.Base+`","provisioningKeyFrom":["OPENROUTER_PROVISIONING_KEY"],"maxLimit":5,"previewLimit":1}`, "alice"); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.integrations.Attachments.Attach(t.Context(), w.project, integration.CapLLM, "openrouter", "{}", integration.Entered, "alice", nil); err != nil {
+	if err := w.integrations.Attachments.Attach(t.Context(), w.project, integration.CapLLM, "openrouter", "{}", "alice", nil); err != nil {
 		t.Fatal(err)
 	}
 	target, err := w.s.AttachPortainerTarget(t.Context(), deployment.PortainerAttachment{Name: "customer-platform", EndpointID: 3, Environment: "customers", URLFrom: "CUSTOMER_URL", APIKeyFrom: "CUSTOMER_KEY", Domain: "customers.example"})

@@ -48,7 +48,7 @@ func TestRetainedSettlementChecksAuthorityAndHTTPOutcome(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, cap := range []access.Capability{access.CapDeploymentBind, access.CapDeploymentTeardown} {
-		a.addGrant("user", "owner", "", string(cap), access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
+		a.addGrant("user", "owner", "", string(cap), access.ScopeProject, idstest.N(1).String(), "boss", "")
 	}
 	ctx := verifiedContext(context.Background(), access.Principal{Kind: "user", Name: "owner", Via: "session"})
 	configured, err := a.Deployment.Configure(ctx, deployment.ConfigureDeployment{ProjectID: idstest.N(1), Name: "staging", Target: target.Name})

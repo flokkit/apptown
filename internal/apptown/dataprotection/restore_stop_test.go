@@ -60,7 +60,7 @@ func TestARestoreWritesNothingUnlessEveryPartIsStopped(t *testing.T) {
 		}
 		return nil, nil
 	})
-	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func TestARestoreNamesAPartThatIsNotThere(t *testing.T) {
 		}
 		return nil, nil
 	})
-	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +188,7 @@ func TestARestoreStartsAgainOnlyWhatItStopped(t *testing.T) {
 		lifecycle = append(lifecycle, strings.Join(req.Args, " "))
 		return nil, nil
 	})
-	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +233,7 @@ func TestARestoreOperationFailsAndNamesAPartThatIsNotThere(t *testing.T) {
 		}
 		return nil, nil
 	})
-	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 	if err != nil {
 		t.Fatal(err)
 	}

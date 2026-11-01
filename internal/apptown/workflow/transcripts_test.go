@@ -48,7 +48,7 @@ func transcriptProjectIn(t *testing.T, db *database.DB, slug string) *transcript
 	project := workflowTestProject(t, db, slug, slug, "")
 	change := admissionTestChange(t, db, project, "another change")
 	admissions := newRunAdmissions(db, NewStages(nil, func(kind string) bool { return kind == "agent/pi" }), nil)
-	run, err := admissions.Create(context.Background(), StartRequest{ProjectID: project, ChangeID: change, WorkflowName: "test", InputsJSON: "{}", RequestedBy: "operator"},
+	run, err := admissions.Create(context.Background(), StartRequest{ProjectID: project, ChangeID: change, WorkflowName: "test", InputsJSON: "{}", requestedBy: "operator"},
 		PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: transcriptSpec()})
 	if err != nil {
 		t.Fatal(err)

@@ -22,7 +22,7 @@ func runAdmissionFixture(t *testing.T) (runAdmissions, StartRequest, PreparedRun
 	db := testDB(t)
 	project := workflowTestProject(t, db, "admission", "Admission", "")
 	change := admissionTestChange(t, db, project, "work")
-	request := StartRequest{ProjectID: project, ChangeID: change, WorkflowName: "test", InputsJSON: `{"precise":9007199254740993}`, RequestedBy: "operator"}
+	request := StartRequest{ProjectID: project, ChangeID: change, WorkflowName: "test", InputsJSON: `{"precise":9007199254740993}`, requestedBy: "operator"}
 	def := PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 2, Origin: "library/test@2"}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "first", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}}
 	return newRunAdmissions(db, NewStages(nil, func(kind string) bool { return kind == "script" }), nil), request, def
 }
@@ -183,7 +183,7 @@ func TestRunAdmissionRequiresOwnershipReadinessAndRelationshipWrites(t *testing.
 					t.Fatal(err)
 				}
 				transitionStoredRunForTest(t, db, parent.ID, "", RunDone)
-				req.AcceptedRunID = parent.ID
+				req.acceptedRunID = parent.ID
 				def.Spec.Role = "landing"
 				table, event = "workflow_landings", "UPDATE"
 				before = 1
@@ -197,7 +197,7 @@ func TestRunAdmissionRequiresOwnershipReadinessAndRelationshipWrites(t *testing.
 					t.Fatal(err)
 				}
 				step := admittedStepID(t, queries{db: db}, parent, "call")
-				req.ParentRunID, req.ParentStepID = parent.ID, step
+				req.parentRunID, req.parentStepID = parent.ID, step
 				table, event, condition = "runs", "UPDATE", "NEW.parent_step_attempt>0"
 				before = 1
 			}
@@ -352,7 +352,7 @@ func TestWorkflowReplayLookupUsesOneRead(t *testing.T) {
 		t.Fatalf("attach replay landing: changed=%d %v", changed, err)
 	}
 	ctx := context.Background()
-	for _, req := range []StartRequest{{AcceptedRunID: working, ProjectID: project}, {ParentRunID: working, ParentStepID: idstest.N(7), ParentStepAttempt: 2, ProjectID: project}} {
+	for _, req := range []StartRequest{{acceptedRunID: working, ProjectID: project}, {parentRunID: working, parentStepID: idstest.N(7), parentStepAttempt: 2, ProjectID: project}} {
 		counted := &countedQueries{Handle: db.SQL()}
 		run, err := existingStartedRun(ctx, counted, req)
 		if err != nil || run == nil || run.ID != child || run.WorkflowVersion != 2 || counted.reads != 1 {

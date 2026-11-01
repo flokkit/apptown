@@ -309,7 +309,7 @@ func TestAnObjectOnlyDeploymentWithNoStoreKeepsItsBucket(t *testing.T) {
 func TestAnAppPlatformReleaseSaysWhichIntegrationsItDoesNotDeliver(t *testing.T) {
 	t.Parallel()
 	w := newDataWorld(t)
-	if err := w.integrations.Attachments.Attach(context.Background(), w.project, integration.CapErrors, "", `{"dsn":"https://pub@errors.test/7"}`, integration.Entered, "owner", nil); err != nil {
+	if err := w.integrations.Attachments.Attach(context.Background(), w.project, integration.CapErrors, "", `{"dsn":"https://pub@errors.test/7"}`, "owner", nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.bind(w.project, "prod", "non-production", ids.Nil); err != nil {

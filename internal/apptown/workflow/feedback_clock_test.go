@@ -223,7 +223,7 @@ func TestARunsAndChangesOwnTimesAreAppTownsClock(t *testing.T) {
 	}
 	admissions := newRunAdmissions(db, NewStages(nil, func(string) bool { return false }), nil)
 	admissions.records.clocked = clocked{now}
-	run, err := admissions.Create(ctx, StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: "test", InputsJSON: "{}", RequestedBy: "operator"},
+	run, err := admissions.Create(ctx, StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "operator"},
 		PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "finish"}}}})
 	if err != nil {
 		t.Fatal(err)
