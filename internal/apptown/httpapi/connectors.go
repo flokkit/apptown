@@ -184,7 +184,7 @@ func (h Connectors) SaveIntegration(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.deployment.SeedCloudTargets(r.Context(), actor(r)) // a new cloud account offers its target; a changed one refreshes it
-		WriteJSON(w, 200, IntegrationSaved{OK: true, Health: h.health.Test(r.Context(), in.Capability, in.Provider, in.Config).ForDisplay()})
+		WriteJSON(w, 200, IntegrationSaved{OK: true, Health: integration.Health{Automatic: true, StateLabel: integration.HealthUnknown, Detail: "Waiting for the first background check."}})
 	})
 }
 
@@ -202,7 +202,7 @@ func (h Connectors) DeleteIntegration(w http.ResponseWriter, r *http.Request) {
 }
 
 type connectorHealth interface {
-	integration.BindingTester
+	integration.HealthChecker
 	Test(ctx context.Context, capability, provider string, config map[string]any) integration.Health
 	Health(ctx context.Context, capability, provider string, secretEnv []string) integration.Health
 	// Testable: Test connection asks the kind's service with its configuration.

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -48,8 +49,11 @@ const copyCadence = 24 * time.Hour
 
 // Protection is a deployment's protection.
 type Protection struct {
-	Deployment string `json:"deployment"`
-	DataClass  string `json:"dataClass"`
+	plan       []BackupPlanItem
+	planNote   string
+	Reading    deployment.DetailReading `json:"reading"`
+	Deployment string                   `json:"deployment"`
+	DataClass  string                   `json:"dataClass"`
 	// OffHost says AppTown keeps this deployment's copies off its host,
 	// in the attached backup store. Production data without it reads
 	// "not protected off-host".
@@ -281,7 +285,7 @@ type DrillRef struct {
 // DeploymentProtection reads a standing deployment's protection now, with
 // what it covers: unknown held data leaves the deployment's own data not
 // assessed, and data outside the deployment is never assessed.
-func (s *Service) DeploymentProtection(ctx context.Context, projectID ids.ID, name string) (*Protection, error) {
+func (s *Service) collectProtection(ctx context.Context, projectID ids.ID, name string) (*Protection, error) {
 	out, err := s.protection(ctx, projectID, name)
 	if err != nil {
 		return nil, err
@@ -305,39 +309,11 @@ func (s *Service) protection(ctx context.Context, projectID ids.ID, name string)
 	}
 	out := &Protection{Deployment: dep.Name, DataClass: dep.DataClass, Target: t.Name, Items: []ItemProtection{},
 		Coverage: Coverage{Assessed: []string{}, NotAssessed: []string{}}}
-	if !dep.StartFrom.IsZero() {
-		out.StartFrom = &StartedFromCopy{Backup: dep.StartFrom, Filled: dep.StartedFrom}
-	}
-	// The operations and drills shown are this deployment's, by its id: a
-	// deployment re-created under the name of one taken down does not
-	// show the old one's as its own.
-	out.Recent = []operations.Operation{}
-	if s.ops != nil {
-		if out.Running, err = s.ops.LiveOn(ctx, deployment.SubjectOf(dep)); err != nil {
-			return nil, err
-		}
-		if out.Recent, err = s.ops.OnSubject(ctx, deployment.SubjectOf(dep), 5); err != nil {
-			return nil, err
-		}
-	}
-	if out.Rehearsal, err = s.lastRehearsalOf(ctx, dep); err != nil {
+	if err := s.localProtection(ctx, out, dep); err != nil {
 		return nil, err
 	}
-	if out.Rehearsal == nil {
-		out.RehearsalNote = "never rehearsed"
-		if _, _, err := s.rehearsalHost(ctx, dep); errors.Is(err, errNoRehearsalHost) {
-			out.RehearsalNote = "never rehearsed: no rehearsal place"
-		}
-	}
-	if out.RestoreTest, err = s.lastRestoreTest(ctx, dep); err != nil {
-		return nil, err
-	}
-	if out.RestoreTest == nil {
-		out.RestoreTestNote = "never tested on its platform"
-	}
-	if out.RestoredCopies, err = s.restoredCopiesOf(ctx, dep, 5); err != nil {
-		return nil, err
-	}
+	out.plan = displayBackupPlan(items)
+
 	store, err := s.Store(ctx)
 	if err != nil {
 		return nil, err
@@ -568,11 +544,18 @@ func (s *Service) dockerProtection(ctx context.Context, out *Protection, dep *de
 	plan, err := s.heldPlan(ctx, dep.ProjectID, p.Slug, dep.Name)
 	switch {
 	case errors.Is(err, errNothingToBackUp):
+		out.plan = []BackupPlanItem{}
+		out.planNote = err.Error()
 		return nil // known to hold no data: nothing to say
 	case err != nil:
 		out.Unknown = err.Error() // not read, or named and not there: never shown as nothing
 		return nil
 	}
+	out.plan = displayBackupPlan(plan)
+	return s.dockerProtectionFromPlan(ctx, out, dep, t, hasStore, plan)
+}
+
+func (s *Service) dockerProtectionFromPlan(ctx context.Context, out *Protection, dep *deployment.Deployment, t *deployment.Target, hasStore bool, plan []backupPlanItem) error {
 	sets, err := s.backups.ForDeployment(ctx, dep.ProjectID, dep.Name, 50)
 	if err != nil {
 		return err
@@ -661,4 +644,128 @@ func (v Coverage) MarshalJSON() ([]byte, error) {
 		out.NotAssessed = []string{}
 	}
 	return json.Marshal(out)
+}
+
+// DeploymentProtection reads the protection job's result for the current placement.
+func (s *Service) DeploymentProtection(ctx context.Context, projectID ids.ID, name string) (*Protection, error) {
+	dep, err := s.deployments.ByName(ctx, projectID, name)
+	if err != nil {
+		return nil, err
+	}
+	observer := NewProtectionObserver(s, nil)
+	reading, err := observer.Snapshot(ctx, dep.ID)
+	if err != nil {
+		return nil, err
+	}
+	out := reading.Protection
+	if out == nil {
+		out = &Protection{Deployment: name, DataClass: dep.DataClass, Items: []ItemProtection{}, Coverage: Coverage{NotAssessed: []string{outsideNotAssessed}}}
+	}
+	if err := s.localProtection(ctx, out, dep); err != nil {
+		return nil, err
+	}
+	target, err := s.targets.ByID(ctx, dep.TargetID)
+	if err != nil {
+		return nil, err
+	}
+	if target.HoldsBackups() == nil && reading.Protection != nil {
+		plan := make([]backupPlanItem, 0, len(reading.Plan))
+		for _, it := range reading.Plan {
+			p := backupPlanItem{Kind: it.Kind, Name: it.Name, Volume: it.Volume}
+			if strings.HasPrefix(it.How, "not copied: ") {
+				p.Unresolved = it.How
+			}
+			plan = append(plan, p)
+		}
+		store, err := s.store(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out.Items = []ItemProtection{}
+		out.Coverage = Coverage{Assessed: []string{}, NotAssessed: []string{outsideNotAssessed}}
+		if err := s.dockerProtectionFromPlan(ctx, out, dep, target, store != nil, plan); err != nil {
+			return nil, err
+		}
+	} else if target.DataAccess() == deployment.DataOnManagedPlatform && reading.Protection != nil {
+		items, err := s.managedList(ctx, dep, target)
+		if err != nil {
+			return nil, err
+		}
+		out.Operations = s.operationsOf(ctx, dep, target, items, nil)
+		sets, err := s.backups.ForDeployment(ctx, dep.ProjectID, dep.Name, 50)
+		if err != nil {
+			return nil, err
+		}
+		var last *operations.Operation
+		if s.ops != nil {
+			last, err = s.ops.LatestEnded(ctx, deployment.SubjectOf(dep), operationCopy)
+			if err != nil {
+				return nil, err
+			}
+		}
+		for i := range out.Items {
+			row := &out.Items[i]
+			for _, it := range items {
+				if it.Name == row.Need && it.Unresolved == "" {
+					row.LastCopy = newestCopyOf(sets, it)
+					row.Copy, row.CopyNote = copyState(row.LastCopy, last, s.now())
+					row.CopyLabel = row.Copy.label()
+					row.Drill, err = s.lastDrillOf(ctx, dep.ID, it.Name)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+	}
+	out.Reading = deployment.DetailReading{ObservedAt: reading.ObservedAt, AttemptedAt: reading.AttemptedAt, Failure: reading.Reason, Stale: reading.Stale, Unknown: reading.Unknown}
+	if reading.Unknown {
+		if out.Unknown != "" || reading.Protection == nil {
+			out.Coverage = Coverage{Assessed: []string{}, NotAssessed: []string{"the deployment's own data: what it holds is unknown", outsideNotAssessed}}
+		}
+		out.Unknown = reading.Reason
+		if out.Unknown == "" {
+			out.Unknown = "The last protection check is more than six hours old."
+		}
+	}
+	return out, nil
+}
+
+// localProtection reads the durable operation ledger; it never asks a provider.
+func (s *Service) localProtection(ctx context.Context, out *Protection, dep *deployment.Deployment) error {
+	var err error
+	if !dep.StartFrom.IsZero() {
+		out.StartFrom = &StartedFromCopy{Backup: dep.StartFrom, Filled: dep.StartedFrom}
+	}
+	// The operations and drills shown are this deployment's, by its id: a
+	// deployment re-created under the name of one taken down does not
+	// show the old one's as its own.
+	out.Recent = []operations.Operation{}
+	if s.ops != nil {
+		if out.Running, err = s.ops.LiveOn(ctx, deployment.SubjectOf(dep)); err != nil {
+			return err
+		}
+		if out.Recent, err = s.ops.OnSubject(ctx, deployment.SubjectOf(dep), 5); err != nil {
+			return err
+		}
+	}
+	if out.Rehearsal, err = s.lastRehearsalOf(ctx, dep); err != nil {
+		return err
+	}
+	if out.Rehearsal == nil {
+		out.RehearsalNote = "never rehearsed"
+		if _, _, err := s.rehearsalHost(ctx, dep); errors.Is(err, errNoRehearsalHost) {
+			out.RehearsalNote = "never rehearsed: no rehearsal place"
+		}
+	}
+	if out.RestoreTest, err = s.lastRestoreTest(ctx, dep); err != nil {
+		return err
+	}
+	if out.RestoreTest == nil {
+		out.RestoreTestNote = "never tested on its platform"
+	}
+	if out.RestoredCopies, err = s.restoredCopiesOf(ctx, dep, 5); err != nil {
+		return err
+	}
+	return nil
 }

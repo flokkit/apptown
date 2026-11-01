@@ -8,9 +8,12 @@ import "time"
 // it did. A kind with no check has empty OK and Detail; NotSetUp can name
 // what is missing. Neither state is evidence that a connection works.
 type Health struct {
+	LastGood   *Health      `json:"lastGood,omitempty"`
+	FailedAt   string       `json:"failedAt,omitempty"`
+	Failure    string       `json:"failure,omitempty"`
 	Automatic  bool         `json:"automatic"`
-	Manual     bool         `json:"manual,omitempty"`
 	LastResult HealthStatus `json:"lastResult,omitempty"`
+	Expired    bool         `json:"expired,omitempty"`
 	Stale      bool         `json:"stale,omitempty"`
 	NotSetUp   bool         `json:"-"`
 	StateLabel HealthStatus `json:"stateLabel"`
@@ -31,14 +34,22 @@ func (h Health) At(at time.Time) Health {
 }
 
 // HasAutomaticCheck identifies kinds whose check is renewed by the collection job.
-// Manual-only integrations retain their last test without claiming coverage.
+// Kinds without a meaningful check provide no Attention coverage.
 func (b Binding) HasAutomaticCheck() bool {
 	switch b.Capability {
-	case CapSCM, CapSecrets, CapExecutor, CapModel, CapContainerRegistry:
+	case CapFeedback, CapSCM, CapSecrets, CapExecutor, CapModel, CapContainerRegistry, CapRegistry, CapErrors, CapLLM, "cloud-account", "scanner":
 		return true
 	case CapDeploy:
 		return b.Provider == "docker"
 	default:
 		return false
 	}
+}
+
+// HealthCheckTimeout includes the scanner's first image pull.
+func (b Binding) HealthCheckTimeout() time.Duration {
+	if b.Capability == "scanner" {
+		return 95 * time.Second
+	}
+	return 25 * time.Second
 }

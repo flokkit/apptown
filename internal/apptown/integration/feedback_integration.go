@@ -47,13 +47,13 @@ func (s *Service) feedbackBindingNamed(ctx context.Context, name string) (*feedb
 	return &feedbackBinding{Name: b.Name, URL: strings.TrimSuffix(url, "/")}, nil
 }
 
-func feedbackReq(method, url string, body any) (int, []byte, error) {
+func feedbackReq(ctx context.Context, method, url string, body any) (int, []byte, error) {
 	var rdr io.Reader
 	if body != nil {
 		b, _ := json.Marshal(body)
 		rdr = strings.NewReader(string(b))
 	}
-	req, err := http.NewRequest(method, url, rdr)
+	req, err := http.NewRequestWithContext(ctx, method, url, rdr)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -70,12 +70,12 @@ func feedbackReq(method, url string, body any) (int, []byte, error) {
 }
 
 // TestFeedbackBinding: the service answers and lists apps.
-func TestFeedbackBinding(config map[string]any) Health {
+func TestFeedbackBinding(ctx context.Context, config map[string]any) Health {
 	url, _ := config["url"].(string)
 	if url == "" {
 		return Health{OK: false, Detail: "url is required"}
 	}
-	code, _, err := feedbackReq("GET", strings.TrimSuffix(url, "/")+"/api/apps", nil)
+	code, _, err := feedbackReq(ctx, "GET", strings.TrimSuffix(url, "/")+"/api/apps", nil)
 	if err != nil {
 		return Health{OK: false, Detail: "unreachable: " + err.Error()}
 	}
@@ -109,7 +109,7 @@ func (s *Service) ProvisionFeedback(ctx context.Context, p *project.Project, con
 		appName = p.Slug
 	}
 	var key string
-	if code, raw, err := feedbackReq("GET", b.URL+"/api/apps", nil); err == nil && code == 200 {
+	if code, raw, err := feedbackReq(ctx, "GET", b.URL+"/api/apps", nil); err == nil && code == 200 {
 		var apps []feedbackApp
 		if json.Unmarshal(raw, &apps) == nil {
 			for _, ap := range apps {
@@ -121,7 +121,7 @@ func (s *Service) ProvisionFeedback(ctx context.Context, p *project.Project, con
 		}
 	}
 	if key == "" {
-		code, raw, err := feedbackReq("POST", b.URL+"/api/apps", map[string]string{"name": appName})
+		code, raw, err := feedbackReq(ctx, "POST", b.URL+"/api/apps", map[string]string{"name": appName})
 		if err != nil {
 			return nil, 502, fmt.Errorf("registering app: %w", err)
 		}

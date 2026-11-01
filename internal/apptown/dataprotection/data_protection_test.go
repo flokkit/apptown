@@ -701,6 +701,7 @@ func TestATakenDownDeploymentComesBackFromItsFinalCopy(t *testing.T) {
 	}
 	// The new deployment's protection is its own: the old one's drill and
 	// take-down, under the same name, are not shown as this one's.
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	prot, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 	if err != nil || len(prot.Items) != 1 || prot.Items[0].Drill != nil || len(prot.Recent) != 0 || prot.StartFrom == nil || prot.StartFrom.Backup != set.ID {
 		t.Fatalf("the new deployment's protection: %+v %v", prot, err)

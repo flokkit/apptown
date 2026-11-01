@@ -61,6 +61,7 @@ func (w *diagnosticsWorld) advance(d time.Duration) time.Time {
 
 func (w *diagnosticsWorld) read(t *testing.T) Diagnostics {
 	t.Helper()
+	_ = w.s.observeDetails(t.Context(), w.main.ID)
 	d, err := w.s.Diagnostics(t.Context(), w.project, "main")
 	if err != nil {
 		t.Fatal(err)
@@ -179,14 +180,14 @@ func TestAFailedDiagnosticReadKeepsAgedFactsAndIsNeverStopped(t *testing.T) {
 		t.Fatalf("the host's words reached the reason: %+v", p)
 	}
 
-	// Another AppTown process (a restart) has read nothing: no facts.
+	// Another AppTown process reads the retained facts without contacting the host.
 	fresh := w.service(true)
 	fresh.authority = &requestAuthority{}
 	d, err := fresh.Diagnostics(t.Context(), w.project, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p := partNamed(t, d, "worker"); p.Presence != presenceUnknown || p.Facts != nil || !p.Stale || !p.ObservedAt.IsZero() {
+	if p := partNamed(t, d, "worker"); p.Presence != presenceUnknown || p.Facts == nil || !p.Stale || !p.ObservedAt.Equal(first) {
 		t.Fatalf("a failed first read: %+v", p)
 	}
 	w.daemon.SetReply(nil)
@@ -206,6 +207,11 @@ func TestAFailedDiagnosticReadKeepsAgedFactsAndIsNeverStopped(t *testing.T) {
 
 func (s *Service) mustDiagnose(t *testing.T, project ids.ID) Diagnostics {
 	t.Helper()
+	dep, err := s.Deployments.ByName(t.Context(), project, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = s.observeDetails(t.Context(), dep.ID)
 	d, err := s.Diagnostics(t.Context(), project, "main")
 	if err != nil {
 		t.Fatal(err)
@@ -472,5 +478,37 @@ func TestPartsDuringADeployAreNotCalledTheSettledGenerations(t *testing.T) {
 	}
 	if g := unlabelled(); g != nil {
 		t.Fatalf("an unlabelled event after a failed deploy: %d", *g)
+	}
+}
+
+func TestDeploymentStatusPagesReadStoredResultsWithoutAskingTheHost(t *testing.T) {
+	t.Parallel()
+	w := newDiagnosticsWorld(t)
+	if err := w.s.observeDetails(t.Context(), w.main.ID); err != nil {
+		t.Fatal(err)
+	}
+	before := len(w.daemon.Commands())
+	for range 2 {
+		d, err := w.s.Diagnostics(t.Context(), w.project, "main")
+		if err != nil || d.Reading.ObservedAt.IsZero() || len(d.Parts) == 0 {
+			t.Fatalf("diagnostics: %+v %v", d, err)
+		}
+		r, err := w.s.Resources(t.Context(), w.project, "main")
+		if err != nil || r.Reading.AttemptedAt.IsZero() {
+			t.Fatalf("resources: %+v %v", r, err)
+		}
+		if _, err := w.s.AIModels(t.Context(), w.project, "main"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(w.daemon.Commands()) != before {
+		t.Fatal("a page contacted the host")
+	}
+	// Reconstruct the owner without collecting anything, as on restart.
+	fresh := w.service(true)
+	fresh.authority = &requestAuthority{}
+	d, err := fresh.Diagnostics(t.Context(), w.project, "main")
+	if err != nil || d.Reading.ObservedAt.IsZero() || len(d.Parts) == 0 || len(w.daemon.Commands()) != before {
+		t.Fatalf("restart lost stored diagnostics: %+v %v", d, err)
 	}
 }

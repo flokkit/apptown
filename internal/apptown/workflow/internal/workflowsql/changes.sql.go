@@ -800,6 +800,62 @@ func (q *Queries) PendingUpliftAdoptions(ctx context.Context, state string) ([]P
 	return items, nil
 }
 
+const previewObservationChange = `-- name: PreviewObservationChange :one
+SELECT id,project_id,state FROM changes WHERE id=$1
+`
+
+type PreviewObservationChangeRow struct {
+	ID        ids.ID
+	ProjectID ids.ID
+	State     string
+}
+
+func (q *Queries) PreviewObservationChange(ctx context.Context, id ids.ID) (PreviewObservationChangeRow, error) {
+	row := q.db.QueryRowContext(ctx, previewObservationChange, id)
+	var i PreviewObservationChangeRow
+	err := row.Scan(&i.ID, &i.ProjectID, &i.State)
+	return i, err
+}
+
+const previewObservationChanges = `-- name: PreviewObservationChanges :many
+SELECT id,project_id,state FROM changes WHERE state=$1 OR id=ANY($2::uuid[]) ORDER BY id
+`
+
+type PreviewObservationChangesParams struct {
+	OpenState string
+	Listed    []ids.ID
+}
+
+type PreviewObservationChangesRow struct {
+	ID        ids.ID
+	ProjectID ids.ID
+	State     string
+}
+
+// Background preview observation selections; private to the collector.
+func (q *Queries) PreviewObservationChanges(ctx context.Context, arg PreviewObservationChangesParams) ([]PreviewObservationChangesRow, error) {
+	rows, err := q.db.QueryContext(ctx, previewObservationChanges, arg.OpenState, pq.Array(arg.Listed))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PreviewObservationChangesRow
+	for rows.Next() {
+		var i PreviewObservationChangesRow
+		if err := rows.Scan(&i.ID, &i.ProjectID, &i.State); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const projectActivityReport = `-- name: ProjectActivityReport :many
 WITH change_counts AS (
  SELECT c.project_id,COUNT(*)::bigint AS changes,

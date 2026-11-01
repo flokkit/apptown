@@ -19,6 +19,8 @@ import (
 	"log"
 	"log/slog"
 	"maps"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/jobs/internal/jobsql"
@@ -66,7 +68,7 @@ type Kind struct {
 	// Queue is the River queue the kind's jobs are inserted on: "" is the
 	// default queue, OperationsQueue the long operations', ConformanceQueue
 	// fleet reviews' and what-ifs', RemediationQueue remediation passes',
-	// EvalsQueue eval passes'.
+	// EvalsQueue eval passes', ObservationsQueue outbound checks'.
 	Queue string
 }
 
@@ -77,7 +79,8 @@ type Kind struct {
 // so they never wait behind or hold up a take-down. Remediation passes run on
 // theirs, one at a time, bounded by twenty minutes, so two passes never
 // overlap. Eval passes run on theirs, one at a time, bounded by two hours,
-// for the same reason. River rescues a job
+// for the same reason. Outbound checks run on a separate bounded queue so
+// unavailable providers do not hold ordinary work. River rescues a job
 // still running beyond OperationsRescue, so every budget stays below it
 // (validated in New).
 const (
@@ -85,6 +88,7 @@ const (
 	ConformanceQueue  = "conformance"
 	RemediationQueue  = "remediation"
 	EvalsQueue        = "evals"
+	ObservationsQueue = "observations"
 	DefaultTimeout    = 20 * time.Minute
 	OperationsTimeout = 2 * time.Hour
 	operationsRescue  = OperationsTimeout + 10*time.Minute
@@ -96,6 +100,8 @@ func budget(queue string) (time.Duration, bool) {
 	switch queue {
 	case "", river.QueueDefault, RemediationQueue:
 		return DefaultTimeout, true
+	case ObservationsQueue:
+		return 2 * time.Minute, true
 	case OperationsQueue, ConformanceQueue, EvalsQueue:
 		return OperationsTimeout, true
 	}
@@ -104,7 +110,7 @@ func budget(queue string) (time.Duration, bool) {
 
 // queueWorkers is how many jobs each queue runs at once. The remediation and
 // evals queues run one: their passes rely on never overlapping.
-var queueWorkers = map[string]int{river.QueueDefault: 4, OperationsQueue: 2, ConformanceQueue: 1, RemediationQueue: 1, EvalsQueue: 1}
+var queueWorkers = map[string]int{river.QueueDefault: 4, OperationsQueue: 2, ConformanceQueue: 1, RemediationQueue: 1, EvalsQueue: 1, ObservationsQueue: 16}
 
 func queueConfig() map[string]river.QueueConfig {
 	queues := make(map[string]river.QueueConfig, len(queueWorkers))
@@ -253,7 +259,9 @@ func (q *Queue) Run(ctx context.Context) error {
 
 type operationWorker struct {
 	river.WorkerDefaults[Request]
-	kinds map[string]Kind
+	kinds     map[string]Kind
+	mu        sync.Mutex
+	observing map[string]bool
 }
 
 // Worker binds the immutable operation registry for a River consumer. Separate
@@ -273,6 +281,23 @@ func (w *operationWorker) Work(ctx context.Context, job *river.Job[Request]) err
 	kind, ok := w.kinds[job.Args.Operation]
 	if !ok {
 		return river.JobCancel(fmt.Errorf("unknown operation %q", job.Args.Operation))
+	}
+	// Observation keys include a settings suffix. Serialize the subject across
+	// revisions and post-act keys as well as River's identical-key coalescing.
+	if kind.Queue == ObservationsQueue {
+		subject, _, _ := strings.Cut(job.Args.Key, "/")
+		key := job.Args.Operation + "/" + subject
+		w.mu.Lock()
+		if w.observing[key] {
+			w.mu.Unlock()
+			return river.JobSnooze(time.Second)
+		}
+		if w.observing == nil {
+			w.observing = map[string]bool{}
+		}
+		w.observing[key] = true
+		w.mu.Unlock()
+		defer func() { w.mu.Lock(); delete(w.observing, key); w.mu.Unlock() }()
 	}
 	receipt, err := kind.Run(ctx, job.Args.Key, job.Args.Values)
 	if err == nil && ctx.Err() != nil {

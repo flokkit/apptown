@@ -529,6 +529,7 @@ export type DeploymentChecked = {
 }
 
 export type DeploymentDiagnostics = {
+  reading: DetailReading
   deployment: string
   generation: number
   desiredGeneration: number
@@ -548,6 +549,7 @@ export type DeploymentDiagnostics = {
 }
 
 export type DeploymentProtection = {
+  reading: DetailReading
   deployment: string
   dataClass: string
   offHost: boolean
@@ -577,6 +579,7 @@ export type DeploymentRemoved = {
 }
 
 export type DeploymentResources = {
+  reading: DetailReading
   recorded: boolean
   profile?: string
   how?: string
@@ -871,9 +874,12 @@ export type IntegrationField = {
 }
 
 export type IntegrationHealth = {
+  lastGood?: IntegrationHealth | null
+  failedAt?: string
+  failure?: string
   automatic: boolean
-  manual?: boolean
   lastResult?: HealthStatus
+  expired?: boolean
   stale?: boolean
   stateLabel: HealthStatus
   ok: boolean
@@ -2360,6 +2366,7 @@ export type BackupItem = {
 export type BackupState = "ok" | "partial" | "failed" | "pruned"
 
 export type BackupStore = {
+  reading: DetailReading
   endpoint: string
   region: string
   bucket: string
@@ -2872,6 +2879,7 @@ export type Cloud = {
 }
 
 export type AIModelsKey = {
+  reading: DetailReading
   name: string
   allowance?: Allowance | null
   unknown?: string
@@ -2889,6 +2897,14 @@ export type RecoveryResult = {
   attempt: string | null
   outcome: string
   reason?: string
+}
+
+export type DetailReading = {
+  observedAt?: string
+  attemptedAt?: string
+  failure?: string
+  stale: boolean
+  unknown: boolean
 }
 
 export type DiagnosedRuntime = {
@@ -4130,6 +4146,7 @@ export type Figure = {
 export type TargetState = "ready" | "unreachable" | "retired"
 
 export type TargetView = {
+  check: TargetReading
   statusLabel: TargetLabel
   displayLabel: string
   connectionId?: string | null
@@ -4847,6 +4864,19 @@ export type Promised = {
 export type Split = {
   apptown: Figure
   other: Figure
+}
+
+export type TargetReading = {
+  observedAt?: string
+  attemptedAt?: string
+  failure?: string
+  stale: boolean
+  unknown: boolean
+  consecutiveFailures: number
+  ok: boolean
+  detail: string
+  registry?: RegistryReading | null
+  lastGood?: TargetReading | null
 }
 
 export type TargetDeployment = {

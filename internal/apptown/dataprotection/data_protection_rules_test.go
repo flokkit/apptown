@@ -322,6 +322,7 @@ func TestTheDeploymentSaysHowItsDataIsProtected(t *testing.T) {
 	}
 	id, _ := w.clusterOf(dep)["id"].(string)
 	w.clusters.put(id+".fake", "app", "ledger: 41")
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	p, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 	if err != nil || p.OffHost || p.Note != "not protected off-host: no backup store is attached" || len(p.Items) != 1 || p.Items[0].Copy != CopyNone {
 		t.Fatalf("before a store: %+v %v", p, err)
@@ -335,6 +336,7 @@ func TestTheDeploymentSaysHowItsDataIsProtected(t *testing.T) {
 	if got := w.run(op); !endedAs(got, operationNotVerified) {
 		t.Fatalf("copy %s: %s", got.State, got.Detail)
 	}
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	p, err = w.s.DeploymentProtection(ctx, w.project, "prod")
 	if err != nil {
 		t.Fatal(err)
@@ -358,6 +360,7 @@ func TestTheDeploymentSaysHowItsDataIsProtected(t *testing.T) {
 	if dbs, _ := w.s.providers.ManagedData(w.target).Databases(ctx, id); len(dbs) != 2 {
 		t.Fatalf("the drill left a database behind: %v", dbs)
 	}
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	p, _ = w.s.DeploymentProtection(ctx, w.project, "prod")
 	if d := p.Items[0].Drill; d == nil || !d.Passed || d.User != "app" || d.Target != "do-syd" || d.Backup != it.LastCopy.Backup {
 		t.Fatalf("drill line: %+v", d)
@@ -372,6 +375,7 @@ func TestTheDeploymentSaysHowItsDataIsProtected(t *testing.T) {
 		t.Fatalf("failing copy %s", got.State)
 	}
 	w.api.Fail("GET", "/v2/databases/"+id+"/backups", 500)
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	p, _ = w.s.DeploymentProtection(ctx, w.project, "prod")
 	if it := p.Items[0]; it.Copy != CopyStale || !strings.Contains(it.CopyNote, "the last copy failed") || it.Native == nil || it.Native.Unknown != "" || !it.Native.CheckFailed {
 		t.Fatalf("after a failed copy: %+v", it)
@@ -383,11 +387,10 @@ func TestTheDeploymentSaysHowItsDataIsProtected(t *testing.T) {
 	// data"; no copy, check or final copy reads available, and the copy's
 	// own door refuses.
 	dbtest.FailNextStatement(t, w.db, "-- name: NeedInstances")
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	p, err = w.s.DeploymentProtection(ctx, w.project, "prod")
-	if err != nil || p.Unknown == "" || len(p.Items) != 0 || p.TakeDown != "" || p.Operations == nil ||
-		p.Operations.Copy.Available || p.Operations.Check.Available || p.Operations.FinalCopy.Available ||
-		!strings.Contains(p.Operations.Copy.Why, "not known") || !strings.Contains(p.Operations.FinalCopy.Why, "not known") {
-		t.Fatalf("an unread list: %+v %+v %v", p.Operations, p.Unknown, err)
+	if err != nil || p.Reading.Failure == "" || len(p.Items) != 1 || p.Items[0].LastCopy == nil {
+		t.Fatalf("a failed held-data check did not retain the last reading: %+v %v", p, err)
 	}
 	dbtest.FailNextStatement(t, w.db, "-- name: NeedInstances")
 	if _, err := w.s.RequestCopy(ctx, w.project, "prod"); !errors.Is(err, errDataNotKnown) {
@@ -414,12 +417,14 @@ func TestTheDeploymentSaysWhyEachDataOperationCannotStart(t *testing.T) {
 	if rel, _ := w.release("prod"); rel.State != deployment.Released {
 		t.Fatal(rel.State)
 	}
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	p, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 	if err != nil || p.Target != "do-syd" || p.Operations == nil || p.Operations.Copy.Available || p.Operations.Copy.Reason != "no-store" {
 		t.Fatalf("before a store: %+v %v", p.Operations, err)
 	}
 	w.protect()
 	w.nameRunner("")
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	p, err = w.s.DeploymentProtection(ctx, w.project, "prod")
 	ops := p.Operations
 	if err != nil || p.OffHost || ops == nil || ops.Copy.Available || ops.Copy.Reason != "no-copy-runner" || ops.FinalCopy.Reason != "no-copy-runner" || ops.StartFromCopy.Reason != "no-copy-runner" {
@@ -443,6 +448,7 @@ func TestTheDeploymentSaysWhyEachDataOperationCannotStart(t *testing.T) {
 	// With a store and a runner, before the first copy: a copy can start,
 	// a check cannot yet, and says so as its door does.
 	w.nameRunner("local")
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	p, err = w.s.DeploymentProtection(ctx, w.project, "prod")
 	ops = p.Operations
 	if err != nil || !p.OffHost || !ops.Copy.Available || ops.Copy.Why != "" || !ops.FinalCopy.Available || !ops.StartFromCopy.Available || ops.Check.Available || ops.Check.Reason != "no-copy" {
@@ -461,6 +467,7 @@ func TestTheDeploymentSaysWhyEachDataOperationCannotStart(t *testing.T) {
 	if got := w.run(op); !endedAs(got, operationNotVerified) {
 		t.Fatalf("copy %s: %s", got.State, got.Detail)
 	}
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	if p, err = w.s.DeploymentProtection(ctx, w.project, "prod"); err != nil || !p.Operations.Check.Available {
 		t.Fatalf("after a copy the check reads %+v %v", p.Operations.Check, err)
 	}
@@ -540,6 +547,8 @@ func TestTheProvidersBackupsAreNotAskedOnEveryRead(t *testing.T) {
 	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
 	first := now
 	w.s.clock = func() time.Time { return now }
+	collectProtectionForTest(t, w.s, w.project, "prod")
+	beforeReads := len(w.api.Snapshot().Requests)
 	for range 3 {
 		protection, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 		if err != nil {
@@ -559,6 +568,9 @@ func TestTheProvidersBackupsAreNotAskedOnEveryRead(t *testing.T) {
 		}
 		now = now.Add(time.Minute)
 	}
+	if len(w.api.Snapshot().Requests) != beforeReads {
+		t.Fatal("page reads contacted the provider")
+	}
 	asked := 0
 	for _, r := range w.api.Snapshot().Requests {
 		if r.Method == "GET" && r.Path == "/v2/databases/"+id+"/backups" {
@@ -573,7 +585,7 @@ func TestTheProvidersBackupsAreNotAskedOnEveryRead(t *testing.T) {
 	q := &protectionObservationRequests{}
 	observer := NewProtectionObserver(w.s.Service, q)
 	cold, err := observer.Snapshot(ctx, dep.ID)
-	if err != nil || !cold.Unknown || q.calls != 0 {
+	if err != nil || cold.Unknown || q.calls != 0 {
 		t.Fatalf("cold protection: %+v %v", cold, err)
 	}
 	_, identity, err := observer.resolve(ctx, dep.ID)
@@ -876,6 +888,7 @@ func TestALaterFailedCopyIsStaleWhateverTheClocks(t *testing.T) {
 					t.Fatalf("copy (failing %v): %s %s", fail, got.State, got.Detail)
 				}
 			}
+			collectProtectionForTest(t, w.s, w.project, "prod")
 			p, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 			if err != nil {
 				t.Fatal(err)
@@ -920,6 +933,7 @@ func TestAFailedCopyStaysTheLastWordAfterOtherWork(t *testing.T) {
 	}
 	protection := func() (*Protection, ItemProtection) {
 		t.Helper()
+		collectProtectionForTest(t, w.s, w.project, "prod")
 		p, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 		if err != nil || len(p.Items) != 1 {
 			t.Fatalf("protection: %+v %v", p, err)
@@ -1035,8 +1049,9 @@ func TestAManagedInstanceAppTownCannotCopyStaysInTheList(t *testing.T) {
 	if err := deployment.NewNeedStore(w.db, nil).RecordIdentity(ctx, dep.ID, "postgres", requested, "db-stopped", "forge-ledger-prod"); err != nil {
 		t.Fatal(err)
 	}
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	p, err := w.s.DeploymentProtection(ctx, w.project, "prod")
-	if err != nil || p.Unknown != "" || len(p.Items) != 1 || p.Items[0].Copy != CopyNone || !strings.Contains(p.Items[0].CopyNote, "names no instance") || p.Operations.FinalCopy.Available {
+	if err != nil || p.Unknown == "" || len(p.Items) != 1 || p.Items[0].Copy != CopyNone || !strings.Contains(p.Items[0].CopyNote, "names no instance") || p.Operations.FinalCopy.Available {
 		t.Fatalf("an instance AppTown cannot copy: %+v %v", p, err)
 	}
 	if _, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"}); !errors.Is(err, errNoFinalCopy) {
@@ -1063,7 +1078,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	q := &protectionObservationRequests{}
 	calls := 0
 	fail, replace := false, false
-	result := &Protection{DataClass: "production", Items: []ItemProtection{{Need: "database", Copy: CopyStale, Volume: "/private-store", Native: &NativeBackups{ObservedAt: first, Count: 1}}}, Coverage: Coverage{NotAssessed: []string{outsideNotAssessed}}}
+	result := &Protection{DataClass: "production", Items: []ItemProtection{{Need: "database", Copy: CopyStale, CopyLabel: CopyStale.label(), Volume: "/private-store", Native: &NativeBackups{ObservedAt: first, Count: 1}}}, Coverage: Coverage{NotAssessed: []string{outsideNotAssessed}}}
 	o := &ProtectionObserver{db: testDB(t), queue: q, now: func() time.Time { return now }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return &dep, identity, nil }, read: func(context.Context, ids.ID, string) (*Protection, error) {
 		calls++
 		if replace {
@@ -1112,7 +1127,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 		t.Fatal(err)
 	}
 	got, err = o.Snapshot(t.Context(), dep.ID)
-	if err != nil || !got.Unknown || !got.AttemptedAt.IsZero() || len(got.Items) != 0 {
+	if err != nil || !got.Unknown || got.AttemptedAt.IsZero() || !strings.Contains(got.Reason, "deployment changed") {
 		t.Fatalf("old generation published under replacement: %+v %v", got, err)
 	}
 	replace = false
@@ -1158,7 +1173,7 @@ func TestProtectionSnapshotsDoNotWaitForProviderAndRefuseCanceledPublication(t *
 		t.Fatalf("cancellation lost: %v", err)
 	}
 	got, err = o.Snapshot(t.Context(), dep.ID)
-	if err != nil || !got.Unknown || !got.ObservedAt.IsZero() || got.AttemptedAt != now {
+	if err != nil || !got.Unknown || !got.ObservedAt.IsZero() || !got.AttemptedAt.IsZero() {
 		t.Fatalf("canceled result published: %+v %v", got, err)
 	}
 }
@@ -1171,4 +1186,36 @@ func TestProtectionObservationRefusesMalformedIdentityBeforeReads(t *testing.T) 
 			t.Fatalf("accepted invalid job identity %q", key)
 		}
 	}
+}
+
+func TestProtectionPageShowsOperationProgressWithoutCollectingProviderStatus(t *testing.T) {
+	t.Parallel()
+	w := newDataWorld(t)
+	dep, err := w.bind(w.project, "prod", "production", ids.Nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rel, _ := w.release("prod"); rel.State != deployment.Released {
+		t.Fatal(rel.State)
+	}
+	w.protect()
+	collectProtectionForTest(t, w.s, w.project, "prod")
+	op, err := w.s.RequestCopy(t.Context(), w.project, "prod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := len(w.api.Snapshot().Requests)
+	page, err := w.s.DeploymentProtection(t.Context(), w.project, "prod")
+	if err != nil || page.Running == nil || page.Running.ID != op.ID || len(w.api.Snapshot().Requests) != before {
+		t.Fatalf("admitted operation not visible without a new probe: %+v %v", page, err)
+	}
+	if result := w.run(op); result.State != operations.Succeeded {
+		t.Fatalf("copy: %+v", result)
+	}
+	before = len(w.api.Snapshot().Requests)
+	page, err = w.s.DeploymentProtection(t.Context(), w.project, "prod")
+	if err != nil || page.Running != nil || len(page.Recent) == 0 || page.Recent[0].ID != op.ID || len(w.api.Snapshot().Requests) != before {
+		t.Fatalf("completed operation not visible without a new probe: %+v %v", page, err)
+	}
+	_ = dep
 }

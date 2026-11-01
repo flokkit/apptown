@@ -1,6 +1,9 @@
 package preview
 
 import (
+	"context"
+	"crypto/sha256"
+	"fmt"
 	"sync"
 	"time"
 
@@ -10,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // Service owns previews: the checked requests for a change's and a
@@ -22,24 +26,31 @@ import (
 // records, so every key is revoked once its preview is gone, and the last
 // look at each preview, which decides when it stops and how long its build
 // is kept.
+type observationQueue interface {
+	RequestPreviewObservation(context.Context, ids.ID) error
+}
+
 type Service struct {
-	db           *database.DB
-	authority    access.Authorizer
-	sources      sources
-	host         host
-	releaseHost  releaseHost
-	worker       Worker
-	hosts        *deployment.Hosts
-	env          *deployment.Environment
-	targets      *deployment.Targets
-	deployments  *deployment.Deployments
-	releases     *deployment.Releases
-	bundles      *deployment.Bundles
-	retained     *deployment.Retained
-	projects     *project.Projects
-	integrations *integration.Service
-	dataDir      string
-	clock        func() time.Time // AppTown's clock; nil is the real one
+	observing           sync.Map
+	observationQueue    observationQueue
+	observationIdentity string
+	db                  *database.DB
+	authority           access.Authorizer
+	sources             sources
+	host                host
+	releaseHost         releaseHost
+	worker              Worker
+	hosts               *deployment.Hosts
+	env                 *deployment.Environment
+	targets             *deployment.Targets
+	deployments         *deployment.Deployments
+	releases            *deployment.Releases
+	bundles             *deployment.Bundles
+	retained            *deployment.Retained
+	projects            *project.Projects
+	integrations        *integration.Service
+	dataDir             string
+	clock               func() time.Time // AppTown's clock; nil is the real one
 
 	runtime    previewRuntime // boot serialization and transient status, by preview
 	served     servedPreviews // what each preview this AppTown booted serves
@@ -52,7 +63,11 @@ type Service struct {
 // collaborators are the same instances Deployment uses; Preview writes only
 // its own table and Deployment's records through their operations.
 type Dependencies struct {
-	Authority access.Authorizer
+	// ObservationQueue admits the same check immediately after a preview act.
+	ObservationQueue observationQueue
+	// ObservationSource identifies the configured Docker or worker endpoint.
+	ObservationSource string
+	Authority         access.Authorizer
 	// Sources resolves a change and a console session, and pins a change a
 	// chat on the worker holds.
 	Sources sources
@@ -84,11 +99,16 @@ type Dependencies struct {
 
 // New builds the preview owner.
 func New(db *database.DB, deps Dependencies) *Service {
-	s := &Service{db: db, authority: deps.Authority, sources: deps.Sources, host: deps.Host, releaseHost: deps.ReleaseHost, worker: deps.Worker,
+	s := &Service{observationQueue: deps.ObservationQueue, db: db, authority: deps.Authority, sources: deps.Sources, host: deps.Host, releaseHost: deps.ReleaseHost, worker: deps.Worker,
 		hosts: deps.Hosts, env: deps.Environment, targets: deps.Targets, deployments: deps.Deployments, releases: deps.Releases,
 		bundles: deps.Bundles, retained: deps.Retained, projects: deps.Projects, integrations: deps.Integrations, dataDir: deps.DataDir,
 		clock: deps.Now}
 	s.runtime.now, s.startClear.every = deps.Now, time.Minute
+	routes := deployment.Routing{}
+	if s.env != nil {
+		routes = s.env.Routes()
+	}
+	s.observationIdentity = fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s/%t/%#v", deps.ObservationSource, deps.Worker != nil, routes))))
 	if s.host == nil {
 		s.host = changeBoots{s}
 	}

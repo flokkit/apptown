@@ -148,6 +148,7 @@ func TestWithNoHostKeptARehearsalRunsOnTheAppsOwnHostAndSaysSo(t *testing.T) {
 	if err != nil || staged != string(raw) {
 		t.Fatalf("staged %q, the set holds %q (%v)", staged, raw, err)
 	}
+	collectProtectionForTest(t, w.s, w.project, "main")
 	p, err := w.s.DeploymentProtection(context.Background(), w.project, "main")
 	if err != nil || p.Rehearsal == nil || !p.Rehearsal.Passed || p.Rehearsal.Host != "remote" || !p.Rehearsal.Facts.SharedHost {
 		t.Fatalf("the last rehearsal: %+v %v", p.Rehearsal, err)
@@ -181,7 +182,7 @@ func TestAKeptHostTakesEveryRehearsal(t *testing.T) {
 	if _, err := w.s.RequestRehearsal(ctx, w.project, "main", ids.Nil); !errors.Is(err, errRehearsalSource) || !strings.Contains(err.Error(), "rehearse-1 cannot run its images") {
 		t.Fatalf("a release not in a registry, rehearsed on a kept host: %v", err)
 	}
-	if _, err := w.s.Targets.RecordCheck(ctx, kept, false, "admin", nil); err != nil {
+	if _, err := w.s.providers.ObserveTarget(ctx, kept, "admin"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.s.RequestRehearsal(ctx, w.project, "main", ids.Nil); err == nil || !strings.Contains(err.Error(), "is not reachable") {

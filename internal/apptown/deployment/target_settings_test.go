@@ -17,7 +17,7 @@ func TestTargetSettingsEditsFromOneRevisionOneWinsAndChecksDoNotMoveIt(t *testin
 	t.Parallel()
 	_, targets, target := targetRetirementFixture(t)
 	ctx := context.Background()
-	if _, err := targets.RecordCheck(ctx, target, true, "health", map[string]any{"ok": true}); err != nil {
+	if _, err := targets.recordCheck(ctx, target, true, "health", map[string]any{"ok": true}); err != nil {
 		t.Fatal(err)
 	}
 	rev, yes, mode := int64(0), true, "managed"

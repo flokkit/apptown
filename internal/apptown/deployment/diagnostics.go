@@ -9,7 +9,6 @@ import (
 	"maps"
 	"slices"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -32,7 +31,8 @@ import (
 
 // Diagnostics is one deployment's runtime facts for its settled generation.
 type Diagnostics struct {
-	Deployment string `json:"deployment"`
+	Reading    DetailReading `json:"reading"`
+	Deployment string        `json:"deployment"`
 	// Generation is the settled generation these facts are about (0:
 	// nothing settled); Desired is the newest admitted, ahead of it while a
 	// deploy is under way.
@@ -141,65 +141,10 @@ type CrashLoopHold struct {
 	Detail    string `json:"detail,omitempty"`
 }
 
-// diagnosed keeps each deployment's last part facts, so a failed read can
-// show them with their age. An entry is for one settled generation and its
-// container names; any other generation finds nothing. A container replaced
-// under the same name is seen only when a read answers (its ID changes).
-type diagnosed struct {
-	mu      sync.Mutex
-	entries map[ids.ID]diagnosedEntry
-}
-
-type diagnosedEntry struct {
-	key   string
-	parts map[string]PartDiagnosis
-}
-
-// diagnosisKey names a settled generation's container names: settling on
-// another generation makes the old facts another key's.
-func diagnosisKey(generation int64, containers map[string]string) string {
-	key := strconv.FormatInt(generation, 10)
-	for _, part := range slices.Sorted(maps.Keys(containers)) {
-		key += "\x00" + part + "=" + containers[part]
-	}
-	return key
-}
-
-func (d *diagnosed) last(id ids.ID, key, part string) (PartDiagnosis, bool) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	e, ok := d.entries[id]
-	if !ok || e.key != key {
-		return PartDiagnosis{}, false
-	}
-	p, ok := e.parts[part]
-	return p, ok
-}
-
-func (d *diagnosed) keep(id ids.ID, key string, p PartDiagnosis) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if d.entries == nil {
-		d.entries = map[ids.ID]diagnosedEntry{}
-	}
-	e, ok := d.entries[id]
-	if !ok || e.key != key {
-		e = diagnosedEntry{key: key, parts: map[string]PartDiagnosis{}}
-		d.entries[id] = e
-	}
-	e.parts[p.Part] = p
-}
-
 // Diagnostics reads a deployment's runtime facts; the caller needs the
 // deployment read grant on its project. Logs are not part of it
 // (RecentLog).
-func (s *Service) Diagnostics(ctx context.Context, projectID ids.ID, name string) (Diagnostics, error) {
-	if s.authority == nil {
-		return Diagnostics{}, access.ErrAuthorityUnavailable
-	}
-	if _, err := s.authority.Require(ctx, access.Permission{Capability: access.CapDeploymentRead, Resource: access.Resource{Type: "project", ID: projectID.String(), ProjectID: projectID}, Context: access.Context{Route: "deployment.diagnostics"}}); err != nil {
-		return Diagnostics{}, err
-	}
+func (s *Service) diagnostics(ctx context.Context, projectID ids.ID, name string, parts func(context.Context, *Deployment, *Diagnostics) error) (Diagnostics, error) {
 	dep, err := s.Deployments.ByName(ctx, projectID, name)
 	if err != nil {
 		return Diagnostics{}, err
@@ -218,7 +163,7 @@ func (s *Service) Diagnostics(ctx context.Context, projectID ids.ID, name string
 			return Diagnostics{}, err
 		}
 	}
-	if err := s.diagnoseParts(ctx, dep, &out); err != nil {
+	if err := parts(ctx, dep, &out); err != nil {
 		return Diagnostics{}, err
 	}
 	out.EventsKnown, out.EventsSource = s.limitEventsSource(ctx, dep)
@@ -283,7 +228,7 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 	}
 	out.Containers = true
 	containers := partContainers(dep, proj.Slug, applied)
-	key := diagnosisKey(dep.ObservedGeneration, containers)
+
 	dk, hostErr := s.hosts.DockerScopeFor(ctx, dep.TargetID)
 	read := map[string]bool{}
 	for _, p := range diagnosedParts(applied) {
@@ -300,9 +245,7 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 			// The read did not answer: unknown now, with the last facts
 			// read and their age.
 			p.Presence, p.Reason, p.Stale = presenceUnknown, why, true
-			if last, ok := s.diagnosed.last(dep.ID, key, p.Part); ok {
-				p.Facts, p.ObservedAt, p.Generation = last.Facts, last.ObservedAt, last.Generation
-			}
+
 		}
 		out.Parts = append(out.Parts, p)
 	}
@@ -323,7 +266,7 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 			g := dep.ObservedGeneration
 			p.Generation = &g
 		}
-		s.diagnosed.keep(dep.ID, key, *p)
+
 	}
 	return nil
 }
@@ -536,4 +479,31 @@ func safeReason(err error) string {
 		return fault.Message(err)
 	}
 	return "the host did not answer"
+}
+
+// Diagnostics reads the last background observation for the current deployment settings.
+func (s *Service) Diagnostics(ctx context.Context, projectID ids.ID, name string) (Diagnostics, error) {
+	if s.authority == nil {
+		return Diagnostics{}, access.ErrAuthorityUnavailable
+	}
+	if _, err := s.authority.Require(ctx, access.Permission{Capability: access.CapDeploymentRead, Resource: access.Resource{Type: "project", ID: projectID.String(), ProjectID: projectID}, Context: access.Context{Route: "deployment.diagnostics"}}); err != nil {
+		return Diagnostics{}, err
+	}
+	stored, err := readDeploymentDetail[Diagnostics](ctx, s, projectID, name, "Diagnostics")
+	if err != nil {
+		return Diagnostics{}, err
+	}
+	out, err := s.diagnostics(ctx, projectID, name, func(_ context.Context, _ *Deployment, out *Diagnostics) error {
+		out.Parts = stored.Parts
+		out.Containers = stored.Containers
+		out.Unsupported = stored.Unsupported
+		out.Unsettled = stored.Unsettled
+		return nil
+	})
+	out.Reading = stored.Reading
+	return out, err
+}
+
+func (s *Service) collectDiagnostics(ctx context.Context, projectID ids.ID, name string) (Diagnostics, error) {
+	return s.diagnostics(ctx, projectID, name, s.diagnoseParts)
 }

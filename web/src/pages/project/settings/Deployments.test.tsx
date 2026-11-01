@@ -82,16 +82,16 @@ describe('what a take-down left says why, and closes only as deleted', () => {
 
 describe('an AI models key says what it may still spend', () => {
   it('shows the allowance over its own period, lifetime spend apart', () => {
-    const words = allowanceWords({ name: 'k', allowance: { limit: 5, remaining: 4, reset: 'monthly', periodSpend: 1, lifetimeSpend: 12 } })
+    const words = allowanceWords({ reading: { stale: false, unknown: false }, name: 'k', allowance: { limit: 5, remaining: 4, reset: 'monthly', periodSpend: 1, lifetimeSpend: 12 } })
     expect(words).toContain('$4.00 of $5.00 left this month')
     expect(words).toContain('$12.00 spent in all')
     expect(words).not.toContain('$12.00 of')
   })
   it('says when the allowance never renews', () => {
-    expect(allowanceWords({ name: 'k', allowance: { limit: 3, remaining: 3, periodSpend: 0, lifetimeSpend: 0 } })).toContain('$3.00 of $3.00 left, never renewed')
+    expect(allowanceWords({ reading: { stale: false, unknown: false }, name: 'k', allowance: { limit: 3, remaining: 3, periodSpend: 0, lifetimeSpend: 0 } })).toContain('$3.00 of $3.00 left, never renewed')
   })
   it('says unknown, never zero, when OpenRouter cannot be asked', () => {
-    const words = allowanceWords({ name: 'k', unknown: 'OpenRouter read key: HTTP 503' })
+    const words = allowanceWords({ reading: { stale: false, unknown: false }, name: 'k', unknown: 'OpenRouter read key: HTTP 503' })
     expect(words).toContain('allowance unknown · OpenRouter read key: HTTP 503')
     expect(words).not.toContain('$0')
   })

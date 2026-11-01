@@ -24,3 +24,10 @@ CREATE TABLE IF NOT EXISTS preview_views (
   preview   TEXT PRIMARY KEY,
   viewed_at TIMESTAMPTZ NOT NULL
 );
+
+CREATE TABLE preview_readings (
+ id UUID PRIMARY KEY,
+ subject TEXT NOT NULL UNIQUE,
+ identity TEXT NOT NULL,
+ payload JSONB NOT NULL
+);

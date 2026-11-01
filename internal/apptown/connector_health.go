@@ -158,7 +158,7 @@ func (h connectorHealth) test(ctx context.Context, capability, provider string, 
 	case integration.CapLLM:
 		return h.integrations.TestLLMBinding(ctx, config), true
 	case integration.CapFeedback:
-		return integration.TestFeedbackBinding(config), true
+		return integration.TestFeedbackBinding(ctx, config), true
 	case integration.CapRegistry:
 		format, _ := config["format"].(string)
 		url, _ := config["url"].(string)
@@ -174,8 +174,8 @@ func (h connectorHealth) test(ctx context.Context, capability, provider string, 
 
 // draftTested are the kinds whose Test connection asks the service with
 // the configuration given; any other kind's test is its live check. A kind
-// here may have no live check of its own (AppTown does not call it on
-// every reading), and its page says Test connection asks it.
+// here uses this same configured check in the background. Draft tests do not
+// publish saved-binding readings.
 var draftTested = map[string]bool{
 	digitalocean.CapCloudAccount: true, integration.CapErrors: true, integration.CapLLM: true,
 	integration.CapContainerRegistry: true, integration.CapFeedback: true, integration.CapRegistry: true, verification.ScannerCapability: true, integration.CapModel: true,
@@ -190,24 +190,15 @@ func (h connectorHealth) CheckBinding(ctx context.Context, b integration.Binding
 	if !b.HasAutomaticCheck() {
 		return integration.Health{}.ForDisplay()
 	}
-	return h.checkBinding(ctx, b, false)
+	return h.checkBinding(ctx, b)
 }
 
-// TestBinding checks a saved connection; only explicit tests pull scanner images.
-func (h connectorHealth) TestBinding(ctx context.Context, b integration.Binding) integration.Health {
-	return h.checkBinding(ctx, b, true)
-}
-
-func (h connectorHealth) checkBinding(ctx context.Context, b integration.Binding, manual bool) integration.Health {
+func (h connectorHealth) checkBinding(ctx context.Context, b integration.Binding) integration.Health {
 	var config map[string]any
 	if err := json.Unmarshal([]byte(b.ConfigJSON), &config); err != nil {
 		return integration.Health{Detail: "The integration configuration could not be read."}.At(clock.Or(h.now)())
 	}
-
-	if manual {
-		return h.Test(ctx, b.Capability, b.Provider, config)
-	}
-	if b.Capability == integration.CapContainerRegistry {
+	if draftTested[b.Capability] {
 		return h.Test(ctx, b.Capability, b.Provider, config)
 	}
 	var se []string

@@ -41,7 +41,7 @@ func TestWorkerObservationTracksRealProtocolFailureAndRecovery(t *testing.T) {
 	})
 	client := workertest.Driver(t, ca, srv)
 	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
-	o := NewWorkerObserver("configured-worker", client, &workerObservationQueue{}, func() time.Time { return now })
+	o := NewWorkerObserver(databaseSuite.New(t), "configured-worker", client, &workerObservationQueue{}, func() time.Time { return now })
 	run := func() WorkerSnapshot {
 		t.Helper()
 		now = now.Add(time.Minute)

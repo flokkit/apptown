@@ -54,6 +54,22 @@ cancelled follow-ups; it does not execute them inside the request.
 | Eval pass (`eval-pass`), the `evals` queue | 1, two-hour handler budget | Scheduled every minute (key `scheduled`) and asked for when an eval is started or continued (key `wake`), each key coalesced while queued or running. A stopped pass returns cancellation; an arm it cut off while copying or starting fails as interrupted at the next pass, which carries on from the tables. |
 | Fleet review (`conformance-review`) and what-if (`what-if`), the `conformance` queue | 1, two-hour handler budget | Admission saves the request and queues the job together; the job names only the record's ID and the first delivery claims it. Stopped by shutdown or the budget, a review ends `error` and a what-if `interrupted`, keeping what they recorded; a restart ends queued and running ones the same way. Asking again is a fresh admission. |
 
+Outbound observations run on the `observations` queue with sixteen workers,
+separate from ordinary work. Host, inventory, preview and deployment detail checks
+have at most thirty seconds per job. Integration checks normally have twenty-five
+seconds; scanner checks have ninety-five seconds to allow the first image pull,
+within a one-hundred-second job budget. Test connection uses the same check and
+budget. These bounds keep a pass with several unavailable hosts inside the
+five-minute interval. A subject's queued revisions and post-act checks run in
+sequence; a running check defers a sibling rather than overlapping it.
+
+Preview start, restart and stop queue that change's check immediately. Try it
+shows progress until the post-act reading arrives. The scheduled preview pass
+selects open changes and previews still listed by Docker or the worker, prunes
+other readings, and keeps one reading per change. A Try it poll reads its change's
+row. Shutdown cancellation does not publish a failed observation; a check's own
+deadline still records a timeout.
+
 Other handlers have a ten-minute budget. Twenty minutes is the default
 queue's ceiling, and two hours the `operations`, `conformance` and `evals` queues' (`jobs.New` refuses
 a kind above its queue's ceiling). River rescue starts after two hours and

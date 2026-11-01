@@ -173,7 +173,7 @@ INSERT INTO target_offers (id, target_id, group_name, caps_json, created_by, cre
 DELETE FROM target_offers WHERE id=sqlc.arg(id) AND target_id=sqlc.arg(target_id) RETURNING *;
 
 -- name: CheckTarget :one
-UPDATE targets SET status=sqlc.arg(status), updated_at=sqlc.arg(updated_at) WHERE id=sqlc.arg(id) AND status<>sqlc.arg(retired_state) RETURNING *;
+UPDATE targets SET status=sqlc.arg(status), updated_at=sqlc.arg(updated_at) WHERE id=sqlc.arg(id) AND status<>sqlc.arg(retired_state) AND settings_revision=sqlc.arg(settings_revision) RETURNING *;
 
 -- name: RetireTarget :one
 UPDATE targets SET status=sqlc.arg(status), updated_at=sqlc.arg(updated_at) WHERE id=sqlc.arg(id) RETURNING *;

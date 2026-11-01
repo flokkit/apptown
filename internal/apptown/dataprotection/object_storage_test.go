@@ -87,6 +87,7 @@ func TestATakeDownCopiesAndChecksTheBucketBeforeDeletingIt(t *testing.T) {
 	w := heldOnAppPlatform(t, "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres:\n    version: \"16\"\n  s3: {}\n")
 	ctx := context.Background()
 	putObjects(w, bucketOf(w, "prod"))
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	prot, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 	if err != nil {
 		t.Fatal(err)
@@ -276,6 +277,7 @@ func TestAnObjectOnlyDeploymentWithNoStoreKeepsItsBucket(t *testing.T) {
 		t.Fatalf("release %s:\n%s", rel.State, log)
 	}
 	ctx := context.Background()
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	prot, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 	if err != nil || len(prot.Items) != 1 || prot.Items[0].Need != "s3" || !strings.Contains(prot.Items[0].Where, bucketOf(w, "prod")) {
 		t.Fatalf("the data view: %+v %v", prot, err)
@@ -457,6 +459,7 @@ func TestEachItemSaysWhereItsOwnCopyCameBack(t *testing.T) {
 	if got := w.run(drill); !endedAs(got, operationVerified) {
 		t.Fatalf("drill %s: %s", got.State, got.Detail)
 	}
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	p, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 	if err != nil {
 		t.Fatal(err)

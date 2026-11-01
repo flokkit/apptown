@@ -61,11 +61,11 @@ func TestTheErrorReportingTeamAppTownCreatesIsNamedForIt(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	s := NewService(nil, Dependencies{})
-	if team, err := s.errorsTeam(&errorsBinding{URL: srv.URL, Org: "o"}, "tok"); err != nil || team != "apptown" || created != "apptown" {
+	if team, err := s.errorsTeam(t.Context(), &errorsBinding{URL: srv.URL, Org: "o"}, "tok"); err != nil || team != "apptown" || created != "apptown" {
 		t.Fatalf("created %q, used %q: %v", created, team, err)
 	}
 	teams, created = `[{"slug":"ours"}]`, ""
-	if team, err := s.errorsTeam(&errorsBinding{URL: srv.URL, Org: "o"}, "tok"); err != nil || team != "ours" || created != "" {
+	if team, err := s.errorsTeam(t.Context(), &errorsBinding{URL: srv.URL, Org: "o"}, "tok"); err != nil || team != "ours" || created != "" {
 		t.Fatalf("an existing team: used %q, created %q: %v", team, created, err)
 	}
 }

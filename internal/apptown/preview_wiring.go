@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/preview"
 
 	"github.com/flokkit/apptown/internal/fault"
@@ -128,11 +130,26 @@ func previewDependencies(a *App, changes workflow.Changes) preview.Dependencies 
 	if a.workerPreviews != nil {
 		worker = a.workerPreviews
 	}
-	return preview.Dependencies{
+	source := a.docker.Host
+	if a.cfg.worker != nil {
+		source = a.cfg.worker.URL
+	}
+	return preview.Dependencies{ObservationQueue: previewObservationRequests{db: a.DB, now: a.cfg.clock.Now}, ObservationSource: source,
 		Authority: access.Checked{Authority: a.Access, Projects: a.Projects},
 		Sources:   previewSources{changes: changes, sessions: a.Console, db: a.DB, saves: a.chatSaves, releases: a.Deployment.Releases, dataDir: a.cfg.dataDir},
 		Worker:    worker, Hosts: a.hosts, Environment: a.environment,
 		Targets: a.targets, Deployments: a.deployments, Releases: a.Deployment.Releases, Bundles: a.Deployment.Bundles, Retained: a.Deployment.Retained,
 		Projects: a.Projects, Integrations: a.Integrations, DataDir: a.cfg.dataDir, Now: a.cfg.clock.Now,
 	}
+}
+
+type previewObservationRequests struct {
+	db  *database.DB
+	now func() time.Time
+}
+
+func (r previewObservationRequests) RequestPreviewObservation(ctx context.Context, id ids.ID) error {
+	return r.db.InTx(ctx, func(tx *database.Tx) error {
+		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: preview.ObservationJob, Key: id.String() + "/" + ids.New(r.now()).String()})
+	})
 }

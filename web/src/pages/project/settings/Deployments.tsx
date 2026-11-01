@@ -1,3 +1,4 @@
+import { BackgroundReading } from '../../../BackgroundReading'
 import { Status } from '../../../Status'
 import { DeploymentAddressEdit } from './DeploymentAddress'
 import { ReleaseDefaultPicker } from './ReleaseDefault'
@@ -387,7 +388,7 @@ function AIModelsLine({ slug, name }: { slug: string; name: string }) {
         : !q.data ? <span className="error">allowance unknown · {q.err || 'no answer'}</span>
         : q.data.keys.map((k) => (
           <span key={k.name} title={`OpenRouter key ${k.name}`} style={{ marginRight: 8 }}>
-            {k.allowance ? allowanceWords(k) : <span className="muted">{allowanceWords(k)}</span>}
+            {k.allowance ? allowanceWords(k) : <span className="muted">{allowanceWords(k)}</span>} <BackgroundReading reading={k.reading} />
           </span>
         ))}
       <StaleNote q={q} inline />
@@ -439,6 +440,7 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
   return (
     <div className="small">
       <ShareLine share={r.share} />
+      <BackgroundReading reading={r.reading} />
       <details><summary>Resources</summary>
       {r.parts.map(p => <p key={p.part || 'app'}>{p.need ? 'Database' : p.part || 'App'}: {p.observed.known ? `uses ${fmtBytes(p.observed.usedBytes)}${p.observed.limitBytes > 0 ? ` of ${fmtBytes(p.observed.limitBytes)}` : ''}` : 'Memory use not available'}</p>)}
       <details><summary>Limits and settings</summary>

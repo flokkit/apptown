@@ -353,6 +353,7 @@ func TestABackupNamesDeclaredNeedsItCannotRead(t *testing.T) {
 	if why["postgres"] != "" || !strings.Contains(why["kv"], "cannot be read") || !strings.Contains(why["kv"], "no restore") || !strings.Contains(why["quantum"], "not in the dependency catalog") {
 		t.Fatalf("each unread need says why: %v", why)
 	}
+	collectProtectionForTest(t, s, pid, "main")
 	plan, _ := s.BackupPlan(t.Context(), pid, "bwu", "main")
 	notCopied := 0
 	for _, it := range plan {

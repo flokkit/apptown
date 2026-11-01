@@ -229,6 +229,7 @@ func TestADrillThatLeavesItsDatabaseDoesNotSucceed(t *testing.T) {
 			if got.State != want || got.Verification != operations.Verified || !strings.Contains(got.Detail, "for a person to remove") {
 				t.Fatalf("a drill that left its database: %s/%s %q", got.State, got.Verification, got.Detail)
 			}
+			collectProtectionForTest(t, w.s, w.project, "prod")
 			p, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 			if err != nil || p.Items[0].Drill == nil || !p.Items[0].Drill.Passed {
 				t.Fatalf("the drill's evidence: %+v %v", p, err)

@@ -13,6 +13,7 @@ import type { DeploymentDiagnostics } from '../../../wire.gen'
 const PATH = '/projects/game/deployments/main/diagnostics'
 const now = new Date().toISOString()
 const diagnostics: DeploymentDiagnostics = {
+ reading: { observedAt: now, attemptedAt: now, stale: false, unknown: false },
   deployment: 'main', generation: 3, desiredGeneration: 3, commit: 'abcdef0123456789', releaseNumber: 7,
   runtime: { state: 'running', observedAt: now, attemptedAt: now, stale: false },
   containers: true,

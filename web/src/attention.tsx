@@ -11,7 +11,7 @@ export function useAttention() {
 
 // These are exactly the rows the Attention page renders, shared by every count.
 export function attentionRows(data: AttentionView) {
-  return { items: data.items, sources: data.sources.filter(s => s.unknown && !data.items.some(i => i.unknown && i.key.startsWith(s.key + '/'))) }
+  return { items: data.items, sources: data.sources.filter(s => s.unknown && !data.items.some(i => i.unknown && (i.key === s.key || i.key.startsWith(s.key + '/')))) }
 }
 
 export function attentionState(q: Pick<Read<AttentionView>, 'data' | 'refreshFailed' | 'paused'>) {

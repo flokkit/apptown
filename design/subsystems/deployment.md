@@ -1045,6 +1045,19 @@ have up to four workers. Provider calls have five-second deadlines, the sampling
 phase a ten-second budget, and identity revalidation up to five seconds. Oldest
 or unattempted placements go first. These deadlines require operations that observe cancellation.
 
+Background target checks require two consecutive failures before marking a target
+unreachable. A successful check clears the failure count. An explicit Check target
+records its result immediately. Background checks add an audit entry only when
+the target changes between ready and unreachable; explicit checks always record
+who asked.
+
+Deployment detail and protection readings bind to settled placement, generation
+and their configuration inputs. Admission, readiness changes and restore holds do
+not discard those readings. A deployment act, repair or backup queues renewed
+detail and protection checks. When the settled configuration changes, pages keep
+the reading's dates and show that a new check is pending; they do not describe a
+previously checked deployment as awaiting its first check.
+
 A target whose inventory can observe its whole fleet (`deploy.FleetObserver`)
 is one job per sweep, not one per deployment. Portainer is one: one list of
 the environment's app containers, through its Docker proxy, says for each
@@ -1094,15 +1107,15 @@ A deployment's card has a Diagnostics line (`GET
 /projects/{slug}/deployments/{name}/diagnostics`, the deployment read grant). It
 is about the generation the deployment settled on: its parts and needs are the
 ones that generation's applied record names, never the project's newest
-declaration. Each part's container on a Docker host is inspected on the request
-(five seconds each): running, stopped or absent, its last exit code (only when
+declaration. Each part's container on a Docker host is inspected by the background detail
+job (five seconds each): running, stopped or absent, its last exit code (only when
 not running), whether the kernel killed it out of memory, Docker's restart
 counter for that container (a deploy starts a new one), its start and finish
 times, and its Docker health check, "not configured" when it has none. A read
 that fails is unknown, never stopped, absent or a clean exit: it shows the
 facts last read for that generation's containers with when they were read and
-when the failed read was tried. Those facts are kept in memory only, per
-deployment, and settling on a new generation drops them; a container replaced
+when the failed read was tried. Those facts are stored durably for the deployment configuration and generation;
+settling on a new generation invalidates them; a container replaced
 under the same name shows only when a read answers (its ID changes). Each part
 names the generation its container is proven to run: the public part's
 container by its identity labels; any other part's (which a rollout replaces

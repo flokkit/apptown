@@ -37,6 +37,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
+	"github.com/flokkit/apptown/internal/apptown/preview"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/verification"
@@ -354,9 +355,12 @@ func TestTour(t *testing.T) {
 	runtimeCtx, stopRuntime := context.WithCancel(context.Background())
 	t.Cleanup(stopRuntime)
 	go a.Deployment.RunObservations(runtimeCtx)
-	// Let the normal observation owners collect facts before photographing Home.
+	// Run the normal scheduled pass and its observation jobs before photographing Home.
+	if _, err := infrastructureChecksFor(a).Run(ctx, "", nil); err != nil {
+		t.Fatal(err)
+	}
 	s.call("sam", "GET", "/api/v1/attention", nil)
-	for _, kind := range []string{diskObservationJob, workerObservationJob, "capacity-observation", "inventory", "protection-observation"} {
+	for _, kind := range []string{diskObservationJob, workerObservationJob, "capacity-observation", "inventory", "protection-observation", integration.HealthObservationJob, deployment.TargetObservationJob, deployment.DetailObservationJob, preview.ObservationJob, integration.ErrorObservationJob, dataprotection.StoreObservationJob} {
 		for _, job := range operationJobs(t, a, kind) {
 			if job.State == "available" || job.State == "retryable" || job.State == "scheduled" {
 				result := runQueuedJobForTest(t, a, kind, job.Key)

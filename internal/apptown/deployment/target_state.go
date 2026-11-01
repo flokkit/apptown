@@ -110,3 +110,6 @@ func (s TargetState) Display() TargetLabel {
 		return targetCheckUnknown
 	}
 }
+
+// UnknownTargetLabel labels a target whose check has no current evidence.
+func UnknownTargetLabel() TargetLabel { return targetCheckUnknown }

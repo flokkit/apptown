@@ -60,11 +60,11 @@ Integration readings come from the integration owner. Kinds with automatic
 checks are collected by jobs every five minutes. Attention never calls a
 provider. An unused connection without configuration is not set up; partial
 configuration or a required missing connection is failed. Only integrations
-with a background check whose latest result failed contribute a row; no
-integration contributes unknown coverage. Kinds without a background check
-read `no automatic check` in muted style. A manual Test connection result keeps
-its last state and age, marked old after fifteen minutes, without expiring into
-unknown. Failed connection rows name directly affected apps.
+with a background check whose latest result failed contribute a row. Evidence
+past its six-hour shelf life contributes a not-known row; pending first checks
+do not. Kinds without a meaningful check read `no automatic check` and never
+count. Test connection runs the same check immediately and follows the same
+freshness rule. Failed connection rows name directly affected apps.
 
 Conformance supplies one query of stored verdicts, exact confirmations, active
 exceptions, currently adopted checks and recorded main for the authorized

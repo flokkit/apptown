@@ -16,12 +16,14 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/operations"
+	"github.com/flokkit/apptown/internal/apptown/preview"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/remediation"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // Jobs is the application's single queue. The registry is bound once here;
@@ -60,6 +62,8 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 	disks := a.diskObserver
 	workers := a.workerObserver
 	integrationService, connectionHealth := a.Integrations, connectorHealthFor(a)
+	work, previews := a.Work, a.Preview
+	now := a.cfg.clock.Now
 
 	descriptions := projectlifecycle.Descriptions{Service: a.lifecycle, Models: a.modelSelection, Completion: a.inference, Changes: a.Work}
 	kinds := map[string]jobs.Kind{
@@ -70,15 +74,47 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 		workflowAbandonmentJob: {Run: jobErrors(followups.Abandon)},
 		"backup":               {Run: jobErrors(data.Backup)},
 		infrastructureCheckJob: {Run: infrastructureChecksFor(a).Run},
-		"inventory":            {Run: jobErrors(inventory.Run), Timeout: 2 * time.Minute},
+		"inventory":            {Run: jobErrors(inventory.Run), Timeout: 30 * time.Second},
 		// Once a boot: mark what records name and was made before the mark.
 		deployment.MarkInstallationJob: {Run: func(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
 			marked, err := providers.MarkRecorded(ctx)
 			return map[string]any{"marked": marked}, err
 		}},
-		integration.HealthObservationJob: {Run: func(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
-			return nil, integrationService.ObserveHealth(ctx, key, connectionHealth)
+		deployment.DetailObservationJob:    {Run: a.Deployment.RunDetailObservation, Timeout: 30 * time.Second},
+		deployment.TargetObservationJob:    {Run: providers.RunTargetObservation, Timeout: 30 * time.Second},
+		integration.ErrorObservationJob:    {Run: integrationService.ObserveErrorReports, Timeout: 30 * time.Second},
+		dataprotection.StoreObservationJob: {Run: a.DataProtection.ObserveStore, Timeout: 30 * time.Second},
+		preview.ObservationJob: {Run: func(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
+			if key != "instance" {
+				raw, _, _ := strings.Cut(key, "/")
+				id, err := ids.Parse(raw)
+				if err != nil {
+					return nil, jobs.Permanent(err)
+				}
+				ch, err := work.PreviewObservationSubject(ctx, id)
+				if err != nil {
+					return nil, err
+				}
+				return nil, previews.ObserveChange(ctx, preview.Subject{ID: ch.ID, ProjectID: ch.ProjectID, InProgress: ch.InProgress})
+			}
+			started := now()
+			listed, err := previews.ListedChangeIDs(ctx)
+			if err != nil {
+				return nil, err
+			}
+			subjects, err := work.PreviewObservationSubjects(ctx, listed...)
+			if err != nil {
+				return nil, err
+			}
+			selected := make([]preview.Subject, 0, len(subjects))
+			for _, s := range subjects {
+				selected = append(selected, preview.Subject{ID: s.ID, ProjectID: s.ProjectID, InProgress: s.InProgress})
+			}
+			return nil, previews.ObservePreviews(ctx, selected, started)
 		}, Timeout: 30 * time.Second},
+		integration.HealthObservationJob: {Run: func(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
+			return nil, integrationService.RunHealthObservation(ctx, key, connectionHealth)
+		}, Timeout: 100 * time.Second},
 		deployment.CapacityObservationJob:       {Run: a.capacityObserver.RunJob, Timeout: 30 * time.Second},
 		dataprotection.ProtectionObservationJob: {Run: a.protectionObserver.RunJob, Timeout: 30 * time.Second},
 		workerObservationJob: {Run: func(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
@@ -145,6 +181,11 @@ var jobBudgets = map[string]int{
 	workerObservationJob:                    1,
 	deployment.CapacityObservationJob:       1,
 	integration.HealthObservationJob:        1,
+	deployment.DetailObservationJob:         1,
+	deployment.TargetObservationJob:         1,
+	preview.ObservationJob:                  1,
+	integration.ErrorObservationJob:         1,
+	dataprotection.StoreObservationJob:      1,
 	dataprotection.ProtectionObservationJob: 1,
 	"rebuild":                               1,
 	restoreCheckJob:                         1,
@@ -166,6 +207,18 @@ var jobBudgets = map[string]int{
 // queue's registration and every enqueue of the kind, so a job is always
 // inserted where its worker is.
 var jobQueues = map[string]string{
+	"inventory":                             jobs.ObservationsQueue,
+	deployment.DetailObservationJob:         jobs.ObservationsQueue,
+	deployment.TargetObservationJob:         jobs.ObservationsQueue,
+	integration.ErrorObservationJob:         jobs.ObservationsQueue,
+	dataprotection.StoreObservationJob:      jobs.ObservationsQueue,
+	preview.ObservationJob:                  jobs.ObservationsQueue,
+	integration.HealthObservationJob:        jobs.ObservationsQueue,
+	deployment.CapacityObservationJob:       jobs.ObservationsQueue,
+	dataprotection.ProtectionObservationJob: jobs.ObservationsQueue,
+	workerObservationJob:                    jobs.ObservationsQueue,
+	diskObservationJob:                      jobs.ObservationsQueue,
+
 	operations.Job:         jobs.OperationsQueue,
 	verification.ReviewJob: jobs.ConformanceQueue,
 	verification.WhatIfJob: jobs.ConformanceQueue,

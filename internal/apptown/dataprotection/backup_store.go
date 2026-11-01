@@ -35,12 +35,13 @@ import (
 
 // BackupStore is the attached store, as recorded.
 type BackupStore struct {
-	Endpoint      string `json:"endpoint"`
-	Region        string `json:"region"`
-	Bucket        string `json:"bucket"`
-	AccessKeyFrom string `json:"accessKeyFrom"`
-	SecretKeyFrom string `json:"secretKeyFrom"`
-	AttachedBy    string `json:"attachedBy"`
+	Reading       deployment.DetailReading `json:"reading"`
+	Endpoint      string                   `json:"endpoint"`
+	Region        string                   `json:"region"`
+	Bucket        string                   `json:"bucket"`
+	AccessKeyFrom string                   `json:"accessKeyFrom"`
+	SecretKeyFrom string                   `json:"secretKeyFrom"`
+	AttachedBy    string                   `json:"attachedBy"`
 	// AttachedByPrincipal is the attacher's principal; zero when not resolved to a person.
 	AttachedByPrincipal ids.ID     `json:"attachedByPrincipal,omitzero"`
 	AttachedAt          stamp.Time `json:"attachedAt"`
@@ -76,7 +77,7 @@ func storeRecord(r protectionsql.BackupStore) *BackupStore {
 }
 
 // Store is the attached store, nil when none is.
-func (s *core) Store(ctx context.Context) (*BackupStore, error) {
+func (s *core) store(ctx context.Context) (*BackupStore, error) {
 	r, err := protectionsql.New(s.db.SQL()).BackupStore(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil

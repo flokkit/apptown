@@ -302,7 +302,10 @@ func (h ProjectAttachments) ListProjectIntegrations(w http.ResponseWriter, r *ht
 		case integration.CapErrors:
 			out[i].Title = "Error reporting"
 			if out[i].Provenance == "provisioned" {
-				h.integrations.ErrorsIssueSummary(r.Context(), p, out[i].Resource)
+				if err := h.integrations.ErrorsIssueSummary(r.Context(), p, out[i].Resource); err != nil {
+					WriteFault(w, err)
+					return
+				}
 				if sum, ok := out[i].Resource["unresolved"].([]map[string]string); ok {
 					for _, is := range sum {
 						if is["lastSeen"] > out[i].LastEvent {

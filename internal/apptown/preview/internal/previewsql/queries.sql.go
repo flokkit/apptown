@@ -7,9 +7,11 @@ package previewsql
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/lib/pq"
 )
 
 const allPreviewOwned = `-- name: AllPreviewOwned :many
@@ -47,6 +49,22 @@ func (q *Queries) AllPreviewOwned(ctx context.Context) ([]PreviewOwned, error) {
 	return items, nil
 }
 
+const failReadings = `-- name: FailReadings :exec
+UPDATE preview_readings SET payload=payload || jsonb_build_object('attemptedAt',$1::timestamptz,'failure',$2::text)
+WHERE identity=$3
+`
+
+type FailReadingsParams struct {
+	At       time.Time
+	Failure  string
+	Identity string
+}
+
+func (q *Queries) FailReadings(ctx context.Context, arg FailReadingsParams) error {
+	_, err := q.db.ExecContext(ctx, failReadings, arg.At, arg.Failure, arg.Identity)
+	return err
+}
+
 const forgetPreviewOwned = `-- name: ForgetPreviewOwned :execrows
 DELETE FROM preview_owned WHERE preview=$1 AND kind=$2 AND ident=$3
 `
@@ -78,7 +96,7 @@ func (q *Queries) ForgetPreviewView(ctx context.Context, preview string) (int64,
 }
 
 const forgetPreviewViewBefore = `-- name: ForgetPreviewViewBefore :execrows
-DELETE FROM preview_views WHERE preview=$1 AND viewed_at < $2
+DELETE FROM preview_views WHERE preview=$1 AND viewed_at < $2::timestamptz
 `
 
 type ForgetPreviewViewBeforeParams struct {
@@ -172,6 +190,39 @@ func (q *Queries) PreviewViews(ctx context.Context) ([]PreviewView, error) {
 	return items, nil
 }
 
+const pruneReadings = `-- name: PruneReadings :exec
+DELETE FROM preview_readings WHERE NOT (subject = ANY($1::text[]))
+AND COALESCE((payload->>'attemptedAt')::timestamptz,'-infinity'::timestamptz) < $2::timestamptz
+`
+
+type PruneReadingsParams struct {
+	Keep   []string
+	Before time.Time
+}
+
+// A post-act check can publish after the pass selected its subjects. Keep that
+// newer reading until a later pass has had a chance to list the preview.
+func (q *Queries) PruneReadings(ctx context.Context, arg PruneReadingsParams) error {
+	_, err := q.db.ExecContext(ctx, pruneReadings, pq.Array(arg.Keep), arg.Before)
+	return err
+}
+
+const reading = `-- name: Reading :one
+SELECT identity,payload FROM preview_readings WHERE subject=$1
+`
+
+type ReadingRow struct {
+	Identity string
+	Payload  json.RawMessage
+}
+
+func (q *Queries) Reading(ctx context.Context, subject string) (ReadingRow, error) {
+	row := q.db.QueryRowContext(ctx, reading, subject)
+	var i ReadingRow
+	err := row.Scan(&i.Identity, &i.Payload)
+	return i, err
+}
+
 const recordPreviewOwned = `-- name: RecordPreviewOwned :execrows
 
 INSERT INTO preview_owned (id, preview, project_id, kind, ident, name, recorded_at)
@@ -222,5 +273,27 @@ type RecordPreviewViewParams struct {
 // backwards.
 func (q *Queries) RecordPreviewView(ctx context.Context, arg RecordPreviewViewParams) error {
 	_, err := q.db.ExecContext(ctx, recordPreviewView, arg.Preview, arg.ViewedAt)
+	return err
+}
+
+const storeReading = `-- name: StoreReading :exec
+INSERT INTO preview_readings(id,subject,identity,payload) VALUES($1,$2,$3,$4)
+ON CONFLICT(subject) DO UPDATE SET identity=excluded.identity,payload=excluded.payload
+`
+
+type StoreReadingParams struct {
+	ID       ids.ID
+	Subject  string
+	Identity string
+	Payload  json.RawMessage
+}
+
+func (q *Queries) StoreReading(ctx context.Context, arg StoreReadingParams) error {
+	_, err := q.db.ExecContext(ctx, storeReading,
+		arg.ID,
+		arg.Subject,
+		arg.Identity,
+		arg.Payload,
+	)
 	return err
 }

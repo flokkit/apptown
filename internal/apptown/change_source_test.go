@@ -71,3 +71,36 @@ func TestChangePreviewUsesPreparedHistoricalSource(t *testing.T) {
 		t.Fatalf("selected source: %q %v", body, err)
 	}
 }
+
+func TestPreviewStartAndRestartPublishStatusThroughTheirQueuedCheck(t *testing.T) {
+	t.Parallel()
+	a, _ := bootWorld(t, Config{PublicHost: "apptown.example"})
+	ch, err := a.Work.Create(a.asAppTown(t.Context(), idstest.N(1), "test"), workflow.ChangeDraft{ProjectID: idstest.N(1), Type: "feature", Title: "Preview status"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeBootFixture(t, (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(ch.ID))
+	for _, restart := range []bool{false, true} {
+		if _, err := a.Preview.RehearseChange(t.Context(), previewChange(ch), restart); err != nil {
+			t.Fatal(err)
+		}
+		queued := operationJobs(t, a, "preview-observation")
+		key := ""
+		for _, j := range queued {
+			if j.State == "available" {
+				key = j.Key
+			}
+		}
+		if key == "" {
+			t.Fatal("preview act did not queue a check")
+		}
+		row := runQueuedJobForTest(t, a, "preview-observation", key)
+		if row.State != "completed" {
+			t.Fatalf("preview check: %+v", row)
+		}
+		got := a.Preview.ChangeStatus(t.Context(), ch.ProjectID, ch.ID, true)
+		if got.State != "live" || got.URL == "" || !got.HostOnly {
+			t.Fatalf("post-act status: %+v", got)
+		}
+	}
+}

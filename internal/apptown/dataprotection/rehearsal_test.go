@@ -490,6 +490,7 @@ func TestARehearsalRunsTheReleaseOnACopyWithNoAddressAndTakesItDown(t *testing.T
 	if len(receipts) != 1 || !strings.Contains(string(receipts[0].Payload), `"outcome":"passed"`) {
 		t.Fatalf("receipt: %+v", receipts)
 	}
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	prot, err := w.s.DeploymentProtection(context.Background(), w.project, "prod")
 	if err != nil || prot.Rehearsal == nil || prot.Rehearsal.Outcome != RehearsalPassed {
 		t.Fatalf("protection: %+v %v", prot, err)
@@ -612,6 +613,7 @@ func TestAFailedRehearsalRecordsOnlyStepsAndStatuses(t *testing.T) {
 			if err != nil || ref == nil || ref.Passed || ref.FailedStep == "" {
 				t.Fatalf("recorded: %+v %v", ref, err)
 			}
+			collectProtectionForTest(t, w.s, w.project, "prod")
 			prot, err := w.s.DeploymentProtection(context.Background(), w.project, "prod")
 			if err != nil {
 				t.Fatal(err)
@@ -695,7 +697,7 @@ func TestARehearsalIsRefusedWithoutAuthorityOrAPlace(t *testing.T) {
 	// The one kept host stops answering: the rehearsal is refused, and
 	// never sent to the shared host instead.
 	kept, _ := w.s.Targets.ByName(ctx, "rehearse-2")
-	if _, err := w.s.Targets.RecordCheck(ctx, kept, false, "admin", nil); err != nil {
+	if _, err := w.s.providers.ObserveTarget(ctx, kept, "admin"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.s.RequestRehearsal(ctx, w.project, "prod", ids.Nil); err == nil || !strings.Contains(err.Error(), "rehearse-2, is not reachable") {
@@ -715,6 +717,7 @@ func TestARehearsalIsRefusedWithoutAuthorityOrAPlace(t *testing.T) {
 	if _, err := w.s.RequestRehearsal(ctx, w.project, "prod", ids.Nil); !errors.Is(err, errNoRehearsalHost) {
 		t.Fatalf("no kept host and no copy runner: %v", err)
 	}
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	prot, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 	if err != nil || prot.RehearsalNote != "never rehearsed: no rehearsal place" {
 		t.Fatalf("protection without a place: %+v %v", prot, err)
@@ -823,6 +826,7 @@ func TestARehearsalNeedsNoCopyRunnerOnTheSource(t *testing.T) {
 	t.Parallel()
 	w := newRehearsalWorld(t)
 	w.nameRunner("")
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	p, err := w.s.DeploymentProtection(context.Background(), w.project, "prod")
 	if err != nil || !p.Operations.Rehearsal.Available || p.Operations.Copy.Available {
 		t.Fatalf("without a source runner: %+v %v", p.Operations, err)

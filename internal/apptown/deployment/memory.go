@@ -209,6 +209,7 @@ func (s *Service) unsettledReason(ctx context.Context, d *Deployment) (string, e
 // profile chosen for its next deploy, each part's applied limits, its
 // operator's override, and its memory use now.
 type DeploymentResources struct {
+	Reading  DetailReading             `json:"reading"`
 	Recorded bool                      `json:"recorded"` // false: the settled generation kept no record
 	Profile  string                    `json:"profile,omitempty"`
 	How      appcontract.ProfileChoice `json:"how,omitempty"`
@@ -248,13 +249,7 @@ type PartResource struct {
 
 // Resources reads what a deployment runs with now; the caller needs the
 // deployment read grant on its project.
-func (s *Service) Resources(ctx context.Context, projectID ids.ID, name string) (DeploymentResources, error) {
-	if s.authority == nil {
-		return DeploymentResources{}, access.ErrAuthorityUnavailable
-	}
-	if _, err := s.authority.Require(ctx, access.Permission{Capability: access.CapDeploymentRead, Resource: access.Resource{Type: "project", ID: projectID.String(), ProjectID: projectID}, Context: access.Context{Route: "deployment.resources"}}); err != nil {
-		return DeploymentResources{}, err
-	}
+func (s *Service) resources(ctx context.Context, projectID ids.ID, name string, memory func(context.Context, *Deployment) ([]PartMemory, error)) (DeploymentResources, error) {
 	dep, err := s.Deployments.ByName(ctx, projectID, name)
 	if err != nil {
 		return DeploymentResources{}, err
@@ -271,7 +266,7 @@ func (s *Service) Resources(ctx context.Context, projectID ids.ID, name string) 
 	if err != nil {
 		return DeploymentResources{}, err
 	}
-	observed, err := s.observedMemory(ctx, dep)
+	observed, err := memory(ctx, dep)
 	if err != nil {
 		return DeploymentResources{}, err
 	}
@@ -368,4 +363,36 @@ func partContainers(d *Deployment, slug string, applied AppliedProfile) map[stri
 		}
 	}
 	return out
+}
+
+// Resources reads the last background observation for the current deployment settings.
+func (s *Service) Resources(ctx context.Context, projectID ids.ID, name string) (DeploymentResources, error) {
+	if s.authority == nil {
+		return DeploymentResources{}, access.ErrAuthorityUnavailable
+	}
+	if _, err := s.authority.Require(ctx, access.Permission{Capability: access.CapDeploymentRead, Resource: access.Resource{Type: "project", ID: projectID.String(), ProjectID: projectID}, Context: access.Context{Route: "deployment.resources"}}); err != nil {
+		return DeploymentResources{}, err
+	}
+	stored, err := readDeploymentDetail[DeploymentResources](ctx, s, projectID, name, "Resources")
+	if err != nil {
+		return DeploymentResources{}, err
+	}
+	out, err := s.resources(ctx, projectID, name, func(context.Context, *Deployment) ([]PartMemory, error) {
+		observed := []PartMemory{}
+		for _, p := range stored.Parts {
+			observed = append(observed, p.Observed)
+		}
+		return observed, nil
+	})
+	out.Reading = stored.Reading
+	for i := range out.Parts {
+		if !out.Parts[i].Observed.Known && out.Parts[i].Observed.Reason == "not asked" {
+			out.Parts[i].Observed.Reason = stored.Reading.Failure
+		}
+	}
+	return out, err
+}
+
+func (s *Service) collectResources(ctx context.Context, projectID ids.ID, name string) (DeploymentResources, error) {
+	return s.resources(ctx, projectID, name, s.observedMemory)
 }

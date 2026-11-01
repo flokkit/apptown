@@ -88,6 +88,7 @@ func (s *Service) RequestChangePreview(ctx context.Context, in Selection) (Resul
 	if ch, err = s.sources.Pin(ctx, ch); err != nil {
 		return Result{}, err
 	}
+	defer s.requestObservation(ctx, ch.ID)
 	out, err := s.runtime.bootChange(ctx, ch, in.Restart, s.host)
 	if err != nil {
 		return Result{}, &ExecutionError{Cause: err}

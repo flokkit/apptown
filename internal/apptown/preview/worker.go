@@ -164,18 +164,7 @@ func (s *Service) PreviewServedOnWorker(name string) bool {
 // progress first, else what observeChange finds. inProgress is the change's
 // state, which the caller reads from Work.
 func (s *Service) ChangeStatus(ctx context.Context, projectID, changeID ids.ID, inProgress bool) Status {
-	return s.runtime.inspect(ctx, changeKey(changeID), changeObservation{s: s, projectID: projectID, changeID: changeID, inProgress: inProgress})
-}
-
-// changeObservation observes one change's preview for the runtime.
-type changeObservation struct {
-	s                   *Service
-	projectID, changeID ids.ID
-	inProgress          bool
-}
-
-func (o changeObservation) ObservePreview(ctx context.Context) observation {
-	return o.s.observeChange(ctx, o.projectID, o.changeID, o.inProgress)
+	return s.recordedChangeStatus(ctx, changeID)
 }
 
 // servedObservation adds AppTown's record of the running preview by name
@@ -207,11 +196,30 @@ func (s *Service) observeChange(ctx context.Context, projectID, changeID ids.ID,
 	} else if dk.Absent() {
 		// No worker and no local Docker: nowhere to ask, never "not running".
 		return observation{Unavailable: docker.ErrNoLocalBackend.Error()}
-	} else if dk.Running(ctx, name) {
-		if port, err := docker.ContainerHostPort(ctx, dk, name, 0); err == nil && port > 0 {
-			return s.servedObservation(name, observation{URL: s.env.RoutesFor(ctx, projectID).PreviewURL(label, port), HostOnly: s.PreviewsHostOnly()})
+	} else {
+		rt, err := docker.Inspect(ctx, dk, name)
+		if err != nil && !errors.Is(err, docker.ErrContainerAbsent) {
+			return observation{Unavailable: err.Error()}
+		}
+		if err == nil && rt.Running {
+			port, err := docker.ContainerHostPort(ctx, dk, name, 0)
+			if err != nil {
+				return observation{Unavailable: err.Error()}
+			}
+			if port > 0 {
+				out := s.servedObservation(name, observation{URL: s.env.RoutesFor(ctx, projectID).PreviewURL(label, port), HostOnly: s.PreviewsHostOnly()})
+				if rt.State != nil && !rt.State.StartedAt.IsZero() {
+					out.StartedAt = rt.State.StartedAt.UTC().Format(time.RFC3339)
+				}
+				return out
+			}
+			return observation{Unavailable: "The preview's host did not report its port."}
 		}
 	}
+	return s.coldChange(changeID, inProgress)
+}
+
+func (s *Service) coldChange(changeID ids.ID, inProgress bool) observation {
 	missing := false
 	if inProgress {
 		ws := (workflow.Layout{DataDir: s.dataDir}).ChangeWorkspace(changeID)
@@ -290,49 +298,6 @@ func (s *Service) PreviewOnWorker(ctx context.Context, name string) (worker.Prev
 type LiveChange struct {
 	ChangeID  ids.ID
 	StartedAt string
-}
-
-// LiveChangePreviews lists the changes' previews running now, where they run:
-// on the worker when one is configured, else on this AppTown's own Docker.
-// When that place cannot be asked it is an error, never an empty list: a
-// worker that does not answer is UnavailableError, an AppTown with no
-// local Docker docker.ErrNoLocalBackend. The worker's list is its cleanup
-// inventory (stopped containers and kept folders too), so each listed
-// preview is asked for its state, and only a running one is live; a state the worker cannot give makes the whole answer
-// unavailable rather than a guess.
-func (s *Service) LiveChangePreviews(ctx context.Context) ([]LiveChange, error) {
-	var names []string
-	var err error
-	if s.PreviewsOnWorker() {
-		if names, err = s.worker.List(ctx); err != nil {
-			return nil, &unavailableError{Cause: err}
-		}
-	} else if s.hosts.Local().Absent() {
-		return nil, docker.ErrNoLocalBackend
-	} else if names, err = s.hosts.Local().List(ctx, "ps", "--format", "{{.Names}}"); err != nil {
-		return nil, err
-	}
-	var out []LiveChange
-	for _, name := range names {
-		id, ok := docker.ParsePreviewChangeID(name)
-		if !ok {
-			continue
-		}
-		p := LiveChange{ChangeID: id}
-		if s.PreviewsOnWorker() {
-			st, err := s.PreviewOnWorker(ctx, name)
-			if err != nil {
-				return nil, err
-			}
-			if !st.Running {
-				continue
-			}
-		} else {
-			p.StartedAt = s.hosts.Local().Text(ctx, "inspect", "-f", "{{.State.StartedAt}}", name)
-		}
-		out = append(out, p)
-	}
-	return out, nil
 }
 
 // startClear is AppTown's start-up removal of every preview on the

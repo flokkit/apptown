@@ -47,3 +47,16 @@ func TestIntegrationAttentionNamesAffectedAppsAndKeepsUnsetAndUnknownDistinct(t 
 		}
 	}
 }
+
+func TestExpiredIntegrationIsUnknownAndKindsWithoutChecksNeverCount(t *testing.T) {
+	t.Parallel()
+	evidence := integrationEvidence{health: map[string]integration.Health{
+		"infisical": {Automatic: true, StateLabel: integration.HealthUnknown},
+		"registry":  {Automatic: true, StateLabel: integration.HealthUnknown, LastResult: integration.HealthPassed, Expired: true, Stale: true},
+		"cloud":     {StateLabel: integration.HealthFailed},
+	}}
+	got, err := (Integrations{Service: evidence, Bindings: evidence, Attachments: evidence, Deployments: evidence}).Snapshot(t.Context())
+	if err != nil || len(got.Items) != 0 || !got.Coverage[1].Unknown || len(got.Coverage) != 2 {
+		t.Fatalf("unknown coverage: %+v %v", got, err)
+	}
+}

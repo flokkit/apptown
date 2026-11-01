@@ -92,8 +92,8 @@ func TestCanceledBackgroundCheckCannotReportKnownCoverage(t *testing.T) {
 		t.Fatalf("canceled refresh: %v", err)
 	}
 	got, err = observer.Snapshot(t.Context())
-	if err != nil || !got.Unknown || len(got.Disks) != 1 || !got.Disks[0].Unknown {
-		t.Fatalf("cancellation did not record unknown coverage: %+v %v", got, err)
+	if err != nil || !got.Unknown || len(got.Disks) != 0 || !got.AttemptedAt.IsZero() || got.LastFailure != "" {
+		t.Fatalf("cancellation changed the reading: %+v %v", got, err)
 	}
 }
 

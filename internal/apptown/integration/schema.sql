@@ -32,3 +32,12 @@ CREATE TABLE integration_readings (
   version BIGINT NOT NULL,
   payload JSONB NOT NULL
 );
+
+CREATE TABLE integration_resource_readings (
+ id UUID PRIMARY KEY,
+ project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+ capability TEXT NOT NULL,
+ identity TEXT NOT NULL,
+ payload JSONB NOT NULL,
+ UNIQUE(project_id,capability)
+);

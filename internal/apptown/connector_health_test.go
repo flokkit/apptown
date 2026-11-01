@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -33,7 +34,7 @@ func TestIntegrationHealthSaysWhetherAndWhenItWasChecked(t *testing.T) {
 		}
 	}
 	before := time.Now().Add(-time.Second)
-	if err := a.Integrations.ObserveHealth(t.Context(), "secrets", connectorHealthFor(a)); err != nil {
+	if _, err := a.Integrations.TestSaved(t.Context(), "secrets", connectorHealthFor(a)); err != nil {
 		t.Fatal(err)
 	}
 	w := authzCall(a.Handler(), "boss", "GET", "/api/v1/integrations", "")
@@ -142,7 +143,7 @@ func TestContainerRegistryHealthUsesStoredCredentials(t *testing.T) {
 	for _, status := range []int{200, 401, 500, 302} {
 		code = status
 		before := requests
-		if err := a.Integrations.ObserveHealth(t.Context(), "images", connectorHealthFor(a)); err != nil {
+		if _, err := a.Integrations.TestSaved(t.Context(), "images", connectorHealthFor(a)); err != nil {
 			t.Fatal(err)
 		}
 		afterCheck := requests
@@ -319,5 +320,42 @@ func TestSavedIntegrationTestUpdatesAttentionWithoutProbingOnReads(t *testing.T)
 	w = authzCall(handler, "outsider", http.MethodPost, "/api/v1/integrations/images/test", `{}`)
 	if w.Code != http.StatusForbidden || requests != before {
 		t.Fatalf("unauthorized test reached provider: %d requests=%d/%d", w.Code, requests, before)
+	}
+}
+
+func TestFeedbackBackgroundAndTestConnectionUseTheRealCheck(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" || r.URL.Path != "/api/apps" {
+			t.Errorf("unexpected feedback check: %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+			return
+		}
+		calls.Add(1)
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	t.Cleanup(server.Close)
+	raw, _ := json.Marshal(map[string]string{"url": server.URL})
+	_, err := a.Integrations.Bindings.Upsert(t.Context(), "feedback", integration.CapFeedback, "feedback", string(raw), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := a.Integrations.Bindings.ByName(t.Context(), "feedback")
+	if err != nil {
+		t.Fatal(err)
+	}
+	checker := connectorHealthFor(a)
+	if err := a.Integrations.RunHealthObservation(t.Context(), b.HealthObservationKey(), checker); err != nil {
+		t.Fatal(err)
+	}
+	h, err := a.Integrations.RecordedHealth(t.Context(), b.Name)
+	if err != nil || !h.OK || calls.Load() != 1 {
+		t.Fatalf("background feedback check: %+v %v calls=%d", h, err, calls.Load())
+	}
+	h, err = a.Integrations.TestSaved(t.Context(), b.Name, checker)
+	if err != nil || !h.OK || calls.Load() != 2 {
+		t.Fatalf("explicit feedback check: %+v %v calls=%d", h, err, calls.Load())
 	}
 }

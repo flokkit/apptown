@@ -54,7 +54,10 @@ func (s Integrations) Snapshot(ctx context.Context) (Snapshot, error) {
 		if !h.Automatic {
 			continue
 		}
-		out.Coverage = append(out.Coverage, Coverage{Key: b.Name, Name: label, Href: href, ObservedAt: at, Stale: h.Stale, NextStep: "An administrator can test the connection or correct its settings."})
+		out.Coverage = append(out.Coverage, Coverage{Key: b.Name, Name: label, Href: href, ObservedAt: at, Stale: h.Stale, Unknown: h.Expired, NextStep: "An administrator can test the connection or correct its settings."})
+		if h.Expired {
+			continue
+		}
 		if h.LastResult != integration.HealthFailed && h.StateLabel != integration.HealthFailed {
 			continue
 		}

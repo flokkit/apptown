@@ -334,6 +334,12 @@ func TestRunDeploySequence(t *testing.T) {
 	if err != nil || env.Container != names.App() || env.ReleaseRun != runID || env.HostPort == 0 {
 		t.Fatalf("environment record: %+v %v", env, err)
 	}
+	for _, kind := range []string{deployment.DetailObservationJob, "protection-observation"} {
+		rows := operationJobs(t, a, kind)
+		if len(rows) != 1 || !strings.HasPrefix(rows[0].Key, env.ID.String()+"/") {
+			t.Fatalf("deploy omitted %s: %+v", kind, rows)
+		}
+	}
 	if !strings.Contains(runs[3].call, "-p 127.0.0.1:"+strconv.Itoa(env.HostPort)+":8080") {
 		t.Fatalf("a standing deployment publishes its stable port: %s", runs[3].call)
 	}

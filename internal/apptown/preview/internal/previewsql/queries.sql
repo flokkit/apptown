@@ -29,7 +29,24 @@ SELECT * FROM preview_views WHERE preview=sqlc.arg(preview);
 SELECT * FROM preview_views ORDER BY preview;
 
 -- name: ForgetPreviewViewBefore :execrows
-DELETE FROM preview_views WHERE preview=sqlc.arg(preview) AND viewed_at < sqlc.arg(before);
+DELETE FROM preview_views WHERE preview=sqlc.arg(preview) AND viewed_at < sqlc.arg(before)::timestamptz;
 
 -- name: ForgetPreviewView :execrows
 DELETE FROM preview_views WHERE preview=sqlc.arg(preview);
+
+-- name: Reading :one
+SELECT identity,payload FROM preview_readings WHERE subject=$1;
+
+-- name: StoreReading :exec
+INSERT INTO preview_readings(id,subject,identity,payload) VALUES($1,$2,$3,$4)
+ON CONFLICT(subject) DO UPDATE SET identity=excluded.identity,payload=excluded.payload;
+
+-- name: PruneReadings :exec
+-- A post-act check can publish after the pass selected its subjects. Keep that
+-- newer reading until a later pass has had a chance to list the preview.
+DELETE FROM preview_readings WHERE NOT (subject = ANY(sqlc.arg(keep)::text[]))
+AND COALESCE((payload->>'attemptedAt')::timestamptz,'-infinity'::timestamptz) < sqlc.arg(before)::timestamptz;
+
+-- name: FailReadings :exec
+UPDATE preview_readings SET payload=payload || jsonb_build_object('attemptedAt',sqlc.arg(at)::timestamptz,'failure',sqlc.arg(failure)::text)
+WHERE identity=sqlc.arg(identity);

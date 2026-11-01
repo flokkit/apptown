@@ -142,7 +142,7 @@ export const uncheckedWords = (testable: boolean) => testable
 
 function StatusChip({ state, stale, testable, health }: { state: HealthState; stale: boolean; testable: boolean; health?: IntegrationHealth }) {
   const word = stale ? 'unknown' : !health?.checked && !health?.automatic && state !== 'not set up' ? 'no automatic check' : state === 'unknown' && !health?.checked ? 'not checked yet' : state
-  const help = stale ? 'Refresh failed. Last answer shown. Reload this page to read the connection again.'
+  const help = stale ? 'Refresh failed. Last answer shown. The background check renews connection readings every five minutes.'
     : state === 'unknown' && health?.lastResult ? `Last result: ${health.lastResult}. ${health.detail}` : health?.detail || uncheckedWords(testable)
   return <Status observation word={word} old={!!health?.stale && word !== 'unknown'} help={help} />
 }
@@ -352,7 +352,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
         <div className="muted int-checked">
           {at ? lastChecked(b.health, reading.now) : b.health.detail || uncheckedWords(b.testable)}
         </div>
-<details><summary>Connection details</summary><p>{b.health.detail}</p></details>
+<details><summary>Connection details</summary><p>{b.health.detail}</p>{b.health.lastGood && <p>Last successful check: {b.health.lastGood.checkedAt}. {b.health.lastGood.detail}</p>}</details>
         <StaleNote q={reading.q} />
         {test?.h && testState && (
           <div className={`int-test ${testState === 'failed' ? 'bad' : ''}`}>
