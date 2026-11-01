@@ -373,7 +373,7 @@ func TestTheDeploymentSaysHowItsDataIsProtected(t *testing.T) {
 	}
 	w.api.Fail("GET", "/v2/databases/"+id+"/backups", 500)
 	p, _ = w.s.DeploymentProtection(ctx, w.project, "prod")
-	if it := p.Items[0]; it.Copy != CopyStale || !strings.Contains(it.CopyNote, "the last copy failed") || it.Native == nil || it.Native.Unknown == "" {
+	if it := p.Items[0]; it.Copy != CopyStale || !strings.Contains(it.CopyNote, "the last copy failed") || it.Native == nil || it.Native.Unknown != "" || !it.Native.CheckFailed {
 		t.Fatalf("after a failed copy: %+v", it)
 	}
 	if state, _ := copyState(&CopyRef{TakenAt: time.Now().Add(-31 * time.Hour).Format(time.RFC3339)}, nil, time.Now()); state != CopyStale {
@@ -549,8 +549,8 @@ func TestTheProvidersBackupsAreNotAskedOnEveryRead(t *testing.T) {
 		for _, item := range protection.Items {
 			if item.Native != nil {
 				seen = true
-				if item.Native.observedAt != first {
-					t.Fatalf("cached provider observation time: %v, want %v", item.Native.observedAt, first)
+				if item.Native.ObservedAt != first {
+					t.Fatalf("cached provider observation time: %v, want %v", item.Native.ObservedAt, first)
 				}
 			}
 		}
@@ -1063,8 +1063,8 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	q := &protectionObservationRequests{}
 	calls := 0
 	fail, replace := false, false
-	result := &Protection{DataClass: "production", Items: []ItemProtection{{Need: "database", Copy: CopyStale, Volume: "/private-store", Native: &NativeBackups{observedAt: first, Count: 1}}}, Coverage: Coverage{NotAssessed: []string{OutsideNotAssessed}}}
-	o := &ProtectionObserver{queue: q, now: func() time.Time { return now }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return &dep, identity, nil }, read: func(context.Context, ids.ID, string) (*Protection, error) {
+	result := &Protection{DataClass: "production", Items: []ItemProtection{{Need: "database", Copy: CopyStale, Volume: "/private-store", Native: &NativeBackups{ObservedAt: first, Count: 1}}}, Coverage: Coverage{NotAssessed: []string{OutsideNotAssessed}}}
+	o := &ProtectionObserver{db: testDB(t), queue: q, now: func() time.Time { return now }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return &dep, identity, nil }, read: func(context.Context, ids.ID, string) (*Protection, error) {
 		calls++
 		if replace {
 			identity = strings.Repeat("b", 64)
@@ -1088,7 +1088,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 		t.Fatalf("first evidence: %+v %v", got, err)
 	}
 	got.Items[0].Copy = CopyFresh
-	now = now.Add(13 * time.Minute)
+	now = now.Add(30 * time.Minute)
 	if err := o.Run(t.Context(), dep.ID, identity); err != nil {
 		t.Fatal(err)
 	}
@@ -1102,7 +1102,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 		t.Fatal("provider error lost")
 	}
 	got, err = o.Snapshot(t.Context(), dep.ID)
-	if err != nil || !got.Unknown || got.AttemptedAt != now || len(got.Items) != 1 || got.Items[0].Copy != CopyStale {
+	if err != nil || got.Unknown || got.AttemptedAt != now || len(got.Items) != 1 || got.Items[0].Copy != CopyStale {
 		t.Fatalf("failure erased warning: %+v %v", got, err)
 	}
 	fail = false
@@ -1117,7 +1117,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	}
 	replace = false
 	result.Items[0].Copy = CopyFresh
-	result.Items[0].Native.observedAt = now
+	result.Items[0].Native.ObservedAt = now
 	if err := o.Run(t.Context(), dep.ID, identity); err != nil {
 		t.Fatal(err)
 	}
@@ -1136,7 +1136,7 @@ func TestProtectionSnapshotsDoNotWaitForProviderAndRefuseCanceledPublication(t *
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	q := &protectionObservationRequests{}
-	o := &ProtectionObserver{queue: q, now: func() time.Time { return now }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return &dep, identity, nil }, read: func(ctx context.Context, _ ids.ID, _ string) (*Protection, error) {
+	o := &ProtectionObserver{db: testDB(t), queue: q, now: func() time.Time { return now }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return &dep, identity, nil }, read: func(ctx context.Context, _ ids.ID, _ string) (*Protection, error) {
 		close(started)
 		<-ctx.Done()
 		// Even a misbehaving adapter returning success after cancellation cannot

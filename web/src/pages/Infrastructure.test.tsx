@@ -19,10 +19,10 @@ const show = (targets: TargetInfra[]) => {
 
 describe('infrastructure inventory availability', () => {
   it('shows unknown evidence and its age before the resource details are opened', () => {
-    const html = show([target('host', { asOf: '2026-10-29T00:00:00Z', invalidated: true })])
+    const html = show([target('host', { asOf: '2026-10-29T00:00:00Z', invalidated: true, unknown: true })])
     const summary = html.slice(0, html.indexOf('<summary>Resources and details'))
     expect(summary).toContain('unknown')
-    expect(summary).toContain('read ')
+    expect(summary).toContain('last seen')
     expect(summary).toContain('before the latest change')
     expect(html).not.toContain('Refresh all')
   })
@@ -47,7 +47,7 @@ describe('infrastructure inventory availability', () => {
     const render = (t: TargetInfra) => renderToStaticMarkup(<ResourceTables t={t} onChanged={() => {}} />)
     expect(render(target('live', { live: true }))).toContain('Empty inventory.')
     const stale = render(target('stale', { asOf: '2026-10-29T00:00:00Z', error: 'unreachable' }))
-    expect(stale).toContain('No resources in the inventory read')
+    expect(stale).toContain('No resources in the inventory last seen')
     expect(stale).not.toContain('Empty inventory.')
     const unknown = render(target('unread'))
     expect(unknown).toContain('Inventory is unknown.')
@@ -69,4 +69,12 @@ it('keeps target facts and check help in the inventory summary', () => {
   const html = show([target('host', { facts: '4 CPUs · 8 GB RAM', status: 'SSH answered' })])
   expect(html).toContain('4 CPUs · 8 GB RAM')
   expect(html).toContain('Target check: SSH answered')
+})
+
+
+it('shows an old failed inventory as last seen while its values remain known', () => {
+  const html = show([target('host', { asOf: new Date(Date.now() - 40 * 60000).toISOString(), error: 'The inventory check failed.', unknown: false })])
+  expect(html).toContain('last seen 40 min ago')
+  expect(html).toContain('The inventory check failed.')
+  expect(html).not.toContain('aria-label="unknown:')
 })

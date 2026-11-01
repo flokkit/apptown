@@ -96,13 +96,16 @@ func (h Infrastructure) Infrastructure(w http.ResponseWriter, r *http.Request) {
 		}
 		recorded := v.Resources
 		if _, err := h.providers.TargetInventory(t); errors.Is(err, deploy.ErrNoInventory) {
+			v.Unknown = true
 			v.Unreported = true // unknown, not an error: the records stand alone
 		} else if err != nil {
 			v.Error = err.Error()
+			v.Unknown = true
 		} else {
 			{
-				live, shared, errText, at, invalidated := h.cache.Live(r.Context(), t)
+				live, shared, errText, at, invalidated, unknown := h.cache.Live(r.Context(), t)
 				v.Error, v.Invalidated = errText, invalidated
+				v.Unknown = unknown
 				if !at.IsZero() {
 					v.AsOf = stamp.Of(at)
 				}
@@ -117,6 +120,7 @@ func (h Infrastructure) Infrastructure(w http.ResponseWriter, r *http.Request) {
 							v.Error = "Inventory placement could not be verified: " + err.Error()
 							v.Resources, v.Live, _ = deployment.InventoryAnswer(recorded, nil, v.Error, time.Time{}, false)
 							v.AsOf, v.Shared = stamp.Time{}, ""
+							v.Unknown = true
 						}
 					}
 				}

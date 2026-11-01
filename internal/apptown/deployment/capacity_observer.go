@@ -2,10 +2,14 @@ package deployment
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
+	"github.com/flokkit/apptown/internal/database"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/jobs"
@@ -21,132 +25,156 @@ type CapacitySnapshot struct {
 	// AttemptedAt distinguishes a pending first check from a failed check.
 	AttemptedAt time.Time
 	// Reason is a safe summary of the failed or overdue check.
+	FailedAt    time.Time
 	Reason      string
+	LiveUnknown bool
 	DiskUnknown bool
 	Unknown     bool
 	Stale       bool
 }
 
-type capacityObservation struct {
-	revision int64
-	snapshot CapacitySnapshot
-}
-
-// CapacityObserver collects capacity in background jobs. Pages and Attention
-// read the latest recorded evidence without requesting work.
+// CapacityObserver owns one persisted reading per target configuration.
 type CapacityObserver struct {
-	mu      sync.Mutex
-	entries map[ids.ID]*capacityObservation
-	now     func() time.Time
-	target  func(context.Context, ids.ID) (*Target, error)
-	read    func(context.Context, *Target) (TargetCapacity, error)
+	db     *database.DB
+	now    func() time.Time
+	target func(context.Context, ids.ID) (*Target, error)
+	read   func(context.Context, *Target) (TargetCapacity, error)
 }
 
 func NewCapacityObserver(service *Service) *CapacityObserver {
-	return &CapacityObserver{now: service.now, target: service.Targets.ByID, read: service.targetCapacity}
+	return &CapacityObserver{db: service.db, now: service.now, target: service.Targets.ByID, read: service.targetCapacity}
 }
 
 // Snapshot takes the current authorized target record. A changed configuration
 // starts unassessed rather than inheriting the previous target's disk warning.
 func (o *CapacityObserver) Snapshot(ctx context.Context, target *Target) (CapacitySnapshot, error) {
-	if err := ctx.Err(); err != nil {
+	r, err := o.load(ctx, target)
+	if err != nil {
 		return CapacitySnapshot{Unknown: true, Stale: true}, err
 	}
-	now := o.now()
-	o.mu.Lock()
-	if o.entries == nil {
-		o.entries = make(map[ids.ID]*capacityObservation)
+	c := capacityAt(r.Capacity, o.now())
+	out := CapacitySnapshot{Disk: c.Disk, ObservedAt: c.ReadAt, AttemptedAt: r.AttemptedAt, Reason: r.Reason, Unknown: c.ReadAt.IsZero() || o.now().Sub(c.ReadAt) > 6*time.Hour, Stale: c.Stale, FailedAt: r.FailedAt}
+	out.Unknown = out.Unknown || capacityFailure(c) != ""
+	out.Stale = out.Stale || capacityHasStaleFigures(c)
+	out.LiveUnknown = capacityHasExpiredUse(c)
+	if c.Disk != nil {
+		out.DiskUnknown = !c.Disk.Free.Known
+		out.Stale = out.Stale || c.Disk.StaleAt(o.now())
 	}
-	e := o.entries[target.ID]
-	if e == nil || e.revision != target.SettingsRevision {
-		e = &capacityObservation{revision: target.SettingsRevision, snapshot: CapacitySnapshot{Unknown: true}}
-		o.entries[target.ID] = e
-	}
-	out := capacitySnapshotAt(e.snapshot, now)
-	o.mu.Unlock()
 	return out, nil
 }
 
-// Allow two missed five-minute checks and two minutes for collection.
-const capacityObservationFresh = 12 * time.Minute
-
-func capacitySnapshotAt(s CapacitySnapshot, now time.Time) CapacitySnapshot {
-	s.Stale = s.Stale || s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > capacityObservationFresh
-	if s.Disk != nil {
-		disk := *s.Disk
-		s.Disk = &disk
-		s.Stale = s.Stale || disk.StaleAt(now)
-	}
-	if s.Stale {
-		s.Unknown = true
-		if s.ObservedAt.IsZero() && s.AttemptedAt.IsZero() {
-			s.Reason = "Waiting for the first capacity check."
-		} else if s.Reason == "" {
-			s.Reason = "The capacity check is overdue."
-		}
-	}
-	return s
+type capacityRecord struct {
+	LastFailedAt          time.Time
+	LastFailure           string
+	Capacity              TargetCapacity
+	AttemptedAt, FailedAt time.Time
+	Reason                string
 }
 
-// Run executes under the durable job's lifetime. An obsolete job cannot publish
-// a late reading for a replacement target configuration.
+func (o *CapacityObserver) load(ctx context.Context, t *Target) (capacityRecord, error) {
+	row, err := deploymentsql.New(o.db.SQL()).Reading(ctx, deploymentsql.ReadingParams{Subject: t.ID.String(), Kind: "capacity"})
+	if errors.Is(err, sql.ErrNoRows) {
+		return capacityRecord{}, nil
+	}
+	if err != nil {
+		return capacityRecord{}, err
+	}
+	if row.Identity != fmt.Sprint(t.SettingsRevision) {
+		return capacityRecord{}, nil
+	}
+	var r capacityRecord
+	err = json.Unmarshal(row.Payload, &r)
+	return r, err
+}
+
+// Run publishes only evidence for the target configuration it checked.
 func (o *CapacityObserver) Run(ctx context.Context, id ids.ID, revision int64) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	target, err := o.target(ctx, id)
-	if err == nil && target.SettingsRevision != revision {
-		return nil
-	}
-	var reading TargetCapacity
-	if err == nil {
-		reading, err = o.read(ctx, target)
-	}
-	if err == nil {
-		current, lookupErr := o.target(ctx, id)
-		if lookupErr != nil {
-			err = lookupErr
-		} else if current.SettingsRevision != revision {
-			return nil
-		}
-	}
-	if ctx.Err() != nil {
-		err = ctx.Err()
-	}
-	now := o.now()
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	e := o.entries[id]
-	if o.entries == nil {
-		o.entries = make(map[ids.ID]*capacityObservation)
-	}
-	if e == nil || e.revision != revision {
-		e = &capacityObservation{revision: revision}
-		o.entries[id] = e
-	}
-	e.snapshot.AttemptedAt = now
 	if err != nil {
-		e.snapshot.Unknown = true
-		e.snapshot.DiskUnknown = true
-		e.snapshot.Reason = "The host capacity check failed."
 		return err
 	}
-	if reading.Disk == nil || !reading.Disk.Free.Known || !reading.Disk.Total.Known {
-		// Preserve a prior pressure condition under unreadable new evidence.
-		e.snapshot.Unknown = true
-		e.snapshot.DiskUnknown = true
-		e.snapshot.Stale = true
-		e.snapshot.Reason = "The host disk check failed."
+	if target.SettingsRevision != revision {
 		return nil
 	}
-	disk := *reading.Disk
-	reason := capacityFailure(reading)
-	e.snapshot = CapacitySnapshot{Disk: &disk, ObservedAt: reading.ReadAt, AttemptedAt: now, Unknown: reason != "", Reason: reason}
-	return nil
+	reading, checkErr := o.read(ctx, target)
+	// Finishing a timed-out check still records its failure, within a bounded write.
+	finish, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer stop()
+	current, err := o.target(finish, id)
+	if err != nil {
+		return err
+	}
+	if current.SettingsRevision != revision {
+		return nil
+	}
+	if ctx.Err() != nil {
+		checkErr = ctx.Err()
+	}
+	prior, err := o.load(finish, target)
+	if err != nil {
+		return err
+	}
+	now := o.now()
+	prior.AttemptedAt = now
+	reason := ""
+	if checkErr != nil {
+		reason = "The host capacity check failed."
+	} else {
+		reason = capacityFailure(reading)
+		if DescribeTarget(target).ContainerMemoryLimits && (reading.Disk == nil || !reading.Disk.Free.Known || !reading.Disk.Total.Known) {
+			reason = "The host disk check failed."
+		}
+		merged := mergeCapacity(prior.Capacity, reading, now)
+		// A partly read host keeps moving: its time is the newest figure
+		// actually read, so one figure that can never be read does not
+		// freeze the rest. An offline host keeps its last good time.
+		if reason != "" {
+			merged.ReadAt = prior.Capacity.ReadAt
+			if at := successfulCapacityTime(merged); at.After(merged.ReadAt) {
+				merged.ReadAt = at
+			}
+		}
+		prior.Capacity = merged
+	}
+	prior.Reason = reason
+	if reason != "" {
+		prior.FailedAt = now
+		prior.LastFailedAt = now
+		prior.LastFailure = reason
+	} else {
+		prior.FailedAt = time.Time{}
+	}
+	raw, err := json.Marshal(prior)
+	if err != nil {
+		return err
+	}
+	err = deploymentsql.New(o.db.SQL()).StoreReading(finish, deploymentsql.StoreReadingParams{ID: ids.New(now), Subject: id.String(), Kind: "capacity", Identity: fmt.Sprint(revision), Payload: raw})
+	return errors.Join(checkErr, err)
+}
+
+func (s *Service) recordedCapacity(ctx context.Context, t *Target) (TargetCapacity, error) {
+	o := NewCapacityObserver(s)
+	r, err := o.load(ctx, t)
+	if err != nil {
+		return TargetCapacity{}, err
+	}
+	if r.Capacity.ReadAt.IsZero() {
+		return TargetCapacity{Target: t.Name, Kind: t.Kind, Words: "Pending first check", Stale: true, Error: r.Reason}, nil
+	}
+	out := capacityAt(r.Capacity, s.now())
+	out.Error = r.Reason
+	return out, nil
 }
 
 // Optional figures remain absent when the provider does not offer them. A
 // present but unread figure is incomplete coverage, even with a healthy disk.
 func capacityFailure(reading TargetCapacity) string {
+	if reading.Error != "" {
+		return reading.Error
+	}
 	for _, resource := range []struct {
 		name    string
 		reading *ResourceCapacity

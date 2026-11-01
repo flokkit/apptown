@@ -87,3 +87,13 @@ export function fmtLastRead(ms: number, now = Date.now()): string {
 export function count(n: number, one: string, many = one + 's'): string {
   return `${n} ${n === 1 ? one : many}`
 }
+
+// Retained observations use an age, even when the latest check failed.
+export function lastSeen(at: string, now = Date.now()): string {
+  const mins = Math.max(0, Math.floor((now - Date.parse(at)) / 60000))
+  if (!Number.isFinite(mins)) return 'last seen at an unknown time'
+  if (mins < 1) return 'last seen just now'
+  if (mins < 60) return `last seen ${mins} min ago`
+  if (mins < 1440) return `last seen ${Math.floor(mins / 60)} hr ago`
+  return `last seen ${Math.floor(mins / 1440)} days ago`
+}

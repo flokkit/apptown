@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/hostmem"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -28,15 +29,15 @@ type Service struct {
 	// prunes at most hourly.
 	limitsMu     sync.Mutex
 	limitsPruned time.Time
-	// capacity keeps each target's reading briefly (capacity.go).
-	capacity  capacityCache
-	hosts     *Hosts
-	env       *Environment
-	providers *Providers
-	projects  *project.Projects
-	authority access.Authorizer
-	groups    GroupDirectory
-	db        *database.DB
+	// hostMemory reads the built-in host; nil uses /proc/meminfo.
+	hostMemory func() (hostmem.Memory, error)
+	hosts      *Hosts
+	env        *Environment
+	providers  *Providers
+	projects   *project.Projects
+	authority  access.Authorizer
+	groups     GroupDirectory
+	db         *database.DB
 	// records is the context a release's log lines are written on: each
 	// says what already happened, so none is lost to its caller stopping.
 	records            context.Context

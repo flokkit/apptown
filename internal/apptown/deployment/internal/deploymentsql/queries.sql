@@ -540,3 +540,27 @@ DELETE FROM deployment_hostname_claims c WHERE c.hostname=$1 AND NOT EXISTS(SELE
 
 -- name: ReleaseNumbersForProject :many
 SELECT number FROM releases WHERE project_id=sqlc.arg(project_id) ORDER BY number;
+
+-- name: Reading :one
+SELECT identity, generation, invalidated, payload FROM deployment_readings WHERE subject=$1 AND kind=$2;
+
+-- name: StoreReading :exec
+INSERT INTO deployment_readings (id, subject, kind, identity, payload)
+VALUES ($1,$2,$3,$4,$5)
+ON CONFLICT (subject,kind) DO UPDATE SET identity=EXCLUDED.identity, payload=EXCLUDED.payload
+WHERE deployment_readings.identity=EXCLUDED.identity OR deployment_readings.generation=0;
+
+-- name: StartInventoryReading :one
+INSERT INTO deployment_readings (id, subject, kind, identity)
+VALUES ($1,$2,$3,$4)
+ON CONFLICT (subject,kind) DO UPDATE SET
+    identity=EXCLUDED.identity,
+    payload=CASE WHEN deployment_readings.identity=EXCLUDED.identity THEN deployment_readings.payload ELSE '{}'::jsonb END
+RETURNING identity, generation, invalidated, payload;
+
+-- name: FinishInventoryReading :execrows
+UPDATE deployment_readings SET payload=$5, invalidated=$6
+WHERE subject=$1 AND kind=$2 AND identity=$3 AND generation=$4;
+
+-- name: InvalidateReading :exec
+UPDATE deployment_readings SET generation=generation+1, invalidated=TRUE WHERE subject=$1 AND kind=$2;

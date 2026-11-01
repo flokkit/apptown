@@ -170,7 +170,7 @@ func TestDiskSourcePreservesEvidenceAndHidesReadErrors(t *testing.T) {
 	t.Parallel()
 	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
 	source := Disks{Observer: &diskEvidence{maintenance.DiskSnapshot{ObservedAt: at, Disks: []maintenance.DiskObservation{
-		{Reading: diskspace.Reading{What: "worker state", Path: "/state", Low: true, ReadAt: at}, Stale: true},
+		{Reading: diskspace.Reading{What: "worker state", Path: "/state", Low: true, ReadAt: at}, Stale: true, FailedAt: at},
 		{Reading: diskspace.Reading{What: "worker cache", Path: "/cache", Refuses: true, Low: true, ReadAt: at}},
 		{Reading: diskspace.Reading{What: "controller", Refuses: true, Unknown: "provider secret", ReadAt: at}},
 		{Reading: diskspace.Reading{What: "healthy", ReadAt: at}},
@@ -179,7 +179,7 @@ func TestDiskSourcePreservesEvidenceAndHidesReadErrors(t *testing.T) {
 	if err != nil || got.Known || len(got.Items) != 3 {
 		t.Fatalf("coverage: %+v %v", got, err)
 	}
-	if got.Items[0].Title != "worker state: Disk space could not be assessed" || !got.Items[0].Stale || got.Items[0].ObservedAt != at || got.Items[1].Title != "worker cache: Disk space blocks new work" || got.Items[2].Title != "controller: Disk space could not be assessed" {
+	if got.Items[0].Title != "worker state: Disk check failed" || !got.Items[0].Stale || got.Items[0].ObservedAt != at || got.Items[1].Title != "worker cache: Disk space blocks new work" || got.Items[2].Title != "controller: Disk space could not be assessed" {
 		t.Fatalf("condition meaning lost: %+v", got)
 	}
 	for _, item := range got.Items {
@@ -234,9 +234,9 @@ func (c *capacityEvidence) Snapshot(_ context.Context, t *deployment.Target) (de
 func TestCapacitySourceKeepsEachDiskTimeAndDoesNotReadElasticTargets(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
-	old := now.Add(-13 * time.Minute)
+	old := now.Add(-30 * time.Minute)
 	one, two, elastic := idstest.N(1), idstest.N(2), idstest.N(3)
-	evidence := &capacityEvidence{reads: map[ids.ID]deployment.CapacitySnapshot{one: {ObservedAt: now, Stale: true, Disk: &deployment.DiskCapacity{Free: deployment.Figure{Known: true, Value: 1 << 30}, Total: deployment.Figure{Known: true, Value: 100 << 30}, Low: true, ReadAt: old}}, two: {Unknown: true, Stale: true, AttemptedAt: now}}}
+	evidence := &capacityEvidence{reads: map[ids.ID]deployment.CapacitySnapshot{one: {ObservedAt: now, Stale: true, FailedAt: now, Disk: &deployment.DiskCapacity{Free: deployment.Figure{Known: true, Value: 1 << 30}, Total: deployment.Figure{Known: true, Value: 100 << 30}, Low: true, ReadAt: old}}, two: {Unknown: true, Stale: true, AttemptedAt: now}}}
 	source := Capacity{Targets: capacityTargets{[]*deployment.Target{{ID: one, Name: "team host", DisplayLabel: "Office", Kind: deployment.KindDockerHost}, {ID: two, Name: "second", Kind: deployment.KindPortainer}, {ID: elastic, Name: "cloud", Kind: deployment.KindDOApp}}}, Observer: evidence, Now: func() time.Time { return now }}
 	got, err := source.Snapshot(t.Context())
 	if err != nil || got.Known || !got.Stale || len(got.Items) != 3 || len(evidence.calls) != 2 {
@@ -316,7 +316,9 @@ func TestCapacityAssessesDiskIndependentlyOfSnapshotCoverage(t *testing.T) {
 			t.Fatalf("fresh pressure inherited snapshot status: %+v %v", got, err)
 		}
 		snapshot.Disk.Low = false
-		snapshot.Disk.ReadAt = at.Add(-13 * time.Minute)
+		snapshot.Disk.ReadAt = at.Add(-30 * time.Minute)
+		snapshot.FailedAt = at
+		evidence.reads[id] = snapshot
 		got, err = source.Snapshot(t.Context())
 		if err != nil || len(got.Items) != 1 || !got.Items[0].Stale || !strings.HasSuffix(got.Items[0].Key, "/disk-unassessed") {
 			t.Fatalf("stale disk hidden: %+v %v", got, err)
@@ -324,7 +326,7 @@ func TestCapacityAssessesDiskIndependentlyOfSnapshotCoverage(t *testing.T) {
 	}
 }
 
-func TestSourceReadErrorsRetainOnlyAuthorizedPriorEvidence(t *testing.T) {
+func TestSourceReadErrorsUseOnlyOwnerEvidence(t *testing.T) {
 	t.Parallel()
 	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
 	auth := &authority{instance: true}
@@ -338,13 +340,12 @@ func TestSourceReadErrorsRetainOnlyAuthorizedPriorEvidence(t *testing.T) {
 		}
 		return v
 	}
-	first := read()
-	source.snapshot.Items[0].Title = "mutated by owner"
+	read()
 	source.snapshot = Snapshot{}
 	source.err = errors.New("database private endpoint")
 	failed := read()
-	if len(failed.Items) != 1 || failed.Items[0].Key != first.Items[0].Key || failed.Items[0].Title != "disk low" || failed.Items[0].ObservedAt != at || !failed.Items[0].Stale {
-		t.Fatalf("source failure erased/changed evidence %+v", failed)
+	if len(failed.Items) != 0 {
+		t.Fatalf("source error resurrected a process-memory reading: %+v", failed)
 	}
 	auth.instance = false
 	calls := source.calls
@@ -497,10 +498,10 @@ func TestCapacityPendingCheckIsNotAnAttentionItem(t *testing.T) {
 	if err != nil || len(got.Items) != 1 || got.Items[0].Title != "demo-docker: disk space is unknown" || got.Items[0].ObservedAt != at {
 		t.Fatalf("failed first check hidden: %+v %v", got, err)
 	}
-	evidence.reads[id] = deployment.CapacitySnapshot{ObservedAt: at, Stale: true, Disk: &deployment.DiskCapacity{Free: deployment.Figure{Known: true, Value: 50}, Total: deployment.Figure{Known: true, Value: 100}, ReadAt: at.Add(-13 * time.Minute)}}
+	evidence.reads[id] = deployment.CapacitySnapshot{ObservedAt: at, Stale: true, Disk: &deployment.DiskCapacity{Free: deployment.Figure{Known: true, Value: 50}, Total: deployment.Figure{Known: true, Value: 100}, ReadAt: at.Add(-30 * time.Minute)}}
 	got, err = source.Snapshot(t.Context())
-	if err != nil || len(got.Items) != 1 {
-		t.Fatalf("stale healthy check hidden: %+v %v", got, err)
+	if err != nil || len(got.Items) != 0 {
+		t.Fatalf("stale healthy check raised an item: %+v %v", got, err)
 	}
 }
 
@@ -515,5 +516,33 @@ func TestCoverageReportsSafeFailureReason(t *testing.T) {
 	view.add("capacity", "Capacity", Snapshot{Reason: "old reason"}, errors.New("provider secret"))
 	if view.Sources[0].Reason != "The source check failed." {
 		t.Fatalf("raw error leaked or failure hidden: %+v", view)
+	}
+}
+
+func TestRetainedKnownFailureIsStaleWithoutSerializingAsUnknown(t *testing.T) {
+	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	for _, unknown := range []bool{false, true} {
+		var view View
+		view.add("capacity", "Capacity", Snapshot{Known: !unknown, Stale: true, ObservedAt: at, Items: []Item{{Key: "host", Stale: true, Unknown: unknown, ObservedAt: at}}}, nil)
+		raw, err := json.Marshal(view)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got struct {
+			Items []struct {
+				Status string `json:"statusLabel"`
+				Stale  bool   `json:"stale"`
+			}
+		}
+		if err := json.Unmarshal(raw, &got); err != nil {
+			t.Fatal(err)
+		}
+		want := "waiting"
+		if unknown {
+			want = "unknown"
+		}
+		if len(got.Items) != 1 || got.Items[0].Status != want || !got.Items[0].Stale {
+			t.Fatalf("age conflated with unknown: %s", raw)
+		}
 	}
 }

@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"slices"
-	"sync"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -18,6 +16,9 @@ import (
 
 type InventoryReading struct {
 	Items      []deploy.Resource
+	Missing    []deploy.Resource
+	FailedAt   time.Time
+	Reason     string
 	ObservedAt time.Time
 	// AttemptedAt is when the latest inventory attempt finished, successful or not.
 	AttemptedAt    time.Time
@@ -26,11 +27,6 @@ type InventoryReading struct {
 	// Unreported: the target's kind has no inventory reader. Its presence is
 	// unknown by design, not a failed assessment, so it raises no warning.
 	Unreported bool
-}
-type comparedInventory struct {
-	revision int64
-	at       time.Time
-	items    []Item
 }
 
 // Inventory retains only conditions established by a complete current provider
@@ -45,9 +41,7 @@ type Inventory struct {
 	Observer interface {
 		Snapshot(context.Context, *deployment.Target) (InventoryReading, error)
 	}
-	Now      func() time.Time
-	mu       sync.Mutex
-	compared map[ids.ID]comparedInventory
+	Now func() time.Time
 }
 
 func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
@@ -59,16 +53,20 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 		return Snapshot{}, err
 	}
 	out := Snapshot{Known: true, ObservedAt: clock.Or(s.Now)()}
-	present := map[ids.ID]bool{}
 	for _, t := range targets {
 		if t.Status == deployment.TargetRetired {
 			continue
 		}
-		present[t.ID] = true
 		records, recordErr := s.Records.Recorded(ctx, t)
 		sample, readErr := s.Observer.Snapshot(ctx, t)
 		unknown := recordErr != nil || readErr != nil || sample.Unknown || sample.ObservedAt.IsZero()
 		out.Known = out.Known && !unknown
+		if sample.Reason != "" {
+			if out.Reason != "" {
+				out.Reason += " "
+			}
+			out.Reason += t.Name + ": " + sample.Reason
+		}
 		out.Stale = out.Stale || sample.Stale
 		if sample.ObservedAt.IsZero() || sample.ObservedAt.Before(out.ObservedAt) {
 			out.ObservedAt = sample.ObservedAt
@@ -83,48 +81,25 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 			currentSubjects[inventoryConditionKey(t.ID, r)] = true
 		}
 		var items []Item
-		s.mu.Lock()
-		prior, found := s.compared[t.ID]
-		s.mu.Unlock()
-		if !unknown && !sample.Stale && !sample.Invalidated {
-			for _, r := range deployment.MergeInventory(records, sample.Items) {
-				if r.Record != deploy.RecordMissing {
-					continue
-				}
-				items = append(items, Item{Key: inventoryConditionKey(t.ID, r), Title: label + ": resource missing", Detail: label + ": the complete inventory did not contain a recorded " + r.Kind + ".", Severity: SeverityWarning, Href: href, ObservedAt: sample.ObservedAt})
+		missing := sample.Missing
+		for _, r := range missing {
+			key := inventoryConditionKey(t.ID, r)
+			if recordErr == nil && !currentSubjects[key] {
+				continue
 			}
-			s.mu.Lock()
-			if s.compared == nil {
-				s.compared = make(map[ids.ID]comparedInventory)
-			}
-			if newer, ok := s.compared[t.ID]; ok && newer.revision == t.SettingsRevision && newer.at.After(sample.ObservedAt) {
-				items = slices.Clone(newer.items)
-			} else {
-				s.compared[t.ID] = comparedInventory{revision: t.SettingsRevision, at: sample.ObservedAt, items: slices.Clone(items)}
-			}
-			s.mu.Unlock()
-		} else if found && prior.revision == t.SettingsRevision {
-			for _, item := range prior.items {
-				if recordErr != nil || currentSubjects[item.Key] {
-					item.Stale = true
-					items = append(items, item)
-				}
-			}
+			items = append(items, Item{Key: key, Unknown: unknown, Title: label + ": resource missing", Detail: label + ": the complete inventory did not contain a recorded " + r.Kind + ".", Severity: SeverityWarning, Href: href, ObservedAt: sample.ObservedAt, Stale: unknown || sample.Stale || !sample.FailedAt.IsZero() || sample.Invalidated})
 		}
 		out.Items = append(out.Items, items...)
 		// A queued first check is incomplete coverage, not an actionable failure.
 		pending := sample.AttemptedAt.IsZero() && sample.ObservedAt.IsZero() && recordErr == nil && readErr == nil
-		if (unknown || sample.Stale) && !sample.Unreported && !pending {
-			out.Items = append(out.Items, Item{Key: t.ID.String() + "/unassessed", Title: label + ": resources not known", Detail: label + ": current resource presence and target availability could not be confirmed.", Severity: SeverityWarning, Href: href, ObservedAt: sample.ObservedAt, Stale: true})
+		if (unknown || sample.Stale && !sample.FailedAt.IsZero()) && !sample.Unreported && !pending {
+			title := label + ": resources not known"
+			if !unknown {
+				title = label + ": inventory check failed"
+			}
+			out.Items = append(out.Items, Item{Key: t.ID.String() + "/unassessed", Unknown: unknown, Title: title, Detail: label + ": current resource presence and target availability could not be confirmed. " + sample.Reason, Severity: SeverityWarning, Href: href, ObservedAt: sample.ObservedAt, Stale: true})
 		}
 	}
-	s.mu.Lock()
-	for id := range s.compared {
-		if !present[id] {
-			delete(s.compared, id)
-		}
-	}
-	s.mu.Unlock()
 	return out, nil
 }
 

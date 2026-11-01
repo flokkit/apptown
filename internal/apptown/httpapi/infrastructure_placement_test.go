@@ -128,12 +128,12 @@ type siblingInventoryCache map[string]struct {
 	error  string
 }
 
-func (c siblingInventoryCache) Live(_ context.Context, t *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool) {
+func (c siblingInventoryCache) Live(_ context.Context, t *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool, bool) {
 	at := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
 	if c[t.Name].error != "" {
 		at = time.Time{}
 	}
-	return c[t.Name].items, c[t.Name].shared, c[t.Name].error, at, false
+	return c[t.Name].items, c[t.Name].shared, c[t.Name].error, at, false, at.IsZero()
 }
 func collectSiblingInventory(t *testing.T, w *targetHTTPWorld) siblingInventoryCache {
 	t.Helper()
@@ -518,5 +518,44 @@ func TestPortainerStackWithoutThisInstallationsMarkIsNotAnOrphan(t *testing.T) {
 	defer f.mu.Unlock()
 	if len(f.deleted) != 0 {
 		t.Fatalf("an unmarked stack reached provider DELETE: %v", f.deleted)
+	}
+}
+
+// The inventory owner classifies age; a transport clock cannot overrule it.
+func TestInfrastructureUsesInventoryOwnerUnknownDecision(t *testing.T) {
+	t.Parallel()
+	w := newTargetHTTPWorld(t)
+	target := w.seedBuiltin(t)
+	first := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	now := first
+	owner := deployment.NewInventoryReadings(w.db, func() time.Time { return now })
+	generation, err := owner.Start(t.Context(), target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := owner.Finish(t.Context(), target, generation, nil, nil, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	w.infra.cache = owner
+	for _, age := range []time.Duration{30 * time.Minute, 6*time.Hour + time.Second} {
+		now = first.Add(age)
+		w.infra.now = func() time.Time {
+			if age > 6*time.Hour {
+				return first
+			}
+			return first.Add(24 * time.Hour)
+		}
+		code, out := targetCall(t, w.infra.Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
+		if code != http.StatusOK {
+			t.Fatalf("inventory: %d %+v", code, out)
+		}
+		views := out["targets"].([]any)
+		if len(views) != 1 {
+			t.Fatalf("targets: %+v", views)
+		}
+		got, _ := views[0].(map[string]any)["unknown"].(bool)
+		if got != (age > 6*time.Hour) {
+			t.Errorf("transport overruled owner at age %v: %+v", age, views[0])
+		}
 	}
 }

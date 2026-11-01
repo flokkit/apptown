@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -158,7 +157,6 @@ type Service struct {
 	applied      func(ids.ID)
 	// dataWork is the deployments a restore or a removal is changing now.
 	dataWork    dataWork
-	natives     sync.Map      // instance → nativeRead: the provider's answer about its backups
 	nativeFresh time.Duration // how long that answer is shown (NativeReadFor)
 }
 

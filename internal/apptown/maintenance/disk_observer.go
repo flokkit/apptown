@@ -2,8 +2,12 @@ package maintenance
 
 import (
 	"context"
-	"slices"
-	"sync"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"github.com/flokkit/apptown/internal/apptown/maintenance/internal/maintenancesql"
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/ids"
 	"time"
 
 	"github.com/flokkit/apptown/internal/clock"
@@ -13,32 +17,37 @@ import (
 // DiskObservation preserves a filesystem's last successful reading when a later
 // read fails. A stale reading is evidence of its old state, never current room.
 type DiskObservation struct {
-	Reading    diskspace.Reading
-	Controller bool
-	Stale      bool
+	LastFailedAt time.Time
+	LastFailure  string
+	Reading      diskspace.Reading
+	Controller   bool
+	Stale        bool
 	// Unknown describes the latest attempt, independently of the reading age.
-	Unknown bool
+	Unknown  bool
+	FailedAt time.Time
+	Reason   string
 }
 
 type DiskSnapshot struct {
-	Disks       []DiskObservation
-	ObservedAt  time.Time
-	AttemptedAt time.Time
-	Unknown     bool
-	Stale       bool
+	LastFailedAt time.Time
+	LastFailure  string
+	Disks        []DiskObservation
+	ObservedAt   time.Time
+	AttemptedAt  time.Time
+	Unknown      bool
+	Stale        bool
 }
 
 // DiskObserver owns recorded controller/worker readings. Snapshot is passive;
 // Run collects evidence under the periodic job's lifetime.
 type DiskObserver struct {
-	disks    Disks
-	now      func() time.Time
-	mu       sync.Mutex
-	snapshot DiskSnapshot
+	disks Disks
+	now   func() time.Time
+	db    *database.DB
 }
 
-func NewDiskObserver(disks Disks, now func() time.Time) *DiskObserver {
-	return &DiskObserver{disks: disks, now: clock.Or(now), snapshot: DiskSnapshot{Unknown: true}}
+func NewDiskObserver(db *database.DB, disks Disks, now func() time.Time) *DiskObserver {
+	return &DiskObserver{db: db, disks: disks, now: clock.Or(now)}
 }
 
 // Snapshot returns the latest recorded evidence and its age.
@@ -46,24 +55,46 @@ func (o *DiskObserver) Snapshot(ctx context.Context) (DiskSnapshot, error) {
 	if err := ctx.Err(); err != nil {
 		return DiskSnapshot{Unknown: true}, err
 	}
+	out, err := o.load(ctx)
+	if err != nil {
+		return DiskSnapshot{Unknown: true}, err
+	}
 	now := o.now()
-	o.mu.Lock()
-	out := o.copyLocked(now)
-	o.mu.Unlock()
+	out.Stale = out.ObservedAt.IsZero() || now.Sub(out.ObservedAt) > 15*time.Minute
+	out.Unknown = out.ObservedAt.IsZero()
+	for i := range out.Disks {
+		d := &out.Disks[i]
+		at := d.Reading.ReadAt
+		d.Stale = at.IsZero() || now.Sub(at) > 15*time.Minute
+		d.Unknown = at.IsZero() || now.Sub(at) > 6*time.Hour || d.Reading.Unknown != ""
+		if !d.Reading.TotalReadAt.IsZero() && now.Sub(d.Reading.TotalReadAt) > 7*24*time.Hour {
+			d.Reading.TotalBytes = 0
+		}
+		out.Stale = out.Stale || d.Stale
+		out.Unknown = out.Unknown || d.Unknown
+	}
 	return out, nil
 }
-
-func (o *DiskObserver) copyLocked(now time.Time) DiskSnapshot {
-	out := o.snapshot
-	out.Disks = slices.Clone(out.Disks)
-	out.Stale = out.ObservedAt.IsZero() || now.Sub(out.ObservedAt) > 12*time.Minute
-	for i := range out.Disks {
-		// Each filesystem keeps its own time. Refreshing a sibling cannot renew it.
-		at := out.Disks[i].Reading.ReadAt
-		out.Disks[i].Stale = out.Disks[i].Stale || at.IsZero() || now.Sub(at) > 12*time.Minute
-		out.Stale = out.Stale || out.Disks[i].Stale
+func (o *DiskObserver) load(ctx context.Context) (DiskSnapshot, error) {
+	row, err := maintenancesql.New(o.db.SQL()).Reading(ctx, maintenancesql.ReadingParams{Subject: o.disks.DataDir, Kind: "disks"})
+	if errors.Is(err, sql.ErrNoRows) || err == nil && row.Identity != o.disks.WorkerIdentity {
+		return DiskSnapshot{}, nil
 	}
-	return out
+	if err != nil {
+		return DiskSnapshot{}, err
+	}
+	var out DiskSnapshot
+	err = json.Unmarshal(row.Payload, &out)
+	return out, err
+}
+func (o *DiskObserver) store(ctx context.Context, snapshot DiskSnapshot) error {
+	finish, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	raw, err := json.Marshal(snapshot)
+	if err != nil {
+		return err
+	}
+	return maintenancesql.New(o.db.SQL()).StoreReading(finish, maintenancesql.StoreReadingParams{ID: ids.New(o.now()), Subject: o.disks.DataDir, Kind: "disks", Identity: o.disks.WorkerIdentity, Payload: raw})
 }
 
 // Run refreshes the complete controller/worker sample. It is called by the
@@ -78,28 +109,45 @@ func (o *DiskObserver) Run(ctx context.Context) error {
 		readings = append(readings, worker...)
 	}
 	now := o.now()
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	o.snapshot.AttemptedAt = now
-	if err := ctx.Err(); err != nil {
-		o.snapshot.Unknown = true
-		for i := range o.snapshot.Disks {
-			o.snapshot.Disks[i].Unknown = true
-			o.snapshot.Disks[i].Stale = true
-		}
-		if len(o.snapshot.Disks) == 0 {
-			o.snapshot.Disks = []DiskObservation{{Controller: true, Unknown: true, Stale: true, Reading: diskspace.Reading{What: "this AppTown's data folder", Path: o.disks.DataDir, Unknown: "The disk check did not finish", ReadAt: now}}}
-		}
-		return err
+	finish, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer stop()
+	snapshot, loadErr := o.load(finish)
+	if loadErr != nil {
+		return loadErr
 	}
-	prior := o.snapshot.Disks
-	next := DiskSnapshot{Disks: []DiskObservation{}, ObservedAt: now, AttemptedAt: now}
+	snapshot.AttemptedAt = now
+	if err := ctx.Err(); err != nil {
+		snapshot.Unknown = true
+		snapshot.LastFailedAt = now
+		snapshot.LastFailure = "The disk check did not finish."
+		for i := range snapshot.Disks {
+			snapshot.Disks[i].FailedAt = now
+			snapshot.Disks[i] = failedDisk(snapshot.Disks[i], now, "The disk check did not finish.")
+		}
+		if len(snapshot.Disks) == 0 {
+			snapshot.Disks = []DiskObservation{failedDisk(DiskObservation{Controller: true, Reading: diskspace.Reading{What: "this AppTown's data folder", Path: o.disks.DataDir, Unknown: "The disk check did not finish", ReadAt: now}}, now, "The disk check did not finish.")}
+		}
+		return errors.Join(err, o.store(ctx, snapshot))
+	}
+	prior := snapshot.Disks
+	next := DiskSnapshot{LastFailedAt: snapshot.LastFailedAt, LastFailure: snapshot.LastFailure, Disks: []DiskObservation{}, ObservedAt: now, AttemptedAt: now}
 	for i, reading := range readings {
 		if reading.Unknown == "" {
-			next.Disks = append(next.Disks, DiskObservation{Reading: reading, Controller: i == 0})
+			if reading.TotalReadAt.IsZero() {
+				reading.TotalReadAt = reading.ReadAt
+			}
+			fresh := DiskObservation{Reading: reading, Controller: i == 0}
+			for _, old := range prior {
+				if old.Reading.What == reading.What && old.Reading.Path == reading.Path {
+					fresh.LastFailedAt, fresh.LastFailure = old.LastFailedAt, old.LastFailure
+				}
+			}
+			next.Disks = append(next.Disks, fresh)
 			continue
 		}
 		next.Unknown = true
+		next.LastFailedAt = now
+		next.LastFailure = "The disk check failed."
 		// The controller is the first reading; individually unread worker
 		// filesystems retain only their own matching evidence.
 		retained := false
@@ -108,30 +156,35 @@ func (o *DiskObserver) Run(ctx context.Context) error {
 				continue
 			}
 			if old.Reading.What == reading.What && old.Reading.Path == reading.Path {
-				old.Stale = true
-				old.Unknown = true
+				old.FailedAt = now
+				old.Reason = "The disk check failed."
+				old.LastFailedAt = now
+				old.LastFailure = old.Reason
 				next.Disks = append(next.Disks, old)
 				retained = true
 			}
 		}
 		if !retained {
-			next.Disks = append(next.Disks, DiskObservation{Reading: reading, Controller: i == 0, Stale: true, Unknown: true})
+			next.Disks = append(next.Disks, failedDisk(DiskObservation{Reading: reading, Controller: i == 0}, now, "The disk check failed."))
 		}
 	}
 	if workerErr != nil {
 		next.Unknown = true
+		next.LastFailedAt = now
+		next.LastFailure = "The disk check failed."
 		if len(prior) > 1 {
 			for _, old := range prior[1:] {
-				old.Stale = true
-				old.Unknown = true
+				old.FailedAt = now
+				old.Reason = "The disk check failed."
+				old.LastFailedAt = now
+				old.LastFailure = old.Reason
 				next.Disks = append(next.Disks, old)
 			}
 		} else {
-			next.Disks = append(next.Disks, DiskObservation{Reading: diskspace.Reading{What: "the worker's disks", Unknown: workerErr.Error(), ReadAt: now}, Stale: true, Unknown: true})
+			next.Disks = append(next.Disks, failedDisk(DiskObservation{Reading: diskspace.Reading{What: "the worker's disks", Unknown: workerErr.Error(), ReadAt: now}}, now, "The worker disk check failed."))
 		}
 	}
-	o.snapshot = next
-	return nil
+	return o.store(ctx, next)
 }
 
 // Read returns the latest recorded disks for infrastructure pages.
@@ -143,10 +196,19 @@ func (o *DiskObserver) Read(ctx context.Context) []diskspace.Reading {
 	out := make([]diskspace.Reading, 0, len(snapshot.Disks))
 	for _, disk := range snapshot.Disks {
 		reading := disk.Reading
-		if disk.Unknown || disk.Stale {
-			reading.Unknown = "The latest disk check failed or is out of date"
+		reading.FailedAt, reading.Error = disk.FailedAt, disk.Reason
+		if disk.Unknown {
+			reading.Unknown = "The last successful disk reading is too old or unavailable"
 		}
 		out = append(out, reading)
 	}
 	return out
+}
+
+func failedDisk(d DiskObservation, at time.Time, reason string) DiskObservation {
+	d.FailedAt = at
+	d.Reason = reason
+	d.LastFailedAt = at
+	d.LastFailure = reason
+	return d
 }

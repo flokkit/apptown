@@ -21,7 +21,7 @@ func (s Workers) Snapshot(ctx context.Context) (Snapshot, error) {
 	observed, err := s.Observer.Snapshot(ctx)
 	out := Snapshot{Known: !observed.Unknown, Stale: observed.Stale, ObservedAt: observed.ObservedAt}
 	if observed.Configured && observed.Availability == execution.WorkerUnavailable {
-		out.Items = []Item{{Key: observed.Identity, Severity: SeverityWarning, Title: "Worker is unavailable", Detail: "AppTown could not reach the configured worker. Work that needs it cannot start until it is available.", Href: "/infrastructure", ObservedAt: observed.ObservedAt, Stale: observed.Stale || observed.Unknown}}
+		out.Items = []Item{{Key: observed.Identity, Severity: SeverityWarning, Unknown: observed.Unknown || observed.Stale, Title: "Worker is unavailable", Detail: "AppTown could not reach the configured worker. Work that needs it cannot start until it is available.", Href: "/infrastructure", ObservedAt: observed.ObservedAt, Stale: observed.Stale || observed.Unknown}}
 	}
 	return out, err
 }

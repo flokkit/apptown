@@ -96,7 +96,7 @@ type infrastructureChecks struct {
 	targets     *deployment.Targets
 	deployments *deployment.Deployments
 	protection  *dataprotection.ProtectionObserver
-	inventory   *inventoryCache
+	inventory   *deployment.InventoryReadings
 	db          *database.DB
 	life        context.Context
 }
@@ -152,7 +152,10 @@ func (c infrastructureChecks) Applied(targetID ids.ID) {
 		log.Printf("infrastructure: finding changed target: %v", err)
 		return
 	}
-	c.inventory.Invalidate(target.Name)
+	if err := c.inventory.Invalidate(ctx, target.Name); err != nil {
+		log.Printf("infrastructure: invalidating %s: %v", target.Name, err)
+		return
+	}
 	err = c.db.InTx(ctx, func(tx *database.Tx) error {
 		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: "inventory", Key: target.Name + "/act", Values: map[string]any{"target": target.Name}})
 	})

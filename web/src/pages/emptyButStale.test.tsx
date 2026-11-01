@@ -4,6 +4,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
+import { fmtStamp } from '../format'
 import { getKey, newQueryClient } from '../data'
 import { PoliciesCard } from './project/settings/Working'
 import { DeletedProjects } from './Infrastructure'
@@ -46,4 +47,14 @@ it('says "no cleanups under way" may be old when its refresh failed', async () =
   await vi.waitFor(() => expect(el.textContent).toContain('unknown'))
   expect(el.querySelector('.chip.unknown')?.getAttribute('aria-label')).toContain('(database unavailable)')
   done()
+})
+
+
+it('dates a deletion as an action with its actor', async () => {
+  const requestedAt = '2026-11-01T00:00:00Z'
+  const { el, done } = await emptyThenDown(<DeletedProjects />, '/project-cleanups', { cleanups: [{ projectId: 'gone', slug: 'gone', state: 'pending', attempts: 0, requestedAt, requestedBy: 'admin' }] })
+  try {
+    expect(el.textContent).toContain(`deleted ${fmtStamp(requestedAt)} by admin`)
+    expect(el.textContent).not.toContain('deleted last seen')
+  } finally { done() }
 })

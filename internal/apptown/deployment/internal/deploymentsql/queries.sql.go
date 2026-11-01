@@ -1188,6 +1188,35 @@ func (q *Queries) FinishAttempt(ctx context.Context, arg FinishAttemptParams) (i
 	return result.RowsAffected()
 }
 
+const finishInventoryReading = `-- name: FinishInventoryReading :execrows
+UPDATE deployment_readings SET payload=$5, invalidated=$6
+WHERE subject=$1 AND kind=$2 AND identity=$3 AND generation=$4
+`
+
+type FinishInventoryReadingParams struct {
+	Subject     string
+	Kind        string
+	Identity    string
+	Generation  int64
+	Payload     json.RawMessage
+	Invalidated bool
+}
+
+func (q *Queries) FinishInventoryReading(ctx context.Context, arg FinishInventoryReadingParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, finishInventoryReading,
+		arg.Subject,
+		arg.Kind,
+		arg.Identity,
+		arg.Generation,
+		arg.Payload,
+		arg.Invalidated,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const finishSupersededAttempt = `-- name: FinishSupersededAttempt :execrows
 UPDATE deployment_attempts SET status=$1, terminal=$2, finished_at=$3 WHERE id=$4
 `
@@ -1808,6 +1837,20 @@ func (q *Queries) InterruptedAttempts(ctx context.Context, arg InterruptedAttemp
 		return nil, err
 	}
 	return items, nil
+}
+
+const invalidateReading = `-- name: InvalidateReading :exec
+UPDATE deployment_readings SET generation=generation+1, invalidated=TRUE WHERE subject=$1 AND kind=$2
+`
+
+type InvalidateReadingParams struct {
+	Subject string
+	Kind    string
+}
+
+func (q *Queries) InvalidateReading(ctx context.Context, arg InvalidateReadingParams) error {
+	_, err := q.db.ExecContext(ctx, invalidateReading, arg.Subject, arg.Kind)
+	return err
 }
 
 const lastRelease = `-- name: LastRelease :one
@@ -2826,6 +2869,34 @@ func (q *Queries) PutTarget(ctx context.Context, arg PutTargetParams) (Target, e
 		&i.ConnectionID,
 		&i.ProviderScopeJson,
 		&i.DisplayLabel,
+	)
+	return i, err
+}
+
+const reading = `-- name: Reading :one
+SELECT identity, generation, invalidated, payload FROM deployment_readings WHERE subject=$1 AND kind=$2
+`
+
+type ReadingParams struct {
+	Subject string
+	Kind    string
+}
+
+type ReadingRow struct {
+	Identity    string
+	Generation  int64
+	Invalidated bool
+	Payload     json.RawMessage
+}
+
+func (q *Queries) Reading(ctx context.Context, arg ReadingParams) (ReadingRow, error) {
+	row := q.db.QueryRowContext(ctx, reading, arg.Subject, arg.Kind)
+	var i ReadingRow
+	err := row.Scan(
+		&i.Identity,
+		&i.Generation,
+		&i.Invalidated,
+		&i.Payload,
 	)
 	return i, err
 }
@@ -4181,6 +4252,46 @@ func (q *Queries) StandingCount(ctx context.Context, arg StandingCountParams) (i
 	return count, err
 }
 
+const startInventoryReading = `-- name: StartInventoryReading :one
+INSERT INTO deployment_readings (id, subject, kind, identity)
+VALUES ($1,$2,$3,$4)
+ON CONFLICT (subject,kind) DO UPDATE SET
+    identity=EXCLUDED.identity,
+    payload=CASE WHEN deployment_readings.identity=EXCLUDED.identity THEN deployment_readings.payload ELSE '{}'::jsonb END
+RETURNING identity, generation, invalidated, payload
+`
+
+type StartInventoryReadingParams struct {
+	ID       ids.ID
+	Subject  string
+	Kind     string
+	Identity string
+}
+
+type StartInventoryReadingRow struct {
+	Identity    string
+	Generation  int64
+	Invalidated bool
+	Payload     json.RawMessage
+}
+
+func (q *Queries) StartInventoryReading(ctx context.Context, arg StartInventoryReadingParams) (StartInventoryReadingRow, error) {
+	row := q.db.QueryRowContext(ctx, startInventoryReading,
+		arg.ID,
+		arg.Subject,
+		arg.Kind,
+		arg.Identity,
+	)
+	var i StartInventoryReadingRow
+	err := row.Scan(
+		&i.Identity,
+		&i.Generation,
+		&i.Invalidated,
+		&i.Payload,
+	)
+	return i, err
+}
+
 const storageBinding = `-- name: StorageBinding :one
 SELECT id, deployment_id, need, volume, data_path, declared_image, image_id, repo_digest, volume_created, volume_driver, origin, recorded_at FROM deployment_storage_bindings WHERE deployment_id=$1 AND need=$2 AND volume=$3
 `
@@ -4249,6 +4360,32 @@ func (q *Queries) StorageBindings(ctx context.Context, deploymentID ids.ID) ([]D
 		return nil, err
 	}
 	return items, nil
+}
+
+const storeReading = `-- name: StoreReading :exec
+INSERT INTO deployment_readings (id, subject, kind, identity, payload)
+VALUES ($1,$2,$3,$4,$5)
+ON CONFLICT (subject,kind) DO UPDATE SET identity=EXCLUDED.identity, payload=EXCLUDED.payload
+WHERE deployment_readings.identity=EXCLUDED.identity OR deployment_readings.generation=0
+`
+
+type StoreReadingParams struct {
+	ID       ids.ID
+	Subject  string
+	Kind     string
+	Identity string
+	Payload  json.RawMessage
+}
+
+func (q *Queries) StoreReading(ctx context.Context, arg StoreReadingParams) error {
+	_, err := q.db.ExecContext(ctx, storeReading,
+		arg.ID,
+		arg.Subject,
+		arg.Kind,
+		arg.Identity,
+		arg.Payload,
+	)
+	return err
 }
 
 const supersedeAttempts = `-- name: SupersedeAttempts :execrows

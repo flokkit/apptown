@@ -7,9 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"slices"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -34,6 +32,7 @@ type Item struct {
 	Href       string    `json:"href"`
 	ObservedAt time.Time `json:"observedAt"`
 	Stale      bool      `json:"stale"`
+	Unknown    bool      `json:"unknown,omitempty"`
 }
 
 // Snapshot can retain stale items while its source is unavailable. ObservedAt
@@ -89,8 +88,6 @@ type View struct {
 type Service struct {
 	authority access.ReadAuthorizer
 	sources   Sources
-	mu        sync.Mutex
-	previous  map[string]sourceEvidence
 }
 
 func New(authority access.ReadAuthorizer, sources Sources) *Service {
@@ -187,7 +184,7 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 
 func (v *View) add(key, name string, snapshot Snapshot, err error) {
 	coverage := Coverage{Reason: snapshot.Reason, Key: key, Name: name, ObservedAt: snapshot.ObservedAt,
-		Unknown: !snapshot.Known || err != nil, Stale: snapshot.Stale}
+		Unknown: !snapshot.Known || err != nil, Stale: snapshot.Stale || err != nil}
 	if err != nil {
 		coverage.Reason = "The source check failed."
 	}
@@ -202,7 +199,8 @@ func (v *View) add(key, name string, snapshot Snapshot, err error) {
 		}
 		seen[item.Key] = true
 		item.Key = fmt.Sprintf("%s/%s", key, item.Key)
-		item.Stale = item.Stale || snapshot.Stale || coverage.Unknown
+		item.Stale = item.Stale || err != nil
+		item.Unknown = item.Unknown || err != nil
 		v.Items = append(v.Items, item)
 	}
 	if coverage.Unknown {
@@ -215,56 +213,15 @@ func (v *View) add(key, name string, snapshot Snapshot, err error) {
 
 // sourceEvidence contains owner observations, never caller grants or a View.
 // It is selected only after current authority admits this source and subject.
-type sourceEvidence struct {
-	request  uint64
-	snapshot Snapshot
-	present  bool
-}
-
 func (s *Service) observe(ctx context.Context, key string, read func(context.Context) (Snapshot, error)) (Snapshot, error) {
-	s.mu.Lock()
-	if s.previous == nil {
-		s.previous = make(map[string]sourceEvidence)
-	}
-	prior := s.previous[key]
-	prior.request++
-	request := prior.request
-	s.previous[key] = prior
-	s.mu.Unlock()
-	snapshot, err := read(ctx)
-	if ctx.Err() != nil {
-		return Snapshot{}, ctx.Err()
-	}
-	// An owner's newer refusal is authority evidence, not an observation outage.
-	if kind := fault.KindOf(err); kind == fault.Forbidden || kind == fault.Unauthenticated {
-		return Snapshot{}, err
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	latest := s.previous[key]
-	if err == nil {
-		if latest.request == request {
-			snapshot.Items = slices.Clone(snapshot.Items)
-			latest.snapshot = snapshot
-			latest.present = true
-			s.previous[key] = latest
-		}
-		return snapshot, nil
-	}
-	if len(snapshot.Items) == 0 && latest.present {
-		snapshot = latest.snapshot
-		snapshot.Items = slices.Clone(snapshot.Items)
-	}
-	snapshot.Known = false
-	snapshot.Stale = true
-	return snapshot, err
+	return read(ctx)
 }
 
 func (v Item) MarshalJSON() ([]byte, error) {
 	type view Item
 	out := view(v)
 	out.StatusLabel = LabelWaiting
-	if v.Stale {
+	if v.Unknown {
 		out.StatusLabel = LabelUnknown
 	}
 	return json.Marshal(out)

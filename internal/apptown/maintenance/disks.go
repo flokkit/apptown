@@ -16,7 +16,8 @@ import (
 // target's capacity (deployment.Service.Capacity). Background checks collect
 // each reading with its own time; one that cannot be read says why.
 type Disks struct {
-	DataDir string
+	DataDir        string
+	WorkerIdentity string
 	// Worker reads the worker's own disks (execution.WorkerTasks.Disks);
 	// nil for an AppTown with no worker.
 	Worker interface {

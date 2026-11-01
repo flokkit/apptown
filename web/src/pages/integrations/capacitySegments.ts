@@ -68,7 +68,7 @@ function holders(tenants: Tenant[], fig: (t: Tenant) => Figure | number) {
   const unknown: Bar['unknown'] = []
   for (const t of tenants) {
     const f = fig(t)
-    const v = typeof f === 'number' ? { known: true, value: f, reason: '' } : f
+    const v = t.unknown ? { known: false, value: 0, reason: 'The last successful reading is too old.' } : typeof f === 'number' ? { known: true, value: f, reason: '' } : f
     if (!v.known) {
       unknown.push({ name: t.name, reason: v.reason || 'Reading unavailable' })
       continue
@@ -119,14 +119,14 @@ export function promised(c: TargetCapacity, resource: 'memory' | 'cpu'): (Bar & 
   const tenants = c.tenants ?? []
   const { segs, unknown } = holders(tenants, (t) => (resource === 'memory' ? t.promised : t.cpus))
   const sum = segs.reduce((a, s) => a + s.value, 0)
-  const unlimited = tenants.reduce((a, t) => a + (resource === 'memory' ? t.unlimited : t.cpuUnlimited), 0)
+  const unlimited = tenants.reduce((a, t) => a + (t.unknown ? 0 : resource === 'memory' ? t.unlimited : t.cpuUnlimited), 0)
   const partial = resource === 'cpu' ? tenants.reduce((a, t) => a + t.cpuUnread, 0) : 0
   if (partial > 0) {
     for (const t of tenants) if (t.cpuUnread > 0) unknown.push({ name: t.name, reason: `${t.cpuUnread} CPU limit${t.cpuUnread === 1 ? '' : 's'} could not be read` })
   }
   const scale = Math.max(total, sum)
-  const rest: Segment[] = sum >= total ? [] : partial > 0
-    ? [{ key: 'unread', kind: 'unread', name: 'not known', value: total - sum, detail: `${partial} limit${partial === 1 ? '' : 's'} could not be read; the displayed total is a minimum` }]
+  const rest: Segment[] = sum >= total ? [] : partial > 0 || unknown.length > 0
+    ? [{ key: 'unread', kind: 'unread', name: 'not known', value: total - sum, detail: 'Some limits are unknown; the displayed total is a minimum' }]
     : [{ key: 'free', kind: 'free', name: 'not allocated', value: total - sum }]
   return { segments: collapse([...segs, ...rest], scale), scale, mark: total / scale, unlimited, unknown, sum, partial }
 }

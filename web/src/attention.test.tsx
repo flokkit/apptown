@@ -63,8 +63,8 @@ describe('Attention surfaces share authorized current evidence', () => {
     expect(v.el.querySelectorAll('article .chip.pending')).toHaveLength(2)
     expect(v.el.querySelectorAll('article')[1].textContent).toContain('waiting')
   })
-  it.each(['unknown', 'stale', 'failed'] as const)('does not report all-clear for %s empty observations', async mode => {
-    responses(() => mode === 'failed' ? json({ error: 'observation read failed' }, 503) : json({ ...known, sources: [{ ...known.sources[0], unknown: mode === 'unknown', stale: mode === 'stale' }] }))
+  it.each(['unknown', 'failed'] as const)('does not report all-clear for %s empty observations', async mode => {
+    responses(() => mode === 'failed' ? json({ error: 'observation read failed' }, 503) : json({ ...known, sources: [{ ...known.sources[0], unknown: mode === 'unknown', stale: false }] }))
     const v = mount(<><AttentionBadge /><AttentionPage /></>); await settled(v.client)
     expect(badge(v.el).getAttribute('aria-label')).toBe(mode === 'failed' ? 'Attention unknown' : '0 need attention; 1 not known')
     expect(v.el.textContent).not.toContain('No current conditions need attention')
@@ -145,7 +145,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     })
     const v = mount(<Dashboard />, '/'); await settled(v.client)
     const lead = v.el.querySelector('.dash-lead')?.textContent
-    if (mode === 'known') expect(lead).toContain('All quiet')
+    if (mode === 'known' || mode === 'stale') expect(lead).toContain('All quiet')
     else expect(lead).not.toContain('All quiet')
   })
   it('keeps live apps visible without calling incomplete Attention a missing server reading', async () => {
@@ -257,4 +257,19 @@ it.each([0, 2])('keeps %s known conditions beside unknown source coverage', asyn
  expect(badge(v.el).textContent).toContain(`${count} · 1 not known`)
  expect(badge(v.el).getAttribute('href')).toBe('/attention')
  expect(badge(v.el).getAttribute('aria-label')).toBe(`${count} need attention; 1 not known`)
+})
+
+it('shows retained known failed readings with their age without unknown chips', async () => {
+ responses(() => json({ items: [{ ...warning.items[0], title: 'Host: disk check failed', detail: 'The host disk check failed.', observedAt: new Date(Date.now()-30*60000).toISOString(), stale:true, unknown:false }], sources:[{...known.sources[0],stale:true}] }))
+ const v=mount(<><AttentionBadge/><AttentionPage/></>);await settled(v.client)
+ expect(badge(v.el).textContent).toContain('1 need attention')
+ expect(v.el.textContent).toContain('last seen 30 min ago')
+ expect(v.el.textContent).not.toContain('Some checks are still unknown.')
+ expect(v.el.querySelector('article .chip.unknown')).toBeNull()
+})
+it('raises no unknown badge for an old successful reading', async () => {
+ responses(() => json({...known,sources:[{...known.sources[0],stale:true}]}))
+ const v=mount(<><AttentionBadge/><AttentionPage/></>);await settled(v.client)
+ expect(v.el.querySelector('.attention-badge')).toBeNull()
+ expect(v.el.textContent).not.toContain('Some checks are still unknown.')
 })

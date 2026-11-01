@@ -214,7 +214,7 @@ describe('what is unaccounted for at a target', () => {
     const asOf = new Date(Date.now() - 2 * 3600 * 1000).toISOString()
     const text = show({ live: false, error: 'ssh: connection refused', asOf, resources: [claim] })
     expect(text).toContain('ssh: connection refused')
-    expect(text).toContain(`showing the inventory read ${fmtStamp(asOf)}`)
+    expect(text).toContain(`showing the inventory last seen 2 hr ago`)
     expect(text).not.toContain(allClear)
   })
   it('says all accounted for only on an answer', () => {

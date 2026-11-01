@@ -190,6 +190,7 @@ type InfrastructureView struct {
 	Domain      string                 `json:"domain,omitempty"`
 	Place       string                 `json:"place"`
 	Vendor      string                 `json:"vendor"`
+	Unknown     bool                   `json:"unknown,omitempty"`
 	Live        bool                   `json:"live"`
 	Error       string                 `json:"error,omitempty"`
 	// Unreported: the target's kind has no inventory reader, so what it
@@ -205,5 +206,5 @@ type InfrastructureView struct {
 }
 
 type InventoryCache interface {
-	Live(context.Context, *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool)
+	Live(context.Context, *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool, bool)
 }

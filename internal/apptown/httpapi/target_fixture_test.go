@@ -134,8 +134,8 @@ func (f targetDockerClientFunc) Run(ctx context.Context, host string, req docker
 	return f(ctx, host, req)
 }
 
-func (*targetTestInventoryCache) Live(context.Context, *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool) {
-	return nil, nil, "", time.Time{}, false
+func (*targetTestInventoryCache) Live(context.Context, *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool, bool) {
+	return nil, nil, "", time.Time{}, false, true
 }
 func (*targetTestInventoryCache) Invalidate() {}
 

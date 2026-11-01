@@ -13,8 +13,8 @@ export function attentionState(q: Pick<Read<AttentionView>, 'data' | 'refreshFai
   return {
     count: q.data?.items.length ?? null,
     known: !!q.data && !q.refreshFailed && !q.paused
-      && q.data.sources.every((s) => !s.unknown && !s.stale)
-      && q.data.items.every((i) => !i.stale),
+      && q.data.sources.every((s) => !s.unknown)
+      && q.data.items.every((i) => !i.unknown),
   }
 }
 
@@ -22,7 +22,7 @@ export function AttentionBadge() {
   const q = useAttention()
   const state = attentionState(q)
   if (state.count === 0 && state.known) return null
-  const unknown = q.data ? (q.refreshFailed || q.paused ? Math.max(1, q.data.sources.length) : q.data.sources.filter(s => s.unknown || s.stale).length) : 0
+  const unknown = q.data ? (q.refreshFailed || q.paused ? Math.max(1, q.data.sources.length) : q.data.sources.filter(s => s.unknown).length) : 0
   const missing = q.err || q.refreshFailed || state.count === 0 ? 'unknown' : '…'
   return <span className="row small">
     <Link className="attention-badge" to="/attention" aria-label={state.count !== null && (state.count > 0 || unknown > 0) ? `${state.count} need attention${unknown ? `; ${unknown} not known` : state.known ? '' : '; coverage incomplete'}` : `Attention ${missing}`}>

@@ -6,7 +6,7 @@ import { post } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { QuietConfirm } from '../QuietConfirm'
-import { fmtStamp, fmtWhen } from '../format'
+import { lastSeen, fmtWhen, fmtStamp } from '../format'
 
 // Infrastructure (design/subsystems/deployment.md §2.6, §15): the cloud, as it is.
 // For each cloud target: what is at the provider right now — apps,
@@ -94,8 +94,8 @@ function TargetSection({ t: tIn, onChanged }: { t: TargetInfra; onChanged: () =>
   return (
     <section style={{ marginBottom: 26 }}>
       <div className="host-row"><strong><Link to={`/infrastructure/${t.target}`}>{t.target}</Link></strong><Status word={t.statusLabel} tone={t.statusLabel === 'working' ? 'pass' : STATUS_LIGHT[t.statusLabel]} help={`Target check: ${t.status}`} /><span className="muted small">{t.resources.length} resources</span>
-        {!t.live && <Status word="unknown" tone="unknown" help={t.unreported ? UNREPORTED : t.error || 'Pending first check.'} />}
-        {t.asOf && <span className="muted small">read {fmtStamp(t.asOf)}</span>}
+        {(t.unknown || t.unreported) && <Status word="unknown" tone="unknown" help={t.unreported ? UNREPORTED : t.error || 'Pending first check.'} />}
+        {t.asOf && <span className="muted small">{lastSeen(t.asOf)}</span>}
         {t.invalidated && <span className="chip pending">before the latest change</span>}
       </div>
       <div className="target-inventory">
@@ -123,7 +123,7 @@ const UNREPORTED = "This kind of target doesn't report what it holds"
 export function ResourceTables({ t: tIn, onChanged, only, empty }: { t: TargetInfra; onChanged: () => void; only?: (r: Resource) => boolean; empty?: string }) {
   const t = { ...tIn, resources: (tIn.resources ?? []).filter(only ?? (() => true)) }
   const kinds = [...KIND_ORDER.filter((k) => t.resources.some((r) => r.kind === k)), ...[...new Set(t.resources.map((r) => r.kind))].filter((k) => !KIND_ORDER.includes(k))]
-  if (t.resources.length === 0) return <div className="muted small">{empty ?? (t.live ? 'Empty inventory.' : t.asOf ? `No resources in the inventory read ${fmtStamp(t.asOf)}.` : t.unreported ? 'No recorded resources.' : 'Inventory is unknown.')}</div>
+  if (t.resources.length === 0) return <div className="muted small">{empty ?? (t.live ? 'Empty inventory.' : t.asOf ? `No resources in the inventory ${lastSeen(t.asOf)}.` : t.unreported ? 'No recorded resources.' : 'Inventory is unknown.')}</div>
   return (
     <>
       {kinds.map((k) => (

@@ -2,7 +2,7 @@ import { GlanceRow } from '../../GlanceRow'
 import { PRODUCT } from '../../brand'
 import { useGet } from '../../data'
 import { StaleNote } from '../../ReadGate'
-import { fmtBytes, fmtStamp } from '../../format'
+import { fmtBytes, lastSeen } from '../../format'
 import type { DiskCapacity, Figure, TargetCapacity, Tenant } from '../../wire.gen'
 import { disk, promised, usedMemory } from './capacitySegments'
 import { CapacityBar, CapacityTable } from './CapacityBars'
@@ -16,7 +16,7 @@ type Resource = NonNullable<TargetCapacity['memory']>
 // could not make.
 function FigureWords({ f, format }: { f: Figure; format: (v: number) => string }) {
   if (!f.known) return <span className="muted" title={f.reason}>unknown</span>
-  return <>{format(f.value)}</>
+  return <>{format(f.value)}{f.stale && f.readAt && <span className="muted"> · {lastSeen(f.readAt)}</span>}</>
 }
 
 const cpuWords = (v: number) => `${Math.round(v * 100) / 100} CPU${v === 1 ? '' : 's'}`
@@ -27,6 +27,7 @@ const usd = (v: number) => `$${v.toFixed(2)}`
 // the whole.
 function countWords(r: Resource): string {
   const p = r.promised
+  if (!p.sum.apptown.known || !p.sum.other.known) return 'Container limits are unknown.'
   const words = [`${p.limited.apptown + p.limited.other} limited`]
   const unlimited = p.unlimited.apptown + p.unlimited.other
   if (unlimited > 0) words.push(`${unlimited} without a set limit`)
@@ -69,16 +70,15 @@ export function Capacity({ name }: { name: string }) {
     <div className="small">
       {!c.elastic && <dl className="capacity-summary">
         {c.memory && <><dt>Memory use</dt><dd>{c.memory.hostUsed?.known && c.memory.total.known
-          ? `${briefBytes(c.memory.hostUsed.value)} used of ${briefBytes(c.memory.total.value)}` : 'not known'}</dd></>}
-        {c.disk && <><dt>Disk</dt><dd>{c.disk.free.known && c.disk.total.known
-          ? `${briefBytes(c.disk.free.value)} free of ${briefBytes(c.disk.total.value)}` : 'not known'}</dd></>}
-        <dt>Apps</dt><dd>{c.tenants ? `${c.tenants.filter(t => t.kind === 'deployment' || t.kind === 'preview').length} running` : 'not known'}</dd>
+          ? `${briefBytes(c.memory.hostUsed.value)} used of ${briefBytes(c.memory.total.value)}${c.memory.hostUsed.stale && c.memory.hostUsed.readAt ? ` · ${lastSeen(c.memory.hostUsed.readAt)}` : ''}` : 'not known'}</dd></>}
+        {c.disk && <><dt>Disk</dt><dd>{`${c.disk.free.known ? briefBytes(c.disk.free.value) : 'unknown'} free of ${c.disk.total.known ? briefBytes(c.disk.total.value) : 'unknown'}${c.disk.free.stale && c.disk.free.readAt ? ` · ${lastSeen(c.disk.free.readAt)}` : ''}`}</dd></>}
+        <dt>Apps</dt><dd>{!c.liveUnknown && (c.tenantsAt || c.tenants) ? `${(c.tenants ?? []).filter(t => t.kind === 'deployment' || t.kind === 'preview').length} running${c.tenantsAt && c.stale ? ` · ${lastSeen(c.tenantsAt)}` : ''}` : 'not known'}</dd>
       </dl>}
       {c.memory?.overcommitted && <p className="capacity-warning">Apps may need more memory than this host has.</p>}
       {c.disk?.refuses ? <p className="capacity-warning">Free disk space before starting a new release.</p>
         : c.disk?.low && <p className="capacity-warning">Low on disk. Free some space.</p>}
-      <div>{c.words} {c.readAt && <span className="muted">· read {fmtStamp(c.readAt)}</span>}</div>
-      {(c.error || (c.stale && c.readAt)) && <div className="error small">{c.error || "The capacity reading is out of date."}</div>}
+      <div>{c.words} {c.readAt && <span className="muted">· {lastSeen(c.readAt)}</span>}</div>
+      {c.error && <div className="error small">{c.error}</div>}
       <details className="capacity-details"><summary>Details</summary>
       {c.tenants && c.tenants.length > 0 ? <Bars c={c} /> : c.memory && c.cpu && (
         <table className="small" style={{ marginTop: 4 }}>
@@ -136,14 +136,14 @@ function DiskLine({ d }: { d: DiskCapacity }) {
   return (
     <div style={{ marginTop: 4 }}>
       <span className="muted">{diskLabel(d)}</span>{' '}
-      {why ? <>unknown <span className="muted">— {why}</span></> : <><FigureWords f={d.free} format={fmtBytes} /> free of <FigureWords f={d.total} format={fmtBytes} /></>}
-      {d.readAt && <span className="muted"> · read {fmtStamp(d.readAt)}</span>}
+      {why && !d.free.known && !d.total.known ? <>unknown <span className="muted">— {why}</span></> : <><FigureWords f={d.free} format={fmtBytes} /> free of <FigureWords f={d.total} format={fmtBytes} /></>}
+      {d.readAt && <span className="muted"> · {lastSeen(d.readAt)}</span>}
       {' '}<DiskState d={d} />
     </div>
   )
 }
 
-const f = (v: Figure | null | undefined, format: (v: number) => string) => (v && v.known ? format(v.value) : 'unknown')
+const f = (v: Figure | null | undefined, format: (v: number) => string) => (v && v.known ? `${format(v.value)}${v.stale && v.readAt ? ` · ${lastSeen(v.readAt)}` : ''}` : 'unknown')
 
 // limitWords: a holder's promised sum, or "without a set limit" when none of its
 // containers has one: never "0", which would read as a promise of nothing.
@@ -153,6 +153,7 @@ const limitWords = (v: Figure, unlimited: number, containers: number, format: (v
 // cpuCell: a holder's CPU promise, partial when a limit was not read as a
 // number of CPUs (CV-C02): "not read" or "at least …", never a plain sum.
 function cpuCell(t: Tenant): string {
+ if (t.unknown) return 'unknown'
   if (t.cpuUnread === 0) return limitWords({ known: true, value: t.cpus }, t.cpuUnlimited, t.containers, cpuWords)
   const unread = `${t.cpuUnread} limit${t.cpuUnread === 1 ? '' : 's'} could not be read`
   return t.cpus > 0 ? `at least ${cpuWords(t.cpus)} (${unread})` : unread
@@ -176,14 +177,14 @@ function Bars({ c }: { c: TargetCapacity }) {
           sum={free !== null && free >= 0 ? `${fmtBytes(free)} free of ${fmtBytes(m.total.value)}` : `${f(m.total, fmtBytes)} · free not known`} />
       ) : <div className="muted">memory: <FigureWords f={m.total} format={fmtBytes} /></div>}
       {pm && <CapacityBar label="memory limits" bar={pm} format={fmtBytes}
-        sum={`Apps are set up to use ${fmtBytes(pm.sum)}; this server has ${fmtBytes(m.total.value)}${m.overcommitted ? ` · over by ${fmtBytes(pm.sum - m.total.value)}` : ''}`} />}
+        sum={`${pm.unknown.length ? 'Known app limits total' : 'Apps are set up to use'} ${fmtBytes(pm.sum)}; this server has ${fmtBytes(m.total.value)}${m.overcommitted ? ` · over by ${fmtBytes(pm.sum - m.total.value)}` : ''}`} />}
       {pc && c.cpu && <CapacityBar label="CPU limits" bar={pc} format={cpuWords}
-        sum={pc.partial > 0
-          ? `at least ${cpuWords(pc.sum)} of ${cpuWords(c.cpu.total.value)} · could not read ${pc.partial} limit${pc.partial === 1 ? '' : 's'}`
+        sum={pc.partial > 0 || pc.unknown.length > 0
+          ? `at least ${cpuWords(pc.sum)} of ${cpuWords(c.cpu.total.value)} · ${pc.partial > 0 ? `could not read ${pc.partial} limit${pc.partial === 1 ? '' : 's'}` : 'CPU limits are not all known'}`
           : `${cpuWords(pc.sum)} of ${cpuWords(c.cpu.total.value)}${c.cpu.overcommitted ? ` · over by ${cpuWords(pc.sum - c.cpu.total.value)}` : ''}`} />}
       {dk && c.disk ? (
         <>
-          <CapacityBar label={diskLabel(c.disk)} bar={dk} format={fmtBytes} sum={`${fmtBytes(c.disk.free.value)} free of ${fmtBytes(c.disk.total.value)}${c.disk.readAt ? ` · read ${fmtStamp(c.disk.readAt)}` : ''}`} />
+          <CapacityBar label={diskLabel(c.disk)} bar={dk} format={fmtBytes} sum={`${fmtBytes(c.disk.free.value)} free of ${fmtBytes(c.disk.total.value)}${c.disk.readAt ? ` · ${lastSeen(c.disk.readAt)}` : ''}`} />
           <DiskState d={c.disk} />
         </>
       ) : c.disk && <DiskLine d={c.disk} />}
@@ -194,7 +195,7 @@ function Bars({ c }: { c: TargetCapacity }) {
             ...tenants.map((t) => ({
               name: t.name, kind: t.kind,
               to: t.project && t.deployment ? `/projects/${t.project}/settings/deployments` : undefined,
-              cells: [String(t.containers), f(t.used, fmtBytes), limitWords(t.promised, t.unlimited, t.containers, fmtBytes), String(t.unlimited),
+              cells: [t.unknown ? 'unknown' : String(t.containers), f(t.used, fmtBytes), limitWords(t.promised, t.unlimited, t.containers, fmtBytes), t.unknown ? 'unknown' : String(t.unlimited),
                 cpuCell(t)],
             })),
             ...(host ? [{ name: 'the whole host', kind: 'host', cells: ['', f(host, fmtBytes), '', '', ''] }] : []),

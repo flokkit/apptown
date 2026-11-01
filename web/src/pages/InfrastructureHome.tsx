@@ -8,7 +8,7 @@ import { PRODUCT } from '../brand'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
-import { fmtBytes, relTime } from '../format'
+import { fmtBytes, relTime, lastSeen } from '../format'
 import { DeletedProjects } from './Infrastructure'
 import type { DiskReadings, InfrastructureTargets, Job, JobList, Reading, TargetList } from '../wire.gen'
 import { familyRank } from '../targets'
@@ -72,7 +72,7 @@ export function InfrastructureHome() {
               <div className="host-row">
                 <strong>{v?.displayLabel || t.target}</strong>
                 <Status word={state.word} tone={state.word === 'working' ? 'pass' : STATUS_LIGHT[state.word]} help={state.help} />
-                <span className="muted small">{state.summary || (missing > 0 ? 'Check missing resources' : unrecorded > 0 ? 'Review resources' : `${envs.length} ${envs.length === 1 ? 'app' : 'apps'}`)}</span>
+                <span className="muted small">{state.summary || (t.asOf && !t.live ? lastSeen(t.asOf) : missing > 0 ? 'Check missing resources' : unrecorded > 0 ? 'Review resources' : `${envs.length} ${envs.length === 1 ? 'app' : 'apps'}`)}</span>
               </div>
             </Link>
           )
@@ -103,7 +103,9 @@ export function OwnDisks() {
             <span className="muted small">{d.unknown ? 'Disk not known' : d.low ? 'Low on disk' : `${Math.round(100 * (d.freeBytes ?? 0) / (d.totalBytes || 1))}% disk free`}</span>
           </summary>
           <div className="small">{d.what}{d.path && <p><code>{d.path}</code></p>}
-            {d.unknown || `${fmtBytes(d.freeBytes ?? 0)} free of ${fmtBytes(d.totalBytes ?? 0)}`} · {relTime(d.readAt)}
+            {d.unknown || `${fmtBytes(d.freeBytes ?? 0)} free of ${fmtBytes(d.totalBytes ?? 0)}`} · {lastSeen(d.readAt)}
+            {d.unknown && !!d.totalBytes && <p>Disk size: {fmtBytes(d.totalBytes)}</p>}
+            {d.error && <p className="error">{d.error}</p>}
             {d.refuses && <p>New work is blocked. Check the disk and free space.</p>}
             {d.warningBytes ? <p>Free some space when less than {fmtBytes(d.warningBytes)} is free.</p> : null}
             {d.floorBytes ? <p>New work stops below {fmtBytes(d.floorBytes)} free.</p> : null}

@@ -27,9 +27,9 @@ func TestAppTownsDisksAreEachTheirOwnReading(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	at := time.Date(2026, 10, 17, 1, 0, 0, 0, time.UTC)
-	full := diskspace.Reading{What: "the worker's state folder", Path: "/state", TotalBytes: 100, FreeBytes: 1, Refuses: true, ReadAt: at}
+	full := diskspace.Reading{TotalReadAt: at, What: "the worker's state folder", Path: "/state", TotalBytes: 100, FreeBytes: 1, Refuses: true, ReadAt: at}
 	read := func(disks Disks) []diskspace.Reading {
-		observer := NewDiskObserver(disks, func() time.Time { return at })
+		observer := NewDiskObserver(databaseSuite.New(t), disks, func() time.Time { return at })
 		if err := observer.Run(t.Context()); err != nil {
 			t.Fatal(err)
 		}
