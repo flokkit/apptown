@@ -250,7 +250,9 @@ func (s *Service) DiscardChangePreview(ctx context.Context, changeID ids.ID) err
 // keeps no record, and the preview is removed.
 func (s *Service) discardChangePreview(ctx context.Context, changeID ids.ID) error {
 	s.discardDecided(docker.PreviewChangeName(changeID))
-	return s.removeChangePreview(ctx, changeID)
+	err := s.removeChangePreview(ctx, changeID)
+	s.requestObservation(ctx, changeID)
+	return err
 }
 
 // removeChangePreview removes the change's preview and forgets its record
@@ -288,6 +290,7 @@ func (s *Service) servedIncarnation(ctx context.Context, name string) string {
 // admits the rehearsal; the same preview interval owns preparation and cleanup.
 // User-facing requests go through RequestChangePreview.
 func (s *Service) RehearseChange(ctx context.Context, ch Change, restart bool) (Result, error) {
+	defer s.requestObservation(ctx, ch.ID)
 	return s.runtime.bootChange(ctx, ch, restart, s.host)
 }
 
@@ -318,4 +321,15 @@ func (s *Service) preparePreview(ctx context.Context, projectID ids.ID, slug, pr
 // Preparing alone makes no key: only a boot does.
 func (s *Service) withPreviewKeys(ctx context.Context, projectID ids.ID, preview string, p docker.Prepared) (docker.Prepared, error) {
 	return s.env.WithRegistered(ctx, p, s.previewKeys(projectID, preview))
+}
+
+func (s *Service) requestObservation(ctx context.Context, id ids.ID) {
+	if s.observationQueue == nil {
+		return
+	}
+	finish, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer stop()
+	if err := s.observationQueue.RequestPreviewObservation(finish, id); err != nil {
+		log.Printf("preview %s: requesting check: %v", id, err)
+	}
 }

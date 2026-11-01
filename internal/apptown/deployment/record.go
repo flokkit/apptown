@@ -63,6 +63,22 @@ type Deployment struct {
 	RestoreCheck RestoreCheck `json:"restoreCheck,omitempty"`
 }
 
+// ReadingBasis names the settled deployment facts that observation depends on.
+// Admission, readiness and restore holds do not change what is running.
+func (e *Deployment) ReadingBasis() any {
+	return struct {
+		ID, ProjectID, TargetID            ids.ID
+		Name                               string
+		Kind                               Kind
+		Generation                         int64
+		Handle                             map[string]any
+		Container, HostLabel               string
+		HostPort                           int
+		ReleaseRun                         ids.ID
+		ReleaseSHA, ImageDigest, DataClass string
+	}{e.ID, e.ProjectID, e.TargetID, e.Name, e.Kind, e.ObservedGeneration, e.Handle, e.Container, e.HostLabel, e.HostPort, e.ReleaseRun, e.ReleaseSHA, e.ImageDigest, e.DataClass}
+}
+
 // Placement is the record as a driver is handed it.
 //
 // A restored copy is always gated: the driver observes and takes it down

@@ -76,13 +76,13 @@ func errorsToken(ctx context.Context, secrets *secret.Service, b *errorsBinding)
 	return "", nil
 }
 
-func glitchtipReq(method, url, token string, body any) (int, []byte, error) {
+func glitchtipReq(ctx context.Context, method, url, token string, body any) (int, []byte, error) {
 	var rd io.Reader
 	if body != nil {
 		b, _ := json.Marshal(body)
 		rd = bytes.NewReader(b)
 	}
-	req, err := http.NewRequest(method, url, rd)
+	req, err := http.NewRequestWithContext(ctx, method, url, rd)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -112,7 +112,7 @@ func (s *Service) TestErrorsBinding(ctx context.Context, config map[string]any) 
 	if token == "" {
 		return Health{OK: false, Detail: "token secret not resolved (" + strings.Join(tmp.TokenFrom, ", ") + ")"}
 	}
-	code, _, err := glitchtipReq("GET", tmp.URL+"/api/0/organizations/"+org+"/", token, nil)
+	code, _, err := glitchtipReq(ctx, "GET", tmp.URL+"/api/0/organizations/"+org+"/", token, nil)
 	if err != nil {
 		return Health{OK: false, Detail: "unreachable: " + err.Error()}
 	}
@@ -150,12 +150,12 @@ func (s *Service) ProvisionErrors(ctx context.Context, p *project.Project, conne
 	if token == "" {
 		return nil, 422, fmt.Errorf("errors connector token secret does not resolve")
 	}
-	team, err := s.errorsTeam(b, token)
+	team, err := s.errorsTeam(ctx, b, token)
 	if err != nil {
 		return nil, 502, fmt.Errorf("resolving team: %w", err)
 	}
 	// Provision: create the provider project (409/400 name-taken → adopt).
-	code, raw, err := glitchtipReq("POST",
+	code, raw, err := glitchtipReq(ctx, "POST",
 		fmt.Sprintf("%s/api/0/teams/%s/%s/projects/", b.URL, b.Org, team),
 		token, map[string]any{"name": p.Slug, "platform": "other"})
 	if err != nil {
@@ -165,7 +165,7 @@ func (s *Service) ProvisionErrors(ctx context.Context, p *project.Project, conne
 		return nil, 502, fmt.Errorf("provision: HTTP %d: %s", code, strs.Truncate(string(raw), 200))
 	}
 	// DSN: first client key of the provider project.
-	code, raw, err = glitchtipReq("GET",
+	code, raw, err = glitchtipReq(ctx, "GET",
 		fmt.Sprintf("%s/api/0/projects/%s/%s/keys/", b.URL, b.Org, p.Slug), token, nil)
 	if err != nil || code != 200 {
 		return nil, 502, fmt.Errorf("fetching DSN: HTTP %d %v: %s", code, err, strs.Truncate(string(raw), 200))
@@ -189,8 +189,8 @@ func (s *Service) ProvisionErrors(ctx context.Context, p *project.Project, conne
 
 // ErrorsIssueSummary enriches an errors integration's resource with a live
 // unresolved-issues summary via the connector token (engine-side only).
-func (s *Service) ErrorsIssueSummary(ctx context.Context, p *project.Project, resource map[string]any) {
-	b, err := s.errorsBindingNamed(ctx, "")
+func (s *Service) collectErrorsIssueSummary(ctx context.Context, p *project.Project, resource map[string]any, binding string) {
+	b, err := s.errorsBindingNamed(ctx, binding)
 	if err != nil {
 		resource["issuesError"] = err.Error()
 		return
@@ -206,7 +206,7 @@ func (s *Service) ErrorsIssueSummary(ctx context.Context, p *project.Project, re
 	if token == "" {
 		return
 	}
-	code, raw, err := glitchtipReq("GET",
+	code, raw, err := glitchtipReq(ctx, "GET",
 		fmt.Sprintf("%s/api/0/projects/%s/%s/issues/?query=is:unresolved&limit=5", b.URL, b.Org, p.Slug), token, nil)
 	if err != nil {
 		resource["issuesError"] = err.Error()
@@ -238,7 +238,7 @@ func (s *Service) ErrorsIssueSummary(ctx context.Context, p *project.Project, re
 			// person can go from AppTown's card to the line without
 			// leaving (AppTown's own UI faults arrive here too).
 			if i.ID != "" {
-				if where := s.errorsIssueWhere(b, token, i.ID); where != "" {
+				if where := s.errorsIssueWhere(ctx, b, token, i.ID); where != "" {
 					row["where"] = where
 				}
 			}
@@ -252,11 +252,11 @@ func (s *Service) ErrorsIssueSummary(ctx context.Context, p *project.Project, re
 // binding config, else the org's first team, else a created "apptown" team.
 // Projects live under TEAMS in GlitchTip — a same-named team is not
 // guaranteed to exist (needs team:read, and team:write for the create path).
-func (s *Service) errorsTeam(b *errorsBinding, token string) (string, error) {
+func (s *Service) errorsTeam(ctx context.Context, b *errorsBinding, token string) (string, error) {
 	if b.Team != "" {
 		return b.Team, nil
 	}
-	code, raw, err := glitchtipReq("GET", b.URL+"/api/0/organizations/"+b.Org+"/teams/", token, nil)
+	code, raw, err := glitchtipReq(ctx, "GET", b.URL+"/api/0/organizations/"+b.Org+"/teams/", token, nil)
 	if err != nil {
 		return "", err
 	}
@@ -268,7 +268,7 @@ func (s *Service) errorsTeam(b *errorsBinding, token string) (string, error) {
 			return teams[0].Slug, nil
 		}
 	}
-	code, raw, err = glitchtipReq("POST", b.URL+"/api/0/organizations/"+b.Org+"/teams/",
+	code, raw, err = glitchtipReq(ctx, "POST", b.URL+"/api/0/organizations/"+b.Org+"/teams/",
 		token, map[string]any{"slug": "apptown"})
 	if err != nil {
 		return "", err
@@ -282,8 +282,8 @@ func (s *Service) errorsTeam(b *errorsBinding, token string) (string, error) {
 // errorsIssueWhere reads an issue's latest event and names its innermost
 // exception frame: file:line:col in function. Empty when the provider has
 // no frames (a message without a stack) or the call fails.
-func (s *Service) errorsIssueWhere(b *errorsBinding, token, issueID string) string {
-	code, raw, err := glitchtipReq("GET", fmt.Sprintf("%s/api/0/issues/%s/events/latest/", b.URL, issueID), token, nil)
+func (s *Service) errorsIssueWhere(ctx context.Context, b *errorsBinding, token, issueID string) string {
+	code, raw, err := glitchtipReq(ctx, "GET", fmt.Sprintf("%s/api/0/issues/%s/events/latest/", b.URL, issueID), token, nil)
 	if err != nil || code != 200 {
 		return ""
 	}

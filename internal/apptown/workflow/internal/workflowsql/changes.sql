@@ -203,3 +203,10 @@ JOIN runs r ON r.change_id=c.id AND r.project_id=c.project_id
 JOIN run_events e ON e.run_id=r.id AND e.kind='merge.completed'
 WHERE c.project_id=$1 AND c.landed_sha<>''
 GROUP BY c.id ORDER BY max(e.at) DESC,c.id DESC LIMIT 10;
+
+-- Background preview observation selections; private to the collector.
+-- name: PreviewObservationChanges :many
+SELECT id,project_id,state FROM changes WHERE state=sqlc.arg(open_state) OR id=ANY(sqlc.arg(listed)::uuid[]) ORDER BY id;
+
+-- name: PreviewObservationChange :one
+SELECT id,project_id,state FROM changes WHERE id=$1;

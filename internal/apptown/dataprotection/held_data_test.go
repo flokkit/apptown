@@ -146,6 +146,7 @@ func TestAHeldVolumeNothingCanCopyMakesTheSetPartial(t *testing.T) {
 	if err != nil || b.Status != BackupPartial {
 		t.Fatalf("take: %+v %v", b, err)
 	}
+	collectProtectionForTest(t, s, dep.ProjectID, dep.Name)
 	p, err := s.DeploymentProtection(context.Background(), dep.ProjectID, dep.Name)
 	if err != nil {
 		t.Fatal(err)
@@ -191,6 +192,7 @@ func TestNothingToBackUpNeedsBothSourcesReadAndEmpty(t *testing.T) {
 		if r, err := worker.Backup(context.Background(), pid.String()+"/"+name, nil); err == nil {
 			t.Fatalf("%s: the scheduled backup passed: %v", name, r)
 		}
+		collectProtectionForTest(t, s, pid, name)
 		if p, err := s.DeploymentProtection(context.Background(), pid, name); err != nil || p.Unknown == "" {
 			t.Fatalf("%s: protection %+v %v", name, p, err)
 		}
@@ -243,6 +245,7 @@ func TestAHostThatCannotBeAskedLeavesItsDataUnknown(t *testing.T) {
 	if r, err := worker.Backup(context.Background(), pid.String()+"/main", nil); err == nil {
 		t.Fatalf("the scheduled backup of an unreachable host passed: %v", r)
 	}
+	collectProtectionForTest(t, s, pid, "main")
 	p, err := s.DeploymentProtection(context.Background(), pid, "main")
 	if err != nil || p.Unknown == "" || len(p.Items) != 0 {
 		t.Fatalf("protection of an unreachable host: %+v %v", p, err)
@@ -292,6 +295,7 @@ func TestTwoVolumesOfOneRoleStayApart(t *testing.T) {
 		}
 		digest[it.SHA256] = it.Volume
 	}
+	collectProtectionForTest(t, s, dep.ProjectID, dep.Name)
 	p, err := s.DeploymentProtection(context.Background(), dep.ProjectID, dep.Name)
 	if err != nil || len(p.Items) != 4 {
 		t.Fatalf("protection: %+v %v", p, err)
@@ -443,6 +447,7 @@ func TestANeedWithNoNamedDataIsNotCopiedAndNeverMerged(t *testing.T) {
 					t.Fatalf("%s: %+v", it.Name, it)
 				}
 			}
+			collectProtectionForTest(t, s, pid, "main")
 			p, err := s.DeploymentProtection(context.Background(), pid, "main")
 			if err != nil || len(p.Items) != 1+len(needs) {
 				t.Fatalf("protection: %+v %v", p, err)
@@ -478,6 +483,7 @@ func TestACopyOfAnotherVolumeIsNotThisVolumesCopy(t *testing.T) {
 	hostMounts(client, map[string]string{svc: named + "\t/var/lib/postgresql/data"}, nil)
 	row := func() ItemProtection {
 		t.Helper()
+		collectProtectionForTest(t, s, pid, "main")
 		p, err := s.DeploymentProtection(context.Background(), pid, "main")
 		if err != nil {
 			t.Fatal(err)

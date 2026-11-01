@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider, focusManager } from '@tanstack/react-query'
 import { newQueryClient, getKey } from './data'
 import { settled } from './settled'
-import { AttentionBadge } from './attention'
+import { attentionState, AttentionBadge } from './attention'
 import AttentionPage from './pages/Attention'
 import Dashboard from './pages/Dashboard'
 import TopBar from './TopBar'
@@ -310,4 +310,12 @@ it('keeps low disk amber in Attention', async () => {
  const v=mount(<AttentionPage/>);await settled(v.client)
  expect(v.el.querySelector('article .chip.pending')?.textContent).toContain('low')
  expect(v.el.querySelector('article .chip.fail')).toBeNull()
+})
+
+it('counts an expired item once when its owner coverage has the same key', () => {
+ const item = { ...warning.items[0], key: 'integrations/mail', unknown: true }
+ const source = { ...known.sources[0], key: item.key, unknown: true }
+ const result = attentionState({ data: { items: [item], sources: [source] }, refreshFailed: false, paused: false })
+ expect(result.unknown).toBe(1)
+ expect(result.count).toBe(0)
 })

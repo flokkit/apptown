@@ -1,3 +1,4 @@
+import { BackgroundReading } from '../BackgroundReading'
 import { GlanceRow } from '../GlanceRow'
 import { Status } from '../Status'
 import { PRODUCT } from '../brand'
@@ -202,17 +203,17 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
   const shown = (ops ? [ops.copy, ops.check, ...(p.rehearsalNote !== 'never rehearsed: no rehearsal place' ? [ops.rehearsal] : []), ...(p.dataClass === 'production' ? [ops.restore] : [])] : []).filter(applies)
   const whyNot = Array.from(new Set(shown.filter((o) => !o.available && o.why).map((o) => o.why!)))
   const runnerMissing = shown.some((o) => o.reason === 'no-copy-runner')
-  if (p.unknown) return <div className="small"><Status word={"unknown"} help={p.unknown} /> couldn't read what this deployment holds<CoverageLines c={p.coverage} unknown /></div>
+  if (p.unknown) return <div className="small"><Status word={"unknown"} help={p.unknown} /> couldn't read what this deployment holds<BackgroundReading reading={p.reading} /><CoverageLines c={p.coverage} unknown /></div>
   // A deployment that holds no data AppTown knows of says only what is
   // not assessed; one whose take-down would still act on data, or with an
   // operation or copy standing, shows the whole card.
-  if (p.items.length === 0 && !p.takeDown && !p.running && !p.restoredCopies.some((c) => !c.endedAt)) return <div className="small"><StaleNote q={q} /><CoverageLines c={p.coverage} /></div>
+  if (p.items.length === 0 && !p.takeDown && !p.running && !p.restoredCopies.some((c) => !c.endedAt)) return <div className="small"><StaleNote q={q} /><BackgroundReading reading={p.reading} /><CoverageLines c={p.coverage} /></div>
   // A Docker host's backups on AppTown's own disk are a choice, said
   // plainly; App Platform data with no copy at all is a warning.
   const onHost = ops?.copy.reason === 'backups-page'
   return (
     <div className="small" style={{ marginTop: 2 }}>
-      <StaleNote q={q} />
+      <StaleNote q={q} /><BackgroundReading reading={p.reading} />
       {onHost
         ? <div className="muted">{p.keptOn === 'store' ? 'Backups kept in the backup store' : p.keptOn === 'host' ? <>Backups kept on <span title="lost with this host's disk">this host ⚠</span></> : 'No backup yet'} · <Link to="/docs/guides/deployment-backups">How backups work</Link></div>
         : p.note && <div className={p.dataClass === 'production' && !p.offHost ? 'error' : 'muted'}>{p.note}</div>}
@@ -364,7 +365,7 @@ export function StoreSection({ canAttach }: { canAttach: boolean }) {
       <StaleNote q={q} />
       <div className="row small" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         {st
-          ? <div>Backups go to <b>{st.bucket}</b><details><summary>Store details</summary><p>{st.endpoint} · attached by {st.attachedBy} {fmtWhen(st.attachedAt)}</p><p>Keys in {st.accessKeyFrom} and {st.secretKeyFrom}. Checked by writing, reading back and deleting a test file.</p>{canAttach && !open && <button onClick={() => setOpen(true)}>Attach another</button>}</details></div>
+          ? <div>Backups go to <b>{st.bucket}</b><details><summary>Store details</summary><p>{st.endpoint} · attached by {st.attachedBy} {fmtWhen(st.attachedAt)}</p><p><BackgroundReading reading={st.reading} /></p><p>Keys in {st.accessKeyFrom} and {st.secretKeyFrom}. Checked by writing, reading back and deleting a test file.</p>{canAttach && !open && <button onClick={() => setOpen(true)}>Attach another</button>}</details></div>
           : <span>No backup store attached</span>}
         {canAttach && !st && !open && <button className="subtle" onClick={() => setOpen(true)}>Attach a bucket</button>}
       </div>

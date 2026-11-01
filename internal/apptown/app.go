@@ -155,6 +155,7 @@ type App struct {
 	workerObserver     *maintenance.WorkerObserver
 	capacityObserver   *deployment.CapacityObserver
 	protectionObserver *dataprotection.ProtectionObserver
+	infrastructure     *infrastructureChecks
 	// The committed-tree command and shared conformance baseline cache.
 	verification *verification.Changes
 	capacity     *model.Scheduler
@@ -353,6 +354,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.deployments = deployment.NewDeployments(db)
 	a.hosts = deployment.NewHosts(a.targets, a.Secrets, hostSettingsFor(a))
 	a.environment = deployment.NewEnvironment(environmentDependenciesFor(a))
+	a.infrastructure = &infrastructureChecks{}
 	a.targetProviders = deployment.NewProviders(ctx, db, deployment.ProviderRecords{Targets: a.targets, Deployments: a.deployments}, a.hosts, a.environment, providerDependenciesFor(a, input.DigitalOcean))
 	// Data protection's fill of a deployment started from a copy is built
 	// before Deployment, which is given it; data protection itself is
@@ -403,9 +405,10 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	}
 	a.disks.WorkerIdentity = workerIdentity
 	a.diskObserver = maintenance.NewDiskObserver(db, a.disks, cfg.clock.Now)
-	a.workerObserver = maintenance.NewWorkerObserver(workerIdentity, workerProbe, workerObservationRequests{db: db}, cfg.clock.Now)
+	a.workerObserver = maintenance.NewWorkerObserver(db, workerIdentity, workerProbe, workerObservationRequests{db: db}, cfg.clock.Now)
 	a.capacityObserver = deployment.NewCapacityObserver(a.Deployment)
 	a.protectionObserver = dataprotection.NewProtectionObserver(a.DataProtection, protectionObservationRequests{db: db})
+	*a.infrastructure = infrastructureChecksFor(a)
 	a.jobs, err = jobs.New(jobs.Options{Tracer: a.telemetry.tracer, Hold: a.newWork.Wait}, db.Pool(), apptownJobKinds(a), jobReporter{}, apptownJobSchedules()...)
 	if err != nil {
 		return nil, fmt.Errorf("constructing job queue: %w", err)

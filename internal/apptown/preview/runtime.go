@@ -39,8 +39,9 @@ const (
 )
 
 type Status struct {
-	State State  `json:"state"`
-	URL   string `json:"url,omitempty"`
+	Reading Reading `json:"reading"`
+	State   State   `json:"state"`
+	URL     string  `json:"url,omitempty"`
 	// HostOnly: the URL answers on the AppTown host only
 	// (Service.PreviewsHostOnly), so it is not a link for anyone
 	// elsewhere.
@@ -59,6 +60,8 @@ type Status struct {
 // observation supplies facts; the runtime owns their precedence. Workflow
 // decides when an absent contract means there is nothing runnable yet.
 type observation struct {
+	Known      bool
+	StartedAt  string
 	URL        string
 	HostOnly   bool
 	NoContract bool
@@ -74,9 +77,10 @@ type observer interface {
 }
 
 type entry struct {
-	active  chan struct{}
-	at      time.Time
-	failure string
+	active       chan struct{}
+	at           time.Time
+	failure      string
+	failureState State
 }
 
 // previewRuntime owns boot serialization and transient diagnostics for one
@@ -147,6 +151,10 @@ func (b *booting) finish(err error) {
 		return
 	}
 	e.active, e.at, e.failure = nil, clock.Or(p.now)().UTC(), failure
+	e.failureState = Broken
+	if err != nil && !IsAppBootFailure(err) {
+		e.failureState = unavailable
+	}
 	close(b.done)
 }
 
@@ -155,8 +163,9 @@ func (p *previewRuntime) status(key previewKey, observed observation) Status {
 	defer p.mu.Unlock()
 	out := Status{State: cold}
 	failure := ""
+	failureState := Broken
 	if e := p.entries[key]; e != nil {
-		out.At, failure = e.at, e.failure
+		out.At, failure, failureState = e.at, e.failure, e.failureState
 		if e.active != nil {
 			out.State = stateStarting
 			return out
@@ -170,8 +179,8 @@ func (p *previewRuntime) status(key previewKey, observed observation) Status {
 		out.Built, out.Commit = observed.Built, observed.Commit
 	case observed.NoContract:
 		out.State = none
-	case failure != "":
-		out.State, out.Reason = Broken, failure
+	case failure != "" && !(failureState == unavailable && observed.Known):
+		out.State, out.Reason = failureState, failure
 	}
 	return out
 }

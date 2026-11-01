@@ -55,6 +55,9 @@ func (w inventoryRefresh) Run(ctx context.Context, key string, args map[string]a
 			err = errors.New("inventory target changed during observation")
 		}
 	}
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return nil, ctx.Err()
+	}
 	if ctx.Err() != nil {
 		err = ctx.Err()
 	}

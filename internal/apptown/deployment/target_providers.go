@@ -276,7 +276,7 @@ type targetCheck struct {
 // CheckTarget asks a target whether it answers: the daemon for a Docker
 // host, the API for Portainer and a cloud account. A kind with no check
 // yet says so rather than pretending.
-func (p *Providers) CheckTarget(ctx context.Context, t *Target) targetCheck {
+func (p *Providers) checkTargetStatus(ctx context.Context, t *Target) targetCheck {
 	if t.Kind == KindDOApp {
 		return p.checkAppPlatform(ctx, t)
 	}

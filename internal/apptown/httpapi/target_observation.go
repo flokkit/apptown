@@ -82,17 +82,16 @@ func (h Targets) CheckTarget(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, 409, "%s is retired", t.Name)
 		return
 	}
-	start := h.now()
-	c := h.providers.CheckTarget(r.Context(), t)
-	payload := map[string]any{"ok": c.OK, "detail": c.Detail, "durationMs": h.now().Sub(start).Milliseconds()}
-	if c.Registry != nil {
-		payload["registry"] = c.Registry
-	}
-	status, err := h.deployment.Targets.RecordCheck(r.Context(), t, c.OK, actor(r), payload)
+	c, err := h.providers.ObserveTarget(r.Context(), t, actor(r))
 	if err != nil {
 		WriteFault(w, err)
 		return
 	}
+	status := deployment.TargetUnreachable
+	if c.OK {
+		status = deployment.TargetReady
+	}
+
 	WriteJSON(w, 200, TargetChecked{OK: c.OK, Detail: c.Detail, Status: status})
 }
 
@@ -127,7 +126,14 @@ func (h Targets) targetViews(ctx context.Context) ([]TargetView, error) {
 	}
 	out := []TargetView{}
 	for _, t := range ts {
-		v := TargetView{Target: *t, StatusLabel: t.Status.Display(), KindInfo: deployment.DescribeTarget(t), Offers: []deployment.Offer{}, Deployments: []TargetDeployment{}, Copies: dataprotection.CopiesOn(t)}
+		check, err := h.deployment.Targets.RecordedCheck(ctx, t)
+		if err != nil {
+			return nil, err
+		}
+		v := TargetView{Check: check, Target: *t, StatusLabel: t.Status.Display(), KindInfo: deployment.DescribeTarget(t), Offers: []deployment.Offer{}, Deployments: []TargetDeployment{}, Copies: dataprotection.CopiesOn(t)}
+		if check.Unknown && t.Status != deployment.TargetRetired {
+			v.StatusLabel = deployment.UnknownTargetLabel()
+		}
 		if h.deployment.Targets.OfferedByConstruction(t) {
 			v.Offers = append(v.Offers, deployment.Offer{TargetID: t.ID, Group: "*", Implicit: true})
 		} else {
@@ -210,7 +216,8 @@ type TargetDeployment struct {
 }
 
 type TargetView struct {
-	StatusLabel deployment.TargetLabel `json:"statusLabel"`
+	Check       deployment.TargetReading `json:"check"`
+	StatusLabel deployment.TargetLabel   `json:"statusLabel"`
 	deployment.Target
 	KindInfo    deployment.KindInfo `json:"kindInfo"`
 	Offers      []deployment.Offer  `json:"offers"`

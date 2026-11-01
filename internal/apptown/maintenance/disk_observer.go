@@ -105,6 +105,9 @@ func (o *DiskObserver) Run(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	own, worker, workerErr := o.disks.read(ctx)
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return ctx.Err()
+	}
 	readings := []diskspace.Reading{own}
 	if workerErr == nil {
 		readings = append(readings, worker...)

@@ -165,7 +165,7 @@ func TestAFullDOCRRegistryRefusesANewProjectBeforeAnythingIsMade(t *testing.T) {
 		for _, r := range rows {
 			log = append(log, r.Text)
 		}
-		if c := w.s.providers.CheckTarget(t.Context(), tg); !c.OK || c.Registry == nil {
+		if c := w.s.providers.checkTargetStatus(t.Context(), tg); !c.OK || c.Registry == nil {
 			t.Errorf("the target's check: %+v", c)
 		}
 		return rel, strings.Join(log, "\n"), w.api.Snapshot()
@@ -254,7 +254,7 @@ func TestTheTargetsCheckReadsTheRegistrysPlan(t *testing.T) {
 			w := newDOCRWorld(t)
 			tc.seed(w.api)
 			tg, _ := w.cloud(t)
-			c := w.s.providers.CheckTarget(context.Background(), tg)
+			c := w.s.providers.checkTargetStatus(context.Background(), tg)
 			if !c.OK || c.Registry == nil || !strings.Contains(c.Detail, tc.says) {
 				t.Fatalf("check: %+v", c)
 			}

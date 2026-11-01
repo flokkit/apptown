@@ -333,6 +333,7 @@ func TestTheChangePageShowsTheWorkersPreviewState(t *testing.T) {
 	a, _, fake, ch := previewWorkerWorld(t, false)
 	state := func() (st struct{ State, URL, Reason string }) {
 		t.Helper()
+		collectPreviewReadingsForTest(t, a)
 		resp := authzCall(a.Handler(), "owner", "GET", fmt.Sprintf("/api/v1/changes/%d/preview", ch.ID), "")
 		if resp.Code != 200 {
 			t.Fatalf("preview state: %d %s", resp.Code, resp.Body.String())
@@ -369,6 +370,7 @@ func TestTheTierViewsListTheWorkersPreviewsOrSayTheyAreUnknown(t *testing.T) {
 	testAdministrator(t, a, "boss")
 	views := func() (tiers httpapi.TierMap, board httpapi.Departures) {
 		t.Helper()
+		collectPreviewReadingsForTest(t, a)
 		for path, out := range map[string]any{"/api/v1/tiers": &tiers, "/api/v1/tiers/departures": &board} {
 			resp := authzCall(a.Handler(), "boss", "GET", path, "")
 			if err := json.Unmarshal(resp.Body.Bytes(), out); err != nil || resp.Code != 200 {
@@ -629,4 +631,13 @@ func rehearsed(s *console.Session) string {
 	b, _ := os.ReadFile(filepath.Join(s.Dir, console.RehearsedFile))
 	commit, _, _ := strings.Cut(strings.TrimSpace(string(b)), "+")
 	return commit
+}
+
+// Collection is explicit; these view tests never ask a GET to measure status.
+func collectPreviewReadingsForTest(t *testing.T, a *App) {
+	t.Helper()
+	// Failure is a stored unavailable reading, asserted by the caller.
+	if _, err := apptownJobKinds(a)["preview-observation"].Run(t.Context(), "instance", nil); err != nil {
+		t.Logf("preview observation: %v", err)
+	}
 }

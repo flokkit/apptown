@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
+	"github.com/flokkit/apptown/internal/apptown/maintenance"
+	"github.com/flokkit/apptown/internal/apptown/preview"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -94,23 +97,29 @@ func (r workerObservationRequests) RequestWorkerObservation(ctx context.Context,
 // infrastructureChecks binds periodic and post-act admission to the owners it
 // needs. Domain callbacks retain these collaborators, not the whole App.
 type infrastructureChecks struct {
-	targets      *deployment.Targets
-	deployments  *deployment.Deployments
-	protection   *dataprotection.ProtectionObserver
-	integrations *integration.Service
-	inventory    *deployment.InventoryReadings
-	db           *database.DB
-	life         context.Context
+	worker            *maintenance.WorkerObserver
+	targets           *deployment.Targets
+	deployments       *deployment.Deployments
+	deploymentService *deployment.Service
+	protection        *dataprotection.ProtectionObserver
+	integrations      *integration.Service
+	inventory         *deployment.InventoryReadings
+	db                *database.DB
+	now               func() time.Time
+	life              context.Context
 }
 
 func infrastructureChecksFor(a *App) infrastructureChecks {
-	return infrastructureChecks{targets: a.targets, deployments: a.deployments, protection: a.protectionObserver, inventory: a.inventory, integrations: a.Integrations, db: a.DB, life: a.life}
+	return infrastructureChecks{worker: a.workerObserver, targets: a.targets, deployments: a.deployments, deploymentService: a.Deployment, protection: a.protectionObserver, inventory: a.inventory, integrations: a.Integrations, db: a.DB, life: a.life, now: a.cfg.clock.Now}
 }
 
 // Run admits the same per-target jobs on every five-minute tick.
 // The pass enumerates current targets, including the built-in local target.
 func (c infrastructureChecks) Run(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
 	var errs []error
+	if err := c.worker.Request(ctx); err != nil {
+		errs = append(errs, err)
+	}
 	targets, err := c.targets.All(ctx)
 	if err != nil {
 		errs = append(errs, fmt.Errorf("list targets: %w", err))
@@ -118,6 +127,11 @@ func (c infrastructureChecks) Run(ctx context.Context, _ string, _ map[string]an
 	for _, target := range targets {
 		if target.Status == deployment.TargetRetired {
 			continue
+		}
+		if err := c.db.InTx(ctx, func(tx *database.Tx) error {
+			return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: deployment.TargetObservationJob, Key: target.ID.String() + "/" + strconv.FormatInt(target.SettingsRevision, 10)})
+		}); err != nil {
+			errs = append(errs, err)
 		}
 		if err := (inventoryRequests{db: c.db}).requestInventory(ctx, target.Name); err != nil {
 			errs = append(errs, fmt.Errorf("%s inventory: %w", target.Name, err))
@@ -134,6 +148,14 @@ func (c infrastructureChecks) Run(ctx context.Context, _ string, _ map[string]an
 		if dep.Kind != deployment.Standing {
 			continue
 		}
+		key, err := c.deploymentService.DetailObservationKey(ctx, dep.ID)
+		if err != nil {
+			errs = append(errs, err)
+		} else if err := c.db.InTx(ctx, func(tx *database.Tx) error {
+			return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: deployment.DetailObservationJob, Key: key})
+		}); err != nil {
+			errs = append(errs, err)
+		}
 		if err := c.protection.Request(ctx, dep.ID); err != nil {
 			errs = append(errs, fmt.Errorf("%s protection: %w", dep.ID, err))
 		}
@@ -143,13 +165,23 @@ func (c infrastructureChecks) Run(ctx context.Context, _ string, _ map[string]an
 		errs = append(errs, err)
 	}
 	for _, b := range bindings {
+		if !b.HasAutomaticCheck() {
+			continue
+		}
 		if _, err := database.Transact(ctx, c.db, func(tx *database.Tx) (struct{}, error) {
-			return struct{}{}, jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: integration.HealthObservationJob, Key: b.Name})
+			return struct{}{}, jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: integration.HealthObservationJob, Key: b.HealthObservationKey()})
 		}); err != nil {
 			errs = append(errs, err)
 		}
 	}
 
+	for _, kind := range []string{preview.ObservationJob, integration.ErrorObservationJob, dataprotection.StoreObservationJob} {
+		if err := c.db.InTx(ctx, func(tx *database.Tx) error {
+			return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: kind, Key: "instance"})
+		}); err != nil {
+			errs = append(errs, err)
+		}
+	}
 	if err := (diskObservationRequests{db: c.db}).requestDiskObservation(ctx); err != nil {
 		errs = append(errs, fmt.Errorf("instance disks: %w", err))
 	}
@@ -157,9 +189,9 @@ func (c infrastructureChecks) Run(ctx context.Context, _ string, _ map[string]an
 }
 
 // Applied preserves old evidence and queues a post-act check even
-// when a scheduled check is already running. Post-act checks coalesce per target;
-// an act during one waits for the next periodic check to clear invalidation.
-func (c infrastructureChecks) Applied(targetID ids.ID) {
+// when a scheduled check is already running. Inventory requests coalesce per
+// target; deployment checks have a fresh admission for each act.
+func (c *infrastructureChecks) Applied(targetID ids.ID) {
 	ctx := context.WithoutCancel(c.life)
 	target, err := c.targets.ByID(ctx, targetID)
 	if err != nil {
@@ -168,7 +200,6 @@ func (c infrastructureChecks) Applied(targetID ids.ID) {
 	}
 	if err := c.inventory.Invalidate(ctx, target.Name); err != nil {
 		log.Printf("infrastructure: invalidating %s: %v", target.Name, err)
-		return
 	}
 	err = c.db.InTx(ctx, func(tx *database.Tx) error {
 		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: "inventory", Key: target.Name + "/act", Values: map[string]any{"target": target.Name}})
@@ -176,6 +207,20 @@ func (c infrastructureChecks) Applied(targetID ids.ID) {
 	if err != nil {
 		log.Printf("infrastructure: scheduling %s after an act: %v", target.Name, err)
 	}
+	deployments, err := c.deployments.All(ctx)
+	if err != nil {
+		log.Printf("infrastructure: listing changed deployments: %v", err)
+		return
+	}
+	for _, dep := range deployments {
+		if dep.TargetID != targetID || dep.Kind != deployment.Standing {
+			continue
+		}
+		if err := c.requestDeployment(ctx, dep.ID); err != nil {
+			log.Printf("infrastructure: checking changed deployment %s: %v", dep.ID, err)
+		}
+	}
+
 }
 
 // request starts collection without waiting for the first periodic tick.
@@ -183,4 +228,15 @@ func (c infrastructureChecks) request(ctx context.Context) error {
 	return c.db.InTx(ctx, func(tx *database.Tx) error {
 		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: infrastructureCheckJob, Key: passScheduledKey})
 	})
+}
+
+func (c infrastructureChecks) requestDeployment(ctx context.Context, id ids.ID) error {
+	key, err := c.deploymentService.DetailObservationKey(ctx, id)
+	if err != nil {
+		return err
+	}
+	err = c.db.InTx(ctx, func(tx *database.Tx) error {
+		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: deployment.DetailObservationJob, Key: key + "/" + ids.New(c.now()).String()})
+	})
+	return errors.Join(err, c.protection.AfterAct(ctx, id))
 }

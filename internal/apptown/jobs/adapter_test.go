@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -213,5 +214,96 @@ func TestPassQueuesRunOneJobAtATime(t *testing.T) {
 		if n := jobs.QueueWorkers[queue]; n != 1 {
 			t.Errorf("the %s queue runs %d at once", queue, n)
 		}
+	}
+}
+
+func TestObservationRevisionsDoNotOverlapAndOrdinaryWorkCanRun(t *testing.T) {
+	t.Parallel()
+	entered, release := make(chan struct{}), make(chan struct{})
+	calls := 0
+	failed := errors.New("fixture finished")
+	worker := jobs.Worker(map[string]jobs.Kind{
+		"check": {Queue: jobs.ObservationsQueue, Run: func(context.Context, string, map[string]any) (map[string]any, error) {
+			calls++
+			close(entered)
+			<-release
+			return nil, failed
+		}},
+		"ordinary": {Run: func(context.Context, string, map[string]any) (map[string]any, error) { return nil, failed }},
+	})
+	done := make(chan error, 1)
+	go func() {
+		done <- worker.Work(t.Context(), &river.Job[jobs.Request]{Args: jobs.Request{Operation: "check", Key: "host/1"}})
+	}()
+	<-entered
+	err := worker.Work(t.Context(), &river.Job[jobs.Request]{Args: jobs.Request{Operation: "check", Key: "host/2"}})
+	var snooze *river.JobSnoozeError
+	if !errors.As(err, &snooze) {
+		t.Fatalf("overlapping revision was not deferred: %v", err)
+	}
+	if err := worker.Work(t.Context(), &river.Job[jobs.Request]{Args: jobs.Request{Operation: "ordinary", Key: "host"}}); !errors.Is(err, failed) {
+		t.Fatalf("ordinary work blocked: %v", err)
+	}
+	close(release)
+	if err := <-done; !errors.Is(err, failed) {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("overlapping checks: %d", calls)
+	}
+}
+
+func TestObservationQueueDoesNotHoldOrdinaryWork(t *testing.T) {
+	t.Parallel()
+	n := jobs.QueueWorkers[jobs.ObservationsQueue]
+	if n < 1 || n > 16 {
+		t.Fatalf("unbounded observation workers: %d", n)
+	}
+	db := databaseSuite.New(t)
+	entered := make(chan struct{}, n)
+	ordinary := make(chan struct{}, 1)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	q, err := jobs.New(jobs.Options{}, db.Pool(), map[string]jobs.Kind{
+		"check": {Queue: jobs.ObservationsQueue, MaxAttempts: 1, Timeout: time.Minute, Run: func(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
+			entered <- struct{}{}
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}},
+		"ordinary": {MaxAttempts: 1, Run: func(context.Context, string, map[string]any) (map[string]any, error) {
+			ordinary <- struct{}{}
+			return nil, nil
+		}},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < n; i++ {
+		if _, err := q.Enqueue(t.Context(), "check", fmt.Sprintf("host-%d", i), nil, time.Time{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	done := make(chan error, 1)
+	go func() { done <- q.Run(ctx) }()
+	defer func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Error(err)
+		}
+	}()
+	for range n {
+		select {
+		case <-entered:
+		case <-time.After(10 * time.Second):
+			t.Fatal("observation queue did not start its bounded workers")
+		}
+	}
+	if _, err := q.Enqueue(t.Context(), "ordinary", "act", nil, time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-ordinary:
+	case <-time.After(10 * time.Second):
+		t.Fatal("ordinary work waited behind outbound checks")
 	}
 }

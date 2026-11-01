@@ -384,14 +384,15 @@ func (q *Queries) BundleOfRun(ctx context.Context, arg BundleOfRunParams) (Relea
 }
 
 const checkTarget = `-- name: CheckTarget :one
-UPDATE targets SET status=$1, updated_at=$2 WHERE id=$3 AND status<>$4 RETURNING id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, status, created_at, updated_at, settings_revision, connection_id, provider_scope_json, display_label
+UPDATE targets SET status=$1, updated_at=$2 WHERE id=$3 AND status<>$4 AND settings_revision=$5 RETURNING id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, status, created_at, updated_at, settings_revision, connection_id, provider_scope_json, display_label
 `
 
 type CheckTargetParams struct {
-	Status       string
-	UpdatedAt    time.Time
-	ID           ids.ID
-	RetiredState string
+	Status           string
+	UpdatedAt        time.Time
+	ID               ids.ID
+	RetiredState     string
+	SettingsRevision int64
 }
 
 func (q *Queries) CheckTarget(ctx context.Context, arg CheckTargetParams) (Target, error) {
@@ -400,6 +401,7 @@ func (q *Queries) CheckTarget(ctx context.Context, arg CheckTargetParams) (Targe
 		arg.UpdatedAt,
 		arg.ID,
 		arg.RetiredState,
+		arg.SettingsRevision,
 	)
 	var i Target
 	err := row.Scan(

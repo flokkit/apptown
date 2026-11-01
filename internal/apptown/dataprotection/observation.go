@@ -41,6 +41,9 @@ type ProtectionItemObservation struct {
 }
 
 type ProtectionSnapshot struct {
+	Protection                         *Protection
+	Plan                               []BackupPlanItem
+	PlanNote                           string
 	LastFailedAt                       time.Time
 	LastFailure                        string
 	DataClass                          string
@@ -75,26 +78,32 @@ type ProtectionObserver struct {
 }
 
 func NewProtectionObserver(service *Service, queue protectionObservationQueue) *ProtectionObserver {
-	return &ProtectionObserver{db: service.db, queue: queue, now: service.now, read: service.DeploymentProtection, resolve: func(ctx context.Context, id ids.ID) (*deployment.Deployment, string, error) {
-		dep, err := service.deployments.ByID(ctx, id)
-		if err != nil {
-			return nil, "", err
-		}
-		target, err := service.targets.ByID(ctx, dep.TargetID)
-		if err != nil {
-			return nil, "", err
-		}
-		// Include placement, both generations, held-data interpretation, restore
-		// state and target configuration. A local read never supplies held-data facts.
-		raw, err := json.Marshal(struct {
-			Deployment     *deployment.Deployment
-			TargetRevision int64
-		}{dep, target.SettingsRevision})
-		if err != nil {
-			return nil, "", err
-		}
-		return dep, fmt.Sprintf("%x", sha256.Sum256(raw)), nil
-	}}
+	return &ProtectionObserver{db: service.db, queue: queue, now: service.now, read: service.collectProtection, resolve: service.protectionIdentity}
+}
+
+func (s *Service) protectionIdentity(ctx context.Context, id ids.ID) (*deployment.Deployment, string, error) {
+	dep, err := s.deployments.ByID(ctx, id)
+	if err != nil {
+		return nil, "", err
+	}
+	target, err := s.targets.ByID(ctx, dep.TargetID)
+	if err != nil {
+		return nil, "", err
+	}
+	// Bind held-data facts to settled placement and target configuration.
+	store, err := s.store(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	raw, err := json.Marshal(struct {
+		Deployment     any
+		TargetRevision int64
+		Store          *BackupStore
+	}{dep.ReadingBasis(), target.SettingsRevision, store})
+	if err != nil {
+		return nil, "", err
+	}
+	return dep, fmt.Sprintf("%x", sha256.Sum256(raw)), nil
 }
 
 func (o *ProtectionObserver) Snapshot(ctx context.Context, id ids.ID) (ProtectionSnapshot, error) {
@@ -116,7 +125,7 @@ func (o *ProtectionObserver) Snapshot(ctx context.Context, id ids.ID) (Protectio
 }
 func (o *ProtectionObserver) load(ctx context.Context, id ids.ID, identity string) (ProtectionSnapshot, error) {
 	row, err := protectionsql.New(o.db.SQL()).Reading(ctx, protectionsql.ReadingParams{Subject: id.String(), Kind: "protection"})
-	if errors.Is(err, sql.ErrNoRows) || err == nil && row.Identity != identity {
+	if errors.Is(err, sql.ErrNoRows) {
 		return ProtectionSnapshot{}, nil
 	}
 	if err != nil {
@@ -124,12 +133,18 @@ func (o *ProtectionObserver) load(ctx context.Context, id ids.ID, identity strin
 	}
 	var out ProtectionSnapshot
 	err = json.Unmarshal(row.Payload, &out)
+	if row.Identity != identity {
+		out = ProtectionSnapshot{ObservedAt: out.ObservedAt, AttemptedAt: out.AttemptedAt}
+		out.Unknown = true
+		out.Stale = true
+		out.Reason = "The deployment changed. Waiting for a protection check."
+	}
 	return out, err
 }
 func protectionSnapshotAt(s ProtectionSnapshot, now time.Time) ProtectionSnapshot {
 	s.Items = slices.Clone(s.Items)
-	s.Stale = s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > 15*time.Minute
-	s.Unknown = s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > 6*time.Hour
+	s.Stale = s.Stale || s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > 15*time.Minute
+	s.Unknown = s.Unknown || s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > 6*time.Hour
 	for _, item := range s.Items {
 		if item.Native {
 			s.Stale = s.Stale || item.NativeAt.IsZero() || now.Sub(item.NativeAt) > 15*time.Minute
@@ -159,6 +174,9 @@ func (o *ProtectionObserver) run(ctx context.Context, id ids.ID, identity string
 			return nil
 		}
 	}
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return ctx.Err()
+	}
 	if ctx.Err() != nil {
 		err = ctx.Err()
 	}
@@ -181,7 +199,14 @@ func (o *ProtectionObserver) run(ctx context.Context, id ids.ID, identity string
 		}
 	} else {
 		next := observedProtection(protection, now)
+		next.Plan, next.PlanNote = protection.plan, protection.planNote
+		next.Protection = protection
 		if next.Unknown {
+			if prior.Protection == nil || protection.Unknown == "" {
+				prior.Protection = protection
+				prior.Plan = next.Plan
+				prior.PlanNote = next.PlanNote
+			}
 			reason = next.Reason
 			err = errors.New(reason)
 			if protection.Unknown != "" {
@@ -271,6 +296,12 @@ const ProtectionObservationJob = "protection-observation"
 func (o *ProtectionObserver) RunJob(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
 	rawID, identity, ok := strings.Cut(key, "/")
 	id, idErr := ids.Parse(rawID)
+	identity, act, hasAct := strings.Cut(identity, "/")
+	if hasAct {
+		if _, err := ids.Parse(act); err != nil {
+			return nil, jobs.Permanent(err)
+		}
+	}
 	digest, digestErr := hex.DecodeString(identity)
 	if !ok || idErr != nil || id.IsZero() || digestErr != nil || len(digest) != sha256.Size {
 		return nil, jobs.Permanent(errors.New("invalid protection observation identity"))
@@ -280,12 +311,24 @@ func (o *ProtectionObserver) RunJob(ctx context.Context, key string, _ map[strin
 
 // Request admits a periodic background check for the current local identity.
 func (o *ProtectionObserver) Request(ctx context.Context, id ids.ID) error {
+	return o.request(ctx, id, false)
+}
+
+// AfterAct guarantees a fresh check after an act, even if a check is running.
+func (o *ProtectionObserver) AfterAct(ctx context.Context, id ids.ID) error {
+	return o.request(ctx, id, true)
+}
+
+func (o *ProtectionObserver) request(ctx context.Context, id ids.ID, afterAct bool) error {
 	dep, identity, err := o.resolve(ctx, id)
 	if err != nil {
 		return err
 	}
 	if dep.Kind != deployment.Standing {
 		return nil
+	}
+	if afterAct {
+		identity += "/" + ids.New(o.now()).String()
 	}
 	return o.queue.RequestProtectionObservation(ctx, id, identity)
 }

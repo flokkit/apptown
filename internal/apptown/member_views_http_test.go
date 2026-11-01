@@ -220,6 +220,7 @@ func TestTierPreviewsNeedTheProjectRead(t *testing.T) {
 	fake.mu.Lock()
 	fake.running = map[string]worker.PreviewState{"apptown-preview-change-" + ch.ID.String(): {Running: true}}
 	fake.mu.Unlock()
+	collectPreviewReadingsForTest(t, a)
 	if w := authzCall(a.Handler(), "outsider", "GET", "/api/v1/projects/game", ""); w.Code != 403 {
 		t.Fatalf("fixture project readable: %d", w.Code)
 	}

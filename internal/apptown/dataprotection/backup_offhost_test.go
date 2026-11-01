@@ -158,6 +158,7 @@ func TestWithAStoreEveryDockerBackupGoesToTheStore(t *testing.T) {
 	if disk.Store != StoreAppTownDisk || !strings.HasPrefix(disk.Path, filepath.Join(w.dir, "backups", "oh", "main")) {
 		t.Fatalf("without a store: %+v", disk)
 	}
+	collectProtectionForTest(t, w.s, w.pid, "main")
 	p, err := w.s.DeploymentProtection(ctx, w.pid, "main")
 	if err != nil || p.OffHost || p.Note != onAppTownDiskNote || p.Operations == nil || p.Operations.Rehearsal.Reason == "on-apptown-disk" || strings.Contains(p.RehearsalNote, "backup store") {
 		t.Fatalf("protection without a store: %+v %+v %v", p, p.Operations, err)
@@ -235,6 +236,7 @@ func TestWithAStoreEveryDockerBackupGoesToTheStore(t *testing.T) {
 	if got, _ := os.ReadDir(filepath.Join(w.dir, "backups", "oh", "main")); len(got) != 1 {
 		t.Fatalf("AppTown's disk holds %d sets; only the one taken before the store", len(got))
 	}
+	collectProtectionForTest(t, w.s, w.pid, "main")
 	if p, err = w.s.DeploymentProtection(ctx, w.pid, "main"); err != nil || !p.OffHost || p.Note != "" || p.Items[1].LastCopy.Backup != b.ID || p.Items[1].CopyNote != "" {
 		t.Fatalf("protection with a store: %+v %v", p, err)
 	}
@@ -370,6 +372,7 @@ func TestDiskSetsMoveToTheStore(t *testing.T) {
 	w.attach()
 	// A store attached is not a copy moved: the deployment is off-host
 	// only once its newest backup is in the store.
+	collectProtectionForTest(t, w.s, w.pid, "main")
 	if p, err := w.s.DeploymentProtection(ctx, w.pid, "main"); err != nil || p.OffHost || !strings.Contains(p.Note, "still on this host") {
 		t.Fatalf("before the move: %+v %v", p, err)
 	}
@@ -462,6 +465,7 @@ func TestADockerDeploymentSaysWhereItsBackupsAreFromTheRecord(t *testing.T) {
 	ctx := context.Background()
 	read := func() *Protection {
 		t.Helper()
+		collectProtectionForTest(t, w.s, w.pid, "main")
 		p, err := w.s.DeploymentProtection(ctx, w.pid, "main")
 		if err != nil {
 			t.Fatal(err)
@@ -487,19 +491,75 @@ func TestADockerDeploymentSaysWhereItsBackupsAreFromTheRecord(t *testing.T) {
 
 	h := newOffhostWorld(t, "ohd", 40106)
 	h.take("scheduled")
+	collectProtectionForTest(t, h.s, h.pid, "main")
 	if p, err := h.s.DeploymentProtection(ctx, h.pid, "main"); err != nil || p.KeptOn != "host" {
 		t.Fatalf("a backup on the disk: %+v %v", p, err)
 	}
 
 	releaseMain(t, h.s, "ohd", "app: [not a contract")
+	collectProtectionForTest(t, h.s, h.pid, "main")
 	if p, err := h.s.DeploymentProtection(ctx, h.pid, "main"); err != nil || p.Unknown == "" || len(p.Coverage.Assessed) != 0 ||
 		!slices.Equal(p.Coverage.NotAssessed, []string{"the deployment's own data: what it holds is unknown", outsideNotAssessed}) {
 		t.Fatalf("an unreadable contract: %+v %v", p, err)
 	}
 	releaseMain(t, h.s, "ohd", "app:\n  web:\n    image: registry.example/ohd:1\n    ports: [\"8080\"]\n    public: true\n")
 	// Holding no data AppTown knows of still says what is not assessed.
+	collectProtectionForTest(t, h.s, h.pid, "main")
 	if p, err := h.s.DeploymentProtection(ctx, h.pid, "main"); err != nil || p.Unknown != "" || len(p.Items) != 0 ||
 		len(p.Coverage.Assessed) != 0 || !slices.Equal(p.Coverage.NotAssessed, []string{outsideNotAssessed}) {
 		t.Fatalf("a stateless contract: %+v %v", p, err)
+	}
+}
+
+func TestProtectionAndBackupPlanPagesNeverInspectTheHost(t *testing.T) {
+	t.Parallel()
+	w := newOffhostWorld(t, "stored-plan", 40109)
+	collectProtectionForTest(t, w.s, w.pid, "main")
+	w.client.ResetCommands()
+	for range 2 {
+		page, err := w.s.DeploymentProtection(t.Context(), w.pid, "main")
+		if err != nil || len(page.Items) != 2 || page.Reading.ObservedAt.IsZero() {
+			t.Fatalf("stored protection: %+v %v", page, err)
+		}
+		plan, why := w.s.BackupPlan(t.Context(), w.pid, w.slug, "main")
+		if why != "" || len(plan) != 2 {
+			t.Fatalf("stored held data: %+v %s", plan, why)
+		}
+	}
+	if got := w.client.Commands(); len(got) != 0 {
+		t.Fatalf("page inspected the host: %v", got)
+	}
+}
+
+func TestTakingABackupRequestsFreshDeploymentChecks(t *testing.T) {
+	t.Parallel()
+	w := newOffhostWorld(t, "backup-check", 40109)
+	calls := 0
+	w.s.applied = func(id ids.ID) { calls++ }
+	if b := w.take("scheduled"); b.Status != BackupOK {
+		t.Fatalf("backup: %+v", b)
+	}
+	if calls != 1 {
+		t.Fatalf("backup requested %d fresh checks", calls)
+	}
+}
+
+func TestProtectionIdentitySurvivesAdmission(t *testing.T) {
+	t.Parallel()
+	w := newOffhostWorld(t, "protection-check", 40110)
+	dep, err := w.s.deployments.ByName(t.Context(), w.pid, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, before, err := w.s.protectionIdentity(t.Context(), dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := w.s.outcomes.Admit(t.Context(), deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "reading-admission"}); err != nil {
+		t.Fatal(err)
+	}
+	_, after, err := w.s.protectionIdentity(t.Context(), dep.ID)
+	if err != nil || after != before {
+		t.Fatalf("admission invalidated protection: %s %s %v", before, after, err)
 	}
 }

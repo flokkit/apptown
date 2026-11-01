@@ -445,10 +445,56 @@ func TestInfrastructurePassContinuesAfterAdmissionFailures(t *testing.T) {
 	}
 }
 
-func TestInventoryJobHasTwoMinuteBudget(t *testing.T) {
+func TestInventoryJobHasThirtySecondBudget(t *testing.T) {
 	t.Parallel()
 	a, _, _, _ := doWorld(t)
-	if got := apptownJobKinds(a)["inventory"].Timeout; got != 2*time.Minute {
+	if got := apptownJobKinds(a)["inventory"].Timeout; got != 30*time.Second {
 		t.Fatalf("inventory budget = %s", got)
+	}
+}
+
+func TestAnActQueuesDeploymentDetailAndProtectionWithoutThePeriodicPass(t *testing.T) {
+	t.Parallel()
+	a, _, p, _ := doWorld(t)
+	target, err := a.targets.ByName(t.Context(), "do-syd")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := a.deployments.EnsureStanding(t.Context(), p.ID, "cloud", target.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "production"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.infrastructure.Applied(target.ID)
+	key, err := a.Deployment.DetailObservationKey(t.Context(), dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := operationJobs(t, a, deployment.DetailObservationJob)
+	if len(rows) != 1 || !strings.HasPrefix(rows[0].Key, key+"/") {
+		t.Fatalf("post-act detail: %+v", rows)
+	}
+	if rows := operationJobs(t, a, "protection-observation"); len(rows) != 1 {
+		t.Fatalf("post-act protection: %+v", rows)
+	}
+}
+
+func TestOutboundChecksHaveTheirOwnBoundedQueue(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	kinds := apptownJobKinds(a)
+	for _, name := range []string{"inventory", "deployment-detail-observation", "target-observation", "error-report-observation", "backup-store-observation", "preview-observation", "integration-health", "capacity-observation", "protection-observation", "worker-observation", "disk-observation"} {
+		k, ok := kinds[name]
+		if !ok {
+			t.Fatalf("missing kind %s", name)
+		}
+		if k.Queue != "observations" || k.Timeout <= 0 || k.Timeout > 100*time.Second {
+			t.Errorf("unbounded or shared check %s: %+v", name, k)
+		}
+		if name != "integration-health" && k.Timeout > 30*time.Second {
+			t.Errorf("slow host check %s: %s", name, k.Timeout)
+		}
+	}
+	if kinds["rebuild"].Queue == "observations" {
+		t.Fatal("ordinary work shares checks' queue")
 	}
 }

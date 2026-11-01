@@ -54,10 +54,7 @@ func deploymentKeys(db *database.DB, now func() time.Time, dep *Deployment, slug
 
 func heldKeys(owned []deploy.Owned) []integration.HeldKey {
 	var out []integration.HeldKey
-	for _, o := range owned {
-		if o.Kind != KindOpenRouterKey {
-			continue
-		}
+	for _, o := range ownedAIKeys(owned) {
 		if k, ok := integration.ParseHeldKey(o.ID); ok {
 			out = append(out, k)
 		}
@@ -164,6 +161,7 @@ func (r registeredSecrets) EnvFor(consumer string) map[string]string {
 // says of it now. Unknown says why that could not be read: an allowance
 // that cannot be read is unknown, never zero.
 type AIModelsKey struct {
+	Reading   DetailReading          `json:"reading"`
 	Name      string                 `json:"name"`
 	Allowance *integration.Allowance `json:"allowance,omitempty"`
 	Unknown   string                 `json:"unknown,omitempty"`
@@ -172,13 +170,7 @@ type AIModelsKey struct {
 // AIModels reads, for someone who may read the project's deployments, each
 // AI models key the deployment owns and its allowance and spend at
 // OpenRouter now. A deployment without one answers an empty list.
-func (s *Service) AIModels(ctx context.Context, projectID ids.ID, name string) ([]AIModelsKey, error) {
-	if s.authority == nil {
-		return nil, access.ErrAuthorityUnavailable
-	}
-	if _, err := s.authority.Require(ctx, access.Permission{Capability: access.CapDeploymentRead, Resource: access.Resource{Type: "project", ID: projectID.String(), ProjectID: projectID}, Context: access.Context{Route: "deployment.ai-models"}}); err != nil {
-		return nil, err
-	}
+func (s *Service) collectAIModels(ctx context.Context, projectID ids.ID, name string) ([]AIModelsKey, error) {
 	dep, err := s.Deployments.ByName(ctx, projectID, name)
 	if err != nil {
 		return nil, err
@@ -188,10 +180,7 @@ func (s *Service) AIModels(ctx context.Context, projectID ids.ID, name string) (
 		return nil, err
 	}
 	out := []AIModelsKey{}
-	for _, o := range owned {
-		if o.Kind != KindOpenRouterKey {
-			continue
-		}
+	for _, o := range ownedAIKeys(owned) {
 		k := AIModelsKey{Name: o.Name}
 		held, ok := integration.ParseHeldKey(o.ID)
 		switch {
@@ -210,4 +199,49 @@ func (s *Service) AIModels(ctx context.Context, projectID ids.ID, name string) (
 		out = append(out, k)
 	}
 	return out, nil
+}
+
+// AIModels reads the last background observation for the current deployment settings.
+func (s *Service) AIModels(ctx context.Context, projectID ids.ID, name string) ([]AIModelsKey, error) {
+	if s.authority == nil {
+		return nil, access.ErrAuthorityUnavailable
+	}
+	if _, err := s.authority.Require(ctx, access.Permission{Capability: access.CapDeploymentRead, Resource: access.Resource{Type: "project", ID: projectID.String(), ProjectID: projectID}, Context: access.Context{Route: "deployment.ai-models"}}); err != nil {
+		return nil, err
+	}
+	stored, err := readDeploymentDetail[[]AIModelsKey](ctx, s, projectID, name, "AIModels")
+	if err != nil {
+		return nil, err
+	}
+	dep, err := s.Deployments.ByName(ctx, projectID, name)
+	if err != nil {
+		return nil, err
+	}
+	owned, err := s.Deployments.Owned(ctx, dep.ID)
+	if err != nil {
+		return nil, err
+	}
+	byName := map[string]AIModelsKey{}
+	for _, key := range stored {
+		byName[key.Name] = key
+	}
+	out := []AIModelsKey{}
+	for _, item := range ownedAIKeys(owned) {
+		key, ok := byName[item.Name]
+		if !ok {
+			key = AIModelsKey{Name: item.Name, Unknown: "Waiting for the first background allowance check."}
+		}
+		out = append(out, key)
+	}
+	return out, nil
+}
+
+func ownedAIKeys(owned []deploy.Owned) []deploy.Owned {
+	out := []deploy.Owned{}
+	for _, o := range owned {
+		if o.Kind == KindOpenRouterKey {
+			out = append(out, o)
+		}
+	}
+	return out
 }

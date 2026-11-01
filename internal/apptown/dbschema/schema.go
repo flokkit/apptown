@@ -492,6 +492,23 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
   payload JSONB NOT NULL
 );`,
 	}},
+	{n: 196, note: "retain preview and project integration observations", stmts: []string{
+		`UPDATE integration_readings SET payload=jsonb_set(payload,'{lastGood}',payload) WHERE payload->>'stateLabel'='passed'`,
+		`CREATE TABLE integration_resource_readings (
+ id UUID PRIMARY KEY,
+ project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+ capability TEXT NOT NULL,
+ identity TEXT NOT NULL,
+ payload JSONB NOT NULL,
+ UNIQUE(project_id,capability)
+);`,
+		`CREATE TABLE preview_readings (
+ id UUID PRIMARY KEY,
+ subject TEXT NOT NULL UNIQUE,
+ identity TEXT NOT NULL,
+ payload JSONB NOT NULL
+);`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

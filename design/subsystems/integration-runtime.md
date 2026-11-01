@@ -16,23 +16,35 @@ connected or needing action. Infisical is not set up when all four required
 settings are empty; a partial configuration fails and names the missing setting.
 An attachment requiring that missing integration makes it a failure.
 
-The integration owner retains version-bound check results in `integration_readings`.
-Collection jobs run every five minutes; list and Attention reads use the same
-record without calling providers. A configuration change invalidates the old
-result, including an answer arriving after the change. The owner supplies the
-freshness classification. Fresh results say `checked <age>`; results older than
-fifteen minutes say `last seen <age>`. Automatic results become unknown after
-six hours, with the last result and time retained. A saved Test connection checks
-its saved settings and retains the last result without expiring it into unknown;
-after fifteen minutes it is marked old. Testing a draft checks those proposed
-settings without changing the saved reading.
+The integration owner stores version-bound checks in `integration_readings`.
+The durable infrastructure pass admits checks every five minutes and at startup.
+Integrations, Home and Attention read these records without contacting providers
+or requesting work. A configuration change invalidates the old result, including
+an answer arriving after the change. Results older than fifteen minutes are old;
+after six hours they are unknown. A failed check records its time and reason and
+keeps the last successful result and its original time through restarts.
 
-A kind with no background check reads `no automatic check` in muted style when
-untested, or shows its manual result and age. Package registries and scanners
-have no background check. Their URL or image setting alone does not establish
-health. Only kinds with a background check whose latest result failed contribute
-to Attention; integrations contribute no unknown coverage. Each integration row
-shows its state in the chip and its age once in the adjacent text.
+Every kind with a meaningful check is renewed: package and container registries,
+GitLab, Infisical, built-in secrets, the Docker executor and deployment connection,
+model providers, OpenRouter, GlitchTip, feedback services, cloud accounts and scanners. Built-in
+secrets checks that its key is readable in AppTown's database. A scanner checks
+its image where checks run. Target checks include attached Docker, Portainer,
+App Platform and object stores. The attached backup bucket has its own scheduled
+write/read/delete check. Worker protocol readings are durable and scheduled too.
+
+Test connection runs the same owner observation immediately against the saved
+settings and retains its result with the same expiry. A draft test uses the same
+provider adapter on the proposed settings without changing the saved reading.
+Saving settings leaves a pending background reading. Kinds without a meaningful
+check say `no automatic check` and contribute nothing to Attention. An integration
+counts as needing action only after its latest check failed; expired evidence
+counts as not known. The integration owner supplies that classification to both
+the list and Attention.
+
+GlitchTip issue summaries and deployment OpenRouter allowances are collected in
+background jobs. Their pages show the last reading, its age and any later failure.
+Logs, provider namespace pickers, secret-name pickers and model lists remain
+explicit data reads.
 
 ## From configuration to runtime
 

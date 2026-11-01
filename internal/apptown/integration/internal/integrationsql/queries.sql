@@ -133,3 +133,13 @@ SELECT r.payload FROM integration_readings r JOIN integrations i ON i.id=r.id AN
 INSERT INTO integration_readings (id, version, payload)
 SELECT i.id, i.version, sqlc.arg(payload) FROM integrations i WHERE i.id=sqlc.arg(id) AND i.version=sqlc.arg(version)
 ON CONFLICT(id) DO UPDATE SET version=excluded.version, payload=excluded.payload;
+
+-- name: ResourceReading :one
+SELECT identity,payload FROM integration_resource_readings WHERE project_id=$1 AND capability=$2;
+
+-- name: StoreResourceReading :exec
+INSERT INTO integration_resource_readings(id,project_id,capability,identity,payload) VALUES($1,$2,$3,$4,$5)
+ON CONFLICT(project_id,capability) DO UPDATE SET identity=excluded.identity,payload=excluded.payload;
+
+-- name: ErrorReportSubjects :many
+SELECT project_id FROM project_integrations WHERE capability='errors' AND provenance='provisioned' ORDER BY project_id;

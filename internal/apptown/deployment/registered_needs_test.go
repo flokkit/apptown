@@ -333,6 +333,7 @@ func TestADeploymentShowsItsKeysAllowance(t *testing.T) {
 	}
 	held := heldKeys(mustOwned(t, s, dep.ID))
 	f.SetUsage(held[0].Hash, 12, 1)
+	_ = s.observeDetails(t.Context(), dep.ID)
 	keys, err := s.AIModels(context.Background(), projectID, "prod")
 	if err != nil || len(keys) != 1 || keys[0].Allowance == nil {
 		t.Fatalf("allowance: %+v %v", keys, err)
@@ -342,8 +343,9 @@ func TestADeploymentShowsItsKeysAllowance(t *testing.T) {
 		t.Fatalf("allowance over its own period: %+v", a)
 	}
 	f.FailNext("GET", 503)
+	_ = s.observeDetails(t.Context(), dep.ID)
 	keys, err = s.AIModels(context.Background(), projectID, "prod")
-	if err != nil || keys[0].Allowance != nil || !strings.Contains(keys[0].Unknown, "503") {
+	if err != nil || keys[0].Allowance == nil || !strings.Contains(keys[0].Unknown, "503") {
 		t.Fatalf("unknown is said: %+v %v", keys, err)
 	}
 	if strings.Contains(keys[0].Unknown, llmProvisioningSentinel) {

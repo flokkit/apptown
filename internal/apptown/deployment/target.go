@@ -414,21 +414,31 @@ func (s *Targets) RevokeOffer(ctx context.Context, t *Target, offerID ids.ID, wh
 	return group, err
 }
 
-// RecordCheck stores a check's answer as the state TargetState.Checked
+// recordCheck stores a check's answer as the state TargetState.Checked
 // chose, with the answer as its receipt. The conditional write refuses a
 // target retired since the caller read it.
-func (s *Targets) RecordCheck(ctx context.Context, t *Target, answered bool, who string, payload any) (TargetState, error) {
+func (s *Targets) recordCheck(ctx context.Context, t *Target, answered bool, who string, payload any) (TargetState, error) {
 	now := s.now()
 	next, err := t.Status.checked(answered)
 	if err != nil {
 		return 0, fmt.Errorf("%w: %s: %w", errTargetConflict, t.Name, err)
 	}
 	return next, s.db.InTx(ctx, func(tx *database.Tx) error {
-		if _, err := deploymentsql.New(tx.SQL()).CheckTarget(ctx, deploymentsql.CheckTargetParams{Status: next.String(), UpdatedAt: now, ID: t.ID, RetiredState: TargetRetired.String()}); err != nil {
+		current, err := targetRecord(deploymentsql.New(tx.SQL()).TargetByNameForUpdate(ctx, t.Name))
+		if err != nil {
+			return err
+		}
+		if current.ID != t.ID {
+			return errTargetConflict
+		}
+		if _, err := deploymentsql.New(tx.SQL()).CheckTarget(ctx, deploymentsql.CheckTargetParams{Status: next.String(), UpdatedAt: now, ID: t.ID, RetiredState: TargetRetired.String(), SettingsRevision: t.SettingsRevision}); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return fmt.Errorf("%w: could not record the check for %s; it may have been retired", errTargetConflict, t.Name)
 			}
 			return err
+		}
+		if who == "background check" && next == current.Status {
+			return nil
 		}
 		return audit.At(now).RecordIn(ctx, tx, who, ids.Nil, "target.checked", t.Name, payload)
 	})

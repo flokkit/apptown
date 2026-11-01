@@ -185,11 +185,13 @@ func TestAnEvalCopysDeploymentGoesWithNoFinalCopy(t *testing.T) {
 	}
 	// Marked a copy after its release: a copy is never placed on App
 	// Platform, but nothing about its take-down may rest on that.
+	collectProtectionForTest(t, w.s, w.project, "main")
 	if p, err := w.s.DeploymentProtection(ctx, w.project, "main"); err != nil || p.TakeDown == "" {
 		t.Fatalf("an ordinary deployment's take-down says nothing of its data: %+v %v", p, err)
 	}
 	markCopy(t, w.db, w.project)
 	// Its protection page says nothing of a final copy either.
+	collectProtectionForTest(t, w.s, w.project, "main")
 	if p, err := w.s.DeploymentProtection(ctx, w.project, "main"); err != nil || p.TakeDown != "" {
 		t.Fatalf("a copy's take-down words: %+v %v", p, err)
 	}
@@ -266,10 +268,12 @@ func TestATakeDownThatCannotTakeAFinalCopyIsRefusedUnlessChosen(t *testing.T) {
 	if rel, log := w.release("prod"); rel.State != deployment.Released {
 		t.Fatalf("first release %s:\n%s", rel.State, log)
 	}
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	if p, err := w.s.DeploymentProtection(ctx, w.project, "prod"); err != nil || !p.Operations.FinalCopy.Available || !strings.Contains(p.TakeDown, "final copy") {
 		t.Fatalf("with a copy runner the card says %q (%v)", p.TakeDown, err)
 	}
 	w.nameRunner("")
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	p, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 	if err != nil || p.Operations.FinalCopy.Available || !strings.Contains(p.TakeDown, "refused unless you choose") {
 		t.Fatalf("without a copy runner the card says %q (%v)", p.TakeDown, err)
@@ -327,6 +331,7 @@ func TestAChoiceToKeepTheDataIsRefusedOnceAFinalCopyIsPossible(t *testing.T) {
 		t.Fatalf("first release %s:\n%s", rel.State, log)
 	}
 	w.nameRunner("")
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	if p, err := w.s.DeploymentProtection(ctx, w.project, "prod"); err != nil || p.Operations.FinalCopy.Available {
 		t.Fatalf("without a runner: %+v %v", p, err)
 	}

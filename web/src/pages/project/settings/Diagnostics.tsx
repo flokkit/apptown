@@ -1,3 +1,4 @@
+import { BackgroundReading } from '../../../BackgroundReading'
 import { Status } from '../../../Status'
 import { PRODUCT } from '../../../brand'
 import { useEffect, useState } from 'react'
@@ -89,7 +90,7 @@ export function DiagnosticsLines({ slug, name }: { slug: string; name: string })
         {d.hold && <Status word="failed" help={`${d.hold.confirmed ? 'Stopped after a crash loop.' : 'Crash loop: stop not confirmed.'} ${d.hold.detail || 'Read the app log and fix the crash, then deploy again.'}`} />}
         {d.unsettled && <span className="badge" title="only a part whose own container names its generation is shown with one">{d.unsettled}</span>}
         {(d.parts.length > 0 || d.events.length > 0) && <button className="link small" onClick={() => setOpen(!open)}>{open ? 'hide details' : 'details'}</button>}
-        <StaleNote q={q} inline />
+        <StaleNote q={q} inline /><BackgroundReading reading={d.reading} />
       </div>
       {failing.length > 0 && !d.unsupported && (
         <div>

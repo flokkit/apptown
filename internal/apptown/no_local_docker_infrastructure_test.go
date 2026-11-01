@@ -493,6 +493,7 @@ func TestInTheNoLocalDockerModeReadViewsSayUnavailableOrUnknown(t *testing.T) {
 	if _, err := a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(2), "main", attached.ID, (deployment.Attributes{}).WithDefaults()); err != nil {
 		t.Fatal(err)
 	}
+	collectPreviewReadingsForTest(t, a)
 	h := a.Handler()
 
 	// Reads show the background observer's last look.

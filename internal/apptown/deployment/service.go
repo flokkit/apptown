@@ -46,7 +46,6 @@ type Service struct {
 	configuration      ConfigurationDependencies
 	observationTimeout time.Duration
 	observations       *observations
-	diagnosed          diagnosed           // the last part facts a diagnostics read saw (diagnostics.go)
 	ops                *operations.Service // the ledger, read for a take-down holding a deployment
 	starter            copyLauncher        // data protection's fill of a deployment started from a copy
 	filler             RestoreFiller       // data protection's fill of a rebuild after AppTown was restored

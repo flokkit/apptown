@@ -291,7 +291,7 @@ func TestTargetCheckAndOfferRequireReceipts(t *testing.T) {
 			mustExec(t, db, `CREATE FUNCTION veto_target_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
 			mustExec(t, db, `CREATE TRIGGER veto_target_receipt BEFORE INSERT ON audit_log FOR EACH ROW EXECUTE FUNCTION veto_target_receipt()`)
 			if operation == "check" {
-				_, err = targets.RecordCheck(context.Background(), target, false, "alice", map[string]any{"ok": false})
+				_, err = targets.recordCheck(context.Background(), target, false, "alice", map[string]any{"ok": false})
 			} else {
 				err = targets.Offer(context.Background(), target, "new-group", OfferCaps{}, "alice")
 			}

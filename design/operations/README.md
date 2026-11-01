@@ -42,6 +42,26 @@ the inference listener through ordinary public ingress. A build succeeding,
 a dashboard displaying data, and a revision being deployed are separate facts.
 Record the actual deployed revision and smoke results when rolling out.
 
+## Background status readings
+
+Pages read stored results. Opening a page or focusing its tab does not contact a
+host or provider, queue a check, or renew a reading. The durable infrastructure
+pass runs at startup and every five minutes. It admits integration, target,
+worker, preview, deployment diagnostics, memory, allowance, error-reporting and
+backup-store checks alongside inventory, capacity, disks and protection.
+
+A fresh installation waits for that first pass. A restart retains successful
+readings and failures. Configuration revisions and deployment generations fence
+old results. Live readings are old after fifteen minutes and unknown after six
+hours; failures keep the last good result with its original time. Protection's
+provider backup evidence retains its own observation time too. Test connection
+and Check target run the same owner checks immediately. Logs and provider lists
+are read when requested.
+
+If readings stop renewing, inspect Jobs and the connection's failure reason.
+Reloading the page only rereads the stored result. In `-verify-only` mode no
+background checks run, so readings continue to age.
+
 ## Locked out of the admin account
 
 When nobody can sign in as an administrator (the password is lost, and no other

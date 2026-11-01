@@ -152,7 +152,11 @@ func (s *Service) takeBackup(ctx context.Context, projectID ids.ID, deploymentNa
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", deploymentName, err)
 	}
-	return s.takeSet(ctx, held.dk, projectID, slug, deploymentName, held.items, trigger, actor)
+	b, err := s.takeSet(ctx, held.dk, projectID, slug, deploymentName, held.items, trigger, actor)
+	if s.applied != nil {
+		s.applied(dep.TargetID)
+	}
+	return b, err
 }
 
 // takeSet copies each planned item into one new set, records it with its
@@ -816,14 +820,8 @@ func fileSHA256(path string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// BackupPlan describes what a standing deployment holds and how each item
-// is copied (heldData); why says there is nothing to copy, or why that is
-// not known. The execution commands remain private to the runtime.
-func (s *Service) BackupPlan(ctx context.Context, projectID ids.ID, slug, name string) ([]BackupPlanItem, string) {
-	items, err := s.heldPlan(ctx, projectID, slug, name)
-	if err != nil {
-		return []BackupPlanItem{}, err.Error()
-	}
+// displayBackupPlan removes execution commands from a collected held-data plan.
+func displayBackupPlan(items []backupPlanItem) []BackupPlanItem {
 	out := make([]BackupPlanItem, 0, len(items))
 	for _, it := range items {
 		how := it.How
@@ -832,7 +830,7 @@ func (s *Service) BackupPlan(ctx context.Context, projectID ids.ID, slug, name s
 		}
 		out = append(out, BackupPlanItem{Kind: it.Kind, Name: it.Name, Volume: it.Volume, How: how, Caveat: it.Caveat})
 	}
-	return out, ""
+	return out
 }
 
 // heldPlan is heldData for a standing deployment named in a project.
@@ -869,4 +867,24 @@ func physicalCopySource(ctx context.Context, dk docker.Scope, p backupPlanItem) 
 	}
 	p.Container = id
 	return p, image, nil
+}
+
+// BackupPlan reads the held-data inspection made by the protection job.
+func (s *Service) BackupPlan(ctx context.Context, projectID ids.ID, slug, name string) ([]BackupPlanItem, string) {
+	dep, err := s.deployments.ByName(ctx, projectID, name)
+	if err != nil {
+		return nil, fmt.Sprintf("no standing deployment named %q", name)
+	}
+	reading, err := NewProtectionObserver(s, nil).Snapshot(ctx, dep.ID)
+	if err != nil {
+		return nil, err.Error()
+	}
+	if reading.Unknown {
+		reason := reading.Reason
+		if reason == "" {
+			reason = "The last held-data check is more than six hours old."
+		}
+		return reading.Plan, reason
+	}
+	return reading.Plan, reading.PlanNote
 }

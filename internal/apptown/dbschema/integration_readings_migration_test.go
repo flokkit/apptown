@@ -1,10 +1,50 @@
 package dbschema
 
 import (
-	"github.com/flokkit/apptown/internal/ids"
+	"context"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/integration"
+	"github.com/flokkit/apptown/internal/ids"
 )
+
+type failedIntegrationCheck struct{ at time.Time }
+
+func (c failedIntegrationCheck) CheckBinding(context.Context, integration.Binding) integration.Health {
+	return integration.Health{Detail: "connection refused"}.At(c.at)
+}
+
+func TestMigrationPreservesAnExistingSuccessfulIntegrationBeforeItsFirstFailure(t *testing.T) {
+	t.Parallel()
+	db := releaseDB(t)
+	if _, err := applyMigrations(t.Context(), db, migrations[:migrationIndex(t, 196)]); err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: #262 stored successful checks without a lastGood member.
+	// Current owner operations always write lastGood, so only the old storage
+	// representation can reproduce this upgrade boundary.
+	_, err := db.SQL().ExecContext(t.Context(), `INSERT INTO integrations(id,name,capability,provider,config_json,created_at,updated_at) VALUES('01a19500-0000-7000-8000-000000000001','upgrade-registry','registry','registry','{}','2026-11-01T00:00:00Z','2026-11-01T00:00:00Z')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.SQL().ExecContext(t.Context(), `INSERT INTO integration_readings(id,version,payload)VALUES('01a19500-0000-7000-8000-000000000001',1,'{"checked":true,"checkedAt":"2026-11-01T00:00:00Z","ok":true,"detail":"registry accepted credentials","stateLabel":"passed"}')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Migrate(t.Context(), db); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 11, 1, 0, 5, 0, 0, time.UTC)
+	owner := integration.NewService(db, integration.Dependencies{Now: func() time.Time { return now }})
+	if _, err := owner.TestSaved(t.Context(), "upgrade-registry", failedIntegrationCheck{now}); err != nil {
+		t.Fatal(err)
+	}
+	h, err := owner.RecordedHealth(t.Context(), "upgrade-registry")
+	if err != nil || h.StateLabel != integration.HealthFailed || h.LastGood == nil || h.LastGood.Detail != "registry accepted credentials" || h.LastGood.CheckedAt != "2026-11-01T00:00:00Z" || h.Failure != "connection refused" {
+		t.Fatalf("upgrade lost good evidence: %+v %v", h, err)
+	}
+}
 
 func TestMigration195KeepsIntegrationsAndStartsWithNoHealthAssertion(t *testing.T) {
 	db := releaseDB(t)

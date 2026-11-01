@@ -481,6 +481,7 @@ func TestARestoreTestComesBackOnItsOwnPlatformBehindTheGateAndIsTakenDown(t *tes
 		t.Fatalf("the copy was copied: %v %v", copySets, err)
 	}
 	// prod's card shows the test apart from its rehearsal.
+	collectProtectionForTest(t, w.s, w.project, "prod")
 	prot, err := w.s.DeploymentProtection(ctx, w.project, "prod")
 	if err != nil {
 		t.Fatal(err)
@@ -692,6 +693,7 @@ func TestARestoredCopyThatFailsIsTakenDownAndSaysOnlySafeFacts(t *testing.T) {
 		if state := w.api.Snapshot(); len(state.DeletedClusters) != 1 || state.DeletedClusters[0] == w.source {
 			t.Fatalf("the failed copy's cluster: %v", state.DeletedClusters)
 		}
+		collectProtectionForTest(t, w.s, w.project, "prod")
 		prot, _ := w.s.DeploymentProtection(ctx, w.project, "prod")
 		w.noSecretIn("the operation", op)
 		w.noSecretIn("the card", prot)
@@ -977,6 +979,7 @@ func TestAStandingCopyStaysOnTheCardPastTheHistory(t *testing.T) {
 			t.Fatalf("ending a test: %d %v", n, err)
 		}
 	}
+	collectProtectionForTest(t, s, pid, "prod")
 	p, err := s.DeploymentProtection(ctx, pid, "prod")
 	if err != nil {
 		t.Fatal(err)

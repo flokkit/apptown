@@ -541,6 +541,33 @@ func (q *Queries) EditBindingDisplayLabel(ctx context.Context, arg EditBindingDi
 	return i, err
 }
 
+const errorReportSubjects = `-- name: ErrorReportSubjects :many
+SELECT project_id FROM project_integrations WHERE capability='errors' AND provenance='provisioned' ORDER BY project_id
+`
+
+func (q *Queries) ErrorReportSubjects(ctx context.Context) ([]ids.ID, error) {
+	rows, err := q.db.QueryContext(ctx, errorReportSubjects)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ids.ID
+	for rows.Next() {
+		var project_id ids.ID
+		if err := rows.Scan(&project_id); err != nil {
+			return nil, err
+		}
+		items = append(items, project_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertBinding = `-- name: InsertBinding :one
 INSERT INTO integrations (display_label, id, name, capability, provider, config_json, version, managed, created_at, updated_at)
 VALUES ($1, $2, $1,$3,$4,$5,1,$6,$7,$8) RETURNING id, name, capability, provider, config_json, version, managed, created_at, updated_at, display_label
@@ -678,6 +705,27 @@ func (q *Queries) RememberIntegration(ctx context.Context, arg RememberIntegrati
 		&i.Provenance,
 		&i.CreatedAt,
 	)
+	return i, err
+}
+
+const resourceReading = `-- name: ResourceReading :one
+SELECT identity,payload FROM integration_resource_readings WHERE project_id=$1 AND capability=$2
+`
+
+type ResourceReadingParams struct {
+	ProjectID  ids.ID
+	Capability string
+}
+
+type ResourceReadingRow struct {
+	Identity string
+	Payload  json.RawMessage
+}
+
+func (q *Queries) ResourceReading(ctx context.Context, arg ResourceReadingParams) (ResourceReadingRow, error) {
+	row := q.db.QueryRowContext(ctx, resourceReading, arg.ProjectID, arg.Capability)
+	var i ResourceReadingRow
+	err := row.Scan(&i.Identity, &i.Payload)
 	return i, err
 }
 
@@ -834,4 +882,28 @@ func (q *Queries) SetBindingConfiguration(ctx context.Context, arg SetBindingCon
 		&i.DisplayLabel,
 	)
 	return i, err
+}
+
+const storeResourceReading = `-- name: StoreResourceReading :exec
+INSERT INTO integration_resource_readings(id,project_id,capability,identity,payload) VALUES($1,$2,$3,$4,$5)
+ON CONFLICT(project_id,capability) DO UPDATE SET identity=excluded.identity,payload=excluded.payload
+`
+
+type StoreResourceReadingParams struct {
+	ID         ids.ID
+	ProjectID  ids.ID
+	Capability string
+	Identity   string
+	Payload    json.RawMessage
+}
+
+func (q *Queries) StoreResourceReading(ctx context.Context, arg StoreResourceReadingParams) error {
+	_, err := q.db.ExecContext(ctx, storeResourceReading,
+		arg.ID,
+		arg.ProjectID,
+		arg.Capability,
+		arg.Identity,
+		arg.Payload,
+	)
+	return err
 }

@@ -101,6 +101,9 @@ func (o *CapacityObserver) Run(ctx context.Context, id ids.ID, revision int64) e
 		return nil
 	}
 	reading, checkErr := o.read(ctx, target)
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return ctx.Err()
+	}
 	// Finishing a timed-out check still records its failure, within a bounded write.
 	finish, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer stop()
