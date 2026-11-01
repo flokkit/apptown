@@ -104,23 +104,3 @@ func (s *Service) ProjectActivityFor(ctx context.Context, requested []ids.ID) (m
 	}
 	return readProjectActivity(ctx, s.db, selected)
 }
-
-// RecentProjects orders readable project identities by readable work. Both
-// visibility fences precede LIMIT; project-only readers retain idle projects.
-func (s *Service) RecentProjects(ctx context.Context, limit int) ([]ids.ID, error) {
-	if limit < 1 || limit > 100 {
-		return nil, fmt.Errorf("recent projects require limit 1–100")
-	}
-	if _, err := s.require(ctx, operationPermission{Action: actionIdentify}); err != nil {
-		return nil, err
-	}
-	projects, err := s.visibleProjects(ctx, actionReadProject, ids.Nil)
-	if err != nil {
-		return nil, err
-	}
-	runs, err := s.visibleProjects(ctx, actionReadRun, ids.Nil)
-	if err != nil {
-		return nil, err
-	}
-	return workflowsql.New(s.db.SQL()).RecentProjectIDs(ctx, workflowsql.RecentProjectIDsParams{ProjectIds: projects, RunProjectIds: runs, RowLimit: int64(limit)})
-}

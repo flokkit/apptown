@@ -372,6 +372,22 @@ func (s *Service) ProjectRuntime(ctx context.Context, idList []ids.ID) (map[ids.
 	return projectRuntimeSummaries(rows), nil
 }
 
+// RunningProjects selects readable production apps from cached runtime evidence.
+// Project browsing applies its own visibility fence before prioritizing these IDs.
+func (s *Service) RunningProjects(ctx context.Context) ([]ids.ID, error) {
+	rows, err := s.runtimeProjects(ctx, access.CapProjectRead, nil)
+	if err != nil {
+		return nil, err
+	}
+	out := []ids.ID{}
+	for id, summary := range projectRuntimeSummaries(rows) {
+		if summary.ProductionRunning != nil && *summary.ProductionRunning {
+			out = append(out, id)
+		}
+	}
+	return out, nil
+}
+
 func projectRuntimeSummaries(rows []RuntimeDeployment) map[ids.ID]ProjectRuntimeSummary {
 	out := make(map[ids.ID]ProjectRuntimeSummary)
 	main := make(map[ids.ID]bool)

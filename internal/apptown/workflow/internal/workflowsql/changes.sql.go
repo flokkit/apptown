@@ -1045,44 +1045,6 @@ func (q *Queries) PublishChangeNarrative(ctx context.Context, arg PublishChangeN
 	return result.RowsAffected()
 }
 
-const recentProjectIDs = `-- name: RecentProjectIDs :many
-SELECT p.id FROM projects p
-LEFT JOIN runs r ON r.project_id=p.id AND r.project_id=ANY($1::uuid[])
-WHERE p.id=ANY($2::uuid[])
-GROUP BY p.id,p.namespace,p.name
-ORDER BY MAX(r.updated_at) DESC NULLS LAST,p.namespace,p.name,p.id
-LIMIT $3::bigint
-`
-
-type RecentProjectIDsParams struct {
-	RunProjectIds []ids.ID
-	ProjectIds    []ids.ID
-	RowLimit      int64
-}
-
-func (q *Queries) RecentProjectIDs(ctx context.Context, arg RecentProjectIDsParams) ([]ids.ID, error) {
-	rows, err := q.db.QueryContext(ctx, recentProjectIDs, pq.Array(arg.RunProjectIds), pq.Array(arg.ProjectIds), arg.RowLimit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ids.ID
-	for rows.Next() {
-		var id ids.ID
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const recordSupersededChange = `-- name: RecordSupersededChange :execrows
 UPDATE changes SET summary=$1 WHERE id=$2 AND project_id=$3 AND state=$4
 `

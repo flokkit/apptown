@@ -177,14 +177,6 @@ FROM releases rel JOIN release_changes rc ON rc.release_id=rel.id
 JOIN changes c ON c.id=rc.change_id AND c.project_id=rel.project_id
 WHERE rel.project_id=sqlc.arg(project_id) AND rel.id=ANY(sqlc.arg(release_ids)::uuid[]) ORDER BY rel.id,c.id;
 
--- name: RecentProjectIDs :many
-SELECT p.id FROM projects p
-LEFT JOIN runs r ON r.project_id=p.id AND r.project_id=ANY(sqlc.arg(run_project_ids)::uuid[])
-WHERE p.id=ANY(sqlc.arg(project_ids)::uuid[])
-GROUP BY p.id,p.namespace,p.name
-ORDER BY MAX(r.updated_at) DESC NULLS LAST,p.namespace,p.name,p.id
-LIMIT sqlc.arg(row_limit)::bigint;
-
 -- A change's id from its number within its project: the friendly form
 -- people type ("egg-catch#12") resolves through it.
 -- name: ChangeIDByNumber :one

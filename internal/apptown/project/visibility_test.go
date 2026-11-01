@@ -63,10 +63,20 @@ func TestVisibleProjectsIncludeIdleProjectsAndFenceEmptySets(t *testing.T) {
 			t.Fatalf("empty SQL scope: %+v %v", got, err)
 		}
 	}
-	for _, in := range []Browse{{Limit: 1}, {Limit: 1, IDs: []ids.ID{idstest.N(2), copyID, id}}, {Limit: 2, Query: "y-private"}, {Limit: 1, Offset: 5}, {Limit: 1, Query: "private"}, {Limit: 1, IDs: []ids.ID{}}} {
+	// Priority selection happens before LIMIT, with the full visible total.
+	boss := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "boss"}, Verified: true})
+	page, err := s.Browse(boss, Browse{Limit: 1, PriorityIDs: []ids.ID{id}})
+	if err != nil || page.Total != 2 || len(page.Projects) != 1 || page.Projects[0].ID != id {
+		t.Fatalf("priority before limit: %+v %v", page, err)
+	}
+	page, err = s.Browse(boss, Browse{Limit: 1, Offset: 1, PriorityIDs: []ids.ID{id}})
+	if err != nil || page.Total != 2 || len(page.Projects) != 1 || page.Projects[0].Slug != "a-private" {
+		t.Fatalf("remaining projects after priority: %+v %v", page, err)
+	}
+	for _, in := range []Browse{{Limit: 1}, {Limit: 1, PriorityIDs: []ids.ID{idstest.N(2), copyID, id}}, {Limit: 2, Query: "y-private"}, {Limit: 1, Offset: 5}, {Limit: 1, Query: "private"}, {Limit: 1, PriorityIDs: []ids.ID{}}} {
 		page, err := s.Browse(ctx, in)
 		want := int64(1)
-		if in.Query == "private" || in.Query == "y-private" || (in.IDs != nil && len(in.IDs) == 0) {
+		if in.Query == "private" || in.Query == "y-private" {
 			want = 0
 		}
 		if err != nil || page.Total != want {

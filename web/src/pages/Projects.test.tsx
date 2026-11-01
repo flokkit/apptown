@@ -83,9 +83,9 @@ it('shows only icons projects chose, and leaves finding to the top bar', async (
 // still says it has not been checked, in the unknown style.
 it('stamps only the projects that have a deployment', async () => {
   const el = await listing()
-  const card = (slug: string) => el.querySelector(`a[href="/projects/${slug}"]`)!.closest('tr')!
+  const card = (slug: string) => el.querySelector(`a[href="/projects/${slug}"]`)!.closest('.project-row')!
   expect(card('plain').querySelector('.chip')?.textContent).toContain('Not deployed')
-  expect(card('boat').textContent).toContain('No changes yet')
+  expect(card('boat').textContent).toContain('Not checked yet')
   expect(card('boat').textContent).not.toContain('Not deployed')
   const stamp = card('boat').querySelector('.chip.unknown')
   expect(stamp?.textContent).toBe('● unknown')
@@ -100,5 +100,5 @@ it('keeps list descriptions on one line with an ellipsis', async () => {
   expect(rule).toMatch(/white-space:\s*nowrap/)
   expect(rule).toMatch(/overflow:\s*hidden/)
   expect(rule).toMatch(/text-overflow:\s*ellipsis/)
-  expect(el.querySelector('table')?.classList.contains('stack')).toBe(true)
+  expect(el.querySelectorAll('.project-row')).toHaveLength(2)
 })

@@ -70,7 +70,7 @@ AND (sqlc.arg(query)::text='' OR strpos(lower(name||' '||slug||' '||blurb||' '||
 SELECT * FROM projects WHERE id=ANY(sqlc.arg(project_ids)::uuid[]) AND purpose = 'ordinary'
 AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id = projects.id AND l.state = 'deleted')
 AND (sqlc.arg(query)::text='' OR strpos(lower(name||' '||slug||' '||blurb||' '||namespace||' '||icon),sqlc.arg(query))>0)
-ORDER BY CASE WHEN sqlc.arg(ordered)::boolean THEN array_position(sqlc.arg(project_ids)::uuid[],id) END,
+ORDER BY (id=ANY(sqlc.arg(priority_ids)::uuid[])) DESC,
  CASE WHEN sqlc.arg(query)::text='' THEN 0
  WHEN strpos(lower(name),sqlc.arg(query))=1 OR strpos(lower(slug),sqlc.arg(query))=1 THEN 0
  WHEN strpos(lower(name),sqlc.arg(query))>0 OR strpos(lower(slug),sqlc.arg(query))>0 THEN 1

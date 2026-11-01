@@ -1,8 +1,8 @@
-import { useNarrow } from '../chrome'
 import { Status, STATUS_LIGHT } from '../Status'
 import { useAttention, attentionState } from '../attention'
 import { PRODUCT } from '../brand'
-import { RuntimeObservation, RuntimeStatus } from '../runtime'
+import { RuntimeObservation } from '../runtime'
+import { ProjectListRow, appRunning } from '../ProjectListRow'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Dashboard as DashboardData, post } from '../api'
@@ -10,16 +10,12 @@ import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
 import { ActiveRunList, ChangeRow, RunRow } from '../parts/runActivity'
-import type { Operation, ProjectRow, SetupState } from '../wire.gen'
+import type { Operation, ProjectPage, SetupState } from '../wire.gen'
 import { endedWords } from './DataProtection'
 import { LocalTrialNote } from '../LocalTrialNote'
 
-// Home (the glossary's front page of the instance): what is my whole AppTown
-// doing right now — what needs me, what's running, what shipped lately. Folding this into the projects
-// page buried it (people did not notice "happening now" was there), so
-// it is its own page again, first in the menu.
+// Home opens apps first, then shows work that needs attention.
 
-type ProjRow = ProjectRow
 export type Activity = {
   agents: { project: string; runId: string | null; changeId: string | null; title: string; step: string; type: string; elapsedS: number }[]
   active: RunRow[]
@@ -27,8 +23,6 @@ export type Activity = {
   deployments: (RuntimeObservation & { project: string; name: string; url: string; hostOnly?: boolean; running: boolean | null })[]
 }
 type Setup = SetupState
-
-const rel = (ts: string): string => relTime(ts) || 'No changes yet'
 
 // First-run onboarding: a fresh AppTown says what
 // it needs instead of sitting silently inert.
@@ -148,16 +142,13 @@ export function homeFinished(history: ChangeRow[]): ChangeRow[] {
 }
 
 export default function Dashboard() {
-  const narrow = useNarrow()
   const operationsQ = useAttention()
   const actQ = useGet<Activity>('/activity', { poll: 5000 })
   const dashQ = useGet<DashboardData>('/dashboard', { poll: 5000 })
-  const projectsQ = useGet<ProjRow[]>('/projects?recent=6', { poll: 5000 })
-  const act = actQ.data, dash = dashQ.data, dashErr = dashQ.err, projects = projectsQ.data
-  const recent = projects ?? []
+  const projectsQ = useGet<ProjectPage>('/projects?limit=50&order=running', { poll: 5000 })
+  const act = actQ.data, dash = dashQ.data, dashErr = dashQ.err, projects = projectsQ.data?.projects ?? null
+  const listed = [...(projects ?? [])].sort((a, b) => Number(appRunning(b, projectsQ.refreshFailed)) - Number(appRunning(a, projectsQ.refreshFailed)))
   const finished = homeFinished(act?.history ?? [])
-
-  if (!act) return <><h1>Home</h1><ReadStatus q={actQ} what="activity" /></>
 
   // One work item, one card. "Running" is one card PER RUN (its current
   // step is shown inside the card), never one per running step — a run churning
@@ -172,17 +163,17 @@ export default function Dashboard() {
   // A copy, check or take-down you asked for that failed, or whose outcome
   // is not known, waits here until you put it away. A success needs nobody.
   const ended = dash?.endedOperations ?? []
-  const { happening, blocked, waiting, needsYouCount } = homeSections(act.active, dash?.pendingApprovals ?? [], ended)
+  const { happening, blocked, waiting, needsYouCount } = homeSections(act?.active ?? [], dash?.pendingApprovals ?? [], ended)
 
   // The page leads with one sentence about the situation, then only the
   // sections that have something in them. With no projects yet it says
   // what a project here is for and offers to make one.
-  const noProjects = projects !== null && recent.length === 0
+  const noProjects = projects !== null && listed.length === 0
   const status = homeStatus({
     operations: attentionState(operationsQ),
     needsYou: dash ? needsYouCount : null,
     running: happening.length,
-    deployments: act.deployments,
+    deployments: act?.deployments ?? [],
   })
   return (
     <div>
@@ -192,10 +183,10 @@ export default function Dashboard() {
         <div>
           <h1>Home</h1>
         </div>
-        {!noProjects && <Link to="/projects/_new"><button className="primary">+ New project</button></Link>}
+        {!noProjects && <Link to="/projects/_new"><button>+ New project</button></Link>}
       </div>
 
-      {!noProjects && projects !== null && (dash || dashErr) && <div className="dash-lead"><Link to="/attention">{status} →</Link></div>}
+      {!noProjects && act && projects !== null && (dash || dashErr) && <div className="dash-lead"><Link to="/attention">{status} →</Link></div>}
       <ReadStatus q={operationsQ} what="hosts" /><StaleNote q={operationsQ} />
 
       {noProjects && (
@@ -204,6 +195,18 @@ export default function Dashboard() {
         </div>
       )}
 
+      {!noProjects && <section aria-label="Apps">
+        <h2>Apps</h2>
+        {!projects && <ReadStatus q={projectsQ} what="the apps" />}
+        <div className="project-rows" role="list">
+          {listed.map(p => <ProjectListRow key={p.id} project={p} refreshFailed={projectsQ.refreshFailed} reason={projectsQ.reason} />)}
+        </div>
+        <div className="muted small" style={{ marginTop: 6 }}>
+          <Link to="/projects">All projects →</Link> · <Link to="/deployments">Deployments →</Link>
+        </div>
+      </section>}
+
+      {!act && <ReadStatus q={actQ} what="activity" />}
       {!dash && <ReadStatus q={dashQ} what="what needs you" />}
       {(waiting.length > 0 || blocked.length > 0 || ended.length > 0) && <>
         <h2 style={{ marginTop: 8 }}>Needs you ({needsYouCount})</h2>
@@ -213,7 +216,7 @@ export default function Dashboard() {
           <Link key={a.stepId} to={`/changes/${a.changeId}`} className="card row tone-warn" style={{ display: 'flex' }}>
             <Status word={a.statusLabel} tone={STATUS_LIGHT[a.statusLabel]} help="Waiting for approval" />
             <strong>{a.itemTitle || `change ${a.changeNumber}`}</strong>
-            <span className="muted small">{a.projectName}{act.active.find(r => r.changeId === a.changeId)?.startedAt && ` · ${relTime(act.active.find(r => r.changeId === a.changeId)!.startedAt)}`}</span>
+            <span className="muted small">{a.projectName}{act?.active.find(r => r.changeId === a.changeId)?.startedAt && ` · ${relTime(act?.active.find(r => r.changeId === a.changeId)!.startedAt)}`}</span>
             <span style={{ flex: 1 }} />
             <span className="small">Review →</span>
           </Link>
@@ -225,32 +228,6 @@ export default function Dashboard() {
         <h2>Working ({happening.length})</h2>
         <ActiveRunList runs={happening} showProject />
       </>}
-
-      <h2>Projects</h2>
-      {!projects && <ReadStatus q={projectsQ} what="the recent projects" />}
-      <div className="dash-projects">
-        {recent.map((p) => {
-          return (
-            <div key={p.id} className="card home-project">
-              <Link to={`/projects/${p.slug}`} className="row home-project-link" style={{ textDecoration: 'none', color: 'inherit' }}>
-                {p.icon && <span aria-hidden>{p.icon}</span>}
-                <strong>{p.name}</strong>
-                {narrow && (p.hasDeployments === false
-                ? <Status word="none" text="Not deployed" tone="" />
-                : <RuntimeStatus observation={projectsQ.refreshFailed ? { ...p, observation: 'unknown', observationStale: true, observationIssue: projectsQ.reason } : p} />)}
-              </Link>
-              {p.blurb && <div className="muted small project-description">{p.blurb}</div>}
-              <div className="muted small home-project-age">{p.lastRunAt ? 'Work updated ' : ''}{rel(p.lastRunAt)}</div>
-              {!narrow && <div className="row" style={{ marginTop: 8 }}>{p.hasDeployments === false
-                ? <Status word="none" text="Not deployed" tone="" />
-                : <RuntimeStatus observation={projectsQ.refreshFailed ? { ...p, observation: 'unknown', observationStale: true, observationIssue: projectsQ.reason } : p} />}{p.productionUrl && <a className="dash-app" href={p.productionUrl} target="_blank" rel="noreferrer">Open app ↗</a>}</div>}
-            </div>
-          )
-        })}
-      </div>
-      <div className="muted small" style={{ marginTop: 6 }}>
-        <Link to="/projects">All projects →</Link> · <Link to="/deployments">Deployments →</Link>
-      </div>
 
       {finished.length > 0 && <>
         <h2>Recently finished</h2>

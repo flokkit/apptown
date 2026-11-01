@@ -48,14 +48,14 @@ it('omits lights on neutral states', async () => {
 it.each([false, true])('gives each project identity, a live address and the last change title (phone=%s)', async narrow => {
   const el = await show(<Projects />, { '/projects?limit=50&offset=0&q=': { total: 1, projects: [{ id: 'one', slug: 'calendar', name: 'Calendar', icon: '', activeItems: 0, doneRuns: 2, lastChangeTitle: 'Add school holidays', lastRunAt: '', hasDeployments: true, observation: 'running', observationStale: false, productionUrl: 'https://calendar.example', prodRunning: true }] } }, narrow)
   expect(el.querySelector('.project-avatar')?.textContent).toBe('C')
-  expect(el.querySelector('a[href="https://calendar.example"]')?.textContent).toBe('Open app')
+  expect(el.querySelector('a[href="https://calendar.example"]')?.textContent).toBe('Open app ↗')
   expect(el.textContent).toContain('Add school holidays')
   expect(el.textContent).toContain('2 shipped')
-  expect(el.textContent).toContain('2 shipped · No changes yet')
+  expect(el.querySelector('.project-state')?.textContent).toContain('Not checked yet')
   expect(el.textContent).not.toContain('Updated No changes yet')
   expect(el.querySelector('tbody tr[aria-expanded]')).toBeNull()
   expect(el.textContent).not.toContain('0 in progress')
-  expect(el.querySelector('table')).not.toBeNull()
+  expect(el.querySelector('.project-row')).not.toBeNull()
 })
 it.each([true, false])('keeps every pack action on its row and preserves delete confirmation (enabled=%s)', async enabled => {
   const el = await show(<Packs />, { '/packs': [{ name: 'household', origin: 'custom', enabled, requires: [], guidance: [], workflows: [], policies: [], declaration: { guidance: [], workflows: [], policies: [] } }] })

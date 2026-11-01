@@ -1,10 +1,9 @@
-import { Status } from '../Status'
-import { AppAddress, RuntimeObservation, RuntimeStatus } from '../runtime'
+import { RuntimeObservation } from '../runtime'
+import { ProjectListRow } from '../ProjectListRow'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
-import { relTime } from '../format'
 import type { ProjectCleanupList, ProjectPage, ProjectRow } from '../wire.gen'
 
 // Projects: find yours. The big find filters the grid as you type; the
@@ -102,15 +101,11 @@ export default function Projects() {
               <span className="muted small">{(byNs.get(ns) ?? []).length} project{(byNs.get(ns) ?? []).length === 1 ? '' : 's'}</span>
             </div>
           )}
-          <table className="stack project-list">
-            <thead><tr><th>Application</th><th>State</th></tr></thead>
-            <tbody>{(byNs.get(ns) ?? []).map((p) => <tr key={p.id}>
-              <td className="stack-lead"><Link className="tap-open" to={`/projects/${p.slug}`}><span className="project-avatar" aria-hidden>{p.icon || p.name.slice(0, 1).toUpperCase()}</span><strong>{p.name}</strong></Link>{p.prodRunning && p.productionUrl && <AppAddress url={p.productionUrl} className="small project-live">Open app</AppAddress>}
-                <div className="small muted project-summary">{p.activeItems > 0 && <>{p.activeItems} in progress · </>}{p.doneRuns} shipped · {relTime(p.lastRunAt) ? <>Updated {relTime(p.lastRunAt)}</> : 'No changes yet'}{p.lastChangeTitle && <> · {p.lastChangeTitle}</>}</div>
-                {p.blurb && <div className="small muted project-description">{p.blurb}</div>}</td>
-              <td className="stack-end">{p.hasDeployments !== false ? <RuntimeStatus observation={p} /> : <Status word="none" text="Not deployed" tone="" />}</td>
-            </tr>)}</tbody>
-          </table>
+          <div className="project-rows" role="list">
+            {(byNs.get(ns) ?? []).map(p => <ProjectListRow key={p.id} project={p} refreshFailed={pageQ.refreshFailed} reason={pageQ.reason}>
+              <div className="small muted project-summary">{p.activeItems > 0 && <>{p.activeItems} in progress · </>}{p.doneRuns} shipped{p.lastChangeTitle && <> · {p.lastChangeTitle}</>}</div>
+            </ProjectListRow>)}
+          </div>
         </section>
       ))}
 
