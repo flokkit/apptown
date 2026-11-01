@@ -43,10 +43,12 @@ type Project struct {
 	// sends the revision it started from.
 	SettingsRevision int64 `json:"settingsRevision"`
 
-	OwnerGroup       string `json:"-"`
-	DefaultApprovers string `json:"-"`
-	ReleaseDomain    string `json:"-"`
-	ModelProfile     string `json:"-"`
+	// LastWorkedAt is the caller’s latest work, populated only by Browse with Mine set.
+	LastWorkedAt     *time.Time `json:"-"`
+	OwnerGroup       string     `json:"-"`
+	DefaultApprovers string     `json:"-"`
+	ReleaseDomain    string     `json:"-"`
+	ModelProfile     string     `json:"-"`
 	// Purpose is what the project is for, fixed at creation (purpose.go).
 	// The column's CHECK holds it to the known purposes.
 	Purpose Purpose `json:"-"`

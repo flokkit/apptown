@@ -56,26 +56,52 @@ WHERE (sqlc.narg(project_id)::uuid IS NULL OR id = sqlc.narg(project_id)) ORDER 
 
 -- The project lists show ordinary projects: a throwaway eval copy appears
 -- under its eval, never as a project.
--- name: VisibleProjects :many
-SELECT * FROM projects WHERE id=ANY($1::uuid[]) AND purpose = 'ordinary'
-AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id = projects.id AND l.state = 'deleted')
-ORDER BY namespace, name, id;
-
 -- name: VisibleProjectCount :one
 SELECT count(*) FROM projects WHERE id=ANY(sqlc.arg(project_ids)::uuid[]) AND purpose = 'ordinary'
 AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id = projects.id AND l.state = 'deleted')
 AND (sqlc.arg(query)::text='' OR strpos(lower(name||' '||slug||' '||blurb||' '||namespace||' '||icon),sqlc.arg(query))>0);
 
+-- name: VisibleProjects :many
+SELECT * FROM projects
+WHERE id=ANY(sqlc.arg(project_ids)::uuid[]) AND purpose='ordinary'
+AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id=projects.id AND l.state='deleted')
+ORDER BY namespace, name, id;
+
 -- name: ProjectPage :many
-SELECT * FROM projects WHERE id=ANY(sqlc.arg(project_ids)::uuid[]) AND purpose = 'ordinary'
-AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id = projects.id AND l.state = 'deleted')
-AND (sqlc.arg(query)::text='' OR strpos(lower(name||' '||slug||' '||blurb||' '||namespace||' '||icon),sqlc.arg(query))>0)
-ORDER BY (id=ANY(sqlc.arg(priority_ids)::uuid[])) DESC,
+SELECT p.* FROM projects p
+WHERE p.id=ANY(sqlc.arg(project_ids)::uuid[]) AND p.purpose = 'ordinary'
+AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id = p.id AND l.state = 'deleted')
+AND (sqlc.arg(query)::text='' OR strpos(lower(p.name||' '||p.slug||' '||p.blurb||' '||p.namespace||' '||p.icon),sqlc.arg(query))>0)
+ORDER BY (p.id=ANY(sqlc.arg(priority_ids)::uuid[])) DESC,
  CASE WHEN sqlc.arg(query)::text='' THEN 0
  WHEN strpos(lower(name),sqlc.arg(query))=1 OR strpos(lower(slug),sqlc.arg(query))=1 THEN 0
  WHEN strpos(lower(name),sqlc.arg(query))>0 OR strpos(lower(slug),sqlc.arg(query))>0 THEN 1
  WHEN strpos(lower(blurb),sqlc.arg(query))>0 THEN 2 ELSE 3 END,
- CASE WHEN sqlc.arg(query)::text='' THEN namespace END,name,id
+ CASE WHEN sqlc.arg(query)::text='' THEN namespace END,p.name,p.id
+LIMIT sqlc.arg(row_limit)::bigint OFFSET sqlc.arg(row_offset)::bigint;
+
+-- name: PersonalProjectPage :many
+WITH personal_events AS (
+ SELECT project_id, created_at AS at FROM changes
+ WHERE project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND opened_by_principal=sqlc.arg(principal)::uuid
+ UNION ALL
+ SELECT project_id, at FROM audit_log
+ WHERE project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND actor_principal=sqlc.arg(principal)::uuid
+ AND kind IN ('console.say','console.upload')
+), personal AS (
+ SELECT project_id, max(at) AS last_worked_at FROM personal_events GROUP BY project_id
+), recent AS (
+ SELECT project_id, max(updated_at) AS last_run_at FROM runs
+ WHERE project_id=ANY(sqlc.arg(project_ids)::uuid[]) GROUP BY project_id
+)
+SELECT sqlc.embed(p), COALESCE(personal.last_worked_at,'epoch'::timestamptz)::timestamptz AS last_worked_at,
+ (personal.last_worked_at IS NOT NULL)::boolean AS has_last_worked_at FROM projects p
+LEFT JOIN personal ON personal.project_id=p.id
+LEFT JOIN recent ON recent.project_id=p.id
+WHERE p.id=ANY(sqlc.arg(project_ids)::uuid[]) AND p.purpose = 'ordinary'
+AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id = p.id AND l.state = 'deleted')
+AND (sqlc.arg(query)::text='' OR strpos(lower(p.name||' '||p.slug||' '||p.blurb||' '||p.namespace||' '||p.icon),sqlc.arg(query))>0)
+ORDER BY personal.last_worked_at DESC NULLS LAST, recent.last_run_at DESC NULLS LAST, p.name, p.id
 LIMIT sqlc.arg(row_limit)::bigint OFFSET sqlc.arg(row_offset)::bigint;
 
 -- name: InsertProjectDeletion :exec

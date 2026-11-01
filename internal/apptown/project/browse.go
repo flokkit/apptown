@@ -17,6 +17,10 @@ type Browse struct {
 	Limit, Offset int
 	Query         string
 	PriorityIDs   []ids.ID
+	// Mine orders by the verified caller’s opened changes and chat messages
+	// or uploads, then the latest run across callers, name and ID.
+	// It takes precedence over PriorityIDs.
+	Mine bool
 }
 type page struct {
 	Projects []Project
@@ -46,15 +50,34 @@ func (s *Projects) Browse(ctx context.Context, in Browse) (page, error) {
 	if err != nil {
 		return page{}, err
 	}
-	rows, err := q.ProjectPage(ctx, projectsql.ProjectPageParams{ProjectIds: idList, Query: query, PriorityIds: in.PriorityIDs, RowLimit: int64(in.Limit), RowOffset: int64(in.Offset)})
-	if err != nil {
-		return page{}, err
-	}
-	for _, r := range rows {
-		out.Projects = append(out.Projects, record(r))
+	if in.Mine {
+		caller, _ := access.CallerFrom(ctx)
+		rows, err := q.PersonalProjectPage(ctx, projectsql.PersonalProjectPageParams{ProjectIds: idList, Query: query, Principal: caller.Principal.ID, RowLimit: int64(in.Limit), RowOffset: int64(in.Offset)})
+		if err != nil {
+			return page{}, err
+		}
+		for _, r := range rows {
+			out.Projects = append(out.Projects, browseRecord(r))
+		}
+	} else {
+		rows, err := q.ProjectPage(ctx, projectsql.ProjectPageParams{ProjectIds: idList, Query: query, PriorityIds: in.PriorityIDs, RowLimit: int64(in.Limit), RowOffset: int64(in.Offset)})
+		if err != nil {
+			return page{}, err
+		}
+		for _, r := range rows {
+			out.Projects = append(out.Projects, record(r))
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return page{}, err
 	}
 	return out, nil
+}
+
+func browseRecord(r projectsql.PersonalProjectPageRow) Project {
+	p := record(r.Project)
+	if r.HasLastWorkedAt {
+		p.LastWorkedAt = &r.LastWorkedAt
+	}
+	return p
 }

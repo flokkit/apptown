@@ -13,3 +13,5 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 
 CREATE INDEX audit_log_project_created ON audit_log(project_id) WHERE kind='project.created';
+
+CREATE INDEX audit_log_personal_chat ON audit_log(actor_principal, project_id, at) WHERE kind IN ('console.say','console.upload');

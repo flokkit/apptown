@@ -1354,6 +1354,7 @@ export type ProjectRow = {
   createdAt: string
   requireIndependentApproval: boolean
   settingsRevision: number
+  lastWorkedAt: string | null
   activeItems: number
   adrCount: number
   doneRuns: number

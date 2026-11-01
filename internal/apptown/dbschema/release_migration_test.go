@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/database"
@@ -47,6 +48,16 @@ func TestAnUpgradedAppTownHasTheFreshSchemasShape(t *testing.T) {
 	fresh := emptyDB(t)
 	if _, err := Migrate(t.Context(), fresh); err != nil {
 		t.Fatal(err)
+	}
+	// The shared schema inspector includes installed indexes as well as columns.
+	for _, db := range []*database.DB{upgraded, fresh} {
+		installed, err := dbtest.Shape(t.Context(), db)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(installed, "CREATE INDEX audit_log_personal_chat ON public.audit_log USING btree (actor_principal, project_id, at) WHERE (kind = ANY (ARRAY['console.say'::text, 'console.upload'::text]))") {
+			t.Fatal("personal chat index missing or has the wrong columns or predicate")
+		}
 	}
 	shape := func(db *database.DB) map[string]bool {
 		t.Helper()

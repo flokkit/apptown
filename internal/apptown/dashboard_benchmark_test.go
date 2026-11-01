@@ -55,7 +55,7 @@ func BenchmarkDashboardRefresh(b *testing.B) {
 					defer workers.Done()
 					for n := next.Add(1); n <= int64(b.N); n = next.Add(1) {
 						start := time.Now()
-						for _, path := range []string{"/api/v1/activity", "/api/v1/dashboard", "/api/v1/projects?limit=50&order=running"} {
+						for _, path := range []string{"/api/v1/activity", "/api/v1/dashboard", "/api/v1/projects?limit=5&order=mine"} {
 							if w := authzCall(h, "bench", "GET", path, ""); w.Code != 200 {
 								failures.Add(1)
 							}
