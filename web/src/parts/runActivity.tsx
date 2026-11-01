@@ -1,5 +1,5 @@
 import { GlanceRow } from '../GlanceRow'
-import { Status, STATUS_LIGHT } from '../Status'
+import { Status } from '../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChangeState, Doing, Release, RunStatus, post } from '../api'
@@ -41,7 +41,7 @@ export function ActiveRunList({ runs, showProject }: { runs: RunRow[]; showProje
       {runs.map((r) => {
         const body = (
           <>
-            <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} />
+            <Status word={r.statusLabel} />
             <strong>{r.changeNumber ? <span className="muted" style={{ fontWeight: 400 }}>#{r.changeNumber} </span> : null}{r.title || `run ${r.runNumber}`}</strong>
             <span className="muted small">{showProject ? `${r.project} · ` : ''}{relTime(r.startedAt)}</span>
           </>
@@ -111,7 +111,7 @@ export function ChangeHistoryTable({ changes, showProject, releases, slug }: {
             <td className="muted small" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(e.when)}</td>
             {showProject && <td className="muted small">{e.c.project}</td>}
             <td className="stack-lead"><Link className="tap-open" to={`/changes/${e.c.changeId}`}><span className="muted small">#{e.c.changeNumber}</span> {e.c.title}</Link></td>
-            <td><Status word={e.c.statusLabel} tone={STATUS_LIGHT[e.c.statusLabel]} /></td>
+            <td><Status word={e.c.statusLabel} /></td>
             {e.c.statusLabel === 'landed'
               ? <td className="muted small" data-label="took">{fmtDuration(e.c.tookS)}</td>
               : <td className="muted small stack-hide" />}
@@ -128,7 +128,7 @@ export function ChangeHistoryTable({ changes, showProject, releases, slug }: {
                 <span className="muted small"> · {(e.r.changes ?? []).length} change{(e.r.changes ?? []).length === 1 ? '' : 's'}</span>
               )}
             </td>
-            <td><Status word={e.r.statusLabel} tone={STATUS_LIGHT[e.r.statusLabel]} /></td>
+            <td><Status word={e.r.statusLabel} /></td>
             <td className="muted small stack-hide">—</td>
           </GlanceRow>
         ))}

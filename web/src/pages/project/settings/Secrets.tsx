@@ -1,3 +1,4 @@
+import { Status } from '../../../Status'
 import { NewChangeButton } from '../NewChange'
 import { PRODUCT } from '../../../brand'
 import { useState } from 'react'
@@ -108,8 +109,8 @@ function DeploymentCard({ env, profiles, declared, onProfile, onEdit, onUnbind, 
       <div className="row" style={{ marginBottom: 6 }}>
         <strong>{env.name}</strong>
         {env.missing.length > 0
-          ? <span className="chip fail">{env.missing.length} missing</span>
-          : <span className="chip pass">ready</span>}
+          ? <Status word="failed" help={`${env.missing.length} required secrets are missing. Set them below before deploying.`} />
+          : <Status word="working" />}
         <span style={{ flex: 1 }} />
         <span className="muted small">profile</span>
         <select value={env.chosen || env.profile} onChange={(e) => onProfile(e.target.value)}>
@@ -163,7 +164,7 @@ function Source({ s }: { s: SecretStatus }) {
   if (s.generated) return <span className="small muted">{PRODUCT} will make one on the first boot</span>
   if (s.default) return <span className="small muted">the declaration's default</span>
   if (!s.required) return <span className="small muted">not set (optional)</span>
-  return <span className="chip fail">not set</span>
+  return <Status word="failed" help="A required secret is missing. Set or bind this secret before deploying." />
 }
 
 function BindModal({ slug, env, name, stores, onClose, onDone }: {

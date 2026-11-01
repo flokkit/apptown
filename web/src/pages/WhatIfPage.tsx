@@ -1,5 +1,5 @@
 import { GlanceRow } from '../GlanceRow'
-import { Status, STATUS_LIGHT } from '../Status'
+import { Status } from '../Status'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { currentUser, get, HttpError, post } from '../api'
@@ -77,7 +77,7 @@ export default function WhatIfPage() {
 }
 
 function State({ w }: { w: WhatIf }) {
-  return <><Status word={w.statusLabel} tone={STATUS_LIGHT[w.statusLabel]} help={w.detail || w.state} /> <span>{w.projectsDone} of {w.projectsTotal}</span></>
+  return <><Status word={w.statusLabel} help={w.detail || w.state} /> <span>{w.projectsDone} of {w.projectsTotal}</span></>
 }
 
 // Decide: recommend the version (the pack page's own act) or try it in an
@@ -116,8 +116,8 @@ function Summary({ w }: { w: WhatIf }) {
   return (
     <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
       <strong>{projects.length} project{projects.length === 1 ? '' : 's'}</strong>
-      {OUTCOME_ORDER.filter((o) => counts[o]).map((o) => <span key={o}>{counts[o]} <Status word={w.outcomeLabels[o]} tone={STATUS_LIGHT[w.outcomeLabels[o]]} help={OUTCOME_WORDS[o]} /></span>)}
-      {w.movesBackProjects > 0 && <span className="chip moves-back">{w.movesBackProjects} move rules back</span>}
+      {OUTCOME_ORDER.filter((o) => counts[o]).map((o) => <span key={o}>{counts[o]} <Status word={w.outcomeLabels[o]} help={OUTCOME_WORDS[o]} /></span>)}
+      {w.movesBackProjects > 0 && <span className="badge moves-back">{w.movesBackProjects} move rules back</span>}
     </div>
   )
 }
@@ -252,8 +252,8 @@ function Table({ w }: { w: WhatIf }) {
                 <GlanceRow name={1} state={2} summary={p.candidateDigest ? <>{p.newFailures.length} new {p.newFailures.length === 1 ? 'failure' : 'failures'}</> : 'Not assessed yet'} labels={["Select", "Project", "Answer", "Score", "Details", "Adoption", "Actions"]}>
                   <td><input type="checkbox" aria-label={`adopt on ${p.projectSlug}`} title={cannot || undefined} disabled={!!cannot || asking}
                     checked={ticked.includes(pid)} onChange={(e) => setTicked(e.target.checked ? [...ticked, pid] : ticked.filter((x) => x !== pid))} /></td>
-                  <td><Link to={`/conformance/projects/${p.projectSlug}`}>{p.projectSlug}</Link>{p.joins && <span className="chip" style={{ marginLeft: 6 }}>would join</span>}</td>
-                  <td><Status word={p.statusLabel} tone={STATUS_LIGHT[p.statusLabel]} help={OUTCOME_WORDS[p.outcome]} /></td>
+                  <td><Link to={`/conformance/projects/${p.projectSlug}`}>{p.projectSlug}</Link>{p.joins && <span className="badge" style={{ marginLeft: 6 }}>would join</span>}</td>
+                  <td><Status word={p.statusLabel} help={OUTCOME_WORDS[p.outcome]} /></td>
                   <td><ScoreLine s={p.score} />{p.fixed > 0 && <div className="muted">{p.fixed} fixed</div>}</td>
                   <td><details><summary>Check details</summary>
                     {p.newFailures.map((c, i) => <div key={i}><Check c={c} />{c.exceptedToday && <span> (exception approved)</span>}</div>)}
@@ -317,7 +317,7 @@ function AdoptedCell({ a }: { a?: Adopted }) {
     return <>{link} <span className="muted">{a.started} working</span></>
   }
   if ('refused' in a) return <span className="error">refused: {a.refused}</span>
-  return <span className="chip pending" title={a.unknown}>not known whether it opened; look at the project's Changes</span>
+  return <span className="badge" title={a.unknown}>not known whether it opened; look at the project's Changes</span>
 }
 
 function Check({ c }: { c: WhatIfCheck }) {
@@ -342,7 +342,7 @@ function Row({ r }: { r: WhatIfRow }) {
     <div className="card" style={{ padding: '6px 10px', marginTop: 6 }}>
       <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
         {what}
-        <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} help={RESULT_WORDS[r.result] ?? r.result} />
+        <Status word={r.statusLabel} help={RESULT_WORDS[r.result] ?? r.result} />
         <span className="muted">{sides}</span>
       </div>
       {r.detail && <div className="muted" style={{ marginTop: 2 }}>{r.detail}</div>}

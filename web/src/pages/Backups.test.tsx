@@ -1,3 +1,4 @@
+import { fmtWhen } from '../format'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
@@ -51,7 +52,7 @@ describe('restoring a backup set', () => {
       await act(async () => { button('Restore main from this copy').click() })
       expect(el.textContent).toContain('Not in this set · s3: object metadata is not in the copy.')
       await act(async () => { button('Restore').click() })
-      await vi.waitFor(() => expect(el.textContent).toContain('shop/main: restore from the set taken 10-08 01:00 started.'))
+      await vi.waitFor(() => expect(el.textContent).toContain(`shop/main: restore from the set taken ${fmtWhen('2026-10-08T01:00:00Z')} started.`))
       expect(asked).toEqual([JSON.stringify({ confirm: 'main' })])
       const follow = [...el.querySelectorAll('a')].find((a) => a.textContent === 'Follow it')
       expect(follow?.getAttribute('href')).toBe(`/operations/${OPERATION}`)

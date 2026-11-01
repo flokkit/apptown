@@ -242,6 +242,7 @@ type CopyRef struct {
 // NativeBackups is the provider's own backups of an item, as the provider says
 // now; Unknown says why it could not be asked.
 type NativeBackups struct {
+	Stale       bool      `json:"stale,omitempty"`
 	AttemptedAt time.Time `json:"attemptedAt,omitzero"`
 	FailedAt    time.Time `json:"failedAt,omitzero"`
 	Failure     string    `json:"failure,omitempty"`
@@ -516,12 +517,13 @@ func (s *Service) nativeOf(ctx context.Context, md deploy.ManagedData, it backup
 	if n.Count > 0 {
 		n.Newest, n.Oldest = stamp.Of(backups[0].CreatedAt), stamp.Of(backups[n.Count-1].CreatedAt)
 	}
-	return n
+	return nativeBackupAt(n, s.now())
 }
 
 // nativeBackupAt separates the latest attempt from the successful observation.
 // A failed attempt consumes the same read budget without erasing known evidence.
 func nativeBackupAt(n *NativeBackups, now time.Time) *NativeBackups {
+	n.Stale = !n.ObservedAt.IsZero() && now.Sub(n.ObservedAt) > 15*time.Minute
 	n.Unknown = ""
 	if n.ObservedAt.IsZero() {
 		n.Unknown = "The provider backup check has never succeeded."

@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/status"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/stock/docs"
@@ -283,7 +284,7 @@ func (h ProjectAttachments) ListProjectIntegrations(w http.ResponseWriter, r *ht
 				WriteFault(w, err)
 				return
 			}
-			x.Wire = &IntegrationWire{ChangeID: p.WireChangeID, ChangeNumber: p.WireChangeNumber, State: p.WireState, StateLabel: state.Label(p.WireClosedAs), Title: p.WireTitle}
+			x.Wire = &IntegrationWire{ChangeID: p.WireChangeID, ChangeNumber: p.WireChangeNumber, State: p.WireState, StateLabel: state.Label(p.WireClosedAs), StatusLabel: (&workflow.Change{State: state, ClosedAs: p.WireClosedAs}).Display(nil), Title: p.WireTitle}
 		}
 		out = append(out, x)
 	}
@@ -501,11 +502,12 @@ func integrationDocPath(capability string) string {
 }
 
 type IntegrationWire struct {
-	ChangeID     ids.ID `json:"changeId"`
-	ChangeNumber int64  `json:"changeNumber"` // within the project
-	State        string `json:"state"`
-	StateLabel   string `json:"stateLabel"` // workflow.ChangeState.Label
-	Title        string `json:"title"`
+	StatusLabel  status.DisplayStatus `json:"statusLabel"`
+	ChangeID     ids.ID               `json:"changeId"`
+	ChangeNumber int64                `json:"changeNumber"` // within the project
+	State        string               `json:"state"`
+	StateLabel   string               `json:"stateLabel"` // workflow.ChangeState.Label
+	Title        string               `json:"title"`
 }
 
 // connectorNames is never nil: the picker reads it as a list.

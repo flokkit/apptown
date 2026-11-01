@@ -12,12 +12,14 @@ import (
 
 func attentionFor(a *App) *attention.Service {
 	return attention.New(access.Checked{Authority: a.Access, Projects: a.Projects}, attention.Sources{
-		Workers:     attention.Workers{Observer: a.workerObserver},
-		Disks:       attention.Disks{Observer: a.diskObserver},
-		Capacity:    attention.Capacity{Targets: a.targets, Observer: a.capacityObserver, Now: a.cfg.clock.Now},
-		Inventory:   &attention.Inventory{Targets: a.targets, Records: a.Deployment.Inventory, Observer: attentionInventory{cache: a.inventory, providers: a.targetProviders}, Now: a.cfg.clock.Now},
-		Deployments: attention.Deployments{Projects: a.Projects, Runtime: a.Deployment, Now: a.cfg.clock.Now},
-		Protection:  attention.Protection{Projects: a.Projects, Deployments: a.deployments, Observer: a.protectionObserver, Now: a.cfg.clock.Now},
+		Integrations: attention.Integrations{Deployments: a.Deployment, Service: a.Integrations, Bindings: a.Integrations.Bindings, Attachments: a.Integrations.Attachments},
+		Checks:       attention.Checks{Conformance: a.conformance},
+		Workers:      attention.Workers{Observer: a.workerObserver},
+		Disks:        attention.Disks{Observer: a.diskObserver},
+		Capacity:     attention.Capacity{Targets: a.targets, Observer: a.capacityObserver, Now: a.cfg.clock.Now},
+		Inventory:    &attention.Inventory{Targets: a.targets, Records: a.Deployment.Inventory, Observer: attentionInventory{cache: a.inventory, providers: a.targetProviders}, Now: a.cfg.clock.Now},
+		Deployments:  attention.Deployments{Projects: a.Projects, Runtime: a.Deployment, Now: a.cfg.clock.Now},
+		Protection:   attention.Protection{Projects: a.Projects, Deployments: a.deployments, Observer: a.protectionObserver, Now: a.cfg.clock.Now},
 	})
 }
 

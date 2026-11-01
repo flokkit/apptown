@@ -8,6 +8,10 @@ import "time"
 // it did. A kind with no check has empty OK and Detail; NotSetUp can name
 // what is missing. Neither state is evidence that a connection works.
 type Health struct {
+	Automatic  bool         `json:"automatic"`
+	Manual     bool         `json:"manual,omitempty"`
+	LastResult HealthStatus `json:"lastResult,omitempty"`
+	Stale      bool         `json:"stale,omitempty"`
 	NotSetUp   bool         `json:"-"`
 	StateLabel HealthStatus `json:"stateLabel"`
 	OK         bool         `json:"ok"`
@@ -24,4 +28,17 @@ func (h Health) At(at time.Time) Health {
 	h.Checked = true
 	h.CheckedAt = at.UTC().Format(time.RFC3339)
 	return h.ForDisplay()
+}
+
+// HasAutomaticCheck identifies kinds whose check is renewed by the collection job.
+// Manual-only integrations retain their last test without claiming coverage.
+func (b Binding) HasAutomaticCheck() bool {
+	switch b.Capability {
+	case CapSCM, CapSecrets, CapExecutor, CapModel, CapContainerRegistry:
+		return true
+	case CapDeploy:
+		return b.Provider == "docker"
+	default:
+		return false
+	}
 }

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 )
@@ -25,13 +26,16 @@ func TestIntegrationHealthSaysWhetherAndWhenItWasChecked(t *testing.T) {
 	a := testApp(t)
 	for _, b := range []struct{ name, capability, provider, config string }{
 		{"store", "objectstore", "minio", `{}`},
-		{"mirror", integration.CapRegistry, "npm", `{"format":"npm","url":"http://mirror.invalid"}`},
+		{"secrets", integration.CapSecrets, "internal", `{}`},
 	} {
 		if _, err := a.Integrations.Bindings.Save(context.Background(), b.name, b.capability, b.provider, b.config, "fixture"); err != nil {
 			t.Fatal(err)
 		}
 	}
 	before := time.Now().Add(-time.Second)
+	if err := a.Integrations.ObserveHealth(t.Context(), "secrets", connectorHealthFor(a)); err != nil {
+		t.Fatal(err)
+	}
 	w := authzCall(a.Handler(), "boss", "GET", "/api/v1/integrations", "")
 	if w.Code != 200 {
 		t.Fatalf("integrations: %d %s", w.Code, w.Body.String())
@@ -47,7 +51,7 @@ func TestIntegrationHealthSaysWhetherAndWhenItWasChecked(t *testing.T) {
 	if h := got["store"]; h.Checked || h.OK || h.CheckedAt != "" {
 		t.Fatalf("a kind with no check reads as checked: %+v", h)
 	}
-	h := got["mirror"]
+	h := got["secrets"]
 	at, err := time.Parse(time.RFC3339, h.CheckedAt)
 	if !h.Checked || !h.OK || err != nil || at.Before(before.Truncate(time.Second)) || at.After(time.Now().Add(time.Second)) {
 		t.Fatalf("a checked kind has no server check time: %+v (%v)", h, err)
@@ -55,6 +59,9 @@ func TestIntegrationHealthSaysWhetherAndWhenItWasChecked(t *testing.T) {
 	health := connectorHealthFor(a)
 	if h := health.Health(t.Context(), integration.CapSCM, "gitlab", nil); h.StateLabel != integration.HealthNotSetUp || h.Checked || h.CheckedAt != "" {
 		t.Fatalf("unconfigured GitLab is not a failed check: %+v", h)
+	}
+	if h := health.Health(t.Context(), integration.CapSecrets, "infisical", nil); h.StateLabel != integration.HealthNotSetUp || h.Checked {
+		t.Fatalf("unconfigured Infisical must not be red: %+v", h)
 	}
 	if h := health.Test(t.Context(), "objectstore", "minio", map[string]any{}); h.Checked || h.OK {
 		t.Fatalf("a test of a kind with no check passed: %+v", h)
@@ -135,6 +142,10 @@ func TestContainerRegistryHealthUsesStoredCredentials(t *testing.T) {
 	for _, status := range []int{200, 401, 500, 302} {
 		code = status
 		before := requests
+		if err := a.Integrations.ObserveHealth(t.Context(), "images", connectorHealthFor(a)); err != nil {
+			t.Fatal(err)
+		}
+		afterCheck := requests
 		w := authzCall(a.Handler(), "boss", "GET", "/api/v1/integrations", "")
 		var list httpapi.IntegrationList
 		if err := json.Unmarshal(w.Body.Bytes(), &list); err != nil || w.Code != 200 {
@@ -146,7 +157,7 @@ func TestContainerRegistryHealthUsesStoredCredentials(t *testing.T) {
 				got = row.Health
 			}
 		}
-		if !got.Checked || got.CheckedAt == "" || got.OK != (status == 200) || requests != before+1 {
+		if !got.Checked || got.CheckedAt == "" || got.OK != (status == 200) || requests != before+1 || requests != afterCheck {
 			t.Fatalf("registry %d: %+v; requests %d", status, got, requests-before)
 		}
 		draft := connectorHealthFor(a).Test(t.Context(), integration.CapContainerRegistry, "direct", cfg)
@@ -247,5 +258,66 @@ func TestPartialGitLabConfigurationNeedsAttention(t *testing.T) {
 	h := connectorHealthFor(a).Health(t.Context(), integration.CapSCM, "gitlab", nil)
 	if h.StateLabel != integration.HealthFailed || !h.Checked || !strings.Contains(h.Detail, "GITLAB_TOKEN") {
 		t.Fatalf("partly configured GitLab must fail with the missing setting: %+v", h)
+	}
+}
+
+func TestSavedIntegrationTestUpdatesAttentionWithoutProbingOnReads(t *testing.T) {
+	a := testApp(t)
+	a.addGrant("user", "boss", "", string(access.CapIntegrationConnector), access.ScopeInstance, "", "boss", "")
+	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("REGISTRY_TOKEN=stored-password\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	status, requests := http.StatusUnauthorized, 0
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { requests++; w.WriteHeader(status) }))
+	defer server.Close()
+	previous := http.DefaultTransport
+	http.DefaultTransport = server.Client().Transport
+	defer func() { http.DefaultTransport = previous }()
+	config := mustJSON(map[string]any{"url": strings.TrimPrefix(server.URL, "https://"), "username": "robot", "tokenFrom": []string{"REGISTRY_TOKEN"}})
+	if _, err := a.Integrations.Bindings.Save(t.Context(), "images", integration.CapContainerRegistry, "direct", config, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	handler := a.Handler()
+	test := func(want integration.HealthStatus) {
+		t.Helper()
+		w := authzCall(handler, "boss", http.MethodPost, "/api/v1/integrations/images/test", `{}`)
+		var h integration.Health
+		if err := json.Unmarshal(w.Body.Bytes(), &h); err != nil || w.Code != 200 || h.StateLabel != want || h.CheckedAt == "" {
+			t.Fatalf("saved test: %d %+v %v %s", w.Code, h, err, w.Body.String())
+		}
+	}
+	test(integration.HealthFailed)
+	before := requests
+	w := authzCall(handler, "boss", http.MethodGet, "/api/v1/integrations", "")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"stateLabel":"failed"`) || requests != before {
+		t.Fatalf("list did not reuse saved result: %d requests=%d/%d %s", w.Code, requests, before, w.Body.String())
+	}
+	w = authzCall(handler, "boss", http.MethodGet, "/api/v1/attention", "")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"key":"integrations/images"`) || requests != before {
+		t.Fatalf("attention did not reuse failure: %d requests=%d/%d %s", w.Code, requests, before, w.Body.String())
+	}
+	status = http.StatusOK
+	test(integration.HealthPassed)
+	before = requests
+	w = authzCall(handler, "boss", http.MethodGet, "/api/v1/attention", "")
+	var attention struct {
+		Items []struct {
+			Key string `json:"key"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &attention); err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range attention.Items {
+		if item.Key == "integrations/images" {
+			t.Fatalf("repair retained integration attention: %s", w.Body.String())
+		}
+	}
+	if w.Code != 200 || requests != before {
+		t.Fatalf("repair did not clear attention: %d %s", w.Code, w.Body.String())
+	}
+	w = authzCall(handler, "outsider", http.MethodPost, "/api/v1/integrations/images/test", `{}`)
+	if w.Code != http.StatusForbidden || requests != before {
+		t.Fatalf("unauthorized test reached provider: %d requests=%d/%d", w.Code, requests, before)
 	}
 }

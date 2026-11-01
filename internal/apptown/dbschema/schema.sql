@@ -462,6 +462,12 @@ CREATE TABLE IF NOT EXISTS service_kinds (
   updated_at  TIMESTAMPTZ NOT NULL
 );
 
+CREATE TABLE integration_readings (
+  id UUID PRIMARY KEY REFERENCES integrations(id) ON DELETE CASCADE,
+  version BIGINT NOT NULL,
+  payload JSONB NOT NULL
+);
+
 -- Source: internal/apptown/model/schema.sql
 CREATE TABLE IF NOT EXISTS model_slots (
   slot       TEXT NOT NULL,

@@ -249,3 +249,26 @@ func TestUnreadableSecretsAreUnknownNotEmpty(t *testing.T) {
 		t.Fatalf("names with no file: %v %v", names, err)
 	}
 }
+
+func TestPartialInfisicalNamesMissingSettingAndIsNotUnset(t *testing.T) {
+	t.Parallel()
+	for _, key := range []string{"INFISICAL_URL", "INFISICAL_CLIENT_ID", "INFISICAL_CLIENT_SECRET", "INFISICAL_PROJECT_ID"} {
+		t.Run(key, func(t *testing.T) {
+			lines := []string{}
+			for _, line := range strings.Split(infisicalLines, "\n") {
+				if !strings.HasPrefix(line, key+"=") {
+					lines = append(lines, line)
+				}
+			}
+			s := instanceService(t, strings.Join(lines, "\n"), nil, nil)
+			err := s.CheckInfisical(t.Context())
+			if err == nil || errors.Is(err, ErrInfisicalNotSetUp) || !strings.Contains(err.Error(), "incomplete: set "+key) {
+				t.Fatalf("partial: %v", err)
+			}
+		})
+	}
+	s := instanceService(t, "", nil, nil)
+	if err := s.CheckInfisical(t.Context()); !errors.Is(err, ErrInfisicalNotSetUp) {
+		t.Fatal(err)
+	}
+}

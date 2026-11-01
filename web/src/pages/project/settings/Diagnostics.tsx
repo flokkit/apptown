@@ -1,11 +1,11 @@
-import { Status, STATUS_LIGHT } from '../../../Status'
+import { Status } from '../../../Status'
 import { PRODUCT } from '../../../brand'
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { get } from '../../../api'
 import { useGet } from '../../../data'
 import { ReadStatus, StaleNote } from '../../../ReadGate'
-import { fmtBytes, fmtWhen } from '../../../format'
+import { fmtBytes, fmtStamp, fmtWhen } from '../../../format'
 import type { DeploymentDiagnostics, PartLog } from '../../../wire.gen'
 
 // Diagnostics (design/subsystems/deployment.md, "Runtime diagnostics"):
@@ -82,14 +82,12 @@ export function DiagnosticsLines({ slug, name }: { slug: string; name: string })
         {d.unsupported
           ? <span className="muted">{d.unsupported}</span>
           : failing.length === 0
-            ? <span className="chip pass">{d.parts.length === 1 ? 'running' : `all ${d.parts.length} parts running`}</span>
+            ? <Status word="running" help={`All ${d.parts.length} parts are running.`} />
             : failing.map((p) => (
-              <span key={p.part} className={`chip ${p.presence === 'unknown' ? 'unknown' : 'fail'}`} title={p.reason || undefined}>
-                {partName(p)}: {trouble(p)}
-              </span>
+              <span key={p.part}>{partName(p)}: <Status word={p.presence === 'unknown' ? 'unknown' : 'failed'} help={`${p.reason || trouble(p)}. Next: ${nextStep(p)}.`} /></span>
             ))}
-        {d.hold && <span className="chip fail" title={d.hold.detail || undefined}>{d.hold.confirmed ? 'stopped after a crash loop' : 'crash loop: stop not confirmed'}</span>}
-        {d.unsettled && <span className="chip pending" title="only a part whose own container names its generation is shown with one">{d.unsettled}</span>}
+        {d.hold && <Status word="failed" help={`${d.hold.confirmed ? 'Stopped after a crash loop.' : 'Crash loop: stop not confirmed.'} ${d.hold.detail || 'Read the app log and fix the crash, then deploy again.'}`} />}
+        {d.unsettled && <span className="badge" title="only a part whose own container names its generation is shown with one">{d.unsettled}</span>}
         {(d.parts.length > 0 || d.events.length > 0) && <button className="link small" onClick={() => setOpen(!open)}>{open ? 'hide details' : 'details'}</button>}
         <StaleNote q={q} inline />
       </div>
@@ -140,12 +138,12 @@ function DiagnosticsDetail({ d, busy, onLog }: { d: Diag; busy: boolean; onLog: 
                       {partName(p)}{p.public && p.part ? <span className="muted"> (front door)</span> : null}{p.need ? <span className="muted"> (service)</span> : null}
                       {p.generation == null
                         ? f && <div className="muted">generation not known</div>
-                        : p.generation !== d.generation && <div><span className="chip">generation {p.generation}</span></div>}
+                        : p.generation !== d.generation && <div><span className="badge">generation {p.generation}</span></div>}
                     </td>
                     <td>
-                      {p.presence === 'unknown' ? <Status word={"unknown"} tone={STATUS_LIGHT["unknown"]} /> : p.presence}
+                      {p.presence === 'unknown' ? <Status word={"unknown"} /> : p.presence}
                       {!old && f?.exitCode != null ? ` · exit ${f.exitCode}` : ''}
-                      {!old && f?.oomKilled ? <span className="chip fail" style={{ marginLeft: 4 }}>out of memory</span> : null}
+                      {!old && f?.oomKilled ? <Status word="failed" help="The app ran out of memory. Raise its memory limit or fix its memory use, then deploy again." /> : null}
                       {!old && f && <span className="muted"> · {f.running ? `started ${at(f.startedAt)}` : `finished ${at(f.finishedAt)}`}</span>}
                       {p.reason && <div className="muted">{p.reason}</div>}
                       {old && <div className="muted">last read {at(p.observedAt)}: {f.status}{f.exitCode != null ? `, exit ${f.exitCode}` : ''}{f.oomKilled ? ', out of memory' : ''}</div>}
@@ -180,7 +178,7 @@ function EventLines({ d }: { d: Diag }) {
           <b>{partName(e)}</b>: {kindWords[e.kind] || e.kind}{e.exitCode != null ? ` (exit ${e.exitCode})` : ''} <span className="muted">{at(e.at)}</span>{' '}
           {e.generation == null
             ? <span className="muted">generation not known</span>
-            : e.generation === d.generation ? null : <span className="chip">generation {e.generation}, earlier</span>}
+            : e.generation === d.generation ? null : <span className="badge">generation {e.generation}, earlier</span>}
         </li>
       ))}
     </ul>
@@ -194,7 +192,7 @@ function LogView({ log, onClose }: { log: PartLog; onClose: () => void }) {
     <div style={{ marginTop: 4 }}>
       <div className="row" style={{ gap: 6 }}>
         <b>{partName(log)}</b>
-        <span className="muted">{log.generation == null ? `log of container ${log.container.slice(0, 12)} (generation not known)` : `log of generation ${log.generation}`}, read {new Date(log.readAt).toLocaleTimeString()} · newest {log.maxLines} lines, at most {fmtBytes(log.maxBytes)}{log.truncated ? '; older output not shown' : ''}</span>
+        <span className="muted">{log.generation == null ? `log of container ${log.container.slice(0, 12)} (generation not known)` : `log of generation ${log.generation}`}, read {fmtStamp(log.readAt)} · newest {log.maxLines} lines, at most {fmtBytes(log.maxBytes)}{log.truncated ? '; older output not shown' : ''}</span>
         <button className="link small" onClick={onClose}>close</button>
       </div>
       <pre style={{ maxHeight: 320, overflow: 'auto', background: 'var(--code-bg)', padding: '8px 10px', borderRadius: 'var(--radius-sm)', fontSize: 'var(--fs-xs)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{log.text || '(empty)'}</pre>

@@ -9,6 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
@@ -93,16 +94,17 @@ func (r workerObservationRequests) RequestWorkerObservation(ctx context.Context,
 // infrastructureChecks binds periodic and post-act admission to the owners it
 // needs. Domain callbacks retain these collaborators, not the whole App.
 type infrastructureChecks struct {
-	targets     *deployment.Targets
-	deployments *deployment.Deployments
-	protection  *dataprotection.ProtectionObserver
-	inventory   *deployment.InventoryReadings
-	db          *database.DB
-	life        context.Context
+	targets      *deployment.Targets
+	deployments  *deployment.Deployments
+	protection   *dataprotection.ProtectionObserver
+	integrations *integration.Service
+	inventory    *deployment.InventoryReadings
+	db           *database.DB
+	life         context.Context
 }
 
 func infrastructureChecksFor(a *App) infrastructureChecks {
-	return infrastructureChecks{targets: a.targets, deployments: a.deployments, protection: a.protectionObserver, inventory: a.inventory, db: a.DB, life: a.life}
+	return infrastructureChecks{targets: a.targets, deployments: a.deployments, protection: a.protectionObserver, inventory: a.inventory, integrations: a.Integrations, db: a.DB, life: a.life}
 }
 
 // Run admits the same per-target jobs on every five-minute tick.
@@ -136,6 +138,18 @@ func (c infrastructureChecks) Run(ctx context.Context, _ string, _ map[string]an
 			errs = append(errs, fmt.Errorf("%s protection: %w", dep.ID, err))
 		}
 	}
+	bindings, err := c.integrations.Bindings.All(ctx)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	for _, b := range bindings {
+		if _, err := database.Transact(ctx, c.db, func(tx *database.Tx) (struct{}, error) {
+			return struct{}{}, jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: integration.HealthObservationJob, Key: b.Name})
+		}); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
 	if err := (diskObservationRequests{db: c.db}).requestDiskObservation(ctx); err != nil {
 		errs = append(errs, fmt.Errorf("instance disks: %w", err))
 	}

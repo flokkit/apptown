@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fmtCost, fmtDuration, fmtLastRead, fmtTokens, fmtWhen, relTime, stampDate } from './format'
+import { fmtCost, fmtDuration, fmtLastRead, fmtTokens, fmtWhen, fmtStamp, lastSeen, relTime, stampDate } from './format'
 
 const NOW = Date.parse('2026-09-03T10:00:00Z')
 
@@ -26,11 +26,13 @@ describe('relTime', () => {
 })
 
 describe('fmtWhen', () => {
-  it('is relative inside a day and a date beyond it', () => {
-    expect(fmtWhen('2026-09-03T09:50:00Z', NOW)).toBe('10m ago')
-    expect(fmtWhen('2026-09-03T09:59:50Z', NOW)).toBe('1m ago')
-    expect(fmtWhen('2026-09-03T07:00:00Z', NOW)).toBe('3h ago')
-    expect(fmtWhen('2026-09-01T10:00:00Z', NOW)).toBe('09-01 10:00')
+  it('uses the same reader-local event format for recent and old events', () => {
+    for (const iso of ['2026-09-03T09:50:00Z', '2026-09-01T10:00:00Z', '2026-10-30T06:26:00Z']) {
+      expect(fmtWhen(iso, NOW)).toBe(fmtStamp(iso))
+    }
+    const local = new Date(2026, 9, 30, 17, 26).toISOString()
+    expect(fmtWhen(local)).toBe('30 Oct, 17:26')
+    expect(fmtWhen('bad')).toBe('')
   })
 })
 
@@ -64,4 +66,10 @@ describe('fmtLastRead', () => {
   it('adds the date for a read before today', () => {
     expect(fmtLastRead(new Date(2026, 9, 10, 23, 5).getTime(), now)).toBe('10 Oct, 23:05')
   })
+})
+
+it('tolerates a server clock up to five minutes ahead', () => {
+ const now = Date.parse('2026-11-01T00:00:00Z')
+ expect(relTime('2026-11-01T00:03:00Z',now)).toBe('just now')
+ expect(lastSeen('2026-11-01T00:03:00Z',now)).toBe('last seen just now')
 })

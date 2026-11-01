@@ -1,5 +1,5 @@
 import { GlanceRow } from '../GlanceRow'
-import { Status, STATUS_LIGHT } from '../Status'
+import { Status } from '../Status'
 import { DisplayLabelEdit } from '../DisplayLabel'
 import { PRODUCT } from '../brand'
 import { useEffect, useState } from 'react'
@@ -7,7 +7,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { del, post } from '../api'
 import { ConnIcon, iconForBinding } from '../icons'
 import { QuietConfirm } from '../QuietConfirm'
-import { fmtWhen, relTime } from '../format'
+import { fmtWhen, relTime, lastSeen, fmtStamp } from '../format'
 import { useAction, useGet, useRefresh } from '../data'
 import { ReadStatus, StaleNote, type Gated } from '../ReadGate'
 import type { ConnectorCatalog, ConnectorEntry, ConnectorPreset, IntegrationEntry, IntegrationHealth, IntegrationList, IntegrationUse } from '../wire.gen'
@@ -19,7 +19,7 @@ import { ServiceKindsPanel } from './integrations/ServiceKinds'
 import { TargetsPanel } from './integrations/Targets'
 import { useNow } from '../hooks'
 import {
-  CAP_ORDER, HealthState, capabilityMeta, credentialKeys, fmtVal, healthState, specFor, usedFor,
+  CAP_ORDER, HealthState, capabilityMeta, credentialKeys, fmtVal, healthState, healthIsOld, specFor, usedFor,
 } from './integrations/kinds'
 
 // Integrations: the outside services this AppTown works with. The list says,
@@ -134,26 +134,24 @@ function IntegrationsBook({ name }: { name?: string }) {
 type Reading = { q: Gated; now: number }
 
 
-const ago = (at: number, now: number) => relTime(new Date(at).toISOString(), now) === 'now' ? clock(at) : relTime(new Date(at).toISOString(), now)
-const clock = (at: number) => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-
 // uncheckedWords is what an unchecked reading means for a kind: one the
 // AppTown cannot check at all, or one only Test connection asks.
 export const uncheckedWords = (testable: boolean) => testable
   ? `${PRODUCT} does not check this kind of service on its own; Test connection asks it now.`
-  : `${PRODUCT} has no live check for this kind of service, so whether it works is unknown.`
+  : `${PRODUCT} has no live check for this kind of service, so whether it works is unknown. Ask an administrator to verify its configuration.`
 
-function StatusChip({ state, stale, testable }: { state: HealthState; stale: boolean; testable: boolean }) {
-  const word = stale ? 'unknown' : state
-  return <Status word={word} tone={STATUS_LIGHT[word]} text={!stale && state === 'unknown' ? 'Not tested yet' : undefined} help={stale ? 'Refresh failed. Last answer shown.' : state === 'unknown' ? uncheckedWords(testable) : undefined} />
+function StatusChip({ state, stale, testable, health }: { state: HealthState; stale: boolean; testable: boolean; health?: IntegrationHealth }) {
+  const word = stale ? 'unknown' : !health?.checked && !health?.automatic && state !== 'not set up' ? 'no automatic check' : state === 'unknown' && !health?.checked ? 'not checked yet' : state
+  const help = stale ? 'Refresh failed. Last answer shown. Reload this page to read the connection again.'
+    : state === 'unknown' && health?.lastResult ? `Last result: ${health.lastResult}. ${health.detail}` : health?.detail || uncheckedWords(testable)
+  return <Status observation word={word} old={!!health?.stale && word !== 'unknown'} help={help} />
 }
 
-// When AppTown took a reading, by the server's clock; 0 for none.
-const checkedAt = (h: IntegrationHealth): number => (h.checked && h.checkedAt ? Date.parse(h.checkedAt) || 0 : 0)
+const checkedAt = (h: IntegrationHealth): number => h.checkedAt ? Date.parse(h.checkedAt) || 0 : 0
 
-function lastChecked(h: IntegrationHealth, now: number): string {
-  const at = checkedAt(h)
-  return at ? `Checked ${ago(at, now)}` : 'Not tested yet'
+export function lastChecked(h: IntegrationHealth, now: number): string {
+  if (!h.checkedAt) return ''
+  return h.stale ? lastSeen(h.checkedAt, now) : `checked ${relTime(h.checkedAt, now) || 'at an unknown time'}`
 }
 
 
@@ -253,8 +251,8 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
                           </div>
                         </td>
 
-                        <td><StatusChip state={state} stale={reading.q.refreshFailed} testable={b.testable} /></td>
-                        <td className="int-when">{state === 'failed' ? <Link className="btn" to={to}>Fix</Link> : state === 'not set up' ? '' : lastChecked(b.health, reading.now)}{state === 'failed' && <details onClick={e => e.stopPropagation()}><summary>Why?</summary>{b.health.detail}</details>}</td>
+                        <td><StatusChip state={state} stale={reading.q.refreshFailed} testable={b.testable} health={b.health} /></td>
+                        <td className="int-when">{lastChecked(b.health, reading.now)}</td>
                       </GlanceRow>
                     )
                   })}
@@ -267,7 +265,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
                         </div>
                       </td>
 
-                      <td><Status word="none" tone={STATUS_LIGHT.none} help="No service connected." /></td>
+                      <td><Status word="none" help="No service connected." /></td>
                       <td className="int-open"><button className="subtle" onClick={() => onConnect(spare)}>Connect</button></td>
                     </tr>
                   )}
@@ -311,20 +309,22 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
   // A test's answer, or why AppTown could not be asked.
   const [test, setTest] = useState<{ h?: IntegrationHealth; err?: string; at: number } | null>(null)
   const [testing, setTesting] = useState(false)
+  const refreshChecks = useRefresh('/integrations', '/attention')
   const remove = useAction(() => navigate('/integrations'), { affects: ['/services', '/secrets'] })
 
   const runTest = async () => {
     setTesting(true); setTest(null)
     try {
-      const h = await post<IntegrationHealth>('/integrations/test', { capability: b.capability, provider: b.provider, config: b.config })
+      const h = await post<IntegrationHealth>(`/integrations/${encodeURIComponent(b.name)}/test`, {})
       setTest({ h, at: checkedAt(h) || Date.now() })
+      refreshChecks()
     } catch (e) { setTest({ err: (e as Error).message, at: Date.now() }) } finally { setTesting(false) }
   }
 
   const creds = credentialKeys(b, spec)
   // Every setting, empty ones included: a missing value is often why it is not working.
   const settings = Object.entries(b.config).filter(([k]) => !creds.includes(k))
-  const tone = reading.q.refreshFailed ? 'unknown' : state === 'passed' ? 'ok' : state === 'failed' ? 'bad' : 'unknown'
+  const tone = reading.q.refreshFailed || healthIsOld(b.health,reading.now) ? 'unknown' : state === 'passed' ? 'ok' : state === 'failed' ? 'bad' : 'unknown'
   const testState = test?.h ? healthState(test.h) : null
   const at = checkedAt(b.health)
 
@@ -344,23 +344,21 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
 
       <div className={`card tone-${tone} int-state`}>
         <div className="row">
-          <StatusChip state={state} stale={reading.q.refreshFailed} testable={b.testable} />
+          <StatusChip state={state} stale={reading.q.refreshFailed} testable={b.testable} health={b.health} />
           <span className="int-lead">
             {state === 'failed' ? 'Check the connection settings, then test again.' : state === 'passed' ? 'Connection test passed.' : ''}
           </span>
         </div>
         <div className="muted int-checked">
-          {state === 'unknown' || !at
-            ? (b.testable ? 'Test the connection to check it now.' : 'No automatic connection test available.')
-            : `Checked by ${PRODUCT} ${ago(at, reading.now)} (${clock(at)}).`}
+          {at ? lastChecked(b.health, reading.now) : b.health.detail || uncheckedWords(b.testable)}
         </div>
 <details><summary>Connection details</summary><p>{b.health.detail}</p></details>
         <StaleNote q={reading.q} />
         {test?.h && testState && (
           <div className={`int-test ${testState === 'failed' ? 'bad' : ''}`}>
-            <StatusChip state={testState} stale={false} testable={b.testable} />{' '}
+            <StatusChip state={testState} stale={false} testable={b.testable} health={test.h} />{' '}
             {testState === 'unknown' ? '' : test.h.detail}
-            <span className="muted"> · {clock(test.at)}</span>
+            <span className="muted"> · {fmtStamp(new Date(test.at).toISOString())}</span>
           </div>
         )}
         {test?.err && <div className="int-test bad">The test could not be run: {test.err}</div>}

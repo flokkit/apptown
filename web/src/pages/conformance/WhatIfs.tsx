@@ -1,5 +1,5 @@
 import { GlanceRow } from '../../GlanceRow'
-import { Status, STATUS_LIGHT } from '../../Status'
+import { Status } from '../../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
@@ -36,11 +36,11 @@ export function WhatIfsList() {
                   <GlanceRow name={0} state={2} summary={<>{w.projects.length} projects</>} labels={["Pack", "Asked", "State", "Answers"]} key={w.id}>
                     <td><Link to={`/conformance/what-ifs/${w.id}`}>{w.pack} v{w.version}</Link>{w.advanceWorkflows && <details><summary>Other changes</summary>and other workflows to newest</details>}</td>
                     <td>{w.requestedBy}<div className="muted">{relTime(w.createdAt)}</div></td>
-                    <td><Status word={w.statusLabel} tone={STATUS_LIGHT[w.statusLabel]} help={w.detail || w.state} /></td>
+                    <td><Status word={w.statusLabel} help={w.detail || w.state} /></td>
                     <td>
                       <details><summary>{w.projects.length} apps · Results</summary><div className="row" style={{ flexWrap: 'wrap', gap: 4 }}>
-                        {OUTCOME_ORDER.filter((o) => counts[o]).map((o) => <span key={o}>{counts[o]} <Status word={w.outcomeLabels[o]} tone={STATUS_LIGHT[w.outcomeLabels[o]]} help={OUTCOME_WORDS[o]} /></span>)}
-                        {w.movesBackProjects > 0 && <span className="chip moves-back">{w.movesBackProjects} move rules back</span>}
+                        {OUTCOME_ORDER.filter((o) => counts[o]).map((o) => <span key={o}>{counts[o]} <Status word={w.outcomeLabels[o]} help={OUTCOME_WORDS[o]} /></span>)}
+                        {w.movesBackProjects > 0 && <span className="badge moves-back">{w.movesBackProjects} move rules back</span>}
                       </div></details>
                     </td>
                   </GlanceRow>

@@ -19,7 +19,7 @@ func TestChangeDisplayPreservesWaitingFailureAndLanding(t *testing.T) {
 		{ChangeShipped, "", nil, status.DisplayFinished},
 		{ChangeShipped, ClosedShippedWith, nil, status.DisplayLanded},
 		{ChangeShipped, closedRecord, nil, status.DisplayFinished},
-		{ChangeAbandoned, "", nil, status.DisplayStopped},
+		{ChangeAbandoned, "", nil, status.DisplayAbandoned},
 		{ChangeLanding, "", &RunSnapshot{Run: &Run{Status: RunRunning}, State: ActivityWaiting}, status.DisplayWaitingForYou},
 		{ChangeInProgress, "", &RunSnapshot{Run: &Run{Status: RunRunning}, State: ActivityBlocked}, status.DisplayFailed},
 		{ChangeInProgress, "", &RunSnapshot{Run: &Run{Status: RunRunning}, State: ActivityWorking}, status.DisplayWorking},
@@ -47,7 +47,7 @@ func TestHistoryLabelsDescribeLandingWithoutChangingLifecycle(t *testing.T) {
 		closed string
 		merged bool
 		want   status.DisplayStatus
-	}{{ChangeShipped, "", true, status.DisplayLanded}, {ChangeShipped, closedRecord, false, status.DisplayFinished}, {ChangeShipped, ClosedShippedWith, false, status.DisplayLanded}, {ChangeAbandoned, "", true, status.DisplayStopped}} {
+	}{{ChangeShipped, "", true, status.DisplayLanded}, {ChangeShipped, closedRecord, false, status.DisplayFinished}, {ChangeShipped, ClosedShippedWith, false, status.DisplayLanded}, {ChangeAbandoned, "", true, status.DisplayAbandoned}} {
 		if got := historyLabel(c.state, c.closed, c.merged); got != c.want {
 			t.Errorf("%+v: %s", c, got)
 		}
@@ -90,7 +90,7 @@ func TestStepLabelsPreserveUnreadEvidenceExceptionsAndEndedRuns(t *testing.T) {
 
 func TestRunLabelsDescribeWorkRatherThanRuntime(t *testing.T) {
 	t.Parallel()
-	for state, want := range map[RunState]status.DisplayStatus{RunRunning: status.DisplayWorking, RunDone: status.DisplayFinished, RunAbandoned: status.DisplayStopped, 0: status.DisplayUnknown} {
+	for state, want := range map[RunState]status.DisplayStatus{RunRunning: status.DisplayWorking, RunDone: status.DisplayFinished, RunAbandoned: status.DisplayAbandoned, 0: status.DisplayUnknown} {
 		if got := state.display(); got != want {
 			t.Errorf("%v: got %v, want %v", state, got, want)
 		}

@@ -47,7 +47,7 @@ describe('connector form', () => {
 
 // Readings AppTown took five minutes ago, by its own clock.
 const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000).toISOString()
-const checked = (ok: boolean, detail: string): IntegrationHealth => ({ stateLabel: ok ? 'passed' : 'failed', ok, detail, checked: true, checkedAt: fiveMinutesAgo })
+const checked = (ok: boolean, detail: string): IntegrationHealth => ({ automatic:true,stateLabel: ok ? 'passed' : 'failed', ok, detail, checked: true, checkedAt: fiveMinutesAgo })
 const binding = (name: string, capability: string, provider: string, health: IntegrationHealth, extra: Partial<IntegrationEntry> = {}): IntegrationEntry => ({
   id: `00000000-${String(name.length).padStart(4, '0')}-7000-8000-000000000000`, name, displayLabel: name, capability, provider, config: {}, version: 1, updatedAt: '2026-10-01T00:00:00Z', managed: false, configHash: 'abc123def456', usedBy: { projects: [], deployments: [] }, health, testable: false, ...extra,
 })
@@ -56,7 +56,7 @@ const scanner = binding('django-check', 'scanner', 'tool', checked(false, 'no im
   config: { description: 'Django deploy checks', image: '' },
   usedBy: { projects: [{ slug: 'shop', name: 'Shop', capability: 'scanner' }, { slug: 'blog', name: 'Blog', capability: 'scanner' }], deployments: [{ project: 'shop', name: 'prod', target: 'lan-host' }] },
 })
-const sso = binding('authentik', 'sso', 'service', { ok: false, detail: '', checked: false, stateLabel: 'unknown' }, { config: { url: 'https://auth.example' } })
+const sso = binding('authentik', 'sso', 'service', { ok: false, detail: '', checked: false, automatic:false,stateLabel: 'unknown' }, { config: { url: 'https://auth.example' } })
 // Checked, with nothing to add: working, whatever the detail says.
 const quiet = binding('cache', 'registry', 'npm', checked(true, ''))
 const spec = (capability: string, provider: string, title: string, extra: Partial<ConnectorEntry> = {}): ConnectorEntry => ({
@@ -119,7 +119,7 @@ describe('the integrations list', () => {
     expect(groups[1]).toContain('Scanners')
     const row = (name: string) => [...page.el.querySelectorAll('tr.int-row')].find((r) => r.textContent!.includes(name))!
     expect(row('gitlab').querySelector('.chip')!.className).toContain('pass')
-    expect(row('gitlab').textContent).toContain('passed')
+    expect(row('gitlab').textContent).toContain('working')
     expect(row('django-check')).toBeUndefined()
     const collapsed = [...page.el.querySelectorAll('button')].find(b => b.textContent?.startsWith('Scanners ('))!
     expect(collapsed.getAttribute('aria-expanded')).toBe('false')
@@ -128,17 +128,17 @@ describe('the integrations list', () => {
     expect(row('django-check').querySelector('.chip')!.className).toContain('fail')
     expect(row('django-check').textContent).not.toContain('Django deploy checks')
     expect(page.el.querySelector('th')?.textContent).toBe('Service')
-    expect(row('authentik').querySelector('.chip')!.className).toContain('unknown')
-    expect(row('authentik').textContent).toContain('unknown')
-    expect(row('authentik').textContent).not.toContain('passed')
-    expect(row('authentik').textContent).toContain('Not tested yet')
-    expect(row('cache').textContent).toContain('passed')
+    expect(row('authentik').querySelector('.chip')!.className).toBe('chip ')
+    expect(row('authentik').textContent).toContain('no automatic check')
+    expect(row('authentik').textContent).not.toContain('working')
+    expect(row('authentik').textContent).toContain('no automatic check')
+    expect(row('cache').textContent).toContain('working')
     expect(row('gitlab').textContent).toContain('5m ago')
     // What names each one, counted; nothing named reads as a dash, not zero.
     expect(row('django-check').querySelector('.int-usedby')).toBeNull()
     expect(row('gitlab').querySelector('.int-usedby')).toBeNull()
     // A kind the catalogue offers with nothing connected can be connected from its place.
-    expect(row('Error reporting (GlitchTip)').textContent).toContain('none')
+    expect(row('Error reporting (GlitchTip)').textContent).toContain('not set up')
     expect(page.text()).toContain('4 connected · 1 need attention · 1 not tested')
     page.done()
   })
@@ -176,7 +176,7 @@ describe('the integrations list', () => {
     })
     const client = newQueryClient()
     const page = await mount('/integrations', client)
-    await vi.waitFor(() => expect(page.text()).toContain('passed'))
+    await vi.waitFor(() => expect(page.text()).toContain('working'))
     fail = true
     await act(async () => { await client.invalidateQueries({ queryKey: getKey('/integrations') }) })
     await vi.waitFor(() => expect(page.text()).toContain('unknown'))
@@ -206,7 +206,7 @@ describe('one integration', () => {
     stubAppTown({ 'GET /integrations': json({ integrations: [gitlab] }), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations/gitlab')
     await vi.waitFor(() => expect(page.text()).toContain('authenticated as forge-bot'))
-    expect(page.text()).toMatch(/Checked by AppTown 5m ago \(\d{1,2}:\d\d/)
+    expect(page.text()).toContain('checked 5m ago')
     const sections = [...page.el.querySelectorAll('section')]
     const credentials = sections.find((s) => s.querySelector('h2')?.textContent === 'Credentials')!
     expect(credentials.textContent).toContain('tokenFrom')
@@ -238,7 +238,7 @@ describe('one integration', () => {
   // checked on every reading, but Test connection asks them; a kind with
   // neither says it cannot be checked.
   it('says an unchecked kind that Test connection asks can be asked', async () => {
-    const llm = binding('openrouter', 'llm', 'openrouter', { ok: false, detail: '', checked: false, stateLabel: 'unknown' }, { testable: true })
+    const llm = binding('openrouter', 'llm', 'openrouter', { ok: false, detail: '', checked: false, automatic:false,stateLabel: 'unknown' }, { testable: true })
     stubAppTown({ 'GET /integrations': json({ integrations: [llm, sso] }), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations/openrouter')
     await vi.waitFor(() => expect(page.text()).toContain('Test connection asks it now'))
@@ -249,17 +249,18 @@ describe('one integration', () => {
     other.done()
   })
 
-  it('tests the connection and shows the answer', async () => {
+  it('tests the saved connection, shows the answer and refreshes shared health', async () => {
     const calls = stubAppTown({
       'GET /integrations': json({ integrations: [scanner] }), 'GET /integrations/catalog': json({ catalog }),
-      'POST /integrations/test': json(checked(true, 'image pulled')),
+      'POST /integrations/django-check/test': json(checked(true, 'image pulled')),
     })
     const page = await mount('/integrations/django-check')
     await vi.waitFor(() => expect(page.button('Test connection')).toBeDefined())
     await act(async () => { page.button('Test connection')!.click() })
-    await vi.waitFor(() => expect(page.text()).toContain('passed'))
+    await vi.waitFor(() => expect(page.text()).toContain('working'))
     expect(page.text()).toContain('image pulled')
-    expect(calls.find((c) => c.method === 'POST')!.body).toEqual({ capability: 'scanner', provider: 'tool', config: scanner.config })
+    expect(calls.find((c) => c.method === 'POST')!.body).toEqual({})
+    expect(calls.filter(c => c.path === '/integrations' && c.method === 'GET').length).toBeGreaterThan(1)
     page.done()
   })
 
@@ -290,14 +291,57 @@ describe('one integration', () => {
 
 it.each([false, true])('keeps an unconfigured integration neutral and out of connected and attention counts (phone=%s)', async narrow => {
   vi.stubGlobal('matchMedia', () => ({ matches: narrow, addEventListener() {}, removeEventListener() {} }))
-  stubAppTown({ 'GET /integrations': json({ integrations: [{ ...gitlab, health: { checked: false, ok: false, detail: 'Set credentials', stateLabel: 'not set up' } }] }), 'GET /integrations/catalog': json({ catalog }) })
+  stubAppTown({ 'GET /integrations': json({ integrations: [{ ...gitlab, health: { checked: false, ok: false, detail: 'Set credentials', automatic:true,stateLabel: 'not set up' } }] }), 'GET /integrations/catalog': json({ catalog }) })
   const page = await mount('/integrations')
   try {
     await vi.waitFor(() => expect(page.text()).toContain('not set up'))
     expect(page.el.querySelector('.int-summary')?.textContent).not.toContain('need attention')
     expect(page.el.querySelector('.int-summary')?.textContent).toContain('0 connected')
-    expect(page.el.querySelector('tr.int-row')?.textContent).not.toContain('Not tested yet')
+    expect(page.el.querySelector('tr.int-row')?.textContent).not.toContain('not checked yet')
     expect(page.el.querySelector('tr.int-row .chip [aria-hidden]')).toBeNull()
     expect(page.el.querySelector('tr.int-row .chip.fail')).toBeNull()
   } finally { page.done(); vi.unstubAllGlobals() }
+})
+
+it('keeps a last check age and result visible even when it failed or became old', async () => {
+ const {lastChecked}=await import('./Integrations')
+ const now=Date.parse('2026-11-01T00:00:00Z')
+ expect(lastChecked({automatic:true,stateLabel:'passed',ok:true,checked:true,checkedAt:'2026-10-31T23:55:00Z',detail:''},now)).toBe('checked 5m ago')
+ expect(lastChecked({automatic:true,stateLabel:'failed',ok:false,checked:true,stale:true,checkedAt:'2026-10-31T23:30:00Z',detail:'credentials refused'},now)).toBe('last seen 30m ago')
+})
+
+
+it('formats the age of an expired reading from the owner classification', async () => {
+ const {lastChecked}=await import('./Integrations')
+ expect(lastChecked({automatic:true,stateLabel:'unknown',stale:true,lastResult:'failed',ok:false,checked:true,checkedAt:'2026-10-31T12:00:00Z',detail:'Reading expired.'},Date.parse('2026-11-01T00:00:00Z'))).toBe('last seen 12h ago')
+})
+
+
+it('shows an event time when a server check is slightly ahead of the reader clock', async () => {
+ const {lastChecked}=await import('./Integrations')
+ const when=new Date(2026,9,30,17,26).toISOString()
+ expect(lastChecked({automatic:true,stateLabel:'passed',ok:true,checked:true,checkedAt:when,detail:''},Date.parse(when)-1000)).toBe('checked just now')
+})
+
+it('uses owner freshness even when the browser clock is far ahead', async () => {
+ const {healthState,healthIsOld}=await import('./integrations/kinds')
+ const h=checked(true,'Connection answered')
+ const future=Date.parse(fiveMinutesAgo)+24*3600000
+ expect(healthState(h,future)).toBe('passed')
+ expect(healthIsOld(h,future)).toBe(false)
+ expect(healthIsOld({...h,stale:true},0)).toBe(true)
+})
+
+it('shows a manual-only integration neutrally and shows an old test age once', async () => {
+ const old={...sso,id:'old-sso',name:'old-sso',health:{...sso.health,checked:true,stateLabel:'passed' as const,ok:true,stale:true,checkedAt:fiveMinutesAgo}}
+ stubAppTown({'GET /integrations':json({integrations:[sso,old]}),'GET /integrations/catalog':json({catalog})})
+ const page=await mount('/integrations')
+ try {
+  await vi.waitFor(()=>expect(page.el.querySelectorAll('tr.int-row:not(.int-unbound)')).toHaveLength(2))
+  const rows=page.el.querySelectorAll('tr.int-row:not(.int-unbound)')
+  expect(rows[0].querySelector('.chip')?.textContent).toBe('no automatic check')
+  expect(rows[0].querySelector('.chip')?.className).toBe('chip ')
+  expect(rows[1].querySelector('.chip')?.textContent).toContain('old · working')
+  expect(rows[1].textContent?.match(/last seen/g)).toHaveLength(1)
+ } finally {page.done()}
 })

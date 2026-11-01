@@ -1,8 +1,9 @@
+import { Status } from '../../Status'
 import { GlanceRow } from '../../GlanceRow'
 import { PRODUCT } from '../../brand'
 import { useGet } from '../../data'
 import { StaleNote } from '../../ReadGate'
-import { fmtBytes, lastSeen } from '../../format'
+import { fmtBytes, readingAge, lastSeen } from '../../format'
 import type { DiskCapacity, Figure, TargetCapacity, Tenant } from '../../wire.gen'
 import { disk, promised, usedMemory } from './capacitySegments'
 import { CapacityBar, CapacityTable } from './CapacityBars'
@@ -46,13 +47,25 @@ function ResourceRow({ label, r, format }: { label: string; r: Resource; format:
         <FigureWords f={p.apptown} format={format} /> <span className="muted">{PRODUCT}</span>{' + '}
         <FigureWords f={p.other} format={format} /> <span className="muted">other</span>
         <div className="muted">{countWords(r)}</div>
-        {r.overcommitted && <span className="chip pending" title="the limits add up to more than the host has; limits are caps, so this is allowed">overcommitted</span>}
+        {overcommit(r, format) && <div className="capacity-warning">{overcommit(r, format)}</div>}
       </td>
       <td>
         {r.inUse ? <><FigureWords f={r.inUse.apptown} format={format} /> <span className="muted">{PRODUCT}</span>{' + '}<FigureWords f={r.inUse.other} format={format} /> <span className="muted">other</span></> : <span className="muted">—</span>}
       </td>
     </GlanceRow>
   )
+}
+
+// A warning requires a witnessed sum and total. A provider flag alone is
+// insufficient evidence; unlimited apps are not a numeric request.
+function overcommit(r: Resource, format: (v: number) => string): string {
+  const sum = r.promised.sum
+  if (!r.total.known || !sum.apptown.known || !sum.other.known) return ''
+  const requested = sum.apptown.value + sum.other.value
+  const oldRequests = [sum.apptown, sum.other].filter(f => f.stale && f.readAt).sort((a,b) => Date.parse(a.readAt!) - Date.parse(b.readAt!))
+  const requestAge = oldRequests[0]?.readAt ? ` (${lastSeen(oldRequests[0].readAt)})` : ''
+  const totalAge = r.total.stale && r.total.readAt ? ` (${lastSeen(r.total.readAt)})` : ''
+  return requested > r.total.value ? `${format(requested)} requested${requestAge}; host total ${format(r.total.value)}${totalAge}. Review app limits or use a larger host.` : ''
 }
 
 // TargetCapacity says how full a target is. A fixed host: what it has,
@@ -69,15 +82,15 @@ export function Capacity({ name }: { name: string }) {
   return (
     <div className="small">
       {!c.elastic && <dl className="capacity-summary">
-        {c.memory && <><dt>Memory use</dt><dd>{c.memory.hostUsed?.known && c.memory.total.known
-          ? `${briefBytes(c.memory.hostUsed.value)} used of ${briefBytes(c.memory.total.value)}${c.memory.hostUsed.stale && c.memory.hostUsed.readAt ? ` · ${lastSeen(c.memory.hostUsed.readAt)}` : ''}` : 'not known'}</dd></>}
+        {c.memory && <><dt>Memory use</dt><dd>{!c.memory.hostUsed ? <><Status word="not applicable" /><span className="muted"> not measured on attached hosts</span></> : c.memory.hostUsed.known && c.memory.total.known
+          ? `${briefBytes(c.memory.hostUsed.value)} used of ${briefBytes(c.memory.total.value)}${c.memory.hostUsed.stale && c.memory.hostUsed.readAt ? ` · ${lastSeen(c.memory.hostUsed.readAt)}` : ''}` : c.memory.hostUsed?.known ? `${briefBytes(c.memory.hostUsed.value)} used; host total unknown: ${c.memory.total.reason || 'The host total could not be read.'} Open host diagnostics to check its connection.` : `Memory use could not be read: ${c.memory.hostUsed?.reason || c.memory.total.reason || 'This host does not report whole-host memory use.'} Open host diagnostics to check which measurements it supports.`}</dd></>}
         {c.disk && <><dt>Disk</dt><dd>{`${c.disk.free.known ? briefBytes(c.disk.free.value) : 'unknown'} free of ${c.disk.total.known ? briefBytes(c.disk.total.value) : 'unknown'}${c.disk.free.stale && c.disk.free.readAt ? ` · ${lastSeen(c.disk.free.readAt)}` : ''}`}</dd></>}
         <dt>Apps</dt><dd>{!c.liveUnknown && (c.tenantsAt || c.tenants) ? `${(c.tenants ?? []).filter(t => t.kind === 'deployment' || t.kind === 'preview').length} running${c.tenantsAt && c.stale ? ` · ${lastSeen(c.tenantsAt)}` : ''}` : 'not known'}</dd>
       </dl>}
-      {c.memory?.overcommitted && <p className="capacity-warning">Apps may need more memory than this host has.</p>}
+      {c.memory && overcommit(c.memory, briefBytes) && <p className="capacity-warning">{overcommit(c.memory, briefBytes)}</p>}
       {c.disk?.refuses ? <p className="capacity-warning">Free disk space before starting a new release.</p>
         : c.disk?.low && <p className="capacity-warning">Low on disk. Free some space.</p>}
-      <div>{c.words} {c.readAt && <span className="muted">· {lastSeen(c.readAt)}</span>}</div>
+      <div>{c.words} {c.readAt && <span className="muted">· {readingAge(c.readAt, c.stale)}</span>}</div>
       {c.error && <div className="error small">{c.error}</div>}
       <details className="capacity-details"><summary>Details</summary>
       {c.tenants && c.tenants.length > 0 ? <Bars c={c} /> : c.memory && c.cpu && (
@@ -124,8 +137,8 @@ const diskLabel = (d: DiskCapacity) => `disk (Docker's data${d.path ? `, ${d.pat
 // DiskState is what a host's disk means for new work: refused below its
 // floor (a release or preview reads it again when it starts), or low.
 function DiskState({ d }: { d: DiskCapacity }) {
-  if (d.refuses) return <span className="chip failed" title="a new release or preview on this host reads the disk again when it starts">new releases refused: under {fmtBytes(d.floor ?? 0)} free</span>
-  if (d.low) return <span className="chip pending">{d.warning ? `low: under ${fmtBytes(d.warning)} free` : 'disk space low'}</span>
+  if (d.refuses) return <span className="badge" title="a new release or preview on this host reads the disk again when it starts">new releases refused: under {fmtBytes(d.floor ?? 0)} free</span>
+  if (d.low) return <span className="badge">{d.warning ? `low: under ${fmtBytes(d.warning)} free` : 'disk space low'}</span>
   return null
 }
 
@@ -137,7 +150,7 @@ function DiskLine({ d }: { d: DiskCapacity }) {
     <div style={{ marginTop: 4 }}>
       <span className="muted">{diskLabel(d)}</span>{' '}
       {why && !d.free.known && !d.total.known ? <>unknown <span className="muted">— {why}</span></> : <><FigureWords f={d.free} format={fmtBytes} /> free of <FigureWords f={d.total} format={fmtBytes} /></>}
-      {d.readAt && <span className="muted"> · {lastSeen(d.readAt)}</span>}
+      {d.readAt && <span className="muted"> · {readingAge(d.readAt, d.free.stale)}</span>}
       {' '}<DiskState d={d} />
     </div>
   )
@@ -184,7 +197,7 @@ function Bars({ c }: { c: TargetCapacity }) {
           : `${cpuWords(pc.sum)} of ${cpuWords(c.cpu.total.value)}${c.cpu.overcommitted ? ` · over by ${cpuWords(pc.sum - c.cpu.total.value)}` : ''}`} />}
       {dk && c.disk ? (
         <>
-          <CapacityBar label={diskLabel(c.disk)} bar={dk} format={fmtBytes} sum={`${fmtBytes(c.disk.free.value)} free of ${fmtBytes(c.disk.total.value)}${c.disk.readAt ? ` · ${lastSeen(c.disk.readAt)}` : ''}`} />
+          <CapacityBar label={diskLabel(c.disk)} bar={dk} format={fmtBytes} sum={`${fmtBytes(c.disk.free.value)} free of ${fmtBytes(c.disk.total.value)}${c.disk.readAt ? ` · ${readingAge(c.disk.readAt, c.disk.free.stale)}` : ''}`} />
           <DiskState d={c.disk} />
         </>
       ) : c.disk && <DiskLine d={c.disk} />}

@@ -1,3 +1,4 @@
+import { fmtStamp } from '../format'
 import { useEffect, useState } from 'react'
 import { post } from '../api'
 import { PRODUCT } from '../brand'
@@ -86,7 +87,7 @@ export default function InvitePage({ token: fromLink }: { token: string }) {
               </div>
               <div className="muted small">
                 Set a new password to replace the old one and end other browser sessions. Sign in as <b>{offer.username}</b>.
-                The link works once, until {new Date(offer.expiresAt).toLocaleDateString()}.
+                The link works once, until {fmtStamp(offer.expiresAt)}.
               </div>
             </> : <>
               <div>
@@ -95,7 +96,7 @@ export default function InvitePage({ token: fromLink }: { token: string }) {
               </div>
               <div className="muted small">
                 Choose a password to finish. You will sign in as <b>{offer.username}</b>.
-                The link works once, until {new Date(offer.expiresAt).toLocaleDateString()}.
+                The link works once, until {fmtStamp(offer.expiresAt)}.
               </div>
             </>}
             {/* Lets a password manager save the new password under the right name. */}

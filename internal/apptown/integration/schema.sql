@@ -26,3 +26,9 @@ CREATE TABLE IF NOT EXISTS service_kinds (
   created_at  TIMESTAMPTZ NOT NULL,
   updated_at  TIMESTAMPTZ NOT NULL
 );
+
+CREATE TABLE integration_readings (
+  id UUID PRIMARY KEY REFERENCES integrations(id) ON DELETE CASCADE,
+  version BIGINT NOT NULL,
+  payload JSONB NOT NULL
+);

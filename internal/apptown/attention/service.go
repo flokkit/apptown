@@ -23,6 +23,7 @@ const (
 )
 
 type Item struct {
+	Count       int            `json:"count,omitempty"`
 	StatusLabel AttentionLabel `json:"statusLabel"`
 
 	Severity   string    `json:"severity"`
@@ -38,6 +39,8 @@ type Item struct {
 // Snapshot can retain stale items while its source is unavailable. ObservedAt
 // describes the actual source evidence; nested item timestamps remain unchanged.
 type Snapshot struct {
+	Name, Href, NextStep string
+	Coverage             []Coverage
 	// Reason is an owner-supplied safe summary, never a raw provider error.
 	Reason     string
 	Items      []Item
@@ -61,6 +64,10 @@ type projectReader interface {
 // Sources is the complete finite source set. Missing sources remain unassessed,
 // rather than silently shrinking what an empty Attention view claims to cover.
 type Sources struct {
+	Integrations instanceReader
+	Checks       interface {
+		Snapshot(context.Context, []ids.ID) (Snapshot, error)
+	}
 	Disks       instanceReader
 	Capacity    instanceReader
 	Inventory   instanceReader
@@ -72,6 +79,8 @@ type Sources struct {
 // Coverage reports source availability separately from the visible item count.
 // No underlying error strings or provider details cross this boundary.
 type Coverage struct {
+	Href       string    `json:"href"`
+	NextStep   string    `json:"nextStep"`
 	Reason     string    `json:"reason,omitempty"`
 	Key        string    `json:"key"`
 	Name       string    `json:"name"`
@@ -174,6 +183,49 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 			out.add(source.key+"/"+project.String(), source.name, snapshot, readErr)
 		}
 	}
+	// Integration visibility is the same instance permission as its list, not
+	// deployment visibility. Denial omits the source; authority failures abort.
+	_, integrationErr := s.authority.Require(ctx, access.Permission{Capability: access.CapProjectRead, Resource: access.Resource{Type: "instance"}, Context: access.Context{Route: "attention.integrations"}})
+	if integrationErr == nil {
+		snap, err := Snapshot{}, error(nil)
+		if s.sources.Integrations != nil {
+			snap, err = s.sources.Integrations.Snapshot(ctx)
+		}
+		out.add("integrations", "Integrations", snap, err)
+	} else if fault.KindOf(integrationErr) != fault.Forbidden {
+		return empty, integrationErr
+	}
+	checkProjects, err := s.authority.VisibleProjects(ctx, access.CapConformanceRead)
+	if err != nil {
+		return empty, err
+	}
+	authorized := []ids.ID{}
+	checked := map[ids.ID]bool{}
+	for _, id := range checkProjects {
+		if id.IsZero() || checked[id] {
+			continue
+		}
+		checked[id] = true
+		_, err := s.authority.Require(ctx, access.Permission{Capability: access.CapConformanceRead, Resource: access.Resource{Type: "project", ID: id.String(), ProjectID: id}, Context: access.Context{Route: "attention.checks"}})
+		if fault.KindOf(err) == fault.Forbidden {
+			continue
+		}
+		if err != nil {
+			return empty, err
+		}
+		authorized = append(authorized, id)
+	}
+	if len(authorized) > 0 {
+		snap, readErr := Snapshot{}, error(nil)
+		if s.sources.Checks != nil {
+			snap, readErr = s.sources.Checks.Snapshot(ctx, authorized)
+		}
+		if kind := fault.KindOf(readErr); kind == fault.Forbidden || kind == fault.Unauthenticated {
+			return empty, readErr
+		}
+		out.add("checks", "App checks", snap, readErr)
+	}
+
 	if err := ctx.Err(); err != nil {
 		return empty, err
 	}
@@ -183,7 +235,10 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 }
 
 func (v *View) add(key, name string, snapshot Snapshot, err error) {
-	coverage := Coverage{Reason: snapshot.Reason, Key: key, Name: name, ObservedAt: snapshot.ObservedAt,
+	if snapshot.Name != "" {
+		name = snapshot.Name
+	}
+	coverage := Coverage{Href: snapshot.Href, NextStep: snapshot.NextStep, Reason: snapshot.Reason, Key: key, Name: name, ObservedAt: snapshot.ObservedAt,
 		Unknown: !snapshot.Known || err != nil, Stale: snapshot.Stale || err != nil}
 	if err != nil {
 		coverage.Reason = "The source check failed."
@@ -208,7 +263,23 @@ func (v *View) add(key, name string, snapshot Snapshot, err error) {
 			v.Items[i].Stale = true
 		}
 	}
-	v.Sources = append(v.Sources, coverage)
+	if coverage.Reason == "" && coverage.Unknown {
+		coverage.Reason = "No usable reading has been recorded yet."
+	}
+	if coverage.NextStep == "" {
+		coverage.NextStep = "Open the resource to check its settings. Ask an administrator to run the check."
+	}
+	if coverage.Href == "" {
+		coverage.Href = "/infrastructure"
+	}
+	if len(snapshot.Coverage) > 0 && err == nil {
+		for _, child := range snapshot.Coverage {
+			child.Key = key + "/" + child.Key
+			v.Sources = append(v.Sources, child)
+		}
+	} else {
+		v.Sources = append(v.Sources, coverage)
+	}
 }
 
 // sourceEvidence contains owner observations, never caller grants or a View.
@@ -220,7 +291,9 @@ func (s *Service) observe(ctx context.Context, key string, read func(context.Con
 func (v Item) MarshalJSON() ([]byte, error) {
 	type view Item
 	out := view(v)
-	out.StatusLabel = labelWaiting
+	if out.StatusLabel == 0 {
+		out.StatusLabel = labelWaiting
+	}
 	if v.Unknown {
 		out.StatusLabel = labelUnknown
 	}

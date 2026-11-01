@@ -285,15 +285,15 @@ h3 { font-size: var(--fs-base); font-weight: var(--fw-strong); margin: 14px 0 6p
   line-height: 1.5; border: 1px solid var(--border-strong);
   background: transparent; color: var(--subtle); white-space: nowrap;
 }
-.chip.pass, .chip.accepted, .chip.done, .chip.shipped, .chip.released, .chip.live
+.chip.pass
   { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); }
-.chip.fail, .chip.rejected, .chip.failed, .chip.error
+.chip.fail
   { color: var(--bad); border-color: var(--bad); background: var(--bad-bg); }
-.chip.pending, .chip.needs_human, .chip.proposed, .chip.landing
+.chip.pending
   { color: var(--warn); border-color: var(--warn-mark); background: var(--warn-bg); }
-.chip.in_progress, .chip.running, .chip.releasing
+.chip.running
   { color: var(--busy); border-color: var(--busy); background: var(--busy-bg); }
-.chip.unknown, .chip.stale
+.chip.unknown
   { color: var(--unknown); border-style: dashed; border-color: var(--unknown); background: var(--unknown-bg); }
 .chip.draft { color: var(--muted); }
 /* A shown answer whose refresh failed: a quiet amber stamp, not a red
@@ -1786,3 +1786,14 @@ button.link.danger { color: var(--bad); }
   .project-action:empty { display: none; }
   .project-action .btn { min-height: 44px; padding: 8px 10px; font-size: var(--fs-sm); }
 }
+
+.attention-item { padding: 16px; margin-bottom: 10px; overflow-wrap: anywhere; }
+.attention-item h3 { margin: 0 0 8px; }
+
+/* Metadata labels do not classify health. Status alone owns status colours. */
+.badge {
+  display: inline-block; font-size: var(--fs-xs); color: var(--muted);
+  font-weight: var(--fw-regular); line-height: 1.5; overflow-wrap: anywhere;
+}
+
+.finding-count { color: var(--warn); font-size: var(--fs-xs); }

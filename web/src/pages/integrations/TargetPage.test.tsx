@@ -142,13 +142,13 @@ describe('the registry line', () => {
   it('says a full plan is full', () => {
     const text = show({ registry: 'flokkit', tier: 'basic', included: 5, used: 5, full: true, readAt })
     expect(text).toContain('Container registry flokkit: basic plan, 5 of 5 repositories')
-    expect(text).toContain('plan full')
+    expect(text).toContain('The registry plan is full.')
     expect(text).toContain(`read ${fmtStamp(readAt)}`)
   })
   it('says room without calling it full', () => {
     const text = show({ registry: 'flokkit', tier: 'basic', included: 5, used: 2, full: false, readAt })
     expect(text).toContain('2 of 5 repositories')
-    expect(text).not.toContain('plan full')
+    expect(text).not.toContain('The registry plan is full.')
   })
   it('says when the gate image takes one of the repositories', () => {
     const text = show({ registry: 'flokkit', tier: 'basic', included: 5, used: 2, full: false, gate: true, readAt })
@@ -214,7 +214,7 @@ describe('what is unaccounted for at a target', () => {
     const asOf = new Date(Date.now() - 2 * 3600 * 1000).toISOString()
     const text = show({ live: false, error: 'ssh: connection refused', asOf, resources: [claim] })
     expect(text).toContain('ssh: connection refused')
-    expect(text).toContain(`showing the inventory last seen 2 hr ago`)
+    expect(text).toContain(`showing the inventory last seen 2h ago`)
     expect(text).not.toContain(allClear)
   })
   it('says all accounted for only on an answer', () => {

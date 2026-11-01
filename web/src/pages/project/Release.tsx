@@ -1,4 +1,4 @@
-import { Status, STATUS_LIGHT } from '../../Status'
+import { Status } from '../../Status'
 import { Fragment, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { openAfter, post } from '../../api'
@@ -125,10 +125,10 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
       <div className="card" style={{ padding: 20, marginTop: 14 }}>
         <div className="row">
           <h2 style={{ margin: 0 }}>Release #{r.number}</h2>
-          {r.deployment && <span className="chip">{r.deployment}</span>}
-          <Status word={data.statusLabel} tone={STATUS_LIGHT[data.statusLabel]} />
-          {data.isLive && <span className="chip pass">current release</span>}
-          {r.origin === 'observed-after-restore' && <span className="chip overridden" title={`found running after ${PRODUCT} was restored; ${PRODUCT} did not ship it`}>found after restore</span>}
+          {r.deployment && <span className="badge">{r.deployment}</span>}
+          <Status word={data.statusLabel} />
+          {data.isLive && <span className="badge">current release</span>}
+          {r.origin === 'observed-after-restore' && <span className="badge" title={`found running after ${PRODUCT} was restored; ${PRODUCT} did not ship it`}>found after restore</span>}
         </div>
         <div style={{ margin: '10px 0' }}>
           {r.state === 'releasing'
@@ -162,7 +162,7 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
             <div style={{ background: 'var(--code-bg)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }}>
               {data.events.map((e, i) => (
                 <div key={i} style={{ margin: '2px 0', color: e.text.startsWith('FAILED') ? 'var(--bad)' : undefined }}>
-                  <span className="muted">{new Date(e.at).toLocaleTimeString([], { hour12: false })}</span>  {e.text}
+                  <span className="muted">{fmtStamp(e.at)}</span>  {e.text}
                 </div>
               ))}
               {r.state === 'releasing' && <div className="muted" style={{ margin: '2px 0' }}>…</div>}

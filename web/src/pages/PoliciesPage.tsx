@@ -81,11 +81,11 @@ function PolicyCard({ p, totalProjects, onClone, onEdit, onRemove }: {
         <strong style={{ fontSize: 'var(--fs-base)' }}>{p.description || p.name}</strong>
         <span style={{ flex: 1 }} />
         {p.adoptedBy > 0 && (
-          <span className={`chip ${p.nonConformant > 0 ? 'pending' : 'pass'}`}>
+          <span className="badge">
             {p.nonConformant > 0 ? `${p.nonConformant} not following it` : `${p.adoptedBy} projects`}
           </span>
         )}
-        {p.packs.length === 0 && p.adoptedBy === 0 && <span className="chip">No projects</span>}
+        {p.packs.length === 0 && p.adoptedBy === 0 && <span className="badge">No projects</span>}
         <span className="muted small">{open ? '▴' : '▾'}</span>
       </div>
       {open && (

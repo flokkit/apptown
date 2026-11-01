@@ -57,13 +57,13 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       <ReadStatus q={activityQ} what="activity" />
       {data && !open && <p className="muted">No open changes.</p>}
       {data && <ActiveRunList runs={data.active} />}
-      {data?.open?.map(c => <Link className="application-request" key={c.changeId} to={`/changes/${c.changeId}`}><Status word={c.statusLabel} tone={STATUS_LIGHT[c.statusLabel]} /><strong>{c.title}</strong><span className="muted">#{c.changeNumber}{c.editing > 0 ? ` · ${c.editing} files in progress` : ''}</span><span>Open →</span></Link>)}
+      {data?.open?.map(c => <Link className="application-request" key={c.changeId} to={`/changes/${c.changeId}`}><Status word={c.statusLabel} /><strong>{c.title}</strong><span className="muted">#{c.changeNumber}{c.editing > 0 ? ` · ${c.editing} files in progress` : ''}</span><span>Open →</span></Link>)}
       <ScheduleRows slug={slug} />
     </section>
     <section className="application-stream">
       <div className="application-section-head"><h2>Activity</h2></div>
       <ReadStatus q={releasesQ} what="releases" /><StaleNote q={releasesQ} />
-      <table className="activity-ledger"><thead><tr><th>When</th><th>What happened</th><th>Source</th><th>State</th></tr></thead><tbody>{events.slice(0, activityCount).map(e => <GlanceRow name={1} state={3} fact={0} labels={["When", "Event", "Source", "State"]} key={e.id}><td>{fmtWhen(e.when)}</td><td><Link to={e.to}>{e.title}</Link></td><td>{e.source}</td><td><Status word={e.word} tone={STATUS_LIGHT[e.word]} text={e.word === 'stopped' ? 'Cancelled' : undefined} help={e.help} /></td></GlanceRow>)}</tbody></table>
+      <table className="activity-ledger"><thead><tr><th>When</th><th>What happened</th><th>Source</th><th>State</th></tr></thead><tbody>{events.slice(0, activityCount).map(e => <GlanceRow name={1} state={3} fact={0} labels={["When", "Event", "Source", "State"]} key={e.id}><td>{fmtWhen(e.when)}</td><td><Link to={e.to}>{e.title}</Link></td><td>{e.source}</td><td><Status word={e.word} help={e.help} /></td></GlanceRow>)}</tbody></table>
       {events.length > activityCount && <button onClick={() => setActivityCount(n => n + 10)}>Show 10 more</button>}
       {data && !events.length && <p className="muted">No activity yet.</p>}
     </section>
@@ -78,7 +78,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       <section><h3>Backups</h3>{backupDeployment && <ReadStatus q={backupQ} what="backups" />}<StaleNote q={backupQ} />
         {backupQ.data && !backups.length && <p className="muted">No backups yet</p>}
         {!backupDeployment && deploymentsQ.data && <p className="muted">No deployment to back up</p>}
-        {backups.slice(0,1).map(b => <div key={b.id}><Status word={b.statusLabel} tone={STATUS_LIGHT[b.statusLabel]} help={b.error} /><p>{b.deployment} · {fmtWhen(b.takenAt)}</p></div>)}
+        {backups.slice(0,1).map(b => <div key={b.id}><Status word={b.statusLabel} help={b.error} /><p>{b.deployment} · {fmtWhen(b.takenAt)}</p></div>)}
       </section>
       <section><h3>Configuration</h3><Link to={`/projects/${slug}/settings/working`}>Way of working →</Link><p><Link to={`/projects/${slug}/settings`}>Project settings →</Link></p></section>
     </details>

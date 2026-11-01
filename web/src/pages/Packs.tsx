@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { renderMd } from '../md'
 import { GuidanceBlock, del, post } from '../api'
 import { fmtSize, sizeTitle } from '../format'
-import { Status, STATUS_LIGHT } from '../Status'
+import { Status } from '../Status'
 import { OriginChip } from '../OriginChip'
 import { Modal } from '../Modal'
 import { QuietConfirm } from '../QuietConfirm'
@@ -60,7 +60,7 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
               <div className="row" style={{ cursor: b ? 'pointer' : 'default' }} onClick={() => b && showBlock(b.id)}>
                 <code>{name}</code>
                 {b ? <span className="muted small">v{b.latestVersion} · <span title={sizeTitle(b.bytes)}>{fmtSize(b.bytes)}</span> · {b.tags}</span>
-                   : <span className="chip fail">missing from library</span>}
+                   : <Status word="failed" help="This adopted pack is missing from the library. Ask an administrator to restore the pack or change the project’s adoption." />}
                 <span style={{ flex: 1 }} />
                 {b && <span className="muted small">{openBlock === b.id ? 'hide' : 'read'}</span>}
               </div>
@@ -74,7 +74,7 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
           <div key={w.name} className="card" style={{ padding: '8px 12px' }}>
             <div className="row" style={{ cursor: 'pointer' }} onClick={() => setOpenWf(openWf === w.name ? null : w.name)}>
               <strong>{w.name}</strong>
-              <span className="chip">{w.kind}</span>
+              <span className="badge">{w.kind}</span>
               <span className="muted small">{w.stages.join(' → ')}</span>
               <span style={{ flex: 1 }} />
               <span className="muted small">{openWf === w.name ? 'hide' : 'yaml'}</span>
@@ -91,7 +91,7 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
           <div key={pp.name} className="card" style={{ padding: '8px 12px' }}>
             <div className="row">
               <strong>{pp.name}</strong>
-              <span className="chip">{pp.rule}</span>
+              <span className="badge">{pp.rule}</span>
               <span className="muted small">{Object.entries(pp.with ?? {}).map(([k, v]) => `${k}=${String(v)}`).join(' · ')}</span>
             </div>
             <div className="muted small" style={{ marginTop: 2 }}>{pp.description}</div>
@@ -146,14 +146,14 @@ export default function Packs() {
           <div key={p.name} className="card" style={{ margin: 0, opacity: p.enabled === false ? 0.6 : 1 }}>
             <div className="row">
               <Link to={`/packs/${p.name}`}><strong>{p.name}</strong></Link>
-              {p.origin !== 'stock' && <span className="chip">Custom</span>}
-              {p.version ? <span className="chip" title="New projects get this version">v{p.version}</span> : null}
-              <span className="chip">{p.enabled === false ? 'Hidden' : 'Available'}</span>
+              {p.origin !== 'stock' && <span className="badge">Custom</span>}
+              {p.version ? <span className="badge" title="New projects get this version">v{p.version}</span> : null}
+              <span className="badge">{p.enabled === false ? 'Hidden' : 'Available'}</span>
             </div>
 
             {p.requires.some(r => !r.bound) && (
               <div className="small" style={{ marginTop: 10 }}>
-                <Status word="waiting" tone={STATUS_LIGHT.waiting} text="Setup needed" /><details><summary>What needs setting up?</summary>Missing: {p.requires.filter(r => !r.bound).map(r => r.capability).join(', ')}</details>
+                <Status word="not set up" /><details><summary>What needs setting up?</summary>Missing: {p.requires.filter(r => !r.bound).map(r => r.capability).join(', ')}</details>
               </div>
             )}
             <div className="row pack-actions" aria-label={`Actions for ${p.name}`}>
@@ -213,7 +213,7 @@ function PackEditor({ draft, existing, onDone }: { draft: Draft; existing: boole
       <h2>Workflows ({p.workflows.length})</h2>
       <div className="row" style={{ gap: 6 }}>
         {allWorkflows.map((w) => (
-          <span key={w.name} className={`chip ${p.workflows.includes(w.name) ? 'pass' : ''}`}
+          <span key={w.name} className="badge"
             style={{ cursor: 'pointer' }} title={w.description}
             onClick={() => setP({ ...p, workflows: toggle(p.workflows, w.name) })}>
             {p.workflows.includes(w.name) ? '✓ ' : ''}{w.name}
@@ -227,7 +227,7 @@ function PackEditor({ draft, existing, onDone }: { draft: Draft; existing: boole
       </div>
       <div className="row" style={{ gap: 6 }}>
         {allGuidance.map((g) => (
-          <span key={g.name} className={`chip ${p.guidance.includes(g.name) ? 'pass' : ''}`}
+          <span key={g.name} className="badge"
             style={{ cursor: 'pointer' }} title={`${g.tags ? g.tags + ' · ' : ''}${sizeTitle(g.bytes ?? 0)}`}
             onClick={() => setP({ ...p, guidance: toggle(p.guidance, g.name) })}>
             {p.guidance.includes(g.name) ? '✓ ' : ''}{g.name} <span className="muted">{fmtSize(g.bytes ?? 0)}</span>
@@ -243,7 +243,7 @@ function PackEditor({ draft, existing, onDone }: { draft: Draft; existing: boole
         {allPolicies.map((pol) => {
           const on = p.policies.some((x) => x.name === pol.name)
           return (
-            <span key={pol.name} className={`chip ${on ? 'pass' : ''}`}
+            <span key={pol.name} className="badge"
               style={{ cursor: 'pointer' }} title={pol.description}
               onClick={() => setP({
                 ...p,

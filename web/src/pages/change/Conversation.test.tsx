@@ -1,3 +1,4 @@
+import { fmtWhen } from '../../format'
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -15,7 +16,7 @@ const chat = (over: Partial<ChatHistoryEntry>): ChatHistoryEntry => ({
 
 describe('a past chat says who opened it, when, and where it came from', () => {
   it('names the opener and the time', () => {
-    expect(chatByline(chat({}))).toBe('opened 2026-10-01 09:30 by bls')
+    expect(chatByline(chat({}))).toBe(`opened ${fmtWhen('2026-10-01T09:30:00Z')} by bls`)
   })
   it('says a chat moved from another AppTown is history only', () => {
     expect(chatByline(chat({ imported: true, actor: 'alice on forge.example.com' }))).toContain('alice on forge.example.com · moved from another AppTown, history only')

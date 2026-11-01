@@ -1,12 +1,12 @@
 import { GlanceRow } from '../GlanceRow'
-import { STATUS_LIGHT, Status } from '../Status'
+import { Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { Link } from 'react-router-dom'
 import { post } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { QuietConfirm } from '../QuietConfirm'
-import { lastSeen, fmtWhen, fmtStamp } from '../format'
+import { readingAge, lastSeen, fmtWhen, fmtStamp } from '../format'
 
 // Infrastructure (design/subsystems/deployment.md §2.6, §15): the cloud, as it is.
 // For each cloud target: what is at the provider right now — apps,
@@ -93,16 +93,16 @@ function TargetSection({ t: tIn, onChanged }: { t: TargetInfra; onChanged: () =>
   const missing = t.resources.filter((r) => r.record === 'missing').length
   return (
     <section style={{ marginBottom: 26 }}>
-      <div className="host-row"><strong><Link to={`/infrastructure/${t.target}`}>{t.target}</Link></strong><Status word={t.statusLabel} tone={t.statusLabel === 'working' ? 'pass' : STATUS_LIGHT[t.statusLabel]} help={`Target check: ${t.status}`} /><span className="muted small">{t.resources.length} resources</span>
-        {(t.unknown || t.unreported) && <Status word="unknown" tone="unknown" help={t.unreported ? UNREPORTED : t.error || 'Pending first check.'} />}
-        {t.asOf && <span className="muted small">{lastSeen(t.asOf)}</span>}
-        {t.invalidated && <span className="chip pending">before the latest change</span>}
+      <div className="host-row"><strong><Link to={`/infrastructure/${t.target}`}>{t.target}</Link></strong><Status observation word={t.statusLabel} help={`Target check: ${t.status}`} /><span className="muted small">{t.resources.length} resources</span>
+        {(t.unknown || t.unreported) && <Status observation word="unknown" help={t.unreported ? UNREPORTED : t.error || 'Pending first check.'} />}
+        {t.asOf && <span className="muted small">{readingAge(t.asOf, !t.live)}</span>}
+        {t.invalidated && <span className="badge">before the latest change</span>}
       </div>
       <div className="target-inventory">
       <div className="row small" style={{ marginBlock: 8 }}>
         <span className="muted">{t.place}{t.domain ? ` · *.${t.domain}` : ''}{t.facts ? ` · ${t.facts}` : ''}</span>
-        {unrecorded > 0 && <span className="chip pending">{unrecorded} unrecorded</span>}
-        {missing > 0 && <span className="chip fail">{missing} missing</span>}
+        {unrecorded > 0 && <span className="badge">{unrecorded} unrecorded</span>}
+        {missing > 0 && <span className="badge">{missing} missing</span>}
         <Link to={`/infrastructure/${t.target}`}>manage</Link>
       </div>
       {t.error && !t.live && <div className="error small" style={{ marginBottom: 8 }}>{t.error}{t.asOf ? ' · showing the last inventory read.' : ` · showing ${PRODUCT}'s records only.`}</div>}
@@ -132,11 +132,11 @@ export function ResourceTables({ t: tIn, onChanged, only, empty }: { t: TargetIn
           <table style={{ fontVariantNumeric: 'tabular-nums' }}>
             <thead>
               <tr>
-                <th>Name</th><th>Status</th><th>Where</th><th>Size</th><th>Hosting</th><th>Record</th>
+                <th>Name</th><th>Presence</th><th>Health</th><th>Where</th><th>Size</th><th>Hosting</th><th>Record</th>
               </tr>
             </thead>
             <tbody>
-              {t.resources.filter((r) => r.kind === k).map((r) => <ResourceRow key={`${r.kind}/${r.id || r.name}`} r={r} target={t.target} onChanged={onChanged} />)}
+              {t.resources.filter((r) => r.kind === k).map((r) => <ResourceRow key={`${r.kind}/${r.id || r.name}`} r={r} target={t.target} confirmed={!t.invalidated && (t.live || !!t.asOf && !t.unknown)} invalidated={t.invalidated} seenAt={!t.live && !t.invalidated && !t.unknown ? t.asOf : undefined} onChanged={onChanged} />)}
             </tbody>
           </table>
         </div>
@@ -145,7 +145,8 @@ export function ResourceTables({ t: tIn, onChanged, only, empty }: { t: TargetIn
   )
 }
 
-function ResourceRow({ r, target, onChanged }: { r: Resource; target: string; onChanged: () => void }) {
+function ResourceRow({ r, target, onChanged, confirmed, invalidated, seenAt }: { r: Resource; target: string; onChanged: () => void; confirmed: boolean; invalidated: boolean; seenAt?: string }) {
+  const unknownReason = invalidated ? 'Inventory predates the latest change. The next inventory check must confirm this resource; ask an administrator to check the target if it cannot finish.' : 'No current inventory confirms presence. Ask an administrator to check this target.'
   const host = r.url?.replace(/^https?:\/\//, '').replace(/\/$/, '')
   const { run, busy, err } = useAction()
   const removable = r.record === 'unrecorded' && ['container', 'volume', 'stack'].includes(r.kind)
@@ -154,7 +155,7 @@ function ResourceRow({ r, target, onChanged }: { r: Resource; target: string; on
     if (ok) onChanged()
   }
   return (
-    <GlanceRow name={0} state={1} fact={3} detail={<div className="resource-evidence">
+    <GlanceRow name={0} state={1} fact={2} detail={<div className="resource-evidence">
         <p>{r.name}</p>
         {r.url && <a className="small" href={r.url} target="_blank" rel="noreferrer">{host}</a>}
         {r.id && <div className="muted small" title="the provider's id">{r.id}</div>}
@@ -166,11 +167,12 @@ function ResourceRow({ r, target, onChanged }: { r: Resource; target: string; on
               onYes={remove} yes="Remove" className="subtle danger" title={`Remove it; ${PRODUCT} has no record of it`} disabled={busy} />
             {err && <div className="error small">{err}</div>}
           </div>
-        )}</div>} labels={["Resource", "State", "Where", "Size", "Apps", "Record"]} style={r.record === 'missing' ? { opacity: 0.6 } : undefined}>
+        )}</div>} labels={["Resource", "Presence", "Health", "Where", "Size", "Apps", "Record"]} style={r.record === 'missing' ? { opacity: 0.6 } : undefined}>
       <td>
         <div style={{ fontWeight: 600 }}>{r.hosts?.[0] && !r.hosts[0].project.startsWith('(') ? `${r.hosts[0].project} · ${r.kind === 'volume' ? 'data' : r.kind}` : r.retained ? `${r.retained.project} · old ${r.kind}` : r.name || `Unlinked ${r.kind}`}</div>
       </td>
-      <td>{r.status ? <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} help={r.status} /> : <span className="muted">—</span>}</td>
+      <td>{!confirmed ? <Status observation word="unknown" help={unknownReason} /> : r.record === 'missing' ? <Status observation word="failed" help="The provider did not find this recorded resource. Check the target and restore or release the app." /> : <span className="muted">present{seenAt ? ` · ${lastSeen(seenAt)}` : ''}</span>}</td>
+      <td>{['container', 'stack', 'app', 'database'].includes(r.kind) ? <Status observation word={confirmed ? r.statusLabel : 'unknown'} help={!confirmed ? unknownReason : r.status || 'Health has not been read. Open deployment diagnostics to check the app.'} staleAt={seenAt} /> : <Status observation word="not applicable" help="This resource has no running health check." />}</td>
       <td className="small">{r.region || <span className="muted">—</span>}</td>
       <td className="small">{[r.version, r.size].filter(Boolean).join(' · ') || <span className="muted">—</span>}</td>
       <td className="small">
@@ -186,16 +188,16 @@ function ResourceRow({ r, target, onChanged }: { r: Resource; target: string; on
         ))}
         {r.retained && (
           <div>
-            <span className="chip pending">retained</span>{' '}
+            <span className="badge">retained</span>{' '}
             <span className="muted">by <Link to={`/projects/${r.retained.project}/settings/deployments`}>{r.retained.project}/{r.retained.deployment}</Link>{r.retained.reason ? ` · ${r.retained.reason}` : `, torn down ${fmtWhen(r.retained.retainedAt)} by ${r.retained.retainedBy}`}</span>
           </div>
         )}
         {!r.retained && (r.hosts ?? []).length === 0 && <span className="muted">none recorded</span>}
       </td>
       <td>
-        {r.record === 'recorded' && <span className="chip pass" title={`${PRODUCT} made this and the provider confirms it`}>recorded</span>}
-        {r.record === 'unrecorded' && <span className="chip pending" title={`at the provider, not in ${PRODUCT}'s records · made outside ${PRODUCT}, or before ${PRODUCT} lost its record`}>unrecorded</span>}
-        {r.record === 'missing' && <Status word={"missing"} tone={STATUS_LIGHT["missing"]} help={`in ${PRODUCT}'s records; the provider has no trace of it`} />}
+        {r.record === 'recorded' && <span className="badge" title={`${PRODUCT} records ownership of this resource`}>recorded</span>}
+        {r.record === 'unrecorded' && <span className="badge" title={`at the provider, not in ${PRODUCT}'s records · made outside ${PRODUCT}, or before ${PRODUCT} lost its record`}>unrecorded</span>}
+        {r.record === 'missing' && <span className="badge" title={`${PRODUCT} records ownership of this resource`}>recorded</span>}
         {r.tags && r.tags.length > 0 && <div className="muted small" title="the provider's tags">{r.tags.join(', ')}</div>}
       </td>
     </GlanceRow>

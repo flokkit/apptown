@@ -57,7 +57,7 @@ export function MembersTab({ slug }: { slug: string }) {
       {err && <div className="small" style={{ color: 'var(--bad)' }}>{err}</div>}
       {open && (
         <div className="small">
-          <span className="chip">open to everyone</span>{' '}
+          <span className="badge">open to everyone</span>{' '}
           <span className="muted">Group roles apply to everyone signed in. Remove a role to withdraw that access.</span>
         </div>
       )}

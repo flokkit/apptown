@@ -79,7 +79,7 @@ it('makes creation primary only for a confirmed empty Home', () => {
 it('opens running production even when a preview has an urgent aggregate status', () => {
   const el = home([project('production', { observation: 'unreachable', observationStale: true })])
   expect(el.querySelector('.project-action a')?.getAttribute('href')).toBe('https://production.example.test')
-  expect(el.querySelector('.project-state')?.textContent).toContain('unreachable')
+  expect(el.querySelector('.project-state')?.textContent).toContain('failed')
 })
 
 it('marks a failed project refresh unknown and removes the app action', () => {

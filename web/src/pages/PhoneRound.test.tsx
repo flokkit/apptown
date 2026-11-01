@@ -1,3 +1,4 @@
+import { fmtStamp } from '../format'
 // @vitest-environment jsdom
 import { expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -48,7 +49,7 @@ it('labels account dates as last seen and states when no sign-in was recorded', 
   const users = [{ username: 'sam', lastSeen: `${new Date().getFullYear()}-10-31T01:00:00Z`, groups: [], hasPassword: true }, { username: 'old', lastSeen: '2023-03-03T01:00:00Z', groups: [], hasPassword: true }, { username: 'tom', lastSeen: '', groups: [], hasPassword: true }] as unknown as Account[]
   const el = page(<UsersCard users={users} act={() => {}} canEdit={false} invites={false} sso={false} me="sam" />)
   expect(el.textContent).toContain('seen 31 Oct')
-  expect(el.textContent).toContain('seen 3 Mar 2023')
+  expect(el.textContent).toContain(`seen ${fmtStamp(users[1].lastSeen!)}`)
   expect(el.textContent).not.toContain(`seen 31 Oct ${new Date().getFullYear()}`)
   expect(el.textContent).toContain('never signed in')
 })

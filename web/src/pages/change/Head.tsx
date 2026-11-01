@@ -1,4 +1,4 @@
-import { Status, STATUS_LIGHT } from '../../Status'
+import { Status } from '../../Status'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ChangeAttachment } from '../../wire.gen'
@@ -37,8 +37,8 @@ export function ChangeHeader({ view, workflow, aboutTab }: { view: ChangeView; w
       </div>
       <div className="ch-title-row">
         <h1>{ch.type === 'uplift' ? 'Update this app’s way of working' : ch.title}</h1>
-        <Status word={view.statusLabel} tone={STATUS_LIGHT[view.statusLabel]} />
-        {ch.provenance && <span className="chip pending" title="Adopted from an outside branch: history reconstructed from commits, not witnessed as it happened.">{ch.provenance}</span>}
+        <Status word={view.statusLabel} />
+        {ch.provenance && <span className="badge" title="Adopted from an outside branch: history reconstructed from commits, not witnessed as it happened.">{ch.provenance}</span>}
       </div>
       <div className="ch-meta">
         {[
@@ -192,7 +192,7 @@ export function Attachments({ changeId, readOnly }: { changeId: string; readOnly
       <ReadStatus q={itemsQ} what="the attachments" className="small" />
       <StaleNote q={itemsQ} />
       {items.map((i) => (
-        <span key={i.name} className="chip" title={`${(i.bytes / 1024).toFixed(1)} KB · agents see .apptown/attachments/${i.name}`}>
+        <span key={i.name} className="badge" title={`${(i.bytes / 1024).toFixed(1)} KB · agents see .apptown/attachments/${i.name}`}>
           <a href={`/api/v1/changes/${changeId}/attachments/${encodeURIComponent(i.name)}`} target="_blank" rel="noreferrer">{i.name}</a>
           {!readOnly && <button className="subtle" style={{ marginLeft: 4, padding: 0 }} aria-label={`remove ${i.name}`} title="remove" disabled={busy} onClick={() => remove(i.name)}>✕</button>}
         </span>

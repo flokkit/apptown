@@ -42,7 +42,7 @@ describe('the what-ifs list', () => {
     const rows = [...el.querySelectorAll('tbody tr')].map((r) => r.textContent)
     expect(rows[0]).toContain('apptown v35Other changesand other workflows to newest')
     expect(rows[0]).toContain('1 ● failednew failures1 ● unknowncould not assess1 move rules back')
-    expect(rows[1]).toContain('working')
+    expect(rows[1]).toContain('in progress')
     expect(rows[1]).toContain('1 ● passedno new failures2 ● unknownnot yet judged')
     expect(el.querySelector(`a[href="/conformance/what-ifs/${ONE}"]`)).not.toBeNull()
     done()

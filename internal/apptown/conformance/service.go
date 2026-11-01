@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/flokkit/apptown/internal/apptown/conformance/internal/conformancesql"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -206,4 +207,45 @@ func (s *Service) AdoptedCheck(ctx context.Context, projectID ids.ID, block, nam
 		}
 	}
 	return DeclaredCheck{}, fmt.Errorf("%s · %s: %w", block, name, ErrCheckNotAdopted)
+}
+
+// CurrentView reads stored conformance facts for an authorized project selection
+// in one query. Recorded main determines freshness; a poll never reads Git.
+func (s *Service) CurrentView(ctx context.Context, projects []ids.ID) ([]ProjectStanding, error) {
+	for _, id := range projects {
+		if _, err := s.require(ctx, permission{Action: readProject, ProjectID: id}); err != nil {
+			return nil, err
+		}
+	}
+	if len(projects) == 0 {
+		return []ProjectStanding{}, nil
+	}
+	rows, err := queries(s.records.db).CurrentProblemFacts(ctx, conformancesql.CurrentProblemFactsParams{Projects: projects, At: s.records.now()})
+	if err != nil {
+		return nil, err
+	}
+	byProject := map[ids.ID][]Observation{}
+	adjudications := map[ids.ID]Adjudication{}
+	names := map[ids.ID]string{}
+	slugs := map[ids.ID]string{}
+	for _, row := range rows {
+		v, err := verdict(row.ConformanceVerdict)
+		if err != nil {
+			return nil, err
+		}
+		o := observe(v, currentContext{Check: v.reference(), HeadSHA: row.CurrentSha, ExceptionActive: row.ExceptionActive})
+		byProject[v.ProjectID] = append(byProject[v.ProjectID], o)
+		names[v.ProjectID], slugs[v.ProjectID] = row.ProjectName, row.CurrentSlug
+		if row.Confirmed {
+			adjudications[v.ID] = Adjudication{VerdictID: v.ID, Kind: "confirmed"}
+		}
+	}
+	out := []ProjectStanding{}
+	for id, observations := range byProject {
+		p := SummarizeProject(id, slugs[id], observations, adjudications)
+		p.Name = displayName(names[id], slugs[id])
+		out = append(out, p)
+	}
+	sortProjects(out)
+	return out, nil
 }

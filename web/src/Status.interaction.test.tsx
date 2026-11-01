@@ -9,7 +9,7 @@ import { Status } from './Status'
 it('opens and closes help by tapping inside a linked row without navigating', () => {
   const el = document.createElement('div')
   const root = createRoot(el)
-  act(() => root.render(<a href="/deployment"><Status word="unreachable" tone="fail" help="AppTown can't reach Club host since 31 Oct, 00:00. The app may still be running." /></a>))
+  act(() => root.render(<a href="/deployment"><Status word="unreachable" help="AppTown can't reach Club host since 31 Oct, 00:00. The app may still be running." /></a>))
   const details = el.querySelector('details')!
   const summary = el.querySelector('summary')!
   expect(details.open).toBe(false)
@@ -28,7 +28,7 @@ it('keeps one help open beside its chip and dismisses on outside taps or Escape'
   const el = document.createElement('div')
   document.body.append(el)
   const root = createRoot(el)
-  act(() => root.render(<><Status word="unknown" tone="unknown" help="No runtime reading." /><Status word="unreachable" tone="fail" help="The host did not answer." /><button>Elsewhere</button></>))
+  act(() => root.render(<><Status word="unknown" help="No runtime reading." /><Status word="unreachable" help="The host did not answer." /><button>Elsewhere</button></>))
   const summaries = el.querySelectorAll('summary')
   const details = el.querySelectorAll('details')
   const viewport = window.innerWidth

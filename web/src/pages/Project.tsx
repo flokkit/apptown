@@ -136,7 +136,7 @@ function ProjectHeader({ project }: { project: ProjectT }) {
       <h1>
         {project.icon && <span style={{ marginRight: 8 }} aria-hidden>{project.icon}</span>}
         {project.name}
-        {project.namespace && <span className="chip" style={{ marginLeft: 10 }} title="namespace (display grouping)">{project.namespace}</span>}
+        {project.namespace && <span className="badge" style={{ marginLeft: 10 }} title="namespace (display grouping)">{project.namespace}</span>}
       </h1>
       <PhoneDetails>
       <div className="row small project-status-strip" style={{ marginBottom: 10 }}>
@@ -144,7 +144,7 @@ function ProjectHeader({ project }: { project: ProjectT }) {
           <RuntimeStatus observation={e} />
           <AppAddress url={e.url} hostOnly={e.hostOnly}>{e.displayLabel}</AppAddress>
         </span>)}
-        {!q.data && q.err && <Status word="unknown" tone="unknown" help={q.err} />}
+        {!q.data && q.err && <Status word="unknown" help={q.err} />}
       </div>
       </PhoneDetails>
       </>

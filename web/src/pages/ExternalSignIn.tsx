@@ -1,3 +1,4 @@
+import { fmtWhen } from '../format'
 import { useState } from 'react'
 import { PRODUCT } from '../brand'
 import { del, post, put } from '../api'
@@ -46,7 +47,7 @@ function YourTokens() {
  return <section className="card"><h2>Your access tokens</h2>
    <ReadGate q={q} what="your access tokens">
      {!q.data?.ownTokens?.length && <p className="muted">No access tokens.</p>}
-     {q.data?.ownTokens?.map(t => <p key={t.Name}><strong>{t.Name}</strong> · {t.Purpose === 'agent' ? 'Coding agent' : 'Command line'} · last used {t.LastUsed ? t.LastUsed.slice(0, 10) : 'never'}</p>)}
+     {q.data?.ownTokens?.map(t => <p key={t.Name}><strong>{t.Name}</strong> · {t.Purpose === 'agent' ? 'Coding agent' : 'Command line'} · last used {t.LastUsed ? fmtWhen(t.LastUsed) : 'never'}</p>)}
    </ReadGate>
  </section>
 }

@@ -84,9 +84,9 @@ it('shows only icons projects chose, and leaves finding to the top bar', async (
 it('stamps only the projects that have a deployment', async () => {
   const el = await listing()
   const card = (slug: string) => el.querySelector(`a[href="/projects/${slug}"]`)!.closest('.project-row')!
-  expect(card('plain').querySelector('.chip')?.textContent).toContain('Not deployed')
+  expect(card('plain').querySelector('.chip')?.textContent).toContain('not set up')
   expect(card('boat').textContent).toContain('Not checked yet')
-  expect(card('boat').textContent).not.toContain('Not deployed')
+  expect(card('boat').textContent).not.toContain('not set up')
   const stamp = card('boat').querySelector('.chip.unknown')
   expect(stamp?.textContent).toBe('● unknown')
   expect(stamp?.getAttribute('title')).toBe('Not checked yet.')

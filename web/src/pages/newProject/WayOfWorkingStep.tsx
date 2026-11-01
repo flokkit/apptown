@@ -108,10 +108,10 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
       )}
       {chosen !== null && !choosing && (
         <div className="mt-1">
-          {chosen.length === 0 && <div className="row"><span className="chip pass">bare project</span></div>}
+          {chosen.length === 0 && <div className="row"><span className="badge">bare project</span></div>}
           {chosen.map((name) => (
             <div key={name} className="row mb-1">
-              <span className="chip pass">{name}</span>
+              <span className="badge">{name}</span>
 
             </div>
           ))}
@@ -183,7 +183,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
                   {missing.length > 0 && (
                     <div className="row" style={{ gap: 'var(--space-1)' }}>
                       {missing.map((r) => (
-                        <span key={r.capability} className="chip pending" title="no integration provides this yet">
+                        <span key={r.capability} className="badge" title="no integration provides this yet">
                           needs {r.capability} — not set up
                         </span>
                       ))}

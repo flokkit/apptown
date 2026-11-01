@@ -63,7 +63,7 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
       <StaleNote q={rowsQ} />
       <div className="row">
         <h1 style={{ marginBottom: 0 }}>Complaints</h1>
-        {unseen > 0 && <span className="chip pending">{unseen} unread</span>}
+        {unseen > 0 && <span className="badge">{unseen} unread</span>}
         <span style={{ flex: 1 }} />
         <button className="subtle" onClick={toggleSteering}>
           {showSteering ? 'hide the instructions' : 'Instructions for reporting problems'}
@@ -105,12 +105,12 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
       {shown.slice(0, limit).map((c) => (
         <div key={c.id} className="card" style={{ marginBottom: 8, opacity: c.seen ? 0.65 : 1 }}>
           <div className="row">
-            <span className="chip">{c.source}</span>
+            <span className="badge">{c.source}</span>
             {c.project && <Link className="small" to={`/projects/${c.project}`}>{c.projectName || c.project}</Link>}
             {c.workflow && <span className="muted small">{c.workflow}{c.step ? ` · ${c.step}` : ''}{c.runNumber ? ` · run ${c.runNumber}` : ''}</span>}
             {c.source === 'console' && <span className="muted small">chat</span>}
             {!!c.changeId && <Link className="small" to={`/changes/${c.changeId}`}>{c.changeNumber ? `change ${c.project ? `${c.project}#` : ''}${c.changeNumber}` : 'the change'}</Link>}
-            {c.about && c.about !== 'apptown' && <span className="chip">about the {c.about === 'way-of-working' ? `way of working${c.packVersion ? ` (${c.packVersion})` : ''}` : 'project'}</span>}
+            {c.about && c.about !== 'apptown' && <span className="badge">about the {c.about === 'way-of-working' ? `way of working${c.packVersion ? ` (${c.packVersion})` : ''}` : 'project'}</span>}
             {!!c.evalId && <Link className="small" to={`/evals/${c.evalId}`}>from an eval</Link>}
             <span style={{ flex: 1 }} />
             <span className="muted small">{c.actor && c.actor !== 'anonymous' ? `${c.actor} · ` : ''}{fmtWhen(c.at)}</span>

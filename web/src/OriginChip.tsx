@@ -5,12 +5,12 @@ export function OriginChip({ origin, modified }: { origin?: string; modified?: b
   const stock = origin === 'stock' || (origin ?? '').startsWith('stock/')
   if (stock) {
     return (
-      <span className="chip" title={modified
+      <span className="badge" title={modified
         ? `Came with ${PRODUCT}; edited here. The edit stays until you take the next update.`
         : `Came with ${PRODUCT}; read-only here. Updates arrive with each release.`}>
         {PRODUCT}{modified ? '*' : ''}
       </span>
     )
   }
-  return <span className="chip pass" title="Written here. Editable.">yours</span>
+  return <span className="badge" title="Written here. Editable.">yours</span>
 }

@@ -11,12 +11,12 @@ const CHANGE = '00000000-0001-7000-8000-000000000000'
 
 const view = (state: 'landing' | 'abandoned'): ChangeView => ({
   change: { id: CHANGE, number: 1, title: 'Game', state, stateLabel: state, body: '', branch: 'change' },
-  statusLabel: state === 'landing' ? 'working' : 'stopped', evidence: { merged: true }, editing: 0, runs: [], commits: [],
+  statusLabel: state === 'landing' ? 'working' : 'abandoned', evidence: { merged: true }, editing: 0, runs: [], commits: [],
 } as unknown as ChangeView)
 
 const empty = 'No committed changes since this change started.'
 describe('change state and committed evidence', () => {
-  it.each([['landing', 'working'], ['abandoned', 'stopped']] as const)('keeps %s visible even with a merge receipt', (state, label) => {
+  it.each([['landing', 'in progress'], ['abandoned', 'abandoned']] as const)('keeps %s visible even with a merge receipt', (state, label) => {
     const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><ChangeHeader view={view(state)} aboutTab="/changes/1?tab=about" /></QueryClientProvider></MemoryRouter>)
     expect(html).toContain(`${label}</span>`)
     expect(html).not.toContain('>merged</span>')

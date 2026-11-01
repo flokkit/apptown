@@ -105,7 +105,7 @@ describe('the eval scorecard', () => {
     const r = await render(`/evals/${EVAL}`, <EvalScorecardPage />, '/evals/:id')
     try {
       await r.settle(() => !!r.el.textContent?.includes('waiting'))
-      expect(r.el.textContent).toContain('working')
+      expect(r.el.textContent).toContain('in progress')
       expect(r.el.textContent).toContain('waiting')
     } finally {
       r.done()

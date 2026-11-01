@@ -5,8 +5,9 @@ Dashboard, project, Change, deployment, conformance and console pages consume
 HTTP projections and invoke the corresponding application commands.
 
 Dashboard/project lists use visibility-filtered server queries. The interface
-distinguishes running, stopped, unknown and unreachable. Status words come from
-their owners; a word and light appear together, with reasons in help or details.
+keeps owner outcomes and their evidence distinct. Status chips use the shared
+[status vocabulary](../../stock/docs/guides/glossary.md#status-words) in
+`web/src/Status.tsx`; reasons and next actions appear in help or details.
 A page rendering successfully does not prove every optional request succeeded;
 approver hints and policy lists still need the recorded narrow-account usability
 smoke.
@@ -50,9 +51,9 @@ read is under 13px, and on any touch screen every control is at least 44px.
 Every tabbed page uses `Tabs`: one horizontally scrolling row, a shaded edge
 when more tabs lie to the right, and the active tab kept in view on selection
 and resize. Links and buttons keep their native keyboard semantics. The phone
-top bar shows an Attention icon and count with the full accessible label;
-desktop retains the words. Zero known conditions hides the badge, while pending
-and failed readings remain visible.
+top bar shows the same Attention count as desktop: items to fix and sources
+not known are separate. Zero parts are omitted; when both are zero it says
+All quiet. Pending and failed readings remain visible.
 
 A list table marked `stack` becomes one card per row (its `stack-lead` cell
 first, other cells named by `data-label`); a link marked `tap-open` opens its

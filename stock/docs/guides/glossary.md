@@ -25,11 +25,11 @@ receipts and usage stay.
 chat, the detailed form, a catalog change, or an imported branch — it
 accumulates commits and ends shipped or abandoned. A change whose workflow
 keeps a record instead of commits (research, a product spec) closes when
-its record is accepted; nothing lands, and it reads **finished** rather
+its record is accepted; nothing lands, and its lifecycle record says **finished** rather
 than shipped. A change AppTown closed because its run found nothing to
 change (a dependency update with nothing to update) stops with that reason in
 its details. Landing runs the checks and approval before merging; a failed step
-blocks the run. The web uses the status words below and keeps lifecycle detail
+blocks the run. The web keeps work and evidence states visible, with details
 one click away.
 
 **Chat (helper)** — a conversational agent session on a project or a change.
@@ -52,29 +52,31 @@ project, projects, recently finished.
 
 ## Status words
 
-A status has a short word and a coloured light. Help or details gives its reason.
-The same word has the same meaning on every page.
+Health and observation chips use these words. Their explanations give the reason
+and what would resolve uncertainty or failure. Work and evidence keep their own
+words: waiting for you, in progress, deploying, landed, passed, excepted, stopped,
+abandoned and update available. Low disk is an amber warning.
 
-| Word | Meaning |
+| Chip | Meaning |
 | --- | --- |
-| running | The app was checked and is running. |
-| working | Work is in progress. |
-| deploying | A release is in progress. |
-| stopped | The app was checked and is stopped, or work was stopped. |
-| unreachable | AppTown cannot contact the deployment host or provider. The app may still be running. Help names the target and when the uninterrupted failure began. |
-| unknown | AppTown cannot establish the current state. Missing or old evidence does not prove running, stopped or failed. |
-| waiting | A person, a check or queued work must act next. The label names what is awaited, such as “waiting for you” or “waiting for checks”. |
-| failed | An attempt or check failed. This does not prove that an app stopped. |
-| landed | Accepted work reached main. |
-| deployed | The release was deployed. Its runtime status is separate. |
-| finished | Work finished without claiming a merge or deployment. |
-| passed | The check passed. A configuration check does not prove a service is running. |
-| excepted | An exception covers a finding; the check did not pass. |
-| not applicable | The check does not apply. |
-| fresh / overdue | A backup is within / beyond its copy cadence and allowance. A failed latest copy also makes coverage overdue. |
-| missing | AppTown holds no copy of the item. |
-| disposable | The app declares that this data may start empty. |
-| available / current / none | An authenticated release is available / the installed build has no newer release / the channel has no release. |
+| working | The configured thing works. |
+| failed | Something set up broke, a check failed, or a required dependency is missing. This is the only red status. |
+| not set up | An optional thing has no configuration yet. It is muted, not failed. |
+| not checked yet | A check has not run yet. |
+| last seen <age> | The reading is old but still usable. Its age alone is not failure. |
+| not applicable | This check does not apply. |
+| unknown | No usable reading exists, or the reading is past its shelf life. This never means working. |
+
+Event times use your own time zone, for example `30 Oct, 17:26`. Freshness
+uses a relative age such as `checked 5m ago` for fresh readings and `last seen 5m ago` for old ones. An integration with no background check reads **no automatic check** in muted text. A manual connection test keeps its last result and age; an old result stays marked old. A confirmed inventory resource is
+**present**; a volume, network or image has no running health check, so its
+health is **not applicable**. Recorded ownership remains separate.
+
+**Attention** — everything needing a person's action that the viewer can read:
+hosts and deployments, backups, failed integrations and confirmed app-check
+problems. Each listed row counts as one item, including a row summarizing several app-check problems. Unassessed app checks and integrations without background checks do not count. Only failed integration checks count, with no integration unknown-coverage count. The header shows `3 to fix · 1 not known`, omits zero parts, and says
+`All quiet` when both are zero. Unknown coverage is separate from confirmed
+problems; open Attention for each named resource, its reason and next step.
 
 ## Workflows
 

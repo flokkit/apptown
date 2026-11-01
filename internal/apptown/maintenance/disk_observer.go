@@ -197,6 +197,7 @@ func (o *DiskObserver) Read(ctx context.Context) []diskspace.Reading {
 	out := make([]diskspace.Reading, 0, len(snapshot.Disks))
 	for _, disk := range snapshot.Disks {
 		reading := disk.Reading
+		reading.Stale = disk.Stale
 		reading.FailedAt, reading.Error = disk.FailedAt, disk.Reason
 		if disk.Unknown {
 			reading.Unknown = "The last successful disk reading is too old or unavailable"

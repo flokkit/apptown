@@ -74,7 +74,25 @@ it('keeps target facts and check help in the inventory summary', () => {
 
 it('shows an old failed inventory as last seen while its values remain known', () => {
   const html = show([target('host', { asOf: new Date(Date.now() - 40 * 60000).toISOString(), error: 'The inventory check failed.', unknown: false })])
-  expect(html).toContain('last seen 40 min ago')
+  expect(html).toContain('last seen 40m ago')
   expect(html).toContain('The inventory check failed.')
   expect(html).not.toContain('aria-label="unknown:')
+})
+
+it('separates confirmed presence from health and ownership for non-running resources', () => {
+ const client=newQueryClient()
+ const html=renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><ResourceTables t={target('host',{live:true,resources:[{kind:'volume',name:'calendar-data',record:'recorded',statusLabel:'unknown'}]})} onChanged={()=>{}}/></QueryClientProvider></MemoryRouter>)
+ expect(html).toContain('<th>Presence</th><th>Health</th>')
+ expect(html).toContain('>present</span>')
+ expect(html).toContain('not applicable')
+ expect(html).toContain('>recorded</span>')
+ expect(html).not.toContain('chip unknown')
+ client.clear()
+})
+
+it('does not confirm presence from inventory that predates a provider change', () => {
+ const html=show([target('host',{live:false,invalidated:true,unknown:false,asOf:new Date(Date.now()-60000).toISOString(),resources:[{kind:'volume',name:'new-data',record:'recorded',statusLabel:'unknown'}]})])
+ expect(html).not.toContain('>present · last seen')
+ expect(html).toContain('Inventory predates the latest change.')
+ expect(html).toContain('>recorded</span>')
 })

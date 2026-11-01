@@ -30,7 +30,7 @@ func (a *Service) Stores() ([]StoreInfo, error) {
 	inf := StoreInfo{Name: StoreInfisical, Title: "Infisical", Available: infisicalConfig(file).configured(),
 		Note: "A binding names a key in the Infisical project and environment this AppTown is configured for. Values never enter AppTown's database."}
 	if !inf.Available {
-		inf.Note = "N" + errInfisicalNotSetUp.Error()[1:] + "."
+		inf.Note = "N" + ErrInfisicalNotSetUp.Error()[1:] + "."
 	}
 	return append(out, inf), nil
 }
@@ -69,9 +69,9 @@ func (a *Service) InfisicalValues(ctx context.Context) (map[string]string, error
 	return m, nil
 }
 
-// errInfisicalNotSetUp is an Infisical store this AppTown has no
+// ErrInfisicalNotSetUp is an Infisical store this AppTown has no
 // credentials for: its message says what goes in secrets.env.
-var errInfisicalNotSetUp = errors.New("not set up on this AppTown: INFISICAL_URL, INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET and INFISICAL_PROJECT_ID go in secrets.env")
+var ErrInfisicalNotSetUp = errors.New("not set up on this AppTown: INFISICAL_URL, INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET and INFISICAL_PROJECT_ID go in secrets.env")
 
 // AvailableProviders is the set of stores this AppTown can use now, by the
 // name their integrations carry as provider: the built-in store always,
@@ -102,7 +102,14 @@ func (a *Service) CheckInfisical(ctx context.Context) error {
 	}
 	cfg := infisicalConfig(file)
 	if !cfg.configured() {
-		return errInfisicalNotSetUp
+		if cfg.URL == "" && cfg.ClientID == "" && cfg.ClientSecret == "" && cfg.ProjectID == "" {
+			return ErrInfisicalNotSetUp
+		}
+		for _, setting := range []struct{ name, value string }{{"INFISICAL_URL", cfg.URL}, {"INFISICAL_CLIENT_ID", cfg.ClientID}, {"INFISICAL_CLIENT_SECRET", cfg.ClientSecret}, {"INFISICAL_PROJECT_ID", cfg.ProjectID}} {
+			if setting.value == "" {
+				return fmt.Errorf("Infisical configuration is incomplete: set %s in secrets.env", setting.name)
+			}
+		}
 	}
 	_, err = a.infisicalFetch(ctx, cfg)
 	return err

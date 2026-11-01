@@ -43,12 +43,18 @@ func TestDiskSnapshotsRefreshBehindTheReadAndRetainFailedWorkerEvidence(t *testi
 	if err != nil || got.Unknown || len(got.Disks) != 2 || got.Disks[0].Reading.Refuses || !got.Disks[1].Reading.Low || got.Disks[1].Stale {
 		t.Fatalf("first observation: %+v %v", got, err)
 	}
+	if readings := observer.Read(t.Context()); len(readings) != 2 || readings[1].Stale {
+		t.Fatalf("fresh display: %+v", readings)
+	}
 	// Returned slices cannot mutate the owner's retained observation.
 	got.Disks[1].Reading.Low = false
 	now = now.Add(30 * time.Minute)
 	got, err = observer.Snapshot(t.Context())
 	if err != nil || !got.Stale || !got.Disks[1].Stale || !got.Disks[1].Reading.Low || worker.calls != 1 {
 		t.Fatalf("expired read: %+v %v", got, err)
+	}
+	if readings := observer.Read(t.Context()); len(readings) != 2 || !readings[1].Stale {
+		t.Fatalf("old display: %+v", readings)
 	}
 	worker.err = errors.New("worker unavailable")
 	if err := observer.Run(t.Context()); err != nil {

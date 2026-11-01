@@ -46,7 +46,7 @@ func TestInferenceConfigurationAndRuntimeSecrets(t *testing.T) {
 		t.Fatal("provider credential alias was accepted or printed")
 	}
 	w := httptest.NewRecorder()
-	httpapi.NewIntegrationListing(a.Integrations, a.Deployment, connectorHealthFor(a), &a.docker, agentenv.RegistryFormats(), nil).ListIntegrations(w, httptest.NewRequest("GET", "/api/v1/integrations", nil))
+	httpapi.NewIntegrationListing(a.Integrations, a.Deployment, connectorHealthFor(a)).ListIntegrations(w, httptest.NewRequest("GET", "/api/v1/integrations", nil))
 	if w.Code != 200 || strings.Contains(w.Body.String(), "provider-canary") {
 		t.Fatal("legacy model headers escaped through the integration API")
 	}

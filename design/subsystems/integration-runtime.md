@@ -11,8 +11,28 @@ even a redirect within the same origin is refused.
 
 GitLab is “not set up” when both `GITLAB_URL` and `GITLAB_TOKEN` are empty.
 If only one is set, its health check fails and names the missing setting.
-Integrations that are not set up have no check time and do not count as connected
-or needing attention.
+Unused integrations that are not set up have no check time and do not count as
+connected or needing action. Infisical is not set up when all four required
+settings are empty; a partial configuration fails and names the missing setting.
+An attachment requiring that missing integration makes it a failure.
+
+The integration owner retains version-bound check results in `integration_readings`.
+Collection jobs run every five minutes; list and Attention reads use the same
+record without calling providers. A configuration change invalidates the old
+result, including an answer arriving after the change. The owner supplies the
+freshness classification. Fresh results say `checked <age>`; results older than
+fifteen minutes say `last seen <age>`. Automatic results become unknown after
+six hours, with the last result and time retained. A saved Test connection checks
+its saved settings and retains the last result without expiring it into unknown;
+after fifteen minutes it is marked old. Testing a draft checks those proposed
+settings without changing the saved reading.
+
+A kind with no background check reads `no automatic check` in muted style when
+untested, or shows its manual result and age. Package registries and scanners
+have no background check. Their URL or image setting alone does not establish
+health. Only kinds with a background check whose latest result failed contribute
+to Attention; integrations contribute no unknown coverage. Each integration row
+shows its state in the chip and its age once in the adjacent text.
 
 ## From configuration to runtime
 
@@ -76,7 +96,7 @@ the persisted records through the owners' reads.
 
 ## Container registry checks
 
-Container registry listings and Test connection send an authenticated HTTPS
+Container registry collection jobs and Test connection send an authenticated HTTPS
 `GET /v2/` to the configured host, using its username and the stored token
 named by `tokenFrom`. A 200 response passes. A 401 with a Bearer realm checks
 that token service using Basic authentication and the `service` and `account`

@@ -40,7 +40,7 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 	if projectName == "" {
 		projectName = p.Slug
 	}
-	out := Snapshot{Known: true, ObservedAt: clock.Or(s.Now)()}
+	out := Snapshot{Known: true, ObservedAt: clock.Or(s.Now)(), Name: projectName + " · deployments", Href: "/projects/" + url.PathEscape(p.Slug) + "/settings/deployments", NextStep: "Open the deployment diagnostics. Someone with deployment permission can repair or release it."}
 	for _, d := range rows {
 		r := d.Runtime
 		unknown := r.Err != nil || r.State == deployment.RuntimeUnknown || r.ObservedAt.IsZero()

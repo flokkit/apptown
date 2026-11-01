@@ -2,7 +2,7 @@ import { PRODUCT } from '../../../brand'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { GuidanceBlock, GuidanceImport, HttpError, ProjectGuidance, SteeringSection, del, post, put } from '../../../api'
-import { fmtSize, sizeTitle } from '../../../format'
+import { fmtSize, fmtStamp, sizeTitle } from '../../../format'
 import { OriginChip } from '../../../OriginChip'
 import { QuietConfirm } from '../../../QuietConfirm'
 import { useAction, useGet } from '../../../data'
@@ -21,7 +21,7 @@ export function AdoptionLine({ slug }: { slug: string }) {
   if (!v) return <ReadStatus q={q} what="the adoption record" className="small" />
   const cur = v.current
   if (!cur) return <StaleNote q={q} />
-  const when = new Date(cur.createdAt).toLocaleString()
+  const when = fmtStamp(cur.createdAt)
   const packs = v.packs ?? []
   const worry = (v.conditions ?? []).length > 0
   return (
@@ -269,7 +269,7 @@ export function GuidanceTab({ slug }: { slug: string }) {
                 <button className="subtle" aria-label="move up" title="move up" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>
                 <button className="subtle" aria-label="move down" title="move down" onClick={() => move(i, 1)} disabled={i === imports.length - 1}>↓</button>
               </td>
-              <td className="stack-lead"><Link to={`/guidance/${im.blockId}`}><code>{im.name}</code></Link>{im.withdrawn && <> <span className="chip" title={`${PRODUCT} no longer ships this block; this project keeps its version until it removes it`}>No longer shipped</span></>}</td>
+              <td className="stack-lead"><Link to={`/guidance/${im.blockId}`}><code>{im.name}</code></Link>{im.withdrawn && <> <span className="badge" title={`${PRODUCT} no longer ships this block; this project keeps its version until it removes it`}>No longer shipped</span></>}</td>
               <td data-label="pinned">
                 v{im.version}
                 {im.version < im.latestVersion && (
@@ -307,7 +307,7 @@ export function GuidanceTab({ slug }: { slug: string }) {
               {generated.map((g) => (
                 <tr key={g.name}>
                   <td><code>{g.name}</code></td>
-                  <td><span className="chip">{g.always ? 'every step' : 'some steps'}</span></td>
+                  <td><span className="badge">{g.always ? 'every step' : 'some steps'}</span></td>
                   <td className="muted small" title={sizeTitle(g.bytes)}>{fmtSize(g.bytes)}</td>
                   <td className="muted small">{g.note}</td>
                 </tr>
@@ -386,7 +386,7 @@ export function PoliciesCard({ slug }: { slug: string }) {
         const vs = data.violations.filter((v) => v.policy === p.name)
         return (
           <div className="row" key={p.id} style={{ marginTop: 6 }}>
-            <span className={`chip ${vs.length === 0 ? 'pass' : 'pending'}`}>
+            <span className="badge">
               {vs.length === 0 ? '✓' : `${vs.length} warning${vs.length > 1 ? 's' : ''}`}
             </span>
             <strong className="small">{p.name}</strong>
@@ -435,16 +435,16 @@ export function WorkflowsTab({ slug }: { slug: string }) {
     <label key={l.name} className="card" style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 8, cursor: selectable ? 'pointer' : 'default', opacity: l.deprecated ? 0.6 : 1 }}>
       {selectable
         ? <input type="checkbox" checked={l.selected} disabled={busy === l.name} onChange={() => toggle(l)} style={{ marginTop: 4 }} />
-        : <span className="chip" style={{ marginTop: 2 }}>{PRODUCT} runs it</span>}
+        : <span className="badge" style={{ marginTop: 2 }}>{PRODUCT} runs it</span>}
       <span style={{ flex: 1, minWidth: 0 }}>
         <span className="row" style={{ gap: 8 }}>
           <strong>{l.name}</strong>
           <OriginChip origin={l.origin} />
-          <span className="chip">v{l.version}</span>
-          {l.summary && <span className="chip" title={l.summary.pacing === 'paced by people'
+          <span className="badge">v{l.version}</span>
+          {l.summary && <span className="badge" title={l.summary.pacing === 'paced by people'
             ? 'stops at gates and waits for a person' : 'advances by itself when checks pass'}>{l.summary.pacing}</span>}
-          {l.deprecated && <span className="chip">deprecated</span>}
-          {l.withdrawn && <span className="chip" title={`${PRODUCT} no longer ships this workflow; this project keeps it until it unselects it`}>No longer shipped</span>}
+          {l.deprecated && <span className="badge">deprecated</span>}
+          {l.withdrawn && <span className="badge" title={`${PRODUCT} no longer ships this workflow; this project keeps it until it unselects it`}>No longer shipped</span>}
           <span className="muted small">{l.runsCount > 0 ? `used ${l.runsCount}× here` : 'never used here'}</span>
         </span>
         <span className="muted small" style={{ display: 'block', marginTop: 4 }}>{l.description}</span>

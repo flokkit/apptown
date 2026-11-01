@@ -273,3 +273,23 @@ SELECT * FROM what_if_rows WHERE what_if_id=$1 ORDER BY project_slug,block,check
 -- The record people name by its number ("conformance review 9").
 -- name: ReviewIDByNumber :one
 SELECT id FROM conformance_reviews WHERE number = $1;
+
+-- Recorded facts for Attention, in one snapshot. Only currently adopted checks
+-- on the recorded main can establish problems; no Git read belongs in polling.
+-- name: CurrentProblemFacts :many
+SELECT sqlc.embed(v), p.name AS project_name, p.slug AS current_slug, m.sha AS current_sha,
+ EXISTS(SELECT 1 FROM conformance_adjudications a WHERE a.verdict_id=v.id AND a.kind='confirmed') AS confirmed,
+ EXISTS(SELECT 1 FROM dispositions d WHERE d.id::text = (NULLIF(v.excepted_by,'')::jsonb->>'id') AND (d.expires_at IS NULL OR d.expires_at > sqlc.arg(at)::timestamptz)) AS exception_active
+FROM conformance_verdicts v
+JOIN projects p ON p.id=v.project_id AND p.purpose='ordinary'
+JOIN project_main m ON m.project_id=p.id AND m.branch=p.default_branch
+WHERE v.id IN (SELECT DISTINCT ON (project_id, block, version, check_name) id
+ FROM conformance_verdicts WHERE project_id=ANY(sqlc.arg(projects)::uuid[])
+ ORDER BY project_id, block, version, check_name, id DESC)
+AND EXISTS (
+ SELECT 1 FROM guidance_imports i JOIN guidance_blocks b ON b.id=i.block_id
+ JOIN guidance_block_versions bv ON bv.block_id=b.id AND bv.version=i.version
+ WHERE i.project_id=p.id AND NOT i.disabled AND b.name=v.block AND i.version=v.version
+ AND EXISTS(SELECT 1 FROM jsonb_array_elements(bv.checks_json) c WHERE c->>'name'=v.check_name)
+)
+ORDER BY p.slug, v.id;

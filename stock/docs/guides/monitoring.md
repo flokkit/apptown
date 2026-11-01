@@ -22,3 +22,22 @@ Docs:
 - [Package registries and mirrors](../integrations/registry-registry.admin.md), and the container registries releases are published to.
 - [Error reporting](../integrations/errors-glitchtip.admin.md).
 - [Scanners](../integrations/scanner-tool.admin.md).
+
+
+## Read status and Attention
+
+The header reports items to fix and sources not known separately. Open Attention
+for named links grouped into hosts and deployments, backups, integrations and
+app checks. Each unknown reading gives its reason and a next step. Only a failed
+status is red; an old usable reading shows when it was last seen.
+
+Infrastructure shows resource presence, health where it applies, and recorded
+ownership separately. An overcommit warning states the app limits requested and
+the host total. Unreadable memory use names the missing measurement and points
+to host diagnostics; it does not establish that the host lacks memory.
+
+Integrations show the last check's age and result. A connection that is unused
+and unconfigured says not set up. Ask an administrator to set it up when needed,
+or to repair and test a failed connection. Security reports that cannot be read
+leave checks incomplete; open a change to re-run the scan, or ask someone with
+permission to open one. Parser diagnostics are under Technical details.

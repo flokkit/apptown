@@ -31,7 +31,7 @@ export const PAGE_HELP = {
         <li><strong>Guidance:</strong> instructions the coding agents read.</li>
         <li><strong>Policies:</strong> rules every change has to pass.</li>
       </ul>
-      <p>New projects start from a pack. Packs marked <span className="chip">{PRODUCT}</span> come with {PRODUCT}. To change one, make your own pack based on it.</p>
+      <p>New projects start from a pack. Packs marked <span className="badge">{PRODUCT}</span> come with {PRODUCT}. To change one, make your own pack based on it.</p>
     </>,
     guide: 'packs-and-what-if',
   },

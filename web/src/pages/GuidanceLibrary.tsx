@@ -32,7 +32,7 @@ function GeneratedGuidance() {
         <div key={g.name} className="card" style={{ borderStyle: 'dashed' }}>
           <div className="row">
             <strong>{g.name}</strong>
-            <span className="chip" title={g.always ? 'in every agent step' : 'only in some steps · the note says which'}>{g.always ? 'every step' : 'some steps'}</span>
+            <span className="badge" title={g.always ? 'in every agent step' : 'only in some steps · the note says which'}>{g.always ? 'every step' : 'some steps'}</span>
             <span className="muted small" title={sizeTitle(g.bytes)}>{fmtSize(g.bytes)}</span>
             <span className="muted small">from {g.source}</span>
             <span style={{ flex: 1 }} />
@@ -103,7 +103,7 @@ export default function GuidanceLibrary() {
         <thead><tr><th>Guidance</th><th>Summary</th></tr></thead>
         <tbody>
           {shown.slice(0, limit).map((b) => <tr key={b.id}>
-            <td className="stack-lead"><Link className="tap-open" to={`/guidance/${b.id}`}>{b.name.split('/').at(-1)!.replaceAll('-', ' ')}</Link>{b.origin !== 'stock' && <span className="chip">Custom</span>}</td>
+            <td className="stack-lead"><Link className="tap-open" to={`/guidance/${b.id}`}>{b.name.split('/').at(-1)!.replaceAll('-', ' ')}</Link>{b.origin !== 'stock' && <span className="badge">Custom</span>}</td>
             <td><details><summary>Summary</summary><p className="guidance-summary">{b.summary || 'No text yet'}</p></details></td>
           </tr>)}
         </tbody>

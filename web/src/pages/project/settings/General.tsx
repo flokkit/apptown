@@ -33,7 +33,7 @@ export function DangerZone({ slug }: { slug: string }) {
     const stopped = !!st.stalled || !!st.bindingRevoked
     return (
       <div className="card tone-bad" style={{ marginTop: 28 }}>
-        <div className="row"><strong>Deleting</strong> <span className="chip pending">{stopped ? 'stopped' : 'in progress'}</span></div>
+        <div className="row"><strong>Deleting</strong> <span className="badge">{stopped ? 'stopped' : 'in progress'}</span></div>
         <table className="kv" style={{ marginTop: 8 }}>
           <tbody>
             {row('Asked', <>{st.requestedAt ? fmtStamp(st.requestedAt) : ''} by {st.requestedBy}</>)}
@@ -56,7 +56,7 @@ export function DangerZone({ slug }: { slug: string }) {
     const purging = !!st.purgeStartedAt
     return (
       <div className="card tone-bad" style={{ marginTop: 28 }}>
-        <div className="row"><strong>Deleted</strong> <span className="chip fail">{purging ? 'purging' : 'kept'}</span></div>
+        <div className="row"><strong>Deleted</strong> <span className="badge">{purging ? 'purging' : 'kept'}</span></div>
         <table className="kv" style={{ marginTop: 8 }}>
           <tbody>
             {row('Deleted', <>{st.deletedAt ? fmtDay(st.deletedAt) : ''} by {st.requestedBy}</>)}
@@ -307,7 +307,7 @@ export function RepoCard({ slug }: { slug: string }) {
       </div>
       <details><summary>Repository details</summary>
       <div className="row">
-        <span className="chip">{data.repo.defaultBranch}</span>
+        <span className="badge">{data.repo.defaultBranch}</span>
         <span className="muted small">{data.repo.commits} commits</span>
         {data.repo.webUrl && <a href={data.repo.webUrl} target="_blank" rel="noreferrer">GitLab ↗</a>}
         <span style={{ flex: 1 }} />

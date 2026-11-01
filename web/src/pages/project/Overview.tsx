@@ -228,7 +228,7 @@ export function ReleaseRows({ slug, releases }: { slug: string; releases: Releas
         <div className="card">
           <div className="row">
             <strong>Releases</strong>
-            {live && <span className="chip pass">{live.deployment === 'lan' ? '🏢 ' : ''}live: #{live.number}</span>}
+            {live && <span className="badge">{live.deployment === 'lan' ? '🏢 ' : ''}live: #{live.number}</span>}
             <span className="row" style={{ gap: 6 }}>
               {releases.slice(0, 5).map((r) => (
                 <button key={r.number} className="subtle" title="Open this release"

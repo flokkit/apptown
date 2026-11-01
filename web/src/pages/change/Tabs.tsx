@@ -1,5 +1,5 @@
 import { GlanceRow } from '../../GlanceRow'
-import { Status, STATUS_LIGHT } from '../../Status'
+import { Status } from '../../Status'
 import { PRODUCT } from '../../brand'
 import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -82,7 +82,7 @@ function RunWork({ view, detail, reload, focusStep, deciding }: { view: ChangeVi
     <div>
       <div className="row">
 <h3 style={{ margin: 0 }}>{running ? 'Current work' : 'Finished work'}</h3>
-        <Status word={running && isLatest ? view.statusLabel : run.statusLabel} tone={STATUS_LIGHT[running && isLatest ? view.statusLabel : run.statusLabel]} />
+        <Status word={running && isLatest ? view.statusLabel : run.statusLabel} />
         <details><summary>Run details</summary>{run.workflowName} · version {run.workflowVersion} · run {run.number} · started {fmtStamp(run.createdAt)}</details>
       </div>
       <details><summary>Stages</summary><div className="stagebar">
@@ -117,7 +117,7 @@ function RunWork({ view, detail, reload, focusStep, deciding }: { view: ChangeVi
         {detail.artifacts.map((a) => (
           <div className="card" key={a.id}>
             <div className="row">
-              <span className="chip">{a.kind === 'agent-reported' ? `reported by the agent (not checked by ${PRODUCT})` : a.kind}</span>
+              <span className="badge">{a.kind === 'agent-reported' ? `reported by the agent (not checked by ${PRODUCT})` : a.kind}</span>
               <strong>{a.name || '(unnamed)'}</strong>
               {a.ref && <a href={a.ref} target="_blank" rel="noreferrer">{a.ref}</a>}
               {a.body && <span className="muted small">{a.body.length.toLocaleString()} chars</span>}
@@ -169,7 +169,7 @@ function AdrLinks({ view, onChange }: { view: ChangeView; onChange: () => void }
     <div>
       {view.adrs.map((a) => (
         <div className="card row" key={a.id}>
-          <Status word={a.statusLabel} tone={STATUS_LIGHT[a.statusLabel]} help={`Decision: ${a.status}.`} />
+          <Status word={a.statusLabel} help={`Decision: ${a.status}.`} />
           <Link to={`/adrs/${a.id}`}>ADR-{String(a.number).padStart(3, '0')} {a.title}</Link>
           <span className="muted small">{a.tags}</span>
         </div>
@@ -255,7 +255,7 @@ export function ReleasesTab({ view }: { view: ChangeView }) {
           <div key={r.number} className="row" style={{ marginBottom: 4 }}>
             <Link to={`/projects/${view.projectSlug}/releases/${r.number}`}>Release #{r.number}</Link>
             <span className="muted small">to {r.deployment} · {r.statusLabel}</span>
-            {r.serving && <span className="chip pass">running now</span>}
+            {r.serving && <Status word="running" />}
             {!r.serving && r.observed && <span className="muted small" title={r.reason}>
               {r.observed === 'stopped' ? 'stopped' : r.observed === 'missing' ? 'its container is missing' : `running: ${r.observed}`}
             </span>}
@@ -297,7 +297,7 @@ export function HistoryTab({ view, runHref }: { view: ChangeView; runHref: (runI
                   <td><Link className="tap-open" to={runHref(r.id!)} title={`started ${fmtStamp(r.createdAt)}`}>{r.role === 'landing' ? 'Landing' : 'Work'} · {fmtStamp(r.createdAt)}</Link></td>
 <td><details><summary>Workflow details</summary>{r.workflowName}</details></td>
                   <td className="muted">{r.role ?? ''}</td>
-                  <td><Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} /></td>
+                  <td><Status word={r.statusLabel} /></td>
                   <td className="muted small">{fmtStamp(r.updatedAt)}</td>
                 </GlanceRow>
               ))}

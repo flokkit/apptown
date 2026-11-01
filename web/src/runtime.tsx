@@ -9,7 +9,7 @@ export type RuntimeObservation = Pick<ActivityDeployment, 'observation' | 'obser
 
 // Exhaustive against the generated server vocabulary. Classification belongs
 // to the deployment owner, including expired samples and reachability.
-export const RUNTIME_LIGHT: Record<RuntimeState, string> = STATUS_LIGHT
+export const RUNTIME_LIGHT: Record<RuntimeState, string> = { ...STATUS_LIGHT, running: 'pass' }
 
 export function runtimeDescription(o: RuntimeObservation): string {
   if (o.observation === 'unreachable') return `${PRODUCT} can't reach ${o.targetName || 'the deployment host'}${o.unreachableSince ? ` since ${fmtStamp(o.unreachableSince)}` : ''}. The app may still be running.`
@@ -30,7 +30,7 @@ export function checkedWords(o: Pick<RuntimeObservation, 'observedAt' | 'observa
 }
 
 export function RuntimeStatus({ observation }: { observation: RuntimeObservation }) {
-  return <Status word={observation.observation} tone={runtimeChip(observation)} help={runtimeDescription(observation)} />
+  return <Status observation word={observation.observation} staleAt={observation.observationStale && observation.observation !== 'unknown' ? observation.observedAt : undefined} help={runtimeDescription(observation)} />
 }
 
 // AppAddress: where an app answers, as a link, unless AppTown says the

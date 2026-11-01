@@ -119,6 +119,8 @@ export type AttachmentList = {
 }
 
 export type AttentionCoverage = {
+  href: string
+  nextStep: string
   reason?: string
   key: string
   name: string
@@ -128,6 +130,7 @@ export type AttentionCoverage = {
 }
 
 export type AttentionItem = {
+  count?: number
   statusLabel: AttentionLabel
   severity: string
   key: string
@@ -868,6 +871,10 @@ export type IntegrationField = {
 }
 
 export type IntegrationHealth = {
+  automatic: boolean
+  manual?: boolean
+  lastResult?: HealthStatus
+  stale?: boolean
   stateLabel: HealthStatus
   ok: boolean
   detail: string
@@ -2304,7 +2311,7 @@ export type AttachmentView = {
   wire?: IntegrationWire | null
 }
 
-export type AttentionLabel = "unknown" | "waiting"
+export type AttentionLabel = "unknown" | "waiting" | "low"
 
 export type Token = {
   Name: string
@@ -2479,7 +2486,7 @@ export type CommittedComparison = {
   shipped?: ShippedComparison | null
 }
 
-export type DisplayStatus = "unknown" | "working" | "waiting" | "failed" | "stopped" | "landed" | "finished" | "waiting for you" | "waiting for checks" | "passed" | "excepted" | "not applicable" | "none"
+export type DisplayStatus = "unknown" | "working" | "waiting" | "failed" | "stopped" | "landed" | "finished" | "waiting for you" | "waiting for checks" | "passed" | "excepted" | "not applicable" | "none" | "abandoned"
 
 export type ChangeUsage = {
   total: number
@@ -3016,6 +3023,7 @@ export type HostShare = {
   error?: string
   target: string
   elastic: boolean
+  requested?: Figure | null
   hostMemory: Figure
   declared: Figure
   used: Figure
@@ -3073,6 +3081,7 @@ export type DevStaticBuild = {
 }
 
 export type Reading = {
+  stale?: boolean
   failedAt?: string
   error?: string
   totalReadAt?: string
@@ -4383,6 +4392,7 @@ export type AddsLine = {
 }
 
 export type IntegrationWire = {
+  statusLabel: DisplayStatus
   changeId: string | null
   changeNumber: number
   state: string
@@ -4573,6 +4583,7 @@ export type CopyRef = {
 }
 
 export type NativeBackups = {
+  stale?: boolean
   attemptedAt?: string
   failedAt?: string
   failure?: string

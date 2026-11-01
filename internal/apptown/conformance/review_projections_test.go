@@ -3,10 +3,12 @@ package conformance
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/conformance/internal/conformancesql"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
@@ -417,5 +419,42 @@ func TestReviewDeltaOverComparableProjects(t *testing.T) {
 	}
 	if len(hist) != 3 || hist[0].Findings != 1 || hist[1].Findings != 0 || hist[2].Standing != StandingConforms {
 		t.Fatalf("beta history should read open, fixed, conforms: %+v", hist)
+	}
+}
+
+// Recorded main is a stored fixture because this test source has no Git hub to
+// pass to SCM.RecordMain. Runtime writes still belong exclusively to SCM.
+func TestCurrentViewDropsProblemsAfterRecordedMainChangesWithoutReadingGit(t *testing.T) {
+	t.Parallel()
+	f := newProjectionFixture(t)
+	id := f.project(t, "calendar", "hygiene", 1, noFixme)
+	other := f.project(t, "unrelated", "hygiene", 1, noFixme)
+	f.review(t, caller("t"), "manual", nil, outcomes(map[string]Outcome{"calendar": DoesNotConform, "unrelated": DoesNotConform}))
+	for _, p := range []ids.ID{id, other} {
+		// sql-guarantee: synthetic source heads have no Git hub or real commit for SCM.RecordMain.
+		if _, err := f.db.SQL().ExecContext(t.Context(), `INSERT INTO project_main(project_id,branch,sha,via,recorded_at) VALUES($1,'main',$2,'seed',now())`, p, f.source.heads[p]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// An unusable Git source proves the polling read only consumes stored facts.
+	f.source.heads = nil
+	ps, err := f.service.CurrentView(caller("t"), []ids.ID{id})
+	if err != nil || len(ps) != 1 || ps[0].Slug != "calendar" || ps[0].Lanes.Findings != 1 {
+		t.Fatalf("current: %+v %v", ps, err)
+	}
+	// sql-guarantee: move the synthetic recorded head while the Git source is unavailable.
+	if _, err := f.db.SQL().ExecContext(t.Context(), `UPDATE project_main SET sha='calendar-2' WHERE project_id=$1`, id); err != nil {
+		t.Fatal(err)
+	}
+	ps, err = f.service.CurrentView(caller("t"), []ids.ID{id, other})
+	if err == nil {
+		sort.Slice(ps, func(i, j int) bool { return ps[i].Slug < ps[j].Slug })
+	}
+	if err != nil || len(ps) != 2 || ps[0].Lanes.Findings != 0 || ps[0].Lanes.Unassessed != 1 || ps[1].Lanes.Findings != 1 {
+		t.Fatalf("changed: %+v %v", ps, err)
+	}
+	counted := &countedQueries{Handle: f.db.SQL()}
+	if _, err := queries(counted).CurrentProblemFacts(t.Context(), conformancesql.CurrentProblemFactsParams{Projects: []ids.ID{id, other}, At: f.clock.now()}); err != nil || counted.reads != 1 {
+		t.Fatalf("reads=%d %v", counted.reads, err)
 	}
 }

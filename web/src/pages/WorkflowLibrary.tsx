@@ -110,7 +110,7 @@ spec:
           <div className="row">
             <strong>{l.name}</strong>
             <OriginChip origin={l.origin} />
-            <span className="chip">v{l.latestVersion}</span>
+            <span className="badge">v{l.latestVersion}</span>
 
             <span style={{ flex: 1 }} />
             {l.origin !== 'stock' && <>
@@ -127,7 +127,7 @@ spec:
                   <option value="">{l.name} (stock)</option>
                   {bindings.candidates.map((c) => <option key={c} value={c}>{c} (yours)</option>)}
                 </select>
-                {b.custom && <span className="chip pass">custom</span>}
+                {b.custom && <span className="badge">custom</span>}
                 <details><summary>Custom workflow</summary>A custom workflow must declare <code>system: true</code>.</details>
               </div>
             )

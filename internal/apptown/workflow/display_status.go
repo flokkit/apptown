@@ -17,7 +17,7 @@ func (s ActivityState) Display() status.DisplayStatus {
 	case ActivityBlocked:
 		return status.DisplayFailed
 	case ActivityAbandoned:
-		return status.DisplayStopped
+		return status.DisplayAbandoned
 	case ActivityDone:
 		return status.DisplayFinished
 	default:
@@ -29,7 +29,7 @@ func (s ActivityState) Display() status.DisplayStatus {
 // same label is shown to every reader; approval eligibility is a separate fact.
 func (c *Change) Display(run *RunSnapshot) status.DisplayStatus {
 	if c.State == ChangeAbandoned {
-		return status.DisplayStopped
+		return status.DisplayAbandoned
 	}
 	if c.State == ChangeShipped {
 		if c.ClosedAs != closedRecord && (c.LandedSHA != "" || c.ClosedAs == ClosedShippedWith) {
@@ -44,7 +44,7 @@ func (c *Change) Display(run *RunSnapshot) status.DisplayStatus {
 		return status.DisplayWaiting
 	}
 	if run.Run.Status == RunAbandoned {
-		return status.DisplayStopped
+		return status.DisplayAbandoned
 	}
 	if run.Run.Status == RunDone {
 		return status.DisplayWaiting
@@ -111,7 +111,7 @@ func (s RunState) display() status.DisplayStatus {
 	case RunDone:
 		return status.DisplayFinished
 	case RunAbandoned:
-		return status.DisplayStopped
+		return status.DisplayAbandoned
 	default:
 		return status.DisplayUnknown
 	}

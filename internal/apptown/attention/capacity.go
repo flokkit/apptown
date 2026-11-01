@@ -55,6 +55,7 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 			label = target.Name
 		}
 		href := "/infrastructure/" + url.PathEscape(target.Name)
+		out.Coverage = append(out.Coverage, Coverage{Key: target.ID.String(), Name: label, Href: href, Unknown: reading.Unknown || readErr != nil, Stale: reading.Stale, ObservedAt: reading.ObservedAt, Reason: reading.Reason, NextStep: "Open host diagnostics. An administrator can check its connection and supported measurements."})
 		disk := reading.Disk
 		// A queued first check is incomplete coverage, not an actionable failure.
 		if reading.AttemptedAt.IsZero() && reading.ObservedAt.IsZero() && disk == nil && readErr == nil {
@@ -98,7 +99,7 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 				detail += " " + capacityAdmission(target.Kind)
 			}
 		}
-		out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: target.ID.String() + "/disk", Title: title, Detail: detail, Href: href, ObservedAt: disk.ReadAt, Stale: diskStale})
+		out.Items = append(out.Items, Item{StatusLabel: labelLow, Severity: SeverityWarning, Key: target.ID.String() + "/disk", Title: title, Detail: detail, Href: href, ObservedAt: disk.ReadAt, Stale: diskStale})
 	}
 	return out, nil
 }

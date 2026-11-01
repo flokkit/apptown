@@ -1,3 +1,4 @@
+import { fmtWhen } from '../format'
 import { Status, STATUS_LIGHT } from '../Status'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -86,10 +87,10 @@ export default function AdrPage() {
       </div>
       <div className="row">
         <h1 style={{ marginBottom: 0 }}>ADR-{String(adr.number).padStart(3, '0')} — {adr.title}</h1>
-        <Status word={adr.statusLabel} tone={STATUS_LIGHT[adr.statusLabel]} help={`Decision: ${adr.status}.`} />
+        <Status word={adr.statusLabel} help={`Decision: ${adr.status}.`} />
       </div>
       <div className="muted small" style={{ marginBottom: 12 }}>
-        tags: {adr.tags || '—'} · updated {adr.updatedAt.slice(0, 10)}
+        tags: {adr.tags || '—'} · updated {fmtWhen(adr.updatedAt)}
         {adr.changeId && <> · linked to <Link to={`/changes/${adr.changeId}`}>{adr.changeNumber ? `change ${adr.changeNumber}` : 'a change'}</Link></>}
         {adr.supersedesId && <> · supersedes <Link to={`/adrs/${adr.supersedesId}`}>ADR</Link></>}
         {supersededBy && <> · superseded by <Link to={`/adrs/${supersededBy}`}>ADR</Link></>}

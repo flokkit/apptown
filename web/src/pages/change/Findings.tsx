@@ -1,3 +1,4 @@
+import { Status } from '../../Status'
 import { useCallback } from 'react'
 import { FindingsTable } from '../../FindingsTable'
 import { useGet } from '../../data'
@@ -19,7 +20,7 @@ export function RunFindings({ runId, onChange }: { runId: string; onChange: () =
       <StaleNote q={q} />
       {unread.map((u) => (
         <div key={`${u.kind}:${u.name}`} className="small" style={{ marginBottom: 6 }}>
-          <span className="chip unknown">not read</span> <code>{u.name}</code>: {u.reason}
+          <Status word="unknown" help="This report could not be read. Re-run its scan in a change, or ask a project member with permission to do so." /> <code>{u.name}</code>: {u.reason}
         </div>
       ))}
       {unread.length > 0 && data.findings.length === 0

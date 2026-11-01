@@ -45,19 +45,24 @@ these displays; pages reuse them. First-read failures show `unknown`, with the r
 disclosure. Initial reads show `Loading…` without a status light. A
 browser-to-AppTown failure never establishes a deployment host's reachability. Offline is stated once at the top of the page.
 
-Runtime display words come from the deployment owner, including `unreachable`,
-the target display name and the first failure time. Expired runtime evidence is
-`unknown`. `web/src/Status.tsx` maps server display words to existing light tokens;
-the generated union types and completeness test cover each label. Change,
-integration-health, check, release, update, copy, job and inventory display labels
-come from their owners too. Backup sets, operations, data coverage, step evidence, remediation and what-if results expose owner labels as well. Runs, evals, deployment readiness, restore checks, managed needs, decisions and suppression expiry also use owner labels. Preview discovery alone reports `unknown`. `running` describes runtime; work uses `working` and
-a release in progress uses `deploying`. Waiting labels name the awaited party only when known; saved changes and queued work use `waiting`.
+Owners supply typed recorded outcomes and freshness classifications. Health and
+observation chips use the shared [status vocabulary](../../stock/docs/guides/glossary.md#status-words).
+Work and evidence retain their own words and colours: waiting for you, in progress,
+deploying, landed, passed, excepted, stopped, abandoned and update available.
+Only Status assigns chip wording and colour; pages supply reasons and reading
+times. Metadata labels (ownership, version, source and finding counts) remain
+separate from status chips. Unknown is dashed. Old observations are amber and
+show `last seen <age>`; fresh readings show `checked <age>`. Integration chips
+carry state while adjacent text carries age once. The server classifies fresh,
+old and unknown; the browser formats ages without duplicating expiry thresholds.
+Low disk is an amber warning. An exception remains excepted.
 The word stays visible. Reasons and check times use a disclosure that opens with
 a tap, click or keyboard. Help opens beside its chip, stays within the viewport and does not resize the table. Only one status help is open at a time; tapping outside or pressing Escape closes it. Static chips are not live regions. A completed backup remains finished when its old
 stored copy is pruned. A guidance/conformance step with unmet blocking rules displays failed even when
 the gate permits existing failures; its recorded gate outcome stays unchanged.
 Checks marked non-gating remain advisory and do not change a passing step’s
-state. An omitted gating flag means blocking. Script and scan steps retain
+state. A tests step with no reported test count shows an explicit unknown marker
+with the reason, including on a folded card. An omitted gating flag means blocking. Script and scan steps retain
 their recorded outcome.
 Security results from before a change to main cannot claim main has passed.
 
@@ -65,6 +70,8 @@ The authorization response exposes `actorId` only for a verified person with a
 stable principal UUID. The display user name is not a durable identity. An absent
 actor ID supplies no identity for recovering a retained personal draft; capability
 checks remain separate and current.
+
+Event timestamps use `fmtStamp` (also exposed as `fmtWhen`) in `web/src/format.ts`: `30 Oct, 17:26` in the reader's own zone. Freshness uses relative ages. Pages do not slice server timestamps for display.
 
 ## Editors
 

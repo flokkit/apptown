@@ -45,9 +45,31 @@ it('states a clean old scan and changed main together without claiming main pass
     sources: [source], findings: [], summary: { actionable: 0 }, repo: { stale: true }, statusLabel: 'unknown',
   })
   const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><FindingsTab slug="game" /></QueryClientProvider></MemoryRouter>)
-  expect(html).toContain('Scan out of date')
+  expect(html).toContain('Main changed since the last scan.')
   expect(html).toContain('No problems found in the last scan; main has changed since.')
   expect(html).not.toContain('Not scanned since main changed.')
   expect(html).not.toContain('chip pass')
   client.clear()
+})
+
+it('leads unreadable scans with a plain consequence and a next action, keeping diagnostics in details', () => {
+ const client=newQueryClient()
+ client.setQueryData(getKey('/projects/game/findings'), {sources:[{...source, unreadable:'SARIF parse: invalid character'}],findings:[],summary:{actionable:0},repo:{},statusLabel:'unknown'})
+ const html=renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><FindingsTab slug="game"/></QueryClientProvider></MemoryRouter>)
+ expect(html).toContain("One scan report couldn&#x27;t be read; security checks are incomplete.")
+ expect(html).toContain('Ask a project member with permission to open a change to re-run the scan.')
+ expect(html).toMatch(/<summary>Technical details<\/summary>[\s\S]*SARIF parse/)
+ expect(html.slice(0,html.indexOf('<details'))).not.toContain('SARIF parse')
+ client.clear()
+})
+
+
+it('offers the scan action to a viewer who may open a change', () => {
+ const client=newQueryClient()
+ client.setQueryData(getKey('/authz/me?project=game'),{project:{'change:create':true}})
+ client.setQueryData(getKey('/projects/game/findings'),{sources:[{...source,unreadable:'SARIF parse failed'}],findings:[],summary:{actionable:0},repo:{},statusLabel:'unknown'})
+ const html=renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><FindingsTab slug="game"/></QueryClientProvider></MemoryRouter>)
+ expect(html).toMatch(/<a[^>]*href="\/projects\/game"[^>]*>Open a change to re-run the scan<\/a>/)
+ expect(html).not.toContain('Ask a project member')
+ client.clear()
 })

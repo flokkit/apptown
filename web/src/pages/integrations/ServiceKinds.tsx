@@ -1,3 +1,4 @@
+import { Status } from '../../Status'
 import { useState } from 'react'
 import { del, post } from '../../api'
 import { QuietConfirm } from '../../QuietConfirm'
@@ -59,8 +60,8 @@ export function ServiceKindsPanel() {
         <div key={k.capability} className="card">
           <div className="row">
             <strong>{k.title}</strong>
-            <span className="chip">{k.capability}</span>
-            {k.error && <span className="chip fail" title={k.error}>invalid</span>}
+            <span className="badge">{k.capability}</span>
+            {k.error && <Status word="failed" help={`${k.error} Correct this service kind definition.`} />}
             <span style={{ flex: 1 }} />
             <button className="subtle" onClick={() => setEditing(k.yaml)}>Edit</button>
             <QuietConfirm label="Delete" ask={`Delete service kind "${k.capability}"?`} onYes={() => void remove(k.capability)} />

@@ -1,4 +1,4 @@
-import { Status, STATUS_LIGHT } from '../../../Status'
+import { Status } from '../../../Status'
 import { FormEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Adr, post } from '../../../api'
@@ -27,7 +27,7 @@ export function AdrsTab({ slug }: { slug: string }) {
             <tr key={a.id}>
               <td>ADR-{String(a.number).padStart(3, '0')}</td>
               <td><Link to={`/adrs/${a.id}`}>{a.title}</Link></td>
-              <td><Status word={a.statusLabel} tone={STATUS_LIGHT[a.statusLabel]} help={`Decision: ${a.status}.`} /></td>
+              <td><Status word={a.statusLabel} help={`Decision: ${a.status}.`} /></td>
               <td className="muted">{a.tags}</td>
             </tr>
           ))}

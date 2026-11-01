@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { homeFinished, homeSections, homeStatus, type Activity } from './Dashboard'
 
-it.each([true, false])('summarizes counted host issues once when coverage is known: %s', known => {
+it.each([true, false])('summarizes counted to fix once when coverage is known: %s', known => {
   expect(homeStatus({ operations: { count: 8, known }, needsYou: 3, running: 0, deployments: [] }))
-    .toBe('3 needs you · 8 host issues')
+    .toBe('3 needs you · 8 to fix')
 })
 
 type Dep = Activity['deployments'][number]

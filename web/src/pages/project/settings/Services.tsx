@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChangeState, HttpError, del, post } from '../../../api'
-import { chipFor } from '../../../states'
+import { HttpError, del, post } from '../../../api'
+import { Status } from '../../../Status'
 import { FieldRow } from '../../../FieldRow'
 import { QuietConfirm } from '../../../QuietConfirm'
 import { useAction, useGet } from '../../../data'
@@ -225,10 +225,7 @@ export function ServicesTab({ slug }: { slug: string }) {
 // plugs into. Linked = resource provisioned via a connector; direct =
 // resource fields entered (secret NAMES, never values). Contributions (env
 // into app containers, agent steering) follow the integration either way.
-// The server sends the wiring change's state as its word; it is a ChangeState.
-export type ProjIntegration = Omit<AttachmentView, 'wire'> & {
-  wire?: { changeId: string | null; changeNumber: number; state: ChangeState; stateLabel: string; title: string } | null
-}
+export type ProjIntegration = AttachmentView
 
 export const INTEG_ICON: Record<string, string> = {
   errors: '🚨', feedback: '💬', telemetry: '📡', sso: '🔐', 'container-registry': '📦',
@@ -303,7 +300,7 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="row" style={{ gap: 8 }}>
                 <strong style={{ fontSize: 'var(--fs-md)' }}>{i.title}</strong>
-                <span className={`chip ${i.provenance === 'provisioned' ? 'pass' : ''}`}
+                <span className="badge"
                   title={i.provenance === 'provisioned' ? `provisioned via connector ${i.connector}`
                     : i.connector ? `configured from connector ${i.connector}; nothing provisioned` : 'resource entered directly'}>
                   {i.provenance === 'provisioned' ? `linked · ${i.connector}` : i.connector ? `via ${i.connector}` : 'direct'}
@@ -331,11 +328,11 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
           ) : i.wirable && (
             <div className="row" style={{ marginTop: 12, gap: 8 }}>
               {i.wire ? (
-                <Link to={`/changes/${i.wire.changeId}`} className={`chip ${chipFor(i.wire.state)}`} title={i.wire.title}>
-                  {i.wire.state === 'shipped' ? '✓ wired in' : i.wire.state === 'abandoned' ? 'wiring abandoned' : `wiring · change ${i.wire.changeNumber} · ${i.wire.stateLabel}`}
+                <Link to={`/changes/${i.wire.changeId}`} className="row small" title={i.wire.title}>
+                  <Status word={i.wire.statusLabel} help={i.wire.title} /> wiring · change {i.wire.changeNumber}
                 </Link>
               ) : (
-                <span className="chip pending">not wired in yet</span>
+                <span className="badge">not wired in yet</span>
               )}
               {i.capability === 'errors' && (
                 last

@@ -55,10 +55,10 @@ describe('how a cloud deployment\'s data is protected, in words', () => {
 })
 
 it('keeps a known native backup reading and its age visible after a failed provider check', () => {
- const line=nativeLine(item({native:{mechanism:'do-database-backups',count:2,oldest:'2026-10-01T06:10:00Z',newest:'2026-10-07T06:10:00Z',readAt:new Date(Date.now()-40*60000).toISOString(),checkFailed:true,failure:'Provider unavailable'}}))
+ const line=nativeLine(item({native:{mechanism:'do-database-backups',count:2,oldest:'2026-10-01T06:10:00Z',newest:'2026-10-07T06:10:00Z',readAt:new Date(Date.now()-40*60000).toISOString(),stale:true,checkFailed:true,failure:'Provider unavailable'}}))
  expect(line).toContain('oldest')
  expect(line).toContain('newest')
- expect(line).toContain('last seen 40 min ago')
+ expect(line).toContain('last seen 40m ago')
  expect(line).toContain('Provider backup check failed: Provider unavailable')
  expect(line).not.toContain('unknown')
 })

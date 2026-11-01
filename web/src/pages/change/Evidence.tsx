@@ -1,4 +1,4 @@
-import { Status, STATUS_LIGHT } from '../../Status'
+import { Status } from '../../Status'
 import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -286,7 +286,7 @@ export function Evidence({ view, runs, workTab, extraErr }: {
             <div key={run.id} className="ch-ledger-group">
               <div className="ch-ledger-head">
                 <strong>{role === 'landing' ? 'Landing' : role === 'working' || role === 'record' ? 'Work' : 'Run'}</strong>
-                {run.status !== 'running' && <Status word={run.statusLabel} tone={STATUS_LIGHT[run.statusLabel]} />}
+                {run.status !== 'running' && <Status word={run.statusLabel} />}
               </div>
               {steps.length === 0 && <div className="ch-line"><span className="muted">No steps recorded.</span></div>}
               {clean
@@ -298,29 +298,29 @@ export function Evidence({ view, runs, workTab, extraErr }: {
             </div>
           )
         })}
-        {extraErr && <div className="ch-line"><Status word="unknown" tone={STATUS_LIGHT.unknown} /><span className="ch-line-what">The work this landing carries could not be read: {extraErr}</span></div>}
+        {extraErr && <div className="ch-line"><Status word="unknown" /><span className="ch-line-what">The work this landing carries could not be read: {extraErr}</span></div>}
         {proof && (proof.merged || proof.releases.length > 0 || view.change.state === 'shipped' || view.change.state === 'abandoned') && (
           <div className="ch-ledger-group">
             <div className="ch-ledger-head"><strong>Delivery</strong></div>
             {(proof.merged || proof.releases.length > 0) && <div className="ch-line">
-              <Status word={proof.mergeLabel} tone={STATUS_LIGHT[proof.mergeLabel]} />
+              <Status word={proof.mergeLabel} />
               <span className="ch-line-what"><span className="ch-line-title">Merge</span>
                 <span className="ch-line-sentence">{proof.merged ? 'The merge into main is recorded.' : 'No merge is recorded for this change.'}</span></span>
               <span className="ch-line-by" /><span className="ch-line-when" /><span />
             </div>}
             {proof.releases.map(r => (
               <div className="ch-line" key={r.number}>
-                <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} />
+                <Status word={r.statusLabel} />
                 <span className="ch-line-what"><span className="ch-line-title">Release #{r.number}</span>
                   <span className="ch-line-sentence">to {r.deployment}{r.serving ? '' : r.observed ? ` · ${observedWords(r.observed)}` : ''}{!r.serving && r.reason ? ` (${r.reason})` : ''}</span></span>
-                <span className="ch-line-by">{r.serving && <span className="chip pass">running now</span>}</span>
+                <span className="ch-line-by">{r.serving && <Status word="running" />}</span>
                 <span className="ch-line-when">{r.observed && checkedWords(r)}</span>
                 <Link className="ch-line-link" to={`/projects/${view.projectSlug}/releases/${r.number}`}>Details</Link>
               </div>
             ))}
             {proof.releases.length === 0 && (
               <div className="ch-line">
-                <span className="chip">none</span>
+                <span className="badge">none</span>
                 <span className="ch-line-what"><span className="ch-line-sentence">{proof.merged ? 'No release is recorded for this change.' : 'Not merged and not released.'}</span></span>
                 <span className="ch-line-by" /><span className="ch-line-when" /><span />
               </div>
@@ -340,7 +340,7 @@ function CleanRun({ receipts, to, noun = 'checks' }: { noun?: string; receipts: 
   return (
     <>
       <div className="ch-line">
-        <Status word="passed" tone="pass" />
+        <Status word="passed" />
         <span className="ch-line-what">
           <span className="ch-line-title">{receipts.length} {noun}, all passed</span>
           <span className="ch-line-sentence">{kinds.join(', ')}.</span>
@@ -360,7 +360,7 @@ function Line({ r, to }: { r: Receipt; to: string }) {
   return (
     <details className="ch-receipt" id={r.key}>
       <summary className="ch-line">
-        <span className="receipt-state"><Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} /></span>
+        <span className="receipt-state"><Status word={r.statusLabel} /></span>
         <span className="ch-line-what">
           <span className="ch-line-title">{r.title}</span>
           {r.brief && <span className="ch-line-sentence">{r.brief}</span>}

@@ -1,5 +1,5 @@
 import { GlanceRow } from '../GlanceRow'
-import { Status, STATUS_LIGHT } from '../Status'
+import { Status } from '../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { post } from '../api'
@@ -64,7 +64,7 @@ export function BackupsView() {
         <thead><tr><th>App</th><th>State</th><th>Taken</th><th></th></tr></thead>
         <tbody>{[...latest.values()].map(b => <GlanceRow key={b.id} name={0} state={1} fact={2} labels={['App', 'State', 'Taken', 'Actions']}>
           <td><Link to={`/projects/${b.project}`}>{b.project} · {b.deployment}</Link></td>
-          <td><Status word={b.statusLabel} tone={STATUS_LIGHT[b.statusLabel]} help={b.error || b.status} /></td>
+          <td><Status word={b.statusLabel} help={b.error || b.status} /></td>
           <td>{fmtWhen(b.takenAt)}</td>
           <td><details><summary>Actions and details</summary>
             <p>{b.deployment} · <KeptOn b={b} /> · {fmtBytes(b.bytes)}</p>
@@ -82,7 +82,7 @@ export function BackupsView() {
         <table className="stack small"><thead><tr><th>App</th><th>State</th><th>Taken</th><th>Details</th></tr></thead>
           <tbody>{data.backups.slice(0, historyCount).map(b => <GlanceRow key={b.id} name={0} state={1} fact={2} labels={['App', 'State', 'Taken', 'Details']}>
             <td>{b.project} · {b.deployment}</td>
-            <td><Status word={b.statusLabel} tone={STATUS_LIGHT[b.statusLabel]} help={b.error || (b.status === 'pruned' ? 'This old copy has been removed.' : b.status)} /></td>
+            <td><Status word={b.statusLabel} help={b.error || (b.status === 'pruned' ? 'This old copy has been removed.' : b.status)} /></td>
             <td>{fmtWhen(b.takenAt)}</td>
             <td>{b.deployment} · {b.trigger} · {b.actor}{b.status === 'pruned' ? <p>Copy removed</p> : <>
               <KeptOn b={b} /><details><summary>Location</summary><code>{setPlace(b, data.where)}</code></details>
@@ -101,11 +101,11 @@ export function BackupsView() {
 
 // itemBadge is how an item was copied, as a fact: a database's own dump, a
 // service's own copy, or files, which a running service may change mid-copy.
-function itemBadge(i: BackupItem): { text: string; tone: string } | null {
-  if (i.error) return { text: 'not copied', tone: 'fail' }
-  if (i.copy === 'declared') return { text: i.format ? 'database copy' : "service's own copy", tone: 'pass' }
-  if (i.copy === 'files') return { text: 'file copy, app stopped', tone: 'pass' }
-  if (i.copy === 'live-files') return { text: 'file copy · may be inconsistent', tone: 'pending' }
+function itemBadge(i: BackupItem): string | null {
+  if (i.error) return 'not copied'
+  if (i.copy === 'declared') return i.format ? 'database copy' : "service's own copy"
+  if (i.copy === 'files') return 'file copy, app stopped'
+  if (i.copy === 'live-files') return 'file copy · may be inconsistent'
   return null
 }
 
@@ -115,7 +115,7 @@ function Contents({ items }: { items: BackupItem[] }) {
     const badge = itemBadge(i)
     return (
       <div key={i.kind + i.name} title={i.error || i.how}>
-        {itemName(i)} {badge && <span className={`chip ${badge.tone}`}>{badge.text}</span>}
+        {itemName(i)} {badge && <span className="badge">{badge}</span>}
         {i.caveat && <details className="muted small"><summary>Limits</summary>{i.caveat}</details>}
       </div>
     )

@@ -1,4 +1,4 @@
-import { Status, STATUS_LIGHT } from '../../../Status'
+import { Status } from '../../../Status'
 import { DeploymentAddressEdit } from './DeploymentAddress'
 import { ReleaseDefaultPicker } from './ReleaseDefault'
 import { DisplayLabelEdit } from '../../../DisplayLabel'
@@ -114,15 +114,15 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
         <div>
           <div style={{ fontWeight: 700 }}>
             {e.displayLabel || e.name}
-            {e.protected && <span className="chip overridden" style={{ marginLeft: 8 }} title="reaches partners or the public, or holds production data · deploys need the release grant">protected</span>}
+            {e.protected && <span className="badge" style={{ marginLeft: 8 }} title="reaches partners or the public, or holds production data · deploys need the release grant">protected</span>}
           </div>
           <details><summary>Edit name</summary><DisplayLabelEdit value={e.displayLabel || e.name} machineKey={e.name} path={`/projects/${slug}/deployments/${e.id}/label`} onChanged={onChanged} /></details>
  <div className="muted small">{place}{e.target ? ` (${e.target.displayLabel || e.target.name})` : ''}</div>
         </div>
         <span className="row" style={{ gap: 6 }}>
           <RuntimeStatus observation={e} />
-          {e.readiness && e.readiness !== 'reconciled' && <Status word={e.readinessLabel} tone={STATUS_LIGHT[e.readinessLabel]} help={`Deployment: ${e.readiness}.`} />}
-          {e.restoreCheck && <Status word={e.restoreLabel} tone={STATUS_LIGHT[e.restoreLabel]} help={restoreCheckWords(e.restoreCheck)} />}
+          {e.readiness && e.readiness !== 'reconciled' && <Status word={e.readinessLabel} help={`Deployment: ${e.readiness}.`} />}
+          {e.restoreCheck && <Status word={e.restoreLabel} help={restoreCheckWords(e.restoreCheck)} />}
         </span>
       </div>
       <div className="small">
@@ -139,7 +139,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
             <span key={n.need} title={n.id ? `the provider's id: ${n.id}` : undefined} style={{ marginRight: 8 }}>
               {n.need} <b>{n.name}</b>
               <span className="muted"> {[n.region, n.version && (n.need === 'postgres' ? `pg ${n.version}` : n.version), n.size].filter(Boolean).join(' · ')}</span>
-              {n.status !== 'ready' && <Status word={n.statusLabel} tone={STATUS_LIGHT[n.statusLabel]} help={`Service: ${n.status}.`} />}
+              {n.status !== 'ready' && <Status word={n.statusLabel} help={`Service: ${n.status}.`} />}
             </span>
           ))}
           <Link className="small" to="/deployments/infrastructure">see the infrastructure</Link>
@@ -216,7 +216,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
 function DeploymentFact({ slug, env }: { slug: string; env: DeploymentView }) {
   const q = useGet<DeploymentResources>(env.generation ? `/projects/${slug}/deployments/${env.name}/resources` : null)
   const share = q.data?.share
-  const warning = share?.diskRefuses ? 'Free disk space before deploying' : share?.lowDisk ? 'Server is low on disk space' : share?.overcommitted ? 'Server is short on memory' : ''
+  const warning = share?.diskRefuses ? 'Free disk space before deploying' : share?.lowDisk ? 'Server is low on disk space' : share?.overcommitted && share.requested?.known && share.hostMemory.known ? `${fmtBytes(share.requested.value)} requested; host total ${fmtBytes(share.hostMemory.value)}` : ''
   return <span className="small muted">{warning && share ? <Link to={`/infrastructure/${share.target}`}>{warning}</Link>
     : env.url ? <AppAddress url={env.url} hostOnly={env.hostOnly}>Open app</AppAddress> : 'No address yet'}</span>
 }
@@ -330,8 +330,8 @@ export function RetainedRow({ slug, r, onChanged }: { slug: string; r: Retained;
       <td className="muted small" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(r.retainedAt)} by {r.retainedBy}</td>
       <td>
         {r.disposition === 'retained'
-          ? <span className="chip pending">still at the provider</span>
-          : <span className="chip">{r.disposition === 'released' ? 'deleted at the provider' : 'kept on purpose'}{r.settledBy ? ` · ${r.settledBy}` : ''}{r.note ? `: ${r.note}` : ''}</span>}
+          ? <span className="badge">still at the provider</span>
+          : <span className="badge">{r.disposition === 'released' ? 'deleted at the provider' : 'kept on purpose'}{r.settledBy ? ` · ${r.settledBy}` : ''}{r.note ? `: ${r.note}` : ''}</span>}
       </td>
       <td>
         {r.disposition === 'retained' && (
@@ -451,7 +451,7 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
             {choice.data.choosable.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         )}
-        {mine && r.recorded && mine.chosen !== r.profile && <span className="chip pending" style={{ marginLeft: 6 }} title="takes effect at the next deploy">next: {mine.chosen}</span>}
+        {mine && r.recorded && mine.chosen !== r.profile && <span className="badge" style={{ marginLeft: 6 }} title="takes effect at the next deploy">next: {mine.chosen}</span>}
       </div>
       <table className="small" style={{ marginTop: 2 }}>
         <thead><tr><th>part</th><th>memory</th><th>cpu</th><th>using now</th><th></th></tr></thead>
@@ -460,12 +460,12 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
             <tr key={p.part || 'app'}>
               <td>{p.part || 'app'}{p.public && p.part ? <span className="muted"> (front door)</span> : null}{p.need ? <span className="muted"> (service)</span> : null}{p.suppliedService ? <span className="muted"> (workflow service)</span> : null}</td>
               {/* 'forge' is AppTown's default as generations from before the AppTown rename recorded it. */}
-              <td>{p.memory}{p.size && <div className="muted">size {p.size}</div>}{p.memoryDefault && <div className="muted">{p.memoryDefault.kind === 'catalogue' ? `catalogue ${p.memoryDefault.name}` : (p.memoryDefault.kind === 'apptown' || p.memoryDefault.kind === 'forge') ? PRODUCT : p.memoryDefault.kind} default</div>}{p.memoryUnlimited && <span className="chip pending">explicit no limit</span>}{p.runsOn && <div className="muted">{p.runsOn}</div>}</td>
+              <td>{p.memory}{p.size && <div className="muted">size {p.size}</div>}{p.memoryDefault && <div className="muted">{p.memoryDefault.kind === 'catalogue' ? `catalogue ${p.memoryDefault.name}` : (p.memoryDefault.kind === 'apptown' || p.memoryDefault.kind === 'forge') ? PRODUCT : p.memoryDefault.kind} default</div>}{p.memoryUnlimited && <span className="badge">explicit no limit</span>}{p.runsOn && <div className="muted">{p.runsOn}</div>}</td>
               <td>{p.cpu}</td>
               <td>{p.observed.known ? fmtBytes(p.observed.usedBytes) : <span className="muted" title={p.observed.reason}>unknown</span>}</td>
               <td>
                 {p.override && (
-                  <span><Status word={p.overrideLabel} tone={STATUS_LIGHT[p.overrideLabel]} help={`${p.override.reason} · ${p.override.setBy}, ${p.override.setAt}`} />{' '}
+                  <span><Status word={p.overrideLabel} help={`${p.override.reason} · ${p.override.setBy}, ${p.override.setAt}`} />{' '}
                     override {p.override.memoryUnlimited ? "no memory limit " : ""}{p.override.resources.memoryBytes ? fmtBytes(p.override.resources.memoryBytes) : ''}{p.override.resources.cpus ? ` ${p.override.resources.cpus} cpu` : ''}
                     {p.overrideApplied ? '' : ' · not applied yet'}
                   </span>
@@ -522,7 +522,7 @@ export function LimitEventLines({ r }: { r: DeploymentResources }) {
     <ul className="small" style={{ margin: '2px 0', paddingLeft: 16 }} title={r.limitsSource}>
       {r.limits.map((l) => (
         <li key={`${l.part}/${l.kind}`}>
-          <b>{l.part || 'app'}</b>: {limitKindWords[l.kind] || l.kind}, {timesWords(l.count)} in the last day <span className="muted">(last {new Date(l.last).toLocaleTimeString()})</span>
+          <b>{l.part || 'app'}</b>: {limitKindWords[l.kind] || l.kind}, {timesWords(l.count)} in the last day <span className="muted">(last {fmtWhen(l.last)})</span>
         </li>
       ))}
     </ul>
@@ -539,7 +539,7 @@ export function ShareLine({ share }: { share?: DeploymentResources['share'] }) {
     {!share.readAt && !share.error && <div className="muted small">Waiting for the first host check.</div>}
     {share.readAt && <div className="muted small">Host read {fmtStamp(share.readAt)}</div>}
     {(share.error || (share.stale && share.readAt)) && <p className="error small">{share.error || "The host reading is out of date."}</p>}
-    {share.overcommitted && <p className="error">Server is short on memory. <Link to={`/infrastructure/${share.target}`}>Review server</Link></p>}
+    {share.overcommitted && share.requested?.known && share.hostMemory.known && <p className="capacity-warning">{fmtBytes(share.requested.value)} requested; host total {fmtBytes(share.hostMemory.value)}. <Link to={`/infrastructure/${share.target}`}>Review server</Link></p>}
     {share.diskRefuses ? <p className="error">Server is short on disk space. New deployments are blocked.</p>
       : share.lowDisk && <p className="error">Server is low on disk space.</p>}
   </div>
