@@ -105,7 +105,7 @@ func (p PublicPrepared) Digest() string {
 // values that cannot be read for a static site stop it here, as they would
 // stop the boot.
 func PrepareBoot(ctx context.Context, deps Dependencies, registry *RegistryCredential, slug, deployment, ws string, c *appcontract.Contract) (Prepared, error) {
-	if err := RefusesHealth(c, false); err != nil {
+	if err := RefusesHealth(c); err != nil {
 		return Prepared{}, &BootError{Phase: PhaseResolve, Err: err}
 	}
 	if deployment == "" {

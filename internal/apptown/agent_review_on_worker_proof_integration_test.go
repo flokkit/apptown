@@ -228,7 +228,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.addGrant("user", "alice", access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(p.ID), "fixture", "alice", "")
+	a.addGrant("user", "alice", access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(p.ID), "alice", "")
 	onlyOnTheWorker(t, a)
 	build, review := steps["build"], steps["review"]
 	source := workflowSourceForTest(t, a, run)

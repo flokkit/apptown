@@ -53,7 +53,7 @@ func (s *Service) CreateAndRun(ctx context.Context, in InvokeChange) (*Change, *
 	if s.starter == nil {
 		return nil, nil, fmt.Errorf("Run execution is unavailable")
 	}
-	req := StartRequest{ProjectID: in.Change.ProjectID, WorkflowName: in.Workflow, InputsJSON: string(in.Inputs), RequestedBy: actor.InferenceOwner, Owner: actor.Owner, ReceiptActor: actor.Receipt}
+	req := StartRequest{ProjectID: in.Change.ProjectID, WorkflowName: in.Workflow, InputsJSON: string(in.Inputs), requestedBy: actor.InferenceOwner, owner: actor.Owner, receiptActor: actor.Receipt}
 	if req.InputsJSON == "" {
 		req.InputsJSON = "{}"
 	}

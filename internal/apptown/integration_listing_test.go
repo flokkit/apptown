@@ -23,7 +23,7 @@ func TestIntegrationListSaysWhatUsesEachIntegration(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := a.Integrations.Attachments.Attach(t.Context(), idstest.N(1), "objectstore", "store", `{}`, integration.Entered, "fixture", nil); err != nil {
+	if err := a.Integrations.Attachments.Attach(t.Context(), idstest.N(1), "objectstore", "store", `{}`, "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.Integrations.Attachments.Remember(t.Context(), idstest.N(2), "objectstore", "store", `{}`); err != nil {

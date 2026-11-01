@@ -11,7 +11,7 @@ import (
 func TestABrowserIsNeverGivenADSNPassword(t *testing.T) {
 	t.Parallel()
 	s, id, _ := runtimeFixture(t)
-	if err := s.Attachments.Attach(t.Context(), id, "errors", "", `{"dsn":"https://public:private-review-canary@errors.example/3"}`, Entered, "review", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, "errors", "", `{"dsn":"https://public:private-review-canary@errors.example/3"}`, "review", nil); err != nil {
 		t.Fatal(err)
 	}
 	values, err := s.BrowserEnvironment(context.Background(), id)
@@ -27,7 +27,7 @@ func TestABrowserIsNeverGivenADSNPassword(t *testing.T) {
 func TestAnUnreadableFeedbackAttachmentIsAnError(t *testing.T) {
 	t.Parallel()
 	s, id, _ := runtimeFixture(t)
-	if err := s.Attachments.Attach(t.Context(), id, "feedback", "", `{"appKey":42,"url":"https://feedback.example"}`, Entered, "review", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, "feedback", "", `{"appKey":42,"url":"https://feedback.example"}`, "review", nil); err != nil {
 		t.Fatal(err)
 	}
 	values, err := s.BrowserEnvironment(context.Background(), id)
@@ -45,7 +45,7 @@ func TestADefinitionThatNoLongerPassesIsAnError(t *testing.T) {
 	if err := s.ServiceKinds.Save(context.Background(), "mailer", valid, "Mailer", "review"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Attachments.Attach(t.Context(), id, "mailer", "", `{}`, Entered, "review", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, "mailer", "", `{}`, "review", nil); err != nil {
 		t.Fatal(err)
 	}
 	legacy := valid + "  - {key: API_KEY, value: '{{secret:resource.key}}', browser: true}\n"

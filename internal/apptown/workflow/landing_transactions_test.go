@@ -380,7 +380,7 @@ func TestWorkflowLandingReusesRunAndPinsAcceptanceScope(t *testing.T) {
 		{Name: "later", Steps: []schema.Step{{Name: "separate-review", Uses: "approval", With: map[string]any{"means": landingMeans}}}},
 	}}}
 	create := func() (*Run, error) {
-		return (runStartStore{db: store, stages: stages}).create(context.Background(), StartRequest{ProjectID: work.ProjectID, ChangeID: work.ChangeID, WorkflowName: "land", AcceptedRunID: work.ID, InputsJSON: "{}"}, PreparedRun{Workflow: DefinitionRef{Name: "land", Version: 1}, Spec: doc.Spec})
+		return (runStartStore{db: store, stages: stages}).create(context.Background(), StartRequest{ProjectID: work.ProjectID, ChangeID: work.ChangeID, WorkflowName: "land", acceptedRunID: work.ID, InputsJSON: "{}"}, PreparedRun{Workflow: DefinitionRef{Name: "land", Version: 1}, Spec: doc.Spec})
 	}
 	dbtest.FailNextStatement(t, store, "UPDATE workflow_landings SET landing_run_id")
 	if _, err := create(); !errors.Is(err, database.ErrInjectedFailure) {

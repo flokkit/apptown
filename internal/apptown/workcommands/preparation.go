@@ -88,7 +88,7 @@ func (a *Preparation) Resolve(ctx context.Context, req workflow.StartRequest, so
 	// workspace. When the branch exists now, the candidate is pinned here;
 	// otherwise it is pinned once the run's workspace is prepared.
 	var pinning []workflow.StartEvent
-	if req.ParentRunID.IsZero() && rw.Doc.Spec.Role == "landing" && p.DefaultBranch != "" {
+	if !req.IsChild() && rw.Doc.Spec.Role == "landing" && p.DefaultBranch != "" {
 		pinning = append(pinning, workflow.LandingPinRequired())
 		if source.Change != nil {
 			// The change's committed work in its folder is published first:
@@ -167,7 +167,7 @@ func (a *Preparation) describe(ctx context.Context, req workflow.StartRequest, w
 			Revision   int64  `json:"revision"`
 			Digest     string `json:"digest"`
 			Inherited  bool   `json:"inherited"`
-		}{ad.ID, ad.Revision, ad.Digest, !req.ParentRunID.IsZero()}); err != nil {
+		}{ad.ID, ad.Revision, ad.Digest, req.IsChild()}); err != nil {
 			return def, err
 		}
 	}

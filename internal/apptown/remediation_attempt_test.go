@@ -93,7 +93,12 @@ func remediationAttemptFixture(t *testing.T, previous bool) (*App, remediation.A
 			t.Fatalf("failed script prerequisite: %+v", scriptStep)
 		}
 		err = a.DB.InTx(ctx, func(tx *database.Tx) error {
-			_, err := a.Work.AdmitRunIn(a.asEngine(context.Background()), tx, workflow.StartRequest{ProjectID: projectID, ChangeID: run.ChangeID, WorkflowName: "child", InputsJSON: `{}`, RequestedBy: "alice", ParentRunID: run.ID}, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "child", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "build"}}}})
+			child, err := a.Work.AdmitRunIn(a.asEngine(context.Background()), tx, workflow.StartRequest{ProjectID: projectID, WorkflowName: "child", InputsJSON: `{}`}, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "child", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "build"}}}})
+			if err != nil {
+				return err
+			}
+			// sql-guarantee: This cleanup fixture needs a child without a calling step; public admission derives lineage only from a real call.
+			_, err = tx.SQL().ExecContext(ctx, "UPDATE runs SET parent_run_id=$1,change_id=$2 WHERE id=$3", run.ID, run.ChangeID, child.ID)
 			return err
 		})
 		if err != nil {

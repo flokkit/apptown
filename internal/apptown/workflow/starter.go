@@ -89,7 +89,7 @@ func (s *starter) Start(ctx context.Context, req StartRequest) (*Run, error) {
 		if err != nil {
 			return nil, err
 		}
-		if req.evalAuthority == "" && !req.AcceptedRunID.IsZero() {
+		if req.evalAuthority == "" && !req.acceptedRunID.IsZero() {
 			// A landing of an eval copy's accepted work carries the eval's
 			// authority its work run was admitted with.
 			if s.runtime.AcceptedEvalAuthority == nil {
@@ -132,7 +132,7 @@ func (s *starter) definition(ctx context.Context, req StartRequest, source Start
 	if len(def.Spec.Stages) == 0 || def.Spec.Stages[0].Name == "" {
 		return PreparedRun{}, fmt.Errorf("workflow %q has no initial stage", req.WorkflowName)
 	}
-	if req.ParentRunID.IsZero() && s.runtime.Missing != nil {
+	if req.parentRunID.IsZero() && s.runtime.Missing != nil {
 		missing, err := s.runtime.Missing(ctx, req.ProjectID, &def.Spec)
 		if err != nil {
 			return PreparedRun{}, err
@@ -152,14 +152,14 @@ func (s *starter) definition(ctx context.Context, req StartRequest, source Start
 			return PreparedRun{}, fault.Wrap(fault.Unprocessable, errors.New(why))
 		}
 	}
-	if !req.AcceptedRunID.IsZero() && (!req.ParentRunID.IsZero() || def.Spec.Role != "landing") {
+	if !req.acceptedRunID.IsZero() && (!req.parentRunID.IsZero() || def.Spec.Role != "landing") {
 		return PreparedRun{}, fmt.Errorf("accepted work must start a root landing")
 	}
 	// Accepted landings carry a person's recorded acceptance; a child run
 	// was judged as part of its root.
 	// An eval's run carries the eval's authority, judged at each effect
 	// against its copy (eval_authority.go).
-	if req.ParentRunID.IsZero() && req.AcceptedRunID.IsZero() && req.evalAuthority == "" {
+	if req.parentRunID.IsZero() && req.acceptedRunID.IsZero() && req.evalAuthority == "" {
 		effect, err := unassentedEffect(&def.Spec, false, func(name string) (*schema.Spec, error) {
 			called := req
 			called.WorkflowName = name

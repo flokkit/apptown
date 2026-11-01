@@ -88,7 +88,7 @@ func newSharedRehearsalWorld(t *testing.T) *sharedRehearsalWorld {
 		}
 		return nil, nil, false
 	})
-	if w.set, err = w.s.TakeBackup(ctx, w.project, "main", "manual", "alice"); err != nil || w.set.Store != StoreAppTownDisk || w.set.Status != BackupOK {
+	if w.set, err = w.s.TakeBackup(ctx, w.project, "main", "alice"); err != nil || w.set.Store != StoreAppTownDisk || w.set.Status != BackupOK {
 		t.Fatalf("a set on AppTown's disk: %+v %v", w.set, err)
 	}
 	// The rehearsal's daemon is the deployment's own host's.

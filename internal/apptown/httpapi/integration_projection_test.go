@@ -57,7 +57,7 @@ func TestProjectIntegrationReadBatchesAndContainsPrivateRecords(t *testing.T) {
  ($5,'feedback','gone','{"appKey":"app-key-canary"}','direct',$6,now())`, projectIDs[0], changeIDs[0], projectIDs[0], changeIDs[1], projectIDs[0], idstest.N(999)); err != nil {
 		t.Fatal(err)
 	}
-	if err := integrations.Attachments.Attach(ctx, projectIDs[0], "container-registry", "gone", `{"token":"registry-canary"}`, integration.Provenance("direct"), "fixture", nil); err != nil {
+	if err := integrations.Attachments.Attach(ctx, projectIDs[0], "container-registry", "gone", `{"token":"registry-canary"}`, "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := integrations.Attachments.Remember(ctx, projectIDs[0], "scm", "gitlab", `{"token":"scm-canary"}`); err != nil {
@@ -78,7 +78,7 @@ func TestProjectIntegrationReadBatchesAndContainsPrivateRecords(t *testing.T) {
 		}
 	}
 	for i := range 12 {
-		if err := integrations.Attachments.Attach(ctx, projectIDs[0], fmt.Sprintf("extra-%02d", i), "gone", "{}", integration.Provenance("direct"), "fixture", nil); err != nil {
+		if err := integrations.Attachments.Attach(ctx, projectIDs[0], fmt.Sprintf("extra-%02d", i), "gone", "{}", "fixture", nil); err != nil {
 			t.Fatal(err)
 		}
 	}

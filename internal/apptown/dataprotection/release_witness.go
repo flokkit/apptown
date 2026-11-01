@@ -113,7 +113,7 @@ func (s *Service) BeforeRelease(ctx context.Context, projectID ids.ID, deploymen
 		w.Notes = append(w.Notes, "its data is on "+t.Name+", which AppTown does not witness")
 		return w, nil
 	}
-	b, err := s.TakeBackup(ctx, projectID, deploymentName, TriggerPreRelease, "apptown-system")
+	b, err := s.takeBackup(ctx, projectID, deploymentName, TriggerPreRelease, "apptown-system")
 	switch {
 	case errors.Is(err, ErrNothingToBackUp):
 		w.Passed = "it holds no data"

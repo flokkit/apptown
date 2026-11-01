@@ -212,7 +212,7 @@ func TestRuntimeChecksNeverJudgeAPreviewOfAnEarlierCommit(t *testing.T) {
 func TestADeniedPreviewSavesNothing(t *testing.T) {
 	t.Parallel()
 	w, _, s := rehearsalWorld(t)
-	w.a.addGrant("user", "reader", access.RoleAuditor, "", access.ScopeProject, idstest.N(1).String(), "fixture", "fixture", "")
+	w.a.addGrant("user", "reader", access.RoleAuditor, "", access.ScopeProject, idstest.N(1).String(), "fixture", "")
 	before := w.branchTip(t)
 	resp := authzCall(w.a.Handler(), "reader", "POST", fmt.Sprintf("/api/v1/changes/%d/preview", w.change.ID), `{}`)
 	if resp.Code != 403 {

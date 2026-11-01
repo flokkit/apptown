@@ -153,7 +153,7 @@ func landingRemediationFixture(t *testing.T, a *App, source *workflow.Run) (work
 	if err != nil || item.State != remediation.ItemLanding {
 		t.Fatalf("read landing phase: %+v %v", item, err)
 	}
-	return workflow.LandingRecheck{Who: "alice", ChangeID: started.ChangeID, RunID: started.ID, Remediation: &workflow.LandingRetry{ItemID: item.ID, Attempt: item.Attempt, Reason: "provider overloaded"}}, started
+	return workflow.LandingRecheck{ChangeID: started.ChangeID, RunID: started.ID, Remediation: &workflow.LandingRetry{ItemID: item.ID, Attempt: item.Attempt, Reason: "provider overloaded"}}, started
 }
 
 func TestLandingRecheckRollbackIncludesRetryBudgetAndNeverDispatches(t *testing.T) {
@@ -318,7 +318,7 @@ func TestLandingRecheckManagedRecoveryHonorsEntryOrder(t *testing.T) {
 		t.Run(map[bool]string{false: "immediate", true: "restart"}[restart], func(t *testing.T) {
 			a, run, stepIDs := landingRecheckFixture(t)
 			if restart {
-				if _, err := a.Work.RecheckLanding(asPerson("alice"), workflow.LandingRecheck{Who: "alice", ChangeID: run.ChangeID}); err != nil {
+				if _, err := a.Work.RecheckLanding(asPerson("alice"), workflow.LandingRecheck{ChangeID: run.ChangeID}); err != nil {
 					t.Fatal(err)
 				}
 				a = restartApp(t, a.DB)

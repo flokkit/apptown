@@ -249,7 +249,7 @@ func TestRemediationRoutesRequireInstanceAuthorityBeforeEffects(t *testing.T) {
 	h := a.Handler()
 	// Even a fleet reader cannot start fixes; a project member cannot read the
 	// unfiltered fleet remediation ledger.
-	a.addGrant("user", "kid", "", string(access.CapConformanceRead), access.ScopeInstance, "", "fixture", "boss", "")
+	a.addGrant("user", "kid", "", string(access.CapConformanceRead), access.ScopeInstance, "", "boss", "")
 	for _, c := range []struct{ who, method, path, body string }{{"outsider", "GET", "/api/v1/conformance/remediations", ""}, {"outsider", "GET", "/api/v1/conformance/remediations/9999", ""}, {"kid", "POST", "/api/v1/conformance/remediations", `{"scope":"all"}`}} {
 		if w := authzCall(h, c.who, c.method, c.path, c.body); w.Code != 403 {
 			t.Fatalf("missing authority: %d %s", w.Code, w.Body.String())

@@ -216,7 +216,7 @@ func TestUsageKeepsARunOrChatToItsProject(t *testing.T) {
 func TestTierPreviewsNeedTheProjectRead(t *testing.T) {
 	t.Parallel()
 	a, _, fake, ch := previewWorkerWorld(t, false)
-	a.addGrant("user", "outsider", "", string(access.CapChangeRead), access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
+	a.addGrant("user", "outsider", "", string(access.CapChangeRead), access.ScopeProject, idstest.N(1).String(), "boss", "")
 	fake.mu.Lock()
 	fake.running = map[string]worker.PreviewState{"apptown-preview-change-" + ch.ID.String(): {Running: true}}
 	fake.mu.Unlock()
@@ -242,7 +242,7 @@ func TestMemberDeparturesIntersectReadsBeforeTheLimit(t *testing.T) {
 	for i := 0; i < 60; i++ {
 		releasedPreviewFixture(t, a, idstest.N(1), "fixture")
 	}
-	a.addGrant("user", "outsider", "", string(access.CapReleaseRead), access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
+	a.addGrant("user", "outsider", "", string(access.CapReleaseRead), access.ScopeProject, idstest.N(1).String(), "boss", "")
 	if w := authzCall(a.Handler(), "outsider", "GET", "/api/v1/projects/game", ""); w.Code != 403 {
 		t.Fatalf("fixture project readable: %d %s", w.Code, w.Body.String())
 	}
@@ -258,7 +258,7 @@ func TestMemberDeparturesNeedTheReleaseRead(t *testing.T) {
 	t.Parallel()
 	a := workAuthorityFixture(t)
 	releasedPreviewFixture(t, a, idstest.N(1), "fixture")
-	a.addGrant("user", "outsider", "", string(access.CapProjectRead), access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
+	a.addGrant("user", "outsider", "", string(access.CapProjectRead), access.ScopeProject, idstest.N(1).String(), "boss", "")
 	if w := authzCall(a.Handler(), "outsider", "GET", "/api/v1/projects/game", ""); w.Code != 200 {
 		t.Fatalf("fixture project unreadable: %d %s", w.Code, w.Body.String())
 	}

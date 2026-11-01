@@ -135,7 +135,7 @@ func (s *Service) CreateCopy(ctx context.Context, in CopyDraft) (*project.Projec
 	if err != nil {
 		return &seeded, err
 	}
-	if _, err := s.Adopt(adoption.WithSystemAuthority(ctx, p.ID), &seeded, c, in.Who, "copied from "+source.Slug, adoption.OperationApplyPack); err != nil {
+	if _, err := s.applyCandidateForChange(adoption.WithSystemAuthority(ctx, p.ID), &seeded, c, in.Who, "copied from "+source.Slug, ids.Nil, adoption.OperationApplyPack); err != nil {
 		return &seeded, fmt.Errorf("giving the copy %s's way of working: %w", source.Slug, err)
 	}
 	return &seeded, nil

@@ -57,7 +57,7 @@ func TestDockerDeploymentUsesSelectedSource(t *testing.T) {
 	var served string
 	daemon := &fakeDaemon{}
 	dk := Scope{Client: daemon}
-	d := &Driver{ServingLabel: "stable-serving",
+	d := &Driver{Allowed: AuthorisedWhenRequested, ServingLabel: "stable-serving",
 		Scope: func(context.Context) (Scope, error) { return dk, nil },
 		Boot: selectedSourceBoot(func(bt BootRequest, c *appcontract.Contract) (BootResult, error) {
 			if bt.Workspace == repo {

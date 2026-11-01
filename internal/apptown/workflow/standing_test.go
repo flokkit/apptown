@@ -36,7 +36,7 @@ func (f *standingProcedureFixture) StandingProcedure(_ context.Context, _ databa
 func standingFixture(t *testing.T) (*stepAuthorityTestRig, StandingRules, *standingProcedureFixture, context.Context, StandingDefinition) {
 	t.Helper()
 	a := stepAuthorityFixture(t, ApprovalConfig{})
-	if _, err := a.Access.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "owner", Role: access.RoleProjectOwner, Scope: access.ScopeProject, ScopeID: a.ProjectID.String(), Origin: "fixture", By: "boss"}, ""); err != nil {
+	if _, err := a.Access.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "owner", Role: access.RoleProjectOwner, Scope: access.ScopeProject, ScopeID: a.ProjectID.String(), By: "boss"}, ""); err != nil {
 		t.Fatal(err)
 	}
 	p := &standingProcedureFixture{means: "accept bounded routine updates after all checks pass"}
@@ -252,7 +252,7 @@ func TestStandingDeliveryRequiresCapturedPromotionAndCurrentIssuerGrant(t *testi
 	if _, err := s.Preview(ctx, in); err == nil {
 		t.Fatal("missing promotion grant accepted")
 	}
-	grant, err := a.Access.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: "owner", Capability: string(access.CapReleasePromote), Scope: access.ScopeProject, ScopeID: a.ProjectID.String(), Origin: "fixture", By: "boss"}, "")
+	grant, err := a.Access.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: "owner", Capability: string(access.CapReleasePromote), Scope: access.ScopeProject, ScopeID: a.ProjectID.String(), By: "boss"}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -323,7 +323,7 @@ func TestStandingRevocationAcceptsEitherManagementScopeWithoutAssent(t *testing.
 			manager := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "outsider"))
 			grant := func(cap access.Capability, scope access.ScopeKind, id string) {
 				t.Helper()
-				if _, err := a.Access.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: "outsider", Capability: string(cap), Scope: scope, ScopeID: id, Origin: "fixture", By: "boss"}, ""); err != nil {
+				if _, err := a.Access.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: "outsider", Capability: string(cap), Scope: scope, ScopeID: id, By: "boss"}, ""); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -500,7 +500,7 @@ func TestStandingUpliftRechecksActualAdoptionConsentAfterSourceInspection(t *tes
 	}
 	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}
 	admissions := newRunAdmissions(a.DB, NewStages(nil, func(string) bool { return false }), nil)
-	run, err := admissions.Create(ctx, StartRequest{ProjectID: a.ProjectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", RequestedBy: "owner"}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: spec, AdoptionID: change.TargetAdoptionID})
+	run, err := admissions.Create(ctx, StartRequest{ProjectID: a.ProjectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "owner"}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: spec, AdoptionID: change.TargetAdoptionID})
 	if err != nil {
 		t.Fatal(err)
 	}

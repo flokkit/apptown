@@ -21,7 +21,7 @@ import (
 func narrativeRun(t *testing.T, db *database.DB, ch *Change, name string, steps ...schema.Step) *Run {
 	t.Helper()
 	owner := newRunAdmissions(db, NewStages(nil, func(string) bool { return false }), nil)
-	run, err := owner.Create(context.Background(), StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: name, InputsJSON: "{}", RequestedBy: "test"}, PreparedRun{Workflow: DefinitionRef{Name: name, Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: steps}}}})
+	run, err := owner.Create(context.Background(), StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: name, InputsJSON: "{}", requestedBy: "test"}, PreparedRun{Workflow: DefinitionRef{Name: name, Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: steps}}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestNarrativeSourceOwnsSelectionOrderingAndOneSnapshot(t *testing.T) {
 		t.Fatalf("call step: %+v %v", steps, err)
 	}
 	admissions := newRunAdmissions(db, NewStages(nil, func(string) bool { return false }), nil)
-	child, err := admissions.Create(context.Background(), StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: "child", InputsJSON: "{}", RequestedBy: "test", ParentRunID: second.ID, ParentStepID: steps[0].ID, ParentStepAttempt: steps[0].Attempt}, PreparedRun{Workflow: DefinitionRef{Name: "child", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "finish"}}}})
+	child, err := admissions.Create(context.Background(), StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: "child", InputsJSON: "{}", requestedBy: "test", parentRunID: second.ID, parentStepID: steps[0].ID, parentStepAttempt: steps[0].Attempt}, PreparedRun{Workflow: DefinitionRef{Name: "child", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "finish"}}}})
 	if err != nil {
 		t.Fatal(err)
 	}

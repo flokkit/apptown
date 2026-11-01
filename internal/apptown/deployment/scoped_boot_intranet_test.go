@@ -31,7 +31,7 @@ func TestBootAndIntranetUseScopedPreparedEnvironments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := s.env.Host(projectID, nil, nil).Boot(context.Background(), docker.BootRequest{Docker: s.hosts.settings.Scope, Name: "apptown-preview-isolation", StackID: "isolation", Workspace: ws, Slug: "p", Probe: time.Second}, c)
+	result, err := s.env.Host(projectID, nil, nil).Boot(context.Background(), docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Docker: s.hosts.settings.Scope, Name: "apptown-preview-isolation", StackID: "isolation", Workspace: ws, Slug: "p", Probe: time.Second}, c)
 	if err != nil {
 		t.Fatal(err)
 	}

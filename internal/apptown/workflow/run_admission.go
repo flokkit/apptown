@@ -17,20 +17,20 @@ import (
 const definitionVersion = 1
 
 type StartRequest struct {
-	ReceiptActor string // verified receipt attribution, distinct from inference owner
-	RequestedBy  string // captured before dispatch; inherited by child/landing runs
-	// Owner is RequestedBy as admitted (principal and way), when the caller
+	receiptActor string // verified receipt attribution, distinct from inference owner
+	requestedBy  string // captured before dispatch; inherited by child/landing runs
+	// owner is requestedBy as admitted (principal and way), when the caller
 	// carried it; a root run records it rather than the name looked up.
-	Owner             access.Actor
+	owner             access.Actor
 	ProjectID         ids.ID
 	ChangeID          ids.ID
 	WorkflowName      string
 	InputsJSON        string
-	ParentRunID       ids.ID
-	ParentStepID      ids.ID
-	ParentStepAttempt int64
-	ParentStepConfig  string
-	AcceptedRunID     ids.ID
+	parentRunID       ids.ID
+	parentStepID      ids.ID
+	parentStepAttempt int64
+	parentStepConfig  string
+	acceptedRunID     ids.ID
 	// landingBy is who admitted the run while holding change:land, set only
 	// by Work from the verified caller (Service.landingBy); never a caller
 	// input.
@@ -39,6 +39,9 @@ type StartRequest struct {
 	// admitted with, set only by StartEvalRun (eval_authority.go).
 	evalAuthority string
 }
+
+// IsChild reports whether workflow admitted this request from a parent run.
+func (in StartRequest) IsChild() bool { return !in.parentRunID.IsZero() }
 
 type DefinitionRef struct {
 	Name    string
@@ -73,7 +76,7 @@ func (s runAdmissions) Prepared(ctx context.Context, id ids.ID) error {
 	return s.records.prepared(ctx, id)
 }
 func validateStart(in StartRequest) error {
-	if in.ProjectID.IsZero() || in.WorkflowName == "" || (in.ParentRunID.IsZero() && !in.ParentStepID.IsZero()) || (!in.AcceptedRunID.IsZero() && !in.ParentRunID.IsZero()) {
+	if in.ProjectID.IsZero() || in.WorkflowName == "" || (in.parentRunID.IsZero() && !in.parentStepID.IsZero()) || (!in.acceptedRunID.IsZero() && !in.parentRunID.IsZero()) {
 		return fmt.Errorf("a run needs a project, workflow, and a valid parent context")
 	}
 	var inputs map[string]json.RawMessage

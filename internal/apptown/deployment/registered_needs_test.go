@@ -62,7 +62,7 @@ func withLLM(t *testing.T, s *Service, projectID ids.ID, attached bool) *openrou
 		t.Fatal(err)
 	}
 	if attached {
-		if err := s.env.integrations.Attachments.Attach(t.Context(), projectID, integration.CapLLM, "openrouter", "{}", integration.Entered, "owner", nil); err != nil {
+		if err := s.env.integrations.Attachments.Attach(t.Context(), projectID, integration.CapLLM, "openrouter", "{}", "owner", nil); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -108,7 +108,7 @@ func llmDeployment(t *testing.T, s *Service, db *database.DB, projectID ids.ID, 
 
 func bootDeployment(s *Service, client *dockerfake.Daemon, dep *Deployment, c *appcontract.Contract, ws string) (docker.BootResult, error) {
 	return s.env.Host(dep.ProjectID, s.env.NeedCredentials(NeedSecretsScope(dep.ID)), func(slug string) KeyOwner { return deploymentKeys(s.db, s.clock, dep, slug) }).Boot(
-		context.Background(), docker.BootRequest{Docker: docker.Scope{Client: client}, Name: "forge-p-" + dep.Name, StackID: "p-" + dep.Name, Workspace: ws, Slug: "p", Deployment: dep.Name, Probe: time.Second}, c)
+		context.Background(), docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Docker: docker.Scope{Client: client}, Name: "forge-p-" + dep.Name, StackID: "p-" + dep.Name, Workspace: ws, Slug: "p", Deployment: dep.Name, Probe: time.Second}, c)
 }
 
 func runCalls(client *dockerfake.Daemon) string {
@@ -195,7 +195,7 @@ func TestADeploymentWithoutTheAttachmentGetsNoKeyAndDoesNotBoot(t *testing.T) {
 func TestAttachedErrorReportingStillArrivesBesideAKey(t *testing.T) {
 	t.Parallel()
 	s, db, client, projectID, f := llmWorld(t, true)
-	if err := s.env.integrations.Attachments.Attach(t.Context(), projectID, integration.CapErrors, "", `{"dsn":"https://pub@errors.test/7"}`, integration.Entered, "owner", nil); err != nil {
+	if err := s.env.integrations.Attachments.Attach(t.Context(), projectID, integration.CapErrors, "", `{"dsn":"https://pub@errors.test/7"}`, "owner", nil); err != nil {
 		t.Fatal(err)
 	}
 	only, ws := llmContract(t, "app:\n  web:\n    image: reg.example/app:1\n    ports: [\"8080\"]\n    public: true\n")

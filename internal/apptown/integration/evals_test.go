@@ -40,7 +40,7 @@ func TestACopyIsGivenNoIntegrationAndPublishesUnderItsOwnRepository(t *testing.T
 	if err := s.AttachOfferedRegistry(context.Background(), copy, "apptown-system", nil); !errors.Is(err, ErrNoIntegrations) {
 		t.Fatalf("the offered registry attached to a copy: %v", err)
 	}
-	if err := s.Attachments.Attach(t.Context(), copy, CapErrors, "errors", `{}`, Entered, "someone", nil); !errors.Is(err, ErrNoIntegrations) {
+	if err := s.Attachments.Attach(t.Context(), copy, CapErrors, "errors", `{}`, "someone", nil); !errors.Is(err, ErrNoIntegrations) {
 		t.Fatalf("an attachment for a copy: %v", err)
 	}
 	if err := s.Attachments.Remember(t.Context(), copy, "scm", "gitlab", `{}`); !errors.Is(err, ErrNoIntegrations) {
@@ -70,7 +70,7 @@ func TestACopyIsGivenNoIntegrationAndPublishesUnderItsOwnRepository(t *testing.T
 		t.Fatalf("ambiguous eval destination admitted: %+v %v", got, err)
 	}
 	// A project Project cannot read is given nothing either.
-	if err := s.Attachments.Attach(t.Context(), idstest.N(999999), CapErrors, "errors", `{}`, Entered, "someone", nil); err == nil {
+	if err := s.Attachments.Attach(t.Context(), idstest.N(999999), CapErrors, "errors", `{}`, "someone", nil); err == nil {
 		t.Fatal("an attachment for a project Project cannot read")
 	}
 	// Publication through AppTown's registry is a copy's act alone.

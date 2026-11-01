@@ -35,7 +35,7 @@ func TestIntegrationRedisBackupRestoresIntoAFreshDeployment(t *testing.T) {
 	// Apps keep sessions or queues in other logical databases; the copy
 	// and its check cover all of them.
 	cli(t, redisOf["main"], "-n 3 SET third 3", "OK")
-	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 	if err != nil || b.Status != BackupOK || len(b.Items) != 1 || b.Items[0].Copy != CopyDeclared {
 		t.Fatalf("take: %+v %v", b, err)
 	}
@@ -85,7 +85,7 @@ func TestIntegrationPostgresBackupRestoresInPlaceAndIsVerified(t *testing.T) {
 	psql(t, pgOf["main"], "CREATE TABLE ledger (n int); INSERT INTO ledger VALUES (41), (42)")
 	// sql-guarantee: the app's own database in its test container, not AppTown's; what the restore replaces.
 	psql(t, pgOf["fresh"], "CREATE TABLE ledger (n int); INSERT INTO ledger VALUES (7)")
-	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 	if err != nil || b.Status != BackupOK || len(b.Items) != 1 || b.Items[0].Format != "pg-custom" {
 		t.Fatalf("take: %+v %v", b, err)
 	}

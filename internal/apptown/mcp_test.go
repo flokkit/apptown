@@ -359,7 +359,7 @@ func TestMCPChangesAndRuns(t *testing.T) {
 	a := testApp(t)
 	pid := createReadTestProject(t, a, "shop")
 	chID := createReadTestChange(t, a, pid, "add the cart")
-	if _, err := a.Access.PutGrant(context.Background(), identity.Spec{SubjectType: "user", Subject: "bls", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: fmt.Sprint(pid), Origin: "test", By: "bls"}); err != nil {
+	if _, err := a.Access.PutGrant(context.Background(), identity.Spec{SubjectType: "user", Subject: "bls", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: fmt.Sprint(pid), By: "bls"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -467,7 +467,7 @@ func TestMCPChangesAndRuns(t *testing.T) {
 	}
 	// Another approver who has not voted still sees it: a vote counts for
 	// the person who cast it, by principal.
-	if _, err := a.Access.PutGrant(context.Background(), identity.Spec{SubjectType: "user", Subject: "ann", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: fmt.Sprint(pid), Origin: "test", By: "bls"}); err != nil {
+	if _, err := a.Access.PutGrant(context.Background(), identity.Spec{SubjectType: "user", Subject: "ann", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: fmt.Sprint(pid), By: "bls"}); err != nil {
 		t.Fatal(err)
 	}
 	annTok := mcp_token(t, a, "ann-laptop", "ann", "member")
@@ -751,7 +751,7 @@ func TestMCPDiscoveryAndCallsUseCurrentIdentityWithoutSessions(t *testing.T) {
 	projectID := createReadTestProject(t, a, "shop")
 	tok := mcp_token(t, a, "modern", "bls", "member")
 	other := mcp_token(t, a, "other-modern", "kid", "member")
-	a.addGrant("user", "kid", access.RoleProjectContrib, "", access.ScopeProject, projectID.String(), "", "boss", "")
+	a.addGrant("user", "kid", access.RoleProjectContrib, "", access.ScopeProject, projectID.String(), "boss", "")
 	w := mcp_modern(a, tok, "", "modern-client", "server/discover", nil)
 	var discovery struct {
 		Result mcp.DiscoverResult

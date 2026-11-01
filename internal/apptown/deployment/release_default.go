@@ -217,7 +217,7 @@ func (s *Service) RequestDefaultRelease(ctx context.Context, in DefaultReleaseSe
 		return AcceptedRelease{}, ErrReleaseDefaultChanged
 	}
 	selected := ReleaseDefault{ProjectID: in.ProjectID, DeploymentID: row.DefaultDeploymentID, Revision: row.Revision}
-	return s.requestRelease(ctx, DeploySelection{ProjectID: in.ProjectID, AddressRevision: in.AddressRevision, CustomHostname: in.CustomHostname, AcceptUncopiedData: in.AcceptUncopiedData, AcceptUncheckedCopy: in.AcceptUncheckedCopy}, &selected)
+	return s.requestRelease(ctx, DeploySelection{ProjectID: in.ProjectID, addressRevision: in.AddressRevision, customHostname: in.CustomHostname, AcceptUncopiedData: in.AcceptUncopiedData, AcceptUncheckedCopy: in.AcceptUncheckedCopy}, &selected)
 }
 
 // ReleaseDestination describes the explicit default without configuring it or

@@ -60,7 +60,7 @@ func TestErrorReportingGivesWhatItsDefinitionLists(t *testing.T) {
 	if got, err := s.ErrorsEnvironment(context.Background(), id); err != nil || got != nil {
 		t.Fatalf("an unattached project is given nothing: %v", got)
 	}
-	if err := s.Attachments.Attach(t.Context(), id, "errors", "", `{"dsn":"https://k:secret@errors.example/3"}`, Entered, "test", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, "errors", "", `{"dsn":"https://k:secret@errors.example/3"}`, "test", nil); err != nil {
 		t.Fatal(err)
 	}
 	stockList := strings.Join(mustErrorsEnvironment(t, s, id), "\n")
@@ -88,7 +88,7 @@ func TestRegistryCredentialsFollowTheCurrentAttachment(t *testing.T) {
 	}
 	for _, token := range []string{"first-private-token", "rotated-private-token"} {
 		resource := `{"repo":"registry.example/team/demo","username":"robot","token":"` + token + `"}`
-		if err := s.Attachments.Attach(t.Context(), id, "container-registry", "registry", resource, Entered, "test", nil); err != nil {
+		if err := s.Attachments.Attach(t.Context(), id, "container-registry", "registry", resource, "test", nil); err != nil {
 			t.Fatal(err)
 		}
 		got := mustRegistry(t, s, id)
@@ -96,7 +96,7 @@ func TestRegistryCredentialsFollowTheCurrentAttachment(t *testing.T) {
 			t.Fatal("credential snapshot did not follow current resource")
 		}
 	}
-	if err := s.Attachments.Attach(t.Context(), id, "container-registry", "missing", `{"repo":"fallback.example/team/demo","username":"robot","token":"private"}`, Entered, "test", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, "container-registry", "missing", `{"repo":"fallback.example/team/demo","username":"robot","token":"private"}`, "test", nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := mustRegistry(t, s, id); got == nil || got.Host != "fallback.example" {
@@ -137,13 +137,13 @@ env:
 	if _, err := s.Bindings.Upsert(t.Context(), "smtp", "mailer", "service", `{"host":"smtp.example"}`, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Attachments.Attach(t.Context(), id, "mailer", "smtp", `{"domain":"example.com","key":"MAIL_KEY"}`, Entered, "test", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, "mailer", "smtp", `{"domain":"example.com","key":"MAIL_KEY"}`, "test", nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Attachments.Attach(t.Context(), id, "errors", "", `{"dsn":"test-dsn"}`, Entered, "test", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, "errors", "", `{"dsn":"test-dsn"}`, "test", nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Attachments.Attach(t.Context(), id, "feedback", "", `{"url":"https://feedback.example","appKey":"test-key"}`, Entered, "test", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, "feedback", "", `{"url":"https://feedback.example","appKey":"test-key"}`, "test", nil); err != nil {
 		t.Fatal(err)
 	}
 	for _, value := range []string{"first-secret", "rotated-secret"} {
@@ -177,7 +177,7 @@ func TestBrowserEnvironmentGivesOnlyBrowserSafeValues(t *testing.T) {
 	if err := s.ServiceKinds.Save(context.Background(), "mailer", kind, "Mailer", "alice"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Attachments.Attach(t.Context(), id, "mailer", "relay", `{}`, Entered, "alice", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, "mailer", "relay", `{}`, "alice", nil); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.BrowserEnvironment(context.Background(), id)
@@ -226,7 +226,7 @@ func TestARegistryConnectorsCredentialComesFromTheSecretsStore(t *testing.T) {
 	if err != nil || strings.Contains(resource, "from-the-store") || strings.Contains(resource, "token") {
 		t.Fatalf("the attachment holds %s %v", resource, err)
 	}
-	if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "registry", `{"repo":"registry.example/team/demo","username":"own","token":"own-token"}`, Entered, "test", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "registry", `{"repo":"registry.example/team/demo","username":"own","token":"own-token"}`, "test", nil); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := s.Registry(context.Background(), id); err != nil || got.Username != "own" || got.Token != "own-token" {
@@ -249,7 +249,7 @@ func (failingKinds) ByCapability(context.Context, string) (*dependency.Kind, err
 func TestAnUnreadableErrorReportingDefinitionIsABrowserError(t *testing.T) {
 	t.Parallel()
 	s, id, _ := runtimeFixture(t)
-	if err := s.Attachments.Attach(t.Context(), id, "errors", "", `{"dsn":"https://k@errors.example/3"}`, Entered, "test", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, "errors", "", `{"dsn":"https://k@errors.example/3"}`, "test", nil); err != nil {
 		t.Fatal(err)
 	}
 	s.kinds = failingKinds{}
@@ -310,7 +310,7 @@ func TestAnEnvironmentThatCannotBeReadIsAnError(t *testing.T) {
 		if _, err := s.Bindings.Upsert(t.Context(), "smtp", "mailer", "service", `["not","an","object"]`, false); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.Attachments.Attach(t.Context(), id, "mailer", "smtp", `{}`, Entered, "test", nil); err != nil {
+		if err := s.Attachments.Attach(t.Context(), id, "mailer", "smtp", `{}`, "test", nil); err != nil {
 			t.Fatal(err)
 		}
 		if env, err := s.Environment(t.Context(), id); err == nil || env != nil {
@@ -320,7 +320,7 @@ func TestAnEnvironmentThatCannotBeReadIsAnError(t *testing.T) {
 	t.Run("error-reporting attachment", func(t *testing.T) {
 		t.Parallel()
 		s, id, _ := runtimeFixture(t)
-		if err := s.Attachments.Attach(t.Context(), id, "errors", "", `{"dsn":42}`, Entered, "test", nil); err != nil {
+		if err := s.Attachments.Attach(t.Context(), id, "errors", "", `{"dsn":42}`, "test", nil); err != nil {
 			t.Fatal(err)
 		}
 		if env, err := s.Environment(t.Context(), id); err == nil || env != nil {
@@ -333,7 +333,7 @@ func TestAnEnvironmentThatCannotBeReadIsAnError(t *testing.T) {
 		if err := s.ServiceKinds.Save(context.Background(), "mailer", "capability: mailer\ntitle: Mail\nenv:\n  - {key: API_KEY, value: \"{{secret:resource.key}}\"}\n", "Mail", "test"); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.Attachments.Attach(t.Context(), id, "mailer", "", `{"key":"MAIL_KEY"}`, Entered, "test", nil); err != nil {
+		if err := s.Attachments.Attach(t.Context(), id, "mailer", "", `{"key":"MAIL_KEY"}`, "test", nil); err != nil {
 			t.Fatal(err)
 		}
 		// A folder where the secrets file belongs: it cannot be read.
@@ -384,7 +384,7 @@ func TestRegistryResolutionRefusesAChangedConnectorDestination(t *testing.T) {
 				t.Fatal(err)
 			}
 			if ownToken {
-				if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "registry", `{"repo":"a.registry.example/team/demo","username":"own-a","token":"own-token-a"}`, Entered, "fixture", nil); err != nil {
+				if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "registry", `{"repo":"a.registry.example/team/demo","username":"own-a","token":"own-token-a"}`, "fixture", nil); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -414,7 +414,7 @@ func TestRegistryCredentialsRotateOnlyWithinAnExplicitConnectorDestination(t *te
 			t.Fatal(err)
 		}
 		if i == 0 {
-			if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "registry", `{"repo":"registry.example:5000/team/demo"}`, Entered, "fixture", nil); err != nil {
+			if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "registry", `{"repo":"registry.example:5000/team/demo"}`, "fixture", nil); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -429,13 +429,13 @@ func TestRegistryCredentialsRotateOnlyWithinAnExplicitConnectorDestination(t *te
 	if got, err := s.Registry(t.Context(), id); err == nil || got != nil {
 		t.Fatalf("hostless connector credential admitted: %+v %v", got, err)
 	}
-	if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "registry", `{"repo":"registry.example:5000/team/demo","username":"own","token":"own-token"}`, Entered, "fixture", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "registry", `{"repo":"registry.example:5000/team/demo","username":"own","token":"own-token"}`, "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := s.Registry(t.Context(), id); err != nil || got == nil || got.Token != "own-token" {
 		t.Fatalf("self-contained attachment: %+v %v", got, err)
 	}
-	if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "", `{"repo":"team/demo"}`, Entered, "fixture", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "", `{"repo":"team/demo"}`, "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := s.Registry(t.Context(), id); err != nil || got == nil || got.Host != "index.docker.io" || got.Token != "" {
@@ -449,7 +449,7 @@ func TestRegistryDestinationIsRefusedBeforeReadingAConnectorSecret(t *testing.T)
 	if _, err := s.Bindings.Save(t.Context(), "registry", CapContainerRegistry, "service", `{"url":"b.registry.example","tokenFrom":"PASSWORD"}`, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "registry", `{"repo":"a.registry.example/team/demo"}`, Entered, "fixture", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "registry", `{"repo":"a.registry.example/team/demo"}`, "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Mkdir(filepath.Join(dir, "secrets.env"), 0700); err != nil {

@@ -56,7 +56,7 @@ func TestLandingRecheckBudgetAndResetCommitTogether(t *testing.T) {
 	completionExec(t, q.db, `CREATE TRIGGER veto_landing_retry BEFORE INSERT ON run_events FOR EACH ROW EXECUTE FUNCTION veto_landing_retry()`)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	in := LandingRecheck{ChangeID: run.ChangeID, RunID: run.ID, Who: "alice", Remediation: &LandingRetry{ItemID: idstest.N(7)}}
+	in := LandingRecheck{ChangeID: run.ChangeID, RunID: run.ID, who: "alice", Remediation: &LandingRetry{ItemID: idstest.N(7)}}
 	if got, err := owner.Recheck(ctx, in); err == nil || len(got.Names) != 0 {
 		t.Fatalf("suppressed receipt: %+v %v", got, err)
 	}

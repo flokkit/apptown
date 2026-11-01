@@ -229,7 +229,7 @@ func TestAnUnreadableRegistryCredentialIsNotAnAnonymousRead(t *testing.T) {
 	if _, err := integrations.Bindings.Upsert(t.Context(), "registry", integration.CapContainerRegistry, "service", `{"url":"registry.example","username":"robot","tokenFrom":["REGISTRY_PASSWORD"]}`, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := integrations.Attachments.Attach(t.Context(), id, integration.CapContainerRegistry, "registry", `{"repo":"registry.example/team/shop"}`, integration.Entered, "test", nil); err != nil {
+	if err := integrations.Attachments.Attach(t.Context(), id, integration.CapContainerRegistry, "registry", `{"repo":"registry.example/team/shop"}`, "test", nil); err != nil {
 		t.Fatal(err)
 	}
 	// A folder where the secrets file belongs: the credential cannot be read.
@@ -279,7 +279,7 @@ func TestRegistryDestinationRefusalReachesPublicationAndLogin(t *testing.T) {
 	if _, err := integrations.Bindings.Save(t.Context(), "registry", integration.CapContainerRegistry, "service", `{"url":"docker.io"}`, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if err := integrations.Attachments.Attach(t.Context(), id, integration.CapContainerRegistry, "registry", `{"repo":"docker.io/team/shop","username":"robot","token":"private-canary"}`, integration.Entered, "fixture", nil); err != nil {
+	if err := integrations.Attachments.Attach(t.Context(), id, integration.CapContainerRegistry, "registry", `{"repo":"docker.io/team/shop","username":"robot","token":"private-canary"}`, "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
 	repo, err := env.ReleaseRepository(t.Context(), id)

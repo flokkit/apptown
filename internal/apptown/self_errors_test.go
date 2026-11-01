@@ -53,7 +53,7 @@ func TestAppTownReportsItsOwnErrorsThroughItsAttachment(t *testing.T) {
 
 	// The project a person attaches is the one the guide names: "apptown".
 	pid, _, _ := fleetRepo(t, a, "apptown", map[string]string{"README.md": "# apptown"})
-	if err := integration.NewAttachments(a.DB).Attach(t.Context(), pid, integration.CapErrors, "glitchtip", `{"dsn":"https://abc123@errors.example/7","providerProject":"forge"}`, integration.Provisioned, "fixture", map[string]any{"providerProject": "forge"}); err != nil {
+	if err := integration.NewAttachments(a.DB).Attach(t.Context(), pid, integration.CapErrors, "glitchtip", `{"dsn":"https://abc123@errors.example/7","providerProject":"forge"}`, "fixture", map[string]any{"providerProject": "forge"}); err != nil {
 		t.Fatal(err)
 	}
 	a.selfErr.checked = time.Time{} // re-read the attachment
@@ -162,7 +162,7 @@ func TestBrowserErrorsFollowTheAttachment(t *testing.T) {
 		t.Fatalf("unattached: %s", b)
 	}
 	pid, _, _ := fleetRepo(t, a, selfErrorsProject, map[string]string{"README.md": "# apptown"})
-	if err := integration.NewAttachments(a.DB).Attach(t.Context(), pid, integration.CapErrors, "glitchtip", `{"dsn":"https://abc123@errors.example/7","providerProject":"forge"}`, integration.Provisioned, "fixture", map[string]any{"providerProject": "forge"}); err != nil {
+	if err := integration.NewAttachments(a.DB).Attach(t.Context(), pid, integration.CapErrors, "glitchtip", `{"dsn":"https://abc123@errors.example/7","providerProject":"forge"}`, "fixture", map[string]any{"providerProject": "forge"}); err != nil {
 		t.Fatal(err)
 	}
 	a.selfErr.checked = time.Time{}
@@ -180,7 +180,7 @@ func TestBrowserErrorsFollowTheAttachment(t *testing.T) {
 	}
 	// The existing attachment cache controls both the DSN response and a newly
 	// served document's CSP. A served document cannot change its header later.
-	if err := a.Integrations.Attachments.Attach(t.Context(), pid, integration.CapErrors, "glitchtip", `{"dsn":"https://changed@new-errors.example/8"}`, integration.Provisioned, "fixture", nil); err != nil {
+	if err := a.Integrations.Attachments.Attach(t.Context(), pid, integration.CapErrors, "glitchtip", `{"dsn":"https://changed@new-errors.example/8"}`, "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
 	a.selfErr.checked = time.Time{}
@@ -191,7 +191,7 @@ func TestBrowserErrorsFollowTheAttachment(t *testing.T) {
 	if !strings.Contains(refreshed, " https://new-errors.example;") || strings.Contains(refreshed, " https://errors.example;") {
 		t.Fatalf("refresh retained old reporting origin: %s", refreshed)
 	}
-	if err := a.Integrations.Attachments.Attach(t.Context(), pid, integration.CapErrors, "glitchtip", `{"dsn":"ftp://key@new-errors.example/8"}`, integration.Provisioned, "fixture", nil); err != nil {
+	if err := a.Integrations.Attachments.Attach(t.Context(), pid, integration.CapErrors, "glitchtip", `{"dsn":"ftp://key@new-errors.example/8"}`, "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
 	a.selfErr.checked = time.Time{}

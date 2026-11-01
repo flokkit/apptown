@@ -921,7 +921,7 @@ func TestProjectDeletionRoutesAskTheDeletionOwner(t *testing.T) {
 			t.Errorf("a maintainer: %s %s: %d %s", call.method, call.path, w.Code, w.Body.String())
 		}
 	}
-	a.addGrant("user", "owner", access.RoleProjectOwner, "", access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
+	a.addGrant("user", "owner", access.RoleProjectOwner, "", access.ScopeProject, idstest.N(1).String(), "boss", "")
 	if w := authzCall(h, "owner", "DELETE", "/api/v1/projects/game", `{"confirm":"game"}`); w.Code != 202 {
 		t.Fatalf("a project owner deletes: %d %s", w.Code, w.Body.String())
 	}

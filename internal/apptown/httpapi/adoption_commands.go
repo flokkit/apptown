@@ -171,7 +171,7 @@ func (h AdoptionCommands) Adopt(w http.ResponseWriter, r *http.Request) {
 			WriteJSON(w, 200, AdoptionUpliftOpened{ChangeID: ch.ID, ChangeNumber: ch.Number, Candidate: *c, RunID: ch.Run, RunNumber: ch.RunNumber, Workflow: ch.Workflow, RunError: ch.RunError, NotStarted: ch.NotStarted})
 			return
 		}
-		rev, err := h.lifecycle.Adopt(r.Context(), p, c, who, "adopted under Settings › Guidance: "+strings.Join(c.Words(), ", ")+"."+back, adoption.OperationSelect)
+		rev, err := h.lifecycle.Adopt(r.Context(), p, c, who, "adopted under Settings › Guidance: "+strings.Join(c.Words(), ", ")+"."+back)
 		if err != nil {
 			WriteFaultOr(w, err, 409)
 			return

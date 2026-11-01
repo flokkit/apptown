@@ -464,7 +464,7 @@ func adoptTestPlatform(t *testing.T, a *App, projectID ids.ID) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.lifecycle.Adopt(adoption.WithSystemAuthority(context.Background(), projectID), a.projectByID(context.Background(), projectID), candidate, "fixture", "select platform", adoption.OperationSelect); err != nil {
+	if _, err := a.lifecycle.Adopt(adoption.WithSystemAuthority(context.Background(), projectID), a.projectByID(context.Background(), projectID), candidate, "fixture", "select platform"); err != nil {
 		t.Fatal(err)
 	}
 }

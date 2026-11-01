@@ -46,14 +46,14 @@ func TestDockerMaintenanceReadsSelectedSourceWithoutReadmittingBootFit(t *testin
 	}
 	part := appcontract.Part{Name: "web", Public: true, Port: 8080, Intent: &appcontract.Health{Readiness: &appcontract.Probe{HTTP: "/ready", SuccessThreshold: 8}}}
 	contract := &appcontract.Contract{Parts: []appcontract.Part{part}}
-	if err := docker.RefusesHealth(contract, false); err != nil {
+	if err := docker.RefusesHealth(contract); err != nil {
 		t.Fatalf("cold admission rejected valid policy: %v", err)
 	}
 	source := &maintainedSources{requestSources: requestSources{contract: contract}, resolved: "selected"}
 	s.release.Sources = source
 	sentinel := errors.New("sampler reached")
 	calls := 0
-	driver := &docker.Driver{Scope: func(context.Context) (docker.Scope, error) { calls++; return docker.Scope{}, sentinel }}
+	driver := &docker.Driver{Allowed: docker.AuthorisedWhenRequested, Scope: func(context.Context) (docker.Scope, error) { calls++; return docker.Scope{}, sentinel }}
 	d := dockerReadiness{driver: driver, service: s, record: listingRecord{deployment: dep}}
 	p := deploy.Placement{ID: dep.ID, Generation: at.Generation, HostPort: 8080, Label: "selected", Name: "main", URL: "http://selected.example"}
 	names, err := docker.NamesOf(p.ID, p.Name)

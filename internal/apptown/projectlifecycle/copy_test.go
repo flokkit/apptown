@@ -111,7 +111,7 @@ func TestACopyIsTheSourceAtOneCommitWithItsWayOfWorking(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.lifecycle.Adopt(adoption.WithSystemAuthority(ctx, other.ID), other, c, "bls", "copied", adoption.OperationApplyPack); !errors.Is(err, adoption.ErrNotACopy) {
+	if _, err := f.lifecycle.applyCandidateForChange(adoption.WithSystemAuthority(ctx, other.ID), other, c, "bls", "copied", ids.Nil, adoption.OperationApplyPack); !errors.Is(err, adoption.ErrNotACopy) {
 		t.Fatalf("a project that is not an eval's copy took a copy's way of working: %v", err)
 	}
 	grants, err := f.identity.GrantsAt(ctx, access.ScopeProject, copy.ID.String())

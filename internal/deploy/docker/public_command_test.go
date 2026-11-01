@@ -29,7 +29,7 @@ func TestPublicAppCommandPreservesArguments(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-preview-argv", Workspace: t.TempDir()}, appcontract.Prepare(c, nil).PublicPart(), "", nil); err != nil {
+			if _, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).StartAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: dk, Name: "apptown-preview-argv", Workspace: t.TempDir()}, appcontract.Prepare(c, nil).PublicPart(), "", nil); err != nil {
 				t.Fatal(err)
 			}
 			for _, args := range f.args {

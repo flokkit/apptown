@@ -467,7 +467,7 @@ func newDigestWorldWith(t *testing.T, secrets, appYAML string, configure func(*d
 	w.deps = assembled(db, rt, Dependencies{Authority: &requestAuthority{}, Followups: noFollowups{}, Configuration: ConfigurationDependencies{Authority: &requestAuthority{}, Projects: w.sources}, Releases: ReleaseDependencies{Authority: &requestAuthority{}, Still: &requestAuthority{}, Sources: w.sources, Secrets: doReleaseSecrets{}, Queue: requestQueue{}}})
 	w.s = New(context.Background(), db, w.deps)
 	if err := integrations.Attachments.Attach(t.Context(), w.project, "container-registry", "missing",
-		fmt.Sprintf(`{"repo":%q,"username":%q,"token":%q}`, w.registry.host+"/team/p", digestRegistryUser, digestRegistryToken), integration.Entered, "test", nil); err != nil {
+		fmt.Sprintf(`{"repo":%q,"username":%q,"token":%q}`, w.registry.host+"/team/p", digestRegistryUser, digestRegistryToken), "test", nil); err != nil {
 		t.Fatal(err)
 	}
 	// The image-only declarations' images, in the project's own registry.

@@ -134,7 +134,7 @@ func (s *Service) StartEvalRun(ctx context.Context, in EvalRun) (*Run, error) {
 		return nil, fmt.Errorf("Run execution is unavailable")
 	}
 	return s.starter.Start(ctx, StartRequest{ProjectID: project, ChangeID: change.ID, WorkflowName: in.Workflow, InputsJSON: "{}",
-		RequestedBy: actor.InferenceOwner, Owner: actor.Owner, ReceiptActor: actor.Receipt, evalAuthority: authority})
+		requestedBy: actor.InferenceOwner, owner: actor.Owner, receiptActor: actor.Receipt, evalAuthority: authority})
 }
 
 // acceptedEvalAuthorityIn: a landing of accepted work in an eval's copy
@@ -142,10 +142,10 @@ func (s *Service) StartEvalRun(ctx context.Context, in EvalRun) (*Run, error) {
 // landing proceeds as every run in the arm does. Any other accepted work
 // carries none.
 func acceptedEvalAuthorityIn(ctx context.Context, q database.Queryer, req StartRequest) (string, error) {
-	if req.AcceptedRunID.IsZero() {
+	if req.acceptedRunID.IsZero() {
 		return "", nil
 	}
-	authority, err := rootAuthorityIn(ctx, q, req.AcceptedRunID)
+	authority, err := rootAuthorityIn(ctx, q, req.acceptedRunID)
 	if err != nil {
 		return "", err
 	}

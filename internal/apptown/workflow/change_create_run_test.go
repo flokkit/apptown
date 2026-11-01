@@ -281,7 +281,7 @@ func TestCreateAndRunReportsStoppedDispatcherWithoutAbandoningReadyRun(t *testin
 func TestCreateAndRunEnforcesRealCredentialBounds(t *testing.T) {
 	t.Parallel()
 	f := stepAuthorityFixture(t, ApprovalConfig{})
-	if _, err := f.Access.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "outsider", Capability: string(access.CapChangeCreate), Scope: access.ScopeProject, ScopeID: fmt.Sprint(f.ProjectID), Origin: "fixture", By: "boss"}, ""); err != nil {
+	if _, err := f.Access.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "outsider", Capability: string(access.CapChangeCreate), Scope: access.ScopeProject, ScopeID: fmt.Sprint(f.ProjectID), By: "boss"}, ""); err != nil {
 		t.Fatal(err)
 	}
 	for _, pr := range []access.Principal{

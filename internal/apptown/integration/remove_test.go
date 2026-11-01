@@ -18,7 +18,7 @@ func TestRemoveProjectInKeepsOtherProjects(t *testing.T) {
 	second := createTestProject(t, db, "second", "Second")
 	attachments := NewAttachments(db)
 	for _, pid := range []ids.ID{first, second} {
-		if err := attachments.Attach(t.Context(), pid, "errors", "glitchtip", `{}`, Entered, "tester", nil); err != nil {
+		if err := attachments.Attach(t.Context(), pid, "errors", "glitchtip", `{}`, "tester", nil); err != nil {
 			t.Fatal(err)
 		}
 	}

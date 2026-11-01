@@ -58,7 +58,7 @@ func llmFixture(t *testing.T, config string) (*Service, ids.ID, *openrouterfake.
 
 func attachLLM(t *testing.T, s *Service, id ids.ID) {
 	t.Helper()
-	if err := s.Attachments.Attach(t.Context(), id, CapLLM, "openrouter", "{}", Entered, "admin", nil); err != nil {
+	if err := s.Attachments.Attach(t.Context(), id, CapLLM, "openrouter", "{}", "admin", nil); err != nil {
 		t.Fatal(err)
 	}
 }

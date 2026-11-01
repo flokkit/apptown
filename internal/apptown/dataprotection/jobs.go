@@ -46,10 +46,14 @@ func (w JobWorker) Backup(ctx context.Context, key string, args map[string]any) 
 		return nil, err
 	}
 	trigger, _ := args["trigger"].(string)
-	if trigger == "" {
+	switch trigger {
+	case "":
 		trigger = "scheduled"
+	case "scheduled", "release":
+	default:
+		return nil, jobs.Permanent(fmt.Errorf("backup job trigger %q is not scheduled or release", trigger))
 	}
-	b, err := w.Service.TakeBackup(ctx, p.ID, name, trigger, "apptown-system")
+	b, err := w.Service.takeBackup(ctx, p.ID, name, trigger, "apptown-system")
 	if err != nil {
 		if errors.Is(err, ErrNothingToBackUp) || errors.Is(err, deployment.ErrTargetKeepsBackups) || errors.Is(err, project.ErrNotActive) {
 			return map[string]any{"skipped": err.Error()}, nil

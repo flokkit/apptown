@@ -288,7 +288,7 @@ func withLLM(t *testing.T, s *Service, projectID ids.ID, attached bool) *openrou
 		t.Fatal(err)
 	}
 	if attached {
-		if err := s.integrations.Attachments.Attach(t.Context(), projectID, integration.CapLLM, "openrouter", "{}", integration.Entered, "owner", nil); err != nil {
+		if err := s.integrations.Attachments.Attach(t.Context(), projectID, integration.CapLLM, "openrouter", "{}", "owner", nil); err != nil {
 			t.Fatal(err)
 		}
 	}

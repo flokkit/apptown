@@ -23,7 +23,7 @@ func routineClassificationFixture(t *testing.T) (*database.DB, *identity.Service
 	if err != nil {
 		t.Fatal(err)
 	}
-	grant, err := people.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: account.Username, Role: access.RoleStandardsAdmin, Scope: access.ScopeInstance, Origin: "fixture", By: account.Username}, "")
+	grant, err := people.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: account.Username, Role: access.RoleStandardsAdmin, Scope: access.ScopeInstance, By: account.Username}, "")
 	if err != nil {
 		t.Fatal(err)
 	}

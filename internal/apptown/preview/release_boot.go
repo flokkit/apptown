@@ -90,7 +90,7 @@ func (h releaseBoots) BootReleasePreview(ctx context.Context, selected Release) 
 	if err := docker.RemovePreview(context.WithoutCancel(ctx), s.hosts.Local(), name, stackID); err != nil {
 		return ReleaseResult{}, fmt.Errorf("removing what an earlier look at this version left: %w", err)
 	}
-	req := docker.BootRequest{Name: name, StackID: stackID, Workspace: staged,
+	req := docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Name: name, StackID: stackID, Workspace: staged,
 		Slug: p.Slug, Deployment: "preview", Docker: s.hosts.Local(), Probe: 90 * time.Second, Incarnation: incarnation, Scratch: s.hosts.BootScratch()}
 	if b != nil {
 		login, err := s.env.BundleLogin(ctx, selected.ProjectID, b)

@@ -18,7 +18,7 @@ func TestRemediationSkipWithdrawalBecomesFeedback(t *testing.T) {
 	t.Parallel()
 	a, starts, item, def := remediationAttemptFixture(t, false)
 	// The named approver also needs the project approval capability.
-	a.addGrant("user", "alice", access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(item.ProjectID), "", "system", "")
+	a.addGrant("user", "alice", access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(item.ProjectID), "system", "")
 	def.Run.Spec.Stages[0].Steps[0].With = map[string]any{"quorum": 2, "approvers": []string{"alice", "bob"}}
 	installFakeGit(t, a, nil)
 	d := installDispatchFixture(t, a)

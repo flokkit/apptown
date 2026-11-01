@@ -110,7 +110,7 @@ say "asked AppTown"`})
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.addGrant("user", "alice", access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(p.ID), "fixture", "alice", "")
+	a.addGrant("user", "alice", access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(p.ID), "alice", "")
 	onlyOnTheWorker(t, a)
 	if err := a.Work.ExecuteStep(a.asEngine(context.Background()), steps["build"].ID); err != nil {
 		t.Fatal(err)
@@ -160,7 +160,7 @@ say "checked my work"`})
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.addGrant("user", "alice", access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(p.ID), "fixture", "alice", "")
+	a.addGrant("user", "alice", access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(p.ID), "alice", "")
 	onlyOnTheWorker(t, a)
 	if err := a.Work.ExecuteStep(a.asEngine(context.Background()), steps["build"].ID); err != nil {
 		t.Fatal(err)

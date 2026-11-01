@@ -71,7 +71,7 @@ func TestDockerSelectedImagesUseLocalAndRemoteBuildContexts(t *testing.T) {
 				}
 				return nil, nil
 			}
-			got, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).PrepareImages(t.Context(), BootRequest{Name: "apptown-env-p-main", Workspace: art.Source.Workspace, Docker: dk, Identity: &deploy.DockerIdentity{Deployment: "1", Generation: 7, Artifact: art.Hash}}, appcontract.Prepare(art.Source.Contract, nil))
+			got, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).PrepareImages(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Name: "apptown-env-p-main", Workspace: art.Source.Workspace, Docker: dk, Identity: &deploy.DockerIdentity{Deployment: "1", Generation: 7, Artifact: art.Hash}}, appcontract.Prepare(art.Source.Contract, nil))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -140,7 +140,7 @@ func TestRecordedImagesBootAsRecordedAndBuildNothing(t *testing.T) {
 				return []byte(id + "\n"), nil
 			}
 			dk := (Scope{Client: fake}).WithHost("ssh://attached", "attached", "")
-			req := BootRequest{Name: "apptown-env-p-main", Workspace: t.TempDir(), Docker: dk, Recorded: recorded,
+			req := BootRequest{Allowed: AuthorisedWhenRequested, Name: "apptown-env-p-main", Workspace: t.TempDir(), Docker: dk, Recorded: recorded,
 				Identity: &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "a"}}
 			got, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).PrepareImages(t.Context(), req, appcontract.Prepare(c, nil))
 			present := recorded.Present(context.Background(), dk)
@@ -240,7 +240,7 @@ func TestImagesByDigestArePulledWithTheirCredentialAndConfirmed(t *testing.T) {
 				return nil, nil
 			}
 			dk := (Scope{Client: fake}).WithHost("ssh://attached", "attached", "")
-			req := BootRequest{Name: "apptown-env-p-main", Workspace: t.TempDir(), Docker: dk, Recorded: &recorded,
+			req := BootRequest{Allowed: AuthorisedWhenRequested, Name: "apptown-env-p-main", Workspace: t.TempDir(), Docker: dk, Recorded: &recorded,
 				Identity: &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "a"}}
 			got, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).PrepareImages(t.Context(), req, appcontract.Prepare(c, nil))
 			for _, args := range fake.args {

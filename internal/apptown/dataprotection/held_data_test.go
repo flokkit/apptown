@@ -107,7 +107,7 @@ func TestAnOrdinaryBackupCopiesANeedTheHeadNoLongerDeclares(t *testing.T) {
 	s, client, dep := takeDownWorld(t, "obk")
 	var h hostLog
 	h.answer(client)
-	b, err := s.TakeBackup(context.Background(), dep.ProjectID, dep.Name, "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), dep.ProjectID, dep.Name, "bls")
 	if err != nil || b.Status != BackupOK {
 		t.Fatalf("take: %+v %v", b, err)
 	}
@@ -142,7 +142,7 @@ func TestAHeldVolumeNothingCanCopyMakesTheSetPartial(t *testing.T) {
 	hostMounts(client, nil, nil) // Postgres no longer mounts v-pg
 	var h hostLog
 	h.answer(client)
-	b, err := s.TakeBackup(context.Background(), dep.ProjectID, dep.Name, "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), dep.ProjectID, dep.Name, "bls")
 	if err != nil || b.Status != BackupPartial {
 		t.Fatalf("take: %+v %v", b, err)
 	}
@@ -185,7 +185,7 @@ func TestNothingToBackUpNeedsBothSourcesReadAndEmpty(t *testing.T) {
 	worker := JobWorker{Service: s.Service, Projects: project.New(db, nil)}
 	unknown := func(name string) {
 		t.Helper()
-		if _, err := s.TakeBackup(context.Background(), pid, name, "manual", "bls"); !errors.Is(err, ErrDataNotKnown) {
+		if _, err := s.TakeBackup(context.Background(), pid, name, "bls"); !errors.Is(err, ErrDataNotKnown) {
 			t.Fatalf("%s: %v, want not known", name, err)
 		}
 		if r, err := worker.Backup(context.Background(), pid.String()+"/"+name, nil); err == nil {
@@ -207,12 +207,12 @@ func TestNothingToBackUpNeedsBothSourcesReadAndEmpty(t *testing.T) {
 		}
 		return nil, nil, false
 	})
-	if _, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls"); !errors.Is(err, ErrHeldDataAbsent) {
+	if _, err := s.TakeBackup(context.Background(), pid, "main", "bls"); !errors.Is(err, ErrHeldDataAbsent) {
 		t.Fatalf("declared and absent: %v", err)
 	}
 
 	releaseMain(t, s, "nb", "app:\n  web:\n    image: x:1\n    public: true\n")
-	if _, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls"); !errors.Is(err, ErrNothingToBackUp) {
+	if _, err := s.TakeBackup(context.Background(), pid, "main", "bls"); !errors.Is(err, ErrNothingToBackUp) {
 		t.Fatalf("nothing named: %v", err)
 	}
 	if r, err := worker.Backup(context.Background(), pid.String()+"/main", nil); err != nil || r["skipped"] == nil {
@@ -236,7 +236,7 @@ func TestAHostThatCannotBeAskedLeavesItsDataUnknown(t *testing.T) {
 		}
 		return nil, nil, false
 	})
-	if _, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls"); !errors.Is(err, ErrDataNotKnown) {
+	if _, err := s.TakeBackup(context.Background(), pid, "main", "bls"); !errors.Is(err, ErrDataNotKnown) {
 		t.Fatalf("an unreachable host's backup: %v, want not known", err)
 	}
 	worker := JobWorker{Service: s.Service, Projects: project.New(db, nil)}
@@ -281,7 +281,7 @@ func twoOfEachWorld(t *testing.T, slug string, port int) (*both, *dockerfake.Dae
 func TestTwoVolumesOfOneRoleStayApart(t *testing.T) {
 	t.Parallel()
 	s, _, dep, h := twoOfEachWorld(t, "two", 40021)
-	b, err := s.TakeBackup(context.Background(), dep.ProjectID, dep.Name, "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), dep.ProjectID, dep.Name, "bls")
 	if err != nil || b.Status != BackupOK || len(b.Items) != 4 {
 		t.Fatalf("take: %+v %v", b, err)
 	}
@@ -434,7 +434,7 @@ func TestANeedWithNoNamedDataIsNotCopiedAndNeverMerged(t *testing.T) {
 			})
 			var h hostLog
 			h.answer(client)
-			b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+			b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 			if err != nil || b.Status != BackupPartial || len(b.Items) != 1+len(needs) {
 				t.Fatalf("take: %+v %v", b, err)
 			}
@@ -470,7 +470,7 @@ func TestACopyOfAnotherVolumeIsNotThisVolumesCopy(t *testing.T) {
 	})
 	var h hostLog
 	h.answer(client)
-	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
 	if err != nil || b.Status != BackupOK || b.GoodCopy("need", "postgres") == nil || b.GoodCopy("need", "postgres").Volume != "old-anon" {
 		t.Fatalf("the old volume's copy: %+v %v", b, err)
 	}

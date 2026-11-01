@@ -360,7 +360,7 @@ func TestUpliftAuthorityWithoutDispatcher(t *testing.T) {
 		t.Run(fmt.Sprint("independent=", direct), func(t *testing.T) {
 			t.Parallel()
 			a := stepAuthorityFixture(t, ApprovalConfig{})
-			if _, err := a.Access.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "owner", Role: access.RoleProjectOwner, Scope: access.ScopeProject, ScopeID: fmt.Sprint(a.ProjectID), Origin: "fixture", By: "boss"}, ""); err != nil {
+			if _, err := a.Access.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "owner", Role: access.RoleProjectOwner, Scope: access.ScopeProject, ScopeID: fmt.Sprint(a.ProjectID), By: "boss"}, ""); err != nil {
 				t.Fatal(err)
 			}
 			open := a.Work.Uplift

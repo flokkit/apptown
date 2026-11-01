@@ -26,8 +26,8 @@ type DeploySelection struct {
 	ProjectID      ids.ID
 	DeploymentName string
 	// Address edits require bind authority and the revision the caller saw.
-	AddressRevision *int64
-	CustomHostname  *string
+	addressRevision *int64
+	customHostname  *string
 	BundleID        ids.ID
 	// AcceptUncopiedData is a person's choice to release onto a deployment
 	// holding data AppTown cannot copy now (DataCopyCheck); the release
@@ -152,8 +152,8 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 	if actor.Principal.Name == "" {
 		return AcceptedRelease{}, errors.New("release caller required")
 	}
-	if in.CustomHostname != nil {
-		if in.AddressRevision == nil || *in.AddressRevision < 0 {
+	if in.customHostname != nil {
+		if in.addressRevision == nil || *in.addressRevision < 0 {
 			return AcceptedRelease{}, fault.New(fault.Invalid, "send the address revision the edit started from")
 		}
 		if _, err := s.addressAuthority(ctx, in.ProjectID, true); err != nil {
@@ -328,7 +328,7 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 		if current.StartFrom != dep.StartFrom || current.StartedFrom.Valid != dep.StartedFrom.Valid {
 			return ErrPlacementChanged
 		}
-		address, err := s.admitAddressIn(ctx, tx, current, lockedTarget, in.AddressRevision, in.CustomHostname, actor.Principal.Name)
+		address, err := s.admitAddressIn(ctx, tx, current, lockedTarget, in.addressRevision, in.customHostname, actor.Principal.Name)
 		if err != nil {
 			return err
 		}

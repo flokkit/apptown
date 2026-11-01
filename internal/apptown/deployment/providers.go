@@ -162,7 +162,7 @@ func (p *Providers) dockerDriver(ctx context.Context, t *Target, dep *Deployment
 	if err != nil {
 		return nil, fmt.Errorf("reading the deployment's serving identity: %w", err)
 	}
-	return &docker.Driver{
+	return &docker.Driver{Allowed: docker.AuthorisedWhenRequested,
 		ServingLabel: owner.ServingLabel,
 		Scope:        func(ctx context.Context) (docker.Scope, error) { return p.hosts.DockerScope(ctx, t) },
 		Boot:         p.env.Host(dep.ProjectID, p.env.NeedCredentials(NeedSecretsScope(dep.ID)), func(slug string) KeyOwner { return deploymentKeys(p.db, p.clock, dep, slug) }),

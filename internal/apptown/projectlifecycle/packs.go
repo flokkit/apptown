@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/ids"
+
 	"github.com/flokkit/apptown/internal/apptown/scm"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
@@ -82,7 +84,7 @@ func (s *Service) ApplyPack(ctx execcontext.Context, p *project.Project, packs [
 		}
 	}
 	label := strings.Join(names, ", ")
-	if _, err := s.Adopt(ctx, p, c, who, "packs "+label+" applied", adoption.OperationApplyPack); err != nil {
+	if _, err := s.applyCandidateForChange(ctx, p, c, who, "packs "+label+" applied", ids.Nil, adoption.OperationApplyPack); err != nil {
 		return nil, err
 	}
 	pos := len(c.Receipt.Guidance)

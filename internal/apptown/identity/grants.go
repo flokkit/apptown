@@ -39,7 +39,7 @@ type Spec struct {
 	Role, Capability     string // one of the two
 	Scope                access.ScopeKind
 	ScopeID              string
-	Origin, By, Reason   string
+	origin, By, Reason   string
 }
 
 func grantRecord(r accesssql.GrantsNamed) access.Grant {
@@ -142,7 +142,7 @@ func grantIn(ctx context.Context, tx *database.Tx, s Spec, at time.Time) (ids.ID
 		return ids.Nil, false, err
 	}
 	g, err := q.InsertGrant(ctx, accesssql.InsertGrantParams{ID: ids.New(at.UTC()), SubjectType: s.SubjectType, Subject: s.Subject, RoleName: s.Role,
-		Capability: s.Capability, ScopeType: string(s.Scope), ScopeID: s.ScopeID, Origin: s.Origin, GrantedBy: s.By, GrantedByPrincipal: granter.Principal, GrantedByVia: granter.Via, Reason: s.Reason, CreatedAt: at.UTC()})
+		Capability: s.Capability, ScopeType: string(s.Scope), ScopeID: s.ScopeID, Origin: s.origin, GrantedBy: s.By, GrantedByPrincipal: granter.Principal, GrantedByVia: granter.Via, Reason: s.Reason, CreatedAt: at.UTC()})
 	if err == nil {
 		return g.ID, true, nil
 	}
@@ -271,7 +271,7 @@ func PersonalGroupIn(ctx context.Context, tx *database.Tx, user, by string, at t
 		if _, err := q.InsertMembership(ctx, accesssql.InsertMembershipParams{GroupName: name, Username: user, CreatedBy: by, CreatedByPrincipal: creator.Principal, CreatedByVia: creator.Via, CreatedAt: at.UTC()}); err != nil {
 			return "", err
 		}
-		if _, err := GrantIn(ctx, tx, Spec{SubjectType: "user", Subject: user, Role: access.RoleGroupOwner, Scope: access.ScopeGroup, ScopeID: name, Origin: "bootstrap", By: by}, at); err != nil {
+		if _, err := GrantIn(ctx, tx, Spec{SubjectType: "user", Subject: user, Role: access.RoleGroupOwner, Scope: access.ScopeGroup, ScopeID: name, origin: "bootstrap", By: by}, at); err != nil {
 			return "", err
 		}
 		return name, nil
@@ -300,7 +300,7 @@ func AdminGrantIn(ctx context.Context, tx *database.Tx, user, by string, at time
 	if _, err := PersonalGroupIn(ctx, tx, user, by, at); err != nil {
 		return err
 	}
-	_, err := GrantIn(ctx, tx, Spec{SubjectType: "user", Subject: user, Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, Origin: "bootstrap", By: by}, at)
+	_, err := GrantIn(ctx, tx, Spec{SubjectType: "user", Subject: user, Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, origin: "bootstrap", By: by}, at)
 	return err
 }
 
@@ -352,7 +352,7 @@ func DefaultsIn(ctx context.Context, tx *database.Tx, open bool, at time.Time) e
 			return err
 		}
 		if !chosen {
-			if _, err := GrantIn(ctx, tx, Spec{SubjectType: "anonymous", Subject: "anonymous", Role: access.RoleAuditor, Scope: access.ScopeInstance, Origin: "profile:open", By: "apptown-system", Reason: "open mode: anyone on the network can read"}, at); err != nil {
+			if _, err := GrantIn(ctx, tx, Spec{SubjectType: "anonymous", Subject: "anonymous", Role: access.RoleAuditor, Scope: access.ScopeInstance, origin: "profile:open", By: "apptown-system", Reason: "open mode: anyone on the network can read"}, at); err != nil {
 				return err
 			}
 		}

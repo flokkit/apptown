@@ -21,7 +21,7 @@ func admitLandingSpec(t *testing.T, spec schema.Spec) (queries, *Run) {
 	db, change := changeEditFixture(t, ChangeDraft{Title: "Landing recheck"})
 	spec.Kind, spec.Role = "pipeline", "landing"
 	admissions := newRunAdmissions(db, NewStages(nil, func(string) bool { return true }), nil)
-	run, err := admissions.Create(context.Background(), StartRequest{ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "land", InputsJSON: "{}", RequestedBy: "operator"}, PreparedRun{Workflow: DefinitionRef{Name: "land", Version: 1}, Spec: spec})
+	run, err := admissions.Create(context.Background(), StartRequest{ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "land", InputsJSON: "{}", requestedBy: "operator"}, PreparedRun{Workflow: DefinitionRef{Name: "land", Version: 1}, Spec: spec})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func landingRecheckFixture(t *testing.T) (landingRechecks, *Run, map[string]ids.
 func TestLandingRecheckAtomicBatchPreservesDecisions(t *testing.T) {
 	t.Parallel()
 	owner, run, _ := landingRecheckFixture(t)
-	result, err := owner.Recheck(context.Background(), LandingRecheck{Who: "alice", ChangeID: run.ChangeID})
+	result, err := owner.Recheck(context.Background(), LandingRecheck{who: "alice", ChangeID: run.ChangeID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestLandingRecheckAbandonmentRace(t *testing.T) {
 	owner, run, stepIDs := landingRecheckFixture(t)
 	race(2, func(i int) int {
 		if i == 0 {
-			_, _ = owner.Recheck(context.Background(), LandingRecheck{Who: "alice", ChangeID: run.ChangeID})
+			_, _ = owner.Recheck(context.Background(), LandingRecheck{who: "alice", ChangeID: run.ChangeID})
 		} else {
 			if _, err := NewAbandonments(owner.db, abandonRecorderFunc(noAbandonEffects), &scm.RepositoryLocks{}).Abandon(context.Background(), Abandonment{ChangeID: run.ChangeID, Who: "alice", Reason: "stop"}); err != nil {
 				t.Error(err)
@@ -119,7 +119,7 @@ func TestLandingRecheckAbandonmentRace(t *testing.T) {
 		return 0
 	})
 	wantRunCount(t, owner.db, 1, func(r *Run) bool { return r.Status == RunAbandoned })
-	if _, err := owner.Recheck(context.Background(), LandingRecheck{Who: "alice", ChangeID: run.ChangeID}); err == nil {
+	if _, err := owner.Recheck(context.Background(), LandingRecheck{who: "alice", ChangeID: run.ChangeID}); err == nil {
 		t.Fatal("abandoned work was rechecked")
 	}
 	// A reset that won the race still cannot start after abandonment.
@@ -150,7 +150,7 @@ func TestLandingRecheckRejectsChangedOrBusyWork(t *testing.T) {
 			case "stage":
 				transitionScopeRun(t, owner.db, workflowsql.TransitionRunParams{At: time.Now(), ID: run.ID, NextStage: "missing"})
 			}
-			if _, err := owner.Recheck(context.Background(), LandingRecheck{ChangeID: run.ChangeID, Who: "alice"}); err == nil {
+			if _, err := owner.Recheck(context.Background(), LandingRecheck{ChangeID: run.ChangeID, who: "alice"}); err == nil {
 				t.Fatal("changed work accepted")
 			}
 			wantEventCount(t, owner.db, 4, anyEvent)

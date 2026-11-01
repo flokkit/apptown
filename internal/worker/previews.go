@@ -655,7 +655,7 @@ func (s *Server) bootPreview(w http.ResponseWriter, r *http.Request) {
 		recorded = &docker.RecordedImages{Parts: spec.Images.Parts, Init: spec.Images.Init, Login: prepared.Registry, Scratch: dir}
 	}
 	// The boot's images, from the tool versions current as it begins.
-	res, err := docker.NewHost(prepared.Dependencies(&docker.Probe{}, s.toolVersions().Images)).Boot(bootLife, docker.BootRequest{
+	res, err := docker.NewHost(prepared.Dependencies(&docker.Probe{}, s.toolVersions().Images)).Boot(bootLife, docker.BootRequest{Allowed: docker.AuthorisedWhenRequested,
 		Docker: s.previewScope().WithLifetime(bootLife), Name: name, StackID: spec.StackID, Workspace: tree, Slug: spec.Slug,
 		Deployment: "preview", Probe: time.Duration(spec.ProbeSeconds) * time.Second, PageCheck: spec.PageCheck, VisitorHost: spec.VisitorHost,
 		Services: prepared.Services, Incarnation: spec.Incarnation, Scratch: dir, Recorded: recorded,

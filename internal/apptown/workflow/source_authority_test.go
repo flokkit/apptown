@@ -31,7 +31,7 @@ func TestAReplacedAttemptLosesTheBranch(t *testing.T) {
 		t.Fatal(err)
 	}
 	admissions := newRunAdmissions(db, NewStages(nil, func(kind string) bool { return kind == "script" }), nil)
-	run, err := admissions.Create(ctx, StartRequest{ProjectID: projectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", RequestedBy: "operator"},
+	run, err := admissions.Create(ctx, StartRequest{ProjectID: projectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "operator"},
 		PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "finish", Steps: []schema.Step{{Name: "work", Uses: "script"}}}}}})
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +96,7 @@ func TestAStepIsNotAdmittedAfterItsRunLostTheBranch(t *testing.T) {
 				t.Fatal(err)
 			}
 			admissions := newRunAdmissions(db, NewStages(nil, func(kind string) bool { return kind == "script" }), nil)
-			run, err := admissions.Create(ctx, StartRequest{ProjectID: projectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", RequestedBy: "operator"}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "work", Uses: "script"}}}}}})
+			run, err := admissions.Create(ctx, StartRequest{ProjectID: projectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "operator"}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "work", Uses: "script"}}}}}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -164,7 +164,7 @@ func TestASentBackContinuationTakesTheChange(t *testing.T) {
 			}
 			automatic := []string{"agent/pi"}
 			admissions := newRunAdmissions(db, NewStages(nil, func(kind string) bool { return kind == "agent/pi" }), nil)
-			run, err := admissions.Create(ctx, StartRequest{ProjectID: projectID, ChangeID: change.ID, WorkflowName: "implement", InputsJSON: "{}", RequestedBy: "operator"},
+			run, err := admissions.Create(ctx, StartRequest{ProjectID: projectID, ChangeID: change.ID, WorkflowName: "implement", InputsJSON: "{}", requestedBy: "operator"},
 				PreparedRun{Workflow: DefinitionRef{Name: "implement", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", OnEnter: []schema.Step{{Name: "build", Uses: "agent/pi"}}, Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}})
 			if err != nil {
 				t.Fatal(err)

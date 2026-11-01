@@ -144,7 +144,7 @@ func adopt(t *testing.T, a *App, projectID ids.ID, block string, ver int, checks
 		if prepareErr != nil {
 			err = prepareErr
 		} else {
-			_, err = a.lifecycle.Adopt(ctx, a.projectByID(ctx, projectID), candidate, "apptown-system", "fixture explicitly adopts check", adoption.OperationSelect)
+			_, err = a.lifecycle.Adopt(ctx, a.projectByID(ctx, projectID), candidate, "apptown-system", "fixture explicitly adopts check")
 		}
 	}
 	if err != nil {
@@ -525,7 +525,7 @@ func TestAWhatIfWithNoProjectsNamedRunsOnTheEligibleOnes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := a.lifecycle.Adopt(adoption.WithSystemAuthority(context.Background(), id), a.projectByID(context.Background(), id), candidate, "fixture", "take team v1", adoption.OperationSelect); err != nil {
+		if _, err := a.lifecycle.Adopt(adoption.WithSystemAuthority(context.Background(), id), a.projectByID(context.Background(), id), candidate, "fixture", "take team v1"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -666,7 +666,7 @@ func TestAdoptingFromAWhatIfOpensWhatItAssessed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.lifecycle.Adopt(adoption.WithSystemAuthority(context.Background(), alpha), a.projectByID(context.Background(), alpha), candidate, "fixture", "take team v1", adoption.OperationSelect); err != nil {
+	if _, err := a.lifecycle.Adopt(adoption.WithSystemAuthority(context.Background(), alpha), a.projectByID(context.Background(), alpha), candidate, "fixture", "take team v1"); err != nil {
 		t.Fatal(err)
 	}
 	adopt(t, a, alpha, "loose", 1, checksJSON(shCheck("loose", "exit 0", "low")))
@@ -821,7 +821,7 @@ func TestAWhatIfMovesAProjectsOwnPackWithTheNamedOne(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.lifecycle.Adopt(adoption.WithSystemAuthority(context.Background(), alpha), a.projectByID(context.Background(), alpha), candidate, "fixture", "take team v1 and extra v1", adoption.OperationSelect); err != nil {
+	if _, err := a.lifecycle.Adopt(adoption.WithSystemAuthority(context.Background(), alpha), a.projectByID(context.Background(), alpha), candidate, "fixture", "take team v1 and extra v1"); err != nil {
 		t.Fatal(err)
 	}
 	// extra moves on; team does not: alpha is current on team, behind on extra.

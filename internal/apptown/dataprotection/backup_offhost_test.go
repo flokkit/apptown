@@ -110,7 +110,7 @@ func (w *offhostWorld) attach() {
 
 func (w *offhostWorld) take(trigger string) *Backup {
 	w.t.Helper()
-	b, err := w.s.TakeBackup(context.Background(), w.pid, "main", trigger, "alice")
+	b, err := w.s.takeBackup(context.Background(), w.pid, "main", trigger, "alice")
 	if err != nil {
 		w.t.Fatal(err)
 	}
@@ -374,7 +374,7 @@ func TestDiskSetsMoveToTheStore(t *testing.T) {
 		t.Fatalf("before the move: %+v %v", p, err)
 	}
 
-	files, err := LockBackupFiles(filepath.Join(w.dir, "backups"), false)
+	files, err := lockBackupFiles(filepath.Join(w.dir, "backups"), false)
 	if err != nil {
 		t.Fatal(err)
 	}

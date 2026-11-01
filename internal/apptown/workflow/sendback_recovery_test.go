@@ -23,7 +23,7 @@ func completedSendBackFixture(t *testing.T) (sendBackStore, *Run, ids.ID) {
 func completedSendBackBy(t *testing.T, actor string) (sendBackStore, *Run, ids.ID) {
 	t.Helper()
 	admissions, req, def := runAdmissionFixture(t)
-	req.RequestedBy = actor
+	req.requestedBy = actor
 	def.Spec.Stages = []schema.Stage{{Name: "first", OnEnter: []schema.Step{{Name: "build", Uses: "agent/pi"}}, Steps: []schema.Step{{Name: "review", Uses: "agent/review"}, {Name: "accept", Uses: "approval"}}}}
 	automatic := []string{"agent/pi", "agent/review"}
 	store := runStartStore{db: admissions.records.db, stages: NewStages(nil, func(kind string) bool { return kind == "agent/pi" || kind == "agent/review" })}
@@ -98,7 +98,7 @@ func TestWorkflowRetryRecoveryAndOldLandingFence(t *testing.T) {
 			// earlier stale read cannot create a landing for the old work.
 			transitionScopeRun(t, s.db, workflowsql.TransitionRunParams{At: time.Now(), ID: result.RunID, NextStatus: "done"})
 			def := PreparedRun{Workflow: DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Role: "landing", Kind: "pipeline", Stages: []schema.Stage{{Name: "start"}}}}
-			if _, err := (runStartStore{db: s.db}).create(context.Background(), StartRequest{ProjectID: source.ProjectID, ChangeID: source.ChangeID, WorkflowName: "land", AcceptedRunID: source.ID, InputsJSON: "{}"}, def); err == nil || !strings.Contains(err.Error(), "sent back") {
+			if _, err := (runStartStore{db: s.db}).create(context.Background(), StartRequest{ProjectID: source.ProjectID, ChangeID: source.ChangeID, WorkflowName: "land", acceptedRunID: source.ID, InputsJSON: "{}"}, def); err == nil || !strings.Contains(err.Error(), "sent back") {
 				t.Fatalf("old acceptance was not fenced: %v", err)
 			}
 			wantRunCount(t, s.db, 2, nil)

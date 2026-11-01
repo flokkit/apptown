@@ -41,7 +41,7 @@ func TestStandingDeployHonorsDeclaredSource(t *testing.T) {
 			if build {
 				c.Image, c.Build = "", "."
 			}
-			if _, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-app-main", Workspace: ws, Persistent: true}, c, "", nil); err != nil {
+			if _, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).StartAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: dk, Name: "apptown-env-app-main", Workspace: ws, Persistent: true}, c, "", nil); err != nil {
 				t.Fatal(err)
 			}
 			if got := len(sourceCalls(f, "build ")); (got == 1) != build {

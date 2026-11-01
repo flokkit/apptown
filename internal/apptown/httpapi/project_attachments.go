@@ -171,7 +171,7 @@ func (h ProjectAttachments) AttachIntegration(w http.ResponseWriter, r *http.Req
 				WriteError(w, 422, "no AI models connector named %q", name)
 				return
 			}
-			if err := h.integrations.Attachments.Attach(r.Context(), p.ID, integration.CapLLM, name, "{}", integration.Entered, Actor(r), map[string]any{"connector": name}); err != nil {
+			if err := h.integrations.Attachments.Attach(r.Context(), p.ID, integration.CapLLM, name, "{}", Actor(r), map[string]any{"connector": name}); err != nil {
 				WriteFault(w, err)
 				return
 			}
@@ -232,7 +232,7 @@ func (h ProjectAttachments) AttachIntegration(w http.ResponseWriter, r *http.Req
 				return
 			}
 		}
-		if err := h.integrations.Attachments.Attach(r.Context(), p.ID, in.Capability, in.Connector, encodedJSON(resource), integration.Entered, Actor(r), map[string]any{"fields": fieldKeys(resource)}); err != nil {
+		if err := h.integrations.Attachments.Attach(r.Context(), p.ID, in.Capability, in.Connector, encodedJSON(resource), Actor(r), map[string]any{"fields": fieldKeys(resource)}); err != nil {
 			WriteFault(w, err)
 			return
 		}

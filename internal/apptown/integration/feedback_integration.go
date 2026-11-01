@@ -135,7 +135,7 @@ func (s *Service) ProvisionFeedback(ctx context.Context, p *project.Project, con
 		key = ap.Key
 	}
 	// The provider made it: its attachment is recorded though ctx has ended.
-	if err := s.Attachments.Attach(context.WithoutCancel(ctx), p.ID, CapFeedback, b.Name, encodeResource(map[string]string{"appKey": key, "url": b.URL}), Provisioned, who, map[string]any{"app": appName}); err != nil {
+	if err := s.Attachments.attach(context.WithoutCancel(ctx), p.ID, CapFeedback, b.Name, encodeResource(map[string]string{"appKey": key, "url": b.URL}), Provisioned, who, map[string]any{"app": appName}); err != nil {
 		return nil, 500, err
 	}
 	return map[string]any{"ok": true, "capability": CapFeedback, "connector": b.Name,

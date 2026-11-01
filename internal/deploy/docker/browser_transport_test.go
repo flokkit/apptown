@@ -32,7 +32,7 @@ func TestNothingButAppTownSetsAStaticPartsBrowserValues(t *testing.T) {
 			} else {
 				secrets = map[string]string{BrowserEnvVar: "private-review-canary"}
 			}
-			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).StartAppContainer(t.Context(), BootRequest{Docker: Scope{Client: client}, Name: "review-browser", Workspace: t.TempDir()}, part, "", secrets)
+			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).StartAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "review-browser", Workspace: t.TempDir()}, part, "", secrets)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -60,7 +60,7 @@ func TestNothingButAppTownSetsAStaticPartsBrowserValues(t *testing.T) {
 func TestAnUnreadableBrowserValueLeavesTheRunningContainer(t *testing.T) {
 	t.Parallel()
 	client := &fakeClient{reply: func(Command) ([]byte, error) { return nil, nil }}
-	_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Integrations: unreadableBrowser{}}).StartAppContainer(t.Context(), BootRequest{Docker: Scope{Client: client}, Name: "serving", Workspace: t.TempDir()}, &appcontract.Part{Static: ".", Port: 8080}, "", nil)
+	_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Integrations: unreadableBrowser{}}).StartAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "serving", Workspace: t.TempDir()}, &appcontract.Part{Static: ".", Port: 8080}, "", nil)
 	if err == nil || !strings.Contains(err.Error(), "browser may be given") {
 		t.Fatalf("want the read failure, got %v", err)
 	}
@@ -98,7 +98,7 @@ func TestBrowserValuesAreReadBeforeTheStackChanges(t *testing.T) {
 					{Name: "web", Public: true, Static: ".", Port: 8080},
 					{Name: "worker", Image: "worker:1"},
 				}, Init: []appcontract.InitContainer{{Name: "migrate", Image: "migration:1"}}}
-				req := BootRequest{Docker: Scope{Client: client}, Name: "serving", StackID: "env-review-main", Workspace: t.TempDir(), Persistent: true}
+				req := BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "serving", StackID: "env-review-main", Workspace: t.TempDir(), Persistent: true}
 				if releaseImage == "" {
 					req.Identity = &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "review"}
 				} else {
@@ -182,7 +182,7 @@ func TestIntegrationVariablesAreReadBeforeTheStackChanges(t *testing.T) {
 		{Name: "web", Public: true, Image: "web:1", Port: 8080},
 		{Name: "worker", Image: "worker:1"},
 	}, Init: []appcontract.InitContainer{{Name: "migrate", Image: "migration:1"}}}
-	req := BootRequest{Docker: Scope{Client: client}, Name: "serving", StackID: "env-review-main", Workspace: t.TempDir(), Persistent: true,
+	req := BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "serving", StackID: "env-review-main", Workspace: t.TempDir(), Persistent: true,
 		Identity: &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "review"}}
 	host := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Integrations: unreadableIntegrations{}, Probe: reviewUp{}})
 	_, err := host.Boot(context.Background(), req, c)
@@ -195,7 +195,7 @@ func TestIntegrationVariablesAreReadBeforeTheStackChanges(t *testing.T) {
 		}
 	}
 	client.args = nil
-	if _, err := host.StartAppContainer(t.Context(), BootRequest{Docker: Scope{Client: client}, Name: "serving", Workspace: t.TempDir()}, &appcontract.Part{Image: "web:1", Port: 8080}, "", nil); err == nil {
+	if _, err := host.StartAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "serving", Workspace: t.TempDir()}, &appcontract.Part{Image: "web:1", Port: 8080}, "", nil); err == nil {
 		t.Fatal("the app started without its integration variables")
 	}
 	if len(client.args) != 0 {

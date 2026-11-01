@@ -54,7 +54,7 @@ func (s landings) AdvanceAccepted(ctx context.Context, workID ids.ID, runtime ac
 		if runtime.Starter == nil {
 			return out, fmt.Errorf("landing starter is unavailable")
 		}
-		landing, err := runtime.Starter.Start(ctx, StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: "land", InputsJSON: "{}", AcceptedRunID: pending.Work.ID})
+		landing, err := runtime.Starter.Start(ctx, StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: "land", InputsJSON: "{}", acceptedRunID: pending.Work.ID})
 		if err != nil {
 			return out, err
 		}

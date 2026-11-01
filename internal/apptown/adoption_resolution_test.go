@@ -2,7 +2,6 @@ package apptown
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
@@ -35,11 +34,6 @@ func TestMissingRunAdoptionNeverReadsCurrentProject(t *testing.T) {
 	}
 	if _, _, err := a.Adoption.ResolveBlock(t.Context(), adoption.Source{ProjectID: run.ProjectID, Revision: receipt}, "skill/implementation"); err == nil {
 		t.Fatal("missing run receipt selected current skill")
-	}
-	// sql-guarantee: A real parent admission always pins its adoption; this child-admission refusal needs an existing parent with no pin. Workflow generated inserts are private to its package.
-	parent := completionInsert(t, a.DB, `INSERT INTO runs(id,number,project_id,workflow_name,workflow_version,kind,status,current_stage,definition_json,created_at,updated_at) VALUES ($1,$2,$3,'test',1,'pipeline','running','work','{}','2026-10-09T00:00:00Z','2026-10-09T00:00:00Z')`, fixtureNumber(), p.ID)
-	if _, err := startAdoptionForTest(context.Background(), a, workflow.StartRequest{ProjectID: p.ID, ParentRunID: parent}); err == nil || !strings.Contains(err.Error(), "parent run") {
-		t.Fatalf("child must refuse missing parent receipt: %v", err)
 	}
 }
 

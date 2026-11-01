@@ -33,7 +33,7 @@ func TestALocalAgentsPrivateDockerIsLoggedInToNoRegistry(t *testing.T) {
 		t.Fatal(err)
 	}
 	const token = "registry-token-canary"
-	if err := ex.integrations.Attachments.Attach(context.Background(), snapshot.Run.ProjectID, integration.CapContainerRegistry, "registry", `{"repo":"registry.example/team/agents","username":"robot","token":"`+token+`"}`, integration.Entered, "test", nil); err != nil {
+	if err := ex.integrations.Attachments.Attach(context.Background(), snapshot.Run.ProjectID, integration.CapContainerRegistry, "registry", `{"repo":"registry.example/team/agents","username":"robot","token":"`+token+`"}`, "test", nil); err != nil {
 		t.Fatal(err)
 	}
 	if ri, err := ex.integrations.Registry(context.Background(), snapshot.Run.ProjectID); err != nil || ri == nil || ri.Token != token {

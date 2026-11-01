@@ -75,7 +75,7 @@ func TestDockerMaintainedReadinessUsesCapturedRuntimeAndCurrentPermit(t *testing
 				return json.Marshal(rt)
 			}}}
 			now := time.Unix(2000, 0).UTC()
-			driver := Driver{Now: func() time.Time { return now }, Scope: func(context.Context) (Scope, error) { return dk, nil }}
+			driver := Driver{Allowed: AuthorisedWhenRequested, Now: func() time.Time { return now }, Scope: func(context.Context) (Scope, error) { return dk, nil }}
 			in := ReadinessSample{Placement: p, Artifact: "retained-artifact", Image: "sha256:selected", Part: &appcontract.Part{Name: "web", Port: 8080, Public: true, Intent: &appcontract.Health{Readiness: &appcontract.Probe{HTTP: "/ready", Expect: 204}}}}
 			if mode == "unreadable-contract" {
 				in.Part = nil

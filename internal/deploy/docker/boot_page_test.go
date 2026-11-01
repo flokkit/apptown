@@ -64,7 +64,7 @@ func TestAGateBootFailsAnAppThatRefusesItsFrontPage(t *testing.T) {
 		t.Fatal(err)
 	}
 	boot := func(pageCheck bool, host string) (BootResult, error) {
-		return NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}).Boot(context.Background(), BootRequest{Docker: Scope{Client: pageClient{port: u.Port(), disk: &diskspacetest.Daemon{}}},
+		return NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: pageClient{port: u.Port(), disk: &diskspacetest.Daemon{}}},
 			Name: "apptown-preview-run-4", StackID: "pv4", Workspace: t.TempDir(), Slug: "shop", Deployment: "preview", Probe: time.Second,
 			Scratch: t.TempDir(), PageCheck: pageCheck, VisitorHost: host}, c)
 	}
@@ -107,7 +107,7 @@ func TestAStaticSiteBootRequiresAppTownsFileServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	boot := func(probe Prober) error {
-		_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: probe}).Boot(context.Background(), BootRequest{Docker: Scope{Client: pageClient{port: "1", disk: &diskspacetest.Daemon{}}},
+		_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: probe}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: pageClient{port: "1", disk: &diskspacetest.Daemon{}}},
 			Name: "apptown-preview-run-5", StackID: "pv5", Workspace: t.TempDir(), Slug: "site", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir()}, c)
 		return err
 	}
@@ -171,7 +171,7 @@ func TestAStandingStaticSiteIsWitnessedServingItsRelease(t *testing.T) {
 				return nil, nil
 			}}
 			var asked []RenderedProbe
-			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: witnessProbe{serves: tc.serves, asked: &asked}}).Boot(context.Background(), BootRequest{Docker: Scope{Client: client},
+			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: witnessProbe{serves: tc.serves, asked: &asked}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client},
 				Name: "apptown-env-site-main", StackID: "env-site-main", Workspace: t.TempDir(), Slug: "site", Deployment: "main", Probe: time.Second, Scratch: t.TempDir(),
 				Revision: tc.revision, Recorded: tc.recorded}, c)
 			if be := AsBootError(err); tc.wantErr != (err != nil) || (tc.wantErr && (be.Phase != PhaseProbe || !strings.Contains(be.Error(), appcontract.ReleasePath))) {
@@ -296,7 +296,7 @@ func TestASealedStaticBootNeedsAppTownsFileServer(t *testing.T) {
 				}
 				return nil, nil
 			}}
-			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}}).Boot(context.Background(), BootRequest{Docker: Scope{Client: client},
+			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client},
 				Name: "apptown-rehearsal-site", StackID: "rehearsal-site", Workspace: t.TempDir(), Slug: "site", Deployment: "main", Probe: time.Second, Scratch: t.TempDir(),
 				Sealed: &Sealed{ProbeImage: "probe", Host: "site.example"}, Recorded: &RecordedImages{Parts: map[string]string{"web": "sha256:web"}}}, c)
 			if !slices.Contains(paths, "/_apptown/env.js") {

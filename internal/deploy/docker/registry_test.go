@@ -68,7 +68,7 @@ func TestAFailedRegistryLoginPullsNothing(t *testing.T) {
 		return LoginRegistry(ctx, dk, "registry.example", "robot", "wrong-token", image)
 	})})
 	plan := appcontract.Prepare(&appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Image: "registry.example/team/app:1", Port: 8080}}}, nil)
-	if _, err := host.PrepareImages(t.Context(), BootRequest{Name: "apptown-env-p-main", Docker: dk}, plan); err == nil {
+	if _, err := host.PrepareImages(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Name: "apptown-env-p-main", Docker: dk}, plan); err == nil {
 		t.Fatal("the image was prepared after a failed login")
 	}
 	for _, args := range fake.args {

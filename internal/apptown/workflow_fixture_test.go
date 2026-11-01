@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"slices"
-	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -18,15 +16,6 @@ import (
 	"github.com/riverqueue/river/rivertype"
 )
 
-func completionInsert(t *testing.T, db *database.DB, q string, args ...any) ids.ID {
-	t.Helper()
-	// The query's first column and placeholder are the new row's id.
-	id := ids.New(time.Now())
-	if _, err := db.SQL().ExecContext(context.Background(), q, append([]any{id}, args...)...); err != nil {
-		t.Fatal(err)
-	}
-	return id
-}
 func completionExec(t *testing.T, db *database.DB, query string, args ...any) {
 	t.Helper()
 	if _, err := db.SQL().ExecContext(context.Background(), query, args...); err != nil {
@@ -323,10 +312,3 @@ func runRecord(t *testing.T, a *App, id ids.ID) *workflow.Run {
 	}
 	return run
 }
-
-// fixtureNumbers gives fixture rows a number within their project that no
-// other fixture row has: numbers are unique per project, and the counter
-// is shared by every test in the package.
-var fixtureNumbers atomic.Int64
-
-func fixtureNumber() int64 { return 1000 + fixtureNumbers.Add(1) }

@@ -107,7 +107,7 @@ func TestAnAbandonmentKeepsARunPreviewsRemovalUntilItIsMade(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.addGrant("user", "reviewer", access.RoleProjectOwner, "", access.ScopeProject, fmt.Sprint(run.ProjectID), "fixture", "fixture", "")
+	a.addGrant("user", "reviewer", access.RoleProjectOwner, "", access.ScopeProject, fmt.Sprint(run.ProjectID), "fixture", "")
 	if _, err := a.Work.Abandon(asPerson("reviewer"), workflow.StopWork{ChangeID: run.ChangeID, Reason: "review cleanup"}); err != nil {
 		t.Fatal(err)
 	}

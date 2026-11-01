@@ -151,7 +151,7 @@ func TestRunReadinessGuardsChildRetryAndAdvancement(t *testing.T) {
 				t.Fatalf("advancement reached effects: %v", err)
 			}
 			admissions := newRunAdmissions(owner.db, NewStages(nil, func(string) bool { return false }), nil)
-			_, err = admissions.Create(ctx, StartRequest{ProjectID: run.ProjectID, ChangeID: run.ChangeID, ParentRunID: run.ID, WorkflowName: "child", InputsJSON: "{}", RequestedBy: "alice"}, PreparedRun{Workflow: DefinitionRef{Name: "child", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "child", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}})
+			_, err = admissions.Create(ctx, StartRequest{ProjectID: run.ProjectID, ChangeID: run.ChangeID, parentRunID: run.ID, WorkflowName: "child", InputsJSON: "{}", requestedBy: "alice"}, PreparedRun{Workflow: DefinitionRef{Name: "child", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "child", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}})
 			if !errors.As(err, &refused) || refused.missing != missing {
 				t.Fatalf("child readiness: %v", err)
 			}
@@ -264,7 +264,7 @@ func TestHistoricalAcceptedWorkStartsFreshLandingPreparation(t *testing.T) {
 	// sql-guarantee: Completed accepted work can predate start records; the new landing must own readiness without backfilling its source.
 	// sql-guarantee: Construct supported missing-start history; no runtime operation removes a start.
 	completionExec(t, admissions.records.db, `DELETE FROM run_starts WHERE run_id=$1`, source.ID)
-	request.AcceptedRunID = source.ID
+	request.acceptedRunID = source.ID
 	request.WorkflowName = "land"
 	definition.Workflow.Name = "land"
 	definition.Spec.Role = "landing"

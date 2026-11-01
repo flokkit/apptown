@@ -61,7 +61,7 @@ func TestEveryWorkDoorAsksTheProjectsLifecycle(t *testing.T) {
 					return err
 				},
 				"run admission": func() error {
-					_, err := newRunAdmissions(db, NewStages(nil, nil), nil).Create(ctx, StartRequest{ProjectID: run.ProjectID, ChangeID: run.ChangeID, WorkflowName: "test", InputsJSON: "{}", RequestedBy: "boss"},
+					_, err := newRunAdmissions(db, NewStages(nil, nil), nil).Create(ctx, StartRequest{ProjectID: run.ProjectID, ChangeID: run.ChangeID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "boss"},
 						PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "s", Steps: []schema.Step{{Name: "gate", Uses: "approval"}}}}}})
 					return err
 				},

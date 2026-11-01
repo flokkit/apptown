@@ -51,7 +51,7 @@ func TestStartSourceOwnsScopeAndAdoptionLineage(t *testing.T) {
 		t.Fatal(err)
 	}
 	child := req
-	child.ParentRunID = parent.ID
+	child.parentRunID = parent.ID
 	source, err = owner.Source(ctx, child)
 	if err != nil || source.AdoptionID != pin {
 		t.Fatalf("inherited source: %+v %v", source, err)
@@ -102,7 +102,7 @@ func TestStartSourceClassifiesFailedLandingWithoutMutatingIt(t *testing.T) {
 				insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "first", Name: "active", Type: "script", Status: StatusPending.String()})
 			}
 			if scenario == "accepted landing" {
-				req.AcceptedRunID = idstest.N(99)
+				req.acceptedRunID = idstest.N(99)
 			}
 			if scenario == "read error" {
 				dbtest.FailNextStatement(t, db, "SELECT r.id,COALESCE(r.definition_json")
@@ -134,7 +134,7 @@ func TestRunDepthLimitIsOwnedBySourceAndTransactionalAdmission(t *testing.T) {
 		if err := owner.Prepared(ctx, run.ID); err != nil {
 			t.Fatal(err)
 		}
-		req.ParentRunID = run.ID
+		req.parentRunID = run.ID
 	}
 	if _, err := owner.Source(ctx, req); err == nil || !strings.Contains(err.Error(), "call depth cap") {
 		t.Fatalf("source depth: %v", err)
@@ -143,4 +143,18 @@ func TestRunDepthLimitIsOwnedBySourceAndTransactionalAdmission(t *testing.T) {
 		t.Fatalf("transactional depth: %+v %v", run, err)
 	}
 	wantRunCount(t, owner.records.db, MaxCallDepth, nil)
+}
+
+func TestChildStartRefusesAMissingParentAdoption(t *testing.T) {
+	t.Parallel()
+	owner, req, def := runAdmissionFixture(t)
+	parent, err := owner.Create(t.Context(), req, def)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// This fixture admits no adoption; a child must never select the live project.
+	req.parentRunID = parent.ID
+	if _, err := owner.Source(t.Context(), req); err == nil || !strings.Contains(err.Error(), "parent run") {
+		t.Fatalf("missing parent adoption: %v", err)
+	}
 }

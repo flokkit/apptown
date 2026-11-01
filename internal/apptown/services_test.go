@@ -27,7 +27,7 @@ func TestSupersedeWedgedLanding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.addGrant("user", "test", access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(p.ID), "fixture", "test", "fixture")
+	a.addGrant("user", "test", access.RoleProjectApprover, "", access.ScopeProject, fmt.Sprint(p.ID), "test", "fixture")
 	landYAML := `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: land, description: d}

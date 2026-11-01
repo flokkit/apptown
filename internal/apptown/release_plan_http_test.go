@@ -105,7 +105,7 @@ func TestReleasePlanHTTPProjectsActualHeadPublicationAndConfiguration(t *testing
 	if denied := authzCall(h, "outsider", "POST", "/api/v1/projects/game/release", `{"defaultRevision":1}`); denied.Code != 403 {
 		t.Fatalf("default release without deploy permission: %d %s", denied.Code, denied.Body)
 	}
-	a.addGrant("user", "outsider", "", string(access.CapDeploymentDeploy), access.ScopeProject, game.ID.String(), "fixture", "boss", "")
+	a.addGrant("user", "outsider", "", string(access.CapDeploymentDeploy), access.ScopeProject, game.ID.String(), "boss", "")
 	response := authzCall(h, "outsider", "POST", "/api/v1/projects/game/release", `{"defaultRevision":1}`)
 	var accepted struct{ Number int64 }
 	if err := json.Unmarshal(response.Body.Bytes(), &accepted); err != nil || response.Code != 202 {

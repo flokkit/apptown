@@ -64,7 +64,7 @@ func (h Backups) TakeBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// A copy, once begun, finishes though the request ends.
-	b, err := h.data.TakeBackup(context.WithoutCancel(r.Context()), p.ID, r.PathValue("name"), "manual", Actor(r))
+	b, err := h.data.TakeBackup(context.WithoutCancel(r.Context()), p.ID, r.PathValue("name"), Actor(r))
 	if err != nil {
 		WriteError(w, 422, "%v", err)
 		return

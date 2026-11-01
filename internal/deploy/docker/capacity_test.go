@@ -353,7 +353,7 @@ func TestABootRefusesAPartLargerThanItsHost(t *testing.T) {
 		}
 		return nil, nil
 	}}
-	_, err = NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: needCatalog{}}).Boot(t.Context(), BootRequest{Docker: Scope{Client: f}, Name: "apptown-preview-x", StackID: "pvx", Workspace: t.TempDir()}, c)
+	_, err = NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: needCatalog{}}).Boot(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: f}, Name: "apptown-preview-x", StackID: "pvx", Workspace: t.TempDir()}, c)
 	if be := AsBootError(err); err == nil || be.Phase != PhaseResolve || !strings.Contains(err.Error(), "declares 16G") {
 		t.Fatalf("an oversized boot: %v", err)
 	}
@@ -407,7 +407,7 @@ func TestABootIsRefusedOnADaemonShortOfDisk(t *testing.T) {
 			return containerresulttest.Answer{Answer: out}
 		}
 
-		_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Probe: reviewUp{}}).Boot(t.Context(), BootRequest{Docker: Scope{Client: f}, Name: "apptown-preview-x", StackID: "pvx", Workspace: t.TempDir(), Probe: time.Second}, c)
+		_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Probe: reviewUp{}}).Boot(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: f}, Name: "apptown-preview-x", StackID: "pvx", Workspace: t.TempDir(), Probe: time.Second}, c)
 		if tc.refused == "" {
 			if err != nil {
 				t.Errorf("%s: %v", tc.name, err)
@@ -449,7 +449,7 @@ func TestANeedWhoseDataFolderCannotBeReadStopsTheBoot(t *testing.T) {
 		t.Fatalf("resolving with an unreadable data folder: %v", err)
 	}
 	f := &fakeClient{}
-	_, err = NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: unreadableData{}}).Boot(t.Context(), BootRequest{Docker: Scope{Client: f}, Name: "apptown-env-shop-main", StackID: "env-shop-main", Workspace: t.TempDir(), Persistent: true}, c)
+	_, err = NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: unreadableData{}}).Boot(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: f}, Name: "apptown-env-shop-main", StackID: "env-shop-main", Workspace: t.TempDir(), Persistent: true}, c)
 	if err == nil {
 		t.Fatal("a boot went on without knowing where its database keeps its data")
 	}

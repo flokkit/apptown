@@ -124,13 +124,13 @@ func authzActors(t *testing.T, configs ...Config) *App {
 		t.Fatal(err)
 	}
 	for _, role := range []string{access.RoleProjectMaintainer, access.RoleProjectApprover} {
-		a.addGrant("user", "owner", role, "", access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
-		a.addGrant("group", identity.GroupAllUsers, role, "", access.ScopeProject, idstest.N(2).String(), "fixture", "boss", "")
+		a.addGrant("user", "owner", role, "", access.ScopeProject, idstest.N(1).String(), "boss", "")
+		a.addGrant("group", identity.GroupAllUsers, role, "", access.ScopeProject, idstest.N(2).String(), "boss", "")
 	}
 	for _, capability := range access.AmenderCaps {
-		a.addGrant("user", "amy", "", string(capability), access.ScopeInstance, "", "fixture", "boss", "")
+		a.addGrant("user", "amy", "", string(capability), access.ScopeInstance, "", "boss", "")
 	}
-	a.addGrant("group", identity.GroupAllUsers, access.RoleReleaseManager, "", access.ScopeTarget, "*", "fixture", "boss", "")
+	a.addGrant("group", identity.GroupAllUsers, access.RoleReleaseManager, "", access.ScopeTarget, "*", "boss", "")
 	return a
 }
 
@@ -239,7 +239,7 @@ func TestAuthzExplicitGrantsPreserveScopedAccess(t *testing.T) {
 	gs := mustRecords(a.Access.GrantsAt(context.Background(), access.ScopeProject, idstest.N(2).String()))
 	found := false
 	for _, g := range gs {
-		if g.Subject == identity.GroupAllUsers && g.Origin == "fixture" {
+		if g.Subject == identity.GroupAllUsers && g.Origin == "" {
 			found = true
 		}
 	}
@@ -329,7 +329,7 @@ func TestAuthzApprovalEligibility(t *testing.T) {
 	if err := a.Projects.SetIndependentApproval(verifiedContext(context.Background(), access.Principal{Kind: "user", Name: "boss", Via: "session"}), idstest.N(1), true); err != nil {
 		t.Fatal(err)
 	}
-	a.addGrant("user", "kid", access.RoleProjectApprover, "", access.ScopeProject, idstest.N(1).String(), "", "boss", "")
+	a.addGrant("user", "kid", access.RoleProjectApprover, "", access.ScopeProject, idstest.N(1).String(), "boss", "")
 	if !a.projectMember(idstest.N(1), "kid", "member") {
 		t.Fatal("an approver works here for the roster's purposes")
 	}
@@ -354,7 +354,7 @@ func TestAuthzApprovalEligibility(t *testing.T) {
 	a = authzFixture(t)
 	fx = fixtureWork(t, a)
 	h = a.Handler()
-	a.addGrant("user", "kid", access.RoleProjectApprover, "", access.ScopeProject, idstest.N(1).String(), "", "boss", "")
+	a.addGrant("user", "kid", access.RoleProjectApprover, "", access.ScopeProject, idstest.N(1).String(), "boss", "")
 	if err := a.Projects.SetIndependentApproval(verifiedContext(context.Background(), access.Principal{Kind: "user", Name: "boss", Via: "session"}), idstest.N(1), true); err != nil {
 		t.Fatal(err)
 	}
@@ -460,7 +460,7 @@ func TestProjectApprovalRuleChangesOnlyNonRootSelfApproval(t *testing.T) {
 			t.Parallel()
 			a := authzFixture(t)
 			fx := fixtureWork(t, a)
-			a.addGrant("user", "owner", access.RoleProjectOwner, "", access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
+			a.addGrant("user", "owner", access.RoleProjectOwner, "", access.ScopeProject, idstest.N(1).String(), "boss", "")
 			a.Work.Stop()
 			h := a.Handler()
 			a.audit(context.Background(), who, idstest.N(1), "change.created", "t", map[string]any{"changeId": 1})
@@ -493,9 +493,9 @@ func TestProjectApprovalRuleChangesOnlyNonRootSelfApproval(t *testing.T) {
 }
 
 // Test fixture for explicit grants; production callers use Identity commands.
-func (a *App) addGrant(subjectType, subject, role, capability string, scope access.ScopeKind, scopeID, origin, by, reason string) ids.ID {
+func (a *App) addGrant(subjectType, subject, role, capability string, scope access.ScopeKind, scopeID, by, reason string) ids.ID {
 	id, err := a.Access.PutGrant(context.Background(), identity.Spec{SubjectType: subjectType, Subject: subject, Role: role, Capability: capability,
-		Scope: scope, ScopeID: scopeID, Origin: origin, By: by, Reason: reason})
+		Scope: scope, ScopeID: scopeID, By: by, Reason: reason})
 	if err != nil {
 		log.Printf("grant: %v", err)
 		return ids.Nil
@@ -1010,7 +1010,7 @@ func TestAttentionHTTPFiltersSourcesAndCountsBeforeCurrentGrantReads(t *testing.
 	if len(limited.Items) != 1 || len(limited.Sources) != 2 || global.calls != 0 || projects.calls[idstest.N(1)] != beforePrivate || strings.Contains(limited.Items[0].Title, idstest.N(1).String()) {
 		t.Fatal("hidden project/global evidence read or counted", limited, global.calls, projects.calls)
 	}
-	grant := a.addGrant("user", "outsider", "", string(access.CapDeploymentRead), access.ScopeInstance, "", "fixture", "boss", "")
+	grant := a.addGrant("user", "outsider", "", string(access.CapDeploymentRead), access.ScopeInstance, "", "boss", "")
 	expanded := read("outsider")
 	if len(expanded.Items) != 3 || len(expanded.Sources) != 8 || global.calls != 1 {
 		t.Fatal("explicit instance grant did not expose full authorized snapshot", expanded, global.calls)

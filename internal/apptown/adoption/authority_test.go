@@ -53,7 +53,7 @@ func TestAdoptionAuthoritySeparatesIdentityAttributionAndCapabilities(t *testing
 	if err := authority.require(adoptionVerifiedContext("outsider"), outsider); err == nil {
 		t.Fatal("outsider configured project")
 	}
-	policyGrant(t, auth, "user", "outsider", "", string(access.CapProjectConfigure), access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
+	policyGrant(t, auth, "user", "outsider", "", string(access.CapProjectConfigure), access.ScopeProject, idstest.N(1).String(), "boss", "")
 	if err := authority.require(adoptionVerifiedContext("outsider"), outsider); err == nil {
 		t.Fatal("ordinary configuration admitted selecting the way of working")
 	}
@@ -61,7 +61,7 @@ func TestAdoptionAuthoritySeparatesIdentityAttributionAndCapabilities(t *testing
 	if err := authority.require(ctx, selection); err == nil {
 		t.Fatal("project configuration granted standards weakening")
 	}
-	policyGrant(t, auth, "user", "owner", "", string(access.CapStandardsPacks), access.ScopeInstance, "", "fixture", "boss", "")
+	policyGrant(t, auth, "user", "owner", "", string(access.CapStandardsPacks), access.ScopeInstance, "", "boss", "")
 	if err := authority.require(ctx, selection); err != nil {
 		t.Fatalf("explicit standards authority refused: %v", err)
 	}
@@ -156,12 +156,12 @@ func adoptionPolicyFixture(t *testing.T) (*Service, *identity.Service) {
 			t.Fatal(err)
 		}
 	}
-	policyGrant(t, auth, "user", "owner", access.RoleProjectMaintainer, "", access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
+	policyGrant(t, auth, "user", "owner", access.RoleProjectMaintainer, "", access.ScopeProject, idstest.N(1).String(), "boss", "")
 	return New(db, Dependencies{Authority: access.Checked{Authority: auth, Projects: policyProjects{}}}), auth
 }
-func policyGrant(t *testing.T, s *identity.Service, kind, user, role, cap string, scope access.ScopeKind, id, origin, by, reason string) {
+func policyGrant(t *testing.T, s *identity.Service, kind, user, role, cap string, scope access.ScopeKind, id, by, reason string) {
 	t.Helper()
-	if _, err := s.PutGrant(context.Background(), identity.Spec{SubjectType: kind, Subject: user, Role: role, Capability: cap, Scope: scope, ScopeID: id, Origin: origin, By: by, Reason: reason}); err != nil {
+	if _, err := s.PutGrant(context.Background(), identity.Spec{SubjectType: kind, Subject: user, Role: role, Capability: cap, Scope: scope, ScopeID: id, By: by, Reason: reason}); err != nil {
 		t.Fatal(err)
 	}
 }

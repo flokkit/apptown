@@ -180,7 +180,7 @@ func (s *Service) ProvisionErrors(ctx context.Context, p *project.Project, conne
 	}
 	dsn := keys[0].DSN.Public
 	// The provider made it: its attachment is recorded though ctx has ended.
-	if err := s.Attachments.Attach(context.WithoutCancel(ctx), p.ID, CapErrors, b.Name, encodeResource(map[string]string{"dsn": dsn, "providerProject": p.Slug}), Provisioned, who, map[string]any{"providerProject": p.Slug}); err != nil {
+	if err := s.Attachments.attach(context.WithoutCancel(ctx), p.ID, CapErrors, b.Name, encodeResource(map[string]string{"dsn": dsn, "providerProject": p.Slug}), Provisioned, who, map[string]any{"providerProject": p.Slug}); err != nil {
 		return nil, 500, err
 	}
 	return map[string]any{"ok": true, "capability": CapErrors, "connector": b.Name, "provenance": "provisioned",

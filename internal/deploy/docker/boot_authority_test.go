@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 type authoritySecrets struct{ after func() }
@@ -100,5 +102,32 @@ func TestBootRechecksAuthorityAfterPreparation(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestBootRequiresAnExplicitAuthorityPolicy(t *testing.T) {
+	t.Parallel()
+	client := &recordingClient{}
+	// Omission must fail before resolving configuration or touching Docker.
+	_, err := NewHost(Dependencies{}).Boot(t.Context(), BootRequest{Docker: Scope{Client: client}}, &appcontract.Contract{})
+	var boot *BootError
+	if !errors.As(err, &boot) || boot.Phase != PhaseResolve || !strings.Contains(err.Error(), "authority check") || len(client.calls) != 0 {
+		t.Fatalf("implicit authority: err=%v calls=%v", err, client.calls)
+	}
+	if err := AuthorisedWhenRequested(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDriverRequiresAnExplicitBootAuthorityPolicy(t *testing.T) {
+	t.Parallel()
+	// A valid source still cannot reach checkpointing or Docker without a policy.
+	body := []byte(`{}`)
+	art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)), Source: &deploy.Source{Contract: &appcontract.Contract{}}}
+	calls := 0
+	d := Driver{ServingLabel: "stable", Scope: func(context.Context) (Scope, error) { calls++; return Scope{}, errors.New("scope reached") }}
+	_, err := d.Reconcile(t.Context(), deploy.Placement{ID: idstest.N(1), Name: "main", Label: "1"}, 1, art, "key", nil, func(map[string]any) error { calls++; return nil })
+	if err == nil || !strings.Contains(err.Error(), "authority check") || calls != 0 {
+		t.Fatalf("implicit driver authority: calls=%d err=%v", calls, err)
 	}
 }

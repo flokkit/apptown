@@ -20,8 +20,8 @@ import (
 // one transaction under the project row's lock, refused unless the
 // project is still on the revision the candidate was prepared from.
 // Serialised with merges through the injected project repository lock. Returns the new revision.
-func (s *Service) Adopt(ctx context.Context, p *project.Project, c *adoption.Candidate, who, reason string, operation adoption.Operation) (int64, error) {
-	return s.applyCandidateForChange(ctx, p, c, who, reason, ids.Nil, operation)
+func (s *Service) Adopt(ctx context.Context, p *project.Project, c *adoption.Candidate, who, reason string) (int64, error) {
+	return s.applyCandidateForChange(ctx, p, c, who, reason, ids.Nil, adoption.OperationSelect)
 }
 func (s *Service) applyCandidateForChange(ctx context.Context, p *project.Project, c *adoption.Candidate, who, reason string, changeID ids.ID, operation adoption.Operation) (int64, error) {
 	if s.superseded == nil {

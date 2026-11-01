@@ -9,7 +9,11 @@ import (
 
 // RefusesHealth validates every executed component before any Docker effect.
 // Sealed copies execute only the public application, retaining init completion.
-func RefusesHealth(c *appcontract.Contract, publicOnly bool) error {
+func RefusesHealth(c *appcontract.Contract) error {
+	return refusesHealth(c, false)
+}
+
+func refusesHealth(c *appcontract.Contract, publicOnly bool) error {
 	if c == nil {
 		return nil
 	}

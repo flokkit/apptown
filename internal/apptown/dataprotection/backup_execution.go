@@ -118,7 +118,11 @@ func needItem(d *dependency.Kind, need, container string) backupPlanItem {
 
 // TakeBackup takes one set for a standing deployment and records
 // it. The deployment must be on a Docker host AppTown talks to.
-func (s *Service) TakeBackup(ctx context.Context, projectID ids.ID, deploymentName, trigger, actor string) (*Backup, error) {
+func (s *Service) TakeBackup(ctx context.Context, projectID ids.ID, deploymentName, actor string) (*Backup, error) {
+	return s.takeBackup(ctx, projectID, deploymentName, "manual", actor)
+}
+
+func (s *Service) takeBackup(ctx context.Context, projectID ids.ID, deploymentName, trigger, actor string) (*Backup, error) {
 	// A project being deleted, or deleted, takes no new data work; a
 	// restore's safety copy was admitted with its restore.
 	if trigger != TriggerPreRestore {
@@ -419,7 +423,7 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 	// The restore's volume writes run in one snapshot's shell image.
 	sh := s.env.ToolVersions().Images.Sh
 	now := s.now()
-	files, err := LockBackupFiles(DiskDirectory(s.dataDir), false)
+	files, err := lockBackupFiles(DiskDirectory(s.dataDir), false)
 	if err != nil {
 		return nil, err
 	}
@@ -490,7 +494,7 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 		return nil, fmt.Errorf("%w; nothing was restored", err)
 	}
 	rec.begin(ctx, "taking a safety set of what is there now")
-	safety, err := s.TakeBackup(ctx, projectID, deploymentName, TriggerPreRestore, actor)
+	safety, err := s.takeBackup(ctx, projectID, deploymentName, TriggerPreRestore, actor)
 	if err != nil {
 		return nil, fmt.Errorf("taking the safety set first: %w", err)
 	}

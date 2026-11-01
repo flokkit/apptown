@@ -43,7 +43,7 @@ func TestIntegrationDockerExactOriginsRejectSiblingHosts(t *testing.T) {
 		t.Fatal("built fixture image has no identity")
 	}
 	origin := "https://original.apps.example"
-	port, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Routes: liveRoutes{}}).StartAppContainer(ctx, BootRequest{Name: name, Workspace: t.TempDir(), Docker: dk, Slug: "renamed", ExactOrigins: &origin, Recorded: &RecordedImages{Parts: map[string]string{"web": imageID}}}, &appcontract.Part{Image: imageID, Port: 8080}, "", nil)
+	port, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Routes: liveRoutes{}}).StartAppContainer(ctx, BootRequest{Allowed: AuthorisedWhenRequested, Name: name, Workspace: t.TempDir(), Docker: dk, Slug: "renamed", ExactOrigins: &origin, Recorded: &RecordedImages{Parts: map[string]string{"web": imageID}}}, &appcontract.Part{Image: imageID, Port: 8080}, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -59,7 +59,7 @@ func TestSecretsBoundToInfisical(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	res, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Docker: a.docker, Name: secretsNames.App(), StackID: secretsNames.Stack(), Workspace: ws,
+	res, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Docker: a.docker, Name: secretsNames.App(), StackID: secretsNames.Stack(), Workspace: ws,
 		Deployment: "main", Persistent: true, Probe: 2 * time.Second}, c)
 	if err != nil {
 		t.Fatalf("boot: %v", err)
@@ -85,7 +85,7 @@ func TestSecretsBoundToInfisical(t *testing.T) {
 	}
 	// A binding to a key Infisical does not have is a clear refusal, not a silent blank.
 	_ = a.Secrets.Bindings.Put(t.Context(), idstest.N(1), secret.Binding{Deployment: "main", Name: "STRIPE_API_KEY", Store: secret.StoreInfisical, Ref: "NOPE", Version: "infisical"})
-	if _, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Docker: a.docker, Name: secretsNames.App(), StackID: secretsNames.Stack(), Workspace: ws,
+	if _, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Docker: a.docker, Name: secretsNames.App(), StackID: secretsNames.Stack(), Workspace: ws,
 		Deployment: "main", Persistent: true, Probe: 2 * time.Second}, c); err == nil || !strings.Contains(err.Error(), "NOPE") {
 		t.Fatalf("missing Infisical key: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestSecretsDeliveredPerConsumer(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	res, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Docker: a.docker, Name: secretsNames.App(), StackID: secretsNames.Stack(), Workspace: ws,
+	res, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Docker: a.docker, Name: secretsNames.App(), StackID: secretsNames.Stack(), Workspace: ws,
 		Deployment: "main", HostPort: 0, Persistent: true, Probe: 2 * time.Second}, c)
 	if err != nil {
 		t.Fatalf("boot: %v\n%s", err, strings.Join(f.joined(), "\n"))
@@ -196,7 +196,7 @@ func TestSecretsDeliveredPerConsumer(t *testing.T) {
 	first := boundSecrets(t, a, idstest.N(1), "main")["SECRET_KEY_BASE"]
 	keyBefore := storedSecret(t, a, first.Ref, "SECRET_KEY_BASE")
 	f.reset()
-	if _, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Docker: a.docker, Name: secretsNames.App(), StackID: secretsNames.Stack(), Workspace: ws,
+	if _, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Docker: a.docker, Name: secretsNames.App(), StackID: secretsNames.Stack(), Workspace: ws,
 		Deployment: "main", Persistent: true, Probe: 2 * time.Second}, c); err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +207,7 @@ func TestSecretsDeliveredPerConsumer(t *testing.T) {
 	// A preview environment gets its OWN generated key (domain deployment)
 	// and takes the preview profile, where Stripe is optional.
 	f.reset()
-	res, err = testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Docker: a.docker, Name: "apptown-preview-change-00000000-0001-7000-8000-000000000000", StackID: docker.ChangeStackID(idstest.N(1)), Workspace: ws,
+	res, err = testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Docker: a.docker, Name: "apptown-preview-change-00000000-0001-7000-8000-000000000000", StackID: docker.ChangeStackID(idstest.N(1)), Workspace: ws,
 		Deployment: "preview", Probe: 2 * time.Second}, c)
 	if err != nil {
 		// The migration role is required in preview too and unbound there.

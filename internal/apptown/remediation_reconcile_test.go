@@ -29,7 +29,7 @@ func TestRemediationLandingRecheckRejectsOldSnapshot(t *testing.T) {
 		t.Fatalf("decision: %+v", decision)
 	}
 	// A person's successful recheck invalidates the earlier worker decision.
-	if _, err := a.Work.RecheckLanding(asPerson("alice"), workflow.LandingRecheck{Who: "alice", ChangeID: run.ChangeID}); err != nil {
+	if _, err := a.Work.RecheckLanding(asPerson("alice"), workflow.LandingRecheck{ChangeID: run.ChangeID}); err != nil {
 		t.Fatal(err)
 	}
 	before := outcomeSnapshot(t, a.DB)

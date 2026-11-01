@@ -449,9 +449,13 @@ type Attachments struct {
 func NewAttachments(db *database.DB) *Attachments { return &Attachments{db: db} }
 
 // Attach records (or replaces) a project's attachment of a binding for a
-// capability with its resource and provenance, and the
+// capability with its entered resource and the
 // integration.attached receipt, in one transaction.
-func (s *Attachments) Attach(ctx context.Context, projectID ids.ID, capability, binding, resourceJSON string, provenance Provenance, who string, receipt map[string]any) error {
+func (s *Attachments) Attach(ctx context.Context, projectID ids.ID, capability, binding, resourceJSON, who string, receipt map[string]any) error {
+	return s.attach(ctx, projectID, capability, binding, resourceJSON, Entered, who, receipt)
+}
+
+func (s *Attachments) attach(ctx context.Context, projectID ids.ID, capability, binding, resourceJSON string, provenance Provenance, who string, receipt map[string]any) error {
 	if provenance == "" {
 		return errors.New("an attachment needs a provenance")
 	}
@@ -463,10 +467,11 @@ func (s *Attachments) Attach(ctx context.Context, projectID ids.ID, capability, 
 		if _, err := integrationsql.New(tx.SQL()).AttachIntegration(ctx, integrationsql.AttachIntegrationParams{ProjectID: projectID, Capability: capability, Binding: binding, ResourceJson: json.RawMessage(resourceJSON), Provenance: string(provenance), CreatedAt: at.UTC()}); err != nil {
 			return err
 		}
-		payload := map[string]any{"connector": binding, "provenance": string(provenance)}
+		payload := map[string]any{}
 		for k, v := range receipt {
 			payload[k] = v
 		}
+		payload["connector"], payload["provenance"] = binding, string(provenance)
 		return audit.At(at).RecordIn(ctx, tx, who, projectID, "integration.attached", capability, payload)
 	})
 }

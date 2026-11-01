@@ -179,6 +179,14 @@ func TestDefaultsAndTheLastAdministrator(t *testing.T) {
 	if !HasRole(anon, access.RoleAuditor, access.ScopeInstance, "") {
 		t.Fatal("open mode: anonymous reads")
 	}
+	for _, g := range root {
+		if g.RoleName == access.RoleInstanceAdmin && g.Origin != "bootstrap" {
+			t.Fatalf("bootstrap origin: %+v", g)
+		}
+	}
+	if len(anon) != 1 || anon[0].Origin != "profile:open" {
+		t.Fatalf("open profile origin: %+v", anon)
+	}
 	seed(true)
 	all, _ := AllGrantsIn(context.Background(), db)
 	if len(all) != 4 {

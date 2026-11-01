@@ -68,7 +68,7 @@ func TestRoutineTargetRequiresEveryActualPublicationTransition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = people.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: person.Username, Role: access.RoleStandardsAdmin, Scope: access.ScopeInstance, Origin: "fixture", By: person.Username}, ""); err != nil {
+	if _, err = people.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: person.Username, Role: access.RoleStandardsAdmin, Scope: access.ScopeInstance, By: person.Username}, ""); err != nil {
 		t.Fatal(err)
 	}
 	ctx := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: person.PrincipalID, Name: person.Username, Kind: "user", Via: "session"}, Verified: true})
@@ -165,7 +165,7 @@ func TestRoutinePackTargetPreservesExistingCapabilityRequirements(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = people.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: person.Username, Role: access.RoleStandardsAdmin, Scope: access.ScopeInstance, Origin: "fixture", By: person.Username}, ""); err != nil {
+	if _, err = people.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: person.Username, Role: access.RoleStandardsAdmin, Scope: access.ScopeInstance, By: person.Username}, ""); err != nil {
 		t.Fatal(err)
 	}
 	ctx := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: person.PrincipalID, Name: person.Username, Kind: "user", Via: "session"}, Verified: true})

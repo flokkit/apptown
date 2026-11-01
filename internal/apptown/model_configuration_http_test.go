@@ -111,9 +111,9 @@ func TestConnectorAndModelCapabilitiesManageWhatTheyName(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
 	for _, c := range []access.Capability{access.CapIntegrationConnector, access.CapModelsBindings, access.CapModelsSlots} {
-		a.addGrant("user", "integrator", "", string(c), access.ScopeInstance, "", "fixture", "boss", "")
+		a.addGrant("user", "integrator", "", string(c), access.ScopeInstance, "", "boss", "")
 	}
-	a.addGrant("user", "proprietor", access.RoleProjectOwner, "", access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
+	a.addGrant("user", "proprietor", access.RoleProjectOwner, "", access.ScopeProject, idstest.N(1).String(), "boss", "")
 	h := a.Handler()
 	for _, tc := range []struct {
 		who, method, path, body string

@@ -20,7 +20,7 @@ func (t *Target) RefusesContract(c *appcontract.Contract) string {
 	var healthErr error
 	switch t.Kind {
 	case KindDockerHost:
-		healthErr = docker.RefusesHealth(c, false)
+		healthErr = docker.RefusesHealth(c)
 	case KindPortainer:
 		healthErr = portainer.RefusesHealth(c)
 	case KindS3Bucket:

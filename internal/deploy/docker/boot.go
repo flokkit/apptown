@@ -31,10 +31,15 @@ import (
 //
 // BootRequest carries what varies between the paths; nothing else does.
 
+// AuthorisedWhenRequested is the explicit choice for a boot whose owner checked
+// authority at request time and does not recheck it during execution.
+func AuthorisedWhenRequested(context.Context) error { return nil }
+
 // BootRequest names what a boot is for. Everything the sequence needs beyond
 // the contract itself.
 type BootRequest struct {
-	// Allowed is the caller's current permission check, repeated before effects.
+	// Allowed is required: a current permission check repeated before effects,
+	// or AuthorisedWhenRequested for an owner that authorizes at request time.
 	Allowed func(context.Context) error
 	// Log reports phase entry. It receives no environment values or command output.
 	// Nil disables progress reporting without changing boot behavior.
@@ -354,7 +359,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	var res BootResult
 	allowed := t.Allowed
 	if allowed == nil {
-		allowed = func(context.Context) error { return nil }
+		return res, &BootError{Phase: PhaseResolve, Err: errors.New("boot requires an authority check or AuthorisedWhenRequested")}
 	}
 	if err := allowed(ctx); err != nil {
 		return res, &BootError{Phase: PhaseResolve, Err: err}
@@ -365,7 +370,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	if err := t.requireServingLabel(); err != nil {
 		return res, &BootError{Phase: PhaseResolve, Err: err}
 	}
-	if err := RefusesHealth(c, t.Sealed != nil); err != nil {
+	if err := refusesHealth(c, t.Sealed != nil); err != nil {
 		return res, &BootError{Phase: PhaseResolve, Err: err}
 	}
 	t.logf("Resolving runtime configuration and container limits")

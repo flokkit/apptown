@@ -62,8 +62,8 @@ func (s *Service) callFrom(ctx context.Context, parent *Run, step *Step, in Work
 	}
 	return s.starter.Start(ctx, StartRequest{
 		ProjectID: parent.ProjectID, ChangeID: parent.ChangeID, WorkflowName: in.Workflow, InputsJSON: string(in.Inputs),
-		ParentRunID: parent.ID, ParentStepID: step.ID, ParentStepAttempt: step.Attempt, ParentStepConfig: string(step.Config),
-		RequestedBy: actor.InferenceOwner, Owner: actor.Owner, ReceiptActor: actor.Receipt,
+		parentRunID: parent.ID, parentStepID: step.ID, parentStepAttempt: step.Attempt, parentStepConfig: string(step.Config),
+		requestedBy: actor.InferenceOwner, owner: actor.Owner, receiptActor: actor.Receipt,
 	})
 }
 
@@ -89,7 +89,7 @@ func (s *Service) startChangeRun(ctx context.Context, in StartChangeRun, action 
 	if s.starter == nil {
 		return nil, fmt.Errorf("Run execution is unavailable")
 	}
-	return s.starter.Start(ctx, StartRequest{ProjectID: project, ChangeID: change.ID, WorkflowName: in.Workflow, InputsJSON: string(in.Inputs), RequestedBy: actor.InferenceOwner, Owner: actor.Owner, ReceiptActor: actor.Receipt})
+	return s.starter.Start(ctx, StartRequest{ProjectID: project, ChangeID: change.ID, WorkflowName: in.Workflow, InputsJSON: string(in.Inputs), requestedBy: actor.InferenceOwner, owner: actor.Owner, receiptActor: actor.Receipt})
 }
 
 // StartSource says what a start of this request would start from: its
@@ -113,7 +113,7 @@ func (s *Service) AdmitRunIn(ctx context.Context, tx *database.Tx, in StartReque
 	if err != nil {
 		return nil, err
 	}
-	in.RequestedBy, in.Owner, in.ReceiptActor = actor.InferenceOwner, actor.Owner, actor.Receipt
+	in.requestedBy, in.owner, in.receiptActor = actor.InferenceOwner, actor.Owner, actor.Receipt
 	in.landingBy = s.landingBy(ctx, in)
 	return s.runAdmissions.CreateIn(ctx, tx, in, def)
 }

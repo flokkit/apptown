@@ -120,7 +120,7 @@ func TestAPublicationStopsWhenItsAttemptIsSuperseded(t *testing.T) {
 	reg := httptest.NewServer(registry.New(registry.Logger(log.New(io.Discard, "", 0))))
 	t.Cleanup(reg.Close)
 	host := strings.TrimPrefix(reg.URL, "http://")
-	if err := s.env.integrations.Attachments.Attach(t.Context(), w.project, "container-registry", "missing", `{"repo":"`+host+`/team/game"}`, integration.Entered, "test", nil); err != nil {
+	if err := s.env.integrations.Attachments.Attach(t.Context(), w.project, "container-registry", "missing", `{"repo":"`+host+`/team/game"}`, "test", nil); err != nil {
 		t.Fatal(err)
 	}
 	c, err := appcontract.Parse([]byte("app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n  worker:\n    build: worker\ninit:\n  - name: migrate\n    build: migrations\n"))
@@ -204,7 +204,7 @@ func TestAPartAndAnInitStepKeepTheirOwnImages(t *testing.T) {
 	reg := httptest.NewServer(registry.New(registry.Logger(log.New(io.Discard, "", 0))))
 	t.Cleanup(reg.Close)
 	repo := strings.TrimPrefix(reg.URL, "http://") + "/team/game"
-	if err := s.env.integrations.Attachments.Attach(t.Context(), w.project, "container-registry", "missing", `{"repo":"`+repo+`"}`, integration.Entered, "test", nil); err != nil {
+	if err := s.env.integrations.Attachments.Attach(t.Context(), w.project, "container-registry", "missing", `{"repo":"`+repo+`"}`, "test", nil); err != nil {
 		t.Fatal(err)
 	}
 	initImage, err := oci.Publish(context.Background(), ociImage(t, "migration image"), oci.Repository{Name: repo}, "migration", "linux/amd64")
@@ -273,7 +273,7 @@ func TestHistoricalReleaseTagDoesNotRetargetTheCurrentRegistryCredential(t *test
 				t.Fatal(err)
 			}
 			resource := fmt.Sprintf(`{"repo":%q,"username":"robot","token":"new-registry-canary"}`, currentHost+"/team/shop")
-			if err := integrations.Attachments.Attach(t.Context(), id, integration.CapContainerRegistry, "registry", resource, integration.Entered, "fixture", nil); err != nil {
+			if err := integrations.Attachments.Attach(t.Context(), id, integration.CapContainerRegistry, "registry", resource, "fixture", nil); err != nil {
 				t.Fatal(err)
 			}
 			s := &Service{env: NewEnvironment(EnvironmentDependencies{Projects: projects, Integrations: integrations})}

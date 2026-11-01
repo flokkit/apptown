@@ -33,7 +33,7 @@ guidance: "Use the mailer, do not print to stdout."`
 	if _, err := s.Bindings.Save(context.Background(), "smtp", "mailer", "service", `{"host":"smtp.internal"}`, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Attachments.Attach(t.Context(), id, "mailer", "smtp", `{"domain":"shop.example"}`, Provisioned, "fixture", nil); err != nil {
+	if err := s.Attachments.attach(t.Context(), id, "mailer", "smtp", `{"domain":"shop.example"}`, Provisioned, "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
 	connCfg, err := s.ConnectorConfig(context.Background(), "smtp", "mailer")
