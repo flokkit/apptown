@@ -58,7 +58,7 @@ func TestVisibleProjectsIncludeIdleProjectsAndFenceEmptySets(t *testing.T) {
 		t.Fatalf("idle project visibility: %+v %v", rows, err)
 	}
 	for _, idList := range [][]ids.ID{nil, {}} {
-		got, err := projectsql.New(db.SQL()).VisibleProjects(ctx, idList)
+		got, err := projectsql.New(db.SQL()).ProjectPage(ctx, projectsql.ProjectPageParams{ProjectIds: idList, RowLimit: 100})
 		if err != nil || len(got) != 0 {
 			t.Fatalf("empty SQL scope: %+v %v", got, err)
 		}

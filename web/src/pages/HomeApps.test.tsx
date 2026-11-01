@@ -26,7 +26,7 @@ function home(projects: ProjectRow[], activity: unknown = { active: [], agents: 
     '/dashboard': { pendingApprovals: [], endedOperations: [] },
     // The previous request is seeded so regressions fail on rendered behaviour.
     '/projects': projects,
-    '/projects?limit=50&order=running': { projects, total: projects.length },
+    '/projects?limit=5&order=mine': { projects, total: projects.length },
   }
   for (const [path, answer] of Object.entries(data)) client.setQueryData(getKey(path), answer)
   const el = document.createElement('div')
@@ -35,7 +35,7 @@ function home(projects: ProjectRow[], activity: unknown = { active: [], agents: 
   return el
 }
 
-it('offers every running app in the bounded page before non-running projects', () => {
+it('preserves the personal project order returned by Home’s bounded request', () => {
   const projects = [project('stopped', { prodRunning: false, observation: 'stopped' }),
     ...Array.from({ length: 9 }, (_, i) => project(`app-${i}`, { blurb: i % 2 ? '' : 'Read together' })),
     project('stale', { observationStale: true, prodRunning: null }), project('unknown', { prodRunning: null, observation: 'unknown' })]
@@ -51,8 +51,8 @@ it('offers every running app in the bounded page before non-running projects', (
   expect(el.querySelector('a[href="/projects"]')?.textContent).toBe('All projects →')
   const rows = [...el.querySelectorAll('.project-row')]
   expect(rows).toHaveLength(12)
-  expect(rows[0].textContent).toContain('app-0')
-  expect(rows[9].textContent).toContain('stopped')
+  expect(rows[0].textContent).toContain('stopped')
+  expect(rows[1].textContent).toContain('app-0')
   expect(el.querySelectorAll('.project-description')).toHaveLength(5)
   expect(el.querySelector('.dash-head button')?.classList.contains('primary')).toBe(false)
 })

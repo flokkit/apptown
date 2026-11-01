@@ -341,3 +341,55 @@ func TestEvalRoutesAskTheEvalsOwner(t *testing.T) {
 		t.Fatalf("no evals yet: %d %s", w.Code, w.Body.String())
 	}
 }
+
+func TestPersonalProjectPageUsesVerifiedCallerAndReturnsWorkTime(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	if w := authzCall(a.Handler(), "bls", "GET", "/api/v1/projects?limit=5&order=mine", ""); w.Code != 200 || !strings.Contains(w.Body.String(), `"projects":[]`) || !strings.Contains(w.Body.String(), `"total":0`) {
+		t.Fatalf("empty Home: %d %s", w.Code, w.Body.String())
+	}
+	first := createReadTestProject(t, a, "a-idle")
+	mine := createReadTestProject(t, a, "z-mine")
+	createReadTestChange(t, a, mine, "My work")
+	for _, path := range []string{"/api/v1/projects?limit=5&order=mine", "/api/v1/projects?limit=5", "/api/v1/projects"} {
+		w := authzCall(a.Handler(), "bls", "GET", path, "")
+		if w.Code != 200 {
+			t.Fatalf("%s: %d %s", path, w.Code, w.Body.String())
+		}
+		var page struct {
+			Projects []struct {
+				ID           ids.ID  `json:"id"`
+				LastWorkedAt *string `json:"lastWorkedAt"`
+			}
+		}
+		if path == "/api/v1/projects" {
+			if err := json.Unmarshal(w.Body.Bytes(), &page.Projects); err != nil {
+				t.Fatal(err)
+			}
+		} else if err := json.Unmarshal(w.Body.Bytes(), &page); err != nil {
+			t.Fatal(err)
+		}
+		if len(page.Projects) != 2 {
+			t.Fatalf("%s: %s", path, w.Body.String())
+		}
+		if strings.Contains(path, "order=mine") && page.Projects[0].ID != mine {
+			t.Fatalf("personal order: %s", w.Body.String())
+		}
+		for _, p := range page.Projects {
+			// Only the personal order works out the caller's own time; the
+			// plain lists leave it unset rather than computing it.
+			if !strings.Contains(path, "order=mine") {
+				if p.LastWorkedAt != nil {
+					t.Fatalf("%s: personal time on a plain list: %s", path, w.Body.String())
+				}
+				continue
+			}
+			if p.ID == mine && (p.LastWorkedAt == nil || *p.LastWorkedAt == "") {
+				t.Fatalf("personal time absent: %s", w.Body.String())
+			}
+			if p.ID == first && p.LastWorkedAt != nil {
+				t.Fatalf("idle time invented: %s", w.Body.String())
+			}
+		}
+	}
+}

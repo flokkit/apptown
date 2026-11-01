@@ -344,6 +344,94 @@ func (q *Queries) NoteTakeDownsStarted(ctx context.Context, projectID ids.ID) (i
 	return result.RowsAffected()
 }
 
+const personalProjectPage = `-- name: PersonalProjectPage :many
+WITH personal_events AS (
+ SELECT project_id, created_at AS at FROM changes
+ WHERE project_id=ANY($1::uuid[]) AND opened_by_principal=$5::uuid
+ UNION ALL
+ SELECT project_id, at FROM audit_log
+ WHERE project_id=ANY($1::uuid[]) AND actor_principal=$5::uuid
+ AND kind IN ('console.say','console.upload')
+), personal AS (
+ SELECT project_id, max(at) AS last_worked_at FROM personal_events GROUP BY project_id
+), recent AS (
+ SELECT project_id, max(updated_at) AS last_run_at FROM runs
+ WHERE project_id=ANY($1::uuid[]) GROUP BY project_id
+)
+SELECT p.id, p.slug, p.name, p.default_branch, p.namespace, p.icon, p.blurb, p.release_domain, p.model_profile, p.owner_group, p.default_approvers, p.created_at, p.require_independent_approval, p.settings_revision, p.purpose, p.serving_label, p.blurb_source, COALESCE(personal.last_worked_at,'epoch'::timestamptz)::timestamptz AS last_worked_at,
+ (personal.last_worked_at IS NOT NULL)::boolean AS has_last_worked_at FROM projects p
+LEFT JOIN personal ON personal.project_id=p.id
+LEFT JOIN recent ON recent.project_id=p.id
+WHERE p.id=ANY($1::uuid[]) AND p.purpose = 'ordinary'
+AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id = p.id AND l.state = 'deleted')
+AND ($2::text='' OR strpos(lower(p.name||' '||p.slug||' '||p.blurb||' '||p.namespace||' '||p.icon),$2)>0)
+ORDER BY personal.last_worked_at DESC NULLS LAST, recent.last_run_at DESC NULLS LAST, p.name, p.id
+LIMIT $4::bigint OFFSET $3::bigint
+`
+
+type PersonalProjectPageParams struct {
+	ProjectIds []ids.ID
+	Query      string
+	RowOffset  int64
+	RowLimit   int64
+	Principal  ids.ID
+}
+
+type PersonalProjectPageRow struct {
+	Project         Project
+	LastWorkedAt    time.Time
+	HasLastWorkedAt bool
+}
+
+func (q *Queries) PersonalProjectPage(ctx context.Context, arg PersonalProjectPageParams) ([]PersonalProjectPageRow, error) {
+	rows, err := q.db.QueryContext(ctx, personalProjectPage,
+		pq.Array(arg.ProjectIds),
+		arg.Query,
+		arg.RowOffset,
+		arg.RowLimit,
+		arg.Principal,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PersonalProjectPageRow
+	for rows.Next() {
+		var i PersonalProjectPageRow
+		if err := rows.Scan(
+			&i.Project.ID,
+			&i.Project.Slug,
+			&i.Project.Name,
+			&i.Project.DefaultBranch,
+			&i.Project.Namespace,
+			&i.Project.Icon,
+			&i.Project.Blurb,
+			&i.Project.ReleaseDomain,
+			&i.Project.ModelProfile,
+			&i.Project.OwnerGroup,
+			&i.Project.DefaultApprovers,
+			&i.Project.CreatedAt,
+			&i.Project.RequireIndependentApproval,
+			&i.Project.SettingsRevision,
+			&i.Project.Purpose,
+			&i.Project.ServingLabel,
+			&i.Project.BlurbSource,
+			&i.LastWorkedAt,
+			&i.HasLastWorkedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const projectAddressTaken = `-- name: ProjectAddressTaken :one
 SELECT (EXISTS(SELECT 1 FROM projects p WHERE (p.slug=$1 OR p.serving_label=$1) AND p.id<>$2)
  OR EXISTS(SELECT 1 FROM project_deletions d WHERE d.state<>'done' AND d.project_id<>$2
@@ -664,15 +752,16 @@ func (q *Queries) ProjectLifecycle(ctx context.Context, projectID ids.ID) (Proje
 }
 
 const projectPage = `-- name: ProjectPage :many
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source FROM projects WHERE id=ANY($1::uuid[]) AND purpose = 'ordinary'
-AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id = projects.id AND l.state = 'deleted')
-AND ($2::text='' OR strpos(lower(name||' '||slug||' '||blurb||' '||namespace||' '||icon),$2)>0)
-ORDER BY (id=ANY($3::uuid[])) DESC,
+SELECT p.id, p.slug, p.name, p.default_branch, p.namespace, p.icon, p.blurb, p.release_domain, p.model_profile, p.owner_group, p.default_approvers, p.created_at, p.require_independent_approval, p.settings_revision, p.purpose, p.serving_label, p.blurb_source FROM projects p
+WHERE p.id=ANY($1::uuid[]) AND p.purpose = 'ordinary'
+AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id = p.id AND l.state = 'deleted')
+AND ($2::text='' OR strpos(lower(p.name||' '||p.slug||' '||p.blurb||' '||p.namespace||' '||p.icon),$2)>0)
+ORDER BY (p.id=ANY($3::uuid[])) DESC,
  CASE WHEN $2::text='' THEN 0
  WHEN strpos(lower(name),$2)=1 OR strpos(lower(slug),$2)=1 THEN 0
  WHEN strpos(lower(name),$2)>0 OR strpos(lower(slug),$2)>0 THEN 1
  WHEN strpos(lower(blurb),$2)>0 THEN 2 ELSE 3 END,
- CASE WHEN $2::text='' THEN namespace END,name,id
+ CASE WHEN $2::text='' THEN namespace END,p.name,p.id
 LIMIT $5::bigint OFFSET $4::bigint
 `
 
@@ -1179,6 +1268,8 @@ type VisibleProjectCountParams struct {
 	Query      string
 }
 
+// The project lists show ordinary projects: a throwaway eval copy appears
+// under its eval, never as a project.
 func (q *Queries) VisibleProjectCount(ctx context.Context, arg VisibleProjectCountParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, visibleProjectCount, pq.Array(arg.ProjectIds), arg.Query)
 	var count int64
@@ -1187,15 +1278,14 @@ func (q *Queries) VisibleProjectCount(ctx context.Context, arg VisibleProjectCou
 }
 
 const visibleProjects = `-- name: VisibleProjects :many
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source FROM projects WHERE id=ANY($1::uuid[]) AND purpose = 'ordinary'
-AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id = projects.id AND l.state = 'deleted')
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source FROM projects
+WHERE id=ANY($1::uuid[]) AND purpose='ordinary'
+AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id=projects.id AND l.state='deleted')
 ORDER BY namespace, name, id
 `
 
-// The project lists show ordinary projects: a throwaway eval copy appears
-// under its eval, never as a project.
-func (q *Queries) VisibleProjects(ctx context.Context, dollar_1 []ids.ID) ([]Project, error) {
-	rows, err := q.db.QueryContext(ctx, visibleProjects, pq.Array(dollar_1))
+func (q *Queries) VisibleProjects(ctx context.Context, projectIds []ids.ID) ([]Project, error) {
+	rows, err := q.db.QueryContext(ctx, visibleProjects, pq.Array(projectIds))
 	if err != nil {
 		return nil, err
 	}

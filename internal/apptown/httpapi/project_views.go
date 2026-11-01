@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -58,17 +59,19 @@ func (h ProjectViews) ListProjects(w http.ResponseWriter, r *http.Request) {
 		}
 		var running []ids.ID
 		if order := query.Get("order"); order != "" {
-			if order != "running" {
-				WriteError(w, 400, "order must be running")
+			if order != "running" && order != "mine" {
+				WriteError(w, 400, "order must be running or mine")
 				return
 			}
-			running, err = h.deployment.RunningProjects(r.Context())
+			if order == "running" {
+				running, err = h.deployment.RunningProjects(r.Context())
+			}
 			if err != nil {
 				WriteFault(w, err)
 				return
 			}
 		}
-		page, pageErr := h.projects.Browse(r.Context(), project.Browse{Limit: limit, Offset: offset, Query: query.Get("q"), PriorityIDs: running})
+		page, pageErr := h.projects.Browse(r.Context(), project.Browse{Limit: limit, Offset: offset, Query: query.Get("q"), PriorityIDs: running, Mine: query.Get("order") == "mine"})
 		projects, total, err = page.Projects, page.Total, pageErr
 	} else {
 		projects, err = h.projects.Visible(r.Context())
@@ -89,7 +92,7 @@ func (h ProjectViews) ListProjects(w http.ResponseWriter, r *http.Request) {
 	out := []ProjectRow{}
 	for _, p := range projects {
 		work := activity[p.ID]
-		out = append(out, ProjectRow{Project: p, ActiveItems: work.ActiveItems, DoneRuns: work.DoneRuns, LastRunAt: work.LastRunAt, LastChangeTitle: work.LastChangeTitle})
+		out = append(out, ProjectRow{Project: p, LastWorkedAt: p.LastWorkedAt, ActiveItems: work.ActiveItems, DoneRuns: work.DoneRuns, LastRunAt: work.LastRunAt, LastChangeTitle: work.LastChangeTitle})
 	}
 	counts, err := h.adrs.Counts(r.Context(), idList)
 	if err != nil {
@@ -239,6 +242,10 @@ func hasGitDirectory(dir string) bool {
 // is running.
 type ProjectRow struct {
 	project.Project
+	// LastWorkedAt is when the caller last worked on the project, set only
+	// for order=mine; null there means never, and on other lists means not
+	// worked out.
+	LastWorkedAt    *time.Time `json:"lastWorkedAt"`
 	ActiveItems     int        `json:"activeItems"`
 	AdrCount        int        `json:"adrCount"`
 	DoneRuns        int        `json:"doneRuns"`

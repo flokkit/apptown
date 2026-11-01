@@ -3186,6 +3186,17 @@
               }
             ]
           },
+          "lastWorkedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "name": {
             "type": "string"
           },
@@ -3254,6 +3265,7 @@
           "createdAt",
           "requireIndependentApproval",
           "settingsRevision",
+          "lastWorkedAt",
           "activeItems",
           "adrCount",
           "doneRuns",

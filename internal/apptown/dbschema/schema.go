@@ -509,6 +509,9 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
  payload JSONB NOT NULL
 );`,
 	}},
+	{n: 197, note: "index personal project chat receipts", stmts: []string{
+		"CREATE INDEX audit_log_personal_chat ON audit_log(actor_principal, project_id, at) WHERE kind IN ('console.say','console.upload')",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

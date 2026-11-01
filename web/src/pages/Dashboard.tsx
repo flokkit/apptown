@@ -2,7 +2,7 @@ import { Status } from '../Status'
 import { useAttention, attentionState, attentionSummary } from '../attention'
 import { PRODUCT } from '../brand'
 import { RuntimeObservation } from '../runtime'
-import { ProjectListRow, appRunning } from '../ProjectListRow'
+import { ProjectListRow } from '../ProjectListRow'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Dashboard as DashboardData, post } from '../api'
@@ -145,9 +145,9 @@ export default function Dashboard() {
   const operationsQ = useAttention()
   const actQ = useGet<Activity>('/activity', { poll: 5000 })
   const dashQ = useGet<DashboardData>('/dashboard', { poll: 5000 })
-  const projectsQ = useGet<ProjectPage>('/projects?limit=50&order=running', { poll: 5000 })
+  const projectsQ = useGet<ProjectPage>('/projects?limit=5&order=mine', { poll: 5000 })
   const act = actQ.data, dash = dashQ.data, dashErr = dashQ.err, projects = projectsQ.data?.projects ?? null
-  const listed = [...(projects ?? [])].sort((a, b) => Number(appRunning(b, projectsQ.refreshFailed)) - Number(appRunning(a, projectsQ.refreshFailed)))
+  const listed = projects ?? []
   const finished = homeFinished(act?.history ?? [])
 
   // One work item, one card. "Running" is one card PER RUN (its current
