@@ -21,7 +21,7 @@ const resourceWord = (r: Resource) => {
   const noun = r.kind === 'volume' ? 'data volume' : r.kind
   return need ? `${noun} for ${need}` : noun
 }
-import { fmtStamp } from '../../format'
+import { fmtStamp, lastSeen } from '../../format'
 import type { InfrastructureTargets, RegistryReading, TargetPage } from '../../wire.gen'
 import { shownActor } from '../../systemActors'
 
@@ -350,10 +350,10 @@ export function Unaccounted({ here, onChanged }: { here: TargetInfra; onChanged:
   const failed = !here.live && !!here.error
   return (
     <>
-      {here.asOf && <div className="muted small">Inventory read {fmtStamp(here.asOf)}{here.invalidated ? " · before the latest change" : ""}</div>}
-      {failed && <div className="error small" style={{ marginBottom: 6 }}>Inventory is unknown: {here.error}{here.asOf ? ` · showing the inventory read ${fmtStamp(here.asOf)}.` : ' · nothing has been read from it, so what is unaccounted for is not known.'}</div>}
+      {here.asOf && <div className="muted small">Inventory {lastSeen(here.asOf)}{here.invalidated ? " · before the latest change" : ""}</div>}
+      {failed && <div className="error small" style={{ marginBottom: 6 }}>Inventory {here.unknown ? 'is unknown' : 'check failed or is out of date'}: {here.error}{here.asOf ? ` · showing the inventory ${lastSeen(here.asOf)}.` : ' · nothing has been read from it, so what is unaccounted for is not known.'}</div>}
       {here.live || here.asOf
-        ? <ResourceTables t={here} onChanged={onChanged} only={(r) => r.record !== 'recorded'} empty={here.live ? 'Nothing unaccounted for.' : `Nothing unaccounted for in the inventory read ${fmtStamp(here.asOf!)}.`} />
+        ? <ResourceTables t={here} onChanged={onChanged} only={(r) => r.record !== 'recorded'} empty={here.live ? 'Nothing unaccounted for.' : `Nothing unaccounted for in the inventory ${lastSeen(here.asOf!)}.`} />
         : !failed && <div className="muted small">checking…</div>}
       {here.shared && <div className="muted small" style={{ marginTop: 6 }}>{here.shared}</div>}
     </>

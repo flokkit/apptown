@@ -22,7 +22,7 @@ func attentionFor(a *App) *attention.Service {
 }
 
 type attentionInventory struct {
-	cache     *inventoryCache
+	cache     *deployment.InventoryReadings
 	providers *deployment.Providers
 }
 
@@ -32,5 +32,5 @@ func (s attentionInventory) Snapshot(ctx context.Context, t *deployment.Target) 
 		return attention.InventoryReading{Unknown: true, Unreported: true}, nil
 	}
 	got, err := s.cache.SnapshotForTarget(ctx, t)
-	return attention.InventoryReading{Items: got.Items, ObservedAt: got.ObservedAt, AttemptedAt: got.AttemptedAt, Unknown: got.Unknown, Stale: got.Stale, Invalidated: got.Invalidated}, err
+	return attention.InventoryReading{Items: got.Items, Missing: got.Missing, FailedAt: got.FailedAt, Reason: got.Reason, ObservedAt: got.ObservedAt, AttemptedAt: got.AttemptedAt, Unknown: got.Unknown, Stale: got.Stale, Invalidated: got.Invalidated}, err
 }

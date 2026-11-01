@@ -453,6 +453,38 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		"ALTER TABLE projects ALTER COLUMN blurb_source SET DEFAULT 'generated'",
 		"CREATE INDEX audit_log_project_created ON audit_log(project_id) WHERE kind='project.created'",
 	}},
+	{n: 194, note: "persist background infrastructure readings", stmts: []string{
+		`CREATE TABLE deployment_readings (
+    id UUID PRIMARY KEY,
+    subject TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    identity TEXT NOT NULL,
+    generation BIGINT NOT NULL DEFAULT 0,
+    invalidated BOOLEAN NOT NULL DEFAULT FALSE,
+    payload JSONB NOT NULL DEFAULT '{}',
+    UNIQUE (subject, kind)
+);`,
+		`CREATE TABLE protection_readings (
+    id UUID PRIMARY KEY,
+    subject TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    identity TEXT NOT NULL,
+    generation BIGINT NOT NULL DEFAULT 0,
+    invalidated BOOLEAN NOT NULL DEFAULT FALSE,
+    payload JSONB NOT NULL DEFAULT '{}',
+    UNIQUE (subject, kind)
+);`,
+		`CREATE TABLE maintenance_readings (
+    id UUID PRIMARY KEY,
+    subject TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    identity TEXT NOT NULL,
+    generation BIGINT NOT NULL DEFAULT 0,
+    invalidated BOOLEAN NOT NULL DEFAULT FALSE,
+    payload JSONB NOT NULL DEFAULT '{}',
+    UNIQUE (subject, kind)
+);`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

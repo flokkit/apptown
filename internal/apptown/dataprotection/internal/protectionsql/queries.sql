@@ -207,3 +207,13 @@ WHERE deployment_id=sqlc.arg(deployment_id) AND state=sqlc.arg(waiting);
 -- name: RelocateDiskSets :execrows
 UPDATE backups SET path=sqlc.arg(to_root)::text || substr(path, length(sqlc.arg(from_root)::text) + 1)
 WHERE store=sqlc.arg(disk) AND left(path, length(sqlc.arg(from_root)::text)) = sqlc.arg(from_root)::text;
+
+-- name: Reading :one
+SELECT identity, generation, invalidated, payload FROM protection_readings WHERE subject=$1 AND kind=$2;
+
+-- name: StoreReading :exec
+INSERT INTO protection_readings (id, subject, kind, identity, payload)
+VALUES ($1,$2,$3,$4,$5)
+ON CONFLICT (subject,kind) DO UPDATE SET identity=EXCLUDED.identity, payload=EXCLUDED.payload
+WHERE protection_readings.identity=EXCLUDED.identity OR protection_readings.generation=0;
+

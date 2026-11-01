@@ -24,17 +24,22 @@ func (d Disks) Snapshot(ctx context.Context) (Snapshot, error) {
 	out := Snapshot{ObservedAt: reading.ObservedAt, Known: !reading.Unknown && !reading.ObservedAt.IsZero(), Stale: reading.Stale}
 	for _, disk := range reading.Disks {
 		r := disk.Reading
-		unknown := disk.Unknown || disk.Stale || r.Unknown != ""
-		if !unknown && !r.Low && !r.Refuses {
+		unknown := disk.Unknown || r.Unknown != ""
+		failedStale := disk.Stale && !disk.FailedAt.IsZero()
+		if !unknown && !failedStale && !r.Low && !r.Refuses {
 			continue
 		}
 		title, detail := "Disk space is low", "Free space is below the warning threshold."
 		if r.Refuses {
 			title, detail = "Disk space blocks new work", "Free space is below the admission threshold."
 		}
-		if unknown {
-			title, detail = "Disk space could not be assessed", "The latest disk reading is unavailable."
-			out.Known = false
+		if unknown || failedStale {
+			title, detail = "Disk space could not be assessed", "The latest disk reading is unavailable. "+disk.Reason
+			if unknown {
+				out.Known = false
+			} else {
+				title = "Disk check failed"
+			}
 			if r.Unknown == "" && (r.Low || r.Refuses) {
 				detail += " Last successful reading was below the warning threshold."
 				if r.Refuses {
@@ -50,7 +55,7 @@ func (d Disks) Snapshot(ctx context.Context) (Snapshot, error) {
 		} else if r.Refuses || unknown {
 			detail += " The worker refuses new tasks when its disk is below the admission threshold or cannot be read."
 		}
-		out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%q/%q", r.What, r.Path)))), Title: r.What + ": " + title, Detail: r.What + ": " + detail, Href: "/infrastructure", ObservedAt: r.ReadAt, Stale: disk.Stale || unknown})
+		out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%q/%q", r.What, r.Path)))), Unknown: unknown, Title: r.What + ": " + title, Detail: r.What + ": " + detail, Href: "/infrastructure", ObservedAt: r.ReadAt, Stale: disk.Stale || unknown})
 	}
 	return out, err
 }

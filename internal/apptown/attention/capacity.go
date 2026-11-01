@@ -62,20 +62,29 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 		}
 		diskStale := disk != nil && disk.StaleAt(now)
 		out.Stale = out.Stale || diskStale
-		if reading.DiskUnknown || disk == nil || !disk.Free.Known || !disk.Total.Known || diskStale {
-			out.Known = false
+		if reading.DiskUnknown || disk == nil || !disk.Free.Known || !disk.Total.Known || diskStale && !reading.FailedAt.IsZero() {
+			if reading.DiskUnknown || disk == nil || !disk.Free.Known || !disk.Total.Known {
+				out.Known = false
+			}
 			at := reading.AttemptedAt
 			if disk != nil {
 				at = disk.ReadAt
 			} else if at.IsZero() {
 				at = reading.ObservedAt
 			}
-			out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: target.ID.String() + "/disk-unassessed", Title: label + ": disk space is unknown", Detail: label + ": check the host’s disk. The latest reading is unavailable or out of date. " + capacityAdmission(target.Kind), Href: href, ObservedAt: at, Stale: true})
+			title := label + ": disk space is unknown"
+			if disk != nil && disk.Free.Known && disk.Total.Known {
+				title = label + ": capacity check failed"
+			}
+			out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: target.ID.String() + "/disk-unassessed", Unknown: reading.DiskUnknown || disk == nil || !disk.Free.Known || !disk.Total.Known, Title: title, Detail: label + ": check the host’s disk. The latest reading is unavailable or out of date. " + reading.Reason + " " + capacityAdmission(target.Kind), Href: href, ObservedAt: at, Stale: true})
 			if disk == nil || !disk.Free.Known || !disk.Total.Known {
 				continue
 			}
 		}
-		if !disk.Low && !disk.Refuses {
+		if (reading.Stale && !reading.FailedAt.IsZero() || reading.LiveUnknown) && !reading.DiskUnknown && !diskStale {
+			out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: target.ID.String() + "/capacity-unassessed", Unknown: reading.LiveUnknown, Title: label + ": capacity check failed", Detail: reading.Reason, Href: href, ObservedAt: reading.ObservedAt, Stale: true})
+		}
+		if !disk.Free.Known || (!disk.Low && !disk.Refuses) {
 			continue
 		}
 		title := label + ": low on disk"

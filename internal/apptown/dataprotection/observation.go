@@ -3,13 +3,15 @@ package dataprotection
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/dataprotection/internal/protectionsql"
+	"github.com/flokkit/apptown/internal/database"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -38,6 +40,8 @@ type ProtectionItemObservation struct {
 }
 
 type ProtectionSnapshot struct {
+	LastFailedAt                       time.Time
+	LastFailure                        string
 	DataClass                          string
 	OffHost                            bool
 	Items                              []ProtectionItemObservation
@@ -54,20 +58,15 @@ type ProtectionSnapshot struct {
 	Reason string
 	// AttemptedAt is when the latest protection attempt finished, successful or not.
 	AttemptedAt    time.Time
+	FailedAt       time.Time
 	Unknown, Stale bool
-}
-
-type protectionObservation struct {
-	identity string
-	snapshot ProtectionSnapshot
 }
 
 // ProtectionObserver calls the real protection owner in a background job. Its
 // read path resolves only current local identity and returns recorded evidence.
 // Caller authority must be checked before selecting a deployment for Snapshot.
 type ProtectionObserver struct {
-	mu      sync.Mutex
-	entries map[ids.ID]*protectionObservation
+	db      *database.DB
 	queue   ProtectionObservationQueue
 	now     func() time.Time
 	resolve func(context.Context, ids.ID) (*deployment.Deployment, string, error)
@@ -75,7 +74,7 @@ type ProtectionObserver struct {
 }
 
 func NewProtectionObserver(service *Service, queue ProtectionObservationQueue) *ProtectionObserver {
-	return &ProtectionObserver{queue: queue, now: service.now, read: service.DeploymentProtection, resolve: func(ctx context.Context, id ids.ID) (*deployment.Deployment, string, error) {
+	return &ProtectionObserver{db: service.db, queue: queue, now: service.now, read: service.DeploymentProtection, resolve: func(ctx context.Context, id ids.ID) (*deployment.Deployment, string, error) {
 		dep, err := service.deployments.ByID(ctx, id)
 		if err != nil {
 			return nil, "", err
@@ -108,37 +107,36 @@ func (o *ProtectionObserver) Snapshot(ctx context.Context, id ids.ID) (Protectio
 	if dep.Kind != deployment.Standing {
 		return ProtectionSnapshot{Unknown: true}, errors.New("protection observations require a standing deployment")
 	}
-	now := o.now()
-	o.mu.Lock()
-	if o.entries == nil {
-		o.entries = make(map[ids.ID]*protectionObservation)
+	r, err := o.load(ctx, id, identity)
+	if err != nil {
+		return ProtectionSnapshot{Unknown: true, Stale: true}, err
 	}
-	e := o.entries[id]
-	if e == nil || e.identity != identity {
-		e = &protectionObservation{identity: identity, snapshot: ProtectionSnapshot{Unknown: true}}
-		o.entries[id] = e
-	}
-	out := protectionSnapshotAt(e.snapshot, now)
-	o.mu.Unlock()
-	return out, nil
+	return protectionSnapshotAt(r, o.now()), nil
 }
-
+func (o *ProtectionObserver) load(ctx context.Context, id ids.ID, identity string) (ProtectionSnapshot, error) {
+	row, err := protectionsql.New(o.db.SQL()).Reading(ctx, protectionsql.ReadingParams{Subject: id.String(), Kind: "protection"})
+	if errors.Is(err, sql.ErrNoRows) || err == nil && row.Identity != identity {
+		return ProtectionSnapshot{}, nil
+	}
+	if err != nil {
+		return ProtectionSnapshot{}, err
+	}
+	var out ProtectionSnapshot
+	err = json.Unmarshal(row.Payload, &out)
+	return out, err
+}
 func protectionSnapshotAt(s ProtectionSnapshot, now time.Time) ProtectionSnapshot {
 	s.Items = slices.Clone(s.Items)
-	s.Stale = s.Stale || s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > 12*time.Minute
-	// A newly collected wrapper cannot renew the provider's own cached read.
+	s.Stale = s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > 15*time.Minute
+	s.Unknown = s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > 6*time.Hour
 	for _, item := range s.Items {
-		if item.Native && (item.NativeAt.IsZero() || now.Sub(item.NativeAt) > 12*time.Minute) {
-			s.Stale = true
+		if item.Native {
+			s.Stale = s.Stale || item.NativeAt.IsZero() || now.Sub(item.NativeAt) > 15*time.Minute
+			s.Unknown = s.Unknown || item.NativeAt.IsZero() || now.Sub(item.NativeAt) > 6*time.Hour
 		}
 	}
-	if s.Stale {
-		s.Unknown = true
-		if s.ObservedAt.IsZero() && s.AttemptedAt.IsZero() {
-			s.Reason = "Waiting for the first protection check."
-		} else if s.Reason == "" {
-			s.Reason = "The protection check is overdue."
-		}
+	if s.ObservedAt.IsZero() && s.AttemptedAt.IsZero() {
+		s.Reason = "Waiting for the first protection check."
 	}
 	return s
 }
@@ -163,45 +161,50 @@ func (o *ProtectionObserver) Run(ctx context.Context, id ids.ID, identity string
 	if ctx.Err() != nil {
 		err = ctx.Err()
 	}
+	finish, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer stop()
+	prior, loadErr := o.load(finish, id, identity)
+	if loadErr != nil {
+		return errors.Join(err, loadErr)
+	}
 	now := o.now()
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	e := o.entries[id]
-	if o.entries == nil {
-		o.entries = make(map[ids.ID]*protectionObservation)
-	}
-	if e == nil || e.identity != identity {
-		e = &protectionObservation{identity: identity}
-		o.entries[id] = e
-	}
-	e.snapshot.AttemptedAt = now
+	prior.AttemptedAt = now
+	reason := ""
 	if err != nil || protection == nil {
-		e.snapshot.Unknown = true
-		e.snapshot.Reason = "The protection check failed."
+		reason = "The protection check failed."
 		if errors.Is(err, context.DeadlineExceeded) {
-			e.snapshot.Reason = "The protection check timed out."
+			reason = "The protection check timed out."
 		}
 		if err == nil {
 			err = errors.New("protection observation missing")
 		}
-		return err
+	} else {
+		next := observedProtection(protection, now)
+		if next.Unknown {
+			reason = next.Reason
+			err = errors.New(reason)
+			if protection.Unknown != "" {
+				err = errors.New(protection.Unknown)
+			}
+		} else {
+			next.LastFailedAt, next.LastFailure = prior.LastFailedAt, prior.LastFailure
+			prior = next
+		}
 	}
-	next := observedProtection(protection, now)
-	// The detail view returns held-data failures as an unassessed answer.
-	// Background collection must also report that failure to its job, so the
-	// completed attempt does not erase the diagnostic needed to repair it.
-	var checkErr error
-	if protection.Unknown != "" {
-		checkErr = errors.New(protection.Unknown)
+	prior.Reason = reason
+	if reason != "" {
+		prior.FailedAt = now
+		prior.LastFailedAt = now
+		prior.LastFailure = reason
+	} else {
+		prior.FailedAt = time.Time{}
 	}
-	if next.Unknown && !e.snapshot.ObservedAt.IsZero() {
-		// Unread held data or provider evidence cannot clear old conditions.
-		e.snapshot.Unknown, e.snapshot.Stale = true, true
-		e.snapshot.Reason = next.Reason
-		return checkErr
+	raw, marshalErr := json.Marshal(prior)
+	if marshalErr != nil {
+		return errors.Join(err, marshalErr)
 	}
-	e.snapshot = next
-	return checkErr
+	storeErr := protectionsql.New(o.db.SQL()).StoreReading(finish, protectionsql.StoreReadingParams{ID: ids.New(now), Subject: id.String(), Kind: "protection", Identity: identity, Payload: raw})
+	return errors.Join(err, storeErr)
 }
 
 func observedProtection(p *Protection, at time.Time) ProtectionSnapshot {
@@ -245,8 +248,8 @@ func observedProtection(p *Protection, at time.Time) ProtectionSnapshot {
 		if item.Native != nil {
 			row.Native = true
 			row.NativeCount = item.Native.Count
-			row.NativeAt = item.Native.observedAt
-			row.NativeUnknown = item.Native.Unknown != ""
+			row.NativeAt = item.Native.ObservedAt
+			row.NativeUnknown = item.Native.Unknown != "" || item.Native.CheckFailed
 			out.Unknown = out.Unknown || row.NativeUnknown
 			if row.NativeUnknown {
 				out.Reason = "The provider backup check failed."

@@ -96,3 +96,15 @@ describe('the capacity bars', () => {
   })
 })
 
+
+it('never draws expired tenant CPU limits or their remainder as available capacity', () => {
+  const expired = tenant('app/main', 'deployment', fig(GiB), GiB, { unknown: true, cpus: 2, cpuUnlimited: 3 })
+  const c = cap([expired], fig(2 * GiB))
+  for (const resource of ['cpu', 'memory'] as const) {
+    const b = promised(c, resource)!
+    expect(b.sum).toBe(0)
+    expect(b.unlimited).toBe(0)
+    expect(b.unknown.map(u => u.name)).toEqual(['app/main'])
+    expect(b.segments.map(s => s.kind)).toEqual(['unread'])
+  }
+})

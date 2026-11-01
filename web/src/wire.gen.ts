@@ -136,6 +136,7 @@ export type AttentionItem = {
   href: string
   observedAt: string
   stale: boolean
+  unknown?: boolean
 }
 
 export type AttentionView = {
@@ -2019,11 +2020,13 @@ export type TargetCapacity = {
   elastic: boolean
   error?: string
   stale: boolean
+  liveUnknown?: boolean
   words: string
   memory?: ResourceCapacity | null
   cpu?: ResourceCapacity | null
   disk?: DiskCapacity | null
   tenants?: Tenant[]
+  tenantsAt?: string
   parts?: ElasticPart[]
   estimate?: Figure | null
   readAt?: string
@@ -3070,6 +3073,9 @@ export type DevStaticBuild = {
 }
 
 export type Reading = {
+  failedAt?: string
+  error?: string
+  totalReadAt?: string
   what: string
   path?: string
   totalBytes?: number
@@ -3280,6 +3286,7 @@ export type InfrastructureView = {
   domain?: string
   place: string
   vendor: string
+  unknown?: boolean
   live: boolean
   error?: string
   unreported?: boolean
@@ -4079,6 +4086,9 @@ export type DiskCapacity = {
 }
 
 export type Tenant = {
+  readAt?: string
+  stale?: boolean
+  unknown?: boolean
   kind: string
   name: string
   project?: string
@@ -4104,6 +4114,8 @@ export type Figure = {
   known: boolean
   value: number
   reason?: string
+  readAt?: string
+  stale?: boolean
 }
 
 export type TargetState = "ready" | "unreachable" | "retired"
@@ -4561,6 +4573,11 @@ export type CopyRef = {
 }
 
 export type NativeBackups = {
+  attemptedAt?: string
+  failedAt?: string
+  failure?: string
+  checkFailed?: boolean
+  readAt?: string
   mechanism: string
   count: number
   oldest?: string

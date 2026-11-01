@@ -54,13 +54,14 @@ func TestInventoryConditionsNeedCompleteCurrentEvidenceAndRetainOnlyTheirOwnIden
 	if got := read(); got.Known || missing(got) != 0 {
 		t.Fatalf("cold inventory invented missing %+v", got)
 	}
-	evidence.value = InventoryReading{ObservedAt: at}
+	evidence.value = InventoryReading{ObservedAt: at, Missing: deployment.MergeInventory(records.rows, nil)}
 	got := read()
 	if !got.Known || missing(got) != 1 || got.Items[0].Stale || strings.Contains(got.Items[0].Key, "private-name") {
 		t.Fatalf("complete missing evidence %+v", got)
 	}
 	originalKey := got.Items[0].Key
 	evidence.value.Unknown = true
+	evidence.value.FailedAt = at
 	got = read()
 	if got.Known || missing(got) != 1 || !got.Items[0].Stale || got.Items[0].ObservedAt != at {
 		t.Fatalf("failure erased missing evidence %+v", got)
@@ -74,10 +75,12 @@ func TestInventoryConditionsNeedCompleteCurrentEvidenceAndRetainOnlyTheirOwnIden
 		t.Fatalf("stale inventory established missing %+v", got)
 	}
 	evidence.value.Stale = false
+	evidence.value.Missing = deployment.MergeInventory(records.rows, nil)
 	got = read()
 	if missing(got) != 1 || got.Items[0].Key == originalKey {
 		t.Fatalf("new identity missing evidence %+v", got)
 	}
+	evidence.value.Missing = nil
 	evidence.value.Items = []deploy.Resource{{Kind: "volume", Name: "private-name"}}
 	if got = read(); !got.Known || len(got.Items) != 0 {
 		t.Fatalf("fresh recovery did not clear own condition %+v", got)
@@ -89,7 +92,7 @@ func TestReviewInventoryRetainsUnchangedMissingResourceWhenSiblingChanges(t *tes
 	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
 	target := &deployment.Target{ID: idstest.N(1), Name: "office", Status: deployment.TargetReady}
 	records := &recordedInventory{rows: []deploy.Resource{{Kind: "volume", Name: "existing-data", Hosts: []deploy.ResourceHost{{DeploymentID: idstest.N(2), Generation: 1}}}}}
-	evidence := &inventoryEvidence{InventoryReading{ObservedAt: at}}
+	evidence := &inventoryEvidence{InventoryReading{ObservedAt: at, Missing: deployment.MergeInventory(records.rows, nil)}}
 	source := &Inventory{Targets: capacityTargets{[]*deployment.Target{target}}, Records: records, Observer: evidence, Now: func() time.Time { return at }}
 	first, err := source.Snapshot(t.Context())
 	if err != nil || len(first.Items) != 1 {
@@ -98,6 +101,7 @@ func TestReviewInventoryRetainsUnchangedMissingResourceWhenSiblingChanges(t *tes
 	key := first.Items[0].Key
 	records.rows = append(records.rows, deploy.Resource{Kind: "container", Name: "another-app", Hosts: []deploy.ResourceHost{{DeploymentID: idstest.N(3), Generation: 1}}})
 	evidence.value.Unknown = true
+	evidence.value.FailedAt = at
 	evidence.value.Stale = true
 	next, err := source.Snapshot(t.Context())
 	if err != nil {
@@ -116,7 +120,7 @@ func TestInventoryRecordFailureRetainsExistingMissingEvidence(t *testing.T) {
 	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
 	target := &deployment.Target{ID: idstest.N(1), Name: "office", Status: deployment.TargetReady}
 	records := &recordedInventory{rows: []deploy.Resource{{Kind: "volume", Name: "one"}}}
-	evidence := &inventoryEvidence{InventoryReading{ObservedAt: at}}
+	evidence := &inventoryEvidence{InventoryReading{ObservedAt: at, Missing: deployment.MergeInventory(records.rows, nil)}}
 	source := &Inventory{Targets: capacityTargets{[]*deployment.Target{target}}, Records: records, Observer: evidence, Now: func() time.Time { return at }}
 	first, err := source.Snapshot(t.Context())
 	if err != nil || len(first.Items) != 1 {
@@ -142,7 +146,7 @@ func TestInventoryPendingFirstCheckIsCoverageOnly(t *testing.T) {
 	}{
 		{name: "queued", reading: InventoryReading{Unknown: true, Stale: true}},
 		{name: "failed first attempt", reading: InventoryReading{Unknown: true, Stale: true, AttemptedAt: at}, wantItems: 1},
-		{name: "stale completed reading", reading: InventoryReading{ObservedAt: at, AttemptedAt: at, Stale: true}, wantKnown: true, wantItems: 1},
+		{name: "stale completed reading", reading: InventoryReading{ObservedAt: at, AttemptedAt: at, Stale: true}, wantKnown: true, wantItems: 0},
 		{name: "fresh completed reading", reading: InventoryReading{ObservedAt: at, AttemptedAt: at}, wantKnown: true},
 		{name: "no inventory reader", reading: InventoryReading{Unknown: true, Unreported: true}},
 	} {

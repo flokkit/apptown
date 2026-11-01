@@ -118,6 +118,9 @@ func ParseDF(out []byte) (Space, error) {
 // read. A filesystem not read is Unknown with the reason and refuses new
 // work; it is never shown as empty or full.
 type Reading struct {
+	FailedAt     time.Time `json:"failedAt,omitzero"`
+	Error        string    `json:"error,omitempty"`
+	TotalReadAt  time.Time `json:"totalReadAt,omitzero"`
 	What         string    `json:"what"`
 	Path         string    `json:"path,omitempty"`
 	TotalBytes   int64     `json:"totalBytes,omitempty"`

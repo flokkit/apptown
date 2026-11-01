@@ -56,7 +56,7 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 		base := fmt.Sprintf("%s/%d/%d", d.ID, d.ObservedGeneration, d.DesiredGeneration)
 		href := "/projects/" + url.PathEscape(p.Slug) + "/settings/deployments#diagnostics-" + url.PathEscape(d.Name)
 		add := func(kind, title, detail, severity string, at time.Time, stale bool) {
-			out.Items = append(out.Items, Item{Key: base + "/" + kind, Title: projectName + " · " + label + ": " + title, Detail: label + ": " + detail, Severity: severity, Href: href, ObservedAt: at, Stale: stale})
+			out.Items = append(out.Items, Item{Key: base + "/" + kind, Title: projectName + " · " + label + ": " + title, Detail: label + ": " + detail, Severity: severity, Href: href, ObservedAt: at, Stale: stale, Unknown: stale})
 		}
 		changedAt, _ := time.Parse(time.RFC3339Nano, d.UpdatedAt)
 		switch d.Readiness {

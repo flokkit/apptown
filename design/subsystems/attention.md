@@ -25,9 +25,9 @@ means all clear.
   a disk condition. Optional figures that the host cannot supply are absent,
   including whole-host memory use on attached Docker hosts. Coverage includes
   a safe reason naming the failed check; provider errors remain on the owning
-  resource's authorized detail view. Background disk checks run every five minutes. A failed check makes the
-  reading unknown. Successful evidence is stale after twelve minutes: two missed
-  checks plus two minutes for queueing and collection.
+  resource's authorized detail view. Background disk checks run every five minutes. A failed check retains successful values. Live evidence is fresh for fifteen
+  minutes and remains known for six hours; machine totals remain valid for seven
+  days. Each figure keeps its own successful timestamp.
 - Worker availability uses the authenticated worker profile protocol. A missing
   agent image does not establish that the worker is unreachable. An unassessable
   response retains earlier unavailable evidence as stale.
@@ -63,17 +63,22 @@ check immediately and marks the old reading as predating the act. An overlapping
 pre-act check cannot renew that evidence or establish newly missing resources.
 Invalidation alone does not create a resources-not-known item.
 
-Failed checks retain the last successful evidence with its own observation time.
-A failed check or evidence older than twelve minutes raises an unknown condition;
-unknown differs from a successful empty reading. Pending first disk, inventory,
-app status and backup checks contribute unknown coverage without an Attention
-item. Owners expose attempt and observation times so coverage does not depend on
-time since startup. Native backup evidence retains its own reading time. Protection coverage names
-the failed data, copy or provider-backup check without exposing provider errors.
-A failed reassessment can retain earlier evidence as stale before twelve minutes;
-that marks the failed reassessment, not an age-based expiry. A failed held-data
-assessment also fails its collection job, retaining the diagnostic in the
-authorized Jobs view.
+Owners persist successful readings and failed attempts in their databases.
+Restarting AppTown does not create a pending first check. Failed checks retain
+successful evidence and its original time. Live evidence older than fifteen
+minutes shows its age; an Attention item is raised only when the latest check
+failed, naming that check and its safe reason. An old successful reading without
+a failed check raises nothing until it becomes unknown after six hours. Machine
+size expires after seven days. Unknown remains distinct from an old known value
+and from a successful empty answer. Pending first checks contribute unknown
+coverage without an Attention item.
+
+Inventory retains witnessed missing claims with the stored observation, filtered
+against the currently recorded subject identity. Native backup evidence retains
+its own reading time; a newer protection wrapper cannot renew it. A failed
+held-data assessment fails its collection job and retains the diagnostic in the
+authorized Jobs view. Attention reads owner evidence directly, with no process
+memory fallback when an owner read fails.
 
 Worker availability still requests bounded background observation from reads;
 age alone creates no worker-unavailable item. Deployment runtime uses its existing

@@ -1,3 +1,4 @@
+import { lastSeen } from './format'
 import { useAttention } from './attention'
 import { useGet } from './data'
 import type { InfrastructureTargets, TargetLabel } from './wire.gen'
@@ -9,12 +10,13 @@ export function useHostStates() {
   const infra = useGet<InfrastructureTargets>('/infrastructure', { poll: 30000 })
   return (name: string, connection: TargetLabel) => {
     const issue = attention.data?.items.find(item => decodeURIComponent(item.href) === `/infrastructure/${name}`)
-    const error = infra.data?.targets.find(t => t.target === name)?.error
+    const reading = infra.data?.targets.find(t => t.target === name)
+    const error = reading?.error
     const word = connection === 'failed' || connection === 'stopped' ? connection
-      : issue ? (attention.refreshFailed ? 'unknown' : issue.statusLabel) : error ? 'unknown' : connection
+      : issue ? (attention.refreshFailed ? 'unknown' : issue.statusLabel) : reading?.unknown ? 'unknown' : connection
     const summary = connection === 'failed' ? 'Check connection' : issue
       ? issue.title.slice(issue.title.indexOf(': ') + 2).replace('resources not known', 'capacity not known')
-      : error ? 'Capacity not known' : ''
+      : reading?.unknown ? 'Capacity not known' : reading?.asOf && !reading.live ? lastSeen(reading.asOf) : ''
     return { word, summary, help: issue?.detail || error || `Host connection: ${connection}.` }
   }
 }

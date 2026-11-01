@@ -314,18 +314,91 @@ func TestAttentionDiskStaysFreshThroughObserverCadence(t *testing.T) {
 	if err := observer.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
 		t.Fatal(err)
 	}
-	if failed, err := source.Snapshot(t.Context()); err != nil || len(failed.Items) != 1 || !strings.HasSuffix(failed.Items[0].Key, "/disk-unassessed") {
-		t.Fatalf("failed check did not raise item: %+v %v", failed, err)
+	if freshFailure, err := source.Snapshot(t.Context()); err != nil || len(freshFailure.Items) != 0 {
+		t.Fatalf("one failed check discarded fresh evidence: %+v %v", freshFailure, err)
+	}
+	a.cfg.clock.mu.Lock()
+	a.cfg.clock.ahead += 30 * time.Minute
+	a.cfg.clock.mu.Unlock()
+	if failed, err := source.Snapshot(t.Context()); err != nil || len(failed.Items) != 1 || !strings.HasSuffix(failed.Items[0].Key, "/disk-unassessed") || failed.Items[0].Unknown {
+		t.Fatalf("old failed check must retain known disk evidence: %+v %v", failed, err)
+	}
+	capacity, err := a.Deployment.Capacity(t.Context(), target.Name)
+	if err != nil || !capacity.Memory.Total.Known || !capacity.Disk.Free.Known || !capacity.Stale || capacity.Error == "" {
+		t.Fatalf("failed check lost machine size or live evidence: %+v %v", capacity, err)
 	}
 	daemon.SetReply(nil)
 	if err := observer.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
 		t.Fatal(err)
 	}
+	recovered, err := a.Deployment.Capacity(t.Context(), target.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Native installs may not see the daemon's machine (/proc is absent on
+	// macOS). That unsupported read is still a failed check, not a success.
+	wantOldItems := 0
+	if recovered.Error != "" {
+		wantOldItems = 1
+	}
 	a.cfg.clock.mu.Lock()
-	a.cfg.clock.ahead += 12*time.Minute + time.Second
+	a.cfg.clock.ahead += 30 * time.Minute
 	a.cfg.clock.mu.Unlock()
 	got, err := source.Snapshot(t.Context())
-	if err != nil || len(got.Items) != 1 || !strings.HasSuffix(got.Items[0].Key, "/disk-unassessed") {
-		t.Fatalf("missed reading did not raise item: %+v %v", got, err)
+	if err != nil || len(got.Items) != wantOldItems || !got.Stale {
+		t.Fatalf("old reading ignored the latest check outcome: %+v %v", got, err)
+	}
+	a.cfg.clock.mu.Lock()
+	a.cfg.clock.ahead += 6 * time.Hour
+	a.cfg.clock.mu.Unlock()
+	got, err = source.Snapshot(t.Context())
+	if err != nil || len(got.Items) != 1 || !got.Items[0].Unknown {
+		t.Fatalf("six-hour live expiry did not become unknown: %+v %v", got, err)
+	}
+}
+
+// A wholly failed host check keeps the successful reading's age on the page
+// and in Attention, even while repeated attempts record newer failure times.
+func TestOfflineHostKeepsLastGoodTimeInCapacityAndAttention(t *testing.T) {
+	t.Parallel()
+	daemon := dockerfake.New()
+	a := testApp(t, Config{DockerClient: daemon})
+	target := attachTarget(t, a, "remote", "host.example.test")
+	observer := deployment.NewCapacityObserver(a.Deployment)
+	if err := observer.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
+		t.Fatal(err)
+	}
+	good, err := a.Deployment.Capacity(t.Context(), target.Name)
+	if err != nil || good.ReadAt.IsZero() || good.Disk == nil {
+		t.Fatalf("fixture has no successful capacity reading: %+v %v", good, err)
+	}
+	daemon.SetReply(func([]string) ([]byte, error, bool) {
+		return nil, fmt.Errorf("host offline"), true
+	})
+	source := attention.Capacity{Targets: a.targets, Observer: observer, Now: a.cfg.clock.Now}
+	for _, step := range []time.Duration{30 * time.Minute, 6 * time.Hour} {
+		a.cfg.clock.mu.Lock()
+		a.cfg.clock.ahead += step
+		a.cfg.clock.mu.Unlock()
+		if err := observer.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
+			t.Fatal(err)
+		}
+		page, err := a.Deployment.Capacity(t.Context(), target.Name)
+		// The page keeps the good check's time (its figures may be stamped a
+		// moment after the check began), never an offline attempt's.
+		if err != nil || page.ReadAt.Before(good.ReadAt) || page.ReadAt.After(good.ReadAt.Add(time.Second)) || page.Error == "" || !page.Stale {
+			t.Errorf("offline page lost successful time: page=%v good=%v err=%q stale=%v %v", page.ReadAt, good.ReadAt, page.Error, page.Stale, err)
+		}
+		got, err := source.Snapshot(t.Context())
+		if err != nil || len(got.Items) != 1 {
+			t.Fatalf("offline Attention: %+v %v", got, err)
+		}
+		item := got.Items[0]
+		if !item.ObservedAt.Equal(good.Disk.ReadAt) || !strings.Contains(item.Detail, "The host disk check failed.") || !item.Stale {
+			t.Errorf("Attention lost failure or successful time: %+v", item)
+		}
+		if item.Unknown != (step == 6*time.Hour) {
+			t.Errorf("Attention expiry: %+v", item)
+		}
 	}
 }

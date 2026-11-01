@@ -350,3 +350,14 @@ CREATE TABLE IF NOT EXISTS deployment_hostname_claimants (
   deployment_id UUID NOT NULL REFERENCES deployments(id) ON DELETE RESTRICT,
   PRIMARY KEY(hostname,deployment_id)
 );
+
+CREATE TABLE deployment_readings (
+    id UUID PRIMARY KEY,
+    subject TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    identity TEXT NOT NULL,
+    generation BIGINT NOT NULL DEFAULT 0,
+    invalidated BOOLEAN NOT NULL DEFAULT FALSE,
+    payload JSONB NOT NULL DEFAULT '{}',
+    UNIQUE (subject, kind)
+);

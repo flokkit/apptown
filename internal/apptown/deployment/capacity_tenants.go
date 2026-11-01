@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/diskspace"
@@ -32,7 +33,10 @@ const (
 // unknown with the reason; a container with no limit is counted, never
 // summed as zero.
 type Tenant struct {
-	Kind string `json:"kind"`
+	ReadAt  time.Time `json:"readAt,omitzero"`
+	Stale   bool      `json:"stale,omitempty"`
+	Unknown bool      `json:"unknown,omitempty"`
+	Kind    string    `json:"kind"`
 	// Name is "<project>/<deployment>" for a deployment, else what the
 	// tenant is in words.
 	Name       string `json:"name"`
@@ -168,7 +172,7 @@ func (s *Service) hostUse(t *Target, daemonTotal int64) Figure {
 	if t.Origin != OriginBuiltIn {
 		return unknown("the host's own use is not read on an attached host in 1.0")
 	}
-	read := s.capacity.host
+	read := s.hostMemory
 	if read == nil {
 		read = hostmem.Read
 	}

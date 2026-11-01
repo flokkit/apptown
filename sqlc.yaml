@@ -383,3 +383,15 @@ sql:
             nullable: true
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
+  - engine: postgresql
+    schema: internal/apptown/dbschema/schema.sql
+    queries: internal/apptown/maintenance/internal/maintenancesql/queries.sql
+    gen:
+      go:
+        package: maintenancesql
+        out: internal/apptown/maintenance/internal/maintenancesql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: github.com/flokkit/apptown/internal/ids.ID
+        omit_unused_structs: true

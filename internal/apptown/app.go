@@ -145,7 +145,7 @@ type App struct {
 	repositoryEdits     *repositoryedit.Service
 	Fixes               *remediation.Service // the remediation facade, built once in New
 	// The provider inventory cache (infrastructure_cache.go).
-	inventory          *inventoryCache
+	inventory          *deployment.InventoryReadings
 	jobs               *jobs.Queue
 	reaper             *maintenance.Reaper
 	disks              maintenance.Disks
@@ -238,7 +238,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 		processRunner: input.ProcessRunner,
 		consoleStop:   make(chan struct{}),
 		cli:           agentenv.NewCLI(cfg.consoleCLI),
-		inventory:     &inventoryCache{entries: map[string]*inventoryEntry{}, now: cfg.clock.Now},
+		inventory:     deployment.NewInventoryReadings(db, cfg.clock.Now),
 		credentials:   newCredentialLimiter(cfg.clock.Now)}
 	a.life, a.endLife = context.WithCancel(ctx)
 	// Generated files (registry configuration) are written in AppTown's
@@ -394,13 +394,14 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	if cfg.worker != nil {
 		a.disks.Worker = *cfg.worker
 	}
-	a.diskObserver = maintenance.NewDiskObserver(a.disks, cfg.clock.Now)
 	var workerProbe maintenance.WorkerProbe
 	workerIdentity := ""
 	if cfg.worker != nil {
 		workerProbe = *cfg.worker
 		workerIdentity = fmt.Sprintf("%x", sha256.Sum256([]byte(cfg.worker.URL)))
 	}
+	a.disks.WorkerIdentity = workerIdentity
+	a.diskObserver = maintenance.NewDiskObserver(db, a.disks, cfg.clock.Now)
 	a.workerObserver = maintenance.NewWorkerObserver(workerIdentity, workerProbe, workerObservationRequests{db: db}, cfg.clock.Now)
 	a.capacityObserver = deployment.NewCapacityObserver(a.Deployment)
 	a.protectionObserver = dataprotection.NewProtectionObserver(a.DataProtection, protectionObservationRequests{db: db})

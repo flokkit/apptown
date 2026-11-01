@@ -242,9 +242,13 @@ type CopyRef struct {
 // NativeBackups is the provider's own backups of an item, as the provider says
 // now; Unknown says why it could not be asked.
 type NativeBackups struct {
-	// observedAt belongs to the provider read, including when this value is cached.
+	AttemptedAt time.Time `json:"attemptedAt,omitzero"`
+	FailedAt    time.Time `json:"failedAt,omitzero"`
+	Failure     string    `json:"failure,omitempty"`
+	CheckFailed bool      `json:"checkFailed,omitempty"`
+	// ObservedAt belongs to the provider read, including when this value is cached.
 	// Background protection snapshots use it instead of their wrapper time.
-	observedAt time.Time
+	ObservedAt time.Time  `json:"readAt,omitzero"`
 	Mechanism  string     `json:"mechanism"`
 	Count      int        `json:"count"`
 	Oldest     stamp.Time `json:"oldest,omitzero"`
@@ -466,21 +470,48 @@ func (s *Service) nativeOf(ctx context.Context, md deploy.ManagedData, it backup
 	if it.Native == "" || md == nil {
 		return nil
 	}
-	// A deployment's card asks every few seconds; the provider's backups
-	// change once a day, and its API has a rate limit.
-	if v, ok := s.natives.Load(it.Instance); ok {
-		if c := v.(nativeRead); s.now().Sub(c.at) < s.nativeFresh {
-			n := c.n
-			return &n
-		}
-	}
 	n := &NativeBackups{Mechanism: it.Native}
-	defer func() { n.observedAt = s.now(); s.natives.Store(it.Instance, nativeRead{at: n.observedAt, n: *n}) }()
-	backups, err := md.Backups(ctx, it.Instance)
-	if err != nil {
-		n.Unknown = err.Error()
+	row, readErr := protectionsql.New(s.db.SQL()).Reading(ctx, protectionsql.ReadingParams{Subject: it.Instance, Kind: "native"})
+	if readErr == nil {
+		var cached NativeBackups
+		if err := json.Unmarshal(row.Payload, &cached); err != nil {
+			n.Unknown = "The stored provider backup reading could not be read."
+			return n
+		}
+		n = &cached
+		if !n.AttemptedAt.IsZero() && s.now().Sub(n.AttemptedAt) < s.nativeFresh {
+			return nativeBackupAt(n, s.now())
+		}
+	} else if !errors.Is(readErr, sql.ErrNoRows) {
+		n.Unknown = "The stored provider backup reading could not be read."
 		return n
 	}
+	n.AttemptedAt = s.now()
+	defer func() {
+		finish, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		raw, err := json.Marshal(n)
+		if err == nil {
+			err = protectionsql.New(s.db.SQL()).StoreReading(finish, protectionsql.StoreReadingParams{ID: ids.New(s.now()), Subject: it.Instance, Kind: "native", Identity: it.Instance, Payload: raw})
+		}
+		if err != nil {
+			n.CheckFailed = true
+			n.FailedAt = s.now()
+			n.Failure = "The provider backup reading could not be saved."
+			nativeBackupAt(n, s.now())
+		}
+	}()
+	backups, err := md.Backups(ctx, it.Instance)
+	if err != nil {
+		n.CheckFailed = true
+		n.FailedAt = s.now()
+		n.Failure = err.Error()
+		return nativeBackupAt(n, s.now())
+	}
+	n.ObservedAt = s.now()
+	n.CheckFailed = false
+	n.Newest, n.Oldest = stamp.Time{}, stamp.Time{}
+	n.Unknown = ""
 	n.Count = len(backups)
 	if n.Count > 0 {
 		n.Newest, n.Oldest = stamp.Of(backups[0].CreatedAt), stamp.Of(backups[n.Count-1].CreatedAt)
@@ -488,10 +519,16 @@ func (s *Service) nativeOf(ctx context.Context, md deploy.ManagedData, it backup
 	return n
 }
 
-// nativeRead is a provider's answer about its backups and when it was read.
-type nativeRead struct {
-	at time.Time
-	n  NativeBackups
+// nativeBackupAt separates the latest attempt from the successful observation.
+// A failed attempt consumes the same read budget without erasing known evidence.
+func nativeBackupAt(n *NativeBackups, now time.Time) *NativeBackups {
+	n.Unknown = ""
+	if n.ObservedAt.IsZero() {
+		n.Unknown = "The provider backup check has never succeeded."
+	} else if now.Sub(n.ObservedAt) > 6*time.Hour {
+		n.Unknown = "The last successful provider backup reading is too old."
+	}
+	return n
 }
 
 // NativeReadFor is how long a provider's answer about its own backups is

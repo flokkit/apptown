@@ -1687,6 +1687,17 @@ CREATE TABLE IF NOT EXISTS deployment_hostname_claimants (
   PRIMARY KEY(hostname,deployment_id)
 );
 
+CREATE TABLE deployment_readings (
+    id UUID PRIMARY KEY,
+    subject TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    identity TEXT NOT NULL,
+    generation BIGINT NOT NULL DEFAULT 0,
+    invalidated BOOLEAN NOT NULL DEFAULT FALSE,
+    payload JSONB NOT NULL DEFAULT '{}',
+    UNIQUE (subject, kind)
+);
+
 -- Source: internal/apptown/preview/schema.sql
 -- What AppTown created for a preview, by the preview's name: today the
 -- AI models key a preview of an app needing llm gets
@@ -1879,6 +1890,17 @@ CREATE TABLE IF NOT EXISTS restore_fills (
   state TEXT NOT NULL DEFAULT 'waiting' CONSTRAINT restore_fill_state CHECK (state IN ('waiting', 'filled', 'failed')),
   detail TEXT NOT NULL DEFAULT '',
   updated_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE protection_readings (
+    id UUID PRIMARY KEY,
+    subject TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    identity TEXT NOT NULL,
+    generation BIGINT NOT NULL DEFAULT 0,
+    invalidated BOOLEAN NOT NULL DEFAULT FALSE,
+    payload JSONB NOT NULL DEFAULT '{}',
+    UNIQUE (subject, kind)
 );
 
 -- Source: internal/apptown/scm/schema.sql
@@ -2110,5 +2132,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS evals_number ON evals(number);
 CREATE TABLE IF NOT EXISTS eval_numbers (
   id   BOOLEAN PRIMARY KEY DEFAULT true CONSTRAINT eval_numbers_one CHECK (id),
   last BIGINT NOT NULL
+);
+
+-- Source: internal/apptown/maintenance/schema.sql
+
+CREATE TABLE maintenance_readings (
+    id UUID PRIMARY KEY,
+    subject TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    identity TEXT NOT NULL,
+    generation BIGINT NOT NULL DEFAULT 0,
+    invalidated BOOLEAN NOT NULL DEFAULT FALSE,
+    payload JSONB NOT NULL DEFAULT '{}',
+    UNIQUE (subject, kind)
 );
 

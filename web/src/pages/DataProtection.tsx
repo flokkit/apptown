@@ -6,7 +6,7 @@ import { Link, useParams } from 'react-router-dom'
 import { del, post, put } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
-import { fmtBytes, fmtWhen } from '../format'
+import { fmtBytes, fmtWhen, lastSeen } from '../format'
 import type { BackupStoreState, Coverage, DeploymentProtection, ItemProtection, Operation, OperationAdmitted, RehearsalRef, RestoredCopy } from '../wire.gen'
 import { useNow } from '../hooks'
 import { useHolds } from '../instancePages'
@@ -95,8 +95,9 @@ export function nativeLine(it: ItemProtection): string {
   if (!n) return ''
   const who = n.mechanism === 'do-database-backups' ? 'DigitalOcean backups' : n.mechanism
   if (n.unknown) return `${who}: unknown · ${n.unknown}`
-  if (n.count === 0) return `${who}: none yet`
-  return `${who}: oldest ${fmtWhen(n.oldest ?? '')}, newest ${fmtWhen(n.newest ?? '')}`
+  const values = n.count === 0 ? `${who}: none yet` : `${who}: oldest ${fmtWhen(n.oldest ?? '')}, newest ${fmtWhen(n.newest ?? '')}`
+  const age = n.readAt ? ` · ${lastSeen(n.readAt)}` : ''
+  return `${values}${age}${n.checkFailed ? ` · Provider backup check failed: ${n.failure}` : ''}`
 }
 
 // drillLine is when a copy last came back, or that it never has. A backup

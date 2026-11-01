@@ -15,6 +15,17 @@
 // history survives the deployment and is kept with its project until the
 // project is purged.
 //
+// # Recorded protection readings
+//
+// ProtectionObserver stores the latest successful complete assessment, its
+// observation time and the latest failed attempt with a safe reason in the
+// database. New observers over the same database read that evidence after a
+// restart. Provider backup readings are stored with their own successful time;
+// a new assessment cannot renew an older provider answer. There is no in-memory
+// reading cache. Live protection is fresh for fifteen minutes, then last seen
+// with its age, and unknown after six hours. Failed checks keep prior values.
+// Attention warns about age before six hours only when the latest check failed.
+//
 // # What Deployment keeps
 //
 // Deployment owns the placements these touch and settles them: a take-down

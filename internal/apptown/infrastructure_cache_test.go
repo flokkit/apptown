@@ -106,13 +106,17 @@ func TestInventoryEvidenceAgesAndKeepsFailuresWithoutRequestingWork(t *testing.T
 	now := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
 	first := now
 	target := &deployment.Target{Name: "host"}
-	c := &inventoryCache{now: func() time.Time { return now }}
+	c := deployment.NewInventoryReadings(testDB(t), func() time.Time { return now })
 	got, err := c.SnapshotForTarget(t.Context(), target)
 	if err != nil || !got.Unknown || !got.AttemptedAt.IsZero() {
 		t.Fatalf("cold: %+v %v", got, err)
 	}
-	w := inventoryRefresh{cache: c}
-	if err := w.storeGeneration("host", inventoryTargetIdentity(target), 0, []deploy.Resource{{ID: "one", Tags: []string{"owned"}}}, nil, nil); err != nil {
+	generation, err := c.Start(t.Context(), target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = generation
+	if err := c.Finish(t.Context(), target, 0, []deploy.Resource{{ID: "one", Tags: []string{"owned"}}}, nil, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	now = now.Add(5 * time.Minute)
@@ -121,16 +125,16 @@ func TestInventoryEvidenceAgesAndKeepsFailuresWithoutRequestingWork(t *testing.T
 		t.Fatalf("current during idle: %+v", got)
 	}
 	got.Items[0].Tags[0] = "changed"
-	now = first.Add(12*time.Minute + time.Second)
+	now = first.Add(30 * time.Minute)
 	got, _ = c.SnapshotForTarget(t.Context(), target)
 	if !got.Stale || got.Unknown || got.Items[0].Tags[0] != "owned" {
 		t.Fatalf("expired evidence: %+v", got)
 	}
-	if err := w.store("host", nil, errors.New("unreachable")); err == nil {
+	if err := c.Finish(t.Context(), target, 0, nil, nil, nil, errors.New("unreachable")); err == nil {
 		t.Fatal("failure lost")
 	}
 	got, _ = c.SnapshotForTarget(t.Context(), target)
-	if !got.Unknown || got.ObservedAt != first || got.AttemptedAt != now || len(got.Items) != 1 {
+	if got.Unknown || got.ObservedAt != first || got.AttemptedAt != now || len(got.Items) != 1 {
 		t.Fatalf("failure renewed or erased evidence: %+v", got)
 	}
 }
@@ -138,22 +142,31 @@ func TestInventoryEvidenceAgesAndKeepsFailuresWithoutRequestingWork(t *testing.T
 func TestInventoryActCannotRenewInflightEvidence(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
-	target := &deployment.Target{Name: "host", SettingsRevision: 1}
-	identity := inventoryTargetIdentity(target)
-	c := &inventoryCache{now: func() time.Time { return now }, entries: map[string]*inventoryEntry{}}
-	w := inventoryRefresh{cache: c}
-	if err := w.storeGeneration("host", identity, 0, []deploy.Resource{{ID: "old"}}, nil, nil); err != nil {
+	cTestDB := testDB(t)
+	target, err := deployment.NewTargets(cTestDB, nil).Put(t.Context(), &deployment.Target{Name: "host", Kind: deployment.KindDockerHost, Status: deployment.TargetReady})
+	if err != nil {
 		t.Fatal(err)
 	}
-	c.Invalidate("host")
-	if err := w.storeGeneration("host", identity, 0, []deploy.Resource{{ID: "inflight"}}, nil, nil); err != nil {
+	c := deployment.NewInventoryReadings(cTestDB, func() time.Time { return now })
+	generation, err := c.Start(t.Context(), target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = generation
+	if err := c.Finish(t.Context(), target, 0, []deploy.Resource{{ID: "old"}}, nil, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Invalidate(t.Context(), "host"); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Finish(t.Context(), target, 0, []deploy.Resource{{ID: "inflight"}}, nil, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := c.SnapshotForTarget(t.Context(), target)
 	if !got.Invalidated || got.Items[0].ID != "old" {
 		t.Fatalf("inflight answer renewed evidence: %+v", got)
 	}
-	if err := w.storeGeneration("host", identity, 1, []deploy.Resource{{ID: "post-act"}}, nil, nil); err != nil {
+	if err := c.Finish(t.Context(), target, 1, []deploy.Resource{{ID: "post-act"}}, nil, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	got, _ = c.SnapshotForTarget(t.Context(), target)
@@ -259,10 +272,10 @@ func TestAttentionInventoryObservesActualProviderLossFailureAndRecovery(t *testi
 		t.Fatalf("false warning after idle: %+v", idle)
 	}
 	a.cfg.clock.mu.Lock()
-	a.cfg.clock.ahead += 12*time.Minute + time.Second
+	a.cfg.clock.ahead += 30 * time.Minute
 	a.cfg.clock.mu.Unlock()
-	if stale := read(); len(stale.Items) != 1 || stale.Items[0].Title != "do-syd: resources not known" {
-		t.Fatalf("expired reading had no item: %+v", stale)
+	if stale := read(); len(stale.Items) != 0 || !stale.Stale || !stale.Known {
+		t.Fatalf("old successful reading raised Attention: %+v", stale)
 	}
 	if _, err := job.Run(ctx, target.Name, nil); err != nil {
 		t.Fatal(err)
@@ -286,7 +299,7 @@ func TestAttentionInventoryObservesActualProviderLossFailureAndRecovery(t *testi
 	}
 	failed := read()
 	conditions = missing(failed)
-	if failed.Known || len(conditions) != 1 || conditions[0].Key != key || conditions[0].ObservedAt != at || !conditions[0].Stale {
+	if !failed.Known || len(conditions) != 1 || conditions[0].Key != key || conditions[0].ObservedAt != at || !conditions[0].Stale {
 		t.Fatalf("failed refresh erased evidence %+v", failed)
 	}
 	f.Fail("GET", "/v2/apps", 0)

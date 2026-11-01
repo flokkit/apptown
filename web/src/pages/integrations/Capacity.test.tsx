@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
@@ -51,7 +51,7 @@ describe("a target's capacity", () => {
     const refused = render({ disk: { total: fig(100 * 2 ** 30), free: fig(2 ** 30), low: true, refuses: true, floor: 5 * 2 ** 30, path: '/var/lib/docker', readAt: '2026-10-13T01:58:00Z' } })
     expect(refused).toContain("disk (Docker&#x27;s data, /var/lib/docker)")
     expect(refused).toContain('new releases refused: under 5.00 GB free')
-    expect(refused).toMatch(/· read \d+ \w+, \d{2}:\d{2}/)
+    expect(refused).toContain('last seen')
     const unread = render({ disk: { total: none('reading the disk: no space left on device'), free: none('reading the disk: no space left on device'), low: false, refuses: false, path: '/var/lib/docker' } })
     expect(unread).toContain('unknown <span class="muted">— reading the disk: no space left on device</span>')
     expect(unread).not.toContain('refused')
@@ -136,4 +136,37 @@ it('leads with host facts and keeps limits, paths and bars behind Details', () =
   const unknown = render({ ...c, memory: { ...memory, total: none('host unavailable') } }).split('<details')[0]
   expect(unknown).toContain('<dt>Memory use</dt><dd>not known</dd>')
   expect(unknown).not.toContain('used of')
+})
+
+
+it('keeps a retained live figure distinct from unknown and shows its own age after a failed check', () => {
+  const now = Date.parse('2026-11-01T00:40:00Z')
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(now)
+  try {
+    const readAt = '2026-11-01T00:00:00Z'
+    const old = { ...fig(90 * 2 ** 30), readAt, stale: true }
+    const html = render({ stale: true, error: 'The host disk check failed.', readAt,
+      disk: { total: { ...fig(100 * 2 ** 30), readAt }, free: old, low: false, refuses: false, readAt } })
+    expect(html).toContain('90 GB free of 100 GB')
+    expect(html).toContain('last seen 40 min ago')
+    expect(html).toContain('The host disk check failed.')
+    const expired = render({ disk: { total: fig(100 * 2 ** 30), free: { ...old, known: false, reason: 'The last successful reading is too old.' }, low: false, refuses: false, readAt } })
+    expect(expired).toContain('unknown free of 100 GB')
+    expect(expired).not.toContain('90 GB free')
+  } finally { clock.mockRestore() }
+})
+
+it('distinguishes a successful empty tenant list from an unread or expired list', () => {
+  expect(render({ tenantsAt: new Date().toISOString() })).toContain('0 running')
+  expect(render({})).not.toContain('0 running')
+  expect(render({ tenantsAt: new Date().toISOString(), liveUnknown: true })).not.toContain('0 running')
+})
+
+
+it('shows an old reading quietly and marks only a failed check red', () => {
+  const old = { stale: true, readAt: new Date(Date.now() - 40 * 60000).toISOString() }
+  const html = render(old)
+  expect(html).toContain('last seen 40 min ago')
+  expect(html).not.toContain('class="error small"')
+  expect(render({ ...old, error: 'The host capacity check failed.' })).toContain('class="error small">The host capacity check failed.')
 })

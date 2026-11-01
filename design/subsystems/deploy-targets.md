@@ -245,11 +245,29 @@ Shared Docker and Portainer placement verification is part of the background
 inventory check. Pages use that recorded verification; destructive removal still
 verifies fresh provider identity and placement before acting.
 
-A failed check retains the last successful reading and its original time under
-an unknown status. Attention treats successful readings as stale after twelve
-minutes, allowing two missed checks plus collection time. A target pending its
-first check has no Attention item. Protection observations use the same schedule
-and freshness rule so an idle period alone does not create backup warnings.
+Deployment stores target capacity and inventory in its database tables through
+named generated queries. Data protection stores protection and provider-backup
+readings; maintenance stores controller and worker filesystem readings. A new
+service reads the same evidence after restart, bound to the same target settings
+or deployment identity. There is no process-memory reading fallback.
+
+Each successful capacity figure retains its own time. Machine totals (memory,
+CPU count and disk size) stay valid for seven days. Live use, free disk, tenant
+use, inventory and protection are fresh for fifteen minutes, then shown as
+“last seen” with their age; after six hours they are unknown. Configured target
+kind and region are target records, rather than probe results; changing target
+settings invalidates prior observations. A failed check keeps successful values
+and their times and records the failed attempt and its safe reason separately.
+A partial successful check cannot renew an unread sibling figure.
+
+Attention raises an item for an old live reading after fifteen minutes only
+when the latest check failed. Age alone raises no item until the six-hour unknown
+limit. Known pressure and missing-resource findings retain their original
+evidence. Inventory stores the missing claims witnessed by its successful check,
+so restart cannot erase those findings or compare newly recorded claims against
+an older list. A first pending check contributes unknown coverage without an item.
+Docker disk admission still reads the filesystem at admission; retained display
+readings never authorize work.
 
 ## Docker target inventory
 

@@ -90,4 +90,16 @@
 // address. [Service.ObserveContainer] reads them for one deployment: a page
 // never waits on a host that does not answer. Missing, replaced or stale observations cannot authorize an action.
 // The subsystem operating guide documents freshness, source limits and shutdown.
+// Capacity and inventory readings live in Deployment's database, bound to the
+// target settings revision. New services read stored evidence after restart.
+// Each capacity figure keeps its last successful time: machine totals last seven
+// days, live use and free disk are fresh for fifteen minutes and unknown after
+// six hours. A failed check retains values and the prior overall read time,
+// recording the failure separately. A first partial check takes its read time
+// from successfully read figures. Inventory owns its stale/unknown classification;
+// transports render that decision.
+// Inventory stores a complete provider answer, verified placement, witnessed
+// missing claims and its invalidation generation. An act during collection
+// cannot clear invalidation. Pages only read this evidence; disk admission asks
+// the daemon independently and does not trust a display reading.
 package deployment

@@ -54,7 +54,7 @@ func TestANeedIsSizedOnItsDeploymentAndChangedInPlace(t *testing.T) {
 	if run := ranWith(t, w, "lab", db, 0); !strings.Contains(run, "--memory 268435456 --memory-swap 268435456") {
 		t.Fatalf("the database was started without its size: %s", run)
 	}
-	if _, err := w.s.targetCapacity(t.Context(), w.lab); err != nil {
+	if err := NewCapacityObserver(w.s).Run(t.Context(), w.lab.ID, w.lab.SettingsRevision); err != nil {
 		t.Fatal(err)
 	}
 	r, err := w.s.Resources(t.Context(), w.project, "prod")
@@ -446,9 +446,6 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 	// use it cannot read is unknown with the reason, never zero.
 	d.SetHostInfo(512<<20, 1, "/var/lib/docker")
 	statsFail = true
-	w.s.capacity.mu.Lock()
-	w.s.capacity.read = nil
-	w.s.capacity.mu.Unlock()
 	c, err = backgroundCapacity(t, w.s, "lab")
 	if err != nil {
 		t.Fatal(err)
@@ -488,9 +485,6 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 		why               string
 	}{{"inspection failed", true, false, "whose containers they are cannot be read"}, {"a container appeared", false, true, "apptown-preview-01a1 started after the containers were read"}} {
 		inspectFails, newcomer = c.inspect, c.newcomer
-		w.s.capacity.mu.Lock()
-		w.s.capacity.read = nil
-		w.s.capacity.mu.Unlock()
 		got, err := backgroundCapacity(t, w.s, "lab")
 		if err != nil {
 			t.Fatal(err)
@@ -538,7 +532,7 @@ func TestADeploymentShowsItsShareOfItsHost(t *testing.T) {
 	if rel, err := w.promote(t, b.ID, "prod", w.lab); err != nil || rel.State != Released {
 		t.Fatalf("release: %+v %v", rel, err)
 	}
-	if _, err := w.s.targetCapacity(t.Context(), w.lab); err != nil {
+	if err := NewCapacityObserver(w.s).Run(t.Context(), w.lab.ID, w.lab.SettingsRevision); err != nil {
 		t.Fatal(err)
 	}
 	r, err := w.s.Resources(t.Context(), w.project, "prod")
@@ -694,9 +688,6 @@ func TestAnOpenFirstReleaseMakesTheDeclaredSumUnknown(t *testing.T) {
 	if _, created, err := p.s.Outcomes.Admit(t.Context(), deploymentStartFor(office, "a first apply, its answer lost", "office")); err != nil || !created {
 		t.Fatalf("opening the release: %v %v", created, err)
 	}
-	p.s.capacity.mu.Lock()
-	p.s.capacity.read = nil
-	p.s.capacity.mu.Unlock()
 	c, err = backgroundCapacity(t, p.s, IntranetTargetName)
 	if err != nil || c.Memory.Promised.Sum.AppTown.Known || c.CPU.Promised.Sum.AppTown.Known {
 		t.Fatalf("with an open first release: %+v %v", c.Memory.Promised, err)
@@ -705,18 +696,24 @@ func TestAnOpenFirstReleaseMakesTheDeclaredSumUnknown(t *testing.T) {
 
 // A target edit changes the subject of capacity evidence even inside the cache
 // interval. Reusing the old target's reading would hide the newly selected host.
-func TestCapacityCacheBindsTheTargetSettingsRevision(t *testing.T) {
+func TestStoredCapacityBindsTheTargetSettingsRevision(t *testing.T) {
 	t.Parallel()
 	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
-	s := &Service{clock: func() time.Time { return at }}
+	db := testDB(t)
+	s := &Service{db: db, clock: func() time.Time { return at }}
 	target := &Target{ID: idstest.N(1), Name: "before", Kind: KindS3Bucket, SettingsRevision: 1}
-	s.capacity.read = map[ids.ID]capacityReading{target.ID: {revision: 1, capacity: TargetCapacity{Target: "before", ReadAt: at}}}
-	if before := s.recordedCapacity(target); before.Target != "before" {
-		t.Fatalf("first reading: %+v", before)
+	o := &CapacityObserver{db: db, now: s.now, target: func(context.Context, ids.ID) (*Target, error) { return target, nil }, read: func(context.Context, *Target) (TargetCapacity, error) {
+		return TargetCapacity{Target: "before", ReadAt: at}, nil
+	}}
+	if err := o.Run(t.Context(), target.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	if before, err := s.recordedCapacity(t.Context(), target); err != nil || before.Target != "before" {
+		t.Fatalf("first reading: %+v %v", before, err)
 	}
 	target.Name = "after"
 	target.SettingsRevision++
-	if after := s.recordedCapacity(target); after.Target != "after" || !after.Stale || after.Words != "Pending first check" {
+	if after, _ := s.recordedCapacity(t.Context(), target); after.Target != "after" || !after.Stale || after.Words != "Pending first check" {
 		t.Fatalf("target edit reused prior identity: %+v", after)
 	}
 }
@@ -728,7 +725,7 @@ func TestCapacitySnapshotsKeepDiskTimeAndRejectReplacedTargets(t *testing.T) {
 	target := Target{ID: idstest.N(1), Name: "host", Kind: KindDockerHost, SettingsRevision: 1}
 	reads := 0
 	fail, replace := false, false
-	o := &CapacityObserver{now: func() time.Time { return now }, target: func(context.Context, ids.ID) (*Target, error) { copy := target; return &copy, nil }, read: func(context.Context, *Target) (TargetCapacity, error) {
+	o := &CapacityObserver{db: testDB(t), now: func() time.Time { return now }, target: func(context.Context, ids.ID) (*Target, error) { copy := target; return &copy, nil }, read: func(context.Context, *Target) (TargetCapacity, error) {
 		reads++
 		if replace {
 			target.SettingsRevision++
@@ -752,12 +749,12 @@ func TestCapacitySnapshotsKeepDiskTimeAndRejectReplacedTargets(t *testing.T) {
 		t.Fatalf("fresh: %+v %v", got, err)
 	}
 	got.Disk.Low = false
-	now = now.Add(13 * time.Minute)
+	now = now.Add(16 * time.Minute)
 	if err := o.Run(t.Context(), target.ID, 1); err != nil {
 		t.Fatal(err)
 	}
 	got, err = o.Snapshot(t.Context(), &target)
-	if err != nil || !got.Stale || !got.Unknown || !got.Disk.Low || got.Disk.ReadAt != first || got.ObservedAt != now {
+	if err != nil || !got.Stale || got.Unknown || !got.Disk.Low || got.Disk.ReadAt != first || got.ObservedAt != now {
 		t.Fatalf("wrapper renewed disk evidence or mutation escaped: %+v %v", got, err)
 	}
 	fail = true
@@ -766,7 +763,7 @@ func TestCapacitySnapshotsKeepDiskTimeAndRejectReplacedTargets(t *testing.T) {
 		t.Fatal("provider failure lost")
 	}
 	got, err = o.Snapshot(t.Context(), &target)
-	if err != nil || !got.Unknown || got.Disk == nil || !got.Disk.Low || got.Disk.ReadAt != first {
+	if err != nil || got.Unknown || got.Disk == nil || !got.Disk.Low || got.Disk.ReadAt != first {
 		t.Fatalf("failure cleared pressure: %+v %v", got, err)
 	}
 	fail = false
@@ -796,7 +793,7 @@ func TestCapacitySnapshotDoesNotWaitForAnActiveProviderRead(t *testing.T) {
 	started, release := make(chan struct{}), make(chan struct{})
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	o := &CapacityObserver{now: func() time.Time { return now }, target: func(context.Context, ids.ID) (*Target, error) { return &target, nil }, read: func(ctx context.Context, _ *Target) (TargetCapacity, error) {
+	o := &CapacityObserver{db: testDB(t), now: func() time.Time { return now }, target: func(context.Context, ids.ID) (*Target, error) { return &target, nil }, read: func(ctx context.Context, _ *Target) (TargetCapacity, error) {
 		close(started)
 		select {
 		case <-release:
@@ -838,14 +835,14 @@ func TestCapacityObservationRejectsMalformedJobIdentityBeforeReads(t *testing.T)
 func TestFirstCapacityFailureRecordsAttemptWithoutInventingDiskEvidence(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
-	target := Target{ID: idstest.N(55), SettingsRevision: 1}
+	target := Target{ID: idstest.N(55), Kind: KindDockerHost, SettingsRevision: 1}
 	for _, read := range []func(context.Context, *Target) (TargetCapacity, error){
 		func(context.Context, *Target) (TargetCapacity, error) {
 			return TargetCapacity{}, fmt.Errorf("unreachable")
 		},
 		func(context.Context, *Target) (TargetCapacity, error) { return TargetCapacity{ReadAt: now}, nil },
 	} {
-		o := &CapacityObserver{now: func() time.Time { return now }, target: func(context.Context, ids.ID) (*Target, error) { return &target, nil }, read: read}
+		o := &CapacityObserver{db: testDB(t), now: func() time.Time { return now }, target: func(context.Context, ids.ID) (*Target, error) { return &target, nil }, read: read}
 		before, _ := o.Snapshot(t.Context(), &target)
 		if !before.AttemptedAt.IsZero() {
 			t.Fatal("queued check claimed an attempt")
@@ -866,7 +863,7 @@ func TestCapacityCoverageIncludesMemoryFailure(t *testing.T) {
 	target := Target{ID: idstest.N(56), SettingsRevision: 1}
 	memory := ResourceCapacity{Total: known(100), Promised: Promised{Sum: Split{AppTown: known(1), Other: known(2)}}, InUse: &Split{AppTown: unknown("stats failed"), Other: unknown("stats failed")}}
 	cpu := ResourceCapacity{Total: known(4), Promised: Promised{Sum: Split{AppTown: known(1), Other: known(1)}}}
-	o := &CapacityObserver{now: func() time.Time { return now }, target: func(context.Context, ids.ID) (*Target, error) { return &target, nil }, read: func(context.Context, *Target) (TargetCapacity, error) {
+	o := &CapacityObserver{db: testDB(t), now: func() time.Time { return now }, target: func(context.Context, ids.ID) (*Target, error) { return &target, nil }, read: func(context.Context, *Target) (TargetCapacity, error) {
 		return TargetCapacity{ReadAt: now, Memory: &memory, CPU: &cpu, Disk: &DiskCapacity{Total: known(100), Free: known(90), ReadAt: now}}, nil
 	}}
 	_, _ = o.Snapshot(t.Context(), &target)
@@ -887,15 +884,18 @@ func TestCapacityCoverageIncludesMemoryFailure(t *testing.T) {
 	}
 }
 
-// The host cache must keep the same read budget as ordinary capacity pages.
-// Wrapper observations expire independently of the longer-lived disk cache.
-func TestCapacityWrapperHasItsOwnFreshnessLimit(t *testing.T) {
-	t.Parallel()
+// Machine size and live figures expire independently at their own shelf lives.
+func TestCapacityFiguresHaveIndependentShelfLives(t *testing.T) {
 	at := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
-	disk := &DiskCapacity{ReadAt: at, Free: known(90), Total: known(100)}
-	got := capacitySnapshotAt(CapacitySnapshot{ObservedAt: at, Disk: disk}, at.Add(13*time.Minute))
-	if !got.Stale || !got.Unknown || got.Reason != "The capacity check is overdue." || !got.Disk.StaleAt(at.Add(13*time.Minute)) {
-		t.Fatalf("wrapper and disk freshness coupled: %+v", got)
+	c := mergeCapacity(TargetCapacity{}, TargetCapacity{ReadAt: at, Memory: &ResourceCapacity{Total: known(100), InUse: &Split{AppTown: known(10), Other: known(20)}}}, at)
+	for _, tc := range []struct {
+		age                        time.Duration
+		knownUse, knownSize, stale bool
+	}{{15 * time.Minute, true, true, false}, {30 * time.Minute, true, true, true}, {6*time.Hour + time.Second, false, true, true}, {7*24*time.Hour + time.Second, false, false, true}} {
+		got := capacityAt(c, at.Add(tc.age))
+		if got.Memory.Total.Known != tc.knownSize || got.Memory.InUse.AppTown.Known != tc.knownUse || got.Memory.InUse.AppTown.Stale != tc.stale {
+			t.Fatalf("age %v: %+v", tc.age, got.Memory)
+		}
 	}
 }
 
@@ -905,7 +905,15 @@ func backgroundCapacity(t *testing.T, service *Service, name string) (TargetCapa
 	if err != nil {
 		return TargetCapacity{}, err
 	}
-	return service.targetCapacity(t.Context(), target)
+	var reading TargetCapacity
+	o := NewCapacityObserver(service)
+	o.read = func(ctx context.Context, t *Target) (TargetCapacity, error) {
+		var err error
+		reading, err = service.targetCapacity(ctx, t)
+		return reading, err
+	}
+	err = o.Run(t.Context(), target.ID, target.SettingsRevision)
+	return reading, err
 }
 
 func TestCapacityPagesNeverCollectHostReadings(t *testing.T) {
@@ -917,7 +925,7 @@ func TestCapacityPagesNeverCollectHostReadings(t *testing.T) {
 	if err != nil || cold.Words != "Pending first check" || len(daemon.Matching("")) != before {
 		t.Fatalf("cold page did host IO: %+v %v", cold, err)
 	}
-	if _, err := w.s.targetCapacity(t.Context(), w.lab); err != nil {
+	if err := NewCapacityObserver(w.s).Run(t.Context(), w.lab.ID, w.lab.SettingsRevision); err != nil {
 		t.Fatal(err)
 	}
 	before = len(daemon.Matching(""))

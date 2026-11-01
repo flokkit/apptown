@@ -21,5 +21,6 @@
   "internal/apptown/dataprotection/schema.sql",
   "internal/apptown/scm/schema.sql",
   "internal/apptown/tasks/schema.sql",
-  "internal/apptown/evals/schema.sql"
+  "internal/apptown/evals/schema.sql",
+  "internal/apptown/maintenance/schema.sql"
 ]

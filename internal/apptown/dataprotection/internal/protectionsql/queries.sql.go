@@ -1202,6 +1202,34 @@ func (q *Queries) PutBackupStore(ctx context.Context, arg PutBackupStoreParams) 
 	return i, err
 }
 
+const reading = `-- name: Reading :one
+SELECT identity, generation, invalidated, payload FROM protection_readings WHERE subject=$1 AND kind=$2
+`
+
+type ReadingParams struct {
+	Subject string
+	Kind    string
+}
+
+type ReadingRow struct {
+	Identity    string
+	Generation  int64
+	Invalidated bool
+	Payload     json.RawMessage
+}
+
+func (q *Queries) Reading(ctx context.Context, arg ReadingParams) (ReadingRow, error) {
+	row := q.db.QueryRowContext(ctx, reading, arg.Subject, arg.Kind)
+	var i ReadingRow
+	err := row.Scan(
+		&i.Identity,
+		&i.Generation,
+		&i.Invalidated,
+		&i.Payload,
+	)
+	return i, err
+}
+
 const recordRehearsalPlace = `-- name: RecordRehearsalPlace :exec
 INSERT INTO rehearsal_places (operation_id, project_id, place_json, recorded_at) VALUES ($1, $2, $3, $4)
 `
@@ -1731,6 +1759,32 @@ func (q *Queries) StandingRestoredCopies(ctx context.Context, sourceID ids.ID) (
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const storeReading = `-- name: StoreReading :exec
+INSERT INTO protection_readings (id, subject, kind, identity, payload)
+VALUES ($1,$2,$3,$4,$5)
+ON CONFLICT (subject,kind) DO UPDATE SET identity=EXCLUDED.identity, payload=EXCLUDED.payload
+WHERE protection_readings.identity=EXCLUDED.identity OR protection_readings.generation=0
+`
+
+type StoreReadingParams struct {
+	ID       ids.ID
+	Subject  string
+	Kind     string
+	Identity string
+	Payload  json.RawMessage
+}
+
+func (q *Queries) StoreReading(ctx context.Context, arg StoreReadingParams) error {
+	_, err := q.db.ExecContext(ctx, storeReading,
+		arg.ID,
+		arg.Subject,
+		arg.Kind,
+		arg.Identity,
+		arg.Payload,
+	)
+	return err
 }
 
 const storeSetsElsewhere = `-- name: StoreSetsElsewhere :one

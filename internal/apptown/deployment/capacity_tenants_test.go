@@ -149,7 +149,7 @@ func TestATenantsUseIsUnknownWhenAnyOfItIsUnread(t *testing.T) {
 func TestTheHostsOwnUseIsKnownOnlyWhereTheTotalsAgree(t *testing.T) {
 	t.Parallel()
 	s := &Service{}
-	s.capacity.host = func() (hostmem.Memory, error) {
+	s.hostMemory = func() (hostmem.Memory, error) {
 		return hostmem.Memory{TotalBytes: 8 << 30, AvailableBytes: 5 << 30}, nil
 	}
 	builtin := &Target{Origin: OriginBuiltIn}
@@ -162,7 +162,7 @@ func TestTheHostsOwnUseIsKnownOnlyWhereTheTotalsAgree(t *testing.T) {
 	if host := s.hostUse(&Target{Origin: OriginAttached}, 8<<30); host.Known {
 		t.Errorf("attached host: %+v", host)
 	}
-	s.capacity.host = func() (hostmem.Memory, error) { return hostmem.Memory{}, errors.New("no /proc/meminfo") }
+	s.hostMemory = func() (hostmem.Memory, error) { return hostmem.Memory{}, errors.New("no /proc/meminfo") }
 	if host := s.hostUse(builtin, 8<<30); host.Known {
 		t.Errorf("unreadable: %+v", host)
 	}

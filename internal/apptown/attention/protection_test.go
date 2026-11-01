@@ -91,7 +91,7 @@ func TestProtectionSourcePreservesStaleCopiesAndExcludesDisposableRequirements(t
 	dep := &deployment.Deployment{ID: idstest.N(1), Kind: deployment.Standing, Name: "Office", DataClass: "production", DesiredGeneration: 3, ObservedGeneration: 2}
 	source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{dep}}, Observer: evidence, Now: func() time.Time { return at.Add(time.Minute) }}
 	got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
-	if err != nil || len(got.Items) != 3 || !got.Stale || got.ObservedAt != at {
+	if err != nil || len(got.Items) != 2 || !got.Stale || got.ObservedAt != at {
 		t.Fatalf("copy evidence %+v %v", got, err)
 	}
 	for _, item := range got.Items {
@@ -122,7 +122,7 @@ func TestProtectionFirstCheckAndStaleReading(t *testing.T) {
 	}{
 		{"pending", dataprotection.ProtectionSnapshot{Unknown: true, Stale: true}, 0},
 		{"failed", dataprotection.ProtectionSnapshot{Unknown: true, Stale: true, AttemptedAt: at}, 1},
-		{"stale", dataprotection.ProtectionSnapshot{ObservedAt: at, Stale: true}, 1},
+		{"stale", dataprotection.ProtectionSnapshot{ObservedAt: at, Stale: true}, 0},
 		{"fresh", dataprotection.ProtectionSnapshot{ObservedAt: at}, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

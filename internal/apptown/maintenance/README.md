@@ -49,3 +49,12 @@ runtime remains a separate hardening opportunity.
 
 `RemoveBuildImages` removes a preview's build images without force for
 project cleanup.
+
+`DiskObserver` stores the latest successful reading of each controller and worker
+filesystem in the maintenance database tables, bound to the configured worker.
+Restart preserves those readings. A failed check retains each filesystem's
+values and original time and records the failed attempt and safe reason.
+Free disk is fresh for fifteen minutes, then last seen with its age, and unknown
+after six hours; disk size remains valid for seven days. Attention raises an age
+item before six hours only when the latest check failed. These display readings
+do not change worker or Docker admission, which read disk independently.

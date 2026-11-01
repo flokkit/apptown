@@ -822,6 +822,13 @@ the release declares disposable empty; any other item fails it, by name.
   project. A set keeps its source's data class, and a production copy goes
   only into a production deployment. A copy on request needs
   `deployment:deploy`.
+Background protection assessments persist in data protection's database, along
+with provider-backup observations and each failed attempt's safe reason. They
+survive restart, remain fresh for fifteen minutes, then show their age, and
+become unknown after six hours. A failure retains the last successful evidence;
+Attention raises an age item before six hours only if the latest check failed.
+Copy cadence itself remains the data protection rule below.
+
 - **Protection state** (`GET .../deployments/{name}/protection`, the
   deployment card, `apptown data`): per item, AppTown's copies — fresh
   (within a day plus six hours), stale (older, or the last copy failed),
@@ -1142,13 +1149,19 @@ floor, a twentieth of the filesystem but at least 1 GiB and at most 20 GiB, or w
 disk cannot be read, the boot is refused in its resolve phase with what is
 free; the attempt fails with nothing changed on the host and the deployment
 keeps serving its generation. The read is made for each boot; the capacity
-view's five-minute reading is not trusted for admission. It is a headroom
+view's stored reading is not trusted for admission. It is a headroom
 guard, not a reservation: two boots at once, or images larger than the free
 space, can still fill the disk, and a pull or start that then fails fails as
 before. Stop, take-down and removal never read the disk. A host below its warning threshold (a tenth free, never below the refusal floor) is shown low; below the floor its capacity and each deployment's
 card on it say new releases are refused. AppTown's own data folder and
 its worker's disks are shown on Infrastructure (`GET
-/infrastructure/disks`, `maintenance.Disks`), each its own reading.
+/infrastructure/disks`, `maintenance.Disks`), each its own reading. Display
+readings survive restart in their owner's database. Total memory, CPU count and
+disk size last seven days. Live use and free disk are fresh for fifteen minutes,
+then shown as last seen with their age, and unknown after six hours. A failed
+check retains successful figures and records its failure separately. Each figure
+has its own time, so a partial check cannot renew an unread sibling. See
+[background infrastructure readings](deploy-targets.md#background-infrastructure-readings).
 
 Every container a boot starts (the public part, the other parts, a
 preview's throwaway needs, a standing need, an init step) logs through

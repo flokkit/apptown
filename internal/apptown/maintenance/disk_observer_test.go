@@ -29,7 +29,7 @@ func TestDiskSnapshotsRefreshBehindTheReadAndRetainFailedWorkerEvidence(t *testi
 	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
 	first := now
 	worker := &observedWorker{readings: []diskspace.Reading{{What: "worker state", Path: "/state", TotalBytes: 100 << 30, FreeBytes: 2 << 30, Low: true, Refuses: true, ReadAt: first}}}
-	observer := NewDiskObserver(Disks{DataDir: t.TempDir(), Worker: worker, Now: func() time.Time { return now }}, func() time.Time { return now })
+	observer := NewDiskObserver(databaseSuite.New(t), Disks{DataDir: t.TempDir(), Worker: worker, Now: func() time.Time { return now }}, func() time.Time { return now })
 	for range 3 {
 		got, err := observer.Snapshot(t.Context())
 		if err != nil || !got.Unknown || !got.Stale || len(got.Disks) != 0 || worker.calls != 0 {
@@ -45,7 +45,7 @@ func TestDiskSnapshotsRefreshBehindTheReadAndRetainFailedWorkerEvidence(t *testi
 	}
 	// Returned slices cannot mutate the owner's retained observation.
 	got.Disks[1].Reading.Low = false
-	now = now.Add(13 * time.Minute)
+	now = now.Add(30 * time.Minute)
 	got, err = observer.Snapshot(t.Context())
 	if err != nil || !got.Stale || !got.Disks[1].Stale || !got.Disks[1].Reading.Low || worker.calls != 1 {
 		t.Fatalf("expired read: %+v %v", got, err)
@@ -55,7 +55,7 @@ func TestDiskSnapshotsRefreshBehindTheReadAndRetainFailedWorkerEvidence(t *testi
 		t.Fatal(err)
 	}
 	got, err = observer.Snapshot(t.Context())
-	if err != nil || !got.Unknown || len(got.Disks) != 2 || !got.Disks[1].Stale || !got.Disks[1].Unknown || got.Disks[1].Reading.ReadAt != first || !got.Disks[1].Reading.Low || got.Disks[0].Reading.ReadAt != now {
+	if err != nil || got.Unknown || len(got.Disks) != 2 || !got.Disks[1].Stale || got.Disks[1].Unknown || got.Disks[1].FailedAt != now || got.Disks[1].Reading.ReadAt != first || !got.Disks[1].Reading.Low || got.Disks[0].Reading.ReadAt != now {
 		t.Fatalf("failed refresh erased or renewed evidence: %+v %v", got, err)
 	}
 	worker.err = nil
@@ -75,7 +75,7 @@ func TestDiskSnapshotsRefreshBehindTheReadAndRetainFailedWorkerEvidence(t *testi
 func TestCanceledBackgroundCheckCannotReportKnownCoverage(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
-	observer := NewDiskObserver(Disks{DataDir: t.TempDir()}, func() time.Time { return now })
+	observer := NewDiskObserver(databaseSuite.New(t), Disks{DataDir: t.TempDir()}, func() time.Time { return now })
 	got, err := observer.Snapshot(t.Context())
 	if err != nil || !got.Unknown {
 		t.Fatalf("passive snapshot: %+v %v", got, err)
@@ -114,7 +114,7 @@ func TestDiskUnreadStatePreservesEachFilesystemAndRecovers(t *testing.T) {
 			now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
 			paths := []string{t.TempDir(), t.TempDir(), t.TempDir()}
 			worker := localDiskWorker{paths: paths[1:], now: func() time.Time { return now }}
-			observer := NewDiskObserver(Disks{DataDir: paths[0], Worker: worker, Now: worker.now}, worker.now)
+			observer := NewDiskObserver(databaseSuite.New(t), Disks{DataDir: paths[0], Worker: worker, Now: worker.now}, worker.now)
 			if err := observer.Run(t.Context()); err != nil {
 				t.Fatal(err)
 			}
@@ -136,7 +136,7 @@ func TestDiskUnreadStatePreservesEachFilesystemAndRecovers(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !got.Unknown || !got.Disks[failed].Unknown || !got.Disks[failed].Stale || got.Disks[failed].Reading != first.Disks[failed].Reading {
+			if got.Unknown || got.Disks[failed].Unknown || got.Disks[failed].Stale || got.Disks[failed].FailedAt != now || got.Disks[failed].Reading != first.Disks[failed].Reading {
 				t.Fatalf("failed read lost its state or previous evidence: %+v", got)
 			}
 			for i, d := range got.Disks {
@@ -158,7 +158,7 @@ func TestDiskUnreadStatePreservesEachFilesystemAndRecovers(t *testing.T) {
 			if got.Unknown || got.Disks[failed].Unknown || got.Disks[failed].Stale || got.Disks[failed].Reading.ReadAt != now {
 				t.Fatalf("recovery did not replace unread evidence: %+v", got)
 			}
-			now = now.Add(13 * time.Minute)
+			now = now.Add(30 * time.Minute)
 			got, err = observer.Snapshot(t.Context())
 			if err != nil {
 				t.Fatal(err)
@@ -167,5 +167,60 @@ func TestDiskUnreadStatePreservesEachFilesystemAndRecovers(t *testing.T) {
 				t.Fatalf("age alone became a failed read: %+v", got)
 			}
 		})
+	}
+}
+
+func TestDiskReadingSurvivesRestartWithIndependentSizeAndUseAges(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t)
+	now := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	first := now
+	disks := Disks{DataDir: t.TempDir(), Now: func() time.Time { return now }}
+	owner := NewDiskObserver(db, disks, disks.Now)
+	if err := owner.Run(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	restarted := NewDiskObserver(db, disks, disks.Now)
+	now = first.Add(30 * time.Minute)
+	got, err := restarted.Snapshot(t.Context())
+	if err != nil || got.Unknown || !got.Stale || len(got.Disks) != 1 || got.Disks[0].Reading.ReadAt != first {
+		t.Fatalf("restart: %+v %v", got, err)
+	}
+	now = first.Add(6*time.Hour + time.Second)
+	got, err = restarted.Snapshot(t.Context())
+	if err != nil || !got.Unknown || got.Disks[0].Reading.TotalBytes == 0 {
+		t.Fatalf("use expiry: %+v %v", got, err)
+	}
+	now = first.Add(7*24*time.Hour + time.Second)
+	got, err = restarted.Snapshot(t.Context())
+	if err != nil || got.Disks[0].Reading.TotalBytes != 0 {
+		t.Fatalf("size expiry: %+v %v", got, err)
+	}
+}
+
+func TestFirstWorkerDiskFailureRemainsRecordedAfterRecovery(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	first := now
+	db := databaseSuite.New(t)
+	worker := &observedWorker{err: errors.New("unavailable")}
+	disks := Disks{DataDir: t.TempDir(), Worker: worker, Now: func() time.Time { return now }}
+	owner := NewDiskObserver(db, disks, disks.Now)
+	if err := owner.Run(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	failed, err := owner.Snapshot(t.Context())
+	if err != nil || failed.LastFailedAt != first || failed.LastFailure == "" || failed.Disks[1].FailedAt != first {
+		t.Fatalf("first failure metadata missing: %+v %v", failed, err)
+	}
+	now = now.Add(5 * time.Minute)
+	worker.err = nil
+	worker.readings = []diskspace.Reading{{What: "worker state", ReadAt: now, TotalBytes: 100, FreeBytes: 50}}
+	if err := owner.Run(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	recovered, err := NewDiskObserver(db, disks, disks.Now).Snapshot(t.Context())
+	if err != nil || recovered.LastFailedAt != first || recovered.LastFailure == "" || recovered.Unknown {
+		t.Fatalf("recovery erased last failed check: %+v %v", recovered, err)
 	}
 }
