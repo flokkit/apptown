@@ -39,10 +39,10 @@ var (
 	// ErrLLMNotAttached: the app declares the need, but nobody allowed to
 	// attach integrations to the project has attached AI models.
 	ErrLLMNotAttached = fault.New(fault.Unprocessable, "this app needs AI models (llm), but they are not attached to the project: attach AI models under Settings › Services first")
-	// ErrLLMLimit: the declared limit is not one the connector allows.
-	ErrLLMLimit = fault.New(fault.Unprocessable, "AI models limit refused")
-	// ErrLLMConfig: the connector's configuration cannot be used.
-	ErrLLMConfig = fault.New(fault.Unprocessable, "the AI models connector cannot be used")
+	// errLLMLimit: the declared limit is not one the connector allows.
+	errLLMLimit = fault.New(fault.Unprocessable, "AI models limit refused")
+	// errLLMConfig: the connector's configuration cannot be used.
+	errLLMConfig = fault.New(fault.Unprocessable, "the AI models connector cannot be used")
 )
 
 // llmConfig is an llm connector's configuration, validated.
@@ -82,17 +82,17 @@ func parseLLMConfig(config map[string]any) (llmConfig, error) {
 		cfg.Base = strings.TrimSuffix(strings.TrimSpace(u), "/")
 	}
 	if len(cfg.KeyFrom) == 0 {
-		return cfg, fmt.Errorf("%w: name the secret that holds the OpenRouter provisioning key", ErrLLMConfig)
+		return cfg, fmt.Errorf("%w: name the secret that holds the OpenRouter provisioning key", errLLMConfig)
 	}
 	for _, ref := range cfg.KeyFrom {
 		if strings.HasPrefix(ref, "STEP_") {
-			return cfg, fmt.Errorf("%w: the provisioning key may not come from %s: secrets starting STEP_ are given to workflow steps and workers; use a name such as OPENROUTER_PROVISIONING_KEY", ErrLLMConfig, ref)
+			return cfg, fmt.Errorf("%w: the provisioning key may not come from %s: secrets starting STEP_ are given to workflow steps and workers; use a name such as OPENROUTER_PROVISIONING_KEY", errLLMConfig, ref)
 		}
 	}
 	read := func(key string, fallback float64) (float64, error) {
 		v, set, err := number(config[key])
 		if err != nil || (set && (v <= 0 || math.IsInf(v, 0) || math.IsNaN(v))) {
-			return 0, fmt.Errorf("%w: %s must be a positive number of US dollars", ErrLLMConfig, key)
+			return 0, fmt.Errorf("%w: %s must be a positive number of US dollars", errLLMConfig, key)
 		}
 		if !set {
 			return fallback, nil
@@ -104,7 +104,7 @@ func parseLLMConfig(config map[string]any) (llmConfig, error) {
 		return cfg, err
 	}
 	if cfg.MaxLimit == 0 {
-		return cfg, fmt.Errorf("%w: set maxLimit, the most any one key may be given", ErrLLMConfig)
+		return cfg, fmt.Errorf("%w: set maxLimit, the most any one key may be given", errLLMConfig)
 	}
 	if cfg.DefaultLimit, err = read("defaultLimit", math.Min(defaultLLMLimit, cfg.MaxLimit)); err != nil {
 		return cfg, err
@@ -113,7 +113,7 @@ func parseLLMConfig(config map[string]any) (llmConfig, error) {
 		return cfg, err
 	}
 	if cfg.DefaultLimit > cfg.MaxLimit || cfg.PreviewLimit > cfg.MaxLimit {
-		return cfg, fmt.Errorf("%w: defaultLimit and previewLimit may not exceed maxLimit (%s)", ErrLLMConfig, dollars(cfg.MaxLimit))
+		return cfg, fmt.Errorf("%w: defaultLimit and previewLimit may not exceed maxLimit (%s)", errLLMConfig, dollars(cfg.MaxLimit))
 	}
 	return cfg, nil
 }
@@ -145,7 +145,7 @@ func (s *Service) llmClient(ctx context.Context, binding string) (*openrouter.Cl
 
 func (s *Service) provisioningKey(ctx context.Context, cfg llmConfig) (string, error) {
 	if s.secrets == nil {
-		return "", fmt.Errorf("%w: no secrets store", ErrLLMConfig)
+		return "", fmt.Errorf("%w: no secrets store", errLLMConfig)
 	}
 	values, err := s.secrets.WithContext(ctx)
 	if err != nil {
@@ -156,7 +156,7 @@ func (s *Service) provisioningKey(ctx context.Context, cfg llmConfig) (string, e
 			return v, nil
 		}
 	}
-	return "", fmt.Errorf("%w: the secret %s holds no provisioning key", ErrLLMConfig, strings.Join(cfg.KeyFrom, ", "))
+	return "", fmt.Errorf("%w: the secret %s holds no provisioning key", errLLMConfig, strings.Join(cfg.KeyFrom, ", "))
 }
 
 // TestLLMBinding checks a draft llm connector: valid configuration, the
@@ -224,15 +224,15 @@ func (cfg llmConfig) budget(req KeyRequest) (openrouter.Budget, error) {
 	if raw := strings.TrimSpace(req.Params["limit"]); raw != "" {
 		f, err := strconv.ParseFloat(strings.TrimPrefix(raw, "$"), 64)
 		if err != nil || f <= 0 || math.IsInf(f, 0) || math.IsNaN(f) {
-			return b, fmt.Errorf("%w: needs: llm: limit must be a positive number of US dollars, not %q", ErrLLMLimit, raw)
+			return b, fmt.Errorf("%w: needs: llm: limit must be a positive number of US dollars, not %q", errLLMLimit, raw)
 		}
 		b.Limit = f
 	}
 	if b.Limit > cfg.MaxLimit {
-		return b, fmt.Errorf("%w: the app asks for %s, and the AI models connector allows at most %s per key", ErrLLMLimit, dollars(b.Limit), dollars(cfg.MaxLimit))
+		return b, fmt.Errorf("%w: the app asks for %s, and the AI models connector allows at most %s per key", errLLMLimit, dollars(b.Limit), dollars(cfg.MaxLimit))
 	}
 	if !openrouter.ValidReset(b.Reset) {
-		return b, fmt.Errorf("%w: needs: llm: limitReset is daily, weekly or monthly, not %q", ErrLLMLimit, b.Reset)
+		return b, fmt.Errorf("%w: needs: llm: limitReset is daily, weekly or monthly, not %q", errLLMLimit, b.Reset)
 	}
 	return b, nil
 }

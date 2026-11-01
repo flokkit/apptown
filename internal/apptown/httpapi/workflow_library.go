@@ -47,7 +47,7 @@ func (h WorkflowLibrary) PutLibraryWorkflow(w http.ResponseWriter, r *http.Reque
 			WriteError(w, 400, "workflow metadata.name is required")
 			return
 		}
-		name, version, err := h.ways.PublishWorkflow(r.Context(), in.YAML, Actor(r))
+		name, version, err := h.ways.PublishWorkflow(r.Context(), in.YAML, actor(r))
 		if err != nil {
 			WriteFault(w, err)
 			return
@@ -64,7 +64,7 @@ func (h WorkflowLibrary) DeleteLibraryWorkflow(w http.ResponseWriter, r *http.Re
 		return
 	}
 	name := r.PathValue("name")
-	if err := h.ways.DeleteWorkflow(r.Context(), name, Actor(r)); err != nil {
+	if err := h.ways.DeleteWorkflow(r.Context(), name, actor(r)); err != nil {
 		WriteFault(w, err)
 		return
 	}

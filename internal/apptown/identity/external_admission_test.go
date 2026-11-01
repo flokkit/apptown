@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/internal/oidclogin"
@@ -146,7 +148,7 @@ func TestExternalSessionRevocationReachesDeferredAuthority(t *testing.T) {
 	if got, e := f.s.SessionIdentity(ctx, signed.Token); e != nil || got.Name != "" {
 		t.Fatalf("disabled provider browser admitted %+v %v", got, e)
 	}
-	if e := f.s.RequireStill(ctx, signed.Principal, permission); !errors.Is(e, ErrCredentialGone) {
+	if e := f.s.RequireStill(ctx, signed.Principal, permission); !errors.Is(e, errCredentialGone) {
 		t.Fatalf("disabled provider deferred authority: %v", e)
 	}
 	if got, e := f.s.SessionIdentity(ctx, local); e != nil || got.Name != "alice" {
@@ -174,11 +176,11 @@ func TestExternalCallbackRechecksRevisionAndRollsBackSessionFailures(t *testing.
 					}
 				}
 			case "session":
-				restore = f.s.db.FailNextStatement("-- name: InsertSession")
+				restore = dbtest.NextStatementFailure(f.s.db, "-- name: InsertSession")
 			case "provenance":
-				restore = f.s.db.FailNextStatement("-- name: InsertExternalSession")
+				restore = dbtest.NextStatementFailure(f.s.db, "-- name: InsertExternalSession")
 			case "receipt":
-				restore = f.s.db.FailNextStatement("-- name: AppendReceipt")
+				restore = dbtest.NextStatementFailure(f.s.db, "-- name: AppendReceipt")
 			}
 			defer restore()
 			got, e := f.s.CompleteExternal(ctx, state, verifier, "code", nil)
@@ -199,10 +201,10 @@ func TestExternalProviderRequiresPersistentLocalRecovery(t *testing.T) {
 		t.Fatal(e)
 	}
 	disabled := true
-	if e := f.s.SaveUser(ctx, AccountChange{Username: "boss", Disabled: &disabled}, f.admin); !errors.Is(e, ErrLocalRecovery) {
+	if e := f.s.SaveUser(ctx, AccountChange{Username: "boss", Disabled: &disabled}, f.admin); !errors.Is(e, errLocalRecovery) {
 		t.Fatalf("disabled only local password root: %v", e)
 	}
-	if e := f.s.SaveUser(ctx, AccountChange{Username: "boss", Role: "member"}, f.admin); !errors.Is(e, ErrLocalRecovery) {
+	if e := f.s.SaveUser(ctx, AccountChange{Username: "boss", Role: "member"}, f.admin); !errors.Is(e, errLocalRecovery) {
 		t.Fatalf("demoted only local password root: %v", e)
 	}
 	member := admittedPrincipal(t, f.s, "alice")
@@ -279,7 +281,7 @@ func TestExternalBrowserTransactionsAndSessionsExpire(t *testing.T) {
 	if got, e := f.s.SessionIdentity(ctx, signed.Token); e != nil || got.Name != "" {
 		t.Fatalf("expired external session retained: %+v %v", got, e)
 	}
-	if _, e := f.s.stillPrincipal(ctx, signed.Principal); !errors.Is(e, ErrCredentialGone) {
+	if _, e := f.s.stillPrincipal(ctx, signed.Principal); !errors.Is(e, errCredentialGone) {
 		t.Fatalf("expired deferred credential retained: %v", e)
 	}
 }
@@ -310,7 +312,7 @@ func TestExternalReplacementRejectsPreviousConnectionEdits(t *testing.T) {
 				change.Revision = first.Revision
 				_, err = f.s.SaveExternalProvider(ctx, change, f.admin)
 			}
-			if !errors.Is(err, ErrExternalChanged) {
+			if !errors.Is(err, errExternalChanged) {
 				t.Fatalf("stale %s against replaced connection must conflict, got %v", operation, err)
 			}
 			current, err := f.s.ExternalProvider(ctx)
@@ -412,7 +414,7 @@ func TestExternalSelfLinkRequiresLocalPasswordSessionAtBothBoundaries(t *testing
 			f.challenge = u.Query().Get("code_challenge")
 			if mode == "revoked during exchange" {
 				f.duringExchange = func() {
-					if e := f.s.sessions.End(ctx, local.Token); e != nil {
+					if e := f.s.sessions.end(ctx, local.Token); e != nil {
 						t.Fatal(e)
 					}
 				}
@@ -503,7 +505,7 @@ func TestExternalRecoveryRequiresPersistentLocalGroupAuthority(t *testing.T) {
 				}
 				_, e = f.s.SetExternalEnabled(ctx, p.Revision, true, backup)
 			}
-			if !errors.Is(e, ErrLocalRecovery) {
+			if !errors.Is(e, errLocalRecovery) {
 				t.Fatalf("sole persistent local route lost (%s): %v", mode, e)
 			}
 		})

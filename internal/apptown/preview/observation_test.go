@@ -11,7 +11,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/stock"
@@ -29,15 +28,15 @@ func observationService(t *testing.T, client docker.Client) *Service {
 
 func TestPreviewObservationAndWireShape(t *testing.T) {
 	t.Parallel()
-	fake := dockerfake.New()
+	fake := newDockerFake()
 	s := observationService(t, fake)
 	inProgress := true
 	observe := func() Status { return s.ChangeStatus(context.Background(), ids.Nil, idstest.N(7), inProgress) }
-	if got := observe(); got.State != None {
+	if got := observe(); got.State != none {
 		t.Fatalf("missing current contract: %+v", got)
 	}
 	inProgress = false
-	if got := observe(); got.State != Cold {
+	if got := observe(); got.State != cold {
 		t.Fatalf("historical snapshot remains bootable: %+v", got)
 	}
 	inProgress = true
@@ -48,12 +47,12 @@ func TestPreviewObservationAndWireShape(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "app.yaml"), []byte("app:\n  web: {image: example/app:1, public: true, port: 8080}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if got := observe(); got.State != Cold {
+	if got := observe(); got.State != cold {
 		t.Fatalf("declared app: %+v", got)
 	}
 	fake.SetRunning(docker.PreviewChangeName(idstest.N(7)), true)
 	got := observe()
-	if got.State != Live || got.URL != s.env.Routes().PreviewURL("change-00000000-0007-7000-8000-000000000000", 43210) {
+	if got.State != live || got.URL != s.env.Routes().PreviewURL("change-00000000-0007-7000-8000-000000000000", 43210) {
 		t.Fatalf("provider URL: %+v", got)
 	}
 	body, err := json.Marshal(got)
@@ -64,16 +63,16 @@ func TestPreviewObservationAndWireShape(t *testing.T) {
 	if err := json.Unmarshal(body, &wire); err != nil {
 		t.Fatal(err)
 	}
-	if len(wire) != 2 || wire["state"] != string(Live) || wire["url"] != got.URL {
+	if len(wire) != 2 || wire["state"] != string(live) || wire["url"] != got.URL {
 		t.Fatalf("wire shape: %s", body)
 	}
-	boot, err := s.runtime.Begin(context.Background(), ChangeKey(idstest.N(7)))
+	boot, err := s.runtime.begin(context.Background(), changeKey(idstest.N(7)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer boot.Finish(nil)
+	defer boot.finish(nil)
 	before := len(fake.Commands())
-	if got := observe(); got.State != Starting || got.At.IsZero() {
+	if got := observe(); got.State != stateStarting || got.At.IsZero() {
 		t.Fatalf("active boot: %+v", got)
 	}
 	if len(fake.Commands()) != before {
@@ -98,7 +97,7 @@ func TestInTheNoLocalDockerModeAPreviewWithNowhereToRunIsUnavailable(t *testing.
 	t.Parallel()
 	s := observationService(t, absentDaemon{t: t})
 	got := s.ChangeStatus(context.Background(), ids.Nil, idstest.N(7), true)
-	if got.State != Unavailable || got.Reason != "this AppTown has no local Docker" {
+	if got.State != unavailable || got.Reason != "this AppTown has no local Docker" {
 		t.Fatalf("preview: %+v", got)
 	}
 }
@@ -108,25 +107,25 @@ func TestInTheNoLocalDockerModeAPreviewWithNowhereToRunIsUnavailable(t *testing.
 // Reusing the same incarnation is not a build.
 func TestALivePreviewSaysWhenAndFromWhatItWasBuilt(t *testing.T) {
 	t.Parallel()
-	fake := dockerfake.New()
+	fake := newDockerFake()
 	s := observationService(t, fake)
 	change := idstest.N(8)
 	name := docker.PreviewChangeName(change)
 	fake.SetRunning(name, true)
 	observe := func() Status { return s.ChangeStatus(context.Background(), ids.Nil, change, false) }
-	if got := observe(); got.State != Live || !got.Built.IsZero() || got.Commit != "" {
+	if got := observe(); got.State != live || !got.Built.IsZero() || got.Commit != "" {
 		t.Fatalf("a preview AppTown keeps no record of claimed a build: %+v", got)
 	}
 	first := time.Date(2026, 10, 21, 9, 0, 0, 0, time.UTC)
-	s.recordServedSince(name, s.discardsSoFar(name), servedRecord{Incarnation: "folder+1", At: first})
+	s.recordServedSince(name, s.discardsSoFar(name), servedRecord{incarnation: "folder+1", at: first})
 	if got := observe(); !got.Built.Equal(first) || got.Commit != "" {
 		t.Fatalf("working files: %+v", got)
 	}
-	s.recordServedSince(name, s.discardsSoFar(name), servedRecord{Incarnation: "folder+1", At: first.Add(time.Hour)})
+	s.recordServedSince(name, s.discardsSoFar(name), servedRecord{incarnation: "folder+1", at: first.Add(time.Hour)})
 	if got := observe(); !got.Built.Equal(first) {
 		t.Fatalf("a reuse moved the build time: %+v", got)
 	}
-	s.recordServedSince(name, s.discardsSoFar(name), servedRecord{Incarnation: "abc+1", Source: "abc", At: first.Add(2 * time.Hour)})
+	s.recordServedSince(name, s.discardsSoFar(name), servedRecord{incarnation: "abc+1", source: "abc", at: first.Add(2 * time.Hour)})
 	if got := observe(); !got.Built.Equal(first.Add(2*time.Hour)) || got.Commit != "abc" {
 		t.Fatalf("booted from a commit: %+v", got)
 	}

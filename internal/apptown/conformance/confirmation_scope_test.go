@@ -80,10 +80,10 @@ func TestConfirmIsPerVerdict(t *testing.T) {
 		t.Fatal("a second confirm of the same verdict must be refused")
 	}
 	// A verdict nobody recorded is not found, in the owner's words.
-	if _, err := service.Confirm(caller("bls"), Confirmation{VerdictID: idstest.N(1 << 40), Note: "none"}); !errors.Is(err, ErrNoVerdict) || fault.KindOf(err) != fault.NotFound || errors.Is(err, sql.ErrNoRows) {
+	if _, err := service.Confirm(caller("bls"), Confirmation{VerdictID: idstest.N(1 << 40), Note: "none"}); !errors.Is(err, errNoVerdict) || fault.KindOf(err) != fault.NotFound || errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("confirming an unknown verdict: %v", err)
 	}
-	if _, err := service.View(caller("reviewer"), idstest.N(1<<40)); !errors.Is(err, ErrNoReview) || fault.KindOf(err) != fault.NotFound {
+	if _, err := service.View(caller("reviewer"), idstest.N(1<<40)); !errors.Is(err, errNoReview) || fault.KindOf(err) != fault.NotFound {
 		t.Fatalf("viewing an unknown review: %v", err)
 	}
 	view, err := service.View(caller("reviewer"), ids.Nil)
@@ -91,7 +91,7 @@ func TestConfirmIsPerVerdict(t *testing.T) {
 		t.Fatal(err)
 	}
 	ps := confirmationStanding(t, view, "proj")
-	if ps.Lanes.Findings != 1 || ps.Standing != StandingDoesNot {
+	if ps.Lanes.Findings != 1 || ps.Standing != standingDoesNot {
 		t.Fatalf("confirmed flag is a finding: %+v", ps)
 	}
 	if ad, ok := view.Adjudications[flag.ID]; !ok || ad.By != "bls" || ad.Kind != "confirmed" {

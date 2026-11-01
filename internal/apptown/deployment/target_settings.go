@@ -43,30 +43,30 @@ type TargetSettingsEdit struct {
 }
 
 var (
-	ErrTargetSettingsRevisionRequired = fault.New(fault.Invalid, "send the settings revision the edit started from (expectedRevision)")
-	ErrTargetEditEmpty                = fault.New(fault.Invalid, "nothing to change: send domain, persistentVolumes, previews, needsMode, evals, rehearsals, copyRunner or environment")
-	ErrTargetEnvironment              = fault.New(fault.Invalid, "only a Portainer target has a Portainer environment, and it needs a name, such as local")
+	errTargetSettingsRevisionRequired = fault.New(fault.Invalid, "send the settings revision the edit started from (expectedRevision)")
+	errTargetEditEmpty                = fault.New(fault.Invalid, "nothing to change: send domain, persistentVolumes, previews, needsMode, evals, rehearsals, copyRunner or environment")
+	errTargetEnvironment              = fault.New(fault.Invalid, "only a Portainer target has a Portainer environment, and it needs a name, such as local")
 	ErrTargetRehearsals               = fault.New(fault.Invalid, "only an attached Docker host can be kept for restore rehearsals, and not one kept for evals")
-	ErrTargetCopyRunner               = fault.New(fault.Invalid, "a copy runner is a Docker host target AppTown reaches, named on an App Platform target")
-	ErrTargetEvals                    = fault.New(fault.Invalid, "only an attached Docker host with a domain can be kept for evals: its domain is the eval domain")
-	ErrTargetDomain                   = fault.New(fault.Invalid, "the domain must be a bare hostname, such as apps.example.com")
-	ErrTargetNeedsMode                = fault.New(fault.Invalid, "needsMode must be emulators, managed or register")
-	// ErrTargetSettingsMoved carries a code so a client can tell it from other
+	errTargetCopyRunner               = fault.New(fault.Invalid, "a copy runner is a Docker host target AppTown reaches, named on an App Platform target")
+	errTargetEvals                    = fault.New(fault.Invalid, "only an attached Docker host with a domain can be kept for evals: its domain is the eval domain")
+	errTargetDomain                   = fault.New(fault.Invalid, "the domain must be a bare hostname, such as apps.example.com")
+	errTargetNeedsMode                = fault.New(fault.Invalid, "needsMode must be emulators, managed or register")
+	// errTargetSettingsMoved carries a code so a client can tell it from other
 	// conflicts and offer the person the current settings.
-	ErrTargetSettingsMoved error = targetSettingsMoved{}
+	errTargetSettingsMoved error = targetSettingsMoved{}
 )
 
-// AddressCopyRunner is where a target's record names its copy runner.
-const AddressCopyRunner = "copyRunner"
+// addressCopyRunner is where a target's record names its copy runner.
+const addressCopyRunner = "copyRunner"
 
-// AddressEnvironment is where a Portainer target's record names the
+// addressEnvironment is where a Portainer target's record names the
 // Portainer environment it releases to.
-const AddressEnvironment = "environment"
+const addressEnvironment = "environment"
 
 // CopyRunner is the Docker host named to run this target's copy jobs, ""
 // when none is.
 func (t *Target) CopyRunner() string {
-	name, _ := t.Address[AddressCopyRunner].(string)
+	name, _ := t.Address[addressCopyRunner].(string)
 	return name
 }
 
@@ -82,8 +82,8 @@ func (t *Target) CopyRunner() string {
 // the setting is the administrator's and no sync changes it. The built-in
 // host takes no edits, so every fact of its record is AppTown's own.
 var (
-	settingIngressKeys = []string{"domain", IngressEvals, IngressRehearsals}
-	settingAddressKeys = []string{AddressCopyRunner, AddressEnvironment}
+	settingIngressKeys = []string{"domain", ingressEvals, ingressRehearsals}
+	settingAddressKeys = []string{addressCopyRunner, addressEnvironment}
 )
 
 // keepSettings carries the stored record's settings into t, the record a
@@ -157,14 +157,14 @@ func (s *Targets) EditSettings(ctx context.Context, name string, in TargetSettin
 			return nil, fault.New(fault.Conflict, fmt.Sprintf("%s is retired", t.Name))
 		}
 		if in.ExpectedRevision == nil {
-			return nil, ErrTargetSettingsRevisionRequired
+			return nil, errTargetSettingsRevisionRequired
 		}
 		if *in.ExpectedRevision != t.SettingsRevision {
-			return nil, ErrTargetSettingsMoved
+			return nil, errTargetSettingsMoved
 		}
 		before, after := map[string]any{}, map[string]any{}
 		if in.Domain != nil {
-			d, err := NormalizeTargetDomain(*in.Domain)
+			d, err := normalizeTargetDomain(*in.Domain)
 			if err != nil {
 				return nil, err
 			}
@@ -189,7 +189,7 @@ func (s *Targets) EditSettings(ctx context.Context, name string, in TargetSettin
 		if in.NeedsMode != nil {
 			m := strings.TrimSpace(*in.NeedsMode)
 			if m != "emulators" && m != "managed" && m != "register" {
-				return nil, ErrTargetNeedsMode
+				return nil, errTargetNeedsMode
 			}
 			before["needsMode"], after["needsMode"] = t.NeedsMode, m
 			t.NeedsMode = m
@@ -198,11 +198,11 @@ func (s *Targets) EditSettings(ctx context.Context, name string, in TargetSettin
 			if t.Ingress == nil {
 				t.Ingress = map[string]any{}
 			}
-			before["evals"], after["evals"] = t.ForEvals(), *in.Evals
+			before["evals"], after["evals"] = t.forEvals(), *in.Evals
 			if *in.Evals {
-				t.Ingress[IngressEvals] = true
+				t.Ingress[ingressEvals] = true
 			} else {
-				delete(t.Ingress, IngressEvals)
+				delete(t.Ingress, ingressEvals)
 			}
 		}
 		if in.Rehearsals != nil {
@@ -211,57 +211,57 @@ func (s *Targets) EditSettings(ctx context.Context, name string, in TargetSettin
 			}
 			before["rehearsals"], after["rehearsals"] = t.ForRehearsals(), *in.Rehearsals
 			if *in.Rehearsals {
-				t.Ingress[IngressRehearsals] = true
+				t.Ingress[ingressRehearsals] = true
 				// The meaning the administrator was shown is kept with the
 				// mark, in the edit's receipt.
-				after["meaning"] = RehearsalHostMeaning
+				after["meaning"] = rehearsalHostMeaning
 			} else {
-				delete(t.Ingress, IngressRehearsals)
+				delete(t.Ingress, ingressRehearsals)
 			}
 		}
 		if in.CopyRunner != nil {
 			name := strings.TrimSpace(*in.CopyRunner)
 			if t.Kind != KindDOApp {
-				return nil, ErrTargetCopyRunner
+				return nil, errTargetCopyRunner
 			}
 			if name != "" {
 				runner, err := targetRecord(q.TargetByName(ctx, name))
 				if err != nil || runner.Kind != KindDockerHost || runner.Status.Available() != nil {
-					return nil, fmt.Errorf("%w: %s is not an available Docker host target", ErrTargetCopyRunner, name)
+					return nil, fmt.Errorf("%w: %s is not an available Docker host target", errTargetCopyRunner, name)
 				}
 			}
 			if t.Address == nil {
 				t.Address = map[string]any{}
 			}
-			before["copyRunner"], after["copyRunner"] = t.Address[AddressCopyRunner], name
+			before["copyRunner"], after["copyRunner"] = t.Address[addressCopyRunner], name
 			if name == "" {
-				delete(t.Address, AddressCopyRunner)
+				delete(t.Address, addressCopyRunner)
 			} else {
-				t.Address[AddressCopyRunner] = name
+				t.Address[addressCopyRunner] = name
 			}
 		}
 		if in.Environment != nil {
 			env := strings.TrimSpace(*in.Environment)
-			if !DescribeKind(t.Kind).Environment || env == "" {
-				return nil, ErrTargetEnvironment
+			if !describeKind(t.Kind).Environment || env == "" {
+				return nil, errTargetEnvironment
 			}
-			if len(t.ProviderScope) > 0 && env != t.Address[AddressEnvironment] {
+			if len(t.ProviderScope) > 0 && env != t.Address[addressEnvironment] {
 				return nil, fault.New(fault.Conflict, "this target has a verified provider endpoint; attach another target to select a different endpoint")
 			}
 			if t.Address == nil {
 				t.Address = map[string]any{}
 			}
-			before["environment"], after["environment"] = t.Address[AddressEnvironment], env
-			t.Address[AddressEnvironment] = env
+			before["environment"], after["environment"] = t.Address[addressEnvironment], env
+			t.Address[addressEnvironment] = env
 		}
-		if domain, _ := t.Ingress["domain"].(string); t.Ingress[IngressEvals] == true && (t.Kind != KindDockerHost || domain == "") {
-			return nil, ErrTargetEvals
+		if domain, _ := t.Ingress["domain"].(string); t.Ingress[ingressEvals] == true && (t.Kind != KindDockerHost || domain == "") {
+			return nil, errTargetEvals
 		}
-		if t.Ingress[IngressRehearsals] == true && (t.Kind != KindDockerHost || t.Origin != OriginAttached || t.Ingress[IngressEvals] == true) {
+		if t.Ingress[ingressRehearsals] == true && (t.Kind != KindDockerHost || t.Origin != OriginAttached || t.Ingress[ingressEvals] == true) {
 			return nil, ErrTargetRehearsals
 		}
 		if len(after) == 0 {
-			return nil, ErrTargetEditEmpty
+			return nil, errTargetEditEmpty
 		}
 		saved, err := targetRecord(q.EditTargetSettings(ctx, deploymentsql.EditTargetSettingsParams{
 			ID: t.ID, CapabilitiesJson: json.RawMessage(jsonText(t.Capabilities)), IngressJson: json.RawMessage(jsonText(t.Ingress)),
@@ -277,27 +277,27 @@ func (s *Targets) EditSettings(ctx context.Context, name string, in TargetSettin
 	})
 }
 
-// IngressRehearsals is the ingress key marking an attached Docker host kept
+// ingressRehearsals is the ingress key marking an attached Docker host kept
 // for restore rehearsals: it takes rehearsals and nothing else.
-const IngressRehearsals = "rehearsals"
+const ingressRehearsals = "rehearsals"
 
-// RehearsalHostMeaning is what marking a host for rehearsals means, shown to
+// rehearsalHostMeaning is what marking a host for rehearsals means, shown to
 // the platform administrator who marks it and kept with the mark.
-const RehearsalHostMeaning = "Production data will sit on this host while a restore rehearsal runs. Anyone who controls this host can read it: root, anyone with its Docker socket, any process on it and any container on its network. Keep it for rehearsals and nothing else."
+const rehearsalHostMeaning = "Production data will sit on this host while a restore rehearsal runs. Anyone who controls this host can read it: root, anyone with its Docker socket, any process on it and any container on its network. Keep it for rehearsals and nothing else."
 
 // ForRehearsals says whether the target is an attached Docker host kept for
 // restore rehearsals.
 func (t *Target) ForRehearsals() bool {
-	marked, _ := t.Ingress[IngressRehearsals].(bool)
+	marked, _ := t.Ingress[ingressRehearsals].(bool)
 	return marked && t.Origin == OriginAttached && t.Kind == KindDockerHost
 }
 
-// Reserved is the one purpose a host is kept for ("evals", "rehearsals"),
+// reserved is the one purpose a host is kept for ("evals", "rehearsals"),
 // "" for a host that takes ordinary deployments. A kept host takes only
 // that purpose (refusesPlacement).
-func (t *Target) Reserved() string {
+func (t *Target) reserved() string {
 	switch {
-	case t.ForEvals():
+	case t.forEvals():
 		return "evals"
 	case t.ForRehearsals():
 		return "rehearsals"

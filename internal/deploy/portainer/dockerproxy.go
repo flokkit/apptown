@@ -30,9 +30,9 @@ import (
 // reach for it.
 var ErrCannotBackUp = errors.New("AppTown cannot back up deployments in this Portainer environment")
 
-// Environment is one of Portainer's environments as AppTown reads it for
+// deploymentEnvironment is one of Portainer's environments as AppTown reads it for
 // data work.
-type Environment struct {
+type deploymentEnvironment struct {
 	ID   int64
 	Name string
 	// Type is Portainer's endpoint type: 1 a Docker socket, 2 an agent,
@@ -42,14 +42,14 @@ type Environment struct {
 }
 
 // ReadEnvironment reads the target's environment, by name.
-func ReadEnvironment(ctx context.Context, cfg *Target) (Environment, error) {
+func ReadEnvironment(ctx context.Context, cfg *Target) (deploymentEnvironment, error) {
 	if cfg.Scope != nil {
 		code, raw, err := JSON(ctx, cfg, "GET", fmt.Sprintf("/api/endpoints/%d", cfg.Scope.EndpointID), nil)
 		if err != nil {
-			return Environment{}, err
+			return deploymentEnvironment{}, err
 		}
 		if code != 200 {
-			return Environment{}, fmt.Errorf("reading pinned Portainer endpoint: HTTP %d", code)
+			return deploymentEnvironment{}, fmt.Errorf("reading pinned Portainer endpoint: HTTP %d", code)
 		}
 		var e struct {
 			ID   int64 `json:"Id"`
@@ -58,20 +58,20 @@ func ReadEnvironment(ctx context.Context, cfg *Target) (Environment, error) {
 			Edge struct{ AsyncMode bool }
 		}
 		if err := json.Unmarshal(raw, &e); err != nil {
-			return Environment{}, err
+			return deploymentEnvironment{}, err
 		}
 		if e.ID != cfg.Scope.EndpointID {
-			return Environment{}, errors.New("Portainer returned a different endpoint")
+			return deploymentEnvironment{}, errors.New("Portainer returned a different endpoint")
 		}
-		return Environment{ID: e.ID, Name: e.Name, Type: e.Type, Async: e.Edge.AsyncMode}, nil
+		return deploymentEnvironment{ID: e.ID, Name: e.Name, Type: e.Type, Async: e.Edge.AsyncMode}, nil
 	}
 
 	code, raw, err := JSON(ctx, cfg, "GET", endpointsPath, nil)
 	if err != nil {
-		return Environment{}, fmt.Errorf("listing Portainer environments: %w", err)
+		return deploymentEnvironment{}, fmt.Errorf("listing Portainer environments: %w", err)
 	}
 	if code != 200 {
-		return Environment{}, fmt.Errorf("listing Portainer environments: HTTP %d", code)
+		return deploymentEnvironment{}, fmt.Errorf("listing Portainer environments: HTTP %d", code)
 	}
 	var eps []struct {
 		ID   int64  `json:"Id"`
@@ -82,21 +82,21 @@ func ReadEnvironment(ctx context.Context, cfg *Target) (Environment, error) {
 		} `json:"Edge"`
 	}
 	if err := json.Unmarshal(raw, &eps); err != nil {
-		return Environment{}, err
+		return deploymentEnvironment{}, err
 	}
 	for _, e := range eps {
 		if e.Name == cfg.EnvName {
-			return Environment{ID: e.ID, Name: e.Name, Type: e.Type, Async: e.Edge.AsyncMode}, nil
+			return deploymentEnvironment{ID: e.ID, Name: e.Name, Type: e.Type, Async: e.Edge.AsyncMode}, nil
 		}
 	}
-	return Environment{}, fmt.Errorf("Portainer has no environment named %q", cfg.EnvName)
+	return deploymentEnvironment{}, fmt.Errorf("Portainer has no environment named %q", cfg.EnvName)
 }
 
 // DataReach says whether AppTown can run Docker commands in the
 // environment for data work: a Docker environment (socket, agent or
 // standard edge agent) whose Docker answers through Portainer. nil when it
 // can; ErrCannotBackUp with why otherwise.
-func DataReach(ctx context.Context, cfg *Target) (Environment, error) {
+func DataReach(ctx context.Context, cfg *Target) (deploymentEnvironment, error) {
 	env, err := ReadEnvironment(ctx, cfg)
 	if err != nil {
 		return env, fmt.Errorf("%w %q: %v", ErrCannotBackUp, cfg.EnvName, err)
@@ -130,7 +130,7 @@ type DockerProxy struct {
 // StartDockerProxy listens on a socket in dir (made private) and forwards
 // to the environment's Docker API. config is read for every request, so a
 // rotated key is used at once.
-func StartDockerProxy(dir string, env Environment, config func(context.Context) (*Target, error)) (*DockerProxy, error) {
+func StartDockerProxy(dir string, env deploymentEnvironment, config func(context.Context) (*Target, error)) (*DockerProxy, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}

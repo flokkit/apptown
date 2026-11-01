@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -31,12 +32,11 @@ func TestAReplacedAttemptLosesTheBranch(t *testing.T) {
 		t.Fatal(err)
 	}
 	admissions := newRunAdmissions(db, NewStages(nil, func(kind string) bool { return kind == "script" }), nil)
-	run, err := admissions.Create(ctx, StartRequest{ProjectID: projectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "operator"},
-		PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "finish", Steps: []schema.Step{{Name: "work", Uses: "script"}}}}}})
+	run, err := admissions.records.create(ctx, StartRequest{ProjectID: projectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "operator"}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "finish", Steps: []schema.Step{{Name: "work", Uses: "script"}}}}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := admissions.Prepared(ctx, run.ID); err != nil {
+	if err := admissions.records.prepared(ctx, run.ID); err != nil {
 		t.Fatal(err)
 	}
 	source, err := ReadSourceIn(ctx, db, RunRef{ID: run.ID, ProjectID: projectID})
@@ -56,7 +56,7 @@ func TestAReplacedAttemptLosesTheBranch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		claim, err := attempts.Start(ctx, snapshot, "script")
+		claim, err := attempts.start(ctx, snapshot, "script", ids.Nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -96,11 +96,11 @@ func TestAStepIsNotAdmittedAfterItsRunLostTheBranch(t *testing.T) {
 				t.Fatal(err)
 			}
 			admissions := newRunAdmissions(db, NewStages(nil, func(kind string) bool { return kind == "script" }), nil)
-			run, err := admissions.Create(ctx, StartRequest{ProjectID: projectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "operator"}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "work", Uses: "script"}}}}}})
+			run, err := admissions.records.create(ctx, StartRequest{ProjectID: projectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "operator"}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "work", Uses: "script"}}}}}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := admissions.Prepared(ctx, run.ID); err != nil {
+			if err := admissions.records.prepared(ctx, run.ID); err != nil {
 				t.Fatal(err)
 			}
 			source, err := ReadSourceIn(ctx, db, RunRef{ID: run.ID, ProjectID: projectID})
@@ -114,7 +114,7 @@ func TestAStepIsNotAdmittedAfterItsRunLostTheBranch(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				claim, err := attempts.Start(ctx, snapshot, "script")
+				claim, err := attempts.start(ctx, snapshot, "script", ids.Nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -133,7 +133,7 @@ func TestAStepIsNotAdmittedAfterItsRunLostTheBranch(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			claim, err := attempts.Start(ctx, snapshot, "script")
+			claim, err := attempts.start(ctx, snapshot, "script", ids.Nil)
 			current, readErr := scm.ReadAuthorityIn(ctx, db, projectID, source.Branch)
 			if readErr != nil {
 				t.Fatal(readErr)
@@ -164,12 +164,11 @@ func TestASentBackContinuationTakesTheChange(t *testing.T) {
 			}
 			automatic := []string{"agent/pi"}
 			admissions := newRunAdmissions(db, NewStages(nil, func(kind string) bool { return kind == "agent/pi" }), nil)
-			run, err := admissions.Create(ctx, StartRequest{ProjectID: projectID, ChangeID: change.ID, WorkflowName: "implement", InputsJSON: "{}", requestedBy: "operator"},
-				PreparedRun{Workflow: DefinitionRef{Name: "implement", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", OnEnter: []schema.Step{{Name: "build", Uses: "agent/pi"}}, Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}})
+			run, err := admissions.records.create(ctx, StartRequest{ProjectID: projectID, ChangeID: change.ID, WorkflowName: "implement", InputsJSON: "{}", requestedBy: "operator"}, PreparedRun{Workflow: DefinitionRef{Name: "implement", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", OnEnter: []schema.Step{{Name: "build", Uses: "agent/pi"}}, Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := admissions.Prepared(ctx, run.ID); err != nil {
+			if err := admissions.records.prepared(ctx, run.ID); err != nil {
 				t.Fatal(err)
 			}
 			// A completed producer, without running a model.

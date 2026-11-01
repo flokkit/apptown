@@ -34,7 +34,7 @@ func (s *Service) Block(ctx context.Context, ref BlockRef) (BlockObservation, er
 	var record *Block
 	var err error
 	if !ref.ID.IsZero() {
-		record, err = s.library.ByID(ctx, ref.ID)
+		record, err = s.library.byID(ctx, ref.ID)
 	} else {
 		record, err = s.library.ByName(ctx, ref.Name)
 	}
@@ -87,7 +87,7 @@ func (s *Service) Workflow(ctx context.Context, ref WorkflowRef) (WorkflowObserv
 		}
 	}
 	var err error
-	out.Origin, err = s.workflows.Origin(ctx, out.Name)
+	out.Origin, err = s.workflows.origin(ctx, out.Name)
 	if ref.MetadataOnly && errors.Is(err, sql.ErrNoRows) {
 		return out, nil
 	}
@@ -97,7 +97,7 @@ func (s *Service) Workflow(ctx context.Context, ref WorkflowRef) (WorkflowObserv
 	if ref.MetadataOnly {
 		return out, nil
 	}
-	out.Version, out.YAML, err = s.workflows.Version(ctx, out.Name, ref.Version)
+	out.Version, out.YAML, err = s.workflows.version(ctx, out.Name, ref.Version)
 	return out, err
 }
 

@@ -24,12 +24,12 @@ type Connectors struct {
 	integrations *integration.Service
 	access       *identity.Service
 	deployment   *deployment.Service
-	health       ConnectorHealth
+	health       connectorHealth
 	db           *database.DB
 	formats      []string
 }
 
-func NewConnectors(integrations *integration.Service, access *identity.Service, deployment *deployment.Service, health ConnectorHealth, db *database.DB, formats []string) Connectors {
+func NewConnectors(integrations *integration.Service, access *identity.Service, deployment *deployment.Service, health connectorHealth, db *database.DB, formats []string) Connectors {
 	return Connectors{integrations: integrations, access: access, deployment: deployment, health: health, db: db, formats: slices.Clone(formats)}
 }
 
@@ -167,11 +167,11 @@ func (h Connectors) SaveIntegration(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		if _, err := h.integrations.Bindings.Save(r.Context(), in.Name, in.Capability, in.Provider, encodedJSON(in.Config), Actor(r)); err != nil {
+		if _, err := h.integrations.Bindings.Save(r.Context(), in.Name, in.Capability, in.Provider, encodedJSON(in.Config), actor(r)); err != nil {
 			WriteFault(w, fmt.Errorf("saving the binding: %w", err))
 			return
 		}
-		h.deployment.SeedCloudTargets(r.Context(), Actor(r)) // a new cloud account offers its target; a changed one refreshes it
+		h.deployment.SeedCloudTargets(r.Context(), actor(r)) // a new cloud account offers its target; a changed one refreshes it
 		WriteJSON(w, 200, IntegrationSaved{OK: true, Health: h.health.Test(r.Context(), in.Capability, in.Provider, in.Config).ForDisplay()})
 	})
 }
@@ -182,14 +182,14 @@ func (h Connectors) DeleteIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := r.PathValue("name")
-	if err := h.integrations.Bindings.Delete(r.Context(), name, Actor(r)); err != nil {
+	if err := h.integrations.Bindings.Delete(r.Context(), name, actor(r)); err != nil {
 		WriteFault(w, err)
 		return
 	}
 	WriteJSON(w, 200, Done{OK: true})
 }
 
-type ConnectorHealth interface {
+type connectorHealth interface {
 	Test(ctx context.Context, capability, provider string, config map[string]any) integration.Health
 	Health(ctx context.Context, capability, provider string, secretEnv []string) integration.Health
 	// Testable: Test connection asks the kind's service with its configuration.

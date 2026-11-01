@@ -87,7 +87,7 @@ func (h RemediationChanges) OpenRemediation(w http.ResponseWriter, r *http.Reque
 				return
 			}
 		}
-		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), p.ID, "conformance.remediation-opened", fmt.Sprintf("%d", item.ID),
+		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, actor(r), p.ID, "conformance.remediation-opened", fmt.Sprintf("%d", item.ID),
 			map[string]any{"review": in.ReviewID, "block": in.Block, "version": in.Version, "check": in.Check, "started": started})
 		WriteJSON(w, 201, RemediationOpened{Change: *item, Run: run, Started: started})
 	})

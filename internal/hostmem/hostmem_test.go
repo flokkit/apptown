@@ -8,7 +8,7 @@ import "testing"
 // Kills: a missing MemAvailable read as nothing available; kB not scaled.
 func TestTheHostsMemoryIsReadAsMeminfoListsIt(t *testing.T) {
 	t.Parallel()
-	m, err := ParseMeminfo([]byte("MemTotal:        8388608 kB\nMemFree:         2002984 kB\nMemAvailable:    5041354 kB\n"))
+	m, err := parseMeminfo([]byte("MemTotal:        8388608 kB\nMemFree:         2002984 kB\nMemAvailable:    5041354 kB\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +21,7 @@ func TestTheHostsMemoryIsReadAsMeminfoListsIt(t *testing.T) {
 		"MemTotal:        100 kB\nMemAvailable:    200 kB\n",
 		"MemTotal:        lots kB\nMemAvailable:    5 kB\n",
 	} {
-		if m, err := ParseMeminfo([]byte(bad)); err == nil {
+		if m, err := parseMeminfo([]byte(bad)); err == nil {
 			t.Errorf("%q read as %+v", bad, m)
 		}
 	}

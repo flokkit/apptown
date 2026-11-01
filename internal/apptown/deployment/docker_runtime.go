@@ -18,7 +18,7 @@ type Routing struct {
 	EvalScheme, EvalDomain string
 }
 
-func (r Routing) PublicURL(port int) string {
+func (r Routing) publicURL(port int) string {
 	host := r.PublicHost
 	if host == "" {
 		host = "localhost"
@@ -38,31 +38,31 @@ func (r Routing) PreviewURL(label string, port int) string {
 	if r.PreviewDomain != "" {
 		return fmt.Sprintf("%s://%s.%s", r.PreviewScheme, label, r.PreviewDomain)
 	}
-	return r.PublicURL(port)
+	return r.publicURL(port)
 }
 func (r Routing) DeploymentURL(servingLabel string, port int) string {
 	if r.MainDomain != "" {
 		return fmt.Sprintf("%s://%s.%s", r.MainScheme, servingLabel, r.MainDomain)
 	}
-	return r.PublicURL(port)
+	return r.publicURL(port)
 }
 
-// Reach is where people reach a deployment, and whether that address
+// reach is where people reach a deployment, and whether that address
 // answers on the AppTown host only (Routing.PortAddressesHostOnly): shown, it
 // is a place to go on that host, not a link for anyone elsewhere.
-type Reach struct {
+type reach struct {
 	URL      string
 	HostOnly bool
 }
 
 // URL is where people reach a deployment now (reachedAt).
 func (s *Service) URL(ctx context.Context, slug string, d *Deployment) string {
-	return s.Reach(ctx, slug, d).URL
+	return s.reach(ctx, slug, d).URL
 }
 
-// Reach is where people reach a deployment now, and whether only on the
+// reach is where people reach a deployment now, and whether only on the
 // AppTown host (reachedAt).
-func (s *Service) Reach(ctx context.Context, slug string, d *Deployment) Reach {
+func (s *Service) reach(ctx context.Context, slug string, d *Deployment) reach {
 	t, err := s.Targets.ByID(ctx, d.TargetID)
 	if err != nil {
 		t = nil
@@ -81,7 +81,7 @@ func (s *Service) Reach(ctx context.Context, slug string, d *Deployment) Reach {
 //
 // On this AppTown's own host, an address at the published port (no tier
 // domain for it) answers there only, which the Reach says.
-func (s *Service) reachedAt(ctx context.Context, _ string, d *Deployment, t *Target, observed string) Reach {
+func (s *Service) reachedAt(ctx context.Context, _ string, d *Deployment, t *Target, observed string) reach {
 	if t != nil && t.Kind == KindDockerHost && d.Standing() && d.HostPort != 0 {
 		routes := s.env.RoutesFor(ctx, d.ProjectID)
 		servingLabel := ""
@@ -90,7 +90,7 @@ func (s *Service) reachedAt(ctx context.Context, _ string, d *Deployment, t *Tar
 			owner, err := project.ByIDIn(ctx, s.db, d.ProjectID)
 			if err != nil {
 				log.Printf("deployment %s: reading its serving identity: %v", d.ID, err)
-				return Reach{}
+				return reach{}
 			}
 			servingLabel = owner.ServingLabel
 		}
@@ -99,30 +99,30 @@ func (s *Service) reachedAt(ctx context.Context, _ string, d *Deployment, t *Tar
 		}
 	}
 	if observed != "" {
-		return Reach{URL: observed}
+		return reach{URL: observed}
 	}
-	return Reach{URL: d.URL}
+	return reach{URL: d.URL}
 }
 
 // dockerReach is the one place a Docker deployment's address is chosen, for
 // the driver, the landing and reads alike: on this AppTown's own host by its
 // routes (main at its domain when it has one, else the published port,
 // which answers there only); on an attached host by that host's front door.
-func dockerReach(routes Routing, t *Target, servingLabel, name string, port int) (Reach, error) {
+func dockerReach(routes Routing, t *Target, servingLabel, name string, port int) (reach, error) {
 	switch t.Origin {
 	case OriginBuiltIn:
 		if name == "main" && routes.MainDomain != "" {
-			return Reach{URL: routes.DeploymentURL(servingLabel, port)}, nil
+			return reach{URL: routes.DeploymentURL(servingLabel, port)}, nil
 		}
-		return Reach{URL: routes.PublicURL(port), HostOnly: routes.PortAddressesHostOnly()}, nil
+		return reach{URL: routes.publicURL(port), HostOnly: routes.PortAddressesHostOnly()}, nil
 	case OriginAttached:
-		addr, _, err := HostTargetAddress(t)
+		addr, _, err := hostTargetAddress(t)
 		if err != nil {
-			return Reach{}, err
+			return reach{}, err
 		}
-		return Reach{URL: attachedFrontDoor(t, addr.Host).FrontDoor(servingLabel, name, port)}, nil
+		return reach{URL: attachedFrontDoor(t, addr.Host).FrontDoor(servingLabel, name, port)}, nil
 	}
-	return Reach{}, fmt.Errorf("Docker target %s has no supported connection", t.Name)
+	return reach{}, fmt.Errorf("Docker target %s has no supported connection", t.Name)
 }
 
 // attachedFrontDoor is an attached host as its front door is named: its

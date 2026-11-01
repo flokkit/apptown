@@ -112,7 +112,7 @@ func localDockerTripwire(t *testing.T, a *App, calls string) {
 		t.Fatal(err)
 	}
 	a.processRunner = execution.Runner{DockerBinary: local}
-	refused := dockerfake.New()
+	refused := newDockerFake()
 	refused.SetReply(func(args []string) ([]byte, error, bool) {
 		f, _ := os.OpenFile(calls, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644)
 		f.WriteString("local " + strings.Join(args, " ") + "\n")
@@ -279,4 +279,8 @@ func TestWithAWorkerAPassingGateLands(t *testing.T) {
 	if obs, err := mergeEffectForTest(t, a, source); err != nil || !obs.Merged {
 		t.Fatalf("a passing gate on the worker did not land: %+v %v", obs, err)
 	}
+}
+
+func newDockerFake() *dockerfake.Daemon {
+	return dockerfake.New()
 }

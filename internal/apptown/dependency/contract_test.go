@@ -129,7 +129,7 @@ func TestNoTwoStockNeedsGiveTheSameVariable(t *testing.T) {
 	seen := map[string]string{}
 	for _, f := range files {
 		k := stockKind(t, strings.TrimSuffix(strings.TrimPrefix(f, "dependencies/"), ".yaml"))
-		for _, name := range k.Names() {
+		for _, name := range k.names() {
 			if other, ok := seen[name]; ok {
 				t.Errorf("%s is given by %s and %s", name, other, k.Capability)
 			}
@@ -195,7 +195,7 @@ func TestTheGuidesContractTableIsTheCatalogues(t *testing.T) {
 			}
 		}
 		slices.Sort(named)
-		if want := k.Names(); !slices.Equal(named, want) {
+		if want := k.names(); !slices.Equal(named, want) {
 			t.Errorf("%s: the guide names %v, the catalogue provides %v", k.Capability, named, want)
 		}
 		delete(rows, k.Capability)

@@ -11,12 +11,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/oci"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/oci"
 
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/routinechange"
@@ -176,7 +177,7 @@ func TestIntegrationRoutineImageObservesActualVersionWithoutEntrypoint(t *testin
 		t.Fatalf("fixture base moved during builds: %+v expected %s", pinned, base.ID)
 	}
 	candidate := routinechange.ImageCandidate{Before: "docker.io/library/node:" + version + "-fixture@sha256:" + strings.Repeat("a", 64), After: "docker.io/library/node:" + version + "-fixture@sha256:" + strings.Repeat("b", 64), Version: version, Platform: platform}
-	inspector := RoutineInspector{dataDir: data, imageReader: func(_ context.Context, s oci.Source) (oci.Observation, error) {
+	inspector := routineInspector{dataDir: data, imageReader: func(_ context.Context, s oci.Source) (oci.Observation, error) {
 		_, digest, _ := strings.Cut(s.Reference, "@")
 		return oci.Observation{Repository: "index.docker.io/library/node", Manifest: digest, ConfigDigest: ids[digest], Platform: platform, Config: []byte(`{"fixture":"same-runtime-configuration"}`)}, nil
 	}}

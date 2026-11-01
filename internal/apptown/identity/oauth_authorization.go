@@ -30,8 +30,8 @@ type Registration struct {
 	Name         string
 	RedirectURIs []string
 }
-type AuthorizationView struct {
-	Client Client
+type authorizationView struct {
+	Client oauthClient
 	Scopes []string
 }
 
@@ -75,39 +75,39 @@ func redirectURIAllowed(raw string) bool {
 	}
 	return true
 }
-func (s *Service) RegisterOAuthClient(ctx context.Context, in Registration) (Client, error) {
+func (s *Service) RegisterOAuthClient(ctx context.Context, in Registration) (oauthClient, error) {
 	if err := in.validate(); err != nil {
-		return Client{}, err
+		return oauthClient{}, err
 	}
-	return s.oauth.RegisterClient(ctx, in.Name, in.RedirectURIs)
+	return s.oauth.registerClient(ctx, in.Name, in.RedirectURIs)
 }
 
-func (c Client) inspect(in AuthorizationRequest) (AuthorizationView, error) {
+func (c oauthClient) inspect(in AuthorizationRequest) (authorizationView, error) {
 	if !slices.Contains(c.RedirectURIs, in.RedirectURI) {
-		return AuthorizationView{}, &AuthorizationProblem{Reason: "redirect_uri is not one this client registered"}
+		return authorizationView{}, &AuthorizationProblem{Reason: "redirect_uri is not one this client registered"}
 	}
 	if in.Method != "S256" || in.Challenge == "" {
-		return AuthorizationView{}, &AuthorizationProblem{Reason: "code_challenge with S256 is required (PKCE)", SafeRedirect: true}
+		return authorizationView{}, &AuthorizationProblem{Reason: "code_challenge with S256 is required (PKCE)", SafeRedirect: true}
 	}
 	scopes := strings.Fields(in.Scope)
 	for _, scope := range scopes {
 		if access.ScopeMeans(scope) == "" {
-			return AuthorizationView{}, &AuthorizationProblem{Reason: fmt.Sprintf("unknown scope %q", scope), SafeRedirect: true}
+			return authorizationView{}, &AuthorizationProblem{Reason: fmt.Sprintf("unknown scope %q", scope), SafeRedirect: true}
 		}
 	}
 	if len(scopes) == 0 {
 		scopes = []string{"apptown:user:read"}
 	}
-	return AuthorizationView{Client: c, Scopes: scopes}, nil
+	return authorizationView{Client: c, Scopes: scopes}, nil
 }
-func (s *Service) InspectAuthorization(ctx context.Context, in AuthorizationRequest) (AuthorizationView, error) {
-	c, err := s.oauth.ClientByID(ctx, in.ClientID)
+func (s *Service) InspectAuthorization(ctx context.Context, in AuthorizationRequest) (authorizationView, error) {
+	c, err := s.oauth.clientByID(ctx, in.ClientID)
 	// Preserve the browser door's existing unavailable-client response.
 	if err != nil {
 		log.Printf("read failed: %v", err)
 	}
 	if c == nil {
-		return AuthorizationView{}, &AuthorizationProblem{Reason: "unknown client_id; the agent must register first (POST /oauth/register)"}
+		return authorizationView{}, &AuthorizationProblem{Reason: "unknown client_id; the agent must register first (POST /oauth/register)"}
 	}
 	return c.inspect(in)
 }
@@ -118,9 +118,9 @@ type BrowserAuthorization struct {
 	User, Binding string
 	Request       AuthorizationRequest
 }
-type PreparedConsent struct {
+type preparedConsent struct {
 	Token string
-	View  AuthorizationView
+	View  authorizationView
 }
 type ConsentChoice string
 
@@ -134,24 +134,24 @@ type ConsentDecision struct {
 	Token   string
 	Choice  ConsentChoice
 }
-type ConsentResult struct {
+type consentResult struct {
 	Code   string
 	Choice ConsentChoice
 }
 
-type ConsentFailure uint8
+type consentFailure uint8
 
 const (
-	ConsentNoBrowser ConsentFailure = iota
+	ConsentNoBrowser consentFailure = iota
 	ConsentBadChoice
 	ConsentChanged
-	ConsentRecordFailed
-	ConsentClaimFailed
+	consentRecordFailed
+	consentClaimFailed
 	ConsentIssueFailed
 )
 
 type ConsentError struct {
-	Failure ConsentFailure
+	Failure consentFailure
 	Cause   error
 }
 
@@ -164,54 +164,54 @@ func (e *ConsentError) Error() string {
 		return "choose Allow or Cancel on the consent page"
 	case ConsentChanged:
 		return "this consent request expired or changed; reopen the connection request"
-	case ConsentRecordFailed:
+	case consentRecordFailed:
 		return fmt.Sprintf("recording the consent request: %v", e.Cause)
-	case ConsentClaimFailed:
+	case consentClaimFailed:
 		return "could not consume the consent request"
 	default:
 		return fmt.Sprintf("could not record the authorization: %v", e.Cause)
 	}
 }
-func (s *Service) PrepareConsent(ctx context.Context, in BrowserAuthorization) (PreparedConsent, error) {
+func (s *Service) PrepareConsent(ctx context.Context, in BrowserAuthorization) (preparedConsent, error) {
 	view, err := s.InspectAuthorization(ctx, in.Request)
 	if err != nil {
-		return PreparedConsent{}, err
+		return preparedConsent{}, err
 	}
 	if in.User == "" || in.Binding == "" {
-		return PreparedConsent{}, &ConsentError{Failure: ConsentNoBrowser}
+		return preparedConsent{}, &ConsentError{Failure: ConsentNoBrowser}
 	}
 	token := RandomHex(32)
 	request, err := strs.JSON(in.Request)
 	if err != nil {
-		return PreparedConsent{}, &ConsentError{Failure: ConsentRecordFailed, Cause: err}
+		return preparedConsent{}, &ConsentError{Failure: consentRecordFailed, Cause: err}
 	}
-	if err := s.oauth.RecordConsent(ctx, HashToken(token), in.User, in.Binding, request, ConsentTTL); err != nil {
-		return PreparedConsent{}, &ConsentError{Failure: ConsentRecordFailed, Cause: err}
+	if err := s.oauth.recordConsent(ctx, HashToken(token), in.User, in.Binding, request, ConsentTTL); err != nil {
+		return preparedConsent{}, &ConsentError{Failure: consentRecordFailed, Cause: err}
 	}
-	return PreparedConsent{Token: token, View: view}, nil
+	return preparedConsent{Token: token, View: view}, nil
 }
-func (s *Service) DecideConsent(ctx context.Context, in ConsentDecision) (ConsentResult, error) {
+func (s *Service) DecideConsent(ctx context.Context, in ConsentDecision) (consentResult, error) {
 	b := in.Browser
 	view, err := s.InspectAuthorization(ctx, b.Request)
 	if err != nil {
-		return ConsentResult{}, err
+		return consentResult{}, err
 	}
 	if in.Choice != ConsentAllow && in.Choice != ConsentDeny {
-		return ConsentResult{}, &ConsentError{Failure: ConsentBadChoice}
+		return consentResult{}, &ConsentError{Failure: ConsentBadChoice}
 	}
 	if b.User == "" {
-		return ConsentResult{}, &ConsentError{Failure: ConsentChanged}
+		return consentResult{}, &ConsentError{Failure: ConsentChanged}
 	}
 	request, err := strs.JSON(b.Request)
 	if err != nil {
-		return ConsentResult{}, &ConsentError{Failure: ConsentClaimFailed, Cause: err}
+		return consentResult{}, &ConsentError{Failure: consentClaimFailed, Cause: err}
 	}
-	consumed, err := s.oauth.ConsumeConsent(ctx, HashToken(in.Token), b.User, b.Binding, request)
+	consumed, err := s.oauth.consumeConsent(ctx, HashToken(in.Token), b.User, b.Binding, request)
 	if err != nil {
-		return ConsentResult{}, &ConsentError{Failure: ConsentClaimFailed, Cause: err}
+		return consentResult{}, &ConsentError{Failure: consentClaimFailed, Cause: err}
 	}
 	if !consumed {
-		return ConsentResult{}, &ConsentError{Failure: ConsentChanged}
+		return consentResult{}, &ConsentError{Failure: ConsentChanged}
 	}
 	if in.Choice == ConsentDeny {
 		// Denials have always used a best-effort event, after the one-use claim.
@@ -220,11 +220,11 @@ func (s *Service) DecideConsent(ctx context.Context, in ConsentDecision) (Consen
 		} else if err := audit.Append(ctx, s.db, stamp.Of(s.now()).String(), b.User, ids.Nil, "oauth.denied", view.Client.Name, body); err != nil {
 			log.Printf("best-effort write failed: %v", err)
 		}
-		return ConsentResult{Choice: ConsentDeny}, nil
+		return consentResult{Choice: ConsentDeny}, nil
 	}
-	code, err := s.oauth.IssueCode(ctx, view.Client, b.User, b.Request.RedirectURI, view.Scopes, b.Request.Resource, b.Request.Challenge)
+	code, err := s.oauth.issueCode(ctx, view.Client, b.User, b.Request.RedirectURI, view.Scopes, b.Request.Resource, b.Request.Challenge)
 	if err != nil {
-		return ConsentResult{}, &ConsentError{Failure: ConsentIssueFailed, Cause: err}
+		return consentResult{}, &ConsentError{Failure: ConsentIssueFailed, Cause: err}
 	}
-	return ConsentResult{Choice: ConsentAllow, Code: code}, nil
+	return consentResult{Choice: ConsentAllow, Code: code}, nil
 }

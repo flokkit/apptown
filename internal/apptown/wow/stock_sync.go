@@ -85,7 +85,7 @@ func (s *Service) SyncStockWorkflows(ctx context.Context) SyncCounts {
 		Update: func(it SyncItem) (int, error) {
 			return s.workflows.StockUpdate(ctx, it.Name, it.Data.(string), it.Content)
 		},
-		Touch: func(it SyncItem) error { return s.workflows.StockTouch(ctx, it.Name, it.Data.(string)) },
+		touch: func(it SyncItem) error { return s.workflows.stockTouch(ctx, it.Name, it.Data.(string)) },
 	}
 	c := Sync(kind, items, nil)
 	c.Skipped += skipped
@@ -101,11 +101,11 @@ func (s *Service) SyncStockWorkflows(ctx context.Context) SyncCounts {
 // block stay on the version they adopted (ways-of-working-versions.md §9
 // step 1, ruling 1). Institution-authored blocks (origin='') are untouched.
 
-// ParseStockGuidance reads a shipped block: front matter (name, tags, an
+// parseStockGuidance reads a shipped block: front matter (name, tags, an
 // optional checks JSON array on one line, tier, conflicts; any other key, or
 // a line that is not key: value, is refused) then the markdown body. The tier is "platform" (AppTown's own contract, on
 // every repo-backed project) or absent.
-func ParseStockGuidance(raw string) (StockBlock, error) {
+func parseStockGuidance(raw string) (StockBlock, error) {
 	var b StockBlock
 	if !strings.HasPrefix(raw, "---\n") {
 		return b, fmt.Errorf("missing frontmatter")
@@ -128,13 +128,13 @@ func ParseStockGuidance(raw string) (StockBlock, error) {
 		case "name":
 			b.Name = value
 		case "tags":
-			b.Tags = NormalizeTags(value)
+			b.Tags = normalizeTags(value)
 		case "checks":
 			b.ChecksJSON = value
 		case "tier":
 			b.Tier = value
 		case "conflicts":
-			b.Conflicts = NormalizeTags(value)
+			b.Conflicts = normalizeTags(value)
 		case "apiVersion":
 			if err := schema.CheckAPIVersion(value); err != nil {
 				return b, fmt.Errorf("frontmatter line %d: %w", i+2, err)
@@ -160,7 +160,7 @@ func ParseStockGuidance(raw string) (StockBlock, error) {
 // checks are read by conformance (checks): re-serialised so the stored and
 // compared form is canonical, or dropped when bad — a bad checks payload
 // never breaks startup, the body is kept. nil checks keeps them as written.
-func ReadStockGuidance(fsys fs.FS, checks ChecksReader) (blocks []StockBlock, skipped int) {
+func ReadStockGuidance(fsys fs.FS, checks checksReader) (blocks []StockBlock, skipped int) {
 	_ = fs.WalkDir(fsys, "guidance", func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".md") {
 			return nil
@@ -171,7 +171,7 @@ func ReadStockGuidance(fsys fs.FS, checks ChecksReader) (blocks []StockBlock, sk
 			skipped++
 			return nil
 		}
-		b, perr := ParseStockGuidance(string(raw))
+		b, perr := parseStockGuidance(string(raw))
 		if perr != nil {
 			log.Printf("stock guidance %s: %v (skipped)", path, perr)
 			skipped++
@@ -224,7 +224,7 @@ func (s *Service) syncGuidance(ctx context.Context, blocks []StockBlock) SyncCou
 			var blockID ids.ID
 			var next int
 			err := s.db.InTx(ctx, func(tx *database.Tx) (err error) {
-				blockID, next, err = s.library.StockUpdateIn(ctx, tx, block(it))
+				blockID, next, err = s.library.stockUpdateIn(ctx, tx, block(it))
 				return err
 			})
 			if err != nil {
@@ -240,7 +240,7 @@ func (s *Service) syncGuidance(ctx context.Context, blocks []StockBlock) SyncCou
 			}
 			return next, nil
 		},
-		Touch: func(it SyncItem) error { return s.library.StockTouch(ctx, block(it)) },
+		touch: func(it SyncItem) error { return s.library.stockTouch(ctx, block(it)) },
 	}
 	return Sync(kind, items, nil)
 }
@@ -252,7 +252,7 @@ func (s *Service) syncGuidance(ctx context.Context, blocks []StockBlock) SyncCou
 // under a stock name is kept and the collision logged.
 func (s *Service) SyncStockPolicies(ctx context.Context) SyncCounts {
 	c := SyncCounts{Kind: "policy"}
-	policies, err := ReadStockPolicies(s.deps.Stock)
+	policies, err := readStockPolicies(s.deps.Stock)
 	if err != nil {
 		log.Printf("stock %v", err)
 		c.Errors++
@@ -273,15 +273,15 @@ func (s *Service) SyncStockPolicies(ctx context.Context) SyncCounts {
 	kind := SyncKind{
 		Label: "policy",
 		Current: func(name string) (string, bool, bool, error) {
-			st, err := s.policies.StockCurrent(ctx, name)
+			st, err := s.policies.stockCurrent(ctx, name)
 			if err != nil || st == nil {
 				return "", false, false, err
 			}
 			return st.Content, st.IsStock, true, nil
 		},
 		Insert: func(it SyncItem) error { return s.policies.StockInsert(ctx, it.Data.(LibraryPolicy)) },
-		Update: func(it SyncItem) (int, error) { return 0, s.policies.StockUpdate(ctx, it.Data.(LibraryPolicy)) },
-		Touch:  func(it SyncItem) error { return s.policies.StockTouch(ctx, it.Data.(LibraryPolicy)) },
+		Update: func(it SyncItem) (int, error) { return 0, s.policies.stockUpdate(ctx, it.Data.(LibraryPolicy)) },
+		touch:  func(it SyncItem) error { return s.policies.stockTouch(ctx, it.Data.(LibraryPolicy)) },
 	}
 	c = Sync(kind, items, nil)
 	c.Skipped += skipped
@@ -312,7 +312,7 @@ func (s *Service) SyncStockPacks(ctx context.Context) SyncCounts {
 // the recommended one: a release publishes, and a person recommends after
 // a what-if. The boot log says what waits and the command that moves it.
 func (s *Service) waitingStockVersions(ctx context.Context) []string {
-	packs, err := s.packs.Published(ctx)
+	packs, err := s.packs.published(ctx)
 	if err != nil {
 		return []string{fmt.Sprintf("stock packs: reading which versions wait for a recommendation: %v", err)}
 	}
@@ -359,7 +359,7 @@ func (s *Service) syncPacks(ctx context.Context) SyncCounts {
 		Update: func(it SyncItem) (int, error) {
 			return s.packs.Publish(ctx, it.Name, it.Data.(string), it.Content, "stock")
 		},
-		Touch: func(it SyncItem) error { return s.packs.Describe(ctx, it.Name, it.Data.(string)) },
+		touch: func(it SyncItem) error { return s.packs.describe(ctx, it.Name, it.Data.(string)) },
 	}
 	c := Sync(kind, items, nil)
 	c.Errors += failed

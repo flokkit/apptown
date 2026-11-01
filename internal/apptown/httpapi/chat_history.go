@@ -21,10 +21,10 @@ type ChatHistory struct {
 	dataDir  string
 	// mask replaces known secret values in what a chat's history shows; the
 	// record files keep what the agent saw.
-	mask Mask
+	mask mask
 }
 
-func NewChatHistory(sessions *console.Service, projects *project.Projects, access *identity.Service, dataDir string, mask Mask) ChatHistory {
+func NewChatHistory(sessions *console.Service, projects *project.Projects, access *identity.Service, dataDir string, mask mask) ChatHistory {
 	return ChatHistory{sessions: sessions, projects: projects, access: access, dataDir: dataDir, mask: mask}
 }
 
@@ -53,7 +53,7 @@ type (
 // ChangeTranscript: GET /changes/{id}/transcript — every chat this change
 // has had, live or ended; the words belong to the change's story.
 func (h ChatHistory) ChangeTranscript(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -65,7 +65,7 @@ func (h ChatHistory) ChangeTranscript(w http.ResponseWriter, r *http.Request) {
 // opened on the project itself (not on a change): its past chats. Live ones
 // are on the project's chat list.
 func (h ChatHistory) ProjectTranscript(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -79,7 +79,7 @@ func (h ChatHistory) write(w http.ResponseWriter, r *http.Request, scope string,
 		return
 	}
 	out := ChatHistoryView{Sessions: []ChatHistoryEntry{}, Unreadable: len(unreadable)}
-	if len(unreadable) > 0 && IsAdmin(h.access, r) {
+	if len(unreadable) > 0 && isAdmin(h.access, r) {
 		out.UnreadableFolders = unreadable
 	}
 	for _, c := range convs {
@@ -87,7 +87,7 @@ func (h ChatHistory) write(w http.ResponseWriter, r *http.Request, scope string,
 			continue
 		}
 		out.Sessions = append(out.Sessions, ChatHistoryEntry{ID: c.ID, CreatedAt: c.CreatedAt, Actor: c.Actor,
-			Ended: c.Ended, Imported: conversation.Imported(c.Labels), Messages: h.mask.Messages(r.Context(), c.Messages)})
+			Ended: c.Ended, Imported: conversation.Imported(c.Labels), Messages: h.mask.messages(r.Context(), c.Messages)})
 	}
 	WriteJSON(w, 200, out)
 }
@@ -97,7 +97,7 @@ func (h ChatHistory) write(w http.ResponseWriter, r *http.Request, scope string,
 // named by its id and the picture by the name the chat's words give it;
 // neither is a path, and nothing is listed.
 func (h ChatHistory) ChangePicture(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -108,7 +108,7 @@ func (h ChatHistory) ChangePicture(w http.ResponseWriter, r *http.Request) {
 // ProjectPicture: GET /projects/{slug}/transcript/{chat}/pictures/{name} —
 // a picture pasted into one of the chats opened on the project.
 func (h ChatHistory) ProjectPicture(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

@@ -11,31 +11,31 @@ import (
 	"github.com/flokkit/apptown/internal/clock"
 )
 
-// Key separates change previews from project-scoped release numbers.
+// previewKey separates change previews from project-scoped release numbers.
 // Its zero value is invalid. These are transient execution identities, not rows.
-type Key struct {
+type previewKey struct {
 	kind    uint8
 	project ids.ID
 	change  ids.ID // a change preview's change
 	number  int64  // a release preview's release number, within project
 }
 
-func ChangeKey(id ids.ID) Key { return Key{kind: 1, change: id} }
-func ReleaseKey(projectID ids.ID, number int64) Key {
-	return Key{kind: 2, project: projectID, number: number}
+func changeKey(id ids.ID) previewKey { return previewKey{kind: 1, change: id} }
+func releaseKey(projectID ids.ID, number int64) previewKey {
+	return previewKey{kind: 2, project: projectID, number: number}
 }
 
 type State string
 
 const (
-	None     State = "none"
-	Starting State = "starting"
-	Live     State = "live"
-	Broken   State = "broken"
-	Cold     State = "cold"
-	// Unavailable: where previews run could not be asked, so whether
+	none          State = "none"
+	stateStarting State = "starting"
+	live          State = "live"
+	Broken        State = "broken"
+	cold          State = "cold"
+	// unavailable: where previews run could not be asked, so whether
 	// one is running is not known.
-	Unavailable State = "unavailable"
+	unavailable State = "unavailable"
 )
 
 type Status struct {
@@ -56,9 +56,9 @@ type Status struct {
 	Commit string    `json:"commit,omitempty"`
 }
 
-// Observation supplies facts; the runtime owns their precedence. Workflow
+// observation supplies facts; the runtime owns their precedence. Workflow
 // decides when an absent contract means there is nothing runnable yet.
-type Observation struct {
+type observation struct {
 	URL        string
 	HostOnly   bool
 	NoContract bool
@@ -69,8 +69,8 @@ type Observation struct {
 	Built  time.Time
 	Commit string
 }
-type Observer interface {
-	ObservePreview(ctx context.Context) Observation
+type observer interface {
+	ObservePreview(ctx context.Context) observation
 }
 
 type entry struct {
@@ -79,28 +79,28 @@ type entry struct {
 	failure string
 }
 
-// Runtime owns boot serialization and transient diagnostics for one
+// previewRuntime owns boot serialization and transient diagnostics for one
 // instance. The zero value is ready to use and must not be copied after use.
 // It starts no work of its own; restart still leaves previews cold.
-type Runtime struct {
-	// Now is AppTown's clock, which stamps a boot's start and end (the
+type previewRuntime struct {
+	// now is AppTown's clock, which stamps a boot's start and end (the
 	// real clock when nil).
-	Now     func() time.Time
+	now     func() time.Time
 	mu      sync.Mutex
-	entries map[Key]*entry
+	entries map[previewKey]*entry
 }
 
-// Booting is exclusive ownership until Finish. It cannot settle a later boot,
+// booting is exclusive ownership until Finish. It cannot settle a later boot,
 // even if a caller repeats Finish after another request was admitted.
-type Booting struct {
-	runtime *Runtime
-	key     Key
+type booting struct {
+	runtime *previewRuntime
+	key     previewKey
 	done    chan struct{}
 }
 
-// Begin waits for this preview alone. Cancelling a waiter never cancels its owner
+// begin waits for this preview alone. Cancelling a waiter never cancels its owner
 // or changes diagnostics. The admitted caller must defer Finish on every path.
-func (p *Runtime) Begin(ctx context.Context, key Key) (*Booting, error) {
+func (p *previewRuntime) begin(ctx context.Context, key previewKey) (*booting, error) {
 	if (key.kind == 1 && key.change.IsZero()) || (key.kind == 2 && (key.project.IsZero() || key.number <= 0)) || (key.kind != 1 && key.kind != 2) {
 		return nil, errors.New("invalid preview identity")
 	}
@@ -111,7 +111,7 @@ func (p *Runtime) Begin(ctx context.Context, key Key) (*Booting, error) {
 			return nil, err
 		}
 		if p.entries == nil {
-			p.entries = make(map[Key]*entry)
+			p.entries = make(map[previewKey]*entry)
 		}
 		e := p.entries[key]
 		if e == nil {
@@ -120,9 +120,9 @@ func (p *Runtime) Begin(ctx context.Context, key Key) (*Booting, error) {
 		}
 		if e.active == nil {
 			done := make(chan struct{})
-			e.active, e.at, e.failure = done, clock.Or(p.Now)().UTC(), ""
+			e.active, e.at, e.failure = done, clock.Or(p.now)().UTC(), ""
 			p.mu.Unlock()
-			return &Booting{runtime: p, key: key, done: done}, nil
+			return &booting{runtime: p, key: key, done: done}, nil
 		}
 		wait := e.active
 		p.mu.Unlock()
@@ -134,7 +134,7 @@ func (p *Runtime) Begin(ctx context.Context, key Key) (*Booting, error) {
 	}
 }
 
-func (b *Booting) Finish(err error) {
+func (b *booting) finish(err error) {
 	failure := ""
 	if err != nil {
 		failure = err.Error()
@@ -146,41 +146,41 @@ func (b *Booting) Finish(err error) {
 	if e.active != b.done {
 		return
 	}
-	e.active, e.at, e.failure = nil, clock.Or(p.Now)().UTC(), failure
+	e.active, e.at, e.failure = nil, clock.Or(p.now)().UTC(), failure
 	close(b.done)
 }
 
-func (p *Runtime) status(key Key, observed Observation) Status {
+func (p *previewRuntime) status(key previewKey, observed observation) Status {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	out := Status{State: Cold}
+	out := Status{State: cold}
 	failure := ""
 	if e := p.entries[key]; e != nil {
 		out.At, failure = e.at, e.failure
 		if e.active != nil {
-			out.State = Starting
+			out.State = stateStarting
 			return out
 		}
 	}
 	switch {
 	case observed.Unavailable != "":
-		out.State, out.Reason = Unavailable, observed.Unavailable
+		out.State, out.Reason = unavailable, observed.Unavailable
 	case observed.URL != "":
-		out.State, out.URL, out.HostOnly = Live, observed.URL, observed.HostOnly
+		out.State, out.URL, out.HostOnly = live, observed.URL, observed.HostOnly
 		out.Built, out.Commit = observed.Built, observed.Commit
 	case observed.NoContract:
-		out.State = None
+		out.State = none
 	case failure != "":
 		out.State, out.Reason = Broken, failure
 	}
 	return out
 }
 
-// Inspect does no provider work during a boot. Otherwise observation runs outside
+// inspect does no provider work during a boot. Otherwise observation runs outside
 // the mutex, then state is reread so a boot admitted meanwhile takes precedence.
-func (p *Runtime) Inspect(ctx context.Context, key Key, observer Observer) Status {
-	current := p.status(key, Observation{})
-	if current.State == Starting {
+func (p *previewRuntime) inspect(ctx context.Context, key previewKey, observer observer) Status {
+	current := p.status(key, observation{})
+	if current.State == stateStarting {
 		return current
 	}
 	return p.status(key, observer.ObservePreview(ctx))

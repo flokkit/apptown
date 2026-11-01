@@ -5,10 +5,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"github.com/flokkit/apptown/internal/deploy/docker"
 	"log"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/deploy/docker"
 
 	"github.com/flokkit/apptown/internal/ids"
 

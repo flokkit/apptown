@@ -51,9 +51,9 @@ type Config struct {
 
 var (
 	ErrNoSession = fault.New(fault.NotFound, "no such session")
-	ErrEnded     = errors.New("console session is stopped")
-	// ErrAsleep: watching a terminal never starts the agent.
-	ErrAsleep = fault.New(fault.Conflict, "this chat is not running; it starts again when someone who may work on it says something")
+	errEnded     = errors.New("console session is stopped")
+	// errAsleep: watching a terminal never starts the agent.
+	errAsleep = fault.New(fault.Conflict, "this chat is not running; it starts again when someone who may work on it says something")
 	// ErrWatching: a watcher's terminal takes no keystrokes.
 	ErrWatching = fault.New(fault.Forbidden, "this terminal is open to watch, not to type")
 )
@@ -165,7 +165,7 @@ func (s *Service) Open(ctx context.Context, in OpenRequest) (*Session, error) {
 			meta.AgentSession = c.Session
 		}
 	}
-	if err := os.WriteFile(filepath.Join(dir, AuthoredFile), []byte(in.Steering), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, authoredFile), []byte(in.Steering), 0o644); err != nil {
 		return nil, err
 	}
 	if err := place(dir, in.Files); err != nil {
@@ -245,7 +245,7 @@ func (s *Service) wake(ctx context.Context, sess *Session) error {
 	s.mu.Lock()
 	if sess.ended() || sess.ending {
 		s.mu.Unlock()
-		return ErrEnded
+		return errEnded
 	}
 	sess.waking++
 	s.mu.Unlock()
@@ -333,14 +333,14 @@ func (s *Service) State(ctx context.Context, sess *Session) State {
 	}
 	if st.Attached {
 		if sess.Viewers() > 0 {
-			return Attached
+			return attached
 		}
-		return Detached
+		return detached
 	}
 	if st.Running {
-		return Detached
+		return detached
 	}
-	return Stopped
+	return stopped
 }
 
 // MessagePage is the conversation from a bubble index on, with the turn state.
@@ -363,7 +363,7 @@ func (s *Service) Messages(ctx context.Context, id string, from int) (MessagePag
 			out = append(out, m)
 		}
 	}
-	return MessagePage{Messages: out, Turn: sess.Turn()}, nil
+	return MessagePage{Messages: out, Turn: sess.turn()}, nil
 }
 
 // Warm has the agent running for the session without saying anything: an
@@ -455,7 +455,7 @@ func (s *Service) Watch(ctx context.Context, id string) (Terminal, error) {
 		return nil, err
 	}
 	if !st.Running {
-		return nil, ErrAsleep
+		return nil, errAsleep
 	}
 	term, err := s.agent.Attach(ctx, sess.ID, Size{})
 	if err != nil {
@@ -504,10 +504,10 @@ func (s *Service) Stop(ctx context.Context, id string) error {
 	return s.agent.Stop(ctx, sess.ID)
 }
 
-// Ended is what End leaves for the caller to finish: a change console's
+// ended is what End leaves for the caller to finish: a change console's
 // worktree is the change's and stays; a project console's snapshot is
 // deleted here.
-type Ended struct {
+type ended struct {
 	Session *Session
 }
 
@@ -515,14 +515,14 @@ type Ended struct {
 // remains under the session dir (the session files, the steering) is the
 // archived conversation. Failed checkout removal retains that archive for
 // retry; ending an archive retries cleanup without waking or settling it.
-func (s *Service) End(ctx context.Context, id string) (Ended, error) {
+func (s *Service) End(ctx context.Context, id string) (ended, error) {
 	return s.end(ctx, id, false)
 }
 
-func (s *Service) end(ctx context.Context, id string, purge bool) (Ended, error) {
+func (s *Service) end(ctx context.Context, id string, purge bool) (ended, error) {
 	release, err := s.claimCleanup(id)
 	if err != nil {
-		return Ended{}, err
+		return ended{}, err
 	}
 	defer release()
 	s.mu.Lock()
@@ -532,15 +532,15 @@ func (s *Service) end(ctx context.Context, id string, purge bool) (Ended, error)
 		s.mu.Unlock()
 		sess, err := s.endedRecord(id)
 		if err != nil {
-			return Ended{}, err
+			return ended{}, err
 		}
-		return Ended{Session: sess}, cleanupCheckout(sess, purge)
+		return ended{Session: sess}, cleanupCheckout(sess, purge)
 	case sess.ending:
 		s.mu.Unlock()
-		return Ended{}, fmt.Errorf("chat %s is already ending", id)
+		return ended{}, fmt.Errorf("chat %s is already ending", id)
 	case sess.waking > 0:
 		s.mu.Unlock()
-		return Ended{}, fmt.Errorf("chat %s is starting its agent; end it again once it has started", id)
+		return ended{}, fmt.Errorf("chat %s is starting its agent; end it again once it has started", id)
 	}
 	sess.ending = true
 	s.mu.Unlock()
@@ -550,7 +550,7 @@ func (s *Service) end(ctx context.Context, id string, purge bool) (Ended, error)
 		s.mu.Lock()
 		sess.ending = false
 		s.mu.Unlock()
-		return Ended{}, fmt.Errorf("removing chat %s's agent: %w; the chat stays until it is removed", sess.ID, err)
+		return ended{}, fmt.Errorf("removing chat %s's agent: %w; the chat stays until it is removed", sess.ID, err)
 	}
 	// Settled after the runtime's end (its last record is in) and before the
 	// record is archived or removed: a chat whose settling failed keeps its
@@ -560,7 +560,7 @@ func (s *Service) end(ctx context.Context, id string, purge bool) (Ended, error)
 			s.mu.Lock()
 			sess.ending = false
 			s.mu.Unlock()
-			return Ended{}, fmt.Errorf("chat %s ended its agent, but settling it failed: %w; it stays until it is ended again", sess.ID, err)
+			return ended{}, fmt.Errorf("chat %s ended its agent, but settling it failed: %w; it stays until it is ended again", sess.ID, err)
 		}
 	}
 	// The record becomes the archive: recovery no longer sees a live
@@ -570,13 +570,13 @@ func (s *Service) end(ctx context.Context, id string, purge bool) (Ended, error)
 		s.mu.Lock()
 		sess.ending = false
 		s.mu.Unlock()
-		return Ended{}, fmt.Errorf("chat %s's agent is removed, but its record could not be marked ended: %w; end it again", sess.ID, err)
+		return ended{}, fmt.Errorf("chat %s's agent is removed, but its record could not be marked ended: %w; end it again", sess.ID, err)
 	}
 	s.mu.Lock()
 	delete(s.sessions, id)
 	s.mu.Unlock()
 	sess.end()
-	return Ended{Session: sess}, cleanupCheckout(sess, purge)
+	return ended{Session: sess}, cleanupCheckout(sess, purge)
 }
 
 // Gone reports whether a session is over and nothing of it can still write
@@ -778,9 +778,9 @@ func (s *Service) Upload(ctx context.Context, id string, f File) (Attachment, er
 	return Attachment{Name: name, Path: UploadsMount + "/" + name}, nil
 }
 
-// ErrNoPicture: the chat has no picture by that name, or the name is not one
+// errNoPicture: the chat has no picture by that name, or the name is not one
 // the console gives.
-var ErrNoPicture = errors.New("no such picture")
+var errNoPicture = errors.New("no such picture")
 
 var pictureName = regexp.MustCompile(`^picture-\d+\.(png|jpg|webp|gif)$`)
 
@@ -795,12 +795,12 @@ func ValidPictureName(name string) bool { return pictureName.MatchString(name) }
 // nothing is listed.
 func (s *Service) RecordedPicture(scope, id, name string) (string, error) {
 	if !validSessionID(id) || !ValidPictureName(name) {
-		return "", ErrNoPicture
+		return "", errNoPicture
 	}
 	dir := filepath.Join(s.root(), id)
 	meta, err := readAnyMeta(dir)
 	if err != nil || meta.Scope != scope {
-		return "", ErrNoPicture
+		return "", errNoPicture
 	}
 	// Whether the file is there, and that reading it stays inside the
 	// chat's uploads, is the serving read's (httpapi.ServeUntrustedFile).
@@ -814,7 +814,7 @@ func (s *Service) RecordedPicture(scope, id, name string) (string, error) {
 func (s *Service) RemoveEnded(m Match) error {
 	// A folder whose record cannot be read cannot be known to match: it is
 	// left for a person, never deleted on a guess.
-	records, _, err := s.RecordsMatching(m)
+	records, _, err := s.recordsMatching(m)
 	if err != nil {
 		return err
 	}
@@ -878,9 +878,9 @@ func (s *Service) Annotate(ctx context.Context, id, key, value string) error {
 	return sess.persist()
 }
 
-// RuntimeIdentity is who the token's holder is: the agent inside a session,
+// runtimeIdentity is who the token's holder is: the agent inside a session,
 // with the opener's scope and facts.
-type RuntimeIdentity struct {
+type runtimeIdentity struct {
 	SessionID string
 	Scope     string
 	Labels    map[string]string
@@ -889,9 +889,9 @@ type RuntimeIdentity struct {
 
 // Identity resolves a session token: the credential the agent inside holds.
 // A session on a project being deleted identifies nobody; so does an ended one.
-func (s *Service) Identity(token string) (RuntimeIdentity, bool) {
+func (s *Service) Identity(token string) (runtimeIdentity, bool) {
 	if token == "" {
-		return RuntimeIdentity{}, false
+		return runtimeIdentity{}, false
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -904,17 +904,17 @@ func (s *Service) Identity(token string) (RuntimeIdentity, bool) {
 			sess.mu.Lock()
 			labels := maps.Clone(sess.Labels)
 			sess.mu.Unlock()
-			return RuntimeIdentity{SessionID: sess.ID, Scope: sess.Scope, Labels: labels, Actor: sess.Actor}, true
+			return runtimeIdentity{SessionID: sess.ID, Scope: sess.Scope, Labels: labels, Actor: sess.Actor}, true
 		}
 	}
-	return RuntimeIdentity{}, false
+	return runtimeIdentity{}, false
 }
 
 // Busy: a session the match selects is watched or was used within the window.
 func (s *Service) Busy(ctx context.Context, m Match, within time.Duration) bool {
 	now := s.now()
 	for _, sess := range s.List(ctx, m) {
-		if sess.Active(now, within) {
+		if sess.active(now, within) {
 			return true
 		}
 	}
@@ -924,7 +924,7 @@ func (s *Service) Busy(ctx context.Context, m Match, within time.Duration) bool 
 // UsesWorkspace: a live session's checkout is this workspace or lies under it.
 func (s *Service) UsesWorkspace(ctx context.Context, workspace string) bool {
 	for _, sess := range s.List(ctx, Match{}) {
-		if sess.UsesWorkspace(workspace) {
+		if sess.usesWorkspace(workspace) {
 			return true
 		}
 	}
@@ -972,7 +972,7 @@ func (s *Service) Transcript(ctx context.Context, scope string) (convs []Convers
 			continue
 		}
 		rec := &Session{Meta: meta, Dir: dir}
-		msgs, err := rec.ReadMessages()
+		msgs, err := rec.readMessages()
 		if err != nil {
 			unreadable = append(unreadable, e.Name())
 			continue
@@ -1010,41 +1010,35 @@ func archived(dir string) bool {
 	return errors.Is(err, os.ErrNotExist)
 }
 
-// Recording is a session's record on disk, live or ended, with its
+// recording is a session's record on disk, live or ended, with its
 // directory, whether it is live in this process, and whether its record is
 // its archive (it ended).
-type Recording struct {
+type recording struct {
 	Meta
 	Dir   string
 	Live  bool
 	Ended bool
 }
 
-// ReadMessages are the recorded session's words, read from its record; a
-// record that cannot be read is an error, never no words.
-func (r Recording) ReadMessages() ([]Message, error) {
-	return (&Session{Meta: r.Meta, Dir: r.Dir}).ReadMessages()
-}
-
 // Records is every session a scope has had, live or ended, oldest first,
 // read from the records on disk, and the folders whose record could not be
 // read (RecordsMatching).
-func (s *Service) Records(scope string) ([]Recording, []string, error) {
-	return s.RecordsMatching(Match{Scope: scope})
+func (s *Service) Records(scope string) ([]recording, []string, error) {
+	return s.recordsMatching(Match{Scope: scope})
 }
 
-// RecordsMatching is every session a Match selects, live or ended, oldest
+// recordsMatching is every session a Match selects, live or ended, oldest
 // first, read from the records on disk: an ended session is selected by
 // its archived record, without registering or waking it. A folder whose
 // record cannot be read or parsed may belong to the Match, so it is named
 // in unreadable, never skipped silently; the caller decides what that
 // means for it.
-func (s *Service) RecordsMatching(m Match) (records []Recording, unreadable []string, err error) {
+func (s *Service) recordsMatching(m Match) (records []recording, unreadable []string, err error) {
 	entries, err := os.ReadDir(s.root())
 	if err != nil && !os.IsNotExist(err) {
 		return nil, nil, err
 	}
-	var out []Recording
+	var out []recording
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
@@ -1061,7 +1055,7 @@ func (s *Service) RecordsMatching(m Match) (records []Recording, unreadable []st
 		s.mu.Lock()
 		_, live := s.sessions[meta.ID]
 		s.mu.Unlock()
-		out = append(out, Recording{Meta: meta, Dir: dir, Live: live, Ended: archived(dir)})
+		out = append(out, recording{Meta: meta, Dir: dir, Live: live, Ended: archived(dir)})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
 	return out, unreadable, nil
@@ -1116,7 +1110,7 @@ func (s *Service) Block(key, value string) (func(), error) {
 		if sess.Labels[key] == value && sess.ending {
 			return nil, fmt.Errorf("chat %s is still saving its work as it ends — try again in a moment", sess.ID)
 		}
-		if sess.Labels[key] == value && sess.Active(now, 10*time.Minute) {
+		if sess.Labels[key] == value && sess.active(now, 10*time.Minute) {
 			return nil, fmt.Errorf("a chat here is mid-conversation (session %s) — end the chat first, then delete", sess.ID)
 		}
 	}

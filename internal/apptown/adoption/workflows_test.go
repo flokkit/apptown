@@ -47,7 +47,7 @@ func TestSystemBindingsAndLanes(t *testing.T) {
 	pid := adoptionTestProject(t, db, "ln", "Ln")
 	selected := func() bool {
 		t.Helper()
-		on, err := lanes.Selected(t.Context(), pid, "ours/plain")
+		on, err := lanes.selected(t.Context(), pid, "ours/plain")
 		if err != nil {
 			t.Fatal(err)
 		}

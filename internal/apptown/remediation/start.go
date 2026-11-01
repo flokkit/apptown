@@ -9,24 +9,24 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
 
-type StartRecords interface {
+type startRecords interface {
 	Start(context.Context, Item, StartDefinition, string) (*workflow.Run, error)
 	Failed(context.Context, Item, string) error
 }
 
 // This owner resolves a frozen definition, commits the complete attempt, then
 // requests execution. Failed dispatch leaves the same run recoverable.
-type Starter struct {
-	records  StartRecords
+type starter struct {
+	records  startRecords
 	resolve  func(context.Context, Item) (StartDefinition, error)
 	dispatch func(runID ids.ID) error
 }
 
-func NewStarter(records StartRecords, resolve func(context.Context, Item) (StartDefinition, error), dispatch func(ids.ID) error) *Starter {
-	return &Starter{records: records, resolve: resolve, dispatch: dispatch}
+func NewStarter(records startRecords, resolve func(context.Context, Item) (StartDefinition, error), dispatch func(ids.ID) error) *starter {
+	return &starter{records: records, resolve: resolve, dispatch: dispatch}
 }
 
-func (s *Starter) Start(ctx context.Context, item Item, worker string) (*workflow.Run, error) {
+func (s *starter) Start(ctx context.Context, item Item, worker string) (*workflow.Run, error) {
 	def, err := s.resolve(ctx, item)
 	if err != nil {
 		// A resolution the caller stopped was never assessed: the item stays

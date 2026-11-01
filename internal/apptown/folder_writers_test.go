@@ -118,7 +118,7 @@ func TestTheUnstoppedTaskCheckRefusesOnAnyReadError(t *testing.T) {
 				t.Fatal("second step missing")
 			}
 			a.tasks.AbandonAt = nil
-			restore := a.DB.FailStatementAfter("-- name: "+tc.query+" ", tc.skip)
+			restore := dbtest.StatementFailureAfter(a.DB, "-- name: "+tc.query+" ", tc.skip)
 			defer restore()
 			if err := a.Work.ExecuteStep(a.asEngine(ctx), secondStep.ID); err != nil {
 				t.Fatal(err)
@@ -242,12 +242,12 @@ func TestAnAgentAndAScriptNeverShareTheFolder(t *testing.T) {
 				close(scriptDone)
 			}
 			overlapped := false
-			installFakePi(t, a, func(_ int, req ExecRequest) ExecOutcome {
+			installFakePi(t, a, func(_ int, req execRequest) execOutcome {
 				calls++
 				if fake.Present(key) {
 					overlapped = true
 				}
-				return ExecOutcome{Output: piSays("done")}
+				return execOutcome{Output: piSays("done")}
 			})
 			if err := a.Work.ExecuteStep(a.asEngine(ctx), agent.ID); err != nil {
 				t.Fatal(err)
@@ -317,7 +317,7 @@ func TestAWriterThatOutlivedItsStepKeepsTheNextOneOut(t *testing.T) {
 					ws := requireLocation(t)(source.Workspace(a.cfg.dataDir))
 					var survived string
 					calls := 0
-					installFakePi(t, a, func(_ int, req ExecRequest) ExecOutcome {
+					installFakePi(t, a, func(_ int, req execRequest) execOutcome {
 						calls++
 						if req.Workspace != ws {
 							t.Fatalf("wrong agent workspace: %s", req.Workspace)
@@ -327,7 +327,7 @@ func TestAWriterThatOutlivedItsStepKeepsTheNextOneOut(t *testing.T) {
 						if interrupted {
 							panic("test crash boundary: launched agent, no outcome recorded")
 						}
-						return ExecOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("Docker did not stop the agent")}
+						return execOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("Docker did not stop the agent")}
 					})
 					if err := a.Work.ExecuteStep(a.asEngine(ctx), old.ID); err != nil {
 						t.Fatal(err)
@@ -413,10 +413,10 @@ func TestAStepThatWaitedForTheFolderDoesNotRunAfterItsRunStopped(t *testing.T) {
 			close(release)
 		}
 	}()
-	installFakePi(t, a, func(_ int, _ ExecRequest) ExecOutcome {
+	installFakePi(t, a, func(_ int, _ execRequest) execOutcome {
 		close(entered)
 		<-release
-		return ExecOutcome{Output: piSays("done")}
+		return execOutcome{Output: piSays("done")}
 	})
 	agentDone := make(chan error, 1)
 	go func() { agentDone <- a.Work.ExecuteStep(a.asEngine(ctx), agent.ID) }()
@@ -545,7 +545,7 @@ func TestAWriterLeftMarkedRunningKeepsEveryNextWriterOut(t *testing.T) {
 				ws := requireLocation(t)(source.Workspace(a.cfg.dataDir))
 				var survivor string
 				calls := 0
-				runPi := func(_ int, req ExecRequest) ExecOutcome {
+				runPi := func(_ int, req execRequest) execOutcome {
 					calls++
 					if req.Workspace != ws {
 						t.Fatalf("wrong workspace: %s", req.Workspace)
@@ -556,11 +556,11 @@ func TestAWriterLeftMarkedRunningKeepsEveryNextWriterOut(t *testing.T) {
 						// The outcome and the error that would replace it both fail to
 						// record: the step is left marked running, as a crash leaves it.
 						a.agents.Settle = workflow.Settlement{Tries: 1}
-						t.Cleanup(a.DB.FailStatements("-- name: FinishAttempt", 2))
-						return ExecOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("agent remains alive")}
+						t.Cleanup(dbtest.StatementFailures(a.DB, "-- name: FinishAttempt", 2))
+						return execOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("agent remains alive")}
 					}
 					writeVerdict(t, ws, `{"verdict":"pass","summary":"checked","findings":[]}`)
-					return ExecOutcome{Output: piSays("done")}
+					return execOutcome{Output: piSays("done")}
 				}
 				installFakePi(t, a, runPi)
 				if err := a.Work.ExecuteStep(a.asEngine(ctx), old.ID); err != nil {
@@ -610,10 +610,10 @@ func TestRemoteRecoveryDoesNotPublishBesideASurvivingWriter(t *testing.T) {
 			daemon := newSurvivingContainers()
 			a.docker = docker.Scope{Client: daemon}
 			var survivor string
-			installFakePi(t, a, func(_ int, req ExecRequest) ExecOutcome {
+			installFakePi(t, a, func(_ int, req execRequest) execOutcome {
 				survivor = req.Name
 				daemon.survive(req)
-				return ExecOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("agent remains alive")}
+				return execOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("agent remains alive")}
 			})
 			state := onWorker(t, a, fake)
 			key := taskKeyOf(script)
@@ -720,7 +720,7 @@ func TestASourceReadFailureLeavesAWriterPending(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			a, fake, script := scriptTaskFixture(t, map[string]any{"run": "true", "executor": "docker", "image": "fake"}, schema.Step{Name: "agent", Uses: kind})
 			ctx := context.Background()
-			pi := installFakePi(t, a, func(_ int, _ ExecRequest) ExecOutcome { return ExecOutcome{Output: piSays("unexpected")} })
+			pi := installFakePi(t, a, func(_ int, _ execRequest) execOutcome { return execOutcome{Output: piSays("unexpected")} })
 			snap, err := a.Work.Snapshot(a.asEngine(ctx), script.RunID, workflow.DetailView)
 			if err != nil {
 				t.Fatal(err)
@@ -772,14 +772,14 @@ func TestAWaiterWhoseRunStoppedDoesNotLaunch(t *testing.T) {
 				entered, release := make(chan struct{}), make(chan struct{})
 				var releaseOnce sync.Once
 				let := func() { releaseOnce.Do(func() { close(release) }) }
-				installFakePi(t, a, func(_ int, _ ExecRequest) ExecOutcome {
+				installFakePi(t, a, func(_ int, _ execRequest) execOutcome {
 					calls++
 					if calls > 1 {
-						return ExecOutcome{Output: piSays("unexpected")}
+						return execOutcome{Output: piSays("unexpected")}
 					}
 					close(entered)
 					<-release
-					return ExecOutcome{Output: piSays("done")}
+					return execOutcome{Output: piSays("done")}
 				})
 				// Every exit lets the holder go and joins both steps before
 				// the fixture's cleanup removes their database and folder.
@@ -984,9 +984,9 @@ func TestAWriterWhoseStepIsGoneIsRemovedOrRefusesTheAttempt(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			d.survive(ExecRequest{Name: "orphan-writer", Labels: []string{docker.WritesLabel + "=" + requireLocation(t)(source.Workspace(a.cfg.dataDir)), "apptown.step=9999999"}})
+			d.survive(execRequest{Name: "orphan-writer", Labels: []string{docker.WritesLabel + "=" + requireLocation(t)(source.Workspace(a.cfg.dataDir)), "apptown.step=9999999"}})
 			calls := 0
-			installFakePi(t, a, func(_ int, _ ExecRequest) ExecOutcome { calls++; return ExecOutcome{Output: piSays("done")} })
+			installFakePi(t, a, func(_ int, _ execRequest) execOutcome { calls++; return execOutcome{Output: piSays("done")} })
 			if err := a.Work.ExecuteStep(a.asEngine(context.Background()), stepID); err != nil {
 				t.Fatal(err)
 			}
@@ -1025,9 +1025,9 @@ func TestAWriterWithNoStepIsRemovedBeforeAnAttempt(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			d.survive(ExecRequest{Name: "no-step-label", Labels: []string{docker.WritesLabel + "=" + requireLocation(t)(source.Workspace(a.cfg.dataDir))}})
+			d.survive(execRequest{Name: "no-step-label", Labels: []string{docker.WritesLabel + "=" + requireLocation(t)(source.Workspace(a.cfg.dataDir))}})
 			calls := 0
-			installFakePi(t, a, func(_ int, _ ExecRequest) ExecOutcome { calls++; return ExecOutcome{Output: piSays("done")} })
+			installFakePi(t, a, func(_ int, _ execRequest) execOutcome { calls++; return execOutcome{Output: piSays("done")} })
 			if err := a.Work.ExecuteStep(a.asEngine(context.Background()), stepID); err != nil {
 				t.Fatal(err)
 			}
@@ -1091,13 +1091,13 @@ func TestARestartWaitsForASiblingStepLeftWritingTheFolder(t *testing.T) {
 		t.Fatal("steps missing")
 	}
 	calls := 0
-	installFakePi(t, a, func(_ int, req ExecRequest) ExecOutcome {
+	installFakePi(t, a, func(_ int, req execRequest) execOutcome {
 		calls++
 		if strings.HasPrefix(req.Name, execution.StepContainer(review, "review")) {
 			d.survive(req)
-			return ExecOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("reviewer still writing")}
+			return execOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("reviewer still writing")}
 		}
-		return ExecOutcome{Output: piSays("implemented")}
+		return execOutcome{Output: piSays("implemented")}
 	})
 	a.Work.ExecuteStep(a.asEngine(context.Background()), build)
 	if s, ev := stepStatus(t, a, build); s != workflow.StatusPass {
@@ -1139,7 +1139,7 @@ func TestAnAgentWithAPrivateDockerIsNotRerunInPlace(t *testing.T) {
 	a.docker = docker.Scope{Client: d}
 	_, step := admittedAgentStep(t, a, `{"prompt":"do it","skills":["skill/implementation"],"docker":true}`)
 	calls := 0
-	installFakePi(t, a, func(_ int, req ExecRequest) ExecOutcome {
+	installFakePi(t, a, func(_ int, req execRequest) execOutcome {
 		calls++
 		if envValue(req, "DOCKER_HOST") == "" {
 			t.Fatal("private daemon not provisioned")
@@ -1149,7 +1149,7 @@ func TestAnAgentWithAPrivateDockerIsNotRerunInPlace(t *testing.T) {
 		}
 		// Pi exits with an empty assistant turn; work started through its
 		// private daemon can remain detached. Only removing dind stops it.
-		return ExecOutcome{Output: piSays("")}
+		return execOutcome{Output: piSays("")}
 	})
 	a.Work.ExecuteStep(a.asEngine(context.Background()), step)
 	if calls != 1 {
@@ -1219,7 +1219,7 @@ func TestAStepLeftMarkedRunningDoesNotShieldItsContainer(t *testing.T) {
 	}
 	var old string
 	calls := 0
-	installFakePi(t, a, func(_ int, req ExecRequest) ExecOutcome {
+	installFakePi(t, a, func(_ int, req execRequest) execOutcome {
 		calls++
 		if calls == 2 {
 			old = req.Name
@@ -1227,11 +1227,11 @@ func TestAStepLeftMarkedRunningDoesNotShieldItsContainer(t *testing.T) {
 			// The outcome and the error that would replace it both fail to
 			// record: the step is left marked running, as a crash leaves it.
 			a.agents.Settle = workflow.Settlement{Tries: 1}
-			t.Cleanup(a.DB.FailStatements("-- name: FinishAttempt", 2))
-			return ExecOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("old review survives")}
+			t.Cleanup(dbtest.StatementFailures(a.DB, "-- name: FinishAttempt", 2))
+			return execOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("old review survives")}
 		}
 		writeVerdict(t, req.Workspace, `{"verdict":"pass","summary":"checked","findings":[]}`)
-		return ExecOutcome{Output: piSays("checked")}
+		return execOutcome{Output: piSays("checked")}
 	})
 	ready := reviewExecute(t, a, run, "ready")
 	if ready.Status != workflow.StatusPass {
@@ -1322,10 +1322,10 @@ func TestARetryWaitsForTheEarlierAgentsContainer(t *testing.T) {
 			a.docker = docker.Scope{Client: daemon}
 			_, stepID := admittedAgentStep(t, a, `{"prompt":"do it"}`)
 			calls := 0
-			installFakePi(t, a, func(_ int, req ExecRequest) ExecOutcome {
+			installFakePi(t, a, func(_ int, req execRequest) execOutcome {
 				calls++
 				daemon.survive(req)
-				return ExecOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("old container still writes")}
+				return execOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("old container still writes")}
 			})
 			a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
 			if status, _ := stepStatus(t, a, stepID); status != workflow.StatusError {
@@ -1358,7 +1358,7 @@ func newSurvivingContainers() *survivingContainers {
 
 // survive records an agent's container as still there, labelled as the
 // runner labels it.
-func (d *survivingContainers) survive(req ExecRequest) {
+func (d *survivingContainers) survive(req execRequest) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.live[req.Name] = append([]string{"apptown.class=step"}, req.Labels...)

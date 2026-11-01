@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/database"
@@ -34,7 +36,7 @@ func TestConfigurationHTTPRequiresReadableAuthorityAndMapsErrors(t *testing.T) {
 			if w := networkCall(h, "boss", "PUT", path, invalid); w.Code != 400 {
 				t.Fatalf("invalid configuration: %d %s", w.Code, w.Body)
 			}
-			restore := db.FailNextStatement("-- name: UserByName :one")
+			restore := dbtest.NextStatementFailure(db, "-- name: UserByName :one")
 			w := networkCall(h, "boss", "PUT", path, valid)
 			restore()
 			if w.Code != 500 {

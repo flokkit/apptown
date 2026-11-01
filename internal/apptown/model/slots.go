@@ -34,10 +34,10 @@ var Gloss = map[string]string{
 	"scout":     "a helper's delegate for quick read-only lookups",
 }
 
-// StockFallbacks: where an unmapped slot degrades to. Seeded as data so
+// stockFallbacks: where an unmapped slot degrades to. Seeded as data so
 // the chain is visible and editable; the final hop to `default` stays in
 // the rule, because every chain must end somewhere.
-var StockFallbacks = map[string]string{
+var stockFallbacks = map[string]string{
 	"plan": "default", "implement": "default", "review": "default",
 	"security": "review", "fast": "default", "chat": "default",
 	"worker": "default", "scout": "fast",
@@ -45,18 +45,18 @@ var StockFallbacks = map[string]string{
 
 var profileNameRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,23}$`)
 
-var ErrProfileName = errors.New("profile must be a short lowercase word (letters, digits, dashes)")
+var errProfileName = errors.New("profile must be a short lowercase word (letters, digits, dashes)")
 
 // ValidProfile reports whether a profile name has the shape.
 func ValidProfile(name string) bool { return profileNameRe.MatchString(name) }
 
-// IsSlot reports whether a model value names a slot rather than a
+// isSlot reports whether a model value names a slot rather than a
 // concrete pattern.
-func IsSlot(v string) bool { return v != "" && !strings.Contains(v, "/") }
+func isSlot(v string) bool { return v != "" && !strings.Contains(v, "/") }
 
-// ProfileOf is a project's declared demand level: standard when it
+// profileOf is a project's declared demand level: standard when it
 // declares nothing.
-func ProfileOf(declared string) string {
+func profileOf(declared string) string {
 	if declared == "" {
 		return StandardProfile
 	}
@@ -92,7 +92,7 @@ type cellRef struct {
 	profile string
 }
 
-// Resolve walks, most specific first, until a cell holds a pattern:
+// resolve walks, most specific first, until a cell holds a pattern:
 //
 //	explicit project override row (profile '')     → profile "override"
 //	instance cell (slot, project's profile)        → that profile
@@ -106,11 +106,11 @@ type cellRef struct {
 // Only an absent cell or fallback row passes the walk on: a failed read
 // returns its error, so a database fault never selects a less specific model
 // or reads as "no model is set up".
-func (s *Slots) Resolve(ctx context.Context, projectID ids.ID, projectProfile, requested string) (pattern, slot, profile string, err error) {
-	if requested != "" && !IsSlot(requested) {
+func (s *Slots) resolve(ctx context.Context, projectID ids.ID, projectProfile, requested string) (pattern, slot, profile string, err error) {
+	if requested != "" && !isSlot(requested) {
 		return requested, "", "", nil
 	}
-	proj := ProfileOf(projectProfile)
+	proj := profileOf(projectProfile)
 	seen := map[string]bool{}
 	name := requested
 	if name == "" {
@@ -155,7 +155,7 @@ func (s *Slots) Resolve(ctx context.Context, projectID ids.ID, projectProfile, r
 // SeedFallbacks records the stock chain as data, only where no row says
 // otherwise: the chain is visible and editable, and operator edits stand.
 func (s *Slots) SeedFallbacks(ctx context.Context) error {
-	for slot, fallback := range StockFallbacks {
+	for slot, fallback := range stockFallbacks {
 		if err := queries(s.db).InsertFallback(ctx, modelsql.InsertFallbackParams{Slot: slot, Fallback: fallback}); err != nil {
 			return err
 		}
@@ -175,7 +175,7 @@ func (s *Slots) SetDefault(ctx context.Context, pattern string) error {
 // mapping. The caller must authorize the change; who is audit attribution.
 // This validates the slot/profile names, not provider availability or model access.
 func (s *Slots) Set(ctx context.Context, slot string, projectID ids.ID, projectSlug, profile, pattern, who string) error {
-	if !IsSlot(slot) {
+	if !isSlot(slot) {
 		return errors.New("slot (no slash) required")
 	}
 	if projectID.IsZero() {
@@ -183,7 +183,7 @@ func (s *Slots) Set(ctx context.Context, slot string, projectID ids.ID, projectS
 			profile = StandardProfile
 		}
 		if !ValidProfile(profile) {
-			return ErrProfileName
+			return errProfileName
 		}
 	} else {
 		profile = ""
@@ -215,14 +215,14 @@ func (s *Slots) Cells(ctx context.Context) (map[string]map[string]string, error)
 	return out, err
 }
 
-// Override is a project's explicit mapping of a slot.
-type Override struct{ Slot, Pattern, ProjectSlug string }
+// override is a project's explicit mapping of a slot.
+type override struct{ Slot, Pattern, ProjectSlug string }
 
-func (s *Slots) Overrides(ctx context.Context) ([]Override, error) {
+func (s *Slots) Overrides(ctx context.Context) ([]override, error) {
 	rows, err := queries(s.db).Overrides(ctx)
-	out := make([]Override, 0, len(rows))
+	out := make([]override, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, Override{Slot: r.Slot, Pattern: r.Pattern, ProjectSlug: r.ProjectSlug})
+		out = append(out, override{Slot: r.Slot, Pattern: r.Pattern, ProjectSlug: r.ProjectSlug})
 	}
 	return out, err
 }

@@ -31,16 +31,16 @@ func TestWhatIfResultSaysWhatTakingTheVersionChanges(t *testing.T) {
 		{&broken, &pass, WhatIfNotAssessed},
 		{&na, &pass, WhatIfUnchanged},
 		{&na, &fail, WhatIfWouldFail},
-		{&fail, &na, WhatIfNotApplicable},
-		{&pass, &na, WhatIfNotApplicable},
-		{&fail, nil, WhatIfNoLongerNeeded},
-		{&cannot, nil, WhatIfNoLongerNeeded},
+		{&fail, &na, whatIfNotApplicable},
+		{&pass, &na, whatIfNotApplicable},
+		{&fail, nil, whatIfNoLongerNeeded},
+		{&cannot, nil, whatIfNoLongerNeeded},
 	} {
 		if got := WhatIfResult(tc.today, tc.version); got != tc.want {
 			t.Errorf("today %v, under the version %v: %s, want %s", tc.today, tc.version, got, tc.want)
 		}
 	}
-	words := map[string]bool{WhatIfWouldFail: true, WhatIfWouldPass: true, WhatIfUnchanged: true, WhatIfNotAssessed: true, WhatIfNoLongerNeeded: true, WhatIfNotApplicable: true}
+	words := map[string]bool{WhatIfWouldFail: true, WhatIfWouldPass: true, WhatIfUnchanged: true, WhatIfNotAssessed: true, whatIfNoLongerNeeded: true, whatIfNotApplicable: true}
 	all := []Outcome{Conforms, DoesNotConform, Excepted, NotApplicable, CannotAssess, EvaluationError}
 	sides := []*Outcome{nil}
 	for i := range all {
@@ -88,12 +88,12 @@ func TestAWhatIfAnswersEachProjectWithWhatTheVersionChanges(t *testing.T) {
 		// 5: a whole-project row.
 		{ProjectID: idstest.N(5), ProjectSlug: "p5", Result: WhatIfNotAssessed, Reason: NotAssessedNoMain},
 	}
-	got := WhatIfByProject([]ids.ID{idstest.N(6), idstest.N(5), idstest.N(4), idstest.N(3), idstest.N(2), idstest.N(1)}, rows, map[ids.ID]string{idstest.N(6): "six"}, true)
+	got := whatIfByProject([]ids.ID{idstest.N(6), idstest.N(5), idstest.N(4), idstest.N(3), idstest.N(2), idstest.N(1)}, rows, map[ids.ID]string{idstest.N(6): "six"}, true)
 	want := []struct {
 		slug, outcome     string
 		failures, unknown int
-	}{{"six", WhatIfNotEvaluated, 0, 0}, {"p5", WhatIfCouldNotAssess, 0, 1}, {"p4", WhatIfNoNewFailures, 0, 0},
-		{"p3", WhatIfCouldNotAssess, 0, 1}, {"p2", WhatIfNewFailures, 1, 0}, {"p1", WhatIfNewFailures, 1, 1}}
+	}{{"six", whatIfNotEvaluated, 0, 0}, {"p5", whatIfCouldNotAssess, 0, 1}, {"p4", WhatIfNoNewFailures, 0, 0},
+		{"p3", whatIfCouldNotAssess, 0, 1}, {"p2", WhatIfNewFailures, 1, 0}, {"p1", WhatIfNewFailures, 1, 1}}
 	if len(got) != len(want) {
 		t.Fatalf("one answer per selected project: %+v", got)
 	}
@@ -115,16 +115,16 @@ func TestAWhatIfAnswersEachProjectWithWhatTheVersionChanges(t *testing.T) {
 	if got[1].CandidateDigest != "" || got[0].CandidateDigest != "" {
 		t.Errorf("a project with no candidate carries none: %+v %+v", got[1], got[0])
 	}
-	if lone := WhatIfByProject(nil, rows[:1], nil, true); len(lone) != 1 || lone[0].Outcome != WhatIfNewFailures {
+	if lone := whatIfByProject(nil, rows[:1], nil, true); len(lone) != 1 || lone[0].Outcome != WhatIfNewFailures {
 		t.Errorf("a what-if with no stored list answers the projects it has rows for: %+v", lone)
 	}
-	if gone := WhatIfByProject([]ids.ID{idstest.N(9)}, nil, nil, true); gone[0].ProjectSlug != "project #"+idstest.N(9).String() || gone[0].Outcome != WhatIfNotEvaluated {
+	if gone := whatIfByProject([]ids.ID{idstest.N(9)}, nil, nil, true); gone[0].ProjectSlug != "project #"+idstest.N(9).String() || gone[0].Outcome != whatIfNotEvaluated {
 		t.Errorf("a project gone since: %+v", gone)
 	}
 	// While the what-if is queued or running, a project it has not reached
 	// is not yet judged: neither an answer nor "not evaluated", which says
 	// the what-if ended without it.
-	if waiting := WhatIfByProject([]ids.ID{idstest.N(6), idstest.N(1)}, rows[:1], nil, false); waiting[0].Outcome != WhatIfNotYetJudged || waiting[1].Outcome != WhatIfNewFailures {
+	if waiting := whatIfByProject([]ids.ID{idstest.N(6), idstest.N(1)}, rows[:1], nil, false); waiting[0].Outcome != whatIfNotYetJudged || waiting[1].Outcome != WhatIfNewFailures {
 		t.Errorf("a running what-if's unreached project: %+v", waiting)
 	}
 }
@@ -155,7 +155,7 @@ func TestAWhatIfScoresEachProjectAndSaysWhatMoves(t *testing.T) {
 		row(one, "memory", "within", 4, 5, cannot, cannot, WhatIfNotAssessed, NotAssessedNoRunningApp),
 		// Today's side not judged, the version's side passes: judged.
 		row(one, "memory", "declared", 4, 5, cannot, pass, WhatIfNotAssessed, NotAssessedNoRunningApp),
-		row(one, "container", "os-updates", 9, 0, pass, "", WhatIfNoLongerNeeded, ""),
+		row(one, "container", "os-updates", 9, 0, pass, "", whatIfNoLongerNeeded, ""),
 		row(one, "lang/django", "", 31, 27, "", "", RuleMoveResult(31, 27), ""),
 		row(one, "container", "", 9, 0, "", "", RuleMoveResult(9, 0), ""),
 		row(one, "workflow implement", "", 40, 52, "", "", RuleMoveResult(40, 52), ""),
@@ -165,7 +165,7 @@ func TestAWhatIfScoresEachProjectAndSaysWhatMoves(t *testing.T) {
 		{ProjectID: three, ProjectSlug: "p3", SHA: "abc", Result: WhatIfNotAssessed, Reason: NotAssessedNoEvaluator},
 		row(three, "workflow land", "", 0, 3, "", "", RuleMoveResult(0, 3), ""),
 	}
-	got := WhatIfByProject([]ids.ID{one, two, three}, rows, nil, true)
+	got := whatIfByProject([]ids.ID{one, two, three}, rows, nil, true)
 	p := got[0]
 	want := WhatIfScore{Checks: 7, Judged: 4, Passed: 2, Failing: 2, CouldNotAssess: 2, NoLongerRequired: 1, NewFailures: 1, MovesBack: 2, RuleChanges: 3}
 	if p.Score != want {
@@ -183,24 +183,24 @@ func TestAWhatIfScoresEachProjectAndSaysWhatMoves(t *testing.T) {
 	if got[1].Score.CouldNotAssess != 2 || len(got[1].NotAssessedBy) != 2 || len(got[1].Moves) != 0 {
 		t.Fatalf("second project %+v", got[1])
 	}
-	if got[2].Outcome != WhatIfCouldNotAssess || got[2].Score.Checks != 0 || got[2].Score.RuleChanges != 1 || got[2].Score.MovesBack != 0 {
+	if got[2].Outcome != whatIfCouldNotAssess || got[2].Score.Checks != 0 || got[2].Score.RuleChanges != 1 || got[2].Score.MovesBack != 0 {
 		t.Fatalf("a rule move replaced the whole-project answer: %+v", got[2])
 	}
-	fleet := WhatIfFleetGaps(rows)
+	fleet := whatIfFleetGaps(rows)
 	if len(fleet) != 4 || fleet[0].Block != "health" || fleet[0].Check != "front-page" || fleet[0].Projects != 2 || fleet[0].Remedy == "" {
 		t.Fatalf("fleet %+v, want the front-page check missing from both projects first", fleet)
 	}
-	if n := WhatIfMovesBackProjects(got); n != 1 {
+	if n := whatIfMovesBackProjects(got); n != 1 {
 		t.Fatalf("%d projects move back, want 1", n)
 	}
 	for _, reason := range NotAssessedReasons {
-		if reason.Remedy() == "" {
+		if reason.remedy() == "" {
 			t.Errorf("%s has no remedy", reason)
 		}
 	}
 	for from, to := range map[int]int{0: 1, 1: 0, 3: 2, 2: 3} {
 		r := WhatIfRow{Result: RuleMoveResult(from, to)}
-		if !r.RuleMove() || r.MovesBack() != (to == 0 || to < from) {
+		if !r.ruleMove() || r.movesBack() != (to == 0 || to < from) {
 			t.Errorf("%d→%d: %s", from, to, r.Result)
 		}
 	}

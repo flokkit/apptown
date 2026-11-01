@@ -4,9 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
-	"github.com/flokkit/apptown/internal/dockerlabel"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -14,6 +11,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
@@ -188,7 +188,7 @@ func TestBuiltinStoragePreservesRecordedNativeVolumeBeforeStarting(t *testing.T)
 			if state == "foreign-volume" {
 				v.Labels[dockerlabel.Instance] = "other"
 			}
-			d := dockerfake.New()
+			d := newDockerFake()
 			effects := []string{}
 			sawReceipt := false
 			d.SetReply(func(args []string) ([]byte, error, bool) {

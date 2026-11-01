@@ -16,9 +16,9 @@ type Hold struct {
 	held chan struct{} // closed on release; nil when nothing is held
 }
 
-// Hold holds new work until release is called; false when it is already
+// hold holds new work until release is called; false when it is already
 // held (one backup at a time holds it).
-func (h *Hold) Hold() (release func(), ok bool) {
+func (h *Hold) hold() (release func(), ok bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.held != nil {

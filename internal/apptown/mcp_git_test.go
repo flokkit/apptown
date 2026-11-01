@@ -452,7 +452,7 @@ func TestTheNoPushBackfillNamesEachHubItCouldNotProtect(t *testing.T) {
 	if err := os.Remove(filepath.Join(good, ".git", "hooks", "pre-receive")); err != nil {
 		t.Fatal(err)
 	}
-	err := a.InstallNoPushHooks()
+	err := a.installNoPushHooks()
 	if err == nil || !strings.Contains(err.Error(), bad) || strings.Contains(err.Error(), good) {
 		t.Fatalf("backfill error %v; want it to name %s alone", err, bad)
 	}
@@ -583,7 +583,7 @@ func TestACheckoutWhoseTicketReceiptFailsHandsOutNoTicket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	restore := a.DB.FailNextStatement("-- name: AppendReceipt")
+	restore := dbtest.NextStatementFailure(a.DB, "-- name: AppendReceipt")
 	out, err := contributionsFor(a).Checkout(ctx, ch.ID)
 	restore()
 	if err == nil || out.Token != "" {

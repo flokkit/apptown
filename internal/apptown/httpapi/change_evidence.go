@@ -3,8 +3,9 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
-	"github.com/flokkit/apptown/internal/apptown/status"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/status"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/workflow"

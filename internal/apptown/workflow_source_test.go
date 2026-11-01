@@ -46,7 +46,7 @@ func TestWorkspaceReadFailureCannotPassRunnerOrServeFiles(t *testing.T) {
 			if typ == "script" {
 				skip = 2
 			}
-			t.Cleanup(a.DB.FailStatementAfter("name: WorkflowSource", skip))
+			t.Cleanup(dbtest.StatementFailureAfter(a.DB, "name: WorkflowSource", skip))
 			a.Work.ExecuteStep(a.asEngine(context.Background()), step.ID)
 			requireSteps(t, a, 1, func(s *workflow.Step) bool {
 				return s.ID == step.ID && s.Status == workflow.StatusError && strings.Contains(evidenceField(s, "reason"), "reading workflow source")

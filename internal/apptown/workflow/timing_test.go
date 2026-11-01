@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -44,7 +43,7 @@ func TestTimingObservationKeepsScopeForBothSelectionModes(t *testing.T) {
 		t.Fatal("foreign timing admitted")
 	}
 	dbtest.FailNextStatement(t, q.db, "WITH selected AS")
-	if _, err := s.Timings(ctx, TimingWindow{}); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := s.Timings(ctx, TimingWindow{}); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("hidden timing failure: %v", err)
 	}
 	if n, err := workflowsql.New(q.db.SQL()).RecordApproval(ctx, workflowsql.RecordApprovalParams{At: time.Now(), Status: "not-a-state", EvidenceJson: json.RawMessage(`{"n":9007199254740993}`), ID: step, Attempt: 0, ExpectedStatus: StatusPending.String()}); err != nil || n != 1 {

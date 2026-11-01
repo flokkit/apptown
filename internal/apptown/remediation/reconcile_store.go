@@ -32,7 +32,7 @@ func NewReconciliation(db *database.DB, work Work, caller context.Context, now f
 	return Reconciliation{db: db, work: work, caller: caller, clock: now}
 }
 
-func (s Reconciliation) Candidates() ([]Item, error) {
+func (s Reconciliation) candidates() ([]Item, error) {
 	rows, err := queries(s.db).OpenItems(s.caller)
 	if err != nil {
 		return nil, err
@@ -73,12 +73,12 @@ func (s Reconciliation) Observe(ctx context.Context, snapshot Item) (*Observatio
 	if !sameObservation(item, snapshot) {
 		return nil, nil
 	}
-	return ReadObservation(s.caller, tx, item)
+	return readObservation(s.caller, tx, item)
 }
 
-func ReadObservation(ctx context.Context, tx *database.Tx, item Item) (*Observation, error) {
+func readObservation(ctx context.Context, tx *database.Tx, item Item) (*Observation, error) {
 	o := &Observation{Item: item}
-	if item.State == ItemVerifying {
+	if item.State == itemVerifying {
 		return o, nil // its landing has already been recorded
 	}
 	change, err := workflow.ReadChangeInProject(ctx, tx, workflow.ChangeRef{ID: item.ChangeID, ProjectID: item.ProjectID})
@@ -122,7 +122,7 @@ func sameFacts(a, b Observation) bool {
 		a.AttemptOutcome == b.AttemptOutcome && a.Execution.Same(b.Execution)
 }
 
-func (s Reconciliation) Apply(ctx context.Context, observed Observation, decision Decision) (*Applied, error) {
+func (s Reconciliation) Apply(ctx context.Context, observed Observation, decision decision) (*applied, error) {
 	now := s.now()
 	// A stopped worker rolls the decision back; the facts stay, and the
 	// next pass decides again.
@@ -143,15 +143,15 @@ func (s Reconciliation) Apply(ctx context.Context, observed Observation, decisio
 	}
 	// Workflow retries, completion and step admission share the project lock.
 	// Re-read the facts after acquiring it, before renewing even the lease.
-	current, err := ReadObservation(s.caller, tx, item)
+	current, err := readObservation(s.caller, tx, item)
 	if err != nil {
 		return nil, err
 	}
 	if !sameFacts(observed, *current) {
 		return nil, nil
 	}
-	result := &Applied{Item: item, RunID: observed.Execution.Run.ID, Decision: decision}
-	if slices.Contains([]string{ItemWorking, ItemAccepting, ItemLanding, ItemVerifying}, item.State) {
+	result := &applied{Item: item, RunID: observed.Execution.Run.ID, Decision: decision}
+	if slices.Contains([]string{ItemWorking, ItemAccepting, ItemLanding, itemVerifying}, item.State) {
 		if _, err := queries(tx).ExtendItemLease(s.caller, remediationsql.ExtendItemLeaseParams{
 			ID: item.ID, LeaseUntil: sql.NullTime{Time: now.Add(remLease), Valid: true},
 		}); err != nil {
@@ -159,8 +159,8 @@ func (s Reconciliation) Apply(ctx context.Context, observed Observation, decisio
 		}
 	}
 	switch decision.Action {
-	case ActionWait, ActionVerify, ActionPrepare:
-	case ActionPhase:
+	case actionWait, actionVerify, actionPrepare:
+	case actionPhase:
 		if _, err := queries(tx).SetItemState(s.caller, remediationsql.SetItemStateParams{UpdatedAt: now,
 			ID: item.ID, State: decision.State, Reason: decision.Reason,
 		}); err != nil {
@@ -169,15 +169,15 @@ func (s Reconciliation) Apply(ctx context.Context, observed Observation, decisio
 		if err := audit.At(now).RecordIn(s.caller, tx, "apptown-system", item.ProjectID, "remediation.item.phase", fmt.Sprint(item.ID), map[string]any{"from": item.State, "to": decision.State, "reason": decision.Reason}); err != nil {
 			return nil, err
 		}
-	case ActionStuck, ActionBackoff, ActionLanded:
+	case actionStuck, actionBackoff, actionLanded:
 		outcome := Outcome{Kind: "stuck", Reason: decision.Reason}
-		if decision.Action == ActionBackoff {
+		if decision.Action == actionBackoff {
 			outcome.Kind = "backoff"
 			outcome.NotBefore = now.Add(Cooldown * time.Duration(1<<item.TransientRetries))
-		} else if decision.Action == ActionLanded {
+		} else if decision.Action == actionLanded {
 			outcome.Kind = "landed"
 		}
-		updated, err := NewOutcomes(s.db, s.clock).RecordIn(ctx, tx, item, jobStatus, outcome)
+		updated, err := NewOutcomes(s.db, s.clock).recordIn(ctx, tx, item, jobStatus, outcome)
 		if err != nil || updated == nil {
 			return nil, err
 		}

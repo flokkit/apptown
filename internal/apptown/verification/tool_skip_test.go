@@ -30,7 +30,7 @@ func TestRunToolChecksExecImageIsNotApplicableWithoutAnImage(t *testing.T) {
 	} {
 		tree := t.TempDir()
 		writeTree(t, tree, files)
-		results, findings, errs := scanners.RunToolChecks(t.Context(), sc, ToolContext{Context: context.Background(), BuildDir: tree, AllowBuild: false}, "test")
+		results, findings, errs := scanners.runToolChecks(t.Context(), sc, toolContext{Context: context.Background(), BuildDir: tree, AllowBuild: false}, "test")
 		if len(findings) != 0 || errs != 0 || results[0].Verdict != workflow.VerdictNotApplicable || results[0].Detail == "" {
 			t.Errorf("%s: %+v findings=%d errs=%d", name, results, len(findings), errs)
 		}

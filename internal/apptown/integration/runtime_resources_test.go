@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/stock"
 
@@ -104,7 +106,7 @@ func TestRegistryCredentialsFollowTheCurrentAttachment(t *testing.T) {
 	}
 	// Detaching changes what the project may reach: without its receipt it
 	// does not happen.
-	restore := s.Attachments.db.FailNextStatement("-- name: AppendReceipt")
+	restore := dbtest.NextStatementFailure(s.Attachments.db, "-- name: AppendReceipt")
 	err := s.Attachments.Detach(context.Background(), id, "container-registry", "test")
 	restore()
 	if err == nil {

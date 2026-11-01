@@ -12,16 +12,16 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dataprotection/internal/protectionsql"
 )
 
-// PruneSets removes a deployment's ordinary sets past keep, counted across
+// pruneSets removes a deployment's ordinary sets past keep, counted across
 // both places a set can be (AppTown's disk and the backup store), each
 // deleted where it is: files on the disk (Backups.Prune), objects in the
 // store (pruneStore).
-func (s *Service) PruneSets(ctx context.Context, projectID ids.ID, deployment string, keep int) error {
-	inStore, err := s.backups.Prune(ctx, DiskDirectory(s.dataDir), projectID, deployment, keep)
+func (s *Service) pruneSets(ctx context.Context, projectID ids.ID, deployment string, keep int) error {
+	inStore, err := s.backups.pruneBackups(ctx, DiskDirectory(s.dataDir), projectID, deployment, keep)
 	return errors.Join(err, s.pruneStore(ctx, inStore))
 }
 
-// Prune selects a deployment's ordinary sets past keep, counted across
+// pruneBackups selects a deployment's ordinary sets past keep, counted across
 // both places, and removes those on AppTown's disk: files first, then
 // the record, under the exclusive lock restores share. Filesystem removal
 // cannot share a transaction with its database receipt, so removal comes
@@ -30,14 +30,14 @@ func (s *Service) PruneSets(ctx context.Context, projectID ids.ID, deployment st
 // of claiming that retained files were pruned or that deleted files are
 // still present. The selected sets in the store are returned for the
 // service, which holds the store's client, whatever happened on the disk.
-func (s *Backups) Prune(ctx context.Context, directory string, projectID ids.ID, deployment string, keep int) (inStore []protectionsql.Backup, err error) {
+func (s *Backups) pruneBackups(ctx context.Context, directory string, projectID ids.ID, deployment string, keep int) (inStore []protectionsql.Backup, err error) {
 	old, err := protectionsql.New(s.db.SQL()).PrunableBackups(ctx, protectionsql.PrunableBackupsParams{
 		ProjectID:    projectID,
 		Deployment:   deployment,
 		OkState:      BackupOK.String(),
 		PartialState: BackupPartial.String(),
 		KeepRows:     int64(keep),
-		FinalTrigger: TriggerTakeDown,
+		FinalTrigger: triggerTakeDown,
 	})
 	if err != nil {
 		return nil, err
@@ -112,12 +112,12 @@ func (s *Backups) pruneSets(ctx context.Context, directory string, old []protect
 // Its files are already gone: the record is written though ctx has ended.
 func (s *Backups) settlePruned(ctx context.Context, b protectionsql.Backup, also string) error {
 	if _, err := protectionsql.New(s.db.SQL()).PruneBackup(context.WithoutCancel(ctx), protectionsql.PruneBackupParams{
-		Status:       BackupPruned.String(),
+		Status:       backupPruned.String(),
 		ID:           b.ID,
 		Path:         b.Path,
 		OkState:      also,
 		PartialState: BackupPartial.String(),
-		PrunedState:  BackupPruned.String(),
+		PrunedState:  backupPruned.String(),
 	}); err != nil {
 		return fmt.Errorf("backup %d files removed, but pruning was not recorded: %w", b.ID, err)
 	}

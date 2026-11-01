@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"fmt"
+
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/project/internal/projectsql"
@@ -23,11 +24,11 @@ const (
 	EvalCopy Purpose = "eval-copy"
 )
 
-// Purposes is every purpose, in the order of the column's CHECK.
-var Purposes = []Purpose{Ordinary, EvalCopy}
+// purposes is every purpose, in the order of the column's CHECK.
+var purposes = []Purpose{Ordinary, EvalCopy}
 
 func purposeOf(s string) (Purpose, error) {
-	for _, p := range Purposes {
+	for _, p := range purposes {
 		if string(p) == s {
 			return p, nil
 		}
@@ -57,9 +58,6 @@ func (p Purpose) EvalDomainOnly() bool { return allowances[p].evalDomainOnly }
 
 // Schedules says whether the project's adopted schedules fire.
 func (p Purpose) Schedules() bool { return allowances[p].schedules }
-
-// Moves says whether the project may be exported to another AppTown.
-func (p Purpose) Moves() bool { return allowances[p].moves }
 
 // KeepsData says whether a take-down of the project's deployments keeps a
 // final copy of their data; a copy's data is synthetic.

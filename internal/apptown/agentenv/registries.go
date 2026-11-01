@@ -35,14 +35,14 @@ import (
 type generatedFile struct{ Name, ContainerPath, Content string }
 
 type registryAdapter struct {
-	Format    string
-	Title     string
-	Layer     string                    // "packages" (universal package-manager traffic) | "toolchain" (mise/rustup supply line)
-	Mechanism string                    // how the ambient env delivers it — for the generated steering section
-	Env       func(url string) []string // real container env (the only hook that reaches install subprocesses)
-	MiseConf  func(url string) string   // fragment merged into the generated /etc/mise/config.toml
-	CargoConf func(url string) string   // fragment for the generated $CARGO_HOME/config.toml
-	Files     func(url string) []generatedFile
+	format    string
+	title     string
+	layer     string                    // "packages" (universal package-manager traffic) | "toolchain" (mise/rustup supply line)
+	mechanism string                    // how the ambient env delivers it — for the generated steering section
+	env       func(url string) []string // real container env (the only hook that reaches install subprocesses)
+	miseConf  func(url string) string   // fragment merged into the generated /etc/mise/config.toml
+	cargoConf func(url string) string   // fragment for the generated $CARGO_HOME/config.toml
+	files     func(url string) []generatedFile
 	testPath  string // probe path appended to the bound URL (known-small artifact)
 }
 
@@ -50,49 +50,49 @@ var registryAdapters = []registryAdapter{
 	{
 		// Consumed by the per-step private docker daemons (dind.go), not by
 		// step env: dockerd --registry-mirror. Pull-through cache for Hub.
-		Format: "docker-hub", Title: "Docker Hub mirror", Layer: "images",
-		Mechanism: "dockerd `--registry-mirror` on agent daemons",
+		format: "docker-hub", title: "Docker Hub mirror", layer: "images",
+		mechanism: "dockerd `--registry-mirror` on agent daemons",
 		testPath:  "/v2/",
 	},
 	{
-		Format: "go-proxy", Title: "Go module proxy", Layer: "packages",
-		Mechanism: "`GOPROXY` env",
-		Env:       func(u string) []string { return []string{"GOPROXY=" + u} },
+		format: "go-proxy", title: "Go module proxy", layer: "packages",
+		mechanism: "`GOPROXY` env",
+		env:       func(u string) []string { return []string{"GOPROXY=" + u} },
 		testPath:  "/github.com/pkg/errors/@v/list",
 	},
 	{
-		Format: "npm", Title: "npm registry", Layer: "packages",
-		Mechanism: "`NPM_CONFIG_REGISTRY` env",
-		Env:       func(u string) []string { return []string{"NPM_CONFIG_REGISTRY=" + u} },
+		format: "npm", title: "npm registry", layer: "packages",
+		mechanism: "`NPM_CONFIG_REGISTRY` env",
+		env:       func(u string) []string { return []string{"NPM_CONFIG_REGISTRY=" + u} },
 		testPath:  "/-/ping",
 	},
 	{
-		Format: "pypi", Title: "PyPI index", Layer: "packages",
-		Mechanism: "`UV_DEFAULT_INDEX` / `PIP_INDEX_URL` env",
-		Env: func(u string) []string {
+		format: "pypi", title: "PyPI index", layer: "packages",
+		mechanism: "`UV_DEFAULT_INDEX` / `PIP_INDEX_URL` env",
+		env: func(u string) []string {
 			return []string{"UV_DEFAULT_INDEX=" + u, "PIP_INDEX_URL=" + u}
 		},
 		// pipx backend: version listing AND the derived UV_INDEX for mise's
 		// uv subprocess come from this one setting.
-		MiseConf: func(u string) string {
+		miseConf: func(u string) string {
 			return fmt.Sprintf("pipx.registry_url = %q\n", strings.TrimSuffix(u, "/")+"/{}/")
 		},
 		testPath: "/pip/",
 	},
 	{
-		Format: "cargo", Title: "Cargo sparse index", Layer: "packages",
-		Mechanism: "generated `$CARGO_HOME/config.toml` (source replacement; read-only)",
+		format: "cargo", title: "Cargo sparse index", layer: "packages",
+		mechanism: "generated `$CARGO_HOME/config.toml` (source replacement; read-only)",
 		// cargo ignores env for source replacement — generated config file only.
-		CargoConf: func(u string) string {
+		cargoConf: func(u string) string {
 			return fmt.Sprintf("[source.crates-io]\nreplace-with = \"apptown-local\"\n\n[source.apptown-local]\nregistry = %q\n",
 				"sparse+"+strings.TrimSuffix(u, "/")+"/")
 		},
 		testPath: "/config.json",
 	},
 	{
-		Format: "github-releases", Title: "GitHub releases mirror", Layer: "toolchain",
-		Mechanism: "mise url_replacements in `/etc/mise/config.toml`",
-		MiseConf: func(u string) string {
+		format: "github-releases", title: "GitHub releases mirror", layer: "toolchain",
+		mechanism: "mise url_replacements in `/etc/mise/config.toml`",
+		miseConf: func(u string) string {
 			b := strings.TrimSuffix(u, "/")
 			return fmt.Sprintf("[settings.url_replacements]\n"+
 				"\"regex:^https://github\\\\.com/([^/]+)/([^/]+)/(releases/download/.+)$\" = %q\n"+
@@ -102,9 +102,9 @@ var registryAdapters = []registryAdapter{
 		testPath: "/jdx/mise/releases/download/v2026.8.12/SHASUMS256.txt",
 	},
 	{
-		Format: "gitlab-releases", Title: "GitLab releases mirror", Layer: "toolchain",
-		Mechanism: "mise url_replacements in `/etc/mise/config.toml`; agent-image builds",
-		MiseConf: func(u string) string {
+		format: "gitlab-releases", title: "GitLab releases mirror", layer: "toolchain",
+		mechanism: "mise url_replacements in `/etc/mise/config.toml`; agent-image builds",
+		miseConf: func(u string) string {
 			b := strings.TrimSuffix(u, "/")
 			return fmt.Sprintf("[settings.url_replacements]\n"+
 				"\"regex:^https://gitlab\\\\.com/(.+/-/releases/.+)$\" = %q\n"+
@@ -114,42 +114,42 @@ var registryAdapters = []registryAdapter{
 		testPath: "/gitlab-org/cli/-/releases/v1.55.0/downloads/glab_1.55.0_linux_arm64.deb",
 	},
 	{
-		Format: "node-dist", Title: "Node.js dist mirror", Layer: "toolchain",
-		Mechanism: "mise `node.mirror_url` in `/etc/mise/config.toml`",
-		MiseConf: func(u string) string {
+		format: "node-dist", title: "Node.js dist mirror", layer: "toolchain",
+		mechanism: "mise `node.mirror_url` in `/etc/mise/config.toml`",
+		miseConf: func(u string) string {
 			return fmt.Sprintf("node.mirror_url = %q\n", strings.TrimSuffix(u, "/")+"/")
 		},
 		testPath: "/latest/SHASUMS256.txt",
 	},
 	{
-		Format: "golang-dist", Title: "Go toolchain mirror", Layer: "toolchain",
-		Mechanism: "mise `go.download_mirror` in `/etc/mise/config.toml`",
-		MiseConf: func(u string) string {
+		format: "golang-dist", title: "Go toolchain mirror", layer: "toolchain",
+		mechanism: "mise `go.download_mirror` in `/etc/mise/config.toml`",
+		miseConf: func(u string) string {
 			return fmt.Sprintf("go.download_mirror = %q\n", strings.TrimSuffix(u, "/"))
 		},
 		testPath: "/go1.24.4.src.tar.gz",
 	},
 	{
-		Format: "rust-dist", Title: "Rust toolchain dist", Layer: "toolchain",
-		Mechanism: "`RUSTUP_DIST_SERVER` / `RUSTUP_UPDATE_ROOT` env",
+		format: "rust-dist", title: "Rust toolchain dist", layer: "toolchain",
+		mechanism: "`RUSTUP_DIST_SERVER` / `RUSTUP_UPDATE_ROOT` env",
 		// rustup reads both from env; mise's rust backend drives rustup as a
 		// subprocess, so real container env (our injection point) reaches it.
 		// /dist and /rustup live on the one upstream host, so one mirror
 		// covers toolchains AND rustup-init.
-		Env: func(u string) []string {
+		env: func(u string) []string {
 			b := strings.TrimSuffix(u, "/")
 			return []string{"RUSTUP_DIST_SERVER=" + b, "RUSTUP_UPDATE_ROOT=" + b + "/rustup"}
 		},
 		testPath: "/rustup/release-stable.toml",
 	},
 	{
-		Format: "maven", Title: "Maven repository", Layer: "packages",
-		Mechanism: "`MAVEN_ARGS` → generated `/etc/apptown/maven-settings.xml`",
+		format: "maven", title: "Maven repository", layer: "packages",
+		mechanism: "`MAVEN_ARGS` → generated `/etc/apptown/maven-settings.xml`",
 		// Maven ignores env for mirrors; MAVEN_ARGS (maven ≥3.9) points every
 		// invocation at the generated settings file — a project's own -s flag
 		// or .mvn/maven.config wins by appearing later on the command line.
-		Env: func(u string) []string { return []string{"MAVEN_ARGS=--settings /etc/apptown/maven-settings.xml"} },
-		Files: func(u string) []generatedFile {
+		env: func(u string) []string { return []string{"MAVEN_ARGS=--settings /etc/apptown/maven-settings.xml"} },
+		files: func(u string) []generatedFile {
 			const tmpl = `<!-- GENERATED by AppTown from registry bindings - do not edit. -->
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
   <mirrors>
@@ -169,15 +169,15 @@ var registryAdapters = []registryAdapter{
 		testPath: "/org/slf4j/slf4j-api/maven-metadata.xml",
 	},
 	{
-		Format: "nuget", Title: "NuGet feed", Layer: "packages",
-		Mechanism: "`RestoreConfigFile` → generated `/etc/apptown/NuGet.Config`",
+		format: "nuget", title: "NuGet feed", layer: "packages",
+		mechanism: "`RestoreConfigFile` → generated `/etc/apptown/NuGet.Config`",
 		// NuGet has no registry env var, but MSBuild turns every environment
 		// variable into a property, and RestoreConfigFile is the restore
 		// property naming the config to use — so one env var points every
 		// `dotnet restore/build/publish` at the generated feed list. A
 		// repo-level NuGet.Config still wins for anyone who insists.
-		Env: func(u string) []string { return []string{"RestoreConfigFile=/etc/apptown/NuGet.Config"} },
-		Files: func(u string) []generatedFile {
+		env: func(u string) []string { return []string{"RestoreConfigFile=/etc/apptown/NuGet.Config"} },
+		files: func(u string) []generatedFile {
 			const tmpl = `<?xml version="1.0" encoding="utf-8"?>
 <!-- GENERATED by AppTown from registry bindings - do not edit. -->
 <configuration>
@@ -195,16 +195,16 @@ var registryAdapters = []registryAdapter{
 		testPath: "/index.json",
 	},
 	{
-		Format: "rubygems", Title: "RubyGems mirror", Layer: "packages",
-		Mechanism: "`BUNDLE_MIRROR__HTTPS://RUBYGEMS__ORG` env; `GEMRC` → generated `/etc/apptown/gemrc`",
+		format: "rubygems", title: "RubyGems mirror", layer: "packages",
+		mechanism: "`BUNDLE_MIRROR__HTTPS://RUBYGEMS__ORG` env; `GEMRC` → generated `/etc/apptown/gemrc`",
 		// Bundler reads mirrors from env (the odd name is its documented
 		// encoding of `bundle config mirror.https://rubygems.org`); bare
 		// `gem install` reads the sources list from the file GEMRC names.
-		Env: func(u string) []string {
+		env: func(u string) []string {
 			b := strings.TrimSuffix(u, "/")
 			return []string{"BUNDLE_MIRROR__HTTPS://RUBYGEMS__ORG=" + b + "/", "GEMRC=/etc/apptown/gemrc"}
 		},
-		Files: func(u string) []generatedFile {
+		files: func(u string) []generatedFile {
 			return []generatedFile{{
 				Name: "gemrc", ContainerPath: "/etc/apptown/gemrc",
 				Content: "# GENERATED by AppTown from registry bindings - do not edit.\n:sources:\n- " + strings.TrimSuffix(u, "/") + "/\n",
@@ -213,9 +213,9 @@ var registryAdapters = []registryAdapter{
 		testPath: "/latest_specs.4.8.gz",
 	},
 	{
-		Format: "apache-dist", Title: "Apache dist mirror", Layer: "toolchain",
-		Mechanism: "mise url_replacements in `/etc/mise/config.toml`",
-		MiseConf: func(u string) string {
+		format: "apache-dist", title: "Apache dist mirror", layer: "toolchain",
+		mechanism: "mise url_replacements in `/etc/mise/config.toml`",
+		miseConf: func(u string) string {
 			b := strings.TrimSuffix(u, "/")
 			return fmt.Sprintf("[settings.url_replacements]\n"+
 				"\"regex:^https://archive\\\\.apache\\\\.org/dist/(.+)$\" = %q\n"+
@@ -228,7 +228,7 @@ var registryAdapters = []registryAdapter{
 
 func registryAdapterFor(format string) *registryAdapter {
 	for i := range registryAdapters {
-		if registryAdapters[i].Format == format {
+		if registryAdapters[i].format == format {
 			return &registryAdapters[i]
 		}
 	}
@@ -307,11 +307,11 @@ func AmbientFor(bound map[string]integration.BoundRegistry, ws string) Ambient {
 		}
 		b := bound[f]
 		amb.Bound[f] = b.Name
-		if ad.Env != nil {
-			amb.Env = append(amb.Env, ad.Env(b.URL)...)
+		if ad.env != nil {
+			amb.Env = append(amb.Env, ad.env(b.URL)...)
 		}
-		if ad.MiseConf != nil {
-			frag := ad.MiseConf(b.URL)
+		if ad.miseConf != nil {
+			frag := ad.miseConf(b.URL)
 			// url_replacements tables must merge into ONE [settings.url_replacements]
 			if strings.HasPrefix(frag, "[settings.url_replacements]") {
 				miseTables.WriteString(strings.TrimPrefix(frag, "[settings.url_replacements]\n"))
@@ -319,15 +319,15 @@ func AmbientFor(bound map[string]integration.BoundRegistry, ws string) Ambient {
 				miseSettings.WriteString(frag)
 			}
 		}
-		if ad.CargoConf != nil {
-			cargoConf.WriteString(ad.CargoConf(b.URL))
+		if ad.cargoConf != nil {
+			cargoConf.WriteString(ad.cargoConf(b.URL))
 		}
 	}
 
 	genFiles := []generatedFile{}
 	for _, f := range formats {
-		if ad := registryAdapterFor(f); ad != nil && ad.Files != nil {
-			genFiles = append(genFiles, ad.Files(bound[f].URL)...)
+		if ad := registryAdapterFor(f); ad != nil && ad.files != nil {
+			genFiles = append(genFiles, ad.files(bound[f].URL)...)
 		}
 	}
 
@@ -462,7 +462,7 @@ func ResolvedToolchain(ws string) map[string]string {
 func RegistryFormats() []string {
 	out := make([]string, 0, len(registryAdapters))
 	for _, a := range registryAdapters {
-		out = append(out, a.Format)
+		out = append(out, a.format)
 	}
 	return out
 }

@@ -49,16 +49,16 @@ type databaseDump struct {
 // dumpPlace is where the dump's task runs: AppTown's own Docker when it has
 // one, otherwise its worker (the composition root chooses, once).
 type dumpPlace struct {
-	Tasks execution.TaskDriver
-	// Results reads a worker task's result files. Nil: the task runs on
+	tasks execution.TaskDriver
+	// results reads a worker task's result files. Nil: the task runs on
 	// AppTown's own Docker, and its state folder is made under Scratch and
 	// mounted.
-	Results interface {
+	results interface {
 		Results(context.Context, execution.TaskRef) (map[string]execution.ResultFile, error)
 	}
-	Scratch string
-	Profile string
-	Now     func() time.Time
+	scratch string
+	profile string
+	now     func() time.Time
 }
 
 // dumpTool is the tool versions tool whose run image dumps the database.
@@ -97,7 +97,7 @@ func (d databaseDump) client(ctx context.Context) (string, dumpConn, error) {
 		conn, err := libpqConn(d.URL)
 		return image, conn, err
 	}
-	if d.Place.Results != nil {
+	if d.Place.results != nil {
 		return "", dumpConn{}, errors.New("the built-in database is on this AppTown's own Docker, and its dumps run on a worker")
 	}
 	names, raw, ok := readBuiltinDB(d.DataDir)
@@ -189,7 +189,7 @@ func (d databaseDump) DumpClientVersion(ctx context.Context) (string, error) {
 // other than 0, or leaves no such file, is an error with its output. The
 // task is released whatever happened.
 func (p *dumpPlace) run(ctx context.Context, image string, conn dumpConn, script, result string, out io.Writer) (err error) {
-	now := clock.Or(p.Now)()
+	now := clock.Or(p.now)()
 	key := "apptown-dump-" + ids.New(now).String()
 	expires := now.Add(time.Hour)
 	if deadline, ok := ctx.Deadline(); ok {
@@ -197,15 +197,15 @@ func (p *dumpPlace) run(ctx context.Context, image string, conn dumpConn, script
 	}
 	spec := execution.TaskSpec{Key: key, Image: image, Env: conn.env, Files: conn.files, Network: conn.network,
 		Argv:      []string{"bash", "-o", "pipefail", "-c", trust.Run + "; " + script},
-		Admission: execution.Admission{Profile: p.Profile, Network: execution.NetworkDefault, Expires: expires}}
+		Admission: execution.Admission{Profile: p.profile, Network: execution.NetworkDefault, Expires: expires}}
 	local := ""
-	if p.Results != nil {
+	if p.results != nil {
 		spec.Results = []execution.Result{{Name: result, Path: execution.StateRoot + "/" + result, Max: execution.MaxResultBytes, Fresh: true}}
 	} else {
-		if err := os.MkdirAll(p.Scratch, 0o700); err != nil {
+		if err := os.MkdirAll(p.scratch, 0o700); err != nil {
 			return err
 		}
-		if local, err = os.MkdirTemp(p.Scratch, "dump-"); err != nil {
+		if local, err = os.MkdirTemp(p.scratch, "dump-"); err != nil {
 			return err
 		}
 		defer os.RemoveAll(local)
@@ -219,27 +219,27 @@ func (p *dumpPlace) run(ctx context.Context, image string, conn dumpConn, script
 	defer func() {
 		settle, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
 		defer cancel()
-		_ = p.Tasks.Stop(settle, ref)
-		if releaseErr := p.Tasks.Release(settle, ref); releaseErr != nil && err == nil {
+		_ = p.tasks.Stop(settle, ref)
+		if releaseErr := p.tasks.Release(settle, ref); releaseErr != nil && err == nil {
 			err = fmt.Errorf("releasing the dump's task: %w", releaseErr)
 		}
 	}()
-	obs, err := p.Tasks.Ensure(ctx, spec)
+	obs, err := p.tasks.Ensure(ctx, spec)
 	if err != nil {
 		return err
 	}
 	ref.ProviderID = obs.ID
-	if err := p.Tasks.Start(ctx, ref); err != nil {
+	if err := p.tasks.Start(ctx, ref); err != nil {
 		return err
 	}
-	code, err := p.Tasks.Wait(ctx, ref)
+	code, err := p.tasks.Wait(ctx, ref)
 	if err != nil {
 		return err
 	}
 	if code != 0 {
 		return fmt.Errorf("exit %d: %s", code, p.said(ctx, ref))
 	}
-	if p.Results == nil {
+	if p.results == nil {
 		f, err := os.Open(filepath.Join(local, result))
 		if err != nil {
 			return fmt.Errorf("the task left no %s: %w", result, err)
@@ -248,7 +248,7 @@ func (p *dumpPlace) run(ctx context.Context, image string, conn dumpConn, script
 		_, err = io.Copy(out, f)
 		return err
 	}
-	files, err := p.Results.Results(ctx, ref)
+	files, err := p.results.Results(ctx, ref)
 	if err != nil {
 		return err
 	}
@@ -265,7 +265,7 @@ func (p *dumpPlace) run(ctx context.Context, image string, conn dumpConn, script
 
 // said is the end of what a task printed, for its failure.
 func (p *dumpPlace) said(ctx context.Context, ref execution.TaskRef) string {
-	page, err := p.Tasks.Output(ctx, ref, execution.OutputRead{Max: 64 << 10})
+	page, err := p.tasks.Output(ctx, ref, execution.OutputRead{Max: 64 << 10})
 	if err != nil {
 		return "its output could not be read: " + err.Error()
 	}

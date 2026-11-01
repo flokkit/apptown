@@ -147,7 +147,7 @@ func TestWorkServiceChecksScopeAgainBeforePublishing(t *testing.T) {
 					t.Fatal("changed-scope activity returned")
 				}
 			case "artifact":
-				var out *ArtifactBody
+				var out *artifactBodyPart
 				out, err = s.Artifact(ctx, artifact)
 				if out != nil {
 					t.Fatal("changed-scope bytes returned")

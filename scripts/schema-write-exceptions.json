@@ -11,12 +11,12 @@
   ],
   "dynamic": [
     {
-      "file": "internal/database/queries.go",
+      "file": "internal/database/query/handle.go",
       "declaration": "Handle.ExecContext",
       "text": "q",
-      "declaration_hash": "6ccc758415601cd041dd92c62f6e36d8d1e6e6157f087ceaeb64288c5f3b63d0",
+      "declaration_hash": "5160392a408a32da78478a753a005ad5e351ec9e29895251c173200aa10301b0",
       "tables": [],
-      "reason": "Database handle forwards its caller SQL through the injected executor; callsite literals checked separately."
+      "reason": "Checked handle forwards caller SQL through the pool or transaction executor; the database owner supplies the pool-scoped fault check and statement error formatting. Callsite literals are checked separately."
     },
     {
       "file": "internal/dbtest/suite.go",

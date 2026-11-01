@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
@@ -33,7 +35,7 @@ func TestAuthorityResourceUsesCurrentProject(t *testing.T) {
 	if _, err := projects.AuthorityResource(context.Background(), idstest.N(9999)); !errors.Is(err, sql.ErrNoRows) || fault.KindOf(err) != fault.NotFound {
 		t.Fatalf("missing project: %v", err)
 	}
-	clear := db.FailNextStatement("-- name: ProjectByID :one")
+	clear := dbtest.NextStatementFailure(db, "-- name: ProjectByID :one")
 	defer clear()
 	if got, err := projects.AuthorityResource(context.Background(), id); fault.KindOf(err) != fault.Unavailable || got != (access.Resource{}) {
 		t.Fatalf("failed read reused prior facts: %+v %v", got, err)

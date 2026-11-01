@@ -21,9 +21,9 @@ import (
 
 const restoreIntentFile = ".apptown-restore-intent.json"
 
-// PendingRestore is a completely loaded archive whose offline relocation
+// pendingRestore is a completely loaded archive whose offline relocation
 // and AfterRestore bookkeeping must finish before ordinary startup.
-type PendingRestore struct {
+type pendingRestore struct {
 	Manifest *Manifest
 	digest   string
 }
@@ -39,7 +39,7 @@ type restoreIntent struct {
 
 // ReadPendingRestore is read-only and belongs before database/schema effects.
 // An interrupted extraction or load is not a normal installed database.
-func ReadPendingRestore(dataDir string) (*PendingRestore, error) {
+func ReadPendingRestore(dataDir string) (*pendingRestore, error) {
 	record, digest, found, err := readRestoreIntent(dataDir)
 	if err != nil || !found {
 		return nil, err
@@ -51,13 +51,13 @@ func ReadPendingRestore(dataDir string) (*PendingRestore, error) {
 	if err := json.Unmarshal([]byte(record.ManifestJSON), &manifest); err != nil {
 		return nil, err
 	}
-	return &PendingRestore{Manifest: &manifest, digest: digest}, nil
+	return &pendingRestore{Manifest: &manifest, digest: digest}, nil
 }
 
 // CompleteRestore requires the caller's exclusive daemon/data ownership lock
 // and successful layout repair plus AfterRestore. The digest detects changed
 // evidence; it is not a lock-free compare-and-delete primitive.
-func CompleteRestore(dataDir string, pending *PendingRestore) error {
+func CompleteRestore(dataDir string, pending *pendingRestore) error {
 	if pending == nil || pending.digest == "" {
 		return errors.New("restore completion needs its loaded continuation")
 	}

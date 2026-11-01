@@ -195,21 +195,21 @@ func ListStacks(ctx context.Context, cfg *Target) ([]Stack, error) {
 	return stacks, nil
 }
 
-// StackApplied says what DeployStack did: the stack's ID (0 when Portainer
+// stackApplied says what DeployStack did: the stack's ID (0 when Portainer
 // did not say it), and Created when this call made the stack.
-type StackApplied struct {
+type stackApplied struct {
 	Created bool
 	ID      int64
 }
 
-// DeployStack updates the endpoint's stack of that name, or creates it.
-func DeployStack(ctx context.Context, cfg *Target, endpointID int64, name, compose string, deploymentID ids.ID, associations []StackAssociation) (StackApplied, error) {
-	var applied StackApplied
+// applyStack updates the endpoint's stack of that name, or creates it.
+func applyStack(ctx context.Context, cfg *Target, endpointID int64, name, compose string, deploymentID ids.ID, associations []StackAssociation) (stackApplied, error) {
+	var applied stackApplied
 	err := deployStack(ctx, cfg, endpointID, name, compose, deploymentID, associations, &applied)
 	return applied, err
 }
 
-func deployStack(ctx context.Context, cfg *Target, endpointID int64, name, compose string, deploymentID ids.ID, associations []StackAssociation, applied *StackApplied) error {
+func deployStack(ctx context.Context, cfg *Target, endpointID int64, name, compose string, deploymentID ids.ID, associations []StackAssociation, applied *stackApplied) error {
 	if cfg.Scope == nil || cfg.Scope.EndpointID != endpointID || deploymentID.IsZero() {
 		return errors.New("Portainer mutation requires scoped deployment identity")
 	}
@@ -296,7 +296,7 @@ type Driver struct {
 	Diagnostics      func(context.Context, Target) (Diagnostic, func() error, error)
 	Allowed          func(context.Context) error
 	Now              func() time.Time
-	ReadinessTimeout time.Duration
+	readinessTimeout time.Duration
 	ExpectedArtifact string
 }
 
@@ -381,7 +381,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 			}
 		}()
 	}
-	out, err = (Execution{Config: *cfg, TargetID: d.TargetID, DeploymentID: p.ID, EndpointID: endpointID, Stack: stack, Prefix: prefix, Compose: string(art.Body), URL: p.URL, Handle: p.Handle, Log: logf, Owner: d.Owner, Diagnostic: diagnostic, Allowed: d.Allowed}).Execute(ctx, generation, checkpoint)
+	out, err = (execution{config: *cfg, targetID: d.TargetID, deploymentID: p.ID, endpointID: endpointID, stack: stack, prefix: prefix, compose: string(art.Body), url: p.URL, handle: p.Handle, log: logf, owner: d.Owner, diagnostic: diagnostic, allowed: d.Allowed}).execute(ctx, generation, checkpoint)
 	if err != nil || ready == nil {
 		return out, err
 	}
@@ -696,48 +696,48 @@ func (d *Driver) Controls() deploy.Controls {
 
 // Both bundle and intranet releases execute this prepared request. Config is
 // execution-only; checkpoints contain provider identity, never credentials.
-type Execution struct {
-	Diagnostic          *Diagnostic
-	Allowed             func(context.Context) error
-	TargetID            ids.ID
-	DeploymentID        ids.ID
-	Config              Target
-	EndpointID          int64
-	Stack, Compose, URL string
-	// Prefix is what the stack's names begin with (the deployment's
+type execution struct {
+	diagnostic          *Diagnostic
+	allowed             func(context.Context) error
+	targetID            ids.ID
+	deploymentID        ids.ID
+	config              Target
+	endpointID          int64
+	stack, compose, url string
+	// prefix is what the stack's names begin with (the deployment's
 	// recorded host prefix): the stack is <prefix><slug>.
-	Prefix string
-	Handle map[string]any
-	Log    func(string, ...any)
-	// Owner records the stack when this execution creates it; nil records
+	prefix string
+	handle map[string]any
+	log    func(string, ...any)
+	// owner records the stack when this execution creates it; nil records
 	// nothing.
-	Owner deploy.Owner
+	owner deploy.Owner
 }
 
-func (p Execution) Execute(ctx context.Context, generation int64, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
+func (p execution) execute(ctx context.Context, generation int64, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 	if err := ctx.Err(); err != nil {
 		return deploy.Observation{}, err
 	}
-	if p.DeploymentID.IsZero() || p.Config.Scope == nil || p.Config.Scope.EndpointID != p.EndpointID {
+	if p.deploymentID.IsZero() || p.config.Scope == nil || p.config.Scope.EndpointID != p.endpointID {
 		return deploy.Observation{}, deploy.Terminal(errors.New("Portainer execution requires verified deployment and endpoint identity"))
 	}
-	associations, err := SavedAssociations(p.Handle)
+	associations, err := SavedAssociations(p.handle)
 	if err != nil {
 		return deploy.Observation{}, deploy.Terminal(err)
 	}
-	marker, err := composeDeployment(p.Compose)
-	if err != nil || marker != p.DeploymentID.String() {
+	marker, err := composeDeployment(p.compose)
+	if err != nil || marker != p.deploymentID.String() {
 		return deploy.Observation{}, deploy.Terminal(errors.New("Portainer artifact has no matching deployment marker"))
 	}
-	if p.Stack == "" || p.EndpointID <= 0 {
+	if p.stack == "" || p.endpointID <= 0 {
 		return deploy.Observation{}, deploy.Terminal(errors.New("Portainer execution requires a stack and endpoint"))
 	}
-	stamped, expected, err := stampRelease(p.Compose, p.TargetID, generation, *p.Config.Scope)
+	stamped, expected, err := stampRelease(p.compose, p.targetID, generation, *p.config.Scope)
 	if err != nil {
 		return deploy.Observation{}, deploy.Terminal(err)
 	}
-	p.Compose = stamped
-	identity := map[string]any{"stack": p.Stack, "endpoint": p.Config.EnvName, "endpointId": p.EndpointID, "providerScope": p.Config.Scope, "deploymentId": p.DeploymentID}
+	p.compose = stamped
+	identity := map[string]any{"stack": p.stack, "endpoint": p.config.EnvName, "endpointId": p.endpointID, "providerScope": p.config.Scope, "deploymentId": p.deploymentID}
 	if expected != nil {
 		identity["releaseReadiness"] = expected
 	}
@@ -748,35 +748,35 @@ func (p Execution) Execute(ctx context.Context, generation int64, checkpoint dep
 		return deploy.Observation{}, err
 	}
 	if expected != nil {
-		if p.Diagnostic == nil || p.Allowed == nil {
+		if p.diagnostic == nil || p.allowed == nil {
 			return deploy.Observation{}, deploy.Terminal(errors.New("Portainer release has no admitted diagnostic authority"))
 		}
-		if err := p.Diagnostic.preflight(ctx, expected.Readiness.Public.ToolImage); err != nil {
+		if err := p.diagnostic.preflight(ctx, expected.Readiness.Public.ToolImage); err != nil {
 			return deploy.Observation{}, deploy.Terminal(err)
 		}
 	}
 	// The volumes the compose declares, and which the environment holds
 	// before the deploy: one there before is not the deployment's to delete.
-	vols, verr := ComposeVolumes(p.Stack, strings.TrimPrefix(p.Stack, p.Prefix), p.Compose)
+	vols, verr := ComposeVolumes(p.stack, strings.TrimPrefix(p.stack, p.prefix), p.compose)
 	before := map[string]bool{}
-	if p.Owner != nil && verr == nil {
+	if p.owner != nil && verr == nil {
 		for _, v := range vols {
-			there, err := volumeThere(ctx, &p.Config, p.EndpointID, v.Name)
+			there, err := volumeThere(ctx, &p.config, p.endpointID, v.Name)
 			// Not known is not absent: it is never recorded as made.
 			before[v.Name] = there || err != nil
 		}
 	}
-	allowed := p.Allowed
+	allowed := p.allowed
 	if expected != nil {
-		allowed = p.Diagnostic.Allowed
+		allowed = p.diagnostic.allowed
 	}
 	if allowed != nil {
 		if err := allowed(ctx); err != nil {
 			return deploy.Observation{}, deploy.Terminal(err)
 		}
 	}
-	p.Log("asking Portainer to run generation %d (stack %s on %s)", generation, p.Stack, p.Config.EnvName)
-	applied, err := DeployStack(ctx, &p.Config, p.EndpointID, p.Stack, p.Compose, p.DeploymentID, associations)
+	p.log("asking Portainer to run generation %d (stack %s on %s)", generation, p.stack, p.config.EnvName)
+	applied, err := applyStack(ctx, &p.config, p.endpointID, p.stack, p.compose, p.deploymentID, associations)
 	if err != nil {
 		return deploy.Observation{}, err
 	}
@@ -785,33 +785,33 @@ func (p Execution) Execute(ctx context.Context, generation int64, checkpoint dep
 			return deploy.Observation{}, fmt.Errorf("recording applied Portainer stack: %w", err)
 		}
 	}
-	if applied.Created && p.Owner != nil {
+	if applied.Created && p.owner != nil {
 		if applied.ID <= 0 {
 			// Not recorded, so never deleted by AppTown: a safe miss.
-			p.Log("Portainer created the stack %s without saying its ID; it is not recorded as AppTown's, so taking it down is done in Portainer", p.Stack)
-		} else if err := p.Owner.Created(ctx, deploy.Owned{Kind: "stack", ID: strconv.FormatInt(applied.ID, 10), Name: p.Stack}); err != nil {
-			return deploy.Observation{}, fmt.Errorf("recording the stack %s AppTown created: %w", p.Stack, err)
+			p.log("Portainer created the stack %s without saying its ID; it is not recorded as AppTown's, so taking it down is done in Portainer", p.stack)
+		} else if err := p.owner.Created(ctx, deploy.Owned{Kind: "stack", ID: strconv.FormatInt(applied.ID, 10), Name: p.stack}); err != nil {
+			return deploy.Observation{}, fmt.Errorf("recording the stack %s AppTown created: %w", p.stack, err)
 		}
 	}
-	if p.Owner != nil && verr == nil {
-		if err := recordMadeVolumes(ctx, &p.Config, p.EndpointID, before, vols, p.Owner, p.Log); err != nil {
+	if p.owner != nil && verr == nil {
+		if err := recordMadeVolumes(ctx, &p.config, p.endpointID, before, vols, p.owner, p.log); err != nil {
 			return deploy.Observation{}, err
 		}
 	}
 	if err := ctx.Err(); err != nil {
 		return deploy.Observation{}, err
 	}
-	handle := make(map[string]any, len(p.Handle)+2)
-	for key, value := range p.Handle {
+	handle := make(map[string]any, len(p.handle)+2)
+	for key, value := range p.handle {
 		handle[key] = value
 	}
-	handle["stack"], handle["endpoint"] = p.Stack, p.Config.EnvName
-	handle["providerScope"] = *p.Config.Scope
+	handle["stack"], handle["endpoint"] = p.stack, p.config.EnvName
+	handle["providerScope"] = *p.config.Scope
 	handle["stackId"] = applied.ID
 	if expected != nil {
 		handle["releaseReadiness"] = expected
 	}
-	return deploy.Observation{Generation: generation, Rollout: "active", Health: "unknown", URL: p.URL, Handle: handle}, nil
+	return deploy.Observation{Generation: generation, Rollout: "active", Health: "unknown", URL: p.url, Handle: handle}, nil
 }
 
 // Inventory answers what the Portainer endpoint holds: the stacks it runs,

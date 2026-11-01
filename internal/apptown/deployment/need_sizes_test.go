@@ -2,11 +2,12 @@ package deployment
 
 import (
 	"encoding/json"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
-	"github.com/flokkit/apptown/internal/deploy/docker"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
 func TestAppliedNeedSizeReplaysExactCommandAndCap(t *testing.T) {

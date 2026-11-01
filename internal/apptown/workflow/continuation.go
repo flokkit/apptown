@@ -19,8 +19,8 @@ import (
 // The continuation is a new root: like any, it takes the change (a landing
 // runs beside the holder), and its restart point is fixed afresh when its
 // folder is prepared, after whatever other workers did since the source.
-func continueWorkIn(ctx context.Context, tx *database.Tx, source *Run, agent *Step, note, who, landingBy string, chats Presence, at time.Time) (Retried, error) {
-	var result Retried
+func continueWorkIn(ctx context.Context, tx *database.Tx, source *Run, agent *Step, note, who, landingBy string, chats Presence, at time.Time) (retried, error) {
+	var result retried
 	spec, err := source.Definition()
 	if err != nil {
 		return result, err
@@ -141,7 +141,7 @@ func continueWorkIn(ctx context.Context, tx *database.Tx, source *Run, agent *St
 	if err := recordReceiptIn(ctx, tx, id, "step.sendback", continuationFeedback{agent.Name, stepID, who, note, agent.ID}, at); err != nil {
 		return result, err
 	}
-	return Retried{id, stepID}, nil
+	return retried{id, stepID}, nil
 }
 
 type continuationCreated struct {

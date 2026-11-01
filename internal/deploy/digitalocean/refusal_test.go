@@ -57,7 +57,7 @@ func TestANewDatabaseNotAskedForIsARefusal(t *testing.T) {
 	if err := m.NewDatabase(ctx, "db-9", "taken", "app"); err != nil {
 		t.Fatal(err)
 	}
-	if err := m.NewDatabase(ctx, "db-9", "taken", "app"); !errors.Is(err, ErrDatabaseExists) || !deploy.Refused(err) {
+	if err := m.NewDatabase(ctx, "db-9", "taken", "app"); !errors.Is(err, errDatabaseExists) || !deploy.Refused(err) {
 		t.Errorf("a taken name: %v refused=%v", err, deploy.Refused(err))
 	}
 	api.Fail("GET", "/v2/databases/db-9/dbs", 500)

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
@@ -79,8 +81,8 @@ func TestDeploymentConfigurationRequiresInternalAuthority(t *testing.T) {
 	}
 	grantReal(t, a, "owner", "", access.CapDeploymentBind, access.ScopeProject, pid.String())
 	owner := realCaller("owner")
-	t.Cleanup(db.FailNextStatement("INSERT INTO audit_log"))
-	if result, err := s.Configure(owner, in); !errors.Is(err, database.ErrInjectedFailure) || result.Deployment != nil {
+	t.Cleanup(dbtest.NextStatementFailure(db, "INSERT INTO audit_log"))
+	if result, err := s.Configure(owner, in); !errors.Is(err, dbtest.ErrInjectedFailure) || result.Deployment != nil {
 		t.Fatalf("receipt failure: %+v %v", result, err)
 	}
 	result, err := s.Configure(owner, in)
@@ -123,7 +125,7 @@ func TestReleaseRequestChecksInternalAuthority(t *testing.T) {
 	}
 	grantReal(t, a, "owner", "", access.CapDeploymentDeploy, access.ScopeProject, pid.String())
 	owner := realCaller("owner")
-	if _, err := s.RequestRelease(owner, in); !errors.Is(err, ErrNoBundle) {
+	if _, err := s.RequestRelease(owner, in); !errors.Is(err, errNoBundle) {
 		t.Fatalf("permitted caller: %v", err)
 	}
 	dep, err = s.Deployments.EnsureStanding(owner, pid, "cloud", target.ID, Attributes{Feed: "promotion", Audience: "public", DataClass: "non-production"})
@@ -152,11 +154,11 @@ func TestReleaseRequestChecksInternalAuthority(t *testing.T) {
 	if revoked != 1 {
 		t.Fatalf("release-manager grants revoked: %d", revoked)
 	}
-	if _, err := s.RequestRelease(owner, in); err == nil || errors.Is(err, ErrNoBundle) {
+	if _, err := s.RequestRelease(owner, in); err == nil || errors.Is(err, errNoBundle) {
 		t.Fatalf("protected release lacked promotion check: %v", err)
 	}
 	grantReal(t, a, "owner", "", access.CapReleasePromote, access.ScopeTarget, dep.Name)
-	if _, err := s.RequestRelease(owner, in); !errors.Is(err, ErrNoBundle) {
+	if _, err := s.RequestRelease(owner, in); !errors.Is(err, errNoBundle) {
 		t.Fatalf("promoter: %v", err)
 	}
 	boss, err := identity.ActorIn(context.Background(), db, "boss")
@@ -167,7 +169,7 @@ func TestReleaseRequestChecksInternalAuthority(t *testing.T) {
 	if err := a.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{ID: boss.Principal, Kind: "user", Name: "boss", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.RequestRelease(owner, in); err == nil || errors.Is(err, ErrNoBundle) {
+	if _, err := s.RequestRelease(owner, in); err == nil || errors.Is(err, errNoBundle) {
 		t.Fatalf("disabled caller admitted: %v", err)
 	}
 	wantN(t, "releases", everyRelease(t, db), 0)

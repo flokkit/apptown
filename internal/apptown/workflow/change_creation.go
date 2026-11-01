@@ -35,19 +35,19 @@ type changeCreatedReceipt struct {
 	State    ChangeState `json:"state"`
 }
 
-type Creator struct {
+type creator struct {
 	records changeStore
 	prepare func(context.Context, CreatedChange) error
 }
 
-func (c Creator) Create(ctx context.Context, in ChangeDraft, who string) (*Change, error) {
-	return c.CreateWith(ctx, in, who, nil)
+func (c creator) Create(ctx context.Context, in ChangeDraft, who string) (*Change, error) {
+	return c.createWith(ctx, in, who, nil)
 }
 
-// CreateWith is Create with a participant joined to the Change's admission
+// createWith is Create with a participant joined to the Change's admission
 // transaction; see AdmissionParticipant. The workspace is prepared only after
 // both commit.
-func (c Creator) CreateWith(ctx context.Context, in ChangeDraft, who string, join AdmissionParticipant) (*Change, error) {
+func (c creator) createWith(ctx context.Context, in ChangeDraft, who string, join admissionParticipant) (*Change, error) {
 	created, err := c.records.create(ctx, in, who, join)
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (c Creator) CreateWith(ctx context.Context, in ChangeDraft, who string, joi
 	return c.prepareCreated(ctx, created)
 }
 
-func (c Creator) prepareCreated(ctx context.Context, created CreatedChange) (*Change, error) {
+func (c creator) prepareCreated(ctx context.Context, created CreatedChange) (*Change, error) {
 	ch := created.Change
 	if ch.Branch == "" {
 		return ch, nil
@@ -75,7 +75,7 @@ func (c Creator) prepareCreated(ctx context.Context, created CreatedChange) (*Ch
 	return out, nil
 }
 
-func (s changeStore) create(ctx context.Context, in ChangeDraft, who string, join AdmissionParticipant) (CreatedChange, error) {
+func (s changeStore) create(ctx context.Context, in ChangeDraft, who string, join admissionParticipant) (CreatedChange, error) {
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (CreatedChange, error) {
 		created, err := CreateChangeIn(ctx, tx, in, who, s.now())
 		if err != nil || join == nil {
@@ -179,9 +179,9 @@ func insertChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who st
 
 // prepareCreated readies a new change's workspace after its row commits.
 func (s *Service) prepareCreated(ctx context.Context, created CreatedChange) error {
-	return s.workspaces.PrepareChange(ctx, ChangeRef{ID: created.Change.ID, ProjectID: created.Change.ProjectID})
+	return s.workspaces.prepareChange(ctx, ChangeRef{ID: created.Change.ID, ProjectID: created.Change.ProjectID})
 }
 
-func NewCreator(db *database.DB, prepare func(context.Context, CreatedChange) error) Creator {
-	return Creator{records: changeStore{db: db}, prepare: prepare}
+func NewCreator(db *database.DB, prepare func(context.Context, CreatedChange) error) creator {
+	return creator{records: changeStore{db: db}, prepare: prepare}
 }

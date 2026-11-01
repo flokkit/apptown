@@ -32,25 +32,25 @@ type Result struct {
 	Public      *docker.PublicPrepared
 }
 
-// Host prepares the selected source and boots or reuses the provider.
+// host prepares the selected source and boots or reuses the provider.
 // Successful boot metadata describes the prepared source, including dirty-tree
 // edits above Revision. A transient inventory write is best effort, not settlement.
-type Host interface {
+type host interface {
 	BootPreview(context.Context, Change, bool) (Result, error)
 }
 
-// BootChange is the trusted execution primitive, also used by automatic chat
+// bootChange is the trusted execution primitive, also used by automatic chat
 // rehearsal. User-facing requests go through the checked preview request.
 // Ownership covers source preparation, restart reaping, boot and row recording.
-func (p *Runtime) BootChange(ctx context.Context, ch Change, restart bool, host Host) (out Result, err error) {
+func (p *previewRuntime) bootChange(ctx context.Context, ch Change, restart bool, host host) (out Result, err error) {
 	if host == nil || ch.ProjectID.IsZero() {
 		return Result{}, errors.New("invalid preview execution")
 	}
-	boot, err := p.Begin(ctx, ChangeKey(ch.ID))
+	boot, err := p.begin(ctx, changeKey(ch.ID))
 	if err != nil {
 		return Result{}, err
 	}
-	defer func() { boot.Finish(err) }()
+	defer func() { boot.finish(err) }()
 	out, err = host.BootPreview(ctx, ch, restart)
 	if err != nil {
 		return Result{}, err

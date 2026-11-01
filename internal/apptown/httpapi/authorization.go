@@ -145,9 +145,9 @@ func (h Authorization) AuthzGrant(w http.ResponseWriter, r *http.Request) {
 			optionalUser(r.Context(), h.access, subj)
 		}
 		id, err := h.access.Grant(r.Context(), identity.Spec{SubjectType: st, Subject: subj, Role: in.Role, Capability: in.Capability,
-			Scope: scope, ScopeID: in.ScopeID, By: Actor(r), Reason: in.Reason}, in.ExpiresAt)
+			Scope: scope, ScopeID: in.ScopeID, By: actor(r), Reason: in.Reason}, in.ExpiresAt)
 		if err != nil {
-			if !WriteRefusal(w, err) {
+			if !writeRefusal(w, err) {
 				WriteError(w, 500, "the grant was not written: %v", err)
 			}
 			return
@@ -158,7 +158,7 @@ func (h Authorization) AuthzGrant(w http.ResponseWriter, r *http.Request) {
 
 // AuthzRevoke: DELETE /api/v1/authz/grants/{id}
 func (h Authorization) AuthzRevoke(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -192,7 +192,7 @@ func (h Authorization) AuthzRevoke(w http.ResponseWriter, r *http.Request) {
 	if _, ok := AuthorizeRequest(h.access, w, r, c, res, access.Context{}); !ok {
 		return
 	}
-	_, err = h.access.Revoke(r.Context(), id, Actor(r))
+	_, err = h.access.Revoke(r.Context(), id, actor(r))
 	if err != nil {
 		WriteFault(w, err)
 		return
@@ -214,9 +214,9 @@ func (h Authorization) AuthzExplain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := q.Get("user")
-	self := user == "" || user == Actor(r)
+	self := user == "" || user == actor(r)
 	if user == "" {
-		user = Actor(r)
+		user = actor(r)
 	}
 	res := access.Resource{Type: "instance"}
 	if slug := q.Get("project"); slug != "" {

@@ -3,9 +3,10 @@ package docker
 import (
 	"context"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerlabel"
 	"regexp"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/dockerlabel"
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/strs"
@@ -24,25 +25,25 @@ import (
 // Needs names the need services and where each keeps its data ("" keeps
 // none).
 type Ownership struct {
-	// Storage records engine identity separately from deletion ownership.
-	Storage        deploy.StorageBindings
-	RestoreStorage deploy.StorageRestore
+	// storage records engine identity separately from deletion ownership.
+	storage        deploy.StorageBindings
+	restoreStorage deploy.StorageRestore
 	Record         func(deploy.Owned) error
 	Needs          map[string]string
-	// Recorded is the deployment's list as it stood before this boot: what
+	// priorResources is the deployment's list as it stood before this boot: what
 	// AppTown may delete (a synthetic need's volume, when its parameters
 	// moved). Nothing else is ever deleted.
-	Recorded []deploy.Owned
-	// Persistent is a standing deployment's stack: its parts live with it
+	priorResources []deploy.Owned
+	// persistent is a standing deployment's stack: its parts live with it
 	// (class env, restarted with the host), never idle-reaped.
-	Persistent bool
-	// Info is the informational labels a standing deployment's things carry
+	persistent bool
+	// info is the informational labels a standing deployment's things carry
 	// for people (dockerlabel.Informational); nil for previews and runs.
-	Info []string
+	info []string
 }
 
 func (o Ownership) recorded(kind, id string) bool {
-	for _, r := range o.Recorded {
+	for _, r := range o.priorResources {
 		if r.Kind == kind && r.ID == id {
 			return true
 		}
@@ -81,7 +82,7 @@ func ensureNetwork(ctx context.Context, dk Scope, network string, own Ownership)
 	if dk.OK(ctx, "network", "inspect", network) {
 		return nil
 	}
-	if out, err := dk.Run(ctx, append(append(append([]string{"network", "create"}, dk.InstanceLabel()...), own.Info...), network)...); err != nil {
+	if out, err := dk.Run(ctx, append(append(append([]string{"network", "create"}, dk.instanceLabel()...), own.info...), network)...); err != nil {
 		if dk.OK(ctx, "network", "inspect", network) {
 			return nil // another boot made it: not ours to record
 		}
@@ -124,20 +125,20 @@ func ensureVolume(ctx context.Context, dk Scope, volume, stackID, need string, o
 
 // createVolume follows a successful absence observation under deployment serialization.
 func createVolume(ctx context.Context, dk Scope, volume, stackID, need string, own Ownership) error {
-	if out, err := dk.Run(ctx, append(append(append([]string{"volume", "create", "--label", dockerlabel.Owner + "=" + stackID}, dk.InstanceLabel()...), own.Info...), volume)...); err != nil {
+	if out, err := dk.Run(ctx, append(append(append([]string{"volume", "create", "--label", dockerlabel.Owner + "=" + stackID}, dk.instanceLabel()...), own.info...), volume)...); err != nil {
 		return fmt.Errorf("volume create %s: %v: %s", volume, err, strings.TrimSpace(string(out)))
 	}
 	return own.created(deploy.Owned{Kind: "volume", ID: volume, Data: true, Need: need})
 }
 
-// TearDownOwned deletes what a deployment's list names, after its serving
+// tearDownOwned deletes what a deployment's list names, after its serving
 // container is gone (serving: its ID, not deleted again): containers, then
 // networks, then data volumes (only when backedUp), then images (only
 // those no container uses). What the daemon says is gone is passed over;
 // what it cannot be asked about, and a failed delete, is reported Left,
 // never hidden. A container goes without its anonymous volumes: only a
 // volume the list names is ever deleted.
-func TearDownOwned(ctx context.Context, dk Scope, owned []deploy.Owned, serving string, backedUp bool, storage deploy.StorageBindings) deploy.TakenDown {
+func tearDownOwned(ctx context.Context, dk Scope, owned []deploy.Owned, serving string, backedUp bool, storage deploy.StorageBindings) deploy.TakenDown {
 	var out deploy.TakenDown
 	left := func(o deploy.Owned, why string) {
 		name := o.Name

@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/project"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/apptown/project"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -119,14 +120,14 @@ func (f Fleet) CompareArm(ctx context.Context, in ArmComparison) (*ArmCompared, 
 	judge := f.evalJudgeFor(ctx, in)
 	out := &ArmCompared{Head: cmp.Head, Base: in.Base}
 	if out.Base == nil {
-		if out.Base, err = f.answersAt(ctx, repo, cmp.Base, checks, assessInput{Sh: sh, NoApp: "the Change's base has no deployment to probe", Judge: judge,
-			Label: fmt.Sprintf("apptown-eval-%d-%d-base", in.EvalID, in.ProjectID)}, in.ProjectID); err != nil {
+		if out.Base, err = f.answersAt(ctx, repo, cmp.Base, checks, assessInput{sh: sh, noApp: "the Change's base has no deployment to probe", judge: judge,
+			label: fmt.Sprintf("apptown-eval-%d-%d-base", in.EvalID, in.ProjectID)}, in.ProjectID); err != nil {
 			return nil, err
 		}
 	}
-	arm := assessInput{Sh: sh, Diff: diff, Judge: judge, Label: fmt.Sprintf("apptown-eval-%d-%d", in.EvalID, in.ProjectID)}
+	arm := assessInput{sh: sh, diff: diff, judge: judge, label: fmt.Sprintf("apptown-eval-%d-%d", in.EvalID, in.ProjectID)}
 	if hasRuntime(checks) {
-		arm.Running, arm.NoApp = f.servingCommit(ctx, in.ProjectID, cmp.Head)
+		arm.running, arm.noApp = f.servingCommit(ctx, in.ProjectID, cmp.Head)
 	}
 	if out.Arm, err = f.answersAt(ctx, repo, cmp.Head, checks, arm, in.ProjectID); err != nil {
 		return nil, err
@@ -147,7 +148,7 @@ func (f Fleet) evalJudgeFor(ctx context.Context, in ArmComparison) func([]check.
 		if in.Judge == "" {
 			return nil, nil, errors.New("no judge model: the baseline names no fast model")
 		}
-		return f.evaluator.Checklist(ctx, modelcall.Call{Purpose: "eval-score", ProjectID: in.ProjectID, Judge: true, Model: in.Judge}, items, diff)
+		return f.evaluator.checklist(ctx, modelcall.Call{Purpose: "eval-score", ProjectID: in.ProjectID, Judge: true, Model: in.Judge}, items, diff)
 	}
 }
 
@@ -158,7 +159,7 @@ func (f Fleet) answersAt(ctx context.Context, repo, sha string, checks []conform
 		return nil, fmt.Errorf("reading %s: %w", strs.ShortSHA(sha), err)
 	}
 	defer cleanup()
-	in.Tool = ToolContext{Context: ctx, Exceptions: []conformance.Disposition{}, ProjectID: projectID, SHA: sha, BuildDir: src, AllowBuild: true}
+	in.tool = toolContext{Context: ctx, Exceptions: []conformance.Disposition{}, ProjectID: projectID, SHA: sha, BuildDir: src, AllowBuild: true}
 	out := []CheckAnswer{}
 	for _, a := range f.assessChecks(ctx, checks, in) {
 		out = append(out, CheckAnswer{Block: a.Check.Block, Version: a.Check.Version, Check: a.Check.Check.Name, Kind: checkKind(a.Check.Check),

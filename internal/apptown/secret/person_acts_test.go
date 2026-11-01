@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -51,7 +53,7 @@ func TestABuiltInValueAndItsRevealNeedTheirReceipts(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	restore := db.FailNextStatement("-- name: AppendReceipt")
+	restore := dbtest.NextStatementFailure(db, "-- name: AppendReceipt")
 	_, err = s.BindStored(t.Context(), id, "demo", "main", "STRIPE_API_KEY", "stripe-two", "alice")
 	restore()
 	if err == nil {
@@ -70,7 +72,7 @@ func TestABuiltInValueAndItsRevealNeedTheirReceipts(t *testing.T) {
 	if got, err := s.Reveal(t.Context(), id, "main", "STRIPE_API_KEY", "alice"); err != nil || got.Value != "stripe-one" {
 		t.Fatalf("reveal: %+v %v", got, err)
 	}
-	restore = db.FailNextStatement("-- name: AppendReceipt")
+	restore = dbtest.NextStatementFailure(db, "-- name: AppendReceipt")
 	got, err := s.Reveal(t.Context(), id, "main", "STRIPE_API_KEY", "alice")
 	restore()
 	if err == nil || got.Value != "" {
@@ -89,8 +91,8 @@ func TestProfileSetNeedsItsReceipt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := NewProfiles(db, nil)
-	restore := db.FailNextStatement("-- name: AppendReceipt")
+	p := newProfiles(db, nil)
+	restore := dbtest.NextStatementFailure(db, "-- name: AppendReceipt")
 	err = p.Set(t.Context(), id, "main", "large", "alice")
 	restore()
 	if err == nil {

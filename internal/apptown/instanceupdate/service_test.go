@@ -81,7 +81,7 @@ func TestVerifiedCandidateSurvivesFailedChecksAndRestartButNotCorruptEvidence(t 
 		if r.URL.Host == "api.github.com" {
 			return response(200, `[{"tag_name":"v1.1.0"}]`), nil
 		}
-		bodies := map[string][]byte{ManifestName: f.manifest, ChecksumsName: f.checksums, BundleName: f.signature, NotesName: f.notes}
+		bodies := map[string][]byte{manifestName: f.manifest, checksumsName: f.checksums, bundleName: f.signature, notesName: f.notes}
 		body, ok := bodies[filepath.Base(r.URL.Path)]
 		if !ok {
 			t.Fatalf("unexpected public fetch %s", r.URL)
@@ -263,7 +263,7 @@ func TestAFormatOneCacheDoesNotBlockChecks(t *testing.T) {
 		if r.URL.Host == "api.github.com" {
 			return response(200, `[{"tag_name":"v1.1.0"}]`), nil
 		}
-		bodies := map[string][]byte{ManifestName: f.manifest, ChecksumsName: f.checksums, BundleName: f.signature, NotesName: f.notes}
+		bodies := map[string][]byte{manifestName: f.manifest, checksumsName: f.checksums, bundleName: f.signature, notesName: f.notes}
 		body, ok := bodies[filepath.Base(r.URL.Path)]
 		if !ok {
 			t.Fatalf("unexpected public fetch %s", r.URL)

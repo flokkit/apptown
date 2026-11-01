@@ -13,7 +13,7 @@ import (
 
 var ErrOAuthCredential = errors.New("invalid OAuth credential")
 
-type ResolvedOAuth struct {
+type resolvedOAuth struct {
 	Principal access.Principal
 	ClientID  string
 }
@@ -37,52 +37,52 @@ func (t tokenRecord) state(now time.Time) credentialState {
 
 // ResolveOAuth admits a token to its audience and applies the delegation's
 // bounds to the current person. It does not authorize an action on a resource.
-func (s *Service) ResolveOAuth(ctx context.Context, presented, audience string) (ResolvedOAuth, error) {
+func (s *Service) ResolveOAuth(ctx context.Context, presented, audience string) (resolvedOAuth, error) {
 	if !strings.HasPrefix(presented, AccessPrefix) {
-		return ResolvedOAuth{}, ErrOAuthCredential
+		return resolvedOAuth{}, ErrOAuthCredential
 	}
-	token, err := s.oauth.Token(ctx, presented, "access")
+	token, err := s.oauth.token(ctx, presented, "access")
 	if err != nil {
-		return ResolvedOAuth{}, err
+		return resolvedOAuth{}, err
 	}
 	now := s.now()
 	if token == nil || token.state(now) != credentialLive {
-		return ResolvedOAuth{}, ErrOAuthCredential
+		return resolvedOAuth{}, ErrOAuthCredential
 	}
-	d, err := s.oauth.Connection(ctx, token.DelegationID)
+	d, err := s.oauth.connection(ctx, token.DelegationID)
 	if err != nil {
-		return ResolvedOAuth{}, err
+		return resolvedOAuth{}, err
 	}
 	if !d.LiveAt(now) || d.Audience != audience {
-		return ResolvedOAuth{}, ErrOAuthCredential
+		return resolvedOAuth{}, ErrOAuthCredential
 	}
 	a, err := s.observedAccount(ctx, d.User)
 	if errors.Is(err, ErrAccountDisabled) {
-		return ResolvedOAuth{}, ErrOAuthCredential
+		return resolvedOAuth{}, ErrOAuthCredential
 	}
 	if err != nil {
-		return ResolvedOAuth{}, err
+		return resolvedOAuth{}, err
 	}
 	// Last-use metadata is best effort; account facts above are required.
 	if err := queries(s.db).TouchDelegation(ctx, accesssql.TouchDelegationParams{ID: d.ID, At: now.UTC()}); err != nil {
 		log.Printf("delegation %d: stamping its use: %v", d.ID, err)
 	}
-	pr := d.Bounds(a.principal(""), now)
+	pr := d.bounds(a.principal(""), now)
 	if pr.Name == "" {
-		return ResolvedOAuth{}, ErrOAuthCredential
+		return resolvedOAuth{}, ErrOAuthCredential
 	}
-	pr.Credential = DelegationCredential(d.ID)
-	return ResolvedOAuth{Principal: pr, ClientID: d.ClientID}, nil
+	pr.Credential = delegationCredential(d.ID)
+	return resolvedOAuth{Principal: pr, ClientID: d.ClientID}, nil
 }
 
 // RevokeOAuthToken ends the connection represented by either member of a pair.
 // An unrecognized token succeeds; a recognized connection settles atomically.
 func (s *Service) RevokeOAuthToken(ctx context.Context, presented string) error {
-	id, found, err := s.oauth.DelegationOfToken(ctx, presented)
+	id, found, err := s.oauth.delegationOfToken(ctx, presented)
 	if err != nil || !found {
 		return err
 	}
-	err = s.oauth.Revoke(ctx, id, "the client")
+	err = s.oauth.revoke(ctx, id, "the client")
 	if err != nil {
 		log.Printf("delegation %d: revoking: %v", id, err)
 	}

@@ -71,7 +71,7 @@ func (w *world) driver() *Driver {
 		},
 		BrowserValues: func(context.Context) (map[string]string, error) { return w.browser, nil },
 		Installation:  "inst-a",
-	}, Options{WitnessTries: 2, WitnessInterval: time.Millisecond, Suffix: func() string { return w.suffix }})
+	}, Options{witnessTries: 2, witnessInterval: time.Millisecond, suffix: func() string { return w.suffix }})
 }
 
 // image pushes a self-serving static image whose /srv holds files.

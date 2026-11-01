@@ -2,6 +2,8 @@ package integration
 
 import (
 	"testing"
+
+	"github.com/flokkit/apptown/internal/dbtest"
 )
 
 func TestErrorsConnectorKeepsBindingOrder(t *testing.T) {
@@ -37,7 +39,7 @@ func TestAnUnusableErrorsConnectorIsNotReplacedByTheNext(t *testing.T) {
 		t.Fatalf("no connector: %+v %v", got, err)
 	}
 	// A listing that fails is an error, not "no connector".
-	restore := db.FailNextStatement("FROM integrations ORDER BY capability, name")
+	restore := dbtest.NextStatementFailure(db, "FROM integrations ORDER BY capability, name")
 	got, err := service.errorsBindingNamed(t.Context(), "")
 	restore()
 	if err == nil || got != nil {

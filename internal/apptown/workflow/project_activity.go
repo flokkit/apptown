@@ -12,15 +12,15 @@ import (
 	"github.com/flokkit/apptown/internal/stamp"
 )
 
-// ProjectActivity is a bulk observation, never permission to start or remove work.
-type ProjectActivity struct {
+// projectActivity is a bulk observation, never permission to start or remove work.
+type projectActivity struct {
 	Changes, ActiveItems, DoneRuns, RunningRuns int
 	OpenChanges, OpenUplifts                    int
 	LastRunAt                                   stamp.Time
 	LastChangeTitle                             string
 }
 
-func (s *Service) ProjectActivity(ctx context.Context, project ids.ID) (map[ids.ID]ProjectActivity, error) {
+func (s *Service) ProjectActivity(ctx context.Context, project ids.ID) (map[ids.ID]projectActivity, error) {
 	if _, err := s.require(ctx, operationPermission{Action: actionIdentify}); err != nil {
 		return nil, err
 	}
@@ -31,8 +31,8 @@ func (s *Service) ProjectActivity(ctx context.Context, project ids.ID) (map[ids.
 	return readProjectActivity(ctx, s.db, projects)
 }
 
-func readProjectActivity(ctx context.Context, q database.Queryer, projects []ids.ID) (map[ids.ID]ProjectActivity, error) {
-	out := make(map[ids.ID]ProjectActivity, len(projects))
+func readProjectActivity(ctx context.Context, q database.Queryer, projects []ids.ID) (map[ids.ID]projectActivity, error) {
+	out := make(map[ids.ID]projectActivity, len(projects))
 	if len(projects) == 0 {
 		return out, ctx.Err()
 	}
@@ -44,7 +44,7 @@ func readProjectActivity(ctx context.Context, q database.Queryer, projects []ids
 		return nil, err
 	}
 	for _, row := range rows {
-		activity := ProjectActivity{LastChangeTitle: row.LastChangeTitle, Changes: int(row.Changes), ActiveItems: int(row.ActiveItems), DoneRuns: int(row.DoneRuns), RunningRuns: int(row.RunningRuns), OpenChanges: int(row.OpenChanges), OpenUplifts: int(row.OpenUplifts)}
+		activity := projectActivity{LastChangeTitle: row.LastChangeTitle, Changes: int(row.Changes), ActiveItems: int(row.ActiveItems), DoneRuns: int(row.DoneRuns), RunningRuns: int(row.RunningRuns), OpenChanges: int(row.OpenChanges), OpenUplifts: int(row.OpenUplifts)}
 		if row.HasLastRunAt {
 			activity.LastRunAt = stamp.Time{NullTime: sql.NullTime{Time: row.LastRunAt, Valid: true}}
 		}
@@ -53,13 +53,13 @@ func readProjectActivity(ctx context.Context, q database.Queryer, projects []ids
 	return out, nil
 }
 
-type WorkflowUsage struct {
+type workflowUsage struct {
 	Name      string
 	Runs      int
 	LastRunAt string
 }
 
-func (s *Service) WorkflowUsage(ctx context.Context, project ids.ID) (map[string]WorkflowUsage, error) {
+func (s *Service) WorkflowUsage(ctx context.Context, project ids.ID) (map[string]workflowUsage, error) {
 	if project.IsZero() {
 		return nil, fmt.Errorf("workflow usage requires project scope")
 	}
@@ -73,9 +73,9 @@ func (s *Service) WorkflowUsage(ctx context.Context, project ids.ID) (map[string
 	if err != nil {
 		return nil, err
 	}
-	out := make(map[string]WorkflowUsage, len(rows))
+	out := make(map[string]workflowUsage, len(rows))
 	for _, v := range rows {
-		usage := WorkflowUsage{Name: v.WorkflowName, Runs: int(v.Runs)}
+		usage := workflowUsage{Name: v.WorkflowName, Runs: int(v.Runs)}
 		usage.LastRunAt = v.LastRunAt.Format(time.RFC3339Nano)
 		out[v.WorkflowName] = usage
 	}
@@ -84,7 +84,7 @@ func (s *Service) WorkflowUsage(ctx context.Context, project ids.ID) (map[string
 
 // ProjectActivityFor bounds the work read to requested projects after checking
 // run visibility. A caller's selection can narrow, never expand, that scope.
-func (s *Service) ProjectActivityFor(ctx context.Context, requested []ids.ID) (map[ids.ID]ProjectActivity, error) {
+func (s *Service) ProjectActivityFor(ctx context.Context, requested []ids.ID) (map[ids.ID]projectActivity, error) {
 	if _, err := s.require(ctx, operationPermission{Action: actionIdentify}); err != nil {
 		return nil, err
 	}

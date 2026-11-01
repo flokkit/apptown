@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
@@ -23,11 +22,11 @@ func TestThrowawayContainersAreRemovedWithTheirAnonymousVolumes(t *testing.T) {
 	for name, remove := range map[string]func(docker.Scope){
 		"a folder's writers": func(dk docker.Scope) { _, _ = dk.RemoveLabelled(context.Background(), "apptown.writes=/w") },
 		"a step's agents":    func(dk docker.Scope) { dk.StopStep(context.Background(), step) },
-		"a step's services":  func(dk docker.Scope) { _ = dk.RemoveStack(context.Background(), "stack-1") },
+		"a step's services":  func(dk docker.Scope) { _ = docker.ScopeRemoveStack(dk, context.Background(), "stack-1") },
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			daemon := dockerfake.New()
+			daemon := newDockerFake()
 			daemon.SetReply(func(args []string) ([]byte, error, bool) {
 				if args[0] == "ps" {
 					return []byte(fmt.Sprintf("apptown-step-%d-agent\n", step)), nil, true

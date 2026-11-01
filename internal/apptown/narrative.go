@@ -38,7 +38,7 @@ type narrativeEvidence struct {
 	Empty       bool
 }
 
-func (b narrativeBuilder) Refresh(ctx context.Context, changeID ids.ID) (err error) {
+func (b narrativeBuilder) refresh(ctx context.Context, changeID ids.ID) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 	defer func() {

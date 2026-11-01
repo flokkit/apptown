@@ -87,7 +87,7 @@ func repoDriver(t *testing.T, api *dofake.API, book *repoBook) *Driver {
 	push := func(_ *Driver, _ context.Context, _ *Client, _, _, _, _ string, _ func(string, ...any)) (string, error) {
 		return "sha256:" + strings.Repeat("a", 64), nil
 	}
-	var owner RepositoryOwner
+	var owner repositoryOwner
 	if book != nil {
 		owner = book
 	}

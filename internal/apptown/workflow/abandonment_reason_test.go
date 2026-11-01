@@ -12,7 +12,7 @@ func TestAbandonmentReasonsProjectTheRecordedFailure(t *testing.T) {
 	t.Parallel()
 	s, in := invocationFixture(t)
 	const reason = "cloning workspace: disk unavailable"
-	s.starter.runtime.Prepare = func(context.Context, *Run) error { return errors.New(reason) }
+	s.starter.runtime.prepare = func(context.Context, *Run) error { return errors.New(reason) }
 	ch, run, err := s.CreateAndRun(t.Context(), in)
 	if err == nil || ch == nil || run == nil {
 		t.Fatalf("failed preparation: %+v %+v %v", ch, run, err)

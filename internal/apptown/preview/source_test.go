@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,6 +14,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -53,7 +54,7 @@ func TestALandedChangePreviewsItsLandedCommitAndAnOpenOneItsFolder(t *testing.T)
 	port, _ := strconv.Atoi(parsed.Port())
 	var mu sync.Mutex
 	var calls []string
-	var disk diskspacetest.Daemon
+	var disk diskDaemon
 	started := false
 	scope := docker.Scope{Client: dockerClientFunc(func(_ context.Context, _ string, c docker.Command) ([]byte, error) {
 		mu.Lock()
@@ -167,3 +168,6 @@ type dockerClientFunc func(context.Context, string, docker.Command) ([]byte, err
 func (f dockerClientFunc) Run(ctx context.Context, host string, c docker.Command) ([]byte, error) {
 	return f(ctx, host, c)
 }
+
+// diskDaemon composes the disk and result protocols for this package's tests.
+type diskDaemon = diskspacetest.Daemon

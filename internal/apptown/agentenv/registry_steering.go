@@ -8,7 +8,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/integration"
 )
 
-func RegistrySteering(bound map[string]integration.BoundRegistry) string {
+func registrySteering(bound map[string]integration.BoundRegistry) string {
 	if len(bound) == 0 {
 		return ""
 	}
@@ -21,10 +21,10 @@ func RegistrySteering(bound map[string]integration.BoundRegistry) string {
 		var b strings.Builder
 		for _, f := range formats {
 			ad := registryAdapterFor(f)
-			if ad == nil || ad.Layer != layer {
+			if ad == nil || ad.layer != layer {
 				continue
 			}
-			fmt.Fprintf(&b, "- %s: %s\n", ad.Title, ad.Mechanism)
+			fmt.Fprintf(&b, "- %s: %s\n", ad.title, ad.mechanism)
 		}
 		return b.String()
 	}

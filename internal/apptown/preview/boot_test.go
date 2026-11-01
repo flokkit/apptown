@@ -338,8 +338,8 @@ func TestAPreviewPortAddressWithAPublicHostIsMarkedForAppTownHostOnly(t *testing
 			t.Errorf("public host %q, preview domain %q: previews host-only %v, want %v", c.publicHost, c.previewDomain, got, c.hostOnly)
 		}
 	}
-	var runtime Runtime
-	if got := runtime.Inspect(context.Background(), ChangeKey(idstest.N(7)), previewFacts{URL: "http://forge.example:40001", HostOnly: true}); got.State != Live || !got.HostOnly {
+	var runtime previewRuntime
+	if got := runtime.inspect(context.Background(), changeKey(idstest.N(7)), previewFacts{URL: "http://forge.example:40001", HostOnly: true}); got.State != live || !got.HostOnly {
 		t.Fatalf("a live host-only preview: %+v", got)
 	}
 }

@@ -16,9 +16,9 @@ import (
 	"github.com/flokkit/apptown/internal/oidclogin"
 )
 
-var ErrLocalRecovery = fault.New(fault.Conflict, "keep an enabled local-password administrator with nonexpiring authority before using external sign-in")
-var ErrExternalChanged = fault.New(fault.Conflict, "external sign-in changed; reload its settings or start sign-in again")
-var ErrExternalDisabled = fault.New(fault.Conflict, "external sign-in is not enabled")
+var errLocalRecovery = fault.New(fault.Conflict, "keep an enabled local-password administrator with nonexpiring authority before using external sign-in")
+var errExternalChanged = fault.New(fault.Conflict, "external sign-in changed; reload its settings or start sign-in again")
+var errExternalDisabled = fault.New(fault.Conflict, "external sign-in is not enabled")
 var ErrExternalUnbound = fault.New(fault.Forbidden, "this external identity has no AppTown account binding; ask an administrator")
 
 // ExternalDependencies supplies protocol and secret lookup to the identity owner.
@@ -64,7 +64,7 @@ func externalSave(p accesssql.ExternalSigninProvider) accesssql.SaveExternalProv
 func (s *Service) externalAvailable() error {
 	d := s.cfg.External
 	if d == nil || !d.Internal || d.Protocol == nil || d.Secret == nil || d.Origin == "" {
-		return ErrExternalDisabled
+		return errExternalDisabled
 	}
 	return nil
 }
@@ -97,7 +97,7 @@ func (s *Service) SaveExternalProvider(ctx context.Context, in ExternalProviderC
 			return e
 		}
 		if (found && p.Revision != in.Revision) || (!found && in.Revision != 0) {
-			return ErrExternalChanged
+			return errExternalChanged
 		}
 		if in.InitialGroup != "" {
 			g, e := q.GroupByName(ctx, in.InitialGroup)
@@ -105,7 +105,7 @@ func (s *Service) SaveExternalProvider(ctx context.Context, in ExternalProviderC
 				return e
 			}
 			if g.RetiredAt.Valid {
-				return ErrExternalChanged
+				return errExternalChanged
 			}
 		}
 		previousRevision := p.Revision
@@ -152,10 +152,10 @@ func (s *Service) SetExternalEnabled(ctx context.Context, revision int64, enable
 			return e
 		}
 		if p.Revision != revision {
-			return ErrExternalChanged
+			return errExternalChanged
 		}
 		if p.CallbackOrigin != s.cfg.External.Origin {
-			return ErrExternalChanged
+			return errExternalChanged
 		}
 		p.Enabled = enabled
 		p.Revision++
@@ -174,7 +174,7 @@ func (s *Service) externalConfiguration(ctx context.Context, p accesssql.Externa
 		return oidclogin.Configuration{}, e
 	}
 	if p.CallbackOrigin != s.cfg.External.Origin {
-		return oidclogin.Configuration{}, ErrExternalChanged
+		return oidclogin.Configuration{}, errExternalChanged
 	}
 	secret, e := s.cfg.External.Secret(ctx, p.SecretRef)
 	if e != nil || secret == "" {
@@ -209,7 +209,7 @@ func (s *Service) BindExternal(ctx context.Context, providerID, person ids.ID, s
 			return e
 		}
 		if !p.CurrentSlot {
-			return ErrExternalChanged
+			return errExternalChanged
 		}
 		u, e := q.UserByPrincipal(ctx, person)
 		if e != nil {
@@ -231,7 +231,7 @@ func (s *Service) RevokeExternalBinding(ctx context.Context, id ids.ID, pr acces
 			return e
 		}
 		if n != 1 {
-			return ErrExternalChanged
+			return errExternalChanged
 		}
 		return audit.At(now).RecordIn(ctx, tx, pr.Name, ids.Nil, "auth.external-unbound", id.String(), nil)
 	})
@@ -313,7 +313,7 @@ func (s *Service) UnlinkExternal(ctx context.Context, id ids.ID, password string
 			return e
 		}
 		if n != 1 {
-			return ErrExternalChanged
+			return errExternalChanged
 		}
 		return audit.At(s.now()).RecordIn(ctx, tx, current.Name, ids.Nil, "auth.external-unbound", id.String(), nil)
 	})

@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/strs"
 	"net/http"
 	"slices"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/strs"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -33,7 +34,7 @@ func NewFindings(projects *project.Projects, work *workflow.Service, conformance
 
 // RunFindings: GET /runs/{id}/findings — the normalized view.
 func (h Findings) RunFindings(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -92,7 +93,7 @@ func (h Findings) RunFindings(w http.ResponseWriter, r *http.Request) {
 // project's runs, normalized and disposition-annotated, plus the full
 // disposition list for management.
 func (h Findings) ProjectFindings(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

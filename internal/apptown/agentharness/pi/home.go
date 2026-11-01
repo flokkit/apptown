@@ -59,17 +59,17 @@ say plainly when you cannot find the answer.
 // its generated home, so its Docker CLI uses the same client configuration.
 const DockerConfigDir = ".apptown/pi-home/.docker"
 
-// Home selects the baked extensions and already-resolved delegate models.
+// preparedHome selects the baked extensions and already-resolved delegate models.
 // Project policy and model selection happen before reaching this adapter.
-type Home struct {
+type preparedHome struct {
 	SubagentsVersion        string
 	Packages                []string
 	WorkerModel, ScoutModel string
 }
 
-// StageAgentDir writes Pi settings, delegate definitions and the baked package
+// stageAgentDir writes Pi settings, delegate definitions and the baked package
 // symlink. It does not read project state or load extensions from the workspace.
-func StageAgentDir(agentDir string, home Home) error {
+func stageAgentDir(agentDir string, home preparedHome) error {
 	settings := map[string]any{
 		"quietStartup":        true,
 		"defaultProjectTrust": "never",

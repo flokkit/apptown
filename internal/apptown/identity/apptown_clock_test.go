@@ -50,14 +50,14 @@ func TestAppTownsClockDecidesWhatExpires(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	delegation, found, err := s.oauth.DelegationOfToken(ctx, pair.Access)
+	delegation, found, err := s.oauth.delegationOfToken(ctx, pair.Access)
 	if err != nil || !found {
 		t.Fatalf("delegation: %v %v", found, err)
 	}
 	if _, err := s.EnsureUser(ctx, "lee"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewGrants(s.db).Add(ctx, Spec{SubjectType: "user", Subject: "lee", Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, By: "ops"}, time.Now().Add(time.Hour).UTC().Format(time.RFC3339)); err != nil {
+	if _, err := newGrants(s.db).add(ctx, Spec{SubjectType: "user", Subject: "lee", Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, By: "ops"}, time.Now().Add(time.Hour).UTC().Format(time.RFC3339)); err != nil {
 		t.Fatal(err)
 	}
 	before, err := enabledRoots(ctx, s.db, time.Now())
@@ -69,10 +69,10 @@ func TestAppTownsClockDecidesWhatExpires(t *testing.T) {
 	if pending, err := s.Invites(ctx, admittedPrincipal(t, s, "ops")); err != nil || len(pending) != 1 || pending[0].State != "pending" {
 		t.Fatalf("a pending invite by AppTown's clock: %+v %v", pending, err)
 	}
-	if err := s.oauth.SweepExpired(context.Background()); err != nil {
+	if err := s.oauth.sweepExpired(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if conn, err := s.oauth.Connection(ctx, delegation); err != nil || conn == nil || !conn.LiveAt(time.Now()) {
+	if conn, err := s.oauth.connection(ctx, delegation); err != nil || conn == nil || !conn.LiveAt(time.Now()) {
 		t.Fatalf("a live delegation by AppTown's clock was swept: %+v %v", conn, err)
 	}
 	if n, err := enabledRoots(ctx, s.db, time.Now()); err != nil || n != before {
@@ -116,22 +116,22 @@ func TestARevokedTokenIsKeptADayByAppTownsClock(t *testing.T) {
 	// Revoked two ways: the person disconnects the agent, and a replayed
 	// code ends what it minted.
 	_, disconnected := connect()
-	delegation, _, err := s.oauth.DelegationOfToken(ctx, disconnected.Access)
+	delegation, _, err := s.oauth.delegationOfToken(ctx, disconnected.Access)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.oauth.Revoke(ctx, delegation, "alice"); err != nil {
+	if err := s.oauth.revoke(ctx, delegation, "alice"); err != nil {
 		t.Fatal(err)
 	}
 	replay, replayed := connect()
-	if _, err := s.ExchangeCode(ctx, replay); !errors.Is(err, ErrCodeReplay) {
+	if _, err := s.ExchangeCode(ctx, replay); !errors.Is(err, errCodeReplay) {
 		t.Fatalf("a second exchange is a replay: %v", err)
 	}
-	if err := s.oauth.SweepExpired(context.Background()); err != nil {
+	if err := s.oauth.sweepExpired(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	for name, pair := range map[string]Pair{"disconnected": disconnected, "replayed": replayed} {
-		if tok, err := s.oauth.Token(ctx, pair.Access, "access"); err != nil || tok == nil || !tok.Revoked {
+		if tok, err := s.oauth.token(ctx, pair.Access, "access"); err != nil || tok == nil || !tok.Revoked {
 			t.Errorf("%s: a token revoked just now was swept, or is not revoked: %+v %v", name, tok, err)
 		}
 	}
@@ -181,7 +181,7 @@ func TestEveryLifetimeIsJudgedByAppTownsClock(t *testing.T) {
 	verifier := strings.Repeat("v", 43)
 	sum := sha256.Sum256([]byte(verifier))
 	browser := BrowserAuthorization{User: "ops", Binding: "browser", Request: AuthorizationRequest{ClientID: c.ID, RedirectURI: c.RedirectURIs[0], Scope: "apptown:user:read", Challenge: base64.RawURLEncoding.EncodeToString(sum[:]), Method: "S256"}}
-	code := func() (PreparedConsent, string) {
+	code := func() (preparedConsent, string) {
 		t.Helper()
 		prepared, err := s.PrepareConsent(ctx, browser)
 		if err != nil {
@@ -206,7 +206,7 @@ func TestEveryLifetimeIsJudgedByAppTownsClock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	delegation, _, err := s.oauth.DelegationOfToken(ctx, pair.Access)
+	delegation, _, err := s.oauth.delegationOfToken(ctx, pair.Access)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -283,7 +283,7 @@ func TestEveryLifetimeIsJudgedByAppTownsClock(t *testing.T) {
 	if !session() || inviteState() != "pending" {
 		t.Fatalf("a session and an invite within their lifetimes: session %v, invite %s", session(), inviteState())
 	}
-	refreshed, err := s.Refresh(ctx, pair.Refresh)
+	refreshed, err := s.RefreshForClient(ctx, pair.Refresh, "")
 	if err != nil {
 		t.Fatalf("a refresh token within its lifetime: %v", err)
 	}
@@ -297,7 +297,7 @@ func TestEveryLifetimeIsJudgedByAppTownsClock(t *testing.T) {
 	if got := inviteState(); got != "expired" {
 		t.Fatalf("an invite past its lifetime: %s", got)
 	}
-	if _, err := s.Refresh(ctx, refreshed.Refresh); !errors.Is(err, ErrConnectionEnded) {
+	if _, err := s.RefreshForClient(ctx, refreshed.Refresh, ""); !errors.Is(err, ErrConnectionEnded) {
 		t.Fatalf("a refresh past the connection's lifetime: %v", err)
 	}
 }
@@ -339,7 +339,7 @@ func TestTheLastAdministratorIsJudgedByAppTownsClock(t *testing.T) {
 	if revoked, err := s.Revoke(context.Background(), ops, "ops"); err != nil || !revoked {
 		t.Fatalf("may administers for another hour by AppTown's clock: %v %v", revoked, err)
 	}
-	if revoked, err := s.Revoke(context.Background(), may, "may"); !errors.Is(err, ErrLastAdministrator) || revoked {
+	if revoked, err := s.Revoke(context.Background(), may, "may"); !errors.Is(err, errLastAdministrator) || revoked {
 		t.Fatalf("may is the last administrator by AppTown's clock: %v %v", revoked, err)
 	}
 }
@@ -352,7 +352,7 @@ func TestAnOperationsReceiptCarriesItsRecordsTime(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	clk := clocktest.NewStepping(time.Date(2026, 3, 1, 9, 0, 0, 0, time.UTC), time.Second)
-	s := New(testDB(t), Config{SessionTTL: time.Hour, Now: clk.Now})
+	s := New(testDB(t), Config{sessionTTL: time.Hour, Now: clk.Now})
 	testAccounts(t, s.db, "alice", "ops")
 	testGrantRoot(t, s, "ops")
 	ops := admittedPrincipal(t, s, "ops")

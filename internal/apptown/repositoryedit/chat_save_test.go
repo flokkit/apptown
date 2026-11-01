@@ -88,7 +88,7 @@ func newChatSaveWorld(t *testing.T) chatSaveWorld {
 		folder: filepath.Join(dataDir, "workspaces", fmt.Sprintf("change-%d", change.ID)), chat: chat}
 }
 
-func (w chatSaveWorld) save(t *testing.T, chat string, fetch SaveFetch) ChatSave {
+func (w chatSaveWorld) save(t *testing.T, chat string, fetch saveFetch) ChatSave {
 	t.Helper()
 	return SaveChat(context.Background(), w.db, w.dataDir, w.branches, noMirror{},
 		ChatRef{Session: chat, ProjectID: w.change.ProjectID, ChangeID: w.change.ID}, fetch, worker.SaveRef, time.Now())
@@ -216,7 +216,7 @@ func TestAChatThatNoLongerHoldsItsChangeSavesNothing(t *testing.T) {
 		t.Fatal("the worker was asked for the commits of a chat that does not hold its change")
 		return "", nil
 	}
-	if save := w.save(t, "notthechat", asked); save.Outcome != ChatSaveSkipped || w.branchTip() != before {
+	if save := w.save(t, "notthechat", asked); save.Outcome != chatSaveSkipped || w.branchTip() != before {
 		t.Fatalf("a save by a chat without the change: %+v", save)
 	}
 }

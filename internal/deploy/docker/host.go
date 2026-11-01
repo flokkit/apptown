@@ -23,11 +23,11 @@ type Host struct{ deps Dependencies }
 // whose secrets, registries and integrations they answer for.
 type Dependencies struct {
 	Secrets      SecretResolver
-	Needs        NeedCatalog
-	Registry     RegistryLogin
-	Integrations Contributions
+	Needs        needRegistry
+	Registry     registryLogin
+	Integrations contributions
 	Routes       Routes
-	Probe        Prober // nil is the default probe
+	Probe        prober // nil is the default probe
 	// The images a boot runs for itself, from the tool versions snapshot its
 	// caller's unit of work took: the file server for static parts, an image
 	// with chown for handing a volume to the app's user ("" skips it), and
@@ -63,12 +63,12 @@ func (d Delivery) EnvFor(consumer string) map[string]string {
 	return d.Env(consumer)
 }
 
-// NeedCatalog fulfils the contract's needs locally: emulator containers
+// needRegistry fulfils the contract's needs locally: emulator containers
 // and the env the app reads to use them; Data is where an emulator keeps
 // its data, "" for one that keeps none. A kind that cannot be read is an
 // error, never "keeps none": a standing service remade without its data
 // folder would start empty.
-type NeedCatalog interface {
+type needRegistry interface {
 	// Fulfil refuses a need it cannot fulfil as declared with the sentence
 	// the release and preview show (an unknown need, a withdrawn
 	// declaration).
@@ -76,16 +76,16 @@ type NeedCatalog interface {
 	Data(ctx context.Context, capability string) (string, error)
 }
 
-// RegistryLogin logs the daemon into the registry an image is pulled from.
+// registryLogin logs the daemon into the registry an image is pulled from.
 // A login that fails, or a credential that cannot be read, is an error.
-type RegistryLogin interface {
+type registryLogin interface {
 	Login(ctx context.Context, dk Scope, imageRef string) error
 }
 
-// Contributions is the attached integrations' rendered env for an app, and
+// contributions is the attached integrations' rendered env for an app, and
 // the part of it safe for any browser to read, as a JSON object. A read
 // that fails is an error, never fewer variables.
-type Contributions interface {
+type contributions interface {
 	EnvFor(context.Context) ([]string, error)
 	BrowserEnv(context.Context) (string, error)
 }
@@ -97,9 +97,9 @@ type Routes interface {
 	PublicOrigins(ctx context.Context) string
 }
 
-// Prober answers "is the app actually up?" for a container at a URL.
-type Prober interface {
-	Check(ctx context.Context, dk Scope, container, url string, timeout time.Duration, probe RenderedProbe) (bool, string)
+// prober answers "is the app actually up?" for a container at a URL.
+type prober interface {
+	Check(ctx context.Context, dk Scope, container, url string, timeout time.Duration, probe renderedProbe) (bool, string)
 }
 
 func (h *Host) staticServer() (string, error) {
@@ -139,7 +139,7 @@ func (h *Host) browserEnv(ctx context.Context) (string, error) {
 	}
 	return h.deps.Integrations.BrowserEnv(ctx)
 }
-func (h *Host) prober() Prober {
+func (h *Host) prober() prober {
 	if h.deps.Probe != nil {
 		return h.deps.Probe
 	}

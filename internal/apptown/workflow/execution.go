@@ -93,7 +93,7 @@ func (e *Execution) Step() *Step {
 func (e *Execution) Run() *Run { value := *e.run; return &value }
 
 // RunScope identifies this execution's run through a fresh read for cooperating domains.
-func (e *Execution) RunScope() RunScope { return e.service.RunScope(e.run.ID) }
+func (e *Execution) RunScope() runScope { return e.service.RunScope(e.run.ID) }
 
 func (e *Execution) Claim() (*Step, error) {
 	if e.claim != nil {
@@ -321,7 +321,7 @@ func (s *Service) finishAttempt(ctx context.Context, claim *Step, outcome StepOu
 	}
 	outcome.Evidence = s.masked(ctx, evidence)
 	if !outcome.Rework {
-		return s.stepAttempts.Finish(ctx, claim, outcome)
+		return s.stepAttempts.finish(ctx, claim, outcome)
 	}
 	if outcome.Status != StatusFail {
 		return fmt.Errorf("rework requires a failed verdict")

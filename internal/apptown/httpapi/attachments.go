@@ -1,9 +1,10 @@
 package httpapi
 
 import (
-	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"io"
 	"net/http"
+
+	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
 
 type Attachments struct {
@@ -18,7 +19,7 @@ func NewAttachments(owner workflow.Attachments, dataDir string) Attachments {
 // UploadAttachment: POST /api/v1/changes/{id}/attachments — multipart
 // form, field "file".
 func (h Attachments) UploadAttachment(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -55,7 +56,7 @@ type ChangeAttachment struct {
 }
 
 func (h Attachments) ListAttachments(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -73,7 +74,7 @@ func (h Attachments) ListAttachments(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Attachments) GetAttachment(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -87,7 +88,7 @@ func (h Attachments) GetAttachment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Attachments) DeleteAttachment(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return

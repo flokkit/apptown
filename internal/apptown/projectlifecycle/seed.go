@@ -45,22 +45,22 @@ func (s Seeding) BundleLimit() int64 {
 	return s.BundleMaxBytes
 }
 
-// Secrets reads AppTown's own secrets, for a git credential named by an
+// secrets reads AppTown's own secrets, for a git credential named by an
 // administrator.
-type Secrets interface {
+type secrets interface {
 	WithContext(ctx context.Context) (map[string]string, error)
 }
 
-// BundleTooLarge refuses an upload over the operator's limit.
-type BundleTooLarge struct{ Limit int64 }
+// bundleTooLarge refuses an upload over the operator's limit.
+type bundleTooLarge struct{ Limit int64 }
 
-func (e *BundleTooLarge) Error() string {
+func (e *bundleTooLarge) Error() string {
 	return fmt.Sprintf("the bundle is larger than this AppTown accepts (%d bytes; the operator sets -import-bundle-max-bytes)", e.Limit)
 }
-func (e *BundleTooLarge) FaultKind() fault.Kind { return fault.Invalid }
+func (e *bundleTooLarge) FaultKind() fault.Kind { return fault.Invalid }
 
-// ErrNoSuchSecret refuses a credential name AppTown does not hold.
-var ErrNoSuchSecret = fault.New(fault.Invalid, "AppTown holds no secret by that name")
+// errNoSuchSecret refuses a credential name AppTown does not hold.
+var errNoSuchSecret = fault.New(fault.Invalid, "AppTown holds no secret by that name")
 
 // FromURL is a seed from an https repository. CredentialSecret names one of
 // AppTown's own secrets to offer as the password; the caller has already
@@ -84,7 +84,7 @@ func (s *Service) SeedFromURL(ctx context.Context, p *project.Project, in FromUR
 		}
 		value, ok := values[in.CredentialSecret]
 		if !ok || value == "" {
-			return ErrNoSuchSecret
+			return errNoSuchSecret
 		}
 		remote.Password = value
 	}
@@ -114,7 +114,7 @@ func (s *Service) SeedFromBundle(ctx context.Context, p *project.Project, body i
 		return fault.Wrap(fault.Invalid, fmt.Errorf("the bundle could not be received: %w", err))
 	}
 	if n > limit {
-		return &BundleTooLarge{Limit: limit}
+		return &bundleTooLarge{Limit: limit}
 	}
 	return s.seed(ctx, p, who, scm.ViaSeed, map[string]any{"source": "bundle", "bytes": n}, func(dir string) (string, error) {
 		return scm.SeedFromBundle(ctx, dir, f.Name(), branch)

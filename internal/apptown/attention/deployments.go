@@ -87,7 +87,7 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 			add("runtime", "App status not known", "The latest runtime observation is unavailable or out of date.", SeverityWarning, r.ObservedAt, true)
 		case r.State == deployment.RuntimeStopped && !held:
 			out.Known = false
-			add("runtime", "Stopped; check whether it should be running", "The runtime is absent. This observation does not establish whether it was stopped intentionally.", SeverityAdvisory, r.ObservedAt, r.Stale)
+			add("runtime", "Stopped; check whether it should be running", "The runtime is absent. This observation does not establish whether it was stopped intentionally.", severityAdvisory, r.ObservedAt, r.Stale)
 		case r.Health == "unhealthy" || r.Rollout == "failed":
 			add("runtime", "Deployment runtime needs attention", "The observed serving generation is unhealthy or its provider rollout failed.", SeverityWarning, r.ObservedAt, r.Stale)
 		}

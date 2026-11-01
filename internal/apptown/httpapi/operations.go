@@ -35,15 +35,15 @@ type (
 	}
 )
 
-// WriteAdmitted answers an admitted operation: 202, Location and the handle.
-func WriteAdmitted(w http.ResponseWriter, op *operations.Operation) {
+// writeAdmitted answers an admitted operation: 202, Location and the handle.
+func writeAdmitted(w http.ResponseWriter, op *operations.Operation) {
 	w.Header().Set("Location", op.URL())
 	WriteJSON(w, 202, OperationAdmitted{OperationID: op.ID, State: op.State, URL: op.URL()})
 }
 
 // Get: GET /operations/{id}.
 func (h Operations) Get(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -59,7 +59,7 @@ func (h Operations) Get(w http.ResponseWriter, r *http.Request) {
 // Cancel: POST /operations/{id}/cancel — a queued operation is cancelled
 // at once; a running one stops at its next safe step.
 func (h Operations) Cancel(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -69,19 +69,19 @@ func (h Operations) Cancel(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	WriteAdmitted(w, op)
+	writeAdmitted(w, op)
 }
 
 // Dismiss: POST /operations/{id}/dismiss — the caller puts away one of
 // their own ended operations. The owner matches the asker, so it needs no
 // read of the operation's project, which may be gone.
 func (h Operations) Dismiss(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
 	}
-	if err := h.ops.Dismiss(r.Context(), id, Actor(r)); err != nil {
+	if err := h.ops.Dismiss(r.Context(), id, actor(r)); err != nil {
 		WriteFault(w, err)
 		return
 	}

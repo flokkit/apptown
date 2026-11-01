@@ -18,7 +18,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/stamp"
@@ -396,7 +395,7 @@ func TestReaperEvictsAnIdleChatOnce(t *testing.T) {
 // Kills: a sweep that reads every volume each time, whatever settled.
 func TestAnIdleCacheSweepStartsNoContainers(t *testing.T) {
 	t.Parallel()
-	d := dockerfake.New()
+	d := newDockerFake()
 	d.SetReply(func(args []string) ([]byte, error, bool) {
 		line := strings.Join(args, " ")
 		switch {
@@ -407,8 +406,8 @@ func TestAnIdleCacheSweepStartsNoContainers(t *testing.T) {
 		}
 		return nil, nil, false
 	})
-	d.SetResults(func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
-		return containerresulttest.Answer{Answer: []byte("run-x\n")}, strings.HasSuffix(c.Script, "ls /apptown-cache/mise/ws")
+	d.SetResults(func(c dockerfake.ResultCommand) (dockerfake.ResultAnswer, bool) {
+		return dockerfake.ResultAnswer{Answer: []byte("run-x\n")}, strings.HasSuffix(c.Script, "ls /apptown-cache/mise/ws")
 	})
 	a := testApp(t, Config{DockerClient: d})
 	pid := createReadTestProject(t, a, "idle-cache")
@@ -440,7 +439,7 @@ func TestAnIdleCacheSweepStartsNoContainers(t *testing.T) {
 // Kills: marking a sweep complete whatever its reads answered.
 func TestACacheSweepWithAnUnreadVolumeIsRepeated(t *testing.T) {
 	t.Parallel()
-	d := dockerfake.New()
+	d := newDockerFake()
 	d.SetReply(func(args []string) ([]byte, error, bool) {
 		if strings.HasPrefix(strings.Join(args, " "), "volume ls") {
 			return nil, nil, true
@@ -448,15 +447,15 @@ func TestACacheSweepWithAnUnreadVolumeIsRepeated(t *testing.T) {
 		return nil, nil, false
 	})
 	answered := false
-	d.SetResults(func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+	d.SetResults(func(c dockerfake.ResultCommand) (dockerfake.ResultAnswer, bool) {
 		if !strings.HasSuffix(c.Script, "ls /apptown-cache/mise/ws") {
-			return containerresulttest.Answer{}, false
+			return dockerfake.ResultAnswer{}, false
 		}
 		if !answered {
 			answered = true
-			return containerresulttest.Answer{}, true // no listing came back
+			return dockerfake.ResultAnswer{}, true // no listing came back
 		}
-		return containerresulttest.Answer{Answer: []byte{}}, true
+		return dockerfake.ResultAnswer{Answer: []byte{}}, true
 	})
 	a := testApp(t, Config{DockerClient: d})
 	for range 3 {

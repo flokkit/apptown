@@ -63,9 +63,9 @@ func (s *Service) CreateCopy(ctx context.Context, in CopyDraft) (*project.Projec
 		return nil, fmt.Errorf("project %s is not repo-backed: there is nothing to copy", source.Slug)
 	}
 	if !project.ValidSlug(in.Slug) {
-		return nil, ErrInvalidSlug
+		return nil, errInvalidSlug
 	}
-	release, err := s.ReserveNames(in.Slug)
+	release, err := s.reserveNames(in.Slug)
 	if err != nil {
 		return nil, err
 	}

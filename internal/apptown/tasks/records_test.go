@@ -52,8 +52,8 @@ func TestReservingAnOperationAgainFindsTheSameAttempt(t *testing.T) {
 	}
 	changed := in
 	changed.Digest = "digest-b"
-	if _, err := r.Reserve(ctx, changed); !errors.Is(err, ErrConflict) {
-		t.Fatalf("the same key with a different request = %v, want %v", err, ErrConflict)
+	if _, err := r.Reserve(ctx, changed); !errors.Is(err, errConflict) {
+		t.Fatalf("the same key with a different request = %v, want %v", err, errConflict)
 	}
 }
 
@@ -158,8 +158,8 @@ func TestEachInvocationOfAnAttemptIsOneRow(t *testing.T) {
 	}
 	again := agent
 	again.Operation = "step-1-a1-agent-again"
-	if _, err := r.Reserve(ctx, again); !errors.Is(err, ErrInvocationTaken) {
-		t.Fatalf("a second row for one invocation = %v, want %v", err, ErrInvocationTaken)
+	if _, err := r.Reserve(ctx, again); !errors.Is(err, errInvocationTaken) {
+		t.Fatalf("a second row for one invocation = %v, want %v", err, errInvocationTaken)
 	}
 	if _, err := r.Get(ctx, again.Operation); err == nil {
 		t.Fatal("the refused reservation was recorded")
@@ -269,8 +269,8 @@ func TestAWorkspaceIsReleasedOnlyAfterEveryInvocationInIt(t *testing.T) {
 	if got := ready(); len(got) != 0 {
 		t.Fatalf("a workspace with an unsettled invocation is ready: %v", got)
 	}
-	if err := r.ConfirmWorkspaceRelease(ctx, in.Backend, first.Workspace); !errors.Is(err, ErrWorkspaceInUse) {
-		t.Fatalf("releasing a workspace in use = %v, want %v", err, ErrWorkspaceInUse)
+	if err := r.ConfirmWorkspaceRelease(ctx, in.Backend, first.Workspace); !errors.Is(err, errWorkspaceInUse) {
+		t.Fatalf("releasing a workspace in use = %v, want %v", err, errWorkspaceInUse)
 	}
 	if err := r.Settle(ctx, second.Operation, nil, ""); err != nil {
 		t.Fatal(err)

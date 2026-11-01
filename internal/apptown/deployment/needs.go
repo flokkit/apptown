@@ -28,10 +28,10 @@ func NewNeedStore(db *database.DB, now func() time.Time) NeedStore {
 	return NeedStore{db: db, clock: now}
 }
 
-// ErrIdentityHeld refuses a fulfilment that would replace a managed need's
+// errIdentityHeld refuses a fulfilment that would replace a managed need's
 // established identity with another: AppTown's copies take what the
 // record names, and the app still runs on, or was filled into, the old one.
-var ErrIdentityHeld = fault.New(fault.Conflict, "a managed need's cluster, database and user do not change in place")
+var errIdentityHeld = fault.New(fault.Conflict, "a managed need's cluster, database and user do not change in place")
 
 // identityKeys name a managed need's data: the cluster (by the name the
 // provider is asked for), the database in it and the user copies are taken
@@ -80,7 +80,7 @@ func (s NeedStore) RecordIntent(ctx context.Context, deploymentID ids.ID, need s
 				}
 			}
 			if len(differ) > 0 {
-				return struct{}{}, fmt.Errorf("%w: %s keeps its data at %s; this release asks for another, so nothing was made. Set it back, or start a new deployment from a copy", ErrIdentityHeld, need, strings.Join(differ, ", "))
+				return struct{}{}, fmt.Errorf("%w: %s keeps its data at %s; this release asks for another, so nothing was made. Set it back, or start a new deployment from a copy", errIdentityHeld, need, strings.Join(differ, ", "))
 			}
 			return struct{}{}, nil // the established identity, asked again: kept as it is
 		}
@@ -88,7 +88,7 @@ func (s NeedStore) RecordIntent(ctx context.Context, deploymentID ids.ID, need s
 			DeploymentID: deploymentID,
 			Need:         need,
 			HandleJson:   json.RawMessage(jsonText(map[string]any{"requested": requested})),
-			Status:       NeedCreating.String(),
+			Status:       needCreating.String(),
 			UpdatedAt:    now,
 			ReadyState:   NeedReady.String(),
 		})

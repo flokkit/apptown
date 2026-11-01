@@ -113,7 +113,7 @@ func TestReadTreeRefusesLinksUnderTheFolder(t *testing.T) {
 	} {
 		ref := pushLayers(t, host, layerOf(t, entry{name: "etc/passwd", body: "root"}, entry{name: "srv/"}, link))
 		_, err := ReadTree(context.Background(), Source{Reference: ref}, "/srv", 1<<20)
-		if !errors.Is(err, ErrUnsupported) || !strings.Contains(err.Error(), "/srv/passwd") {
+		if !errors.Is(err, errUnsupported) || !strings.Contains(err.Error(), "/srv/passwd") {
 			t.Fatalf("link %+v: err = %v", link, err)
 		}
 	}
@@ -124,16 +124,16 @@ func TestReadTreeRefusesLinksUnderTheFolder(t *testing.T) {
 func TestReadTreeRefusesAMissingFolderTooMuchAndATag(t *testing.T) {
 	host := newRegistry(t, nil)
 	ref := pushLayers(t, host, layerOf(t, entry{name: "srv/"}, entry{name: "srv/a", body: "12345"}, entry{name: "srv/b", body: "67890"}))
-	if _, err := ReadTree(context.Background(), Source{Reference: ref}, "/www", 1<<20); !errors.Is(err, ErrNotFound) {
+	if _, err := ReadTree(context.Background(), Source{Reference: ref}, "/www", 1<<20); !errors.Is(err, errNotFound) {
 		t.Fatalf("missing folder: %v", err)
 	}
-	if _, err := ReadTree(context.Background(), Source{Reference: ref}, "/srv", 9); !errors.Is(err, ErrTooLarge) {
+	if _, err := ReadTree(context.Background(), Source{Reference: ref}, "/srv", 9); !errors.Is(err, errTooLarge) {
 		t.Fatalf("over the limit: %v", err)
 	}
 	if _, err := ReadTree(context.Background(), Source{Reference: ref}, "/srv", 10); err != nil {
 		t.Fatalf("at the limit: %v", err)
 	}
-	if _, err := ReadTree(context.Background(), Source{Reference: host + "/team/site:t"}, "/srv", 1<<20); !errors.Is(err, ErrMalformed) {
+	if _, err := ReadTree(context.Background(), Source{Reference: host + "/team/site:t"}, "/srv", 1<<20); !errors.Is(err, errMalformed) {
 		t.Fatalf("by tag: %v", err)
 	}
 }

@@ -6,9 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -96,7 +97,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	if env.ObservedGeneration != 1 || env.Handle["appId"] != "app-1" || !strings.HasSuffix(env.URL, ".ondigitalocean.app") || env.Readiness != deployment.Reconciled {
 		t.Fatalf("environment: %+v", env)
 	}
-	needs, err := a.Deployment.Needs.ForDeployment(context.Background(), env.ID)
+	needs, err := deployment.NewNeedStore(a.DB, a.cfg.clock.Now).ForDeployment(context.Background(), env.ID)
 	if err != nil || len(needs) != 1 || needs[0].Need != "postgres" || needs[0].Status != deployment.NeedReady {
 		t.Fatalf("need instances: %+v %v", needs, err)
 	}

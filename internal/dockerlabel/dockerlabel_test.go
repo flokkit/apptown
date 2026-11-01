@@ -141,7 +141,7 @@ func TestTheAgentImageWritesEveryImageKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, k := range ImageKeys {
+	for _, k := range imageKeys {
 		if !regexp.MustCompile(`(?m)^LABEL ` + regexp.QuoteMeta(k) + `=`).Match(src) {
 			t.Errorf("deploy/apptown-agent/Dockerfile does not set %s", k)
 		}
@@ -152,13 +152,13 @@ func TestTheAgentImageWritesEveryImageKey(t *testing.T) {
 func TestKeysAreOneCaseAndDistinct(t *testing.T) {
 	shape := regexp.MustCompile(`^apptown(\.[a-z][a-z-]*)+$`)
 	seen := map[string]bool{}
-	for _, k := range Keys {
+	for _, k := range keys {
 		if !shape.MatchString(k) || seen[k] {
 			t.Errorf("%s: not lowercase-dotted, or listed twice", k)
 		}
 		seen[k] = true
 	}
-	for _, k := range ImageKeys {
+	for _, k := range imageKeys {
 		if !seen[k] {
 			t.Errorf("image key %s is not in Keys", k)
 		}

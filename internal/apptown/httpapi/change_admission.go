@@ -23,7 +23,7 @@ func NewChangeAdmission(projects *project.Projects, access *identity.Service, wo
 	return ChangeAdmission{projects: projects, access: access, work: work, actions: actions, db: db, authMode: authMode}
 }
 func (h ChangeAdmission) CreateChange(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -57,7 +57,7 @@ func (h ChangeAdmission) CreateChange(w http.ResponseWriter, r *http.Request) {
 		// Optional provenance (console invoke, finding Fix buttons): why this
 		// work exists, attached as the run's intent artifact.
 		if run != nil {
-			h.actions.RecordIntent(r.Context(), run.ID, in.Intent, Actor(r))
+			h.actions.RecordIntent(r.Context(), run.ID, in.Intent, actor(r))
 		}
 		WriteJSON(w, 201, CreatedChange{Change: *item, Run: run})
 	})
@@ -67,7 +67,7 @@ func (h ChangeAdmission) CreateChange(w http.ResponseWriter, r *http.Request) {
 // workflow (design/subsystems/dev-loop.md): the only path to merge + ship + release.
 // Syncs the stock `land` workflow into the project on first use.
 func (h ChangeAdmission) LandChange(w http.ResponseWriter, r *http.Request) {
-	ch, p, ok := ChangeAndProject(h.db, w, r)
+	ch, p, ok := changeAndProject(h.db, w, r)
 	if !ok {
 		return
 	}
@@ -75,7 +75,7 @@ func (h ChangeAdmission) LandChange(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, 409, "change #%d is %s — only in-progress changes land", ch.ID, ch.State)
 		return
 	}
-	run, err := h.actions.RequestLanding(r.Context(), p, ch, Actor(r))
+	run, err := h.actions.RequestLanding(r.Context(), p, ch, actor(r))
 	if err != nil {
 		// A classified refusal (another landing, authority) gets its kind
 		// and code; anything else stays the 422 it always was.
@@ -90,7 +90,7 @@ func (h ChangeAdmission) LandChange(w http.ResponseWriter, r *http.Request) {
 // again: what apptown recheck does in a change chat, from anywhere. It never
 // touches approvals; Work checks the caller may request the landing.
 func (h ChangeAdmission) RecheckLanding(w http.ResponseWriter, r *http.Request) {
-	ch, _, ok := ChangeAndProject(h.db, w, r)
+	ch, _, ok := changeAndProject(h.db, w, r)
 	if !ok {
 		return
 	}

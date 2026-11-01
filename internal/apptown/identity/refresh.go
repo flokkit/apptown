@@ -13,12 +13,6 @@ import (
 	"github.com/flokkit/apptown/internal/stamp"
 )
 
-// Refresh rotates a presented credential and records the outcome atomically.
-// A leaked credential ends the delegation before ErrLeaked reaches the caller.
-func (s *Service) Refresh(ctx context.Context, refresh string) (Pair, error) {
-	return s.RefreshForClient(ctx, refresh, "")
-}
-
 // RefreshForClient additionally checks an optional OAuth client binding.
 func (s *Service) RefreshForClient(ctx context.Context, refresh, clientID string) (Pair, error) {
 	return s.oauth.refresh(ctx, refresh, clientID)
@@ -65,7 +59,7 @@ func (o *oauthStore) refresh(ctx context.Context, presented, clientID string) (P
 		if !token.RevokedAt.Valid && clientID != "" && clientID != d.ClientID {
 			return ErrClientMismatch
 		}
-		pair, outcome = d.Rotate(presented, now)
+		pair, outcome = d.rotate(presented, now)
 		if errors.Is(outcome, ErrLeaked) {
 			d.end(now)
 			if err := saveDelegationIn(ctx, tx, accesssql.DelegationsNamed(row), d); err != nil {
@@ -88,7 +82,7 @@ func (o *oauthStore) refresh(ctx context.Context, presented, clientID string) (P
 			return errors.New("refresh consumption was not recorded")
 		}
 		if n, err := q.InsertTokenPair(ctx, accesssql.InsertTokenPairParams{DelegationID: d.ID, At: now,
-			AccessHash: HashToken(pair.Access), AccessExpires: now.Add(AccessTTL), RefreshHash: HashToken(pair.Refresh), RefreshExpires: now.Add(RefreshTTL)}); err != nil {
+			AccessHash: HashToken(pair.Access), AccessExpires: now.Add(AccessTTL), RefreshHash: HashToken(pair.Refresh), RefreshExpires: now.Add(refreshTTL)}); err != nil {
 			return err
 		} else if n != 2 {
 			return errors.New("token pair was not recorded")

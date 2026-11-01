@@ -24,9 +24,9 @@ import (
 	"github.com/flokkit/apptown/internal/trust"
 )
 
-// Run runs one docker command and answers its combined output; a failed
+// run runs one docker command and answers its combined output; a failed
 // command is an error, with its output.
-type Run func(ctx context.Context, args ...string) ([]byte, error)
+type run func(ctx context.Context, args ...string) ([]byte, error)
 
 // Missing reports Docker's own answer that there is no such object: the
 // one classifier of "gone" for every Docker command the apptown runs. Only an
@@ -77,7 +77,7 @@ type Daemon struct {
 
 // Create runs the daemon's container. Its plain-TCP listener is reached
 // only on the owner's network.
-func (d Daemon) Create(ctx context.Context, run Run) error {
+func (d Daemon) Create(ctx context.Context, run run) error {
 	args := append([]string{"run", "-d", "--privileged", "--name", d.Name, "--network", d.Network, "--network-alias", "dind",
 		"--label", d.OwnerLabel + "=" + d.Owner,
 		// ZFS_MODULE_TIMEOUT=0: containerd's zfs probe would otherwise stall
@@ -121,7 +121,7 @@ const BuilderContainer = "buildx_buildkit_apptown0"
 // own container's roots. It starts the builder, runs the script in its
 // container (as root, into its system store) and restarts it, so buildkit
 // reads them, before any build. Nothing when there is no script.
-func TrustBuilder(ctx context.Context, run Run, name, clientDir string) error {
+func TrustBuilder(ctx context.Context, run run, name, clientDir string) error {
 	if len(trust.ContainerArgs(true)) == 0 {
 		return nil
 	}
@@ -139,7 +139,7 @@ func TrustBuilder(ctx context.Context, run Run, name, clientDir string) error {
 }
 
 // Ready waits, at most 40 seconds, until the daemon answers.
-func Ready(ctx context.Context, run Run, name string) error {
+func Ready(ctx context.Context, run run, name string) error {
 	// Every probe is bounded too: a stuck docker exec must not consume the
 	// whole wait, or outlive its cancellation.
 	ready, stop := context.WithTimeout(ctx, 40*time.Second)
@@ -165,7 +165,7 @@ func Ready(ctx context.Context, run Run, name string) error {
 // buildkit in the daemon's own network namespace, where its DNS answers;
 // builds load by default, so `docker build -t app .; docker run app` works.
 // One already there is kept.
-func Builder(ctx context.Context, run Run, name, clientDir, config string) error {
+func Builder(ctx context.Context, run run, name, clientDir, config string) error {
 	prefix := []string{"exec", "-e", "DOCKER_HOST=tcp://dind:2375", "-e", "DOCKER_CONFIG=" + clientDir, name, "docker", "buildx"}
 	if _, err := run(ctx, append(append([]string{}, prefix...), "inspect", "apptown")...); err == nil {
 		return nil
@@ -180,7 +180,7 @@ func Builder(ctx context.Context, run Run, name, clientDir, config string) error
 
 // State reads whether an owner's container exists and runs. One with
 // another owner is an error.
-func State(ctx context.Context, run Run, name, ownerLabel, owner string) (exists, running bool, err error) {
+func State(ctx context.Context, run run, name, ownerLabel, owner string) (exists, running bool, err error) {
 	out, err := run(ctx, "inspect", "--type", "container", "--format", `{{index .Config.Labels "`+ownerLabel+`"}} {{.State.Running}}`, name)
 	if err != nil && Missing(out) {
 		return false, false, nil
@@ -197,17 +197,17 @@ func State(ctx context.Context, run Run, name, ownerLabel, owner string) (exists
 
 // Stop stops an owner's container and confirms it has stopped. One that
 // does not exist is stopped.
-func Stop(ctx context.Context, run Run, name, ownerLabel, owner string) error {
+func Stop(ctx context.Context, run run, name, ownerLabel, owner string) error {
 	return settle(ctx, run, name, ownerLabel, owner, []string{"stop", "--time", "3", name}, false)
 }
 
 // Remove removes an owner's container with its anonymous volumes (a
 // daemon's images and containers), and confirms it is gone.
-func Remove(ctx context.Context, run Run, name, ownerLabel, owner string) error {
+func Remove(ctx context.Context, run run, name, ownerLabel, owner string) error {
 	return settle(ctx, run, name, ownerLabel, owner, []string{"rm", "-f", "-v", name}, true)
 }
 
-func settle(ctx context.Context, run Run, name, ownerLabel, owner string, command []string, gone bool) error {
+func settle(ctx context.Context, run run, name, ownerLabel, owner string, command []string, gone bool) error {
 	exists, _, err := State(ctx, run, name, ownerLabel, owner)
 	if err != nil || !exists {
 		return err

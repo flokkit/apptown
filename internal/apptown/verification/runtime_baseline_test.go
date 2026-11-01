@@ -37,24 +37,24 @@ func TestARunningAppFindingIsComparedWithMainOnlyAtTheBaseCommit(t *testing.T) {
 	}
 	for _, tc := range []struct {
 		name   string
-		at     func() (Target, string, func() bool, string)
+		at     func() (guidanceTarget, string, func() bool, string)
 		want   string
 		reason string
 	}{
-		{"main at the base, failing there too", func() (Target, string, func() bool, string) {
-			return Target{FrontDoor: mainAnswering(http.StatusForbidden)}, base, func() bool { return true }, ""
+		{"main at the base, failing there too", func() (guidanceTarget, string, func() bool, string) {
+			return guidanceTarget{FrontDoor: mainAnswering(http.StatusForbidden)}, base, func() bool { return true }, ""
 		}, "preexisting", ""},
-		{"main at the base, passing there", func() (Target, string, func() bool, string) {
-			return Target{FrontDoor: mainAnswering(http.StatusOK)}, base, func() bool { return true }, ""
+		{"main at the base, passing there", func() (guidanceTarget, string, func() bool, string) {
+			return guidanceTarget{FrontDoor: mainAnswering(http.StatusOK)}, base, func() bool { return true }, ""
 		}, "introduced", ""},
-		{"main at another commit", func() (Target, string, func() bool, string) {
-			return Target{FrontDoor: mainAnswering(http.StatusForbidden)}, other, func() bool { return true }, ""
+		{"main at another commit", func() (guidanceTarget, string, func() bool, string) {
+			return guidanceTarget{FrontDoor: mainAnswering(http.StatusForbidden)}, other, func() bool { return true }, ""
 		}, "undecided", "main's deployment runs 222222222222, not this change's base 111111111111"},
-		{"no main deployment", func() (Target, string, func() bool, string) {
-			return Target{}, "", nil, "no standing main deployment — deploy the app to be judged at runtime"
+		{"no main deployment", func() (guidanceTarget, string, func() bool, string) {
+			return guidanceTarget{}, "", nil, "no standing main deployment — deploy the app to be judged at runtime"
 		}, "undecided", "no standing main deployment"},
-		{"main replaced while it was probed", func() (Target, string, func() bool, string) {
-			return Target{FrontDoor: mainAnswering(http.StatusForbidden)}, base, func() bool { return false }, ""
+		{"main replaced while it was probed", func() (guidanceTarget, string, func() bool, string) {
+			return guidanceTarget{FrontDoor: mainAnswering(http.StatusForbidden)}, base, func() bool { return false }, ""
 		}, "undecided", "changed while it was being probed"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -86,7 +86,9 @@ func TestARunningAppFindingIsComparedWithMainOnlyAtTheBaseCommit(t *testing.T) {
 	// A remediation opened to close this check is judged absolutely: main
 	// failing too, or main unknown, never excuses its own target.
 	findings := []conformance.Finding{{Finding: check.Finding{Fingerprint: conformance.Fingerprint(sc, "")}}}
-	judged := probeMainAtBase(context.Background(), checks, base, func() (Target, string, func() bool, string) { return Target{}, "", nil, "no standing main deployment" }, (Runtime{}).Probe)
+	judged := probeMainAtBase(context.Background(), checks, base, func() (guidanceTarget, string, func() bool, string) {
+		return guidanceTarget{}, "", nil, "no standing main deployment"
+	}, (Runtime{}).Probe)
 	target := workflow.AcceptanceScopeOf(&workflow.Change{AcceptanceJSON: `{"checks":[{"block":"deploy/health-declared","check":"front-page-answers"}]}`})
 	own, _, _ := classifyAgainstBase(Results{}, findings, checks, &baselineSet{failing: map[string]bool{}}, target, judged...)
 	if len(own) != 1 {

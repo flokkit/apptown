@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 )
 
@@ -37,7 +39,7 @@ func TestTargetOfferCommandsSeparateAbsenceFromReadFailure(t *testing.T) {
 			if code, out := call("absent"); code != http.StatusNotFound || !strings.Contains(fmt.Sprint(out["error"]), `no target named "absent"`) {
 				t.Fatalf("absence: %d %v", code, out)
 			}
-			restore := w.db.FailNextStatement("-- name: TargetByName")
+			restore := dbtest.NextStatementFailure(w.db, "-- name: TargetByName")
 			code, out := call(target.Name)
 			restore()
 			if code != http.StatusInternalServerError {

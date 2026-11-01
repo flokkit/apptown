@@ -134,22 +134,22 @@ func TestDefaultReleasePinsItsSelectedEnvironment(t *testing.T) {
 			revision := selected.Revision
 			switch scenario {
 			case "absent":
-				want = ErrNoReleaseDefault
+				want = errNoReleaseDefault
 			case "cleared":
 				if _, err := s.SetReleaseDefault(t.Context(), in.ProjectID, ids.Nil, selected.Revision); err != nil {
 					t.Fatal(err)
 				}
-				want = ErrNoReleaseDefault
+				want = errNoReleaseDefault
 			case "stale":
 				revision--
-				want = ErrReleaseDefaultChanged
+				want = errReleaseDefaultChanged
 			case "changed during admission":
 				sources.before = func() {
 					if _, err := s.SetReleaseDefault(t.Context(), in.ProjectID, ids.Nil, selected.Revision); err != nil {
 						t.Fatal(err)
 					}
 				}
-				want = ErrReleaseDefaultChanged
+				want = errReleaseDefaultChanged
 			case "label changed":
 				sources.before = func() {
 					if _, err := s.EditDeploymentLabel(t.Context(), in.ProjectID, dep.ID, dep.DisplayLabel, "Customer choice"); err != nil {

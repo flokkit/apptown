@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -18,7 +19,7 @@ func (d MemoryDefault) Bytes() (int64, error) {
 	if d.Memory == "" {
 		return 0, nil
 	}
-	return ParseMemoryV1(d.Memory)
+	return parseMemoryV1(d.Memory)
 }
 func (d *MemoryDefault) UnmarshalJSON(raw []byte) error {
 	type wire MemoryDefault

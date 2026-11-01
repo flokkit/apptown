@@ -7,7 +7,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
 )
 
@@ -35,7 +34,7 @@ func TestAPortainerDeploymentHoldsWhatItsDeploysMadeAndItsStackDeclares(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := dockerfake.New()
+	d := newDockerFake()
 	d.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) == 3 && args[0] == "volume" && args[1] == "inspect" {
 			return []byte("[{}]"), nil, true // both volumes are there
@@ -48,7 +47,7 @@ func TestAPortainerDeploymentHoldsWhatItsDeploysMadeAndItsStackDeclares(t *testi
 	}
 	got := map[string]bool{}
 	for _, it := range held.items {
-		if it.Kind != "volume" || it.Copy != CopyLiveFiles {
+		if it.Kind != "volume" || it.Copy != copyLiveFiles {
 			t.Fatalf("a data folder is copied as files: %+v", it)
 		}
 		got[it.Volume] = it.Listed

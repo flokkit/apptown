@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // A publication pins what the library has at its latest versions, leaves
@@ -25,14 +27,14 @@ func TestPinsAndCutOnPinChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	spec := `{"guidance":["lang/go","missing/block"],"workflows":["build","land","nope"]}`
-	pins, err := packs.PinsFor(t.Context(), spec)
+	pins, err := strs.JSON(packs.resolve(t.Context(), spec).Pins)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if pins != `{"blocks":{"lang/go":1},"workflows":{"build":1}}` {
 		t.Fatalf("language pack pins: %s", pins)
 	}
-	platform, err := packs.PinsFor(t.Context(), `{"platform":true,"guidance":[],"workflows":["land"]}`)
+	platform, err := strs.JSON(packs.resolve(t.Context(), `{"platform":true,"guidance":[],"workflows":["land"]}`).Pins)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,14 +53,18 @@ func TestPinsAndCutOnPinChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	recuts, err := packs.CutOnPinChange(t.Context())
-	if err != nil || len(recuts) != 1 || recuts[0] != (Recut{Name: "go", Version: 2}) {
+	if err != nil || len(recuts) != 1 || recuts[0] != (recut{Name: "go", Version: 2}) {
 		t.Fatalf("moved contents cut a version: %v %+v", err, recuts)
 	}
 	if recuts, _ := packs.CutOnPinChange(t.Context()); len(recuts) != 0 {
 		t.Fatalf("cut once: %+v", recuts)
 	}
 	rec, _ := packs.ByName(t.Context(), "go")
-	have, _ := packs.LatestPins(context.Background(), *rec)
+	publication, err := PackVersionIn(context.Background(), packs.db, rec.Name, rec.LatestVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	have := publication.PinsJSON
 	if !strings.Contains(canonJSON(have), `"lang/go":2`) {
 		t.Fatalf("the new publication names the new version: %s", have)
 	}
@@ -82,7 +88,7 @@ func TestAPackVersionNamesOnlyWhatItCanPin(t *testing.T) {
 		`{"workflows":["nope"]}`,
 		`{"policies":[{"name":"nowhere"}]}`,
 	} {
-		if _, err := s.PublishPack(t.Context(), "go", "Go", spec, ""); !errors.Is(err, ErrUnpinned) {
+		if _, err := s.PublishPack(t.Context(), "go", "Go", spec, ""); !errors.Is(err, errUnpinned) {
 			t.Errorf("%s: %v", spec, err)
 		}
 	}

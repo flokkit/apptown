@@ -16,7 +16,7 @@ import (
 
 func intentManifest(t *testing.T, original string) []byte {
 	t.Helper()
-	raw, err := json.Marshal(Manifest{Format: ArchiveFormat, Version: ArchiveVersion, Schema: 167, DataDir: original})
+	raw, err := json.Marshal(Manifest{Format: archiveFormat, Version: archiveVersion, Schema: 167, DataDir: original})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,7 +215,7 @@ func TestNewerArchivedLayoutRefusesBeforeDatabaseEnsure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest := Manifest{Format: ArchiveFormat, Version: ArchiveVersion, Schema: 167, DataDir: root, Dump: digest}
+	manifest := Manifest{Format: archiveFormat, Version: archiveVersion, Schema: 167, DataDir: root, Dump: digest}
 	raw, err := json.Marshal(manifest)
 	if err != nil {
 		t.Fatal(err)

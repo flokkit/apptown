@@ -60,7 +60,7 @@ func (s *Deployments) StandingWithoutOpenAttempt(ctx context.Context) ([]Project
 
 // Previews is every change's preview row.
 func (s *Deployments) Previews(ctx context.Context) ([]*Deployment, error) {
-	rows, err := deploymentsql.New(s.db.SQL()).PreviewDeployments(ctx, Preview.String())
+	rows, err := deploymentsql.New(s.db.SQL()).PreviewDeployments(ctx, preview.String())
 	if err != nil {
 		return nil, err
 	}
@@ -83,9 +83,9 @@ func (s *Deployments) RecordAddress(ctx context.Context, id ids.ID, url string) 
 	return err
 }
 
-// ErrOwnsAnother: the deployment already records another resource under
+// errOwnsAnother: the deployment already records another resource under
 // that name.
-var ErrOwnsAnother = errors.New("the deployment already records another resource there")
+var errOwnsAnother = errors.New("the deployment already records another resource there")
 
 // RecordOwned records, on the deployment's handle, a resource a driver just
 // created for it (a bucket), before anything else touches the resource, so
@@ -99,7 +99,7 @@ func (s *Deployments) RecordOwned(ctx context.Context, id ids.ID, key, value str
 		return err
 	}
 	if n != 1 {
-		return fmt.Errorf("%w (%s)", ErrOwnsAnother, key)
+		return fmt.Errorf("%w (%s)", errOwnsAnother, key)
 	}
 	return nil
 }
@@ -107,7 +107,7 @@ func (s *Deployments) RecordOwned(ctx context.Context, id ids.ID, key, value str
 // ForgetPreviewContainer drops the preview row a reaped container served.
 func (s *Deployments) ForgetPreviewContainer(ctx context.Context, container string) error {
 	ctx = context.WithoutCancel(ctx) // the container is reaped: its row goes though ctx has ended
-	_, err := deploymentsql.New(s.db.SQL()).ForgetPreviewContainer(ctx, deploymentsql.ForgetPreviewContainerParams{Kind: Preview.String(), Container: container})
+	_, err := deploymentsql.New(s.db.SQL()).ForgetPreviewContainer(ctx, deploymentsql.ForgetPreviewContainerParams{Kind: preview.String(), Container: container})
 	return err
 }
 
@@ -158,7 +158,7 @@ func (s *Deployments) ForgetTakenPort(ctx context.Context, projectID ids.ID, nam
 	if err != nil {
 		return
 	}
-	if err := s.ResetHostPort(ctx, projectID, name, fresh); err != nil {
+	if err := s.resetHostPort(ctx, projectID, name, fresh); err != nil {
 		log.Printf("deployment %s: re-reserving its port after a bind failure: %v", name, err)
 	}
 }
@@ -173,8 +173,8 @@ func freePort() (int, error) {
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
-// ResetHostPort forgets a reservation whose port turned out to be in use.
-func (s *Deployments) ResetHostPort(ctx context.Context, projectID ids.ID, name string, fresh int) error {
+// resetHostPort forgets a reservation whose port turned out to be in use.
+func (s *Deployments) resetHostPort(ctx context.Context, projectID ids.ID, name string, fresh int) error {
 	now := s.now()
 	_, err := deploymentsql.New(s.db.SQL()).ResetHostPort(ctx, deploymentsql.ResetHostPortParams{HostPort: int64(fresh), UpdatedAt: now, ProjectID: projectID, Name: name})
 	return err

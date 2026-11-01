@@ -21,7 +21,7 @@ func TestSkillFilesAreDiscoverableAndReadBackExactly(t *testing.T) {
 	}
 	type skill struct{ Name, Description, Body string }
 	var skills []skill
-	var files []SkillFile
+	var files []skillFile
 	for i, d := range descriptions {
 		s := skill{Name: "s" + string(rune('a'+i)), Description: d, Body: "# How\n\nstep"}
 		skills = append(skills, s)

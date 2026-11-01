@@ -186,10 +186,10 @@ type DevStaticBuild struct {
 	Folder  string `json:"folder"`
 }
 
-// DevStaticBuilds lists the builds the contract's static sites need before
+// devStaticBuilds lists the builds the contract's static sites need before
 // `apptown dev up` can serve them. Their folders sit under .apptown/, which
 // AppTown never stages.
-func DevStaticBuilds(c *appcontract.Contract) []DevStaticBuild {
+func devStaticBuilds(c *appcontract.Contract) []DevStaticBuild {
 	var out []DevStaticBuild
 	for _, p := range c.Parts {
 		if p.StaticBuild == nil {

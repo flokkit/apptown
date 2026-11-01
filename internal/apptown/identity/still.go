@@ -17,13 +17,13 @@ import (
 // non-secret reference to the credential behind the request, so it can
 // ask before each effect whether that credential is still live. No bearer
 // token or hash is kept.
-func TokenCredential(name string) string    { return "token:" + name }
-func SessionCredential(id ids.ID) string    { return "session:" + id.String() }
-func DelegationCredential(id ids.ID) string { return "oauth:" + id.String() }
+func tokenCredential(name string) string    { return "token:" + name }
+func sessionCredential(id ids.ID) string    { return "session:" + id.String() }
+func delegationCredential(id ids.ID) string { return "oauth:" + id.String() }
 func HeaderCredential(user string) string   { return "header:" + user }
 
-// ErrCredentialGone is a captured credential that no longer stands.
-var ErrCredentialGone = errors.New("the credential that asked for this no longer stands")
+// errCredentialGone is a captured credential that no longer stands.
+var errCredentialGone = errors.New("the credential that asked for this no longer stands")
 
 // RequireStill checks a captured principal again: its credential is still
 // live (a token not revoked, a session not logged out or expired, a
@@ -54,11 +54,11 @@ func (s *Service) RequireStill(ctx context.Context, captured access.Principal, p
 func (s *Service) stillPrincipal(ctx context.Context, c access.Principal) (access.Principal, error) {
 	kind, ref, ok := strings.Cut(c.Credential, ":")
 	if !ok || ref == "" || c.Name == "" {
-		return access.Principal{}, fmt.Errorf("%w: no credential was recorded", ErrCredentialGone)
+		return access.Principal{}, fmt.Errorf("%w: no credential was recorded", errCredentialGone)
 	}
 	now := s.now()
 	gone := func(why string, args ...any) (access.Principal, error) {
-		return access.Principal{}, fmt.Errorf("%w: %s", ErrCredentialGone, fmt.Sprintf(why, args...))
+		return access.Principal{}, fmt.Errorf("%w: %s", errCredentialGone, fmt.Sprintf(why, args...))
 	}
 	if kind == "system" {
 		if c.Kind != "instrument" || c.Instrument != access.SystemInstrument {
@@ -81,10 +81,10 @@ func (s *Service) stillPrincipal(ctx context.Context, c access.Principal) (acces
 			return nil, err
 		}
 		if a == nil {
-			return nil, fmt.Errorf("%w: the account %s is gone", ErrCredentialGone, c.Name)
+			return nil, fmt.Errorf("%w: the account %s is gone", errCredentialGone, c.Name)
 		}
 		if err := a.admit(); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrCredentialGone, err)
+			return nil, fmt.Errorf("%w: %v", errCredentialGone, err)
 		}
 		return a, nil
 	}
@@ -139,7 +139,7 @@ func (s *Service) stillPrincipal(ctx context.Context, c access.Principal) (acces
 		if err != nil || id.IsZero() {
 			return gone("%q names no connection", ref)
 		}
-		d, err := s.oauth.Connection(ctx, id)
+		d, err := s.oauth.connection(ctx, id)
 		if err != nil {
 			return access.Principal{}, err
 		}
@@ -154,7 +154,7 @@ func (s *Service) stillPrincipal(ctx context.Context, c access.Principal) (acces
 		// captured: narrowing applies, widening does not.
 		base := a.principal("oauth")
 		base.DelegationID, base.Scopes = c.DelegationID, c.Scopes
-		pr := d.Bounds(base, now)
+		pr := d.bounds(base, now)
 		if pr.Name == "" {
 			return gone("the connection is not the one that asked")
 		}

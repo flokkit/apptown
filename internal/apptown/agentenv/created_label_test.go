@@ -53,7 +53,7 @@ func TestProjectCacheRetirementAndDiscoveryKeepExactIdentity(t *testing.T) {
 	other := "apptown-project-cache-00000000-0002-7000-8000-000000000000"
 	for _, failure := range []string{"", "volume is in use", "daemon unavailable"} {
 		t.Run(failure, func(t *testing.T) {
-			d := dockerfake.New()
+			d := newDockerFake()
 			var removed []string
 			d.SetReply(func(args []string) ([]byte, error, bool) {
 				if len(args) > 1 && args[0] == "volume" && args[1] == "ls" {
@@ -98,4 +98,8 @@ func TestProjectCacheRetirementAndDiscoveryKeepExactIdentity(t *testing.T) {
 	if got := CacheVolume(WithCacheScope(t.Context(), ids.Nil)); got != "" {
 		t.Fatalf("nil identity mounts %s", got)
 	}
+}
+
+func newDockerFake() *dockerfake.Daemon {
+	return dockerfake.New()
 }

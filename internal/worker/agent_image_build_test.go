@@ -2,11 +2,12 @@ package worker
 
 import (
 	"context"
-	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 
 	"github.com/flokkit/apptown/internal/execfile"
 )

@@ -35,7 +35,7 @@ func TestReplacingAChatsFilesCannotFollowTheChatsLinks(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := c.runtime.Started(s.ID).Dir
-	if _, err := c.client.PutFiles(ctx, s.ID, bytes.NewReader(tarOf(t, entry{name: "pi-home/retired/victim", body: "staged"}))); err != nil {
+	if _, err := worker.SessionClientPutFiles(c.client, ctx, s.ID, bytes.NewReader(tarOf(t, entry{name: "pi-home/retired/victim", body: "staged"}))); err != nil {
 		t.Fatal(err)
 	}
 	outside := t.TempDir()
@@ -50,13 +50,13 @@ func TestReplacingAChatsFilesCannotFollowTheChatsLinks(t *testing.T) {
 	if err := os.Symlink(outside, parent); err != nil { // what the chat may do
 		t.Fatal(err)
 	}
-	if _, err := c.client.PutFiles(ctx, s.ID, bytes.NewReader(tarOf(t))); err != nil {
+	if _, err := worker.SessionClientPutFiles(c.client, ctx, s.ID, bytes.NewReader(tarOf(t))); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := os.ReadFile(victim); err != nil || string(got) != "worker-owned" {
 		t.Fatalf("a file outside the chat was removed: %q %v", got, err)
 	}
-	if _, err := c.client.PutFiles(ctx, s.ID, bytes.NewReader(tarOf(t, entry{name: "pi-home/retired/planted", body: "x"}))); err == nil {
+	if _, err := worker.SessionClientPutFiles(c.client, ctx, s.ID, bytes.NewReader(tarOf(t, entry{name: "pi-home/retired/planted", body: "x"}))); err == nil {
 		t.Fatal("a file was written through the chat's link")
 	}
 	if _, err := os.Stat(filepath.Join(outside, "planted")); !errors.Is(err, os.ErrNotExist) {
@@ -80,11 +80,11 @@ func TestAChatsRecordCannotShowTheWorkersFiles(t *testing.T) {
 	if err := os.Symlink(secret, link); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := c.client.Record(ctx, s.ID, "x.jsonl", 0); err == nil || bytes.Contains(got, []byte("worker secret")) {
+	if got, err := worker.SessionClientRecord(c.client, ctx, s.ID, "x.jsonl", 0); err == nil || bytes.Contains(got, []byte("worker secret")) {
 		t.Fatalf("a linked worker file was read as the chat's record: %q %v", got, err)
 	}
 	// A missing record file is not a missing session.
-	if _, err := c.client.Record(ctx, s.ID, "absent.jsonl", 0); err == nil || errors.Is(err, worker.ErrNoSession) {
+	if _, err := worker.SessionClientRecord(c.client, ctx, s.ID, "absent.jsonl", 0); err == nil || errors.Is(err, worker.ErrNoSession) {
 		t.Fatalf("a missing record file: %v", err)
 	}
 }
@@ -120,7 +120,7 @@ func TestARebuildIsRefusedWhileTheChatRuns(t *testing.T) {
 	if _, err := c.client.Rebuild(ctx, s.ID); !errors.Is(err, worker.ErrSessionBusy) {
 		t.Fatalf("a rebuild read a worker file as the chat's record: %v", err)
 	}
-	term, err := c.client.Terminal(ctx, s.ID, console.Size{})
+	term, err := worker.SessionClientTerminal(c.client, ctx, s.ID, console.Size{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,11 +181,11 @@ func TestStoppingAChatEndsItsTerminalOnAppTown(t *testing.T) {
 	if _, err := c.Put(ctx, id, worker.SessionSpec{Image: "agent:test", AgentSession: "console"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.Start(ctx, id); err != nil {
+	if _, err := worker.SessionClientStart(c, ctx, id); err != nil {
 		t.Fatal(err)
 	}
 	defer rt.Stop(ctx, id)
-	term, err := c.Terminal(ctx, id, console.Size{})
+	term, err := worker.SessionClientTerminal(c, ctx, id, console.Size{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -286,7 +286,7 @@ func TestATerminalThatEndsOnTheWorkerEndsForAppTown(t *testing.T) {
 	if err := c.service.Warm(context.Background(), s.ID); err != nil {
 		t.Fatal(err)
 	}
-	term, err := c.client.Terminal(context.Background(), s.ID, console.Size{})
+	term, err := worker.SessionClientTerminal(c.client, context.Background(), s.ID, console.Size{})
 	if err != nil {
 		t.Fatal(err)
 	}

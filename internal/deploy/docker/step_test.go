@@ -23,7 +23,7 @@ import (
 // and the copy reaches the step without its trailer.
 func TestAStepWithStreamsIsOneCommand(t *testing.T) {
 	t.Parallel()
-	d := dockerfake.New()
+	d := newDockerFake()
 	var got []string
 	d.SetCommandReply(func(c docker.Command) ([]byte, error, bool) {
 		got = append(got, strings.Join(c.Args, " "))
@@ -59,7 +59,7 @@ type jobDaemon struct {
 }
 
 func newJobDaemon(exit string, output string) *jobDaemon {
-	j := &jobDaemon{Daemon: dockerfake.New(), exit: exit}
+	j := &jobDaemon{Daemon: newDockerFake(), exit: exit}
 	j.SetReply(func(args []string) ([]byte, error, bool) {
 		if j.IsDiskRead(args) {
 			return nil, nil, false
@@ -155,7 +155,7 @@ func TestAStepWhoseCopyLostItsTailFails(t *testing.T) {
 	t.Parallel()
 	whole := containerresulttest.Framed([]byte("a dump with its last rows"))
 	for _, lost := range [][]byte{whole[:len(whole)-40], append(append([]byte{}, whole[:10]...), whole[20:]...), nil} {
-		d := dockerfake.New()
+		d := newDockerFake()
 		d.SetCommandReply(func(c docker.Command) ([]byte, error, bool) {
 			_, _ = c.Stdout.Write(lost)
 			return nil, nil, true

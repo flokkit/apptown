@@ -11,22 +11,22 @@ func TestBackupGoodCopy(t *testing.T) {
 		{Kind: "volume", Name: "data", Error: "tar failed"},
 		{Kind: "need", Name: "postgres", File: "postgres.sql"},
 	}}
-	if got := b.GoodCopy("volume", "data"); got != nil {
+	if got := b.goodCopy("volume", "data"); got != nil {
 		t.Fatalf("a failed copy was offered for restore: %+v", got)
 	}
-	if got := b.GoodCopy("need", "postgres"); got == nil || got.File != "postgres.sql" {
+	if got := b.goodCopy("need", "postgres"); got == nil || got.File != "postgres.sql" {
 		t.Fatalf("the good copy was not found: %+v", got)
 	}
-	if got := b.GoodCopy("need", "redis"); got != nil {
+	if got := b.goodCopy("need", "redis"); got != nil {
 		t.Fatalf("an item the set never held was offered: %+v", got)
 	}
 }
 
 func TestBackupSafetyCopyDoesNotPrune(t *testing.T) {
-	if !(&Backup{Trigger: TriggerPreRestore}).SafetyCopy() {
+	if !(&Backup{Trigger: TriggerPreRestore}).safetyCopy() {
 		t.Fatal("a pre-restore set is a safety copy")
 	}
-	if (&Backup{Trigger: "manual"}).SafetyCopy() {
+	if (&Backup{Trigger: "manual"}).safetyCopy() {
 		t.Fatal("a manual set is not a safety copy")
 	}
 }

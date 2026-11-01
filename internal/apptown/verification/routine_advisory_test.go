@@ -62,7 +62,7 @@ func TestRoutineAdvisoryRejectsIdentityAndFixedBoundaryMismatch(t *testing.T) {
 	}
 	for _, test := range []string{"changed identity", "still affected", "withdrawn", "query null"} {
 		t.Run(test, func(t *testing.T) {
-			inspector := RoutineInspector{advisoryRead: func(_ context.Context, _ string, path string, _ []byte) ([]byte, error) {
+			inspector := routineInspector{advisoryRead: func(_ context.Context, _ string, path string, _ []byte) ([]byte, error) {
 				if path == "query" {
 					if test == "query null" {
 						return []byte("null"), nil

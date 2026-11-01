@@ -20,16 +20,16 @@ type InvokeChange struct {
 	Inputs   json.RawMessage
 	// Join, when set, records another owner's facts about the new Change in
 	// the admission transaction.
-	Join AdmissionParticipant
+	Join admissionParticipant
 }
 
-// AdmissionParticipant runs inside a new Change's admission transaction, after
+// admissionParticipant runs inside a new Change's admission transaction, after
 // the Change (and, for an invocation, its first Run) is written and before
 // anything commits, prepares a workspace or dispatches. An error rolls back the
 // whole admission. A participant writes only its own owner's tables through tx
 // and makes no git, Docker or provider call: nothing outside the database can be
 // undone by the rollback. Integration wiring links its attachment this way.
-type AdmissionParticipant func(ctx context.Context, tx *database.Tx, ch *Change) error
+type admissionParticipant func(ctx context.Context, tx *database.Tx, ch *Change) error
 
 const invocationSettlementTimeout = 5 * time.Second
 const preparedChangeReadTimeout = 5 * time.Second
@@ -92,7 +92,7 @@ func (s *Service) CreateAndRun(ctx context.Context, in InvokeChange) (*Change, *
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := s.starter.Prepare(ctx, run.ID); err != nil {
+	if err := s.starter.prepare(ctx, run.ID); err != nil {
 		return item, run, s.settleInvocation(ctx, item, run, actor.Receipt, err)
 	}
 	// Readiness is committed. Refresh the response independently of the caller,

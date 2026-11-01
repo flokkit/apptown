@@ -10,8 +10,8 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
-// InstanceSize is one App Platform instance size as the API lists it.
-type InstanceSize struct {
+// instanceSize is one App Platform instance size as the API lists it.
+type instanceSize struct {
 	Slug        string
 	CPUs        float64
 	MemoryBytes int64
@@ -21,7 +21,7 @@ type InstanceSize struct {
 
 // InstanceSizes is App Platform's current list of instance sizes: the
 // source of truth for what a part's declared resources become.
-func (c *Client) InstanceSizes(ctx context.Context) ([]InstanceSize, error) {
+func (c *Client) InstanceSizes(ctx context.Context) ([]instanceSize, error) {
 	var got struct {
 		Sizes []struct {
 			Slug        string `json:"slug"`
@@ -34,7 +34,7 @@ func (c *Client) InstanceSizes(ctx context.Context) ([]InstanceSize, error) {
 	if err := c.Call(ctx, "GET", "/v2/apps/tiers/instance_sizes", nil, &got); err != nil {
 		return nil, err
 	}
-	out := make([]InstanceSize, 0, len(got.Sizes))
+	out := make([]instanceSize, 0, len(got.Sizes))
 	for _, s := range got.Sizes {
 		cpus, err1 := strconv.ParseFloat(s.CPUs, 64)
 		mem, err2 := strconv.ParseInt(s.MemoryBytes, 10, 64)
@@ -42,24 +42,24 @@ func (c *Client) InstanceSizes(ctx context.Context) ([]InstanceSize, error) {
 		if err1 != nil || err2 != nil || err3 != nil || s.Slug == "" {
 			return nil, fmt.Errorf("App Platform listed an instance size AppTown cannot read (%q)", s.Slug)
 		}
-		out = append(out, InstanceSize{Slug: s.Slug, CPUs: cpus, MemoryBytes: mem, USDPerMonth: usd, Deprecated: s.Deprecation != nil && *s.Deprecation})
+		out = append(out, instanceSize{Slug: s.Slug, CPUs: cpus, MemoryBytes: mem, USDPerMonth: usd, Deprecated: s.Deprecation != nil && *s.Deprecation})
 	}
 	return out, nil
 }
 
-// SizeFor is the cheapest current instance size whose memory and CPUs
+// sizeFor is the cheapest current instance size whose memory and CPUs
 // cover r, or an error naming what no size covers. Sizes App Platform
 // marks for deprecation are never chosen. Equal prices take the smaller
 // memory, then the slug, so the choice is the same every time.
-func SizeFor(sizes []InstanceSize, r appcontract.Resources) (InstanceSize, error) {
-	var fit []InstanceSize
+func sizeFor(sizes []instanceSize, r appcontract.Resources) (instanceSize, error) {
+	var fit []instanceSize
 	for _, s := range sizes {
 		if !s.Deprecated && s.MemoryBytes >= r.MemoryBytes && s.CPUs >= r.CPUs {
 			fit = append(fit, s)
 		}
 	}
 	if len(fit) == 0 {
-		return InstanceSize{}, fmt.Errorf("no App Platform instance size has %s of memory and %s CPUs", r.MemoryWords(), r.CPUWords())
+		return instanceSize{}, fmt.Errorf("no App Platform instance size has %s of memory and %s CPUs", r.MemoryWords(), r.CPUWords())
 	}
 	sort.Slice(fit, func(i, j int) bool {
 		a, b := fit[i], fit[j]
@@ -81,12 +81,12 @@ func SizeFor(sizes []InstanceSize, r appcontract.Resources) (InstanceSize, error
 // resources. A list that cannot be read is an error a later attempt may
 // not meet; a part no size covers is terminal. Either comes before
 // anything is made.
-func partSizes(ctx context.Context, list func(context.Context) ([]InstanceSize, error), configured string, c *appcontract.Contract) (map[string]string, error) {
+func partSizes(ctx context.Context, list func(context.Context) ([]instanceSize, error), configured string, c *appcontract.Contract) (map[string]string, error) {
 	if err := refuseNeedSizes(c); err != nil {
 		return nil, err
 	}
 	out := map[string]string{}
-	var sizes []InstanceSize
+	var sizes []instanceSize
 	for _, p := range c.Parts {
 		out[p.Name] = configured
 		if !p.Resources.Declared() {
@@ -98,7 +98,7 @@ func partSizes(ctx context.Context, list func(context.Context) ([]InstanceSize, 
 				return nil, fmt.Errorf("reading App Platform's instance sizes to fit part %s's declared resources: %w", p.Name, err)
 			}
 		}
-		s, err := SizeFor(sizes, p.Resources)
+		s, err := sizeFor(sizes, p.Resources)
 		if err != nil {
 			// No retry fits it: the contract must change.
 			return nil, deploy.Terminal(fmt.Errorf("part %s: %w", p.Name, err))
@@ -118,8 +118,8 @@ func (d *Driver) FitResources(ctx context.Context, c *appcontract.Contract) (map
 	if err != nil {
 		return nil, err
 	}
-	var listed []InstanceSize
-	list := func(ctx context.Context) ([]InstanceSize, error) {
+	var listed []instanceSize
+	list := func(ctx context.Context) ([]instanceSize, error) {
 		var err error
 		listed, err = client.InstanceSizes(ctx)
 		return listed, err

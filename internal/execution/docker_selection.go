@@ -12,13 +12,13 @@ import (
 	"path/filepath"
 )
 
-// DockerSelection is the Docker daemon an AppTown's tasks run on, resolved once
+// dockerSelection is the Docker daemon an AppTown's tasks run on, resolved once
 // at startup to the daemon's address. Every call a DockerTasks makes passes
 // that address itself (docker --host), so no later change to a context, the
 // saved current context or the environment can send a call to another
 // daemon: a context is a name the CLI would otherwise look up again on each
 // call.
-type DockerSelection struct {
+type dockerSelection struct {
 	// Host is the daemon's address, as the docker CLI takes it.
 	Host string
 	// Context is the context Host was read from, empty when DOCKER_HOST
@@ -63,14 +63,14 @@ func DockerConfigDir() (string, error) {
 // configuration (DockerConfigDir); else the default context. It only reads.
 // A configuration that is there but cannot be read refuses the selection:
 // what it names is not known, and the default daemon is not assumed.
-func SelectDocker() DockerSelection {
+func SelectDocker() dockerSelection {
 	if host := os.Getenv("DOCKER_HOST"); host != "" {
-		return DockerSelection{Host: host, TLSFromEnvironment: true}
+		return dockerSelection{Host: host, TLSFromEnvironment: true}
 	}
 	name := os.Getenv("DOCKER_CONTEXT")
 	dir, err := DockerConfigDir()
 	if err != nil {
-		return DockerSelection{Context: name, Refused: err}
+		return dockerSelection{Context: name, Refused: err}
 	}
 	if name == "" {
 		var saved struct {
@@ -81,9 +81,9 @@ func SelectDocker() DockerSelection {
 		switch {
 		case errors.Is(err, fs.ErrNotExist):
 		case err != nil:
-			return DockerSelection{Context: "current", Refused: fmt.Errorf("reading the Docker configuration %s: %w", config, err)}
+			return dockerSelection{Context: "current", Refused: fmt.Errorf("reading the Docker configuration %s: %w", config, err)}
 		case json.Unmarshal(body, &saved) != nil:
-			return DockerSelection{Context: "current", Refused: fmt.Errorf("the Docker configuration %s is not JSON", config)}
+			return dockerSelection{Context: "current", Refused: fmt.Errorf("the Docker configuration %s is not JSON", config)}
 		default:
 			name = saved.CurrentContext
 		}
@@ -93,10 +93,10 @@ func SelectDocker() DockerSelection {
 		if os.Getenv("DOCKER_TLS_VERIFY") != "" || os.Getenv("DOCKER_TLS") != "" {
 			host = defaultDockerTLSHost
 		}
-		return DockerSelection{Host: host, Context: "default", TLSFromEnvironment: true}
+		return dockerSelection{Host: host, Context: "default", TLSFromEnvironment: true}
 	}
 	host, err := dockerContextHost(dir, name)
-	return DockerSelection{Host: host, Context: name, Refused: err}
+	return dockerSelection{Host: host, Context: name, Refused: err}
 }
 
 // OtherMachine is the address of the machine the daemon runs on when that
@@ -104,7 +104,7 @@ func SelectDocker() DockerSelection {
 // or a Docker context alike. "" for a local socket (and for a refused
 // selection, which names no daemon). It is the one answer to "is Docker on
 // this machine", and where published ports answer when it is not.
-func (s DockerSelection) OtherMachine() string {
+func (s dockerSelection) OtherMachine() string {
 	if s.Refused != nil {
 		return ""
 	}
@@ -119,7 +119,7 @@ func (s DockerSelection) OtherMachine() string {
 // same daemon reached through DOCKER_HOST or through a context is one
 // backend. A refused selection names its context and says it is unresolved;
 // it never matches a resolved one.
-func (s DockerSelection) Backend() string {
+func (s dockerSelection) Backend() string {
 	if s.Refused != nil {
 		return "context " + s.Context + " (unresolved)"
 	}

@@ -44,7 +44,7 @@ func readRoutineAdvisory(ctx context.Context, method, path string, body []byte) 
 	return raw, nil
 }
 
-func (r RoutineInspector) observeAdvisories(ctx context.Context, candidate routinechange.NPMCandidate) workflow.StandingAdvisoryObservation {
+func (r routineInspector) observeAdvisories(ctx context.Context, candidate routinechange.NPMCandidate) workflow.StandingAdvisoryObservation {
 	out := workflow.StandingAdvisoryObservation{Status: "no-supported-fix-observed"}
 	if r.advisoryRead == nil {
 		return workflow.StandingAdvisoryObservation{Status: "unavailable", Reason: "advisory observation is unavailable"}

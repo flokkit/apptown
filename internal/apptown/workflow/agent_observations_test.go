@@ -12,7 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -85,7 +84,7 @@ func TestAgentPrerequisitesAndReopenedFeedbackAreScoped(t *testing.T) {
 		t.Fatalf("foreign feedback %+v: %v", feedback, err)
 	}
 	dbtest.FailNextStatement(t, q.db, "-- name: MissingArtifactKinds")
-	if _, err := MissingArtifactKindsIn(ctx, q.db, run.ProjectID, []string{"spec"}); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := MissingArtifactKindsIn(ctx, q.db, run.ProjectID, []string{"spec"}); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("hidden prerequisite read: %v", err)
 	}
 }

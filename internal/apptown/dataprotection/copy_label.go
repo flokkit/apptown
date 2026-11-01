@@ -3,17 +3,18 @@ package dataprotection
 import (
 	"database/sql/driver"
 	"errors"
+
 	"github.com/flokkit/apptown/internal/enum"
 )
 
 type CopyLabel uint8
 
 const (
-	CopyLabelUnknown CopyLabel = iota + 1
-	CopyLabelFresh
-	CopyLabelOverdue
-	CopyLabelMissing
-	CopyLabelDisposable
+	copyLabelUnknown CopyLabel = iota + 1
+	copyLabelFresh
+	copyLabelOverdue
+	copyLabelMissing
+	copyLabelDisposable
 )
 
 var copyLabelCodec = enum.Set[CopyLabel]{Names: []string{"unknown", "fresh", "overdue", "missing", "disposable"}, Invalid: "invalid-copy-label", Err: errors.New("invalid copy label"), ScanLabel: "value"}
@@ -23,18 +24,18 @@ func (s CopyLabel) Value() (driver.Value, error)  { return copyLabelCodec.Value(
 func (s CopyLabel) MarshalJSON() ([]byte, error)  { return copyLabelCodec.JSON(s) }
 func (s *CopyLabel) UnmarshalJSON(b []byte) error { return copyLabelCodec.ReadJSON(s, b) }
 
-// Label describes copy age or absence without asserting host reachability.
-func (s CopyState) Label() CopyLabel {
+// label describes copy age or absence without asserting host reachability.
+func (s CopyState) label() CopyLabel {
 	switch s {
 	case CopyFresh:
-		return CopyLabelFresh
+		return copyLabelFresh
 	case CopyStale:
-		return CopyLabelOverdue
+		return copyLabelOverdue
 	case CopyNone:
-		return CopyLabelMissing
+		return copyLabelMissing
 	case CopyDisposable:
-		return CopyLabelDisposable
+		return copyLabelDisposable
 	default:
-		return CopyLabelUnknown
+		return copyLabelUnknown
 	}
 }

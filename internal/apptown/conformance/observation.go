@@ -4,8 +4,9 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
-	"github.com/flokkit/apptown/internal/ids"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // ObservationState is a closed set: a real outcome or a view-only observation.
@@ -27,11 +28,11 @@ const (
 	NotScanned viewState = "not-scanned"
 )
 
-var ErrObservationStorage = errors.New("a conformance observation is not a saved verdict")
+var errObservationStorage = errors.New("a conformance observation is not a saved verdict")
 
 // Even binding a view-only state directly to SQL is an error. Only an Outcome
 // can be stored; obtaining one from an arbitrary string requires validation.
-func (viewState) Value() (driver.Value, error) { return nil, ErrObservationStorage }
+func (viewState) Value() (driver.Value, error) { return nil, errObservationStorage }
 
 // CheckRef identifies the currently adopted check, independently of whether any
 // evaluation record exists. Project identity survives a rename.
@@ -43,7 +44,7 @@ type CheckRef struct {
 	Check       string
 }
 
-func (v Verdict) Reference() CheckRef {
+func (v Verdict) reference() CheckRef {
 	return CheckRef{v.ProjectID, v.ProjectSlug, v.Block, v.Version, v.Check}
 }
 
@@ -59,7 +60,7 @@ type Observation struct {
 func Unassessed(ref CheckRef) Observation { return Observation{CheckRef: ref, State: NotScanned} }
 
 func Recorded(v Verdict) Observation {
-	return Observation{CheckRef: v.Reference(), Record: &v, State: v.State}
+	return Observation{CheckRef: v.reference(), Record: &v, State: v.State}
 }
 
 func RecordedObservations(vs []Verdict) []Observation {
@@ -70,22 +71,22 @@ func RecordedObservations(vs []Verdict) []Observation {
 	return out
 }
 
-// CurrentContext describes the adopted check and the source inspected outside
+// currentContext describes the adopted check and the source inspected outside
 // the database snapshot. Missing source cannot establish a saved result as fresh.
-type CurrentContext struct {
+type currentContext struct {
 	Check             CheckRef
 	HeadSHA           string
 	SourceUnavailable string
 	ExceptionActive   bool
 }
 
-func (c CheckRef) Identity() CheckIdentity {
+func (c CheckRef) identity() CheckIdentity {
 	return CheckIdentity{c.ProjectID, c.Block, c.Version, c.Check}
 }
 
-// Observe retains saved evidence, but groups under the current project name and
+// observe retains saved evidence, but groups under the current project name and
 // interprets source availability, staleness and exception expiry in that order.
-func Observe(v Verdict, current CurrentContext) Observation {
+func observe(v Verdict, current currentContext) Observation {
 	o := Recorded(v)
 	o.CheckRef = current.Check
 	if current.HeadSHA == "" {

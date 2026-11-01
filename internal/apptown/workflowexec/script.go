@@ -79,7 +79,7 @@ type remoteTask struct {
 // RunScript executes a script step as a subprocess in the run's workspace.
 // A Docker script runs as a recorded task (step 2 of the first-slice plan): a
 // AppTown restart adopts it instead of running it again.
-func (a *Commands) RunScript(task *workflow.Execution) {
+func (a *commands) RunScript(task *workflow.Execution) {
 	run := task.Run()
 	// The folder is waited for before the claim, so a script that waited
 	// claims only if its attempt is still current.
@@ -119,7 +119,7 @@ func (a *Commands) RunScript(task *workflow.Execution) {
 	}
 }
 
-func (a *Commands) planScript(ctx context.Context, step *workflow.Step, run *workflow.Run) (scriptPlan, error) {
+func (a *commands) planScript(ctx context.Context, step *workflow.Step, run *workflow.Run) (scriptPlan, error) {
 	var cfg scriptConfig
 	if err := workflow.DecodeStepConfig(step.Config, &cfg); err != nil {
 		return scriptPlan{}, err
@@ -205,7 +205,7 @@ func (a *Commands) planScript(ctx context.Context, step *workflow.Step, run *wor
 // exited 0 passes only if its commit was published (the collecting phase
 // comes before pass). Publishing is safe to repeat: settling again after a
 // failure publishes nothing twice.
-func (a *Commands) settleScript(task *workflow.Execution, step *workflow.Step, run *workflow.Run, plan scriptPlan, outcome execution.Outcome, took time.Duration) error {
+func (a *commands) settleScript(task *workflow.Execution, step *workflow.Step, run *workflow.Run, plan scriptPlan, outcome execution.Outcome, took time.Duration) error {
 	log := string(outcome.Output)
 	if len(log) > maxLogBytes {
 		log = log[:maxLogBytes] + "\n... (truncated)"
@@ -371,7 +371,7 @@ func (r *TaskRunner) collectCandidate(ctx context.Context, hub string, run *work
 }
 
 // stepFolder is the folder run's steps work in (their lock's key).
-func (a *Commands) stepFolder(ctx context.Context, run *workflow.Run) (string, error) {
+func (a *commands) stepFolder(ctx context.Context, run *workflow.Run) (string, error) {
 	source, err := workflow.ReadSourceIn(ctx, a.db, workflow.RunRef{ID: run.ID, ProjectID: run.ProjectID})
 	if err != nil {
 		return "", err
@@ -383,7 +383,7 @@ func (a *Commands) stepFolder(ctx context.Context, run *workflow.Run) (string, e
 // folder: another script task not settled, or a container labelled as
 // writing it (an agent or reviewer whose container outlived its step or
 // AppTown), as an agent attempt refuses them.
-func (a *Commands) folderClear(ctx context.Context, run *workflow.Run, step *workflow.Step, ws string) error {
+func (a *commands) folderClear(ctx context.Context, run *workflow.Run, step *workflow.Step, ws string) error {
 	if err := earlierTasksStopped(ctx, a.db, run, step); err != nil {
 		return err
 	}
@@ -392,7 +392,7 @@ func (a *Commands) folderClear(ctx context.Context, run *workflow.Run, step *wor
 
 // writersGone is folderReady for a script: own names the task whose
 // container is this attempt's own (a recovered task), which is kept.
-func (a *Commands) writersGone(ctx context.Context, step *workflow.Step, ws, own string) error {
+func (a *commands) writersGone(ctx context.Context, step *workflow.Step, ws, own string) error {
 	if a.docker == nil {
 		return nil
 	}

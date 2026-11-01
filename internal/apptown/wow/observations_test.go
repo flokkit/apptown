@@ -12,8 +12,6 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/jackc/pgx/v5/pgconn"
-
-	"github.com/flokkit/apptown/internal/database"
 )
 
 func TestWorkflowCatalogObservationDistinguishesFailureFromNoEntries(t *testing.T) {
@@ -36,14 +34,14 @@ func TestWorkflowCatalogObservationDistinguishesFailureFromNoEntries(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := q.InsertWorkflowVersion(context.Background(), wowsql.InsertWorkflowVersionParams{ID: ids.New(time.Now()), LibID: bad.ID, Version: 1, Yaml: "[", At: time.Now().UTC(), Source: AuthoredHere.Source, Signer: AuthoredHere.Signer}); err != nil {
+	if _, err := q.InsertWorkflowVersion(context.Background(), wowsql.InsertWorkflowVersionParams{ID: ids.New(time.Now()), LibID: bad.ID, Version: 1, Yaml: "[", At: time.Now().UTC(), Source: authoredHere.Source, Signer: authoredHere.Signer}); err != nil {
 		t.Fatal(err)
 	}
 	if rows, err := s.Workflows(t.Context()); err != nil || len(rows) != 1 || rows[0].Name != "readable" {
 		t.Fatalf("individual unusable entries changed catalog behavior: %+v %v", rows, err)
 	}
 	dbtest.FailNextStatement(t, db, "name: WorkflowCatalog")
-	if rows, err := s.Workflows(t.Context()); rows != nil || !errors.Is(err, database.ErrInjectedFailure) {
+	if rows, err := s.Workflows(t.Context()); rows != nil || !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("failed catalog became an empty or partial observation: %+v %v", rows, err)
 	}
 }

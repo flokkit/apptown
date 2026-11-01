@@ -30,7 +30,7 @@ type historicalConformance struct {
 func readPriorConfirmations(ctx context.Context, db database.Queryer, vs []Observation, adj map[ids.ID]Adjudication) (map[ids.ID]PriorConfirmation, error) {
 	idList := []ids.ID{}
 	for _, v := range vs {
-		if v.Record != nil && !v.Record.ID.IsZero() && LaneOf(v, adj) == LaneFlagged {
+		if v.Record != nil && !v.Record.ID.IsZero() && LaneOf(v, adj) == laneFlagged {
 			idList = append(idList, v.Record.ID)
 		}
 	}
@@ -85,7 +85,7 @@ func (s reviewStore) historical(ctx context.Context, id ids.ID) (*historicalConf
 			h.Verdicts = []Verdict{}
 		}
 		if !prev.IsZero() {
-			h.Delta = CompareReviews(prev, h.Verdicts, byReview[prev])
+			h.Delta = compareReviews(prev, h.Verdicts, byReview[prev])
 		}
 		snapshots, err := queries(db).ReviewExceptionsForReview(ctx, id)
 		if err != nil {

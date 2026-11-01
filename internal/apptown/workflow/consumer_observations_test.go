@@ -50,7 +50,7 @@ func TestConformanceWorkObservationsOwnScopeAndState(t *testing.T) {
 	foreign := insertScopeChange(t, q.db, workflowsql.InsertChangeParams{ID: ids.New(time.Now()), CreatedAt: time.Now(), ProjectID: other, Type: "feature", Title: "private", State: "shipped", Branch: "private-branch"})
 	insertScopeChange(t, q.db, workflowsql.InsertChangeParams{ID: ids.New(time.Now()), CreatedAt: time.Now(), ProjectID: run.ProjectID, Type: "feature", Title: "unfinished", State: "in_progress", Branch: "unfinished-branch"})
 	tips, err := ShippedBranchesIn(ctx, q.db, run.ProjectID)
-	if err != nil || len(tips) != 1 || tips[0] != (ChangeBranch{ID: run.ChangeID, Branch: "apptown/change-1"}) {
+	if err != nil || len(tips) != 1 || tips[0] != (changeBranch{ID: run.ChangeID, Branch: "apptown/change-1"}) {
 		t.Fatalf("tips %+v: %v", tips, err)
 	}
 	recordScopeStep(t, q.db, workflowsql.RecordApprovalParams{At: time.Now(), ID: step, Status: "pass", EvidenceJson: json.RawMessage(`{"approver":"named person","decision":"approve","decisions":[{"approver":"named person","principal":"` + idstest.N(5).String() + `","via":"session","decision":"approve"}]}`)})
@@ -75,7 +75,7 @@ func TestConformanceWorkObservationsOwnScopeAndState(t *testing.T) {
 		t.Fatalf("unaccepted evidence: %q %v", who, err)
 	}
 	dbtest.FailNextStatement(t, q.db, "SELECT s.evidence_json")
-	if _, err := LandingApproverIn(ctx, q.db, ChangeRef{ID: run.ChangeID, ProjectID: run.ProjectID}); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := LandingApproverIn(ctx, q.db, ChangeRef{ID: run.ChangeID, ProjectID: run.ProjectID}); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("hidden read failure: %v", err)
 	}
 }
@@ -112,7 +112,7 @@ func TestChatContinuationIsCanonicalAndProjectScoped(t *testing.T) {
 	// sql-guarantee: Restore the original run.change_id before the independent Step-read failure case; existing mutations cannot repair a run's immutable change association.
 	completionExec(t, q.db, `UPDATE runs SET change_id=$1 WHERE id=$2`, run.ChangeID, run.ID)
 	dbtest.FailNextStatement(t, q.db, "-- name: RunSteps")
-	if _, err := service.ChatContinuation(ctx, run.ChangeID, first); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := service.ChatContinuation(ctx, run.ChangeID, first); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("hidden Step read failure: %v", err)
 	}
 }

@@ -15,7 +15,7 @@ import (
 )
 
 type ProjectCreationDependencies struct {
-	Scope     Scope
+	Scope     scope
 	Lifecycle *projectlifecycle.Service
 	DB        *database.DB
 	// Now is AppTown's clock, which stamps the tool's receipt (the real
@@ -23,15 +23,15 @@ type ProjectCreationDependencies struct {
 	Now func() time.Time
 }
 type projectCreation struct {
-	scope     Scope
+	scope     scope
 	lifecycle *projectlifecycle.Service
 	db        *database.DB
 	now       func() time.Time
 }
 
-func NewProjectCreation(deps ProjectCreationDependencies) []Tool {
+func NewProjectCreation(deps ProjectCreationDependencies) []toolEntry {
 	h := projectCreation{scope: deps.Scope, lifecycle: deps.Lifecycle, db: deps.DB, now: deps.Now}
-	return []Tool{{Name: "create_project",
+	return []toolEntry{{Name: "create_project",
 		order: 21, Description: "Creates a new project in your name: a slug, a name, a request in the asker's words, and its packs (its way of working: a server app takes server-base, one backend such as \"go\" or \"django\", \"postgres\" if it keeps records, and a UI pack such as \"vite-react\" or \"server-rendered\"; a standalone pack such as \"html-game\" is taken alone. list_packs is not a tool — get_project on any project names its packs, and AppTown's Packs page lists them). " + "The repository is initialised and the packs' starter files land as the first commit. Then open a Change on it with create_change.", InputSchema: schemaObject(map[string]any{"slug": schemaString("Short URL name: lowercase letters, digits and dashes, e.g. \"snake-game\"."), "name": schemaString("The project's name as people say it."), "blurb": schemaString("What this project is for, in the asker's words; AppTown writes the short description from it."),
 			"packs": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "The packs to adopt together, e.g. [\"server-base\", \"go\", \"postgres\", \"vite-react\"] or [\"html-game\"]."},
 			"group": schemaString("Optional: the group that owns it; default is your own default group."),

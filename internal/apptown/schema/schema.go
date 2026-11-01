@@ -145,16 +145,16 @@ func ParseWorkflow(src []byte) (*Doc, error) { return parseWorkflow(src, true) }
 // for the next save, not a hostage-taking of the record.
 func ParseWorkflowStored(src []byte) (*Doc, error) { return parseWorkflow(src, false) }
 
-// APIVersion is the one workflow format version this AppTown reads; a
+// apiVersion is the one workflow format version this AppTown reads; a
 // document without one is this version.
-const APIVersion = "apptown.dev/v1"
+const apiVersion = "apptown.dev/v1"
 
 // CheckAPIVersion refuses a stated format version other than the one this
 // AppTown reads. Workflows, packs and guidance blocks take the same
 // optional apiVersion; leaving it out means APIVersion.
 func CheckAPIVersion(v string) error {
-	if v != "" && v != APIVersion {
-		return fmt.Errorf("apiVersion %q is not one this AppTown reads (%s)", v, APIVersion)
+	if v != "" && v != apiVersion {
+		return fmt.Errorf("apiVersion %q is not one this AppTown reads (%s)", v, apiVersion)
 	}
 	return nil
 }

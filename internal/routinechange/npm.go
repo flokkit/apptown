@@ -23,16 +23,16 @@ const Version = "npm-fixed-graph-v1"
 // NPMSnapshot contains the exact committed input bytes, not a display diff.
 type NPMSnapshot struct{ Manifest, Lock []byte }
 
-// NPMPackage is the expected identity at an installation path. Changed says
+// npmPackage is the expected identity at an installation path. Changed says
 // independently observed lifecycle/platform behavior must also be refused.
-type NPMPackage struct {
+type npmPackage struct {
 	Path, Name, Version, Integrity string
 	Changed                        bool
 }
 
 // NPMCandidate records both sides of a semantic comparison. The validator must
 // install each exact input independently before this can support a classification.
-type NPMCandidate struct{ Before, After []NPMPackage }
+type NPMCandidate struct{ Before, After []npmPackage }
 
 // CompareNPM supports root manifests and npm lockfile v3 with an unchanged graph.
 // Bounds is "patch" or "minor". Unsupported or unexplained input is an error;
@@ -257,8 +257,8 @@ func packageName(path string) (string, error) {
 	}
 	return strings.TrimPrefix(parts[len(parts)-1], "node_modules/"), nil
 }
-func packageRecord(path, name string, m map[string]any) (NPMPackage, error) {
-	out := NPMPackage{Path: path, Name: name}
+func packageRecord(path, name string, m map[string]any) (npmPackage, error) {
+	out := npmPackage{Path: path, Name: name}
 	out.Version, _ = m["version"].(string)
 	out.Integrity, _ = m["integrity"].(string)
 	if err := forward(out.Version, out.Version, "patch", false); err != nil {
@@ -397,7 +397,7 @@ func object(raw []byte) (map[string]any, error) {
 // lock. Reports must enumerate every installed package, including nested ones.
 // The execution owner, not this parser, binds this observation to the exact
 // input, immutable image and successful installation.
-func VerifyInstalled(snapshot NPMSnapshot, expected []NPMPackage, installed map[string]json.RawMessage) error {
+func VerifyInstalled(snapshot NPMSnapshot, expected []npmPackage, installed map[string]json.RawMessage) error {
 	lock, err := object(snapshot.Lock)
 	if err != nil {
 		return err

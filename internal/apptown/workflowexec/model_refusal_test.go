@@ -3,6 +3,8 @@ package workflowexec
 import (
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/model"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/ids"
@@ -57,7 +59,7 @@ func TestAnUnreadModelSelectionIsNotNoModel(t *testing.T) {
 	db := databaseSuite.New(t)
 	refusal := ModelRefusal(selectionWithDefault(t, db, "anthropic/claude-sonnet"))
 	spec := &schema.Spec{Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "apply-change", Uses: AgentKind}}}}}
-	defer db.FailNextStatement("FROM model_slots")()
+	defer dbtest.NextStatementFailure(db, "FROM model_slots")()
 	if got, err := refusal(t.Context(), ids.Nil, spec, "{}"); err == nil {
 		t.Fatalf("an unread selection answered %q", got)
 	}

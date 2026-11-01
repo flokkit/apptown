@@ -42,7 +42,7 @@ func TestStopStepRemovesEveryContainerTheStepRuns(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			daemon := dockerfake.New()
+			daemon := newDockerFake()
 			var removals []string
 			daemon.SetReply(func(args []string) ([]byte, error, bool) {
 				switch args[0] {
@@ -77,4 +77,8 @@ func TestStopStepRemovesEveryContainerTheStepRuns(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newDockerFake() *dockerfake.Daemon {
+	return dockerfake.New()
 }

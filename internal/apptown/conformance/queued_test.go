@@ -61,7 +61,7 @@ func TestAQueuedReviewIsClaimedOnceWithItsSavedRequest(t *testing.T) {
 	if !errors.Is(err, errRollback) || admitted.IsZero() {
 		t.Fatalf("admission: %d %v", admitted, err)
 	}
-	if _, err := service.Review(ctx, admitted); !errors.Is(err, ErrNoReview) {
+	if _, err := service.Review(ctx, admitted); !errors.Is(err, errNoReview) {
 		t.Fatalf("a rolled-back admission left its review: %v", err)
 	}
 }
@@ -80,21 +80,21 @@ func TestAQueuedWhatIfIsClaimedOnceAndEndsInterruptedWhenStopped(t *testing.T) {
 		state string
 	}{
 		{fmt.Errorf("%w: %w", ErrInterrupted, context.Canceled), WhatIfInterrupted},
-		{errors.New("source unavailable"), WhatIfError},
+		{errors.New("source unavailable"), whatIfError},
 	} {
 		in := WhatIfRequest{Pack: "team", Version: 2, Projects: []ids.ID{project}, Rubrics: true, SpendLimitMicros: 500}
 		id, err := database.Transact(ctx, db, func(tx *database.Tx) (ids.ID, error) { return service.AdmitWhatIfIn(ctx, tx, in, nil) })
 		if err != nil {
 			t.Fatal(err)
 		}
-		if w, err := service.WhatIf(ctx, id); err != nil || w.State != WhatIfQueued || len(w.Projects) != 1 || w.Projects[0].Outcome != WhatIfNotYetJudged {
+		if w, err := service.WhatIf(ctx, id); err != nil || w.State != whatIfQueued || len(w.Projects) != 1 || w.Projects[0].Outcome != whatIfNotYetJudged {
 			t.Fatalf("admitted: a queued what-if's project is not yet judged, not ended: %+v %v", w, err)
 		}
 		run, got, err := service.ClaimWhatIf(context.Background(), id)
 		if err != nil || got.Pack != in.Pack || got.Version != in.Version || !slices.Equal(got.Projects, in.Projects) || !got.Rubrics || got.SpendLimitMicros != 500 {
 			t.Fatalf("asked %+v, claimed %+v %v", in, got, err)
 		}
-		if w, err := service.WhatIf(ctx, id); err != nil || w.State != WhatIfRunning || w.Projects[0].Outcome != WhatIfNotYetJudged {
+		if w, err := service.WhatIf(ctx, id); err != nil || w.State != whatIfRunning || w.Projects[0].Outcome != whatIfNotYetJudged {
 			t.Fatalf("a running what-if's unreached project is not yet judged: %+v %v", w, err)
 		}
 		if _, _, err := service.ClaimWhatIf(context.Background(), id); !errors.Is(err, ErrNotQueued) {
@@ -103,7 +103,7 @@ func TestAQueuedWhatIfIsClaimedOnceAndEndsInterruptedWhenStopped(t *testing.T) {
 		if err := run.Finish(context.Background(), end.err); err != nil {
 			t.Fatal(err)
 		}
-		if w, err := service.WhatIf(ctx, id); err != nil || w.State != end.state || !w.FinishedAt.Valid || w.Projects[0].Outcome != WhatIfNotEvaluated {
+		if w, err := service.WhatIf(ctx, id); err != nil || w.State != end.state || !w.FinishedAt.Valid || w.Projects[0].Outcome != whatIfNotEvaluated {
 			t.Fatalf("ended by %v: its unreached project is not evaluated: %+v %v", end.err, w, err)
 		}
 	}
@@ -134,7 +134,7 @@ func TestAWhatIfOnTheEligibleProjectsAsksAuthorityFirst(t *testing.T) {
 	t.Parallel()
 	db, _ := reviewFixture(t)
 	denied := errors.New("denied")
-	refusing := newServiceWithAuthority(db, testAuthority{check: func(Permission) error { return denied }}, unavailableHeadSource{testCheckSource{}})
+	refusing := newServiceWithAuthority(db, testAuthority{check: func(permission) error { return denied }}, unavailableHeadSource{testCheckSource{}})
 	ctx := caller("reviewer")
 	read := false
 	_, err := database.Transact(ctx, db, func(tx *database.Tx) (ids.ID, error) {

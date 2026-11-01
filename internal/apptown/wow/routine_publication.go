@@ -168,7 +168,7 @@ func routinePublicationIn(ctx context.Context, q database.Queryer, kind string, 
 			if row.LibID != owner.ID || row.Version != int64(v) {
 				return p, fault.New(fault.Conflict, "workflow publication identity changed")
 			}
-			if row.Source == "" || (row.Source != SourceHere && row.Signer == "") {
+			if row.Source == "" || (row.Source != sourceHere && row.Signer == "") {
 				return p, fault.New(fault.Conflict, "workflow publication provenance is unavailable")
 			}
 			p.References = append(p.References, routinePublication{Kind: "workflow", ID: owner.ID, PublicationID: row.ID, Version: row.Version, Name: name, Source: row.Source, Signer: row.Signer, Body: row.Yaml})
@@ -183,7 +183,7 @@ func routinePublicationIn(ctx context.Context, q database.Queryer, kind string, 
 	default:
 		return p, fault.New(fault.Conflict, "publication kind is unsupported")
 	}
-	if p.PublicationID.IsZero() || p.Source == "" || (p.Source != SourceHere && p.Signer == "") {
+	if p.PublicationID.IsZero() || p.Source == "" || (p.Source != sourceHere && p.Signer == "") {
 		return p, fault.New(fault.Conflict, "publication provenance is unavailable")
 	}
 	return p, nil

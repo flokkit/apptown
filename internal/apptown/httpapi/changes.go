@@ -29,7 +29,7 @@ func NewChanges(work *workflow.Service, projects *project.Projects, authority *i
 	return Changes{work: work, projects: projects, access: authority, db: db, now: now}
 }
 func (h Changes) ListChanges(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -44,7 +44,7 @@ func (h Changes) ListChanges(w http.ResponseWriter, r *http.Request) {
 // handleStartChangeRun: POST /api/v1/changes/{id}/runs {workflow} — start a
 // working (or any) workflow run on the Change's branch.
 func (h Changes) StartChangeRun(w http.ResponseWriter, r *http.Request) {
-	ch, p, ok := ChangeAndProject(h.db, w, r)
+	ch, p, ok := changeAndProject(h.db, w, r)
 	if !ok {
 		return
 	}
@@ -61,7 +61,7 @@ func (h Changes) StartChangeRun(w http.ResponseWriter, r *http.Request) {
 			WriteFaultOr(w, err, 422)
 			return
 		}
-		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), p.ID, "change.run-started", fmt.Sprintf("change %d run %d (%s)", ch.ID, run.ID, in.Workflow), nil)
+		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, actor(r), p.ID, "change.run-started", fmt.Sprintf("change %d run %d (%s)", ch.ID, run.ID, in.Workflow), nil)
 		WriteJSON(w, 201, ChangeRun{Change: *ch, Run: *run})
 	})
 }
@@ -70,7 +70,7 @@ func (h Changes) StartChangeRun(w http.ResponseWriter, r *http.Request) {
 // without landing: abandon in-flight runs, drop the worktree, keep the
 // branch for forensics.
 func (h Changes) AbandonChange(w http.ResponseWriter, r *http.Request) {
-	ch, _, ok := ChangeAndProject(h.db, w, r)
+	ch, _, ok := changeAndProject(h.db, w, r)
 	if !ok {
 		return
 	}
@@ -90,7 +90,7 @@ func (h Changes) AbandonChange(w http.ResponseWriter, r *http.Request) {
 // handlePatchChange: PATCH /api/v1/changes/{id} {expectedEditRevision,
 // title?, body?, externalRef?} — the cockpit's "For" block is human-editable.
 func (h Changes) PatchChange(w http.ResponseWriter, r *http.Request) {
-	ch, p, ok := ChangeAndProject(h.db, w, r)
+	ch, p, ok := changeAndProject(h.db, w, r)
 	if !ok {
 		return
 	}
@@ -119,7 +119,7 @@ func (h Changes) PatchChange(w http.ResponseWriter, r *http.Request) {
 // change page follows the working run. A change no agent works on (a
 // person's) has its landing stopped and is back in progress for a push.
 func (h Changes) SendBack(w http.ResponseWriter, r *http.Request) {
-	ch, ok := ChangeFromPath(h.db, w, r)
+	ch, ok := changeFromPath(h.db, w, r)
 	if !ok {
 		return
 	}
@@ -149,7 +149,7 @@ func (h Changes) SendBack(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Changes) Board(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

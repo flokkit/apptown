@@ -28,7 +28,7 @@ func TestRelocationPreservesAdmissionsAndRefusesTheirMovedLocalInputs(t *testing
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.spec.Request = "immutable-digest"
-			req := RelocationRequest{Attempt: tasks.Attempt{Admission: tasks.Admission{Operation: "attempt", Owner: tasks.Owner{ProjectID: owner}, Digest: tc.spec.Request}}, Task: tc.spec}
+			req := relocationRequest{Attempt: tasks.Attempt{Admission: tasks.Admission{Operation: "attempt", Owner: tasks.Owner{ProjectID: owner}, Digest: tc.spec.Request}}, Task: tc.spec}
 			before, err := json.Marshal(req)
 			if err != nil {
 				t.Fatal(err)
@@ -46,7 +46,7 @@ func TestRelocationPreservesAdmissionsAndRefusesTheirMovedLocalInputs(t *testing
 			}
 		})
 	}
-	req := RelocationRequest{Attempt: tasks.Attempt{Admission: tasks.Admission{Operation: "attempt", Owner: tasks.Owner{ProjectID: owner}}}, Task: execution.TaskSpec{Workspace: "/data/workspaces/change-id"}}
+	req := relocationRequest{Attempt: tasks.Attempt{Admission: tasks.Admission{Operation: "attempt", Owner: tasks.Owner{ProjectID: owner}}}, Task: execution.TaskSpec{Workspace: "/data/workspaces/change-id"}}
 	if err := req.RefuseMovedPaths(refs, "/data", "/restored"); err == nil {
 		t.Fatal("resumed a local request at the original restored root")
 	}
@@ -63,7 +63,7 @@ func (o relocationTaskObserver) Observe(context.Context, execution.TaskRef) (exe
 }
 
 func TestRelocationRefusesUnobservedOrSurvivingTaskWriters(t *testing.T) {
-	req := RelocationRequest{Attempt: tasks.Attempt{Admission: tasks.Admission{Operation: "op", Backend: "original", Digest: "request"}, ProviderID: "provider-task"}}
+	req := relocationRequest{Attempt: tasks.Attempt{Admission: tasks.Admission{Operation: "op", Backend: "original", Digest: "request"}, ProviderID: "provider-task"}}
 	for _, tc := range []struct {
 		name   string
 		obs    execution.TaskObservation

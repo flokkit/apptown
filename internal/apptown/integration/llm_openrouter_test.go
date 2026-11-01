@@ -97,7 +97,7 @@ func TestAIModelsKeyIsMadeOnceAndItsBudgetFollowsTheDeclaration(t *testing.T) {
 	}
 
 	// Over the ceiling on the first boot: refused before any call.
-	if _, err := s.RegisterLLMKey(ctx, req(map[string]string{"limit": "11"}), rec); !errors.Is(err, ErrLLMLimit) || len(f.Calls()) != 0 {
+	if _, err := s.RegisterLLMKey(ctx, req(map[string]string{"limit": "11"}), rec); !errors.Is(err, errLLMLimit) || len(f.Calls()) != 0 {
 		t.Fatalf("over the maximum: %v, %d calls", err, len(f.Calls()))
 	}
 	// No limit declared: the connector's default.
@@ -136,7 +136,7 @@ func TestAIModelsKeyIsMadeOnceAndItsBudgetFollowsTheDeclaration(t *testing.T) {
 	}
 	// Over the ceiling on a later boot: refused before the change.
 	calls := len(f.Calls())
-	if _, err := s.RegisterLLMKey(ctx, req(map[string]string{"limit": "50"}), rec); !errors.Is(err, ErrLLMLimit) || len(f.Calls()) != calls {
+	if _, err := s.RegisterLLMKey(ctx, req(map[string]string{"limit": "50"}), rec); !errors.Is(err, errLLMLimit) || len(f.Calls()) != calls {
 		t.Fatalf("over the maximum on a redeploy: %v, %d new calls", err, len(f.Calls())-calls)
 	}
 	// OpenRouter refuses the change: the boot fails, nothing claims it applied.
@@ -273,7 +273,7 @@ func TestProvisioningKeyStaysOnTheServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := len(f.Calls())
-	if _, err := s.RegisterLLMKey(ctx, KeyRequest{ProjectID: id, Name: "k", Scope: "llm:deployment:1"}, &heldKeys{}); !errors.Is(err, ErrLLMConfig) || len(f.Calls()) != before {
+	if _, err := s.RegisterLLMKey(ctx, KeyRequest{ProjectID: id, Name: "k", Scope: "llm:deployment:1"}, &heldKeys{}); !errors.Is(err, errLLMConfig) || len(f.Calls()) != before {
 		t.Fatalf("a stored STEP_ reference is refused at use: %v, %d calls", err, len(f.Calls())-before)
 	}
 	if _, err := s.Bindings.Upsert(ctx, "openrouter", CapLLM, "openrouter", `{"url":"`+f.Base+`","provisioningKeyFrom":["OPENROUTER_PROVISIONING_KEY"],"maxLimit":10}`, false); err != nil {

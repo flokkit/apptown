@@ -42,14 +42,14 @@ const (
 	// query, escaped as sent), so this server's router never cleans or
 	// redirects a visitor's path.
 	PreviewTargetHeader = "X-AppTown-Preview-Target"
-	// PreviewSessionHeader and PreviewSeqHeader are AppTown session and
+	// previewSessionHeader and PreviewSeqHeader are AppTown session and
 	// the number within it that a request changing a preview carries (see
 	// previewSessions).
-	PreviewSessionHeader = "X-AppTown-Preview-Session"
-	PreviewSeqHeader     = "X-AppTown-Preview-Seq"
-	// PreviewClaimHeader, "required", answers a request refused because the
+	previewSessionHeader = "X-AppTown-Preview-Session"
+	previewSeqHeader     = "X-AppTown-Preview-Seq"
+	// previewClaimHeader, "required", answers a request refused because the
 	// worker's fence is lost: AppTown claims the worker again.
-	PreviewClaimHeader = "X-AppTown-Preview-Claim"
+	previewClaimHeader = "X-AppTown-Preview-Claim"
 )
 
 var (
@@ -152,8 +152,8 @@ func (a fenceToken) before(b fenceToken) bool {
 // requestToken reads a request's token; one without a positive session
 // and number is refused before any effect.
 func requestToken(r *http.Request) (fenceToken, error) {
-	session, err1 := strconv.ParseInt(r.Header.Get(PreviewSessionHeader), 10, 64)
-	seq, err2 := strconv.ParseInt(r.Header.Get(PreviewSeqHeader), 10, 64)
+	session, err1 := strconv.ParseInt(r.Header.Get(previewSessionHeader), 10, 64)
+	seq, err2 := strconv.ParseInt(r.Header.Get(previewSeqHeader), 10, 64)
 	if err1 != nil || err2 != nil || session <= 0 || seq <= 0 {
 		return fenceToken{}, errors.New("a request that changes a preview carries its AppTown session and number")
 	}
@@ -340,7 +340,7 @@ func (s *Server) admit(w http.ResponseWriter, r *http.Request, name string) bool
 	ok, err := s.admitRequest(name, t)
 	switch {
 	case errors.Is(err, errClaimRequired):
-		w.Header().Set(PreviewClaimHeader, "required")
+		w.Header().Set(previewClaimHeader, "required")
 		http.Error(w, err.Error(), http.StatusConflict)
 		return false
 	case err != nil:
@@ -536,7 +536,7 @@ func (s *Server) bootPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx, life := bounded(w, r, previewLifetime)
-	defer life.Stop()
+	defer life.stop()
 	mr, err := r.MultipartReader()
 	if err != nil {
 		http.Error(w, "a preview boot is multipart: "+err.Error(), http.StatusBadRequest)
@@ -939,7 +939,7 @@ func (s *Server) admitPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx, life := bounded(w, r, checkGrace)
-	defer life.Stop()
+	defer life.stop()
 	if err := docker.AdmitResources(ctx, s.previewScope(), &c); err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return

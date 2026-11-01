@@ -287,7 +287,7 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 						st = conformance.EvaluationError
 					}
 				} else {
-					st, detail = f.evaluator.Observe(ctx, p.ID, sha, sc.Check.Probe)
+					st, detail = f.evaluator.observe(ctx, p.ID, sha, sc.Check.Probe)
 				}
 				if st == conformance.EvaluationError {
 					rev.Errors++
@@ -306,7 +306,7 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 			if allowBuild {
 				buildsUsed++
 			}
-			assessed := f.assessTree(ctx, sh, posture, toolChecks, ToolContext{Context: ctx, Exceptions: append([]conformance.Disposition{}, exceptions...), ProjectID: p.ID, SHA: sha, BuildDir: src, AllowBuild: allowBuild},
+			assessed := f.assessTree(ctx, sh, posture, toolChecks, toolContext{Context: ctx, Exceptions: append([]conformance.Disposition{}, exceptions...), ProjectID: p.ID, SHA: sha, BuildDir: src, AllowBuild: allowBuild},
 				fmt.Sprintf("apptown-fleet-%d-%d", rev.ID, p.ID))
 			for _, a := range assessed {
 				if a.State == conformance.EvaluationError {
@@ -403,7 +403,7 @@ type treeAssessment struct {
 // found, with the exceptions in tc applied. It records nothing: a review
 // records verdicts from it and a what-if and an eval keep their own rows,
 // so evaluation is one thing.
-func (f Fleet) assessTree(ctx context.Context, sh string, posture, tools []conformance.DeclaredCheck, tc ToolContext, label string) []treeAssessment {
+func (f Fleet) assessTree(ctx context.Context, sh string, posture, tools []conformance.DeclaredCheck, tc toolContext, label string) []treeAssessment {
 	var out []treeAssessment
 	if len(posture) > 0 {
 		evaluations := f.evaluator.judge(ctx, sh).EvaluateSh(declaredAll(posture), CheckSource(tc.BuildDir), check.Gate, label)

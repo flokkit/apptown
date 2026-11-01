@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -70,7 +69,7 @@ func TestProjectActivityUsesScopedBulkCounts(t *testing.T) {
 		t.Fatalf("foreign current Run counted %+v: %v", visible, err)
 	}
 	dbtest.FailNextStatement(t, q.db, "-- name: ProjectActivityReport")
-	if _, err := s.ProjectActivity(ctx, run.ProjectID); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := s.ProjectActivity(ctx, run.ProjectID); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("hidden failure: %v", err)
 	}
 }
@@ -108,7 +107,7 @@ func TestDashboardPartitionsVisibleCurrentStages(t *testing.T) {
 	}
 	for _, fragment := range []string{"-- name: DashboardPendingApprovals", "-- name: DashboardActiveRuns"} {
 		dbtest.FailNextStatement(t, q.db, fragment)
-		if _, err := s.Dashboard(ctx); !errors.Is(err, database.ErrInjectedFailure) {
+		if _, err := s.Dashboard(ctx); !errors.Is(err, dbtest.ErrInjectedFailure) {
 			t.Fatalf("hidden %s failure: %v", fragment, err)
 		}
 	}

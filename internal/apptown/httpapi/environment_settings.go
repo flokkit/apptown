@@ -16,7 +16,7 @@ func (h Connectors) EditConnectionLabel(w http.ResponseWriter, r *http.Request) 
 	if _, ok := AuthorizeRequest(h.access, w, r, access.CapIntegrationConnector, access.Resource{Type: "instance"}, access.Context{Consequential: true}); !ok {
 		return
 	}
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, http.StatusBadRequest, "invalid connection identity")
 		return
@@ -26,7 +26,7 @@ func (h Connectors) EditConnectionLabel(w http.ResponseWriter, r *http.Request) 
 			WriteError(w, http.StatusBadRequest, "expectedLabel is required")
 			return
 		}
-		if _, err := h.integrations.Bindings.EditDisplayLabel(r.Context(), id, *in.ExpectedLabel, in.Label, Actor(r)); err != nil {
+		if _, err := h.integrations.Bindings.EditDisplayLabel(r.Context(), id, *in.ExpectedLabel, in.Label, actor(r)); err != nil {
 			WriteFault(w, err)
 			return
 		}
@@ -35,7 +35,7 @@ func (h Connectors) EditConnectionLabel(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h Targets) EditTargetLabel(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, http.StatusBadRequest, "invalid target identity")
 		return
@@ -54,11 +54,11 @@ func (h Targets) EditTargetLabel(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Deployments) EditDeploymentLabel(w http.ResponseWriter, r *http.Request) {
-	project, ok := ProjectFromPath(h.projects, w, r)
+	project, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, http.StatusBadRequest, "invalid deployment identity")
 		return
@@ -77,7 +77,7 @@ func (h Deployments) EditDeploymentLabel(w http.ResponseWriter, r *http.Request)
 }
 
 func (h Deployments) ReleaseDefault(w http.ResponseWriter, r *http.Request) {
-	project, ok := ProjectFromPath(h.projects, w, r)
+	project, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -90,7 +90,7 @@ func (h Deployments) ReleaseDefault(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Deployments) SetReleaseDefault(w http.ResponseWriter, r *http.Request) {
-	project, ok := ProjectFromPath(h.projects, w, r)
+	project, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

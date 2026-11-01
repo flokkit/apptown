@@ -273,7 +273,7 @@ main also runs the unit tests fresh, and only main's results are stored ([GitHub
 operations](../operations/github.md), "Test results"). For that to hold, a
 test must make its inputs visible to Go: a repository file it hands to a
 child process (a script, a `docker build` context, a binary it builds) is
-read first through `internal/testinputs`, and a test whose outcome depends
+read first through `internal/execution/executiontest`, and a test whose outcome depends
 on what it downloads while it runs gets a line in
 `scripts/ci-uncached-tests.txt`. The images tests start and the tools on the
 runner are recorded by `scripts/ci-test-environment.sh`. The local push

@@ -514,7 +514,7 @@ func TestTheDataDirectorySaysWhichLayoutWroteIt(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "layout"), []byte(strconv.Itoa(DataLayoutVersion+1)+"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := PrepareDataLayout(dir); !errors.Is(err, ErrNewerDataLayout) {
+	if err := PrepareDataLayout(dir); !errors.Is(err, errNewerDataLayout) {
 		t.Fatalf("a newer build's directory: %v", err)
 	}
 }
@@ -1147,7 +1147,7 @@ func TestAFailedBootsEvidenceHoldsNoNeedCredential(t *testing.T) {
 // not nil, an AppTown-data-forge-db volume carrying that installation label and
 // binding to /old/data/pgdata.
 func builtinDBDaemon(label *string) *dockerfake.Daemon {
-	d := dockerfake.New()
+	d := newDockerFake()
 	exists := label != nil
 	owner := "th1s1nstall"
 	if label != nil {
@@ -1233,7 +1233,7 @@ func TestBuiltinDBUsesARunningContainerOnlyWhenItIsThisInstallations(t *testing.
 		"another installation's":         {"0ther1nstall", false},
 	} {
 		t.Run(name, func(t *testing.T) {
-			d := dockerfake.New()
+			d := newDockerFake()
 			d.SetReply(func(args []string) ([]byte, error, bool) {
 				if len(args) == 2 && args[0] == "inspect" && args[1] == currentBuiltinDB.Container {
 					return []byte("{}"), nil, true

@@ -47,8 +47,8 @@ import (
 	"github.com/flokkit/apptown/internal/toolversions"
 )
 
-// MaxBundleBytes bounds a source or result bundle in either direction.
-const MaxBundleBytes = 256 << 20
+// maxBundleBytes bounds a source or result bundle in either direction.
+const maxBundleBytes = 256 << 20
 
 var keyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{0,127}$`)
 
@@ -351,13 +351,13 @@ func (s *Server) putWorkspace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer os.Remove(bundle.Name())
-	n, err := io.Copy(bundle, io.LimitReader(r.Body, MaxBundleBytes+1))
+	n, err := io.Copy(bundle, io.LimitReader(r.Body, maxBundleBytes+1))
 	bundle.Close()
 	if err != nil {
 		httpError(w, err)
 		return
 	}
-	if n > MaxBundleBytes {
+	if n > maxBundleBytes {
 		http.Error(w, "the bundle is larger than the worker accepts", http.StatusRequestEntityTooLarge)
 		return
 	}

@@ -48,7 +48,7 @@ func TestAnExecImageReceiptNamesTheImageThatRan(t *testing.T) {
 		ran = req.Image
 		return execution.Outcome{Termination: execution.Exited}
 	}}
-	results, _, errs := f.Scanners.RunToolChecks(t.Context(), []conformance.DeclaredCheck{{Block: "test", Version: 1, Check: check.Declaration{AppliesTo: []string{"repository"}, Name: "app", Tool: "app-check"}}}, ToolContext{BuildDir: tree, SHA: sha, ProjectID: f.ProjectID, AllowBuild: true}, "review")
+	results, _, errs := f.Scanners.runToolChecks(t.Context(), []conformance.DeclaredCheck{{Block: "test", Version: 1, Check: check.Declaration{AppliesTo: []string{"repository"}, Name: "app", Tool: "app-check"}}}, toolContext{BuildDir: tree, SHA: sha, ProjectID: f.ProjectID, AllowBuild: true}, "review")
 	raw, err := json.Marshal(results)
 	if err != nil || errs != 0 || ran != id {
 		t.Fatalf("setup: ran=%q errors=%d results=%s marshal=%v", ran, errs, raw, err)

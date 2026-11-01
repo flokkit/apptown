@@ -15,18 +15,18 @@ import (
 
 var errMergeCaller = errors.New("merge requires a current workflow advancement or SCM assertion scope")
 
-type MergePurpose uint8
+type mergePurpose uint8
 
 const (
-	MergeForAdvance MergePurpose = iota + 1
-	MergeForAssertion
+	MergeForAdvance mergePurpose = iota + 1
+	mergeForAssertion
 )
 
 // An internal call is bound to the exact Work observation that requested it.
 // The actor string used for receipts is deliberately not an authority input.
 // HTTP/MCP user authorization remains at their command boundary.
 type MergeCall struct {
-	Purpose MergePurpose
+	Purpose mergePurpose
 	Run     Run
 	Step    Step
 	Source  MergeSource
@@ -41,7 +41,7 @@ func (c MergeCall) validate() error {
 		if !c.Step.ID.IsZero() {
 			return errMergeCaller
 		}
-	case MergeForAssertion:
+	case mergeForAssertion:
 		if c.Step.ID.IsZero() || c.Step.RunID != c.Run.ID || c.Step.Type != "scm/merged" {
 			return errMergeCaller
 		}
@@ -51,27 +51,27 @@ func (c MergeCall) validate() error {
 	return nil
 }
 
-type MergeAdmission struct {
+type mergeAdmission struct {
 	db    *database.DB
 	rules LawRules
-	evals EvalGate // an eval's rule for a merge into one of its copies; nil: none
+	evals evalGate // an eval's rule for a merge into one of its copies; nil: none
 	clocked
 }
 
-// WithEvalGate has the admission ask an eval's one rule before a merge
+// withEvalGate has the admission ask an eval's one rule before a merge
 // into one of its copies (eval_authority.go).
-func (a MergeAdmission) WithEvalGate(g EvalGate) MergeAdmission {
+func (a mergeAdmission) withEvalGate(g evalGate) mergeAdmission {
 	a.evals = g
 	return a
 }
 
-func NewMergeAdmission(db *database.DB, rules LawRules) MergeAdmission {
-	return MergeAdmission{db: db, rules: rules}
+func NewMergeAdmission(db *database.DB, rules LawRules) mergeAdmission {
+	return mergeAdmission{db: db, rules: rules}
 }
 
-type AdmittedMerge struct {
+type admittedMerge struct {
 	db         *database.DB
-	evals      EvalGate // asked again at the SCM claim that performs the merge
+	evals      evalGate // asked again at the SCM claim that performs the merge
 	rules      LawRules
 	call       MergeCall
 	gate       *preparedMergeGate
@@ -82,12 +82,12 @@ type AdmittedMerge struct {
 	clocked
 }
 type MergePermission struct {
-	Admitted *AdmittedMerge
+	Admitted *admittedMerge
 	Reason   string
 	Blocking *Step
 }
 
-func (a MergeAdmission) Prepare(ctx context.Context, call MergeCall) (MergePermission, error) {
+func (a mergeAdmission) Prepare(ctx context.Context, call MergeCall) (MergePermission, error) {
 	call.Step.Config = slices.Clone(call.Step.Config)
 	call.Step.Evidence = slices.Clone(call.Step.Evidence)
 	return database.Transact(ctx, a.db, func(tx *database.Tx) (MergePermission, error) {
@@ -97,7 +97,7 @@ func (a MergeAdmission) Prepare(ctx context.Context, call MergeCall) (MergePermi
 
 // This is Work admission, not a receipt of an external effect. All policy and
 // gate facts are read with the project/run locked; no connection escapes it.
-func (a MergeAdmission) admitMergeIn(ctx context.Context, tx *database.Tx, call MergeCall) (MergePermission, error) {
+func (a mergeAdmission) admitMergeIn(ctx context.Context, tx *database.Tx, call MergeCall) (MergePermission, error) {
 	var result MergePermission
 	if err := call.validate(); err != nil {
 		return result, err
@@ -118,7 +118,7 @@ func (a MergeAdmission) admitMergeIn(ctx context.Context, tx *database.Tx, call 
 
 // The caller holds project/run locks and has compared the complete run/source
 // snapshot. Intent admission can reuse those facts instead of reading them twice.
-func (a MergeAdmission) evaluateMergePermissionIn(ctx context.Context, tx *database.Tx, call MergeCall) (MergePermission, error) {
+func (a mergeAdmission) evaluateMergePermissionIn(ctx context.Context, tx *database.Tx, call MergeCall) (MergePermission, error) {
 	var result MergePermission
 	if err := call.validate(); err != nil {
 		return result, err
@@ -136,7 +136,7 @@ func (a MergeAdmission) evaluateMergePermissionIn(ctx context.Context, tx *datab
 	if err != nil {
 		return result, err
 	}
-	if call.Purpose == MergeForAssertion {
+	if call.Purpose == mergeForAssertion {
 		step, err := stepResult(workflowsql.New(tx.SQL()).StepForUpdate(ctx, workflowsql.StepForUpdateParams{ID: call.Step.ID}))
 		if err != nil {
 			return result, err
@@ -192,7 +192,7 @@ func (a MergeAdmission) evaluateMergePermissionIn(ctx context.Context, tx *datab
 	if err != nil {
 		return result, err
 	}
-	if !required.PermitsMerge() {
+	if !required.permitsMerge() {
 		pending := slices.Clone(required.Missing)
 		for _, step := range required.Blocking {
 			if step.Type != "scm/merged" {
@@ -217,16 +217,16 @@ func (a MergeAdmission) evaluateMergePermissionIn(ctx context.Context, tx *datab
 	if err != nil {
 		return result, err
 	}
-	result.Admitted = &AdmittedMerge{db: a.db, evals: a.evals, rules: a.rules, call: call, gate: gate, completing: next.Completing, attribution: attribution, clocked: a.clocked}
+	result.Admitted = &admittedMerge{db: a.db, evals: a.evals, rules: a.rules, call: call, gate: gate, completing: next.Completing, attribution: attribution, clocked: a.clocked}
 	return result, nil
 }
 
 // Context carries only this admitted Work snapshot. SCM revalidates it before effect.
-func (a *AdmittedMerge) Context(ctx context.Context, dataDir string) (context.Context, error) {
+func (a *admittedMerge) Context(ctx context.Context, dataDir string) (context.Context, error) {
 	if a == nil || a.gate == nil || a.db == nil {
 		return nil, errMergeCaller
 	}
-	claim, err := (SCMWork{db: a.db, dataDir: dataDir, rules: a.rules, evals: a.evals, clocked: a.clocked}).claim(a.call.Run, a.call.Source, &a.call, a.attribution)
+	claim, err := (scmWork{db: a.db, dataDir: dataDir, rules: a.rules, evals: a.evals, clocked: a.clocked}).claim(a.call.Run, a.call.Source, &a.call, a.attribution)
 	if err != nil {
 		return nil, err
 	}

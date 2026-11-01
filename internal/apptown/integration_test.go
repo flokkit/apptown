@@ -36,12 +36,12 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/execution"
+	testinputs "github.com/flokkit/apptown/internal/execution/executiontest"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/stockupdate/stockupdatetest"
 	"github.com/flokkit/apptown/internal/strs"
-	"github.com/flokkit/apptown/internal/testinputs"
 	"github.com/flokkit/apptown/stock"
 )
 

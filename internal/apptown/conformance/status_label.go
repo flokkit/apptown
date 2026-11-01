@@ -4,18 +4,19 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+
 	"github.com/flokkit/apptown/internal/enum"
 )
 
 type WhatIfLabel uint8
 
 const (
-	LabelUnknown  WhatIfLabel = 1
-	LabelWaiting  WhatIfLabel = 2
-	LabelWorking  WhatIfLabel = 3
-	LabelFinished WhatIfLabel = 4
-	LabelFailed   WhatIfLabel = 5
-	LabelStopped  WhatIfLabel = 6
+	labelUnknown  WhatIfLabel = 1
+	labelWaiting  WhatIfLabel = 2
+	labelWorking  WhatIfLabel = 3
+	labelFinished WhatIfLabel = 4
+	labelFailed   WhatIfLabel = 5
+	labelStopped  WhatIfLabel = 6
 )
 
 var labelCodec = enum.Set[WhatIfLabel]{Names: []string{"unknown", "waiting", "working", "finished", "failed", "stopped"}, Invalid: "invalid-status-label", Err: errors.New("invalid status label"), ScanLabel: "value"}
@@ -28,11 +29,11 @@ func (s *WhatIfLabel) UnmarshalJSON(b []byte) error { return labelCodec.ReadJSON
 func outcomeLabel(s string) CheckLabel {
 	switch s {
 	case WhatIfNewFailures:
-		return CheckFailed
+		return checkFailed
 	case WhatIfNoNewFailures:
-		return CheckPassed
+		return checkPassed
 	default:
-		return CheckUnknown
+		return checkUnknown
 	}
 }
 func (w WhatIf) MarshalJSON() ([]byte, error) {
@@ -50,21 +51,21 @@ func (w WhatIf) MarshalJSON() ([]byte, error) {
 	if out.Fleet == nil {
 		out.Fleet = []WhatIfFleetGap{}
 	}
-	out.StatusLabel = LabelUnknown
+	out.StatusLabel = labelUnknown
 	switch w.State {
 	case "queued":
-		out.StatusLabel = LabelWaiting
+		out.StatusLabel = labelWaiting
 	case "running":
-		out.StatusLabel = LabelWorking
+		out.StatusLabel = labelWorking
 	case "done":
-		out.StatusLabel = LabelFinished
+		out.StatusLabel = labelFinished
 	case "error":
-		out.StatusLabel = LabelFailed
+		out.StatusLabel = labelFailed
 	case "interrupted":
-		out.StatusLabel = LabelStopped
+		out.StatusLabel = labelStopped
 	}
 	out.OutcomeLabels = map[string]CheckLabel{}
-	for _, s := range []string{WhatIfNewFailures, WhatIfCouldNotAssess, WhatIfNoNewFailures, WhatIfNotEvaluated, WhatIfNotYetJudged} {
+	for _, s := range []string{WhatIfNewFailures, whatIfCouldNotAssess, WhatIfNoNewFailures, whatIfNotEvaluated, whatIfNotYetJudged} {
 		out.OutcomeLabels[s] = outcomeLabel(s)
 	}
 	return json.Marshal(out)
@@ -90,18 +91,18 @@ func (w WhatIfProject) MarshalJSON() ([]byte, error) {
 func (r WhatIfRow) MarshalJSON() ([]byte, error) {
 	type view WhatIfRow
 	out := view(r)
-	out.StatusLabel = CheckUnknown
+	out.StatusLabel = checkUnknown
 	switch r.Result {
 	case WhatIfUnchanged:
 		if outcome, err := ParseOutcome(r.Proposed); err == nil {
-			out.StatusLabel = outcome.Label()
+			out.StatusLabel = outcome.label()
 		}
 	case WhatIfWouldFail:
-		out.StatusLabel = CheckFailed
+		out.StatusLabel = checkFailed
 	case WhatIfWouldPass:
-		out.StatusLabel = CheckPassed
-	case WhatIfNotApplicable, WhatIfNoLongerNeeded:
-		out.StatusLabel = CheckNotApplicable
+		out.StatusLabel = checkPassed
+	case whatIfNotApplicable, whatIfNoLongerNeeded:
+		out.StatusLabel = checkNotApplicable
 	}
 	return json.Marshal(out)
 }

@@ -11,19 +11,19 @@ import (
 )
 
 type ComplaintsDependencies struct {
-	Scope      Scope
+	Scope      scope
 	Work       *workflow.Service
 	Complaints *complaint.Box
 }
 type complaints struct {
-	scope      Scope
+	scope      scope
 	work       *workflow.Service
 	complaints *complaint.Box
 }
 
-func NewComplaints(deps ComplaintsDependencies) []Tool {
+func NewComplaints(deps ComplaintsDependencies) []toolEntry {
 	h := complaints{scope: deps.Scope, work: deps.Work, complaints: deps.Complaints}
-	return []Tool{{Name: "file_complaint",
+	return []toolEntry{{Name: "file_complaint",
 		order: 20, Description: "Files a complaint about AppTown itself: a standard tool that failed, a documented promise that did not hold, something you had to guess or work around. " + "Platform friction only — problems in the code you are working on belong in the Change. Filing triggers nothing; a person reads it.", InputSchema: schemaObject(map[string]any{"text": schemaString("What happened, in a sentence or two."), "why": schemaString("Why it slowed you down (optional, a sentence)."), "wish": schemaString("What you wish had been true (optional, a sentence)."), "slug": schemaString("Optional: the project you were working on."), "change_id": schemaID("Optional: the Change you were working on."), "about": schemaString("Optional: what it is about. apptown (default): AppTown itself got in the way. way-of-working: the project's adopted ways of working (its packs' guidance, checks or workflows) asked for something wrong or unworkable. project: the project's own code, setup or guidance.")}, "text"), command: publicCommand("complaints.fileComplaint", h.fileComplaint)}}
 }
 func (h complaints) fileComplaint(c *Call, args map[string]any) (any, error) {

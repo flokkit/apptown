@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -21,6 +20,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 
 	"github.com/flokkit/apptown/internal/execfile"
 	"github.com/flokkit/apptown/stock"

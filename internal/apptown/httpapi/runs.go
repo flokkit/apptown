@@ -24,7 +24,7 @@ func NewRuns(work *workflow.Service, ops *operations.Service) Runs { return Runs
 const maxArtifactBody = 64 << 20
 
 func (h Runs) GetArtifact(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -45,7 +45,7 @@ func (h Runs) GetArtifact(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Runs) GetRun(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -59,7 +59,7 @@ func (h Runs) GetRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Runs) AddArtifact(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return

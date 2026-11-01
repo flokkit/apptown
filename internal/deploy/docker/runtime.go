@@ -83,7 +83,7 @@ func decodeRuntime(output []byte, err error, name string) (Runtime, error) {
 
 // verifyDockerIdentity checks that a running container is the one the
 // deployment was admitted for: labels, image and liveness.
-func VerifyIdentity(id deploy.DockerIdentity, runtime Runtime, image string) error {
+func verifyIdentity(id deploy.DockerIdentity, runtime Runtime, image string) error {
 	if id.Deployment == "" || id.Generation <= 0 || id.Artifact == "" {
 		return errors.New("deployment has incomplete Docker identity")
 	}
@@ -107,7 +107,7 @@ func RecordBoot(ctx context.Context, dk Scope, id deploy.DockerIdentity, name, i
 	if err != nil {
 		return deploy.Observation{}, err
 	}
-	if err := VerifyIdentity(id, runtime, image); err != nil {
+	if err := verifyIdentity(id, runtime, image); err != nil {
 		return deploy.Observation{}, err
 	}
 	if err := ctx.Err(); err != nil {
@@ -121,7 +121,7 @@ func RecordBoot(ctx context.Context, dk Scope, id deploy.DockerIdentity, name, i
 	return o, nil
 }
 
-// Resume settles an attempt AppTown lost track of from what it recorded and
+// resume settles an attempt AppTown lost track of from what it recorded and
 // what the host says now. Whenever the host answers, the outcome is known:
 // the container the attempt recorded booting healthy, running as recorded,
 // is the deployment; anything else (no record of a healthy boot, the
@@ -130,7 +130,7 @@ func RecordBoot(ctx context.Context, dk Scope, id deploy.DockerIdentity, name, i
 // leaves it unknown, for a later look. An attempt with no record whose boot
 // did come up (AppTown stopped between the boot and writing its record)
 // reads failed while its container runs: an accepted cost.
-func Resume(ctx context.Context, dk Scope, p deploy.Placement, generation int64, noted map[string]any) (deploy.Observation, error) {
+func resume(ctx context.Context, dk Scope, p deploy.Placement, generation int64, noted map[string]any) (deploy.Observation, error) {
 	if err := ctx.Err(); err != nil {
 		return deploy.Observation{}, err
 	}
@@ -162,7 +162,7 @@ func Resume(ctx context.Context, dk Scope, p deploy.Placement, generation int64,
 	if err != nil {
 		return deploy.Observation{}, err // the host could not be asked
 	}
-	if err := VerifyIdentity(proof.Identity, runtime, proof.Ready.ImageDigest); err != nil {
+	if err := verifyIdentity(proof.Identity, runtime, proof.Ready.ImageDigest); err != nil {
 		return deploy.Observation{}, deploy.Terminal(err)
 	}
 	// Successful cold boot is recorded evidence; current health belongs to the

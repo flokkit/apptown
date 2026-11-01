@@ -44,7 +44,7 @@ func LatestPersonFeedbackIn(ctx context.Context, q database.Queryer, ref RunRef)
 	return &PersonFeedback{Note: row.Note, By: row.Who}, nil
 }
 
-type AgentSession struct {
+type agentSession struct {
 	Dispatches int
 	ID         string
 }
@@ -52,15 +52,15 @@ type AgentSession struct {
 // AgentSessionIn preserves the recorded conversation first, including completed
 // history continuations. Unrecorded history uses its dispatch-count convention;
 // it must not be renumbered from the newer Step attempt field.
-func AgentSessionIn(ctx context.Context, q database.Queryer, ref RunRef, step ids.ID, mode RetryMode) (AgentSession, error) {
+func AgentSessionIn(ctx context.Context, q database.Queryer, ref RunRef, step ids.ID, mode RetryMode) (agentSession, error) {
 	if ref.ID.IsZero() || ref.ProjectID.IsZero() || step.IsZero() || !mode.valid() {
-		return AgentSession{}, fmt.Errorf("session observation requires scope and valid retry mode")
+		return agentSession{}, fmt.Errorf("session observation requires scope and valid retry mode")
 	}
 	row, err := workflowsql.New(q.SQL()).AgentSessionObservation(ctx, workflowsql.AgentSessionObservationParams{StepID: step, RunID: ref.ID, ProjectID: ref.ProjectID})
 	if err != nil {
-		return AgentSession{}, err
+		return agentSession{}, err
 	}
-	out := AgentSession{Dispatches: int(row.Dispatches), ID: row.SessionID}
+	out := agentSession{Dispatches: int(row.Dispatches), ID: row.SessionID}
 	if out.ID == "" {
 		attempt := out.Dispatches
 		if mode == RetryContinue && attempt > 1 {

@@ -16,7 +16,7 @@ type CodeExchangeProblem struct{ Reason string }
 
 func (e *CodeExchangeProblem) Error() string { return e.Reason }
 
-var ErrCodeReplay = &CodeExchangeProblem{Reason: "this code was already used; the tokens it minted are revoked"}
+var errCodeReplay = &CodeExchangeProblem{Reason: "this code was already used; the tokens it minted are revoked"}
 
 type codeState uint8
 
@@ -38,7 +38,7 @@ func (c authorizationCode) state(now time.Time) codeState {
 func (c authorizationCode) checkExchange(in CodeExchange, now time.Time) error {
 	switch c.state(now) {
 	case codeUsed:
-		return ErrCodeReplay
+		return errCodeReplay
 	case codeExpired:
 		return &CodeExchangeProblem{Reason: "the code is expired, or the client or redirect_uri does not match"}
 	}
@@ -55,7 +55,7 @@ func (c authorizationCode) checkExchange(in CodeExchange, now time.Time) error {
 // ExchangeCode owns the whole exchange. A caller cannot substitute a code row
 // or bypass validation before the one-success database claim.
 func (s *Service) ExchangeCode(ctx context.Context, in CodeExchange) (Pair, error) {
-	c, err := s.oauth.CodeByValue(ctx, in.Code)
+	c, err := s.oauth.codeByValue(ctx, in.Code)
 	if err != nil {
 		return Pair{}, err
 	}
@@ -67,12 +67,12 @@ func (s *Service) exchangeCode(ctx context.Context, in CodeExchange, c *authoriz
 		return Pair{}, &CodeExchangeProblem{Reason: "unknown code"}
 	}
 	if err := c.checkExchange(in, s.now()); err != nil {
-		if errors.Is(err, ErrCodeReplay) {
+		if errors.Is(err, errCodeReplay) {
 			return Pair{}, s.oauth.replay(ctx, c)
 		}
 		return Pair{}, err
 	}
-	client, err := s.oauth.ClientByID(ctx, in.ClientID)
+	client, err := s.oauth.clientByID(ctx, in.ClientID)
 	if err != nil {
 		log.Printf("read failed: %v", err)
 	}
@@ -80,7 +80,7 @@ func (s *Service) exchangeCode(ctx context.Context, in CodeExchange, c *authoriz
 	if client != nil {
 		name = client.Name
 	}
-	_, pair, again, err := s.oauth.Exchange(ctx, in.Code, c, name, in.AuthMethod)
+	_, pair, again, err := s.oauth.exchange(ctx, in.Code, c, name, in.AuthMethod)
 	if err != nil {
 		return Pair{}, err
 	}
@@ -91,8 +91,8 @@ func (s *Service) exchangeCode(ctx context.Context, in CodeExchange, c *authoriz
 	return pair, nil
 }
 func (o *oauthStore) replay(ctx context.Context, c *authorizationCode) error {
-	if err := o.RevokeMintedBy(ctx, c); err != nil {
+	if err := o.revokeMintedBy(ctx, c); err != nil {
 		log.Printf("revoking the tokens a replayed code minted: %v", err)
 	}
-	return ErrCodeReplay
+	return errCodeReplay
 }

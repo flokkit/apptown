@@ -29,7 +29,7 @@ func statusIn(ctx context.Context, tx *database.Tx, id ids.ID, to, who string, a
 	return audit.At(at).RecordIn(ctx, tx, who, ids.Nil, "remediation."+to, fmt.Sprint(id), nil)
 }
 
-func (s Attempts) Status(ctx context.Context, id ids.ID, from []string, to, who string) error {
+func (s Attempts) status(ctx context.Context, id ids.ID, from []string, to, who string) error {
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		var current string
 		held, err := queries(tx).RemediationForUpdate(s.caller, id)
@@ -53,7 +53,7 @@ func (s Attempts) Status(ctx context.Context, id ids.ID, from []string, to, who 
 
 // Re-read occupancy after locking the job. A completed retry cannot be hidden
 // by an earlier scheduler observation that the queue was empty.
-func (s Attempts) Close(ctx context.Context, id ids.ID) error {
+func (s Attempts) close(ctx context.Context, id ids.ID) error {
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		var current string
 		held, err := queries(tx).RemediationForUpdate(s.caller, id)
@@ -89,13 +89,13 @@ func (s Attempts) Skip(ctx context.Context, jobID ids.ID, id ids.ID, who, reason
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		item, _, _, err := lockItem(ctx, tx, id, false, now)
 		if errors.Is(err, sql.ErrNoRows) {
-			return ErrItemScope
+			return errItemScope
 		}
 		if err != nil {
 			return err
 		}
 		if item.RemediationID != jobID {
-			return ErrItemScope
+			return errItemScope
 		}
 
 		if item.State != ItemStuck && item.State != ItemQueued && item.State != ItemAccepting {

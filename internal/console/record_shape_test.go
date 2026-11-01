@@ -30,14 +30,14 @@ func TestReaderParsesRealShape(t *testing.T) {
 	if !entries[3].At.Equal(want) || entries[3].Role != "user" || entries[3].Text != "Hi, can you count the SLOC of c in this project" {
 		t.Errorf("user entry parsed wrong: %+v", entries[3])
 	}
-	if e := entries[4]; e.Role != "assistant" || e.HasText() || len(e.Tools) != 1 || e.Tools[0].Name != "bash" ||
-		!strings.HasPrefix(e.Tools[0].Detail(), "cd /work && find") {
+	if e := entries[4]; e.Role != "assistant" || e.hasText() || len(e.Tools) != 1 || e.Tools[0].Name != "bash" ||
+		!strings.HasPrefix(e.Tools[0].detail(), "cd /work && find") {
 		t.Errorf("tool-calling entry parsed wrong: %+v", e)
 	}
-	if e := entries[5]; e.Role != "toolResult" || !e.HasText() {
+	if e := entries[5]; e.Role != "toolResult" || !e.hasText() {
 		t.Errorf("toolResult entry parsed wrong: %+v", e)
 	}
-	if e := entries[6]; e.Role != "assistant" || e.HasText() || len(e.Tools) != 0 || e.Usage.Total != 1912 {
+	if e := entries[6]; e.Role != "assistant" || e.hasText() || len(e.Tools) != 0 || e.Usage.Total != 1912 {
 		t.Errorf("thinking-only entry parsed wrong: %+v", e)
 	}
 	if e := entries[8]; e.Provider != "openrouter" || e.Model != "anthropic/claude-sonnet-4" ||
@@ -72,13 +72,13 @@ func TestRecordFollowsARenamedFile(t *testing.T) {
 	if file != path || size == 0 {
 		t.Fatalf("latest record: %s %d", file, size)
 	}
-	if s.UserMessageAppended(file, size) {
+	if s.record().UserMessageAppended(file, size) {
 		t.Fatal("nothing appended yet")
 	}
 	f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
 	_, _ = f.WriteString(`{"type":"message","id":"x3","timestamp":"2026-05-15T10:00:00.000Z","message":{"role":"user","content":[{"type":"text","text":"go"}]}}` + "\n")
 	_ = f.Close()
-	if !s.UserMessageAppended(file, size) {
+	if !s.record().UserMessageAppended(file, size) {
 		t.Fatal("a user message past the marker must be seen")
 	}
 	renamed := filepath.Join(filepath.Dir(path), "2026-05-15T09-57-43-861Z_019e2b12.jsonl")

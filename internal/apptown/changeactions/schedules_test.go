@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/changeactions"
@@ -158,7 +160,7 @@ spec:
 	base := time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC)
 	w.schedules.FireDueSchedules(ctx, base) // armed
 	due := base.Add(time.Hour)
-	clear := w.schedules.DB.FailNextStatement("INSERT INTO steps")
+	clear := dbtest.NextStatementFailure(w.schedules.DB, "INSERT INTO steps")
 	w.schedules.FireDueSchedules(ctx, due)
 	clear()
 	if runs := w.runs(t); len(runs) != 0 {
@@ -332,7 +334,7 @@ func TestAScheduleShowsAFiringThatCouldNotStart(t *testing.T) {
 	base := time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC)
 	w.schedules.FireDueSchedules(t.Context(), base)
 	due := base.Add(time.Hour)
-	clear := w.schedules.DB.FailNextStatement("INSERT INTO steps")
+	clear := dbtest.NextStatementFailure(w.schedules.DB, "INSERT INTO steps")
 	w.schedules.FireDueSchedules(t.Context(), due)
 	clear()
 	if s := w.schedule(t, due); s.Last == nil || s.Last.Outcome != workflow.ScheduleFailed || !s.Last.ChangeID.IsZero() {
@@ -350,7 +352,7 @@ func TestAProjectsScheduleReadSaysCopyNoneOrFailed(t *testing.T) {
 		t.Fatalf("no scheduled workflow: %+v %v", got, err)
 	}
 	w.adoptScheduled(t, "clock", "* * * * *")
-	clear := w.schedules.DB.FailNextStatement("name: WorkflowSchedulesOfProject")
+	clear := dbtest.NextStatementFailure(w.schedules.DB, "name: WorkflowSchedulesOfProject")
 	_, err := w.schedules.Of(t.Context(), w.project, time.Now())
 	clear()
 	if err == nil {

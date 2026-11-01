@@ -32,10 +32,10 @@ func TestAManagedNeedsEstablishedIdentityIsNeverReplaced(t *testing.T) {
 		return map[string]any{"name": name, "engine": "pg", "database": db, "user": user}
 	}
 	// Only an intent and an identity so far: a new intent replaces it.
-	if err := s.Needs.RecordIntent(ctx, dep.ID, "postgres", requested("forge-shop-cloud", "ledger", "app")); err != nil {
+	if err := s.needs.RecordIntent(ctx, dep.ID, "postgres", requested("forge-shop-cloud", "ledger", "app")); err != nil {
 		t.Fatalf("an intent over an unfinished one: %v", err)
 	}
-	if err := s.Needs.RecordFulfilled(ctx, dep.ID, "postgres", nil, handle); err != nil {
+	if err := s.needs.recordFulfilled(ctx, dep.ID, "postgres", nil, handle); err != nil {
 		t.Fatal(err)
 	}
 	for name, asked := range map[string]map[string]any{
@@ -43,14 +43,14 @@ func TestAManagedNeedsEstablishedIdentityIsNeverReplaced(t *testing.T) {
 		"another user":     requested("forge-shop-cloud", "app", "other"),
 		"another cluster":  requested("forge-renamed-cloud", "app", "app"),
 	} {
-		if err := s.Needs.RecordIntent(ctx, dep.ID, "postgres", asked); !errors.Is(err, ErrIdentityHeld) {
+		if err := s.needs.RecordIntent(ctx, dep.ID, "postgres", asked); !errors.Is(err, errIdentityHeld) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}
-	if err := s.Needs.RecordIntent(ctx, dep.ID, "postgres", requested("forge-shop-cloud", "app", "app")); err != nil {
+	if err := s.needs.RecordIntent(ctx, dep.ID, "postgres", requested("forge-shop-cloud", "app", "app")); err != nil {
 		t.Fatalf("the same identity asked again: %v", err)
 	}
-	insts, err := s.Needs.ForDeployment(ctx, dep.ID)
+	insts, err := s.needs.ForDeployment(ctx, dep.ID)
 	if err != nil || len(insts) != 1 || !maps.Equal(insts[0].Handle, handle) || insts[0].Status != NeedReady {
 		t.Fatalf("the record still names the established identity: %+v %v", insts, err)
 	}

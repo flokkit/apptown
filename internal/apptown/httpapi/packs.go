@@ -15,10 +15,10 @@ import (
 type Packs struct {
 	ways      *wow.Service
 	db        *database.DB
-	inventory SteeringInventory
+	inventory steeringInventory
 }
 
-func NewPacks(ways *wow.Service, db *database.DB, inventory SteeringInventory) Packs {
+func NewPacks(ways *wow.Service, db *database.DB, inventory steeringInventory) Packs {
 	return Packs{ways: ways, db: db, inventory: inventory}
 }
 

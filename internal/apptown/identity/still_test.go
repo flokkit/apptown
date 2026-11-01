@@ -38,7 +38,7 @@ func TestRequireStillResolvesTheCredentialThatAsked(t *testing.T) {
 			t.Fatal(err)
 		}
 		pr, err := s.PersonalTokenIdentity(ctx, plain, nil)
-		if err != nil || pr.Credential != TokenCredential(name) {
+		if err != nil || pr.Credential != tokenCredential(name) {
 			t.Fatalf("token %s: %+v %v", name, pr, err)
 		}
 		return pr
@@ -57,7 +57,7 @@ func TestRequireStillResolvesTheCredentialThatAsked(t *testing.T) {
 		if revoked, err := s.RevokeToken(ctx, "laptop", admittedPrincipal(t, s, "boss")); err != nil || !revoked {
 			t.Fatalf("revoking: %v %v", revoked, err)
 		}
-		if err := s.RequireStill(ctx, asked, read); !errors.Is(err, ErrCredentialGone) {
+		if err := s.RequireStill(ctx, asked, read); !errors.Is(err, errCredentialGone) {
 			t.Fatalf("the revoked token that asked: %v", err)
 		}
 		if err := s.RequireStill(ctx, other, read); err != nil {
@@ -65,7 +65,7 @@ func TestRequireStillResolvesTheCredentialThatAsked(t *testing.T) {
 		}
 		apptownd := other
 		apptownd.Purpose = access.TokenAgent
-		if err := s.RequireStill(ctx, apptownd, read); !errors.Is(err, ErrCredentialGone) {
+		if err := s.RequireStill(ctx, apptownd, read); !errors.Is(err, errCredentialGone) {
 			t.Fatalf("a token whose purpose differs from what asked: %v", err)
 		}
 		if err := s.RequireStill(ctx, other, access.Permission{Capability: access.CapDeploymentTeardown, Resource: read.Resource, Context: read.Context}); err == nil {
@@ -92,13 +92,13 @@ func TestRequireStillResolvesTheCredentialThatAsked(t *testing.T) {
 		if _, err := s.db.SQL().ExecContext(context.Background(), `UPDATE sessions SET expires_at = now() - interval '1 minute' WHERE principal_id = $1`, principalOf(t, s.db, "alice")); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.RequireStill(ctx, pr, read); !errors.Is(err, ErrCredentialGone) {
+		if err := s.RequireStill(ctx, pr, read); !errors.Is(err, errCredentialGone) {
 			t.Fatalf("an expired session: %v", err)
 		}
-		if err := s.sessions.End(ctx, cookie); err != nil {
+		if err := s.sessions.end(ctx, cookie); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.RequireStill(ctx, pr, read); !errors.Is(err, ErrCredentialGone) {
+		if err := s.RequireStill(ctx, pr, read); !errors.Is(err, errCredentialGone) {
 			t.Fatalf("a session after logout: %v", err)
 		}
 	})
@@ -110,7 +110,7 @@ func TestRequireStillResolvesTheCredentialThatAsked(t *testing.T) {
 			t.Fatal(err)
 		}
 		resolved, err := s.ResolveOAuth(ctx, pair.Access, AudienceUser)
-		if err != nil || resolved.Principal.Credential != DelegationCredential(id) {
+		if err != nil || resolved.Principal.Credential != delegationCredential(id) {
 			t.Fatalf("oauth: %+v %v", resolved, err)
 		}
 		pr := resolved.Principal
@@ -135,7 +135,7 @@ func TestRequireStillResolvesTheCredentialThatAsked(t *testing.T) {
 		if err := s.Disconnect(ctx, id, "alice"); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.RequireStill(ctx, pr, read); !errors.Is(err, ErrCredentialGone) {
+		if err := s.RequireStill(ctx, pr, read); !errors.Is(err, errCredentialGone) {
 			t.Fatalf("a withdrawn connection: %v", err)
 		}
 	})
@@ -162,7 +162,7 @@ func TestRequireStillResolvesTheCredentialThatAsked(t *testing.T) {
 		if err := testSaveAccount(s.db, accountEdit{Name: "alice", Role: "member", Disabled: &disabled}, "setup"); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.RequireStill(ctx, access.Principal{Kind: "user", Name: "alice", Via: "proxy", Credential: HeaderCredential("alice")}, read); !errors.Is(err, ErrCredentialGone) {
+		if err := s.RequireStill(ctx, access.Principal{Kind: "user", Name: "alice", Via: "proxy", Credential: HeaderCredential("alice")}, read); !errors.Is(err, errCredentialGone) {
 			t.Fatalf("a disabled account: %v", err)
 		}
 		if err := s.RequireStill(ctx, access.Principal{Kind: "instrument", Name: "apptown-system", Instrument: access.SystemInstrument, Credential: "system:scheduled-copy"}, read); err != nil {

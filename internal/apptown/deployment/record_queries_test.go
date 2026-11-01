@@ -35,7 +35,7 @@ func TestRecordReportsKeepExplicitEmptyScopes(t *testing.T) {
 	if got, err := retained.ForProject(context.Background(), ids.Nil); err != nil || len(got) != 0 {
 		t.Fatalf("zero project: %+v %v", got, err)
 	}
-	if got, err := retained.OpenForTarget(context.Background(), ids.Nil); err != nil || len(got) != 0 {
+	if got, err := retained.openForTarget(context.Background(), ids.Nil); err != nil || len(got) != 0 {
 		t.Fatalf("zero retained target: %+v %v", got, err)
 	}
 	if got, err := retained.All(context.Background()); err != nil || len(got) != 1 {

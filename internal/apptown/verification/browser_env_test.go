@@ -3,13 +3,14 @@ package verification
 import (
 	"context"
 	"encoding/json"
-	"github.com/flokkit/apptown/internal/ids/idstest"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -35,7 +36,7 @@ func TestAServerAppIsNotJudgedByTheBrowserCheck(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(dir, ".apptown/app.yaml"), []byte("app:\n  web:\n    image: example/server:1\n    public: true\n    ports: [8080]\n"), 0600); err != nil {
 				t.Fatal(err)
 			}
-			if got := (Runtime{}).Probe(context.Background(), Target{Naked: server.URL, ContractDir: dir}, "browser-env"); got.Outcome != check.Conforms {
+			if got := (Runtime{}).Probe(context.Background(), guidanceTarget{Naked: server.URL, ContractDir: dir}, "browser-env"); got.Outcome != check.Conforms {
 				t.Fatalf("server app misclassified: %+v", got)
 			}
 		})
@@ -56,7 +57,7 @@ func TestAStandingBrowserCheckDoesNotSubstituteAnUnreadableRelease(t *testing.T)
 		t.Fatal(err)
 	}
 	for _, sha := range []string{"unavailable-release", ""} {
-		got := (Runtime{dataDir: dir}).Probe(context.Background(), Target{ProjectID: idstest.N(1), Slug: "demo", ReleaseSHA: sha, Naked: "http://127.0.0.1:1"}, "browser-env")
+		got := (Runtime{dataDir: dir}).Probe(context.Background(), guidanceTarget{ProjectID: idstest.N(1), Slug: "demo", ReleaseSHA: sha, Naked: "http://127.0.0.1:1"}, "browser-env")
 		if got.Outcome != check.CannotAssess || !got.Fault {
 			t.Fatalf("release %q was judged by the working tree: %+v", sha, got)
 		}
@@ -94,7 +95,7 @@ func TestAContainerReplacedDuringTheBrowserCheckIsUnknown(t *testing.T) {
 	r := Runtime{docker: &dk, browserValues: func(context.Context, ids.ID) (map[string]string, error) {
 		return map[string]string{"KEY": "value"}, nil
 	}}
-	v := r.Probe(context.Background(), Target{ContractDir: dir, Container: "preview", Naked: server.URL}, "browser-env")
+	v := r.Probe(context.Background(), guidanceTarget{ContractDir: dir, Container: "preview", Naked: server.URL}, "browser-env")
 	if v.Outcome != check.CannotAssess || !v.Fault || !strings.Contains(v.Detail, "replaced") || calls != 2 {
 		t.Fatalf("replacement passed: %+v (%d inspections)", v, calls)
 	}

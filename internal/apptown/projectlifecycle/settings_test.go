@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/project"
 )
 
@@ -17,20 +19,20 @@ func TestSettingsSharesNameReservationsAndCommitsWithItsReceipt(t *testing.T) {
 	}
 	name, icon := "Renamed", "new"
 	rev := p.SettingsRevision
-	release, err := f.lifecycle.ReserveNames(p.Slug)
+	release, err := f.lifecycle.reserveNames(p.Slug)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, err = f.lifecycle.UpdateSettings(context.Background(), p.ID, project.SettingsPatch{ExpectedRevision: &rev, Name: &name, Icon: &icon}, "alice")
 	release()
-	if !errors.Is(err, ErrNameBusy) {
+	if !errors.Is(err, errNameBusy) {
 		t.Fatalf("an edit while the project's name is held elsewhere: %v", err)
 	}
 	before, err := f.lifecycle.projects.ByID(context.Background(), p.ID)
 	if err != nil || before.Name != p.Name || before.Icon != "" {
 		t.Fatalf("busy edit wrote: %+v %v", before, err)
 	}
-	cleanup := f.db.FailNextStatement("INSERT INTO audit_log")
+	cleanup := dbtest.NextStatementFailure(f.db, "INSERT INTO audit_log")
 	_, err = f.lifecycle.UpdateSettings(context.Background(), p.ID, project.SettingsPatch{ExpectedRevision: &rev, Name: &name, Icon: &icon}, "alice")
 	cleanup()
 	if err == nil {

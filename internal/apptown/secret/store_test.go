@@ -22,7 +22,7 @@ func TestVaultVersionsAndObfuscates(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	v := NewVault(db)
-	if _, err := v.Put(t.Context(), "env:p:main", "EMPTY", "  ", "bls"); !errors.Is(err, ErrEmpty) {
+	if _, err := v.Put(t.Context(), "env:p:main", "EMPTY", "  ", "bls"); !errors.Is(err, errEmpty) {
 		t.Fatalf("empty value: %v", err)
 	}
 	if _, _, err := v.Get(t.Context(), "env:p:main", "TOKEN"); !errors.Is(err, ErrNotStored) {
@@ -46,7 +46,7 @@ func TestVaultVersionsAndObfuscates(t *testing.T) {
 	if strings.Contains(stored, "hunter") {
 		t.Fatalf("value stored in the clear: %q", stored)
 	}
-	k1, err := v.Key(t.Context())
+	k1, err := v.key(t.Context())
 	if err != nil || len(k1) != 32 {
 		t.Fatalf("key: %v %d", err, len(k1))
 	}
@@ -59,7 +59,7 @@ func TestVaultVersionsAndObfuscates(t *testing.T) {
 	if err := v.Delete(context.Background(), "env:p:main", "TOKEN"); err != nil {
 		t.Fatalf("deleting what is not stored: %v", err)
 	}
-	if k2, _ := NewVault(db).Key(t.Context()); string(k2) != string(k1) {
+	if k2, _ := NewVault(db).key(t.Context()); string(k2) != string(k1) {
 		t.Fatal("the key must be minted once and kept")
 	}
 	var n int
@@ -85,7 +85,7 @@ func TestBindingsAndProfiles(t *testing.T) {
 	if scope != "env:p:main" || Scope("p", "main", "project") != "project:p" {
 		t.Fatalf("scopes: %s", scope)
 	}
-	if err := b.Put(t.Context(), pid, Binding{Deployment: "main", Name: "TOKEN", Store: StoreInternal, Ref: scope, Version: "1"}); !errors.Is(err, ErrVersionGone) {
+	if err := b.Put(t.Context(), pid, Binding{Deployment: "main", Name: "TOKEN", Store: StoreInternal, Ref: scope, Version: "1"}); !errors.Is(err, errVersionGone) {
 		t.Fatalf("binding an unstored version: %v", err)
 	}
 	ver, err := v.Put(t.Context(), scope, "TOKEN", "hunter2", "bls")
@@ -115,7 +115,7 @@ func TestBindingsAndProfiles(t *testing.T) {
 	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM audit_log WHERE kind='secret.unbound' AND subject='TOKEN' AND project_id=$1`, pid).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("unbind receipt: %v %d", err, n)
 	}
-	p := NewProfiles(db, nil)
+	p := newProfiles(db, nil)
 	if chosen, err := p.Chosen(t.Context(), pid, "main"); err != nil || chosen != "" {
 		t.Fatalf("no choice yet: %v %q", err, chosen)
 	}
@@ -204,4 +204,4 @@ func TestTheStoreStampsByItsClock(t *testing.T) {
 // NewVault and NewBindings are the store's parts on the real clock, for
 // these tests; Service's carry AppTown's.
 func NewVault(db *database.DB) *Vault       { return &Vault{db: db} }
-func NewBindings(db *database.DB) *Bindings { return &Bindings{db: db} }
+func NewBindings(db *database.DB) *bindings { return &bindings{db: db} }

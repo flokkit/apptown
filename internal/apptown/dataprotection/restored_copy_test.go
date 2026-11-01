@@ -334,7 +334,7 @@ func (w *restoredWorld) start(in RestoredCopyRequest) (*operations.Operation, *R
 		w.t.Fatal(err)
 	}
 	op = w.run(op)
-	copies, err := w.s.RestoredCopiesOf(context.Background(), w.prod, 5)
+	copies, err := w.s.restoredCopiesOf(context.Background(), w.prod, 5)
 	if err != nil || len(copies) == 0 {
 		w.t.Fatalf("restored copies: %v %v", copies, err)
 	}
@@ -405,7 +405,7 @@ func TestARestoreTestComesBackOnItsOwnPlatformBehindTheGateAndIsTakenDown(t *tes
 	var filledWithApps = -1
 	w.clusters.atFill = func() { filledWithApps = len(w.api.Snapshot().Apps) }
 	op, c := w.start(RestoredCopyRequest{})
-	if !endedAs(op, OperationVerified) {
+	if !endedAs(op, operationVerified) {
 		t.Fatalf("restore test %s: %s\n%+v", op.State, op.Detail, op.Steps)
 	}
 	if filledWithApps != 1 {
@@ -604,28 +604,28 @@ func TestAppTownsOwnTicketLetsInOnlyItsRunningCheck(t *testing.T) {
 		return err
 	}
 	// Its start has ended.
-	if err := redeem(opened.ID, operations.SystemActor, opened.Operation, secretOf); !errors.Is(err, ErrTicket) {
+	if err := redeem(opened.ID, operations.SystemActor, opened.Operation, secretOf); !errors.Is(err, errTicket) {
 		t.Fatalf("a check ticket of an ended start: %v", err)
 	}
 	// While a restore test of prod runs: a check ticket naming its start
 	// does not open the other copy, and a ticket naming no start does not
 	// open the test.
 	w.platform.during = func(*http.Request) bool {
-		copies, err := w.s.RestoredCopiesOf(ctx, w.prod, 5)
+		copies, err := w.s.restoredCopiesOf(ctx, w.prod, 5)
 		if err != nil || copies[0].ID == opened.ID {
 			t.Errorf("the test's copy: %+v %v", copies, err)
 			return true
 		}
 		test := copies[0]
-		if err := redeem(opened.ID, operations.SystemActor, test.Operation, secretOf); !errors.Is(err, ErrTicket) {
+		if err := redeem(opened.ID, operations.SystemActor, test.Operation, secretOf); !errors.Is(err, errTicket) {
 			t.Errorf("a check ticket of another copy's running start: %v", err)
 		}
-		if err := redeem(test.ID, "alice", ids.Nil, w.platform.secretFor(w.appOf(test.Deployment))); !errors.Is(err, ErrTicket) {
+		if err := redeem(test.ID, "alice", ids.Nil, w.platform.secretFor(w.appOf(test.Deployment))); !errors.Is(err, errTicket) {
 			t.Errorf("a ticket naming no start: %v", err)
 		}
 		return true
 	}
-	if op, _ := w.start(RestoredCopyRequest{}); !endedAs(op, OperationVerified) {
+	if op, _ := w.start(RestoredCopyRequest{}); !endedAs(op, operationVerified) {
 		t.Fatalf("the restore test %s: %s", op.State, op.Detail)
 	}
 }
@@ -642,13 +642,13 @@ func TestAStandingCopyHoldsItsSourceUntilTheSweepTakesItDown(t *testing.T) {
 	if listed, err := w.s.Deployments.ForProject(ctx, w.project); err != nil || len(listed) != 1 || listed[0].Name != "prod" {
 		t.Fatalf("listed while the copy stands: %v %v", listed, err)
 	}
-	if _, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"}); !errors.Is(err, ErrRestoredCopiesStand) {
+	if _, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"}); !errors.Is(err, errRestoredCopiesStand) {
 		t.Fatalf("prod was taken down while a copy of it stands: %v", err)
 	}
 	if _, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: c.Deployment}); !errors.Is(err, deployment.ErrRestoredCopyDoor) {
 		t.Fatalf("the copy was taken down as a deployment: %v", err)
 	}
-	n, skipped, err := w.s.SweepRestoredCopies(ctx)
+	n, skipped, err := w.s.sweepRestoredCopies(ctx)
 	if err != nil || n != 1 {
 		t.Fatalf("sweep: %d %v %v", n, skipped, err)
 	}
@@ -656,17 +656,17 @@ func TestAStandingCopyHoldsItsSourceUntilTheSweepTakesItDown(t *testing.T) {
 	if err != nil || len(ops) != 1 || ops[0].Kind != OperationRestoredCopyEnd {
 		t.Fatalf("the copy's take-down: %+v %v", ops, err)
 	}
-	if done := w.run(&ops[0]); !endedAs(done, OperationDone) {
+	if done := w.run(&ops[0]); !endedAs(done, operationDone) {
 		t.Fatalf("take-down %s: %s", done.State, done.Detail)
 	}
-	copies, _ := w.s.RestoredCopiesOf(ctx, w.prod, 5)
+	copies, _ := w.s.restoredCopiesOf(ctx, w.prod, 5)
 	if !copies[0].EndedAt.Valid {
 		t.Fatalf("after the sweep: %+v", copies[0])
 	}
 	if state := w.api.Snapshot(); len(state.Apps) != 1 || len(state.DeletedClusters) != 1 || state.DeletedClusters[0] == w.source {
 		t.Fatalf("after the sweep: apps %d, deleted %v", len(state.Apps), state.DeletedClusters)
 	}
-	if _, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"}); errors.Is(err, ErrRestoredCopiesStand) {
+	if _, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"}); errors.Is(err, errRestoredCopiesStand) {
 		t.Fatal("prod is still held by a copy taken down")
 	}
 }
@@ -752,7 +752,7 @@ func TestARestoredCopyIsRefusedBeforeAnythingIsMade(t *testing.T) {
 	w.nameRunner("local")
 	keep := w.s.restored
 	w.s.restored.GateImage = ""
-	if _, err := w.s.RequestRestoredCopy(ctx, w.project, "prod", RestoredCopyRequest{}); !errors.Is(err, ErrNoGate) {
+	if _, err := w.s.RequestRestoredCopy(ctx, w.project, "prod", RestoredCopyRequest{}); !errors.Is(err, errNoGate) {
 		t.Fatalf("no gate image: %v", err)
 	}
 	w.s.restored = keep
@@ -764,7 +764,7 @@ func TestARestoredCopyIsRefusedBeforeAnythingIsMade(t *testing.T) {
 	if got := len(w.api.Snapshot().Apps); got != apps {
 		t.Fatalf("a refused copy made an app (%d, was %d)", got, apps)
 	}
-	if _, err := w.ops.Cancel(ctx, op.ID); !errors.Is(err, ErrRestoreNotStopped) {
+	if _, err := w.ops.Cancel(ctx, op.ID); !errors.Is(err, errRestoreNotStopped) {
 		t.Fatalf("a restore start was offered a stop: %v", err)
 	}
 }
@@ -853,12 +853,12 @@ func TestACopyAppTownStoppedStartingIsSweptAway(t *testing.T) {
 	if err != nil || got.State != operations.Unknown {
 		t.Fatalf("the interrupted start: %+v %v", got, err)
 	}
-	if n, _, err := w.s.SweepRestoredCopies(ctx); err != nil || n != 1 {
+	if n, _, err := w.s.sweepRestoredCopies(ctx); err != nil || n != 1 {
 		t.Fatalf("the sweep did not take the copy down: %d %v", n, err)
 	}
-	copies, _ := w.s.RestoredCopiesOf(ctx, w.prod, 5)
+	copies, _ := w.s.restoredCopiesOf(ctx, w.prod, 5)
 	ops, _ := w.opsOn(copies[0].Deployment)
-	if done := w.run(&ops[0]); !endedAs(done, OperationDone) {
+	if done := w.run(&ops[0]); !endedAs(done, operationDone) {
 		t.Fatalf("take-down %s: %s", done.State, done.Detail)
 	}
 	if len(w.api.Snapshot().Apps) != 1 {
@@ -905,7 +905,7 @@ func TestACopyWhoseLeftoversCannotBeLookedUpStaysStanding(t *testing.T) {
 	ctx := context.Background()
 	c := w.standing()
 	w.api.Fail("GET", "/v2/apps", 500)
-	n, _, err := w.s.SweepRestoredCopies(ctx)
+	n, _, err := w.s.sweepRestoredCopies(ctx)
 	if err != nil || n != 1 {
 		t.Fatalf("sweep: %d %v", n, err)
 	}
@@ -913,11 +913,11 @@ func TestACopyWhoseLeftoversCannotBeLookedUpStaysStanding(t *testing.T) {
 	if done := w.run(&ops[0]); done.State != operations.Failed || !strings.Contains(done.Detail, "whether anything stands is unknown") {
 		t.Fatalf("take-down %s: %s", done.State, done.Detail)
 	}
-	copies, _ := w.s.RestoredCopiesOf(ctx, w.prod, 5)
+	copies, _ := w.s.restoredCopiesOf(ctx, w.prod, 5)
 	if copies[0].EndedAt.Valid || !strings.HasPrefix(copies[0].EndDetail, "left standing") {
 		t.Fatalf("a copy whose leftovers are unknown: %+v", copies[0])
 	}
-	if _, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"}); !errors.Is(err, ErrRestoredCopiesStand) {
+	if _, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"}); !errors.Is(err, errRestoredCopiesStand) {
 		t.Fatalf("prod lost its protection: %v", err)
 	}
 }
@@ -1015,7 +1015,7 @@ func TestARestoredCopyPreflightsOnlyTheServicesItWillStart(t *testing.T) {
 	source.yaml = strings.Replace(source.yaml, "public: true", "public: true\n    health: {readiness: {http: /healthz, expect: 200}}", 1)
 	w.s.sources = source
 	op, c := w.start(RestoredCopyRequest{})
-	if !endedAs(op, OperationVerified) {
+	if !endedAs(op, operationVerified) {
 		t.Fatalf("gated copy refused an omitted private service: %s at %q: %s", op.State, c.FailedAt, op.Detail)
 	}
 	if !slices.Contains(c.Facts.NotStarted, "private") {

@@ -28,7 +28,7 @@ func deploymentReleaseIn(ctx context.Context, tx *database.Tx, id ids.ID) (deplo
 	if err != nil {
 		return deploymentRelease{}, database.QueryError(err, "ReleaseForUpdate")
 	}
-	state, err := ParseReleaseState(r.State)
+	state, err := parseReleaseState(r.State)
 	if err != nil {
 		return deploymentRelease{}, fmt.Errorf("release %d: %w", id, err)
 	}
@@ -89,7 +89,7 @@ func insertDeploymentInputsIn(ctx context.Context, tx *database.Tx, at Attempt, 
 	return nil
 }
 
-func AppendReleaseEvent(ctx context.Context, db database.Queryer, releaseID ids.ID, text string, at time.Time) error {
+func appendReleaseEvent(ctx context.Context, db database.Queryer, releaseID ids.ID, text string, at time.Time) error {
 	n, err := releasesql.New(db.SQL()).AppendReleaseEvent(ctx, releasesql.AppendReleaseEventParams{ID: ids.New(at),
 		ReleaseID: releaseID, At: at, Text: text,
 	})
@@ -116,7 +116,7 @@ func settleDeploymentReleaseIn(ctx context.Context, tx *database.Tx, at Attempt,
 	if err := r.belongsTo(dep); err != nil {
 		return err
 	}
-	state, err := ReleaseOutcome(status)
+	state, err := releaseOutcome(status)
 	if err != nil {
 		return err
 	}
@@ -135,14 +135,14 @@ func settleDeploymentReleaseIn(ctx context.Context, tx *database.Tx, at Attempt,
 	if r.state == state && (state == ReleaseFailed || r.generation == at.Generation) {
 		return nil // the same outcome again: acknowledged, never rewritten
 	}
-	if _, err := r.state.Settled(status); err != nil {
-		return fmt.Errorf("%w: release %d is %s at generation %d", ErrOutcomeConflict, r.id, r.state, r.generation)
+	if _, err := r.state.settled(status); err != nil {
+		return fmt.Errorf("%w: release %d is %s at generation %d", errOutcomeConflict, r.id, r.state, r.generation)
 	}
 	if r.revision != "" && in.Revision != "" && r.revision != in.Revision {
 		return fmt.Errorf("release %d revision differs from attempt %d", r.id, at.ID)
 	}
 	text := fmt.Sprintf("deployment attempt %d, generation %d: %s", at.ID, at.Generation, state)
-	if status == AttemptSuperseded {
+	if status == attemptSuperseded {
 		reason = "superseded by a newer deployment generation"
 	}
 	if state == Released {
@@ -159,9 +159,9 @@ func settleDeploymentReleaseIn(ctx context.Context, tx *database.Tx, at Attempt,
 		return err
 	}
 	if n != 1 {
-		return ErrOutcomeConflict
+		return errOutcomeConflict
 	}
-	if err := AppendReleaseEvent(ctx, tx, r.id, text, now); err != nil {
+	if err := appendReleaseEvent(ctx, tx, r.id, text, now); err != nil {
 		return err
 	}
 	actor := r.actor
@@ -186,13 +186,13 @@ func deploymentImage(in Inputs, o deploy.Observation) (string, error) {
 
 // Preparation can fail before an attempt exists. Once admission has committed,
 // only the deployment outcome operation may settle the associated release.
-func (s *Outcomes) FailUnstartedRelease(ctx context.Context, releaseID ids.ID, cause error) (Outcome, error) {
+func (s *Outcomes) FailUnstartedRelease(ctx context.Context, releaseID ids.ID, cause error) (deploymentOutcome, error) {
 	ctx = context.WithoutCancel(ctx) // the release failed: settled though ctx has ended
 	if cause == nil {
 		return "", errors.New("release failure requires a cause")
 	}
 	now := s.now()
-	return database.Transact(ctx, s.db, func(tx *database.Tx) (Outcome, error) {
+	return database.Transact(ctx, s.db, func(tx *database.Tx) (deploymentOutcome, error) {
 		// Admission locks deployment before release. Respect that order even for
 		// preparation failure, so concurrent admission cannot slip past the test.
 		queries := releasesql.New(tx.SQL())
@@ -210,10 +210,10 @@ func (s *Outcomes) FailUnstartedRelease(ctx context.Context, releaseID ids.ID, c
 			return "", err
 		}
 		if r.state == ReleaseFailed {
-			return AlreadyApplied, nil
+			return alreadyApplied, nil
 		}
-		if !r.state.Open() {
-			return "", ErrOutcomeConflict
+		if !r.state.open() {
+			return "", errOutcomeConflict
 		}
 		admitted, err := queries.HasReleaseAttempt(ctx, releaseID)
 		if err != nil {
@@ -227,9 +227,9 @@ func (s *Outcomes) FailUnstartedRelease(ctx context.Context, releaseID ids.ID, c
 			return "", err
 		}
 		if changed != 1 {
-			return "", ErrOutcomeConflict
+			return "", errOutcomeConflict
 		}
-		if err := AppendReleaseEvent(ctx, tx, releaseID, "FAILED before deployment admission: "+cause.Error(), now); err != nil {
+		if err := appendReleaseEvent(ctx, tx, releaseID, "FAILED before deployment admission: "+cause.Error(), now); err != nil {
 			return "", err
 		}
 		if err := audit.At(now).RecordIn(ctx, tx, r.actor, r.projectID, "release.failed", fmt.Sprintf("r%d", r.number), map[string]any{"reason": cause.Error(), "deployment": r.deployment}); err != nil {

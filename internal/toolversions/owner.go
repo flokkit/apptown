@@ -38,7 +38,7 @@ func NewSnapshot(name string, raw []byte) (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	im, err := l.Images()
+	im, err := l.images()
 	if err != nil {
 		return Snapshot{}, err
 	}

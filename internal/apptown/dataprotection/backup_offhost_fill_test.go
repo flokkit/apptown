@@ -22,7 +22,7 @@ import (
 
 // copyingDaemon answers every copy command with "copy of <file>".
 func copyingDaemon() *dockerfake.Daemon {
-	d := dockerfake.New()
+	d := newDockerFake()
 	setBackupDockerCommand(d, func(req docker.Command) ([]byte, error) {
 		if req.Stdout != nil {
 			_, err := containerresulttest.WriteString(req.Stdout, "copy of "+filepath.Base(containerresulttest.Destination(req.Stdout).(*os.File).Name()))
@@ -56,7 +56,7 @@ func TestAMixedDockerSetIsRefusedByAManagedStart(t *testing.T) {
 			daemon := copyingDaemon()
 			want := "the app's files"
 			if other == "files" {
-				plan = append(plan, backupPlanItem{Kind: "volume", Name: "apptown-data-apptown-env-ledger-old", File: "data.tar.gz", How: "tar of /data", Copy: CopyFiles,
+				plan = append(plan, backupPlanItem{Kind: "volume", Name: "apptown-data-apptown-env-ledger-old", File: "data.tar.gz", How: "tar of /data", Copy: copyFiles,
 					Step: docker.Step{Image: "test-helper", Argv: []string{"tar", "cz", "-C", "/src", "."}}})
 			} else {
 				redis, err := w.s.catalog.ByCapability(ctx, "redis")
@@ -69,8 +69,8 @@ func TestAMixedDockerSetIsRefusedByAManagedStart(t *testing.T) {
 				daemon.SetStorageContainer("c-redis", redis.ResolveLocal(nil, "", nil).Image, physical.Volume, redis.Local.Data)
 				plan, want = append(plan, physical), "redis (a copy with no portable format)"
 			}
-			set, err := w.s.takeSet(ctx, docker.Scope{Client: daemon}, w.project, "ledger", "old", plan, TriggerTakeDown, "alice")
-			if err != nil || set.Status != BackupOK || set.Store != StoreBackupStore || set.GoodCopy("need", "postgres").Format != "pg-custom" {
+			set, err := w.s.takeSet(ctx, docker.Scope{Client: daemon}, w.project, "ledger", "old", plan, triggerTakeDown, "alice")
+			if err != nil || set.Status != BackupOK || set.Store != StoreBackupStore || set.goodCopy("need", "postgres").Format != "pg-custom" {
 				t.Fatalf("the Docker final set: %+v %v", set, err)
 			}
 			finals, err := w.s.FinalCopies(ctx, w.project)
@@ -115,7 +115,7 @@ func TestASetOfOnlyTheAppsFilesRehearses(t *testing.T) {
 	w := newRehearsalWorld(t)
 	ctx := context.Background()
 	set, err := w.s.takeSet(ctx, docker.Scope{Client: copyingDaemon()}, w.project, "ledger", "prod",
-		[]backupPlanItem{{Kind: "volume", Name: "apptown-data-apptown-env-ledger-prod", File: "data.tar.gz", How: "tar of /data", Copy: CopyLiveFiles, Step: docker.Step{Image: "test-helper", Argv: []string{"tar", "cz", "-C", "/src", "."}}}},
+		[]backupPlanItem{{Kind: "volume", Name: "apptown-data-apptown-env-ledger-prod", File: "data.tar.gz", How: "tar of /data", Copy: copyLiveFiles, Step: docker.Step{Image: "test-helper", Argv: []string{"tar", "cz", "-C", "/src", "."}}}},
 		"scheduled", "alice")
 	if err != nil || set.Status != BackupOK || set.Store != StoreBackupStore {
 		t.Fatalf("the files-only set: %+v %v", set, err)
@@ -169,7 +169,7 @@ func TestASetOfOnlyTheAppsFilesRehearses(t *testing.T) {
 			t.Fatalf("set %d: %v", chosen, err)
 		}
 		got := w.run(op)
-		if !endedAs(got, OperationVerified) {
+		if !endedAs(got, operationVerified) {
 			t.Fatalf("rehearsing set %d: %s %s", chosen, got.State, got.Detail)
 		}
 		place := placeOf(op.ID, "rehearse-1", false)
@@ -205,4 +205,8 @@ func TestASetOfOnlyTheAppsFilesRehearses(t *testing.T) {
 			t.Fatalf("the app's files were unpacked after authority was withdrawn: %s", line)
 		}
 	}
+}
+
+func newDockerFake() *dockerfake.Daemon {
+	return dockerfake.New()
 }

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 )
 
@@ -105,8 +107,8 @@ func TestAdministratorNetworkChangeRules(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := tc.in.prepare(net.ParseIP(tc.ip))
-			var invalid *NetworkInputError
-			var lockout *NetworkLockoutError
+			var invalid *networkInputError
+			var lockout *networkLockoutError
 			switch {
 			case tc.invalid:
 				if !errors.As(err, &invalid) {
@@ -142,7 +144,7 @@ func TestConfigurationFailuresLeaveNoChange(t *testing.T) {
 				marker := map[string]string{"facts": "-- name: UserByName :one", "lock": "-- name: LockInstanceSetting", "write": "-- name: PutInstanceSetting", "receipt": "INSERT INTO audit_log", "before": "-- name: InstanceSetting :one"}[failure]
 				restore := func() {}
 				if marker != "" {
-					restore = s.db.FailNextStatement(marker)
+					restore = dbtest.NextStatementFailure(s.db, marker)
 				}
 				if failure == "skipped write" {
 					restore = vetoGroupWrite(t, s.db, "instance_settings", "INSERT")
@@ -204,7 +206,7 @@ func TestAdministratorNetworkReceiptsFollowConcurrentWrites(t *testing.T) {
 					return
 				}
 				_, err = s.SetAdministratorNetworks(context.Background(), pr, &current, AdministratorNetworks{fmt.Sprintf("10.%d.0.0/16", i)}, net.ParseIP("127.0.0.1"))
-				if !errors.Is(err, ErrAdministratorNetworksMoved) {
+				if !errors.Is(err, errAdministratorNetworksMoved) {
 					results <- err
 					return
 				}
@@ -251,13 +253,13 @@ func TestAdministratorNetworksEditNeedsTheListItStartedFrom(t *testing.T) {
 	s, pr := configurationFixture(t)
 	ctx := context.Background()
 	from := net.ParseIP("10.1.2.3")
-	if _, err := s.SetAdministratorNetworks(ctx, pr, nil, AdministratorNetworks{"10.0.0.0/8"}, from); !errors.Is(err, ErrAdministratorNetworksExpected) {
+	if _, err := s.SetAdministratorNetworks(ctx, pr, nil, AdministratorNetworks{"10.0.0.0/8"}, from); !errors.Is(err, errAdministratorNetworksExpected) {
 		t.Fatalf("edit without a starting list: %v", err)
 	}
 	if _, err := s.SetAdministratorNetworks(ctx, pr, &AdministratorNetworks{}, AdministratorNetworks{"10.0.0.0/8"}, from); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.SetAdministratorNetworks(ctx, pr, &AdministratorNetworks{}, AdministratorNetworks{"10.0.0.0/8", "192.0.2.0/24"}, from); !errors.Is(err, ErrAdministratorNetworksMoved) {
+	if _, err := s.SetAdministratorNetworks(ctx, pr, &AdministratorNetworks{}, AdministratorNetworks{"10.0.0.0/8", "192.0.2.0/24"}, from); !errors.Is(err, errAdministratorNetworksMoved) {
 		t.Fatalf("edit from an older list: %v", err)
 	}
 	if got, err := s.AdministratorNetworks(ctx); err != nil || len(got) != 1 {

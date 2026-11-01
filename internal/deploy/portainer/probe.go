@@ -20,7 +20,7 @@ import (
 // current authority check; missing authority never admits a diagnostic effect.
 type Diagnostic struct {
 	Command containerresult.Docker
-	Allowed func(context.Context) error
+	allowed func(context.Context) error
 }
 
 // HTTP/1.0 avoids chunked transfer for the bounded release marker's body.
@@ -54,7 +54,7 @@ fi`
 // new namespace rather than the dead one. deployment scopes the reader, so
 // the one for an older container of the same deployment is replaced.
 func (d Diagnostic) sample(ctx context.Context, container, token, deployment string, p Probe) error {
-	if d.Command == nil || d.Allowed == nil {
+	if d.Command == nil || d.allowed == nil {
 		return errors.New("Portainer readiness diagnostic has no admitted transport authority")
 	}
 	if container == "" || strings.Trim(container, "0123456789abcdef") != "" || len(container) != 64 {
@@ -79,7 +79,7 @@ func (d Diagnostic) sample(ctx context.Context, container, token, deployment str
 		ctx, cancel = context.WithTimeout(ctx, p.Policy.Timeout)
 		defer cancel()
 	}
-	if err := d.Allowed(ctx); err != nil {
+	if err := d.allowed(ctx); err != nil {
 		return err
 	}
 	if err := d.http(ctx, container, token, deployment, p, p.Path, p.Expect, ""); err != nil {
@@ -153,7 +153,7 @@ func (d Diagnostic) gated() containerresult.Docker {
 		}
 		switch args[0] {
 		case "create", "start", "rm", "run", "exec":
-			if err := d.Allowed(ctx); err != nil {
+			if err := d.allowed(ctx); err != nil {
 				return nil, err
 			}
 		}
@@ -162,10 +162,10 @@ func (d Diagnostic) gated() containerresult.Docker {
 }
 
 func (d Diagnostic) preflight(ctx context.Context, image string) error {
-	if d.Command == nil || d.Allowed == nil || !immutableImage(image) {
+	if d.Command == nil || d.allowed == nil || !immutableImage(image) {
 		return errors.New("Portainer diagnostic preflight is not admitted")
 	}
-	if err := d.Allowed(ctx); err != nil {
+	if err := d.allowed(ctx); err != nil {
 		return err
 	}
 	command := d.gated()

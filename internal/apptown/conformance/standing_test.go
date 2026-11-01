@@ -20,14 +20,14 @@ func TestProjectStandingRules(t *testing.T) {
 		vs   []Verdict
 		want Standing
 	}{
-		{"findings win", []Verdict{mk(DoesNotConform, "sh", "high"), mk(Conforms, "sh", ""), mk(DoesNotConform, "llm", "")}, StandingDoesNot},
-		{"broken next", []Verdict{mk(EvaluationError, "sh", ""), mk(DoesNotConform, "llm", "")}, StandingBroken},
+		{"findings win", []Verdict{mk(DoesNotConform, "sh", "high"), mk(Conforms, "sh", ""), mk(DoesNotConform, "llm", "")}, standingDoesNot},
+		{"broken next", []Verdict{mk(EvaluationError, "sh", ""), mk(DoesNotConform, "llm", "")}, standingBroken},
 		{"AI flags need a look", []Verdict{mk(DoesNotConform, "llm", "medium"), mk(Conforms, "sh", "")}, StandingNeedsLook},
-		{"unassessed is so far", []Verdict{mk(CannotAssess, "tool", ""), mk(Conforms, "sh", "")}, StandingSoFar},
-		{"excepted never folded", []Verdict{mk(Excepted, "sh", ""), mk(Conforms, "sh", "")}, StandingExcepted},
+		{"unassessed is so far", []Verdict{mk(CannotAssess, "tool", ""), mk(Conforms, "sh", "")}, standingSoFar},
+		{"excepted never folded", []Verdict{mk(Excepted, "sh", ""), mk(Conforms, "sh", "")}, standingExcepted},
 		{"all clear", []Verdict{mk(Conforms, "sh", ""), mk(Conforms, "tool", "")}, StandingConforms},
-		{"nothing adopted", nil, StandingNothing},
-		{"n/a alone is nothing to judge", []Verdict{mk(NotApplicable, "llm", "")}, StandingNothing},
+		{"nothing adopted", nil, standingNothing},
+		{"n/a alone is nothing to judge", []Verdict{mk(NotApplicable, "llm", "")}, standingNothing},
 	}
 	for _, c := range cases {
 		ps := SummarizeProject(idstest.N(1), "p", RecordedObservations(c.vs), adj)
@@ -42,7 +42,7 @@ func TestProjectStandingRules(t *testing.T) {
 		t.Fatalf("n/a must not count toward M and an unconfirmed flag is flagged: %+v", ps)
 	}
 	ps = SummarizeProject(idstest.N(1), "p", RecordedObservations(vs), map[ids.ID]Adjudication{idstest.N(7): {VerdictID: idstest.N(7), Kind: "confirmed"}})
-	if ps.Lanes.Findings != 1 || ps.High != 1 || ps.Standing != StandingDoesNot || !strings.Contains(ps.Sentence, "1 high") {
+	if ps.Lanes.Findings != 1 || ps.High != 1 || ps.Standing != standingDoesNot || !strings.Contains(ps.Sentence, "1 high") {
 		t.Fatalf("a confirmed flag is a finding: %+v", ps)
 	}
 }
@@ -52,12 +52,12 @@ func TestReviewComparisonUsesProjectAndCheckIdentity(t *testing.T) {
 	previous := []Verdict{{ProjectID: idstest.N(7), ProjectSlug: "old-name", Block: "standard", Version: 1, Check: "clear", State: DoesNotConform}}
 	current := []Verdict{{ProjectID: idstest.N(7), ProjectSlug: "new-name", Block: "standard", Version: 1, Check: "clear", State: Conforms},
 		{ProjectID: idstest.N(8), ProjectSlug: "old-name", Block: "standard", Version: 1, Check: "clear", State: DoesNotConform}}
-	d := CompareReviews(idstest.N(3), current, previous)
+	d := compareReviews(idstest.N(3), current, previous)
 	if d.ComparedProjects != 1 || d.Fixed != 1 || d.New != 0 || len(d.FixedItems) != 1 || d.FixedItems[0] != "new-name · clear" {
 		t.Fatalf("rename/reused slug changed comparison identity: %+v", d)
 	}
 	current[0].Version = 2
-	if got := CompareReviews(idstest.N(3), current, previous); got.Fixed != 0 {
+	if got := compareReviews(idstest.N(3), current, previous); got.Fixed != 0 {
 		t.Fatalf("different check version counted as a fix: %+v", got)
 	}
 }
@@ -78,14 +78,14 @@ func TestLanesSeparateEvidenceFromAction(t *testing.T) {
 		name          string
 		observation   Observation
 		confirmations map[ids.ID]Adjudication
-		want          Lane
+		want          lane
 	}{
-		{"AI flag", Recorded(record), nil, LaneFlagged},
+		{"AI flag", Recorded(record), nil, laneFlagged},
 		{"confirmed AI", Recorded(record), confirmed, LaneFindings},
-		{"other confirmation", Recorded(record), map[ids.ID]Adjudication{idstest.N(4): {VerdictID: idstest.N(4)}}, LaneFlagged},
-		{"stale confirmed AI", Observe(record, CurrentContext{Check: record.Reference(), HeadSHA: "now", ExceptionActive: true}), confirmed, LaneUnassessed},
-		{"never scanned", Unassessed(record.Reference()), confirmed, LaneUnassessed},
-		{"no evidence", Observation{State: DoesNotConform}, nil, LaneUnassessed},
+		{"other confirmation", Recorded(record), map[ids.ID]Adjudication{idstest.N(4): {VerdictID: idstest.N(4)}}, laneFlagged},
+		{"stale confirmed AI", observe(record, currentContext{Check: record.reference(), HeadSHA: "now", ExceptionActive: true}), confirmed, laneUnassessed},
+		{"never scanned", Unassessed(record.reference()), confirmed, laneUnassessed},
+		{"no evidence", Observation{State: DoesNotConform}, nil, laneUnassessed},
 	} {
 		if got := LaneOf(tc.observation, tc.confirmations); got != tc.want {
 			t.Errorf("%s: got %v want %v", tc.name, got, tc.want)
@@ -94,8 +94,8 @@ func TestLanesSeparateEvidenceFromAction(t *testing.T) {
 	record.Evaluator = "sh"
 	for _, tc := range []struct {
 		outcome Outcome
-		want    Lane
-	}{{Conforms, LaneConforms}, {DoesNotConform, LaneFindings}, {Excepted, LaneExcepted}, {NotApplicable, LaneNotApplicable}, {CannotAssess, LaneUnassessed}, {EvaluationError, LaneBroken}} {
+		want    lane
+	}{{Conforms, laneConforms}, {DoesNotConform, LaneFindings}, {Excepted, laneExcepted}, {NotApplicable, laneNotApplicable}, {CannotAssess, laneUnassessed}, {EvaluationError, laneBroken}} {
 		record.State = tc.outcome
 		if got := LaneOf(Recorded(record), nil); got != tc.want {
 			t.Errorf("%s: got %v want %v", tc.outcome, got, tc.want)
@@ -109,7 +109,7 @@ func TestRepairAndConfirmationUseExactSavedEvidence(t *testing.T) {
 	after := before
 	after.ID = idstest.N(4)
 	after.State = Conforms
-	if !before.Confirmable() || after.Confirmable() || !before.FixedBy(after) {
+	if !before.confirmable() || after.confirmable() || !before.fixedBy(after) {
 		t.Fatal("valid confirmation/repair rejected")
 	}
 	for _, alter := range []func(*Verdict){
@@ -117,29 +117,29 @@ func TestRepairAndConfirmationUseExactSavedEvidence(t *testing.T) {
 	} {
 		changed := after
 		alter(&changed)
-		if before.FixedBy(changed) {
+		if before.fixedBy(changed) {
 			t.Fatalf("different subject/outcome is not a verified fix: %+v", changed)
 		}
 	}
 	before.ID = ids.Nil
-	if before.FixedBy(after) {
+	if before.fixedBy(after) {
 		t.Fatal("absence cannot be a previous failure")
 	}
 	before.ID = idstest.N(3)
 	before.State = Excepted
-	if before.Confirmable() || !before.FixedBy(after) {
+	if before.confirmable() || !before.fixedBy(after) {
 		t.Fatal("excepted evidence must be repairable, not confirmable")
 	}
 	before.State = DoesNotConform
 	before.Evaluator = "sh"
-	if before.Confirmable() {
+	if before.confirmable() {
 		t.Fatal("deterministic finding does not need AI confirmation")
 	}
 }
 
 func TestProjectionJSONUsesOwnedVocabulary(t *testing.T) {
 	t.Parallel()
-	summary := SummarizeFleet([]ProjectStanding{{Standing: StandingDoesNot, Lanes: Lanes{Findings: 2}, High: 1}}, 3)
+	summary := summarizeFleet([]ProjectStanding{{Standing: standingDoesNot, Lanes: Lanes{Findings: 2}, High: 1}}, 3)
 	b, err := json.Marshal(summary)
 	if err != nil {
 		t.Fatal(err)
@@ -172,7 +172,7 @@ func TestProjectionJSONUsesOwnedVocabulary(t *testing.T) {
 func TestABrokenCheckReadsAsAnIncompleteReview(t *testing.T) {
 	t.Parallel()
 	standing, sentence := standingFor(Lanes{Conforms: 5, Broken: 1}, 0, 6)
-	if standing != StandingBroken || sentence != "Review incomplete · 1 check couldn't run" {
+	if standing != standingBroken || sentence != "Review incomplete · 1 check couldn't run" {
 		t.Fatal(standing, sentence)
 	}
 	if _, sentence := standingFor(Lanes{Broken: 2}, 0, 2); sentence != "Review incomplete · 2 checks couldn't run" {
@@ -182,9 +182,9 @@ func TestABrokenCheckReadsAsAnIncompleteReview(t *testing.T) {
 
 func TestFleetIncompleteCountIncludesChecksHiddenByHigherPriorityStanding(t *testing.T) {
 	t.Parallel()
-	summary := SummarizeFleet([]ProjectStanding{
-		{Standing: StandingBroken, Lanes: Lanes{Broken: 1}},
-		{Standing: StandingDoesNot, Lanes: Lanes{Findings: 1, Unassessed: 2}},
+	summary := summarizeFleet([]ProjectStanding{
+		{Standing: standingBroken, Lanes: Lanes{Broken: 1}},
+		{Standing: standingDoesNot, Lanes: Lanes{Findings: 1, Unassessed: 2}},
 		{Standing: StandingNeedsLook, Lanes: Lanes{Flagged: 1, Unassessed: 1}},
 		{Standing: StandingConforms, Lanes: Lanes{Conforms: 1}},
 	}, 6)
@@ -206,7 +206,7 @@ func TestFleetIncompleteCountIncludesChecksHiddenByHigherPriorityStanding(t *tes
 func TestFindingSentenceKeepsChecksThatCouldNotRun(t *testing.T) {
 	t.Parallel()
 	standing, sentence := standingFor(Lanes{Findings: 2, Broken: 1}, 0, 3)
-	if standing != StandingDoesNot || !strings.Contains(sentence, "2 findings · 1 couldn't run") {
+	if standing != standingDoesNot || !strings.Contains(sentence, "2 findings · 1 couldn't run") {
 		t.Fatalf("mixed result hides failed execution: %s: %s", standing, sentence)
 	}
 }

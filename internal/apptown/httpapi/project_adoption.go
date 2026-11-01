@@ -23,7 +23,7 @@ func NewProjectAdoption(projects *project.Projects, adoption *adoption.Service, 
 // ProjectAdoption: GET /projects/{slug}/adoption — the current
 // revision and its receipt, plus the history.
 func (h ProjectAdoption) ProjectAdoption(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

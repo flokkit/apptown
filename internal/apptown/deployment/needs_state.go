@@ -12,42 +12,42 @@ import (
 	"github.com/flokkit/apptown/internal/enum"
 )
 
-// NeedState is a managed need instance's standing: creating while the
+// needState is a managed need instance's standing: creating while the
 // provider makes it, ready once it answers, failed when the provider refused,
 // orphaned when its deployment went before the record did.
-type NeedState uint8
+type needState uint8
 
 const (
-	NeedCreating NeedState = iota + 1
+	needCreating needState = iota + 1
 	NeedReady
-	NeedFailed
-	NeedOrphaned
+	needFailed
+	needOrphaned
 )
 
 // needStateCodec spells each NeedState in storage and JSON.
-var needStateCodec = enum.Set[NeedState]{
+var needStateCodec = enum.Set[needState]{
 	Names:     []string{"creating", "ready", "failed", "orphaned"},
 	Invalid:   "invalid-need-state",
-	Err:       ErrNeedState,
+	Err:       errNeedState,
 	ScanLabel: "value",
 }
 
-var ErrNeedState = errors.New("invalid need state")
+var errNeedState = errors.New("invalid need state")
 
-func (s NeedState) String() string { return needStateCodec.String(s) }
+func (s needState) String() string { return needStateCodec.String(s) }
 
-func (s NeedState) Value() (driver.Value, error) { return needStateCodec.Value(s) }
+func (s needState) Value() (driver.Value, error) { return needStateCodec.Value(s) }
 
-func (s *NeedState) Scan(value any) error { return needStateCodec.Scan(s, value) }
+func (s *needState) Scan(value any) error { return needStateCodec.Scan(s, value) }
 
-func (s NeedState) MarshalJSON() ([]byte, error) { return needStateCodec.JSON(s) }
+func (s needState) MarshalJSON() ([]byte, error) { return needStateCodec.JSON(s) }
 
 // NeedInstance is one managed need as recorded for a deployment.
 type NeedInstance struct {
 	Need   string
 	Mode   string
 	Handle map[string]any
-	Status NeedState
+	Status needState
 }
 
 // ForDeployment lists a deployment's need instances by need.
@@ -81,9 +81,9 @@ func (s NeedStore) Recorded(ctx context.Context, deploymentID ids.ID, need strin
 	return nil, nil
 }
 
-// RecordFulfilled records a managed need the provider now answers for, with
+// recordFulfilled records a managed need the provider now answers for, with
 // its binding and handle: ready, whatever it was.
-func (s NeedStore) RecordFulfilled(ctx context.Context, deploymentID ids.ID, need string, binding, handle map[string]any) error {
+func (s NeedStore) recordFulfilled(ctx context.Context, deploymentID ids.ID, need string, binding, handle map[string]any) error {
 	now := s.now()
 	_, err := deploymentsql.New(s.db.SQL()).RecordNeedFulfilled(ctx, deploymentsql.RecordNeedFulfilledParams{ID: ids.New(now),
 		DeploymentID: deploymentID,

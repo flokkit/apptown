@@ -112,7 +112,7 @@ func TestConcurrentConfirmationHasOneWinner(t *testing.T) {
 		err := <-results
 		if err == nil {
 			winners++
-		} else if !errors.Is(err, ErrAlreadyConfirmed) {
+		} else if !errors.Is(err, errAlreadyConfirmed) {
 			t.Fatal(err)
 		}
 	}
@@ -182,7 +182,7 @@ func TestVerdictAdmissionRejectsStaleFixPrerequisites(t *testing.T) {
 		}
 		close(start)
 		a, b := <-results, <-results
-		if !((a == nil && errors.Is(b, ErrVerdictChanged)) || (b == nil && errors.Is(a, ErrVerdictChanged))) {
+		if !((a == nil && errors.Is(b, errVerdictChanged)) || (b == nil && errors.Is(a, errVerdictChanged))) {
 			t.Fatalf("expected a winner and a conflict: %v %v", a, b)
 		}
 		wantHeld(t, "verdicts", heldRecords(t, s.db).Verdicts, 2)
@@ -194,7 +194,7 @@ func TestVerdictAdmissionRejectsStaleFixPrerequisites(t *testing.T) {
 		if _, err := s.confirm(context.Background(), confirmationRequest{VerdictID: prev.ID, By: "alice"}); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := s.recordVerdict(context.Background(), req); !errors.Is(err, ErrVerdictChanged) {
+		if _, err := s.recordVerdict(context.Background(), req); !errors.Is(err, errVerdictChanged) {
 			t.Fatalf("newly confirmed flag needs a fix: %v", err)
 		}
 		wantHeld(t, "verdicts", heldRecords(t, s.db).Verdicts, 1)

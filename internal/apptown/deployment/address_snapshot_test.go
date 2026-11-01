@@ -29,7 +29,7 @@ func TestAddressSnapshotKeepsExactIngressAndRefusesMalformedPersistence(t *testi
 			t.Fatalf("malformed snapshot %s accepted", bad)
 		}
 	}
-	if (Inputs{}).Same(Inputs{Address: &original}) {
+	if (Inputs{}).same(Inputs{Address: &original}) {
 		t.Fatal("absent ingress equals admitted ingress")
 	}
 }

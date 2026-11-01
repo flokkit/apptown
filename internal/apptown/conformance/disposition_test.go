@@ -66,22 +66,22 @@ func TestExceptionMatchingOwnsSpecificityAndSnapshotMeaning(t *testing.T) {
 		t.Fatalf("exact fingerprint lost to earlier broad match: %+v", got)
 	}
 	// Matching a historical snapshot must not reinterpret it at today's clock.
-	if ds[1].ActiveAt(at) {
+	if conformance.DispositionActiveAt(ds[1], at) {
 		t.Fatal("expired disposition is active now")
 	}
 	for _, expiry := range []stamp.Time{{}, stamp.Of(at.Add(time.Second))} {
 		d := ds[1]
 		d.ExpiresAt = expiry
-		if !d.ActiveAt(at) {
+		if !conformance.DispositionActiveAt(d, at) {
 			t.Fatal("live disposition was expired")
 		}
 	}
 	d := ds[1]
 	d.ExpiresAt = stamp.Of(at)
-	if d.ActiveAt(at) {
+	if conformance.DispositionActiveAt(d, at) {
 		t.Fatal("expiry equality must be inactive")
 	}
-	if (conformance.Disposition{}).ActiveAt(at) {
+	if conformance.DispositionActiveAt((conformance.Disposition{}), at) {
 		t.Fatal("invalid classification is not active")
 	}
 	ds[1].Status = 0

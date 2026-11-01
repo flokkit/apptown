@@ -3,10 +3,11 @@ package pi
 import (
 	"context"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerlabel"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/dockerlabel"
 
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/dind"

@@ -54,8 +54,8 @@ const (
 	AppTown Use = "apptown"
 )
 
-// Uses are every use, in a fixed order.
-var Uses = []Use{Inference, Deployments, AppTown}
+// uses are every use, in a fixed order.
+var uses = []Use{Inference, Deployments, AppTown}
 
 // Bundle is a set of extra certificate authorities, as PEM. The zero
 // Bundle is none.
@@ -86,8 +86,8 @@ func Parse(data []byte) (Bundle, error) {
 	return Bundle{pem: out}, nil
 }
 
-// Load reads the bundle at path; "" is none.
-func Load(path string) (Bundle, error) {
+// load reads the bundle at path; "" is none.
+func load(path string) (Bundle, error) {
 	if path == "" {
 		return Bundle{}, nil
 	}
@@ -102,11 +102,11 @@ func Load(path string) (Bundle, error) {
 	return b, nil
 }
 
-// Empty says the bundle adds nothing.
-func (b Bundle) Empty() bool { return len(b.pem) == 0 }
+// empty says the bundle adds nothing.
+func (b Bundle) empty() bool { return len(b.pem) == 0 }
 
-// With is b and o together.
-func (b Bundle) With(o Bundle) Bundle {
+// with is b and o together.
+func (b Bundle) with(o Bundle) Bundle {
 	return Bundle{pem: append(append([]byte{}, b.pem...), o.pem...)}
 }
 
@@ -151,8 +151,8 @@ type Set struct {
 // naming the use's flag in an error.
 func Read(paths map[Use]string) (map[Use]Bundle, error) {
 	bundles := map[Use]Bundle{}
-	for _, u := range Uses {
-		b, err := Load(paths[u])
+	for _, u := range uses {
+		b, err := load(paths[u])
 		if err != nil {
 			return nil, fmt.Errorf("-trust-%s: %w", u, err)
 		}
@@ -171,12 +171,12 @@ func Read(paths map[Use]string) (map[Use]Bundle, error) {
 // /etc/ssl/cert.pem) cannot give git both, and that refuses to start.
 func New(dir string, bundles map[Use]Bundle, local Bundle) (*Set, error) {
 	s := &Set{bundles: map[Use]Bundle{}, pools: map[Use]*x509.CertPool{}}
-	for _, u := range Uses {
+	for _, u := range uses {
 		b := bundles[u]
 		if u == Deployments {
-			b = b.With(local)
+			b = b.with(local)
 		}
-		if b.Empty() {
+		if b.empty() {
 			continue
 		}
 		pool, err := x509.SystemCertPool()
@@ -189,7 +189,7 @@ func New(dir string, bundles map[Use]Bundle, local Bundle) (*Set, error) {
 		s.bundles[u], s.pools[u] = b, pool
 	}
 	s.here, s.elsewhere = script(s.bundles[Deployments]), script(bundles[Deployments])
-	if b := s.bundles[AppTown]; !b.Empty() {
+	if b := s.bundles[AppTown]; !b.empty() {
 		system, err := systemBundle()
 		if err != nil {
 			return nil, fmt.Errorf("-trust-%s: %w", AppTown, err)
@@ -229,7 +229,7 @@ var installer string
 // is empty. A parsed bundle is base64 between PEM lines, so it holds no
 // quote that could end the shell string it is put in.
 func script(b Bundle) string {
-	if b.Empty() {
+	if b.empty() {
 		return ""
 	}
 	var out strings.Builder

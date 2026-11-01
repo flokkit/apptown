@@ -38,7 +38,7 @@ type lawStore struct {
 type lawSet struct{ records lawStore }
 
 func newLaws(db *database.DB, rules LawRules) lawSet { return lawSet{lawStore{db: db, rules: rules}} }
-func (l lawSet) Refresh(ctx context.Context, run *Run) error {
+func (l lawSet) refresh(ctx context.Context, run *Run) error {
 	_, err := l.records.evaluate(ctx, run, true)
 	return err
 }
@@ -120,7 +120,7 @@ func (g lawStore) evaluateIn(ctx context.Context, tx *database.Tx, run *Run, onl
 	if len(violations) > 0 {
 		next, reason = StatusNeedsHuman, lawNextAction(violations)
 	}
-	next, err = previous.Transition(MoveStepEvaluate, next)
+	next, err = previous.transition(moveStepEvaluate, next)
 	if err != nil {
 		return nil, err
 	}

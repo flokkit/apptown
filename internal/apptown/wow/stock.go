@@ -14,9 +14,9 @@ import (
 	"github.com/flokkit/apptown/internal/strs"
 )
 
-// Stock is what the store holds for a name: its canonical content and
+// stockReader is what the store holds for a name: its canonical content and
 // whether it is stock. Absent when there is no row.
-type Stock struct {
+type stockReader struct {
 	Content string
 	IsStock bool
 }
@@ -35,7 +35,7 @@ func GuidanceKey(body, checksJSON string) string {
 // StockBlock is a shipped guidance block's parts.
 type StockBlock struct{ Name, Tags, ChecksJSON, Body, Tier, Conflicts string }
 
-func (s *Library) StockCurrent(ctx context.Context, name string) (*Stock, error) {
+func (s *library) StockCurrent(ctx context.Context, name string) (*stockReader, error) {
 	q := wowsql.New(s.db.SQL())
 	b, err := q.BlockByName(ctx, name)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -48,15 +48,15 @@ func (s *Library) StockCurrent(ctx context.Context, name string) (*Stock, error)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
-	return &Stock{Content: GuidanceKey(v.BodyMd, string(v.ChecksJson)), IsStock: b.Origin == "stock"}, nil
+	return &stockReader{Content: GuidanceKey(v.BodyMd, string(v.ChecksJson)), IsStock: b.Origin == "stock"}, nil
 }
 
 // StockInsert seeds a stock block at version 1 with its receipt.
-func (s *Library) StockInsert(ctx context.Context, b StockBlock) error {
+func (s *library) StockInsert(ctx context.Context, b StockBlock) error {
 	now := s.now().UTC()
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		q := wowsql.New(tx.SQL())
-		r, err := q.InsertBlock(ctx, wowsql.InsertBlockParams{ID: ids.New(now), Name: b.Name, Tags: NormalizeTags(b.Tags), Origin: "stock", At: now, Tier: b.Tier, Conflicts: NormalizeTags(b.Conflicts)})
+		r, err := q.InsertBlock(ctx, wowsql.InsertBlockParams{ID: ids.New(now), Name: b.Name, Tags: normalizeTags(b.Tags), Origin: "stock", At: now, Tier: b.Tier, Conflicts: normalizeTags(b.Conflicts)})
 		if err != nil {
 			return err
 		}
@@ -70,12 +70,12 @@ func (s *Library) StockInsert(ctx context.Context, b StockBlock) error {
 // StockUpdate cuts the next version of a stock block with its receipt and
 // reports how many projects stay on earlier versions: a release cuts the
 // version and stops; moving a project is an adoption a person decides.
-func (s *Library) StockUpdate(ctx context.Context, b StockBlock) (version int, err error) {
-	err = s.db.InTx(ctx, func(tx *database.Tx) error { _, v, e := s.StockUpdateIn(ctx, tx, b); version = v; return e })
+func (s *library) StockUpdate(ctx context.Context, b StockBlock) (version int, err error) {
+	err = s.db.InTx(ctx, func(tx *database.Tx) error { _, v, e := s.stockUpdateIn(ctx, tx, b); version = v; return e })
 	return version, err
 }
 
-func (s *Library) StockUpdateIn(ctx context.Context, tx *database.Tx, b StockBlock) (blockID ids.ID, version int, err error) {
+func (s *library) stockUpdateIn(ctx context.Context, tx *database.Tx, b StockBlock) (blockID ids.ID, version int, err error) {
 	now := s.now().UTC()
 	err = func() error {
 		q := wowsql.New(tx.SQL())
@@ -88,7 +88,7 @@ func (s *Library) StockUpdateIn(ctx context.Context, tx *database.Tx, b StockBlo
 		if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(now), BlockID: r.ID, Version: int64(version), Body: b.Body, Checks: []byte(jsonOr(b.ChecksJSON)), At: now, Source: s.stock.Source, Signer: s.stock.Signer}); err != nil {
 			return err
 		}
-		if _, err := q.AdvanceStockBlockVersion(ctx, wowsql.AdvanceStockBlockVersionParams{ID: r.ID, Version: int64(version), Tags: NormalizeTags(b.Tags), Tier: b.Tier, Conflicts: NormalizeTags(b.Conflicts), At: now}); err != nil {
+		if _, err := q.AdvanceStockBlockVersion(ctx, wowsql.AdvanceStockBlockVersionParams{ID: r.ID, Version: int64(version), Tags: normalizeTags(b.Tags), Tier: b.Tier, Conflicts: normalizeTags(b.Conflicts), At: now}); err != nil {
 			return err
 		}
 		return audit.At(now).RecordIn(ctx, tx, "apptown-system", ids.Nil, "guidance.stock.upgraded", b.Name, map[string]any{"version": version})
@@ -96,10 +96,10 @@ func (s *Library) StockUpdateIn(ctx context.Context, tx *database.Tx, b StockBlo
 	return blockID, version, err
 }
 
-// StockTouch refreshes what is not content when the content is unchanged.
-func (s *Library) StockTouch(ctx context.Context, b StockBlock) error {
+// stockTouch refreshes what is not content when the content is unchanged.
+func (s *library) stockTouch(ctx context.Context, b StockBlock) error {
 	now := s.now().UTC()
-	_, err := wowsql.New(s.db.SQL()).RefreshStockBlockWords(ctx, wowsql.RefreshStockBlockWordsParams{Name: b.Name, Tags: NormalizeTags(b.Tags), Tier: b.Tier, Conflicts: NormalizeTags(b.Conflicts), At: now})
+	_, err := wowsql.New(s.db.SQL()).RefreshStockBlockWords(ctx, wowsql.RefreshStockBlockWordsParams{Name: b.Name, Tags: normalizeTags(b.Tags), Tier: b.Tier, Conflicts: normalizeTags(b.Conflicts), At: now})
 	return err
 }
 
@@ -110,7 +110,7 @@ func jsonOr(s string) string {
 	return s
 }
 
-func (s *Workflows) StockCurrent(ctx context.Context, name string) (*Stock, error) {
+func (s *workflows) StockCurrent(ctx context.Context, name string) (*stockReader, error) {
 	q := wowsql.New(s.db.SQL())
 	r, err := q.WorkflowByName(ctx, name)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -123,10 +123,10 @@ func (s *Workflows) StockCurrent(ctx context.Context, name string) (*Stock, erro
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
-	return &Stock{Content: v.Yaml, IsStock: r.Origin == "stock"}, nil
+	return &stockReader{Content: v.Yaml, IsStock: r.Origin == "stock"}, nil
 }
 
-func (s *Workflows) StockInsert(ctx context.Context, name, description, yamlSrc string) error {
+func (s *workflows) StockInsert(ctx context.Context, name, description, yamlSrc string) error {
 	now := s.now().UTC()
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		q := wowsql.New(tx.SQL())
@@ -140,7 +140,7 @@ func (s *Workflows) StockInsert(ctx context.Context, name, description, yamlSrc 
 }
 
 // StockUpdate cuts the next version of a stock workflow with its receipt.
-func (s *Workflows) StockUpdate(ctx context.Context, name, description, yamlSrc string) (version int, err error) {
+func (s *workflows) StockUpdate(ctx context.Context, name, description, yamlSrc string) (version int, err error) {
 	now := s.now().UTC()
 	err = s.db.InTx(ctx, func(tx *database.Tx) error {
 		q := wowsql.New(tx.SQL())
@@ -164,7 +164,7 @@ func (s *Workflows) StockUpdate(ctx context.Context, name, description, yamlSrc 
 	return version, err
 }
 
-func (s *Workflows) StockTouch(ctx context.Context, name, description string) error {
+func (s *workflows) stockTouch(ctx context.Context, name, description string) error {
 	_, err := wowsql.New(s.db.SQL()).RefreshWorkflowWords(ctx, wowsql.RefreshWorkflowWordsParams{Name: name, Description: description})
 	return err
 }
@@ -173,7 +173,7 @@ func (s *Workflows) StockTouch(ctx context.Context, name, description string) er
 // parameters. The description is words about it, refreshed separately.
 func PolicyKey(rule, configJSON string) string { return rule + "\x1f" + canonJSON(configJSON) }
 
-func (s *Policies) StockCurrent(ctx context.Context, name string) (*Stock, error) {
+func (s *policies) stockCurrent(ctx context.Context, name string) (*stockReader, error) {
 	r, err := wowsql.New(s.db.SQL()).LibraryPolicyByName(ctx, name)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -181,10 +181,10 @@ func (s *Policies) StockCurrent(ctx context.Context, name string) (*Stock, error
 	if err != nil {
 		return nil, err
 	}
-	return &Stock{Content: PolicyKey(r.Rule, string(r.ConfigJson)), IsStock: r.Origin == "stock"}, nil
+	return &stockReader{Content: PolicyKey(r.Rule, string(r.ConfigJson)), IsStock: r.Origin == "stock"}, nil
 }
 
-func (s *Policies) StockInsert(ctx context.Context, lp LibraryPolicy) error {
+func (s *policies) StockInsert(ctx context.Context, lp LibraryPolicy) error {
 	now := s.now().UTC()
 	config, err := strs.JSON(lp.With)
 	if err != nil {
@@ -194,7 +194,7 @@ func (s *Policies) StockInsert(ctx context.Context, lp LibraryPolicy) error {
 	return err
 }
 
-func (s *Policies) StockUpdate(ctx context.Context, lp LibraryPolicy) error {
+func (s *policies) stockUpdate(ctx context.Context, lp LibraryPolicy) error {
 	now := s.now().UTC()
 	config, err := strs.JSON(lp.With)
 	if err != nil {
@@ -204,7 +204,7 @@ func (s *Policies) StockUpdate(ctx context.Context, lp LibraryPolicy) error {
 	return err
 }
 
-func (s *Policies) StockTouch(ctx context.Context, lp LibraryPolicy) error {
+func (s *policies) stockTouch(ctx context.Context, lp LibraryPolicy) error {
 	_, err := wowsql.New(s.db.SQL()).RefreshStockPolicyWords(ctx, wowsql.RefreshStockPolicyWordsParams{Name: lp.Name, Description: lp.Description})
 	return err
 }

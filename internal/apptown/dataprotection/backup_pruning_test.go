@@ -70,13 +70,13 @@ func TestBackupPruningRejectsUnsafeOrUnremovablePaths(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if _, err := store.Prune(context.Background(), root, pid, "main", BackupKeep); err == nil {
+			if _, err := store.pruneBackups(context.Background(), root, pid, "main", BackupKeep); err == nil {
 				t.Fatal("invalid or unremovable backup marked pruned")
 			}
 			if b, err := os.ReadFile(canary); err != nil || string(b) != "outside the backup root" {
 				t.Fatalf("outside data changed: %q %v", b, err)
 			}
-			wantN(t, "pruned backups", backupsWhere(t, store.db, backupIn(BackupPruned)), 0)
+			wantN(t, "pruned backups", backupsWhere(t, store.db, backupIn(backupPruned)), 0)
 			for _, b := range backups {
 				if _, err := os.Stat(filepath.Join(b.Path, "data")); err != nil {
 					t.Fatalf("retained backup lost: %v", err)
@@ -92,18 +92,18 @@ func TestBackupPruningReportsUnrecordedRemovalAndCanRetry(t *testing.T) {
 	root := filepath.Join(dir, "backups")
 	mustExec(t, store.db, `CREATE FUNCTION veto_prune() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
 	mustExec(t, store.db, `CREATE TRIGGER veto_prune BEFORE UPDATE ON backups FOR EACH ROW EXECUTE FUNCTION veto_prune()`)
-	if _, err := store.Prune(context.Background(), root, pid, "main", BackupKeep); err == nil || !strings.Contains(err.Error(), "files removed, but pruning was not recorded") {
+	if _, err := store.pruneBackups(context.Background(), root, pid, "main", BackupKeep); err == nil || !strings.Contains(err.Error(), "files removed, but pruning was not recorded") {
 		t.Fatalf("lost partial outcome: %v", err)
 	}
 	if _, err := os.Stat(backups[0].Path); !os.IsNotExist(err) {
 		t.Fatalf("old files should have been removed: %v", err)
 	}
-	wantN(t, "pruned backups", backupsWhere(t, store.db, backupIn(BackupPruned)), 0)
+	wantN(t, "pruned backups", backupsWhere(t, store.db, backupIn(backupPruned)), 0)
 	mustExec(t, store.db, `DROP TRIGGER veto_prune ON backups`)
-	if _, err := store.Prune(context.Background(), root, pid, "main", BackupKeep); err != nil {
+	if _, err := store.pruneBackups(context.Background(), root, pid, "main", BackupKeep); err != nil {
 		t.Fatal(err)
 	}
-	wantN(t, "the oldest backup, pruned", backupsWhere(t, store.db, func(b ProjectBackup) bool { return b.ID == backups[0].ID && b.Status == BackupPruned }), 1)
+	wantN(t, "the oldest backup, pruned", backupsWhere(t, store.db, func(b ProjectBackup) bool { return b.ID == backups[0].ID && b.Status == backupPruned }), 1)
 	wantN(t, "kept backups", backupsWhere(t, store.db, backupIn(BackupOK)), BackupKeep)
 	for _, b := range backups[1:] {
 		if _, err := os.Stat(filepath.Join(b.Path, "data")); err != nil {
@@ -116,7 +116,7 @@ func TestBackupPruningReadFailureLeavesFilesAlone(t *testing.T) {
 	t.Parallel()
 	store, dir, pid, backups := backupPruningFixture(t)
 	dbtest.FailNextStatement(t, store.db, "-- name: PrunableBackups :many")
-	if _, err := store.Prune(context.Background(), filepath.Join(dir, "backups"), pid, "main", BackupKeep); err == nil {
+	if _, err := store.pruneBackups(context.Background(), filepath.Join(dir, "backups"), pid, "main", BackupKeep); err == nil {
 		t.Fatal("ignored read failure")
 	}
 	for _, b := range backups {
@@ -124,7 +124,7 @@ func TestBackupPruningReadFailureLeavesFilesAlone(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	wantN(t, "pruned backups", backupsWhere(t, store.db, backupIn(BackupPruned)), 0)
+	wantN(t, "pruned backups", backupsWhere(t, store.db, backupIn(backupPruned)), 0)
 }
 
 func TestBackupPruningDoesNotWaitForOrDeleteARestoresFiles(t *testing.T) {
@@ -136,18 +136,18 @@ func TestBackupPruningDoesNotWaitForOrDeleteARestoresFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer files.Close()
-	if _, err := store.Prune(context.Background(), root, pid, "main", BackupKeep); err == nil || !strings.Contains(err.Error(), "busy") {
+	if _, err := store.pruneBackups(context.Background(), root, pid, "main", BackupKeep); err == nil || !strings.Contains(err.Error(), "busy") {
 		t.Fatalf("pruning ignored restore lock: %v", err)
 	}
-	wantN(t, "pruned backups", backupsWhere(t, store.db, backupIn(BackupPruned)), 0)
+	wantN(t, "pruned backups", backupsWhere(t, store.db, backupIn(backupPruned)), 0)
 	if _, err := os.Stat(backups[0].Path); err != nil {
 		t.Fatalf("restore source lost: %v", err)
 	}
 	if err := files.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Prune(context.Background(), root, pid, "main", BackupKeep); err != nil {
+	if _, err := store.pruneBackups(context.Background(), root, pid, "main", BackupKeep); err != nil {
 		t.Fatal(err)
 	}
-	wantN(t, "pruned backups", backupsWhere(t, store.db, backupIn(BackupPruned)), 1)
+	wantN(t, "pruned backups", backupsWhere(t, store.db, backupIn(backupPruned)), 1)
 }

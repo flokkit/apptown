@@ -26,7 +26,7 @@ func TestAcceptedLandingChecksChangeScopeBeforeAvailability(t *testing.T) {
 	q := queries{db: db}
 	calls := 0
 	runtime := acceptedLandingRuntime{Availability: landingAvailabilityFunc(func(context.Context, ids.ID) (bool, error) { calls++; return true, nil })}
-	got, err := approvingLandings(q.db, nil).AdvanceAccepted(context.Background(), work.ID, runtime)
+	got, err := approvingLandings(q.db, nil).advanceAccepted(context.Background(), work.ID, runtime)
 	if !errors.Is(err, ErrRunMoved) || got.Advance != nil || calls != 0 {
 		t.Fatalf("cross-project preparation: %+v %v calls=%d", got, err, calls)
 	}
@@ -60,7 +60,7 @@ func TestAcceptedLandingReplayDoesNotPrepareOrAdvanceANewerStage(t *testing.T) {
 	if err := requireRunWrite(workflowsql.New(q.db.SQL()).InvalidateRunDecision(context.Background(), workflowsql.InvalidateRunDecisionParams{At: time.Now(), ID: landing, CurrentStage: "later"})); err != nil {
 		t.Fatal(err)
 	}
-	got, err := owner.AdvanceAccepted(context.Background(), work.ID, acceptedLandingRuntime{})
+	got, err := owner.advanceAccepted(context.Background(), work.ID, acceptedLandingRuntime{})
 	if err != nil || !got.RunID.IsZero() || got.Advance != nil {
 		t.Fatalf("replay entered a newer stage: %+v %v", got, err)
 	}
@@ -88,7 +88,7 @@ func TestAcceptedLandingClosedChangeDoesNotConsultAvailability(t *testing.T) {
 			}
 			calls := 0
 			runtime := acceptedLandingRuntime{Availability: landingAvailabilityFunc(func(context.Context, ids.ID) (bool, error) { calls++; return true, nil })}
-			got, err := approvingLandings(q.db, nil).AdvanceAccepted(context.Background(), work.ID, runtime)
+			got, err := approvingLandings(q.db, nil).advanceAccepted(context.Background(), work.ID, runtime)
 			if err != nil || !got.RunID.IsZero() || got.Advance != nil || calls != 0 {
 				t.Fatalf("closed change attempted landing: %+v %v calls=%d", got, err, calls)
 			}

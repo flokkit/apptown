@@ -161,7 +161,7 @@ func (s *Service) Snapshot(ctx context.Context, id ids.ID, view ReadView) (*RunS
 	return out, nil
 }
 
-func (s *Service) Artifact(ctx context.Context, id ids.ID) (*ArtifactBody, error) {
+func (s *Service) Artifact(ctx context.Context, id ids.ID) (*artifactBodyPart, error) {
 	if _, err := s.require(ctx, operationPermission{Action: actionIdentify}); err != nil {
 		return nil, err
 	}

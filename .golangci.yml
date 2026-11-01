@@ -244,19 +244,19 @@ linters:
       - path: '^internal/apptown/httpapi/change_previews\.go$'
         linters: [forbidigo]
         text: 'forbidden because "receipt rule:'
-        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), out\.ProjectID, "change\.preview", fmt\.Sprintf\("%d", id\), map\[string\]any\{"url": out\.URL, "commit": response\.Commit\}\)$'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, actor\(r\), out\.ProjectID, "change\.preview", fmt\.Sprintf\("%d", id\), map\[string\]any\{"url": out\.URL, "commit": response\.Commit\}\)$'
 
       # The preview record retains this isolated preview; the note is not release authorization.
       - path: '^internal/apptown/httpapi/change_previews\.go$'
         linters: [forbidigo]
         text: 'forbidden because "receipt rule:'
-        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), out\.ProjectID, "change\.preview", fmt\.Sprintf\("%d", id\), map\[string\]any\{"url": out\.URL, "restart": true\}\)$'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, actor\(r\), out\.ProjectID, "change\.preview", fmt\.Sprintf\("%d", id\), map\[string\]any\{"url": out\.URL, "restart": true\}\)$'
 
       # The admitted run/change records retain initiation and actor; this is an activity summary.
       - path: '^internal/apptown/httpapi/changes\.go$'
         linters: [forbidigo]
         text: 'forbidden because "receipt rule:'
-        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), p\.ID, "change\.run-started", fmt\.Sprintf\("change %d run %d \(%s\)", ch\.ID, run\.ID, in\.Workflow\), nil\)$'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, actor\(r\), p\.ID, "change\.run-started", fmt\.Sprintf\("change %d run %d \(%s\)", ch\.ID, run\.ID, in\.Workflow\), nil\)$'
 
       # The admitted run retains the console invocation; this line narrates it.
       - path: '^internal/apptown/httpapi/console_invocation\.go$'
@@ -274,43 +274,43 @@ linters:
       - path: '^internal/apptown/httpapi/landing_restart\.go$'
         linters: [forbidigo]
         text: 'forbidden because "receipt rule:'
-        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), p\.ID, "landing\.restarted", fmt\.Sprintf\("run %d -> %d", run\.ID, fresh\.ID\), nil\)$'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, actor\(r\), p\.ID, "landing\.restarted", fmt\.Sprintf\("run %d -> %d", run\.ID, fresh\.ID\), nil\)$'
 
       # The project setting retains the selected model profile; the note is not credential admission.
       - path: '^internal/apptown/httpapi/model_slots\.go$'
         linters: [forbidigo]
         text: 'forbidden because "receipt rule:'
-        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), p\.ID, "model-profile\.set", in\.Profile, map\[string\]any\{"project": p\.Slug\}\)$'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, actor\(r\), p\.ID, "model-profile\.set", in\.Profile, map\[string\]any\{"project": p\.Slug\}\)$'
 
       # The published pack version retains content; this line is activity narration.
       - path: '^internal/apptown/httpapi/pack_library\.go$'
         linters: [forbidigo]
         text: 'forbidden because "receipt rule:'
-        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), ids\.Nil, "pack\.saved", in\.Name, map\[string\]any\{$'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, actor\(r\), ids\.Nil, "pack\.saved", in\.Name, map\[string\]any\{$'
 
       # The published pack/adoption records retain content; this is an activity summary.
       - path: '^internal/apptown/httpapi/pack_pull\.go$'
         linters: [forbidigo]
         text: 'forbidden because "receipt rule:'
-        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), p\.ID, "pack\.pulled", pack\.Name, map\[string\]any\{$'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, actor\(r\), p\.ID, "pack\.pulled", pack\.Name, map\[string\]any\{$'
 
       # The preview record retains this isolated preview; the note is not release authorization.
       - path: '^internal/apptown/httpapi/release_operations\.go$'
         linters: [forbidigo]
         text: 'forbidden because "receipt rule:'
-        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), p\.ID, "release\.preview", fmt\.Sprintf\("release %d", n\), map\[string\]any\{"ref": out\.Image, "source": out\.Revision\}\)$'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, actor\(r\), p\.ID, "release\.preview", fmt\.Sprintf\("release %d", n\), map\[string\]any\{"ref": out\.Image, "source": out\.Revision\}\)$'
 
       # The remediation/change/run records retain the admitted work; this is an activity summary.
       - path: '^internal/apptown/httpapi/remediation_changes\.go$'
         linters: [forbidigo]
         text: 'forbidden because "receipt rule:'
-        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), p\.ID, "conformance\.remediation-opened", fmt\.Sprintf\("%d", item\.ID\),$'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, actor\(r\), p\.ID, "conformance\.remediation-opened", fmt\.Sprintf\("%d", item\.ID\),$'
 
       # The model setting retains configuration; the separate secret operation requires its own receipt.
       - path: '^internal/apptown/httpapi/setup_model\.go$'
         linters: [forbidigo]
         text: 'forbidden because "receipt rule:'
-        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), ids\.Nil, "setup\.model", in\.Provider, map\[string\]any\{"model": model, "secret": secretName\}\)$'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, actor\(r\), ids\.Nil, "setup\.model", in\.Provider, map\[string\]any\{"model": model, "secret": secretName\}\)$'
 
       # PutGrant records grant.added in its transaction; this activity line summarizes that grant.
       - path: '^internal/apptown/identity/project_members\.go$'

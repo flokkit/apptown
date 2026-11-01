@@ -45,11 +45,11 @@ func TestManagedDataMakesNewPlacesAndNeverAdoptsOne(t *testing.T) {
 	if len(owned) != 1 || owned[0] != [3]string{"postgresql://doadmin:secret@pg.example:25060/defaultdb", "app_restore_1", "app"} {
 		t.Fatalf("handed over: %v", owned)
 	}
-	if err := m.NewDatabase(ctx, "db-9", "app_restore_1", "app"); !errors.Is(err, ErrDatabaseExists) || len(owned) != 1 {
+	if err := m.NewDatabase(ctx, "db-9", "app_restore_1", "app"); !errors.Is(err, errDatabaseExists) || len(owned) != 1 {
 		t.Fatalf("a name the cluster holds was adopted: %v %v", err, owned)
 	}
 	conn, err := m.AppConnection(ctx, "db-9", "app_restore_1", "app")
-	if err != nil || conn != (Connection{Host: "pg.example", Port: 25060, Database: "app_restore_1", User: "app", Password: "pw-app", SSLMode: "require"}) {
+	if err != nil || conn != (connection{Host: "pg.example", Port: 25060, Database: "app_restore_1", User: "app", Password: "pw-app", SSLMode: "require"}) {
 		t.Fatalf("connection: %+v %v", conn, err)
 	}
 	if _, err := m.AppConnection(ctx, "db-9", "app_restore_1", "nobody"); err == nil {
@@ -95,7 +95,7 @@ func TestARefusedDatabaseNameIsNotOneThatExists(t *testing.T) {
 	m := ManagedData{Client: func(context.Context) (*Client, Config, error) { return client, Config{}, nil },
 		OwnDatabase: func(context.Context, string, string, string) error { return nil }}
 	err := m.NewDatabase(context.Background(), "db-9", "app_check_01a14807-9de9-7000-b5b7-3475953fa971", "app")
-	if err == nil || errors.Is(err, ErrDatabaseExists) || !strings.Contains(err.Error(), "max 40 characters") || !deploy.Refused(err) {
+	if err == nil || errors.Is(err, errDatabaseExists) || !strings.Contains(err.Error(), "max 40 characters") || !deploy.Refused(err) {
 		t.Fatalf("a name the platform does not accept: %v", err)
 	}
 }

@@ -25,12 +25,12 @@ type Service struct {
 	beforeFence func(*Execution)
 	masker      func(context.Context) func(string) string
 	life        context.Context // Work's lifetime (New)
-	evalGate    EvalGate
+	evalGate    evalGate
 	db          *database.DB
 	authority   operationAuthority
-	wait        SlotWait
-	means       LandingMeans
-	inAdvance   InAdvanceQuestions
+	wait        slotWait
+	means       landingMeaning
+	inAdvance   inAdvanceQuestions
 	runners     map[string]Runner
 	// recoverers continue a running step's recorded work after a restart,
 	// in the step's place in its stage (ResumePending).
@@ -38,20 +38,20 @@ type Service struct {
 
 	// The parts New builds once, reached from outside only through the
 	// Service's operations.
-	stages          Stages
-	assertions      *Assertions
-	abandonments    Abandonments
+	stages          stages
+	assertions      *assertions
+	abandonments    abandonments
 	stepAttempts    stepAttempts
 	stepRetries     stepRetries
 	sendbacks       sendBackStore
 	landingRechecks landingRechecks
-	landingWork     LandingWork
+	landingWork     landingWork
 	landings        landings
 	narratives      narratives
 	dispatchPlans   dispatchPlans
 	runAdmissions   runAdmissions
 	workspaces      workspaces
-	creator         Creator
+	creator         creator
 	importer        changeImporter
 	starter         *starter
 	scmService      *scm.Service
@@ -78,26 +78,26 @@ type Service struct {
 type Dependencies struct {
 	Jobs         jobs.Enqueuer
 	Authority    access.ReadAuthorizer
-	Scanners     ScannerSource                                                         // Conformance's attachment snapshot, pinned at stage entry
+	Scanners     scannerSource                                                         // Conformance's attachment snapshot, pinned at stage entry
 	Laws         LawRules                                                              // policy violations for a run
-	Abandonment  AbandonRecorder                                                       // effects when work stops
-	Completion   CompletionRecorder                                                    // Shipping's participant at completion
-	Merge        MergeEffects                                                          // the SCM driver and what happens after a merge
-	Landings     LandingAdoptions                                                      // Adoption's revision pair for a landing
-	LandingMeans LandingMeans                                                          // what the project's landing approvals would say
-	InAdvance    InAdvanceQuestions                                                    // what a yes given in advance on an adoption would mean
+	Abandonment  abandonRecorder                                                       // effects when work stops
+	Completion   completionRecorder                                                    // Shipping's participant at completion
+	Merge        mergeEffects                                                          // the SCM driver and what happens after a merge
+	Landings     landingAdoptions                                                      // Adoption's revision pair for a landing
+	LandingMeans landingMeaning                                                        // what the project's landing approvals would say
+	InAdvance    inAdvanceQuestions                                                    // what a yes given in advance on an adoption would mean
 	ChangeAdds   AddsReader                                                            // what an approval's commit brings into the app
-	Budget       LandingRetryBudget                                                    // charge for a landing retry
-	Narratives   NarrativeReleaseNotes                                                 // release notes filled by a model
+	Budget       landingRetryBudget                                                    // charge for a landing retry
+	Narratives   narrativeReleaseNotes                                                 // release notes filled by a model
 	Resolve      func(context.Context, StartRequest, StartSource) (PreparedRun, error) // Adoption's port: the pinned procedure
-	LandingWork  LandingWork                                                           // publishes a change's committed work for a landing
+	LandingWork  landingWork                                                           // publishes a change's committed work for a landing
 	Runners      map[string]Runner                                                     // the step kinds the daemon runs
 	Recoverers   map[string]Runner                                                     // kinds whose recorded work a restarted daemon adopts
 	Chats        Presence                                                              // whether a chat holding a change has ended
 	Report       func(error)                                                           // dispatch failures
 	Hold         func(context.Context) error                                           // waits while AppTown holds new work; nil never holds
-	Slots        SlotWait
-	Git          Git
+	Slots        slotWait
+	Git          git
 	Repositories *scm.RepositoryLocks
 	Automatic    []string // step types that run without a person
 	DataDir      string
@@ -109,7 +109,7 @@ type Dependencies struct {
 
 	// EvalGate is an eval's "may this proceed?" for its copies, asked as
 	// each step is claimed (eval_authority.go); nil admits every step.
-	EvalGate EvalGate
+	EvalGate evalGate
 
 	// Placement is where checks and scripts run: the worker or this
 	// machine (placement.go).
@@ -197,7 +197,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 		s.merges = NewMerges(db, deps.DataDir, deps.Laws, s.scmService, deps.Merge)
 		s.merges.evals, s.merges.clocked = deps.EvalGate, s.clocked
 	}
-	var assertions MergeObserver
+	var assertions mergeObserver
 	var checks advanceChecks
 	if s.merges != nil {
 		checks = s.merges
@@ -205,28 +205,28 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	}
 	s.assertions = NewAssertions(db, assertions)
 	s.assertions.clocked = s.clocked
-	s.advancer = newAdvancer(db, advanceRuntime{Stages: s.stages, Assertions: s.assertions, Checks: checks, Completion: deps.Completion, Carry: s.answerFromAcceptance, EndNothing: s.endNothingToChange, clocked: s.clocked})
+	s.advancer = newAdvancer(db, advanceRuntime{stages: s.stages, assertions: s.assertions, checks: checks, completion: deps.Completion, carry: s.answerFromAcceptance, endNothing: s.endNothingToChange, clocked: s.clocked})
 	s.starter = newStarter(db, s.stages, deps.Chats, startRuntime{
-		Source: s.runAdmissions.Source,
-		Supersede: func(ctx context.Context, failed RunRef, next string) error {
-			_, err := s.abandonments.SupersedeFailedLanding(ctx, failed, next)
+		source: s.runAdmissions.Source,
+		supersede: func(ctx context.Context, failed RunRef, next string) error {
+			_, err := s.abandonments.supersedeFailedLanding(ctx, failed, next)
 			return err
 		},
-		Missing:   s.runAdmissions.MissingArtifact,
-		NoModel:   deps.ModelRefusal,
-		Resolve:   deps.Resolve,
-		Assent:    s.requireLanding,
-		LandingBy: s.landingBy,
-		AcceptedEvalAuthority: func(ctx context.Context, req StartRequest) (string, error) {
+		missing:   s.runAdmissions.MissingArtifact,
+		noModel:   deps.ModelRefusal,
+		resolve:   deps.Resolve,
+		assent:    s.requireLanding,
+		landingBy: s.landingBy,
+		acceptedEvalAuthority: func(ctx context.Context, req StartRequest) (string, error) {
 			return acceptedEvalAuthorityIn(ctx, db, req)
 		},
-		Prepare: func(ctx context.Context, run *Run) error {
-			if err := s.workspaces.PrepareRun(ctx, RunRef{ID: run.ID, ProjectID: run.ProjectID}); err != nil {
+		prepare: func(ctx context.Context, run *Run) error {
+			if err := s.workspaces.prepareRun(ctx, RunRef{ID: run.ID, ProjectID: run.ProjectID}); err != nil {
 				return err
 			}
 			return s.pins.pinPrepared(ctx, run)
 		},
-		Dispatch: func(ctx context.Context, run *Run) error {
+		dispatch: func(ctx context.Context, run *Run) error {
 			return s.DispatchStarted(run.ID)
 		},
 	}, s.clocked)
@@ -246,6 +246,6 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 			}
 		}
 	}
-	s.dispatcher = newDispatcher(db, dispatcherConfig{Life: life, Runners: runners, Recoverers: recoverers, Stages: dispatchStages{s}, Report: deps.Report, Now: s.clocked.clock, Hold: deps.Hold})
+	s.dispatcher = newDispatcher(db, dispatcherConfig{life: life, runners: runners, recoverers: recoverers, stages: dispatchStages{s}, report: deps.Report, now: s.clocked.clock, hold: deps.Hold})
 	return s
 }

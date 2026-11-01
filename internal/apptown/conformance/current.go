@@ -13,7 +13,7 @@ func currentConformanceView(ctx context.Context, f *currentConformanceFacts, hea
 	latest := map[CheckIdentity]Verdict{}
 	recordedProjects := map[ids.ID]bool{}
 	for _, v := range f.Verdicts {
-		latest[v.Identity()] = v
+		latest[v.identity()] = v
 		recordedProjects[v.ProjectID] = true
 	}
 	observations := []Observation{}
@@ -40,12 +40,12 @@ func currentConformanceView(ctx context.Context, f *currentConformanceFacts, hea
 			key := CheckKey(c.Block, c.Version, c.Check.Name)
 			d, ok := view.CheckDefs[key]
 			if !ok {
-				d = DefinitionOf(c.Block, c.Version, c.Check)
+				d = definitionOf(c.Block, c.Version, c.Check)
 			}
 			d.Adopters = append(d.Adopters, p.Slug)
 			view.CheckDefs[key] = d
 			ref := CheckRef{ProjectID: p.ID, ProjectSlug: p.Slug, Block: c.Block, Version: c.Version, Check: c.Check.Name}
-			v, exists := latest[ref.Identity()]
+			v, exists := latest[ref.identity()]
 			if !exists {
 				observations = append(observations, Unassessed(ref))
 				continue
@@ -54,23 +54,23 @@ func currentConformanceView(ctx context.Context, f *currentConformanceFacts, hea
 			if json.Unmarshal([]byte(v.ExceptedBy), &exception) != nil {
 				exception = DispositionRef{}
 			}
-			observed := Observe(v, CurrentContext{Check: ref, HeadSHA: source.SHA, SourceUnavailable: source.Unavailable, ExceptionActive: active[exception.ID]})
+			observed := observe(v, currentContext{Check: ref, HeadSHA: source.SHA, SourceUnavailable: source.Unavailable, ExceptionActive: active[exception.ID]})
 			observations = append(observations, observed)
-			if LaneOf(observed, f.Adjudications) == LaneFlagged {
+			if LaneOf(observed, f.Adjudications) == laneFlagged {
 				if prior, ok := f.PriorConfirmations[v.ID]; ok {
 					view.PriorConfirmations[v.ID] = prior
 				}
 			}
 		}
 	}
-	view.ByProject = GroupByProject(observations)
-	view.ByCheck = GroupByCheck(observations)
+	view.ByProject = groupByProject(observations)
+	view.ByCheck = groupByCheck(observations)
 	for _, p := range f.Projects {
 		standing := SummarizeProject(p.ID, p.Slug, view.ByProject[p.Slug], view.Adjudications)
 		standing.Name = displayName(p.Name, p.Slug)
 		view.Projects = append(view.Projects, standing)
 	}
-	SortProjects(view.Projects)
-	view.Summary = SummarizeFleet(view.Projects, len(view.ByCheck))
+	sortProjects(view.Projects)
+	view.Summary = summarizeFleet(view.Projects, len(view.ByCheck))
 	return view, nil
 }

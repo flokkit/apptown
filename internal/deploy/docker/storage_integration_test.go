@@ -31,7 +31,7 @@ func TestIntegrationBoundDatabaseSurvivesContainerLoss(t *testing.T) {
 		}
 	})
 	m := &bindingMemory{}
-	own := Ownership{Storage: m, Needs: map[string]string{svc.Name: "/var/lib/postgresql/data"}}
+	own := Ownership{storage: m, Needs: map[string]string{svc.Name: "/var/lib/postgresql/data"}}
 	boot := func() {
 		t.Helper()
 		if _, err := EnsureStandingServices(t.Context(), dk, stack, []deploy.ServiceSpec{svc}, "production", own); err != nil {

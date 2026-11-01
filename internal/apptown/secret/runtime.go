@@ -32,8 +32,8 @@ import (
 // STEP_ are injected into step environments, with the prefix stripped
 // (STEP_FOO=bar → FOO=bar in the container).
 
-func infisicalConfig(file map[string]string) InfisicalConfig {
-	return InfisicalConfig{URL: file["INFISICAL_URL"], ClientID: file["INFISICAL_CLIENT_ID"], ClientSecret: file["INFISICAL_CLIENT_SECRET"], ProjectID: file["INFISICAL_PROJECT_ID"], Environment: file["INFISICAL_ENV"], Path: file["INFISICAL_PATH"]}
+func infisicalConfig(file map[string]string) infisicalSettings {
+	return infisicalSettings{URL: file["INFISICAL_URL"], ClientID: file["INFISICAL_CLIENT_ID"], ClientSecret: file["INFISICAL_CLIENT_SECRET"], ProjectID: file["INFISICAL_PROJECT_ID"], Environment: file["INFISICAL_ENV"], Path: file["INFISICAL_PATH"]}
 }
 
 // readFileSecrets reads the bootstrap file: no file is an empty map, any
@@ -73,7 +73,7 @@ func (a *Service) WithContext(ctx context.Context) (map[string]string, error) {
 		return nil, err
 	}
 	out := map[string]string{}
-	if cfg := infisicalConfig(file); cfg.Configured() {
+	if cfg := infisicalConfig(file); cfg.configured() {
 		remote, err := a.infisicalFetch(ctx, cfg)
 		if err != nil {
 			if ctx.Err() != nil {
@@ -109,15 +109,15 @@ func (a *Service) StepEnv(ctx context.Context) ([]string, error) {
 
 // infisicalFetch adapts the resolver's health transitions to existing
 // best-effort receipts. No receipt or network I/O holds the resolver mutex.
-func (a *Service) infisicalFetch(ctx context.Context, cfg InfisicalConfig) (map[string]string, error) {
-	result, err := a.infisical.Resolve(ctx, cfg, a.client)
+func (a *Service) infisicalFetch(ctx context.Context, cfg infisicalSettings) (map[string]string, error) {
+	result, err := a.infisical.resolve(ctx, cfg, a.client)
 	kind, subject := "", ""
 	var payload any
 	switch result.Transition {
-	case RefreshFailed:
+	case refreshFailed:
 		kind, subject = "infisical.error", "secrets fetch failing"
 		payload = map[string]string{"error": err.Error()}
-	case RefreshRecovered:
+	case refreshRecovered:
 		kind, subject = "infisical.recovered", "secrets fetch recovered"
 	}
 	if kind != "" && a.Vault.db != nil {
@@ -158,7 +158,7 @@ func (a *Service) ExternalStore() (url, project string, err error) {
 		return "", "", err
 	}
 	c := infisicalConfig(file)
-	if !c.Configured() {
+	if !c.configured() {
 		return "", "", nil
 	}
 	return c.URL, c.ProjectID, nil

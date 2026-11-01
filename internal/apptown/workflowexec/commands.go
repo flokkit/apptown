@@ -16,9 +16,9 @@ import (
 const ScriptKind = "script"
 const TestsKind = "tests"
 
-// Commands executes script and test steps. It shares Workflow's execution
+// commands executes script and test steps. It shares Workflow's execution
 // contract with agent work but requires no model, identity or harness service.
-type Commands struct {
+type commands struct {
 	db        *database.DB
 	cfg       CommandConfig
 	runner    execution.Runner
@@ -34,7 +34,7 @@ type Commands struct {
 }
 
 // now reads AppTown's clock.
-func (a *Commands) now() time.Time { return clock.Or(a.clock)() }
+func (a *commands) now() time.Time { return clock.Or(a.clock)() }
 
 type CommandConfig struct {
 	DataDir, Image string
@@ -61,8 +61,8 @@ type CommandDependencies struct {
 	Now func() time.Time
 }
 
-func NewCommands(db *database.DB, deps CommandDependencies, cfg CommandConfig) *Commands {
-	c := &Commands{db: db, cfg: cfg, runner: deps.Runner, progress: deps.Progress, publisher: deps.Publisher, branches: deps.Branches, tasks: deps.Tasks, panics: deps.Panics, docker: deps.Docker, checks: deps.Checks, catalog: deps.Catalog, clock: deps.Now}
+func NewCommands(db *database.DB, deps CommandDependencies, cfg CommandConfig) *commands {
+	c := &commands{db: db, cfg: cfg, runner: deps.Runner, progress: deps.Progress, publisher: deps.Publisher, branches: deps.Branches, tasks: deps.Tasks, panics: deps.Panics, docker: deps.Docker, checks: deps.Checks, catalog: deps.Catalog, clock: deps.Now}
 	if deps.Tasks != nil {
 		deps.Tasks.commands = c
 	}

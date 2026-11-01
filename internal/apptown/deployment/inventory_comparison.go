@@ -1,10 +1,11 @@
 package deployment
 
 import (
-	"github.com/flokkit/apptown/internal/deploy"
-	"github.com/flokkit/apptown/internal/deploy/docker"
 	"slices"
 	"time"
+
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
 // InventoryAnswer lays a cached provider answer over the records. latest says

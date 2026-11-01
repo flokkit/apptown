@@ -19,28 +19,28 @@ const (
 	AdoptionCreate AdoptionKind = iota + 1
 	AdoptionEdit
 	AdoptionAdopt
-	AdoptionTarget
-	AdoptionLegacySnapshot
+	adoptionTarget
+	adoptionLegacySnapshot
 )
 
 // adoptionKindCodec spells each AdoptionKind in storage and JSON.
 var adoptionKindCodec = enum.Set[AdoptionKind]{
 	Names:     []string{"create", "edit", "adopt", "target", "legacy-snapshot"},
 	Invalid:   "invalid-adoption-kind",
-	Err:       ErrAdoptionKind,
+	Err:       errAdoptionKind,
 	ScanLabel: "value",
 }
 
-var ErrAdoptionKind = errors.New("invalid adoption kind")
+var errAdoptionKind = errors.New("invalid adoption kind")
 
 func (k AdoptionKind) String() string { return adoptionKindCodec.String(k) }
 
-// Standing reports whether a revision of this kind is one a project stands
+// standing reports whether a revision of this kind is one a project stands
 // on: every kind but a target, which is what an uplift aims at until the
 // project adopts it.
-func (k AdoptionKind) Standing() bool { return k != AdoptionTarget && k.valid() }
+func (k AdoptionKind) standing() bool { return k != adoptionTarget && k.valid() }
 
-func (k AdoptionKind) valid() bool { return k >= AdoptionCreate && k <= AdoptionLegacySnapshot }
+func (k AdoptionKind) valid() bool { return k >= AdoptionCreate && k <= adoptionLegacySnapshot }
 
 func ParseAdoptionKind(text string) (AdoptionKind, error) { return adoptionKindCodec.Parse(text) }
 

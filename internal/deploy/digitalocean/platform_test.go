@@ -25,15 +25,15 @@ func TestDriverWords(t *testing.T) {
 	if redactToken("plain", "") != "plain" {
 		t.Fatal("an empty token redacts nothing")
 	}
-	var err error = &APIError{Status: 404, ID: "not_found", Msg: "no such app"}
-	if !IsStatus(err, 404) || IsStatus(err, 500) || IsStatus(errors.New("other"), 404) {
+	var err error = &apiError{Status: 404, ID: "not_found", Msg: "no such app"}
+	if !isStatus(err, 404) || isStatus(err, 500) || isStatus(errors.New("other"), 404) {
 		t.Fatal("status off the provider's error")
 	}
 	if !strings.Contains(err.Error(), "404") || !strings.Contains(err.Error(), "no such app") {
 		t.Fatalf("the error keeps the provider's words: %v", err)
 	}
 	wrapped := fmt.Errorf("listing: %w", err)
-	if !IsStatus(wrapped, 404) {
+	if !isStatus(wrapped, 404) {
 		t.Fatal("a wrapped provider error still answers its status")
 	}
 }

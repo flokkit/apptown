@@ -24,7 +24,7 @@ func (s VerificationScope) Current(ctx context.Context) (bool, error) {
 		return false, access.ErrAuthorityUnavailable
 	}
 	current, err := readItem(ctx, s.db, s.item.ID)
-	return err == nil && current.ProjectID == s.item.ProjectID && current.State == ItemVerifying && sameObservation(current, s.item), err
+	return err == nil && current.ProjectID == s.item.ProjectID && current.State == itemVerifying && sameObservation(current, s.item), err
 }
 func (s VerificationScope) RequireRead(ctx context.Context) error {
 	if s.db == nil {

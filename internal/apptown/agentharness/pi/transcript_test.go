@@ -41,7 +41,7 @@ func TestCheckTranscriptNamesWhyATranscriptCannotBeKept(t *testing.T) {
 	}{
 		"kept":          {[]byte(header("s") + turn), ""},
 		"empty":         {nil, "empty"},
-		"too large":     {append([]byte(header("s")), bytes.Repeat([]byte("x"), MaxTranscriptBytes)...), "larger than"},
+		"too large":     {append([]byte(header("s")), bytes.Repeat([]byte("x"), maxTranscriptBytes)...), "larger than"},
 		"no header":     {[]byte(turn + header("s")), "does not start with Pi's session header"},
 		"not JSON":      {[]byte("hello\n" + turn), "does not start with Pi's session header"},
 		"wrong session": {[]byte(header("other") + turn), `names session "other", not "s"`},

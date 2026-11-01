@@ -27,15 +27,15 @@ func (s *Service) PrepareRecovery(ctx context.Context) (int, error) {
 	return report.Queued, nil
 }
 
-// Recover observes one interrupted attempt and settles it: active, failed,
+// recover observes one interrupted attempt and settles it: active, failed,
 // or honestly uncertain.
-func (s *Service) Recover(ctx context.Context, attemptID ids.ID) (RecoveryResult, error) {
+func (s *Service) recover(ctx context.Context, attemptID ids.ID) (RecoveryResult, error) {
 	return s.Recoverer().Run(ctx, attemptID)
 }
 
 // Recoverer is the package's recoverer over its own stores and drivers.
-func (s *Service) Recoverer() Recoverer {
-	return Recoverer{
+func (s *Service) Recoverer() recoverer {
+	return recoverer{
 		Store:    s.Outcomes,
 		Source:   s.recoverySource(),
 		Reporter: recoveryReporter{log: s.log, applied: s.applied},
@@ -48,22 +48,22 @@ type recoverySource struct {
 	driver  func(context.Context, *Deployment) (deploy.Driver, error)
 }
 
-func (s recoverySource) LoadAttempt(ctx context.Context, id ids.ID) (Snapshot, error) {
+func (s recoverySource) LoadAttempt(ctx context.Context, id ids.ID) (snapshot, error) {
 	at, status, checkpoint, err := s.store.RecoveryAttempt(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		err = ErrAttemptAbsent
+		err = errAttemptAbsent
 	}
-	return Snapshot{Attempt: at, Status: status, Checkpoint: checkpoint}, err
+	return snapshot{Attempt: at, Status: status, Checkpoint: checkpoint}, err
 }
 
-func (s recoverySource) PrepareObservation(ctx context.Context, at Attempt) (RecoveryTarget, error) {
-	var target RecoveryTarget
+func (s recoverySource) PrepareObservation(ctx context.Context, at Attempt) (recoveryTarget, error) {
+	var target recoveryTarget
 	inputs, err := s.store.InputsFor(ctx, at)
 	if err != nil {
 		return target, fmt.Errorf("reading admitted deployment inputs: %w", err)
 	}
 	target.ReleaseID = inputs.ReleaseID
-	dep, err := s.store.DeploymentByID(ctx, at.DeploymentID)
+	dep, err := s.store.deploymentByID(ctx, at.DeploymentID)
 	if err != nil {
 		return target, fmt.Errorf("reading deployment: %w", err)
 	}
@@ -115,7 +115,7 @@ func (r recoveryReporter) Applied(targetID ids.ID) {
 	}
 }
 
-func (s *Service) recoverySource() RecoverySource {
+func (s *Service) recoverySource() recoveryReader {
 	return recoverySource{store: s.Outcomes, allowed: s.requireRecoveryReadiness, driver: func(ctx context.Context, dep *Deployment) (deploy.Driver, error) {
 		target, err := s.Targets.ByID(ctx, dep.TargetID)
 		if err != nil {

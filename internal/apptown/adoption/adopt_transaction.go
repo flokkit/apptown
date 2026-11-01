@@ -17,19 +17,19 @@ import (
 
 // adoptIn joins the caller's transaction. Work's completion marker remains the
 // facade's participant; all adoption selections and receipts settle here.
-func adoptIn(ctx context.Context, tx *database.Tx, current *Adoption, candidate Candidate, expected int64, who, reason string, attached func([]string) error, reviews ReviewRequests, at time.Time) (*Adoption, error) {
+func adoptIn(ctx context.Context, tx *database.Tx, current *Adoption, candidate Candidate, expected int64, who, reason string, attached func([]string) error, reviews reviewRequester, at time.Time) (*Adoption, error) {
 	projectID := current.ProjectID
 	capabilities, err := requiredCapabilitiesIn(ctx, tx, candidate)
 	if err != nil {
 		return nil, err
 	}
 	candidate.RequiredCapabilities = capabilities
-	plan, err := current.Prepare(candidate, attached)
+	plan, err := current.prepare(candidate, attached)
 	if err != nil {
 		return nil, err
 	}
 	plan.reason = reason
-	next, event, err := current.Advance(plan, expected)
+	next, event, err := current.advance(plan, expected)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func adoptIn(ctx context.Context, tx *database.Tx, current *Adoption, candidate 
 			lanes = append(lanes, workflow.Name)
 		}
 	}
-	if err := SelectOnlyIn(ctx, tx, projectID, lanes, at); err != nil {
+	if err := selectOnlyIn(ctx, tx, projectID, lanes, at); err != nil {
 		return nil, err
 	}
 	if err := SetMembershipIn(ctx, tx, projectID, plan.memberships, reason, who, at); err != nil {
@@ -86,7 +86,7 @@ func adoptIn(ctx context.Context, tx *database.Tx, current *Adoption, candidate 
 // recorded revision changes which checks the project answers to, so it
 // requests that project's review in the same transaction (reviews nil:
 // creation, which requests none); a failed request fails the revision.
-func saveAdvanceIn(ctx context.Context, tx *database.Tx, expected int64, next *Adoption, plan Plan, event Event, who string, at time.Time, reviews ReviewRequests) error {
+func saveAdvanceIn(ctx context.Context, tx *database.Tx, expected int64, next *Adoption, plan adoptionPlan, event event, who string, at time.Time, reviews reviewRequester) error {
 	q := adoptionsql.New(tx.SQL())
 	if event.Recorded {
 		receipt, err := strs.JSON(plan.receipt)
@@ -128,10 +128,10 @@ func saveAdvanceIn(ctx context.Context, tx *database.Tx, expected int64, next *A
 	return nil
 }
 
-// ReviewRequests admits a review of the project whose revision a
+// reviewRequester admits a review of the project whose revision a
 // transaction just recorded, inside that transaction, so the revision and
 // the request commit together or not at all.
-type ReviewRequests interface {
+type reviewRequester interface {
 	RequestIn(ctx context.Context, tx *database.Tx, r Recorded) error
 }
 
@@ -145,7 +145,6 @@ type Recorded struct {
 }
 
 func (r Recorded) ProjectID() ids.ID { return r.projectID }
-func (r Recorded) Revision() int64   { return r.revision }
 
 // Current reads the project's current revision in the recording
 // transaction. A zero Recorded (not built by this owner) is never current.

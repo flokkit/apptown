@@ -70,7 +70,7 @@ func partList(names []string) string {
 // contractJudged is the contract a memory-declared probe judges: the tree a
 // gate or a what-if checks, else the commit a review or a baseline names
 // (deployed or not). What cannot be read is a reason.
-func (o Runtime) contractJudged(ctx context.Context, t Target) (*appcontract.Contract, string) {
+func (o Runtime) contractJudged(ctx context.Context, t guidanceTarget) (*appcontract.Contract, string) {
 	var c *appcontract.Contract
 	var err error
 	switch {
@@ -97,7 +97,7 @@ func (o Runtime) contractJudged(ctx context.Context, t Target) (*appcontract.Con
 }
 
 // memoryDeclared judges the contract a target names.
-func (o Runtime) memoryDeclared(ctx context.Context, t Target) check.ProbeVerdict {
+func (o Runtime) memoryDeclared(ctx context.Context, t guidanceTarget) check.ProbeVerdict {
 	c, why := o.contractJudged(ctx, t)
 	if why != "" {
 		return check.ProbeVerdict{Outcome: check.CannotAssess, Detail: why}
@@ -111,7 +111,7 @@ func (o Runtime) memoryDeclared(ctx context.Context, t Target) check.ProbeVerdic
 // contract (which parts are static sites) is the one that runs. A part with
 // no limit is a finding; a deployment mid-change, or what the owner cannot
 // observe, is unknown, never within.
-func (o Runtime) memoryWithin(ctx context.Context, t Target, share int) check.ProbeVerdict {
+func (o Runtime) memoryWithin(ctx context.Context, t guidanceTarget, share int) check.ProbeVerdict {
 	if t.Deployment == nil {
 		return check.ProbeVerdict{Outcome: check.CannotAssess, Detail: "judged on a standing deployment; there is none here"}
 	}

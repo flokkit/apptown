@@ -48,7 +48,7 @@ func TestACrashLoopNoteNamesTheReleasedGeneration(t *testing.T) {
 			}
 			s := &Service{db: f.db}
 			// The slug is deliberately not resolvable: attribution uses captured IDs.
-			w := docker.Watched{Slug: "a-name-that-is-not-the-project", Name: dep.Name, ProjectID: dep.ProjectID, DeploymentID: dep.ID, Identity: deploy.DockerIdentity{Deployment: dep.Label(), Generation: at.Generation}}
+			w := docker.Watched{Slug: "a-name-that-is-not-the-project", Name: dep.Name, ProjectID: dep.ProjectID, DeploymentID: dep.ID, Identity: deploy.DockerIdentity{Deployment: dep.label(), Generation: at.Generation}}
 			s.recordHealth(t.Context(), w, "deployment.crash-loop-held", map[string]any{"container": "first", "containerId": "exact-container", "restarts": 5, "window": "10m0s", "ok": !failed, "detail": "daemon answer unavailable"})
 			events, err := releases.Events(t.Context(), releaseID)
 			if err != nil {

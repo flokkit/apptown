@@ -73,10 +73,10 @@ func receipts(t *testing.T, store landings, runID ids.ID, kind string) []map[str
 
 func carryingAdvancer(store landings) *advancer {
 	return newAdvancer(store.db, advanceRuntime{
-		Stages:     NewStages(nil, func(string) bool { return false }),
-		Checks:     advancementScopeChecks{refresh: func(context.Context, *Run) error { return nil }},
-		Completion: completionRecorderFunc(noCompletionEffects),
-		Carry:      store.carry,
+		stages:     NewStages(nil, func(string) bool { return false }),
+		checks:     advancementScopeChecks{refresh: func(context.Context, *Run) error { return nil }},
+		completion: completionRecorderFunc(noCompletionEffects),
+		carry:      store.carry,
 	})
 }
 
@@ -116,7 +116,7 @@ func TestAcceptanceCarriesIntoALaterApprovalStage(t *testing.T) {
 	if _, err := store.apply(context.Background(), work.ID, landing.ID); err != nil {
 		t.Fatal(err)
 	}
-	res, err := carryingAdvancer(store).Advance(context.Background(), landing.ID, "system")
+	res, err := carryingAdvancer(store).advance(context.Background(), landing.ID, "system")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestAcceptanceWithheldFromALaterStageLeavesItWaiting(t *testing.T) {
 	if _, err := store.apply(context.Background(), work.ID, landing.ID); err != nil {
 		t.Fatal(err)
 	}
-	res, err := carryingAdvancer(store).Advance(context.Background(), landing.ID, "system")
+	res, err := carryingAdvancer(store).advance(context.Background(), landing.ID, "system")
 	if err != nil {
 		t.Fatal(err)
 	}

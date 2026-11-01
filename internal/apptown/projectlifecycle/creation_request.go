@@ -114,7 +114,7 @@ func (s *Service) createRequested(ctx context.Context, in Draft) (*project.Proje
 		if err != nil {
 			return err
 		}
-		releaseNames, err = s.ReserveNames(chosen)
+		releaseNames, err = s.reserveNames(chosen)
 		if err != nil {
 			return err
 		}
@@ -161,7 +161,7 @@ func claimCreationAddress(ctx context.Context, tx *database.Tx, id ids.ID, propo
 
 func normalizeCreation(in Draft) (Draft, error) {
 	if !project.ValidSlug(in.Slug) {
-		return Draft{}, ErrInvalidSlug
+		return Draft{}, errInvalidSlug
 	}
 	in.Group = strings.TrimSpace(in.Group)
 	if in.Setup == nil {

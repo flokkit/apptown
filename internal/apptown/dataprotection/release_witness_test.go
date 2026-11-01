@@ -54,8 +54,8 @@ const (
 	madeThen = "2026-09-08T03:53:13Z"
 )
 
-func witnessed(d afterDaemon, synthetic bool, before map[string]int64) *ReleaseWitness {
-	return &ReleaseWitness{synthetic: synthetic, dk: docker.Scope{Client: d.client()}, needs: []needFacts{{
+func witnessed(d afterDaemon, synthetic bool, before map[string]int64) *releaseWitness {
+	return &releaseWitness{synthetic: synthetic, dk: docker.Scope{Client: d.client()}, needs: []needFacts{{
 		need: "postgres", container: "apptown-svc-env-shop-main-postgres", path: pgData, measure: "measure",
 		mount: docker.DataMount{Volume: pgVolume, Found: true}, created: madeThen, measures: before,
 	}}}

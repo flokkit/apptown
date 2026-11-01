@@ -10,14 +10,14 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
 
-// Queue is one snapshot of what may be offered: free workers and, per
+// remediationQueue is one snapshot of what may be offered: free workers and, per
 // running job, its own free capacity and its eligible items.
-type Queue struct {
+type remediationQueue struct {
 	Free int
-	Jobs []QueueJob
+	Jobs []queueJob
 }
 
-type QueueJob struct {
+type queueJob struct {
 	ID    ids.ID
 	Free  int
 	Items []Item
@@ -26,18 +26,18 @@ type QueueJob struct {
 // Scheduling chooses which items to offer for admission. The attempt store
 // remains the authority on capacity and ownership when each attempt commits.
 // A queue snapshot is consumed once, so rejected candidates cannot spin.
-type Scheduler struct {
-	queue   func(context.Context) (Queue, error)
+type scheduler struct {
+	queue   func(context.Context) (remediationQueue, error)
 	cooling func() bool
 	busy    func(context.Context, ids.ID) bool
 	start   func(context.Context, Item) (*workflow.Run, error)
 }
 
-func NewScheduler(queue func(context.Context) (Queue, error), cooling func() bool, busy func(context.Context, ids.ID) bool, start func(context.Context, Item) (*workflow.Run, error)) Scheduler {
-	return Scheduler{queue: queue, cooling: cooling, busy: busy, start: start}
+func newScheduler(queue func(context.Context) (remediationQueue, error), cooling func() bool, busy func(context.Context, ids.ID) bool, start func(context.Context, Item) (*workflow.Run, error)) scheduler {
+	return scheduler{queue: queue, cooling: cooling, busy: busy, start: start}
 }
 
-func (s Scheduler) Fill(ctx context.Context) error {
+func (s scheduler) fill(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}

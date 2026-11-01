@@ -12,9 +12,9 @@ import (
 
 var ErrCompletionTask = errors.New("invalid completion task")
 
-// CompletionTask is a current observation for one already-admitted follow-up.
+// completionTask is a current observation for one already-admitted follow-up.
 // It grants no replay of an external effect and holds no SQL connection.
-type CompletionTask struct {
+type completionTask struct {
 	Run             *Run
 	Effect          CompletionEffect
 	Removed         bool
@@ -22,7 +22,7 @@ type CompletionTask struct {
 }
 
 func parseCompletionEffect(value string) (CompletionEffect, error) {
-	for _, effect := range []CompletionEffect{CompletionCleanup, CompletionAdopt, CompletionLand, CompletionParent} {
+	for _, effect := range []CompletionEffect{CompletionCleanup, CompletionAdopt, CompletionLand, completionParent} {
 		if effect.String() == value {
 			return effect, nil
 		}
@@ -32,8 +32,8 @@ func parseCompletionEffect(value string) (CompletionEffect, error) {
 
 // FollowUp validates a completed run's durable task and handles Work-owned parent
 // advancement. The caller composes the remaining effects with their domain owners.
-func (s *Service) FollowUp(ctx context.Context, key string) (CompletionTask, error) {
-	var out CompletionTask
+func (s *Service) FollowUp(ctx context.Context, key string) (completionTask, error) {
+	var out completionTask
 	if _, err := s.require(ctx, operationPermission{Action: actionIdentify}); err != nil {
 		return out, err
 	}
@@ -51,7 +51,7 @@ func (s *Service) FollowUp(ctx context.Context, key string) (CompletionTask, err
 	}
 	run, err := readRun(ctx, s.db, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		return CompletionTask{Removed: true}, nil
+		return completionTask{Removed: true}, nil
 	}
 	if err != nil {
 		return out, err
@@ -72,22 +72,22 @@ func (s *Service) FollowUp(ctx context.Context, key string) (CompletionTask, err
 	if run.Status != RunDone {
 		return out, fmt.Errorf("%w: run %d is %s, not completed", ErrCompletionTask, id, run.Status)
 	}
-	out = CompletionTask{Run: run, Effect: selected}
+	out = completionTask{Run: run, Effect: selected}
 	switch selected {
-	case CompletionParent:
+	case completionParent:
 		parent, err := (advanceStore{db: s.db}).completedParent(ctx, run)
 		if err != nil {
-			return CompletionTask{}, err
+			return completionTask{}, err
 		}
 		if parent != nil {
 			if _, err := s.AdvanceFrom(ctx, parent); err != nil {
-				return CompletionTask{}, err
+				return completionTask{}, err
 			}
 		}
 	case CompletionCleanup:
 		spec, err := run.Definition()
 		if err != nil {
-			return CompletionTask{}, err
+			return completionTask{}, err
 		}
 		if run.ParentRunID.IsZero() && !run.ChangeID.IsZero() && spec.Role != "working" {
 			out.PreviewChangeID = run.ChangeID

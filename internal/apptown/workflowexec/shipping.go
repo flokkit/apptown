@@ -30,9 +30,9 @@ const PreviewKind = "preview"
 // deployment owner, never applied again by a resumed step.
 func NotContinued() []string { return []string{DeployKind} }
 
-// Shipping adapts deployment effects into workflow evidence and settlement.
+// shipping adapts deployment effects into workflow evidence and settlement.
 // Deployment still owns release admission, generation guards and providers.
-type Shipping struct {
+type shipping struct {
 	db         *database.DB
 	deployment *deployment.Service
 	previews   *preview.Service
@@ -42,9 +42,9 @@ type Shipping struct {
 	backups    interface{ AfterRelease(ids.ID, string) }
 	// releaseData copies and witnesses a deployment's data around a
 	// landing's release; nil takes no copy and witnesses nothing.
-	releaseData ReleaseData
+	releaseData releaseData
 	builds      *ReleaseBuilds
-	shots       Screenshotter
+	shots       screenshotter
 	cfg         ShippingConfig
 	clock       func() time.Time // AppTown's clock; nil is the real one
 }
@@ -64,7 +64,7 @@ type ShippingDependencies struct {
 	Backups  interface{ AfterRelease(ids.ID, string) }
 	// ReleaseData copies a deployment's data before a landing releases
 	// onto it and witnesses it afterwards (dataprotection.BeforeRelease).
-	ReleaseData ReleaseData
+	ReleaseData releaseData
 	// Builds, on an AppTown with a worker, is where its releases are built;
 	// nil builds each on its target (docker.PrepareImages), as before.
 	Builds *ReleaseBuilds
@@ -74,12 +74,12 @@ type ShippingDependencies struct {
 	// Screenshots pictures a run's preview once its boot passes
 	// (verification.Screenshots); nil takes none, and the boot's evidence
 	// says so.
-	Screenshots Screenshotter
+	Screenshots screenshotter
 }
 
-// ReleaseData is data protection's part in a landing's release: a copy
+// releaseData is data protection's part in a landing's release: a copy
 // before it, and a witness of each need's data after it.
-type ReleaseData interface {
+type releaseData interface {
 	BeforeRelease(ctx context.Context, projectID ids.ID, deployment string, synthetic bool) (ReleaseWitness, error)
 }
 
@@ -92,8 +92,8 @@ type ReleaseWitness interface {
 	After(ctx context.Context, declared []string) (problems, notes []string)
 }
 
-// Screenshotter takes AppTown's pictures of a preview's pages.
-type Screenshotter interface {
+// screenshotter takes AppTown's pictures of a preview's pages.
+type screenshotter interface {
 	Take(ctx context.Context, base string, pages []string) verification.Capture
 }
 
@@ -104,10 +104,10 @@ type CompileCheck struct {
 	Image string
 }
 
-func NewShipping(db *database.DB, d ShippingDependencies, cfg ShippingConfig) *Shipping {
-	return &Shipping{db: db, deployment: d.Deployment, previews: d.Previews, docker: d.Docker, checks: d.Checks, progress: d.Progress, backups: d.Backups, releaseData: d.ReleaseData, builds: d.Builds, shots: d.Screenshots, cfg: cfg, clock: d.Now}
+func NewShipping(db *database.DB, d ShippingDependencies, cfg ShippingConfig) *shipping {
+	return &shipping{db: db, deployment: d.Deployment, previews: d.Previews, docker: d.Docker, checks: d.Checks, progress: d.Progress, backups: d.Backups, releaseData: d.ReleaseData, builds: d.Builds, shots: d.Screenshots, cfg: cfg, clock: d.Now}
 }
-func (a *Shipping) projectSlugOf(ctx context.Context, id ids.ID) string {
+func (a *shipping) projectSlugOf(ctx context.Context, id ids.ID) string {
 	p, _ := project.ByIDIn(ctx, a.db, id)
 	return p.Slug
 }
@@ -124,4 +124,4 @@ func recordArtifact(ctx context.Context, db database.Queryer, runID ids.ID, kind
 }
 
 // now reads AppTown's clock.
-func (a *Shipping) now() time.Time { return clock.Or(a.clock)() }
+func (a *shipping) now() time.Time { return clock.Or(a.clock)() }

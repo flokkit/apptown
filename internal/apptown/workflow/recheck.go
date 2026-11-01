@@ -80,7 +80,7 @@ type recheckReceipt struct {
 }
 
 func recheckStepIn(ctx context.Context, tx *database.Tx, step *Step) error {
-	if _, err := step.Status.Transition(MoveStepReset, StatusPending); err != nil {
+	if _, err := step.Status.transition(moveStepReset, StatusPending); err != nil {
 		return err
 	}
 	return requireAttemptWrite(workflowsql.New(tx.SQL()).RecheckStep(ctx, workflowsql.RecheckStepParams{ID: step.ID, Attempt: step.Attempt}))

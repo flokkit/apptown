@@ -21,7 +21,7 @@ func (f scopeClientFunc) Run(ctx context.Context, host string, req docker.Comman
 
 func TestDockerScopesStayIndependent(t *testing.T) {
 	t.Parallel()
-	daemons := map[string]*dockerfake.Daemon{"": dockerfake.New(), "ssh://one": dockerfake.New(), "ssh://two": dockerfake.New()}
+	daemons := map[string]*dockerfake.Daemon{"": newDockerFake(), "ssh://one": newDockerFake(), "ssh://two": newDockerFake()}
 	client := scopeClientFunc(func(ctx context.Context, host string, req docker.Command) ([]byte, error) {
 		f, ok := daemons[host]
 		if !ok {
@@ -79,7 +79,7 @@ func TestDockerScopesStayIndependent(t *testing.T) {
 			if err := dk.ToFile(context.Background(), path, "exec", "db", "dump"); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := dk.FromFile(context.Background(), path, "exec", "-i", "db", "restore"); err != nil {
+			if _, err := docker.ScopeFromFile(dk, context.Background(), path, "exec", "-i", "db", "restore"); err != nil {
 				t.Fatal(err)
 			}
 			dk.ImageDigest(context.Background(), "app:1")

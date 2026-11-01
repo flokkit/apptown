@@ -127,13 +127,13 @@ func NeedSecretsScope(deployment ids.ID) string { return fmt.Sprintf("need:deplo
 // derived for, by the preview's name.
 func PreviewNeedScope(preview string) string { return "need:preview:" + preview }
 
-// NeedCredentials are the generated credentials of the needs a Docker host
+// needCredentials are the generated credentials of the needs a Docker host
 // or Portainer runs for one owner (a deployment, NeedSecretsScope; a
 // preview, PreviewNeedScope; one rehearsal), derived from the built-in
 // store's key (secret.Vault.Derived): the same at every deploy, nothing
 // kept, each owner's its own. Without a store there are none to give, and
 // a need that generates one is refused rather than given the catalogue's.
-func NeedCredentials(vault *secret.Vault, scope string) dependency.Credentials {
+func needCredentials(vault *secret.Vault, scope string) dependency.Credentials {
 	return func(ctx context.Context, capability, name string) (string, error) {
 		if vault == nil {
 			return "", errors.New("this AppTown has no secret store to make it with")

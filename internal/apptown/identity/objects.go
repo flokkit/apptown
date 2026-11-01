@@ -9,16 +9,16 @@ import (
 	"github.com/flokkit/apptown/internal/stamp"
 )
 
-// Followup describes work required by an account change in its transaction.
-type Followup struct{ EndSessions bool }
+// followup describes work required by an account change in its transaction.
+type followup struct{ EndSessions bool }
 
-// SetPassword retains an existing password when no replacement was supplied.
-func (a *Account) SetPassword(hash string) Followup {
+// setPassword retains an existing password when no replacement was supplied.
+func (a *Account) setPassword(hash string) followup {
 	if hash == "" {
-		return Followup{}
+		return followup{}
 	}
 	a.passwordHash, a.HasPassword = hash, true
-	return Followup{EndSessions: true}
+	return followup{EndSessions: true}
 }
 
 // access.Event is the receipt of a value's transition; persistence belongs to Service.
@@ -27,8 +27,8 @@ var (
 	ErrUnknownRefresh  = errors.New("unknown refresh token; connect the agent again")
 	ErrConnectionEnded = errors.New("the connection has ended; connect the agent again")
 	ErrClientMismatch  = errors.New("client mismatch")
-	ErrTicketConsumed  = errors.New("ticket already consumed")
-	ErrTicketRevoked   = errors.New("ticket revoked")
+	errTicketConsumed  = errors.New("ticket already consumed")
+	errTicketRevoked   = errors.New("ticket revoked")
 )
 
 // refreshCredential is the one presented credential, loaded under its row lock.
@@ -39,10 +39,10 @@ type refreshCredential struct {
 	revoked stamp.Time
 }
 
-// Bounds narrows a human identity to this connection's consent. Applying a
+// bounds narrows a human identity to this connection's consent. Applying a
 // second bound intersects scope words and never shares a mutable scope slice.
 // A delegation that has ended by now, AppTown's clock, bounds to nothing.
-func (d Delegation) Bounds(pr access.Principal, now time.Time) access.Principal {
+func (d Delegation) bounds(pr access.Principal, now time.Time) access.Principal {
 	if !d.LiveAt(now) || pr.Kind != "user" || pr.Name != d.User {
 		return access.Principal{}
 	}
@@ -68,10 +68,10 @@ func (d *Delegation) end(now time.Time) {
 	}
 }
 
-// Rotate consumes the selected refresh credential. Reuse takes precedence over
+// rotate consumes the selected refresh credential. Reuse takes precedence over
 // expiry: a spent token still proves a leak after its nominal lifetime. now
 // is AppTown's clock, which judges the token's expiry and stamps its use.
-func (d *Delegation) Rotate(presented string, now time.Time) (Pair, error) {
+func (d *Delegation) rotate(presented string, now time.Time) (Pair, error) {
 	if d.refresh.hash == "" || HashToken(presented) != d.refresh.hash {
 		return Pair{}, ErrUnknownRefresh
 	}
@@ -82,17 +82,17 @@ func (d *Delegation) Rotate(presented string, now time.Time) (Pair, error) {
 		return Pair{}, ErrConnectionEnded
 	}
 	d.refresh.revoked = stamp.Of(now)
-	return Pair{Access: AccessPrefix + RandomHex(24), Refresh: RefreshPrefix + RandomHex(24), Scopes: append([]string(nil), d.Scopes...)}, nil
+	return Pair{Access: AccessPrefix + RandomHex(24), Refresh: refreshPrefix + RandomHex(24), Scopes: append([]string(nil), d.Scopes...)}, nil
 }
 
-// Consume records an admitted push. Expiry is checked at admission (ByToken),
+// consume records an admitted push. Expiry is checked at admission (ByToken),
 // not again when a potentially long-running push finishes.
-func (t *Ticket) Consume(now time.Time) error {
+func (t *Ticket) consume(now time.Time) error {
 	if t.ConsumedAt.Valid {
-		return ErrTicketConsumed
+		return errTicketConsumed
 	}
 	if t.RevokedAt.Valid {
-		return ErrTicketRevoked
+		return errTicketRevoked
 	}
 	t.ConsumedAt = stamp.Of(now)
 	return nil

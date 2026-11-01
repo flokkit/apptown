@@ -84,18 +84,18 @@ func TestWorkflowRetryCompletedSendBack(t *testing.T) {
 		t.Fatal(err)
 	}
 	attempts := newStepAttempts(s.db, func(kind string) bool { return kind == "agent/pi" || kind == "agent/review" })
-	if _, err := attempts.Start(context.Background(), step, "agent/pi"); err == nil {
+	if _, err := attempts.start(context.Background(), step, "agent/pi", ids.Nil); err == nil {
 		t.Fatal("continuation executed before preparation")
 	}
 	prepared := 0
-	preparer := &starter{records: runStartStore{db: s.db}, runtime: startRuntime{Prepare: func(context.Context, *Run) error { prepared++; return nil }}}
-	if err := preparer.Prepare(context.Background(), next.ID); err != nil || prepared != 1 {
+	preparer := &starter{records: runStartStore{db: s.db}, runtime: startRuntime{prepare: func(context.Context, *Run) error { prepared++; return nil }}}
+	if err := preparer.prepare(context.Background(), next.ID); err != nil || prepared != 1 {
 		t.Fatalf("continuation preparation: %d %v", prepared, err)
 	}
 	if _, exists := seenRunStart(t, s.db, source.ID); exists {
 		t.Fatal("historical source gained readiness")
 	}
-	if _, err := attempts.Start(context.Background(), step, "agent/pi"); err != nil {
+	if _, err := attempts.start(context.Background(), step, "agent/pi", ids.Nil); err != nil {
 		t.Fatalf("the continued agent was not admitted: %v", err)
 	}
 	observed, err := AgentSessionIn(context.Background(), s.db, RunRef{ID: next.ID, ProjectID: next.ProjectID}, step.ID, RetryContinue)
@@ -117,7 +117,7 @@ func TestWorkflowRetrySendBackRollback(t *testing.T) {
 			child := insertStoredRun(t, s.db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: source.ProjectID, ChangeID: source.ChangeID, ParentRunID: landing, WorkflowName: "child", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: "finish", DefinitionJson: json.RawMessage(`{}`)}).ID
 			transitionScopeChange(t, s.db, workflowsql.TransitionChangeParams{At: time.Now(), ID: source.ChangeID, State: "landing", RunID: landing})
 			dbtest.FailNextStatement(t, s.db, failure)
-			if _, err := s.sendBack(context.Background(), source.ChangeID, "fix it", "alice", "", source.ProjectID); !errors.Is(err, database.ErrInjectedFailure) {
+			if _, err := s.sendBack(context.Background(), source.ChangeID, "fix it", "alice", "", source.ProjectID); !errors.Is(err, dbtest.ErrInjectedFailure) {
 				t.Fatalf("failure was hidden: %v", err)
 			}
 			// sql-guarantee: rollback must leave no run anywhere, including one filed under another change.
@@ -186,7 +186,7 @@ func TestWorkflowRetryManualAtomicAndFreshVerdicts(t *testing.T) {
 			overrideScopeStep(t, s.db, workflowsql.OverrideStepParams{At: time.Now(), ID: agent, OverrideBy: "alice", OverrideReason: "old exception"})
 			req := retryIntent{RetryCommand: RetryCommand{StepID: agent, Mode: RetryContinue, Feedback: "human words"}, Actor: commandActor{Receipt: "alice"}}
 			dbtest.FailNextStatement(t, s.db, failure)
-			if _, err := s.retryExpected(context.Background(), req, nil); !errors.Is(err, database.ErrInjectedFailure) {
+			if _, err := s.retryExpected(context.Background(), req, nil); !errors.Is(err, dbtest.ErrInjectedFailure) {
 				t.Fatalf("retry committed past failure: %v", err)
 			}
 			kept := storedStep(t, s.db, agent)
@@ -245,7 +245,7 @@ func TestWorkflowRetryFencesStaleAdvancement(t *testing.T) {
 				if readErr != nil {
 					t.Fatal(readErr)
 				}
-				claim, claimErr := newStepAttempts(w.db, func(kind string) bool { return kind == "agent/pi" || kind == "agent/review" }).Start(context.Background(), current, "agent/review")
+				claim, claimErr := newStepAttempts(w.db, func(kind string) bool { return kind == "agent/pi" || kind == "agent/review" }).start(context.Background(), current, "agent/review", ids.Nil)
 				if claimErr != nil {
 					t.Fatal(claimErr)
 				}
@@ -330,7 +330,7 @@ func TestWorkflowRetryPreservesLegacySessionAndUnconsumedFeedback(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	claim, err := newStepAttempts(w.db, func(kind string) bool { return kind == "agent/pi" || kind == "agent/review" }).Start(context.Background(), step, "agent/pi")
+	claim, err := newStepAttempts(w.db, func(kind string) bool { return kind == "agent/pi" || kind == "agent/review" }).start(context.Background(), step, "agent/pi", ids.Nil)
 	if err != nil {
 		t.Fatal(err)
 	}

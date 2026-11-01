@@ -4,13 +4,13 @@ import "github.com/flokkit/apptown/internal/apptown/status"
 
 func evalLabel(state string) status.DisplayStatus {
 	switch state {
-	case StateRunning, StateStopping:
+	case stateRunning, stateStopping:
 		return status.DisplayWorking
-	case StateHeld:
+	case stateHeld:
 		return status.DisplayWaitingForYou
-	case StateFinished:
+	case stateFinished:
 		return status.DisplayFinished
-	case StateStopped:
+	case stateStopped:
 		return status.DisplayStopped
 	default:
 		return status.DisplayUnknown
@@ -18,17 +18,17 @@ func evalLabel(state string) status.DisplayStatus {
 }
 func armLabel(state string) status.DisplayStatus {
 	switch state {
-	case ArmQueued:
+	case armQueued:
 		return status.DisplayWaiting
-	case ArmCopied:
+	case armCopied:
 		return status.DisplayWaitingForYou
-	case ArmCopying, ArmStarting, ArmWorking, ArmLanding:
+	case armCopying, armStarting, armWorking, armLanding:
 		return status.DisplayWorking
-	case ArmScored:
+	case armScored:
 		return status.DisplayFinished
-	case ArmFailed:
+	case armFailed:
 		return status.DisplayFailed
-	case ArmNotRun:
+	case armNotRun:
 		return status.DisplayStopped
 	default:
 		return status.DisplayUnknown

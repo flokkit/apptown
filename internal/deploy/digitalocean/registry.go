@@ -31,7 +31,7 @@ func (d *Driver) ensureRegistry(ctx context.Context, c *Client, cfg Config, logf
 		}
 		return got.Registry.Name, nil
 	}
-	if err != nil && !IsStatus(err, 404) {
+	if err != nil && !isStatus(err, 404) {
 		return "", err
 	}
 	name := cfg.Registry
@@ -232,7 +232,7 @@ func activeCollection(ctx context.Context, c *Client, registry string) (*registr
 		GC registryCollection `json:"garbage_collection"`
 	}
 	err := c.Call(ctx, "GET", "/v2/registry/"+url.PathEscape(registry)+"/garbage-collection", nil, &got)
-	if IsStatus(err, 404) {
+	if isStatus(err, 404) {
 		return nil, nil
 	}
 	if err != nil {

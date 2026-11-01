@@ -3,13 +3,15 @@ package preview
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/ids"
-	"github.com/flokkit/apptown/internal/ids/idstest"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -22,7 +24,7 @@ import (
 func TestRemoveBuildImagesNeverForcesAndNamesFailures(t *testing.T) {
 	t.Parallel()
 	const own, part, inUse, broken = "apptown-preview-build-apptown-preview-run-00000000-0001-7000-8000-000000000000:latest", "apptown-preview-build-apptown-preview-run-00000000-0001-7000-8000-000000000000-web:latest", "apptown-preview-build-apptown-preview-run-00000000-0001-7000-8000-000000000000-db:latest", "apptown-preview-build-apptown-preview-run-00000000-0001-7000-8000-000000000000-x:latest"
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		call := strings.Join(args, " ")
 		switch {
@@ -51,7 +53,7 @@ func TestRemoveBuildImagesNeverForcesAndNamesFailures(t *testing.T) {
 		t.Fatalf("asked to remove %q", removed)
 	}
 
-	unlisted := dockerfake.New()
+	unlisted := newDockerFake()
 	unlisted.SetReply(func([]string) ([]byte, error, bool) { return []byte("daemon gone"), errors.New("exit status 1"), true })
 	service.hosts = deployment.NewHosts(nil, nil, deployment.HostSettings{Scope: docker.Scope{Client: unlisted}})
 	if failed := service.removeLocalPreview(context.Background(), "apptown-preview-run-00000000-0001-7000-8000-000000000000"); failed == nil {
@@ -98,7 +100,7 @@ func TestPermanentPreviewRetirementOwnsSnapshotsAndReportsFailures(t *testing.T)
 					})
 				}
 				if failure == "view" {
-					t.Cleanup(w.db.FailNextStatement("-- name: ForgetPreviewView"))
+					t.Cleanup(dbtest.NextStatementFailure(w.db, "-- name: ForgetPreviewView"))
 				}
 				retire := func() error {
 					if kind == "run" {
@@ -148,7 +150,7 @@ func TestPermanentPreviewRetirementOwnsSnapshotsAndReportsFailures(t *testing.T)
 
 func TestPermanentStepRetirementAttemptsEveryFrozenStack(t *testing.T) {
 	t.Parallel()
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	first, second := idstest.N(801), idstest.N(802)
 	denied := errors.New("first stack unavailable")
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
@@ -174,4 +176,8 @@ func TestPermanentStepRetirementAttemptsEveryFrozenStack(t *testing.T) {
 	if err := s.RemoveRunStepsForGood(t.Context(), []ids.ID{first, second}); err != nil {
 		t.Fatalf("retry: %v", err)
 	}
+}
+
+func newDockerFake() *dockerfake.Daemon {
+	return dockerfake.New()
 }

@@ -21,11 +21,11 @@ import (
 func narrativeRun(t *testing.T, db *database.DB, ch *Change, name string, steps ...schema.Step) *Run {
 	t.Helper()
 	owner := newRunAdmissions(db, NewStages(nil, func(string) bool { return false }), nil)
-	run, err := owner.Create(context.Background(), StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: name, InputsJSON: "{}", requestedBy: "test"}, PreparedRun{Workflow: DefinitionRef{Name: name, Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: steps}}}})
+	run, err := owner.records.create(context.Background(), StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: name, InputsJSON: "{}", requestedBy: "test"}, PreparedRun{Workflow: DefinitionRef{Name: name, Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: steps}}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := owner.Prepared(context.Background(), run.ID); err != nil {
+	if err := owner.records.prepared(context.Background(), run.ID); err != nil {
 		t.Fatal(err)
 	}
 	return run
@@ -61,7 +61,7 @@ func TestNarrativePublicationRefusesChangedSource(t *testing.T) {
 				if changed == "base" {
 					nameBranchForTest(t, owner.db, ch)
 				}
-				source, err = owner.Source(ctx, ch.ID)
+				source, err = owner.source(ctx, ch.ID)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -93,7 +93,7 @@ func TestNarrativePublicationRefusesChangedSource(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := owner.Publish(ctx, NarrativePublication{Source: source, Draft: NarrativeDraft{Title: "new", Note: "new note"}}); !errors.Is(err, ErrNarrativeChanged) {
+			if err := owner.publish(ctx, NarrativePublication{Source: source, Draft: NarrativeDraft{Title: "new", Note: "new note"}}); !errors.Is(err, ErrNarrativeChanged) {
 				t.Fatalf("stale %s: %v", changed, err)
 			}
 			assertNarrative(t, owner, ch.ID, "automatic", "previous")
@@ -117,7 +117,7 @@ func TestNarrativePublicationCancellationReleasesLockWait(t *testing.T) {
 	defer cancel()
 	done := make(chan error, 1)
 	go func() {
-		done <- owner.Publish(ctx, NarrativePublication{Source: source, Draft: NarrativeDraft{Note: "new note"}})
+		done <- owner.publish(ctx, NarrativePublication{Source: source, Draft: NarrativeDraft{Note: "new note"}})
 	}()
 	dbtest.WaitForLock(t, owner.db, "-- name: ProjectForUpdate")
 	cancel()
@@ -147,7 +147,7 @@ func TestNarrativeSourceOwnsSelectionOrderingAndOneSnapshot(t *testing.T) {
 		t.Fatalf("call step: %+v %v", steps, err)
 	}
 	admissions := newRunAdmissions(db, NewStages(nil, func(string) bool { return false }), nil)
-	child, err := admissions.Create(context.Background(), StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: "child", InputsJSON: "{}", requestedBy: "test", parentRunID: second.ID, parentStepID: steps[0].ID, parentStepAttempt: steps[0].Attempt}, PreparedRun{Workflow: DefinitionRef{Name: "child", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "finish"}}}})
+	child, err := admissions.records.create(context.Background(), StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: "child", InputsJSON: "{}", requestedBy: "test", parentRunID: second.ID, parentStepID: steps[0].ID, parentStepAttempt: steps[0].Attempt}, PreparedRun{Workflow: DefinitionRef{Name: "child", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "finish"}}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestNarrativeSourceOwnsSelectionOrderingAndOneSnapshot(t *testing.T) {
 		err    error
 	}
 	done := make(chan result, 1)
-	go func() { got, err := owner.Source(ctx, ch.ID); done <- result{got, err} }()
+	go func() { got, err := owner.source(ctx, ch.ID); done <- result{got, err} }()
 	dbtest.WaitForLock(t, db, "-- name: NarrativeArtifacts")
 	q := workflowsql.New(gate.SQL())
 	if _, err := q.ProjectForUpdate(ctx, ch.ProjectID); err != nil {
@@ -207,7 +207,7 @@ func TestNarrativeSourceOwnsSelectionOrderingAndOneSnapshot(t *testing.T) {
 	if old.Change.Body != "brief" || len(old.Runs) != 2 || old.Runs[0].ID != first.ID || old.Runs[1].ID != second.ID || old.Runs[0].State != RunDone || old.Runs[1].State != RunRunning || len(old.Artifacts) != 2 || old.Artifacts[0].Body != "before report" || old.Artifacts[1].Body != "before plan" {
 		t.Fatalf("snapshot selection: %+v %+v", old, old.Change)
 	}
-	fresh, err := owner.Source(ctx, ch.ID)
+	fresh, err := owner.source(ctx, ch.ID)
 	if err != nil || fresh.Change.Body != "after" || len(fresh.Artifacts) != 2 || fresh.Artifacts[0].Body != "after report" {
 		t.Fatalf("fresh source: %+v %v", fresh, err)
 	}

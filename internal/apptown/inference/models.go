@@ -29,8 +29,8 @@ type UnlistedBinding struct {
 	Error   string `json:"error"`
 }
 
-// ErrNoEndpoint is a binding whose provider has no model list to ask.
-var ErrNoEndpoint = fault.New(fault.Unprocessable, "no discoverable endpoint for this provider")
+// errNoEndpoint is a binding whose provider has no model list to ask.
+var errNoEndpoint = fault.New(fault.Unprocessable, "no discoverable endpoint for this provider")
 
 // Models lists the patterns a model slot may name, binding by binding:
 // the default, the curated list, and what the provider lists live, read
@@ -105,7 +105,7 @@ func (catalog Catalog) Discover(ctx context.Context, name string, config map[str
 		return nil, fault.Wrap(fault.Unprocessable, err)
 	}
 	if p == nil || p.api != "openai-completions" && p.api != "openai-responses" {
-		return nil, ErrNoEndpoint
+		return nil, errNoEndpoint
 	}
 	ids, err := fetchModels(ctx, p)
 	if err != nil {

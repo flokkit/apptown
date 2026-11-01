@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"log"
 	"net/http/httputil"
 	"sync"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -81,7 +82,7 @@ func (s *Service) ReconcileWorkerPreviews(ctx context.Context) error {
 	}
 	names, err := s.worker.List(ctx)
 	if err != nil {
-		return &UnavailableError{Cause: err}
+		return &unavailableError{Cause: err}
 	}
 	var failed []error
 	for _, name := range names {
@@ -126,26 +127,26 @@ func (s *Service) RunWorkerPreviewReconciliation(ctx context.Context) {
 	}
 }
 
-// UnavailableError is a preview the worker could not be asked about:
+// unavailableError is a preview the worker could not be asked about:
 // never the app's failure, and never evidence about it.
-type UnavailableError struct{ Cause error }
+type unavailableError struct{ Cause error }
 
-func (e *UnavailableError) Error() string {
+func (e *unavailableError) Error() string {
 	return "previews run on the worker, which could not be asked: " + e.Cause.Error()
 }
-func (e *UnavailableError) Unwrap() error         { return e.Cause }
-func (e *UnavailableError) FaultKind() fault.Kind { return fault.Unavailable }
+func (e *unavailableError) Unwrap() error         { return e.Cause }
+func (e *unavailableError) FaultKind() fault.Kind { return fault.Unavailable }
 
-// ErrNoDomain refuses previews on a worker without a preview domain:
+// errNoDomain refuses previews on a worker without a preview domain:
 // they are reached only through AppTown's preview proxy, by name.
-var ErrNoDomain = fault.Wrap(fault.Unprocessable, errors.New("previews run on the worker, and are reached through AppTown's preview domain, which this AppTown does not have (-tier-domain preview=<domain>)"))
+var errNoDomain = fault.Wrap(fault.Unprocessable, errors.New("previews run on the worker, and are reached through AppTown's preview domain, which this AppTown does not have (-tier-domain preview=<domain>)"))
 
 // IsAppBootFailure says whether a preview's failure is the app's to answer
 // for: anything but a place previews run that could not be asked, or an AppTown
 // that cannot run previews there.
 func IsAppBootFailure(err error) bool {
-	var unavailable *UnavailableError
-	return err != nil && !errors.As(err, &unavailable) && !errors.Is(err, ErrNoDomain)
+	var unavailable *unavailableError
+	return err != nil && !errors.As(err, &unavailable) && !errors.Is(err, errNoDomain)
 }
 
 // PreviewsOnWorker says whether changes' and runs' previews boot on the worker.
@@ -156,14 +157,14 @@ func (s *Service) PreviewsOnWorker() bool { return s != nil && s.worker != nil }
 // AppTown has one; a release's look only when AppTown recorded booting it
 // there (ServedOnWorker); a standing deployment never.
 func (s *Service) PreviewServedOnWorker(name string) bool {
-	return s.PreviewsOnWorker() && (docker.IsWorkPreviewName(name) || s.ServedOnWorker(name))
+	return s.PreviewsOnWorker() && (docker.IsWorkPreviewName(name) || s.servedOnWorker(name))
 }
 
 // ChangeStatus is what a change's preview's button says: a boot in
 // progress first, else what observeChange finds. inProgress is the change's
 // state, which the caller reads from Work.
 func (s *Service) ChangeStatus(ctx context.Context, projectID, changeID ids.ID, inProgress bool) Status {
-	return s.runtime.Inspect(ctx, ChangeKey(changeID), changeObservation{s: s, projectID: projectID, changeID: changeID, inProgress: inProgress})
+	return s.runtime.inspect(ctx, changeKey(changeID), changeObservation{s: s, projectID: projectID, changeID: changeID, inProgress: inProgress})
 }
 
 // changeObservation observes one change's preview for the runtime.
@@ -173,15 +174,15 @@ type changeObservation struct {
 	inProgress          bool
 }
 
-func (o changeObservation) ObservePreview(ctx context.Context) Observation {
+func (o changeObservation) ObservePreview(ctx context.Context) observation {
 	return o.s.observeChange(ctx, o.projectID, o.changeID, o.inProgress)
 }
 
 // servedObservation adds AppTown's record of the running preview by name
 // to o: when it was built and, for one booted from a commit, the commit.
-func (s *Service) servedObservation(name string, o Observation) Observation {
+func (s *Service) servedObservation(name string, o observation) observation {
 	if r, ok := s.servedRecordOf(name); ok {
-		o.Built, o.Commit = r.At, r.Source
+		o.Built, o.Commit = r.at, r.source
 	}
 	return o
 }
@@ -191,24 +192,24 @@ func (s *Service) servedObservation(name string, o Observation) Observation {
 // cannot be asked); otherwise on this AppTown's own Docker (unavailable when
 // it has none, never "not running"). With nothing running, a change still
 // in progress whose workspace declares no app has nothing to preview.
-func (s *Service) observeChange(ctx context.Context, projectID, changeID ids.ID, inProgress bool) Observation {
+func (s *Service) observeChange(ctx context.Context, projectID, changeID ids.ID, inProgress bool) observation {
 	name := docker.PreviewChangeName(changeID)
 	label := fmt.Sprintf("change-%d", changeID)
 	dk := s.hosts.Local()
 	if s.PreviewsOnWorker() {
 		st, err := s.PreviewOnWorker(ctx, name)
 		if err != nil {
-			return Observation{Unavailable: err.Error()}
+			return observation{Unavailable: err.Error()}
 		}
 		if st.Running {
-			return s.servedObservation(name, Observation{URL: s.env.RoutesFor(ctx, projectID).PreviewURL(label, 0)})
+			return s.servedObservation(name, observation{URL: s.env.RoutesFor(ctx, projectID).PreviewURL(label, 0)})
 		}
 	} else if dk.Absent() {
 		// No worker and no local Docker: nowhere to ask, never "not running".
-		return Observation{Unavailable: docker.ErrNoLocalBackend.Error()}
+		return observation{Unavailable: docker.ErrNoLocalBackend.Error()}
 	} else if dk.Running(ctx, name) {
 		if port, err := docker.ContainerHostPort(ctx, dk, name, 0); err == nil && port > 0 {
-			return s.servedObservation(name, Observation{URL: s.env.RoutesFor(ctx, projectID).PreviewURL(label, port), HostOnly: s.PreviewsHostOnly()})
+			return s.servedObservation(name, observation{URL: s.env.RoutesFor(ctx, projectID).PreviewURL(label, port), HostOnly: s.PreviewsHostOnly()})
 		}
 	}
 	missing := false
@@ -217,7 +218,7 @@ func (s *Service) observeChange(ctx context.Context, projectID, changeID ids.ID,
 		_, err := docker.ReadWorkspaceContract(ws)
 		missing = err == docker.ErrNoContract
 	}
-	return Observation{NoContract: missing}
+	return observation{NoContract: missing}
 }
 
 // PreviewsHaveDomain reports whether previews are reached at their own
@@ -240,15 +241,15 @@ func (s *Service) PreviewsHostOnly() bool {
 // cannot be asked is UnavailableError.
 func (s *Service) bootOnWorker(ctx context.Context, spec worker.PreviewSpec, prepared docker.Prepared, tree string) (worker.PreviewState, error) {
 	if s.env.Routes().PreviewDomain == "" {
-		return worker.PreviewState{}, ErrNoDomain
+		return worker.PreviewState{}, errNoDomain
 	}
 	if s.startClearPending() {
-		return worker.PreviewState{}, &UnavailableError{Cause: errors.New("the previews on the worker from before AppTown started are not yet removed")}
+		return worker.PreviewState{}, &unavailableError{Cause: errors.New("the previews on the worker from before AppTown started are not yet removed")}
 	}
 	st, err := s.worker.Boot(ctx, spec, prepared, tree)
 	if err != nil {
 		s.claimAgainIfLost(ctx, err)
-		return worker.PreviewState{}, &UnavailableError{Cause: err}
+		return worker.PreviewState{}, &unavailableError{Cause: err}
 	}
 	if st.Error != "" || !st.Running {
 		return worker.PreviewState{Page: st.Page}, &docker.BootError{Phase: st.Phase, Err: errors.New(st.Error), LogTail: st.LogTail}
@@ -260,7 +261,7 @@ func (s *Service) bootOnWorker(ctx context.Context, spec worker.PreviewSpec, pre
 func (s *Service) removeOnWorker(ctx context.Context, name string) error {
 	if err := s.worker.Remove(ctx, name); err != nil {
 		s.claimAgainIfLost(ctx, err)
-		return &UnavailableError{Cause: err}
+		return &unavailableError{Cause: err}
 	}
 	return nil
 }
@@ -279,7 +280,7 @@ func (s *Service) claimAgainIfLost(ctx context.Context, err error) {
 func (s *Service) PreviewOnWorker(ctx context.Context, name string) (worker.PreviewState, error) {
 	st, err := s.worker.State(ctx, name)
 	if err != nil {
-		return worker.PreviewState{}, &UnavailableError{Cause: err}
+		return worker.PreviewState{}, &unavailableError{Cause: err}
 	}
 	return st, nil
 }
@@ -304,7 +305,7 @@ func (s *Service) LiveChangePreviews(ctx context.Context) ([]LiveChange, error) 
 	var err error
 	if s.PreviewsOnWorker() {
 		if names, err = s.worker.List(ctx); err != nil {
-			return nil, &UnavailableError{Cause: err}
+			return nil, &unavailableError{Cause: err}
 		}
 	} else if s.hosts.Local().Absent() {
 		return nil, docker.ErrNoLocalBackend
@@ -418,7 +419,7 @@ func (s *Service) admit(ctx context.Context, c *appcontract.Contract) error {
 		err := s.worker.Admit(ctx, c)
 		var refused *worker.AdmissionRefused
 		if err != nil && !errors.As(err, &refused) {
-			return &UnavailableError{Cause: err}
+			return &unavailableError{Cause: err}
 		}
 		return err
 	}

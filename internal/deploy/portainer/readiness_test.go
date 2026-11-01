@@ -150,14 +150,14 @@ func TestReadinessCheckpointPrecedesEffectsAndNamesSubmittedBytes(t *testing.T) 
 			daemon := containerresulttest.Daemon{Answers: func(containerresulttest.Command) (containerresulttest.Answer, bool) {
 				return containerresulttest.Answer{Answer: []byte("apptown-readiness-v1")}, true
 			}}
-			diagnostic := Diagnostic{Allowed: func(context.Context) error { return nil }, Command: func(ctx context.Context, env []string, args ...string) ([]byte, error) {
+			diagnostic := Diagnostic{allowed: func(context.Context) error { return nil }, Command: func(ctx context.Context, env []string, args ...string) ([]byte, error) {
 				out, err, ok := daemon.RunEnv(args, env)
 				if !ok {
 					return nil, fmt.Errorf("unexpected diagnostic %v", args)
 				}
 				return out, err
 			}}
-			got, err := (Execution{Diagnostic: &diagnostic, Allowed: diagnostic.Allowed, TargetID: r.Target, DeploymentID: r.Deployment, Config: cfg, EndpointID: 3, Stack: "stack-a", Compose: original, Log: func(string, ...any) {}}).Execute(t.Context(), 8, func(identity map[string]any) error {
+			got, err := (execution{diagnostic: &diagnostic, allowed: diagnostic.allowed, targetID: r.Target, deploymentID: r.Deployment, config: cfg, endpointID: 3, stack: "stack-a", compose: original, log: func(string, ...any) {}}).execute(t.Context(), 8, func(identity map[string]any) error {
 				if _, ok := identity["releaseReadiness"]; !ok {
 					if identity["stackId"] != int64(19) || identity["stackApplied"] != true {
 						t.Errorf("wrong application receipt: %v", identity)

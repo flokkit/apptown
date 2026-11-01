@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
@@ -203,7 +205,7 @@ func TestAHarvestAdvancesItsCursorOnlyWithItsRows(t *testing.T) {
 	u.Add(10, 5, 0, 0, 15, 0)
 	rows := []Harvested{{Entry: Entry{Kind: "console", ProjectID: pid, SessionID: "s1", Actor: "alice", Provider: "local", Model: "n"}, Totals: u}}
 	for _, fragment := range []string{"INSERT INTO token_usage", "INSERT INTO usage_cursors"} {
-		restore := db.FailNextStatement(fragment)
+		restore := dbtest.NextStatementFailure(db, fragment)
 		if err := l.RecordHarvest(t.Context(), "/h.jsonl", 100, rows); err == nil {
 			t.Fatalf("a failed %q harvested", fragment)
 		}

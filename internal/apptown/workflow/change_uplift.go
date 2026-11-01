@@ -15,10 +15,10 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// TargetRecorder is adoption's named participant. It joins Work's project-first
+// targetRecorder is adoption's named participant. It joins Work's project-first
 // transaction, records a target for this exact Change, and returns its identity.
 // Candidate is an opaque adoption-owned document, never interpreted as a map by Work.
-type TargetRecorder interface {
+type targetRecorder interface {
 	RecordTargetIn(context.Context, *database.Tx, TargetChange) (RecordedTarget, error)
 }
 type TargetChange struct {
@@ -34,7 +34,7 @@ type Uplift struct {
 	ExpectedRevision int64
 	Acceptance       Acceptance
 	Words            []string
-	Target           TargetRecorder
+	Target           targetRecorder
 	// Basis is what the decision to open it was taken on, said in one line
 	// of the brief (a what-if); empty when none was named.
 	Basis string

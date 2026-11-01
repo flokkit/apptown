@@ -42,15 +42,15 @@ type ReviewDetail struct {
 // ErrNoReview and ErrNoVerdict are the absence of the review or verdict a
 // caller named by id, classified here so callers never read sql.ErrNoRows.
 var (
-	ErrNoReview  = fault.New(fault.NotFound, "no conformance review has id")
-	ErrNoVerdict = fault.New(fault.NotFound, "no conformance verdict has id")
+	errNoReview  = fault.New(fault.NotFound, "no conformance review has id")
+	errNoVerdict = fault.New(fault.NotFound, "no conformance verdict has id")
 )
 
 // readReview reads the review a caller named; absence is ErrNoReview.
 func readReview(ctx context.Context, db database.Queryer, id ids.ID) (*Review, error) {
 	row, err := queries(db).ReviewByID(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("%w %d", ErrNoReview, id)
+		return nil, fmt.Errorf("%w %d", errNoReview, id)
 	}
 	if err != nil {
 		return nil, err
@@ -149,8 +149,8 @@ func readReviewSummaries(ctx context.Context, db database.Queryer, limit int) ([
 	}
 	out := make([]ReviewSummary, 0, len(reviews))
 	for _, r := range reviews {
-		s := ReviewSummary{Review: r, StatusLabel: r.Status.Display()}
-		for _, pvs := range GroupByProject(RecordedObservations(byReview[r.ID])) {
+		s := ReviewSummary{Review: r, StatusLabel: r.Status.display()}
+		for _, pvs := range groupByProject(RecordedObservations(byReview[r.ID])) {
 			ps := SummarizeProject(ids.Nil, "", pvs, adj)
 			s.Findings += ps.Lanes.Findings
 			s.Flagged += ps.Lanes.Flagged
@@ -161,7 +161,7 @@ func readReviewSummaries(ctx context.Context, db database.Queryer, limit int) ([
 			}
 		}
 		if prev := previous[r.ID]; r.Status == ReviewDone && !prev.IsZero() {
-			s.Delta = CompareReviews(prev, byReview[r.ID], byReview[prev])
+			s.Delta = compareReviews(prev, byReview[r.ID], byReview[prev])
 			s.Delta.FixedItems, s.Delta.NewItems = nil, nil
 		}
 		out = append(out, s)
@@ -221,13 +221,13 @@ func (s reviewStore) projectHistory(ctx context.Context, id ids.ID, limit int) (
 	})
 }
 
-type RecordedStanding struct {
+type recordedStanding struct {
 	ProjectStanding
 	ReviewID ids.ID
 }
 
-func (s reviewStore) latestStanding(ctx context.Context, projectID ids.ID, slug string) (*RecordedStanding, error) {
-	return readConformance(ctx, s.db, func(db database.Queryer) (*RecordedStanding, error) {
+func (s reviewStore) latestStanding(ctx context.Context, projectID ids.ID, slug string) (*recordedStanding, error) {
+	return readConformance(ctx, s.db, func(db database.Queryer) (*recordedStanding, error) {
 		rows, err := queries(db).LatestVerdictsForProject(ctx, projectID)
 		if err != nil {
 			return nil, err
@@ -240,7 +240,7 @@ func (s reviewStore) latestStanding(ctx context.Context, projectID ids.ID, slug 
 		if err != nil {
 			return nil, err
 		}
-		return &RecordedStanding{ProjectStanding: SummarizeProject(projectID, slug, RecordedObservations(vs), adj), ReviewID: vs[0].ReviewID}, nil
+		return &recordedStanding{ProjectStanding: SummarizeProject(projectID, slug, RecordedObservations(vs), adj), ReviewID: vs[0].ReviewID}, nil
 	})
 }
 

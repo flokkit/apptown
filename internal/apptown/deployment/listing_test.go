@@ -16,7 +16,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 )
 
@@ -72,17 +71,17 @@ func TestListReturnsOrderedTypedFactsAndIndependentObservations(t *testing.T) {
 		if err := s.Deployments.RecordAddress(t.Context(), e.ID, "https://recorded"); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.Needs.RecordIntent(context.Background(), e.ID, "postgres", map[string]any{"name": fmt.Sprintf("requested-%d", i)}); err != nil {
+		if err := s.needs.RecordIntent(context.Background(), e.ID, "postgres", map[string]any{"name": fmt.Sprintf("requested-%d", i)}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := s.Needs.RecordFulfilled(context.Background(), envs[0].ID, "postgres", nil, map[string]any{"id": "db-1", "name": "actual", "region": "syd", "version": "16", "size": "small"}); err != nil {
+	if err := s.needs.recordFulfilled(context.Background(), envs[0].ID, "postgres", nil, map[string]any{"id": "db-1", "name": "actual", "region": "syd", "version": "16", "size": "small"}); err != nil {
 		t.Fatal(err)
 	}
 	// Another project's records must not leak through the batched selectors.
 	other := createTestProject(t, s.db, "other", "Other")
 	outside := configureForTest(t, s, ConfigureDeployment{ProjectID: other, Name: "outside", Target: "cloud"})
-	if err := s.Needs.RecordIntent(context.Background(), outside.ID, "redis", map[string]any{"name": "private"}); err != nil {
+	if err := s.needs.RecordIntent(context.Background(), outside.ID, "redis", map[string]any{"name": "private"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.ObserveRuntime(context.Background()); err != nil {
@@ -150,7 +149,7 @@ func TestListFailsStoredFactsAndAuthorityBeforeProviderCalls(t *testing.T) {
 					t.Fatal(err)
 				}
 			case "malformed-need":
-				if err := s.Needs.RecordIntent(ctx, envs[0].ID, "postgres", nil); err != nil {
+				if err := s.needs.RecordIntent(ctx, envs[0].ID, "postgres", nil); err != nil {
 					t.Fatal(err)
 				}
 				if _, err := deploymentsql.New(s.db.SQL()).RecordNeedIdentity(ctx, deploymentsql.RecordNeedIdentityParams{DeploymentID: envs[0].ID, Need: "postgres", HandleJson: []byte(`{"name":42}`)}); err != nil {
@@ -168,14 +167,14 @@ func TestListFailsStoredFactsAndAuthorityBeforeProviderCalls(t *testing.T) {
 func TestListEmptyDoesNotReadTargetsOrObserve(t *testing.T) {
 	t.Parallel()
 	s, _, _, projectID := listingFixture(t, 0, absentObservation)
-	restore := s.db.FailNextStatement("-- name: Targets :many")
+	restore := dbtest.NextStatementFailure(s.db, "-- name: Targets :many")
 	defer restore()
 	got, err := s.List(context.Background(), projectID)
 	if err != nil || got == nil || len(got) != 0 {
 		t.Fatalf("empty: %+v %v", got, err)
 	}
 	// The unused injected target fault must still be armed.
-	if _, err := s.Targets.All(context.Background()); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := s.Targets.All(context.Background()); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("empty listing read targets: %v", err)
 	}
 }
@@ -245,7 +244,7 @@ func TestObservationSweepBoundsConcurrencyAndHonorsCancellation(t *testing.T) {
 func TestObservationSweepReleasesSnapshotAndRejectsChangedPlacement(t *testing.T) {
 	t.Parallel()
 	s, _, envs, projectID := listingFixture(t, 1, absentObservation)
-	s.db.SQL().DBTX.(*sql.DB).SetMaxOpenConns(1)
+	s.db.SQL().Executor.(*sql.DB).SetMaxOpenConns(1)
 	s.providers.drivers[KindDOApp] = func(context.Context, *Target, *Deployment) (deploy.Driver, error) {
 		return listingDriver{observe: func(ctx context.Context, p deploy.Placement) (deploy.Observation, error) {
 			// With only one connection this cannot finish while a snapshot is held.

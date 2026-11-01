@@ -41,7 +41,7 @@ func (h RepositoryViews) RepoIntegrity(w http.ResponseWriter, r *http.Request) {
 	if !RequireAdmin(h.access, w, r) {
 		return
 	}
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -62,7 +62,7 @@ func (h RepositoryViews) RepoIntegrity(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		result, err := h.integrity.Resolve(r.Context(), p, in.Action, Actor(r))
+		result, err := h.integrity.Resolve(r.Context(), p, in.Action, actor(r))
 		if err != nil {
 			WriteFault(w, err)
 			return
@@ -74,7 +74,7 @@ func (h RepositoryViews) RepoIntegrity(w http.ResponseWriter, r *http.Request) {
 // RunDiff serves the run branch's diff against the default branch —
 // the "compare" materialization rung.
 func (h RepositoryViews) RunDiff(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -158,7 +158,7 @@ func (h RepositoryViews) RunDiff(w http.ResponseWriter, r *http.Request) {
 // ChangeDiff: GET /api/v1/changes/{id}/diff — the Change's whole diff, from
 // its base (scm.ChangeBase: it survives catching up with main and landing).
 func (h RepositoryViews) ChangeDiff(w http.ResponseWriter, r *http.Request) {
-	ch, p, ok := ChangeAndProject(h.db, w, r)
+	ch, p, ok := changeAndProject(h.db, w, r)
 	if !ok {
 		return
 	}

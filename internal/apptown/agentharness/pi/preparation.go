@@ -3,12 +3,13 @@ package pi
 import (
 	"context"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerlabel"
-	"github.com/flokkit/apptown/internal/ids"
 	"log"
 	"os"
 	"path/filepath"
 	"sort"
+
+	"github.com/flokkit/apptown/internal/dockerlabel"
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -33,9 +34,9 @@ func subagentsVersion(labels Labels) string {
 	return labels(SubagentsLabel)
 }
 
-// Labels reads AppTown's own Docker's agent image, or, given WithLabels,
+// labelsFor reads AppTown's own Docker's agent image, or, given WithLabels,
 // the image read there.
-func (home Preparer) Labels(ctx context.Context) Labels {
+func (home Preparer) labelsFor(ctx context.Context) Labels {
 	if home.labels != nil {
 		return home.labels()
 	}
@@ -50,7 +51,9 @@ func (home Preparer) WithLabels(labels func() Labels) Preparer {
 }
 
 // Delegation is DelegationWith AppTown's own agent image's labels.
-func (home Preparer) Delegation(ctx context.Context) string { return DelegationWith(home.Labels(ctx)) }
+func (home Preparer) Delegation(ctx context.Context) string {
+	return DelegationWith(home.labelsFor(ctx))
+}
 
 // DelegationWith: the steering section that promises the subagent tool
 // — only when the image actually carries it (steering promises are
@@ -75,14 +78,14 @@ topic comes up.
 `
 }
 
-// Configuration supplies only credential-checked public configuration.
+// configuration supplies only credential-checked public configuration.
 // Home preparation cannot read provider credentials or private upstream URLs.
-type Configuration interface {
+type configuration interface {
 	ModelsJSON(context.Context) ([]byte, error)
 }
 
 type Preparer struct {
-	models     Configuration
+	models     configuration
 	selection  modelSlots
 	extensions extensionSelection
 	docker     *docker.Scope
@@ -99,7 +102,7 @@ type extensionSelection interface {
 	EnabledExtensions(ctx context.Context, projectID ids.ID) ([]string, error)
 }
 
-func NewPreparer(models Configuration, selection modelSlots, extensions extensionSelection, scope *docker.Scope, image string) Preparer {
+func NewPreparer(models configuration, selection modelSlots, extensions extensionSelection, scope *docker.Scope, image string) Preparer {
 	return Preparer{models: models, selection: selection, extensions: extensions, docker: scope, image: image}
 }
 
@@ -135,14 +138,14 @@ func (home Preparer) Stage(ctx context.Context, ws string, projectID ids.ID) (st
 // StageAgentDir resolves the project's selected slots and extensions into
 // Pi files, for AppTown's own agent image.
 func (home Preparer) StageAgentDir(ctx context.Context, agentDir string, projectID ids.ID) error {
-	config, _, extErr, err := home.agentHome(ctx, projectID, home.Labels(ctx))
+	config, _, extErr, err := home.agentHome(ctx, projectID, home.labelsFor(ctx))
 	if err != nil {
 		return err
 	}
 	if _, err := database.Lookup(extErr); err != nil {
 		log.Printf("read failed: %v", err)
 	}
-	return StageAgentDir(agentDir, config)
+	return stageAgentDir(agentDir, config)
 }
 
 // agentHome is what the project selected, as the image's labels provide
@@ -150,14 +153,14 @@ func (home Preparer) StageAgentDir(ctx context.Context, agentDir string, project
 // read which extensions are enabled (extErr, with the home as if none were).
 // err is a failure to resolve the delegates' models: no home is staged on a
 // model nobody selected.
-func (home Preparer) agentHome(ctx context.Context, projectID ids.ID, labels Labels) (config Home, missing []string, extErr, err error) {
+func (home Preparer) agentHome(ctx context.Context, projectID ids.ID, labels Labels) (config preparedHome, missing []string, extErr, err error) {
 	config.SubagentsVersion = subagentsVersion(labels)
 	if config.SubagentsVersion != "" {
 		if config.WorkerModel, _, _, err = home.selection.Resolve(ctx, projectID, "worker"); err != nil {
-			return Home{}, nil, nil, fmt.Errorf("choosing the worker delegate's model: %w", err)
+			return preparedHome{}, nil, nil, fmt.Errorf("choosing the worker delegate's model: %w", err)
 		}
 		if config.ScoutModel, _, _, err = home.selection.Resolve(ctx, projectID, "scout"); err != nil {
-			return Home{}, nil, nil, fmt.Errorf("choosing the scout delegate's model: %w", err)
+			return preparedHome{}, nil, nil, fmt.Errorf("choosing the scout delegate's model: %w", err)
 		}
 	}
 	config.Packages, missing, extErr = home.enabledExtensionPackages(ctx, projectID, labels)
@@ -182,17 +185,17 @@ func (home Preparer) enabledExtensionPackages(ctx context.Context, projectID ids
 	return packages, missing, err
 }
 
-// SentHome is Pi's generated home as files to send, for a session whose
+// sentHome is Pi's generated home as files to send, for a session whose
 // home is not written by AppTown (a step on a worker): paths relative to
 // HOME, regular files only. Link is the one link the home needs, which
 // whoever places the files makes itself; Missing names the extensions the
 // project enabled that the image's labels do not carry.
-type SentHome struct {
-	Files   []SentFile
+type sentHome struct {
+	Files   []sentFile
 	Link    SentLink
 	Missing []string
 }
-type SentFile struct {
+type sentFile struct {
 	Path    string // relative to HOME, slash-separated
 	Content []byte
 }
@@ -205,38 +208,38 @@ type SentLink struct{ Path, Target string }
 // the image the session runs in. Nothing is written anywhere but a
 // temporary folder of its own. Extensions that cannot be read are an
 // error, never "none enabled".
-func (home Preparer) SentHome(ctx context.Context, projectID ids.ID, labels Labels) (SentHome, error) {
+func (home Preparer) SentHome(ctx context.Context, projectID ids.ID, labels Labels) (sentHome, error) {
 	config, missing, extErr, err := home.agentHome(ctx, projectID, labels)
 	if err != nil {
-		return SentHome{}, err
+		return sentHome{}, err
 	}
 	if _, err := database.Lookup(extErr); err != nil {
-		return SentHome{}, fmt.Errorf("reading the project's extensions: %w", err)
+		return sentHome{}, fmt.Errorf("reading the project's extensions: %w", err)
 	}
 	dir, err := os.MkdirTemp("", "apptown-pi-home-")
 	if err != nil {
-		return SentHome{}, err
+		return sentHome{}, err
 	}
 	defer os.RemoveAll(dir)
 	piAgent := filepath.Join(dir, ".pi", "agent")
 	if err := os.MkdirAll(piAgent, 0o755); err != nil {
-		return SentHome{}, err
+		return sentHome{}, err
 	}
 	models, err := home.models.ModelsJSON(ctx)
 	if err != nil {
-		return SentHome{}, fmt.Errorf("generating pi config: %w", err)
+		return sentHome{}, fmt.Errorf("generating pi config: %w", err)
 	}
 	if err := os.WriteFile(filepath.Join(piAgent, "models.json"), models, 0o600); err != nil {
-		return SentHome{}, err
+		return sentHome{}, err
 	}
-	if err := StageAgentDir(piAgent, config); err != nil {
-		return SentHome{}, err
+	if err := stageAgentDir(piAgent, config); err != nil {
+		return sentHome{}, err
 	}
 	staged, err := stagedUnder(dir, "")
 	if err != nil {
-		return SentHome{}, err
+		return sentHome{}, err
 	}
-	out := SentHome{Missing: missing}
+	out := sentHome{Missing: missing}
 	names := make([]string, 0, len(staged))
 	for name := range staged {
 		names = append(names, name)
@@ -248,9 +251,9 @@ func (home Preparer) SentHome(ctx context.Context, projectID ids.ID, labels Labe
 		case f.Link != "" && out.Link == SentLink{}:
 			out.Link = SentLink{Path: filepath.ToSlash(name), Target: f.Link}
 		case f.Link != "":
-			return SentHome{}, fmt.Errorf("pi's home has more than one link: %s", name)
+			return sentHome{}, fmt.Errorf("pi's home has more than one link: %s", name)
 		default:
-			out.Files = append(out.Files, SentFile{Path: filepath.ToSlash(name), Content: f.Data})
+			out.Files = append(out.Files, sentFile{Path: filepath.ToSlash(name), Content: f.Data})
 		}
 	}
 	return out, nil

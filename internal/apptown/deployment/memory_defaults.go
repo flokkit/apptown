@@ -9,7 +9,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
-const AppTownDefaultMemory int64 = 512 << 20
+const appTownDefaultMemory int64 = 512 << 20
 
 // MemoryDefaultSource identifies the default that supplied the effective cap:
 // AppTown's ("apptown"), or for a service need its catalogue kind's
@@ -19,11 +19,11 @@ type MemoryDefaultSource struct {
 	Name string `json:"name,omitempty"`
 }
 
-// DefaultMemory resolves a fresh container generation's third level: a part
+// defaultMemory resolves a fresh container generation's third level: a part
 // or need with no override and no declaration for its profile gets AppTown's
 // default (a service need its catalogue kind's size, else 512Mi). Replay must
 // use AppliedProfile.On instead; a default is not a declaration.
-func (e *Environment) DefaultMemory(ctx context.Context, c *appcontract.Contract, a AppliedProfile) (*appcontract.Contract, AppliedProfile, error) {
+func (e *Environment) defaultMemory(ctx context.Context, c *appcontract.Contract, a AppliedProfile) (*appcontract.Contract, AppliedProfile, error) {
 	out := *c
 	out.Parts = append([]appcontract.Part(nil), c.Parts...)
 	out.NeedResources = maps.Clone(c.NeedResources)
@@ -37,7 +37,7 @@ func (e *Environment) DefaultMemory(ctx context.Context, c *appcontract.Contract
 		if ap.MemoryUnlimited {
 			p.Resources.MemoryBytes = 0
 		} else if p.Resources.MemoryBytes == 0 {
-			p.Resources.MemoryBytes = AppTownDefaultMemory
+			p.Resources.MemoryBytes = appTownDefaultMemory
 			ap.MemoryDefault = &MemoryDefaultSource{Kind: "apptown"}
 		}
 		ap.Resources = p.Resources
@@ -52,7 +52,7 @@ func (e *Environment) DefaultMemory(ctx context.Context, c *appcontract.Contract
 		if ap.MemoryUnlimited {
 			r.MemoryBytes = 0
 		} else if r.MemoryBytes == 0 {
-			b := AppTownDefaultMemory
+			b := appTownDefaultMemory
 			src := MemoryDefaultSource{Kind: "apptown"}
 			if e.needs != nil {
 				k, err := e.needs.ByCapability(ctx, n)
@@ -101,7 +101,7 @@ func SuppliedServiceDefaults(c *appcontract.Contract, services []deploy.ServiceS
 		names[s.Name] = true
 		ap := AppliedPart{Resources: s.Resources}
 		if s.Resources.MemoryBytes == 0 {
-			s.Resources.MemoryBytes = AppTownDefaultMemory
+			s.Resources.MemoryBytes = appTownDefaultMemory
 			ap.Resources = s.Resources
 			ap.MemoryDefault = &MemoryDefaultSource{Kind: "apptown"}
 		}
@@ -113,9 +113,9 @@ func SuppliedServiceDefaults(c *appcontract.Contract, services []deploy.ServiceS
 	return out, applied, nil
 }
 
-// OnServices reapplies exact standing service caps; missing older records keep
+// onServices reapplies exact standing service caps; missing older records keep
 // their source values and never acquire today's fallback during recovery.
-func (a AppliedProfile) OnServices(services []deploy.ServiceSpec) []deploy.ServiceSpec {
+func (a AppliedProfile) onServices(services []deploy.ServiceSpec) []deploy.ServiceSpec {
 	out := append([]deploy.ServiceSpec(nil), services...)
 	for i := range out {
 		if p, ok := a.Services[out[i].Name]; ok {

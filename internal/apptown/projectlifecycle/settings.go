@@ -24,7 +24,7 @@ func (s *Service) UpdateSettings(ctx context.Context, id ids.ID, in project.Sett
 	if in.Slug != nil {
 		names = append(names, *in.Slug)
 	}
-	release, err := s.ReserveNames(names...)
+	release, err := s.reserveNames(names...)
 	if err != nil {
 		return nil, err
 	}

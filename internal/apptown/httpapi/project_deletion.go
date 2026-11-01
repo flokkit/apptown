@@ -27,7 +27,7 @@ func NewProjectDeletion(projects *project.Projects, access *identity.Service, de
 // last; it is deleted and kept, then purged (design/subsystems/project-deletion.md).
 // A project already being deleted is re-confirmed.
 func (h ProjectDeletion) DeleteProject(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -46,7 +46,7 @@ func (h ProjectDeletion) DeleteProject(w http.ResponseWriter, r *http.Request) {
 // project's deletion stands: deleting (what it waits on), deleted (kept
 // until), or active.
 func (h ProjectDeletion) ProjectDeletionStatus(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -56,7 +56,7 @@ func (h ProjectDeletion) ProjectDeletionStatus(w http.ResponseWriter, r *http.Re
 // CancelProjectDeletion: POST /api/v1/projects/{slug}/deletion/cancel —
 // before the first take-down only.
 func (h ProjectDeletion) CancelProjectDeletion(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -66,7 +66,7 @@ func (h ProjectDeletion) CancelProjectDeletion(w http.ResponseWriter, r *http.Re
 // RestoreProject: POST /api/v1/projects/{slug}/restore — a deleted project
 // back to active, with no deployments, until its purge was admitted.
 func (h ProjectDeletion) RestoreProject(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -76,7 +76,7 @@ func (h ProjectDeletion) RestoreProject(w http.ResponseWriter, r *http.Request) 
 // PurgeProject: POST /api/v1/projects/{slug}/purge — an instance
 // administrator purges a deleted project now: 202 with the operation.
 func (h ProjectDeletion) PurgeProject(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -85,7 +85,7 @@ func (h ProjectDeletion) PurgeProject(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	WriteAdmitted(w, op)
+	writeAdmitted(w, op)
 }
 
 func (h ProjectDeletion) answer(w http.ResponseWriter, status int) func(projectlifecycle.Status, error) {
@@ -94,12 +94,12 @@ func (h ProjectDeletion) answer(w http.ResponseWriter, status int) func(projectl
 			WriteFault(w, err)
 			return
 		}
-		WriteJSON(w, status, ProjectDeletionState(out))
+		WriteJSON(w, status, projectDeletionState(out))
 	}
 }
 
-// ProjectDeletionState is where a project's deletion stands.
-type ProjectDeletionState = projectlifecycle.Status
+// projectDeletionState is where a project's deletion stands.
+type projectDeletionState = projectlifecycle.Status
 
 // ProjectCleanups: GET /api/v1/project-cleanups — admin. Recent deleted
 // projects' cleanups: pending, done, or waiting for a person.
@@ -121,12 +121,12 @@ func (h ProjectDeletion) RetryProjectCleanup(w http.ResponseWriter, r *http.Requ
 	if !RequireAdmin(h.access, w, r) {
 		return
 	}
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
 	}
-	if err := h.deletion.RetryCleanup(r.Context(), id, Actor(r)); err != nil {
+	if err := h.deletion.RetryCleanup(r.Context(), id, actor(r)); err != nil {
 		WriteFault(w, err)
 		return
 	}

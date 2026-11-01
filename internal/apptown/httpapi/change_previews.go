@@ -28,7 +28,7 @@ func NewChangePreviews(previews *preview.Service, db *database.DB, now func() ti
 // uncommitted edits are exactly what you want to try. Reaped when the
 // change leaves in_progress.
 func (h ChangePreviews) ChangePreview(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -39,14 +39,14 @@ func (h ChangePreviews) ChangePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response := previewResponse(out, h.previews.PreviewsHostOnly())
-	audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), out.ProjectID, "change.preview", fmt.Sprintf("%d", id), map[string]any{"url": out.URL, "commit": response.Commit})
+	audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, actor(r), out.ProjectID, "change.preview", fmt.Sprintf("%d", id), map[string]any{"url": out.URL, "commit": response.Commit})
 	WriteJSON(w, 200, response)
 }
 
 // ChangePreviewRestart: POST /changes/{id}/preview/restart — throw the
 // running preview away and boot again from the worktree as it is now.
 func (h ChangePreviews) ChangePreviewRestart(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -56,6 +56,6 @@ func (h ChangePreviews) ChangePreviewRestart(w http.ResponseWriter, r *http.Requ
 		writePreviewError(w, err, 422)
 		return
 	}
-	audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), out.ProjectID, "change.preview", fmt.Sprintf("%d", id), map[string]any{"url": out.URL, "restart": true})
+	audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, actor(r), out.ProjectID, "change.preview", fmt.Sprintf("%d", id), map[string]any{"url": out.URL, "restart": true})
 	WriteJSON(w, 200, previewResponse(out, h.previews.PreviewsHostOnly()))
 }

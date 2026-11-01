@@ -1,9 +1,11 @@
 package workflow
 
 import (
+	"testing"
+
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/database"
-	"testing"
+	"github.com/flokkit/apptown/internal/dbtest"
 )
 
 func TestWorkAddressFilterReadsTheCurrentAddress(t *testing.T) {
@@ -31,7 +33,7 @@ func TestWorkAddressFilterReadsTheCurrentAddress(t *testing.T) {
 			t.Fatalf("address %q names no project, but listed: %+v %v", address, rows, err)
 		}
 	}
-	restore := q.db.FailNextStatement("-- name: ProjectIDBySlug")
+	restore := dbtest.NextStatementFailure(q.db, "-- name: ProjectIDBySlug")
 	rows, err = s.Runs(ctx, RunQuery{ProjectSlug: next})
 	restore()
 	if err == nil || rows != nil {

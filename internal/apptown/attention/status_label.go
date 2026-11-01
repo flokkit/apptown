@@ -3,14 +3,15 @@ package attention
 import (
 	"database/sql/driver"
 	"errors"
+
 	"github.com/flokkit/apptown/internal/enum"
 )
 
 type AttentionLabel uint8
 
 const (
-	LabelUnknown AttentionLabel = 1
-	LabelWaiting AttentionLabel = 2
+	labelUnknown AttentionLabel = 1
+	labelWaiting AttentionLabel = 2
 )
 
 var labelCodec = enum.Set[AttentionLabel]{Names: []string{"unknown", "waiting"}, Invalid: "invalid-status-label", Err: errors.New("invalid status label"), ScanLabel: "value"}

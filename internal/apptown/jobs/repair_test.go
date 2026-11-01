@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/database"
@@ -243,9 +245,9 @@ func TestInterruptedJobsRollbackOnInvalidOwnershipOrReceiptFailure(t *testing.T)
 					t.Fatal(err)
 				}
 			case "mutation":
-				defer db.FailNextStatement("-- name: SettleInterruptedOperation")()
+				defer dbtest.NextStatementFailure(db, "-- name: SettleInterruptedOperation")()
 			case "receipt":
-				defer db.FailNextStatement("INSERT INTO audit_log")()
+				defer dbtest.NextStatementFailure(db, "INSERT INTO audit_log")()
 			case "suppressed update":
 				if _, err := db.SQL().ExecContext(context.Background(), `CREATE FUNCTION suppress_repair() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`); err != nil {
 					t.Fatal(err)

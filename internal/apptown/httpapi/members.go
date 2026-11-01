@@ -19,7 +19,7 @@ func NewMembers(projects *project.Projects, authority *identity.Service) Members
 	return Members{projects: projects, access: authority}
 }
 func (h Members) Add(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -32,7 +32,7 @@ func (h Members) Add(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonCommand(w, r, jsonBody{errorText: fmt.Sprintf("%s", identity.ErrMemberGrantee)}, func(in struct{ Grantee, Role string }) {
-		if err := h.access.AddProjectMember(r.Context(), p.ID, in.Grantee, in.Role, Actor(r)); err != nil {
+		if err := h.access.AddProjectMember(r.Context(), p.ID, in.Grantee, in.Role, actor(r)); err != nil {
 			WriteFault(w, err)
 			return
 		}

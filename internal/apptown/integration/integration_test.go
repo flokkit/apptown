@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/integration/internal/integrationsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
@@ -31,10 +33,10 @@ func TestBindingsVersionsAndRules(t *testing.T) {
 	if row, err := bs.ByName(t.Context(), "semgrep"); err != nil || row.Version != 2 || !sameJSON(row.ConfigJSON, `{"image":"semgrep:2"}`) {
 		t.Fatalf("the binding stands at its latest configuration: %+v %v", row, err)
 	}
-	if _, err := bs.Save(context.Background(), "semgrep", "scanner", "tool", `{}`, "alice"); !errors.Is(err, ErrManaged) {
+	if _, err := bs.Save(context.Background(), "semgrep", "scanner", "tool", `{}`, "alice"); !errors.Is(err, errManaged) {
 		t.Fatalf("a person overwrote a managed binding: %v", err)
 	}
-	if err := bs.Delete(t.Context(), "semgrep", "alice"); !errors.Is(err, ErrManaged) {
+	if err := bs.Delete(t.Context(), "semgrep", "alice"); !errors.Is(err, errManaged) {
 		t.Fatalf("a managed binding was deleted: %v", err)
 	}
 	if _, err := bs.Save(context.Background(), "mine", "scanner", "tool", `{"image":"x"}`, "alice"); err != nil {
@@ -65,17 +67,17 @@ func TestBindingsVersionsAndRules(t *testing.T) {
 		t.Fatalf("the earliest of the capability: %+v %v", snap, err)
 	}
 
-	kinds := NewServiceKinds(db)
+	kinds := newServiceKinds(db)
 	if err := kinds.Save(context.Background(), "cache", "capability: cache\ntitle: Cache\n", "Cache", "alice"); err != nil {
 		t.Fatal(err)
 	}
 	if err := attachments.Attach(t.Context(), projectID, "cache", "redis", `{}`, "alice", nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := kinds.Delete(t.Context(), "cache", "alice"); !errors.Is(err, ErrInUse) {
+	if err := kinds.Delete(t.Context(), "cache", "alice"); !errors.Is(err, errInUse) {
 		t.Fatalf("a kind in use was deleted: %v", err)
 	}
-	if err := kinds.Delete(t.Context(), "nothing", "alice"); !errors.Is(err, ErrNoServiceKind) || fault.KindOf(err) != fault.NotFound || errors.Is(err, sql.ErrNoRows) {
+	if err := kinds.Delete(t.Context(), "nothing", "alice"); !errors.Is(err, errNoServiceKind) || fault.KindOf(err) != fault.NotFound || errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("absence: %v", err)
 	}
 }
@@ -89,7 +91,7 @@ func TestAttachmentsRulesAndReceipts(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows, err := AttachedRows(t.Context(), db, p)
-	if err != nil || len(rows) != 1 || rows[0].Provenance != string(Entered) {
+	if err != nil || len(rows) != 1 || rows[0].Provenance != string(entered) {
 		t.Fatalf("entered attachment: %+v %v", rows, err)
 	}
 	receipts := integrationReceipts(t, db, "integration.attached", "mailer")
@@ -197,7 +199,7 @@ func TestCreateBindingParticipatesInCallerTransaction(t *testing.T) {
 				}
 			}
 			if scenario == "receipt-failure" {
-				t.Cleanup(db.FailNextStatement("-- name: AppendReceipt"))
+				t.Cleanup(dbtest.NextStatementFailure(db, "-- name: AppendReceipt"))
 			}
 			rollback := errors.New("caller refused")
 			err := db.InTx(t.Context(), func(tx *database.Tx) error {

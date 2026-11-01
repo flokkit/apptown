@@ -26,7 +26,7 @@ func TestAdvanceDispatchesWhatTheNextStageReadies(t *testing.T) {
 		"script": func(task *Execution) { ran.Store(task.Step().ID) },
 	}})
 	t.Cleanup(a.Work.Stop)
-	a.Work.advancer = newAdvancer(a.DB, advanceRuntime{Stages: a.Work.stages, Assertions: a.Work.assertions, Checks: advancementScopeChecks{refresh: func(context.Context, *Run) error { return nil }}, Completion: completionRecorderFunc(noCompletionEffects)})
+	a.Work.advancer = newAdvancer(a.DB, advanceRuntime{stages: a.Work.stages, assertions: a.Work.assertions, checks: advancementScopeChecks{refresh: func(context.Context, *Run) error { return nil }}, completion: completionRecorderFunc(noCompletionEffects)})
 	adv, err := a.Work.Advance(ctx, a.RunID)
 	if err != nil || !adv.Advanced || adv.Stage != "after" {
 		t.Fatalf("advance: %+v err=%v", adv, err)

@@ -89,7 +89,7 @@ func (p *preparedMergeGate) block(ctx context.Context, evidence MergeEvidence) (
 			}
 			previous = current.Status
 		}
-		next, err := previous.Transition(MoveStepEvaluate, StatusNeedsHuman)
+		next, err := previous.transition(moveStepEvaluate, StatusNeedsHuman)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +134,7 @@ func (p *preparedMergeGate) clear(ctx context.Context) error {
 			if step.Status == StatusPass || step.OverrideBy != "" {
 				continue
 			}
-			next, err := step.Status.Transition(MoveStepEvaluate, StatusPass)
+			next, err := step.Status.transition(moveStepEvaluate, StatusPass)
 			if err != nil {
 				return struct{}{}, err
 			}
@@ -157,7 +157,7 @@ func prepareMergeGateIn(ctx context.Context, tx *database.Tx, db *database.DB, r
 	}
 	current := 0
 	for _, step := range steps {
-		if _, err := step.Status.Transition(MoveStepEvaluate, StatusPass); err != nil {
+		if _, err := step.Status.transition(moveStepEvaluate, StatusPass); err != nil {
 			return nil, err
 		}
 		if step.Stage == run.CurrentStage {

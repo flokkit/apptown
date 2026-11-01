@@ -23,7 +23,7 @@ var start = time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)
 
 func fixed(t *time.Time) func() time.Time { return func() time.Time { return *t } }
 
-func roots(a *Authority) *x509.CertPool {
+func roots(a *authority) *x509.CertPool {
 	p := x509.NewCertPool()
 	p.AddCert(a.Certificate())
 	return p
@@ -81,7 +81,7 @@ func TestLeavesVerifyForLocalhostNamesAndNothingElse(t *testing.T) {
 		{"", "127.0.0.1"},
 		{"", "::1"},
 	} {
-		cert, err := a.Leaf(c.sni)
+		cert, err := a.leaf(c.sni)
 		if err != nil {
 			t.Fatalf("%q: %v", c.sni, err)
 		}
@@ -90,7 +90,7 @@ func TestLeavesVerifyForLocalhostNamesAndNothingElse(t *testing.T) {
 			t.Errorf("%q as %s: %v", c.sni, c.verifyAs, err)
 		}
 	}
-	if _, err := a.Leaf("example.com"); err == nil {
+	if _, err := a.leaf("example.com"); err == nil {
 		t.Fatal("a certificate was issued for example.com")
 	}
 }
@@ -110,7 +110,7 @@ func TestLoadKeepsTheAuthority(t *testing.T) {
 	if !again.Certificate().Equal(first.Certificate()) {
 		t.Fatal("loading the folder again made a different CA")
 	}
-	info, err := os.Stat(filepath.Join(dir, KeyFile))
+	info, err := os.Stat(filepath.Join(dir, keyFile))
 	if err != nil || info.Mode().Perm() != 0o600 {
 		t.Fatalf("key file mode %v (%v), want 0600", info.Mode().Perm(), err)
 	}
@@ -120,12 +120,12 @@ func TestLoadKeepsTheAuthority(t *testing.T) {
 // person may already trust the certificate.
 func TestAHalfWrittenAuthorityIsAnError(t *testing.T) {
 	t.Parallel()
-	for _, keep := range []string{CertFile, KeyFile} {
+	for _, keep := range []string{CertFile, keyFile} {
 		dir := t.TempDir()
 		if _, err := Load(dir, nil); err != nil {
 			t.Fatal(err)
 		}
-		other := map[string]string{CertFile: KeyFile, KeyFile: CertFile}[keep]
+		other := map[string]string{CertFile: keyFile, keyFile: CertFile}[keep]
 		if err := os.Remove(filepath.Join(dir, other)); err != nil {
 			t.Fatal(err)
 		}
@@ -146,13 +146,13 @@ func TestALeafIsReissuedBeforeItEnds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	first, _ := a.Leaf("localhost")
+	first, _ := a.leaf("localhost")
 	now = first.Leaf.NotAfter.Add(-48 * time.Hour)
-	if kept, _ := a.Leaf("localhost"); kept != first {
+	if kept, _ := a.leaf("localhost"); kept != first {
 		t.Fatal("a leaf with two days left was reissued")
 	}
 	now = first.Leaf.NotAfter.Add(-time.Hour)
-	renewed, _ := a.Leaf("localhost")
+	renewed, _ := a.leaf("localhost")
 	if renewed == first || !renewed.Leaf.NotAfter.After(first.Leaf.NotAfter) {
 		t.Fatal("a leaf with an hour left was not reissued")
 	}

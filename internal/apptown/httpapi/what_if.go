@@ -20,25 +20,25 @@ import (
 type WhatIfs struct {
 	projects    *project.Projects
 	conformance *conformance.Service
-	runner      WhatIfRunner
-	library     WhatIfPackLibrary
+	runner      whatIfRunner
+	library     whatIfPackLibrary
 }
 
-// WhatIfPackLibrary is the pack library's names and each pack's newest version,
+// whatIfPackLibrary is the pack library's names and each pack's newest version,
 // for offering "each project's own pack at its newest" with a what-if.
-type WhatIfPackLibrary interface {
+type whatIfPackLibrary interface {
 	Packs(ctx context.Context) ([]wow.Pack, error)
 	PackHistory(ctx context.Context, name string) (*wow.PackHistory, error)
 }
 
-// WhatIfRunner starts a what-if and returns its id, and says who one runs
+// whatIfRunner starts a what-if and returns its id, and says who one runs
 // on when it names no projects.
-type WhatIfRunner interface {
+type whatIfRunner interface {
 	StartWhatIf(ctx context.Context, in conformance.WhatIfRequest) (ids.ID, error)
 	EligibleForWhatIf(ctx context.Context, pack string, version int64, also ...conformance.PackVersion) ([]string, error)
 }
 
-func NewWhatIfs(projects *project.Projects, conformance *conformance.Service, runner WhatIfRunner, library WhatIfPackLibrary) WhatIfs {
+func NewWhatIfs(projects *project.Projects, conformance *conformance.Service, runner whatIfRunner, library whatIfPackLibrary) WhatIfs {
 	return WhatIfs{projects: projects, conformance: conformance, runner: runner, library: library}
 }
 
@@ -82,7 +82,7 @@ func (h WhatIfs) StartWhatIf(w http.ResponseWriter, r *http.Request) {
 
 // WhatIf: GET /api/v1/conformance/what-if/{id}.
 func (h WhatIfs) WhatIf(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad what-if id")
 		return

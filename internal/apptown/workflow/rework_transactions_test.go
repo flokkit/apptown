@@ -35,7 +35,7 @@ func reworkReviewClaim(t *testing.T, db *database.DB, id ids.ID) *Step {
 	if err != nil {
 		t.Fatal(err)
 	}
-	claim, err := newStepAttempts(db, func(kind string) bool { return kind == "agent/review" }).Start(context.Background(), step, "agent/review")
+	claim, err := newStepAttempts(db, func(kind string) bool { return kind == "agent/review" }).start(context.Background(), step, "agent/review", ids.Nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestWorkflowReworkRefusesIneligibleProducer(t *testing.T) {
 				}
 			}
 			result, err := (reworkStore{s.db, clocked{}}).fail(context.Background(), claim, StepOutcome{Status: StatusFail, Evidence: json.RawMessage(`{"reason":"judged the previous draft"}`)})
-			if err != nil || !result.AgentID.IsZero() {
+			if err != nil || !result.agentID.IsZero() {
 				t.Fatalf("ineligible producer reopened: %+v %v", result, err)
 			}
 			wantEventCount(t, s.db, 0, ofKind("step.rework"))
@@ -150,7 +150,7 @@ func TestWorkflowReworkRoundLimit(t *testing.T) {
 			t.Fatalf("stored historical receipt: rows=%d err=%v", rows, err)
 		}
 	}
-	if result, err := (reworkStore{s.db, clocked{}}).fail(context.Background(), reworkReviewClaim(t, s.db, review), StepOutcome{Status: StatusFail, Evidence: json.RawMessage(`{"reason":"third round"}`)}); err != nil || result.AgentID != agent {
+	if result, err := (reworkStore{s.db, clocked{}}).fail(context.Background(), reworkReviewClaim(t, s.db, review), StepOutcome{Status: StatusFail, Evidence: json.RawMessage(`{"reason":"third round"}`)}); err != nil || result.agentID != agent {
 		t.Fatalf("third round refused: %+v %v", result, err)
 	}
 	wantEventCount(t, s.db, 3, ofKind("step.rework"))
@@ -163,7 +163,7 @@ func TestWorkflowReworkRoundLimit(t *testing.T) {
 			t.Fatalf("stored step status: rows=%d err=%v", rows, err)
 		}
 	}
-	if result, err := (reworkStore{s.db, clocked{}}).fail(context.Background(), reworkReviewClaim(t, s.db, review), StepOutcome{Status: StatusFail, Evidence: json.RawMessage(`{"reason":"still fails"}`)}); err != nil || !result.AgentID.IsZero() {
+	if result, err := (reworkStore{s.db, clocked{}}).fail(context.Background(), reworkReviewClaim(t, s.db, review), StepOutcome{Status: StatusFail, Evidence: json.RawMessage(`{"reason":"still fails"}`)}); err != nil || !result.agentID.IsZero() {
 		t.Fatalf("limit exceeded: %+v %v", result, err)
 	}
 	wantEventCount(t, s.db, 3, ofKind("step.rework"))
@@ -185,7 +185,7 @@ func TestWorkflowReworkRoundLimit(t *testing.T) {
 		if round == 4 {
 			want = ids.Nil
 		}
-		if result, err := (reworkStore{s.db, clocked{}}).fail(context.Background(), reworkReviewClaim(t, s.db, review), StepOutcome{Status: StatusFail, Evidence: json.RawMessage(fmt.Sprintf(`{"reason":"round %d after the retry"}`, round))}); err != nil || result.AgentID != want {
+		if result, err := (reworkStore{s.db, clocked{}}).fail(context.Background(), reworkReviewClaim(t, s.db, review), StepOutcome{Status: StatusFail, Evidence: json.RawMessage(fmt.Sprintf(`{"reason":"round %d after the retry"}`, round))}); err != nil || result.agentID != want {
 			t.Fatalf("round %d after a person's retry: %+v %v", round, result, err)
 		}
 	}
@@ -285,10 +285,10 @@ func TestWorkflowReworkRacesAbandonment(t *testing.T) {
 				return 0
 			})
 			var calls atomic.Int32
-			dispatcher := newDispatcher(s.db, dispatcherConfig{Life: context.Background(), Runners: map[string]func(ids.ID){"agent/pi": func(ids.ID) { calls.Add(1) }}, Report: func(err error) { t.Error(err) }})
+			dispatcher := newDispatcher(s.db, dispatcherConfig{life: context.Background(), runners: map[string]func(ids.ID){"agent/pi": func(ids.ID) { calls.Add(1) }}, report: func(err error) { t.Error(err) }})
 			// Even an already-created dispatch plan must recheck abandonment.
-			dispatcher.Dispatch(DispatchPlan{RunID: run.ID, Steps: []ReadyStep{{ID: agent, Type: "agent/pi"}}}, false)
-			dispatcher.Wait()
+			dispatcher.dispatch(DispatchPlan{RunID: run.ID, Steps: []ReadyStep{{ID: agent, Type: "agent/pi"}}}, false)
+			dispatcher.wait()
 			if calls.Load() != 0 {
 				t.Fatal("abandoned work dispatched")
 			}
@@ -296,7 +296,7 @@ func TestWorkflowReworkRacesAbandonment(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := newStepAttempts(s.db, func(kind string) bool { return kind == "agent/pi" }).Start(context.Background(), current, "agent/pi"); !errors.Is(err, ErrStepAttemptLost) {
+			if _, err := newStepAttempts(s.db, func(kind string) bool { return kind == "agent/pi" }).start(context.Background(), current, "agent/pi", ids.Nil); !errors.Is(err, ErrStepAttemptLost) {
 				t.Fatalf("abandoned work claim: %v", err)
 			}
 			// Original attempt only; abandoned retry never claims.
@@ -308,7 +308,7 @@ func TestWorkflowReworkRacesAbandonment(t *testing.T) {
 func TestWorkflowReworkAgentClaimHasOneWinner(t *testing.T) {
 	t.Parallel()
 	s, _, agent, review, _ := retryStageFixture(t)
-	if result, err := (reworkStore{s.db, clocked{}}).fail(context.Background(), reworkReviewClaim(t, s.db, review), StepOutcome{Status: StatusFail, Evidence: json.RawMessage(`{"reason":"fix the bug"}`)}); err != nil || result.AgentID != agent {
+	if result, err := (reworkStore{s.db, clocked{}}).fail(context.Background(), reworkReviewClaim(t, s.db, review), StepOutcome{Status: StatusFail, Evidence: json.RawMessage(`{"reason":"fix the bug"}`)}); err != nil || result.agentID != agent {
 		t.Fatalf("rework not queued: %+v %v", result, err)
 	}
 	step, err := readStep(context.Background(), s.db, agent)
@@ -317,7 +317,7 @@ func TestWorkflowReworkAgentClaimHasOneWinner(t *testing.T) {
 	}
 	result := race(8, func(int) int {
 		claim := *step
-		if _, err := newStepAttempts(s.db, func(kind string) bool { return kind == "agent/pi" }).Start(context.Background(), &claim, "agent/pi"); err == nil {
+		if _, err := newStepAttempts(s.db, func(kind string) bool { return kind == "agent/pi" }).start(context.Background(), &claim, "agent/pi", ids.Nil); err == nil {
 			return 1
 		}
 		return 0
@@ -349,7 +349,7 @@ func TestWorkflowReworkClearsPreviousAttemptOverride(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := newStepAttempts(store.db, func(kind string) bool { return kind == "agent/pi" }).Start(context.Background(), snapshot, "agent/pi"); err != nil {
+	if _, err := newStepAttempts(store.db, func(kind string) bool { return kind == "agent/pi" }).start(context.Background(), snapshot, "agent/pi", ids.Nil); err != nil {
 		t.Fatalf("queued rework cannot be admitted: %v", err)
 	}
 	expect(t, eventCount(t, store.db, run.ID, "step.rework", "previousAgentOverrideBy=alice", "previousAgentOverrideReason=previous attempt accepted") == 1, "rework receipt lost the previous override")

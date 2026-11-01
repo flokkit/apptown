@@ -29,12 +29,12 @@ import (
 // again. A stop is recorded before it is issued and a start once it succeeded, so what the
 // record names may be stopped; its state now is not known.
 
-// OperationRestoreSet is a restore of a backup set over a deployment.
-const OperationRestoreSet = "deployment.restore"
+// operationRestoreSet is a restore of a backup set over a deployment.
+const operationRestoreSet = "deployment.restore"
 
-// ErrRestoreSetNotStopped refuses to stop a restore part way: stopping
+// errRestoreSetNotStopped refuses to stop a restore part way: stopping
 // between items would leave the data half old and half new.
-var ErrRestoreSetNotStopped = fault.New(fault.Conflict, "a restore that has started runs to its end and starts the app again after its last item; it can be cancelled only while it waits to start")
+var errRestoreSetNotStopped = fault.New(fault.Conflict, "a restore that has started runs to its end and starts the app again after its last item; it can be cancelled only while it waits to start")
 
 // restorable is what a restore of a set into a deployment needs before
 // anything changes, asked at the door and again by the operation: an
@@ -45,11 +45,11 @@ func (s *Service) restorable(ctx context.Context, projectID ids.ID, name string,
 	if err := project.RefuseUnlessActive(ctx, s.db, projectID); err != nil {
 		return nil, nil, err
 	}
-	b, err := s.backups.InProject(ctx, projectID, backupID)
+	b, err := s.backups.inProject(ctx, projectID, backupID)
 	if err != nil {
 		return nil, nil, fault.New(fault.NotFound, fmt.Sprintf("no backup %d in this project", backupID))
 	}
-	if err := b.Status.Restorable(); err != nil {
+	if err := b.Status.restorable(); err != nil {
 		return nil, nil, fmt.Errorf("backup %d: %w", backupID, err)
 	}
 	// A managed database's copy is only ever filled into a new place: a
@@ -57,7 +57,7 @@ func (s *Service) restorable(ctx context.Context, projectID ids.ID, name string,
 	// place wherever it is kept.
 	for _, it := range b.Items {
 		if it.Instance != "" {
-			return nil, nil, fmt.Errorf("%w: set %d is a copy of a managed database; start a new deployment from it instead", ErrRestoreMismatch, backupID)
+			return nil, nil, fmt.Errorf("%w: set %d is a copy of a managed database; start a new deployment from it instead", errRestoreMismatch, backupID)
 		}
 	}
 	if _, err := project.ByIDIn(ctx, s.db, projectID); err != nil {
@@ -78,7 +78,7 @@ func (s *Service) restorable(ctx context.Context, projectID ids.ID, name string,
 // restore, a copy or a take-down operation of it is refused meanwhile; a
 // release is not.
 func (s *Service) RequestRestore(ctx context.Context, projectID ids.ID, name string, backupID ids.ID) (*operations.Operation, error) {
-	actor, err := s.requireAuthority(ctx, access.CapDeploymentDeploy, projectID, OperationRestoreSet)
+	actor, err := s.requireAuthority(ctx, access.CapDeploymentDeploy, projectID, operationRestoreSet)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (s *Service) RequestRestore(ctx context.Context, projectID ids.ID, name str
 	if _, _, err := restoreMoves(b, held.items); err != nil {
 		return nil, err
 	}
-	return s.admit(ctx, dep, OperationRestoreSet, actor, []string{deployment.DataHold(dep)}, map[string]any{"backup": backupID}, nil)
+	return s.admit(ctx, dep, operationRestoreSet, actor, []string{deployment.DataHold(dep)}, map[string]any{"backup": backupID}, nil)
 }
 
 // runRestoreSet is the restore operation's body. It ends failed when it
@@ -113,7 +113,7 @@ func (s *Service) runRestoreSet(ctx context.Context, t *tracker) (runEnd, string
 		if left := mayBeStoppedWords(t.facts()); left != "" {
 			why += ". " + left
 		}
-		return OperationFailed, why + rec.lostWords(), nil
+		return operationFailed, why + rec.lostWords(), nil
 	}
 	result := map[string]any{"restore": res}
 	detail := restoreWords(res) + rec.lostWords()
@@ -123,18 +123,18 @@ func (s *Service) runRestoreSet(ctx context.Context, t *tracker) (runEnd, string
 		whole = false
 	}
 	if err != nil {
-		return OperationFailed, err.Error() + ". " + detail, result
+		return operationFailed, err.Error() + ". " + detail, result
 	}
 	// The data is back but the app is not whole: not a success.
 	if !whole {
-		return OperationFailed, detail, result
+		return operationFailed, detail, result
 	}
 	for _, it := range res.Items {
-		if it.Outcome != RestoreVerified && it.Outcome != RestoreSkipped {
-			return OperationNotVerified, detail, result
+		if it.Outcome != restoreVerified && it.Outcome != restoreSkipped {
+			return operationNotVerified, detail, result
 		}
 	}
-	return OperationVerified, detail, result
+	return operationVerified, detail, result
 }
 
 // restoreWords says what a restore that ran to its end did.

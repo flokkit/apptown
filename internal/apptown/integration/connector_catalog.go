@@ -257,9 +257,9 @@ func ConnectorCatalog() []ConnectorSpec {
 
 }
 
-// CatalogDefaults: the facts that vary per installation and used to be
+// catalogDefaults: the facts that vary per installation and used to be
 // compiled into the catalog. Empty means "no suggestion".
-type CatalogDefaults struct {
+type catalogDefaults struct {
 	MirrorBase string // e.g. https://nexus.example.com — presets carry only the repository path
 }
 
@@ -267,11 +267,11 @@ type CatalogDefaults struct {
 // address of a mirror already added whose URL is that address followed by its
 // own preset's path, first by name. An administrator changes it by changing
 // that mirror's URL. A read failure suggests nothing.
-func (s *Service) CatalogDefaults(ctx context.Context) CatalogDefaults {
+func (s *Service) CatalogDefaults(ctx context.Context) catalogDefaults {
 	bindings, err := s.Bindings.All(ctx)
 	if err != nil {
 		log.Printf("integrations: reading the mirrors for the catalog's suggestion: %v", err)
-		return CatalogDefaults{}
+		return catalogDefaults{}
 	}
 	paths := map[string]string{}
 	for _, c := range ConnectorCatalog() {
@@ -296,16 +296,16 @@ func (s *Service) CatalogDefaults(ctx context.Context) CatalogDefaults {
 		}
 		path, known := paths[cfg.Format]
 		if base, ok := strings.CutSuffix(strings.TrimSuffix(cfg.URL, "/"), "/"+path); known && ok && base != "" {
-			return CatalogDefaults{MirrorBase: base}
+			return catalogDefaults{MirrorBase: base}
 		}
 	}
-	return CatalogDefaults{}
+	return catalogDefaults{}
 }
 
 // InstancePresets fills a registry preset's URL from the instance defaults:
 // its "path" becomes MirrorBase/path. With nothing suggested the URL stays
 // empty and the form's placeholder does the suggesting.
-func InstancePresets(c ConnectorSpec, defaults CatalogDefaults) ConnectorSpec {
+func InstancePresets(c ConnectorSpec, defaults catalogDefaults) ConnectorSpec {
 	if len(c.Presets) == 0 {
 		return c
 	}

@@ -24,7 +24,7 @@ func TestGuidanceEditsFromOneRevisionOneWins(t *testing.T) {
 		{{BlockID: a.ID, Name: a.Name, Version: 1}},
 		{{BlockID: b.ID, Name: b.Name, Version: 1}},
 	}
-	if _, err := s.ReplaceGuidance(t.Context(), pid, nil, lists[0], "edit", "alice"); !errors.Is(err, ErrGuidanceRevisionRequired) {
+	if _, err := s.ReplaceGuidance(t.Context(), pid, nil, lists[0], "edit", "alice"); !errors.Is(err, errGuidanceRevisionRequired) {
 		t.Fatalf("edit without a revision: %v", err)
 	}
 	start := int64(0)
@@ -42,7 +42,7 @@ func TestGuidanceEditsFromOneRevisionOneWins(t *testing.T) {
 		switch {
 		case err == nil:
 			won = i
-		case !errors.Is(err, ErrGuidanceMoved):
+		case !errors.Is(err, errGuidanceMoved):
 			t.Fatal(err)
 		}
 	}

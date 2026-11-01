@@ -2,10 +2,11 @@ package apptown
 
 import (
 	"context"
-	"github.com/flokkit/apptown/internal/ids/idstest"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/access"
 )
@@ -55,7 +56,7 @@ func TestActorOnlyRequestCannotAcquireRouteOrRosterAuthority(t *testing.T) {
 	// Normal open-mode admission still supplies the member's real identity.
 	reached := false
 	r.URL.Path = "/api/v1/projects/game/changes"
-	a.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	a.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reached = a.requireProjectMember(w, r, idstest.N(1), "game")
 	})).ServeHTTP(httptest.NewRecorder(), r)
 	if !reached {

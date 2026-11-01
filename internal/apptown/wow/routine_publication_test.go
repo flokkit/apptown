@@ -9,7 +9,7 @@ import (
 )
 
 func routineMaterialPair() (routinePublication, routinePublication) {
-	before := routinePublication{Kind: "block", ID: idstest.N(1), PublicationID: idstest.N(2), Version: 1, Name: "team/style", Source: SourceHere, Body: "Use descriptive names.", Checks: json.RawMessage(`[{"name":"test","run":"go test ./...","severity":"high"}]`)}
+	before := routinePublication{Kind: "block", ID: idstest.N(1), PublicationID: idstest.N(2), Version: 1, Name: "team/style", Source: sourceHere, Body: "Use descriptive names.", Checks: json.RawMessage(`[{"name":"test","run":"go test ./...","severity":"high"}]`)}
 	after := before
 	after.PublicationID = idstest.N(3)
 	after.Version = 2
@@ -47,7 +47,7 @@ func TestRoutinePublicationOnlyChangesDisplayedGuidance(t *testing.T) {
 	}
 	// Shipped release descriptions are provenance facts, not a requirement that
 	// two different publications were signed by the same release description.
-	before.Source, after.Source = SourceFlokkit, SourceFlokkit
+	before.Source, after.Source = sourceFlokkit, sourceFlokkit
 	before.Signer, after.Signer = "shipped with old release, unsigned", "shipped with new release, unsigned"
 	if ok, reason := routinePublicationDelta(before, after); !ok || reason != "" {
 		t.Fatalf("recorded provenance transition refused: %t %s", ok, reason)
@@ -61,7 +61,7 @@ func TestRoutinePublicationOnlyChangesDisplayedGuidance(t *testing.T) {
 
 func TestRoutinePackRequiresCompleteUnchangedExecutionAndAuthority(t *testing.T) {
 	b, a := routineMaterialPair()
-	before := routinePublication{Kind: "pack", ID: idstest.N(4), PublicationID: idstest.N(5), Version: 1, Name: "team", Source: SourceHere, Spec: json.RawMessage(`{"guidance":["team/style"],"requires":[]}`), Declaration: json.RawMessage(`{"guidance":["team/style"]}`), Pins: PinSet{Blocks: map[string]int{"team/style": 1}}, References: []routinePublication{b}}
+	before := routinePublication{Kind: "pack", ID: idstest.N(4), PublicationID: idstest.N(5), Version: 1, Name: "team", Source: sourceHere, Spec: json.RawMessage(`{"guidance":["team/style"],"requires":[]}`), Declaration: json.RawMessage(`{"guidance":["team/style"]}`), Pins: PinSet{Blocks: map[string]int{"team/style": 1}}, References: []routinePublication{b}}
 	after := before
 	after.PublicationID = idstest.N(6)
 	after.Version = 2

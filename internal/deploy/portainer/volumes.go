@@ -12,10 +12,10 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 )
 
-// StackVolume is a volume a stack's compose file declares, as the
+// stackVolume is a volume a stack's compose file declares, as the
 // environment names it, and the need whose data it keeps ("" for an app's
 // or a part's data folder).
-type StackVolume struct {
+type stackVolume struct {
 	Name, Key, Need string
 }
 
@@ -23,7 +23,7 @@ type StackVolume struct {
 // external), named as composeVolumeNames names them, each with the need
 // whose data it keeps. A need's volume key is <prefix>need-<base>-<need>
 // (StackNames).
-func ComposeVolumes(stack, base, compose string) ([]StackVolume, error) {
+func ComposeVolumes(stack, base, compose string) ([]stackVolume, error) {
 	vols, err := composeVolumeNames(stack, compose)
 	if err != nil {
 		return nil, err
@@ -40,7 +40,7 @@ func ComposeVolumes(stack, base, compose string) ([]StackVolume, error) {
 // composeVolumeNames is the one rule for what the environment calls the
 // volumes a stack's compose file declares: <stack>_<key>, or the name the
 // file sets. An external volume is not the stack's and is left out.
-func composeVolumeNames(stack, compose string) ([]StackVolume, error) {
+func composeVolumeNames(stack, compose string) ([]stackVolume, error) {
 	var file struct {
 		Volumes map[string]*struct {
 			Name     string `yaml:"name"`
@@ -50,7 +50,7 @@ func composeVolumeNames(stack, compose string) ([]StackVolume, error) {
 	if err := yaml.Unmarshal([]byte(compose), &file); err != nil {
 		return nil, err
 	}
-	var out []StackVolume
+	var out []stackVolume
 	for key, v := range file.Volumes {
 		if v != nil && v.External != nil && v.External != false {
 			continue
@@ -59,7 +59,7 @@ func composeVolumeNames(stack, compose string) ([]StackVolume, error) {
 		if v != nil && v.Name != "" {
 			name = v.Name
 		}
-		out = append(out, StackVolume{Name: name, Key: key})
+		out = append(out, stackVolume{Name: name, Key: key})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, nil
@@ -84,7 +84,7 @@ func volumeThere(ctx context.Context, cfg *Target, endpointID int64, name string
 // compose declares that was not there before the deploy and is there now:
 // AppTown's deploy made it. One that was there before is not recorded
 // (nothing found is adopted).
-func recordMadeVolumes(ctx context.Context, cfg *Target, endpointID int64, before map[string]bool, vols []StackVolume, owner deploy.Owner, logf func(string, ...any)) error {
+func recordMadeVolumes(ctx context.Context, cfg *Target, endpointID int64, before map[string]bool, vols []stackVolume, owner deploy.Owner, logf func(string, ...any)) error {
 	for _, v := range vols {
 		if before[v.Name] {
 			continue

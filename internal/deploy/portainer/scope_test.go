@@ -88,13 +88,13 @@ func TestCanonicalAPIBaseRetainsDestinationBoundaries(t *testing.T) {
 		"http://[::1]:9000/":             "http://[::1]:9000",
 	}
 	for input, want := range cases {
-		got, err := CanonicalAPIBase(input)
+		got, err := canonicalAPIBase(input)
 		if err != nil || got != want {
 			t.Errorf("%q: got %q, %v; want %q", input, got, err, want)
 		}
 	}
 	for _, input := range []string{"file:///tmp/server", "https://user:secret@example.test", "https://example.test?key=secret", "https://example.test/#fragment", "https://example.test?", "https://example.test/base%2F"} {
-		if _, err := CanonicalAPIBase(input); err == nil {
+		if _, err := canonicalAPIBase(input); err == nil {
 			t.Errorf("accepted ambiguous credential destination %q", input)
 		}
 	}

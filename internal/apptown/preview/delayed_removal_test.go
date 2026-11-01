@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
@@ -51,7 +50,7 @@ func TestADelayedRemovalNeverUndoesALaterReuse(t *testing.T) {
 	// worker's inspect and listing read it.
 	var running atomic.Bool
 	running.Store(true)
-	binary := dockerfake.New()
+	binary := newDockerFake()
 	binary.SetReply(func(args []string) ([]byte, error, bool) {
 		switch args[0] {
 		case "info":

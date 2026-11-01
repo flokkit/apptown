@@ -29,7 +29,7 @@ func TestAScanStopsWhenAnEarlierRunsOutputCannotBeRemoved(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(src, ".apptown", "semgrep.sarif", "kept"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	results, findings, errs := f.Scanners.RunSourceScans(context.Background(), src, "test", "", "")
+	results, findings, errs := f.Scanners.runSourceScans(context.Background(), src, "test", "", "")
 	if f.Effects.ran("semgrep/semgrep:test") || errs != 1 || len(findings) != 0 || len(results) != 1 || results[0].Verdict != workflow.VerdictError {
 		t.Fatalf("a stale report left in place: ran %v, errors %d, results %+v", f.Effects.ran("semgrep/semgrep:test"), errs, results)
 	}

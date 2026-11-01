@@ -1,10 +1,11 @@
 package apptown
 
 import (
-	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/apptown/deployment"
 )
 
 func TestTiersHTTP(t *testing.T) {

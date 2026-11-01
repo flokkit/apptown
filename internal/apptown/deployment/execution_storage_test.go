@@ -24,7 +24,7 @@ func TestDeploymentExecutionCancellationQueuesRecoveryInsteadOfPublishing(t *tes
 			cancel()
 			return deploymentCompletionFor(at, "selected").Observed, nil
 		})
-	if !errors.Is(err, context.Canceled) || result.Outcome != Uncertain || notified != 0 {
+	if !errors.Is(err, context.Canceled) || result.Outcome != outcomeUncertain || notified != 0 {
 		t.Fatalf("%+v %v notified=%d", result, err, notified)
 	}
 	if a := storedAttempt(t, f.db, result.Attempt.ID); a.Status != AttemptUncertain.String() {

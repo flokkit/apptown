@@ -96,7 +96,7 @@ func TestIntegrationAChatOnAWorkerFromOpeningToItsEnd(t *testing.T) {
 	}
 
 	// AppTown restarts: the chat is found on the worker and saves again.
-	a.StopConsoles(ctx)
+	a.stopConsoles(ctx)
 	if err := a.ShutdownBackground(ctx); err != nil {
 		t.Fatal(err)
 	}

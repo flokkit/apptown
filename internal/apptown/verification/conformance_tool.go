@@ -38,7 +38,7 @@ func toolImageReady(ctx context.Context, images CheckImage, image string) {
 // returns the exit code and output: nothing is mounted and there is no
 // network, so the app is seen as the app sees itself, for at most the scan
 // timeout. The image is resolved separately (and shared) via imageForCommit.
-func runInImage(ctx context.Context, run CheckRun, imageID string, command, env []string) (exitCode int, output string) {
+func runInImage(ctx context.Context, run checkRun, imageID string, command, env []string) (exitCode int, output string) {
 	out := run(ctx, execution.Request{Image: imageID, Argv: command, Env: env, Network: "none",
 		Timeout: check.ScanTimeout, Name: execution.UniqueName("apptown-exec-image")})
 	if !out.Answered() {
@@ -50,12 +50,12 @@ func runInImage(ctx context.Context, run CheckRun, imageID string, command, env 
 	return out.ExitCode, string(out.Output)
 }
 
-// ToolContext carries what a tool check needs beyond its definition: the staged
+// toolContext carries what a tool check needs beyond its definition: the staged
 // committed tree (source scans + the image build context), the commit it came
 // from (the shared image is content-addressed by it), the project (registry
 // login), and whether a cache miss may build the app image — true in the loop
 // (apptown check) and at the gate, false in the read-only fleet sweep.
-type ToolContext struct {
+type toolContext struct {
 	Context    context.Context
 	Exceptions []conformance.Disposition // non-nil is the admitted review snapshot, including an empty one
 	ProjectID  ids.ID

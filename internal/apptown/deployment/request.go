@@ -44,14 +44,14 @@ type ReleaseProject struct {
 	Repository string
 	OwnerGroup string
 }
-type ProjectSource interface {
+type projectSource interface {
 	Project(context.Context, ids.ID) (ReleaseProject, error)
 }
 type ReleaseSources interface {
-	ProjectSource
+	projectSource
 	Contract(context.Context, ReleaseProject, string) (*appcontract.Contract, string, error)
 }
-type ReleaseQueue interface {
+type releaseQueue interface {
 	EnqueueReleaseIn(context.Context, *database.Tx, ids.ID) error
 }
 
@@ -65,18 +65,18 @@ type AcceptedRelease struct {
 
 var (
 	ErrDeploymentMissing = fault.New(fault.NotFound, "no such deployment")
-	ErrBundleMissing     = fault.New(fault.NotFound, "no bundle on this project")
-	ErrNoBundle          = fault.New(fault.Unprocessable, "nothing has landed with a runtime contract yet — there is no bundle to ship; land a change that commits the app's .apptown/app.yaml, then release")
-	ErrPlacementChanged  = fault.New(fault.Conflict, "deployment placement changed; request a new release")
+	errBundleMissing     = fault.New(fault.NotFound, "no bundle on this project")
+	errNoBundle          = fault.New(fault.Unprocessable, "nothing has landed with a runtime contract yet — there is no bundle to ship; land a change that commits the app's .apptown/app.yaml, then release")
+	errPlacementChanged  = fault.New(fault.Conflict, "deployment placement changed; request a new release")
 )
 
-type ContractReadError struct{ Cause error }
+type contractReadError struct{ Cause error }
 
-func (e *ContractReadError) Error() string {
+func (e *contractReadError) Error() string {
 	return fmt.Sprintf("reading the selected contract: %v", e.Cause)
 }
-func (e *ContractReadError) Unwrap() error         { return e.Cause }
-func (e *ContractReadError) FaultKind() fault.Kind { return fault.Unprocessable }
+func (e *contractReadError) Unwrap() error         { return e.Cause }
+func (e *contractReadError) FaultKind() fault.Kind { return fault.Unprocessable }
 
 func (e *Deployment) releaseAttributes() Attributes {
 	return Attributes{Feed: e.Feed, Audience: e.Audience, DataClass: e.DataClass}
@@ -87,9 +87,9 @@ func (e *Deployment) releaseAttributes() Attributes {
 // bundle, given the bundle the deployment runs (running).
 func (e *Deployment) matchesRelease(target ids.ID, generation int64, attrs Attributes, bundle, running ids.ID) error {
 	if e.TargetID != target || e.DesiredGeneration != generation || e.releaseAttributes() != attrs {
-		return ErrPlacementChanged
+		return errPlacementChanged
 	}
-	return e.DeployableByHandAt(bundle, running)
+	return e.deployableByHandAt(bundle, running)
 }
 
 // requireDeploy is the authority to change what a deployment runs: the
@@ -163,7 +163,7 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 	// A landing-fed deployment may still take the bundle it runs, named
 	// explicitly; that is decided once the bundle is known
 	// (DeployableByHandAt). Asking it for the latest bundle is landing's.
-	if err := dep.DeployableByHand(); err != nil && (!errors.Is(err, ErrFedByLanding) || in.BundleID.IsZero()) {
+	if err := dep.deployableByHand(); err != nil && (!errors.Is(err, errFedByLanding) || in.BundleID.IsZero()) {
 		return AcceptedRelease{}, err
 	}
 	// A project being deleted, or deleted, takes no release; while a
@@ -174,7 +174,7 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 	}
 	// A take-down holds the deployment whole (SubjectOf); data operations
 	// hold only its data and do not meet a release.
-	if op, err := s.RunningOperation(ctx, dep); err != nil {
+	if op, err := s.runningOperation(ctx, dep); err != nil {
 		return AcceptedRelease{}, err
 	} else if op != nil && slices.Contains(op.Holds, SubjectOf(dep)) {
 		return AcceptedRelease{}, &operations.HeldError{Holder: op}
@@ -202,19 +202,19 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 	if found, e := database.Lookup(err); e != nil {
 		return AcceptedRelease{}, e
 	} else if !found {
-		return AcceptedRelease{}, ErrBundleMissing
+		return AcceptedRelease{}, errBundleMissing
 	}
 	if bundle == nil {
-		return AcceptedRelease{}, ErrNoBundle
+		return AcceptedRelease{}, errNoBundle
 	}
 	if bundle.ProjectID != in.ProjectID {
-		return AcceptedRelease{}, ErrBundleMissing
+		return AcceptedRelease{}, errBundleMissing
 	}
 	running, err := s.handBundle(ctx, dep)
 	if err != nil {
 		return AcceptedRelease{}, err
 	}
-	if err := dep.DeployableByHandAt(bundle.ID, running); err != nil {
+	if err := dep.deployableByHandAt(bundle.ID, running); err != nil {
 		return AcceptedRelease{}, err
 	}
 	t, err := s.Targets.ByID(ctx, dep.TargetID)
@@ -240,10 +240,10 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 	}
 	contract, revision, err := s.release.Sources.Contract(ctx, project, bundle.ContractRevision)
 	if err != nil {
-		return AcceptedRelease{}, &ContractReadError{err}
+		return AcceptedRelease{}, &contractReadError{err}
 	}
 	if contract == nil || revision == "" {
-		return AcceptedRelease{}, &ContractReadError{errors.New("selected source has no committed contract")}
+		return AcceptedRelease{}, &contractReadError{errors.New("selected source has no committed contract")}
 	}
 	if why, err := s.env.RefusesContract(ctx, t, contract); err != nil || why != "" {
 		return AcceptedRelease{}, errors.Join(err, refusal(why))
@@ -288,13 +288,13 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 		if selectedDefault != nil {
 			settings, err := q.LockProjectReleaseSettings(ctx, in.ProjectID)
 			if errors.Is(err, sql.ErrNoRows) {
-				return ErrReleaseDefaultChanged
+				return errReleaseDefaultChanged
 			}
 			if err != nil {
 				return err
 			}
 			if settings.Revision != selectedDefault.Revision || settings.DefaultDeploymentID != dep.ID {
-				return ErrReleaseDefaultChanged
+				return errReleaseDefaultChanged
 			}
 		}
 		lockedTarget, err := targetRecord(q.TargetByNameForUpdate(ctx, t.Name))
@@ -302,9 +302,9 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 			return err
 		}
 		if lockedTarget.ID != t.ID || lockedTarget.SettingsRevision != t.SettingsRevision {
-			return ErrTargetSettingsMoved
+			return errTargetSettingsMoved
 		}
-		current, err := LockDeploymentIn(ctx, tx, dep.ID)
+		current, err := lockDeploymentRecordIn(ctx, tx, dep.ID)
 		if err != nil {
 			return err
 		}
@@ -326,7 +326,7 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 		// The start this caller was authorised for above is the one the
 		// release records and fills.
 		if current.StartFrom != dep.StartFrom || current.StartedFrom.Valid != dep.StartedFrom.Valid {
-			return ErrPlacementChanged
+			return errPlacementChanged
 		}
 		address, err := s.admitAddressIn(ctx, tx, current, lockedTarget, in.addressRevision, in.customHostname, actor.Principal.Name)
 		if err != nil {

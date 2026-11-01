@@ -30,8 +30,8 @@ import (
 )
 
 var (
-	ErrInvalidSlug = fault.New(fault.Invalid, fmt.Sprintf("slug must match %s", project.SlugShape))
-	ErrNameBusy    = fault.New(fault.Conflict, "project name is busy")
+	errInvalidSlug = fault.New(fault.Invalid, fmt.Sprintf("slug must match %s", project.SlugShape))
+	errNameBusy    = fault.New(fault.Conflict, "project name is busy")
 )
 
 type nameBusy struct{ slug string }
@@ -39,7 +39,7 @@ type nameBusy struct{ slug string }
 func (e *nameBusy) Error() string {
 	return fmt.Sprintf("project name %q is busy; retry after its current operation", e.slug)
 }
-func (e *nameBusy) Unwrap() error { return ErrNameBusy }
+func (e *nameBusy) Unwrap() error { return errNameBusy }
 
 // Draft is the project declaration and receipt attribution after authorization.
 type Draft struct {
@@ -56,14 +56,14 @@ type Draft struct {
 	Packs []string
 }
 
-// SupersededUplifts is Work's participant for closing open adoption changes
+// supersededUplifts is Work's participant for closing open adoption changes
 // whose target a changed pack set has retired, in the caller's transaction.
-type SupersededUplifts interface {
+type supersededUplifts interface {
 	CloseSupersededUpliftsIn(ctx context.Context, tx *database.Tx, closure *scm.Closure, project ids.ID, who string, superseded func(target json.RawMessage) (bool, error), reason string) ([]ids.ID, error)
 }
 
-// Publisher publishes a committed branch with the established best-effort receipt policy.
-type Publisher interface {
+// publisher publishes a committed branch with the established best-effort receipt policy.
+type publisher interface {
 	PushBranch(ctx context.Context, projectID ids.ID, repoDir, branch string)
 }
 type Dependencies struct {
@@ -73,21 +73,21 @@ type Dependencies struct {
 	Projects     *project.Projects
 	Ways         *wow.Service
 	Repositories *scm.RepositoryLocks
-	Publisher    Publisher
-	Changes      Changes
+	Publisher    publisher
+	Changes      changes
 	// Superseded closes the adoption changes a changed pack set retires.
-	Superseded SupersededUplifts
+	Superseded supersededUplifts
 	// Secrets supplies a git credential an administrator names when a
 	// project starts from an https repository.
-	Secrets Secrets
+	Secrets secrets
 }
 type Config struct {
 	DataDir    string
 	Extensions []string
 	Seeding    Seeding
-	// Resolve looks a source host up when a project starts from an https
+	// resolve looks a source host up when a project starts from an https
 	// repository; nil uses the system resolver. Tests supply one.
-	Resolve func(ctx context.Context, host string) ([]netip.Addr, error)
+	resolve func(ctx context.Context, host string) ([]netip.Addr, error)
 	// Now is AppTown's clock, by which who administers is judged when a
 	// project is given its owning group; nil is the real one.
 	Now func() time.Time
@@ -98,11 +98,11 @@ type Service struct {
 	now          func() time.Time
 	ways         *wow.Service
 	repositories *scm.RepositoryLocks
-	publisher    Publisher
-	changes      Changes
-	superseded   SupersededUplifts
+	publisher    publisher
+	changes      changes
+	superseded   supersededUplifts
 	extensions   []string
-	secrets      Secrets
+	secrets      secrets
 	seeding      Seeding
 	resolve      func(ctx context.Context, host string) ([]netip.Addr, error)
 
@@ -115,7 +115,7 @@ type Service struct {
 }
 
 func New(db *database.DB, deps Dependencies, cfg Config) *Service {
-	return &Service{db: db, jobs: deps.Jobs, identity: deps.Identity, adoption: deps.Adoption, projects: deps.Projects, ways: deps.Ways, repositories: deps.Repositories, publisher: deps.Publisher, changes: deps.Changes, superseded: deps.Superseded, secrets: deps.Secrets, seeding: cfg.Seeding, resolve: cfg.Resolve, dataDir: cfg.DataDir, extensions: slices.Clone(cfg.Extensions), projectNamesBusy: make(map[string]bool), now: clock.Or(cfg.Now)}
+	return &Service{db: db, jobs: deps.Jobs, identity: deps.Identity, adoption: deps.Adoption, projects: deps.Projects, ways: deps.Ways, repositories: deps.Repositories, publisher: deps.Publisher, changes: deps.Changes, superseded: deps.Superseded, secrets: deps.Secrets, seeding: cfg.Seeding, resolve: cfg.resolve, dataDir: cfg.DataDir, extensions: slices.Clone(cfg.Extensions), projectNamesBusy: make(map[string]bool), now: clock.Or(cfg.Now)}
 }
 
 // Create is the application command behind the wizard, `apptown new` and the
@@ -134,14 +134,14 @@ func (s *Service) Create(ctx context.Context, in Draft) (*project.Project, error
 	}
 	group := in.Group
 	if !project.ValidSlug(in.Slug) {
-		return nil, ErrInvalidSlug
+		return nil, errInvalidSlug
 	}
 	if len(in.Packs) > 0 {
 		if _, err := s.OfferedPacks(ctx, in.Packs); err != nil {
 			return nil, err
 		}
 	}
-	release, err := s.ReserveNames(in.Slug)
+	release, err := s.reserveNames(in.Slug)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +260,7 @@ func (s *Service) OfferedPacks(ctx context.Context, names []string) ([]*wow.Pack
 // Namespace reservations prevent a replacement project from acquiring paths
 // while the deleted project's post-commit cleanup still owns them. They never
 // hold the mutex across SQL, git or Docker operations.
-func (s *Service) ReserveNames(slugs ...string) (func(), error) {
+func (s *Service) reserveNames(slugs ...string) (func(), error) {
 	slugs = slices.Clone(slugs)
 	slices.Sort(slugs)
 	slugs = slices.Compact(slugs)
@@ -283,9 +283,9 @@ func (s *Service) ReserveNames(slugs ...string) (func(), error) {
 	}, nil
 }
 
-// ConsoleAdmission temporarily prevents chats opening or becoming active on a
+// consoleAdmission temporarily prevents chats opening or becoming active on a
 // project being deleted. The namespace remains reserved for the entire admission
 // attempt, without holding its mutex while asking the console owner.
-type ConsoleAdmission interface {
+type consoleAdmission interface {
 	Block(key, value string) (func(), error)
 }

@@ -26,15 +26,15 @@ import (
 // on the host has an item taken without error. Otherwise the parts are
 // started again and nothing is removed.
 
-// TriggerTakeDown names a take-down's final set. Final sets are not counted
+// triggerTakeDown names a take-down's final set. Final sets are not counted
 // in BackupKeep: their deployment takes no more sets to push them out. A
 // project's sets, final ones included, belong to the project: they are
 // kept while it is, and go when it is purged (PurgeProjectBackups).
-const TriggerTakeDown = "take-down"
+const triggerTakeDown = "take-down"
 
-// ErrFinalBackupIncomplete refuses a take-down whose final set does not
+// errFinalBackupIncomplete refuses a take-down whose final set does not
 // cover the deployment's data. Nothing was removed.
-var ErrFinalBackupIncomplete = fault.New(fault.Conflict, "the final backup does not cover the deployment's data; nothing was removed")
+var errFinalBackupIncomplete = fault.New(fault.Conflict, "the final backup does not cover the deployment's data; nothing was removed")
 
 // stoppedParts are the application containers a take-down stopped, which
 // a refusal starts again.
@@ -97,14 +97,14 @@ func (s *Service) finalBackup(ctx context.Context, dep *deployment.Deployment, t
 		if err != nil {
 			why = err.Error()
 		}
-		return finalCopy{}, fmt.Errorf("%w: %s", ErrFinalBackupIncomplete, why)
+		return finalCopy{}, fmt.Errorf("%w: %s", errFinalBackupIncomplete, why)
 	}
 	// The release names data the list may lack. Unread, the list alone is
 	// planned, as before: nothing off the list is ever deleted.
 	c, _ := s.releaseContract(ctx, dep)
 	plan, _, err := s.heldFrom(ctx, dk, p.Slug, dep, owned, c)
 	if err != nil {
-		return finalCopy{}, fmt.Errorf("%w: %s", ErrFinalBackupIncomplete, err)
+		return finalCopy{}, fmt.Errorf("%w: %s", errFinalBackupIncomplete, err)
 	}
 	if len(plan) == 0 {
 		return finalCopy{}, nil // no data held, or the data on the list is already gone
@@ -117,26 +117,26 @@ func (s *Service) finalBackup(ctx context.Context, dep *deployment.Deployment, t
 		}
 		if it.Listed && it.Kind == "volume" {
 			// Every application part is stopped before the copy: nothing writes.
-			it.Copy, it.How = CopyFiles, "tar of the volume "+it.Volume
+			it.Copy, it.How = copyFiles, "tar of the volume "+it.Volume
 		}
 	}
 	if len(uncovered) > 0 {
-		return finalCopy{}, fmt.Errorf("%w: AppTown has no way to copy %s", ErrFinalBackupIncomplete, strings.Join(uncovered, "; "))
+		return finalCopy{}, fmt.Errorf("%w: AppTown has no way to copy %s", errFinalBackupIncomplete, strings.Join(uncovered, "; "))
 	}
 	if err := oneFileEach(plan); err != nil {
-		return finalCopy{}, fmt.Errorf("%w: %s", ErrFinalBackupIncomplete, err)
+		return finalCopy{}, fmt.Errorf("%w: %s", errFinalBackupIncomplete, err)
 	}
 	stopped, err := stopParts(ctx, dk, owned, nil)
 	refuse := func(why string) (finalCopy, error) {
 		if failed := stopped.restart(ctx); len(failed) > 0 {
 			why += "; these could not be started again, so the deployment is not serving: " + strings.Join(failed, "; ")
 		}
-		return finalCopy{}, fmt.Errorf("%w: %s", ErrFinalBackupIncomplete, why)
+		return finalCopy{}, fmt.Errorf("%w: %s", errFinalBackupIncomplete, why)
 	}
 	if err != nil {
 		return refuse(err.Error())
 	}
-	b, err := s.takeSet(ctx, dk, dep.ProjectID, p.Slug, dep.Name, plan, TriggerTakeDown, actor)
+	b, err := s.takeSet(ctx, dk, dep.ProjectID, p.Slug, dep.Name, plan, triggerTakeDown, actor)
 	if err != nil {
 		return refuse(err.Error())
 	}
@@ -156,7 +156,7 @@ func (s *Service) finalBackup(ctx context.Context, dep *deployment.Deployment, t
 func (s *Service) finalBackupOnPortainer(ctx context.Context, dep *deployment.Deployment, t *deployment.Target, actor string) (finalCopy, error) {
 	held, err := s.heldData(ctx, dep, t)
 	switch {
-	case errors.Is(err, ErrNothingToBackUp), errors.Is(err, ErrHeldDataAbsent):
+	case errors.Is(err, errNothingToBackUp), errors.Is(err, errHeldDataAbsent):
 		return finalCopy{}, nil
 	case errors.Is(err, portainer.ErrCannotBackUp):
 		return finalCopy{}, &portainerUnreachable{why: err.Error()}
@@ -172,22 +172,22 @@ func (s *Service) finalBackupOnPortainer(ctx context.Context, dep *deployment.De
 		}
 		if it.Kind == "volume" {
 			// Every writer is stopped before the copy: nothing writes.
-			it.Copy, it.How = CopyFiles, "tar of the volume "+it.Volume
+			it.Copy, it.How = copyFiles, "tar of the volume "+it.Volume
 		}
 	}
 	if len(uncovered) > 0 {
-		return finalCopy{}, fmt.Errorf("%w: AppTown has no way to copy %s", ErrFinalBackupIncomplete, strings.Join(uncovered, "; "))
+		return finalCopy{}, fmt.Errorf("%w: AppTown has no way to copy %s", errFinalBackupIncomplete, strings.Join(uncovered, "; "))
 	}
 	writers, err := s.stackWriters(ctx, held.dk, *held.layout)
 	if err != nil {
-		return finalCopy{}, fmt.Errorf("%w: %s", ErrFinalBackupIncomplete, err)
+		return finalCopy{}, fmt.Errorf("%w: %s", errFinalBackupIncomplete, err)
 	}
 	stopped, err := stopParts(ctx, held.dk, writers, nil)
 	refuse := func(why string) (finalCopy, error) {
 		if failed := stopped.restart(ctx); len(failed) > 0 {
 			why += "; these could not be started again, so the deployment is not serving: " + strings.Join(failed, "; ")
 		}
-		return finalCopy{}, fmt.Errorf("%w: %s", ErrFinalBackupIncomplete, why)
+		return finalCopy{}, fmt.Errorf("%w: %s", errFinalBackupIncomplete, why)
 	}
 	if err != nil {
 		return refuse(err.Error())
@@ -196,7 +196,7 @@ func (s *Service) finalBackupOnPortainer(ctx context.Context, dep *deployment.De
 	if err != nil {
 		return refuse("reading the project: " + err.Error())
 	}
-	b, err := s.takeSet(ctx, held.dk, dep.ProjectID, p.Slug, dep.Name, plan, TriggerTakeDown, actor)
+	b, err := s.takeSet(ctx, held.dk, dep.ProjectID, p.Slug, dep.Name, plan, triggerTakeDown, actor)
 	if err != nil {
 		return refuse(err.Error())
 	}

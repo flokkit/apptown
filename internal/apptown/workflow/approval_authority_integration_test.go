@@ -104,11 +104,11 @@ func stepAuthorityRunnerFixture(t *testing.T, spec schema.Spec, runners map[stri
 	if spec.Role == "landing" {
 		workflowName = "land"
 	}
-	run, err := admissions.Create(context.Background(), StartRequest{ProjectID: projectID, ChangeID: change.ID, WorkflowName: workflowName, InputsJSON: "{}", requestedBy: "owner"}, PreparedRun{Workflow: DefinitionRef{Name: workflowName, Version: 1}, Spec: spec})
+	run, err := admissions.records.create(context.Background(), StartRequest{ProjectID: projectID, ChangeID: change.ID, WorkflowName: workflowName, InputsJSON: "{}", requestedBy: "owner"}, PreparedRun{Workflow: DefinitionRef{Name: workflowName, Version: 1}, Spec: spec})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := admissions.Prepared(context.Background(), run.ID); err != nil {
+	if err := admissions.records.prepared(context.Background(), run.ID); err != nil {
 		t.Fatal(err)
 	}
 	stepID := admittedStepID(t, queries{db: db}, run, spec.Stages[0].Steps[0].Name)

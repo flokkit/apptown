@@ -43,11 +43,11 @@ func (s RunState) RequireRunning() error {
 	return nil
 }
 
-// Transition is the only rule for changing a persisted run state. Storage
+// transition is the only rule for changing a persisted run state. Storage
 // must match the expected state, stage and retry revision atomically and commit
 // the returned state with required receipts. Remaining running advances a stage;
 // terminal states cannot reopen. A detached caller snapshot is never mutated.
-func (s RunState) Transition(next RunState) (RunState, error) {
+func (s RunState) transition(next RunState) (RunState, error) {
 	if err := s.RequireRunning(); err != nil {
 		return 0, err
 	}

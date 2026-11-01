@@ -16,20 +16,20 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-type Action uint8
+type action uint8
 
 const (
-	Identify Action = iota + 1
-	Read
-	Write
+	identify action = iota + 1
+	read
+	write
 )
 
 type authorization struct {
-	Action    Action
+	Action    action
 	ProjectID ids.ID
 }
 
-var ErrCallerRequired = fault.New(fault.Unauthenticated, "ADR operations require explicit caller authority")
+var errCallerRequired = fault.New(fault.Unauthenticated, "ADR operations require explicit caller authority")
 
 type Service struct {
 	records   store
@@ -47,24 +47,24 @@ func (s *Service) require(ctx context.Context, p authorization) (string, error) 
 		return "", err
 	}
 	if s == nil || s.authority == nil {
-		return "", ErrCallerRequired
+		return "", errCallerRequired
 	}
 
 	caller, ok := access.CallerFrom(ctx)
 	if !ok || !caller.Verified || caller.Principal.Name == "" {
-		return "", ErrCallerRequired
+		return "", errCallerRequired
 	}
 	pr := caller.Principal
-	if p.Action == Identify {
+	if p.Action == identify {
 		if err := identity.RequireEnabledIn(ctx, s.records.db, pr); err != nil {
 			return "", err
 		}
 		return pr.Name, nil
 	}
 	capability := access.CapProjectRead
-	if p.Action == Write {
+	if p.Action == write {
 		capability = access.CapChangeAttach
-	} else if p.Action != Read {
+	} else if p.Action != read {
 		return "", &access.Denied{Code: access.DenyOutsideScope, Reason: "unknown ADR operation"}
 	}
 	if pr.Kind == "instrument" && (p.ProjectID.IsZero() || p.ProjectID != pr.ProjectID) {
@@ -76,15 +76,15 @@ func (s *Service) require(ctx context.Context, p authorization) (string, error) 
 	}
 	caller, err := s.authority.Require(ctx, access.Permission{Capability: capability, Resource: resource, Context: access.Context{Route: "adrs"}})
 	if errors.Is(err, access.ErrPrincipalRequired) {
-		return "", ErrCallerRequired
+		return "", errCallerRequired
 	}
 	if err == nil && caller.Principal.Name == "" {
-		err = ErrCallerRequired
+		err = errCallerRequired
 	}
 	return caller.Principal.Name, err
 }
-func (s *Service) scope(ctx context.Context, id ids.ID, act Action) (ids.ID, string, error) {
-	if _, err := s.require(ctx, authorization{Action: Identify}); err != nil {
+func (s *Service) scope(ctx context.Context, id ids.ID, act action) (ids.ID, string, error) {
+	if _, err := s.require(ctx, authorization{Action: identify}); err != nil {
 		return ids.Nil, "", err
 	}
 	project, err := readProjectID(ctx, s.records.db, id)
@@ -97,13 +97,13 @@ func (s *Service) scope(ctx context.Context, id ids.ID, act Action) (ids.ID, str
 
 // ProjectID resolves only routing scope; reading the record still requires Read.
 func (s *Service) ProjectID(ctx context.Context, id ids.ID) (ids.ID, error) {
-	if _, err := s.require(ctx, authorization{Action: Identify}); err != nil {
+	if _, err := s.require(ctx, authorization{Action: identify}); err != nil {
 		return ids.Nil, err
 	}
 	return readProjectID(ctx, s.records.db, id)
 }
 func (s *Service) Get(ctx context.Context, id ids.ID) (*Detail, error) {
-	project, _, err := s.scope(ctx, id, Read)
+	project, _, err := s.scope(ctx, id, read)
 	if err != nil {
 		return nil, err
 	}
@@ -126,12 +126,12 @@ func (s *Service) Get(ctx context.Context, id ids.ID) (*Detail, error) {
 	return &Detail{ADR: v, SupersededByID: next, Options: v.Status.options()}, nil
 }
 func (s *Service) List(ctx context.Context, f Filter) ([]Record, error) {
-	if _, err := s.require(ctx, authorization{Action: Identify}); err != nil {
+	if _, err := s.require(ctx, authorization{Action: identify}); err != nil {
 		return nil, err
 	}
 	var idList []ids.ID
 	if !f.ProjectID.IsZero() {
-		if _, err := s.require(ctx, authorization{Action: Read, ProjectID: f.ProjectID}); err != nil {
+		if _, err := s.require(ctx, authorization{Action: read, ProjectID: f.ProjectID}); err != nil {
 			return nil, err
 		}
 		idList = []ids.ID{f.ProjectID}
@@ -146,15 +146,15 @@ func (s *Service) List(ctx context.Context, f Filter) ([]Record, error) {
 }
 func (s *Service) ForChange(ctx context.Context, projectID, changeID ids.ID) ([]ChangeSummary, error) {
 	if projectID.IsZero() || changeID.IsZero() {
-		return nil, ErrInput
+		return nil, errInput
 	}
-	if _, err := s.require(ctx, authorization{Action: Read, ProjectID: projectID}); err != nil {
+	if _, err := s.require(ctx, authorization{Action: read, ProjectID: projectID}); err != nil {
 		return nil, err
 	}
 	return readChangeSummaries(ctx, s.records.db, projectID, changeID)
 }
 func (s *Service) Counts(ctx context.Context, idList []ids.ID) (map[ids.ID]int, error) {
-	if _, err := s.require(ctx, authorization{Action: Identify}); err != nil {
+	if _, err := s.require(ctx, authorization{Action: identify}); err != nil {
 		return nil, err
 	}
 	out := make(map[ids.ID]int, len(idList))
@@ -163,7 +163,7 @@ func (s *Service) Counts(ctx context.Context, idList []ids.ID) (map[ids.ID]int, 
 	}
 	for _, id := range idList {
 		if id.IsZero() {
-			return nil, ErrInput
+			return nil, errInput
 		}
 	}
 	visible, err := s.authority.VisibleProjects(ctx, access.CapProjectRead)
@@ -191,9 +191,9 @@ func (s *Service) Counts(ctx context.Context, idList []ids.ID) (map[ids.ID]int, 
 }
 func (s *Service) Create(ctx context.Context, in Create) (*Record, error) {
 	if in.ProjectID.IsZero() {
-		return nil, ErrInput
+		return nil, errInput
 	}
-	who, err := s.require(ctx, authorization{Action: Write, ProjectID: in.ProjectID})
+	who, err := s.require(ctx, authorization{Action: write, ProjectID: in.ProjectID})
 	if err != nil {
 		return nil, err
 	}
@@ -205,9 +205,9 @@ func (s *Service) Create(ctx context.Context, in Create) (*Record, error) {
 }
 func (s *Service) Edit(ctx context.Context, in Edit) (*Record, error) {
 	if in.ID.IsZero() || in.Decision >= retire {
-		return nil, fmt.Errorf("%w: unsupported public decision", ErrInput)
+		return nil, fmt.Errorf("%w: unsupported public decision", errInput)
 	}
-	project, who, err := s.scope(ctx, in.ID, Write)
+	project, who, err := s.scope(ctx, in.ID, write)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +221,7 @@ func (s *Service) Edit(ctx context.Context, in Edit) (*Record, error) {
 	return &v, nil
 }
 func (s *Service) ProposeSuccessor(ctx context.Context, in Successor) (*Record, error) {
-	project, who, err := s.scope(ctx, in.ID, Write)
+	project, who, err := s.scope(ctx, in.ID, write)
 	if err != nil {
 		return nil, err
 	}

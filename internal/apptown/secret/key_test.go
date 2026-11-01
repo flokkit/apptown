@@ -23,7 +23,7 @@ func TestVaultConcurrentFirstUseAndRequiredReceipt(t *testing.T) {
 	db := testDB(t)
 	keyExec(t, db, `CREATE FUNCTION veto_key_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
 	keyExec(t, db, `CREATE TRIGGER veto_key_receipt BEFORE INSERT ON audit_log FOR EACH ROW EXECUTE FUNCTION veto_key_receipt()`)
-	if _, err := NewVault(db).Key(t.Context()); err == nil {
+	if _, err := NewVault(db).key(t.Context()); err == nil {
 		t.Fatal("accepted missing initialization receipt")
 	}
 	if _, err := queries(db).StoreKey(context.Background()); !errors.Is(err, sql.ErrNoRows) {
@@ -37,7 +37,7 @@ func TestVaultConcurrentFirstUseAndRequiredReceipt(t *testing.T) {
 	start := make(chan struct{})
 	for i := range clients {
 		wg.Add(1)
-		go func() { defer wg.Done(); <-start; keys[i], errs[i] = NewVault(db).Key(t.Context()) }()
+		go func() { defer wg.Done(); <-start; keys[i], errs[i] = NewVault(db).key(t.Context()) }()
 	}
 	close(start)
 	wg.Wait()

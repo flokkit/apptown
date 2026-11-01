@@ -117,7 +117,7 @@ func (s *Service) Definitions(ctx context.Context) ([]*Definition, error) {
 // none. A read that fails, or a kind that no longer passes the rules, is an
 // error.
 func (s *Service) Definition(ctx context.Context, capability string) (*Definition, error) {
-	y, err := s.ServiceKinds.ByCapability(ctx, capability)
+	y, err := s.ServiceKinds.byCapability(ctx, capability)
 	if found, err := database.Lookup(err); err != nil || !found {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func (s *Service) ConnectorConfig(ctx context.Context, name, capability string) 
 
 // attachedServiceIntegrations returns a project's service-kind integrations
 // with their kind, connector config and resource — the render inputs.
-type AttachedService struct {
+type attachedService struct {
 	Kind      *Definition
 	Connector string
 	Config    map[string]any
@@ -204,12 +204,12 @@ type AttachedService struct {
 // connector config and resource. An unreadable attachment, or a definition
 // that no longer passes the rules (one saved before a value from a secret
 // could no longer be marked for browsers), is an error that names it.
-func (s *Service) AttachedServices(ctx context.Context, projectID ids.ID) ([]AttachedService, error) {
+func (s *Service) AttachedServices(ctx context.Context, projectID ids.ID) ([]attachedService, error) {
 	rows, err := AttachedRows(ctx, s.Bindings.db, projectID)
 	if err != nil {
 		return nil, err
 	}
-	var out []AttachedService
+	var out []attachedService
 	for _, row := range rows {
 		if strings.TrimSpace(row.KindYAML) == "" {
 			continue // a built-in capability, not a service kind
@@ -226,7 +226,7 @@ func (s *Service) AttachedServices(ctx context.Context, projectID ids.ID) ([]Att
 		if err != nil {
 			return nil, fmt.Errorf("the attached %s resource: %w", row.Capability, err)
 		}
-		out = append(out, AttachedService{Kind: kind, Connector: row.Binding, Config: config, Resource: resource})
+		out = append(out, attachedService{Kind: kind, Connector: row.Binding, Config: config, Resource: resource})
 	}
 	return out, nil
 }

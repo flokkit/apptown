@@ -51,7 +51,7 @@ func TestLawOwnerUsesLockedScopeAndTransaction(t *testing.T) {
 	if calls != 0 {
 		t.Fatal("observed rules before checking scope")
 	}
-	if err := owner.Refresh(ctx, run); err != nil || calls != 0 {
+	if err := owner.refresh(ctx, run); err != nil || calls != 0 {
 		t.Fatalf("created an unrequested gate: %v", err)
 	}
 	if _, err := owner.records.evaluate(ctx, run, false); !errors.Is(err, failure) {

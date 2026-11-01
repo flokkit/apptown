@@ -46,7 +46,7 @@ func TestProtectionSourceDistinguishesMissingFailedAndUnknownRecovery(t *testing
 		severity      string
 		known         bool
 	}{
-		{"never", "", false, SeverityAdvisory, true},
+		{"never", "", false, severityAdvisory, true},
 		{"failed", dataprotection.RehearsalFailed, true, SeverityWarning, true},
 		{"interrupted", dataprotection.RehearsalUnknown, true, SeverityWarning, false},
 		{"passed", dataprotection.RehearsalPassed, true, "", true},

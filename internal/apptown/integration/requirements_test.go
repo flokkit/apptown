@@ -74,7 +74,7 @@ func TestRequiredCapabilitiesAreScopedRealAttachments(t *testing.T) {
 		})
 	}
 	db, first := requiredAttachmentFixture(t)
-	drop := db.FailNextStatement("AttachedCapabilitiesForShare")
+	drop := dbtest.NextStatementFailure(db, "AttachedCapabilitiesForShare")
 	if err := HasCapabilitiesIn(context.Background(), db, first, []string{"scm"}); err == nil {
 		t.Fatal("failed read accepted")
 	}

@@ -15,7 +15,7 @@ func TestMissingCatalogRefusesOnlyOperationsThatNeedIt(t *testing.T) {
 	if c, err := s.Compile(t.Context(), projectID); err != nil || c.Text != "" || c.Hash == "" || len(c.Imports) != 0 {
 		t.Fatalf("empty compilation needs no catalog: %q %q %+v %v", c.Text, c.Hash, c.Imports, err)
 	}
-	if _, err := s.Union(t.Context(), projectID, nil); !errors.Is(err, ErrCatalogUnavailable) {
+	if _, err := s.Union(t.Context(), projectID, nil); !errors.Is(err, errCatalogUnavailable) {
 		t.Fatalf("union without catalog: %v", err)
 	}
 	catalog := wow.New(db, wow.Dependencies{})
@@ -32,7 +32,7 @@ func TestMissingCatalogRefusesOnlyOperationsThatNeedIt(t *testing.T) {
 	if err := s.PutImports(t.Context(), projectID, []wow.ResolvedPin{{BlockID: block.ID, Name: block.Name, Version: 1}}); err != nil {
 		t.Fatal(err)
 	}
-	if c, err := s.Compile(t.Context(), projectID); !errors.Is(err, ErrCatalogUnavailable) || c.Text != "" || c.Hash != "" || c.Imports != nil {
+	if c, err := s.Compile(t.Context(), projectID); !errors.Is(err, errCatalogUnavailable) || c.Text != "" || c.Hash != "" || c.Imports != nil {
 		t.Fatalf("enabled import without catalog: %q %q %+v %v", c.Text, c.Hash, c.Imports, err)
 	}
 }

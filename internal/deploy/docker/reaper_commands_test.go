@@ -95,8 +95,7 @@ func TestDockerRemoveLogsOnlyRealFailures(t *testing.T) {
 		t.Fatalf("a real rm failure must be logged, got: %s", buf.String())
 	}
 	buf.Reset()
-	scope.ReapStack(context.Background(), "pv1")
-	if !strings.Contains(buf.String(), "Cannot connect") {
-		t.Fatalf("a listing that fails must be logged, got: %s", buf.String())
+	if err := scope.removeOwnedStack(context.Background(), "pv1"); err == nil || !strings.Contains(err.Error(), "Cannot connect") {
+		t.Fatalf("a failed listing must be reported: %v", err)
 	}
 }

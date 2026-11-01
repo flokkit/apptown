@@ -33,16 +33,16 @@ type runWorkspaceGuard struct {
 
 type workspaces struct {
 	db    *database.DB
-	git   Git
+	git   git
 	locks *scm.RepositoryLocks
 	clocked
 }
 
-func newWorkspaces(db *database.DB, git Git, locks *scm.RepositoryLocks) workspaces {
+func newWorkspaces(db *database.DB, git git, locks *scm.RepositoryLocks) workspaces {
 	return workspaces{db: db, git: git, locks: locks}
 }
 
-func (w workspaces) PrepareChange(ctx context.Context, ref ChangeRef) error {
+func (w workspaces) prepareChange(ctx context.Context, ref ChangeRef) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 	release, err := w.locks.Acquire(ctx, ref.ProjectID)
@@ -57,7 +57,7 @@ func (w workspaces) PrepareChange(ctx context.Context, ref ChangeRef) error {
 	if before.DefaultBranch == "" || before.Branch == "" {
 		return nil
 	}
-	repository, err := w.git.Paths().Repository(project.RepositoryRef{ID: ref.ProjectID, Slug: before.Slug})
+	repository, err := w.git.Paths().repository(project.RepositoryRef{ID: ref.ProjectID, Slug: before.Slug})
 	if err != nil {
 		return err
 	}
@@ -147,7 +147,7 @@ func recordChangeWorkspaceIn(ctx context.Context, tx *database.Tx, before change
 	return nil
 }
 
-func (w workspaces) PrepareRun(ctx context.Context, ref RunRef) error {
+func (w workspaces) prepareRun(ctx context.Context, ref RunRef) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 	release, err := w.locks.Acquire(ctx, ref.ProjectID)
@@ -326,5 +326,5 @@ func (s *Service) PrepareWorkspace(ctx context.Context, changeID ids.ID) error {
 	if err != nil {
 		return err
 	}
-	return s.workspaces.PrepareChange(ctx, ChangeRef{ID: changeID, ProjectID: project})
+	return s.workspaces.prepareChange(ctx, ChangeRef{ID: changeID, ProjectID: project})
 }

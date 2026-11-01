@@ -278,7 +278,7 @@ func TestASpendLinesTimeRunsOutByAppTownsClock(t *testing.T) {
 	var mu sync.Mutex
 	at := time.Now().Add(time.Hour) // AppTown's clock ahead of the database's
 	now := func() time.Time { mu.Lock(); defer mu.Unlock(); return at }
-	w.requests.Now, w.ledger.Now = now, now
+	w.requests.clock, w.ledger.clock = now, now
 	late := w.open(t, time.Minute)
 	if got := w.spent(t); got.Incomplete != 0 {
 		t.Fatalf("a line still in its time counts as unknown: %+v", got)

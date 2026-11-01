@@ -44,7 +44,7 @@ func TestProjectRecordRules(t *testing.T) {
 	if err := ps.Remove(context.Background(), other); err != nil {
 		t.Fatal(err)
 	}
-	if err := ps.Remove(context.Background(), other); !errors.Is(err, ErrNotDeleted) {
+	if err := ps.Remove(context.Background(), other); !errors.Is(err, errNotDeleted) {
 		t.Fatalf("removing twice is never a silent success: %v", err)
 	}
 }
@@ -143,14 +143,14 @@ func TestEveryPurposeAnswersEveryAllowance(t *testing.T) {
 		Ordinary: {true, false, true, true, true, true},
 		EvalCopy: {false, true, false, false, false, false},
 	}
-	if len(want) != len(Purposes) {
-		t.Fatalf("purposes %v, table %v", Purposes, want)
+	if len(want) != len(purposes) {
+		t.Fatalf("purposes %v, table %v", purposes, want)
 	}
-	for _, p := range Purposes {
+	for _, p := range purposes {
 		if _, ok := allowances[p]; !ok {
 			t.Fatalf("purpose %q has no allowances", p)
 		}
-		got := [6]bool{p.Integrations(), p.EvalDomainOnly(), p.Schedules(), p.Moves(), p.KeepsData(), p.Descriptions()}
+		got := [6]bool{p.Integrations(), p.EvalDomainOnly(), p.Schedules(), allowances[p].moves, p.KeepsData(), p.Descriptions()}
 		if got != want[p] {
 			t.Fatalf("%q allows %v, want %v", p, got, want[p])
 		}

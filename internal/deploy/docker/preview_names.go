@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerlabel"
 	"regexp"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/dockerlabel"
 
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -131,12 +132,12 @@ func ReapPreviewOrphans(ctx context.Context, dk Scope) {
 		}
 	}
 	for _, n := range dk.Lines(ctx, "network", "ls", "--format", "{{.Name}}") {
-		if stack, ok := StackOfNetwork(n); ok && isPreviewStackID(stack) {
+		if stack, ok := stackOfNetwork(n); ok && isPreviewStackID(stack) {
 			dk.RemoveNetwork(ctx, n)
 		}
 	}
 	for _, v := range dk.Lines(ctx, "volume", "ls", "-q") {
-		if c, ok := ContainerOfDataVolume(v); ok && IsPreviewName(c) {
+		if c, ok := containerOfDataVolume(v); ok && IsPreviewName(c) {
 			dk.RemoveVolume(ctx, v)
 		}
 	}

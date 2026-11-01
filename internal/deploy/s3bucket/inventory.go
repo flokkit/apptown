@@ -82,7 +82,7 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 				return
 			}
 			if marked == i.Installation {
-				out[n].Tags, out[n].URL = nil, cfg.Address(bucket)
+				out[n].Tags, out[n].URL = nil, cfg.address(bucket)
 			}
 		}()
 	}

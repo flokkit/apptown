@@ -18,11 +18,11 @@ import (
 	"github.com/flokkit/apptown/internal/gitexec"
 )
 
-// Git is what Work asks of the repositories on disk: a standalone clone
+// git is what Work asks of the repositories on disk: a standalone clone
 // for a change or a run, the human attachments copied into it, and two
 // questions about branches an import needs answered. GitWorkspace is the
 // implementation over real git; a test supplies its own.
-type Git interface {
+type git interface {
 	EnsureClone(ctx context.Context, in CloneRequest) (WorkspaceResult, error)
 	// SyncAttachments copies a change's attachments into a workspace (the
 	// change's folder, or a run's clone) under .apptown/attachments.
@@ -37,7 +37,7 @@ type Git interface {
 // Layout is where a project's repository and a workspace live.
 type Layout struct{ DataDir string }
 
-func (l Layout) Repository(ref project.RepositoryRef) (string, error) {
+func (l Layout) repository(ref project.RepositoryRef) (string, error) {
 	return ref.Path(l.DataDir)
 }
 func (l Layout) ChangeWorkspace(changeID ids.ID) string {
@@ -51,10 +51,10 @@ func (l Layout) RunWorkspace(runID ids.ID) string {
 // are bounded and cancellation reaches the process group via execution.Runner.
 type GitWorkspace struct {
 	DataDir string
-	Runner  ProcessRunner
+	Runner  processRunner
 }
 
-var _ Git = GitWorkspace{}
+var _ git = GitWorkspace{}
 
 func (g GitWorkspace) Paths() Layout { return Layout{DataDir: g.DataDir} }
 func (g GitWorkspace) BranchTip(ctx context.Context, repository, branch string) (string, error) {
@@ -65,8 +65,8 @@ func (g GitWorkspace) MergeBase(ctx context.Context, repository, a, b string) (s
 	return g.git(ctx, repository, "merge-base", "refs/heads/"+a, b)
 }
 
-// ProcessRunner substitutes execution at the edge; it has no database or Work authority.
-type ProcessRunner interface {
+// processRunner substitutes execution at the edge; it has no database or Work authority.
+type processRunner interface {
 	Run(context.Context, string, execution.Request) execution.Outcome
 }
 
@@ -106,15 +106,15 @@ type importSource struct {
 	slug, defaultBranch, branch, base, tip string
 }
 type changeImporter struct {
-	creator Creator
-	git     Git
+	creator creator
+	git     git
 	locks   *scm.RepositoryLocks
 }
 
-func newImporter(db *database.DB, git Git, locks *scm.RepositoryLocks, prepare func(context.Context, CreatedChange) error) changeImporter {
+func newImporter(db *database.DB, git git, locks *scm.RepositoryLocks, prepare func(context.Context, CreatedChange) error) changeImporter {
 	return changeImporter{NewCreator(db, prepare), git, locks}
 }
-func (i changeImporter) Import(ctx context.Context, in ImportBranch, who string) (*Change, error) {
+func (i changeImporter) importChange(ctx context.Context, in ImportBranch, who string) (*Change, error) {
 	if in.ProjectID.IsZero() || strings.TrimSpace(who) == "" {
 		return nil, fmt.Errorf("invalid branch import")
 	}
@@ -136,7 +136,7 @@ func (i changeImporter) Import(ctx context.Context, in ImportBranch, who string)
 		if err := gitexec.CheckBranchName(in.Branch); err != nil {
 			return CreatedChange{}, fmt.Errorf("invalid branch: %w", err)
 		}
-		repo, err := i.git.Paths().Repository(project.RepositoryRef{ID: source.projectID, Slug: source.slug})
+		repo, err := i.git.Paths().repository(project.RepositoryRef{ID: source.projectID, Slug: source.slug})
 		if err != nil {
 			return CreatedChange{}, err
 		}

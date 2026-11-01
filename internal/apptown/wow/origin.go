@@ -8,10 +8,10 @@ package wow
 
 // The sources this release knows. More are a later release's work.
 const (
-	// SourceFlokkit is the built-in source: the stock every AppTown has.
-	SourceFlokkit = "flokkit"
-	// SourceHere is this AppTown: what is authored in its library.
-	SourceHere = "here"
+	// sourceFlokkit is the built-in source: the stock every AppTown has.
+	sourceFlokkit = "flokkit"
+	// sourceHere is this AppTown: what is authored in its library.
+	sourceHere = "here"
 )
 
 // Origin is where a version came from.
@@ -22,8 +22,8 @@ type Origin struct {
 	Signer string `json:"signer"`
 }
 
-// AuthoredHere is a version authored on this AppTown.
-var AuthoredHere = Origin{Source: SourceHere}
+// authoredHere is a version authored on this AppTown.
+var authoredHere = Origin{Source: sourceHere}
 
 // shippedOrigin is a stock version's origin: the built-in source, shipped
 // with the release named shipped (the AppTown version that built it). In
@@ -32,13 +32,13 @@ func shippedOrigin(shipped string) Origin {
 	if shipped == "" {
 		shipped = "a build that did not name itself"
 	}
-	return Origin{Source: SourceFlokkit, Signer: "shipped with AppTown " + shipped + ", unsigned"}
+	return Origin{Source: sourceFlokkit, Signer: "shipped with AppTown " + shipped + ", unsigned"}
 }
 
 // origin is a pack version's origin for a publication of origin.
-func (s *Packs) origin(origin string) Origin {
+func (s *packs) origin(origin string) Origin {
 	if origin == "stock" {
 		return shippedOrigin(s.shipped)
 	}
-	return AuthoredHere
+	return authoredHere
 }

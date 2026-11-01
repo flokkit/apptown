@@ -47,11 +47,11 @@ type SyncKind struct {
 	// advance the head and return the new version; unversioned kinds
 	// overwrite.
 	Update func(it SyncItem) (version int, err error)
-	// Touch refreshes what is not content when the content is unchanged.
+	// touch refreshes what is not content when the content is unchanged.
 	// Optional.
-	Touch func(it SyncItem) error
+	touch func(it SyncItem) error
 	// Receipt kinds written for a seeded and for an updated row; "" = none.
-	ReceiptSeeded, ReceiptUpdated string
+	receiptSeeded, ReceiptUpdated string
 	// Versioned says whether Update produces a new version worth a line
 	// in the log and a receipt.
 	Versioned bool
@@ -76,13 +76,13 @@ func plural(label string) string {
 	return label + "s"
 }
 
-// SyncReceipt records one ledger line about a stock item; the caller supplies
+// syncReceipt records one ledger line about a stock item; the caller supplies
 // the writer so the sync stays free of the ledger's transaction shape.
-type SyncReceipt func(kind, name string, payload map[string]any)
+type syncReceipt func(kind, name string, payload map[string]any)
 
 // Sync puts one kind's shipped items into the store under the contract
 // above and reports what it did.
-func Sync(kind SyncKind, items []SyncItem, receipt SyncReceipt) SyncCounts {
+func Sync(kind SyncKind, items []SyncItem, receipt syncReceipt) SyncCounts {
 	c := SyncCounts{Kind: kind.Label}
 	for _, it := range items {
 		cur, isStock, ok, err := kind.Current(it.Name)
@@ -98,16 +98,16 @@ func Sync(kind SyncKind, items []SyncItem, receipt SyncReceipt) SyncCounts {
 				c.Errors++
 				continue
 			}
-			if kind.ReceiptSeeded != "" && receipt != nil {
-				receipt(kind.ReceiptSeeded, it.Name, nil)
+			if kind.receiptSeeded != "" && receipt != nil {
+				receipt(kind.receiptSeeded, it.Name, nil)
 			}
 			c.Added++
 		case !isStock:
 			log.Printf("stock %s %q: one authored here has that name — keeping yours; the stock one is not installed", kind.Label, it.Name)
 			c.Kept++
 		case cur == it.Content:
-			if kind.Touch != nil {
-				if err := kind.Touch(it); err != nil {
+			if kind.touch != nil {
+				if err := kind.touch(it); err != nil {
 					log.Printf("stock %s %q: refresh: %v", kind.Label, it.Name, err)
 					c.Errors++
 					continue

@@ -11,36 +11,36 @@ func TestStepStateLifecycle(t *testing.T) {
 	// An explicit edge list is the contract. In particular, a running attempt
 	// cannot be reset, voted on, overridden or replaced by a fresh evaluation.
 	type edge struct {
-		move     StepMove
+		move     stepMove
 		from, to StepState
 	}
 	edges := map[edge]bool{}
-	allow := func(move StepMove, from StepState, to ...StepState) {
+	allow := func(move stepMove, from StepState, to ...StepState) {
 		for _, target := range to {
 			edges[edge{move, from, target}] = true
 		}
 	}
-	allow(MoveStepStart, StatusPending, StatusRunning)
-	allow(MoveStepFinish, StatusRunning, StatusPass, StatusFail, StatusNeedsHuman, StatusError, StatusSkipped)
-	allow(MoveStepVote, StatusPending, StatusPending, StatusPass, StatusFail)
-	allow(MoveStepVote, StatusNeedsHuman, StatusNeedsHuman, StatusPass, StatusFail)
-	allow(MoveStepReopen, StatusFail, StatusPending)
+	allow(moveStepStart, StatusPending, StatusRunning)
+	allow(moveStepFinish, StatusRunning, StatusPass, StatusFail, StatusNeedsHuman, StatusError, StatusSkipped)
+	allow(moveStepVote, StatusPending, StatusPending, StatusPass, StatusFail)
+	allow(moveStepVote, StatusNeedsHuman, StatusNeedsHuman, StatusPass, StatusFail)
+	allow(moveStepReopen, StatusFail, StatusPending)
 	for _, from := range []StepState{StatusPending, StatusFail, StatusNeedsHuman, StatusError, StatusSkipped} {
-		allow(MoveStepOverride, from, StatusPass)
+		allow(moveStepOverride, from, StatusPass)
 	}
 	for _, from := range []StepState{StatusPending, StatusPass, StatusFail, StatusNeedsHuman, StatusError, StatusSkipped} {
-		allow(MoveStepReset, from, StatusPending)
-		allow(MoveStepEvaluate, from, StatusPass, StatusFail, StatusNeedsHuman, StatusError)
+		allow(moveStepReset, from, StatusPending)
+		allow(moveStepEvaluate, from, StatusPass, StatusFail, StatusNeedsHuman, StatusError)
 	}
-	allow(MoveStepWithdraw, StatusPending, StatusFail)
-	allow(MoveStepWithdraw, StatusNeedsHuman, StatusFail)
-	allow(MoveStepSkip, StatusPending, StatusSkipped)
-	allow(MoveStepSkip, StatusError, StatusSkipped)
+	allow(moveStepWithdraw, StatusPending, StatusFail)
+	allow(moveStepWithdraw, StatusNeedsHuman, StatusFail)
+	allow(moveStepSkip, StatusPending, StatusSkipped)
+	allow(moveStepSkip, StatusError, StatusSkipped)
 	states := []StepState{0, StatusPending, StatusRunning, StatusPass, StatusFail, StatusNeedsHuman, StatusError, StatusSkipped, 255}
-	for move := StepMove(0); move <= MoveStepSkip+1; move++ {
+	for move := stepMove(0); move <= moveStepSkip+1; move++ {
 		for _, from := range states {
 			for _, to := range states {
-				next, err := from.Transition(move, to)
+				next, err := from.transition(move, to)
 				if edges[edge{move, from, to}] {
 					if err != nil || next != to {
 						t.Fatalf("%d %s -> %s: %s, %v", move, from, to, next, err)
@@ -52,7 +52,7 @@ func TestStepStateLifecycle(t *testing.T) {
 		}
 	}
 	for _, state := range states {
-		if state.PassesGate() != (state == StatusPass || state == StatusSkipped) {
+		if state.passesGate() != (state == StatusPass || state == StatusSkipped) {
 			t.Fatalf("gate admits %s", state)
 		}
 	}

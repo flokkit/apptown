@@ -7,6 +7,8 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -64,12 +66,12 @@ func TestModelCapacityComesFromTheBinding(t *testing.T) {
 			t.Fatalf("a malformed or non-model binding (%q) is not a capacity: %d", binding, n)
 		}
 	}
-	restore := db.FailNextStatement("SELECT")
+	restore := dbtest.NextStatementFailure(db, "SELECT")
 	if n, err := s.Capacity(t.Context(), "gpu1"); err == nil {
 		t.Fatalf("a failed read became a capacity: %d", n)
 	}
 	restore()
-	restore = db.FailNextStatement("SELECT")
+	restore = dbtest.NextStatementFailure(db, "SELECT")
 	if release, _, err := s.Acquire(t.Context(), "gpu1", idstest.N(1)); err == nil {
 		release()
 		t.Fatal("a failed capacity read admitted work")

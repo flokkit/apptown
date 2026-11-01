@@ -1,8 +1,9 @@
 package projectlifecycle
 
 import (
-	"github.com/flokkit/apptown/internal/ids"
 	"path/filepath"
+
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 func hubDir(dataDir string, id ids.ID) string {

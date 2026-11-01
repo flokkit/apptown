@@ -25,13 +25,13 @@ import (
 	"github.com/flokkit/apptown/internal/trust"
 )
 
-// Run runs one docker command (the arguments after the binary) on the
+// run runs one docker command (the arguments after the binary) on the
 // daemon the build is for, and answers with its output.
-type Run func(ctx context.Context, args ...string) ([]byte, error)
+type run func(ctx context.Context, args ...string) ([]byte, error)
 
 // Daemon is the daemon a build goes to, as the builder rule needs it.
 type Daemon struct {
-	Run Run
+	Run run
 	// HostChosen says the daemon was chosen with --host (another
 	// machine's): its builder is "default", not the context's.
 	HostChosen bool

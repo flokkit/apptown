@@ -51,7 +51,7 @@ func (s LocalService) Spec() deploy.ServiceSpec {
 	return deploy.ServiceSpec{Name: s.Name, Image: s.Image, Env: s.Env, Command: s.Command, Entrypoint: s.Entrypoint, ConfigAtStart: s.ConfigAtStart, KeepsImage: s.KeepsImage, Health: s.Health, Data: s.Data, Credentials: s.Credentials}
 }
 
-type LocalPlan struct {
+type localPlan struct {
 	Services []LocalService
 	Env      map[string]string
 	Unknown  []string
@@ -136,15 +136,15 @@ func (k *Kind) ResolveLocal(params map[string]string, host string, generated map
 // Register-only kinds are known but have no emulator or local environment.
 // It gives the catalogue's own credentials: for AppTown's throwaway
 // servers and apptown dev, never a deployment or a preview (LocalRuntime).
-func (c *Catalog) ResolveLocal(ctx context.Context, needs []string, params map[string]map[string]string, host string) LocalPlan {
+func (c *Catalog) ResolveLocal(ctx context.Context, needs []string, params map[string]map[string]string, host string) localPlan {
 	out, _ := c.resolveLocal(ctx, needs, params, host, nil)
 	return out
 }
 
 // resolveLocal is ResolveLocal with an owner's credentials; a credential
 // that cannot be given is the error.
-func (c *Catalog) resolveLocal(ctx context.Context, needs []string, params map[string]map[string]string, host string, creds Credentials) (LocalPlan, error) {
-	out := LocalPlan{Env: map[string]string{}}
+func (c *Catalog) resolveLocal(ctx context.Context, needs []string, params map[string]map[string]string, host string, creds Credentials) (localPlan, error) {
+	out := localPlan{Env: map[string]string{}}
 	for _, need := range needs {
 		kind, err := c.ByCapability(ctx, need)
 		if err != nil {
@@ -159,7 +159,7 @@ func (c *Catalog) resolveLocal(ctx context.Context, needs []string, params map[s
 		}
 		generated, err := kind.Generated(ctx, creds)
 		if err != nil {
-			return LocalPlan{}, err
+			return localPlan{}, err
 		}
 		s := kind.ResolveLocal(params[need], host, generated)
 		out.Services = append(out.Services, *s)

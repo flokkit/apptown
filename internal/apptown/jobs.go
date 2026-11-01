@@ -49,7 +49,7 @@ func (b backupRequests) RequestBackup(ctx context.Context, key, trigger string) 
 // pending and running requests; handlers never collect disks on the read path.
 type diskObservationRequests struct{ db *database.DB }
 
-func (r diskObservationRequests) RequestDiskObservation(ctx context.Context) error {
+func (r diskObservationRequests) requestDiskObservation(ctx context.Context) error {
 	return r.db.InTx(ctx, func(tx *database.Tx) error {
 		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: diskObservationJob, Key: "instance"})
 	})
@@ -58,7 +58,7 @@ func (r diskObservationRequests) RequestDiskObservation(ctx context.Context) err
 // Inventory observation shares the existing provider refresh operation and key.
 type inventoryRequests struct{ db *database.DB }
 
-func (r inventoryRequests) RequestInventory(ctx context.Context, name string) error {
+func (r inventoryRequests) requestInventory(ctx context.Context, name string) error {
 	return r.db.InTx(ctx, func(tx *database.Tx) error {
 		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: "inventory", Key: name})
 	})
@@ -66,7 +66,7 @@ func (r inventoryRequests) RequestInventory(ctx context.Context, name string) er
 
 type capacityObservationRequests struct{ db *database.DB }
 
-func (r capacityObservationRequests) RequestCapacityObservation(ctx context.Context, id ids.ID, revision int64) error {
+func (r capacityObservationRequests) requestCapacityObservation(ctx context.Context, id ids.ID, revision int64) error {
 	return r.db.InTx(ctx, func(tx *database.Tx) error {
 		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: deployment.CapacityObservationJob, Key: id.String() + "/" + strconv.FormatInt(revision, 10)})
 	})
@@ -117,10 +117,10 @@ func (c infrastructureChecks) Run(ctx context.Context, _ string, _ map[string]an
 		if target.Status == deployment.TargetRetired {
 			continue
 		}
-		if err := (inventoryRequests{db: c.db}).RequestInventory(ctx, target.Name); err != nil {
+		if err := (inventoryRequests{db: c.db}).requestInventory(ctx, target.Name); err != nil {
 			errs = append(errs, fmt.Errorf("%s inventory: %w", target.Name, err))
 		}
-		if err := (capacityObservationRequests{db: c.db}).RequestCapacityObservation(ctx, target.ID, target.SettingsRevision); err != nil {
+		if err := (capacityObservationRequests{db: c.db}).requestCapacityObservation(ctx, target.ID, target.SettingsRevision); err != nil {
 			errs = append(errs, fmt.Errorf("%s capacity: %w", target.Name, err))
 		}
 	}
@@ -136,7 +136,7 @@ func (c infrastructureChecks) Run(ctx context.Context, _ string, _ map[string]an
 			errs = append(errs, fmt.Errorf("%s protection: %w", dep.ID, err))
 		}
 	}
-	if err := (diskObservationRequests{db: c.db}).RequestDiskObservation(ctx); err != nil {
+	if err := (diskObservationRequests{db: c.db}).requestDiskObservation(ctx); err != nil {
 		errs = append(errs, fmt.Errorf("instance disks: %w", err))
 	}
 	return nil, errors.Join(errs...)
@@ -164,8 +164,8 @@ func (c infrastructureChecks) Applied(targetID ids.ID) {
 	}
 }
 
-// Request starts collection without waiting for the first periodic tick.
-func (c infrastructureChecks) Request(ctx context.Context) error {
+// request starts collection without waiting for the first periodic tick.
+func (c infrastructureChecks) request(ctx context.Context) error {
 	return c.db.InTx(ctx, func(tx *database.Tx) error {
 		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: infrastructureCheckJob, Key: passScheduledKey})
 	})

@@ -11,8 +11,8 @@ import (
 // port, "true") would mask ordinary words.
 const maskMin = 8
 
-// Masked is what a masked value reads as.
-const Masked = "[secret]"
+// masked is what a masked value reads as.
+const masked = "[secret]"
 
 // Masker reads every value AppTown's stores hold once and returns a
 // function that replaces each, eight characters or longer, with
@@ -35,18 +35,10 @@ func (a *Service) Masker(ctx context.Context) func(string) string {
 	slices.SortFunc(values, func(x, y string) int { return len(y) - len(x) })
 	return func(text string) string {
 		for _, v := range values {
-			text = strings.ReplaceAll(text, v, Masked)
+			text = strings.ReplaceAll(text, v, masked)
 		}
 		return text
 	}
-}
-
-// Mask is Masker for one text.
-func (a *Service) Mask(ctx context.Context, text string) string {
-	if text == "" {
-		return text
-	}
-	return a.Masker(ctx)(text)
 }
 
 // maskValues is every value AppTown's stores hold: the secrets file,
@@ -64,7 +56,7 @@ func (a *Service) maskValues(ctx context.Context) []string {
 	for _, v := range file {
 		out = append(out, v)
 	}
-	if cfg := infisicalConfig(file); cfg.Configured() {
+	if cfg := infisicalConfig(file); cfg.configured() {
 		remote, err := a.infisicalFetch(context.WithoutCancel(ctx), cfg)
 		if err != nil {
 			log.Printf("masking: Infisical's values could not be read: %v", err)
@@ -74,7 +66,7 @@ func (a *Service) maskValues(ctx context.Context) []string {
 			out = append(out, v)
 		}
 	}
-	stored, err := a.Vault.Current(ctx)
+	stored, err := a.Vault.current(ctx)
 	if err != nil {
 		log.Printf("masking: the built-in store's values could not be read: %v", err)
 	}

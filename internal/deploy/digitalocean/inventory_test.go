@@ -27,8 +27,8 @@ func TestInventoryCountsOnlyThisInstallationsMark(t *testing.T) {
 	c := NewClient("dop_v1_test", server.URL)
 	ctx := context.Background()
 	for _, spec := range []map[string]any{
-		{"name": "apptown-ours", "region": "syd", "envs": []any{map[string]any{"key": InstanceEnv, "value": "inst-a", "scope": "RUN_TIME"}}},
-		{"name": "apptown-theirs", "region": "syd", "envs": []any{map[string]any{"key": InstanceEnv, "value": "inst-b", "scope": "RUN_TIME"}}},
+		{"name": "apptown-ours", "region": "syd", "envs": []any{map[string]any{"key": instanceEnv, "value": "inst-a", "scope": "RUN_TIME"}}},
+		{"name": "apptown-theirs", "region": "syd", "envs": []any{map[string]any{"key": instanceEnv, "value": "inst-b", "scope": "RUN_TIME"}}},
 		{"name": "apptown-before", "region": "syd"},
 	} {
 		if err := c.Call(ctx, "POST", "/v2/apps", map[string]any{"spec": spec}, nil); err != nil {
@@ -72,7 +72,7 @@ func TestMadeResourcesCarryTheInstallationsMark(t *testing.T) {
 	if err := json.Unmarshal(renderedSpecBody(t, art), &spec); err != nil {
 		t.Fatal(err)
 	}
-	if len(spec.Envs) != 1 || spec.Envs[0].Key != InstanceEnv || spec.Envs[0].Value != "inst-a" {
+	if len(spec.Envs) != 1 || spec.Envs[0].Key != instanceEnv || spec.Envs[0].Value != "inst-a" {
 		t.Fatalf("the app spec lacks the installation's mark: %+v", spec.Envs)
 	}
 	if tags := d.madeTags("shop", "main"); !slices.Contains(tags, InstallationTag("inst-a")) || !slices.Contains(tags, "apptown-deployment-main") {

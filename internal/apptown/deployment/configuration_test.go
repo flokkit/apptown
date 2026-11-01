@@ -160,8 +160,8 @@ func TestConfigureRefusals(t *testing.T) {
 			if err == nil || result.Deployment != nil {
 				t.Fatalf("refusal admitted: %+v %v", result, err)
 			}
-			var input *ConfigurationInputError
-			var denied *OfferDeniedError
+			var input *configurationInputError
+			var denied *offerDeniedError
 			if strings.HasPrefix(scenario, "bad ") || scenario == "preview name" {
 				if !errors.As(err, &input) {
 					t.Fatalf("input classification: %v", err)
@@ -172,7 +172,7 @@ func TestConfigureRefusals(t *testing.T) {
 					t.Fatalf("offer classification: %v", err)
 				}
 			}
-			if scenario == "missing target" && !errors.Is(err, ErrTargetMissing) {
+			if scenario == "missing target" && !errors.Is(err, errTargetMissing) {
 				t.Fatal(err)
 			}
 			wantN(t, "deployments", everyDeployment(t, s.db), 0)
@@ -220,7 +220,7 @@ func TestConfigureLimitIsAtomicAndExcludesCurrentBinding(t *testing.T) {
 		if err == nil {
 			return 1
 		}
-		var refusal *OfferDeniedError
+		var refusal *offerDeniedError
 		if !errors.As(err, &refusal) {
 			t.Error(err)
 		}
@@ -275,12 +275,12 @@ func TestConfigureDoesNotRetargetAdmittedDeployment(t *testing.T) {
 		t.Fatal(err)
 	}
 	in.Target = other.Name
-	if _, err := s.Configure(context.Background(), in); !errors.Is(err, ErrDeploymentAdmitted) {
+	if _, err := s.Configure(context.Background(), in); !errors.Is(err, errDeploymentAdmitted) {
 		t.Fatalf("retargeted admitted generation: %v", err)
 	}
 	in.Target = target.Name
 	in.Audience = "public"
-	if _, err := s.Configure(context.Background(), in); !errors.Is(err, ErrDeploymentAdmitted) {
+	if _, err := s.Configure(context.Background(), in); !errors.Is(err, errDeploymentAdmitted) {
 		t.Fatalf("changed protection: %v", err)
 	}
 	in.Audience = "organisation"

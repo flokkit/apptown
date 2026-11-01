@@ -23,19 +23,19 @@ import (
 type Secrets struct {
 	secrets     *secret.Service
 	projects    *project.Projects
-	deployments DeploymentLister
+	deployments deploymentLister
 	db          *database.DB
 	dataDir     string
 	now         func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
-func NewSecrets(secrets *secret.Service, projects *project.Projects, deployments DeploymentLister, db *database.DB, dataDir string, now func() time.Time) Secrets {
+func NewSecrets(secrets *secret.Service, projects *project.Projects, deployments deploymentLister, db *database.DB, dataDir string, now func() time.Time) Secrets {
 	return Secrets{secrets: secrets, projects: projects, deployments: deployments, db: db, dataDir: dataDir, now: now}
 }
 
-// DeploymentLister names a project's deployments: the deployment owner's
+// deploymentLister names a project's deployments: the deployment owner's
 // listing.
-type DeploymentLister interface {
+type deploymentLister interface {
 	List(ctx context.Context, projectID ids.ID) ([]deployment.Summary, error)
 }
 
@@ -157,7 +157,7 @@ func nonNilStrings(xs []string) []string {
 
 // handleProjectSecrets: GET /api/v1/projects/{slug}/secrets
 func (h Secrets) ProjectSecrets(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -292,7 +292,7 @@ func (h Secrets) ProjectSecrets(w http.ResponseWriter, r *http.Request) {
 
 // handleSetSecretProfile: PUT /api/v1/projects/{slug}/secrets/{deployment} {profile}
 func (h Secrets) SetSecretProfile(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -340,7 +340,7 @@ func (h Secrets) SetSecretProfile(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 422, "the app declares no profile %q (it has %s)", in.Profile, strings.Join(slices.Sorted(maps.Keys(declared)), ", "))
 			return
 		}
-		if err := h.secrets.Profiles.Set(r.Context(), p.ID, env, in.Profile, Actor(r)); err != nil {
+		if err := h.secrets.Profiles.Set(r.Context(), p.ID, env, in.Profile, actor(r)); err != nil {
 			WriteFault(w, err)
 			return
 		}
@@ -355,7 +355,7 @@ func (h Secrets) SetSecretProfile(w http.ResponseWriter, r *http.Request) {
 //
 // The value is obfuscated and stored; it is never echoed, logged or audited.
 func (h Secrets) BindSecret(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -376,7 +376,7 @@ func (h Secrets) BindSecret(w http.ResponseWriter, r *http.Request) {
 		Value string `json:"value"`
 		Ref   string `json:"ref"`
 	}) {
-		who := Actor(r)
+		who := actor(r)
 		b := secret.Binding{Deployment: env, Name: name, UpdatedBy: who}
 		switch in.Store {
 		case "", secret.StoreInternal:
@@ -422,12 +422,12 @@ func (h Secrets) BindSecret(w http.ResponseWriter, r *http.Request) {
 // handleUnbindSecret: DELETE /api/v1/projects/{slug}/secrets/{deployment}/{name}.
 // Removes the binding and unreferenced built-in versions with their receipt.
 func (h Secrets) UnbindSecret(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
 	env, name := r.PathValue("deployment"), r.PathValue("name")
-	if err := h.secrets.Bindings.Unbind(r.Context(), p.ID, env, name, Actor(r)); err != nil {
+	if err := h.secrets.Bindings.Unbind(r.Context(), p.ID, env, name, actor(r)); err != nil {
 		if errors.Is(err, secret.ErrBindingMissing) {
 			WriteError(w, 404, "%s is not bound in %s", name, env)
 		} else {
@@ -450,12 +450,12 @@ func (h Secrets) knownSecretDeployment(ctx context.Context, projectID ids.ID, en
 // and which version — never the value. Values in Infisical are Infisical's
 // to show.
 func (h Secrets) RevealSecret(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
 	env, name := r.PathValue("deployment"), r.PathValue("name")
-	got, err := h.secrets.Reveal(r.Context(), p.ID, env, name, Actor(r))
+	got, err := h.secrets.Reveal(r.Context(), p.ID, env, name, actor(r))
 	switch {
 	case errors.Is(err, secret.ErrBindingMissing):
 		WriteError(w, 404, "%s is not bound in %s", name, env)

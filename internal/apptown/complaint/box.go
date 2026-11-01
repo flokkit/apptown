@@ -21,38 +21,38 @@ import (
 	"github.com/flokkit/apptown/internal/strs"
 )
 
-// State is derived from answer text and archival, independently of Seen.
+// state is derived from answer text and archival, independently of Seen.
 // Archived takes precedence even if the answer is subsequently changed.
-type State uint8
+type state uint8
 
 const (
-	New State = iota + 1
-	Answered
-	Archived
+	newLocal state = iota + 1
+	answered
+	stateArchived
 )
 
-func (s State) String() string {
+func (s state) String() string {
 	switch s {
-	case New:
+	case newLocal:
 		return "new"
-	case Answered:
+	case answered:
 		return "answered"
-	case Archived:
+	case stateArchived:
 		return "archived"
 	}
 	return "invalid-complaint-state"
 }
 
-// StateOf returns Archived when archived, Answered when answer is nonempty,
+// stateOf returns Archived when archived, Answered when answer is nonempty,
 // and New otherwise. It does not trim or validate the answer.
-func StateOf(answer string, archived bool) State {
+func stateOf(answer string, archived bool) state {
 	switch {
 	case archived:
-		return Archived
+		return stateArchived
 	case answer != "":
-		return Answered
+		return answered
 	}
-	return New
+	return newLocal
 }
 
 // Complaint is one row of complaints, with the project it names.
@@ -100,14 +100,14 @@ type Complaint struct {
 // eval's copy is the eval's whatever it is about, and only one about the
 // AppTown also reaches AppTown's queue.
 const (
-	AboutAppTown      = "apptown"
+	aboutAppTown      = "apptown"
 	AboutWayOfWorking = "way-of-working"
-	AboutProject      = "project"
+	aboutProject      = "project"
 )
 
-// ValidAbout reports whether about is one of the three values.
-func ValidAbout(about string) bool {
-	return about == AboutAppTown || about == AboutWayOfWorking || about == AboutProject
+// validAbout reports whether about is one of the three values.
+func validAbout(about string) bool {
+	return about == aboutAppTown || about == AboutWayOfWorking || about == aboutProject
 }
 
 // Entry is what a complaint is filed with. About defaults to AboutAppTown.
@@ -119,27 +119,27 @@ type Entry struct {
 	About                      string
 }
 
-// PackVersions names the packs and versions a project has adopted, as
+// packVersions names the packs and versions a project has adopted, as
 // "pack@N" joined by ", ": what a way-of-working complaint is about.
-type PackVersions interface {
+type packVersions interface {
 	PackVersionsOf(ctx context.Context, projectID ids.ID) (string, error)
 }
 
 var (
-	ErrText    = errors.New("a complaint needs text")
-	ErrAbout   = fault.New(fault.Unprocessable, "a complaint is about AppTown, the way-of-working or the project")
-	ErrAnswer  = errors.New("an answer is required")
-	ErrMissing = fault.New(fault.NotFound, "no complaint")
+	errText    = errors.New("a complaint needs text")
+	errAbout   = fault.New(fault.Unprocessable, "a complaint is about AppTown, the way-of-working or the project")
+	errAnswer  = errors.New("an answer is required")
+	errMissing = fault.New(fault.NotFound, "no complaint")
 )
 
-// Retention is how long a complaint is kept, whatever its state.
-const Retention = 90 * 24 * time.Hour
+// retention is how long a complaint is kept, whatever its state.
+const retention = 90 * 24 * time.Hour
 
 // Box records and manages complaints. Callers authorize operations and supply
 // attribution; Box validates content and persists changes with required receipts.
 type Box struct {
 	db    *database.DB
-	packs PackVersions
+	packs packVersions
 	clock func() time.Time
 }
 
@@ -147,7 +147,7 @@ type Box struct {
 // way-of-working complaint, and may be nil where none are filed. now is the
 // AppTown's clock, which stamps filing, answers, archiving and their receipts
 // and sets the retention cutoffs (the real clock when nil).
-func NewBox(db *database.DB, packs PackVersions, now func() time.Time) *Box {
+func NewBox(db *database.DB, packs packVersions, now func() time.Time) *Box {
 	return &Box{db: db, packs: packs, clock: now}
 }
 
@@ -163,13 +163,13 @@ func (b *Box) now() time.Time { return clock.Or(b.clock)().UTC() }
 func (b *Box) File(ctx context.Context, e Entry) (ids.ID, error) {
 	text := strings.TrimSpace(redactCredentials(e.Text))
 	if text == "" {
-		return ids.Nil, ErrText
+		return ids.Nil, errText
 	}
 	if e.About == "" {
-		e.About = AboutAppTown
+		e.About = aboutAppTown
 	}
-	if !ValidAbout(e.About) {
-		return ids.Nil, ErrAbout
+	if !validAbout(e.About) {
+		return ids.Nil, errAbout
 	}
 	var packVersion string
 	if e.About == AboutWayOfWorking && !e.ProjectID.IsZero() && b.packs != nil {
@@ -225,7 +225,7 @@ func (b *Box) All(ctx context.Context, limit int) ([]Complaint, error) {
 func (b *Box) Answer(ctx context.Context, id ids.ID, answer, who string) error {
 	answer = strings.TrimSpace(answer)
 	if answer == "" {
-		return ErrAnswer
+		return errAnswer
 	}
 	now := b.now()
 	return b.db.InTx(ctx, func(tx *database.Tx) error {
@@ -237,7 +237,7 @@ func (b *Box) Answer(ctx context.Context, id ids.ID, answer, who string) error {
 			ID: id, Answer: answer, AnsweredBy: who, AnsweredByPrincipal: answerer.Principal, AnsweredByVia: answerer.Via, AnsweredAt: stamp.Of(now).NullTime,
 		})
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w %d", ErrMissing, id)
+			return fmt.Errorf("%w %d", errMissing, id)
 		}
 		if err != nil {
 			return err
@@ -256,7 +256,7 @@ func (b *Box) Archive(ctx context.Context, id ids.ID, who string) error {
 			ID: id, ArchivedAt: stamp.Of(now).NullTime,
 		})
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w %d", ErrMissing, id)
+			return fmt.Errorf("%w %d", errMissing, id)
 		}
 		if err != nil {
 			return err
@@ -294,7 +294,7 @@ func (b *Box) Delete(ctx context.Context, id ids.ID, who string) error {
 	return b.db.InTx(ctx, func(tx *database.Tx) error {
 		row, err := queries(tx).ComplaintByID(ctx, id)
 		if err != nil {
-			return fmt.Errorf("%w %d", ErrMissing, id)
+			return fmt.Errorf("%w %d", errMissing, id)
 		}
 		text := row.Text
 		if _, err := queries(tx).DeleteComplaint(ctx, id); err != nil {
@@ -314,7 +314,7 @@ func (b *Box) MarkSeen(ctx context.Context) error {
 // written for an empty sweep. The count is valid only when the error is nil.
 func (b *Box) Expire(ctx context.Context) (int64, error) {
 	now := b.now()
-	cutoff := now.Add(-Retention)
+	cutoff := now.Add(-retention)
 	var n int64
 	err := b.db.InTx(ctx, func(tx *database.Tx) error {
 		var err error

@@ -29,13 +29,13 @@ func Read() (Memory, error) {
 	if err != nil {
 		return Memory{}, fmt.Errorf("reading the host's memory: %w", err)
 	}
-	return ParseMeminfo(b)
+	return parseMeminfo(b)
 }
 
-// ParseMeminfo reads MemTotal and MemAvailable from a meminfo listing. Both
+// parseMeminfo reads MemTotal and MemAvailable from a meminfo listing. Both
 // must be present: a kernel without MemAvailable (older than 3.14) gives no
 // honest figure for what is free.
-func ParseMeminfo(b []byte) (Memory, error) {
+func parseMeminfo(b []byte) (Memory, error) {
 	fields := kib(b, "MemTotal:", "MemAvailable:")
 	total, okT := fields["MemTotal:"]
 	avail, okA := fields["MemAvailable:"]

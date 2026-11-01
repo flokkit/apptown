@@ -8,12 +8,12 @@ import (
 )
 
 type SetupStatus struct {
-	image           AgentImageState
-	selection       ModelSelection
+	image           agentImageState
+	selection       modelSelection
 	openNonLoopback bool
 }
 
-func NewSetupStatus(image AgentImageState, selection ModelSelection, openNonLoopback bool) SetupStatus {
+func NewSetupStatus(image agentImageState, selection modelSelection, openNonLoopback bool) SetupStatus {
 	return SetupStatus{image: image, selection: selection, openNonLoopback: openNonLoopback}
 }
 
@@ -35,8 +35,8 @@ func (h SetupStatus) Setup(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-type AgentImageState interface{ ImageState() (state, detail string) }
-type ModelSelection interface {
+type agentImageState interface{ ImageState() (state, detail string) }
+type modelSelection interface {
 	Resolve(ctx context.Context, projectID ids.ID, requested string) (pattern, slot, profile string, err error)
 }
 

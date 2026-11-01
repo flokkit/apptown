@@ -7,27 +7,27 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// LandingAvailability supplies the current project's configured landing entry.
+// landingAvailability supplies the current project's configured landing entry.
 // Creation still checks the accepted source and selected definition in Starter.
-type LandingAvailability interface {
+type landingAvailability interface {
 	CanLand(context.Context, ids.ID) (bool, error)
 }
 
 type acceptedLandingRuntime struct {
-	Availability LandingAvailability
+	Availability landingAvailability
 	Starter      *starter
 	Advancement  *advancer
 }
 
-type LandingExecution struct {
+type landingExecution struct {
 	RunID   ids.ID
 	Advance *AdvanceResult
 }
 
-// AdvanceAccepted performs one attempt. The persisted landing link, acceptance
+// advanceAccepted performs one attempt. The persisted landing link, acceptance
 // receipt and scoped readiness make an explicit retry safe without polling.
-func (s landings) AdvanceAccepted(ctx context.Context, workID ids.ID, runtime acceptedLandingRuntime) (LandingExecution, error) {
-	var out LandingExecution
+func (s landings) advanceAccepted(ctx context.Context, workID ids.ID, runtime acceptedLandingRuntime) (landingExecution, error) {
+	var out landingExecution
 	pending, err := s.pending(ctx, workID)
 	if err != nil || pending.Superseded {
 		return out, err
@@ -54,7 +54,7 @@ func (s landings) AdvanceAccepted(ctx context.Context, workID ids.ID, runtime ac
 		if runtime.Starter == nil {
 			return out, fmt.Errorf("landing starter is unavailable")
 		}
-		landing, err := runtime.Starter.Start(ctx, StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: "land", InputsJSON: "{}", acceptedRunID: pending.Work.ID})
+		landing, err := runtime.Starter.start(ctx, StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: "land", InputsJSON: "{}", acceptedRunID: pending.Work.ID})
 		if err != nil {
 			return out, err
 		}
@@ -70,11 +70,11 @@ func (s landings) AdvanceAccepted(ctx context.Context, workID ids.ID, runtime ac
 	if runtime.Starter == nil || runtime.Advancement == nil {
 		return out, fmt.Errorf("landing execution is unavailable")
 	}
-	if err = runtime.Starter.PrepareScoped(ctx, advance); err != nil {
+	if err = runtime.Starter.prepareScoped(ctx, advance); err != nil {
 		return out, err
 	}
 	out.RunID = advance.ID
-	out.Advance, err = runtime.Advancement.AdvanceRun(ctx, advance, "system")
+	out.Advance, err = runtime.Advancement.advanceRun(ctx, advance, "system")
 	return out, err
 }
 
@@ -82,8 +82,8 @@ func (s landings) AdvanceAccepted(ctx context.Context, workID ids.ID, runtime ac
 // its landing run, starting the landing if none exists, and dispatches
 // what the attempt readied. Availability is the caller's say on whether
 // the project may land right now.
-func (s *Service) AdvanceAcceptedLanding(ctx context.Context, workID ids.ID, availability LandingAvailability) (LandingExecution, error) {
-	out, err := s.landings.AdvanceAccepted(ctx, workID, acceptedLandingRuntime{Availability: availability, Starter: s.starter, Advancement: s.advancer})
+func (s *Service) AdvanceAcceptedLanding(ctx context.Context, workID ids.ID, availability landingAvailability) (landingExecution, error) {
+	out, err := s.landings.advanceAccepted(ctx, workID, acceptedLandingRuntime{Availability: availability, Starter: s.starter, Advancement: s.advancer})
 	s.dispatchAdvanced(out.RunID, out.Advance, err)
 	return out, err
 }

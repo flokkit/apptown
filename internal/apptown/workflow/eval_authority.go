@@ -82,13 +82,13 @@ func rootAuthorityIn(ctx context.Context, q database.Queryer, runID ids.ID) (str
 	return "", nil
 }
 
-// EvalGate is an eval's one admission rule for work in its copies: why a
+// evalGate is an eval's one admission rule for work in its copies: why a
 // step of projectID may not start now ("" when it may, and always for a
 // project that is no copy), or an error when that could not be read.
 //
 // It reads through q, the caller's transaction where one is open, so it
 // never waits on another connection while that transaction holds one.
-type EvalGate interface {
+type evalGate interface {
 	RefusalIn(ctx context.Context, q database.Queryer, projectID ids.ID) (string, error)
 }
 
@@ -133,7 +133,7 @@ func (s *Service) StartEvalRun(ctx context.Context, in EvalRun) (*Run, error) {
 	if s.starter == nil {
 		return nil, fmt.Errorf("Run execution is unavailable")
 	}
-	return s.starter.Start(ctx, StartRequest{ProjectID: project, ChangeID: change.ID, WorkflowName: in.Workflow, InputsJSON: "{}",
+	return s.starter.start(ctx, StartRequest{ProjectID: project, ChangeID: change.ID, WorkflowName: in.Workflow, InputsJSON: "{}",
 		requestedBy: actor.InferenceOwner, owner: actor.Owner, receiptActor: actor.Receipt, evalAuthority: authority})
 }
 
@@ -244,20 +244,20 @@ type evalAuthorisedReceipt struct {
 // settleForEval passes an undecided approval on an eval's authority: the
 // round closes approved with the step's stated meaning, the authority named,
 // the landing's candidate when it has one, and no approver or vote.
-func (s *Step) settleForEval(authority, candidate string, at time.Time) (ApprovalOutcome, error) {
+func (s *Step) settleForEval(authority, candidate string, at time.Time) (approvalOutcome, error) {
 	if s.Type != "approval" || s.OverrideBy != "" || s.Status == StatusPass || s.Status == StatusFail {
-		return ApprovalOutcome{}, fmt.Errorf("step %q is not an undecided approval: %w", s.Name, errStepDecisionConflict)
+		return approvalOutcome{}, fmt.Errorf("step %q is not an undecided approval: %w", s.Name, errStepDecisionConflict)
 	}
 	cfg, err := ReadApprovalConfig(s.Config)
 	if err != nil {
-		return ApprovalOutcome{}, err
+		return approvalOutcome{}, err
 	}
 	document, err := readApprovalDocument(s.Evidence)
 	if err != nil {
-		return ApprovalOutcome{}, err
+		return approvalOutcome{}, err
 	}
-	if _, err := s.Status.Transition(MoveStepVote, StatusPass); err != nil {
-		return ApprovalOutcome{}, err
+	if _, err := s.Status.transition(moveStepVote, StatusPass); err != nil {
+		return approvalOutcome{}, err
 	}
 	next := document.evidence.clone()
 	next.Quorum, next.Means = cfg.Quorum, cfg.Means
@@ -265,7 +265,7 @@ func (s *Step) settleForEval(authority, candidate string, at time.Time) (Approva
 	next.Decision, next.At, next.EvalAuthorised = VoteApprove, at.UTC().Format(time.RFC3339Nano), authority
 	body, err := document.encode(next)
 	if err != nil {
-		return ApprovalOutcome{}, err
+		return approvalOutcome{}, err
 	}
-	return ApprovalOutcome{Round: next, Evidence: body, Status: StatusPass}, nil
+	return approvalOutcome{Round: next, Evidence: body, Status: StatusPass}, nil
 }

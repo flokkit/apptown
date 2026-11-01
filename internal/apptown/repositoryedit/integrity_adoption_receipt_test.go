@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -28,7 +30,7 @@ func TestAdoptionReportsKeptEditsWhenItsReceiptFails(t *testing.T) {
 			editor := NewIntegrity(&scm.RepositoryLocks{}, execution.Runner{}, noMirror{}, db, dataDir, nil)
 			p := &project.Project{ID: id, Slug: "drift", DefaultBranch: "main"}
 			if failReceipt {
-				t.Cleanup(db.FailNextStatement("-- name: AppendReceipt"))
+				t.Cleanup(dbtest.NextStatementFailure(db, "-- name: AppendReceipt"))
 			}
 			result, err := editor.Resolve(t.Context(), p, "adopt", "deciding-admin")
 			if failReceipt {

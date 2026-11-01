@@ -47,7 +47,7 @@ type offhostWorld struct {
 func newOffhostWorld(t *testing.T, slug string, port int) *offhostWorld {
 	t.Helper()
 	db := testDB(t)
-	w := &offhostWorld{t: t, pid: createTestProject(t, db, slug, strings.ToUpper(slug)), dir: t.TempDir(), slug: slug, client: dockerfake.New()}
+	w := &offhostWorld{t: t, pid: createTestProject(t, db, slug, strings.ToUpper(slug)), dir: t.TempDir(), slug: slug, client: newDockerFake()}
 	if err := os.WriteFile(filepath.Join(w.dir, "secrets.env"), []byte("STORE_KEY=STOREKEY\nSTORE_SECRET=storesecret\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +159,7 @@ func TestWithAStoreEveryDockerBackupGoesToTheStore(t *testing.T) {
 		t.Fatalf("without a store: %+v", disk)
 	}
 	p, err := w.s.DeploymentProtection(ctx, w.pid, "main")
-	if err != nil || p.OffHost || p.Note != OnAppTownDiskNote || p.Operations == nil || p.Operations.Rehearsal.Reason == "on-apptown-disk" || strings.Contains(p.RehearsalNote, "backup store") {
+	if err != nil || p.OffHost || p.Note != onAppTownDiskNote || p.Operations == nil || p.Operations.Rehearsal.Reason == "on-apptown-disk" || strings.Contains(p.RehearsalNote, "backup store") {
 		t.Fatalf("protection without a store: %+v %+v %v", p, p.Operations, err)
 	}
 	if len(p.Items) != 2 || p.Items[1].Copy != CopyFresh {
@@ -203,7 +203,7 @@ func TestWithAStoreEveryDockerBackupGoesToTheStore(t *testing.T) {
 	if b.Store != StoreBackupStore || b.StoreBucket != "forge-copies" || !strings.HasPrefix(b.Path, "oh/main/") || b.Status != BackupOK {
 		t.Fatalf("with a store: %+v", b)
 	}
-	pg := b.GoodCopy("need", "postgres")
+	pg := b.goodCopy("need", "postgres")
 	if pg == nil || pg.Format != "pg-custom" || pg.AsUser != "app" || pg.Client == "" || pg.Restore == "" {
 		t.Fatalf("the database's copy: %+v", pg)
 	}
@@ -247,7 +247,7 @@ func TestWithAStoreEveryDockerBackupGoesToTheStore(t *testing.T) {
 		return body
 	}
 	bad := w.take("manual")
-	if bad.Status != BackupPartial || bad.GoodCopy("need", "postgres") != nil || !strings.Contains(bad.Items[1].Error, "store holds") {
+	if bad.Status != BackupPartial || bad.goodCopy("need", "postgres") != nil || !strings.Contains(bad.Items[1].Error, "store holds") {
 		t.Fatalf("a copy the store changed: %+v", bad)
 	}
 }
@@ -266,7 +266,7 @@ func TestADockerSetInTheStoreRestoresInPlace(t *testing.T) {
 	w.attach()
 	b := w.take("manual")
 	res, err := w.s.restoreBackup(context.Background(), nil, w.pid, "main", b.ID, "alice")
-	if err != nil || res.Status != RestoreNotVerified || len(res.Items) != 2 {
+	if err != nil || res.Status != restoreNotVerified || len(res.Items) != 2 {
 		t.Fatalf("restore: %+v %v", res, err)
 	}
 	if got := strings.Join(w.restored, "\n"); !strings.Contains(got, "back-"+w.names.NeedVolume("postgres")+".dump: copy of "+w.names.NeedVolume("postgres")+".dump") || !strings.Contains(got, "back-"+w.names.DataVolume()+".tar.gz: copy of "+w.names.DataVolume()+".tar.gz") {
@@ -300,7 +300,7 @@ func TestRetentionCountsSetsAcrossBothPlaces(t *testing.T) {
 	w.attach()
 	held := func() (all, inStore int) {
 		for _, b := range w.sets() {
-			if b.Status.Holds() {
+			if b.Status.holds() {
 				all++
 				if b.Store == StoreBackupStore {
 					inStore++
@@ -360,7 +360,7 @@ func TestDiskSetsMoveToTheStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	final, err := w.s.takeSet(ctx, dk, w.pid, "ohm", "main", plan, TriggerTakeDown, "alice")
+	final, err := w.s.takeSet(ctx, dk, w.pid, "ohm", "main", plan, triggerTakeDown, "alice")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -378,18 +378,18 @@ func TestDiskSetsMoveToTheStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := w.s.MoveSetsToStore(ctx); err == nil {
+	if _, _, err := w.s.moveSetsToStore(ctx); err == nil {
 		t.Fatal("sets moved while a restore held them")
 	}
 	files.Close()
 
 	w.store.Fail("PUT", "forge-copies", first.Path[len(filepath.Join(w.dir, "backups"))+1:]+"/manifest.json", 500)
-	moved, left, err := w.s.MoveSetsToStore(ctx)
+	moved, left, err := w.s.moveSetsToStore(ctx)
 	if err != nil || moved != 1 || len(left) != 2 {
 		t.Fatalf("moved %d, left %v, %v", moved, left, err)
 	}
 	got, _ := w.s.backups.ByID(ctx, w.pid, "main", final.ID)
-	if got.Store != StoreBackupStore || got.Path != "ohm/main/"+filepath.Base(final.Path) || got.Trigger != TriggerTakeDown || got.TakenAt != final.TakenAt {
+	if got.Store != StoreBackupStore || got.Path != "ohm/main/"+filepath.Base(final.Path) || got.Trigger != triggerTakeDown || got.TakenAt != final.TakenAt {
 		t.Fatalf("the final set moved: %+v (was %+v)", got, final)
 	}
 	if _, err := os.Stat(final.Path); !os.IsNotExist(err) {
@@ -405,14 +405,14 @@ func TestDiskSetsMoveToTheStore(t *testing.T) {
 		}
 	}
 	w.store.ClearFailures()
-	if moved, left, err := w.s.MoveSetsToStore(ctx); err != nil || moved != 1 || len(left) != 1 || !strings.Contains(left[0], "does not match its record") {
+	if moved, left, err := w.s.moveSetsToStore(ctx); err != nil || moved != 1 || len(left) != 1 || !strings.Contains(left[0], "does not match its record") {
 		t.Fatalf("the next day: moved %d, left %v, %v", moved, left, err)
 	}
 	if b, _ := w.s.backups.ByID(ctx, w.pid, "main", first.ID); b.Store != StoreBackupStore {
 		t.Fatalf("a failed move is retried: %+v", b)
 	}
 	// A moved set restores from the store.
-	if res, err := w.s.restoreBackup(ctx, nil, w.pid, "main", first.ID, "alice"); err != nil || res.Status != RestoreNotVerified {
+	if res, err := w.s.restoreBackup(ctx, nil, w.pid, "main", first.ID, "alice"); err != nil || res.Status != restoreNotVerified {
 		t.Fatalf("restoring a moved set: %+v %v", res, err)
 	}
 }
@@ -439,7 +439,7 @@ func TestStagingAStoppedTakeLeftIsCleared(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if n, err := w.s.ClearStaging(); err != nil || n != 1 {
+	if n, err := w.s.clearStaging(); err != nil || n != 1 {
 		t.Fatalf("cleared %d: %v", n, err)
 	}
 	if got := strings.Join(w.stagingEntries(), ","); got != "42,take-new" {
@@ -493,13 +493,13 @@ func TestADockerDeploymentSaysWhereItsBackupsAreFromTheRecord(t *testing.T) {
 
 	releaseMain(t, h.s, "ohd", "app: [not a contract")
 	if p, err := h.s.DeploymentProtection(ctx, h.pid, "main"); err != nil || p.Unknown == "" || len(p.Coverage.Assessed) != 0 ||
-		!slices.Equal(p.Coverage.NotAssessed, []string{"the deployment's own data: what it holds is unknown", OutsideNotAssessed}) {
+		!slices.Equal(p.Coverage.NotAssessed, []string{"the deployment's own data: what it holds is unknown", outsideNotAssessed}) {
 		t.Fatalf("an unreadable contract: %+v %v", p, err)
 	}
 	releaseMain(t, h.s, "ohd", "app:\n  web:\n    image: registry.example/ohd:1\n    ports: [\"8080\"]\n    public: true\n")
 	// Holding no data AppTown knows of still says what is not assessed.
 	if p, err := h.s.DeploymentProtection(ctx, h.pid, "main"); err != nil || p.Unknown != "" || len(p.Items) != 0 ||
-		len(p.Coverage.Assessed) != 0 || !slices.Equal(p.Coverage.NotAssessed, []string{OutsideNotAssessed}) {
+		len(p.Coverage.Assessed) != 0 || !slices.Equal(p.Coverage.NotAssessed, []string{outsideNotAssessed}) {
 		t.Fatalf("a stateless contract: %+v %v", p, err)
 	}
 }

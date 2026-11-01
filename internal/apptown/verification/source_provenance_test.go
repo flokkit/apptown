@@ -98,7 +98,7 @@ func TestScanGateHoldsOnlyIntroducedFindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cleanup()
-	results, findings, errs := scanners.RunSourceScans(context.Background(), src, "test", ws, baseSHA)
+	results, findings, errs := scanners.runSourceScans(context.Background(), src, "test", ws, baseSHA)
 	if errs != 0 {
 		t.Fatalf("scan errors: %d", errs)
 	}
@@ -120,7 +120,7 @@ func TestScanGateHoldsOnlyIntroducedFindings(t *testing.T) {
 
 	// Same change, nothing new: the scan passes and says what it is carrying.
 	reports.report = sarifOf(oldMoved)
-	results, findings, errs = scanners.RunSourceScans(context.Background(), src, "test", ws, baseSHA)
+	results, findings, errs = scanners.runSourceScans(context.Background(), src, "test", ws, baseSHA)
 	if errs != 0 || len(results) != 1 {
 		t.Fatalf("carried-only scan: %d errors, results %+v", errs, results)
 	}
@@ -133,7 +133,7 @@ func TestScanGateHoldsOnlyIntroducedFindings(t *testing.T) {
 
 	// No base to compare with: every finding gates.
 	reports.report = sarifOf(oldMoved, newFinding)
-	_, findings, errs = scanners.RunSourceScans(context.Background(), src, "test", ws, "")
+	_, findings, errs = scanners.runSourceScans(context.Background(), src, "test", ws, "")
 	if errs != 0 || len(findings) != 2 {
 		t.Fatalf("without a base every finding is introduced, got %d findings and %d errors", len(findings), errs)
 	}

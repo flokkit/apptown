@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/ids"
@@ -81,7 +83,7 @@ func TestTargetRetirementReadFailureIsNotPermissionOrAbsence(t *testing.T) {
 	for _, query := range []string{"-- name: TargetByNameForUpdate", "-- name: BoundTargetDeployments", "-- name: ProviderHasLiveTargets"} {
 		t.Run(query, func(t *testing.T) {
 			w, target := targetRetirementFixture(t)
-			t.Cleanup(w.db.FailNextStatement(query))
+			t.Cleanup(dbtest.NextStatementFailure(w.db, query))
 			code, _ := targetCall(t, http.HandlerFunc(w.targets.RetireTarget), "POST", "/retire", `{"confirm":"retiring-target"}`, map[string]string{"name": target.Name})
 			if code != 500 {
 				t.Fatalf("read failure: %d", code)

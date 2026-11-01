@@ -60,7 +60,7 @@ func TestWorkAuthorityAppliesWithoutRouteGuards(t *testing.T) {
 	}
 	for _, read := range readers {
 		dbtest.FailNextStatement(t, a.DB, "-- name: UserByName :one")
-		if _, err := read(stepVerifiedContext(ctx, owner), ch.ID); !(errors.Is(err, database.ErrInjectedFailure) || err != nil && strings.Contains(err.Error(), "forge_injected_failure")) {
+		if _, err := read(stepVerifiedContext(ctx, owner), ch.ID); !(errors.Is(err, dbtest.ErrInjectedFailure) || err != nil && strings.Contains(err.Error(), "forge_injected_failure")) {
 			t.Fatalf("failed authority read hidden: %v", err)
 		}
 		if got, err := read(stepVerifiedContext(ctx, owner), ch.ID); err != nil || got.ID != ch.ID {
@@ -180,7 +180,7 @@ func TestCommittedApprovalSurvivesAdvancementFailure(t *testing.T) {
 	a.Work.Stop()
 	a.Work = New(context.Background(), a.DB, Dependencies{Authority: a.Authorizer, Report: func(err error) { reported <- err }})
 	t.Cleanup(a.Work.Stop)
-	a.Work.advancer = newAdvancer(a.DB, advanceRuntime{Stages: a.Work.stages, Assertions: a.Work.assertions, Checks: advancementScopeChecks{refresh: func(context.Context, *Run) error { return nil }}, Completion: completionRecorderFunc(noCompletionEffects)})
+	a.Work.advancer = newAdvancer(a.DB, advanceRuntime{stages: a.Work.stages, assertions: a.Work.assertions, checks: advancementScopeChecks{refresh: func(context.Context, *Run) error { return nil }}, completion: completionRecorderFunc(noCompletionEffects)})
 	dbtest.FailNextStatement(t, a.DB, "UPDATE runs SET current_stage")
 	step, err := a.Work.Approve(ctx, Approval{StepID: snapshot.Steps[0].ID, Decision: VoteApprove})
 	if err != nil || step.Status != StatusPass {
@@ -188,7 +188,7 @@ func TestCommittedApprovalSurvivesAdvancementFailure(t *testing.T) {
 	}
 	select {
 	case err := <-reported:
-		if !errors.Is(err, database.ErrInjectedFailure) {
+		if !errors.Is(err, dbtest.ErrInjectedFailure) {
 			t.Fatal(err)
 		}
 	default:
@@ -251,7 +251,7 @@ func TestWorkRetryCommandsDispatchTheirCommittedWork(t *testing.T) {
 			}
 			before := stepRollbackSnapshot(t, db)
 			dbtest.FailNextStatement(t, db, "INSERT INTO run_events")
-			if err := invoke(); !errors.Is(err, database.ErrInjectedFailure) {
+			if err := invoke(); !errors.Is(err, dbtest.ErrInjectedFailure) {
 				t.Fatalf("receipt failure: %v", err)
 			}
 			a.Wait()
@@ -316,7 +316,7 @@ func TestWorkDecisionsAdvanceOnlyAfterCommit(t *testing.T) {
 			})
 			a.Work = New(context.Background(), a.DB, Dependencies{Authority: a.Authorizer})
 			t.Cleanup(a.Work.Stop)
-			a.Work.advancer = newAdvancer(a.DB, advanceRuntime{Stages: a.Work.stages, Assertions: a.Work.assertions, Checks: advancementScopeChecks{refresh: func(context.Context, *Run) error { return nil }}, Completion: completionRecorderFunc(noCompletionEffects)})
+			a.Work.advancer = newAdvancer(a.DB, advanceRuntime{stages: a.Work.stages, assertions: a.Work.assertions, checks: advancementScopeChecks{refresh: func(context.Context, *Run) error { return nil }}, completion: completionRecorderFunc(noCompletionEffects)})
 			invoke := func() (*Step, error) {
 				switch command {
 				case "approve":
@@ -328,7 +328,7 @@ func TestWorkDecisionsAdvanceOnlyAfterCommit(t *testing.T) {
 				}
 			}
 			dbtest.FailNextStatement(t, a.DB, "INSERT INTO run_events")
-			if step, err := invoke(); step != nil || !errors.Is(err, database.ErrInjectedFailure) {
+			if step, err := invoke(); step != nil || !errors.Is(err, dbtest.ErrInjectedFailure) {
 				t.Fatalf("receipt failure: %+v %v", step, err)
 			}
 			a.Work.Wait()

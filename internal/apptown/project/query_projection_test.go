@@ -7,31 +7,34 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/database/query"
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/project/internal/projectsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 type countedQueries struct {
-	database.Handle
+	query.Handle
 	reads  int
 	writes int
 }
 
-func (d *countedQueries) SQL() database.Handle {
-	return d.Handle.WithExecutor(d)
+func (d *countedQueries) SQL() query.Handle {
+	return dbtest.WithExecutor(d.Handle, d)
 }
 func (d *countedQueries) ExecContext(ctx context.Context, q string, args ...any) (sql.Result, error) {
 	d.writes++
-	return d.DBTX.ExecContext(ctx, q, args...)
+	return d.Executor.ExecContext(ctx, q, args...)
 }
 func (d *countedQueries) QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error) {
 	d.reads++
-	return d.DBTX.QueryContext(ctx, q, args...)
+	return d.Executor.QueryContext(ctx, q, args...)
 }
 func (d *countedQueries) QueryRowContext(ctx context.Context, q string, args ...any) *sql.Row {
 	d.reads++
-	return d.DBTX.QueryRowContext(ctx, q, args...)
+	return d.Executor.QueryRowContext(ctx, q, args...)
 }
 
 func TestProjectQueriesPreserveTypesTransactionsAndErrors(t *testing.T) {
@@ -73,7 +76,7 @@ func TestProjectQueriesPreserveTypesTransactionsAndErrors(t *testing.T) {
 	if err != nil || outsideErr != nil || in.DefaultBranch != "uncommitted" || out.DefaultBranch != "main" {
 		t.Fatalf("query escaped transaction: inside=%+v outside=%+v errors=%v/%v", in, out, err, outsideErr)
 	}
-	t.Cleanup(db.FailNextStatement("ProjectByID"))
+	t.Cleanup(dbtest.NextStatementFailure(db, "ProjectByID"))
 	if p, err := ByIDIn(context.Background(), db, id); err == nil || p != (Project{}) {
 		t.Fatal("generated row query bypassed failure injection")
 	}

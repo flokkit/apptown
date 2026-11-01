@@ -25,9 +25,9 @@ import (
 type Service struct {
 	db           *database.DB
 	authority    access.Authorizer
-	sources      Sources
-	host         Host
-	releaseHost  ReleaseHost
+	sources      sources
+	host         host
+	releaseHost  releaseHost
 	worker       Worker
 	hosts        *deployment.Hosts
 	env          *deployment.Environment
@@ -41,7 +41,7 @@ type Service struct {
 	dataDir      string
 	clock        func() time.Time // AppTown's clock; nil is the real one
 
-	runtime    Runtime        // boot serialization and transient status, by preview
+	runtime    previewRuntime // boot serialization and transient status, by preview
 	served     servedPreviews // what each preview this AppTown booted serves
 	booting    sync.Map       // name → *sync.Mutex: a preview booting (holdPreview)
 	startClear startClear     // the worker's previews from before this start, until removed
@@ -55,7 +55,7 @@ type Dependencies struct {
 	Authority access.Authorizer
 	// Sources resolves a change and a console session, and pins a change a
 	// chat on the worker holds.
-	Sources Sources
+	Sources sources
 	// Worker boots changes' and runs' previews when AppTown has a worker;
 	// nil boots them on this machine.
 	Worker      Worker
@@ -78,8 +78,8 @@ type Dependencies struct {
 	Now func() time.Time
 	// Host and ReleaseHost replace the boots of a change's and a release's
 	// preview (a test's); nil boots them here.
-	Host        Host
-	ReleaseHost ReleaseHost
+	Host        host
+	ReleaseHost releaseHost
 }
 
 // New builds the preview owner.
@@ -88,7 +88,7 @@ func New(db *database.DB, deps Dependencies) *Service {
 		hosts: deps.Hosts, env: deps.Environment, targets: deps.Targets, deployments: deps.Deployments, releases: deps.Releases,
 		bundles: deps.Bundles, retained: deps.Retained, projects: deps.Projects, integrations: deps.Integrations, dataDir: deps.DataDir,
 		clock: deps.Now}
-	s.runtime.Now, s.startClear.every = deps.Now, time.Minute
+	s.runtime.now, s.startClear.every = deps.Now, time.Minute
 	if s.host == nil {
 		s.host = changeBoots{s}
 	}

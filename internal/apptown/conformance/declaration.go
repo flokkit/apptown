@@ -53,8 +53,8 @@ type CheckDefinition struct {
 	Adopters    []string `json:"adopters"`
 }
 
-// DefinitionOf builds a catalog entry from a check definition.
-func DefinitionOf(block string, version int, c CheckDeclaration) CheckDefinition {
+// definitionOf builds a catalog entry from a check definition.
+func definitionOf(block string, version int, c CheckDeclaration) CheckDefinition {
 	severity := c.Severity
 	if severity == "" {
 		severity = "note"

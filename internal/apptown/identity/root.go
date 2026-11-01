@@ -13,7 +13,7 @@ import (
 // access.RootGrant identifies the single authority that can administer the instance.
 // Callers supply the principal's currently active grants, including memberships.
 // Grants are judged live as of at, the caller's clock.
-func RootIn(ctx context.Context, q database.Queryer, username string, at time.Time) (bool, error) {
+func rootIn(ctx context.Context, q database.Queryer, username string, at time.Time) (bool, error) {
 	return PrincipalRootIn(ctx, q, access.Principal{Kind: "user", Name: username}, at)
 }
 
@@ -26,7 +26,7 @@ func PrincipalRootIn(ctx context.Context, q database.Queryer, pr access.Principa
 
 func accountIn(ctx context.Context, q database.Queryer, row accesssql.User, at time.Time) (Account, error) {
 	a := account(row)
-	root, err := RootIn(ctx, q, row.Username, at)
+	root, err := rootIn(ctx, q, row.Username, at)
 	if root {
 		a.Role = "admin"
 	}
@@ -52,7 +52,7 @@ func preserveRoot(ctx context.Context, tx *database.Tx, at time.Time, apply func
 			return err
 		}
 		if after == 0 {
-			return ErrLastAdministrator
+			return errLastAdministrator
 		}
 	}
 	enabled, err := queries(tx).ExternalProviderEnabled(ctx)
@@ -65,7 +65,7 @@ func preserveRoot(ctx context.Context, tx *database.Tx, at time.Time, apply func
 			return err
 		}
 		if n == 0 {
-			return ErrLocalRecovery
+			return errLocalRecovery
 		}
 	}
 	return nil

@@ -6,10 +6,11 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerlabel"
-	"gopkg.in/yaml.v3"
 	"net/http"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/dockerlabel"
+	"gopkg.in/yaml.v3"
 )
 
 // ServeComponents projects only the exact Compose file the fake provider last

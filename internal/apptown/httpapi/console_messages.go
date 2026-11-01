@@ -18,14 +18,14 @@ type ConsoleMessages struct {
 	work     *workflow.Service
 	db       *database.DB
 	dataDir  string
-	mask     Mask // known secret values in what the chat view shows
+	mask     mask // known secret values in what the chat view shows
 }
 
 // NewConsoleMessages serves a chat's conversation to anyone who may look at
 // it, and takes words, pictures and interruptions through chats, which
 // decides who may act on it. work names a change from its chat's first
 // message.
-func NewConsoleMessages(chats conversation.Chats, work *workflow.Service, db *database.DB, dataDir string, mask Mask) ConsoleMessages {
+func NewConsoleMessages(chats conversation.Chats, work *workflow.Service, db *database.DB, dataDir string, mask mask) ConsoleMessages {
 	return ConsoleMessages{sessions: chats.Sessions, chats: chats, work: work, db: db, dataDir: dataDir, mask: mask}
 }
 
@@ -37,7 +37,7 @@ func (h ConsoleMessages) ConsoleMessages(w http.ResponseWriter, r *http.Request)
 	if s == nil {
 		return
 	}
-	from, ok := QueryInt(w, r, "from", 0)
+	from, ok := queryInt(w, r, "from", 0)
 	if !ok {
 		return
 	}
@@ -46,7 +46,7 @@ func (h ConsoleMessages) ConsoleMessages(w http.ResponseWriter, r *http.Request)
 		WriteError(w, 404, "no such session")
 		return
 	}
-	WriteJSON(w, 200, ConsoleMessagePage{Messages: h.mask.Messages(r.Context(), page.Messages), State: h.sessions.State(r.Context(), s), Turn: string(page.Turn)})
+	WriteJSON(w, 200, ConsoleMessagePage{Messages: h.mask.messages(r.Context(), page.Messages), State: h.sessions.State(r.Context(), s), Turn: string(page.Turn)})
 }
 
 // ConsoleSay: POST /console/{sid}/say {text} — typed words go into the

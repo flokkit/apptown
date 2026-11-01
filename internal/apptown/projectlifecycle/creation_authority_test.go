@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -149,7 +151,7 @@ func TestProjectCreationIncludesOwnershipAndReceipt(t *testing.T) {
 	}
 	t.Run("ProjectByID", func(t *testing.T) {
 		f := newOwnerFixture(t, false)
-		t.Cleanup(f.db.FailNextStatement("ProjectByID"))
+		t.Cleanup(dbtest.NextStatementFailure(f.db, "ProjectByID"))
 		if _, err := f.lifecycle.Create(context.Background(), Draft{Slug: "unreadable", Name: "P", Actor: "alice"}); err == nil {
 			t.Fatal("accepted failed required read")
 		}

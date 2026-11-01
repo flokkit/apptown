@@ -113,11 +113,11 @@ func TestAnAppPlatformPartNoSizeCoversIsRefusedBeforeAnyEffect(t *testing.T) {
 // cheap: a new app on it would be moved off it.
 func TestADeprecatedSizeIsNeverChosen(t *testing.T) {
 	t.Parallel()
-	sizes := []InstanceSize{
+	sizes := []instanceSize{
 		{Slug: "old-cheap", CPUs: 1, MemoryBytes: 1 << 30, USDPerMonth: 1, Deprecated: true},
 		{Slug: "current", CPUs: 1, MemoryBytes: 1 << 30, USDPerMonth: 10},
 	}
-	got, err := SizeFor(sizes, appcontract.Resources{MemoryBytes: 512 << 20})
+	got, err := sizeFor(sizes, appcontract.Resources{MemoryBytes: 512 << 20})
 	if err != nil || got.Slug != "current" {
 		t.Errorf("SizeFor chose %q (%v), want current", got.Slug, err)
 	}

@@ -26,11 +26,11 @@ spec:
 	}
 	admissions, req, def := runAdmissionFixture(t)
 	def.Spec = doc.Spec
-	run, err := admissions.Create(context.Background(), req, def)
+	run, err := admissions.records.create(context.Background(), req, def)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := admissions.Prepared(context.Background(), run.ID); err != nil {
+	if err := admissions.records.prepared(context.Background(), run.ID); err != nil {
 		t.Fatal(err)
 	}
 	owner := NewAbandonments(admissions.records.db, abandonRecorderFunc(noAbandonEffects), &scm.RepositoryLocks{})

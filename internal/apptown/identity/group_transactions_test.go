@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/database"
 )
 
@@ -55,7 +57,7 @@ func TestGroupSaveRollsBackEveryRequiredWrite(t *testing.T) {
 			}
 			var restore func()
 			if tc.marker != "" {
-				restore = s.db.FailNextStatement(tc.marker)
+				restore = dbtest.NextStatementFailure(s.db, tc.marker)
 			} else {
 				restore = vetoGroupWrite(t, s.db, tc.table, tc.operation)
 			}

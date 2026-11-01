@@ -81,8 +81,8 @@ func TestADeployRecordsTheVolumesItMade(t *testing.T) {
 	server := httptest.NewServer(e.handler(t))
 	defer server.Close()
 	book := &stackBook{}
-	_, err := (Execution{DeploymentID: idstest.N(7), Config: Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL, EnvName: "lan"}, EndpointID: 3, Stack: "forge-shop", Prefix: "forge-", Compose: scopeFixtureCompose(shopCompose), Owner: book, Log: func(string, ...any) {}}).
-		Execute(context.Background(), 1, func(map[string]any) error { return nil })
+	_, err := (execution{deploymentID: idstest.N(7), config: Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL, EnvName: "lan"}, endpointID: 3, stack: "forge-shop", prefix: "forge-", compose: scopeFixtureCompose(shopCompose), owner: book, log: func(string, ...any) {}}).
+		execute(context.Background(), 1, func(map[string]any) error { return nil })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestTheDockerProxyForwardsWithTheCurrentKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(dir) })
-	p, err := StartDockerProxy(dir, Environment{ID: 3, Name: "lan"}, func(context.Context) (*Target, error) {
+	p, err := StartDockerProxy(dir, deploymentEnvironment{ID: 3, Name: "lan"}, func(context.Context) (*Target, error) {
 		return &Target{PortainerURL: server.URL + "/portainer", PortainerKey: key}, nil
 	})
 	if err != nil {
@@ -228,7 +228,7 @@ func TestTheLayoutFindsADataFolderAtThePathTheAppWasGiven(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for volume, want := range map[string]Mount{
+	for volume, want := range map[string]mount{
 		"forge-app_forge-data-app":          {Service: "app", Path: "/data/$tenant"},
 		"forge-app_forge-need-app-postgres": {Service: "postgres", Path: "/pg/$$x"},
 	} {

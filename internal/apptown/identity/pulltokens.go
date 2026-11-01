@@ -9,8 +9,8 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// PullTokenPrefix marks a project's read-only git token.
-const PullTokenPrefix = "apptown_pull_"
+// pullTokenPrefix marks a project's read-only git token.
+const pullTokenPrefix = "apptown_pull_"
 
 // ProjectOfPullToken is the project a presented token belongs to, found=false for
 // an unknown token.
@@ -26,7 +26,7 @@ func (s *Service) ProjectOfPullToken(ctx context.Context, token string) (ids.ID,
 // and every one stays valid until the project is removed. A token that
 // could not be stored is an error, never handed out.
 func (s *Service) RuntimePullToken(ctx context.Context, projectID ids.ID) (string, error) {
-	tok := PullTokenPrefix + RandomHex(24)
+	tok := pullTokenPrefix + RandomHex(24)
 	if err := queries(s.db).InsertPullToken(ctx, accesssql.InsertPullTokenParams{TokenHash: HashToken(tok), ProjectID: projectID, CreatedAt: s.now().UTC()}); err != nil {
 		return "", err
 	}

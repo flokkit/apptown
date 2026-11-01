@@ -66,22 +66,22 @@ type BlockFilter struct{ Query, Tag string }
 
 var (
 	blockNameRe       = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*$`)
-	ErrBlockName      = fault.New(fault.Invalid, "block name must look like prose/banned-phrases")
+	errBlockName      = fault.New(fault.Invalid, "block name must look like prose/banned-phrases")
 	ErrUnknownBlock   = fault.New(fault.Unprocessable, "unknown block")
 	ErrNoSuchVersion  = fault.New(fault.Unprocessable, "no such version")
 	ErrImportedTwice  = fault.New(fault.Unprocessable, "block imported twice")
 	errBlockNameShape = blockNameRe.String()
 )
 
-// NameShape is the shape a block or catalog name must have, for messages.
-const NameShape = `^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*$`
+// nameShape is the shape a block or catalog name must have, for messages.
+const nameShape = `^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*$`
 
-// ValidName reports whether a name has the library's shape (blocks and
+// validName reports whether a name has the library's shape (blocks and
 // catalog changes share it: prose/banned-phrases, uplift/go-version).
-func ValidName(name string) bool { return blockNameRe.MatchString(name) }
+func validName(name string) bool { return blockNameRe.MatchString(name) }
 
-// Library is the supported API over guidance blocks, versions and imports.
-type Library struct {
+// library is the supported API over guidance blocks, versions and imports.
+type library struct {
 	db *database.DB
 	// stock is where the stock sync's versions came from (source and signer, origin.go).
 	stock Origin
@@ -91,11 +91,11 @@ type Library struct {
 	clock func() time.Time
 }
 
-func (s *Library) now() time.Time { return clock.Or(s.clock)() }
+func (s *library) now() time.Time { return clock.Or(s.clock)() }
 
-func NewLibrary(db *database.DB) *Library { return &Library{db: db, stock: shippedOrigin("")} }
+func NewLibrary(db *database.DB) *library { return &library{db: db, stock: shippedOrigin("")} }
 
-func (s *Library) ByID(ctx context.Context, id ids.ID) (*Block, error) {
+func (s *library) byID(ctx context.Context, id ids.ID) (*Block, error) {
 	r, err := wowsql.New(s.db.SQL()).BlockByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -104,7 +104,7 @@ func (s *Library) ByID(ctx context.Context, id ids.ID) (*Block, error) {
 	return &b, nil
 }
 
-func (s *Library) ByName(ctx context.Context, name string) (*Block, error) {
+func (s *library) ByName(ctx context.Context, name string) (*Block, error) {
 	r, err := wowsql.New(s.db.SQL()).BlockByName(ctx, name)
 	if err != nil {
 		return nil, err
@@ -113,15 +113,15 @@ func (s *Library) ByName(ctx context.Context, name string) (*Block, error) {
 	return &b, nil
 }
 
-// VersionBody is the body of one version of a block.
-func (s *Library) VersionBody(ctx context.Context, blockID ids.ID, version int) (string, error) {
+// versionBody is the body of one version of a block.
+func (s *library) versionBody(ctx context.Context, blockID ids.ID, version int) (string, error) {
 	r, err := wowsql.New(s.db.SQL()).BlockVersion(ctx, wowsql.BlockVersionParams{BlockID: blockID, Version: int64(version)})
 	return string(r.BodyMd), err
 }
 
-// All lists blocks by name with their latest version's size and a bounded
+// all lists blocks by name with their latest version's size and a bounded
 // excerpt, narrowed by the filter. Complete bodies stay on the detail read.
-func (s *Library) All(ctx context.Context, f BlockFilter) ([]Block, error) {
+func (s *library) all(ctx context.Context, f BlockFilter) ([]Block, error) {
 	rows, err := wowsql.New(s.db.SQL()).BlocksMatchingMeta(ctx, wowsql.BlocksMatchingMetaParams{Query: f.Query, Tag: f.Tag})
 	out := make([]Block, 0, len(rows))
 	for _, r := range rows {
@@ -133,14 +133,14 @@ func (s *Library) All(ctx context.Context, f BlockFilter) ([]Block, error) {
 	return out, err
 }
 
-// BytesByName is the latest-version size of each named block, for pack
+// bytesByName is the latest-version size of each named block, for pack
 // cards and pickers. Unknown names are absent.
-func (s *Library) BytesByName(ctx context.Context, names []string) map[string]int {
+func (s *library) bytesByName(ctx context.Context, names []string) map[string]int {
 	out := map[string]int{}
 	if len(names) == 0 {
 		return out
 	}
-	rows, err := s.All(ctx, BlockFilter{})
+	rows, err := s.all(ctx, BlockFilter{})
 	if err != nil {
 		return out
 	}
@@ -158,9 +158,9 @@ func (s *Library) BytesByName(ctx context.Context, names []string) map[string]in
 
 // Create records a new institution-authored block at version 1 with its
 // receipt, in one transaction.
-func (s *Library) Create(ctx context.Context, name, body, tags, who string) (*Block, error) {
+func (s *library) Create(ctx context.Context, name, body, tags, who string) (*Block, error) {
 	if !blockNameRe.MatchString(name) {
-		return nil, fmt.Errorf("%w (%s)", ErrBlockName, errBlockNameShape)
+		return nil, fmt.Errorf("%w (%s)", errBlockName, errBlockNameShape)
 	}
 	if _, _, err := SplitSkill(name, body); err != nil {
 		return nil, err
@@ -169,12 +169,12 @@ func (s *Library) Create(ctx context.Context, name, body, tags, who string) (*Bl
 	now := s.now().UTC()
 	err := s.db.InTx(ctx, func(tx *database.Tx) error {
 		q := wowsql.New(tx.SQL())
-		r, err := q.InsertBlock(ctx, wowsql.InsertBlockParams{ID: ids.New(now), Name: name, Tags: NormalizeTags(tags), At: now})
+		r, err := q.InsertBlock(ctx, wowsql.InsertBlockParams{ID: ids.New(now), Name: name, Tags: normalizeTags(tags), At: now})
 		if err != nil {
 			return err
 		}
 		block = blockRecord(r)
-		if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(now), BlockID: r.ID, Version: 1, Body: body, Checks: []byte("[]"), At: now, Source: AuthoredHere.Source, Signer: AuthoredHere.Signer}); err != nil {
+		if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(now), BlockID: r.ID, Version: 1, Body: body, Checks: []byte("[]"), At: now, Source: authoredHere.Source, Signer: authoredHere.Signer}); err != nil {
 			return err
 		}
 		return audit.At(now).RecordIn(ctx, tx, who, ids.Nil, "guidance.block.created", name, map[string]any{"blockId": r.ID})
@@ -185,8 +185,8 @@ func (s *Library) Create(ctx context.Context, name, body, tags, who string) (*Bl
 	return &block, nil
 }
 
-// Versions is a block's history, newest first.
-func (s *Library) Versions(ctx context.Context, blockID ids.ID) ([]BlockVersion, error) {
+// versions is a block's history, newest first.
+func (s *library) versions(ctx context.Context, blockID ids.ID) ([]BlockVersion, error) {
 	rows, err := wowsql.New(s.db.SQL()).BlockVersionsMeta(ctx, blockID)
 	out := make([]BlockVersion, 0, len(rows))
 	for _, r := range rows {
@@ -198,7 +198,7 @@ func (s *Library) Versions(ctx context.Context, blockID ids.ID) ([]BlockVersion,
 // Bump appends a version to a block under its row lock, so two concurrent
 // edits get two versions; the version, the pointer and the receipt commit
 // together. checksJSON may be empty.
-func (s *Library) Bump(ctx context.Context, id ids.ID, body, checksJSON, who, name string) error {
+func (s *library) Bump(ctx context.Context, id ids.ID, body, checksJSON, who, name string) error {
 	if strings.TrimSpace(checksJSON) == "" {
 		checksJSON = "[]"
 	}
@@ -223,7 +223,7 @@ type ResolvedPin struct {
 
 // Resolve checks a manifest's pins: no block twice, every block known,
 // every version real. Errors name the block.
-func (s *Library) Resolve(ctx context.Context, pins []Pin) ([]ResolvedPin, error) {
+func (s *library) Resolve(ctx context.Context, pins []Pin) ([]ResolvedPin, error) {
 	seen := map[string]bool{}
 	var out []ResolvedPin
 	for _, pin := range pins {
@@ -249,8 +249,8 @@ func (s *Library) Resolve(ctx context.Context, pins []Pin) ([]ResolvedPin, error
 	return out, nil
 }
 
-// NormalizeTags trims a comma list and drops empty entries.
-func NormalizeTags(tags string) string {
+// normalizeTags trims a comma list and drops empty entries.
+func normalizeTags(tags string) string {
 	var out []string
 	for _, tag := range strings.Split(tags, ",") {
 		if tag = strings.TrimSpace(tag); tag != "" {
@@ -260,28 +260,9 @@ func NormalizeTags(tags string) string {
 	return strings.Join(out, ",")
 }
 
-// Names lists the blocks whose names start with any of the prefixes
-// (skill/, resource/): what the workflow assistant may name.
-func (s *Library) Names(ctx context.Context, prefixes ...string) ([]string, error) {
-	all, err := s.All(ctx, BlockFilter{})
-	if err != nil {
-		return nil, err
-	}
-	out := []string{}
-	for _, b := range all {
-		for _, p := range prefixes {
-			if strings.HasPrefix(b.Name, p) {
-				out = append(out, b.Name)
-				break
-			}
-		}
-	}
-	return out, nil
-}
-
-// VersionChecks is the checks a block version declares, as stored JSON
+// versionChecks is the checks a block version declares, as stored JSON
 // ("[]" when none).
-func (s *Library) VersionChecks(ctx context.Context, blockID ids.ID, version int) (string, error) {
+func (s *library) versionChecks(ctx context.Context, blockID ids.ID, version int) (string, error) {
 	r, err := wowsql.New(s.db.SQL()).BlockVersion(ctx, wowsql.BlockVersionParams{BlockID: blockID, Version: int64(version)})
 	return string(r.ChecksJson), err
 }

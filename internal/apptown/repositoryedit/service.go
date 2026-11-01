@@ -29,9 +29,9 @@ type Publisher interface {
 	PushBranch(context.Context, ids.ID, string, string)
 }
 
-// Genesis commits a new project's first files, refusing once the project has
+// genesis commits a new project's first files, refusing once the project has
 // a Change (projectlifecycle.Service.CommitGenesis).
-type Genesis interface {
+type genesis interface {
 	CommitGenesis(ctx context.Context, p *project.Project, message, actor string, write func(dir string) ([]string, error)) ([]string, error)
 }
 type Service struct {
@@ -39,7 +39,7 @@ type Service struct {
 	catalog   *dependency.Catalog
 	publisher Publisher
 	branches  *scm.Branches
-	genesis   Genesis
+	genesis   genesis
 	db        *database.DB
 	dataDir   string
 }
@@ -56,7 +56,7 @@ func workClock(work *workflow.Service) func() time.Time {
 	return work.Now
 }
 
-func New(work *workflow.Service, catalog *dependency.Catalog, publisher Publisher, branches *scm.Branches, genesis Genesis, db *database.DB, dataDir string) *Service {
+func New(work *workflow.Service, catalog *dependency.Catalog, publisher Publisher, branches *scm.Branches, genesis genesis, db *database.DB, dataDir string) *Service {
 	return &Service{work: work, catalog: catalog, publisher: publisher, branches: branches, genesis: genesis, db: db, dataDir: dataDir}
 }
 
@@ -76,12 +76,12 @@ type ServicesEdit struct {
 	ExpectedDeclaration *string
 }
 
-// ErrDeclarationVersionRequired refuses a proposed edit that names no start.
-var ErrDeclarationVersionRequired = fault.New(fault.Invalid, "send the declaration the edit started from (expectedDeclaration)")
+// errDeclarationVersionRequired refuses a proposed edit that names no start.
+var errDeclarationVersionRequired = fault.New(fault.Invalid, "send the declaration the edit started from (expectedDeclaration)")
 
-// ErrDeclarationMoved carries a code so a client can tell it from other
+// errDeclarationMoved carries a code so a client can tell it from other
 // conflicts and show the person the services declared now.
-var ErrDeclarationMoved error = declarationMoved{}
+var errDeclarationMoved error = declarationMoved{}
 
 type declarationMoved struct{}
 
@@ -91,12 +91,12 @@ func (declarationMoved) Error() string {
 func (declarationMoved) FaultKind() fault.Kind { return fault.Conflict }
 func (declarationMoved) FaultCode() string     { return "settings-moved" }
 
-// DeclarationError identifies invalid input or an unreadable current declaration.
-type DeclarationError struct{ Err error }
+// declarationError identifies invalid input or an unreadable current declaration.
+type declarationError struct{ Err error }
 
-func (e *DeclarationError) Error() string         { return e.Err.Error() }
-func (e *DeclarationError) FaultKind() fault.Kind { return fault.Unprocessable }
-func (e *DeclarationError) Unwrap() error         { return e.Err }
+func (e *declarationError) Error() string         { return e.Err.Error() }
+func (e *declarationError) FaultKind() fault.Kind { return fault.Unprocessable }
+func (e *declarationError) Unwrap() error         { return e.Err }
 
 // SetServices seeds a new project directly or commits a proposed Change. A
 // direct seed is refused once the project has a Change (the genesis rule).
@@ -105,7 +105,7 @@ func (e *DeclarationError) Unwrap() error         { return e.Err }
 func (editor *Service) SetServices(ctx context.Context, p *project.Project, in ServicesEdit) (*workflow.Change, error) {
 	for _, n := range in.Needs {
 		if editor.dependencyKind(ctx, n.Capability) == nil {
-			return nil, &DeclarationError{fmt.Errorf("need %q is not in the dependency catalog", n.Capability)}
+			return nil, &declarationError{fmt.Errorf("need %q is not in the dependency catalog", n.Capability)}
 		}
 	}
 	repo, err := p.Repository(editor.dataDir)
@@ -116,7 +116,7 @@ func (editor *Service) SetServices(ctx context.Context, p *project.Project, in S
 		_, err := editor.genesis.CommitGenesis(ctx, p, "apptown: declare services", in.Actor, func(dir string) ([]string, error) {
 			updated, err := editDeclaration(dir, in.Needs)
 			if err != nil {
-				return nil, &DeclarationError{err}
+				return nil, &declarationError{err}
 			}
 			if err := scm.WriteInTree(dir, filepath.Join(".apptown", "app.yaml"), updated, 0o644); err != nil {
 				return nil, err
@@ -130,16 +130,16 @@ func (editor *Service) SetServices(ctx context.Context, p *project.Project, in S
 		return nil, nil
 	}
 	if in.ExpectedDeclaration == nil {
-		return nil, ErrDeclarationVersionRequired
+		return nil, errDeclarationVersionRequired
 	}
 	// An early refusal on main as it is now, before any Change is opened.
 	if now, err := DeclarationVersion(repo); err != nil {
 		return nil, err
 	} else if now != *in.ExpectedDeclaration {
-		return nil, ErrDeclarationMoved
+		return nil, errDeclarationMoved
 	}
 	if _, err := editDeclaration(repo, in.Needs); err != nil {
-		return nil, &DeclarationError{err}
+		return nil, &declarationError{err}
 	}
 	title := in.Title
 	if title == "" {
@@ -171,13 +171,13 @@ func (editor *Service) SetServices(ctx context.Context, p *project.Project, in S
 		return nil, err
 	} else if base != *in.ExpectedDeclaration {
 		if _, err := editor.work.Abandon(ctx, workflow.StopWork{ChangeID: ch.ID, Reason: "the app's services changed on main while this edit was being opened; nothing was proposed"}); err != nil {
-			return nil, fmt.Errorf("%w; closing the unused change %s#%d: %w", ErrDeclarationMoved, p.Slug, ch.Number, err)
+			return nil, fmt.Errorf("%w; closing the unused change %s#%d: %w", errDeclarationMoved, p.Slug, ch.Number, err)
 		}
-		return nil, ErrDeclarationMoved
+		return nil, errDeclarationMoved
 	}
 	updated, err := editDeclaration(wt, in.Needs)
 	if err != nil {
-		return nil, &DeclarationError{err}
+		return nil, &declarationError{err}
 	}
 	if err := os.MkdirAll(filepath.Join(wt, ".apptown"), 0o755); err != nil {
 		return nil, err

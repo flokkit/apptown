@@ -3,16 +3,17 @@ package dataprotection
 import (
 	"database/sql/driver"
 	"errors"
+
 	"github.com/flokkit/apptown/internal/enum"
 )
 
 type BackupLabel uint8
 
 const (
-	LabelUnknown  BackupLabel = 1
-	LabelFinished BackupLabel = 2
-	LabelFailed   BackupLabel = 3
-	LabelStopped  BackupLabel = 4
+	labelUnknown  BackupLabel = 1
+	labelFinished BackupLabel = 2
+	labelFailed   BackupLabel = 3
+	labelStopped  BackupLabel = 4
 )
 
 var labelCodec = enum.Set[BackupLabel]{Names: []string{"unknown", "finished", "failed", "stopped"}, Invalid: "invalid-status-label", Err: errors.New("invalid status label"), ScanLabel: "value"}
@@ -24,11 +25,11 @@ func (s *BackupLabel) UnmarshalJSON(b []byte) error { return labelCodec.ReadJSON
 
 func (b Backup) label() BackupLabel {
 	switch b.Status {
-	case BackupOK, BackupPruned:
-		return LabelFinished
+	case BackupOK, backupPruned:
+		return labelFinished
 	case BackupPartial, BackupFailed:
-		return LabelFailed
+		return labelFailed
 	default:
-		return LabelUnknown
+		return labelUnknown
 	}
 }

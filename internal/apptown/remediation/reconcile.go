@@ -12,22 +12,22 @@ import (
 	"github.com/flokkit/apptown/internal/strs"
 )
 
-type Action int
+type remediationAction int
 
 const (
-	ActionWait Action = iota
-	ActionPhase
-	ActionStuck
-	ActionBackoff
-	ActionLanded
-	ActionVerify
-	ActionPrepare
+	actionWait remediationAction = iota
+	actionPhase
+	actionStuck
+	actionBackoff
+	actionLanded
+	actionVerify
+	actionPrepare
 	ActionRecheckLanding
 )
 
-// Decision is what the facts say to do with one item.
-type Decision struct {
-	Action Action
+// decision is what the facts say to do with one item.
+type decision struct {
+	Action remediationAction
 	State  string
 	Reason string
 }
@@ -42,27 +42,27 @@ type Observation struct {
 }
 
 // Decisions consume facts only: no App, database, clock or execution hooks.
-func Decide(o Observation) Decision {
+func Decide(o Observation) decision {
 	it := o.Item
-	wait := Decision{Action: ActionWait}
-	stuck := func(reason string) Decision {
-		return Decision{Action: ActionStuck, Reason: reason}
+	wait := decision{Action: actionWait}
+	stuck := func(reason string) decision {
+		return decision{Action: actionStuck, Reason: reason}
 	}
-	phase := func(state, reason string) Decision {
-		return Decision{Action: ActionPhase, State: state, Reason: reason}
+	phase := func(state, reason string) decision {
+		return decision{Action: actionPhase, State: state, Reason: reason}
 	}
-	backoff := func(reason string) Decision {
+	backoff := func(reason string) decision {
 		if it.TransientRetries >= remMaxTransients {
 			return stuck("the model provider kept refusing: " + strs.Truncate(reason, 200))
 		}
-		return Decision{Action: ActionBackoff, Reason: reason}
+		return decision{Action: actionBackoff, Reason: reason}
 	}
-	if it.State == ItemVerifying {
-		return Decision{Action: ActionVerify}
+	if it.State == itemVerifying {
+		return decision{Action: actionVerify}
 	}
 	if it.State == ItemStuck {
 		if o.ChangeFound && o.ChangeState == workflow.ChangeShipped && o.AttemptOutcome == "stuck" {
-			return Decision{Action: ActionLanded}
+			return decision{Action: actionLanded}
 		}
 		return wait
 	}
@@ -76,7 +76,7 @@ func Decide(o Observation) Decision {
 	case workflow.ChangeAbandoned:
 		return stuck(fmt.Sprintf("change %d was abandoned", it.ChangeID))
 	case workflow.ChangeShipped:
-		return Decision{Action: ActionLanded}
+		return decision{Action: actionLanded}
 	case workflow.ChangeLanding:
 		if it.State != ItemLanding {
 			return phase(ItemLanding, "")
@@ -115,7 +115,7 @@ func Decide(o Observation) Decision {
 			return wait
 		}
 		if transientReason(text) && it.TransientRetries < remMaxTransients {
-			return Decision{Action: ActionRecheckLanding, Reason: text}
+			return decision{Action: ActionRecheckLanding, Reason: text}
 		}
 		return stuck(fmt.Sprintf("the landing (run %d) is blocked: %s", execution.Run.ID, text))
 	}
@@ -128,7 +128,7 @@ func Decide(o Observation) Decision {
 	switch execution.Run.Status {
 	case workflow.RunRunning:
 		if execution.Unready {
-			return Decision{Action: ActionPrepare}
+			return decision{Action: actionPrepare}
 		}
 		if failed > 0 && others == 0 {
 			if transientReason(text) {
@@ -161,32 +161,32 @@ func Decide(o Observation) Decision {
 	return wait
 }
 
-// Applied is what an applied decision left behind.
-type Applied struct {
+// applied is what an applied decision left behind.
+type applied struct {
 	Item      Item
 	RunID     ids.ID
-	Decision  Decision
+	Decision  decision
 	Rechecked bool
 }
 
-type ReconcileRecords interface {
+type reconcileRecords interface {
 	Observe(context.Context, Item) (*Observation, error)
-	Apply(context.Context, Observation, Decision) (*Applied, error)
+	Apply(context.Context, Observation, decision) (*applied, error)
 }
 
-type Reconciler struct {
-	records  ReconcileRecords
+type reconciler struct {
+	records  reconcileRecords
 	prepare  func(ids.ID) error
 	verify   func(context.Context, Item) error
 	dispatch func(ids.ID)
 	cooldown func(string)
 }
 
-func NewReconciler(records ReconcileRecords, prepare func(ids.ID) error, verify func(context.Context, Item) error, dispatch func(ids.ID), cooldown func(string)) *Reconciler {
-	return &Reconciler{records: records, prepare: prepare, verify: verify, dispatch: dispatch, cooldown: cooldown}
+func newReconciler(records reconcileRecords, prepare func(ids.ID) error, verify func(context.Context, Item) error, dispatch func(ids.ID), cooldown func(string)) *reconciler {
+	return &reconciler{records: records, prepare: prepare, verify: verify, dispatch: dispatch, cooldown: cooldown}
 }
 
-func (r *Reconciler) Reconcile(ctx context.Context, item Item) error {
+func (r *reconciler) reconcile(ctx context.Context, item Item) error {
 	observed, err := r.records.Observe(ctx, item)
 	if err != nil || observed == nil {
 		return err
@@ -196,11 +196,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, item Item) error {
 		return err
 	}
 	switch applied.Decision.Action {
-	case ActionVerify, ActionLanded:
+	case actionVerify, actionLanded:
 		return r.verify(ctx, applied.Item)
-	case ActionPrepare:
+	case actionPrepare:
 		return r.prepare(applied.RunID)
-	case ActionBackoff:
+	case actionBackoff:
 		r.cooldown(applied.Decision.Reason)
 	case ActionRecheckLanding:
 		if applied.Rechecked {

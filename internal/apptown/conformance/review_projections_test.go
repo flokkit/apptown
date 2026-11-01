@@ -201,7 +201,7 @@ func TestSavedReviewsRetrievable(t *testing.T) {
 		t.Fatalf("both reviews should list newest-first: %+v", list)
 	}
 	for _, summary := range list {
-		if summary.StatusLabel != LabelFinished {
+		if summary.StatusLabel != labelFinished {
 			t.Fatalf("completed review must say finished, not check passed: %+v", summary)
 		}
 	}
@@ -268,11 +268,11 @@ func TestFleetWorklists(t *testing.T) {
 	rev, _ := f.review(t, caller("t"), "manual", nil, outcomes(map[string]Outcome{"good": Conforms, "bad": DoesNotConform}))
 
 	saved := f.savedVerdicts(t, rev.ID)
-	byProj := GroupByProject(RecordedObservations(saved))
+	byProj := groupByProject(RecordedObservations(saved))
 	if len(byProj["good"]) != 1 || len(byProj["bad"]) != 1 {
 		t.Fatalf("by-project should list each project's verdicts: %+v", byProj)
 	}
-	row := GroupByCheck(RecordedObservations(saved))["hygiene@1·no-fixme"]
+	row := groupByCheck(RecordedObservations(saved))["hygiene@1·no-fixme"]
 	if len(row) != 2 {
 		t.Fatalf("by-check should gather the same check across projects: %+v", row)
 	}
@@ -326,12 +326,12 @@ func TestReviewLensIsAnImmutableRecord(t *testing.T) {
 	if ex := v1.Exceptions["beta"]; len(ex) != 1 || ex[0].ID != disposition.ID || ex[0].Status != AcceptedRisk {
 		t.Fatalf("review-1 lens must show the snapshotted exception, got %+v", v1.Exceptions)
 	}
-	if s := confirmationStanding(t, v1, "beta"); s.Standing != StandingExcepted {
+	if s := confirmationStanding(t, v1, "beta"); s.Standing != standingExcepted {
 		t.Fatalf("review-1 standing should be conforms-with-exceptions, got %+v", s)
 	}
 	// Lens on review 2: does not conform, no exception.
 	v2 := f.view(t, rev2.ID)
-	if s := confirmationStanding(t, v2, "beta"); s.Standing != StandingDoesNot || len(v2.Exceptions["beta"]) != 0 {
+	if s := confirmationStanding(t, v2, "beta"); s.Standing != standingDoesNot || len(v2.Exceptions["beta"]) != 0 {
 		t.Fatalf("review-2 lens should be does-not-conform with no exceptions: %+v %+v", s, v2.Exceptions)
 	}
 	// Delta of review 2 vs 1: the excepted item became an open finding, so it is new.

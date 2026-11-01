@@ -38,7 +38,7 @@ func TestSampleReadinessJudgesOneAnswerWithoutFollowingRedirects(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
-	ask := func(r ReadinessRequest) ReadinessAnswer {
+	ask := func(r ReadinessRequest) readinessAnswer {
 		t.Helper()
 		r.URL = srv.URL + r.URL
 		a, err := SampleReadiness(context.Background(), srv.Client().Transport, r)

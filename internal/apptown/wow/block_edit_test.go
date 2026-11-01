@@ -90,7 +90,7 @@ func TestBlockEditsPreserveConcurrentOmittedFieldsAndStock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.EditBlock(ctx, stock.ID, BlockPatch{BodyMD: &body}, "alice"); !errors.Is(err, ErrStockBlock) {
+	if _, err := s.EditBlock(ctx, stock.ID, BlockPatch{BodyMD: &body}, "alice"); !errors.Is(err, errStockBlock) {
 		t.Fatalf("stock changed: %v", err)
 	}
 }

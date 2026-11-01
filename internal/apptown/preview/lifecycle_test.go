@@ -119,7 +119,7 @@ func TestALocalReplacementKeepsItsRecord(t *testing.T) {
 		t.Fatal("fixture: replacement not running")
 	}
 	record, ok := s.servedRecordOf(name)
-	if !ok || record.Source != ch.SourceRevision {
+	if !ok || record.source != ch.SourceRevision {
 		t.Fatalf("successful local replacement has no current served record: found=%v record=%+v", ok, record)
 	}
 }
@@ -136,7 +136,7 @@ func TestARestartAndALaterReuseKeepTheirRecords(t *testing.T) {
 			t.Fatal(err)
 		}
 		rec, ok := s.servedRecordOf(name)
-		if !ok || rec.Incarnation != out.Incarnation {
+		if !ok || rec.incarnation != out.Incarnation {
 			t.Fatal("legitimate boot not recorded")
 		}
 		if err := s.ReconcileWorkerPreviews(context.Background()); err != nil {

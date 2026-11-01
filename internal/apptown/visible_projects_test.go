@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/wow"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/apptown/wow"
+	"github.com/flokkit/apptown/internal/dbtest"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adrs"
@@ -17,7 +19,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/usage"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -91,7 +92,7 @@ func TestVisibleProjectAggregatesKeepSectionsScopedWithoutReadReceipts(t *testin
 	}
 	// If an aggregate records a denial, it consumes this failure. The explicit
 	// detail request afterwards must still encounter it (HTTP logs recording errors).
-	clear := a.DB.FailNextStatement("-- name: AppendReceipt")
+	clear := dbtest.NextStatementFailure(a.DB, "-- name: AppendReceipt")
 	defer clear()
 	h := a.Handler()
 	for _, who := range []string{"owner", "project-reader", "run-reader", "no-projects", "boss"} {
@@ -200,7 +201,7 @@ func TestVisibleProjectAggregatesKeepSectionsScopedWithoutReadReceipts(t *testin
 	}
 	// Calling the kernel's explicit decision, a denial, must encounter the still-
 	// armed fault. A swallowed HTTP recording error cannot make this test pass.
-	if _, err := a.Access.Decide(context.Background(), access.Principal{Kind: "user", Name: "no-projects"}, access.Permission{Capability: access.CapProjectRead, Resource: access.Resource{Type: "project", ProjectID: idstest.N(1)}}); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := a.Access.Decide(context.Background(), access.Principal{Kind: "user", Name: "no-projects"}, access.Permission{Capability: access.CapProjectRead, Resource: access.Resource{Type: "project", ProjectID: idstest.N(1)}}); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("aggregate consumed decision tripwire: %v", err)
 	}
 	clear()
@@ -213,7 +214,7 @@ func TestVisibleProjectAggregatesKeepSectionsScopedWithoutReadReceipts(t *testin
 	}
 	// Lookup failures are failures, not successfully empty/partial pages.
 	for _, path := range []string{"/api/v1/projects", "/api/v1/dashboard", "/api/v1/adrs", "/api/v1/wow"} {
-		clear := a.DB.FailNextStatement("-- name: ProjectAuthorityCatalogue")
+		clear := dbtest.NextStatementFailure(a.DB, "-- name: ProjectAuthorityCatalogue")
 		w := authzCall(h, "owner", "GET", path, "")
 		clear()
 		if w.Code != 500 || strings.Contains(w.Body.String(), "private-body-") {
@@ -221,14 +222,14 @@ func TestVisibleProjectAggregatesKeepSectionsScopedWithoutReadReceipts(t *testin
 		}
 	}
 	for _, query := range []string{"-- name: FleetPackMemberships", "-- name: PackVersions"} {
-		clear := a.DB.FailNextStatement(query)
+		clear := dbtest.NextStatementFailure(a.DB, query)
 		w := authzCall(h, "owner", "GET", "/api/v1/wow", "")
 		clear()
 		if w.Code != 500 || strings.Contains(w.Body.String(), `"packs":`) {
 			t.Fatalf("fleet returned partial data after %s: %d %s", query, w.Code, w.Body.String())
 		}
 	}
-	clear = a.DB.FailNextStatement("-- name: ProjectAuthorityCatalogue")
+	clear = dbtest.NextStatementFailure(a.DB, "-- name: ProjectAuthorityCatalogue")
 	w := mcp_post(a, tokens["owner"], "", mcp_rpc(9, "tools/call", map[string]any{"name": "list_projects", "arguments": map[string]any{}}))
 	clear()
 	var failed struct {

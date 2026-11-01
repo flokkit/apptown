@@ -19,9 +19,9 @@ type Scope struct {
 	DaemonID   string `json:"daemonId"`
 }
 
-// CanonicalAPIBase compares configured destinations without resolving DNS or
+// canonicalAPIBase compares configured destinations without resolving DNS or
 // sending credentials. Base paths remain significant; aliases are not equivalent.
-func CanonicalAPIBase(raw string) (string, error) {
+func canonicalAPIBase(raw string) (string, error) {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return "", errors.New("invalid Portainer API base")
@@ -49,7 +49,7 @@ func CanonicalAPIBase(raw string) (string, error) {
 // one already resolved credential snapshot. Initial association authorizes this
 // probe; existing associations must call VerifyScope instead.
 func ObserveScope(ctx context.Context, cfg Target, endpointID int64) (Scope, error) {
-	base, err := CanonicalAPIBase(cfg.PortainerURL)
+	base, err := canonicalAPIBase(cfg.PortainerURL)
 	if err != nil {
 		return Scope{}, err
 	}
@@ -106,7 +106,7 @@ func VerifyScope(ctx context.Context, cfg Target, expected Scope) error {
 	if expected.Version != 1 || expected.EndpointID <= 0 || expected.DaemonID == "" {
 		return errors.New("Portainer destination has no verified scope")
 	}
-	base, err := CanonicalAPIBase(cfg.PortainerURL)
+	base, err := canonicalAPIBase(cfg.PortainerURL)
 	if err != nil {
 		return err
 	}

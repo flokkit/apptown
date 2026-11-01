@@ -52,7 +52,7 @@ func TestWorkflowListUsesTwoReadsRegardlessOfRunCount(t *testing.T) {
 			admissions := newRunAdmissions(q.db, NewStages(nil, func(string) bool { return false }), nil)
 			for n := 2; n <= size; n++ {
 				name := fmt.Sprintf("bulk-%d", n)
-				if _, err := admissions.Create(context.Background(), StartRequest{ProjectID: root.ProjectID, WorkflowName: name, InputsJSON: `{}`}, PreparedRun{Workflow: DefinitionRef{Name: name, Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "finish", Steps: []schema.Step{{Name: "review", Uses: "approval"}}}}}}); err != nil {
+				if _, err := admissions.records.create(context.Background(), StartRequest{ProjectID: root.ProjectID, WorkflowName: name, InputsJSON: `{}`}, PreparedRun{Workflow: DefinitionRef{Name: name, Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "finish", Steps: []schema.Step{{Name: "review", Uses: "approval"}}}}}}); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -270,7 +270,7 @@ func TestWorkflowActivityPreservesQueuePriorityAndCallStartup(t *testing.T) {
 		waiting bool
 		want    Activity
 	}{
-		{"entry queue before failed gate", []workflowActivityStep{{id: idstest.N(1), name: "build", kind: "agent/pi", state: StatusPending}, {id: idstest.N(2), name: "scan", kind: "scan", state: StatusFail}}, false, Activity{State: ActivityQueued, Detail: "build"}},
+		{"entry queue before failed gate", []workflowActivityStep{{id: idstest.N(1), name: "build", kind: "agent/pi", state: StatusPending}, {id: idstest.N(2), name: "scan", kind: "scan", state: StatusFail}}, false, Activity{State: activityQueued, Detail: "build"}},
 		// A review still to run may send the stage back for rework, so the
 		// stage is not blocked yet; the failure already in is named.
 		{"review still to run names the failed gate", []workflowActivityStep{{id: idstest.N(1), name: "review", kind: "agent/review", state: StatusPending}, {id: idstest.N(2), name: "scan", kind: "scan", state: StatusFail}}, false, Activity{State: ActivityWorking, Detail: "review next; scan (fail) so far"}},
@@ -278,9 +278,9 @@ func TestWorkflowActivityPreservesQueuePriorityAndCallStartup(t *testing.T) {
 		// 507): never a person's move, never blocked.
 		{"gate still to run is not waiting on you", []workflowActivityStep{{id: idstest.N(1), name: "apply-change", kind: "agent/pi", state: StatusPass}, {id: idstest.N(2), name: "boot", kind: "preview", state: StatusPending}, {id: idstest.N(3), name: "report-exists", kind: "artifact/require", state: StatusPending}, {id: idstest.N(4), name: "accept", kind: "approval", state: StatusPending}}, false, Activity{State: ActivityWorking, Detail: "boot next"}},
 		{"assertions and approvals alone wait on a person", []workflowActivityStep{{id: idstest.N(1), name: "apply-change", kind: "agent/pi", state: StatusPass}, {id: idstest.N(3), name: "report-exists", kind: "artifact/require", state: StatusPending}, {id: idstest.N(4), name: "accept", kind: "approval", state: StatusPending}}, false, Activity{State: ActivityWaiting, Detail: "accept", Approval: idstest.N(4)}},
-		{"review waiting for slot", []workflowActivityStep{{id: idstest.N(1), name: "review", kind: "agent/review", state: StatusPending}, {id: idstest.N(2), name: "scan", kind: "scan", state: StatusFail}}, true, Activity{State: ActivityQueued, Detail: "review — waiting for a slot on local, one ahead"}},
+		{"review waiting for slot", []workflowActivityStep{{id: idstest.N(1), name: "review", kind: "agent/review", state: StatusPending}, {id: idstest.N(2), name: "scan", kind: "scan", state: StatusFail}}, true, Activity{State: activityQueued, Detail: "review — waiting for a slot on local, one ahead"}},
 		{"call awaiting child creation", []workflowActivityStep{{id: idstest.N(1), name: "build", kind: "workflow/call", state: StatusRunning, evidence: []byte(`{}`)}}, false, Activity{State: ActivityWorking, Detail: "build"}},
-		{"running agent wins", []workflowActivityStep{{id: idstest.N(1), name: "build", kind: "agent/pi", state: StatusPending}, {id: idstest.N(2), name: "work", kind: "agent/pi", state: StatusRunning}}, false, Activity{State: ActivityAgentWorking, Detail: "work"}},
+		{"running agent wins", []workflowActivityStep{{id: idstest.N(1), name: "build", kind: "agent/pi", state: StatusPending}, {id: idstest.N(2), name: "work", kind: "agent/pi", state: StatusRunning}}, false, Activity{State: activityAgentWorking, Detail: "work"}},
 		{"running script wins", []workflowActivityStep{{id: idstest.N(1), name: "accept", kind: "approval", state: StatusPending}, {id: idstest.N(2), name: "test", kind: "script", state: StatusRunning}}, false, Activity{State: ActivityWorking, Detail: "test"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

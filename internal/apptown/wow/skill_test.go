@@ -42,7 +42,7 @@ func TestSplitSkillRefusesWhatCannotBeASkill(t *testing.T) {
 		"long description":  {"a/b", "r\n<!-- skill: " + strings.Repeat("d", 1025) + " -->\nx"},
 		"unclosed":          {"a/b", "r\n<!-- skill: does things\nx"},
 	} {
-		if _, _, err := SplitSkill(c.block, c.body); !errors.Is(err, ErrSkill) {
+		if _, _, err := SplitSkill(c.block, c.body); !errors.Is(err, errSkill) {
 			t.Errorf("%s: refused with ErrSkill, got %v", name, err)
 		}
 	}
@@ -53,25 +53,25 @@ func TestSplitSkillRefusesWhatCannotBeASkill(t *testing.T) {
 func TestBlockWritesRefuseAMalformedSkill(t *testing.T) {
 	t.Parallel()
 	bad := "rules\n<!-- skill: -->\nhow"
-	if _, err := ParseStockGuidance("---\nname: a/b\n---\n" + bad); !errors.Is(err, ErrSkill) {
+	if _, err := parseStockGuidance("---\nname: a/b\n---\n" + bad); !errors.Is(err, errSkill) {
 		t.Fatalf("stock: %v", err)
 	}
 	db := testDB(t)
 	s := New(db, Dependencies{})
-	if _, err := s.CreateBlock(t.Context(), "house/bad", bad, "", "alice"); !errors.Is(err, ErrSkill) {
+	if _, err := s.CreateBlock(t.Context(), "house/bad", bad, "", "alice"); !errors.Is(err, errSkill) {
 		t.Fatalf("create: %v", err)
 	}
 	b, err := s.CreateBlock(t.Context(), "house/good", "rules\n<!-- skill: does things -->\nhow", "", "alice")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.EditBlock(t.Context(), b.ID, BlockPatch{BodyMD: &bad}, "alice"); !errors.Is(err, ErrSkill) {
+	if _, err := s.EditBlock(t.Context(), b.ID, BlockPatch{BodyMD: &bad}, "alice"); !errors.Is(err, errSkill) {
 		t.Fatalf("edit: %v", err)
 	}
-	if err := s.BumpBlock(t.Context(), b.ID, bad, "", "alice", b.Name); !errors.Is(err, ErrSkill) {
+	if err := s.BumpBlock(t.Context(), b.ID, bad, "", "alice", b.Name); !errors.Is(err, errSkill) {
 		t.Fatalf("bump: %v", err)
 	}
-	if latest, _ := s.library.ByID(t.Context(), b.ID); latest.LatestVersion != 1 {
+	if latest, _ := s.library.byID(t.Context(), b.ID); latest.LatestVersion != 1 {
 		t.Fatalf("a refused write records no version: v%d", latest.LatestVersion)
 	}
 }

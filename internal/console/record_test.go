@@ -44,7 +44,7 @@ func TestReaderParsesAndResumes(t *testing.T) {
 		t.Fatalf("user entry: %+v", entries[1])
 	}
 	a := entries[2]
-	if a.Role != "assistant" || a.HasText() || len(a.Tools) != 1 || a.Tools[0].Detail() != "app.css" || a.Usage.Total != 15 || a.Usage.Cost.Total != 0.001 {
+	if a.Role != "assistant" || a.hasText() || len(a.Tools) != 1 || a.Tools[0].detail() != "app.css" || a.Usage.Total != 15 || a.Usage.Cost.Total != 0.001 {
 		t.Fatalf("assistant entry: %+v", a)
 	}
 	off := rd.Off
@@ -55,13 +55,13 @@ func TestReaderParsesAndResumes(t *testing.T) {
 	if err != nil || len(more) != 1 || more[0].Text != "thanks" || rd.Off <= off {
 		t.Fatalf("resume: %v %+v off %d>%d", err, more, rd.Off, off)
 	}
-	if e, ok := ParseLine(`{"type":"message","message":{"role":"assistant","stopReason":"error","errorMessage":"{\"error\":{\"message\":\"no credit\"}}"}}`); !ok || !e.Failed() || e.Aborted() {
+	if e, ok := parseLine(`{"type":"message","message":{"role":"assistant","stopReason":"error","errorMessage":"{\"error\":{\"message\":\"no credit\"}}"}}`); !ok || !e.failed() || e.aborted() {
 		t.Fatalf("failed entry: %+v %v", e, ok)
 	}
-	if _, ok := ParseLine("not json"); ok {
+	if _, ok := parseLine("not json"); ok {
 		t.Fatal("a corrupt line is skipped")
 	}
-	if !strings.Contains(HelperErrorText(`x {"error":{"message":"no credit"}}`), "no credit") || !strings.Contains(HelperErrorText(""), "the model call failed") {
+	if !strings.Contains(helperErrorText(`x {"error":{"message":"no credit"}}`), "no credit") || !strings.Contains(helperErrorText(""), "the model call failed") {
 		t.Fatal("helper error text")
 	}
 }
@@ -73,14 +73,14 @@ func TestReaderParsesAndResumes(t *testing.T) {
 func TestTranscript(t *testing.T) {
 	dir, path := writeRecord(t, record)
 	tr := &Transcript{Dir: dir}
-	msgs := tr.Messages()
+	msgs := tr.messages()
 	if len(msgs) != 3 || msgs[0].Role != "you" || msgs[1].Role != "helper" || msgs[1].Tools[0].Detail != "app.css" || msgs[2].Text != "Done, it is blue." || msgs[2].I != 2 {
 		t.Fatalf("bubbles: %+v", msgs)
 	}
 	if tr.TurnHandedBack() {
 		t.Fatal("a record written just now is not quiet yet")
 	}
-	if got := (&Session{Dir: dir}).Activity(); got != Working {
+	if got := (&Session{Dir: dir}).Activity(); got != working {
 		t.Fatalf("a chat whose record is still moving is working, got %q", got)
 	}
 	if got := (&Session{Dir: t.TempDir()}).Activity(); got != "" {
@@ -109,19 +109,19 @@ func TestTranscript(t *testing.T) {
 	if !tr.UserMessageAppended(file, size) {
 		t.Fatal("the appended user message is seen")
 	}
-	before := tr.Offset()
-	if msgs = tr.Messages(); len(msgs) != 4 || msgs[3].Text != "thanks" || tr.Offset() <= before {
+	before := tr.rd.Off
+	if msgs = tr.messages(); len(msgs) != 4 || msgs[3].Text != "thanks" || tr.rd.Off <= before {
 		t.Fatalf("resume: %+v", msgs)
 	}
 	// A chat that continues a lane's session hides the turns before it.
-	later := &Transcript{Dir: dir, Since: time.Date(2026, 5, 15, 9, 0, 4, 500_000_000, time.UTC)}
-	if msgs := later.Messages(); len(msgs) != 1 || msgs[0].Text != "thanks" {
+	later := &Transcript{Dir: dir, since: time.Date(2026, 5, 15, 9, 0, 4, 500_000_000, time.UTC)}
+	if msgs := later.messages(); len(msgs) != 1 || msgs[0].Text != "thanks" {
 		t.Fatalf("since: %+v", msgs)
 	}
 	// A stopped turn is said as the helper.
 	_, path = writeRecord(t, `{"type":"message","timestamp":"2026-05-15T09:00:04.000Z","message":{"role":"assistant","stopReason":"aborted"}}`+"\n")
 	stopped := &Transcript{Dir: filepath.Dir(filepath.Dir(path))}
-	if msgs := stopped.Messages(); len(msgs) != 1 || !msgs[0].Stopped || msgs[0].Role != "helper" {
+	if msgs := stopped.messages(); len(msgs) != 1 || !msgs[0].Stopped || msgs[0].Role != "helper" {
 		t.Fatalf("stopped: %+v", msgs)
 	}
 }
@@ -142,11 +142,11 @@ func TestTheRecordReaderReadsOnlyTheChatsOwnFiles(t *testing.T) {
 		}
 	}
 	tr := &Transcript{Dir: dir}
-	files, err := tr.SessionFiles()
+	files, err := tr.sessionFiles()
 	if err != nil || len(files) != 1 || !strings.HasSuffix(files[0], "2026-05-15T09-00-00.jsonl") {
 		t.Fatalf("record files: %v", files)
 	}
-	msgs := tr.Messages()
+	msgs := tr.messages()
 	if len(msgs) == 0 || strings.Contains(msgs[len(msgs)-1].Text, "outside") {
 		t.Fatalf("messages: %+v", msgs)
 	}
@@ -213,13 +213,13 @@ func TestOneSessionsRecordIsReadConcurrently(t *testing.T) {
 func TestAnUnreadableRecordFolderIsNotNoRecords(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	if files, err := (&Transcript{Dir: dir}).SessionFiles(); err != nil || len(files) != 0 {
+	if files, err := (&Transcript{Dir: dir}).sessionFiles(); err != nil || len(files) != 0 {
 		t.Fatalf("no folder: %v %v", files, err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "sessions"), []byte("not a folder"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if files, err := (&Transcript{Dir: dir}).SessionFiles(); err == nil {
+	if files, err := (&Transcript{Dir: dir}).sessionFiles(); err == nil {
 		t.Fatalf("an unreadable folder listed %v", files)
 	}
 }

@@ -36,19 +36,8 @@ func policyPin(p PackPolicy) string {
 	return canonJSON(s)
 }
 
-// PinsFor pins a pack spec's own blocks and workflows at the library's
-// latest versions, as canonical JSON. Anything the library lacks is left
-// out; prepare says so. System workflows (land, ship, …) are the platform
-// pack's to pin: a language pack lists them but does not pin them, or
-// every pack would cut a version each time the landing moved and disagree
-// with the platform about it.
-func (s *Packs) PinsFor(ctx context.Context, spec string) (string, error) {
-	pins, err := strs.JSON(s.resolve(ctx, spec).Pins)
-	return canonJSON(pins), err
-}
-
-// Recut names a pack that got a new version because its contents moved.
-type Recut struct {
+// recut names a pack that got a new version because its contents moved.
+type recut struct {
 	Name    string
 	Version int
 }
@@ -56,12 +45,12 @@ type Recut struct {
 // CutOnPinChange publishes a new version of every pack whose items moved
 // in the library. A pack whose publication cannot be read or republished
 // is logged and skipped, never fatal at boot.
-func (s *Packs) CutOnPinChange(ctx context.Context) ([]Recut, error) {
-	packs, err := s.Published(ctx)
+func (s *packs) CutOnPinChange(ctx context.Context) ([]recut, error) {
+	packs, err := s.published(ctx)
 	if err != nil {
 		return nil, err
 	}
-	var out []Recut
+	var out []recut
 	for _, r := range packs {
 		var next int64
 		err := s.db.InTx(ctx, func(tx *database.Tx) error {
@@ -91,7 +80,7 @@ func (s *Packs) CutOnPinChange(ctx context.Context) ([]Recut, error) {
 		}
 		if next != 0 {
 			log.Printf("pack %q: now v%d (its contents moved)", r.Name, next)
-			out = append(out, Recut{Name: r.Name, Version: int(next)})
+			out = append(out, recut{Name: r.Name, Version: int(next)})
 		}
 	}
 	return out, nil

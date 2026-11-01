@@ -106,7 +106,7 @@ func TestRelocationKeepsDatabaseEvidenceAndMain(t *testing.T) {
 	if err != nil || got != head {
 		t.Fatalf("main changed: %s %v", got, err)
 	}
-	if version, err := ReadVersion(root); err != nil || version != Version {
+	if version, err := readVersion(root); err != nil || version != Version {
 		t.Fatalf("layout marker: %d %v", version, err)
 	}
 	if err := Relocate(t.Context(), nil, root, original, "instance", Observers{}); err != nil {
@@ -191,7 +191,7 @@ func TestPublicationRelocationResumesAfterDatabaseFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	restore := db.FailNextStatement("-- name: SettlePublication")
+	restore := dbtest.NextStatementFailure(db, "-- name: SettlePublication")
 	_, err = publisher.Publish(t.Context(), scm.Publication{ProjectID: owner.ID, Repository: hub, Branch: "work", Commit: head, Grant: scm.Grant{Generation: authority.Generation}})
 	restore()
 	if !errors.Is(err, scm.ErrPublicationApplied) {
@@ -202,7 +202,7 @@ func TestPublicationRelocationResumesAfterDatabaseFailure(t *testing.T) {
 		t.Fatalf("pending publication: %+v %v", before, err)
 	}
 	root := restoredInto(t, original)
-	restore = db.FailNextStatement("-- name: RelocatePublication")
+	restore = dbtest.NextStatementFailure(db, "-- name: RelocatePublication")
 	err = Relocate(t.Context(), db, root, original, "instance", Observers{})
 	restore()
 	if err == nil {

@@ -36,7 +36,7 @@ type Chats struct {
 	Now func() time.Time
 }
 
-var ErrNotThisChat = fault.New(fault.Forbidden, "a chat may only act on its own session")
+var errNotThisChat = fault.New(fault.Forbidden, "a chat may only act on its own session")
 
 // Act answers who is acting on the chat, or why the caller may not; what
 // names the act in the refusal ("saying something to"). The decision is
@@ -56,7 +56,7 @@ func (c Chats) MayAct(ctx context.Context, s *console.Session) bool {
 func (c Chats) decide(ctx context.Context, s *console.Session, what string, consequential bool) (string, error) {
 	caller, _ := access.CallerFrom(ctx)
 	if pr := caller.Principal; pr.Kind == "instrument" && (pr.Instrument != "console" || pr.ConsoleID != s.ID) {
-		return "", ErrNotThisChat
+		return "", errNotThisChat
 	}
 	if c.Authority == nil {
 		return "", access.ErrAuthorityUnavailable

@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/ids"
 	"log"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -25,7 +26,7 @@ func (c *Contracts) RecordCommit(ctx context.Context, dataDir string, projectID 
 		return
 	}
 	contracts := c
-	if done, err := contracts.Snapshotted(ctx, projectID, sha); snapshotReadOK(err) && done {
+	if done, err := contracts.snapshotted(ctx, projectID, sha); snapshotReadOK(err) && done {
 		return // already recorded: idempotent
 	}
 	status, format, appYAML, errMsg := c.resolveSnapshotAt(ctx, dataDir, projectID, sha)

@@ -52,10 +52,10 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/s3bucket/s3fake"
 	"github.com/flokkit/apptown/internal/execution"
+	testinputs "github.com/flokkit/apptown/internal/execution/executiontest"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
-	"github.com/flokkit/apptown/internal/testinputs"
 	"github.com/flokkit/apptown/stock"
 	"github.com/riverqueue/river/riverdriver"
 	"github.com/riverqueue/river/riverdriver/riverdatabasesql"
@@ -1127,7 +1127,7 @@ func (s *tourScene) play(start time.Time) tourIDs {
 	})
 	// AppTown's own round reads the open chat's usage, as it does at start
 	// and every few minutes.
-	s.a.HarvestAllConsoleUsage(context.Background())
+	s.a.harvestAllConsoleUsage(context.Background())
 	return tourIDs{review: lunch3.ID, chat: lunch4.ID, session: session, before: before, after: after}
 }
 
@@ -1153,10 +1153,10 @@ func (s *tourScene) review() {
 func tourChecks(t *testing.T, a *App) {
 	t.Helper()
 	installCheckEffects(t, a, checkOverrides{
-		run: func(req ExecRequest) ExecOutcome {
+		run: func(req execRequest) execOutcome {
 			if req.Image != stock.Images().Sh {
 				refusal := "the tour has no Docker to run " + req.Image
-				return ExecOutcome{Output: []byte(refusal), RunErr: errors.New(refusal)}
+				return execOutcome{Output: []byte(refusal), RunErr: errors.New(refusal)}
 			}
 			return agentenv.Execute(a.processRunner, context.Background(), execution.Local, req, a.cfg.clock.Now())
 		},

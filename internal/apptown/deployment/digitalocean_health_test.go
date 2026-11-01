@@ -139,12 +139,12 @@ func TestAppPlatformMaintainedHealthUsesCompletedOwnerReceipt(t *testing.T) {
 			}
 			got := s.observations.read(record, s.now())
 			if legacy {
-				if samples.Load() != 0 || got.Health == "healthy" || !got.HealthObservedAt.IsZero() {
+				if samples.Load() != 0 || got.Health == "healthy" || !got.healthObservedAt.IsZero() {
 					t.Fatalf("legacy completion gained health: %+v samples%d", got, samples.Load())
 				}
 				return
 			}
-			if samples.Load() != 1 || got.Health != "healthy" || got.HealthGeneration != at.Generation || got.HealthArtifact != art.Hash || got.HealthObservedAt.IsZero() {
+			if samples.Load() != 1 || got.Health != "healthy" || got.healthGeneration != at.Generation || got.healthArtifact != art.Hash || got.healthObservedAt.IsZero() {
 				t.Fatalf("completed exact health absent: %+v samples%d", got, samples.Load())
 			}
 			recordedDeployment.Store(dep.Handle["deploymentId"].(string))
@@ -154,7 +154,7 @@ func TestAppPlatformMaintainedHealthUsesCompletedOwnerReceipt(t *testing.T) {
 					t.Fatal(err)
 				}
 				got := s.observations.read(record, s.now())
-				if got.Health == "healthy" || !got.HealthObservedAt.IsZero() || got.HealthArtifact != "" {
+				if got.Health == "healthy" || !got.healthObservedAt.IsZero() || got.healthArtifact != "" {
 					t.Fatalf("newer contradictory inventory%d inherited sample: %+v", state, got)
 				}
 				if samples.Load() != 1 {

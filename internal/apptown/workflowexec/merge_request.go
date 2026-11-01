@@ -18,7 +18,7 @@ import (
 
 // RunSCMMR executes an scm/mr step: push the run branch, open an MR, record
 // it as evidence + artifact (the gate's materialization).
-func (a *Repositories) RunSCMMR(task *workflow.Execution) {
+func (a *repositories) RunSCMMR(task *workflow.Execution) {
 	run := task.Run()
 	if _, err := task.Claim(); err != nil {
 		return

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/ids"
@@ -22,7 +24,7 @@ func TestAbandonmentHTTPReportsFailure(t *testing.T) {
 		NewRuns(f.Work, nil).AbandonRun(w, r)
 		return w
 	}
-	t.Cleanup(f.DB.FailNextStatement("INSERT INTO audit_log"))
+	t.Cleanup(dbtest.NextStatementFailure(f.DB, "INSERT INTO audit_log"))
 	if w := call(); w.Code != 500 {
 		t.Fatalf("failed receipt: %d %s", w.Code, w.Body.String())
 	}

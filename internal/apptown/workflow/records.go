@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"encoding/json"
+
 	"github.com/flokkit/apptown/internal/apptown/status"
 
 	"github.com/flokkit/apptown/internal/ids"

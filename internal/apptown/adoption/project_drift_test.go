@@ -33,7 +33,7 @@ func TestProjectDriftAndRevisionSelection(t *testing.T) {
 	if got, err := as.Current(t.Context(), id); err != nil || got == nil || got.Drift == "" {
 		t.Fatal("the drift note was not kept")
 	}
-	if err := as.ClearDrift(t.Context(), id); err != nil {
+	if err := as.clearDrift(t.Context(), id); err != nil {
 		t.Fatal(err)
 	}
 	ids, _ := as.ProjectsWithRevisions(t.Context())

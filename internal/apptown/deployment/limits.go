@@ -165,7 +165,7 @@ func (s *Service) ownersOn(ctx context.Context, deps []ProjectDeployment) (conta
 		if err != nil {
 			return o, err
 		}
-		as := settledAs{label: string(d.Label())}
+		as := settledAs{label: string(d.label())}
 		checked := s.now()
 		if why, err := s.unsettledReason(ctx, &d.Deployment); err != nil {
 			return o, err
@@ -203,7 +203,7 @@ func (s *Service) recordTargetLimitEvents(ctx context.Context, targetID ids.ID, 
 	// App Platform reports none to AppTown, and Portainer's are not read
 	// in 1.0.
 	dk, err := s.hosts.DockerScope(ctx, t)
-	if errors.Is(err, ErrNotDockerHost) {
+	if errors.Is(err, errNotDockerHost) {
 		return nil
 	}
 	if err != nil {
@@ -324,9 +324,9 @@ func (s *Service) pruneLimitEvents(ctx context.Context) {
 	}
 }
 
-// LimitEvents are the limit events recorded for a deployment since a
+// limitEvents are the limit events recorded for a deployment since a
 // time, oldest first.
-func (s *Service) LimitEvents(ctx context.Context, d *Deployment, since time.Time) ([]LimitEvent, error) {
+func (s *Service) limitEvents(ctx context.Context, d *Deployment, since time.Time) ([]LimitEvent, error) {
 	rows, err := deploymentsql.New(s.db.SQL()).LimitEventsSince(ctx, deploymentsql.LimitEventsSinceParams{DeploymentID: d.ID, At: since.UTC()})
 	if err != nil {
 		return nil, fmt.Errorf("reading the deployment's limit events: %w", err)
@@ -361,7 +361,7 @@ type LimitCount struct {
 // LimitEventsSource: an empty summary from a target that reports none is
 // not "none happened".
 func (s *Service) LimitSummary(ctx context.Context, d *Deployment, window time.Duration) ([]LimitCount, error) {
-	events, err := s.LimitEvents(ctx, d, s.now().Add(-window))
+	events, err := s.limitEvents(ctx, d, s.now().Add(-window))
 	if err != nil {
 		return nil, err
 	}
@@ -391,9 +391,9 @@ func (s *Service) LimitSummary(ctx context.Context, d *Deployment, window time.D
 	return out, nil
 }
 
-// LimitEventsSource says where a deployment's limit events come from, or
+// limitEventsSource says where a deployment's limit events come from, or
 // why there are none to read: the words a view shows beside an empty list.
-func (s *Service) LimitEventsSource(ctx context.Context, d *Deployment) (known bool, words string) {
+func (s *Service) limitEventsSource(ctx context.Context, d *Deployment) (known bool, words string) {
 	if d.TargetID.IsZero() {
 		return false, "not deployed to a target"
 	}

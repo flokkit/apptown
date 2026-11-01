@@ -39,7 +39,7 @@ var nodeVersionObserver = []byte(`const fs = require('node:fs');
 fs.writeFileSync('/work/observation.json', JSON.stringify({node:process.versions.node, os:process.platform, arch:process.arch, observer:'node-version-v1'}));
 `)
 
-func (r RoutineInspector) validateImage(ctx context.Context, candidate routinechange.ImageCandidate) (out []workflow.StandingImageObservation, err error) {
+func (r routineInspector) validateImage(ctx context.Context, candidate routinechange.ImageCandidate) (out []workflow.StandingImageObservation, err error) {
 	if r.imageReader == nil || r.executor.Image == nil || r.executor.Run == nil {
 		return nil, errors.New("image observation is unavailable")
 	}

@@ -131,7 +131,7 @@ func resume(t *testing.T, f *frontDoor, created time.Time, noted map[string]any)
 	srv := appAt(t, "http://"+providerHost+":"+port, created)
 	d := NewDriver(Dependencies{Slug: "orders", Client: func(context.Context) (*Client, Config, error) {
 		return &Client{Base: srv.URL, HTTP: srv.Client()}, Config{Region: "syd"}, nil
-	}}, Options{PollInterval: time.Millisecond, Dial: f.dial})
+	}}, Options{PollInterval: time.Millisecond, dial: f.dial})
 	ids := map[string]any{"appId": "app-1", "appName": "orders-cloud", "deploymentId": "dep-1"}
 	for k, v := range noted {
 		ids[k] = v
@@ -194,7 +194,7 @@ func TestAnsweredTriesKeepTheirBudgetAmongMisses(t *testing.T) {
 func TestAProviderNameStillMissingAfterTheGraceFailsAsBefore(t *testing.T) {
 	t.Parallel()
 	for name, created := range map[string]time.Time{
-		"past the grace":   time.Now().Add(-ProviderNameGrace - time.Minute),
+		"past the grace":   time.Now().Add(-providerNameGracePeriod - time.Minute),
 		"creation unknown": {},
 	} {
 		for check, noted := range checks {
@@ -237,7 +237,7 @@ func TestAGatedCopyWaitsForItsNameBeforeTheChecks(t *testing.T) {
 	srv := appAt(t, "https://"+providerHost, time.Now().Add(-2*time.Minute))
 	d := NewDriver(Dependencies{Slug: "orders", Client: func(context.Context) (*Client, Config, error) {
 		return &Client{Base: srv.URL, HTTP: srv.Client()}, Config{Region: "syd"}, nil
-	}}, Options{PollInterval: time.Millisecond, Resolve: dns.resolve})
+	}}, Options{PollInterval: time.Millisecond, resolve: dns.resolve})
 	var log []string
 	_, err := d.Resume(context.Background(), deploy.Placement{Name: "cloud", Gate: &deploy.Gate{}}, 1,
 		map[string]any{"appId": "app-1", "appName": "orders-cloud", "deploymentId": "dep-1"}, func(f string, a ...any) { log = append(log, fmt.Sprintf(f, a...)) })
@@ -261,7 +261,7 @@ func TestOnlyNoSuchHostForThePlatformsNameIsWaitedFor(t *testing.T) {
 		"custom domain":    {"https://orders.example.com", &net.DNSError{Err: "no such host", Name: "orders.example.com", IsNotFound: true}, 0},
 	} {
 		asked := 0
-		d := NewDriver(Dependencies{}, Options{PollInterval: time.Millisecond, Resolve: func(context.Context, string) error {
+		d := NewDriver(Dependencies{}, Options{PollInterval: time.Millisecond, resolve: func(context.Context, string) error {
 			asked++
 			return tc.answer
 		}})
@@ -279,7 +279,7 @@ func TestOnlyNoSuchHostForThePlatformsNameIsWaitedFor(t *testing.T) {
 // The wait stops when the attempt is cancelled.
 func TestWaitingForAProviderNameStopsWithTheAttempt(t *testing.T) {
 	t.Parallel()
-	d := NewDriver(Dependencies{}, Options{PollInterval: time.Hour, Resolve: (&fakeDNS{missing: 1000}).resolve})
+	d := NewDriver(Dependencies{}, Options{PollInterval: time.Hour, resolve: (&fakeDNS{missing: 1000}).resolve})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	err := d.awaitProviderName(ctx, "https://"+providerHost, time.Now().Add(time.Minute), func(string, ...any) {})

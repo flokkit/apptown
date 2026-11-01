@@ -59,8 +59,8 @@ func TestCompletionRetryRechecksTheAdmittedRunBeforeTheParticipant(t *testing.T)
 				completionExec(t, q.db, `UPDATE runs SET change_id=NULL WHERE id=$1`, run.ID)
 			}
 			calls := 0
-			owner := newAdvancer(q.db, advanceRuntime{Completion: retryScopeRecorder{retry: func(context.Context, *database.Tx, ids.ID) (bool, error) { calls++; return true, nil }}})
-			out, err := owner.AdvanceRun(context.Background(), expected, "alice")
+			owner := newAdvancer(q.db, advanceRuntime{completion: retryScopeRecorder{retry: func(context.Context, *database.Tx, ids.ID) (bool, error) { calls++; return true, nil }}})
+			out, err := owner.advanceRun(context.Background(), expected, "alice")
 			if !errors.Is(err, ErrRunMoved) || out != nil || calls != 0 {
 				t.Fatalf("stale retry escaped: %+v %v calls=%d", out, err, calls)
 			}
@@ -103,10 +103,10 @@ func TestCompletionRetryParticipantUsesTheGuardedTransaction(t *testing.T) {
 				}
 				return true, nil
 			}}
-			owner := newAdvancer(q.db, advanceRuntime{Completion: recorder})
+			owner := newAdvancer(q.db, advanceRuntime{completion: recorder})
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			out, err := owner.AdvanceRun(ctx, expected, "alice")
+			out, err := owner.advanceRun(ctx, expected, "alice")
 			if calls != 1 {
 				t.Fatalf("participant calls=%d error=%v", calls, err)
 			}

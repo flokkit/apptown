@@ -51,7 +51,7 @@ func TestASetPutsAssetsThenEntriesThenTheMarkerLast(t *testing.T) {
 // same one; no values read as {}.
 func TestTheIdentityNamesTheImageAndTheValues(t *testing.T) {
 	id := func(digest string, v map[string]string) string {
-		s, err := Identity("web@abc", digest, v)
+		s, err := identity("web@abc", digest, v)
 		if err != nil {
 			t.Fatal(err)
 		}

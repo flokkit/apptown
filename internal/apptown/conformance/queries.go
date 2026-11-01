@@ -48,7 +48,7 @@ func verdicts(rows []conformancesql.ConformanceVerdict) ([]Verdict, error) {
 }
 
 func review(r conformancesql.ConformanceReview) (Review, error) {
-	status, err := ParseReviewState(r.Status)
+	status, err := parseReviewState(r.Status)
 	if err != nil {
 		return Review{}, err
 	}

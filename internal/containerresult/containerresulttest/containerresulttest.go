@@ -349,3 +349,12 @@ func UnframeArgs(args []string) []string {
 	}
 	return out
 }
+
+// Configure installs an answerer supplied by a composing test fake.
+func (d *Daemon) Configure(answer func(string, string, string, []string, []string) (int, []byte, string, bool)) {
+	*d = Daemon{Answers: func(c Command) (Answer, bool) {
+		code, data, said, ok := answer(c.Image, c.Container, c.Script, c.Args, c.Env)
+		return Answer{Code: code, Answer: data, Said: said}, ok
+	}}
+}
+func (d *Daemon) StartedCount() int { return d.Started }

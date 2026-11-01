@@ -90,7 +90,7 @@ func TestInvalidInputsAreRefused(t *testing.T) {
 	if err := ValidInputs([]Input{ok, {Blob: blob, Path: "/apptown/in/bin/apptown", Mode: 0o755}}); err != nil {
 		t.Fatalf("valid inputs refused: %v", err)
 	}
-	many := make([]Input, MaxInputs+1)
+	many := make([]Input, maxInputs+1)
 	for i := range many {
 		many[i] = Input{Blob: blob, Path: "/apptown/in/f" + strings.Repeat("x", i), Mode: 0o644}
 	}
@@ -140,7 +140,7 @@ func TestInvalidResultsAreRefused(t *testing.T) {
 	if err := ValidResults(ok); err != nil {
 		t.Fatalf("valid results refused: %v", err)
 	}
-	many := make([]Result, MaxResults+1)
+	many := make([]Result, maxResults+1)
 	for i := range many {
 		many[i] = Result{Name: "r" + strings.Repeat("x", i), Path: "/work/r" + strings.Repeat("x", i), Max: 1}
 	}

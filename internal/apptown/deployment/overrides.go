@@ -51,7 +51,7 @@ type RedeployNumber struct {
 	Deployment string `json:"deployment"`
 }
 
-var ErrOverrideReason = fault.New(fault.Invalid, "an override needs a reason")
+var errOverrideReason = fault.New(fault.Invalid, "an override needs a reason")
 
 // SetOverride records an operator's override of one part's resources, or
 // clears it when in.Resources is zero, then redeploys the bundle the
@@ -93,7 +93,7 @@ func (s *Service) SetOverride(ctx context.Context, in OverrideChange) (OverrideR
 	}
 	reason := strings.TrimSpace(in.Reason)
 	if reason == "" {
-		return OverrideResult{}, ErrOverrideReason
+		return OverrideResult{}, errOverrideReason
 	}
 	running, err := s.runningBundle(ctx, dep)
 	if err != nil {
@@ -167,7 +167,7 @@ func (s *Service) checkOverridePart(ctx context.Context, dep *Deployment, runnin
 	if found, e := database.Lookup(err); e != nil {
 		return e
 	} else if !found || bundle == nil {
-		return ErrNoBundle
+		return errNoBundle
 	}
 	project, err := s.release.Sources.Project(ctx, dep.ProjectID)
 	if err != nil {
@@ -175,10 +175,10 @@ func (s *Service) checkOverridePart(ctx context.Context, dep *Deployment, runnin
 	}
 	c, _, err := s.release.Sources.Contract(ctx, project, bundle.ContractRevision)
 	if err != nil {
-		return &ContractReadError{err}
+		return &contractReadError{err}
 	}
 	if c == nil {
-		return &ContractReadError{errors.New("the bundle has no committed contract")}
+		return &contractReadError{errors.New("the bundle has no committed contract")}
 	}
 	for _, p := range c.Parts {
 		if p.Name == part {

@@ -2,12 +2,13 @@ package scm
 
 import (
 	"context"
+	"strings"
+	"testing"
+
 	"github.com/flokkit/apptown/internal/gitlab"
 	"github.com/flokkit/apptown/internal/gitlab/gitlabtest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
-	"strings"
-	"testing"
 )
 
 // The driver's owner port is faked here; owner scope verification has its own

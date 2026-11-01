@@ -16,8 +16,8 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 )
 
-// ErrCatalogUnavailable means an operation needs the catalog, but none was supplied.
-var ErrCatalogUnavailable = errors.New("ways of working catalog is unavailable")
+// errCatalogUnavailable means an operation needs the catalog, but none was supplied.
+var errCatalogUnavailable = errors.New("ways of working catalog is unavailable")
 
 // Operation preserves the separate authorities for selection and pack installation.
 type Operation uint8
@@ -34,8 +34,8 @@ type authorization struct {
 	Weakens   bool
 }
 
-// Catalog is the exact catalog observation used when resolving a project's existing selections.
-type Catalog interface {
+// catalog is the exact catalog observation used when resolving a project's existing selections.
+type catalog interface {
 	Block(context.Context, wow.BlockRef) (wow.BlockObservation, error)
 	Workflow(context.Context, wow.WorkflowRef) (wow.WorkflowObservation, error)
 	Workflows(ctx context.Context) ([]wow.WorkflowEntry, error)
@@ -45,8 +45,8 @@ type Catalog interface {
 	Withdrawn(k wow.Kind, origin, name string) bool
 }
 
-// CapabilityLocker is one project-scoped transactional observation.
-type CapabilityLocker interface {
+// capabilityLocker is one project-scoped transactional observation.
+type capabilityLocker interface {
 	HasCapabilitiesIn(context.Context, database.Queryer, ids.ID, []string) error
 }
 
@@ -67,7 +67,7 @@ type UpliftRequest struct {
 }
 
 // Work retains the one transaction that opens a Change and records its target.
-type UpliftOpener interface {
+type upliftOpener interface {
 	OpenUplift(context.Context, UpliftRequest) (UpliftChange, error)
 }
 
@@ -87,20 +87,20 @@ type UpliftChange struct {
 	NotStarted string
 }
 type Dependencies struct {
-	RoutinePublications RoutinePublications
+	RoutinePublications routinePublications
 	Authority           access.ReadAuthorizer
-	Ways                Catalog
-	Capabilities        CapabilityLocker
-	Uplift              UpliftOpener
+	Ways                catalog
+	Capabilities        capabilityLocker
+	Uplift              upliftOpener
 	// Copies says whether a project is an eval's throwaway copy (Project's
 	// purpose), read through the caller's transaction: only a copy takes
 	// another project's recorded way of working (copy.go). Nil refuses
 	// every copy.
-	Copies CopyPurpose
+	Copies copyPurpose
 	// Reviews admits a conformance review of a project whose adoption a
 	// transaction changed, in that transaction. The composition root wires
 	// it; nil requests none (owner tests that are not about it).
-	Reviews ReviewRequests
+	Reviews reviewRequester
 	// Now is AppTown's clock, which stamps each revision; nil is the
 	// real one.
 	Now func() time.Time
@@ -128,37 +128,37 @@ func New(db *database.DB, deps Dependencies) *Service {
 	return &Service{db: db, deps: deps, adoptions: adoptions, library: library, policies: policies, lanes: newLanes(db), resolver: newResolver(db, deps.Ways)}
 }
 func (s *Service) CurrentReceipt(ctx context.Context, projectID ids.ID) (*RecordedRevision, error) {
-	return s.adoptions.Current(ctx, projectID)
+	return s.adoptions.current(ctx, projectID)
 }
 func (s *Service) ByID(ctx context.Context, id ids.ID) (*RecordedRevision, error) {
-	return s.adoptions.ByID(ctx, id)
+	return s.adoptions.byID(ctx, id)
 }
 func (s *Service) History(ctx context.Context, projectID ids.ID, limit int) ([]RecordedRevision, error) {
-	return s.adoptions.History(ctx, projectID, limit)
+	return s.adoptions.history(ctx, projectID, limit)
 }
 func (s *Service) Advance(ctx context.Context, projectID ids.ID, kind AdoptionKind, reason, by string, resolve func(tx *database.Tx, prior *RecordedRevision, now time.Time) (Receipt, error)) (*RecordedRevision, error) {
-	return s.adoptions.Advance(ctx, projectID, kind, reason, by, false, resolve)
+	return s.adoptions.advance(ctx, projectID, kind, reason, by, false, resolve)
 }
 
 // Record is Advance for a change the receipt does not show, such as a pack
 // membership move: it records a revision even when the receipt is unchanged.
 func (s *Service) Record(ctx context.Context, projectID ids.ID, kind AdoptionKind, reason, by string, resolve func(tx *database.Tx, prior *RecordedRevision, now time.Time) (Receipt, error)) (*RecordedRevision, error) {
-	return s.adoptions.Advance(ctx, projectID, kind, reason, by, true, resolve)
+	return s.adoptions.advance(ctx, projectID, kind, reason, by, true, resolve)
 }
 func (s *Service) BlockUses(ctx context.Context, blockID ids.ID) ([]BlockUse, error) {
-	return s.library.UsedBy(ctx, blockID)
+	return s.library.usedBy(ctx, blockID)
 }
 func (s *Service) Imports(ctx context.Context, projectID ids.ID) ([]Import, error) {
-	return s.library.Imports(ctx, projectID)
+	return s.library.imports(ctx, projectID)
 }
 func (s *Service) PutImports(ctx context.Context, projectID ids.ID, pins []wow.ResolvedPin) error {
-	return s.library.PutImports(ctx, projectID, pins)
+	return s.library.putImports(ctx, projectID, pins)
 }
 func (s *Service) Compile(ctx context.Context, projectID ids.ID) (Resolved, error) {
-	return s.library.Compile(ctx, projectID)
+	return s.library.compile(ctx, projectID)
 }
 func (s *Service) PlatformBlocksMissingFrom(ctx context.Context, projectID ids.ID) ([]wow.Block, error) {
-	all, err := s.library.PlatformBlocksMissingFrom(ctx, projectID)
+	all, err := s.library.platformBlocksMissingFrom(ctx, projectID)
 	if err != nil || s.deps.Ways == nil {
 		return all, err
 	}
@@ -171,20 +171,20 @@ func (s *Service) PlatformBlocksMissingFrom(ctx context.Context, projectID ids.I
 	return out, nil
 }
 func (s *Service) AppendPlatformImport(ctx context.Context, projectID ids.ID, b wow.Block) error {
-	return s.library.AppendPlatformImport(ctx, projectID, b)
+	return s.library.appendPlatformImport(ctx, projectID, b)
 }
 
 func (s *Service) InstallPolicy(ctx context.Context, projectID ids.ID, name, description, rule string, with map[string]any, origin, who string) error {
-	return s.policies.Install(ctx, projectID, name, description, rule, with, origin, who)
+	return s.policies.install(ctx, projectID, name, description, rule, with, origin, who)
 }
 func (s *Service) RemovePolicy(ctx context.Context, id ids.ID, who string) error {
-	return s.policies.Remove(ctx, id, who)
+	return s.policies.remove(ctx, id, who)
 }
 
 // PolicyAdoptions is every (policy name, project) pair in the projects the
 // verified caller can read; other projects' adoptions are left out, so usage
 // counts never reveal them.
-func (s *Service) PolicyAdoptions(ctx context.Context) ([]PolicyAdoption, error) {
+func (s *Service) PolicyAdoptions(ctx context.Context) ([]policyAdoption, error) {
 	if s.deps.Authority == nil {
 		return nil, access.ErrAuthorityUnavailable
 	}
@@ -196,11 +196,11 @@ func (s *Service) PolicyAdoptions(ctx context.Context) ([]PolicyAdoption, error)
 	for _, id := range idList {
 		visible[id] = true
 	}
-	all, err := s.policies.Adoptions(ctx)
+	all, err := s.policies.adoptions(ctx)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]PolicyAdoption, 0, len(all))
+	out := make([]policyAdoption, 0, len(all))
 	for _, a := range all {
 		if visible[a.ProjectID] {
 			out = append(out, a)
@@ -209,16 +209,16 @@ func (s *Service) PolicyAdoptions(ctx context.Context) ([]PolicyAdoption, error)
 	return out, nil
 }
 func (s *Service) Union(ctx context.Context, projectID ids.ID, prior *RecordedRevision) (Receipt, error) {
-	return s.resolver.Union(ctx, projectID, prior)
+	return s.resolver.union(ctx, projectID, prior)
 }
 func (s *Service) RefreshPolicyWording(ctx context.Context) error {
-	return s.policies.RefreshAdoptedWording(ctx)
+	return s.policies.refreshAdoptedWording(ctx)
 }
 
 // LaneSelected says whether a project selected a lane. A failed read is an
 // error, never "not selected".
 func (s *Service) LaneSelected(ctx context.Context, projectID ids.ID, name string) (bool, error) {
-	return s.lanes.Selected(ctx, projectID, name)
+	return s.lanes.selected(ctx, projectID, name)
 }
 
 // SelectLane selects or deselects a lane and records the adoption revision
@@ -309,7 +309,7 @@ func (s *Service) requireCapabilities(ctx context.Context, q database.Queryer, p
 		return nil
 	}
 	if s.deps.Capabilities == nil {
-		return ErrCapabilityUnavailable
+		return errCapabilityUnavailable
 	}
 	return s.deps.Capabilities.HasCapabilitiesIn(ctx, q, projectID, required)
 }

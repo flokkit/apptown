@@ -28,9 +28,7 @@ type stepAttempts struct {
 func newStepAttempts(db *database.DB, automatic func(string) bool) stepAttempts {
 	return stepAttempts{db: db, automatic: automatic}
 }
-func (s stepAttempts) Start(ctx context.Context, snapshot *Step, kind string) (*Step, error) {
-	return s.start(ctx, snapshot, kind, ids.Nil)
-}
+
 func (s stepAttempts) start(ctx context.Context, snapshot *Step, kind string, projectID ids.ID) (*Step, error) {
 	if snapshot == nil || s.automatic == nil {
 		return nil, ErrStepAttemptLost
@@ -49,7 +47,7 @@ func (s stepAttempts) start(ctx context.Context, snapshot *Step, kind string, pr
 		if err := requireRunReady(ctx, tx, run.ID); err != nil {
 			return nil, err
 		}
-		if _, err := current.Status.Transition(MoveStepStart, StatusRunning); err != nil {
+		if _, err := current.Status.transition(moveStepStart, StatusRunning); err != nil {
 			return nil, err
 		}
 		payload := stepStartedReceipt{Step: current.Name, Stage: current.Stage, Type: current.Type, Attempt: current.Attempt + 1}

@@ -726,7 +726,7 @@ func deletedUnderAWorkerChat(t *testing.T) (workerChatWorld, *console.Session) {
 		t.Fatal(err)
 	}
 	w.commitOnWorker(t, s.ID, "unsaved.txt", "never saved\n")
-	s.SetLastUsed(time.Now().Add(-time.Hour)) // idle: a deletion refuses a chat mid-conversation
+	moveClock(w.a, time.Hour) // idle: a deletion refuses a chat mid-conversation
 	if st := deleteProject(t, w.a, "game"); st.State != project.Deleted {
 		t.Fatalf("delete: %+v", st)
 	}
@@ -777,7 +777,7 @@ func TestSavesResumeWhenTheWorkerFirstFailsToAnswer(t *testing.T) {
 	if err := w.a.Console.Send(ctx, s.ID, "finish this turn"); err != nil {
 		t.Fatal(err)
 	}
-	w.a.StopConsoles(ctx)
+	w.a.stopConsoles(ctx)
 	if err := w.a.ShutdownBackground(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -927,7 +927,7 @@ func TestSavesResumeAfterAppTownRestarts(t *testing.T) {
 	if err := w.a.Console.Send(ctx, s.ID, "finish this turn"); err != nil {
 		t.Fatal(err)
 	}
-	w.a.StopConsoles(ctx)
+	w.a.stopConsoles(ctx)
 	if err := w.a.ShutdownBackground(ctx); err != nil {
 		t.Fatal(err)
 	}

@@ -144,7 +144,7 @@ func TestDoneWorkWithAReservedLandingReadsAsQueued(t *testing.T) {
 			t.Fatal(err)
 		}
 		// The queued landing is a stated fact, not only the words.
-		if reserved && (detail.State != ActivityQueued || detail.StateDetail != "landing" || !detail.LandingQueued) || !reserved && (detail.State != "" || detail.LandingQueued) {
+		if reserved && (detail.State != activityQueued || detail.StateDetail != "landing" || !detail.LandingQueued) || !reserved && (detail.State != "" || detail.LandingQueued) {
 			t.Fatalf("reserved=%v: %q %q", reserved, detail.State, detail.StateDetail)
 		}
 	}
@@ -170,28 +170,28 @@ func TestTheSnapshotOffersTheActsAPersonCanTakeNow(t *testing.T) {
 	}{
 		{"waiting on an approval", "", nil,
 			[]step{{"work", "agent/pi", StatusPass}, {"work2", "agent/pi", StatusPass}, {"first-look", "approval", StatusPass}, {"accept", "approval", StatusPending}, {"sign-off", "approval", StatusPending}},
-			[]NextAct{{Act: NextApprove, Step: "accept"}, {Act: NextApprove, Step: "sign-off"}, {Act: NextRework, Step: "work2"}}},
+			[]NextAct{{Act: NextApprove, Step: "accept"}, {Act: NextApprove, Step: "sign-off"}, {Act: nextRework, Step: "work2"}}},
 		{"blocked by a failed check", "", nil,
 			[]step{{"work", "agent/pi", StatusPass}, {"tests", "tests", StatusFail}, {"boot", "preview", StatusError}, {"custom", "x/unrunnable", StatusFail}, {"accept", "approval", StatusPending}},
-			[]NextAct{{Act: NextOverride, Step: "tests"}, {Act: NextOverride, Step: "boot"}, {Act: NextOverride, Step: "custom"},
-				{Act: NextRetry, Step: "tests"}, {Act: NextRetry, Step: "boot"}, {Act: NextRework, Step: "work"}}},
+			[]NextAct{{Act: nextOverride, Step: "tests"}, {Act: nextOverride, Step: "boot"}, {Act: nextOverride, Step: "custom"},
+				{Act: nextRetry, Step: "tests"}, {Act: nextRetry, Step: "boot"}, {Act: nextRework, Step: "work"}}},
 		{"a rejection with no agent to rework it", "", nil,
 			[]step{{"tests", "tests", StatusFail}, {"accept", "approval", StatusFail}},
-			[]NextAct{{Act: NextOverride, Step: "tests"}, {Act: NextRetry, Step: "tests"}}},
+			[]NextAct{{Act: nextOverride, Step: "tests"}, {Act: nextRetry, Step: "tests"}}},
 		// An unmerged merge check records needs-a-person; running it again
 		// is how it reads the merge once it happened.
 		{"checks that need a person", "", nil,
 			[]step{{"work", "agent/pi", StatusPass}, {"lint", "script", StatusNeedsHuman}, {"merged", "scm/merged", StatusNeedsHuman}},
-			[]NextAct{{Act: NextRetry, Step: "lint"}, {Act: NextRetry, Step: "merged"}, {Act: NextRework, Step: "work"}}},
+			[]NextAct{{Act: nextRetry, Step: "lint"}, {Act: nextRetry, Step: "merged"}, {Act: nextRework, Step: "work"}}},
 		{"a gate missing evidence", "", scan,
 			[]step{{"work", "agent/pi", StatusPass}, {"accept", "approval", StatusPending}},
-			[]NextAct{{Act: NextRework, Step: "work"}}},
+			[]NextAct{{Act: nextRework, Step: "work"}}},
 		{"ready to advance", "", nil,
 			[]step{{"work", "agent/pi", StatusPass}, {"accept", "approval", StatusPass}},
 			[]NextAct{{Act: NextAdvance}}},
 		{"a landing whose rules changed", "landing", nil,
 			[]step{{"law", "policy/current", StatusNeedsHuman}, {"accept", "approval", StatusPending}},
-			[]NextAct{{Act: NextRestartLanding}}},
+			[]NextAct{{Act: nextRestartLanding}}},
 		{"a working run with a stopped rules check", "", nil,
 			[]step{{"law", "policy/current", StatusNeedsHuman}},
 			[]NextAct{}},
@@ -258,7 +258,7 @@ func TestTheChangeOffersLandingAndSendingBack(t *testing.T) {
 	run := func(status RunState, state ActivityState, queued bool) *RunSnapshot {
 		return &RunSnapshot{Run: &Run{Status: status}, State: state, LandingQueued: queued}
 	}
-	land, sendBack, abandon := NextAct{Act: NextLand}, NextAct{Act: NextSendBack}, NextAct{Act: nextAbandon}
+	land, sendBack, abandon := NextAct{Act: NextLand}, NextAct{Act: nextSendBack}, NextAct{Act: nextAbandon}
 	for _, c := range []struct {
 		name    string
 		state   ChangeState
@@ -269,7 +269,7 @@ func TestTheChangeOffersLandingAndSendingBack(t *testing.T) {
 		{"no run yet", ChangeInProgress, nil, false, []NextAct{land}},
 		{"work done", ChangeInProgress, run(RunDone, "", false), false, []NextAct{land}},
 		{"work stopped", ChangeInProgress, run(RunAbandoned, ActivityAbandoned, false), false, []NextAct{land}},
-		{"its landing queued", ChangeInProgress, run(RunDone, ActivityQueued, true), false, []NextAct{}},
+		{"its landing queued", ChangeInProgress, run(RunDone, activityQueued, true), false, []NextAct{}},
 		{"work running", ChangeInProgress, run(RunRunning, ActivityWorking, false), false, []NextAct{}},
 		{"work blocked", ChangeInProgress, run(RunRunning, ActivityBlocked, false), false, []NextAct{sendBack, abandon}},
 		{"landing blocked", ChangeLanding, run(RunRunning, ActivityBlocked, false), false, []NextAct{sendBack, abandon}},
@@ -288,7 +288,7 @@ func TestTheChangeOffersLandingAndSendingBack(t *testing.T) {
 func TestAbandonIsOfferedOnlyToWhoMayAbandon(t *testing.T) {
 	t.Parallel()
 	blocked := &RunSnapshot{Run: &Run{Status: RunRunning}, State: ActivityBlocked}
-	if got := ChangeActs(&Change{State: ChangeInProgress}, blocked, false, false); !slices.Equal(got, []NextAct{{Act: NextSendBack}}) {
+	if got := ChangeActs(&Change{State: ChangeInProgress}, blocked, false, false); !slices.Equal(got, []NextAct{{Act: nextSendBack}}) {
 		t.Errorf("a reader who may not abandon was offered %+v", got)
 	}
 	if got := ChangeActs(&Change{State: ChangeInProgress}, blocked, false, true); !slices.Contains(got, NextAct{Act: nextAbandon}) {

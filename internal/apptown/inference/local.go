@@ -15,16 +15,16 @@ type Interface struct {
 	Prefixes []netip.Prefix
 }
 
-// LocalSettings are the model-access settings a one-server install uses when
+// localSettings are the model-access settings a one-server install uses when
 // its operator sets none.
-type LocalSettings struct {
+type localSettings struct {
 	Addr     string   // the listener: docker0's address, port 7779
 	URL      string   // how containers reach it
 	Networks []string // the CIDRs containers arrive from
 }
 
-// LocalPort is the default listener's port.
-const LocalPort = 7779
+// localPort is the default listener's port.
+const localPort = 7779
 
 // dockerBridge is how Docker names the bridges of user-defined networks
 // (AppTown's chat networks among them): br- and the network ID's first 12
@@ -56,7 +56,7 @@ func dockerPools() []netip.Prefix {
 // are told apart by name: lo, docker0, br-<12 hex> and veth… are loopback or
 // Docker's; any other is the host's. ok is false without a docker0 address
 // (a Mac, no Docker, a container on its own network).
-func LocalDefaults(interfaces []Interface) (LocalSettings, bool) {
+func LocalDefaults(interfaces []Interface) (localSettings, bool) {
 	var gateway netip.Addr
 	var bridges, host []netip.Prefix
 	for _, in := range interfaces {
@@ -79,7 +79,7 @@ func LocalDefaults(interfaces []Interface) (LocalSettings, bool) {
 		}
 	}
 	if !gateway.IsValid() {
-		return LocalSettings{}, false
+		return localSettings{}, false
 	}
 	networks := bridges
 	for _, pool := range dockerPools() {
@@ -88,9 +88,9 @@ func LocalDefaults(interfaces []Interface) (LocalSettings, bool) {
 		}
 		networks = append(networks, pool)
 	}
-	out := LocalSettings{
-		Addr: netip.AddrPortFrom(gateway, LocalPort).String(),
-		URL:  "http://host.docker.internal:" + strconv.Itoa(LocalPort),
+	out := localSettings{
+		Addr: netip.AddrPortFrom(gateway, localPort).String(),
+		URL:  "http://host.docker.internal:" + strconv.Itoa(localPort),
 	}
 	seen := map[netip.Prefix]bool{}
 	for _, n := range networks {

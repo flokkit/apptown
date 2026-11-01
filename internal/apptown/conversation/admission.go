@@ -23,20 +23,20 @@ type ProjectOpen struct {
 	Placement string `json:"placement,omitempty"`
 }
 
-var ErrNoChange = fault.New(fault.NotFound, "no such change in this project")
+var errNoChange = fault.New(fault.NotFound, "no such change in this project")
 
-// AdmissionConflict refuses an open without turning it into a runtime failure.
+// admissionConflict refuses an open without turning it into a runtime failure.
 // Code names a refusal a client answers specially (CodeChatOnAppTown), empty
 // for the rest.
-type AdmissionConflict struct {
+type admissionConflict struct {
 	Err  error
 	Code string
 }
 
-func (e *AdmissionConflict) Error() string         { return e.Err.Error() }
-func (e *AdmissionConflict) FaultKind() fault.Kind { return fault.Conflict }
-func (e *AdmissionConflict) FaultCode() string     { return e.Code }
-func (e *AdmissionConflict) Unwrap() error         { return e.Err }
+func (e *admissionConflict) Error() string         { return e.Err.Error() }
+func (e *admissionConflict) FaultKind() fault.Kind { return fault.Conflict }
+func (e *admissionConflict) FaultCode() string     { return e.Code }
+func (e *admissionConflict) Unwrap() error         { return e.Err }
 
 // CodeChatOnAppTown marks a refusal to open a change's chat on the worker that
 // the same chat opened on AppTown would not meet: the page offers that
@@ -46,11 +46,11 @@ const CodeChatOnAppTown = "chat-on-apptown"
 // workerRefusal refuses a chat on the worker. It names AppTown as the way
 // round, in the sentence and the code, only when this apptown runs chats
 // itself: an AppTown that runs none must not send the reader there.
-func (c *Admission) workerRefusal(err error, onAppTown string) *AdmissionConflict {
+func (c *Admission) workerRefusal(err error, onAppTown string) *admissionConflict {
 	if c.noLocal {
-		return &AdmissionConflict{Err: err}
+		return &admissionConflict{Err: err}
 	}
-	return &AdmissionConflict{Err: fmt.Errorf("%w; %s", err, onAppTown), Code: CodeChatOnAppTown}
+	return &admissionConflict{Err: fmt.Errorf("%w; %s", err, onAppTown), Code: CodeChatOnAppTown}
 }
 
 // ReserveProject is the admission an opening chat holds: the

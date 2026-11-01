@@ -2,9 +2,10 @@ package deploy
 
 import (
 	"encoding/json"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 func TestProbeRuntimeTokenCannotBeRestoredFromRecordedObservation(t *testing.T) {

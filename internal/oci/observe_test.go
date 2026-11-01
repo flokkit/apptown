@@ -72,7 +72,7 @@ func TestImageObservationRefusesChangedBlobAndUnavailableRegistry(t *testing.T) 
 	unavailable := newRegistry(t, func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusForbidden) })
 	}) + "/team/node@" + image.digest()
-	if _, err := Observe(t.Context(), Source{Reference: unavailable}); !errors.Is(err, ErrUnauthorised) {
+	if _, err := Observe(t.Context(), Source{Reference: unavailable}); !errors.Is(err, errUnauthorised) {
 		t.Fatalf("registry refusal: %v", err)
 	}
 }

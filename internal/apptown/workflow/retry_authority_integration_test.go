@@ -46,7 +46,7 @@ func TestWorkRetryAuthorityWithoutRouteAndCurrentGrants(t *testing.T) {
 	} {
 		result, err := a.Work.RetryStep(stepVerifiedContext(context.Background(), pr), RetryCommand{StepID: a.StepID})
 		var denied *access.Denied
-		if result != (Retried{}) || !errors.As(err, &denied) {
+		if result != (retried{}) || !errors.As(err, &denied) {
 			t.Fatalf("unauthorized %+v: %+v %v", pr, result, err)
 		}
 	}

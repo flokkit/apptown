@@ -9,14 +9,13 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 )
 
 // Bundle receipts use the actual image IDs after the selected contexts
 // build, read from the daemon the landing booted on.
 func TestBundleImagesRecordsActualImages(t *testing.T) {
 	t.Parallel()
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) > 1 && args[0] == "image" && strings.Contains(strings.Join(args, " "), "{{.Id}}") {
 			sum := sha256.Sum256([]byte(args[len(args)-1]))

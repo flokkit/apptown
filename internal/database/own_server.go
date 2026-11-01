@@ -13,7 +13,7 @@ import (
 // release of its own: the pinned client image and the built-in database's
 // image move with it. App databases are not bound by this.
 const (
-	OwnPostgresMin = 16
+	ownPostgresMin = 16
 	OwnPostgresMax = 16
 )
 
@@ -21,12 +21,12 @@ const (
 // outside the range, naming the range.
 func OwnServerSupported(versionNum int) error {
 	major := versionNum / 10000
-	if major >= OwnPostgresMin && major <= OwnPostgresMax {
+	if major >= ownPostgresMin && major <= OwnPostgresMax {
 		return nil
 	}
-	want := fmt.Sprintf("PostgreSQL %d", OwnPostgresMin)
-	if OwnPostgresMin != OwnPostgresMax {
-		want = fmt.Sprintf("PostgreSQL %d to %d", OwnPostgresMin, OwnPostgresMax)
+	want := fmt.Sprintf("PostgreSQL %d", ownPostgresMin)
+	if ownPostgresMin != OwnPostgresMax {
+		want = fmt.Sprintf("PostgreSQL %d to %d", ownPostgresMin, OwnPostgresMax)
 	}
 	return fmt.Errorf("AppTown needs %s for its own database; this server is %d", want, major)
 }

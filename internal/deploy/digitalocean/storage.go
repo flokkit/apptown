@@ -35,15 +35,15 @@ const (
 	KindBucket = "bucket"
 	// KindSpacesKey is how the owned list names a deployment's Spaces key.
 	KindSpacesKey = "spaces-key"
-	// SpacesSecretName is the stored name of the deployment's key secret.
-	SpacesSecretName = "S3_SECRET_ACCESS_KEY"
+	// spacesSecretName is the stored name of the deployment's key secret.
+	spacesSecretName = "S3_SECRET_ACCESS_KEY"
 	needS3           = "s3"
 	spacesKeysPath   = "/v2/spaces/keys"
 )
 
-// Holdings is a deployment's owned list as the driver reads and writes it:
+// holdings is a deployment's owned list as the driver reads and writes it:
 // what AppTown made for it at the provider beyond the app.
-type Holdings interface {
+type holdings interface {
 	Owned(ctx context.Context) ([]deploy.Owned, error)
 	Created(ctx context.Context, o deploy.Owned) error
 	Forget(ctx context.Context, kind, id string) error
@@ -97,7 +97,7 @@ func (d *Driver) mintKey(ctx context.Context, c *Client, name string, grant spac
 }
 
 func (d *Driver) deleteKey(ctx context.Context, c *Client, access string) error {
-	if err := c.Call(ctx, "DELETE", spacesKeysPath+"/"+url.PathEscape(access), nil, nil); err != nil && !IsStatus(err, 404) {
+	if err := c.Call(ctx, "DELETE", spacesKeysPath+"/"+url.PathEscape(access), nil, nil); err != nil && !isStatus(err, 404) {
 		return err
 	}
 	return nil
@@ -200,7 +200,7 @@ func (d *Driver) fulfilStorage(ctx context.Context, p deploy.Placement, logf fun
 	key, haveKey := ownedOf(owned, KindSpacesKey)
 	secret := ""
 	if haveKey {
-		if secret, err = d.Secrets.Get(ctx, SpacesSecretName); err != nil {
+		if secret, err = d.Secrets.Get(ctx, spacesSecretName); err != nil {
 			return deploy.NeedBinding{}, nil, fmt.Errorf("reading the deployment's Spaces key secret: %w", err)
 		}
 	}
@@ -237,7 +237,7 @@ func (d *Driver) fulfilStorage(ctx context.Context, p deploy.Placement, logf fun
 				if err := d.Holdings.Created(context.WithoutCancel(ctx), key); err != nil {
 					return fmt.Errorf("recording the Spaces key %s AppTown made: %w", k.AccessKey, err)
 				}
-				if err := d.Secrets.Put(context.WithoutCancel(ctx), SpacesSecretName, k.SecretKey); err != nil {
+				if err := d.Secrets.Put(context.WithoutCancel(ctx), spacesSecretName, k.SecretKey); err != nil {
 					return fmt.Errorf("keeping the Spaces key %s's secret: %w", k.AccessKey, err)
 				}
 				secret = k.SecretKey
@@ -296,12 +296,12 @@ func (d *Driver) makeBucket(ctx context.Context, s3 *s3bucket.Client, key string
 // made a moment ago can be refused a grant for a while ("invalid grant"),
 // so a refusal is asked again until GrantWait passes.
 func (d *Driver) mintBucketKey(ctx context.Context, c *Client, key, bucket string) (spacesKey, error) {
-	deadline := d.options.Now().Add(d.options.GrantWait)
+	deadline := d.options.Now().Add(d.options.grantWait)
 	for {
 		k, err := d.mintKey(ctx, c, appKeyName(key), spacesGrant{Bucket: bucket, Permission: "readwrite"})
 		// Only "invalid grant" (403) is asked again: the new bucket is not
 		// yet seen by the keys API.
-		if err == nil || !IsStatus(err, 403) || d.options.Now().After(deadline) {
+		if err == nil || !isStatus(err, 403) || d.options.Now().After(deadline) {
 			if err != nil {
 				return spacesKey{}, fmt.Errorf("making the Spaces key for the bucket %s: %w", bucket, err)
 			}
@@ -332,7 +332,7 @@ func (d *Driver) BucketConnection(ctx context.Context, bucket string) (deploy.Co
 	if !ok {
 		return deploy.Connection{}, fmt.Errorf("the deployment has no Spaces key for its bucket %s", bucket)
 	}
-	secret, err := d.Secrets.Get(ctx, SpacesSecretName)
+	secret, err := d.Secrets.Get(ctx, spacesSecretName)
 	if err != nil {
 		return deploy.Connection{}, fmt.Errorf("reading the deployment's Spaces key secret: %w", err)
 	}
@@ -408,7 +408,7 @@ func (d *Driver) tearDownStorage(ctx context.Context, p deploy.Placement, td dep
 		}
 		deleted = append(deleted, "Spaces key "+k.Name+" ("+k.ID+")")
 		if d.Secrets != nil {
-			if err := d.Secrets.Delete(context.WithoutCancel(ctx), SpacesSecretName); err != nil {
+			if err := d.Secrets.Delete(context.WithoutCancel(ctx), spacesSecretName); err != nil {
 				deleted[len(deleted)-1] += "; its stored secret was not deleted: " + err.Error()
 			}
 		}

@@ -6,7 +6,7 @@ import (
 )
 
 func TestAdoptionKindWords(t *testing.T) {
-	for k := AdoptionCreate; k <= AdoptionLegacySnapshot; k++ {
+	for k := AdoptionCreate; k <= adoptionLegacySnapshot; k++ {
 		parsed, err := ParseAdoptionKind(k.String())
 		if err != nil || parsed != k {
 			t.Fatalf("%s did not round-trip: %v %v", k, parsed, err)
@@ -19,10 +19,10 @@ func TestAdoptionKindWords(t *testing.T) {
 	if _, err := zero.Value(); err == nil {
 		t.Fatal("the zero kind was stored")
 	}
-	if AdoptionTarget.Standing() || !AdoptionAdopt.Standing() || !AdoptionLegacySnapshot.Standing() || zero.Standing() {
+	if adoptionTarget.standing() || !AdoptionAdopt.standing() || !adoptionLegacySnapshot.standing() || zero.standing() {
 		t.Fatal("only a target is not a revision a project stands on")
 	}
-	body, _ := json.Marshal(struct{ K AdoptionKind }{AdoptionLegacySnapshot})
+	body, _ := json.Marshal(struct{ K AdoptionKind }{adoptionLegacySnapshot})
 	if string(body) != `{"K":"legacy-snapshot"}` {
 		t.Fatalf("json: %s", body)
 	}

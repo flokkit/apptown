@@ -44,7 +44,7 @@ func (d Delivery) EnvFor(consumer string) map[string]string {
 // may each be nil (a file the app does not have). A choice that cannot be
 // read is an error, never the default: the default may hold less memory
 // than the deployment was given.
-func (a *Service) DeploymentProfile(ctx context.Context, projectID ids.ID, deployment string, spec *Spec, c *appcontract.Contract) (string, appcontract.ProfileChoice, error) {
+func (a *Service) DeploymentProfile(ctx context.Context, projectID ids.ID, deployment string, spec *spec, c *appcontract.Contract) (string, appcontract.ProfileChoice, error) {
 	chosen, err := a.Profiles.Chosen(ctx, projectID, deployment)
 	if err != nil {
 		return "", "", fmt.Errorf("reading the profile chosen for the %s deployment: %w", deployment, err)
@@ -55,7 +55,7 @@ func (a *Service) DeploymentProfile(ctx context.Context, projectID ids.ID, deplo
 
 // DeclaredProfiles is every profile name either file declares, default
 // among them.
-func DeclaredProfiles(spec *Spec, c *appcontract.Contract) map[string]bool {
+func DeclaredProfiles(spec *spec, c *appcontract.Contract) map[string]bool {
 	declared := map[string]bool{appcontract.DefaultProfile: true}
 	if spec != nil {
 		for _, n := range spec.ProfileNames() {
@@ -75,7 +75,7 @@ func DeclaredProfiles(spec *Spec, c *appcontract.Contract) map[string]bool {
 // its first profile in name order (a SecretSpec need not declare default;
 // such a file has always used its first). spec must contain at least one
 // profile, as guaranteed by ParseSpec.
-func SpecProfile(spec *Spec, profile string) string {
+func SpecProfile(spec *spec, profile string) string {
 	if _, ok := spec.Profiles[profile]; ok {
 		return profile
 	}
@@ -111,17 +111,17 @@ func (e *MissingError) Error() string {
 // own error, which may carry an endpoint; Unwrap keeps that for callers
 // that log privately.
 type UnavailableError struct {
-	Deployment string
-	Name       string // "" when the bindings themselves could not be read
-	Store      string
+	deployment string
+	name       string // "" when the bindings themselves could not be read
+	store      string
 	cause      error
 }
 
 func (e *UnavailableError) Error() string {
-	if e.Name == "" {
-		return fmt.Sprintf("the secret bindings of the %s deployment could not be read", e.Deployment)
+	if e.name == "" {
+		return fmt.Sprintf("the secret bindings of the %s deployment could not be read", e.deployment)
 	}
-	return fmt.Sprintf("%s in the %s deployment is bound to the %s store, which could not be read", e.Name, e.Deployment, e.Store)
+	return fmt.Sprintf("%s in the %s deployment is bound to the %s store, which could not be read", e.name, e.deployment, e.store)
 }
 func (e *UnavailableError) Unwrap() error         { return e.cause }
 func (e *UnavailableError) FaultKind() fault.Kind { return fault.Unavailable }
@@ -172,7 +172,7 @@ func (a *Service) resolve(ctx context.Context, projectID ids.ID, slug, deploymen
 	d.ByConsumer = map[string]map[string]string{}
 	bindings, err := a.Bindings.For(ctx, projectID, deployment)
 	if err != nil {
-		return Delivery{}, &UnavailableError{Deployment: deployment, cause: err}
+		return Delivery{}, &UnavailableError{deployment: deployment, cause: err}
 	}
 
 	var infValues map[string]string
@@ -205,7 +205,7 @@ func (a *Service) resolve(ctx context.Context, projectID ids.ID, slug, deploymen
 				a.record(ctx, "apptown-system", projectID, "secret.generated", s.Name,
 					map[string]any{"deployment": deployment, "scope": scope})
 			} else if err != nil {
-				return Delivery{}, &UnavailableError{Deployment: deployment, Name: s.Name, Store: StoreInternal, cause: err}
+				return Delivery{}, &UnavailableError{deployment: deployment, name: s.Name, store: StoreInternal, cause: err}
 			}
 			b = Binding{Deployment: deployment, Name: s.Name, Store: StoreInternal, Ref: scope,
 				Version: fmt.Sprint(ver), Generated: true, UpdatedBy: "apptown-system"}
@@ -268,13 +268,13 @@ func (a *Service) boundValue(ctx context.Context, deployment string, b Binding, 
 			return "", "", false, nil
 		}
 		if err != nil {
-			return "", "", false, &UnavailableError{Deployment: deployment, Name: name, Store: StoreInternal, cause: err}
+			return "", "", false, &UnavailableError{deployment: deployment, name: name, store: StoreInternal, cause: err}
 		}
 		return v, fmt.Sprint(ver), true, nil
 	case StoreInfisical:
 		if *inf == nil {
 			if *inf, err = a.InfisicalValues(ctx); err != nil {
-				return "", "", false, &UnavailableError{Deployment: deployment, Name: name, Store: StoreInfisical, cause: err}
+				return "", "", false, &UnavailableError{deployment: deployment, name: name, store: StoreInfisical, cause: err}
 			}
 		}
 		v, ok := (*inf)[b.Ref]

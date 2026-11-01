@@ -24,21 +24,21 @@ import (
 
 const CallKind = "workflow/call"
 
-// Calls prepares invocation inputs; Workflow owns atomic child admission.
-type Calls struct {
+// calls prepares invocation inputs; Workflow owns atomic child admission.
+type calls struct {
 	db     *database.DB
 	panics interface{ Panic(string, any, []byte) }
 }
 
-func NewCalls(db *database.DB, panics interface{ Panic(string, any, []byte) }) *Calls {
-	return &Calls{db: db, panics: panics}
+func NewCalls(db *database.DB, panics interface{ Panic(string, any, []byte) }) *calls {
+	return &calls{db: db, panics: panics}
 }
 
 // Run executes a workflow/call step: resolve the callee at its
 // current version, create a pinned child run in the parent's context, and
 // return — the child drives itself (pipelines auto-advance); completion
 // records the verdict back on this step.
-func (a *Calls) Run(task *workflow.Execution) {
+func (a *calls) Run(task *workflow.Execution) {
 	defer reportPanic(a.panics, "RunWorkflowCall")
 	step := task.Step()
 	parent := task.Run()

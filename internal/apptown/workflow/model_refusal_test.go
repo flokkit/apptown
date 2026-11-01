@@ -25,17 +25,17 @@ func TestAWorkflowWithNoModelIsRefusedBeforeItsRunExists(t *testing.T) {
 	var asked *schema.Spec
 	var inputs string
 	starter := newStarter(db, NewStages(nil, func(string) bool { return false }), nil, startRuntime{
-		Source:  func(context.Context, StartRequest) (StartSource, error) { return StartSource{}, nil },
-		Resolve: func(context.Context, StartRequest, StartSource) (PreparedRun, error) { return def, nil },
-		NoModel: func(_ context.Context, projectID ids.ID, spec *schema.Spec, inputsJSON string) (string, error) {
+		source:  func(context.Context, StartRequest) (StartSource, error) { return StartSource{}, nil },
+		resolve: func(context.Context, StartRequest, StartSource) (PreparedRun, error) { return def, nil },
+		noModel: func(_ context.Context, projectID ids.ID, spec *schema.Spec, inputsJSON string) (string, error) {
 			if projectID != req.ProjectID {
 				t.Errorf("asked about project %s, not %s", projectID, req.ProjectID)
 			}
 			asked, inputs = spec, inputsJSON
 			return refusal, nil
 		},
-		Prepare:  func(context.Context, *Run) error { return nil },
-		Dispatch: func(context.Context, *Run) error { return nil },
+		prepare:  func(context.Context, *Run) error { return nil },
+		dispatch: func(context.Context, *Run) error { return nil },
 	}, clocked{})
 	service := newService(db, authorityFunc(func(context.Context, operationPermission) (string, error) { return "operator", nil }), Runtime{Starter: starter})
 	start := StartChangeRun{ChangeID: req.ChangeID, Workflow: req.WorkflowName, Inputs: []byte(req.InputsJSON)}

@@ -78,7 +78,7 @@ type ShippedChange struct {
 // you pressed the button: current head, the changes shipped since the last
 // release, the target. The release page shows this before asking.
 func (h ReleaseOperations) ReleasePlan(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -163,7 +163,7 @@ func (h ReleaseOperations) ReleasePlan(w http.ResponseWriter, r *http.Request) {
 // LANRelease retains the existing default-release endpoint. Deployment owns
 // selection, current authority and the durable request; execution is a job.
 func (h ReleaseOperations) LANRelease(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -189,7 +189,7 @@ func (h ReleaseOperations) LANRelease(w http.ResponseWriter, r *http.Request) {
 // pvrel stacks) and the data volume is blank — old code never touches
 // today's data.
 func (h ReleaseOperations) ReleasePreview(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -204,7 +204,7 @@ func (h ReleaseOperations) ReleasePreview(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if !out.Reused {
-		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), p.ID, "release.preview", fmt.Sprintf("release %d", n), map[string]any{"ref": out.Image, "source": out.Revision})
+		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, actor(r), p.ID, "release.preview", fmt.Sprintf("release %d", n), map[string]any{"ref": out.Image, "source": out.Revision})
 	}
 	WriteJSON(w, 200, ReleasePreviewStarted{URL: out.URL})
 }
@@ -217,7 +217,7 @@ type ReleasePreviewStarted struct {
 func writeReleasePreviewError(w http.ResponseWriter, err error) {
 	var execution *preview.ExecutionError
 	switch {
-	case WriteRefusal(w, err):
+	case writeRefusal(w, err):
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		WriteError(w, http.StatusUnprocessableEntity, "%v", err)
 	case errors.As(err, &execution):

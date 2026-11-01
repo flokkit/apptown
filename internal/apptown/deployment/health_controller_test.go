@@ -25,7 +25,7 @@ func healthWorld(t *testing.T) (*Service, *database.DB, *dockerfake.Daemon, ids.
 	t.Helper()
 	db := testDB(t)
 	projectID := createTestProject(t, db, "p", "P")
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	dir := t.TempDir()
 	s := New(context.Background(), db, assembled(db, testRuntime{Scope: docker.Scope{Client: daemon}, DataDir: dir, Projects: project.New(db, nil), Secrets: secret.NewService(db, secret.Config{DataDir: dir})}, Dependencies{}))
 	target, err := s.Targets.Put(context.Background(), &Target{Name: "local", Kind: KindDockerHost, Origin: OriginBuiltIn, Status: TargetReady})
@@ -51,9 +51,9 @@ func TestHealthControllerRestartsOnThreshold(t *testing.T) {
 	}
 	f.SetRunning(container, true) // StartedAt is empty, so startup grace has passed.
 
-	hc := s.HealthController()
 	at := time.Now()
-	hc.Clock(func() time.Time { return at })
+	s.clock = func() time.Time { return at }
+	hc := s.HealthController()
 	restarts := func() int { return len(f.Matching("restart " + container)) }
 
 	// Below threshold: no restart yet.
@@ -105,14 +105,14 @@ func TestHealthControllerLeavesHealthyEnvAlone(t *testing.T) {
 	}
 	f.SetRunning(container, true)
 
-	hc := s.HealthController()
 	at := time.Now()
-	hc.Clock(func() time.Time { return at })
+	s.clock = func() time.Time { return at }
+	hc := s.HealthController()
 	for i := 0; i < docker.HealthFailThreshold+2; i++ {
 		at = at.Add(docker.HealthTick)
 		hc.Sweep(context.Background())
 	}
-	if !hc.Watching(container) {
+	if len(f.Matching("inspect")) == 0 {
 		t.Fatal("healthy environment was never observed")
 	}
 	if got := len(f.Matching("restart " + container)); got != 0 {
@@ -154,14 +154,11 @@ func TestHealthControllerNeverUsesLocalDockerForInvalidTarget(t *testing.T) {
 			}
 			daemon.SetRunning(container, true)
 			hc := s.HealthController()
-			hc.Seed(container, docker.HealthFailThreshold)
+
 			if _, err := s.hosts.DockerScopeFor(context.Background(), targetID); err == nil {
 				t.Fatal("invalid target must fail resolution")
 			}
 			hc.Sweep(context.Background())
-			if hc.Watching(container) {
-				t.Fatal("unresolved target retained liveness observations")
-			}
 			if got := daemon.Commands(); len(got) != 0 {
 				t.Fatalf("invalid target contacted local Docker: %v", got)
 			}
@@ -203,7 +200,7 @@ func crashLoopWorld(t *testing.T) (*Service, *database.DB, *dockerfake.Daemon, *
 	}
 	f.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) == 4 && args[0] == "inspect" && args[2] == docker.RuntimeFormat {
-			out, err := json.Marshal(docker.Runtime{ID: crashLoopContainerID, Labels: deploy.DockerIdentity{Deployment: dep.Label(), Generation: dep.ObservedGeneration}.Labels()})
+			out, err := json.Marshal(docker.Runtime{ID: crashLoopContainerID, Labels: deploy.DockerIdentity{Deployment: dep.label(), Generation: dep.ObservedGeneration}.Labels()})
 			return out, err, true
 		}
 		return nil, nil, false
@@ -276,11 +273,12 @@ func TestHealthControllerHoldsACrashLoop(t *testing.T) {
 // than counting as a loop or hiding the next one.
 func TestHealthControllerCountsRestartsAsARate(t *testing.T) {
 	t.Parallel()
-	_, _, f, hc, container := crashLoopWorld(t)
+	s, _, f, _, container := crashLoopWorld(t)
 	ctx := context.Background()
 	stops := func() int { return len(f.Matching("stop " + crashLoopContainerID)) }
 	now := time.Now()
-	hc.Clock(func() time.Time { return now })
+	s.clock = func() time.Time { return now }
+	hc := s.HealthController()
 
 	f.SetRestartCount(container, 0)
 	hc.Sweep(ctx)

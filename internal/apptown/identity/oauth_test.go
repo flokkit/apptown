@@ -26,7 +26,7 @@ func TestConsentAndExchange(t *testing.T) {
 	o := s.oauth
 	ctx := context.Background()
 	c, err := s.RegisterOAuthClient(ctx, Registration{Name: "  ", RedirectURIs: []string{"http://localhost:1/cb"}})
-	if err != nil || !strings.HasPrefix(c.ID, ClientPrefix) || c.Name != "a coding agent" {
+	if err != nil || !strings.HasPrefix(c.ID, clientPrefix) || c.Name != "a coding agent" {
 		t.Fatalf("register: %v %+v", err, c)
 	}
 	verifier := strings.Repeat("v", 43)
@@ -42,21 +42,21 @@ func TestConsentAndExchange(t *testing.T) {
 	}
 	in := CodeExchange{Code: result.Code, Verifier: verifier, ClientID: c.ID, RedirectURI: b.Request.RedirectURI, AuthMethod: "internal"}
 	pair, err := s.ExchangeCode(ctx, in)
-	if err != nil || !strings.HasPrefix(pair.Access, AccessPrefix) || !strings.HasPrefix(pair.Refresh, RefreshPrefix) || len(pair.Scopes) != 2 {
+	if err != nil || !strings.HasPrefix(pair.Access, AccessPrefix) || !strings.HasPrefix(pair.Refresh, refreshPrefix) || len(pair.Scopes) != 2 {
 		t.Fatalf("exchange: %v %+v", err, pair)
 	}
-	did, found, err := o.DelegationOfToken(context.Background(), pair.Access)
+	did, found, err := o.delegationOfToken(context.Background(), pair.Access)
 	if err != nil || !found {
 		t.Fatalf("delegation: %v %v", found, err)
 	}
-	if _, err := s.ExchangeCode(ctx, in); !errors.Is(err, ErrCodeReplay) {
+	if _, err := s.ExchangeCode(ctx, in); !errors.Is(err, errCodeReplay) {
 		t.Fatalf("a second exchange is a replay: %v", err)
 	}
-	if tok, err := o.Token(context.Background(), pair.Access, "access"); err != nil || tok == nil || !tok.Revoked {
+	if tok, err := o.token(context.Background(), pair.Access, "access"); err != nil || tok == nil || !tok.Revoked {
 		t.Fatalf("a replay revokes what the code minted: %+v %v", tok, err)
 	}
 
-	conn, err := o.Connection(context.Background(), did)
+	conn, err := o.connection(context.Background(), did)
 	if err != nil || conn == nil || conn.User != "alice" || conn.ClientName != c.Name || len(conn.Scopes) != 2 || !conn.LiveAt(time.Now()) {
 		t.Fatalf("connection: %v %+v", err, conn)
 	}
@@ -80,14 +80,14 @@ func TestRotationLeaksAndRevocation(t *testing.T) {
 	testAccounts(t, db, "alice")
 	s := New(db, Config{})
 	o := s.oauth
-	c, _ := o.RegisterClient(context.Background(), "agent", []string{"http://localhost:1/cb"})
-	code, _ := o.IssueCode(context.Background(), c, "alice", "http://localhost:1/cb", []string{"apptown:user:read"}, "", "ch")
-	rec, _ := o.CodeByValue(context.Background(), code)
-	did, pair, _, err := o.Exchange(context.Background(), code, rec, c.Name, "internal")
+	c, _ := o.registerClient(context.Background(), "agent", []string{"http://localhost:1/cb"})
+	code, _ := o.issueCode(context.Background(), c, "alice", "http://localhost:1/cb", []string{"apptown:user:read"}, "", "ch")
+	rec, _ := o.codeByValue(context.Background(), code)
+	did, pair, _, err := o.exchange(context.Background(), code, rec, c.Name, "internal")
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt, err := o.Token(context.Background(), pair.Refresh, "refresh")
+	rt, err := o.token(context.Background(), pair.Refresh, "refresh")
 	if err != nil || rt == nil || rt.DelegationID != did || rt.Revoked {
 		t.Fatalf("refresh record: %v %+v", err, rt)
 	}
@@ -98,45 +98,45 @@ func TestRotationLeaksAndRevocation(t *testing.T) {
 	if _, err := s.RefreshForClient(context.Background(), pair.Refresh, c.ID); !errors.Is(err, ErrLeaked) {
 		t.Fatalf("reuse: %v", err)
 	}
-	if conn, _ := o.Connection(context.Background(), did); conn.LiveAt(time.Now()) {
+	if conn, _ := o.connection(context.Background(), did); conn.LiveAt(time.Now()) {
 		t.Fatal("a leak ends the delegation")
 	}
-	if tok, _ := o.Token(context.Background(), next.Access, "access"); !tok.Revoked {
+	if tok, _ := o.token(context.Background(), next.Access, "access"); !tok.Revoked {
 		t.Fatal("a leak revokes the live tokens")
 	}
-	code2, _ := o.IssueCode(context.Background(), c, "alice", "http://localhost:1/cb", []string{"apptown:user:read"}, "", "ch")
-	rec2, _ := o.CodeByValue(context.Background(), code2)
-	did2, pair2, _, _ := o.Exchange(context.Background(), code2, rec2, c.Name, "internal")
-	if got, found, err := o.DelegationOfToken(context.Background(), pair2.Access); err != nil || !found || got != did2 {
+	code2, _ := o.issueCode(context.Background(), c, "alice", "http://localhost:1/cb", []string{"apptown:user:read"}, "", "ch")
+	rec2, _ := o.codeByValue(context.Background(), code2)
+	did2, pair2, _, _ := o.exchange(context.Background(), code2, rec2, c.Name, "internal")
+	if got, found, err := o.delegationOfToken(context.Background(), pair2.Access); err != nil || !found || got != did2 {
 		t.Fatalf("delegation of a token: %v %v %d", err, found, got)
 	}
-	if _, found, _ := o.DelegationOfToken(context.Background(), "nope"); found {
+	if _, found, _ := o.delegationOfToken(context.Background(), "nope"); found {
 		t.Fatal("unknown token")
 	}
 	if _, err := s.ResolveOAuth(context.Background(), pair2.Access, AudienceUser); err != nil {
 		t.Fatal(err)
 	}
-	mine, err := o.Connections(context.Background(), "alice", false)
+	mine, err := o.connections(context.Background(), "alice", false)
 	if err != nil || len(mine) != 1 || mine[0].ID != did2 || !mine[0].LastUsed.Valid {
 		t.Fatalf("my live connections: %v %+v", err, mine)
 	}
-	if all, _ := o.Connections(context.Background(), "nobody", true); len(all) != 1 {
+	if all, _ := o.connections(context.Background(), "nobody", true); len(all) != 1 {
 		t.Fatalf("everyone's: %d", len(all))
 	}
-	if err := o.Revoke(context.Background(), did2, "alice"); err != nil {
+	if err := o.revoke(context.Background(), did2, "alice"); err != nil {
 		t.Fatal(err)
 	}
-	if err := o.Revoke(context.Background(), idstest.N(9999), "alice"); err == nil {
+	if err := o.revoke(context.Background(), idstest.N(9999), "alice"); err == nil {
 		t.Fatal("revoking an unknown delegation is an error")
 	}
-	if mine, _ := o.Connections(context.Background(), "alice", false); len(mine) != 0 {
+	if mine, _ := o.connections(context.Background(), "alice", false); len(mine) != 0 {
 		t.Fatal("revoked connections are not listed")
 	}
 	if receipts := ledger(t, db, "oauth.disconnected"); len(receipts) != 1 {
 		t.Fatalf("disconnect receipt: %+v", receipts)
 	}
 	var n int
-	if err := o.SweepExpired(context.Background()); err != nil {
+	if err := o.sweepExpired(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: No owner read lists authorization codes; the sweep's promise is that the table holds none.
@@ -152,9 +152,9 @@ func TestADamagedTicketIsRefused(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	testAccounts(t, db, "alice")
-	k := NewTickets(db)
+	k := newTickets(db)
 	for name, damage := range map[string]string{"change": `resource_id='forty'`, "constraints": `constraints_json='["damaged"]'`} {
-		tok, ticket, err := k.Mint(context.Background(), "alice", ids.Nil, idstest.N(40), "refs/heads/apptown/change-40", "abc123")
+		tok, ticket, err := k.mint(context.Background(), "alice", ids.Nil, idstest.N(40), "refs/heads/apptown/change-40", "abc123")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -162,10 +162,10 @@ func TestADamagedTicketIsRefused(t *testing.T) {
 		if _, err := db.SQL().ExecContext(context.Background(), `UPDATE object_capabilities SET `+damage+` WHERE id=$1`, ticket.ID); err != nil {
 			t.Fatal(err)
 		}
-		if got, err := k.ByToken(context.Background(), tok); err == nil || got != nil {
+		if got, err := k.byToken(context.Background(), tok); err == nil || got != nil {
 			t.Fatalf("%s damaged: by token %+v %v; want an error", name, got, err)
 		}
-		if ok, err := k.Consume(context.Background(), ticket.ID); err == nil || ok {
+		if ok, err := k.consume(context.Background(), ticket.ID); err == nil || ok {
 			t.Fatalf("%s damaged: consumed %v %v; want an error", name, ok, err)
 		}
 	}
@@ -177,38 +177,38 @@ func TestTickets(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	testAccounts(t, db, "alice")
-	k := NewTickets(db)
-	tok, ticket, err := k.Mint(context.Background(), "alice", ids.Nil, idstest.N(40), "refs/heads/apptown/change-40", "abc123")
+	k := newTickets(db)
+	tok, ticket, err := k.mint(context.Background(), "alice", ids.Nil, idstest.N(40), "refs/heads/apptown/change-40", "abc123")
 	if err != nil || !strings.HasPrefix(tok, TicketPrefix) || ticket.ID.IsZero() {
 		t.Fatalf("mint: %v %q %+v", err, tok, ticket)
 	}
-	live, err := k.ByToken(context.Background(), tok)
+	live, err := k.byToken(context.Background(), tok)
 	if err != nil || live == nil || live.ChangeID != idstest.N(40) || live.Ref != "refs/heads/apptown/change-40" || live.ExpectedTip != "abc123" {
 		t.Fatalf("by token: %v %+v", err, live)
 	}
-	if got, err := k.ByToken(context.Background(), "apptown_git_nope"); err != nil || got != nil {
+	if got, err := k.byToken(context.Background(), "apptown_git_nope"); err != nil || got != nil {
 		t.Fatalf("unknown ticket: %v %+v", err, got)
 	}
-	if got, _ := k.ByToken(context.Background(), "not-a-ticket"); got != nil {
+	if got, _ := k.byToken(context.Background(), "not-a-ticket"); got != nil {
 		t.Fatal("wrong prefix")
 	}
-	if ok, err := k.Consume(context.Background(), ticket.ID); err != nil || !ok {
+	if ok, err := k.consume(context.Background(), ticket.ID); err != nil || !ok {
 		t.Fatalf("consume: %v %v", err, ok)
 	}
-	if ok, err := k.Consume(context.Background(), ticket.ID); err != nil || ok {
+	if ok, err := k.consume(context.Background(), ticket.ID); err != nil || ok {
 		t.Fatalf("a spent ticket is not consumed twice: %v %v", err, ok)
 	}
-	if got, _ := k.ByToken(context.Background(), tok); got != nil {
+	if got, _ := k.byToken(context.Background(), tok); got != nil {
 		t.Fatal("a spent ticket is not live")
 	}
-	tok2, _, _ := k.Mint(context.Background(), "alice", ids.Nil, idstest.N(40), "refs/heads/apptown/change-40", "")
-	if err := k.RevokeForChange(context.Background(), idstest.N(40)); err != nil {
+	tok2, _, _ := k.mint(context.Background(), "alice", ids.Nil, idstest.N(40), "refs/heads/apptown/change-40", "")
+	if err := k.revokeForChange(context.Background(), idstest.N(40)); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := k.ByToken(context.Background(), tok2); got != nil {
+	if got, _ := k.byToken(context.Background(), tok2); got != nil {
 		t.Fatal("a revoked ticket is not live")
 	}
-	tok3, t3, _ := k.Mint(context.Background(), "alice", ids.Nil, idstest.N(41), "refs/heads/apptown/change-41", "")
+	tok3, t3, _ := k.mint(context.Background(), "alice", ids.Nil, idstest.N(41), "refs/heads/apptown/change-41", "")
 	ticketRow, err := queries(db).TicketByIDForUpdate(context.Background(), t3.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -220,7 +220,7 @@ func TestTickets(t *testing.T) {
 	if err != nil || rows != 1 {
 		t.Fatalf("expire live ticket: %d %v", rows, err)
 	}
-	if got, _ := k.ByToken(context.Background(), tok3); got != nil {
+	if got, _ := k.byToken(context.Background(), tok3); got != nil {
 		t.Fatal("an expired ticket is not live")
 	}
 }

@@ -15,17 +15,17 @@ func TestChangeLifecycleActs(t *testing.T) {
 		act  ChangeAction
 		next [4]ChangeState
 	}{
-		{AttachChangeRun, [4]ChangeState{ChangeInProgress, ChangeLanding, 0, 0}},
+		{attachChangeRun, [4]ChangeState{ChangeInProgress, ChangeLanding, 0, 0}},
 		{LandChange, [4]ChangeState{ChangeLanding, ChangeLanding, 0, 0}},
-		{ResumeChange, [4]ChangeState{ChangeInProgress, ChangeInProgress, 0, 0}},
-		{CancelChangeLanding, [4]ChangeState{ChangeInProgress, ChangeInProgress, ChangeShipped, ChangeAbandoned}},
+		{resumeChange, [4]ChangeState{ChangeInProgress, ChangeInProgress, 0, 0}},
+		{cancelChangeLanding, [4]ChangeState{ChangeInProgress, ChangeInProgress, ChangeShipped, ChangeAbandoned}},
 		{ShipChange, [4]ChangeState{ChangeShipped, ChangeShipped, 0, 0}},
-		{AbandonChange, [4]ChangeState{ChangeAbandoned, ChangeAbandoned, 0, 0}},
+		{abandonChange, [4]ChangeState{ChangeAbandoned, ChangeAbandoned, 0, 0}},
 		{255, [4]ChangeState{}},
 	}
 	for _, tc := range cases {
 		for i, from := range states {
-			got, err := from.Transition(tc.act)
+			got, err := from.transition(tc.act)
 			if got != tc.next[i] || (err != nil) != (tc.next[i] == 0) {
 				t.Fatalf("act %d from %s: %s %v", tc.act, from, got, err)
 			}
@@ -36,7 +36,7 @@ func TestChangeLifecycleActs(t *testing.T) {
 	}
 	for _, state := range []ChangeState{0, 255} {
 		for _, tc := range cases {
-			if next, err := state.Transition(tc.act); next != 0 || !errors.Is(err, errChangeState) {
+			if next, err := state.transition(tc.act); next != 0 || !errors.Is(err, errChangeState) {
 				t.Fatalf("invalid stored state acted: %s %v", next, err)
 			}
 		}
@@ -84,7 +84,7 @@ func TestChangeStateEncodingAndAbsence(t *testing.T) {
 		if _, err := state.Value(); !errors.Is(err, errChangeState) {
 			t.Fatalf("invalid database state: %v", err)
 		}
-		if state.Closed() || state.CanRun() {
+		if state.Closed() || state.canRun() {
 			t.Fatal("unknown observation admitted work or cleanup")
 		}
 	}

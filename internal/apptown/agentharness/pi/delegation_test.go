@@ -32,7 +32,7 @@ func readSettings(t *testing.T, dir string) map[string]any {
 
 func TestPiAgentSurfaceWithoutBakedExtension(t *testing.T) {
 	t.Parallel()
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	daemon.SetReply(func([]string) ([]byte, error, bool) { return nil, nil, true })
 	scope := docker.Scope{Client: daemon}
 	home := NewPreparer(publicConfig{}, selectedSlots{}, noExtensions{}, &scope, "test-agent")
@@ -68,4 +68,8 @@ func TestStepArgsPointAtTheGivenPaths(t *testing.T) {
 		!strings.Contains(joined, "--append-system-prompt /apptown/in/steering.md") || strings.Contains(joined, ".apptown") {
 		t.Fatalf("given paths: %s", joined)
 	}
+}
+
+func newDockerFake() *dockerfake.Daemon {
+	return dockerfake.New()
 }

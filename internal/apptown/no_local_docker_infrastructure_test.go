@@ -30,7 +30,6 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -71,7 +70,7 @@ func infrastructureModeApp(t *testing.T) *App {
 func infrastructureModeAppWith(t *testing.T, client docker.Client) *App {
 	t.Helper()
 	ca := workertest.NewCA(t)
-	previews := dockerfake.New() // runs nothing: every preview is absent
+	previews := newDockerFake() // runs nothing: every preview is absent
 	previews.SetReply(func(args []string) ([]byte, error, bool) {
 		if args[0] == "inspect" {
 			return []byte("Error: No such object\n"), errors.New("exit status 1"), true
@@ -544,7 +543,7 @@ func TestInTheNoLocalDockerModeReadViewsSayUnavailableOrUnknown(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	a.VHost(http.NotFoundHandler()).ServeHTTP(rec, httptest.NewRequest("GET", "http://game.main.example.test/", nil))
+	a.vHost(http.NotFoundHandler()).ServeHTTP(rec, httptest.NewRequest("GET", "http://game.main.example.test/", nil))
 	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "unavailable: this AppTown has no local Docker") {
 		t.Fatalf("vhost: %d %s", rec.Code, rec.Body.String())
 	}

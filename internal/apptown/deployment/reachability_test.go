@@ -3,9 +3,10 @@ package deployment
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/deploy"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 // Reachability is a provider fact, never inferred from an error's wording.
@@ -33,11 +34,11 @@ func TestRuntimeReachabilityRetainsFirstFailureUntilSuccessOrPlacementChange(t *
 	failure = deploy.Unreachable(errors.New("connection refused"))
 	now = now.Add(time.Second)
 	first := read()
-	if first.State != RuntimeUnreachable || !first.UnreachableSince.Equal(now) || first.TargetName == "" || first.State.Running() != nil {
+	if first.State != runtimeUnreachable || !first.UnreachableSince.Equal(now) || first.TargetName == "" || first.State.Running() != nil {
 		t.Fatalf("first failure: %+v", first)
 	}
 	now = now.Add(time.Minute)
-	if got := read(); got.State != RuntimeUnreachable || got.UnreachableSince != first.UnreachableSince {
+	if got := read(); got.State != runtimeUnreachable || got.UnreachableSince != first.UnreachableSince {
 		t.Fatalf("repeated failure: %+v", got)
 	}
 	if _, err := s.EditTargetLabel(t.Context(), envs[0].TargetID, first.TargetName, "Club host"); err != nil {

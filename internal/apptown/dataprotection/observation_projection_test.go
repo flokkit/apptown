@@ -3,12 +3,13 @@ package dataprotection
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/apptown/deployment"
-	"github.com/flokkit/apptown/internal/ids"
-	"github.com/flokkit/apptown/internal/ids/idstest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 func TestProtectionObservationKeepsUnknownRehearsalDistinctFromFailure(t *testing.T) {
@@ -33,7 +34,7 @@ func TestProtectionFailureExplainsRetainedEvidenceAndRecovery(t *testing.T) {
 	observer := &ProtectionObserver{db: testDB(t), now: func() time.Time { return now }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return &dep, identity, nil }, read: func(context.Context, ids.ID, string) (*Protection, error) { return result, readErr }}
 	run := func() ProtectionSnapshot {
 		t.Helper()
-		_ = observer.Run(t.Context(), dep.ID, identity)
+		_ = observer.run(t.Context(), dep.ID, identity)
 		got, err := observer.Snapshot(t.Context(), dep.ID)
 		if err != nil {
 			t.Fatal(err)
@@ -49,7 +50,7 @@ func TestProtectionFailureExplainsRetainedEvidenceAndRecovery(t *testing.T) {
 		t.Fatalf("nine minutes is not overdue: %+v", got)
 	}
 	result = &Protection{Unknown: "provider secret and private volume"}
-	if err := observer.Run(t.Context(), dep.ID, identity); err == nil || err.Error() != result.Unknown {
+	if err := observer.run(t.Context(), dep.ID, identity); err == nil || err.Error() != result.Unknown {
 		t.Fatalf("held-data failure was reported as a successful job: %v", err)
 	}
 	got, _ = observer.Snapshot(t.Context(), dep.ID)
@@ -89,7 +90,7 @@ func TestProtectionReasonsNameTheFailedCheckWithoutProviderDetails(t *testing.T)
 	}{
 		{"held data", Protection{Unknown: "private volume and provider secret"}, "The deployment's data could not be read."},
 		{"declared data", Protection{Coverage: Coverage{NotAssessed: []string{"private volume"}}}, "Protection could not be assessed for some declared data."},
-		{"copy", Protection{Items: []ItemProtection{{Copy: CopyUnknown}}}, "The latest data copy was interrupted."},
+		{"copy", Protection{Items: []ItemProtection{{Copy: copyUnknown}}}, "The latest data copy was interrupted."},
 		{"native", Protection{Items: []ItemProtection{{Native: &NativeBackups{Unknown: "provider secret"}}}}, "The provider backup check failed."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -109,7 +110,7 @@ func TestProtectionReadingSurvivesRestartAndBecomesUnknownAfterSixHours(t *testi
 	dep := &deployment.Deployment{ID: idstest.N(1), Kind: deployment.Standing}
 	resolve := func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return dep, "identity", nil }
 	observer := &ProtectionObserver{db: db, now: func() time.Time { return now }, resolve: resolve, read: func(context.Context, ids.ID, string) (*Protection, error) { return &Protection{}, nil }}
-	if err := observer.Run(t.Context(), dep.ID, "identity"); err != nil {
+	if err := observer.run(t.Context(), dep.ID, "identity"); err != nil {
 		t.Fatal(err)
 	}
 	restarted := &ProtectionObserver{db: db, now: func() time.Time { return now }, resolve: resolve}
@@ -153,7 +154,7 @@ func TestNativeBackupFailureKeepsKnownValuesAndTheFiveMinuteReadBudgetAcrossRest
 		t.Fatalf("failed check erased evidence: %+v", failed)
 	}
 	before := len(w.api.Snapshot().Requests)
-	restarted := &Service{core: w.s.core, nativeFresh: NativeReadFor}
+	restarted := &Service{core: w.s.core, nativeFresh: nativeReadFor}
 	again := restarted.nativeOf(t.Context(), md, plan)
 	if len(w.api.Snapshot().Requests) != before || !again.CheckFailed || again.ObservedAt != first {
 		t.Fatalf("restart lost failure read budget: %+v", again)

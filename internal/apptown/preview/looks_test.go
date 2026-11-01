@@ -180,7 +180,7 @@ func TestAWorkerPreviewStopsEightHoursAfterItsLastLook(t *testing.T) {
 	clock := newAppTownClock()
 	w := newWorld(t, "", "")
 	s, f, _, dir, pid := onWorker(t, w)
-	s.clock, s.runtime.Now = clock.Now, clock.Now
+	s.clock, s.runtime.now = clock.Now, clock.Now
 	writePreviewBootFixture(t, filepath.Join(dir, "workspaces", "change-00000000-0009-7000-8000-000000000000"))
 	name := docker.PreviewChangeName(idstest.N(9))
 	if _, err := s.RehearseChange(context.Background(), Change{ID: idstest.N(9), ProjectID: pid}, false); err != nil {
@@ -331,7 +331,7 @@ func TestAWorkerPreviewsBuildGoesThroughTheWorker(t *testing.T) {
 	clock := newAppTownClock()
 	w := newWorld(t, "", "")
 	s, f, _, dir, pid := onWorker(t, w)
-	s.clock, s.runtime.Now = clock.Now, clock.Now
+	s.clock, s.runtime.now = clock.Now, clock.Now
 	writePreviewBootFixture(t, filepath.Join(dir, "workspaces", "change-00000000-0009-7000-8000-000000000000"))
 	name := docker.PreviewChangeName(idstest.N(9))
 	if _, err := s.RehearseChange(context.Background(), Change{ID: idstest.N(9), ProjectID: pid}, false); err != nil {

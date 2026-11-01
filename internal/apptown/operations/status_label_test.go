@@ -9,7 +9,7 @@ func TestOperationLabelsDoNotConfuseUnknownWithFailure(t *testing.T) {
 	for _, tc := range []struct {
 		state OperationState
 		want  OperationLabel
-	}{{Queued, LabelWaiting}, {Running, LabelWorking}, {Succeeded, LabelFinished}, {Failed, LabelFailed}, {Unknown, LabelUnknown}, {Cancelled, LabelStopped}} {
+	}{{Queued, labelWaiting}, {Running, labelWorking}, {Succeeded, labelFinished}, {Failed, labelFailed}, {Unknown, labelUnknown}, {Cancelled, labelStopped}} {
 		raw, _ := json.Marshal(Operation{State: tc.state, Verification: "not-verified"})
 		var got struct {
 			StatusLabel  OperationLabel

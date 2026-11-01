@@ -66,20 +66,20 @@ func administratorNetworksIn(ctx context.Context, q database.Queryer) (Administr
 	return out, nil
 }
 
-// NetworkInputError identifies an invalid address or CIDR declaration.
-type NetworkInputError struct{ Entry string }
+// networkInputError identifies an invalid address or CIDR declaration.
+type networkInputError struct{ Entry string }
 
-func (e *NetworkInputError) FaultKind() fault.Kind { return fault.Invalid }
+func (e *networkInputError) FaultKind() fault.Kind { return fault.Invalid }
 
-func (e *NetworkInputError) Error() string {
+func (e *networkInputError) Error() string {
 	return fmt.Sprintf("%q is not a network (use CIDR form, e.g. 192.168.1.0/24)", e.Entry)
 }
 
-type NetworkLockoutError struct{ From, Networks string }
+type networkLockoutError struct{ From, Networks string }
 
-func (e *NetworkLockoutError) FaultKind() fault.Kind { return fault.Conflict }
+func (e *networkLockoutError) FaultKind() fault.Kind { return fault.Conflict }
 
-func (e *NetworkLockoutError) Error() string {
+func (e *networkLockoutError) Error() string {
 	return fmt.Sprintf("that list would lock you out: you are connecting from %s, which is in none of %s", e.From, e.Networks)
 }
 
@@ -91,21 +91,21 @@ func (p AdministratorNetworks) prepare(from net.IP) (AdministratorNetworks, erro
 			continue
 		}
 		if _, _, err := net.ParseCIDR(entry); err != nil && net.ParseIP(entry) == nil {
-			return nil, &NetworkInputError{Entry: entry}
+			return nil, &networkInputError{Entry: entry}
 		}
 		clean = append(clean, entry)
 	}
 	if !clean.Allows(from) {
-		return nil, &NetworkLockoutError{From: from.String(), Networks: strings.Join(clean, ", ")}
+		return nil, &networkLockoutError{From: from.String(), Networks: strings.Join(clean, ", ")}
 	}
 	return clean, nil
 }
 
 var (
-	ErrAdministratorNetworksExpected = fault.New(fault.Invalid, "send the list of networks the edit started from (expected)")
-	// ErrAdministratorNetworksMoved carries a code so a client can offer the
+	errAdministratorNetworksExpected = fault.New(fault.Invalid, "send the list of networks the edit started from (expected)")
+	// errAdministratorNetworksMoved carries a code so a client can offer the
 	// person the current list.
-	ErrAdministratorNetworksMoved error = networksMoved{}
+	errAdministratorNetworksMoved error = networksMoved{}
 )
 
 type networksMoved struct{}
@@ -125,7 +125,7 @@ func (s *Service) SetAdministratorNetworks(ctx context.Context, pr access.Princi
 		return nil, err
 	}
 	if expected == nil {
-		return nil, ErrAdministratorNetworksExpected
+		return nil, errAdministratorNetworksExpected
 	}
 	clean, err := networks.prepare(from)
 	if err != nil {
@@ -141,7 +141,7 @@ func (s *Service) SetAdministratorNetworks(ctx context.Context, pr access.Princi
 			return err
 		}
 		if !slices.Equal([]string(before), []string(*expected)) {
-			return ErrAdministratorNetworksMoved
+			return errAdministratorNetworksMoved
 		}
 		value := strings.Join(clean, ",")
 		if _, err := q.PutInstanceSetting(ctx, accesssql.PutInstanceSettingParams{Key: settingAdministratorNetworks, Value: value}); err != nil {

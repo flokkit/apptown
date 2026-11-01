@@ -107,7 +107,7 @@ func TestTwoVersionsOfOneRepositoryAreRefusedBeforeCreate(t *testing.T) {
 	// The platform's refusal, as the restore test saw it.
 	c, _, _ := d.Client(context.Background())
 	err = c.Call(context.Background(), "POST", "/v2/apps", map[string]any{"spec": json.RawMessage(body)}, nil)
-	if !IsStatus(err, 400) || !strings.Contains(err.Error(), "not configured for this app") {
+	if !isStatus(err, 400) || !strings.Contains(err.Error(), "not configured for this app") {
 		t.Fatalf("the fake platform took two versions of one repository: %v", err)
 	}
 	before := appCreates(api)

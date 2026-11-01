@@ -303,9 +303,9 @@ func removeUnreferenced(ctx context.Context, q database.Queryer, dataDir, digest
 	return true, nil
 }
 
-// UnrecordedSession is an agent attempt whose start receipt names a session
+// unrecordedSession is an agent attempt whose start receipt names a session
 // but that recorded no history (UnrecordedSessionsIn).
-type UnrecordedSession struct {
+type unrecordedSession struct {
 	Run     RunRef
 	StepID  ids.ID
 	Attempt int64
@@ -319,14 +319,14 @@ type UnrecordedSession struct {
 // attempts that recorded no history: runs from before transcripts were
 // kept, and attempts AppTown lost mid-invocation. An attempt still
 // running is not listed; it records its own.
-func UnrecordedSessionsIn(ctx context.Context, q database.Queryer, max int) ([]UnrecordedSession, error) {
+func UnrecordedSessionsIn(ctx context.Context, q database.Queryer, max int) ([]unrecordedSession, error) {
 	rows, err := workflowsql.New(q.SQL()).UnrecordedSessionStarts(ctx, int32(max))
 	if err != nil {
 		return nil, err
 	}
-	out := make([]UnrecordedSession, len(rows))
+	out := make([]unrecordedSession, len(rows))
 	for i, r := range rows {
-		out[i] = UnrecordedSession{Run: RunRef{ID: r.RunID, ProjectID: r.ProjectID}, StepID: r.StepID, Attempt: r.Attempt, Session: r.SessionID, Superseded: r.Superseded}
+		out[i] = unrecordedSession{Run: RunRef{ID: r.RunID, ProjectID: r.ProjectID}, StepID: r.StepID, Attempt: r.Attempt, Session: r.SessionID, Superseded: r.Superseded}
 	}
 	return out, nil
 }

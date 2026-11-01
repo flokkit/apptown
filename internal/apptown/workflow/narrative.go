@@ -17,7 +17,7 @@ import (
 	"github.com/flokkit/apptown/internal/strs"
 )
 
-type NarrativeRun struct {
+type narrativeRunView struct {
 	// Steps are the governing workflow's steps ("stage/name (type)"): what the
 	// work was actually required to pass.
 	Steps []string
@@ -26,13 +26,13 @@ type NarrativeRun struct {
 	State RunState
 }
 
-type NarrativeArtifact struct{ Kind, Body string }
+type narrativeArtifact struct{ Kind, Body string }
 
 type NarrativeSource struct {
 	Change              *Change
 	Slug, DefaultBranch string
-	Runs                []NarrativeRun
-	Artifacts           []NarrativeArtifact
+	Runs                []narrativeRunView
+	Artifacts           []narrativeArtifact
 	// AgentReport is what the agent said about its own work when it handed
 	// the change off. It is a claim, never evidence.
 	AgentReport string
@@ -81,14 +81,14 @@ func (s *Service) NarrativeSource(ctx context.Context, changeID ids.ID) (Narrati
 	if _, _, err := s.changeScope(ctx, changeID, actionPublishNarrative); err != nil {
 		return NarrativeSource{}, err
 	}
-	return s.narratives.Source(ctx, changeID)
+	return s.narratives.source(ctx, changeID)
 }
 
 func (s *Service) PublishNarrative(ctx context.Context, in NarrativePublication) error {
 	if _, _, err := s.changeScope(ctx, in.Source.Change.ID, actionPublishNarrative); err != nil {
 		return err
 	}
-	return s.narratives.Publish(ctx, in)
+	return s.narratives.publish(ctx, in)
 }
 
 var ErrNarrativeChanged = fault.New(fault.Conflict, "Change narrative source changed; refresh again")
@@ -123,7 +123,7 @@ func ParseNarrative(out string) (NarrativeDraft, error) {
 		line, body, _ := strings.Cut(rest, "\n")
 		word, gap, _ := strings.Cut(strings.TrimSpace(line), " ")
 		draft.Met = parseRequestMet(strings.Trim(word, ".,:;—-"))
-		if draft.Met != RequestMetYes {
+		if draft.Met != requestMetYes {
 			draft.Gap = bound(strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(gap), "—–-:")), maxGap)
 		}
 		draft.Note = strings.TrimSpace(body)
@@ -285,7 +285,7 @@ func bound(text string, n int) string {
 	return text[:end]
 }
 
-func (s narratives) Source(ctx context.Context, id ids.ID) (NarrativeSource, error) {
+func (s narratives) source(ctx context.Context, id ids.ID) (NarrativeSource, error) {
 	tx, err := s.db.ReadSnapshot(ctx)
 	if err != nil {
 		return NarrativeSource{}, err
@@ -306,7 +306,7 @@ func (s narratives) Source(ctx context.Context, id ids.ID) (NarrativeSource, err
 	if err != nil {
 		return NarrativeSource{}, database.Missing(err)
 	}
-	source.Runs = make([]NarrativeRun, 0, len(runs))
+	source.Runs = make([]narrativeRunView, 0, len(runs))
 	for _, row := range runs {
 		state, err := ParseRunState(row.Status)
 		if err != nil {
@@ -320,15 +320,15 @@ func (s narratives) Source(ctx context.Context, id ids.ID) (NarrativeSource, err
 		for _, st := range steps {
 			names = append(names, fmt.Sprintf("%s/%s (%s)", st.Stage, st.Name, st.Type))
 		}
-		source.Runs = append(source.Runs, NarrativeRun{ID: row.ID, Name: row.WorkflowName, State: state, Steps: names})
+		source.Runs = append(source.Runs, narrativeRunView{ID: row.ID, Name: row.WorkflowName, State: state, Steps: names})
 	}
 	artifacts, err := records.NarrativeArtifacts(ctx, workflowsql.NarrativeArtifactsParams{ChangeID: id, ProjectID: source.Change.ProjectID})
 	if err != nil {
 		return NarrativeSource{}, err
 	}
-	source.Artifacts = make([]NarrativeArtifact, 0, len(artifacts))
+	source.Artifacts = make([]narrativeArtifact, 0, len(artifacts))
 	for _, row := range artifacts {
-		source.Artifacts = append(source.Artifacts, NarrativeArtifact{Kind: row.Kind, Body: row.Body})
+		source.Artifacts = append(source.Artifacts, narrativeArtifact{Kind: row.Kind, Body: row.Body})
 	}
 	report, err := records.NarrativeAgentReport(ctx, workflowsql.NarrativeAgentReportParams{ChangeID: id, ProjectID: source.Change.ProjectID})
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -345,7 +345,7 @@ func (s narratives) Source(ctx context.Context, id ids.ID) (NarrativeSource, err
 // publication rechecks its scope and description/source facts. A concurrent human
 // title is preserved. The summary comparison prevents overwriting a different
 // completed publication, without claiming a durable generation/freshness protocol.
-func (s narratives) Publish(ctx context.Context, in NarrativePublication) error {
+func (s narratives) publish(ctx context.Context, in NarrativePublication) error {
 	source, draft, slot, model := in.Source, in.Draft, in.Slot, in.Model
 	if source.Change == nil {
 		return fmt.Errorf("invalid narrative publication")
@@ -366,7 +366,7 @@ func (s narratives) Publish(ctx context.Context, in NarrativePublication) error 
 		}
 		met := parseRequestMet(string(draft.Met))
 		gap := ""
-		if met != RequestMetYes {
+		if met != requestMetYes {
 			gap = draft.Gap
 		}
 		n, err := records.PublishChangeNarrative(ctx, workflowsql.PublishChangeNarrativeParams{Summary: draft.Note, RequestMet: string(met), RequestGap: gap, ID: ch.ID, ProjectID: ch.ProjectID, Body: ch.Body, State: ch.State.String(), RunID: ch.RunID, Branch: ch.Branch, BaseSha: ch.BaseSHA, OldSummary: ch.Summary})
@@ -389,17 +389,17 @@ func (s narratives) Publish(ctx context.Context, in NarrativePublication) error 
 	})
 }
 
-// NarrativeReleaseNotes publishes linked Delivery prose in the Change transaction.
-type NarrativeReleaseNotes interface {
+// narrativeReleaseNotes publishes linked Delivery prose in the Change transaction.
+type narrativeReleaseNotes interface {
 	FillIn(context.Context, *database.Tx, ids.ID, ids.ID, string) error
 }
 
 type narratives struct {
 	db    *database.DB
-	notes NarrativeReleaseNotes
+	notes narrativeReleaseNotes
 	clocked
 }
 
-func newNarratives(db *database.DB, notes NarrativeReleaseNotes) narratives {
+func newNarratives(db *database.DB, notes narrativeReleaseNotes) narratives {
 	return narratives{db: db, notes: notes}
 }

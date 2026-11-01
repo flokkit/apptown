@@ -27,12 +27,13 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
+
 	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/poll"
+
+	testinputs "github.com/flokkit/apptown/internal/execution/executiontest"
 	"github.com/flokkit/apptown/internal/stockupdate/stockupdatetest"
-	"github.com/flokkit/apptown/internal/testinputs"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/stock"
 )
@@ -218,7 +219,7 @@ type Container struct {
 
 func runDocker(t *testing.T, args ...string) string {
 	t.Helper()
-	out, err := dockertest.CombinedOutput(args...)
+	out, err := dockerOutput(args...)
 	if err != nil {
 		t.Fatalf("docker %s: %v\n%s", strings.Join(args, " "), err, out)
 	}
@@ -229,7 +230,7 @@ func runDocker(t *testing.T, args ...string) string {
 func buildWorker(t *testing.T, binary string, env ...string) {
 	t.Helper()
 	// The command is built in a child process: its sources are this test's
-	// inputs only once read here (internal/testinputs).
+	// inputs only once read here (executiontest.GoBuild).
 	testinputs.GoBuild(t, "", env, "github.com/flokkit/apptown/cmd/apptown-worker")
 	run := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
 		Argv: []string{"go", "build", "-o", binary, "github.com/flokkit/apptown/cmd/apptown-worker"}, Env: env, Timeout: 10 * time.Minute})
@@ -254,8 +255,8 @@ func StartInContainer(t *testing.T, ca *CA) *Container {
 	// ZFS_MODULE_TIMEOUT=0, as for the product's private daemons: on a ZFS
 	// host containerd's zfs probe otherwise outlasts dockerd's wait for it.
 	runDocker(t, "run", "-d", "--privileged", "--name", name, "-e", "ZFS_MODULE_TIMEOUT=0", "-p", "127.0.0.1::8443", stock.Images().PrivateDocker)
-	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", "-v", name) })
-	if !poll.Until(context.Background(), 90*time.Second, time.Second, func() bool { return dockertest.Run("exec", name, "docker", "info") == nil }) {
+	t.Cleanup(func() { _ = dockerRun("rm", "-f", "-v", name) })
+	if !poll.Until(context.Background(), 90*time.Second, time.Second, func() bool { return dockerRun("exec", name, "docker", "info") == nil }) {
 		t.Fatal("the worker's Docker daemon never started")
 	}
 	w := &Container{t: t, container: name}
@@ -355,19 +356,19 @@ func (w *Container) launch() error {
 	}
 	// The pid file names the worker of this start only: a restart's old
 	// pid would read as this worker having exited.
-	if out, err := dockertest.CombinedOutput("exec", w.container, "rm", "-f", "/worker.pid"); err != nil {
+	if out, err := dockerOutput("exec", w.container, "rm", "-f", "/worker.pid"); err != nil {
 		return fmt.Errorf("clearing the worker's pid file: %v\n%s", err, out)
 	}
-	if out, err := dockertest.CombinedOutput("exec", "-d", w.container, "sh", "-c",
+	if out, err := dockerOutput("exec", "-d", w.container, "sh", "-c",
 		"echo $$ > /worker.pid; exec /apptown-worker -installation "+Installation+" -state /var/lib/apptown-worker -cert /certs/worker.pem -key /certs/worker-key.pem -client-ca /certs/ca.pem > /worker.log 2>&1"); err != nil {
 		return fmt.Errorf("starting apptown-worker: %v\n%s", err, out)
 	}
 	// Exited: the container is gone, or the recorded pid is not running.
 	// No pid file yet is a worker still starting.
 	return w.awaitListening(func() bool {
-		return dockertest.Run("exec", w.container, "sh", "-c", `[ ! -f /worker.pid ] || kill -0 "$(cat /worker.pid)"`) != nil
+		return dockerRun("exec", w.container, "sh", "-c", `[ ! -f /worker.pid ] || kill -0 "$(cat /worker.pid)"`) != nil
 	}, func() string {
-		out, err := dockertest.CombinedOutput("exec", w.container, "cat", "/worker.log")
+		out, err := dockerOutput("exec", w.container, "cat", "/worker.log")
 		if err != nil {
 			return fmt.Sprintf("(reading /worker.log: %v) %s", err, out)
 		}
@@ -479,7 +480,7 @@ func (w *Container) Restart() {
 	}
 	old := runDocker(w.t, "exec", w.container, "cat", "/worker.pid")
 	runDocker(w.t, "exec", w.container, "kill", old)
-	if !poll.Until(context.Background(), 30*time.Second, 100*time.Millisecond, func() bool { return dockertest.Run("exec", w.container, "kill", "-0", old) != nil }) {
+	if !poll.Until(context.Background(), 30*time.Second, 100*time.Millisecond, func() bool { return dockerRun("exec", w.container, "kill", "-0", old) != nil }) {
 		w.t.Fatalf("worker process %s did not exit", old)
 	}
 	w.start()
@@ -568,3 +569,8 @@ func (e *External) Ctl(t *testing.T, verb string) string {
 	}
 	return strings.TrimSpace(string(run.Output))
 }
+
+func dockerOutput(args ...string) ([]byte, error) {
+	return docker.CLI{}.Run(context.Background(), "", docker.Command{Args: args})
+}
+func dockerRun(args ...string) error { _, err := dockerOutput(args...); return err }

@@ -206,7 +206,7 @@ func TestImportRefusesANameThatIsNotABranchName(t *testing.T) {
 		t.Fatalf("%v: %s", err, out)
 	}
 	in.Branch = "-early"
-	if ch, err := i.Import(context.Background(), in, "alice"); ch != nil || err == nil || !strings.Contains(err.Error(), "invalid branch") {
+	if ch, err := i.importChange(context.Background(), in, "alice"); ch != nil || err == nil || !strings.Contains(err.Error(), "invalid branch") {
 		t.Fatalf("import of %q: %+v %v", in.Branch, ch, err)
 	}
 }
@@ -220,7 +220,7 @@ func TestSpecializedImportPreservesHistoricalIdentityAndPostCommitFailure(t *tes
 		wantReceiptCount(t, i.creator.records.db, 2, inProject(in.ProjectID, nil))
 		return failure
 	}
-	ch, err := i.Import(context.Background(), in, "alice via mcp/history")
+	ch, err := i.importChange(context.Background(), in, "alice via mcp/history")
 	if ch == nil || !errors.Is(err, failure) || calls != 1 || !strings.Contains(err.Error(), "is recorded") {
 		t.Fatalf("identity lost: %+v %v calls %d", ch, err, calls)
 	}
@@ -291,7 +291,7 @@ func TestSpecializedAdmissionCancelsProjectAndRepositoryWaits(t *testing.T) {
 		defer release()
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		ch, err := i.Import(ctx, in, "alice")
+		ch, err := i.importChange(ctx, in, "alice")
 		if ch != nil || !errors.Is(err, context.Canceled) {
 			t.Fatalf("cancel: %+v %v", ch, err)
 		}

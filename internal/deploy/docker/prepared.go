@@ -166,7 +166,7 @@ func PrepareBoot(ctx context.Context, deps Dependencies, registry *RegistryCrede
 
 // Dependencies are the prepared values as a Host's dependencies, with the
 // machine's own probe and the images of one tool versions snapshot.
-func (p Prepared) Dependencies(probe Prober, images toolversions.Images) Dependencies {
+func (p Prepared) Dependencies(probe prober, images toolversions.Images) Dependencies {
 	return Dependencies{Secrets: preparedSecrets{p}, Needs: preparedNeeds{p}, Registry: preparedLogin{p.Registry},
 		Integrations: preparedContributions{p}, Routes: preparedRoutes{p}, Probe: probe, StaticServer: images.StaticServer, ChownImage: images.Sh, DFImage: images.DF}
 }
@@ -176,14 +176,14 @@ type preparedSecrets struct{ p Prepared }
 // Resolve answers the prepared deliveries, only for the contract they were
 // prepared for: another contract cannot use them.
 func (s preparedSecrets) Resolve(ctx context.Context, _, _, _ string, c *appcontract.Contract, allowed func(context.Context) error) (Delivery, error) {
-	if !SameContract(c, s.p.Contract) {
+	if !sameContract(c, s.p.Contract) {
 		return Delivery{}, fmt.Errorf("the boot's values were prepared for another contract")
 	}
 	return Delivery{Env: func(consumer string) map[string]string { return s.p.Secrets[consumer] }, Receipts: s.p.Receipts, Profile: s.p.Profile}, nil
 }
 
-// SameContract says whether two contracts declare the same thing.
-func SameContract(a, b *appcontract.Contract) bool {
+// sameContract says whether two contracts declare the same thing.
+func sameContract(a, b *appcontract.Contract) bool {
 	if a == nil || b == nil {
 		return a == b
 	}

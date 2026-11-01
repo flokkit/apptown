@@ -3,9 +3,10 @@ package preview
 import (
 	"context"
 	"fmt"
-	projectrepo "github.com/flokkit/apptown/internal/apptown/project"
 	"log"
 	"time"
+
+	projectrepo "github.com/flokkit/apptown/internal/apptown/project"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -136,15 +137,15 @@ func (s *Service) bootReleaseOnWorker(ctx context.Context, projectID ids.ID, slu
 		Images: &worker.PreviewImages{Parts: b.Parts, Init: b.Init}}, prepared, tree); err != nil {
 		return ReleaseResult{}, fmt.Errorf("could not start this version: %w", err)
 	}
-	if !s.recordServedSince(name, discards, servedRecord{Incarnation: incarnation, Source: revision, Public: public, At: s.now()}) {
+	if !s.recordServedSince(name, discards, servedRecord{incarnation: incarnation, source: revision, public: public, at: s.now()}) {
 		log.Printf("%s: its preview was discarded while it booted; AppTown keeps no record of it", name)
 	}
 	return ReleaseResult{Result: Result{URL: s.env.RoutesFor(ctx, projectID).PreviewURL(label, 0), Revision: revision, Incarnation: incarnation, Public: &public}}, nil
 }
 
-// ServedOnWorker says whether AppTown keeps a record of a preview it
+// servedOnWorker says whether AppTown keeps a record of a preview it
 // booted on the worker by this name: where a release's preview is reached.
-func (s *Service) ServedOnWorker(name string) bool {
+func (s *Service) servedOnWorker(name string) bool {
 	if !s.PreviewsOnWorker() {
 		return false
 	}

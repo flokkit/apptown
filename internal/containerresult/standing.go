@@ -42,7 +42,7 @@ func RunStanding(ctx context.Context, dk Docker, class string, s Spec) ([]byte, 
 	name := standingName(class, s)
 	c := standingClassOf(class)
 	out, err := c.read(ctx, dk, class, name, s)
-	if errors.Is(err, ErrNoContainer) {
+	if errors.Is(err, errNoContainer) {
 		out, err = c.read(ctx, dk, class, name, s)
 	}
 	return out, err

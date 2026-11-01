@@ -77,7 +77,7 @@ func TestAnInstanceSecretIsSetAndRemovedWithReceiptsAndNoValue(t *testing.T) {
 	if fi, err := os.Stat(filepath.Join(s.dataDir, "secrets.env")); err != nil || fi.Mode().Perm() != 0o600 {
 		t.Fatalf("the secrets file must stay 0600: %v %v", fi, err)
 	}
-	if names, err := s.InstanceNames(ctx); err != nil || names["DIGITALOCEAN_ACCESS_TOKEN"] != InstanceStore {
+	if names, err := s.InstanceNames(ctx); err != nil || names["DIGITALOCEAN_ACCESS_TOKEN"] != instanceStore {
 		t.Fatalf("names: %v %v", names, err)
 	}
 	if err := s.RemoveInstance(ctx, "DIGITALOCEAN_ACCESS_TOKEN", "boss"); err != nil {
@@ -86,7 +86,7 @@ func TestAnInstanceSecretIsSetAndRemovedWithReceiptsAndNoValue(t *testing.T) {
 	if got := runtimeValues(t, s); got["DIGITALOCEAN_ACCESS_TOKEN"] != "" || got["OTHER"] != "kept" {
 		t.Fatalf("runtime lookup after remove still has the token, or lost OTHER")
 	}
-	if err := s.RemoveInstance(ctx, "DIGITALOCEAN_ACCESS_TOKEN", "boss"); !errors.Is(err, ErrInstanceAbsent) || fault.KindOf(err) != fault.NotFound {
+	if err := s.RemoveInstance(ctx, "DIGITALOCEAN_ACCESS_TOKEN", "boss"); !errors.Is(err, errInstanceAbsent) || fault.KindOf(err) != fault.NotFound {
 		t.Fatalf("removing an absent secret: %v", err)
 	}
 	receipts := instanceReceipts(t, s)
@@ -139,13 +139,13 @@ func TestAnInstanceSecretInfisicalHoldsIsRefused(t *testing.T) {
 	s := instanceService(t, infisicalLines, map[string]string{"DIGITALOCEAN_ACCESS_TOKEN": "from-infisical"}, &down)
 	ctx := context.Background()
 	err := s.SetInstance(ctx, "DIGITALOCEAN_ACCESS_TOKEN", instanceValue, "boss")
-	if !errors.Is(err, ErrHeldByInfisical) || fault.KindOf(err) != fault.Conflict || !strings.Contains(err.Error(), "Infisical") {
+	if !errors.Is(err, errHeldByInfisical) || fault.KindOf(err) != fault.Conflict || !strings.Contains(err.Error(), "Infisical") {
 		t.Fatalf("set over an Infisical name: %v", err)
 	}
 	if got := runtimeValues(t, s)["DIGITALOCEAN_ACCESS_TOKEN"]; got != "from-infisical" {
 		t.Fatalf("Infisical's value was shadowed")
 	}
-	if err := s.RemoveInstance(ctx, "DIGITALOCEAN_ACCESS_TOKEN", "boss"); !errors.Is(err, ErrHeldByInfisical) {
+	if err := s.RemoveInstance(ctx, "DIGITALOCEAN_ACCESS_TOKEN", "boss"); !errors.Is(err, errHeldByInfisical) {
 		t.Fatalf("remove of an Infisical name: %v", err)
 	}
 	if names, err := s.InstanceNames(ctx); err != nil || names["DIGITALOCEAN_ACCESS_TOKEN"] != StoreInfisical || names["INFISICAL_CLIENT_SECRET"] != "" {
@@ -158,7 +158,7 @@ func TestAnInstanceSecretInfisicalHoldsIsRefused(t *testing.T) {
 	// A fresh service has nothing cached: with Infisical down it cannot tell.
 	fresh := NewService(s.Vault.db, Config{DataDir: s.dataDir, Client: s.client})
 	down.Store(true)
-	if err := fresh.SetInstance(ctx, "ANOTHER_TOKEN", instanceValue, "boss"); !errors.Is(err, ErrInfisicalUnknown) || fault.KindOf(err) != fault.Unavailable {
+	if err := fresh.SetInstance(ctx, "ANOTHER_TOKEN", instanceValue, "boss"); !errors.Is(err, errInfisicalUnknown) || fault.KindOf(err) != fault.Unavailable {
 		t.Fatalf("set with Infisical unreadable: %v", err)
 	}
 	if _, held := fileValues(t, fresh)["ANOTHER_TOKEN"]; held {
@@ -188,13 +188,13 @@ func TestAFailedInfisicalRefreshDoesNotAuthorizeAnInstanceSecret(t *testing.T) {
 	s.infisical.fetched = time.Now().Add(-2 * time.Minute)
 	s.infisical.mu.Unlock()
 	down.Store(true)
-	if err := s.SetInstance(ctx, "TOKEN", instanceValue, "boss"); !errors.Is(err, ErrInfisicalUnknown) || fault.KindOf(err) != fault.Unavailable {
+	if err := s.SetInstance(ctx, "TOKEN", instanceValue, "boss"); !errors.Is(err, errInfisicalUnknown) || fault.KindOf(err) != fault.Unavailable {
 		t.Fatalf("set after a failed refresh: %v", err)
 	}
 	if _, written := fileValues(t, s)["TOKEN"]; written {
 		t.Fatal("a set AppTown could not check was written")
 	}
-	if names, err := s.InstanceNames(ctx); !errors.Is(err, ErrSecretsUnread) || names != nil {
+	if names, err := s.InstanceNames(ctx); !errors.Is(err, errSecretsUnread) || names != nil {
 		t.Fatalf("names after a failed refresh: %v %v", names, err)
 	}
 }
@@ -211,7 +211,7 @@ func TestUnreadableSecretsAreUnknownNotEmpty(t *testing.T) {
 	var down atomic.Bool
 	down.Store(true)
 	s := instanceService(t, infisicalLines, map[string]string{"TOKEN": "remote"}, &down)
-	if names, err := s.InstanceNames(context.Background()); !errors.Is(err, ErrSecretsUnread) || fault.KindOf(err) != fault.Unavailable || names != nil {
+	if names, err := s.InstanceNames(context.Background()); !errors.Is(err, errSecretsUnread) || fault.KindOf(err) != fault.Unavailable || names != nil {
 		t.Fatalf("names with Infisical unavailable: %v %v", names, err)
 	}
 
@@ -226,13 +226,13 @@ func TestUnreadableSecretsAreUnknownNotEmpty(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if names, err := u.InstanceNames(ctx); !errors.Is(err, ErrSecretsUnread) || names != nil {
+	if names, err := u.InstanceNames(ctx); !errors.Is(err, errSecretsUnread) || names != nil {
 		t.Fatalf("names with an unreadable file: %v %v", names, err)
 	}
-	if err := u.RemoveInstance(ctx, "TOKEN", "boss"); !errors.Is(err, ErrSecretsUnread) {
+	if err := u.RemoveInstance(ctx, "TOKEN", "boss"); !errors.Is(err, errSecretsUnread) {
 		t.Fatalf("remove from an unreadable file: %v", err)
 	}
-	if err := u.SetInstance(ctx, "TOKEN", instanceValue, "boss"); !errors.Is(err, ErrSecretsUnread) {
+	if err := u.SetInstance(ctx, "TOKEN", instanceValue, "boss"); !errors.Is(err, errSecretsUnread) {
 		t.Fatalf("set into an unreadable file: %v", err)
 	}
 	if fi, err := os.Stat(path); err != nil || !fi.IsDir() {

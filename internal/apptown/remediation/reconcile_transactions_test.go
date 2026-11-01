@@ -20,10 +20,10 @@ import (
 // claims. Later SQL mutations represent deliberately stale reconciliation facts.
 func reconcileFixture(t *testing.T) (*database.DB, Reconciliation, Item) {
 	t.Helper()
-	f, store, item := reconcileScenario(t, ActionWait, workflow.StatusFail)
+	f, store, item := reconcileScenario(t, actionWait, workflow.StatusFail)
 	return f.db, store, item
 }
-func reconcileScenario(t *testing.T, action Action, result workflow.StepState) (*attemptScenario, Reconciliation, Item) {
+func reconcileScenario(t *testing.T, action remediationAction, result workflow.StepState) (*attemptScenario, Reconciliation, Item) {
 	t.Helper()
 	f, starts, queued, def := attemptFixture(t, false)
 	def.Run.Spec.Stages = append(def.Run.Spec.Stages, schema.Stage{Name: "next", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}})
@@ -35,16 +35,16 @@ func reconcileScenario(t *testing.T, action Action, result workflow.StepState) (
 		t.Fatalf("admission: %+v %v", run, err)
 	}
 	item := f.item(t, queued.ID)
-	if action != ActionPrepare {
+	if action != actionPrepare {
 		f.prepare(t, run.ID)
 	}
-	if action == ActionBackoff || action == ActionRecheckLanding {
+	if action == actionBackoff || action == ActionRecheckLanding {
 		f.reason = "429"
 	}
-	if action != ActionPrepare {
+	if action != actionPrepare {
 		f.execute(t, item, result)
 	}
-	if action == ActionLanded {
+	if action == actionLanded {
 		f.moveChange(t, item, workflow.ShipChange)
 	}
 	if action == ActionRecheckLanding {
@@ -76,19 +76,19 @@ func TestRemediationReadFailuresNeverBecomeDecisions(t *testing.T) {
 			t.Parallel()
 			db, store, item := reconcileFixture(t)
 			before := outcomeSnapshot(t, db)
-			r := NewReconciler(store,
+			r := newReconciler(store,
 				func(ids.ID) error { t.Error("prepared on failed read"); return nil },
 				func(context.Context, Item) error { t.Error("reviewed on failed read"); return nil },
 				func(ids.ID) { t.Error("dispatched on failed read") },
 				func(string) { t.Error("cooled down on failed read") })
 			dbtest.FailNextStatement(t, db, fragment)
-			if err := r.Reconcile(context.Background(), item); err == nil {
+			if err := r.reconcile(context.Background(), item); err == nil {
 				t.Fatal("read failure hidden")
 			}
 			if outcomeSnapshot(t, db) != before {
 				t.Fatal("failed read changed state, history, accounting or lease")
 			}
-			if err := r.Reconcile(context.Background(), item); err != nil {
+			if err := r.reconcile(context.Background(), item); err != nil {
 				t.Fatalf("explicit rerun: %v", err)
 			}
 		})
@@ -97,7 +97,7 @@ func TestRemediationReadFailuresNeverBecomeDecisions(t *testing.T) {
 
 func TestRemediationSnapshotIsConsistentAndUsesCurrentStage(t *testing.T) {
 	t.Parallel()
-	f, store, item := reconcileScenario(t, ActionWait, workflow.StatusFail)
+	f, store, item := reconcileScenario(t, actionWait, workflow.StatusFail)
 	db := f.db
 	tx, err := db.ReadSnapshot(context.Background())
 	if err != nil {
@@ -133,11 +133,11 @@ func TestRemediationSnapshotIsConsistentAndUsesCurrentStage(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	old, err := ReadObservation(context.Background(), tx, item)
+	old, err := readObservation(context.Background(), tx, item)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if old.Execution.Run.CurrentStage != "build" || old.Execution.Run.RetryRevision != 0 || Decide(*old).Action != ActionStuck {
+	if old.Execution.Run.CurrentStage != "build" || old.Execution.Run.RetryRevision != 0 || Decide(*old).Action != actionStuck {
 		t.Fatalf("mixed snapshot: %+v", old)
 	}
 	current := observeRemediation(t, store, item)
@@ -161,7 +161,7 @@ func TestRemediationMissingRecordsAreDistinctFromReadErrors(t *testing.T) {
 			}
 			o := observeRemediation(t, store, item)
 			decision := Decide(o)
-			if decision.Action != ActionStuck || decision.Reason != "its "+missing+" disappeared" {
+			if decision.Action != actionStuck || decision.Reason != "its "+missing+" disappeared" {
 				t.Fatalf("missing %s: %+v", missing, decision)
 			}
 			if result, err := store.Apply(context.Background(), o, decision); err != nil || result == nil {
@@ -202,7 +202,7 @@ func TestRemediationDecisionsRejectChangedWorkflowFacts(t *testing.T) {
 	} {
 		t.Run(mutation, func(t *testing.T) {
 			t.Parallel()
-			f, store, item := reconcileScenario(t, ActionWait, workflow.StatusFail)
+			f, store, item := reconcileScenario(t, actionWait, workflow.StatusFail)
 			db := f.db
 			o := observeRemediation(t, store, item)
 			decision := Decide(o)
@@ -230,7 +230,7 @@ func TestRemediationApplyReadFailureAndPhaseReceiptRollback(t *testing.T) {
 	for _, failure := range []string{"FROM changes WHERE id", "FROM steps WHERE run_id", "INSERT INTO audit_log"} {
 		t.Run(failure, func(t *testing.T) {
 			t.Parallel()
-			f, store, item := reconcileScenario(t, ActionWait, workflow.StatusPass)
+			f, store, item := reconcileScenario(t, actionWait, workflow.StatusPass)
 			db := f.db
 			o := observeRemediation(t, store, item)
 			before := outcomeSnapshot(t, db)
@@ -250,12 +250,12 @@ func TestRemediationApplyReadFailureAndPhaseReceiptRollback(t *testing.T) {
 
 func TestRemediationStaleActionsNeverStartExternalWork(t *testing.T) {
 	t.Parallel()
-	for _, action := range []Action{ActionPrepare, ActionVerify, ActionBackoff, ActionLanded, ActionRecheckLanding} {
-		t.Run(map[Action]string{ActionPrepare: "prepare", ActionVerify: "verify", ActionBackoff: "backoff", ActionLanded: "landed", ActionRecheckLanding: "recheck"}[action], func(t *testing.T) {
+	for _, action := range []remediationAction{actionPrepare, actionVerify, actionBackoff, actionLanded, ActionRecheckLanding} {
+		t.Run(map[remediationAction]string{actionPrepare: "prepare", actionVerify: "verify", actionBackoff: "backoff", actionLanded: "landed", ActionRecheckLanding: "recheck"}[action], func(t *testing.T) {
 			f, store, item := reconcileScenario(t, action, workflow.StatusFail)
 			db := f.db
-			if action == ActionVerify || action == ActionRecheckLanding {
-				state := ItemVerifying
+			if action == actionVerify || action == ActionRecheckLanding {
+				state := itemVerifying
 				if action == ActionRecheckLanding {
 					state = ItemLanding
 				}
@@ -267,7 +267,7 @@ func TestRemediationStaleActionsNeverStartExternalWork(t *testing.T) {
 				t.Fatalf("decision: %+v", got)
 			}
 			var before string
-			r := NewReconciler(interceptedReconciliation{store, func() {
+			r := newReconciler(interceptedReconciliation{store, func() {
 				requireStoredWrite(t)(queries(db).SetItemState(f.ctx, remediationsql.SetItemStateParams{UpdatedAt: time.Now(), ID: item.ID, State: item.State, Reason: item.Reason}))
 				before = outcomeSnapshot(t, db)
 			}},
@@ -275,7 +275,7 @@ func TestRemediationStaleActionsNeverStartExternalWork(t *testing.T) {
 				func(context.Context, Item) error { t.Error("stale verification"); return nil },
 				func(ids.ID) { t.Error("stale dispatch") },
 				func(string) { t.Error("stale cooldown") })
-			if err := r.Reconcile(context.Background(), item); err != nil {
+			if err := r.reconcile(context.Background(), item); err != nil {
 				t.Fatal(err)
 			}
 			if outcomeSnapshot(t, db) != before {
@@ -290,7 +290,7 @@ type interceptedReconciliation struct {
 	beforeApply func()
 }
 
-func (s interceptedReconciliation) Apply(ctx context.Context, o Observation, d Decision) (*Applied, error) {
+func (s interceptedReconciliation) Apply(ctx context.Context, o Observation, d decision) (*applied, error) {
 	s.beforeApply()
 	return s.Reconciliation.Apply(ctx, o, d)
 }
@@ -339,7 +339,7 @@ func TestRemediationBlockedBuildGatePreservesFailureReason(t *testing.T) {
 	store := NewReconciliation(f.db, f.work, f.ctx, nil)
 	o := observeRemediation(t, store, f.item(t, item.ID))
 	d := Decide(o)
-	if d.Action != ActionStuck || !strings.Contains(d.Reason, "cannot rework") || !strings.Contains(d.Reason, "arm64") {
+	if d.Action != actionStuck || !strings.Contains(d.Reason, "cannot rework") || !strings.Contains(d.Reason, "arm64") {
 		t.Fatalf("decision: %+v", d)
 	}
 	if result, err := store.Apply(context.Background(), o, d); err != nil || result == nil {
@@ -406,7 +406,7 @@ func TestRemediationDecisionCannotUndoManualStepRetry(t *testing.T) {
 	store := NewReconciliation(f.db, prepared, f.ctx, nil)
 	observed := observeRemediation(t, store, item)
 	decision := Decide(observed)
-	if decision.Action != ActionStuck {
+	if decision.Action != actionStuck {
 		t.Fatalf("decision: %+v", decision)
 	}
 	snapshot, err := f.work.Snapshot(f.ctx, item.RunID, workflow.DetailView)
@@ -433,7 +433,7 @@ func TestRemediationDecisionCannotUndoManualStepRetry(t *testing.T) {
 		t.Fatal("old failure overwrote retried work")
 	}
 	fresh := observeRemediation(t, store, item)
-	if fresh.Execution.Run.RetryRevision <= observed.Execution.Run.RetryRevision || Decide(fresh).Action != ActionWait {
+	if fresh.Execution.Run.RetryRevision <= observed.Execution.Run.RetryRevision || Decide(fresh).Action != actionWait {
 		t.Fatalf("fresh observation did not see retry: %+v", fresh)
 	}
 }

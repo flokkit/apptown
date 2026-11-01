@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 )
 
@@ -14,7 +16,7 @@ func TestReviewS4PublicationRecoveryIgnoresGitDir(t *testing.T) {
 	f := newPublicationFixture(t)
 	writer := f.writer("writer")
 	tip := commitIn(t, writer, "result")
-	t.Cleanup(f.db.FailNextStatement("-- name: SettlePublication"))
+	t.Cleanup(dbtest.NextStatementFailure(f.db, "-- name: SettlePublication"))
 	if _, err := f.publish(writer, Grant{Generation: f.authority().Generation}); err == nil {
 		t.Fatal("settlement fault was not exercised")
 	}

@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 )
 
@@ -32,10 +34,10 @@ func TestPasswordAdmissionAndSessionFailure(t *testing.T) {
 			t.Fatalf("bad credentials: %v", err)
 		}
 	}
-	restore := s.db.FailNextStatement("INSERT INTO sessions")
+	restore := dbtest.NextStatementFailure(s.db, "INSERT INTO sessions")
 	result, err := s.SignIn(ctx, PasswordLogin{Username: "alice", Password: "admission-password"})
 	restore()
-	var failed *SessionIssueError
+	var failed *sessionIssueError
 	if !errors.As(err, &failed) || result.Token != "" {
 		t.Fatalf("session failure: %v", err)
 	}
@@ -116,7 +118,7 @@ func TestAdministratorAdmissionPolicy(t *testing.T) {
 	if _, err := s.PersonalTokenIdentity(ctx, token, net.ParseIP("10.1.2.3")); err != nil {
 		t.Fatalf("allowed network: %v", err)
 	}
-	restore := s.db.FailNextStatement("-- name: InstanceSetting")
+	restore := dbtest.NextStatementFailure(s.db, "-- name: InstanceSetting")
 	_, err = s.SignIn(ctx, PasswordLogin{Username: "alice", Password: "admission-password", From: net.ParseIP("10.1.2.3")})
 	restore()
 	if !errors.As(err, &denied) {

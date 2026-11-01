@@ -117,7 +117,7 @@ func TestDiagnosticsShowAPartsFailureWhileThePublicPartRuns(t *testing.T) {
 		t.Fatalf("the generation the facts are about: %+v", d)
 	}
 	web := partNamed(t, d, "web")
-	if !web.Public || web.Presence != PresenceRunning || web.Stale || web.Facts == nil || !web.Facts.Running || web.Facts.ExitCode != nil || web.Facts.Health != "not configured" || !web.ObservedAt.Equal(w.at) {
+	if !web.Public || web.Presence != presenceRunning || web.Stale || web.Facts == nil || !web.Facts.Running || web.Facts.ExitCode != nil || web.Facts.Health != "not configured" || !web.ObservedAt.Equal(w.at) {
 		t.Fatalf("the public part runs: %+v %+v", web, web.Facts)
 	}
 	worker := partNamed(t, d, "worker")
@@ -125,7 +125,7 @@ func TestDiagnosticsShowAPartsFailureWhileThePublicPartRuns(t *testing.T) {
 	if web.Generation == nil || *web.Generation != gen || worker.Generation == nil || *worker.Generation != gen {
 		t.Fatalf("a settled deployment's parts are its generation's: %v %v", web.Generation, worker.Generation)
 	}
-	if worker.Presence != PresenceStopped || worker.Stale || f == nil || f.Running || f.ExitCode == nil || *f.ExitCode != 137 || !f.OOMKilled || f.Restarts != 3 {
+	if worker.Presence != presenceStopped || worker.Stale || f == nil || f.Running || f.ExitCode == nil || *f.ExitCode != 137 || !f.OOMKilled || f.Restarts != 3 {
 		t.Fatalf("the worker's out-of-memory kill: %+v %+v", worker, f)
 	}
 	if len(d.Events) != 1 || d.Events[0].Part != "worker" || d.Events[0].Generation == nil || *d.Events[0].Generation != gen || !d.EventsKnown {
@@ -157,14 +157,14 @@ func TestAFailedDiagnosticReadKeepsAgedFactsAndIsNeverStopped(t *testing.T) {
 	w.daemon.SetExitCode(w.worker, 137)
 	w.daemon.SetOOMKilled(w.worker, true)
 	first := w.at
-	if p := partNamed(t, w.read(t), "worker"); p.Presence != PresenceStopped {
+	if p := partNamed(t, w.read(t), "worker"); p.Presence != presenceStopped {
 		t.Fatalf("the first read: %+v", p)
 	}
 
 	tried := w.advance(2 * time.Minute)
 	w.failInspect(w.worker, context.DeadlineExceeded)
 	p := partNamed(t, w.read(t), "worker")
-	if p.Presence != PresenceUnknown || !p.Stale || !strings.Contains(p.Reason, "did not answer in time") {
+	if p.Presence != presenceUnknown || !p.Stale || !strings.Contains(p.Reason, "did not answer in time") {
 		t.Fatalf("a timed-out read: %+v", p)
 	}
 	if p.Facts == nil || p.Facts.ExitCode == nil || *p.Facts.ExitCode != 137 || !p.Facts.OOMKilled || !p.ObservedAt.Equal(first) || !p.AttemptedAt.Equal(tried) {
@@ -175,7 +175,7 @@ func TestAFailedDiagnosticReadKeepsAgedFactsAndIsNeverStopped(t *testing.T) {
 	}
 	// A failure whose own words name the host's address and login.
 	w.failInspect(w.worker, errors.New("error during connect: ssh://deploy:hunter2@10.0.0.7: permission denied"))
-	if p := partNamed(t, w.read(t), "worker"); p.Presence != PresenceUnknown || strings.Contains(p.Reason, "hunter2") || strings.Contains(p.Reason, "10.0.0.7") {
+	if p := partNamed(t, w.read(t), "worker"); p.Presence != presenceUnknown || strings.Contains(p.Reason, "hunter2") || strings.Contains(p.Reason, "10.0.0.7") {
 		t.Fatalf("the host's words reached the reason: %+v", p)
 	}
 
@@ -186,7 +186,7 @@ func TestAFailedDiagnosticReadKeepsAgedFactsAndIsNeverStopped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p := partNamed(t, d, "worker"); p.Presence != PresenceUnknown || p.Facts != nil || !p.Stale || !p.ObservedAt.IsZero() {
+	if p := partNamed(t, d, "worker"); p.Presence != presenceUnknown || p.Facts != nil || !p.Stale || !p.ObservedAt.IsZero() {
 		t.Fatalf("a failed first read: %+v", p)
 	}
 	w.daemon.SetReply(nil)
@@ -194,12 +194,12 @@ func TestAFailedDiagnosticReadKeepsAgedFactsAndIsNeverStopped(t *testing.T) {
 	// The public part's name holding another generation's container.
 	w.daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) == 4 && args[0] == "inspect" && args[2] == docker.RuntimeFormat && args[3] == w.main.Container {
-			out, err := json.Marshal(docker.Runtime{ID: "old", Running: true, Labels: map[string]string{dockerlabel.Deployment: string(w.main.Label()), dockerlabel.Generation: "99"}, State: &docker.ContainerState{Status: "running"}})
+			out, err := json.Marshal(docker.Runtime{ID: "old", Running: true, Labels: map[string]string{dockerlabel.Deployment: string(w.main.label()), dockerlabel.Generation: "99"}, State: &docker.ContainerState{Status: "running"}})
 			return out, err, true
 		}
 		return nil, nil, false
 	})
-	if p := partNamed(t, fresh.mustDiagnose(t, w.project), "web"); p.Presence != PresenceRunning || p.Generation == nil || *p.Generation != 99 || p.Facts == nil || p.Facts.ID != "old" {
+	if p := partNamed(t, fresh.mustDiagnose(t, w.project), "web"); p.Presence != presenceRunning || p.Generation == nil || *p.Generation != 99 || p.Facts == nil || p.Facts.ID != "old" {
 		t.Fatalf("another generation's container: %+v", p)
 	}
 }
@@ -231,7 +231,7 @@ func TestANewGenerationDropsTheOldOnesFacts(t *testing.T) {
 	}
 	w.failInspect(w.worker, errors.New("exit status 1"))
 	d := w.read(t)
-	if p := partNamed(t, d, "worker"); d.Generation != next.ObservedGeneration || p.Presence != PresenceUnknown || p.Facts != nil {
+	if p := partNamed(t, d, "worker"); d.Generation != next.ObservedGeneration || p.Presence != presenceUnknown || p.Facts != nil {
 		t.Fatalf("the old generation's facts survived: generation %d %+v", d.Generation, p)
 	}
 }
@@ -290,7 +290,7 @@ func TestDiagnosticsOnATargetWithoutContainersSayWhy(t *testing.T) {
 		t.Fatalf("a container-less deployment: %+v", d)
 	}
 	for _, p := range d.Parts {
-		if p.Presence != PresenceUnknown || p.Facts != nil {
+		if p.Presence != presenceUnknown || p.Facts != nil {
 			t.Fatalf("an unreported part: %+v", p)
 		}
 	}
@@ -450,7 +450,7 @@ func TestPartsDuringADeployAreNotCalledTheSettledGenerations(t *testing.T) {
 	if web := partNamed(t, d, "web"); web.Generation == nil || *web.Generation != gen {
 		t.Fatalf("the public container names its own generation: %v", web.Generation)
 	}
-	if worker := partNamed(t, d, "worker"); worker.Generation != nil || worker.Facts == nil || worker.Presence != PresenceRunning {
+	if worker := partNamed(t, d, "worker"); worker.Generation != nil || worker.Facts == nil || worker.Presence != presenceRunning {
 		t.Fatalf("the worker under a deploy: %+v", worker)
 	}
 	if got, err := w.s.RecentLog(t.Context(), w.project, "main", "worker"); err != nil || got.Generation != nil {

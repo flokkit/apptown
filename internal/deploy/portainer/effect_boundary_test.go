@@ -51,7 +51,7 @@ func TestCurrentStackProofGuardsActualUpdateAndDelete(t *testing.T) {
 				legacy := []StackAssociation{{DeploymentID: id, Scope: *cfg.Scope, StackID: 4, StackName: "app"}}
 				var err error
 				if action == "update" {
-					_, err = DeployStack(t.Context(), &cfg, 3, "app", scopeFixtureCompose("services: {}"), id, legacy)
+					_, err = applyStack(t.Context(), &cfg, 3, "app", scopeFixtureCompose("services: {}"), id, legacy)
 				} else {
 					driver := Driver{Config: func(context.Context, ids.ID) (*Target, error) { return &cfg, nil }}
 					_, err = driver.Teardown(t.Context(), deploy.Placement{ID: id, Generation: 1, Handle: map[string]any{"portainerAssociations": legacy}}, 1, deploy.TakeDown{Owned: []deploy.Owned{{Kind: "stack", ID: "4", Name: "app"}}})

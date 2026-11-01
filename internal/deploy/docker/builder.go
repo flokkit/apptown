@@ -20,7 +20,7 @@ func (dk Scope) Build(ctx context.Context, args ...string) ([]byte, error) {
 // BuildCommand is Build with the command's other settings (where its output
 // goes): req.Args are the build's own arguments, its context last.
 func (dk Scope) BuildCommand(ctx context.Context, req Command) ([]byte, error) {
-	full, err := dockerbuild.Daemon{Run: dk.Run, HostChosen: dk.Host != "", Local: !dk.Remote()}.Args(ctx, req.Args...)
+	full, err := dockerbuild.Daemon{Run: dk.Run, HostChosen: dk.Host != "", Local: !dk.remote()}.Args(ctx, req.Args...)
 	if err != nil {
 		return nil, err
 	}

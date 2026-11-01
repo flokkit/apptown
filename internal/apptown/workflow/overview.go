@@ -3,9 +3,10 @@ package workflow
 import (
 	"context"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/status"
 	"math"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/status"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -83,14 +84,14 @@ func readChangeHistory(ctx context.Context, q database.Queryer, in HistoryQuery,
 	return out, nil
 }
 
-type OpenChange struct {
+type openChange struct {
 	ID     ids.ID
 	Number int64 // within its project
 	Title  string
 	State  ChangeState
 }
 
-func (s *Service) OpenChangesWithoutRuns(ctx context.Context, project ids.ID, limit int) ([]OpenChange, error) {
+func (s *Service) OpenChangesWithoutRuns(ctx context.Context, project ids.ID, limit int) ([]openChange, error) {
 	if _, err := s.require(ctx, operationPermission{Action: actionIdentify}); err != nil {
 		return nil, err
 	}
@@ -104,25 +105,25 @@ func (s *Service) OpenChangesWithoutRuns(ctx context.Context, project ids.ID, li
 	if err != nil {
 		return nil, database.Missing(err)
 	}
-	out := make([]OpenChange, 0, len(rows))
+	out := make([]openChange, 0, len(rows))
 	for _, row := range rows {
 		state, err := ParseChangeState(row.State)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, OpenChange{ID: row.ID, Number: row.Number, Title: row.Title, State: state})
+		out = append(out, openChange{ID: row.ID, Number: row.Number, Title: row.Title, State: state})
 	}
 	return out, nil
 }
 
-type RunningStep struct {
+type runningStep struct {
 	Project                 string
 	RunID, ChangeID, StepID ids.ID
 	Title, Name, Type       string
 	StartedAt               stamp.Time
 }
 
-func (s *Service) RunningSteps(ctx context.Context) ([]RunningStep, error) {
+func (s *Service) RunningSteps(ctx context.Context) ([]runningStep, error) {
 	if _, err := s.require(ctx, operationPermission{Action: actionIdentify}); err != nil {
 		return nil, err
 	}
@@ -131,15 +132,15 @@ func (s *Service) RunningSteps(ctx context.Context) ([]RunningStep, error) {
 		return nil, err
 	}
 	if len(projects) == 0 {
-		return []RunningStep{}, nil
+		return []runningStep{}, nil
 	}
 	rows, err := workflowsql.New(s.db.SQL()).RunningSteps(ctx, workflowsql.RunningStepsParams{ProjectIds: projects, Running: StatusRunning.String()})
 	if err != nil {
 		return nil, err
 	}
-	out := make([]RunningStep, 0, len(rows))
+	out := make([]runningStep, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, RunningStep{Project: row.Project, RunID: row.RunID, ChangeID: row.ChangeID, StepID: row.StepID, Title: row.Title, Name: row.Name, Type: row.Type, StartedAt: stamp.Time{NullTime: row.StartedAt}})
+		out = append(out, runningStep{Project: row.Project, RunID: row.RunID, ChangeID: row.ChangeID, StepID: row.StepID, Title: row.Title, Name: row.Name, Type: row.Type, StartedAt: stamp.Time{NullTime: row.StartedAt}})
 	}
 	return out, nil
 }
@@ -149,7 +150,7 @@ func (s *Service) RunningSteps(ctx context.Context) ([]RunningStep, error) {
 // queued for a slot, is not here; it survives a restart as it is. The read is
 // about the whole instance, so a caller who cannot read every project's runs
 // is refused rather than shown a partial list that could read as idle.
-func (s *Service) ExecutingSteps(ctx context.Context) ([]RunningStep, error) {
+func (s *Service) ExecutingSteps(ctx context.Context) ([]runningStep, error) {
 	if _, err := s.require(ctx, operationPermission{Action: actionReadRun}); err != nil {
 		return nil, err
 	}
@@ -157,26 +158,9 @@ func (s *Service) ExecutingSteps(ctx context.Context) ([]RunningStep, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := make([]RunningStep, 0, len(rows))
+	out := make([]runningStep, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, RunningStep{Project: row.Project, RunID: row.RunID, ChangeID: row.ChangeID, StepID: row.StepID, Title: row.Title, Name: row.Name, Type: row.Type, StartedAt: stamp.Time{NullTime: row.StartedAt}})
-	}
-	return out, nil
-}
-
-// OpenChangeBranches is the recorded branch of each unfinished change of a
-// project, keyed by change number.
-func (s *Service) OpenChangeBranches(ctx context.Context, project ids.ID) (map[int64]string, error) {
-	if _, err := s.require(ctx, operationPermission{Action: actionListChanges, ProjectID: project}); err != nil {
-		return nil, err
-	}
-	rows, err := workflowsql.New(s.db.SQL()).OpenChangeBranches(ctx, workflowsql.OpenChangeBranchesParams{ProjectID: project, InProgress: ChangeInProgress.String(), Landing: ChangeLanding.String()})
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[int64]string, len(rows))
-	for _, row := range rows {
-		out[row.Number] = row.Branch
+		out = append(out, runningStep{Project: row.Project, RunID: row.RunID, ChangeID: row.ChangeID, StepID: row.StepID, Title: row.Title, Name: row.Name, Type: row.Type, StartedAt: stamp.Time{NullTime: row.StartedAt}})
 	}
 	return out, nil
 }

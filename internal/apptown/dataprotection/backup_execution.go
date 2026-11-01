@@ -111,7 +111,7 @@ func needItem(d *dependency.Kind, need, container string) backupPlanItem {
 		it.RestoreStopped, it.Verify, it.Format, it.Declared = cp.RestoreStopped, cp.Verify, cp.Format, d
 		return it
 	}
-	it.File, it.How, it.Restore, it.Copy = need+".tar.gz", "tar of "+d.Local.Data, "tar xz -C "+d.Local.Data, CopyLiveFiles
+	it.File, it.How, it.Restore, it.Copy = need+".tar.gz", "tar of "+d.Local.Data, "tar xz -C "+d.Local.Data, copyLiveFiles
 	it.Step = docker.Step{Exec: container, Argv: []string{"tar", "cz", "-C", d.Local.Data, "."}}
 	return it
 }
@@ -248,7 +248,7 @@ func (s *Service) takeSetWhere(ctx context.Context, dk docker.Scope, projectID i
 			failed++
 		}
 	}
-	b.Status = Taken(failed, len(b.Items))
+	b.Status = taken(failed, len(b.Items))
 	b.StatusLabel = b.label()
 	if b.Status == BackupFailed {
 		b.Error = b.Items[0].Error
@@ -280,14 +280,14 @@ func (s *Service) takeSetWhere(ctx context.Context, dk docker.Scope, projectID i
 			note := "the manifest could not be written beside the copies: " + err.Error()
 			// The set is recorded: its caveat is too, though the upload's
 			// context ended.
-			if nerr := s.backups.Note(context.WithoutCancel(ctx), id, note); nerr != nil {
+			if nerr := s.backups.note(context.WithoutCancel(ctx), id, note); nerr != nil {
 				return nil, fmt.Errorf("set %d: %s, and that could not be recorded: %w", id, note, nerr)
 			}
 			b.Error = strings.TrimSpace(b.Error + " " + note)
 		}
 	}
-	if !b.SafetyCopy() {
-		if err := s.PruneSets(ctx, projectID, deploymentName, keepFor(b.DataClass)); err != nil {
+	if !b.safetyCopy() {
+		if err := s.pruneSets(ctx, projectID, deploymentName, keepFor(b.DataClass)); err != nil {
 			log.Printf("backup retention %s/%s: %v", slug, deploymentName, err)
 		}
 	}
@@ -575,21 +575,21 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 			withdrawn = rec.allowed(ctx)
 		}
 		if withdrawn != nil {
-			result.Items = append(result.Items, RestoredItem{Kind: m.into.Kind, Name: m.into.Name, Outcome: RestoreSkipped, Detail: "not restored: " + withdrawn.Error()})
+			result.Items = append(result.Items, RestoredItem{Kind: m.into.Kind, Name: m.into.Name, Outcome: restoreSkipped, Detail: "not restored: " + withdrawn.Error()})
 			continue
 		}
 		rec.begin(ctx, "restoring "+m.into.Name)
 		it := s.restoreItem(ctx, rec, dk, m, paths[i], sh)
 		result.Items = append(result.Items, it)
 		rec.record(ctx, "items", result.Items)
-		if it.Outcome == RestoreFailed {
+		if it.Outcome == restoreFailed {
 			rec.fail(ctx, it.Detail)
 		} else {
 			rec.end(ctx, it.Outcome.String())
 		}
 	}
 	for _, p := range untouched {
-		result.Items = append(result.Items, RestoredItem{Kind: p.Kind, Name: p.Name, Outcome: RestoreSkipped, Detail: "the set holds no good copy of this item; it is left as it is"})
+		result.Items = append(result.Items, RestoredItem{Kind: p.Kind, Name: p.Name, Outcome: restoreSkipped, Detail: "the set holds no good copy of this item; it is left as it is"})
 	}
 	rec.record(ctx, "items", result.Items)
 	if result.Stopped {
@@ -624,7 +624,7 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 	// settles it unknown.
 	failed := 0
 	for _, it := range result.Items {
-		if it.Outcome == RestoreFailed {
+		if it.Outcome == restoreFailed {
 			failed++
 		}
 	}
@@ -651,7 +651,7 @@ func (s *core) restoreItem(ctx context.Context, rec *restoreLog, dk docker.Scope
 	it, p := m.item, m.into
 	row := RestoredItem{Kind: p.Kind, Name: p.Name, Caveat: it.Caveat}
 	fail := func(detail string) RestoredItem {
-		row.Outcome, row.Detail = RestoreFailed, strs.Truncate(strings.TrimSpace(detail), 300)
+		row.Outcome, row.Detail = restoreFailed, strs.Truncate(strings.TrimSpace(detail), 300)
 		return row
 	}
 	if it.SHA256 == "" {
@@ -674,7 +674,7 @@ func (s *core) restoreItem(ctx context.Context, rec *restoreLog, dk docker.Scope
 		if err != nil {
 			return fail(string(out))
 		}
-		row.Outcome, row.Detail = RestoreCopied, "files copied, not verified: nothing checks that the app reads them"
+		row.Outcome, row.Detail = restoreCopied, "files copied, not verified: nothing checks that the app reads them"
 		return row
 	}
 	restore, stoppedMode, verify := it.Restore, it.RestoreStopped, it.Verify
@@ -683,7 +683,7 @@ func (s *core) restoreItem(ctx context.Context, rec *restoreLog, dk docker.Scope
 	// restore into a stopped service is given none: nothing serves one.
 	// A file copy is unpacked, and reads no connection: it is given none.
 	var env []string
-	if p.Declared != nil && it.Copy != CopyLiveFiles && it.Copy != CopyFiles {
+	if p.Declared != nil && it.Copy != copyLiveFiles && it.Copy != copyFiles {
 		var err error
 		if _, env, _, _, err = declaredConnection(ctx, dk, p.Declared, p.Container); err != nil {
 			return fail("reading the connection " + p.Container + " serves: " + err.Error())
@@ -719,11 +719,11 @@ func (s *core) restoreItem(ctx context.Context, rec *restoreLog, dk docker.Scope
 		if out, err := inService(verify); err != nil {
 			return fail("the copy was put back but its check did not confirm the service holds it: " + string(out))
 		}
-		row.Outcome = RestoreVerified
+		row.Outcome = restoreVerified
 	case it.Copy == CopyDeclared && !stoppedMode:
-		row.Outcome = RestoreLoaded
+		row.Outcome = restoreLoaded
 	default:
-		row.Outcome, row.Detail = RestoreCopied, "files copied, not verified: the need declares no restore that its service confirms"
+		row.Outcome, row.Detail = restoreCopied, "files copied, not verified: the need declares no restore that its service confirms"
 	}
 	return row
 }
@@ -762,9 +762,9 @@ type restoreMove struct {
 	into backupPlanItem
 }
 
-// ErrRestoreMismatch refuses a restore whose set holds data the
+// errRestoreMismatch refuses a restore whose set holds data the
 // destination has nowhere to put. Nothing was changed.
-var ErrRestoreMismatch = fault.New(fault.Conflict, "the set holds data this deployment has nowhere to put; nothing was restored")
+var errRestoreMismatch = fault.New(fault.Conflict, "the set holds data this deployment has nowhere to put; nothing was restored")
 
 // restoreMoves maps a set's good items onto what the destination holds
 // (placeCopies): each into the volume it was taken from, else by role when
@@ -780,11 +780,11 @@ func restoreMoves(b *Backup, plan []backupPlanItem) ([]restoreMove, []backupPlan
 		}
 	}
 	if len(unresolved) > 0 {
-		return nil, nil, fmt.Errorf("%w: %s", ErrRestoreMismatch, strings.Join(unresolved, "; "))
+		return nil, nil, fmt.Errorf("%w: %s", errRestoreMismatch, strings.Join(unresolved, "; "))
 	}
 	into, unplaced := placeCopies(b.Items, plan)
 	if len(unplaced) > 0 {
-		return nil, nil, fmt.Errorf("%w: this set holds %s", ErrRestoreMismatch, strings.Join(unplaced, "; "))
+		return nil, nil, fmt.Errorf("%w: this set holds %s", errRestoreMismatch, strings.Join(unplaced, "; "))
 	}
 	var moves []restoreMove
 	used := map[int]bool{}
@@ -843,7 +843,7 @@ func (s *Service) heldPlan(ctx context.Context, projectID ids.ID, slug, name str
 	}
 	t, err := s.targets.ByID(ctx, dep.TargetID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: reading its deployment target: %v", ErrDataNotKnown, err)
+		return nil, fmt.Errorf("%w: reading its deployment target: %v", errDataNotKnown, err)
 	}
 	held, err := s.heldData(ctx, dep, t)
 	return held.items, err

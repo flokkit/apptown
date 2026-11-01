@@ -78,7 +78,7 @@ func (o *observations) read(r listingRecord, now time.Time) RuntimeObservation {
 	}
 	v := entry.value
 	v.Stale = v.ObservedAt.IsZero() || now.Sub(v.ObservedAt) > observationStaleAfter || v.Err != nil
-	if v.Stale && v.State != RuntimeUnreachable {
+	if v.Stale && v.State != runtimeUnreachable {
 		v.State = RuntimeUnknown
 	}
 	v.TargetName = runtimeTargetName(r)
@@ -186,7 +186,7 @@ func (s *Service) ObserveRuntime(ctx context.Context) error {
 		v := values[i]
 		if v.Err != nil {
 			if old, ok := s.observations.entries[r.deployment.ID]; ok && old.key == key {
-				v.ObservedAt, v.URL, v.Rollout, v.Health = old.value.ObservedAt, old.value.URL, old.value.Rollout, old.value.Health
+				v.ObservedAt, v.url, v.Rollout, v.Health = old.value.ObservedAt, old.value.url, old.value.Rollout, old.value.Health
 				if v.AttemptedAt.IsZero() {
 					v.AttemptedAt = old.value.AttemptedAt
 				}
@@ -251,7 +251,7 @@ func (s *Service) observeRuntime(ctx context.Context, r listingRecord) RuntimeOb
 	if err != nil {
 		v.Err = err
 		if deploy.IsUnreachable(err) {
-			v.State = RuntimeUnreachable
+			v.State = runtimeUnreachable
 			v.UnreachableSince = v.AttemptedAt
 		}
 		return v
@@ -322,7 +322,7 @@ func (s *Service) observed(ctx context.Context, v RuntimeObservation, r listingR
 	if err != nil {
 		v.Err = err
 		if deploy.IsUnreachable(err) {
-			v.State = RuntimeUnreachable
+			v.State = runtimeUnreachable
 			v.UnreachableSince = v.AttemptedAt
 		}
 		return v
@@ -331,12 +331,12 @@ func (s *Service) observed(ctx context.Context, v RuntimeObservation, r listingR
 		v.Err = errors.New("provider observation has a different generation")
 		return v
 	}
-	v.State, v.ObservedAt, v.URL, v.Rollout, v.Health, v.running = runtimeState(observed), s.now(), observed.URL, observed.Rollout, observed.Health, observed.Running
+	v.State, v.ObservedAt, v.url, v.Rollout, v.Health, v.running = runtimeState(observed), s.now(), observed.URL, observed.Rollout, observed.Health, observed.Running
 	return v
 }
 
-// RuntimeDeployment is a display observation with its recorded routing facts.
-type RuntimeDeployment struct {
+// runtimeDeployment is a display observation with its recorded routing facts.
+type runtimeDeployment struct {
 	ProjectID          ids.ID
 	Project, Name, URL string
 	HostOnly           bool // URL answers on the AppTown host only (Reach)
@@ -345,13 +345,13 @@ type RuntimeDeployment struct {
 }
 
 // Runtime is the checked cross-project deployment display for activity readers.
-func (s *Service) Runtime(ctx context.Context) ([]RuntimeDeployment, error) {
+func (s *Service) Runtime(ctx context.Context) ([]runtimeDeployment, error) {
 	return s.runtimeProjects(ctx, access.CapDeploymentRead, nil)
 }
 
-// ProjectRuntimeSummary keeps the most urgent deployment observation separate
+// projectRuntimeSummary keeps the most urgent deployment observation separate
 // from the production address and its running state.
-type ProjectRuntimeSummary struct {
+type projectRuntimeSummary struct {
 	RuntimeObservation
 	ProductionURL     string
 	ProductionRunning *bool
@@ -360,8 +360,8 @@ type ProjectRuntimeSummary struct {
 
 // ProjectRuntime exposes the most urgent observation across each readable
 // project's deployments. An unreachable preview cannot hide behind healthy main.
-func (s *Service) ProjectRuntime(ctx context.Context, idList []ids.ID) (map[ids.ID]ProjectRuntimeSummary, error) {
-	out := make(map[ids.ID]ProjectRuntimeSummary)
+func (s *Service) ProjectRuntime(ctx context.Context, idList []ids.ID) (map[ids.ID]projectRuntimeSummary, error) {
+	out := make(map[ids.ID]projectRuntimeSummary)
 	if len(idList) == 0 {
 		return out, ctx.Err()
 	}
@@ -388,8 +388,8 @@ func (s *Service) RunningProjects(ctx context.Context) ([]ids.ID, error) {
 	return out, nil
 }
 
-func projectRuntimeSummaries(rows []RuntimeDeployment) map[ids.ID]ProjectRuntimeSummary {
-	out := make(map[ids.ID]ProjectRuntimeSummary)
+func projectRuntimeSummaries(rows []runtimeDeployment) map[ids.ID]projectRuntimeSummary {
+	out := make(map[ids.ID]projectRuntimeSummary)
 	main := make(map[ids.ID]bool)
 	for _, r := range rows {
 		summary, exists := out[r.ProjectID]
@@ -409,7 +409,7 @@ func projectRuntimeSummaries(rows []RuntimeDeployment) map[ids.ID]ProjectRuntime
 
 func runtimeUrgency(o RuntimeObservation) int {
 	switch o.State {
-	case RuntimeUnreachable:
+	case runtimeUnreachable:
 		return 4
 	case RuntimeStopped:
 		return 3
@@ -453,7 +453,7 @@ func (s *Service) RecentReleases(ctx context.Context, limit int) ([]*Release, er
 	return s.Releases.Recent(ctx, idList, limit)
 }
 
-func (s *Service) runtimeProjects(ctx context.Context, cap access.Capability, requested []ids.ID) ([]RuntimeDeployment, error) {
+func (s *Service) runtimeProjects(ctx context.Context, cap access.Capability, requested []ids.ID) ([]runtimeDeployment, error) {
 	authority, ok := s.authority.(access.ReadAuthorizer)
 	if !ok {
 		return nil, access.ErrAuthorityUnavailable
@@ -475,7 +475,7 @@ func (s *Service) runtimeProjects(ctx context.Context, cap access.Capability, re
 		}
 		idList = filtered
 	}
-	out := []RuntimeDeployment{}
+	out := []runtimeDeployment{}
 	if len(idList) == 0 {
 		return out, ctx.Err()
 	}
@@ -486,8 +486,8 @@ func (s *Service) runtimeProjects(ctx context.Context, cap access.Capability, re
 	for _, r := range rows {
 		e := r.deployment
 		observed := s.observations.read(r, s.now())
-		reach := s.reachedAt(ctx, r.project, e, r.target, observed.URL)
-		out = append(out, RuntimeDeployment{ProjectID: e.ProjectID, Project: r.project, Name: e.Name, URL: reach.URL, HostOnly: reach.HostOnly, HostPort: e.HostPort, Observation: observed})
+		reach := s.reachedAt(ctx, r.project, e, r.target, observed.url)
+		out = append(out, runtimeDeployment{ProjectID: e.ProjectID, Project: r.project, Name: e.Name, URL: reach.URL, HostOnly: reach.HostOnly, HostPort: e.HostPort, Observation: observed})
 	}
 	return out, ctx.Err()
 }

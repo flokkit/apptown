@@ -9,7 +9,6 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 )
 
@@ -73,7 +72,7 @@ func TestADRAuthorityAppliesWithoutRouteGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 	dbtest.FailNextStatement(t, db, "-- name: UserByName :one")
-	if _, err := service.Edit(adrAs(owner), Edit{ID: record.ID, Decision: Accept}); !(errors.Is(err, database.ErrInjectedFailure) || err != nil && strings.Contains(err.Error(), "forge_injected_failure")) {
+	if _, err := service.Edit(adrAs(owner), Edit{ID: record.ID, Decision: Accept}); !(errors.Is(err, dbtest.ErrInjectedFailure) || err != nil && strings.Contains(err.Error(), "forge_injected_failure")) {
 		t.Fatalf("authority read failure was hidden: %v", err)
 	}
 	if _, err := service.Edit(adrAs(owner), Edit{ID: record.ID, Decision: Accept}); err != nil {
@@ -96,7 +95,7 @@ func TestADRAuthorityAppliesWithoutRouteGuards(t *testing.T) {
 	if revoked != 2 {
 		t.Fatalf("expected two owner grants revoked, got %d", revoked)
 	}
-	if _, err := service.Edit(adrAs(owner), Edit{ID: record.ID, Decision: Deprecate}); err == nil {
+	if _, err := service.Edit(adrAs(owner), Edit{ID: record.ID, Decision: deprecate}); err == nil {
 		t.Fatal("revoked authority edited decision")
 	}
 }

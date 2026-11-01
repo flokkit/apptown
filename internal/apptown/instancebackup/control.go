@@ -47,14 +47,14 @@ type ControlReply struct {
 	Error  string  `json:"error,omitempty"`
 }
 
-// ControlSocketPath is where a data directory's control socket is.
-func ControlSocketPath(dataDir string) string { return filepath.Join(dataDir, controlSocket) }
+// controlSocketPath is where a data directory's control socket is.
+func controlSocketPath(dataDir string) string { return filepath.Join(dataDir, controlSocket) }
 
 // ServeControl serves the control socket until ctx ends. A socket that
 // cannot be made is logged and AppTown runs on without it: `apptownd
 // backup` then says it cannot reach AppTown.
 func (s *Service) ServeControl(ctx context.Context) error {
-	path := ControlSocketPath(s.deps.DataDir)
+	path := controlSocketPath(s.deps.DataDir)
 	// One apptownd per database holds this data directory: a socket left
 	// here is a stopped one's.
 	_ = os.Remove(path)
@@ -125,7 +125,7 @@ func (s *Service) serveControl(ctx context.Context, conn net.Conn) {
 			actor = fmt.Sprintf("the host's administrator, %s by its own account (apptownd backup)", req.User)
 		}
 		report, err := s.Backup(ctx, Request{Archive: req.Archive, Passphrase: req.Passphrase, ToStore: req.Store, Actor: actor,
-			Say: func(line string) { reply(ControlReply{Say: line}) }})
+			say: func(line string) { reply(ControlReply{Say: line}) }})
 		if err != nil {
 			if errors.Is(ctx.Err(), context.Canceled) {
 				err = fmt.Errorf("%w (the backup was stopped)", err)
@@ -145,7 +145,7 @@ func (s *Service) serveControl(ctx context.Context, conn net.Conn) {
 // AppTown answered, or that AppTown could not be reached.
 func AskControl(ctx context.Context, dataDir string, req ControlRequest, say func(string)) (*Report, error) {
 	var d net.Dialer
-	conn, err := d.DialContext(ctx, "unix", ControlSocketPath(dataDir))
+	conn, err := d.DialContext(ctx, "unix", controlSocketPath(dataDir))
 	if err != nil {
 		return nil, fmt.Errorf("cannot reach the AppTown running on %s (%v): the backup is taken by the running AppTown; start it, or name its data directory with -data", dataDir, err)
 	}

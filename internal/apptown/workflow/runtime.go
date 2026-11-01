@@ -17,7 +17,7 @@ func (s *Service) DispatchStarted(runID ids.ID) error {
 	}
 	// False also means an empty plan or a coalesced stage. Only shutdown is
 	// a failed handoff; do not misreport it as successful run admission.
-	if !s.dispatcher.Dispatch(plan, false) && s.dispatcher.isStopped() {
+	if !s.dispatcher.dispatch(plan, false) && s.dispatcher.isStopped() {
 		return ErrDispatchStopped
 	}
 	return nil
@@ -25,23 +25,23 @@ func (s *Service) DispatchStarted(runID ids.ID) error {
 
 // Dispatch hands a stage's ready steps to the runners; false when the
 // dispatcher is stopping. Rework dispatch is private to its committing command.
-func (s *Service) Dispatch(plan DispatchPlan) bool { return s.dispatcher.Dispatch(plan, false) }
+func (s *Service) Dispatch(plan DispatchPlan) bool { return s.dispatcher.dispatch(plan, false) }
 
 // ResumePending restarts the automatic steps a previous process left
 // pending; the daemon calls it once after recovery. adopt names running
 // steps whose recorded work a previous process left (a task still on its
 // backend): each is continued by its kind's recoverer in its place in the
 // stage, before the steps after it, and its run continues when it settles.
-func (s *Service) ResumePending(adopt ...ids.ID) { s.dispatcher.RestartPending(adopt) }
+func (s *Service) ResumePending(adopt ...ids.ID) { s.dispatcher.restartPending(adopt) }
 
 // Wait blocks until every dispatched step has finished. Stop refuses new
 // dispatch and waits; BeginStop refuses new dispatch and returns the
 // channel that closes when the running ones finish.
-func (s *Service) Wait() { s.dispatcher.Wait() }
+func (s *Service) Wait() { s.dispatcher.wait() }
 
-func (s *Service) Stop() { s.dispatcher.Stop() }
+func (s *Service) Stop() { s.dispatcher.stop() }
 
-func (s *Service) BeginStop() <-chan struct{} { return s.dispatcher.BeginStop() }
+func (s *Service) BeginStop() <-chan struct{} { return s.dispatcher.beginStop() }
 
 // BeginShutdown is BeginStop when AppTown itself is stopping. From then on
 // a step whose runner settles anything but a pass is left running for
@@ -87,7 +87,7 @@ func (s *Service) advanceCommitted(ref RunRef) {
 
 func (s *Service) dispatchAdvanced(runID ids.ID, out *AdvanceResult, err error) {
 	if err == nil && out != nil && out.Advanced && out.RunStatus != RunDone && s.dispatcher != nil {
-		s.dispatcher.Dispatch(DispatchPlan{RunID: runID, Steps: out.Ready}, false)
+		s.dispatcher.dispatch(DispatchPlan{RunID: runID, Steps: out.Ready}, false)
 	}
 }
 
@@ -95,6 +95,6 @@ func (s *Service) dispatchAdvanced(runID ids.ID, out *AdvanceResult, err error) 
 // run's workspace before its first runner, advance the run after one.
 type dispatchStages struct{ s *Service }
 
-func (d dispatchStages) Prepare(id ids.ID) error { return d.s.starter.Prepare(d.s.life, id) }
+func (d dispatchStages) Prepare(id ids.ID) error { return d.s.starter.prepare(d.s.life, id) }
 
 func (d dispatchStages) Advance(id ids.ID) { d.s.autoAdvance(id) }

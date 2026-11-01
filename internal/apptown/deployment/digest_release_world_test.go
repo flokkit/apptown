@@ -401,7 +401,7 @@ func newDigestWorldWith(t *testing.T, secrets, appYAML string, configure func(*d
 	db := testDB(t)
 	w := &digestWorld{db: db, dir: t.TempDir(), registry: newDigestRegistry(t, digestRegistryUser, digestRegistryToken)}
 	w.hosts = &digestHosts{t: t, platform: "linux x86_64", held: map[string]map[string]bool{},
-		daemons: map[string]*dockerfake.Daemon{"": dockerfake.New(), digestHostOf("lab"): dockerfake.New(), digestHostOf("lab2"): dockerfake.New()}}
+		daemons: map[string]*dockerfake.Daemon{"": newDockerFake(), digestHostOf("lab"): newDockerFake(), digestHostOf("lab2"): newDockerFake()}}
 	w.project = createTestProject(t, db, "p", "P")
 	// One front door for every daemon: AppTown's file server, which
 	// answers /_apptown/release with the release its last container was told.

@@ -142,15 +142,15 @@ const ReleaseEnvVar = "APPTOWN_RELEASE"
 // which the app's image runs at start. AppTown sets it.
 const TrustEnvVar = trust.EnvVar
 
-// AppTownSetEnv are the environment names AppTown alone sets on a part. An
+// appTownSetEnv are the environment names AppTown alone sets on a part. An
 // app that set one would win over AppTown's value on one target and lose on
 // another, so the contract refuses it in a part's or a profile's
 // environment (the contract reference, "The environment an app gets").
-var AppTownSetEnv = []string{"PORT", "APPTOWN_ORIGINS", "DATA_DIR", ReleaseEnvVar, BrowserEnvVar, TrustEnvVar}
+var appTownSetEnv = []string{"PORT", "APPTOWN_ORIGINS", "DATA_DIR", ReleaseEnvVar, BrowserEnvVar, TrustEnvVar}
 
 // setsAppTownEnv names the first of AppTownSetEnv that env sets, or "".
 func setsAppTownEnv(env environment) string {
-	for _, name := range AppTownSetEnv {
+	for _, name := range appTownSetEnv {
 		if _, ok := env[name]; ok {
 			return name
 		}

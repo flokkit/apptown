@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/tasks"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
@@ -216,7 +218,7 @@ func TestARecoveredHeldAttemptIsNeverCollectedAgain(t *testing.T) {
 	if err := records.Exited(ctx, earlier.Operation, 0); err != nil {
 		t.Fatal(err)
 	}
-	restore := a.db.FailStatements("-- name: FinishAttempt", 1000)
+	restore := dbtest.StatementFailures(a.db, "-- name: FinishAttempt", 1000)
 	b := restarted(t, a)
 	drained(t, b)
 	restore()

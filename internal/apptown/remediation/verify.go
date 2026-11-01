@@ -17,7 +17,7 @@ type Review struct {
 	Detail string
 }
 
-type VerificationRecords interface {
+type verificationRecords interface {
 	VerificationCurrent(context.Context, Item) (bool, error)
 	Record(context.Context, Item, Outcome) (*Item, error)
 }
@@ -25,18 +25,18 @@ type VerificationRecords interface {
 // Reviews run outside transactions. Only a result for the current observation
 // may commit. Coalesce simultaneous requests in this process; after restart,
 // a verifying item is still discoverable by ordinary reconciliation.
-type Verifier struct {
-	records VerificationRecords
+type verifier struct {
+	records verificationRecords
 	review  func(context.Context, Item) Review
 	mu      sync.Mutex
 	active  map[ids.ID]bool
 }
 
-func NewVerifier(records VerificationRecords, review func(context.Context, Item) Review) *Verifier {
-	return &Verifier{records: records, review: review}
+func newVerifier(records verificationRecords, review func(context.Context, Item) Review) *verifier {
+	return &verifier{records: records, review: review}
 }
 
-func (v *Verifier) Verify(ctx context.Context, item Item) error {
+func (v *verifier) Verify(ctx context.Context, item Item) error {
 	v.mu.Lock()
 	if v.active[item.ID] {
 		v.mu.Unlock()

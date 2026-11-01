@@ -41,9 +41,9 @@ const (
 	batchCap  = 160 * 1024
 )
 
-// ChecklistSystem is the prompt template. Its hash is part of the evaluator
+// checklistSystem is the prompt template. Its hash is part of the evaluator
 // identity, so an edited template is a changed evaluator.
-const ChecklistSystem = `You verify software against a numbered conformance checklist.
+const checklistSystem = `You verify software against a numbered conformance checklist.
 Each item names its EVIDENCE: either FILES from the committed tree (judge the files as they stand)
 or the DIFF of one change (judge only what the diff shows; unchanged code is out of scope).
 Respond with ONLY a JSON array, one object per item, in order:
@@ -52,7 +52,7 @@ Respond with ONLY a JSON array, one object per item, in order:
 use "unclear", never "fail".`
 
 func TemplateHash() string {
-	h := sha256.Sum256([]byte(ChecklistSystem))
+	h := sha256.Sum256([]byte(checklistSystem))
 	return hex.EncodeToString(h[:4])
 }
 
@@ -103,13 +103,13 @@ func isMinified(rel string) bool {
 	return strings.Contains(base, ".min.") || strings.HasSuffix(base, ".map")
 }
 
-// PackEvidence collects the files matching globs under src, deterministically
+// packEvidence collects the files matching globs under src, deterministically
 // (sorted relative paths; excluded dirs, except files a glob names exactly,
 // symlinks, binaries and minified files skipped; per-file and per-rubric caps with explicit markers), and returns
 // the bundle text plus the list of files it contains. A file or directory
 // that cannot be read is the error: a bundle without it would be judged as
 // if it were the whole evidence.
-func PackEvidence(src string, globs []string) (bundle string, files []string, err error) {
+func packEvidence(src string, globs []string) (bundle string, files []string, err error) {
 	var matched []string
 	walkErr := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -259,12 +259,12 @@ type Verdict struct {
 type Completion struct {
 	Text   string
 	Model  string // the model the provider actually served
-	Tokens Tokens
+	Tokens tokens
 	Cost   float64
 }
 
-// Completer asks a model for one answer.
-type Completer interface {
+// completer asks a model for one answer.
+type completer interface {
 	Complete(ctx context.Context, system, user string) (Completion, error)
 }
 
@@ -275,13 +275,13 @@ func (f CompleterFunc) Complete(ctx context.Context, system, user string) (Compl
 	return f(ctx, system, user)
 }
 
-// ChecklistMeta is what a call records about itself.
-type ChecklistMeta struct {
+// checklistMeta is what a call records about itself.
+type checklistMeta struct {
 	Served     string // the model the provider actually served
 	PromptHash string
 	Items      int
 	Cost       float64
-	Tokens     Tokens
+	Tokens     tokens
 	ParseError bool
 	Retried    bool // the answer was asked for twice: the first was not JSON
 }
@@ -291,9 +291,9 @@ type ChecklistMeta struct {
 // the checklist returned anything at all for this item — an item it passed
 // over is cannot-assess, since silence is not a pass. meta, when given,
 // records what the call cost and what prompt it was.
-func Judgement(it Item, v Verdict, answered bool, meta *ChecklistMeta, mode Mode) Evaluation {
+func Judgement(it Item, v Verdict, answered bool, meta *checklistMeta, mode Mode) Evaluation {
 	ev := Evaluation{Declared: it.Declared, Mode: mode,
-		Evidence: Evidence{EvaluatorVersion: LLMEvaluatorVersion(it.Declaration), Hash: it.Hash, Files: it.Files}}
+		Evidence: evidence{EvaluatorVersion: LLMEvaluatorVersion(it.Declaration), Hash: it.Hash, Files: it.Files}}
 	if meta != nil {
 		ev.Evidence.PromptHash, ev.Evidence.Tokens = meta.PromptHash, meta.Tokens
 	}
@@ -327,7 +327,7 @@ func TreeItems(checks []Declared, src string) []Item {
 		if Evaluator(sc.Declaration) != "llm" || Scope(sc.Declaration) != ScopeTree {
 			continue
 		}
-		ev, files, err := PackEvidence(src, sc.Files)
+		ev, files, err := packEvidence(src, sc.Files)
 		if err != nil {
 			items = append(items, Item{Declared: sc, Scope: ScopeTree, Unreadable: err.Error()})
 			continue
@@ -361,7 +361,7 @@ func DiffItems(checks []Declared, diff string) []Item {
 //
 // An item whose evidence could not be read (Unreadable) is left out of the
 // prompt, keeping every other item's number; with none left, no call is made.
-func (j *Judge) Checklist(ctx context.Context, items []Item, diff string) (map[int]Verdict, *ChecklistMeta, error) {
+func (j *Judge) Checklist(ctx context.Context, items []Item, diff string) (map[int]Verdict, *checklistMeta, error) {
 	if !slices.ContainsFunc(items, func(it Item) bool { return it.Unreadable == "" }) {
 		return nil, nil, nil
 	}
@@ -400,27 +400,27 @@ func (j *Judge) Checklist(ctx context.Context, items []Item, diff string) (map[i
 		fmt.Fprintf(&sb, "\n--- DIFF (items %s) ---\n\n%s", strings.Join(diffNums, ", "), d)
 	}
 	user := sb.String()
-	ph := sha256.Sum256([]byte(ChecklistSystem + user))
-	meta := &ChecklistMeta{PromptHash: hex.EncodeToString(ph[:8]), Items: len(items)}
+	ph := sha256.Sum256([]byte(checklistSystem + user))
+	meta := &checklistMeta{PromptHash: hex.EncodeToString(ph[:8]), Items: len(items)}
 
-	c, err := j.Complete.Complete(ctx, ChecklistSystem, user)
+	c, err := j.Complete.Complete(ctx, checklistSystem, user)
 	if err != nil {
 		return nil, meta, fmt.Errorf("checklist model call failed: %s", strs.Truncate(err.Error(), 120))
 	}
 	meta.Served, meta.Cost, meta.Tokens = c.Model, c.Cost, c.Tokens
-	vs, perr := ParseChecklist(c.Text)
+	vs, perr := parseChecklist(c.Text)
 	if perr != nil {
 		// One more ask before giving up: a model that answered in prose
 		// once usually answers in JSON when told again, and one hiccup
 		// should not cost every verdict in the batch. The receipt says the
 		// answer was asked for twice.
-		c2, err2 := j.Complete.Complete(ctx, ChecklistSystem, user+"\n\nYour previous answer was not a JSON array. Answer again with the JSON array only, nothing before or after it.")
+		c2, err2 := j.Complete.Complete(ctx, checklistSystem, user+"\n\nYour previous answer was not a JSON array. Answer again with the JSON array only, nothing before or after it.")
 		if err2 == nil {
 			meta.Cost += c2.Cost
 			meta.Tokens.Input += c2.Tokens.Input
 			meta.Tokens.Output += c2.Tokens.Output
 			meta.Retried = true
-			vs, perr = ParseChecklist(c2.Text)
+			vs, perr = parseChecklist(c2.Text)
 		}
 	}
 	if perr != nil {
@@ -434,9 +434,9 @@ func (j *Judge) Checklist(ctx context.Context, items []Item, diff string) (map[i
 	return by, meta, nil
 }
 
-// ParseChecklist reads the judge's answer as a JSON array of verdicts,
+// parseChecklist reads the judge's answer as a JSON array of verdicts,
 // tolerating a code fence around it.
-func ParseChecklist(out string) ([]Verdict, error) {
+func parseChecklist(out string) ([]Verdict, error) {
 	clean := strings.TrimSpace(out)
 	clean = strings.TrimPrefix(clean, "```json")
 	clean = strings.TrimPrefix(clean, "```")

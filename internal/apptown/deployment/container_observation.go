@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerlabel"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/dockerlabel"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -102,9 +103,9 @@ func (s *Service) ObserveContainerNow(ctx context.Context, d *Deployment) Contai
 	return ContainerObservation{State: ContainerStopped}
 }
 
-// ServedRevision is the commit a deployment's container serves now, as this
+// servedRevision is the commit a deployment's container serves now, as this
 // AppTown witnesses it, or why it cannot be named.
-type ServedRevision struct {
+type servedRevision struct {
 	Commit      string // "" when it cannot be named; Reason says why
 	ContainerID string // the container that was asked
 	Reason      string
@@ -118,31 +119,31 @@ type ServedRevision struct {
 // recorded generation, not a later or hand-started one under the same name.
 // Anything the daemon cannot answer, or a record without a commit, is a
 // reason, never a guess.
-func (s *Service) ServedRevision(ctx context.Context, d *Deployment) ServedRevision {
+func (s *Service) ServedRevision(ctx context.Context, d *Deployment) servedRevision {
 	if d.ReleaseSHA == "" {
-		return ServedRevision{Reason: "the deployment records no commit"}
+		return servedRevision{Reason: "the deployment records no commit"}
 	}
 	if d.Container == "" {
-		return ServedRevision{Reason: "the deployment records no container"}
+		return servedRevision{Reason: "the deployment records no container"}
 	}
 	dk, err := s.hosts.DockerScopeFor(ctx, d.TargetID)
 	if err != nil {
-		return ServedRevision{Reason: "its host cannot be asked: " + err.Error()}
+		return servedRevision{Reason: "its host cannot be asked: " + err.Error()}
 	}
 	rt, err := docker.Inspect(ctx, dk, d.Container)
 	switch {
 	case errors.Is(err, docker.ErrContainerAbsent):
-		return ServedRevision{Reason: "its container is gone"}
+		return servedRevision{Reason: "its container is gone"}
 	case err != nil:
-		return ServedRevision{Reason: "its container cannot be asked: " + err.Error()}
+		return servedRevision{Reason: "its container cannot be asked: " + err.Error()}
 	case !rt.Running:
-		return ServedRevision{ContainerID: rt.ID, Reason: "its container is not running"}
+		return servedRevision{ContainerID: rt.ID, Reason: "its container is not running"}
 	}
 	want := strconv.FormatInt(d.ObservedGeneration, 10)
-	if carried := rt.Labels; carried[dockerlabel.Deployment] != string(d.Label()) || carried[dockerlabel.Generation] != want {
-		return ServedRevision{ContainerID: rt.ID, Reason: fmt.Sprintf("the running container is not the generation %s the deployment recorded", want)}
+	if carried := rt.Labels; carried[dockerlabel.Deployment] != string(d.label()) || carried[dockerlabel.Generation] != want {
+		return servedRevision{ContainerID: rt.ID, Reason: fmt.Sprintf("the running container is not the generation %s the deployment recorded", want)}
 	}
-	return ServedRevision{Commit: d.ReleaseSHA, ContainerID: rt.ID}
+	return servedRevision{Commit: d.ReleaseSHA, ContainerID: rt.ID}
 }
 
 // AttachedDockerHostsHealth is Docker deploys' health on an AppTown with no
@@ -158,12 +159,12 @@ func (s *Service) AttachedDockerHostsHealth(ctx context.Context) ProviderHealth 
 		if t.Kind != KindDockerHost || t.Origin != OriginAttached || t.Status == TargetRetired {
 			continue
 		}
-		addr, keyFrom, err := HostTargetAddress(t)
+		addr, keyFrom, err := hostTargetAddress(t)
 		if err != nil {
 			silent = append(silent, t.Name+" ("+err.Error()+")")
 			continue
 		}
-		if ok, words := s.hosts.ProbeHostTarget(ctx, t.Name, addr, keyFrom); ok {
+		if ok, words := s.hosts.probeHostTarget(ctx, t.Name, addr, keyFrom); ok {
 			answered = append(answered, t.Name)
 		} else {
 			silent = append(silent, t.Name+" ("+strs.Truncate(words, 120)+")")

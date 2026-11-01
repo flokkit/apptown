@@ -1,9 +1,10 @@
 package workcommands
 
 import (
+	"testing"
+
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/schema"
-	"testing"
 )
 
 func TestStandingPurposeRequiresTheActualLifecycleRole(t *testing.T) {

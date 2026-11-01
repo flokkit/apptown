@@ -34,13 +34,13 @@ type Binding struct {
 }
 
 var (
-	ErrManaged  = fault.New(fault.Conflict, "a managed binding is AppTown's and re-syncs with its configuration; clone it under a new name")
+	errManaged  = fault.New(fault.Conflict, "a managed binding is AppTown's and re-syncs with its configuration; clone it under a new name")
 	ErrAttached = fault.New(fault.Conflict, "projects still reference the binding; detach them first")
-	ErrInUse    = fault.New(fault.Conflict, "projects still hold an integration of this kind; detach them first")
+	errInUse    = fault.New(fault.Conflict, "projects still hold an integration of this kind; detach them first")
 	// ErrNoBinding and ErrNoServiceKind are the absence of what a caller
 	// named, classified here so callers never read sql.ErrNoRows.
 	ErrNoBinding     = fault.New(fault.NotFound, "no binding is named")
-	ErrNoServiceKind = fault.New(fault.NotFound, "no service kind has the capability")
+	errNoServiceKind = fault.New(fault.NotFound, "no service kind has the capability")
 )
 
 // Bindings is the supported API over the instance's bindings.
@@ -197,7 +197,7 @@ func (s *Bindings) upsertAt(ctx context.Context, now time.Time, name, capability
 // configuration its runtime could not read (ErrInvalidConfig), are refused.
 func (s *Bindings) Save(ctx context.Context, name, capability, provider, configJSON, who string) (int, error) {
 	if b, err := s.ByName(ctx, name); err == nil && b.Managed {
-		return 0, fmt.Errorf("%q: %w", name, ErrManaged)
+		return 0, fmt.Errorf("%q: %w", name, errManaged)
 	}
 	if err := validateConfig(capability, configJSON); err != nil {
 		return 0, err
@@ -250,7 +250,7 @@ func (s *Bindings) Delete(ctx context.Context, name, who string) error {
 			return err
 		}
 		if current.Managed {
-			return fmt.Errorf("%q: %w", name, ErrManaged)
+			return fmt.Errorf("%q: %w", name, errManaged)
 		}
 		linked, err := q.BindingAttachmentCount(ctx, name)
 		if err != nil {
@@ -272,12 +272,12 @@ func (s *Bindings) Delete(ctx context.Context, name, who string) error {
 
 // StockCurrent is what the store holds for a seeded name: its canonical
 // configuration and whether it is managed; nil when absent.
-type Stock struct {
+type stockIntegration struct {
 	Content string
 	Managed bool
 }
 
-func (s *Bindings) StockCurrent(ctx context.Context, name string) (*Stock, error) {
+func (s *Bindings) StockCurrent(ctx context.Context, name string) (*stockIntegration, error) {
 	b, err := s.ByName(ctx, name)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -285,7 +285,7 @@ func (s *Bindings) StockCurrent(ctx context.Context, name string) (*Stock, error
 	if err != nil {
 		return nil, err
 	}
-	return &Stock{Content: canonJSON(b.ConfigJSON), Managed: b.Managed}, nil
+	return &stockIntegration{Content: canonJSON(b.ConfigJSON), Managed: b.Managed}, nil
 }
 
 // StockInsert seeds a managed binding at version 1; StockUpdate cuts the
@@ -344,36 +344,36 @@ func Resource(ctx context.Context, q database.Queryer, projectID ids.ID, capabil
 	return string(r.ResourceJson), err
 }
 
-// ServiceKind is one runtime-defined kind, as its YAML.
-type ServiceKind struct {
+// serviceKind is one runtime-defined kind, as its YAML.
+type serviceKind struct {
 	Capability, YAML, UpdatedAt string
 }
 
-// ServiceKinds is the supported API over service kinds.
-type ServiceKinds struct {
+// serviceKinds is the supported API over service kinds.
+type serviceKinds struct {
 	db    *database.DB
 	clock func() time.Time // AppTown's clock; nil is the real one
 }
 
-func NewServiceKinds(db *database.DB) *ServiceKinds { return &ServiceKinds{db: db} }
+func newServiceKinds(db *database.DB) *serviceKinds { return &serviceKinds{db: db} }
 
-func (s *ServiceKinds) All(ctx context.Context) ([]ServiceKind, error) {
+func (s *serviceKinds) All(ctx context.Context) ([]serviceKind, error) {
 	rows, err := integrationsql.New(s.db.SQL()).ServiceKinds(ctx)
-	out := make([]ServiceKind, 0, len(rows))
+	out := make([]serviceKind, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, ServiceKind{Capability: r.Capability, YAML: r.SpecYaml, UpdatedAt: r.UpdatedAt.Format(time.RFC3339Nano)})
+		out = append(out, serviceKind{Capability: r.Capability, YAML: r.SpecYaml, UpdatedAt: r.UpdatedAt.Format(time.RFC3339Nano)})
 	}
 	return out, err
 }
 
-func (s *ServiceKinds) ByCapability(ctx context.Context, capability string) (string, error) {
+func (s *serviceKinds) byCapability(ctx context.Context, capability string) (string, error) {
 	r, err := integrationsql.New(s.db.SQL()).ServiceKindByCapability(ctx, capability)
 	return r.SpecYaml, err
 }
 
 // Save creates or replaces a kind with its receipt (versionless: the
 // YAML is small and integrations pin nothing from it).
-func (s *ServiceKinds) Save(ctx context.Context, capability, yamlSrc, title, who string) error {
+func (s *serviceKinds) Save(ctx context.Context, capability, yamlSrc, title, who string) error {
 	// The owner holds the definition rules, whoever calls: a value marked for
 	// browsers must never come from a secret.
 	kind, err := ParseDefinition(yamlSrc)
@@ -396,7 +396,7 @@ func (s *ServiceKinds) Save(ctx context.Context, capability, yamlSrc, title, who
 // an integration of the kind; absence is ErrNoServiceKind. The delete's
 // count decides absence here: the kind row is the one the caller named,
 // and no row deleted means there was none, not an unrecorded write.
-func (s *ServiceKinds) Delete(ctx context.Context, capability, who string) error {
+func (s *serviceKinds) Delete(ctx context.Context, capability, who string) error {
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		q := integrationsql.New(tx.SQL())
 		inUse, err := q.KindAttachmentCount(ctx, capability)
@@ -404,14 +404,14 @@ func (s *ServiceKinds) Delete(ctx context.Context, capability, who string) error
 			return err
 		}
 		if inUse > 0 {
-			return fmt.Errorf("%d project(s) still have a %s integration: %w", inUse, capability, ErrInUse)
+			return fmt.Errorf("%d project(s) still have a %s integration: %w", inUse, capability, errInUse)
 		}
 		n, err := q.DeleteServiceKind(ctx, capability)
 		if err != nil {
 			return err
 		}
 		if n == 0 {
-			return fmt.Errorf("%w %q", ErrNoServiceKind, capability)
+			return fmt.Errorf("%w %q", errNoServiceKind, capability)
 		}
 		return audit.At(clock.Or(s.clock)()).RecordIn(ctx, tx, who, ids.Nil, "service-kind.deleted", capability, nil)
 	})
@@ -431,11 +431,11 @@ func sameJSON(a, b string) bool { return canonJSON(a) == canonJSON(b) }
 // Provenance says how a project's attachment came to be: entered by a
 // person, provisioned by AppTown at the provider, or "" for an
 // engine-internal row (the SCM token cache) that is not an attachment.
-type Provenance string
+type provenance string
 
 const (
-	Entered     Provenance = "entered"
-	Provisioned Provenance = "provisioned"
+	entered     provenance = "entered"
+	Provisioned provenance = "provisioned"
 )
 
 var ErrNotAttached = errors.New("the project has no such integration")
@@ -452,10 +452,10 @@ func NewAttachments(db *database.DB) *Attachments { return &Attachments{db: db} 
 // capability with its entered resource and the
 // integration.attached receipt, in one transaction.
 func (s *Attachments) Attach(ctx context.Context, projectID ids.ID, capability, binding, resourceJSON, who string, receipt map[string]any) error {
-	return s.attach(ctx, projectID, capability, binding, resourceJSON, Entered, who, receipt)
+	return s.attach(ctx, projectID, capability, binding, resourceJSON, entered, who, receipt)
 }
 
-func (s *Attachments) attach(ctx context.Context, projectID ids.ID, capability, binding, resourceJSON string, provenance Provenance, who string, receipt map[string]any) error {
+func (s *Attachments) attach(ctx context.Context, projectID ids.ID, capability, binding, resourceJSON string, provenance provenance, who string, receipt map[string]any) error {
 	if provenance == "" {
 		return errors.New("an attachment needs a provenance")
 	}

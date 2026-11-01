@@ -41,12 +41,12 @@ const (
 var stateCodec = enum.Set[OperationState]{
 	Names:     []string{"queued", "running", "succeeded", "failed", "unknown", "cancelled"},
 	Invalid:   "invalid-operation-state",
-	Err:       ErrState,
+	Err:       errState,
 	ScanLabel: "value",
 }
 
-// ErrState is a state the ledger does not know.
-var ErrState = errors.New("invalid operation state")
+// errState is a state the ledger does not know.
+var errState = errors.New("invalid operation state")
 
 func (s OperationState) String() string                   { return stateCodec.String(s) }
 func (s OperationState) Value() (driver.Value, error)     { return stateCodec.Value(s) }
@@ -113,13 +113,6 @@ func (a Authority) Principal() access.Principal {
 		Role: a.Role, Purpose: a.Purpose, DelegationID: a.DelegationID, Scopes: append([]string(nil), a.Scopes...), Credential: a.Credential}
 }
 
-// Actor is who answers for the operation as its admission captured them:
-// their principal and way of acting, never the asker's name looked up
-// again (a rename or a later holder of the name changes nothing).
-func (a Authority) Actor() access.Actor {
-	return a.Principal().Actor()
-}
-
 // System is AppTown acting for itself under a named binding (the
 // scheduled copies, the restored-copy sweep).
 func System(binding string) access.Principal {
@@ -172,10 +165,10 @@ func (o *Operation) Current() *OperationStep {
 }
 
 // URL is the operation's API address.
-func (o *Operation) URL() string { return Path(o.ID) }
+func (o *Operation) URL() string { return path(o.ID) }
 
-// Path is an operation's API address.
-func Path(id ids.ID) string { return "/api/v1/operations/" + id.String() }
+// path is an operation's API address.
+func path(id ids.ID) string { return "/api/v1/operations/" + id.String() }
 
 func record(r operationssql.Operation) (*Operation, error) {
 	o := &Operation{ID: r.ID, Number: r.Number, Kind: r.Kind, ProjectID: r.ProjectID, Subject: r.Subject.String, AskedBy: r.AskedBy,

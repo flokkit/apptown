@@ -27,7 +27,7 @@ func TestIntegrationAdaptersPreserveOrderingAndErrors(t *testing.T) {
 	db := databaseSuite.New(t)
 	bindings := integration.NewWithClock(db, nil)
 	catalog := NewCatalog(db, secret.NewService(db, secret.Config{DataDir: t.TempDir()}))
-	t.Cleanup(db.FailNextStatement("-- name: Bindings :many"))
+	t.Cleanup(dbtest.NextStatementFailure(db, "-- name: Bindings :many"))
 	if got, err := catalog.providers(context.Background()); err == nil || got != nil {
 		t.Fatal("failed read returned inference providers")
 	}
@@ -113,7 +113,7 @@ func TestTheModelListIsTheGatewaysOwn(t *testing.T) {
 	if err != nil || len(ids) != 1 || ids[0] != "live" {
 		t.Fatalf("an unsaved binding: %v %v", ids, err)
 	}
-	if _, err := catalog.Discover(context.Background(), "unsaved", map[string]any{"baseUrl": server.URL, "api": "anthropic-messages"}); !errors.Is(err, ErrNoEndpoint) {
+	if _, err := catalog.Discover(context.Background(), "unsaved", map[string]any{"baseUrl": server.URL, "api": "anthropic-messages"}); !errors.Is(err, errNoEndpoint) {
 		t.Fatalf("a provider with no model list: %v", err)
 	}
 }

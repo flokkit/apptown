@@ -40,7 +40,7 @@ func TestChecklistAsksAgainForJSON(t *testing.T) {
 	}}, nil, stock.Versions())
 	sc := conformance.DeclaredCheck{Block: "b", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "c", Expects: "e", Rubric: "r", Evaluator: "llm", Scope: "diff"}}
 	items := check.DiffItems(declaredAll([]conformance.DeclaredCheck{sc}), "diff")
-	by, meta, err := e.Checklist(context.Background(), modelcall.Call{Purpose: "guidance-checklist", Model: "openrouter/test-model"}, items, "diff")
+	by, meta, err := e.checklist(context.Background(), modelcall.Call{Purpose: "guidance-checklist", Model: "openrouter/test-model"}, items, "diff")
 	if err != nil || meta == nil || len(by) != 1 || !meta.Retried || calls != 2 {
 		t.Fatalf("want one retried verdict from two calls: err=%v by=%v meta=%+v calls=%d", err, by, meta, calls)
 	}
@@ -61,7 +61,7 @@ func TestChecklistKeepsTheSpendOfAFailedCall(t *testing.T) {
 	}}, nil, stock.Versions())
 	sc := conformance.DeclaredCheck{Block: "b", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "c", Expects: "e", Rubric: "r", Evaluator: "llm", Scope: "diff"}}
 	items := check.DiffItems(declaredAll([]conformance.DeclaredCheck{sc}), "diff")
-	_, meta, err := e.Checklist(context.Background(), modelcall.Call{Purpose: "guidance-checklist", Model: "openrouter/test-model"}, items, "diff")
+	_, meta, err := e.checklist(context.Background(), modelcall.Call{Purpose: "guidance-checklist", Model: "openrouter/test-model"}, items, "diff")
 	if err == nil || meta == nil || meta.Usage == nil || meta.Usage.Incomplete == "" || meta.Usage.Prompt != 4 || meta.Usage.Cost != 0.5 {
 		t.Fatalf("spend of a failed retry kept and marked unknown: err=%v meta=%+v", err, meta)
 	}

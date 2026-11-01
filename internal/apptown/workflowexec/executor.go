@@ -71,7 +71,7 @@ type Dependencies struct {
 	// Telemetry; nil means no-op.
 	Tracer trace.Tracer
 	Meter  metric.Meter
-	Links  AttemptLinks
+	Links  attemptLinks
 	// Now is AppTown's clock, which stamps the run records this executor
 	// writes (artifacts); nil is the real one.
 	Now func() time.Time

@@ -59,10 +59,10 @@ func (e *RemovalIncompleteError) FaultKind() fault.Kind {
 }
 
 func (e *Deployment) removableNow(withProject bool) error {
-	if err := e.Removable(); err != nil && !withProject {
+	if err := e.removable(); err != nil && !withProject {
 		return err
 	}
-	if e.Readiness == Reconciling || e.Readiness == ReadinessUncertain {
+	if e.Readiness == reconciling || e.Readiness == ReadinessUncertain {
 		return ErrRemovalBusy
 	}
 	return nil
@@ -92,7 +92,7 @@ func SelectRemovalIn(ctx context.Context, tx *database.Tx, projectID ids.ID, nam
 	if err != nil {
 		return nil, err
 	}
-	dep, err = LockDeploymentIn(ctx, tx, dep.ID)
+	dep, err = lockDeploymentRecordIn(ctx, tx, dep.ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrDeploymentMissing
 	}
@@ -106,7 +106,7 @@ func SelectRemovalIn(ctx context.Context, tx *database.Tx, projectID ids.ID, nam
 		return nil, ErrRestoredCopyDoor
 	}
 	// Not from records a restore has not yet confirmed against the provider.
-	if err := dep.TakeDownHeldAfterRestore(); err != nil {
+	if err := dep.takeDownHeldAfterRestore(); err != nil {
 		return nil, err
 	}
 	busy, err := q.HasOpenAttempt(ctx, deploymentsql.HasOpenAttemptParams{DeploymentID: dep.ID, RunningState: AttemptRunning.String(), UncertainState: AttemptUncertain.String()})
@@ -170,7 +170,7 @@ func RemoveRecordedIn(ctx context.Context, tx *database.Tx, selected *Deployment
 // RemoveRestoredIn settles a restored copy's take-down in the caller's
 // transaction: the copy's placement row, locked here, and what it made.
 func RemoveRestoredIn(ctx context.Context, tx *database.Tx, id ids.ID, s RemovalSettlement) ([]string, error) {
-	current, err := LockDeploymentIn(ctx, tx, id)
+	current, err := lockDeploymentRecordIn(ctx, tx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -240,5 +240,5 @@ func takeDownReleaseIn(ctx context.Context, tx *database.Tx, dep *Deployment, ta
 	if found, err := database.Lookup(err); err != nil || !found {
 		return err
 	}
-	return AppendReleaseEvent(ctx, tx, rel.ID, fmt.Sprintf("taken down — %s deleted the deployment %s on %s; it no longer serves this release", who, dep.Name, target), at)
+	return appendReleaseEvent(ctx, tx, rel.ID, fmt.Sprintf("taken down — %s deleted the deployment %s on %s; it no longer serves this release", who, dep.Name, target), at)
 }

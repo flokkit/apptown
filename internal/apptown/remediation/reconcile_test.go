@@ -15,62 +15,62 @@ func TestRemediationDecisionsFromFacts(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		change func(*Observation)
-		action Action
+		action remediationAction
 		state  string
 		reason string
 	}{
-		{"working", func(o *Observation) {}, ActionWait, "", ""},
-		{"missing change", func(o *Observation) { o.ChangeFound = false }, ActionStuck, "", "Change disappeared"},
-		{"missing run", func(o *Observation) { o.Execution.Run.ID = ids.Nil }, ActionStuck, "", "run disappeared"},
-		{"unstarted", func(o *Observation) { o.Item.RunID = ids.Nil }, ActionStuck, "", "no run was started"},
-		{"preparation", func(o *Observation) { o.Execution.Unready = true }, ActionPrepare, "", ""},
-		{"await approval", func(o *Observation) { o.Execution.Steps[0].Status = workflow.StatusPass }, ActionPhase, ItemAccepting, "waiting on you"},
-		{"sent back", func(o *Observation) { o.Item.State = ItemAccepting }, ActionPhase, ItemWorking, ""},
-		{"human blocker", func(o *Observation) { o.Execution.Steps[0].Status = workflow.StatusNeedsHuman }, ActionWait, "", ""},
-		{"gate failure", func(o *Observation) { o.Execution.Steps[0].Status = workflow.StatusFail }, ActionStuck, "", "cannot rework"},
+		{"working", func(o *Observation) {}, actionWait, "", ""},
+		{"missing change", func(o *Observation) { o.ChangeFound = false }, actionStuck, "", "Change disappeared"},
+		{"missing run", func(o *Observation) { o.Execution.Run.ID = ids.Nil }, actionStuck, "", "run disappeared"},
+		{"unstarted", func(o *Observation) { o.Item.RunID = ids.Nil }, actionStuck, "", "no run was started"},
+		{"preparation", func(o *Observation) { o.Execution.Unready = true }, actionPrepare, "", ""},
+		{"await approval", func(o *Observation) { o.Execution.Steps[0].Status = workflow.StatusPass }, actionPhase, ItemAccepting, "waiting on you"},
+		{"sent back", func(o *Observation) { o.Item.State = ItemAccepting }, actionPhase, ItemWorking, ""},
+		{"human blocker", func(o *Observation) { o.Execution.Steps[0].Status = workflow.StatusNeedsHuman }, actionWait, "", ""},
+		{"gate failure", func(o *Observation) { o.Execution.Steps[0].Status = workflow.StatusFail }, actionStuck, "", "cannot rework"},
 		{"agent rework", func(o *Observation) {
 			o.Execution.Steps[0].Status = workflow.StatusFail
 			o.Execution.Steps[0].Type = "agent/pi"
-		}, ActionWait, "", ""},
+		}, actionWait, "", ""},
 		{"rework exhausted", func(o *Observation) {
 			o.Execution.Steps[0].Status = workflow.StatusFail
 			o.Execution.Reworks = 3
-		}, ActionStuck, "", "kept failing"},
+		}, actionStuck, "", "kept failing"},
 		{"provider refusal", func(o *Observation) {
 			o.Execution.Steps[0].Status = workflow.StatusFail
 			o.Execution.Steps[0].Evidence = json.RawMessage(`{"reason":"429 rate limit"}`)
-		}, ActionBackoff, "", "429"},
+		}, actionBackoff, "", "429"},
 		{"refusal exhausted", func(o *Observation) {
 			o.Execution.Steps[0].Status = workflow.StatusFail
 			o.Execution.Steps[0].Evidence = json.RawMessage(`{"reason":"429"}`)
 			o.Item.TransientRetries = remMaxTransients
-		}, ActionStuck, "", "kept refusing"},
+		}, actionStuck, "", "kept refusing"},
 		{"decision requested", func(o *Observation) {
 			o.Execution.Run.Status = workflow.RunAbandoned
 			o.Execution.Steps[0].Status = workflow.StatusFail
 			o.Execution.Steps[0].Evidence = json.RawMessage(`{"reason":"a question"}`)
-		}, ActionStuck, "", "needs a decision"},
-		{"accepted", func(o *Observation) { o.Execution.Run.Status = workflow.RunDone }, ActionPhase, ItemAccepting, "landing is starting"},
-		{"landing", func(o *Observation) { o.ChangeState = workflow.ChangeLanding }, ActionPhase, ItemLanding, ""},
+		}, actionStuck, "", "needs a decision"},
+		{"accepted", func(o *Observation) { o.Execution.Run.Status = workflow.RunDone }, actionPhase, ItemAccepting, "landing is starting"},
+		{"landing", func(o *Observation) { o.ChangeState = workflow.ChangeLanding }, actionPhase, ItemLanding, ""},
 		{"landing retry", func(o *Observation) {
 			o.ChangeState = workflow.ChangeLanding
 			o.Item.State = ItemLanding
 			o.Execution.Steps[0].Status = workflow.StatusFail
 			o.Execution.Steps[0].Evidence = json.RawMessage(`{"reason":"provider overloaded"}`)
 		}, ActionRecheckLanding, "", "overloaded"},
-		{"landed", func(o *Observation) { o.ChangeState = workflow.ChangeShipped }, ActionLanded, "", ""},
-		{"verifying", func(o *Observation) { o.Item.State = ItemVerifying }, ActionVerify, "", ""},
+		{"landed", func(o *Observation) { o.ChangeState = workflow.ChangeShipped }, actionLanded, "", ""},
+		{"verifying", func(o *Observation) { o.Item.State = itemVerifying }, actionVerify, "", ""},
 		{"newly landed stuck", func(o *Observation) {
 			o.Item.State = ItemStuck
 			o.ChangeState = workflow.ChangeShipped
 			o.AttemptOutcome = "stuck"
-		}, ActionLanded, "", ""},
+		}, actionLanded, "", ""},
 		{"already reviewed", func(o *Observation) {
 			o.Item.State = ItemStuck
 			o.ChangeState = workflow.ChangeShipped
 			o.AttemptOutcome = "landed"
-		}, ActionWait, "", ""},
-		{"skipped", func(o *Observation) { o.Item.State = ItemSkipped }, ActionWait, "", ""},
+		}, actionWait, "", ""},
+		{"skipped", func(o *Observation) { o.Item.State = ItemSkipped }, actionWait, "", ""},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

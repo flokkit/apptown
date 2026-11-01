@@ -126,7 +126,7 @@ func (h CatalogChanges) CatalogApply(w http.ResponseWriter, r *http.Request) {
 		if !RequireProjectMember(h.access, w, r, p.ID, p.Slug) {
 			return
 		}
-		item, run, err := h.actions.ApplyCatalog(r.Context(), p, c, in.Params, Actor(r))
+		item, run, err := h.actions.ApplyCatalog(r.Context(), p, c, in.Params, actor(r))
 		if err != nil {
 			WriteError(w, 422, "%v", err)
 			return

@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/audit"
-	"github.com/flokkit/apptown/internal/database"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/database"
 
 	"github.com/flokkit/apptown/internal/apptown/integration/internal/integrationsql"
 	"github.com/flokkit/apptown/internal/deploy/portainer"

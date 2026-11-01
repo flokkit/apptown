@@ -108,20 +108,20 @@ type BootRequest struct {
 	// creation that cannot be recorded fails the boot.
 	Record         func(deploy.Owned) error
 	Storage        deploy.StorageBindings
-	RestoreStorage deploy.StorageRestore
+	restoreStorage deploy.StorageRestore
 	// Owned is the deployment's list before this boot (Ownership.Recorded).
 	Owned []deploy.Owned
 	// Sealed boots a restore rehearsal: no address outside its host, its
 	// own network, its needs filled before any init step, and only the
 	// public part (Sealed). nil boots as before.
 	Sealed *Sealed
-	// Fill puts a deployment's data back after its needs are up and before
+	// fill puts a deployment's data back after its needs are up and before
 	// any init step, part or the public app runs, on the stack's network
 	// ("" when it has none), so nothing of the app writes into, or answers
 	// from, the new and empty data first: a rebuild after AppTown was
 	// restored. A failing fill ends the boot (PhaseFill) with nothing of the
 	// app started. nil fills nothing.
-	Fill func(network string) error
+	fill func(network string) error
 	// release is PublicRelease(Revision), set by Boot.
 	release string
 	// own is Record with the needs' data paths, set by Boot.
@@ -202,13 +202,6 @@ type BootError struct {
 
 func (e *BootError) Error() string { return e.Err.Error() }
 
-// BeforeEffects says the boot failed before touching Docker: the attempt's
-// outcome is known, nothing changed, and a new attempt may follow once the
-// cause is fixed. A later phase can have left effects nobody saw.
-func (e *BootError) BeforeEffects() bool {
-	return e.Phase == PhaseResolve || e.Phase == PhaseSecrets || e.Phase == PhaseConfig
-}
-
 // KnownOutcome says the attempt's outcome is known: the boot ran and
 // reported, in a phase, that the new version did not come up. It failed.
 // What it left on the host is on the deployment's list (Ownership), so the
@@ -239,15 +232,15 @@ type ResolvedStack struct {
 	Services []deploy.ServiceSpec
 	// Needs are the fulfilled needs (the tail of Services) with where each
 	// emulator keeps its data; the intranet gives each a named volume.
-	Needs []ResolvedNeed
+	Needs []resolvedNeed
 	// Secrets is the broker's delivery for this boot: per consumer, the
 	// values to inject; and the receipts (names, stores, versions — never
 	// values) the boot records.
 	Secrets Delivery
 }
 
-// ResolvedNeed is a fulfilled need plus its emulator's data path.
-type ResolvedNeed struct {
+// resolvedNeed is a fulfilled need plus its emulator's data path.
+type resolvedNeed struct {
 	deploy.ServiceSpec
 	Data string
 }
@@ -276,7 +269,7 @@ func (h *Host) ResolveStack(ctx context.Context, c *appcontract.Contract, overri
 	}
 	rs.Services = append(append([]deploy.ServiceSpec{}, override...), depSvcs...)
 	for _, s := range depSvcs {
-		n := ResolvedNeed{ServiceSpec: s}
+		n := resolvedNeed{ServiceSpec: s}
 		data, err := h.deps.Needs.Data(ctx, s.Name)
 		if err != nil {
 			return ResolvedStack{}, fmt.Errorf("where %s keeps its data: %w", s.Name, err)
@@ -307,8 +300,8 @@ func (h *Host) Boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	return res, redactBootError(err, redact)
 }
 
-// Redacted is what a generated credential reads as in a boot's failure.
-const Redacted = "[secret]"
+// redacted is what a generated credential reads as in a boot's failure.
+const redacted = "[secret]"
 
 // credentialRedactor replaces each generated credential of services with
 // Redacted, longest first, so one inside another is not half-replaced.
@@ -324,7 +317,7 @@ func credentialRedactor(services []deploy.ServiceSpec) func(string) string {
 	pairs := make([]string, 0, 2*len(values))
 	for _, v := range values {
 		if v != "" {
-			pairs = append(pairs, v, Redacted)
+			pairs = append(pairs, v, redacted)
 		}
 	}
 	r := strings.NewReplacer(pairs...)
@@ -401,7 +394,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	}
 	// From here a container's output may quote the needs' credentials: what
 	// a failure keeps of it is redacted before it is cut short.
-	t.Docker.Redact = credentialRedactor(rs.Services)
+	t.Docker.redact = credentialRedactor(rs.Services)
 	// Secrets: the declaration read from the tree being booted, each
 	// secret's binding for THIS deployment resolved, and every consumer
 	// handed only what its scope names. A required secret nothing provides
@@ -426,9 +419,9 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		return res, &BootError{Phase: PhaseSecrets, Err: err}
 	}
 	res.Stack = rs
-	t.own = Ownership{Storage: t.Storage, RestoreStorage: t.RestoreStorage, Record: t.Record, Needs: map[string]string{}, Recorded: t.Owned, Persistent: t.Persistent}
+	t.own = Ownership{storage: t.Storage, restoreStorage: t.restoreStorage, Record: t.Record, Needs: map[string]string{}, priorResources: t.Owned, persistent: t.Persistent}
 	if t.Persistent {
-		t.own.Info = dockerlabel.Informational(t.Slug, t.Deployment)
+		t.own.info = dockerlabel.Informational(t.Slug, t.Deployment)
 	}
 	for _, n := range rs.Needs {
 		t.own.Needs[n.Name] = n.Data
@@ -469,7 +462,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		return res, &BootError{Phase: PhaseResolve, Err: err}
 	}
 	if t.Identity != nil || t.Recorded != nil {
-		plan, err = h.PrepareImages(ctx, t, plan)
+		plan, err = h.prepareImages(ctx, t, plan)
 		if err != nil && t.Recorded != nil {
 			return res, &BootError{Phase: PhaseResolve, Err: err} // only asked the daemon: nothing changed
 		}
@@ -530,9 +523,9 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	if err := allowed(ctx); err != nil {
 		return res, &BootError{Phase: PhaseFill, Err: err}
 	}
-	if t.Fill != nil {
+	if t.fill != nil {
 		t.logf("Putting the deployment's data back before the app starts")
-		if err := t.Fill(network); err != nil {
+		if err := t.fill(network); err != nil {
 			return res, &BootError{Phase: PhaseFill, Err: err}
 		}
 	}
@@ -553,7 +546,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	if err := allowed(ctx); err != nil {
 		return res, &BootError{Phase: PhaseApp, Err: err}
 	}
-	hostPort, err := h.StartAppContainer(ctx, t, plan.PublicPart(), network,
+	hostPort, err := h.startAppContainer(ctx, t, plan.PublicPart(), network,
 		rs.Secrets.EnvFor(plan.PublicPart().Name))
 	if err != nil {
 		return res, &BootError{Phase: PhaseApp, Err: err}
@@ -608,11 +601,11 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	// /_apptown/env.js.
 	switch {
 	case t.release != "":
-		if up, logTail := h.prober().Check(ctx, t.Docker, t.Name, probeU, t.Probe, RenderedProbe{Path: appcontract.ReleasePath, Release: t.release}); !up {
+		if up, logTail := h.prober().Check(ctx, t.Docker, t.Name, probeU, t.Probe, renderedProbe{Path: appcontract.ReleasePath, Release: t.release}); !up {
 			return res, &BootError{Phase: PhaseProbe, Err: fmt.Errorf("the static site's file server does not answer %s with this release (%s): its image does not carry AppTown's file server configuration, or it serves another release", appcontract.ReleasePath, t.release), LogTail: logTail}
 		}
 	case wasStatic || plan.PublicPart().ServesStatic:
-		if up, logTail := h.prober().Check(ctx, t.Docker, t.Name, probeU, t.Probe, RenderedProbe{Path: "/_apptown/env.js", Expect: 200}); !up {
+		if up, logTail := h.prober().Check(ctx, t.Docker, t.Name, probeU, t.Probe, renderedProbe{Path: "/_apptown/env.js", Expect: 200}); !up {
 			return res, &BootError{Phase: PhaseProbe, Err: errors.New("the static site's file server does not answer /_apptown/env.js: its image does not carry AppTown's file server configuration"), LogTail: logTail}
 		}
 	}

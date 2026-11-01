@@ -9,7 +9,7 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 )
 
-var ErrOriginsChanged = fault.New(fault.Conflict, "saved remediation findings changed or were cleared; select the findings again")
+var errOriginsChanged = fault.New(fault.Conflict, "saved remediation findings changed or were cleared; select the findings again")
 
 // ValidateRemediationOriginsIn participates in remediation admission. The caller
 // must already hold its admission transaction (including the new job row).
@@ -26,7 +26,7 @@ func validateRemediationOrigins(ctx context.Context, db database.Queryer, findin
 	seen := map[ids.ID]bool{}
 	for _, finding := range findings {
 		if finding.Record == nil || finding.Record.ID.IsZero() {
-			return ErrOriginsChanged
+			return errOriginsChanged
 		}
 		idList = append(idList, finding.Record.ID)
 		if !seen[finding.Record.ProjectID] {
@@ -39,7 +39,7 @@ func validateRemediationOrigins(ctx context.Context, db database.Queryer, findin
 		return err
 	}
 	if len(locked) != len(projects) {
-		return ErrOriginsChanged
+		return errOriginsChanged
 	}
 	rows, err := queries(db).VerdictsByIDsForShare(ctx, idList)
 	if err != nil {
@@ -53,7 +53,7 @@ func validateRemediationOrigins(ctx context.Context, db database.Queryer, findin
 	var confirmable []ids.ID
 	for _, record := range records {
 		byID[record.ID] = record
-		if record.Confirmable() {
+		if record.confirmable() {
 			confirmable = append(confirmable, record.ID)
 		}
 	}
@@ -63,13 +63,13 @@ func validateRemediationOrigins(ctx context.Context, db database.Queryer, findin
 	}
 	for _, finding := range findings {
 		saved, ok := byID[finding.Record.ID]
-		if !ok || saved != *finding.Record || finding.CheckRef.Identity() != saved.Reference().Identity() {
-			return ErrOriginsChanged
+		if !ok || saved != *finding.Record || finding.CheckRef.identity() != saved.reference().identity() {
+			return errOriginsChanged
 		}
 		// Preserve the current interpretation of an expired exception, but do
 		// not turn a conforming or unassessed saved result into a finding.
 		if (saved.State != DoesNotConform && saved.State != Excepted) || LaneOf(finding, confirmations) != LaneFindings {
-			return ErrOriginsChanged
+			return errOriginsChanged
 		}
 	}
 	return nil

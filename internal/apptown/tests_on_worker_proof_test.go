@@ -15,7 +15,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/execution/executionfake"
 	"github.com/flokkit/apptown/internal/poll"
@@ -78,7 +77,7 @@ func newNoHostWorld(t *testing.T, command string, scriptMinutes int) noHostWorld
 	a.tasks.Driver, a.tasks.Remote = *a.cfg.worker, *a.cfg.worker
 	a.tasks.Profile.Name, a.tasks.Backend = "worker", "worker at "+srv.URL
 	a.processRunner = execution.Runner{DockerBinary: local}
-	refused := dockerfake.New()
+	refused := newDockerFake()
 	refused.SetReply(func(args []string) ([]byte, error, bool) {
 		f, _ := os.OpenFile(w.calls, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644)
 		f.WriteString("local " + strings.Join(args, " ") + "\n")

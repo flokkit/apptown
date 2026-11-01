@@ -60,9 +60,20 @@ func TestAHungPartsBackoffIsTheControllersClocks(t *testing.T) {
 	if restarts != 1 {
 		t.Fatalf("restarted again inside its backoff: %d", restarts)
 	}
-	at = at.Add(HealthBackoffCap) // the backoff has passed on the controller's clock
+	at = at.Add(healthBackoffCap) // the backoff has passed on the controller's clock
 	sweeps(true)
 	if restarts != 2 {
 		t.Fatalf("not restarted after its backoff on the controller's clock: %d", restarts)
+	}
+}
+
+// Target selection can stop yielding a container after it was observed.
+func TestHealthSweepForgetsContainersNoLongerSelected(t *testing.T) {
+	t.Parallel()
+	c := NewHealthController(HealthDependencies{Watch: func(context.Context) []Watched { return nil }})
+	c.state["gone"] = &partHealth{fails: HealthFailThreshold}
+	c.Sweep(t.Context())
+	if len(c.state) != 0 {
+		t.Fatal("an unselected container retained liveness observations")
 	}
 }

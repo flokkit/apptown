@@ -27,12 +27,12 @@ func WriteFaultOr(w http.ResponseWriter, err error, unclassified int) {
 		WriteError(w, unclassified, "%v", err)
 		return
 	}
-	WriteError(w, FaultStatus(kind, unclassified), "%s", fault.Message(err))
+	WriteError(w, faultStatus(kind, unclassified), "%s", fault.Message(err))
 }
 
-// WriteRefusal answers err and reports true when its kind is anything but
+// writeRefusal answers err and reports true when its kind is anything but
 // internal; otherwise it writes nothing, so the caller can still classify it.
-func WriteRefusal(w http.ResponseWriter, err error) bool {
+func writeRefusal(w http.ResponseWriter, err error) bool {
 	if fault.KindOf(err) == fault.Internal {
 		return false
 	}
@@ -40,8 +40,8 @@ func WriteRefusal(w http.ResponseWriter, err error) bool {
 	return true
 }
 
-// FaultStatus is the HTTP status for a kind.
-func FaultStatus(kind fault.Kind, unclassified int) int {
+// faultStatus is the HTTP status for a kind.
+func faultStatus(kind fault.Kind, unclassified int) int {
 	switch kind {
 	case fault.Invalid:
 		return http.StatusBadRequest

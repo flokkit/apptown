@@ -16,13 +16,13 @@ func admitWorkflowSpec(t *testing.T, spec schema.Spec) (queries, *Run) {
 	admissions := newRunAdmissions(db, NewStages(nil, func(kind string) bool {
 		return kind == "script" || kind == "scan" || kind == "agent/pi" || kind == "agent/review"
 	}), nil)
-	run, err := admissions.Create(context.Background(), StartRequest{
+	run, err := admissions.records.create(context.Background(), StartRequest{
 		ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "operator",
 	}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: spec})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := admissions.Prepared(context.Background(), run.ID); err != nil {
+	if err := admissions.records.prepared(context.Background(), run.ID); err != nil {
 		t.Fatal(err)
 	}
 	return queries{db: db}, run

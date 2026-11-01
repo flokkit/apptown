@@ -67,7 +67,7 @@ func TestConsoleSteeringFrames(t *testing.T) {
 func TestChangeBriefingAsksForShortfallsFirst(t *testing.T) {
 	t.Parallel()
 	steering := NewBriefing(nil, nil, BriefingConfig{DataDir: t.TempDir()})
-	text, err := steering.Change(&workflow.Change{ID: idstest.N(7), Title: "heading", Branch: "change-7"})
+	text, err := steering.change(&workflow.Change{ID: idstest.N(7), Title: "heading", Branch: "change-7"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestChangeBriefingRefusesUnavailableAttachments(t *testing.T) {
 		t.Fatal(err)
 	}
 	steering := NewBriefing(nil, nil, BriefingConfig{DataDir: root})
-	if text, err := steering.Change(&workflow.Change{ID: id}); err == nil || text != "" {
+	if text, err := steering.change(&workflow.Change{ID: id}); err == nil || text != "" {
 		t.Fatalf("unavailable attachments became a briefing: %q %v", text, err)
 	}
 }
@@ -112,7 +112,7 @@ func TestAChatsRulesAndSkillsComeFromOneSelection(t *testing.T) {
 	if !strings.Contains(desk, "Skill `build-container-image` has the how-to") || strings.Contains(desk, "useradd") {
 		t.Fatalf("the prompt carries the rules only:\n%s", desk)
 	}
-	files := SkillFiles(guidance)
+	files := skillFiles(guidance)
 	for _, at := range []string{"pi-home/.agents/skills/build-container-image/SKILL.md", "pi-home/.claude/skills/build-container-image/SKILL.md"} {
 		if f, ok := files[at]; !ok || !strings.Contains(string(f.Data), "useradd v1") {
 			t.Errorf("no skill at %s: %v", at, files)

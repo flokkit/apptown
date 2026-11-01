@@ -17,7 +17,7 @@ func TestARequestIsSignedAtTheClientsTime(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer srv.Close()
-	c := &Client{Endpoint: srv.URL, Region: "syd1", AccessKey: "a", SecretKey: "s", HTTP: srv.Client(),
+	c := &Client{Endpoint: srv.URL, Region: "syd1", AccessKey: "a", SecretKey: "s", http: srv.Client(),
 		Now: func() time.Time { return time.Date(2013, 5, 24, 0, 0, 0, 0, time.UTC) }}
 	if err := c.DeleteObject(context.Background(), "bucket", "key"); err != nil {
 		t.Fatal(err)

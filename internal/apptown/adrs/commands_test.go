@@ -231,7 +231,7 @@ func TestCompetingSuccessorsHaveOneWinnerAndCanRestore(t *testing.T) {
 		if err == nil {
 			winners++
 			winner = proposals[i]
-		} else if !errors.Is(err, ErrConflict) {
+		} else if !errors.Is(err, errConflict) {
 			t.Fatal(err)
 		}
 	}
@@ -243,13 +243,13 @@ func TestCompetingSuccessorsHaveOneWinnerAndCanRestore(t *testing.T) {
 		t.Fatalf("detail did not choose the accepted successor: %+v %v", detail, err)
 	}
 	previous := detail.ADR
-	decide(t, s, winner.ID, Deprecate)
+	decide(t, s, winner.ID, deprecate)
 	decide(t, s, winner.ID, Accept)
 	detail, err = s.Get(testCaller(), old.ID)
 	if err != nil || detail.ADR != previous {
 		t.Fatalf("restore changed predecessor history: %+v %v", detail, err)
 	}
-	if _, err := s.Edit(testCaller(), Edit{ID: old.ID, Decision: Accept}); !errors.Is(err, ErrTransition) {
+	if _, err := s.Edit(testCaller(), Edit{ID: old.ID, Decision: Accept}); !errors.Is(err, errTransition) {
 		t.Fatalf("superseded decision reopened: %v", err)
 	}
 }
@@ -290,14 +290,14 @@ func TestConcurrentEditsMergeFieldsAndRespectAcceptance(t *testing.T) {
 		expected := "original"
 		if results[1] == nil {
 			expected = body
-		} else if !errors.Is(results[1], ErrImmutable) {
+		} else if !errors.Is(results[1], errImmutable) {
 			t.Fatal(results[1])
 		}
 		got, err := s.Get(testCaller(), v.ID)
 		if err != nil || got.ADR.Status != Accepted || got.ADR.BodyMD != expected {
 			t.Fatalf("acceptance raced past content lock: %+v %v", got, err)
 		}
-		if _, err := s.Edit(testCaller(), Edit{ID: v.ID, BodyMD: &body}); !errors.Is(err, ErrImmutable) {
+		if _, err := s.Edit(testCaller(), Edit{ID: v.ID, BodyMD: &body}); !errors.Is(err, errImmutable) {
 			t.Fatalf("accepted content changed: %v", err)
 		}
 	})
@@ -316,10 +316,10 @@ func TestTextEditsAreRefusedWhenTheirStartingTextMoved(t *testing.T) {
 	if _, err := s.Edit(testCaller(), Edit{ID: v.ID, BodyMD: &a, Expected: TextFields{BodyMD: &original}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Edit(testCaller(), Edit{ID: v.ID, BodyMD: &b, Expected: TextFields{BodyMD: &original}}); !errors.Is(err, ErrTextMoved) || fault.CodeOf(err) != "adr-text-moved" {
+	if _, err := s.Edit(testCaller(), Edit{ID: v.ID, BodyMD: &b, Expected: TextFields{BodyMD: &original}}); !errors.Is(err, errTextMoved) || fault.CodeOf(err) != "adr-text-moved" {
 		t.Fatalf("an edit from replaced text must be refused: %v", err)
 	}
-	if _, err := s.Edit(testCaller(), Edit{ID: v.ID, BodyMD: &b}); !errors.Is(err, ErrTextExpected) {
+	if _, err := s.Edit(testCaller(), Edit{ID: v.ID, BodyMD: &b}); !errors.Is(err, errTextExpected) {
 		t.Fatalf("a text edit naming no starting text must be refused: %v", err)
 	}
 	// Tags are compared as stored (normalised), and a tags edit from the
@@ -344,10 +344,10 @@ func TestCommandsRejectForeignChangeAndPredecessor(t *testing.T) {
 	v := create(t, s, p, "local")
 	for _, id := range []ids.ID{foreign, idstest.N(99999)} {
 		before := snapshot(t, db)
-		if got, err := s.Create(testCaller(), Create{ProjectID: p, Title: "bad", ChangeID: id}); got != nil || !errors.Is(err, ErrInput) {
+		if got, err := s.Create(testCaller(), Create{ProjectID: p, Title: "bad", ChangeID: id}); got != nil || !errors.Is(err, errInput) {
 			t.Fatalf("foreign creation: %+v %v", got, err)
 		}
-		if got, err := s.Edit(testCaller(), Edit{ID: v.ID, ChangeID: &id}); got != nil || !errors.Is(err, ErrInput) {
+		if got, err := s.Edit(testCaller(), Edit{ID: v.ID, ChangeID: &id}); got != nil || !errors.Is(err, errInput) {
 			t.Fatalf("foreign edit: %+v %v", got, err)
 		}
 		if after := snapshot(t, db); after != before {
@@ -380,5 +380,5 @@ func (f permitFunc) VisibleProjects(ctx context.Context, cap access.Capability) 
 	if err != nil {
 		return nil, err
 	}
-	return nil, ErrCallerRequired
+	return nil, errCallerRequired
 }

@@ -45,7 +45,7 @@ func TestDeploymentConditionsSeparateAttemptRuntimeAndHoldGenerations(t *testing
 	d.Hold = nil
 	d.Runtime = deployment.RuntimeObservation{State: deployment.RuntimeStopped, ObservedAt: at}
 	got = read()
-	if got.Known || len(got.Items) != 1 || got.Items[0].Severity != SeverityAdvisory || !strings.Contains(got.Items[0].Title, "office: Stopped; check whether it should be running") {
+	if got.Known || len(got.Items) != 1 || got.Items[0].Severity != severityAdvisory || !strings.Contains(got.Items[0].Title, "office: Stopped; check whether it should be running") {
 		t.Fatalf("invented unintentional stop %+v", got)
 	}
 	d.Runtime = deployment.RuntimeObservation{State: deployment.RuntimeRunning, ObservedAt: at}

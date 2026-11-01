@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -48,7 +50,7 @@ func TestDeploymentListingChecksInternalAuthorityAndHTTPUnknown(t *testing.T) {
 	if w := deploymentRequest(h.Deployments, "outsider", http.MethodGet, path, values); (w.Code != 403 && w.Code != 401) || driver.calls != 0 {
 		t.Fatalf("outsider: %d %s calls=%d", w.Code, w.Body.String(), driver.calls)
 	}
-	t.Cleanup(a.db.FailNextStatement("-- name: UserByName :one"))
+	t.Cleanup(dbtest.NextStatementFailure(a.db, "-- name: UserByName :one"))
 	if _, err := a.service.List(ctx, a.project); err == nil || driver.calls != 0 {
 		t.Fatalf("unreadable authority reached provider: %v calls=%d", err, driver.calls)
 	}
@@ -78,7 +80,7 @@ func TestDeploymentListingChecksInternalAuthorityAndHTTPUnknown(t *testing.T) {
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"running":false`) || !strings.Contains(w.Body.String(), `"observation":"stopped"`) {
 		t.Fatalf("stopped response: %d %s", w.Code, w.Body.String())
 	}
-	t.Cleanup(a.db.FailNextStatement("-- name: NeedInstances"))
+	t.Cleanup(dbtest.NextStatementFailure(a.db, "-- name: NeedInstances"))
 	if w := deploymentRequest(h.Deployments, "owner", http.MethodGet, path, values); w.Code != 500 {
 		t.Fatalf("missing stored facts: %d %s", w.Code, w.Body.String())
 	}

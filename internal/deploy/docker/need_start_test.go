@@ -170,7 +170,7 @@ func TestAChangedEntrypointIsDrift(t *testing.T) {
 			}
 			return nil, nil
 		}}
-		drift, err := ServiceDrift(t.Context(), Scope{Client: client}, "s3", deploy.ServiceSpec{Name: "s3", Entrypoint: []string{"/bin/sh", "-c"}, Command: []string{"start"}})
+		drift, err := serviceDrift(t.Context(), Scope{Client: client}, "s3", deploy.ServiceSpec{Name: "s3", Entrypoint: []string{"/bin/sh", "-c"}, Command: []string{"start"}})
 		if err != nil || slices.Contains(drift, "entrypoint") != (have != `["/bin/sh"]`) || slices.Contains(drift, "command") {
 			t.Fatalf("standing %s: drift %v %v", have, drift, err)
 		}
@@ -226,7 +226,7 @@ func TestARecreatedSyntheticNeedFailsWhenItsOldDataCannotGo(t *testing.T) {
 	t.Parallel()
 	const stack = "env-shop-main"
 	vol := Current.NeedVolume(stack, "postgres")
-	own := Ownership{Needs: map[string]string{"postgres": "/var/lib/postgresql/data"}, Recorded: []deploy.Owned{{Kind: "volume", ID: vol, Data: true, Need: "postgres"}}}
+	own := Ownership{Needs: map[string]string{"postgres": "/var/lib/postgresql/data"}, priorResources: []deploy.Owned{{Kind: "volume", ID: vol, Data: true, Need: "postgres"}}}
 	svc := deploy.ServiceSpec{Name: "postgres", Image: "postgres:17-alpine"}
 	for _, failing := range []string{"rm -f", "volume rm"} {
 		t.Run(failing, func(t *testing.T) {

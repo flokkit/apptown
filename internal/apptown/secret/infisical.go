@@ -17,14 +17,14 @@ import (
 	"github.com/flokkit/apptown/internal/clock"
 )
 
-// InfisicalConfig identifies both the credential and the namespace it may read.
+// infisicalSettings identifies both the credential and the namespace it may read.
 // It must never be logged: ClientSecret is a bootstrap credential.
-type InfisicalConfig struct{ URL, ClientID, ClientSecret, ProjectID, Environment, Path string }
+type infisicalSettings struct{ URL, ClientID, ClientSecret, ProjectID, Environment, Path string }
 
-func (c InfisicalConfig) Configured() bool {
+func (c infisicalSettings) configured() bool {
 	return c.URL != "" && c.ClientID != "" && c.ClientSecret != "" && c.ProjectID != ""
 }
-func (c InfisicalConfig) normalized() InfisicalConfig {
+func (c infisicalSettings) normalized() infisicalSettings {
 	c.URL = strings.TrimRight(c.URL, "/")
 	if c.Environment == "" {
 		c.Environment = "prod"
@@ -38,35 +38,35 @@ func (c InfisicalConfig) normalized() InfisicalConfig {
 type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
-type RefreshTransition uint8
+type refreshTransition uint8
 
 const (
-	RefreshUnchanged RefreshTransition = iota
-	RefreshFailed
-	RefreshRecovered
+	refreshUnchanged refreshTransition = iota
+	refreshFailed
+	refreshRecovered
 )
 
-// SecretResolution is a successful read's values, or none with the
+// secretResolution is a successful read's values, or none with the
 // provider's error: a failed refresh never answers the last values it read.
 // Only the refreshing caller receives a health transition, for one receipt.
-type SecretResolution struct {
+type secretResolution struct {
 	Values     map[string]string
-	Transition RefreshTransition
+	Transition refreshTransition
 }
 
 type secretFlight struct {
 	done      chan struct{}
-	config    InfisicalConfig
+	config    infisicalSettings
 	values    map[string]string
 	err       error
 	cancelled bool
 }
 
-// Infisical owns one cache and one synchronous refresh. Its zero value is ready
+// infisical owns one cache and one synchronous refresh. Its zero value is ready
 // to use. No network or receipt I/O holds mu, and it starts no goroutines.
-type Infisical struct {
+type infisical struct {
 	mu          sync.Mutex
-	config      InfisicalConfig
+	config      infisicalSettings
 	token       string
 	tokenExpiry time.Time
 	values      map[string]string
@@ -77,45 +77,45 @@ type Infisical struct {
 	clock func() time.Time
 }
 
-func (s *Infisical) now() time.Time { return clock.Or(s.clock)() }
+func (s *infisical) now() time.Time { return clock.Or(s.clock)() }
 
-// Resolve bounds the entire call, including shared-refresh waits. Values
+// resolve bounds the entire call, including shared-refresh waits. Values
 // read under a minute ago are answered as current; after that a refresh
 // decides, and a failed one answers its error and no values. Caller
 // cancellation returns no values.
 // A cancelled refresh does not poison the cache or another caller's operation.
-func (s *Infisical) Resolve(ctx context.Context, config InfisicalConfig, client HTTPClient) (SecretResolution, error) {
+func (s *infisical) resolve(ctx context.Context, config infisicalSettings, client HTTPClient) (secretResolution, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 	if err := ctx.Err(); err != nil {
-		return SecretResolution{}, err
+		return secretResolution{}, err
 	}
 	if client == nil {
-		return SecretResolution{}, errors.New("Infisical HTTP client is required")
+		return secretResolution{}, errors.New("Infisical HTTP client is required")
 	}
 	config = config.normalized()
-	if !config.Configured() {
-		return SecretResolution{}, errors.New("Infisical is not configured")
+	if !config.configured() {
+		return secretResolution{}, errors.New("Infisical is not configured")
 	}
 	for {
 		if err := ctx.Err(); err != nil {
-			return SecretResolution{}, err
+			return secretResolution{}, err
 		}
 		s.mu.Lock()
 		if flight := s.flight; flight != nil {
 			s.mu.Unlock()
 			select {
 			case <-ctx.Done():
-				return SecretResolution{}, ctx.Err()
+				return secretResolution{}, ctx.Err()
 			case <-flight.done:
 			}
 			if err := ctx.Err(); err != nil {
-				return SecretResolution{}, err
+				return secretResolution{}, err
 			}
 			if flight.config != config || flight.cancelled {
 				continue
 			}
-			return SecretResolution{Values: maps.Clone(flight.values)}, flight.err
+			return secretResolution{Values: maps.Clone(flight.values)}, flight.err
 		}
 		if s.config != config {
 			s.config = config
@@ -126,10 +126,10 @@ func (s *Infisical) Resolve(ctx context.Context, config InfisicalConfig, client 
 			s.failed = false
 		}
 		if s.values != nil && s.now().Sub(s.fetched) < time.Minute {
-			result := SecretResolution{Values: maps.Clone(s.values)}
+			result := secretResolution{Values: maps.Clone(s.values)}
 			s.mu.Unlock()
 			if err := ctx.Err(); err != nil {
-				return SecretResolution{}, err
+				return secretResolution{}, err
 			}
 			return result, nil
 		}
@@ -140,7 +140,7 @@ func (s *Infisical) Resolve(ctx context.Context, config InfisicalConfig, client 
 
 		values, token, expiry, err := fetchInfisical(ctx, client, config, token, expiry, s.now)
 		s.mu.Lock()
-		result := SecretResolution{}
+		result := secretResolution{}
 		if ctx.Err() != nil {
 			err = ctx.Err()
 			flight.cancelled = true
@@ -148,12 +148,12 @@ func (s *Infisical) Resolve(ctx context.Context, config InfisicalConfig, client 
 			s.token, s.tokenExpiry = token, expiry
 			if err != nil {
 				if !s.failed {
-					result.Transition = RefreshFailed
+					result.Transition = refreshFailed
 				}
 				s.failed = true
 			} else {
 				if s.failed {
-					result.Transition = RefreshRecovered
+					result.Transition = refreshRecovered
 				}
 				s.failed = false
 				s.values = values
@@ -172,7 +172,7 @@ func (s *Infisical) Resolve(ctx context.Context, config InfisicalConfig, client 
 
 // lastKnown is the values the last successful read of config answered,
 // however old: masking hides them in text, and nothing else reads them.
-func (s *Infisical) lastKnown(config InfisicalConfig) map[string]string {
+func (s *infisical) lastKnown(config infisicalSettings) map[string]string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.config != config.normalized() {
@@ -181,7 +181,7 @@ func (s *Infisical) lastKnown(config InfisicalConfig) map[string]string {
 	return maps.Clone(s.values)
 }
 
-func fetchInfisical(ctx context.Context, client HTTPClient, c InfisicalConfig, token string, expiry time.Time, now func() time.Time) (map[string]string, string, time.Time, error) {
+func fetchInfisical(ctx context.Context, client HTTPClient, c infisicalSettings, token string, expiry time.Time, now func() time.Time) (map[string]string, string, time.Time, error) {
 	if token == "" || now().After(expiry) {
 		body, _ := json.Marshal(struct {
 			ClientID     string `json:"clientId"`

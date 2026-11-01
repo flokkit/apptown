@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -88,12 +90,12 @@ func TestVisibleProjectsUsesCurrentCheckedAuthorityWithoutReceipts(t *testing.T)
 		read(access.Principal{Kind: "user", Name: "reader", Via: "oauth"}, nil)
 	}
 	// Enumeration writes nothing: an armed audit fault is still armed after it.
-	clearAudit := db.FailNextStatement("-- name: AppendReceipt")
+	clearAudit := dbtest.NextStatementFailure(db, "-- name: AppendReceipt")
 	defer clearAudit()
 	checkCases()
 	if err := db.InTx(context.Background(), func(tx *database.Tx) error {
 		return audit.At(time.Now()).RecordIn(context.Background(), tx, "boss", ids.Nil, "tripwire", "", nil)
-	}); !errors.Is(err, database.ErrInjectedFailure) {
+	}); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("enumeration consumed audit tripwire: %v", err)
 	}
 	clearAudit()
@@ -122,10 +124,10 @@ func TestVisibleProjectsUsesCurrentCheckedAuthorityWithoutReceipts(t *testing.T)
 		}
 	}
 	for _, fragment := range []string{"-- name: ProjectAuthorityCatalogue", "-- name: ActiveGrants"} {
-		clear := db.FailNextStatement(fragment)
+		clear := dbtest.NextStatementFailure(db, fragment)
 		got, err := s.VisibleProjects(context.Background(), admittedPrincipal(t, s, "group-reader"), access.CapProjectRead)
 		clear()
-		if !errors.Is(err, database.ErrInjectedFailure) || got != nil {
+		if !errors.Is(err, dbtest.ErrInjectedFailure) || got != nil {
 			t.Fatalf("lost %s failure: %v %v", fragment, got, err)
 		}
 	}
@@ -173,13 +175,13 @@ func BenchmarkVisibleProjects(b *testing.B) {
 // Count the owner catalogue calls separately: its one-query projection belongs
 // to Project, while the two authority reads below belong to Identity.
 type countedCatalogue struct {
-	ProjectCatalogue
+	projectCatalogue
 	calls int
 }
 
 func (c *countedCatalogue) ProjectResources(ctx context.Context, id ids.ID) ([]access.Resource, error) {
 	c.calls++
-	return c.ProjectCatalogue.ProjectResources(ctx, id)
+	return c.projectCatalogue.ProjectResources(ctx, id)
 }
 
 func TestVisibilityFactReadsDoNotGrowWithProjectCount(t *testing.T) {
@@ -188,7 +190,7 @@ func TestVisibilityFactReadsDoNotGrowWithProjectCount(t *testing.T) {
 	for _, n := range []int{1, 3} {
 		t.Run(fmt.Sprint(n), func(t *testing.T) {
 			db := testDB(t)
-			catalogue := &countedCatalogue{ProjectCatalogue: project.NewCatalogue(db)}
+			catalogue := &countedCatalogue{projectCatalogue: project.NewCatalogue(db)}
 			s := New(db, Config{Projects: catalogue})
 			if _, err := s.EnsureUser(context.Background(), "reader"); err != nil {
 				t.Fatal(err)

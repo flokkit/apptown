@@ -95,7 +95,7 @@ type Bundles struct {
 	clock func() time.Time // AppTown's clock, which stamps a bundle; nil is the real one
 }
 
-func NewBundles(db *database.DB) *Bundles { return &Bundles{db: db} }
+func newBundles(db *database.DB) *Bundles { return &Bundles{db: db} }
 
 func (s *Bundles) now() time.Time { return clock.Or(s.clock)() }
 

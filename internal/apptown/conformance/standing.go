@@ -21,13 +21,13 @@ type Lanes struct {
 type Standing string
 
 const (
-	StandingDoesNot   Standing = "does-not-conform"
-	StandingBroken    Standing = "review-broken"
+	standingDoesNot   Standing = "does-not-conform"
+	standingBroken    Standing = "review-broken"
 	StandingNeedsLook Standing = "needs-a-look"
-	StandingSoFar     Standing = "conforms-so-far"
-	StandingExcepted  Standing = "conforms-with-exceptions"
+	standingSoFar     Standing = "conforms-so-far"
+	standingExcepted  Standing = "conforms-with-exceptions"
 	StandingConforms  Standing = "conforms"
-	StandingNothing   Standing = "nothing-adopted"
+	standingNothing   Standing = "nothing-adopted"
 )
 
 type ProjectStanding struct {
@@ -78,29 +78,29 @@ type HistoryPoint struct {
 
 // LaneOf interprets a saved finding and its exact confirmation. Absence never
 // becomes an actionable finding, even on an incompletely constructed observation.
-func LaneOf(v Observation, adj map[ids.ID]Adjudication) Lane {
+func LaneOf(v Observation, adj map[ids.ID]Adjudication) lane {
 	if v.Record == nil {
-		return LaneUnassessed
+		return laneUnassessed
 	}
 	switch v.State {
 	case Conforms:
-		return LaneConforms
+		return laneConforms
 	case Excepted:
-		return LaneExcepted
+		return laneExcepted
 	case DoesNotConform:
 		if v.Record != nil && v.Record.Evaluator == "llm" {
 			if _, ok := adj[v.Record.ID]; ok {
 				return LaneFindings
 			}
-			return LaneFlagged
+			return laneFlagged
 		}
 		return LaneFindings
 	case NotApplicable:
-		return LaneNotApplicable
+		return laneNotApplicable
 	case EvaluationError:
-		return LaneBroken
+		return laneBroken
 	default: // cannot-assess, not-scanned, stale
-		return LaneUnassessed
+		return laneUnassessed
 	}
 }
 
@@ -114,7 +114,7 @@ func plural(n int, one, many string) string {
 func standingFor(l Lanes, high, total int) (Standing, string) {
 	switch {
 	case total == 0:
-		return StandingNothing, "Nothing adopted"
+		return standingNothing, "Nothing adopted"
 	case l.Findings > 0:
 		s := "Does not conform · " + plural(l.Findings, "finding", "findings")
 		if high > 0 {
@@ -123,9 +123,9 @@ func standingFor(l Lanes, high, total int) (Standing, string) {
 		if l.Broken > 0 {
 			s += fmt.Sprintf(" · %d couldn't run", l.Broken)
 		}
-		return StandingDoesNot, s
+		return standingDoesNot, s
 	case l.Broken > 0:
-		return StandingBroken, "Review incomplete · " + plural(l.Broken, "check couldn't run", "checks couldn't run")
+		return standingBroken, "Review incomplete · " + plural(l.Broken, "check couldn't run", "checks couldn't run")
 	case l.Flagged > 0:
 		return StandingNeedsLook, "Needs a look · " + plural(l.Flagged, "AI flag", "AI flags")
 	case l.Unassessed > 0:
@@ -133,25 +133,25 @@ func standingFor(l Lanes, high, total int) (Standing, string) {
 		if l.Excepted > 0 {
 			sentence += " · " + plural(l.Excepted, "accepted exception", "accepted exceptions")
 		}
-		return StandingSoFar, sentence + " · " + plural(l.Unassessed, "not yet assessed", "not yet assessed")
+		return standingSoFar, sentence + " · " + plural(l.Unassessed, "not yet assessed", "not yet assessed")
 	case l.Excepted > 0:
-		return StandingExcepted, "Meets adopted standards · " + plural(l.Excepted, "accepted exception", "accepted exceptions")
+		return standingExcepted, "Meets adopted standards · " + plural(l.Excepted, "accepted exception", "accepted exceptions")
 	default:
 		return StandingConforms, "Meets adopted standards · " + plural(l.Conforms, "check passed", "checks passed")
 	}
 }
 
-func StandingRank(s Standing) int {
+func standingRank(s Standing) int {
 	switch s {
-	case StandingDoesNot:
+	case standingDoesNot:
 		return 0
-	case StandingBroken:
+	case standingBroken:
 		return 1
 	case StandingNeedsLook:
 		return 2
-	case StandingSoFar:
+	case standingSoFar:
 		return 3
-	case StandingExcepted:
+	case standingExcepted:
 		return 4
 	case StandingConforms:
 		return 5
@@ -170,20 +170,20 @@ func SummarizeProject(projectID ids.ID, slug string, vs []Observation, adj map[i
 			adopted[fmt.Sprintf("%s@%d", v.Block, v.Version)] = true
 		}
 		switch LaneOf(v, adj) {
-		case LaneConforms:
+		case laneConforms:
 			ps.Lanes.Conforms++
-		case LaneExcepted:
+		case laneExcepted:
 			ps.Lanes.Excepted++
 		case LaneFindings:
 			ps.Lanes.Findings++
 			if v.Record != nil && v.Record.Severity == "high" {
 				ps.High++
 			}
-		case LaneFlagged:
+		case laneFlagged:
 			ps.Lanes.Flagged++
-		case LaneNotApplicable:
+		case laneNotApplicable:
 			ps.Lanes.NA++
-		case LaneBroken:
+		case laneBroken:
 			ps.Lanes.Broken++
 		default:
 			ps.Lanes.Unassessed++
@@ -199,7 +199,7 @@ func SummarizeProject(projectID ids.ID, slug string, vs []Observation, adj map[i
 	ps.Total = len(vs) - ps.Lanes.NA
 	ps.Judged = ps.Total - ps.Lanes.Unassessed
 	ps.Standing, ps.Sentence = standingFor(ps.Lanes, ps.High, ps.Total)
-	ps.StatusLabel = ps.Standing.Label()
+	ps.StatusLabel = ps.Standing.label()
 	return ps
 }
 
@@ -216,8 +216,8 @@ func worklistRank(state ObservationState) int {
 	}
 }
 
-// GroupByProject orders each project worklist with actionable/unknown results first.
-func GroupByProject(vs []Observation) map[string][]Observation {
+// groupByProject orders each project worklist with actionable/unknown results first.
+func groupByProject(vs []Observation) map[string][]Observation {
 	out := map[string][]Observation{}
 	for _, v := range vs {
 		out[v.ProjectSlug] = append(out[v.ProjectSlug], v)
@@ -228,8 +228,8 @@ func GroupByProject(vs []Observation) map[string][]Observation {
 	return out
 }
 
-// GroupByCheck applies the same worklist order across projects.
-func GroupByCheck(vs []Observation) map[string][]Observation {
+// groupByCheck applies the same worklist order across projects.
+func groupByCheck(vs []Observation) map[string][]Observation {
 	out := map[string][]Observation{}
 	for _, v := range vs {
 		out[CheckKey(v.Block, v.Version, v.Check)] = append(out[CheckKey(v.Block, v.Version, v.Check)], v)
@@ -253,22 +253,22 @@ func CheckKey(block string, version int, check string) string {
 	return fmt.Sprintf("%s@%d·%s", block, version, check)
 }
 
-type Lane uint8
+type lane uint8
 
 const (
-	LaneConforms Lane = iota + 1
-	LaneExcepted
+	laneConforms lane = iota + 1
+	laneExcepted
 	LaneFindings
-	LaneFlagged
-	LaneNotApplicable
-	LaneBroken
-	LaneUnassessed
+	laneFlagged
+	laneNotApplicable
+	laneBroken
+	laneUnassessed
 )
 
-// SortProjects orders the fleet by standing, then findings and project name.
-func SortProjects(projects []ProjectStanding) {
+// sortProjects orders the fleet by standing, then findings and project name.
+func sortProjects(projects []ProjectStanding) {
 	sort.Slice(projects, func(i, j int) bool {
-		ri, rj := StandingRank(projects[i].Standing), StandingRank(projects[j].Standing)
+		ri, rj := standingRank(projects[i].Standing), standingRank(projects[j].Standing)
 		if ri != rj {
 			return ri < rj
 		}

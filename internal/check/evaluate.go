@@ -50,10 +50,10 @@ func (j *Judge) Evaluate(ctx context.Context, checks []Declared, src Source, mod
 }
 
 func (j *Judge) namePrefix() string {
-	if j.NamePrefix == "" {
+	if j.prefix == "" {
 		return "check"
 	}
-	return j.NamePrefix
+	return j.prefix
 }
 
 // evaluateRubrics judges every rubric in the batch in one checklist call.
@@ -112,8 +112,8 @@ func (j *Judge) evaluateRuntime(ctx context.Context, d Declared, src Source, mod
 	}
 	if ps.Readiness {
 		path, declared := "", false
-		if j.Readiness != nil {
-			path, declared = j.Readiness(src)
+		if j.readiness != nil {
+			path, declared = j.readiness(src)
 		}
 		if !declared {
 			ev.Outcome, ev.Detail = DoesNotConform, "nothing declares when this app is ready"

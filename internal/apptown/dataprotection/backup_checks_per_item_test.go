@@ -32,7 +32,7 @@ func TestTheWeeklyCheckIsDueWhileAnyItemsLastCheckFailed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := w.run(op); !endedAs(got, OperationNotVerified) {
+	if got := w.run(op); !endedAs(got, operationNotVerified) {
 		t.Fatalf("copy %s: %s", got.State, got.Detail)
 	}
 	set, err := w.s.newestStoreSet(ctx, w.project, "prod")
@@ -47,7 +47,7 @@ func TestTheWeeklyCheckIsDueWhileAnyItemsLastCheckFailed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := w.run(drill); endedAs(got, OperationVerified) || !strings.Contains(got.Detail, "s3: filled into a new s3 store") {
+	if got := w.run(drill); endedAs(got, operationVerified) || !strings.Contains(got.Detail, "s3: filled into a new s3 store") {
 		t.Fatalf("a drill whose database did not come back and whose bucket did: %s", got.Detail)
 	}
 	if !w.s.drillDue(ctx, dep, set) {
@@ -82,7 +82,7 @@ func TestAStartFromACopyWhoseDatabaseDidNotComeBackAsksAPerson(t *testing.T) {
 			if err != nil || res.Operation == nil {
 				t.Fatalf("take-down door: %+v %v", res, err)
 			}
-			if op := w.run(res.Operation); endedAs(op, OperationVerified) {
+			if op := w.run(res.Operation); endedAs(op, operationVerified) {
 				t.Fatalf("a take-down whose database did not come back: %s", op.Detail)
 			}
 			w.clusters.mu.Lock()

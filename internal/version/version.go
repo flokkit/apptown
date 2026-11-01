@@ -8,18 +8,18 @@ package version
 
 import "runtime/debug"
 
-// Release is the release name stamped at build, empty for other builds.
-var Release string
+// release is the release name stamped at build, empty for other builds.
+var release string
 
-// Revision is the commit stamped by make and the deploy scripts, for a
+// revision is the commit stamped by make and the deploy scripts, for a
 // build whose Go build information names none: Go does not stamp a build
 // made in a git worktree, which is where deploys are built.
-var Revision string
+var revision string
 
 // String is the version this binary reports.
 func String() string {
 	info, ok := debug.ReadBuildInfo()
-	return of(Release, Revision, info, ok)
+	return of(release, revision, info, ok)
 }
 
 // of is String's rule over its inputs: a release name wins; otherwise

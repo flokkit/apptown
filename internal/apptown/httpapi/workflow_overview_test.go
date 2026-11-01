@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -102,7 +104,7 @@ func TestOverviewWorkReadFailuresAreVisible(t *testing.T) {
 		t.Run(fmt.Sprintf("%s/%s", tc.view, tc.fragment), func(t *testing.T) {
 			t.Parallel()
 			f := newOverviewHTTPFixture(t)
-			t.Cleanup(f.DB.FailNextStatement(tc.fragment))
+			t.Cleanup(dbtest.NextStatementFailure(f.DB, tc.fragment))
 			var w *httptest.ResponseRecorder
 			if tc.view == "overview" {
 				w = workflowOverviewCall(t, f)
@@ -174,7 +176,7 @@ func TestWorkflowActivityRequiredReadsFailAtHTTP(t *testing.T) {
 			if view == "run" {
 				statement = "-- name: RunSteps"
 			}
-			t.Cleanup(f.DB.FailNextStatement(statement))
+			t.Cleanup(dbtest.NextStatementFailure(f.DB, statement))
 			var out *httptest.ResponseRecorder
 			switch view {
 			case "overview":

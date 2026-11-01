@@ -84,7 +84,7 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 		if len(f) >= 5 {
 			r.Owner, r.Stack = strings.TrimSpace(f[3]), strings.TrimSpace(f[4])
 		}
-		if len(f) < 6 || !dk.Installs(strings.TrimSpace(f[5])) {
+		if len(f) < 6 || !dk.installs(strings.TrimSpace(f[5])) {
 			r.Tags = []string{deploy.TagConfirmsOnly}
 		}
 		res = append(res, r)
@@ -117,7 +117,7 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 			if len(f) >= 3 {
 				r.Owner, r.Stack = strings.TrimSpace(f[1]), strings.TrimSpace(f[2])
 			}
-			if (list.kind == "volume" && !IsNamedVolume(name)) || len(f) < 4 || !dk.Installs(strings.TrimSpace(f[3])) {
+			if (list.kind == "volume" && !isNamedVolume(name)) || len(f) < 4 || !dk.installs(strings.TrimSpace(f[3])) {
 				r.Tags = []string{deploy.TagConfirmsOnly}
 			}
 			res = append(res, r)

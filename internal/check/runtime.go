@@ -57,8 +57,8 @@ type ProbeSpec struct {
 	MemoryWithin int
 }
 
-// DefaultMemoryWithin is memory-within's share when the probe names none.
-const DefaultMemoryWithin = 90
+// defaultMemoryWithin is memory-within's share when the probe names none.
+const defaultMemoryWithin = 90
 
 // NeedsApp says the probe is answered by a running app. memory-declared is
 // answered by the contract alone, so the gate judges it with no preview.
@@ -81,7 +81,7 @@ func ParseProbe(s string) (ProbeSpec, error) {
 	case len(f) == 1 && strings.EqualFold(f[0], "memory-declared"):
 		return ProbeSpec{MemoryDeclared: true}, nil
 	case len(f) == 1 && strings.EqualFold(f[0], "memory-within"):
-		return ProbeSpec{MemoryWithin: DefaultMemoryWithin}, nil
+		return ProbeSpec{MemoryWithin: defaultMemoryWithin}, nil
 	case len(f) == 2 && strings.EqualFold(f[0], "memory-within"):
 		n, err := strconv.Atoi(strings.TrimSuffix(f[1], "%"))
 		if err != nil || !strings.HasSuffix(f[1], "%") || n < 1 || n > 100 {
@@ -104,8 +104,8 @@ func ParseProbe(s string) (ProbeSpec, error) {
 	return ProbeSpec{}, fmt.Errorf("probe %q: use \"GET /path [expect N]\", \"readiness\", \"browser-env\", \"page\", \"memory-declared\" or \"memory-within [N%%]\"", s)
 }
 
-// Prober makes one probe request and reports the status it got.
-type Prober interface {
+// prober makes one probe request and reports the status it got.
+type prober interface {
 	Probe(ctx context.Context, url string) (int, error)
 }
 
@@ -135,7 +135,7 @@ var HTTPProber = ProberFunc(func(_ context.Context, url string) (int, error) {
 // ProbeBothDoors judges a path through the front door and naked. Both must
 // answer the expected status: the front door because that is what serves,
 // naked because that is what any header-less probe sees (§5.2).
-func ProbeBothDoors(ctx context.Context, p Prober, frontDoor, naked string, ps ProbeSpec) (state Outcome, detail string) {
+func ProbeBothDoors(ctx context.Context, p prober, frontDoor, naked string, ps ProbeSpec) (state Outcome, detail string) {
 	front := strings.TrimRight(frontDoor, "/") + ps.Path
 	nakedURL := strings.TrimRight(naked, "/") + ps.Path
 	fc, ferr := p.Probe(ctx, front)
@@ -162,19 +162,19 @@ func ProbeBothDoors(ctx context.Context, p Prober, frontDoor, naked string, ps P
 	case fc != ps.Expect && nc != ps.Expect:
 		return DoesNotConform, fmt.Sprintf("expected %d from both doors: %s", ps.Expect, summary)
 	case nc != ps.Expect:
-		return DoesNotConform, NakedRefusal(nc, ps.Expect, summary)
+		return DoesNotConform, nakedRefusal(nc, ps.Expect, summary)
 	case fc != ps.Expect:
 		return DoesNotConform, fmt.Sprintf("the front door answers %d, not %d: %s", fc, ps.Expect, summary)
 	}
 	return Conforms, summary
 }
 
-// NakedRefusal names the cause a header-less probe most likely hit, so the
+// nakedRefusal names the cause a header-less probe most likely hit, so the
 // finding tells the fixing agent what to exempt. A redirect is the HTTPS
 // redirect; a 403 is a host allow-list refusing a request that arrived by
 // address (Rails config.hosts, Django ALLOWED_HOSTS); anything else is
 // reported as what it is.
-func NakedRefusal(code, expect int, summary string) string {
+func nakedRefusal(code, expect int, summary string) string {
 	switch {
 	case code >= 300 && code < 400:
 		return fmt.Sprintf("not redirect-safe: a probe without the front-door signal gets %d, not %d — exempt this path from the HTTPS redirect (%s)", code, expect, summary)

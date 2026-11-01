@@ -24,7 +24,7 @@ func TestProjectFromPathSeparatesAbsenceFromFailure(t *testing.T) {
 		r := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+slug, nil)
 		r.SetPathValue("slug", slug)
 		w := httptest.NewRecorder()
-		_, ok := ProjectFromPath(projects, w, r)
+		_, ok := projectFromPath(projects, w, r)
 		return w.Code, ok
 	}
 	if code, ok := read("present"); !ok || code != http.StatusOK {
@@ -33,7 +33,7 @@ func TestProjectFromPathSeparatesAbsenceFromFailure(t *testing.T) {
 	if code, ok := read("absent"); ok || code != http.StatusNotFound {
 		t.Fatalf("absent project: %d %v", code, ok)
 	}
-	t.Cleanup(db.FailNextStatement("-- name: ProjectBySlug"))
+	t.Cleanup(dbtest.NextStatementFailure(db, "-- name: ProjectBySlug"))
 	if code, ok := read("present"); ok || code != http.StatusInternalServerError {
 		t.Fatalf("failed project read: %d %v", code, ok)
 	}
@@ -50,7 +50,7 @@ func TestChangeFromPathSeparatesAbsenceFromFailure(t *testing.T) {
 		r := httptest.NewRequest(http.MethodGet, "/api/v1/changes/00000000-270f-7000-8000-000000000000", nil)
 		r.SetPathValue("id", "00000000-270f-7000-8000-000000000000")
 		w := httptest.NewRecorder()
-		if _, ok := ChangeFromPath(db, w, r); ok {
+		if _, ok := changeFromPath(db, w, r); ok {
 			t.Fatal("an absent change was found")
 		}
 		return w.Code, w.Body.String()
@@ -75,7 +75,7 @@ func TestChangeFromPathStopsWithItsRequest(t *testing.T) {
 	r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/changes/00000000-270f-7000-8000-000000000000", nil)
 	r.SetPathValue("id", "00000000-270f-7000-8000-000000000000")
 	w := httptest.NewRecorder()
-	if _, ok := ChangeFromPath(db, w, r); ok {
+	if _, ok := changeFromPath(db, w, r); ok {
 		t.Fatal("a change was read for a request that had gone")
 	}
 	if w.Code != http.StatusInternalServerError {

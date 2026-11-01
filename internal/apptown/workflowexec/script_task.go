@@ -74,7 +74,7 @@ type TaskRunner struct {
 	// Remote is set when tasks run on another machine (a apptown-worker): each
 	// is given a published commit instead of a mount, its work comes back as a
 	// bundle, and no script step runs on AppTown's own host.
-	Remote RemoteResults
+	Remote remoteResults
 	// Now is AppTown's clock, by which a task's deadline and its
 	// admission's expiry are written and judged; nil is the real one.
 	Now func() time.Time
@@ -97,18 +97,18 @@ type TaskRunner struct {
 	// minute). Zero keeps the step's own.
 	ScriptWallClock time.Duration
 
-	commands *Commands // bound by NewCommands
+	commands *commands // bound by NewCommands
 }
 
-// RemoteResults returns a remote task's commits after base as a bundle
+// remoteResults returns a remote task's commits after base as a bundle
 // written to dest, and the tip it reports ("" when the task changed nothing).
-type RemoteResults interface {
+type remoteResults interface {
 	Collect(ctx context.Context, key, base, message, dest string) (string, error)
 }
 
-// Recoverer returns the execution of a step attempt a previous process
+// recoverer returns the execution of a step attempt a previous process
 // admitted (workflow.Service.RecoverExecution).
-type Recoverer interface {
+type recoverer interface {
 	RecoverExecution(context.Context, ids.ID, int64) (*workflow.Execution, error)
 }
 
@@ -119,7 +119,7 @@ type Recoverer interface {
 // as refused (nothing was created) has its step failed, if still its, and
 // is settled, whatever the backend. A task recorded for another backend
 // than this AppTown's is left as it is, and reported.
-func (r *TaskRunner) Resume(ctx context.Context, work Recoverer) ([]ids.ID, error) {
+func (r *TaskRunner) Resume(ctx context.Context, work recoverer) ([]ids.ID, error) {
 	if r == nil || r.commands == nil {
 		return nil, nil
 	}
@@ -577,7 +577,7 @@ func owns(attempt tasks.Attempt, obs execution.TaskObservation) bool {
 // taskSpec is the request for a script's task under the admission recorded
 // for it. A remote task is given source, a published commit, and nothing
 // from AppTown's host.
-func (a *Commands) taskSpec(attempt tasks.Attempt, plan scriptPlan) execution.TaskSpec {
+func (a *commands) taskSpec(attempt tasks.Attempt, plan scriptPlan) execution.TaskSpec {
 	req := agentenv.Decorate(plan.request, a.now(), plan.cache)
 	spec := execution.TaskSpec{Key: attempt.Operation, Image: req.Image, Argv: runOnce(req.Argv), Env: req.Env, Workspace: req.Workspace, WorkspaceRO: req.WorkspaceRO,
 		Mounts: req.Mounts, ExtraHosts: req.ExtraHosts, Labels: req.Labels, Files: req.Files, Admission: attempt.Admitted, Request: attempt.Digest}
@@ -595,7 +595,7 @@ func (a *Commands) taskSpec(attempt tasks.Attempt, plan scriptPlan) execution.Ta
 // when it expires. A checked landing's script runs on a freshly staged copy
 // of its candidate, so the candidate, not that copy's path, identifies what
 // it runs on; a remote task is identified by its source commit.
-func (a *Commands) requestDigest(plan scriptPlan, commit string, admitted execution.Admission) string {
+func (a *commands) requestDigest(plan scriptPlan, commit string, admitted execution.Admission) string {
 	// The labels, and so the time given here, are left out of the digest.
 	req := agentenv.Decorate(plan.request, time.Time{}, plan.cache)
 	source := req.Workspace
@@ -622,7 +622,7 @@ func (a *Commands) requestDigest(plan scriptPlan, commit string, admitted execut
 }
 
 // runScriptTask reserves a new attempt's task and drives it.
-func (a *Commands) runScriptTask(task *workflow.Execution, step *workflow.Step, run *workflow.Run, plan scriptPlan) {
+func (a *commands) runScriptTask(task *workflow.Execution, step *workflow.Step, run *workflow.Run, plan scriptPlan) {
 	// The task lives by its durable record, not a context: what a stopped
 	// AppTown leaves running is collected on restart.
 	ctx := context.WithoutCancel(task.Context())
@@ -676,7 +676,7 @@ func (a *Commands) runScriptTask(task *workflow.Execution, step *workflow.Step, 
 
 // RecoverScript continues, in the workflow's dispatch, the task a previous
 // AppTown process recorded for this step's attempt.
-func (a *Commands) RecoverScript(task *workflow.Execution) {
+func (a *commands) RecoverScript(task *workflow.Execution) {
 	step, run := task.Step(), task.Run()
 	attempt, err := a.tasks.Records.Get(task.Context(), taskOperation(step))
 	if err != nil {
@@ -966,7 +966,7 @@ func (r *TaskRunner) gone(ctx context.Context, ref execution.TaskRef) bool {
 // the output read, the step settled, then the attempt settled and the task
 // removed. If the step cannot be settled, everything stays recorded for a
 // restarted AppTown, which collects the same decided outcome.
-func (a *Commands) collect(task *workflow.Execution, plan scriptPlan, attempt tasks.Attempt, code int, timedOut bool) {
+func (a *commands) collect(task *workflow.Execution, plan scriptPlan, attempt tasks.Attempt, code int, timedOut bool) {
 	// The task lives by its durable record, not a context: what a stopped
 	// AppTown leaves running is collected on restart.
 	ctx := context.WithoutCancel(task.Context())
@@ -1486,7 +1486,7 @@ func (r *TaskRunner) endAsRecorded(task *workflow.Execution, attempt tasks.Attem
 // resultKept reports whether a remote attempt's result is kept in the
 // project's repository, as its candidate or its refused ref
 // (repositoryedit.FindCandidate). Only then may its workspace be released.
-func (a *Commands) resultKept(ctx context.Context, attempt tasks.Attempt) (bool, error) {
+func (a *commands) resultKept(ctx context.Context, attempt tasks.Attempt) (bool, error) {
 	source, err := workflow.ReadSourceIn(ctx, a.db, workflow.RunRef{ID: attempt.Owner.RunID, ProjectID: attempt.Owner.ProjectID})
 	if err != nil {
 		return false, err
@@ -1500,7 +1500,7 @@ func (a *Commands) resultKept(ctx context.Context, attempt tasks.Attempt) (bool,
 }
 
 // finish records a step outcome for a task never reserved.
-func (a *Commands) finish(task *workflow.Execution, status workflow.StepState, reason string) {
+func (a *commands) finish(task *workflow.Execution, status workflow.StepState, reason string) {
 	if err := task.Settle(workflow.EncodeOutcome(status, map[string]any{"reason": strings.TrimSpace(reason)}, nil)); err != nil {
 		log.Printf("step %d: recording its outcome: %v", task.Step().ID, err)
 	}

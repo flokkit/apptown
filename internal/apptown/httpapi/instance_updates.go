@@ -1,8 +1,9 @@
 package httpapi
 
 import (
-	"github.com/flokkit/apptown/internal/apptown/instanceupdate"
 	"net/http"
+
+	"github.com/flokkit/apptown/internal/apptown/instanceupdate"
 )
 
 // InstanceUpdates projects the authenticated notification owner; GET never fetches.

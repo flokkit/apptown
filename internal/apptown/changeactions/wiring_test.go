@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/audit"
@@ -27,7 +29,7 @@ func TestWiringModeCannotFallThroughToAdmission(t *testing.T) {
 		if err != nil || mode == "" {
 			t.Fatalf("%q: %q %v", raw, mode, err)
 		}
-		if raw == "" && mode != WiringWorkflow {
+		if raw == "" && mode != wiringWorkflow {
 			t.Fatal("omitted mode changed default")
 		}
 	}
@@ -36,7 +38,7 @@ func TestWiringModeCannotFallThroughToAdmission(t *testing.T) {
 	}
 	// No Work dependency: an invalid constructed value must stop before admission.
 	s := &Service{}
-	for _, mode := range []WiringMode{"", "typo"} {
+	for _, mode := range []wiringMode{"", "typo"} {
 		ch, run, err := s.OpenWiring(context.Background(), Wiring{Mode: mode, Workflow: "wire"})
 		if err == nil || ch != nil || run != nil {
 			t.Fatalf("invalid mode admitted work: %v %v %v", ch, run, err)
@@ -99,7 +101,7 @@ func newWiringFixture(t *testing.T) wiringFixture {
 	return wiringFixture{db: db, work: work, actions: New(work, db), project: id, ctx: ctx}
 }
 
-func (f wiringFixture) open(mode WiringMode) (*workflow.Change, *workflow.Run, error) {
+func (f wiringFixture) open(mode wiringMode) (*workflow.Change, *workflow.Run, error) {
 	return f.actions.OpenWiring(f.ctx, Wiring{Mode: mode, Capability: "mailer", Workflow: "adopt-integration", Who: "operator",
 		Draft: workflow.ChangeDraft{ProjectID: f.project, Type: "feature", Title: "Connect Mail Relay", Body: "wire it"}})
 }
@@ -129,12 +131,12 @@ func (f wiringFixture) persisted(t *testing.T) (changes []workflow.ChangeSummary
 // one piece of work, linked.
 func TestWiringLinkFailureRollsBackAdmissionBeforeDispatch(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []WiringMode{WiringWorkflow, WiringChat} {
+	for _, mode := range []wiringMode{wiringWorkflow, wiringChat} {
 		for _, statement := range []string{"-- name: AttachmentWireForUpdate", "-- name: LinkIntegrationWire", "INSERT INTO audit_log"} {
 			t.Run(string(mode)+statement, func(t *testing.T) {
 				t.Parallel()
 				f := newWiringFixture(t)
-				clear := f.db.FailNextStatement(statement)
+				clear := dbtest.NextStatementFailure(f.db, statement)
 				ch, run, err := f.open(mode)
 				clear()
 				if err == nil || ch != nil || run != nil {
@@ -144,7 +146,7 @@ func TestWiringLinkFailureRollsBackAdmissionBeforeDispatch(t *testing.T) {
 					t.Fatalf("partial admission survived: %+v link %d receipts %d", changes, linked, receipts)
 				}
 				ch, run, err = f.open(mode)
-				if err != nil || (mode == WiringWorkflow) != (run != nil) {
+				if err != nil || (mode == wiringWorkflow) != (run != nil) {
 					t.Fatalf("retry: %+v %+v %v", ch, run, err)
 				}
 				changes, linked, receipts := f.persisted(t)
@@ -174,11 +176,11 @@ func TestWiringRetryNeverAdmitsSecondLiveChange(t *testing.T) {
 			f := newWiringFixture(t)
 			switch failure {
 			case "preparation":
-				t.Cleanup(f.db.FailNextStatement("UPDATE run_starts SET ready"))
+				t.Cleanup(dbtest.NextStatementFailure(f.db, "UPDATE run_starts SET ready"))
 			case "dispatch":
 				f.work.Stop()
 			}
-			first, _, err := f.open(WiringWorkflow)
+			first, _, err := f.open(wiringWorkflow)
 			if (failure == "none") != (err == nil) || first == nil {
 				t.Fatalf("first wiring: %+v %v", first, err)
 			}
@@ -188,7 +190,7 @@ func TestWiringRetryNeverAdmitsSecondLiveChange(t *testing.T) {
 			}
 			if failure == "preparation" {
 				// Settlement abandoned the first; one retry replaces it with one Change.
-				second, _, err := f.open(WiringChat)
+				second, _, err := f.open(wiringChat)
 				if err != nil || second.ID == first.ID {
 					t.Fatalf("replacing abandoned wiring: %+v %v", second, err)
 				}
@@ -202,7 +204,7 @@ func TestWiringRetryNeverAdmitsSecondLiveChange(t *testing.T) {
 				}
 				return
 			}
-			for _, mode := range []WiringMode{WiringWorkflow, WiringChat} {
+			for _, mode := range []wiringMode{wiringWorkflow, wiringChat} {
 				ch, run, err := f.open(mode)
 				var open *integration.WireOpenError
 				if !errors.As(err, &open) || open.ChangeID != first.ID || fault.KindOf(err) != fault.Conflict || ch != nil || run != nil {

@@ -65,7 +65,7 @@ func TestAnArchiveUnpacksWhatItHoldsAndHoldsItToItsManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 	write := func(edit func(*Manifest)) string {
-		m := Manifest{DataDir: src, Format: ArchiveFormat, Version: ArchiveVersion, Schema: dbschema.Latest(), KeyFiles: map[string]backuparchive.Digest{}}
+		m := Manifest{DataDir: src, Format: archiveFormat, Version: archiveVersion, Schema: dbschema.Latest(), KeyFiles: map[string]backuparchive.Digest{}}
 		m.Dump, _ = backuparchive.SumFile(dump)
 		keys, err := keyFileNames(src)
 		if err != nil {
@@ -232,11 +232,11 @@ func TestAHoldHoldsUntilReleased(t *testing.T) {
 	if err := h.Wait(t.Context()); err != nil {
 		t.Fatal("nothing held, and Wait waited")
 	}
-	release, ok := h.Hold()
+	release, ok := h.hold()
 	if !ok {
 		t.Fatal("the first hold was refused")
 	}
-	if _, again := h.Hold(); again {
+	if _, again := h.hold(); again {
 		t.Fatal("a second hold was granted while one is held")
 	}
 	ctx, cancel := context.WithCancel(t.Context())

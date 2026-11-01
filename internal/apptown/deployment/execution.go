@@ -32,9 +32,9 @@ type Inputs struct {
 	Applied AppliedProfile
 }
 
-// Same says whether two inputs name the same work: every field equal, and
+// same says whether two inputs name the same work: every field equal, and
 // the same applied profile.
-func (in Inputs) Same(other Inputs) bool {
+func (in Inputs) same(other Inputs) bool {
 	if (in.Address == nil) != (other.Address == nil) || (in.Address != nil && !in.Address.same(*other.Address)) {
 		return false
 	}
@@ -56,41 +56,37 @@ type Start struct {
 	BaseGeneration *int64 // Requests and rebuilds must still replace the generation they selected.
 }
 
-// Checkpoint durably records provider identities before execution can proceed.
-// Implementations reject stale ownership and conflicting identity updates.
-type Checkpoint func(map[string]any) error
-
-// ExecutionStore retains transaction authority. Admit must bind the key to
+// executionStore retains transaction authority. Admit must bind the key to
 // immutable inputs and recheck target/base generation atomically; a replay
 // returns created=false and never authorizes another execution.
-type ExecutionStore interface {
-	SettlementStore
+type executionStore interface {
+	settlementStore
 	Admit(context.Context, Start) (Attempt, bool, error)
 	Checkpoint(context.Context, Attempt) deploy.Checkpoint
 }
 
-type Execute func(context.Context, Attempt, deploy.Checkpoint) (deploy.Observation, error)
+type execute func(context.Context, Attempt, deploy.Checkpoint) (deploy.Observation, error)
 
 type ExecutionResult struct {
 	Attempt  Attempt
 	Created  bool
 	Observed deploy.Observation
-	Outcome  Outcome
+	Outcome  deploymentOutcome
 }
 
-type Stage string
+type stage string
 
 const (
-	Admission  Stage = "admission"
-	Execution  Stage = "execution"
-	Settlement Stage = "settlement"
+	Admission  stage = "admission"
+	Execution  stage = "execution"
+	Settlement stage = "settlement"
 )
 
 // RunError keeps execution failure separate from failure to persist its outcome.
 // When persistence fails, retry classification follows that error: even a
 // confirmed provider rejection needs a durable receipt before retries can stop.
 type RunError struct {
-	Stage       Stage
+	Stage       stage
 	Cause       error
 	Persistence error
 }
@@ -112,7 +108,7 @@ func (e *RunError) Unwrap() error {
 // inputs, owns context lifetime and handles workflow-specific evidence. No new
 // deadline is imposed on builds or provider rollouts.
 type Runner struct {
-	Store   ExecutionStore
+	Store   executionStore
 	Applied func(ids.ID)
 }
 
@@ -122,7 +118,7 @@ type Runner struct {
 // records failure; cancellation observed on its return records uncertainty for
 // later observation. RunError keeps execution and persistence failures separate.
 // The caller supplies the deadline.
-func (r Runner) Run(ctx context.Context, in Start, execute Execute) (ExecutionResult, error) {
+func (r Runner) Run(ctx context.Context, in Start, execute execute) (ExecutionResult, error) {
 	var result ExecutionResult
 	if err := ctx.Err(); err != nil {
 		return result, &RunError{Stage: Admission, Cause: err}
@@ -138,7 +134,7 @@ func (r Runner) Run(ctx context.Context, in Start, execute Execute) (ExecutionRe
 
 	// A cancelled executor returning success must never publish that success.
 	// Once execution has begun, recovery owns observation of its effects.
-	uncertain := func(stage Stage, cause error) (ExecutionResult, error) {
+	uncertain := func(stage stage, cause error) (ExecutionResult, error) {
 		out, recordErr := r.Store.Uncertain(ctx, at, cause)
 		if recordErr == nil {
 			result.Outcome = out

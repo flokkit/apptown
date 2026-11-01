@@ -15,7 +15,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 )
@@ -36,7 +35,7 @@ func TestAnAppTownCheckWithAnErrorIsNotOK(t *testing.T) {
 			if kind == "source" {
 				attachScanner(t, a, "broken-source", map[string]any{"image": "scanner:test", "command": []string{"scan"}, "target": "source", "kind": "secret"})
 			}
-			installCheckEffects(t, a, checkOverrides{run: func(ExecRequest) ExecOutcome { return ExecOutcome{RunErr: errors.New("review execution failure")} }})
+			installCheckEffects(t, a, checkOverrides{run: func(execRequest) execOutcome { return execOutcome{RunErr: errors.New("review execution failure")} }})
 			out, err := a.verification.Check(a.asEngine(context.Background()), ch, verification.Selection{})
 			if err != nil {
 				t.Fatal(err)
@@ -88,10 +87,10 @@ func TestAppTownCheckChecksOneCommitWhileTheBranchMoves(t *testing.T) {
 	gittest.Run(t, ws, "add", "-f", ".apptown/app.yaml", "source.txt")
 	gittest.Run(t, ws, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "first")
 	checked := gittest.Run(t, ws, "rev-parse", "HEAD")
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	a.docker.Client = daemon
 	moved := false
-	installCheckEffects(t, a, checkOverrides{run: func(req ExecRequest) ExecOutcome {
+	installCheckEffects(t, a, checkOverrides{run: func(req execRequest) execOutcome {
 		if !moved {
 			moved = true
 			body, err := os.ReadFile(filepath.Join(req.Workspace, "source.txt"))
@@ -104,7 +103,7 @@ func TestAppTownCheckChecksOneCommitWhileTheBranchMoves(t *testing.T) {
 			gittest.Run(t, ws, "add", "source.txt")
 			gittest.Run(t, ws, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "concurrent commit")
 		}
-		return ExecOutcome{}
+		return execOutcome{}
 	}})
 	out, err := a.verification.Check(a.asEngine(context.Background()), ch, verification.Selection{})
 	if err != nil {
@@ -124,10 +123,10 @@ func TestAppTownCheckOverHTTPChecksTheNamedCommitOrRefuses(t *testing.T) {
 	t.Parallel()
 	a, ch := step1ReviewGuidance(t, true, `[{"appliesTo": ["repository"], "name":"clean","evaluator":"sh","sh":"true"}]`)
 	var saw []string // work.txt in each tree a check ran on
-	installCheckEffects(t, a, checkOverrides{run: func(req ExecRequest) ExecOutcome {
+	installCheckEffects(t, a, checkOverrides{run: func(req execRequest) execOutcome {
 		body, _ := os.ReadFile(filepath.Join(req.Workspace, "work.txt"))
 		saw = append(saw, string(body))
-		return ExecOutcome{Termination: execution.Exited}
+		return execOutcome{Termination: execution.Exited}
 	}})
 	ctx := context.Background()
 	if _, err := a.Access.Bootstrap(ctx, identity.NewAccount{Username: "boss", Password: "test-password"}); err != nil {
@@ -186,10 +185,10 @@ func TestAppTownCheckPublishedChecksTheBranchTipNotTheFolder(t *testing.T) {
 	t.Parallel()
 	a, ch := step1ReviewGuidance(t, true, `[{"appliesTo": ["repository"], "name":"clean","evaluator":"sh","sh":"true"}]`)
 	var saw []string // work.txt in each tree a check ran on
-	installCheckEffects(t, a, checkOverrides{run: func(req ExecRequest) ExecOutcome {
+	installCheckEffects(t, a, checkOverrides{run: func(req execRequest) execOutcome {
 		body, _ := os.ReadFile(filepath.Join(req.Workspace, "work.txt"))
 		saw = append(saw, string(body))
-		return ExecOutcome{Termination: execution.Exited}
+		return execOutcome{Termination: execution.Exited}
 	}})
 	ctx := context.Background()
 	if _, err := a.Access.Bootstrap(ctx, identity.NewAccount{Username: "boss", Password: "test-password"}); err != nil {

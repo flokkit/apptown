@@ -1,7 +1,7 @@
 """A test that builds and runs a binary in a child process re-runs, rather
 than replaying a cached pass, when that binary's sources change: an edited
 file and an added file. Real go test runs, in a temporary module that uses
-internal/testinputs, with its own Go cache; no Docker or database."""
+internal/execution/executiontest, with its own Go cache; no Docker or database."""
 import os
 from pathlib import Path
 import subprocess
@@ -38,11 +38,11 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/testinputs"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 )
 
 func TestBuildAndRun(t *testing.T) {
-	testinputs.GoBuild(t, ".", nil, "./cmd/fixture")
+	executiontest.GoBuild(t, ".", nil, "./cmd/fixture")
 	binary := t.TempDir() + "/fixture"
 	if out, err := exec.Command("go", "build", "-o", binary, "./cmd/fixture").CombinedOutput(); err != nil {
 		t.Fatalf("build: %v: %s", err, out)

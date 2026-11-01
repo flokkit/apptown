@@ -202,7 +202,7 @@ func (w WorkerTasks) sendInputs(ctx context.Context, inputs []Input) error {
 
 // maxResultsAnswer bounds the answer holding a task's result files: their
 // maxima together, encoded.
-const maxResultsAnswer = MaxResultTotalBytes*4/3 + 1<<20
+const maxResultsAnswer = maxResultTotalBytes*4/3 + 1<<20
 
 // Results reads the result files the worker captured when the task exited,
 // by name, each in one of its four states. A task that has not exited, or

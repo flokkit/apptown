@@ -34,7 +34,7 @@ func TestStockKeysAndVersionedUpdates(t *testing.T) {
 	}
 	pid := adoptionTestProject(t, db, "s", "S")
 	b, _ := lib.ByName(t.Context(), "lang/go")
-	if err := ads.PutImports(t.Context(), pid, []wow.ResolvedPin{{BlockID: b.ID, Name: b.Name, Version: 1}}); err != nil {
+	if err := ads.putImports(t.Context(), pid, []wow.ResolvedPin{{BlockID: b.ID, Name: b.Name, Version: 1}}); err != nil {
 		t.Fatal(err)
 	}
 	version, err := lib.StockUpdate(t.Context(), wow.StockBlock{Name: "lang/go", Tags: "go,lang", Body: "Go it, again."})

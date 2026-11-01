@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/database"
 )
 
 // awaitRemediationSignal waits for a worker to reach a boundary. The deadline
@@ -47,7 +48,7 @@ func TestAStoppedPassStartsNoQueuedWork(t *testing.T) {
 		},
 		Resolve: func(context.Context, Item, VerificationScope) (StartDefinition, error) {
 			t.Error("a stopped pass offered queued work")
-			return StartDefinition{}, database.ErrInjectedFailure
+			return StartDefinition{}, dbtest.ErrInjectedFailure
 		}})
 	ctx, stop := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -75,7 +76,7 @@ func TestACoolingPoolStartsNothing(t *testing.T) {
 	service := New(f.db, Dependencies{Work: f.work, Caller: f.ctx, Checks: conformance.New(f.db, reconcileActor{}, attemptChecks{}, nil),
 		Resolve: func(context.Context, Item, VerificationScope) (StartDefinition, error) {
 			t.Error("a cooling pool offered queued work")
-			return StartDefinition{}, database.ErrInjectedFailure
+			return StartDefinition{}, dbtest.ErrInjectedFailure
 		}})
 	service.cool.hold("the provider refused")
 	service.Pass(context.Background())

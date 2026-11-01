@@ -2,8 +2,9 @@ package deployment
 
 import (
 	"errors"
-	"github.com/flokkit/apptown/internal/access"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/access"
 )
 
 func TestCheckedTargetAdmissionRefusesBeforeReadingOrProbing(t *testing.T) {
@@ -35,7 +36,7 @@ func TestDirectPortainerAttachmentUsesTheIngressDomainContract(t *testing.T) {
 	for _, domain := range []string{"user@apps.example", "apps.example?query", "apps.example#fragment", "apps.example:8443"} {
 		service := &Service{authority: &requestAuthority{}}
 		// A domain refusal must precede missing credentials or provider access.
-		if _, err := service.AttachPortainerTarget(t.Context(), PortainerAttachment{Name: "host", Domain: domain}); !errors.Is(err, ErrTargetDomain) {
+		if _, err := service.AttachPortainerTarget(t.Context(), PortainerAttachment{Name: "host", Domain: domain}); !errors.Is(err, errTargetDomain) {
 			t.Fatalf("domain %q: %v", domain, err)
 		}
 	}

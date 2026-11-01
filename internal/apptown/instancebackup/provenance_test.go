@@ -30,7 +30,7 @@ func TestArchiveProvenanceRefusesBeforeExtraction(t *testing.T) {
 		{"older major", `{"engine":"postgres","serverVersionNum":150001,"dumpClientVersion":"pg_dump (PostgreSQL) 15.1"}`, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			raw := map[string]any{"format": ArchiveFormat, "version": ArchiveVersion, "schema": 167}
+			raw := map[string]any{"format": archiveFormat, "version": archiveVersion, "schema": 167}
 			if tc.name == "missing schema" {
 				delete(raw, "schema")
 			}

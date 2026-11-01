@@ -50,10 +50,10 @@ func TestABundleWithNoCertificateIsRefused(t *testing.T) {
 	if _, err := Parse([]byte("-----BEGIN CERTIFICATE-----\n")); err == nil {
 		t.Error("a PEM with no certificate parsed")
 	}
-	if _, err := Load(filepath.Join(t.TempDir(), "missing.pem")); err == nil {
+	if _, err := load(filepath.Join(t.TempDir(), "missing.pem")); err == nil {
 		t.Error("a missing file loaded")
 	}
-	if b, err := Load(""); err != nil || !b.Empty() {
+	if b, err := load(""); err != nil || !b.empty() {
 		t.Errorf("no path: %v %v", b, err)
 	}
 	if _, err := Read(map[Use]string{Inference: filepath.Join(t.TempDir(), "x.pem")}); err == nil || !strings.Contains(err.Error(), "-trust-inference") {

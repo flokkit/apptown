@@ -21,7 +21,7 @@ const (
 	CompletionCleanup CompletionEffect = iota + 1
 	CompletionAdopt
 	CompletionLand
-	CompletionParent
+	completionParent
 )
 
 func (e CompletionEffect) String() string {
@@ -32,7 +32,7 @@ func (e CompletionEffect) String() string {
 		return "adopt"
 	case CompletionLand:
 		return "land"
-	case CompletionParent:
+	case completionParent:
 		return "parent"
 	default:
 		return "invalid-completion-effect"
@@ -55,7 +55,7 @@ type ReleaseReceipt struct {
 	ID     ids.ID `json:"release"`
 	Number int64  `json:"number"`
 }
-type CompletionRecorder interface {
+type completionRecorder interface {
 	RecordCompletionIn(context.Context, *database.Tx, CompletedRun) (ReleaseReceipt, error)
 	RetryCompletionIn(context.Context, *database.Tx, ids.ID) (bool, error)
 }
@@ -163,7 +163,7 @@ func (w advanceStore) complete(ctx context.Context, run *Run) error {
 			if err := recordCompletedChild(ctx, tx, run, w.now()); err != nil {
 				return err
 			}
-			completed.Effects = append(completed.Effects, CompletionParent)
+			completed.Effects = append(completed.Effects, completionParent)
 		}
 		receipt, err := w.completion.RecordCompletionIn(ctx, tx, completed)
 		if err != nil {
@@ -199,7 +199,7 @@ func recordCompletedChild(ctx context.Context, tx *database.Tx, child *Run, at t
 	if parentState != RunRunning || call.ParentStage != call.Stage || callState != StatusRunning || call.Attempt != child.ParentStepAttempt {
 		return nil
 	}
-	if _, err := callState.Transition(MoveStepFinish, StatusPass); err != nil {
+	if _, err := callState.transition(moveStepFinish, StatusPass); err != nil {
 		return err
 	}
 	ev, err := retryConfiguration(call.EvidenceJson)

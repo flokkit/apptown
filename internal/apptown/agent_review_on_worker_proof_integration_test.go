@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -19,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
+
 	"github.com/flokkit/apptown/internal/execfile"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/stock"
@@ -29,7 +30,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/tasks"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
@@ -188,7 +188,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 	}))
 
 	// This machine's Docker and process runner refuse and record.
-	local := dockerfake.New()
+	local := newDockerFake()
 	local.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) > 0 && args[0] == "ps" {
 			return nil, nil, true

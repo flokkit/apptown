@@ -27,15 +27,15 @@ func TestRunServiceAdmitsScopeBeforeResolutionAndBindsInferenceOwner(t *testing.
 			db := admissions.records.db
 			resolved := 0
 			starter := newStarter(db, NewStages(nil, func(string) bool { return false }), nil, startRuntime{
-				Source: func(context.Context, StartRequest) (StartSource, error) { return StartSource{}, nil },
-				Resolve: func(_ context.Context, in StartRequest, _ StartSource) (PreparedRun, error) {
+				source: func(context.Context, StartRequest) (StartSource, error) { return StartSource{}, nil },
+				resolve: func(_ context.Context, in StartRequest, _ StartSource) (PreparedRun, error) {
 					resolved++
 					if in.requestedBy != "payer" || in.receiptActor != "payer via instrument" || !in.parentRunID.IsZero() || !in.acceptedRunID.IsZero() {
 						t.Fatalf("authority leaked command identity: %+v", in)
 					}
 					return def, nil
 				},
-				Prepare: func(context.Context, *Run) error { return nil }, Dispatch: func(context.Context, *Run) error { return nil },
+				prepare: func(context.Context, *Run) error { return nil }, dispatch: func(context.Context, *Run) error { return nil },
 			}, clocked{})
 			auth := actorAuthorityFunc(func(_ context.Context, p operationPermission) (commandActor, error) {
 				who := commandActor{Receipt: "payer via instrument", InferenceOwner: "payer"}

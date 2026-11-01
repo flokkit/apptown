@@ -28,11 +28,11 @@ const (
 	DenyMissingCapability = "missing_capability"
 	DenyOutsideScope      = "outside_scope"
 	DenyDelegationNarrow  = "delegation_too_narrow"
-	DenyResourceState     = "resource_state_conflict"
-	DenySegregation       = "segregation_of_duties"
-	DenyQuorum            = "quorum_incomplete"
-	DenyReauth            = "reauthentication_required"
-	DenyExpiredObjectCap  = "expired_object_capability"
+	denyResourceState     = "resource_state_conflict"
+	denySegregation       = "segregation_of_duties"
+	denyQuorum            = "quorum_incomplete"
+	denyReauth            = "reauthentication_required"
+	denyExpiredObjectCap  = "expired_object_capability"
 	DenyAccountDisabled   = "account_disabled"
 	DenyNotEligible       = "not_an_approver"
 )
@@ -91,7 +91,7 @@ func DelegationOf(pr Principal) Channel {
 		return Channel{Kind: "anonymous"}
 	case pr.Via == "oauth":
 		return Channel{Kind: "oauth", ID: pr.DelegationID.String()}
-	case AgentToken(pr):
+	case agentToken(pr):
 		return Channel{Kind: "agent-token"}
 	case pr.Via == "token":
 		return Channel{Kind: "cli-token"}
@@ -147,9 +147,9 @@ type Grant struct {
 	RevokedAt          stamp.Time
 }
 
-// Facts is what the rule reads while deciding. Each read happens only when
+// facts is what the rule reads while deciding. Each read happens only when
 // the rule reaches it.
-type Facts interface {
+type facts interface {
 	// Disabled reports whether a user may not act as an account: it is
 	// disabled, or there is no such account. A principal that was admitted
 	// is judged by its ID (its name may have changed or gone to someone
@@ -193,7 +193,7 @@ func InstrumentMay(kind string, c Capability) bool {
 
 // Decide evaluates §12's order and returns one decision. It writes nothing;
 // the caller records the receipt.
-func Decide(pr Principal, d Channel, c Capability, res Resource, ctx Context, facts Facts) Decision {
+func Decide(pr Principal, d Channel, c Capability, res Resource, ctx Context, facts facts) Decision {
 	def, known := Definitions[c]
 	if !known {
 		return Decision{Code: DenyMissingCapability, Reason: fmt.Sprintf("%s is not a capability this AppTown knows", c)}
@@ -268,7 +268,7 @@ func Decide(pr Principal, d Channel, c Capability, res Resource, ctx Context, fa
 	var holders []Grant // grants that carry c at all
 	var applicable []Grant
 	for _, g := range grants {
-		if g.RoleName == RoleInstanceAdmin || !GrantHolds(g, c) {
+		if g.RoleName == RoleInstanceAdmin || !grantHolds(g, c) {
 			continue
 		}
 		holders = append(holders, g)
@@ -302,9 +302,9 @@ func Decide(pr Principal, d Channel, c Capability, res Resource, ctx Context, fa
 	return dec
 }
 
-// GrantHolds reports whether a grant carries a capability, directly or
+// grantHolds reports whether a grant carries a capability, directly or
 // through its role.
-func GrantHolds(g Grant, c Capability) bool {
+func grantHolds(g Grant, c Capability) bool {
 	if g.Capability != "" {
 		return g.Capability == c
 	}
@@ -312,10 +312,10 @@ func GrantHolds(g Grant, c Capability) bool {
 	return rv != nil && rv.Holds(c)
 }
 
-// GrantApplies is §3: a grant sits at a scope and covers the resources
+// grantApplies is §3: a grant sits at a scope and covers the resources
 // inside it; instance and group grants reach down into projects only for
 // the capabilities the catalog marks inheritable.
-func GrantApplies(g Grant, c Capability, res Resource) bool {
+func grantApplies(g Grant, c Capability, res Resource) bool {
 	switch g.ScopeType {
 	case ScopeInstance:
 		switch res.Type {
@@ -371,7 +371,7 @@ func denialProse(pr Principal, c Capability, res Resource) string {
 	if pr.Kind == "anonymous" {
 		who = "Someone who is not signed in"
 	}
-	roles := RolesCarrying(c, res)
+	roles := rolesCarrying(c, res)
 	fix := "an administrator can grant it on the People page"
 	switch {
 	case containsCap(AmenderCaps, c):
@@ -401,9 +401,9 @@ func allowProse(pr Principal, c Capability, via []Grant) string {
 	return fmt.Sprintf("%s may %s: %s%s", pr.Name, Definitions[c].Description, what, through)
 }
 
-// RolesCarrying names the surfaced roles that bundle c at the resource's
+// rolesCarrying names the surfaced roles that bundle c at the resource's
 // natural scope, for the "how to get it" half of a denial.
-func RolesCarrying(c Capability, res Resource) []string {
+func rolesCarrying(c Capability, res Resource) []string {
 	want := ScopeProject
 	if res.Type == "instance" || res.Type == "group" {
 		want = ScopeInstance
@@ -429,17 +429,17 @@ func joinOr(xs []string) string {
 
 // --- OAuth consent scopes -----------------------------------------------------
 
-// Scope is one consent word (mcp.md §4) mapped onto capabilities. A scope
+// scope is one consent word (mcp.md §4) mapped onto capabilities. A scope
 // names what a client may ask for; the rule still evaluates the person's
 // live grants underneath.
-type Scope struct {
+type scope struct {
 	Name  string
 	Means string // product language for the consent screen
 	Caps  []Capability
 }
 
-var Scopes = []Scope{
-	{"apptown:user:read", "read your projects, Changes, checks, evidence and runs", ReadCaps},
+var scopeCatalog = []scope{
+	{"apptown:user:read", "read your projects, Changes, checks, evidence and runs", readCaps},
 	{"apptown:change:create", "open Changes in your name", []Capability{CapChangeCreate, CapChangeUpdateBrief, CapChangeNarrative}},
 	{"apptown:change:write", "push revisions to Changes you may write", []Capability{CapChangeWriteRevision}},
 	{"apptown:change:check", "run a Change's checks", []Capability{CapChangeRunChecks}},
@@ -454,15 +454,15 @@ var Scopes = []Scope{
 }
 
 func ScopeNames() []string {
-	out := make([]string, 0, len(Scopes))
-	for _, s := range Scopes {
+	out := make([]string, 0, len(scopeCatalog))
+	for _, s := range scopeCatalog {
 		out = append(out, s.Name)
 	}
 	return out
 }
 
 func ScopeMeans(name string) string {
-	for _, s := range Scopes {
+	for _, s := range scopeCatalog {
 		if s.Name == name {
 			return s.Means
 		}
@@ -488,20 +488,20 @@ func ValidTokenPurpose(p string) bool { return p == TokenCLI || p == TokenAgent 
 func CredentialCovers(pr Principal, c Capability) bool {
 	switch {
 	case pr.Via == "oauth":
-		return ScopesCover(pr.Scopes, c)
-	case AgentToken(pr):
-		return ScopesCover(ScopeNames(), c)
+		return scopesCover(pr.Scopes, c)
+	case agentToken(pr):
+		return scopesCover(ScopeNames(), c)
 	}
 	return true
 }
 
-// AgentToken reports an agent-purpose personal token.
-func AgentToken(pr Principal) bool { return pr.Via == "token" && pr.Purpose == TokenAgent }
+// agentToken reports an agent-purpose personal token.
+func agentToken(pr Principal) bool { return pr.Via == "token" && pr.Purpose == TokenAgent }
 
 // AgentCredential reports a coding agent's credential: an OAuth delegation
 // or an agent token. An act a person may do for themselves without any
 // capability (disconnecting their own connections) still needs the person.
-func AgentCredential(pr Principal) bool { return pr.Via == "oauth" || AgentToken(pr) }
+func AgentCredential(pr Principal) bool { return pr.Via == "oauth" || agentToken(pr) }
 
 // CredentialNarrowReason says why CredentialCovers refused.
 func CredentialNarrowReason(pr Principal, does string) string {
@@ -511,14 +511,14 @@ func CredentialNarrowReason(pr Principal, does string) string {
 	return fmt.Sprintf("the connected agent was not allowed to %s; %s can reconnect it with that permission", does, pr.Name)
 }
 
-// ScopesCover: does a delegation's scope list reach a capability? Reads
+// scopesCover: does a delegation's scope list reach a capability? Reads
 // are covered by any scope (a client that may write may look).
-func ScopesCover(scopes []string, c Capability) bool {
+func scopesCover(scopes []string, c Capability) bool {
 	if Definitions[c].Risk == "read" && len(scopes) > 0 {
 		return true
 	}
 	for _, name := range scopes {
-		for _, s := range Scopes {
+		for _, s := range scopeCatalog {
 			if s.Name == name && containsCap(s.Caps, c) {
 				return true
 			}

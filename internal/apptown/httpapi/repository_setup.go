@@ -20,7 +20,7 @@ func NewRepositorySetup(projects *project.Projects, lifecycle *projectlifecycle.
 
 // Initialize: POST /projects/{slug}/repo {defaultBranch} — init or adopt.
 func (h RepositorySetup) Initialize(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -29,7 +29,7 @@ func (h RepositorySetup) Initialize(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 409, "project is already repo-backed (branch %q)", p.DefaultBranch)
 			return
 		}
-		if err := h.lifecycle.InitializeRepository(r.Context(), p, in.DefaultBranch, Actor(r)); err != nil {
+		if err := h.lifecycle.InitializeRepository(r.Context(), p, in.DefaultBranch, actor(r)); err != nil {
 			WriteFault(w, err)
 			return
 		}
@@ -44,7 +44,7 @@ func (h RepositorySetup) Initialize(w http.ResponseWriter, r *http.Request) {
 // apptown secret as the git credential is for administrators only: its
 // value goes to the server the caller chose.
 func (h RepositorySetup) SeedFromURL(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -52,7 +52,7 @@ func (h RepositorySetup) SeedFromURL(w http.ResponseWriter, r *http.Request) {
 		if in.CredentialSecret != "" && !RequireAdmin(h.access, w, r) {
 			return
 		}
-		if err := h.lifecycle.SeedFromURL(r.Context(), p, projectlifecycle.FromURL{URL: in.URL, Branch: in.Branch, CredentialSecret: in.CredentialSecret}, Actor(r)); err != nil {
+		if err := h.lifecycle.SeedFromURL(r.Context(), p, projectlifecycle.FromURL{URL: in.URL, Branch: in.Branch, CredentialSecret: in.CredentialSecret}, actor(r)); err != nil {
 			WriteFault(w, err)
 			return
 		}
@@ -65,11 +65,11 @@ func (h RepositorySetup) SeedFromURL(w http.ResponseWriter, r *http.Request) {
 // its default branch (branch, else the one its HEAD names, else its only
 // branch) and tags. Authorized as project:import on the project.
 func (h RepositorySetup) SeedFromBundle(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
-	if err := h.lifecycle.SeedFromBundle(r.Context(), p, r.Body, r.URL.Query().Get("branch"), Actor(r)); err != nil {
+	if err := h.lifecycle.SeedFromBundle(r.Context(), p, r.Body, r.URL.Query().Get("branch"), actor(r)); err != nil {
 		WriteFault(w, err)
 		return
 	}
@@ -81,7 +81,7 @@ func (h RepositorySetup) SeedFromBundle(w http.ResponseWriter, r *http.Request) 
 // anyone who may read the project. A failure after the first byte aborts
 // the response, so a broken download never looks complete.
 func (h RepositorySetup) DownloadCode(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

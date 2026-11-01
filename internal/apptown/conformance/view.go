@@ -46,7 +46,7 @@ type View struct {
 
 // View renders the surface under a lens: reviewID 0 = current.
 func (s *Service) View(ctx context.Context, reviewID ids.ID) (*View, error) {
-	if _, err := s.require(ctx, Permission{Action: ReadFleet}); err != nil {
+	if _, err := s.require(ctx, permission{Action: readFleet}); err != nil {
 		return nil, err
 	}
 	store := s.records
@@ -63,7 +63,7 @@ func (s *Service) View(ctx context.Context, reviewID ids.ID) (*View, error) {
 	}
 	observations := RecordedObservations(h.Verdicts)
 	view := &View{Lens: LensInfo{Kind: "review", Review: h.Review, Delta: h.Delta}, Adjudications: h.Adjudications, PriorConfirmations: h.PriorConfirmations,
-		CheckDefs: h.CheckDefs, Reviews: h.Reviews, Exceptions: map[string][]Disposition{}, ByProject: GroupByProject(observations), ByCheck: GroupByCheck(observations)}
+		CheckDefs: h.CheckDefs, Reviews: h.Reviews, Exceptions: map[string][]Disposition{}, ByProject: groupByProject(observations), ByCheck: groupByCheck(observations)}
 	names := map[ids.ID]string{}
 	for _, p := range h.Projects {
 		names[p.ID] = p.Name
@@ -84,8 +84,8 @@ func (s *Service) View(ctx context.Context, reviewID ids.ID) (*View, error) {
 		standing.Name = displayName(names[id], slug)
 		view.Projects = append(view.Projects, standing)
 	}
-	SortProjects(view.Projects)
-	view.Summary = SummarizeFleet(view.Projects, len(view.ByCheck))
+	sortProjects(view.Projects)
+	view.Summary = summarizeFleet(view.Projects, len(view.ByCheck))
 	return view, nil
 }
 

@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -35,7 +37,7 @@ func TestApprovalPolicyRequiresCurrentAuthorityAndReceipt(t *testing.T) {
 	if _, err := authority.PutGrant(ctx, identity.Spec{SubjectType: "user", Subject: "owner", Role: access.RoleProjectOwner, Scope: access.ScopeProject, ScopeID: id.String()}); err != nil {
 		t.Fatal(err)
 	}
-	restore := db.FailNextStatement("INSERT INTO audit_log")
+	restore := dbtest.NextStatementFailure(db, "INSERT INTO audit_log")
 	err = projects.SetIndependentApproval(ctx, id, true)
 	restore()
 	if err == nil {

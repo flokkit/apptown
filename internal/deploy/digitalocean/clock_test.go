@@ -33,7 +33,7 @@ func stepping(step time.Duration) func() time.Time {
 func TestTheProviderNamesGraceEndsByTheDriversClock(t *testing.T) {
 	t.Parallel()
 	d := NewDriver(Dependencies{}, Options{PollInterval: time.Millisecond, Now: stepping(0),
-		Resolve: (&fakeDNS{missing: 1000}).resolve})
+		resolve: (&fakeDNS{missing: 1000}).resolve})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	var log []string
@@ -101,7 +101,7 @@ func TestADeploymentIsGivenUpAfter20MinutesByTheDriversClock(t *testing.T) {
 	d := NewDriver(Dependencies{}, Options{PollInterval: time.Millisecond, Now: stepping(15 * time.Minute)})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, err := d.WaitDeployment(ctx, &Client{Base: server.URL, HTTP: server.Client()}, "app-1", "dep-1", func(string, ...any) {})
+	_, err := d.waitDeployment(ctx, &Client{Base: server.URL, HTTP: server.Client()}, "app-1", "dep-1", true, func(string, ...any) {})
 	if err == nil || !strings.Contains(err.Error(), "within 20 minutes") {
 		t.Fatalf("a deployment building for 30 minutes on the driver's clock: %v", err)
 	}

@@ -106,7 +106,7 @@ func (a *App) RecoverConsoles(ctx context.Context) error {
 			go a.changeConsole.Rehearse(ctx, s)
 		}
 	}
-	a.HarvestAllConsoleUsage(ctx)
+	a.harvestAllConsoleUsage(ctx)
 	go a.consoleRounds(a.life, a.consoleStop)
 	return nil
 }
@@ -120,7 +120,7 @@ func (a *App) consoleRounds(ctx context.Context, stop <-chan struct{}) {
 		case <-stop:
 			return
 		case <-t.C:
-			a.HarvestAllConsoleUsage(ctx)
+			a.harvestAllConsoleUsage(ctx)
 			a.consoleIdleStop(ctx)
 		}
 	}
@@ -146,9 +146,9 @@ func (a *App) consoleIdleStop(ctx context.Context) {
 	}
 }
 
-// StopConsoles ends the console rounds for shutdown: the sessions'
+// stopConsoles ends the console rounds for shutdown: the sessions'
 // containers keep running and their records stay for the next recovery.
-func (a *App) StopConsoles(ctx context.Context) {
+func (a *App) stopConsoles(ctx context.Context) {
 	if a.consoleStop != nil {
 		a.consoleStopOnce.Do(func() { close(a.consoleStop) })
 	}
@@ -165,8 +165,8 @@ func (a *App) StopConsoles(ctx context.Context) {
 
 // --- usage: read from the session record, never by sniffing the terminal --------
 
-// HarvestAllConsoleUsage sweeps every session (the round, and startup).
-func (a *App) HarvestAllConsoleUsage(ctx context.Context) {
+// harvestAllConsoleUsage sweeps every session (the round, and startup).
+func (a *App) harvestAllConsoleUsage(ctx context.Context) {
 	// A failed harvest leaves its cursor where it was: the next round reads
 	// the same spend again.
 	for _, s := range a.Console.List(ctx, console.Match{}) {

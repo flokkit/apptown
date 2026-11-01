@@ -3,9 +3,10 @@ package conformance
 import (
 	"database/sql/driver"
 	"errors"
-	"github.com/flokkit/apptown/internal/ids"
 	"slices"
 	"time"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/enum"
 	"github.com/flokkit/apptown/internal/stamp"
@@ -24,11 +25,11 @@ const (
 var dispositionKindCodec = enum.Set[DispositionKind]{
 	Names:     []string{"accepted", "false_positive"},
 	Invalid:   "invalid-disposition",
-	Err:       ErrDispositionKind,
+	Err:       errDispositionKind,
 	ScanLabel: "database value",
 }
 
-var ErrDispositionKind = errors.New("status must be accepted or false_positive")
+var errDispositionKind = errors.New("status must be accepted or false_positive")
 
 func (k DispositionKind) String() string                     { return dispositionKindCodec.String(k) }
 func ParseDispositionKind(s string) (DispositionKind, error) { return dispositionKindCodec.Parse(s) }
@@ -60,22 +61,22 @@ type Disposition struct {
 	byVia string
 }
 
-func (d Disposition) ActiveAt(at time.Time) bool {
+func (d Disposition) activeAt(at time.Time) bool {
 	return d.Status.valid() && (!d.ExpiresAt.Valid || d.ExpiresAt.Time.After(at))
 }
 
-// FindingSubject is the identity needed for exception matching, independent of
+// findingSubject is the identity needed for exception matching, independent of
 // a scanner's report format or the application's Finding representation.
-type FindingSubject struct {
+type findingSubject struct {
 	Fingerprint string
 	Identifiers []string
 	Package     string
 }
 
-// MatchDisposition prefers an exact fingerprint across the whole set, then an
+// matchDisposition prefers an exact fingerprint across the whole set, then an
 // identifier match narrowed by package when specified. The input must be the
 // active set at admission or a saved review's snapshot; it is not re-expired here.
-func MatchDisposition(subject FindingSubject, dispositions []Disposition) *Disposition {
+func matchDisposition(subject findingSubject, dispositions []Disposition) *Disposition {
 	for i := range dispositions {
 		d := &dispositions[i]
 		if !d.Status.valid() {
@@ -110,7 +111,7 @@ func (d Disposition) Reference() DispositionRef {
 
 // ExceptionFor matches the whole-check identity against its admitted snapshot.
 func ExceptionFor(sc DeclaredCheck, ds []Disposition) (DispositionRef, bool) {
-	if d := MatchDisposition(FindingSubject{Fingerprint: Fingerprint(sc, "")}, ds); d != nil {
+	if d := matchDisposition(findingSubject{Fingerprint: Fingerprint(sc, "")}, ds); d != nil {
 		return d.Reference(), true
 	}
 	return DispositionRef{}, false

@@ -20,8 +20,8 @@ import (
 	"github.com/flokkit/apptown/internal/strs"
 )
 
-// PackRecord is one row of packs.
-type PackRecord struct {
+// packRow is one row of packs.
+type packRow struct {
 	ID            ids.ID
 	Name          string
 	Description   string
@@ -35,7 +35,7 @@ type PackRecord struct {
 }
 
 // Platform reports whether the spec declares AppTown's own tier.
-func (p PackRecord) Platform() bool { return specIsPlatform(p.SpecJSON) }
+func (p packRow) Platform() bool { return specIsPlatform(p.SpecJSON) }
 
 func specIsPlatform(spec string) bool {
 	var s struct {
@@ -49,41 +49,41 @@ func specIsPlatform(spec string) bool {
 type PackVersion struct{ SpecJSON, PinsJSON string }
 
 var (
-	ErrStockPack  = fault.New(fault.Conflict, "a stock pack re-syncs with the release; make a pack of your own beside it, and take both")
-	ErrPackOwner  = errors.New("pack belongs to another origin")
-	ErrLastPack   = fault.New(fault.Conflict, "the last pack that is on cannot be turned off; turn another on first, or projects could not be made")
-	ErrPackAbsent = errors.New("no pack named")
-	// ErrNoPack is the absence of the pack a caller addressed by name. It is
+	errStockPack  = fault.New(fault.Conflict, "a stock pack re-syncs with the release; make a pack of your own beside it, and take both")
+	errPackOwner  = errors.New("pack belongs to another origin")
+	errLastPack   = fault.New(fault.Conflict, "the last pack that is on cannot be turned off; turn another on first, or projects could not be made")
+	errPackAbsent = errors.New("no pack named")
+	// errNoPack is the absence of the pack a caller addressed by name. It is
 	// classified here so callers never need to know the store answers
 	// absence with sql.ErrNoRows.
-	ErrNoPack = fault.New(fault.NotFound, "no pack is named")
+	errNoPack = fault.New(fault.NotFound, "no pack is named")
 )
 
 // packByNameIn reads the pack a caller addressed; absence is ErrNoPack.
 func packByNameIn(ctx context.Context, q *wowsql.Queries, name string) (wowsql.Pack, error) {
 	p, err := q.PackByName(ctx, name)
 	if errors.Is(err, sql.ErrNoRows) {
-		return p, fmt.Errorf("%w %q", ErrNoPack, name)
+		return p, fmt.Errorf("%w %q", errNoPack, name)
 	}
 	return p, err
 }
 
-// Packs is the supported API over pack rows and their publications.
-type Packs struct {
+// packs is the supported API over pack rows and their publications.
+type packs struct {
 	db    *database.DB
 	clock func() time.Time // AppTown's clock; nil is the real one
 	// lines is the tool versions list a pack's tools are held to; nil
 	// refuses every line.
-	lines ToolLines
+	lines toolLines
 	// shipped names the update stock versions come from (source and signer, origin.go).
 	shipped string
 }
 
-func (s *Packs) now() time.Time { return clock.Or(s.clock)() }
+func (s *packs) now() time.Time { return clock.Or(s.clock)() }
 
-func NewPacks(db *database.DB) *Packs { return &Packs{db: db} }
+func NewPacks(db *database.DB) *packs { return &packs{db: db} }
 
-func (s *Packs) ByName(ctx context.Context, name string) (*PackRecord, error) {
+func (s *packs) ByName(ctx context.Context, name string) (*packRow, error) {
 	r, err := wowsql.New(s.db.SQL()).PackByName(ctx, name)
 	if err != nil {
 		return nil, err
@@ -92,42 +92,26 @@ func (s *Packs) ByName(ctx context.Context, name string) (*PackRecord, error) {
 	return &p, nil
 }
 
-// All is every pack, stock first.
-func (s *Packs) All(ctx context.Context) ([]PackRecord, error) {
+// all is every pack, stock first.
+func (s *packs) all(ctx context.Context) ([]packRow, error) {
 	rows, err := wowsql.New(s.db.SQL()).Packs(ctx)
-	var out []PackRecord
+	var out []packRow
 	for _, r := range rows {
 		out = append(out, packRecord(r))
 	}
 	return out, err
 }
 
-// Published is every pack with at least one publication.
-func (s *Packs) Published(ctx context.Context) ([]PackRecord, error) {
-	all, err := s.All(ctx)
-	var out []PackRecord
+// published is every pack with at least one publication.
+func (s *packs) published(ctx context.Context) ([]packRow, error) {
+	all, err := s.all(ctx)
+	var out []packRow
 	for _, p := range all {
 		if p.LatestVersion > 0 {
 			out = append(out, p)
 		}
 	}
 	return out, err
-}
-
-// Offered is the packs a new project may be given: on, and not the
-// platform tier. Everything that offers a pack reads this.
-func (s *Packs) Offered(ctx context.Context) ([]PackRecord, error) {
-	all, err := s.All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var out []PackRecord
-	for _, p := range all {
-		if p.Enabled && !p.Platform() {
-			out = append(out, p)
-		}
-	}
-	return out, nil
 }
 
 // offeredPack is a pack row read with the resolved contents of the
@@ -139,9 +123,9 @@ func offeredPack(r wowsql.Pack, spec json.RawMessage, version int64) (Pack, erro
 	return pk, err
 }
 
-// OfferedContents is every pack with its offered publication's contents,
+// offeredContents is every pack with its offered publication's contents,
 // stock first.
-func (s *Packs) OfferedContents(ctx context.Context) ([]Pack, error) {
+func (s *packs) offeredContents(ctx context.Context) ([]Pack, error) {
 	rows, err := wowsql.New(s.db.SQL()).OfferedPacks(ctx)
 	if err != nil {
 		return nil, err
@@ -157,8 +141,8 @@ func (s *Packs) OfferedContents(ctx context.Context) ([]Pack, error) {
 	return out, nil
 }
 
-// OfferedContentsOf is one pack with its offered publication's contents.
-func (s *Packs) OfferedContentsOf(ctx context.Context, name string) (*Pack, error) {
+// offeredContentsOf is one pack with its offered publication's contents.
+func (s *packs) offeredContentsOf(ctx context.Context, name string) (*Pack, error) {
 	r, err := wowsql.New(s.db.SQL()).OfferedPack(ctx, name)
 	if err != nil {
 		return nil, err
@@ -175,7 +159,7 @@ func (s *Packs) OfferedContentsOf(ctx context.Context, name string) (*Pack, erro
 func PackVersionIn(ctx context.Context, q database.Queryer, name string, version int64) (PackVersion, error) {
 	r, err := wowsql.New(q.SQL()).PackPublication(ctx, wowsql.PackPublicationParams{Name: name, Version: version})
 	if errors.Is(err, sql.ErrNoRows) {
-		return PackVersion{}, fmt.Errorf("%w %q", ErrPackAbsent, name)
+		return PackVersion{}, fmt.Errorf("%w %q", errPackAbsent, name)
 	}
 	if err != nil {
 		return PackVersion{}, err
@@ -186,28 +170,19 @@ func PackVersionIn(ctx context.Context, q database.Queryer, name string, version
 	return PackVersion{SpecJSON: string(r.SpecJson), PinsJSON: string(r.PinsJson)}, nil
 }
 
-// LatestPins is the latest publication's pins, "" when there is none.
-func (s *Packs) LatestPins(ctx context.Context, p PackRecord) (string, error) {
-	r, err := wowsql.New(s.db.SQL()).PackVersion(ctx, wowsql.PackVersionParams{PackID: p.ID, Version: p.LatestVersion})
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", nil
-	}
-	return string(r.PinsJson), err
-}
-
 // Publish records a pack's declaration as a version: version 1 for a new
 // name; the next version when the pinned contents or the declaration
 // moved; only the words when none did. A name another origin owns is
 // refused, and so is a declaration naming an item the library lacks.
-func (s *Packs) Publish(ctx context.Context, name, description, declaration, origin string) (int, error) {
-	return s.PublishNamed(ctx, name, description, declaration, origin, "")
+func (s *packs) Publish(ctx context.Context, name, description, declaration, origin string) (int, error) {
+	return s.publishNamed(ctx, name, description, declaration, origin, "")
 }
 
-// PublishNamed publishes like Publish and names the new version. A new
+// publishNamed publishes like Publish and names the new version. A new
 // pack's first version is its recommended one; a later version, stock or
 // not, is not recommended until a person says so, so a what-if can judge it
 // before projects are offered it.
-func (s *Packs) PublishNamed(ctx context.Context, name, description, declaration, origin, versionName string) (int, error) {
+func (s *packs) publishNamed(ctx context.Context, name, description, declaration, origin, versionName string) (int, error) {
 	var version int
 	now := s.now()
 	err := s.db.InTx(ctx, func(tx *database.Tx) error {
@@ -228,7 +203,7 @@ type cut struct {
 
 // publishIn is the one publication rule, inside the caller's transaction,
 // under the pack's row lock, at the operation's time now.
-func (s *Packs) publishIn(ctx context.Context, tx *database.Tx, now time.Time, name, description, declaration, origin string, how cut) (int64, error) {
+func (s *packs) publishIn(ctx context.Context, tx *database.Tx, now time.Time, name, description, declaration, origin string, how cut) (int64, error) {
 	q := wowsql.New(tx.SQL())
 	p, err := q.PackByNameForUpdate(ctx, name)
 	fresh := errors.Is(err, sql.ErrNoRows)
@@ -236,13 +211,13 @@ func (s *Packs) publishIn(ctx context.Context, tx *database.Tx, now time.Time, n
 		return 0, err
 	}
 	if !fresh && p.Origin != origin {
-		return 0, fmt.Errorf("pack %s: %w %q", name, ErrPackOwner, p.Origin)
+		return 0, fmt.Errorf("pack %s: %w %q", name, errPackOwner, p.Origin)
 	}
 	res := s.resolve(ctx, declaration)
 	// A version keeps what it pinned; an item it cannot pin would be
 	// whatever later takes the name, so a save names only what exists.
 	if how.refuseMissing && len(res.Missing) > 0 {
-		return 0, fmt.Errorf("%w: the library has no %s; add it first, or leave it out of the pack", ErrUnpinned, strings.Join(res.Missing, ", "))
+		return 0, fmt.Errorf("%w: the library has no %s; add it first, or leave it out of the pack", errUnpinned, strings.Join(res.Missing, ", "))
 	}
 	if err := s.checkTools(res.Spec); err != nil {
 		return 0, fmt.Errorf("pack %s: %w", name, err)
@@ -302,16 +277,16 @@ func (s *Packs) publishIn(ctx context.Context, tx *database.Tx, now time.Time, n
 
 // resolve pins a declaration's items at the library's current versions.
 // A declaration that does not decode is resolved as what of it does.
-func (s *Packs) resolve(ctx context.Context, declaration string) resolution {
+func (s *packs) resolve(ctx context.Context, declaration string) resolution {
 	d, _ := decodeSpec(declaration)
 	return resolveDeclaration(ctx, d, libraryPins{lib: NewLibrary(s.db), wf: NewWorkflows(s.db), pol: NewPolicies(s.db)})
 }
 
 // libraryPins reads own items' current pins from the library.
 type libraryPins struct {
-	lib *Library
-	wf  *Workflows
-	pol *Policies
+	lib *library
+	wf  *workflows
+	pol *policies
 }
 
 func (l libraryPins) BlockPin(ctx context.Context, name string) (int, bool) {
@@ -323,11 +298,11 @@ func (l libraryPins) BlockPin(ctx context.Context, name string) (int, bool) {
 }
 
 func (l libraryPins) WorkflowPin(ctx context.Context, name string, platform bool) (int, bool, bool) {
-	v, _, err := l.wf.Version(ctx, l.wf.SystemFor(ctx, name), 0)
+	v, _, err := l.wf.version(ctx, l.wf.SystemFor(ctx, name), 0)
 	if err != nil {
 		return 0, false, false
 	}
-	if !platform && l.wf.IsSystem(ctx, name) {
+	if !platform && l.wf.isSystem(ctx, name) {
 		return 0, false, true
 	}
 	return v, true, true
@@ -341,16 +316,16 @@ func (l libraryPins) PolicyPin(ctx context.Context, name string) (PackPolicy, bo
 	return PackPolicy{Name: lp.Name, Description: lp.Description, Rule: lp.Rule, With: lp.With}, true
 }
 
-// Describe refreshes a stock pack's words without a new version.
-func (s *Packs) Describe(ctx context.Context, name, description string) error {
+// describe refreshes a stock pack's words without a new version.
+func (s *packs) describe(ctx context.Context, name, description string) error {
 	_, err := wowsql.New(s.db.SQL()).RefreshStockPackWords(ctx, wowsql.RefreshStockPackWordsParams{Name: name, Description: description})
 	return err
 }
 
-// SetEnabled is the instance's switch, with its receipt. The last pack
+// setEnabled is the instance's switch, with its receipt. The last pack
 // that is on cannot be turned off: a project must be makeable from
 // something. An unknown name is ErrNoPack.
-func (s *Packs) SetEnabled(ctx context.Context, name string, enabled bool, who string) error {
+func (s *packs) setEnabled(ctx context.Context, name string, enabled bool, who string) error {
 	now := s.now().UTC()
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		q := wowsql.New(tx.SQL())
@@ -367,7 +342,7 @@ func (s *Packs) SetEnabled(ctx context.Context, name string, enabled bool, who s
 				return err
 			}
 			if others == 0 {
-				return fmt.Errorf("%q: %w", name, ErrLastPack)
+				return fmt.Errorf("%q: %w", name, errLastPack)
 			}
 		}
 		if _, err := q.SetPackEnabled(ctx, wowsql.SetPackEnabledParams{Name: name, Enabled: enabled, At: now}); err != nil {
@@ -377,9 +352,9 @@ func (s *Packs) SetEnabled(ctx context.Context, name string, enabled bool, who s
 	})
 }
 
-// Delete removes a custom pack with its receipt; stock is refused with
+// delete removes a custom pack with its receipt; stock is refused with
 // ErrStockPack, absence is ErrNoPack.
-func (s *Packs) Delete(ctx context.Context, name, who string) error {
+func (s *packs) delete(ctx context.Context, name, who string) error {
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		q := wowsql.New(tx.SQL())
 		p, err := packByNameIn(ctx, q, name)
@@ -387,7 +362,7 @@ func (s *Packs) Delete(ctx context.Context, name, who string) error {
 			return err
 		}
 		if p.Origin == "stock" {
-			return fmt.Errorf("%q: %w", name, ErrStockPack)
+			return fmt.Errorf("%q: %w", name, errStockPack)
 		}
 		if _, err := q.DeletePack(ctx, name); err != nil {
 			return err
@@ -405,29 +380,29 @@ func canonJSON(s string) string {
 	return string(b)
 }
 
-// PublicationRow is one entry of a pack's version history.
-type PublicationRow struct {
+// publicationRow is one entry of a pack's version history.
+type publicationRow struct {
 	Version int64
 	Note    string
 	At      stamp.Time
 }
 
-// Publications is a pack's versions, newest first.
-func (s *Packs) Publications(ctx context.Context, packID ids.ID) ([]PublicationRow, error) {
+// publications is a pack's versions, newest first.
+func (s *packs) publications(ctx context.Context, packID ids.ID) ([]publicationRow, error) {
 	rows, err := wowsql.New(s.db.SQL()).PackVersions(ctx, packID)
-	out := make([]PublicationRow, 0, len(rows))
+	out := make([]publicationRow, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, PublicationRow{Version: r.Version, Note: r.Note, At: stamp.Time{NullTime: sql.NullTime{Time: r.CreatedAt, Valid: true}}})
+		out = append(out, publicationRow{Version: r.Version, Note: r.Note, At: stamp.Time{NullTime: sql.NullTime{Time: r.CreatedAt, Valid: true}}})
 	}
 	return out, err
 }
 
-func packRecord(r wowsql.Pack) PackRecord {
-	return PackRecord{ID: r.ID, Name: r.Name, Description: r.Description, SpecJSON: string(r.SpecJson), Origin: r.Origin, Enabled: r.Enabled, LatestVersion: r.LatestVersion, RecommendedVersion: r.RecommendedVersion}
+func packRecord(r wowsql.Pack) packRow {
+	return packRow{ID: r.ID, Name: r.Name, Description: r.Description, SpecJSON: string(r.SpecJson), Origin: r.Origin, Enabled: r.Enabled, LatestVersion: r.LatestVersion, RecommendedVersion: r.RecommendedVersion}
 }
 
 // PackByNameIn reads catalog identity within a caller's transaction.
-func PackByNameIn(ctx context.Context, q database.Queryer, name string) (PackRecord, error) {
+func PackByNameIn(ctx context.Context, q database.Queryer, name string) (packRow, error) {
 	r, e := wowsql.New(q.SQL()).PackByName(ctx, name)
 	return packRecord(r), e
 }

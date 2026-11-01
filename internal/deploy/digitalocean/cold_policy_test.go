@@ -3,13 +3,14 @@ package digitalocean
 import (
 	"context"
 	"encoding/json"
-	"github.com/flokkit/apptown/internal/poll"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
+
+	"github.com/flokkit/apptown/internal/poll"
 
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )

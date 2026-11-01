@@ -243,7 +243,7 @@ func (h Timing) Timing(w http.ResponseWriter, r *http.Request) {
 
 // RunTiming: GET /api/v1/runs/{id}/timing — one run's timeline.
 func (h Timing) RunTiming(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad run id")
 		return

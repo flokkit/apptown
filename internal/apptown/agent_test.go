@@ -27,7 +27,7 @@ import (
 // it: the CLI and run token, the ways library, private Docker, project
 // deletion and the worker journeys.
 
-func sessionIDOf(req ExecRequest) string {
+func sessionIDOf(req execRequest) string {
 	for i, x := range req.Argv {
 		if x == "--session-id" && i+1 < len(req.Argv) {
 			return req.Argv[i+1]
@@ -81,7 +81,7 @@ func admittedAgentStep(t *testing.T, a *App, config string, also ...schema.Step)
 // file in the step's session directory whose header names the invocation's
 // session, creating the file (header first) when none does, as Pi does. It
 // returns what that file held before the turn.
-func piKeepsSession(t *testing.T, req ExecRequest, text string) string {
+func piKeepsSession(t *testing.T, req execRequest, text string) string {
 	t.Helper()
 	session := sessionIDOf(req)
 	dir := filepath.Join(req.Workspace, ".apptown", "sessions")
@@ -148,9 +148,9 @@ func TestProjectCleanupRemovesItsKeptTranscripts(t *testing.T) {
 	t.Parallel()
 	a := agentTestApp(t, Config{DockerClient: newFakeDocker()})
 	runID, stepID := admittedAgentStep(t, a, `{"prompt":"do it"}`)
-	installFakePi(t, a, func(_ int, req ExecRequest) ExecOutcome {
+	installFakePi(t, a, func(_ int, req execRequest) execOutcome {
 		piKeepsSession(t, req, "done")
-		return ExecOutcome{Output: piSays("done")}
+		return execOutcome{Output: piSays("done")}
 	})
 	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
 	if _, err := keptTranscript(t, a, runID, stepID, 1); err != nil {

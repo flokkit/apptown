@@ -31,8 +31,8 @@ type Config struct {
 	SecretKeyFrom   string
 }
 
-// Address is a bucket's website address.
-func (c Config) Address(bucket string) string {
+// address is a bucket's website address.
+func (c Config) address(bucket string) string {
 	return strings.NewReplacer("{bucket}", bucket, "{region}", c.Region).Replace(c.WebsiteTemplate)
 }
 
@@ -58,10 +58,10 @@ type Dependencies struct {
 
 // Options are timings and naming; zero values are production's.
 type Options struct {
-	WitnessTries    int
-	WitnessInterval time.Duration
-	// Suffix makes a bucket name unique; random by default.
-	Suffix func() string
+	witnessTries    int
+	witnessInterval time.Duration
+	// suffix makes a bucket name unique; random by default.
+	suffix func() string
 }
 
 // Driver is the s3-bucket target's driver.
@@ -71,14 +71,14 @@ type Driver struct {
 }
 
 func NewDriver(deps Dependencies, options Options) *Driver {
-	if options.WitnessTries <= 0 {
-		options.WitnessTries = 12
+	if options.witnessTries <= 0 {
+		options.witnessTries = 12
 	}
-	if options.WitnessInterval <= 0 {
-		options.WitnessInterval = 5 * time.Second
+	if options.witnessInterval <= 0 {
+		options.witnessInterval = 5 * time.Second
 	}
-	if options.Suffix == nil {
-		options.Suffix = func() string {
+	if options.suffix == nil {
+		options.suffix = func() string {
 			b := make([]byte, 4)
 			_, _ = rand.Read(b)
 			return hex.EncodeToString(b)
@@ -92,9 +92,9 @@ var (
 	_ deploy.Renderer = (*Driver)(nil)
 )
 
-// ArtifactKind is what the renderer produces: the published set's
+// artifactKind is what the renderer produces: the published set's
 // manifest.
-const ArtifactKind = "static-site"
+const artifactKind = "static-site"
 
 // manifest is the artifact's body: what the release publishes and from
 // what. Browser values are browser-safe by contract; no secret is here.
@@ -128,7 +128,7 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 	if err != nil {
 		return deploy.Artifact{}, err
 	}
-	return deploy.Artifact{Kind: ArtifactKind, Body: body, Hash: set.Digest}, nil
+	return deploy.Artifact{Kind: artifactKind, Body: body, Hash: set.Digest}, nil
 }
 
 // releaseOf is the public static part's image by digest and its release
@@ -178,7 +178,7 @@ func (d *Driver) publish(ctx context.Context, ref, release string, browser map[s
 // release late, after the witness.
 func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation int64, art deploy.Artifact, _ string, logf func(string, ...any), checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 	var m manifest
-	if err := json.Unmarshal(art.Body, &m); err != nil || art.Kind != ArtifactKind {
+	if err := json.Unmarshal(art.Body, &m); err != nil || art.Kind != artifactKind {
 		return deploy.Observation{}, deploy.Terminal(fmt.Errorf("the artifact is not a published site (%s): %w", art.Kind, err))
 	}
 	// The set is read again from the image; it must be the one rendered.
@@ -199,11 +199,11 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 			return deploy.Observation{}, err
 		}
 	}
-	address := cfg.Address(bucket)
+	address := cfg.address(bucket)
 	if err := checkpoint(map[string]any{"bucket": bucket, "address": address, "identity": set.Identity, "keys": set.Keys()}); err != nil {
 		return deploy.Observation{}, deploy.Terminal(fmt.Errorf("recording the publication before uploading: %w", err))
 	}
-	if err := c.PutWebsite(ctx, bucket); err != nil {
+	if err := c.putWebsite(ctx, bucket); err != nil {
 		return deploy.Observation{}, refused("setting the website configuration of "+bucket, err)
 	}
 	// Every release marks the bucket, so one published before the mark
@@ -229,7 +229,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 		}
 		logf("uploaded %d %s to %s", n, passWords[pass], bucket)
 	}
-	if err := staticsite.Witness(ctx, address, set.Identity, d.options.WitnessTries, d.options.WitnessInterval, logf); err != nil {
+	if err := staticsite.Witness(ctx, address, set.Identity, d.options.witnessTries, d.options.witnessInterval, logf); err != nil {
 		return deploy.Observation{}, err
 	}
 	d.clean(ctx, c, bucket, set.Keys(), keysOf(p.Handle["keys"]), logf)
@@ -247,7 +247,7 @@ func observed(generation int64, bucket, address, identity string, keys []string)
 // else touches it. A taken name is refused, never adopted; a create whose
 // outcome is unknown is left for a person.
 func (d *Driver) create(ctx context.Context, c *Client, key string, logf func(string, ...any)) (string, error) {
-	bucket := BucketName(key, d.options.Suffix())
+	bucket := BucketName(key, d.options.suffix())
 	err := c.CreateBucket(ctx, bucket)
 	var refusal *Error
 	switch {
@@ -329,7 +329,7 @@ func (d *Driver) Resume(ctx context.Context, _ deploy.Placement, generation int6
 	if bucket == "" || address == "" || identity == "" {
 		return deploy.Observation{}, errors.New("AppTown restarted before it recorded which publication it was making; release again")
 	}
-	if err := staticsite.Witness(ctx, address, identity, d.options.WitnessTries, d.options.WitnessInterval, logf); err != nil {
+	if err := staticsite.Witness(ctx, address, identity, d.options.witnessTries, d.options.witnessInterval, logf); err != nil {
 		return deploy.Observation{}, err
 	}
 	return observed(generation, bucket, address, identity, keysOf(noted["keys"])), nil
@@ -382,7 +382,7 @@ func (d *Driver) deleteBucket(ctx context.Context, bucket string) error {
 	if err != nil {
 		return err
 	}
-	address := cfg.Address(bucket)
+	address := cfg.address(bucket)
 	stillPublic := func(what string, err error) error {
 		return fmt.Errorf("the site is still public at %s: %s (%w)", address, what, err)
 	}
@@ -401,7 +401,7 @@ func (d *Driver) deleteBucket(ctx context.Context, bucket string) error {
 			return fmt.Errorf("the bucket %s is empty but was not deleted (%w); delete it in the store", bucket, err)
 		}
 	}
-	if err := staticsite.Gone(ctx, address, d.options.WitnessTries, d.options.WitnessInterval); err != nil {
+	if err := staticsite.Gone(ctx, address, d.options.witnessTries, d.options.witnessInterval); err != nil {
 		return fmt.Errorf("the bucket %s is deleted, but the site may still be public: %w", bucket, err)
 	}
 	return nil

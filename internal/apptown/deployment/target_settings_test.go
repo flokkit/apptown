@@ -33,7 +33,7 @@ func TestTargetSettingsEditsFromOneRevisionOneWinsAndChecksDoNotMoveIt(t *testin
 		switch {
 		case err == nil:
 			saved++
-		case errors.Is(err, ErrTargetSettingsMoved):
+		case errors.Is(err, errTargetSettingsMoved):
 			moved++
 		default:
 			t.Fatal(err)
@@ -49,18 +49,18 @@ func TestTargetSettingsEditsFromOneRevisionOneWinsAndChecksDoNotMoveIt(t *testin
 	if errs[0] == nil && (!after.Capabilities.Previews || after.NeedsMode == mode) || errs[1] == nil && (after.NeedsMode != mode || after.Capabilities.Previews) {
 		t.Fatalf("the refused edit leaked: %+v", after)
 	}
-	if _, err := targets.EditSettings(ctx, target.Name, TargetSettingsEdit{Previews: &yes}, "alice"); !errors.Is(err, ErrTargetSettingsRevisionRequired) {
+	if _, err := targets.EditSettings(ctx, target.Name, TargetSettingsEdit{Previews: &yes}, "alice"); !errors.Is(err, errTargetSettingsRevisionRequired) {
 		t.Fatalf("edit without a revision: %v", err)
 	}
 	// Startup sync writes the same settings back: no conflict for an open edit.
-	if _, err := targets.Sync(ctx, after, "forge"); err != nil {
+	if _, err := targets.sync(ctx, after, "forge"); err != nil {
 		t.Fatal(err)
 	}
 	if again, _ := targets.ByName(ctx, target.Name); again.SettingsRevision != 1 {
 		t.Fatalf("an unchanged sync moved the revision: %d", again.SettingsRevision)
 	}
 	after.Capabilities.Rollout = []string{"rolling"}
-	if _, err := targets.Sync(ctx, after, "forge"); err != nil {
+	if _, err := targets.sync(ctx, after, "forge"); err != nil {
 		t.Fatal(err)
 	}
 	if again, _ := targets.ByName(ctx, target.Name); again.SettingsRevision != 2 {
@@ -80,7 +80,7 @@ func TestVerifiedPortainerEndpointCannotBeRetargetedBySettings(t *testing.T) {
 		t.Fatal("verified endpoint accepted a different environment")
 	}
 	saved := p.target(t, IntranetTargetName)
-	if saved.SettingsRevision != intranet.SettingsRevision || saved.Address[AddressEnvironment] != intranet.Address[AddressEnvironment] {
+	if saved.SettingsRevision != intranet.SettingsRevision || saved.Address[addressEnvironment] != intranet.Address[addressEnvironment] {
 		t.Fatal("refused retarget changed saved settings")
 	}
 	if receipts := operationReceipts(t, p.s.db, "target.edited", ids.Nil); len(receipts) != 0 {
@@ -91,11 +91,11 @@ func TestVerifiedPortainerEndpointCannotBeRetargetedBySettings(t *testing.T) {
 		t.Fatalf("verified selection lost: %+v %v", cfg, err)
 	}
 	blank := " "
-	if _, err := p.s.Targets.EditSettings(ctx, IntranetTargetName, TargetSettingsEdit{ExpectedRevision: &saved.SettingsRevision, Environment: &blank}, "alice"); !errors.Is(err, ErrTargetEnvironment) {
+	if _, err := p.s.Targets.EditSettings(ctx, IntranetTargetName, TargetSettingsEdit{ExpectedRevision: &saved.SettingsRevision, Environment: &blank}, "alice"); !errors.Is(err, errTargetEnvironment) {
 		t.Fatalf("blank environment: %v", err)
 	}
 	lab := p.target(t, "lab")
-	if _, err := p.s.Targets.EditSettings(ctx, "lab", TargetSettingsEdit{ExpectedRevision: &lab.SettingsRevision, Environment: &office}, "alice"); !errors.Is(err, ErrTargetEnvironment) {
+	if _, err := p.s.Targets.EditSettings(ctx, "lab", TargetSettingsEdit{ExpectedRevision: &lab.SettingsRevision, Environment: &office}, "alice"); !errors.Is(err, errTargetEnvironment) {
 		t.Fatalf("Docker environment: %v", err)
 	}
 }
@@ -109,7 +109,7 @@ func TestTargetDomainEditRejectsURLComponentsWithoutChangingSettings(t *testing.
 	}
 	for _, domain := range []string{"apps.example?x=1", "apps.example#fragment", "person@apps.example"} {
 		_, err := targets.EditSettings(t.Context(), target.Name, TargetSettingsEdit{ExpectedRevision: &changed.SettingsRevision, Domain: &domain}, "alice")
-		if !errors.Is(err, ErrTargetDomain) {
+		if !errors.Is(err, errTargetDomain) {
 			t.Fatalf("invalid domain %q accepted: %v", domain, err)
 		}
 		current, err := targets.ByName(t.Context(), target.Name)

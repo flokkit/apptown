@@ -46,7 +46,7 @@ type attachedDaemon struct {
 }
 
 func newAttachedDaemon() *attachedDaemon {
-	d := &attachedDaemon{Daemon: dockerfake.New(), hosts: map[string]int{}, images: map[string]bool{}, ran: map[string]string{}}
+	d := &attachedDaemon{Daemon: newDockerFake(), hosts: map[string]int{}, images: map[string]bool{}, ran: map[string]string{}}
 	d.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) < 2 || args[0] != "image" {
 			return nil, nil, false

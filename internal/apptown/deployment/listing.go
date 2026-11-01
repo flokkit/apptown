@@ -25,7 +25,7 @@ const (
 	RuntimeUnknown RuntimeState = iota + 1
 	RuntimeRunning
 	RuntimeStopped
-	RuntimeUnreachable
+	runtimeUnreachable
 )
 
 func (s RuntimeState) String() string {
@@ -34,7 +34,7 @@ func (s RuntimeState) String() string {
 		return "running"
 	case RuntimeStopped:
 		return "stopped"
-	case RuntimeUnreachable:
+	case runtimeUnreachable:
 		return "unreachable"
 	default:
 		return "unknown"
@@ -46,7 +46,7 @@ func (s *RuntimeState) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &word); err != nil {
 		return err
 	}
-	for state := RuntimeUnknown; state <= RuntimeUnreachable; state++ {
+	for state := RuntimeUnknown; state <= runtimeUnreachable; state++ {
 		if state.String() == word {
 			*s = state
 			return nil
@@ -55,7 +55,7 @@ func (s *RuntimeState) UnmarshalJSON(data []byte) error {
 	return fmt.Errorf("invalid runtime state %q", word)
 }
 func (s RuntimeState) Value() (driver.Value, error) {
-	if s < RuntimeUnknown || s > RuntimeUnreachable {
+	if s < RuntimeUnknown || s > runtimeUnreachable {
 		return nil, errors.New("invalid runtime state")
 	}
 	return s.String(), nil
@@ -79,17 +79,17 @@ type RuntimeObservation struct {
 	AttemptedAt      time.Time
 	Stale            bool
 	Rollout          string
-	HealthObservedAt time.Time
-	HealthGeneration int64
-	HealthArtifact   string
+	healthObservedAt time.Time
+	healthGeneration int64
+	healthArtifact   string
 	Health           string
-	URL              string
+	url              string
 }
 
-type TargetSummary struct{ Name, DisplayLabel, Kind, Origin, Region string }
+type targetSummary struct{ Name, DisplayLabel, Kind, Origin, Region string }
 type NeedSummary struct {
 	Need, Name, ID, Region, Size, Version string
-	Status                                NeedState
+	Status                                needState
 }
 type Summary struct {
 	TargetID     ids.ID
@@ -107,7 +107,7 @@ type Summary struct {
 	Generation int64
 	Readiness  Readiness
 	ChangeID   ids.ID
-	Target     *TargetSummary
+	Target     *targetSummary
 	Needs      []NeedSummary
 	// AIModelsKeys names the AI models keys the deployment owns; what
 	// OpenRouter says of them is read on its own (Service.AIModels).
@@ -134,7 +134,7 @@ func (s *Service) List(ctx context.Context, projectID ids.ID) ([]Summary, error)
 	out := make([]Summary, len(records))
 	for i, r := range records {
 		r.summary.Observation = s.observations.read(r, s.now())
-		reach := s.reachedAt(ctx, r.project, r.deployment, r.target, r.summary.Observation.URL)
+		reach := s.reachedAt(ctx, r.project, r.deployment, r.target, r.summary.Observation.url)
 		r.summary.URL, r.summary.HostOnly = reach.URL, reach.HostOnly
 		out[i] = r.summary
 	}
@@ -196,14 +196,14 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 		return nil, err
 	}
 	byTarget := make(map[ids.ID]*Target, len(targets))
-	summaries := make(map[ids.ID]*TargetSummary, len(targets))
+	summaries := make(map[ids.ID]*targetSummary, len(targets))
 	for _, row := range targets {
 		target, err := targetRecord(row, nil)
 		if err != nil {
 			return nil, err
 		}
 		byTarget[row.ID] = target
-		summaries[row.ID] = &TargetSummary{Name: target.Name, DisplayLabel: target.DisplayLabel, Kind: target.Kind, Origin: target.Origin, Region: TargetPlace(target)}
+		summaries[row.ID] = &targetSummary{Name: target.Name, DisplayLabel: target.DisplayLabel, Kind: target.Kind, Origin: target.Origin, Region: TargetPlace(target)}
 	}
 	needs, err := q.NeedInstances(ctx, deploymentIDs)
 	if err != nil {

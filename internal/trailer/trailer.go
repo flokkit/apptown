@@ -27,8 +27,8 @@ const (
 	Provenance       = "AppTown-Provenance"        // what kind of AppTown writer made it
 )
 
-// Keys is every key, for the test that refuses one written outside this list.
-var Keys = []string{RunID, Step, Workflow, Operation, ChangeID, ChangePage, OpenedBy, ApprovedBy, EvalAuthorised, LandingAuthority, Override, Actor, Provenance}
+// keys is every key, for the test that refuses one written outside this list.
+var keys = []string{RunID, Step, Workflow, Operation, ChangeID, ChangePage, OpenedBy, ApprovedBy, EvalAuthorised, LandingAuthority, Override, Actor, Provenance}
 
 // Line is one trailer: its key and its value on one line.
 type Line struct{ Key, Value string }

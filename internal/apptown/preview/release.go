@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/flokkit/apptown/internal/apptown/project"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -41,17 +42,17 @@ type ReleaseResult struct {
 	Reused bool
 }
 
-// ReleaseHost boots a selected release's preview under its boot interval.
-type ReleaseHost interface {
+// releaseHost boots a selected release's preview under its boot interval.
+type releaseHost interface {
 	BootReleasePreview(context.Context, Release) (ReleaseResult, error)
 }
 
 var (
-	ErrReleasedVersionMissing = fault.New(fault.NotFound, "released version not found")
-	ErrReleaseInputs          = fault.New(fault.Unprocessable, "a recorded image and selected source are required before this release can be previewed")
+	errReleasedVersionMissing = fault.New(fault.NotFound, "released version not found")
+	errReleaseInputs          = fault.New(fault.Unprocessable, "a recorded image and selected source are required before this release can be previewed")
 	// A release not published to a registry is previewed from the image it
 	// recorded on this AppTown's own Docker.
-	ErrReleaseNoLocalDocker = fault.New(fault.Unprocessable, "this release was not published to a registry, and this AppTown has no local Docker to run the image it recorded; a release landed since releases are built on the worker can be previewed")
+	errReleaseNoLocalDocker = fault.New(fault.Unprocessable, "this release was not published to a registry, and this AppTown has no local Docker to run the image it recorded; a release landed since releases are built on the worker can be previewed")
 )
 
 // recordedImage is a release's eligibility and a copy of the inputs it
@@ -59,10 +60,10 @@ var (
 // SourceSHA identifies its runnable source tree.
 func recordedImage(r *deployment.Release) (Release, error) {
 	if r.State != deployment.Released {
-		return Release{}, ErrReleasedVersionMissing
+		return Release{}, errReleasedVersionMissing
 	}
 	if r.ExternalRef == "" || r.SourceSHA == "" {
-		return Release{}, ErrReleaseInputs
+		return Release{}, errReleaseInputs
 	}
 	return Release{ProjectID: r.ProjectID, Number: r.Number, Image: r.ExternalRef, SourceRevision: r.SourceSHA}, nil
 }
@@ -73,7 +74,7 @@ func recordedImage(r *deployment.Release) (Release, error) {
 // Docker, which an AppTown with no local Docker does not have.
 func (s *Service) previewOf(ctx context.Context, rel *deployment.Release) (Release, error) {
 	if rel.State != deployment.Released {
-		return Release{}, ErrReleasedVersionMissing
+		return Release{}, errReleasedVersionMissing
 	}
 	if !rel.BundleID.IsZero() {
 		b, err := s.bundles.Find(ctx, rel.BundleID)
@@ -85,7 +86,7 @@ func (s *Service) previewOf(ctx context.Context, rel *deployment.Release) (Relea
 		}
 	}
 	if s.hosts.NoLocalDocker() {
-		return Release{}, ErrReleaseNoLocalDocker
+		return Release{}, errReleaseNoLocalDocker
 	}
 	return recordedImage(rel)
 }
@@ -120,17 +121,17 @@ func (s *Service) RequestReleasePreview(ctx context.Context, in ReleaseSelection
 		return out, err
 	}
 	if !found {
-		return out, ErrReleasedVersionMissing
+		return out, errReleasedVersionMissing
 	}
 	selected, err := s.previewOf(ctx, rel)
 	if err != nil {
 		return out, fmt.Errorf("release %d: %w", in.Number, err)
 	}
-	boot, err := s.runtime.Begin(ctx, ReleaseKey(in.ProjectID, in.Number))
+	boot, err := s.runtime.begin(ctx, releaseKey(in.ProjectID, in.Number))
 	if err != nil {
 		return out, err
 	}
-	defer func() { boot.Finish(err) }()
+	defer func() { boot.finish(err) }()
 	if err = project.RefuseUnlessActive(ctx, s.db, in.ProjectID); err != nil {
 		return out, err
 	}

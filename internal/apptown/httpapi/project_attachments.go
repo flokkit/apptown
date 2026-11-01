@@ -95,7 +95,7 @@ type (
 // the (named or default) errors connector. Anything else → validated direct
 // entry against the capability's resource fields.
 func (h ProjectAttachments) AttachIntegration(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -111,7 +111,7 @@ func (h ProjectAttachments) AttachIntegration(w http.ResponseWriter, r *http.Req
 
 		// Linked path for the errors capability: provision through the connector.
 		if in.Capability == integration.CapErrors && len(in.Resource) == 0 {
-			out, code, err := h.integrations.ProvisionErrors(r.Context(), p, in.Connector, Actor(r))
+			out, code, err := h.integrations.ProvisionErrors(r.Context(), p, in.Connector, actor(r))
 			if err != nil {
 				WriteError(w, code, "%v", err)
 				return
@@ -123,7 +123,7 @@ func (h ProjectAttachments) AttachIntegration(w http.ResponseWriter, r *http.Req
 		// Linked path for the feedback capability: register the app on the
 		// Customer Feedback service and adopt its key.
 		if in.Capability == integration.CapFeedback && len(in.Resource) == 0 {
-			out, code, err := h.integrations.ProvisionFeedback(r.Context(), p, in.Connector, Actor(r))
+			out, code, err := h.integrations.ProvisionFeedback(r.Context(), p, in.Connector, actor(r))
 			if err != nil {
 				WriteError(w, code, "%v", err)
 				return
@@ -135,7 +135,7 @@ func (h ProjectAttachments) AttachIntegration(w http.ResponseWriter, r *http.Req
 		// Linked path for the container-registry capability: mint a per-project
 		// deploy token through the connector's provider (registry adapter).
 		if in.Capability == integration.CapContainerRegistry && len(in.Resource) == 0 {
-			out, code, err := h.integrations.ProvisionRegistry(r.Context(), p, in.Connector, Actor(r))
+			out, code, err := h.integrations.ProvisionRegistry(r.Context(), p, in.Connector, actor(r))
 			if err != nil {
 				WriteError(w, code, "%v", err)
 				return
@@ -171,7 +171,7 @@ func (h ProjectAttachments) AttachIntegration(w http.ResponseWriter, r *http.Req
 				WriteError(w, 422, "no AI models connector named %q", name)
 				return
 			}
-			if err := h.integrations.Attachments.Attach(r.Context(), p.ID, integration.CapLLM, name, "{}", Actor(r), map[string]any{"connector": name}); err != nil {
+			if err := h.integrations.Attachments.Attach(r.Context(), p.ID, integration.CapLLM, name, "{}", actor(r), map[string]any{"connector": name}); err != nil {
 				WriteFault(w, err)
 				return
 			}
@@ -232,7 +232,7 @@ func (h ProjectAttachments) AttachIntegration(w http.ResponseWriter, r *http.Req
 				return
 			}
 		}
-		if err := h.integrations.Attachments.Attach(r.Context(), p.ID, in.Capability, in.Connector, encodedJSON(resource), Actor(r), map[string]any{"fields": fieldKeys(resource)}); err != nil {
+		if err := h.integrations.Attachments.Attach(r.Context(), p.ID, in.Capability, in.Connector, encodedJSON(resource), actor(r), map[string]any{"fields": fieldKeys(resource)}); err != nil {
 			WriteFault(w, err)
 			return
 		}
@@ -244,12 +244,12 @@ func (h ProjectAttachments) AttachIntegration(w http.ResponseWriter, r *http.Req
 // — stops the contributions and records the detach. Never deprovisions the
 // provider-side resource: that is a destructive act deserving its own verb.
 func (h ProjectAttachments) DetachIntegration(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
 	capability := r.PathValue("capability")
-	if err := h.integrations.Attachments.Detach(r.Context(), p.ID, capability, Actor(r)); errors.Is(err, integration.ErrNotAttached) {
+	if err := h.integrations.Attachments.Detach(r.Context(), p.ID, capability, actor(r)); errors.Is(err, integration.ErrNotAttached) {
 		WriteError(w, 404, "project has no %s integration", capability)
 		return
 	} else if err != nil {
@@ -264,7 +264,7 @@ func (h ProjectAttachments) DetachIntegration(w http.ResponseWriter, r *http.Req
 // summary. Secret-bearing resource values are redacted; secretRef fields
 // hold names, which are safe to show.
 func (h ProjectAttachments) ListProjectIntegrations(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -400,7 +400,7 @@ func (h ProjectAttachments) ListAttachables(w http.ResponseWriter, r *http.Reque
 // WireIntegration: POST /api/v1/projects/{slug}/integrations/{capability}/wire
 // body {mode: "workflow"|"chat"} → {change, run?, url}
 func (h ProjectAttachments) WireIntegration(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -450,7 +450,7 @@ those env vars are absent (local dev). Verify both modes.`, title, cap)
 		// One command admits, links and records the wiring; a failed link leaves
 		// nothing behind, and a live wiring answers 409 naming its Change.
 		ch, run, err := h.actions.OpenWiring(r.Context(), changeactions.Wiring{
-			Mode: mode, Capability: cap, Workflow: wireWorkflow, Who: Actor(r),
+			Mode: mode, Capability: cap, Workflow: wireWorkflow, Who: actor(r),
 			Draft: workflow.ChangeDraft{ProjectID: p.ID, Type: "feature", Title: "Connect " + title, Body: body},
 		})
 		if err != nil {

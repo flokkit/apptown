@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
@@ -63,7 +65,7 @@ func TestImageBaselineExplainsMissingImageAndPreparationFailures(t *testing.T) {
 				})
 			}
 			if tc.lookupFailure {
-				t.Cleanup(f.DB.FailNextStatement("FROM deployments"))
+				t.Cleanup(dbtest.NextStatementFailure(f.DB, "FROM deployments"))
 			}
 			result := f.Scanners.baseImageFingerprints(f.Context, f.ProjectID, repo, sha, check.Scanner{}, "scanner", t.TempDir(), nil, "scan")
 			if result.OK {

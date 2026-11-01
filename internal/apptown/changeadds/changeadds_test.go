@@ -84,19 +84,19 @@ needs:
   postgres:
     version: "16"
 `), "secretspec.toml": []byte(spec + "SENDGRID_KEY = { description = \"mail\" }\n")}
-	rows := Compare(base, head, "base", "head")
-	if got := rowNamed(t, rows, Secrets); !slices.Equal(got.Added, []string{"SENDGRID_KEY"}) || len(got.Removed) != 0 || got.Unknown != "" {
+	rows := compare(base, head, "base", "head")
+	if got := rowNamed(t, rows, secrets); !slices.Equal(got.Added, []string{"SENDGRID_KEY"}) || len(got.Removed) != 0 || got.Unknown != "" {
 		t.Errorf("secrets: %+v", got)
 	}
-	if got := rowNamed(t, rows, Services); !slices.Equal(got.Added, []string{"postgres"}) || !slices.Equal(got.Removed, []string{"redis"}) {
+	if got := rowNamed(t, rows, services); !slices.Equal(got.Added, []string{"postgres"}) || !slices.Equal(got.Removed, []string{"redis"}) {
 		t.Errorf("services: %+v", got)
 	}
-	parts := rowNamed(t, rows, Parts)
+	parts := rowNamed(t, rows, parts)
 	wantAdded := []string{"init step migrate", "part worker", "web keeps data in /data", "web listens on port 9090"}
 	if !slices.Equal(parts.Added, wantAdded) || !slices.Equal(parts.Removed, []string{"web listens on port 8080"}) {
 		t.Errorf("app parts: %+v", parts)
 	}
-	same := Compare(head, head, "a", "b")
+	same := compare(head, head, "a", "b")
 	for _, r := range same {
 		if len(r.Added)+len(r.Removed) != 0 || r.Unknown != "" {
 			t.Errorf("identical commits differ in %s: %+v", r.Name, r)
@@ -108,13 +108,13 @@ needs:
 // unknown, and everything the other side declares is added or removed.
 func TestAnAbsentDeclarationDeclaresNothing(t *testing.T) {
 	head := tree{contractPath: []byte(contract), "secretspec.toml": []byte(spec)}
-	rows := Compare(tree{}, head, "base", "head")
+	rows := compare(tree{}, head, "base", "head")
 	for _, r := range rows {
 		if r.Unknown != "" || len(r.Added) == 0 {
 			t.Errorf("%s from nothing: %+v", r.Name, r)
 		}
 	}
-	rows = Compare(head, tree{}, "base", "head")
+	rows = compare(head, tree{}, "base", "head")
 	for _, r := range rows {
 		if r.Unknown != "" || len(r.Removed) == 0 || len(r.Added) != 0 {
 			t.Errorf("%s to nothing: %+v", r.Name, r)
@@ -132,14 +132,14 @@ func TestADeclarationThatCannotBeReadIsUnknownNotEmpty(t *testing.T) {
 		head    tree
 		unknown []string
 	}{
-		"contract does not parse": {tree{contractPath: []byte("app: [nope"), "secretspec.toml": []byte(spec)}, []string{Secrets, Services, Parts}},
-		"contract unreadable":     {tree{contractPath: nil, "secretspec.toml": []byte(spec)}, []string{Secrets, Services, Parts}},
-		"secrets do not parse":    {tree{contractPath: []byte(contract), "secretspec.toml": []byte("[project]\n")}, []string{Secrets}},
-		"secrets unreadable":      {tree{contractPath: []byte(contract), "secretspec.toml": nil}, []string{Secrets}},
+		"contract does not parse": {tree{contractPath: []byte("app: [nope"), "secretspec.toml": []byte(spec)}, []string{secrets, services, parts}},
+		"contract unreadable":     {tree{contractPath: nil, "secretspec.toml": []byte(spec)}, []string{secrets, services, parts}},
+		"secrets do not parse":    {tree{contractPath: []byte(contract), "secretspec.toml": []byte("[project]\n")}, []string{secrets}},
+		"secrets unreadable":      {tree{contractPath: []byte(contract), "secretspec.toml": nil}, []string{secrets}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			for _, rows := range [][]workflow.AddsRow{Compare(good, c.head, "b1", "h1"), Compare(c.head, c.head, "h1", "h1")} {
+			for _, rows := range [][]workflow.AddsRow{compare(good, c.head, "b1", "h1"), compare(c.head, c.head, "h1", "h1")} {
 				for _, r := range rows {
 					want := slices.Contains(c.unknown, r.Name)
 					if (r.Unknown != "") != want {
@@ -164,11 +164,11 @@ func TestADeclarationThatCannotBeReadIsUnknownNotEmpty(t *testing.T) {
 func TestAnUnreadableMainStillShowsWhatTheChangeDeclares(t *testing.T) {
 	good := tree{contractPath: []byte(contract), "secretspec.toml": []byte(spec)}
 	refused := tree{contractPath: []byte("app: [nope"), "secretspec.toml": []byte(spec)}
-	rows := Compare(refused, good, "b1", "h1")
+	rows := compare(refused, good, "b1", "h1")
 	for name, want := range map[string][]string{
-		Secrets:  {"STRIPE_KEY"},
-		Services: {"postgres"},
-		Parts:    {"part web", "web is the public part"},
+		secrets:  {"STRIPE_KEY"},
+		services: {"postgres"},
+		parts:    {"part web", "web is the public part"},
 	} {
 		r := rowNamed(t, rows, name)
 		if r.Unknown != "" || r.BaseUnread == "" || !strings.Contains(r.BaseUnread, "b1") {
@@ -188,7 +188,7 @@ func TestAnUnreadableMainStillShowsWhatTheChangeDeclares(t *testing.T) {
 // The secrets file is where the contract says it is.
 func TestTheSecretsFileIsTheOneTheContractNames(t *testing.T) {
 	head := tree{contractPath: []byte(contract + "secrets:\n  spec: config/secrets.toml\n"), "config/secrets.toml": []byte(spec)}
-	if got := rowNamed(t, Compare(tree{}, head, "b", "h"), Secrets); !slices.Equal(got.Added, []string{"STRIPE_KEY"}) {
+	if got := rowNamed(t, compare(tree{}, head, "b", "h"), secrets); !slices.Equal(got.Added, []string{"STRIPE_KEY"}) {
 		t.Fatalf("secrets: %+v", got)
 	}
 }
@@ -262,10 +262,10 @@ func TestTheComparerReadsFromWhereTheChangeMeetsMain(t *testing.T) {
 	if adds.Head != head || adds.Base == "" {
 		t.Fatalf("commits: %+v", adds)
 	}
-	if got := rowNamed(t, adds.Rows, Services); len(got.Added)+len(got.Removed) != 0 || got.Unknown != "" {
+	if got := rowNamed(t, adds.Rows, services); len(got.Added)+len(got.Removed) != 0 || got.Unknown != "" {
 		t.Errorf("main's own change is blamed on the change: %+v", got)
 	}
-	if got := rowNamed(t, adds.Rows, Secrets); !slices.Equal(got.Added, []string{"STRIPE_KEY"}) {
+	if got := rowNamed(t, adds.Rows, secrets); !slices.Equal(got.Added, []string{"STRIPE_KEY"}) {
 		t.Errorf("secrets: %+v", got)
 	}
 	if len(adds.Rows) != 3 {
@@ -297,7 +297,7 @@ func TestTheComparerReadsFromWhereTheChangeMeetsMain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := rowNamed(t, adds.Rows, Secrets); !strings.Contains(got.Unknown, "link") {
+	if got := rowNamed(t, adds.Rows, secrets); !strings.Contains(got.Unknown, "link") {
 		t.Errorf("a linked secrets file was read: %+v", got)
 	}
 }
@@ -312,7 +312,7 @@ func TestAChangeOnAnEmptyMainAddsEverythingItDeclares(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if adds.Base != "" || !slices.Equal(rowNamed(t, adds.Rows, Services).Added, []string{"postgres"}) {
+	if adds.Base != "" || !slices.Equal(rowNamed(t, adds.Rows, services).Added, []string{"postgres"}) {
 		t.Fatalf("empty main: %+v", adds)
 	}
 }
@@ -325,8 +325,8 @@ func TestALinkedFolderMakesItsDeclarationUnknownNotEmpty(t *testing.T) {
 		contract, link, target string
 		unknown                []string
 	}{
-		"secrets folder":  {contract + "secrets:\n  spec: config/secrets.toml\n", "config", "real", []string{Secrets}},
-		".apptown folder": {"", ".apptown", "real", []string{Secrets, Services, Parts}},
+		"secrets folder":  {contract + "secrets:\n  spec: config/secrets.toml\n", "config", "real", []string{secrets}},
+		".apptown folder": {"", ".apptown", "real", []string{secrets, services, parts}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			hub := t.TempDir()
@@ -382,7 +382,7 @@ func TestAChangeWithNoHistoryInCommonReadsAgainstItsRecordedBase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if adds.Base != recorded || !slices.Equal(rowNamed(t, adds.Rows, Secrets).Added, []string{"STRIPE_KEY"}) {
+	if adds.Base != recorded || !slices.Equal(rowNamed(t, adds.Rows, secrets).Added, []string{"STRIPE_KEY"}) {
 		t.Fatalf("read against the recorded base: %+v", adds)
 	}
 	q.Recorded = ""
@@ -390,7 +390,7 @@ func TestAChangeWithNoHistoryInCommonReadsAgainstItsRecordedBase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := rowNamed(t, adds.Rows, Secrets); !strings.Contains(got.Unknown, "no history in common") {
+	if got := rowNamed(t, adds.Rows, secrets); !strings.Contains(got.Unknown, "no history in common") {
 		t.Fatalf("with no recorded base: %+v", got)
 	}
 }

@@ -43,7 +43,7 @@ func TestStagedBuildContextExcludesUntracked(t *testing.T) {
 	// An uncommitted edit to a TRACKED file — must be carried into the context.
 	write("Dockerfile", "FROM scratch\n# edited")
 
-	ctx, cleanup, err := StagedBuildContext(t.Context(), ws, "")
+	ctx, cleanup, err := stagedBuildContext(t.Context(), ws, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestBuildStagingFailureDoesNotUseLiveWorktree(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(ws, "Dockerfile"), []byte("FROM scratch\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	ctx, cleanup, err := StagedBuildContext(t.Context(), ws, ".")
+	ctx, cleanup, err := stagedBuildContext(t.Context(), ws, ".")
 	if err == nil || ctx != "" || cleanup != nil {
 		t.Fatalf("broken Git repository must not become a live build: %q %v", ctx, err)
 	}
@@ -113,7 +113,7 @@ func TestStagedBuildContextSelectsSourceInCopiedFolder(t *testing.T) {
 		return dst
 	}
 	read := func(ws string) string {
-		ctx, cleanup, err := StagedBuildContext(t.Context(), ws, ".")
+		ctx, cleanup, err := stagedBuildContext(t.Context(), ws, ".")
 		if err != nil {
 			t.Fatalf("selecting the build source in a copied folder: %v", err)
 		}

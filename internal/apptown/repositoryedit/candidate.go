@@ -136,40 +136,40 @@ func refuseCandidate(ctx context.Context, hub string, c Candidate) (Candidate, e
 // repository. Its worker workspace must be held.
 var ErrResultNotKept = errors.New("the task's result is not kept")
 
-// RefusedStepWork is a step attempt's refused result, kept for its
+// refusedStepWork is a step attempt's refused result, kept for its
 // download.
-type RefusedStepWork struct {
+type refusedStepWork struct {
 	hub, branch, ref string
-	// Commit is the refused result's tip.
-	Commit string
+	// commit is the refused result's tip.
+	commit string
 }
 
 // FindRefusedStepWork finds the refused result kept for attempt of a run's
 // step. A step that is not the run's, or an attempt with none kept, is
 // NotFound.
-func FindRefusedStepWork(ctx context.Context, db database.Queryer, dataDir string, runID ids.ID, stepID ids.ID, attempt int64) (RefusedStepWork, error) {
+func FindRefusedStepWork(ctx context.Context, db database.Queryer, dataDir string, runID ids.ID, stepID ids.ID, attempt int64) (refusedStepWork, error) {
 	step, err := workflow.ReadStepIn(ctx, db, stepID)
 	if err != nil || step.RunID != runID {
-		return RefusedStepWork{}, errNoRefusedStep
+		return refusedStepWork{}, errNoRefusedStep
 	}
 	run, err := workflow.ReadRunIn(ctx, db, runID)
 	if err != nil {
-		return RefusedStepWork{}, err
+		return refusedStepWork{}, err
 	}
 	source, err := workflow.ReadSourceIn(ctx, db, workflow.RunRef{ID: run.ID, ProjectID: run.ProjectID})
 	if err != nil {
-		return RefusedStepWork{}, err
+		return refusedStepWork{}, err
 	}
 	hub, err := source.Repository(dataDir)
 	if err != nil {
-		return RefusedStepWork{}, err
+		return refusedStepWork{}, err
 	}
-	kept := RefusedStepWork{hub: hub, branch: source.Branch, ref: RefusedStepRef(stepID, attempt)}
+	kept := refusedStepWork{hub: hub, branch: source.Branch, ref: RefusedStepRef(stepID, attempt)}
 	if source.Branch == "" || !source.RepoBacked() {
-		return RefusedStepWork{}, errNoRefusedStep
+		return refusedStepWork{}, errNoRefusedStep
 	}
-	if kept.Commit = gitexec.HubRef(ctx, kept.hub, kept.ref); kept.Commit == "" {
-		return RefusedStepWork{}, errNoRefusedStep
+	if kept.commit = gitexec.HubRef(ctx, kept.hub, kept.ref); kept.commit == "" {
+		return refusedStepWork{}, errNoRefusedStep
 	}
 	return kept, nil
 }
@@ -177,7 +177,7 @@ func FindRefusedStepWork(ctx context.Context, db database.Queryer, dataDir strin
 // Bundle writes a bundle of the refused result, less what the run's branch
 // holds, to w. Anyone who fetches it gets the commits AppTown refused and
 // can repair them; nothing about it is published.
-func (k RefusedStepWork) Bundle(ctx context.Context, w io.Writer) error {
+func (k refusedStepWork) Bundle(ctx context.Context, w io.Writer) error {
 	return bundleKept(ctx, k.hub, k.branch, k.ref, errNoRefusedStep, w)
 }
 

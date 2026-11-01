@@ -127,7 +127,7 @@ func (s *Service) defaultEligible(ctx context.Context, q *deploymentsql.Queries,
 	if dep.Name == "main" {
 		return fault.New(fault.Invalid, "main follows landing; choose a separately released deployment")
 	}
-	if err := dep.DeployableByHand(); err != nil {
+	if err := dep.deployableByHand(); err != nil {
 		return err
 	}
 	if !target.Status.Offerable() {
@@ -144,8 +144,8 @@ func (s *Service) defaultEligible(ctx context.Context, q *deploymentsql.Queries,
 	if err != nil {
 		return err
 	}
-	if why := offer.Permits(target, proj.Slug, dep.releaseAttributes(), 0); why != "" {
-		return &OfferDeniedError{why}
+	if why := offer.permits(target, proj.Slug, dep.releaseAttributes(), 0); why != "" {
+		return &offerDeniedError{why}
 	}
 	return nil
 }
@@ -164,7 +164,7 @@ func preserveDefaultConfiguration(ctx context.Context, tx *database.Tx, dep *Dep
 	if settings.DefaultDeploymentID != dep.ID {
 		return nil
 	}
-	if dep.Name == "main" || dep.DeployableByHand() != nil {
+	if dep.Name == "main" || dep.deployableByHand() != nil {
 		return fault.New(fault.Conflict, "clear or replace the release default before making this deployment ineligible")
 	}
 	target, err := targetRecord(q.TargetByID(ctx, dep.TargetID))
@@ -178,8 +178,8 @@ func preserveDefaultConfiguration(ctx context.Context, tx *database.Tx, dep *Dep
 }
 
 var (
-	ErrNoReleaseDefault      = fault.New(fault.Unprocessable, "choose a release environment in project settings before releasing")
-	ErrReleaseDefaultChanged = fault.New(fault.Conflict, "release environment changed; reload before releasing")
+	errNoReleaseDefault      = fault.New(fault.Unprocessable, "choose a release environment in project settings before releasing")
+	errReleaseDefaultChanged = fault.New(fault.Conflict, "release environment changed; reload before releasing")
 )
 
 // DefaultReleaseSelection keeps address and data acknowledgements identical to
@@ -211,27 +211,27 @@ func (s *Service) RequestDefaultRelease(ctx context.Context, in DefaultReleaseSe
 		return AcceptedRelease{}, err
 	}
 	if errors.Is(err, sql.ErrNoRows) || row.DefaultDeploymentID.IsZero() {
-		return AcceptedRelease{}, ErrNoReleaseDefault
+		return AcceptedRelease{}, errNoReleaseDefault
 	}
 	if in.ExpectedRevision != nil && row.Revision != *in.ExpectedRevision {
-		return AcceptedRelease{}, ErrReleaseDefaultChanged
+		return AcceptedRelease{}, errReleaseDefaultChanged
 	}
 	selected := ReleaseDefault{ProjectID: in.ProjectID, DeploymentID: row.DefaultDeploymentID, Revision: row.Revision}
 	return s.requestRelease(ctx, DeploySelection{ProjectID: in.ProjectID, addressRevision: in.AddressRevision, customHostname: in.CustomHostname, AcceptUncopiedData: in.AcceptUncopiedData, AcceptUncheckedCopy: in.AcceptUncheckedCopy}, &selected)
 }
 
-// ReleaseDestination describes the explicit default without configuring it or
+// releaseDestination describes the explicit default without configuring it or
 // inferring an address for a provider that does not own deployment addresses.
-type ReleaseDestination struct {
+type releaseDestination struct {
 	Default ReleaseDefault
 	Name    string
 	Label   string
 	Address *AddressReading
 }
 
-func (s *Service) ReadReleaseDestination(ctx context.Context, projectID ids.ID) (ReleaseDestination, error) {
+func (s *Service) ReadReleaseDestination(ctx context.Context, projectID ids.ID) (releaseDestination, error) {
 	selected, err := s.ReadReleaseDefault(ctx, projectID)
-	out := ReleaseDestination{Default: selected}
+	out := releaseDestination{Default: selected}
 	if err != nil || selected.DeploymentID.IsZero() {
 		return out, err
 	}

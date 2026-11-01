@@ -17,7 +17,7 @@ type Kind uint8
 
 const (
 	Standing Kind = iota + 1
-	Preview
+	preview
 	Restored
 )
 
@@ -25,11 +25,11 @@ const (
 var kindCodec = enum.Set[Kind]{
 	Names:     []string{"standing", "preview", "restored-copy"},
 	Invalid:   "invalid-kind",
-	Err:       ErrKind,
+	Err:       errKind,
 	ScanLabel: "value",
 }
 
-var ErrKind = errors.New("invalid deployment kind")
+var errKind = errors.New("invalid deployment kind")
 
 func (k Kind) String() string { return kindCodec.String(k) }
 

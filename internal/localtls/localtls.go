@@ -36,7 +36,7 @@ import (
 // person trusts; KeyFile never leaves the folder.
 const (
 	CertFile = "ca.pem"
-	KeyFile  = "ca-key.pem"
+	keyFile  = "ca-key.pem"
 )
 
 const (
@@ -55,8 +55,8 @@ var (
 	}
 )
 
-// Authority is a loaded CA.
-type Authority struct {
+// authority is a loaded CA.
+type authority struct {
 	cert *x509.Certificate
 	der  []byte
 	key  crypto.Signer
@@ -70,9 +70,9 @@ type Authority struct {
 // files. One file without the other, or a key that does not match the
 // certificate, is an error naming the folder: the person may already trust
 // that certificate, so it is never replaced silently.
-func Load(dir string, now func() time.Time) (*Authority, error) {
+func Load(dir string, now func() time.Time) (*authority, error) {
 	now = clock.Or(now)
-	certPath, keyPath := filepath.Join(dir, CertFile), filepath.Join(dir, KeyFile)
+	certPath, keyPath := filepath.Join(dir, CertFile), filepath.Join(dir, keyFile)
 	certPEM, certErr := os.ReadFile(certPath)
 	keyPEM, keyErr := os.ReadFile(keyPath)
 	switch {
@@ -95,10 +95,10 @@ func Load(dir string, now func() time.Time) (*Authority, error) {
 	if !ok || !cert.IsCA {
 		return nil, fmt.Errorf("the local certificate authority in %s is not a CA key pair", dir)
 	}
-	return &Authority{cert: cert, der: pair.Certificate[0], key: signer, now: now, leaves: map[string]*tls.Certificate{}}, nil
+	return &authority{cert: cert, der: pair.Certificate[0], key: signer, now: now, leaves: map[string]*tls.Certificate{}}, nil
 }
 
-func create(dir string, now func() time.Time) (*Authority, error) {
+func create(dir string, now func() time.Time) (*authority, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func create(dir string, now func() time.Time) (*Authority, error) {
 	}
 	// The key first: a crash between the writes leaves a lone key, which
 	// Load reports instead of making a second CA behind the person's back.
-	if err := writeFile(filepath.Join(dir, KeyFile), pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}), 0o600); err != nil {
+	if err := writeFile(filepath.Join(dir, keyFile), pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}), 0o600); err != nil {
 		return nil, err
 	}
 	if err := writeFile(filepath.Join(dir, CertFile), pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), 0o644); err != nil {
@@ -144,7 +144,7 @@ func create(dir string, now func() time.Time) (*Authority, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Authority{cert: cert, der: der, key: key, now: now, leaves: map[string]*tls.Certificate{}}, nil
+	return &authority{cert: cert, der: der, key: key, now: now, leaves: map[string]*tls.Certificate{}}, nil
 }
 
 // writeFile writes whole or not at all.
@@ -161,25 +161,25 @@ func serialNumber() (*big.Int, error) {
 }
 
 // Certificate is the CA certificate, the one a person trusts.
-func (a *Authority) Certificate() *x509.Certificate { return a.cert }
+func (a *authority) Certificate() *x509.Certificate { return a.cert }
 
 // TLSConfig serves each connection a certificate for the name it asked
 // for, issued on first use and kept in memory. A connection that names no
 // server (an IP address) gets one for localhost and the loopback addresses.
 // Any name outside localhost is refused.
-func (a *Authority) TLSConfig() *tls.Config {
+func (a *authority) TLSConfig() *tls.Config {
 	return &tls.Config{
 		MinVersion: tls.VersionTLS12,
 		NextProtos: []string{"h2", "http/1.1"},
 		GetCertificate: func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			return a.Leaf(hello.ServerName)
+			return a.leaf(hello.ServerName)
 		},
 	}
 }
 
-// Leaf is the certificate for name ("" for an IP address), issued or
+// leaf is the certificate for name ("" for an IP address), issued or
 // reissued when it has none that lasts more than a day.
-func (a *Authority) Leaf(name string) (*tls.Certificate, error) {
+func (a *authority) leaf(name string) (*tls.Certificate, error) {
 	name = strings.ToLower(strings.TrimSuffix(name, "."))
 	if name != "" && name != "localhost" && !strings.HasSuffix(name, ".localhost") {
 		return nil, fmt.Errorf("this AppTown serves only localhost names over HTTPS, not %q", name)
@@ -197,7 +197,7 @@ func (a *Authority) Leaf(name string) (*tls.Certificate, error) {
 	return leaf, nil
 }
 
-func (a *Authority) issue(name string) (*tls.Certificate, error) {
+func (a *authority) issue(name string) (*tls.Certificate, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, err

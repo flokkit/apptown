@@ -55,8 +55,8 @@ const (
 // identity, ownership and removal go by the deployment's id and key
 // (Deployment, Owner). They are written only through Informational.
 const (
-	Project        = "apptown.project"
-	DeploymentName = "apptown.deployment.name"
+	project        = "apptown.project"
+	deploymentName = "apptown.deployment.name"
 )
 
 // Informational is the --label arguments that tell a person which project
@@ -66,7 +66,7 @@ func Informational(project, deployment string) []string {
 	if project == "" && deployment == "" {
 		return nil
 	}
-	return []string{"--label", Project + "=" + project, "--label", DeploymentName + "=" + deployment}
+	return []string{"--label", project + "=" + project, "--label", deploymentName + "=" + deployment}
 }
 
 // BuiltArgs is the --label argument every image build on a host's Docker
@@ -82,14 +82,14 @@ const (
 	GlabVersion        = "apptown.glab.version"
 )
 
-// Keys is every key AppTown writes or reads, for the test that refuses a key
+// keys is every key AppTown writes or reads, for the test that refuses a key
 // spelled outside this list.
-var Keys = []string{
+var keys = []string{
 	Class, ReadyFor, Owner, Created, Expires, Deadline, Instance, Stack, Source, Incarnation, Writes, Step, Task,
 	Profile, Request, Worker, Inference, Console, Built, ConsoleDind, ConsoleModel, ConsoleMounts,
-	Deployment, Generation, Artifact, Project, DeploymentName,
+	Deployment, Generation, Artifact, project, deploymentName,
 	PiVersion, PiSubagentsVersion, PiLSPVersion, GlabVersion,
 }
 
-// ImageKeys are the keys the agent image's build writes.
-var ImageKeys = []string{PiVersion, PiSubagentsVersion, PiLSPVersion, GlabVersion}
+// imageKeys are the keys the agent image's build writes.
+var imageKeys = []string{PiVersion, PiSubagentsVersion, PiLSPVersion, GlabVersion}

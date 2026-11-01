@@ -20,7 +20,7 @@ func TestAnUnscoredArmHasNoChecksRatherThanNull(t *testing.T) {
 	t.Parallel()
 	w := newEvalWorld(t, 1)
 	e := w.start(t, "alice")
-	got, err := w.service.Get(as("alice"), e.ID)
+	got, err := w.service.get(as("alice"), e.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,10 +41,10 @@ func TestEachArmIsAdmittedAgainstTheSpendAtThatMoment(t *testing.T) {
 			w := newEvalWorld(t, 2)
 			e := w.start(t, "alice")
 			w.work.onStart = func() { w.spend.set(spent) }
-			if err := w.service.Pass(context.Background()); err != nil {
+			if err := w.service.pass(context.Background()); err != nil {
 				t.Fatal(err)
 			}
-			if got := w.eval(t, e.ID); len(w.work.started) != 1 || countArms(got, ArmWorking) != 1 {
+			if got := w.eval(t, e.ID); len(w.work.started) != 1 || countArms(got, armWorking) != 1 {
 				t.Fatalf("started %d lanes: %+v", len(w.work.started), got.Arms)
 			}
 		})
@@ -58,21 +58,21 @@ func TestAStepOfACopyIsAdmittedOnlyWhileItsEvalMayProceed(t *testing.T) {
 	t.Parallel()
 	w := newEvalWorld(t, 1)
 	e := w.start(t, "alice")
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	copy := w.eval(t, e.ID).Arms[0].ProjectID
-	gate := w.service.Gate()
+	gate := w.service.gate
 	ctx := context.Background()
-	if err := gate.Admit(ctx, copy); err != nil {
+	if err := gate.admit(ctx, copy); err != nil {
 		t.Fatalf("budget left: %v", err)
 	}
 	shop, _ := w.projects.BySlug(ctx, "shop")
 	w.spend.set(usage.Totals{CostMicros: 5_000_000})
-	if err := gate.Admit(ctx, copy); !errors.Is(err, ErrRefused) {
+	if err := gate.admit(ctx, copy); !errors.Is(err, ErrRefused) {
 		t.Fatalf("budget spent: %v", err)
 	}
-	if err := gate.Admit(ctx, shop.ID); err != nil {
+	if err := gate.admit(ctx, shop.ID); err != nil {
 		t.Fatalf("a real project: %v", err)
 	}
 }
@@ -84,16 +84,16 @@ func TestARefusedStopIsNotAStop(t *testing.T) {
 	t.Parallel()
 	w := newEvalWorld(t, 1)
 	e := w.start(t, "alice")
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	w.work.abandonErr = errors.New("change #3 is already on main and cannot be abandoned")
 	w.spend.set(usage.Totals{CostMicros: 5_000_000})
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	got := w.eval(t, e.ID)
-	if got.State == StateFinished || countArms(got, ArmNotRun) != 0 || countArms(got, ArmWorking) != 2 {
+	if got.State == stateFinished || countArms(got, armNotRun) != 0 || countArms(got, armWorking) != 2 {
 		t.Fatalf("a refused stop: %+v", got)
 	}
 	for _, a := range got.Arms {
@@ -118,7 +118,7 @@ func TestADeletionFencesTheCopyAboutToBeMade(t *testing.T) {
 			}
 		}
 	}
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	copies, err := queries(w.db).CopiesOfEval(context.Background(), e.ID)
@@ -158,7 +158,7 @@ func TestAnInterruptedCopyStaysVisibleAndCounted(t *testing.T) {
 	w.work.onStart = func() { panic("interrupted") }
 	func() {
 		defer func() { _ = recover() }()
-		_ = w.service.Pass(context.Background())
+		_ = w.service.pass(context.Background())
 	}()
 	w.work.onStart = nil
 	w.spend.set(usage.Totals{CostMicros: 123_000, Incomplete: 1})
@@ -170,13 +170,13 @@ func TestAnInterruptedCopyStaysVisibleAndCounted(t *testing.T) {
 	if a.ProjectID.IsZero() || sc.CostMicros != 123_000 || sc.Incomplete != 1 || sc.ArmCosts[a.ID].Incomplete != 1 {
 		t.Fatalf("the interrupted copy is hidden: arm %+v, cost %d/%d", a, sc.CostMicros, sc.Incomplete)
 	}
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	got := w.eval(t, e.ID).Arms[0]
 	copies, _ := queries(w.db).CopiesOfEval(context.Background(), e.ID)
 	// The unknown spend holds the other arm; no second copy is made for this one.
-	if got.State != ArmFailed || got.ProjectID != a.ProjectID || !strings.Contains(got.Reason, "interrupted") || len(copies) != 1 || w.eval(t, e.ID).State != StateHeld {
+	if got.State != armFailed || got.ProjectID != a.ProjectID || !strings.Contains(got.Reason, "interrupted") || len(copies) != 1 || w.eval(t, e.ID).State != stateHeld {
 		t.Fatalf("after the restart: %+v, copies %v", got, copies)
 	}
 }
@@ -195,20 +195,20 @@ func TestUnknownSpendDuringCopyingHoldsTheLane(t *testing.T) {
 			w.spend.set(usage.Totals{CostMicros: 123_000, Incomplete: 1})
 		}
 	}
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	got := w.eval(t, e.ID)
-	if len(w.work.started) != 1 || got.State != StateHeld || countArms(got, ArmCopied) != 1 {
+	if len(w.work.started) != 1 || got.State != stateHeld || countArms(got, armCopied) != 1 {
 		t.Fatalf("started %d lanes; %+v", len(w.work.started), got)
 	}
 	if _, err := w.service.Continue(as("alice"), e.ID); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if got := w.eval(t, e.ID); len(w.work.started) != 2 || countArms(got, ArmWorking) != 2 {
+	if got := w.eval(t, e.ID); len(w.work.started) != 2 || countArms(got, armWorking) != 2 {
 		t.Fatalf("after continuing: %d lanes; %+v", len(w.work.started), got)
 	}
 }
@@ -221,12 +221,12 @@ func TestAModelCallForACopyIsRefusedOnceItsEvalMayNotProceed(t *testing.T) {
 	t.Parallel()
 	w := newEvalWorld(t, 1)
 	e := w.start(t, "alice")
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	a := w.eval(t, e.ID).Arms[0]
 	ctx := context.Background()
-	gate := w.service.Gate()
+	gate := w.service.gate
 	if err := gate.AdmitModel(ctx, a.ProjectID, a.Models["fast"]); err != nil {
 		t.Fatalf("running: %v", err)
 	}
@@ -254,7 +254,7 @@ func TestTheEvalRuleAnswersInsideTheCallersTransaction(t *testing.T) {
 	t.Parallel()
 	w := newEvalWorld(t, 1)
 	e := w.start(t, "alice")
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	copy := w.eval(t, e.ID).Arms[0].ProjectID
@@ -291,14 +291,14 @@ func TestAStoppedPassJobIsNotDone(t *testing.T) {
 	if _, err := w.service.RunPassJob(context.Background(), "scheduled", nil); err != nil {
 		t.Fatal(err)
 	}
-	if got := w.eval(t, e.ID); countArms(got, ArmFailed) != 1 || !strings.Contains(failedReason(got), "interrupted while its lane was starting") {
+	if got := w.eval(t, e.ID); countArms(got, armFailed) != 1 || !strings.Contains(failedReason(got), "interrupted while its lane was starting") {
 		t.Fatalf("after the next pass: %+v", got.Arms)
 	}
 }
 
 func failedReason(e *Eval) string {
 	for _, a := range e.Arms {
-		if a.State == ArmFailed {
+		if a.State == armFailed {
 			return a.Reason
 		}
 	}

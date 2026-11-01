@@ -19,10 +19,10 @@ import (
 // it could not count.
 var ErrRefused = fault.New(fault.Conflict, "the eval does not let this proceed")
 
-// Spend is the copies' recorded spending (usage.Ledger.ProjectsTotal),
+// spend is the copies' recorded spending (usage.Ledger.ProjectsTotal),
 // read through the querier given: the caller's transaction where it holds
 // one, so the eval's rule never waits on a second connection.
-type Spend interface {
+type spend interface {
 	ProjectsTotal(ctx context.Context, q database.Queryer, projectIDs ...ids.ID) (usage.Totals, error)
 	// LockInUnknownIn locks in the projects' expired pending spend as
 	// unknown and counts their unknown lines that can never change.
@@ -36,10 +36,10 @@ type Spend interface {
 // and its copies' whole spend at that moment.
 type Gate struct {
 	db    *database.DB
-	spend Spend
+	spend spend
 }
 
-func NewGate(db *database.DB, spend Spend) *Gate { return &Gate{db: db, spend: spend} }
+func NewGate(db *database.DB, spend spend) *Gate { return &Gate{db: db, spend: spend} }
 
 // verdict is why work may not proceed, "" when it may. A new arm also
 // waits while the eval is held, or when spend it could not count has
@@ -49,13 +49,13 @@ func verdict(e evalssql.Eval, spent usage.Totals, newArm bool) (why string, stop
 	switch {
 	case e.DeletedAt.Valid:
 		return fmt.Sprintf("eval %d is deleted", e.ID), false, false
-	case e.State == StateFinished || e.State == StateStopped:
+	case e.State == stateFinished || e.State == stateStopped:
 		return fmt.Sprintf("eval %d has ended", e.ID), false, false
-	case e.State == StateStopping:
+	case e.State == stateStopping:
 		return fmt.Sprintf("eval %d is stopping: %s", e.ID, e.Reason), false, false
 	case spent.CostMicros >= e.BudgetMicros:
 		return fmt.Sprintf("eval %d's budget of $%.2f is spent", e.ID, float64(e.BudgetMicros)/1e6), true, false
-	case newArm && e.State == StateHeld:
+	case newArm && e.State == stateHeld:
 		return fmt.Sprintf("eval %d is held: %s", e.ID, e.Reason), false, false
 	case newArm && spent.Incomplete > e.IncompleteSeen:
 		n := spent.Incomplete - e.IncompleteSeen
@@ -72,11 +72,11 @@ func (g *Gate) spent(ctx context.Context, q database.Queryer, evalID ids.ID) (us
 	return g.spend.ProjectsTotal(ctx, q, idList...)
 }
 
-// Admit is the question for a project, asked on the gate's own
+// admit is the question for a project, asked on the gate's own
 // connection: nil for a project that is no eval copy, or a copy whose eval
 // may proceed; ErrRefused, with why, otherwise. A read failure is an
 // error, never a yes.
-func (g *Gate) Admit(ctx context.Context, projectID ids.ID) error {
+func (g *Gate) admit(ctx context.Context, projectID ids.ID) error {
 	return g.AdmitIn(ctx, g.db, projectID)
 }
 
@@ -142,12 +142,12 @@ func (g *Gate) admitArm(ctx context.Context, evalID ids.ID) error {
 // eval's row lock, refused unless the eval still runs, the copy record and
 // the arm's link to its copy are written together, so a deletion either
 // comes first and no copy is made, or comes after and finds the copy.
-func recordArmCopyIn(ctx context.Context, tx *database.Tx, projectID ids.ID, c Copy) error {
+func recordArmCopyIn(ctx context.Context, tx *database.Tx, projectID ids.ID, c copy) error {
 	e, err := queries(tx).EvalForUpdate(ctx, c.EvalID)
 	if err != nil {
 		return err
 	}
-	if e.DeletedAt.Valid || e.State != StateRunning {
+	if e.DeletedAt.Valid || e.State != stateRunning {
 		return fmt.Errorf("%w: eval %d is %s", ErrRefused, e.ID, map[bool]string{true: "deleted", false: e.State}[e.DeletedAt.Valid])
 	}
 	if err := recordCopyIn(ctx, tx, projectID, c); err != nil {

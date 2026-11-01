@@ -135,12 +135,12 @@ func TestGuidanceChecksReadTheWorkTheChangeSaved(t *testing.T) {
 	gittest.Run(t, folder, "reset", "-q", "--hard", before)
 	var mu sync.Mutex
 	var seen []string
-	installCheckEffects(t, a, checkOverrides{run: func(req ExecRequest) ExecOutcome {
+	installCheckEffects(t, a, checkOverrides{run: func(req execRequest) execOutcome {
 		b, _ := os.ReadFile(filepath.Join(req.Workspace, "marker.txt"))
 		mu.Lock()
 		seen = append(seen, strings.TrimSpace(string(b)))
 		mu.Unlock()
-		return ExecOutcome{Termination: execution.Exited}
+		return execOutcome{Termination: execution.Exited}
 	}})
 	step := reviewExecute(t, a, step1ReviewRun(t, a, ch), "guidance")
 	mu.Lock()

@@ -133,7 +133,7 @@ func TestPreflightJudgesTheReleaseWithoutEffects(t *testing.T) {
 	// This AppTown has no Infisical: a binding there cannot be read.
 	bind("main", secret.StoreInfisical, "")
 	_, err = s.Preflight(t.Context(), in)
-	if !errors.As(err, &refused) || refused.Category != PreflightUnassessable || len(refused.Missing) != 0 || strings.Contains(err.Error(), "no value") {
+	if !errors.As(err, &refused) || refused.Category != preflightUnassessable || len(refused.Missing) != 0 || strings.Contains(err.Error(), "no value") {
 		t.Fatalf("an unreadable store: %#v", err)
 	}
 	noEffects("unassessable")

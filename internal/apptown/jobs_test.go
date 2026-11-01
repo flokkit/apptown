@@ -384,7 +384,7 @@ func TestDiskObservationUsesTheDurableQueueBeforeReading(t *testing.T) {
 		t.Fatalf("cold read collected disks or failed admission: %+v %v", cold, err)
 	}
 	for range 3 {
-		if err := (diskObservationRequests{db: a.DB}).RequestDiskObservation(ctx); err != nil {
+		if err := (diskObservationRequests{db: a.DB}).requestDiskObservation(ctx); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -416,7 +416,7 @@ func TestCapacityObservationJobsKeepTheTargetRevision(t *testing.T) {
 	request := capacityObservationRequests{db: a.DB}
 	id := idstest.N(88)
 	for _, revision := range []int64{1, 1, 2, 2} {
-		if err := request.RequestCapacityObservation(t.Context(), id, revision); err != nil {
+		if err := request.requestCapacityObservation(t.Context(), id, revision); err != nil {
 			t.Fatal(err)
 		}
 	}

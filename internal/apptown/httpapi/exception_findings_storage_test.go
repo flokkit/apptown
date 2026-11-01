@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -32,7 +34,7 @@ func TestExceptionReadFailuresReachEveryFindingsView(t *testing.T) {
 			req.SetPathValue("slug", "shop")
 			req.SetPathValue("id", f.RunID.String())
 			rec := httptest.NewRecorder()
-			t.Cleanup(f.DB.FailNextStatement("FROM dispositions"))
+			t.Cleanup(dbtest.NextStatementFailure(f.DB, "FROM dispositions"))
 			view.handler(rec, req)
 			if rec.Code != 500 {
 				t.Fatalf("storage failure became %d: %s", rec.Code, rec.Body.String())

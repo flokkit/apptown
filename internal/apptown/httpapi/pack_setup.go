@@ -24,7 +24,7 @@ func NewPackSetup(projects *project.Projects, lifecycle *projectlifecycle.Servic
 // guidance, workflows, policies and setup as one union, in one shot (the
 // wizard's engine).
 func (h PackSetup) ApplyPack(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -46,7 +46,7 @@ func (h PackSetup) ApplyPack(w http.ResponseWriter, r *http.Request) {
 			}
 			packs = append(packs, pack)
 		}
-		out, err := h.lifecycle.ApplyPack(r.Context(), p, packs, Actor(r))
+		out, err := h.lifecycle.ApplyPack(r.Context(), p, packs, actor(r))
 		if err != nil {
 			WriteFaultOr(w, err, 500)
 			return
@@ -61,7 +61,7 @@ func (h PackSetup) ApplyPack(w http.ResponseWriter, r *http.Request) {
 // declare WHERE (design/subsystems/registries.md). No-op refusal if mise.toml exists —
 // the project's declaration is its own.
 func (h PackSetup) SeedToolchain(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -75,7 +75,7 @@ func (h PackSetup) SeedToolchain(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		wrote, err := h.lifecycle.SeedToolchain(r.Context(), p, in.Name, Actor(r))
+		wrote, err := h.lifecycle.SeedToolchain(r.Context(), p, in.Name, actor(r))
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				WriteError(w, 404, "no stock toolchain %q", in.Name)

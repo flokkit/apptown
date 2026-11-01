@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/flokkit/apptown/internal/apptown/status"
 	"net/http"
 	"slices"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/apptown/status"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -36,7 +37,7 @@ func NewChangeDetail(work *workflow.Service, adrs *adrs.Service, deployment *dep
 	return ChangeDetail{work: work, adrs: adrs, deployment: deployment, db: db, usage: usage, dataDir: dataDir}
 }
 func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return

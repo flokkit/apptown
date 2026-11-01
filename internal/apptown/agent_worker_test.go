@@ -46,9 +46,9 @@ func workerClientConfig(t *testing.T, ca *workertest.CA, url string) *WorkerConf
 // any call to it fails the test, since nothing may run on this machine.
 type localTripwire struct{ t *testing.T }
 
-func (l localTripwire) Run(_ context.Context, _ string, req ExecRequest) ExecOutcome {
+func (l localTripwire) Run(_ context.Context, _ string, req execRequest) execOutcome {
 	l.t.Errorf("AppTown's own machine was asked to run %v", req.Argv)
-	return ExecOutcome{RunErr: errors.New("nothing runs on AppTown's own machine")}
+	return execOutcome{RunErr: errors.New("nothing runs on AppTown's own machine")}
 }
 
 // onlyOnTheWorker gives a's agent executor the tripwire as its local

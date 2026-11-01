@@ -44,7 +44,7 @@ type (
 
 // ListBackups: GET /projects/{slug}/deployments/{name}/backups
 func (h Backups) ListBackups(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -59,12 +59,12 @@ func (h Backups) ListBackups(w http.ResponseWriter, r *http.Request) {
 
 // TakeBackup: POST /projects/{slug}/deployments/{name}/backups — now.
 func (h Backups) TakeBackup(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
 	// A copy, once begun, finishes though the request ends.
-	b, err := h.data.TakeBackup(context.WithoutCancel(r.Context()), p.ID, r.PathValue("name"), Actor(r))
+	b, err := h.data.TakeBackup(context.WithoutCancel(r.Context()), p.ID, r.PathValue("name"), actor(r))
 	if err != nil {
 		WriteError(w, 422, "%v", err)
 		return
@@ -89,11 +89,11 @@ func writeBackupTaken(w http.ResponseWriter, b *dataprotection.Backup) {
 // apptown wait operation and its page follow; its result's restore is the
 // receipt.
 func (h Backups) RestoreBackup(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -110,7 +110,7 @@ func (h Backups) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 			WriteFaultOr(w, err, 422)
 			return
 		}
-		WriteAdmitted(w, op)
+		writeAdmitted(w, op)
 	})
 }
 

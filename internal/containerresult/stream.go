@@ -15,8 +15,8 @@ import (
 // digits, a space, the sha256 in 64 hex digits and a newline.
 const trailerMark = "APPTOWN-STREAM-END "
 
-// TrailerSize is the trailer's fixed length, which the receiver holds back.
-const TrailerSize = len(trailerMark) + 20 + 1 + 64 + 1
+// trailerSize is the trailer's fixed length, which the receiver holds back.
+const trailerSize = len(trailerMark) + 20 + 1 + 64 + 1
 
 // Framed is command (sh) with a trailer after what it prints on stdout:
 // how many bytes it printed and their sha256, counted inside the
@@ -60,7 +60,7 @@ func (r *Receiver) Write(p []byte) (int, error) {
 		return 0, r.err
 	}
 	r.held = append(r.held, p...)
-	if over := len(r.held) - TrailerSize; over > 0 {
+	if over := len(r.held) - trailerSize; over > 0 {
 		if _, err := r.w.Write(r.held[:over]); err != nil {
 			r.err = err
 			return 0, err
@@ -75,9 +75,6 @@ func (r *Receiver) Write(p []byte) (int, error) {
 // Unwrap is the writer the stream is passed on to.
 func (r *Receiver) Unwrap() io.Writer { return r.w }
 
-// Bytes is how many bytes of the stream were passed on.
-func (r *Receiver) Bytes() int64 { return r.n }
-
 // Verify says whether the stream ended with its trailer and the trailer
 // counts exactly what was passed on: ErrCutShort, with what was found,
 // when it did not.
@@ -86,11 +83,11 @@ func (r *Receiver) Verify() error {
 		return r.err
 	}
 	t := r.held
-	if len(t) != TrailerSize || !bytes.HasPrefix(t, []byte(trailerMark)) || t[TrailerSize-1] != '\n' || t[len(trailerMark)+20] != ' ' {
+	if len(t) != trailerSize || !bytes.HasPrefix(t, []byte(trailerMark)) || t[trailerSize-1] != '\n' || t[len(trailerMark)+20] != ' ' {
 		return fmt.Errorf("%w: it ended without its trailer, after %d bytes", ErrCutShort, r.n+int64(len(t)))
 	}
 	n, err := strconv.ParseInt(string(t[len(trailerMark):len(trailerMark)+20]), 10, 64)
-	digest := string(t[len(trailerMark)+21 : TrailerSize-1])
+	digest := string(t[len(trailerMark)+21 : trailerSize-1])
 	if err != nil || n != r.n {
 		return fmt.Errorf("%w: the sender sent %s bytes and %d arrived", ErrCutShort, t[len(trailerMark):len(trailerMark)+20], r.n)
 	}

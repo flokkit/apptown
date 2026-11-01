@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/database/query"
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/strs"
@@ -13,7 +16,7 @@ import (
 // Keep the actual catalog reader and candidate parser in this test's path while
 // allowing the publication query's database round trips to be counted.
 type publicationCatalog struct {
-	Catalog
+	catalog
 	q database.Queryer
 }
 
@@ -24,20 +27,20 @@ func (c publicationCatalog) PackPublication(ctx context.Context, name string, ve
 }
 
 type publicationQueries struct {
-	database.Handle
+	query.Handle
 	reads int
 }
 
-func (q *publicationQueries) SQL() database.Handle { return q.Handle.WithExecutor(q) }
+func (q *publicationQueries) SQL() query.Handle { return dbtest.WithExecutor(q.Handle, q) }
 
 func (q *publicationQueries) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
 	q.reads++
-	return q.DBTX.QueryContext(ctx, query, args...)
+	return q.Executor.QueryContext(ctx, query, args...)
 }
 
 func (q *publicationQueries) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
 	q.reads++
-	return q.DBTX.QueryRowContext(ctx, query, args...)
+	return q.Executor.QueryRowContext(ctx, query, args...)
 }
 
 func TestCandidatePublicationPreservesExactContents(t *testing.T) {

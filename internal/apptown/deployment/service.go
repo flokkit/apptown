@@ -36,7 +36,7 @@ type Service struct {
 	providers  *Providers
 	projects   *project.Projects
 	authority  access.Authorizer
-	groups     GroupDirectory
+	groups     groupDirectory
 	db         *database.DB
 	// records is the context a release's log lines are written on: each
 	// says what already happened, so none is lost to its caller stopping.
@@ -48,9 +48,9 @@ type Service struct {
 	observations       *observations
 	diagnosed          diagnosed           // the last part facts a diagnostics read saw (diagnostics.go)
 	ops                *operations.Service // the ledger, read for a take-down holding a deployment
-	starter            CopyStarter         // data protection's fill of a deployment started from a copy
+	starter            copyLauncher        // data protection's fill of a deployment started from a copy
 	filler             RestoreFiller       // data protection's fill of a rebuild after AppTown was restored
-	copyCheck          DataCopyCheck       // whether AppTown can copy what a deployment holds now
+	copyCheck          dataCopyCheck       // whether AppTown can copy what a deployment holds now
 	// now is AppTown's clock: every time a rule stores and later judges
 	// (observations' age among them) is written and read by it, so a test
 	// can set it.
@@ -62,7 +62,7 @@ type Service struct {
 	Outcomes    *Outcomes
 	Bundles     *Bundles
 	Retained    *Retained
-	Needs       NeedStore
+	needs       NeedStore
 	Inventory   *Inventory
 }
 
@@ -84,11 +84,11 @@ type Dependencies struct {
 	Providers     *Providers
 	Projects      *project.Projects
 	Authority     access.Authorizer
-	Groups        GroupDirectory
+	Groups        groupDirectory
 	Releases      ReleaseDependencies
 	Configuration ConfigurationDependencies
 	Followups     jobs.Enqueuer // settlement's after-commit work
-	Declared      Declarations  // the app's declaration, for what a target holds
+	Declared      declarations  // the app's declaration, for what a target holds
 	Applied       func(ids.ID)  // called after a deployment is applied; nil is fine
 	// Operations is the ledger data protection's operations run through,
 	// which a release reads for a take-down holding its deployment; nil:
@@ -96,13 +96,13 @@ type Dependencies struct {
 	Operations *operations.Service
 	// CopyStarter is data protection's side of starting a deployment from a
 	// copy; nil refuses every start from a copy.
-	CopyStarter CopyStarter
+	CopyStarter copyLauncher
 	// RestoreFiller is data protection's fill of a built-in deployment's
 	// rebuild after AppTown was restored (restore_check.go).
 	RestoreFiller RestoreFiller
 	// CopyCheck says whether AppTown can copy the data a deployment holds
 	// now, which a release asks before it is admitted; nil asks nothing.
-	CopyCheck DataCopyCheck
+	CopyCheck dataCopyCheck
 	// Now is AppTown's clock; nil is the real one.
 	Now func() time.Time
 }
@@ -152,14 +152,14 @@ func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
 		Deployments:        deployments,
 		Releases:           NewReleases(db),
 		Outcomes:           NewOutcomes(db, deps.Followups),
-		Bundles:            NewBundles(db),
+		Bundles:            newBundles(db),
 		Retained:           NewRetained(db),
 		ops:                deps.Operations,
 		starter:            deps.CopyStarter,
 		filler:             deps.RestoreFiller,
 		copyCheck:          deps.CopyCheck,
-		Needs:              NewNeedStore(db, nil),
-		Inventory:          NewInventory(db, deps.Declared),
+		needs:              NewNeedStore(db, nil),
+		Inventory:          newInventory(db, deps.Declared),
 	}
 	s.Inventory.targets, s.Inventory.providers = targets, providers
 	s.setClock(deps.Now)
@@ -176,7 +176,7 @@ func (s *Service) now() time.Time { return clock.Or(s.clock)() }
 func (s *Service) setClock(now func() time.Time) {
 	s.clock = now
 	s.Releases.clock, s.Bundles.clock, s.Outcomes.clock, s.Targets.clock = now, now, now, now
-	s.Deployments.clock, s.Needs.clock = now, now
+	s.Deployments.clock, s.needs.clock = now, now
 	s.Inventory.deployments.clock, s.Inventory.needs.clock = now, now
 }
 

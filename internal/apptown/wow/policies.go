@@ -199,19 +199,19 @@ func Fix(rule string, with map[string]any) string {
 	return ""
 }
 
-// Policies is the supported write API over a project's policies and the
+// policies is the supported write API over a project's policies and the
 // instance's policy library.
-type Policies struct {
+type policies struct {
 	db    *database.DB
 	clock func() time.Time // AppTown's clock; nil is the real one
 }
 
-func (s *Policies) now() time.Time { return clock.Or(s.clock)() }
+func (s *policies) now() time.Time { return clock.Or(s.clock)() }
 
-func NewPolicies(db *database.DB) *Policies { return &Policies{db: db} }
+func NewPolicies(db *database.DB) *policies { return &policies{db: db} }
 
 // LibraryByName is one library definition, or nil when there is none.
-func (s *Policies) LibraryByName(ctx context.Context, name string) *LibraryPolicy {
+func (s *policies) LibraryByName(ctx context.Context, name string) *LibraryPolicy {
 	r, err := wowsql.New(s.db.SQL()).LibraryPolicyByName(ctx, name)
 	if err != nil {
 		return nil
@@ -220,8 +220,8 @@ func (s *Policies) LibraryByName(ctx context.Context, name string) *LibraryPolic
 	return &lp
 }
 
-// LibraryAll lists the library, stock first.
-func (s *Policies) LibraryAll(ctx context.Context) ([]LibraryPolicy, error) {
+// libraryAll lists the library, stock first.
+func (s *policies) libraryAll(ctx context.Context) ([]LibraryPolicy, error) {
 	rows, err := wowsql.New(s.db.SQL()).LibraryPolicies(ctx)
 	out := make([]LibraryPolicy, 0, len(rows))
 	for _, r := range rows {
@@ -232,7 +232,7 @@ func (s *Policies) LibraryAll(ctx context.Context) ([]LibraryPolicy, error) {
 
 // SaveLibrary creates or updates a custom definition with its receipt;
 // stock definitions are clone-only.
-func (s *Policies) SaveLibrary(ctx context.Context, in LibraryPolicy, who string) error {
+func (s *policies) SaveLibrary(ctx context.Context, in LibraryPolicy, who string) error {
 	now := s.now().UTC()
 	if _, err := CheckPolicyAuthored(in.Name, in.Rule, in.With); err != nil {
 		return err
@@ -262,7 +262,7 @@ func (s *Policies) SaveLibrary(ctx context.Context, in LibraryPolicy, who string
 // DeleteLibrary removes a custom definition with its receipt; projects that
 // adopted it keep their copies. Stock definitions are refused with
 // ErrStockPolicy; a missing one is ErrNoLibraryPolicy.
-func (s *Policies) DeleteLibrary(ctx context.Context, name, who string) error {
+func (s *policies) DeleteLibrary(ctx context.Context, name, who string) error {
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		q := wowsql.New(tx.SQL())
 		r, err := q.LibraryPolicyByName(ctx, name)

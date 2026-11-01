@@ -8,7 +8,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 )
 
 func TestPhysicalCopyObservesExactContainerEngineAndMount(t *testing.T) {
@@ -16,7 +15,7 @@ func TestPhysicalCopyObservesExactContainerEngineAndMount(t *testing.T) {
 	image := "sha256:" + strings.Repeat("b", 64)
 	for _, change := range []string{"", "unknown", "image", "mount"} {
 		t.Run(change, func(t *testing.T) {
-			daemon := dockerfake.New()
+			daemon := newDockerFake()
 			daemon.SetReply(func(args []string) ([]byte, error, bool) {
 				if args[0] != "inspect" || args[2] != "{{json .}}" {
 					return nil, errors.New("unexpected effect"), true

@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -113,7 +115,7 @@ func TestAttachmentUploadListGetDelete(t *testing.T) {
 	if w = workflowAttachmentRequest(f, dataDir, "POST", f.ChangeID, "data.csv", []byte("other")); w.Code != 409 {
 		t.Fatalf("a second upload of the name: %d %s", w.Code, w.Body.String())
 	}
-	restore := f.DB.FailNextStatement("-- name: AppendReceipt")
+	restore := dbtest.NextStatementFailure(f.DB, "-- name: AppendReceipt")
 	w = workflowAttachmentRequest(f, dataDir, "DELETE", f.ChangeID, "data.csv", nil)
 	restore()
 	if w.Code != 503 {
@@ -246,11 +248,11 @@ func TestAttachmentRemovalReceiptsDescribePartialEffects(t *testing.T) {
 			wantCode := 500
 			wantKind := "change.attachment-remove-failed"
 			if kind == "request" {
-				t.Cleanup(f.DB.FailNextStatement("-- name: AppendReceipt"))
+				t.Cleanup(dbtest.NextStatementFailure(f.DB, "-- name: AppendReceipt"))
 				wantCode = 503
 			}
 			if kind == "outcome" {
-				t.Cleanup(f.DB.FailStatementAfter("-- name: AppendReceipt", 1))
+				t.Cleanup(dbtest.StatementFailureAfter(f.DB, "-- name: AppendReceipt", 1))
 				wantKind = "change.attachment-remove-requested"
 			}
 			w := workflowAttachmentRequest(f, root, "DELETE", f.ChangeID, name, nil)

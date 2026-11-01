@@ -34,7 +34,7 @@ type Scanners struct {
 	docker       *docker.Scope
 	exec         Executor
 	conformance  *conformance.Service
-	evaluator    *Evaluator
+	evaluator    *evaluator
 	integrations *integration.Service
 	deployments  *deployment.Deployments
 	dependencies *dependency.Catalog
@@ -49,7 +49,7 @@ type ScannerDependencies struct {
 	Docker       *docker.Scope
 	Executor     Executor
 	Conformance  *conformance.Service
-	Evaluator    *Evaluator
+	Evaluator    *evaluator
 	Integrations *integration.Service
 	Deployments  *deployment.Deployments
 	Dependencies *dependency.Catalog
@@ -120,9 +120,9 @@ func goToolchainVersion(dir string) string {
 	return ""
 }
 
-// RunToolChecks evaluates every `tool` check in checks. Returns results (one per
+// runToolChecks evaluates every `tool` check in checks. Returns results (one per
 // check, runShChecks-shaped), the fail findings, and an error count.
-func (s *Scanners) RunToolChecks(ctx context.Context, checks []conformance.DeclaredCheck, tc ToolContext, namePrefix string) (results Results, findings []conformance.Finding, toolErrors int) {
+func (s *Scanners) runToolChecks(ctx context.Context, checks []conformance.DeclaredCheck, tc toolContext, namePrefix string) (results Results, findings []conformance.Finding, toolErrors int) {
 	for _, sc := range checks {
 		if check.Evaluator(sc.Check) != "tool" {
 			continue
@@ -183,7 +183,7 @@ func (s *Scanners) toolJudge(ctx context.Context, tool, bindingName string, m ch
 // "excepted" is a fail whose every finding is covered by an active disposition:
 // the detail keeps the findings underneath, and exceptedBy names the exception
 // (design/subsystems/conformance-surface.md §9) — never folded into pass.
-func (s *Scanners) evalToolCheck(ctx context.Context, sc conformance.DeclaredCheck, tc ToolContext, namePrefix string) (ev check.Evaluation, verdict workflow.CheckVerdict, exceptedBy string) {
+func (s *Scanners) evalToolCheck(ctx context.Context, sc conformance.DeclaredCheck, tc toolContext, namePrefix string) (ev check.Evaluation, verdict workflow.CheckVerdict, exceptedBy string) {
 	// An evaluation AppTown itself made, for what it could settle before
 	// the judge was asked.
 	apptownSays := func(outcome check.Outcome, detail string) check.Evaluation {
@@ -359,7 +359,7 @@ func clearForScan(dir string, m check.Scanner) error {
 	return nil
 }
 
-// RunSourceScans runs every attached, non-manual SOURCE scanner (osv,
+// runSourceScans runs every attached, non-manual SOURCE scanner (osv,
 // gitleaks, semgrep — the same set the land `scan-source` point fans out to)
 // against an already-staged committed tree. It lets `apptown check` REFLECT the
 // land gate's security scans, not just the guidance checks, so an agent sees a
@@ -376,7 +376,7 @@ func clearForScan(dir string, m check.Scanner) error {
 // CARRIED debt (reported in the result, not returned as gating findings), so
 // apptown check previews exactly what the land gate will hold against the
 // change (scan_provenance.go). Pass "" to compare against nothing.
-func (s *Scanners) RunSourceScans(ctx context.Context, scanSrc string, namePrefix string, repo, baseSHA string) (results Results, findings []conformance.Finding, scanErrors int) {
+func (s *Scanners) runSourceScans(ctx context.Context, scanSrc string, namePrefix string, repo, baseSHA string) (results Results, findings []conformance.Finding, scanErrors int) {
 	treeSrc := CheckSource(scanSrc)
 	_ = os.MkdirAll(filepath.Join(scanSrc, ".apptown"), 0o755)
 	attached, err := s.attachedScanners(ctx)

@@ -270,7 +270,7 @@ func TestGeneratedFilesArePlacedOnlyOutsideTheTree(t *testing.T) {
 		"twice":          {configFile, configFile},
 		"no mode":        {{Path: "/etc/x", Content: []byte("x")}},
 		"not a file":     {{Path: "/etc/x", Content: []byte("x"), Mode: 0o644 | os.ModeSymlink}},
-		"too large":      {{Path: "/etc/x", Content: make([]byte, MaxFileBytes+1), Mode: 0o644}},
+		"too large":      {{Path: "/etc/x", Content: make([]byte, maxFileBytes+1), Mode: 0o644}},
 	} {
 		if err := ValidFiles(files); err == nil {
 			t.Errorf("%s: accepted", name)

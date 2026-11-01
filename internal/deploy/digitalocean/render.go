@@ -34,9 +34,9 @@ type AppSpec struct {
 	Envs []doEnv `json:"envs,omitempty"`
 }
 
-// InstanceEnv is the app-wide variable naming the installation that made
+// instanceEnv is the app-wide variable naming the installation that made
 // an app: App Platform has no tags, so the spec carries the mark.
-const InstanceEnv = "APPTOWN_INSTANCE"
+const instanceEnv = "APPTOWN_INSTANCE"
 
 // InstallationTag is the DigitalOcean tag naming the installation that
 // made a resource (a database cluster).
@@ -204,7 +204,7 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 	}
 	spec := AppSpec{Name: doAppName(deploy.HostKey(p.ID)), Region: cfg.Region}
 	if d.Installation != "" {
-		spec.Envs = []doEnv{{Key: InstanceEnv, Value: d.Installation, Scope: "RUN_TIME", Type: "GENERAL"}}
+		spec.Envs = []doEnv{{Key: instanceEnv, Value: d.Installation, Scope: "RUN_TIME", Type: "GENERAL"}}
 	}
 	// Each consumer gets its own environment, resolved need connections,
 	// then the secrets its scope names. Public-part values are never global.

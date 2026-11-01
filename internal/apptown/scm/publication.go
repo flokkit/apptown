@@ -36,19 +36,19 @@ import (
 // AppTown died before sending commit.
 
 var (
-	// ErrAuthoritySuperseded: the publisher's generation or holder is no
+	// errAuthoritySuperseded: the publisher's generation or holder is no
 	// longer current. Nothing was published.
-	ErrAuthoritySuperseded = errors.New("this work no longer holds the branch: it was handed over or its attempt was replaced")
-	// ErrPublicationUnsettled: an earlier publication of the branch has not
+	errAuthoritySuperseded = errors.New("this work no longer holds the branch: it was handed over or its attempt was replaced")
+	// errPublicationUnsettled: an earlier publication of the branch has not
 	// been settled. The branch cannot be handed over or published until it is.
-	ErrPublicationUnsettled = errors.New("an earlier publication of this branch is not settled yet")
+	errPublicationUnsettled = errors.New("an earlier publication of this branch is not settled yet")
 	// ErrPublicationApplied: the branch moved to the proposed commit, but the
 	// publication's record could not be settled. The work is published; the
 	// record is settled at the branch's next use or at startup (Recover).
 	ErrPublicationApplied = errors.New("the branch moved to the published commit, and its publication is not settled yet")
-	// ErrPublicationUnknown: whether the branch moved is not known. The
+	// errPublicationUnknown: whether the branch moved is not known. The
 	// publication stays recorded and holds the branch until it is settled.
-	ErrPublicationUnknown = errors.New("whether the branch moved is not known yet; the branch is held until it is")
+	errPublicationUnknown = errors.New("whether the branch moved is not known yet; the branch is held until it is")
 )
 
 // Refused reports whether an error from Publish confirms a refusal: nothing
@@ -59,18 +59,18 @@ var (
 // (ErrPublicationUnknown, ErrPublicationUnsettled), or it failed before
 // anything was decided, and asking again later may publish it.
 func Refused(err error) bool {
-	var moved *BranchMoved
-	return errors.As(err, &moved) || errors.Is(err, ErrAuthoritySuperseded) || errors.Is(err, ErrNotPublished)
+	var moved *branchMoved
+	return errors.As(err, &moved) || errors.Is(err, errAuthoritySuperseded) || errors.Is(err, ErrNotPublished)
 }
 
-// BranchMoved means the branch was not where the publisher expected, or the
+// branchMoved means the branch was not where the publisher expected, or the
 // proposed commit does not descend from it. Nothing was published.
-type BranchMoved struct {
+type branchMoved struct {
 	Branch, Expected, Found, Proposed string
 	NotForward                        bool
 }
 
-func (e *BranchMoved) Error() string {
+func (e *branchMoved) Error() string {
 	if e.NotForward {
 		return fmt.Sprintf("branch %s is at %s and %s does not build on it; bring those commits in first", e.Branch, strs.ShortSHA(e.Found), strs.ShortSHA(e.Proposed))
 	}
@@ -86,8 +86,8 @@ type Authority struct {
 
 var initialAuthority = Authority{Generation: 1, Holder: "initial"}
 
-// Unassigned reports a branch nobody has been handed yet.
-func (a Authority) Unassigned() bool { return a.Holder == initialAuthority.Holder }
+// unassigned reports a branch nobody has been handed yet.
+func (a Authority) unassigned() bool { return a.Holder == initialAuthority.Holder }
 
 // RunHolder names a root run as the holder of its change's branch.
 func RunHolder(rootRunID ids.ID) string { return fmt.Sprintf("run:%d", rootRunID) }
@@ -168,7 +168,7 @@ func LockAuthorityIn(ctx context.Context, tx *database.Tx, projectID ids.ID, bra
 func advanceLockedIn(ctx context.Context, tx *database.Tx, projectID ids.ID, branch, holder string) (Authority, error) {
 	q := scmsql.New(tx.SQL())
 	if _, err := q.PublicationForBranch(ctx, scmsql.PublicationForBranchParams{ProjectID: projectID, Branch: branch}); err == nil {
-		return Authority{}, ErrPublicationUnsettled
+		return Authority{}, errPublicationUnsettled
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return Authority{}, err
 	}
@@ -191,11 +191,11 @@ func AdvanceAuthorityIn(ctx context.Context, tx *database.Tx, projectID ids.ID, 
 	return advanceLockedIn(ctx, tx, projectID, branch, holder)
 }
 
-// ReleasedHolder is the holder of a branch its last holder let go of.
-const ReleasedHolder = "released"
+// releasedHolder is the holder of a branch its last holder let go of.
+const releasedHolder = "released"
 
 // Free reports a branch nobody holds: never handed to anyone, or released.
-func (a Authority) Free() bool { return a.Unassigned() || a.Holder == ReleasedHolder }
+func (a Authority) Free() bool { return a.unassigned() || a.Holder == releasedHolder }
 
 // ReleaseAuthorityIn ends holder's hold on the branch, if it still holds it:
 // the generation advances to ReleasedHolder, so nothing holder was admitted
@@ -206,7 +206,7 @@ func ReleaseAuthorityIn(ctx context.Context, tx *database.Tx, projectID ids.ID, 
 	if err != nil || current.Holder != holder {
 		return false, err
 	}
-	_, err = advanceLockedIn(ctx, tx, projectID, branch, ReleasedHolder)
+	_, err = advanceLockedIn(ctx, tx, projectID, branch, releasedHolder)
 	return err == nil, err
 }
 
@@ -220,7 +220,7 @@ func ClaimAuthorityIn(ctx context.Context, tx *database.Tx, projectID ids.ID, br
 		return Authority{}, err
 	}
 	if current.Holder != holder {
-		return Authority{}, &HeldElsewhere{Branch: branch, Holder: current.Holder}
+		return Authority{}, &heldElsewhere{Branch: branch, Holder: current.Holder}
 	}
 	if !renew {
 		return current, nil
@@ -228,14 +228,14 @@ func ClaimAuthorityIn(ctx context.Context, tx *database.Tx, projectID ids.ID, br
 	return advanceLockedIn(ctx, tx, projectID, branch, holder)
 }
 
-// HeldElsewhere: the branch was handed to another holder. The attempt is not
+// heldElsewhere: the branch was handed to another holder. The attempt is not
 // admitted to publish; it must not take the branch back.
-type HeldElsewhere struct{ Branch, Holder string }
+type heldElsewhere struct{ Branch, Holder string }
 
-func (e *HeldElsewhere) Error() string {
+func (e *heldElsewhere) Error() string {
 	return fmt.Sprintf("branch %s is held by %s now; this work no longer holds it", e.Branch, e.Holder)
 }
-func (e *HeldElsewhere) Is(target error) bool { return target == ErrAuthoritySuperseded }
+func (e *heldElsewhere) Is(target error) bool { return target == errAuthoritySuperseded }
 
 // Publication asks to move Branch in Repository (the project's hub) to the
 // tip of the same branch in From, a writer's clone, to the commit at
@@ -258,7 +258,7 @@ type Publication struct {
 	Grant  Grant
 }
 
-type Published struct {
+type publishedResult struct {
 	Previous, Tip string
 	Changed       bool
 }
@@ -278,7 +278,7 @@ func NewBranches(db *database.DB, locks *RepositoryLocks) *Branches {
 	return &Branches{db: db, locks: locks}
 }
 
-func (p *Branches) Publish(ctx context.Context, pub Publication) (Published, error) {
+func (p *Branches) Publish(ctx context.Context, pub Publication) (publishedResult, error) {
 	sources := 0
 	for _, s := range []string{pub.From, pub.Incoming, pub.Commit} {
 		if s != "" {
@@ -286,31 +286,31 @@ func (p *Branches) Publish(ctx context.Context, pub Publication) (Published, err
 		}
 	}
 	if pub.ProjectID.IsZero() || pub.Repository == "" || pub.Branch == "" || sources != 1 || !pub.Grant.valid() {
-		return Published{}, fmt.Errorf("a branch publication needs its project, repository, branch, one source and one grant")
+		return publishedResult{}, fmt.Errorf("a branch publication needs its project, repository, branch, one source and one grant")
 	}
 	release, err := p.locks.Acquire(ctx, pub.ProjectID)
 	if err != nil {
-		return Published{}, err
+		return publishedResult{}, err
 	}
 	defer release()
 	return p.publishLocked(ctx, pub)
 }
 
 // publishLocked runs with the project's repository lock held.
-func (p *Branches) publishLocked(ctx context.Context, pub Publication) (Published, error) {
+func (p *Branches) publishLocked(ctx context.Context, pub Publication) (publishedResult, error) {
 	if err := p.settleLeftover(ctx, pub.ProjectID, pub.Branch); err != nil {
-		return Published{}, err
+		return publishedResult{}, err
 	}
 	ref := "refs/heads/" + pub.Branch
 	proposed, cleanup, err := stageProposal(ctx, pub)
 	if err != nil {
-		return Published{}, err
+		return publishedResult{}, err
 	}
 	defer cleanup()
 	current := gitexec.HubRef(ctx, pub.Repository, ref)
-	out := Published{Previous: current, Tip: current}
+	out := publishedResult{Previous: current, Tip: current}
 	if pub.Expected != "" && pub.Expected != current {
-		return out, &BranchMoved{Branch: pub.Branch, Expected: pub.Expected, Found: current, Proposed: proposed}
+		return out, &branchMoved{Branch: pub.Branch, Expected: pub.Expected, Found: current, Proposed: proposed}
 	}
 	if current != "" && proposed != current {
 		ok := gitexec.HubAncestor(ctx, pub.Repository, current, proposed)
@@ -318,7 +318,7 @@ func (p *Branches) publishLocked(ctx context.Context, pub Publication) (Publishe
 			ok = gitexec.HubAncestor(ctx, pub.Repository, proposed, current)
 		}
 		if !ok {
-			return out, &BranchMoved{Branch: pub.Branch, Expected: current, Found: current, Proposed: proposed, NotForward: true}
+			return out, &branchMoved{Branch: pub.Branch, Expected: current, Found: current, Proposed: proposed, NotForward: true}
 		}
 	}
 	// A rewind to an ancestor brings nothing new and passes; permission to
@@ -344,7 +344,7 @@ func (p *Branches) publishLocked(ctx context.Context, pub Publication) (Publishe
 			return out, fmt.Errorf("%v; and settling the refused publication: %w", err, settleErr)
 		}
 		if errors.Is(err, gitexec.ErrTransactionRefused) {
-			return out, &BranchMoved{Branch: pub.Branch, Expected: current, Found: gitexec.HubRef(ctx, pub.Repository, ref), Proposed: proposed}
+			return out, &branchMoved{Branch: pub.Branch, Expected: current, Found: gitexec.HubRef(ctx, pub.Repository, ref), Proposed: proposed}
 		}
 		return out, err
 	}
@@ -357,7 +357,7 @@ func (p *Branches) publishLocked(ctx context.Context, pub Publication) (Publishe
 			out.Tip, out.Changed = proposed, true
 			return out, fmt.Errorf("branch %s moved, and its publication could not be settled; it is settled at next use: %w: %w", pub.Branch, ErrPublicationApplied, classifyErr)
 		case classifyErr != nil || outcome == stillUnknown:
-			return out, fmt.Errorf("publishing %s: %w: %v", pub.Branch, ErrPublicationUnknown, errors.Join(err, classifyErr))
+			return out, fmt.Errorf("publishing %s: %w: %v", pub.Branch, errPublicationUnknown, errors.Join(err, classifyErr))
 		case outcome == abandoned:
 			return out, fmt.Errorf("publishing %s: %w", pub.Branch, err)
 		}
@@ -428,7 +428,7 @@ func (p *Branches) begin(ctx context.Context, pub Publication, current, proposed
 		}
 		q := scmsql.New(tx.SQL())
 		if !pub.Grant.admits(authority) {
-			return ids.Nil, ErrAuthoritySuperseded
+			return ids.Nil, errAuthoritySuperseded
 		}
 		if pub.Grant.Valid != nil {
 			if err := pub.Grant.Valid(ctx, tx); err != nil {
@@ -438,7 +438,7 @@ func (p *Branches) begin(ctx context.Context, pub Publication, current, proposed
 		id, err := q.BeginPublication(ctx, scmsql.BeginPublicationParams{ID: ids.New(p.now()), ProjectID: pub.ProjectID, Branch: pub.Branch, Repository: pub.Repository,
 			Generation: authority.Generation, Expected: current, Proposed: proposed, CreatedAt: p.now()})
 		if errors.Is(err, sql.ErrNoRows) {
-			return ids.Nil, ErrPublicationUnsettled
+			return ids.Nil, errPublicationUnsettled
 		}
 		return id, err
 	})
@@ -511,7 +511,7 @@ func (p *Branches) settleLeftover(ctx context.Context, projectID ids.ID, branch 
 		return err
 	}
 	if outcome == stillUnknown {
-		return ErrPublicationUnsettled
+		return errPublicationUnsettled
 	}
 	return nil
 }
@@ -548,13 +548,13 @@ func refLocked(ctx context.Context, repo, ref string) (bool, error) {
 	return false, err
 }
 
-type PublicationRecovery struct{ Inspected, Settled, Unknown int }
+type publicationRecovery struct{ Inspected, Settled, Unknown int }
 
 // Recover settles publications left by a previous process. It runs at startup
 // before work is dispatched. A publication that cannot be settled stays
 // recorded and holds its branch; an operator resolves it.
-func (p *Branches) Recover(ctx context.Context) (PublicationRecovery, error) {
-	var report PublicationRecovery
+func (p *Branches) Recover(ctx context.Context) (publicationRecovery, error) {
+	var report publicationRecovery
 	rows, err := scmsql.New(p.db.SQL()).UnsettledPublications(ctx)
 	if err != nil {
 		return report, err

@@ -185,7 +185,7 @@ func TestNothingToBackUpNeedsBothSourcesReadAndEmpty(t *testing.T) {
 	worker := JobWorker{Service: s.Service, Projects: project.New(db, nil)}
 	unknown := func(name string) {
 		t.Helper()
-		if _, err := s.TakeBackup(context.Background(), pid, name, "bls"); !errors.Is(err, ErrDataNotKnown) {
+		if _, err := s.TakeBackup(context.Background(), pid, name, "bls"); !errors.Is(err, errDataNotKnown) {
 			t.Fatalf("%s: %v, want not known", name, err)
 		}
 		if r, err := worker.Backup(context.Background(), pid.String()+"/"+name, nil); err == nil {
@@ -207,12 +207,12 @@ func TestNothingToBackUpNeedsBothSourcesReadAndEmpty(t *testing.T) {
 		}
 		return nil, nil, false
 	})
-	if _, err := s.TakeBackup(context.Background(), pid, "main", "bls"); !errors.Is(err, ErrHeldDataAbsent) {
+	if _, err := s.TakeBackup(context.Background(), pid, "main", "bls"); !errors.Is(err, errHeldDataAbsent) {
 		t.Fatalf("declared and absent: %v", err)
 	}
 
 	releaseMain(t, s, "nb", "app:\n  web:\n    image: x:1\n    public: true\n")
-	if _, err := s.TakeBackup(context.Background(), pid, "main", "bls"); !errors.Is(err, ErrNothingToBackUp) {
+	if _, err := s.TakeBackup(context.Background(), pid, "main", "bls"); !errors.Is(err, errNothingToBackUp) {
 		t.Fatalf("nothing named: %v", err)
 	}
 	if r, err := worker.Backup(context.Background(), pid.String()+"/main", nil); err != nil || r["skipped"] == nil {
@@ -236,7 +236,7 @@ func TestAHostThatCannotBeAskedLeavesItsDataUnknown(t *testing.T) {
 		}
 		return nil, nil, false
 	})
-	if _, err := s.TakeBackup(context.Background(), pid, "main", "bls"); !errors.Is(err, ErrDataNotKnown) {
+	if _, err := s.TakeBackup(context.Background(), pid, "main", "bls"); !errors.Is(err, errDataNotKnown) {
 		t.Fatalf("an unreachable host's backup: %v, want not known", err)
 	}
 	worker := JobWorker{Service: s.Service, Projects: project.New(db, nil)}
@@ -322,7 +322,7 @@ func TestTwoVolumesOfOneRoleStayApart(t *testing.T) {
 func legacySet(t *testing.T, s *both, dep *deployment.Deployment, slug string) *Backup {
 	t.Helper()
 	plan := []backupPlanItem{
-		{Kind: "volume", Name: "apptown-data-gone", File: "data.tar.gz", Copy: CopyLiveFiles, Step: docker.Step{Image: "x"}},
+		{Kind: "volume", Name: "apptown-data-gone", File: "data.tar.gz", Copy: copyLiveFiles, Step: docker.Step{Image: "x"}},
 		{Kind: "need", Name: "postgres", File: "postgres.dump", Restore: "pg_restore", Copy: CopyDeclared, Step: docker.Step{Exec: "x"}},
 	}
 	b, err := s.takeSet(context.Background(), docker.Scope{Client: s.hosts.Local().Client}, dep.ProjectID, slug, dep.Name, plan, "manual", "bls")
@@ -360,7 +360,7 @@ func TestARoleOnlySetRestoresOnlyWhenUnambiguous(t *testing.T) {
 		b := legacySet(t, s, dep, "amb")
 		client.ResetCommands()
 		_, err := s.restoreBackup(context.Background(), nil, dep.ProjectID, dep.Name, b.ID, "bls")
-		if !errors.Is(err, ErrRestoreMismatch) || !strings.Contains(err.Error(), "not certain which") {
+		if !errors.Is(err, errRestoreMismatch) || !strings.Contains(err.Error(), "not certain which") {
 			t.Fatalf("an ambiguous restore: %v", err)
 		}
 		if h.restored() != "" || indexOf(commandsOf(client), "stop ") >= 0 {
@@ -471,7 +471,7 @@ func TestACopyOfAnotherVolumeIsNotThisVolumesCopy(t *testing.T) {
 	var h hostLog
 	h.answer(client)
 	b, err := s.TakeBackup(context.Background(), pid, "main", "bls")
-	if err != nil || b.Status != BackupOK || b.GoodCopy("need", "postgres") == nil || b.GoodCopy("need", "postgres").Volume != "old-anon" {
+	if err != nil || b.Status != BackupOK || b.goodCopy("need", "postgres") == nil || b.goodCopy("need", "postgres").Volume != "old-anon" {
 		t.Fatalf("the old volume's copy: %+v %v", b, err)
 	}
 	// The service is made again on its named volume.

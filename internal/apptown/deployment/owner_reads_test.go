@@ -54,7 +54,7 @@ func storedAttempt(t *testing.T, db *database.DB, id ids.ID) deploymentsql.Deplo
 func attemptsIn(t *testing.T, db *database.DB, states ...AttemptState) []deploymentsql.DeploymentAttempt {
 	t.Helper()
 	if len(states) == 0 {
-		states = []AttemptState{AttemptRunning, AttemptUncertain, AttemptDone, AttemptFailed, AttemptSuperseded}
+		states = []AttemptState{AttemptRunning, AttemptUncertain, AttemptDone, AttemptFailed, attemptSuperseded}
 	}
 	var out []deploymentsql.DeploymentAttempt
 	for _, s := range states {

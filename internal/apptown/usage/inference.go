@@ -17,14 +17,14 @@ import (
 // unknown when it never settles.
 type Requests struct {
 	db *database.DB
-	// Now is AppTown's clock, which judges a spend line's pending time; nil
+	// clock is AppTown's clock, which judges a spend line's pending time; nil
 	// is the real one.
-	Now func() time.Time
+	clock func() time.Time
 }
 
 func NewRequests(db *database.DB) *Requests { return &Requests{db: db} }
 
-func (r *Requests) now() time.Time { return clock.Or(r.Now)() }
+func (r *Requests) now() time.Time { return clock.Or(r.clock)() }
 
 // MarkInterrupted locks in as unknown every AppTown call's spend line still
 // pending and reports how many: the restart cut those calls off, so none of

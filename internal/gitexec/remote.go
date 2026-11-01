@@ -112,17 +112,17 @@ func runRemote(ctx context.Context, dir string, r Remote, args ...string) (strin
 		if ctx.Err() != nil {
 			return "", fmt.Errorf("git %s: the repository did not answer within %s", args[0], remoteTimeout)
 		}
-		return "", &RemoteFailed{Op: args[0], Why: remoteFailure(stderr.String())}
+		return "", &remoteFailed{Op: args[0], Why: remoteFailure(stderr.String())}
 	}
 	return strings.TrimSpace(stdout.String()), nil
 }
 
-// RemoteFailed is a remote command that failed, in AppTown's own words.
+// remoteFailed is a remote command that failed, in AppTown's own words.
 // Git's own diagnostics are never passed on: they carry text the remote
 // server chose, which can echo the credential it was offered.
-type RemoteFailed struct{ Op, Why string }
+type remoteFailed struct{ Op, Why string }
 
-func (e *RemoteFailed) Error() string { return "git " + e.Op + ": " + e.Why }
+func (e *remoteFailed) Error() string { return "git " + e.Op + ": " + e.Why }
 
 // remoteFailure classifies git's stderr into a fixed sentence.
 func remoteFailure(stderr string) string {

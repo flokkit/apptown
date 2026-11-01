@@ -15,10 +15,10 @@ import (
 type ConsoleSessions struct {
 	sessions *console.Service
 	chats    conversation.Chats
-	cli      ConsoleCLI
+	cli      consoleCLI
 }
 
-func NewConsoleSessions(chats conversation.Chats, cli ConsoleCLI) ConsoleSessions {
+func NewConsoleSessions(chats conversation.Chats, cli consoleCLI) ConsoleSessions {
 	return ConsoleSessions{sessions: chats.Sessions, chats: chats, cli: cli}
 }
 
@@ -27,15 +27,15 @@ func NewConsoleSessions(chats conversation.Chats, cli ConsoleCLI) ConsoleSession
 func (h ConsoleSessions) ConsoleList(w http.ResponseWriter, r *http.Request) {
 	out := []ConsoleSessionView{}
 	for _, s := range h.sessions.List(r.Context(), console.Match{Labels: map[string]string{conversation.SlugLabel: r.PathValue("slug")}}) {
-		out = append(out, h.View(r, s))
+		out = append(out, h.view(r, s))
 	}
 	WriteJSON(w, 200, ConsoleSessionList{Sessions: out})
 }
 
-// ConsoleCLI supplies the lazily built agent executable, with one process-local cache.
-type ConsoleCLI interface{ Path() (string, error) }
+// consoleCLI supplies the lazily built agent executable, with one process-local cache.
+type consoleCLI interface{ Path() (string, error) }
 
-func (h ConsoleSessions) View(r *http.Request, s *console.Session) ConsoleSessionView {
+func (h ConsoleSessions) view(r *http.Request, s *console.Session) ConsoleSessionView {
 	v := ConsoleSessionView{
 		ID: s.ID, ProjectSlug: conversation.Of(s).Slug, Model: s.Model,
 		CreatedAt: s.CreatedAt, State: h.sessions.State(r.Context(), s), ChangeID: conversation.Of(s).ChangeID,
@@ -51,7 +51,7 @@ func (h ConsoleSessions) View(r *http.Request, s *console.Session) ConsoleSessio
 	// AppTown's copy of its conversation is.
 	if conversation.OnWorkerRecord(s.Meta) {
 		v.Placement = conversation.PlaceOnWorker
-		v.Saved = ConsoleSaveOf(repositoryedit.LastChatSave(s.Dir))
+		v.Saved = consoleSaveOf(repositoryedit.LastChatSave(s.Dir))
 		if at := worker.RecordAsOf(s.Dir); !at.IsZero() {
 			v.RecordAsOf = &at
 		}

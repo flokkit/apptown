@@ -41,7 +41,7 @@ func (s *core) CannotCopy(ctx context.Context, dep *deployment.Deployment, t *de
 	}
 	held, err := s.heldData(ctx, dep, t)
 	switch {
-	case errors.Is(err, ErrNothingToBackUp), errors.Is(err, ErrHeldDataAbsent):
+	case errors.Is(err, errNothingToBackUp), errors.Is(err, errHeldDataAbsent):
 		return ""
 	case err != nil:
 		return err.Error()

@@ -145,7 +145,7 @@ func (s *Service) presentPreviews(ctx context.Context) (map[string]place, error)
 	if s.PreviewsOnWorker() {
 		names, err := s.worker.List(ctx)
 		if err != nil {
-			return nil, &UnavailableError{Cause: err}
+			return nil, &unavailableError{Cause: err}
 		}
 		for _, name := range names {
 			out[name] = place{worker: true}
@@ -263,7 +263,7 @@ func (s *Service) removeKept(ctx context.Context, changeID ids.ID) error {
 	if s.PreviewsOnWorker() {
 		if err := s.worker.RemoveImages(ctx, name); err != nil {
 			s.claimAgainIfLost(ctx, err)
-			return &UnavailableError{Cause: err}
+			return &unavailableError{Cause: err}
 		}
 	}
 	if dk := s.hosts.Local(); !dk.Absent() {
@@ -355,7 +355,7 @@ func (s *Service) removePreviewForGood(ctx context.Context, name string) error {
 		}
 		if err := s.worker.RemoveImages(ctx, name); err != nil {
 			s.claimAgainIfLost(ctx, err)
-			return &UnavailableError{Cause: err}
+			return &unavailableError{Cause: err}
 		}
 	}
 	if _, err := previewsql.New(s.db.SQL()).ForgetPreviewView(ctx, name); err != nil {

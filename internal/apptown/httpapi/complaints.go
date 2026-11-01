@@ -38,7 +38,7 @@ func (h Complaints) AnswerComplaint(w http.ResponseWriter, r *http.Request) {
 	if !RequireAdmin(h.access, w, r) {
 		return
 	}
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -53,7 +53,7 @@ func (h Complaints) AnswerComplaint(w http.ResponseWriter, r *http.Request) {
 
 		// Answered is its own state: the answer can be read before a person
 		// archives it (New → Answered → Archived).
-		if err := h.complaints.Answer(r.Context(), id, in.Answer, Actor(r)); err != nil {
+		if err := h.complaints.Answer(r.Context(), id, in.Answer, actor(r)); err != nil {
 			WriteFault(w, err)
 			return
 		}
@@ -65,12 +65,12 @@ func (h Complaints) AnswerComplaint(w http.ResponseWriter, r *http.Request) {
 // inbox without an answer: read, not worth a reply, or overtaken by events.
 // The record stays; the archive is the history.
 func (h Complaints) ArchiveComplaint(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
 	}
-	if err := h.complaints.Archive(r.Context(), id, Actor(r)); err != nil {
+	if err := h.complaints.Archive(r.Context(), id, actor(r)); err != nil {
 		WriteFault(w, err)
 		return
 	}
@@ -86,7 +86,7 @@ func (h Complaints) ArchiveOldComplaints(w http.ResponseWriter, r *http.Request)
 		if in.Hours <= 0 {
 			in.Hours = 24
 		}
-		n, err := h.complaints.ArchiveOlder(r.Context(), time.Duration(in.Hours*float64(time.Hour)), Actor(r))
+		n, err := h.complaints.ArchiveOlder(r.Context(), time.Duration(in.Hours*float64(time.Hour)), actor(r))
 		if err != nil {
 			WriteFault(w, err)
 			return
@@ -98,12 +98,12 @@ func (h Complaints) ArchiveOldComplaints(w http.ResponseWriter, r *http.Request)
 // DeleteComplaint: DELETE /api/v1/complaints/{id} — gone for good.
 // The ledger keeps a line saying it was deleted and by whom; the text goes.
 func (h Complaints) DeleteComplaint(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
 	}
-	if err := h.complaints.Delete(r.Context(), id, Actor(r)); err != nil {
+	if err := h.complaints.Delete(r.Context(), id, actor(r)); err != nil {
 		WriteFault(w, err)
 		return
 	}

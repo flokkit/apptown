@@ -9,7 +9,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 )
 
 // A step's services are torn down though the step's context has ended (a
@@ -18,7 +17,7 @@ import (
 // Kills: the teardown run on the setup's context.
 func TestStartedServicesAreTornDownAfterTheirContextEnds(t *testing.T) {
 	t.Parallel()
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	var mu sync.Mutex
 	var asked []string
 	dk := docker.Scope{Client: scopeClientFunc(func(ctx context.Context, host string, req docker.Command) ([]byte, error) {
@@ -57,7 +56,7 @@ func TestStartedServicesAreTornDownAfterTheirContextEnds(t *testing.T) {
 // Kills: a teardown that removes only the containers this attempt started.
 func TestFailedServicesStartRemovesAnEarlierAttemptsContainerBeforeTheNetwork(t *testing.T) {
 	t.Parallel()
-	daemon := dockerfake.New()
+	daemon := newDockerFake()
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		cmd := strings.Join(args, " ")
 		switch {

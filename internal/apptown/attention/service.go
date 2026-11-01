@@ -19,7 +19,7 @@ import (
 // Owners supply stable subject/generation keys and safe human-readable text.
 const (
 	SeverityWarning  = "warning"
-	SeverityAdvisory = "advisory"
+	severityAdvisory = "advisory"
 )
 
 type Item struct {
@@ -46,27 +46,27 @@ type Snapshot struct {
 	Stale      bool
 }
 
-// InstanceSource reads an already-authorized instance snapshot. Cold/expired
+// instanceReader reads an already-authorized instance snapshot. Cold/expired
 // reads request a bounded owner refresh and return immediately as unassessed.
-type InstanceSource interface {
+type instanceReader interface {
 	Snapshot(context.Context) (Snapshot, error)
 }
 
-// ProjectSource reads only the named authorized project's snapshot. A snapshot
+// projectReader reads only the named authorized project's snapshot. A snapshot
 // for an old deployment identity must never become current under a newer one.
-type ProjectSource interface {
+type projectReader interface {
 	ProjectSnapshot(context.Context, ids.ID) (Snapshot, error)
 }
 
 // Sources is the complete finite source set. Missing sources remain unassessed,
 // rather than silently shrinking what an empty Attention view claims to cover.
 type Sources struct {
-	Disks       InstanceSource
-	Capacity    InstanceSource
-	Inventory   InstanceSource
-	Workers     InstanceSource
-	Deployments ProjectSource
-	Protection  ProjectSource
+	Disks       instanceReader
+	Capacity    instanceReader
+	Inventory   instanceReader
+	Workers     instanceReader
+	Deployments projectReader
+	Protection  projectReader
 }
 
 // Coverage reports source availability separately from the visible item count.
@@ -121,7 +121,7 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 	if instanceErr == nil {
 		for _, source := range []struct {
 			key, name string
-			source    InstanceSource
+			source    instanceReader
 		}{
 			{"disks", "AppTown and worker disks", s.sources.Disks},
 			{"capacity", "Deployment host capacity", s.sources.Capacity},
@@ -159,7 +159,7 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 		}
 		for _, source := range []struct {
 			key, name string
-			source    ProjectSource
+			source    projectReader
 		}{
 			{"deployments", "Deployment health", s.sources.Deployments},
 			{"protection", "Data protection", s.sources.Protection},
@@ -220,9 +220,9 @@ func (s *Service) observe(ctx context.Context, key string, read func(context.Con
 func (v Item) MarshalJSON() ([]byte, error) {
 	type view Item
 	out := view(v)
-	out.StatusLabel = LabelWaiting
+	out.StatusLabel = labelWaiting
 	if v.Unknown {
-		out.StatusLabel = LabelUnknown
+		out.StatusLabel = labelUnknown
 	}
 	return json.Marshal(out)
 }

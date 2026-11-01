@@ -55,7 +55,7 @@ func (w JobWorker) Backup(ctx context.Context, key string, args map[string]any) 
 	}
 	b, err := w.Service.takeBackup(ctx, p.ID, name, trigger, "apptown-system")
 	if err != nil {
-		if errors.Is(err, ErrNothingToBackUp) || errors.Is(err, deployment.ErrTargetKeepsBackups) || errors.Is(err, project.ErrNotActive) {
+		if errors.Is(err, errNothingToBackUp) || errors.Is(err, deployment.ErrTargetKeepsBackups) || errors.Is(err, project.ErrNotActive) {
 			return map[string]any{"skipped": err.Error()}, nil
 		}
 		return nil, err
@@ -96,7 +96,7 @@ func (w JobWorker) Sweep(ctx context.Context, _ string, _ map[string]any) (map[s
 	}
 	// Production data on a cloud target is copied to the backup store by
 	// operations of its own.
-	copies, skipped, err := w.Service.ScheduledCopies(ctx)
+	copies, skipped, err := w.Service.scheduledCopies(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("starting the daily copies: %w", err)
 	}
@@ -104,17 +104,17 @@ func (w JobWorker) Sweep(ctx context.Context, _ string, _ map[string]any) (map[s
 	// AppTown's disk move, and what a stopped take left staged goes.
 	// Neither fails the sweep, whose copies are already started: what did
 	// not happen is on its receipt, and the next day's sweep tries again.
-	moved, notMoved, err := w.Service.MoveSetsToStore(ctx)
+	moved, notMoved, err := w.Service.moveSetsToStore(ctx)
 	if err != nil {
 		notMoved = append(notMoved, "the move stopped: "+err.Error())
 	}
-	staged, err := w.Service.ClearStaging()
+	staged, err := w.Service.clearStaging()
 	if err != nil {
 		notMoved = append(notMoved, "clearing staged backups: "+err.Error())
 	}
 	// What an interrupted rehearsal left is removed: production data does
 	// not stay on a rehearsal host.
-	cleared, left, err := w.Service.SweepRehearsals(ctx)
+	cleared, left, err := w.Service.sweepRehearsals(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("removing what ended rehearsals left: %w", err)
 	}
@@ -125,7 +125,7 @@ func (w JobWorker) Sweep(ctx context.Context, _ string, _ map[string]any) (map[s
 // RestoredCopySweep starts a take-down of each restored copy that is due
 // one (SweepRestoredCopies).
 func (w JobWorker) RestoredCopySweep(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
-	started, skipped, err := w.Service.SweepRestoredCopies(ctx)
+	started, skipped, err := w.Service.sweepRestoredCopies(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("taking down restored copies: %w", err)
 	}

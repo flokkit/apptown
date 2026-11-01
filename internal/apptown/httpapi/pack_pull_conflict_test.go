@@ -2,12 +2,13 @@ package httpapi
 
 import (
 	"context"
-	"github.com/flokkit/apptown/internal/apptown/adoption"
-	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/database"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/database"
 
 	"github.com/flokkit/apptown/internal/apptown/wow"
 )

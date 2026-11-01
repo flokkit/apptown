@@ -76,7 +76,7 @@ func TestAStaticPageMustLoadTheValuesAppTownGivesIt(t *testing.T) {
 		{"an unreadable file", given, 200, "oops", loads, CannotAssess, true, "could not be read"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := FetcherFunc(func(_ context.Context, url string) (int, string, error) {
+			f := fetcherFunc(func(_ context.Context, url string) (int, string, error) {
 				if strings.HasSuffix(url, BrowserEnvPath) {
 					return tc.envCode, tc.envBody, nil
 				}
@@ -88,11 +88,11 @@ func TestAStaticPageMustLoadTheValuesAppTownGivesIt(t *testing.T) {
 			}
 		})
 	}
-	down := FetcherFunc(func(context.Context, string) (int, string, error) { return 0, "", errors.New("refused") })
+	down := fetcherFunc(func(context.Context, string) (int, string, error) { return 0, "", errors.New("refused") })
 	if got := JudgeBrowserEnv(context.Background(), down, "http://127.0.0.1:1", given); got.Outcome != CannotAssess || !got.Fault {
 		t.Fatalf("an app whose values cannot be read: %+v", got)
 	}
-	pageDown := FetcherFunc(func(_ context.Context, url string) (int, string, error) {
+	pageDown := fetcherFunc(func(_ context.Context, url string) (int, string, error) {
 		if strings.HasSuffix(url, BrowserEnvPath) {
 			return 200, served, nil
 		}

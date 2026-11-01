@@ -40,7 +40,7 @@ func TestScopeChangeAfterPreflightPreventsApply(t *testing.T) {
 	t.Cleanup(server.Close)
 	scope := Scope{Version: 1, APIBase: server.URL, EndpointID: 3, DaemonID: "admitted-daemon"}
 	driver := Driver{
-		TargetID: ready.Target, ReadinessTimeout: time.Millisecond,
+		TargetID: ready.Target, readinessTimeout: time.Millisecond,
 		Allowed: func(context.Context) error { return nil },
 		Config: func(context.Context, ids.ID) (*Target, error) {
 			if changed.Load() {

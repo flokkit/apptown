@@ -136,7 +136,7 @@ func newHarness(t *testing.T) *harness {
 	if err != nil {
 		t.Fatalf("config: %v", err)
 	}
-	h.gate = httptest.NewServer(New(cfg, Options{Now: h.clock.Now}))
+	h.gate = httptest.NewServer(New(cfg, Options{now: h.clock.Now}))
 	t.Cleanup(h.gate.Close)
 	return h
 }
@@ -222,15 +222,15 @@ func TestGateRefusesAWrongProbeToken(t *testing.T) {
 	}
 	for _, token := range wrong {
 		req, _ := http.NewRequest(http.MethodGet, h.gate.URL+"/", nil)
-		req.Header.Set(TokenHeader, token)
+		req.Header.Set(tokenHeader, token)
 		res, body := h.do(t, req)
 		expectEmpty404(t, res, body)
 	}
 	// Two copies of the header, one of them right, is not a probe either:
 	// the gate never picks among candidates.
 	req, _ := http.NewRequest(http.MethodGet, h.gate.URL+"/", nil)
-	req.Header.Add(TokenHeader, testSecret)
-	req.Header.Add(TokenHeader, "nope")
+	req.Header.Add(tokenHeader, testSecret)
+	req.Header.Add(tokenHeader, "nope")
 	res, body := h.do(t, req)
 	expectEmpty404(t, res, body)
 	if n := len(h.app.seen()); n != 0 {
@@ -242,7 +242,7 @@ func TestGateForwardsAProbeWithoutItsTokenKeepingHostAndForwardedHeaders(t *test
 	h := newHarness(t)
 	req, _ := http.NewRequest(http.MethodGet, h.gate.URL+"/ready?deep=1", nil)
 	req.Host = "copy-abc.ondigitalocean.app"
-	req.Header.Set(TokenHeader, testSecret)
+	req.Header.Set(tokenHeader, testSecret)
 	req.Header.Set("X-Forwarded-Proto", "https")
 	req.Header.Set("X-Forwarded-For", "203.0.113.7")
 	res, body := h.do(t, req)
@@ -257,7 +257,7 @@ func TestGateForwardsAProbeWithoutItsTokenKeepingHostAndForwardedHeaders(t *test
 	if r.path != "/ready" || r.query != "deep=1" {
 		t.Fatalf("app saw %s?%s", r.path, r.query)
 	}
-	if v := r.header.Values(TokenHeader); len(v) != 0 {
+	if v := r.header.Values(tokenHeader); len(v) != 0 {
 		t.Fatal("the probe token reached the app")
 	}
 	if r.host != "copy-abc.ondigitalocean.app" {
@@ -330,7 +330,7 @@ func TestEntryIsNeverForwardedEvenWithAValidCredential(t *testing.T) {
 	h.apptown.mu.Unlock()
 
 	res, _ := h.get(t, EnterPath+"?ticket=tk-2", map[string]string{
-		TokenHeader: testSecret,
+		tokenHeader: testSecret,
 		"Cookie":    CookieName + "=" + cookie.Value,
 	})
 	if res.StatusCode != http.StatusForbidden {
@@ -340,7 +340,7 @@ func TestEntryIsNeverForwardedEvenWithAValidCredential(t *testing.T) {
 	expectRefusedEntry(t, res, body)
 	// Other methods on the entry path get the plain 404.
 	req, _ := http.NewRequest(http.MethodPost, h.gate.URL+EnterPath+"?ticket=tk-4", nil)
-	req.Header.Set(TokenHeader, testSecret)
+	req.Header.Set(tokenHeader, testSecret)
 	res, body = h.do(t, req)
 	expectEmpty404(t, res, body)
 
@@ -469,7 +469,7 @@ func TestAppCannotSetTheGateCookie(t *testing.T) {
 		w.Header().Add("Set-Cookie", " "+CookieName+"=planted2")
 		w.Header().Add("Set-Cookie", "__host-forge-gate-other=fine")
 	}
-	res, _ := h.get(t, "/", map[string]string{TokenHeader: testSecret})
+	res, _ := h.get(t, "/", map[string]string{tokenHeader: testSecret})
 	got := res.Header.Values("Set-Cookie")
 	want := []string{"app_session=s2; Path=/; HttpOnly", "__host-forge-gate-other=fine"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
@@ -487,7 +487,7 @@ func TestAppCannotMarkItsAnswerAsTheGatesRefusal(t *testing.T) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.WriteHeader(http.StatusNotFound)
 	}
-	res, _ := h.get(t, "/", map[string]string{TokenHeader: testSecret})
+	res, _ := h.get(t, "/", map[string]string{tokenHeader: testSecret})
 	if res.StatusCode != http.StatusNotFound || res.Header.Get(RefusedHeader) != "" {
 		t.Fatalf("the app's 404 reads %d with %s %q", res.StatusCode, RefusedHeader, res.Header.Get(RefusedHeader))
 	}
@@ -501,7 +501,7 @@ func TestUpstreamFailureIsA502WithoutDetail(t *testing.T) {
 	srv := httptest.NewServer(New(cfg, Options{}))
 	t.Cleanup(srv.Close)
 	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)
-	req.Header.Set(TokenHeader, testSecret)
+	req.Header.Set(tokenHeader, testSecret)
 	res, err := noRedirects.Do(req)
 	if err != nil {
 		t.Fatal(err)

@@ -5,11 +5,12 @@ import (
 
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/deploy"
 	"net/url"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/deploy"
 )
 
 // ManagedData is what AppTown asks of a managed database cluster to
@@ -29,15 +30,15 @@ type ManagedData struct {
 
 // Connection and NativeBackup are the provider-neutral answers.
 type (
-	Connection   = deploy.Connection
-	NativeBackup = deploy.NativeBackup
+	connection   = deploy.Connection
+	nativeBackup = deploy.NativeBackup
 )
 
 var _ deploy.ManagedData = ManagedData{}
 
-// ErrDatabaseExists refuses to make a database whose name the cluster
+// errDatabaseExists refuses to make a database whose name the cluster
 // already holds: a new place is made by the platform, never adopted.
-var ErrDatabaseExists = errors.New("the cluster already holds a database of that name; a new place is never adopted by name")
+var errDatabaseExists = errors.New("the cluster already holds a database of that name; a new place is never adopted by name")
 
 func (m ManagedData) client(ctx context.Context) (*Client, error) {
 	if m.Client == nil {
@@ -59,17 +60,17 @@ func (m ManagedData) cluster(ctx context.Context, c *Client, clusterID string) (
 
 // AppConnection is the app user's connection to database on the cluster,
 // over TLS.
-func (m ManagedData) AppConnection(ctx context.Context, clusterID, database, user string) (Connection, error) {
+func (m ManagedData) AppConnection(ctx context.Context, clusterID, database, user string) (connection, error) {
 	c, err := m.client(ctx)
 	if err != nil {
-		return Connection{}, err
+		return connection{}, err
 	}
 	db, err := m.cluster(ctx, c, clusterID)
 	if err != nil {
-		return Connection{}, err
+		return connection{}, err
 	}
 	if db.Connection.Host == "" || db.Connection.Port == 0 {
-		return Connection{}, fmt.Errorf("the platform gave the cluster %s no host and port", clusterID)
+		return connection{}, fmt.Errorf("the platform gave the cluster %s no host and port", clusterID)
 	}
 	var got struct {
 		User struct {
@@ -78,12 +79,12 @@ func (m ManagedData) AppConnection(ctx context.Context, clusterID, database, use
 		} `json:"user"`
 	}
 	if err := c.Call(ctx, "GET", "/v2/databases/"+url.PathEscape(clusterID)+"/users/"+url.PathEscape(user), nil, &got); err != nil {
-		return Connection{}, fmt.Errorf("reading the user %s on the cluster %s: %w", user, clusterID, err)
+		return connection{}, fmt.Errorf("reading the user %s on the cluster %s: %w", user, clusterID, err)
 	}
 	if got.User.Password == "" {
-		return Connection{}, fmt.Errorf("the platform gave no password for the user %s on the cluster %s", user, clusterID)
+		return connection{}, fmt.Errorf("the platform gave no password for the user %s on the cluster %s", user, clusterID)
 	}
-	return Connection{Host: db.Connection.Host, Port: db.Connection.Port, Database: database, User: user, Password: got.User.Password, SSLMode: "require"}, nil
+	return connection{Host: db.Connection.Host, Port: db.Connection.Port, Database: database, User: user, Password: got.User.Password, SSLMode: "require"}, nil
 }
 
 // Databases are the databases the cluster holds, as the platform lists
@@ -122,14 +123,14 @@ func (m ManagedData) NewDatabase(ctx context.Context, clusterID, name, owner str
 		return notMade{err}
 	}
 	if slices.Contains(existing, name) {
-		return notMade{fmt.Errorf("%w: %s", ErrDatabaseExists, name)}
+		return notMade{fmt.Errorf("%w: %s", errDatabaseExists, name)}
 	}
 	if err := c.Call(ctx, "POST", "/v2/databases/"+url.PathEscape(clusterID)+"/dbs", map[string]any{"name": name}, nil); err != nil {
 		// DigitalOcean answers 422 both for a name the cluster holds and for
 		// a name it does not accept: only the first is "exists".
-		var api *APIError
-		if IsStatus(err, 409) || (errors.As(err, &api) && api.Status == 422 && strings.Contains(api.Msg, "already exists")) {
-			return fmt.Errorf("%w: %s (%w)", ErrDatabaseExists, name, err)
+		var api *apiError
+		if isStatus(err, 409) || (errors.As(err, &api) && api.Status == 422 && strings.Contains(api.Msg, "already exists")) {
+			return fmt.Errorf("%w: %s (%w)", errDatabaseExists, name, err)
 		}
 		if errors.As(err, &api) && api.Refused() {
 			return notMade{fmt.Errorf("the platform refused the database name %s: %w", name, err)}
@@ -164,7 +165,7 @@ func (m ManagedData) DropDatabase(ctx context.Context, clusterID, name string) e
 	if err != nil {
 		return err
 	}
-	if err := c.Call(ctx, "DELETE", "/v2/databases/"+url.PathEscape(clusterID)+"/dbs/"+url.PathEscape(name), nil, nil); err != nil && !IsStatus(err, 404) {
+	if err := c.Call(ctx, "DELETE", "/v2/databases/"+url.PathEscape(clusterID)+"/dbs/"+url.PathEscape(name), nil, nil); err != nil && !isStatus(err, 404) {
 		return fmt.Errorf("removing the database %s: %w", name, err)
 	}
 	return nil
@@ -173,7 +174,7 @@ func (m ManagedData) DropDatabase(ctx context.Context, clusterID, name string) e
 // Backups are the platform's own backups of the cluster, newest first.
 // DigitalOcean takes one a day and keeps seven; deleting the cluster
 // deletes them.
-func (m ManagedData) Backups(ctx context.Context, clusterID string) ([]NativeBackup, error) {
+func (m ManagedData) Backups(ctx context.Context, clusterID string) ([]nativeBackup, error) {
 	c, err := m.client(ctx)
 	if err != nil {
 		return nil, err
@@ -187,11 +188,11 @@ func (m ManagedData) Backups(ctx context.Context, clusterID string) ([]NativeBac
 	if err := c.Call(ctx, "GET", "/v2/databases/"+url.PathEscape(clusterID)+"/backups", nil, &got); err != nil {
 		return nil, fmt.Errorf("reading the backups of the cluster %s: %w", clusterID, err)
 	}
-	out := make([]NativeBackup, 0, len(got.Backups))
+	out := make([]nativeBackup, 0, len(got.Backups))
 	for _, b := range got.Backups {
-		out = append(out, NativeBackup{CreatedAt: b.CreatedAt, SizeGB: b.SizeGB})
+		out = append(out, nativeBackup{CreatedAt: b.CreatedAt, SizeGB: b.SizeGB})
 	}
-	slices.SortFunc(out, func(a, b NativeBackup) int { return b.CreatedAt.Compare(a.CreatedAt) })
+	slices.SortFunc(out, func(a, b nativeBackup) int { return b.CreatedAt.Compare(a.CreatedAt) })
 	return out, nil
 }
 
@@ -202,7 +203,7 @@ func (m ManagedData) DeleteInstance(ctx context.Context, clusterID string) error
 	if err != nil {
 		return err
 	}
-	if err := c.Call(ctx, "DELETE", "/v2/databases/"+url.PathEscape(clusterID), nil, nil); err != nil && !IsStatus(err, 404) {
+	if err := c.Call(ctx, "DELETE", "/v2/databases/"+url.PathEscape(clusterID), nil, nil); err != nil && !isStatus(err, 404) {
 		return fmt.Errorf("deleting the cluster %s: %w", clusterID, err)
 	}
 	return nil

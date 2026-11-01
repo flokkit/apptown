@@ -13,7 +13,7 @@ import (
 
 // deploymentDataClass is what a deployment declares it holds
 // (Deployments.DataClassOf): unknown protects its data.
-func (a *Shipping) deploymentDataClass(ctx context.Context, projectID ids.ID, deployment string) string {
+func (a *shipping) deploymentDataClass(ctx context.Context, projectID ids.ID, deployment string) string {
 	return a.deployment.Deployments.DataClassOf(ctx, projectID, deployment)
 }
 
@@ -24,7 +24,7 @@ func (a *Shipping) deploymentDataClass(ctx context.Context, projectID ids.ID, de
 // A target this AppTown cannot release to is refused here, before the
 // landing reserves a port or changes the deployment in any way, whether
 // the deployment exists already or would be created.
-func (a *Shipping) landingDeployment(ctx context.Context, projectID ids.ID, name string) (*deployment.Deployment, error) {
+func (a *shipping) landingDeployment(ctx context.Context, projectID ids.ID, name string) (*deployment.Deployment, error) {
 	env, err := a.deployment.Deployments.ByName(ctx, projectID, name)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err

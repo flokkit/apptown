@@ -28,11 +28,11 @@ import (
 // Anything else (a failed scan, a running review, a rejected approval)
 // leaves the run waiting for a person as before.
 
-// NothingToChange is the account of the step that found nothing to change,
+// nothingToChange is the account of the step that found nothing to change,
 // when the stage meets the conditions above apart from the change's
 // emptiness, which only the closing act can read.
-func (a Advancement) NothingToChange(steps []*Step) (string, bool) {
-	if a.Passed() || len(a.Missing) > 0 {
+func (a advancement) nothingToChange(steps []*Step) (string, bool) {
+	if a.passed() || len(a.Missing) > 0 {
 		return "", false
 	}
 	for _, s := range a.Blocked {
@@ -44,7 +44,7 @@ func (a Advancement) NothingToChange(steps []*Step) (string, bool) {
 	for _, s := range steps {
 		switch {
 		case s.Type == "approval" && s.Status == StatusPending:
-		case !s.Status.Judged() && s.Status != StatusSkipped:
+		case !s.Status.judged() && s.Status != StatusSkipped:
 			return "", false
 		}
 		var ev struct {
@@ -149,11 +149,11 @@ func (s *Service) endNothingToChange(ctx context.Context, expected *Run) error {
 		if err != nil {
 			return nil, err
 		}
-		decision, err := run.Advance(steps, checks)
+		decision, err := run.advance(steps, checks)
 		if err != nil {
 			return nil, err
 		}
-		account, ok := decision.NothingToChange(steps)
+		account, ok := decision.nothingToChange(steps)
 		if !ok || run.ChangeID != expected.ChangeID || !run.ParentRunID.IsZero() {
 			return nil, ErrRunMoved
 		}

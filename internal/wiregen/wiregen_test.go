@@ -55,7 +55,7 @@ type Record struct {
 // private exists to show an unexported field is never declared.
 var _ = Record{private: 1}
 
-func generator() *Generator {
+func generator() *typeGenerator {
 	g := New()
 	g.Map(time.Time{}, "string")
 	g.Map(json.RawMessage{}, "unknown")

@@ -125,7 +125,7 @@ func TestTakeDownBacksUpWhatTheDeploymentHoldsThenDeletesIt(t *testing.T) {
 		t.Fatalf("no final set: %+v", result)
 	}
 	b, err := s.backups.ByID(context.Background(), dep.ProjectID, dep.Name, result.FinalBackup.ID)
-	if err != nil || b.Trigger != TriggerTakeDown || b.Status != BackupOK || b.GoodCopy("need", "postgres") == nil || b.GoodCopy("volume", hostNamesOf(t, dep, "fbk").DataVolume()) == nil {
+	if err != nil || b.Trigger != triggerTakeDown || b.Status != BackupOK || b.goodCopy("need", "postgres") == nil || b.goodCopy("volume", hostNamesOf(t, dep, "fbk").DataVolume()) == nil {
 		t.Fatalf("final set: %+v %v", b, err)
 	}
 	cmds := commandsOf(client)
@@ -212,7 +212,7 @@ func TestATakeDownWhoseFinalBackupFallsShortRemovesNothing(t *testing.T) {
 				})
 			}
 			_, err := s.Remove(context.Background(), removeSelection(dep))
-			if !errors.Is(err, ErrFinalBackupIncomplete) {
+			if !errors.Is(err, errFinalBackupIncomplete) {
 				t.Fatalf("take-down went on: %v", err)
 			}
 			cmds := commandsOf(client)
@@ -276,7 +276,7 @@ func TestFinalBackupsAreKeptUntilTheProjectIsPurged(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := s.backups.Prune(context.Background(), root, dep.ProjectID, dep.Name, BackupKeep); err != nil {
+	if _, err := s.backups.pruneBackups(context.Background(), root, dep.ProjectID, dep.Name, BackupKeep); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := s.backups.ByID(context.Background(), dep.ProjectID, dep.Name, b.ID); got.Status != BackupOK {
@@ -397,7 +397,7 @@ func TestAFinalSetRestoresIntoAnotherDeploymentByRole(t *testing.T) {
 			})
 			res, err := s.restoreBackup(context.Background(), nil, dep.ProjectID, "main", result.FinalBackup.ID, "alice")
 			if scenario == "no postgres" {
-				if !errors.Is(err, ErrRestoreMismatch) || !strings.Contains(err.Error(), "postgres") {
+				if !errors.Is(err, errRestoreMismatch) || !strings.Contains(err.Error(), "postgres") {
 					t.Fatalf("restore into a deployment without postgres: %v %v", res, err)
 				}
 				// Reading what main holds asks the host; nothing more.
@@ -414,7 +414,7 @@ func TestAFinalSetRestoresIntoAnotherDeploymentByRole(t *testing.T) {
 				}
 				return
 			}
-			if err != nil || res.Status != RestoreNotVerified || res.From != "staging" {
+			if err != nil || res.Status != restoreNotVerified || res.From != "staging" {
 				t.Fatalf("restore: %v %v", res, err)
 			}
 			joined := strings.Join(restores, "\n")
@@ -585,7 +585,7 @@ func TestARemovalOperationStopsAsAskedBeforeItsTeardown(t *testing.T) {
 				t.Fatalf("the deployment went: %v", err)
 			}
 			sets, err := s.backups.ForDeployment(ctx, dep.ProjectID, dep.Name, 10)
-			if err != nil || len(sets) != 1 || sets[0].Trigger != TriggerTakeDown {
+			if err != nil || len(sets) != 1 || sets[0].Trigger != triggerTakeDown {
 				t.Fatalf("the final backup: %+v %v", sets, err)
 			}
 		})
@@ -744,7 +744,7 @@ func TestATakeDownRefusesToDeleteAContainerHoldingUncopiedData(t *testing.T) {
 				t.Fatal(err)
 			}
 			client.ResetCommands()
-			if _, err := s.Remove(context.Background(), removeSelection(dep)); !errors.Is(err, ErrFinalBackupIncomplete) || !strings.Contains(err.Error(), tc.says) {
+			if _, err := s.Remove(context.Background(), removeSelection(dep)); !errors.Is(err, errFinalBackupIncomplete) || !strings.Contains(err.Error(), tc.says) {
 				t.Fatalf("take-down: %v", err)
 			}
 			for _, c := range commandsOf(client) {

@@ -2,9 +2,10 @@ package projectlifecycle
 
 import (
 	"context"
+	"testing"
+
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"testing"
 )
 
 func TestPullingAPackClosesTheUpliftToItsOldVersion(t *testing.T) {

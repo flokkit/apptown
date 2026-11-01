@@ -14,8 +14,8 @@ type Summary struct {
 	Checks             int              `json:"checks"`
 }
 
-// SummarizeFleet describes the same project readings shown in the fleet view.
-func SummarizeFleet(projects []ProjectStanding, checks int) Summary {
+// summarizeFleet describes the same project readings shown in the fleet view.
+func summarizeFleet(projects []ProjectStanding, checks int) Summary {
 	summary := Summary{Projects: len(projects), Checks: checks, ByStanding: map[Standing]int{}}
 	for _, p := range projects {
 		summary.ByStanding[p.Standing]++

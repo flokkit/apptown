@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerlabel"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/flokkit/apptown/internal/dockerlabel"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -20,7 +21,7 @@ import (
 // machine's loopback, with no front-door signal: the app's own port here,
 // or a relay to it on the worker). Close ends the relay.
 type Served struct {
-	Name, ContainerID, Incarnation string
+	Name, containerID, incarnation string
 	FrontDoor, Naked               string
 	// Source and Recorded are AppTown's record of what this incarnation
 	// was booted from and with: the commit ("" for a change's folder) and
@@ -43,9 +44,9 @@ func (s *Service) OpenPreview(ctx context.Context, projectID ids.ID, label strin
 	p = &Served{Name: name, service: s}
 	defer func() {
 		if ok {
-			if r, found := s.servedRecordOf(name); found && r.Incarnation == p.Incarnation {
-				public := r.Public
-				p.Source, p.Recorded = r.Source, &public
+			if r, found := s.servedRecordOf(name); found && r.incarnation == p.incarnation {
+				public := r.public
+				p.Source, p.Recorded = r.source, &public
 			}
 		}
 	}()
@@ -54,7 +55,7 @@ func (s *Service) OpenPreview(ctx context.Context, projectID ids.ID, label strin
 		if err != nil || !st.Running {
 			return nil, false, err
 		}
-		p.ContainerID, p.Incarnation = st.ContainerID, st.Incarnation
+		p.containerID, p.incarnation = st.ContainerID, st.Incarnation
 		p.FrontDoor = s.env.RoutesFor(ctx, projectID).PreviewURL(label, 0)
 		ln, err := net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
@@ -73,7 +74,7 @@ func (s *Service) OpenPreview(ctx context.Context, projectID ids.ID, label strin
 	if err != nil || port == 0 {
 		return nil, false, nil
 	}
-	p.ContainerID, p.Incarnation = id, incarnation
+	p.containerID, p.incarnation = id, incarnation
 	p.FrontDoor, p.Naked = s.env.RoutesFor(ctx, projectID).PreviewURL(label, port), s.hosts.Local().ProbeURL(port)
 	return p, true, nil
 }
@@ -97,10 +98,10 @@ func (s *Service) localPreview(ctx context.Context, name string) (id string, run
 func (p *Served) Same(ctx context.Context) (bool, error) {
 	if p.service.PreviewsOnWorker() {
 		st, err := p.service.PreviewOnWorker(ctx, p.Name)
-		return err == nil && st.Running && st.ContainerID == p.ContainerID, err
+		return err == nil && st.Running && st.ContainerID == p.containerID, err
 	}
 	id, running, _, err := p.service.localPreview(ctx, p.Name)
-	return err == nil && running && id == p.ContainerID, err
+	return err == nil && running && id == p.containerID, err
 }
 
 // Browser is what the preview's container was started with for its page,

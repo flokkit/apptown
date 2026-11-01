@@ -252,17 +252,17 @@ func TestSelectionCannotInstallPoliciesOrCreateAnInstallationTarget(t *testing.T
 		_, err := service.AdoptIn(adoptionTestCaller(), tx, c.ProjectID, c, 0, "alice", "selection", OperationSelect)
 		return err
 	})
-	if !errors.Is(err, ErrPackApplication) {
+	if !errors.Is(err, errPackApplication) {
 		t.Fatalf("selection installed pack setup: %v", err)
 	}
 	err = db.InTx(context.Background(), func(tx *database.Tx) error {
 		_, err := service.RecordTargetIn(adoptionTestCaller(), tx, Target{ProjectID: c.ProjectID, ChangeID: idstest.N(7), Candidate: c, Actor: "alice"})
 		return err
 	})
-	if !errors.Is(err, ErrPackApplication) {
+	if !errors.Is(err, errPackApplication) {
 		t.Fatalf("installation escaped into target without its durable setup: %v", err)
 	}
-	if _, err := service.OpenUplift(adoptionTestCaller(), c.ProjectID, c, "alice", "", nil); !errors.Is(err, ErrPackApplication) {
+	if _, err := service.OpenUplift(adoptionTestCaller(), c.ProjectID, c, "alice", "", nil); !errors.Is(err, errPackApplication) {
 		t.Fatalf("installation admitted for uplift: %v", err)
 	}
 	if called != 0 {

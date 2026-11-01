@@ -20,8 +20,8 @@ func TestNewIsStrictlyIncreasing(t *testing.T) {
 		}
 		prev = id
 	}
-	if id := New(at.Add(time.Hour)); !id.Time().Equal(at.Add(time.Hour)) || id[6]>>4 != 7 || id[8]>>6 != 2 {
-		t.Fatalf("version 7, RFC variant, minted millisecond: %s %v", id, id.Time())
+	if id := New(at.Add(time.Hour)); fmt.Sprintf("%x", id[:6]) != fmt.Sprintf("%012x", at.Add(time.Hour).UnixMilli()) || id[6]>>4 != 7 || id[8]>>6 != 2 {
+		t.Fatalf("version 7, RFC variant, minted millisecond: %s %v", id, id[:6])
 	}
 }
 
@@ -54,7 +54,7 @@ func TestFormsRoundTripAndNilIsAbsent(t *testing.T) {
 		t.Fatal(`"" is Nil`)
 	}
 	for _, bad := range []string{"293", "0193f7a2-6b1c-7d3e-8f00-1234567890a", "0193f7a26b1c7d3e8f001234567890ab", "zz93f7a2-6b1c-7d3e-8f00-1234567890ab"} {
-		if _, err := Parse(bad); !errors.Is(err, ErrNotAnID) {
+		if _, err := Parse(bad); !errors.Is(err, errNotAnID) {
 			t.Errorf("%q: %v, want ErrNotAnID", bad, err)
 		}
 	}

@@ -2,8 +2,9 @@ package httpapi
 
 import (
 	"errors"
-	"github.com/flokkit/apptown/internal/ids"
 	"net/http"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 )
@@ -57,8 +58,8 @@ func (h Targets) RevokeOffer(w http.ResponseWriter, r *http.Request) {
 		writeReadFault(w, err, "no target named %q", r.PathValue("name"))
 		return
 	}
-	id, _ := PathID(r, "id")
-	if _, err := h.deployment.Targets.RevokeOffer(r.Context(), t, id, Actor(r)); err != nil {
+	id, _ := pathID(r, "id")
+	if _, err := h.deployment.Targets.RevokeOffer(r.Context(), t, id, actor(r)); err != nil {
 		if errors.Is(err, deployment.ErrOfferMissing) {
 			WriteError(w, 404, "no offer %d on %s", id, t.Name)
 			return
@@ -72,7 +73,7 @@ func (h Targets) RevokeOffer(w http.ResponseWriter, r *http.Request) {
 // ProjectTargets: GET /projects/{slug}/targets — what this project
 // may bind an environment to, each with the offer it comes through.
 func (h Targets) ProjectTargets(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

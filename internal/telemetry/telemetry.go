@@ -46,8 +46,8 @@ type Config struct {
 }
 
 const (
-	DefaultMetricInterval = 15 * time.Second
-	DefaultCloseTimeout   = 5 * time.Second
+	defaultMetricInterval = 15 * time.Second
+	defaultCloseTimeout   = 5 * time.Second
 )
 
 // Providers is what Start hands back. The three providers are what a program
@@ -150,11 +150,11 @@ func Start(ctx context.Context, cfg Config) (*Providers, error) {
 
 	interval := cfg.MetricInterval
 	if interval <= 0 {
-		interval = DefaultMetricInterval
+		interval = defaultMetricInterval
 	}
 	closeTimeout := cfg.CloseTimeout
 	if closeTimeout <= 0 {
-		closeTimeout = DefaultCloseTimeout
+		closeTimeout = defaultCloseTimeout
 	}
 	tp := sdktrace.NewTracerProvider(sdktrace.WithBatcher(traceExporter), sdktrace.WithResource(res))
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExporter, sdkmetric.WithInterval(interval))), sdkmetric.WithResource(res))

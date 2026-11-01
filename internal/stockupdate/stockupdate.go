@@ -73,8 +73,8 @@ type Header struct {
 	WorksWith  string    `yaml:"worksWith"`
 }
 
-// Update is a file read: its series, header and content.
-type Update struct {
+// update is a file read: its series, header and content.
+type update struct {
 	Series Series
 	Header Header
 	// Content is the update's files, the header document among them.
@@ -83,8 +83,8 @@ type Update struct {
 	Path string
 }
 
-// Read reads an update file of series.
-func Read(series Series, file string) (*Update, error) {
+// read reads an update file of series.
+func read(series Series, file string) (*update, error) {
 	raw, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func Read(series Series, file string) (*Update, error) {
 }
 
 // Parse reads an update file's bytes.
-func Parse(series Series, raw []byte) (*Update, error) {
+func Parse(series Series, raw []byte) (*update, error) {
 	var inner []byte
 	found := false
 	tr := tar.NewReader(bytes.NewReader(raw))
@@ -156,7 +156,7 @@ func Parse(series Series, raw []byte) (*Update, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Update{Series: series, Header: h, Content: files}, nil
+	return &update{Series: series, Header: h, Content: files}, nil
 }
 
 func readHeader(series Series, raw []byte) (Header, error) {
@@ -190,18 +190,18 @@ var ErrNoUpdate = errors.New("no update file")
 // Shipped reads the newest update file of series in dir, by publication
 // time. Files of other series are not read; a file of this series that
 // does not read is an error, never skipped.
-func Shipped(dir string, series Series) (*Update, error) {
+func Shipped(dir string, series Series) (*update, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
-	var newest *Update
+	var newest *update
 	for _, e := range entries {
 		n := e.Name()
 		if e.IsDir() || !strings.HasPrefix(n, string(series)+"-") || !strings.HasSuffix(n, FileSuffix) {
 			continue
 		}
-		u, err := Read(series, filepath.Join(dir, n))
+		u, err := read(series, filepath.Join(dir, n))
 		if err != nil {
 			return nil, err
 		}
@@ -215,12 +215,12 @@ func Shipped(dir string, series Series) (*Update, error) {
 	return newest, nil
 }
 
-// Judgement is what a build can say about an update's worksWith.
-type Judgement int
+// judgement is what a build can say about an update's worksWith.
+type judgement int
 
 const (
-	// Works: the build's version is in the range.
-	Works Judgement = iota
+	// works: the build's version is in the range.
+	works judgement = iota
 	// NotJudged: the build has no release version to place in a range (a
 	// maintainer's dev- build). Its readers still validate every item.
 	NotJudged
@@ -231,7 +231,7 @@ var ErrIncompatible = errors.New("does not work with this AppTown")
 
 // Judge says whether a build of version can read the update. A dev- build
 // is NotJudged; a release outside the range is ErrIncompatible.
-func (h Header) Judge(version string) (Judgement, error) {
+func (h Header) Judge(version string) (judgement, error) {
 	if strings.HasPrefix(version, "dev-") {
 		return NotJudged, nil
 	}
@@ -246,7 +246,7 @@ func (h Header) Judge(version string) (Judgement, error) {
 	if compare(v, r.min) < 0 || (r.max != nil && compare(v, *r.max) >= 0) {
 		return 0, fmt.Errorf("%w: it needs AppTown %s; this is %s", ErrIncompatible, h.WorksWith, version)
 	}
-	return Works, nil
+	return works, nil
 }
 
 type triple [3]int

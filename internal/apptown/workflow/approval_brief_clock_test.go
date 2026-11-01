@@ -57,11 +57,11 @@ func TestAKeptBriefIsStaleOnceAStepFinishesAfterItWhateverTheDatabasesClock(t *t
 				t.Fatal(err)
 			}
 			owner := newStepAttempts(q.db, func(kind string) bool { return kind == "build" })
-			claim, err := owner.Start(ctx, snapshot, "build")
+			claim, err := owner.start(ctx, snapshot, "build", ids.Nil)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := owner.Finish(ctx, claim, StepOutcome{Status: StatusPass}); err != nil {
+			if err := owner.finish(ctx, claim, StepOutcome{Status: StatusPass}); err != nil {
 				t.Fatal(err)
 			}
 			brief, err := newService(q.db, allowProject(run.ProjectID), Runtime{}).ApprovalBrief(ctx, approval)

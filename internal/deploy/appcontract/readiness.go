@@ -41,9 +41,9 @@ type ReadinessRequest struct {
 	Timeout time.Duration
 }
 
-// ReadinessAnswer is what one sample saw: the status (0 for no answer)
+// readinessAnswer is what one sample saw: the status (0 for no answer)
 // and whether the app is ready by Ready (and the body, when asked).
-type ReadinessAnswer struct {
+type readinessAnswer struct {
 	Status int
 	Ready  bool
 }
@@ -51,7 +51,7 @@ type ReadinessAnswer struct {
 // SampleReadiness asks r once through transport (nil is Go's default):
 // a GET that follows no redirect and reads at most the body it compares.
 // A request that got no answer is an error with Status 0.
-func SampleReadiness(ctx context.Context, transport http.RoundTripper, r ReadinessRequest) (ReadinessAnswer, error) {
+func SampleReadiness(ctx context.Context, transport http.RoundTripper, r ReadinessRequest) (readinessAnswer, error) {
 	if r.Timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, r.Timeout)
@@ -59,7 +59,7 @@ func SampleReadiness(ctx context.Context, transport http.RoundTripper, r Readine
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, r.URL, nil)
 	if err != nil {
-		return ReadinessAnswer{}, err
+		return readinessAnswer{}, err
 	}
 	for k, v := range r.Headers {
 		req.Header.Set(k, v)
@@ -70,19 +70,19 @@ func SampleReadiness(ctx context.Context, transport http.RoundTripper, r Readine
 	client := &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	resp, err := client.Do(req)
 	if err != nil {
-		return ReadinessAnswer{}, err
+		return readinessAnswer{}, err
 	}
 	defer func() {
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10)) // unchecked-error: draining lets the connection be reused; the answer is already read.
 		_ = resp.Body.Close()                                         // unchecked-error: the status is the answer; a close failure changes nothing.
 	}()
-	a := ReadinessAnswer{Status: resp.StatusCode, Ready: Ready(resp.StatusCode, r.Expect)}
+	a := readinessAnswer{Status: resp.StatusCode, Ready: Ready(resp.StatusCode, r.Expect)}
 	if r.Release != "" {
 		// A body that could not be read whole is no answer: a prefix that
 		// happens to match the identity is not the marker.
 		body, err := io.ReadAll(io.LimitReader(resp.Body, MaxReleaseAnswer))
 		if err != nil {
-			return ReadinessAnswer{Status: resp.StatusCode}, errors.Join(errors.New("reading the release marker"), err)
+			return readinessAnswer{Status: resp.StatusCode}, errors.Join(errors.New("reading the release marker"), err)
 		}
 		a.Ready = ServesRelease(resp.StatusCode, body, r.Release)
 	}

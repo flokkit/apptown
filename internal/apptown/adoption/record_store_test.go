@@ -22,7 +22,7 @@ func TestProjectAdoptionDoorPreservesScopeAndCancellation(t *testing.T) {
 	db := testDB(t)
 	first := adoptionTestProject(t, db, "first", "First")
 	second := adoptionTestProject(t, db, "second", "Second")
-	ad, err := newAdoptions(db).Advance(t.Context(), first, AdoptionEdit, "reviewed", "alice", false, func(*database.Tx, *RecordedRevision, time.Time) (Receipt, error) { return EmptyReceipt(), nil })
+	ad, err := newAdoptions(db).advance(t.Context(), first, AdoptionEdit, "reviewed", "alice", false, func(*database.Tx, *RecordedRevision, time.Time) (Receipt, error) { return EmptyReceipt(), nil })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestAdoptionHistoryDoesNotReturnPartialRecords(t *testing.T) {
 	if _, err := q.InsertAdoption(context.Background(), adoptionsql.InsertAdoptionParams{ID: ids.New(time.Now()), ProjectID: project, Revision: 2, Kind: AdoptionEdit.String(), Digest: "new", Receipt: []byte(`{}`)}); err != nil {
 		t.Fatal(err)
 	}
-	rows, err := newAdoptions(db).History(t.Context(), project, 10)
+	rows, err := newAdoptions(db).history(t.Context(), project, 10)
 	if err == nil || rows == nil || len(rows) != 0 {
 		t.Fatalf("corrupt older receipt returned partial history: %+v %v", rows, err)
 	}

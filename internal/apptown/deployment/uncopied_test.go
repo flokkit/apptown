@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/dbtest"
 )
 
 // copyCheckSays is a data protection that cannot copy what any deployment
@@ -73,7 +75,7 @@ func TestDefaultAddressReceiptFailureRefusesTheWholeRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	restore := p.db.FailNextStatement("-- name: AppendReceipt")
+	restore := dbtest.NextStatementFailure(p.db, "-- name: AppendReceipt")
 	defer restore()
 	out, err := p.s.RequestDefaultRelease(t.Context(), DefaultReleaseSelection{ProjectID: p.project, ExpectedRevision: &selected.Revision, AddressRevision: new(int64), CustomHostname: &hostname})
 	if err == nil || !out.ID.IsZero() {

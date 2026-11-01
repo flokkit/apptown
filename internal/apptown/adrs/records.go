@@ -89,8 +89,8 @@ func (s State) options() Options {
 	if _, err := s.Value(); err != nil {
 		return out
 	}
-	out.ContentEditable, out.CanSupersede = !s.Locked(), s == Accepted
-	for _, act := range []Decision{Propose, Accept, Reject, Redraft, Deprecate} {
+	out.ContentEditable, out.CanSupersede = !s.locked(), s == Accepted
+	for _, act := range []Decision{Propose, Accept, reject, redraft, deprecate} {
 		if next, err := s.decide(act); err == nil && next != s {
 			out.Transitions = append(out.Transitions, next)
 		}

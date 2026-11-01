@@ -124,9 +124,9 @@ func TestStorageAdmissionRequiresObservedEngineAndIncarnation(t *testing.T) {
 					return nil, errors.New("unexpected command: " + line)
 				}
 			}}
-			own := Ownership{Storage: m}
+			own := Ownership{storage: m}
 			if tc.restore {
-				own.RestoreStorage = bindingRestore{m}
+				own.restoreStorage = bindingRestore{m}
 			}
 			path := "/data"
 			if tc.change == "path" {
@@ -177,7 +177,7 @@ func TestStorageRetirementFollowsConfirmedOwnedVolumeDeletion(t *testing.T) {
 			if tc.recordFails {
 				m.failure = errors.New("database unavailable")
 			}
-			out := TearDownOwned(t.Context(), h.scope(), []deploy.Owned{{Kind: "volume", ID: "database", Need: "postgres", Data: true}}, "", tc.backedUp, m)
+			out := tearDownOwned(t.Context(), h.scope(), []deploy.Owned{{Kind: "volume", ID: "database", Need: "postgres", Data: true}}, "", tc.backedUp, m)
 			if m.found != tc.wantRetained {
 				t.Fatalf("evidence retained=%t want=%t", m.found, tc.wantRetained)
 			}
@@ -208,7 +208,7 @@ func TestRestoreRefusesEveryExistingEngineVolumeBeforeStartingAny(t *testing.T) 
 			return json.Marshal(map[string]string{"Id": "sha256:" + strings.Repeat("a", 64)})
 		}
 		return host.reply(req)
-	}}}, stack, []deploy.ServiceSpec{{Name: "first", KeepsImage: true}, {Name: "second", KeepsImage: true}}, "production", Ownership{Storage: memory, RestoreStorage: bindingRestore{memory}, Needs: map[string]string{"first": "/data", "second": "/data"}})
+	}}}, stack, []deploy.ServiceSpec{{Name: "first", KeepsImage: true}, {Name: "second", KeepsImage: true}}, "production", Ownership{storage: memory, restoreStorage: bindingRestore{memory}, Needs: map[string]string{"first": "/data", "second": "/data"}})
 	if err == nil || !strings.Contains(err.Error(), later) {
 		t.Fatalf("existing later volume admitted: %v", err)
 	}
@@ -258,7 +258,7 @@ func TestNewStoragePullsEngineBeforeCreatingVolume(t *testing.T) {
 				}
 				return h.reply(req)
 			}}
-			_, err := EnsureStandingServices(t.Context(), Scope{Client: client}, stack, []deploy.ServiceSpec{svc}, "production", Ownership{Storage: m, Needs: map[string]string{svc.Name: "/data"}})
+			_, err := EnsureStandingServices(t.Context(), Scope{Client: client}, stack, []deploy.ServiceSpec{svc}, "production", Ownership{storage: m, Needs: map[string]string{svc.Name: "/data"}})
 			if (err != nil) != fails {
 				t.Fatalf("first start: %v", err)
 			}
@@ -290,7 +290,7 @@ func TestStorageBindingSurvivesSelectorRemoval(t *testing.T) {
 				t.Errorf("selector refusal reached Docker: %v", req.Args)
 				return nil, errors.New("unexpected")
 			}}
-			_, err := EnsureStandingServices(t.Context(), Scope{Client: client}, "bound", []deploy.ServiceSpec{svc}, "synthetic", Ownership{Storage: memory, Needs: map[string]string{svc.Name: path}})
+			_, err := EnsureStandingServices(t.Context(), Scope{Client: client}, "bound", []deploy.ServiceSpec{svc}, "synthetic", Ownership{storage: memory, Needs: map[string]string{svc.Name: path}})
 			if err == nil || !memory.found || memory.writes != 0 {
 				t.Fatalf("selector bypass: err=%v binding=%+v", err, memory)
 			}
@@ -299,7 +299,7 @@ func TestStorageBindingSurvivesSelectorRemoval(t *testing.T) {
 	// Ordinary unbound non-engine services keep their existing lifecycle.
 	h := newOwnedHost()
 	memory := &bindingMemory{}
-	_, err := EnsureStandingServices(t.Context(), Scope{Client: &fakeClient{reply: h.reply}}, "unbound", []deploy.ServiceSpec{{Name: "s3", Image: "object-store:1"}}, "production", Ownership{Storage: memory, Needs: map[string]string{"s3": "/data"}})
+	_, err := EnsureStandingServices(t.Context(), Scope{Client: &fakeClient{reply: h.reply}}, "unbound", []deploy.ServiceSpec{{Name: "s3", Image: "object-store:1"}}, "production", Ownership{storage: memory, Needs: map[string]string{"s3": "/data"}})
 	if err != nil || len(h.runs) == 0 || memory.found {
 		t.Fatalf("unbound non-engine changed: err=%v runs=%v binding=%+v", err, h.runs, memory)
 	}
@@ -314,7 +314,7 @@ func TestPhysicalRestoreRefusesChangedDataPathBeforeCreation(t *testing.T) {
 	source := deploy.StorageBinding{Need: "redis", Volume: Current.NeedVolume("target", "redis"), ImageID: "sha256:" + strings.Repeat("a", 64), DataPath: "/original"}
 	memory := &bindingMemory{found: true, binding: source}
 	h := newOwnedHost()
-	_, err := EnsureStandingServices(t.Context(), Scope{Client: &fakeClient{reply: h.reply}}, "target", []deploy.ServiceSpec{{Name: "redis", Image: "redis:7", KeepsImage: true}}, "production", Ownership{Storage: memory, RestoreStorage: exactBindingRestore{bindingRestore{memory}}, Needs: map[string]string{"redis": "/changed"}})
+	_, err := EnsureStandingServices(t.Context(), Scope{Client: &fakeClient{reply: h.reply}}, "target", []deploy.ServiceSpec{{Name: "redis", Image: "redis:7", KeepsImage: true}}, "production", Ownership{storage: memory, restoreStorage: exactBindingRestore{bindingRestore{memory}}, Needs: map[string]string{"redis": "/changed"}})
 	if err == nil || !strings.Contains(err.Error(), "data path") {
 		t.Fatalf("changed physical layout admitted: %v", err)
 	}

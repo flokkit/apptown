@@ -29,7 +29,7 @@ func NewLandingRestart(projects *project.Projects, work *workflow.Service, lifec
 // when a parked landing meets amended law: abandon the old-law run (its
 // receipts stay) and start a fresh landing under the current lane.
 func (h LandingRestart) RestartLanding(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -70,7 +70,7 @@ func (h LandingRestart) RestartLanding(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, 422, "old landing abandoned but the new one would not start: %v", err)
 		return
 	}
-	audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), p.ID, "landing.restarted", fmt.Sprintf("run %d -> %d", run.ID, fresh.ID), nil)
+	audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, actor(r), p.ID, "landing.restarted", fmt.Sprintf("run %d -> %d", run.ID, fresh.ID), nil)
 	WriteJSON(w, 200, RestartedLanding{Run: fresh})
 }
 

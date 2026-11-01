@@ -114,14 +114,14 @@ func (p Pack) Spec() PackSpec {
 		Toolchain: p.Toolchain, Tools: p.Tools, Services: p.Services, Extensions: p.Extensions, Requires: p.Requires}
 }
 
-// Pack decodes the row's declaration into the shape readers use.
-func (p PackRecord) Pack() (Pack, error) {
+// pack decodes the row's declaration into the shape readers use.
+func (p packRow) pack() (Pack, error) {
 	return packFrom(p, p.SpecJSON)
 }
 
 // packFrom decodes a stored spec. One that does not decode is an error
 // naming the pack: a corrupt record is not a pack with no guidance.
-func packFrom(p PackRecord, spec string) (Pack, error) {
+func packFrom(p packRow, spec string) (Pack, error) {
 	pk := Pack{ID: p.ID, LatestVersion: p.LatestVersion, Name: p.Name, Description: p.Description, Origin: p.Origin, Enabled: p.Enabled}
 	var ps PackSpec
 	if err := json.Unmarshal([]byte(spec), &ps); err != nil {
@@ -153,9 +153,9 @@ func ReadStockPacks(fsys fs.FS) ([]Pack, error) {
 	return doc.Packs, nil
 }
 
-// ReadStockPolicies reads the policies the release ships (policies.yaml),
+// readStockPolicies reads the policies the release ships (policies.yaml),
 // each held to its rule's options.
-func ReadStockPolicies(fsys fs.FS) ([]LibraryPolicy, error) {
+func readStockPolicies(fsys fs.FS) ([]LibraryPolicy, error) {
 	raw, err := fs.ReadFile(fsys, "policies.yaml")
 	if err != nil {
 		return nil, err
@@ -185,19 +185,19 @@ func decodeStrict(raw []byte, v any) error {
 	return nil
 }
 
-// ErrUnknownToolLine is a pack naming a tool line the tool versions list
+// errUnknownToolLine is a pack naming a tool line the tool versions list
 // does not have, or proposing a service whose image disagrees with its line.
-var ErrUnknownToolLine = fault.New(fault.Invalid, "a pack names only tool lines the tool versions list has")
+var errUnknownToolLine = fault.New(fault.Invalid, "a pack names only tool lines the tool versions list has")
 
 // checkTools holds a pack's resolved tools to the tool versions list, and a
 // proposed service's image tag to the pack's line for that tool: the tag is
 // the line, or the line and a dot and more (postgres:16, mariadb:11.4.13 on
 // line 11.4).
-func (s *Packs) checkTools(spec PackSpec) error {
+func (s *packs) checkTools(spec PackSpec) error {
 	for _, tool := range slices.Sorted(maps.Keys(spec.Tools)) {
 		line := spec.Tools[tool]
 		if s.lines == nil || !s.lines.HasLine(tool, line) {
-			return fmt.Errorf("%w: %s %q is not in the tool versions this AppTown has", ErrUnknownToolLine, tool, line)
+			return fmt.Errorf("%w: %s %q is not in the tool versions this AppTown has", errUnknownToolLine, tool, line)
 		}
 	}
 	for _, svc := range spec.Services {
@@ -208,7 +208,7 @@ func (s *Packs) checkTools(spec PackSpec) error {
 		_, tag, found := strings.Cut(svc.Image[strings.LastIndex(svc.Image, "/")+1:], ":")
 		tag, _, _ = strings.Cut(tag, "@")
 		if !found || (tag != line && !strings.HasPrefix(tag, line+".")) {
-			return fmt.Errorf("%w: service %s proposes %s, which is not %s line %s", ErrUnknownToolLine, svc.Name, svc.Image, svc.Name, line)
+			return fmt.Errorf("%w: service %s proposes %s, which is not %s line %s", errUnknownToolLine, svc.Name, svc.Image, svc.Name, line)
 		}
 	}
 	return nil

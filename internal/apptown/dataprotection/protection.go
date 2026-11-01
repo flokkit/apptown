@@ -33,18 +33,18 @@ const (
 	CopyFresh CopyState = "fresh"
 	// CopyStale: older than that, or the last copy failed.
 	CopyStale CopyState = "stale"
-	// CopyUnknown: the last copy was interrupted, or AppTown could not
+	// copyUnknown: the last copy was interrupted, or AppTown could not
 	// ask; shown with the newest good copy's time.
-	CopyUnknown CopyState = "unknown"
+	copyUnknown CopyState = "unknown"
 	// CopyNone: AppTown holds no copy of it.
 	CopyNone CopyState = "none"
 	// CopyDisposable: the app declared it disposable; it starts empty.
 	CopyDisposable CopyState = "disposable"
 )
 
-// CopyCadence is how often AppTown copies production data; a copy is
+// copyCadence is how often AppTown copies production data; a copy is
 // fresh within the cadence plus six hours.
-const CopyCadence = 24 * time.Hour
+const copyCadence = 24 * time.Hour
 
 // Protection is a deployment's protection.
 type Protection struct {
@@ -111,14 +111,14 @@ type Coverage struct {
 	NotAssessed []string `json:"notAssessed"`
 }
 
-// OutsideNotAssessed is the limit every protection answer carries. The
+// outsideNotAssessed is the limit every protection answer carries. The
 // backup store holds AppTown's copies; it is not an app's own bucket.
-const OutsideNotAssessed = "data the app keeps outside the needs it declares, such as a bucket or a database it reaches with its own settings"
+const outsideNotAssessed = "data the app keeps outside the needs it declares, such as a bucket or a database it reaches with its own settings"
 
 // assess adds an item's row and says whether it was assessed: an item
 // whose kind or place could not be read is listed with why, not assessed.
 func (p *Protection) assess(row ItemProtection, unresolved string) {
-	row.CopyLabel = row.Copy.Label()
+	row.CopyLabel = row.Copy.label()
 	p.Items = append(p.Items, row)
 	label := row.Need
 	if row.Volume != "" {
@@ -288,7 +288,7 @@ func (s *Service) DeploymentProtection(ctx context.Context, projectID ids.ID, na
 	if out.Unknown != "" {
 		out.Coverage.NotAssessed = append(out.Coverage.NotAssessed, "the deployment's own data: what it holds is unknown")
 	}
-	out.Coverage.NotAssessed = append(out.Coverage.NotAssessed, OutsideNotAssessed)
+	out.Coverage.NotAssessed = append(out.Coverage.NotAssessed, outsideNotAssessed)
 	return out, nil
 }
 
@@ -296,7 +296,7 @@ func (s *Service) protection(ctx context.Context, projectID ids.ID, name string)
 	dep, t, items, err := s.protectedPlace(ctx, projectID, name)
 	var unread error
 	switch {
-	case errors.Is(err, ErrDataNotKnown) && dep != nil:
+	case errors.Is(err, errDataNotKnown) && dep != nil:
 		// Not read is not none: the rows are not shown and the page says why.
 		unread = err
 	case err != nil:
@@ -324,17 +324,17 @@ func (s *Service) protection(ctx context.Context, projectID ids.ID, name string)
 	}
 	if out.Rehearsal == nil {
 		out.RehearsalNote = "never rehearsed"
-		if _, _, err := s.rehearsalHost(ctx, dep); errors.Is(err, ErrNoRehearsalHost) {
+		if _, _, err := s.rehearsalHost(ctx, dep); errors.Is(err, errNoRehearsalHost) {
 			out.RehearsalNote = "never rehearsed: no rehearsal place"
 		}
 	}
-	if out.RestoreTest, err = s.LastRestoreTest(ctx, dep); err != nil {
+	if out.RestoreTest, err = s.lastRestoreTest(ctx, dep); err != nil {
 		return nil, err
 	}
 	if out.RestoreTest == nil {
 		out.RestoreTestNote = "never tested on its platform"
 	}
-	if out.RestoredCopies, err = s.RestoredCopiesOf(ctx, dep, 5); err != nil {
+	if out.RestoredCopies, err = s.restoredCopiesOf(ctx, dep, 5); err != nil {
 		return nil, err
 	}
 	store, err := s.Store(ctx)
@@ -381,7 +381,7 @@ func (s *Service) protection(ctx context.Context, projectID ids.ID, name string)
 	// not push a failed or interrupted copy out of the reckoning.
 	var lastCopy *operations.Operation
 	if s.ops != nil {
-		if lastCopy, err = s.ops.LatestEnded(ctx, deployment.SubjectOf(dep), OperationCopy); err != nil {
+		if lastCopy, err = s.ops.LatestEnded(ctx, deployment.SubjectOf(dep), operationCopy); err != nil {
 			return nil, err
 		}
 	}
@@ -423,10 +423,10 @@ func (s *Service) lastDrillOf(ctx context.Context, deploymentID ids.ID, need str
 // the instance and database it certifies.
 func newestCopyOf(sets []Backup, it backupPlanItem) *CopyRef {
 	for _, b := range sets {
-		if b.Store != StoreBackupStore || !b.Status.Holds() {
+		if b.Store != StoreBackupStore || !b.Status.holds() {
 			continue
 		}
-		if c := b.GoodCopy("need", it.Name); c != nil && c.Instance == it.Instance && c.Database == it.Database && c.Bucket == it.Bucket {
+		if c := b.goodCopy("need", it.Name); c != nil && c.Instance == it.Instance && c.Database == it.Database && c.Bucket == it.Bucket {
 			return &CopyRef{Backup: b.ID, TakenAt: b.TakenAt, Bytes: c.Bytes, SHA256: c.SHA256}
 		}
 	}
@@ -441,7 +441,7 @@ func newestCopyOf(sets []Backup, it backupPlanItem) *CopyRef {
 // later failure as earlier than the good copy before it.
 func copyState(last *CopyRef, lastOp *operations.Operation, now time.Time) (CopyState, string) {
 	if lastOp != nil && lastOp.State == operations.Unknown {
-		return CopyUnknown, "the last copy was interrupted; whether it finished is not known"
+		return copyUnknown, "the last copy was interrupted; whether it finished is not known"
 	}
 	if last == nil {
 		if lastOp != nil && lastOp.State == operations.Failed {
@@ -452,7 +452,7 @@ func copyState(last *CopyRef, lastOp *operations.Operation, now time.Time) (Copy
 	if lastOp != nil && lastOp.State == operations.Failed {
 		return CopyStale, "the last copy failed: " + lastOp.Detail
 	}
-	if taken := mustTime(last.TakenAt); now.Sub(taken) > CopyCadence+6*time.Hour {
+	if taken := mustTime(last.TakenAt); now.Sub(taken) > copyCadence+6*time.Hour {
 		return CopyStale, fmt.Sprintf("the newest copy is %s old", now.Sub(taken).Round(time.Hour))
 	}
 	return CopyFresh, ""
@@ -531,28 +531,28 @@ func nativeBackupAt(n *NativeBackups, now time.Time) *NativeBackups {
 	return n
 }
 
-// NativeReadFor is how long a provider's answer about its own backups is
+// nativeReadFor is how long a provider's answer about its own backups is
 // shown before it is asked again.
-const NativeReadFor = 5 * time.Minute
+const nativeReadFor = 5 * time.Minute
 
 // Words for a Docker host's deployment's operations that run elsewhere,
 // and for the operations only App Platform has so far.
 var (
-	// ErrDockerBackupsPage: a Docker host's deployment is copied by its
+	// errDockerBackupsPage: a Docker host's deployment is copied by its
 	// backups, from the Backups page, not by a copy operation.
-	ErrDockerBackupsPage error = &deployment.Unavailable{Reason: "backups-page", Why: "A Docker host's deployment is backed up daily and from the Backups page."}
-	// ErrDrillAppPlatform: a check fills a new database the provider makes.
-	ErrDrillAppPlatform error = &deployment.Unavailable{Reason: "not-on-this-platform", Why: "Checks run on App Platform only; a rehearsal checks a Docker host's copies."}
-	// ErrRestoreTestAppPlatform: a restore test runs behind a gate only
+	errDockerBackupsPage error = &deployment.Unavailable{Reason: "backups-page", Why: "A Docker host's deployment is backed up daily and from the Backups page."}
+	// errDrillAppPlatform: a check fills a new database the provider makes.
+	errDrillAppPlatform error = &deployment.Unavailable{Reason: "not-on-this-platform", Why: "Checks run on App Platform only; a rehearsal checks a Docker host's copies."}
+	// errRestoreTestAppPlatform: a restore test runs behind a gate only
 	// App Platform places so far.
-	ErrRestoreTestAppPlatform error = &deployment.Unavailable{Reason: "not-on-this-platform", Why: "Restore tests run on App Platform only; a rehearsal checks a Docker host's copies."}
+	errRestoreTestAppPlatform error = &deployment.Unavailable{Reason: "not-on-this-platform", Why: "Restore tests run on App Platform only; a rehearsal checks a Docker host's copies."}
 )
 
-// OnAppTownDiskNote is what a Docker host's deployment says first when no
+// onAppTownDiskNote is what a Docker host's deployment says first when no
 // store is attached: where its backups are and what that does not cover,
 // calmly, since it is a choice an instance may make (snapshots of that
 // disk, say).
-const OnAppTownDiskNote = "Backups are kept on this host only: they do not outlive its disk."
+const onAppTownDiskNote = "Backups are kept on this host only: they do not outlive its disk."
 
 // dockerProtection is a Docker host's deployment's protection: each item
 // its backups hold and how recent its newest good copy is, wherever it is
@@ -565,7 +565,7 @@ func (s *Service) dockerProtection(ctx context.Context, out *Protection, dep *de
 	}
 	plan, err := s.heldPlan(ctx, dep.ProjectID, p.Slug, dep.Name)
 	switch {
-	case errors.Is(err, ErrNothingToBackUp):
+	case errors.Is(err, errNothingToBackUp):
 		return nil // known to hold no data: nothing to say
 	case err != nil:
 		out.Unknown = err.Error() // not read, or named and not there: never shown as nothing
@@ -577,7 +577,7 @@ func (s *Service) dockerProtection(ctx context.Context, out *Protection, dep *de
 	}
 	var newest *Backup
 	for i := range sets {
-		if sets[i].Status.Holds() {
+		if sets[i].Status.holds() {
 			newest = &sets[i]
 			break
 		}
@@ -590,7 +590,7 @@ func (s *Service) dockerProtection(ctx context.Context, out *Protection, dep *de
 	}
 	switch {
 	case !hasStore:
-		out.Note = OnAppTownDiskNote
+		out.Note = onAppTownDiskNote
 	case newest != nil && newest.Store == StoreBackupStore:
 		out.OffHost = true
 	case newest != nil:
@@ -623,7 +623,7 @@ func (s *Service) dockerProtection(ctx context.Context, out *Protection, dep *de
 			if it.Unresolved != "" {
 				break // what it holds is not known, so no copy is evidence for it
 			}
-			if c := copyFor[k][j]; c != nil && b.Status.Holds() {
+			if c := copyFor[k][j]; c != nil && b.Status.holds() {
 				row.LastCopy = &CopyRef{Backup: b.ID, TakenAt: b.TakenAt, Bytes: c.Bytes, SHA256: c.SHA256}
 				break
 			}
@@ -633,7 +633,7 @@ func (s *Service) dockerProtection(ctx context.Context, out *Protection, dep *de
 		case it.Unresolved != "" && row.LastCopy == nil:
 			row.CopyNote = it.Unresolved
 		// The newest backup failing after the newest good copy is stale.
-		case len(sets) > 0 && row.LastCopy != nil && sets[0].ID.Compare(row.LastCopy.Backup) > 0 && (sets[0].Status == BackupFailed || copyFor[0][j] == nil) && sets[0].Status != BackupPruned:
+		case len(sets) > 0 && row.LastCopy != nil && sets[0].ID.Compare(row.LastCopy.Backup) > 0 && (sets[0].Status == BackupFailed || copyFor[0][j] == nil) && sets[0].Status != backupPruned:
 			row.Copy, row.CopyNote = CopyStale, "the last backup did not copy it: "+sets[0].Error
 		}
 		out.assess(row, it.Unresolved)
@@ -651,7 +651,7 @@ func (s *Service) dockerProtection(ctx context.Context, out *Protection, dep *de
 func (v Coverage) MarshalJSON() ([]byte, error) {
 	type view Coverage
 	out := view(v)
-	out.StatusLabel = LabelUnknown
+	out.StatusLabel = labelUnknown
 	if out.Assessed == nil {
 		out.Assessed = []string{}
 	}

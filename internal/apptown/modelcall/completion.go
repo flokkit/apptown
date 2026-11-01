@@ -6,9 +6,11 @@
 // fallback, publication and budget policies; they never record spend.
 package modelcall
 
-import "github.com/flokkit/apptown/internal/ids"
+import (
+	"context"
 
-import "context"
+	"github.com/flokkit/apptown/internal/ids"
+)
 
 // Call is one single-turn question AppTown asks for itself.
 type Call struct {

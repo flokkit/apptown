@@ -50,7 +50,7 @@ spec:
 	}
 
 	// With a spec-final artifact in the project, nothing is missing.
-	producer, err := owner.Create(context.Background(), StartRequest{ProjectID: project, WorkflowName: "product-spec", InputsJSON: `{}`, requestedBy: "operator"}, PreparedRun{
+	producer, err := owner.records.create(context.Background(), StartRequest{ProjectID: project, WorkflowName: "product-spec", InputsJSON: `{}`, requestedBy: "operator"}, PreparedRun{
 		Workflow: DefinitionRef{Name: "product-spec", Version: 1},
 		Spec:     schema.Spec{Kind: "change", Stages: []schema.Stage{{Name: "produce"}}},
 	})
@@ -74,7 +74,7 @@ func TestArtifactRequirementsAreScopedOrderedAndReadFailuresPropagate(t *testing
 	db := owner.records.db
 	foreign := workflowTestProject(t, db, "foreign", "Foreign", "")
 	foreignChange := admissionTestChange(t, db, foreign, "foreign")
-	run, err := owner.Create(context.Background(), StartRequest{ProjectID: foreign, ChangeID: foreignChange, WorkflowName: "foreign", InputsJSON: `{}`, requestedBy: "operator"}, def)
+	run, err := owner.records.create(context.Background(), StartRequest{ProjectID: foreign, ChangeID: foreignChange, WorkflowName: "foreign", InputsJSON: `{}`, requestedBy: "operator"}, def)
 	if err != nil {
 		t.Fatal(err)
 	}

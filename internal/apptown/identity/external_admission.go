@@ -27,11 +27,11 @@ type ExternalStart struct {
 	From                       net.IP
 }
 
-// ExternalFlow contains a redirect and the HttpOnly cookie value returned once.
-type ExternalFlow struct{ Redirect, BrowserSecret string }
+// externalFlow contains a redirect and the HttpOnly cookie value returned once.
+type externalFlow struct{ Redirect, BrowserSecret string }
 
-// ExternalSignedIn combines committed session and a previously admitted path.
-type ExternalSignedIn struct {
+// externalSignedIn combines committed session and a previously admitted path.
+type externalSignedIn struct {
 	SignedIn
 	ReturnPath string
 	Lifetime   time.Duration
@@ -84,35 +84,35 @@ func (s *Service) localLinkSession(ctx context.Context, q database.Queryer, pr a
 	}
 	return row, nil
 }
-func (s *Service) BeginExternal(ctx context.Context, in ExternalStart) (ExternalFlow, error) {
+func (s *Service) BeginExternal(ctx context.Context, in ExternalStart) (externalFlow, error) {
 	if e := s.externalAvailable(); e != nil {
-		return ExternalFlow{}, e
+		return externalFlow{}, e
 	}
 	path, e := externalReturn(in.ReturnPath)
 	if e != nil {
-		return ExternalFlow{}, e
+		return externalFlow{}, e
 	}
 	state, e := externalRandom()
 	if e != nil {
-		return ExternalFlow{}, e
+		return externalFlow{}, e
 	}
 	verifier, e := externalRandom()
 	if e != nil {
-		return ExternalFlow{}, e
+		return externalFlow{}, e
 	}
 	nonce := externalNonce(verifier)
 	var local accesssql.SessionsNamed
 	if in.Link {
 		local, e = s.localLinkSession(ctx, s.db, in.Principal)
 		if e != nil {
-			return ExternalFlow{}, e
+			return externalFlow{}, e
 		}
 		a, e := s.verifyLogin(ctx, PasswordLogin{Username: local.Username, Password: in.Password, From: in.From})
 		if e != nil {
-			return ExternalFlow{}, e
+			return externalFlow{}, e
 		}
 		if a.PrincipalID != in.Principal.ID {
-			return ExternalFlow{}, ErrCredentials
+			return externalFlow{}, ErrCredentials
 		}
 	}
 	var p accesssql.ExternalSigninProvider
@@ -127,10 +127,10 @@ func (s *Service) BeginExternal(ctx context.Context, in ExternalStart) (External
 			return e
 		}
 		if !p.Enabled {
-			return ErrExternalDisabled
+			return errExternalDisabled
 		}
 		if p.CallbackOrigin != s.cfg.External.Origin {
-			return ErrExternalChanged
+			return errExternalChanged
 		}
 		purpose := "login"
 		if in.Link {
@@ -150,58 +150,58 @@ func (s *Service) BeginExternal(ctx context.Context, in ExternalStart) (External
 		return q.InsertExternalTransaction(ctx, accesssql.InsertExternalTransactionParams{ID: ids.New(now), StateHash: HashToken(state), ProviderID: p.ID, ProviderRevision: p.Revision, VerifierHash: HashToken(verifier), NonceHash: HashToken(nonce), Purpose: purpose, LocalSessionID: local.ID, PrincipalID: local.PrincipalID, ProposedName: in.Name, Callback: p.CallbackOrigin + "/api/v1/auth/external/callback", ReturnPath: path, CreatedAt: now, ExpiresAt: now.Add(10 * time.Minute)})
 	})
 	if e != nil {
-		return ExternalFlow{}, e
+		return externalFlow{}, e
 	}
 	cfg, e := s.externalConfiguration(ctx, p)
 	if e != nil {
-		return ExternalFlow{}, e
+		return externalFlow{}, e
 	}
 	redirect, e := s.cfg.External.Protocol.Begin(ctx, cfg, state, nonce, verifier, in.Link)
 	if e != nil {
-		return ExternalFlow{}, e
+		return externalFlow{}, e
 	}
-	return ExternalFlow{Redirect: redirect, BrowserSecret: verifier}, nil
+	return externalFlow{Redirect: redirect, BrowserSecret: verifier}, nil
 }
-func (s *Service) CompleteExternal(ctx context.Context, state, verifier, code string, from net.IP) (ExternalSignedIn, error) {
+func (s *Service) CompleteExternal(ctx context.Context, state, verifier, code string, from net.IP) (externalSignedIn, error) {
 	if e := s.externalAvailable(); e != nil {
-		return ExternalSignedIn{}, e
+		return externalSignedIn{}, e
 	}
 	if state == "" || len(verifier) != 43 {
-		return ExternalSignedIn{}, oidclogin.ErrRejected
+		return externalSignedIn{}, oidclogin.ErrRejected
 	}
 	// Claim before remote work. A failed exchange requires a fresh flow; it never
 	// leaves two parallel callbacks eligible to mint sessions.
 	tr, e := queries(s.db).ConsumeExternalTransaction(ctx, accesssql.ConsumeExternalTransactionParams{StateHash: HashToken(state), VerifierHash: HashToken(verifier), At: s.now()})
 	if e != nil {
 		if errors.Is(e, sql.ErrNoRows) {
-			return ExternalSignedIn{}, oidclogin.ErrRejected
+			return externalSignedIn{}, oidclogin.ErrRejected
 		}
-		return ExternalSignedIn{}, e
+		return externalSignedIn{}, e
 	}
 	p, e := queries(s.db).ExternalProviderByID(ctx, tr.ProviderID)
 	if e != nil {
-		return ExternalSignedIn{}, e
+		return externalSignedIn{}, e
 	}
 	if !p.Enabled || !p.CurrentSlot || p.Revision != tr.ProviderRevision {
-		return ExternalSignedIn{}, ErrExternalChanged
+		return externalSignedIn{}, errExternalChanged
 	}
 	nonce := externalNonce(verifier)
 	if HashToken(nonce) != tr.NonceHash {
-		return ExternalSignedIn{}, oidclogin.ErrRejected
+		return externalSignedIn{}, oidclogin.ErrRejected
 	}
 	cfg, e := s.externalConfiguration(ctx, p)
 	if e != nil {
-		return ExternalSignedIn{}, e
+		return externalSignedIn{}, e
 	}
 	if cfg.Callback != tr.Callback {
-		return ExternalSignedIn{}, ErrExternalChanged
+		return externalSignedIn{}, errExternalChanged
 	}
 	evidence, e := s.cfg.External.Protocol.Complete(ctx, cfg, code, nonce, verifier, tr.Purpose == "link")
 	if e != nil {
-		return ExternalSignedIn{}, e
+		return externalSignedIn{}, e
 	}
-	return database.Transact(ctx, s.db, func(tx *database.Tx) (ExternalSignedIn, error) {
-		var out ExternalSignedIn
+	return database.Transact(ctx, s.db, func(tx *database.Tx) (externalSignedIn, error) {
+		var out externalSignedIn
 		if e := LockUsersIn(ctx, tx); e != nil {
 			return out, e
 		}
@@ -211,7 +211,7 @@ func (s *Service) CompleteExternal(ctx context.Context, state, verifier, code st
 			return out, e
 		}
 		if !current.Enabled || !current.CurrentSlot || current.Revision != tr.ProviderRevision {
-			return out, ErrExternalChanged
+			return out, errExternalChanged
 		}
 		b, e := q.ExternalBindingBySubject(ctx, accesssql.ExternalBindingBySubjectParams{ProviderID: p.ID, Issuer: evidence.Issuer, Subject: evidence.Subject})
 		found, e := database.Lookup(e)
@@ -224,7 +224,7 @@ func (s *Service) CompleteExternal(ctx context.Context, state, verifier, code st
 			if e != nil {
 				return out, e
 			}
-			pr := access.Principal{ID: tr.PrincipalID, Kind: "user", Name: row.Username, Via: "session", Credential: SessionCredential(tr.LocalSessionID)}
+			pr := access.Principal{ID: tr.PrincipalID, Kind: "user", Name: row.Username, Via: "session", Credential: sessionCredential(tr.LocalSessionID)}
 			if _, e := s.localLinkSession(ctx, tx, pr); e != nil {
 				return out, e
 			}
@@ -261,7 +261,7 @@ func (s *Service) CompleteExternal(ctx context.Context, state, verifier, code st
 					return out, e
 				}
 				if g.RetiredAt.Valid {
-					return out, ErrExternalChanged
+					return out, errExternalChanged
 				}
 				if _, e := q.InsertMembership(ctx, accesssql.InsertMembershipParams{GroupName: g.Name, Username: u.Username, CreatedBy: "external-signin", CreatedByPrincipal: current.UpdatedBy, CreatedByVia: "standing-admission", CreatedAt: now}); e != nil {
 					return out, e
@@ -294,7 +294,7 @@ func (s *Service) CompleteExternal(ctx context.Context, state, verifier, code st
 		ttl := min(time.Hour, s.sessions.ttl)
 		token, e := issueSessionIn(ctx, tx, a.Username, ttl, now)
 		if e != nil {
-			return out, &SessionIssueError{Cause: e}
+			return out, &sessionIssueError{Cause: e}
 		}
 		session, e := q.SessionByHash(ctx, HashToken(token))
 		if e != nil {
@@ -307,8 +307,8 @@ func (s *Service) CompleteExternal(ctx context.Context, state, verifier, code st
 			return out, e
 		}
 		pr := a.principal("session")
-		pr.Credential = SessionCredential(session.ID)
-		return ExternalSignedIn{SignedIn: SignedIn{Principal: pr, Token: token}, ReturnPath: tr.ReturnPath, Lifetime: ttl}, nil
+		pr.Credential = sessionCredential(session.ID)
+		return externalSignedIn{SignedIn: SignedIn{Principal: pr, Token: token}, ReturnPath: tr.ReturnPath, Lifetime: ttl}, nil
 	})
 }
 func insertExternalBinding(ctx context.Context, q *accesssql.Queries, b accesssql.ExternalSigninBinding) error {

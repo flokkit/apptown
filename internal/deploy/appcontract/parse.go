@@ -436,7 +436,7 @@ func Parse(raw []byte) (*Contract, error) {
 		return nil, fmt.Errorf(".apptown/app.yaml: %w", err)
 	}
 	for _, name := range append([]string{DefaultProfile}, c.ProfileNames()...) {
-		if err := c.ForProfile(name).CheckNeedSizes(); err != nil {
+		if err := c.ForProfile(name).checkNeedSizes(); err != nil {
 			return nil, fmt.Errorf(".apptown/app.yaml: profile %s: %w", name, err)
 		}
 	}

@@ -233,7 +233,7 @@ func TestStockPackRewordingRefreshesInPlace(t *testing.T) {
 		t.Fatal(err)
 	}
 	// An older release worded the pack differently.
-	if err := s.packs.Describe(t.Context(), shipped.Name, "older words"); err != nil {
+	if err := s.packs.describe(t.Context(), shipped.Name, "older words"); err != nil {
 		t.Fatal(err)
 	}
 	if c := s.SyncStockPacks(t.Context()); c.Updated != 0 || c.Errors != 0 {

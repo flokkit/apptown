@@ -20,11 +20,11 @@ func TestFreshMemoryDefaultsKeepDeclarationsAndExplicitUnlimited(t *testing.T) {
 	c := &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true}, {Name: "declared", Resources: appcontract.Resources{MemoryBytes: 64 << 20}}, {Name: "unlimited", Resources: appcontract.Resources{MemoryBytes: 128 << 20}}}, Needs: []string{"db", "key"}}
 	a := AppliedProfile{Profile: "default", Parts: map[string]AppliedPart{"web": {Public: true}, "declared": {}, "unlimited": {MemoryUnlimited: true}, "db": {Need: true}}}
 	e := &Environment{}
-	out, applied, err := e.DefaultMemory(t.Context(), c, a)
+	out, applied, err := e.defaultMemory(t.Context(), c, a)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out.Parts[0].Resources.MemoryBytes != AppTownDefaultMemory || applied.Parts["web"].MemoryDefault.Kind != "apptown" {
+	if out.Parts[0].Resources.MemoryBytes != appTownDefaultMemory || applied.Parts["web"].MemoryDefault.Kind != "apptown" {
 		t.Fatalf("AppTown's default witness: %+v", applied)
 	}
 	if out.Parts[1].Resources.MemoryBytes != 64<<20 || applied.Parts["declared"].MemoryDefault != nil {
@@ -51,7 +51,7 @@ func TestFreshMemoryDefaultsKeepDeclarationsAndExplicitUnlimited(t *testing.T) {
 		t.Fatal(err)
 	}
 	replay := saved.On(c)
-	if replay.Parts[0].Resources.MemoryBytes != AppTownDefaultMemory || replay.Parts[2].Resources.MemoryBytes != 0 {
+	if replay.Parts[0].Resources.MemoryBytes != appTownDefaultMemory || replay.Parts[2].Resources.MemoryBytes != 0 {
 		t.Fatal("replay lost default/unlimited facts")
 	}
 }
@@ -66,7 +66,7 @@ func TestACatalogueDefaultIsOnlyForItsActualNeed(t *testing.T) {
 	e := &Environment{needs: catalog}
 	c := &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true}}, Needs: []string{"db"}}
 	a := AppliedProfile{Profile: "default", Parts: map[string]AppliedPart{"web": {Public: true}, "db": {Need: true}}}
-	out, applied, err := e.DefaultMemory(t.Context(), c, a)
+	out, applied, err := e.defaultMemory(t.Context(), c, a)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,10 +155,10 @@ func TestALandingCapsAndRecordsSuppliedWorkflowServices(t *testing.T) {
 	if memory, _ := w.daemon.Limits(stored.Container); memory != 512<<20 {
 		t.Fatalf("app replay changed its recorded cap: %d", memory)
 	}
-	if got := a.OnServices(supplied); got[0].Resources.MemoryBytes != 512<<20 {
+	if got := a.onServices(supplied); got[0].Resources.MemoryBytes != 512<<20 {
 		t.Fatal("supplied service replay used omitted source limit")
 	}
-	if got := (AppliedProfile{}).OnServices(supplied); got[0].Resources.MemoryBytes != 0 {
+	if got := (AppliedProfile{}).onServices(supplied); got[0].Resources.MemoryBytes != 0 {
 		t.Fatal("legacy replay gained a new cap")
 	}
 }

@@ -19,7 +19,7 @@ const pass = "correct horse battery"
 // A second of scrypt per archive buys these tests nothing.
 func init() { workFactor = 10 }
 
-func write(t *testing.T, add func(w *Writer)) []byte {
+func write(t *testing.T, add func(w *writer)) []byte {
 	t.Helper()
 	var buf bytes.Buffer
 	w, err := NewWriter(&buf, pass)
@@ -71,7 +71,7 @@ func TestATreeComesBackWithItsFilesModesAndLinks(t *testing.T) {
 	must(t, os.WriteFile(filepath.Join(src, "cache", "x", "big"), []byte("skip me"), 0o644))
 	must(t, os.Symlink("secrets.env", filepath.Join(src, "link")))
 	var want Digest
-	archive := write(t, func(w *Writer) {
+	archive := write(t, func(w *writer) {
 		var err error
 		if want, err = w.File("data/secrets.env", filepath.Join(src, "secrets.env")); err != nil {
 			t.Fatal(err)
@@ -106,7 +106,7 @@ func TestATreeComesBackWithItsFilesModesAndLinks(t *testing.T) {
 }
 
 func TestAnotherPassphraseIsRefusedByName(t *testing.T) {
-	archive := write(t, func(w *Writer) { must(t, w.Bytes("manifest.json", []byte("{}"))) })
+	archive := write(t, func(w *writer) { must(t, w.Bytes("manifest.json", []byte("{}"))) })
 	if _, err := NewReader(bytes.NewReader(archive), "not the passphrase"); !errors.Is(err, ErrPassphrase) {
 		t.Fatalf("err = %v, want ErrPassphrase", err)
 	}
@@ -122,7 +122,7 @@ func TestAShortPassphraseIsRefused(t *testing.T) {
 // when its encrypted end was cut off.
 func TestACutOffArchiveFails(t *testing.T) {
 	big := bytes.Repeat([]byte("x"), 200<<10)
-	archive := write(t, func(w *Writer) { must(t, w.Bytes("data/f", big)) })
+	archive := write(t, func(w *writer) { must(t, w.Bytes("data/f", big)) })
 	for _, n := range []int{len(archive) - 1, len(archive) - 100, len(archive) / 2} {
 		if _, err := extractAll(t, archive[:n], pass, t.TempDir()); err == nil {
 			t.Fatalf("an archive cut to %d of %d bytes read as whole", n, len(archive))
@@ -131,7 +131,7 @@ func TestACutOffArchiveFails(t *testing.T) {
 }
 
 func TestAChangedByteFails(t *testing.T) {
-	archive := write(t, func(w *Writer) { must(t, w.Bytes("data/f", bytes.Repeat([]byte("y"), 100<<10))) })
+	archive := write(t, func(w *writer) { must(t, w.Bytes("data/f", bytes.Repeat([]byte("y"), 100<<10))) })
 	archive[len(archive)/2] ^= 1
 	if _, err := extractAll(t, archive, pass, t.TempDir()); err == nil {
 		t.Fatal("a changed archive read as whole")

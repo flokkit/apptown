@@ -63,7 +63,7 @@ func imageEvidence(ctx context.Context, dk Scope, image string) (string, string,
 // a container, and before even an existing stopped engine is started.
 func bindService(ctx context.Context, dk Scope, stackID, cname, path string, svc deploy.ServiceSpec, there bool, own Ownership) (string, error) {
 	volume := Current.NeedVolume(stackID, svc.Name)
-	binding, found, err := own.Storage.Get(ctx, svc.Name, volume)
+	binding, found, err := own.storage.Get(ctx, svc.Name, volume)
 	if err != nil {
 		return "", err
 	}
@@ -71,25 +71,25 @@ func bindService(ctx context.Context, dk Scope, stackID, cname, path string, svc
 	if err != nil {
 		return "", err
 	}
-	if exists && own.RestoreStorage != nil {
+	if exists && own.restoreStorage != nil {
 		return "", fmt.Errorf("restore refuses preexisting engine-data volume %s; recover it explicitly before retrying", volume)
 	}
 	restoreID, restoreDigest := "", ""
-	if own.RestoreStorage != nil {
+	if own.restoreStorage != nil {
 		var source *deploy.StorageBinding
 		if found {
 			source = &binding
 		}
-		restoreID, restoreDigest, err = restoreEngine(ctx, dk, svc, path, source, own.RestoreStorage)
+		restoreID, restoreDigest, err = restoreEngine(ctx, dk, svc, path, source, own.restoreStorage)
 		if err != nil {
 			return "", err
 		}
 	}
 	if !exists {
-		if (found && own.RestoreStorage == nil) || there {
+		if (found && own.restoreStorage == nil) || there {
 			return "", fmt.Errorf("the %s engine's recorded volume %s is missing", svc.Name, volume)
 		}
-		if own.RestoreStorage == nil {
+		if own.restoreStorage == nil {
 			restoreID, restoreDigest, err = resolveNewEngine(ctx, dk, svc.Image)
 			if err != nil {
 				return "", err
@@ -110,18 +110,18 @@ func bindService(ctx context.Context, dk Scope, stackID, cname, path string, svc
 		if found {
 			current = &binding
 		}
-		observed, err := ObserveExistingStorage(ctx, dk, stackID, path, svc, current)
+		observed, err := observeExistingStorage(ctx, dk, stackID, path, svc, current)
 		if err != nil {
 			return "", err
 		}
 		if !found {
-			if err := own.Storage.Establish(ctx, observed); err != nil {
+			if err := own.storage.Establish(ctx, observed); err != nil {
 				return "", err
 			}
 		}
 		return observed.ImageID, nil
 	}
-	if found && own.RestoreStorage == nil {
+	if found && own.restoreStorage == nil {
 		if !sameDataPath(binding.DataPath, path) || binding.DeclaredImage != svc.Image || !binding.VolumeCreated.Equal(created) || binding.VolumeDriver != driver {
 			return "", fmt.Errorf("the %s service's engine declaration or volume incarnation differs from its storage binding", svc.Name)
 		}
@@ -144,13 +144,13 @@ func bindService(ctx context.Context, dk Scope, stackID, cname, path string, svc
 		source = &old
 	}
 	binding = deploy.StorageBinding{Need: svc.Name, Volume: volume, DataPath: path, DeclaredImage: svc.Image, ImageID: id, RepoDigest: digest, VolumeCreated: created, VolumeDriver: driver, Origin: "created"}
-	if own.RestoreStorage != nil {
-		if err := own.RestoreStorage.Restore(ctx, source, binding); err != nil {
+	if own.restoreStorage != nil {
+		if err := own.restoreStorage.Restore(ctx, source, binding); err != nil {
 			return "", err
 		}
 		return id, nil
 	}
-	if err := own.Storage.Establish(ctx, binding); err != nil {
+	if err := own.storage.Establish(ctx, binding); err != nil {
 		return "", err
 	}
 	return id, nil
@@ -215,10 +215,10 @@ func resolveNewEngine(ctx context.Context, dk Scope, image string) (string, stri
 	return imageEvidence(ctx, dk, image)
 }
 
-// ObserveExistingStorage reads one existing service without starting, pulling,
+// observeExistingStorage reads one existing service without starting, pulling,
 // creating or deleting anything. Boot records what it observes for an
 // existing engine that has no binding yet.
-func ObserveExistingStorage(ctx context.Context, dk Scope, stackID, path string, svc deploy.ServiceSpec, current *deploy.StorageBinding) (deploy.StorageBinding, error) {
+func observeExistingStorage(ctx context.Context, dk Scope, stackID, path string, svc deploy.ServiceSpec, current *deploy.StorageBinding) (deploy.StorageBinding, error) {
 	volume := Current.NeedVolume(stackID, svc.Name)
 	fail := func(err error) (deploy.StorageBinding, error) { return deploy.StorageBinding{}, err }
 	created, driver, err := volumeIncarnation(ctx, dk, volume)

@@ -199,5 +199,5 @@ func (a *Guidance) judgeChecklist(ctx context.Context, source workflow.Source, i
 	if err != nil {
 		return nil, nil, err
 	}
-	return a.evaluator.Checklist(ctx, modelcall.Call{Purpose: "guidance-checklist", ProjectID: source.ProjectID, RunID: source.RunID, Model: pattern}, items, diff)
+	return a.evaluator.checklist(ctx, modelcall.Call{Purpose: "guidance-checklist", ProjectID: source.ProjectID, RunID: source.RunID, Model: pattern}, items, diff)
 }

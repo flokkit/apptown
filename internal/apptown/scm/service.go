@@ -18,13 +18,13 @@ import (
 // stay private. Work authorizes every claim; the driver has no database handle.
 type Service struct {
 	records  mergeStore
-	work     Work
+	work     work
 	locks    *RepositoryLocks
 	branches *Branches
 }
 
 // New builds SCM's merges; now is AppTown's clock (nil the real one).
-func New(db *database.DB, work Work, locks *RepositoryLocks, now func() time.Time) *Service {
+func New(db *database.DB, work work, locks *RepositoryLocks, now func() time.Time) *Service {
 	branches := NewBranches(db, locks)
 	branches.Now = now
 	return &Service{records: mergeStore{db, now}, work: work, locks: locks, branches: branches}
@@ -78,7 +78,7 @@ func (s *Service) Merge(ctx context.Context, runID ids.ID, driver Driver) (Resul
 	if err != nil {
 		return refusedResult(result, err)
 	}
-	if !result.Source.RepositoryBacked() {
+	if !result.Source.repositoryBacked() {
 		result.Merged = true
 		return result, nil
 	}
@@ -90,8 +90,8 @@ func (s *Service) Merge(ctx context.Context, runID ids.ID, driver Driver) (Resul
 		if err != nil {
 			return result, err
 		}
-		if observed.Kind == Unresolved {
-			return result, ErrUnresolved
+		if observed.Kind == unresolved {
+			return result, errUnresolved
 		}
 		prepared, err = s.records.prepare(ctx, claim, NewEffect)
 		if err != nil {
@@ -123,21 +123,21 @@ func (s *Service) Merge(ctx context.Context, runID ids.ID, driver Driver) (Resul
 	// Refused here, before the merge is executed or observed; preparing may
 	// already have refreshed the checkout or a request's branch, which moves
 	// no default branch.
-	reuse := plan.Kind == Existing && (plan.ReuseRecorded || plan.Result == prepared.intent.Result)
-	if prepared.intent.State == Recorded && plan.Kind != Empty && plan.Kind != Blocked && !reuse {
-		return result, ErrMergeFinal
+	reuse := plan.Kind == existing && (plan.ReuseRecorded || plan.Result == prepared.intent.Result)
+	if prepared.intent.State == Recorded && plan.Kind != empty && plan.Kind != blocked && !reuse {
+		return result, errMergeFinal
 	}
 	if err := validatePlan(result.Source, plan); err != nil {
 		return result, err
 	}
 	switch plan.Kind {
-	case Empty:
+	case empty:
 		result.Merged = true
 		return result, nil
-	case Blocked:
+	case blocked:
 		result.Conflicts, result.Drift, result.DriftDiff = plan.Conflicts, plan.Drift, plan.DriftDiff
 		return result, nil
-	case Existing:
+	case existing:
 		if plan.ReuseRecorded {
 			if prepared.intent.State != Recorded || prepared.intent.Result != plan.Result {
 				return result, ErrChanged
@@ -195,7 +195,7 @@ func (s *Service) Merge(ctx context.Context, runID ids.ID, driver Driver) (Resul
 		}
 		result.Merged, result.SHA, result.Operation = true, execution.Result, operation
 		return result, nil
-	case ProviderMerge:
+	case providerMerge:
 		if err := prepared.revalidate(ctx); err != nil {
 			return refusedResult(result, err)
 		}
@@ -228,26 +228,26 @@ func refusedResult(result Result, err error) (Result, error) {
 	return result, err
 }
 func validatePlan(source Source, p Prepared) error {
-	if p.ReuseRecorded && (p.Kind != Existing || source.MR.IID != 0) {
+	if p.ReuseRecorded && (p.Kind != existing || source.MR.IID != 0) {
 		return fmt.Errorf("only a proven existing merge can reuse its result")
 	}
 	switch p.Kind {
-	case Empty:
+	case empty:
 		if p.Expected != "" || p.Result != "" || len(p.Conflicts)+len(p.Drift) != 0 {
 			return fmt.Errorf("empty merge plan contains an effect")
 		}
-	case Existing:
+	case existing:
 		if p.Result == "" {
 			return fmt.Errorf("existing merge requires a proven result")
 		}
-	case LocalMerge, ProviderMerge:
+	case LocalMerge, providerMerge:
 		if p.Expected == "" || p.Result != "" || len(p.Conflicts)+len(p.Drift) != 0 {
 			return fmt.Errorf("new merge requires its exact source/target observation")
 		}
-		if (p.Kind == ProviderMerge) != (source.MR.IID != 0) {
+		if (p.Kind == providerMerge) != (source.MR.IID != 0) {
 			return fmt.Errorf("merge plan changed the recorded provider")
 		}
-	case Blocked:
+	case blocked:
 		if len(p.Conflicts)+len(p.Drift) == 0 {
 			return fmt.Errorf("blocked merge plan has no reason")
 		}
@@ -293,7 +293,7 @@ func (s *Service) Inspect(ctx context.Context, runID ids.ID, driver Driver) (Ins
 	return s.inspectPrepared(ctx, prepared, driver)
 }
 func (s *Service) inspectPrepared(ctx context.Context, p *preparedMerge, driver Driver) (Inspection, error) {
-	if !p.source.RepositoryBacked() {
+	if !p.source.repositoryBacked() {
 		return Inspection{}, fmt.Errorf("pending merge has no repository; inspect its source before retrying")
 	}
 	observed, err := driver.Inspect(ctx, p.source, p.record())
@@ -306,16 +306,16 @@ func (s *Service) inspectPrepared(ctx context.Context, p *preparedMerge, driver 
 			return Inspection{}, fmt.Errorf("merge inspection supplied no proven result")
 		}
 		err = p.settle(ctx, observed.Result)
-	case Unchanged:
+	case unchanged:
 		if observed.Result != "" {
 			return Inspection{}, fmt.Errorf("unchanged merge inspection supplied a result")
 		}
 		err = p.cancel(ctx, "the admitted merge did not change the default branch")
-	case Unresolved:
+	case unresolved:
 		if observed.Result != "" {
 			return Inspection{}, fmt.Errorf("unresolved merge inspection supplied a result")
 		}
-		err = p.reportUnresolved(ctx, ErrUnresolved.Error())
+		err = p.reportUnresolved(ctx, errUnresolved.Error())
 	default:
 		return Inspection{}, fmt.Errorf("unknown merge inspection result %d", observed.Kind)
 	}
@@ -353,9 +353,9 @@ func (s *Service) InspectPending(ctx context.Context, driver Driver) (Summary, e
 		switch observed.Kind {
 		case Found:
 			summary.Recorded++
-		case Unchanged:
+		case unchanged:
 			summary.Cancelled++
-		case Unresolved:
+		case unresolved:
 			summary.Unresolved++
 		default:
 			continue // Another admitted inspection already settled this record.

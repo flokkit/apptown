@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -10,15 +11,15 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// StandingConsentSelection is an observation for bounded human delegation, not
+// standingConsentSelection is an observation for bounded human delegation, not
 // release admission or health evidence. Release claims retain all normal guards.
-type StandingConsentSelection struct {
+type standingConsentSelection struct {
 	Resource, PromotionResource access.Resource
 	PromotionRequired           bool
 }
 
-func ReadStandingConsentSelection(ctx context.Context, q database.Queryer, projectID, deploymentID, targetID ids.ID) (StandingConsentSelection, error) {
-	var out StandingConsentSelection
+func ReadStandingConsentSelection(ctx context.Context, q database.Queryer, projectID, deploymentID, targetID ids.ID) (standingConsentSelection, error) {
+	var out standingConsentSelection
 	dep, err := deploymentRecord(deploymentsql.New(q.SQL()).DeploymentByID(ctx, deploymentID))
 	if err != nil {
 		return out, database.Missing(err)

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 
@@ -306,7 +308,7 @@ func TestASetupFailureAfterTheFetchLeavesNoRepository(t *testing.T) {
 	}
 	bundle, _ := codeBundle(t)
 	owner := &authIdentity{User: "owner", Via: "session"}
-	restore := a.DB.FailNextStatement("UPDATE projects SET default_branch")
+	restore := dbtest.NextStatementFailure(a.DB, "UPDATE projects SET default_branch")
 	w := callAs(t, mux, owner, "POST", "/api/v1/projects/flaky/repo/from-bundle", bundle)
 	restore()
 	if w.Code < 400 || !strings.Contains(w.Body.String(), "still has no repository") {

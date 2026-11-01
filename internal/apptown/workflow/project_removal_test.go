@@ -110,7 +110,7 @@ func TestProjectRemovalRollsBackFailureAndSuppressedDelete(t *testing.T) {
 				completionExec(t, q.db, `CREATE TRIGGER veto_purge BEFORE DELETE ON `+table+` FOR EACH ROW EXECUTE FUNCTION veto_purge()`)
 			}
 			err = q.db.InTx(context.Background(), func(tx *database.Tx) error { return RemoveProjectIn(context.Background(), tx, run.ProjectID) })
-			if fault == "midway" && !errors.Is(err, database.ErrInjectedFailure) {
+			if fault == "midway" && !errors.Is(err, dbtest.ErrInjectedFailure) {
 				t.Fatalf("failure: %v", err)
 			}
 			if fault != "midway" && (err == nil || !strings.Contains(err.Error(), "project removal left Work")) {

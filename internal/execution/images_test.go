@@ -15,7 +15,7 @@ import (
 )
 
 // noBuild is the build of a preparation that must build nothing.
-func noBuild(t *testing.T) Build {
+func noBuild(t *testing.T) build {
 	return func(context.Context, ...string) ([]byte, error) {
 		t.Error("a preparation that builds nothing built")
 		return nil, errors.New("no build expected")

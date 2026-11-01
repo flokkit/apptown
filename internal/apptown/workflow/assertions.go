@@ -31,23 +31,23 @@ type MergeObservation struct {
 	Blocking         *Step
 }
 
-// MergeAssertion is the exact detached observation whose SCM effect is requested.
-type MergeAssertion struct {
+// mergeAssertion is the exact detached observation whose SCM effect is requested.
+type mergeAssertion struct {
 	Run    Run
 	Step   Step
 	Source MergeSource
 }
 
-type MergeObserver interface {
-	ObserveMerge(context.Context, MergeAssertion) (MergeObservation, error)
+type mergeObserver interface {
+	ObserveMerge(context.Context, mergeAssertion) (MergeObservation, error)
 }
 
-// Assertions owns check evaluation and persistence. Database facts are
+// assertions owns check evaluation and persistence. Database facts are
 // read in the committing transaction. SCM runs outside it, and its prepared scope
 // must still match before its result and receipt can be committed.
-type Assertions struct {
+type assertions struct {
 	db    *database.DB
-	merge MergeObserver
+	merge mergeObserver
 	clocked
 }
 
@@ -57,11 +57,11 @@ type assertionScope struct {
 	source MergeSource
 }
 
-func (s Assertions) Evaluate(ctx context.Context, request Assertion) (*Step, error) {
+func (s assertions) Evaluate(ctx context.Context, request Assertion) (*Step, error) {
 	return s.evaluate(ctx, request, nil)
 }
 
-func (s Assertions) evaluate(ctx context.Context, request Assertion, expected *assertionScope) (*Step, error) {
+func (s assertions) evaluate(ctx context.Context, request Assertion, expected *assertionScope) (*Step, error) {
 	prepared, err := database.Transact(ctx, s.db, func(tx *database.Tx) (assertionScope, error) {
 		run, step, err := lockStep(ctx, tx, request.StepID)
 		if err != nil {
@@ -135,7 +135,7 @@ func (s Assertions) evaluate(ctx context.Context, request Assertion, expected *a
 				return step, nil
 			}
 		}
-		next, err := step.Status.Transition(MoveStepEvaluate, outcome.state)
+		next, err := step.Status.transition(moveStepEvaluate, outcome.state)
 		if err != nil {
 			return nil, err
 		}
@@ -200,7 +200,7 @@ func assertionEligible(run *Run, step *Step) error {
 	if step.OverrideBy != "" {
 		return nil
 	}
-	if _, err := step.Status.Transition(MoveStepEvaluate, StatusPass); err != nil {
+	if _, err := step.Status.transition(moveStepEvaluate, StatusPass); err != nil {
 		return fmt.Errorf("%w: %w", errAssertionChanged, err)
 	}
 	return nil
@@ -292,15 +292,15 @@ func evaluateAssertionIn(ctx context.Context, tx *database.Tx, run *Run, step *S
 	}
 }
 
-func NewAssertions(db *database.DB, merge MergeObserver) *Assertions {
-	return &Assertions{db: db, merge: merge}
+func NewAssertions(db *database.DB, merge mergeObserver) *assertions {
+	return &assertions{db: db, merge: merge}
 }
 
-func (p assertionScope) call() MergeAssertion {
+func (p assertionScope) call() mergeAssertion {
 	step := *p.step
 	step.Config = append(step.Config[:0:0], step.Config...)
 	step.Evidence = append(step.Evidence[:0:0], step.Evidence...)
-	return MergeAssertion{Run: *p.run, Step: step, Source: p.source}
+	return mergeAssertion{Run: *p.run, Step: step, Source: p.source}
 }
 
 func readMergeSourceForRun(ctx context.Context, db database.Queryer, run *Run) (MergeSource, error) {

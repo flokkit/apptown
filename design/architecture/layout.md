@@ -185,6 +185,17 @@ Do not promote for size. A large subsystem is a large subsystem. Promote when
 the product vocabulary genuinely drops out — and if removing it takes a
 find-and-replace, it had not dropped out.
 
+An identifier is exported only when another package's production code uses it,
+or when it belongs to a deliberate test-support package. This keeps package
+boundaries clear and prevents tests from widening the production API. Own
+external tests use aliases in `export_test.go`. Owner operations that other
+packages' tests need for domain setup remain exported. Interface contracts,
+function values, generated code and reflection or wire/record contracts retain
+their exported names.
+Test-support packages (`*test`, `*fake` under `internal/`) are imported only by
+`_test.go` files or other test-support packages. The `unusedexports` shape count
+excludes these contract and test-support declarations and may only fall.
+
 ## Inside a subsystem
 
     internal/apptown/<x>/

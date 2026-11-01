@@ -23,15 +23,15 @@ import (
 // key management API is under its /keys.
 const DefaultBase = "https://openrouter.ai/api/v1"
 
-// Resets are the allowance periods OpenRouter accepts; "" is no reset.
-var Resets = []string{"daily", "weekly", "monthly"}
+// resets are the allowance periods OpenRouter accepts; "" is no reset.
+var resets = []string{"daily", "weekly", "monthly"}
 
 // ValidReset says whether r is a reset period OpenRouter accepts, or "".
 func ValidReset(r string) bool {
 	if r == "" {
 		return true
 	}
-	for _, v := range Resets {
+	for _, v := range resets {
 		if r == v {
 			return true
 		}

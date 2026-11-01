@@ -10,9 +10,9 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// ProjectCatalogue supplies scope facts from Project, without giving Identity
+// projectCatalogue supplies scope facts from Project, without giving Identity
 // ownership of the project table or a dependency on its authorized service.
-type ProjectCatalogue interface {
+type projectCatalogue interface {
 	ProjectResources(context.Context, ids.ID) ([]access.Resource, error)
 }
 

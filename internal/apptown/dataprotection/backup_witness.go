@@ -21,18 +21,18 @@ type CopyMethod uint8
 
 const (
 	CopyDeclared CopyMethod = iota + 1
-	CopyFiles
-	CopyLiveFiles
+	copyFiles
+	copyLiveFiles
 )
 
 var copyMethodCodec = enum.Set[CopyMethod]{
 	Names:     []string{"declared", "files", "live-files"},
 	Invalid:   "invalid-copy-method",
-	Err:       ErrCopyMethod,
+	Err:       errCopyMethod,
 	ScanLabel: "value",
 }
 
-var ErrCopyMethod = errors.New("invalid copy method")
+var errCopyMethod = errors.New("invalid copy method")
 
 func (m CopyMethod) String() string                   { return copyMethodCodec.String(m) }
 func (m CopyMethod) Value() (driver.Value, error)     { return copyMethodCodec.Value(m) }
@@ -52,21 +52,21 @@ func (m *CopyMethod) UnmarshalJSON(data []byte) error { return copyMethodCodec.R
 type RestoreOutcome uint8
 
 const (
-	RestoreVerified RestoreOutcome = iota + 1
-	RestoreLoaded
-	RestoreCopied
-	RestoreFailed
-	RestoreSkipped
+	restoreVerified RestoreOutcome = iota + 1
+	restoreLoaded
+	restoreCopied
+	restoreFailed
+	restoreSkipped
 )
 
 var restoreOutcomeCodec = enum.Set[RestoreOutcome]{
 	Names:     []string{"verified", "loaded", "copied", "failed", "skipped"},
 	Invalid:   "invalid-restore-outcome",
-	Err:       ErrRestoreOutcome,
+	Err:       errRestoreOutcome,
 	ScanLabel: "value",
 }
 
-var ErrRestoreOutcome = errors.New("invalid restore outcome")
+var errRestoreOutcome = errors.New("invalid restore outcome")
 
 func (o RestoreOutcome) String() string               { return restoreOutcomeCodec.String(o) }
 func (o RestoreOutcome) Value() (driver.Value, error) { return restoreOutcomeCodec.Value(o) }
@@ -83,19 +83,19 @@ func (o *RestoreOutcome) UnmarshalJSON(data []byte) error {
 type RestoreStatus uint8
 
 const (
-	RestoreDone RestoreStatus = iota + 1
-	RestoreNotVerified
-	RestorePartial
+	restoreDone RestoreStatus = iota + 1
+	restoreNotVerified
+	restorePartial
 )
 
 var restoreStatusCodec = enum.Set[RestoreStatus]{
 	Names:     []string{"restored", "restored, not verified", "partly restored"},
 	Invalid:   "invalid-restore-status",
-	Err:       ErrRestoreStatus,
+	Err:       errRestoreStatus,
 	ScanLabel: "value",
 }
 
-var ErrRestoreStatus = errors.New("invalid restore status")
+var errRestoreStatus = errors.New("invalid restore status")
 
 func (s RestoreStatus) String() string                   { return restoreStatusCodec.String(s) }
 func (s RestoreStatus) Value() (driver.Value, error)     { return restoreStatusCodec.Value(s) }
@@ -105,13 +105,13 @@ func (s *RestoreStatus) UnmarshalJSON(data []byte) error { return restoreStatusC
 
 // restoreStatus is the rule from the items' outcomes.
 func restoreStatus(items []RestoredItem) RestoreStatus {
-	status := RestoreDone
+	status := restoreDone
 	for _, it := range items {
 		switch it.Outcome {
-		case RestoreFailed:
-			return RestorePartial
-		case RestoreCopied:
-			status = RestoreNotVerified
+		case restoreFailed:
+			return restorePartial
+		case restoreCopied:
+			status = restoreNotVerified
 		}
 	}
 	return status

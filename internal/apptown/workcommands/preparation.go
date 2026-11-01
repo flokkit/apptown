@@ -22,9 +22,9 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
 
-// AdoptedWorkflows resolves procedure and guidance from one recorded adoption.
+// adoptedWorkflows resolves procedure and guidance from one recorded adoption.
 // Live policy checks remain admission rules, not part of that frozen receipt.
-type AdoptedWorkflows interface {
+type adoptedWorkflows interface {
 	Workflow(context.Context, adoption.WorkflowRequest) (*adoption.ResolvedWorkflow, error)
 	Resolve(context.Context, adoption.Source) (adoption.Resolved, error)
 	CheckWorkflow(context.Context, database.Queryer, ids.ID, string, *schema.Spec) ([]adoption.Violation, error)
@@ -34,28 +34,28 @@ type AdoptedWorkflows interface {
 // or its dispatcher. Ordinary, nested and remediation starts use the same path.
 type Preparation struct {
 	db       *database.DB
-	adoption AdoptedWorkflows
+	adoption adoptedWorkflows
 	branches *scm.Branches
 	dataDir  string
 	chats    workflow.Presence
-	workers  WorkerChats
+	workers  workerChats
 	clock    func() time.Time // AppTown's clock; nil is the real one
-	stores   SecretStores
+	stores   secretStores
 }
 
-// SecretStores says which secrets stores are available when a run is
+// secretStores says which secrets stores are available when a run is
 // admitted, by provider name; nil records none. A secrets file that cannot
 // be read is an error.
-type SecretStores interface {
+type secretStores interface {
 	AvailableProviders() (map[string]bool, error)
 }
 
 func (a *Preparation) now() time.Time { return clock.Or(a.clock)() }
 
-// WorkerChats saves a chat on a worker, so what a landing, recheck or
+// workerChats saves a chat on a worker, so what a landing, recheck or
 // `apptown check` chooses is the chat's work as saved on the branch
 // (design/operations/workers.md, "Chats on the worker").
-type WorkerChats interface {
+type workerChats interface {
 	// SaveFirst saves the chat that holder names when it runs on
 	// a worker, and answers false (having done nothing) when it does not.
 	// A save that is not confirmed, or refused, is the error; so is not
@@ -63,7 +63,7 @@ type WorkerChats interface {
 	SaveFirst(ctx context.Context, holder string) (onWorker bool, err error)
 }
 
-func NewPreparation(db *database.DB, adopted AdoptedWorkflows, branches *scm.Branches, dataDir string, chats workflow.Presence, workers WorkerChats, stores SecretStores, now func() time.Time) *Preparation {
+func NewPreparation(db *database.DB, adopted adoptedWorkflows, branches *scm.Branches, dataDir string, chats workflow.Presence, workers workerChats, stores secretStores, now func() time.Time) *Preparation {
 	return &Preparation{db: db, adoption: adopted, branches: branches, dataDir: dataDir, chats: chats, workers: workers, stores: stores, clock: now}
 }
 

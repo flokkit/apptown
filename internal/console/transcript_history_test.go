@@ -97,7 +97,7 @@ func TestAnUnreadableChatRecordIsNamedNotAnOutage(t *testing.T) {
 	if err != nil || len(convs) != 1 || convs[0].ID != good.ID || len(unreadable) != 1 || unreadable[0] != bad.ID {
 		t.Fatalf("transcript: %+v unreadable %v err %v", convs, unreadable, err)
 	}
-	records, unreadable, err := chats.RecordsMatching(console.Match{Labels: map[string]string{"project": "7"}})
+	records, unreadable, err := console.ServiceRecordsMatching(chats, console.Match{Labels: map[string]string{"project": "7"}})
 	if err != nil || len(records) != 1 || len(unreadable) != 1 || unreadable[0] != bad.ID {
 		t.Fatalf("records: %+v unreadable %v err %v", records, unreadable, err)
 	}

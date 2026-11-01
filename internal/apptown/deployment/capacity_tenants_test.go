@@ -36,7 +36,7 @@ func TestEveryRunningContainerIsCountedOnceUnderWhoHoldsIt(t *testing.T) {
 	shop, pv := ids.New(time.Unix(1, 0)), ids.New(time.Unix(2, 0))
 	deps := map[ids.ID]ProjectDeployment{
 		shop: {Deployment: Deployment{ID: shop, Name: "main", Kind: Standing}, Project: "shop"},
-		pv:   {Deployment: Deployment{ID: pv, Name: "preview-7", Kind: Preview}, Project: "shop"},
+		pv:   {Deployment: Deployment{ID: pv, Name: "preview-7", Kind: preview}, Project: "shop"},
 	}
 	owners := containerOwners{
 		exact:    map[string]partOf{"apptown-env-shop-main": {deployment: shop, part: "web"}, "apptown-preview-7": {deployment: pv, part: "web"}},
@@ -69,12 +69,12 @@ func TestEveryRunningContainerIsCountedOnceUnderWhoHoldsIt(t *testing.T) {
 		cpus               float64
 		cpuUnread, cpuNone int
 	}{
-		"shop/main":                        {TenantDeployment, 2, 256 << 20, 1, (1 + 2) << 20, 1, 0, 1},
-		"previews":                         {TenantPreviews, 2, 192 << 20, 0, (3 + 4) << 20, 0, 0, 2},
-		"agent work":                       {TenantWork, 2, 2 << 30, 1, (5 + 6) << 20, 2, 1, 0},
-		"AppTown":                          {TenantAppTown, 2, 0, 2, (7 + 10) << 20, 0, 0, 2},
-		"AppTown containers not on record": {TenantUnrecorded, 1, 64 << 20, 0, 8 << 20, 0, 0, 1},
-		"other containers":                 {TenantOther, 1, 256 << 20, 0, 9 << 20, 0, 0, 1},
+		"shop/main":                        {tenantDeployment, 2, 256 << 20, 1, (1 + 2) << 20, 1, 0, 1},
+		"previews":                         {tenantPreviews, 2, 192 << 20, 0, (3 + 4) << 20, 0, 0, 2},
+		"agent work":                       {tenantWork, 2, 2 << 30, 1, (5 + 6) << 20, 2, 1, 0},
+		"AppTown":                          {tenantAppTown, 2, 0, 2, (7 + 10) << 20, 0, 0, 2},
+		"AppTown containers not on record": {tenantUnrecorded, 1, 64 << 20, 0, 8 << 20, 0, 0, 1},
+		"other containers":                 {tenantOther, 1, 256 << 20, 0, 9 << 20, 0, 0, 1},
 	}
 	if len(ts) != len(want) {
 		t.Fatalf("%d tenants, want %d: %+v", len(ts), len(want), ts)

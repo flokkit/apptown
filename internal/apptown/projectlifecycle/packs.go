@@ -102,7 +102,7 @@ func (s *Service) ApplyPack(ctx execcontext.Context, p *project.Project, packs [
 		for _, r := range refused {
 			missing = append(missing, "starter file "+r)
 		}
-		if errors.Is(err, ErrProjectEstablished) {
+		if errors.Is(err, errProjectEstablished) {
 			skipped = append(skipped, "starter files")
 		} else if err != nil {
 			missing = append(missing, "starter files: "+err.Error())
@@ -112,7 +112,7 @@ func (s *Service) ApplyPack(ctx execcontext.Context, p *project.Project, packs [
 	// that says "declared in mise.toml" is a lie until the file exists.
 	toolchainSeeded := ""
 	if combined.Toolchain != "" && p.DefaultBranch != "" {
-		if wrote, err := s.SeedToolchain(ctx, p, combined.Toolchain, who); errors.Is(err, ErrProjectEstablished) {
+		if wrote, err := s.SeedToolchain(ctx, p, combined.Toolchain, who); errors.Is(err, errProjectEstablished) {
 			skipped = append(skipped, "mise.toml")
 		} else if err != nil {
 			missing = append(missing, "toolchain:"+combined.Toolchain)

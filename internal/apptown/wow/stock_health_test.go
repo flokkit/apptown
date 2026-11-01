@@ -16,7 +16,7 @@ func TestStockHealthBlockIsPlatformTier(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := ParseStockGuidance(string(raw))
+	b, err := parseStockGuidance(string(raw))
 	if err != nil || b.Name != "deploy/health-declared" || b.Tier != TierPlatform.String() {
 		t.Fatalf("parse: %s %s %v", b.Name, b.Tier, err)
 	}
@@ -33,7 +33,7 @@ func TestStockHealthBlockIsPlatformTier(t *testing.T) {
 	if cs[3].Evaluator != "runtime" || cs[3].Probe != "page" {
 		t.Fatalf("fourth check should ask the front page a visitor opens: %+v", cs[3])
 	}
-	if _, bad := ParseStockGuidance("---\nname: x\ntier: gold\n---\nbody"); bad == nil {
+	if _, bad := parseStockGuidance("---\nname: x\ntier: gold\n---\nbody"); bad == nil {
 		t.Fatal("an unknown tier must be refused")
 	}
 }

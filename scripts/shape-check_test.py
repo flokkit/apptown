@@ -819,7 +819,7 @@ class ShellSuppressionsTest(unittest.TestCase):
         from contextlib import ExitStack
         names=('layering doors transport methods fields constructors aliases standalone callbacks handwritten '
                'testhomes harness_imports root_files transport_audit transport_db hub_paths kind_branches '
-               'history_comments test_exec_writes test_exec_fixtures dropped_decodes workflow_exports').split()
+               'history_comments test_exec_writes test_exec_fixtures dropped_decodes workflow_exports unused_exports test_support_imports').split()
         with ExitStack() as stack:
             stack.enter_context(mock.patch.object(self.shape,'ROOT',str(self.root)))
             stack.enter_context(mock.patch.object(self.shape.sys,'argv',['shape-check.py','--tighten']))

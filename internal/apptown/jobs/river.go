@@ -87,7 +87,7 @@ const (
 	EvalsQueue        = "evals"
 	DefaultTimeout    = 20 * time.Minute
 	OperationsTimeout = 2 * time.Hour
-	OperationsRescue  = OperationsTimeout + 10*time.Minute
+	operationsRescue  = OperationsTimeout + 10*time.Minute
 )
 
 // budget is the longest a kind's job may run on its queue; false for a
@@ -133,7 +133,7 @@ func New(opts Options, db *sql.DB, kinds map[string]Kind, reporter Reporter, sch
 	kinds = maps.Clone(kinds)
 	for name, k := range kinds {
 		limit, ok := budget(k.Queue)
-		if name == "" || k.Run == nil || k.MaxAttempts < 1 || k.Timeout < 0 || k.Timeout > limit || !ok || limit >= OperationsRescue {
+		if name == "" || k.Run == nil || k.MaxAttempts < 1 || k.Timeout < 0 || k.Timeout > limit || !ok || limit >= operationsRescue {
 			return nil, fmt.Errorf("invalid job configuration for %q", name)
 		}
 	}
@@ -151,7 +151,7 @@ func New(opts Options, db *sql.DB, kinds map[string]Kind, reporter Reporter, sch
 	}
 	client, err := river.NewClient(riverdatabasesql.New(db), &river.Config{
 		Workers: workers, Queues: queueConfig(),
-		PollOnly: true, MaxAttempts: 1, JobTimeout: DefaultTimeout, RescueStuckJobsAfter: OperationsRescue,
+		PollOnly: true, MaxAttempts: 1, JobTimeout: DefaultTimeout, RescueStuckJobsAfter: operationsRescue,
 		PeriodicJobs: periodic, ErrorHandler: errorReporter{reporter},
 		Logger:     slog.New(slog.NewTextHandler(log.Writer(), &slog.HandlerOptions{Level: slog.LevelWarn})),
 		Middleware: middleware(opts),
@@ -177,9 +177,9 @@ func (q *Queue) Enqueue(ctx context.Context, operation, key string, values map[s
 	return result.Job.ID, nil
 }
 
-// Producer provides River's transactional API without starting workers or
+// producer provides River's transactional API without starting workers or
 // owning another connection pool. A nil pool is valid for transaction-only use.
-func Producer(db *sql.DB) (*river.Client[*sql.Tx], error) {
+func producer(db *sql.DB) (*river.Client[*sql.Tx], error) {
 	return river.NewClient(riverdatabasesql.New(db), &river.Config{MaxAttempts: 1})
 }
 
@@ -203,7 +203,7 @@ func insertTx(ctx context.Context, tx *sql.Tx, queue string, request Request, ma
 		return nil, errors.New("job requires an operation, key and positive attempt limit")
 	}
 	request.RetryOnInterrupt = maxAttempts > 1
-	client, err := Producer(nil)
+	client, err := producer(nil)
 	if err != nil {
 		return nil, err
 	}

@@ -17,7 +17,7 @@ func (g Grant) Live(at time.Time) bool {
 
 // Applies covers capability and scope.
 func (g Grant) Applies(c Capability, r Resource) bool {
-	return GrantHolds(g, c) && GrantApplies(g, c, r)
+	return grantHolds(g, c) && grantApplies(g, c, r)
 }
 
 func (g *Grant) Revoke(by Principal, now time.Time) (Event, error) {

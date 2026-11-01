@@ -26,7 +26,7 @@ type SCMRepository struct {
 	Project      gitlab.ProjectRef
 	Client       *gitlab.Client
 }
-type SCMRepositories interface {
+type scmRepositories interface {
 	Resolve(context.Context, ids.ID) (SCMRepository, error)
 }
 

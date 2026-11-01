@@ -47,7 +47,7 @@ func backupWorldFor(t *testing.T, purpose project.Purpose, slug string, port int
 	if _, _, err := catalog.SyncStock(context.Background(), stock.FS, "dependencies"); err != nil {
 		t.Fatal(err)
 	}
-	client := dockerfake.New()
+	client := newDockerFake()
 	// Restores run through the operations ledger, as bls, whose grants
 	// the test may change.
 	who := &grants{who: "bls", deny: map[string]bool{}}
@@ -142,7 +142,7 @@ func TestBackupPlanAndTake(t *testing.T) {
 		Version int
 		Path    string
 	}
-	if err := json.Unmarshal(raw, &m); err != nil || m.Format != BackupManifestFormat || m.Version != 1 || m.Path != "bk/main/"+filepath.Base(b.Path) {
+	if err := json.Unmarshal(raw, &m); err != nil || m.Format != backupManifestFormat || m.Version != 1 || m.Path != "bk/main/"+filepath.Base(b.Path) {
 		t.Fatalf("manifest: %+v %v\n%s", m, err, raw)
 	}
 	joined := strings.Join(ran, "\n")
@@ -193,7 +193,7 @@ func TestBackupPlanAndTake(t *testing.T) {
 			if _, err := os.Stat(x.Path); err != nil {
 				t.Fatalf("a kept set is on disk: %s", x.Path)
 			}
-		case BackupPruned:
+		case backupPruned:
 			pruned++
 			if _, err := os.Stat(x.Path); err == nil {
 				t.Fatalf("a pruned set is gone from disk: %s", x.Path)
@@ -215,7 +215,7 @@ func TestBackupPlanAndTake(t *testing.T) {
 	if _, err := s.Deployments.EnsureStanding(t.Context(), pid, "lan", lan.ID, deployment.Attributes{}.WithDefaults()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.TakeBackup(context.Background(), pid, "lan", "bls"); !errors.Is(err, ErrDataNotKnown) || errors.Is(err, deployment.ErrTargetKeepsBackups) {
+	if _, err := s.TakeBackup(context.Background(), pid, "lan", "bls"); !errors.Is(err, errDataNotKnown) || errors.Is(err, deployment.ErrTargetKeepsBackups) {
 		t.Fatalf("a Portainer deployment whose environment cannot be reached: %v", err)
 	}
 	// The scheduled job says so, and it skips a project gone since the job
@@ -248,7 +248,7 @@ func TestABackupWhoseTargetCannotBeReadIsRefused(t *testing.T) {
 	if _, err := s.Deployments.EnsureStanding(t.Context(), pid, "lan", lan.ID, deployment.Attributes{}.WithDefaults()); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(db.FailNextStatement("-- name: TargetByID "))
+	t.Cleanup(dbtest.NextStatementFailure(db, "-- name: TargetByID "))
 	if _, err := s.TakeBackup(context.Background(), pid, "lan", "bls"); err == nil || !strings.Contains(err.Error(), "reading its deployment target") {
 		t.Fatalf("a backup whose target read failed: %v; want the read's failure", err)
 	}
@@ -297,7 +297,7 @@ func TestRestoreBackup(t *testing.T) {
 			return nil, err
 		}
 		if req.Stdin != nil {
-			if _, err := s.backups.Prune(context.Background(), filepath.Join(dir, "backups"), pid, "main", BackupKeep); err == nil || !strings.Contains(err.Error(), "busy") {
+			if _, err := s.backups.pruneBackups(context.Background(), filepath.Join(dir, "backups"), pid, "main", BackupKeep); err == nil || !strings.Contains(err.Error(), "busy") {
 				t.Fatalf("pruning was not refused during restore: %v", err)
 			}
 
@@ -332,13 +332,13 @@ func TestRestoreBackup(t *testing.T) {
 	if op.State != operations.Succeeded {
 		t.Fatalf("restore: %s %s", op.State, op.Detail)
 	}
-	if res.Status != RestoreNotVerified || res.SafetyBackup.Compare(b.ID) <= 0 {
+	if res.Status != restoreNotVerified || res.SafetyBackup.Compare(b.ID) <= 0 {
 		t.Fatalf("a safety set is taken first and the outcome recorded: %v", res)
 	}
 	// Postgres is put back in place and checked by its kind's copy.verify,
 	// the check a managed database's fill passes; the app's volume is
 	// files nothing checked.
-	if len(res.Items) != 2 || res.Items[0].Kind != "volume" || res.Items[0].Outcome != RestoreCopied || res.Items[1].Name != "postgres" || res.Items[1].Outcome != RestoreVerified {
+	if len(res.Items) != 2 || res.Items[0].Kind != "volume" || res.Items[0].Outcome != restoreCopied || res.Items[1].Name != "postgres" || res.Items[1].Outcome != restoreVerified {
 		t.Fatalf("what witnessed each item: %+v", res.Items)
 	}
 	if _, err := os.Stat(b.Path); err != nil {
@@ -365,14 +365,14 @@ func TestRestoreBackup(t *testing.T) {
 	// Tampered file: refused by digest.
 	_ = os.WriteFile(filepath.Join(b.Path, deployedNames(t, s, pid, "main", "rs").NeedVolume("postgres")+".dump"), []byte("changed"), 0o600)
 	res, err = s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls")
-	if err == nil || res.Status != RestorePartial {
+	if err == nil || res.Status != restorePartial {
 		t.Fatalf("a file that does not match its digest is not restored: %v %v", err, res)
 	}
 	if _, err := s.takeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil {
 		t.Fatal(err)
 	}
-	wantN(t, "held backups", backupsWhere(t, db, func(b ProjectBackup) bool { return b.ProjectID == pid && b.Status.Holds() }), BackupKeep)
-	wantN(t, "the restored set, pruned", backupsWhere(t, db, func(p ProjectBackup) bool { return p.ID == b.ID && p.Status == BackupPruned }), 1)
+	wantN(t, "held backups", backupsWhere(t, db, func(b ProjectBackup) bool { return b.ProjectID == pid && b.Status.holds() }), BackupKeep)
+	wantN(t, "the restored set, pruned", backupsWhere(t, db, func(p ProjectBackup) bool { return p.ID == b.ID && p.Status == backupPruned }), 1)
 
 }
 

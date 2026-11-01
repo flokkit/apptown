@@ -41,10 +41,10 @@ func removalFixture(t *testing.T) (*both, *configurationWorld, *removalDriver, *
 		return driver, nil
 	}}})
 	dep := configureForTest(t, s, in)
-	if err := s.Needs.RecordIntent(context.Background(), dep.ID, "postgres", map[string]any{"name": "retained-pg"}); err != nil {
+	if err := deployment.NewNeedStore(s.db, nil).RecordIntent(context.Background(), dep.ID, "postgres", map[string]any{"name": "retained-pg"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Needs.RecordIdentity(context.Background(), dep.ID, "postgres", nil, "db-1", "retained-pg"); err != nil {
+	if err := deployment.NewNeedStore(s.db, nil).RecordIdentity(context.Background(), dep.ID, "postgres", nil, "db-1", "retained-pg"); err != nil {
 		t.Fatal(err)
 	}
 	return s, w, driver, dep

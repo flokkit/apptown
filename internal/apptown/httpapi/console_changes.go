@@ -2,9 +2,10 @@ package httpapi
 
 import (
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/status"
 	"net/http"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/apptown/status"
 
 	"github.com/flokkit/apptown/internal/ids"
 

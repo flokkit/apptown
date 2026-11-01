@@ -32,7 +32,7 @@ func shotsAgentImage() string {
 	return "apptown-agent"
 }
 
-func localShots(tls *console.LocalTLS) *Screenshots {
+func localShots(tls *console.LocalTLS) *screenshots {
 	var local *LocalAuthority
 	if tls != nil {
 		local = &LocalAuthority{Prelude: console.LocalTLSPrelude(*tls)}

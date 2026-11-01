@@ -3,11 +3,12 @@ package deployment
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 // Read the actual selected Git object, so a fixture cannot hide a fallback

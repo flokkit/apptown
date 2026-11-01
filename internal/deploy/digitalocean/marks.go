@@ -32,7 +32,7 @@ func MarkClusters(ctx context.Context, c *Client, installation string, clusters 
 	}
 	// A tag is made before it is assigned; making one that exists is
 	// refused as unprocessable, and that tag is there to assign.
-	if err := c.Call(ctx, "POST", "/v2/tags", map[string]string{"name": tag}, nil); err != nil && !IsStatus(err, 422) {
+	if err := c.Call(ctx, "POST", "/v2/tags", map[string]string{"name": tag}, nil); err != nil && !isStatus(err, 422) {
 		return 0, fmt.Errorf("making the tag %s: %w", tag, err)
 	}
 	if err := c.Call(ctx, "POST", "/v2/tags/"+url.PathEscape(tag)+"/resources", map[string]any{"resources": untagged}, nil); err != nil {

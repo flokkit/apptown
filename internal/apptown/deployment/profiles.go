@@ -298,14 +298,14 @@ func (s *Service) effectiveContract(ctx context.Context, dep *Deployment, ws str
 		}
 	}
 	if containerLimits {
-		return s.env.DefaultMemory(ctx, out, applied)
+		return s.env.defaultMemory(ctx, out, applied)
 	}
 	return out, applied, nil
 }
 
-// Words is the applied record as one log line: the profile, and each
+// words is the applied record as one log line: the profile, and each
 // part's limits.
-func (a AppliedProfile) Words() string {
+func (a AppliedProfile) words() string {
 	if !a.Recorded() {
 		return "not recorded"
 	}

@@ -68,7 +68,7 @@ func (h ComplaintIntake) Complain(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		id, err := h.box.File(r.Context(), complaint.Entry{ProjectID: projectID, RunID: in.RunID, ChangeID: changeID,
-			Source: source, Workflow: workflowName, Step: in.Step, SessionID: sessionID, Actor: Actor(r),
+			Source: source, Workflow: workflowName, Step: in.Step, SessionID: sessionID, Actor: actor(r),
 			Text: in.Text, Why: in.Why, Wish: in.Wish, About: in.About})
 		if err != nil {
 			WriteFault(w, err)

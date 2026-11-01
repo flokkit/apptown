@@ -37,7 +37,7 @@ func TestChangeParticipantRequiresProjectAndOwnedRoot(t *testing.T) {
 		missing bool
 	}{
 		{"foreign project", other, ChangeMove{Action: ShipChange}, true},
-		{"missing root", run.ProjectID, ChangeMove{Action: AttachChangeRun, RunID: idstest.N(99999)}, false},
+		{"missing root", run.ProjectID, ChangeMove{Action: attachChangeRun, RunID: idstest.N(99999)}, false},
 		{"absent run", run.ProjectID, ChangeMove{Action: LandChange}, false},
 		{"unexpected run", run.ProjectID, ChangeMove{Action: ShipChange, RunID: run.ID}, false},
 	} {
@@ -59,7 +59,7 @@ func TestChangeParticipantRequiresProjectAndOwnedRoot(t *testing.T) {
 			if _, err := workflowsql.New(tx.SQL()).ProjectForUpdate(context.Background(), run.ProjectID); err != nil {
 				return err
 			}
-			_, err := TransitionChangeIn(context.Background(), tx, run.ProjectID, run.ChangeID, ChangeMove{Action: AttachChangeRun, RunID: run.ID}, time.Now())
+			_, err := TransitionChangeIn(context.Background(), tx, run.ProjectID, run.ChangeID, ChangeMove{Action: attachChangeRun, RunID: run.ID}, time.Now())
 			return err
 		})
 		if !errors.Is(err, ErrChangeTransition) {

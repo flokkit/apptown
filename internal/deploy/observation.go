@@ -1,8 +1,9 @@
 package deploy
 
 import (
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"time"
+
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
 // Observation records what a provider sees for a deployment generation.

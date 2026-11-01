@@ -2,6 +2,7 @@ package adoption
 
 import (
 	"context"
+
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/wow"
@@ -12,7 +13,7 @@ import (
 // the pinned declaration and authority used for admission.
 func (s *Service) AvailableWorkflows(ctx context.Context, projectID ids.ID) ([]wow.WorkflowEntry, error) {
 	if s.deps.Ways == nil {
-		return nil, ErrCatalogUnavailable
+		return nil, errCatalogUnavailable
 	}
 	entries, err := s.deps.Ways.Workflows(ctx)
 	if err != nil {

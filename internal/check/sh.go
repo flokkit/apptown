@@ -20,8 +20,8 @@ import (
 // image's ENTRYPOINT is git; runs clear it (NoEntrypoint) so `sh -c` is the
 // command.
 
-// ShTimeout bounds one check's script.
-const ShTimeout = 60 * time.Second
+// shTimeout bounds one check's script.
+const shTimeout = 60 * time.Second
 
 // EvaluateSh judges every sh check in the batch against the staged tree, one
 // container run each.
@@ -50,7 +50,7 @@ func (j *Judge) evaluateSh(d Declared, src Source, mode Mode, namePrefix string)
 	if image == "" {
 		// No shell image is no verdict: recorded as the check's error.
 		exitCode := -1
-		return Evaluation{Declared: d, Mode: mode, Outcome: Error, Evidence: Evidence{ExitCode: &exitCode, Output: "no shell image: the tool versions name it"}}
+		return Evaluation{Declared: d, Mode: mode, Outcome: Error, Evidence: evidence{ExitCode: &exitCode, Output: "no shell image: the tool versions name it"}}
 	}
 	var evs []Evaluation
 	for _, pl := range places {
@@ -78,7 +78,7 @@ func (j *Judge) shAt(d Declared, src Source, pl Place, mode Mode, image, namePre
 		Image:        image,
 		NoEntrypoint: true,
 		Network:      "none",
-		Timeout:      ShTimeout,
+		Timeout:      shTimeout,
 		Name:         execution.UniqueName(namePrefix),
 	})
 	exitCode := -1 // a run that gives no answer is an error
@@ -87,7 +87,7 @@ func (j *Judge) shAt(d Declared, src Source, pl Place, mode Mode, image, namePre
 	}
 	msg := strings.TrimSpace(string(outcome.Output))
 	ev := Evaluation{Declared: d, Mode: mode,
-		Evidence: Evidence{ExitCode: &exitCode, Duration: now().Sub(start)}}
+		Evidence: evidence{ExitCode: &exitCode, Duration: now().Sub(start)}}
 	switch {
 	case exitCode == 0:
 		ev.Outcome = Conforms
@@ -102,7 +102,7 @@ func (j *Judge) shAt(d Declared, src Source, pl Place, mode Mode, image, namePre
 		}
 		f := conformanceFinding(d, msg, "")
 		if d.Occurrences == "lines" {
-			f.Items = OccurrenceLines(msg)
+			f.Items = occurrenceLines(msg)
 			ev.Occurrences = f.Items
 		}
 		ev.Findings = []Finding{f}
@@ -113,10 +113,10 @@ func (j *Judge) shAt(d Declared, src Source, pl Place, mode Mode, image, namePre
 	return ev
 }
 
-// OccurrenceLines splits a check's output into its occurrences: one per
+// occurrenceLines splits a check's output into its occurrences: one per
 // non-blank line, trimmed, duplicates kept (two identical lines are two
 // occurrences — the baseline matches them one for one).
-func OccurrenceLines(out string) []string {
+func occurrenceLines(out string) []string {
 	var items []string
 	for _, l := range strings.Split(out, "\n") {
 		if l = strings.TrimSpace(l); l != "" {

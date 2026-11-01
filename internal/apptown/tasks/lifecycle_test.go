@@ -144,8 +144,8 @@ func TestAHeldAttemptKeepsItsTaskAndWorkspace(t *testing.T) {
 	if list, err := r.UnreleasedWorkspaces(ctx, in.Backend, 10); err != nil || len(list) != 0 {
 		t.Fatalf("workspaces listed for release: %v %v", list, err)
 	}
-	if err := r.ConfirmWorkspaceRelease(ctx, in.Backend, held.Workspace); !errors.Is(err, ErrWorkspaceInUse) {
-		t.Fatalf("releasing its workspace = %v, want %v", err, ErrWorkspaceInUse)
+	if err := r.ConfirmWorkspaceRelease(ctx, in.Backend, held.Workspace); !errors.Is(err, errWorkspaceInUse) {
+		t.Fatalf("releasing its workspace = %v, want %v", err, errWorkspaceInUse)
 	}
 	if runs, err := UnsettledRunsIn(ctx, r.db); err != nil || !slices.Equal(runs, []ids.ID{in.Owner.RunID}) {
 		t.Fatalf("runs left open: %v %v", runs, err)

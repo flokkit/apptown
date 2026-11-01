@@ -42,10 +42,10 @@ func TestWorkflowLibraryVersionsAndStockProtection(t *testing.T) {
 	if _, v, err = wf.Put(t.Context(), src("ours/tidy", "second", ""), "alice"); err != nil || v != 2 {
 		t.Fatalf("bump: %d %v", v, err)
 	}
-	if _, y, err := wf.Version(t.Context(), "ours/tidy", 0); err != nil || y != src("ours/tidy", "second", "") {
+	if _, y, err := wf.version(t.Context(), "ours/tidy", 0); err != nil || y != src("ours/tidy", "second", "") {
 		t.Fatalf("latest: %v", err)
 	}
-	if _, y, err := wf.Version(t.Context(), "ours/tidy", 1); err != nil || y != src("ours/tidy", "first", "") {
+	if _, y, err := wf.version(t.Context(), "ours/tidy", 1); err != nil || y != src("ours/tidy", "first", "") {
 		t.Fatalf("the first version is kept: %v", err)
 	}
 	if receipts := wowReceipts(t, db, "library.workflow.", "ours/tidy"); len(receipts) != 2 {
@@ -55,19 +55,19 @@ func TestWorkflowLibraryVersionsAndStockProtection(t *testing.T) {
 	if err := wf.StockInsert(t.Context(), "land", "stock", src("land", "stock", "  system: true\n")); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := wf.Put(t.Context(), src("land", "mine", ""), "alice"); !errors.Is(err, ErrStockWorkflow) {
+	if _, _, err := wf.Put(t.Context(), src("land", "mine", ""), "alice"); !errors.Is(err, errStockWorkflow) {
 		t.Fatalf("a stock name was re-authored: %v", err)
 	}
-	if err := wf.Delete(t.Context(), "land", "alice"); !errors.Is(err, ErrStockWorkflow) {
+	if err := wf.delete(t.Context(), "land", "alice"); !errors.Is(err, errStockWorkflow) {
 		t.Fatalf("a stock workflow was deleted: %v", err)
 	}
-	if err := wf.Delete(t.Context(), "nobody", "alice"); !errors.Is(err, ErrNoWorkflow) || fault.KindOf(err) != fault.NotFound || errors.Is(err, sql.ErrNoRows) {
+	if err := wf.delete(t.Context(), "nobody", "alice"); !errors.Is(err, ErrNoWorkflow) || fault.KindOf(err) != fault.NotFound || errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("absence: %v", err)
 	}
-	if names, _ := wf.CustomNames(t.Context()); len(names) != 1 || names[0] != "ours/tidy" {
+	if names, _ := wf.customNames(t.Context()); len(names) != 1 || names[0] != "ours/tidy" {
 		t.Fatalf("custom names: %v", names)
 	}
-	if !wf.IsSystem(t.Context(), "land") || wf.IsSystem(t.Context(), "ours/tidy") {
+	if !wf.isSystem(t.Context(), "land") || wf.isSystem(t.Context(), "ours/tidy") {
 		t.Fatal("the library's word on system workflows")
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/stock"
@@ -17,7 +16,7 @@ import (
 // Kills: a failed volume listing taken as an empty one.
 func TestUnavailableCacheVolumeDiscoveryIsNotACompleteSweep(t *testing.T) {
 	t.Parallel()
-	d := dockerfake.New()
+	d := newDockerFake()
 	unavailable := true
 	d.SetReply(func(args []string) ([]byte, error, bool) {
 		line := strings.Join(args, " ")
@@ -32,8 +31,8 @@ func TestUnavailableCacheVolumeDiscoveryIsNotACompleteSweep(t *testing.T) {
 		}
 		return nil, nil, false
 	})
-	d.SetResults(func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
-		return containerresulttest.Answer{Answer: []byte{}}, true
+	d.SetResults(func(c dockerfake.ResultCommand) (dockerfake.ResultAnswer, bool) {
+		return dockerfake.ResultAnswer{Answer: []byte{}}, true
 	})
 	r := New(databaseSuite.New(t), Dependencies{Docker: docker.Scope{Client: d}, ToolVersions: stock.Versions()}, t.TempDir())
 	r.Cache(t.Context(), false)
@@ -43,4 +42,8 @@ func TestUnavailableCacheVolumeDiscoveryIsNotACompleteSweep(t *testing.T) {
 	if got := len(d.Matching("start ")) - before; got != 2 {
 		t.Fatalf("recovered discovery started %d listings, want shared and recovered legacy cache (2)", got)
 	}
+}
+
+func newDockerFake() *dockerfake.Daemon {
+	return dockerfake.New()
 }

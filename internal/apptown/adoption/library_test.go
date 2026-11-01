@@ -31,17 +31,17 @@ func TestLibraryManifestRulesAndAtomicPut(t *testing.T) {
 	if err != nil || pins[0].Version != 2 || pins[0].BlockID != a.ID || !pins[1].Disabled || pins[1].BlockID != b.ID {
 		t.Fatalf("resolved: %+v %v", pins, err)
 	}
-	if err := ads.PutImports(t.Context(), pid, pins); err != nil {
+	if err := ads.putImports(t.Context(), pid, pins); err != nil {
 		t.Fatal(err)
 	}
-	compiled, err := ads.Compile(t.Context(), pid)
+	compiled, err := ads.compile(t.Context(), pid)
 	text, hash, imports := compiled.Text, compiled.Hash, compiled.Imports
 	if err != nil || len(imports) != 2 || text != "# lang/go v2\n\ngo v2" || hash == "" {
 		t.Fatalf("compile skips disabled imports: %q %v %v", text, imports, err)
 	}
 	// A replacement that fails half-way leaves the old manifest standing.
 	dbtest.FailNextStatement(t, db, "INSERT INTO guidance_imports")
-	if err := ads.PutImports(t.Context(), pid, pins[:1]); err == nil {
+	if err := ads.putImports(t.Context(), pid, pins[:1]); err == nil {
 		t.Fatal("a half-written manifest was reported as saved")
 	}
 	if im := importsOf(t, db, pid); len(im) != 2 {

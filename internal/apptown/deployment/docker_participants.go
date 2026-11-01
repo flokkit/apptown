@@ -142,7 +142,7 @@ func (s *Service) RunLanding(ctx context.Context, claim ClaimedExecution, in Lan
 	}
 	request.ExactOrigins = &origin
 	request.VisitorHost = docker.VisitorHost(reach.URL)
-	executor := landingDeploymentExecution{label: dep.Label(), target: request, contract: effective, artifact: in.Start.Inputs.ArtifactHash, boot: s.env.Host(projectID, s.env.NeedCredentials(NeedSecretsScope(dep.ID)), func(slug string) KeyOwner { return deploymentKeys(s.db, s.clock, dep, slug) }).Boot,
+	executor := landingDeploymentExecution{label: dep.label(), target: request, contract: effective, artifact: in.Start.Inputs.ArtifactHash, boot: s.env.host(projectID, s.env.NeedCredentials(NeedSecretsScope(dep.ID)), func(slug string) KeyOwner { return deploymentKeys(s.db, s.clock, dep, slug) }).Boot,
 		url: reached}
 	// ctx bounds what comes before admission. Once admitted, the attempt
 	// runs to its own outcome: the step's interruption (its run abandoned)

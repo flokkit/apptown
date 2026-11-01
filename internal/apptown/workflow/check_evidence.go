@@ -6,8 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/status"
 	"slices"
+
+	"github.com/flokkit/apptown/internal/apptown/status"
 
 	"github.com/flokkit/apptown/internal/enum"
 )
@@ -217,7 +218,7 @@ func readingOf(raw json.RawMessage) *CheckReading {
 	}
 	out := &CheckReading{CheckEvidence: facts}
 	for _, c := range facts.Checks {
-		out.Checks = append(out.Checks, checkReceiptView{CheckReceipt: c, StatusLabel: c.Display()})
+		out.Checks = append(out.Checks, checkReceiptView{CheckReceipt: c, StatusLabel: c.display()})
 	}
 	return out
 }

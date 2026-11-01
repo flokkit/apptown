@@ -45,7 +45,7 @@ func (e WorkflowEntry) OriginRef() string {
 var StockSystemWorkflows = []string{"land", "ship", "adopt-integration", "retire-integration"}
 
 var (
-	ErrStockWorkflow     = fault.New(fault.Conflict, "an AppTown-shipped (stock) workflow is read-only and re-syncs on release; author your own under a different name")
+	errStockWorkflow     = fault.New(fault.Conflict, "an AppTown-shipped (stock) workflow is read-only and re-syncs on release; author your own under a different name")
 	ErrNotSystemWorkflow = fault.New(fault.Invalid, "not a system workflow")
 	// ErrNoWorkflow is the absence of the library workflow a caller named.
 	ErrNoWorkflow = fault.New(fault.NotFound, "no library workflow is named")
@@ -61,18 +61,18 @@ func workflowByNameIn(ctx context.Context, q *wowsql.Queries, name string) (wows
 	return r, err
 }
 
-// Workflows is the supported API over the library and the instance's
+// workflows is the supported API over the library and the instance's
 // system bindings.
-type Workflows struct {
+type workflows struct {
 	db    *database.DB
 	clock func() time.Time // AppTown's clock; nil is the real one
 	// stock is where the stock sync's versions came from (source and signer, origin.go).
 	stock Origin
 }
 
-func (s *Workflows) now() time.Time { return clock.Or(s.clock)() }
+func (s *workflows) now() time.Time { return clock.Or(s.clock)() }
 
-func NewWorkflows(db *database.DB) *Workflows { return &Workflows{db: db, stock: shippedOrigin("")} }
+func NewWorkflows(db *database.DB) *workflows { return &workflows{db: db, stock: shippedOrigin("")} }
 
 // Version is one version's YAML (0 = the latest), through q.
 func WorkflowVersionIn(ctx context.Context, q database.Queryer, name string, version int) (int, string, error) {
@@ -83,20 +83,20 @@ func WorkflowVersionIn(ctx context.Context, q database.Queryer, name string, ver
 	return int(r.Version), r.Yaml, nil
 }
 
-func (s *Workflows) Version(ctx context.Context, name string, version int) (int, string, error) {
+func (s *workflows) version(ctx context.Context, name string, version int) (int, string, error) {
 	return WorkflowVersionIn(ctx, s.db, name, version)
 }
 
-// Origin is a workflow's origin word; absence is sql.ErrNoRows.
-func (s *Workflows) Origin(ctx context.Context, name string) (string, error) {
+// origin is a workflow's origin word; absence is sql.ErrNoRows.
+func (s *workflows) origin(ctx context.Context, name string) (string, error) {
 	r, err := wowsql.New(s.db.SQL()).WorkflowByName(ctx, name)
 	return r.Origin, err
 }
 
-// Latest is every library workflow at its latest version, parsed; one
+// latest is every library workflow at its latest version, parsed; one
 // with a missing publication or malformed declaration is left out. A failed
 // catalog read is an error, never an empty selection.
-func (s *Workflows) Latest(ctx context.Context) ([]WorkflowEntry, error) {
+func (s *workflows) latest(ctx context.Context) ([]WorkflowEntry, error) {
 	rows, err := wowsql.New(s.db.SQL()).WorkflowCatalog(ctx)
 	if err != nil {
 		return nil, err
@@ -114,8 +114,8 @@ func (s *Workflows) Latest(ctx context.Context) ([]WorkflowEntry, error) {
 	return out, nil
 }
 
-// CustomNames is every workflow the institution authored.
-func (s *Workflows) CustomNames(ctx context.Context) ([]string, error) {
+// customNames is every workflow the institution authored.
+func (s *workflows) customNames(ctx context.Context) ([]string, error) {
 	rows, err := wowsql.New(s.db.SQL()).Workflows(ctx)
 	out := []string{}
 	for _, r := range rows {
@@ -130,7 +130,7 @@ func (s *Workflows) CustomNames(ctx context.Context) ([]string, error) {
 // Put authors or edits a custom workflow from its YAML: version 1 for a
 // new name, else the next version under the row lock; the version, the
 // pointer and the receipt commit together. A stock name is refused.
-func (s *Workflows) Put(ctx context.Context, yamlSrc, who string) (name string, version int, err error) {
+func (s *workflows) Put(ctx context.Context, yamlSrc, who string) (name string, version int, err error) {
 	now := s.now().UTC()
 	if strings.TrimSpace(yamlSrc) == "" {
 		return "", 0, errors.New("yaml required")
@@ -155,7 +155,7 @@ func (s *Workflows) Put(ctx context.Context, yamlSrc, who string) (name string, 
 				return err
 			}
 			if r.Origin == "stock" {
-				return fmt.Errorf("%q: %w", name, ErrStockWorkflow)
+				return fmt.Errorf("%q: %w", name, errStockWorkflow)
 			}
 			rows, err := q.WorkflowVersions(ctx, r.ID)
 			if err != nil {
@@ -163,7 +163,7 @@ func (s *Workflows) Put(ctx context.Context, yamlSrc, who string) (name string, 
 			}
 			version = nextVersion(rows)
 		}
-		if _, err := q.InsertWorkflowVersion(ctx, wowsql.InsertWorkflowVersionParams{ID: ids.New(now), LibID: r.ID, Version: int64(version), Yaml: yamlSrc, At: now, Source: AuthoredHere.Source, Signer: AuthoredHere.Signer}); err != nil {
+		if _, err := q.InsertWorkflowVersion(ctx, wowsql.InsertWorkflowVersionParams{ID: ids.New(now), LibID: r.ID, Version: int64(version), Yaml: yamlSrc, At: now, Source: authoredHere.Source, Signer: authoredHere.Signer}); err != nil {
 			return err
 		}
 		if created {
@@ -186,10 +186,10 @@ func nextVersion(rows []wowsql.LibWorkflowVersion) int {
 	return int(rows[0].Version) + 1
 }
 
-// Delete removes a custom workflow and its versions with the receipt;
+// delete removes a custom workflow and its versions with the receipt;
 // stock is refused with ErrStockWorkflow, absence is ErrNoWorkflow.
 // Project selections and receipts that pinned it are untouched.
-func (s *Workflows) Delete(ctx context.Context, name, who string) error {
+func (s *workflows) delete(ctx context.Context, name, who string) error {
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		q := wowsql.New(tx.SQL())
 		r, err := workflowByNameIn(ctx, q, name)
@@ -197,7 +197,7 @@ func (s *Workflows) Delete(ctx context.Context, name, who string) error {
 			return err
 		}
 		if r.Origin == "stock" {
-			return fmt.Errorf("%q: %w", name, ErrStockWorkflow)
+			return fmt.Errorf("%q: %w", name, errStockWorkflow)
 		}
 		if _, err := q.DeleteWorkflowVersions(ctx, r.ID); err != nil {
 			return err
@@ -211,7 +211,7 @@ func (s *Workflows) Delete(ctx context.Context, name, who string) error {
 
 // SystemFor is the instance's choice for a stock system workflow name, or
 // the name itself.
-func (s *Workflows) SystemFor(ctx context.Context, stockName string) string {
+func (s *workflows) SystemFor(ctx context.Context, stockName string) string {
 	r, err := wowsql.New(s.db.SQL()).SystemWorkflow(ctx, stockName)
 	if err == nil && r.Name != "" {
 		return r.Name
@@ -219,9 +219,9 @@ func (s *Workflows) SystemFor(ctx context.Context, stockName string) string {
 	return stockName
 }
 
-// IsSystem is the library's word on whether a workflow is a system one.
-func (s *Workflows) IsSystem(ctx context.Context, name string) bool {
-	if _, y, err := s.Version(ctx, name, 0); err == nil {
+// isSystem is the library's word on whether a workflow is a system one.
+func (s *workflows) isSystem(ctx context.Context, name string) bool {
+	if _, y, err := s.version(ctx, name, 0); err == nil {
 		return declaresSystem(y)
 	}
 	return false
@@ -257,12 +257,12 @@ func isStockSystem(stock string) bool {
 
 // BindSystem makes a custom workflow stand in for a stock system one. The
 // stand-in must exist and say system: true; the receipt commits with it.
-func (s *Workflows) BindSystem(ctx context.Context, stock, name, who string) error {
+func (s *workflows) BindSystem(ctx context.Context, stock, name, who string) error {
 	now := s.now().UTC()
 	if !isStockSystem(stock) {
 		return fmt.Errorf("%q is %w", stock, ErrNotSystemWorkflow)
 	}
-	_, y, err := s.Version(ctx, name, 0)
+	_, y, err := s.version(ctx, name, 0)
 	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("%w %q", ErrNoWorkflow, name)
 	}
@@ -285,7 +285,7 @@ func (s *Workflows) BindSystem(ctx context.Context, stock, name, who string) err
 }
 
 // ResetSystem restores the stock workflow for a system name.
-func (s *Workflows) ResetSystem(ctx context.Context, stock, who string) error {
+func (s *workflows) ResetSystem(ctx context.Context, stock, who string) error {
 	if !isStockSystem(stock) {
 		return fmt.Errorf("%q is %w", stock, ErrNotSystemWorkflow)
 	}
@@ -308,14 +308,14 @@ type WorkflowListing struct {
 	Yaml          string
 }
 
-type WorkflowCatalog struct {
+type workflowCatalog struct {
 	Workflows []WorkflowListing
 }
 
 // ReadWorkflowCatalogIn reads current workflow declarations and project selections in two bulk reads.
-func ReadWorkflowCatalogIn(ctx context.Context, db database.Queryer) (WorkflowCatalog, error) {
+func ReadWorkflowCatalogIn(ctx context.Context, db database.Queryer) (workflowCatalog, error) {
 	q := wowsql.New(db.SQL())
-	var out WorkflowCatalog
+	var out workflowCatalog
 	rows, err := q.WorkflowCatalog(ctx)
 	if err != nil {
 		return out, err

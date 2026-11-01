@@ -16,16 +16,16 @@ import (
 // Scanner contains only the facts needed to expand a declaration. Credentials
 // and execution configuration stay with the scanner owner.
 type Scanner struct{ Name, Target string }
-type ScannerSource interface {
+type scannerSource interface {
 	SnapshotIn(context.Context, database.Queryer) ([]Scanner, error)
 }
-type Stages struct {
-	scanners  ScannerSource
+type stages struct {
+	scanners  scannerSource
 	automatic func(string) bool
 }
 
-func NewStages(scanners ScannerSource, automatic func(string) bool) Stages {
-	return Stages{scanners, automatic}
+func NewStages(scanners scannerSource, automatic func(string) bool) stages {
+	return stages{scanners, automatic}
 }
 
 type ReadyStep struct {
@@ -37,7 +37,7 @@ type ReadyStep struct {
 
 // EnterIn joins the caller's project-first admission/advancement transaction.
 // The entire declaration is prepared before its receipt or any step is written.
-func (w Stages) EnterIn(ctx context.Context, tx *database.Tx, runID ids.ID, spec *schema.Spec, name string, at time.Time) ([]ReadyStep, error) {
+func (w stages) EnterIn(ctx context.Context, tx *database.Tx, runID ids.ID, spec *schema.Spec, name string, at time.Time) ([]ReadyStep, error) {
 	if spec == nil || runID.IsZero() || name == "" || w.automatic == nil {
 		return nil, fmt.Errorf("stage admission needs a run, definition and execution registry")
 	}

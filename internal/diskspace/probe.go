@@ -8,8 +8,8 @@ import (
 	"github.com/flokkit/apptown/internal/containerresult"
 )
 
-// Docker calls the selected daemon, retaining stdout and stderr separately.
-type Docker func(context.Context, ...string) (stdout, stderr string, err error)
+// docker calls the selected daemon, retaining stdout and stderr separately.
+type docker func(context.Context, ...string) (stdout, stderr string, err error)
 
 // ReaderClass is the apptown.class of a daemon's standing disk reader.
 const ReaderClass = "disk-reader"
@@ -20,7 +20,7 @@ const ReaderClass = "disk-reader"
 // is open, and each through a container of its own cost the host a container
 // start. The answer is copied from a file and validated. Unknown or
 // malformed answers refuse disk admission; logs are never answers.
-func ReadThroughDocker(ctx context.Context, dk Docker, image, root string, now func() time.Time) (Space, error) {
+func ReadThroughDocker(ctx context.Context, dk docker, image, root string, now func() time.Time) (Space, error) {
 	if image == "" {
 		return Space{}, fmt.Errorf("no df image: the tool versions name it")
 	}
@@ -37,7 +37,7 @@ func ReadThroughDocker(ctx context.Context, dk Docker, image, root string, now f
 	}, ReaderClass, containerresult.Spec{
 		Image: image, Options: []string{"--network", "none", "-v", root + ":/d:ro"},
 		Script: "df -Pk /d", Now: now,
-		Validate: func(answer []byte) error { var err error; space, err = ParseDF(answer); return err },
+		Validate: func(answer []byte) error { var err error; space, err = parseDF(answer); return err },
 	})
 	if err != nil {
 		return Space{}, err

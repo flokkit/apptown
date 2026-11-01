@@ -10,6 +10,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/secret"
@@ -155,7 +157,7 @@ func TestAnOverrideIsARecordedActAndTheCommittedProfileClearsIt(t *testing.T) {
 		}
 		return w.s.SetOverride(ctx, OverrideChange{ProjectID: w.project, Deployment: "prod", Part: part, Resources: appcontract.Resources{MemoryBytes: m}, Reason: reason})
 	}
-	if _, err := set("worker", "2Gi", "  "); !errors.Is(err, ErrOverrideReason) {
+	if _, err := set("worker", "2Gi", "  "); !errors.Is(err, errOverrideReason) {
 		t.Errorf("an override without a reason: %v", err)
 	}
 	if _, err := set("api", "2Gi", "spike"); err == nil || !strings.Contains(err.Error(), `no part or need "api"`) {
@@ -210,7 +212,7 @@ func TestAnOverrideIsARecordedActAndTheCommittedProfileClearsIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range res.Parts {
-		if p.Part == "worker" && (p.Override == nil || !p.OverrideApplied || p.OverrideLabel != ProgressLabelExcepted || p.Memory != "2Gi") {
+		if p.Part == "worker" && (p.Override == nil || !p.OverrideApplied || p.OverrideLabel != progressLabelExcepted || p.Memory != "2Gi") {
 			t.Errorf("the worker's resources read %+v", p)
 		}
 	}
@@ -277,7 +279,7 @@ func TestMemoryUseIsWhatTheHostReportsOrUnknown(t *testing.T) {
 		return nil, nil, false
 	})
 	observe := func() map[string]PartMemory {
-		got, err := w.s.ObservedMemory(t.Context(), mustDeployment(t, w, "prod"))
+		got, err := w.s.observedMemory(t.Context(), mustDeployment(t, w, "prod"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -312,7 +314,7 @@ func TestMemoryUseIsWhatTheHostReportsOrUnknown(t *testing.T) {
 	// unknown, with the reason.
 	platform := *mustDeployment(t, w, "prod")
 	platform.Container = ""
-	got, err := w.s.ObservedMemory(t.Context(), &platform)
+	got, err := w.s.observedMemory(t.Context(), &platform)
 	if err != nil || len(got) == 0 || got[0].Known || !strings.Contains(got[0].Reason, "does not report") {
 		t.Errorf("a target that reports nothing: %+v %v", got, err)
 	}
@@ -417,11 +419,11 @@ func TestInputsAreTheSameOnlyWhenEveryFieldIs(t *testing.T) {
 		default:
 			t.Fatalf("Inputs.%s is a %s this test cannot change: teach it, and Same", v.Type().Field(i).Name, f.Kind())
 		}
-		if base.Same(other) {
+		if base.same(other) {
 			t.Errorf("inputs differing in %s are called the same", v.Type().Field(i).Name)
 		}
 	}
-	if !base.Same(base) {
+	if !base.same(base) {
 		t.Errorf("inputs are not the same as themselves")
 	}
 }
@@ -725,7 +727,7 @@ func TestAProtectedOverrideNeedsTheReleaseGrantEvenWhenItsTargetCannotBeRead(t *
 	} {
 		c.change.ProjectID, c.change.Deployment = p.project, configured.Name
 		if c.failRead {
-			p.db.FailNextStatement("FROM targets WHERE id")
+			dbtest.NextStatementFailure(p.db, "FROM targets WHERE id")
 		}
 		_, err := carol.SetOverride(ctx, c.change)
 		if c.want != nil && !errors.Is(err, c.want) || c.want == nil && err == nil {

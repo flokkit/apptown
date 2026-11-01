@@ -9,13 +9,14 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/deploy"
 	"io"
 	"net/http"
 	"net/url"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/deploy"
 
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/strs"
@@ -30,7 +31,7 @@ type Client struct {
 	Region    string // syd1
 	AccessKey string
 	SecretKey string
-	HTTP      *http.Client
+	http      *http.Client
 	// Now is the client's clock, which dates each request's signature;
 	// nil is the real clock. The provider refuses a signature dated far
 	// from its own time, so only a test moves it.
@@ -57,8 +58,8 @@ func IsCode(err error, code string) bool {
 	return errors.As(err, &e) && e.Code == code
 }
 
-// Object is one listed object.
-type Object struct {
+// object is one listed object.
+type object struct {
 	Key  string
 	Size int64
 }
@@ -89,8 +90,8 @@ func (c *Client) CreateBucket(ctx context.Context, bucket string) error {
 	return c.do(ctx, "PUT", bucket, "", nil, map[string]string{"x-amz-acl": "private"}, body, nil)
 }
 
-// PutWebsite makes bucket answer its website address, / with index.html.
-func (c *Client) PutWebsite(ctx context.Context, bucket string) error {
+// putWebsite makes bucket answer its website address, / with index.html.
+func (c *Client) putWebsite(ctx context.Context, bucket string) error {
 	body := []byte(`<WebsiteConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><IndexDocument><Suffix>index.html</Suffix></IndexDocument></WebsiteConfiguration>`)
 	return c.do(ctx, "PUT", bucket, "", url.Values{"website": {""}}, map[string]string{"Content-Type": "application/xml"}, body, nil)
 }
@@ -105,8 +106,8 @@ func (c *Client) PutObject(ctx context.Context, bucket, key, contentType string,
 }
 
 // List is every object in bucket, page by page.
-func (c *Client) List(ctx context.Context, bucket string) ([]Object, error) {
-	var all []Object
+func (c *Client) List(ctx context.Context, bucket string) ([]object, error) {
+	var all []object
 	token := ""
 	for {
 		q := url.Values{"list-type": {"2"}}
@@ -125,7 +126,7 @@ func (c *Client) List(ctx context.Context, bucket string) ([]Object, error) {
 			return nil, err
 		}
 		for _, o := range page.Contents {
-			all = append(all, Object{Key: o.Key, Size: o.Size})
+			all = append(all, object{Key: o.Key, Size: o.Size})
 		}
 		if !page.IsTruncated || page.NextContinuationToken == "" {
 			return all, nil
@@ -145,7 +146,7 @@ func (c *Client) DeleteBucket(ctx context.Context, bucket string) error {
 }
 
 func (c *Client) do(ctx context.Context, method, bucket, key string, query url.Values, headers map[string]string, body []byte, out any) error {
-	res, err := c.send(ctx, method, bucket, key, query, headers, bytes.NewReader(body), int64(len(body)), sha256Hex(body), c.HTTP)
+	res, err := c.send(ctx, method, bucket, key, query, headers, bytes.NewReader(body), int64(len(body)), sha256Hex(body), c.http)
 	if err != nil {
 		return err
 	}

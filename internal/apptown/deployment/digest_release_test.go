@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
@@ -332,7 +333,7 @@ func TestALegacyLandingFedDeploymentCannotInferItsRunningBundle(t *testing.T) {
 	mutateStoredDeployment(t, w.db, w.project, "staging", func(r *deploymentsql.Deployment) { r.Feed = "landing" })
 
 	_, err = w.s.RequestRelease(t.Context(), DeploySelection{ProjectID: w.project, DeploymentName: "staging", BundleID: b.ID})
-	if !errors.Is(err, ErrFedByLanding) {
+	if !errors.Is(err, errFedByLanding) {
 		t.Fatalf("unknown running bundle must refuse manual release: %v", err)
 	}
 	last, err := w.s.Releases.Last(t.Context(), w.project, "staging")

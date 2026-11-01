@@ -3,12 +3,13 @@ package scm
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/ids/idstest"
 	"os"
 	"path/filepath"
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/gitlab"
@@ -150,7 +151,7 @@ func TestAnAlreadyMergedBranchLandsOnlyTheCheckedTree(t *testing.T) {
 			switch {
 			case c.moved && (!errors.As(err, &moved) || moved.What != "main" || moved.Found != head):
 				t.Fatalf("unchecked main %s: plan %+v, err %v", head, plan, err)
-			case !c.moved && (err != nil || plan.Kind != Existing || plan.Result != head):
+			case !c.moved && (err != nil || plan.Kind != existing || plan.Result != head):
 				t.Fatalf("checked tree at %s: plan %+v, err %v", head, plan, err)
 			}
 		})

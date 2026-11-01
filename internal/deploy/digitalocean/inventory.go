@@ -74,7 +74,7 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 		r := deploy.Resource{Kind: "app", Name: app.Spec.Name, ID: app.ID, Status: status, URL: app.LiveURL, Region: app.Region.Slug}
 		marked := false
 		for _, e := range app.Spec.Envs {
-			marked = marked || i.Installation != "" && e.Key == InstanceEnv && e.Value == i.Installation
+			marked = marked || i.Installation != "" && e.Key == instanceEnv && e.Value == i.Installation
 		}
 		if !marked {
 			r.Tags = []string{deploy.TagConfirmsOnly}

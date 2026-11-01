@@ -7,14 +7,15 @@ import (
 	"crypto/rsa"
 	"encoding/json"
 	"fmt"
-	jose "github.com/go-jose/go-jose/v4"
-	"golang.org/x/oauth2"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"sync"
 	"testing"
 	"time"
+
+	jose "github.com/go-jose/go-jose/v4"
+	"golang.org/x/oauth2"
 )
 
 // Provider performs authorization code/PKCE exchange with signed ID tokens.

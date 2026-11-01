@@ -42,7 +42,7 @@ func TestAFillRunsAfterTheNeedsAndBeforeAnythingOfTheApp(t *testing.T) {
 			return nil
 		}
 		_, err := NewHost(deps).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "apptown-preview-change-1", StackID: "pvsnap-change-1",
-			Workspace: ws, Slug: "app", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir(), Fill: fill}, c)
+			Workspace: ws, Slug: "app", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir(), fill: fill}, c)
 		calls := client.calls
 		if filledAt < 0 {
 			t.Fatalf("the fill never ran:\n%s", strings.Join(calls, "\n"))

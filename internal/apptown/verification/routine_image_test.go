@@ -44,7 +44,7 @@ func imageRoutineRepository(t *testing.T, contracts ...string) (string, string, 
 	}
 	return data, repo, source
 }
-func imageRoutineInspector(t *testing.T, data string) (RoutineInspector, *int) {
+func imageRoutineInspector(t *testing.T, data string) (routineInspector, *int) {
 	t.Helper()
 	calls := new(int)
 	inspector := NewRoutineInspector(data, &scm.RepositoryLocks{}, Executor{})

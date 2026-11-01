@@ -38,7 +38,7 @@ func TestReviewStoreReturnsReceiptsOrErrors(t *testing.T) {
 	if err != nil || len(list) != 2 || list[0].ID != second.ID || !reflect.DeepEqual(list[1], *got) {
 		t.Fatalf("list/read disagree: %+v %v", list, err)
 	}
-	if got, err := readReview(context.Background(), s.db, idstest.N(999999)); got != nil || !errors.Is(err, ErrNoReview) || fault.KindOf(err) != fault.NotFound || errors.Is(err, sql.ErrNoRows) {
+	if got, err := readReview(context.Background(), s.db, idstest.N(999999)); got != nil || !errors.Is(err, errNoReview) || fault.KindOf(err) != fault.NotFound || errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("missing review: %+v %v", got, err)
 	}
 	dbtest.FailNextStatement(t, db, "INSERT INTO conformance_reviews")
@@ -64,7 +64,7 @@ func TestReviewStorageEnforcesOwnedStateTransitions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result, err := s.finish(context.Background(), *r, ReviewRunning); result != nil || !errors.Is(err, ErrReviewTransition) {
+	if result, err := s.finish(context.Background(), *r, ReviewRunning); result != nil || !errors.Is(err, errReviewTransition) {
 		t.Fatalf("nonterminal finish accepted: %+v %v", result, err)
 	}
 	saved, err := readReview(context.Background(), s.db, r.ID)
@@ -76,10 +76,10 @@ func TestReviewStorageEnforcesOwnedStateTransitions(t *testing.T) {
 	if n, err := queries(db).FinishReview(context.Background(), conformancesql.FinishReviewParams{ID: r.ID, Status: "corrupt-review-state", Status_2: ReviewRunning.String()}); err != nil || n != 1 {
 		t.Fatalf("corrupt status: rows=%d err=%v", n, err)
 	}
-	if result, err := readReview(context.Background(), s.db, r.ID); result != nil || !errors.Is(err, ErrReviewState) {
+	if result, err := readReview(context.Background(), s.db, r.ID); result != nil || !errors.Is(err, errReviewState) {
 		t.Fatalf("corrupt review read: %+v %v", result, err)
 	}
-	if result, err := s.finish(context.Background(), *r, ReviewDone); result != nil || !errors.Is(err, ErrReviewState) {
+	if result, err := s.finish(context.Background(), *r, ReviewDone); result != nil || !errors.Is(err, errReviewState) {
 		t.Fatalf("corrupt review settled: %+v %v", result, err)
 	}
 }

@@ -29,7 +29,7 @@ func NewWorkflowSelection(projects *project.Projects, access *identity.Service, 
 
 // PutProjectLane: PUT /api/v1/projects/{slug}/lanes {name, enabled}
 func (h WorkflowSelection) PutProjectLane(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -83,7 +83,7 @@ func (h WorkflowSelection) PutProjectLane(w http.ResponseWriter, r *http.Request
 				return
 			}
 		}
-		if err := h.lifecycle.SelectLane(r.Context(), p.ID, in.Name, in.Enabled, Actor(r)); err != nil {
+		if err := h.lifecycle.SelectLane(r.Context(), p.ID, in.Name, in.Enabled, actor(r)); err != nil {
 			WriteFault(w, err)
 			return
 		}

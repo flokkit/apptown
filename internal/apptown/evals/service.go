@@ -8,10 +8,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/status"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/status"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -33,63 +34,63 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 )
 
-// Meaning is what starting an eval means, shown to the starter when they
+// meaning is what starting an eval means, shown to the starter when they
 // decide and kept on the start receipt. Starting is the one human act: the
 // eval's copies land and deploy with no one approving them.
-const Meaning = "I start this eval; its throwaway copies may land and deploy to the eval domain."
+const meaning = "I start this eval; its throwaway copies may land and deploy to the eval domain."
 
-// MaxChanges is the most Changes one eval re-runs (the first slice).
-const MaxChanges = 5
+// maxChanges is the most Changes one eval re-runs (the first slice).
+const maxChanges = 5
 
 // What an eval varies: a model profile, or a pack version. One per eval.
 const (
-	SubjectModel = "model"
+	subjectModel = "model"
 	SubjectPack  = "pack"
 )
 
 // Eval states.
 const (
-	StateRunning  = "running"
-	StateHeld     = "held"
-	StateFinished = "finished"
-	StateStopped  = "stopped"
-	// StateStopping: the budget is spent; running arms are being stopped,
+	stateRunning  = "running"
+	stateHeld     = "held"
+	stateFinished = "finished"
+	stateStopped  = "stopped"
+	// stateStopping: the budget is spent; running arms are being stopped,
 	// and work that could not stop is still observed until it ends.
-	StateStopping = "stopping"
+	stateStopping = "stopping"
 )
 
 // Arm states, in the order an arm moves through them.
 const (
-	ArmQueued = "queued"
-	// ArmCopying: its copy is being made, linked to the arm. Found at the
+	armQueued = "queued"
+	// armCopying: its copy is being made, linked to the arm. Found at the
 	// start of a pass, it was interrupted.
-	ArmCopying = "copying"
-	// ArmCopied: its copy is made and given its models; its lane waits for
+	armCopying = "copying"
+	// armCopied: its copy is made and given its models; its lane waits for
 	// the eval to admit a new arm (a hold on unknown spend).
-	ArmCopied = "copied"
-	// ArmStarting: its lane is being opened. Found at the start of a pass,
+	armCopied = "copied"
+	// armStarting: its lane is being opened. Found at the start of a pass,
 	// it was interrupted (a Change may exist in its copy).
-	ArmStarting = "starting"
-	ArmWorking  = "working"
-	ArmLanding  = "landing"
-	ArmScored   = "scored"
-	ArmFailed   = "failed"
-	ArmNotRun   = "not-run"
+	armStarting = "starting"
+	armWorking  = "working"
+	armLanding  = "landing"
+	armScored   = "scored"
+	armFailed   = "failed"
+	armNotRun   = "not-run"
 )
 
 var (
-	ErrMeaning  = fault.New(fault.Invalid, "an eval starts only once its starter has been shown what starting means: "+Meaning)
-	ErrChanges  = fault.New(fault.Invalid, fmt.Sprintf("name between 1 and %d distinct landed Changes", MaxChanges))
-	ErrBudget   = fault.New(fault.Invalid, "an eval needs a budget above zero")
-	ErrMissing  = fault.New(fault.NotFound, "no such eval")
-	ErrNotHeld  = fault.New(fault.Conflict, "the eval is not held")
-	ErrSubject  = fault.New(fault.Invalid, "name the one thing that varies: a model profile this AppTown offers, or a published pack version")
-	ErrDeleting = fault.New(fault.Conflict, "the eval's copies could not all be deleted")
+	errMeaning  = fault.New(fault.Invalid, "an eval starts only once its starter has been shown what starting means: "+meaning)
+	errChanges  = fault.New(fault.Invalid, fmt.Sprintf("name between 1 and %d distinct landed Changes", maxChanges))
+	errBudget   = fault.New(fault.Invalid, "an eval needs a budget above zero")
+	errMissing  = fault.New(fault.NotFound, "no such eval")
+	errNotHeld  = fault.New(fault.Conflict, "the eval is not held")
+	errSubject  = fault.New(fault.Invalid, "name the one thing that varies: a model profile this AppTown offers, or a published pack version")
+	errDeleting = fault.New(fault.Conflict, "the eval's copies could not all be deleted")
 )
 
-// Work is what an eval asks of Work, as its starter or as its driver in a
+// work is what an eval asks of Work, as its starter or as its driver in a
 // copy.
-type Work interface {
+type work interface {
 	Create(ctx context.Context, in workflow.ChangeDraft) (*workflow.Change, error)
 	// Uplift opens an adoption Change: how an eval re-runs one in a copy.
 	Uplift(ctx context.Context, in workflow.Uplift) (*workflow.Change, error)
@@ -103,25 +104,25 @@ type Work interface {
 	Changes(ctx context.Context, project ids.ID, in workflow.ChangeList) ([]workflow.ChangeSummary, error)
 }
 
-// Copier makes a copy project (projectlifecycle.Service.CreateCopy).
-type Copier interface {
+// copier makes a copy project (projectlifecycle.Service.CreateCopy).
+type copier interface {
 	CreateCopy(ctx context.Context, in projectlifecycle.CopyDraft) (*project.Project, error)
 }
 
-// Models is the model owner's part: what an arm runs, and giving a copy
+// models is the model owner's part: what an arm runs, and giving a copy
 // its models.
-type Models interface {
+type models interface {
 	ArmSlots(ctx context.Context, projectID ids.ID, profile string) (map[string]string, error)
 	OfferedProfile(ctx context.Context, profile string) (bool, error)
 	Profiles(ctx context.Context) ([]string, error)
 	CopyModels(ctx context.Context, from, to ids.ID, profile string, withOverrides bool, who string) error
 }
 
-// Adoption is the adoption owner's part: what a copy adopts, the
+// adoptionState is the adoption owner's part: what a copy adopts, the
 // candidate a pack version would be for a project, a copy's receipt, the
 // receipt a project recorded at a revision, and the target of an adoption
 // Change re-run in a copy, recorded in Work's admission.
-type Adoption interface {
+type adoptionState interface {
 	CopyTarget(ctx context.Context, src ids.ID, picks []adoption.PackPick) (adoption.Receipt, []adoption.PackPick, error)
 	PicksWith(ctx context.Context, projectID ids.ID, pack string, version int64, also ...adoption.PackPick) ([]adoption.PackPick, error)
 	CurrentReceipt(ctx context.Context, projectID ids.ID) (*adoption.RecordedRevision, error)
@@ -130,57 +131,57 @@ type Adoption interface {
 	RecordTargetIn(ctx context.Context, tx *database.Tx, in adoption.Target) (adoption.ScopedTarget, error)
 }
 
-// AdoptionJobs reads whether AppTown's move of a shipped adoption Change's
+// adoptionJobs reads whether AppTown's move of a shipped adoption Change's
 // project to its target has stopped trying: the shipping run's adopt
 // completion job ended without succeeding, and why. Pending, or no record
 // of the job, is not ended.
-type AdoptionJobs interface {
+type adoptionJobs interface {
 	AdoptionEnded(ctx context.Context, landingRunID ids.ID) (ended bool, why string, err error)
 }
 
-// Comparer judges an arm's landed work against its Change's base over both
+// comparer judges an arm's landed work against its Change's base over both
 // arms' checks (verification.Fleet.CompareArm).
-type Comparer interface {
+type comparer interface {
 	CompareArm(ctx context.Context, in verification.ArmComparison) (*verification.ArmCompared, error)
 }
 
-// Packs lists the packs a pack-version eval may vary.
-type Packs interface {
+// packs lists the packs a pack-version eval may vary.
+type packs interface {
 	Packs(ctx context.Context) ([]wow.Pack, error)
 }
 
-// Deployments takes a copy's standing deployments down, main included, with
+// deployments takes a copy's standing deployments down, main included, with
 // no final copy or backup on any target: a copy's data is synthetic and
 // nothing will restore it (dataprotection.Service.TakeDownWithProject).
-type Deployments interface {
+type deployments interface {
 	StandingNames(ctx context.Context, projectID ids.ID) ([]string, error)
 	TakeDownWithProject(ctx context.Context, projectID ids.ID, name string) error
 }
 
-// Deleter deletes a copy project: marked deleting at once, its deployments
+// deleter deletes a copy project: marked deleting at once, its deployments
 // taken down, then purged with no kept period (projectlifecycle.Deletion).
-type Deleter interface {
+type deleter interface {
 	RequestCopy(ctx context.Context, projectID ids.ID, who string) (projectlifecycle.Status, error)
 }
 
 type Dependencies struct {
 	Authority  access.Authorizer
 	Projects   *project.Projects
-	Work       Work
-	Copier     Copier
-	Models     Models
-	Spend      Spend
+	Work       work
+	Copier     copier
+	Models     models
+	Spend      spend
 	Complaints interface {
 		OfEval(context.Context, ids.ID) ([]complaint.Complaint, error)
 	}
-	Deployments Deployments
-	Deleter     Deleter
-	Adoption    Adoption
+	Deployments deployments
+	Deleter     deleter
+	Adoption    adoptionState
 	// AdoptionJobs reads an adoption arm's settlement job (nil: arms wait
 	// for the stamp alone).
-	AdoptionJobs AdoptionJobs
-	Comparer     Comparer
-	Packs        Packs
+	AdoptionJobs adoptionJobs
+	Comparer     comparer
+	Packs        packs
 	// DataDir is where projects' repositories live: an arm's diff is read
 	// from its copy's.
 	DataDir string
@@ -208,9 +209,6 @@ func New(db *database.DB, deps Dependencies) *Service {
 }
 
 func (s *Service) now() time.Time { return clock.Or(s.deps.Now)().UTC() }
-
-// Gate is the eval's one "may this proceed?" rule (gate.go).
-func (s *Service) Gate() *Gate { return s.gate }
 
 // Start is the request a starter makes: one of Profile, or Pack at
 // PackVersion, varies.
@@ -273,12 +271,12 @@ type Arm struct {
 }
 
 func (a Arm) terminal() bool {
-	return a.State == ArmScored || a.State == ArmFailed || a.State == ArmNotRun
+	return a.State == armScored || a.State == armFailed || a.State == armNotRun
 }
-func (a Arm) running() bool { return a.State == ArmWorking || a.State == ArmLanding }
+func (a Arm) running() bool { return a.State == armWorking || a.State == armLanding }
 
 // busy: the arm holds one of the eval's MaxRunning places.
-func (a Arm) busy() bool { return a.running() || a.State == ArmCopied }
+func (a Arm) busy() bool { return a.running() || a.State == armCopied }
 
 // Start admits an eval: the starter manages packs, may read every source
 // project, was shown what starting means, and names landed, repository-
@@ -290,16 +288,16 @@ func (s *Service) Start(ctx context.Context, in Start) (*Eval, error) {
 	if err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(in.Shown) != Meaning {
-		return nil, ErrMeaning
+	if strings.TrimSpace(in.Shown) != meaning {
+		return nil, errMeaning
 	}
 	if in.BudgetMicros <= 0 {
-		return nil, ErrBudget
+		return nil, errBudget
 	}
 	idList := slices.Clone(in.Changes)
 	slices.SortFunc(idList, ids.ID.Compare)
-	if len(idList) == 0 || len(idList) > MaxChanges || len(slices.Compact(idList)) != len(in.Changes) {
-		return nil, ErrChanges
+	if len(idList) == 0 || len(idList) > maxChanges || len(slices.Compact(idList)) != len(in.Changes) {
+		return nil, errChanges
 	}
 	kind, subject, digest, err := s.subject(ctx, in)
 	if err != nil {
@@ -382,7 +380,7 @@ func (s *Service) Start(ctx context.Context, in Start) (*Eval, error) {
 		if err != nil {
 			return err
 		}
-		e, err := q.InsertEval(ctx, evalssql.InsertEvalParams{ID: ids.New(now), Number: number, StartedBy: who, StartedByPrincipal: starter.Principal, StartedByVia: starter.Via, StartedAt: now, Meaning: Meaning, SubjectKind: kind, Subject: subject, BudgetMicros: in.BudgetMicros, SubjectDigest: digest})
+		e, err := q.InsertEval(ctx, evalssql.InsertEvalParams{ID: ids.New(now), Number: number, StartedBy: who, StartedByPrincipal: starter.Principal, StartedByVia: starter.Via, StartedAt: now, Meaning: meaning, SubjectKind: kind, Subject: subject, BudgetMicros: in.BudgetMicros, SubjectDigest: digest})
 		if err != nil {
 			return err
 		}
@@ -403,13 +401,13 @@ func (s *Service) Start(ctx context.Context, in Start) (*Eval, error) {
 			if err != nil {
 				return err
 			}
-			for _, arm := range []string{ArmBaseline, ArmVariant} {
+			for _, arm := range []string{armBaseline, armVariant} {
 				// A pack-version eval holds the model: both arms run the
 				// baseline's, overrides included.
 				profile, from, adopted := profileOf(p.ModelProfile), src.change.ProjectID, src.baseline
-				if arm == ArmVariant {
+				if arm == armVariant {
 					adopted = src.variant
-					if kind == SubjectModel {
+					if kind == subjectModel {
 						profile, from = in.Profile, ids.Nil
 					}
 				}
@@ -425,7 +423,7 @@ func (s *Service) Start(ctx context.Context, in Start) (*Eval, error) {
 			}
 		}
 		if err := audit.At(now).RecordIn(ctx, tx, who, ids.Nil, "eval.started", e.ID.String(), map[string]any{
-			"meaning": Meaning, "subject": subject, "subjectKind": kind, "subjectDigest": digest, "changes": in.Changes, "budgetMicros": in.BudgetMicros}); err != nil {
+			"meaning": meaning, "subject": subject, "subjectKind": kind, "subjectDigest": digest, "changes": in.Changes, "budgetMicros": in.BudgetMicros}); err != nil {
 			return err
 		}
 		out, err = evalIn(ctx, tx, e.ID)
@@ -480,18 +478,18 @@ func (s *Service) subject(ctx context.Context, in Start) (kind, subject, digest 
 			return "", "", "", err
 		}
 		if !offered {
-			return "", "", "", ErrSubject
+			return "", "", "", errSubject
 		}
-		return SubjectModel, in.Profile, "", nil
+		return subjectModel, in.Profile, "", nil
 	case in.Pack != "" && in.Profile == "" && in.PackVersion > 0:
 		pv, err := wow.PackVersionIn(ctx, s.db, in.Pack, in.PackVersion)
 		if err != nil {
-			return "", "", "", fmt.Errorf("%w: %w", ErrSubject, err)
+			return "", "", "", fmt.Errorf("%w: %w", errSubject, err)
 		}
 		sum := sha256.Sum256([]byte(pv.SpecJSON + "\x00" + pv.PinsJSON))
 		return SubjectPack, fmt.Sprintf("%s@%d", in.Pack, in.PackVersion), hex.EncodeToString(sum[:8]), nil
 	}
-	return "", "", "", ErrSubject
+	return "", "", "", errSubject
 }
 
 // adoptionOf is what a copy of the Change's project adopts with these
@@ -574,8 +572,8 @@ func (s *Service) requireRead(ctx context.Context) error {
 	return nil
 }
 
-// Get reads an eval for someone who may read evals.
-func (s *Service) Get(ctx context.Context, id ids.ID) (*Eval, error) {
+// get reads an eval for someone who may read evals.
+func (s *Service) get(ctx context.Context, id ids.ID) (*Eval, error) {
 	if err := s.requireRead(ctx); err != nil {
 		return nil, err
 	}
@@ -600,7 +598,7 @@ func evalIn(ctx context.Context, q database.Queryer, id ids.ID) (*Eval, error) {
 	if found, err := database.Lookup(err); err != nil {
 		return nil, err
 	} else if !found || r.DeletedAt.Valid {
-		return nil, ErrMissing
+		return nil, errMissing
 	}
 	e := evalOf(r)
 	arms, err := queries(q).ArmsOfEval(ctx, id)
@@ -674,13 +672,13 @@ func (s *Service) Continue(ctx context.Context, id ids.ID) (*Eval, error) {
 		if found, err := database.Lookup(err); err != nil {
 			return err
 		} else if !found || e.DeletedAt.Valid {
-			return ErrMissing
+			return errMissing
 		}
 		if !sameStarter(ctx, tx, e, caller.Principal) {
 			return &access.Denied{Code: access.DenyOutsideScope, Reason: "only the person who started this eval answers for its unknown spend"}
 		}
-		if e.State != StateHeld {
-			return ErrNotHeld
+		if e.State != stateHeld {
+			return errNotHeld
 		}
 		copies, err := queries(tx).CopiesOfEval(ctx, id)
 		if err != nil {
@@ -743,7 +741,7 @@ func (s *Service) Delete(ctx context.Context, id ids.ID) error {
 		return err
 	}
 	if !found {
-		return ErrMissing
+		return errMissing
 	}
 	now := s.now()
 	if err := s.db.InTx(ctx, func(tx *database.Tx) error {
@@ -765,7 +763,7 @@ func (s *Service) Delete(ctx context.Context, id ids.ID) error {
 		}
 	}
 	if len(failed) > 0 {
-		return fmt.Errorf("%w: %s", ErrDeleting, strings.Join(failed, "; "))
+		return fmt.Errorf("%w: %s", errDeleting, strings.Join(failed, "; "))
 	}
 	return nil
 }
@@ -821,7 +819,7 @@ func (s *Service) StartForm(ctx context.Context) (StartForm, error) {
 	if err != nil {
 		return StartForm{}, err
 	}
-	form := StartForm{Meaning: Meaning, Profiles: profiles, Packs: []PackChoice{}, MaxChanges: MaxChanges}
+	form := StartForm{Meaning: meaning, Profiles: profiles, Packs: []PackChoice{}, MaxChanges: maxChanges}
 	if s.deps.Packs != nil {
 		packs, err := s.deps.Packs.Packs(ctx)
 		if err != nil {
@@ -854,7 +852,7 @@ func (s *Service) LatestOf(ctx context.Context, kind, subject string) (*Scorecar
 // members) and may read the source project, whose code it is. The arm is
 // found within the eval named, never by its id alone.
 func (s *Service) ArmDiff(ctx context.Context, evalID, armID ids.ID) (string, error) {
-	e, err := s.Get(ctx, evalID)
+	e, err := s.get(ctx, evalID)
 	if err != nil {
 		return "", err
 	}

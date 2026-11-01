@@ -19,10 +19,10 @@ import (
 
 const IntranetTargetName = "intranet"
 
-// DefaultPortainerEnvironment is the environment name Portainer gives the
+// defaultPortainerEnvironment is the environment name Portainer gives the
 // Docker it runs on when installed with its defaults: the intranet target's
 // environment until an administrator changes it on the target.
-const DefaultPortainerEnvironment = "local"
+const defaultPortainerEnvironment = "local"
 
 // LANReleaseStarted preserves the default release HTTP response contract.
 // The accepted release is executed through the durable release queue.

@@ -107,16 +107,16 @@ func BindingIn(ctx context.Context, q database.Queryer, id ids.ID) (Binding, err
 func (s *Service) bindingAllows(ctx context.Context, ref string, p access.Permission) error {
 	id, err := ids.Parse(strings.TrimPrefix(ref, "binding/"))
 	if err != nil || !strings.HasPrefix(ref, "binding/") {
-		return fmt.Errorf("%w: %q names no binding", ErrCredentialGone, ref)
+		return fmt.Errorf("%w: %q names no binding", errCredentialGone, ref)
 	}
 	r, err := queries(s.db).SystemBinding(ctx, id)
 	if found, err := database.Lookup(err); err != nil {
 		return err
 	} else if !found {
-		return fmt.Errorf("%w: binding %d does not exist", ErrCredentialGone, id)
+		return fmt.Errorf("%w: binding %d does not exist", errCredentialGone, id)
 	}
 	if r.RevokedAt.Valid {
-		return fmt.Errorf("%w: binding %d was revoked by %s: %s", ErrCredentialGone, id, r.RevokedBy, r.RevokedWhy)
+		return fmt.Errorf("%w: binding %d was revoked by %s: %s", errCredentialGone, id, r.RevokedBy, r.RevokedWhy)
 	}
 	if p.Resource.ProjectID != r.ProjectID {
 		return &access.Denied{Code: "binding-scope", Reason: fmt.Sprintf("binding %d is for project %d only", id, r.ProjectID)}

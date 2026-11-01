@@ -48,7 +48,7 @@ type RestoreRequest struct {
 	Passphrase    string
 	Say           func(string) // each step as it starts; nil says nothing
 	Docker        docker.Scope
-	Database      BuiltinDatabase
+	Database      builtinDatabase
 }
 
 // Restore unpacks and loads an archive, and says what it held. Anything
@@ -260,8 +260,8 @@ func readManifest(r *backuparchive.Reader) (*Manifest, []byte, error) {
 			return nil, nil, fmt.Errorf("the archive was dumped by %s; this build restores dumps of PostgreSQL %d or older", m.Database.DumpClientVersion, database.OwnPostgresMax)
 		}
 	}
-	if m.Format != ArchiveFormat || m.Version > ArchiveVersion {
-		return nil, nil, fmt.Errorf("the archive is %s version %d; this build restores %s version %d", m.Format, m.Version, ArchiveFormat, ArchiveVersion)
+	if m.Format != archiveFormat || m.Version > archiveVersion {
+		return nil, nil, fmt.Errorf("the archive is %s version %d; this build restores %s version %d", m.Format, m.Version, archiveFormat, archiveVersion)
 	}
 	if m.Schema < dbschema.Baseline() {
 		return nil, nil, fmt.Errorf("the archive's database is at schema %d; this build restores schema %d or newer (1.0.0-rc.7 or newer)", m.Schema, dbschema.Baseline())

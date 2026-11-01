@@ -23,9 +23,9 @@ import (
 // AppTown's repository goes with the rest: don't push to AppTown's
 // repositories.
 
-// RepositoryOwner records the project's repositories AppTown created on
+// repositoryOwner records the project's repositories AppTown created on
 // this account (its connector).
-type RepositoryOwner interface {
+type repositoryOwner interface {
 	Owns(ctx context.Context, registry, repository string) (bool, error)
 	Created(ctx context.Context, registry, repository string) error
 }
@@ -36,8 +36,8 @@ func errRepositoryNotOurs(registry, repo string) error {
 	return deploy.Terminal(fmt.Errorf("the container registry %s already has a repository named %s that AppTown did not create; nothing was created on DigitalOcean. Rename or remove that repository, or attach another account, then release again", registry, repo))
 }
 
-// RepositoryExists asks the registry whether it holds repo.
-func RepositoryExists(ctx context.Context, c *Client, registry, repo string) (bool, error) {
+// repositoryExists asks the registry whether it holds repo.
+func repositoryExists(ctx context.Context, c *Client, registry, repo string) (bool, error) {
 	repos, err := listAll[struct {
 		Name string `json:"name"`
 	}](ctx, c, "/v2/registry/"+url.PathEscape(registry)+"/repositoriesV2?per_page=100", "repositories")
@@ -67,7 +67,7 @@ func (d *Driver) claimRepository(ctx context.Context, c *Client, registry string
 	if owned {
 		return false, nil
 	}
-	exists, err := RepositoryExists(ctx, c, registry, d.Slug)
+	exists, err := repositoryExists(ctx, c, registry, d.Slug)
 	if err != nil {
 		return false, err
 	}
@@ -106,13 +106,13 @@ func (d *Driver) emptyRepository(ctx context.Context, td deploy.TakeDown) (delet
 	manifests, err := listAll[struct {
 		Digest string `json:"digest"`
 	}](ctx, c, base+"?per_page=100", "manifests")
-	if err != nil && !IsStatus(err, 404) {
+	if err != nil && !isStatus(err, 404) {
 		return nil, []deploy.Left{repositoryLeft(registry, d.Slug, fmt.Errorf("listing its images: %w", err))}
 	}
 	var failed []error
 	n := 0
 	for _, m := range manifests {
-		if err := c.Call(ctx, "DELETE", base+"/"+url.PathEscape(m.Digest), nil, nil); err != nil && !IsStatus(err, 404) {
+		if err := c.Call(ctx, "DELETE", base+"/"+url.PathEscape(m.Digest), nil, nil); err != nil && !isStatus(err, 404) {
 			failed = append(failed, fmt.Errorf("%s: %w", m.Digest, err))
 			continue
 		}

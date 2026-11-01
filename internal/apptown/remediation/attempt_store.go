@@ -59,7 +59,7 @@ func lockItem(ctx context.Context, tx *database.Tx, id ids.ID, admission bool, a
 		return Item{}, "", 0, err
 	}
 	if admission {
-		if err := q.EnsurePool(ctx, remediationsql.EnsurePoolParams{UpdatedAt: at, Kind: WorkerKindRemediation, Count: int64(DefaultWorkers)}); err != nil {
+		if err := q.EnsurePool(ctx, remediationsql.EnsurePoolParams{UpdatedAt: at, Kind: WorkerKindRemediation, Count: int64(defaultWorkers)}); err != nil {
 			return Item{}, "", 0, err
 		}
 		if _, err := q.LockPool(ctx, WorkerKindRemediation); err != nil {
@@ -88,13 +88,13 @@ func (s Attempts) Retry(ctx context.Context, jobID ids.ID, id ids.ID, who, note 
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		item, status, _, err := lockItem(ctx, tx, id, false, now)
 		if errors.Is(err, sql.ErrNoRows) {
-			return ErrItemScope
+			return errItemScope
 		}
 		if err != nil {
 			return err
 		}
 		if item.RemediationID != jobID {
-			return ErrItemScope
+			return errItemScope
 		}
 
 		if item.State != ItemStuck {

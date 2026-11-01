@@ -11,15 +11,15 @@ import (
 
 func TestParseSSHAddressAndStanza(t *testing.T) {
 	t.Parallel()
-	a, err := ParseSSHAddress("ssh://deploy@droplet.example.com:2222")
+	a, err := parseSSHAddress("ssh://deploy@droplet.example.com:2222")
 	if err != nil || a.User != "deploy" || a.Host != "droplet.example.com" || a.Port != 2222 {
 		t.Fatalf("parse: %+v %v", a, err)
 	}
-	if a, err := ParseSSHAddress("ssh://root@10.0.0.5"); err != nil || a.Port != 22 {
+	if a, err := parseSSHAddress("ssh://root@10.0.0.5"); err != nil || a.Port != 22 {
 		t.Fatalf("default port: %+v %v", a, err)
 	}
 	for _, bad := range []string{"tcp://x:2376", "root@host", "ssh://host", "ssh://a@b:70000", "ssh://a@b; rm -rf /"} {
-		if _, err := ParseSSHAddress(bad); err == nil {
+		if _, err := parseSSHAddress(bad); err == nil {
 			t.Fatalf("%q must be refused", bad)
 		}
 	}
@@ -55,7 +55,7 @@ func TestParseSSHAddressAndStanza(t *testing.T) {
 // releases to it work.
 func TestTheSSHConfigIsReplacedWholeAndOnlyWhenItChanges(t *testing.T) {
 	t.Parallel()
-	a := SSHAddress{User: "deploy", Host: "box.example.com", Port: 22}
+	a := sshAddress{User: "deploy", Host: "box.example.com", Port: 22}
 	cfg := filepath.Join(t.TempDir(), "config")
 	if err := upsertSSHStanza(cfg, "box", sshStanza("box", a, "/k/one")); err != nil {
 		t.Fatal(err)
@@ -111,7 +111,7 @@ func TestAnUnreadableSSHConfigIsNotReplaced(t *testing.T) {
 	if err := os.Symlink(cfg, cfg); err != nil {
 		t.Fatal(err)
 	}
-	a := SSHAddress{User: "deploy", Host: "box.example", Port: 22}
+	a := sshAddress{User: "deploy", Host: "box.example", Port: 22}
 	if err := upsertSSHStanza(cfg, "box", sshStanza("box", a, "/k/one")); err == nil {
 		t.Fatal("an unreadable ssh config was written over")
 	}

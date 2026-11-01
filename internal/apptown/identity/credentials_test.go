@@ -19,7 +19,7 @@ func TestSessions(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	testAccounts(t, db, "alice")
-	s := New(db, Config{SessionTTL: SessionTTL}).sessions
+	s := New(db, Config{sessionTTL: SessionTTL}).sessions
 	tok, err := issueSessionIn(context.Background(), db, "alice", s.ttl, time.Now())
 	if err != nil || len(tok) != 64 {
 		t.Fatalf("issue: %v %q", err, tok)
@@ -27,17 +27,17 @@ func TestSessions(t *testing.T) {
 	if _, err := queries(db).SessionByHash(context.Background(), tok); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("the plaintext is never stored: %v", err)
 	}
-	if user, _, ok, err := s.Resolve(context.Background(), tok); err != nil || !ok || user != "alice" {
+	if user, _, ok, err := s.resolve(context.Background(), tok); err != nil || !ok || user != "alice" {
 		t.Fatalf("resolve: %v %v %q", err, ok, user)
 	}
-	if _, _, ok, err := s.Resolve(context.Background(), "not-a-session"); err != nil || ok {
+	if _, _, ok, err := s.resolve(context.Background(), "not-a-session"); err != nil || ok {
 		t.Fatalf("unknown: %v %v", err, ok)
 	}
 	// sql-guarantee: Expire the already issued and successfully resolved session without replacing its token; InsertSession cannot update its expiry and deleting it would bypass expiry-triggered cleanup.
 	if _, err := db.SQL().ExecContext(context.Background(), `UPDATE sessions SET expires_at=$1 WHERE token_hash=$2`, time.Now().Add(-time.Minute), HashToken(tok)); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, ok, _ := s.Resolve(context.Background(), tok); ok {
+	if _, _, ok, _ := s.resolve(context.Background(), tok); ok {
 		t.Fatal("an expired session does not resolve")
 	}
 	if sessionStored(t, db, tok) {
@@ -49,10 +49,10 @@ func TestSessions(t *testing.T) {
 		t.Fatalf("the expired row is removed on sight: %d %v", stored, err)
 	}
 	tok, _ = issueSessionIn(context.Background(), db, "alice", s.ttl, time.Now())
-	if err := s.End(context.Background(), tok); err != nil {
+	if err := s.end(context.Background(), tok); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, ok, _ := s.Resolve(context.Background(), tok); ok {
+	if _, _, ok, _ := s.resolve(context.Background(), tok); ok {
 		t.Fatal("logout ends the session")
 	}
 }
@@ -70,7 +70,7 @@ func TestTokens(t *testing.T) {
 	if err != nil || !strings.HasPrefix(tok, TokenPrefix) {
 		t.Fatalf("create: %v %q", err, tok)
 	}
-	user, role, _, ok, err := k.Resolve(context.Background(), tok)
+	user, role, _, ok, err := k.resolveToken(context.Background(), tok)
 	if err != nil || !ok || user != "alice" || role != "member" {
 		t.Fatalf("resolve: %v %v %q %q", err, ok, user, role)
 	}
@@ -78,7 +78,7 @@ func TestTokens(t *testing.T) {
 		t.Fatal("token names are unique")
 	}
 	adm, _ := testIssueToken(svc, "root-cli", "root", "admin", "ops")
-	if _, role, _, _, _ := k.Resolve(context.Background(), adm); role != "admin" {
+	if _, role, _, _, _ := k.resolveToken(context.Background(), adm); role != "admin" {
 		t.Fatalf("an admin token keeps its bound: %q", role)
 	}
 	all, err := svc.Tokens(context.Background(), admittedOpenPrincipal(t, svc, "ops"))
@@ -91,7 +91,7 @@ func TestTokens(t *testing.T) {
 	if ok, err := svc.RevokeToken(context.Background(), "cli", admittedOpenPrincipal(t, svc, "ops")); err != nil || ok {
 		t.Fatalf("revoking twice: %v %v", err, ok)
 	}
-	if _, _, _, ok, _ := k.Resolve(context.Background(), tok); ok {
+	if _, _, _, ok, _ := k.resolveToken(context.Background(), tok); ok {
 		t.Fatal("a revoked token does not resolve")
 	}
 	if n := len(ledger(t, db, "token.created")) + len(ledger(t, db, "token.revoked")); n != 3 {
@@ -104,25 +104,25 @@ func TestAccountCredentialFacts(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	d := &directoryStore{db: db}
-	if needs, err := d.NeedsBootstrap(context.Background()); err != nil || !needs {
+	if needs, err := d.needsBootstrap(context.Background()); err != nil || !needs {
 		t.Fatalf("empty instance needs bootstrap: %v %v", err, needs)
 	}
-	if err := d.SeedAdministrator(context.Background(), "root"); err != nil {
+	if err := d.seedAdministrator(context.Background(), "root"); err != nil {
 		t.Fatal(err)
 	}
-	if err := d.SeedAdministrator(context.Background(), "root"); err != nil {
+	if err := d.seedAdministrator(context.Background(), "root"); err != nil {
 		t.Fatal(err)
 	}
-	if root, err := RootIn(context.Background(), db, "root", time.Now()); err != nil || !root {
+	if root, err := rootIn(context.Background(), db, "root", time.Now()); err != nil || !root {
 		t.Fatalf("seeded root: %v %v", root, err)
 	}
-	if needs, _ := d.NeedsBootstrap(context.Background()); needs {
+	if needs, _ := d.needsBootstrap(context.Background()); needs {
 		t.Fatal("explicit root setup must close bootstrap")
 	}
 	if err := testSaveAccount(db, accountEdit{Name: "root", Role: "admin", PasswordHash: "h"}, "setup"); err != nil {
 		t.Fatal(err)
 	}
-	if needs, _ := d.NeedsBootstrap(context.Background()); needs {
+	if needs, _ := d.needsBootstrap(context.Background()); needs {
 		t.Fatal("a password ends bootstrap")
 	}
 	if a, err := d.login(context.Background(), "root"); err != nil || a == nil || a.passwordHash != "h" || a.Role != "admin" {
@@ -132,7 +132,7 @@ func TestAccountCredentialFacts(t *testing.T) {
 		t.Fatalf("unknown account: %v", err)
 	}
 
-	if role, found, _ := d.Role(context.Background(), "root"); !found || role != "admin" {
+	if role, found, _ := d.role(context.Background(), "root"); !found || role != "admin" {
 		t.Fatalf("role: %v %q", found, role)
 	}
 }
@@ -202,4 +202,10 @@ func TestATokensDefaultCeilingIsItsPersonsRoleWhenMade(t *testing.T) {
 			t.Fatalf("promoting alice widened her earlier token: %+v", tok)
 		}
 	}
+}
+
+// Test setup delegates to the operations used by production.
+func (t *tokenStore) resolveToken(ctx context.Context, tok string) (user, role, purpose string, ok bool, err error) {
+	row, ok, err := t.resolve(ctx, tok)
+	return row.Username, row.Role, row.Purpose, ok, err
 }

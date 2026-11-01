@@ -85,7 +85,7 @@ func readOccupancy(ctx context.Context, db database.Queryer) (Occupancy, error) 
 	}
 	o := Occupancy{Kind: WorkerKindRemediation, Holding: items, Busy: len(items)}
 	depth, err := queries(db).PoolAndQueueDepth(ctx, remediationsql.PoolAndQueueDepthParams{
-		Kind: WorkerKindRemediation, Column2: int64(DefaultWorkers),
+		Kind: WorkerKindRemediation, Column2: int64(defaultWorkers),
 	})
 	if err != nil {
 		return Occupancy{}, err

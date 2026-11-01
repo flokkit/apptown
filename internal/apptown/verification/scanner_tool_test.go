@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/execution"
@@ -23,7 +25,7 @@ func TestRunToolChecksSourceFailAndPass(t *testing.T) {
 	// Report with a finding → fail, one Finding at the CHECK's severity.
 	f.Effects.report = scannerSARIF(1)
 	src := projectTree(t)
-	results, findings, errs := f.Scanners.RunToolChecks(t.Context(), sc, ToolContext{Context: f.Context, ProjectID: f.ProjectID, BuildDir: src}, "test")
+	results, findings, errs := f.Scanners.runToolChecks(t.Context(), sc, toolContext{Context: f.Context, ProjectID: f.ProjectID, BuildDir: src}, "test")
 	if errs != 0 {
 		t.Fatalf("unexpected tool errors: %d", errs)
 	}
@@ -40,7 +42,7 @@ func TestRunToolChecksSourceFailAndPass(t *testing.T) {
 	// Empty report → pass, no findings.
 	f.Effects.report = scannerSARIF(0)
 	src2 := projectTree(t)
-	results, findings, errs = f.Scanners.RunToolChecks(t.Context(), sc, ToolContext{Context: f.Context, ProjectID: f.ProjectID, BuildDir: src2}, "test")
+	results, findings, errs = f.Scanners.runToolChecks(t.Context(), sc, toolContext{Context: f.Context, ProjectID: f.ProjectID, BuildDir: src2}, "test")
 	if len(findings) != 0 || errs != 0 || results[0].Verdict != workflow.VerdictPass {
 		t.Fatalf("want clean pass, got results=%+v findings=%+v errs=%d", results, findings, errs)
 	}
@@ -60,14 +62,14 @@ func TestRunToolChecksHonorsDispositions(t *testing.T) {
 
 	// Finding present, no disposition → fail.
 	f.Effects.report = scannerSARIF(1)
-	results, _, _ := f.Scanners.RunToolChecks(t.Context(), sc, ToolContext{Context: f.Context, ProjectID: pid, BuildDir: projectTree(t)}, "test")
+	results, _, _ := f.Scanners.runToolChecks(t.Context(), sc, toolContext{Context: f.Context, ProjectID: pid, BuildDir: projectTree(t)}, "test")
 	if results[0].Verdict != workflow.VerdictFail {
 		t.Fatalf("want fail without a disposition, got %+v", results)
 	}
 
 	// Failed exception storage is an evaluation error, not an ordinary finding.
-	t.Cleanup(f.DB.FailNextStatement("FROM dispositions"))
-	failed, _, nerrors := f.Scanners.RunToolChecks(t.Context(), sc, ToolContext{Context: f.Context, ProjectID: pid, BuildDir: projectTree(t)}, "test")
+	t.Cleanup(dbtest.NextStatementFailure(f.DB, "FROM dispositions"))
+	failed, _, nerrors := f.Scanners.runToolChecks(t.Context(), sc, toolContext{Context: f.Context, ProjectID: pid, BuildDir: projectTree(t)}, "test")
 	if len(failed) != 1 || failed[0].Verdict != workflow.VerdictError || nerrors != 1 || !strings.Contains(failed[0].Output, "reading exceptions") {
 		t.Fatalf("failed exception read was hidden: %+v errors=%d", failed, nerrors)
 	}
@@ -79,7 +81,7 @@ func TestRunToolChecksHonorsDispositions(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.Effects.report = scannerSARIF(1)
-	results, findings, _ := f.Scanners.RunToolChecks(t.Context(), sc, ToolContext{Context: f.Context, ProjectID: pid, BuildDir: projectTree(t)}, "test")
+	results, findings, _ := f.Scanners.runToolChecks(t.Context(), sc, toolContext{Context: f.Context, ProjectID: pid, BuildDir: projectTree(t)}, "test")
 	// EXCEPTED, not pass (design/subsystems/conformance-surface.md §9): the findings stay
 	// underneath in the detail and the exception is named — never folded green.
 	if results[0].Verdict != workflow.VerdictExcepted {
@@ -96,7 +98,7 @@ func TestRunToolChecksHonorsDispositions(t *testing.T) {
 	// what a what-if on that version says.
 	moved := []conformance.DeclaredCheck{{Block: sc[0].Block, Version: sc[0].Version + 1, Check: sc[0].Check}}
 	f.Effects.report = scannerSARIF(1)
-	if results, _, _ := f.Scanners.RunToolChecks(t.Context(), moved, ToolContext{Context: f.Context, ProjectID: pid, BuildDir: projectTree(t)}, "test"); results[0].Verdict != workflow.VerdictExcepted {
+	if results, _, _ := f.Scanners.runToolChecks(t.Context(), moved, toolContext{Context: f.Context, ProjectID: pid, BuildDir: projectTree(t)}, "test"); results[0].Verdict != workflow.VerdictExcepted {
 		t.Fatalf("an identifier exception covers the check at a new block version, got %+v", results)
 	}
 }
@@ -135,8 +137,8 @@ func TestRunToolChecksExecImageSharedBuild(t *testing.T) {
 
 	sc := []conformance.DeclaredCheck{{Block: "lang/django", Version: 5,
 		Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "django-check-deploy", Evaluator: "tool", Tool: "django-check-deploy", Severity: "high", Expects: "deploy checks pass"}}}
-	results, findings, errs := f.Scanners.RunToolChecks(t.Context(), sc,
-		ToolContext{Context: f.Context, ProjectID: f.ProjectID, SHA: "abcdef1234567890", BuildDir: src, AllowBuild: true}, "test")
+	results, findings, errs := f.Scanners.runToolChecks(t.Context(), sc,
+		toolContext{Context: f.Context, ProjectID: f.ProjectID, SHA: "abcdef1234567890", BuildDir: src, AllowBuild: true}, "test")
 
 	if builds := f.Daemon.Matching("build "); len(builds) != 0 {
 		t.Fatal("exec-image tool rebuilt the app image instead of reusing the cached (shared) one")
@@ -177,8 +179,8 @@ func TestRunToolChecksExecImageCrashIsError(t *testing.T) {
 
 	sc := []conformance.DeclaredCheck{{Block: "lang/django", Version: 5,
 		Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "django-check-deploy", Evaluator: "tool", Tool: "django-check-deploy", Severity: "high", Expects: "deploy checks pass"}}}
-	results, findings, errs := f.Scanners.RunToolChecks(t.Context(), sc,
-		ToolContext{Context: f.Context, ProjectID: f.ProjectID, SHA: "abcdef1234567890", BuildDir: src, AllowBuild: true}, "test")
+	results, findings, errs := f.Scanners.runToolChecks(t.Context(), sc,
+		toolContext{Context: f.Context, ProjectID: f.ProjectID, SHA: "abcdef1234567890", BuildDir: src, AllowBuild: true}, "test")
 
 	if len(findings) != 0 {
 		t.Fatalf("a crash must NOT produce a conformance finding, got %+v", findings)
@@ -202,7 +204,7 @@ func TestHTMLOnlyAssessmentDropsTheOnlyDockerfileFinding(t *testing.T) {
 	writeTree(t, dir, map[string]string{".apptown/app.yaml": "version: 2\napp:\n  site: {static: ., public: true}\n", "index.html": "<p>Hello</p>"})
 	sc := conformance.DeclaredCheck{Block: "build/container-image", Version: 9, Check: conformance.CheckDeclaration{Name: "dockerfile-lint", Evaluator: "tool", Tool: "hadolint", AppliesTo: []string{"repository"}}}
 	fleet := Fleet{scanners: f.Scanners, evaluator: f.Scanners.evaluator}
-	got := fleet.assessTree(t.Context(), "", nil, []conformance.DeclaredCheck{sc}, ToolContext{Context: f.Context, ProjectID: f.ProjectID, BuildDir: dir}, "static-only")
+	got := fleet.assessTree(t.Context(), "", nil, []conformance.DeclaredCheck{sc}, toolContext{Context: f.Context, ProjectID: f.ProjectID, BuildDir: dir}, "static-only")
 	if len(got) != 1 || got[0].State != conformance.NotApplicable || len(got[0].Findings) != 0 || len(f.Effects.requests) != 0 {
 		t.Fatalf("static assessment: %+v; executions %d", got, len(f.Effects.requests))
 	}

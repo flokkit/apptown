@@ -24,12 +24,12 @@ type Set[T ~uint8] struct {
 	ScanLabel string
 }
 
-// Valid reports whether v is one of the set's values.
-func (s Set[T]) Valid(v T) bool { return v >= 1 && int(v) <= len(s.Names) }
+// valid reports whether v is one of the set's values.
+func (s Set[T]) valid(v T) bool { return v >= 1 && int(v) <= len(s.Names) }
 
 // String is v's word, or Invalid.
 func (s Set[T]) String(v T) string {
-	if !s.Valid(v) {
+	if !s.valid(v) {
 		return s.Invalid
 	}
 	return s.Names[v-1]
@@ -47,7 +47,7 @@ func (s Set[T]) Parse(text string) (T, error) {
 
 // Value stores v as its word; a value outside the set is refused.
 func (s Set[T]) Value(v T) (driver.Value, error) {
-	if !s.Valid(v) {
+	if !s.valid(v) {
 		return nil, fmt.Errorf("%w: %d", s.Err, v)
 	}
 	return s.Names[v-1], nil

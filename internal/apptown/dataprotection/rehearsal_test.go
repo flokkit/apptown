@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -142,7 +143,7 @@ func volumeOf(args []string) string {
 const planted = "alice.private@example.com"
 
 func newRehearsalHost() *rehearsalHost {
-	h := &rehearsalHost{Daemon: dockerfake.New(), status: map[string]string{"/signin": "302 /login"}, volumes: map[string]string{}, objects: map[string]fakeObject{}, failWith: map[string]bool{}, started: map[string]map[string]string{}, held: map[string]bool{}}
+	h := &rehearsalHost{Daemon: newDockerFake(), status: map[string]string{"/signin": "302 /login"}, volumes: map[string]string{}, objects: map[string]fakeObject{}, failWith: map[string]bool{}, started: map[string]map[string]string{}, held: map[string]bool{}}
 	h.SetReply(func(args []string) ([]byte, error, bool) {
 		h.mu.Lock()
 		defer h.mu.Unlock()
@@ -171,9 +172,9 @@ func newRehearsalHost() *rehearsalHost {
 		}
 		return nil, nil, false
 	})
-	h.SetResults(func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+	h.SetResults(func(c dockerfake.ResultCommand) (dockerfake.ResultAnswer, bool) {
 		if !strings.Contains(c.Script, "PROBE_PATH") {
-			return containerresulttest.Answer{}, false
+			return dockerfake.ResultAnswer{}, false
 		}
 		dep := map[string]string{}
 		for _, kv := range c.Env {
@@ -191,7 +192,7 @@ func newRehearsalHost() *rehearsalHost {
 		// status line's code (and a redirect's Location) comes out, in its
 		// answer file.
 		code, location, _ := strings.Cut(status, " ")
-		return containerresulttest.Answer{Answer: []byte(code + "\n" + location + "\n")}, true
+		return dockerfake.ResultAnswer{Answer: []byte(code + "\n" + location + "\n")}, true
 	})
 	h.SetCommandReply(func(c docker.Command) ([]byte, error, bool) {
 		if len(c.Args) < 3 || c.Args[0] != "run" || c.Args[len(c.Args)-3] != "sh" {
@@ -351,7 +352,7 @@ func newRehearsalWorldWith(t *testing.T, contract string, dw *dataWorld, seed fu
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := w.run(op); !endedAs(got, OperationNotVerified) {
+	if got := w.run(op); !endedAs(got, operationNotVerified) {
 		t.Fatalf("copy %s: %s", got.State, got.Detail)
 	}
 	set, err := w.s.newestStoreSet(ctx, w.project, "prod")
@@ -417,7 +418,7 @@ func TestARehearsalRunsTheReleaseOnACopyWithNoAddressAndTakesItDown(t *testing.T
 	// page check follows it there, on the rehearsal's own network.
 	w.host.status["/"] = "302 /welcome"
 	op := w.rehearse()
-	if !endedAs(op, OperationVerified) {
+	if !endedAs(op, operationVerified) {
 		t.Fatalf("rehearsal %s: %s\n%+v", op.State, op.Detail, op.Steps)
 	}
 	if w.host.filled != "orders: 41, 42" {
@@ -453,7 +454,7 @@ func TestARehearsalRunsTheReleaseOnACopyWithNoAddressAndTakesItDown(t *testing.T
 			t.Errorf("the worker was started: %v", c)
 		}
 	}
-	ref, err := w.s.LastRehearsal(context.Background(), w.project, "prod")
+	ref, err := w.s.lastRehearsal(context.Background(), w.project, "prod")
 	if err != nil || ref == nil {
 		t.Fatalf("no rehearsal recorded: %v", err)
 	}
@@ -495,7 +496,7 @@ func TestARehearsalRunsTheReleaseOnACopyWithNoAddressAndTakesItDown(t *testing.T
 	}
 	// A passed rehearsal from a fresh copy speaks for the items assessed,
 	// never for data outside the deployment (an uploads bucket).
-	if len(prot.Items) == 0 || prot.Items[0].Copy != CopyFresh || len(prot.Coverage.Assessed) != len(prot.Items) || !slices.Equal(prot.Coverage.NotAssessed, []string{OutsideNotAssessed}) {
+	if len(prot.Items) == 0 || prot.Items[0].Copy != CopyFresh || len(prot.Coverage.Assessed) != len(prot.Items) || !slices.Equal(prot.Coverage.NotAssessed, []string{outsideNotAssessed}) {
 		t.Fatalf("coverage after a passed rehearsal: %+v of %+v", prot.Coverage, prot.Items)
 	}
 }
@@ -521,7 +522,7 @@ func TestARehearsalFillsTheNewStoreFromTheBucketsCopy(t *testing.T) {
 				// A newer set of prod's, taken as a Docker host takes one: its
 				// store's copy beside the store, its database's in its container.
 				want = map[string]fakeObject{"from-docker.txt": {Key: "from-docker.txt", Type: "text/plain", Body: []byte("docker")}}
-				d := dockerfake.New()
+				d := newDockerFake()
 				setBackupDockerCommand(d, func(req docker.Command) ([]byte, error) {
 					if req.Stdout == nil {
 						return nil, nil
@@ -537,19 +538,19 @@ func TestARehearsalFillsTheNewStoreFromTheBucketsCopy(t *testing.T) {
 				pg, _ := w.s.catalog.ByCapability(context.Background(), "postgres")
 				s3, _ := w.s.catalog.ByCapability(context.Background(), "s3")
 				set, err := w.s.takeSet(context.Background(), docker.Scope{Client: d}, w.project, "ledger", "prod", []backupPlanItem{needItem(pg, "postgres", "c-pg"), needItem(s3, "s3", "c-s3")}, "manual", "alice")
-				if err != nil || set.Status != BackupOK || set.GoodCopy("need", "s3").Format != "s3-objects" {
+				if err != nil || set.Status != BackupOK || set.goodCopy("need", "s3").Format != "s3-objects" {
 					t.Fatalf("the Docker host's set: %+v %v", set, err)
 				}
 			}
 			w.host.corrupt = scenario == "a store that does not hold it"
 			op := w.rehearse()
 			if scenario == "a store that does not hold it" {
-				if endedAs(op, OperationVerified) || !strings.Contains(op.Detail, "the s3 kind's verify ended with") {
+				if endedAs(op, operationVerified) || !strings.Contains(op.Detail, "the s3 kind's verify ended with") {
 					t.Fatalf("a store that does not hold the copy: %s: %s", op.State, op.Detail)
 				}
 				return
 			}
-			if !endedAs(op, OperationVerified) {
+			if !endedAs(op, operationVerified) {
 				t.Fatalf("rehearsal %s: %s\n%+v", op.State, op.Detail, op.Steps)
 			}
 			w.host.mu.Lock()
@@ -607,7 +608,7 @@ func TestAFailedRehearsalRecordsOnlyStepsAndStatuses(t *testing.T) {
 			if op.State != operations.Failed || !strings.Contains(op.Detail, tc.step) {
 				t.Fatalf("rehearsal %s: %s", op.State, op.Detail)
 			}
-			ref, err := w.s.LastRehearsal(context.Background(), w.project, "prod")
+			ref, err := w.s.lastRehearsal(context.Background(), w.project, "prod")
 			if err != nil || ref == nil || ref.Passed || ref.FailedStep == "" {
 				t.Fatalf("recorded: %+v %v", ref, err)
 			}
@@ -711,7 +712,7 @@ func TestARehearsalIsRefusedWithoutAuthorityOrAPlace(t *testing.T) {
 		t.Fatalf("no kept host, a copy runner: %+v %v", p, err)
 	}
 	w.nameRunner("")
-	if _, err := w.s.RequestRehearsal(ctx, w.project, "prod", ids.Nil); !errors.Is(err, ErrNoRehearsalHost) {
+	if _, err := w.s.RequestRehearsal(ctx, w.project, "prod", ids.Nil); !errors.Is(err, errNoRehearsalHost) {
 		t.Fatalf("no kept host and no copy runner: %v", err)
 	}
 	prot, err := w.s.DeploymentProtection(ctx, w.project, "prod")
@@ -740,7 +741,7 @@ func TestAnInterruptedRehearsalReadsUnknownAndIsClearedByTheSweep(t *testing.T) 
 			ctx := context.Background()
 			var passed *operations.Operation
 			if earlier {
-				if passed = w.rehearse(); !endedAs(passed, OperationVerified) {
+				if passed = w.rehearse(); !endedAs(passed, operationVerified) {
 					t.Fatalf("the earlier rehearsal %s: %s", passed.State, passed.Detail)
 				}
 			}
@@ -757,7 +758,7 @@ func TestAnInterruptedRehearsalReadsUnknownAndIsClearedByTheSweep(t *testing.T) 
 			<-reached
 			// A rehearsal is not stopped part way: it takes itself down
 			// when it ends.
-			if _, err := w.ops.Cancel(ctx, op.ID); !errors.Is(err, ErrRehearsalNotStopped) {
+			if _, err := w.ops.Cancel(ctx, op.ID); !errors.Is(err, errRehearsalNotStopped) {
 				t.Errorf("cancelling a running rehearsal: %v", err)
 			}
 			place := placeOf(op.ID, "rehearse-1", false)
@@ -787,14 +788,14 @@ func TestAnInterruptedRehearsalReadsUnknownAndIsClearedByTheSweep(t *testing.T) 
 			if recorded, err := w.s.recordedPlace(ctx, op.ID); err != nil || recorded != place {
 				t.Fatalf("the recorded place: %+v %v", recorded, err)
 			}
-			last, err := w.s.LastRehearsal(ctx, w.project, "prod")
+			last, err := w.s.lastRehearsal(ctx, w.project, "prod")
 			if err != nil || last == nil || last.Outcome != RehearsalUnknown || last.Passed || last.Operation != op.ID {
 				t.Fatalf("the last rehearsal after the stop: %+v %v", last, err)
 			}
 			if earlier && (last.Previous == nil || last.Previous.Operation != passed.ID || !last.Previous.Passed) {
 				t.Fatalf("the earlier pass is not kept as history: %+v", last.Previous)
 			}
-			cleared, left, err := w.s.SweepRehearsals(ctx)
+			cleared, left, err := w.s.sweepRehearsals(ctx)
 			if err != nil || cleared != 1 || len(left) != 0 {
 				t.Fatalf("sweep: cleared %d, left %v, %v", cleared, left, err)
 			}
@@ -804,7 +805,7 @@ func TestAnInterruptedRehearsalReadsUnknownAndIsClearedByTheSweep(t *testing.T) 
 					t.Errorf("the sweep did not remove %q", want)
 				}
 			}
-			if again, _, _ := w.s.SweepRehearsals(ctx); again != 0 {
+			if again, _, _ := w.s.sweepRehearsals(ctx); again != 0 {
 				t.Errorf("a cleared rehearsal was swept again")
 			}
 			close(release)
@@ -826,7 +827,16 @@ func TestARehearsalNeedsNoCopyRunnerOnTheSource(t *testing.T) {
 	if err != nil || !p.Operations.Rehearsal.Available || p.Operations.Copy.Available {
 		t.Fatalf("without a source runner: %+v %v", p.Operations, err)
 	}
-	if op := w.rehearse(); !endedAs(op, OperationVerified) {
+	if op := w.rehearse(); !endedAs(op, operationVerified) {
 		t.Fatalf("rehearsal %s: %s", op.State, op.Detail)
 	}
+}
+
+// Test setup delegates to the operations used by production.
+func (s *Service) lastRehearsal(ctx context.Context, projectID ids.ID, name string) (*RehearsalRef, error) {
+	dep, err := s.deployments.ByName(ctx, projectID, name)
+	if found, lerr := database.Lookup(err); lerr != nil || !found {
+		return nil, lerr
+	}
+	return s.lastRehearsalOf(ctx, dep)
 }

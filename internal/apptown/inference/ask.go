@@ -19,9 +19,9 @@ import (
 	"github.com/flokkit/apptown/internal/strs"
 )
 
-// AppTownActor is the actor of AppTown's own model calls when the caller
+// appTownActor is the actor of AppTown's own model calls when the caller
 // names none: the call is AppTown's, made for a project or for no one.
-const AppTownActor = "apptown-system"
+const appTownActor = "apptown-system"
 
 // settleWithin bounds a settlement after the call has ended. The spend line
 // stays pending for the gateway's call limit plus this, so a settlement that
@@ -76,7 +76,7 @@ func (g *Gateway) Ask(ctx context.Context, call modelcall.Call) (string, *modelc
 	raw, _ := json.Marshal(body)
 	actor := call.Actor
 	if actor == "" {
-		actor = AppTownActor
+		actor = appTownActor
 	}
 	who := identity.Workload{Kind: "apptown", Actor: actor, ProjectID: call.ProjectID, RunID: call.RunID}
 	receipt, err := g.open(ctx, who, call.Purpose, p.name, id, g.timeout+settleWithin)

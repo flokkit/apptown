@@ -34,15 +34,15 @@ type Fix struct {
 	At                  string   `json:"at"`
 }
 
-// FixedBy says whether these immutable outcomes can constitute a repair.
+// fixedBy says whether these immutable outcomes can constitute a repair.
 // Human confirmation and attribution are admitted atomically by the store.
-func (v Verdict) FixedBy(next Verdict) bool {
-	return !v.ID.IsZero() && v.Identity() == next.Identity() &&
+func (v Verdict) fixedBy(next Verdict) bool {
+	return !v.ID.IsZero() && v.identity() == next.identity() &&
 		next.State == Conforms && (v.State == DoesNotConform || v.State == Excepted)
 }
 
-// Confirmable marks AI findings that require an explicit human confirmation.
-func (v Verdict) Confirmable() bool { return v.State == DoesNotConform && v.Evaluator == "llm" }
+// confirmable marks AI findings that require an explicit human confirmation.
+func (v Verdict) confirmable() bool { return v.State == DoesNotConform && v.Evaluator == "llm" }
 
 // FixSentence describes the recorded repair without re-deriving its attribution.
 func FixSentence(f Fix) string {

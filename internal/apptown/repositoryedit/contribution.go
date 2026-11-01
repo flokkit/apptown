@@ -47,13 +47,13 @@ func contributionRefusal(format string, args ...any) error {
 	return ContributionRefusal(fmt.Sprintf(format, args...))
 }
 
-type Checkout struct {
+type checkout struct {
 	// Ref is the Change's branch, to fetch. PushRef is where the ticket's
 	// push lands before AppTown publishes it to Ref.
 	Token, Tip, Ref, PushRef string
 	Ticket                   *identity.Ticket
 }
-type SyncedRevision struct{ Tip, PreviousTip string }
+type syncedRevision struct{ Tip, PreviousTip string }
 
 func (c *Contributions) authorize(ctx context.Context, action string, ch *workflow.Change) error {
 	caller, ok := access.CallerFrom(ctx)
@@ -74,62 +74,62 @@ func (c *Contributions) authorize(ctx context.Context, action string, ch *workfl
 	}
 	return nil
 }
-func (c *Contributions) Checkout(ctx context.Context, changeID ids.ID) (Checkout, error) {
+func (c *Contributions) Checkout(ctx context.Context, changeID ids.ID) (checkout, error) {
 	ch, p, err := c.change(ctx, changeID)
 	if err != nil {
-		return Checkout{}, err
+		return checkout{}, err
 	}
 	caller, ok := access.CallerFrom(ctx)
 	if !ok || !caller.Verified {
-		return Checkout{}, access.ErrPrincipalRequired
+		return checkout{}, access.ErrPrincipalRequired
 	}
 	if p.DefaultBranch == "" || ch.Branch == "" {
-		return Checkout{}, contributionRefusal("change %s#%d has no repository branch to push to (the project is not repo-backed)", p.Slug, ch.Number)
+		return checkout{}, contributionRefusal("change %s#%d has no repository branch to push to (the project is not repo-backed)", p.Slug, ch.Number)
 	}
 	if ch.State != workflow.ChangeInProgress {
-		return Checkout{}, contributionRefusal("change %s#%d is %s; only an in-progress Change takes revisions", p.Slug, ch.Number, ch.State)
+		return checkout{}, contributionRefusal("change %s#%d is %s; only an in-progress Change takes revisions", p.Slug, ch.Number, ch.State)
 	}
 	if err := c.authorize(ctx, "checkout_change", ch); err != nil {
-		return Checkout{}, err
+		return checkout{}, err
 	}
 	hub, err := p.Repository(c.dataDir)
 	if err != nil {
-		return Checkout{}, err
+		return checkout{}, err
 	}
 	// Who holds the change is read before anything is minted: another
 	// holder refuses the checkout, and the caller's own earlier ticket is
 	// replaced (a renewal), not handed over.
 	current, err := scm.ReadAuthorityIn(ctx, c.db, p.ID, ch.Branch)
 	if err != nil {
-		return Checkout{}, err
+		return checkout{}, err
 	}
 	if ticket, isTicket := strings.CutPrefix(current.Holder, "ticket:"); isTicket {
 		id, _ := ids.Parse(ticket)
 		// The caller's own earlier ticket is the same person's: compared by
 		// principal, so a renamed caller still renews theirs.
 		if person, err := identity.TicketPersonIn(ctx, c.db, id); err != nil {
-			return Checkout{}, err
+			return checkout{}, err
 		} else if mine, err := identity.ActorIn(ctx, c.db, caller.Principal.Name); err != nil {
-			return Checkout{}, err
+			return checkout{}, err
 		} else if !person.IsZero() && (person == caller.Principal.ID || person == mine.Principal) {
 			if err := c.identity.RevokeChangeTickets(ctx, ch.ID); err != nil {
-				return Checkout{}, err
+				return checkout{}, err
 			}
 		}
 	}
 	if ended, err := workflow.HolderRecordsEndedIn(ctx, c.db, p.ID, current.Holder, c.chats, c.now()); err != nil {
-		return Checkout{}, err
+		return checkout{}, err
 	} else if !ended {
-		return Checkout{}, contributionRefusal("%s", (&workflow.ChangeHeld{Holder: current.Holder}).Error())
+		return checkout{}, contributionRefusal("%s", (&workflow.ChangeHeld{Holder: current.Holder}).Error())
 	}
 	if err := c.publishFolder(ctx, p, ch, hub); err != nil {
-		return Checkout{}, err
+		return checkout{}, err
 	}
 	ref := "refs/heads/" + ch.Branch
 	tip := scm.Ref(ctx, hub, ref)
 	tok, t, err := c.identity.IssueTicket(ctx, caller.Principal.Name, caller.Principal.DelegationID, ch.ID, ref, tip)
 	if err != nil {
-		return Checkout{}, err
+		return checkout{}, err
 	}
 	// The ticket takes the change, and holds it until its push is synced or
 	// it expires. Another holder that has not ended (a chat, a run, another
@@ -147,15 +147,15 @@ func (c *Contributions) Checkout(ctx context.Context, changeID ids.ID) (Checkout
 	}); err != nil {
 		// The ticket was issued: revoke it though the caller has gone.
 		if revokeErr := c.identity.RevokeChangeTickets(context.WithoutCancel(ctx), ch.ID); revokeErr != nil {
-			return Checkout{}, fmt.Errorf("%v; and revoking the unusable ticket: %w", err, revokeErr)
+			return checkout{}, fmt.Errorf("%v; and revoking the unusable ticket: %w", err, revokeErr)
 		}
 		var held *workflow.ChangeHeld
 		if errors.As(err, &held) {
-			return Checkout{}, contributionRefusal("%s", held.Error())
+			return checkout{}, contributionRefusal("%s", held.Error())
 		}
-		return Checkout{}, err
+		return checkout{}, err
 	}
-	return Checkout{Token: tok, Ticket: t, Tip: tip, Ref: ref, PushRef: scm.IncomingRef(t.ID)}, nil
+	return checkout{Token: tok, Ticket: t, Tip: tip, Ref: ref, PushRef: scm.IncomingRef(t.ID)}, nil
 }
 
 // publishFolder publishes what the change's folder committed (its previous
@@ -190,37 +190,37 @@ func (c *Contributions) publishFolder(ctx context.Context, p *project.Project, c
 	return published
 }
 
-func (c *Contributions) Sync(ctx context.Context, changeID ids.ID, pushed, expected string) (SyncedRevision, error) {
+func (c *Contributions) Sync(ctx context.Context, changeID ids.ID, pushed, expected string) (syncedRevision, error) {
 	ch, p, err := c.change(ctx, changeID)
 	if err != nil {
-		return SyncedRevision{}, err
+		return syncedRevision{}, err
 	}
 	caller, ok := access.CallerFrom(ctx)
 	if !ok || !caller.Verified {
-		return SyncedRevision{}, access.ErrPrincipalRequired
+		return syncedRevision{}, access.ErrPrincipalRequired
 	}
 	if ch.State != workflow.ChangeInProgress || ch.Branch == "" {
-		return SyncedRevision{}, contributionRefusal("change %s#%d is %s and takes no revisions", p.Slug, ch.Number, ch.State)
+		return syncedRevision{}, contributionRefusal("change %s#%d is %s and takes no revisions", p.Slug, ch.Number, ch.State)
 	}
 	if err := c.authorize(ctx, "sync_change", ch); err != nil {
-		return SyncedRevision{}, err
+		return syncedRevision{}, err
 	}
 	pushed = strings.TrimSpace(pushed)
 	expected = strings.TrimSpace(expected)
 	hub, err := p.Repository(c.dataDir)
 	if err != nil {
-		return SyncedRevision{}, err
+		return syncedRevision{}, err
 	}
 	ref := "refs/heads/" + ch.Branch
 	hubTip := scm.Ref(ctx, hub, ref)
 	if hubTip == "" || !strings.HasPrefix(hubTip, pushed) {
-		return SyncedRevision{}, contributionRefusal("the hub's %s is %s, not %s: the push did not arrive, or another writer moved it; fetch and look", ch.Branch, strs.ShortSHA(hubTip), strs.ShortSHA(pushed))
+		return syncedRevision{}, contributionRefusal("the hub's %s is %s, not %s: the push did not arrive, or another writer moved it; fetch and look", ch.Branch, strs.ShortSHA(hubTip), strs.ShortSHA(pushed))
 	}
 	// Preparing a missing folder takes the repository lock itself.
 	ws := (workflow.Layout{DataDir: c.dataDir}).ChangeWorkspace(ch.ID)
 	if !gitexec.IsRepo(ws) {
 		if err := c.work.PrepareWorkspace(ctx, ch.ID); err != nil {
-			return SyncedRevision{}, contributionRefusal("the workspace could not be prepared: %v", err)
+			return syncedRevision{}, contributionRefusal("the workspace could not be prepared: %v", err)
 		}
 	}
 	// The sync holds the repository lock from its holder check until its
@@ -229,60 +229,60 @@ func (c *Contributions) Sync(ctx context.Context, changeID ids.ID, pushed, expec
 	// ticket expires or is revoked meanwhile.
 	release, err := c.locks.Acquire(ctx, p.ID)
 	if err != nil {
-		return SyncedRevision{}, err
+		return syncedRevision{}, err
 	}
 	defer release()
 	// Only the caller's ticket that holds the change, still valid, syncs it.
 	authority, err := scm.ReadAuthorityIn(ctx, c.db, p.ID, ch.Branch)
 	if err != nil {
-		return SyncedRevision{}, err
+		return syncedRevision{}, err
 	}
 	holder := authority.Holder
 	ticketID, isTicket := strings.CutPrefix(holder, "ticket:")
 	id, _ := ids.Parse(ticketID)
 	person, err := identity.TicketPersonIn(ctx, c.db, id)
 	if err != nil {
-		return SyncedRevision{}, err
+		return syncedRevision{}, err
 	}
 	mine, err := identity.ActorIn(ctx, c.db, caller.Principal.Name)
 	if err != nil {
-		return SyncedRevision{}, err
+		return syncedRevision{}, err
 	}
 	holds, err := identity.TicketHoldsIn(ctx, c.db, id, c.now())
 	if err != nil {
-		return SyncedRevision{}, err
+		return syncedRevision{}, err
 	}
 	yours := !person.IsZero() && (person == caller.Principal.ID || person == mine.Principal)
 	if !isTicket || !yours || !holds {
-		return SyncedRevision{}, contributionRefusal("change %s#%d is not held by your desktop checkout (its ticket may have expired); the hub has the revision, and whoever works on the change next starts from it", p.Slug, ch.Number)
+		return syncedRevision{}, contributionRefusal("change %s#%d is not held by your desktop checkout (its ticket may have expired); the hub has the revision, and whoever works on the change next starts from it", p.Slug, ch.Number)
 	}
 	wsTip, _ := gitexec.Run(ctx, ws, "rev-parse", "--verify", "--quiet", "HEAD")
 	wsTip = strings.TrimSpace(wsTip)
 	if err := scm.StageAll(ctx, ws); err != nil {
-		return SyncedRevision{}, err
+		return syncedRevision{}, err
 	}
 	// What StageAll staged is the work an adoption would discard; the
 	// AppTown's untracked runtime files under .apptown survive the reset.
 	if staged, err := gitexec.Staged(ctx, ws); err != nil {
-		return SyncedRevision{}, err
+		return syncedRevision{}, err
 	} else if staged {
-		return SyncedRevision{}, contributionRefusal("the Change's workspace has uncommitted work (a chat or hand edits); the hub has your revision, but adopting it would discard that work. Land or sweep it in AppTown first")
+		return syncedRevision{}, contributionRefusal("the Change's workspace has uncommitted work (a chat or hand edits); the hub has your revision, but adopting it would discard that work. Land or sweep it in AppTown first")
 	}
 	if expected != "" && wsTip != "" && !strings.HasPrefix(wsTip, expected) && wsTip != hubTip {
-		return SyncedRevision{}, contributionRefusal("the workspace was at %s, not the %s you expected: another writer advanced it. Fetch %s, merge, push again with a fresh ticket",
+		return syncedRevision{}, contributionRefusal("the workspace was at %s, not the %s you expected: another writer advanced it. Fetch %s, merge, push again with a fresh ticket",
 			strs.ShortSHA(wsTip), strs.ShortSHA(expected), ch.Branch)
 	}
 	// Adopt: bring the hub's objects over (into FETCH_HEAD; git refuses
 	// to fetch straight into the checked-out branch) and move the
 	// branch to the pushed tip.
 	if out, err := gitexec.Run(ctx, ws, "fetch", "--quiet", hub, ref); err != nil {
-		return SyncedRevision{}, contributionRefusal("adopting the revision failed: %s", strings.TrimSpace(out))
+		return syncedRevision{}, contributionRefusal("adopting the revision failed: %s", strings.TrimSpace(out))
 	}
 	if out, err := gitexec.Run(ctx, ws, "checkout", "--quiet", "--force", ch.Branch); err != nil {
-		return SyncedRevision{}, contributionRefusal("adopting the revision failed: %s", strings.TrimSpace(out))
+		return syncedRevision{}, contributionRefusal("adopting the revision failed: %s", strings.TrimSpace(out))
 	}
 	if out, err := gitexec.Run(ctx, ws, "reset", "--quiet", "--hard", hubTip); err != nil {
-		return SyncedRevision{}, contributionRefusal("adopting the revision failed: %s", strings.TrimSpace(out))
+		return syncedRevision{}, contributionRefusal("adopting the revision failed: %s", strings.TrimSpace(out))
 	}
 	// The sync ends the ticket's hold: the next worker can take the change.
 	// The folder has moved, so the release is written though the caller
@@ -291,11 +291,11 @@ func (c *Contributions) Sync(ctx context.Context, changeID ids.ID, pushed, expec
 	if err := c.db.InTx(ctx, func(tx *database.Tx) error {
 		return workflow.ReleaseChangeIn(ctx, tx, p.ID, ch.Branch, holder)
 	}); err != nil {
-		return SyncedRevision{}, err
+		return syncedRevision{}, err
 	}
 	audit.At(c.now()).BestEffort(ctx, c.db, caller.Receipt, p.ID, "change.revision-synced", fmt.Sprintf("change %d", ch.ID),
 		map[string]any{"from": wsTip, "to": hubTip, "ref": ref})
-	return SyncedRevision{Tip: hubTip, PreviousTip: wsTip}, nil
+	return syncedRevision{Tip: hubTip, PreviousTip: wsTip}, nil
 }
 
 // PublishPush moves a Change's branch to what a ticket pushed into its

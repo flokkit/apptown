@@ -32,7 +32,7 @@ import (
 // (a worker's copy of the change folder) keeps index stat data that no
 // longer matches its files, and on such a clean tree `git stash create`
 // exits 1 without output instead of printing nothing.
-func StagedBuildContext(ctx context.Context, ws, buildContext string) (string, func(), error) {
+func stagedBuildContext(ctx context.Context, ws, buildContext string) (string, func(), error) {
 	if !gitexec.IsRepo(ws) {
 		return filepath.Join(ws, buildContext), func() {}, nil
 	}
@@ -57,13 +57,13 @@ func StagedBuildContext(ctx context.Context, ws, buildContext string) (string, f
 // requireServingLabel applies at both complete boot and direct app replacement
 // boundaries, before either can change resources on the attached host.
 func (t BootRequest) requireServingLabel() error {
-	if t.Docker.Remote() && t.Docker.RoutesDeployment(t.Deployment) && t.ServingLabel == "" && t.Sealed == nil {
+	if t.Docker.remote() && t.Docker.routesDeployment(t.Deployment) && t.ServingLabel == "" && t.Sealed == nil {
 		return errors.New("a deployment routed by the host's ingress has no serving label")
 	}
 	return nil
 }
 
-func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontract.Part, network string, secretEnv map[string]string) (int, error) {
+func (h *Host) startAppContainer(ctx context.Context, t BootRequest, c *appcontract.Part, network string, secretEnv map[string]string) (int, error) {
 	dk, name, ws, hostPort, persistent := t.Docker, t.Name, t.Workspace, t.HostPort, t.Persistent
 	if err := t.validateOrigins(); err != nil {
 		return 0, err
@@ -100,13 +100,13 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// recipe even when unrelated Dockerfiles exist in the source tree.
 	if t.Identity == nil && c.Build != "" && c.Image == "" {
 		tag := Current.BuildTag(name)
-		buildDir, cleanup, err := StagedBuildContext(ctx, ws, c.Build)
+		buildDir, cleanup, err := stagedBuildContext(ctx, ws, c.Build)
 		if err != nil {
 			return 0, err
 		}
 		defer cleanup()
 		if out, err := buildPreviewImage(ctx, dk, tag, buildDir); err != nil {
-			return 0, BuildFailure("building the app image from the tree's Dockerfile", out, err)
+			return 0, buildFailure("building the app image from the tree's Dockerfile", out, err)
 		}
 		c.Image, c.Build = tag, ""
 	}
@@ -115,7 +115,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// packed by PrepareImages. Either way it then runs as an image.
 	if t.Identity == nil && c.StaticBuild != nil && c.Image == "" {
 		tag := Current.BuildTag(name)
-		buildDir, cleanup, err := StagedBuildContext(ctx, ws, c.StaticBuild.Context)
+		buildDir, cleanup, err := stagedBuildContext(ctx, ws, c.StaticBuild.Context)
 		if err != nil {
 			return 0, err
 		}
@@ -125,7 +125,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		if err != nil {
 			return 0, err
 		}
-		if err := PackStaticBuild(ctx, dk, buildDir, *c.StaticBuild, server, c.Port, tag); err != nil {
+		if err := packStaticBuild(ctx, dk, buildDir, *c.StaticBuild, server, c.Port, tag); err != nil {
 			return 0, err
 		}
 		removeReplacedImage(ctx, dk, tag, before)
@@ -142,7 +142,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// attached host is not co-located with AppTown: its port is published
 	// where AppTown's probe and the plain front door reach it
 	// (Scope.PublishAddress).
-	bind := dk.PublishAddress()
+	bind := dk.publishAddress()
 	portSpec := fmt.Sprintf("%s::%d", bind, c.Port)
 	if hostPort > 0 {
 		portSpec = fmt.Sprintf("%s:%d:%d", bind, hostPort, c.Port)
@@ -155,7 +155,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// when it starts and does not see a network joined later, so a container
 	// that joined after starting is routed to an address Traefik cannot
 	// reach. Only main is routed there (RoutesDeployment).
-	routed := dk.Remote() && dk.RoutesDeployment(t.Deployment) && !sealed
+	routed := dk.remote() && dk.routesDeployment(t.Deployment) && !sealed
 	args := []string{"run", "-d", "--name", name}
 	if routed {
 		args = []string{"create", "--name", name}
@@ -167,8 +167,8 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		appClass = "env"
 	}
 	args = append(args, dk.Labels(appClass, name)...)
-	args = append(args, t.own.Info...)
-	args = append(args, ResourceArgs(c.Resources)...)
+	args = append(args, t.own.info...)
+	args = append(args, resourceArgs(c.Resources)...)
 	args = append(args, execution.LogFlags()...)
 	if !persistent && t.StackID != "" {
 		args = append(args, "--label", StackLabel+"="+t.StackID)
@@ -203,7 +203,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		// builds (<prefix>preview-build-*) exist only on this daemon — never
 		// pulled — and a release's recorded images were prepared already
 		// (PrepareImages).
-		if t.Identity == nil && t.Recorded == nil && !IsLocalBuildTag(c.Image) {
+		if t.Identity == nil && t.Recorded == nil && !isLocalBuildTag(c.Image) {
 			if err := h.login(ctx, dk, c.Image); err != nil {
 				return 0, fmt.Errorf("docker pull %s: %w", c.Image, err)
 			}
@@ -226,7 +226,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		// data without a root entrypoint to chown it first. An image with no USER, or one
 		// AppTown cannot resolve, is left as it was.
 		if c.Image != "" {
-			HandVolumeToImageUser(ctx, dk, Current.DataVolume(name), c.Image, h.chownImage())
+			handVolumeToImageUser(ctx, dk, Current.DataVolume(name), c.Image, h.chownImage())
 		}
 	}
 	args = append(args, "--add-host", "host.internal:host-gateway")
@@ -299,7 +299,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// The extra certificates the app's own command runs (internal/trust):
 	// the static file server calls nothing.
 	if c.Static == "" {
-		args = append(args, trust.ContainerArgs(!dk.Remote())...)
+		args = append(args, trust.ContainerArgs(!dk.remote())...)
 	}
 	if c.Static != "" {
 		server, err := h.staticServer()
@@ -313,7 +313,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		args = append(args, c.Command...)
 	}
 	out, err := dk.Run(ctx, args...)
-	if err != nil && StaleEndpoint(string(out)) {
+	if err != nil && staleEndpoint(string(out)) {
 		// The previous container is gone but the daemon still holds its
 		// network endpoint under this name (seen after disk-quota errors).
 		// The failed run leaves a Created container under the name; remove
@@ -358,11 +358,11 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	return got, nil
 }
 
-// ResourceArgs are the docker run flags that hold a part to its declared
+// resourceArgs are the docker run flags that hold a part to its declared
 // resources: memory with swap at the same value (the declared figure is
 // swap included), and CPUs. A part that declares nothing gets none: no
 // limit, as declared.
-func ResourceArgs(r appcontract.Resources) []string {
+func resourceArgs(r appcontract.Resources) []string {
 	var args []string
 	if r.MemoryBytes > 0 {
 		m := strconv.FormatInt(r.MemoryBytes, 10)
@@ -386,14 +386,14 @@ type Probe struct{ Settle time.Duration } // Settle 0 is the three-second produc
 // in one second. On failure the container's
 // log tail is returned so the crash reaches ${{feedback.latest}} as rework
 // feedback instead of dying unobserved.
-func (p *Probe) Check(ctx context.Context, dk Scope, container, url string, timeout time.Duration, probe RenderedProbe) (bool, string) {
+func (p *Probe) Check(ctx context.Context, dk Scope, container, url string, timeout time.Duration, probe renderedProbe) (bool, string) {
 	return p.check(ctx, dk, container, url, timeout, probe, poll.Wait)
 }
 
 // check is Check with its waits supplied: the settle beat and the retry
 // cadence both go through wait, which production gives poll.Wait. A test
 // that reads only what an answer is judged to be can return at once.
-func (p *Probe) check(ctx context.Context, dk Scope, container, url string, timeout time.Duration, probe RenderedProbe, wait func(context.Context, time.Duration) error) (bool, string) {
+func (p *Probe) check(ctx context.Context, dk Scope, container, url string, timeout time.Duration, probe renderedProbe, wait func(context.Context, time.Duration) error) (bool, string) {
 	if probe.PolicyError != nil {
 		return false, probe.PolicyError.Error()
 	}
@@ -544,9 +544,9 @@ func ContainerHostPort(ctx context.Context, dk Scope, name string, inner int) (i
 	return 0, fmt.Errorf("no host port for %s", name)
 }
 
-// StaleEndpoint says whether a run failed because the daemon still holds a
+// staleEndpoint says whether a run failed because the daemon still holds a
 // gone container's network endpoint under the name.
-func StaleEndpoint(out string) bool {
+func staleEndpoint(out string) bool {
 	return strings.Contains(out, "endpoint with name") && strings.Contains(out, "already exists in network")
 }
 

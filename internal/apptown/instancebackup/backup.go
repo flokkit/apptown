@@ -46,8 +46,8 @@ import (
 
 // ArchiveFormat names a whole-AppTown archive's manifest.
 const (
-	ArchiveFormat  = "apptown-backup"
-	ArchiveVersion = 1
+	archiveFormat  = "apptown-backup"
+	archiveVersion = 1
 	manifestEntry  = "manifest.json"
 	dumpEntry      = "database.sql.gz"
 	dataPrefix     = "data/"
@@ -91,8 +91,8 @@ type Request struct {
 	ToStore    bool
 	// Actor is who asked, as the host's administrator names themselves.
 	Actor string
-	// Say is told each step as it starts; nil says nothing.
-	Say func(string)
+	// say is told each step as it starts; nil says nothing.
+	say func(string)
 }
 
 // Report is what a backup did.
@@ -113,7 +113,7 @@ var ErrBackupUnderWay = errors.New("a backup of AppTown is already under way")
 // written; a problem after it was written (the copy to the store, the
 // receipt) is in the report's problems.
 func (s *Service) Backup(ctx context.Context, in Request) (Report, error) {
-	say := in.Say
+	say := in.say
 	if say == nil {
 		say = func(string) {}
 	}
@@ -153,7 +153,7 @@ func (s *Service) Backup(ctx context.Context, in Request) (Report, error) {
 			return report, errors.New("no backup store is attached: attach one, or leave out -store")
 		}
 	}
-	release, ok := s.underWay.Hold()
+	release, ok := s.underWay.hold()
 	if !ok {
 		return report, ErrBackupUnderWay
 	}
@@ -166,7 +166,7 @@ func (s *Service) Backup(ctx context.Context, in Request) (Report, error) {
 
 	// 1. New work held and the backup files locked, for the dump and the copy.
 	say("holding new work and dumping the database")
-	held, ok := s.deps.NewWork.Hold()
+	held, ok := s.deps.NewWork.hold()
 	if !ok {
 		return report, ErrBackupUnderWay
 	}
@@ -281,7 +281,7 @@ func (s *Service) provenance(ctx context.Context) (*DatabaseProvenance, error) {
 
 func (s *Service) manifest(ctx context.Context, dump string, provenance *DatabaseProvenance) (Manifest, error) {
 	now := s.now()
-	m := Manifest{Format: ArchiveFormat, Version: ArchiveVersion, Build: version.String(), TakenAt: now.UTC().Format(time.RFC3339),
+	m := Manifest{Format: archiveFormat, Version: archiveVersion, Build: version.String(), TakenAt: now.UTC().Format(time.RFC3339),
 		DataDir: s.deps.DataDir, KeyFiles: map[string]backuparchive.Digest{},
 		NotIncluded: []string{
 			"the built-in database's files (pgdata): the dump holds the database",

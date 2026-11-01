@@ -27,16 +27,16 @@ func TestReleasePreviewEligibility(t *testing.T) {
 			switch name {
 			case "releasing":
 				r.State = deployment.Releasing
-				want = ErrReleasedVersionMissing
+				want = errReleasedVersionMissing
 			case "failed":
 				r.State = deployment.ReleaseFailed
-				want = ErrReleasedVersionMissing
+				want = errReleasedVersionMissing
 			case "missing-image":
 				r.ExternalRef = ""
-				want = ErrReleaseInputs
+				want = errReleaseInputs
 			case "missing-source":
 				r.SourceSHA = ""
-				want = ErrReleaseInputs
+				want = errReleaseInputs
 			}
 			got, err := recordedImage(&r)
 			if !errors.Is(err, want) {
@@ -144,14 +144,14 @@ func TestReleasePreviewStoredSelectionAndExecution(t *testing.T) {
 		if selected != (Release{ProjectID: pid, Number: cut.Number, Image: "original-image", SourceRevision: "selected"}) {
 			t.Errorf("wrong stored inputs: %+v", selected)
 		}
-		if runtime.Inspect(context.Background(), ReleaseKey(pid, cut.Number), previewFacts{}).State != Starting {
+		if runtime.inspect(context.Background(), releaseKey(pid, cut.Number), previewFacts{}).State != stateStarting {
 			t.Error("source/host ran outside ownership")
 		}
 		return ReleaseResult{Result: Result{ProjectID: idstest.N(999), URL: "http://preview", Revision: "resolved", HostPort: 1234}, Image: "substitution", Reused: true}, hostErr
 	})
 	in := ReleaseSelection{ProjectID: pid, Number: cut.Number}
 	for _, request := range []ReleaseSelection{in, {ProjectID: pid, Number: cut.Number + 1}, {ProjectID: idstest.N(999999), Number: cut.Number}} {
-		if out, err := s.RequestReleasePreview(context.Background(), request); !errors.Is(err, ErrReleasedVersionMissing) || out != (ReleaseResult{}) || calls != 0 {
+		if out, err := s.RequestReleasePreview(context.Background(), request); !errors.Is(err, errReleasedVersionMissing) || out != (ReleaseResult{}) || calls != 0 {
 			t.Fatalf("unreleased/absent/foreign: %+v %v calls=%d", out, err, calls)
 		}
 	}
@@ -164,7 +164,7 @@ func TestReleasePreviewStoredSelectionAndExecution(t *testing.T) {
 		t.Fatal(err)
 	}
 	dbtest.FailNextStatement(t, db, "-- name: ReleaseByNumber")
-	if out, err := s.RequestReleasePreview(context.Background(), in); err == nil || errors.Is(err, ErrReleasedVersionMissing) || out != (ReleaseResult{}) || calls != 0 {
+	if out, err := s.RequestReleasePreview(context.Background(), in); err == nil || errors.Is(err, errReleasedVersionMissing) || out != (ReleaseResult{}) || calls != 0 {
 		t.Fatalf("unreadable release: %+v %v", out, err)
 	}
 	out, err := s.RequestReleasePreview(context.Background(), in)
@@ -172,7 +172,7 @@ func TestReleasePreviewStoredSelectionAndExecution(t *testing.T) {
 	if !errors.Is(err, hostErr) || !errors.As(err, &execution) || out != (ReleaseResult{}) {
 		t.Fatalf("failed boot returned success: %+v %v", out, err)
 	}
-	if runtime.Inspect(context.Background(), ReleaseKey(pid, cut.Number), previewFacts{}).State != Broken {
+	if runtime.inspect(context.Background(), releaseKey(pid, cut.Number), previewFacts{}).State != Broken {
 		t.Fatal("failure did not settle runtime")
 	}
 	hostErr = nil
@@ -185,11 +185,11 @@ func TestReleasePreviewStoredSelectionAndExecution(t *testing.T) {
 		t.Fatalf("preview changed receipt: %+v %v", stored, err)
 	}
 
-	owner, err := runtime.Begin(context.Background(), ReleaseKey(pid, cut.Number))
+	owner, err := runtime.begin(context.Background(), releaseKey(pid, cut.Number))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer owner.Finish(nil)
+	defer owner.finish(nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	admitted := make(chan struct{})
@@ -211,7 +211,7 @@ func TestReleasePreviewStoredSelectionAndExecution(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("waiter did not cancel")
 	}
-	if calls != before || runtime.Inspect(context.Background(), ReleaseKey(pid, cut.Number), previewFacts{}).State != Starting {
+	if calls != before || runtime.inspect(context.Background(), releaseKey(pid, cut.Number), previewFacts{}).State != stateStarting {
 		t.Fatal("cancelled request touched another boot")
 	}
 }

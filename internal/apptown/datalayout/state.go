@@ -21,17 +21,17 @@ const journalName = "data-layout-upgrade.json"
 // ErrNewerLayout refuses a downgrade before database or application effects.
 var ErrNewerLayout = errors.New("the data directory was written by a newer build")
 
-// ErrOldLayout refuses a data directory from before layout 2. This build does
+// errOldLayout refuses a data directory from before layout 2. This build does
 // not move repositories between layouts; an earlier release does.
-var ErrOldLayout = errors.New("this data directory is from AppTown before 1.0.0-rc.9 (data layout 1): upgrade it with a release from 1.0.0-rc.9 to 1.0.0-rc.11 first, or start with an empty data directory")
+var errOldLayout = errors.New("this data directory is from AppTown before 1.0.0-rc.9 (data layout 1): upgrade it with a release from 1.0.0-rc.9 to 1.0.0-rc.11 first, or start with an empty data directory")
 
-// ReadVersion does not stamp or create anything. A missing marker is a new
+// readVersion does not stamp or create anything. A missing marker is a new
 // data directory only when no project repository exists in it (Initialize).
-func ReadVersion(root string) (int, error) {
+func readVersion(root string) (int, error) {
 	path := filepath.Join(root, "layout")
 	info, err := os.Lstat(path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return 0, ErrOldLayout
+		return 0, errOldLayout
 	}
 	if err != nil {
 		return 0, err
@@ -51,7 +51,7 @@ func ReadVersion(root string) (int, error) {
 		return 0, fmt.Errorf("%w: layout %d, this build reads %d", ErrNewerLayout, version, Version)
 	}
 	if version < Version {
-		return 0, ErrOldLayout
+		return 0, errOldLayout
 	}
 	return version, nil
 }
@@ -66,7 +66,7 @@ func Initialize(root string) error {
 		if err != nil {
 			return err
 		}
-		_, err := ReadVersion(root)
+		_, err := readVersion(root)
 		return err
 	}
 	repositories, err := filepath.Glob(filepath.Join(root, "workspaces", "project-*"))
@@ -74,7 +74,7 @@ func Initialize(root string) error {
 		return err
 	}
 	if len(repositories) > 0 {
-		return ErrOldLayout
+		return errOldLayout
 	}
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return err
@@ -144,7 +144,7 @@ func (j *journal) advance(phase string) error {
 // RequireCurrent is the read-only boundary for commands that intentionally do
 // not take the daemon's exclusive lock, such as account password reset.
 func RequireCurrent(root string) error {
-	if _, err := ReadVersion(root); err != nil {
+	if _, err := readVersion(root); err != nil {
 		return err
 	}
 	if _, err := os.Lstat(filepath.Join(root, journalName)); err == nil {

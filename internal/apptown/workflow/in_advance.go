@@ -58,9 +58,9 @@ func (q InAdvanceQuestion) Shown() []string {
 	return append([]string{q.Acceptance}, q.Landing...)
 }
 
-// InAdvanceQuestions answers the question for a project as its adoption
+// inAdvanceQuestions answers the question for a project as its adoption
 // would run now.
-type InAdvanceQuestions interface {
+type inAdvanceQuestions interface {
 	InAdvance(ctx context.Context, projectID ids.ID) (InAdvanceQuestion, error)
 }
 

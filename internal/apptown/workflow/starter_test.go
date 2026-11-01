@@ -58,21 +58,21 @@ func TestRunStarterOrdersCommitPreparationAndDispatch(t *testing.T) {
 		t.Run(failure, func(t *testing.T) {
 			records := &startTestRecords{run: &Run{ID: idstest.N(7), Status: RunRunning}, fail: failure}
 			starter := &starter{records: records,
-				runtime: startRuntime{Source: func(context.Context, StartRequest) (StartSource, error) { return StartSource{}, nil },
-					Resolve: func(context.Context, StartRequest, StartSource) (PreparedRun, error) {
+				runtime: startRuntime{source: func(context.Context, StartRequest) (StartSource, error) { return StartSource{}, nil },
+					resolve: func(context.Context, StartRequest, StartSource) (PreparedRun, error) {
 						records.trace = append(records.trace, "resolve")
 						return PreparedRun{Spec: schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "first"}}}}, nil
 					},
-					Prepare: func(context.Context, *Run) error {
+					prepare: func(context.Context, *Run) error {
 						records.trace = append(records.trace, "workspace")
 						if failure == "workspace" {
 							return errors.New("workspace failed")
 						}
 						return nil
 					},
-					Dispatch: func(context.Context, *Run) error { records.trace = append(records.trace, "dispatch"); return nil }},
+					dispatch: func(context.Context, *Run) error { records.trace = append(records.trace, "dispatch"); return nil }},
 			}
-			run, err := starter.Start(context.Background(), StartRequest{ProjectID: idstest.N(1), WorkflowName: "test"})
+			run, err := starter.start(context.Background(), StartRequest{ProjectID: idstest.N(1), WorkflowName: "test"})
 			if (err != nil) != (failure != "") {
 				t.Fatalf("start: %+v %v", run, err)
 			}
@@ -102,7 +102,7 @@ func TestRunStarterCompletedReplayDoesNotResolveOrDispatch(t *testing.T) {
 	t.Parallel()
 	records := &startTestRecords{run: &Run{ID: idstest.N(7), Status: RunDone}, replay: true}
 	starter := &starter{records: records}
-	run, err := starter.Start(context.Background(), StartRequest{ProjectID: idstest.N(1), WorkflowName: "child", parentRunID: idstest.N(1), parentStepID: idstest.N(2)})
+	run, err := starter.start(context.Background(), StartRequest{ProjectID: idstest.N(1), WorkflowName: "child", parentRunID: idstest.N(1), parentStepID: idstest.N(2)})
 	if err != nil || run.ID != idstest.N(7) || !reflect.DeepEqual(records.trace, []string{"lookup"}) {
 		t.Fatalf("replay: %+v %v %v", run, err, records.trace)
 	}
@@ -119,18 +119,18 @@ func TestRunPreparationWaiterCancellationAndIndependentRuns(t *testing.T) {
 	t.Parallel()
 	admissions, req, def := runAdmissionFixture(t)
 	db := admissions.records.db
-	first, err := admissions.Create(context.Background(), req, def)
+	first, err := admissions.records.create(context.Background(), req, def)
 	if err != nil {
 		t.Fatal(err)
 	}
 	req.ChangeID = admissionTestChange(t, db, req.ProjectID, "second")
-	second, err := admissions.Create(context.Background(), req, def)
+	second, err := admissions.records.create(context.Background(), req, def)
 	if err != nil {
 		t.Fatal(err)
 	}
 	entered, release := make(chan struct{}), make(chan struct{})
 	var calls atomic.Int32
-	starter := newStarter(db, NewStages(nil, nil), nil, startRuntime{Prepare: func(ctx context.Context, run *Run) error {
+	starter := newStarter(db, NewStages(nil, nil), nil, startRuntime{prepare: func(ctx context.Context, run *Run) error {
 		calls.Add(1)
 		if deadline, ok := ctx.Deadline(); !ok || time.Until(deadline) > 10*time.Minute {
 			return errors.New("unbounded preparation")
@@ -146,7 +146,7 @@ func TestRunPreparationWaiterCancellationAndIndependentRuns(t *testing.T) {
 		return nil
 	}}, clocked{})
 	leader := make(chan error, 1)
-	go func() { leader <- starter.Prepare(context.Background(), first.ID) }()
+	go func() { leader <- starter.prepare(context.Background(), first.ID) }()
 	select {
 	case <-entered:
 	case <-time.After(5 * time.Second):
@@ -161,10 +161,10 @@ func TestRunPreparationWaiterCancellationAndIndependentRuns(t *testing.T) {
 	})
 	waiterCtx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
 	defer cancel()
-	if err := starter.Prepare(waiterCtx, first.ID); !errors.Is(err, context.DeadlineExceeded) {
+	if err := starter.prepare(waiterCtx, first.ID); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("waiter: %v", err)
 	}
-	if err := starter.Prepare(context.Background(), second.ID); err != nil {
+	if err := starter.prepare(context.Background(), second.ID); err != nil {
 		t.Fatal(err)
 	}
 	wantReadyCount(t, db, true, 1)
@@ -178,7 +178,7 @@ func TestRunPreparationWaiterCancellationAndIndependentRuns(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("leader remained blocked")
 	}
-	if err := starter.Prepare(context.Background(), first.ID); err != nil {
+	if err := starter.prepare(context.Background(), first.ID); err != nil {
 		t.Fatal(err)
 	}
 	if calls.Load() != 2 {
@@ -196,12 +196,12 @@ func TestRunPreparationCancellationLeavesExplicitRetry(t *testing.T) {
 	t.Parallel()
 	admissions, req, def := runAdmissionFixture(t)
 	db := admissions.records.db
-	run, err := admissions.Create(context.Background(), req, def)
+	run, err := admissions.records.create(context.Background(), req, def)
 	if err != nil {
 		t.Fatal(err)
 	}
 	entered := make(chan struct{})
-	starter := newStarter(db, NewStages(nil, nil), nil, startRuntime{Prepare: func(ctx context.Context, _ *Run) error {
+	starter := newStarter(db, NewStages(nil, nil), nil, startRuntime{prepare: func(ctx context.Context, _ *Run) error {
 		close(entered)
 		<-ctx.Done()
 		return ctx.Err()
@@ -209,7 +209,7 @@ func TestRunPreparationCancellationLeavesExplicitRetry(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	finished := make(chan error, 1)
-	go func() { finished <- starter.Prepare(ctx, run.ID) }()
+	go func() { finished <- starter.prepare(ctx, run.ID) }()
 	select {
 	case <-entered:
 	case <-time.After(5 * time.Second):
@@ -226,8 +226,8 @@ func TestRunPreparationCancellationLeavesExplicitRetry(t *testing.T) {
 	}
 	wantReadyCount(t, db, false, 1)
 	wantEventCount(t, db, 0, ofKind("run.ready"))
-	retry := newStarter(db, NewStages(nil, nil), nil, startRuntime{Prepare: func(context.Context, *Run) error { return nil }}, clocked{})
-	if err := retry.Prepare(context.Background(), run.ID); err != nil {
+	retry := newStarter(db, NewStages(nil, nil), nil, startRuntime{prepare: func(context.Context, *Run) error { return nil }}, clocked{})
+	if err := retry.prepare(context.Background(), run.ID); err != nil {
 		t.Fatal(err)
 	}
 	wantEventCount(t, db, 1, ofKind("run.ready"))
@@ -251,8 +251,8 @@ func TestRunPreparationUsesItsAuthorizedScope(t *testing.T) {
 				current.DefinitionJSON = `{}`
 			}
 			records := &startTestRecords{run: &current}
-			starter := &starter{records: records, runtime: startRuntime{Prepare: func(context.Context, *Run) error { t.Fatal("changed scope reached workspace preparation"); return nil }}}
-			if err := starter.PrepareScoped(context.Background(), &expected); !errors.Is(err, ErrRunMoved) {
+			starter := &starter{records: records, runtime: startRuntime{prepare: func(context.Context, *Run) error { t.Fatal("changed scope reached workspace preparation"); return nil }}}
+			if err := starter.prepareScoped(context.Background(), &expected); !errors.Is(err, ErrRunMoved) {
 				t.Fatalf("scope %s: %v", changed, err)
 			}
 			if records.ready {

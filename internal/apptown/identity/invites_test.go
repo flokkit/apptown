@@ -18,7 +18,7 @@ import (
 
 func testInviteService(t *testing.T) *Service {
 	t.Helper()
-	s := New(testDB(t), Config{SessionTTL: time.Hour})
+	s := New(testDB(t), Config{sessionTTL: time.Hour})
 	testGrantRoot(t, s, "ops")
 	return s
 }
@@ -46,7 +46,7 @@ func TestInviteSetsThePasswordOnceAndSignsIn(t *testing.T) {
 	if !strings.HasPrefix(issued.Token, InvitePrefix) || issued.Invite.Role != "member" || issued.Invite.State != "pending" {
 		t.Fatalf("issued invite: %+v", issued.Invite)
 	}
-	if d := time.Until(issued.Invite.ExpiresAt); d < InviteTTL-time.Minute || d > InviteTTL {
+	if d := time.Until(issued.Invite.ExpiresAt); d < inviteTTL-time.Minute || d > inviteTTL {
 		t.Fatalf("default lifetime is seven days: %v", d)
 	}
 	pending, err := s.Invites(ctx, admittedPrincipal(t, s, "ops"))
@@ -71,7 +71,7 @@ func TestInviteSetsThePasswordOnceAndSignsIn(t *testing.T) {
 	if _, err := s.SignIn(ctx, PasswordLogin{Username: "kim", Password: "kims-password"}); err != nil {
 		t.Fatalf("the chosen password does not sign in: %v", err)
 	}
-	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: issued.Token, Password: "another-password"}); !errors.Is(err, ErrInviteUsed) {
+	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: issued.Token, Password: "another-password"}); !errors.Is(err, errInviteUsed) {
 		t.Fatalf("second use: %v", err)
 	}
 	if _, err := s.SignIn(ctx, PasswordLogin{Username: "kim", Password: "kims-password"}); err != nil {
@@ -111,7 +111,7 @@ func TestDeadInvitesAreRefused(t *testing.T) {
 	if err := s.RevokeInvite(ctx, revoked.Invite.ID, admittedPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: revoked.Token, Password: "long-enough"}); !errors.Is(err, ErrInviteRevoked) {
+	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: revoked.Token, Password: "long-enough"}); !errors.Is(err, errInviteRevoked) {
 		t.Fatalf("revoked invite: %v", err)
 	}
 	if got := receipts(t, s, "user.invite-revoked"); len(got) != 1 || got[0].Actor != "ops" || got[0].Subject != "rev" {
@@ -125,7 +125,7 @@ func TestDeadInvitesAreRefused(t *testing.T) {
 	if _, err := s.Invite(ctx, NewInvite{Username: "lost"}, admittedPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: lost.Token, Password: "long-enough"}); !errors.Is(err, ErrInviteRevoked) {
+	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: lost.Token, Password: "long-enough"}); !errors.Is(err, errInviteRevoked) {
 		t.Fatalf("a replaced invite still works: %v", err)
 	}
 
@@ -137,10 +137,10 @@ func TestDeadInvitesAreRefused(t *testing.T) {
 	if _, err := s.db.SQL().ExecContext(context.Background(), `UPDATE invites SET expires_at = now() - interval '1 minute' WHERE id = $1`, expired.Invite.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: expired.Token, Password: "long-enough"}); !errors.Is(err, ErrInviteExpired) {
+	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: expired.Token, Password: "long-enough"}); !errors.Is(err, errInviteExpired) {
 		t.Fatalf("expired invite: %v", err)
 	}
-	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: InvitePrefix + "made-up", Password: "long-enough"}); !errors.Is(err, ErrInviteUnknown) {
+	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: InvitePrefix + "made-up", Password: "long-enough"}); !errors.Is(err, errInviteUnknown) {
 		t.Fatalf("unknown token: %v", err)
 	}
 	// The invited people's accounts were recorded with their invites; a
@@ -176,7 +176,7 @@ func TestInviteNeedsCurrentAdministrator(t *testing.T) {
 	if got := receipts(t, s, "user.invited"); len(got) != 0 {
 		t.Fatalf("a refused invite left a receipt: %+v", got)
 	}
-	if _, err := s.Invite(ctx, NewInvite{Username: "mem"}, admittedPrincipal(t, s, "ops")); !errors.Is(err, ErrAccountExists) {
+	if _, err := s.Invite(ctx, NewInvite{Username: "mem"}, admittedPrincipal(t, s, "ops")); !errors.Is(err, errAccountExists) {
 		t.Fatalf("invited an account that can already sign in: %v", err)
 	}
 
@@ -207,7 +207,7 @@ func TestInviteNeedsCurrentAdministrator(t *testing.T) {
 	if err := s.SaveUser(ctx, AccountChange{Username: "boss", Role: "member"}, admittedPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: later.Token, Password: "intern-password"}); !errors.Is(err, ErrInviterGone) {
+	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: later.Token, Password: "intern-password"}); !errors.Is(err, errInviterGone) {
 		t.Fatalf("a demoted inviter's invite still works: %v", err)
 	}
 	if shown, _ := s.InviteFor(ctx, later.Token); shown.State != "pending" {
@@ -303,7 +303,7 @@ func TestMemberInviteRefusedForAnAdministrator(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"kim", "lee"} {
-		if _, err := s.Invite(ctx, NewInvite{Username: name}, ops); !errors.Is(err, ErrAlreadyAdmin) {
+		if _, err := s.Invite(ctx, NewInvite{Username: name}, ops); !errors.Is(err, errAlreadyAdmin) {
 			t.Fatalf("member invite for administrator %s: %v", name, err)
 		}
 		if _, err := s.Invite(ctx, NewInvite{Username: name, Role: "admin"}, ops); err != nil {
@@ -359,10 +359,10 @@ func TestPasswordLinkReplacesThePasswordAndEndsEverySession(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.HasPrefix(issued.Token, InvitePrefix) || issued.Invite.Purpose != PurposePassword || issued.Invite.Role != "" || issued.Invite.State != "pending" {
+		if !strings.HasPrefix(issued.Token, InvitePrefix) || issued.Invite.Purpose != purposePassword || issued.Invite.Role != "" || issued.Invite.State != "pending" {
 			t.Fatalf("issued link: %+v", issued.Invite)
 		}
-		if d := time.Until(issued.Invite.ExpiresAt); d < PasswordLinkTTL-time.Minute || d > PasswordLinkTTL {
+		if d := time.Until(issued.Invite.ExpiresAt); d < passwordLinkTTL-time.Minute || d > passwordLinkTTL {
 			t.Fatalf("default lifetime is three days: %v", d)
 		}
 		// Making the link changes nothing until it is used.
@@ -372,7 +372,7 @@ func TestPasswordLinkReplacesThePasswordAndEndsEverySession(t *testing.T) {
 		if _, err := s.SignIn(ctx, PasswordLogin{Username: c.name, Password: old}); err != nil {
 			t.Fatalf("making a link stopped %s's password: %v", c.name, err)
 		}
-		if shown, err := s.InviteFor(ctx, issued.Token); err != nil || shown.Purpose != PurposePassword || shown.InvitedBy != "ops" {
+		if shown, err := s.InviteFor(ctx, issued.Token); err != nil || shown.Purpose != purposePassword || shown.InvitedBy != "ops" {
 			t.Fatalf("link view: %+v %v", shown, err)
 		}
 
@@ -401,7 +401,7 @@ func TestPasswordLinkReplacesThePasswordAndEndsEverySession(t *testing.T) {
 		if b, a := grantFacts(before), grantFacts(after); b != a {
 			t.Fatalf("the reset changed %s's grants:\nbefore %s\nafter  %s", c.name, b, a)
 		}
-		if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: issued.Token, Password: "third-password"}); !errors.Is(err, ErrInviteUsed) {
+		if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: issued.Token, Password: "third-password"}); !errors.Is(err, errInviteUsed) {
 			t.Fatalf("second use: %v", err)
 		}
 
@@ -472,13 +472,13 @@ func TestPasswordLinkRefusals(t *testing.T) {
 			t.Fatalf("%s via %s made a password reset link: %v", pr.Name, pr.Via, err)
 		}
 	}
-	if _, err := s.PasswordLink(ctx, NewPasswordLink{Username: "nobody"}, ops); !errors.Is(err, ErrNoPassword) {
+	if _, err := s.PasswordLink(ctx, NewPasswordLink{Username: "nobody"}, ops); !errors.Is(err, errNoPassword) {
 		t.Fatalf("a link for a name with no account: %v", err)
 	}
 	if _, err := s.EnsureUser(ctx, "seen"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.PasswordLink(ctx, NewPasswordLink{Username: "seen"}, ops); !errors.Is(err, ErrNoPassword) {
+	if _, err := s.PasswordLink(ctx, NewPasswordLink{Username: "seen"}, ops); !errors.Is(err, errNoPassword) {
 		t.Fatalf("a link for a name without a password: %v", err)
 	}
 	if _, err := s.PasswordLink(ctx, NewPasswordLink{Username: "kim", Days: 31}, ops); err == nil {
@@ -518,7 +518,7 @@ func TestPasswordLinkRefusals(t *testing.T) {
 	if _, err := s.db.SQL().ExecContext(context.Background(), `UPDATE invites SET expires_at = now() - interval '1 minute' WHERE id = $1`, late.Invite.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: late.Token, Password: "new-password"}); !errors.Is(err, ErrInviteExpired) {
+	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: late.Token, Password: "new-password"}); !errors.Is(err, errInviteExpired) {
 		t.Fatalf("expired link: %v", err)
 	}
 
@@ -529,7 +529,7 @@ func TestPasswordLinkRefusals(t *testing.T) {
 	if _, err := s.PasswordLink(ctx, NewPasswordLink{Username: "lost"}, ops); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: lost.Token, Password: "new-password"}); !errors.Is(err, ErrInviteRevoked) {
+	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: lost.Token, Password: "new-password"}); !errors.Is(err, errInviteRevoked) {
 		t.Fatalf("a replaced link still works: %v", err)
 	}
 
@@ -540,7 +540,7 @@ func TestPasswordLinkRefusals(t *testing.T) {
 	if err := s.RevokeInvite(ctx, rev.Invite.ID, ops); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: rev.Token, Password: "new-password"}); !errors.Is(err, ErrInviteRevoked) {
+	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: rev.Token, Password: "new-password"}); !errors.Is(err, errInviteRevoked) {
 		t.Fatalf("withdrawn link: %v", err)
 	}
 
@@ -552,7 +552,7 @@ func TestPasswordLinkRefusals(t *testing.T) {
 	if err := s.SaveUser(ctx, AccountChange{Username: "boss", Role: "member"}, ops); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: demoted.Token, Password: "new-password"}); !errors.Is(err, ErrInviterGone) {
+	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: demoted.Token, Password: "new-password"}); !errors.Is(err, errInviterGone) {
 		t.Fatalf("a demoted administrator's link still works: %v", err)
 	}
 
@@ -672,7 +672,7 @@ func TestALinkNamingNoPrincipalActsOnNoOne(t *testing.T) {
 	for _, c := range []struct {
 		column string
 		want   error
-	}{{"principal_id", ErrInviteUnknown}, {"invited_by_principal", ErrInviterGone}} {
+	}{{"principal_id", errInviteUnknown}, {"invited_by_principal", errInviterGone}} {
 		name := "kim-" + strings.ReplaceAll(c.column, "_", "-")
 		if err := s.SaveUser(ctx, AccountChange{Username: name, Password: "kims-old-password"}, ops); err != nil {
 			t.Fatal(err)

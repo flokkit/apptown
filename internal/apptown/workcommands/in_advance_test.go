@@ -92,7 +92,7 @@ func TestTheInAdvanceQuestionIsEachProjectsOwn(t *testing.T) {
 			t.Fatalf("%s: the yes to what was asked: %+v %v", tc.name, given, err)
 		}
 		for _, other := range [][]string{nil, tc.shown[:1], {tc.shown[1], tc.shown[0]}} {
-			if _, err := givenInAdvance(p.Slug, q, other); !errors.Is(err, ErrInAdvanceQuestionChanged) {
+			if _, err := givenInAdvance(p.Slug, q, other); !errors.Is(err, errInAdvanceQuestionChanged) {
 				t.Fatalf("%s: a yes to %q counted: %v", tc.name, other, err)
 			}
 		}

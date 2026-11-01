@@ -8,32 +8,34 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/database/query"
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 type countedQueries struct {
-	database.Handle
+	query.Handle
 	reads  int
 	writes int
 }
 
-func (d *countedQueries) SQL() database.Handle {
-	return d.Handle.WithExecutor(d)
+func (d *countedQueries) SQL() query.Handle {
+	return dbtest.WithExecutor(d.Handle, d)
 }
 func (d *countedQueries) ExecContext(ctx context.Context, q string, args ...any) (sql.Result, error) {
 	d.writes++
-	return d.DBTX.ExecContext(ctx, q, args...)
+	return d.Executor.ExecContext(ctx, q, args...)
 }
 func (d *countedQueries) QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error) {
 	d.reads++
-	return d.DBTX.QueryContext(ctx, q, args...)
+	return d.Executor.QueryContext(ctx, q, args...)
 }
 func (d *countedQueries) QueryRowContext(ctx context.Context, q string, args ...any) *sql.Row {
 	d.reads++
-	return d.DBTX.QueryRowContext(ctx, q, args...)
+	return d.Executor.QueryRowContext(ctx, q, args...)
 }
 
 func TestGrantLookupIsOneReadAndUsesCurrentAuthority(t *testing.T) {
@@ -46,10 +48,10 @@ func TestGrantLookupIsOneReadAndUsesCurrentAuthority(t *testing.T) {
 	if err := svc.EnsureDefaults(context.Background(), false); err != nil {
 		t.Fatal(err)
 	}
-	grantsStore := NewGrants(db)
+	grantsStore := newGrants(db)
 	put := func(in Spec) ids.ID {
 		t.Helper()
-		id, err := grantsStore.Put(context.Background(), in)
+		id, err := grantsStore.put(context.Background(), in)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -105,7 +107,7 @@ func TestGrantLookupIsOneReadAndUsesCurrentAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	expireStoredGrant(t, db, grantIDs[2])
-	if changed, err := grantsStore.Revoke(context.Background(), grantIDs[3], "boss"); err != nil || !changed {
+	if changed, err := grantsStore.revoke(context.Background(), grantIDs[3], "boss"); err != nil || !changed {
 		t.Fatalf("revoke: %v %v", changed, err)
 	}
 	counted.reads = 0
@@ -134,7 +136,7 @@ func TestGrantLookupIsOneReadAndUsesCurrentAuthority(t *testing.T) {
 			t.Fatalf("anonymous inherited user authority: %+v", g)
 		}
 	}
-	t.Cleanup(db.FailNextStatement("ActiveGrants"))
+	t.Cleanup(dbtest.NextStatementFailure(db, "ActiveGrants"))
 	if grants, err := ActiveGrantsIn(context.Background(), counted, pr, time.Now()); err == nil || grants != nil {
 		t.Fatalf("failed authority read: %+v %v", grants, err)
 	}

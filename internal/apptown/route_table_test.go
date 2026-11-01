@@ -7,9 +7,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/dataprotection"
-	"github.com/flokkit/apptown/internal/apptown/identity"
-	"github.com/flokkit/apptown/internal/apptown/operations"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -25,6 +22,10 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/dataprotection"
+	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/operations"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adrs"

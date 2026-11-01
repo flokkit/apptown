@@ -23,7 +23,7 @@ func TestAGoStreamCountsItsTestsAndKeepsWhatDidNotPass(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Format != GoJSON || r.Counts != (Counts{Passed: 3, Failed: 1, Skipped: 2}) {
+	if r.Format != goJSON || r.Counts != (Counts{Passed: 3, Failed: 1, Skipped: 2}) {
 		t.Fatalf("read %s %+v, want go test -json, 3 passed, 1 failed, 2 skipped", r.Format, r.Counts)
 	}
 	if want := []string{"ex/a TestSkip", "ex/a TestSub/two"}; !slices.Equal(r.Skipped, want) {
@@ -62,7 +62,7 @@ func TestAJUnitReportCountsItsCases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Format != JUnit || r.Counts != (Counts{Passed: 2, Failed: 2, Skipped: 1}) || !slices.Equal(r.Skipped, []string{"app.Store.imports"}) {
+	if r.Format != jUnit || r.Counts != (Counts{Passed: 2, Failed: 2, Skipped: 1}) || !slices.Equal(r.Skipped, []string{"app.Store.imports"}) {
 		t.Fatalf("read %s %+v %q", r.Format, r.Counts, r.Skipped)
 	}
 	if one, err := Read([]byte(`<testsuite><testcase name="a"/></testsuite>`)); err != nil || one.Counts.Passed != 1 {

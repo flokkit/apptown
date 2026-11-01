@@ -1,10 +1,11 @@
 package deployment
 
 import (
+	"testing"
+
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/stock"
-	"testing"
 )
 
 // A release asking for a need the catalogue no longer holds (dynamodb,

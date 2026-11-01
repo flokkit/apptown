@@ -64,7 +64,7 @@ init:
 	}
 	plan := PlanRelease(c)
 	want := ReleasePlan{
-		Images: []ReleaseImage{{Name: "part-api", Build: "server"}, {Name: "part-cache", Source: "example/cache:7"}, {Name: "part-mirror", Static: "site", Port: 9090}, {Name: "part-web", Static: "site", Port: 8080}, {Name: "init-assets", Build: "site"}},
+		Images: []releaseImage{{Name: "part-api", Build: "server"}, {Name: "part-cache", Source: "example/cache:7"}, {Name: "part-mirror", Static: "site", Port: 9090}, {Name: "part-web", Static: "site", Port: 8080}, {Name: "init-assets", Build: "site"}},
 		Parts:  map[string]string{"web": "part-web", "mirror": "part-mirror", "api": "part-api", "jobs": "part-api", "cache": "part-cache"},
 		Init:   map[string]string{"migrate": "part-api", "seed": "part-cache", "assets": "init-assets"},
 	}

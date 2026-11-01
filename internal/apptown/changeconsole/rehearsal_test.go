@@ -3,7 +3,6 @@ package changeconsole
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"io/fs"
 	"maps"
 	"net/http/httputil"
@@ -14,6 +13,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/scm"

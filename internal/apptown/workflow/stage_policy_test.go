@@ -27,14 +27,14 @@ func TestWorkflowGateMissingAndOptionalEvidence(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := evaluateGate(&stage, nil, tc.steps)
-			if err != nil || got.Passed() != tc.pass || len(got.Missing) != tc.missing {
+			if err != nil || got.passed() != tc.pass || len(got.Missing) != tc.missing {
 				t.Fatalf("gate=%+v err=%v", got, err)
 			}
 		})
 	}
 	stage.Gate = nil
 	got, err := evaluateGate(&stage, nil, []*Step{{Name: "must", Type: "approval", Status: StatusPass}})
-	if err != nil || got.Passed() || !reflect.DeepEqual(got.Missing, []string{"advisory"}) {
+	if err != nil || got.passed() || !reflect.DeepEqual(got.Missing, []string{"advisory"}) {
 		t.Fatalf("default gate=%+v err=%v", got, err)
 	}
 }
@@ -57,20 +57,20 @@ func TestWorkflowStagePlanPinsExpandedChecks(t *testing.T) {
 			outcomes = append(outcomes, &Step{Name: p.check.Name, Type: p.check.Type, Status: StatusPass})
 		}
 		gate, err := evaluateGate(&stage, checks, outcomes)
-		if err != nil || !gate.Passed() {
+		if err != nil || !gate.passed() {
 			t.Fatalf("passed stage=%+v %v", gate, err)
 		}
 		outcomes[len(outcomes)-1].Status = StatusFail
 		gate, err = evaluateGate(&stage, checks, outcomes)
-		if err != nil || gate.Passed() || len(gate.Blocking) != 1 {
+		if err != nil || gate.passed() || len(gate.Blocking) != 1 {
 			t.Fatalf("failed scanner=%+v %v", gate, err)
 		}
 		gate, err = evaluateGate(&stage, checks, outcomes[:len(outcomes)-1])
-		if err != nil || gate.Passed() || len(gate.Missing) != 1 {
+		if err != nil || gate.passed() || len(gate.Missing) != 1 {
 			t.Fatalf("lost scanner=%+v %v", gate, err)
 		}
 		gate, err = evaluateGate(&stage, nil, outcomes)
-		if err != nil || gate.Passed() || len(gate.Missing) != 1 {
+		if err != nil || gate.passed() || len(gate.Missing) != 1 {
 			t.Fatalf("missing expansion guessed from names: %+v %v", gate, err)
 		}
 	}

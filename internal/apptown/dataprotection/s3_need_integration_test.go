@@ -169,7 +169,7 @@ func TestIntegrationStockS3IsCopiedThroughItsAPIAndRestoredVerified(t *testing.T
 	// the bucket back as the copy holds it, so it goes.
 	must("fresh", "-X", "PUT", "--data-binary", "made later", "http://s3:9000/app/late.txt")
 	res, err := s.restoreBackup(context.Background(), nil, pid, "fresh", b.ID, "bls")
-	if err != nil || res.Status != RestoreDone || len(res.Items) != 1 || res.Items[0].Outcome != RestoreVerified {
+	if err != nil || res.Status != restoreDone || len(res.Items) != 1 || res.Items[0].Outcome != restoreVerified {
 		t.Fatalf("restore: %+v %v", res, err)
 	}
 	for key, h := range want {

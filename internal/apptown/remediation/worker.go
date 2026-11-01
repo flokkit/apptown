@@ -67,7 +67,7 @@ func (s *Service) reconcileItems(ctx context.Context) {
 	if ctx.Err() != nil {
 		return
 	}
-	items, err := s.records.Candidates()
+	items, err := s.records.candidates()
 	if err != nil {
 		log.Printf("remediation: reading reconciliation candidates: %v", err)
 		return
@@ -82,7 +82,7 @@ func (s *Service) reconcileItems(ctx context.Context) {
 
 // ReconcileItem moves one item along from the facts in the tables.
 func (s *Service) ReconcileItem(ctx context.Context, item Item) {
-	if err := s.reconciler.Reconcile(ctx, item); err != nil {
+	if err := s.reconciler.reconcile(ctx, item); err != nil {
 		log.Printf("item %d: reconciling: %v", item.ID, err)
 	}
 }
@@ -90,7 +90,7 @@ func (s *Service) ReconcileItem(ctx context.Context, item Item) {
 // --- (2) start queued items ----------------------------------------------------------------
 
 func (s *Service) startQueuedItems(ctx context.Context) {
-	if err := s.scheduler.Fill(ctx); err != nil {
+	if err := s.scheduler.fill(ctx); err != nil {
 		log.Printf("remediation: filling workers: %v", err)
 	}
 }
@@ -98,7 +98,7 @@ func (s *Service) startQueuedItems(ctx context.Context) {
 // --- (3) close finished jobs --------------------------------------------------------------
 
 func (s *Service) closeFinished(ctx context.Context) {
-	if err := s.schedule.CloseFinished(ctx); err != nil {
+	if err := s.schedule.closeFinished(ctx); err != nil {
 		log.Printf("remediation: closing jobs: %v", err)
 	}
 }

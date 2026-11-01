@@ -28,13 +28,13 @@ import (
 type RefusalCode string
 
 const (
-	RefusalExpired      RefusalCode = "expired"
-	RefusalStartRefused RefusalCode = "start-refused"
-	RefusalUnsupported  RefusalCode = "unsupported"
-	RefusalNoAgentImage RefusalCode = "no-agent-image"
-	RefusalMissingBlob  RefusalCode = "missing-blob"
-	RefusalConflict     RefusalCode = "conflict"
-	RefusalDisk         RefusalCode = "disk"
+	refusalExpired      RefusalCode = "expired"
+	refusalStartRefused RefusalCode = "start-refused"
+	refusalUnsupported  RefusalCode = "unsupported"
+	refusalNoAgentImage RefusalCode = "no-agent-image"
+	refusalMissingBlob  RefusalCode = "missing-blob"
+	refusalConflict     RefusalCode = "conflict"
+	refusalDisk         RefusalCode = "disk"
 )
 
 // RefusalContentType marks a body as a Refusal. The client classifies only
@@ -68,13 +68,13 @@ var refusalClasses = []struct {
 	code  RefusalCode
 	class error
 }{
-	{RefusalExpired, ErrExpired},
-	{RefusalStartRefused, ErrStartRefused},
-	{RefusalUnsupported, ErrUnsupported},
-	{RefusalNoAgentImage, ErrNoAgentImage},
-	{RefusalMissingBlob, ErrMissingBlob},
-	{RefusalConflict, ErrTaskConflict},
-	{RefusalDisk, diskspace.ErrRefused},
+	{refusalExpired, ErrExpired},
+	{refusalStartRefused, ErrStartRefused},
+	{refusalUnsupported, ErrUnsupported},
+	{refusalNoAgentImage, ErrNoAgentImage},
+	{refusalMissingBlob, ErrMissingBlob},
+	{refusalConflict, ErrTaskConflict},
+	{refusalDisk, diskspace.ErrRefused},
 }
 
 // WriteRefusal answers a refusal: err's class as its code (none when err is

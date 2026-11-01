@@ -76,7 +76,7 @@ func TestADrillAsksAgainBeforeItFills(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := w.run(copied); !endedAs(got, OperationNotVerified) {
+	if got := w.run(copied); !endedAs(got, operationNotVerified) {
 		t.Fatalf("the copy: %s %s", got.State, got.Detail)
 	}
 	op, err := w.s.RequestDrill(ctx, w.project, "prod")
@@ -305,7 +305,7 @@ func TestARestoredCopysTakeDownAsksBeforeEachRemoval(t *testing.T) {
 	if deleted := w.api.Snapshot().DeletedClusters; len(deleted) != 0 {
 		t.Fatalf("clusters deleted after authority was withdrawn: %v", deleted)
 	}
-	copies, err := w.s.RestoredCopiesOf(ctx, w.prod, 5)
+	copies, err := w.s.restoredCopiesOf(ctx, w.prod, 5)
 	if err != nil || len(copies) == 0 || copies[0].EndedAt.Valid {
 		t.Fatalf("the copy after a refused take-down: %+v %v", copies, err)
 	}

@@ -67,12 +67,6 @@ func New(now time.Time) ID {
 // IsZero reports whether id is Nil.
 func (id ID) IsZero() bool { return id == Nil }
 
-// Time is the millisecond a v7 ID was minted at.
-func (id ID) Time() time.Time {
-	ms := int64(id[0])<<40 | int64(id[1])<<32 | int64(id[2])<<24 | int64(id[3])<<16 | int64(id[4])<<8 | int64(id[5])
-	return time.UnixMilli(ms).UTC()
-}
-
 // String is the canonical form, xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx; Nil
 // is "".
 func (id ID) String() string {
@@ -92,8 +86,8 @@ func (id ID) String() string {
 	return string(b[:])
 }
 
-// ErrNotAnID: text that is not a canonical UUID.
-var ErrNotAnID = errors.New("not a record id")
+// errNotAnID: text that is not a canonical UUID.
+var errNotAnID = errors.New("not a record id")
 
 // Parse reads the canonical form (lower or upper case). "" is Nil. Anything
 // else, a bare number included, is ErrNotAnID.
@@ -102,7 +96,7 @@ func Parse(s string) (ID, error) {
 		return Nil, nil
 	}
 	if len(s) != 36 || s[8] != '-' || s[13] != '-' || s[18] != '-' || s[23] != '-' {
-		return Nil, fmt.Errorf("%w: %q", ErrNotAnID, s)
+		return Nil, fmt.Errorf("%w: %q", errNotAnID, s)
 	}
 	var digits [32]byte
 	n := 0
@@ -115,7 +109,7 @@ func Parse(s string) (ID, error) {
 	}
 	var id ID
 	if _, err := hex.Decode(id[:], digits[:]); err != nil {
-		return Nil, fmt.Errorf("%w: %q", ErrNotAnID, s)
+		return Nil, fmt.Errorf("%w: %q", errNotAnID, s)
 	}
 	return id, nil
 }
@@ -167,7 +161,7 @@ func (id *ID) UnmarshalJSON(b []byte) error {
 	}
 	var s string
 	if err := json.Unmarshal(b, &s); err != nil {
-		return fmt.Errorf("%w: %s", ErrNotAnID, b)
+		return fmt.Errorf("%w: %s", errNotAnID, b)
 	}
 	p, err := Parse(s)
 	*id = p

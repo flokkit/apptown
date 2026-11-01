@@ -173,7 +173,7 @@ func TestAChatRunsOnAWorkerThroughTheChatService(t *testing.T) {
 	if err != nil || !st.Removed || !st.Gone() {
 		t.Fatalf("the ended chat on the worker: %+v %v", st, err)
 	}
-	if _, err := c.client.Start(ctx, s.ID); !errors.Is(err, worker.ErrSessionRemoved) {
+	if _, err := worker.SessionClientStart(c.client, ctx, s.ID); !errors.Is(err, worker.ErrSessionRemoved) {
 		t.Fatalf("an ended chat started again: %v", err)
 	}
 }
@@ -270,17 +270,17 @@ func TestAChatsFilesStayInsideItsDirectory(t *testing.T) {
 		"through a link":       tarOf(t, entry{name: "pi-home", link: outside}, entry{name: "pi-home/planted", body: "x"}),
 		"the worker's scratch": tarOf(t, entry{name: "scratch/notes", body: "x"}),
 	} {
-		if _, err := c.client.PutFiles(ctx, s.ID, bytes.NewReader(body)); err == nil {
+		if _, err := worker.SessionClientPutFiles(c.client, ctx, s.ID, bytes.NewReader(body)); err == nil {
 			t.Fatalf("%s was accepted", name)
 		}
 	}
 	if entries, _ := os.ReadDir(outside); len(entries) != 0 {
 		t.Fatalf("a file was written outside the chat's directory: %v", entries)
 	}
-	if _, err := c.client.PutFiles(ctx, s.ID, bytes.NewReader(tarOf(t, entry{name: "pi-home/a", body: "1"}, entry{name: "pi-home/b", body: "2"}))); err != nil {
+	if _, err := worker.SessionClientPutFiles(c.client, ctx, s.ID, bytes.NewReader(tarOf(t, entry{name: "pi-home/a", body: "1"}, entry{name: "pi-home/b", body: "2"}))); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.client.PutFiles(ctx, s.ID, bytes.NewReader(tarOf(t, entry{name: "pi-home/a", body: "1"}))); err != nil {
+	if _, err := worker.SessionClientPutFiles(c.client, ctx, s.ID, bytes.NewReader(tarOf(t, entry{name: "pi-home/a", body: "1"}))); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "pi-home", "b")); !errors.Is(err, os.ErrNotExist) {
@@ -312,17 +312,17 @@ func TestBlobsAreNamedByTheirContent(t *testing.T) {
 		"another name": tarOf(t, entry{name: "other", body: "x"}),
 		"a link":       tarOf(t, entry{name: "content", link: "/etc/passwd"}),
 	} {
-		if err := c.client.EnsureBlob(ctx, digest(body), body); err == nil {
+		if err := worker.SessionClientEnsureBlob(c.client, ctx, digest(body), body); err == nil {
 			t.Fatalf("%s was accepted", name)
 		}
 	}
-	if err := c.client.EnsureBlob(ctx, digest(good), tarOf(t, entry{name: "content", body: "other"})); err == nil {
+	if err := worker.SessionClientEnsureBlob(c.client, ctx, digest(good), tarOf(t, entry{name: "content", body: "other"})); err == nil {
 		t.Fatal("a blob whose digest is not its name was accepted")
 	}
 	if has := hasBlob(t, c.client, digest(good)); has {
 		t.Fatal("a refused blob is kept")
 	}
-	if err := c.client.EnsureBlob(ctx, digest(good), good); err != nil {
+	if err := worker.SessionClientEnsureBlob(c.client, ctx, digest(good), good); err != nil {
 		t.Fatal(err)
 	}
 	if has := hasBlob(t, c.client, digest(good)); !has {
@@ -398,7 +398,7 @@ func TestAChatsWorkTreeIsMadeFromItsSource(t *testing.T) {
 		t.Fatalf("the chat's commit identity: %q", author)
 	}
 	var other bytes.Buffer
-	if _, err := c.client.PutSource(ctx, s.ID, "change/7", strings.Repeat("a", 40), &other); err == nil {
+	if _, err := worker.SessionClientPutSource(c.client, ctx, s.ID, "change/7", strings.Repeat("a", 40), &other); err == nil {
 		t.Fatal("a second source replaced the chat's work tree")
 	}
 }
@@ -536,7 +536,7 @@ func TestAChatIsRefusedAnImageTheWorkerDoesNotHave(t *testing.T) {
 	if _, err := client.Put(ctx, "c1", worker.SessionSpec{Image: "apptown-agent:bbbbbbbbbbbb", AgentSession: "console"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.Start(ctx, "c1"); err == nil || !strings.Contains(err.Error(), "does not have the image apptown-agent:bbbbbbbbbbbb") {
+	if _, err := worker.SessionClientStart(client, ctx, "c1"); err == nil || !strings.Contains(err.Error(), "does not have the image apptown-agent:bbbbbbbbbbbb") {
 		t.Fatalf("a missing image: %v", err)
 	}
 	if rt.Exists("c1") {
@@ -545,7 +545,7 @@ func TestAChatIsRefusedAnImageTheWorkerDoesNotHave(t *testing.T) {
 	if _, err := client.Put(ctx, "c1", worker.SessionSpec{Image: "apptown-agent:aaaaaaaaaaaa", AgentSession: "console"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.Start(ctx, "c1"); err != nil {
+	if _, err := worker.SessionClientStart(client, ctx, "c1"); err != nil {
 		t.Fatal(err)
 	}
 }

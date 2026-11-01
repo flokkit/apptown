@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -347,7 +349,7 @@ func TestBootstrapSessionFailureSendsNoCookieAndAllowsRetry(t *testing.T) {
 	t.Parallel()
 	a, h := internalApp(t)
 	in := firstAccount(t, a, "boss", "first-password")
-	restore := a.DB.FailNextStatement("-- name: InsertSession")
+	restore := dbtest.NextStatementFailure(a.DB, "-- name: InsertSession")
 	w := postJSON(h, "/api/v1/auth/bootstrap", in)
 	restore()
 	if w.Code != 500 || len(w.Result().Cookies()) != 0 {

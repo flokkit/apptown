@@ -33,21 +33,21 @@ func TestEveryUnsettledDockerAttemptCanBeSettled(t *testing.T) {
 
 	// The ways in: each runs the release as it happens and keeps the
 	// checkpoint it left.
-	ways := map[string]func(ctx context.Context, cancel func(), daemon *fakeDaemon) (Booter, func(map[string]any) error){
-		"a boot failure no phase reported": func(_ context.Context, _ func(), _ *fakeDaemon) (Booter, func(map[string]any) error) {
+	ways := map[string]func(ctx context.Context, cancel func(), daemon *fakeDaemon) (booter, func(map[string]any) error){
+		"a boot failure no phase reported": func(_ context.Context, _ func(), _ *fakeDaemon) (booter, func(map[string]any) error) {
 			return failingBoot{errors.New("it failed")}, nil
 		},
-		"AppTown stopped during the boot": func(ctx context.Context, cancel func(), _ *fakeDaemon) (Booter, func(map[string]any) error) {
+		"AppTown stopped during the boot": func(ctx context.Context, cancel func(), _ *fakeDaemon) (booter, func(map[string]any) error) {
 			return bootFunc(func() (BootResult, error) { cancel(); return BootResult{}, ctx.Err() }), nil
 		},
-		"the host stopped answering after a healthy boot": func(_ context.Context, _ func(), daemon *fakeDaemon) (Booter, func(map[string]any) error) {
+		"the host stopped answering after a healthy boot": func(_ context.Context, _ func(), daemon *fakeDaemon) (booter, func(map[string]any) error) {
 			return bootFunc(func() (BootResult, error) {
 				res, err := (&fakeBoot{daemon: daemon}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Identity: &deploy.DockerIdentity{Deployment: "7", Generation: generation, Artifact: art.Hash}}, c)
 				daemon.unreachable = true
 				return res, err
 			}), nil
 		},
-		"the boot record could not be written": func(_ context.Context, _ func(), daemon *fakeDaemon) (Booter, func(map[string]any) error) {
+		"the boot record could not be written": func(_ context.Context, _ func(), daemon *fakeDaemon) (booter, func(map[string]any) error) {
 			return &fakeBoot{daemon: daemon}, func(values map[string]any) error {
 				if _, ok := values["dockerReady"]; ok {
 					return errors.New("the database went away")
@@ -55,7 +55,7 @@ func TestEveryUnsettledDockerAttemptCanBeSettled(t *testing.T) {
 				return nil
 			}
 		},
-		"the completion could not be written": func(_ context.Context, _ func(), daemon *fakeDaemon) (Booter, func(map[string]any) error) {
+		"the completion could not be written": func(_ context.Context, _ func(), daemon *fakeDaemon) (booter, func(map[string]any) error) {
 			return &fakeBoot{daemon: daemon}, nil
 		},
 	}
@@ -92,7 +92,7 @@ func TestEveryUnsettledDockerAttemptCanBeSettled(t *testing.T) {
 				"gone":                       {},
 			}
 			for answer, host := range answers {
-				o, err := Resume(context.Background(), Scope{Client: host}, place, generation, noted)
+				o, err := resume(context.Background(), Scope{Client: host}, place, generation, noted)
 				if err != nil && !deploy.IsTerminal(err) {
 					t.Fatalf("%s: nothing can settle it: %v", answer, err)
 				}
@@ -100,7 +100,7 @@ func TestEveryUnsettledDockerAttemptCanBeSettled(t *testing.T) {
 					t.Fatalf("%s: settled applied: %+v", answer, o)
 				}
 			}
-			if _, err := Resume(context.Background(), Scope{Client: &fakeDaemon{unreachable: true}}, place, generation, noted); err == nil || (deploy.IsTerminal(err) && noted["dockerReady"] != nil) {
+			if _, err := resume(context.Background(), Scope{Client: &fakeDaemon{unreachable: true}}, place, generation, noted); err == nil || (deploy.IsTerminal(err) && noted["dockerReady"] != nil) {
 				t.Fatalf("a host that cannot be asked settled a recorded boot: %v", err)
 			}
 		})

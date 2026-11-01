@@ -13,10 +13,10 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 )
 
-// ProjectFromPath reads the project the path names. Only an absence the
+// projectFromPath reads the project the path names. Only an absence the
 // project owner classified is "not found"; a failed read stays a failure, so
 // an outage is never reported as a missing project.
-func ProjectFromPath(projects *project.Projects, w http.ResponseWriter, r *http.Request) (*project.Project, bool) {
+func projectFromPath(projects *project.Projects, w http.ResponseWriter, r *http.Request) (*project.Project, bool) {
 	p, err := projects.BySlug(r.Context(), r.PathValue("slug"))
 	if err != nil {
 		writeReadFault(w, err, "no such project")
@@ -62,8 +62,8 @@ func AuthorizeRequest(authority *identity.Service, w http.ResponseWriter, r *htt
 	return dec, true
 }
 
-// Actor is receipt attribution supplied by the transport, not authentication.
-func Actor(r *http.Request) string {
+// actor is receipt attribution supplied by the transport, not authentication.
+func actor(r *http.Request) string {
 	caller, ok := access.CallerFrom(r.Context())
 	if !ok {
 		return "anonymous"
@@ -100,9 +100,9 @@ func RequireProjectMember(authority *identity.Service, w http.ResponseWriter, r 
 }
 
 // requireAdmin gates the instance surface. Returns false after writing 403.
-// IsAdmin reports whether the verified caller administers this AppTown,
+// isAdmin reports whether the verified caller administers this AppTown,
 // for a read that shows administrators more; any failure to say is no.
-func IsAdmin(authority *identity.Service, r *http.Request) bool {
+func isAdmin(authority *identity.Service, r *http.Request) bool {
 	caller, ok := access.CallerFrom(r.Context())
 	if !ok || !caller.Verified {
 		return false

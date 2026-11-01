@@ -48,9 +48,9 @@ const (
 )
 
 var (
-	// ErrConflict: the same operation key was reserved with a different
+	// errConflict: the same operation key was reserved with a different
 	// request. A key names one request, never a changed one.
-	ErrConflict = errors.New("this operation was already admitted with a different request")
+	errConflict = errors.New("this operation was already admitted with a different request")
 	// ErrSettled: the attempt is already settled; nothing more is recorded.
 	ErrSettled = errors.New("this task attempt is already settled")
 	// ErrHeld: the attempt holds the only copy of its work; AppTown
@@ -59,9 +59,9 @@ var (
 	// ErrNotAccepted: the transition does not follow the attempt's
 	// recorded state.
 	ErrNotAccepted = errors.New("this task attempt's state does not accept that transition")
-	// ErrInvocationTaken: another operation already holds this invocation of
+	// errInvocationTaken: another operation already holds this invocation of
 	// the step attempt. One invocation of an attempt is one task.
-	ErrInvocationTaken = errors.New("this invocation of the step attempt was already reserved under another operation")
+	errInvocationTaken = errors.New("this invocation of the step attempt was already reserved under another operation")
 )
 
 // ScriptInvocation is the one invocation a script step's attempt runs.
@@ -162,7 +162,7 @@ func (r *Records) Reserve(ctx context.Context, in Admission) (Attempt, error) {
 		Admission: string(admitted), Deadline: sql.NullTime{Time: in.Deadline, Valid: true}, At: r.now()})
 	var state interface{ SQLState() string }
 	if errors.As(err, &state) && state.SQLState() == "23505" {
-		return Attempt{}, ErrInvocationTaken
+		return Attempt{}, errInvocationTaken
 	}
 	if err != nil {
 		return Attempt{}, err
@@ -172,7 +172,7 @@ func (r *Records) Reserve(ctx context.Context, in Admission) (Attempt, error) {
 		return Attempt{}, err
 	}
 	if !a.Admission.same(in) {
-		return a, ErrConflict
+		return a, errConflict
 	}
 	return a, nil
 }
@@ -361,9 +361,9 @@ func (r *Records) UnreleasedWorkspaces(ctx context.Context, backend string, max 
 	return taskssql.New(r.db.SQL()).UnreleasedWorkspaces(ctx, taskssql.UnreleasedWorkspacesParams{Backend: backend, MaxRows: int32(max)})
 }
 
-// ErrWorkspaceInUse: a task naming the workspace is not settled and
+// errWorkspaceInUse: a task naming the workspace is not settled and
 // released, so the workspace's release cannot be recorded.
-var ErrWorkspaceInUse = errors.New("a task in this workspace is not settled and released")
+var errWorkspaceInUse = errors.New("a task in this workspace is not settled and released")
 
 // ConfirmWorkspaceRelease records that the backend confirmed a shared
 // workspace released. It is refused (ErrWorkspaceInUse) while any task
@@ -381,7 +381,7 @@ func (r *Records) ConfirmWorkspaceRelease(ctx context.Context, backend, workspac
 		return err
 	}
 	if held {
-		return ErrWorkspaceInUse
+		return errWorkspaceInUse
 	}
 	return nil // released before, or no task ever named it
 }

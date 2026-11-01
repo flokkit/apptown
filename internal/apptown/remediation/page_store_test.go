@@ -46,7 +46,7 @@ func TestRemediationPageReadsBatchActivityAndHistory(t *testing.T) {
 		{ItemAccepting, "agent/review", "needs_human", "selected (agent, queued)"},
 		{ItemLanding, "approval", "pending", "selected (needs a person)"},
 		{ItemWorking, "preview", "pending", "selected"},
-		{ItemVerifying, "agent/pi", "running", ""},
+		{itemVerifying, "agent/pi", "running", ""},
 		{ItemQueued, "agent/pi", "running", ""},
 		{ItemStuck, "agent/pi", "running", ""},
 		{ItemDone, "agent/pi", "running", ""},

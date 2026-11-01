@@ -39,12 +39,12 @@ func TestAPackNamesOnlyToolLinesTheListHas(t *testing.T) {
 		"a service line by prefix only": {Tools: map[string]string{"postgres": "16"}, Services: []deploy.ServiceSpec{{Name: "postgres", Image: "postgres:160"}}},
 	}
 	for name, spec := range bad {
-		if _, err := s.packs.Publish(t.Context(), "bad-"+strings.ReplaceAll(name, " ", "-"), "", mustJSON(spec), ""); !errors.Is(err, ErrUnknownToolLine) {
+		if _, err := s.packs.Publish(t.Context(), "bad-"+strings.ReplaceAll(name, " ", "-"), "", mustJSON(spec), ""); !errors.Is(err, errUnknownToolLine) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}
 	none := New(testDB(t), Dependencies{})
-	if _, err := none.packs.Publish(t.Context(), "no-list", "", mustJSON(PackSpec{Tools: map[string]string{"node": "24"}}), ""); !errors.Is(err, ErrUnknownToolLine) {
+	if _, err := none.packs.Publish(t.Context(), "no-list", "", mustJSON(PackSpec{Tools: map[string]string{"node": "24"}}), ""); !errors.Is(err, errUnknownToolLine) {
 		t.Errorf("without a list: %v", err)
 	}
 }
@@ -57,7 +57,7 @@ func TestTheStockPacksStateTheirLines(t *testing.T) {
 	if c := s.SyncStockPacks(t.Context()); c.Errors != 0 {
 		t.Fatalf("stock packs: %+v", c)
 	}
-	pubs, err := s.packs.PublicationsOf(t.Context(), "node")
+	pubs, err := s.packs.publicationsOf(t.Context(), "node")
 	if err != nil {
 		t.Fatal(err)
 	}

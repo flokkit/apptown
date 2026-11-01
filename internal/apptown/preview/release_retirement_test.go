@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -56,7 +58,7 @@ func TestReleaseRetirementRemovesBootedResourcesAndPreservesNeighbor(t *testing.
 				if lookAt(t, s, name).IsZero() || lookAt(t, s, other).IsZero() {
 					t.Fatal("actual boots left no view evidence")
 				}
-				if where == "worker" && (!remote.holds(name) || !remote.holds(other) || !s.ServedOnWorker(name)) {
+				if where == "worker" && (!remote.holds(name) || !remote.holds(other) || !s.servedOnWorker(name)) {
 					t.Fatal("worker boot did not leave served resources")
 				}
 				if where == "local" && (!daemon.Running(name) || !daemon.Running(other)) {
@@ -82,7 +84,7 @@ func TestReleaseRetirementRemovesBootedResourcesAndPreservesNeighbor(t *testing.
 				}
 				restore := func() {}
 				if failure == "view" {
-					restore = s.db.FailNextStatement("-- name: ForgetPreviewView")
+					restore = dbtest.NextStatementFailure(s.db, "-- name: ForgetPreviewView")
 				}
 				err = s.RemoveReleaseForGood(t.Context(), bundle.ProjectID, owner.ServingLabel, number)
 				restore()
@@ -97,10 +99,10 @@ func TestReleaseRetirementRemovesBootedResourcesAndPreservesNeighbor(t *testing.
 				if err := s.RemoveReleaseForGood(t.Context(), bundle.ProjectID, owner.ServingLabel, number); err != nil {
 					t.Fatalf("retirement retry: %v", err)
 				}
-				if remote.holds(name) || daemon.Running(name) || s.ServedOnWorker(name) || !lookAt(t, s, name).IsZero() {
+				if remote.holds(name) || daemon.Running(name) || s.servedOnWorker(name) || !lookAt(t, s, name).IsZero() {
 					t.Fatal("owned release preview survived successful retirement")
 				}
-				if where == "worker" && (!remote.holds(other) || !s.ServedOnWorker(other)) {
+				if where == "worker" && (!remote.holds(other) || !s.servedOnWorker(other)) {
 					t.Fatal("neighbor worker preview was retired")
 				}
 				if where == "local" && !daemon.Running(other) {
@@ -193,7 +195,7 @@ func TestReleaseRetirementSerializesWithBootAndRefusesLaterLifecycle(t *testing.
 		t.Fatalf("retirement after boot: %v", err)
 	}
 	name := docker.PreviewLabelName(docker.ReleasePreviewLabel("p", number))
-	if remote.holds(name) || s.ServedOnWorker(name) || !lookAt(t, s, name).IsZero() {
+	if remote.holds(name) || s.servedOnWorker(name) || !lookAt(t, s, name).IsZero() {
 		t.Fatal("late boot survived retirement")
 	}
 	// Once retirement has settled, a later request must refuse the deleting
@@ -230,7 +232,7 @@ func TestReleaseRetirementTransfersUnrevokedKeysWithoutLosingOwnership(t *testin
 		t.Fatalf("actual boots must hold two distinct keys: %+v %v", held, err)
 	}
 	provider.FailNext("DELETE", 503)
-	restore := s.db.FailNextStatement("-- name: InsertRetainedResource")
+	restore := dbtest.NextStatementFailure(s.db, "-- name: InsertRetainedResource")
 	err = s.RemoveReleaseForGood(t.Context(), projectID, "p", number)
 	restore()
 	if err == nil {
@@ -277,7 +279,7 @@ func TestReleasePreviewRechecksLifecycleAfterOwnershipAcquisition(t *testing.T) 
 			}
 			acquired, proceed := make(chan struct{}), make(chan struct{})
 			var pause sync.Once
-			s.runtime.Now = func() time.Time {
+			s.runtime.now = func() time.Time {
 				pause.Do(func() {
 					close(acquired)
 					select {
@@ -315,7 +317,7 @@ func TestReleasePreviewRechecksLifecycleAfterOwnershipAcquisition(t *testing.T) 
 			if err := <-done; err == nil {
 				t.Fatal("preselected request booted after lifecycle changed")
 			}
-			if remote.holds(name) || s.ServedOnWorker(name) || !lookAt(t, s, name).IsZero() {
+			if remote.holds(name) || s.servedOnWorker(name) || !lookAt(t, s, name).IsZero() {
 				t.Fatal("preselected request resurrected retired resources")
 			}
 		})

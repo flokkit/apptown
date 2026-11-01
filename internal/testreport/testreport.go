@@ -19,8 +19,8 @@ import (
 
 // The formats, as the evidence names them.
 const (
-	GoJSON = "go test -json"
-	JUnit  = "JUnit XML"
+	goJSON = "go test -json"
+	jUnit  = "JUnit XML"
 )
 
 // Counts are the tests a report says passed, failed and were skipped.
@@ -30,8 +30,8 @@ type Counts struct {
 	Skipped int `json:"skipped"`
 }
 
-// Report is what a report says.
-type Report struct {
+// report is what a report says.
+type report struct {
 	Format string
 	Counts Counts
 	// Skipped names the skipped tests in report order: "package TestName"
@@ -49,17 +49,17 @@ type Report struct {
 var ErrEmpty = errors.New("the report is empty")
 
 // Read reads a report in either format.
-func Read(b []byte) (Report, error) {
+func Read(b []byte) (report, error) {
 	t := bytes.TrimSpace(b)
 	switch {
 	case len(t) == 0:
-		return Report{}, ErrEmpty
+		return report{}, ErrEmpty
 	case t[0] == '<':
 		return readJUnit(t)
 	case t[0] == '{':
 		return readGo(t)
 	}
-	return Report{}, errors.New("the report is neither JUnit XML nor a go test -json stream")
+	return report{}, errors.New("the report is neither JUnit XML nor a go test -json stream")
 }
 
 // event is one test2json line (cmd/test2json). ImportPath names a
@@ -72,7 +72,7 @@ type event struct {
 	ImportPath string
 }
 
-func readGo(b []byte) (Report, error) {
+func readGo(b []byte) (report, error) {
 	var events []event
 	sc := bufio.NewScanner(bytes.NewReader(b))
 	sc.Buffer(make([]byte, 0, 64<<10), 16<<20)
@@ -83,7 +83,7 @@ func readGo(b []byte) (Report, error) {
 		}
 		var e event
 		if err := json.Unmarshal(line, &e); err != nil || e.Action == "" {
-			return Report{}, fmt.Errorf("line %d of the report is not a go test -json event", n)
+			return report{}, fmt.Errorf("line %d of the report is not a go test -json event", n)
 		}
 		if e.Package == "" && e.ImportPath != "" {
 			e.Package, _, _ = strings.Cut(e.ImportPath, " ")
@@ -91,9 +91,9 @@ func readGo(b []byte) (Report, error) {
 		events = append(events, e)
 	}
 	if err := sc.Err(); err != nil {
-		return Report{}, fmt.Errorf("reading the report: %w", err)
+		return report{}, fmt.Errorf("reading the report: %w", err)
 	}
-	r := Report{Format: GoJSON}
+	r := report{Format: goJSON}
 	// A test's last action is its result. A package-level skip is a
 	// package with no test files, not a skipped test.
 	final := map[[2]string]string{}
@@ -159,15 +159,15 @@ type testcase struct {
 	Errors    []struct{} `xml:"error"`
 }
 
-func readJUnit(b []byte) (Report, error) {
+func readJUnit(b []byte) (report, error) {
 	var root suite
 	if err := xml.Unmarshal(b, &root); err != nil {
-		return Report{}, fmt.Errorf("the report is not readable XML: %w", err)
+		return report{}, fmt.Errorf("the report is not readable XML: %w", err)
 	}
 	if n := root.XMLName.Local; n != "testsuites" && n != "testsuite" {
-		return Report{}, fmt.Errorf("the report's root is <%s>, not JUnit's <testsuites> or <testsuite>", n)
+		return report{}, fmt.Errorf("the report's root is <%s>, not JUnit's <testsuites> or <testsuite>", n)
 	}
-	r := Report{Format: JUnit}
+	r := report{Format: jUnit}
 	var walk func(s suite)
 	walk = func(s suite) {
 		for _, c := range s.Cases {

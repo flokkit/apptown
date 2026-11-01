@@ -15,8 +15,9 @@ package remediation
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/status"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/apptown/status"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -29,7 +30,7 @@ import (
 // the pool is keyed by kind from the start so they can.
 const WorkerKindRemediation = "remediation"
 
-const DefaultWorkers = 2
+const defaultWorkers = 2
 
 // Remediation statuses (design §12.10).
 const (
@@ -46,7 +47,7 @@ const (
 	ItemWorking   = "working"
 	ItemAccepting = "accepting"
 	ItemLanding   = "landing"
-	ItemVerifying = "verifying"
+	itemVerifying = "verifying"
 	ItemDone      = "done"
 	ItemStuck     = "stuck"
 	ItemSkipped   = "skipped"
@@ -165,7 +166,7 @@ func severityRankOf(s string) int {
 // progressSentence describes the summary without changing its recorded counts.
 func (m Remediation) progressSentence() string {
 	sentence := fmt.Sprintf("%d of %d done", m.Counts[ItemDone], m.Counts["total"])
-	inflight := m.Counts[ItemWorking] + m.Counts[ItemAccepting] + m.Counts[ItemLanding] + m.Counts[ItemVerifying]
+	inflight := m.Counts[ItemWorking] + m.Counts[ItemAccepting] + m.Counts[ItemLanding] + m.Counts[itemVerifying]
 	for _, part := range []struct {
 		n     int
 		label string
@@ -234,7 +235,7 @@ func (m Item) MarshalJSON() ([]byte, error) {
 	switch m.State {
 	case ItemQueued:
 		out.StatusLabel = status.DisplayWaiting
-	case ItemWorking, ItemLanding, ItemVerifying:
+	case ItemWorking, ItemLanding, itemVerifying:
 		out.StatusLabel = status.DisplayWorking
 	case ItemAccepting:
 		out.StatusLabel = status.DisplayWaitingForYou

@@ -3,10 +3,11 @@ package scm
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/ids/idstest"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/gitlab"
@@ -37,7 +38,7 @@ func TestAMergeRequestIsRefusedWhenGitLabRebasesAutomatically(t *testing.T) {
 			identity, provider := fixtureProviderIdentity(t, fake, idstest.N(1), remote)
 			driver := &gitDriver{dataDir: t.TempDir(), provider: provider}
 			plan, err := driver.Prepare(context.Background(), Source{ProjectID: idstest.N(1), Repository: repo, Branch: "change", DefaultBranch: "main", Candidate: candidate, Target: base, PinRequired: true, MR: MergeRequest{Identity: *identity, Project: "p", IID: 1}}, "")
-			if !errors.Is(err, ErrMergeRequestSettings) {
+			if !errors.Is(err, errMergeRequestSettings) {
 				t.Fatalf("automatic rebasing not refused: plan=%+v err=%v", plan, err)
 			}
 		})
@@ -69,7 +70,7 @@ func TestAMergeRequestIsRefusedUnderSettingsThatChangeWhatLands(t *testing.T) {
 		if c.says == "" && err != nil {
 			t.Errorf("%s: refused: %v", name, err)
 		}
-		if c.says != "" && (!errors.Is(err, ErrMergeRequestSettings) || !strings.Contains(err.Error(), c.says)) {
+		if c.says != "" && (!errors.Is(err, errMergeRequestSettings) || !strings.Contains(err.Error(), c.says)) {
 			t.Errorf("%s: %v, want a refusal naming %q", name, err, c.says)
 		}
 	}

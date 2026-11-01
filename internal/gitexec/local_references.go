@@ -15,11 +15,11 @@ import (
 	"github.com/flokkit/apptown/internal/durable"
 )
 
-// LocalURL is a Git remote URL that reads the local filesystem. Remote HTTPS,
+// localURL is a Git remote URL that reads the local filesystem. Remote HTTPS,
 // SSH and scp URLs are independent upstream identity and are never returned.
-type LocalURL struct{ Key, Value, Path string }
+type localURL struct{ Key, Value, Path string }
 
-func LocalURLs(ctx context.Context, repository string) ([]LocalURL, error) {
+func LocalURLs(ctx context.Context, repository string) ([]localURL, error) {
 	path, err := localConfig(repository)
 	if err != nil {
 		return nil, err
@@ -28,7 +28,7 @@ func LocalURLs(ctx context.Context, repository string) ([]LocalURL, error) {
 	if err != nil {
 		return nil, err
 	}
-	var out []LocalURL
+	var out []localURL
 	for _, entry := range entries {
 		if strings.HasPrefix(entry.key, "include.") || strings.HasPrefix(entry.key, "includeif.") {
 			return nil, errors.New("included Git config must be resolved before repository relocation")
@@ -52,7 +52,7 @@ func LocalURLs(ctx context.Context, repository string) ([]LocalURL, error) {
 		if !filepath.IsAbs(value) {
 			value = filepath.Join(repository, value)
 		}
-		out = append(out, LocalURL{Key: entry.key, Value: entry.value, Path: filepath.Clean(value)})
+		out = append(out, localURL{Key: entry.key, Value: entry.value, Path: filepath.Clean(value)})
 	}
 	return out, nil
 }

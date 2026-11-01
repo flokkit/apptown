@@ -75,16 +75,16 @@ func renderSteering(title string, secs []steerSection, workshop bool) string {
 	return b.String()
 }
 
-// Guidance is the project's current guidance, selected once for a chat: its
+// guidance is the project's current guidance, selected once for a chat: its
 // rules go into the chat's prompt (Console, Workshop) and its skills into
 // the chat's home (SkillFiles), so both describe the same versions.
-func (s *Briefing) Guidance(ctx context.Context, p *project.Project) (adoption.Resolved, error) {
+func (s *Briefing) guidance(ctx context.Context, p *project.Project) (adoption.Resolved, error) {
 	return s.adoption.Compile(ctx, p.ID)
 }
 
-// SkillFiles are the guidance's skills as files of the chat's session dir,
+// skillFiles are the guidance's skills as files of the chat's session dir,
 // in its home (pi-home is the chat's HOME), placed once at open.
-func SkillFiles(guidance adoption.Resolved) map[string]console.Staged {
+func skillFiles(guidance adoption.Resolved) map[string]console.Staged {
 	files := map[string]console.Staged{}
 	for _, s := range guidance.Skills {
 		for _, f := range agentenv.SkillFiles(s.Name, s.Description, s.Body) {
@@ -277,10 +277,10 @@ func (s *Briefing) mutationsLine(workshop bool) string {
 	return lead + "\n  " + strings.Join(verbs, ";\n  ") + "."
 }
 
-// Change is the workshop addendum for a Change console: the
+// change is the workshop addendum for a Change console: the
 // worktree rules, landing protocol, the runtime contract and preview access.
 // Appended after Workshop.
-func (s *Briefing) Change(change *workflow.Change) (string, error) {
+func (s *Briefing) change(change *workflow.Change) (string, error) {
 	attachments, err := attachmentSteer(s.dataDir, change.ID)
 	if err != nil {
 		return "", err

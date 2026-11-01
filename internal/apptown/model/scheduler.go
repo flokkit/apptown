@@ -8,10 +8,10 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// CapacitySource returns a binding's current capacity: zero for a binding it
+// capacitySource returns a binding's current capacity: zero for a binding it
 // does not have, an error when the capacity could not be read. Implementations
 // must be safe for concurrent reads.
-type CapacitySource interface {
+type capacitySource interface {
 	Capacity(ctx context.Context, binding string) (int, error)
 }
 
@@ -21,13 +21,13 @@ type CapacitySource interface {
 // capacity changes; existing holders release into their original pool. During
 // resizing, total admitted work may exceed the new pool's capacity.
 type Scheduler struct {
-	source   CapacitySource
+	source   capacitySource
 	fallback int
 	mu       sync.Mutex
 	pools    map[string]*slotPool
 }
 
-func NewScheduler(source CapacitySource, fallback int) *Scheduler {
+func NewScheduler(source capacitySource, fallback int) *Scheduler {
 	if fallback < 1 {
 		fallback = 1
 	}

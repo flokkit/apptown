@@ -32,32 +32,32 @@ import (
 // either — the administrator hands the link over.
 
 const (
-	// InviteTTL is how long an invite lasts when the administrator does not say.
-	InviteTTL = 7 * 24 * time.Hour
+	// inviteTTL is how long an invite lasts when the administrator does not say.
+	inviteTTL = 7 * 24 * time.Hour
 	// maxInviteDays bounds a link that grants an account to whoever holds it.
 	maxInviteDays = 30
 	// InvitePrefix marks an invite token, so a leaked one is recognisable.
 	InvitePrefix = "apptown_invite_"
-	// PasswordLinkTTL is how long a password reset link lasts when the
+	// passwordLinkTTL is how long a password reset link lasts when the
 	// administrator does not say: shorter than an invite, because it can
 	// take over an account that is already in use.
-	PasswordLinkTTL = 3 * 24 * time.Hour
+	passwordLinkTTL = 3 * 24 * time.Hour
 
 	// What a link is for: an invite sets a new account's first password; a
 	// password reset link replaces an existing account's password.
-	PurposeInvite   = "invite"
-	PurposePassword = "password"
+	purposeInvite   = "invite"
+	purposePassword = "password"
 )
 
 var (
-	ErrInviteUnknown = fault.New(fault.NotFound, "this link is not valid — ask whoever gave it to you for a new one")
-	ErrInviteUsed    = fault.New(fault.Conflict, "this link has already been used — sign in instead")
-	ErrInviteRevoked = fault.New(fault.Conflict, "this link was withdrawn — ask whoever gave it to you for a new one")
-	ErrInviteExpired = fault.New(fault.Conflict, "this link has expired — ask whoever gave it to you for a new one")
-	ErrInviterGone   = fault.New(fault.Conflict, "whoever made this link is no longer an administrator — ask an administrator for a new one")
-	ErrAccountExists = fault.New(fault.Conflict, "this account already has a password")
-	ErrNoPassword    = fault.New(fault.Conflict, "this account has no password yet — invite them instead")
-	ErrAlreadyAdmin  = fault.New(fault.Conflict, "this account already holds administrator authority")
+	errInviteUnknown = fault.New(fault.NotFound, "this link is not valid — ask whoever gave it to you for a new one")
+	errInviteUsed    = fault.New(fault.Conflict, "this link has already been used — sign in instead")
+	errInviteRevoked = fault.New(fault.Conflict, "this link was withdrawn — ask whoever gave it to you for a new one")
+	errInviteExpired = fault.New(fault.Conflict, "this link has expired — ask whoever gave it to you for a new one")
+	errInviterGone   = fault.New(fault.Conflict, "whoever made this link is no longer an administrator — ask an administrator for a new one")
+	errAccountExists = fault.New(fault.Conflict, "this account already has a password")
+	errNoPassword    = fault.New(fault.Conflict, "this account has no password yet — invite them instead")
+	errAlreadyAdmin  = fault.New(fault.Conflict, "this account already holds administrator authority")
 )
 
 // NewInvite is an administrator's invite: the account to create, an optional
@@ -95,8 +95,8 @@ type Invite struct {
 	State              string    `json:"state"` // pending | accepted | revoked | expired
 }
 
-// IssuedInvite releases the token once, after the invite and its receipt commit.
-type IssuedInvite struct {
+// issuedInvite releases the token once, after the invite and its receipt commit.
+type issuedInvite struct {
 	Invite Invite
 	Token  string
 }
@@ -126,11 +126,11 @@ func invite(r accesssql.Invite, now time.Time) Invite {
 func (i Invite) usable() error {
 	switch i.State {
 	case "accepted":
-		return ErrInviteUsed
+		return errInviteUsed
 	case "revoked":
-		return ErrInviteRevoked
+		return errInviteRevoked
 	case "expired":
-		return ErrInviteExpired
+		return errInviteExpired
 	}
 	return nil
 }
@@ -152,7 +152,7 @@ func (in NewInvite) prepare() (NewInvite, time.Duration, error) {
 	if len(in.Label) > 200 {
 		return in, 0, &AccountInputError{Reason: "the label is at most 200 characters"}
 	}
-	ttl, err := linkLifetime(in.Days, InviteTTL)
+	ttl, err := linkLifetime(in.Days, inviteTTL)
 	return in, ttl, err
 }
 
@@ -169,32 +169,32 @@ func linkLifetime(days int, fallback time.Duration) (time.Duration, error) {
 // Invite records an invite for an account that has no password yet. A
 // pending invite for the same name is withdrawn by the new one, so a lost
 // link is replaced rather than left working beside it.
-func (s *Service) Invite(ctx context.Context, in NewInvite, pr access.Principal) (IssuedInvite, error) {
+func (s *Service) Invite(ctx context.Context, in NewInvite, pr access.Principal) (issuedInvite, error) {
 	if err := ctx.Err(); err != nil {
-		return IssuedInvite{}, err
+		return issuedInvite{}, err
 	}
 	in, ttl, err := in.prepare()
 	if err != nil {
-		return IssuedInvite{}, err
+		return issuedInvite{}, err
 	}
 	token := InvitePrefix + RandomHex(32)
-	var issued IssuedInvite
+	var issued issuedInvite
 	err = s.administer(ctx, pr, access.CapIdentityUsers, func(tx *database.Tx, now time.Time) error {
 		q := queries(tx)
 		row, err := q.UserByNameForUpdate(ctx, in.Username)
 		if found, err := database.Lookup(err); err != nil {
 			return err
 		} else if found && row.PasswordHash != "" {
-			return fmt.Errorf("%w: %s can already sign in — reset their password instead", ErrAccountExists, in.Username)
+			return fmt.Errorf("%w: %s can already sign in — reset their password instead", errAccountExists, in.Username)
 		}
 		// The invite's role is what the person gets: a member invite for a
 		// name that already holds administrator authority would sign in an
 		// administrator under a member's invite.
 		if in.Role == "member" {
-			if root, err := RootIn(ctx, tx, in.Username, now); err != nil {
+			if root, err := rootIn(ctx, tx, in.Username, now); err != nil {
 				return err
 			} else if root {
-				return fmt.Errorf("%w: %s — make an admin invite instead, or remove that authority first", ErrAlreadyAdmin, in.Username)
+				return fmt.Errorf("%w: %s — make an admin invite instead, or remove that authority first", errAlreadyAdmin, in.Username)
 			}
 		}
 		inviter, err := ActorIn(ctx, tx, pr.Name)
@@ -210,17 +210,17 @@ func (s *Service) Invite(ctx context.Context, in NewInvite, pr access.Principal)
 		if err != nil {
 			return err
 		}
-		r, replaced, err := insertLinkIn(ctx, q, accesssql.InsertInviteParams{ID: ids.New(now.UTC()), Purpose: PurposeInvite, Username: in.Username, PrincipalID: invitee.PrincipalID, Label: in.Label, Role: in.Role,
+		r, replaced, err := insertLinkIn(ctx, q, accesssql.InsertInviteParams{ID: ids.New(now.UTC()), Purpose: purposeInvite, Username: in.Username, PrincipalID: invitee.PrincipalID, Label: in.Label, Role: in.Role,
 			InvitedBy: pr.Name, InvitedByPrincipal: inviter.Principal, InvitedByVia: inviter.Via, TokenHash: HashToken(token), CreatedAt: now.UTC(), ExpiresAt: now.UTC().Add(ttl)}, now)
 		if err != nil {
 			return err
 		}
-		issued = IssuedInvite{Invite: invite(r, now), Token: token}
+		issued = issuedInvite{Invite: invite(r, now), Token: token}
 		return audit.At(now).RecordIn(ctx, tx, pr.Name, ids.Nil, "user.invited", in.Username,
 			map[string]any{"invite": r.ID, "role": r.Role, "expiresAt": r.ExpiresAt, "replaced": replaced})
 	})
 	if err != nil {
-		return IssuedInvite{}, err
+		return issuedInvite{}, err
 	}
 	return issued, nil
 }
@@ -229,27 +229,27 @@ func (s *Service) Invite(ctx context.Context, in NewInvite, pr access.Principal)
 // password and is not disabled. The account's password and sessions keep
 // working until the link is used. A pending link or invite for the same
 // name is withdrawn by the new one.
-func (s *Service) PasswordLink(ctx context.Context, in NewPasswordLink, pr access.Principal) (IssuedInvite, error) {
+func (s *Service) PasswordLink(ctx context.Context, in NewPasswordLink, pr access.Principal) (issuedInvite, error) {
 	if err := ctx.Err(); err != nil {
-		return IssuedInvite{}, err
+		return issuedInvite{}, err
 	}
 	in.Username = strings.TrimSpace(in.Username)
 	if !directoryName.MatchString(in.Username) {
-		return IssuedInvite{}, &AccountInputError{Reason: "username (slug) required"}
+		return issuedInvite{}, &AccountInputError{Reason: "username (slug) required"}
 	}
-	ttl, err := linkLifetime(in.Days, PasswordLinkTTL)
+	ttl, err := linkLifetime(in.Days, passwordLinkTTL)
 	if err != nil {
-		return IssuedInvite{}, err
+		return issuedInvite{}, err
 	}
 	token := InvitePrefix + RandomHex(32)
-	var issued IssuedInvite
+	var issued issuedInvite
 	err = s.administer(ctx, pr, access.CapIdentityUsers, func(tx *database.Tx, now time.Time) error {
 		q := queries(tx)
 		row, err := q.UserByNameForUpdate(ctx, in.Username)
 		if found, err := database.Lookup(err); err != nil {
 			return err
 		} else if !found || row.PasswordHash == "" {
-			return fmt.Errorf("%w: %s", ErrNoPassword, in.Username)
+			return fmt.Errorf("%w: %s", errNoPassword, in.Username)
 		} else if row.DisabledAt.Valid {
 			return fault.Wrap(fault.Forbidden, fmt.Errorf("%w — enable it first", ErrAccountDisabled))
 		}
@@ -257,17 +257,17 @@ func (s *Service) PasswordLink(ctx context.Context, in NewPasswordLink, pr acces
 		if err != nil {
 			return err
 		}
-		r, replaced, err := insertLinkIn(ctx, q, accesssql.InsertInviteParams{ID: ids.New(now.UTC()), Purpose: PurposePassword, Username: in.Username, PrincipalID: row.PrincipalID,
+		r, replaced, err := insertLinkIn(ctx, q, accesssql.InsertInviteParams{ID: ids.New(now.UTC()), Purpose: purposePassword, Username: in.Username, PrincipalID: row.PrincipalID,
 			InvitedBy: pr.Name, InvitedByPrincipal: issuer.Principal, InvitedByVia: issuer.Via, TokenHash: HashToken(token), CreatedAt: now.UTC(), ExpiresAt: now.UTC().Add(ttl)}, now)
 		if err != nil {
 			return err
 		}
-		issued = IssuedInvite{Invite: invite(r, now), Token: token}
+		issued = issuedInvite{Invite: invite(r, now), Token: token}
 		return audit.At(now).RecordIn(ctx, tx, pr.Name, ids.Nil, "user.password-link", in.Username,
 			map[string]any{"link": r.ID, "expiresAt": r.ExpiresAt, "replaced": replaced})
 	})
 	if err != nil {
-		return IssuedInvite{}, err
+		return issuedInvite{}, err
 	}
 	return issued, nil
 }
@@ -335,7 +335,7 @@ func (s *Service) RevokeInvite(ctx context.Context, id ids.ID, pr access.Princip
 func (s *Service) InviteFor(ctx context.Context, token string) (Invite, error) {
 	r, err := queries(s.db).InviteByHash(ctx, HashToken(token))
 	if errors.Is(err, sql.ErrNoRows) {
-		return Invite{}, ErrInviteUnknown
+		return Invite{}, errInviteUnknown
 	} else if err != nil {
 		return Invite{}, err
 	}
@@ -381,7 +381,7 @@ func (s *Service) AcceptInvite(ctx context.Context, in InviteAcceptance) (Signed
 		q := queries(tx)
 		r, err := q.InviteByHashForUpdate(ctx, HashToken(in.Token))
 		if errors.Is(err, sql.ErrNoRows) {
-			return SignedIn{}, ErrInviteUnknown
+			return SignedIn{}, errInviteUnknown
 		} else if err != nil {
 			return SignedIn{}, err
 		}
@@ -392,18 +392,18 @@ func (s *Service) AcceptInvite(ctx context.Context, in InviteAcceptance) (Signed
 		if err := inviterCurrentIn(ctx, tx, r.InvitedBy, r.InvitedByPrincipal, now); err != nil {
 			return SignedIn{}, err
 		}
-		reset := inv.Purpose == PurposePassword
+		reset := inv.Purpose == purposePassword
 		// The link acts on the person it was made for, by principal: renamed,
 		// they keep it; a later account with the old name is someone else. A
 		// link naming no principal (one the identity cutover could not tie to
 		// an account) acts on no one.
 		if r.PrincipalID.IsZero() {
-			return SignedIn{}, ErrInviteUnknown
+			return SignedIn{}, errInviteUnknown
 		}
 		row, err := q.UserByPrincipalForUpdate(ctx, r.PrincipalID)
 		found, err := database.Lookup(err)
 		if !found && err == nil {
-			return SignedIn{}, ErrInviteUnknown
+			return SignedIn{}, errInviteUnknown
 		}
 		if found {
 			inv.Username = row.Username
@@ -412,9 +412,9 @@ func (s *Service) AcceptInvite(ctx context.Context, in InviteAcceptance) (Signed
 		case err != nil:
 			return SignedIn{}, err
 		case reset && (!found || row.PasswordHash == ""):
-			return SignedIn{}, ErrNoPassword
+			return SignedIn{}, errNoPassword
 		case !reset && found && row.PasswordHash != "":
-			return SignedIn{}, fmt.Errorf("%w — sign in instead", ErrAccountExists)
+			return SignedIn{}, fmt.Errorf("%w — sign in instead", errAccountExists)
 		case found && row.DisabledAt.Valid:
 			return SignedIn{}, fault.Wrap(fault.Forbidden, ErrAccountDisabled)
 		}
@@ -424,7 +424,7 @@ func (s *Service) AcceptInvite(ctx context.Context, in InviteAcceptance) (Signed
 		// Refusing here rolls back, so the invite stays pending.
 		admin := inv.Role == "admin"
 		if !admin {
-			if admin, err = RootIn(ctx, tx, inv.Username, now); err != nil {
+			if admin, err = rootIn(ctx, tx, inv.Username, now); err != nil {
 				return SignedIn{}, err
 			}
 		}
@@ -445,7 +445,7 @@ func (s *Service) AcceptInvite(ctx context.Context, in InviteAcceptance) (Signed
 			// principal and way, not whoever holds their name now.
 			maker := access.WithCaller(ctx, access.Caller{Verified: true, Receipt: inv.InvitedBy,
 				Principal: access.Principal{ID: r.InvitedByPrincipal, Kind: "user", Name: inv.InvitedBy, Via: r.InvitedByVia}})
-			if err := AdminGrantIn(maker, tx, inv.Username, inv.InvitedBy, now); err != nil {
+			if err := adminGrantIn(maker, tx, inv.Username, inv.InvitedBy, now); err != nil {
 				return SignedIn{}, err
 			}
 		}
@@ -459,9 +459,9 @@ func (s *Service) AcceptInvite(ctx context.Context, in InviteAcceptance) (Signed
 		if err := audit.At(now).RecordIn(ctx, tx, inv.Username, ids.Nil, kind, inv.Username, receipt); err != nil {
 			return SignedIn{}, err
 		}
-		token, err := issueSessionIn(ctx, tx, inv.Username, s.cfg.SessionTTL, now)
+		token, err := issueSessionIn(ctx, tx, inv.Username, s.cfg.sessionTTL, now)
 		if err != nil {
-			return SignedIn{}, &SessionIssueError{Cause: err}
+			return SignedIn{}, &sessionIssueError{Cause: err}
 		}
 		saved, err := q.UserByName(ctx, inv.Username)
 		if err != nil {
@@ -483,7 +483,7 @@ func inviterCurrentIn(ctx context.Context, tx *database.Tx, inviter string, prin
 	// someone later given their old name is not. A maker the link names no
 	// principal for vouches for nothing.
 	if principal.IsZero() {
-		return ErrInviterGone
+		return errInviterGone
 	}
 	row, err := queries(tx).UserByPrincipal(ctx, principal)
 	found, err := database.Lookup(err)
@@ -491,14 +491,14 @@ func inviterCurrentIn(ctx context.Context, tx *database.Tx, inviter string, prin
 		return err
 	}
 	if !found || row.DisabledAt.Valid {
-		return ErrInviterGone
+		return errInviterGone
 	}
-	root, err := RootIn(ctx, tx, row.Username, now)
+	root, err := rootIn(ctx, tx, row.Username, now)
 	if err != nil {
 		return err
 	}
 	if !root {
-		return ErrInviterGone
+		return errInviterGone
 	}
 	return nil
 }
@@ -510,7 +510,7 @@ func settleInviteIn(ctx context.Context, q *accesssql.Queries, id ids.ID, p acce
 		return err
 	}
 	if n != 1 {
-		return ErrInviteUsed
+		return errInviteUsed
 	}
 	return nil
 }

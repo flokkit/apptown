@@ -42,7 +42,7 @@ func newSyncWorld(t *testing.T) *syncWorld {
 	if _, _, err := catalog.SyncStock(context.Background(), stock.FS, "dependencies"); err != nil {
 		t.Fatal(err)
 	}
-	w := &syncWorld{integrations: integrations, catalog: catalog, s: New(context.Background(), db, assembled(db, testRuntime{Scope: docker.Scope{Client: dockerfake.New()}, DataDir: dir, Projects: projects, Secrets: secrets, Integrations: integrations, Needs: catalog, BuiltInTarget: "local"}, Dependencies{}))}
+	w := &syncWorld{integrations: integrations, catalog: catalog, s: New(context.Background(), db, assembled(db, testRuntime{Scope: docker.Scope{Client: newDockerFake()}, DataDir: dir, Projects: projects, Secrets: secrets, Integrations: integrations, Needs: catalog, BuiltInTarget: "local"}, Dependencies{}))}
 	w.saveConnector(t, "syd")
 	if _, err := w.s.Targets.Put(context.Background(), &Target{Name: "runner", Kind: KindDockerHost, Origin: OriginAttached, Status: TargetReady, Address: map[string]any{"host": "ssh://deploy@runner"}}); err != nil {
 		t.Fatal(err)
@@ -213,7 +213,7 @@ func TestASyncKeepsEverySettingAnEditWrites(t *testing.T) {
 		"Evals": {
 			proposed: &Target{Kind: KindDockerHost, Ingress: map[string]any{"domain": "evals.example"}},
 			edit:     TargetSettingsEdit{Evals: &on},
-			kept:     func(t *Target) bool { return t.ForEvals() },
+			kept:     func(t *Target) bool { return t.forEvals() },
 		},
 		"Rehearsals": {
 			proposed: &Target{Kind: KindDockerHost},
@@ -221,9 +221,9 @@ func TestASyncKeepsEverySettingAnEditWrites(t *testing.T) {
 			kept:     func(t *Target) bool { return t.ForRehearsals() },
 		},
 		"Environment": {
-			proposed: &Target{Kind: KindPortainer, Address: map[string]any{AddressEnvironment: DefaultPortainerEnvironment}},
+			proposed: &Target{Kind: KindPortainer, Address: map[string]any{addressEnvironment: defaultPortainerEnvironment}},
 			edit:     TargetSettingsEdit{Environment: &office},
-			kept:     func(t *Target) bool { return t.Address[AddressEnvironment] == office },
+			kept:     func(t *Target) bool { return t.Address[addressEnvironment] == office },
 		},
 		"CopyRunner": {
 			proposed: &Target{Kind: KindDOApp, NeedsMode: "managed"},
@@ -241,7 +241,7 @@ func TestASyncKeepsEverySettingAnEditWrites(t *testing.T) {
 	ctx := context.Background()
 	for name, c := range cases {
 		c.proposed.Name, c.proposed.Origin, c.proposed.Status = "sync-"+name, OriginAttached, TargetReady
-		created, err := w.s.Targets.Sync(ctx, c.proposed, "apptown-system")
+		created, err := w.s.Targets.sync(ctx, c.proposed, "apptown-system")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -250,7 +250,7 @@ func TestASyncKeepsEverySettingAnEditWrites(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		if _, err := w.s.Targets.Sync(ctx, c.proposed, "apptown-system"); err != nil {
+		if _, err := w.s.Targets.sync(ctx, c.proposed, "apptown-system"); err != nil {
 			t.Fatal(err)
 		}
 		after := w.target(t, created.Name)
@@ -280,7 +280,7 @@ func TestSyncAndASettingsEditQueueInsteadOfDeadlocking(t *testing.T) {
 	stale := w.target(t, "do-syd")
 	w.saveConnector(t, "sgp")
 	runner := "runner"
-	if _, err := w.s.Targets.EditSettings(ctx, "do-syd", TargetSettingsEdit{ExpectedRevision: &stale.SettingsRevision, CopyRunner: &runner}, "alice"); !errors.Is(err, ErrTargetSettingsMoved) {
+	if _, err := w.s.Targets.EditSettings(ctx, "do-syd", TargetSettingsEdit{ExpectedRevision: &stale.SettingsRevision, CopyRunner: &runner}, "alice"); !errors.Is(err, errTargetSettingsMoved) {
 		t.Fatalf("an edit from before a changing sync: %v", err)
 	}
 	regions := []string{"syd", "sgp"}
@@ -291,12 +291,12 @@ func TestSyncAndASettingsEditQueueInsteadOfDeadlocking(t *testing.T) {
 		previews := round%2 == 0
 		var syncErr, editErr error
 		var wg sync.WaitGroup
-		wg.Go(func() { _, syncErr = w.s.Targets.Sync(ctx, &proposed, "apptown-system") })
+		wg.Go(func() { _, syncErr = w.s.Targets.sync(ctx, &proposed, "apptown-system") })
 		wg.Go(func() {
 			_, editErr = w.s.Targets.EditSettings(ctx, "do-syd", TargetSettingsEdit{ExpectedRevision: &current.SettingsRevision, Previews: &previews}, "alice")
 		})
 		wg.Wait()
-		if syncErr != nil || editErr != nil && !errors.Is(editErr, ErrTargetSettingsMoved) {
+		if syncErr != nil || editErr != nil && !errors.Is(editErr, errTargetSettingsMoved) {
 			t.Fatalf("round %d: sync %v, edit %v", round, syncErr, editErr)
 		}
 		after := w.target(t, "do-syd")
@@ -335,4 +335,8 @@ func TestAStartWithAnUnreadableCatalogLeavesTheBuiltInTargetAsRecorded(t *testin
 	if after := w.target(t, "local").Capabilities.Needs; !reflect.DeepEqual(after, before) {
 		t.Fatalf("the built-in target's needs moved from %v to %v", before, after)
 	}
+}
+
+func newDockerFake() *dockerfake.Daemon {
+	return dockerfake.New()
 }

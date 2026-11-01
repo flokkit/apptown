@@ -10,7 +10,7 @@ import (
 func TestGroupCommandNormalization(t *testing.T) {
 	t.Parallel()
 	s := New(nil, Config{OpenInstance: true})
-	if err := s.SaveGroup(context.Background(), GroupChange{Name: "Bad Name"}, testOpenPrincipal("ops")); !errors.Is(err, ErrGroupName) {
+	if err := s.SaveGroup(context.Background(), GroupChange{Name: "Bad Name"}, testOpenPrincipal("ops")); !errors.Is(err, errGroupName) {
 		t.Fatalf("invalid group reached persistence: %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

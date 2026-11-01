@@ -15,21 +15,21 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 )
 
-// ReleaseSource determines which work a release contains: a bundle's
+// releaseSource determines which work a release contains: a bundle's
 // selected changes, a branch's changes shipped since the last release, or a
 // workflow receipt describing a deployment already performed.
-type ReleaseSource string
+type releaseSource string
 
 const (
-	ReleaseFromBundle   ReleaseSource = "bundle"
-	ReleaseFromBranch   ReleaseSource = "branch"
-	ReleaseFromWorkflow ReleaseSource = "workflow"
+	ReleaseFromBundle   releaseSource = "bundle"
+	ReleaseFromBranch   releaseSource = "branch"
+	ReleaseFromWorkflow releaseSource = "workflow"
 )
 
-// InitialState is the state a release is cut in: a workflow receipt
+// initialState is the state a release is cut in: a workflow receipt
 // describes a deployment already performed, so it is released; the others
 // start releasing and settle with their deployment attempt.
-func (src ReleaseSource) InitialState() ReleaseState {
+func (src releaseSource) initialState() ReleaseState {
 	if src == ReleaseFromWorkflow {
 		return Released
 	}
@@ -38,7 +38,7 @@ func (src ReleaseSource) InitialState() ReleaseState {
 
 // ReleaseDraft is what a release is cut from.
 type ReleaseDraft struct {
-	Source                                             ReleaseSource
+	Source                                             releaseSource
 	ProjectID, DeploymentID, BundleID, RunID, ChangeID ids.ID
 	Deployment, Revision, Actor, Notes                 string
 	// At is AppTown's time of the release, which release membership
@@ -53,7 +53,7 @@ type NumberedRelease struct {
 	Number int64
 }
 
-var ErrReleaseInFlight = fault.New(fault.Conflict, "a release is already on its way — watch it finish first")
+var errReleaseInFlight = fault.New(fault.Conflict, "a release is already on its way — watch it finish first")
 
 // Start admits an explicit release: under the project lock it refuses a
 // second release in flight (on the deployment, or project-wide for a
@@ -80,13 +80,13 @@ func startReleaseIn(ctx context.Context, tx *database.Tx, d ReleaseDraft, descri
 		return NumberedRelease{}, err
 	}
 	if busy {
-		return NumberedRelease{}, ErrReleaseInFlight
+		return NumberedRelease{}, errReleaseInFlight
 	}
 	r, err := CreateReleaseIn(ctx, tx, d)
 	if err != nil {
 		return NumberedRelease{}, err
 	}
-	if err := AppendReleaseEvent(ctx, tx, r.ID, fmt.Sprintf("release #%d %s", r.Number, description), d.At); err != nil {
+	if err := appendReleaseEvent(ctx, tx, r.ID, fmt.Sprintf("release #%d %s", r.Number, description), d.At); err != nil {
 		return NumberedRelease{}, err
 	}
 	return r, nil
@@ -131,7 +131,7 @@ func CreateReleaseIn(ctx context.Context, tx *database.Tx, d ReleaseDraft) (Numb
 	q := releasesql.New(tx.SQL())
 	r, err := q.CreateRelease(ctx, releasesql.CreateReleaseParams{ID: ids.New(d.At),
 		FromWorkflow: d.Source == ReleaseFromWorkflow, FromBranch: d.Source == ReleaseFromBranch,
-		State: d.Source.InitialState().String(), ProjectID: d.ProjectID, DeploymentID: d.DeploymentID,
+		State: d.Source.initialState().String(), ProjectID: d.ProjectID, DeploymentID: d.DeploymentID,
 		Deployment: d.Deployment, BundleID: d.BundleID, RunID: d.RunID,
 		Revision: d.Revision, Actor: d.Actor, Notes: d.Notes, At: d.At,
 	})

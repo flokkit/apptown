@@ -49,11 +49,11 @@ func RawFindings(fs []Finding) []check.Finding {
 func AnnotateFindings(findings []Finding, ds []Disposition) (actionable []Finding) {
 	for i := range findings {
 		findings[i].Disposition = nil
-		subject := FindingSubject{Fingerprint: findings[i].Fingerprint, Identifiers: findings[i].Identifiers}
+		subject := findingSubject{Fingerprint: findings[i].Fingerprint, Identifiers: findings[i].Identifiers}
 		if findings[i].Package != nil {
 			subject.Package = findings[i].Package.Name
 		}
-		if d := MatchDisposition(subject, ds); d != nil {
+		if d := matchDisposition(subject, ds); d != nil {
 			findings[i].Disposition = d
 		} else {
 			actionable = append(actionable, findings[i])

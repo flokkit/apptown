@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/dbtest"
 )
 
 func consentRequest(clientID string) url.Values {
@@ -131,7 +133,7 @@ func TestOAuthProxyConsentBoundToBrowserAndPerson(t *testing.T) {
 		h.ServeHTTP(w, r)
 		return w
 	}
-	restore := a.DB.FailNextStatement("-- name: TouchUser")
+	restore := dbtest.NextStatementFailure(a.DB, "-- name: TouchUser")
 	defer restore()
 	if w := call("GET", "boss", nil); w.Code != 503 || len(w.Result().Cookies()) != 0 || w.Header().Get("Location") != "" {
 		t.Fatalf("failed person write showed consent: %d %s", w.Code, w.Body.String())
@@ -160,7 +162,7 @@ func TestOAuthProxyConsentBoundToBrowserAndPerson(t *testing.T) {
 	if w := call("POST", "someone-else", cookie); w.Code != 403 {
 		t.Fatalf("different proxy user accepted: %d", w.Code)
 	}
-	restorePost := a.DB.FailNextStatement("-- name: TouchUser")
+	restorePost := dbtest.NextStatementFailure(a.DB, "-- name: TouchUser")
 	defer restorePost()
 	if w := call("POST", "boss", cookie); w.Code != 503 || w.Header().Get("Location") != "" {
 		t.Fatalf("failed person write issued authorization: %d %s", w.Code, w.Body.String())
@@ -191,7 +193,7 @@ func TestOAuthConsentStorageErrors(t *testing.T) {
 				q.Set("decision", "allow")
 				method, path, body = "POST", "/oauth/authorize", strings.NewReader(q.Encode())
 			}
-			restore := a.DB.FailNextStatement(marker)
+			restore := dbtest.NextStatementFailure(a.DB, marker)
 			defer restore()
 			req := httptest.NewRequest(method, path, body)
 			req.AddCookie(who)
@@ -220,7 +222,7 @@ func TestOAuthUnavailableSessionDoesNotIssueConsentOrCode(t *testing.T) {
 					r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 				}
 				r.AddCookie(who)
-				restore := a.DB.FailNextStatement(marker)
+				restore := dbtest.NextStatementFailure(a.DB, marker)
 				w := httptest.NewRecorder()
 				h.ServeHTTP(w, r)
 				restore()

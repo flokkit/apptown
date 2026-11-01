@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/dbtest"
 )
 
 func authorizationFixture(t *testing.T, s *Service) BrowserAuthorization {
@@ -131,7 +133,7 @@ func TestConsentFailureKeepsExistingSettlement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	restore := db.FailNextStatement("INSERT INTO oauth_codes")
+	restore := dbtest.NextStatementFailure(db, "INSERT INTO oauth_codes")
 	_, err = s.DecideConsent(ctx, ConsentDecision{Browser: b, Token: prepared.Token, Choice: ConsentAllow})
 	restore()
 	var failure *ConsentError

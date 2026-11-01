@@ -48,7 +48,7 @@ func TestQueriesShareScopeOrderingAndExactTagRules(t *testing.T) {
 	if err != nil || records == nil || len(records) != 0 {
 		t.Fatalf("parameterized empty result: %+v %v", records, err)
 	}
-	if records, err := s.List(testCaller(), Filter{State: 255}); records != nil || !errors.Is(err, ErrState) {
+	if records, err := s.List(testCaller(), Filter{State: 255}); records != nil || !errors.Is(err, errState) {
 		t.Fatalf("invalid state filter: %+v %v", records, err)
 	}
 	counts, err := s.Counts(testCaller(), []ids.ID{p, other, idstest.N(99999)})
@@ -141,7 +141,7 @@ func TestRequiredQueriesDoNotBecomeMissingOrEmpty(t *testing.T) {
 	}
 	for _, c := range cases {
 		dbtest.FailNextStatement(t, s.records.db, c.query)
-		if err := c.read(); !(errors.Is(err, database.ErrInjectedFailure) || err != nil && strings.Contains(err.Error(), "forge_injected_failure")) {
+		if err := c.read(); !(errors.Is(err, dbtest.ErrInjectedFailure) || err != nil && strings.Contains(err.Error(), "forge_injected_failure")) {
 			t.Fatalf("required read %s: %v", c.query, err)
 		}
 	}
@@ -151,10 +151,10 @@ func TestRequiredQueriesDoNotBecomeMissingOrEmpty(t *testing.T) {
 	if n, err := adrssql.New(s.records.db.SQL()).EditADR(context.Background(), adrssql.EditADRParams{ID: v.ID, ProjectID: p, OldStatus: v.Status.String(), Status: "unexpected", Title: v.Title, BodyMd: v.BodyMD, Tags: v.Tags, ChangeID: v.ChangeID}); err != nil || n != 1 {
 		t.Fatalf("invalid stored state: %d %v", n, err)
 	}
-	if got, err := s.Get(testCaller(), v.ID); got != nil || !errors.Is(err, ErrState) {
+	if got, err := s.Get(testCaller(), v.ID); got != nil || !errors.Is(err, errState) {
 		t.Fatalf("invalid record escaped: %+v %v", got, err)
 	}
-	if got, err := s.List(testCaller(), Filter{ProjectID: p}); got != nil || !errors.Is(err, ErrState) {
+	if got, err := s.List(testCaller(), Filter{ProjectID: p}); got != nil || !errors.Is(err, errState) {
 		t.Fatalf("invalid list escaped: %+v %v", got, err)
 	}
 }
@@ -206,7 +206,7 @@ func TestProjectRemovalRefusesSuppressedDeletion(t *testing.T) {
 			return RemoveProjectIn(testCaller(), tx, p)
 		})
 	}
-	if err := remove(); !errors.Is(err, ErrConflict) {
+	if err := remove(); !errors.Is(err, errConflict) {
 		t.Fatalf("partial deletion succeeded: %v", err)
 	}
 	if after := snapshot(t, db); after != before {

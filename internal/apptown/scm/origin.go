@@ -35,10 +35,10 @@ func PublicRemoteURL(raw string) string {
 	return raw
 }
 
-// ReadOrigin distinguishes an absent remote from an unreadable repository or
+// readOrigin distinguishes an absent remote from an unreadable repository or
 // ambiguous multiple fetch URLs. Provider decisions must not use Origin's
 // display-only absence convention.
-func ReadOrigin(ctx context.Context, repoDir string) (string, error) {
+func readOrigin(ctx context.Context, repoDir string) (string, error) {
 	raw, err := gitexec.HubOutput(ctx, repoDir, nil, "config", "--local", "--get-all", "remote.origin.url")
 	if err != nil {
 		var exit *exec.ExitError

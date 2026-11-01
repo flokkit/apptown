@@ -63,18 +63,14 @@ type PreparedRun struct {
 // participation. Caller-facing authority belongs to Service.
 type runAdmissions struct{ records runStartStore }
 
-func newRunAdmissions(db *database.DB, stages Stages, chats Presence) runAdmissions {
+func newRunAdmissions(db *database.DB, stages stages, chats Presence) runAdmissions {
 	return runAdmissions{runStartStore{db: db, stages: stages, chats: chats}}
 }
-func (s runAdmissions) Create(ctx context.Context, in StartRequest, definition PreparedRun) (*Run, error) {
-	return s.records.create(ctx, in, definition)
-}
-func (s runAdmissions) CreateIn(ctx context.Context, tx *database.Tx, in StartRequest, definition PreparedRun) (*Run, error) {
+
+func (s runAdmissions) createIn(ctx context.Context, tx *database.Tx, in StartRequest, definition PreparedRun) (*Run, error) {
 	return s.records.createIn(ctx, tx, in, definition)
 }
-func (s runAdmissions) Prepared(ctx context.Context, id ids.ID) error {
-	return s.records.prepared(ctx, id)
-}
+
 func validateStart(in StartRequest) error {
 	if in.ProjectID.IsZero() || in.WorkflowName == "" || (in.parentRunID.IsZero() && !in.parentStepID.IsZero()) || (!in.acceptedRunID.IsZero() && !in.parentRunID.IsZero()) {
 		return fmt.Errorf("a run needs a project, workflow, and a valid parent context")

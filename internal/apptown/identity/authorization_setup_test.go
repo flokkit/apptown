@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/database"
 )
@@ -191,7 +193,7 @@ func TestAdministratorRevocationAndSavingAreAtomic(t *testing.T) {
 			if err == nil {
 				t.Fatal("accepted incomplete revocation")
 			}
-			if role, _, err := RoleIn(context.Background(), s.db, "boss", time.Now()); err != nil || role != "admin" {
+			if role, _, err := roleIn(context.Background(), s.db, "boss", time.Now()); err != nil || role != "admin" {
 				t.Fatalf("role: %s %v", role, err)
 			}
 			if _, _, found, err := s.LiveGrant(context.Background(), id); err != nil || !found {
@@ -204,7 +206,7 @@ func TestAdministratorRevocationAndSavingAreAtomic(t *testing.T) {
 			if err := s.EnsureDefaults(context.Background(), false); err != nil {
 				t.Fatal(err)
 			}
-			if role, _, err := RoleIn(context.Background(), s.db, "boss", time.Now()); err != nil || role != "member" {
+			if role, _, err := roleIn(context.Background(), s.db, "boss", time.Now()); err != nil || role != "member" {
 				t.Fatalf("role after save: %s %v", role, err)
 			}
 			wantLen(t, "administrator grants", liveGrants(t, s.db, "boss", access.RoleInstanceAdmin), 0)
@@ -222,7 +224,7 @@ func TestAdministratorRevocationAndSavingAreAtomic(t *testing.T) {
 		if err == nil {
 			return 1
 		}
-		if !errors.Is(err, ErrLastAdministrator) {
+		if !errors.Is(err, errLastAdministrator) {
 			t.Error(err)
 		}
 		return 0
@@ -403,7 +405,7 @@ func TestPersonalGroupPreservesRecordedChoices(t *testing.T) {
 	})
 	t.Run("read failure", func(t *testing.T) {
 		s := New(testDB(t), Config{})
-		t.Cleanup(s.db.FailNextStatement("-- name: GroupByNameForShare :one"))
+		t.Cleanup(dbtest.NextStatementFailure(s.db, "-- name: GroupByNameForShare :one"))
 		if _, err := s.PersonalGroup(context.Background(), "alice", "boss"); err == nil {
 			t.Fatal("read failure became a new group")
 		}

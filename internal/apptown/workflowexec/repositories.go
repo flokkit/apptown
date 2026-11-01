@@ -11,9 +11,9 @@ import (
 const MergeRequestKind = "scm/mr"
 const ReconcileKind = "reconcile"
 
-// Repositories adapts repository effects to admitted workflow steps. The
+// repositories adapts repository effects to admitted workflow steps. The
 // provider resolves credentials at use; no transport or App reaches the runner.
-type Repositories struct {
+type repositories struct {
 	db          *database.DB
 	attachments *scm.RepositoryAttachments
 	branches    *scm.Branches
@@ -27,9 +27,9 @@ type RepositoryConfig struct {
 	Now func() time.Time
 }
 
-func NewRepositories(db *database.DB, attachments *scm.RepositoryAttachments, branches *scm.Branches, cfg RepositoryConfig) *Repositories {
-	return &Repositories{db: db, attachments: attachments, branches: branches, cfg: cfg, clock: cfg.Now}
+func NewRepositories(db *database.DB, attachments *scm.RepositoryAttachments, branches *scm.Branches, cfg RepositoryConfig) *repositories {
+	return &repositories{db: db, attachments: attachments, branches: branches, cfg: cfg, clock: cfg.Now}
 }
 
 // now reads AppTown's clock.
-func (a *Repositories) now() time.Time { return clock.Or(a.clock)() }
+func (a *repositories) now() time.Time { return clock.Or(a.clock)() }

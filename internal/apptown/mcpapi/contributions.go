@@ -8,21 +8,21 @@ import (
 )
 
 type ContributionsDependencies struct {
-	Scope         Scope
+	Scope         scope
 	Work          *workflow.Service
 	Contributions *repositoryedit.Contributions
 	Adoption      *adoption.Service
 }
 type contributions struct {
-	scope         Scope
+	scope         scope
 	work          *workflow.Service
 	contributions *repositoryedit.Contributions
 	adoption      *adoption.Service
 }
 
-func NewContributions(deps ContributionsDependencies) []Tool {
+func NewContributions(deps ContributionsDependencies) []toolEntry {
 	h := contributions{scope: deps.Scope, work: deps.Work, contributions: deps.Contributions, adoption: deps.Adoption}
-	return []Tool{{Name: "checkout_change",
+	return []toolEntry{{Name: "checkout_change",
 		order: 17, Description: "Returns what a local Git checkout needs to work on a Change: the repository URL, the Change's ref and current tip, and a short-lived credential that can fetch main and this Change and push only this Change's ref. " + "Use the returned git commands as arguments, not as a shell string.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id.")}, "id"), command: ownerCommand("contributions.checkoutChange", h.checkoutChange)}, {Name: "renew_change_grant",
 		order:       18,
 		Description: "Mints a fresh push credential for a Change whose earlier one expired or was consumed by a push. Same bounds as checkout_change.",

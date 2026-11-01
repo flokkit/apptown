@@ -22,8 +22,8 @@ type StandingDependencies struct {
 	Presence     standingPresence
 	Authority    access.Authorizer
 	Identity     *identity.Service
-	Procedures   StandingProcedures
-	Destinations StandingDestinations
+	Procedures   standingProcedures
+	Destinations standingDestinations
 	Now          func() time.Time
 }
 

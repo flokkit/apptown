@@ -45,10 +45,10 @@ import (
 
 var (
 	ErrUnavailable  = errors.New("registry unavailable")
-	ErrUnauthorised = errors.New("registry refused the credential")
-	ErrNotFound     = errors.New("not in the registry")
-	ErrMalformed    = errors.New("malformed image")
-	ErrUnsupported  = errors.New("unsupported image")
+	errUnauthorised = errors.New("registry refused the credential")
+	errNotFound     = errors.New("not in the registry")
+	errMalformed    = errors.New("malformed image")
+	errUnsupported  = errors.New("unsupported image")
 )
 
 // Credential is a registry login, held in memory for one operation. Empty
@@ -86,7 +86,7 @@ func (i Image) Reference() string { return i.Repository + "@" + i.Digest }
 func Platform(osName, arch string) (string, error) {
 	osName = strings.ToLower(strings.TrimSpace(osName))
 	if osName != "linux" {
-		return "", fmt.Errorf("%w: operating system %q", ErrUnsupported, osName)
+		return "", fmt.Errorf("%w: operating system %q", errUnsupported, osName)
 	}
 	switch strings.ToLower(strings.TrimSpace(arch)) {
 	case "x86_64", "amd64":
@@ -94,7 +94,7 @@ func Platform(osName, arch string) (string, error) {
 	case "aarch64", "arm64":
 		return "linux/arm64", nil
 	}
-	return "", fmt.Errorf("%w: architecture %q", ErrUnsupported, arch)
+	return "", fmt.Errorf("%w: architecture %q", errUnsupported, arch)
 }
 
 // platformOf is an image config's platform in canonical form. A variant is
@@ -105,7 +105,7 @@ func platformOf(osName, arch, variant string) (string, error) {
 		return "", err
 	}
 	if variant != "" && !(p == "linux/arm64" && variant == "v8") {
-		return "", fmt.Errorf("%w: platform %s/%s", ErrUnsupported, p, variant)
+		return "", fmt.Errorf("%w: platform %s/%s", errUnsupported, p, variant)
 	}
 	return p, nil
 }
@@ -125,7 +125,7 @@ func options(ctx context.Context, c Credential) []remote.Option {
 func repositoryOf(s string) (name.Repository, error) {
 	r, err := name.NewRepository(s)
 	if err != nil {
-		return name.Repository{}, fmt.Errorf("%w: repository %q: %w", ErrMalformed, s, err)
+		return name.Repository{}, fmt.Errorf("%w: repository %q: %w", errMalformed, s, err)
 	}
 	return r, nil
 }
@@ -169,7 +169,7 @@ func classify(what string, err error, otherwise error) error {
 	if err == nil {
 		return nil
 	}
-	for _, known := range []error{ErrUnavailable, ErrUnauthorised, ErrNotFound, ErrMalformed, ErrUnsupported, context.Canceled, context.DeadlineExceeded} {
+	for _, known := range []error{ErrUnavailable, errUnauthorised, errNotFound, errMalformed, errUnsupported, context.Canceled, context.DeadlineExceeded} {
 		if errors.Is(err, known) {
 			return err
 		}
@@ -179,9 +179,9 @@ func classify(what string, err error, otherwise error) error {
 		switch {
 		case te.StatusCode == http.StatusUnauthorized || te.StatusCode == http.StatusForbidden:
 			// The registry's answer is kept, so RefusedBy can name who refused.
-			return fmt.Errorf("%s: %w: %w", what, ErrUnauthorised, err)
+			return fmt.Errorf("%s: %w: %w", what, errUnauthorised, err)
 		case te.StatusCode == http.StatusNotFound:
-			return fmt.Errorf("%s: %w: %w", what, ErrNotFound, err)
+			return fmt.Errorf("%s: %w: %w", what, errNotFound, err)
 		case te.StatusCode == http.StatusTooManyRequests || te.StatusCode >= 500:
 			return fmt.Errorf("%s: %w: %w", what, ErrUnavailable, err)
 		}

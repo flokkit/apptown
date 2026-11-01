@@ -13,16 +13,16 @@ import (
 type StepInterruption struct {
 	work   *workflow.Service
 	docker *docker.Scope
-	tasks  StepTasks
+	tasks  stepTasks
 }
 
-// StepTasks stops a step attempt's recorded tasks, confirmed by their
+// stepTasks stops a step attempt's recorded tasks, confirmed by their
 // backend (workflowexec.TaskRunner).
-type StepTasks interface {
+type stepTasks interface {
 	StopStep(ctx context.Context, stepID ids.ID, attempt int64) (stopped []string, found bool, err error)
 }
 
-func NewStepInterruption(work *workflow.Service, docker *docker.Scope, tasks StepTasks) StepInterruption {
+func NewStepInterruption(work *workflow.Service, docker *docker.Scope, tasks stepTasks) StepInterruption {
 	return StepInterruption{work: work, docker: docker, tasks: tasks}
 }
 
@@ -35,7 +35,7 @@ func NewStepInterruption(work *workflow.Service, docker *docker.Scope, tasks Ste
 // slot. Before this the only way to stop a wandering reviewer was
 // docker rm -f on the host (complaint #71).
 func (h StepInterruption) StepInterrupt(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return

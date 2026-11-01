@@ -71,7 +71,7 @@ func TestScopedEvidenceAndHistoryKeepProjectAndBody(t *testing.T) {
 		}
 	}
 	dbtest.FailNextStatement(t, q.db, "SELECT a.id,a.run_id")
-	if _, err := s.RunArtifacts(ctx, run.ID, ArtifactSelection{}); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := s.RunArtifacts(ctx, run.ID, ArtifactSelection{}); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("hidden evidence failure: %v", err)
 	}
 }

@@ -153,7 +153,7 @@ func TestRecordedMainLosesARacedCompareAndSet(t *testing.T) {
 			}
 			return b.RecordIn(ctx, tx, ViaGenesis, ids.Nil, time.Now())
 		})
-		if !errors.Is(err, ErrMainChanged) {
+		if !errors.Is(err, errMainChanged) {
 			t.Fatalf("%s: raced record = %v, want ErrMainChanged", previous, err)
 		}
 		if p, err := project.ByIDIn(ctx, db, id); err != nil || p.Blurb == "settled" {
@@ -216,7 +216,7 @@ func TestMainStandingNotes(t *testing.T) {
 	db, id, hub := mainProject(t)
 	read := func() MainStanding {
 		t.Helper()
-		s, err := ReadMainStanding(ctx, db, hub, id, "main")
+		s, err := readMainStanding(ctx, db, hub, id, "main")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -244,7 +244,7 @@ func TestMainStandingNotes(t *testing.T) {
 	if s := read(); s.State != "rewritten" || s.Note != "the recorded "+strs.ShortSHA(recorded)+" is no longer in main's history" {
 		t.Fatalf("rewritten: %+v", s)
 	}
-	if s, err := ReadMainStanding(ctx, db, hub, id, "missing"); err != nil || s.State != "unreadable" || s.Note != "could not read main" {
+	if s, err := readMainStanding(ctx, db, hub, id, "missing"); err != nil || s.State != "unreadable" || s.Note != "could not read main" {
 		t.Fatalf("unreadable: %+v %v", s, err)
 	}
 }
@@ -259,7 +259,7 @@ func TestMainStandingComparesTheLastFetchedUpstream(t *testing.T) {
 	record(t, db, hub, id, ViaInit)
 	upstream := func() *UpstreamMain {
 		t.Helper()
-		s, err := ReadMainStanding(ctx, db, hub, id, "main")
+		s, err := readMainStanding(ctx, db, hub, id, "main")
 		if err != nil || s.Upstream == nil {
 			t.Fatalf("upstream: %+v %v", s, err)
 		}
@@ -379,7 +379,7 @@ func TestAFailedObservationIsSettledByRetryingTheLanding(t *testing.T) {
 	merged := commitOnHubMain(t, claim.source, "merged by the provider")
 	driver := fixtureDriver{
 		prepare: func(context.Context, Source, string) (Prepared, error) {
-			return Prepared{Kind: Existing, Result: merged}, nil
+			return Prepared{Kind: existing, Result: merged}, nil
 		},
 		inspect: func(context.Context, Source, Record) (Inspection, error) {
 			t.Fatal("inspection found an observation it has no intent for")

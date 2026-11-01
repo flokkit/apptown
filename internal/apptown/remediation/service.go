@@ -52,16 +52,16 @@ type Dependencies struct {
 type Service struct {
 	db         *database.DB
 	deps       Dependencies
-	pools      *Pools
+	pools      *pools
 	attempts   Attempts
-	outcomes   Outcomes
-	schedule   Schedule
-	creations  Creations
+	outcomes   outcomes
+	schedule   schedule
+	creations  creations
 	records    Reconciliation
-	starter    *Starter
-	verifier   *Verifier
-	reconciler *Reconciler
-	scheduler  Scheduler
+	starter    *starter
+	verifier   *verifier
+	reconciler *reconciler
+	scheduler  scheduler
 	cool       *cooldown
 	// holder names this process on the items it starts.
 	holder string
@@ -70,23 +70,23 @@ type Service struct {
 // New builds every part in order. There is no lazy construction and no
 // once-guard: a Service is complete when it returns.
 func New(db *database.DB, deps Dependencies) *Service {
-	s := &Service{db: db, deps: deps, pools: NewPools(db, deps.Now)}
+	s := &Service{db: db, deps: deps, pools: newPools(db, deps.Now)}
 	s.attempts = NewAttempts(db, deps.Work, deps.Caller, deps.Now)
 	s.outcomes = NewOutcomes(db, deps.Now)
-	s.schedule = NewSchedule(db, deps.Now)
+	s.schedule = newSchedule(db, deps.Now)
 	s.creations = NewCreations(db, deps.Now)
 	s.records = NewReconciliation(db, deps.Work, deps.Caller, deps.Now)
 	s.starter = NewStarter(s.attempts, func(ctx context.Context, item Item) (StartDefinition, error) {
 		return deps.Resolve(ctx, item, s.VerificationScope(item))
 	}, deps.Work.DispatchStarted)
-	s.verifier = NewVerifier(s.outcomes, func(ctx context.Context, item Item) Review {
+	s.verifier = newVerifier(s.outcomes, func(ctx context.Context, item Item) Review {
 		return deps.Review(ctx, item, s.VerificationScope(item))
 	})
 	host, _ := os.Hostname()
 	s.holder = fmt.Sprintf("%s/%d", host, os.Getpid())
 	s.cool = &cooldown{clock: deps.Now}
-	s.reconciler = NewReconciler(s.records, deps.Work.DispatchStarted, s.verifier.Verify, deps.Work.DispatchCommittedRetry, s.cool.hold)
-	s.scheduler = NewScheduler(s.schedule.Queue, s.cool.cooling, s.busy, s.start)
+	s.reconciler = newReconciler(s.records, deps.Work.DispatchStarted, s.verifier.Verify, deps.Work.DispatchCommittedRetry, s.cool.hold)
+	s.scheduler = newScheduler(s.schedule.Queue, s.cool.cooling, s.busy, s.start)
 	return s
 }
 
@@ -111,13 +111,13 @@ func (s *Service) start(ctx context.Context, item Item) (*workflow.Run, error) {
 
 // WorkerCount reads a pool's declared size (default when never set).
 func (s *Service) WorkerCount(ctx context.Context, kind string) int {
-	n, set, err := s.pools.Count(ctx, kind)
+	n, set, err := s.pools.count(ctx, kind)
 	if err != nil {
 		log.Printf("reading the %s worker pool: %v", kind, err)
 	}
 	if !set {
 		if kind == WorkerKindRemediation {
-			return DefaultWorkers
+			return defaultWorkers
 		}
 		return 0
 	}
@@ -126,7 +126,7 @@ func (s *Service) WorkerCount(ctx context.Context, kind string) int {
 
 // SetWorkerCount declares a pool's size. Zero pauses the kind entirely.
 func (s *Service) SetWorkerCount(ctx context.Context, kind string, n int, by string) error {
-	return s.pools.Set(ctx, kind, n, by)
+	return s.pools.set(ctx, kind, n, by)
 }
 
 // --- scope and start ---------------------------------------------------------------
@@ -199,7 +199,7 @@ func (s *Service) Start(ctx context.Context, scope, ref, actor string, concurren
 // --- a person's actions ------------------------------------------------------------
 
 func (s *Service) setStatus(ctx context.Context, id ids.ID, from []string, to, by string) error {
-	return s.attempts.Status(ctx, id, from, to, by)
+	return s.attempts.status(ctx, id, from, to, by)
 }
 
 // Pause: no new items start; working ones finish their current run.
@@ -222,8 +222,8 @@ func (s *Service) Cancel(ctx context.Context, id ids.ID, by string) error {
 // started. Both are classified here so transports never read the store's
 // sql.ErrNoRows or choose a status themselves.
 var (
-	ErrItemScope     = fault.New(fault.NotFound, "no such item in this remediation")
-	ErrNoRemediation = fault.New(fault.NotFound, "no remediation has id")
+	errItemScope     = fault.New(fault.NotFound, "no such item in this remediation")
+	errNoRemediation = fault.New(fault.NotFound, "no remediation has id")
 )
 
 // RetryItem re-queues a stuck item for a fresh attempt. The note becomes the
@@ -257,7 +257,7 @@ func (s *Service) Remediations(ctx context.Context, limit int) ([]Remediation, e
 func (s *Service) Remediation(ctx context.Context, id ids.ID) (*Remediation, error) {
 	m, err := readJob(ctx, s.db, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("%w %d", ErrNoRemediation, id)
+		return nil, fmt.Errorf("%w %d", errNoRemediation, id)
 	}
 	if err != nil {
 		return nil, err

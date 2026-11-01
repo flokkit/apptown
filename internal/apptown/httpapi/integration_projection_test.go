@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -110,13 +112,13 @@ func TestProjectIntegrationReadBatchesAndContainsPrivateRecords(t *testing.T) {
 	if err != nil || !strings.Contains(raw, "scm-canary") {
 		t.Fatal("private token resource unavailable to engine")
 	}
-	t.Cleanup(db.FailNextStatement("FROM project_integrations p"))
+	t.Cleanup(dbtest.NextStatementFailure(db, "FROM project_integrations p"))
 	w = httptest.NewRecorder()
 	handler.ListProjectIntegrations(w, request)
 	if w.Code != 500 {
 		t.Fatalf("failed list became partial success: %d", w.Code)
 	}
-	t.Cleanup(db.FailNextStatement("-- name: ProjectIntegration :one"))
+	t.Cleanup(dbtest.NextStatementFailure(db, "-- name: ProjectIntegration :one"))
 	if _, err := integration.Resource(ctx, db, projectIDs[0], "scm"); err == nil || errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("resource failure became absence: %v", err)
 	}

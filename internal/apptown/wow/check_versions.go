@@ -7,15 +7,15 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// VersionChecks is an exact authored declaration. Missing historical versions
+// versionChecks is an exact authored declaration. Missing historical versions
 // remain absent so a consumer can retain its own durable evidence.
-type VersionChecks struct {
+type versionChecks struct {
 	Block      string
 	Version    int
 	ChecksJSON string
 }
 
-func CheckVersionsIn(ctx context.Context, q database.Queryer, refs []BlockRef) ([]VersionChecks, error) {
+func CheckVersionsIn(ctx context.Context, q database.Queryer, refs []BlockRef) ([]versionChecks, error) {
 	if len(refs) == 0 {
 		return nil, nil
 	}
@@ -29,9 +29,9 @@ func CheckVersionsIn(ctx context.Context, q database.Queryer, refs []BlockRef) (
 	if err != nil {
 		return nil, err
 	}
-	out := make([]VersionChecks, 0, len(rows))
+	out := make([]versionChecks, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, VersionChecks{Block: r.Name, Version: int(r.Version), ChecksJSON: r.ChecksJson})
+		out = append(out, versionChecks{Block: r.Name, Version: int(r.Version), ChecksJSON: r.ChecksJson})
 	}
 	return out, nil
 }

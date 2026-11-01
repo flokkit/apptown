@@ -10,9 +10,9 @@ import (
 	"sync"
 )
 
-// CLI locates the Linux CLI supplied with the daemon. It never builds source at
+// cli locates the Linux CLI supplied with the daemon. It never builds source at
 // runtime; deployment packaging owns the executable used inside containers.
-type CLI struct {
+type cli struct {
 	once sync.Once
 	path string
 	err  error
@@ -40,7 +40,7 @@ func WithCLIPath(env []string) []string {
 
 // NewCLI anchors an explicit path at construction. An empty path selects the
 // apptown-linux artifact beside the running daemon, independent of its workdir.
-func NewCLI(path string) *CLI {
+func NewCLI(path string) *cli {
 	var err error
 	if path == "" {
 		var executable string
@@ -51,12 +51,12 @@ func NewCLI(path string) *CLI {
 	} else {
 		path, err = filepath.Abs(path)
 	}
-	return &CLI{path: path, err: err}
+	return &cli{path: path, err: err}
 }
 
 // Path checks availability once per process. Failure remains nonfatal: sessions
 // run without the CLI, and the session view reports its absence.
-func (cli *CLI) Path() (string, error) {
+func (cli *cli) Path() (string, error) {
 	cli.once.Do(func() {
 		if cli.err == nil {
 			var info os.FileInfo

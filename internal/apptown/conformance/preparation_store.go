@@ -35,7 +35,7 @@ func readConformanceProjects(ctx context.Context, db database.Queryer, idList []
 
 // Enabled imports retain manifest order and their exact pinned versions. A
 // missing version is an error, distinct from a valid declaration with no checks.
-func readAdoptedChecks(ctx context.Context, db database.Queryer, source CheckSource, idList []ids.ID) (map[ids.ID][]DeclaredCheck, error) {
+func readAdoptedChecks(ctx context.Context, db database.Queryer, source checkSource, idList []ids.ID) (map[ids.ID][]DeclaredCheck, error) {
 	if len(idList) == 0 {
 		return map[ids.ID][]DeclaredCheck{}, nil
 	}
@@ -45,7 +45,7 @@ func readAdoptedChecks(ctx context.Context, db database.Queryer, source CheckSou
 	return source.ChecksIn(ctx, db, idList)
 }
 
-func readPreparedConformanceProjects(ctx context.Context, db database.Queryer, source CheckSource, idList []ids.ID, repoOnly bool) ([]Project, error) {
+func readPreparedConformanceProjects(ctx context.Context, db database.Queryer, source checkSource, idList []ids.ID, repoOnly bool) ([]Project, error) {
 	projects, err := readConformanceProjects(ctx, db, idList, repoOnly)
 	if err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ type currentConformanceFacts struct {
 	Reviews            []Review
 }
 
-func readCurrentConformance(ctx context.Context, db database.Queryer, source CheckSource, at time.Time) (*currentConformanceFacts, error) {
+func readCurrentConformance(ctx context.Context, db database.Queryer, source checkSource, at time.Time) (*currentConformanceFacts, error) {
 	f := &currentConformanceFacts{Exceptions: map[ids.ID][]Disposition{}}
 	var err error
 	f.Projects, err = readPreparedConformanceProjects(ctx, db, source, nil, true)
@@ -153,7 +153,7 @@ func (s reviewStore) current(ctx context.Context) (*currentConformanceFacts, err
 
 // Historical definitions are optional evidence: a removed catalog entry does not
 // erase a saved verdict. Query/decoding failures are errors, never absence.
-func readHistoricalCheckDefs(ctx context.Context, db database.Queryer, source CheckSource, vs []Verdict) (map[string]CheckDefinition, error) {
+func readHistoricalCheckDefs(ctx context.Context, db database.Queryer, source checkSource, vs []Verdict) (map[string]CheckDefinition, error) {
 	seen := map[CheckVersion]bool{}
 	var versions []CheckVersion
 	for _, v := range vs {
@@ -173,7 +173,7 @@ func readHistoricalCheckDefs(ctx context.Context, db database.Queryer, source Ch
 			return nil, err
 		}
 		for _, d := range declarations {
-			def := DefinitionOf(d.Block, d.Version, d.Check)
+			def := definitionOf(d.Block, d.Version, d.Check)
 			catalog[def.Key] = def
 		}
 	}

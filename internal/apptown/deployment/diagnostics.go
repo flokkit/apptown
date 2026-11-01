@@ -86,10 +86,10 @@ const diagnosisReadWithin = 5 * time.Second
 // Part presences. Unknown is a read that did not answer: never stopped or
 // absent.
 const (
-	PresenceRunning = "running"
-	PresenceStopped = "stopped"
-	PresenceAbsent  = "absent"
-	PresenceUnknown = "unknown"
+	presenceRunning = "running"
+	presenceStopped = "stopped"
+	presenceAbsent  = "absent"
+	presenceUnknown = "unknown"
 )
 
 // PartDiagnosis is the container under one part's or need's name, as its
@@ -221,8 +221,8 @@ func (s *Service) Diagnostics(ctx context.Context, projectID ids.ID, name string
 	if err := s.diagnoseParts(ctx, dep, &out); err != nil {
 		return Diagnostics{}, err
 	}
-	out.EventsKnown, out.EventsSource = s.LimitEventsSource(ctx, dep)
-	if out.Events, err = s.LimitEvents(ctx, dep, s.now().Add(-24*time.Hour)); err != nil {
+	out.EventsKnown, out.EventsSource = s.limitEventsSource(ctx, dep)
+	if out.Events, err = s.limitEvents(ctx, dep, s.now().Add(-24*time.Hour)); err != nil {
 		return Diagnostics{}, err
 	}
 	if out.Hold, err = s.crashLoopHold(ctx, dep); err != nil {
@@ -269,10 +269,10 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 		return nil
 	}
 	if dep.Container == "" {
-		_, words := s.LimitEventsSource(ctx, dep)
+		_, words := s.limitEventsSource(ctx, dep)
 		out.Unsupported = "its target does not report each part's container to AppTown (" + words + ")"
 		for _, p := range diagnosedParts(applied) {
-			p.Presence, p.Reason = PresenceUnknown, "not reported by its target"
+			p.Presence, p.Reason = presenceUnknown, "not reported by its target"
 			out.Parts = append(out.Parts, p)
 		}
 		return nil
@@ -299,7 +299,7 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 		} else {
 			// The read did not answer: unknown now, with the last facts
 			// read and their age.
-			p.Presence, p.Reason, p.Stale = PresenceUnknown, why, true
+			p.Presence, p.Reason, p.Stale = presenceUnknown, why, true
 			if last, ok := s.diagnosed.last(dep.ID, key, p.Part); ok {
 				p.Facts, p.ObservedAt, p.Generation = last.Facts, last.ObservedAt, last.Generation
 			}
@@ -337,7 +337,7 @@ func (s *Service) readPart(ctx context.Context, dk docker.Scope, dep *Deployment
 	rt, err := docker.Inspect(ctx, dk, container)
 	switch {
 	case errors.Is(err, docker.ErrContainerAbsent):
-		p.Presence, p.ObservedAt = PresenceAbsent, s.now()
+		p.Presence, p.ObservedAt = presenceAbsent, s.now()
 		return ""
 	case err != nil:
 		return "its container could not be read: " + safeReason(err)
@@ -356,9 +356,9 @@ func (s *Service) readPart(ctx context.Context, dk docker.Scope, dep *Deployment
 	if f.Health == "" {
 		f.Health = "not configured"
 	}
-	p.Presence, p.Facts, p.ObservedAt = PresenceStopped, &f, s.now()
+	p.Presence, p.Facts, p.ObservedAt = presenceStopped, &f, s.now()
 	if rt.Running {
-		p.Presence = PresenceRunning
+		p.Presence = presenceRunning
 	}
 	return ""
 }
@@ -367,7 +367,7 @@ func (s *Service) readPart(ctx context.Context, dk docker.Scope, dep *Deployment
 // when they name this deployment, nil otherwise.
 func labelledGeneration(dep *Deployment, rt docker.Runtime) *int64 {
 	carried := rt.Labels
-	if carried[dockerlabel.Deployment] != string(dep.Label()) {
+	if carried[dockerlabel.Deployment] != string(dep.label()) {
 		return nil
 	}
 	g, err := strconv.ParseInt(carried[dockerlabel.Generation], 10, 64)

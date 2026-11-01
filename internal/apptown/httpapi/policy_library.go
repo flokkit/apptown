@@ -133,7 +133,7 @@ func (h PolicyLibrary) SaveLibraryPolicy(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
-		if err := h.ways.SaveLibraryPolicy(r.Context(), in, Actor(r)); err != nil {
+		if err := h.ways.SaveLibraryPolicy(r.Context(), in, actor(r)); err != nil {
 			WriteFault(w, err)
 			return
 		}
@@ -145,7 +145,7 @@ func (h PolicyLibrary) SaveLibraryPolicy(w http.ResponseWriter, r *http.Request)
 // only; projects that adopted it keep their copies (adoption pins).
 func (h PolicyLibrary) DeleteLibraryPolicy(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
-	if err := h.ways.DeleteLibraryPolicy(r.Context(), name, Actor(r)); err != nil {
+	if err := h.ways.DeleteLibraryPolicy(r.Context(), name, actor(r)); err != nil {
 		WriteFault(w, err)
 		return
 	}

@@ -20,20 +20,20 @@ func (f hostFunc) BootPreview(ctx context.Context, ch Change, restart bool) (Res
 // no host or no project before taking the interval.
 func TestBootChangeOwnsTheIntervalAndSettlesIt(t *testing.T) {
 	t.Parallel()
-	var runtime Runtime
+	var runtime previewRuntime
 	ch := Change{ID: idstest.N(7), ProjectID: idstest.N(3), SourceRevision: "selected"}
 	for _, bad := range []struct {
 		ch   Change
-		host Host
+		host host
 	}{{ch, nil}, {Change{ID: idstest.N(7)}, hostFunc(func(context.Context, Change, bool) (Result, error) {
 		t.Fatal("an invalid execution reached the host")
 		return Result{}, nil
 	})}} {
-		if _, err := runtime.BootChange(context.Background(), bad.ch, true, bad.host); err == nil {
+		if _, err := runtime.bootChange(context.Background(), bad.ch, true, bad.host); err == nil {
 			t.Fatalf("invalid execution admitted: %+v", bad.ch)
 		}
 	}
-	if got := runtime.Inspect(context.Background(), ChangeKey(idstest.N(7)), facts{}); got.State != Cold || !got.At.IsZero() {
+	if got := runtime.inspect(context.Background(), changeKey(idstest.N(7)), facts{}); got.State != cold || !got.At.IsZero() {
 		t.Fatalf("a refused execution took the interval: %+v", got)
 	}
 	failed := errors.New("the app did not come up")
@@ -41,19 +41,19 @@ func TestBootChangeOwnsTheIntervalAndSettlesIt(t *testing.T) {
 		if got != ch || !restart {
 			t.Fatalf("host selection: %+v restart=%t", got, restart)
 		}
-		if s := runtime.Inspect(context.Background(), ChangeKey(idstest.N(7)), facts{URL: "https://old"}); s.State != Starting {
+		if s := runtime.inspect(context.Background(), changeKey(idstest.N(7)), facts{URL: "https://old"}); s.State != stateStarting {
 			t.Fatalf("the host ran outside the boot interval: %+v", s)
 		}
 		return Result{ProjectID: idstest.N(999), URL: "https://preview"}, failed
 	})
-	if out, err := runtime.BootChange(context.Background(), ch, true, host); !errors.Is(err, failed) || out != (Result{}) {
+	if out, err := runtime.bootChange(context.Background(), ch, true, host); !errors.Is(err, failed) || out != (Result{}) {
 		t.Fatalf("a failed boot: %+v %v", out, err)
 	}
-	if got := runtime.Inspect(context.Background(), ChangeKey(idstest.N(7)), facts{}); got.State != Broken || got.Reason != failed.Error() {
+	if got := runtime.inspect(context.Background(), changeKey(idstest.N(7)), facts{}); got.State != Broken || got.Reason != failed.Error() {
 		t.Fatalf("settlement: %+v", got)
 	}
 	failed = nil
-	out, err := runtime.BootChange(context.Background(), ch, true, host)
+	out, err := runtime.bootChange(context.Background(), ch, true, host)
 	if err != nil || out != (Result{ProjectID: idstest.N(3), URL: "https://preview"}) {
 		t.Fatalf("a boot: %+v %v", out, err)
 	}

@@ -68,7 +68,7 @@ func (s *Service) AbandonOffer(ctx context.Context, changeID ids.ID) []NextAct {
 // serialization until Close; obtain it before opening the caller transaction.
 // The caller owns authorization of the surrounding operation, commit and rollback.
 type StopScope struct {
-	owner   Abandonments
+	owner   abandonments
 	project ids.ID
 	who     string
 	closure *scm.Closure
@@ -116,16 +116,16 @@ type AbandonConflict struct{ message string }
 func (e *AbandonConflict) Error() string         { return e.message }
 func (e *AbandonConflict) FaultKind() fault.Kind { return fault.Conflict }
 
-type Abandonments struct {
+type abandonments struct {
 	db      *database.DB
-	effects AbandonRecorder
+	effects abandonRecorder
 	locks   *scm.RepositoryLocks
 	clocked
 }
 
 // abandon owns the durable operation. It never executes Git, removes files,
 // tears down containers, or calls back into App while the transaction is open.
-func (s Abandonments) abandon(ctx context.Context, req Abandonment, projectID ids.ID) (*Abandoned, error) {
+func (s abandonments) abandon(ctx context.Context, req Abandonment, projectID ids.ID) (*Abandoned, error) {
 	if err := validateAbandonment(req); err != nil {
 		return nil, err
 	}
@@ -154,7 +154,7 @@ func (s Abandonments) abandon(ctx context.Context, req Abandonment, projectID id
 
 // Join the caller transaction and acquire the shared project lock (normally
 // already held by send-back/remediation). The caller owns commit/rollback.
-func (s Abandonments) abandonIn(ctx context.Context, tx *database.Tx, req Abandonment, projectID ids.ID, closure *scm.Closure) (*Abandoned, error) {
+func (s abandonments) abandonIn(ctx context.Context, tx *database.Tx, req Abandonment, projectID ids.ID, closure *scm.Closure) (*Abandoned, error) {
 	now := s.now()
 	if projectID.IsZero() || s.effects == nil {
 		return nil, fmt.Errorf("abandonment needs project scope and effects")
@@ -270,7 +270,7 @@ func (s Abandonments) abandonIn(ctx context.Context, tx *database.Tx, req Abando
 		}
 	}
 	if !req.ChangeID.IsZero() {
-		if _, err := TransitionChangeIn(ctx, tx, projectID, changeID, ChangeMove{Action: AbandonChange}, now); err != nil {
+		if _, err := TransitionChangeIn(ctx, tx, projectID, changeID, ChangeMove{Action: abandonChange}, now); err != nil {
 			return nil, err
 		}
 		if req.closedAs != "" {
@@ -292,7 +292,7 @@ func (s Abandonments) abandonIn(ctx context.Context, tx *database.Tx, req Abando
 				return nil, err
 			}
 			if spec.Role == "landing" {
-				if _, err := TransitionChangeIn(ctx, tx, projectID, changeID, ChangeMove{Action: CancelChangeLanding}, now); err != nil {
+				if _, err := TransitionChangeIn(ctx, tx, projectID, changeID, ChangeMove{Action: cancelChangeLanding}, now); err != nil {
 					return nil, err
 				}
 			}
@@ -314,23 +314,23 @@ type AbandonEffects struct {
 	CloseChange, Root          bool
 }
 
-type AbandonRecorder interface {
+type abandonRecorder interface {
 	RecordAbandonIn(context.Context, *database.Tx, AbandonEffects) error
 }
 
-func NewAbandonments(db *database.DB, recorder AbandonRecorder, locks *scm.RepositoryLocks) Abandonments {
-	return Abandonments{db: db, effects: recorder, locks: locks}
+func NewAbandonments(db *database.DB, recorder abandonRecorder, locks *scm.RepositoryLocks) abandonments {
+	return abandonments{db: db, effects: recorder, locks: locks}
 }
 
 // WithClock is the Abandonments reading time from now (AppTown's clock).
-func (s Abandonments) WithClock(now func() time.Time) Abandonments {
+func (s abandonments) WithClock(now func() time.Time) abandonments {
 	s.clocked = clocked{now}
 	return s
 }
 
 // Abandon is an explicitly pre-admitted execution path.
 // Caller-facing operations enter Service, which supplies stored scope and authority.
-func (s Abandonments) Abandon(ctx context.Context, in Abandonment) (*Abandoned, error) {
+func (s abandonments) Abandon(ctx context.Context, in Abandonment) (*Abandoned, error) {
 	return s.abandon(ctx, in, ids.Nil)
 }
 
@@ -378,10 +378,10 @@ type abandonAudit struct {
 	Runs     []ids.ID `json:"runs,omitzero"`
 }
 
-// SupersedeFailedLanding rechecks the preflight candidate while holding the
+// supersedeFailedLanding rechecks the preflight candidate while holding the
 // project and Run locks. A resumed or completed landing cannot be stopped by a
 // stale observation from definition resolution.
-func (s Abandonments) SupersedeFailedLanding(ctx context.Context, ref RunRef, nextWorkflow string) (*Abandoned, error) {
+func (s abandonments) supersedeFailedLanding(ctx context.Context, ref RunRef, nextWorkflow string) (*Abandoned, error) {
 	if ref.ProjectID.IsZero() || ref.ID.IsZero() {
 		return nil, fmt.Errorf("supersession requires Run scope")
 	}
@@ -394,7 +394,7 @@ func (s Abandonments) SupersedeFailedLanding(ctx context.Context, ref RunRef, ne
 // reads the target: it is adoption's document, so the adoption owner's verdict
 // arrives as superseded. The caller has authorised the act that superseded them.
 // Returns the closed change ids.
-func (s Abandonments) CloseSupersededUpliftsIn(ctx context.Context, tx *database.Tx, closure *scm.Closure, project ids.ID, who string, superseded func(target json.RawMessage) (bool, error), reason string) ([]ids.ID, error) {
+func (s abandonments) CloseSupersededUpliftsIn(ctx context.Context, tx *database.Tx, closure *scm.Closure, project ids.ID, who string, superseded func(target json.RawMessage) (bool, error), reason string) ([]ids.ID, error) {
 	rows, err := workflowsql.New(tx.SQL()).OpenUpliftTargets(ctx, workflowsql.OpenUpliftTargetsParams{ProjectID: project, State: ChangeInProgress.String()})
 	if err != nil {
 		return nil, err

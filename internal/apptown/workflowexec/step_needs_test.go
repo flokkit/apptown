@@ -38,7 +38,7 @@ func TestAgentsAndTestsStartAPostgresForTheirTests(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(staged, ".apptown/app.yaml"), []byte(body), 0644); err != nil {
 		t.Fatal(err)
 	}
-	services, _, _, _, err := (&Commands{catalog: f.exec.dependencies}).testServices(t.Context(), staged)
+	services, _, _, _, err := (&commands{catalog: f.exec.dependencies}).testServices(t.Context(), staged)
 	if err != nil || len(services) != 1 || services[0].Env["APP_SUPERUSER"] != "true" {
 		t.Errorf("the tests step: %+v %v", services, err)
 	}

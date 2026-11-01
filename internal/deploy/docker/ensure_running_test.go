@@ -18,18 +18,18 @@ func TestEnsureRunningStartsCreatesOrLeavesAlone(t *testing.T) {
 	run := []string{"--name", "db", "postgres:16-alpine"}
 	count := func(d *dockerfake.Daemon, prefix string) int { return len(d.Matching(prefix)) }
 
-	fresh := dockerfake.New()
+	fresh := newDockerFake()
 	if err := (docker.Scope{Client: fresh}).EnsureRunning(context.Background(), "db", run); err != nil || count(fresh, "run -d --name db") != 1 || count(fresh, "start") != 0 {
 		t.Fatalf("missing container must be created once: %v %v", err, fresh.Commands())
 	}
 
-	running := dockerfake.New()
+	running := newDockerFake()
 	running.SetRunning("db", true)
 	if err := (docker.Scope{Client: running}).EnsureRunning(context.Background(), "db", run); err != nil || count(running, "run") != 0 || count(running, "start") != 0 {
 		t.Fatalf("a running container is left alone: %v %v", err, running.Commands())
 	}
 
-	stopped := dockerfake.New()
+	stopped := newDockerFake()
 	stopped.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) == 2 && args[0] == "inspect" {
 			return []byte("[]"), nil, true // it exists
@@ -40,7 +40,7 @@ func TestEnsureRunningStartsCreatesOrLeavesAlone(t *testing.T) {
 		t.Fatalf("a stopped container is started, not recreated: %v %v", err, stopped.Commands())
 	}
 
-	raced := dockerfake.New()
+	raced := newDockerFake()
 	inspections := 0
 	raced.SetReply(func(args []string) ([]byte, error, bool) {
 		switch {
@@ -63,7 +63,7 @@ func TestEnsureRunningStartsCreatesOrLeavesAlone(t *testing.T) {
 		t.Fatalf("a lost create race uses the winner's container: %v %v", err, raced.Commands())
 	}
 
-	broken := dockerfake.New()
+	broken := newDockerFake()
 	broken.SetReply(func(args []string) ([]byte, error, bool) {
 		switch {
 		case args[0] == "run":

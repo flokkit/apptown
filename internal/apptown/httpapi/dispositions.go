@@ -14,7 +14,7 @@ import (
 
 // CreateDisposition: POST /projects/{slug}/dispositions
 func (h Conformance) CreateDisposition(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -55,7 +55,7 @@ func (h Conformance) CreateDisposition(w http.ResponseWriter, r *http.Request) {
 
 // ListDispositions: GET /projects/{slug}/dispositions (all, incl. expired)
 func (h Conformance) ListDispositions(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
@@ -76,7 +76,7 @@ func (h Conformance) ListDispositions(w http.ResponseWriter, r *http.Request) {
 
 // RevokeDisposition: DELETE /dispositions/{id} — audited revoke.
 func (h Conformance) RevokeDisposition(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return
@@ -92,7 +92,7 @@ func (h Conformance) RevokeDisposition(w http.ResponseWriter, r *http.Request) {
 // export (findings.md §3): accepted → affected + action_statement,
 // false_positive → not_affected.
 func (h Conformance) OpenVEX(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

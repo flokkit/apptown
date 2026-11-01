@@ -103,7 +103,7 @@ func TestWorkflowUpliftAdoptionAndMarkerCommitTogether(t *testing.T) {
 	c := &adoption.Candidate{Receipt: adoption.EmptyReceipt(), ExpectedRevision: current}
 	c.Digest = adoption.Digest(c.Receipt)
 	dbtest.FailNextStatement(t, a.DB, "UPDATE changes SET adopted_revision")
-	if _, err := a.lifecycle.SettleUplift(adoption.WithSystemAuthority(context.Background(), p.ID), p, c, "system", "test", run.ChangeID); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := a.lifecycle.SettleUplift(adoption.WithSystemAuthority(context.Background(), p.ID), p, c, "system", "test", run.ChangeID); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("adopt: %v", err)
 	}
 	requireAdoptionHistory(t, a, p.ID, 1)

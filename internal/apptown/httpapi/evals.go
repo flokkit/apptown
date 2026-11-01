@@ -15,10 +15,10 @@ import (
 // manager starts and reads them; the starter continues one; an
 // administrator, or the starter while still a standards manager, deletes
 // one.
-type Evals struct{ service EvalOperations }
+type Evals struct{ service evalOperations }
 
-// EvalOperations is the evals owner's surface.
-type EvalOperations interface {
+// evalOperations is the evals owner's surface.
+type evalOperations interface {
 	Start(ctx context.Context, in evals.Start) (*evals.Eval, error)
 	List(ctx context.Context) ([]evals.Eval, error)
 	Scorecard(ctx context.Context, id ids.ID) (*evals.Scorecard, error)
@@ -28,7 +28,7 @@ type EvalOperations interface {
 	ArmDiff(ctx context.Context, evalID, armID ids.ID) (string, error)
 }
 
-func NewEvals(service EvalOperations) Evals { return Evals{service: service} }
+func NewEvals(service evalOperations) Evals { return Evals{service: service} }
 
 // StartEval: POST /api/v1/evals {changes:[id…], profile | pack+version,
 // budgetDollars, shown} — one thing varies; shown is the meaning the
@@ -75,7 +75,7 @@ func (h Evals) ListEvals(w http.ResponseWriter, r *http.Request) {
 
 // EvalScorecard: GET /api/v1/evals/{id}.
 func (h Evals) EvalScorecard(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad eval id")
 		return
@@ -91,7 +91,7 @@ func (h Evals) EvalScorecard(w http.ResponseWriter, r *http.Request) {
 // ContinueEval: POST /api/v1/evals/{id}/continue — the starter answers for
 // unknown spend and lets the next arm start.
 func (h Evals) ContinueEval(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad eval id")
 		return
@@ -107,7 +107,7 @@ func (h Evals) ContinueEval(w http.ResponseWriter, r *http.Request) {
 // DeleteEval: DELETE /api/v1/evals/{id} — its copies are deleted; what
 // they cost and what was complained about in them stays.
 func (h Evals) DeleteEval(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad eval id")
 		return
@@ -133,12 +133,12 @@ type EvalDeleted struct {
 // work changed, its copy's main against the Change's base, as plain text.
 // Read under the scorecard's authority: copies have no members.
 func (h Evals) EvalArmDiff(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad eval id")
 		return
 	}
-	arm, err := PathID(r, "arm")
+	arm, err := pathID(r, "arm")
 	if err != nil {
 		WriteError(w, 400, "bad arm id")
 		return

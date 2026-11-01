@@ -57,9 +57,9 @@ type dumpTasks struct {
 // dumpsOn is a place dumps run on: a worker, or this AppTown's own Docker.
 func dumpsOn(t *testing.T, worker bool, do func(execution.TaskSpec) ([]byte, int, string)) (*dumpPlace, *dumpTasks) {
 	f := &dumpTasks{t: t, worker: worker, do: do, live: map[string]execution.TaskSpec{}, exits: map[string]int{}, said: map[string]string{}, results: map[string][]byte{}, resultOf: map[string]string{}, started: make(chan struct{}, 8)}
-	p := &dumpPlace{Tasks: f, Scratch: filepath.Join(t.TempDir(), "dump-tasks"), Profile: "local-docker"}
+	p := &dumpPlace{tasks: f, scratch: filepath.Join(t.TempDir(), "dump-tasks"), profile: "local-docker"}
 	if worker {
-		p.Results, p.Scratch, p.Profile = f, "", "worker"
+		p.results, p.scratch, p.profile = f, "", "worker"
 	}
 	return p, f
 }
@@ -305,7 +305,7 @@ func TestDatabaseDumpPublishesOnlyCompleteOutput(t *testing.T) {
 			if got := gunzipFile(t, name); got != "CREATE TABLE demo (id bigint);\n" {
 				t.Fatalf("dump bytes: %q", got)
 			}
-			if left, _ := os.ReadDir(place.Scratch); len(left) != 0 {
+			if left, _ := os.ReadDir(place.scratch); len(left) != 0 {
 				t.Fatalf("the task's state folder was left: %v", left)
 			}
 		})
@@ -972,7 +972,7 @@ func (d ensureInterrupted) Ensure(ctx context.Context, spec execution.TaskSpec) 
 func TestADumpTaskWhoseEnsureFailedIsReleased(t *testing.T) {
 	t.Parallel()
 	place, tasks := dumpsOn(t, false, nil)
-	place.Tasks = ensureInterrupted{tasks}
+	place.tasks = ensureInterrupted{tasks}
 	if err := place.run(t.Context(), "fake", dumpConn{}, "true", "dump.sql.gz", io.Discard); err == nil {
 		t.Fatal("an interrupted Ensure reported success")
 	}

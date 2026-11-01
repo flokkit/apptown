@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -140,7 +142,7 @@ func TestCheckJudgesAsResolveDoesWithoutEffects(t *testing.T) {
 	}
 	err = s.Check(t.Context(), id, "demo", "main", ws, c)
 	var unavailable *UnavailableError
-	if !errors.As(err, &unavailable) || errors.As(err, &missing) || unavailable.Name != "STRIPE_API_KEY" || unavailable.Store != StoreInfisical {
+	if !errors.As(err, &unavailable) || errors.As(err, &missing) || unavailable.name != "STRIPE_API_KEY" || unavailable.store != StoreInfisical {
 		t.Fatalf("unreadable store: %#v", err)
 	}
 	if _, err := s.Resolve(t.Context(), id, "demo", "main", ws, c); !errors.As(err, &unavailable) {
@@ -168,11 +170,11 @@ func TestAGeneratedSecretIsNotMintedWhenItsReadFails(t *testing.T) {
 	}
 	s := NewService(db, Config{DataDir: t.TempDir()})
 	c := &appcontract.Contract{Parts: []appcontract.Part{{Name: "web"}, {Name: "worker"}}, Init: []appcontract.InitContainer{{Name: "migrate"}}}
-	restore := db.FailNextStatement("FROM secret_values WHERE scope = $1 AND name = $2 ORDER BY version DESC")
+	restore := dbtest.NextStatementFailure(db, "FROM secret_values WHERE scope = $1 AND name = $2 ORDER BY version DESC")
 	_, err = s.Resolve(t.Context(), id, "demo", "main", ws, c)
 	restore()
 	var unavailable *UnavailableError
-	if !errors.As(err, &unavailable) || unavailable.Name != "SECRET_KEY_BASE" || unavailable.Store != StoreInternal {
+	if !errors.As(err, &unavailable) || unavailable.name != "SECRET_KEY_BASE" || unavailable.store != StoreInternal {
 		t.Fatalf("a generated secret whose read failed: %#v", err)
 	}
 	if _, _, err := s.Vault.Get(t.Context(), Scope("demo", "main", ""), "SECRET_KEY_BASE"); !errors.Is(err, ErrNotStored) {

@@ -18,17 +18,17 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// Outcomes is the settlement store: an item's outcome, its history entry,
+// outcomes is the settlement store: an item's outcome, its history entry,
 // the spend and the receipt, in one transaction.
-type Outcomes struct {
+type outcomes struct {
 	db    *database.DB
 	clock func() time.Time // AppTown's clock; nil is the real one
 }
 
-func (s Outcomes) now() time.Time { return clock.Or(s.clock)() }
+func (s outcomes) now() time.Time { return clock.Or(s.clock)() }
 
-func NewOutcomes(db *database.DB, now func() time.Time) Outcomes {
-	return Outcomes{db: db, clock: now}
+func NewOutcomes(db *database.DB, now func() time.Time) outcomes {
+	return outcomes{db: db, clock: now}
 }
 
 // Outcome is what an attempt came to.
@@ -49,13 +49,13 @@ func sameObservation(current, snapshot Item) bool {
 		current.TransientRetries == snapshot.TransientRetries && current.OutcomeRevision == snapshot.OutcomeRevision
 }
 
-func (s Outcomes) VerificationCurrent(ctx context.Context, snapshot Item) (bool, error) {
+func (s outcomes) VerificationCurrent(ctx context.Context, snapshot Item) (bool, error) {
 	return (VerificationScope{db: s.db, item: snapshot}).Current(ctx)
 }
 
 // Outcome, history, accounting, audit and any job reopening share the same
 // transaction. The caller performs external review only after this commits.
-func (s Outcomes) Record(ctx context.Context, snapshot Item, result Outcome) (*Item, error) {
+func (s outcomes) Record(ctx context.Context, snapshot Item, result Outcome) (*Item, error) {
 	// An outcome records work that happened: it is written though the
 	// caller (a stopping worker) has gone.
 	ctx = context.WithoutCancel(ctx)
@@ -71,7 +71,7 @@ func (s Outcomes) Record(ctx context.Context, snapshot Item, result Outcome) (*I
 	if !sameObservation(item, snapshot) {
 		return nil, nil
 	}
-	current, err := s.RecordIn(ctx, tx, item, jobStatus, result)
+	current, err := s.recordIn(ctx, tx, item, jobStatus, result)
 	if err != nil || current == nil {
 		return current, err
 	}
@@ -82,9 +82,9 @@ func (s Outcomes) Record(ctx context.Context, snapshot Item, result Outcome) (*I
 }
 
 // The caller holds the project, job and item locks and validates its observation.
-func (s Outcomes) RecordIn(ctx context.Context, tx *database.Tx, item Item, jobStatus string, result Outcome) (*Item, error) {
+func (s outcomes) recordIn(ctx context.Context, tx *database.Tx, item Item, jobStatus string, result Outcome) (*Item, error) {
 	now := s.now()
-	active := slices.Contains([]string{ItemWorking, ItemAccepting, ItemLanding, ItemVerifying}, item.State)
+	active := slices.Contains([]string{ItemWorking, ItemAccepting, ItemLanding, itemVerifying}, item.State)
 	state, reason, attemptOutcome := ItemStuck, result.Reason, "stuck"
 	kind := "remediation.item.stuck"
 	payload := map[string]any{"reason": reason, "change": item.ChangeID, "attempt": item.Attempt, "revision": item.OutcomeRevision + 1}
@@ -97,7 +97,7 @@ func (s Outcomes) RecordIn(ctx context.Context, tx *database.Tx, item Item, jobS
 			return nil, nil
 		}
 	case "backoff":
-		if !active || item.State == ItemVerifying || retries >= remMaxTransients || result.NotBefore.IsZero() {
+		if !active || item.State == itemVerifying || retries >= remMaxTransients || result.NotBefore.IsZero() {
 			return nil, fmt.Errorf("item %d cannot back off from %s", item.ID, item.State)
 		}
 		state, attemptOutcome, kind = ItemQueued, "transient", "remediation.item.backoff"
@@ -105,7 +105,7 @@ func (s Outcomes) RecordIn(ctx context.Context, tx *database.Tx, item Item, jobS
 		notBefore, retries = sql.NullTime{Time: result.NotBefore, Valid: true}, retries+1
 		payload["until"], payload["why"] = result.NotBefore, result.Reason
 	case "landed":
-		if (!active && item.State != ItemStuck) || item.State == ItemVerifying {
+		if (!active && item.State != ItemStuck) || item.State == itemVerifying {
 			return nil, nil
 		}
 		ref := workflow.ChangeRef{ID: item.ChangeID, ProjectID: item.ProjectID}
@@ -119,7 +119,7 @@ func (s Outcomes) RecordIn(ctx context.Context, tx *database.Tx, item Item, jobS
 		if states[ref] != workflow.ChangeShipped {
 			return nil, nil
 		}
-		state, reason, attemptOutcome, kind = ItemVerifying, "", "landed", "remediation.item.landed"
+		state, reason, attemptOutcome, kind = itemVerifying, "", "landed", "remediation.item.landed"
 		worker, lease = item.LeaseWorker, sql.NullTime{Time: now.Add(remLease), Valid: true}
 		if jobStatus == RemCompleted || jobStatus == RemCompletedWithStuck {
 			if err := statusIn(ctx, tx, item.RemediationID, RemRunning, "apptown-system", now); err != nil {
@@ -127,7 +127,7 @@ func (s Outcomes) RecordIn(ctx context.Context, tx *database.Tx, item Item, jobS
 			}
 		}
 	case "verified":
-		if item.State != ItemVerifying {
+		if item.State != itemVerifying {
 			return nil, nil
 		}
 		// The change landed even if its check still fails. Keep that execution

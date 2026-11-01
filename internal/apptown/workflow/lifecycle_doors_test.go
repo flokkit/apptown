@@ -61,8 +61,7 @@ func TestEveryWorkDoorAsksTheProjectsLifecycle(t *testing.T) {
 					return err
 				},
 				"run admission": func() error {
-					_, err := newRunAdmissions(db, NewStages(nil, nil), nil).Create(ctx, StartRequest{ProjectID: run.ProjectID, ChangeID: run.ChangeID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "boss"},
-						PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "s", Steps: []schema.Step{{Name: "gate", Uses: "approval"}}}}}})
+					_, err := newRunAdmissions(db, NewStages(nil, nil), nil).records.create(ctx, StartRequest{ProjectID: run.ProjectID, ChangeID: run.ChangeID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "boss"}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "s", Steps: []schema.Step{{Name: "gate", Uses: "approval"}}}}}})
 					return err
 				},
 				"send-back": func() error {
@@ -88,7 +87,7 @@ func TestEveryWorkDoorAsksTheProjectsLifecycle(t *testing.T) {
 					return err
 				},
 				"step start": func() error {
-					_, err := newStepAttempts(db, func(string) bool { return true }).Start(ctx, snapshot, "")
+					_, err := newStepAttempts(db, func(string) bool { return true }).start(ctx, snapshot, "", ids.Nil)
 					return err
 				},
 			}

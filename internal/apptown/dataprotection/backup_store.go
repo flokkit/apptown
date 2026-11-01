@@ -58,16 +58,16 @@ type AttachStore struct {
 }
 
 var (
-	ErrStoreInput = fault.New(fault.Invalid, "a backup store needs an endpoint URL, a region, a bucket and the names of the secrets holding its key pair")
-	// ErrNoStore: production data is not protected off its host until a
+	errStoreInput = fault.New(fault.Invalid, "a backup store needs an endpoint URL, a region, a bucket and the names of the secrets holding its key pair")
+	// errNoStore: production data is not protected off its host until a
 	// store is attached.
-	ErrNoStore error = &deployment.Unavailable{Reason: "no-store", Why: "Backups and restore tests need a backup store, and none is attached. An administrator attaches one under Deployments → Backups."}
-	// ErrStoreCheck: the store did not take a write, give it back and
+	errNoStore error = &deployment.Unavailable{Reason: "no-store", Why: "Backups and restore tests need a backup store, and none is attached. An administrator attaches one under Deployments → Backups."}
+	// errStoreCheck: the store did not take a write, give it back and
 	// delete it; nothing was attached.
-	ErrStoreCheck = fault.New(fault.Unprocessable, "the backup store did not pass its check; nothing was attached")
-	// ErrStoreHoldsSets: another bucket is not attached while copies live
+	errStoreCheck = fault.New(fault.Unprocessable, "the backup store did not pass its check; nothing was attached")
+	// errStoreHoldsSets: another bucket is not attached while copies live
 	// in the attached one; they are read and pruned where they were written.
-	ErrStoreHoldsSets = fault.New(fault.Conflict, "copies are kept in the attached bucket")
+	errStoreHoldsSets = fault.New(fault.Conflict, "copies are kept in the attached bucket")
 )
 
 func storeRecord(r protectionsql.BackupStore) *BackupStore {
@@ -103,7 +103,7 @@ func (s *Service) AttachStore(ctx context.Context, in AttachStore) (*BackupStore
 	in.Endpoint, in.Region, in.Bucket = strings.TrimRight(strings.TrimSpace(in.Endpoint), "/"), strings.TrimSpace(in.Region), strings.TrimSpace(in.Bucket)
 	u, perr := url.Parse(in.Endpoint)
 	if perr != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || in.Region == "" || in.Bucket == "" || in.AccessKeyFrom == "" || in.SecretKeyFrom == "" {
-		return nil, ErrStoreInput
+		return nil, errStoreInput
 	}
 	cfg := &BackupStore{Endpoint: in.Endpoint, Region: in.Region, Bucket: in.Bucket, AccessKeyFrom: in.AccessKeyFrom, SecretKeyFrom: in.SecretKeyFrom}
 	if err := s.storeHoldsNoOtherSets(ctx, cfg); err != nil {
@@ -111,10 +111,10 @@ func (s *Service) AttachStore(ctx context.Context, in AttachStore) (*BackupStore
 	}
 	c, err := s.storeClientFor(ctx, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrStoreCheck, err)
+		return nil, fmt.Errorf("%w: %w", errStoreCheck, err)
 	}
 	if err := checkStore(ctx, c, cfg.Bucket); err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrStoreCheck, err)
+		return nil, fmt.Errorf("%w: %w", errStoreCheck, err)
 	}
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (*BackupStore, error) {
 		at := s.now()
@@ -170,7 +170,7 @@ func (s *core) storeClient(ctx context.Context) (*s3bucket.Client, *BackupStore,
 		return nil, nil, err
 	}
 	if cfg == nil {
-		return nil, nil, ErrNoStore
+		return nil, nil, errNoStore
 	}
 	c, err := s.storeClientFor(ctx, cfg)
 	return c, cfg, err
@@ -192,7 +192,7 @@ func (s *Service) storeHoldsNoOtherSets(ctx context.Context, cfg *BackupStore) e
 		return err
 	}
 	if n > 0 {
-		return fmt.Errorf("%w: %d set(s) are kept elsewhere than %s at %s; they are read and pruned where they were written, so another bucket is attached only once none are left", ErrStoreHoldsSets, n, cfg.Bucket, cfg.Endpoint)
+		return fmt.Errorf("%w: %d set(s) are kept elsewhere than %s at %s; they are read and pruned where they were written, so another bucket is attached only once none are left", errStoreHoldsSets, n, cfg.Bucket, cfg.Endpoint)
 	}
 	return nil
 }

@@ -16,14 +16,14 @@ import (
 // unchanged.
 var ErrTransactionRefused = errors.New("git refused the ref update")
 
-// Transaction is one prepared `git update-ref --stdin` transaction. Git holds
+// transaction is one prepared `git update-ref --stdin` transaction. Git holds
 // the ref's lock from Prepare until Commit finishes, or until its input closes. If the process
 // that prepared it dies before sending commit, git reads end of input and
 // aborts, so a prepared transaction never completes on its own.
 //
 // It runs without a context on purpose: cancelling the caller must not kill
 // git between writing a ref and releasing its lock.
-type Transaction struct {
+type transaction struct {
 	cmd    *exec.Cmd
 	stdin  io.WriteCloser
 	out    *bufio.Reader
@@ -34,7 +34,7 @@ type Transaction struct {
 
 // PrepareUpdate locks ref in the repository at dir and verifies it holds old
 // ("" means the ref must not exist). The ref moves to next only on Commit.
-func PrepareUpdate(ctx context.Context, dir, ref, next, old string) (*Transaction, error) {
+func PrepareUpdate(ctx context.Context, dir, ref, next, old string) (*transaction, error) {
 	if ref == "" || next == "" {
 		return nil, fmt.Errorf("a ref update needs its ref and new value")
 	}
@@ -64,7 +64,7 @@ func PrepareUpdate(ctx context.Context, dir, ref, next, old string) (*Transactio
 		home()
 		return nil, err
 	}
-	t := &Transaction{cmd: cmd, stdin: stdin, out: bufio.NewReader(stdout), stderr: stderr, home: home}
+	t := &transaction{cmd: cmd, stdin: stdin, out: bufio.NewReader(stdout), stderr: stderr, home: home}
 	if _, err := fmt.Fprintf(stdin, "start\nupdate %s %s %s\nprepare\n", ref, next, old); err != nil {
 		return nil, t.refused(err)
 	}
@@ -78,7 +78,7 @@ func PrepareUpdate(ctx context.Context, dir, ref, next, old string) (*Transactio
 
 // Commit moves the ref. An error means the outcome is not established: the
 // caller must observe the ref (and its lock) before deciding what happened.
-func (t *Transaction) Commit() error {
+func (t *transaction) Commit() error {
 	if t.done {
 		return fmt.Errorf("transaction already finished")
 	}
@@ -96,7 +96,7 @@ func (t *Transaction) Commit() error {
 	return reply
 }
 
-func (t *Transaction) expect(want string) error {
+func (t *transaction) expect(want string) error {
 	line, err := t.out.ReadString('\n')
 	if err != nil {
 		return fmt.Errorf("reading git's reply: %w", err)
@@ -107,7 +107,7 @@ func (t *Transaction) expect(want string) error {
 	return nil
 }
 
-func (t *Transaction) refused(cause error) error {
+func (t *transaction) refused(cause error) error {
 	t.done = true
 	_ = t.stdin.Close() // unchecked-error: refusal occurred before commit was sent; closing input preserves that refusal.
 	_ = t.cmd.Wait()    // unchecked-error: refusal occurred before commit was sent; reaping preserves that refusal.

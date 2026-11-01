@@ -14,7 +14,7 @@ import (
 // Kills: a key added as "AppTown-Opened-by", or one without the prefix.
 func TestKeysAreInOneCase(t *testing.T) {
 	word := regexp.MustCompile(`^[A-Z][a-z]*$`)
-	for _, k := range Keys {
+	for _, k := range keys {
 		rest, ok := strings.CutPrefix(k, "AppTown-")
 		if !ok {
 			t.Errorf("%s does not start AppTown-", k)

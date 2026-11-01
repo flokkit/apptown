@@ -14,11 +14,11 @@ import (
 func TestOutcomesRejectObservationStates(t *testing.T) {
 	t.Parallel()
 	for _, word := range []string{"stale", "not-scanned", "", "running", "pass"} {
-		if _, err := ParseOutcome(word); !errors.Is(err, ErrOutcome) {
+		if _, err := ParseOutcome(word); !errors.Is(err, errOutcome) {
 			t.Errorf("accepted outcome %q: %v", word, err)
 		}
 		state := Conforms
-		if err := state.Scan(word); !errors.Is(err, ErrOutcome) || state != Conforms {
+		if err := state.Scan(word); !errors.Is(err, errOutcome) || state != Conforms {
 			t.Errorf("scan %q changed outcome: %v %v", word, state, err)
 		}
 	}
@@ -29,15 +29,15 @@ func TestOutcomesRejectObservationStates(t *testing.T) {
 		}
 	}
 	for _, state := range []Outcome{0, 99} {
-		if _, err := state.Value(); !errors.Is(err, ErrOutcome) {
+		if _, err := state.Value(); !errors.Is(err, errOutcome) {
 			t.Errorf("stored invalid outcome: %v", err)
 		}
-		if _, err := json.Marshal(state); !errors.Is(err, ErrOutcome) {
+		if _, err := json.Marshal(state); !errors.Is(err, errOutcome) {
 			t.Errorf("serialized invalid outcome: %v", err)
 		}
 	}
 	for _, state := range []driver.Valuer{Stale, NotScanned} {
-		if _, err := state.Value(); !errors.Is(err, ErrObservationStorage) {
+		if _, err := state.Value(); !errors.Is(err, errObservationStorage) {
 			t.Errorf("stored observation: %v", err)
 		}
 	}
@@ -77,7 +77,7 @@ func TestObservationsPreserveEvidence(t *testing.T) {
 		{"stale precedes expiry", "now", 2, false, Stale, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			observed := Observe(original, CurrentContext{Check: CheckRef{ProjectID: original.ProjectID, ProjectSlug: original.ProjectSlug, Block: original.Block, Version: tc.version, Check: original.Check}, HeadSHA: tc.head, ExceptionActive: tc.active})
+			observed := observe(original, currentContext{Check: CheckRef{ProjectID: original.ProjectID, ProjectSlug: original.ProjectSlug, Block: original.Block, Version: tc.version, Check: original.Check}, HeadSHA: tc.head, ExceptionActive: tc.active})
 			if observed.State != tc.want || observed.Record == nil || !reflect.DeepEqual(*observed.Record, original) {
 				t.Fatalf("observation altered evidence: %+v", observed)
 			}
@@ -102,9 +102,9 @@ func TestObservationJSONKeepsTheFlatContract(t *testing.T) {
 		wantDetail  string
 	}{
 		{Recorded(record), "excepted", idstest.N(31), "saved"},
-		{Observe(record, CurrentContext{Check: record.Reference(), HeadSHA: "now", ExceptionActive: true}), "stale", idstest.N(31), "saved"},
-		{Observe(record, CurrentContext{Check: record.Reference(), HeadSHA: "then", ExceptionActive: false}), "does-not-conform", idstest.N(31), "saved\n(the exception that covered this has expired or been removed)"},
-		{Unassessed(record.Reference()), "not-scanned", ids.Nil, ""},
+		{observe(record, currentContext{Check: record.reference(), HeadSHA: "now", ExceptionActive: true}), "stale", idstest.N(31), "saved"},
+		{observe(record, currentContext{Check: record.reference(), HeadSHA: "then", ExceptionActive: false}), "does-not-conform", idstest.N(31), "saved\n(the exception that covered this has expired or been removed)"},
+		{Unassessed(record.reference()), "not-scanned", ids.Nil, ""},
 	} {
 		b, err := json.Marshal(tc.observation)
 		if err != nil {
@@ -123,7 +123,7 @@ func TestObservationJSONKeepsTheFlatContract(t *testing.T) {
 			t.Fatalf("wire shape: %s", b)
 		}
 	}
-	if o := Unassessed(record.Reference()); o.Record != nil {
+	if o := Unassessed(record.reference()); o.Record != nil {
 		t.Fatal("absence manufactured a verdict")
 	}
 	if _, err := json.Marshal(Observation{}); err == nil {

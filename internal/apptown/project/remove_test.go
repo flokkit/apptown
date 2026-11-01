@@ -31,7 +31,7 @@ func TestRemoveInIsReceiptedAndNeverSilent(t *testing.T) {
 	if err != nil || len(receipts) != 1 || receipts[0].Kind != "project.deleted" || receipts[0].Actor != "bls" {
 		t.Fatalf("receipt: %v %+v", err, receipts)
 	}
-	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return RemoveIn(context.Background(), tx, id, "bls", nil, time.Now()) }); !errors.Is(err, ErrNotDeleted) {
+	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return RemoveIn(context.Background(), tx, id, "bls", nil, time.Now()) }); !errors.Is(err, errNotDeleted) {
 		t.Fatalf("a second removal is not silent: %v", err)
 	}
 	id, err = database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {

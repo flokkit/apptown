@@ -22,7 +22,7 @@ type Driver struct {
 	Allowed      func(context.Context) error
 	ServingLabel string                                                          // immutable owner-supplied routing label, independent of source.Slug
 	Scope        func(context.Context) (Scope, error)                            // which daemon: AppTown's own, or an attached host's
-	Boot         Booter                                                          // the stack boot
+	Boot         booter                                                          // the stack boot
 	URL          func(servingLabel, deployment string, port int) (string, error) // the address a deployment is reached at
 	AfterRelease func(p deploy.Placement)                                        // what follows a release (a backup)
 	// Registry is the credential a release's images by digest are pulled
@@ -49,9 +49,9 @@ type Driver struct {
 	Fill func(network string) error
 }
 
-// Booter runs the one boot sequence for a request and reports the port
+// booter runs the one boot sequence for a request and reports the port
 // and the public image that came up.
-type Booter interface {
+type booter interface {
 	Boot(ctx context.Context, req BootRequest, c *appcontract.Contract) (BootResult, error)
 }
 
@@ -62,7 +62,7 @@ func (d *Driver) Resume(ctx context.Context, p deploy.Placement, generation int6
 	if err != nil {
 		return deploy.Observation{}, err
 	}
-	return Resume(ctx, dk, p, generation, noted)
+	return resume(ctx, dk, p, generation, noted)
 }
 
 func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation int64, art deploy.Artifact, key string, logf func(string, ...any), checkpoint deploy.Checkpoint) (deploy.Observation, error) {
@@ -94,7 +94,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err != nil {
 		return deploy.Observation{}, deploy.Terminal(err)
 	}
-	if dk.Remote() {
+	if dk.remote() {
 		logf("booting %s on %s", name, dk.Hostname)
 	} else {
 		logf("booting %s on the built-in host", name)
@@ -114,7 +114,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 		Log: logf, ExactOrigins: &origin,
 		Name: name, StackID: names.Stack(), Slug: slug, ServingLabel: d.ServingLabel, Workspace: ws,
 		Deployment: p.Name, DataClass: d.DataClass, HostPort: p.HostPort, Persistent: true, Probe: 90 * time.Second, Docker: dk,
-		Identity: &id, Services: SourceServices(art), Revision: source.Revision, Fill: d.Fill, Allowed: d.Allowed, Storage: d.Storage, RestoreStorage: d.RestoreStorage,
+		Identity: &id, Services: SourceServices(art), Revision: source.Revision, fill: d.Fill, Allowed: d.Allowed, Storage: d.Storage, restoreStorage: d.RestoreStorage,
 	}
 
 	if err := d.Allowed(ctx); err != nil {
@@ -207,7 +207,7 @@ func (d *Driver) Teardown(ctx context.Context, p deploy.Placement, generation in
 	if err != nil {
 		return out, err
 	}
-	rest := TearDownOwned(ctx, dk, td.Owned, serving, td.BackedUp || td.Synthetic, d.Storage)
+	rest := tearDownOwned(ctx, dk, td.Owned, serving, td.BackedUp || td.Synthetic, d.Storage)
 	if serving != "" {
 		out.Deleted = append(out.Deleted, "container "+p.Container)
 	}

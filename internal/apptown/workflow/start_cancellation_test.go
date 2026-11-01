@@ -91,7 +91,7 @@ func TestCancellationDuringPreparationKeepsEachAdmissionContract(t *testing.T) {
 			s, in := invocationRunnerFixture(t, func(*Execution) { t.Error("unready work dispatched") })
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
-			s.starter.runtime.Prepare = func(context.Context, *Run) error { cancel(); return ctx.Err() }
+			s.starter.runtime.prepare = func(context.Context, *Run) error { cancel(); return ctx.Err() }
 			var ch *Change
 			var run *Run
 			var err error

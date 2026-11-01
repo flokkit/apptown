@@ -1,11 +1,12 @@
 package verification
 
 import (
-	"github.com/flokkit/apptown/internal/ids/idstest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -84,13 +85,13 @@ func TestMemoryDeclaredReadsTheTreeItIsGiven(t *testing.T) {
 		return dir
 	}
 	declared := tree("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n    resources: { memory: 64M }\n")
-	if v := o.Probe(t.Context(), Target{ContractDir: declared}, "memory-declared"); v.Outcome != check.Conforms {
+	if v := o.Probe(t.Context(), guidanceTarget{ContractDir: declared}, "memory-declared"); v.Outcome != check.Conforms {
 		t.Fatalf("a declared tree: %+v", v)
 	}
-	if v := o.Probe(t.Context(), Target{ContractDir: tree("")}, "memory-declared"); v.Outcome != check.CannotAssess || !strings.Contains(v.Detail, "no .apptown/app.yaml") {
+	if v := o.Probe(t.Context(), guidanceTarget{ContractDir: tree("")}, "memory-declared"); v.Outcome != check.CannotAssess || !strings.Contains(v.Detail, "no .apptown/app.yaml") {
 		t.Fatalf("a tree with no contract: %+v", v)
 	}
-	if v := o.Probe(t.Context(), Target{ContractDir: tree("app: [")}, "memory-declared"); v.Outcome != check.CannotAssess || !strings.Contains(v.Detail, "could not be read") {
+	if v := o.Probe(t.Context(), guidanceTarget{ContractDir: tree("app: [")}, "memory-declared"); v.Outcome != check.CannotAssess || !strings.Contains(v.Detail, "could not be read") {
 		t.Fatalf("a contract that does not parse: %+v", v)
 	}
 }
@@ -147,7 +148,7 @@ func TestMemoryWithinJudgesEachContainersLimitAgainstItsUse(t *testing.T) {
 // not one (a preview) is unknown, and never reaches the deployment owner.
 func TestMemoryWithinNeedsAStandingDeployment(t *testing.T) {
 	t.Parallel()
-	v := Runtime{}.Probe(t.Context(), Target{ContractDir: t.TempDir()}, "memory-within")
+	v := Runtime{}.Probe(t.Context(), guidanceTarget{ContractDir: t.TempDir()}, "memory-within")
 	if v.Outcome != check.CannotAssess || !strings.Contains(v.Detail, "standing deployment") {
 		t.Fatalf("a target that is not a standing deployment: %+v", v)
 	}
@@ -167,10 +168,10 @@ func TestMemoryDeclaredInAReviewReadsTheDefaultBranch(t *testing.T) {
 		t.Fatal(err)
 	}
 	o := Runtime{dataDir: dataDir}
-	if v := o.Probe(t.Context(), Target{ProjectID: idstest.N(1), Slug: "demo", Revision: "main"}, "memory-declared"); v.Outcome != check.Conforms || !strings.Contains(v.Detail, "web 64M") {
+	if v := o.Probe(t.Context(), guidanceTarget{ProjectID: idstest.N(1), Slug: "demo", Revision: "main"}, "memory-declared"); v.Outcome != check.Conforms || !strings.Contains(v.Detail, "web 64M") {
 		t.Fatalf("the default branch's contract: %+v", v)
 	}
-	if v := o.Probe(t.Context(), Target{ProjectID: idstest.N(1), Slug: "demo"}, "memory-declared"); v.Outcome != check.CannotAssess || !strings.Contains(v.Detail, "which commit to judge is not known") {
+	if v := o.Probe(t.Context(), guidanceTarget{ProjectID: idstest.N(1), Slug: "demo"}, "memory-declared"); v.Outcome != check.CannotAssess || !strings.Contains(v.Detail, "which commit to judge is not known") {
 		t.Fatalf("no branch to read is unknown: %+v", v)
 	}
 }
@@ -218,7 +219,7 @@ func TestAWhatIfJudgesTheContractOnTheAssessedTree(t *testing.T) {
 	page := conformance.DeclaredCheck{Block: "run", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "page", Evaluator: "runtime", Probe: "page", Severity: "high"}}
 	f := Fleet{runtime: &Runtime{}}
 	got := map[string]treeAssessment{}
-	for _, a := range f.assessChecks(t.Context(), []conformance.DeclaredCheck{declared, page}, assessInput{Tool: ToolContext{BuildDir: tree}, NoApp: "no standing main deployment"}) {
+	for _, a := range f.assessChecks(t.Context(), []conformance.DeclaredCheck{declared, page}, assessInput{tool: toolContext{BuildDir: tree}, noApp: "no standing main deployment"}) {
 		got[a.Check.Check.Name] = a
 	}
 	if a := got["memory-declared"]; a.State != conformance.DoesNotConform || len(a.Findings) != 1 {

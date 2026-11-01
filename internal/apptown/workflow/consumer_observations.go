@@ -12,14 +12,14 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-type ChangeBranch struct {
+type changeBranch struct {
 	ID     ids.ID
 	Branch string
 }
 
 // ShippedBranchesIn supplies already-admitted conformance attribution. Git owns
 // ancestry; Work owns which Changes are shipped and which branch each recorded.
-func ShippedBranchesIn(ctx context.Context, q database.Queryer, project ids.ID) ([]ChangeBranch, error) {
+func ShippedBranchesIn(ctx context.Context, q database.Queryer, project ids.ID) ([]changeBranch, error) {
 	if project.IsZero() {
 		return nil, fmt.Errorf("shipped branches require project scope")
 	}
@@ -27,9 +27,9 @@ func ShippedBranchesIn(ctx context.Context, q database.Queryer, project ids.ID) 
 	if err != nil {
 		return nil, database.Missing(err)
 	}
-	out := make([]ChangeBranch, 0, len(rows))
+	out := make([]changeBranch, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, ChangeBranch{ID: row.ID, Branch: row.Branch})
+		out = append(out, changeBranch{ID: row.ID, Branch: row.Branch})
 	}
 	return out, nil
 }

@@ -77,7 +77,7 @@ func TestAggregateVisibilityPrecedesLimitsAndCallerFilters(t *testing.T) {
 	if err != nil || rows == nil || len(rows) != 0 {
 		t.Fatalf("outsider aggregate: %+v %v", rows, err)
 	}
-	if _, err := s.List(context.Background(), Filter{}); !errors.Is(err, ErrCallerRequired) {
+	if _, err := s.List(context.Background(), Filter{}); !errors.Is(err, errCallerRequired) {
 		t.Fatalf("unverified aggregate: %v", err)
 	}
 	dbtest.FailNextStatement(t, db, "-- name: ProjectAuthorityCatalogue")

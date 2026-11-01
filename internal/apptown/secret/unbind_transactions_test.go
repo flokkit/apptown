@@ -15,7 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-func unbindFixture(t *testing.T) (*database.DB, *Vault, *Bindings, ids.ID, Binding) {
+func unbindFixture(t *testing.T) (*database.DB, *Vault, *bindings, ids.ID, Binding) {
 	t.Helper()
 	db := testDB(t)
 	id, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {

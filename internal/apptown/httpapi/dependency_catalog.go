@@ -58,7 +58,7 @@ func (h Dependencies) SaveDependency(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		d, err := h.catalog.Save(r.Context(), in.YAML, Actor(r))
+		d, err := h.catalog.Save(r.Context(), in.YAML, actor(r))
 		if err != nil {
 			WriteFault(w, err)
 			return

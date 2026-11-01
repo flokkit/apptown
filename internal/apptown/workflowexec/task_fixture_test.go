@@ -122,7 +122,7 @@ func startTaskAppTown(t *testing.T, db *database.DB, dir, image string, definiti
 		Profile: TaskProfile{Name: "local-docker", Network: execution.NetworkDefault}, Backend: "local-docker fixture on the fake"}
 	commands := NewCommands(db, CommandDependencies{
 		Runner: execution.Runner{Scratch: filepath.Join(dir, "generated")}, Progress: &progress.Feeds{}, Publisher: noPublisher{},
-		Branches: f.branches, Tasks: f.tasks, Docker: &docker.Scope{Client: dockerfake.New()}, Catalog: dependency.NewCatalog(db, nil),
+		Branches: f.branches, Tasks: f.tasks, Docker: &docker.Scope{Client: newDockerFake()}, Catalog: dependency.NewCatalog(db, nil),
 		// The check executor runs a tests step's command: here the test's,
 		// through f.checks.
 		Checks: CompileCheck{Run: func(_ context.Context, req execution.Request) execution.Outcome {
@@ -233,7 +233,7 @@ func (f *taskAppTown) agentExecutor(t *testing.T) *Executor {
 	if err := execfile.Write(cli, []byte("#!/bin/sh\nexit 1\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	scope := &docker.Scope{Client: dockerfake.New()}
+	scope := &docker.Scope{Client: newDockerFake()}
 	feeds := &progress.Feeds{}
 	secrets := secret.NewService(f.db, secret.Config{DataDir: f.dir})
 	integrations := integration.NewService(f.db, integration.Dependencies{Projects: project.New(f.db, nil), Secrets: secrets})
@@ -486,4 +486,8 @@ func (f *taskAppTown) source(t *testing.T, run *workflow.Run) workflow.Source {
 		t.Fatal(err)
 	}
 	return source
+}
+
+func newDockerFake() *dockerfake.Daemon {
+	return dockerfake.New()
 }

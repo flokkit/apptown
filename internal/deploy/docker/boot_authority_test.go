@@ -51,7 +51,7 @@ func TestBootRechecksAuthorityAfterPreparation(t *testing.T) {
 					}
 					return nil
 				},
-				Fill: func(string) error {
+				fill: func(string) error {
 					filled = true
 					if phase == "after fill" {
 						denied = true

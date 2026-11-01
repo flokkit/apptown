@@ -116,12 +116,12 @@ type stageGate struct {
 	Blocking []*Step
 }
 
-func (g stageGate) Passed() bool { return len(g.Missing) == 0 && len(g.Blocking) == 0 }
+func (g stageGate) passed() bool { return len(g.Missing) == 0 && len(g.Blocking) == 0 }
 
 // permitsMerge admits the effect that can establish the SCM proof. It does not
 // waive missing declarations, scanner receipts, or any other required check.
 // Workflow advancement still requires Passed(), including the resulting proof.
-func (g stageGate) PermitsMerge() bool {
+func (g stageGate) permitsMerge() bool {
 	if len(g.Missing) != 0 {
 		return false
 	}
@@ -173,7 +173,7 @@ func evaluateGate(stage *schema.Stage, recorded []Check, steps []*Step) (stageGa
 	}
 	checked := map[*Step]bool{}
 	judge := func(s *Step) {
-		if !s.Status.PassesGate() {
+		if !s.Status.passesGate() {
 			result.Blocking = append(result.Blocking, s)
 		}
 	}

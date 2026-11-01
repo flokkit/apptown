@@ -27,7 +27,6 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
@@ -79,7 +78,7 @@ func testExecutor(db *database.DB, dir string, process Process) *Executor {
 	if err := slots.SetDefault(context.Background(), "fake/model"); err != nil {
 		panic(err)
 	}
-	scope := &docker.Scope{Client: dockerfake.New()}
+	scope := &docker.Scope{Client: newDockerFake()}
 	selection := model.NewSelection(slots)
 	return New(db, Dependencies{
 		Models:   selection,

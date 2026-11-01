@@ -22,7 +22,7 @@ func NewRunProgress(work *workflow.Service, feeds *progress.Feeds) RunProgress {
 // StepLive serves the live feed: ?from=N returns lines after absolute
 // offset N plus the new total, so pollers only receive fresh lines.
 func (h RunProgress) StepLive(w http.ResponseWriter, r *http.Request) {
-	id, err := PathID(r, "id")
+	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return

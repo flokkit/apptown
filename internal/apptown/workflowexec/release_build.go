@@ -40,10 +40,10 @@ type ReleaseBuilds struct {
 	PrivateDocker bool
 }
 
-// ReleaseTaskDriver is the worker's driver as a release build needs it:
+// releaseTaskDriver is the worker's driver as a release build needs it:
 // its agent image (which has Docker's client and buildx), its measured
 // profile, and the images a task left (execution.WorkerTasks).
-type ReleaseTaskDriver interface {
+type releaseTaskDriver interface {
 	execution.TaskDriver
 	execution.ImageFiles
 	AgentImage(context.Context) (execution.AgentImage, error)
@@ -87,12 +87,12 @@ type releaseTarget struct {
 // answers its bundle. When it answers false the step is finished (refused,
 // failed or errored) or no longer this attempt's, and nothing was
 // deployed.
-func (a *Shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*deployment.ReleaseBundle, bool) {
+func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*deployment.ReleaseBundle, bool) {
 	// The task lives by its durable record, not a context: what a stopped
 	// AppTown leaves running is collected on restart.
 	ctx := context.WithoutCancel(task.Context())
 	runner := a.builds.Tasks
-	driver, ok := runner.Driver.(ReleaseTaskDriver)
+	driver, ok := runner.Driver.(releaseTaskDriver)
 	if !ok {
 		releaseRefused(task, "AppTown's task backend ("+runner.backend()+") cannot build releases: it reports no images")
 		return nil, false
@@ -227,7 +227,7 @@ func (a *Shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 
 // publishBuilt publishes what the worker built; a failed publication or
 // commit errors the step, before any target effect.
-func (a *Shipping) publishBuilt(task *workflow.Execution, in deployment.ReleasePublication) (*deployment.ReleaseBundle, bool) {
+func (a *shipping) publishBuilt(task *workflow.Execution, in deployment.ReleasePublication) (*deployment.ReleaseBundle, bool) {
 	bundle, err := a.publishRelease(task, func(ctx context.Context) (*deployment.ReleaseBundle, error) {
 		return a.deployment.PublishRelease(ctx, in)
 	})
@@ -242,7 +242,7 @@ func (a *Shipping) publishBuilt(task *workflow.Execution, in deployment.ReleaseP
 // was built: a transfer under way when the step stops being this attempt's
 // is ended, and nothing is committed (PublishRelease checks again before
 // each image and at the commit).
-func (a *Shipping) publishRelease(task *workflow.Execution, publish func(context.Context) (*deployment.ReleaseBundle, error)) (*deployment.ReleaseBundle, error) {
+func (a *shipping) publishRelease(task *workflow.Execution, publish func(context.Context) (*deployment.ReleaseBundle, error)) (*deployment.ReleaseBundle, error) {
 	ctx, cancel := context.WithCancel(context.WithoutCancel(task.Context()))
 	watched := make(chan struct{})
 	go func() {
@@ -269,7 +269,7 @@ func (a *Shipping) publishRelease(task *workflow.Execution, publish func(context
 
 // publicationWatch is how often a publication asks whether its step is
 // still this attempt's: as often as a worker's task is watched.
-func (a *Shipping) publicationWatch() time.Duration {
+func (a *shipping) publicationWatch() time.Duration {
 	if a.builds != nil && a.builds.Tasks != nil {
 		return a.builds.Tasks.poll()
 	}

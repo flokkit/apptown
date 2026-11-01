@@ -26,22 +26,22 @@ type Guidance struct {
 	adoption     *adoption.Service
 	conformance  *conformance.Service
 	scanners     *Scanners
-	evaluator    *Evaluator
+	evaluator    *evaluator
 	verification *Changes
 	runtime      *Runtime
 	docker       *docker.Scope
-	previews     PreviewOpener
+	previews     previewOpener
 	routing      deployment.Routing
 	selection    model.Selection
 	ledger       *usage.Ledger
 	clock        func() time.Time
 }
 
-// PreviewOpener opens a change's or a run's running preview for probing,
+// previewOpener opens a change's or a run's running preview for probing,
 // wherever it runs, and boots a landing's candidate when none runs it
 // (preview.Service): the trusted participant, since a landing gate is
 // AppTown executing a landing a person asked for.
-type PreviewOpener interface {
+type previewOpener interface {
 	OpenPreview(ctx context.Context, projectID ids.ID, label string) (*preview.Served, bool, error)
 	RehearseChange(ctx context.Context, ch preview.Change, restart bool) (preview.Result, error)
 }
@@ -51,11 +51,11 @@ type GuidanceDependencies struct {
 	Adoption    *adoption.Service
 	Conformance *conformance.Service
 	Scanners    *Scanners
-	Evaluator   *Evaluator
+	Evaluator   *evaluator
 	Changes     *Changes
 	Runtime     *Runtime
 	Docker      *docker.Scope
-	Previews    PreviewOpener
+	Previews    previewOpener
 	Routing     deployment.Routing
 	Selection   model.Selection
 	Ledger      *usage.Ledger
@@ -73,11 +73,11 @@ type ChangeDependencies struct {
 	DB        *database.DB
 	Adoption  *adoption.Service
 	Scanners  *Scanners
-	Evaluator *Evaluator
+	Evaluator *evaluator
 	DataDir   string
 	// WorkerChats saves a chat on the worker that holds a change before the
 	// change is checked; nil checks every change as it stands.
-	WorkerChats WorkerChats
+	WorkerChats workerChats
 	Now         func() time.Time // AppTown's clock; nil is the real one
 }
 

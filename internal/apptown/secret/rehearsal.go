@@ -3,26 +3,27 @@ package secret
 import (
 	"context"
 	"fmt"
-	"github.com/flokkit/apptown/internal/ids"
 	"sort"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/fault"
 )
 
-// RehearsalProfile is the profile a restore rehearsal reads
+// rehearsalProfile is the profile a restore rehearsal reads
 // (design/subsystems/deployment.md): the allow-list of bound
 // secrets a rehearsal may be given.
-const RehearsalProfile = "rehearsal"
+const rehearsalProfile = "rehearsal"
 
 // ErrRehearsalInherits refuses a rehearsal profile that takes default's
 // entries: an allow-list that inherits would deliver every production
 // credential default names.
 var ErrRehearsalInherits = fault.New(fault.Unprocessable, "the rehearsal profile in secretspec.toml inherits from default; add `defaults = { inherit = false }` under [profiles.rehearsal], so a rehearsal gets only the secrets it names")
 
-// Rehearsal is what a restore rehearsal is given and what it is not.
-type Rehearsal struct {
+// rehearsal is what a restore rehearsal is given and what it is not.
+type rehearsal struct {
 	Delivery Delivery
 	// Withheld names each declared secret the rehearsal was not given.
 	Withheld []string
@@ -39,8 +40,8 @@ type Rehearsal struct {
 //   - every generate = true secret, in any profile, gets a value made now
 //     for this rehearsal alone: never stored, never the source's;
 //   - nothing is required, so a withheld secret never stops a boot.
-func (a *Service) ResolveRehearsal(ctx context.Context, projectID ids.ID, source, ws string, c *appcontract.Contract) (Rehearsal, error) {
-	out := Rehearsal{Delivery: Delivery{Profile: RehearsalProfile, ByConsumer: map[string]map[string]string{}}}
+func (a *Service) ResolveRehearsal(ctx context.Context, projectID ids.ID, source, ws string, c *appcontract.Contract) (rehearsal, error) {
+	out := rehearsal{Delivery: Delivery{Profile: rehearsalProfile, ByConsumer: map[string]map[string]string{}}}
 	spec, present, err := ReadSpec(ws, c.SecretSpecPath)
 	if err != nil {
 		return out, err
@@ -51,11 +52,11 @@ func (a *Service) ResolveRehearsal(ctx context.Context, projectID ids.ID, source
 	if err := spec.CheckScopesAgainst(c); err != nil {
 		return out, err
 	}
-	allowed, hasProfile := spec.Profiles[RehearsalProfile]
-	if hasProfile && spec.Inherits[RehearsalProfile] {
+	allowed, hasProfile := spec.Profiles[rehearsalProfile]
+	if hasProfile && spec.Inherits[rehearsalProfile] {
 		return out, ErrRehearsalInherits
 	}
-	declared := map[string]DeclaredSecret{}
+	declared := map[string]declaredSecret{}
 	for _, profile := range spec.ProfileNames() {
 		for _, s := range spec.SecretsIn(profile) {
 			if prev, seen := declared[s.Name]; !seen || (s.Generate && !prev.Generate) {

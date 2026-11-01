@@ -23,12 +23,12 @@ import (
 
 type checkOverrides struct {
 	verification.Effects
-	run      func(ExecRequest) ExecOutcome
+	run      func(execRequest) execOutcome
 	complete func(string, string, string) (string, *modelcall.Usage, error)
 	observe  func(id ids.ID, source, probe string) (conformance.Outcome, string)
 }
 
-func (e checkOverrides) Run(ctx context.Context, r ExecRequest) ExecOutcome {
+func (e checkOverrides) Run(ctx context.Context, r execRequest) execOutcome {
 	if e.run != nil {
 		return e.run(r)
 	}

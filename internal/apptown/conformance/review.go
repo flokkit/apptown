@@ -1,8 +1,9 @@
 package conformance
 
-import "github.com/flokkit/apptown/internal/ids"
-
-import "github.com/flokkit/apptown/internal/stamp"
+import (
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/stamp"
+)
 
 // Review is the immutable, read-only record of one estate sweep (§3.1).
 // The next review is a new record and never overwrites this one.

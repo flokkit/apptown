@@ -31,7 +31,7 @@ import (
 // GroupAllUsers is the built-in group every signed-in person belongs to.
 const GroupAllUsers = "all-authenticated-users"
 
-var ErrLastAdministrator = fault.New(fault.Conflict, "make someone else an administrator first")
+var errLastAdministrator = fault.New(fault.Conflict, "make someone else an administrator first")
 
 // Spec is one grant to write.
 type Spec struct {
@@ -83,8 +83,8 @@ func GrantsAtIn(ctx context.Context, q database.Queryer, scope access.ScopeKind,
 	return records(queries(q).GrantsAtScope(ctx, accesssql.GrantsAtScopeParams{ScopeType: string(scope), ScopeID: scopeID}))
 }
 
-// AllGrantsIn is every live grant.
-func AllGrantsIn(ctx context.Context, q database.Queryer) ([]access.Grant, error) {
+// allGrantsIn is every live grant.
+func allGrantsIn(ctx context.Context, q database.Queryer) ([]access.Grant, error) {
 	return records(queries(q).AllGrants(ctx))
 }
 
@@ -99,11 +99,11 @@ func InstanceSettingIn(ctx context.Context, q database.Queryer, key string) (str
 
 // --- writes, in the caller's transaction ------------------------------------------
 
-// GrantIn records a grant unless an identical one is live, in which case
+// recordGrantIn records a grant unless an identical one is live, in which case
 // the live one is returned, never duplicated. Explicit grants use it;
 // default seeding must first respect historical choices. at is the
 // caller's clock, which stamps a new grant.
-func GrantIn(ctx context.Context, tx *database.Tx, s Spec, at time.Time) (ids.ID, error) {
+func recordGrantIn(ctx context.Context, tx *database.Tx, s Spec, at time.Time) (ids.ID, error) {
 	id, _, err := grantIn(ctx, tx, s, at)
 	return id, err
 }
@@ -209,9 +209,9 @@ func revokeGrantIn(ctx context.Context, tx *database.Tx, id ids.ID, by string, a
 	return true, nil
 }
 
-// RevokeAdminGrantsIn revokes every live instance administrator grant a
+// revokeAdminGrantsIn revokes every live instance administrator grant a
 // person holds, under the last-administrator rule.
-func RevokeAdminGrantsIn(ctx context.Context, tx *database.Tx, user, by string, at time.Time) error {
+func revokeAdminGrantsIn(ctx context.Context, tx *database.Tx, user, by string, at time.Time) error {
 	live, err := queries(tx).LiveRoleGrantsForSubject(ctx, accesssql.LiveRoleGrantsForSubjectParams{
 		SubjectType: "user", Subject: user, RoleName: access.RoleInstanceAdmin, ScopeType: string(access.ScopeInstance)})
 	if err != nil {
@@ -231,11 +231,11 @@ func RevokeAdminGrantsIn(ctx context.Context, tx *database.Tx, user, by string, 
 // external work happens under it.
 func LockUsersIn(ctx context.Context, tx *database.Tx) error { return queries(tx).LockUsers(ctx) }
 
-// PersonalGroupIn is a person's own group, created on first use with the
+// personalGroupIn is a person's own group, created on first use with the
 // person as its owner. An existing personal group is returned as recorded;
 // a name already taken by another kind of group, or a personal group that
 // lost its ownership record, is an error, never repaired here.
-func PersonalGroupIn(ctx context.Context, tx *database.Tx, user, by string, at time.Time) (string, error) {
+func personalGroupIn(ctx context.Context, tx *database.Tx, user, by string, at time.Time) (string, error) {
 	q := queries(tx)
 	if err := q.LockPersonalGroup(ctx, user); err != nil {
 		return "", err
@@ -271,7 +271,7 @@ func PersonalGroupIn(ctx context.Context, tx *database.Tx, user, by string, at t
 		if _, err := q.InsertMembership(ctx, accesssql.InsertMembershipParams{GroupName: name, Username: user, CreatedBy: by, CreatedByPrincipal: creator.Principal, CreatedByVia: creator.Via, CreatedAt: at.UTC()}); err != nil {
 			return "", err
 		}
-		if _, err := GrantIn(ctx, tx, Spec{SubjectType: "user", Subject: user, Role: access.RoleGroupOwner, Scope: access.ScopeGroup, ScopeID: name, origin: "bootstrap", By: by}, at); err != nil {
+		if _, err := recordGrantIn(ctx, tx, Spec{SubjectType: "user", Subject: user, Role: access.RoleGroupOwner, Scope: access.ScopeGroup, ScopeID: name, origin: "bootstrap", By: by}, at); err != nil {
 			return "", err
 		}
 		return name, nil
@@ -290,17 +290,17 @@ func SovereignGroupIn(ctx context.Context, tx *database.Tx, at time.Time) (strin
 	if len(admins) == 0 {
 		return "", nil
 	}
-	return PersonalGroupIn(ctx, tx, admins[0].Username, "apptown-system", at)
+	return personalGroupIn(ctx, tx, admins[0].Username, "apptown-system", at)
 }
 
-// AdminGrantIn makes a person an instance administrator: their personal
+// adminGrantIn makes a person an instance administrator: their personal
 // group, then the sovereign role at the instance, stamped at the caller's
 // clock.
-func AdminGrantIn(ctx context.Context, tx *database.Tx, user, by string, at time.Time) error {
-	if _, err := PersonalGroupIn(ctx, tx, user, by, at); err != nil {
+func adminGrantIn(ctx context.Context, tx *database.Tx, user, by string, at time.Time) error {
+	if _, err := personalGroupIn(ctx, tx, user, by, at); err != nil {
 		return err
 	}
-	_, err := GrantIn(ctx, tx, Spec{SubjectType: "user", Subject: user, Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, origin: "bootstrap", By: by}, at)
+	_, err := recordGrantIn(ctx, tx, Spec{SubjectType: "user", Subject: user, Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, origin: "bootstrap", By: by}, at)
 	return err
 }
 
@@ -316,27 +316,27 @@ func ProjectOwnershipIn(ctx context.Context, tx *database.Tx, projectID ids.ID, 
 		return nil
 	}
 	for _, role := range []string{access.RoleProjectOwner, access.RoleProjectApprover} {
-		if _, err := GrantIn(ctx, tx, Spec{SubjectType: "user", Subject: creator, Role: role, Scope: access.ScopeProject, ScopeID: pid, By: creator, Reason: "created the project"}, at); err != nil {
+		if _, err := recordGrantIn(ctx, tx, Spec{SubjectType: "user", Subject: creator, Role: role, Scope: access.ScopeProject, ScopeID: pid, By: creator, Reason: "created the project"}, at); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// SeedTransparentReadsIn records the transparent-structure default once:
+// seedTransparentReadsIn records the transparent-structure default once:
 // everyone signed in reads everything. The first grant establishes the
 // default; a revoked or expired one records an explicit choice and stops
 // startup from granting it again.
-func SeedTransparentReadsIn(ctx context.Context, q database.Queryer, at time.Time) error {
+func seedTransparentReadsIn(ctx context.Context, q database.Queryer, at time.Time) error {
 	return queries(q).SeedTransparentReads(ctx, accesssql.SeedTransparentReadsParams{ID: ids.New(at.UTC()),
 		Subject: GroupAllUsers, RoleName: access.RoleAuditor, At: at.UTC(),
 	})
 }
 
-// DefaultsIn is required startup state: the built-in group, the open-mode reader
+// defaultsIn is required startup state: the built-in group, the open-mode reader
 // (granted once in open mode, revoked when the mode closes), and the
 // transparent-reads default, each stamped at the caller's clock.
-func DefaultsIn(ctx context.Context, tx *database.Tx, open bool, at time.Time) error {
+func defaultsIn(ctx context.Context, tx *database.Tx, open bool, at time.Time) error {
 	if err := LockUsersIn(ctx, tx); err != nil {
 		return err
 	}
@@ -352,7 +352,7 @@ func DefaultsIn(ctx context.Context, tx *database.Tx, open bool, at time.Time) e
 			return err
 		}
 		if !chosen {
-			if _, err := GrantIn(ctx, tx, Spec{SubjectType: "anonymous", Subject: "anonymous", Role: access.RoleAuditor, Scope: access.ScopeInstance, origin: "profile:open", By: "apptown-system", Reason: "open mode: anyone on the network can read"}, at); err != nil {
+			if _, err := recordGrantIn(ctx, tx, Spec{SubjectType: "anonymous", Subject: "anonymous", Role: access.RoleAuditor, Scope: access.ScopeInstance, origin: "profile:open", By: "apptown-system", Reason: "open mode: anyone on the network can read"}, at); err != nil {
 				return err
 			}
 		}
@@ -367,7 +367,7 @@ func DefaultsIn(ctx context.Context, tx *database.Tx, open bool, at time.Time) e
 			}
 		}
 	}
-	if err := SeedTransparentReadsIn(ctx, tx, at); err != nil {
+	if err := seedTransparentReadsIn(ctx, tx, at); err != nil {
 		return err
 	}
 	chosen, err := q.GrantEverRecorded(ctx, accesssql.GrantEverRecordedParams{SubjectType: "group", Subject: GroupAllUsers, RoleName: access.RoleAuditor, ScopeType: string(access.ScopeInstance)})
@@ -382,21 +382,21 @@ func DefaultsIn(ctx context.Context, tx *database.Tx, open bool, at time.Time) e
 
 // --- the service ------------------------------------------------------------------
 
-// Grants is the supported API over grants for callers without a
+// grants is the supported API over grants for callers without a
 // transaction of their own.
-type Grants struct {
+type grants struct {
 	db    *database.DB
 	clock func() time.Time // nil is the real clock
 }
 
-func NewGrants(db *database.DB) *Grants { return &Grants{db: db} }
+func newGrants(db *database.DB) *grants { return &grants{db: db} }
 
-func (s *Grants) now() time.Time { return clock.Or(s.clock)() }
+func (s *grants) now() time.Time { return clock.Or(s.clock)() }
 
-// Add writes a person's explicit grant with its `grant.added` receipt in
+// add writes a person's explicit grant with its `grant.added` receipt in
 // the same transaction; an expiry, when given, is stamped on it. An
 // identical live grant is returned unchanged and leaves no receipt.
-func (s *Grants) Add(ctx context.Context, sp Spec, expiresAt string) (ids.ID, error) {
+func (s *grants) add(ctx context.Context, sp Spec, expiresAt string) (ids.ID, error) {
 	var id ids.ID
 	now := s.now()
 	apply := func(tx *database.Tx) error {
@@ -426,20 +426,20 @@ func (s *Grants) Add(ctx context.Context, sp Spec, expiresAt string) (ids.ID, er
 	return id, err
 }
 
-// Put writes a grant with no receipt of its own, for callers that record
+// put writes a grant with no receipt of its own, for callers that record
 // the wider act (a project's roster).
-func (s *Grants) Put(ctx context.Context, sp Spec) (ids.ID, error) {
-	return database.Transact(ctx, s.db, func(tx *database.Tx) (ids.ID, error) { return GrantIn(ctx, tx, sp, s.now()) })
+func (s *grants) put(ctx context.Context, sp Spec) (ids.ID, error) {
+	return database.Transact(ctx, s.db, func(tx *database.Tx) (ids.ID, error) { return recordGrantIn(ctx, tx, sp, s.now()) })
 }
 
-// Revoke stamps one grant revoked, under the last-administrator rule.
-func (s *Grants) Revoke(ctx context.Context, id ids.ID, by string) (bool, error) {
+// revoke stamps one grant revoked, under the last-administrator rule.
+func (s *grants) revoke(ctx context.Context, id ids.ID, by string) (bool, error) {
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (bool, error) { return RevokeIn(ctx, tx, id, by, s.now()) })
 }
 
-// Live is one grant's scope while it is live, for the door that decides who
+// live is one grant's scope while it is live, for the door that decides who
 // may revoke it.
-func (s *Grants) Live(ctx context.Context, id ids.ID) (scope access.ScopeKind, scopeID string, found bool, err error) {
+func (s *grants) live(ctx context.Context, id ids.ID) (scope access.ScopeKind, scopeID string, found bool, err error) {
 	g, err := queries(s.db).GrantByID(ctx, id)
 	found, err = database.Lookup(err)
 	if !found || err != nil || g.RevokedAt.Valid {
@@ -448,18 +448,18 @@ func (s *Grants) Live(ctx context.Context, id ids.ID) (scope access.ScopeKind, s
 	return access.ScopeKind(g.ScopeType), g.ScopeID, true, nil
 }
 
-// PersonalGroup is PersonalGroupIn in its own transaction.
-func (s *Grants) PersonalGroup(ctx context.Context, user, by string) (string, error) {
-	return database.Transact(ctx, s.db, func(tx *database.Tx) (string, error) { return PersonalGroupIn(ctx, tx, user, by, s.now()) })
+// personalGroup is PersonalGroupIn in its own transaction.
+func (s *grants) personalGroup(ctx context.Context, user, by string) (string, error) {
+	return database.Transact(ctx, s.db, func(tx *database.Tx) (string, error) { return personalGroupIn(ctx, tx, user, by, s.now()) })
 }
 
-// EnsureDefaults is DefaultsIn in its own transaction: required startup
+// ensureDefaults is DefaultsIn in its own transaction: required startup
 // state, so a failure is returned to the server's startup gate.
-func (s *Grants) EnsureDefaults(ctx context.Context, open bool) error {
-	return s.db.InTx(ctx, func(tx *database.Tx) error { return DefaultsIn(ctx, tx, open, s.now()) })
+func (s *grants) ensureDefaults(ctx context.Context, open bool) error {
+	return s.db.InTx(ctx, func(tx *database.Tx) error { return defaultsIn(ctx, tx, open, s.now()) })
 }
 
-// SovereignGroup is SovereignGroupIn in its own transaction.
-func (s *Grants) SovereignGroup(ctx context.Context) (string, error) {
+// sovereignGroup is SovereignGroupIn in its own transaction.
+func (s *grants) sovereignGroup(ctx context.Context) (string, error) {
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (string, error) { return SovereignGroupIn(ctx, tx, s.now()) })
 }

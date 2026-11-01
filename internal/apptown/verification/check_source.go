@@ -28,13 +28,13 @@ func CheckSource(tree string) check.Source {
 	case err != nil:
 		src.PartsErr = err
 	default:
-		src.Parts, src.NotAppCode = ContractParts(c), c.NotAppCode
+		src.Parts, src.NotAppCode = contractParts(c), c.NotAppCode
 	}
 	return src
 }
 
-// ContractParts is the contract's parts in the terms applicability reads.
-func ContractParts(c *appcontract.Contract) []check.Part {
+// contractParts is the contract's parts in the terms applicability reads.
+func contractParts(c *appcontract.Contract) []check.Part {
 	var out []check.Part
 	for i := range c.Parts {
 		p := &c.Parts[i]

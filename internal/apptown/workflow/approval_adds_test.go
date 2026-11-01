@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 func finished(t *testing.T, a ChangeAdds) ChangeAdds {
@@ -122,7 +123,7 @@ func TestAVoteIsRefusedWhenItsListWasReadForAnotherCandidate(t *testing.T) {
 	db, change := changeEditFixture(t, ChangeDraft{Title: "landing"})
 	automatic := func(kind string) bool { return kind == "reconcile" }
 	admissions := newRunAdmissions(db, NewStages(nil, automatic), nil)
-	run, err := admissions.Create(ctx, StartRequest{ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "land", InputsJSON: "{}", requestedBy: "operator"}, PreparedRun{
+	run, err := admissions.records.create(ctx, StartRequest{ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "land", InputsJSON: "{}", requestedBy: "operator"}, PreparedRun{
 		Workflow: DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "gates", Steps: []schema.Step{
 			{Name: "catch-up", Uses: "reconcile"}, {Name: "approve", Uses: "approval", With: map[string]any{"means": "I approve this source"}},
 		}}}},
@@ -130,7 +131,7 @@ func TestAVoteIsRefusedWhenItsListWasReadForAnotherCandidate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := admissions.Prepared(ctx, run.ID); err != nil {
+	if err := admissions.records.prepared(ctx, run.ID); err != nil {
 		t.Fatal(err)
 	}
 	attempts := newStepAttempts(db, automatic)
@@ -138,7 +139,7 @@ func TestAVoteIsRefusedWhenItsListWasReadForAnotherCandidate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	claim, err := attempts.Start(ctx, snapshot, snapshot.Type)
+	claim, err := attempts.start(ctx, snapshot, snapshot.Type, ids.Nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +147,7 @@ func TestAVoteIsRefusedWhenItsListWasReadForAnotherCandidate(t *testing.T) {
 	if _, err := e.PinLandingCandidate(LandingCandidate{Candidate: "candidate-X", Target: "main"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := attempts.Finish(ctx, claim, StepOutcome{Status: StatusPass, Evidence: json.RawMessage(`{}`)}); err != nil {
+	if err := attempts.finish(ctx, claim, StepOutcome{Status: StatusPass, Evidence: json.RawMessage(`{}`)}); err != nil {
 		t.Fatal(err)
 	}
 	approval := admittedStepID(t, queries{db: db}, run, "approve")

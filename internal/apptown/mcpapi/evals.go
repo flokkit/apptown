@@ -14,9 +14,9 @@ type EvalReadsDependencies struct {
 // NewEvalReads is the eval read: an eval's scorecard, under the permission its page takes, asked of the
 // caller. Agents read; starting, continuing and deleting an eval stay with
 // people.
-func NewEvalReads(deps EvalReadsDependencies) []Tool {
+func NewEvalReads(deps EvalReadsDependencies) []toolEntry {
 	h := evalReads{evals: deps.Evals}
-	return []Tool{{
+	return []toolEntry{{
 		Name:  "get_eval",
 		order: 23,
 		Description: "Experimental. Returns an eval's scorecard: landed Changes re-run in throwaway copies as their projects run now and with one thing varied (a model profile or a pack version), " +

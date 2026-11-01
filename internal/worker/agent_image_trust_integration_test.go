@@ -5,11 +5,12 @@ package worker
 import (
 	"context"
 	"fmt"
-	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/dockerlabel"

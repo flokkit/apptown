@@ -10,7 +10,7 @@ func TestCheckLabelsKeepExceptionsAndUnknownEvidenceDistinct(t *testing.T) {
 		s    ObservationState
 		want CheckLabel
 	}{
-		{Conforms, CheckPassed}, {DoesNotConform, CheckFailed}, {EvaluationError, CheckUnknown}, {Excepted, CheckExcepted}, {NotApplicable, CheckNotApplicable}, {CannotAssess, CheckUnknown}, {Stale, CheckUnknown}, {NotScanned, CheckUnknown},
+		{Conforms, checkPassed}, {DoesNotConform, checkFailed}, {EvaluationError, checkUnknown}, {Excepted, checkExcepted}, {NotApplicable, checkNotApplicable}, {CannotAssess, checkUnknown}, {Stale, checkUnknown}, {NotScanned, checkUnknown},
 	} {
 		if got := displayLabel(tc.s); got != tc.want {
 			t.Errorf("%s: %s, want %s", tc.s.String(), got, tc.want)
@@ -21,7 +21,7 @@ func TestCheckLabelsKeepExceptionsAndUnknownEvidenceDistinct(t *testing.T) {
 func TestDisplayLabelUsesCurrentInterpretationWithoutChangingSavedEvidence(t *testing.T) {
 	saved := Verdict{State: Conforms, SHA: "old", Version: 1}
 	original := saved
-	current := Observe(saved, CurrentContext{Check: CheckRef{Version: 1}, HeadSHA: "new"})
+	current := observe(saved, currentContext{Check: CheckRef{Version: 1}, HeadSHA: "new"})
 	body, err := json.Marshal(current)
 	if err != nil {
 		t.Fatal(err)
@@ -46,8 +46,8 @@ func TestDisplayLabelUsesCurrentInterpretationWithoutChangingSavedEvidence(t *te
 }
 
 func TestStandingLabelsDoNotPresentIncompleteReviewsAsPassed(t *testing.T) {
-	for state, want := range map[Standing]CheckLabel{StandingDoesNot: CheckFailed, StandingBroken: CheckUnknown, StandingNeedsLook: CheckUnknown, StandingSoFar: CheckUnknown, StandingExcepted: CheckExcepted, StandingConforms: CheckPassed, StandingNothing: CheckUnknown} {
-		if got := state.Label(); got != want {
+	for state, want := range map[Standing]CheckLabel{standingDoesNot: checkFailed, standingBroken: checkUnknown, StandingNeedsLook: checkUnknown, standingSoFar: checkUnknown, standingExcepted: checkExcepted, StandingConforms: checkPassed, standingNothing: checkUnknown} {
+		if got := state.label(); got != want {
 			t.Errorf("%s: %s, want %s", state, got, want)
 		}
 	}
@@ -58,7 +58,7 @@ func TestFindingsLabelsRequireReadableScanReports(t *testing.T) {
 		actionable, reports int
 		unread              bool
 		want                CheckLabel
-	}{{0, 0, false, CheckUnknown}, {0, 1, false, CheckPassed}, {0, 1, true, CheckUnknown}, {1, 1, false, CheckFailed}, {1, 2, true, CheckFailed}} {
+	}{{0, 0, false, checkUnknown}, {0, 1, false, checkPassed}, {0, 1, true, checkUnknown}, {1, 1, false, checkFailed}, {1, 2, true, checkFailed}} {
 		if got := FindingsLabel(c.actionable, c.reports, c.unread, false); got != c.want {
 			t.Errorf("%+v: %s", c, got)
 		}
@@ -66,10 +66,10 @@ func TestFindingsLabelsRequireReadableScanReports(t *testing.T) {
 }
 
 func TestOldSecurityScanDoesNotClaimCurrentMainPassed(t *testing.T) {
-	if got := FindingsLabel(0, 3, false, true); got != CheckUnknown {
+	if got := FindingsLabel(0, 3, false, true); got != checkUnknown {
 		t.Fatalf("stale clean reports: %s", got)
 	}
-	if got := FindingsLabel(2, 3, false, true); got != CheckFailed {
+	if got := FindingsLabel(2, 3, false, true); got != checkFailed {
 		t.Fatalf("stale known problems: %s", got)
 	}
 }

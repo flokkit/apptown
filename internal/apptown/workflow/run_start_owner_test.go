@@ -34,8 +34,7 @@ func TestAChatStartedRunIsOwnedByTheChatsOpener(t *testing.T) {
 			access.Actor{Name: "owner", Via: access.ViaChat + ":c2"}},
 	} {
 		actor := callerActor(access.Caller{Principal: tc.opener, Verified: true})
-		run, err := admissions.Create(ctx, StartRequest{ProjectID: a.ProjectID, WorkflowName: "test", InputsJSON: "{}", requestedBy: actor.InferenceOwner, owner: actor.Owner, receiptActor: actor.Receipt},
-			PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: spec})
+		run, err := admissions.records.create(ctx, StartRequest{ProjectID: a.ProjectID, WorkflowName: "test", InputsJSON: "{}", requestedBy: actor.InferenceOwner, owner: actor.Owner, receiptActor: actor.Receipt}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: spec})
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -6,9 +6,9 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// ProjectVisibility evaluates a principal against complete current project facts.
+// projectVisibility evaluates a principal against complete current project facts.
 // Returned IDs are observations for read filtering, never permission to mutate.
-type ProjectVisibility interface {
+type projectVisibility interface {
 	VisibleProjects(context.Context, Principal, Capability) ([]ids.ID, error)
 }
 
@@ -27,7 +27,7 @@ func (c Checked) VisibleProjects(ctx context.Context, capability Capability) ([]
 	if !ok || !caller.Verified || caller.Principal.Name == "" {
 		return nil, ErrPrincipalRequired
 	}
-	visibility, ok := c.Authority.(ProjectVisibility)
+	visibility, ok := c.Authority.(projectVisibility)
 	if !ok {
 		return nil, ErrAuthorityUnavailable
 	}

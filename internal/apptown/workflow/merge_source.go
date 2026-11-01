@@ -11,7 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-type MergeRequest struct {
+type mergeRequest struct {
 	Identity scm.RepositoryIdentity
 	IID      int
 	Project  string
@@ -22,7 +22,7 @@ type MergeRequest struct {
 // branch, workspace or merge provider after a second lookup fails.
 type MergeSource struct {
 	Source
-	MR MergeRequest
+	MR mergeRequest
 	// Landing is the pinned candidate and target; empty for a run admitted
 	// before candidates were pinned. PinRequired marks a landing admitted
 	// under pinning: without a candidate it is refused, never merged the
@@ -59,7 +59,7 @@ func ReadMergeSourceIn(ctx context.Context, db database.Queryer, run RunRef) (Me
 		if identity != nil && identity.ProjectID != source.ProjectID {
 			return MergeSource{}, fmt.Errorf("merge request identity belongs to a different project")
 		}
-		merged.MR = MergeRequest{IID: iid, Project: row.MrProject}
+		merged.MR = mergeRequest{IID: iid, Project: row.MrProject}
 		if identity != nil {
 			merged.MR.Identity = *identity
 		}

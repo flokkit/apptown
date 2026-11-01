@@ -2,8 +2,9 @@ package integration
 
 import (
 	"context"
-	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/dependency"
 
 	"github.com/flokkit/apptown/internal/apptown/integration/internal/integrationsql"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -15,12 +16,12 @@ import (
 // Service combines integration records with service-kind environment rendering.
 // Provider execution and authorization remain with the callers of these operations.
 type Service struct {
-	kinds           KindCatalog // what a dependency kind gives an app, e.g. error reporting's variables
+	kinds           kindCatalog // what a dependency kind gives an app, e.g. error reporting's variables
 	projects        *project.Projects
 	secrets         *secret.Service
-	scmRepositories SCMRepositories
+	scmRepositories scmRepositories
 	Bindings        *Bindings
-	ServiceKinds    *ServiceKinds
+	ServiceKinds    *serviceKinds
 	Attachments     *Attachments
 	clock           func() time.Time // AppTown's clock; nil is the real one
 }
@@ -29,24 +30,24 @@ type Service struct {
 // judged by it.
 func (s *Service) now() time.Time { return clock.Or(s.clock)() }
 
-// KindCatalog is the dependency catalog's answer for one capability.
-type KindCatalog interface {
+// kindCatalog is the dependency catalog's answer for one capability.
+type kindCatalog interface {
 	ByCapability(context.Context, string) (*dependency.Kind, error)
 }
 
 type Dependencies struct {
 	// Kinds is the dependency catalog: the stock definitions say what an
 	// app with a dependency is given.
-	Kinds           KindCatalog
+	Kinds           kindCatalog
 	Projects        *project.Projects
 	Secrets         *secret.Service
-	SCMRepositories SCMRepositories
+	SCMRepositories scmRepositories
 	// Now is AppTown's clock; nil is the real one.
 	Now func() time.Time
 }
 
 func NewService(db *database.DB, deps Dependencies) *Service {
-	bindings, kinds, attachments := NewWithClock(db, deps.Now), NewServiceKinds(db), NewAttachments(db)
+	bindings, kinds, attachments := NewWithClock(db, deps.Now), newServiceKinds(db), NewAttachments(db)
 	kinds.clock, attachments.clock = deps.Now, deps.Now
 	return &Service{kinds: deps.Kinds, projects: deps.Projects, secrets: deps.Secrets, scmRepositories: deps.SCMRepositories, Bindings: bindings, ServiceKinds: kinds, Attachments: attachments, clock: deps.Now}
 }

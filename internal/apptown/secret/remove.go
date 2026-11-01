@@ -2,6 +2,7 @@ package secret
 
 import (
 	"context"
+
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/database"

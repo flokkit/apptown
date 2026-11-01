@@ -134,12 +134,12 @@ func TestStockVsUserOrigin(t *testing.T) {
 // and its conflicts; an unknown tier is refused.
 func TestParseStockGuidance(t *testing.T) {
 	t.Parallel()
-	b, err := ParseStockGuidance("---\nname: data/x\ntags: data, sql\nchecks: [{\"name\":\"c\"}]\ntier: platform\nconflicts: data/y\n---\n\nThe body.\n")
+	b, err := parseStockGuidance("---\nname: data/x\ntags: data, sql\nchecks: [{\"name\":\"c\"}]\ntier: platform\nconflicts: data/y\n---\n\nThe body.\n")
 	if err != nil || b.Name != "data/x" || b.Tags != "data,sql" || b.ChecksJSON != `[{"name":"c"}]` || b.Tier != "platform" || b.Conflicts != "data/y" || b.Body != "The body.\n" {
 		t.Fatalf("parsed: %+v %v", b, err)
 	}
 	for _, raw := range []string{"no front matter", "---\nname: x\n", "---\ntags: t\n---\nbody", "---\nname: x\ntier: gold\n---\nbody"} {
-		if _, err := ParseStockGuidance(raw); err == nil {
+		if _, err := parseStockGuidance(raw); err == nil {
 			t.Fatalf("refused: %q", raw)
 		}
 	}
@@ -158,7 +158,7 @@ func TestEveryStockFileReadsStrictly(t *testing.T) {
 	if packs, err := ReadStockPacks(stock.FS); err != nil || len(packs) == 0 {
 		t.Errorf("stock packs: %d, %v", len(packs), err)
 	}
-	if policies, err := ReadStockPolicies(stock.FS); err != nil || len(policies) == 0 {
+	if policies, err := readStockPolicies(stock.FS); err != nil || len(policies) == 0 {
 		t.Errorf("stock policies: %d, %v", len(policies), err)
 	}
 	blocks, skipped := ReadStockGuidance(stock.FS, nil)
@@ -187,13 +187,13 @@ func TestStrictReadersRefuseUnknownShapes(t *testing.T) {
 	if _, err := ReadStockPacks(files("packs.yaml", "packs:\n  - name: p\n    policies:\n      - {name: x, rule: requireStepBefore}\n")); err == nil {
 		t.Error("a pack defining a policy inline was read")
 	}
-	if _, err := ReadStockPolicies(files("policies.yaml", "policies:\n  - name: x\n    rule: requireStepBefore\n    with: {uses: deploy, requires: scan, also: 1}\n")); err == nil {
+	if _, err := readStockPolicies(files("policies.yaml", "policies:\n  - name: x\n    rule: requireStepBefore\n    with: {uses: deploy, requires: scan, also: 1}\n")); err == nil {
 		t.Error("a policy option its rule does not take was read")
 	}
-	if _, err := ReadStockPolicies(files("policies.yaml", "policies:\n  - name: x\n    rule: requireStepBefore\n    rulz: 1\n")); err == nil {
+	if _, err := readStockPolicies(files("policies.yaml", "policies:\n  - name: x\n    rule: requireStepBefore\n    rulz: 1\n")); err == nil {
 		t.Error("a policy with an unknown key was read")
 	}
-	if _, err := ParseStockGuidance("---\nname: x\nchecsk: []\n---\nbody\n"); err == nil {
+	if _, err := parseStockGuidance("---\nname: x\nchecsk: []\n---\nbody\n"); err == nil {
 		t.Error("guidance with an unknown front-matter key was read")
 	}
 	if _, err := check.ParseDeclarations(`[{"appliesTo": ["repository"], "name":"c","sh":"true","severty":"high"}]`); err == nil {
@@ -213,10 +213,10 @@ func TestPacksAndBlocksTakeAnOptionalFormatVersion(t *testing.T) {
 	if _, err := ReadStockPacks(files("packs:\n  - name: p\n    apiVersion: apptown.dev/v2\n")); err == nil || !strings.Contains(err.Error(), "apptown.dev/v2") {
 		t.Fatalf("a pack stating v2 was read: %v", err)
 	}
-	if b, err := ParseStockGuidance("---\napiVersion: apptown.dev/v1\nname: x\n---\nbody\n"); err != nil || b.Name != "x" {
+	if b, err := parseStockGuidance("---\napiVersion: apptown.dev/v1\nname: x\n---\nbody\n"); err != nil || b.Name != "x" {
 		t.Fatalf("a block stating v1: %+v %v", b, err)
 	}
-	if _, err := ParseStockGuidance("---\napiVersion: apptown.dev/v2\nname: x\n---\nbody\n"); err == nil || !strings.Contains(err.Error(), "apptown.dev/v2") {
+	if _, err := parseStockGuidance("---\napiVersion: apptown.dev/v2\nname: x\n---\nbody\n"); err == nil || !strings.Contains(err.Error(), "apptown.dev/v2") {
 		t.Fatalf("a block stating v2 was read: %v", err)
 	}
 }

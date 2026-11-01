@@ -66,7 +66,7 @@ type ScheduleFiringView struct {
 
 // List: GET /api/v1/projects/{slug}/schedules.
 func (h ProjectSchedules) List(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
+	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}

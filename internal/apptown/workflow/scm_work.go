@@ -17,13 +17,13 @@ type scmClaimKey struct{}
 type scmInspectionKey struct{}
 type scmInspection struct{ db *database.DB }
 
-type SCMWork struct {
+type scmWork struct {
 	jobs    jobs.Enqueuer
 	rules   LawRules
 	db      *database.DB
 	dataDir string
 
-	evals EvalGate
+	evals evalGate
 	clocked
 }
 type scmClaim struct {
@@ -35,20 +35,20 @@ type scmClaim struct {
 	selected scm.Source
 	call     *MergeCall
 
-	evals EvalGate
+	evals evalGate
 	clocked
 }
 
 func SCMInspectionContext(ctx context.Context, db *database.DB) context.Context {
 	return context.WithValue(ctx, scmInspectionKey{}, scmInspection{db})
 }
-func (w SCMWork) RequireInspection(ctx context.Context) error {
+func (w scmWork) RequireInspection(ctx context.Context) error {
 	if scope, ok := ctx.Value(scmInspectionKey{}).(scmInspection); !ok || scope.db != w.db {
 		return scm.ErrCaller
 	}
 	return ctx.Err()
 }
-func (w SCMWork) Prepare(ctx context.Context, purpose scm.Purpose, id ids.ID) (scm.Claim, error) {
+func (w scmWork) Prepare(ctx context.Context, purpose scm.Purpose, id ids.ID) (scm.Claim, error) {
 	if claim, ok := ctx.Value(scmClaimKey{}).(*scmClaim); ok {
 		if claim.db != w.db || claim.run.ID != id || claim.call == nil {
 			return nil, scm.ErrCaller
@@ -76,7 +76,7 @@ func (w SCMWork) Prepare(ctx context.Context, purpose scm.Purpose, id ids.ID) (s
 
 // claim binds one operation to its admitted snapshot. attribution is what
 // the admission read; nil for an inspection, which merges nothing.
-func (w SCMWork) claim(run Run, source MergeSource, call *MergeCall, attribution *scm.Attribution) (*scmClaim, error) {
+func (w scmWork) claim(run Run, source MergeSource, call *MergeCall, attribution *scm.Attribution) (*scmClaim, error) {
 	if call != nil {
 		snapshot := *call
 		snapshot.Step.Config = slices.Clone(call.Step.Config)
@@ -131,7 +131,7 @@ func (c *scmClaim) CheckIn(ctx context.Context, tx *database.Tx, purpose scm.Pur
 				return scm.Refusal{Reason: reason}, err
 			}
 		}
-		permission, err := (MergeAdmission{c.db, c.rules, c.evals, c.clocked}).evaluateMergePermissionIn(ctx, tx, *c.call)
+		permission, err := (mergeAdmission{c.db, c.rules, c.evals, c.clocked}).evaluateMergePermissionIn(ctx, tx, *c.call)
 		refusal := scm.Refusal{Reason: permission.Reason}
 		if permission.Blocking != nil {
 			refusal.CheckID = permission.Blocking.ID
@@ -170,6 +170,6 @@ func (c *scmClaim) RecordIn(ctx context.Context, tx *database.Tx, receipt scm.Re
 	return recordReceiptIn(ctx, tx, c.run.ID, event, receipt, c.now())
 }
 
-func NewSCMWork(db *database.DB, dataDir string, rules LawRules, queue jobs.Enqueuer) SCMWork {
-	return SCMWork{jobs: queue, db: db, dataDir: dataDir, rules: rules}
+func NewSCMWork(db *database.DB, dataDir string, rules LawRules, queue jobs.Enqueuer) scmWork {
+	return scmWork{jobs: queue, db: db, dataDir: dataDir, rules: rules}
 }

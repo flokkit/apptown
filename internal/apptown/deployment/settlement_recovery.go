@@ -54,7 +54,7 @@ func (s *Outcomes) Checkpoint(ctx context.Context, at Attempt) deploy.Checkpoint
 			if err != nil {
 				return err
 			}
-			if identity.Deployment != dep.Label() || identity.Generation != at.Generation || identity.Artifact == "" || identity.Artifact != inputs.ArtifactHash || inputs.DockerSource == "" {
+			if identity.Deployment != dep.label() || identity.Generation != at.Generation || identity.Artifact == "" || identity.Artifact != inputs.ArtifactHash || inputs.DockerSource == "" {
 				return errors.New("Docker checkpoint differs from admitted source identity")
 			}
 		}
@@ -81,7 +81,7 @@ func lockDeploymentIn(ctx context.Context, tx *database.Tx, at Attempt) (*Deploy
 	if at.ID.IsZero() || at.DeploymentID.IsZero() || at.Generation == 0 {
 		return nil, 0, "", errors.New("deployment requires an admitted attempt and generation")
 	}
-	dep, err := LockDeploymentIn(ctx, tx, at.DeploymentID)
+	dep, err := lockDeploymentRecordIn(ctx, tx, at.DeploymentID)
 	if err != nil {
 		return nil, 0, "", err
 	}
@@ -98,18 +98,18 @@ func lockDeploymentIn(ctx context.Context, tx *database.Tx, at Attempt) (*Deploy
 
 // Uncertainty is durable, nonterminal, and owns the deployment until resolved.
 // Queue the observation in the same transaction so a crash cannot lose its retry.
-func (s *Outcomes) Uncertain(ctx context.Context, at Attempt, cause error) (Outcome, error) {
+func (s *Outcomes) Uncertain(ctx context.Context, at Attempt, cause error) (deploymentOutcome, error) {
 	ctx = context.WithoutCancel(ctx) // an uncertain outcome is recorded though ctx has ended
 	now := s.now()
 	if cause == nil {
 		return "", errors.New("uncertain deployment requires a reason")
 	}
-	return database.Transact(ctx, s.db, func(tx *database.Tx) (Outcome, error) {
+	return database.Transact(ctx, s.db, func(tx *database.Tx) (deploymentOutcome, error) {
 		dep, status, _, err := lockDeploymentIn(ctx, tx, at)
 		if err != nil {
 			return "", err
 		}
-		verdict, err := at.Unsettled(dep, status)
+		verdict, err := at.unsettled(dep, status)
 		if err != nil {
 			return "", err
 		}
@@ -121,7 +121,7 @@ func (s *Outcomes) Uncertain(ctx context.Context, at Attempt, cause error) (Outc
 		next := verdict.Next
 		if _, err := deploymentsql.New(tx.SQL()).UncertainAttempt(ctx, deploymentsql.UncertainAttemptParams{
 			Status:       next.String(),
-			Terminal:     next.Terminal(),
+			Terminal:     next.terminal(),
 			ObservedJson: json.RawMessage(jsonText(map[string]any{"_recovery": map[string]any{"reason": cause.Error(), "at": now}})),
 			ID:           at.ID,
 		}); err != nil {
@@ -134,7 +134,7 @@ func (s *Outcomes) Uncertain(ctx context.Context, at Attempt, cause error) (Outc
 		if err := s.followups.EnqueueIn(ctx, tx, jobs.Request{Operation: RecoveryJob, Key: fmt.Sprint(at.ID)}); err != nil {
 			return "", err
 		}
-		return Uncertain, nil
+		return outcomeUncertain, nil
 	})
 }
 
@@ -167,7 +167,7 @@ func (s *Outcomes) RecoveryAttempt(ctx context.Context, id ids.ID) (Attempt, Att
 	return at, status, checkpoint, nil
 }
 
-func (s *Outcomes) DeploymentByID(ctx context.Context, id ids.ID) (*Deployment, error) {
+func (s *Outcomes) deploymentByID(ctx context.Context, id ids.ID) (*Deployment, error) {
 	return NewDeployments(s.db).ByID(ctx, id)
 }
 

@@ -23,7 +23,7 @@ import (
 // approve; acceptance_carry_test.go covers eligibility.
 func anyoneMayApprove(context.Context, *Run, *Step, access.Actor) error { return nil }
 
-func approvingLandings(db *database.DB, adoptions LandingAdoptions) landings {
+func approvingLandings(db *database.DB, adoptions landingAdoptions) landings {
 	owner := newLandings(db, adoptions)
 	owner.eligible = anyoneMayApprove
 	return owner
@@ -383,7 +383,7 @@ func TestWorkflowLandingReusesRunAndPinsAcceptanceScope(t *testing.T) {
 		return (runStartStore{db: store, stages: stages}).create(context.Background(), StartRequest{ProjectID: work.ProjectID, ChangeID: work.ChangeID, WorkflowName: "land", acceptedRunID: work.ID, InputsJSON: "{}"}, PreparedRun{Workflow: DefinitionRef{Name: "land", Version: 1}, Spec: doc.Spec})
 	}
 	dbtest.FailNextStatement(t, store, "UPDATE workflow_landings SET landing_run_id")
-	if _, err := create(); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := create(); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("creation error: %v", err)
 	}
 	// sql-guarantee: the failed creation leaves no landing run anywhere.
@@ -399,7 +399,7 @@ func TestWorkflowLandingReusesRunAndPinsAcceptanceScope(t *testing.T) {
 	}
 	// A failed marker rolls back the handoff before advancement.
 	dbtest.FailNextStatement(t, store, "UPDATE workflow_landings SET acceptance_applied")
-	if _, err := (landings{db: store, eligible: anyoneMayApprove}).apply(context.Background(), work.ID, landing.ID); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := (landings{db: store, eligible: anyoneMayApprove}).apply(context.Background(), work.ID, landing.ID); !errors.Is(err, dbtest.ErrInjectedFailure) {
 		t.Fatalf("acceptance error: %v", err)
 	}
 	expect(t, stepCount(seenSteps(t, store, landing.ID), func(s *Step) bool { return s.Stage == "start" && s.Status == StatusPending && emptyJSON(s.Evidence) }) == 1, "failed marker moved the start gate")

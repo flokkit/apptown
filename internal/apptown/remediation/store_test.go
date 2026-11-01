@@ -41,7 +41,7 @@ func TestRemediationSummaryReadsAreBoundedAndChecked(t *testing.T) {
 		}
 		job := insertStoredRemediation(t, db, remediationsql.InsertRemediationParams{ID: ids.New(created), Scope: "project", ScopeRef: "summary", Actor: "alice", Status: "running", CreatedAt: created, UpdatedAt: created.Add(time.Hour)})
 		if i%2 == 0 {
-			for _, state := range []string{ItemQueued, ItemWorking, ItemAccepting, ItemLanding, ItemVerifying, ItemDone, ItemStuck, ItemSkipped, "future-state"} {
+			for _, state := range []string{ItemQueued, ItemWorking, ItemAccepting, ItemLanding, itemVerifying, ItemDone, ItemStuck, ItemSkipped, "future-state"} {
 				id := insertStoredItem(t, db, remediationsql.InsertItemParams{ID: ids.New(time.Now()), RemediationID: job, ProjectID: pid, ProjectSlug: "summary", CheckKey: "check", Block: "block", Version: 1, CheckName: "check", State: state}, 0, ids.Nil)
 				itemsByJob[job] = append(itemsByJob[job], id)
 				// Each sparse attempt has a distinct ledger attribution key; the job
@@ -134,7 +134,7 @@ func TestRemediationSummaryReadsAreBoundedAndChecked(t *testing.T) {
 	if got, err := fixes.Remediation(ctx, rows[0].ID); got != nil || err == nil {
 		t.Fatalf("detail failure hidden: %+v %v", got, err)
 	}
-	if got, err := fixes.Remediation(ctx, idstest.N(999999)); got != nil || !errors.Is(err, ErrNoRemediation) || fault.KindOf(err) != fault.NotFound || errors.Is(err, sql.ErrNoRows) {
+	if got, err := fixes.Remediation(ctx, idstest.N(999999)); got != nil || !errors.Is(err, errNoRemediation) || fault.KindOf(err) != fault.NotFound || errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("missing job: %+v %v", got, err)
 	}
 }

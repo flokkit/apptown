@@ -3,12 +3,13 @@ package deployment
 import (
 	"context"
 	"errors"
+	"testing"
+	"time"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/database"
-	"testing"
-	"time"
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/ids"
@@ -52,10 +53,10 @@ func TestReadinessCacheRequiresFreshExactCandidateAndRuntime(t *testing.T) {
 			tc.change(&v, &record, &e)
 			got := overlayReadiness(v, record, e, now)
 			if tc.want {
-				if got.Health != "healthy" || got.HealthArtifact != "admitted" || got.HealthGeneration != 3 || !got.HealthObservedAt.Equal(now) {
+				if got.Health != "healthy" || got.healthArtifact != "admitted" || got.healthGeneration != 3 || !got.healthObservedAt.Equal(now) {
 					t.Fatalf("fresh identity lost: %+v", got)
 				}
-			} else if got.Health != "unknown" || got.HealthArtifact != "" || got.HealthGeneration != 0 || !got.HealthObservedAt.IsZero() {
+			} else if got.Health != "unknown" || got.healthArtifact != "" || got.healthGeneration != 0 || !got.healthObservedAt.IsZero() {
 				t.Fatalf("unqualified sample is healthy evidence: %+v", got)
 			}
 		})
@@ -155,7 +156,7 @@ func TestPortainerReleaseAndMaintenanceKeepReadsEffectFree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Health != "healthy" || got.HealthGeneration != dep.ObservedGeneration || got.HealthArtifact != in.ArtifactHash || got.HealthObservedAt.IsZero() {
+	if got.Health != "healthy" || got.healthGeneration != dep.ObservedGeneration || got.healthArtifact != in.ArtifactHash || got.healthObservedAt.IsZero() {
 		t.Fatalf("exact owner health missing: %+v", got)
 	}
 	before = p.diagnosticCalls.Load()
@@ -248,10 +249,10 @@ func TestNewerProviderInventoryCannotInheritContradictedHealth(t *testing.T) {
 			inventory := service.observed(t.Context(), RuntimeObservation{}, record, deploy.Observation{Generation: 3, Rollout: tc.rollout, Health: tc.health, Running: tc.running}, nil)
 			got := overlayReadiness(inventory, record, sample, at.Add(time.Second))
 			if tc.want {
-				if got.Health != "healthy" || got.HealthArtifact != "admitted" {
+				if got.Health != "healthy" || got.healthArtifact != "admitted" {
 					t.Fatalf("matching current inventory lost health %+v", got)
 				}
-			} else if got.Health == "healthy" || !got.HealthObservedAt.IsZero() || got.HealthArtifact != "" {
+			} else if got.Health == "healthy" || !got.healthObservedAt.IsZero() || got.healthArtifact != "" {
 				t.Fatalf("contradictory newer %s inventory inherited old healthy sample: %+v", tc.name, got)
 			}
 		})

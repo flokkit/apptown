@@ -156,13 +156,13 @@ func TestAnUnreadableBrowserSettingFailsTheAttemptWithoutStrandingIt(t *testing.
 	host := docker.NewHost(docker.Dependencies{Needs: noNeeds{}, Secrets: noSecrets{}, Integrations: unreadableBrowser{}})
 	raw := `{"version":1,"revision":"selected-revision"}`
 	start := Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "browser-failed", Inputs: Inputs{Revision: "selected-revision", ArtifactHash: deploy.ConfigHash(raw), DockerSource: raw}}
-	e := landingDeploymentExecution{label: dep.Label(), target: docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Name: "serving", Workspace: t.TempDir(), Persistent: true, Docker: scope}, contract: c, artifact: start.Inputs.ArtifactHash, boot: host.Boot, url: func(int) string { return "http://app" }}
+	e := landingDeploymentExecution{label: dep.label(), target: docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Name: "serving", Workspace: t.TempDir(), Persistent: true, Docker: scope}, contract: c, artifact: start.Inputs.ArtifactHash, boot: host.Boot, url: func(int) string { return "http://app" }}
 	result, err := (Runner{Store: f.outcomes}).Run(context.Background(), start, e.execute)
 	if err == nil || !strings.Contains(err.Error(), "browser attachment unavailable") {
 		t.Fatalf("expected browser attachment failure, got %v", err)
 	}
 	_, _, retryErr := f.outcomes.Admit(context.Background(), deploymentStartFor(dep, "after-config-repair", "selected"))
-	if result.Outcome == Uncertain || retryErr != nil {
+	if result.Outcome == outcomeUncertain || retryErr != nil {
 		t.Fatalf("configuration failure stranded deployment: outcome=%s error=%v next attempt=%v", result.Outcome, err, retryErr)
 	}
 }

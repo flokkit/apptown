@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dbtest"
+
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -19,7 +21,7 @@ func TestPullTokensAndConsents(t *testing.T) {
 	testAccounts(t, db, "alice", "bob")
 	s := New(db, Config{})
 	first, err := s.RuntimePullToken(context.Background(), idstest.N(7))
-	if err != nil || !strings.HasPrefix(first, PullTokenPrefix) {
+	if err != nil || !strings.HasPrefix(first, pullTokenPrefix) {
 		t.Fatalf("mint: %q %v", first, err)
 	}
 	second, err := s.RuntimePullToken(context.Background(), idstest.N(7))
@@ -31,7 +33,7 @@ func TestPullTokensAndConsents(t *testing.T) {
 			t.Fatalf("project of token: %v %v %d", err, found, pid)
 		}
 	}
-	if _, found, err := s.ProjectOfPullToken(context.Background(), PullTokenPrefix+"unknown"); err != nil || found {
+	if _, found, err := s.ProjectOfPullToken(context.Background(), pullTokenPrefix+"unknown"); err != nil || found {
 		t.Fatalf("an unknown token: %v %v", err, found)
 	}
 	// What is stored is the hash (the table has no token column,
@@ -40,27 +42,27 @@ func TestPullTokensAndConsents(t *testing.T) {
 		t.Fatalf("the stored hash worked as a token: %v %v", found, err)
 	}
 	// A token that cannot be stored is an error, never an empty token.
-	t.Cleanup(db.FailNextStatement("-- name: InsertPullToken"))
+	t.Cleanup(dbtest.NextStatementFailure(db, "-- name: InsertPullToken"))
 	if tok, err := s.RuntimePullToken(context.Background(), idstest.N(7)); err == nil || tok != "" {
 		t.Fatalf("a token not stored was handed out: %q %v", tok, err)
 	}
 	o := s.oauth
-	if err := o.RecordConsent(context.Background(), "h1", "alice", "b1", `{"client_id":"c"}`, time.Minute); err != nil {
+	if err := o.recordConsent(context.Background(), "h1", "alice", "b1", `{"client_id":"c"}`, time.Minute); err != nil {
 		t.Fatal(err)
 	}
-	if ok, err := o.ConsumeConsent(context.Background(), "h1", "bob", "b1", `{"client_id":"c"}`); err != nil || ok {
+	if ok, err := o.consumeConsent(context.Background(), "h1", "bob", "b1", `{"client_id":"c"}`); err != nil || ok {
 		t.Fatalf("another person cannot claim it: %v %v", err, ok)
 	}
-	if ok, _ := o.ConsumeConsent(context.Background(), "h1", "alice", "b2", `{"client_id":"c"}`); ok {
+	if ok, _ := o.consumeConsent(context.Background(), "h1", "alice", "b2", `{"client_id":"c"}`); ok {
 		t.Fatal("another browser cannot claim it")
 	}
-	if ok, _ := o.ConsumeConsent(context.Background(), "h1", "alice", "b1", `{"client_id":"other"}`); ok {
+	if ok, _ := o.consumeConsent(context.Background(), "h1", "alice", "b1", `{"client_id":"other"}`); ok {
 		t.Fatal("a modified request cannot claim it")
 	}
-	if ok, err := o.ConsumeConsent(context.Background(), "h1", "alice", "b1", `{"client_id":"c"}`); err != nil || !ok {
+	if ok, err := o.consumeConsent(context.Background(), "h1", "alice", "b1", `{"client_id":"c"}`); err != nil || !ok {
 		t.Fatalf("the person, browser and request claim it: %v %v", err, ok)
 	}
-	if ok, _ := o.ConsumeConsent(context.Background(), "h1", "alice", "b1", `{"client_id":"c"}`); ok {
+	if ok, _ := o.consumeConsent(context.Background(), "h1", "alice", "b1", `{"client_id":"c"}`); ok {
 		t.Fatal("claimed once")
 	}
 	// A request lives its lifetime by AppTown's clock, which also judges
@@ -68,16 +70,16 @@ func TestPullTokensAndConsents(t *testing.T) {
 	// request is refused and a live one claimed.
 	for _, by := range []string{"-1 minute", "1 minute"} {
 		moveDatabaseClock(t, db, by)
-		if err := o.RecordConsent(context.Background(), "expired"+by, "alice", "b1", `{}`, time.Nanosecond); err != nil {
+		if err := o.recordConsent(context.Background(), "expired"+by, "alice", "b1", `{}`, time.Nanosecond); err != nil {
 			t.Fatal(err)
 		}
-		if ok, _ := o.ConsumeConsent(context.Background(), "expired"+by, "alice", "b1", `{}`); ok {
+		if ok, _ := o.consumeConsent(context.Background(), "expired"+by, "alice", "b1", `{}`); ok {
 			t.Fatalf("an expired request was claimed, with the database's clock moved %s", by)
 		}
-		if err := o.RecordConsent(context.Background(), "live"+by, "alice", "b1", `{}`, 30*time.Second); err != nil {
+		if err := o.recordConsent(context.Background(), "live"+by, "alice", "b1", `{}`, 30*time.Second); err != nil {
 			t.Fatal(err)
 		}
-		if ok, err := o.ConsumeConsent(context.Background(), "live"+by, "alice", "b1", `{}`); err != nil || !ok {
+		if ok, err := o.consumeConsent(context.Background(), "live"+by, "alice", "b1", `{}`); err != nil || !ok {
 			t.Fatalf("a live request was refused, with the database's clock moved %s: %v", by, err)
 		}
 	}

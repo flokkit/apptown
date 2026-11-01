@@ -20,14 +20,14 @@ func narrativeFixture(t *testing.T) (narratives, NarrativeSource) {
 	db, ch := changeEditFixture(t, ChangeDraft{Title: "automatic", Body: "brief", TitleFromChat: true})
 	nameChangeForTest(t, db, ch, "automatic")
 	owner := newNarratives(db, narrativeNotesFunc(func(context.Context, *database.Tx, ids.ID, ids.ID, string) error { return nil }))
-	source, err := owner.Source(context.Background(), ch.ID)
+	source, err := owner.source(context.Background(), ch.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := owner.Publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Note: "previous"}}); err != nil {
+	if err := owner.publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Note: "previous"}}); err != nil {
 		t.Fatal(err)
 	}
-	source, err = owner.Source(context.Background(), ch.ID)
+	source, err = owner.source(context.Background(), ch.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func narrativeFixture(t *testing.T) (narratives, NarrativeSource) {
 
 func assertNarrative(t *testing.T, owner narratives, id ids.ID, title, note string) {
 	t.Helper()
-	got, err := owner.Source(context.Background(), id)
+	got, err := owner.source(context.Background(), id)
 	if err != nil || got.Change.Title != title || got.Change.Summary != note {
 		t.Fatalf("narrative: %+v %v, want %q / %q", got.Change, err, title, note)
 	}
@@ -69,7 +69,7 @@ func TestNarrativePublicationRequiresEveryWriteAndReceipt(t *testing.T) {
 				completionExec(t, s.db, `CREATE FUNCTION veto_narrative() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN `+body+` END $$`)
 				completionExec(t, s.db, trigger+" FOR EACH ROW EXECUTE FUNCTION veto_narrative()")
 			}
-			if err := s.Publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Title: "New title", Note: "New note"}, Slot: "fast", Model: "openrouter/test"}); err == nil {
+			if err := s.publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Title: "New title", Note: "New note"}, Slot: "fast", Model: "openrouter/test"}); err == nil {
 				t.Fatal("partial narrative published")
 			}
 			assertNarrative(t, s, source.Change.ID, "automatic", "previous")
@@ -82,7 +82,7 @@ func TestNarrativePublicationsDoNotOverwriteAnotherCompletedObservation(t *testi
 	t.Parallel()
 	s, source := narrativeFixture(t)
 	results := race(8, func(i int) int {
-		err := s.Publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Title: fmt.Sprintf("title-%d", i), Note: fmt.Sprintf("note-%d", i)}, Slot: "fast", Model: "test"})
+		err := s.publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Title: fmt.Sprintf("title-%d", i), Note: fmt.Sprintf("note-%d", i)}, Slot: "fast", Model: "test"})
 		if errors.Is(err, ErrNarrativeChanged) {
 			return 0
 		}
@@ -95,7 +95,7 @@ func TestNarrativePublicationsDoNotOverwriteAnotherCompletedObservation(t *testi
 	if count(results, 1) != 1 {
 		t.Fatalf("multiple observations overwrote: %v", results)
 	}
-	fresh, err := s.Source(context.Background(), source.Change.ID)
+	fresh, err := s.source(context.Background(), source.Change.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestNarrativeSourceReadFailuresReturnNoPartialResult(t *testing.T) {
 			case "missing":
 				source.Change.ID = idstest.N(999999)
 			}
-			got, err := s.Source(context.Background(), source.Change.ID)
+			got, err := s.source(context.Background(), source.Change.ID)
 			if err == nil || got.Change != nil || len(got.Runs) != 0 || len(got.Artifacts) != 0 {
 				t.Fatalf("partial %s: %+v %v", failure, got, err)
 			}
@@ -150,12 +150,12 @@ func TestNarrativeTitleObservesCurrentOwnership(t *testing.T) {
 				}
 				want = title
 			case "different automatic title":
-				if err := s.Publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Title: "different", Note: "previous"}}); err != nil {
+				if err := s.publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Title: "different", Note: "previous"}}); err != nil {
 					t.Fatal(err)
 				}
 				want = "different"
 			}
-			if err := s.Publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Title: "generated", Note: "note"}, Slot: "fast", Model: "test"}); err != nil {
+			if err := s.publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Title: "generated", Note: "note"}, Slot: "fast", Model: "test"}); err != nil {
 				t.Fatal(err)
 			}
 			assertNarrative(t, s, source.Change.ID, want, "note")
@@ -171,7 +171,7 @@ func TestNarrativePublicationPreservesConcurrentHumanTitle(t *testing.T) {
 	// publication never overwrites it (it does not advance the edit revision).
 	codes := race(8, func(i int) int {
 		if i == 0 {
-			if err := owner.Publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Title: "Model title", Note: "Generated note"}, Slot: "fast", Model: "openrouter/test"}); err != nil {
+			if err := owner.publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Title: "Model title", Note: "Generated note"}, Slot: "fast", Model: "openrouter/test"}); err != nil {
 				t.Error(err)
 			}
 			return 0
@@ -189,7 +189,7 @@ func TestNarrativePublicationPreservesConcurrentHumanTitle(t *testing.T) {
 	if count(codes, 1) != 1 {
 		t.Fatalf("want one human title saved: %v", codes)
 	}
-	fresh, err := owner.Source(context.Background(), source.Change.ID)
+	fresh, err := owner.source(context.Background(), source.Change.ID)
 	if err != nil || !strings.HasPrefix(fresh.Change.Title, "human-") || fresh.Change.Summary != "Generated note" {
 		t.Fatalf("human edit lost: %+v %v", fresh, err)
 	}

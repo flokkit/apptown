@@ -8,9 +8,9 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// MergeEffects supplies external Git/provider work and observes its finished result.
+// mergeEffects supplies external Git/provider work and observes its finished result.
 // Neither method runs with a Work SQL connection held.
-type MergeEffects interface {
+type mergeEffects interface {
 	Driver() scm.Driver
 	Observed(context.Context, scm.Result)
 }
@@ -20,12 +20,12 @@ type Merges struct {
 	dataDir string
 	rules   LawRules
 	service *scm.Service
-	effects MergeEffects
-	evals   EvalGate
+	effects mergeEffects
+	evals   evalGate
 	clocked
 }
 
-func NewMerges(db *database.DB, dataDir string, rules LawRules, service *scm.Service, effects MergeEffects) *Merges {
+func NewMerges(db *database.DB, dataDir string, rules LawRules, service *scm.Service, effects mergeEffects) *Merges {
 	return &Merges{db: db, dataDir: dataDir, rules: rules, service: service, effects: effects}
 }
 
@@ -34,7 +34,7 @@ var _ advanceChecks = (*Merges)(nil)
 func (m *Merges) RefreshLaw(ctx context.Context, run *Run) error {
 	laws := newLaws(m.db, m.rules)
 	laws.records.clocked = m.clocked
-	return laws.Refresh(ctx, run)
+	return laws.refresh(ctx, run)
 }
 
 // Execute submits an already-admitted advancement/assertion observation. Its input
@@ -83,11 +83,11 @@ func (m *Merges) Merge(ctx context.Context, run *Run) (MergeResult, error) {
 
 // Work mints a claim from its exact admitted call. SCM checks it again after
 // acquiring repository serialization and immediately before a new effect.
-func (m *Merges) execute(ctx context.Context, call MergeCall) (MergeObservation, *AdmittedMerge, error) {
+func (m *Merges) execute(ctx context.Context, call MergeCall) (MergeObservation, *admittedMerge, error) {
 	if m.effects == nil || m.service == nil {
 		return MergeObservation{}, nil, fmt.Errorf("merge runtime is unavailable")
 	}
-	admission := NewMergeAdmission(m.db, m.rules).WithEvalGate(m.evals)
+	admission := NewMergeAdmission(m.db, m.rules).withEvalGate(m.evals)
 	admission.clocked = m.clocked
 	permission, err := admission.Prepare(ctx, call)
 	if err != nil {
@@ -118,8 +118,8 @@ func (m *Merges) execute(ctx context.Context, call MergeCall) (MergeObservation,
 
 // ObserveMerge keeps assertion-to-merge admission inside Work. The assertion
 // already detached its source and step bytes before releasing the transaction.
-func (m *Merges) ObserveMerge(ctx context.Context, in MergeAssertion) (MergeObservation, error) {
-	return m.Execute(ctx, MergeCall{Purpose: MergeForAssertion, Run: in.Run, Step: in.Step, Source: in.Source})
+func (m *Merges) ObserveMerge(ctx context.Context, in mergeAssertion) (MergeObservation, error) {
+	return m.Execute(ctx, MergeCall{Purpose: mergeForAssertion, Run: in.Run, Step: in.Step, Source: in.Source})
 }
 
 // ExecuteMerge runs one admitted merge call through the SCM driver and

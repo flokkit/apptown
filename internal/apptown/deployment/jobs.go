@@ -68,8 +68,8 @@ func (w JobWorker) Rebuild(ctx context.Context, key string, args map[string]any)
 	if err := json.Unmarshal(raw, &selected); err != nil {
 		return nil, jobs.Permanent(err)
 	}
-	plan, err := w.Service.PrepareRebuild(ctx, dep, selected.Deployment, selected.Generation)
-	if errors.Is(err, ErrRebuildUnselected) || errors.Is(err, ErrReleaseRefused) {
+	plan, err := w.Service.prepareRebuild(ctx, dep, selected.Deployment, selected.Generation)
+	if errors.Is(err, errRebuildUnselected) || errors.Is(err, ErrReleaseRefused) {
 		w.Service.settleFill(ctx, dep, "not rebuilt: "+err.Error())
 		return nil, jobs.Permanent(err)
 	}
@@ -77,11 +77,11 @@ func (w JobWorker) Rebuild(ctx context.Context, key string, args map[string]any)
 		w.settleUnlessStopping(ctx, dep, err)
 		return nil, err
 	}
-	if plan.Skipped != "" {
-		w.Service.settleFill(ctx, dep, "not rebuilt: "+plan.Skipped)
-		out := map[string]any{"skipped": plan.Skipped}
-		if !plan.Attempt.IsZero() {
-			out["attempt"], out["outcome"] = plan.Attempt, plan.Outcome
+	if plan.skipped != "" {
+		w.Service.settleFill(ctx, dep, "not rebuilt: "+plan.skipped)
+		out := map[string]any{"skipped": plan.skipped}
+		if !plan.attempt.IsZero() {
+			out["attempt"], out["outcome"] = plan.attempt, plan.outcome
 		}
 		return out, nil
 	}
@@ -91,7 +91,7 @@ func (w JobWorker) Rebuild(ctx context.Context, key string, args map[string]any)
 	if err != nil {
 		return nil, err
 	}
-	art, cleanup, err := docker.RestoreSource(ctx, repo, slug, plan.Inputs.DockerSource)
+	art, cleanup, err := docker.RestoreSource(ctx, repo, slug, plan.inputs.DockerSource)
 	if err != nil {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
@@ -104,7 +104,7 @@ func (w JobWorker) Rebuild(ctx context.Context, key string, args map[string]any)
 	if result.ProviderErr != nil && w.Reporter != nil {
 		w.Reporter.Report("deployment-rebuild", "deployments/"+slug+"/"+name, result.ProviderErr.Error(), map[string]string{"project": slug, "deployment": name}, "")
 	}
-	if errors.Is(err, ErrRebuildUnselected) || errors.Is(err, ErrReleaseRefused) {
+	if errors.Is(err, errRebuildUnselected) || errors.Is(err, ErrReleaseRefused) {
 		w.Service.settleFill(ctx, dep, "not rebuilt: "+err.Error())
 		return nil, jobs.Permanent(err)
 	}
@@ -155,12 +155,12 @@ func (w JobWorker) Recover(ctx context.Context, key string, _ map[string]any) (m
 	if err != nil || id.IsZero() {
 		return nil, jobs.Permanent(fmt.Errorf("invalid deployment recovery identity %q", key))
 	}
-	result, err := w.Service.Recover(ctx, id)
+	result, err := w.Service.recover(ctx, id)
 	return map[string]any{"attempt": result.Attempt, "outcome": result.Outcome, "reason": result.Reason}, err
 }
 
 // CheckAfterRestore is the minute's check of deployments held after a
 // restore (restore_check.go): nothing to do once none is.
 func (w JobWorker) CheckAfterRestore(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
-	return map[string]any{}, w.Service.CheckAfterRestore(ctx)
+	return map[string]any{}, w.Service.checkRestoredDeployments(ctx)
 }

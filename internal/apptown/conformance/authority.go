@@ -26,9 +26,9 @@ type AdoptionScope interface {
 	Current(context.Context) (bool, error)
 }
 
-// VerificationScope belongs to the remediation owner. Review requires the exact
+// verificationScope belongs to the remediation owner. Review requires the exact
 // current observation; reading already-admitted work requires its project binding.
-type VerificationScope interface {
+type verificationScope interface {
 	ProjectID() ids.ID
 	Current(context.Context) (bool, error)
 	RequireRead(context.Context) error
@@ -36,14 +36,14 @@ type VerificationScope interface {
 type scopeKey struct{}
 type systemScope struct {
 	run          RunScope
-	verification VerificationScope
+	verification verificationScope
 	adoption     AdoptionScope
 }
 
 func WithRun(ctx context.Context, run RunScope) context.Context {
 	return context.WithValue(ctx, scopeKey{}, systemScope{run: run})
 }
-func WithVerification(ctx context.Context, scope VerificationScope) context.Context {
+func WithVerification(ctx context.Context, scope verificationScope) context.Context {
 	return context.WithValue(ctx, scopeKey{}, systemScope{verification: scope})
 }
 
@@ -77,7 +77,7 @@ func (a commandAuthority) Actor(ctx context.Context) (string, error) {
 	}
 	return c.Principal.Name, nil
 }
-func (a commandAuthority) Require(ctx context.Context, permission Permission) (string, error) {
+func (a commandAuthority) Require(ctx context.Context, permission permission) (string, error) {
 	who, err := a.Actor(ctx)
 	if err != nil {
 		return "", err
@@ -88,7 +88,7 @@ func (a commandAuthority) Require(ctx context.Context, permission Permission) (s
 	}
 	if caller.adoption != nil {
 		recorded := caller.adoption
-		if permission.Action != RunReview || len(permission.Projects) != 1 || recorded.ProjectID().IsZero() || permission.Projects[0] != recorded.ProjectID() {
+		if permission.Action != runReview || len(permission.Projects) != 1 || recorded.ProjectID().IsZero() || permission.Projects[0] != recorded.ProjectID() {
 			return deny("an adoption change may request only its own project's review")
 		}
 		current, err := recorded.Current(ctx)
@@ -102,7 +102,7 @@ func (a commandAuthority) Require(ctx context.Context, permission Permission) (s
 	}
 	if caller.verification != nil {
 		item := caller.verification
-		if permission.Action == RunReview {
+		if permission.Action == runReview {
 			if len(permission.Projects) != 1 || permission.Projects[0] != item.ProjectID() {
 				return deny("a remediation may review only its project")
 			}
@@ -115,7 +115,7 @@ func (a commandAuthority) Require(ctx context.Context, permission Permission) (s
 			}
 			return who, nil
 		}
-		if permission.Action != ReadProject || permission.ProjectID != item.ProjectID() {
+		if permission.Action != readProject || permission.ProjectID != item.ProjectID() {
 			return deny("a remediation may read only its project")
 		}
 		if err := item.RequireRead(ctx); err != nil {
@@ -124,7 +124,7 @@ func (a commandAuthority) Require(ctx context.Context, permission Permission) (s
 		return who, nil
 	}
 	if caller.run != nil {
-		if permission.Action != ReadProject {
+		if permission.Action != readProject {
 			return deny("a run may read only its project's conformance")
 		}
 		projectID, err := caller.run.ProjectID(ctx)
@@ -140,15 +140,15 @@ func (a commandAuthority) Require(ctx context.Context, permission Permission) (s
 	pr := asked.Principal
 	var capability access.Capability
 	switch permission.Action {
-	case ReadFleet, ReadProject:
+	case readFleet, readProject:
 		capability = access.CapConformanceRead
-	case RunReview, RunWhatIf:
+	case runReview, runWhatIf:
 		capability = access.CapConformanceRev
-	case ConfirmFlag:
+	case confirmFlag:
 		capability = access.CapConformanceAI
-	case CreateException:
+	case createException:
 		capability = access.CapExceptionApprove
-	case RevokeException:
+	case revokeException:
 		capability = access.CapExceptionRevoke
 	default:
 		return deny("unknown conformance operation")

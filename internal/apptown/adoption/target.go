@@ -48,7 +48,7 @@ func recordTargetIn(ctx context.Context, tx *database.Tx, in Target, at time.Tim
 	if err != nil {
 		return ScopedTarget{}, err
 	}
-	record, err := adoptionsql.New(tx.SQL()).InsertAdoption(ctx, adoptionsql.InsertAdoptionParams{ID: ids.New(at), ProjectID: in.ProjectID, ChangeID: in.ChangeID, Kind: AdoptionTarget.String(), Reason: fmt.Sprintf("the target of change %s", in.ChangeID), Digest: digest, Actor: in.Actor, ActorPrincipal: author.Principal, ActorVia: author.Via, At: at.UTC(), Receipt: receipt})
+	record, err := adoptionsql.New(tx.SQL()).InsertAdoption(ctx, adoptionsql.InsertAdoptionParams{ID: ids.New(at), ProjectID: in.ProjectID, ChangeID: in.ChangeID, Kind: adoptionTarget.String(), Reason: fmt.Sprintf("the target of change %s", in.ChangeID), Digest: digest, Actor: in.Actor, ActorPrincipal: author.Principal, ActorVia: author.Via, At: at.UTC(), Receipt: receipt})
 	if err != nil {
 		return ScopedTarget{}, err
 	}
@@ -65,7 +65,7 @@ func (s *Service) CheckTarget(ctx context.Context, projectID ids.ID, changeID id
 	return recorded.checkTarget(projectID, changeID, expectedRevision, c)
 }
 func (r RecordedRevision) checkTarget(projectID ids.ID, changeID ids.ID, expectedRevision int64, c Candidate) error {
-	if projectID.IsZero() || changeID.IsZero() || r.ProjectID != projectID || r.ChangeID != changeID || r.Kind != AdoptionTarget || c.ExpectedRevision != expectedRevision {
+	if projectID.IsZero() || changeID.IsZero() || r.ProjectID != projectID || r.ChangeID != changeID || r.Kind != adoptionTarget || c.ExpectedRevision != expectedRevision {
 		return fmt.Errorf("candidate is not the recorded target of this Change")
 	}
 	if c.Digest == "" || c.Digest != Digest(c.Receipt) || r.Digest != Digest(r.Receipt) || r.Digest != c.Digest {

@@ -193,11 +193,6 @@ func (s *Releases) LatestReleasedNumber(ctx context.Context, projectID ids.ID, d
 	return deploymentsql.New(s.db.SQL()).LatestReleasedNumber(ctx, deploymentsql.LatestReleasedNumberParams{ProjectID: projectID, Deployment: deployment, State: Released.String()})
 }
 
-// LatestReleasedOn is every project's live release on a deployment.
-func (s *Releases) LatestReleasedOn(ctx context.Context, deployment string) ([]*Release, error) {
-	return releaseRecords(deploymentsql.New(s.db.SQL()).LatestReleasedOn(ctx, deploymentsql.LatestReleasedOnParams{Deployment: deployment, State: Released.String()}))
-}
-
 // ForChange is the releases that carried a change, newest first.
 func (s *Releases) ForChange(ctx context.Context, projectID, changeID ids.ID) ([]*Release, error) {
 	return releaseRecords(deploymentsql.New(s.db.SQL()).ReleasesForChange(ctx, deploymentsql.ReleasesForChangeParams{ChangeID: changeID, ProjectID: projectID}))

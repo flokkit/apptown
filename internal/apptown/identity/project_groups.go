@@ -24,10 +24,10 @@ func (s *Service) OwningGroupFor(ctx context.Context, pr access.Principal, asked
 		return asked, nil
 	}
 	if pr.Kind != "user" {
-		return s.SovereignGroup(ctx)
+		return s.sovereignGroup(ctx)
 	}
 	user := pr.Name
-	def, err := s.DefaultGroup(ctx, user)
+	def, err := s.defaultGroup(ctx, user)
 	if err != nil {
 		return "", err
 	}

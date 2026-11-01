@@ -367,7 +367,7 @@ func newEvalWorld(t *testing.T, changes int) *evalWorld {
 
 // buildEvalWorld is newEvalWorld, with spend read from ledger when it is
 // not nil instead of the fake.
-func buildEvalWorld(t *testing.T, changes int, ledger func(*database.DB) Spend) *evalWorld {
+func buildEvalWorld(t *testing.T, changes int, ledger func(*database.DB) spend) *evalWorld {
 	t.Helper()
 	db := testDB(t)
 	accounts := identity.New(db, identity.Config{Projects: project.NewCatalogue(db)})
@@ -440,7 +440,7 @@ func (j *fakeAdoptionJobs) AdoptionEnded(_ context.Context, run ids.ID) (bool, s
 	return ok, why, nil
 }
 
-func spendOf(w *evalWorld, ledger func(*database.DB) Spend) Spend {
+func spendOf(w *evalWorld, ledger func(*database.DB) spend) spend {
 	if ledger != nil {
 		return ledger(w.db)
 	}
@@ -453,7 +453,7 @@ func as(name string) context.Context {
 
 func (w *evalWorld) start(t *testing.T, who string) *Eval {
 	t.Helper()
-	e, err := w.service.Start(as(who), Start{Changes: w.sources, Profile: "frontier", BudgetMicros: 5_000_000, Shown: Meaning})
+	e, err := w.service.Start(as(who), Start{Changes: w.sources, Profile: "frontier", BudgetMicros: 5_000_000, Shown: meaning})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -490,20 +490,20 @@ func TestStartingAnEvalIsAStandardsManagersShownAct(t *testing.T) {
 		t.Fatal(err)
 	}
 	var denied *access.Denied
-	if _, err := w.service.Start(as("bob"), Start{Changes: w.sources, Profile: "frontier", BudgetMicros: 1, Shown: Meaning}); !errors.As(err, &denied) {
+	if _, err := w.service.Start(as("bob"), Start{Changes: w.sources, Profile: "frontier", BudgetMicros: 1, Shown: meaning}); !errors.As(err, &denied) {
 		t.Fatalf("someone who does not manage packs: %v", err)
 	}
-	if _, err := w.service.Start(as("alice"), Start{Changes: w.sources, Profile: "frontier", BudgetMicros: 1, Shown: "ok"}); !errors.Is(err, ErrMeaning) {
+	if _, err := w.service.Start(as("alice"), Start{Changes: w.sources, Profile: "frontier", BudgetMicros: 1, Shown: "ok"}); !errors.Is(err, errMeaning) {
 		t.Fatalf("not shown the meaning: %v", err)
 	}
-	if _, err := w.service.Start(as("alice"), Start{Changes: w.sources, Profile: "unknown", BudgetMicros: 1, Shown: Meaning}); !errors.Is(err, ErrSubject) {
+	if _, err := w.service.Start(as("alice"), Start{Changes: w.sources, Profile: "unknown", BudgetMicros: 1, Shown: meaning}); !errors.Is(err, errSubject) {
 		t.Fatalf("a profile AppTown does not offer: %v", err)
 	}
 	if n := w.passes.Load(); n != 0 {
 		t.Fatalf("refused starts asked for %d passes", n)
 	}
 	e := w.start(t, "alice")
-	if len(e.Arms) != 4 || countArms(e, ArmQueued) != 4 || e.StartedBy != "alice" || e.Subject != "frontier" {
+	if len(e.Arms) != 4 || countArms(e, armQueued) != 4 || e.StartedBy != "alice" || e.Subject != "frontier" {
 		t.Fatalf("started: %+v", e)
 	}
 	// Its arms start at the pass it asks for, not at the next scheduled one.
@@ -512,7 +512,7 @@ func TestStartingAnEvalIsAStandardsManagersShownAct(t *testing.T) {
 	}
 	for _, a := range e.Arms {
 		want := "openrouter/frontier/model"
-		if a.Arm == ArmBaseline {
+		if a.Arm == armBaseline {
 			want = "openrouter/standard/model"
 		}
 		if a.Models["default"] != want {
@@ -526,7 +526,7 @@ func TestStartingAnEvalIsAStandardsManagersShownAct(t *testing.T) {
 		}
 	}
 	receipts, err := audit.Recent(context.Background(), w.db, audit.Filter{KindPrefix: "eval.started", Limit: 10})
-	if err != nil || len(receipts) != 1 || receipts[0].Actor != "alice" || !jsonHas(receipts[0].Payload, Meaning) {
+	if err != nil || len(receipts) != 1 || receipts[0].Actor != "alice" || !jsonHas(receipts[0].Payload, meaning) {
 		t.Fatalf("start receipt: %+v %v", receipts, err)
 	}
 }
@@ -552,16 +552,16 @@ func TestAtMostTwoArmsRunAtOnce(t *testing.T) {
 	w := newEvalWorld(t, 2)
 	e := w.start(t, "alice")
 	for range 2 {
-		if err := w.service.Pass(context.Background()); err != nil {
+		if err := w.service.pass(context.Background()); err != nil {
 			t.Fatal(err)
 		}
 	}
 	got := w.eval(t, e.ID)
-	if countArms(got, ArmWorking) != MaxRunning || countArms(got, ArmQueued) != 2 || len(w.work.started) != MaxRunning {
+	if countArms(got, armWorking) != maxRunning || countArms(got, armQueued) != 2 || len(w.work.started) != maxRunning {
 		t.Fatalf("arms: %+v, started %v", got.Arms, w.work.started)
 	}
 	for _, a := range got.Arms {
-		if a.State != ArmWorking {
+		if a.State != armWorking {
 			continue
 		}
 		copy, ok, err := copyOfIn(context.Background(), w.service.db, a.ProjectID)
@@ -584,12 +584,12 @@ func TestABlockedArmFailsAndFreesItsPlace(t *testing.T) {
 	t.Parallel()
 	w := newEvalWorld(t, 2)
 	e := w.start(t, "alice")
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	var blocked, working Arm
 	for _, a := range w.eval(t, e.ID).Arms {
-		if a.State != ArmWorking {
+		if a.State != armWorking {
 			continue
 		}
 		w.work.runs[a.ChangeID] = []*workflow.Run{{ID: a.RunID, Status: workflow.RunRunning}}
@@ -600,7 +600,7 @@ func TestABlockedArmFailsAndFreesItsPlace(t *testing.T) {
 		}
 	}
 	w.work.activities = map[ids.ID]workflow.Activity{blocked.RunID: {State: workflow.ActivityBlocked, Detail: "review (fail)"}}
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	got := w.eval(t, e.ID)
@@ -608,11 +608,11 @@ func TestABlockedArmFailsAndFreesItsPlace(t *testing.T) {
 		switch a.ID {
 		case blocked.ID:
 			want := "its run was blocked: review (fail). No one can unblock a run in an eval, so AppTown abandoned its change."
-			if a.State != ArmFailed || a.Reason != want || a.FinishedAt == nil {
+			if a.State != armFailed || a.Reason != want || a.FinishedAt == nil {
 				t.Fatalf("the blocked arm: %s %q, want failed %q", a.State, a.Reason, want)
 			}
 		case working.ID:
-			if a.State != ArmWorking {
+			if a.State != armWorking {
 				t.Fatalf("the working arm became %s: %s", a.State, a.Reason)
 			}
 		}
@@ -620,7 +620,7 @@ func TestABlockedArmFailsAndFreesItsPlace(t *testing.T) {
 	if len(w.work.abandoned) != 1 || w.work.abandoned[0] != blocked.ChangeID {
 		t.Fatalf("abandoned %v, want only the blocked arm's change %v", w.work.abandoned, blocked.ChangeID)
 	}
-	if countArms(got, ArmWorking) != MaxRunning || len(w.work.started) != MaxRunning+1 {
+	if countArms(got, armWorking) != maxRunning || len(w.work.started) != maxRunning+1 {
 		t.Fatalf("the freed place was not taken: %+v, started %d", got.Arms, len(w.work.started))
 	}
 }
@@ -632,21 +632,21 @@ func TestUnknownSpendHoldsTheNextArmUntilTheStarterContinues(t *testing.T) {
 	t.Parallel()
 	w := newEvalWorld(t, 3)
 	e := w.start(t, "alice")
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	// The first two arms end, leaving room for the next two.
 	for _, a := range w.eval(t, e.ID).Arms {
-		if a.State == ArmWorking {
+		if a.State == armWorking {
 			w.work.runs[a.ChangeID] = []*workflow.Run{{ID: a.RunID, Status: workflow.RunAbandoned}}
 		}
 	}
 	w.spend.set(usage.Totals{CostMicros: 100, Incomplete: 1})
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	got := w.eval(t, e.ID)
-	if got.State != StateHeld || countArms(got, ArmFailed) != 2 || countArms(got, ArmQueued) != 4 {
+	if got.State != stateHeld || countArms(got, armFailed) != 2 || countArms(got, armQueued) != 4 {
 		t.Fatalf("held, the next arms not started: %+v", got)
 	}
 	asked := w.passes.Load()
@@ -661,17 +661,17 @@ func TestUnknownSpendHoldsTheNextArmUntilTheStarterContinues(t *testing.T) {
 	if n := w.passes.Load() - asked; n != 1 {
 		t.Fatalf("a continue asked for %d passes", n)
 	}
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if got := w.eval(t, e.ID); got.State != StateRunning || countArms(got, ArmWorking) != MaxRunning {
+	if got := w.eval(t, e.ID); got.State != stateRunning || countArms(got, armWorking) != maxRunning {
 		t.Fatalf("continued: %+v", got)
 	}
 	w.spend.set(usage.Totals{CostMicros: 200, Incomplete: 2})
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if got := w.eval(t, e.ID); got.State != StateHeld {
+	if got := w.eval(t, e.ID); got.State != stateHeld {
 		t.Fatalf("a new unknown observation holds it again: %+v", got)
 	}
 }
@@ -682,15 +682,15 @@ func TestASpentBudgetStopsTheEval(t *testing.T) {
 	t.Parallel()
 	w := newEvalWorld(t, 2)
 	e := w.start(t, "alice")
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	w.spend.set(usage.Totals{CostMicros: 5_000_000})
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	got := w.eval(t, e.ID)
-	if got.State != StateFinished || countArms(got, ArmNotRun) != 4 || len(w.work.abandoned) != MaxRunning {
+	if got.State != stateFinished || countArms(got, armNotRun) != 4 || len(w.work.abandoned) != maxRunning {
 		t.Fatalf("budget spent: %+v, abandoned %v", got, w.work.abandoned)
 	}
 }
@@ -701,19 +701,19 @@ func TestACopysModelChoiceIsItsArmsModels(t *testing.T) {
 	t.Parallel()
 	w := newEvalWorld(t, 1)
 	e := w.start(t, "alice")
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
 	for _, a := range w.eval(t, e.ID).Arms {
 		other := "openrouter/standard/model"
-		if a.Arm == ArmBaseline {
+		if a.Arm == armBaseline {
 			other = "openrouter/frontier/model"
 		}
 		if err := w.service.gate.AdmitModel(ctx, a.ProjectID, a.Models["fast"]); err != nil {
 			t.Fatalf("arm %s, its own model: %v", a.Arm, err)
 		}
-		if err := w.service.gate.AdmitModel(ctx, a.ProjectID, other); !errors.Is(err, ErrModelOutsideArm) {
+		if err := w.service.gate.AdmitModel(ctx, a.ProjectID, other); !errors.Is(err, errModelOutsideArm) {
 			t.Fatalf("arm %s, the other arm's model: %v", a.Arm, err)
 		}
 	}
@@ -745,7 +745,7 @@ func TestWhoMayDeleteAnEval(t *testing.T) {
 			t.Parallel()
 			w := newEvalWorld(t, 1)
 			e := w.start(t, "alice")
-			if err := w.service.Pass(context.Background()); err != nil {
+			if err := w.service.pass(context.Background()); err != nil {
 				t.Fatal(err)
 			}
 			if c.revoke {
@@ -776,10 +776,10 @@ func TestWhoMayDeleteAnEval(t *testing.T) {
 				}
 				return
 			}
-			if len(receipts) != 1 || receipts[0].Actor != c.who.Name || len(w.deleter.deleted) != MaxRunning {
+			if len(receipts) != 1 || receipts[0].Actor != c.who.Name || len(w.deleter.deleted) != maxRunning {
 				t.Fatalf("deleted: %+v, copies %v", receipts, w.deleter.deleted)
 			}
-			if _, err := w.service.Get(as("alice"), e.ID); !errors.Is(err, ErrMissing) {
+			if _, err := w.service.get(as("alice"), e.ID); !errors.Is(err, errMissing) {
 				t.Fatalf("a deleted eval is still read: %v", err)
 			}
 		})
@@ -805,7 +805,7 @@ func TestAPackVersionEvalsVariantAdoptsTheCandidateExactly(t *testing.T) {
 	w := newEvalWorld(t, 1)
 	publishCandidate(t, w, 9)
 	start := func(version int64) (*Eval, error) {
-		return w.service.Start(as("alice"), Start{Changes: w.sources, Pack: "candidate", PackVersion: version, BudgetMicros: 5_000_000, Shown: Meaning})
+		return w.service.Start(as("alice"), Start{Changes: w.sources, Pack: "candidate", PackVersion: version, BudgetMicros: 5_000_000, Shown: meaning})
 	}
 	if _, err := start(9); err == nil || !contains(err.Error(), "cannot adopt") {
 		t.Fatalf("a version the project cannot adopt: %v", err)
@@ -813,10 +813,10 @@ func TestAPackVersionEvalsVariantAdoptsTheCandidateExactly(t *testing.T) {
 	if _, err := start(8); err == nil || !contains(err.Error(), "quick-change lane") {
 		t.Fatalf("a version without the Change's lane: %v", err)
 	}
-	if _, err := w.service.Start(as("alice"), Start{Changes: w.sources, Pack: "candidate", PackVersion: 2, Profile: "frontier", BudgetMicros: 1, Shown: Meaning}); !errors.Is(err, ErrSubject) {
+	if _, err := w.service.Start(as("alice"), Start{Changes: w.sources, Pack: "candidate", PackVersion: 2, Profile: "frontier", BudgetMicros: 1, Shown: meaning}); !errors.Is(err, errSubject) {
 		t.Fatalf("two things varying at once: %v", err)
 	}
-	if _, err := start(10); !errors.Is(err, ErrSubject) {
+	if _, err := start(10); !errors.Is(err, errSubject) {
 		t.Fatalf("a version never published: %v", err)
 	}
 	e, err := start(2)
@@ -840,10 +840,10 @@ func TestAPackVersionEvalsVariantAdoptsTheCandidateExactly(t *testing.T) {
 			t.Fatalf("arm %s: the union of both arms' blocks: %+v", a.Arm, plan.Union)
 		}
 	}
-	if plans[ArmBaseline].Adoption.Picks != nil || len(plans[ArmVariant].Adoption.Picks) != 2 || plans[ArmBaseline].Adoption.Digest == plans[ArmVariant].Adoption.Digest {
-		t.Fatalf("the arms' adoptions: %+v %+v", plans[ArmBaseline].Adoption, plans[ArmVariant].Adoption)
+	if plans[armBaseline].Adoption.Picks != nil || len(plans[armVariant].Adoption.Picks) != 2 || plans[armBaseline].Adoption.Digest == plans[armVariant].Adoption.Digest {
+		t.Fatalf("the arms' adoptions: %+v %+v", plans[armBaseline].Adoption, plans[armVariant].Adoption)
 	}
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	for _, a := range w.eval(t, e.ID).Arms {
@@ -880,23 +880,23 @@ func TestAnArmWhoseSetupChangedSinceStartIsNotComparable(t *testing.T) {
 	t.Parallel()
 	w := newEvalWorld(t, 1)
 	publishCandidate(t, w, 2)
-	e, err := w.service.Start(as("alice"), Start{Changes: w.sources, Pack: "candidate", PackVersion: 2, BudgetMicros: 5_000_000, Shown: Meaning})
+	e, err := w.service.Start(as("alice"), Start{Changes: w.sources, Pack: "candidate", PackVersion: 2, BudgetMicros: 5_000_000, Shown: meaning})
 	if err != nil {
 		t.Fatal(err)
 	}
 	w.adoption.mu.Lock()
 	w.adoption.moved = true
 	w.adoption.mu.Unlock()
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	for _, a := range w.eval(t, e.ID).Arms {
 		switch a.Arm {
-		case ArmVariant:
-			if a.State != ArmFailed || !a.Score.NotComparable || a.Reason != "not comparable: the setup changed since the eval started" || !a.ProjectID.IsZero() {
+		case armVariant:
+			if a.State != armFailed || !a.Score.NotComparable || a.Reason != "not comparable: the setup changed since the eval started" || !a.ProjectID.IsZero() {
 				t.Fatalf("the drifted variant: %+v", a)
 			}
-		case ArmBaseline:
+		case armBaseline:
 			if a.ProjectID.IsZero() || a.Score.NotComparable {
 				t.Fatalf("the baseline did not drift: %+v", a)
 			}
@@ -921,7 +921,7 @@ func TestTheJudgesDoorAdmitsOnlyTheRecordedJudge(t *testing.T) {
 	t.Parallel()
 	w := newEvalWorld(t, 1)
 	e := w.start(t, "alice")
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
@@ -930,21 +930,21 @@ func TestTheJudgesDoorAdmitsOnlyTheRecordedJudge(t *testing.T) {
 		if err := w.service.gate.AdmitJudge(ctx, a.ProjectID, judge); err != nil {
 			t.Fatalf("arm %s, the recorded judge: %v", a.Arm, err)
 		}
-		if err := w.service.gate.AdmitJudge(ctx, a.ProjectID, "openrouter/frontier/model"); !errors.Is(err, ErrNotTheJudge) {
+		if err := w.service.gate.AdmitJudge(ctx, a.ProjectID, "openrouter/frontier/model"); !errors.Is(err, errNotTheJudge) {
 			t.Fatalf("arm %s, another model through the judge's door: %v", a.Arm, err)
 		}
-		if a.Arm == ArmVariant {
-			if err := w.service.gate.AdmitModel(ctx, a.ProjectID, judge); !errors.Is(err, ErrModelOutsideArm) {
+		if a.Arm == armVariant {
+			if err := w.service.gate.AdmitModel(ctx, a.ProjectID, judge); !errors.Is(err, errModelOutsideArm) {
 				t.Fatalf("the variant's own door must still refuse the baseline-only judge: %v", err)
 			}
 		}
 	}
 	shop, _ := w.projects.BySlug(ctx, "shop")
-	if err := w.service.gate.AdmitJudge(ctx, shop.ID, judge); !errors.Is(err, ErrNotTheJudge) {
+	if err := w.service.gate.AdmitJudge(ctx, shop.ID, judge); !errors.Is(err, errNotTheJudge) {
 		t.Fatalf("a real project through the judge's door: %v", err)
 	}
 	w.spend.set(usage.Totals{CostMicros: 5_000_000})
-	if err := w.service.Pass(ctx); err != nil {
+	if err := w.service.pass(ctx); err != nil {
 		t.Fatal(err)
 	}
 	for _, a := range w.eval(t, e.ID).Arms {
@@ -977,12 +977,12 @@ func TestTheTallyLeavesOutWhatIsNotComparable(t *testing.T) {
 		return &verification.ArmCompared{Rows: []verification.CheckRow{row}}
 	}
 	arms := []Arm{
-		{ID: idstest.N(1), SourceChangeID: idstest.N(10), Arm: ArmBaseline, State: ArmScored, Score: Score{Landed: true, Compared: compared(2, 0), RequestMet: "partly"}},
-		{ID: idstest.N(2), SourceChangeID: idstest.N(10), Arm: ArmVariant, State: ArmScored, Score: Score{Landed: true, Compared: compared(0, 1), RequestMet: "yes"}},
-		{ID: idstest.N(3), SourceChangeID: idstest.N(11), Arm: ArmBaseline, State: ArmScored, Score: Score{Landed: true}},
-		{ID: idstest.N(4), SourceChangeID: idstest.N(11), Arm: ArmVariant, State: ArmFailed, Score: Score{NotComparable: true}},
-		{ID: idstest.N(5), SourceChangeID: idstest.N(12), Arm: ArmBaseline, State: ArmWorking},
-		{ID: idstest.N(6), SourceChangeID: idstest.N(12), Arm: ArmVariant, State: ArmScored},
+		{ID: idstest.N(1), SourceChangeID: idstest.N(10), Arm: armBaseline, State: armScored, Score: Score{Landed: true, Compared: compared(2, 0), RequestMet: "partly"}},
+		{ID: idstest.N(2), SourceChangeID: idstest.N(10), Arm: armVariant, State: armScored, Score: Score{Landed: true, Compared: compared(0, 1), RequestMet: "yes"}},
+		{ID: idstest.N(3), SourceChangeID: idstest.N(11), Arm: armBaseline, State: armScored, Score: Score{Landed: true}},
+		{ID: idstest.N(4), SourceChangeID: idstest.N(11), Arm: armVariant, State: armFailed, Score: Score{NotComparable: true}},
+		{ID: idstest.N(5), SourceChangeID: idstest.N(12), Arm: armBaseline, State: armWorking},
+		{ID: idstest.N(6), SourceChangeID: idstest.N(12), Arm: armVariant, State: armScored},
 	}
 	tallies, comparable, notComparable := tally(arms, map[ids.ID]ArmCost{idstest.N(1): {CostMicros: 5}, idstest.N(2): {CostMicros: 3, Incomplete: 1}})
 	if comparable != 1 || notComparable != 1 {
@@ -1018,8 +1018,8 @@ func TestTheTallyLeavesOutWhatIsNotComparable(t *testing.T) {
 		"an unassessed baseline only": {unknownRow("on the base: no image"), compared(0, 0)},
 	} {
 		arms := []Arm{
-			{ID: idstest.N(1), SourceChangeID: idstest.N(10), Arm: ArmBaseline, State: ArmScored, Score: Score{Landed: true, Compared: pair[0]}},
-			{ID: idstest.N(2), SourceChangeID: idstest.N(10), Arm: ArmVariant, State: ArmScored, Score: Score{Landed: true, Compared: pair[1]}},
+			{ID: idstest.N(1), SourceChangeID: idstest.N(10), Arm: armBaseline, State: armScored, Score: Score{Landed: true, Compared: pair[0]}},
+			{ID: idstest.N(2), SourceChangeID: idstest.N(10), Arm: armVariant, State: armScored, Score: Score{Landed: true, Compared: pair[1]}},
 		}
 		tallies, _, _ := tally(arms, map[ids.ID]ArmCost{})
 		for _, got := range tallies {
@@ -1067,10 +1067,10 @@ func TestAnArmsDiffIsFoundWithinItsEval(t *testing.T) {
 	if _, err := w.service.ArmDiff(as("alice"), first.ID, first.Arms[0].ID); err == nil || !contains(err.Error(), "never started") {
 		t.Fatalf("an arm with no copy yet: %v", err)
 	}
-	if got, err := w.service.LatestOf(as("bob"), SubjectModel, "frontier"); !errors.As(err, &denied) || got != nil {
+	if got, err := w.service.LatestOf(as("bob"), subjectModel, "frontier"); !errors.As(err, &denied) || got != nil {
 		t.Fatalf("the newest eval, for someone who may not read evals: %+v %v", got, err)
 	}
-	if got, err := w.service.LatestOf(as("alice"), SubjectModel, "frontier"); err != nil || got == nil || got.ID != second.ID {
+	if got, err := w.service.LatestOf(as("alice"), subjectModel, "frontier"); err != nil || got == nil || got.ID != second.ID {
 		t.Fatalf("the newest eval of a subject: %+v %v", got, err)
 	}
 }
@@ -1096,7 +1096,7 @@ func TestAProjectsStepsAndChatsReadNoEval(t *testing.T) {
 		if _, err := w.service.Scorecard(ctx, e.ID); !errors.As(err, &denied) {
 			t.Fatalf("a %s credential read a scorecard: %v", instrument, err)
 		}
-		if _, err := w.service.LatestOf(ctx, SubjectModel, "frontier"); !errors.As(err, &denied) {
+		if _, err := w.service.LatestOf(ctx, subjectModel, "frontier"); !errors.As(err, &denied) {
 			t.Fatalf("a %s credential read the newest eval: %v", instrument, err)
 		}
 	}
@@ -1135,12 +1135,12 @@ func (c *fakeComparer) CompareArm(_ context.Context, in verification.ArmComparis
 // again (and paying for it again).
 func TestAChangesBaseIsReadOnceWhicheverArmLandsFirst(t *testing.T) {
 	t.Parallel()
-	for _, order := range [][]string{{ArmVariant, ArmBaseline}, {ArmBaseline, ArmVariant}, {"both"}} {
+	for _, order := range [][]string{{armVariant, armBaseline}, {armBaseline, armVariant}, {"both"}} {
 		w := newEvalWorld(t, 1)
 		cmp := &fakeComparer{given: map[ids.ID]bool{}}
 		w.service.deps.Comparer = cmp
 		e := w.start(t, "alice")
-		if err := w.service.Pass(context.Background()); err != nil {
+		if err := w.service.pass(context.Background()); err != nil {
 			t.Fatal(err)
 		}
 		land := func(arm string) {
@@ -1155,13 +1155,13 @@ func TestAChangesBaseIsReadOnceWhicheverArmLandsFirst(t *testing.T) {
 		}
 		for _, arm := range order {
 			land(arm)
-			if err := w.service.Pass(context.Background()); err != nil {
+			if err := w.service.pass(context.Background()); err != nil {
 				t.Fatal(err)
 			}
 		}
 		got := w.eval(t, e.ID)
-		if countArms(got, ArmScored) != 2 || cmp.baseReads != 1 || len(cmp.given) != 2 {
-			t.Fatalf("%v: %d scored, base read %d times, compared %v", order, countArms(got, ArmScored), cmp.baseReads, cmp.given)
+		if countArms(got, armScored) != 2 || cmp.baseReads != 1 || len(cmp.given) != 2 {
+			t.Fatalf("%v: %d scored, base read %d times, compared %v", order, countArms(got, armScored), cmp.baseReads, cmp.given)
 		}
 		second := 0
 		for _, given := range cmp.given {
@@ -1215,7 +1215,7 @@ func TestAnEvalsArmsAreLiveWorkInTheirSourceProject(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.service.Start(as("alice"), Start{Changes: w.sources, Profile: "frontier", BudgetMicros: 5_000_000, Shown: Meaning}); !errors.Is(err, project.ErrNotActive) {
+	if _, err := w.service.Start(as("alice"), Start{Changes: w.sources, Profile: "frontier", BudgetMicros: 5_000_000, Shown: meaning}); !errors.Is(err, project.ErrNotActive) {
 		t.Fatalf("an eval from a project being deleted: %v", err)
 	}
 }
@@ -1278,11 +1278,11 @@ func TestAnAdoptionChangeIsReRunAsOne(t *testing.T) {
 	w := newEvalWorld(t, 1)
 	w.makeAdoptionChange(t, w.sources[0])
 	e := w.start(t, "alice")
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	got := w.eval(t, e.ID)
-	if countArms(got, ArmWorking) != 2 {
+	if countArms(got, armWorking) != 2 {
 		t.Fatalf("arms: %+v", got.Arms)
 	}
 	if !slices.Equal(w.revisions, []int64{3, 3}) {
@@ -1312,18 +1312,18 @@ func TestAnAdoptionArmIsScoredOnceItsCopyMoved(t *testing.T) {
 	w := newEvalWorld(t, 1)
 	w.makeAdoptionChange(t, w.sources[0])
 	e := w.start(t, "alice")
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	arms := w.eval(t, e.ID).Arms
 	moved, refused := arms[0], arms[1]
 	w.shipAdoption(t, moved, idstest.N(5001), 0)
 	w.shipAdoption(t, refused, idstest.N(5002), 0)
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	for _, a := range w.eval(t, e.ID).Arms {
-		if a.State != ArmLanding || a.Reason != waitingForAdoption || a.Score.Landed || a.Score.Compared != nil || a.Score.CompareError != "" {
+		if a.State != armLanding || a.Reason != waitingForAdoption || a.Score.Landed || a.Score.Compared != nil || a.Score.CompareError != "" {
 			t.Fatalf("arm %s before its copy moved: %s %q %+v", a.Arm, a.State, a.Reason, a.Score)
 		}
 	}
@@ -1335,24 +1335,24 @@ func TestAnAdoptionArmIsScoredOnceItsCopyMoved(t *testing.T) {
 	w.jobs.mu.Lock()
 	w.jobs.ended[idstest.N(5002)] = "the source's way of working changed since the copy was prepared"
 	w.jobs.mu.Unlock()
-	if err := w.service.Pass(context.Background()); err != nil {
+	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	got := w.eval(t, e.ID)
 	for _, a := range got.Arms {
 		switch a.ID {
 		case moved.ID:
-			if a.State != ArmScored || a.Score.NotComparable || !a.Score.Landed || a.Reason != "" {
+			if a.State != armScored || a.Score.NotComparable || !a.Score.Landed || a.Reason != "" {
 				t.Fatalf("the moved arm: %s %q %+v", a.State, a.Reason, a.Score)
 			}
 		case refused.ID:
 			want := "it landed, but AppTown could not move the copy to its new way of working: the source's way of working changed since the copy was prepared"
-			if a.State != ArmFailed || a.Reason != want {
+			if a.State != armFailed || a.Reason != want {
 				t.Fatalf("the arm AppTown could not move: %s %q, want failed %q", a.State, a.Reason, want)
 			}
 		}
 	}
-	if got.State != StateFinished {
+	if got.State != stateFinished {
 		t.Fatalf("the eval is %s with every arm ended", got.State)
 	}
 }

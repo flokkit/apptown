@@ -156,7 +156,7 @@ func TestSnapshotMarkerDoesNotFollowSourceSymlinks(t *testing.T) {
 			t.Parallel()
 			repo, original := sourceRepo(t)
 			destination := filepath.Join(t.TempDir(), "snapshot")
-			if _, err := (SelectedSource{Repository: repo, Revision: original}).Snapshot(context.Background(), destination); err != nil {
+			if _, err := (SelectedSource{Repository: repo, Revision: original}).snapshot(context.Background(), destination); err != nil {
 				t.Fatal(err)
 			}
 			outside := t.TempDir()
@@ -173,7 +173,7 @@ func TestSnapshotMarkerDoesNotFollowSourceSymlinks(t *testing.T) {
 				t.Fatal(err)
 			}
 			revision := sourceCommit(t, repo)
-			tree, err := (SelectedSource{Repository: repo, Revision: revision}).Snapshot(context.Background(), destination)
+			tree, err := (SelectedSource{Repository: repo, Revision: revision}).snapshot(context.Background(), destination)
 			if kind == "directory" {
 				if err == nil {
 					t.Fatal("source-supplied .apptown symlink accepted")
@@ -205,7 +205,7 @@ func TestCancelledSourcePreparationDoesNotPublish(t *testing.T) {
 	if !errors.Is(err, context.Canceled) || tree != (SourceTree{}) {
 		t.Fatalf("cancelled stage: %+v %v", tree, err)
 	}
-	tree, err = source.Snapshot(ctx, destination)
+	tree, err = source.snapshot(ctx, destination)
 	if !errors.Is(err, context.Canceled) || tree != (SourceTree{}) {
 		t.Fatalf("cancelled snapshot: %+v %v", tree, err)
 	}
@@ -243,7 +243,7 @@ func TestSnapshotCacheRejectsSymlinkMarkersAndDirectories(t *testing.T) {
 			if err := os.Symlink(target, link); err != nil {
 				t.Fatal(err)
 			}
-			tree, err := (SelectedSource{Repository: repo, Revision: revision}).Snapshot(context.Background(), destination)
+			tree, err := (SelectedSource{Repository: repo, Revision: revision}).snapshot(context.Background(), destination)
 			if err != nil {
 				t.Fatal(err)
 			}

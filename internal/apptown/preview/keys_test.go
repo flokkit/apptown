@@ -122,11 +122,11 @@ func TestAPreviewsKeyLivesWhileItBootsOrStands(t *testing.T) {
 
 	// Booting (held): kept. Neither booting nor standing: revoked.
 	unlock := s.holdPreview(name)
-	if err := s.ReleaseEndedPreviewKeys(ctx); err != nil || len(f.Keys()) != 1 {
+	if err := s.releaseEndedPreviewKeys(ctx); err != nil || len(f.Keys()) != 1 {
 		t.Fatalf("a booting preview keeps its key: %v", err)
 	}
 	unlock()
-	if err := s.ReleaseEndedPreviewKeys(ctx); err != nil || len(f.Keys()) != 0 {
+	if err := s.releaseEndedPreviewKeys(ctx); err != nil || len(f.Keys()) != 0 {
 		t.Fatalf("an ended preview's key is revoked: %v, %d keys", err, len(f.Keys()))
 	}
 	if held, err := s.previewKeys(projectID, name).Keys.Held(ctx); err != nil || len(held) != 0 {
@@ -141,7 +141,7 @@ func TestAPreviewsKeyLivesWhileItBootsOrStands(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.FailNext("DELETE", 503)
-	if err := s.ReleaseEndedPreviewKeys(ctx); err != nil {
+	if err := s.releaseEndedPreviewKeys(ctx); err != nil {
 		t.Fatal(err)
 	}
 	rows, err := s.retained.ForProject(ctx, projectID)
@@ -190,13 +190,13 @@ func TestAChangePreviewBootsWithItsOwnKey(t *testing.T) {
 	if !strings.Contains(runCalls(client), "LLM_API_KEY="+key.Value) || *key.Limit != 1 {
 		t.Fatalf("the preview is given its key:\n%s", runCalls(client))
 	}
-	if err := s.ReleaseEndedPreviewKeys(context.Background()); err != nil || len(f.Keys()) != 1 {
+	if err := s.releaseEndedPreviewKeys(context.Background()); err != nil || len(f.Keys()) != 1 {
 		t.Fatalf("a running preview keeps its key: %v", err)
 	}
 	if err := s.DiscardChangePreview(context.Background(), idstest.N(7)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ReleaseEndedPreviewKeys(context.Background()); err != nil || len(f.Keys()) != 0 {
+	if err := s.releaseEndedPreviewKeys(context.Background()); err != nil || len(f.Keys()) != 0 {
 		t.Fatalf("a discarded preview's key is revoked: %v, %d", err, len(f.Keys()))
 	}
 }
@@ -211,7 +211,7 @@ func TestAReapedPreviewsKeyIsRevoked(t *testing.T) {
 	if _, err := s.RehearseChange(context.Background(), Change{ID: idstest.N(7), ProjectID: pid}, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ReleaseEndedPreviewKeys(context.Background()); err != nil || len(f.Keys()) != 1 {
+	if err := s.releaseEndedPreviewKeys(context.Background()); err != nil || len(f.Keys()) != 1 {
 		t.Fatalf("a standing preview keeps its key: %v", err)
 	}
 	// What the reaper does (maintenance/containers.go): remove the
@@ -221,7 +221,7 @@ func TestAReapedPreviewsKeyIsRevoked(t *testing.T) {
 	if err := s.deployments.ForgetPreviewContainer(t.Context(), name); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ReleaseEndedPreviewKeys(context.Background()); err != nil || len(f.Keys()) != 0 {
+	if err := s.releaseEndedPreviewKeys(context.Background()); err != nil || len(f.Keys()) != 0 {
 		t.Fatalf("a reaped preview still has %d keys: %v", len(f.Keys()), err)
 	}
 }
@@ -236,7 +236,7 @@ func TestAWorkerPreviewRemovedWithItsProjectLosesItsKey(t *testing.T) {
 	if _, err := s.RehearseChange(context.Background(), Change{ID: idstest.N(7), ProjectID: pid}, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ReleaseEndedPreviewKeys(context.Background()); err != nil || len(f.Keys()) != 1 {
+	if err := s.releaseEndedPreviewKeys(context.Background()); err != nil || len(f.Keys()) != 1 {
 		t.Fatalf("a preview standing on the worker keeps its key: %v", err)
 	}
 	name := docker.PreviewChangeName(idstest.N(7))
@@ -249,13 +249,13 @@ func TestAWorkerPreviewRemovedWithItsProjectLosesItsKey(t *testing.T) {
 	w.mu.Lock()
 	w.err = errors.New("worker away")
 	w.mu.Unlock()
-	if err := s.ReleaseEndedPreviewKeys(context.Background()); err == nil || len(f.Keys()) != 1 {
+	if err := s.releaseEndedPreviewKeys(context.Background()); err == nil || len(f.Keys()) != 1 {
 		t.Fatalf("a worker that cannot be asked keeps the key: %v, %d", err, len(f.Keys()))
 	}
 	w.mu.Lock()
 	w.err = nil
 	w.mu.Unlock()
-	if err := s.ReleaseEndedPreviewKeys(context.Background()); err != nil || len(f.Keys()) != 0 {
+	if err := s.releaseEndedPreviewKeys(context.Background()); err != nil || len(f.Keys()) != 0 {
 		t.Fatalf("a removed worker preview still has %d keys: %v", len(f.Keys()), err)
 	}
 }
@@ -281,7 +281,7 @@ func TestAWorkerBootFinishingDuringTheSweepKeepsItsKey(t *testing.T) {
 	w.mu.Lock()
 	w.afterList = func() { w.put(name); unlock() }
 	w.mu.Unlock()
-	if err := s.ReleaseEndedPreviewKeys(context.Background()); err != nil {
+	if err := s.releaseEndedPreviewKeys(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	w.mu.Lock()
@@ -292,7 +292,7 @@ func TestAWorkerBootFinishingDuringTheSweepKeepsItsKey(t *testing.T) {
 		w.put(name)
 		unlock()
 	}
-	if err := s.ReleaseEndedPreviewKeys(context.Background()); err != nil || len(f.Keys()) != 1 {
+	if err := s.releaseEndedPreviewKeys(context.Background()); err != nil || len(f.Keys()) != 1 {
 		t.Fatalf("a preview that booted keeps its key: %v, %d keys", err, len(f.Keys()))
 	}
 }
@@ -333,7 +333,7 @@ func TestAPreviewOpenedAgainDuringTheSweepHasALiveKey(t *testing.T) {
 		}
 	}
 	w.mu.Unlock()
-	if err := s.ReleaseEndedPreviewKeys(context.Background()); err != nil {
+	if err := s.releaseEndedPreviewKeys(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if err := <-booted; err != nil {
@@ -372,12 +372,12 @@ func TestAStoppedRevocationRetainsNothing(t *testing.T) {
 			stop() // the sweep's caller stops while the key is revoked
 		}
 	}
-	_ = s.ReleaseEndedPreviewKeys(stopped)
+	_ = s.releaseEndedPreviewKeys(stopped)
 	f.Before = nil
 	if rows, err := s.retained.ForProject(ctx, projectID); err != nil || len(rows) != 0 {
 		t.Fatalf("a stopped revocation was retained: %+v %v", rows, err)
 	}
-	if err := s.ReleaseEndedPreviewKeys(ctx); err != nil {
+	if err := s.releaseEndedPreviewKeys(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if held, err := s.previewKeys(projectID, name).Keys.Held(ctx); err != nil || len(held) != 0 {
@@ -409,7 +409,7 @@ func TestAKeyThatCannotBeRetainedStaysThePreviews(t *testing.T) {
 	}
 	f.FailNext("DELETE", 503)
 	dbtest.FailNextStatement(t, w.db, "-- name: InsertRetainedResource")
-	if err := s.ReleaseEndedPreviewKeys(ctx); err == nil {
+	if err := s.releaseEndedPreviewKeys(ctx); err == nil {
 		t.Fatal("a key that could be neither revoked nor retained was released")
 	}
 	if held, err := s.previewKeys(projectID, name).Keys.Held(ctx); err != nil || len(held) != 1 {
@@ -418,7 +418,7 @@ func TestAKeyThatCannotBeRetainedStaysThePreviews(t *testing.T) {
 	if rows, err := s.retained.ForProject(ctx, projectID); err != nil || len(rows) != 0 {
 		t.Fatalf("a retained row was written: %+v %v", rows, err)
 	}
-	if err := s.ReleaseEndedPreviewKeys(ctx); err != nil || len(f.Keys()) != 0 {
+	if err := s.releaseEndedPreviewKeys(ctx); err != nil || len(f.Keys()) != 0 {
 		t.Fatalf("the next sweep revokes it: %v, %d keys", err, len(f.Keys()))
 	}
 }

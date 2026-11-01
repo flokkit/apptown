@@ -119,7 +119,7 @@ func TestATakeDownCopiesAndChecksTheBucketBeforeDeletingIt(t *testing.T) {
 		t.Fatalf("take-down door: %+v %v", res, err)
 	}
 	op := w.run(res.Operation)
-	if !endedAs(op, OperationVerified) || !strings.Contains(op.Detail, "holds its data") || strings.Contains(op.Detail, "Kept") {
+	if !endedAs(op, operationVerified) || !strings.Contains(op.Detail, "holds its data") || strings.Contains(op.Detail, "Kept") {
 		t.Fatalf("take-down %s: %s", op.State, op.Detail)
 	}
 	if appsAtExport != 0 {
@@ -150,8 +150,8 @@ func TestATakeDownCopiesAndChecksTheBucketBeforeDeletingIt(t *testing.T) {
 	if err != nil || len(finals) != 1 {
 		t.Fatalf("final copies: %+v %v", finals, err)
 	}
-	set, err := w.s.backups.InProject(ctx, w.project, finals[0].Backup)
-	if err != nil || set.GoodCopy("need", "s3") == nil || set.GoodCopy("need", "s3").Bucket != bucketOf(w, "prod") || set.GoodCopy("need", "s3").Format != "s3-objects" {
+	set, err := w.s.backups.inProject(ctx, w.project, finals[0].Backup)
+	if err != nil || set.goodCopy("need", "s3") == nil || set.goodCopy("need", "s3").Bucket != bucketOf(w, "prod") || set.goodCopy("need", "s3").Format != "s3-objects" {
 		t.Fatalf("the final set: %+v %v", set, err)
 	}
 
@@ -188,7 +188,7 @@ func TestATakeDownKeepsABucketWhoseCopyFellShort(t *testing.T) {
 				t.Fatalf("take-down door: %+v %v", res, err)
 			}
 			op := w.run(res.Operation)
-			if endedAs(op, OperationVerified) || !strings.Contains(op.Detail, "data kept") {
+			if endedAs(op, operationVerified) || !strings.Contains(op.Detail, "data kept") {
 				t.Fatalf("take-down %s: %s", op.State, op.Detail)
 			}
 			if _, ok := w.store.Get(bucketOf(w, "prod"), "logo.png"); !ok {
@@ -219,7 +219,7 @@ func TestAStartFromASetWithoutTheBucketIsRefused(t *testing.T) {
 	// A whole set of the database alone, as a copy taken before buckets were
 	// copied holds. Recorded through the set's owner: no copy AppTown
 	// takes now leaves a held bucket out of a whole set.
-	id, err := w.s.backups.Record(ctx, &Backup{ProjectID: w.project, Deployment: "prod", TakenAt: "2026-10-16T10:00:00Z", Trigger: TriggerTakeDown, Path: "ledger/prod/old", Store: StoreBackupStore,
+	id, err := w.s.backups.Record(ctx, &Backup{ProjectID: w.project, Deployment: "prod", TakenAt: "2026-10-16T10:00:00Z", Trigger: triggerTakeDown, Path: "ledger/prod/old", Store: StoreBackupStore,
 		StoreEndpoint: w.store.API.URL, StoreBucket: "forge-copies", Status: BackupOK, DataClass: "production",
 		Items: []BackupItem{{Kind: "need", Name: "postgres", File: "postgres.dump", Bytes: 7, SHA256: "x", Format: "pg-custom", Instance: instance, Database: "app", Copy: CopyDeclared}}}, "alice")
 	if err != nil {
@@ -249,7 +249,7 @@ func TestABucketIsNoManagedNeedInstance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	insts, err := w.s.Needs.ForDeployment(context.Background(), dep.ID)
+	insts, err := deployment.NewNeedStore(w.db, nil).ForDeployment(context.Background(), dep.ID)
 	if err != nil || len(insts) != 0 {
 		t.Fatalf("need instances %+v %v", insts, err)
 	}
@@ -335,14 +335,14 @@ func TestARestoredCopyFillsItsOwnBucketAndTakesItDown(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := w.run(op); !endedAs(got, OperationNotVerified) {
+			if got := w.run(op); !endedAs(got, operationNotVerified) {
 				t.Fatalf("copy %s: %s", got.State, got.Detail)
 			}
 			if scenario == "a start that fails" {
 				w.platform.answer["/"] = http.StatusServiceUnavailable
 			}
 			op, c := w.start(RestoredCopyRequest{})
-			if scenario == "restore test" && !endedAs(op, OperationVerified) {
+			if scenario == "restore test" && !endedAs(op, operationVerified) {
 				t.Fatalf("restore test %s: %s\n%+v", op.State, op.Detail, op.Steps)
 			}
 			if !c.EndedAt.Valid {
@@ -447,14 +447,14 @@ func TestEachItemSaysWhereItsOwnCopyCameBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := w.run(op); !endedAs(got, OperationNotVerified) {
+	if got := w.run(op); !endedAs(got, operationNotVerified) {
 		t.Fatalf("copy %s: %s", got.State, got.Detail)
 	}
 	drill, err := w.s.RequestDrill(ctx, w.project, "prod")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := w.run(drill); !endedAs(got, OperationVerified) {
+	if got := w.run(drill); !endedAs(got, operationVerified) {
 		t.Fatalf("drill %s: %s", got.State, got.Detail)
 	}
 	p, err := w.s.DeploymentProtection(ctx, w.project, "prod")

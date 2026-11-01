@@ -25,18 +25,18 @@ import (
 // own answer for its size and its ETag must match the file sent, and the
 // SHA-256 AppTown computed travels as the object's metadata.
 
-// MetaSHA256 is the metadata header carrying an object's SHA-256.
-const MetaSHA256 = "x-amz-meta-sha256"
+// metaSHA256 is the metadata header carrying an object's SHA-256.
+const metaSHA256 = "x-amz-meta-sha256"
 
-// ObjectHead is what the store says of one object.
-type ObjectHead struct {
+// objectHead is what the store says of one object.
+type objectHead struct {
 	Size   int64
 	ETag   string // as the store gives it, without quotes
 	SHA256 string // AppTown's digest, from the object's metadata
 }
 
-// Stored is a file written to the store and checked there.
-type Stored struct {
+// storedObject is a file written to the store and checked there.
+type storedObject struct {
 	Key    string
 	Size   int64
 	SHA256 string
@@ -56,7 +56,7 @@ var transport = trust.Lazy(trust.AppTown)
 
 // PutPrivate writes a small object, private.
 func (c *Client) PutPrivate(ctx context.Context, bucket, key, contentType string, body []byte) error {
-	return c.do(ctx, "PUT", bucket, key, nil, map[string]string{"Content-Type": contentType, "x-amz-acl": "private", MetaSHA256: sha256Hex(body)}, body, nil)
+	return c.do(ctx, "PUT", bucket, key, nil, map[string]string{"Content-Type": contentType, "x-amz-acl": "private", metaSHA256: sha256Hex(body)}, body, nil)
 }
 
 // partSize is the size of each part of an upload but the last. S3 and
@@ -75,34 +75,34 @@ const partSize = 64 << 20
 // upload is aborted so the store keeps no parts; a failed abort is named in
 // the error. (An answer to the beginning that never arrived leaves an upload
 // whose id AppTown never learned.)
-func (c *Client) PutPrivateFile(ctx context.Context, bucket, key, path string) (Stored, error) {
+func (c *Client) PutPrivateFile(ctx context.Context, bucket, key, path string) (storedObject, error) {
 	return c.putPrivateFile(ctx, bucket, key, path, partSize)
 }
 
-func (c *Client) putPrivateFile(ctx context.Context, bucket, key, path string, partSize int64) (Stored, error) {
+func (c *Client) putPrivateFile(ctx context.Context, bucket, key, path string, partSize int64) (storedObject, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return Stored{}, err
+		return storedObject{}, err
 	}
 	defer f.Close()
 	info, err := f.Stat()
 	if err != nil {
-		return Stored{}, err
+		return storedObject{}, err
 	}
 	size := info.Size()
 	whole := sha256.New()
 	if _, err := io.Copy(whole, f); err != nil {
-		return Stored{}, err
+		return storedObject{}, err
 	}
 	sum := hex.EncodeToString(whole.Sum(nil))
 	var created struct {
 		UploadID string `xml:"UploadId"`
 	}
-	if err := c.do(ctx, "POST", bucket, key, url.Values{"uploads": {""}}, map[string]string{"Content-Type": "application/octet-stream", "x-amz-acl": "private", MetaSHA256: sum}, nil, &created); err != nil {
-		return Stored{}, fmt.Errorf("beginning the upload of %s to the store: %w", key, err)
+	if err := c.do(ctx, "POST", bucket, key, url.Values{"uploads": {""}}, map[string]string{"Content-Type": "application/octet-stream", "x-amz-acl": "private", metaSHA256: sum}, nil, &created); err != nil {
+		return storedObject{}, fmt.Errorf("beginning the upload of %s to the store: %w", key, err)
 	}
 	if created.UploadID == "" {
-		return Stored{}, fmt.Errorf("the store began no upload of %s", key)
+		return storedObject{}, fmt.Errorf("the store began no upload of %s", key)
 	}
 	upload := url.Values{"uploadId": {created.UploadID}}
 	stored, err := c.putParts(ctx, bucket, key, upload, f, size, partSize, sum)
@@ -112,19 +112,19 @@ func (c *Client) putPrivateFile(ctx context.Context, bucket, key, path string, p
 		if aerr := c.do(context.WithoutCancel(ctx), "DELETE", bucket, key, upload, nil, nil, nil); aerr != nil {
 			err = fmt.Errorf("%w (and aborting the upload failed: %v; the store may keep its parts)", err, aerr)
 		}
-		return Stored{}, err
+		return storedObject{}, err
 	}
 	head, err := c.Head(ctx, bucket, key)
 	if err != nil {
-		return Stored{}, fmt.Errorf("reading back what the store holds at %s: %w", key, err)
+		return storedObject{}, fmt.Errorf("reading back what the store holds at %s: %w", key, err)
 	}
 	if head.Size != size {
-		return Stored{}, fmt.Errorf("the store holds %d bytes at %s; %d were sent", head.Size, key, size)
+		return storedObject{}, fmt.Errorf("the store holds %d bytes at %s; %d were sent", head.Size, key, size)
 	}
 	if !strings.EqualFold(head.ETag, stored) {
-		return Stored{}, fmt.Errorf("the store's digest of %s (%s) is not the file's (%s)", key, head.ETag, stored)
+		return storedObject{}, fmt.Errorf("the store's digest of %s (%s) is not the file's (%s)", key, head.ETag, stored)
 	}
-	return Stored{Key: key, Size: size, SHA256: sum}, nil
+	return storedObject{Key: key, Size: size, SHA256: sum}, nil
 }
 
 // putParts uploads f in parts and completes the upload, and answers the
@@ -198,22 +198,22 @@ func (c *Client) putParts(ctx context.Context, bucket, key string, upload url.Va
 }
 
 // Head asks the store about one object.
-func (c *Client) Head(ctx context.Context, bucket, key string) (ObjectHead, error) {
-	res, err := c.send(ctx, "HEAD", bucket, key, nil, nil, bytes.NewReader(nil), 0, sha256Hex(nil), c.HTTP)
+func (c *Client) Head(ctx context.Context, bucket, key string) (objectHead, error) {
+	res, err := c.send(ctx, "HEAD", bucket, key, nil, nil, bytes.NewReader(nil), 0, sha256Hex(nil), c.http)
 	if err != nil {
-		return ObjectHead{}, err
+		return objectHead{}, err
 	}
 	res.Body.Close()
 	size, err := strconv.ParseInt(res.Header.Get("Content-Length"), 10, 64)
 	if err != nil {
-		return ObjectHead{}, fmt.Errorf("the store gave %s no size", key)
+		return objectHead{}, fmt.Errorf("the store gave %s no size", key)
 	}
-	return ObjectHead{Size: size, ETag: strings.Trim(res.Header.Get("ETag"), `"`), SHA256: res.Header.Get(MetaSHA256)}, nil
+	return objectHead{Size: size, ETag: strings.Trim(res.Header.Get("ETag"), `"`), SHA256: res.Header.Get(metaSHA256)}, nil
 }
 
 // GetObject reads a small object (a manifest, a check's probe).
 func (c *Client) GetObject(ctx context.Context, bucket, key string) ([]byte, error) {
-	res, err := c.send(ctx, "GET", bucket, key, nil, nil, bytes.NewReader(nil), 0, sha256Hex(nil), c.HTTP)
+	res, err := c.send(ctx, "GET", bucket, key, nil, nil, bytes.NewReader(nil), 0, sha256Hex(nil), c.http)
 	if err != nil {
 		return nil, err
 	}

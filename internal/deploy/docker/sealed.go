@@ -51,8 +51,8 @@ tr -d '\r' < /tmp/answer | awk 'NR==1 {print $2; next} /^$/ {exit} tolower($1)==
 
 var statusLine = regexp.MustCompile(`^[1-5][0-9][0-9]$`)
 
-// ErrNoAnswer is a sealed probe that got no HTTP answer.
-var ErrNoAnswer = errors.New("no HTTP answer")
+// errNoAnswer is a sealed probe that got no HTTP answer.
+var errNoAnswer = errors.New("no HTTP answer")
 
 // probeRedirects bounds the same-host redirects the sealed page probe follows, as
 // the page probe does (check.ProbePage).
@@ -131,12 +131,12 @@ func (s *Sealed) getOnceTimeout(ctx context.Context, dk Scope, network, containe
 			return 0, "", fmt.Errorf("sealed readiness diagnostic failed: %w", err)
 		}
 		// The probe's own output is not repeated: it can hold the app's.
-		return 0, "", ErrNoAnswer
+		return 0, "", errNoAnswer
 	}
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 	code := strings.TrimSpace(lines[0])
 	if !statusLine.MatchString(code) {
-		return 0, "", ErrNoAnswer
+		return 0, "", errNoAnswer
 	}
 	n, _ := strconv.Atoi(code)
 	location := ""
@@ -149,7 +149,7 @@ func (s *Sealed) getOnceTimeout(ctx context.Context, dk Scope, network, containe
 // awaitReady asks the readiness path until it answers as the probe wants,
 // while the container runs, until wait ends. Any status proves something
 // serves unless the probe expects one.
-func (s *Sealed) awaitReady(ctx context.Context, dk Scope, network, container string, port int, rp RenderedProbe, wait time.Duration) (bool, error) {
+func (s *Sealed) awaitReady(ctx context.Context, dk Scope, network, container string, port int, rp renderedProbe, wait time.Duration) (bool, error) {
 	if rp.PolicyError != nil {
 		return false, rp.PolicyError
 	}
@@ -165,7 +165,7 @@ func (s *Sealed) awaitReady(ctx context.Context, dk Scope, network, container st
 				one, stop := context.WithTimeout(one, rp.Policy.Timeout)
 				defer stop()
 				status, _, err := s.getOnceTimeout(one, dk, network, container, port, rp.Path, rp.Policy.Timeout, true)
-				if err != nil && !errors.Is(err, ErrNoAnswer) {
+				if err != nil && !errors.Is(err, errNoAnswer) {
 					diagnosticErr = err
 					cancel()
 				}

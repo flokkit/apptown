@@ -33,10 +33,10 @@ import (
 
 // The rows, in the order they are shown.
 const (
-	Secrets  = "secrets"
-	Services = "services"
-	Parts    = "app parts"
-	Ways     = "ways of working"
+	secrets  = "secrets"
+	services = "services"
+	parts    = "app parts"
+	ways     = "ways of working"
 )
 
 const contractPath = docker.ContractPath
@@ -59,7 +59,7 @@ func (Comparer) ChangeAdds(ctx context.Context, q workflow.AddsQuestion) (workfl
 		out.Rows = unknownRows(err.Error())
 	} else {
 		out.Base = base
-		out.Rows = Compare(side{ctx, repo, base}, side{ctx, repo, q.Head}, short(base), short(q.Head))
+		out.Rows = compare(side{ctx, repo, base}, side{ctx, repo, q.Head}, short(base), short(q.Head))
 	}
 	if q.Uplift != nil {
 		out.Rows = append(out.Rows, waysRow(q.Uplift))
@@ -67,28 +67,28 @@ func (Comparer) ChangeAdds(ctx context.Context, q workflow.AddsQuestion) (workfl
 	return out, nil
 }
 
-// Tree is one commit's files as a change's additions read them: found false
+// treeReader is one commit's files as a change's additions read them: found false
 // when the commit does not hold one, an error when it could not be read.
-type Tree interface {
+type treeReader interface {
 	// Contract is the app contract (docker.ContractFileAt).
 	Contract() (body []byte, found bool, err error)
 	// File is any other committed file (the secrets spec).
 	File(path string) (body []byte, found bool, err error)
 }
 
-// Compare is the repository rows for two readings of the tree. baseName
+// compare is the repository rows for two readings of the tree. baseName
 // and headName name the commits in an unknown row's reason.
-func Compare(base, head Tree, baseName, headName string) []workflow.AddsRow {
+func compare(base, head treeReader, baseName, headName string) []workflow.AddsRow {
 	b, h := readSide(base, baseName), readSide(head, headName)
 	return []workflow.AddsRow{
-		row(Secrets, b.secrets, h.secrets, b.secretsErr, h.secretsErr),
-		row(Services, b.services, h.services, b.contractErr, h.contractErr),
-		row(Parts, b.parts, h.parts, b.contractErr, h.contractErr),
+		row(secrets, b.secrets, h.secrets, b.secretsErr, h.secretsErr),
+		row(services, b.services, h.services, b.contractErr, h.contractErr),
+		row(parts, b.parts, h.parts, b.contractErr, h.contractErr),
 	}
 }
 
 func unknownRows(reason string) []workflow.AddsRow {
-	return []workflow.AddsRow{{Name: Secrets, Unknown: reason}, {Name: Services, Unknown: reason}, {Name: Parts, Unknown: reason}}
+	return []workflow.AddsRow{{Name: secrets, Unknown: reason}, {Name: services, Unknown: reason}, {Name: parts, Unknown: reason}}
 }
 
 func row(name string, base, head []string, baseErr, headErr error) workflow.AddsRow {
@@ -123,7 +123,7 @@ type declared struct {
 	contractErr, secretsErr  error
 }
 
-func readSide(t Tree, name string) declared {
+func readSide(t treeReader, name string) declared {
 	var d declared
 	path := contractPath
 	raw, found, err := t.Contract()
@@ -199,7 +199,7 @@ func partFacts(c *appcontract.Contract) []string {
 func waysRow(raw json.RawMessage) workflow.AddsRow {
 	var c adoption.Candidate
 	if err := json.Unmarshal(raw, &c); err != nil {
-		return workflow.AddsRow{Name: Ways, Unknown: "the change's recorded adoption target could not be read: " + err.Error()}
+		return workflow.AddsRow{Name: ways, Unknown: "the change's recorded adoption target could not be read: " + err.Error()}
 	}
 	added := slices.Clone(c.Added)
 	added = append(added, c.Changed...)
@@ -217,7 +217,7 @@ func waysRow(raw json.RawMessage) workflow.AddsRow {
 	for _, o := range c.Older {
 		removed = append(removed, "moves back: "+o)
 	}
-	return workflow.AddsRow{Name: Ways, Added: minus(added, nil), Removed: minus(removed, nil)}
+	return workflow.AddsRow{Name: ways, Added: minus(added, nil), Removed: minus(removed, nil)}
 }
 
 // side reads files at one commit of one repository. An empty commit is

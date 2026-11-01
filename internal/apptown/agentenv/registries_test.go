@@ -18,12 +18,12 @@ func TestRegistryAdapters(t *testing.T) {
 		}
 	}
 	mvn := registryAdapterFor("maven")
-	files := mvn.Files("https://mirror.example.com/repository/maven/")
+	files := mvn.files("https://mirror.example.com/repository/maven/")
 	if len(files) != 1 || !strings.Contains(files[0].Content, "mirror.example.com") {
 		t.Fatalf("maven settings must carry the mirror: %+v", files)
 	}
 	ng := registryAdapterFor("nuget")
-	if env := ng.Env("https://x/"); len(env) == 0 || !strings.Contains(env[0], "RestoreConfigFile") {
+	if env := ng.env("https://x/"); len(env) == 0 || !strings.Contains(env[0], "RestoreConfigFile") {
 		t.Fatalf("nuget env: %v", env)
 	}
 }

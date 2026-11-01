@@ -23,7 +23,7 @@ import (
 // return errors instead of detached success records.
 type reviewStore struct {
 	db     *database.DB
-	checks CheckSource
+	checks checkSource
 	clock  func() time.Time // AppTown's clock; nil is the real one
 }
 
@@ -100,7 +100,7 @@ func reviewRowsWritten(n int64, err error) error {
 		return err
 	}
 	if n != 1 {
-		return ErrReviewClosed
+		return errReviewClosed
 	}
 	return nil
 }
@@ -113,7 +113,7 @@ func (s reviewStore) finish(ctx context.Context, r Review, status ReviewState) (
 		if err != nil {
 			return nil, err
 		}
-		next, err := current.Transition(status)
+		next, err := current.transition(status)
 		if err != nil {
 			return nil, err
 		}
@@ -152,12 +152,12 @@ func readLatestVerdict(ctx context.Context, db database.Queryer, projectID ids.I
 func lockReview(ctx context.Context, tx *database.Tx, id ids.ID) (ReviewState, error) {
 	row, err := queries(tx).ReviewByIDForUpdate(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, ErrReviewClosed
+		return 0, errReviewClosed
 	}
 	if err != nil {
 		return 0, err
 	}
-	return ParseReviewState(row.Status)
+	return parseReviewState(row.Status)
 }
 
 func lockRunningReview(ctx context.Context, tx *database.Tx, id ids.ID) error {
@@ -165,7 +165,7 @@ func lockRunningReview(ctx context.Context, tx *database.Tx, id ids.ID) error {
 	if err != nil {
 		return err
 	}
-	return status.RequireRunning()
+	return status.requireRunning()
 }
 
 // Startup participates in the caller's larger repair transaction. It uses the
@@ -178,7 +178,7 @@ func lockRunningReview(ctx context.Context, tx *database.Tx, id ids.ID) error {
 // that later delivers it finds it ended.
 func RepairInterruptedReviews(ctx context.Context, tx *database.Tx, at time.Time) (int64, error) {
 	for _, from := range []ReviewState{ReviewQueued, ReviewRunning} {
-		if _, err := from.Transition(ReviewError); err != nil {
+		if _, err := from.transition(ReviewError); err != nil {
 			return 0, err
 		}
 	}
@@ -199,14 +199,14 @@ func (s reviewStore) recordVerdict(ctx context.Context, req verdictAdmission) (V
 			return Verdict{}, err
 		}
 		if prev.ID != req.PreviousID {
-			return Verdict{}, ErrVerdictChanged
+			return Verdict{}, errVerdictChanged
 		}
 		needed, err := fixRequired(ctx, tx, prev, v)
 		if err != nil {
 			return Verdict{}, err
 		}
 		if needed != (req.Fix != nil) {
-			return Verdict{}, ErrVerdictChanged
+			return Verdict{}, errVerdictChanged
 		}
 		at := stamp.Parse(v.At)
 		row, err := queries(tx).InsertVerdict(ctx, conformancesql.InsertVerdictParams{ID: ids.New(at.Time),

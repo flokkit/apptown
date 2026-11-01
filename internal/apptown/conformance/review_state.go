@@ -27,45 +27,45 @@ const (
 var reviewStateCodec = enum.Set[ReviewState]{
 	Names:     []string{"running", "done", "error", "queued"},
 	Invalid:   "invalid-review-state",
-	Err:       ErrReviewState,
+	Err:       errReviewState,
 	ScanLabel: "database value",
 }
 
 var (
-	ErrReviewClosed     = errors.New("review is missing or already finished")
-	ErrReviewTransition = errors.New("invalid review transition")
-	ErrReviewState      = errors.New("invalid review state")
+	errReviewClosed     = errors.New("review is missing or already finished")
+	errReviewTransition = errors.New("invalid review transition")
+	errReviewState      = errors.New("invalid review state")
 )
 
 func (s ReviewState) String() string { return reviewStateCodec.String(s) }
 
-// RequireRunning is the admission rule for progress, verdicts and snapshots.
-func (s ReviewState) RequireRunning() error {
+// requireRunning is the admission rule for progress, verdicts and snapshots.
+func (s ReviewState) requireRunning() error {
 	if s != ReviewRunning {
-		return ErrReviewClosed
+		return errReviewClosed
 	}
 	return nil
 }
 
-// Transition is the only rule for changing a persisted review state. Storage
+// transition is the only rule for changing a persisted review state. Storage
 // must apply it to the authoritative locked state and commit the returned state
 // with the required receipts. It never mutates a detached caller's snapshot.
 // A queued review is claimed (running) or ends unstarted (error); a running
 // review ends done or error.
-func (s ReviewState) Transition(next ReviewState) (ReviewState, error) {
+func (s ReviewState) transition(next ReviewState) (ReviewState, error) {
 	switch {
 	case s == ReviewQueued && (next == ReviewRunning || next == ReviewError):
 		return next, nil
 	case s == ReviewRunning && (next == ReviewDone || next == ReviewError):
 		return next, nil
 	case s != ReviewQueued && s != ReviewRunning:
-		return 0, ErrReviewClosed
+		return 0, errReviewClosed
 	default:
-		return 0, fmt.Errorf("%w: %s to %s", ErrReviewTransition, s, next)
+		return 0, fmt.Errorf("%w: %s to %s", errReviewTransition, s, next)
 	}
 }
 
-func ParseReviewState(text string) (ReviewState, error) { return reviewStateCodec.Parse(text) }
+func parseReviewState(text string) (ReviewState, error) { return reviewStateCodec.Parse(text) }
 
 func (s ReviewState) Value() (driver.Value, error) { return reviewStateCodec.Value(s) }
 
@@ -77,18 +77,18 @@ func (s *ReviewState) UnmarshalJSON(data []byte) error {
 	return reviewStateCodec.ReadJSON(s, data)
 }
 
-// Display describes review work without claiming that its checks passed.
-func (s ReviewState) Display() WhatIfLabel {
+// display describes review work without claiming that its checks passed.
+func (s ReviewState) display() WhatIfLabel {
 	switch s {
 	case ReviewQueued:
-		return LabelWaiting
+		return labelWaiting
 	case ReviewRunning:
-		return LabelWorking
+		return labelWorking
 	case ReviewDone:
-		return LabelFinished
+		return labelFinished
 	case ReviewError:
-		return LabelFailed
+		return labelFailed
 	default:
-		return LabelUnknown
+		return labelUnknown
 	}
 }

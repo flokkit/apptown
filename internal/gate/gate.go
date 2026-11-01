@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	// TokenHeader carries the gate secret on AppTown's probes.
-	TokenHeader = "AppTown-Restore-Token"
+	// tokenHeader carries the gate secret on AppTown's probes.
+	tokenHeader = "AppTown-Restore-Token"
 	// CookieName is the gate's session cookie. The __Host- prefix makes the
 	// browser refuse it unless it is Secure, has Path=/ and no Domain, so
 	// no other site or subdomain can plant or widen it.
@@ -58,8 +58,8 @@ type Options struct {
 	// timeout and follows no redirects, so the secret is never re-sent to a
 	// second address.
 	Client *http.Client
-	// Now is the gate's clock; nil is the real clock.
-	Now func() time.Time
+	// now is the gate's clock; nil is the real clock.
+	now func() time.Time
 }
 
 type session struct {
@@ -84,7 +84,7 @@ func New(cfg Config, opts Options) http.Handler {
 		secret:   []byte(cfg.Secret),
 		redeem:   cfg.AppTown.JoinPath(RedeemPath).String(),
 		client:   opts.Client,
-		now:      opts.Now,
+		now:      opts.now,
 		sessions: map[string]session{},
 	}
 	if g.client == nil {
@@ -117,7 +117,7 @@ func New(cfg Config, opts Options) http.Handler {
 			}
 			// The secret and the gate's session are the gate's business;
 			// the app never sees either.
-			r.Out.Header.Del(TokenHeader)
+			r.Out.Header.Del(tokenHeader)
 			stripGateCookie(r.Out.Header)
 		},
 		ModifyResponse: func(res *http.Response) error {
@@ -159,7 +159,7 @@ func (g *gate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *gate) isProbe(r *http.Request) bool {
-	values := r.Header.Values(TokenHeader)
+	values := r.Header.Values(tokenHeader)
 	if len(values) != 1 {
 		return false
 	}

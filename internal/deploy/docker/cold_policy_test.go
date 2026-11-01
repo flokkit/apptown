@@ -3,9 +3,6 @@ package docker
 import (
 	"context"
 	"fmt"
-	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
-	"github.com/flokkit/apptown/internal/poll"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -13,6 +10,10 @@ import (
 	"testing"
 	"testing/synctest"
 	"time"
+
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 func TestColdPolicyConsecutiveRuntimeAndDeadline(t *testing.T) {
@@ -107,7 +108,7 @@ func TestExplicitColdHTTPUsesPolicyTimeoutAndRuntime(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), tc.timeout+2*time.Second)
 			defer cancel()
 			p := &appcontract.HealthPolicy{Explicit: true, Period: 5 * time.Second, Timeout: tc.timeout, SuccessThreshold: 1, FailureThreshold: 1}
-			got, _ := (&Probe{}).Check(ctx, dk, "app", server.URL, 90*time.Second, RenderedProbe{Path: "/ready", Expect: 204, Policy: p})
+			got, _ := (&Probe{}).Check(ctx, dk, "app", server.URL, 90*time.Second, renderedProbe{Path: "/ready", Expect: 204, Policy: p})
 			if got != tc.success {
 				t.Fatalf("ready%v inspections%d", got, inspections)
 			}
@@ -154,7 +155,7 @@ func TestExplicitSealedColdUsesOwnedProbeAndRuntimeStreak(t *testing.T) {
 				})}
 				p := &appcontract.HealthPolicy{Explicit: true, Period: 5 * time.Second, Timeout: 10 * time.Second, SuccessThreshold: 2, FailureThreshold: 1}
 				s := &Sealed{ProbeImage: "pinned-probe", Host: "app.example"}
-				ready, err := s.awaitReady(t.Context(), dk, "isolated", "app", 80, RenderedProbe{Path: "/ready", Expect: 204, Policy: p}, 90*time.Second)
+				ready, err := s.awaitReady(t.Context(), dk, "isolated", "app", 80, renderedProbe{Path: "/ready", Expect: 204, Policy: p}, 90*time.Second)
 				if cleanup {
 					if ready || err == nil || !strings.Contains(err.Error(), "owned cleanup unavailable") || probes != 1 {
 						t.Fatalf("cleanup falsely settled ready%v probes%d err%v", ready, probes, err)
@@ -196,7 +197,7 @@ func TestASealedBootJudgesByTheReadinessRule(t *testing.T) {
 				return out, err
 			})}
 			s := &Sealed{ProbeImage: "pinned-probe", Host: "app.example"}
-			ready, _ := s.awaitReady(t.Context(), dk, "isolated", "app", 80, RenderedProbe{Path: "/healthz", Policy: policy}, 20*time.Second)
+			ready, _ := s.awaitReady(t.Context(), dk, "isolated", "app", 80, renderedProbe{Path: "/healthz", Policy: policy}, 20*time.Second)
 			if ready {
 				t.Fatalf("a 500 at the health path (policy %v) read as ready", policy != nil)
 			}

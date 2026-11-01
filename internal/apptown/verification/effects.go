@@ -16,17 +16,17 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 )
 
-// CheckRun runs one check container: the check executor
+// checkRun runs one check container: the check executor
 // (design/operations/workers.md, "Checks on the worker"), chosen
 // once at composition. Every check path runs through it, and reads its
 // answer from the outcome alone.
-type CheckRun func(ctx context.Context, req execution.Request) execution.Outcome
+type checkRun func(ctx context.Context, req execution.Request) execution.Outcome
 
 // LocalChecks runs checks on this machine's Docker: an AppTown without a
 // worker. A check on a tree gets AppTown's cache mounts and labels; a run
 // inside an image gets nothing of this machine's, as the app sees itself.
 // now is AppTown's clock, which stamps a check container; nil is the real one.
-func LocalChecks(runner execution.Runner, now func() time.Time) CheckRun {
+func LocalChecks(runner execution.Runner, now func() time.Time) checkRun {
 	return func(ctx context.Context, req execution.Request) execution.Outcome {
 		if req.Workspace == "" {
 			return runner.Run(ctx, execution.Docker, req)
@@ -42,7 +42,7 @@ type CheckImage func(ctx context.Context, req execution.ImageRequest) execution.
 // Executor is the check executor: where checks run and their images are
 // prepared, chosen once at composition.
 type Executor struct {
-	Run   CheckRun
+	Run   checkRun
 	Image CheckImage
 	// Local says the executor is this machine's Docker. Only then can a
 	// check reuse a release image, which is here; a worker builds and
@@ -67,14 +67,14 @@ func LocalExecutor(runner execution.Runner, dk *docker.Scope, agentImage string,
 }
 
 type checkEffects struct {
-	run      CheckRun
+	run      checkRun
 	observer *Runtime
 	models   modelcall.Completer
 }
 
 // NewEffects binds what checks do; models answers their model calls (the
 // inference gateway).
-func NewEffects(run CheckRun, observer *Runtime, models modelcall.Completer) Effects {
+func NewEffects(run checkRun, observer *Runtime, models modelcall.Completer) Effects {
 	return checkEffects{run, observer, models}
 }
 func (e checkEffects) Run(ctx context.Context, req execution.Request) execution.Outcome {
@@ -84,5 +84,5 @@ func (e checkEffects) Ask(ctx context.Context, call modelcall.Call) (string, *mo
 	return e.models.Ask(ctx, call)
 }
 func (e checkEffects) Observe(ctx context.Context, id ids.ID, source, probe string) (conformance.Outcome, string) {
-	return e.observer.Observe(ctx, id, source, probe)
+	return e.observer.observe(ctx, id, source, probe)
 }

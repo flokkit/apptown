@@ -11,10 +11,10 @@ import (
 
 type ConformanceReviews struct {
 	projects *project.Projects
-	reviews  FleetReviews
+	reviews  fleetReviews
 }
 
-func NewConformanceReviews(projects *project.Projects, reviews FleetReviews) ConformanceReviews {
+func NewConformanceReviews(projects *project.Projects, reviews fleetReviews) ConformanceReviews {
 	return ConformanceReviews{projects: projects, reviews: reviews}
 }
 
@@ -53,6 +53,6 @@ func (h ConformanceReviews) RunConformanceReview(w http.ResponseWriter, r *http.
 	})
 }
 
-type FleetReviews interface {
+type fleetReviews interface {
 	StartFleetReviewWith(ctx context.Context, trigger string, opts conformance.ReviewOptions) (*conformance.Review, error)
 }

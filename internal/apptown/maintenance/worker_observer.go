@@ -14,7 +14,7 @@ import (
 type WorkerProbe interface {
 	Availability(context.Context) (execution.WorkerAvailability, error)
 }
-type WorkerObservationQueue interface {
+type workerQueue interface {
 	RequestWorkerObservation(context.Context, string) error
 }
 
@@ -33,7 +33,7 @@ type WorkerSnapshot struct {
 type WorkerObserver struct {
 	identity  string
 	worker    WorkerProbe
-	queue     WorkerObservationQueue
+	queue     workerQueue
 	now       func() time.Time
 	mu        sync.Mutex
 	running   bool
@@ -41,7 +41,7 @@ type WorkerObserver struct {
 	snapshot  WorkerSnapshot
 }
 
-func NewWorkerObserver(identity string, worker WorkerProbe, queue WorkerObservationQueue, now func() time.Time) *WorkerObserver {
+func NewWorkerObserver(identity string, worker WorkerProbe, queue workerQueue, now func() time.Time) *WorkerObserver {
 	return &WorkerObserver{identity: identity, worker: worker, queue: queue, now: clock.Or(now), snapshot: WorkerSnapshot{Identity: identity, Configured: worker != nil, Unknown: worker != nil}}
 }
 

@@ -64,5 +64,5 @@ func livenessPolicy(part *appcontract.Part) (appcontract.HealthPolicy, error) {
 	if part != nil && part.Intent != nil {
 		p = part.Intent.Liveness
 	}
-	return appcontract.NormalizeHealthPolicy(p, "liveness", appcontract.HealthPolicy{Period: HealthTick, Timeout: 2 * time.Second, StartupGrace: HealthGraceFloor, FailureThreshold: HealthFailThreshold, SuccessThreshold: HealthSuccessThreshold})
+	return appcontract.NormalizeHealthPolicy(p, "liveness", appcontract.HealthPolicy{Period: HealthTick, Timeout: 2 * time.Second, StartupGrace: healthGraceFloor, FailureThreshold: HealthFailThreshold, SuccessThreshold: healthSuccessThreshold})
 }

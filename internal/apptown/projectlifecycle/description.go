@@ -21,10 +21,10 @@ func (s *Service) queueDescriptionIn(ctx context.Context, tx *database.Tx, id id
 	return s.jobs.EnqueueIn(ctx, tx, jobs.Request{Operation: project.DescriptionJob, Key: id.String() + "/" + trigger})
 }
 
-type DescriptionModels interface {
+type descriptionModels interface {
 	Resolve(context.Context, ids.ID, string) (string, string, string, error)
 }
-type DescriptionChanges interface {
+type descriptionChanges interface {
 	LandedTitles(context.Context, ids.ID) ([]string, error)
 }
 
@@ -32,9 +32,9 @@ type DescriptionChanges interface {
 // through the gateway, which retains usage independently of publication.
 type Descriptions struct {
 	Service    *Service
-	Models     DescriptionModels
+	Models     descriptionModels
 	Completion modelcall.Completer
-	Changes    DescriptionChanges
+	Changes    descriptionChanges
 }
 
 func (d Descriptions) Run(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {

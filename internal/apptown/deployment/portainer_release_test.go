@@ -283,7 +283,7 @@ func TestCustomerPortainerDeploymentsKeepIndependentReleaseOwnership(t *testing.
 			secondTarget := firstTarget
 			if separate {
 				var err error
-				secondTarget, err = p.s.AttachPortainerTarget(t.Context(), PortainerAttachment{Name: "customer-office", EndpointID: 3, Environment: DefaultPortainerEnvironment, URLFrom: "PORTAINER_URL", APIKeyFrom: "PORTAINER_API_KEY", Domain: "office.example"})
+				secondTarget, err = p.s.AttachPortainerTarget(t.Context(), PortainerAttachment{Name: "customer-office", EndpointID: 3, Environment: defaultPortainerEnvironment, URLFrom: "PORTAINER_URL", APIKeyFrom: "PORTAINER_API_KEY", Domain: "office.example"})
 				if err != nil {
 					t.Fatal(err)
 				}

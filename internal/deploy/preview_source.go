@@ -55,7 +55,7 @@ func (s PreviewSource) Prepare(ctx context.Context) (SourceTree, error) {
 	if err != nil {
 		return SourceTree{}, err
 	}
-	return s.History.Snapshot(ctx, filepath.Join(s.Snapshots, commit))
+	return s.History.snapshot(ctx, filepath.Join(s.Snapshots, commit))
 }
 
 // Retain removes every snapshot but tree's, once tree is what the preview
@@ -80,10 +80,10 @@ func (s PreviewSource) Retain(tree SourceTree) error {
 	return errors.Join(failed...)
 }
 
-// Snapshot publishes a selected tree at a caller-owned cache path. The caller
+// snapshot publishes a selected tree at a caller-owned cache path. The caller
 // serializes use of that path (preview boot ownership does so). Resolve before
 // consulting the marker: invalid or absent selections cannot revive old bytes.
-func (s SelectedSource) Snapshot(ctx context.Context, destination string) (SourceTree, error) {
+func (s SelectedSource) snapshot(ctx context.Context, destination string) (SourceTree, error) {
 	if destination == "" || filepath.Base(filepath.Clean(destination)) == "." || filepath.Dir(filepath.Clean(destination)) == filepath.Clean(destination) {
 		return SourceTree{}, errors.New("snapshot requires a destination directory")
 	}

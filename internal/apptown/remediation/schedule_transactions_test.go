@@ -33,7 +33,7 @@ func TestRemediationSchedulingContinuesAfterUnstartedCandidates(t *testing.T) {
 					case "skip":
 						return StartDefinition{Skip: "check removed"}, nil
 					case "resolve failure":
-						return StartDefinition{}, database.ErrInjectedFailure
+						return StartDefinition{}, dbtest.ErrInjectedFailure
 					case "admission rejected":
 						// Work acquired the project after the queue was read.
 						otherDef := workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "other", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "hold", Uses: "approval"}}}}}}
@@ -66,11 +66,11 @@ func TestRemediationSchedulingContinuesAfterUnstartedCandidates(t *testing.T) {
 			if outcome == "busy console" {
 				busy = func(_ context.Context, project ids.ID) bool { return project == item.ProjectID }
 			}
-			scheduler := NewScheduler(NewSchedule(a.db, nil).Queue, func() bool { return false }, busy,
+			scheduler := newScheduler(newSchedule(a.db, nil).Queue, func() bool { return false }, busy,
 				func(ctx context.Context, candidate Item) (*workflow.Run, error) {
 					return starter.Start(ctx, candidate, "worker")
 				})
-			err := scheduler.Fill(context.Background())
+			err := scheduler.fill(context.Background())
 			if (err != nil) != (outcome == "resolve failure") {
 				t.Fatalf("unexpected scheduling error: %v", err)
 			}
@@ -89,13 +89,13 @@ func TestRemediationQueueReadFailuresStartNothing(t *testing.T) {
 	for _, fragment := range []string{"SET TRANSACTION", "-- name: FreeWorkerSlots :one", "-- name: RunningJobCapacity :many", "-- name: QueuedItemsForJob :many", "-- name: ProjectHasActiveItem :one"} {
 		t.Run(fragment, func(t *testing.T) {
 			a, _, _, _ := attemptFixture(t, false)
-			s := NewScheduler(NewSchedule(a.db, nil).Queue, func() bool { return false }, func(context.Context, ids.ID) bool { return false },
+			s := newScheduler(newSchedule(a.db, nil).Queue, func() bool { return false }, func(context.Context, ids.ID) bool { return false },
 				func(context.Context, Item) (*workflow.Run, error) {
 					t.Error("started on a failed read")
 					return nil, nil
 				})
 			dbtest.FailNextStatement(t, a.db, fragment)
-			if err := s.Fill(context.Background()); err == nil {
+			if err := s.fill(context.Background()); err == nil {
 				t.Fatal("read failure hidden")
 			}
 			if changes := a.changes(t); len(changes) != 0 {
@@ -108,7 +108,7 @@ func TestRemediationQueueReadFailuresStartNothing(t *testing.T) {
 func TestRemediationQueueCapacityAndEligibility(t *testing.T) {
 	t.Parallel()
 	a, _, item, _ := attemptFixture(t, false)
-	store := NewSchedule(a.db, nil)
+	store := newSchedule(a.db, nil)
 	assertQueue := func(free, candidates int) {
 		t.Helper()
 		q, err := store.Queue(context.Background())
@@ -123,31 +123,31 @@ func TestRemediationQueueCapacityAndEligibility(t *testing.T) {
 			t.Fatalf("queue %+v, want %d free and %d candidates", q, free, candidates)
 		}
 	}
-	assertQueue(DefaultWorkers, 1)
-	if err := NewPools(a.db, nil).Set(context.Background(), WorkerKindRemediation, 0, "alice"); err != nil {
+	assertQueue(defaultWorkers, 1)
+	if err := newPools(a.db, nil).set(context.Background(), WorkerKindRemediation, 0, "alice"); err != nil {
 		t.Fatal(err)
 	}
 	assertQueue(0, 0)
-	if err := NewPools(a.db, nil).Set(context.Background(), WorkerKindRemediation, 3, "alice"); err != nil {
+	if err := newPools(a.db, nil).set(context.Background(), WorkerKindRemediation, 3, "alice"); err != nil {
 		t.Fatal(err)
 	}
 	requireStoredWrite(t)(queries(a.db).SetItemOutcome(context.Background(), remediationsql.SetItemOutcomeParams{UpdatedAt: time.Now(), ID: item.ID, State: item.State, Reason: item.Reason, NotBefore: sql.NullTime{Time: time.Now().Add(+time.Hour), Valid: true}}))
 	assertQueue(3, 0)
 	requireStoredWrite(t)(queries(a.db).SetItemOutcome(context.Background(), remediationsql.SetItemOutcomeParams{UpdatedAt: time.Now(), ID: item.ID, State: item.State, Reason: item.Reason, NotBefore: sql.NullTime{Time: time.Now().Add(-time.Hour), Valid: true}}))
-	if err := NewAttempts(a.db, a.work, a.ctx, nil).Status(context.Background(), item.RemediationID, []string{"running"}, "paused", "alice"); err != nil {
+	if err := NewAttempts(a.db, a.work, a.ctx, nil).status(context.Background(), item.RemediationID, []string{"running"}, "paused", "alice"); err != nil {
 		t.Fatal(err)
 	}
 	assertQueue(3, 0)
-	if err := NewAttempts(a.db, a.work, a.ctx, nil).Status(context.Background(), item.RemediationID, []string{"paused"}, "running", "alice"); err != nil {
+	if err := NewAttempts(a.db, a.work, a.ctx, nil).status(context.Background(), item.RemediationID, []string{"paused"}, "running", "alice"); err != nil {
 		t.Fatal(err)
 	}
 	for _, limit := range []int{1, 2} {
 		t.Run(fmt.Sprintf("job limit %d with one active", limit), func(t *testing.T) {
 			f, _, initial, def := attemptFixture(t, false)
-			if err := NewPools(f.db, nil).Set(context.Background(), WorkerKindRemediation, 3, "alice"); err != nil {
+			if err := newPools(f.db, nil).set(context.Background(), WorkerKindRemediation, 3, "alice"); err != nil {
 				t.Fatal(err)
 			}
-			if err := NewAttempts(f.db, f.work, f.ctx, nil).Status(context.Background(), initial.RemediationID, []string{"running"}, "paused", "alice"); err != nil {
+			if err := NewAttempts(f.db, f.work, f.ctx, nil).status(context.Background(), initial.RemediationID, []string{"running"}, "paused", "alice"); err != nil {
 				t.Fatal(err)
 			}
 			items := f.job(t, limit, f.project(t, fmt.Sprintf("limit-%d-a", limit)), f.project(t, fmt.Sprintf("limit-%d-b", limit)))
@@ -155,7 +155,7 @@ func TestRemediationQueueCapacityAndEligibility(t *testing.T) {
 			if run, err := starts.Start(context.Background(), items[0], def, "worker"); err != nil || run == nil {
 				t.Fatalf("active admission: %+v %v", run, err)
 			}
-			queue, err := NewSchedule(f.db, nil).Queue(context.Background())
+			queue, err := newSchedule(f.db, nil).Queue(context.Background())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -182,14 +182,14 @@ func TestRemediationCompletionCandidateReadFailureClosesNothing(t *testing.T) {
 	item = a.outcome(t, item, Outcome{Kind: "landed"})
 	a.outcome(t, item, Outcome{Kind: "verified", ReviewID: idstest.N(99), Verdict: conformance.Conforms})
 	dbtest.FailNextStatement(t, a.db, "-- name: RunningRemediationIDs :many")
-	store := NewSchedule(a.db, nil)
-	if err := store.CloseFinished(context.Background()); err == nil {
+	store := newSchedule(a.db, nil)
+	if err := store.closeFinished(context.Background()); err == nil {
 		t.Fatal("completion read failure hidden")
 	}
 	if n := jobsWithStatus(t, a.db, RemRunning); n != 1 {
 		t.Fatalf("running jobs after failed close: %d", n)
 	}
-	if err := store.CloseFinished(context.Background()); err != nil {
+	if err := store.closeFinished(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if n := jobsWithStatus(t, a.db, RemCompleted); n != 1 {
@@ -214,12 +214,12 @@ func TestAQueuedItemWaitsByAppTownsClock(t *testing.T) {
 		t.Run(c.wait, func(t *testing.T) {
 			t.Parallel()
 			a, _, item, _ := attemptFixture(t, false)
-			if err := NewPools(a.db, nil).Set(context.Background(), WorkerKindRemediation, 3, "alice"); err != nil {
+			if err := newPools(a.db, nil).set(context.Background(), WorkerKindRemediation, 3, "alice"); err != nil {
 				t.Fatal(err)
 			}
 			requireStoredWrite(t)(queries(a.db).SetItemOutcome(context.Background(), remediationsql.SetItemOutcomeParams{UpdatedAt: time.Now(), ID: item.ID, State: item.State, Reason: item.Reason, NotBefore: sql.NullTime{Time: time.Now().Add(c.until), Valid: true}}))
 			moveDatabaseClock(t, a.db, c.moved)
-			q, err := NewSchedule(a.db, nil).Queue(context.Background())
+			q, err := newSchedule(a.db, nil).Queue(context.Background())
 			if err != nil {
 				t.Fatal(err)
 			}
