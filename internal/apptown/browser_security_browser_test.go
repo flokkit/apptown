@@ -2382,7 +2382,7 @@ app:
 	if _, err := a.Deployment.EditDeploymentLabel(asPerson("sam"), project.ID, prod.ID, prod.DisplayLabel, "Production"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Deployment.Deployments.RecordPreview(ctx, project.ID, december.ID, previewHost.ID, "design-preview-container", 43211, "https://preview.club.example.test"); err != nil {
+	if err := a.Deployment.Deployments.RecordPreview(ctx, project.ID, december.ID, previewHost.ID, "design-preview-container", 43211, "https://preview.club.example.test", nil); err != nil {
 		t.Fatal(err)
 	}
 	previews, err := a.Deployment.Deployments.Previews(ctx)

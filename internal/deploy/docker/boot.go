@@ -101,11 +101,10 @@ type BootRequest struct {
 	// the boot witnesses that answer. "" (a preview of a worktree) tells it
 	// nothing and witnesses nothing.
 	Revision string
-	// Record records what a standing deployment's boot creates (its
-	// containers, a network it made, data volumes, the images it pulled or
-	// built), as each is created: its take-down deletes exactly that. nil
-	// records nothing (previews and runs have their own cleanup). A
-	// creation that cannot be recorded fails the boot.
+	// Record records the containers, networks, named volumes and images a
+	// boot creates. Standing deployments use it for deletion ownership;
+	// change previews use it for inventory and retain disposable cleanup.
+	// nil records nothing. A creation that cannot be recorded fails the boot.
 	Record         func(deploy.Owned) error
 	Storage        deploy.StorageBindings
 	restoreStorage deploy.StorageRestore
@@ -492,7 +491,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		} else {
 			// A throwaway stack on a preview-scoped network — --rm and blank
 			// each boot; reaped with the preview and swept at restart.
-			network, _, err = StartServices(ctx, t.Docker, t.StackID, rs.Services)
+			network, _, err = startServices(ctx, t.Docker, t.StackID, rs.Services, t.own)
 			if err != nil {
 				return res, &BootError{Phase: PhaseNeeds, Err: err}
 			}

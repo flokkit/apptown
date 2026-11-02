@@ -50,6 +50,10 @@ const TeardownBound = 2 * time.Minute
 // is on it. Whatever it still cannot remove, the periodic reaper takes
 // once the owner has finished (maintenance.Reaper.Containers).
 func StartServices(ctx context.Context, dk Scope, id string, svcs []deploy.ServiceSpec) (string, func(), error) {
+	return startServices(ctx, dk, id, svcs, Ownership{})
+}
+
+func startServices(ctx context.Context, dk Scope, id string, svcs []deploy.ServiceSpec, own Ownership) (string, func(), error) {
 	network := Current.Network(id)
 	// The teardown runs after the step, though its context has ended (a
 	// stopping AppTown), bounded so it cannot hang the step's end.
@@ -70,7 +74,14 @@ func StartServices(ctx context.Context, dk Scope, id string, svcs []deploy.Servi
 			return "", cleanup, fmt.Errorf("network create: %v: %s", err, out)
 		}
 	}
-	if err := runServiceContainers(ctx, dk, id, network, svcs); err != nil {
+	// The stack's network is recorded even when an earlier failed attempt
+	// left it in place: the stack id is per change and the network goes
+	// with the stack, so it belongs to this boot either way.
+	if err := own.created(deploy.Owned{Kind: "network", ID: network}); err != nil {
+		cleanup()
+		return "", func() {}, err
+	}
+	if err := runServiceContainers(ctx, dk, id, network, svcs, own); err != nil {
 		cleanup()
 		return "", func() {}, err
 	}
@@ -93,8 +104,8 @@ type serviceRunOptions struct {
 // runServiceContainers launches each service on an EXISTING network (aliased by
 // its name, healthcheck applied when declared), labelled as owned by the stack.
 // Shared by startServices (the needs/sidecar stack) and the app-parts phase.
-func runServiceContainers(ctx context.Context, dk Scope, id, network string, svcs []deploy.ServiceSpec) error {
-	return runServiceContainersWith(ctx, dk, id, network, svcs, serviceRunOptions{class: "service"}, Ownership{})
+func runServiceContainers(ctx context.Context, dk Scope, id, network string, svcs []deploy.ServiceSpec, own Ownership) error {
+	return runServiceContainersWith(ctx, dk, id, network, svcs, serviceRunOptions{class: "service"}, own)
 }
 
 func runServiceContainersWith(ctx context.Context, dk Scope, id, network string, svcs []deploy.ServiceSpec, opts serviceRunOptions, own Ownership) error {

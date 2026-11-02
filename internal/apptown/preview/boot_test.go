@@ -3,6 +3,7 @@ package preview
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -304,7 +305,7 @@ func TestAPreviewsRowFollowsItsEffectThoughTheCallerHasGone(t *testing.T) {
 	if _, err := s.deployments.ByName(context.Background(), projectID, deployment.PreviewName(idstest.N(9))); err == nil {
 		t.Fatal("a removed preview's row was kept")
 	}
-	if err := s.deployments.RecordPreview(context.Background(), projectID, idstest.N(9), idstest.N(1), name, 4000, "http://p"); err != nil {
+	if err := s.deployments.RecordPreview(context.Background(), projectID, idstest.N(9), idstest.N(1), name, 4000, "http://p", nil); err != nil {
 		t.Fatal(err)
 	}
 	gone, done := context.WithCancel(context.Background())
@@ -468,5 +469,117 @@ func TestALocalRunPreviewCapsItsSuppliedService(t *testing.T) {
 	name := docker.Current.Service(docker.RunStepStackID(idstest.N(11)), "cache")
 	if memory, _ := client.Limits(name); memory != 512<<20 {
 		t.Fatalf("local workflow sidecar cap: %s %d", name, memory)
+	}
+}
+
+// Inventory consumes the boot's receipts, including networks made only for
+// extra app parts. Reuse preserves them and teardown removes those same names.
+func TestChangePreviewRecordsItsDisposableResources(t *testing.T) {
+	for _, needs := range []bool{true, false} {
+		t.Run(fmt.Sprintf("needs=%t", needs), func(t *testing.T) {
+			t.Parallel()
+			w := newWorld(t, "", "")
+			s := w.service(Dependencies{})
+			change := idstest.N(7)
+			ws := filepath.Join(w.dir, "workspaces", "change-"+change.String())
+			writePreviewBootFixture(t, ws)
+			if !needs {
+				w.client.SetReply(func(args []string) ([]byte, error, bool) {
+					if len(args) > 1 && args[0] == "network" && args[1] == "inspect" {
+						return nil, errors.New("network absent"), true
+					}
+					return nil, nil, false
+				})
+				if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(strings.Replace(resolvedStackFixture, "needs:\n  postgres: {}\n", "", 1)), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ch := Change{ID: change, ProjectID: w.projectID}
+			if _, err := s.RehearseChange(t.Context(), ch, false); err != nil {
+				t.Fatal(err)
+			}
+			dep, err := s.deployments.ByName(t.Context(), w.projectID, deployment.PreviewName(change))
+			if err != nil {
+				t.Fatal(err)
+			}
+			app, stack := docker.PreviewChangeName(change), docker.ChangeStackID(change)
+			want := map[string]bool{
+				"container:" + app: true,
+				"container:" + docker.Current.Service(stack, "worker"): true,
+				"network:" + docker.Current.Network(stack):             true,
+				"volume:" + docker.Current.DataVolume(app):             true,
+			}
+			if needs {
+				want["container:"+docker.Current.Service(stack, "postgres")] = true
+			}
+			for i := 0; i < 2; i++ {
+				got, err := s.deployments.Owned(t.Context(), dep.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(got) != len(want) {
+					t.Fatalf("boot owns %v, want %v", got, want)
+				}
+				for _, o := range got {
+					name := o.Name
+					if name == "" {
+						name = o.ID
+					}
+					if !want[o.Kind+":"+name] {
+						t.Errorf("unexpected boot resource: %+v", o)
+					}
+					if o.Kind == "container" && (o.ID == "" || !w.client.Running(name)) {
+						t.Errorf("recorded container is not running: %+v", o)
+					}
+					if strings.HasSuffix(name, "-postgres") && o.Need != "postgres" {
+						t.Errorf("need attribution lost: %+v", o)
+					}
+				}
+				if _, err := s.RehearseChange(t.Context(), ch, false); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := s.DiscardChangePreview(t.Context(), change); err != nil {
+				t.Fatal(err)
+			}
+			requireNothingOfPreview(t, w.client, change)
+			if held, err := s.deployments.Owned(t.Context(), dep.ID); err != nil || len(held) != 0 {
+				t.Fatalf("removed preview still owns %v: %v", held, err)
+			}
+			target, err := w.records.Targets.ByName(t.Context(), "local")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got, err := w.records.Inventory.Recorded(t.Context(), target); err != nil || len(got) != 0 {
+				t.Fatalf("removed preview inventory: %v, %v", got, err)
+			}
+		})
+	}
+}
+
+func TestReusedPreviewRetriesItsResourceReceipt(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t, "", "")
+	s := w.service(Dependencies{})
+	change := idstest.N(7)
+	writePreviewBootFixture(t, filepath.Join(w.dir, "workspaces", "change-"+change.String()))
+	ch := Change{ID: change, ProjectID: w.projectID}
+	dbtest.FailNextStatement(t, w.db, "-- name: RecordPreview :one")
+	if _, err := s.RehearseChange(t.Context(), ch, false); err != nil {
+		t.Fatal(err)
+	}
+	w.client.ResetCommands()
+	if _, err := s.RehearseChange(t.Context(), ch, false); err != nil {
+		t.Fatal(err)
+	}
+	if len(w.client.Matching("run ")) != 0 {
+		t.Fatal("preview was rebooted instead of reused")
+	}
+	dep, err := s.deployments.ByName(t.Context(), w.projectID, deployment.PreviewName(change))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := s.deployments.Owned(t.Context(), dep.ID); err != nil || len(got) != 5 {
+		t.Fatalf("retried receipt: %v, %v", got, err)
 	}
 }
