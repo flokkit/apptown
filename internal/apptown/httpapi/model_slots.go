@@ -131,7 +131,9 @@ func (h ModelSlots) PutModelSlot(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := h.models.Set(r.Context(), in.Slot, profile, in.Pattern, actor(r)); err != nil {
-			WriteError(w, 500, "saving the model slot: %v", err)
+			if !writeRefusal(w, err) {
+				WriteError(w, 500, "saving the model slot: %v", err)
+			}
 			return
 		}
 		WriteJSON(w, 200, Done{OK: true})
@@ -175,7 +177,7 @@ func (h ModelSlots) PutProjectModelProfile(w http.ResponseWriter, r *http.Reques
 // visible first.
 func (h ModelSlots) slotConsumers(ctx context.Context) (map[string][]string, error) {
 	out := map[string][]string{
-		"default":        {"any step without a model named", "end of every fallback chain"},
+		"main-strong":    {"any step without a model named", "end of every fallback chain"},
 		"chat":           {"project chat"},
 		"worker":         {"delegate: carries out briefs (chat + steps)"},
 		"scout":          {"delegate: quick lookups (chat + steps)"},
@@ -221,8 +223,8 @@ func (h ModelSlots) slotView(s string, cells map[string]map[string]string, fallb
 	}
 	if f := fallbacks[s]; f != "" {
 		v.Fallback = f
-	} else if s != "default" {
-		v.Fallback = "default"
+	} else if s != "main-strong" {
+		v.Fallback = "main-strong"
 	}
 	if c := consumers[s]; len(c) > 0 {
 		v.Consumers = c

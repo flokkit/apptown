@@ -90,7 +90,7 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 	if chosen == "" {
 		// Chat gets its own slot: quality-per-word matters most here, while
 		// mechanical lanes stay on the cheap slot.
-		// The chat slot's chain ends at the default slot: nothing more to ask.
+		// The chat slot's chain ends at the main-strong slot: nothing more to ask.
 		var err error
 		if chosen, _, _, err = c.models.Resolve(ctx, p.ID, "chat"); err != nil {
 			return nil, err

@@ -3,18 +3,20 @@
 //
 // # Selection
 //
-// Four base slots configure a profile: default (primary strong), primary-fast,
+// Four base slots configure a profile: main-strong, main-fast,
 // secondary-strong and secondary-fast. Task slots, such as implement, review or
 // chat, are advanced overrides; unset tasks follow their recorded fallback.
 // A slot names a purpose, such as implement, review or chat. A profile selects an
 // instance mapping for that purpose; an undeclared profile is standard. A request
 // containing a slash is already a provider/model pattern and bypasses slot lookup.
-// An empty request selects the default slot.
+// An empty request selects the main-strong slot. Requests naming the retired
+// default or primary-fast choices fail with an error asking for the new names.
+// Stored workflow requests are edited by hand; they are not migrated.
 //
 // [Selection.Resolve] reads the current project profile and delegates to
-// [Slots.resolve]. The latter tries the mapping for the project's profile, then
-// the standard profile. It repeats that lookup for
-// fallback slots before using the configured instance default. Its returned slot
+// [Slots.resolve]. The latter walks the whole fallback chain in the project's
+// profile, then walks the same chain in standard if no cell was set. Every
+// chain ends at main-strong. A standard project needs one walk. Its returned slot
 // and profile identify the chosen mapping for caller-owned execution evidence.
 // Only an absent mapping passes the lookup on; a failed read is returned as an
 // error, never answered with a less specific mapping or "no model". Changing

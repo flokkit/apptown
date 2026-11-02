@@ -188,7 +188,7 @@ func (e *environment) Prepare(ctx context.Context, s *console.Session) (console.
 
 // chatModelFor is the model a session should run on now: its own when the
 // person pinned one, else the project's chat slot (whose chain ends at the
-// default slot) as resolved at this moment. A failed resolution is an error,
+// main-strong slot) as resolved at this moment. A failed resolution is an error,
 // never the model the session was born with.
 func (e *environment) chatModelFor(ctx context.Context, s *console.Session) (string, error) {
 	if s.ModelPinned {

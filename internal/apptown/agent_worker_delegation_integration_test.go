@@ -242,12 +242,12 @@ func runDelegation(t *testing.T, background bool) delegationRun {
 	if _, err := a.Integrations.Bindings.Save(context.Background(), "fixture", "model", "pi", binding, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	// The delegates (worker on the default slot, scout on the fast one) run
+	// The delegates (worker on the main-strong slot, scout on the fast one) run
 	// on the delegate model.
 	if err := a.Models.SeedFallbacks(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	for _, slot := range []string{"default", "fast"} {
+	for _, slot := range []string{"main-strong", "fast"} {
 		if err := a.Models.Set(context.Background(), slot, "standard", "fixture/delegate", "fixture"); err != nil {
 			t.Fatal(err)
 		}

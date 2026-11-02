@@ -68,7 +68,7 @@ func (h SetupModel) openRouterSonnet(ctx context.Context) (string, error) {
 // SetupModel: POST /api/v1/setup/model {provider, key, model?} — the
 // one-field onboarding. Writes the key into secrets.env (the bootstrap
 // store; the value is never echoed back), creates the provider binding from
-// the same shape as its catalog preset, and points the default model slot
+// the same shape as its catalog preset, and points the main-strong model slot
 // at it.
 func (h SetupModel) SetupModel(w http.ResponseWriter, r *http.Request) {
 	jsonCommand(w, r, jsonBody{errorText: "bad request"}, func(in struct {
@@ -111,7 +111,7 @@ func (h SetupModel) SetupModel(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// The gateway reaches the provider through its binding: without it the
-		// model is not set up, whatever the default slot says.
+		// model is not set up, whatever the main-strong slot says.
 		if _, err := h.integrations.Bindings.Upsert(r.Context(), in.Provider, "model", "pi", encodedJSON(map[string]any{"model": model, "secretEnv": []string{secretName}}), false); err != nil {
 			WriteError(w, 500, "the key was saved in secrets.env, but the %s binding could not be recorded (%v); the default model was not changed", in.Provider, err)
 			return

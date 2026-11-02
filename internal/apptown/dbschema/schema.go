@@ -524,6 +524,11 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		"UPDATE model_slots SET slot='primary-fast' WHERE slot='fast'",
 	}},
 	{n: 200, note: "remove per-project workflow selection", stmts: []string{"DROP TABLE IF EXISTS project_lanes"}},
+	{n: 201, note: "name the main model choices", stmts: []string{
+		"UPDATE model_slots SET slot=CASE slot WHEN 'default' THEN 'main-strong' WHEN 'primary-fast' THEN 'main-fast' END WHERE slot IN ('default','primary-fast')",
+		"UPDATE slot_fallbacks SET slot=CASE slot WHEN 'default' THEN 'main-strong' WHEN 'primary-fast' THEN 'main-fast' END WHERE slot IN ('default','primary-fast')",
+		"UPDATE slot_fallbacks SET fallback=CASE fallback WHEN 'default' THEN 'main-strong' WHEN 'primary-fast' THEN 'main-fast' END WHERE fallback IN ('default','primary-fast')",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

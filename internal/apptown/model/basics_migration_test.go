@@ -6,9 +6,9 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dbschema"
 )
 
-// The upgrade preserves every old stock task and the quick checks that now
-// request secondary-fast, for default-only and populated multi-profile installs.
-func TestBasicChoicesUpgradePreservesStockTaskModels(t *testing.T) {
+// The combined upgrades preserve standard task models and apply each profile
+// before borrowing standard, without creating unset cells.
+func TestBasicChoicesAndNamesUpgrade(t *testing.T) {
 	for _, populated := range []bool{false, true} {
 		name := "default-only"
 		if populated {
@@ -26,47 +26,68 @@ INSERT INTO slot_fallbacks(slot,fallback) VALUES
 ('fast','default'),('chat','default'),('worker','default'),('scout','fast')`); err != nil {
 				t.Fatal(err)
 			}
-			if err := s.SetDefault(t.Context(), "vendor/standard"); err != nil {
-				t.Fatal(err)
+			// The current owner also refuses retired cell names. Seed the old
+			// representation directly to exercise the upgrade.
+			setOldCell := func(slot, profile, pattern string) {
+				t.Helper()
+				// sql-guarantee: pre-upgrade cells use the retired names, which the owner refuses.
+				if _, err := db.SQL().ExecContext(t.Context(), `INSERT INTO model_slots(slot, profile, pattern, updated_at) VALUES ($1, $2, $3, '2026-01-01Z')`, slot, profile, pattern); err != nil {
+					t.Fatal(err)
+				}
 			}
+			setOldCell("default", "standard", "vendor/standard")
 			if populated {
 				for _, cell := range [][3]string{
 					{"fast", "standard", "vendor/quick"}, {"review", "standard", "other/review"},
 					{"default", "high", "vendor/high"}, {"fast", "high", "vendor/high-quick"}, {"implement", "high", "vendor/code"},
 					{"default", "luna", "local/luna"}, {"review", "luna", "other/luna-review"}, {"chat", "luna", "local/chat"},
 				} {
-					if err := s.Set(t.Context(), cell[0], cell[1], cell[2], "fixture"); err != nil {
-						t.Fatal(err)
-					}
+					setOldCell(cell[0], cell[1], cell[2])
 				}
 			}
 			tasks := []string{"default", "plan", "implement", "review", "security", "fast", "chat", "worker", "scout"}
-			before := map[string]map[string]string{}
-			for _, profile := range []string{"standard", "high", "luna"} {
-				before[profile] = map[string]string{}
-				for _, task := range tasks {
-					got, _, _, err := s.resolve(t.Context(), profile, task)
-					if err != nil {
-						t.Fatal(err)
-					}
-					before[profile][task] = got
-				}
-			}
-			// Every migration after 198 runs; later ones must tolerate the current schema they replay onto.
 			if n, err := dbschema.Migrate(t.Context(), db); err != nil || n != dbschema.Latest()-198 {
 				t.Fatalf("upgrade: %d %v", n, err)
 			}
 			if err := s.SeedFallbacks(t.Context()); err != nil {
 				t.Fatal(err)
 			}
-			for profile, old := range before {
+			for _, profile := range []string{"standard", "high", "luna"} {
 				for _, task := range append(tasks, "secondary-fast") {
-					oldTask := task
-					if task == "secondary-fast" {
-						oldTask = "fast"
+					requested := task
+					if task == "default" {
+						requested = "main-strong"
 					}
-					if got, _, _, err := s.resolve(t.Context(), profile, task); err != nil || got != old[oldTask] {
-						t.Errorf("%s/%s: %q, was %q (%v)", profile, task, got, old[oldTask], err)
+					want := "vendor/standard"
+					if populated {
+						switch profile {
+						case "standard":
+							if task == "review" || task == "security" {
+								want = "other/review"
+							}
+							if task == "fast" || task == "scout" || task == "secondary-fast" {
+								want = "vendor/quick"
+							}
+						case "high":
+							want = "vendor/high"
+							if task == "implement" {
+								want = "vendor/code"
+							}
+							if task == "fast" || task == "scout" || task == "secondary-fast" {
+								want = "vendor/high-quick"
+							}
+						case "luna":
+							want = "local/luna"
+							if task == "review" || task == "security" {
+								want = "other/luna-review"
+							}
+							if task == "chat" {
+								want = "local/chat"
+							}
+						}
+					}
+					if got, _, _, err := s.resolve(t.Context(), profile, requested); err != nil || got != want {
+						t.Errorf("%s/%s: %q, want %q (%v)", profile, requested, got, want, err)
 					}
 				}
 			}
@@ -81,8 +102,8 @@ INSERT INTO slot_fallbacks(slot,fallback) VALUES
 			if populated {
 				want = 2
 			}
-			if len(cells["primary-fast"]) != want || cells["primary-fast"]["luna"] != "" {
-				t.Fatalf("only explicit fast cells should move: %v", cells["primary-fast"])
+			if len(cells["main-fast"]) != want || cells["main-fast"]["luna"] != "" {
+				t.Fatalf("only explicit fast cells should move: %v", cells["main-fast"])
 			}
 		})
 	}

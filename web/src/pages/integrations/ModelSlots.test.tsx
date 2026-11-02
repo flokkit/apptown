@@ -13,12 +13,12 @@ afterEach(() => { vi.unstubAllGlobals() })
 const row = (slot: string, patterns: Record<string, string>, fallback?: string) => ({ slot, gloss: `${slot} work`, patterns, fallback })
 
 // An unset job says the model it actually gets and where from: its
-// fallback job, Default in the end, and on another profile standard's cell.
+// fallback task, Main · strong in the end, then standard's chain.
 it('says what an unset task gets, on each profile', async () => {
   const matrix = {
     profiles: ['standard', 'high'], spendNote: '', overrides: [],
     projects: [{ slug: 'a', name: 'A', profile: 'high' }],
-    slots: [row('default', { standard: 'm/base' }), row('review', { standard: 'm/review' }), row('worker', {}, 'review'), row('plan', {})],
+    slots: [row('main-strong', { standard: 'm/base' }), row('review', { standard: 'm/review' }), row('worker', {}, 'review'), row('plan', {}), row('main-fast', {}), row('secondary-strong', {}), row('secondary-fast', {})],
   }
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
     url.includes('/model-slots') ? matrix : { models: [], unlisted: [] }))))
@@ -42,11 +42,19 @@ it('says what an unset task gets, on each profile', async () => {
   expect(unset('Plan')).toBe('Same as Main · strong (m/base)')
   expect(unset('Worker')).toBe('Same as Review (m/review)')
   expect(unset('Main · strong')).toBe('Not set')
+  for (const label of ['Main · fast', 'Second opinion · strong', 'Second opinion · fast']) {
+    expect(unset(label)).toBe('Same as Main · strong (m/base)')
+  }
   // Another profile's unset jobs use standard's models, and it names its projects.
   await at('/integrations/profiles/high')
   await vi.waitFor(() => expect(el.querySelector('h1')!.textContent).toBe('high'))
   expect(unset('Review')).toBe('Same as standard (m/review)')
-  expect(unset('Worker')).toBe('Same as Review (m/review)')
+  expect(unset('Worker')).toBe("Same as standard's Review (m/review)")
   expect(el.querySelector('section[aria-label="Projects"]')!.textContent).toContain('A')
+  // A profile's basic choice beats a task cell in standard, including the label.
+  matrix.slots[0].patterns.high = 'm/high'
+  await act(async () => { await client.invalidateQueries() })
+  await vi.waitFor(() => expect(unset('Review')).toBe('Same as Main · strong (m/high)'))
+  expect(unset('Worker')).toBe('Same as Main · strong (m/high)')
   act(() => root.unmount()); el.remove(); client.clear()
 })

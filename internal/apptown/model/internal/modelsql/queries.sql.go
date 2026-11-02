@@ -156,7 +156,7 @@ func (q *Queries) Profiles(ctx context.Context) ([]string, error) {
 
 const setDefaultSlot = `-- name: SetDefaultSlot :exec
 INSERT INTO model_slots (slot, profile, pattern, updated_at)
-VALUES ('default', $1, $2, $3)
+VALUES ('main-strong', $1, $2, $3)
 ON CONFLICT(slot, profile) DO UPDATE
 SET pattern=excluded.pattern, updated_at=excluded.updated_at
 `

@@ -271,9 +271,9 @@ type fakeModels struct{}
 
 func (fakeModels) ArmSlots(ctx context.Context, projectID ids.ID, profile string) (map[string]string, error) {
 	if !projectID.IsZero() {
-		return map[string]string{"default": "openrouter/standard/model", "fast": "openrouter/standard/fast", "secondary-fast": "openrouter/standard/judge"}, nil
+		return map[string]string{"main-strong": "openrouter/standard/model", "fast": "openrouter/standard/fast", "secondary-fast": "openrouter/standard/judge"}, nil
 	}
-	return map[string]string{"default": "openrouter/" + profile + "/model", "fast": "openrouter/" + profile + "/model", "secondary-fast": "openrouter/" + profile + "/judge"}, nil
+	return map[string]string{"main-strong": "openrouter/" + profile + "/model", "fast": "openrouter/" + profile + "/model", "secondary-fast": "openrouter/" + profile + "/judge"}, nil
 }
 func (fakeModels) OfferedProfile(ctx context.Context, profile string) (bool, error) {
 	return profile == "frontier", nil
@@ -515,7 +515,7 @@ func TestStartingAnEvalIsAStandardsManagersShownAct(t *testing.T) {
 		if a.Arm == armBaseline {
 			want = "openrouter/standard/model"
 		}
-		if a.Models["default"] != want {
+		if a.Models["main-strong"] != want {
 			t.Fatalf("arm %s runs %v", a.Arm, a.Models)
 		}
 		// An arm names its source change by the number people read; it has
@@ -833,7 +833,7 @@ func TestAPackVersionEvalsVariantAdoptsTheCandidateExactly(t *testing.T) {
 			t.Fatal(err)
 		}
 		plans[a.Arm] = plan
-		if a.Models["default"] != "openrouter/standard/model" || plan.Judge != "openrouter/standard/judge" {
+		if a.Models["main-strong"] != "openrouter/standard/model" || plan.Judge != "openrouter/standard/judge" {
 			t.Fatalf("arm %s runs %v judged by %q: a pack eval holds the model", a.Arm, a.Models, plan.Judge)
 		}
 		if len(plan.Union) != 2 {

@@ -41,7 +41,7 @@ INSERT INTO model_slots(slot,profile,pattern,updated_at) VALUES
 			}
 			before := snapshot()
 			restore := dbtest.NextStatementFailure(db, "UPDATE model_slots SET slot='primary-fast'")
-			if _, err := Migrate(t.Context(), db); err == nil {
+			if _, err := applyMigrations(t.Context(), db, migrations[:migrationIndex(t, 199)+1]); err == nil {
 				t.Fatal("failed migration succeeded")
 			}
 			restore()
@@ -54,7 +54,7 @@ INSERT INTO model_slots(slot,profile,pattern,updated_at) VALUES
 			if err := db.SQL().QueryRowContext(t.Context(), `SELECT fallback FROM slot_fallbacks WHERE slot=$1`, stock).Scan(&fallback); err != nil || fallback != "default" {
 				t.Fatalf("failed migration changed stock fallback: %q %v", fallback, err)
 			}
-			if n, err := Migrate(t.Context(), db); err != nil || n != Latest()-198 {
+			if n, err := applyMigrations(t.Context(), db, migrations[:migrationIndex(t, 199)+1]); err != nil || n != 1 {
 				t.Fatalf("upgrade: %d %v", n, err)
 			}
 			if after := snapshot(); before != after {
@@ -70,7 +70,7 @@ INSERT INTO model_slots(slot,profile,pattern,updated_at) VALUES
 			if err := db.SQL().QueryRowContext(t.Context(), `SELECT count(*) FROM model_slots WHERE slot='fast' OR (slot='primary-fast' AND profile='luna')`).Scan(&count); err != nil || count != 0 {
 				t.Fatalf("fast remains or unset cell materialized: %d %v", count, err)
 			}
-			if n, err := Migrate(t.Context(), db); err != nil || n != 0 {
+			if n, err := applyMigrations(t.Context(), db, migrations[:migrationIndex(t, 199)+1]); err != nil || n != 0 {
 				t.Fatalf("repeat upgrade: %d %v", n, err)
 			}
 		})
