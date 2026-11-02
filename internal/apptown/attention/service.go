@@ -90,9 +90,6 @@ type Coverage struct {
 	AttemptedAt time.Time `json:"attemptedAt,omitempty"`
 	Unknown     bool      `json:"unknown"`
 	Stale       bool      `json:"stale"`
-	// NotSetUp says the source has nothing to check until someone configures
-	// it: a fact about this AppTown, not a missing or failed reading.
-	NotSetUp bool `json:"notSetUp,omitempty"`
 }
 
 type View struct {

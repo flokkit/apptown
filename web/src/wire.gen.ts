@@ -128,7 +128,6 @@ export type AttentionCoverage = {
   attemptedAt?: string
   unknown: boolean
   stale: boolean
-  notSetUp?: boolean
 }
 
 export type AttentionItem = {

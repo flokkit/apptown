@@ -335,15 +335,6 @@ it('counts an expired item once when its owner coverage has the same key', () =>
  expect(result.count).toBe(0)
 })
 
-// A connection nobody has configured says so, not that it waits to be checked.
-it('shows a connection that is not set up as not set up, in view', async () => {
- responses(() => json({ items: [], sources: [{ ...known.sources[0], key: 'integrations/gitlab', name: 'gitlab', observedAt: '0001-01-01T00:00:00Z', notSetUp: true }] }))
- const v = mount(<AttentionPage />); await settled(v.client)
- const row = [...v.el.querySelectorAll('section[aria-label="All checks"] .attention-row')].find(r => r.textContent!.includes('gitlab'))!
- expect(row.querySelector('.row-status')!.textContent).toContain('not configured')
- expect(row.closest('details')).toBeNull()
-})
-
 // A check that has never been read is not checked yet, never working.
 it('shows a never-checked source as not checked yet in the full list', async () => {
  responses(() => json({ items: [], sources: [{ ...known.sources[0], observedAt: '0001-01-01T00:00:00Z' }, { ...known.sources[0], key: 'checked', name: 'Checked source' }] }))

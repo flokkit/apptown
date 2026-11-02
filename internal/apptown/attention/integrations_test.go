@@ -34,7 +34,8 @@ func TestIntegrationAttentionNamesAffectedAppsAndKeepsUnsetAndUnknownDistinct(t 
 		"cloud":     {StateLabel: integration.HealthFailed, Checked: true},
 	}}
 	got, err := (Integrations{Service: evidence, Bindings: evidence, Attachments: evidence, Deployments: evidence}).Snapshot(t.Context())
-	if err != nil || len(got.Items) != 1 || len(got.Coverage) != 2 || !got.Known {
+	// A connection nobody set up is not a check: it has no coverage row.
+	if err != nil || len(got.Items) != 1 || len(got.Coverage) != 1 || got.Coverage[0].Key == "infisical" || !got.Known {
 		t.Fatalf("snapshot: %+v %v", got, err)
 	}
 	item := got.Items[0]
@@ -42,8 +43,7 @@ func TestIntegrationAttentionNamesAffectedAppsAndKeepsUnsetAndUnknownDistinct(t 
 		t.Fatalf("failed integration: %+v", item)
 	}
 	for _, c := range got.Coverage {
-		// A connection nobody has configured is said as such, never as unchecked or unknown.
-		if c.Unknown || c.NotSetUp != (c.Key == "infisical") || c.NextStep == "" || c.Href == "" || strings.Contains(c.Reason, "provider-secret") {
+		if c.Unknown || c.NextStep == "" || c.Href == "" || strings.Contains(c.Reason, "provider-secret") {
 			t.Fatalf("coverage: %+v", c)
 		}
 	}
