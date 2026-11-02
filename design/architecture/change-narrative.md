@@ -6,6 +6,15 @@ report/plan artifacts in one readonly snapshot. Child-run reports remain eligibl
 foreign-project rows and scan reports do not. Required read failures return no
 partial source. Run state uses Work's strict state type.
 
+The request judgement concerns what the software does. Pending workflow steps,
+including approval and later reviews, never count as a shortfall. Workflow steps
+only limit what the writer may demand. A person's title is their request; a body
+adds detail when supplied. Only for AppTown-generated Changes (types `scheduled`
+and `system`) without a body does the writer use the working workflow's stated
+purpose, read from the exact library version used by the Run. A missing purpose
+leaves that judgement unknown. New summaries use this instruction; installation
+does not regenerate stored summaries.
+
 The builder has three bound effects: model-slot resolution, live conversation/Git
 evidence, and model completion. It has no App dependency. AppTown binds those effects;
 no SQL transaction remains open during them. Chat evidence retains the last two

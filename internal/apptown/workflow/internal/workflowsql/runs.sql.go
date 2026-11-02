@@ -881,7 +881,11 @@ func (q *Queries) MergedActiveLandings(ctx context.Context, arg MergedActiveLand
 }
 
 const narrativeRunsMeta = `-- name: NarrativeRunsMeta :many
-SELECT id,workflow_name,status FROM runs WHERE change_id IS NOT DISTINCT FROM $1 AND project_id=$2 AND parent_run_id IS NULL ORDER BY number
+SELECT r.id,r.workflow_name,r.status,COALESCE(v.yaml,'')::text AS workflow_yaml
+FROM runs r
+LEFT JOIN lib_workflows w ON w.name=r.workflow_name
+LEFT JOIN lib_workflow_versions v ON v.lib_id=w.id AND v.version=r.workflow_version
+WHERE r.change_id IS NOT DISTINCT FROM $1 AND r.project_id=$2 AND r.parent_run_id IS NULL ORDER BY r.number
 `
 
 type NarrativeRunsMetaParams struct {
@@ -893,9 +897,10 @@ type NarrativeRunsMetaRow struct {
 	ID           ids.ID
 	WorkflowName string
 	Status       string
+	WorkflowYaml string
 }
 
-// Narrative only needs identities/names/states, not large definitions/inputs.
+// Read the exact library version for its purpose; never the current description.
 func (q *Queries) NarrativeRunsMeta(ctx context.Context, arg NarrativeRunsMetaParams) ([]NarrativeRunsMetaRow, error) {
 	rows, err := q.db.QueryContext(ctx, narrativeRunsMeta, arg.ChangeID, arg.ProjectID)
 	if err != nil {
@@ -905,7 +910,12 @@ func (q *Queries) NarrativeRunsMeta(ctx context.Context, arg NarrativeRunsMetaPa
 	var items []NarrativeRunsMetaRow
 	for rows.Next() {
 		var i NarrativeRunsMetaRow
-		if err := rows.Scan(&i.ID, &i.WorkflowName, &i.Status); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkflowName,
+			&i.Status,
+			&i.WorkflowYaml,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

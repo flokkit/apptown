@@ -85,9 +85,20 @@ are not an exhaustively checked category. Review such changes explicitly;
 do not claim a zero exception count proves every possible write is covered.
 
 sqlc seeing another fragment does not grant its package write ownership. Keep
-existing foreign keys and the bounded read/snapshot exceptions in architecture
-§11, including Adoption's catalog reports and Work's workflow-source query.
-Their tested one-statement snapshots and query counts survive this split.
+existing foreign keys and the [bounded read/snapshot exceptions](#bounded-readsnapshot-exceptions).
+
+## Bounded read/snapshot exceptions
+
+- Adoption's [catalog reports](../../internal/apptown/adoption/internal/adoptionsql/queries.sql)
+  join its imports and pack memberships to Wow's library records and exact version
+  tables. These reports retain their one-statement snapshots and tested query counts.
+- Work's [`WorkflowSource`](../../internal/apptown/workflow/internal/workflowsql/runs.sql)
+  reads Project's repository configuration, Adoption's current revision and SCM's
+  merge-request identity with its Run and Change in one statement.
+- Work's `NarrativeRunsMeta` in the same query file reads Wow's `lib_workflows` and
+  `lib_workflow_versions` tables at each Run's exact workflow version. The narrative
+  source includes the working workflow's purpose only for AppTown-generated
+  Changes (types `scheduled` and `system`), within its read-only snapshot.
 
 ## Tests
 
