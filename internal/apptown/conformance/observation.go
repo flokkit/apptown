@@ -54,19 +54,24 @@ type Observation struct {
 	CheckRef
 	Record *Verdict
 	State  ObservationState
+	lane   Lane
 	note   string
 }
 
-func Unassessed(ref CheckRef) Observation { return Observation{CheckRef: ref, State: NotScanned} }
-
-func Recorded(v Verdict) Observation {
-	return Observation{CheckRef: v.reference(), Record: &v, State: v.State}
+func Unassessed(ref CheckRef) Observation {
+	return Observation{CheckRef: ref, State: NotScanned, lane: laneUnassessed}
 }
 
-func RecordedObservations(vs []Verdict) []Observation {
+func Recorded(v Verdict, adj map[ids.ID]Adjudication) Observation {
+	o := Observation{CheckRef: v.reference(), Record: &v, State: v.State}
+	o.lane = LaneOf(o, adj)
+	return o
+}
+
+func RecordedObservations(vs []Verdict, adj map[ids.ID]Adjudication) []Observation {
 	out := make([]Observation, 0, len(vs))
 	for _, v := range vs {
-		out = append(out, Recorded(v))
+		out = append(out, Recorded(v, adj))
 	}
 	return out
 }
@@ -86,9 +91,8 @@ func (c CheckRef) identity() CheckIdentity {
 
 // observe retains saved evidence, but groups under the current project name and
 // interprets source availability, staleness and exception expiry in that order.
-func observe(v Verdict, current currentContext) Observation {
-	o := Recorded(v)
-	o.CheckRef = current.Check
+func observe(v Verdict, current currentContext, adj map[ids.ID]Adjudication) Observation {
+	o := Observation{CheckRef: current.Check, Record: &v, State: v.State}
 	if current.HeadSHA == "" {
 		o.State = CannotAssess
 		o.note = current.SourceUnavailable
@@ -101,6 +105,7 @@ func observe(v Verdict, current currentContext) Observation {
 		o.State = DoesNotConform
 		o.note = "(the exception that covered this has expired or been removed)"
 	}
+	o.lane = LaneOf(o, adj)
 	return o
 }
 
@@ -135,5 +140,6 @@ func (o Observation) MarshalJSON() ([]byte, error) {
 		VerdictFields
 		State       ObservationState `json:"state"`
 		StatusLabel CheckLabel       `json:"statusLabel"`
-	}{VerdictFields(evidence), o.State, displayLabel(o.State)})
+		Lane        Lane             `json:"lane"`
+	}{VerdictFields(evidence), o.State, displayLabel(o.State), o.lane})
 }

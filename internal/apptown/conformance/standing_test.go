@@ -30,18 +30,18 @@ func TestProjectStandingRules(t *testing.T) {
 		{"n/a alone is nothing to judge", []Verdict{mk(NotApplicable, "llm", "")}, standingNothing},
 	}
 	for _, c := range cases {
-		ps := SummarizeProject(idstest.N(1), "p", RecordedObservations(c.vs), adj)
+		ps := SummarizeProject(idstest.N(1), "p", RecordedObservations(c.vs, adj))
 		if ps.Standing != c.want {
 			t.Errorf("%s: standing %q (%s), want %q", c.name, ps.Standing, ps.Sentence, c.want)
 		}
 	}
 	// n/a is excluded from M; a confirmed AI flag counts as a finding.
 	vs := []Verdict{{ID: idstest.N(7), State: DoesNotConform, Evaluator: "llm", Severity: "high"}, mk(NotApplicable, "llm", ""), mk(Conforms, "sh", "")}
-	ps := SummarizeProject(idstest.N(1), "p", RecordedObservations(vs), adj)
+	ps := SummarizeProject(idstest.N(1), "p", RecordedObservations(vs, adj))
 	if ps.Total != 2 || ps.Lanes.NA != 1 || ps.Lanes.Flagged != 1 || ps.Standing != StandingNeedsLook {
 		t.Fatalf("n/a must not count toward M and an unconfirmed flag is flagged: %+v", ps)
 	}
-	ps = SummarizeProject(idstest.N(1), "p", RecordedObservations(vs), map[ids.ID]Adjudication{idstest.N(7): {VerdictID: idstest.N(7), Kind: "confirmed"}})
+	ps = SummarizeProject(idstest.N(1), "p", RecordedObservations(vs, map[ids.ID]Adjudication{idstest.N(7): {VerdictID: idstest.N(7), Kind: "confirmed"}}))
 	if ps.Lanes.Findings != 1 || ps.High != 1 || ps.Standing != standingDoesNot || !strings.Contains(ps.Sentence, "1 high") {
 		t.Fatalf("a confirmed flag is a finding: %+v", ps)
 	}
@@ -78,15 +78,28 @@ func TestLanesSeparateEvidenceFromAction(t *testing.T) {
 		name          string
 		observation   Observation
 		confirmations map[ids.ID]Adjudication
-		want          lane
+		want          Lane
 	}{
-		{"AI flag", Recorded(record), nil, laneFlagged},
-		{"confirmed AI", Recorded(record), confirmed, LaneFindings},
-		{"other confirmation", Recorded(record), map[ids.ID]Adjudication{idstest.N(4): {VerdictID: idstest.N(4)}}, laneFlagged},
-		{"stale confirmed AI", observe(record, currentContext{Check: record.reference(), HeadSHA: "now", ExceptionActive: true}), confirmed, laneUnassessed},
+		{"AI flag", Recorded(record, nil), nil, laneFlagged},
+		{"confirmed AI", Recorded(record, confirmed), confirmed, LaneFindings},
+		{"other confirmation", Recorded(record, nil), map[ids.ID]Adjudication{idstest.N(4): {VerdictID: idstest.N(4)}}, laneFlagged},
+		{"stale confirmed AI", observe(record, currentContext{Check: record.reference(), HeadSHA: "now", ExceptionActive: true}, confirmed), confirmed, laneUnassessed},
 		{"never scanned", Unassessed(record.reference()), confirmed, laneUnassessed},
-		{"no evidence", Observation{State: DoesNotConform}, nil, laneUnassessed},
+		{"no evidence", Observation{State: DoesNotConform, lane: laneUnassessed}, nil, laneUnassessed},
 	} {
+		b, err := json.Marshal(tc.observation)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var wire struct {
+			Lane string `json:"lane"`
+		}
+		if err := json.Unmarshal(b, &wire); err != nil {
+			t.Fatal(err)
+		}
+		if wire.Lane != tc.want.String() {
+			t.Fatalf("owner classification missing from response: %s", b)
+		}
 		if got := LaneOf(tc.observation, tc.confirmations); got != tc.want {
 			t.Errorf("%s: got %v want %v", tc.name, got, tc.want)
 		}
@@ -94,10 +107,10 @@ func TestLanesSeparateEvidenceFromAction(t *testing.T) {
 	record.Evaluator = "sh"
 	for _, tc := range []struct {
 		outcome Outcome
-		want    lane
+		want    Lane
 	}{{Conforms, laneConforms}, {DoesNotConform, LaneFindings}, {Excepted, laneExcepted}, {NotApplicable, laneNotApplicable}, {CannotAssess, laneUnassessed}, {EvaluationError, laneBroken}} {
 		record.State = tc.outcome
-		if got := LaneOf(Recorded(record), nil); got != tc.want {
+		if got := LaneOf(Recorded(record, nil), nil); got != tc.want {
 			t.Errorf("%s: got %v want %v", tc.outcome, got, tc.want)
 		}
 	}
@@ -172,10 +185,10 @@ func TestProjectionJSONUsesOwnedVocabulary(t *testing.T) {
 func TestABrokenCheckReadsAsAnIncompleteReview(t *testing.T) {
 	t.Parallel()
 	standing, sentence := standingFor(Lanes{Conforms: 5, Broken: 1}, 0, 6)
-	if standing != standingBroken || sentence != "Review incomplete · 1 check couldn't run" {
+	if standing != standingBroken || sentence != "Review incomplete · 1 not known" {
 		t.Fatal(standing, sentence)
 	}
-	if _, sentence := standingFor(Lanes{Broken: 2}, 0, 2); sentence != "Review incomplete · 2 checks couldn't run" {
+	if _, sentence := standingFor(Lanes{Broken: 2}, 0, 2); sentence != "Review incomplete · 2 not known" {
 		t.Fatal(sentence)
 	}
 }
@@ -206,7 +219,25 @@ func TestFleetIncompleteCountIncludesChecksHiddenByHigherPriorityStanding(t *tes
 func TestFindingSentenceKeepsChecksThatCouldNotRun(t *testing.T) {
 	t.Parallel()
 	standing, sentence := standingFor(Lanes{Findings: 2, Broken: 1}, 0, 3)
-	if standing != standingDoesNot || !strings.Contains(sentence, "2 findings · 1 couldn't run") {
+	if standing != standingDoesNot || !strings.Contains(sentence, "2 findings · 1 not known") {
 		t.Fatalf("mixed result hides failed execution: %s: %s", standing, sentence)
+	}
+}
+
+func TestUnknownAttemptIsNotJudgedOrPassed(t *testing.T) {
+	t.Parallel()
+	for _, state := range []Outcome{EvaluationError} {
+		p := SummarizeProject(idstest.N(1), "calendar", RecordedObservations([]Verdict{{Check: "scan", State: state, Detail: "scanner timed out"}}, nil))
+		if p.Judged != 0 || p.Lanes.Findings != 0 || p.StatusLabel != checkUnknown || !strings.Contains(p.Sentence, "not known") || !strings.Contains(p.Sentence, "scanner timed out") {
+			t.Fatalf("attempt without an answer must be not known with its reason: %+v", p)
+		}
+	}
+}
+
+func TestStandingCountsAnUnansweredAttemptOnce(t *testing.T) {
+	t.Parallel()
+	p := SummarizeProject(idstest.N(1), "calendar", RecordedObservations([]Verdict{{Check: "scan", State: EvaluationError, Detail: "scanner timed out"}}, nil))
+	if p.Sentence != "Review incomplete · 1 not known: scan: scanner timed out" {
+		t.Fatal(p.Sentence)
 	}
 }

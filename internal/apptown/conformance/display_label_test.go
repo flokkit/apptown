@@ -21,7 +21,7 @@ func TestCheckLabelsKeepExceptionsAndUnknownEvidenceDistinct(t *testing.T) {
 func TestDisplayLabelUsesCurrentInterpretationWithoutChangingSavedEvidence(t *testing.T) {
 	saved := Verdict{State: Conforms, SHA: "old", Version: 1}
 	original := saved
-	current := observe(saved, currentContext{Check: CheckRef{Version: 1}, HeadSHA: "new"})
+	current := observe(saved, currentContext{Check: CheckRef{Version: 1}, HeadSHA: "new"}, nil)
 	body, err := json.Marshal(current)
 	if err != nil {
 		t.Fatal(err)
@@ -36,7 +36,7 @@ func TestDisplayLabelUsesCurrentInterpretationWithoutChangingSavedEvidence(t *te
 	if wire.State != "stale" || wire.Label != "unknown" || saved != original {
 		t.Fatalf("display changed evidence or hid uncertainty: %s", body)
 	}
-	body, err = json.Marshal(saved)
+	body, err = json.Marshal(Recorded(saved, nil))
 	if err != nil {
 		t.Fatal(err)
 	}

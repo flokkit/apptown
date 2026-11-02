@@ -70,8 +70,9 @@ Conformance supplies one query of stored verdicts, exact confirmations, active
 exceptions, currently adopted checks and recorded main for the authorized
 project selection. Attention polling does not read Git or open a transaction
 per project. Verdicts from before recorded main changed cannot establish current
-problems. Only confirmed findings and broken checks contribute a project row;
-unrun and unassessed projects contribute nothing. The row names its inner count,
+problems. Confirmed findings and checks that run and fail contribute a problem row.
+Checks that cannot give an answer contribute a separate not-known row, with
+the recorded reasons. Neither row includes checks not run yet. The row names its inner count,
 and counts as one item in the header, Attention summary and Home.
 
 The page groups named links under Hosts and deployments, Backups, Integrations

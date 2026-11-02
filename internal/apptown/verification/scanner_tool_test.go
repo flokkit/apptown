@@ -212,7 +212,7 @@ func TestHTMLOnlyAssessmentDropsTheOnlyDockerfileFinding(t *testing.T) {
 		{State: conformance.Conforms, Evaluator: "sh", Block: "other", Version: 1},
 		{State: got[0].State, Evaluator: "tool", Block: sc.Block, Version: sc.Version},
 	}
-	standing := conformance.SummarizeProject(f.ProjectID, "html", conformance.RecordedObservations(verdicts), nil)
+	standing := conformance.SummarizeProject(f.ProjectID, "html", conformance.RecordedObservations(verdicts, nil))
 	if standing.Standing != conformance.StandingConforms || standing.Lanes.Findings != 0 {
 		t.Fatalf("only finding removed: %+v", standing)
 	}

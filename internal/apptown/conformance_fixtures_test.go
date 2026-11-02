@@ -41,7 +41,11 @@ func savedVerdicts(a *App, id ids.ID) ([]conformance.Verdict, error) {
 	if err != nil {
 		return nil, err
 	}
-	return d.Verdicts, nil
+	saved := make([]conformance.Verdict, 0, len(d.Verdicts))
+	for _, o := range d.Verdicts {
+		saved = append(saved, *o.Record)
+	}
+	return saved, nil
 }
 func savedLatestVerdict(a *App, id ids.ID, block string, version int, check string) (conformance.Verdict, error) {
 	ctx, err := savedReader(a)

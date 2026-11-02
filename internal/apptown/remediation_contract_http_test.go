@@ -49,7 +49,10 @@ func TestRemediationHTTPPreviewControlsAndItemScope(t *testing.T) {
 		}
 	}
 	detailResponse := authzCall(h, "t", "GET", fmt.Sprintf("/api/v1/conformance/reviews/%d", own.ID), "")
-	var reviewDetail conformance.ReviewDetail
+	var reviewDetail struct {
+		Review   *conformance.Review
+		Verdicts []json.RawMessage
+	}
 	if err := json.Unmarshal(detailResponse.Body.Bytes(), &reviewDetail); err != nil || detailResponse.Code != 200 || reviewDetail.Review == nil || reviewDetail.Review.ID != own.ID || len(reviewDetail.Verdicts) != 2 {
 		t.Fatalf("review detail: %d %s %v", detailResponse.Code, detailResponse.Body.String(), err)
 	}

@@ -17,20 +17,21 @@ import (
 // Historical lenses use the saved verdicts and exception snapshots. Current
 // adoption and live exception state never rewrite a past review's evidence.
 type historicalConformance struct {
-	Projects  []Project
-	CheckDefs map[string]CheckDefinition
-	Reviews   []Review
-	ReviewDetail
+	Projects           []Project
+	CheckDefs          map[string]CheckDefinition
+	Reviews            []Review
+	Review             *Review
+	Verdicts           []Verdict
 	Exceptions         []Disposition
 	Adjudications      map[ids.ID]Adjudication
 	PriorConfirmations map[ids.ID]PriorConfirmation
 	Delta              *ReviewDelta
 }
 
-func readPriorConfirmations(ctx context.Context, db database.Queryer, vs []Observation, adj map[ids.ID]Adjudication) (map[ids.ID]PriorConfirmation, error) {
+func readPriorConfirmations(ctx context.Context, db database.Queryer, vs []Observation) (map[ids.ID]PriorConfirmation, error) {
 	idList := []ids.ID{}
 	for _, v := range vs {
-		if v.Record != nil && !v.Record.ID.IsZero() && LaneOf(v, adj) == laneFlagged {
+		if v.Record != nil && !v.Record.ID.IsZero() && v.lane == laneFlagged {
 			idList = append(idList, v.Record.ID)
 		}
 	}
@@ -62,7 +63,7 @@ func (s reviewStore) historical(ctx context.Context, id ids.ID) (*historicalConf
 		if err != nil {
 			return nil, err
 		}
-		h := &historicalConformance{ReviewDetail: ReviewDetail{Review: r}}
+		h := &historicalConformance{Review: r}
 		idList := []ids.ID{id}
 		var prev ids.ID
 		if r.Status == ReviewDone {
@@ -103,7 +104,7 @@ func (s reviewStore) historical(ctx context.Context, id ids.ID) (*historicalConf
 		if err != nil {
 			return nil, err
 		}
-		h.PriorConfirmations, err = readPriorConfirmations(ctx, db, RecordedObservations(h.Verdicts), h.Adjudications)
+		h.PriorConfirmations, err = readPriorConfirmations(ctx, db, RecordedObservations(h.Verdicts, h.Adjudications))
 		if err != nil {
 			return nil, err
 		}

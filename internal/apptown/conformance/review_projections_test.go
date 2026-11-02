@@ -168,7 +168,11 @@ func (f *projectionFixture) savedVerdicts(t *testing.T, reviewID ids.ID) []Verdi
 	if err != nil {
 		t.Fatal(err)
 	}
-	return d.Verdicts
+	saved := make([]Verdict, 0, len(d.Verdicts))
+	for _, o := range d.Verdicts {
+		saved = append(saved, *o.Record)
+	}
+	return saved
 }
 
 func currentObservation(t *testing.T, view *View, projectID ids.ID, check string) Observation {
@@ -270,11 +274,11 @@ func TestFleetWorklists(t *testing.T) {
 	rev, _ := f.review(t, caller("t"), "manual", nil, outcomes(map[string]Outcome{"good": Conforms, "bad": DoesNotConform}))
 
 	saved := f.savedVerdicts(t, rev.ID)
-	byProj := groupByProject(RecordedObservations(saved))
+	byProj := groupByProject(RecordedObservations(saved, nil))
 	if len(byProj["good"]) != 1 || len(byProj["bad"]) != 1 {
 		t.Fatalf("by-project should list each project's verdicts: %+v", byProj)
 	}
-	row := groupByCheck(RecordedObservations(saved))["hygiene@1·no-fixme"]
+	row := groupByCheck(RecordedObservations(saved, nil))["hygiene@1·no-fixme"]
 	if len(row) != 2 {
 		t.Fatalf("by-check should gather the same check across projects: %+v", row)
 	}

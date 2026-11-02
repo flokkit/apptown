@@ -286,3 +286,30 @@ func TestAModelRubricIsComparedWithMain(t *testing.T) {
 		t.Fatalf("main's tree is what the second call judged: %d prompts", len(prompts))
 	}
 }
+
+func TestReviewModelCallFailureIsRecordedAsEvaluationError(t *testing.T) {
+	t.Parallel()
+	a := conformanceTestApp(t)
+	tgLocalSh(t, a)
+	bindSecondaryFastSlot(t, a)
+	pid, _, _ := fleetRepo(t, a, "proj", map[string]string{"README.md": "# proj\n"})
+	adopt(t, a, pid, "prose", 1, checksJSON(treeRubric("plain", "README is plain", "README.md")))
+	installCheckEffects(t, a, checkOverrides{complete: func(string, string, string) (string, *modelcall.Usage, error) {
+		return "", nil, errors.New("provider unavailable")
+	}})
+	rev, vs, err := fleetReviewsFor(a).RunFleetReviewWith(testConformanceContext("t"), "manual", conformance.ReviewOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vs) != 1 || vs[0].State != conformance.EvaluationError || !strings.Contains(vs[0].Detail, "provider unavailable") || rev.Errors != 1 {
+		t.Fatalf("failed model attempt: %+v %+v", rev, vs)
+	}
+	view, err := a.conformance.View(testConformanceContext("t"), rev.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := standingOf(t, view, "proj")
+	if len(p.NotKnown) != 1 || p.Lanes.Broken != 1 || p.Lanes.Unassessed != 0 {
+		t.Fatalf("model failure standing: %+v", p)
+	}
+}

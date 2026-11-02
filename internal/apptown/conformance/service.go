@@ -233,16 +233,16 @@ func (s *Service) CurrentView(ctx context.Context, projects []ids.ID) ([]Project
 		if err != nil {
 			return nil, err
 		}
-		o := observe(v, currentContext{Check: v.reference(), HeadSHA: row.CurrentSha, ExceptionActive: row.ExceptionActive})
-		byProject[v.ProjectID] = append(byProject[v.ProjectID], o)
-		names[v.ProjectID], slugs[v.ProjectID] = row.ProjectName, row.CurrentSlug
 		if row.Confirmed {
 			adjudications[v.ID] = Adjudication{VerdictID: v.ID, Kind: "confirmed"}
 		}
+		o := observe(v, currentContext{Check: v.reference(), HeadSHA: row.CurrentSha, ExceptionActive: row.ExceptionActive}, adjudications)
+		byProject[v.ProjectID] = append(byProject[v.ProjectID], o)
+		names[v.ProjectID], slugs[v.ProjectID] = row.ProjectName, row.CurrentSlug
 	}
 	out := []ProjectStanding{}
 	for id, observations := range byProject {
-		p := SummarizeProject(id, slugs[id], observations, adjudications)
+		p := SummarizeProject(id, slugs[id], observations)
 		p.Name = displayName(names[id], slugs[id])
 		out = append(out, p)
 	}

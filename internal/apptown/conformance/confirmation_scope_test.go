@@ -3,6 +3,7 @@ package conformance
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -96,6 +97,26 @@ func TestConfirmIsPerVerdict(t *testing.T) {
 	}
 	if ad, ok := view.Adjudications[flag.ID]; !ok || ad.By != "bls" || ad.Kind != "confirmed" {
 		t.Fatalf("view must carry the adjudication: %+v", view.Adjudications)
+	}
+
+	detail, err := service.Review(caller("reviewer"), flag.ReviewID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := json.Marshal(detail)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var feed struct {
+		Verdicts []struct {
+			Lane string `json:"lane"`
+		} `json:"verdicts"`
+	}
+	if err := json.Unmarshal(body, &feed); err != nil {
+		t.Fatal(err)
+	}
+	if len(feed.Verdicts) != 1 || feed.Verdicts[0].Lane != "findings" {
+		t.Fatalf("confirmed flag in review feed: %s", body)
 	}
 
 	source.head = "second-head"

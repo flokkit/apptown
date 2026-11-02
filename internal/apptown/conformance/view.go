@@ -61,7 +61,7 @@ func (s *Service) View(ctx context.Context, reviewID ids.ID) (*View, error) {
 	if err != nil {
 		return nil, err
 	}
-	observations := RecordedObservations(h.Verdicts)
+	observations := RecordedObservations(h.Verdicts, h.Adjudications)
 	view := &View{Lens: LensInfo{Kind: "review", Review: h.Review, Delta: h.Delta}, Adjudications: h.Adjudications, PriorConfirmations: h.PriorConfirmations,
 		CheckDefs: h.CheckDefs, Reviews: h.Reviews, Exceptions: map[string][]Disposition{}, ByProject: groupByProject(observations), ByCheck: groupByCheck(observations)}
 	names := map[ids.ID]string{}
@@ -80,7 +80,7 @@ func (s *Service) View(ctx context.Context, reviewID ids.ID) (*View, error) {
 		view.Exceptions[slug] = append(view.Exceptions[slug], d)
 	}
 	for id, slug := range slugs {
-		standing := SummarizeProject(id, slug, view.ByProject[slug], view.Adjudications)
+		standing := SummarizeProject(id, slug, view.ByProject[slug])
 		standing.Name = displayName(names[id], slug)
 		view.Projects = append(view.Projects, standing)
 	}

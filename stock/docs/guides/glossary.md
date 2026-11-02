@@ -73,10 +73,15 @@ uses a relative age such as `checked 5m ago` for fresh readings and `last seen 5
 health is **not applicable**. Recorded ownership remains separate.
 
 **Attention** — everything needing a person's action that the viewer can read:
-hosts and deployments, backups, failed integrations and confirmed app-check
-problems. Each listed row counts as one item, including a row summarizing several app-check problems. Unassessed app checks and integrations without background checks do not count. Only failed integration checks count, with no integration unknown-coverage count. The header shows `3 to fix · 1 not known`, omits zero parts, and says
-`All quiet` when both are zero. Unknown coverage is separate from confirmed
-problems; open Attention for each named resource, its reason and next step.
+hosts and deployments, backups, failed integrations, confirmed app-check
+problems and app checks whose answer is not known. Each listed row counts as
+one item, including a row summarizing several app-check outcomes. An attempted check that
+cannot give an answer counts under `not known`, with its reason. Confirmed
+problems count under `to fix`. Checks not run yet and integrations without
+background checks do not count. The header shows `3 to fix · 1 not known`,
+omits zero parts, and says `All quiet` when both are zero. Unknown coverage is
+separate from confirmed problems. Open Attention for each named resource, its
+reason and next step.
 
 ## Workflows
 
@@ -218,6 +223,14 @@ platform, survive reboots, and are reachable by everyone inside.
 versioned blocks. Some blocks carry checks; some carry a skill, a how-to an
 agent loads only when it needs it.
 
+**Check** — an assessment of an app against a declared rule. A check that runs
+and finds a problem fails. An attempted check that cannot give an answer is not known,
+with its reason, and never counts as passed or as a confirmed problem. A gate
+that requires that check still refuses until it has the required evidence.
+Deferred checks remain not yet assessed. For example, a deployment check
+waits for a standing deployment, and an image check waits for its image.
+These deferrals raise no Attention row.
+
 **Conformance** — whether an app meets the ways of working it has adopted.
 Checked two ways: as a step when a change lands, and by a read-only
 **review** of every app's committed main (the Conformance page). A review is
@@ -239,6 +252,11 @@ with is its `tools:` in `.apptown/app.yaml`.
 
 **Finding** — one issue reported by a scan or a review, tracked until it is
 fixed or suppressed.
+
+A confirmed app-check problem is a finding confirmed by a person or reported
+by a deterministic check. A check that runs and fails on its own terms also
+counts as a confirmed problem. A check that cannot give an answer produces
+no confirmed problem.
 
 **Suppression** — a recorded decision to accept a finding, with a reason and
 an author.

@@ -51,7 +51,7 @@ func remediationAttemptFixture(t *testing.T, previous bool) (*App, remediation.A
 	if _, err := review.Finish(ctx, conformance.Completion{Projects: 1, ProjectsDone: 1}, conformance.ReviewDone); err != nil {
 		t.Fatal(err)
 	}
-	_, items, err := remediation.NewCreations(a.DB, nil).Create(ctx, remediation.CreationRequest{Scope: "project", Actor: "alice", Findings: []conformance.Observation{conformance.Recorded(verdict)}})
+	_, items, err := remediation.NewCreations(a.DB, nil).Create(ctx, remediation.CreationRequest{Scope: "project", Actor: "alice", Findings: []conformance.Observation{conformance.Recorded(verdict, nil)}})
 	if err != nil || len(items) != 1 {
 		t.Fatalf("remediation creation: items=%+v err=%v", items, err)
 	}

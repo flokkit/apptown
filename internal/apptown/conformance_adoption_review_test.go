@@ -77,7 +77,7 @@ func TestAnAdoptionChangeQueuesItsProjectsReview(t *testing.T) {
 		if v.ProjectID != alpha {
 			t.Fatalf("the review judged another project: %+v", v)
 		}
-		judged[v.Check] = v.State
+		judged[v.Check] = v.Record.State
 	}
 	if judged["no-fixme"] != conformance.DoesNotConform || judged["no-todo"] != conformance.Conforms {
 		t.Fatalf("the adoption's review found %+v", judged)

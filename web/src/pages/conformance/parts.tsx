@@ -14,7 +14,7 @@ import { fmtWhen } from '../../format'
 
 export type Verdict = ConformanceObservation | WireVerdict
 // LiveReview is a review being followed: the review and its verdicts so far.
-export type LiveReview = { review: Review; verdicts: WireVerdict[] }
+export type LiveReview = { review: Review; verdicts: ConformanceObservation[] }
 
 // --- vocabulary ------------------------------------------------------------------------
 
@@ -56,15 +56,8 @@ export const ITEM: Record<string, { label: string }> = {
 }
 export const ITEM_COLOR: Record<string, string> = { done: 'var(--ok)', working: 'var(--busy)', accepting: 'var(--warn)', landing: 'var(--busy)', verifying: 'var(--busy)', stuck: 'var(--bad)', queued: 'var(--border-strong)', skipped: 'var(--muted)' }
 
-export function laneOf(v: Verdict, adj: Record<string, Adjudication>): keyof Lanes {
-  switch (v.state) {
-    case 'conforms': return 'conforms'
-    case 'excepted': return 'excepted'
-    case 'does-not-conform': return v.evaluator === 'llm' && !adj[String(v.id)] ? 'flagged' : 'findings'
-    case 'not-applicable': return 'na'
-    case 'error': return 'broken'
-    default: return 'unassessed'
-  }
+export function laneOf(v: Verdict): keyof Lanes {
+  return v.lane
 }
 
 export const shortSha = (s?: string) => (s ? s.slice(0, 8) : '')
@@ -77,7 +70,7 @@ export function StandingChip({ label, help, findings, broken = 0 }: { label: imp
   return <Status word={label} help={help} />
 }
 export function BrokenNote({ broken }: { broken: number }) {
-  return broken > 0 ? <span className="conformance-broken">· {broken} couldn't run</span> : null
+  return broken > 0 ? <span className="conformance-broken">· {broken} not known</span> : null
 }
 export function StateChip({ label, help, finding = false, findings = 1 }: { label: import('../../wire.gen').CheckLabel; help?: string; finding?: boolean; findings?: number }) {
   if (finding) return <span className="finding-count" title={help}>{findings} {findings === 1 ? 'finding' : 'findings'}</span>
@@ -140,7 +133,8 @@ export function LensBanner({ view }: { view: ConformanceView }) {
 export function ReviewFeed({ d }: { d: LiveReview }) {
   const r = d.review
   const running = isUnfinished(r.status)
-  const open = d.verdicts.filter((v) => v.state === 'does-not-conform' || v.state === 'error').length
+  const open = d.verdicts.filter((v) => v.lane === 'findings').length
+  const unknown = d.verdicts.filter(v => v.lane === 'broken').length
   const feed = [...d.verdicts].reverse()
   return (
     <div className={`card${running ? ' tone-busy' : open > 0 ? ' tone-bad' : ''}`} style={{ padding: 0, marginBottom: 'var(--space-4)', overflow: 'hidden' }}>
@@ -151,6 +145,7 @@ export function ReviewFeed({ d }: { d: LiveReview }) {
           <span className="muted small">
             {reviewProgressWords(r.status, r.projectsDone, r.projectsTotal || r.projects || 0)} · {d.verdicts.length} checks
             {running && r.currentProject && <> · now <span className="mono">{r.currentProject}</span></>}
+            {unknown > 0 && <> · {unknown} not known</>}
             {open > 0 && <> · <span style={{ color: 'var(--bad)', fontWeight: 600 }}>{open} findings</span></>}
           </span>
         </div>
@@ -164,7 +159,7 @@ export function ReviewFeed({ d }: { d: LiveReview }) {
               <span style={{ fontWeight: 600 }}>{v.projectSlug}</span>
               <span className="mono muted" style={{ fontSize: 'var(--fs-xs)' }}> · {v.block}/{v.check}</span>
             </span>
-            <StateChip finding={v.state === 'does-not-conform'} label={v.statusLabel} help={v.detail} />
+            <StateChip finding={v.lane === 'findings'} label={v.statusLabel} help={v.detail} />
           </div>
         ))}
       </div>
@@ -189,7 +184,8 @@ export function ReviewProgress({ d }: { d: LiveReview }) {
   const r = d.review
   const total = r.projectsTotal || r.projects || 0
   const pct = total ? Math.min(100, Math.round((r.projectsDone / total) * 100)) : 0
-  const open = d.verdicts.filter((v) => v.state === 'does-not-conform' || v.state === 'error').length
+  const open = d.verdicts.filter((v) => v.lane === 'findings').length
+  const unknown = d.verdicts.filter(v => v.lane === 'broken').length
   return (
     <div style={{ minWidth: 260, maxWidth: 360, flex: '1 1 260px' }}>
       <div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-2)', fontSize: 'var(--fs-xs)', marginBottom: 'var(--space-1)' }}>
@@ -200,6 +196,7 @@ export function ReviewProgress({ d }: { d: LiveReview }) {
         </span>
         <span className="muted">
           {open > 0 ? <span style={{ color: 'var(--bad)', fontWeight: 600 }}>{open} findings</span> : `${d.verdicts.length} checks`}
+          {unknown > 0 && <> · {unknown} not known</>}
           {' · '}<Link to={`/conformance/reviews/${r.id}`} className="subtle">watch</Link>
         </span>
       </div>

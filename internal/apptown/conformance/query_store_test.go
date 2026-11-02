@@ -156,7 +156,7 @@ func TestReviewDetailUsesOneSnapshot(t *testing.T) {
 			return nil, err
 		}
 		vs, err := readReviewVerdicts(context.Background(), db, []ids.ID{r.ID}, ids.Nil)
-		return &ReviewDetail{Review: before, Verdicts: vs}, err
+		return &ReviewDetail{Review: before, Verdicts: RecordedObservations(vs, nil)}, err
 	})
 	if err != nil || got.Review.Status != ReviewRunning || len(got.Verdicts) != 0 {
 		t.Fatalf("mixed snapshot: %+v %v", got, err)

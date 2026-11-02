@@ -77,7 +77,7 @@ func TestObservationsPreserveEvidence(t *testing.T) {
 		{"stale precedes expiry", "now", 2, false, Stale, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			observed := observe(original, currentContext{Check: CheckRef{ProjectID: original.ProjectID, ProjectSlug: original.ProjectSlug, Block: original.Block, Version: tc.version, Check: original.Check}, HeadSHA: tc.head, ExceptionActive: tc.active})
+			observed := observe(original, currentContext{Check: CheckRef{ProjectID: original.ProjectID, ProjectSlug: original.ProjectSlug, Block: original.Block, Version: tc.version, Check: original.Check}, HeadSHA: tc.head, ExceptionActive: tc.active}, nil)
 			if observed.State != tc.want || observed.Record == nil || !reflect.DeepEqual(*observed.Record, original) {
 				t.Fatalf("observation altered evidence: %+v", observed)
 			}
@@ -101,9 +101,9 @@ func TestObservationJSONKeepsTheFlatContract(t *testing.T) {
 		wantID      ids.ID
 		wantDetail  string
 	}{
-		{Recorded(record), "excepted", idstest.N(31), "saved"},
-		{observe(record, currentContext{Check: record.reference(), HeadSHA: "now", ExceptionActive: true}), "stale", idstest.N(31), "saved"},
-		{observe(record, currentContext{Check: record.reference(), HeadSHA: "then", ExceptionActive: false}), "does-not-conform", idstest.N(31), "saved\n(the exception that covered this has expired or been removed)"},
+		{Recorded(record, nil), "excepted", idstest.N(31), "saved"},
+		{observe(record, currentContext{Check: record.reference(), HeadSHA: "now", ExceptionActive: true}, nil), "stale", idstest.N(31), "saved"},
+		{observe(record, currentContext{Check: record.reference(), HeadSHA: "then", ExceptionActive: false}, nil), "does-not-conform", idstest.N(31), "saved\n(the exception that covered this has expired or been removed)"},
 		{Unassessed(record.reference()), "not-scanned", ids.Nil, ""},
 	} {
 		b, err := json.Marshal(tc.observation)

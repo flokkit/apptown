@@ -134,7 +134,7 @@ func readCurrentConformance(ctx context.Context, db database.Queryer, source che
 	if err != nil {
 		return nil, err
 	}
-	f.PriorConfirmations, err = readPriorConfirmations(ctx, db, RecordedObservations(f.Verdicts), f.Adjudications)
+	f.PriorConfirmations, err = readPriorConfirmations(ctx, db, RecordedObservations(f.Verdicts, f.Adjudications))
 	if err != nil {
 		return nil, err
 	}

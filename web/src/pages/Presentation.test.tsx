@@ -112,18 +112,18 @@ it.each([false, true])('names an unlabelled deployment by its tier (phone=%s)', 
 it('keeps a broken check red beside amber findings', async () => {
   const el = await show(<StandingChip label="failed" findings={2} broken={1} help="Mixed results" />)
   expect(el.querySelector('.finding-count')?.textContent).toContain('2 findings')
-  expect(el.querySelector('.conformance-broken')?.textContent).toContain("· 1 couldn't run")
+  expect(el.querySelector('.conformance-broken')?.textContent).toContain("· 1 not known")
 })
 
 it.each([false, true])('keeps failed execution beside findings in list and project notes (phone=%s)', async narrow => {
-  const p = { slug: 'calendar', name: 'Calendar', standing: 'does-not-conform', statusLabel: 'failed', sentence: '2 findings · 1 could not run', lanes: { findings: 2, broken: 1, conforms: 0, excepted: 0, flagged: 0, unassessed: 0, na: 0 }, total: 3, adopted: [] }
+  const p = { notKnown: ['scanner: no Docker executor'], slug: 'calendar', name: 'Calendar', standing: 'does-not-conform', statusLabel: 'failed', sentence: '2 findings · 1 could not run', lanes: { findings: 2, broken: 1, conforms: 0, excepted: 0, flagged: 0, unassessed: 0, na: 0 }, total: 3, adopted: [] }
   const view = { projects: [p], byProject: {}, exceptions: {}, adjudications: {}, checkDefs: {} } as unknown as ConformanceView
   // A phone list row puts the chip and its fact on one line, so the note shows once.
   for (const [ui, count] of [[<ProjectsList view={view} base="/conformance" />, narrow ? 1 : 2], [<ConformanceProject view={view} slug="calendar" readOnly onRunOne={() => {}} />, 2]] as const) {
     const el = await show(ui, {}, narrow)
     const notes = el.querySelectorAll('.conformance-broken')
     expect(notes).toHaveLength(count)
-    expect([...notes].every(n => n.textContent === "· 1 couldn't run")).toBe(true)
+    expect([...notes].every(n => n.textContent === "· 1 not known")).toBe(true)
     expect(el.querySelector('.finding-count')?.textContent).toContain('2 findings')
   }
 })
