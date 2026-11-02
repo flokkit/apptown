@@ -1579,6 +1579,9 @@
           "nextStep": {
             "type": "string"
           },
+          "notSetUp": {
+            "type": "boolean"
+          },
           "observedAt": {
             "format": "date-time",
             "type": "string"
