@@ -955,6 +955,7 @@ export type Item = {
   rank: number
   state: string
   reason?: string
+  waiting?: Waiting | null
   originVerdictId: string | null
   originSha: string
   originEvaluatorVer?: string
@@ -3416,6 +3417,14 @@ export type Invite = {
   state: string
 }
 
+export type Waiting = {
+  kind: string
+  reason: string
+  changes?: ProjectBlocker[]
+  remediationId?: string | null
+  remediationNumber?: number
+}
+
 export type Job = {
   id: number
   kind: string
@@ -4701,6 +4710,12 @@ export type personalOpenState = "running" | "waiting on you" | "waiting on someo
 export type IntegrationUse = {
   projects: AttachedProject[]
   deployments: ProviderDeployment[]
+}
+
+export type ProjectBlocker = {
+  id: string | null
+  number: number
+  kind: string
 }
 
 export type JobLabel = "unknown" | "waiting" | "working" | "finished" | "failed" | "stopped"

@@ -12,5 +12,9 @@
 // What it does not own arrives in Dependencies: Work's doors under AppTown
 // principal, the conformance lens, the resolver that turns an item into a
 // start definition, the post-landing review, and whether a person is busy on
-// the project. The design is design/subsystems/remediation.md.
+// the project. Queued item reads explain their current hold using the same
+// occupancy decision as scheduling and locked attempt admission. They identify
+// blocking Changes and remediations for links; job summaries count waiting
+// reasons separately from recorded item states. Retry feedback stays recorded
+// while the current waiting explanation is computed on read. The design is design/subsystems/remediation.md.
 package remediation

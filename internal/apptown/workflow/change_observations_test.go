@@ -171,17 +171,27 @@ func TestSupersessionEligibilityChecksLifecycleAndScope(t *testing.T) {
 	}
 }
 
-func TestProjectWorkOccupancyPreservesReplacementRule(t *testing.T) {
+func TestProjectOccupancyRequiresLandingOrRunningStep(t *testing.T) {
 	t.Parallel()
-	for _, test := range []string{"waiting replacement", "other run", "landing", "live step", "orphan live step", "foreign step", "unattached run"} {
+	for _, test := range []string{"pending approval", "waiting approval", "other run", "landing", "live step", "orphan live step", "foreign step", "unattached run"} {
 		t.Run(test, func(t *testing.T) {
 			t.Parallel()
 			q, run, step := activityFixture(t)
 			want := true
 			switch test {
-			case "waiting replacement":
+			case "pending approval":
+				want = false
+			case "waiting approval":
+				current, err := workflowsql.New(q.db.SQL()).StepByID(context.Background(), step)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if rows, err := workflowsql.New(q.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: step, Attempt: current.Attempt, ExpectedStatus: current.Status, Status: "needs_human", EvidenceJson: current.EvidenceJson}); err != nil || rows != 1 {
+					t.Fatalf("waiting approval: %d %v", rows, err)
+				}
 				want = false
 			case "other run":
+				want = false
 				_ = insertStoredRun(t, q.db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: run.ProjectID, WorkflowName: "other", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: "current", DefinitionJson: []byte(`{}`)}).ID
 			case "landing":
 				{
@@ -237,10 +247,12 @@ func TestProjectWorkOccupancyPreservesReplacementRule(t *testing.T) {
 				}
 				want = false
 			case "unattached run":
+				want = false
 				insertStoredRun(t, q.db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: run.ProjectID, WorkflowName: "unattached", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: "finish", DefinitionJson: []byte(run.DefinitionJSON)})
 			}
 			out, err := database.Transact(context.Background(), q.db, func(tx *database.Tx) (bool, error) {
-				return ProjectBusyIn(context.Background(), tx, OccupancyScope{ProjectID: run.ProjectID, ReplacingChangeID: run.ChangeID})
+				blockers, err := ProjectBlockersIn(context.Background(), tx, run.ProjectID)
+				return len(blockers) > 0, err
 			})
 			if err != nil || out != want {
 				t.Fatalf("busy %v want %v: %v", out, want, err)

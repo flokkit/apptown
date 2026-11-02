@@ -62,17 +62,32 @@ func SupersessionEligibleIn(ctx context.Context, tx *database.Tx, ref ChangeRef)
 	return parsed == ChangeInProgress, err
 }
 
-type OccupancyScope struct{ ProjectID, ReplacingChangeID ids.ID }
+// ProjectBlocker identifies a Change occupying the project. Zero ID means work
+// without a Change. Number is the Change's project-local display number.
+type ProjectBlocker struct {
+	ID     ids.ID `json:"id"`
+	Number int64  `json:"number"`
+	Kind   string `json:"kind"` // landing or step; landing takes precedence when both apply
+}
 
-// ProjectBusyIn observes Work's durable occupancy. The one replaced Change may
-// have waiting runs, but any running Step still blocks a fresh attempt. Admission
-// holds the project lock and composes its own worker/lease/capacity policy.
-func ProjectBusyIn(ctx context.Context, tx *database.Tx, in OccupancyScope) (bool, error) {
-	if in.ProjectID.IsZero() {
-		return false, fmt.Errorf("occupancy requires valid project scope")
+// ProjectBlockersIn observes Work's durable occupancy for admission and reads.
+// A landing Change or a running Step occupies the project. Runs waiting on a
+// person do not. Admission holds the project lock and composes its own worker
+// and capacity policy. Errors never become an unoccupied project.
+func ProjectBlockersIn(ctx context.Context, db database.Queryer, projectID ids.ID) ([]ProjectBlocker, error) {
+	if projectID.IsZero() {
+		return nil, fmt.Errorf("occupancy requires valid project scope")
 	}
-	return workflowsql.New(tx.SQL()).ProjectWorkBusy(ctx, workflowsql.ProjectWorkBusyParams{ProjectID: in.ProjectID, ReplacingChangeID: in.ReplacingChangeID,
-		LandingState: ChangeLanding.String(), RunningRunState: RunRunning.String(), RunningStepState: StatusRunning.String()})
+	rows, err := workflowsql.New(db.SQL()).ProjectWorkBlockers(ctx, workflowsql.ProjectWorkBlockersParams{ProjectID: projectID,
+		LandingState: ChangeLanding.String(), RunningStepState: StatusRunning.String()})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ProjectBlocker, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, ProjectBlocker{ID: row.ID, Number: row.Number, Kind: row.Kind})
+	}
+	return out, nil
 }
 
 // SettledSince says whether any change closed, or any run stopped running, at

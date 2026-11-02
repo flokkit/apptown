@@ -15,6 +15,15 @@ skip records an explicit decision. Item commands include both job and item ident
 and refuse an item belonging to another job.
 
 Each pass checks project occupancy and execution state before starting more work.
+Work counts a project as occupied while a Change is landing or any Step of a Run
+on the project is running. A Run waiting on a person, including an approval,
+does not occupy the project. A Run waiting for a worker or between Steps does
+not occupy the project either. Known gap: a parent's workflow/call Step stays
+running while its child waits on an approval, so the parent still occupies the
+project. Queue selection, locked attempt admission and queued
+item explanations use this same rule. Explanations name the landing Change or
+the Change with a running Step. Active remediation items still reserve their
+project until they finish.
 A pass is a job on the `remediation` queue, one at a time
 ([background jobs](jobs.md)): every minute on the schedule, and at once when a
 person starts, resumes, retries or skips (`Wake`). A pass stopped by shutdown or

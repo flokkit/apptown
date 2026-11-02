@@ -1036,31 +1036,54 @@ func (q *Queries) ProjectHasChange(ctx context.Context, projectID ids.ID) (bool,
 	return exists, err
 }
 
-const projectWorkBusy = `-- name: ProjectWorkBusy :one
-SELECT (EXISTS(SELECT 1 FROM changes WHERE changes.project_id=$1 AND changes.state=$2) OR
- EXISTS(SELECT 1 FROM runs WHERE runs.project_id=$1 AND runs.status=$3 AND (runs.change_id IS DISTINCT FROM $4 OR runs.change_id IS NULL)) OR
- EXISTS(SELECT 1 FROM steps s JOIN runs r ON r.id=s.run_id WHERE r.project_id=$1 AND r.change_id IS NOT DISTINCT FROM $4 AND s.status=$5))::boolean
+const projectWorkBlockers = `-- name: ProjectWorkBlockers :many
+WITH busy AS (
+ SELECT c.id AS change_id, true AS landing FROM changes c
+ WHERE c.project_id=$1 AND c.state=$2
+ UNION ALL
+ SELECT r.change_id, false AS landing FROM runs r
+ WHERE r.project_id=$1
+ AND EXISTS(SELECT 1 FROM steps s WHERE s.run_id=r.id AND s.status=$3)
+)
+SELECT COALESCE(c.id, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS id, COALESCE(c.number, 0)::bigint AS number,
+ CASE WHEN bool_or(busy.landing) THEN 'landing' ELSE 'step' END::text AS kind
+FROM busy LEFT JOIN changes c ON c.id=busy.change_id AND c.project_id=$1
+GROUP BY c.id, c.number ORDER BY number, id
 `
 
-type ProjectWorkBusyParams struct {
-	ProjectID         ids.ID
-	LandingState      string
-	RunningRunState   string
-	ReplacingChangeID ids.ID
-	RunningStepState  string
+type ProjectWorkBlockersParams struct {
+	ProjectID        ids.ID
+	LandingState     string
+	RunningStepState string
 }
 
-func (q *Queries) ProjectWorkBusy(ctx context.Context, arg ProjectWorkBusyParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, projectWorkBusy,
-		arg.ProjectID,
-		arg.LandingState,
-		arg.RunningRunState,
-		arg.ReplacingChangeID,
-		arg.RunningStepState,
-	)
-	var column_1 bool
-	err := row.Scan(&column_1)
-	return column_1, err
+type ProjectWorkBlockersRow struct {
+	ID     ids.ID
+	Number int64
+	Kind   string
+}
+
+func (q *Queries) ProjectWorkBlockers(ctx context.Context, arg ProjectWorkBlockersParams) ([]ProjectWorkBlockersRow, error) {
+	rows, err := q.db.QueryContext(ctx, projectWorkBlockers, arg.ProjectID, arg.LandingState, arg.RunningStepState)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ProjectWorkBlockersRow
+	for rows.Next() {
+		var i ProjectWorkBlockersRow
+		if err := rows.Scan(&i.ID, &i.Number, &i.Kind); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const publishChangeNarrative = `-- name: PublishChangeNarrative :execrows

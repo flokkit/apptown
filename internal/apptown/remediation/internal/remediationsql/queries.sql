@@ -138,9 +138,9 @@ UPDATE remediation_items SET transient_retries = transient_retries + 1, reason =
 WHERE id=$1 AND project_id=$3 AND change_id IS NOT DISTINCT FROM $4 AND state = 'landing' AND attempt = $5
   AND transient_retries = $6 AND transient_retries < $7;
 
--- name: ProjectHasActiveItem :one
-SELECT EXISTS(SELECT 1 FROM remediation_items WHERE project_id = $1
-  AND state IN ('working', 'accepting', 'landing', 'verifying'));
+-- name: ProjectActiveItems :many
+SELECT i.id, i.remediation_id, m.number FROM remediation_items i JOIN remediations m ON m.id=i.remediation_id
+WHERE i.project_id = $1 AND i.state IN ('working', 'accepting', 'landing', 'verifying') ORDER BY i.id;
 
 -- name: ActiveItemCounts :one
 SELECT COUNT(*)::bigint AS active, COUNT(*) FILTER (WHERE remediation_id = $1)::bigint AS in_job

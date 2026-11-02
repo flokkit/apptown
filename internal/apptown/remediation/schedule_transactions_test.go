@@ -36,7 +36,7 @@ func TestRemediationSchedulingContinuesAfterUnstartedCandidates(t *testing.T) {
 						return StartDefinition{}, dbtest.ErrInjectedFailure
 					case "admission rejected":
 						// Work acquired the project after the queue was read.
-						otherDef := workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "other", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "hold", Uses: "approval"}}}}}}
+						otherDef := workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "other", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "hold", Uses: "script"}}}}}}
 						otherWork := workflow.New(context.Background(), a.db, workflow.Dependencies{Authority: reconcileActor{}, Git: attemptGit{t.TempDir()}, Repositories: &scm.RepositoryLocks{}, Resolve: func(context.Context, workflow.StartRequest, workflow.StartSource) (workflow.PreparedRun, error) {
 							return otherDef, nil
 						}})
@@ -45,12 +45,13 @@ func TestRemediationSchedulingContinuesAfterUnstartedCandidates(t *testing.T) {
 						if err != nil {
 							t.Fatal(err)
 						}
-						_, err = database.Transact(context.Background(), a.db, func(tx *database.Tx) (*workflow.Run, error) {
+						run, err := database.Transact(context.Background(), a.db, func(tx *database.Tx) (*workflow.Run, error) {
 							return otherWork.AdmitRunIn(a.ctx, tx, workflow.StartRequest{ProjectID: item.ProjectID, ChangeID: change.ID, WorkflowName: "other", InputsJSON: "{}"}, otherDef)
 						})
 						if err != nil {
 							t.Fatal(err)
 						}
+						a.execute(t, Item{RunID: run.ID}, workflow.StatusRunning)
 					}
 				}
 				return def, nil
@@ -86,7 +87,7 @@ func TestRemediationSchedulingContinuesAfterUnstartedCandidates(t *testing.T) {
 
 func TestRemediationQueueReadFailuresStartNothing(t *testing.T) {
 	t.Parallel()
-	for _, fragment := range []string{"SET TRANSACTION", "-- name: FreeWorkerSlots :one", "-- name: RunningJobCapacity :many", "-- name: QueuedItemsForJob :many", "-- name: ProjectHasActiveItem :one"} {
+	for _, fragment := range []string{"SET TRANSACTION", "-- name: FreeWorkerSlots :one", "-- name: RunningJobCapacity :many", "-- name: QueuedItemsForJob :many", "-- name: ProjectActiveItems :many"} {
 		t.Run(fragment, func(t *testing.T) {
 			a, _, _, _ := attemptFixture(t, false)
 			s := newScheduler(newSchedule(a.db, nil).Queue, func() bool { return false }, func(context.Context, ids.ID) bool { return false },
