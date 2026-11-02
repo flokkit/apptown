@@ -4,7 +4,7 @@ import { ATTENTION_GROUPS, attentionGroup, attentionRows, attentionState, attent
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { ReadStatus, StaleNote } from '../ReadGate'
-import { Section } from '../Section'
+import { Group, Section } from '../Section'
 import { lastSeen, relTime } from '../format'
 import type { AttentionCoverage, AttentionItem } from '../wire.gen'
 import './Attention.css'
@@ -103,13 +103,29 @@ export default function AttentionPage() {
           {unknown.map(source => <SourceRow key={source.key} source={source} />)}
         </Section></div>
       })}
-      <Section title="All checks" count={q.data.sources.length}>
-        {q.data.sources.map(source => <div key={source.key} className="card row attention-row">
+      {(() => {
+        // Checks that are working are the bulk and say nothing new: they fold
+        // into one line, open for anyone asking whether a thing is watched.
+        // The rest (unknown, old, not checked yet) stay in view.
+        const working = (s: AttentionCoverage) => !s.unknown && !s.stale && !neverChecked(s.observedAt)
+        const row = (source: AttentionCoverage) => <div key={source.key} className="card row attention-row">
           <span className="row-status"><Status word={source.unknown ? 'unknown' : neverChecked(source.observedAt) ? 'not checked yet' : 'fresh'} observation staleAt={source.stale && !source.unknown ? source.observedAt : undefined} /></span>
           <span className="attention-what"><Link to={source.href}>{source.name}</Link></span>
           {(!source.stale || source.unknown) && (!neverChecked(source.observedAt) || !neverChecked(source.attemptedAt)) && <small className="muted attention-seen">{observed(source.observedAt, source.stale, source.attemptedAt)}</small>}
-        </div>)}
-      </Section>
+        </div>
+        const others = q.data!.sources.filter(s => !working(s))
+        const fine = q.data!.sources.filter(working)
+        return <Section title="All checks" note={`${q.data!.sources.length} checks`}>
+          {others.map(row)}
+          {fine.length > 0 && <details className="attention-working">
+            <summary>{others.length > 0 ? `${fine.length} more checks working` : `All ${fine.length} checks working`}</summary>
+            {ATTENTION_GROUPS.map(g => {
+              const these = fine.filter(f => attentionGroup(f.key) === g.key)
+              return these.length > 0 && <Group key={g.key} label={`${g.title} · ${these.length}`}>{these.map(row)}</Group>
+            })}
+          </details>}
+        </Section>
+      })()}
     </>}
   </div>
 }
