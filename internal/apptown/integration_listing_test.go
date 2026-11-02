@@ -40,7 +40,7 @@ func TestIntegrationListSaysWhatUsesEachIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A preview comes and goes with its change; it is not a standing use.
-	if err := a.Deployment.Deployments.RecordPreview(context.Background(), idstest.N(1), idstest.N(7), target.ID, "preview-7", 0, ""); err != nil {
+	if err := a.Deployment.Deployments.RecordPreview(context.Background(), idstest.N(1), idstest.N(7), target.ID, "preview-7", 0, "", nil); err != nil {
 		t.Fatal(err)
 	}
 	w := authzCall(a.Handler(), "boss", "GET", "/api/v1/integrations", "")

@@ -454,7 +454,7 @@ func TestRecoveryLeavesPreviewsCold(t *testing.T) {
 	t.Parallel()
 	a, f := bootWorld(t)
 	writeBootFixture(t, a.projectRepoPath("p"))
-	if err := a.Deployment.Deployments.RecordPreview(context.Background(), idstest.N(1), idstest.N(235), ids.Nil, docker.PreviewChangeName(idstest.N(235)), 0, ""); err != nil {
+	if err := a.Deployment.Deployments.RecordPreview(context.Background(), idstest.N(1), idstest.N(235), ids.Nil, docker.PreviewChangeName(idstest.N(235)), 0, "", nil); err != nil {
 		t.Fatal(err)
 	}
 	a.ensureDeploymentsOnce(context.Background())
@@ -476,7 +476,7 @@ func TestAStoppedPreviewLosesItsRow(t *testing.T) {
 	t.Parallel()
 	a, f := bootWorld(t)
 	name := docker.PreviewChangeName(idstest.N(41))
-	if err := a.Deployment.Deployments.RecordPreview(context.Background(), idstest.N(1), idstest.N(41), ids.Nil, name, 0, ""); err != nil {
+	if err := a.Deployment.Deployments.RecordPreview(context.Background(), idstest.N(1), idstest.N(41), ids.Nil, name, 0, "", nil); err != nil {
 		t.Fatal(err)
 	}
 	for _, e := range a.hosts.Watched(context.Background(), a.deployments) {

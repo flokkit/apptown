@@ -135,7 +135,7 @@ func TestAnAttachedHostShowsTheProjectsNameForMainOnly(t *testing.T) {
 func TestBootReconcileCutShortForgetsNoPreview(t *testing.T) {
 	t.Parallel()
 	s, _, _, _, projectID := hostWorld(t, "")
-	if err := s.Deployments.RecordPreview(context.Background(), projectID, idstest.N(9), idstest.N(1), docker.PreviewChangeName(idstest.N(9)), 4000, "http://p"); err != nil {
+	if err := s.Deployments.RecordPreview(context.Background(), projectID, idstest.N(9), idstest.N(1), docker.PreviewChangeName(idstest.N(9)), 4000, "http://p", nil); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

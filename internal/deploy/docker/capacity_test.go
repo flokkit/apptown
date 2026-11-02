@@ -58,7 +58,7 @@ needs:
 	}
 
 	f := &fakeClient{}
-	if err := runServiceContainers(t.Context(), Scope{Client: f}, "pvtest", "net", rs.Services); err != nil {
+	if err := runServiceContainers(t.Context(), Scope{Client: f}, "pvtest", "net", rs.Services, Ownership{}); err != nil {
 		t.Fatal(err)
 	}
 	if runs := standingCalls(f, "run"); len(runs) != 1 || !strings.Contains(runs[0], "--memory 268435456 --memory-swap 268435456 --cpus 0.5") {

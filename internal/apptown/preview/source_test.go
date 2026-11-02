@@ -71,7 +71,7 @@ func TestALandedChangePreviewsItsLandedCommitAndAnOpenOneItsFolder(t *testing.T)
 		switch args[0] {
 		case "run":
 			started = true
-			return []byte("container"), nil
+			return []byte(strings.Repeat("a", 64)), nil
 		case "rm":
 			started = false
 		case "info":

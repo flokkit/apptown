@@ -109,9 +109,10 @@ func (h changeBoots) BootPreview(ctx context.Context, ch Change, restart bool) (
 	// The boot keeps its record only if no one discards the preview from
 	// now on: its own replacement of an earlier one is not a discard.
 	discards := s.discardsSoFar(name)
+	var created []deploy.Owned // the local boot receipts; retained across reuse
 	defer func() {
 		if out.URL != "" {
-			s.recordPreview(ctx, ch.ProjectID, ch.ID, name, out.HostPort, out.URL)
+			s.recordPreview(ctx, ch.ProjectID, ch.ID, name, out.HostPort, out.URL, created)
 		}
 	}()
 	// Everything the boot reads is prepared first, before anything is
@@ -135,7 +136,7 @@ func (h changeBoots) BootPreview(ctx context.Context, ch Change, restart bool) (
 	// serves.
 	defer func() {
 		if err == nil {
-			if !s.recordServedSince(name, discards, servedRecord{incarnation: b.incarnation, source: b.commit, public: b.public, at: s.now()}) {
+			if !s.recordServedSince(name, discards, servedRecord{incarnation: b.incarnation, source: b.commit, public: b.public, created: created, at: s.now()}) {
 				log.Printf("change %d: its preview was discarded while it booted; AppTown keeps no record of it", ch.ID)
 			}
 			if rerr := b.source.Retain(b.tree); rerr != nil {
@@ -186,6 +187,9 @@ func (h changeBoots) BootPreview(ctx context.Context, ch Change, restart bool) (
 			// boot below starts clean rather than reusing a corpse.
 			probe := docker.RenderColdBootProbe(c.PublicPart(), s.env.FrontDoorHeaders())
 			if up, _ := s.env.Probe().Check(ctx, s.hosts.Local(), name, s.hosts.Local().ProbeURL(prt), 45*time.Second, probe); up {
+				if prior, ok := s.servedRecordOf(name); ok && prior.incarnation == incarnation {
+					created = prior.created
+				}
 				return Result{URL: s.env.RoutesFor(ctx, ch.ProjectID).PreviewURL(label, prt), Revision: b.tree.Revision, HostPort: prt,
 					Incarnation: incarnation, Public: &public}, nil
 			}
@@ -205,9 +209,11 @@ func (h changeBoots) BootPreview(ctx context.Context, ch Change, restart bool) (
 	// preview and swept at restart.
 	life, cancel := context.WithTimeout(context.WithoutCancel(ctx), docker.BootLifetime)
 	defer cancel()
+	created = make([]deploy.Owned, 0)
 	res, err := s.env.PreparedHost(prepared).Boot(life, docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Docker: s.hosts.Local().WithLifetime(life),
 		Name: name, StackID: docker.ChangeStackID(ch.ID), Workspace: ws, Slug: b.slug,
 		Deployment: "preview", Probe: 45 * time.Second, Incarnation: incarnation, Scratch: s.hosts.BootScratch(),
+		Record: func(o deploy.Owned) error { created = append(created, o); return nil },
 	}, prepared.Contract)
 	if err != nil {
 		// A boot that failed leaves nothing of the preview, at whatever
@@ -222,14 +228,14 @@ func (h changeBoots) BootPreview(ctx context.Context, ch Change, restart bool) (
 		Incarnation: incarnation, Public: &public}, nil
 }
 
-func (s *Service) recordPreview(ctx context.Context, projectID, changeID ids.ID, container string, port int, url string) {
+func (s *Service) recordPreview(ctx context.Context, projectID, changeID ids.ID, container string, port int, url string, created []deploy.Owned) {
 	ctx = context.WithoutCancel(ctx) // the preview runs: its row is recorded though ctx has ended
 	target, err := s.targets.ByName(ctx, s.hosts.BuiltInTarget())
 	if err != nil {
 		log.Printf("change %d: resolving its preview deployment target: %v", changeID, err)
 		return
 	}
-	if err := s.deployments.RecordPreview(ctx, projectID, changeID, target.ID, container, port, url); err != nil {
+	if err := s.deployments.RecordPreview(ctx, projectID, changeID, target.ID, container, port, url, created); err != nil {
 		log.Printf("change %d: recording its preview deployment: %v", changeID, err)
 	}
 }

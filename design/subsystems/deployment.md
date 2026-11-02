@@ -411,6 +411,14 @@ reading `docker ps` or `docker volume ls` can tell whose they are. They are
 for people only: AppTown never reads them for identity, ownership or
 removal, which go by the deployment's id and key.
 
+A change preview uses the disposable names owned by its Docker boot:
+`apptown-preview-change-<id>` for the app and `pvsnap-change-<id>` for the
+stack. Its placement row records the containers, network and named volumes
+the boot created. Inventory reads those receipts, without deriving names
+from the placement key or today's project contract. Reusing a running preview
+keeps its receipts; removing it drops the disposable resources and its row.
+Needs keep disposable anonymous volumes, removed with their containers.
+
 `DELETE /api/v1/projects/{slug}/deployments/{name}` (`deployment:teardown`)
 takes the deployment down. An App Platform deployment holding a managed
 database AppTown copies, with a backup store attached and a copy runner

@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
@@ -20,6 +21,7 @@ type servedRecord struct {
 	incarnation string
 	source      string
 	public      docker.PublicPrepared
+	created     []deploy.Owned // boot receipts retained for retrying the placement projection
 	// at is when this incarnation was booted, on AppTown's clock: a reuse
 	// of the same incarnation keeps the first boot's time.
 	at time.Time

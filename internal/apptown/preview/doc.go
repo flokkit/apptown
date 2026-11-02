@@ -54,6 +54,11 @@
 // Deployment ([deployment.Retained.RecordPreviewKeyIn]) in the same
 // transaction that forgets the key here. A change preview's placement row is
 // Deployment's, written through its operations as a best-effort projection.
+// On the local host, its boot supplies the created containers, network and
+// named volumes with that row. Inventory reads these receipts rather than
+// naming preview resources from the deployment key or today's contract.
+// Reuse keeps the boot receipts and retries the projection; disposable
+// cleanup removes the app, its stack and its data volume as usual.
 //
 // Preview imports deployment for its records and its shared Hosts,
 // Environment and the release material a release preview boots; deployment

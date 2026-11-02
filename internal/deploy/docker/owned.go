@@ -20,8 +20,9 @@ import (
 // it pulled or built. What already existed is not recorded, and so is never
 // deleted.
 
-// Ownership is how a standing boot records what it creates. A nil Record
-// records nothing: previews and runs are cleaned up by their own owners.
+// Ownership records what a boot creates. Standing deployments use these
+// receipts for deletion; previews retain their own disposable cleanup.
+// A nil Record records nothing.
 // Needs names the need services and where each keeps its data ("" keeps
 // none).
 type Ownership struct {
@@ -91,7 +92,7 @@ func ensureNetwork(ctx context.Context, dk Scope, network string, own Ownership)
 	return own.created(deploy.Owned{Kind: "network", ID: network})
 }
 
-// recordService records a standing service's container, naming the need
+// recordService records a service's container, naming the need
 // it serves.
 func recordService(out []byte, cname, service string, own Ownership) error {
 	if own.Record == nil {

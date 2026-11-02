@@ -46,7 +46,8 @@ func newInventory(db *database.DB, declared declarations) *Inventory {
 
 // Recorded is what AppTown's own records say is at a target: the app
 // behind every deployment bound to it (a preview's too), the services and
-// data volume its contract declares on a Docker host, the database behind
+// data volume a standing contract declares on a Docker host, the resources
+// a preview boot recorded creating, the database behind
 // every managed need instance on a cloud target, and what was retained.
 // Only a true orphan then reads unrecorded.
 func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resource, error) {
@@ -59,24 +60,30 @@ func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resourc
 		host := deploy.ResourceHost{ProjectID: e.ProjectID, DeploymentID: e.ID, Project: e.Project, Deployment: e.Name, Generation: e.ObservedGeneration}
 		switch t.Kind {
 		case KindDockerHost:
-			// What it is called on the host is what it was made with.
-			names, err := e.HostNames()
-			if err != nil {
-				return nil, fmt.Errorf("naming %s/%s on its host: %w", e.Project, e.Name, err)
-			}
-			name := e.Container
-			if name == "" {
-				name = names.App()
-			}
-			out = append(out, deploy.Resource{Kind: "container", Name: name, URL: e.URL, Status: e.Readiness.String(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
-			if d, ok := inv.declared.Declared(ctx, e.ProjectID); ok {
-				if d.KeepsData {
-					out = append(out, deploy.Resource{Kind: "volume", Name: names.DataVolume(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
+			if e.Kind == preview {
+				// The preview boot supplies its resources. Its deployment key
+				// never names a stack, and today's contract is not its boot.
+				out = append(out, deploy.Resource{Kind: "container", Name: e.Container, URL: e.URL, Status: e.Readiness.String(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
+			} else {
+				// What it is called on the host is what it was made with.
+				names, err := e.HostNames()
+				if err != nil {
+					return nil, fmt.Errorf("naming %s/%s on its host: %w", e.Project, e.Name, err)
 				}
-				for _, need := range d.Needs {
-					h := host
-					h.Need = need
-					out = append(out, deploy.Resource{Kind: "container", Name: names.Service(need), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{h}})
+				name := e.Container
+				if name == "" {
+					name = names.App()
+				}
+				out = append(out, deploy.Resource{Kind: "container", Name: name, URL: e.URL, Status: e.Readiness.String(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
+				if d, ok := inv.declared.Declared(ctx, e.ProjectID); ok {
+					if d.KeepsData {
+						out = append(out, deploy.Resource{Kind: "volume", Name: names.DataVolume(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
+					}
+					for _, need := range d.Needs {
+						h := host
+						h.Need = need
+						out = append(out, deploy.Resource{Kind: "container", Name: names.Service(need), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{h}})
+					}
 				}
 			}
 			// What the deployment recorded creating is its own: the

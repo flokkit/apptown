@@ -305,23 +305,46 @@ func ensureStandingIn(ctx context.Context, tx *database.Tx, projectID ids.ID, na
 
 // RecordPreview records a preview as a row while it runs (§2.3: previews
 // are rows, unique by change, outside the ladder), on the given target.
-func (s *Deployments) RecordPreview(ctx context.Context, projectID, changeID, targetID ids.ID, container string, hostPort int, url string) error {
+// created replaces the previous boot's resource list atomically with the row;
+// nil means the running preview was reused, so its existing list stays.
+// Preview naming belongs to its boot, never the placement's deployment key.
+func (s *Deployments) RecordPreview(ctx context.Context, projectID, changeID, targetID ids.ID, container string, hostPort int, url string, created []deploy.Owned) error {
 	ctx = context.WithoutCancel(ctx) // the preview runs: its row is written though ctx has ended
 	now := s.now()
 	handle, _ := json.Marshal(map[string]any{"container": container, "hostPort": hostPort})
-	_, err := deploymentsql.New(s.db.SQL()).RecordPreview(ctx, deploymentsql.RecordPreviewParams{ID: ids.New(now),
-		ProjectID:  projectID,
-		Name:       PreviewName(changeID),
-		Kind:       preview.String(),
-		ChangeID:   changeID,
-		TargetID:   targetID,
-		HandleJson: json.RawMessage(string(handle)),
-		HostPort:   int64(hostPort),
-		Container:  container,
-		Url:        url,
-		UpdatedAt:  now,
+	return s.db.InTx(ctx, func(tx *database.Tx) error {
+		q := deploymentsql.New(tx.SQL())
+		row, err := q.RecordPreview(ctx, deploymentsql.RecordPreviewParams{ID: ids.New(now),
+			ProjectID:  projectID,
+			Name:       PreviewName(changeID),
+			Kind:       preview.String(),
+			ChangeID:   changeID,
+			TargetID:   targetID,
+			HandleJson: json.RawMessage(string(handle)),
+			HostPort:   int64(hostPort),
+			Container:  container,
+			Url:        url,
+			UpdatedAt:  now,
+		})
+		if err != nil || created == nil {
+			return err
+		}
+		previous, err := ownedIn(ctx, q, row.ID)
+		if err != nil {
+			return err
+		}
+		for _, o := range previous {
+			if _, err := q.ForgetOwned(ctx, deploymentsql.ForgetOwnedParams{DeploymentID: row.ID, Kind: o.Kind, Ident: o.ID}); err != nil {
+				return err
+			}
+		}
+		for _, o := range created {
+			if _, err := q.RecordOwned(ctx, deploymentsql.RecordOwnedParams{ID: ids.New(now), DeploymentID: row.ID, Kind: o.Kind, Ident: o.ID, Name: o.Name, HoldsData: o.Data, Need: o.Need, RecordedAt: now}); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
-	return err
 }
 
 // ForgetPreview drops a change's preview row: the container it named is gone.
