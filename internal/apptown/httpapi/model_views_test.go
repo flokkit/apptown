@@ -12,7 +12,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/apptown/wow"
-	"github.com/flokkit/apptown/internal/ids"
 )
 
 func TestHandleModelSlotsMatrix(t *testing.T) {
@@ -27,18 +26,15 @@ func TestHandleModelSlotsMatrix(t *testing.T) {
 	if err := projects.SetModelProfile(context.Background(), projectID, "heavy"); err != nil {
 		t.Fatal(err)
 	}
-	// An instance cell on a non-standard profile, plus a project override.
-	if err := models.Set(context.Background(), "plan", ids.Nil, "", "heavy", "prov/big", "fixture"); err != nil {
-		t.Fatal(err)
-	}
-	if err := models.Set(context.Background(), "review", projectID, "demanding", "", "prov/proj", "fixture"); err != nil {
+	// A cell on a non-standard profile.
+	if err := models.Set(context.Background(), "plan", "heavy", "prov/big", "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	// A fallback row and a non-stock ("extra") slot to prove both surface.
 	if err := models.SeedFallbacks(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if err := models.Set(context.Background(), "bespoke", ids.Nil, "", "standard", "prov/x", "fixture"); err != nil {
+	if err := models.Set(context.Background(), "bespoke", "standard", "prov/x", "fixture"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -49,10 +45,9 @@ func TestHandleModelSlotsMatrix(t *testing.T) {
 		t.Fatalf("model-slots: %d %s", w.Code, w.Body.String())
 	}
 	var body struct {
-		Profiles  []string
-		Slots     []map[string]any
-		Projects  []map[string]any
-		Overrides []map[string]any
+		Profiles []string
+		Slots    []map[string]any
+		Projects []map[string]any
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
@@ -83,9 +78,12 @@ func TestHandleModelSlotsMatrix(t *testing.T) {
 	if byName["bespoke"] == nil {
 		t.Fatalf("non-stock configured slot must surface: %v", body.Slots)
 	}
-	// The project override is reported with its project and slot.
-	if len(body.Overrides) != 1 || body.Overrides[0]["project"] != "demanding" || body.Overrides[0]["slot"] != "review" {
-		t.Fatalf("overrides: %v", body.Overrides)
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(w.Body.Bytes(), &raw); err != nil {
+		t.Fatal(err)
+	}
+	if _, present := raw["overrides"]; present {
+		t.Fatal("matrix still exposes project overrides")
 	}
 	if len(body.Projects) != 1 || body.Projects[0]["profile"] != "heavy" {
 		t.Fatalf("projects: %v", body.Projects)

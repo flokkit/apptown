@@ -1014,7 +1014,6 @@ export type ModelSlotMatrix = {
   profiles: string[]
   slots: ModelSlotView[]
   projects: ModelSlotProject[]
-  overrides: ModelSlotOverride[]
   spendNote: string
 }
 
@@ -3447,12 +3446,6 @@ export type ModelSlotProject = {
   slug: string
   name: string
   profile: string
-}
-
-export type ModelSlotOverride = {
-  project: string
-  slot: string
-  pattern: string
 }
 
 export type OpenVEXStatement = {

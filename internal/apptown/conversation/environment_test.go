@@ -23,7 +23,7 @@ func TestUnpinnedChatFollowsTheSlot(t *testing.T) {
 	db := databaseSuite.New(t)
 	slots := model.New(db)
 	env := environment{models: model.NewSelection(slots)}
-	if err := slots.Set(context.Background(), "chat", ids.Nil, "", "standard", "openrouter/openai/gpt-5.6-luna", "fixture"); err != nil {
+	if err := slots.Set(context.Background(), "chat", "standard", "openrouter/openai/gpt-5.6-luna", "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	born := &console.Session{Meta: console.Meta{Model: "anthropic/claude-opus-5"}}

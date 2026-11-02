@@ -9,8 +9,8 @@
 // An empty request selects the default slot.
 //
 // [Selection.Resolve] reads the current project profile and delegates to
-// [Slots.Resolve]. The latter tries a project override, the instance mapping for
-// the project's profile, then the standard profile. It repeats that lookup for
+// [Slots.resolve]. The latter tries the mapping for the project's profile, then
+// the standard profile. It repeats that lookup for
 // fallback slots before using the configured instance default. Its returned slot
 // and profile identify the chosen mapping for caller-owned execution evidence.
 // Only an absent mapping passes the lookup on; a failed read is returned as an

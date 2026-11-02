@@ -438,13 +438,13 @@ purpose: `default`, `plan`, `implement`, `review`, `security`, `fast`,
 (how demanding its work is: `standard`, `high`).
 The instance maps (slot × profile) → model in one visible matrix;
 resolution is a lookup, never arithmetic, and the receipt records which
-cell won.
+cell won. A project that needs different models gets its own profile,
+even if it is the only project on it. Model evals compare a profile against
+the source project's profile.
 
 ```mermaid
 flowchart TD
-    Q[step or session asks for slot S<br/>on project P] --> O{explicit pin for S on P?}
-    O -->|yes| USE1[use it - receipt says 'override']
-    O -->|no| PR{cell S x P's profile?}
+    Q[step or session asks for slot S<br/>on project P] --> PR{cell S x P's profile?}
     PR -->|yes| USE2[use it - receipt names the profile]
     PR -->|no| SD{cell S x standard?}
     SD -->|yes| USE3[use it]

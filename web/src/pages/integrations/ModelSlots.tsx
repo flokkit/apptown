@@ -144,12 +144,6 @@ export function ModelSlotsPanel() {
           ))}
         </tbody>
       </table>
-      {data.overrides.length > 0 && (
-        <div className="muted small" style={{ marginTop: 8 }}>
-          Per-project overrides (take precedence over profiles):{' '}
-          {data.overrides.map((o) => `${o.project}: ${o.slot} → ${o.pattern}`).join(' · ')}
-        </div>
-      )}
     </div>
   )
 }

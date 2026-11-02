@@ -301,9 +301,8 @@ func (s *Service) startArm(ctx context.Context, e evalssql.Eval, a Arm) Arm {
 			return fail("not comparable", errors.New("the copy's adoption is not the one the eval started with"))
 		}
 	}
-	// A pack-version eval holds the model: both arms run the baseline's,
-	// overrides included.
-	if err := s.deps.Models.CopyModels(ctx, a.SourceProjectID, p.ID, a.Profile, a.Arm == armBaseline || e.SubjectKind == SubjectPack, who); err != nil {
+	// A pack-version eval holds the model: both arms run the baseline's profile.
+	if err := s.deps.Models.CopyModels(ctx, p.ID, a.Profile); err != nil {
 		return fail("the copy could not be given its models", err)
 	}
 	a.State = armCopied

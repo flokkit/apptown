@@ -3,13 +3,14 @@ package apptown
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
-func TestModelConfigurationHTTPKeepsProfileCellsAndProjectOverridesSeparate(t *testing.T) {
+func TestModelConfigurationHTTPUsesProfilesOnly(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
 	h := a.Handler()
@@ -18,7 +19,7 @@ func TestModelConfigurationHTTPKeepsProfileCellsAndProjectOverridesSeparate(t *t
 		code      int
 	}{
 		{"outsider", `{"slot":"chat","pattern":"stolen"}`, 403},
-		{"boss", `{`, 400}, {"boss", `{"slot":"bad/slot"}`, 400}, {"boss", `{"slot":"chat","profile":"BAD"}`, 400}, {"boss", `{"slot":"chat","project":"missing"}`, 404},
+		{"boss", `{`, 400}, {"boss", `{"slot":"bad/slot"}`, 400}, {"boss", `{"slot":"chat","profile":"BAD"}`, 400}, {"boss", `{"slot":"chat","project":"missing"}`, 400},
 	} {
 		if w := authzCall(h, tc.who, "PUT", "/api/v1/model-slots", tc.body); w.Code != tc.code {
 			t.Fatalf("invalid binding: %d %s", w.Code, w.Body.String())
@@ -29,7 +30,7 @@ func TestModelConfigurationHTTPKeepsProfileCellsAndProjectOverridesSeparate(t *t
 	if err != nil || len(before) != 1 || len(before["default"]) != 1 {
 		t.Fatalf("rejection created cells: %+v %v", before, err)
 	}
-	for _, body := range []string{`{"slot":"chat","pattern":"default-model"}`, `{"slot":"chat","profile":"economy","pattern":"small-model"}`, `{"slot":"chat","project":"game","profile":"ignored","pattern":"project-model"}`} {
+	for _, body := range []string{`{"slot":"chat","pattern":"default-model"}`, `{"slot":"chat","profile":"economy","pattern":"small-model"}`} {
 		if w := authzCall(h, "boss", "PUT", "/api/v1/model-slots", body); w.Code != 200 {
 			t.Fatalf("binding: %d %s", w.Code, w.Body.String())
 		}
@@ -78,13 +79,13 @@ func TestModelConfigurationHTTPKeepsProfileCellsAndProjectOverridesSeparate(t *t
 	if !matched {
 		t.Fatalf("saved project profile missing from matrix: %+v", out.Projects)
 	}
-	var wire struct {
-		Overrides []struct{ Project, Slot, Pattern string }
+	for _, project := range []string{`"game"`, `"missing"`, `""`, `null`} {
+		w := authzCall(h, "boss", "PUT", "/api/v1/model-slots", `{"slot":"chat","project":`+project+`,"pattern":"project-model"}`)
+		if w.Code != 400 || !strings.Contains(w.Body.String(), "a project that needs different models gets its own profile") {
+			t.Fatalf("project must be refused with profile advice: %d %s", w.Code, w.Body.String())
+		}
 	}
-	if err := json.Unmarshal(w.Body.Bytes(), &wire); err != nil || len(wire.Overrides) != 1 || wire.Overrides[0].Project != "game" || wire.Overrides[0].Slot != "chat" || wire.Overrides[0].Pattern != "project-model" {
-		t.Fatalf("override projection: %s %v", w.Body.String(), err)
-	}
-	for _, body := range []string{`{"slot":"chat","project":"game","pattern":""}`, `{"slot":"chat","profile":"economy","pattern":""}`} {
+	for _, body := range []string{`{"slot":"chat","profile":"economy","pattern":""}`} {
 		if w := authzCall(h, "boss", "PUT", "/api/v1/model-slots", body); w.Code != 200 {
 			t.Fatalf("remove cell: %d %s", w.Code, w.Body.String())
 		}
@@ -93,10 +94,7 @@ func TestModelConfigurationHTTPKeepsProfileCellsAndProjectOverridesSeparate(t *t
 	if err != nil || cells["chat"]["standard"] != "default-model" || cells["chat"]["economy"] != "" {
 		t.Fatalf("removed wrong cell: %+v %v", cells, err)
 	}
-	overrides, err := a.Models.Overrides(context.Background())
-	if err != nil || len(overrides) != 0 {
-		t.Fatalf("override survived: %+v %v", overrides, err)
-	}
+
 }
 
 // Connector and model capabilities do what they name (decision D8): a

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -18,7 +19,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
-	"github.com/flokkit/apptown/internal/ids"
 )
 
 type ModelSlots struct {
@@ -36,7 +36,7 @@ func NewModelSlots(models *model.Slots, projects *project.Projects, ways *wow.Se
 
 // ModelSlots: GET /api/v1/model-slots — the full matrix: slots (with
 // gloss, fallback, consumers, recent spend), profile columns, per-project
-// profile assignments, and explicit project overrides.
+// profile assignments.
 func (h ModelSlots) ModelSlots(w http.ResponseWriter, r *http.Request) {
 	profiles, err := h.models.Profiles(r.Context())
 	if err != nil {
@@ -95,59 +95,42 @@ func (h ModelSlots) ModelSlots(w http.ResponseWriter, r *http.Request) {
 	for _, p := range all {
 		projects = append(projects, ModelSlotProject{Slug: p.Slug, Name: p.Name, Profile: p.ModelProfile})
 	}
-	stored, err := h.models.Overrides(r.Context())
-	if err != nil {
-		WriteFault(w, err)
-		return
-	}
-	var overrides []ModelSlotOverride
-	for _, o := range stored {
-		overrides = append(overrides, ModelSlotOverride{Project: o.ProjectSlug, Slot: o.Slot, Pattern: o.Pattern})
-	}
 	WriteJSON(w, 200, ModelSlotMatrix{
-		Profiles: profiles, Slots: slots, Projects: projects, Overrides: overrides,
+		Profiles: profiles, Slots: slots, Projects: projects,
 		SpendNote: "spend counts workflow steps over the last 7 days; chat turns are not counted yet",
 	})
 }
 
-// PutModelSlot: PUT /api/v1/model-slots {slot, pattern, project, profile}
-// Instance cells carry a profile (default 'standard'); a project override
-// carries none (it beats every profile). Empty pattern deletes the cell.
+// PutModelSlot: PUT /api/v1/model-slots {slot, pattern, profile}.
+// Profile defaults to standard. Empty pattern deletes the cell.
 func (h ModelSlots) PutModelSlot(w http.ResponseWriter, r *http.Request) {
 	if _, ok := AuthorizeRequest(h.access, w, r, access.CapModelsSlots, access.Resource{Type: "instance"}, access.Context{}); !ok {
 		return
 	}
 	jsonCommand(w, r, jsonBody{errorText: "slot (no slash) required"}, func(in struct {
-		Slot    string `json:"slot"`
-		Pattern string `json:"pattern"`
-		Project string `json:"project"`
-		Profile string `json:"profile"`
+		Slot    string          `json:"slot"`
+		Pattern string          `json:"pattern"`
+		Project json.RawMessage `json:"project"`
+		Profile string          `json:"profile"`
 	}) {
 		if in.Slot == "" || strings.Contains(in.Slot, "/") {
 			WriteError(w, 400, "slot (no slash) required")
 			return
 		}
 
-		var pid ids.ID
-		profile := ""
-		if in.Project != "" {
-			p, err := h.projects.BySlug(r.Context(), in.Project)
-			if err != nil {
-				writeReadFault(w, err, "no such project %q", in.Project)
-				return
-			}
-			pid = p.ID
-		} else {
-			profile = in.Profile
-			if profile == "" {
-				profile = model.StandardProfile
-			}
-			if !model.ValidProfile(profile) {
-				WriteError(w, 400, "profile must be a short lowercase word (letters, digits, dashes)")
-				return
-			}
+		if in.Project != nil {
+			WriteError(w, 400, "per-project model overrides are not supported; a project that needs different models gets its own profile")
+			return
 		}
-		if err := h.models.Set(r.Context(), in.Slot, pid, in.Project, profile, in.Pattern, actor(r)); err != nil {
+		profile := in.Profile
+		if profile == "" {
+			profile = model.StandardProfile
+		}
+		if !model.ValidProfile(profile) {
+			WriteError(w, 400, "profile must be a short lowercase word (letters, digits, dashes)")
+			return
+		}
+		if err := h.models.Set(r.Context(), in.Slot, profile, in.Pattern, actor(r)); err != nil {
 			WriteError(w, 500, "saving the model slot: %v", err)
 			return
 		}
@@ -248,13 +231,12 @@ func (h ModelSlots) slotView(s string, cells map[string]map[string]string, fallb
 }
 
 // ModelSlotMatrix is the whole model-slot picture: the profile columns, each
-// slot, which profile each project runs at, and explicit project overrides.
+// slot and which profile each project runs at.
 type ModelSlotMatrix struct {
-	Profiles  []string            `json:"profiles"`
-	Slots     []ModelSlotView     `json:"slots"`
-	Projects  []ModelSlotProject  `json:"projects"`
-	Overrides []ModelSlotOverride `json:"overrides"`
-	SpendNote string              `json:"spendNote"`
+	Profiles  []string           `json:"profiles"`
+	Slots     []ModelSlotView    `json:"slots"`
+	Projects  []ModelSlotProject `json:"projects"`
+	SpendNote string             `json:"spendNote"`
 }
 
 // ModelSlotView is one slot: its patterns per profile, what it falls back to,
@@ -273,11 +255,4 @@ type ModelSlotProject struct {
 	Slug    string `json:"slug"`
 	Name    string `json:"name"`
 	Profile string `json:"profile"`
-}
-
-// ModelSlotOverride is one project's explicit model for a slot.
-type ModelSlotOverride struct {
-	Project string `json:"project"`
-	Slot    string `json:"slot"`
-	Pattern string `json:"pattern"`
 }

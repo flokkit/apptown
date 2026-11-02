@@ -12,7 +12,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
-	"github.com/flokkit/apptown/internal/apptown/model"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -55,7 +54,6 @@ func (s *Service) removeRecords(ctx context.Context, projectID ids.ID, who strin
 			{"Adoption", adoption.RemoveProjectIn},
 			{"Integration", integration.RemoveProjectIn},
 			{"Conformance", conformance.RemoveProjectIn},
-			{"Model", model.RemoveProjectIn},
 			{"Access", identity.RemoveProjectIn},
 			{"ADRs", adrs.RemoveProjectIn},
 			{"Secrets", secret.RemoveProjectIn},

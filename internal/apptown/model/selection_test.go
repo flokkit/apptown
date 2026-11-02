@@ -30,18 +30,12 @@ func TestResolveModelSlot(t *testing.T) {
 	if p, slot, _, err := selection.Resolve(t.Context(), projectID, "prov/model"); err != nil || p != "prov/model" || slot != "" {
 		t.Fatalf("pattern passthrough broken: %q %q", p, slot)
 	}
-	// Instance default; then a project override outranks it.
-	if err := slots.Set(context.Background(), "default", ids.Nil, "", "standard", "inst/model", "fixture"); err != nil {
+	// An undeclared profile uses the standard default.
+	if err := slots.Set(context.Background(), "default", "standard", "inst/model", "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	if p, slot, _, err := selection.Resolve(t.Context(), projectID, ""); err != nil || p != "inst/model" || slot != "default" {
 		t.Fatalf("instance default not resolved: %q %q", p, slot)
-	}
-	if err := slots.Set(context.Background(), "default", projectID, "p", "", "proj/model", "fixture"); err != nil {
-		t.Fatal(err)
-	}
-	if p, _, _, err := selection.Resolve(t.Context(), projectID, ""); err != nil || p != "proj/model" {
-		t.Fatalf("project override must win: %q", p)
 	}
 }
 
@@ -75,7 +69,7 @@ func TestModelProfileResolution(t *testing.T) {
 	}
 	cell := func(slot, profile, pattern string) {
 		t.Helper()
-		if err := models.Set(context.Background(), slot, ids.Nil, "", profile, pattern, "fixture"); err != nil {
+		if err := models.Set(context.Background(), slot, profile, pattern, "fixture"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -104,12 +98,5 @@ func TestModelProfileResolution(t *testing.T) {
 		if err != nil || p != c.want.pattern || s != c.want.slot || prof != c.want.profile {
 			t.Fatalf("(%d,%q) = %q,%q,%q; want %v", c.pid, c.req, p, s, prof, c.want)
 		}
-	}
-	// An explicit per-project row beats every profile — and says so.
-	if err := models.Set(context.Background(), "worker", game, "game", "", "local/pinned", "fixture"); err != nil {
-		t.Fatal(err)
-	}
-	if p, _, prof, err := selection.Resolve(t.Context(), game, "worker"); err != nil || p != "local/pinned" || prof != "override" {
-		t.Fatalf("project override must win and be named: %q %q", p, prof)
 	}
 }

@@ -68,7 +68,7 @@ func configureConsoleModel(t *testing.T, a *App) {
 	if _, err := a.Integrations.Bindings.Save(context.Background(), "fake", "model", "pi", `{"model":"fake/*","providerDef":{"baseUrl":"https://provider.invalid/v1","api":"openai-completions","apiKey":"provider-canary"},"modelsJson":"[{\"id\":\"model\",\"contextWindow\":32768,\"maxTokens\":1024}]"}`, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Models.Set(context.Background(), "chat", ids.Nil, "", "standard", "fake/model", "fixture"); err != nil {
+	if err := a.Models.Set(context.Background(), "chat", "standard", "fake/model", "fixture"); err != nil {
 		t.Fatal(err)
 	}
 }

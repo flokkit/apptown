@@ -21,7 +21,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
 	"github.com/flokkit/apptown/internal/execution"
-	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
@@ -249,7 +248,7 @@ func runDelegation(t *testing.T, background bool) delegationRun {
 		t.Fatal(err)
 	}
 	for _, slot := range []string{"default", "fast"} {
-		if err := a.Models.Set(context.Background(), slot, ids.Nil, "", "standard", "fixture/delegate", "fixture"); err != nil {
+		if err := a.Models.Set(context.Background(), slot, "standard", "fixture/delegate", "fixture"); err != nil {
 			t.Fatal(err)
 		}
 	}
