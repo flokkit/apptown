@@ -12,6 +12,13 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
+// runtimeGrace is how long a deployment's last good runtime reading still
+// stands in for it. A reading that is late or failed once (the host busy
+// with another app's release, AppTown just restarted) is not news; only a
+// status missing for longer is listed. The deployment's own page still shows
+// the reading's age at once.
+const runtimeGrace = 2 * time.Minute
+
 // Deployments reads the owner's current intent and matching runtime cache.
 // A missing runtime never establishes an unintentional stop.
 type Deployments struct {
@@ -40,12 +47,15 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 	if projectName == "" {
 		projectName = p.Slug
 	}
-	out := Snapshot{Known: true, ObservedAt: clock.Or(s.Now)(), Name: projectName + " · deployments", Href: "/projects/" + url.PathEscape(p.Slug) + "/settings/deployments", NextStep: "Open the deployment diagnostics. Someone with deployment permission can repair or release it."}
+	now := clock.Or(s.Now)()
+	out := Snapshot{Known: true, ObservedAt: now, Name: projectName + " · deployments", Href: "/projects/" + url.PathEscape(p.Slug) + "/settings/deployments", NextStep: "Open the deployment diagnostics. Someone with deployment permission can repair or release it."}
 	for _, d := range rows {
 		r := d.Runtime
 		unknown := r.Err != nil || r.State == deployment.RuntimeUnknown || r.ObservedAt.IsZero()
-		out.Known = out.Known && !unknown
-		out.Stale = out.Stale || r.Stale
+		// A recent good reading covers a missed one; never a status not yet seen.
+		late := (unknown || r.Stale) && !r.ObservedAt.IsZero() && now.Sub(r.ObservedAt) < runtimeGrace
+		out.Known = out.Known && (!unknown || late)
+		out.Stale = out.Stale || (r.Stale && !late)
 		if r.ObservedAt.IsZero() || r.ObservedAt.Before(out.ObservedAt) {
 			out.ObservedAt = r.ObservedAt
 		}
@@ -83,7 +93,7 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 		// A queued first check is incomplete coverage, not an actionable failure.
 		pending := r.AttemptedAt.IsZero() && r.ObservedAt.IsZero() && r.Err == nil
 		switch {
-		case (unknown || r.Stale) && !pending:
+		case (unknown || r.Stale) && !pending && !late:
 			add("runtime", "App status not known", "The latest runtime observation is unavailable or out of date.", SeverityWarning, r.ObservedAt, true)
 		case r.State == deployment.RuntimeStopped && !held:
 			out.Known = false

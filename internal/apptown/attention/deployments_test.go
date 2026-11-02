@@ -82,3 +82,40 @@ func TestDeploymentRuntimeFirstCheckAndStaleReading(t *testing.T) {
 		})
 	}
 }
+
+// One late or failed reading is not listed while the last good reading is
+// recent; once it is older than the grace, the missing status is listed.
+func TestDeploymentRuntimeMissedReadingWaitsOutTheGrace(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name    string
+		runtime deployment.RuntimeObservation
+		age     time.Duration
+		listed  bool
+	}{
+		{"late, recent", deployment.RuntimeObservation{State: deployment.RuntimeUnknown, ObservedAt: at, Stale: true}, time.Minute, false},
+		{"failed, recent", deployment.RuntimeObservation{State: deployment.RuntimeUnknown, ObservedAt: at, AttemptedAt: at.Add(time.Minute), Err: errors.New("deadline exceeded"), Stale: true}, time.Minute, false},
+		{"late, past the grace", deployment.RuntimeObservation{State: deployment.RuntimeUnknown, ObservedAt: at, Stale: true}, 3 * time.Minute, true},
+		{"never read, failed", deployment.RuntimeObservation{State: deployment.RuntimeUnknown, AttemptedAt: at, Err: errors.New("deadline exceeded"), Stale: true}, time.Second, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			source := Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{{ID: idstest.N(1), Name: "office", Runtime: tc.runtime}}}, Now: func() time.Time { return at.Add(tc.age) }}
+			got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
+			if err != nil || (len(got.Items) > 0) != tc.listed || got.Known == tc.listed || got.Stale != tc.listed {
+				t.Fatalf("grace: %+v %v", got, err)
+			}
+		})
+	}
+}
+
+// The grace covers only the missing status: a crash hold stays listed.
+func TestDeploymentGraceNeverHidesACrashHold(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+	d := deployment.OperationalObservation{ID: idstest.N(1), Name: "office", Runtime: deployment.RuntimeObservation{State: deployment.RuntimeUnknown, ObservedAt: at, Stale: true}, Hold: &deployment.CrashLoopHold{Confirmed: true, At: at.Format(time.RFC3339Nano)}}
+	got, err := (Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{d}}, Now: func() time.Time { return at.Add(time.Minute) }}).ProjectSnapshot(t.Context(), idstest.N(2))
+	if err != nil || len(got.Items) != 1 || !strings.Contains(got.Items[0].Title, "Stopped after repeated crashes") {
+		t.Fatalf("crash hold during grace: %+v %v", got, err)
+	}
+}
