@@ -88,22 +88,27 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           The robot buddy owns the turn state; plumbing (model, session, reset
           actions) lives behind ⋯ where those who need it can find it. */}
       <div className="row console-head" style={{ marginBottom: 8 }}>
-        <h1 style={{ margin: 0 }}>{isWorkshop ? 'Change chat' : 'Project chat'}</h1>
+        {/* On a phone the head is one line: the change's name is the
+            title, beside the helper's turn; the change's own state is on
+            the fold's line below, said once. */}
+        {narrow && shopId
+          ? <h1 style={{ margin: 0 }}><Link to={`/changes/${shopId}`} title="What you and the helper change here is saved onto this change.">{shopName.charAt(0).toUpperCase() + shopName.slice(1)}</Link></h1>
+          : <h1 style={{ margin: 0 }}>{isWorkshop ? 'Change chat' : 'Project chat'}</h1>}
         {/* The address names the change before the session answers: a
             change chat says it is one from its first paint, never the
             project chat while it connects. */}
         {shopId
-          ? <Link className="badge here" to={`/changes/${shopId}`}
-              title="What you and the helper change here is saved onto this change.">{shopName}</Link>
+          ? (narrow ? null : <Link className="badge here" to={`/changes/${shopId}`}
+              title="What you and the helper change here is saved onto this change.">{shopName}</Link>)
           : <span className="badge here" title="This chat answers questions, helps set things up and starts work. Building happens in a change chat; the helper gives you the link.">questions &amp; setup</span>}
         {session?.mayAct && status !== 'attached' && (
           <Status word="not checked yet" help="Connecting to this chat. If it does not connect, reload the page." />
         )}
         <span style={{ flex: 1 }} />
         {session?.mayAct && zoom === 'chat' && <AgentActivity busy={robotBusy} connected={status === 'attached'} />}
-        <button disabled={!session} className="subtle" onClick={() => setZoomKeep(zoom === 'chat' ? 'terminal' : 'chat')}>
+        {(!narrow || zoom !== 'chat') && <button disabled={!session} className="subtle" onClick={() => setZoomKeep(zoom === 'chat' ? 'terminal' : 'chat')}>
           {zoom === 'chat' ? 'Terminal ▾' : '← back to the chat'}
-        </button>
+        </button>}
         <details className="head-menu">
           <summary title="session details and resets">⋯</summary>
           <div className="head-menu-card">
@@ -114,6 +119,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
               {status === 'attached' ? 'connected' : status}
               {session && <><br /><span title={session.id}>session {session.id.slice(0, 8)}…</span></>}
             </div>
+            {narrow && zoom === 'chat' && <button className="subtle" disabled={!session} onClick={() => setZoomKeep('terminal')}>Terminal</button>}
             {session?.mayAct && <>
               <button className="subtle" onClick={startFresh}>↺ start fresh</button>
               <button className="subtle danger" onClick={() => void end()}>end chat</button>
@@ -162,7 +168,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           <details className="console-about" open={!narrow}>
             <summary className="small">
               {shopId
-                ? <>{shopName}{change.data && <> · {changeChip(change.data)}</>}</>
+                ? <>{narrow ? 'About this change' : shopName}{change.data && <> · {changeChip(change.data)}</>}</>
                 : 'About this chat'}
             </summary>
             {!shopId && !introSeen && <ChatIntro slug={slug}
