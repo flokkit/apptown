@@ -269,7 +269,7 @@ func (c *Service) RehearseSaved(ctx context.Context, s *console.Session, commit 
 	if _, err := docker.ReadContractAt(ctx, repo, commit); errors.Is(err, docker.ErrNoContract) {
 		return // nothing claims to be runnable; the steering owns that nudge
 	}
-	pinned := preview.Change{ID: ch.ID, ProjectID: ch.ProjectID, Pinned: commit}
+	pinned := preview.Change{ID: ch.ID, Title: ch.Title, ProjectID: ch.ProjectID, Pinned: commit}
 	// What this rehearsal would boot: its incarnation, or, when the commit
 	// cannot even be prepared, the commit itself.
 	key, bootErr := c.previews.ChangePreviewIdentity(ctx, pinned)

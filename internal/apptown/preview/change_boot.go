@@ -157,7 +157,7 @@ func (h changeBoots) BootPreview(ctx context.Context, ch Change, restart bool) (
 	if s.PreviewsOnWorker() {
 		// The worker keeps a running incarnation that matches, and replaces
 		// anything else wholly, under its own lock for this preview.
-		if _, err := s.bootOnWorker(ctx, worker.PreviewSpec{Name: name, StackID: docker.ChangeStackID(ch.ID), Slug: b.slug,
+		if _, err := s.bootOnWorker(ctx, worker.PreviewSpec{Name: name, StackID: docker.ChangeStackID(ch.ID), Slug: b.slug, ChangeTitle: ch.Title,
 			Incarnation: incarnation, ProbeSeconds: 45}, prepared, ws); err != nil {
 			return Result{}, wordChangeBootError(err)
 		}
@@ -211,7 +211,7 @@ func (h changeBoots) BootPreview(ctx context.Context, ch Change, restart bool) (
 	defer cancel()
 	created = make([]deploy.Owned, 0)
 	res, err := s.env.PreparedHost(prepared).Boot(life, docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Docker: s.hosts.Local().WithLifetime(life),
-		Name: name, StackID: docker.ChangeStackID(ch.ID), Workspace: ws, Slug: b.slug,
+		Name: name, StackID: docker.ChangeStackID(ch.ID), Workspace: ws, Slug: b.slug, ChangeTitle: ch.Title,
 		Deployment: "preview", Probe: 45 * time.Second, Incarnation: incarnation, Scratch: s.hosts.BootScratch(),
 		Record: func(o deploy.Owned) error { created = append(created, o); return nil },
 	}, prepared.Contract)

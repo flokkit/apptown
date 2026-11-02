@@ -406,10 +406,16 @@ an App Platform app `apptown-<key>`, its cluster `apptown-db-<key>`
 `apptown-<key>-<suffix>`. The Infrastructure page names each resource's
 project and deployment. Every Docker label key is `apptown.*`. A standing
 deployment's app container, services, network and volumes also carry
-`apptown.project=<slug>` and `apptown.deployment.name=<name>`, so a person
+`apptown.info.project=<slug>` and `apptown.info.deployment=<name>`, so a person
 reading `docker ps` or `docker volume ls` can tell whose they are. They are
 for people only: AppTown never reads them for identity, ownership or
 removal, which go by the deployment's id and key.
+
+A change preview carries `apptown.info.project=<slug>` and
+`apptown.info.change=<title>` (on one line) on its containers, network and named volumes. Long titles keep
+a UTF-8-safe prefix of 120 bytes followed by an ellipsis. Run and release
+previews carry the project label. AppTown never reads any `apptown.info.*` key;
+system keys stay outside that prefix.
 
 A change preview uses the disposable names owned by its Docker boot:
 `apptown-preview-change-<id>` for the app and `pvsnap-change-<id>` for the

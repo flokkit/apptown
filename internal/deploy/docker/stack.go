@@ -66,7 +66,9 @@ func startServices(ctx context.Context, dk Scope, id string, svcs []deploy.Servi
 	}
 	// The network carries its stack's labels, as its containers do, so the
 	// periodic reaper finds it by its owner rather than by its name.
-	create := append(append([]string{"network", "create"}, dk.Labels("service", id)...), network)
+	create := append([]string{"network", "create"}, dk.Labels("service", id)...)
+	create = append(create, own.info...)
+	create = append(create, network)
 	if out, err := dk.Run(ctx, create...); err != nil {
 		// A stale network from an earlier failed attempt is reusable — only
 		// error if it truly doesn't exist.
@@ -329,7 +331,7 @@ func nonPublicPartServices(c *appcontract.Plan, secrets Delivery) []deploy.Servi
 // runInitContainers runs each init container to completion on the app network,
 // in order, BEFORE the app parts start. A non-zero exit fails the boot loudly
 // with the init's output (a failed migration must stop the app coming up).
-func runInitContainers(ctx context.Context, dk Scope, id, network string, c *appcontract.Plan, secrets Delivery) error {
+func runInitContainers(ctx context.Context, dk Scope, id, network string, c *appcontract.Plan, secrets Delivery, own Ownership) error {
 	for _, it := range c.Init {
 		img := it.Image
 		if img == "" {
@@ -339,6 +341,7 @@ func runInitContainers(ctx context.Context, dk Scope, id, network string, c *app
 		dk.Remove(ctx, cname)
 		args := []string{"run", "--rm", "--init", "--name", cname, "--network", network}
 		args = append(args, dk.Labels("step", id)...)
+		args = append(args, own.info...)
 		args = append(args, execution.LogFlags()...)
 		for k, v := range it.Env {
 			args = append(args, "-e", k+"="+v)
@@ -383,7 +386,7 @@ func bringUpParts(ctx context.Context, dk Scope, id, name, ws, network string, c
 	if err := preparePreviewBuilds(ctx, dk, ws, name, c); err != nil {
 		return nil, "", err
 	}
-	if err := runInitContainers(ctx, dk, id, network, c, secrets); err != nil {
+	if err := runInitContainers(ctx, dk, id, network, c, secrets, own); err != nil {
 		return nil, "", err
 	}
 	if extra := nonPublicPartServices(c, secrets); len(extra) > 0 {

@@ -190,7 +190,7 @@ func (c *Service) Rehearse(ctx context.Context, s *console.Session) {
 
 // previewOf is the preview of a change as it stands.
 func previewOf(ch *workflow.Change) preview.Change {
-	return preview.Change{ID: ch.ID, ProjectID: ch.ProjectID, SourceRevision: ch.LandedSHA}
+	return preview.Change{ID: ch.ID, Title: ch.Title, ProjectID: ch.ProjectID, SourceRevision: ch.LandedSHA}
 }
 
 // publishOnEnd publishes what an ending chat committed in its change's

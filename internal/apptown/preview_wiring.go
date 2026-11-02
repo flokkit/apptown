@@ -111,7 +111,7 @@ func (d previewSources) Console(ctx context.Context, id string) (preview.Console
 }
 
 func previewChange(ch *workflow.Change) preview.Change {
-	return preview.Change{ID: ch.ID, ProjectID: ch.ProjectID, SourceRevision: ch.LandedSHA}
+	return preview.Change{ID: ch.ID, Title: ch.Title, ProjectID: ch.ProjectID, SourceRevision: ch.LandedSHA}
 }
 
 // changePreviewViews says what a change's preview button shows, with the

@@ -275,7 +275,7 @@ func TestAStandingStackSaysWhichProjectAndDeploymentItIsFor(t *testing.T) {
 	if _, err := EnsureStandingServices(context.Background(), h.scope(), "dep-3b89d1da8075", []deploy.ServiceSpec{{Name: "postgres", Image: "postgres:16"}}, "synthetic", own); err != nil {
 		t.Fatal(err)
 	}
-	want := strings.Join(info, " ")
+	want := "--label apptown.info.project=shop --label apptown.info.deployment=main"
 	for _, c := range h.created {
 		if !strings.Contains(c, want) {
 			t.Errorf("made without saying whose it is: %s", c)
