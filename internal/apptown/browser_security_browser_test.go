@@ -424,14 +424,19 @@ func newTourWorld(t *testing.T, garage bool) *tourWorld {
 		t.Fatal(err)
 	}
 	runtime := consoletest.NewAgent()
-	// A readable data folder: the infrastructure page names it. Each
-	// running scene makes its own and removes only that one, so any number
-	// of tours and garages can be open, or photographed, together.
+	// The data folder, which the infrastructure page names. Each running
+	// scene makes its own and removes only that one, so any number of tours
+	// and garages can be open, or photographed, together. It is in TMPDIR:
+	// the landings' source scans bind-mount folders under it into real
+	// containers, and a daemon reads the path on its own host. ci-heavy.sh
+	// runs the tour in a container beside the host's daemon and shares only
+	// TMPDIR (and the checkout) at the same path; a folder in that
+	// container's own /tmp reaches the scanners empty.
 	scene := "tour"
 	if garage {
 		scene = "garage"
 	}
-	dataDir, err := os.MkdirTemp("/tmp", "apptown-"+scene+"-")
+	dataDir, err := os.MkdirTemp("", "apptown-"+scene+"-")
 	if err != nil {
 		t.Fatal(err)
 	}

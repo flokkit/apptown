@@ -77,6 +77,19 @@ var _ error = Service{}
         self.assertTrue(next(r for r in production if r['Name'] == 'Used')['Production'])
         self.assertFalse(next(r for r in production if r['Name'] == 'TestOnly')['Production'])
 
+    # A release-only script (scripts/release-facts.go) is built with
+    # `//go:build ignore`, outside ./...: what it reads is production use, or
+    # the export looks unused, is made private, and the release breaks.
+    def test_a_build_ignored_script_reading_an_export_is_production_use(self):
+        root = self.fixture({
+            'internal/owner/owner.go': 'package owner\nconst Read, Unread = 1, 2\nfunc Value() int { return Read + Unread }\n',
+            'scripts/facts.go': '//go:build ignore\n\npackage main\nimport ("fmt"; "github.com/flokkit/apptown/internal/owner")\nfunc main() { fmt.Println(owner.Read) }\n',
+        })
+        rows = json.loads(subprocess.check_output([self.exports, '-production', './...'], cwd=root))
+        rows = {row['Name']: row for row in rows if row['Package'].endswith('/owner')}
+        self.assertTrue(rows['Read']['Production'])
+        self.assertFalse(rows['Unread']['Production'])
+
     def test_contract_additions_do_not_raise_the_ratchet(self):
         spec = importlib.util.spec_from_file_location('shape', ROOT / 'scripts/shape-check.py')
         shape = importlib.util.module_from_spec(spec)

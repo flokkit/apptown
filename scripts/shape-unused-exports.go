@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"go/ast"
+	"go/parser"
 	"go/token"
 	"go/types"
 	"os"
@@ -105,6 +106,49 @@ var linkerStamped = map[string]bool{}
 
 var stampFlag = regexp.MustCompile(`-X ([\w./-]+)\.(\w+)=`)
 
+// buildIgnoredScripts loads, one file each, the programs under scripts/ built
+// with `//go:build ignore` that import this module. They are outside ./...,
+// and some run only in a release (release-facts.go writes the candidate's
+// manifest), so what they read is production use: without them an export
+// only a script reads looks unused, and making it private breaks the release.
+func buildIgnoredScripts(root string, base *packages.Config) []*packages.Package {
+	files, err := filepath.Glob(filepath.Join(root, "scripts", "*.go"))
+	if err != nil {
+		panic(err)
+	}
+	cfg := *base
+	cfg.Tests = false
+	var loaded []*packages.Package
+	for _, file := range files {
+		f, err := parser.ParseFile(token.NewFileSet(), file, nil, parser.ImportsOnly|parser.ParseComments)
+		if err != nil {
+			panic(err)
+		}
+		ignored := false
+		for _, g := range f.Comments {
+			for _, c := range g.List {
+				ignored = ignored || c.Pos() < f.Package && c.Text == "//go:build ignore"
+			}
+		}
+		internal := false
+		for _, imp := range f.Imports {
+			internal = internal || strings.HasPrefix(strings.Trim(imp.Path.Value, `"`), module+"internal/")
+		}
+		if !ignored || !internal {
+			continue
+		}
+		pkgs, err := packages.Load(&cfg, file)
+		if err != nil {
+			panic(err)
+		}
+		if packages.PrintErrors(pkgs) > 0 {
+			os.Exit(1)
+		}
+		loaded = append(loaded, pkgs...)
+	}
+	return loaded
+}
+
 func main() {
 	root, err := os.Getwd()
 	for _, build := range []string{"Makefile", "deploy/Dockerfile"} {
@@ -136,10 +180,19 @@ func main() {
 	if packages.PrintErrors(pkgs) > 0 {
 		os.Exit(1)
 	}
+	scripts := buildIgnoredScripts(root, cfg)
 	rows := map[string]*entry{}
+	// By package, file name, line and name, not offset or full path: a
+	// script's load reads this module's packages from export data, whose
+	// positions carry only the line, and whose file path can name the same
+	// file another way (macOS's /var is /private/var).
 	key := func(o types.Object, fs *token.FileSet) string {
 		p := fs.Position(o.Pos())
-		return fmt.Sprintf("%s:%d", p.Filename, p.Offset)
+		pkg := ""
+		if o.Pkg() != nil {
+			pkg = o.Pkg().Path()
+		}
+		return fmt.Sprintf("%s:%s:%d:%s", pkg, filepath.Base(p.Filename), p.Line, o.Name())
 	}
 	rel := func(f string) string {
 		r, e := filepath.Rel(root, f)
@@ -423,7 +476,7 @@ func main() {
 		}
 	}
 	seen := map[string]bool{}
-	for _, p := range pkgs {
+	for _, p := range append(pkgs, scripts...) {
 		calls := map[*ast.Ident]bool{}
 		methodCalls := map[*ast.Ident]*ast.CallExpr{}
 		imports := map[string]string{}

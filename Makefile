@@ -228,9 +228,14 @@ check-go-source: check-generated check-schema-ownership
 	@fmt=$$(gofmt -l internal cmd); if [ -n "$$fmt" ]; then \
 		echo "not gofmt-clean:"; echo "$$fmt"; echo "fix: gofmt -w internal cmd"; exit 1; fi
 
+# The scripts under scripts/ built with `//go:build ignore` are outside ./...,
+# and some run only in a release (release-facts.go writes the candidate's
+# manifest): vet each one here, so renaming a name a script reads fails the
+# gate rather than the release.
 check-vet:
 	@echo "== go vet =="
 	go vet ./...
+	@for f in $$(grep -l '^//go:build ignore' scripts/*.go); do go vet "$$f" || exit 1; done
 
 check-staticcheck:
 	@echo "== staticcheck (correctness; config in staticcheck.conf) =="

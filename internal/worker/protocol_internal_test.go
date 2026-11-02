@@ -24,10 +24,10 @@ func TestAWorkerThatCannotReportMemoryKillsRefusesThisAppTown(t *testing.T) {
 		h.ServeHTTP(w, r)
 		return w.Code
 	}
-	if code := ask(servedRange(1, 1, ok), protocol); code != http.StatusUpgradeRequired {
+	if code := ask(servedRange(1, 1, ok), Protocol); code != http.StatusUpgradeRequired {
 		t.Fatalf("an old worker served this AppTown: %d", code)
 	}
-	if code := ask(served(ok), protocol-1); code != http.StatusOK {
+	if code := ask(served(ok), Protocol-1); code != http.StatusOK {
 		t.Fatalf("this worker refused the previous AppTown: %d", code)
 	}
 }
