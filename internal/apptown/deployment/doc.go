@@ -98,8 +98,19 @@
 // recording the failure separately. A first partial check takes its read time
 // from successfully read figures. Inventory owns its stale/unknown classification;
 // transports render that decision.
-// Inventory stores a complete provider answer, verified placement, witnessed
-// missing claims and its invalidation generation. An act during collection
-// cannot clear invalidation. Pages only read this evidence; disk admission asks
+// [HostSnapshots] stores Docker host facts in five independently timed sections.
+// The inventory pass collects host, containers, resources and images; use is
+// reserved for separate collection. A failed section retains its evidence; an
+// unread section stays unknown. Docker inventory derives from the stored facts. Missing-resource claims compare records
+// and facts during the same complete collection; newer records cannot establish
+// absence against older facts. Placement verification runs during collection
+// so reading pages does not contact providers.
+// [Service.InventoryFor] selects the persisted source for both infrastructure
+// and Attention. Other providers' inventory stores a complete answer, verified
+// placement, witnessed missing claims and its invalidation generation. An act
+// during collection cannot clear invalidation, even with equal clock readings:
+// completion is fenced by generation. Retained sections must strictly postdate
+// the act at its stored microsecond precision to count as refreshed.
+// Pages only read this evidence; disk admission asks
 // the daemon independently and does not trust a display reading.
 package deployment

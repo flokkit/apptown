@@ -245,20 +245,30 @@ records, not an error, and the inventory job and attention skip it.
 
 ## Background infrastructure readings
 
-Durable jobs check every active target's inventory and capacity and the
+A one-minute pass queues one `host-snapshot` job per active Docker target and
+settings revision. The snapshot reads four independently timed inventory sections:
+host, containers, volumes and networks, and recorded images. Disk use is added when
+capacity starts using it. A failed section retains its last successful value
+and time; a section never read stays unknown. A missing-resource claim is set
+only by a collection where all four inventory sections succeed, against the
+records read in that same collection. A record made after a collection is never
+compared against it. Claims are held back while the reading predates an act.
+
+Durable jobs check other providers' inventory, every target's capacity and the
 controller/worker filesystems every five minutes, even with no readers. Startup
-queues the first pass. Infrastructure pages and Attention show the latest recorded
+queues both passes. Infrastructure pages and Attention show the latest recorded
 reading and its age. Reading a page never contacts a provider or host or requests
 a check; there is no inventory Refresh action or refresh query parameter.
 
 After a release is recorded, a need is fulfilled or a deployment is taken down,
-AppTown queues that target's inventory check immediately through the same job.
+AppTown invalidates the target's reading and queues its inventory job immediately
+(`host-snapshot` for Docker).
 The reading's age remains visible and marked as predating the act until a
 post-act check succeeds. Until then, pages show records alone, without missing
 or unrecorded comparisons. Post-act requests coalesce into one job per target,
 including while it runs. An act during that check keeps the reading invalidated
-until the next five-minute pass; an overlapping check cannot clear that mark.
-Inventory jobs have a two-minute timeout. The scheduling pass attempts all
+until the next scheduled pass; an overlapping check cannot clear that mark.
+Host snapshots have a one-minute timeout; other inventory jobs have thirty seconds. The scheduling pass attempts all
 targets and instance disks even when an admission fails, and reports errors
 together.
 Shared Docker and Portainer placement verification is part of the background
@@ -283,16 +293,23 @@ A partial successful check cannot renew an unread sibling figure.
 Attention raises an item for an old live reading after fifteen minutes only
 when the latest check failed. Age alone raises no item until the six-hour unknown
 limit. Known pressure and missing-resource findings retain their original
-evidence. Inventory stores the missing claims witnessed by its successful check,
-so restart cannot erase those findings or compare newly recorded claims against
-an older list. A first pending check contributes unknown coverage without an item.
+evidence. Other providers store the missing claims witnessed by their successful inventory
+check. Docker stores missing-resource claims only when all four inventory sections
+succeed in the same collection, against the records read in that collection.
+A record made after a collection is never compared against it. Inventory age
+uses the oldest inventory section time. Missing-resource claims are held back
+while the reading predates an act. A first pending check contributes unknown
+coverage without an item.
 Docker disk admission still reads the filesystem at admission; retained display
 readings never authorize work.
 
 ## Docker target inventory
 
-A target's inventory compares recorded resource claims with a complete scoped
-Docker observation: AppTown-named containers, application (`apptown-data-`) and need
+Docker inventory container detail uses the literal inspected state, such as
+`running` or `exited`.
+
+A Docker target's inventory compares recorded resource claims with its stored
+host snapshot: AppTown-named containers, application (`apptown-data-`) and need
 (`apptown-need-`) volumes, AppTown networks (named by the deployment's key), and recorded image references.
 Images are not listed: a listing leaves out an image with no tag, such as one
 pulled by digest alone. Docker is asked about each recorded reference, and the

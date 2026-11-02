@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/ids"
@@ -107,19 +108,19 @@ func TestInventoryReadingsSurviveRestartAndKeepFailedCheckEvidence(t *testing.T)
 	}
 	restarted := NewInventoryReadings(db, func() time.Time { return now })
 	now = first.Add(30 * time.Minute)
-	got, err := restarted.SnapshotForTarget(t.Context(), target)
+	got, err := restarted.snapshotForTarget(t.Context(), target)
 	if err != nil || got.Unknown || !got.Stale || !got.ObservedAt.Equal(first) {
 		t.Fatalf("restart: %+v %v", got, err)
 	}
 	if err := owner.Finish(t.Context(), target, generation, nil, nil, nil, errors.New("unreachable")); err == nil {
 		t.Fatal("failure lost")
 	}
-	got, err = restarted.SnapshotForTarget(t.Context(), target)
+	got, err = restarted.snapshotForTarget(t.Context(), target)
 	if err != nil || got.Unknown || got.FailedAt != now || got.ObservedAt != first {
 		t.Fatalf("failure: %+v %v", got, err)
 	}
 	now = first.Add(6*time.Hour + time.Second)
-	got, err = restarted.SnapshotForTarget(t.Context(), target)
+	got, err = restarted.snapshotForTarget(t.Context(), target)
 	if err != nil || !got.Unknown {
 		t.Fatalf("expiry: %+v %v", got, err)
 	}
@@ -242,5 +243,84 @@ func TestOfflineCapacityKeepsSuccessfulTimeAndHostMemoryUse(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestInventoryEvidenceAgesAndKeepsFailuresWithoutRequestingWork(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
+	first := now
+	target := &Target{Name: "host"}
+	c := NewInventoryReadings(testDB(t), func() time.Time { return now })
+	got, err := c.snapshotForTarget(t.Context(), target)
+	if err != nil || !got.Unknown || !got.AttemptedAt.IsZero() {
+		t.Fatalf("cold: %+v %v", got, err)
+	}
+	generation, err := c.Start(t.Context(), target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = generation
+	if err := c.Finish(t.Context(), target, 0, []deploy.Resource{{ID: "one", Tags: []string{"owned"}}}, nil, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(5 * time.Minute)
+	got, _ = c.snapshotForTarget(t.Context(), target)
+	if got.Stale || got.Unknown {
+		t.Fatalf("current during idle: %+v", got)
+	}
+	got.Items[0].Tags[0] = "changed"
+	now = first.Add(30 * time.Minute)
+	got, _ = c.snapshotForTarget(t.Context(), target)
+	if !got.Stale || got.Unknown || got.Items[0].Tags[0] != "owned" {
+		t.Fatalf("expired evidence: %+v", got)
+	}
+	if err := c.Finish(t.Context(), target, 0, nil, nil, nil, errors.New("unreachable")); err == nil {
+		t.Fatal("failure lost")
+	}
+	got, _ = c.snapshotForTarget(t.Context(), target)
+	if got.Unknown || got.ObservedAt != first || got.AttemptedAt != now || len(got.Items) != 1 {
+		t.Fatalf("failure renewed or erased evidence: %+v", got)
+	}
+}
+
+func TestInventoryActCannotRenewInflightEvidence(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
+	cTestDB := testDB(t)
+	target, err := NewTargets(cTestDB, nil).Put(t.Context(), &Target{Name: "host", Kind: KindDockerHost, Status: TargetReady})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := NewInventoryReadings(cTestDB, func() time.Time { return now })
+	generation, err := c.Start(t.Context(), target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = generation
+	if err := c.Finish(t.Context(), target, 0, []deploy.Resource{{ID: "old"}}, nil, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Invalidate(t.Context(), "host"); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Finish(t.Context(), target, 0, []deploy.Resource{{ID: "inflight"}}, nil, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := c.snapshotForTarget(t.Context(), target)
+	if !got.Invalidated || got.Items[0].ID != "old" {
+		t.Fatalf("inflight answer renewed evidence: %+v", got)
+	}
+	if err := c.Finish(t.Context(), target, 1, []deploy.Resource{{ID: "post-act"}}, nil, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = c.snapshotForTarget(t.Context(), target)
+	if got.Stale || got.Unknown || got.Items[0].ID != "post-act" {
+		t.Fatalf("post-act answer: %+v", got)
+	}
+	target.SettingsRevision++
+	got, _ = c.snapshotForTarget(t.Context(), target)
+	if !got.Unknown || len(got.Items) != 0 || !got.AttemptedAt.IsZero() {
+		t.Fatalf("old configuration inherited: %+v", got)
 	}
 }

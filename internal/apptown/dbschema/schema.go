@@ -529,6 +529,15 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		"UPDATE slot_fallbacks SET slot=CASE slot WHEN 'default' THEN 'main-strong' WHEN 'primary-fast' THEN 'main-fast' END WHERE slot IN ('default','primary-fast')",
 		"UPDATE slot_fallbacks SET fallback=CASE fallback WHEN 'default' THEN 'main-strong' WHEN 'primary-fast' THEN 'main-fast' END WHERE fallback IN ('default','primary-fast')",
 	}},
+	{n: 202, note: "replace Docker inventory readings with host snapshots", stmts: []string{
+		`DELETE FROM deployment_readings r USING targets t WHERE t.kind='docker-host' AND r.kind='inventory' AND r.subject=t.name`,
+		`DO $$ BEGIN IF to_regclass('river_job') IS NOT NULL THEN
+ DELETE FROM river_job j USING targets t
+ WHERE t.kind='docker-host' AND j.args->>'operation'='inventory'
+ AND (j.args->>'key'=t.name OR j.args->'values'->>'target'=t.name)
+ AND j.state IN ('available','pending','retryable','scheduled');
+ END IF; END $$`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

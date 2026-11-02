@@ -104,13 +104,15 @@ type infrastructureChecks struct {
 	protection        *dataprotection.ProtectionObserver
 	integrations      *integration.Service
 	inventory         *deployment.InventoryReadings
+	snapshots         *deployment.HostSnapshots
+	hosts             *deployment.Hosts
 	db                *database.DB
 	now               func() time.Time
 	life              context.Context
 }
 
 func infrastructureChecksFor(a *App) infrastructureChecks {
-	return infrastructureChecks{worker: a.workerObserver, targets: a.targets, deployments: a.deployments, deploymentService: a.Deployment, protection: a.protectionObserver, inventory: a.inventory, integrations: a.Integrations, db: a.DB, life: a.life, now: a.cfg.clock.Now}
+	return infrastructureChecks{worker: a.workerObserver, targets: a.targets, deployments: a.deployments, deploymentService: a.Deployment, protection: a.protectionObserver, inventory: a.inventory, snapshots: a.hostSnapshots, hosts: a.hosts, integrations: a.Integrations, db: a.DB, life: a.life, now: a.cfg.clock.Now}
 }
 
 // Run admits the same per-target jobs on every five-minute tick.
@@ -133,8 +135,10 @@ func (c infrastructureChecks) Run(ctx context.Context, _ string, _ map[string]an
 		}); err != nil {
 			errs = append(errs, err)
 		}
-		if err := (inventoryRequests{db: c.db}).requestInventory(ctx, target.Name); err != nil {
-			errs = append(errs, fmt.Errorf("%s inventory: %w", target.Name, err))
+		if target.Kind != deployment.KindDockerHost {
+			if err := (inventoryRequests{db: c.db}).requestInventory(ctx, target.Name); err != nil {
+				errs = append(errs, fmt.Errorf("%s inventory: %w", target.Name, err))
+			}
 		}
 		if err := (capacityObservationRequests{db: c.db}).requestCapacityObservation(ctx, target.ID, target.SettingsRevision); err != nil {
 			errs = append(errs, fmt.Errorf("%s capacity: %w", target.Name, err))
@@ -198,15 +202,23 @@ func (c *infrastructureChecks) Applied(targetID ids.ID) {
 		log.Printf("infrastructure: finding changed target: %v", err)
 		return
 	}
-	if err := c.inventory.Invalidate(ctx, target.Name); err != nil {
-		log.Printf("infrastructure: invalidating %s: %v", target.Name, err)
+	if target.Kind == deployment.KindDockerHost {
+		if err := c.snapshots.Invalidate(ctx, target); err != nil {
+			log.Printf("invalidating host snapshot: %v", err)
+		}
+		err = c.requestHostSnapshot(ctx, target)
+	} else {
+		if err := c.inventory.Invalidate(ctx, target.Name); err != nil {
+			log.Printf("infrastructure: invalidating %s: %v", target.Name, err)
+		}
+		err = c.db.InTx(ctx, func(tx *database.Tx) error {
+			return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: "inventory", Key: target.Name + "/act", Values: map[string]any{"target": target.Name}})
+		})
 	}
-	err = c.db.InTx(ctx, func(tx *database.Tx) error {
-		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: "inventory", Key: target.Name + "/act", Values: map[string]any{"target": target.Name}})
-	})
 	if err != nil {
 		log.Printf("infrastructure: scheduling %s after an act: %v", target.Name, err)
 	}
+
 	deployments, err := c.deployments.All(ctx)
 	if err != nil {
 		log.Printf("infrastructure: listing changed deployments: %v", err)
@@ -226,6 +238,9 @@ func (c *infrastructureChecks) Applied(targetID ids.ID) {
 // request starts collection without waiting for the first periodic tick.
 func (c infrastructureChecks) request(ctx context.Context) error {
 	return c.db.InTx(ctx, func(tx *database.Tx) error {
+		if err := (jobQueue{}).EnqueueIn(ctx, tx, jobs.Request{Operation: hostSnapshotPassJob, Key: passScheduledKey}); err != nil {
+			return err
+		}
 		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: infrastructureCheckJob, Key: passScheduledKey})
 	})
 }
@@ -239,4 +254,24 @@ func (c infrastructureChecks) requestDeployment(ctx context.Context, id ids.ID) 
 		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: deployment.DetailObservationJob, Key: key + "/" + ids.New(c.now()).String()})
 	})
 	return errors.Join(err, c.protection.AfterAct(ctx, id))
+}
+
+func (c infrastructureChecks) requestHostSnapshot(ctx context.Context, t *deployment.Target) error {
+	return c.db.InTx(ctx, func(tx *database.Tx) error {
+		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: deployment.HostSnapshotJob, Key: t.ID.String() + "/" + strconv.FormatInt(t.SettingsRevision, 10)})
+	})
+}
+func (c infrastructureChecks) HostSnapshotPass(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
+	targets, err := c.targets.All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var errs []error
+	for _, t := range targets {
+		if t.Kind != deployment.KindDockerHost || t.Status == deployment.TargetRetired || t.Origin == deployment.OriginBuiltIn && c.hosts.NoLocalDocker() {
+			continue
+		}
+		errs = append(errs, c.requestHostSnapshot(ctx, t))
+	}
+	return nil, errors.Join(errs...)
 }

@@ -323,6 +323,7 @@ var lazyOwners = map[string]func(*App) any{
 	"contributionsFor":        func(a *App) any { return contributionsFor(a) },
 	"fleetReviewsFor":         func(a *App) any { return fleetReviewsFor(a) },
 	"holderPresenceFor":       func(a *App) any { return holderPresenceFor(a) },
+	"inventorySourcesFor":     func(a *App) any { return inventorySourcesFor(a) },
 	"inferenceIdentityFor":    func(a *App) any { return inferenceIdentityFor(a) },
 	"inferenceRuntimeFor":     func(a *App) any { return inferenceRuntimeFor(a) },
 	"mcpToolsFor":             func(a *App) any { return mcpToolsFor(a) },

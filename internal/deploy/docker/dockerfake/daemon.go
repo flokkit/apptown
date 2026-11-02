@@ -371,6 +371,95 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 			return d.printID(args, out, err), err
 		}
 	}
+
+	if len(args) == 3 && args[0] == "info" && args[2] == "{{json .}}" {
+		var mem int64
+		var cpus int
+		var root string
+		fmt.Sscanf(d.host, "%d\t%d\t%s", &mem, &cpus, &root)
+		return json.Marshal(map[string]any{"ID": "fake-daemon", "MemTotal": mem, "NCPU": cpus, "DockerRootDir": root, "CgroupVersion": "2"})
+	}
+	if slices.Equal(args, []string{"ps", "-aq", "--no-trunc"}) {
+		var names []string
+		for name := range d.running {
+			if d.running[name] || d.stopped[name] {
+				names = append(names, name)
+			}
+		}
+		for name := range d.stopped {
+			if !slices.Contains(names, name) {
+				names = append(names, name)
+			}
+		}
+		sort.Strings(names)
+		return []byte(strings.Join(names, "\n")), nil
+	}
+	if len(args) >= 6 && slices.Equal(args[:5], []string{"inspect", "--type", "container", "--format", "{{json .}}"}) {
+		var lines []string
+		for _, name := range args[5:] {
+			if !d.running[name] && !d.stopped[name] {
+				if req.Stderr != nil {
+					fmt.Fprintf(req.Stderr, "Error response from daemon: No such container: %s\n", name)
+				}
+				continue
+			}
+			c := docker.HostContainer{ID: name, Name: "/" + name, RestartCount: d.restarts[name]}
+			c.Config.Image = "sha256:built"
+			c.Config.Labels = d.labels[name]
+			c.State.Running = d.running[name]
+			c.State.Status = "exited"
+			if c.State.Running {
+				c.State.Status = "running"
+			}
+			c.State.ExitCode = d.exitCodes[name]
+			c.State.OOMKilled = d.oomKilled[name]
+			c.HostConfig.Memory = d.limits[name][0]
+			c.HostConfig.NanoCpus = d.limits[name][1]
+			if stored := d.storageContainers[name]; stored != nil {
+				raw, err := json.Marshal(stored)
+				if err != nil {
+					return nil, err
+				}
+				var storage docker.HostContainer
+				if err := json.Unmarshal(raw, &storage); err != nil {
+					return nil, err
+				}
+				c.Mounts = storage.Mounts
+				if storage.Config.Image != "" {
+					c.Config.Image = storage.Config.Image
+				}
+			}
+			c.NetworkSettings.Ports = map[string][]docker.HostPort{"8080/tcp": {{HostIP: "0.0.0.0", HostPort: fmt.Sprint(d.port)}}}
+			raw, _ := json.Marshal(c)
+			lines = append(lines, string(raw))
+		}
+		out := []byte(strings.Join(lines, "\n"))
+		if req.Stdout != nil {
+			_, err := req.Stdout.Write(out)
+			return nil, err
+		}
+		return out, nil
+	}
+	if len(args) > 2 && (args[0] == "volume" || args[0] == "network") && args[1] == "ls" {
+		var lines []string
+		if args[0] == "volume" {
+			for name, present := range d.volumes {
+				if present {
+					lines = append(lines, name+"\t\t\t")
+				}
+			}
+		}
+		sort.Strings(lines)
+		return []byte(strings.Join(lines, "\n")), nil
+	}
+	if len(args) > 4 && args[0] == "image" && args[1] == "inspect" && strings.Contains(args[3], "RepoTags") {
+		for _, ref := range args[4:] {
+			if req.Stdout != nil {
+				fmt.Fprintf(req.Stdout, "[%q]\t[]\t%q\n", ref, ImageID(ref))
+			}
+		}
+		return nil, nil
+	}
 	// Named volumes exist only after creation, unless a test explicitly
 	// supplies an inspection response above. Unknown objects are not present.
 	if args[0] == "volume" && len(args) >= 3 {

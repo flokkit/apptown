@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -321,6 +322,28 @@ func TestTour(t *testing.T) {
 	writeTourPage(t, tourDir, stops)
 }
 
+// Both scenes collect real snapshot jobs over their disposable daemon.
+func TestHostSnapshotScenesReadInventory(t *testing.T) {
+	for _, garage := range []bool{false, true} {
+		t.Run(fmt.Sprint(garage), func(t *testing.T) {
+			w := newTourWorld(t, garage)
+			targets, err := w.a.targets.All(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, target := range targets {
+				if target.Kind != deployment.KindDockerHost || target.Status == deployment.TargetRetired {
+					continue
+				}
+				inv, err := w.a.Deployment.InventoryFor(t.Context(), target)
+				if err != nil || inv.Unknown {
+					t.Fatalf("scene inventory unknown: %+v %v", inv, err)
+				}
+			}
+		})
+	}
+}
+
 // TestGarage is the tour's AppTown with deliberate trouble, one example of
 // each kind the UI has a screen for, so problem screens can be looked at
 // (APPTOWN_DESIGN_HOLD, as for the tour): the executor's image is missing;
@@ -516,6 +539,36 @@ func newTourWorld(t *testing.T, garage bool) *tourWorld {
 	// inventory's: which of the recorded images the host holds.
 	daemon.command = func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
 		const imageNames = "{{json .RepoTags}}\t{{json .RepoDigests}}\t{{json .Id}}"
+		if len(req.Args) >= 6 && slices.Equal(req.Args[:5], []string{"inspect", "--type", "container", "--format", "{{json .}}"}) {
+			for _, ref := range req.Args[5:] {
+				out, err := daemon.run(append(req.Args[:5:5], ref)...)
+				if err != nil {
+					found := false
+					if seeded := onHost.Load(); seeded != nil {
+						for _, r := range *seeded {
+							if r.Kind == "container" && r.Name == ref {
+								c := docker.HostContainer{ID: dockerfake.ContainerID(ref), Name: "/" + ref}
+								c.State.Running = ref != "tour-runtime-stopped"
+								c.State.Status = "running"
+								if !c.State.Running {
+									c.State.Status = "exited"
+								}
+								out, _ = json.Marshal(c)
+								found = true
+								break
+							}
+						}
+					}
+					if !found {
+						return nil, err
+					}
+				}
+				if _, err := fmt.Fprintln(req.Stdout, string(out)); err != nil {
+					return nil, err
+				}
+			}
+			return nil, nil
+		}
 		if req.Stdin == nil && req.Stdout == nil {
 			return daemon.run(req.Args...)
 		}
@@ -547,6 +600,27 @@ func newTourWorld(t *testing.T, garage bool) *tourWorld {
 		return ""
 	}
 	daemon.reply = func(args []string) (string, error, bool) {
+		if slices.Equal(args, []string{"ps", "-aq", "--no-trunc"}) {
+			names := map[string]bool{}
+			daemon.mu.Lock()
+			for name := range daemon.started {
+				names[name] = true
+			}
+			daemon.mu.Unlock()
+			if seeded := onHost.Load(); seeded != nil {
+				for _, r := range *seeded {
+					if r.Kind == "container" {
+						names[r.Name] = true
+					}
+				}
+			}
+			var out []string
+			for name := range names {
+				out = append(out, name)
+			}
+			slices.Sort(out)
+			return strings.Join(out, "\n"), nil, true
+		}
 		if len(args) > 0 && (args[0] == "build" || (args[0] == "buildx" && len(args) > 1 && args[1] == "build")) {
 			if tag := tagOf(args); tag != "" {
 				imagesMu.Lock()
@@ -726,7 +800,7 @@ func newTourWorld(t *testing.T, garage bool) *tourWorld {
 			return strings.Join(lines, "\n"), nil, true
 		}
 		switch {
-		case len(args) > 0 && args[0] == "inspect" && strings.HasPrefix(args[len(args)-1], "tour-runtime-"):
+		case len(args) > 0 && args[0] == "inspect" && !slices.Contains(args, "{{json .}}") && strings.HasPrefix(args[len(args)-1], "tour-runtime-"):
 			switch strings.TrimPrefix(args[len(args)-1], "tour-runtime-") {
 			case "stopped":
 				return `{"id":"tour-stopped","running":false}`, nil, true
@@ -937,6 +1011,9 @@ func (w *tourWorld) observe() {
 	if _, err := infrastructureChecksFor(a).Run(context.Background(), "", nil); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := infrastructureChecksFor(a).HostSnapshotPass(context.Background(), "", nil); err != nil {
+		t.Fatal(err)
+	}
 	w.scene.call("sam", "GET", "/api/v1/attention", nil)
 	// Before the camera every job is accounted for (operationJobs refuses
 	// a capped list). A held scene refreshes every few minutes and its job
@@ -962,7 +1039,7 @@ func (w *tourWorld) observe() {
 			return out
 		}
 	}
-	for _, kind := range []string{diskObservationJob, workerObservationJob, "capacity-observation", "inventory", "protection-observation", integration.HealthObservationJob, deployment.TargetObservationJob, deployment.DetailObservationJob, preview.ObservationJob, integration.ErrorObservationJob, dataprotection.StoreObservationJob} {
+	for _, kind := range []string{diskObservationJob, workerObservationJob, "capacity-observation", deployment.HostSnapshotJob, "inventory", "protection-observation", integration.HealthObservationJob, deployment.TargetObservationJob, deployment.DetailObservationJob, preview.ObservationJob, integration.ErrorObservationJob, dataprotection.StoreObservationJob} {
 		for _, job := range queued(kind) {
 			if job.State == "available" || job.State == "retryable" || job.State == "scheduled" {
 				result := runJobForTest(t, a, job.ID)
@@ -3457,7 +3534,7 @@ app:
 	if err := a.capacityObserver.Run(ctx, previewHost.ID, previewHost.SettingsRevision); err != nil {
 		t.Logf("preview capacity remains unknown: %v", err)
 	}
-	if _, err := (inventoryRefresh{targets: a.targets, providers: a.targetProviders, inventory: a.Deployment.Inventory, cache: a.inventory}).Run(ctx, productionHost.Name, nil); err != nil {
+	if _, err := (deployment.HostSnapshotWorker{Snapshots: a.hostSnapshots, Targets: a.targets, Hosts: a.hosts, Providers: a.targetProviders, Inventory: a.Deployment.Inventory}).Run(ctx, productionHost.ID.String()+"/"+strconv.FormatInt(productionHost.SettingsRevision, 10), nil); err != nil {
 		t.Fatal(err)
 	}
 	// Keep the test daemon's observations fresh during the whole-site walk.

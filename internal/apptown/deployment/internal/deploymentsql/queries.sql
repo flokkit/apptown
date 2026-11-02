@@ -564,3 +564,17 @@ WHERE subject=$1 AND kind=$2 AND identity=$3 AND generation=$4;
 
 -- name: InvalidateReading :exec
 UPDATE deployment_readings SET generation=generation+1, invalidated=TRUE WHERE subject=$1 AND kind=$2;
+
+-- name: StartHostSnapshot :one
+INSERT INTO deployment_readings (id, subject, kind, identity)
+VALUES ($1,$2,'host-snapshot',$3)
+ON CONFLICT (subject,kind) DO UPDATE SET
+    identity=EXCLUDED.identity,
+    invalidated=CASE WHEN deployment_readings.identity=EXCLUDED.identity THEN deployment_readings.invalidated ELSE FALSE END,
+    payload=CASE WHEN deployment_readings.identity=EXCLUDED.identity THEN deployment_readings.payload ELSE '{}'::jsonb END
+RETURNING identity, generation, invalidated, payload;
+
+-- name: InvalidateHostSnapshot :exec
+UPDATE deployment_readings SET generation=generation+1, invalidated=TRUE,
+    payload=jsonb_set(payload, '{PredatesActAt}', to_jsonb(sqlc.arg(acted_at)::timestamptz))
+WHERE subject=sqlc.arg(subject) AND kind='host-snapshot';

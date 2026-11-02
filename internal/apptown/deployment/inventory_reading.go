@@ -36,6 +36,7 @@ type inventoryObservation struct {
 	ObservedAt, AttemptedAt, FailedAt time.Time
 	Reason                            string
 	Unknown, Stale, Invalidated       bool
+	Unreported                        bool
 }
 
 func (c *InventoryReadings) Start(ctx context.Context, t *Target) (int64, error) {
@@ -53,7 +54,7 @@ func (c *InventoryReadings) Invalidate(ctx context.Context, name string) error {
 	}
 	return deploymentsql.New(c.db.SQL()).InvalidateReading(ctx, deploymentsql.InvalidateReadingParams{Subject: name, Kind: "inventory"})
 }
-func (c *InventoryReadings) SnapshotForTarget(ctx context.Context, t *Target) (inventoryObservation, error) {
+func (c *InventoryReadings) snapshotForTarget(ctx context.Context, t *Target) (inventoryObservation, error) {
 	row, err := deploymentsql.New(c.db.SQL()).Reading(ctx, deploymentsql.ReadingParams{Subject: t.Name, Kind: "inventory"})
 	if errors.Is(err, sql.ErrNoRows) || err == nil && row.Identity != inventoryIdentityFor(t) {
 		return inventoryObservation{Unknown: true, Stale: true}, nil
@@ -73,7 +74,7 @@ func (c *InventoryReadings) SnapshotForTarget(ctx context.Context, t *Target) (i
 func (c *InventoryReadings) Finish(ctx context.Context, t *Target, generation int64, items []deploy.Resource, shared []SharedResource, recorded []deploy.Resource, checkErr error) error {
 	finish, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
-	old, err := c.SnapshotForTarget(finish, t)
+	old, err := c.snapshotForTarget(finish, t)
 	if err != nil {
 		return errors.Join(checkErr, err)
 	}
@@ -107,7 +108,7 @@ func (c *InventoryReadings) Finish(ctx context.Context, t *Target, generation in
 // Live is the passive infrastructure view; old evidence retains its original time.
 // The final flags are invalidated and unknown, classified by this owner.
 func (c *InventoryReadings) Live(ctx context.Context, t *Target) ([]deploy.Resource, []SharedResource, string, time.Time, bool, bool) {
-	out, err := c.SnapshotForTarget(ctx, t)
+	out, err := c.snapshotForTarget(ctx, t)
 	if err != nil {
 		return nil, nil, err.Error(), time.Time{}, false, true
 	}

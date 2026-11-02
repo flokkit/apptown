@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
@@ -28,6 +29,9 @@ func (w inventoryRefresh) Run(ctx context.Context, key string, args map[string]a
 			err = jobs.Permanent(err)
 		}
 		return nil, err
+	}
+	if t.Kind == deployment.KindDockerHost {
+		return nil, jobs.Permanent(errors.New("Docker inventory is collected by host-snapshot"))
 	}
 	identity := inventoryTargetIdentity(t)
 	generation, err := w.cache.Start(ctx, t)
@@ -73,4 +77,16 @@ func (w inventoryRefresh) Run(ctx context.Context, key string, args map[string]a
 
 func inventoryTargetIdentity(t *deployment.Target) string {
 	return fmt.Sprintf("%s/%d", t.ID, t.SettingsRevision)
+}
+
+// inventorySources adapts Deployment's inventory operation to the page reader.
+type inventorySources struct {
+	service *deployment.Service
+}
+
+func inventorySourcesFor(a *App) inventorySources {
+	return inventorySources{service: a.Deployment}
+}
+func (s inventorySources) Live(ctx context.Context, t *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool, bool) {
+	return s.service.InventoryLive(ctx, t)
 }

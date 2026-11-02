@@ -3,15 +3,24 @@ package apptown
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/attention"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/internal/stamp"
 )
 
@@ -69,7 +78,7 @@ func TestInfrastructurePagesOnlyReadBackgroundEvidence(t *testing.T) {
 	if _, _, err := requestBundleForTest(t, a, project, dep, bundle, "bls"); err != nil {
 		t.Fatal(err)
 	}
-	source := &attention.Inventory{Targets: inventoryTargetOnly{target}, Records: a.Deployment.Inventory, Observer: attentionInventory{cache: a.inventory, providers: a.targetProviders}}
+	source := &attention.Inventory{Targets: inventoryTargetOnly{target}, Records: a.Deployment.Inventory, Observer: attentionInventory{service: a.Deployment}}
 	pending, _ := source.Snapshot(ctx)
 	if len(pending.Items) != 0 || pending.Stale {
 		t.Fatalf("act created false warnings or expired a recent successful check: %+v", pending)
@@ -95,88 +104,9 @@ func TestInfrastructurePagesOnlyReadBackgroundEvidence(t *testing.T) {
 	if _, err := job.Run(ctx, queued[0].Key, map[string]any{"target": "do-syd"}); err != nil {
 		t.Fatal(err)
 	}
-	got, _ := a.inventory.SnapshotForTarget(ctx, target)
+	got, _ := a.Deployment.InventoryFor(ctx, target)
 	if got.Unknown || got.Stale {
 		t.Fatalf("post-act reading: %+v", got)
-	}
-}
-
-func TestInventoryEvidenceAgesAndKeepsFailuresWithoutRequestingWork(t *testing.T) {
-	t.Parallel()
-	now := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
-	first := now
-	target := &deployment.Target{Name: "host"}
-	c := deployment.NewInventoryReadings(testDB(t), func() time.Time { return now })
-	got, err := c.SnapshotForTarget(t.Context(), target)
-	if err != nil || !got.Unknown || !got.AttemptedAt.IsZero() {
-		t.Fatalf("cold: %+v %v", got, err)
-	}
-	generation, err := c.Start(t.Context(), target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = generation
-	if err := c.Finish(t.Context(), target, 0, []deploy.Resource{{ID: "one", Tags: []string{"owned"}}}, nil, nil, nil); err != nil {
-		t.Fatal(err)
-	}
-	now = now.Add(5 * time.Minute)
-	got, _ = c.SnapshotForTarget(t.Context(), target)
-	if got.Stale || got.Unknown {
-		t.Fatalf("current during idle: %+v", got)
-	}
-	got.Items[0].Tags[0] = "changed"
-	now = first.Add(30 * time.Minute)
-	got, _ = c.SnapshotForTarget(t.Context(), target)
-	if !got.Stale || got.Unknown || got.Items[0].Tags[0] != "owned" {
-		t.Fatalf("expired evidence: %+v", got)
-	}
-	if err := c.Finish(t.Context(), target, 0, nil, nil, nil, errors.New("unreachable")); err == nil {
-		t.Fatal("failure lost")
-	}
-	got, _ = c.SnapshotForTarget(t.Context(), target)
-	if got.Unknown || got.ObservedAt != first || got.AttemptedAt != now || len(got.Items) != 1 {
-		t.Fatalf("failure renewed or erased evidence: %+v", got)
-	}
-}
-
-func TestInventoryActCannotRenewInflightEvidence(t *testing.T) {
-	t.Parallel()
-	now := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
-	cTestDB := testDB(t)
-	target, err := deployment.NewTargets(cTestDB, nil).Put(t.Context(), &deployment.Target{Name: "host", Kind: deployment.KindDockerHost, Status: deployment.TargetReady})
-	if err != nil {
-		t.Fatal(err)
-	}
-	c := deployment.NewInventoryReadings(cTestDB, func() time.Time { return now })
-	generation, err := c.Start(t.Context(), target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = generation
-	if err := c.Finish(t.Context(), target, 0, []deploy.Resource{{ID: "old"}}, nil, nil, nil); err != nil {
-		t.Fatal(err)
-	}
-	if err := c.Invalidate(t.Context(), "host"); err != nil {
-		t.Fatal(err)
-	}
-	if err := c.Finish(t.Context(), target, 0, []deploy.Resource{{ID: "inflight"}}, nil, nil, nil); err != nil {
-		t.Fatal(err)
-	}
-	got, _ := c.SnapshotForTarget(t.Context(), target)
-	if !got.Invalidated || got.Items[0].ID != "old" {
-		t.Fatalf("inflight answer renewed evidence: %+v", got)
-	}
-	if err := c.Finish(t.Context(), target, 1, []deploy.Resource{{ID: "post-act"}}, nil, nil, nil); err != nil {
-		t.Fatal(err)
-	}
-	got, _ = c.SnapshotForTarget(t.Context(), target)
-	if got.Stale || got.Unknown || got.Items[0].ID != "post-act" {
-		t.Fatalf("post-act answer: %+v", got)
-	}
-	target.SettingsRevision++
-	got, _ = c.SnapshotForTarget(t.Context(), target)
-	if !got.Unknown || len(got.Items) != 0 || !got.AttemptedAt.IsZero() {
-		t.Fatalf("old configuration inherited: %+v", got)
 	}
 }
 
@@ -217,7 +147,7 @@ func TestAttentionInventoryObservesActualProviderLossFailureAndRecovery(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	source := &attention.Inventory{Targets: inventoryTargetOnly{target}, Records: a.Deployment.Inventory, Observer: attentionInventory{cache: a.inventory, providers: a.targetProviders}}
+	source := &attention.Inventory{Targets: inventoryTargetOnly{target}, Records: a.Deployment.Inventory, Observer: attentionInventory{service: a.Deployment}}
 	read := func() attention.Snapshot {
 		t.Helper()
 		before := f.Snapshot().ListRequests
@@ -327,7 +257,7 @@ func TestKindWithoutInventoryReaderIsSkippedNotFailed(t *testing.T) {
 	if _, err := job.Run(ctx, target.Name, nil); err != nil {
 		t.Fatalf("a kind without a reader failed its inventory job: %v", err)
 	}
-	source := &attention.Inventory{Targets: inventoryTargetOnly{target}, Records: a.Deployment.Inventory, Observer: attentionInventory{cache: a.inventory, providers: a.targetProviders}}
+	source := &attention.Inventory{Targets: inventoryTargetOnly{target}, Records: a.Deployment.Inventory, Observer: attentionInventory{service: a.Deployment}}
 	got, err := source.Snapshot(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -361,7 +291,7 @@ func TestInfrastructureScheduleChecksAllTargetsWithoutReaders(t *testing.T) {
 	runQueuedJobForTest(t, a, infrastructureCheckJob, passScheduledKey)
 	rows := operationJobs(t, a, "inventory")
 	for _, target := range targets {
-		if target.Status == deployment.TargetRetired {
+		if target.Status == deployment.TargetRetired || target.Kind == deployment.KindDockerHost {
 			continue
 		}
 		found := false
@@ -374,7 +304,7 @@ func TestInfrastructureScheduleChecksAllTargetsWithoutReaders(t *testing.T) {
 			t.Errorf("no periodic inventory for %s", target.Name)
 		}
 	}
-	if len(operationJobs(t, a, diskObservationJob)) != 1 || len(operationJobs(t, a, deployment.CapacityObservationJob)) != len(rows) {
+	if len(operationJobs(t, a, diskObservationJob)) != 1 || len(operationJobs(t, a, deployment.CapacityObservationJob)) != len(targets) {
 		t.Fatal("periodic pass omitted disk checks")
 	}
 	if len(operationJobs(t, a, "protection-observation")) != 1 {
@@ -433,7 +363,7 @@ func TestInfrastructurePassContinuesAfterAdmissionFailures(t *testing.T) {
 		t.Fatal(readErr)
 	}
 	for _, target := range targets {
-		if target.Status == deployment.TargetRetired {
+		if target.Status == deployment.TargetRetired || target.Kind == deployment.KindDockerHost {
 			continue
 		}
 		if !strings.Contains(err.Error(), target.Name) {
@@ -497,4 +427,174 @@ func TestOutboundChecksHaveTheirOwnBoundedQueue(t *testing.T) {
 	if kinds["rebuild"].Queue == "observations" {
 		t.Fatal("ordinary work shares checks' queue")
 	}
+}
+
+// Docker's minute pass uses one revision-keyed job; other providers retain their
+// five-minute inventories and all capacity jobs remain until their conversion.
+func TestHostSnapshotPassKeepsOtherProviderRefreshes(t *testing.T) {
+	t.Parallel()
+	a, _, _, _ := doWorld(t)
+	ctx := t.Context()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/endpoints":
+			fmt.Fprint(w, `[{"Id":3,"Name":"docker","Type":1}]`)
+		case "/api/endpoints/3":
+			fmt.Fprint(w, `{"Id":3,"Name":"docker","Type":1}`)
+		case "/api/endpoints/3/docker/info":
+			fmt.Fprint(w, `{"ID":"engine-a"}`)
+		case "/api/stacks":
+			fmt.Fprint(w, `[]`)
+		default:
+			t.Errorf("unexpected Portainer request %s", r.URL.Path)
+			w.WriteHeader(404)
+		}
+	}))
+	t.Cleanup(server.Close)
+	path := filepath.Join(a.cfg.dataDir, "secrets.env")
+	secrets, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(secrets, []byte("\nPT_URL="+server.URL+"\nPT_KEY=test\n")...), 0600); err != nil {
+		t.Fatal(err)
+	}
+	testAccounts(t, a.DB, "snapshot-admin")
+	testAdministrator(t, a, "snapshot-admin")
+	person := access.WithCaller(ctx, access.Caller{Verified: true, Principal: access.Principal{ID: testPrincipalOf(t, a.DB, "snapshot-admin"), Kind: "user", Name: "snapshot-admin", Via: "session"}})
+	pt, err := a.Deployment.AttachPortainerTarget(person, deployment.PortainerAttachment{Name: "portainer-host", URLFrom: "PT_URL", APIKeyFrom: "PT_KEY", Environment: "docker"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	checks := infrastructureChecksFor(a)
+	for range 2 {
+		if _, err := checks.HostSnapshotPass(ctx, "", nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	targets, err := a.targets.All(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshots := operationJobs(t, a, deployment.HostSnapshotJob)
+	var dockerTargets int
+	for _, target := range targets {
+		if target.Kind != deployment.KindDockerHost || target.Status == deployment.TargetRetired {
+			continue
+		}
+		dockerTargets++
+		found := false
+		for _, row := range snapshots {
+			if row.Key == target.ID.String()+"/"+strconv.FormatInt(target.SettingsRevision, 10) {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("no snapshot for %s", target.Name)
+		}
+		checks.Applied(target.ID)
+		reading, err := a.Deployment.InventoryFor(ctx, target)
+		if err != nil || !reading.Invalidated {
+			t.Fatalf("act not marked: %+v %v", reading, err)
+		}
+	}
+	if len(operationJobs(t, a, deployment.HostSnapshotJob)) != dockerTargets {
+		t.Fatal("duplicate snapshot jobs")
+	}
+	for _, row := range snapshots {
+		if result := runJobForTest(t, a, row.ID); result.State != "completed" {
+			t.Fatalf("snapshot job: %+v", result)
+		}
+	}
+
+	if _, err := checks.Run(ctx, "", nil); err != nil {
+		t.Fatal(err)
+	}
+	rows := operationJobs(t, a, "inventory")
+	for _, target := range targets {
+		found := false
+		for _, row := range rows {
+			if row.Key == target.Name {
+				found = true
+			}
+		}
+		if found != (target.Kind != deployment.KindDockerHost && target.Status != deployment.TargetRetired) {
+			t.Errorf("wrong inventory source for %s", target.Name)
+		}
+	}
+	job := inventoryRefresh{targets: a.targets, providers: a.targetProviders, inventory: a.Deployment.Inventory, cache: a.inventory}
+	if _, err := job.Run(ctx, pt.Name, nil); err != nil {
+		t.Fatal(err)
+	}
+	reading, err := a.Deployment.InventoryFor(ctx, pt)
+	if err != nil || reading.Unknown || reading.ObservedAt.IsZero() {
+		t.Fatalf("Portainer not refreshed: %+v %v", reading, err)
+	}
+	if _, err := job.Run(ctx, "do-syd", nil); err != nil {
+		t.Fatal(err)
+	}
+	do, err := a.targets.ByName(ctx, "do-syd")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reading, err = a.Deployment.InventoryFor(ctx, do)
+	if err != nil || reading.Unknown {
+		t.Fatalf("DigitalOcean not refreshed: %+v %v", reading, err)
+	}
+	kinds := apptownJobKinds(a)
+	if kinds[deployment.HostSnapshotJob].Queue != "observations" || kinds[deployment.HostSnapshotJob].Timeout != time.Minute {
+		t.Fatal("snapshot queue/budget")
+	}
+	for _, schedule := range apptownJobSchedules() {
+		if schedule.Operation == hostSnapshotPassJob {
+			at := time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC)
+			if schedule.When.Next(at).Sub(at) != time.Minute {
+				t.Fatal("snapshot cadence")
+			}
+			return
+		}
+	}
+	t.Fatal("snapshot schedule missing")
+}
+
+// A Try it preview recorded after a successful collection has no absence evidence.
+func TestAttentionDoesNotReportNewPreviewMissingFromEarlierSnapshot(t *testing.T) {
+	t.Parallel()
+	daemon := dockerfake.New()
+	a := testApp(t, Config{DockerClient: daemon})
+	a.Deployment.SeedTargets(t.Context(), nil)
+	projectID := createReadTestProject(t, a, "preview-inventory")
+	target, err := a.targets.ByName(t.Context(), deployment.BuiltInTargetName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	worker := deployment.HostSnapshotWorker{Snapshots: a.hostSnapshots, Targets: a.targets, Hosts: a.hosts, Providers: a.targetProviders, Inventory: a.Deployment.Inventory}
+	key := target.ID.String() + "/" + strconv.FormatInt(target.SettingsRevision, 10)
+	if _, err := worker.Run(t.Context(), key, nil); err != nil {
+		t.Fatal(err)
+	}
+	source := &attention.Inventory{Targets: inventoryTargetOnly{target}, Records: a.Deployment.Inventory, Observer: attentionInventory{service: a.Deployment}}
+	check := func() {
+		t.Helper()
+		got, err := source.Snapshot(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !got.Known || got.Stale || len(got.Items) != 0 {
+			t.Fatalf("fresh preview inventory: %+v", got)
+		}
+	}
+	check()
+	change := idstest.N(7)
+	app := docker.PreviewChangeName(change)
+	daemon.SetRunning(app, true)
+	if err := a.deployments.RecordPreview(t.Context(), projectID, change, target.ID, app, 40001, "http://preview", nil); err != nil {
+		t.Fatal(err)
+	}
+	check()
+	// Once collected, the running preview still raises no condition.
+	if _, err := worker.Run(t.Context(), key, nil); err != nil {
+		t.Fatal(err)
+	}
+	check()
 }

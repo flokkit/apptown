@@ -39,7 +39,7 @@ func TestMigration201RenamesCellsAndBothFallbackCoordinates(t *testing.T) {
 	if err := db.SQL().QueryRowContext(t.Context(), `SELECT count(*) FROM model_slots WHERE slot IN ('default','primary-fast')`).Scan(&old); err != nil || old != 3 {
 		t.Fatalf("rollback: %d %v", old, err)
 	}
-	if n, err := Migrate(t.Context(), db); err != nil || n != 1 {
+	if n, err := applyMigrations(t.Context(), db, migrations[:migrationIndex(t, 201)+1]); err != nil || n != 1 {
 		t.Fatalf("upgrade: %d %v", n, err)
 	}
 	if after := snapshot(); after != before {
@@ -74,7 +74,7 @@ func TestMigration201RenamesCellsAndBothFallbackCoordinates(t *testing.T) {
 	if err := db.SQL().QueryRowContext(t.Context(), `SELECT subject || ':' || (payload_json->>'slot') || ':' || (payload_json->>'fallback') FROM audit_log WHERE id='00000000-0000-7000-8000-000000000001'`).Scan(&historical); err != nil || historical != "default:default:primary-fast" {
 		t.Fatalf("historical receipt changed: %s %v", historical, err)
 	}
-	if n, err := Migrate(t.Context(), db); err != nil || n != 0 {
+	if n, err := applyMigrations(t.Context(), db, migrations[:migrationIndex(t, 201)+1]); err != nil || n != 0 {
 		t.Fatalf("repeat: %d %v", n, err)
 	}
 }
