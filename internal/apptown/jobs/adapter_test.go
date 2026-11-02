@@ -307,3 +307,58 @@ func TestObservationQueueDoesNotHoldOrdinaryWork(t *testing.T) {
 		t.Fatal("ordinary work waited behind outbound checks")
 	}
 }
+
+// Admission concurrent with startup must remain durable and execute once.
+// In particular, concurrent inserts must not race River's
+// initialization of its poll-only producer's fetch limiter.
+func TestQueueAdmissionDuringStartup(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t)
+	const count = 32
+	executed := make(chan string, count)
+	q, err := jobs.New(jobs.Options{}, db.Pool(), map[string]jobs.Kind{
+		"work": {MaxAttempts: 1, Run: func(_ context.Context, key string, _ map[string]any) (map[string]any, error) {
+			executed <- key
+			return nil, nil
+		}},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	start := make(chan struct{})
+	go func() { <-start; done <- q.Run(ctx) }()
+	t.Cleanup(func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Error(err)
+		}
+	})
+	admitted := make(chan error, count)
+	for i := range count {
+		go func() {
+			<-start
+			_, err := q.Enqueue(ctx, "work", fmt.Sprintf("startup-%d", i), nil, time.Time{})
+			admitted <- err
+		}()
+	}
+	close(start)
+	for range count {
+		if err := <-admitted; err != nil {
+			t.Fatal(err)
+		}
+	}
+	seen := make(map[string]bool, count)
+	for range count {
+		select {
+		case key := <-executed:
+			if seen[key] {
+				t.Fatalf("job %s executed twice", key)
+			}
+			seen[key] = true
+		case <-time.After(10 * time.Second):
+			t.Fatalf("only %d of %d admitted jobs executed", len(seen), count)
+		}
+	}
+}

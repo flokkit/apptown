@@ -133,6 +133,15 @@ type Schedule struct {
 type Queue struct {
 	Client *river.Client[*sql.Tx]
 	kinds  map[string]Kind
+	// River v0.49 initializes its poll-only fetch limiter in Start while
+	// Insert reads it without synchronization. Serialize startup against
+	// admission, including admission before startup and subsequent restarts.
+	// Accepted failure mode: a job that an early producer runs during Start
+	// and that enqueues waits here; if a later producer then fails to start,
+	// River stops the producers and waits for that job, so startup hangs
+	// instead of returning the error. It needs a database failure partway
+	// through startup.
+	startMu sync.RWMutex
 }
 
 func New(opts Options, db *sql.DB, kinds map[string]Kind, reporter Reporter, schedules ...Schedule) (*Queue, error) {
@@ -168,6 +177,8 @@ func New(opts Options, db *sql.DB, kinds map[string]Kind, reporter Reporter, sch
 	return &Queue{Client: client, kinds: kinds}, nil
 }
 
+// Enqueue admits work before or after Run starts. Admission waits while River
+// initializes its producers, then concurrent insertions proceed together.
 func (q *Queue) Enqueue(ctx context.Context, operation, key string, values map[string]any, after time.Time) (int64, error) {
 	if key == "" {
 		return 0, errors.New("job requires a key")
@@ -176,6 +187,8 @@ func (q *Queue) Enqueue(ctx context.Context, operation, key string, values map[s
 	if !ok {
 		return 0, fmt.Errorf("no job operation %q", operation)
 	}
+	q.startMu.RLock()
+	defer q.startMu.RUnlock()
 	result, err := q.Client.Insert(ctx, Request{Operation: operation, Key: key, Values: values, RetryOnInterrupt: kind.MaxAttempts > 1}, insertOptions(kind.Queue, kind.MaxAttempts, after))
 	if err != nil {
 		return 0, err
@@ -247,7 +260,10 @@ func (q *Queue) Run(ctx context.Context) error {
 	if ctx.Err() != nil {
 		return nil
 	}
-	if err := q.Client.Start(ctx); err != nil {
+	q.startMu.Lock()
+	err := q.Client.Start(ctx)
+	q.startMu.Unlock()
+	if err != nil {
 		return fmt.Errorf("starting jobs: %w", err)
 	}
 	<-ctx.Done()
