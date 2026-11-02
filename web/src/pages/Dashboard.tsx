@@ -1,5 +1,5 @@
 import { Status } from '../Status'
-import { useAttention, attentionState, attentionSummary } from '../attention'
+import { useAttention, attentionState, attentionSummary, useOperator } from '../attention'
 import { PRODUCT } from '../brand'
 import { RuntimeObservation } from '../runtime'
 import { ProjectListRow } from '../ProjectListRow'
@@ -9,6 +9,8 @@ import { Dashboard as DashboardData, post } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
+import { Section } from '../Section'
+import { waitingWhy } from '../parts/runActivity'
 import { ActiveRunList, ChangeRow, RunRow } from '../parts/runActivity'
 import type { Operation, ProjectPage, SetupState } from '../wire.gen'
 import { endedWords } from './DataProtection'
@@ -91,15 +93,26 @@ function SetupCard() {
 // unread or unreadable count is left out or said to be unknown, never
 // shown as 0, and "All quiet" needs both needs-you and running to be read
 // and empty.
-export function homeStatus({ needsYou, running, deployments, operations }: {
+type HomeStatusInput = {
   needsYou: number | null; running: number; deployments: Activity['deployments']; operations: { count: number | null; known: boolean; unknown?: number }
-}): string {
-  const parts: string[] = []
-  if (needsYou === null) parts.push('could not read what needs you')
-  else if (needsYou > 0) parts.push(`${needsYou} needs you`)
-  if (running > 0) parts.push(`${running} running`)
-  if (operations.count || operations.unknown) parts.push(attentionSummary(operations.count, operations.unknown ?? 0))
-  if (needsYou === 0 && running === 0 && operations.known && operations.count === 0) parts.unshift('All quiet')
+}
+
+export function homeStatus(input: HomeStatusInput): string {
+  const s = homeStatusParts(input).map(p => p.text).join(' · ')
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+// homeStatusParts is the sentence in parts, each with where it is shown in
+// full: what waits on you and what is running are the sections below, the
+// conditions to fix are Attention, and running apps are the Apps list. A
+// part links only to a page that lists exactly what it counts.
+export function homeStatusParts({ needsYou, running, deployments, operations }: HomeStatusInput): { text: string; to?: string }[] {
+  const parts: { text: string; to?: string }[] = []
+  if (needsYou === null) parts.push({ text: 'could not read what is waiting on you' })
+  else if (needsYou > 0) parts.push({ text: `${needsYou} waiting on you` })
+  if (running > 0) parts.push({ text: `${running} running` })
+  if (operations.count || operations.unknown) parts.push({ text: attentionSummary(operations.count, operations.unknown ?? 0), to: '/attention' })
+  if (needsYou === 0 && running === 0 && operations.known && operations.count === 0) parts.unshift({ text: 'All quiet' })
   // An app is live when one of its deployments was seen running on the
   // latest check. One whose status is not current (stale or unknown) and
   // has no live deployment is counted apart, so unknown never reads as down.
@@ -110,10 +123,10 @@ export function homeStatus({ needsYou, running, deployments, operations }: {
   for (const d of deployments) {
     if (!live.has(d.project) && (d.observationStale || d.running === null)) unknown.add(d.project)
   }
-  if (live.size > 0) parts.push(`${live.size} ${live.size === 1 ? 'app' : 'apps'} live`)
-  if (unknown.size > 0) parts.push(`${unknown.size} ${unknown.size === 1 ? 'app' : 'apps'} status unknown`)
-  const s = parts.join(' · ')
-  return s.charAt(0).toUpperCase() + s.slice(1)
+  // The projects that are running, in the list's own word: projects.
+  if (live.size > 0) parts.push({ text: `${live.size} running`, to: '/deployments/table' })
+  if (unknown.size > 0) parts.push({ text: `${unknown.size} running status unknown`, to: '/deployments/table' })
+  return parts
 }
 
 // homeSections splits the active runs and pending approvals into what
@@ -138,14 +151,19 @@ export function homeSections<A extends { changeId: string | null }>(active: RunR
 
 // History has no stop-actor field, so stopped work cannot be attributed here.
 export function homeFinished(history: ChangeRow[]): ChangeRow[] {
-  return history.filter(c => c.statusLabel === 'landed' || c.statusLabel === 'failed')
+  // What changed lately, across everyone: landed changes only. A failed
+  // change that needs something is already waiting on someone.
+  return history.filter(c => c.statusLabel === 'landed')
 }
 
 export default function Dashboard() {
   const operationsQ = useAttention()
+  const operator = useOperator()
   const actQ = useGet<Activity>('/activity', { poll: 5000 })
   const dashQ = useGet<DashboardData>('/dashboard', { poll: 5000 })
   const projectsQ = useGet<ProjectPage>('/projects?limit=5&order=mine', { poll: 5000 })
+  // Work rows name a project as the app list does, by its display name.
+  const projectNames = Object.fromEntries((projectsQ.data?.projects ?? []).map(p => [p.slug, p.name || p.slug]))
   const act = actQ.data, dash = dashQ.data, dashErr = dashQ.err, projects = projectsQ.data?.projects ?? null
   const listed = projects ?? []
   const finished = homeFinished(act?.history ?? [])
@@ -169,8 +187,10 @@ export default function Dashboard() {
   // sections that have something in them. With no projects yet it says
   // what a project here is for and offers to make one.
   const noProjects = projects !== null && listed.length === 0
-  const status = homeStatus({
-    operations: attentionState(operationsQ),
+  // Conditions only people who can fix them are told about; for everyone
+  // else they are not part of Home's sentence.
+  const status = homeStatusParts({
+    operations: operator ? attentionState(operationsQ) : { count: 0, known: true, unknown: 0 },
     needsYou: dash ? needsYouCount : null,
     running: happening.length,
     deployments: act?.deployments ?? [],
@@ -183,11 +203,14 @@ export default function Dashboard() {
         <div>
           <h1>Home</h1>
         </div>
-        {!noProjects && <Link to="/projects/_new"><button>+ New project</button></Link>}
+        {!noProjects && <Link to="/projects/_new"><button className="primary">+ New project</button></Link>}
       </div>
 
-      {!noProjects && act && projects !== null && (dash || dashErr) && <div className="dash-lead"><Link to="/attention">{status} →</Link></div>}
-      <ReadStatus q={operationsQ} what="hosts" /><StaleNote q={operationsQ} />
+      {!noProjects && act && projects !== null && (dash || dashErr) && <div className="dash-lead">{status.map((p, i) => {
+        const text = i === 0 ? p.text.charAt(0).toUpperCase() + p.text.slice(1) : p.text
+        return <span key={p.text}>{i > 0 && ' · '}{p.to ? <Link to={p.to}>{text} →</Link> : text}</span>
+      })}</div>}
+      {operator && <><ReadStatus q={operationsQ} what="hosts" /><StaleNote q={operationsQ} /></>}
 
       {noProjects && (
         <div className="dash-start">
@@ -195,47 +218,46 @@ export default function Dashboard() {
         </div>
       )}
 
-      {!noProjects && <section aria-label="Apps">
-        <h2>Apps</h2>
-        {!projects && <ReadStatus q={projectsQ} what="the apps" />}
+
+      {!act && <ReadStatus q={actQ} what="activity" />}
+      {!dash && <ReadStatus q={dashQ} what="what is waiting on you" />}
+      {(waiting.length > 0 || blocked.length > 0 || ended.length > 0) && <Section title={ended.length > 0 ? "Waiting on you" : "Changes waiting on you"} label="Waiting on you" count={needsYouCount}>
+        {ended.map((op) => <EndedOperation key={op.id} op={op} />)}
+        <ActiveRunList runs={blocked} showProject names={projectNames} why />
+        {waiting.map((a) => (
+          <div key={a.stepId} className="card row" style={{ display: 'flex' }}>
+            <Link to={`/changes/${a.changeId}`} className="row" style={{ display: 'flex', flex: 1 }}>
+              <span className="row-status"><Status word={a.statusLabel} reason={waitingWhy(a.statusLabel)} /></span>
+              <strong>{a.changeNumber ? <span className="muted" style={{ fontWeight: 400 }}>#{a.changeNumber} </span> : null}{a.itemTitle || `change ${a.changeNumber}`}</strong>
+              <span className="muted small">{a.projectName}{act?.active.find(r => r.changeId === a.changeId)?.startedAt && ` · ${relTime(act?.active.find(r => r.changeId === a.changeId)!.startedAt)}`}</span>
+            </Link>
+            <span className="row-action"><Link to={`/changes/${a.changeId}`} className="btn">Review</Link></span>
+          </div>
+        ))}
+      </Section>}
+      {!noProjects && <Section title="Recent projects"
+        action={<Link to="/projects">All projects{projectsQ.data ? ` (${projectsQ.data.total})` : ''} →</Link>}>
+        {!projects && <ReadStatus q={projectsQ} what="the projects" />}
         <div className="project-rows" role="list">
           {listed.map(p => <ProjectListRow key={p.id} project={p} refreshFailed={projectsQ.refreshFailed} reason={projectsQ.reason} />)}
         </div>
-        <div className="muted small" style={{ marginTop: 6 }}>
-          <Link to="/projects">All projects →</Link> · <Link to="/deployments">Deployments →</Link>
-        </div>
-      </section>}
-
-      {!act && <ReadStatus q={actQ} what="activity" />}
-      {!dash && <ReadStatus q={dashQ} what="what needs you" />}
-      {(waiting.length > 0 || blocked.length > 0 || ended.length > 0) && <>
-        <h2 style={{ marginTop: 8 }}>Needs you ({needsYouCount})</h2>
-        {ended.map((op) => <EndedOperation key={op.id} op={op} />)}
-        <ActiveRunList runs={blocked} showProject />
-        {waiting.map((a) => (
-          <Link key={a.stepId} to={`/changes/${a.changeId}`} className="card row tone-warn" style={{ display: 'flex' }}>
-            <Status word={a.statusLabel} help="Waiting for approval" />
-            <strong>{a.itemTitle || `change ${a.changeNumber}`}</strong>
-            <span className="muted small">{a.projectName}{act?.active.find(r => r.changeId === a.changeId)?.startedAt && ` · ${relTime(act?.active.find(r => r.changeId === a.changeId)!.startedAt)}`}</span>
-            <span style={{ flex: 1 }} />
-            <span className="small">Review →</span>
-          </Link>
-        ))}
-      </>}
+      </Section>}
 
       {!noProjects && <>
-      {happening.length > 0 && <>
-        <h2>Working ({happening.length})</h2>
-        <ActiveRunList runs={happening} showProject />
-      </>}
+      {happening.length > 0 && <Section title="Working" count={happening.length}>
+        <ActiveRunList runs={happening} showProject names={projectNames} />
+      </Section>}
 
-      {finished.length > 0 && <>
-        <h2>Recently finished</h2>
-        {finished.slice(0, 10).map(c => <Link key={c.changeId} to={`/changes/${c.changeId}`} className="card home-finished">
-          <strong>{c.title}</strong>
-          <span className="muted small">{c.project} · {c.statusLabel} · {relTime(c.when)}</span>
-        </Link>)}
-      </>}
+      {/* Number and title, project and when: every row here landed, so a
+          status chip would say nothing. */}
+      {finished.length > 0 && <Section title="Recently landed" label="Recently landed">
+        {finished.slice(0, 5).map(c => (
+          <Link key={c.changeId} to={`/changes/${c.changeId}`} className="card row" style={{ display: 'flex' }}>
+            <strong>{c.changeNumber ? <span className="muted" style={{ fontWeight: 400 }}>#{c.changeNumber} </span> : null}{c.title}</strong>
+            <span className="muted small">{projectNames[c.project ?? ''] ?? c.project} · {relTime(c.when)}</span>
+          </Link>
+        ))}
+      </Section>}
       </>}
     </div>
   )
@@ -246,7 +268,7 @@ export default function Dashboard() {
 function EndedOperation({ op }: { op: Operation }) {
   const { run, busy } = useAction(undefined, { affects: ['/dashboard'] })
   return (
-    <div className="card row tone-warn" style={{ display: 'flex' }}>
+    <div className="card row" style={{ display: 'flex' }}>
       <Status word={op.statusLabel} help={op.detail} />
       <Link to={`/operations/${op.id}`}><strong>{endedWords(op)}</strong></Link>
       {op.detail && <span className="muted small">{op.detail}</span>}

@@ -17,14 +17,14 @@ const view = (state: 'landing' | 'abandoned'): ChangeView => ({
 const empty = 'No committed changes since this change started.'
 describe('change state and committed evidence', () => {
   it.each([['landing', 'in progress'], ['abandoned', 'abandoned']] as const)('keeps %s visible even with a merge receipt', (state, label) => {
-    const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><ChangeHeader view={view(state)} aboutTab="/changes/1?tab=about" /></QueryClientProvider></MemoryRouter>)
+    const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><ChangeHeader view={view(state)} /></QueryClientProvider></MemoryRouter>)
     expect(html).toContain(`${label}</span>`)
     expect(html).not.toContain('>merged</span>')
   })
   // Who asked is said only when the record names them; an older change
   // whose opener was never recorded says nothing rather than guess.
   it('says who asked for the change only when the record names them', () => {
-    const head = (v: ChangeView) => renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><ChangeHeader view={v} aboutTab="/changes/1?tab=about" /></QueryClientProvider></MemoryRouter>)
+    const head = (v: ChangeView) => renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><ChangeHeader view={v} /></QueryClientProvider></MemoryRouter>)
     const known = view('landing')
     known.change.openedBy = 'alice via mcp/claude'
     expect(head(known)).toContain('Asked by alice via mcp/claude')

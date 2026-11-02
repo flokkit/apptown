@@ -1,5 +1,5 @@
+import { Section } from '../../Section'
 import { Status } from '../../Status'
-import { Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
@@ -49,8 +49,9 @@ export function cadenceWords(cron: string, next?: string): string {
 
 function LastFiring({ s, slug }: { s: ScheduleView; slug: string }) {
   const last = s.last
-  if (s.problem) return <span><span className="muted">last: unknown · </span><Status word="unknown" help={`${s.problem} Open workflow settings to check this schedule.`} /></span>
-  if (!last) return <span className="muted">last: never</span>
+  if (s.problem) return <span><span className="muted">last: unknown · </span><Status word="unknown" help={`${s.problem} Check the pack that declares it under Way of working.`} /></span>
+  // Nothing until it has run: "never" says nothing the next firing does not.
+  if (!last) return null
   const when = fmtStamp(last.at)
   switch (last.outcome) {
     case 'opened':
@@ -58,16 +59,16 @@ function LastFiring({ s, slug }: { s: ScheduleView; slug: string }) {
     case 'skipped':
       return <span>last: {when} · <span className="badge">skipped: previous run still active</span></span>
     case 'failed':
-      return <span>last: {when} · <Status word="failed" help="This schedule could not start a change. Check its workflow settings and permissions." /></span>
+      return <span>last: {when} · <Status word="failed" help="This schedule could not start a change. Check the pack that declares it and who may start changes here." /></span>
     default:
       return <span>last: {when} · <span className="muted">Result not available</span> · <Link to={`/projects/${slug}/settings/working`}>Check why</Link></span>
   }
 }
 
 function NextFiring({ s }: { s: ScheduleView }) {
-  if (s.problem || !s.next) return <span className="muted">next: unknown</span>
+  if (s.problem || !s.next) return <span>next unknown</span>
   if (s.due) return <span className="badge">due now</span>
-  return <span>next: {fmtStamp(s.next)}</span>
+  return <span>next {fmtStamp(s.next)}</span>
 }
 
 // ScheduleRows: one line per schedule, nothing when there are none, one
@@ -81,19 +82,20 @@ export function ScheduleRows({ slug }: { slug: string }) {
   if (data.evalCopy) return <div className="muted small">Eval copy: runs no schedules.<StaleNote q={q} inline /></div>
   if (data.schedules.length === 0) return q.refreshFailed ? <div className="muted small">Schedules: none.<StaleNote q={q} inline /></div> : null
   return (
-    <div className="card" data-testid="schedules">
+    <Section title="Schedules" count={data.schedules.length}>
+      <div data-testid="schedules">
       <StaleNote q={q} />
-      <strong>Schedules</strong>
-      <div className="schedule-rows small">
-        {data.schedules.map((s) => (
-          <Fragment key={s.source.workflow}>
-            <span className="schedule-name" title={`workflow ${s.source.workflow}, version ${s.source.version}`}>{s.source.workflow}</span>
+      {data.schedules.map((s) => (
+        <div key={s.source.workflow} className="card row schedule-row" style={{ display: 'flex' }}>
+          <strong title={`workflow ${s.source.workflow}, version ${s.source.version}`}>{s.source.workflow}</strong>
+          <span className="muted small">
             <span title={`cron ${s.cron} (${s.timeZone})`}>{cadenceWords(s.cron, s.next)}</span>
-            <NextFiring s={s} />
-            <LastFiring s={s} slug={slug} />
-          </Fragment>
-        ))}
+            {' · '}<NextFiring s={s} />
+            {(s.last || s.problem) && <>{' · '}<LastFiring s={s} slug={slug} /></>}
+          </span>
+        </div>
+      ))}
       </div>
-    </div>
+    </Section>
   )
 }

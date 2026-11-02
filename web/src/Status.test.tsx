@@ -47,18 +47,20 @@ it('keeps help out of table layout and resets the global disclosure box', () => 
  expect(project.slice(project.indexOf('function ProjectHeader')).match(/<h1>[\s\S]*?<\/h1>/)?.[0]).not.toContain('RuntimeStatus')
 })
 
-it.each(['none', 'not set up'] as const)('keeps %s neutral without a light', word => {
+// A neutral state is grey: a dot in line with the rest, never a colour.
+it.each(['none', 'not set up'] as const)('keeps %s neutral with a grey dot', word => {
  const html = renderToStaticMarkup(<Status word={word} />)
- expect(html).toContain('not set up')
- expect(html).not.toContain('aria-hidden')
+ expect(html).toContain('not configured')
+ expect(html).toContain('class="chip "')
 })
 
 it('uses one vocabulary regardless of the page tone or local wording', () => {
-  for (const [word, expected] of [['running', 'in progress'], ['passed', 'passed'], ['unreachable', 'failed'], ['overdue', 'failed'], ['none', 'not set up'], ['unknown', 'unknown']] as const) {
+  for (const [word, expected] of [['running', 'in progress'], ['passed', 'passed'], ['unreachable', 'unreachable'], ['overdue', 'failed'], ['none', 'not configured'], ['unknown', 'unknown']] as const) {
     const html = renderToStaticMarkup(<Status word={word} />)
     expect(html).toContain(`${expected}</span>`)
     expect(html).not.toContain('page-local wording')
-    if (expected !== 'failed') expect(html).not.toContain('chip fail')
+    // Unreachable keeps the red light (bls, 30 Oct): AppTown cannot reach the host.
+    if (expected !== 'failed' && expected !== 'unreachable') expect(html).not.toContain('chip fail')
   }
   expect(renderToStaticMarkup(<Status word="not set up" />)).not.toContain('chip fail')
 })

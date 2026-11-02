@@ -35,7 +35,7 @@ export function InfrastructureNew() {
   return (
     <div style={{ maxWidth: 860 }}>
       <div className="row" style={{ gap: 8, alignItems: 'baseline' }}>
-        <Link to="/infrastructure" className="small">Infrastructure</Link><span className="muted small">/</span>
+        <Link to="/integrations/targets" className="small">Deployment targets</Link><span className="muted small">/</span>
         <h1 style={{ margin: 0 }}>Add a deployment target</h1>
       </div>
       <ol className="wiz-steps">
@@ -45,7 +45,7 @@ export function InfrastructureNew() {
       </ol>
       {step === 1 && <KindStep kind={kind} onPick={(k) => { setKind(k); setStep(2) }} />}
       {step === 2 && kind && <ConnectionStep kind={kind} onBack={() => setStep(1)} onSaved={(t) => { setSaved(t); setStep(3) }} />}
-      {step === 3 && saved && <OfferStep target={saved} onDone={() => nav(`/infrastructure/${saved.name}`)} />}
+      {step === 3 && saved && <OfferStep target={saved} onDone={() => nav(`/integrations/targets/${saved.name}`)} />}
     </div>
   )
 }
@@ -278,7 +278,7 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
       </div>}
       <div className="row" style={{ gap: 8, marginTop: 12, alignItems: 'center' }}>
         <button className="primary" onClick={finish} disabled={busy || conflict}>{busy ? 'saving…' : 'Finish'}</button>
-        <Link to={`/infrastructure/${target.name}`} className="small">skip for now</Link>
+        <Link to={`/integrations/targets/${target.name}`} className="small">skip for now</Link>
         {err && <span className="error small">{err}</span>}
       </div>
     </div>

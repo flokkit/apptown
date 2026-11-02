@@ -187,3 +187,17 @@ func TestApptowndsMemoryIsCountedOnceWhereverItRuns(t *testing.T) {
 		t.Errorf("apptownd counted twice or lost: %+v (sum %v)", ts, sum)
 	}
 }
+
+// The host memory reader a deployment service is given is the one its
+// capacity reads the built-in host's own use with.
+//
+// Kills: Dependencies.HostMemory not reaching the capacity reading.
+func TestTheGivenHostMemoryReaderIsTheOneCapacityUses(t *testing.T) {
+	t.Parallel()
+	s := New(t.Context(), testDB(t), Dependencies{HostMemory: func() (hostmem.Memory, error) {
+		return hostmem.Memory{TotalBytes: 8 << 30, AvailableBytes: 6 << 30}, nil
+	}})
+	if host := s.hostUse(&Target{Origin: OriginBuiltIn}, 8<<30); !host.Known || host.Value != 2<<30 {
+		t.Fatalf("host use: %+v", host)
+	}
+}

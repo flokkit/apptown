@@ -1,0 +1,37 @@
+/* Integrations: groups are quiet sentence-case labels, as in other lists;
+   each service is one row that opens its page. */
+.int-kind-group .group-label { text-transform: none; letter-spacing: 0; font-size: var(--fs-sm); font-weight: var(--fw-strong); padding-bottom: 2px; }
+.int-kind-group { scroll-margin-top: calc(var(--topbar-h, 56px) + 12px); }
+.int-focus .group-label { color: var(--accent); }
+
+/* name | state and when | an action only where it differs from opening */
+.list-row.int-list-row { grid-template-columns: minmax(0, 1fr) 200px 96px; padding: 10px 0; }
+.int-row .int-when { color: var(--subtle); font-size: var(--fs-xs); margin-top: 2px; }
+.int-row .int-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.int-row .list-action .btn, .int-row .list-action button { min-height: 32px; }
+.int-row .list-action { justify-self: end; }
+.int-row .int-name { text-decoration: none; }
+.int-row:hover .int-name { color: var(--accent-hover); }
+
+
+/* Rows in a section panel: name, then what it is, on one line. */
+.section-body > a.card.row.int-related-row, .section-body > .card.row.int-related-row { gap: 4px 16px; flex-wrap: wrap; padding-top: 12px; padding-bottom: 12px; color: inherit; }
+.int-related-row .int-name { min-width: 12rem; }
+
+/* One integration's page */
+.int-detail .int-state { margin-bottom: 8px; padding: 0; }
+.int-message { margin: 8px 0 0; font-size: var(--fs-base); }
+.int-facts dd .small { margin-top: 0 !important; }
+
+/* On a phone: state on the name line, the row is the tap target, no
+   buttons taking a line of their own. */
+@media (max-width: 800px) {
+  .list-row.int-list-row { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 10px 0; }
+  .int-list-row .list-identity { grid-column: 1; grid-row: 1; }
+  .int-list-row .list-state { grid-column: 2; grid-row: 1; text-align: right; align-self: start; }
+  .int-list-row .list-action { display: none; }
+  .int-related-row .int-name { min-width: 0; }
+  /* What each service does stays on one line on a phone; its page has the rest. */
+  .int-list-row .list-identity .muted.small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+.int-kind-group [role="list"] > .int-row:last-child > .list-row, .section-body > [role="list"] > .int-row:last-child > .list-row { border-bottom: 0; }

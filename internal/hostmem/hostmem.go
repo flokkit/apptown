@@ -23,6 +23,9 @@ type Memory struct {
 // caches the kernel will not give back.
 func (m Memory) UsedBytes() int64 { return m.TotalBytes - m.AvailableBytes }
 
+// Reader reads the host's memory; Read is the real one.
+type Reader func() (Memory, error)
+
 // Read reads /proc/meminfo.
 func Read() (Memory, error) {
 	b, err := os.ReadFile("/proc/meminfo")

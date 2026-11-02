@@ -32,26 +32,38 @@ describe('the change history', () => {
     ] } } as unknown as ChangeView
     const el = document.createElement('div')
     el.innerHTML = renderToStaticMarkup(<MemoryRouter><HistoryTab view={view} runHref={(id) => `/runs/${id}`} /></MemoryRouter>)
-    const cells = [...el.querySelectorAll('.event-log .ch-receipt-body')].map((td) => td.textContent)
+    const cells = [...el.querySelectorAll('.event-log .ch-event-detail')].map((td) => td.textContent)
     expect(cells.join(' ')).toContain('AppTown merged main (abcdef01) into this change before step rework, as commit 01234567.')
     expect(el.querySelector('.event-log code')).toBeNull()
   })
 })
 
 
-it('opens each activity row and retains separate runs of repeated event kinds', () => {
-  const kinds = ['integration.resolved', 'integration.resolved', 'step.failed', 'integration.resolved']
-  const view = { runs: [], detail: { events: kinds.map((kind, i) => ({ id: String(i), kind, at: '2026-10-03T09:00:00Z', payload: { record: i } })) } } as unknown as ChangeView
+// Routine plumbing is kept apart from the history a person reads, folded
+// at the end, and each routine event's exact record is still there.
+it('folds routine events apart and keeps every exact record', () => {
+  const kinds = ['integration.resolved', 'integration.resolved', 'step.failed', 'integration.resolved', 'mystery.kind']
+  const view = { runs: [], detail: { events: kinds.map((kind, i) => ({ id: String(i), kind, at: '2026-10-03T09:00:00Z', payload: { record: i, step: 'style' } })) } } as unknown as ChangeView
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<MemoryRouter><HistoryTab view={view} runHref={() => '/work'} /></MemoryRouter>)
-  const rows = [...el.querySelectorAll('.event-log details')]
-  expect(rows).toHaveLength(3)
-  expect(rows.map(row => row.querySelector('summary')?.textContent).join(' ')).toContain('Connection checked ×2')
-  for (const row of rows) {
-    expect(row.querySelector('summary')?.textContent).not.toContain('Details')
-    expect(row.hasAttribute('open')).toBe(false)
-    ;(row.querySelector('summary') as HTMLElement).click()
-    expect(row.hasAttribute('open')).toBe(true)
-  }
-  for (let i = 0; i < kinds.length; i++) expect(el.textContent).toContain(`"record": ${i}`)
+  const inline = [...el.querySelectorAll('.event-log')][0]
+  expect(inline.querySelectorAll('.ch-event')).toHaveLength(1)
+  expect(inline.textContent).toContain('Check failed')
+  expect(inline.textContent).toContain('style')
+  const routine = el.querySelector('details.ch-routine')!
+  expect(routine.hasAttribute('open')).toBe(false)
+  expect(routine.querySelector('summary')?.textContent).toBe('4 routine events')
+  expect(routine.querySelectorAll('.ch-event')).toHaveLength(4)
+  for (const i of [0, 1, 3, 4]) expect(routine.textContent).toContain(`"record": ${i}`)
+  expect(el.textContent).not.toContain('Activity recorded ×')
+})
+
+// A run still going on the latest attempt shows the change's state.
+it('shows the latest run with the change state, not merely in progress', () => {
+  const view = { statusLabel: 'failed', runs: [{ id: 'r1', number: 1, status: 'running', statusLabel: 'running', workflowName: 'land', role: 'landing', createdAt: '2026-10-03T09:00:00Z', updatedAt: '2026-10-03T09:00:00Z' }],
+    detail: { run: { id: 'r1' }, events: [] } } as unknown as ChangeView
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter><HistoryTab view={view} runHref={() => '/work'} /></MemoryRouter>)
+  expect(el.textContent).toContain('failed')
+  expect(el.textContent).not.toContain('in progress')
 })

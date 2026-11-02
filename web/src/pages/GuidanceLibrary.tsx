@@ -1,10 +1,15 @@
 import { PRODUCT } from '../brand'
+import { Section } from '../Section'
 import { FormEvent, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { GuidanceBlock, post } from '../api'
 import { fmtSize, sizeTitle } from '../format'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
+import { LibraryRow, LibraryRows, firstSentence } from '../LibraryRow'
+import { MoreMenu } from '../MoreMenu'
+import { renderMd } from '../md'
+import type { BlockView } from '../api'
 import type { GeneratedGuidance } from '../wire.gen'
 
 // Machine-written steering sections, rendered live — the library shows
@@ -14,41 +19,27 @@ function GeneratedGuidance() {
   const q = useGet<GeneratedGuidance>('/guidance/generated')
   const data = q.data
   const [open, setOpen] = useState<string | null>(null)
-  if (!data) return <div style={{ marginTop: 24 }}><ReadStatus q={q} what="the generated guidance" /></div>
+  if (!data) return <ReadStatus q={q} what="the generated guidance" />
   const gens = data.generated ?? [], always = data.alwaysBytes ?? 0, conditional = data.conditionalBytes ?? 0
   if (gens.length === 0) return null
   return (
-    <div style={{ marginTop: 24 }}>
+    <Section title="Automatic guidance" count={gens.length}
+      note={<>Written from instance settings. <span title={sizeTitle(always)}>{fmtSize(always)}</span> per step
+        {conditional > 0 && <> · up to <span title={sizeTitle(conditional)}>{fmtSize(conditional)}</span> in some steps</>}</>}>
       <StaleNote q={q} />
-      <div className="conn-section-head">
-        <h2>Generated</h2>
-        <span className="muted small">From instance settings</span>
-      </div>
-      <div className="muted small" style={{ marginBottom: 8 }}>
-        <span title={sizeTitle(always)}>{fmtSize(always)}</span> per step
-        {conditional > 0 && <> · up to <span title={sizeTitle(conditional)}>{fmtSize(conditional)}</span> conditional</>}
-      </div>
-      {gens.map((g) => (
-        <div key={g.name} className="card" style={{ borderStyle: 'dashed' }}>
-          <div className="row">
-            <strong>{g.name}</strong>
-            <span className="badge" title={g.always ? 'in every agent step' : 'only in some steps · the note says which'}>{g.always ? 'every step' : 'some steps'}</span>
-            <span className="muted small" title={sizeTitle(g.bytes)}>{fmtSize(g.bytes)}</span>
-            <span className="muted small">from {g.source}</span>
-            <span style={{ flex: 1 }} />
-            <button className="subtle" onClick={() => setOpen(open === g.name ? null : g.name)}>
-              {open === g.name ? 'hide' : 'view rendered'}
-            </button>
-          </div>
-          {open === g.name && (
-            <>
-              <pre style={{ whiteSpace: 'pre-wrap', fontSize: 'var(--fs-xs)', marginTop: 8 }}>{(g.bodyMd ?? '').trim()}</pre>
-              <div className="muted small" style={{ marginTop: 6 }}>{g.note}</div>
-            </>
-          )}
-        </div>
-      ))}
-    </div>
+      <LibraryRows>
+        {gens.map((g) => (
+          <LibraryRow key={g.name} name={g.name.split('/').at(-1)!.replaceAll('-', ' ')} open={open === g.name}
+            onToggle={() => setOpen(open === g.name ? null : g.name)}
+            purpose={`from ${g.source}`}
+            state={<span className="muted small">{g.always ? 'every step' : 'some steps'} · <span title={sizeTitle(g.bytes)}>{fmtSize(g.bytes)}</span></span>}
+            detail={<>
+              <pre className="log" style={{ whiteSpace: 'pre-wrap' }}>{(g.bodyMd ?? '').trim()}</pre>
+              {g.note && <p className="muted small">{g.note}</p>}
+            </>} />
+        ))}
+      </LibraryRows>
+    </Section>
   )
 }
 
@@ -75,49 +66,68 @@ export default function GuidanceLibrary() {
     e.preventDefault()
     void run(async () => {
       await post('/guidance/blocks', { name, tags, bodyMd: '' })
-      setName(''); setTags('')
+      setName(''); setTags(''); setAdding(false)
     })
   }
 
   const shown = blocks.filter((b) => src === 'all' || (src === 'stock') === (b.origin === 'stock'))
-  const [limit, setLimit] = useState(10)
+  const [adding, setAdding] = useState(false)
 
   return (
     <div>
-      <div className="row" style={{ marginBottom: 16 }}>
-        <input placeholder="search name & body…" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 260 }} />
-        <input placeholder="tag" value={tag} onChange={(e) => setTag(e.target.value)} style={{ width: 120 }} />
-        <span style={{ flex: 1 }} />
-        <div className="row" style={{ gap: 4 }}>
+      {actErr && <div className="error">{actErr}</div>}
+      <StaleNote q={blocksQ} />
+      <Section title="Guidance" count={blocksQ.data ? shown.length : undefined}
+        action={<>
+          <input className="section-filter guidance-search" aria-label="Search guidance" placeholder="Search name and text" value={q} onChange={(e) => setQ(e.target.value)} />
+          <button className="primary" onClick={() => setAdding(!adding)} aria-expanded={adding}>New guidance</button>
+        </>}
+        note={<span className="row guidance-filters">
           {(['all', 'stock', 'mine'] as const).map((s) => (
-            <button key={s} className={src === s ? 'primary' : 'subtle'} onClick={() => setSrc(s)}>
+            <button key={s} className={`subtle${src === s ? ' active' : ''}`} aria-pressed={src === s} onClick={() => setSrc(s)}>
               {s === 'all' ? 'All' : s === 'stock' ? PRODUCT : 'Yours'}
             </button>
           ))}
-        </div>
-      </div>
-      {actErr && <div className="error">{actErr}</div>}
-      <StaleNote q={blocksQ} />
-      {blocksQ.data ? <>
-      <table className="stack">
-        <thead><tr><th>Guidance</th><th>Summary</th></tr></thead>
-        <tbody>
-          {shown.slice(0, limit).map((b) => <tr key={b.id}>
-            <td className="stack-lead"><Link className="tap-open" to={`/guidance/${b.id}`}>{b.name.split('/').at(-1)!.replaceAll('-', ' ')}</Link>{b.origin !== 'stock' && <span className="badge">Custom</span>}</td>
-            <td><details><summary>Summary</summary><p className="guidance-summary">{b.summary || 'No text yet'}</p></details></td>
-          </tr>)}
-        </tbody>
-      </table>
-      {blocks.length === 0 && <div className="muted" style={{ padding: 16 }}>No blocks match.</div>}
-      {shown.length > limit && <button onClick={() => setLimit(n => n + 10)}>Show more ({shown.length - limit})</button>}
-      </> : <ReadStatus q={blocksQ} what="the guidance blocks" />}
-      <details><summary>New guidance</summary>
-      <form onSubmit={create} className="row">
-        <input placeholder="name, e.g. prose/terse-style" value={name} onChange={(e) => setName(e.target.value)} required style={{ width: 260 }} />
-        <input placeholder="tags, comma-separated" value={tags} onChange={(e) => setTags(e.target.value)} />
-        <button className="primary" type="submit" disabled={busy}>Create v1</button>
-      </form></details>
-      <details><summary>Automatic guidance</summary><GeneratedGuidance /></details>
+          <input aria-label="Tag" placeholder="tag" value={tag} onChange={(e) => setTag(e.target.value)} style={{ width: 120 }} />
+        </span>}>
+        {adding && (
+          <form onSubmit={create} className="card row" style={{ flexWrap: 'wrap' }}>
+            <input placeholder="name, e.g. prose/terse-style" value={name} onChange={(e) => setName(e.target.value)} required style={{ width: 260 }} autoFocus />
+            <input placeholder="tags, comma-separated" value={tags} onChange={(e) => setTags(e.target.value)} />
+            <button className="primary" type="submit" disabled={busy}>Create v1</button>
+            <button type="button" onClick={() => setAdding(false)}>Cancel</button>
+          </form>
+        )}
+        {!blocksQ.data ? <ReadStatus q={blocksQ} what="the guidance blocks" />
+          : shown.length === 0 ? <p className="muted">No guidance matches.</p>
+          : <LibraryRows>{shown.map((b) => <GuidanceRow key={b.id ?? b.name} b={b} />)}</LibraryRows>}
+      </Section>
+      <GeneratedGuidance />
     </div>
   )
+}
+
+// One guidance block, laid out like a workflow or pack row: the whole row
+// opens its full text in place; editing and versions are on its own page.
+function GuidanceRow({ b }: { b: GuidanceBlock }) {
+  const [open, setOpen] = useState(false)
+  const nav = useNavigate()
+  return (
+    <LibraryRow name={b.name.split('/').at(-1)!.replaceAll('-', ' ')} open={open} onToggle={() => setOpen(!open)}
+      badges={b.origin !== 'stock' && <span className="badge">yours</span>}
+      purpose={firstSentence(b.summary || 'No text yet')}
+      menu={b.id && <MoreMenu label={b.name} items={[
+        { label: 'Open its page', hint: `Versions, projects using it${b.origin !== 'stock' ? ', and editing' : ''}.`, onClick: () => nav(`/guidance/${b.id}`) },
+      ]} />}
+      detail={b.id && <GuidanceText id={b.id} />} />
+  )
+}
+
+function GuidanceText({ id }: { id: string }) {
+  const q = useGet<BlockView>(`/guidance/blocks/${encodeURIComponent(id)}`)
+  return <div>
+    {!q.data ? <ReadStatus q={q} what="the guidance text" />
+      : <div className="md text-box" dangerouslySetInnerHTML={{ __html: renderMd(q.data.block.bodyMd || '_No text yet._') }} />}
+    <p className="small"><Link to={`/guidance/${id}`}>Versions, projects using it{q.data?.block.origin !== 'stock' ? ' and editing' : ''} →</Link></p>
+  </div>
 }

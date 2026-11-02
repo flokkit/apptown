@@ -15,6 +15,8 @@ import { fmtBytes, fmtWhen, fmtStamp } from '../../../format'
 import { AUDIENCES, DATA_CLASSES, OfferedTarget, Retained, capsWords, placeOf, placeWords } from '../../../targets'
 import { ProtectionLines } from '../../DataProtection'
 import { DiagnosticsLines } from './Diagnostics'
+import { Section } from '../../../Section'
+import './deployments.css'
 import type { AIModelsKey, DeploymentAIModels, DeploymentProtection, DeploymentResources, OverrideResult, ProjectSecrets, DeploymentView, DeploymentChecked, DeploymentRemoved, FinalCopies, OperationAdmitted, ProjectTargets, ReleaseRequested, RetainedList } from '../../../wire.gen'
 
 // Settings → Deployments (design/subsystems/deployment.md §2.3, §2.7, §15.7): the
@@ -30,44 +32,42 @@ export function DeploymentsTab({ slug }: { slug: string }) {
   const envsQ = useGet<DeploymentView[]>(`/projects/${slug}/deployments`)
   const offeredQ = useGet<ProjectTargets>(`/projects/${slug}/targets`)
   const retainedQ = useGet<RetainedList>(`/projects/${slug}/retained`)
+  const [adding, setAdding] = useState(false)
   const envs = envsQ.data && offeredQ.data && retainedQ.data ? envsQ.data.filter((x) => x.kind !== 'preview') : null
   const offered = offeredQ.data?.targets ?? []
   const retained = retainedQ.data?.retained ?? []
   const load = useRefresh('/projects')
+  const choices = offered.filter((t) => t.origin !== 'built-in' || t.kind === 'docker-host')
 
   if (!envs) return <ReadStatus q={[envsQ, offeredQ, retainedQ]} what="the deployments" />
   const open = retained.filter((r) => r.disposition === 'retained')
   const settled = retained.filter((r) => r.disposition !== 'retained')
 
+  // The settings drawer's heading already says "Deployments"; this section
+  // is the list itself, with its count and the one way to add another.
   return (
-    <div>
+    <div className="deployments-settings">
       <StaleNote q={[envsQ, offeredQ, retainedQ]} />
-      <h2 style={{ marginTop: 0 }}>Deployments</h2>
-      <details className="small" style={{ marginBottom: 16 }}><summary>About deployments</summary><p className="muted small" style={{ maxWidth: 720, marginTop: 0 }}>
-        Where this app runs. <b>main</b> is fed by every landing. Any other standing deployment is fed by
-        promotion: it ships the latest thing that landed when someone deploys it. Each runs on a
-        deployment target offered to this project.
-      </p></details>
-      <ReleaseDefaultPicker slug={slug} deployments={envs} />
-      <div className="conn-grid">
+      <Section title="Where it runs" count={envs.length || undefined}
+        note={choices.length === 0 ? 'No deployment target has been offered to this project.' : undefined}
+        action={!adding && choices.length > 0 ? <button onClick={() => setAdding(true)}>New deployment</button> : undefined}>
+        {adding && <AddDeployment slug={slug} choices={choices} existing={envs.map((e) => e.name)} onDone={(added) => { setAdding(false); if (added) load() }} />}
+        {envs.length === 0 && !adding && <p className="muted">Not deployed yet.</p>}
         {envs.map((e) => <EnvCard key={e.name} slug={slug} env={e} onChanged={load} />)}
-      </div>
+      </Section>
 
-      <AddDeployment slug={slug} offered={offered} existing={envs.map((e) => e.name)} onAdded={load} />
+      <ReleaseDefaultPicker slug={slug} deployments={envs} />
 
       {(open.length > 0 || settled.length > 0) && (
-        <details style={{ marginTop: 22 }}>
-          <summary>{open.length > 0 ? `${open.length} old resource${open.length === 1 ? '' : 's'} to review` : `Old resources (${settled.length})`}</summary>
-          <p className="muted small" style={{ maxWidth: 720, marginTop: 0 }}>
-            Data without a final copy and resources that could not be deleted. Delete them at the provider, then confirm here to free the deployment name.
-          </p>
+        <Section title="Old resources" count={open.length || undefined}
+          note="Data without a final copy and resources that could not be deleted. Delete them at the provider, then confirm here to free the deployment name.">
           <table className="stack" style={{ fontVariantNumeric: 'tabular-nums' }}>
             <thead><tr><th>What</th><th>From</th><th>Torn down</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {[...open, ...settled].map((r) => <RetainedRow key={r.id} slug={slug} r={r} onChanged={load} />)}
             </tbody>
           </table>
-        </details>
+        </Section>
       )}
     </div>
   )
@@ -104,111 +104,108 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
     if (r) { setTorn(r); onChanged() }
   }
   const place = e.target ? placeWords(e.target.title, e.target.vendor, e.target.region) : 'not bound'
-  const host = e.url.replace(/^https?:\/\//, '').replace(/\/$/, '')
+  const meta = [
+    `${place}${e.target ? ` (${e.target.displayLabel || e.target.name})` : ''}`,
+    e.feed === 'landing' ? 'updates on every change' : 'updates when released',
+    e.audience === 'team' ? 'team only' : e.audience,
+    `${e.data === 'synthetic' ? 'test' : e.data} data`,
+    e.generation ? `generation ${e.generation}` : '',
+  ].filter(Boolean).join(' · ')
+  // The row's one action: settle an uncertain deployment first; otherwise
+  // ship to one fed by promotion. One fed by landing needs neither.
+  const action = e.readiness === 'uncertain'
+    ? <button disabled={busy} onClick={checkAgain} title="ask the host what runs and settle the deployment from that">Check again</button>
+    : e.feed !== 'landing' && e.target
+    ? <button disabled={busy} onClick={deploy} title="ship the latest bundle here and open the release">Deploy latest</button>
+    : null
   return (
-    <div className="conn-card" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
-      <div className="host-row"><strong>{e.displayLabel || e.name}</strong><RuntimeStatus observation={e} />
-        <DeploymentFact slug={slug} env={e} />
-      </div>
-      <details><summary>Details</summary>
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <div>
-          <div style={{ fontWeight: 700 }}>
-            {e.displayLabel || e.name}
-            {e.protected && <span className="badge" style={{ marginLeft: 8 }} title="reaches partners or the public, or holds production data · deploys need the release grant">protected</span>}
-          </div>
-          <details><summary>Edit name</summary><DisplayLabelEdit value={e.displayLabel || e.name} machineKey={e.name} path={`/projects/${slug}/deployments/${e.id}/label`} onChanged={onChanged} /></details>
- <div className="muted small">{place}{e.target ? ` (${e.target.displayLabel || e.target.name})` : ''}</div>
-        </div>
-        <span className="row" style={{ gap: 6 }}>
+    <div className="card deploy-entry">
+      <div className="row deploy-head">
+        <span className="row-status deploy-status">
           <RuntimeStatus observation={e} />
           {e.readiness && e.readiness !== 'reconciled' && <Status word={e.readinessLabel} help={`Deployment: ${e.readiness}.`} />}
           {e.restoreCheck && <Status word={e.restoreLabel} help={restoreCheckWords(e.restoreCheck)} />}
         </span>
+        <span className="deploy-name">
+          <strong>{e.displayLabel || e.name}</strong>
+          {e.protected && <span className="badge" style={{ marginLeft: 8 }} title="reaches partners or the public, or holds production data · deploys need the release grant">protected</span>}
+          <span className="muted small deploy-meta">{meta}</span>
+        </span>
+        <span className="deploy-address"><DeploymentFact slug={slug} env={e} /></span>
+        {action && <span className="row-action">{action}</span>}
       </div>
-      <div className="small">
-        {e.url ? <AppAddress url={e.url} hostOnly={e.hostOnly}>{e.hostOnly ? null : host}</AppAddress> : <span className="muted">no address yet</span>}
-        {e.generation ? <span className="muted"> · generation {e.generation}</span> : null}
-      </div>
-      <div className="muted small">
-        {e.feed === 'landing' ? 'Updates on every change' : 'Updates when released'} · {e.audience === 'team' ? 'team only' : e.audience} · {e.data === 'synthetic' ? 'test' : e.data} data
-      </div>
-      {e.needs && e.needs.length > 0 && (
-        <div className="small">
-          <span className="muted">backed by</span>{' '}
-          {e.needs.map((n) => (
-            <span key={n.need} title={n.id ? `the provider's id: ${n.id}` : undefined} style={{ marginRight: 8 }}>
-              {n.need} <b>{n.name}</b>
-              <span className="muted"> {[n.region, n.version && (n.need === 'postgres' ? `pg ${n.version}` : n.version), n.size].filter(Boolean).join(' · ')}</span>
-              {n.status !== 'ready' && <Status word={n.statusLabel} help={`Service: ${n.status}.`} />}
-            </span>
-          ))}
-          <Link className="small" to="/deployments/infrastructure">see the infrastructure</Link>
-        </div>
-      )}
-      {e.target?.kind === 'portainer' && e.id && <DeploymentAddressEdit slug={slug} id={e.id} />}
-      {e.aiModels && e.aiModels.length > 0 && <AIModelsLine slug={slug} name={e.name} />}
-      {e.generation ? <ResourceLines slug={slug} name={e.name} /> : null}
-      {e.generation ? <DiagnosticsLines slug={slug} name={e.name} /> : null}
-      {(e.target?.kind === 'do-app' || e.target?.kind === 'docker-host') && <ProtectionLines slug={slug} name={e.name} />}
-      {e.restoreCheck && <div className="small">{restoreCheckWords(e.restoreCheck)}</div>}
-      {e.dataAfterRestore && (
-        <div className="small">
-          {e.dataAfterRestore.state === 'waiting' && <>Its data from {PRODUCT}'s backup goes back in when it is rebuilt, before the app starts.</>}
-          {e.dataAfterRestore.state === 'filled' && <>Its data came back from {PRODUCT}'s backup{e.dataAfterRestore.set ? <> (set {e.dataAfterRestore.set})</> : null} before the app started.</>}
-          {e.dataAfterRestore.state === 'failed' && (
-            <span className="error">
-              Its data did not come back from {PRODUCT}'s backup: {e.dataAfterRestore.detail}.
-              {e.dataAfterRestore.set ? <> Once it runs, restore set {e.dataAfterRestore.set} from its backups.</> : null}
-            </span>
-          )}
-        </div>
-      )}
-      {e.readiness === 'uncertain' && (
-        <div className="small">
-          {PRODUCT} does not know whether this deployment stands: its last attempt was cut off, or its
-          records disagree. Check again asks its host and settles what it finds; it deploys nothing.
-        </div>
-      )}
-      <div className="row" style={{ marginTop: 4 }}>
+      <div className="deploy-lines small">
+        {e.needs && e.needs.length > 0 && (
+          <div>
+            <span className="muted">backed by</span>{' '}
+            {e.needs.map((n) => (
+              <span key={n.need} title={n.id ? `the provider's id: ${n.id}` : undefined} style={{ marginRight: 8 }}>
+                {n.need} <b>{n.name}</b>
+                <span className="muted"> {[n.region, n.version && (n.need === 'postgres' ? `pg ${n.version}` : n.version), n.size].filter(Boolean).join(' · ')}</span>
+                {n.status !== 'ready' && <Status word={n.statusLabel} help={`Service: ${n.status}.`} />}
+              </span>
+            ))}
+            <Link to="/deployments/infrastructure">see the infrastructure</Link>
+          </div>
+        )}
+        {e.target?.kind === 'portainer' && e.id && <DeploymentAddressEdit slug={slug} id={e.id} />}
+        {e.aiModels && e.aiModels.length > 0 && <AIModelsLine slug={slug} name={e.name} />}
+        {e.generation ? <ResourceLines slug={slug} name={e.name} /> : null}
+        {e.generation ? <DiagnosticsLines slug={slug} name={e.name} /> : null}
+        {(e.target?.kind === 'do-app' || e.target?.kind === 'docker-host') && <ProtectionLines slug={slug} name={e.name} />}
+        {e.restoreCheck && <div>{restoreCheckWords(e.restoreCheck)}</div>}
+        {e.dataAfterRestore && (
+          <div>
+            {e.dataAfterRestore.state === 'waiting' && <>Its data from {PRODUCT}'s backup goes back in when it is rebuilt, before the app starts.</>}
+            {e.dataAfterRestore.state === 'filled' && <>Its data came back from {PRODUCT}'s backup{e.dataAfterRestore.set ? <> (set {e.dataAfterRestore.set})</> : null} before the app started.</>}
+            {e.dataAfterRestore.state === 'failed' && (
+              <span className="error">
+                Its data did not come back from {PRODUCT}'s backup: {e.dataAfterRestore.detail}.
+                {e.dataAfterRestore.set ? <> Once it runs, restore set {e.dataAfterRestore.set} from its backups.</> : null}
+              </span>
+            )}
+          </div>
+        )}
         {e.readiness === 'uncertain' && (
-          <button className="primary" disabled={busy} onClick={checkAgain} title="ask the host what runs and settle the deployment from that">Check again</button>
+          <div>
+            {PRODUCT} does not know whether this deployment stands: its last attempt was cut off, or its
+            records disagree. Check again asks its host and settles what it finds; it deploys nothing.
+          </div>
         )}
-        {e.feed !== 'landing' && e.target && (
-          <button className="primary" disabled={busy} onClick={deploy} title="ship the latest bundle here and open the release">Deploy latest</button>
+        <div className="row deploy-more">
+          <DisplayLabelEdit value={e.displayLabel || e.name} machineKey={e.name} path={`/projects/${slug}/deployments/${e.id}/label`} onChanged={onChanged} />
+          <Link to={`/projects/${slug}/releases`}>releases</Link>
+          {e.name !== 'main' && !torn && (
+            <QuietConfirm key={known ? 'known' : 'unknown'} label="Tear down" disabled={!known}
+              title={known ? undefined : 'reading what a take-down would do to its data…'}
+              prepare={holdsData ? async () => { await prot.reload() } : undefined}
+              ask={<>Take down <b>{e.name}</b>? {prot.data?.takeDown || tearDownWords(e.target?.kind)}{e.aiModels?.length ? ' Its AI models key is revoked.' : ''}</>}
+              onYes={tearDown} yes={noFinalCopy ? 'Take it down without a final copy' : 'Take it down'} />
+          )}
+          {err && <span className="error small">{err}</span>}
+        </div>
+        {checked && (
+          <div>
+            {checked.checked.map((c) => (
+              <div key={c.attempt}>attempt {c.attempt}: {c.outcome}{c.reason ? ` · ${c.reason}` : ''}</div>
+            ))}
+          </div>
         )}
-        {e.name !== 'main' && !torn && (
-          <QuietConfirm key={known ? 'known' : 'unknown'} label="Tear down" disabled={!known}
-            title={known ? undefined : 'reading what a take-down would do to its data…'}
-            prepare={holdsData ? async () => { await prot.reload() } : undefined}
-            ask={<>Take down <b>{e.name}</b>? {prot.data?.takeDown || tearDownWords(e.target?.kind)}{e.aiModels?.length ? ' Its AI models key is revoked.' : ''}</>}
-            onYes={tearDown} yes={noFinalCopy ? 'Take it down without a final copy' : 'Take it down'} />
+        {torn && 'operationId' in torn && (
+          <div>
+            Taking it down: the app goes first so nothing writes, then a final copy is taken and checked before the database
+            cluster is deleted. <Link to={`/operations/${torn.operationId}`}>Follow it</Link>.
+          </div>
         )}
-        <Link className="small" to={`/projects/${slug}/releases`}>releases</Link>
-        {err && <span className="error small">{err}</span>}
+        {torn && !('operationId' in torn) && (
+          <div>
+            Taken down.
+            {torn.finalBackup && <> Its data is in a final backup ({fmtBytes(torn.finalBackup.bytes)}), kept with the project.</>}
+            {torn.deleted.length > 0 && <> Deleted: {torn.deleted.join('; ')}.</>}
+            {torn.orphans.length > 0 ? <> Left at the target: {torn.orphans.join('; ')}.</> : ' Nothing was left behind.'}
+          </div>
+        )}
       </div>
-      {checked && (
-        <div className="small" style={{ marginTop: 4 }}>
-          {checked.checked.map((c) => (
-            <div key={c.attempt}>attempt {c.attempt}: {c.outcome}{c.reason ? ` · ${c.reason}` : ''}</div>
-          ))}
-        </div>
-      )}
-      {torn && 'operationId' in torn && (
-        <div className="small" style={{ marginTop: 4 }}>
-          Taking it down: the app goes first so nothing writes, then a final copy is taken and checked before the database
-          cluster is deleted. <Link to={`/operations/${torn.operationId}`}>Follow it</Link>.
-        </div>
-      )}
-      {torn && !('operationId' in torn) && (
-        <div className="small" style={{ marginTop: 4 }}>
-          Taken down.
-          {torn.finalBackup && <> Its data is in a final backup ({fmtBytes(torn.finalBackup.bytes)}), kept with the project.</>}
-          {torn.deleted.length > 0 && <> Deleted: {torn.deleted.join('; ')}.</>}
-          {torn.orphans.length > 0 ? <> Left at the target: {torn.orphans.join('; ')}.</> : ' Nothing was left behind.'}
-        </div>
-      )}
-      </details>
     </div>
   )
 }
@@ -219,19 +216,17 @@ function DeploymentFact({ slug, env }: { slug: string; env: DeploymentView }) {
   const share = q.data?.share
   const warning = share?.diskRefuses ? 'Free disk space before deploying' : share?.lowDisk ? 'Server is low on disk space' : share?.overcommitted && share.requested?.known && share.hostMemory.known ? `${fmtBytes(share.requested.value)} requested; host total ${fmtBytes(share.hostMemory.value)}` : ''
   return <span className="small muted">{warning && share ? <Link to={`/infrastructure/${share.target}`}>{warning}</Link>
-    : env.url ? <AppAddress url={env.url} hostOnly={env.hostOnly}>Open app</AppAddress> : 'No address yet'}</span>
+    : env.url ? <AppAddress url={env.url} hostOnly={env.hostOnly}>{env.hostOnly ? null : env.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</AppAddress> : 'no address yet'}</span>
 }
 
-function AddDeployment({ slug, offered, existing, onAdded }: { slug: string; offered: OfferedTarget[]; existing: string[]; onAdded: () => void }) {
-  const [open, setOpen] = useState(false)
+function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choices: OfferedTarget[]; existing: string[]; onDone: (added: boolean) => void }) {
   const [name, setName] = useState('')
   const [target, setTarget] = useState('')
   const [audience, setAudience] = useState<string>('team')
   const [data, setData] = useState<string>('non-production')
   const [startFrom, setStartFrom] = useState('')
-  const finalsQ = useGet<FinalCopies>(open ? `/projects/${slug}/final-copies` : null)
+  const finalsQ = useGet<FinalCopies>(`/projects/${slug}/final-copies`)
   const { run, busy, err, setErr } = useAction()
-  const choices = offered.filter((t) => t.origin !== 'built-in' || t.kind === 'docker-host')
   const picked = choices.find((t) => t.name === target) ?? choices[0]
   useEffect(() => { if (!target && choices[0]) setTarget(choices[0].name) }, [choices, target])
   const add = async () => {
@@ -239,20 +234,12 @@ function AddDeployment({ slug, offered, existing, onAdded }: { slug: string; off
     if (existing.includes(name.trim())) { setErr(`there is already a deployment called ${name.trim()}`); return }
     const from = picked?.kind === 'do-app' ? startFrom : ''
     const r = await run(() => post(`/projects/${slug}/deployments`, { name: name.trim(), target: picked?.name, feed: 'promotion', audience, data, ...(from ? { startFrom: from } : {}) }))
-    if (r) { setOpen(false); setName(''); onAdded() }
-  }
-  if (!open) {
-    return (
-      <div style={{ marginTop: 12 }}>
-        <button onClick={() => setOpen(true)}>+ New deployment</button>
-        {choices.length === 0 && <span className="muted small" style={{ marginLeft: 8 }}>no deployment target has been offered to this project</span>}
-      </div>
-    )
+    if (r) { setName(''); onDone(true) }
   }
   const protectedPick = audience === 'partners' || audience === 'public' || data === 'production'
   return (
-    <div className="card" style={{ marginTop: 12, maxWidth: 720 }}>
-      <h3 style={{ marginTop: 0 }}>New deployment</h3>
+    <div className="card deploy-new">
+      <strong>New deployment</strong>
       <div className="form-grid">
         <label>Name</label>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="staging, cloud, demo…" style={{ width: 240 }} />
@@ -304,7 +291,7 @@ function AddDeployment({ slug, offered, existing, onAdded }: { slug: string; off
       )}
       <div className="row" style={{ marginTop: 10 }}>
         <button className="primary" disabled={busy || !picked} onClick={add}>Create</button>
-        <button className="subtle" disabled={busy} onClick={() => { setOpen(false); setErr('') }}>Cancel</button>
+        <button className="subtle" disabled={busy} onClick={() => { setErr(''); onDone(false) }}>Cancel</button>
         {err && <span className="error small">{err}</span>}
       </div>
     </div>

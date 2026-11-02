@@ -9,7 +9,9 @@ import Deployments from './Deployments'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
-it('shows both customer placements with their own label, address and observation', async () => {
+// One row per app: its placements are counted, and only a current
+// running observation counts as working; the app's page lists each one.
+it('counts an app\'s placements and only the current running ones as working', async () => {
   const apps = [
     { slug: 'ledger', name: 'Ledger', deploymentId: 'east', deploymentLabel: 'East office', running: true, observation: 'running', targetName:'East host', observationStale:false, url: 'https://east.example' },
     { slug: 'ledger', name: 'Ledger', deploymentId: 'west', deploymentLabel: 'West office', running: false, observation:'unknown', targetName:'West host', observationStale:true, url: 'https://west.example' },
@@ -23,12 +25,11 @@ it('shows both customer placements with their own label, address and observation
   const root = createRoot(el)
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/deployments/table']}><Routes><Route path="/deployments/:gtab" element={<Deployments />} /></Routes></MemoryRouter></QueryClientProvider>))
-    await vi.waitFor(() => expect(el.textContent).toContain('West office'))
-    expect(el.textContent).toContain('East office')
-    expect(el.querySelector('a[href="https://east.example"]')).not.toBeNull()
-    expect(el.querySelector('a[href="https://west.example"]')).not.toBeNull()
-    expect(el.querySelectorAll('.chip.pass')).toHaveLength(1)
-    expect(el.querySelector('.chip.unknown')?.getAttribute('title')).toBe('Not checked yet.')
+    await vi.waitFor(() => expect(el.textContent).toContain('2 deployments · 1 working'))
+    expect(el.querySelectorAll('.row-status')).toHaveLength(1)
+    expect(el.querySelector('.row-status .chip.pass')?.textContent).toContain('working')
+    expect(el.querySelector('.row-action a')?.getAttribute('href')).toBe('/projects/ledger')
+    expect(el.textContent).not.toContain('Not deployed2')
   } finally {
     act(() => root.unmount())
     client.clear()
@@ -36,7 +37,7 @@ it('shows both customer placements with their own label, address and observation
   }
 })
 
-it('uses the app observation on phones even when the first tier has no deployments', async () => {
+it('uses the app observation even when the first tier has no deployments', async () => {
   vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
     url.endsWith('/tiers') ? { tiers: [{ name: 'preview', title: 'Preview', apps: [] }, { name: 'main', title: 'Production', apps: [{ slug: 'ledger', name: 'Ledger', deploymentLabel: 'Production', running: true, observation: 'running', targetName: 'Kitchen', observationStale: false }] }] }
@@ -47,10 +48,28 @@ it('uses the app observation on phones even when the first tier has no deploymen
   const root = createRoot(el)
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/deployments/table']}><Routes><Route path="/deployments/:gtab" element={<Deployments />} /></Routes></MemoryRouter></QueryClientProvider>))
-    await vi.waitFor(() => expect(el.querySelector('.glance-state .chip.pass')?.textContent).toContain('working'))
-    expect(el.querySelector('.glance-name')?.textContent).toContain('Ledger')
-    expect(el.querySelector('.glance-fact')?.textContent).toContain('1 deployment')
-    expect(el.querySelector('.glance-more')?.textContent).toContain('Production')
+    await vi.waitFor(() => expect(el.querySelector('.row-status .chip.pass')?.textContent).toContain('working'))
+    expect(el.querySelector('.card.row strong')?.textContent).toContain('Ledger')
+    expect(el.querySelector('.row-action')?.textContent).toContain('View app')
+    expect(el.textContent).toContain('1 deployment · 1 working')
+  } finally {
+    act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
+  }
+})
+
+// An app last seen running some time ago says when, never plain working.
+it('shows a stale running app as last seen', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+    url.endsWith('/tiers') ? { tiers: [{ name: 'main', title: 'Production', apps: [{ slug: 'ledger', name: 'Ledger', deploymentLabel: 'Production', running: true, observation: 'running', targetName: 'Kitchen', observationStale: true, observedAt: '2026-01-01T00:00:00Z' }] }] }
+      : url.endsWith('/projects') ? [{ slug: 'ledger', name: 'Ledger', deployed: true, observation: 'running', targetName: 'Kitchen', observationStale: true, observedAt: '2026-01-01T00:00:00Z' }] : {},
+  ))))
+  const client = newQueryClient()
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/deployments/table']}><Routes><Route path="/deployments/:gtab" element={<Deployments />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('.row-status .chip')?.textContent).toContain('last seen'))
+    expect(el.querySelector('.row-status .chip.pass')).toBeNull()
   } finally {
     act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
   }

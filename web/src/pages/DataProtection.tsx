@@ -1,3 +1,4 @@
+import { Section } from '../Section'
 import { BackgroundReading } from '../BackgroundReading'
 import { GlanceRow } from '../GlanceRow'
 import { Status } from '../Status'
@@ -203,7 +204,7 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
   const shown = (ops ? [ops.copy, ops.check, ...(p.rehearsalNote !== 'never rehearsed: no rehearsal place' ? [ops.rehearsal] : []), ...(p.dataClass === 'production' ? [ops.restore] : [])] : []).filter(applies)
   const whyNot = Array.from(new Set(shown.filter((o) => !o.available && o.why).map((o) => o.why!)))
   const runnerMissing = shown.some((o) => o.reason === 'no-copy-runner')
-  if (p.unknown) return <div className="small"><Status word={"unknown"} help={p.unknown} /> couldn't read what this deployment holds<BackgroundReading reading={p.reading} /><CoverageLines c={p.coverage} unknown /></div>
+  if (p.unknown) return <div className="small"><Status word={"unknown"} help={p.unknown} /> couldn't read what this deployment holds. <BackgroundReading reading={p.reading} /><CoverageLines c={p.coverage} unknown /></div>
   // A deployment that holds no data AppTown knows of says only what is
   // not assessed; one whose take-down would still act on data, or with an
   // operation or copy standing, shows the whole card.
@@ -357,20 +358,24 @@ export function StoreSection({ canAttach }: { canAttach: boolean }) {
   const field = (k: keyof typeof form, label: string, hint: string) => (
     <>
       <label>{label}</label>
-      <input value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value.trim() })} placeholder={hint} style={{ width: 320 }} />
+      <input value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value.trim() })} placeholder={hint} style={{ width: 320, maxWidth: '100%' }} />
     </>
   )
+  const action = canAttach && !open ? <button onClick={() => setOpen(true)}>{st ? 'Attach another' : 'Attach backup store'}</button> : undefined
   return (
-    <div style={{ marginBottom: 10 }}>
+    <Section title="Backup store" action={action}>
       <StaleNote q={q} />
-      <div className="row small" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        {st
-          ? <div>Backups go to <b>{st.bucket}</b><details><summary>Store details</summary><p>{st.endpoint} · attached by {st.attachedBy} {fmtWhen(st.attachedAt)}</p><p><BackgroundReading reading={st.reading} /></p><p>Keys in {st.accessKeyFrom} and {st.secretKeyFrom}. Checked by writing, reading back and deleting a test file.</p>{canAttach && !open && <button onClick={() => setOpen(true)}>Attach another</button>}</details></div>
-          : <span>No backup store attached</span>}
-        {canAttach && !st && !open && <button className="subtle" onClick={() => setOpen(true)}>Attach a bucket</button>}
-      </div>
+      {st
+        ? <dl className="facts small">
+            <dt>Bucket</dt><dd>Backups go to <b>{st.bucket}</b></dd>
+            <dt>Endpoint</dt><dd>{st.endpoint}</dd>
+            <dt>Attached</dt><dd>by {st.attachedBy} {fmtWhen(st.attachedAt)}</dd>
+            <dt>Checked</dt><dd><BackgroundReading reading={st.reading} /> <span className="muted">by writing, reading back and deleting a test file</span></dd>
+            <dt>Keys</dt><dd>{st.accessKeyFrom} and {st.secretKeyFrom}</dd>
+          </dl>
+        : !open && <p className="muted small">No backup store attached. Copies stay on each app's host.</p>}
       {open && (
-        <div style={{ marginTop: 8 }}>
+        <div style={{ margin: '12px 0' }}>
           <div className="form-grid">
             {field('endpoint', 'Endpoint', 'https://syd1.digitaloceanspaces.com')}
             {field('region', 'Region', 'syd1')}
@@ -380,12 +385,12 @@ export function StoreSection({ canAttach }: { canAttach: boolean }) {
           </div>
           <div className="row" style={{ marginTop: 8 }}>
             <button className="primary" disabled={busy} onClick={attach}>{busy ? 'checking…' : 'Check and attach'}</button>
-            <button className="subtle" disabled={busy} onClick={() => setOpen(false)}>cancel</button>
+            <button className="subtle" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
             {err && <span className="error small">{err}</span>}
           </div>
         </div>
       )}
-    </div>
+    </Section>
   )
 }
 

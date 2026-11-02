@@ -10,6 +10,8 @@ import { useAction, useGet } from '../../../data'
 import { ReadStatus, StaleNote } from '../../../ReadGate'
 import { relTime } from '../../../format'
 import { useHolds } from '../../../instancePages'
+import { Section } from '../../../Section'
+import './people.css'
 
 // Settings › Secrets: the app says which secrets it
 // needs (secretspec.toml in the repo); this page says, per deployment,
@@ -36,37 +38,31 @@ export function SecretsTab({ slug }: { slug: string }) {
 
   if (data.problem) {
     return (
-      <div>
+      <Section title="Secrets" note={<>Declared in <code>{data.spec}</code> on main. Edit through a Change.</>}>
         <StaleNote q={q} />
-        <div className="error">{data.problem}</div>
-        <p className="muted small">Declared in <code>{data.spec}</code> on main. Edit through a Change.</p>
-      </div>
+        <p className="error">{data.problem}</p>
+      </Section>
     )
   }
   if (!data.declared) {
     return (
-      <div>
-        <StaleNote q={q} />
-        <p>No secrets yet.</p>
-        <button onClick={() => setAdding(true)}>Add secret</button>
+      <>
+        <Section title="Secrets" action={<button className="link" onClick={() => setAdding(true)}>Add secret</button>}
+          note={<>When the app needs a signing key or an API key, it names the secret (never its value) in a <code>secretspec.toml</code>; each deployment gets its value here. {PRODUCT} makes keys it can make itself.</>}>
+          <StaleNote q={q} />
+          <p className="muted">This app declares no secrets.</p>
+        </Section>
         {adding && <NewChangeButton slug={slug} request={{ title: 'Add a secret', body: 'Declare the secret this app needs and explain where the app uses it. Ask me for its name and purpose before editing. Keep its value out of the code and this change; I will set the value in Settings after the change lands.' }} external={{ open: true, onClose: () => setAdding(false) }} />}
-        <details className="small"><summary>About secrets</summary><p className="muted small" style={{ maxWidth: 640, marginTop: 0 }}>
-          This app declares no secrets. When it needs one · a signing key, an API key · it
-          commits a <code>secretspec.toml</code> naming the secret (never the value), and this
-          page is where each deployment gets its value from. {PRODUCT} generates keys it can
-          make itself.
-        </p></details>
         <StoresNote internal={internal} infisical={infisical} />
-      </div>
+      </>
     )
   }
 
   return (
-    <div>
-      <p className="muted small" style={{ maxWidth: 680, marginTop: 0 }}>
-        <code>{data.spec}</code> declares {data.secrets?.length ?? 0} secrets for <strong>{data.project}</strong>.
-        Each deployment says where its values come from. A value you put here goes into the
-        built-in store and is never shown again; a value in Infisical is named, not copied.
+    <div className="secrets-page">
+      <p className="muted small" style={{ maxWidth: 680, margin: 0 }}>
+        <code>{data.spec}</code> declares {data.secrets?.length ?? 0} secret{data.secrets?.length === 1 ? '' : 's'} for <strong>{data.project}</strong>.
+        A value you put here goes into the built-in store and is never shown again; a value in Infisical is named, not copied.
         {(data.ignored?.length ?? 0) > 0 && (
           <> {PRODUCT} does not use these parts of the declaration: {data.ignored!.join('; ')}.</>
         )}
@@ -75,7 +71,7 @@ export function SecretsTab({ slug }: { slug: string }) {
       {err && <div className="error">{err}</div>}
 
       {data.deployments.map((env) => (
-        <DeploymentCard key={env.name} env={env} profiles={data.choosable ?? data.profiles ?? []} declared={data}
+        <DeploymentSection key={env.name} env={env} profiles={data.choosable ?? data.profiles ?? []} declared={data}
           onProfile={(p) => run(() => put(`/projects/${slug}/secrets/${env.name}`, { profile: p }))}
           onEdit={(name) => setEditing({ env: env.name, name })}
           onUnbind={(name) => run(() => del(`/projects/${slug}/secrets/${env.name}/${name}`))}
@@ -94,7 +90,9 @@ export function SecretsTab({ slug }: { slug: string }) {
   )
 }
 
-function DeploymentCard({ env, profiles, declared, onProfile, onEdit, onUnbind, canReveal, revealed, onReveal, onHide }: {
+// One section per deployment; each secret one row: its name, then where it
+// goes and where its value comes from on a muted line, its acts on the right.
+function DeploymentSection({ env, profiles, declared, onProfile, onEdit, onUnbind, canReveal, revealed, onReveal, onHide }: {
   env: SecretDeployment; profiles: string[]; declared: ProjectSecrets
   onProfile: (p: string) => void; onEdit: (name: string) => void; onUnbind: (name: string) => void
   canReveal: boolean; revealed: Record<string, string>; onReveal: (name: string) => void; onHide: (name: string) => void
@@ -104,66 +102,57 @@ function DeploymentCard({ env, profiles, declared, onProfile, onEdit, onUnbind, 
     if (!d) return ''
     return d.allParts ? 'every part' : d.consumers.join(', ')
   }
+  const missing = env.missing.length > 0
   return (
-    <div className="card" style={{ marginBottom: 12 }}>
-      <div className="row" style={{ marginBottom: 6 }}>
-        <strong>{env.name}</strong>
-        {env.missing.length > 0
-          ? <Status word="failed" help={`${env.missing.length} required secrets are missing. Set them below before deploying.`} />
-          : <Status word="working" />}
-        <span style={{ flex: 1 }} />
-        <span className="muted small">profile</span>
-        <select value={env.chosen || env.profile} onChange={(e) => onProfile(e.target.value)}>
+    <Section label={`Secrets for ${env.name}`} count={env.secrets.length}
+      title={<>{env.name}{missing && <Status word="failed" help={`${env.missing.length} required secrets are missing. Set them below before deploying.`} />}</>}
+      action={<label className="secrets-profile small"><span className="muted">profile</span>
+        <select aria-label={`Secrets profile for ${env.name}`} value={env.chosen || env.profile} onChange={(e) => onProfile(e.target.value)}>
           {profiles.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
-        {env.chosen && env.chosen !== env.profile && <span className="muted small" title="secretspec.toml does not declare this profile, so its secrets come from the one named">secrets: {env.profile}</span>}
-      </div>
-      {env.missing.length > 0 && (
-        <div className="muted small" style={{ marginBottom: 6 }}>
-          Nothing provides {env.missing.join(', ')} here. The {env.name === 'preview' ? 'preview' : 'deploy'} stops until it is set.
-        </div>
-      )}
-      <table style={{ width: '100%' }}>
-        <thead><tr><th>Secret</th><th>Goes to</th><th>Comes from</th><th></th></tr></thead>
-        <tbody>
-          {env.secrets.map((s) => (
-            <tr key={s.name}>
-              <td><code>{s.name}</code>{!s.required && <span className="muted small"> optional</span>}</td>
-              <td className="muted small">{consumersOf(s.name)}</td>
-              <td><Source s={s} /></td>
-              <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                {canReveal && s.bound && s.store === 'internal' && (
-                  revealed[`${env.name}/${s.name}`] !== undefined
-                    ? <span className="small" style={{ marginRight: 8 }}><code>{revealed[`${env.name}/${s.name}`]}</code> <button className="subtle" onClick={() => onHide(s.name)}>Hide</button></span>
-                    : <QuietConfirm label="Reveal…" className="subtle" ask={`Show the value of ${s.name} for ${env.name}? This read is recorded in the audit log under your name.`} onYes={() => onReveal(s.name)} />
-                )}
-                <button className="subtle" onClick={() => onEdit(s.name)}>{s.bound && !s.generated ? 'Change…' : 'Set…'}</button>
-                {s.bound && (
-                  <QuietConfirm label="Unbind" ask={`Forget ${s.name} for ${env.name}? ${s.store === 'internal' ? 'The stored value is deleted.' : 'The Infisical key stays where it is.'}`}
-                    onYes={() => onUnbind(s.name)} />
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        {env.chosen && env.chosen !== env.profile && <span className="muted" title="secretspec.toml does not declare this profile, so its secrets come from the one named">secrets: {env.profile}</span>}
+      </label>}
+      note={missing ? <>Nothing provides {env.missing.join(', ')} here. The {env.name === 'preview' ? 'preview' : 'deploy'} stops until it is set.</> : undefined}>
+      {env.secrets.map((s) => {
+        const shown = revealed[`${env.name}/${s.name}`]
+        const goes = consumersOf(s.name)
+        return (
+          <div key={s.name} className="card row secret-row" style={{ display: 'flex' }}>
+            <div className="secret-what">
+              <code>{s.name}</code>{!s.required && <span className="muted small"> optional</span>}
+              <div className="muted small">{goes}{goes && ' · '}<Source s={s} /></div>
+              {shown !== undefined && <div className="small"><code>{shown}</code> <button className="link" onClick={() => onHide(s.name)}>Hide</button></div>}
+            </div>
+            <span className="row-action secret-acts">
+              {canReveal && s.bound && s.store === 'internal' && shown === undefined && (
+                <QuietConfirm label="Reveal…" className="subtle" ask={`Show the value of ${s.name} for ${env.name}? This read is recorded in the audit log under your name.`} onYes={() => onReveal(s.name)} />
+              )}
+              {s.bound && (
+                <QuietConfirm label="Unbind" className="subtle" ask={`Forget ${s.name} for ${env.name}? ${s.store === 'internal' ? 'The stored value is deleted.' : 'The Infisical key stays where it is.'}`}
+                  onYes={() => onUnbind(s.name)} />
+              )}
+              <button onClick={() => onEdit(s.name)}>{s.bound && !s.generated ? 'Change…' : 'Set…'}</button>
+            </span>
+          </div>
+        )
+      })}
+    </Section>
   )
 }
 
 function Source({ s }: { s: SecretStatus }) {
   if (s.bound && s.generated) {
-    return <span className="small">made by {PRODUCT} <span className="muted">· built-in store v{s.version}</span></span>
+    return <span>made by {PRODUCT} · built-in store v{s.version}</span>
   }
   if (s.bound && s.store === 'internal') {
-    return <span className="small">built-in store v{s.version} <span className="muted">· set by {s.updatedBy}{s.updatedAt ? `, ${relTime(s.updatedAt)}` : ''}</span></span>
+    return <span>built-in store v{s.version} · set by {s.updatedBy}{s.updatedAt ? `, ${relTime(s.updatedAt)}` : ''}</span>
   }
   if (s.bound && s.store === 'infisical') {
-    return <span className="small">Infisical key <code>{s.ref}</code> <span className="muted">· bound by {s.updatedBy}</span></span>
+    return <span>Infisical key <code>{s.ref}</code> · bound by {s.updatedBy}</span>
   }
-  if (s.generated) return <span className="small muted">{PRODUCT} will make one on the first boot</span>
-  if (s.default) return <span className="small muted">the declaration's default</span>
-  if (!s.required) return <span className="small muted">not set (optional)</span>
+  if (s.generated) return <span>{PRODUCT} will make one on the first boot</span>
+  if (s.default) return <span>the declaration's default</span>
+  if (!s.required) return <span>not set (optional)</span>
   return <Status word="failed" help="A required secret is missing. Set or bind this secret before deploying." />
 }
 
@@ -208,13 +197,11 @@ function BindModal({ slug, env, name, stores, onClose, onDone }: {
 }
 
 function StoresNote({ internal, infisical }: { internal?: SecretStore; infisical?: SecretStore }) {
+  if (!internal && !infisical) return null
   return (
-    <details style={{ marginTop: 8 }}>
-      <summary className="muted small" style={{ cursor: 'pointer' }}>Secret stores</summary>
-      <ul className="small" style={{ marginTop: 6 }}>
-        {internal && <li><strong>{internal.title}</strong> — {internal.note}</li>}
-        {infisical && <li><strong>{infisical.title}</strong>{infisical.available ? '' : ' (not set up)'} — {infisical.note}</li>}
-      </ul>
-    </details>
+    <Section title="Secret stores">
+      {internal && <div className="card row" style={{ display: 'flex' }}><div><strong>{internal.title}</strong><div className="muted small">{internal.note}</div></div></div>}
+      {infisical && <div className="card row" style={{ display: 'flex' }}><div><strong>{infisical.title}</strong>{!infisical.available && <span className="muted small"> not configured</span>}<div className="muted small">{infisical.note}</div></div></div>}
+    </Section>
   )
 }

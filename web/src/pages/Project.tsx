@@ -1,15 +1,10 @@
-import { Tabs } from '../Tabs'
-import { PhoneDetails } from '../GlanceRow'
-import { Status } from '../Status'
 import { PRODUCT } from '../brand'
-import { AppAddress, RuntimeStatus } from '../runtime'
-import { NavLink, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { post } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { ApplicationOverview } from './project/ApplicationOverview'
 import { UsageView } from './Usage'
-import type { DeploymentView } from '../wire.gen'
 import { NewReleasePage, ReleasePermalinkPage } from './project/Release'
 import { FindingsTab, SuppressionsTab } from './project/Security'
 import { GeneralTab, LifecycleNote } from './project/settings/General'
@@ -19,7 +14,7 @@ import { MembersTab } from './project/settings/Members'
 import { SecretsTab } from './project/settings/Secrets'
 import { DeploymentsTab } from './project/settings/Deployments'
 import { AdrsTab } from './project/settings/Decisions'
-import { SECURITY_TABS, SETTINGS_TABS, SETTINGS_LABEL, resolveProjectTabs } from './project/tabs'
+import { SETTINGS_LABEL, resolveProjectTabs } from './project/tabs'
 import type { ProjectDetail as ProjectT, MainStanding } from '../wire.gen'
 
 // Where main stands against AppTown's record. A plain note, not an alarm:
@@ -82,14 +77,8 @@ export default function Project() {
       {tab === 'overview' && <ApplicationOverview project={project} />}
       {tab === 'security' && (
         <>
-          <Tabs className="tabs">
-            {SECURITY_TABS.map((t) => (
-              <NavLink key={t} to={`/projects/${slug}/security/${t}`}
-                className={({ isActive }) => 'tab' + (isActive || (t === 'findings' && !rawStab) ? ' active' : '')}>
-                {t[0].toUpperCase() + t.slice(1)}
-              </NavLink>
-            ))}
-          </Tabs>
+          {/* The menu's Security drawer holds these pages; the heading says which. */}
+          <SubPageHead area="Security" label={secTab[0].toUpperCase() + secTab.slice(1)} />
           {secTab === 'findings' && <FindingsTab slug={slug!} />}
           {secTab === 'suppressions' && <SuppressionsTab slug={slug!} />}
         </>
@@ -98,21 +87,13 @@ export default function Project() {
       {tab === 'releases' && <ReleasePermalinkPage slug={slug!} number={rawStab} />}
       {tab === 'settings' && (
         <>
-          <Tabs className="tabs">
-            {SETTINGS_TABS.map((t) => (
-              <NavLink key={t} to={`/projects/${slug}/settings/${t}`}
-                className={() => 'tab' + (setTab === t ? ' active' : '')}>
-                {SETTINGS_LABEL[t]}
-              </NavLink>
-            ))}
-          </Tabs>
+          {/* The menu's Settings drawer holds these pages; the heading says which. */}
+          <SubPageHead area="Settings" label={SETTINGS_LABEL[setTab]} />
           {setTab === 'general' && <GeneralTab project={project} current={projectCurrent} onChanged={load} />}
           {setTab === 'working' && <GuidanceTab slug={slug!} />}
           {setTab === 'services' && (
             <>
-              <h2 style={{ marginTop: 0 }}>Services</h2>
               <ServicesTab slug={slug!} />
-              <h2>Connections</h2>
               <ProjectIntegrationsTab slug={slug!} />
             </>
           )}
@@ -127,26 +108,18 @@ export default function Project() {
   )
 }
 
+// The project's name above every sub-page. Its deployments are not repeated
+// here: the overview has a Deployments section, Settings › Deployments the rest.
 function ProjectHeader({ project }: { project: ProjectT }) {
-  const q = useGet<DeploymentView[]>(`/projects/${project.slug}/deployments`)
-  const envs = q.data ?? []
-
   return (
-      <>
-      <h1>
-        {project.icon && <span style={{ marginRight: 8 }} aria-hidden>{project.icon}</span>}
-        {project.name}
-        {project.namespace && <span className="badge" style={{ marginLeft: 10 }} title="namespace (display grouping)">{project.namespace}</span>}
-      </h1>
-      <PhoneDetails>
-      <div className="row small project-status-strip" style={{ marginBottom: 10 }}>
-        {envs.map((e) => <span key={e.name} className="row" style={{ gap: 4 }}>
-          <RuntimeStatus observation={e} />
-          <AppAddress url={e.url} hostOnly={e.hostOnly}>{e.displayLabel}</AppAddress>
-        </span>)}
-        {!q.data && q.err && <Status word="unknown" help={q.err} />}
-      </div>
-      </PhoneDetails>
-      </>
+    <h1>
+      {project.icon && <span style={{ marginRight: 8 }} aria-hidden>{project.icon}</span>}
+      {project.name}
+      {project.namespace && <span className="badge" style={{ marginLeft: 10 }} title="namespace (display grouping)">{project.namespace}</span>}
+    </h1>
   )
+}
+
+function SubPageHead({ area, label }: { area: string; label: string }) {
+  return <div className="sub-page-head"><div className="page-area">{area}</div><h2>{label}</h2></div>
 }

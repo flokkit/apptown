@@ -6,6 +6,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// Reader reads a filesystem's space at a path; Statfs is the real one.
+type Reader func(path string) (Space, error)
+
 // Statfs reads the filesystem holding path, as this process sees it: its
 // size and the space available to an unprivileged writer (what is reserved
 // for root is not counted as free).

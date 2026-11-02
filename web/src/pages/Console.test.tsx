@@ -48,7 +48,8 @@ describe('a chat says which kind it is from its first paint', () => {
     expect(html).not.toContain('connecting…')
     expect(html).toContain('Loading…')
     expect(html).toContain('Change chat')
-    expect(html).toContain('Say what to change.')
+    // A change chat carries no intro card: its box says what to do.
+    expect(html).not.toContain('Checks and an approval come before it lands.')
     expect(html).not.toContain('Project chat')
     expect(html).not.toContain('The helper opens a change for the work.')
     expect(html).not.toContain('questions &amp; setup')
@@ -76,9 +77,9 @@ describe('a chat says which kind it is from its first paint', () => {
 describe('the chat keeps its input when the intro steps aside', () => {
   it('the intro is in the part that steps aside', () => {
     const el = document.createElement('div')
-    el.innerHTML = firstPaint(ON_CHANGE)
+    el.innerHTML = firstPaint('')
     const extra = el.querySelector('.console-extra')!
-    expect(extra.textContent).toContain('Say what to change.')
+    expect(extra.textContent).toContain('The helper opens a change for the work.')
     expect(el.querySelector('.console-head')!.closest('.console-extra')).toBeNull()
   })
 })
@@ -99,7 +100,6 @@ describe('what the chat is about folds to one line on a phone', () => {
       const about = parse(firstPaint(ON_CHANGE)).querySelector('details.console-about')!
       expect(about.hasAttribute('open')).toBe(false)
       expect(about.querySelector('summary')!.textContent).toBe('change 49 · ● waiting for you')
-      expect(about.textContent).toContain('Say what to change.')
     })
     // A worker that cannot be reached qualifies the conversation itself:
     // that line stays in view with the fold closed, for someone who may

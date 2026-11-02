@@ -10,16 +10,23 @@ const step = (status: Step['status'], overrideBy = '') => ({ type: 'tests', stat
 describe('recorded verification', () => {
  it('distinguishes passing checks from overrides, skipped checks, and unfinished work', () => {
   expect(verificationSummary([step('pass'), step('pass', 'reviewer'), step('skipped'), step('pending'), step('error')]))
-   .toBe('1 passed · 1 overridden · 1 need attention · 1 unfinished · 1 skipped')
+   .toBe('1 overridden · 1 need attention · 1 unfinished · 1 skipped')
  })
  it('does not present agent execution as a verification check', () => {
   expect(verificationSummary([{ type: 'agent/pi', status: 'pass' } as Step])).toContain('No verification checks')
  })
 })
 
+// "All checks passed" is a claim that something passed and nothing else went wrong.
+it('never says all checks passed when none passed', () => {
+ expect(verificationSummary([step('skipped'), step('skipped')])).toBe('2 skipped')
+ expect(verificationSummary([step('not_applicable')])).toBe('1 not applicable')
+ expect(verificationSummary([step('pass'), step('skipped')])).toBe('All checks passed · 1 skipped')
+})
+
 describe('not applicable', () => {
  it('counts a not-applicable step apart from passes', () => {
-  expect(verificationSummary([step('pass'), step('not_applicable')])).toBe('1 passed · 1 not applicable')
+  expect(verificationSummary([step('pass'), step('not_applicable')])).toBe('All checks passed · 1 not applicable')
  })
  it('names every not-applicable check and never counts it among the rules met', () => {
   const checks = [
@@ -130,6 +137,12 @@ describe('the disagreement', () => {
   expect(v[2].findings).toEqual(['one', 'two'])
   expect(claimOf(d)?.kind).toBe('change-report')
  })
+ // A script check records its whole output as log, with no summary: that
+ // output is what the person needs to see.
+ it('shows what a script check printed', () => {
+  const [v] = disputeOf(detail([{ name: 'style', type: 'script', status: 'fail', evidence: { log: 'photos.html: 1 image(s) without alt text\n', exitCode: 1 } }]))
+  expect(v.log).toBe('photos.html: 1 image(s) without alt text')
+ })
  it("keeps AppTown's file check apart from a reviewer who passed the work", () => {
   const [v] = disputeOf(detail([{ name: 'review', type: 'agent/review', status: 'fail', evidence: {
    verdict: 'fail', reviewerVerdict: 'pass', reviewerSummary: 'all claims verified',
@@ -153,7 +166,7 @@ describe('a finished run with unreadable check evidence', () => {
   const run = { id: '00000000-0002-7000-8000-000000000000', number: 2, status: 'done', workflowName: 'checks', workflowVersion: 1 } as Run
   const view = { detail: { steps: [step] }, projectSlug: 'p' } as unknown as ChangeView
   const html = renderToStaticMarkup(<MemoryRouter><Evidence view={view} runs={[{ run, steps: [step] }]} workTab={() => '#'} /></MemoryRouter>)
-  expect(html).not.toContain('all passed')
+  expect(html).not.toContain('ch-line-title">All checks passed')
   expect(html).toContain('evidence unreadable')
   expect(html).toContain('Its check evidence could not be read.')
   expect(verificationSummary([step])).toBe('1 passed with unreadable evidence')
@@ -171,7 +184,7 @@ describe('a finished run with a tests receipt', () => {
  const rendered = (s: Step) => renderToStaticMarkup(<MemoryRouter><Evidence view={{ detail: { steps: [s] }, projectSlug: 'p' } as unknown as ChangeView} runs={[{ run, steps: [s] }]} workTab={() => '#'} /></MemoryRouter>)
  it('folds when the report counted no skips', () => {
   const html = rendered(tests({ testCounts: { passed: 44, failed: 0, skipped: 0 } }))
-  expect(html).toContain('all passed')
+  expect(html).toContain('All checks passed')
   expect(receiptOf(tests({ testCounts: { passed: 44, failed: 0, skipped: 0 } })).sentence).toContain('44 passed')
  })
  for (const [name, evidence, note] of [
@@ -182,7 +195,7 @@ describe('a finished run with a tests receipt', () => {
  ] as const) {
   it(`shows ${name} without folding`, () => {
    const html = rendered(tests(evidence))
-   expect(html).not.toContain('all passed')
+   expect(html).not.toContain('ch-line-title">All checks passed')
    expect(html).toContain('passed with notes')
    expect(html).toContain(note)
   })

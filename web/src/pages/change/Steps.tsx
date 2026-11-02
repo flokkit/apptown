@@ -14,7 +14,7 @@ import { Screenshots, sameCommitWords } from '../../Screenshots'
 
 // ---- step cards ------------------------------------------------------------
 
-export function StepCard({ step, onChange, hideApproveForm, expanded, landingMeans, head, awaitingDecision }: { awaitingDecision?: boolean; step: Step; onChange: () => void; hideApproveForm?: boolean; expanded?: boolean; landingMeans?: string[]; head?: string }) {
+export function StepCard({ step, onChange, hideApproveForm, expanded, landingMeans, head, awaitingDecision, failedCheck }: { awaitingDecision?: boolean; step: Step; onChange: () => void; hideApproveForm?: boolean; expanded?: boolean; landingMeans?: string[]; head?: string; failedCheck?: string }) {
   const ev = step.evidence
   const statusLabel = decisionStatus(step, awaitingDecision)
   // A step's own id and its run's are always sent; null in the wire type is
@@ -38,10 +38,13 @@ export function StepCard({ step, onChange, hideApproveForm, expanded, landingMea
     : null
 
   return (
-    <div id={`step-${step.id}`} className="card step-card" style={quiet && !more ? { padding: '8px 12px' } : undefined}>
+    // Every step has the same sides, so states and names line up; a quiet one is only shorter.
+    <div id={`step-${step.id}`} className="card step-card" style={{ paddingLeft: 12, paddingRight: 12, ...(quiet && !more ? { paddingTop: 8, paddingBottom: 8 } : {}) }}>
       <div className="row step-head">
-        <Status word={statusLabel === 'passed' && tests && !tests.plain && !(step.type === 'tests' && step.evidence.testCounts) ? 'unknown' : statusLabel} help={tests && !tests.plain ? tests.note : undefined} />
-        {statusLabel === 'failed' && tests && !(step.type === 'tests' && step.evidence.testCounts) && <Status word="unknown" help={tests.note} />}
+        {/* The tests' note is said beside the chip, so the chip carries no
+            help that would repeat it. */}
+        <Status word={statusLabel === 'passed' && tests && !tests.plain && !(step.type === 'tests' && step.evidence.testCounts) ? 'unknown' : statusLabel} />
+        {statusLabel === 'failed' && tests && !(step.type === 'tests' && step.evidence.testCounts) && <Status word="unknown" />}
         <strong>{stepTitle(step)}</strong>
         <span className="muted small">{took}{tests?.plain && ` · ${tests.note}`}</span>
         {tests && !tests.plain && <span className="muted small">{tests.note}</span>}
@@ -84,7 +87,13 @@ export function StepCard({ step, onChange, hideApproveForm, expanded, landingMea
           </div>
         </div>
       )}
-      {step.type === 'approval' && step.status === 'pending' && !hideApproveForm && (
+      {/* An approval is a separate fact from a check: while a check has
+          failed, approving would not land the change, so the form waits and
+          the way past a failed check (accepting it anyway) is named instead. */}
+      {step.type === 'approval' && step.status === 'pending' && !hideApproveForm && failedCheck && (
+        <p className="muted small">Approval opens once the checks pass. “{failedCheck}” failed: fix it, or accept it anyway on its step.</p>
+      )}
+      {step.type === 'approval' && step.status === 'pending' && !hideApproveForm && !failedCheck && (
         <DecisionForm stepId={stepId} means={step.config.means} alsoMeans={landingMeans} instructions={step.config.instructions} onDone={onChange} />
       )}
       {step.type === 'approval' && step.evidence.withdrawal && (

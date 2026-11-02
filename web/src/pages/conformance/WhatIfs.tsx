@@ -1,3 +1,4 @@
+import { Section } from '../../Section'
 import { GlanceRow } from '../../GlanceRow'
 import { Status } from '../../Status'
 import { useState } from 'react'
@@ -20,10 +21,8 @@ export function WhatIfsList() {
   return (
     <div>
       <StaleNote q={q} />
-      <details className="small"><summary>About what-ifs</summary><p className="muted small" style={{ maxWidth: 720 }}>
-        A what-if asks what taking a pack version would change on each project, without changing anything. Start one from a <Link to="/packs">pack</Link>'s version.
-      </p></details>
-      {list.length === 0 && <div className="muted">No what-ifs yet.</div>}
+      <Section title="What-ifs" count={list.length || undefined} action={<Link to="/packs">Packs →</Link>}>
+      {list.length === 0 && <p className="muted small">No what-ifs yet. Start one from a pack's version.</p>}
       {list.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
           <table className="small stack" style={{ width: '100%' }}>
@@ -36,7 +35,7 @@ export function WhatIfsList() {
                   <GlanceRow name={0} state={2} summary={<>{w.projects.length} projects</>} labels={["Pack", "Asked", "State", "Answers"]} key={w.id}>
                     <td><Link to={`/conformance/what-ifs/${w.id}`}>{w.pack} v{w.version}</Link>{w.advanceWorkflows && <details><summary>Other changes</summary>and other workflows to newest</details>}</td>
                     <td>{w.requestedBy}<div className="muted">{relTime(w.createdAt)}</div></td>
-                    <td><Status word={w.statusLabel} help={w.detail || w.state} /></td>
+                    <td><Status word={w.statusLabel} help={w.detail || undefined} /></td>
                     <td>
                       <details><summary>{w.projects.length} apps · Results</summary><div className="row" style={{ flexWrap: 'wrap', gap: 4 }}>
                         {OUTCOME_ORDER.filter((o) => counts[o]).map((o) => <span key={o}>{counts[o]} <Status word={w.outcomeLabels[o]} help={OUTCOME_WORDS[o]} /></span>)}
@@ -50,7 +49,8 @@ export function WhatIfsList() {
           </table>
         </div>
       )}
-      {list.length > limit && <button onClick={() => setLimit(n => n + 10)}>Show more</button>}
+      </Section>
+      {list.length > limit && <button style={{ marginTop: 10 }} onClick={() => setLimit(n => n + 10)}>Show more</button>}
     </div>
   )
 }

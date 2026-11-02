@@ -53,7 +53,7 @@ describe('a chat record that cannot be read is said, never hidden', () => {
     client.setQueryData(getKey(`/changes/${CHANGE}/transcript`), { sessions: [], unreadable: 1 })
     const html = renderToStaticMarkup(<QueryClientProvider client={client}><ConversationLog changeId={CHANGE} /></QueryClientProvider>)
     expect(html).toContain('1 chat record in AppTown could not be read; some chats may be missing here.')
-    expect(html).not.toContain('No chat on this change')
+    expect(html).not.toContain('No chat yet')
   })
   it('names the folders to an administrator', () => {
     const client = newQueryClient()

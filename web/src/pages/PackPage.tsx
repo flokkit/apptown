@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { post } from '../api'
-import { OriginChip } from '../OriginChip'
+import { Section } from '../Section'
 import { QuietConfirm } from '../QuietConfirm'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
-import type { PackHistory, PackSpec, Publication } from '../wire.gen'
+import type { PackHistory, Publication } from '../wire.gen'
 import { WhatIfPanel } from './PackWhatIf'
 
 // One pack: what its author
@@ -19,56 +19,72 @@ export default function PackPage() {
   const { name = '' } = useParams()
   const q = useGet<PackHistory>(`/packs/${name}`, { kind: 'config' })
   const { run, busy, err: actErr } = useAction(q.reload)
-  const [showAll, setShowAll] = useState(false)
-  const [open, setOpen] = useState<number | null>(-1)
+  const [open, setOpen] = useState<number | null>(null)
   const h = q.data
   if (!h) return <ReadStatus q={q} what="the pack" />
   const recommend = (version: number) => run(() => post(`/packs/${name}/recommended`, { version }))
-  const shown = open ?? h.recommended
+  const d = h.declaration
 
   return (
-    <div style={{ maxWidth: 900 }}>
-      <div className="muted small"><Link to="/packs">Packs</Link></div>
-      <div className="row" style={{ flexWrap: 'wrap' }}>
-        <h1 style={{ marginBottom: 0 }}>{h.name}</h1>
-        <OriginChip origin={h.origin} />
-        <span className="badge" title="New projects get this version; projects on other versions are offered it">recommended v{h.recommended}</span>
-        {h.latest !== h.recommended && <span className="badge" title="The newest version is not recommended yet">v{h.latest} is available</span>}
+    <div>
+      <div className="page-area"><Link to="/packs">Packs</Link></div>
+      <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+        <h1 style={{ margin: 0 }}>{h.name}</h1>
+        {/* The same tags as the list: only what is unusual, and the version new projects get. */}
+        {/^experimental\b/i.test(h.description.trim()) && <span className="badge">experimental</span>}
+        {h.origin !== 'stock' && <span className="badge">yours</span>}
+        <span className="badge" title="New projects get this version; projects on other versions are offered it">v{h.recommended} · recommended</span>
+        {h.latest !== h.recommended && <span className="badge" title="The newest version is not recommended yet">v{h.latest} available</span>}
       </div>
-      <details><summary>About this way of working</summary><p>{h.description}</p></details>
+      {h.description && <p className="muted">{h.description}</p>}
+      {d.toolchain && <p className="small">Toolchain: <code>{d.toolchain}</code></p>}
       <StaleNote q={q} />
       {actErr && <div className="error">{actErr}</div>}
 
-      <h2>What it says</h2>
-      <Declaration d={h.declaration} />
-
-      <h2 style={{ marginTop: 20 }}>Versions</h2>
-      <div className="muted small" style={{ marginBottom: 8 }}>
-        Recommended for new projects. Existing projects adopt separately.
-      </div>
-      {h.versions.filter((v, i) => showAll || i < 3 || v.version === h.recommended).map((v) => (
-        <div key={v.version} className={`card ${v.version === h.recommended ? 'tone-ok' : ''}`} style={{ padding: '8px 12px' }}>
-          <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
-            <strong>v{v.version}</strong>
-            {v.name && <span>“{v.name}”</span>}
-            {v.version === h.recommended && <span className="badge">recommended</span>}
-            <span className="muted small">{lineage(v)}</span>
-            <span style={{ flex: 1 }} />
-            <span className="muted small" title={v.at}>{relTime(v.at)}</span>
-            <button className="subtle" onClick={() => setOpen(shown === v.version ? -1 : v.version)}>{shown === v.version ? 'hide' : 'contents'}</button>
-            {v.version !== h.recommended && (
-              <QuietConfirm label="Recommend" className="subtle" yes="Recommend it" disabled={busy}
-                ask={`New projects will get v${v.version}, and projects on other versions will be offered it. No project moves.`}
-                onYes={() => recommend(v.version)} />
-            )}
+      {/* An empty part says nothing: the count line above the parts is enough. */}
+      {d.guidance.length > 0 && <Section title="Rules" count={d.guidance.length}>
+        {d.guidance.map((g) => (
+          <div key={g} className="card row"><span>{g.split('/').at(-1)!.replaceAll('-', ' ')}</span><span className="muted small">{g}</span></div>
+        ))}
+      </Section>}
+      {d.workflows.length > 0 && <Section title="Workflows" count={d.workflows.length}>
+        {d.workflows.map((w) => (
+          <div key={w} className="card row"><span>{w}</span></div>
+        ))}
+      </Section>}
+      {d.policies.length > 0 && <Section title="Policies" count={d.policies.length}>
+        {d.policies.map((pp) => (
+          <div key={pp.name} className="card row" style={{ flexWrap: 'wrap' }}>
+            <span>{pp.description || pp.name}</span>
+            {pp.description && <span className="muted small">{pp.name}</span>}
           </div>
-          {v.note && v.note !== 'published contents' && v.note !== v.name && <div className="small" style={{ marginTop: 4 }}>{v.note}</div>}
-          {shown === v.version && <Contents v={v} />}
-          {shown === v.version && <Limits v={v} base={h.versions.find((b) => b.version === v.basedOn)} />}
-          {shown === v.version && <WhatIfPanel pack={h.name} version={v.version} />}
-        </div>
-      ))}
-      {!showAll && h.versions.length > 3 && <button onClick={() => setShowAll(true)}>Show all versions ({h.versions.length})</button>}
+        ))}
+      </Section>}
+
+      <Section title="Versions" count={h.versions.length} note="The recommended version is what new projects get. Existing projects adopt separately.">
+        {h.versions.map((v) => (
+          <div key={v.version} className="card">
+            <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+              <strong>v{v.version}</strong>
+              {v.name && <span>“{v.name}”</span>}
+              {v.version === h.recommended && <span className="badge">recommended</span>}
+              <span className="muted small">{lineage(v)}</span>
+              <span style={{ flex: 1 }} />
+              <span className="muted small" title={v.at}>{relTime(v.at)}</span>
+              <button className="subtle" aria-expanded={open === v.version} onClick={() => setOpen(open === v.version ? null : v.version)}>{open === v.version ? 'Hide contents' : 'Contents'}</button>
+              {v.version !== h.recommended && (
+                <QuietConfirm label="Recommend" className="subtle" yes="Recommend it" disabled={busy}
+                  ask={`New projects will get v${v.version}, and projects on other versions will be offered it. No project moves.`}
+                  onYes={() => recommend(v.version)} />
+              )}
+            </div>
+            {v.note && v.note !== 'published contents' && v.note !== v.name && <div className="small" style={{ marginTop: 4 }}>{v.note}</div>}
+            {open === v.version && <Contents v={v} />}
+            {open === v.version && <Limits v={v} base={h.versions.find((b) => b.version === v.basedOn)} />}
+            {open === v.version && <WhatIfPanel pack={h.name} version={v.version} />}
+          </div>
+        ))}
+      </Section>
     </div>
   )
 }
@@ -77,18 +93,6 @@ function lineage(v: Publication): string {
   const parts: string[] = []
   if (v.basedOn) parts.push(`from v${v.basedOn}`)
   return parts.join(' · ')
-}
-
-// Declaration is the author's words: its items.
-function Declaration({ d }: { d: PackSpec }) {
-  const own = [...d.guidance.map((g) => `guidance ${g}`), ...d.workflows.map((w) => `workflow ${w}`), ...d.policies.map((p) => `policy ${p.name}`)]
-  return (
-    <div className="card small" style={{ padding: '8px 12px' }}>
-      <p>{d.guidance.length} rules · {d.workflows.length} workflows · {d.policies.length} policies</p>
-      <details><summary>Contents</summary><div>{own.length > 0 ? <>Holds: {own.map((o, i) => <span key={o}>{i > 0 ? ', ' : ''}<code>{o}</code></span>)}</> : 'Holds no guidance, workflows or policies.'}</div>
-      {d.toolchain && <div>Toolchain: <code>{d.toolchain}</code></div>}</details>
-    </div>
-  )
 }
 
 // Contents is what a version installs: the resolved items at their pins.

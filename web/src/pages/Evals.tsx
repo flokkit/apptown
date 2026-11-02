@@ -8,6 +8,8 @@ import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
 import type { Arm, CheckRow, Complaint, Eval, EvalList, EvalScorecard, EvalStartForm, ProjectRow, Tally } from '../wire.gen'
 import { PageHead } from '../PageHead'
+import { Section } from '../Section'
+import './Evals.css'
 
 // Evals: is an AI setup, or a pack version, better
 // or worse than what projects run now? Finished Changes are re-run in
@@ -25,21 +27,22 @@ const EVALS_DENIED = 'Evals are read by standards administrators and auditors, a
 export function EvalsPage() {
   const q = useGet<EvalList>('/evals', { poll: 10000 })
   return (
-    <div>
-      <PageHead page="evals" actions={<Link className="button" to="/evals/new">Start an eval</Link>} />
+    <div className="evals-page">
+      <PageHead page="evals" actions={<Link className="btn primary" to="/evals/new">Start an eval</Link>} />
       <ReadStatus q={q} what="the evals" denied={EVALS_DENIED} />
       <StaleNote q={q} />
-      {q.data && q.data.evals.length === 0 && <div className="muted">No evals yet.</div>}
-      {q.data?.evals.map((e) => <EvalRow key={e.id} e={e} />)}
+      {q.data && <Section title="Evals" count={q.data.evals.length}>
+        {q.data.evals.length === 0 ? <p className="muted">No evals yet.</p> : q.data.evals.map((e) => <EvalRow key={e.id} e={e} />)}
+      </Section>}
     </div>
   )
 }
 
 function EvalRow({ e }: { e: Eval }) {
   return (
-    <div className="card" style={{ marginBottom: 8 }}>
+    <div className="card">
       <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-        <Link to={`/evals/${e.id}`}><strong>Eval {e.number}</strong></Link>
+        <Link className="tap-open" to={`/evals/${e.id}`}><strong>Eval {e.number}</strong></Link>
         <span>{e.subject} against what projects run now</span>
         <Status word={e.statusLabel} help={e.reason || e.state} />
         <span style={{ flex: 1 }} />

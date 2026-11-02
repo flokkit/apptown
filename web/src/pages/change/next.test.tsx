@@ -97,7 +97,7 @@ const cases: { name: string; v: ChangeView; primary: Primary; headline: RegExp; 
   {
     name: 'landing blocked by a gate',
     v: view({ change: 'landing', state: 'blocked', changeNext: act('send-back'), steps: [step({ type: 'scan', name: 'scan-image:trivy', status: 'fail', evidence: { reason: '2 high findings' } })] }),
-    primary: 'send-back', headline: /^Landing stopped: “scan-image:trivy” did not pass$/, button: 'Send it back with a note',
+    primary: 'send-back', headline: /^Landing stopped: “scan-image:trivy” did not pass$/, button: 'Fix it',
   },
   {
     name: 'landing stopped after its merge',
@@ -127,7 +127,7 @@ const cases: { name: string; v: ChangeView; primary: Primary; headline: RegExp; 
   {
     name: 'shipped',
     v: view({ change: 'shipped', runStatus: 'done', merged: true, releases: [{ number: 21, deployment: 'main', state: 'released', serving: true }], artifacts: [{ kind: 'release', ref: 'https://coin.example' }] }),
-    primary: 'open-release', headline: /^Shipped$/, button: 'Open the release ↗',
+    primary: 'open-release', headline: /^Landed$/, button: 'Open the release ↗',
   },
   {
     name: 'abandoned',
@@ -300,11 +300,15 @@ describe('the change head', () => {
     for (const v of [merged, interrupted]) {
       const html = render(v)
       for (const refused of ['Send it back', 'Take it to chat', 'Abandon']) expect(html).not.toContain(refused)
-      expect(html).toContain('Override or view record')
+      expect(html).toContain('Accept it anyway')
+      expect(html).toContain('See the check&#x27;s record')
       expect(primaries(html)).toEqual(['Try again'])
     }
     const before = render(cases.find((c) => c.name === 'landing blocked by a gate')!.v)
-    expect(before).toContain('Take it to chat')
+    // Before the merge the stopped landing goes back to the agent with what
+    // the check found; the chat is among the other options.
+    expect(primaries(before)).toEqual(['Fix it'])
+    expect(before).toContain('Other options')
   })
 
   // A merge check that read no merge needs a person; AppTown offers to

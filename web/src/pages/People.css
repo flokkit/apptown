@@ -1,0 +1,32 @@
+/* Accounts: name | role | last seen | Manage on a wide screen; on a phone,
+   name and role on one line, last seen and Manage on the next. */
+.people-accounts .list-row { grid-template-columns: minmax(0, 1fr) 11em auto; padding: 10px 0; }
+.people-accounts .list-identity { display: grid; grid-template-columns: minmax(0, 10em) auto 1fr; gap: 8px; align-items: baseline; }
+.people-accounts .list-identity .badge { justify-self: start; }
+.people-accounts .list-identity:not(:has(.badge)) { grid-template-columns: minmax(0, 10em) 1fr; }
+.people-role { color: var(--text); }
+.people-accounts .list-action { min-height: 0; }
+.people-accounts .account-actions > summary { min-height: 36px; }
+@media (max-width: 800px) {
+  .people-accounts .list-row { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 10px 0; }
+  .people-accounts .list-identity { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+  .people-accounts .list-state { grid-column: 1; align-self: center; }
+  .people-accounts .list-action { grid-column: 2; grid-row: 2; justify-self: end; }
+}
+
+/* One control height across a form's inputs, select and button. */
+.people-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: stretch; }
+.people-form > input, .people-form > select, .people-form > button { height: 40px; min-height: 40px; box-sizing: border-box; margin: 0; }
+.people-form > input { flex: 1 1 10em; min-width: 0; }
+.people-invite { display: grid; gap: 10px; padding: 12px 0; }
+.people-by-password { display: grid; gap: 8px; }
+button.link.people-quiet { justify-self: start; padding: 0; min-height: 0; color: var(--muted); font-size: var(--fs-sm); text-decoration: none; }
+button.link.people-quiet:hover { color: var(--accent); }
+
+/* Four short tabs: on a phone they wrap to a second line rather than
+   hiding the last one off the edge. */
+@media (max-width: 480px) {
+  .tab-strip .tabs.people-tabs { flex-wrap: wrap; overflow-x: visible; row-gap: 0; }
+  .tab-strip .tabs.people-tabs a.tab { padding-left: 10px; padding-right: 10px; }
+}
+.people-accounts > .list-row:last-child { border-bottom: 0; }

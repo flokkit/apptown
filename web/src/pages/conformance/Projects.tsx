@@ -1,10 +1,10 @@
-import { useNarrow } from '../../chrome'
+import { Section, Group } from '../../Section'
 import { Status } from '../../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ConformanceView, ProjectStanding } from '../../wire.gen'
 import { relTime } from '../../format'
-import { StandingChip, BrokenNote, LaneBar, laneOf } from './parts'
+import { laneOf } from './parts'
 
 // --- Projects (the front page) ---------------------------------------------------------------
 
@@ -30,34 +30,26 @@ export function projectFact(p: ProjectStanding, view: ConformanceView): string {
   return p.standing === 'conforms-with-exceptions' ? 'Exceptions are approved.' : 'Checks are up to date.'
 }
 
-function ProjectRow({ p, fact, base, onCheck }: { p: ProjectStanding; fact: string; base: string; onCheck?: (slug: string) => void }) {
-  const narrow = useNarrow()
-  if (narrow) return <div className="card"><Link to={`${base}/projects/${p.slug}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
-    <div className="host-row"><strong>{p.name || p.slug}</strong><StandingChip broken={p.lanes.broken} findings={p.standing === 'does-not-conform' ? p.lanes.findings : undefined} label={p.statusLabel} help={p.sentence} /><span className="muted small">{fact}</span></div>
-  </Link>{onCheck && p.standing === 'conforms-so-far' && <button onClick={() => onCheck(p.slug)}>Check now</button>}</div>
+// One row per project: its standing in the status column, its name, and one
+// meta line (what to do, what could not run, when it was checked).
+function ProjectRow({ p, fact, base }: { p: ProjectStanding; fact: string; base: string }) {
+  const findings = p.standing === 'does-not-conform' ? p.lanes.findings : 0
+  const meta = [fact.replace(/\.$/, ''), p.lanes.broken > 0 ? `${p.lanes.broken} couldn't run` : '', p.judgedAt ? `checked ${relTime(p.judgedAt)}` : 'not checked yet'].filter(Boolean).join(' · ')
   return (
-    <div className="card" style={{ marginBottom: 0, padding: '10px 14px', textDecoration: 'none', color: 'inherit', display: 'block' }}>
-      <Link to={`${base}/projects/${p.slug}`} style={{ color: 'inherit', textDecoration: 'none' }}><div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)', alignItems: 'center' }}>
-        <div className="row" style={{ gap: 'var(--space-3)', alignItems: 'center', minWidth: 0 }}>
-          <span style={{ minWidth: 200 }}>
-            <strong style={{ fontSize: 'var(--fs-base)' }}>{p.name || p.slug}</strong>
-            {p.name && p.name !== p.slug && <span className="mono muted small" style={{ marginLeft: 'var(--space-2)' }}>{p.slug}</span>}
-          </span>
-          <StandingChip broken={p.lanes.broken} findings={p.standing === 'does-not-conform' ? p.lanes.findings : undefined} label={p.statusLabel} help={p.sentence} />
-        </div>
-        <span className="conformance-extra"><LaneBar lanes={p.lanes} total={p.total} /></span>
-      </div>
-      <div className="muted small mt-1">
-        {fact} {p.lanes.findings > 0 && <BrokenNote broken={p.lanes.broken} />} · {p.judgedAt ? `Checked ${relTime(p.judgedAt)}` : 'Not checked yet — open to check now'}
-      </div>
+    <div className="card row" style={{ display: 'flex' }}>
+      <Link to={`${base}/projects/${p.slug}`} className="row" style={{ display: 'flex', flex: 1, minWidth: 0 }}>
+        <span className="row-status">{findings > 0
+          ? <span className="finding-count" title={p.sentence}>{findings} {findings === 1 ? 'finding' : 'findings'}</span>
+          : <Status word={p.statusLabel} help={p.sentence} />}</span>
+        <strong>{p.name || p.slug}</strong>
+        <span className="muted small">{meta}</span>
       </Link>
-      {onCheck && p.standing === 'conforms-so-far' && <button onClick={() => onCheck(p.slug)}>Check now</button>}
+      <span className="row-action"><Link className="btn" to={`${base}/projects/${p.slug}`}>View checks</Link></span>
     </div>
   )
 }
 
-export function ProjectsList({ view, base, onCheck }: { view: ConformanceView; base: string; onCheck?: (slug: string) => void }) {
-  const [showQuiet, setShowQuiet] = useState(false)
+export function ProjectsList({ view, base }: { view: ConformanceView; base: string }) {
   const [q, setQ] = useState('')
   const needle = q.trim().toLowerCase()
   const hit = (p: ProjectStanding) => !needle || [p.name, p.slug, p.sentence, ...p.adopted].join(' ').toLowerCase().includes(needle)
@@ -65,24 +57,19 @@ export function ProjectsList({ view, base, onCheck }: { view: ConformanceView; b
   const loud = all.filter((p) => p.standing !== 'conforms' && p.standing !== 'nothing-adopted')
   const quiet = all.filter((p) => p.standing === 'conforms')
   const none = all.filter((p) => p.standing === 'nothing-adopted')
-  if (view.projects.length === 0) return <div className="muted" style={{ padding: '40px 0', textAlign: 'center' }}>No repo-backed projects yet.</div>
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+    <Section title="Projects" count={view.projects.length || undefined}>
+      {view.projects.length === 0 && <p className="muted small">No repo-backed projects yet.</p>}
       {view.projects.length > 8 && (
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a project by name, slug, standing or way of working…"
-          style={{ maxWidth: 420, marginBottom: 'var(--space-1)' }} />
+          style={{ maxWidth: 420, width: '100%', margin: '12px 0 4px' }} />
       )}
-      {needle && all.length === 0 && <div className="muted small" style={{ padding: '8px 14px' }}>Nothing matches "{q}".</div>}
-      {loud.map((p) => <ProjectRow key={p.slug} p={p} fact={projectFact(p, view)} base={base} onCheck={onCheck} />)}
-      {quiet.length > 0 && (
-        <div className="card" style={{ marginBottom: 0, padding: '10px 14px', cursor: 'pointer' }} onClick={() => setShowQuiet(!showQuiet)}>
-          <span className="muted small">{showQuiet ? '▾' : '▸'} </span>
-          <Status word={quiet[0].statusLabel} />
-          <span className="small">{quiet.length} project{quiet.length === 1 ? '' : 's'} meet everything they adopted{showQuiet ? ':' : ` · ${quiet.map((p) => p.name || p.slug).join(', ')}`}</span>
-        </div>
-      )}
-      {showQuiet && quiet.map((p) => <ProjectRow key={p.slug} p={p} fact={projectFact(p, view)} base={base} onCheck={onCheck} />)}
-      {none.length > 0 && <div className="muted small" style={{ padding: '4px 14px' }}>Nothing adopted: {none.map((p) => p.name || p.slug).join(', ')}.</div>}
-    </div>
+      {needle && all.length === 0 && <p className="muted small">Nothing matches "{q}".</p>}
+      {loud.map((p) => <ProjectRow key={p.slug} p={p} fact={projectFact(p, view)} base={base} />)}
+      {quiet.length > 0 && <Group label={`Meet everything they adopted · ${quiet.length}`}>
+        {quiet.map((p) => <ProjectRow key={p.slug} p={p} fact={projectFact(p, view)} base={base} />)}
+      </Group>}
+      {none.length > 0 && <p className="muted small">Nothing adopted: {none.map((p) => p.name || p.slug).join(', ')}.</p>}
+    </Section>
   )
 }

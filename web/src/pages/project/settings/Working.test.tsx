@@ -4,7 +4,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { getKey, newQueryClient } from '../../../data'
+import { newQueryClient } from '../../../data'
 import { GuidanceTab } from './Working'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -33,91 +33,29 @@ function mount(client: ReturnType<typeof newQueryClient>) {
 
 const button = (el: HTMLElement, text: string) => [...el.querySelectorAll('button')].find((b) => b.textContent === text)!
 
-describe('the guidance editor', () => {
+describe("a project's way of working", () => {
   afterEach(() => { vi.unstubAllGlobals() })
 
-  // Saving sends the whole list. A list the page never read is empty, and
-  // saving it with one block added would drop every block the project had.
-  it('stays locked when its first read fails, even with an older answer held', async () => {
+  // The packs are the one choice; what they give the project is read-only,
+  // one line each, opening to the list.
+  it('shows its packs and what they give it, with no editing', async () => {
     const client = newQueryClient()
-    client.setQueryData(getKey(path), guidance(block('house-style', 1)))
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith(path)
-      ? new Response(JSON.stringify({ error: 'not allowed' }), { status: 403 })
-      : otherReads(url)))
-    const { el, unmount } = mount(client)
-    try {
-      await vi.waitFor(() => expect(el.querySelector('.chip.unknown')?.getAttribute('aria-label')).toContain('not allowed'))
-      await vi.waitFor(() => expect(el.textContent).toContain('plain-words'))
-      const picker = el.querySelector('select') as HTMLSelectElement
-      await act(async () => {
-        Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(picker, 'plain-words')
-        picker.dispatchEvent(new Event('change', { bubbles: true }))
-      })
-      expect(picker.value).toBe('plain-words')
-      expect(button(el, 'Save').disabled).toBe(true)
-      expect(button(el, 'Add').disabled).toBe(true)
-      expect(el.textContent).toContain('reading the current guidance before editing')
-      expect(el.textContent).not.toContain('No guidance imported yet')
-    } finally {
-      unmount()
-      client.clear()
-    }
-  })
-
-  it('seeds from its own read and keeps an unsaved draft through a refresh', async () => {
-    const client = newQueryClient()
-    let server = guidance(block('house-style', 1))
-    let saved: unknown
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-      if (init?.method === 'PUT') { saved = JSON.parse(String(init.body)); return new Response(JSON.stringify(server)) }
-      return url.endsWith(path) ? new Response(JSON.stringify(server)) : otherReads(url)
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/adoption')) return new Response(JSON.stringify({ current: { createdAt: '2026-11-01T00:00:00Z', createdBy: 'sam', reason: 'created', digest: 'd' }, packs: [{ pack: 'django', version: 1, recommended: 1, reason: '' }, { pack: 'postgres', version: 1, recommended: 1, reason: '' }], additions: [], exclusions: [], conditions: [] }))
+      if (url.endsWith(path)) return new Response(JSON.stringify(guidance(block('house-style', 1), block('prose', 2))))
+      if (url.endsWith('/lanes')) return new Response(JSON.stringify({ lanes: [{ name: 'quick-change', tier: 'core', description: 'small', origin: 'stock', version: 1, selected: true, runsCount: 2 }, { name: 'research', tier: 'extra', description: 'look', origin: 'stock', version: 1, selected: false, runsCount: 0 }], system: [] }))
+      return otherReads(url)
     }))
     const { el, unmount } = mount(client)
     try {
-      await vi.waitFor(() => expect(el.textContent).toContain('house-style'))
-      const enabled = () => [...el.querySelectorAll('tbody input[type=checkbox]')] as HTMLInputElement[]
-      await act(async () => { enabled()[0].click() })
-      server = guidanceAt(5, block('house-style', 1), block('prose', 2))
-      await act(async () => { await client.invalidateQueries({ queryKey: ['get'] }) })
-      await vi.waitFor(() => expect(client.getQueryData(getKey(path))).toEqual(server))
-      expect(el.textContent).not.toContain('prose')
-      expect(enabled()[0].checked).toBe(false)
-      await act(async () => { button(el, 'Save').click() })
-      // The draft keeps the revision it started from, not the refresh's.
-      expect(saved).toEqual({ expectedRevision: 4, imports: [{ name: 'house-style', version: 1, disabled: true }] })
-    } finally {
-      unmount()
-      client.clear()
-    }
-  })
-
-  // The way of working moved on while the list was edited: the save is
-  // refused, the list is kept, and the person decides.
-  it('keeps the list when the way of working moved on and saves it over the new revision on request', async () => {
-    const client = newQueryClient()
-    let server = guidance(block('house-style', 1))
-    const saved: Record<string, unknown>[] = []
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-      if (init?.method === 'PUT') {
-        saved.push(JSON.parse(String(init.body)))
-        return saved.length === 1
-          ? new Response(JSON.stringify({ error: 'moved' }), { status: 409, headers: { 'X-AppTown-Deny-Code': 'settings-moved' } })
-          : new Response(JSON.stringify(server))
-      }
-      return url.endsWith(path) ? new Response(JSON.stringify(server)) : otherReads(url)
-    }))
-    const { el, unmount } = mount(client)
-    try {
-      await vi.waitFor(() => expect(el.textContent).toContain('house-style'))
-      const enabled = () => [...el.querySelectorAll('tbody input[type=checkbox]')] as HTMLInputElement[]
-      await act(async () => { enabled()[0].click() })
-      server = guidanceAt(6, block('house-style', 1), block('prose', 2))
-      await act(async () => { button(el, 'Save').click() })
-      await vi.waitFor(() => expect(el.textContent).toContain('The list is now: house-style, prose'))
-      expect(enabled()[0].checked).toBe(false)
-      await act(async () => { button(el, 'Keep my list over it').click() })
-      await act(async () => { button(el, 'Save').click() })
-      expect(saved[1]).toEqual({ expectedRevision: 6, imports: [{ name: 'house-style', version: 1, disabled: true }] })
+      await vi.waitFor(() => expect(el.textContent).toContain('This project uses: django · postgres'))
+      expect(el.textContent).toContain('2 instructions its coding agents follow')
+      // Every workflow the project can run, not only the ones once ticked.
+      expect(el.textContent).toContain('quick-change, research')
+      expect(el.querySelector('input[type=checkbox]')).toBeNull()
+      expect([...el.querySelectorAll('button')].some((b) => /Save|Add|remove/.test(b.textContent ?? ''))).toBe(false)
+      await act(async () => { button(el, 'View').click() })
+      expect(el.querySelector('a[href="/guidance/house-style"]')).not.toBeNull()
     } finally {
       unmount()
       client.clear()

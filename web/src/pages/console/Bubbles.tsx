@@ -278,7 +278,7 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly }: { ses
           onChange={(e) => setText(e.target.value)}
           onPaste={onPaste}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-          placeholder="Say what you want (you can paste images)"
+          placeholder="Say what to change. You can paste images."
           aria-label="your message"
         />
         <button className="primary" onClick={send} disabled={!text.trim() && images.length === 0}>Send</button>

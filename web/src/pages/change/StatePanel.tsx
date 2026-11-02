@@ -1,11 +1,11 @@
-import { STATUS_LIGHT } from '../../Status'
+import { STATUS_LIGHT, Status } from '../../Status'
 import { PRODUCT } from '../../brand'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { TryIt } from '../../TryIt'
-import { AdvanceResult, ChangeView, Step, StepOf, Workflow, isStep, post } from '../../api'
+import { AdvanceResult, ChangeView, Step, StepOf, Workflow, currentUser, isStep, post } from '../../api'
 import { Screenshots } from '../../Screenshots'
-import { QuietConfirm } from '../../QuietConfirm'
+import { QuietConfirm, QuietPrompt } from '../../QuietConfirm'
 import { CloseIt } from '../../CloseIt'
 import { DecisionForm, landingMeansFor } from '../../DecisionForm'
 import { useAction, useGet } from '../../data'
@@ -14,6 +14,8 @@ import type { ConsoleOpened, ConsoleSessionList, MainConflict } from '../../wire
 import { Terminal } from './Terminal'
 import { SoFarNote } from './Head'
 import { NextStep, isLandingApproval, nextStep, offered, rerunLabel } from './next'
+import { disputeOf } from './Disagreement'
+import { verificationSummary } from './Evidence'
 
 // The change's state, said once, with ONE primary action for whoever is
 // looking (approve, send back, land, take it to chat — or wait, naming who
@@ -47,28 +49,41 @@ export function StatePanel({ view, onChange, reading, workTab }: {
   const stale = !!reading?.refreshFailed
   const light = stale ? 'unknown' : STATUS_LIGHT[view.statusLabel]
   const tone = ({pass:'ok', pending:'warn', fail:'bad', unknown:'unknown', '':'neutral'} as Record<string, string>)[light]
+  // A failed check the agent can fix leads with what the check found, in
+  // its own first words, instead of the step's recorded reason.
+  const found = fixable(view, next) && view.detail ? foundLine(view.detail) : ''
   return (
     <section className={`ch-state tone-${tone}`} aria-label="Where this change is">
-      <div className="ch-state-main">
-        <div className="ch-state-words">
-          <div className="ch-state-head">
-            <span className="ch-headline">{next.headline}</span>
-          </div>
-          {next.sentBack && (
-            <div className="ch-sentence">
-              {next.sentBack.by === 'a check' ? 'A check sent it back' : `${next.sentBack.by} sent it back`}:{' '}
-              <span className="ch-quote">“{firstLines(next.sentBack.note, 3)}”</span>
-            </div>
-          )}
-          {next.sentence && <div className="ch-sentence">{next.sentence}</div>}
-          {next.waitingOn && !(next.primary === 'approve' && next.waitingOn === 'you') && <div className="ch-waiting">Waiting on: <strong>{next.waitingOn}</strong></div>}
-          {view.mainConflict && <MainConflictLine conflict={view.mainConflict} />}
-          {reading && <StaleNote q={reading} />}
+      <div className="ch-state-words">
+        <div className="ch-state-head">
+          <span className={`ch-dot ${tone}`} aria-hidden="true" />
+          <span className="ch-headline">{next.headline}</span>
         </div>
+        {next.sentBack && (
+          <div className="ch-sentence">
+            {next.sentBack.by === 'a check' ? 'A check sent it back' : `${next.sentBack.by} sent it back`}:{' '}
+            <span className="ch-quote">“{firstLines(next.sentBack.note, 3)}”</span>
+          </div>
+        )}
+        {found ? <div className="ch-sentence">{found}</div> : next.sentence && <div className="ch-sentence">{next.sentence}</div>}
+        {!found && !next.sentence && next.primary === 'take-to-chat' && view.detail && <FoundLine detail={view.detail} />}
+        {next.waitingOn && !(next.primary === 'approve' && next.waitingOn === 'you') && <div className="ch-waiting">Waiting on: <strong>{next.waitingOn}</strong></div>}
+        {view.mainConflict && <MainConflictLine conflict={view.mainConflict} />}
+        {reading && <StaleNote q={reading} />}
       </div>
       <Actions view={view} next={next} onChange={onChange} workTab={workTab} />
     </section>
   )
+}
+
+// fixable: the change stopped on a check the agent can fix, and AppTown
+// offers to send it back — a blocked working run or a stopped landing. A
+// person's rejection, a stuck agent step and a rules change are not: they
+// have their own words and acts.
+export function fixable(view: ChangeView, next: NextStep): boolean {
+  const s = next.step
+  return !!s && !!view.detail && (next.primary === 'take-to-chat' || next.primary === 'send-back')
+    && !['agent/pi', 'approval', 'policy/current'].includes(s.type) && !!offered(view.next, 'send-back')
 }
 
 function firstLines(s: string, n: number) {
@@ -98,20 +113,30 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
     nav(`/projects/${view.projectSlug}/console?change=${ch.id}&session=${r.session.id}&kickoff=stuck`)
   })
   const rerun = (s: Step) => act(() => post(`/steps/${s.id}/run`))
-  const abandon = <QuietConfirm label="Abandon" ask="Abandon this change? The branch is kept; the workspace is removed."
+  const abandon = <QuietConfirm label="Abandon" className="subtle" ask="Abandon this change? The branch is kept; the workspace is removed."
     onYes={() => act(() => post(`/changes/${ch.id}/abandon`, {}))} />
   const stopAttempt = run?.status === 'running' && ch.state !== 'landing' && (
-    <QuietConfirm label="Stop this attempt" ask="Stop this attempt? Nothing is deleted; the change stays open."
+    <QuietConfirm label="Stop this attempt" className="subtle" ask="Stop this attempt? Nothing is deleted; the change stays open."
       onYes={() => act(() => post(`/runs/${run.id}/abandon`, { reason: 'stopped from the change page' }))} />
   )
   const inChat = next.stamp === 'agent working' || next.stamp === 'in the chat'
-  const chatLink = (primary: boolean) => (
-    <Link className={primary ? 'btn primary' : 'btn'} to={`/projects/${view.projectSlug}/console?change=${ch.id}`}
-      title="Talk to the project's helper about this change; what you do together is saved to the change.">
-      {inChat && primary ? 'Open the chat' : 'Chat about it'}
-    </Link>
-  )
+  const chatHref = `/projects/${view.projectSlug}/console?change=${ch.id}`
+  const chatTitle = "Talk to the project's helper about this change; what you do together is saved to the change."
+  const chatLink = (primary: boolean) => primary
+    ? <Link className="btn primary" to={chatHref} title={chatTitle}>{inChat ? 'Open the chat' : 'Chat about it'}</Link>
+    : <button className="subtle" title={chatTitle} onClick={() => nav(chatHref)}>Chat about it</button>
   const lastTalker = d && run?.status === 'running' && !(step?.status === 'running') ? lastTranscriptStep(d.steps) : undefined
+
+  // The quiet acts every stopped step shares: accept it anyway (an
+  // override, with its meaning said before it is recorded; AppTown decides
+  // who may), and its full record in the Work tab.
+  const acceptAnyway = (s: Step) => (
+    <QuietPrompt label="Accept it anyway" className="subtle" yes="Accept it anyway"
+      ask={`Accept the change although “${s.name}” did not pass? This records an exception in your name, with your reason; the check's result stays on the record.`}
+      fields={[{ key: 'reason', placeholder: 'Why (required)', required: true, width: 260 }]}
+      onYes={(v) => act(() => post(`/steps/${s.id}/override`, { user: currentUser(), reason: v.reason.trim() }))} />
+  )
+  const record = (s: Step) => <button className="subtle" onClick={() => nav(workTab(s.id))}>See the check's record</button>
 
   let body: React.ReactNode = null
   let quiet: React.ReactNode = null
@@ -121,7 +146,7 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
       const toLand = isLandingApproval(view, step)
       body = (
         <>
-          <ApproveEvidence changeId={changeId} soFar={ch.summary || view.report} diffstat={view.diffstat}
+          <ApproveEvidence changeId={changeId} soFar={ch.summary || view.report} checks={verificationSummary(d.steps)}
             shortfall={ch.summary ? requestShortfall(ch) : undefined} unchecked={ch.summary ? requestUnchecked(ch) : undefined} boot={latestBoot(d.steps)} head={view.head}
             notApplicable={notApplicableHere(d.steps)} />
           {/* Two roles, two zones: the DECISION is the approver's —
@@ -130,19 +155,38 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
           <DecisionForm stepId={step.id!} onDone={onChange}
             means={step.config.means} alsoMeans={landingMeansFor(d, step)} instructions={step.config.instructions}
             approveLabel={toLand ? 'Approve and land' : 'Approve'} rejectLabel="Reject and send back"
-            placeholder="say why (optional; a rejection sends your words back to the agent)" />
+            placeholder="Note (optional)" />
         </>
       )
       quiet = toLand && run.status === 'running'
         ? <KeepWorking runId={run.id!} view={view} />
-        : <span className="muted small">
+        : <>
             <button className="subtle" onClick={() => takeToChat(step)}>Take it to chat</button>
             {stopAttempt}
-          </span>
+          </>
       break
     }
     case 'take-to-chat':
     case 'send-back':
+      // A failed check: the person's next step is almost always "have the
+      // agent fix what the check found". Fix it sends the change back with
+      // the findings as the note — in a blocked working run and in a
+      // stopped landing alike; the rest is one click away.
+      if (step && d && fixable(view, next)) {
+        body = <FixIt changeId={changeId} note={fixNote(d)} onDone={onChange} />
+        quiet = (
+          <OtherOptions>
+            <button className="subtle" title="Stops this attempt and opens the chat; the same agent continues, with you steering." onClick={() => takeToChat(step)}>Talk it through</button>
+            {offered(d.next, 'retry', step.id) && <button className="subtle" onClick={() => rerun(step)}>Run the check again</button>}
+            {acceptAnyway(step)}
+            {record(step)}
+            <QuietConfirm label="Close it" className="subtle" ask="Close this change? The branch is kept; the workspace is removed."
+              onYes={() => act(() => post(`/changes/${ch.id}/abandon`, {}))} />
+          </OtherOptions>
+        )
+        break
+      }
+    // falls through: a rejection, or a step the server will not send back
     case 'pick-up': {
       if (!step) break
       const primaryBtn = next.primary === 'pick-up'
@@ -160,7 +204,10 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
         <>
           {next.primary !== 'take-to-chat' && <button className="subtle" onClick={() => takeToChat(step)}>Take it to chat</button>}
           {next.primary !== 'pick-up' && offered(d?.next, 'retry', step.id) && <button className="subtle" onClick={() => rerun(step)}>{rerunLabel(step)}</button>}
-          <Link className="small" to={workTab(step.id)}>Override or view record</Link>
+          {step.type !== 'approval' && step.type !== 'agent/pi' && acceptAnyway(step)}
+          {step.type === 'approval'
+            ? <button className="subtle" onClick={() => nav(workTab(step.id))}>See the record</button>
+            : record(step)}
           {next.primary === 'take-to-chat' && step.type !== 'agent/pi' && offered(view.next, 'send-back') && <SendBack changeId={changeId} onDone={onChange} />}
           {abandon}
           {stopAttempt}
@@ -176,7 +223,7 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
           <button className="primary" disabled={busy} onClick={() => rerun(step)}>{rerunLabel(step)}</button>
         </div>
       )
-      quiet = <><Link className="small" to={workTab(step.id)}>Override or view record</Link>{offered(view.next, 'abandon') && <CloseIt changeId={changeId} />}</>
+      quiet = <>{acceptAnyway(step)}{record(step)}{offered(view.next, 'abandon') && <CloseIt changeId={changeId} />}</>
       break
     case 'restart-landing':
       if (!run) break
@@ -186,7 +233,7 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
           <span className="muted small">lands this change again under the current rules</span>
         </div>
       )
-      quiet = <>{step && <Link className="small" to={workTab(step.id)}>Which rules changed</Link>}{abandon}</>
+      quiet = <>{step && <button className="subtle" onClick={() => nav(workTab(step.id))}>Which rules changed</button>}{abandon}</>
       break
     case 'continue':
       if (!run) break
@@ -229,16 +276,18 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
     case 'open-release': {
       const rel = d ? [...d.artifacts].reverse().find((a) => a.kind === 'release' && a.ref) : undefined
       body = (
-        <div className="row ch-primary">
-          {rel && <a className="btn primary" href={rel.ref} target="_blank" rel="noreferrer" title={rel.ref}>Open the release ↗</a>}
-          <TryIt changeId={changeId} label="▶ View as of this change" className="" />
-        </div>
+        <>
+          {rel && <div className="row ch-primary"><a className="btn primary" href={rel.ref} target="_blank" rel="noreferrer" title={rel.ref}>Open the release ↗</a></div>}
+          <ReleaseRows view={view} />
+        </>
       )
+      quiet = <TryIt changeId={changeId} label="View as of this change" className="subtle" />
       break
     }
     case 'none':
       if (ch.state === 'shipped') {
-        body = <div className="row ch-primary"><TryIt changeId={changeId} label="▶ View as of this change" className="" /></div>
+        body = <ReleaseRows view={view} />
+        quiet = <TryIt changeId={changeId} label="View as of this change" className="subtle" />
       } else if (run?.status === 'running' && step?.status === 'running') {
         body = <Terminal stepId={step.id!} name={step.name} running startedAt={step.startedAt} defaultOpen />
         quiet = <>{stopAttempt}</>
@@ -333,8 +382,12 @@ export function latestBoot(steps: Step[]): StepOf<'preview'> | undefined {
   return boots.length ? boots[boots.length - 1] : undefined
 }
 
-export function ApproveEvidence({ changeId, soFar, diffstat, shortfall, unchecked, boot, head, notApplicable }: {
-  changeId: string; soFar?: string; diffstat?: string; shortfall?: string; unchecked?: string; boot?: StepOf<'preview'>; head?: string
+export function ApproveEvidence({ changeId, soFar, checks, shortfall, unchecked, boot, head, notApplicable }: {
+  changeId: string; shortfall?: string; unchecked?: string; boot?: StepOf<'preview'>; head?: string
+  // soFar: what the change did, from its summary or else the agent's report
+  // (a summary is asked for when there is neither); checks: what the run's
+  // checks did, always said beside it.
+  soFar?: string; checks?: string
   notApplicable?: { name: string; why: string }[]
 }) {
   const asked = useRef(false)
@@ -345,10 +398,10 @@ export function ApproveEvidence({ changeId, soFar, diffstat, shortfall, unchecke
   }, [soFar, changeId])
   return (
     <div className="ch-approve-evidence">
-      {soFar && <div><div className="ch-label">What you'd be shipping</div><SoFarNote text={soFar} /></div>}
+      {soFar && <SoFarNote text={soFar} />}
+      {checks && <div className="ch-sentence">Checks: {checks}</div>}
       <div className="row" style={{ marginTop: 8 }}>
-        <TryIt changeId={changeId} label="▶ Try it first" className="" />
-        {diffstat && <span className="muted small">{diffstat}</span>}
+        <TryIt changeId={changeId} label="Try it first" className="subtle" />
       </div>
       {boot && <Screenshots shots={boot.evidence.screenshots} head={head} at={boot.finishedAt ?? undefined} />}
       {notApplicable && notApplicable.length > 0 && (
@@ -380,18 +433,18 @@ export function KeepWorking({ runId, view }: { runId: string; view: ChangeView }
   const [confirming, setConfirming] = useState(false)
   const { run, busy, err } = useAction()
   return (
-    <span className="muted small">
+    <span className="row" style={{ gap: 8 }}>
       {!confirming ? (
         <>{' '}
-          <button className="subtle" onClick={() => setConfirming(true)}>Keep working</button>
+          <button className="subtle" onClick={() => setConfirming(true)}>Stop the landing and go back to the chat</button>
         </>
       ) : (
-        <>Stop the landing and go back to the chat?{' '}
+        <><span className="small">Stop the landing and go back to the chat?</span>
           <button className="subtle" disabled={busy} onClick={async () => {
             const done = await run(async () => { await post(`/runs/${runId}/abandon`, { reason: 'returned to the change chat to keep working' }); return true })
             if (done) nav(`/projects/${view.projectSlug}/console?change=${view.change.id}`)
             else setConfirming(false)
-          }}>{busy ? 'Stopping…' : 'Yes, back to the chat'}</button>
+          }}>{busy ? 'Stopping…' : 'Yes, stop it'}</button>
           <button className="subtle" onClick={() => setConfirming(false)}>Stay</button>
         </>
       )}
@@ -410,8 +463,7 @@ export function SendBack({ changeId, onDone, primary }: { changeId: string; onDo
   const { run, busy, err } = useAction(() => { setOpen(false); setNote(''); onDone() })
   if (!open) {
     return primary
-      ? <div className="row ch-primary"><button className="primary" onClick={() => setOpen(true)}>Send it back with a note</button>
-          <span className="muted small">the landing stops and the change goes back to work with your words</span></div>
+      ? <div className="row ch-primary"><button className="primary" onClick={() => setOpen(true)}>Send it back with a note</button></div>
       : <button className="subtle" onClick={() => setOpen(true)}>Send it back with a note</button>
   }
   return (
@@ -436,6 +488,65 @@ export function MainConflictLine({ conflict }: { conflict: MainConflict }) {
       {conflict.mainBranch} has moved and {PRODUCT} could not merge it in before step {conflict.step}: {conflict.files.join(', ')}{' '}
       {conflict.files.length === 1 ? 'conflicts' : 'conflict'}. Catch up in the change's chat:{' '}
       <code style={{ overflowWrap: 'anywhere' }}>{conflict.catchUp}</code>
+    </div>
+  )
+}
+
+// fixNote is what Fix it sends back: each failed check and what it found,
+// in the same words the page shows under "What failed".
+export function fixNote(d: NonNullable<ChangeView['detail']>): string {
+  const lines = disputeOf(d).map((v) => {
+    const found = [v.text, ...v.findings, v.log].filter(Boolean).join('\n')
+    return found ? `The “${v.step.name}” check did not pass:\n${found}` : `The “${v.step.name}” check did not pass.`
+  })
+  return [...lines, 'Fix what it found, then the checks run again.'].join('\n\n')
+}
+
+function FixIt({ changeId, note, onDone }: { changeId: string; note: string; onDone: () => void }) {
+  const { run, busy, err } = useAction(onDone)
+  return (
+    <div className="row ch-primary">
+      <button className="primary" disabled={busy} title="Sends the change back to the agent with what the check found." onClick={() => run(() => post(`/changes/${changeId}/sendback`, { note }))}>{busy ? 'Sending…' : 'Fix it'}</button>
+      <span className="muted small">the agent gets what the check found and works on it</span>
+      {err && <span className="error small">{err}</span>}
+    </div>
+  )
+}
+
+// OtherOptions: the acts besides the primary one, one click away, in one
+// quiet style on one line.
+function OtherOptions({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return open
+    ? <>{children}</>
+    : <button className="subtle" aria-expanded={false} onClick={() => setOpen(true)}>Other options</button>
+}
+
+// foundLine says, in the check's own first words, what it found: the
+// answer to "what is wrong" sits under the headline, not two clicks down.
+export function foundLine(detail: NonNullable<ChangeView['detail']>): string {
+  const v = disputeOf(detail)[0]
+  return (v?.text || v?.findings[0] || v?.log || '').trim().split('\n')[0]
+}
+
+function FoundLine({ detail }: { detail: NonNullable<ChangeView['detail']> }) {
+  const first = foundLine(detail)
+  return first ? <div className="ch-sentence">{first}</div> : null
+}
+
+// ReleaseRows: the releases a landed change went out in, one row each.
+// None recorded is no row at all: the headline already says it landed.
+function ReleaseRows({ view }: { view: ChangeView }) {
+  const releases = view.evidence?.releases ?? []
+  if (releases.length === 0) return null
+  return (
+    <div className="ch-release-rows">
+      {releases.map((r) => (
+        <Link key={r.number} className="card row" style={{ display: 'flex' }} to={`/projects/${view.projectSlug}/releases/${r.number}`}>
+          <span className="row-status"><Status word={r.statusLabel} /></span>
+          <span style={{ flex: 1, minWidth: 0 }}>Release #{r.number} <span className="muted small">to {r.deployment}</span></span>
+        </Link>
+      ))}
     </div>
   )
 }

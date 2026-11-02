@@ -29,10 +29,12 @@ export function DocsModal({ spec, onClose }: { spec: ConnectorEntry; onClose: ()
 }
 
 // The Harness-style catalog: a modal of preset tiles grouped by capability,
-// searchable, with managed system connectors shown (dimmed) for completeness.
-export function CatalogPicker({ catalog, onPick, onClose }: {
+// searchable. A connector AppTown sets up from its own settings cannot be
+// added again; its tile opens the one that exists, which says what it needs.
+export function CatalogPicker({ catalog, onPick, onOpen, onClose }: {
   catalog: ConnectorEntry[]
   onPick: (spec: ConnectorEntry, preset?: ConnectorPreset) => void
+  onOpen: (spec: ConnectorEntry) => void
   onClose: () => void
 }) {
   const [q, setQ] = useState('')
@@ -44,9 +46,13 @@ export function CatalogPicker({ catalog, onPick, onClose }: {
     <Modal onClose={onClose} title="New integration"
       head={<input placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} autoFocus aria-label="search" style={{ width: 220 }} />}>
       <div>
+        {/* Every kind page offers Connect; a kind with nothing new to add says so. */}
+        {creatable.length === 0 && !q && <p className="muted">Nothing new of this kind can be connected yet.{managed.length > 0 ? ` ${PRODUCT} sets up the one below itself.` : ''}</p>}
         {creatable.map((spec) => {
           const meta = capabilityMeta(spec.capability, spec.title)
-          const presets = (spec.presets ?? []).filter((p) => !q || match(p.title) || match(p.description))
+          // A connector with no presets is offered as itself.
+          const all = spec.presets?.length ? spec.presets : [{ name: spec.provider, title: spec.title, description: spec.description, icon: spec.icon ?? spec.capability, config: {} }]
+          const presets = all.filter((p) => !q || match(p.title) || match(p.description))
           if (presets.length === 0) return null
           return (
             <div key={spec.capability + spec.provider} style={{ marginBottom: 18 }}>
@@ -54,7 +60,7 @@ export function CatalogPicker({ catalog, onPick, onClose }: {
                 <span className="muted small" style={{ fontWeight: 400 }}> — {meta.blurb}</span></h3>
               <div className="cat-grid">
                 {presets.map((p) => (
-                  <div key={p.name} className="cat-tile" onClick={() => onPick(spec, p)}>
+                  <div key={p.name} className="cat-tile" onClick={() => onPick(spec, spec.presets?.length ? p : undefined)}>
                     <ConnIcon name={p.icon} size={24} />
                     <div style={{ minWidth: 0 }}>
                       <strong>{p.title}</strong>
@@ -66,12 +72,13 @@ export function CatalogPicker({ catalog, onPick, onClose }: {
             </div>
           )
         })}
-        {(!q || managed.some((m) => match(m.title))) && (
+        {/* Only when there is one to show: an empty heading reads as broken. */}
+        {managed.some((m) => !q || match(m.title)) && (
           <div>
-            <h3 className="catalog-section">Managed by {PRODUCT}</h3>
+            <h3 className="catalog-section">Set up by {PRODUCT}</h3>
             <div className="cat-grid">
               {managed.filter((m) => !q || match(m.title)).map((m) => (
-                <div key={m.title} className="cat-tile cat-tile-managed" title={`Configured by ${PRODUCT}. Open it in the list to see its status or clone it to change it.`}>
+                <div key={m.title} className="cat-tile" onClick={() => onOpen(m)}>
                   <ConnIcon name={m.icon ?? m.capability} size={24} />
                   <div style={{ minWidth: 0 }}>
                     <strong>{m.title}</strong>

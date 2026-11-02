@@ -1,0 +1,11 @@
+/* The contents is a plain list beside the guide: group headings in normal
+   case, guide names as quiet links, no box around it. */
+.docs-layout > .conn-subnav.docs-contents { background: transparent; border: 0; padding: 0; gap: 0; }
+.docs-contents .docs-group + .docs-group { margin-top: 18px; }
+.docs-contents .docs-group-title { text-transform: none; letter-spacing: 0; font-size: var(--fs-sm); color: var(--text); padding: 4px 9px 2px; }
+.docs-contents .conn-subnav-item { color: var(--muted); padding: 4px 9px; }
+.docs-contents .conn-subnav-item:hover { color: var(--text); }
+.docs-contents .conn-subnav-item.active { color: var(--text); }
+/* A reference to another guide reads as a link, not as plain text. */
+.docs-body .md-doc a { text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 2px; }
+.docs-body .md-doc a:hover { text-decoration-color: currentColor; }

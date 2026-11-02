@@ -121,7 +121,8 @@ describe('step cards say what the record holds', () => {
   it('keeps a failed tests step failed while marking its unknown count', () => {
     const {el,done}=render({...tests({testReport:'no report'}),status:'fail',statusLabel:'failed'} as Step)
     expect(el.querySelector('.step-head .chip.fail')?.textContent).toContain('failed')
-    expect(el.querySelector('.step-head .chip.unknown')?.getAttribute('aria-label')).toContain('Number of tests unknown')
+    expect(el.querySelector('.step-head .chip.unknown')).not.toBeNull()
+    expect(el.querySelector('.step-head')?.textContent).toContain('Number of tests unknown')
     done()
   })
   it('names the CLI token an approval came through', () => {
@@ -149,5 +150,16 @@ it('labels the currently offered approval as waiting for you in Work', () => {
  act(() => root.render(<QueryClientProvider client={client}><MemoryRouter><StepCard step={step} awaitingDecision hideApproveForm onChange={() => {}} /></MemoryRouter></QueryClientProvider>))
  expect(el.querySelector('.step-head .chip')?.textContent).toContain('waiting for you')
  expect(el.querySelector('.step-head .chip')?.textContent).not.toContain('waiting for checks')
+ act(() => root.unmount()); client.clear()
+})
+
+// While a check has failed, approving would not land the change: the form
+// waits and the step names the way past the failed check instead.
+it('holds the approval form while a check has failed', () => {
+ const el = document.createElement('div'), root = createRoot(el), client = newQueryClient()
+ const step = { id: STEP, runId: RUN, stage: 'check', name: 'accept', type: 'approval', status: 'pending', statusLabel: 'waiting for checks', overrideBy: '', evidence: {}, config: {} } as unknown as Step
+ act(() => root.render(<QueryClientProvider client={client}><MemoryRouter><StepCard step={step} expanded failedCheck="Style" onChange={() => {}} /></MemoryRouter></QueryClientProvider>))
+ expect(el.textContent).toContain('Approval opens once the checks pass. “Style” failed')
+ expect([...el.querySelectorAll('button')].some(b => b.textContent === 'Approve')).toBe(false)
  act(() => root.unmount()); client.clear()
 })

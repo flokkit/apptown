@@ -1,3 +1,4 @@
+import { Section, Group } from '../Section'
 import { Status } from '../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -48,29 +49,48 @@ function UpdateDetails() {
   }
   const data = query.data
   const development = data?.build.startsWith('dev-')
+  // Everything in view, in sections: what this AppTown is, then the release
+  // on offer with what is new, how to install it and how to verify it.
+  // A check that ran after the last successful one did not succeed.
+  const failedCheck = !!data?.lastAttempt && (!data.lastSuccess || Date.parse(data.lastAttempt) - Date.parse(data.lastSuccess) > 1000)
   return <div>
-    <h1>Updates</h1>
+    <div className="page-head-row" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <h1 style={{ flex: 1 }}>Updates</h1>
+      {/* A development build is updated by deploying it; a release channel
+          has nothing to say about it. */}
+      {!development && <button className="primary" disabled={checking || data?.state === 'checking'} onClick={() => void check()}>{checking ? 'Checking…' : 'Check for updates'}</button>}
+    </div>
     {(query.err || error) && <div className="error" role="alert">{error || query.err}</div>}
-    <button disabled={checking || data?.state === 'checking'} onClick={() => void check()}>{checking ? 'Checking…' : 'Check for updates'}</button>
     {!data ? <p role="status">Release status is unavailable.</p> : <>
-      {development ? <p className="status-strip">This {PRODUCT} runs a development build. Updates come by deployment.</p> : <><p className="status-strip"><Status word={data.statusLabel} help={data.reason || states[data.state]} /></p>
-      <p className="muted">{data.lastSuccess ? `Checked ${relTime(data.lastSuccess)}` : 'No successful check yet'}</p></>}
-      <details><summary>Technical details</summary><dl className="facts">
-        <dt>Installed build</dt><dd>{data.build} ({data.platform})</dd>
-        <dt>Channel</dt><dd>{data.channel}</dd>
-        <dt>Last attempted check</dt><dd>{data.lastAttempt ? fmtStamp(data.lastAttempt) : 'Never'}</dd>
-        <dt>Last successful check</dt><dd>{data.lastSuccess ? fmtStamp(data.lastSuccess) : 'Never'}</dd>
-      </dl></details>
-
-      <p><Link to="/docs/guides/upgrading">Read the upgrade guide</Link></p>
-      {data.candidate && <section>
-        <h2>{data.candidate.version}</h2>
-        <details><summary>Build details</summary><p>Verified source commit: <code>{data.candidate.commit}</code></p>
-        <p>Archive: <code>{data.candidate.archive.name}</code></p>
-        <p>SHA-256: <code>{data.candidate.archive.sha256}</code></p></details>
-        {data.state === 'available' && <details><summary>How to update</summary><HowToUpdate version={data.candidate.version} /></details>}
-        <div className="markdown" dangerouslySetInnerHTML={{ __html: renderMd(data.candidate.notes) }} />
-      </section>}
+      <Section title={`This ${PRODUCT}`} action={<Link to="/docs/guides/upgrading">Upgrade guide →</Link>}>
+        <dl className="facts">
+          <dt>Status</dt>
+          <dd>{development
+            ? <>This {PRODUCT} runs a development build. Updates come by deployment.</>
+            : <><Status word={data.statusLabel} /> <span className="muted">{data.reason || states[data.state]}</span></>}</dd>
+          <dt>Version</dt><dd>{data.build}</dd>
+          <dt>Platform</dt><dd>{data.platform}</dd>
+          {/* A release channel and its checks mean nothing to a development build. */}
+          {!development && <>
+            <dt>Channel</dt><dd>{data.channel}</dd>
+            <dt>Last checked</dt><dd>{data.lastSuccess ? <>{fmtStamp(data.lastSuccess)} <span className="muted">({relTime(data.lastSuccess)})</span></> : 'Never'}</dd>
+            {failedCheck && <><dt>Last attempt</dt><dd>{data.lastAttempt ? fmtStamp(data.lastAttempt) : 'Never'} <span className="muted">did not succeed</span></dd></>}
+          </>}
+        </dl>
+      </Section>
+      {data.candidate && <Section title={data.state === 'available' ? `${data.candidate.version} is available` : `Latest release: ${data.candidate.version}`}>
+        <Group label="What's new">
+          <div className="markdown" dangerouslySetInnerHTML={{ __html: renderMd(data.candidate.notes) }} />
+        </Group>
+        {data.state === 'available' && <Group label="How to update"><HowToUpdate version={data.candidate.version} /></Group>}
+        <Group label="Verify the release">
+          <dl className="facts">
+            <dt>Source commit</dt><dd><code>{data.candidate.commit}</code></dd>
+            <dt>Archive</dt><dd><code>{data.candidate.archive.name}</code></dd>
+            <dt>SHA-256</dt><dd><code>{data.candidate.archive.sha256}</code></dd>
+          </dl>
+        </Group>
+      </Section>}
     </>}
   </div>
 }
@@ -80,7 +100,6 @@ function UpdateDetails() {
 function HowToUpdate({ version }: { version: string }) {
   const bare = version.replace(/^v/, '')
   return <section>
-    <h3>How to update</h3>
     <p>First check nothing is executing and take a backup: steps 1 and 2 of the <Link to="/docs/guides/upgrading">upgrade guide</Link>.</p>
     <dl className="facts">
       <dt>Docker (one-server compose)</dt>

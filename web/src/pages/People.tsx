@@ -1,3 +1,6 @@
+import { ListRow } from '../ListRow'
+import { Section } from '../Section'
+import './People.css'
 import { Tabs } from '../Tabs'
 import { Link, useSearchParams } from 'react-router-dom'
 import { PRODUCT } from '../brand'
@@ -22,7 +25,7 @@ export type Role = RoleView
 // any member — the step cites the group, the ledger records the person.
 export default function People() {
   const [params] = useSearchParams()
-  const tabs = [['people', 'People'], ['groups', 'Groups and roles'], ['signin', 'Sign-in'], ['agents', 'Coding agents and tokens']] as const
+  const tabs = [['people', 'Accounts'], ['groups', 'Groups and roles'], ['signin', 'Sign-in'], ['agents', 'Agents and tokens']] as const
   const selected = params.get('tab') || 'people'
   const tab = tabs.some(([key]) => key === selected) ? selected : 'people'
   const usersQ = useGet<UserList>('/users')
@@ -56,7 +59,7 @@ export default function People() {
           Only an admin can change these settings.
         </div>
       )}
-      <Tabs className="tabs" aria-label="People settings">
+      <Tabs className="tabs people-tabs" aria-label="People settings">
         {tabs.map(([key, label]) => <Link key={key} to={key === 'people' ? '/people' : `/people?tab=${key}`}
           className={'tab' + (tab === key ? ' active' : '')} aria-current={tab === key ? 'page' : undefined}>{label}</Link>)}
       </Tabs>
@@ -93,14 +96,8 @@ export function AgentsCard({ canEdit }: { canEdit: boolean }) {
   const list = q.data?.delegations ?? []
   const { run, err } = useAction()
   return (
-    <div className="card" style={{ display: 'grid', gap: 10 }}>
-      <b>Connected coding agents</b>
-      <div className="muted small">
-        <details><summary>About connected agents</summary>
-        Coding agents that signed in through the browser. Each acts as the
-        person who connected it, within what they allowed.
-        </details>
-      </div>
+    <Section title="Connected coding agents" note="Coding agents that signed in through the browser. Each acts as the person who connected it, within what they allowed.">
+    <div style={{ display: 'grid', gap: 10 }}>
       {err && <div className="error small">{err}</div>}
       <ReadStatus q={q} what="the connected agents" className="small" />
       <StaleNote q={q} />
@@ -124,6 +121,7 @@ export function AgentsCard({ canEdit }: { canEdit: boolean }) {
       ))}</details></div>
       })}
     </div>
+    </Section>
   )
 }
 
@@ -145,14 +143,9 @@ export function AdminNetworksCard({ canEdit }: { canEdit: boolean }) {
   const editable = canEdit && q.current
   const save = async (networks: string[]) => (await run(() => put('/auth/admin-networks', { expected: nets, networks }))) !== undefined
   return (
-    <div className="card" style={{ display: 'grid', gap: 10 }}>
-      <b>Where administrators may sign in</b>
+    <Section title="Where administrators may sign in" note={`An administrator account can sign in, connect a coding agent, or use an administrator token only from these networks. Members are not limited. Empty means anywhere; the machine ${PRODUCT} runs on always passes.`}>
+    <div style={{ display: 'grid', gap: 10 }}>
       <div className="muted small">
-        <details><summary>About administrator networks</summary>
-        An administrator account can sign in, connect a coding agent, or use an
-        administrator token only from these networks. Members are not limited.
-        Empty means anywhere; the machine {PRODUCT} runs on always passes.
-        </details>
         You are connecting from <code>{you || '…'}</code>{nets.length > 0 && (inside ? ', which is inside' : ', which is outside the list')}.
       </div>
       {err && <div className="error small">{err}</div>}
@@ -173,6 +166,7 @@ export function AdminNetworksCard({ canEdit }: { canEdit: boolean }) {
         )}
       </div>}
     </div>
+    </Section>
   )
 }
 
@@ -197,14 +191,8 @@ export function TokensCard() {
   const [minted, setMinted] = useState('')
   const { run, err } = useAction()
   return (
-    <div className="card" style={{ display: 'grid', gap: 10 }}>
-      <b>Access tokens</b>
-      <div className="muted small">
-        <details><summary>About tokens</summary>
-        A command-line token is for your own <code>apptown</code> CLI (set <code>APPTOWN_TOKEN</code>).
-        An agent token is for a coding agent's MCP connection. A token is shown once.
-        </details>
-      </div>
+    <Section title="Access tokens" note={<>A command-line token is for your own <code>apptown</code> CLI (set <code>APPTOWN_TOKEN</code>). An agent token is for a coding agent's MCP connection. A token is shown once.</>}>
+    <div style={{ display: 'grid', gap: 10 }}>
       {err && <div className="error small">{err}</div>}
       <ReadStatus q={[tokensQ, usersQ]} what="the tokens" className="small" />
       <StaleNote q={[tokensQ, usersQ]} />
@@ -245,6 +233,7 @@ export function TokensCard() {
         }}>Mint token</button>
       </div>
     </div>
+    </Section>
   )
 }
 
@@ -272,7 +261,7 @@ function RolesCard({ roles, grants, users, groups, act, canEdit }: {
       <div className="muted small">
         Roles grant permissions. Project roles are under Settings › Members.
       </div>
-      <details className="small"><summary>About permissions</summary>
+      <details className="small"><summary>What each role can do</summary>
         <p className="muted small">Instance administrators act in every project and may approve their own changes. Each project can require other people to get an independent approval.</p>
         {roles.filter(r => instance.some(g => g.role === r.name)).map(r => <div key={r.name}>
           <strong>{r.title}</strong><p>{r.description}</p><ul>{r.capabilities.map(c => <li key={c}><code>{c}</code></li>)}</ul>
@@ -324,6 +313,7 @@ function RolesCard({ roles, grants, users, groups, act, canEdit }: {
 export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }: { users: Account[]; act: (fn: () => Promise<unknown>) => void; canEdit: boolean; invites: boolean; sso?: boolean; me?: string }) {
   const [name, setName] = useState('')
   const [pw, setPw] = useState('')
+  const [byPassword, setByPassword] = useState(false)
   // Accounts have a password, or have signed in or acted (single sign-on
   // accounts never have a password); they are disabled, never removed.
   // Everything else is a name the record has seen — open-mode actors, a
@@ -335,13 +325,13 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
   // with the invites waiting to be used.
   const [resetLink, setResetLink] = useState<InviteLink | null>(null)
   const reset = useAction(undefined, { affects: ['/invites'] })
-  const accountTable = (list: Account[]) => <table className="people-accounts">
-    <thead><tr><th>Name</th><th>Role</th><th>Last seen</th><th /></tr></thead>
-    <tbody>{list.map(u => <tr key={u.username}>
-      <td><strong>{u.username}</strong>{u.disabled && <> <span className="badge">Disabled</span></>}</td>
-      <td>{u.role === 'admin' ? 'Admin' : 'Member'}</td>
-      <td className="muted small">{u.lastSeen ? `seen ${fmtStamp(u.lastSeen)}` : 'never signed in'}</td>
-      <td>{canEdit && <details className="account-actions"><summary aria-label={`Actions for ${u.username}`}>…</summary>
+  // One row per account: name and role, then when they were last seen and
+  // the one Manage control. On a phone it is two lines.
+  const accountRows = (list: Account[]) => <div className="people-accounts" role="list">
+    {list.map(u => <ListRow key={u.username} listItem
+      identity={<><strong>{u.username}</strong>{u.disabled && <span className="badge">Disabled</span>}<span className="people-role">{u.role === 'admin' ? 'Admin' : 'Member'}</span></>}
+      state={<span className="muted small">{u.lastSeen ? `seen ${fmtStamp(u.lastSeen)}` : 'never signed in'}</span>}
+      action={canEdit && <details className="account-actions"><summary aria-label={`Actions for ${u.username}`}>Manage</summary>
         <div className="account-action-list">
         <label>Role                 {canEdit ? (
                   <select value={u.role}
@@ -382,17 +372,22 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
                 ))}
 
         </div>
-      </details>}</td>
-    </tr>)}</tbody>
-  </table>
+      </details>} />)}
+  </div>
+  const active = accounts.filter(u => !u.disabled)
+  const withPassword = (
+    <div className="people-form">
+      <input placeholder="Username" aria-label="new username" value={name} onChange={e => setName(e.target.value)} />
+      <input placeholder="Password (min 8 characters)" aria-label="password" type="password" value={pw} onChange={e => setPw(e.target.value)} />
+      <button className={invites ? '' : 'primary'} disabled={!name || pw.length < 8}
+        onClick={() => act(() => post('/users', { username: name, password: pw }).then(() => { setName(''); setPw('') }))}>
+        Add person
+      </button>
+    </div>
+  )
   return (
-    <div className="card" style={{ display: 'grid', gap: 10 }}>
-      <b>Accounts</b>
-      {canEdit && sso && (
-        <div className="muted small">
-          Reset passwords through your sign-in provider.
-        </div>
-      )}
+    <>
+    <Section title="Accounts" count={active.length} note={canEdit && sso ? 'Reset passwords through your sign-in provider.' : undefined}>
       {reset.err && <div className="error small">{reset.err}</div>}
       {resetLink && (
         <OneTimeLink made={resetLink} onDone={() => setResetLink(null)}>
@@ -401,38 +396,14 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
           their personal access tokens and agent connections keep working · revoke those on the People page if the account may be compromised:
         </OneTimeLink>
       )}
-      {accounts.filter(u => !u.disabled).length === 0 && <span className="muted small">No active accounts.</span>}
-      {accountTable(accounts.filter(u => !u.disabled))}
-      {canEdit && invites && <InvitePerson />}
-      {canEdit && (() => {
-        const withPassword = (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <input placeholder="new username" value={name} onChange={e => setName(e.target.value)} />
-            <input placeholder="password (min 8 chars)" type="password" value={pw} onChange={e => setPw(e.target.value)} />
-            <button className={invites ? '' : 'primary'} disabled={!name || pw.length < 8}
-              onClick={() => act(() => post('/users', { username: name, password: pw }).then(() => { setName(''); setPw('') }))}>
-              Add person
-            </button>
-          </div>
-        )
-        // With invites, choosing someone's password is the exception: the
-        // person sets their own from the link.
-        return invites ? (
-          <details>
-            <summary className="muted small">Set their password instead</summary>
-            <div className="muted small" style={{ margin: '6px 0' }}>
-              You will have to pass the password on to them yourself.
-            </div>
-            {withPassword}
-          </details>
-        ) : withPassword
-      })()}
+      {active.length === 0 && <p className="muted small">No active accounts.</p>}
+      {accountRows(active)}
       {(seen.length > 0 || accounts.some(u => u.disabled)) && (
         <details>
           <summary className="muted small">
             Other accounts and names ({seen.length + accounts.filter(u => u.disabled).length})
           </summary>
-          {accounts.some(u => u.disabled) && <><h3>Disabled accounts</h3>{accountTable(accounts.filter(u => u.disabled))}</>}
+          {accounts.some(u => u.disabled) && <><h3>Disabled accounts</h3>{accountRows(accounts.filter(u => u.disabled))}</>}
           {seen.length > 0 && <h3>Names without an account ({seen.length})</h3>}
           <div className="muted small" style={{ margin: '6px 0' }}>
             Names that never signed in or acted. Set a password to claim one
@@ -456,14 +427,24 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
           ))}
         </details>
       )}
-    </div>
+    </Section>
+    {/* With invites, choosing someone's password is the exception: the
+        person sets their own from the link. */}
+    {canEdit && invites && <InvitePerson>
+      {byPassword ? <div className="people-by-password">
+        <div className="muted small">You will have to pass the password on to them yourself.</div>
+        {withPassword}
+      </div> : <button className="link people-quiet" onClick={() => setByPassword(true)}>Set their password instead</button>}
+    </InvitePerson>}
+    {canEdit && !invites && <Section title="Add a person">{withPassword}</Section>}
+    </>
   )
 }
 
 // Inviting a person: an administrator names the account and its role, and
 // gets a link to pass on. The person opens it, sets their own password and
 // is signed in. The link is shown once, here; AppTown sends no email.
-export function InvitePerson() {
+export function InvitePerson({ children }: { children?: React.ReactNode }) {
   const q = useGet<InviteList>('/invites')
   const pending = q.data?.invites ?? []
   const [name, setName] = useState('')
@@ -476,15 +457,8 @@ export function InvitePerson() {
     if (r) { setMade(r); setName(''); setLabel(''); setRole('member') }
   }
   return (
-    <div style={{ display: 'grid', gap: 8 }}>
-      <b className="small">Invite a person</b>
-      <div className="muted small">
-        <details><summary>About invites</summary>
-        {PRODUCT} makes a link for one account. Send it to the person yourself;
-        they choose their own password and are signed in. It works once,
-        for seven days.
-        </details>
-      </div>
+    <Section title="Invite a person" note={`${PRODUCT} makes a link for one account that works once, for seven days. Send it yourself; they choose their own password.`}>
+      <div className="people-invite">
       {err && <div className="error small">{err}</div>}
       <ReadStatus q={q} what="the invites waiting" className="small" />
       <StaleNote q={q} />
@@ -493,11 +467,11 @@ export function InvitePerson() {
           Invite for <b>{made.invite.username}</b> ({made.invite.role}). Copy the link now · it is not shown again:
         </OneTimeLink>
       )}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <input placeholder="username (e.g. kim)" value={name} onChange={e => setName(e.target.value)} />
-        <input placeholder="name or email (optional)" value={label} onChange={e => setLabel(e.target.value)}
-          title={`a label for you; ${PRODUCT} sends no email`} />
-        <select value={role} onChange={e => setRole(e.target.value)}>
+      <div className="people-form">
+        <input placeholder="Username" aria-label="username" value={name} onChange={e => setName(e.target.value)} />
+        <input placeholder="Name or email" aria-label="name or email (optional)" value={label} onChange={e => setLabel(e.target.value)}
+          title={`optional; a label for you; ${PRODUCT} sends no email`} />
+        <select aria-label="role" value={role} onChange={e => setRole(e.target.value)}>
           <option value="member">member</option>
           <option value="admin">admin</option>
         </select>
@@ -520,7 +494,9 @@ export function InvitePerson() {
           ))}
         </div>
       )}
-    </div>
+      {children}
+      </div>
+    </Section>
   )
 }
 

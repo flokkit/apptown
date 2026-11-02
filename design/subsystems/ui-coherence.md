@@ -49,16 +49,29 @@ Under the shell's breakpoint (`NARROW_QUERY` in `web/src/chrome.ts`) the
 sidebar is a menu, the type tokens step up so body text is 16px and nothing
 read is under 13px, and on any touch screen every control is at least 44px.
 Every tabbed page uses `Tabs`: one horizontally scrolling row, a shaded edge
-when more tabs lie to the right, and the active tab kept in view on selection
+at either edge where more tabs lie off screen, and the active tab kept in view on selection
 and resize. Links and buttons keep their native keyboard semantics. The phone
 top bar shows the same Attention count as desktop: items to fix and sources
 not known are separate. Zero parts are omitted; when both are zero it says
-All quiet. Pending and failed readings remain visible.
+All quiet. Pending and failed readings remain visible. The account control
+truncates long names; its menu shows the full identity.
 
-A list table marked `stack` becomes one card per row (its `stack-lead` cell
-first, other cells named by `data-label`); a link marked `tap-open` opens its
-whole card or row. Other wide tables scroll in their own box with a shaded
-edge. Dialogs take the whole screen. On the change page the approval's
+Home, Projects, Deployments, Infrastructure inventories, Integrations, People
+accounts and Conformance projects share `ListRow`: identity and purpose, state
+and freshness, then the next action. These cells align on desktop and stack in
+the same order on phones. Technical evidence and maintenance open beneath a row
+or on its linked page. Packs and workflows lead with their authored purpose;
+versions and maintenance remain secondary. Usage labels its chart in tokens and
+its money total as recorded cost, with incomplete pricing stated explicitly.
+
+Home and Projects offer Change only where current authority permits
+creation. It opens the ordinary change form. Project navigation offers Chat
+only with creation and invocation authority and conversation availability; it
+creates an ordinary change before opening that change's chat. Unavailable
+maintenance destinations are absent from navigation. Saved consent remains
+accessible by its address.
+
+Other wide tables scroll in their own box with a shaded edge. Dialogs take the whole screen. On the change page the approval's
 comment and decisions are a bar held at the foot of the screen while the
 approval, and what approving means, is in view. In the chat the message box
 sits at the bottom and rises with the keyboard (`interactive-widget` in

@@ -37,7 +37,7 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
   const slug = slugOf(d)
 
   return (
-    <div className="card" style={{ padding: 'var(--space-5)' }}>
+    <div className="np-panel">
       <div className="mb-2"><strong>Where does the code live?</strong></div>
       {!gitlab ? (
         <div className="muted small mb-3">

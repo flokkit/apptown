@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider, focusManager } from '@tanstack/react-query'
 import { newQueryClient, getKey } from './data'
 import { settled } from './settled'
-import { attentionState, AttentionBadge } from './attention'
+import { attentionState, AttentionLights } from './attention'
 import AttentionPage from './pages/Attention'
 import Dashboard from './pages/Dashboard'
 import TopBar from './TopBar'
@@ -38,14 +38,15 @@ function responses(read: (init?: RequestInit) => Response | Promise<Response>, e
     const path = pathOf(url); calls.push(path)
     if (path === '/attention') return read(init)
     if (path === '/auth/me') return json({ mode: 'internal', user: 'alice' })
-    if (path === '/authz/me') return json({ instance: { 'instance:updates': false } })
+    if (path === '/authz/me') return json({ instance: { 'instance:updates': false, 'platform:manage-deploy-targets': true } })
     if (path in extra) return json(extra[path])
     if (path === '/setup') return json({ modelConfigured: true })
     return json({})
   }))
   return calls
 }
-const badge = (el: HTMLElement) => el.querySelector('a.attention-badge')!
+// The lights: present only while something is confirmed broken; their label is the count to fix.
+const badge = (el: HTMLElement) => el.querySelector('.attention-lights')!
 
 describe('Attention surfaces share authorized current evidence', () => {
   it('shares one answer and request between narrow topbar and actual page, with actionable severity and links', async () => {
@@ -55,25 +56,24 @@ describe('Attention surfaces share authorized current evidence', () => {
     expect(calls.filter(p => p === '/attention')).toHaveLength(1)
     expect(v.el.querySelector('.topbar')?.contains(badge(v.el))).toBe(true)
     expect(badge(v.el).getAttribute('aria-label')).toBe('2 to fix')
-    expect(badge(v.el).querySelector('.attention-words')?.textContent).toBe('2 to fix')
-    expect(badge(v.el).querySelector('.attention-compact')?.textContent).toBe('2 to fix')
-    expect(v.el.querySelectorAll('article')).toHaveLength(2)
+        expect(v.el.querySelectorAll('article')).toHaveLength(2)
     expect(v.el.querySelector('a[href="/infrastructure"]')?.textContent).toBe('Worker unavailable')
     expect(v.el.querySelector('a[href="/projects/game/settings/data"]')?.textContent).toBe('Recovery is untested')
-    expect(v.el.querySelectorAll('article .chip.pending')).toHaveLength(1)
+    // Not checked yet is neutral: a fact about AppTown, not a warning.
+    expect(v.el.querySelectorAll('article .chip.pending')).toHaveLength(0)
     expect(v.el.querySelectorAll('article')[1].textContent).toContain('not checked yet')
   })
   it.each(['unknown', 'failed'] as const)('does not report all-clear for %s empty observations', async mode => {
     responses(() => mode === 'failed' ? json({ error: 'observation read failed' }, 503) : json({ ...known, sources: [{ ...known.sources[0], unknown: mode === 'unknown', stale: false }] }))
-    const v = mount(<><AttentionBadge /><AttentionPage /></>); await settled(v.client)
-    expect(badge(v.el).getAttribute('aria-label')).toBe(mode === 'failed' ? 'Status not known' : '1 not known')
+    const v = mount(<><AttentionLights /><AttentionPage /></>); await settled(v.client)
+    expect(badge(v.el)).toBeNull()
     expect(v.el.textContent).not.toContain('No current conditions need attention')
     expect(v.el.textContent).toContain(mode === 'failed' ? 'failed' : 'not known')
   })
   it('retains conditions across a failed refresh and clears them only after successful recovery', async () => {
     let answer = () => json(warning)
     responses(() => answer())
-    const v = mount(<><AttentionBadge /><AttentionPage /></>); await settled(v.client)
+    const v = mount(<><AttentionLights /><AttentionPage /></>); await settled(v.client)
     answer = () => json({ error: 'offline' }, 503)
     await act(async () => { await v.client.refetchQueries({ queryKey: getKey('/attention') }) }); await settled(v.client)
     expect(v.el.querySelectorAll('article')).toHaveLength(2)
@@ -82,21 +82,19 @@ describe('Attention surfaces share authorized current evidence', () => {
     answer = () => json(known)
     await act(async () => { await v.client.refetchQueries({ queryKey: getKey('/attention') }) }); await settled(v.client)
     expect(v.el.querySelectorAll('article')).toHaveLength(0)
-    expect(badge(v.el)?.textContent).toContain('All quiet')
+    expect(badge(v.el)).toBeNull()
     expect(v.el.textContent).not.toContain('Coverage incomplete')
   })
   it('shows known conditions beside incomplete host coverage in the topbar', async () => {
     responses(() => json({ ...warning, sources: [{ ...known.sources[0], unknown: true }] }))
-    const v = mount(<AttentionBadge />); await settled(v.client)
-    expect(badge(v.el).querySelector('.attention-words')?.textContent).toBe('2 to fix · 1 not known')
-    expect(badge(v.el).querySelector('.attention-compact')?.textContent).toBe('2 to fix · 1 not known')
-    expect(badge(v.el).getAttribute('href')).toBe('/attention')
-    expect(badge(v.el).getAttribute('aria-label')).toBe('2 to fix · 1 not known')
+    const v = mount(<AttentionLights />); await settled(v.client)
+    expect(badge(v.el).querySelector('a')!.getAttribute('href')).toMatch(/^\/attention#/)
+    expect(badge(v.el).getAttribute('aria-label')).toBe('2 to fix')
   })
   it('polls the shared visible answer at thirty seconds and makes no signed-out request', async () => {
     vi.useFakeTimers(); focusManager.setFocused(true)
     const calls = responses(() => json(known))
-    const v = mount(<><AttentionBadge /><AttentionPage /></>)
+    const v = mount(<><AttentionLights /><AttentionPage /></>)
     const advance = async (ms: number) => { await act(async () => { await vi.advanceTimersByTimeAsync(ms) }) }
     for (let i = 0; i < 6; i++) await advance(1)
     expect(calls.filter(p => p === '/attention')).toHaveLength(1)
@@ -113,7 +111,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     vi.stubGlobal('fetch', vi.fn(async (url: unknown, init?: RequestInit) => {
       const path = pathOf(url)
       if (path === '/auth/me') return json({ mode: 'internal', user: who || undefined })
-      if (path === '/authz/me') return json({ instance: { 'instance:updates': false } })
+      if (path === '/authz/me') return json({ instance: { 'instance:updates': false, 'platform:manage-deploy-targets': true } })
       if (path === '/attention') {
         if (hold) { hold = false; signal = init?.signal; return new Promise<Response>(resolve => { release = resolve }) }
         return json(who === 'alice' ? warning : known)
@@ -131,7 +129,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     await settled(v.client)
     await act(async () => { release(json(warning)); await pending }); await settled(v.client)
     expect(v.el.textContent).not.toContain('Worker unavailable')
-    expect(badge(v.el)?.textContent).toContain('All quiet')
+    expect(badge(v.el)).toBeNull()
     who = ''
     await act(async () => { v.client.setQueryData(getKey('/auth/me'), { mode: 'internal' }); await new Promise(resolve => setTimeout(resolve, 0)) }); await settled(v.client)
     expect(v.el.querySelector('a.attention-badge')).toBeNull()
@@ -157,11 +155,15 @@ describe('Attention surfaces share authorized current evidence', () => {
       '/dashboard': emptyDashboard, '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'game', name: 'Game', hasDeployments: true }], total: 1 },
       '/projects/game/deployments': [],
     })
-    const v = mount(<><AttentionBadge /><Dashboard /></>, '/'); await settled(v.client)
+    const v = mount(<><AttentionLights /><Dashboard /></>, '/'); await settled(v.client)
     const lead = v.el.querySelector('.dash-lead')?.textContent
-    expect(lead).toBe('1 not known · 1 app live →')
+    expect(lead).toBe('1 not known → · 1 running →')
+    // Each part links to the page that lists exactly what it counts.
+    expect(v.el.querySelector('.dash-lead a[href="/attention"]')?.textContent).toBe('1 not known →')
+    expect(v.el.querySelector('.dash-lead a[href="/deployments/table"]')?.textContent).toBe('1 running →')
     expect(v.el.textContent).not.toContain('All quiet')
-    expect(badge(v.el)).not.toBeNull()
+    // A check that could not run lights nothing in the top bar.
+    expect(badge(v.el)).toBeNull()
   })
   it('keeps Home approvals and blocked work, and refuses all-quiet on missing host observations', async () => {
     const active = [{ runId: 'run-blocked', runNumber: 1, changeId: 'change-blocked', changeNumber: 1, workflow: 'implement', title: 'Blocked change', status: 'blocked', stage: 'gate', state: 'blocked', detail: 'Needs repair', project: 'game', startedAt: at, durationS: 10 }]
@@ -174,7 +176,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     const v = mount(<Dashboard />, '/'); await settled(v.client)
     expect(v.el.textContent).not.toContain('server status not available')
     expect(v.el.textContent).not.toContain('Operations')
-    expect(v.el.textContent).toContain('Needs you (2)')
+    expect(v.el.querySelector('section[aria-label="Waiting on you"] .section-count')?.textContent).toBe('2')
     expect(v.el.textContent).toContain('Blocked change')
     expect(v.el.textContent).toContain('Review change')
     expect(v.el.textContent).not.toContain('All quiet')
@@ -192,13 +194,14 @@ it.each([[true, true], [true, false], [false, true], [false, false]])('Home keep
  expect(v.el.querySelector('.project-action a')).toBeNull()
  if (narrow) expect(v.el.querySelector('.project-rows')?.textContent).not.toContain('Details')
  expect(v.el.querySelector('.project-rows')?.textContent).not.toContain('Not deployed')
- expect(v.el.querySelector('.project-rows')?.textContent).toContain('Not checked yet')
+ // A failed attempt was a check: the row must not also say it was never checked.
+ expect(v.el.querySelector('.project-rows')?.textContent).not.toContain('Not checked yet')
  expect(v.el.textContent).not.toContain('preview-machine-id')
- expect(v.el.querySelector('.chip.fail')?.textContent).toContain('failed')
+ expect(v.el.querySelector('.chip.fail')?.textContent).toContain('unreachable')
  expect(v.el.querySelectorAll('.project-rows .chip')).toHaveLength(1)
 })
 
-it.each([false, true])('Home names each finished change before its project, state and age (phone=%s)', async narrow => {
+it.each([false, true])('Home lists landed changes by title, project and age, with no status chip (phone=%s)', async narrow => {
  vi.stubGlobal('matchMedia', () => ({ matches: narrow, addEventListener() {}, removeEventListener() {} }))
  responses(() => json(known), {
   '/activity': { ...emptyActivity, history: [
@@ -209,22 +212,24 @@ it.each([false, true])('Home names each finished change before its project, stat
   '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'household', name: 'Household', hasDeployments: false }], total: 1 },
  })
  const v = mount(<Dashboard />, '/'); await settled(v.client)
- for (const [id, title, state] of [['calendar', 'Add a shared calendar', 'landed'], ['photos', 'Fix photo uploads', 'failed']]) {
-  const row = v.el.querySelector(`a[href="/changes/${id}"]`)!
-  expect(row?.querySelector('strong')?.textContent).toBe(title)
-  expect(row?.querySelector('.small')?.textContent).toMatch(new RegExp(`^Household · ${state} · .+ago$`))
-  expect(row?.firstElementChild?.tagName).toBe('STRONG')
- }
+ // The feed shows landed changes only.
+ expect(v.el.querySelector('a[href="/changes/photos"]')).toBeNull()
+ const row = v.el.querySelector('a[href="/changes/calendar"]')!
+ expect(row?.querySelector('strong')?.textContent).toBe('Add a shared calendar')
+ // Every row here landed, so no row repeats it as a status.
+ expect(row?.querySelector('.row-status')).toBeNull()
+ expect(row?.querySelector('.small')?.textContent).toMatch(/^Household · .+ago$/)
+ expect([...row!.children].map(c => c.tagName)).toEqual(['STRONG', 'SPAN'])
 })
 
 it('keeps pending attention distinct from a failed read', async () => {
  let release!: (r: Response) => void
  responses(() => new Promise<Response>(resolve => { release = resolve }))
- const v = mount(<AttentionBadge />)
+ const v = mount(<AttentionLights />)
  await vi.waitFor(async () => { await act(async () => {}); expect(release).toBeTypeOf('function') })
- expect(badge(v.el).querySelector('.attention-words')?.textContent).toBe('Status not known')
+ expect(badge(v.el)).toBeNull()
  await act(async () => { release(json({ error: 'unavailable' }, 403)) }); await settled(v.client)
- expect(badge(v.el).querySelector('.attention-words')?.textContent).toBe('Status not known')
+ expect(badge(v.el)).toBeNull()
 })
 it.each([false, true])('search has its own visible control (narrow=%s)', async narrow => {
  responses(() => json(known))
@@ -241,44 +246,44 @@ it('identifies sidebar links while the project name loads and after a failed rea
  vi.stubGlobal('fetch', vi.fn(async (url: unknown) => pathOf(url) === '/projects/club-newsletter'
   ? new Promise<Response>(resolve => { release = resolve }) : json({ instance: {} })))
  const v = mount(<SidebarNav />, '/projects/club-newsletter')
- expect(v.el.querySelector('.sidebar-project')?.textContent).toBe('club-newsletter')
+ expect(v.el.querySelector('.sidebar-project strong')?.textContent).toBe('club-newsletter')
  await act(async () => { release(json({ error: 'forbidden' }, 403)) }); await settled(v.client)
- expect(v.el.querySelector('.sidebar-project')?.textContent).toBe('club-newsletter')
+ expect(v.el.querySelector('.sidebar-project strong')?.textContent).toBe('club-newsletter')
 })
 
 it('hides the topbar badge when no known condition needs attention', async () => {
  responses(() => json(known))
- const v = mount(<AttentionBadge />); await settled(v.client)
- expect(badge(v.el)?.textContent).toContain('All quiet')
+ const v = mount(<AttentionLights />); await settled(v.client)
+ expect(badge(v.el)).toBeNull()
 })
 it.each([0, 2])('keeps %s known conditions beside unknown source coverage', async count => {
  responses(() => json({ items: warning.items.slice(0, count), sources: [...known.sources, { key: 'protection/game', name: 'Data protection', unknown: true, stale: true }] }))
- const v = mount(<AttentionBadge />); await settled(v.client)
- expect(badge(v.el).textContent).toContain(`${count ? `${count} to fix · ` : ''}1 not known`)
- expect(badge(v.el).getAttribute('href')).toBe('/attention')
- expect(badge(v.el).getAttribute('aria-label')).toBe(`${count ? `${count} to fix · ` : ''}1 not known`)
+ const v = mount(<AttentionLights />); await settled(v.client)
+ // Not known lights nothing; only confirmed conditions do.
+ if (count) expect(badge(v.el).getAttribute('aria-label')).toBe(`${count} to fix`)
+ else expect(badge(v.el)).toBeNull()
 })
 
 it('shows retained known failed readings with their age without unknown chips', async () => {
  responses(() => json({ items: [{ ...warning.items[0], title: 'Host: disk check failed', detail: 'The host disk check failed.', observedAt: new Date(Date.now()-30*60000).toISOString(), stale:true, unknown:false }], sources:[{...known.sources[0],stale:true}] }))
- const v=mount(<><AttentionBadge/><AttentionPage/></>);await settled(v.client)
- expect(badge(v.el).textContent).toContain('1 to fix')
+ const v=mount(<><AttentionLights/><AttentionPage/></>);await settled(v.client)
+ expect(badge(v.el).getAttribute('aria-label')).toBe('1 to fix')
  expect(v.el.textContent).toContain('last seen 30m ago')
  expect(v.el.textContent).not.toContain('not known')
  expect(v.el.querySelector('article .chip.unknown')).toBeNull()
 })
 it('raises no unknown badge for an old successful reading', async () => {
  responses(() => json({...known,sources:[{...known.sources[0],stale:true}]}))
- const v=mount(<><AttentionBadge/><AttentionPage/></>);await settled(v.client)
- expect(badge(v.el)?.textContent).toContain('All quiet')
+ const v=mount(<><AttentionLights/><AttentionPage/></>);await settled(v.client)
+ expect(badge(v.el)).toBeNull()
  expect(v.el.textContent).not.toContain('not known')
 })
 
 it('counts failures across integrations and app checks, groups named rows, and gives unknowns a next step', async () => {
  const items=[...warning.items,{...warning.items[0],key:'integrations/registry',title:'Container registry',href:'/integrations/registry'}, {...warning.items[0],key:'checks/calendar',count:2,title:'Calendar app checks',href:'/conformance/projects/calendar'}]
  responses(()=>json({items,sources:[{key:'capacity/host',name:'Attached host',href:'/infrastructure/attached-host',unknown:true,stale:false,observedAt:at,reason:'Memory use is unavailable.',nextStep:'Ask an administrator to check host diagnostics.'}]}))
- const v=mount(<><AttentionBadge/><AttentionPage/></>);await settled(v.client)
- expect(badge(v.el).getAttribute('aria-label')).toBe('4 to fix · 1 not known')
+ const v=mount(<><AttentionLights/><AttentionPage/></>);await settled(v.client)
+ expect(badge(v.el).getAttribute('aria-label')).toBe('4 to fix')
  for(const group of ['Hosts and deployments','Backups','Integrations','App checks']) expect(v.el.querySelector(`section[aria-label="${group}"]`)).not.toBeNull()
  expect(v.el.textContent).toContain('Memory use is unavailable.')
  expect(v.el.textContent).toContain('Ask an administrator to check host diagnostics.')
@@ -288,20 +293,21 @@ it('counts failures across integrations and app checks, groups named rows, and g
 
 it('does not count an unknown item as a confirmed problem or duplicate its unknown source', async () => {
  responses(()=>json({items:[{...warning.items[0],key:'capacity/host/read',unknown:true,title:'Host capacity',detail:'The host did not answer. Check its connection.'}],sources:[{...known.sources[0],key:'capacity/host',unknown:true}]}))
- const v=mount(<><AttentionBadge/><AttentionPage/></>);await settled(v.client)
- expect(badge(v.el).getAttribute('aria-label')).toBe('1 not known')
+ const v=mount(<><AttentionLights/><AttentionPage/></>);await settled(v.client)
+ expect(badge(v.el)).toBeNull()
  expect(v.el.querySelectorAll('article')).toHaveLength(1)
  expect(v.el.textContent).toContain('Check its connection.')
 })
 
 it('counts the rows shown consistently in the header, Attention and Home', async () => {
  const answer = {...warning, items: warning.items.map(i => ({...i, count: 7})), sources: [...known.sources,{...known.sources[0], key:'capacity', unknown:true}]}
- responses(() => json(answer), {'/dashboard':emptyDashboard,'/activity':emptyActivity})
- const v = mount(<><AttentionBadge/><AttentionPage/><Dashboard/></>); await settled(v.client)
- expect(badge(v.el).getAttribute('aria-label')).toBe('2 to fix · 1 not known')
+ responses(() => json(answer), {'/dashboard':emptyDashboard,'/activity':emptyActivity,'/projects?limit=5&order=mine':{ projects: [{ id: 'project', slug: 'game', name: 'Game', hasDeployments: false }], total: 1 }})
+ const v = mount(<><AttentionLights/><AttentionPage/><Dashboard/></>); await settled(v.client)
+ expect(badge(v.el).getAttribute('aria-label')).toBe('2 to fix')
  expect(v.el.querySelectorAll('article')).toHaveLength(3)
  expect(v.el.textContent).not.toContain('host issues')
- expect(v.el.textContent?.match(/2 to fix · 1 not known/g)?.length).toBeGreaterThanOrEqual(3)
+ // Attention's own summary and Home's sentence agree; the top bar shows lights, not words.
+ expect(v.el.textContent?.match(/2 to fix · 1 not known/g)?.length).toBeGreaterThanOrEqual(2)
  expect(v.el.querySelector('article small')?.textContent).toContain('checked ')
 })
 
@@ -320,6 +326,37 @@ it('counts an expired item once when its owner coverage has the same key', () =>
  expect(result.count).toBe(0)
 })
 
+// A check that has never been read is not checked yet, never working.
+it('shows a never-checked source as not checked yet in the full list', async () => {
+ responses(() => json({ items: [], sources: [{ ...known.sources[0], observedAt: '0001-01-01T00:00:00Z' }, { ...known.sources[0], key: 'checked', name: 'Checked source' }] }))
+ const v = mount(<AttentionPage />); await settled(v.client)
+ const rows = [...v.el.querySelectorAll('section[aria-label="All checks"] .attention-row')]
+ const never = rows.find(r => r.textContent!.includes('Worker availability'))!
+ expect(never.querySelector('.row-status')!.textContent).toContain('not checked yet')
+ expect(never.textContent).not.toContain('working')
+ expect(rows.find(r => r.textContent!.includes('Checked source'))!.querySelector('.row-status')!.textContent).toContain('working')
+})
+
+// Only people who can fix conditions see the lights; members see none.
+it('shows the lights to operators only, one per kind of condition, linking to its group', async () => {
+ responses(() => json(warning))
+ const v = mount(<AttentionLights />); await settled(v.client)
+ const lights = [...v.el.querySelectorAll('.attention-light')]
+ expect(lights.map(l => l.getAttribute('href'))).toEqual(['/attention#hosts', '/attention#backups'])
+ expect(lights[0].getAttribute('title')).toBe('Hosts and deployments: 1 to fix')
+ vi.unstubAllGlobals()
+ responses(() => json(warning))
+ vi.stubGlobal('fetch', vi.fn(async (url: unknown) => {
+  const path = pathOf(url)
+  if (path === '/attention') return json(warning)
+  if (path === '/auth/me') return json({ mode: 'internal', user: 'kid' })
+  if (path === '/authz/me') return json({ instance: { 'project:read': true } })
+  return json({})
+ }))
+ const member = mount(<AttentionLights />); await settled(member.client)
+ expect(member.el.querySelector('.attention-lights')).toBeNull()
+})
+
 it('shows a failed backup attempt as last tried, while a first check remains pending', async () => {
  responses(() => json({items: [], sources: [
   { ...known.sources[0], key: 'protection/pending', name: 'Lunch · backups', unknown: true, observedAt: '', reason: 'Office: Backups have not been checked yet.', nextStep: 'AppTown schedules a background check every five minutes.' },
@@ -334,4 +371,13 @@ it('shows a failed backup attempt as last tried, while a first check remains pen
  expect(rows[1].textContent).toContain('last tried')
  expect(rows[1].textContent).not.toContain('not checked yet')
  expect(rows[1].textContent).not.toContain('Ask an administrator')
+})
+
+// An operator whose Attention read failed is told so, not shown an all-clear.
+it('shows a not-known light when Attention cannot be read', async () => {
+ responses(() => json({ error: 'down' }, 500))
+ const v = mount(<AttentionLights />); await settled(v.client)
+ const light = v.el.querySelector('.attention-unread')
+ expect(light?.getAttribute('href')).toBe('/attention')
+ expect(light?.textContent).toContain('unknown')
 })

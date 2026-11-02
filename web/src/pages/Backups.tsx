@@ -1,3 +1,4 @@
+import { Section } from '../Section'
 import { GlanceRow } from '../GlanceRow'
 import { Status } from '../Status'
 import { useState } from 'react'
@@ -7,7 +8,7 @@ import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { fmtBytes, fmtWhen } from '../format'
 import { QuietConfirm } from '../QuietConfirm'
-import type { AllBackups, BackupItem, BackupTaken, OperationAdmitted, ProjectBackup } from '../wire.gen'
+import type { BackupStoreState, AllBackups, BackupItem, BackupTaken, OperationAdmitted, ProjectBackup } from '../wire.gen'
 import { StoreSection } from './DataProtection'
 
 // Backups: what AppTown holds of each deployment's state, newest first.
@@ -29,6 +30,8 @@ export function caveatNote(items: { kind: string; name: string; caveat?: string 
 
 export function BackupsView() {
   const q = useGet<AllBackups>('/backups', { poll: 30000 })
+  // Retention means something only once copies have somewhere to go.
+  const store = useGet<BackupStoreState>('/backup-store')
   const { data, reload } = q
   const [historyCount, setHistoryCount] = useState(10)
   const [note, setNote] = useState<{ text: string; done: boolean; operation?: string } | null>(null)
@@ -56,15 +59,15 @@ export function BackupsView() {
     <div>
       <StaleNote q={q} />
       <StoreSection canAttach />
-      <p className="muted small">Keeps the last {data.keep} copies (14 for live apps)</p>
       {note && <p>{note.text}{note.operation && <> <Link to={`/operations/${note.operation}`}>Follow it</Link></>}</p>}
       {actErr && <p className="error">{actErr}</p>}
-      {latest.size === 0 ? <p className="muted">No backups yet.</p> : <>
+      <Section title="Latest backups" count={latest.size || undefined} note={store.data?.store ? `Keeps the last ${data.keep} copies (14 for live apps)` : undefined}>
+      {latest.size === 0 ? <p className="muted small">No backups yet.</p> : <>
       <table className="stack small">
         <thead><tr><th>App</th><th>State</th><th>Taken</th><th></th></tr></thead>
         <tbody>{[...latest.values()].map(b => <GlanceRow key={b.id} name={0} state={1} fact={2} labels={['App', 'State', 'Taken', 'Actions']}>
           <td><Link to={`/projects/${b.project}`}>{b.project} · {b.deployment}</Link></td>
-          <td><Status word={b.statusLabel} help={b.error || b.status} /></td>
+          <td><Status word={b.statusLabel} help={b.error || undefined} /></td>
           <td>{fmtWhen(b.takenAt)}</td>
           <td><details><summary>Actions and details</summary>
             <p>{b.deployment} · <KeptOn b={b} /> · {fmtBytes(b.bytes)}</p>
@@ -78,11 +81,12 @@ export function BackupsView() {
         </GlanceRow>)}</tbody>
       </table>
       </>}
-      {data.backups.length > 0 && <details style={{ marginTop: 16 }}><summary>All backups ({data.backups.length})</summary>
+      </Section>
+      {data.backups.length > 0 && <Section title="All backups" count={data.backups.length}>
         <table className="stack small"><thead><tr><th>App</th><th>State</th><th>Taken</th><th>Details</th></tr></thead>
           <tbody>{data.backups.slice(0, historyCount).map(b => <GlanceRow key={b.id} name={0} state={1} fact={2} labels={['App', 'State', 'Taken', 'Details']}>
             <td>{b.project} · {b.deployment}</td>
-            <td><Status word={b.statusLabel} help={b.error || (b.status === 'pruned' ? 'This old copy has been removed.' : b.status)} /></td>
+            <td><Status word={b.statusLabel} help={b.error || (b.status === 'pruned' ? 'This old copy has been removed.' : undefined)} /></td>
             <td>{fmtWhen(b.takenAt)}</td>
             <td>{b.deployment} · {b.trigger} · {b.actor}{b.status === 'pruned' ? <p>Copy removed</p> : <>
               <KeptOn b={b} /><details><summary>Location</summary><code>{setPlace(b, data.where)}</code></details>
@@ -92,8 +96,8 @@ export function BackupsView() {
             </>}</td>
           </GlanceRow>)}</tbody>
         </table>
-        {data.backups.length > historyCount && <button onClick={() => setHistoryCount(n => n + 10)}>Show 10 more</button>}
-      </details>}
+      </Section>}
+      {data.backups.length > historyCount && <button style={{ marginTop: 10 }} onClick={() => setHistoryCount(n => n + 10)}>Show 10 more</button>}
 
     </div>
   )

@@ -1,0 +1,9 @@
+/* A resource row wraps on a phone: status and name, then the meta line and
+   the action on their own lines, never squeezed into a narrow column. */
+@media (max-width: 800px) {
+  .resource-row { row-gap: 4px; }
+  .resource-row > strong { flex: 1 1 60%; min-width: 0; }
+  .resource-row > .muted { flex: 1 1 100% !important; order: 3; }
+  .resource-row > .row-action { order: 4; }
+  .resource-row > .resource-evidence { order: 5; }
+}

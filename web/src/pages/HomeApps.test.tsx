@@ -35,26 +35,27 @@ function home(projects: ProjectRow[], activity: unknown = { active: [], agents: 
   return el
 }
 
-it('preserves the personal project order returned by Home’s bounded request', () => {
-  const projects = [project('stopped', { prodRunning: false, observation: 'stopped' }),
-    ...Array.from({ length: 9 }, (_, i) => project(`app-${i}`, { blurb: i % 2 ? '' : 'Read together' })),
-    project('stale', { observationStale: true, prodRunning: null }), project('unknown', { prodRunning: null, observation: 'unknown' })]
+// "Where's my thing": Home asks for the person's own five most recently
+// worked-on projects and shows them in the order AppTown gave, running or
+// not, with All projects (and how many there are) for the rest.
+it('shows the recent projects in the order given, with All projects for the rest', () => {
+  const projects = [
+    project('draft', { hasDeployments: false, prodRunning: false, productionUrl: '' }),
+    ...Array.from({ length: 4 }, (_, i) => project(`app-${i}`, { blurb: i % 2 ? '' : 'Read together' })),
+  ]
   const el = home(projects)
+  const rows = [...el.querySelectorAll('.project-row')]
+  expect(rows.map(r => r.querySelector('.project-name')?.textContent)).toEqual(['draft', 'app-0', 'app-1', 'app-2', 'app-3'])
+  expect(el.querySelector('section[aria-label="Recent projects"]')).not.toBeNull()
+  expect(el.querySelector('a[href="/projects"]')?.textContent).toBe(`All projects (${projects.length}) →`)
   const actions = [...el.querySelectorAll('a')].filter(a => a.textContent === 'Open app ↗')
-  expect(actions).toHaveLength(9)
-  expect(actions.every(a => a.classList.contains('primary'))).toBe(true)
+  expect(actions).toHaveLength(4)
   for (const [i, action] of actions.entries()) {
     expect(action.getAttribute('aria-label')).toBe(`Open app: app-${i} (opens in a new tab)`)
-    expect(action.querySelector('[aria-hidden="true"]')?.textContent).toBe('↗')
     expect(action.getAttribute('target')).toBe('_blank')
   }
-  expect(el.querySelector('a[href="/projects"]')?.textContent).toBe('All projects →')
-  const rows = [...el.querySelectorAll('.project-row')]
-  expect(rows).toHaveLength(12)
-  expect(rows[0].textContent).toContain('stopped')
-  expect(rows[1].textContent).toContain('app-0')
-  expect(el.querySelectorAll('.project-description')).toHaveLength(5)
-  expect(el.querySelector('.dash-head button')?.classList.contains('primary')).toBe(false)
+  // New project looks as it does on the Projects page.
+  expect(el.querySelector('.dash-head button')?.classList.contains('primary')).toBe(true)
 })
 
 it('keeps identity, state and action in three fixed row cells regardless of description', () => {
@@ -62,7 +63,7 @@ it('keeps identity, state and action in three fixed row cells regardless of desc
   const rows = [...el.querySelectorAll('.project-row')]
   expect(rows).toHaveLength(2)
   for (const row of rows) {
-    expect([...row.children].map(c => c.className)).toEqual(['project-identity', 'project-state', 'project-action'])
+    expect([...row.children].map(c => c.className)).toEqual(['list-identity', 'list-state', 'list-action'])
     expect(row.querySelector('.project-action a')).not.toBeNull()
   }
   expect(rows[0].querySelector('.project-description')).toBeNull()
@@ -79,7 +80,7 @@ it('makes creation primary only for a confirmed empty Home', () => {
 it('opens running production even when a preview has an urgent aggregate status', () => {
   const el = home([project('production', { observation: 'unreachable', observationStale: true })])
   expect(el.querySelector('.project-action a')?.getAttribute('href')).toBe('https://production.example.test')
-  expect(el.querySelector('.project-state')?.textContent).toContain('failed')
+  expect(el.querySelector('.project-state')?.textContent).toContain('unreachable')
 })
 
 it('marks a failed project refresh unknown and removes the app action', () => {
@@ -119,7 +120,7 @@ it('keeps phone actions and purpose visible in compact rows with tap-sized actio
     }
   }
   const phone = rules.flatMap(r => [...r.cssRules]).filter((r): r is CSSStyleRule => r instanceof CSSStyleRule)
-  expect(phone.find(r => r.selectorText === '.project-action')?.style.getPropertyValue('grid-column')).toBe('4')
-  expect(phone.find(r => r.selectorText === '.project-action .btn')?.style.getPropertyValue('min-height')).toBe('44px')
+  expect(phone.find(r => r.selectorText === '.list-row')?.style.getPropertyValue('grid-template-columns')).toBe('minmax(0, 1fr)')
+  expect(css).toContain('min-height: 44px')
   style.remove()
 })

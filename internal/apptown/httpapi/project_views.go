@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/adrs"
@@ -29,6 +31,13 @@ type ProjectViews struct {
 	runner     execution.Runner
 	mains      mainStandings
 	dataDir    string
+	chats      changeChatAvailability
+	access     *identity.Service
+}
+
+// changeChatAvailability is the conversation owner's current availability read.
+type changeChatAvailability interface {
+	ChangeChatAvailable(context.Context, ids.ID) (bool, error)
 }
 
 // mainStandings reads where a project's main stands against AppTown's record (scm.Branches).
@@ -36,8 +45,8 @@ type mainStandings interface {
 	MainStanding(ctx context.Context, hub string, projectID ids.ID, branch string) (scm.MainStanding, error)
 }
 
-func NewProjectViews(projects *project.Projects, work *workflow.Service, adrs *adrs.Service, deployments *deployment.Service, runner execution.Runner, mains mainStandings, dataDir string) ProjectViews {
-	return ProjectViews{projects: projects, work: work, adrs: adrs, deployment: deployments, runner: runner, mains: mains, dataDir: dataDir}
+func NewProjectViews(projects *project.Projects, work *workflow.Service, adrs *adrs.Service, deployments *deployment.Service, runner execution.Runner, mains mainStandings, dataDir string, chats changeChatAvailability, authority *identity.Service) ProjectViews {
+	return ProjectViews{projects: projects, work: work, adrs: adrs, deployment: deployments, runner: runner, mains: mains, dataDir: dataDir, chats: chats, access: authority}
 }
 func (h ProjectViews) ListProjects(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
@@ -92,7 +101,17 @@ func (h ProjectViews) ListProjects(w http.ResponseWriter, r *http.Request) {
 	out := []ProjectRow{}
 	for _, p := range projects {
 		work := activity[p.ID]
-		out = append(out, ProjectRow{Project: p, LastWorkedAt: p.LastWorkedAt, ActiveItems: work.ActiveItems, DoneRuns: work.DoneRuns, LastRunAt: work.LastRunAt, LastChangeTitle: work.LastChangeTitle})
+		// This is a receipt-free owner observation for navigation. Creation
+		// independently checks current authority before it changes anything.
+		decision, err := h.access.Explain(r.Context(), Principal(r), access.Permission{
+			Capability: access.CapChangeCreate,
+			Resource:   access.Resource{Type: "project", ID: p.ID.String(), ProjectID: p.ID, ProjectName: p.Name, Group: p.OwnerGroup},
+		})
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		out = append(out, ProjectRow{Project: p, CanChange: decision.Allow, LastWorkedAt: p.LastWorkedAt, ActiveItems: work.ActiveItems, DoneRuns: work.DoneRuns, LastRunAt: work.LastRunAt, LastChangeTitle: work.LastChangeTitle})
 	}
 	counts, err := h.adrs.Counts(r.Context(), idList)
 	if err != nil {
@@ -194,8 +213,13 @@ func (h ProjectViews) GetProject(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
+	chatAvailable, err := h.chats.ChangeChatAvailable(r.Context(), p.ID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 	WriteJSON(w, 200, ProjectDetail{
-		ID: p.ID, Slug: p.Slug, Name: p.Name, Namespace: p.Namespace,
+		ChatAvailable: chatAvailable, ID: p.ID, Slug: p.Slug, Name: p.Name, Namespace: p.Namespace,
 		Icon: p.Icon, Blurb: p.Blurb, BlurbSource: p.BlurbSource, OriginalRequest: request, DefaultBranch: p.DefaultBranch,
 		CreatedAt:   p.CreatedAt,
 		RuntimeForm: form, IntranetReady: releasable,
@@ -242,6 +266,7 @@ func hasGitDirectory(dir string) bool {
 // is running.
 type ProjectRow struct {
 	project.Project
+	CanChange bool `json:"canChange"`
 	// LastWorkedAt is when the caller last worked on the project, set only
 	// for order=mine; null there means never, and on other lists means not
 	// worked out.
@@ -271,6 +296,10 @@ type ProjectPage struct {
 // ProjectDetail is one project: what it is, what form its app takes, and any
 // files changed outside AppTown.
 type ProjectDetail struct {
+	// ChatAvailable is a hint for showing the Chat button: a chat model is
+	// chosen and AppTown or a worker can run chats. It is not a reading of
+	// the worker; opening a chat reports a worker that cannot take it.
+	ChatAvailable   bool     `json:"chatAvailable"`
 	ID              ids.ID   `json:"id"`
 	Slug            string   `json:"slug"`
 	Name            string   `json:"name"`

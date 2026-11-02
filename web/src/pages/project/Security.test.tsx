@@ -52,14 +52,15 @@ it('states a clean old scan and changed main together without claiming main pass
   client.clear()
 })
 
-it('leads unreadable scans with a plain consequence and a next action, keeping diagnostics in details', () => {
+it('leads unreadable scans with a plain consequence and a next action, the diagnostic after them', () => {
  const client=newQueryClient()
  client.setQueryData(getKey('/projects/game/findings'), {sources:[{...source, unreadable:'SARIF parse: invalid character'}],findings:[],summary:{actionable:0},repo:{},statusLabel:'unknown'})
  const html=renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><FindingsTab slug="game"/></QueryClientProvider></MemoryRouter>)
  expect(html).toContain("One scan report couldn&#x27;t be read; security checks are incomplete.")
  expect(html).toContain('Ask a project member with permission to open a change to re-run the scan.')
- expect(html).toMatch(/<summary>Technical details<\/summary>[\s\S]*SARIF parse/)
- expect(html.slice(0,html.indexOf('<details'))).not.toContain('SARIF parse')
+ const consequence = html.indexOf('security checks are incomplete')
+ expect(html.indexOf('Ask a project member')).toBeGreaterThan(consequence)
+ expect(html.indexOf('SARIF parse')).toBeGreaterThan(html.indexOf('Ask a project member'))
  client.clear()
 })
 

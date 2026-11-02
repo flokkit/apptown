@@ -47,9 +47,9 @@ describe('change description editor', () => {
   it('opens only on a current reading, keeps the draft while the page polls, and saves only what changed', async () => {
     const f = mount(() => new Response(JSON.stringify({ id: CHANGE, editRevision: 3 })))
     await f.render(view('old brief', 1), false)
-    expect(f.button('edit')!.disabled).toBe(true)
+    expect(f.button('Edit')!.disabled).toBe(true)
     await f.render(view('the brief', 2))
-    await act(async () => { f.button('edit')!.click() })
+    await act(async () => { f.button('Edit')!.click() })
     await act(async () => { type(f.textarea(), 'my brief') })
     // A poll brings the same change back; the draft stays.
     await f.render(view('the brief', 2))
@@ -65,7 +65,7 @@ describe('change description editor', () => {
       ? new Response(JSON.stringify({ error: 'moved' }), { status: 409, headers: { 'X-AppTown-Deny-Code': 'change-edit-moved' } })
       : new Response(JSON.stringify({ id: CHANGE, editRevision: 4 })))
     await f.render(view('the brief', 2))
-    await act(async () => { f.button('edit')!.click() })
+    await act(async () => { f.button('Edit')!.click() })
     await act(async () => { type(f.textarea(), 'my brief') })
     await act(async () => { f.button('Save')!.click() })
     await vi.waitFor(() => expect(f.el.textContent).toContain('Someone edited this change after you started'))
@@ -83,7 +83,7 @@ describe('change description editor', () => {
   it('says why a save failed and keeps the draft', async () => {
     const f = mount(() => new Response(JSON.stringify({ error: 'AppTown is restarting' }), { status: 503 }))
     await f.render(view('the brief', 0))
-    await act(async () => { f.button('edit')!.click() })
+    await act(async () => { f.button('Edit')!.click() })
     await act(async () => { type(f.textarea(), 'my brief') })
     await act(async () => { f.button('Save')!.click() })
     await vi.waitFor(() => expect(f.el.textContent).toContain('AppTown is restarting'))

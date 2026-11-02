@@ -25,16 +25,16 @@ function firstView(html: string) {
   return el.textContent || ''
 }
 
-it('shows only the latest backup until history is opened, and caps that history at ten', () => {
+it('shows the latest backup once and caps the history at ten', () => {
   const client = newQueryClient()
   client.setQueryData(getKey('/backups'), { keep: 7, where: '/backups', backups: Array.from({ length: 30 }, (_, n) => ({
     id: String(n), project: 'Family photos', deployment: 'main', takenAt: '2026-10-30T00:00:00Z', status: 'ok', statusLabel: 'finished', bytes: 128, path: '/backups/club/main',
     items: [{ kind: 'need', name: 'postgres', caveat: 'Technical copy limits' }],
   })) })
   const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><BackupsView /></QueryClientProvider></MemoryRouter>)
-  expect(firstView(html).match(/Family photos/g)).toHaveLength(1)
   expect(firstView(html)).not.toContain('Technical copy limits')
   const el = document.createElement('div'); el.innerHTML = html
+  expect(el.querySelectorAll('table')[0].querySelectorAll('tbody tr')).toHaveLength(1)
   expect(el.querySelectorAll('table')[1].querySelectorAll('tbody tr')).toHaveLength(10)
   expect(html).toContain('Show 10 more')
   client.clear()
@@ -74,13 +74,15 @@ it('replaces an empty decisions table with a clear empty state', () => {
   client.clear()
 })
 
-it('explains the image store without exposing repository paths or registry jargon', () => {
+// The connection's settings are shown, labelled in plain words, with no
+// registry jargon.
+it('explains the image store in plain words and shows where images are kept', () => {
   const client = newQueryClient()
   client.setQueryData(getKey('/projects/club/integrations'), { attachments: [{ capability: 'container-registry', title: 'Container registry', resource: { repo: 'registry.example/club/app' } }] })
   client.setQueryData(getKey('/attachables'), { attachables: [{ capability: 'container-registry', description: 'OCI images are the unit of release' }] })
   const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><ProjectIntegrationsTab slug="club" /></QueryClientProvider></MemoryRouter>)
   expect(firstView(html)).toContain('Stores your app’s built images')
-  expect(firstView(html)).not.toContain('registry.example')
+  expect(firstView(html)).toContain('Images kept at')
   expect(firstView(html)).not.toContain('OCI')
   expect(html).toContain('registry.example')
   client.clear()

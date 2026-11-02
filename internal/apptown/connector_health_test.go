@@ -17,6 +17,8 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/integration"
+	"github.com/flokkit/apptown/internal/apptown/verification"
+	"github.com/flokkit/apptown/stock"
 )
 
 // An integration's listed health says whether AppTown checked it and
@@ -357,5 +359,47 @@ func TestFeedbackBackgroundAndTestConnectionUseTheRealCheck(t *testing.T) {
 	h, err = a.Integrations.TestSaved(t.Context(), b.Name, checker)
 	if err != nil || !h.OK || calls.Load() != 2 {
 		t.Fatalf("explicit feedback check: %+v %v calls=%d", h, err, calls.Load())
+	}
+}
+
+// Every stock scanner either has an image of its own, which its connection
+// check asks for, or runs inside the app's image and has no connection
+// check; none reads as a failed check for want of an image. Test
+// connection of a scanner inside the app image is not a check either.
+func TestNoStockScannerFailsItsCheckForWantOfAnImage(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	verification.SyncStockScanners(t.Context(), a.Integrations, stock.FS)
+	bindings, err := a.Integrations.Bindings.All(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	inside := 0
+	for _, b := range bindings {
+		if b.Capability != verification.ScannerCapability {
+			continue
+		}
+		var config map[string]any
+		if err := json.Unmarshal([]byte(b.ConfigJSON), &config); err != nil {
+			t.Fatal(err)
+		}
+		image, _ := config["image"].(string)
+		switch {
+		case integration.ScannerRunsInAppImage(config):
+			inside++
+			if b.HasAutomaticCheck() {
+				t.Errorf("%s runs inside the app image but claims an automatic check", b.Name)
+			}
+			if h := connectorHealthFor(a).Test(t.Context(), b.Capability, b.Provider, config); h.Checked || h.OK || h.Detail != "" {
+				t.Errorf("%s's Test connection reads as a check: %+v", b.Name, h)
+			}
+		case image == "":
+			t.Errorf("%s has no image and does not run inside the app image", b.Name)
+		case !b.HasAutomaticCheck():
+			t.Errorf("%s has its own image but no automatic check", b.Name)
+		}
+	}
+	if inside == 0 {
+		t.Fatal("no stock scanner runs inside the app image: this test guards nothing")
 	}
 }

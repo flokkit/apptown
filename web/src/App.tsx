@@ -1,11 +1,15 @@
+import { SECURITY_TABS, SETTINGS_TABS, SETTINGS_LABEL } from './pages/project/tabs'
+import { projectHue } from './ProjectListRow'
+import { ArrowLeft, Blocks, BookOpen, BookText, ChartColumn, ChevronDown, ChevronRight, FlaskConical, FolderKanban, House, LayoutDashboard, MessageSquare, MessageSquareWarning, Plug, RefreshCw, Rocket, Settings, Shield, ShieldCheck, Users } from 'lucide-react'
+import { createChatChange } from './pages/project/Overview'
 import Janitor from './pages/Janitor'
 import { PRODUCT } from './brand'
-import { Link, NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
+import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ErrorBoundary } from './ErrorBoundary'
 import { UpdateNote } from './UpdateNote'
 import { UpdatesPage, ReleaseAvailabilityNote } from './pages/Updates'
 import { StaleScope } from './ReadGate'
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { currentUser, setCurrentUser } from './api'
 import Dashboard from './pages/Dashboard'
@@ -22,7 +26,9 @@ import PackPage from './pages/PackPage'
 import WhatIfPage from './pages/WhatIfPage'
 import NewProject from './pages/NewProject'
 import Integrations from './pages/Integrations'
-import { TargetPage } from './pages/integrations/TargetPage'
+import { TargetPage, TargetSettingsPage } from './pages/integrations/TargetPage'
+import { INTEGRATION_MENU } from './pages/integrations/kinds'
+import { ModelProfilePage } from './pages/integrations/ModelSlots'
 import { InfrastructureHome } from './pages/InfrastructureHome'
 import { InfrastructureNew } from './pages/InfrastructureNew'
 import Conformance from './pages/Conformance'
@@ -41,10 +47,10 @@ import { useProjectScope } from './projectScope'
 import { EvalScorecardPage, EvalStartPage, EvalsPage } from './pages/Evals'
 import { OperationPage } from './pages/DataProtection'
 import { InstanceGate, useInstancePages, useHolds } from './instancePages'
-import TopBar from './TopBar'
+import TopBar, { AccountCorner } from './TopBar'
 import { useNarrow } from './chrome'
 import { withChunkReload } from './chunkReload'
-import { identityChanged, useGet, useOnline } from './data'
+import { identityChanged, useAction, useGet, useOnline } from './data'
 import type { AuthMe } from './wire.gen'
 
 // Contextual sidebar (the GitLab pattern): inside a project, the menu IS the
@@ -59,52 +65,110 @@ export function SidebarNav() {
   // Inside a project by URL, or inside one of its changes/decisions by scope.
   const slug = m ? (m[1] !== '_new' ? m[1] : null)
     : /^\/(changes|items|adrs)\//.test(pathname) ? scope : null
+  const nav = useNavigate()
+  const chat = useAction()
+  const canCreate = useHolds('change:create', slug ?? undefined)
+  const canChat = useHolds('change:invoke-lane', slug ?? undefined)
   const project = useGet<import('./wire.gen').ProjectDetail>(slug ? `/projects/${slug}` : null).data
   const cls = ({ isActive }: { isActive: boolean }) => 'nav' + (isActive ? ' active' : '')
   // Pages about the whole AppTown are left out for someone who cannot read
   // them; the menu is otherwise the same for everyone.
   const mayOpen = useInstancePages()
+  const me = useGet<AuthMe>('/auth/me').data
  const mayUpdate = useHolds("instance:updates")
   const wow = /^\/(packs|workflows|guidance|policies)(\/|$)/.test(pathname)
 
   if (slug) {
+    const base = `/projects/${slug}`
+    const name = project?.name ?? slug
     return (
       <>
-        <NavLink to="/projects" className="nav muted small" style={{ paddingBottom: 2 }}>‹ all projects</NavLink>
-        <div className="sidebar-project muted small" title={project?.name ?? slug}>{project?.name ?? slug}</div>
-        <NavLink to={`/projects/${slug}`} end className={cls}>Overview</NavLink>
-        <NavLink to={`/projects/${slug}/console`} className={cls}>Chat ▸</NavLink>
-        <NavLink to={`/projects/${slug}/security`} className={cls}>Security</NavLink>
-        <NavLink to={`/projects/${slug}/janitor`} className={cls}>Janitor</NavLink>
-        <NavLink to={`/projects/${slug}/settings`} className={cls}>Settings</NavLink>
+        <NavLink to="/projects" end className="nav"><ArrowLeft aria-hidden size={16} />All projects</NavLink>
+        {/* The project, as the app rows show it: its colour and its name. */}
+        <div className="sidebar-project" title={name}>
+          <span className="project-avatar project-letter" aria-hidden style={{ '--project-hue': projectHue(slug) } as CSSProperties}>{name.slice(0, 1).toUpperCase()}</span>
+          <strong>{name}</strong>
+        </div>
+        <NavLink to={base} end className={cls}><LayoutDashboard aria-hidden size={16} />Overview</NavLink>
+        {project?.chatAvailable && canCreate && canChat && <button className="nav" disabled={chat.busy} onClick={() => void chat.run(async () => {
+          const r = await createChatChange(slug)
+          nav(`${base}/console?change=${r.change.id}`)
+        })}><MessageSquare aria-hidden size={16} />Chat</button>}
+        {chat.err && <p className="error small">{chat.err}</p>}
+        <Drawer label="Security" icon={<Shield aria-hidden size={16} />} to={`${base}/security`} active={pathname.startsWith(`${base}/security`)} items={SECURITY_TABS.map(t => (
+          { to: `${base}/security/${t}`, label: t[0].toUpperCase() + t.slice(1), active: pathname === `${base}/security/${t}` || (t === 'findings' && pathname === `${base}/security`) }))} />
+        <Drawer label="Settings" icon={<Settings aria-hidden size={16} />} to={`${base}/settings`} active={pathname.startsWith(`${base}/settings`)} items={SETTINGS_TABS.map(t => (
+          { to: `${base}/settings/${t}`, label: SETTINGS_LABEL[t], active: pathname === `${base}/settings/${t}` || (t === 'general' && pathname === `${base}/settings`) }))} />
+        <div className="spacer" />
+        <NavBottom cls={cls} complaints={mayOpen('complaints')} me={me ?? null} />
       </>
     )
   }
+  const dep = /^\/(deployments|infrastructure)(\/|$)/.test(pathname)
+  const infra = mayOpen('infrastructure')
   return (
     <>
-      <NavLink to="/" end className={cls}>Home</NavLink>
-      <NavLink to="/projects" end className={cls}>Projects</NavLink>
-      <NavLink to="/deployments" className={cls}>Deployments</NavLink>
-      {mayOpen('infrastructure') && <NavLink to="/infrastructure" className={cls}>Infrastructure</NavLink>}
-      {mayOpen('conformance') && <NavLink to="/conformance" className={cls}>Conformance</NavLink>}
-      <div className="nav-group">setup</div>
-      <NavLink to="/packs" className={() => 'nav' + (wow ? ' active' : '')}>Ways of working</NavLink>
-      {mayOpen('evals') && <NavLink to="/evals" className={cls}>Evals</NavLink>}
-      {mayOpen('integrations') && <NavLink to="/integrations" className={cls}>Integrations</NavLink>}
-      <NavLink to="/account" className={cls}>Your account</NavLink>
-      {mayOpen('people') && <NavLink to="/people" className={cls}>People</NavLink>}
-      <NavLink to="/usage" className={cls}>Usage</NavLink>
- {mayUpdate && <NavLink to="/updates" className={cls}>Updates</NavLink>}
-      {mayOpen('complaints') && <NavLink to="/complaints" className={cls}>Complaints</NavLink>}
-      <NavLink to="/docs" className={cls}>Docs</NavLink>
+      <NavLink to="/" end className={cls}><House aria-hidden size={16} />Home</NavLink>
+      <NavLink to="/projects" end className={cls}><FolderKanban aria-hidden size={16} />Projects</NavLink>
+      <Drawer label="Deployments" icon={<Rocket aria-hidden size={16} />} to="/deployments" active={dep} items={[
+        { to: '/deployments/departures', label: 'Departures', active: dep && (pathname === '/deployments' || pathname.startsWith('/deployments/departures')) },
+        { to: '/deployments/table', label: 'Apps', active: pathname.startsWith('/deployments/table') },
+        ...(infra ? [
+          { to: '/deployments/infrastructure', label: 'Infrastructure', active: pathname.startsWith('/deployments/infrastructure') || pathname.startsWith('/infrastructure') },
+          { to: '/deployments/backups', label: 'Backups', active: pathname.startsWith('/deployments/backups') },
+        ] : []),
+      ]} />
+      {mayOpen('conformance') && <NavLink to="/conformance" className={cls}><ShieldCheck aria-hidden size={16} />Conformance</NavLink>}
+      <div className="nav-group">Setup</div>
+      <Drawer label="Ways of working" icon={<BookOpen aria-hidden size={16} />} to="/packs" active={wow} items={[
+        { to: '/packs', label: 'Packs', active: pathname.startsWith('/packs') },
+        { to: '/workflows', label: 'Workflows', active: pathname.startsWith('/workflows') },
+        { to: '/guidance', label: 'Guidance', active: pathname.startsWith('/guidance') },
+        { to: '/policies', label: 'Policies', active: pathname.startsWith('/policies') },
+      ]} />
+      {mayOpen('integrations') && INTEGRATION_MENU.map((g) => (
+        <Drawer key={g.key} label={g.heading} icon={g.key === 'services' ? <Blocks aria-hidden size={16} /> : <Plug aria-hidden size={16} />} to={`/${g.key}`}
+          active={new RegExp(`^/${g.key}(/|$)`).test(pathname)}
+          items={g.items.map((i) => ({ to: `/${g.key}/${i.key}`, label: i.title, active: pathname === `/${g.key}/${i.key}` }))} />))}
+      {mayOpen('evals') && <NavLink to="/evals" className={cls}><FlaskConical aria-hidden size={16} />Evals</NavLink>}
+      {mayOpen('people') && <NavLink to="/people" className={cls}><Users aria-hidden size={16} />People</NavLink>}
+      <NavLink to="/usage" className={cls}><ChartColumn aria-hidden size={16} />Usage</NavLink>
+      {mayUpdate && <NavLink to="/updates" className={cls}><RefreshCw aria-hidden size={16} />Updates</NavLink>}
+      <div className="spacer" />
+      <NavBottom cls={cls} complaints={mayOpen('complaints')} me={me ?? null} />
     </>
   )
 }
 
-// A target's page lives under Infrastructure now.
-function ToInfrastructureTarget() {
-  const { name } = useParams()
-  return <Navigate to={`/infrastructure/${name}`} replace />
+// NavBottom is the same on every menu: help, and you.
+function NavBottom({ cls, complaints, me }: { cls: (a: { isActive: boolean }) => string; complaints: boolean | undefined; me: AuthMe | null }) {
+  return (
+    <div className="nav-bottom">
+      <NavLink to="/docs" className={cls}><BookText aria-hidden size={16} />Docs</NavLink>
+      {complaints && <NavLink to="/complaints" className={cls}><MessageSquareWarning aria-hidden size={16} />Complaints</NavLink>}
+      <AccountCorner me={me} />
+    </div>
+  )
+}
+
+// Drawer is an area of the product with pages of its own: the area opens
+// where you are in it, and its pages are the menu's map of the area.
+function Drawer({ label, icon, to, active, items }: { label: string; icon: ReactNode; to: string; active: boolean; items: { to: string; label: string; active: boolean }[] }) {
+  const [open, setOpen] = useState(active)
+  useEffect(() => { if (active) setOpen(true) }, [active])
+  return (
+    <div className={'nav-drawer' + (open ? ' open' : '')}>
+      <div className="nav-drawer-head">
+        <NavLink to={to} className={() => 'nav' + (active ? ' active-area' : '')}>{icon}{label}</NavLink>
+        <button className="nav-drawer-toggle" aria-expanded={open} aria-label={`${open ? 'Close' : 'Open'} ${label}`} onClick={() => setOpen(o => !o)}>
+          {open ? <ChevronDown aria-hidden size={14} /> : <ChevronRight aria-hidden size={14} />}
+        </button>
+      </div>
+      {open && <div className="nav-drawer-items">
+        {items.map(i => <NavLink key={i.to} to={i.to} className={() => 'nav nav-sub' + (i.active ? ' active' : '')}>{i.label}</NavLink>)}
+      </div>}
+    </div>
+  )
 }
 
 // Old per-project workflow pages land on the project's Way of working.
@@ -219,10 +283,14 @@ export default function App() {
           <Route path="/integrations" element={<InstanceGate page="integrations"><Integrations /></InstanceGate>} />
           <Route path="/infrastructure" element={<InstanceGate page="infrastructure"><InfrastructureHome /></InstanceGate>} />
           <Route path="/infrastructure/jobs" element={<InstanceGate page="infrastructure"><InfrastructureHome /></InstanceGate>} />
-          <Route path="/infrastructure/new" element={<InstanceGate page="infrastructure"><InfrastructureNew /></InstanceGate>} />
+          <Route path="/infrastructure/new" element={<Navigate to="/integrations/targets/new" replace />} />
+          <Route path="/integrations/profiles/:profile" element={<InstanceGate page="integrations"><ModelProfilePage /></InstanceGate>} />
+          <Route path="/integrations/targets/new" element={<InstanceGate page="infrastructure"><InfrastructureNew /></InstanceGate>} />
           <Route path="/infrastructure/:name" element={<InstanceGate page="infrastructure"><TargetPage /></InstanceGate>} />
-          <Route path="/integrations/targets/:name" element={<InstanceGate page="infrastructure"><ToInfrastructureTarget /></InstanceGate>} />
+          <Route path="/integrations/targets/:name" element={<InstanceGate page="infrastructure"><TargetSettingsPage /></InstanceGate>} />
           <Route path="/integrations/:name" element={<InstanceGate page="integrations"><Integrations /></InstanceGate>} />
+          <Route path="/services" element={<InstanceGate page="integrations"><Integrations /></InstanceGate>} />
+          <Route path="/services/:name" element={<InstanceGate page="integrations"><Integrations /></InstanceGate>} />
           <Route path="/policies" element={<WaysOfWorking tab="policies" />} />
           <Route path="/packs" element={<WaysOfWorking tab="packs" />} />
           <Route path="/packs/:name" element={<PackPage />} />

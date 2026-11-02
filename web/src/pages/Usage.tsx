@@ -5,6 +5,8 @@ import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import type { TimingReport, UsageReport } from '../wire.gen'
 import { PageHead } from '../PageHead'
+import { Section } from '../Section'
+import './Usage.css'
 
 // Usage reports summarize observed harness tokens and estimated costs by time,
 // project, model and workflow. They are not reconciled provider invoices.
@@ -19,9 +21,11 @@ type Row = Record<string, string | number>
 export const LANE_LABEL: Record<string, string> = { step: 'Automated work', console: 'Chat', 'guidance-checklist': 'Rule checks', 'conformance-review': 'Project checks', 'approval-brief': 'Approval summaries', 'pack-assistance': 'Ways of working help', 'what-if': 'Setup comparisons', 'project-description': 'Project descriptions', narrative: 'Summaries' }
 const LANE_COLOR: Record<string, string> = { step: 'var(--accent)', console: 'var(--note)' }
 
+// One figure in the totals panel: a label, the amount, and a qualifying line
+// only when there is something to qualify.
 function StatCard({ label, value, sub }: { label: string; value: React.ReactNode; sub?: React.ReactNode }) {
   return (
-    <div className="stat-card">
+    <div className="usage-figure">
       <div className="stat-label">{label}</div>
       <div className="stat-value">{value}</div>
       {sub && <div className="muted small">{sub}</div>}
@@ -73,7 +77,8 @@ export function TimingView({ days }: { days: number }) {
   const wfs = tq.data ? tq.data.workflows ?? [] : null
   if (!wfs) return <ReadStatus q={tq} what="the step timings" />
   if (wfs.length === 0) return <><StaleNote q={tq} /><div className="muted">No runs in the last {days} days.</div></>
-  const sec = (ms: number) => fmtDuration(Math.round(ms / 1000))
+  // A measured time under a second is said so, never rounded down to a 0 that reads as missing.
+  const sec = (ms: number) => ms > 0 && ms < 1000 ? 'under 1s' : fmtDuration(Math.round(ms / 1000))
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <StaleNote q={tq} />
@@ -158,17 +163,14 @@ function DailyChart({ days, perDay, shownFrom }: { days: string[]; perDay: Map<s
     else return false
     return true
   }
+  // The legend names only the kinds of use the window has.
+  const lanes = (['step', 'console'] as const).filter(k => [...perDay.values()].some(x => x[k] > 0))
   return (
-    <div className="card">
-      <div className="row" style={{ marginBottom: 8 }}>
-        <h3 style={{ margin: 0 }}>Daily</h3>
-        <span className="muted small">
-          <span style={{ color: LANE_COLOR.step }}>■</span> {LANE_LABEL.step}&nbsp;
-          <span style={{ color: LANE_COLOR.console }}>■</span> {LANE_LABEL.console}
-        </span>
-        <span style={{ flex: 1 }} />
-        <span className="muted small">tallest day {fmtTokens(maxDay)}</span>
-      </div>
+    <Section title="Daily tokens" action={<span className="muted">tallest day {fmtTokens(maxDay)}</span>}>
+      <div className="usage-chart-panel">
+      {lanes.length > 0 && <div className="muted small usage-legend">
+        {lanes.map(k => <span key={k}><span style={{ color: LANE_COLOR[k] }}>■</span> {LANE_LABEL[k]}</span>)}
+      </div>}
       <div className="usage-chart" role="slider" tabIndex={0} aria-label="day to show"
         aria-valuemin={0} aria-valuemax={days.length - 1} aria-valuenow={at} aria-valuetext={detail}
         onPointerDown={(ev) => { ev.currentTarget.setPointerCapture?.(ev.pointerId); pickAt(ev.currentTarget, ev.clientX) }}
@@ -178,7 +180,7 @@ function DailyChart({ days, perDay, shownFrom }: { days: string[]; perDay: Map<s
           const x = perDay.get(d)
           const t = x ? x.step + x.console : 0
           return (
-            <div key={d} className={'usage-col' + (i === at ? ' on' : '')}>
+            <div key={d} className={'usage-col' + (picked !== null && i === at ? ' on' : '')}>
               {x && (
                 <div className="usage-stack" style={{ height: `${Math.max(3, (t / maxDay) * 100)}%` }}>
                   {x.console > 0 && <div style={{ flex: x.console, background: LANE_COLOR.console }} />}
@@ -194,7 +196,8 @@ function DailyChart({ days, perDay, shownFrom }: { days: string[]; perDay: Map<s
         <span className="muted small">{days[days.length - 1]?.slice(5)}</span>
       </div>
       <div className="usage-day" aria-live="polite">{picked !== null ? detail : null}</div>
-    </div>
+      </div>
+    </Section>
   )
 }
 
@@ -233,18 +236,18 @@ export function UsageView({ project }: { project?: string }) {
   return (
     <div>
       <StaleNote q={uq} />
-      <div className="row usage-stats" style={{ marginBottom: 14, alignItems: 'stretch' }}>
-        <StatCard label={`Cost in ${window} days`} value={`$${(data.totals.costMicros / 1e6).toFixed(2)}`}
-          sub={data.totals.incomplete > 0 ? 'Some calls not priced.' : 'Estimated cost'} />
-        <StatCard label="Automated work" value={`$${(workCost / 1e6).toFixed(2)}`} sub="Recorded cost" />
-        <StatCard label="Chat" value={`$${(chatCost / 1e6).toFixed(2)}`} sub="Recorded cost" />
-        <span style={{ flex: 1 }} />
-        <div className="row" style={{ alignItems: 'flex-start' }}>
-          {[7, 30, 90].map((w) => (
-            <button key={w} className={window === w ? 'primary' : 'subtle'} onClick={() => setWindow(w)}>{w}d</button>
-          ))}
+      <Section title="Recorded cost" action={<div className="usage-range" role="group" aria-label="Range">
+        {[7, 30, 90].map((w) => (
+          <button key={w} aria-pressed={window === w} className={window === w ? 'on' : ''} onClick={() => setWindow(w)}>{w}d</button>
+        ))}
+      </div>}>
+        <div className="usage-totals">
+          <StatCard label={`Cost, ${window} days`} value={`$${(data.totals.costMicros / 1e6).toFixed(2)}`}
+            sub={data.totals.incomplete > 0 ? `${data.totals.incomplete} activity records have unknown or partial cost.` : undefined} />
+          <StatCard label="Automated work" value={`$${(workCost / 1e6).toFixed(2)}`} />
+          <StatCard label="Chat" value={`$${(chatCost / 1e6).toFixed(2)}`} />
         </div>
-      </div>
+      </Section>
 
       <Tabs className="tabs" aria-label="Usage views">
         {(['summary', 'details', 'timing'] as const).filter(t => !project || t !== 'timing').map(t => <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{t === 'summary' ? 'Summary' : t === 'details' ? 'Details' : 'Time spent'}</button>)}
@@ -266,13 +269,9 @@ export function UsageView({ project }: { project?: string }) {
 
       </>}
       {!project && tab === 'timing' && (
-        <div style={{ marginTop: 16 }}>
-          <h2 style={{ marginBottom: 4 }}>Where the time goes</h2>
-          <div className="muted small" style={{ marginBottom: 10 }}>
-            Last {window} days · wait and run time
-          </div>
+        <Section title="Where the time goes" note={`Last ${window} days · wait and run time`}>
           <TimingView days={window} />
-        </div>
+        </Section>
       )}
 
       {data.totals.total === 0 && (

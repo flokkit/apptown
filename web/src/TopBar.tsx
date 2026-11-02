@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { post } from './api'
 import { usePageContext } from './chrome'
-import { AttentionBadge } from './attention'
+import { AttentionLights } from './attention'
 import { PRODUCT } from './brand'
 import { useProjectScope } from './projectScope'
 import { useGet } from './data'
@@ -22,6 +22,7 @@ const INSTANCE: [RegExp, string][] = [
   [/^\/deployments/, 'Deployments'],
   [/^\/(packs|workflows|guidance|policies)/, 'Ways of working'],
   [/^\/integrations/, 'Integrations'],
+  [/^\/services/, 'Services'],
   [/^\/people/, 'People'],
   [/^\/usage/, 'Usage'],
   [/^\/evals/, 'Evals'],
@@ -95,30 +96,29 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu }:
         </span>
       ))}
       <span style={{ flex: 1 }} />
-      {me && <AttentionBadge />}
+      {me && <AttentionLights />}
       <details className="account-menu topbar-search">
         <summary aria-label="Search">Find</summary>
         <div><Find /></div>
       </details>
       <Link to="/projects">Projects</Link>
-        <details className="account-menu">
-          <summary aria-label="Account menu">{me?.user || 'Account'}</summary>
-          <div><ThemeSwitch /><UserLine me={me} /></div>
-        </details>
     </header>
   )
 }
 
-// Who you are, and the way out when there is a sign-in.
-export function UserLine({ me }: { me: Me | null }) {
-  if (!me || me.mode === 'open' || !me.user) return null
+// AccountCorner is you, at the foot of the menu: your name, and under it
+// your account page, the theme and the way out. One place, not two.
+export function AccountCorner({ me }: { me: Me | null }) {
+  const name = me?.user || 'Account'
   return (
-    <span className="topbar-user">
-      <span className="topbar-user-name" title={me.user}>{me.user}</span>
-      {me.mode === 'internal' && (
-        <button className="subtle" onClick={() => post('/auth/logout').then(() => location.reload())}>sign out</button>
-      )}
-    </span>
+    <details className="account-corner">
+      <summary aria-label="Account menu"><span className="account-avatar" aria-hidden>{name.slice(0, 1).toUpperCase()}</span><span className="account-name" title={name}>{name}</span></summary>
+      <div>
+        <Link to="/account">Your account</Link>
+        <ThemeSwitch />
+        {me?.mode === 'internal' && <button className="subtle" onClick={() => post('/auth/logout').then(() => location.reload())}>Sign out</button>}
+      </div>
+    </details>
   )
 }
 

@@ -1,3 +1,4 @@
+import { ListRow } from '../ListRow'
 import { Tabs } from '../Tabs'
 import { useState } from 'react'
 import { useHostStates } from '../hostState'
@@ -59,7 +60,7 @@ export function InfrastructureHome() {
       </Tabs>
       {tab === 'targets' && <OwnDisks />}
       {tab === 'targets' && <div style={{ marginTop: 16 }}><DeletedProjects /></div>}
-      {tab === 'jobs' ? <JobQueue /> : <div className="infra-grid" style={{ marginTop: 16 }}>
+      {tab === 'jobs' ? <JobQueue /> : <div className="project-rows" role="list" style={{ marginTop: 16 }}>
         {live.map((t) => {
           const v = byName.get(t.target)
           const res = t.resources ?? []
@@ -68,18 +69,13 @@ export function InfrastructureHome() {
           const missing = res.filter((r) => r.record === 'missing').length
           const state = hostState(t.target, t.statusLabel)
           return (
-            <Link key={t.target} to={`/infrastructure/${t.target}`} className="conn-card infra-card">
-              <div className="host-row">
-                <strong>{v?.displayLabel || t.target}</strong>
-                <Status observation word={state.word} help={state.help} />
-                <span className="muted small">{state.summary || (t.asOf && !t.live ? lastSeen(t.asOf) : missing > 0 ? 'Check missing resources' : unrecorded > 0 ? 'Review resources' : `${envs.length} ${envs.length === 1 ? 'app' : 'apps'}`)}</span>
-              </div>
-            </Link>
+            <ListRow listItem key={t.target} identity={<><strong>{v?.displayLabel || t.target}</strong><div className="muted small">{t.place}</div></>}
+              state={<><Status observation word={state.word} help={state.help} />
+                <div className="muted small">{state.summary || (t.asOf && !t.live ? lastSeen(t.asOf) : missing > 0 ? 'Check missing resources' : unrecorded > 0 ? 'Review resources' : `${envs.length} ${envs.length === 1 ? 'app' : 'apps'}`)}</div></>}
+              action={<Link className="btn" to={`/infrastructure/${t.target}`}>View target</Link>} />
           )
         })}
-        <Link to="/infrastructure/new" className="conn-card infra-add">
-          <div style={{ fontWeight: 600 }}>Add a deployment target</div>
-        </Link>
+        <Link to="/integrations/targets" className="small">Set up targets →</Link>
       </div>}
     </div>
   )
@@ -98,7 +94,8 @@ export function OwnDisks() {
       <div className="host-disks">
         {q.data.disks.map(d => <details key={d.what + (d.path ?? '')} className="host-disk">
           <summary className="host-row">
-            <strong>{d.what.startsWith('this ') ? PRODUCT : d.what.includes('Docker') ? 'Worker apps' : d.what.includes('worker') ? 'Worker storage' : d.what}</strong>
+            {/* Each disk is named for what it holds, so two readings of one machine are not mistaken for one disk. */}
+            <strong>{d.what.startsWith('this ') ? `${PRODUCT}'s data` : d.what.includes('Docker') ? 'Worker apps' : d.what.includes('worker') ? 'Worker storage' : d.what}</strong>
             <DiskChip d={d} />
             <span className="muted small">{d.unknown ? 'Disk not known' : d.low ? 'Low on disk' : `${Math.round(100 * (d.freeBytes ?? 0) / (d.totalBytes || 1))}% disk free`}</span>
           </summary>

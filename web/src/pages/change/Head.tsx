@@ -1,6 +1,6 @@
 import { Status } from '../../Status'
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Section } from '../../Section'
 import type { ChangeAttachment } from '../../wire.gen'
 import { renderMd } from '../../md'
 import DiffView from '../../DiffView'
@@ -23,33 +23,37 @@ export function firstLine(text: string, max = 180): string {
   return one.length > max ? one.slice(0, max - 1) + '…' : one
 }
 
-// The page's head: what this change is — its title, where it belongs, who
-// asked for it (when the record says), when it was opened and under which
-// workflow, and one plain line of what
-// it does. The full request, the summary and the attachments are in the
-// About tab, one click away.
-export function ChangeHeader({ view, workflow, aboutTab }: { view: ChangeView; workflow?: string; aboutTab: string }) {
+// shortDiffstat says git's "4 files changed, 25 insertions(+), 2 deletions(-)"
+// as "+25 −2 in 4 files"; anything else is shown as it came.
+export function shortDiffstat(stat?: string): string {
+  if (!stat) return ''
+  const n = (re: RegExp) => Number(stat.match(re)?.[1] ?? 0)
+  const files = n(/(\d+) files? changed/)
+  if (!files) return stat
+  const parts = [`+${n(/(\d+) insertions?\(\+\)/)}`, `−${n(/(\d+) deletions?\(-\)/)}`]
+  return `${parts.join(' ')} in ${files} file${files === 1 ? '' : 's'}`
+}
+
+// The page's head: what this change is — its title, its state, who asked
+// for it (when the record says), when it was opened and how big it is. The
+// request, the summary and the attachments are in the About tab.
+export function ChangeHeader({ view }: { view: ChangeView }) {
   const ch = view.change
   return (
     <header className="ch-head">
-      <div className="ch-crumb">
-        <Link to={`/projects/${view.projectSlug}`}>{view.projectSlug}</Link><span className="ch-sep">/</span>Change {ch.number}
-      </div>
       <div className="ch-title-row">
         <h1>{ch.type === 'uplift' ? 'Update this app’s way of working' : ch.title}</h1>
         <Status word={view.statusLabel} />
         {ch.provenance && <span className="badge" title="Adopted from an outside branch: history reconstructed from commits, not witnessed as it happened.">{ch.provenance}</span>}
       </div>
-      <div className="ch-meta">
+      <div className="ch-byline">
         {[
           ch.openedBy && `Asked by ${ch.openedBy}`,
           `Opened ${fmtStamp(ch.createdAt)}`,
-          workflow && false,
-          ch.closedAt && `${ch.state === 'abandoned' && !closedNothingToChange(ch.closedAs) ? 'abandoned' : 'closed'} ${fmtStamp(ch.closedAt)}`,
-          view.diffstat,
+          ch.closedAt && `${ch.state === 'abandoned' && !closedNothingToChange(ch.closedAs) ? 'Abandoned' : 'Closed'} ${fmtStamp(ch.closedAt)}`,
+          shortDiffstat(view.diffstat),
+          ch.externalRef,
         ].filter(Boolean).join(' · ')}
-        {ch.externalRef && <> · {ch.externalRef}</>}
-        {' · '}<Link to={aboutTab}>request and details</Link>
       </div>
     </header>
   )
@@ -103,25 +107,21 @@ export function ChangeBrief({ view, current = true, reload }: { view: ChangeView
   const redistill = () => distill(() => post(`/changes/${ch.id}/distill`, {}))
   const u = view.usage
   return (
-    <div className="ch-brief">
-      <div className="ch-sheet">
-        <div className="row">
-          <span className="ch-label">What was asked for</span>
-          <span style={{ flex: 1 }} />
-          <button className="subtle" disabled={!editing && !current} onClick={() => (editing ? discard() : open())}
-            title={!editing && !current ? 'reading the current change before editing' : undefined}>
-            {editing ? 'cancel' : 'edit'}
-          </button>
-        </div>
+    <div>
+      <Section title="Request" action={
+        <button className="link" disabled={!editing && !current} onClick={() => (editing ? discard() : open())}
+          title={!editing && !current ? 'reading the current change before editing' : undefined}>
+          {editing ? 'Cancel' : 'Edit'}
+        </button>}>
         {!editing && (ch.body
-          ? <details><summary>Full request</summary><p>{ch.title}</p><div style={{ whiteSpace: 'pre-wrap' }}>{ch.body}</div></details>
-          : <div className="muted">No request text was written; the title is the request.</div>)}
-        {!editing && ch.externalRef && <div className="muted small" style={{ marginTop: 6 }}>External reference: {ch.externalRef}</div>}
+          ? <div className="ch-request">{ch.body}</div>
+          : <p className="muted">No request text was written; the title is the request.</p>)}
+        {!editing && ch.externalRef && <p className="muted small">External reference: {ch.externalRef}</p>}
         {editing && (
-          <div>
-            <textarea rows={4} style={{ width: '100%' }} value={draft.body} disabled={saving} onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))} />
-            <div className="row" style={{ marginTop: 6 }}>
-              <input placeholder="external ref (Jira key, ticket URL)" value={draft.externalRef} disabled={saving} onChange={(e) => setDraft((d) => ({ ...d, externalRef: e.target.value }))} />
+          <div style={{ padding: '12px 0' }}>
+            <textarea rows={4} style={{ width: '100%' }} value={draft.body} disabled={saving} aria-label="what was asked for" onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))} />
+            <div className="row" style={{ marginTop: 6, flexWrap: 'wrap' }}>
+              <input placeholder="External reference (ticket key or link)" value={draft.externalRef} disabled={saving} onChange={(e) => setDraft((d) => ({ ...d, externalRef: e.target.value }))} />
               <button className="primary" onClick={save} disabled={saving || conflict}>{saving ? 'Saving…' : 'Save'}</button>
               {saveErr && !conflict && <span className="error small">{saveErr}</span>}
             </div>
@@ -139,32 +139,27 @@ export function ChangeBrief({ view, current = true, reload }: { view: ChangeView
             )}
           </div>
         )}
-      </div>
+      </Section>
 
-      <div className="ch-sheet">
-        <div className="row">
-          <span className="ch-label">Where it's up to</span>
-          <span className="muted small">{!soFar ? '' : emptyCommitted ? 'from the committed diff' : ch.summary ? 'an AI summary of the recorded work' : "the agent's latest change report"}</span>
-          <span style={{ flex: 1 }} />
-          <button className="subtle" onClick={redistill} disabled={distilling}
-            title="Write the summary again from the current evidence" aria-label="write the summary again">{distilling ? 'Writing…' : 'Write it again'}</button>
-        </div>
-        {distillErr && <div className="error small">The summary could not be refreshed: {distillErr}</div>}
-        {soFar ? <SoFarNote text={soFar} /> : <div className="muted">No summary has been written yet.</div>}
-      </div>
+      <Section title="Summary"
+        note={!soFar ? undefined : emptyCommitted ? 'From the committed diff.' : ch.summary ? 'An AI summary of the recorded work.' : "The agent's latest change report."}
+        action={<button className="link" onClick={redistill} disabled={distilling}
+          title="Write the summary from the current evidence">{distilling ? 'Writing…' : soFar ? 'Write it again' : 'Write summary'}</button>}>
+        {distillErr && <p className="error small">The summary could not be written: {distillErr}</p>}
+        {soFar ? <div style={{ padding: '12px 0' }}><SoFarNote text={soFar} /></div> : <p className="muted">No summary yet.</p>}
+      </Section>
 
-      <div className="ch-sheet">
-        <Attachments changeId={ch.id!} readOnly={ch.state === 'shipped' || ch.state === 'abandoned'} />
-        <details><summary>Technical details</summary><table className="kv" style={{ marginTop: 10 }}>
-          <tbody>
-            {ch.branch && <tr><td className="kv-key">Branch</td><td className="kv-val"><code>{ch.branch}</code></td></tr>}
-            {ch.baseSha && <tr><td className="kv-key">Started from</td><td className="kv-val"><code>{ch.baseSha.slice(0, 12)}</code></td></tr>}
-            {ch.landedSha && <tr><td className="kv-key">Landed as</td><td className="kv-val"><code>{ch.landedSha.slice(0, 12)}</code></td></tr>}
-            <tr><td className="kv-key">Kind</td><td className="kv-val">{ch.type}</td></tr>
-            <tr><td className="kv-key">Cost so far</td><td className="kv-val">{u != null && u.total > 0 ? <>{fmtTokens(u.total)} tokens{u.costMicros > 0 && <> · {fmtCost(u.costMicros)}</>}</> : 'No model usage recorded.'}</td></tr>
-          </tbody>
-        </table></details>
-      </div>
+      <Attachments changeId={ch.id!} readOnly={ch.state === 'shipped' || ch.state === 'abandoned'} />
+
+      <Section title="Details">
+        <dl className="ch-facts">
+          {ch.branch && <><dt>Branch</dt><dd><code>{ch.branch}</code></dd></>}
+          {ch.baseSha && <><dt>Started from</dt><dd><code>{ch.baseSha.slice(0, 12)}</code></dd></>}
+          {ch.landedSha && <><dt>Landed as</dt><dd><code>{ch.landedSha.slice(0, 12)}</code></dd></>}
+          <dt>Kind</dt><dd>{ch.type}</dd>
+          <dt>Cost so far</dt><dd>{u != null && u.total > 0 ? <>{fmtTokens(u.total)} tokens{u.costMicros > 0 && <> · {fmtCost(u.costMicros)}</>}</> : 'No model usage recorded.'}</dd>
+        </dl>
+      </Section>
     </div>
   )
 }
@@ -183,29 +178,30 @@ export function Attachments({ changeId, readOnly }: { changeId: string; readOnly
   }
   const remove = (name: string) => { void run(() => del(`/changes/${changeId}/attachments/${encodeURIComponent(name)}`)) }
 
-  // A list never read is not an empty one: say why instead.
-  if (readOnly && !itemsQ.data) return <ReadStatus q={itemsQ} what="the attachments" className="small" />
-  if (readOnly && items.length === 0) return <><StaleNote q={itemsQ} /><div className="muted small">No attachments.</div></>
+  // A finished change with nothing attached has no attachments section; a
+  // list never read is not an empty one, so that still says why.
+  if (readOnly && itemsQ.data && items.length === 0 && !itemsQ.refreshFailed) return null
+  const attach = !readOnly && (
+    <label className="link ch-attach">
+      Attach a file
+      <input type="file" style={{ display: 'none' }} disabled={busy}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
+    </label>
+  )
   return (
-    <div className="row" style={{ marginTop: 8, flexWrap: 'wrap' }}>
-      <span className="ch-label">Attachments</span>
+    <Section title="Attachments" count={items.length || undefined} action={attach || undefined}>
       <ReadStatus q={itemsQ} what="the attachments" className="small" />
       <StaleNote q={itemsQ} />
+      {itemsQ.data && items.length === 0 && <p className="muted">No attachments.</p>}
       {items.map((i) => (
-        <span key={i.name} className="badge" title={`${(i.bytes / 1024).toFixed(1)} KB · agents see .apptown/attachments/${i.name}`}>
-          <a href={`/api/v1/changes/${changeId}/attachments/${encodeURIComponent(i.name)}`} target="_blank" rel="noreferrer">{i.name}</a>
-          {!readOnly && <button className="subtle" style={{ marginLeft: 4, padding: 0 }} aria-label={`remove ${i.name}`} title="remove" disabled={busy} onClick={() => remove(i.name)}>✕</button>}
-        </span>
+        <div key={i.name} className="card row" style={{ display: 'flex' }}>
+          <a style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }} href={`/api/v1/changes/${changeId}/attachments/${encodeURIComponent(i.name)}`} target="_blank" rel="noreferrer">{i.name}</a>
+          <span className="muted small">{(i.bytes / 1024).toFixed(1)} KB</span>
+          {!readOnly && <span className="row-action"><button className="subtle" aria-label={`remove ${i.name}`} disabled={busy} onClick={() => remove(i.name)}>Remove</button></span>}
+        </div>
       ))}
-      {!readOnly && (
-        <label className="subtle" style={{ cursor: 'pointer' }}>
-          + attach file
-          <input type="file" style={{ display: 'none' }} disabled={busy}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
-        </label>
-      )}
-      {err && <span className="error small">{err}</span>}
-    </div>
+      {err && <p className="error small">{err}</p>}
+    </Section>
   )
 }
 

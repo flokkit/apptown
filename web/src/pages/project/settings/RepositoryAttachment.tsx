@@ -17,7 +17,7 @@ export function RepositoryAttachment({ slug }: { slug: string }) {
   const request = state.request
   const uncertainCreate = request?.create && state.state !== 'identified'
   const id = Number(providerId)
-  return <div style={{ marginTop: 12 }}>
+  return <div>
     <StaleNote q={q} />
     {state.state === 'none' ? <span className="muted small">No upstream repository is recorded.</span>
       : state.state === 'attached' ? <span className="muted small">Verified upstream: {state.remote}</span>

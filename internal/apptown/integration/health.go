@@ -1,6 +1,9 @@
 package integration
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // Health is one reading of an integration. NotSetUp distinguishes entirely absent
 // configuration from a failed check. Partial required configuration is a failure. Checked says whether AppTown
@@ -37,13 +40,29 @@ func (h Health) At(at time.Time) Health {
 // Kinds without a meaningful check provide no Attention coverage.
 func (b Binding) HasAutomaticCheck() bool {
 	switch b.Capability {
-	case CapFeedback, CapSCM, CapSecrets, CapExecutor, CapModel, CapContainerRegistry, CapRegistry, CapErrors, CapLLM, "cloud-account", "scanner":
+	case CapFeedback, CapSCM, CapSecrets, CapExecutor, CapModel, CapContainerRegistry, CapRegistry, CapErrors, CapLLM, "cloud-account":
 		return true
+	case "scanner":
+		var config map[string]any
+		if err := json.Unmarshal([]byte(b.ConfigJSON), &config); err != nil {
+			// The check says the configuration could not be read.
+			return true
+		}
+		return !ScannerRunsInAppImage(config)
 	case CapDeploy:
 		return b.Provider == "docker"
 	default:
 		return false
 	}
+}
+
+// ScannerRunsInAppImage is a scanner that runs inside the app's own image
+// (target exec-image): it has no image of its own, so its connection check,
+// which asks for the scanner's image, has nothing to ask. Its checks run
+// at the land gate, where the app's image is built.
+func ScannerRunsInAppImage(config map[string]any) bool {
+	target, _ := config["target"].(string)
+	return target == "exec-image"
 }
 
 // HealthCheckTimeout includes the scanner's first image pull.

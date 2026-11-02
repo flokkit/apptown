@@ -41,10 +41,10 @@ Integrations → Model slots. Each **model profile** has four basic choices:
 
 | Choice | Slot | Used for |
 | --- | --- | --- |
-| Primary · strong | `default` | Planning, writing code, chat and delegated work |
-| Primary · fast | `primary-fast` | Summaries, briefs and quick lookups |
-| Secondary · strong | `secondary-strong` | A second opinion, including reviews and security reviews |
-| Secondary · fast | `secondary-fast` | Quick independent checks, including guidance checks and eval judges |
+| Main · strong | `default` | Planning, writing code, chat and delegated work |
+| Main · fast | `primary-fast` | Summaries, briefs and quick lookups |
+| Second opinion · strong | `secondary-strong` | A second opinion, including reviews and security reviews |
+| Second opinion · fast | `secondary-fast` | Quick independent checks, including guidance checks and eval judges |
 
 Individual tasks are the advanced level. Workflows name a task with, for
 example, `model: review`. Set a task's cell to override its basic choice.

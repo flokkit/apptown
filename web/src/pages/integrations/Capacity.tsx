@@ -1,4 +1,3 @@
-import { Status } from '../../Status'
 import { GlanceRow } from '../../GlanceRow'
 import { PRODUCT } from '../../brand'
 import { useGet } from '../../data'
@@ -73,25 +72,40 @@ function overcommit(r: Resource, format: (v: number) => string): string {
 // what they use, and its disk. An elastic one: what each deployment runs
 // on and what it is estimated to cost. Read on its own, so a slow host
 // never holds the target's page.
-export function Capacity({ name }: { name: string }) {
+export function Capacity({ name, diagnostics = false }: { name: string; diagnostics?: boolean }) {
   const q = useGet<TargetCapacity>(`/targets/${name}/capacity`)
   if (q.denied) return null
-  if (q.loading) return <div className="muted small">reading its capacity…</div>
-  if (!q.data) return <div className="error small">capacity unknown · {q.err || 'no answer'}</div>
+  if (q.loading) return <p className="muted small">Reading its capacity…</p>
+  if (!q.data) return <p className="error small">Capacity unknown · {q.err || 'no answer'}</p>
   const c = q.data
+  const m = c.memory
+  // Each reading says in words whether it was made; why one could not be
+  // made (the provider's own error text) is under Host diagnostics.
+  const memoryWords = !m ? '' : !m.hostUsed ? 'Not measured on attached hosts'
+    : m.hostUsed.known && m.total.known ? `${briefBytes(m.hostUsed.value)} used of ${briefBytes(m.total.value)}${m.hostUsed.stale && m.hostUsed.readAt ? ` · ${lastSeen(m.hostUsed.readAt)}` : ''}`
+      : m.hostUsed.known ? `${briefBytes(m.hostUsed.value)} used; host total could not be read` : 'Memory use could not be read'
+  const reasons = [
+    m?.hostUsed && !m.hostUsed.known && m.hostUsed.reason ? `Memory use: ${m.hostUsed.reason}` : '',
+    m && !m.total.known && m.total.reason ? `Memory total: ${m.total.reason}` : '',
+    c.disk && !c.disk.free.known && c.disk.free.reason ? `Disk: ${c.disk.free.reason}` : '',
+    c.error ?? '',
+  ].filter((r, i, all) => r && all.indexOf(r) === i)
   return (
     <div className="small">
-      {!c.elastic && <dl className="capacity-summary">
-        {c.memory && <><dt>Memory use</dt><dd>{!c.memory.hostUsed ? <><Status word="not applicable" /><span className="muted"> not measured on attached hosts</span></> : c.memory.hostUsed.known && c.memory.total.known
-          ? `${briefBytes(c.memory.hostUsed.value)} used of ${briefBytes(c.memory.total.value)}${c.memory.hostUsed.stale && c.memory.hostUsed.readAt ? ` · ${lastSeen(c.memory.hostUsed.readAt)}` : ''}` : c.memory.hostUsed?.known ? `${briefBytes(c.memory.hostUsed.value)} used; host total unknown: ${c.memory.total.reason || 'The host total could not be read.'} Open host diagnostics to check its connection.` : `Memory use could not be read: ${c.memory.hostUsed?.reason || c.memory.total.reason || 'This host does not report whole-host memory use.'} Open host diagnostics to check which measurements it supports.`}</dd></>}
+      {!c.elastic && <dl className="facts capacity-summary">
+        {m && <><dt>Memory use</dt><dd>{memoryWords}</dd></>}
         {c.disk && <><dt>Disk</dt><dd>{`${c.disk.free.known ? briefBytes(c.disk.free.value) : 'unknown'} free of ${c.disk.total.known ? briefBytes(c.disk.total.value) : 'unknown'}${c.disk.free.stale && c.disk.free.readAt ? ` · ${lastSeen(c.disk.free.readAt)}` : ''}`}</dd></>}
-        <dt>Apps</dt><dd>{!c.liveUnknown && (c.tenantsAt || c.tenants) ? `${(c.tenants ?? []).filter(t => t.kind === 'deployment' || t.kind === 'preview').length} running${c.tenantsAt && c.stale ? ` · ${lastSeen(c.tenantsAt)}` : ''}` : 'not known'}</dd>
+        {c.readAt && <><dt>Read</dt><dd>{readingAge(c.readAt, c.stale)}</dd></>}
       </dl>}
-      {c.memory && overcommit(c.memory, briefBytes) && <p className="capacity-warning">{overcommit(c.memory, briefBytes)}</p>}
+      {m && overcommit(m, briefBytes) && <p className="capacity-warning">{overcommit(m, briefBytes)}</p>}
       {c.disk?.refuses ? <p className="capacity-warning">Free disk space before starting a new release.</p>
         : c.disk?.low && <p className="capacity-warning">Low on disk. Free some space.</p>}
-      <div>{c.words} {c.readAt && <span className="muted">· {readingAge(c.readAt, c.stale)}</span>}</div>
-      {c.error && <div className="error small">{c.error}</div>}
+      {c.elastic && <p>{c.words}{c.readAt && <span className="muted"> · {readingAge(c.readAt, c.stale)}</span>}</p>}
+      {c.error && !reasons.some(r => r !== c.error) && !diagnostics && <p className="error small">Part of the capacity check failed. Open Host diagnostics to see why.</p>}
+      {diagnostics && <div className="capacity-diagnostics" style={{ margin: '8px 0' }}>
+        {reasons.length === 0 ? <p className="muted">Every reading was made.</p> : reasons.map((r) => <pre key={r} className="small" style={{ whiteSpace: 'pre-wrap', margin: '4px 0' }}>{r}</pre>)}
+        <p className="muted">{c.words}</p>
+      </div>}
       <details className="capacity-details"><summary>Details</summary>
       {c.tenants && c.tenants.length > 0 ? <Bars c={c} /> : c.memory && c.cpu && (
         <table className="small" style={{ marginTop: 4 }}>
@@ -130,9 +144,10 @@ export function Capacity({ name }: { name: string }) {
   )
 }
 
-// diskLabel names the filesystem a disk reading is of: the Docker data
-// folder on the host, by its path when the daemon said it.
-const diskLabel = (d: DiskCapacity) => `disk (Docker's data${d.path ? `, ${d.path}` : ''})`
+// diskLabel names the filesystem a disk reading is of: where Docker keeps
+// images and containers on the host, by its path when the daemon said it.
+// It is not AppTown's own data folder, which Infrastructure lists apart.
+const diskLabel = (d: DiskCapacity) => `Docker's storage (images and containers${d.path ? `, ${d.path}` : ''})`
 
 // DiskState is what a host's disk means for new work: refused below its
 // floor (a release or preview reads it again when it starts), or low.

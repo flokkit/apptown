@@ -13,6 +13,7 @@ import { ConversationLog } from './change/Conversation'
 import { HistoryTab, ReleasesTab, WorkTab, useRunDetail } from './change/Tabs'
 import { changeChip, nextStep } from './change/next'
 import { ChangeWorkerChats } from './WorkerChat'
+import './change/change.css'
 
 // The change page, in the order a person asks:
 //   1. what this change is — title, project, when and how it started, one line;
@@ -87,7 +88,6 @@ export default function ChangePage() {
   const evidenceRuns: RunEvidence[] = []
   if (view.detail) evidenceRuns.push({ run: view.detail.run, role: latestRole, steps: view.detail.steps })
   if (workRunId && work.detail) evidenceRuns.push({ run: work.detail.run, role: 'working', steps: work.detail.steps })
-  const firstRun = view.runs?.length ? view.runs[view.runs.length - 1] : undefined
 
   const TABS: { key: ChangeTab; label: string }[] = [
     { key: 'work', label: 'Work' },
@@ -100,12 +100,12 @@ export default function ChangePage() {
 
   return (
     <div className="ch-page">
-      <ChangeHeader view={view} workflow={firstRun?.workflowName} aboutTab={href('about')} />
+      <ChangeHeader view={view} />
 
       <StatePanel view={view} onChange={reload} workTab={(s) => workTab(s)}
         reading={read} />
 
-      {view.detail && <Disagreement detail={view.detail} codeTab={href('changes')} />}
+      {view.detail && <Disagreement detail={view.detail} />}
       <ChangeWorkerChats changeId={view.change.id!} />
 
 
@@ -118,15 +118,10 @@ export default function ChangePage() {
         <div className="ch-tab-body">
 
           {tab === 'changes' && <ChangesTab view={view} run={view.detail?.run} />}
+          {tab === 'work' && <Evidence view={view} runs={evidenceRuns} workTab={workTab} extraErr={workRunId && !work.detail ? work.err : undefined} />}
           {tab === 'work' && <WorkTab view={view} reload={reload} runId={runParam} focusStep={stepParam} deciding={deciding} runHref={runHref} />}
-          {tab === 'work' && <details><summary>Evidence</summary><Evidence view={view} runs={evidenceRuns} workTab={workTab} extraErr={workRunId && !work.detail ? work.err : undefined} /></details>}
           {tab === 'conversation' && (
-            <div>
-              <div className="row" style={{ marginBottom: 10 }}>
-                <Link to={`/projects/${view.projectSlug}/console?change=${view.change.id}`}>Open chat →</Link>
-              </div>
-              <ConversationLog changeId={view.change.id!} />
-            </div>
+            <ConversationLog changeId={view.change.id!} chatHref={view.change.state === 'in_progress' ? `/projects/${view.projectSlug}/console?change=${view.change.id}` : undefined} />
           )}
           {tab === 'releases' && <ReleasesTab view={view} />}
           {tab === 'history' && <HistoryTab view={view} runHref={runHref} />}

@@ -131,17 +131,14 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
     return { tone: 'neutral', stamp: 'abandoned', headline: 'Abandoned', sentence: view.stateDetail || 'No reason was recorded.', primary: 'none' }
   }
   if (ch.state === 'shipped') {
-    const rel = view.evidence?.releases ?? []
-    const last = rel[rel.length - 1]
-    const merged = view.evidence?.merged
-    const sentence = last
-      ? `${merged ? 'Merged, and r' : 'R'}eleased as release #${last.number} to ${last.deployment}.`
-      : merged ? 'Merged. No release is recorded for this change.' : 'Finished. Nothing was merged or released for this change.'
     const releaseArt = d ? [...d.artifacts].reverse().find((a) => a.kind === 'release' && a.ref) : undefined
-    // A change closed on an accepted record (research, a spec) lands
-    // nothing: it finished, it did not ship.
-    const headline = changeLanded(view) ? 'Shipped' : 'Finished'
-    return { tone: 'ok', stamp: headline.toLowerCase(), headline, sentence, primary: releaseArt ? 'open-release' : 'none' }
+    // Landed is the one word for work that reached main or a release; its
+    // releases are rows beside it. A change closed on an accepted record
+    // (research, a spec) lands nothing: it finished.
+    if (changeLanded(view)) {
+      return { tone: 'ok', stamp: 'landed', headline: 'Landed', primary: releaseArt ? 'open-release' : 'none' }
+    }
+    return { tone: 'ok', stamp: 'finished', headline: 'Finished', sentence: 'Nothing was merged or released for this change.', primary: releaseArt ? 'open-release' : 'none' }
   }
   if (!d) {
     if (ch.state === 'landing') {

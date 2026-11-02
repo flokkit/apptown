@@ -54,6 +54,13 @@ func runQueuedJobForTest(t *testing.T, a *App, kind, key string) *rivertype.JobR
 	if id == 0 {
 		t.Fatalf("no queued %s job for %s among %+v", kind, key, operationJobs(t, a, kind))
 	}
+	return runJobForTest(t, a, id)
+}
+
+// runJobForTest runs the queued job id to its outcome on a consumer of its
+// own.
+func runJobForTest(t *testing.T, a *App, id int64) *rivertype.JobRow {
+	t.Helper()
 	queue := fmt.Sprintf("test_job_%d", id)
 	// sql-guarantee: Move only the selected existing job onto this test consumer queue and make it due; River JobUpdateFull has neither queue nor scheduled_at, and re-enqueueing would change the tested job identity.
 	completionExec(t, a.DB, `UPDATE river_job SET queue=$1,state='available',scheduled_at=now() WHERE id=$2`, queue, id)

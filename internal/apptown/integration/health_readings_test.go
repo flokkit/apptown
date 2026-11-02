@@ -244,3 +244,32 @@ func TestScannerChecksAllowFirstPullForBackgroundAndTestConnection(t *testing.T)
 		t.Fatalf("shared scanner check: %+v %v calls=%d", h, err, calls)
 	}
 }
+
+// A scanner that runs inside the app's own image has no image of its own,
+// so it has no connection check: it reads as not checked, never as a
+// failed check, and gives Attention nothing to report. A scanner with its
+// own image keeps its check.
+func TestAScannerInsideTheAppImageHasNoAutomaticCheck(t *testing.T) {
+	t.Parallel()
+	s := NewService(testDB(t), Dependencies{})
+	for name, config := range map[string]string{"inside": `{"target":"exec-image","command":["sh"]}`, "own": `{"image":"scanner:1","target":"source"}`} {
+		if _, err := s.Bindings.Upsert(t.Context(), name, "scanner", "tool", config, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	inside, err := s.Bindings.ByName(t.Context(), "inside")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inside.HasAutomaticCheck() {
+		t.Fatal("a scanner inside the app image claims an automatic check")
+	}
+	h, err := s.RecordedHealth(t.Context(), "inside")
+	if err != nil || h.Automatic || h.Checked || h.OK || h.StateLabel != HealthUnknown || h.Detail != "No automatic check." {
+		t.Fatalf("a scanner inside the app image: %+v err=%v", h, err)
+	}
+	own, err := s.Bindings.ByName(t.Context(), "own")
+	if err != nil || !own.HasAutomaticCheck() {
+		t.Fatalf("a scanner with its own image lost its check (err=%v)", err)
+	}
+}

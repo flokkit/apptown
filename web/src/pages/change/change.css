@@ -1,0 +1,66 @@
+/* The change page in the section design: headings on the page, content on
+   panels, no coloured borders (a coloured dot and word say the state), no
+   rule under the header, the tab strip on the page itself. */
+.ch-page .ch-head { border-bottom: 0; padding-bottom: 0; }
+.ch-page .ch-byline { font-size: var(--fs-sm); color: var(--muted); font-family: var(--font-sans); }
+
+/* The state panel: a neutral panel; its tone is the dot beside the headline.
+   Unknown keeps its dashed edge so it never reads as a settled state. */
+.ch-page section.ch-state { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; box-shadow: none; display: flex; flex-direction: column; gap: 12px; }
+.ch-page section.ch-state.tone-unknown { border-style: dashed; border-color: var(--unknown); }
+.ch-page .ch-state-head { gap: 10px; flex-wrap: nowrap; align-items: flex-start; }
+.ch-page .ch-state-head .ch-dot { margin-top: 0.6em; width: 10px; height: 10px; }
+.ch-page .ch-state-body, .ch-page .ch-quiet { padding-left: 0; }
+.ch-page .ch-quiet { border-top: 0; padding-top: 0; gap: 4px 8px; flex-wrap: wrap; }
+.ch-page section.ch-state button.subtle { padding-left: 0; padding-right: 0; margin-right: 12px; color: var(--muted); }
+.ch-page section.ch-state button.subtle:hover { color: var(--text); border-color: transparent; text-decoration: underline; }
+.ch-page .ch-quiet select { font-size: var(--fs-sm); }
+.ch-page .ch-primary { flex-wrap: wrap; }
+
+/* What failed: a section, its findings on the panel. */
+.ch-page .ch-verdict { padding: 12px 0; margin: 0; border-bottom: 1px solid var(--border); }
+.ch-page .ch-verdict:last-child { border-bottom: 0; }
+.ch-page .ch-dispute-grid { padding: 12px 0; }
+.ch-page .ch-dispute-grid .ch-verdict { padding-top: 0; }
+.ch-claim-label { font-size: var(--fs-sm); color: var(--muted); margin-bottom: 6px; }
+
+/* The tabs sit on the page; on a phone they wrap rather than clip. */
+.ch-page .ch-tabs-sheet { background: transparent; border: 0; border-radius: 0; }
+.ch-page .tab-strip .ch-tabs, .ch-page .ch-tabs { padding: 0; flex-wrap: wrap; background: none; overflow: visible; }
+.ch-page .ch-tab-body { padding: 0; }
+.ch-page .ch-tab-body > .page-section:first-child { margin-top: 8px; }
+
+/* Evidence and steps sit on a section's panel as rows. */
+.ch-page .section-body .ch-ledger { border: 0; background: transparent; border-radius: 0; margin: 0 -16px; }
+.ch-page .section-body .step-card { margin: 0 -16px; padding-left: 16px; padding-right: 16px; border-radius: 0; border-width: 0 0 1px; }
+.ch-page .section-body .step-card:last-child { border-bottom: 0; }
+.ch-page .stagebar { margin: 0; }
+
+/* History and About rows. */
+.ch-event { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.ch-event:last-child { border-bottom: 0; }
+.ch-event-when { color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
+.ch-event-detail { grid-column: 1 / -1; color: var(--muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.ch-request { white-space: pre-wrap; margin: 12px 0; overflow-wrap: anywhere; }
+.ch-facts { display: grid; grid-template-columns: 10em minmax(0, 1fr); gap: 0 16px; margin: 0; }
+.ch-facts > dt, .ch-facts > dd { padding: 10px 0; border-bottom: 1px solid var(--border); margin: 0; }
+.ch-facts > dt { color: var(--muted); }
+.ch-facts > :nth-last-child(-n+2) { border-bottom: 0; }
+.ch-facts code { overflow-wrap: anywhere; }
+
+@media (max-width: 800px) {
+  .ch-page .ch-tabs a.tab { padding-left: 10px; padding-right: 10px; }
+  .ch-page .decision-bar { flex-direction: column; align-items: stretch; }
+  .ch-page .decision-bar > button { width: 100%; }
+  .ch-facts { grid-template-columns: minmax(0, 1fr); }
+  .ch-facts > dt { padding-bottom: 0; border-bottom: 0; }
+}
+
+.section-action label.link { color: var(--accent); cursor: pointer; }
+.section-action label.link:hover { text-decoration: underline; }
+.ch-page .section-body > p { margin: 12px 0; }
+.ch-release-rows > .card.row:last-child { border-bottom: 0; }
+.ch-release-rows > .card.row:hover { text-decoration: none; }
+
+/* Sections directly on the page follow the state panel closely. */
+.ch-page > .page-section { margin-top: 16px; }

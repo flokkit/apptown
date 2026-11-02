@@ -139,7 +139,7 @@ describe('a project page while its review refreshes', () => {
   // (a lane and a check inside it); only showing another review starts over.
   // Before, the lanes were components made inside the page's render, so
   // every new answer remounted them folded.
-  it('keeps open folds across a refresh and resets them for another review', async () => {
+  it('keeps an opened check open across a refresh and resets it for another review', async () => {
     const client = newQueryClient()
     let judged = 2
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
@@ -154,21 +154,19 @@ describe('a project page while its review refreshes', () => {
     document.body.appendChild(el)
     const root = createRoot(el)
     const settle = () => settled(client)
-    const lane = () => [...el.querySelectorAll('strong')].find((s) => s.textContent === 'Conforms')!.closest('.row') as HTMLElement
-    const rowOf = (check: string) => [...el.querySelectorAll('span')].find((s) => s.textContent === check)?.closest('.row') as HTMLElement | undefined
+    const lane = () => el.querySelector('section[aria-label="Conforms"]') as HTMLElement
+    const rowOf = (check: string) => [...el.querySelectorAll('strong')].find((s) => s.textContent === check)?.closest('button') as HTMLElement | undefined
     try {
       await act(async () => { root.render(<QueryClientProvider client={client}><RouterProvider router={router} /></QueryClientProvider>) })
       await settle()
-      expect(rowOf('check-1')).toBeUndefined() // the Conforms lane starts folded
-      await act(async () => { lane().click() })
+      expect(el.textContent).not.toContain('check-1 detail') // each check starts closed
       await act(async () => { rowOf('check-1')!.click() })
       expect(el.textContent).toContain('check-1 detail')
 
       judged = 3
       await act(async () => { await client.refetchQueries() })
       await settle()
-      expect(lane().textContent, 'the refreshed answer is shown').toContain('(3)')
-      expect(rowOf('check-1'), 'the opened lane stays open').toBeDefined()
+      expect(lane().querySelector('.section-count')?.textContent, 'the refreshed answer is shown').toBe('3')
       expect(el.textContent, 'the opened check stays open').toContain('check-1 detail')
 
       // Review 2's answer is already held, as after visiting it earlier, so
@@ -177,7 +175,7 @@ describe('a project page while its review refreshes', () => {
       await act(async () => { await router.navigate(`/conformance/reviews/${uuid(2)}/projects/shop`) })
       await settle()
       expect(lane(), 'review 2 is shown').toBeDefined()
-      expect(rowOf('check-1'), 'another review starts with its lanes folded').toBeUndefined()
+      expect(el.textContent, 'another review starts with its checks closed').not.toContain('check-1 detail')
     } finally {
       act(() => root.unmount())
       el.remove()

@@ -1,4 +1,5 @@
 import { Status } from '../../Status'
+import { Section } from '../../Section'
 import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -13,7 +14,7 @@ import { closingVia, voterWords } from './through'
 // record in the Work tab. These lines come from records; the summary at the
 // top of the page is an AI's narrative, and the two never mix.
 
-const checkTypes = new Set(['tests', 'scan', 'script', 'guidance/conformance', 'agent/review', 'scm/merged'])
+export const checkTypes = new Set(['tests', 'scan', 'script', 'guidance/conformance', 'agent/review', 'scm/merged'])
 
 export function verificationSummary(steps: Step[]): string {
   const checks = steps.filter(s => checkTypes.has(s.type))
@@ -21,16 +22,22 @@ export function verificationSummary(steps: Step[]): string {
   // A pass whose check evidence could not be read is not counted as a pass.
   const unread = (s: Step) => !s.overrideBy && s.status === 'pass' && !!s.checkReading?.unreadable
   const count = (status: string) => checks.filter(s => !s.overrideBy && s.status === status && !unread(s)).length
-  const parts = [
-    [count('pass'), 'passed'],
+  // People care that the checks passed, or what did not: the number that
+  // passed is one click away, not part of the sentence.
+  const passed = count('pass')
+  const parts: [number, string][] = [
     [checks.filter(unread).length, 'passed with unreadable evidence'],
     [checks.filter(s => !!s.overrideBy).length, 'overridden'],
     [count('fail') + count('error') + count('needs_human'), 'need attention'],
     [count('pending') + count('running'), 'unfinished'],
     [count('skipped'), 'skipped'],
     [count('not_applicable'), 'not applicable'],
-  ] as const
-  return parts.filter(([n]) => n > 0).map(([n, label]) => `${n} ${label}`).join(' · ')
+  ]
+  const rest = parts.filter(([n]) => n > 0).map(([n, label]) => `${n} ${label}`)
+  // "All checks passed" needs at least one pass and nothing but passes,
+  // skips and not-applicables; skipped and not-applicable ones are still said.
+  const fine = passed > 0 && parts.every(([n, label]) => n === 0 || label === 'skipped' || label === 'not applicable')
+  return fine ? ['All checks passed', ...rest].join(' · ') : rest.length ? rest.join(' · ') : 'No check passed.'
 }
 
 export type Receipt = {
@@ -258,11 +265,7 @@ export function Evidence({ view, runs, workTab, extraErr }: {
   const proof = view.evidence
   const latest = view.detail
   return (
-    <section className="ch-evidence" aria-label="Recorded evidence">
-      <div className="ch-section-head">
-        <h2>Evidence</h2>
-        <span className="muted">{latest ? `Verification in the latest run: ${verificationSummary(latest.steps)}` : 'No run recorded yet.'}</span>
-      </div>
+    <Section title="Evidence" label="Recorded evidence" note={latest ? `Checks in the latest run: ${verificationSummary(latest.steps)}` : 'No run recorded yet.'}>
       {proof?.inAdvance && <p className="small" data-testid="in-advance">
         <strong>Accepted in advance</strong> by {proof.inAdvance.approver}, {fmtStamp(proof.inAdvance.at)}: {proof.inAdvance.shown.join(' ')}
       </p>}
@@ -290,7 +293,11 @@ export function Evidence({ view, runs, workTab, extraErr }: {
               </div>
               {steps.length === 0 && <div className="ch-line"><span className="muted">No steps recorded.</span></div>}
               {clean
-                ? <CleanRun receipts={receipts} to={(id) => workTab(id, run.id)} />
+                ? <>
+                  {/* An approval is a person's decision, not a check: it keeps its own line. */}
+                  <CleanRun receipts={receipts.filter((_, i) => steps[i].type !== 'approval')} to={(id) => workTab(id, run.id)} />
+                  {receipts.filter((_, i) => steps[i].type === 'approval').map(r => <Line key={r.key} r={r} to={workTab(r.stepId, run.id)} />)}
+                </>
                 : <>
                   {receipts.filter(r => !quietScans.has(r.stepId ?? '')).map(r => <Line key={r.key} r={r} to={workTab(r.stepId, run.id)} />)}
                   {quietScans.size > 0 && <CleanRun noun="checks" receipts={receipts.filter(r => quietScans.has(r.stepId ?? ''))} to={id => workTab(id, run.id)} />}
@@ -318,17 +325,19 @@ export function Evidence({ view, runs, workTab, extraErr }: {
                 <Link className="ch-line-link" to={`/projects/${view.projectSlug}/releases/${r.number}`}>Details</Link>
               </div>
             ))}
-            {proof.releases.length === 0 && (
+            {/* Merged with no release is the merge row alone; nothing at all
+                delivered is said, never left blank. */}
+            {!proof.merged && proof.releases.length === 0 && (
               <div className="ch-line">
                 <span className="badge">none</span>
-                <span className="ch-line-what"><span className="ch-line-sentence">{proof.merged ? 'No release is recorded for this change.' : 'Not merged and not released.'}</span></span>
+                <span className="ch-line-what"><span className="ch-line-sentence">Not merged and not released.</span></span>
                 <span className="ch-line-by" /><span className="ch-line-when" /><span />
               </div>
             )}
           </div>
         )}
       </div>
-    </section>
+    </Section>
   )
 }
 
@@ -336,14 +345,14 @@ export function Evidence({ view, runs, workTab, extraErr }: {
 // naming what passed, with the receipts one click away.
 function CleanRun({ receipts, to, noun = 'checks' }: { noun?: string; receipts: Receipt[]; to: (stepId?: string) => string }) {
   const [open, setOpen] = useState(false)
-  const kinds = [...new Set(receipts.map((r) => r.title))]
+  if (receipts.length === 0) return null
+  // Which checks they were is in Details: the usual answer is just that they passed.
   return (
     <>
       <div className="ch-line">
         <Status word="passed" />
         <span className="ch-line-what">
-          <span className="ch-line-title">{receipts.length} {noun}, all passed</span>
-          <span className="ch-line-sentence">{kinds.join(', ')}.</span>
+          <span className="ch-line-title">All {noun} passed</span>
         </span>
         <span className="ch-line-by" />
         <span className="ch-line-when">{receipts[receipts.length - 1]?.when}</span>

@@ -65,12 +65,12 @@ async function rows(answer: Response, then?: Response): Promise<{ text: string; 
 const list = (l: ScheduleList) => new Response(JSON.stringify(l))
 const schedule = { source: { workflow: 'dependency-uplift', version: 3 }, cron: '0 6 1 * *', timeZone: 'UTC', skipIfActive: true, due: false }
 
-it('shows each schedule\'s cadence, next firing and last firing', async () => {
+it('shows each schedule\'s cadence, next firing and last firing, and no last firing before the first', async () => {
   const opened = await rows(list({ evalCopy: false, schedules: [{ ...schedule, next: '2026-11-01T06:00:00Z', last: { at: '2026-10-01T06:00:00Z', outcome: 'opened', changeId: CHANGE, changeNumber: 12 } }] }))
   expect(opened.text).toContain('dependency-uplift')
   expect(opened.text).toContain('monthly, 1st at 17:00')
   expect(opened.html).toContain('title="cron 0 6 1 * * (UTC)"')
-  expect(opened.text).toContain('next: 1 Nov, 17:00')
+  expect(opened.text).toContain('next 1 Nov, 17:00')
   expect(opened.html).toContain(`href="/changes/${CHANGE}"`)
   expect(opened.text).toContain('1 Oct, 16:00 · change 12')
 
@@ -79,14 +79,15 @@ it('shows each schedule\'s cadence, next firing and last firing', async () => {
   const failed = await rows(list({ evalCopy: false, schedules: [{ ...schedule, next: '2026-11-01T06:00:00Z', last: { at: '2026-10-01T06:00:00Z', outcome: 'failed', changeNumber: 0 } }] }))
   expect(failed.text).toContain('could not start')
   const never = await rows(list({ evalCopy: false, schedules: [{ ...schedule, next: '2026-11-01T06:00:00Z' }] }))
-  expect(never.text).toContain('last: never')
+  expect(never.text).not.toContain('last')
+  expect(never.text).toContain('next 1 Nov, 17:00')
   const due = await rows(list({ evalCopy: false, schedules: [{ ...schedule, next: '2026-10-01T06:00:00Z', due: true }] }))
   expect(due.text).toContain('due now')
 })
 
 it('says unknown when a schedule or the whole read failed, never none', async () => {
   const problem = await rows(list({ evalCopy: false, schedules: [{ ...schedule, source: { workflow: 'dependency-uplift', version: 0 }, problem: 'its workflow could not be read: boom' }] }))
-  expect(problem.text).toContain('next: unknown')
+  expect(problem.text).toContain('next unknown')
   expect(problem.text).toContain('last: unknown')
   expect(problem.text).toContain('could not be read')
   const failed = await rows(new Response(JSON.stringify({ error: 'database down' }), { status: 500 }))

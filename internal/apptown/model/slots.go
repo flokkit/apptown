@@ -32,10 +32,10 @@ func IsBase(slot string) bool {
 
 // Gloss: what each stock slot means, in ordinary words.
 var Gloss = map[string]string{
-	"default":          "Primary · strong: the main model; the end of every fallback chain",
-	"primary-fast":     "Primary · fast: quick everyday jobs",
-	"secondary-strong": "Secondary · strong: a second opinion on finished work",
-	"secondary-fast":   "Secondary · fast: quick independent checks",
+	"default":          "Main · strong: the main model; the end of every fallback chain",
+	"primary-fast":     "Main · fast: quick everyday jobs",
+	"secondary-strong": "Second opinion · strong: a second opinion on finished work",
+	"secondary-fast":   "Second opinion · fast: quick independent checks",
 	"plan":             "thinking a task through before the work starts",
 	"implement":        "writing the code",
 	"review":           "a second set of eyes on finished work",

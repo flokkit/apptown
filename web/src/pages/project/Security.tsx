@@ -7,6 +7,8 @@ import { FindingsTable } from '../../FindingsTable'
 import { QuietConfirm } from '../../QuietConfirm'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
+import { Section } from '../../Section'
+import './security.css'
 import type { DispositionList, ProjectFindingsView } from '../../wire.gen'
 
 // Findings posture (design/subsystems/findings.md §5 / S3): latest scan per scanner,
@@ -28,32 +30,29 @@ export function FindingsTab({ slug }: { slug: string }) {
   const unread = data.sources.filter((s) => s.unreadable)
   const nextScan = canScan ? <p><Link to={`/projects/${slug}`}>Open a change to re-run the scan</Link>.</p> : <p>Ask a project member with permission to open a change to re-run the scan.</p>
 
+  const problems = data.sources.length > 0 && !unread.length && data.statusLabel !== 'passed'
   return (
-    <div>
+    <div className="security-page">
       <StaleNote q={q} />
-      {unread.length > 0 && <div className="status-strip">
-        <p>{unread.length === 1 ? "One scan report couldn't be read; security checks are incomplete." : `${unread.length} scan reports couldn't be read; security checks are incomplete.`}</p>
-        {nextScan}
-      </div>}
-      <div className="row" style={{ marginBottom: 12 }}>
-        <Status observation word={data.statusLabel} help={data.repo?.stale ? "Main changed since the last scan. Open a change to scan the latest code." : undefined} />
-        <span>{data.summary.actionable > 0 ? `${data.summary.actionable} problems to fix` : data.sources.length && !unread.length ? data.repo?.stale ? 'No problems found in the last scan; main has changed since.' : 'No problems found in the last scan.' : 'Scan results not available.'}</span>
-      </div>
-      {!unread.length && (data.repo?.stale || !data.sources.length) && nextScan}
-      <details style={{ marginBottom: 12 }}><summary>Technical details</summary>
-        {data.sources.length === 0 && <p>No scans yet.</p>}
-        {data.sources.map(s => <p key={s.binding}>
-          {s.binding}: {s.unreadable || `${s.findings} problems`} · {fmtWhen(s.at)} · {s.changeId && <Link to={`/changes/${s.changeId}`}>{s.changeNumber ? `change ${s.changeNumber}` : 'its change'}</Link>}
-        </p>)}
-      </details>
-
-      {data.sources.length === 0
-        ? null
-        : unread.length > 0
-        ? <div className="muted">No findings in the scans that could be read; the unread reports may have some.</div>
-        : data.statusLabel === 'passed'
-        ? null
-        : Object.entries(
+      <Section title="Latest scan" count={data.sources.length || undefined}>
+        <div className="card row" style={{ display: 'flex' }}>
+          <span className="row-status"><Status observation word={data.statusLabel} help={data.repo?.stale ? "Main changed since the last scan. Open a change to scan the latest code." : undefined} /></span>
+          <span style={{ flex: 1, minWidth: 0 }}>{unread.length > 0
+            ? (unread.length === 1 ? "One scan report couldn't be read; security checks are incomplete." : `${unread.length} scan reports couldn't be read; security checks are incomplete.`)
+            : data.summary.actionable > 0 ? `${data.summary.actionable} problems to fix` : data.sources.length ? data.repo?.stale ? 'No problems found in the last scan; main has changed since.' : 'No problems found in the last scan.' : 'Scan results not available.'}</span>
+        </div>
+        {(unread.length > 0 || data.repo?.stale || !data.sources.length) && <div className="security-next">{nextScan}</div>}
+        {data.sources.length === 0 && <p className="muted small">No scans yet.</p>}
+        {data.sources.map(s => <div key={s.binding} className="card row small security-source" style={{ display: 'flex' }}>
+          <code>{s.binding}</code>
+          <span className={s.unreadable ? 'error' : 'muted'} style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{s.unreadable || `${s.findings} problems`} · {fmtWhen(s.at)}</span>
+          {s.changeId && <Link to={`/changes/${s.changeId}`}>{s.changeNumber ? `change ${s.changeNumber}` : 'its change'}</Link>}
+        </div>)}
+      </Section>
+      {unread.length > 0 && data.sources.length > unread.length && <p className="muted small">No findings in the scans that could be read; the unread reports may have some.</p>}
+      {problems && (
+        <Section title="Problems" count={data.summary.actionable || undefined}>
+        {Object.entries(
             data.findings.reduce<Record<string, PostureFinding[]>>((acc, f) => {
               const key = f.kind === 'vuln' && f.package ? `${f.package.name}@${f.package.version ?? '?'}` : `${f.kind}: ${f.source}`
               ;(acc[key] = acc[key] ?? []).push(f)
@@ -81,6 +80,8 @@ export function FindingsTab({ slug }: { slug: string }) {
               </details>
             )
           })}
+        </Section>
+      )}
     </div>
   )
 }
@@ -99,30 +100,24 @@ export function SuppressionsTab({ slug }: { slug: string }) {
   const list = data.dispositions
 
   return (
-    <div>
+    <div className="security-page">
       <StaleNote q={q} />
       {err && <div className="error">{err}</div>}
-      <details><summary>About hidden problems</summary><div className="row" style={{ marginBottom: 12 }}>
-        <span className="muted small">
-          Suppressions are created from the Findings page; they match findings by fingerprint or
-          identifier+package, and expire on schedule · expired ones fail the gate again.
-        </span>
-        <span style={{ flex: 1 }} />
-        <a href={`/api/v1/projects/${slug}/dispositions/openvex`} target="_blank" rel="noreferrer" className="small">OpenVEX export ↗</a>
-      </div>
-      </details>
-      {list.length === 0 && <div className="muted">Hidden problems (none)</div>}
-      {list.map((d) => (
-        <div className="row" key={d.id} style={{ marginTop: 4 }}>
-          <Status observation word={d.statusLabel} help={`${d.status}${d.expiresAt ? ` · until ${fmtDay(d.expiresAt)}` : ''}`} />
-          <span className="small">{d.identifier || d.fingerprint}</span>
-          {d.package && <span className="muted small">{d.package}</span>}
-          <span className="muted small" title={d.justification}>“{d.justification.slice(0, 70)}…” · {d.by}
-            {d.expiresAt ? `, until ${fmtDay(d.expiresAt)}` : ''}</span>
-          <span style={{ flex: 1 }} />
-          <QuietConfirm label="revoke" ask="Revoke this suppression? The finding becomes actionable again immediately." onYes={() => revoke(d.id!)} />
-        </div>
-      ))}
+      <Section title="Recorded" count={list.length || undefined}
+        action={<a href={`/api/v1/projects/${slug}/dispositions/openvex`} target="_blank" rel="noreferrer">OpenVEX export ↗</a>}
+        note="Made from the Findings page. Each matches findings by fingerprint or identifier and package, and expires on schedule; an expired one fails the gate again.">
+        {list.length === 0 && <p className="muted">No suppressions.</p>}
+        {list.map((d) => (
+          <div className="card row security-suppression" key={d.id} style={{ display: 'flex' }}>
+            <span className="row-status"><Status observation word={d.statusLabel} help={`${d.status}${d.expiresAt ? ` · until ${fmtDay(d.expiresAt)}` : ''}`} /></span>
+            <div style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
+              <span>{d.identifier || d.fingerprint}</span>{d.package && <span className="muted small"> · {d.package}</span>}
+              <div className="muted small" title={d.justification}>“{d.justification.length > 70 ? `${d.justification.slice(0, 70)}…` : d.justification}” · {d.by}{d.expiresAt ? `, until ${fmtDay(d.expiresAt)}` : ''}</div>
+            </div>
+            <span className="row-action"><QuietConfirm label="Revoke" ask="Revoke this suppression? The finding becomes actionable again immediately." onYes={() => revoke(d.id!)} /></span>
+          </div>
+        ))}
+      </Section>
     </div>
   )
 }

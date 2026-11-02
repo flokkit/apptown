@@ -6,7 +6,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { getKey, newQueryClient } from '../data'
 import { AgentsCard, UsersCard } from './People'
-import WorkflowLibrary from './WorkflowLibrary'
+import WaysOfWorking from './WaysOfWorking'
 import { StoreSection } from './DataProtection'
 import Deployments from './Deployments'
 import Dashboard from './Dashboard'
@@ -54,20 +54,18 @@ it('labels account dates as last seen and states when no sign-in was recorded', 
   expect(el.textContent).toContain('never signed in')
 })
 
-it('says when the selected workflow group is empty', () => {
-  const el = page(<WorkflowLibrary />, { '/workflows/library': [], '/system-workflows': { bindings: [], candidates: [] } })
-  expect(el.textContent).toContain('No workflows in this group.')
+it('says when the workflow library is empty, and still offers a new workflow', () => {
+  const el = page(<WaysOfWorking tab="workflows" />, { '/workflows/library': [], '/system-workflows': { bindings: [], candidates: [] } })
+  expect(el.textContent).toContain('No workflows.')
   expect(el.textContent).toContain('New workflow')
 })
 
-it('groups repeated history events while keeping each exact event and its time in Details', () => {
+it('folds routine history events apart while keeping each exact event and its time', () => {
   const view = { runs: [], detail: { events: Array.from({ length: 6 }, (_, i) => ({ id: String(i), kind: 'integration.resolved', at: '2026-10-31T01:00:00Z', payload: { connection: `resource-${i}` } })) } } as unknown as ChangeView
   const el = page(<HistoryTab view={view} runHref={() => '/work'} />)
-  expect(firstView(el)).toContain('Connection checked ×6')
-  expect(el.querySelectorAll('.event-log details')).toHaveLength(1)
-  expect(el.querySelector('.event-log summary')?.textContent).toContain('Connection checked ×6')
-  expect(el.querySelector('.event-log summary')?.textContent).not.toContain('Details')
-  expect(el.querySelector('.event-log details')?.hasAttribute('open')).toBe(false)
+  expect(firstView(el)).toContain('6 routine events')
+  expect(el.querySelectorAll('details.ch-routine')).toHaveLength(1)
+  expect(el.querySelector('details.ch-routine')?.hasAttribute('open')).toBe(false)
   for (let i = 0; i < 6; i++) expect(el.textContent).toContain(`resource-${i}`)
   expect(firstView(el)).not.toContain('run 5')
 })
@@ -101,12 +99,12 @@ it('uses the check title on a phone row instead of a long technical diagnostic',
 })
 
 
-it('keeps backup endpoint and replacement action in store details', () => {
+// The store's facts are shown, not folded; replacing it is the section's one action.
+it('shows the backup store, its endpoint and keys, with Attach another as its action', () => {
   const el = page(<StoreSection canAttach />, { '/backup-store': { store: { bucket: 'household-copies', endpoint: 'https://storage.example.test', attachedBy: 'sam', attachedAt: '2026-10-31T01:00:00Z', accessKeyFrom: 'STORE_KEY', secretKeyFrom: 'STORE_SECRET' } } })
   expect(firstView(el)).toContain('Backups go to household-copies')
-  expect(firstView(el)).not.toContain('https://storage.example.test')
-  expect(firstView(el)).not.toContain('Attach another')
-  expect(el.textContent).toContain('Attach another')
+  expect(firstView(el)).toContain('https://storage.example.test')
+  expect(el.querySelector('.section-action')?.textContent).toBe('Attach another')
   expect(el.textContent).toContain('STORE_KEY')
 })
 
@@ -114,8 +112,8 @@ it('shows the project release number in the phone departure fact', () => {
   vi.stubGlobal('matchMedia', () => ({ matches: true }))
   try {
     const el = page(<Deployments />, { '/tiers/departures': { departures: [{ slug: 'shop', name: 'Shop', releaseNumber: 6, state: 'deployed', at: '2026-10-31T01:00:00Z', tier: 'main', label: 'Live app', url: 'https://shop.example.test' }] } })
-    expect(firstView(el)).toContain('Release 6')
-    expect(el.querySelector('.glance-fact a')?.getAttribute('href')).toBe('/projects/shop/releases/6')
+    expect(firstView(el)).toContain('release #6')
+    expect(el.querySelector('.list-action a[href$="/releases/6"]')?.getAttribute('href')).toBe('/projects/shop/releases/6')
   } finally { vi.unstubAllGlobals() }
 })
 

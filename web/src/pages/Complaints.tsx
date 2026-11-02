@@ -9,6 +9,8 @@ import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import type { ComplaintList, ComplaintSteeringText } from '../wire.gen'
 import { useHolds } from '../instancePages'
+import { Section } from '../Section'
+import './Complaints.css'
 
 // Review reports about AppTown, answer them and archive resolved items. Filing a
 // complaint does not automatically start repair work.
@@ -62,25 +64,25 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
     <div style={{ maxWidth: 900 }}>
       <StaleNote q={rowsQ} />
       <div className="row">
-        <h1 style={{ marginBottom: 0 }}>Complaints</h1>
-        {unseen > 0 && <span className="badge">{unseen} unread</span>}
-        <span style={{ flex: 1 }} />
-        <button className="subtle" onClick={toggleSteering}>
-          {showSteering ? 'hide the instructions' : 'Instructions for reporting problems'}
-        </button>
-        {unseen > 0 && <button className="subtle" disabled={busy} onClick={markSeen}>mark all read</button>}
+        <h1 style={{ flex: 1, margin: 0 }}>Complaints</h1>
+        {unseen > 0 && <button className="subtle" disabled={busy} onClick={markSeen}>Mark {unseen} read</button>}
         {canEdit && tab !== 'archived' && older > 0 && (
-          <QuietConfirm label={`archive older than a day (${older})`} className="subtle"
+          <QuietConfirm label={`Archive older than a day (${older})`} className="subtle"
             ask={`Move ${older} complaint${older === 1 ? '' : 's'} older than a day to the archive? Nothing is deleted.`}
             onYes={() => void run(() => post('/complaints/archive-older', { hours: 24 }))} />
         )}
       </div>
-      <details className="small"><summary>About complaints</summary><p className="muted" style={{ maxWidth: 720, marginTop: 4 }}>
-        Agents file these when {PRODUCT} gets in their way. Filing one does not start any work.
-      </p></details>
       {actErr && <div className="error">{actErr}</div>}
+      <Tabs className="tabs">
+        <Link to="/complaints" className={`tab${tab === 'new' ? ' active' : ''}`}>New{fresh.length > 0 && <span className="section-count"> {fresh.length}</span>}</Link>
+        <Link to="/complaints/answered" className={`tab${tab === 'answered' ? ' active' : ''}`}>Answered{answered.length > 0 && <span className="section-count"> {answered.length}</span>}</Link>
+        <Link to="/complaints/archive" className={`tab${tab === 'archived' ? ' active' : ''}`}>Archived{archived.length > 0 && <span className="section-count"> {archived.length}</span>}</Link>
+      </Tabs>
+      <Section title={tab === 'archived' ? 'Archived' : tab === 'answered' ? 'Answered' : 'New'} count={shown.length}
+        note={`Agents file these when ${PRODUCT} gets in their way. Filing one does not start any work.`}
+        action={<button className="link" onClick={toggleSteering}>{showSteering ? 'Hide instructions' : 'Instructions for reporting problems'}</button>}>
       {showSteering && (
-        <div className="card" style={{ marginBottom: 12 }}>
+        <div className="card complaint-steering">
           {!steering && <ReadStatus q={steeringQ} what="the instructions agents are given" />}
           {steering && (
             <>
@@ -93,17 +95,12 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
           )}
         </div>
       )}
-      <Tabs className="tabs">
-        <Link to="/complaints" className={`tab${tab === 'new' ? ' active' : ''}`}>New{fresh.length > 0 ? ` (${fresh.length})` : ''}</Link>
-        <Link to="/complaints/answered" className={`tab${tab === 'answered' ? ' active' : ''}`}>Answered{answered.length > 0 ? ` (${answered.length})` : ''}</Link>
-        <Link to="/complaints/archive" className={`tab${tab === 'archived' ? ' active' : ''}`}>Archived{archived.length > 0 ? ` (${archived.length})` : ''}</Link>
-      </Tabs>
       {shown.length === 0 && (
-        tab === 'archived' ? <div className="muted">Nothing archived. Archived complaints are deleted after ninety days.</div>
-        : tab === 'answered' ? <div className="muted">Nothing answered and waiting to be read. Answers stay here until someone archives them.</div>
-        : <div className="muted">{rows.length === 0 ? 'No complaints.' : 'No new complaints.'}</div>)}
+        tab === 'archived' ? <p className="muted">Nothing archived. Archived complaints are deleted after ninety days.</p>
+        : tab === 'answered' ? <p className="muted">Nothing answered and waiting to be read. Answers stay here until someone archives them.</p>
+        : <p className="muted">{rows.length === 0 ? 'No complaints. Agents have not reported a problem.' : 'No new complaints.'}</p>)}
       {shown.slice(0, limit).map((c) => (
-        <div key={c.id} className="card" style={{ marginBottom: 8, opacity: c.seen ? 0.65 : 1 }}>
+        <div key={c.id} className="card complaint" style={{ opacity: c.seen ? 0.65 : 1 }}>
           <div className="row">
             <span className="badge">{c.source}</span>
             {c.project && <Link className="small" to={`/projects/${c.project}`}>{c.projectName || c.project}</Link>}
@@ -135,7 +132,8 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
           )}
         </div>
       ))}
-      {shown.length > limit && <button onClick={() => setLimit(n => n + 10)}>Show more ({shown.length - limit})</button>}
+      {shown.length > limit && <p><button onClick={() => setLimit(n => n + 10)}>Show more ({shown.length - limit})</button></p>}
+      </Section>
     </div>
   )
 }

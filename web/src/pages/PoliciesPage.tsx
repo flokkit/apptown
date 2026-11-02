@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { del, post } from '../api'
 import { OriginChip } from '../OriginChip'
-import { QuietConfirm } from '../QuietConfirm'
+import { Section } from '../Section'
+import { LibraryRow, LibraryRows } from '../LibraryRow'
+import { MoreMenu } from '../MoreMenu'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import type { PolicyLibraryEntry, PolicyLibraryList, PolicyUsageList, ProjectRow } from '../wire.gen'
@@ -49,13 +51,10 @@ export default function PoliciesPage() {
     <div>
       <StaleNote q={[libQ, projectsQ]} />
       {actErr && <div className="error">{actErr}</div>}
-      <div className="row" style={{ marginBottom: 12 }}>
-        <span className="muted small"></span>
-        <span style={{ flex: 1 }} />
-        <button className="primary" onClick={() => setEditing(blank())}>New policy</button>
-      </div>
-      {lib.map((p) => <PolicyCard key={p.name} p={p} totalProjects={totalProjects} onClone={() => setEditing(clone(p))}
-        onEdit={() => setEditing(structuredClone(p))} onRemove={() => { if (!busy) void remove(p) }} />)}
+      <Section title="Policies" count={lib.length} action={<button className="primary" onClick={() => setEditing(blank())}>New policy</button>}>
+        {lib.length === 0 ? <p className="muted">No policies yet.</p> : <LibraryRows>{lib.map((p) => <PolicyCard key={p.name} p={p} totalProjects={totalProjects} onClone={() => setEditing(clone(p))}
+          onEdit={() => setEditing(structuredClone(p))} onRemove={() => { if (!busy) void remove(p) }} />)}</LibraryRows>}
+      </Section>
     </div>
   )
 }
@@ -68,29 +67,33 @@ function PolicyCard({ p, totalProjects, onClone, onEdit, onRemove }: {
   p: PolicyLibraryEntry; totalProjects: number; onClone: () => void; onEdit: () => void; onRemove: () => void
 }) {
   const [open, setOpen] = useState(false)
-  // Exceptions only: the per-project fetch exists to NAME violators, so
-  // it only happens when there are any (it does not list everyone).
-  const usageQ = useGet<PolicyUsageList>(open && p.nonConformant > 0 ? `/policy-library/${p.name}/usage` : null)
+  // Who follows it: the projects that adopted it, named on the row. A rule
+  // nobody adopted asks for nothing.
+  const usageQ = useGet<PolicyUsageList>(p.adoptedBy > 0 ? `/policy-library/${p.name}/usage` : null)
   const usage = usageQ.data ? usageQ.data.usedBy ?? [] : null
   const usageErr = usageQ.err
   const scope = p.adoptedBy >= totalProjects && totalProjects > 0 ? 'all projects'
     : `${p.adoptedBy} project${p.adoptedBy === 1 ? '' : 's'} (${p.packs.length > 0 ? 'through packs' : 'adopted directly'})`
+  const names = usage?.map((u) => u.project) ?? []
+  const who = p.adoptedBy === 0 ? <span className="muted">no projects</span>
+    : usage === null ? <span className="muted">{p.adoptedBy} project{p.adoptedBy === 1 ? '' : 's'}</span>
+      : <>{names.slice(0, 3).join(', ')}{names.length > 3 ? ` and ${names.length - 3} more` : ''}
+        {p.nonConformant > 0 && <span style={{ color: 'var(--bad)' }}> · {p.nonConformant} not following it</span>}</>
+  const [deleting, setDeleting] = useState(false)
   return (
-    <div className="card">
-      <div className="row" style={{ cursor: 'pointer' }} onClick={() => setOpen(!open)}>
-        <strong style={{ fontSize: 'var(--fs-base)' }}>{p.description || p.name}</strong>
-        <span style={{ flex: 1 }} />
-        {p.adoptedBy > 0 && (
-          <span className="badge">
-            {p.nonConformant > 0 ? `${p.nonConformant} not following it` : `${p.adoptedBy} projects`}
-          </span>
-        )}
-        {p.packs.length === 0 && p.adoptedBy === 0 && <span className="badge">No projects</span>}
-        <span className="muted small">{open ? '▴' : '▾'}</span>
-      </div>
-      {open && (
-        <div style={{ marginTop: 10 }}>
-          <div className="muted small">{p.name} · <OriginChip origin={p.origin} />
+    <LibraryRow name={p.name} open={open} onToggle={() => setOpen(!open)}
+      badges={p.origin !== 'stock' && <span className="badge">yours</span>}
+      purpose={p.description}
+      state={<span className="small">{who}</span>}
+      menu={<MoreMenu label={p.name} items={[
+        { label: 'Copy', hint: 'Make a policy of your own from this one.', onClick: onClone },
+        ...(p.origin !== 'stock' ? [
+          { label: 'Edit', onClick: onEdit },
+          { label: 'Delete…', danger: true, onClick: () => setDeleting(true) },
+        ] : []),
+      ]} />}
+      detail={<>
+          <div className="muted small"><OriginChip origin={p.origin} />
             {p.packs.length > 0 && <> · in packs: {p.packs.join(', ')}</>}</div>
           <div style={{ margin: '8px 0' }}>
             <div className="muted small" style={{ marginBottom: 2 }}>The rule</div>
@@ -133,18 +136,13 @@ function PolicyCard({ p, totalProjects, onClone, onEdit, onRemove }: {
                   </>}
             </div>
           )}
-          <div className="row" style={{ marginTop: 8 }}>
-            <button className="subtle" onClick={onClone}>Clone…</button>
-            {p.origin !== 'stock' && (
-              <>
-                <button className="subtle" onClick={onEdit}>Edit</button>
-                <QuietConfirm label="Delete" ask={`Delete "${p.name}" from the library? Projects that adopted it keep their copies.`} onYes={onRemove} />
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+      </>}>
+      {deleting && <div className="row small" onClick={(e) => e.stopPropagation()}>
+        Delete “{p.name}” from the library? Projects that adopted it keep their copies.
+        <button className="danger" onClick={() => { setDeleting(false); onRemove() }}>Delete</button>
+        <button className="subtle" onClick={() => setDeleting(false)}>Keep it</button>
+      </div>}
+    </LibraryRow>
   )
 }
 

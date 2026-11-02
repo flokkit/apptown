@@ -13,10 +13,10 @@ const count = (apptown: number, other: number) => ({ apptown, other })
 // A target's capacity says what a fixed host has, what its containers are
 // promised and use, and its disk, with a reading it could not make as
 // unknown, never 0; an elastic target says it grows, and estimates cost.
-const render = (c: Partial<TargetCapacity>) => {
+const render = (c: Partial<TargetCapacity>, diagnostics = false) => {
   const client = newQueryClient()
   client.setQueryData(getKey('/targets/lab/capacity'), { target: 'lab', kind: 'docker-host', elastic: false, words: 'A fixed host: it does not grow.', readAt: '2026-10-13T02:00:00Z', ...c })
-  return renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><Capacity name="lab" /></QueryClientProvider></MemoryRouter>)
+  return renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><Capacity name="lab" diagnostics={diagnostics} /></QueryClientProvider></MemoryRouter>)
 }
 
 describe("a target's capacity", () => {
@@ -26,7 +26,8 @@ describe("a target's capacity", () => {
       cpu: { total: fig(8), promised: { sum: { apptown: fig(4.5), other: fig(0) }, limited: count(5, 0), unlimited: count(25, 3), unread: count(0, 1) }, overcommitted: false },
       disk: { total: fig(719e9), free: fig(512e9), low: false, refuses: false },
     })
-    expect(html).toContain('A fixed host: it does not grow.')
+    // A fixed host's "it does not grow" says nothing in its current state.
+    expect(html.split('<details')[0]).not.toContain('A fixed host: it does not grow.')
     expect(html).toContain('29 without a set limit')
     expect(html).toContain('1 limit could not be read (the total is partial)')
     expect(html).toContain('4.5 CPUs')
@@ -49,7 +50,7 @@ describe("a target's capacity", () => {
   // read says why in words, not only on hover.
   it("says which disk it read, when, and when new releases are refused", () => {
     const refused = render({ disk: { total: fig(100 * 2 ** 30), free: {...fig(2 ** 30), stale:true}, low: true, refuses: true, floor: 5 * 2 ** 30, path: '/var/lib/docker', readAt: '2026-10-13T01:58:00Z' } })
-    expect(refused).toContain("disk (Docker&#x27;s data, /var/lib/docker)")
+    expect(refused).toContain("Docker&#x27;s storage (images and containers, /var/lib/docker)")
     expect(refused).toContain('new releases refused: under 5.00 GB free')
     expect(refused).toContain('last seen')
     const unread = render({ disk: { total: none('reading the disk: no space left on device'), free: none('reading the disk: no space left on device'), low: false, refuses: false, path: '/var/lib/docker' } })
@@ -127,14 +128,15 @@ it('leads with host facts and keeps limits, paths and bars behind Details', () =
   const front = html.split('<details')[0]
   expect(front).toContain('2 GB used of 8 GB')
   expect(front).toContain('23 GB free of 49 GB')
-  expect(front).toContain('9 running')
   expect(front).toContain('10 GB requested; host total 8 GB')
   expect(front).toContain('<dt>Memory use</dt>')
   expect(front).not.toMatch(/promised|without a set limit|not read|app-0|var\/lib|role="img"/)
   expect(html).toContain('<summary>Details</summary>')
   expect(html).toContain('over by 2.00 GB')
   const unknown = render({ ...c, memory: { ...memory, total: none('host unavailable') } }).split('<details')[0]
-  expect(unknown).toContain('2 GB used; host total unknown: host unavailable')
+  expect(unknown).toContain('2 GB used; host total could not be read')
+  expect(unknown).not.toContain('host unavailable')
+  expect(render({ ...c, memory: { ...memory, total: none('host unavailable') } }, true)).toContain('Memory total: host unavailable')
   expect(unknown).not.toContain('used of')
 })
 
@@ -149,17 +151,20 @@ it('keeps a retained live figure distinct from unknown and shows its own age aft
       disk: { total: { ...fig(100 * 2 ** 30), readAt }, free: old, low: false, refuses: false, readAt } })
     expect(html).toContain('90 GB free of 100 GB')
     expect(html).toContain('last seen 40m ago')
-    expect(html).toContain('The host disk check failed.')
+    // The failure is said once in words; its text is under Host diagnostics.
+    expect(html).toContain('Part of the capacity check failed.')
+    expect(html).not.toContain('The host disk check failed.')
+    expect(render({ stale: true, error: 'The host disk check failed.', readAt }, true)).toContain('The host disk check failed.')
     const expired = render({ disk: { total: fig(100 * 2 ** 30), free: { ...old, known: false, reason: 'The last successful reading is too old.' }, low: false, refuses: false, readAt } })
     expect(expired).toContain('unknown free of 100 GB')
     expect(expired).not.toContain('90 GB free')
   } finally { clock.mockRestore() }
 })
 
-it('distinguishes a successful empty tenant list from an unread or expired list', () => {
-  expect(render({ tenantsAt: new Date().toISOString() })).toContain('0 running')
-  expect(render({})).not.toContain('0 running')
-  expect(render({ tenantsAt: new Date().toISOString(), liveUnknown: true })).not.toContain('0 running')
+// How many apps a host runs is the target page's Apps section, from its
+// deployments; capacity no longer repeats it as "0 running".
+it('does not repeat the app count', () => {
+  expect(render({ tenantsAt: new Date().toISOString() })).not.toContain('0 running')
 })
 
 
@@ -168,15 +173,17 @@ it('shows an old reading quietly and marks only a failed check red', () => {
   const html = render(old)
   expect(html).toContain('last seen 40m ago')
   expect(html).not.toContain('class="error small"')
-  expect(render({ ...old, error: 'The host capacity check failed.' })).toContain('class="error small">The host capacity check failed.')
+  expect(render({ ...old, error: 'The host capacity check failed.' })).toContain('class="error small">Part of the capacity check failed.')
+  expect(render({ ...old, error: 'The host capacity check failed.' }, true)).toContain('The host capacity check failed.')
 })
 
 it('puts requested and available memory beside a warning, and explains unreadable use', () => {
  const memory = {total:fig(2*2**30), hostUsed:none('The attached daemon does not report whole-host memory use.'),promised:{sum:{apptown:fig(4*2**30),other:fig(0)},limited:count(9,0),unlimited:count(19,0),unread:count(0,0)},overcommitted:true}
  const html=render({memory})
  expect(html).toMatch(/capacity-warning[^>]*>[^<]*4 GB requested[^<]*2 GB/)
- expect(html).toContain('The attached daemon does not report whole-host memory use.')
+ expect(html).not.toContain('The attached daemon does not report whole-host memory use.')
  expect(html).toContain('Memory use could not be read')
+ expect(render({memory}, true)).toContain('Memory use: The attached daemon does not report whole-host memory use.')
  expect(render({memory:{...memory,total:none('Host size unavailable')}})).not.toContain('capacity-warning')
 })
 

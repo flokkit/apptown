@@ -12,6 +12,12 @@ ways of working are defined at the instance level and consumed by projects.
 **Project** — a codebase with its own repository, workflows, and settings.
 Changes, runs, deployments, and releases each belong to one project.
 
+**App** — what a project builds: the software its code and
+`.apptown/app.yaml` describe, made of one or more parts. Each project has
+one app; a deployment is one running copy of it. Work, settings and rules
+belong to the project; being up, being opened and having an address belong
+to the app.
+
 **Deleted project** — a project whose deletion has taken its deployments
 down. It takes no new work and is kept, read-only, with all its backups,
 for 30 days; **Restore project** brings it back until its purge starts.
@@ -31,6 +37,14 @@ change (a dependency update with nothing to update) stops with that reason in
 its details. Landing runs the checks and approval before merging; a failed step
 blocks the run. The web keeps work and evidence states visible, with details
 one click away.
+
+**Folder** — a change's workspace: a full git clone of the project with
+the change's branch checked out. Whoever is working on the change (its chat, a
+workflow, or a desktop checkout) works in it, one at a time.
+
+**Hub** — the authoritative copy of a project's repository, where `main`
+lives. `main` moves only when a change lands; nobody can push to it
+directly.
 
 **Chat (helper)** — a conversational agent session on a project or a change.
 A change chat edits that change's working tree directly. A
@@ -78,10 +92,18 @@ problems and app checks whose answer is not known. Each listed row counts as
 one item, including a row summarizing several app-check outcomes. An attempted check that
 cannot give an answer counts under `not known`, with its reason. Confirmed
 problems count under `to fix`. Checks not run yet and integrations without
-background checks do not count. The header shows `3 to fix · 1 not known`,
-omits zero parts, and says `All quiet` when both are zero. Unknown coverage is
-separate from confirmed problems. Open Attention for each named resource, its
+background checks do not count. The Attention page heads its list with
+`3 to fix · 1 not known` and omits zero parts. Unknown coverage is separate
+from confirmed problems. Open Attention for each named resource, its
 reason and next step.
+
+**Attention lights** — the small icons at the top right, one per kind of
+condition: hosts and deployments, backups, connections and app checks. A light
+shows only while something of its kind is confirmed broken, and only to people
+who can fix it (administrators of deployment targets or connections). Hovering
+says what and how many; clicking opens Attention at that group. Checks whose
+answer is not known light nothing. No lights means nothing is confirmed broken,
+not that everything was checked.
 
 ## Workflows
 
@@ -155,23 +177,7 @@ one (App Platform) grows, and shows each part's size and an estimated cost.
 **Boot check** — AppTown starting an app cold from its contract to prove
 it comes up, before a person is asked to try it.
 
-**Model profile** — a named set of model choices that a project uses, such
-as `standard` or `high`. Its four basics are Primary · strong (`default`),
-Primary · fast (`primary-fast`), Secondary · strong (`secondary-strong`) and
-Secondary · fast (`secondary-fast`). The primary models do the work; the
-secondary models give a second opinion. Individual tasks are the advanced
-level and can override those choices. An unset secondary uses the primary
-of the same speed; an unset fast primary uses `default`.
-
-**Task (model)** — the purpose for which AppTown asks for a model, such as
-planning, writing code or review. Workflows name it as a slot, for example
-`model: review`. Each task follows a chain to a basic model choice unless
-set individually. AppTown tries the task's cell in the project's model
-profile, then in `standard`, before following its fallback. Reviews use the
-strong secondary; quick independent checks ask for the fast secondary.
-Every chain ends at `default`, the strong primary.
-
-**Profile** — the one named set of differences a deployment uses: in
+**Deployment profile** — the one named set of differences a deployment uses: in
 `app.yaml`, parts' resources and environment, and needs' resources or catalogue size; in
 `secretspec.toml`, its expected secrets. `default` is the base; previews use
 `preview` when declared.
@@ -200,16 +206,68 @@ replaces it or someone takes it down.
 **Deployment target** — a place deployments run: the built-in Docker host,
 a Docker host attached over SSH, a Portainer environment, DigitalOcean App
 Platform, or a bucket website (static sites only). An administrator
-attaches targets and offers them to projects.
+attaches targets and makes each usable through a **deployment offer**.
+
+**Deployment offer** — how an administrator makes a deployment target
+usable by one group's projects or by everyone's. An offer may set limits:
+at most so many standing deployments per project, and which audiences
+(team, organisation, partners, public) and kinds of data (synthetic,
+non-production, production) its deployments may have. A project uses the
+offer to its own group when there is one, otherwise the offer to everyone;
+AppTown's own built-in host needs no offer.
+
+**Deploy connector** — the connection a deployment target is built on: how
+AppTown reaches the machines it deploys to, such as its own Docker or a
+Portainer server. Listed under Integrations › Deployment targets.
+
+**Cloud account** — a connection to an account at a cloud provider (a
+DigitalOcean team): the name of the secret holding its API token, its
+region, its container registry and default sizes. Each one provides one
+App Platform deployment target.
+
+**Retire (a deployment target)** — take a target out of service for good.
+It is refused while a standing deployment uses the target; its offers are
+withdrawn. A retired target keeps its name and history, and the name cannot
+be used for a new target. AppTown's built-in host cannot be retired.
+
+**Inventory** — what a deployment target holds, as its provider reports it,
+beside what AppTown recorded creating there. AppTown checks it in the
+background every five minutes, and again after a release, a take-down or a
+need getting its service. A kind of target that cannot report what it holds
+shows its contents as unknown.
+
+**Resource** — one thing in a target's inventory, such as a container,
+volume, network, image, database or bucket. **Recorded** means AppTown has a
+record of creating it. **Unrecorded** means it carries this AppTown's mark
+(a label or tag with its installation id) but no record names it; some
+unrecorded resources can be removed from the target's page. **Missing**
+means a complete answer from the provider did not include a recorded
+resource.
+
+**Job** — a piece of AppTown's background work, such as a backup, an
+inventory check or a workflow follow-up. Jobs are listed on the **Job
+queue** tab under Deployments › Infrastructure. A job that is safe to
+repeat retries by itself; a stopped or failed one may need someone to run
+it again.
 
 **Take down** — remove a deployment and everything AppTown recorded
 creating for it. On a Docker host its data is backed up first, and that
 final backup is kept with the project.
 
+**Backup** — a set of copies of a deployment's data: its data directory
+and each service that keeps data. Taken after every release, every night,
+and on **Back up now**. The Backups tab of the Deployments page lists every
+set and where it is kept. A whole AppTown is backed up separately, with
+`apptownd backup`.
+
 **Worker** — a separate machine with its own Docker that runs most project
 work off AppTown's own host: steps, checks, previews, release builds, and
 new change chats by default. Project chats, chats opened on AppTown and
 deployments on the built-in Docker host stay on AppTown.
+
+**Executor** — where workflow steps run, set up under Integrations ›
+Executors. The built-in executor runs each step in its own container on
+AppTown's own Docker; a worker can take that work instead.
 
 **Main (tier)** — the standing copy of each project's main branch, updated
 by landings.
@@ -219,29 +277,40 @@ platform, survive reboots, and are reachable by everyone inside.
 
 ## Quality and record
 
+**Check** — a test a way of working carries: a sentence saying what it
+expects, a severity, and how it is judged — a script, a scanner, a probe of
+the running app, or a rubric a model reads. Depending on what it judges, a
+check runs when a change lands, in conformance reviews, or both.
+A check that runs and finds a problem fails. An attempted check that cannot give an answer is not known,
+with its reason, and never counts as passed or as a confirmed problem. A gate
+that requires that check still refuses until it has the required evidence.
+Deferred checks are not judged yet. For example, a deployment check
+waits for a standing deployment, and an image check waits for its image.
+These deferrals raise no Attention row.
+
 **Guidance** — the house rules agents work under, imported per project as
 versioned blocks. Some blocks carry checks; some carry a skill, a how-to an
 agent loads only when it needs it.
 
-**Check** — an assessment of an app against a declared rule. A check that runs
-and finds a problem fails. An attempted check that cannot give an answer is not known,
-with its reason, and never counts as passed or as a confirmed problem. A gate
-that requires that check still refuses until it has the required evidence.
-Deferred checks remain not yet assessed. For example, a deployment check
-waits for a standing deployment, and an image check waits for its image.
-These deferrals raise no Attention row.
-
-**Conformance** — whether an app meets the ways of working it has adopted.
+**Conformance** — whether a project meets the ways of working it has adopted.
 Checked two ways: as a step when a change lands, and by a read-only
-**review** of every app's committed main (the Conformance page). A review is
-a saved record you can open later; a project's **standing** is one plain
-sentence plus a bar of its checks.
+**review** of projects' committed main (**Check now** on the Conformance page).
+A review is a saved record you can open later. A project's **standing** is
+its status and one line saying what to do next; its page groups the checks'
+results as findings, couldn't run, needs your review, approved exceptions,
+not judged yet, not applicable and conforms.
 
 **Policy** — a rule enforced when workflows are saved, e.g. nothing deploys
 without a security scan in an earlier stage.
 
-**Scan** — a tool-based check of the workspace: dependencies, leaked
-secrets, SBOM.
+**Scan** — one run of a scanner: dependencies, leaked secrets, SBOM.
+
+**Scanner** — a tool AppTown runs in a container against a commit's code,
+or against the app's built container image, to find known problems:
+osv-scanner (vulnerable dependencies), gitleaks (leaked secrets), syft (a list of what
+the code contains, an SBOM) and trivy (the image) come with AppTown.
+Scanners are attached under Integrations › Scanners, and every scan point
+runs each attached one.
 
 **Not applicable** — what a check or scan says when it applies to nothing
 the app's contract declares: no part built with its tool, no static part,
@@ -260,6 +329,17 @@ no confirmed problem.
 
 **Suppression** — a recorded decision to accept a finding, with a reason and
 an author.
+
+**Exception (conformance)** — the Conformance page's name for a
+suppression: a person's recorded acceptance of a failing check, as an
+accepted risk or a false positive, with a justification. The check reads
+**excepted**, with its failure still visible underneath. An exception may
+have an expiry date; after it, the finding counts again.
+
+**Remediation** — a job that fixes findings across many projects, one
+change per project at a time. An agent makes each fix; each change waits for
+a person to accept it, then lands, and a fresh review of that project shows
+whether it worked. Progress is on the Conformance page's Remediations tab.
 
 **Complaint** — a report, usually from an agent, that AppTown itself got
 in the way: what happened, why it mattered, what they wish had been true.
@@ -302,6 +382,13 @@ checks they adopted, to see what would newly fail or pass; by default on
 every project on an earlier version of the pack. Hypothetical: it never
 changes a project's standing and is not evidence for a gate.
 
+**Eval** — a comparison that asks whether a model profile or a pack version
+does better than what projects use now. Finished changes are re-run in
+throwaway copies of their projects, once as each project runs now and once
+with that one thing changed, and a person compares the work, each check's
+findings and the cost side by side. An eval decides nothing and is never
+evidence for a gate.
+
 **Need** — a service the app declares under `needs:` in its
 `.apptown/app.yaml` (a database, an object store, AI models). It is part of the
 code, so changing it is a change. A need is *fulfilled* either by the
@@ -313,11 +400,23 @@ OpenRouter). The app reads the same variables either way.
 deployment's own postgres, bucket or AI models key. Settings › Services lists
 the services the app uses, and what fulfils each.
 
+**Secret** — a value an app needs but must never commit, such as a key that
+signs its cookies or a password for an outside service. The app names its
+secrets in `secretspec.toml`; a store (AppTown's built-in store, or
+Infisical) holds the values; AppTown gives each value to the parts of the
+app that need it, and records that it did, never the value.
+
 **Integration** — a named connection to an outside service (GitLab,
 Infisical, Portainer, GlitchTip, OpenRouter), set up on the Integrations page.
 Its configuration holds the names of secrets, never their values. An
 integration may fulfil a need, or a project *attaches* it directly under
 Settings › Services › "Connected to" (error reporting).
+
+**Shared service** — a kind of service your organisation already runs, such
+as a sign-in system, described in YAML under Services › Shared services:
+the settings it takes, the environment variables an app is given, and
+guidance for agents. A project attaches one under Settings › Services.
+AppTown does not run or create the service itself.
 
 **Wired in** — an attached integration that the app's code actually uses.
 Attaching only injects the connection details; "wire it in" opens the
@@ -338,6 +437,22 @@ pulls from it.
 `stock/quick-change@10` (shipped with AppTown) or `lib/our-land@2`
 (yours). Guidance imports carry the same kind of receipt.
 
+**Model profile** — a named set of model choices that a project uses, such
+as `standard` or `high`. Its four basics are Main · strong (`default`),
+Main · fast (`primary-fast`), Second opinion · strong (`secondary-strong`)
+and Second opinion · fast (`secondary-fast`). The main models do the work;
+the second-opinion models review it. Individual tasks are the advanced
+level and can override those choices. An unset secondary uses the primary
+of the same speed; an unset fast primary uses `default`.
+
+**Task (model)** — the purpose for which AppTown asks for a model, such as
+planning, writing code or review. Workflows name it as a slot, for example
+`model: review`. Each task follows a chain to a basic model choice unless
+set individually. AppTown tries the task's cell in the project's model
+profile, then in `standard`, before following its fallback. Reviews use the
+strong secondary; quick independent checks ask for the fast secondary.
+Every chain ends at `default`, the strong primary.
+
 **System binding** — the instance's choice of which library workflow
 stands in for a stock system one (landing runs `our-land`, say). Set on
 the System tab of Ways of working › Workflows; a stand-in must declare
@@ -357,6 +472,19 @@ workspace persists for the life of the change.
 
 **Account** — a person's sign-in on the instance: username, password, and
 a role (admin or member). Managed on the People page.
+
+**Access token** — a long secret string that lets a program act for a
+person. A **command-line token** is for the `apptown` command-line tool and
+acts as its person, with their role as it was when the token was made. An
+**agent token** is for a coding agent that cannot sign in through a
+browser; it cannot approve or administer. An administrator makes either
+under People › Access tokens; it is shown once and can be revoked.
+
+**Connected coding agent** — a coding agent, such as Claude Code or Codex,
+that a person signed in to AppTown through the browser. It acts as that
+person, within what they allowed; it can ask for a landing but cannot
+approve or administer. People › Connected coding agents lists them, and
+disconnecting one takes effect at once.
 
 **Invite** — a one-time link an administrator gives a new person so they
 choose their own password and are signed in. It is for one account, lasts
