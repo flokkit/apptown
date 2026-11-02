@@ -518,6 +518,11 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		"ALTER TABLE model_slots ALTER COLUMN profile SET DEFAULT 'standard'",
 		"ALTER TABLE model_slots ADD PRIMARY KEY (slot, profile)",
 	}},
+	{n: 199, note: "basic model profile choices", stmts: []string{
+		"UPDATE slot_fallbacks SET fallback='secondary-strong' WHERE slot='review' AND fallback='default'",
+		"UPDATE slot_fallbacks SET fallback='primary-fast' WHERE slot='fast' AND fallback='default'",
+		"UPDATE model_slots SET slot='primary-fast' WHERE slot='fast'",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

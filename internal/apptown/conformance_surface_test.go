@@ -35,9 +35,9 @@ func stubLLM(t *testing.T, a *App, answer string, seen *[]string) {
 	}})
 }
 
-func bindFastSlot(t *testing.T, a *App) {
+func bindSecondaryFastSlot(t *testing.T, a *App) {
 	t.Helper()
-	if err := a.Models.Set(context.Background(), "fast", "standard", "openrouter/test-model", "fixture"); err != nil {
+	if err := a.Models.Set(context.Background(), "secondary-fast", "standard", "openrouter/test-model", "fixture"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -68,7 +68,7 @@ func TestTreeRubricJudgedInReviewAndAtGate(t *testing.T) {
 	t.Parallel()
 	a := conformanceTestApp(t)
 	tgLocalSh(t, a)
-	bindFastSlot(t, a)
+	bindSecondaryFastSlot(t, a)
 	pid, _, _ := fleetRepo(t, a, "proj", map[string]string{
 		"README.md":                "# proj\nA marketing-free readme.\n",
 		"src/urls.py":              "urlpatterns = [path('admin/', admin.site.urls)]\n",
@@ -200,7 +200,7 @@ func TestAModelRubricIsComparedWithMain(t *testing.T) {
 	t.Parallel()
 	a := conformanceTestApp(t)
 	tgLocalSh(t, a)
-	bindFastSlot(t, a)
+	bindSecondaryFastSlot(t, a)
 	var prompts []string
 	installCheckEffects(t, a, checkOverrides{complete: func(pattern, system, user string) (string, *modelcall.Usage, error) {
 		prompts = append(prompts, user)

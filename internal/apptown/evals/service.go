@@ -395,7 +395,7 @@ func (s *Service) Start(ctx context.Context, in Start) (*Eval, error) {
 			if err != nil {
 				return err
 			}
-			// The judge of both arms' rubrics is the baseline's fast model,
+			// The judge of both arms' rubrics is the baseline's secondary fast model,
 			// so the judge is not what varies.
 			baselineSlots, err := s.deps.Models.ArmSlots(ctx, src.change.ProjectID, profileOf(p.ModelProfile))
 			if err != nil {
@@ -415,7 +415,7 @@ func (s *Service) Start(ctx context.Context, in Start) (*Eval, error) {
 				if err != nil {
 					return err
 				}
-				raw, _ := json.Marshal(armPlan{Slots: slots, Lane: src.lane, Adoption: &adopted, Judge: baselineSlots["fast"],
+				raw, _ := json.Marshal(armPlan{Slots: slots, Lane: src.lane, Adoption: &adopted, Judge: baselineSlots["secondary-fast"],
 					Union: unionBlocks(src.baseline.Blocks, src.variant.Blocks), Before: src.before})
 				if _, err := q.InsertArm(ctx, evalssql.InsertArmParams{ID: ids.New(now), EvalID: e.ID, SourceProjectID: src.change.ProjectID, SourceChangeID: src.change.ID, Arm: arm, Profile: profile, ModelsJson: raw}); err != nil {
 					return err

@@ -146,7 +146,7 @@ func (f Fleet) CompareArm(ctx context.Context, in ArmComparison) (*ArmCompared, 
 func (f Fleet) evalJudgeFor(ctx context.Context, in ArmComparison) func([]check.Item, string) (map[int]check.Verdict, *llmMetadata, error) {
 	return func(items []check.Item, diff string) (map[int]check.Verdict, *llmMetadata, error) {
 		if in.Judge == "" {
-			return nil, nil, errors.New("no judge model: the baseline names no fast model")
+			return nil, nil, errors.New("no judge model: the baseline names no secondary fast model")
 		}
 		return f.evaluator.checklist(ctx, modelcall.Call{Purpose: "eval-score", ProjectID: in.ProjectID, Judge: true, Model: in.Judge}, items, diff)
 	}

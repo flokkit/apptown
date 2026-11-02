@@ -54,13 +54,13 @@ func NewFleet(d FleetDependencies) *Fleet {
 	return &Fleet{checks: d.Checks, evaluator: d.Evaluator, scanners: d.Scanners, selection: d.Selection, ledger: d.Ledger, db: d.DB, reporting: d.Reporting, dataDir: d.DataDir, candidates: d.Candidates, runtime: d.Runtime, jobs: d.Jobs}
 }
 
-// judgeChecklist asks call with the fast model of the project it is for.
+// judgeChecklist asks call with the secondary fast model of the project it is for.
 func (f Fleet) judgeChecklist(ctx context.Context, call modelcall.Call, items []check.Item, diff string) (map[int]check.Verdict, *llmMetadata, error) {
 	if len(items) == 0 {
 		return nil, nil, nil
 	}
 	var err error
-	if call.Model, _, _, err = f.selection.Resolve(ctx, call.ProjectID, "fast"); err != nil {
+	if call.Model, _, _, err = f.selection.Resolve(ctx, call.ProjectID, "secondary-fast"); err != nil {
 		return nil, nil, err
 	}
 	return f.evaluator.checklist(ctx, call, items, diff)

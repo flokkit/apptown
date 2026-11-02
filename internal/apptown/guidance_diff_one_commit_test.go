@@ -19,7 +19,7 @@ func TestGuidanceDiffRubricsJudgeTheCheckedCommit(t *testing.T) {
 		t.Run(map[bool]string{false: "unpublished", true: "moving-branch"}[moving], func(t *testing.T) {
 			t.Parallel()
 			a, ch := step1ReviewGuidance(t, true, `[{"appliesTo": ["repository"], "name":"source","evaluator":"sh","sh":"true"},{"appliesTo": ["repository"], "name":"diff","evaluator":"llm","scope":"diff","rubric":"judge the proposed change","expects":"the rule holds"}]`)
-			bindFastSlot(t, a)
+			bindSecondaryFastSlot(t, a)
 			var prompts []string
 			stubLLM(t, a, `[{"item":1,"verdict":"pass","evidence":"inspected diff","note":"ok"}]`, &prompts)
 			ws := (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(ch.ID)

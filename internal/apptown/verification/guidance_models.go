@@ -190,12 +190,12 @@ func workflowDiffText(ctx context.Context, source workflow.Source, at checked) (
 	return gitexec.Run(ctx, at.Repo, "diff", comparison)
 }
 
-// judgeChecklist asks the source project's fast model, for the run.
+// judgeChecklist asks the source project's secondary fast model, for the run.
 func (a *Guidance) judgeChecklist(ctx context.Context, source workflow.Source, items []check.Item, diff string) (map[int]check.Verdict, *llmMetadata, error) {
 	if len(items) == 0 {
 		return nil, nil, nil
 	}
-	pattern, _, _, err := a.selection.Resolve(ctx, source.ProjectID, "fast")
+	pattern, _, _, err := a.selection.Resolve(ctx, source.ProjectID, "secondary-fast")
 	if err != nil {
 		return nil, nil, err
 	}

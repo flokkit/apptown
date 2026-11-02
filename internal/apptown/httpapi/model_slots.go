@@ -175,11 +175,12 @@ func (h ModelSlots) PutProjectModelProfile(w http.ResponseWriter, r *http.Reques
 // visible first.
 func (h ModelSlots) slotConsumers(ctx context.Context) (map[string][]string, error) {
 	out := map[string][]string{
-		"default": {"any step without a model named", "end of every fallback chain"},
-		"chat":    {"project chat"},
-		"worker":  {"delegate: carries out briefs (chat + steps)"},
-		"scout":   {"delegate: quick lookups (chat + steps)"},
-		"fast":    {"change summaries", "briefs", "guidance checks", "setup probes"},
+		"default":        {"any step without a model named", "end of every fallback chain"},
+		"chat":           {"project chat"},
+		"worker":         {"delegate: carries out briefs (chat + steps)"},
+		"scout":          {"delegate: quick lookups (chat + steps)"},
+		"fast":           {"change summaries", "briefs", "setup probes"},
+		"secondary-fast": {"guidance checks", "eval judges", "fleet conformance checks"},
 	}
 	// Consumers are library workflows now (design/decisions/workflows-as-lanes.md);
 	// the sample names the workflow, not a project copy.
@@ -214,7 +215,7 @@ func (h ModelSlots) slotConsumers(ctx context.Context) (map[string][]string, err
 
 func (h ModelSlots) slotView(s string, cells map[string]map[string]string, fallbacks map[string]string,
 	consumers map[string][]string, spend map[string]map[string]int64) ModelSlotView {
-	v := ModelSlotView{Slot: s, Gloss: model.Gloss[s], Patterns: map[string]string{}}
+	v := ModelSlotView{Slot: s, Base: model.IsBase(s), Gloss: model.Gloss[s], Patterns: map[string]string{}}
 	if c := cells[s]; c != nil {
 		v.Patterns = c
 	}
@@ -242,6 +243,7 @@ type ModelSlotMatrix struct {
 // ModelSlotView is one slot: its patterns per profile, what it falls back to,
 // who asks for it, and what it spent in the last week.
 type ModelSlotView struct {
+	Base      bool              `json:"base"`
 	Slot      string            `json:"slot"`
 	Gloss     string            `json:"gloss"`
 	Patterns  map[string]string `json:"patterns"`

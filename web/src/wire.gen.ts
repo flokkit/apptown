@@ -3434,6 +3434,7 @@ export type UnlistedBinding = {
 }
 
 export type ModelSlotView = {
+  base: boolean
   slot: string
   gloss: string
   patterns: Record<string, string>

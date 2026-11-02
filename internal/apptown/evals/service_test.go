@@ -271,9 +271,9 @@ type fakeModels struct{}
 
 func (fakeModels) ArmSlots(ctx context.Context, projectID ids.ID, profile string) (map[string]string, error) {
 	if !projectID.IsZero() {
-		return map[string]string{"default": "openrouter/standard/model", "fast": "openrouter/standard/fast"}, nil
+		return map[string]string{"default": "openrouter/standard/model", "fast": "openrouter/standard/fast", "secondary-fast": "openrouter/standard/judge"}, nil
 	}
-	return map[string]string{"default": "openrouter/" + profile + "/model", "fast": "openrouter/" + profile + "/model"}, nil
+	return map[string]string{"default": "openrouter/" + profile + "/model", "fast": "openrouter/" + profile + "/model", "secondary-fast": "openrouter/" + profile + "/judge"}, nil
 }
 func (fakeModels) OfferedProfile(ctx context.Context, profile string) (bool, error) {
 	return profile == "frontier", nil
@@ -792,7 +792,7 @@ func noPreparation(context.Context, workflow.CreatedChange) error { return nil }
 // A pack-version eval varies exactly one thing: both arms run the
 // baseline's models, the baseline adopts what the source runs now and the
 // variant the candidate the version would be for it, each fixed at start
-// by digest, with the union of both arms' blocks and the baseline's fast
+// by digest, with the union of both arms' blocks and the baseline's secondary fast
 // model as the judge. The variant's copy adopts that candidate exactly. A
 // version the project could not adopt, or one without the lane the Change
 // was worked in, refuses that Change at start.
@@ -833,7 +833,7 @@ func TestAPackVersionEvalsVariantAdoptsTheCandidateExactly(t *testing.T) {
 			t.Fatal(err)
 		}
 		plans[a.Arm] = plan
-		if a.Models["default"] != "openrouter/standard/model" || plan.Judge != "openrouter/standard/fast" {
+		if a.Models["default"] != "openrouter/standard/model" || plan.Judge != "openrouter/standard/judge" {
 			t.Fatalf("arm %s runs %v judged by %q: a pack eval holds the model", a.Arm, a.Models, plan.Judge)
 		}
 		if len(plan.Union) != 2 {
@@ -925,7 +925,7 @@ func TestTheJudgesDoorAdmitsOnlyTheRecordedJudge(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	const judge = "openrouter/standard/fast"
+	const judge = "openrouter/standard/judge"
 	for _, a := range w.eval(t, e.ID).Arms {
 		if err := w.service.gate.AdmitJudge(ctx, a.ProjectID, judge); err != nil {
 			t.Fatalf("arm %s, the recorded judge: %v", a.Arm, err)

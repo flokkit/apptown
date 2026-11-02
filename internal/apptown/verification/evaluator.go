@@ -93,7 +93,7 @@ func (e *evaluator) runShChecks(ctx context.Context, sh string, checks []conform
 // budgets.
 func (e *evaluator) checklist(ctx context.Context, call modelcall.Call, items []check.Item, diff string) (map[int]check.Verdict, *llmMetadata, error) {
 	if call.Model == "" {
-		return nil, nil, fmt.Errorf("no fast model slot bound")
+		return nil, nil, fmt.Errorf("no secondary fast model is set up")
 	}
 	meta := &llmMetadata{Pattern: call.Model}
 	judge := &check.Judge{Complete: check.CompleterFunc(func(ctx context.Context, system, user string) (check.Completion, error) {

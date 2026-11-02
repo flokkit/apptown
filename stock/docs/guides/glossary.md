@@ -150,6 +150,22 @@ one (App Platform) grows, and shows each part's size and an estimated cost.
 **Boot check** — AppTown starting an app cold from its contract to prove
 it comes up, before a person is asked to try it.
 
+**Model profile** — a named set of model choices that a project uses, such
+as `standard` or `high`. Its four basics are Primary · strong (`default`),
+Primary · fast (`primary-fast`), Secondary · strong (`secondary-strong`) and
+Secondary · fast (`secondary-fast`). The primary models do the work; the
+secondary models give a second opinion. Individual tasks are the advanced
+level and can override those choices. An unset secondary uses the primary
+of the same speed; an unset fast primary uses `default`.
+
+**Task (model)** — the purpose for which AppTown asks for a model, such as
+planning, writing code or review. Workflows name it as a slot, for example
+`model: review`. Each task follows a chain to a basic model choice unless
+set individually. AppTown tries the task's cell in the project's model
+profile, then in `standard`, before following its fallback. Reviews use the
+strong secondary; quick independent checks ask for the fast secondary.
+Every chain ends at `default`, the strong primary.
+
 **Profile** — the one named set of differences a deployment uses: in
 `app.yaml`, parts' resources and environment, and needs' resources or catalogue size; in
 `secretspec.toml`, its expected secrets. `default` is the base; previews use

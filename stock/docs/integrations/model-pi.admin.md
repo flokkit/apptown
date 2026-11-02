@@ -5,7 +5,7 @@
 Every agent on this AppTown needs a language model to
 think with, and you decide which ones, at what cost, for which jobs.
 Providers are the backends agents can reach; slots are the routing
-table — "review" goes to the careful model, "cheap" to the fast one —
+table — "review" goes to the second opinion, "fast" to the quick model —
 changed here, once, for every workflow at once.
 
 Two pieces: PROVIDERS (inference backends agents can reach) and SLOTS
@@ -37,23 +37,37 @@ also need AppTown's private inference listener; setting it up is under
 
 ## Slots
 
-Integrations → Model slots. Workflows say `model: review` (a slot
-name); the slot maps to a concrete pattern. Stock slots: default, plan,
-implement, review, security, fast, chat (the project chat), worker and
-scout (a helper's delegates).
-An unmapped slot falls back along a visible chain — security → review,
-scout → fast, everything else → default — and every chain
-ends at default.
+Integrations → Model slots. Each **model profile** has four basic choices:
 
-The table has a column per **profile**: `standard` and `high` ship, and
-each project declares which it wants (its demand level). Resolution
-walks, most specific first: the cell for the project's profile, the
-`standard` cell, then the slot's fallback with the same profile lookup.
-Map `review` to a paid model and every reviewer on that profile upgrades
-in one edit. A project that needs different models gets its own profile,
+| Choice | Slot | Used for |
+| --- | --- | --- |
+| Primary · strong | `default` | Planning, writing code, chat and delegated work |
+| Primary · fast | `primary-fast` | Summaries, briefs and quick lookups |
+| Secondary · strong | `secondary-strong` | A second opinion, including reviews and security reviews |
+| Secondary · fast | `secondary-fast` | Quick independent checks, including guidance checks and eval judges |
+
+Individual tasks are the advanced level. Workflows name a task with, for
+example, `model: review`. Set a task's cell to override its basic choice.
+The task slots are `plan`, `implement`, `review`, `security`, `fast`, `chat`,
+`worker` and `scout`. The `default` slot remains the main model and the end
+of every fallback chain.
+
+Unset tasks follow this visible chain: `plan`, `implement`, `chat` and
+`worker` → `default`; `fast` → `primary-fast`; `scout` → `fast`;
+`review` → `secondary-strong`; `security` → `review`.
+An unset `secondary-strong` uses `default`. An unset `secondary-fast` uses
+`primary-fast`, which itself uses `default` when unset.
+
+The table has a column per profile, such as `standard` or `high`.
+Each project chooses its profile. For each task, AppTown first tries the
+cell for that profile, then the `standard` cell. If neither is set, it
+follows the task's fallback and repeats the same lookup. A task set in
+`standard` therefore also takes priority over a basic choice in another
+profile. A project that needs different models gets its own profile,
 even if it is the only project on it. Set cells through the API
 (`PUT /model-slots` with `slot`, `profile` and `pattern`). Evals compare a
-profile against the source project's profile.
+profile against the source project's profile. Both arms use the source
+profile's secondary fast model for judging.
 
 Receipts record the slot, the profile that decided, the model and
 provider that answered, and the pi runtime version baked into the agent
