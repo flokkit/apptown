@@ -11,6 +11,24 @@ an AppTown secret; set it there, or with `apptown secret set <NAME> < file`.
 | DigitalOcean App Platform | an API token, the region, and the container registry it copies images into. Run the registry's garbage collection occasionally to free space taken-down projects left; it blocks pushes (and so releases) while it runs. An app that needs object storage gets a Spaces bucket, so the account needs Spaces enabled, and the token makes and deletes Spaces keys: for each bucket a key that reaches it alone, and for a moment while it makes or deletes one, a full-access key it deletes again |
 | Bucket website | an S3-compatible endpoint, region, website address and keys. Each deployment gets its own bucket, and taking the deployment down deletes it; use a key made for AppTown alone |
 
+AppTown keeps one SSH connection per attached Docker host and reuses it for
+Docker commands, including event streams. Up to three Docker calls run at once
+per target. This bounds calls, rather than SSH sessions: Docker opens an SSH
+session for each HTTP connection, and run, attach and BuildKit can hold two or
+three at once. The limit leaves room within sshd's default of ten sessions per
+connection. OpenSSH keeps the connection for three minutes after the last call
+finishes, then removes its socket. The sockets are private to AppTown's data
+folder; different installations have separate sockets and SSH aliases.
+
+Attached hosts require OpenSSH connection sharing. If AppTown cannot establish
+and check the shared connection, the call fails with an SSH connection sharing
+error.
+Keep AppTown's data folder path short enough for a Unix socket; an overlong path
+is reported when the host is checked. A dead master is replaced on the next
+call. Keepalive checks close an unresponsive connection after a network drop;
+a call already using that connection can fail and is not replayed automatically.
+AppTown's local Docker does not use SSH.
+
 A Portainer target uses a saved connection and a verified endpoint. You can
 attach several connections and targets. After verification, changing an
 environment name cannot redirect the target: attach a new target for a different

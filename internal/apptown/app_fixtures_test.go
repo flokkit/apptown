@@ -3,6 +3,7 @@ package apptown
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -27,11 +28,11 @@ func testApp(t *testing.T, configs ...Config) *App {
 // run last-registered first, so this wait precedes TempDir's removal).
 func newApp(t *testing.T, db *database.DB, configs ...Config) *App {
 	t.Helper()
-	cfg := Config{DataDir: t.TempDir()}
+	cfg := Config{DataDir: shortHostDataDir(t)}
 	if len(configs) != 0 {
 		cfg = configs[0]
 		if cfg.DataDir == "" {
-			cfg.DataDir = t.TempDir()
+			cfg.DataDir = shortHostDataDir(t)
 		}
 	}
 	// The daemon's data layout step gives the installation its id before
@@ -86,6 +87,9 @@ func constructApp(t *testing.T, db *database.DB, cfg Config) *App {
 	}
 	if cfg.Stock.FS == nil {
 		cfg.Stock = testStock(t)
+	}
+	if cfg.TargetSSHCommand == nil {
+		cfg.TargetSSHCommand = func(context.Context, []string) ([]byte, error) { return nil, nil }
 	}
 	if cfg.SSHConfigPath == "" {
 		// Each AppTown writes its attached hosts' stanzas into its own file,
@@ -278,4 +282,19 @@ func (g *guardRecorder) Errorf(format string, args ...any) {
 func testStock(t testing.TB) Stock {
 	t.Helper()
 	return Stock{FS: stock.FS, Name: "test", Tools: stock.Versions()}
+}
+
+// shortHostDataDir leaves room for OpenSSH's temporary Unix socket suffix.
+func shortHostDataDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("/tmp", "at-host-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Error(err)
+		}
+	})
+	return dir
 }

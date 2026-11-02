@@ -275,7 +275,7 @@ func (d fakeDriver) Controls() deploy.Controls { return deploy.Controls{} }
 // the project when attached: what revoking a deployment's key talks to.
 func withLLM(t *testing.T, s *Service, projectID ids.ID, attached bool) *openrouterfake.Server {
 	t.Helper()
-	dir := t.TempDir()
+	dir := shortHostDataDir(t)
 	if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte("OPENROUTER_PROVISIONING_KEY="+llmProvisioningSentinel+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -306,3 +306,18 @@ func (k ownedKeys) Record(ctx context.Context, h integration.HeldKey) error {
 	return k.owner.Created(ctx, deploy.Owned{Kind: deployment.KindOpenRouterKey, ID: h.Ident(), Name: k.name, Need: integration.CapLLM})
 }
 func (ownedKeys) Forget(context.Context, integration.HeldKey) error { return nil }
+
+// shortHostDataDir leaves room for OpenSSH's temporary Unix socket suffix.
+func shortHostDataDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("/tmp", "at-host-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Error(err)
+		}
+	})
+	return dir
+}

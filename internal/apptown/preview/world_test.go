@@ -94,7 +94,7 @@ type world struct {
 func newWorld(t *testing.T, publicHost, secretsEnv string) *world {
 	t.Helper()
 	db := testDB(t)
-	w := &world{db: db, dir: t.TempDir(), projectID: createTestProject(t, db, "p", "P"), projects: project.New(db, nil)}
+	w := &world{db: db, dir: shortHostDataDir(t), projectID: createTestProject(t, db, "p", "P"), projects: project.New(db, nil)}
 	if secretsEnv != "" {
 		if err := os.WriteFile(filepath.Join(w.dir, "secrets.env"), []byte(secretsEnv), 0o600); err != nil {
 			t.Fatal(err)
@@ -116,7 +116,7 @@ func newWorld(t *testing.T, publicHost, secretsEnv string) *world {
 	port, _ := strconv.Atoi(portText)
 	w.client = newDockerFake()
 	w.client.SetPort(port)
-	w.host = deployment.HostSettings{Scope: docker.Scope{Client: w.client}, DataDir: w.dir, BuiltInTarget: "local"}
+	w.host = deployment.HostSettings{Scope: docker.Scope{Client: w.client}, DataDir: w.dir, SSHCommand: func(context.Context, []string) ([]byte, error) { return nil, nil }, BuiltInTarget: "local"}
 	w.env = deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Secrets: w.secrets, Integrations: integration.NewService(db, integration.Dependencies{Projects: w.projects, Secrets: w.secrets}),
 		Needs: w.catalog, Probe: &docker.Probe{Settle: time.Millisecond}, Routes: deployment.Routing{PublicHost: publicHost}, Projects: w.projects}
 	targets := deployment.NewTargets(db, nil)
@@ -177,4 +177,19 @@ func previewCommands(client *dockerfake.Daemon) []string {
 		calls = append(calls, strings.Join(args, " "))
 	}
 	return calls
+}
+
+// shortHostDataDir leaves room for OpenSSH's temporary Unix socket suffix.
+func shortHostDataDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("/tmp", "at-host-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Error(err)
+		}
+	})
+	return dir
 }

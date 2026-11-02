@@ -79,6 +79,9 @@ func newAttachedDaemon() *attachedDaemon {
 // Run records the daemon asked, and answers what a container runs as the
 // image it was started with, as Docker does.
 func (d *attachedDaemon) Run(ctx context.Context, host string, req docker.Command) ([]byte, error) {
+	if strings.HasPrefix(host, "ssh://apptown-target-") && len(host) > 17 && host[len(host)-17] == '-' {
+		host = host[:len(host)-17]
+	}
 	d.mu.Lock()
 	d.hosts[host]++
 	d.mu.Unlock()
@@ -163,7 +166,7 @@ type noLocalWorld struct {
 func noLocalDockerWorld(t *testing.T, yaml string) *noLocalWorld {
 	t.Helper()
 	db := testDB(t)
-	w := &noLocalWorld{db: db, dir: t.TempDir(), daemon: newAttachedDaemon()}
+	w := &noLocalWorld{db: db, dir: shortHostDataDir(t), daemon: newAttachedDaemon()}
 	w.project = createTestProject(t, db, "game", "Game")
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == appcontract.ReleasePath {

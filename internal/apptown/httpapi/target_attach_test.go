@@ -75,7 +75,7 @@ func TestAttachHostTarget(t *testing.T) {
 	if target.Address["keyFrom"] != "DROPLET_KEY" {
 		t.Fatalf("row exposed secret: %v", target.Address)
 	}
-	if hosts[len(hosts)-1] != "ssh://apptown-target-droplet" {
+	if !strings.HasPrefix(hosts[len(hosts)-1], "ssh://apptown-target-droplet-") {
 		t.Fatalf("wrong docker host: %v", hosts)
 	}
 	files, err := filepath.Glob(filepath.Join(w.dir, "ssh", "target-*.key"))
@@ -93,7 +93,7 @@ func TestAttachHostTarget(t *testing.T) {
 		t.Fatalf("key was not unfolded: %q", key)
 	}
 	cfg, err := os.ReadFile(filepath.Join(w.dir, "ssh-config"))
-	if err != nil || !strings.Contains(string(cfg), "Host apptown-target-droplet\n  HostName droplet.example\n  User deploy\n  Port 2222") {
+	if err != nil || !strings.Contains(string(cfg), "\n  HostName droplet.example\n  User deploy\n  Port 2222") {
 		t.Fatalf("ssh stanza: %s %v", cfg, err)
 	}
 	if code, out := targetCall(t, w.targets.CheckTarget, "POST", "/api/v1/targets/droplet/check", "", map[string]string{"name": "droplet"}); code != 200 || out["ok"] != true {
@@ -106,7 +106,7 @@ func TestAttachHostTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dk.Host != "ssh://apptown-target-droplet" || dk.Hostname != "droplet.example" || dk.Domain != "apps.example.com" {
+	if !strings.HasPrefix(dk.Host, "ssh://apptown-target-droplet-") || dk.Hostname != "droplet.example" || dk.Domain != "apps.example.com" {
 		t.Fatalf("attached scope: %+v", dk)
 	}
 	if dk.FrontDoor("waypoint", "main", 40001) != "https://waypoint.apps.example.com" || dk.ProbeURL(40001) != "http://droplet.example:40001" {

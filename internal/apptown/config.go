@@ -67,6 +67,8 @@ type Config struct {
 	// attached Docker host's stanza into. Empty is ~/.ssh/config, the file
 	// ssh itself reads; tests give each AppTown its own.
 	SSHConfigPath string
+	// TargetSSHCommand supplies attached hosts' local SSH transport; nil uses OpenSSH.
+	TargetSSHCommand deployment.SSHCommand
 	// ProcessRunner selects the process executable before consumers are wired.
 	// Its zero value uses production defaults; later changes do not reach App.
 	ProcessRunner execution.Runner
@@ -207,6 +209,7 @@ type configuration struct {
 	publicHostScheme                               string // as -public-host stated it; empty for a bare name
 	restoreGateImage                               string
 	sshConfigPath                                  string
+	targetSSHCommand                               deployment.SSHCommand
 	consoleCLI                                     string
 	authMode, authHeader, authProxySecret          string
 	agentImage                                     string
@@ -291,7 +294,7 @@ func (c Config) prepare() (configuration, error) {
 		}
 		worker.Now = clock.Now
 	}
-	return configuration{stock: c.Stock, clock: clock, worker: worker, seeding: c.Seeding, verifyOnly: c.VerifyOnly, usingBuiltinDB: c.UsingBuiltinDB, dbURL: c.DBURL, privateDocker: c.PrivateDocker, noLocalDocker: c.NoLocalDocker, localTLS: c.LocalTLS, dataDir: c.DataDir, sshConfigPath: c.SSHConfigPath, publicHost: publicHost, publicHostScheme: publicHostScheme, listenAddr: c.ListenAddr, restoreGateImage: strings.TrimSpace(c.RestoreGateImage),
+	return configuration{stock: c.Stock, clock: clock, worker: worker, seeding: c.Seeding, verifyOnly: c.VerifyOnly, usingBuiltinDB: c.UsingBuiltinDB, dbURL: c.DBURL, privateDocker: c.PrivateDocker, noLocalDocker: c.NoLocalDocker, localTLS: c.LocalTLS, dataDir: c.DataDir, sshConfigPath: c.SSHConfigPath, targetSSHCommand: c.TargetSSHCommand, publicHost: publicHost, publicHostScheme: publicHostScheme, listenAddr: c.ListenAddr, restoreGateImage: strings.TrimSpace(c.RestoreGateImage),
 		consoleAPIURL: c.ConsoleAPIURL, consoleCLI: c.ConsoleCLI, authMode: c.AuthMode, authHeader: c.AuthHeader, authProxySecret: c.AuthProxySecret,
 		agentImage: c.AgentImage, agentContext: c.AgentContext, disableReap: c.DisableReap,
 		taskLimits: withDefaults(c.TaskLimits, execution.DefaultTaskLimits), chatLimits: withDefaults(c.ChatLimits, execution.DefaultChatLimits),

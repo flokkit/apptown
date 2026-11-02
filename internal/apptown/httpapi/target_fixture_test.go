@@ -62,7 +62,7 @@ type targetHTTPWorld struct {
 func newTargetHTTPWorld(t *testing.T, options ...digitalocean.Options) *targetHTTPWorld {
 	t.Helper()
 	db := databaseSuite.New(t)
-	dir := t.TempDir()
+	dir := shortHostDataDir(t)
 	projects := project.New(db, nil)
 	secrets := secret.NewService(db, secret.Config{DataDir: dir})
 	integrations := integration.NewService(db, integration.Dependencies{Projects: projects, Secrets: secrets})
@@ -116,7 +116,7 @@ const testInstallation = "inst-test"
 // over client as this AppTown's Docker.
 func (w *targetHTTPWorld) setDockerClient(client docker.Client) {
 	targets, deployments := deployment.NewTargets(w.db, targetTestConnectors{}), deployment.NewDeployments(w.db)
-	w.hosts = deployment.NewHosts(targets, w.secrets, deployment.HostSettings{Scope: docker.Scope{Client: client, Instance: testInstallation}, DataDir: w.dir, SSHConfigPath: filepath.Join(w.dir, "ssh-config"), BuiltInTarget: targetTestBuiltin})
+	w.hosts = deployment.NewHosts(targets, w.secrets, deployment.HostSettings{Scope: docker.Scope{Client: client, Instance: testInstallation}, DataDir: w.dir, SSHConfigPath: filepath.Join(w.dir, "ssh-config"), SSHCommand: func(context.Context, []string) ([]byte, error) { return nil, nil }, BuiltInTarget: targetTestBuiltin})
 	environment := deployment.NewEnvironment(deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Secrets: w.secrets, Integrations: w.integrations, Needs: w.needs, Projects: w.projects})
 	w.providers = deployment.NewProviders(context.Background(), w.db, deployment.ProviderRecords{Targets: targets, Deployments: deployments}, w.hosts, environment,
 		deployment.ProviderDependencies{Projects: w.projects, Secrets: w.secrets, Integrations: w.integrations, DigitalOcean: w.cloud, Installation: testInstallation})
@@ -173,4 +173,19 @@ func targetDOWorld(t *testing.T) (*targetHTTPWorld, *dofake.API) {
 
 func newDockerFake() *dockerfake.Daemon {
 	return dockerfake.New()
+}
+
+// shortHostDataDir leaves room for OpenSSH's temporary Unix socket suffix.
+func shortHostDataDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("/tmp", "at-host-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Error(err)
+		}
+	})
+	return dir
 }
