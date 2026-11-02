@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/ids"
@@ -30,6 +31,22 @@ func TestAppChecksRenderOwnerSummaryFromOneBatch(t *testing.T) {
 	got, err := (Checks{Conformance: owner}).Snapshot(t.Context(), []ids.ID{idstest.N(1), idstest.N(2)})
 	if err != nil || !got.Known || len(got.Items) != 1 || got.Items[0].Count != 2 || got.Items[0].Unknown || len(got.Coverage) != 0 || owner.calls != 1 || len(owner.selected) != 2 {
 		t.Fatalf("snapshot: %+v, owner=%+v, %v", got, owner, err)
+	}
+}
+
+// The source row says when the apps were judged, by its oldest judgement, and
+// opens Conformance, where those judgements are listed.
+func TestAppChecksSourceIsAsOldAsItsOldestJudgementAndOpensConformance(t *testing.T) {
+	t.Parallel()
+	older, newer := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC)
+	owner := &checkEvidence{standing: []conformance.ProjectStanding{
+		{ProjectID: idstest.N(1), Name: "Calendar", Slug: "calendar", JudgedAt: newer.Format(time.RFC3339)},
+		{ProjectID: idstest.N(2), Name: "Notes", Slug: "notes", JudgedAt: older.Format(time.RFC3339)},
+		{ProjectID: idstest.N(3), Name: "Unrun", Slug: "unrun"},
+	}}
+	got, err := (Checks{Conformance: owner}).Snapshot(t.Context(), nil)
+	if err != nil || !got.ObservedAt.Equal(older) || got.Href != "/conformance" || got.Name != "App checks" {
+		t.Fatalf("snapshot: %+v %v", got, err)
 	}
 }
 

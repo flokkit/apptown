@@ -23,10 +23,14 @@ func (s Checks) Snapshot(ctx context.Context, projects []ids.ID) (Snapshot, erro
 	if err != nil {
 		return Snapshot{}, err
 	}
-	out := Snapshot{Known: true}
+	out := Snapshot{Known: true, Name: "App checks", Href: "/conformance", NextStep: "Open Conformance to see each app's checks."}
 	for _, p := range standing {
-
 		at, _ := time.Parse(time.RFC3339, p.JudgedAt)
+		// The source is as old as its oldest judged app; apps never judged are
+		// reported by their own standing, not by this time.
+		if !at.IsZero() && (out.ObservedAt.IsZero() || at.Before(out.ObservedAt)) {
+			out.ObservedAt = at
+		}
 		href := "/conformance/projects/" + url.PathEscape(p.Slug)
 		if count := p.Lanes.Findings; count > 0 {
 			out.Items = append(out.Items, Item{Count: count, Key: p.ProjectID.String(), Title: fmt.Sprintf("%s · app checks · %d confirmed problems", p.Name, count), Detail: "Review the app checks and fix the confirmed problems.", Severity: SeverityWarning, Href: href, ObservedAt: at})

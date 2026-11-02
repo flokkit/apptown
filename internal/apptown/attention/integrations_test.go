@@ -29,12 +29,12 @@ func TestIntegrationAttentionNamesAffectedAppsAndKeepsUnsetAndUnknownDistinct(t 
 	t.Parallel()
 	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
 	evidence := integrationEvidence{health: map[string]integration.Health{
-		"infisical": {StateLabel: integration.HealthNotSetUp},
+		"infisical": {Automatic: true, StateLabel: integration.HealthNotSetUp},
 		"registry":  {Automatic: true, StateLabel: integration.HealthFailed, Checked: true, CheckedAt: at.Format(time.RFC3339), Detail: "provider-secret-must-stay-on-connection-page", Stale: true},
 		"cloud":     {StateLabel: integration.HealthFailed, Checked: true},
 	}}
 	got, err := (Integrations{Service: evidence, Bindings: evidence, Attachments: evidence, Deployments: evidence}).Snapshot(t.Context())
-	if err != nil || len(got.Items) != 1 || len(got.Coverage) != 1 || !got.Known {
+	if err != nil || len(got.Items) != 1 || len(got.Coverage) != 2 || !got.Known {
 		t.Fatalf("snapshot: %+v %v", got, err)
 	}
 	item := got.Items[0]
@@ -42,7 +42,8 @@ func TestIntegrationAttentionNamesAffectedAppsAndKeepsUnsetAndUnknownDistinct(t 
 		t.Fatalf("failed integration: %+v", item)
 	}
 	for _, c := range got.Coverage {
-		if c.Unknown || c.NextStep == "" || c.Href == "" || strings.Contains(c.Reason, "provider-secret") {
+		// A connection nobody has configured is said as such, never as unchecked or unknown.
+		if c.Unknown || c.NotSetUp != (c.Key == "infisical") || c.NextStep == "" || c.Href == "" || strings.Contains(c.Reason, "provider-secret") {
 			t.Fatalf("coverage: %+v", c)
 		}
 	}
