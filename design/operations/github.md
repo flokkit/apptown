@@ -62,6 +62,66 @@ tests ([workers](workers.md), "Private Docker on the worker") to pass against
 the changed daemon before that update is accepted or included in a release.
 A proposal supplies no release authority. Other native Dockerfile bases retain their existing coverage.
 
+Every Docker image proposal, including starter bases, scanner execution
+images and AppTown's own build images, carries `qualification-required` and explicitly disables automerge.
+Stock language and dependency data has the same rule: a patch can change what
+an app builds or runs on. Dashboard approval opens a proposal; maintainers
+still qualify it before landing. Lockfile maintenance proposes transitive npm
+and Composer updates within the manifest constraints.
+
+### Pin inventory and exceptions
+
+The inventory below covers the public tracked tree. The extraction test checks
+individual pins against enabled managers, including each download checksum;
+being in a file that has some other managed dependency is insufficient.
+
+| Source | Renovate manager |
+| --- | --- |
+| Root `go.mod`, `go.sum` | `gomod` (including Go itself and indirect dependencies; tidy updates sums) |
+| `web/package.json`, `web/package-lock.json`; stock seed npm and Composer manifests and lockfiles | `npm`, `composer` (lockfile entries follow their manifest) |
+| All Dockerfiles, including stock seed bases and `ARG` image defaults | `dockerfile` |
+| `deploy/one-server/compose.yaml` | `docker-compose`; the AppTown image is a release substitution, not an upstream pin |
+| All `.github/workflows/` actions, runner OS versions and setup-node versions | `github-actions`; setup-go reads `go.mod` |
+| CI gitleaks version and archive checksum | `custom.regex`, paired release attachments |
+| `Makefile` analyzer versions and semgrep image | `custom.regex`; build tools have separate groups from project tools |
+| Agent Dockerfile tools and `deploy/tool-pins.txt` | `custom.regex`; GitHub archive checksums use `github-release-attachments`, grouped with executable versions and central pins |
+| Heavy CI Dockerfile Playwright, buildx, Compose and oxipng | `custom.regex`; archive versions and SHA-256 are replaced together |
+| `stock/scanners.yaml`, connector image presets in `internal/apptown/integration/connector_catalog.go` | `custom.regex`, grouped by tool with central pins; repeated Go scanner images share the agent Go group |
+| `stock/toolchains/*.toml` | `mise`, with `custom.regex` for dotnet |
+| `stock/tool-versions.yaml`, dependency defaults and images, `stock/packs.yaml` images | `custom.regex`; catalogue line names and pack `tools` selectors are compatibility contracts, not upstream releases |
+| `internal/dbtest/suite.go` and `internal/apptown/dbboot.go` PostgreSQL images | `custom.regex`, held within major 16 |
+| WordPress seed WP-CLI archive and checksum, Composer PHP platform | `custom.regex`; paired release attachments for WP-CLI, PHP grouped with its runtime image |
+| Script downloads | Current public scripts read the owning pins above; a new literal tool version or image must pass the extraction test |
+
+Manual exceptions are explicit below. The test reads these file/selector rows;
+selectors identify a pin's key (or the beginning of its source line), never a
+version value. Removing a pin also requires removing its exception.
+
+<!-- renovate-exceptions:start -->
+| File | Selector | Reason |
+| --- | --- | --- |
+| `deploy/apptown-agent/Dockerfile` | `ARG GLAB_` | GitLab archive checksums cannot be resolved by the GitHub release attachment datasource; update both architectures manually. |
+| `deploy/apptown-agent/Dockerfile` | `ARG DOCKER_SHA256_` | Docker's static archive host has no supported paired checksum datasource; the grouped CLI version proposals retain these hashes until both architectures are verified manually. |
+| `deploy/ci-heavy/test-images.txt` | `test image preload` | Repeats references from code and fixed test fixtures for early pulls; update with those owners manually, since changing a preload does not change what tests run. |
+| `deploy/ci-heavy/Dockerfile` | `ARG DOCKER_CLI_` | Docker's static archive host has no supported paired checksum datasource; update the CI client and checksum together manually. |
+| `deploy/tool-pins.txt` | `glab` | Moves with the manual agent archive and both checksums. |
+| `stock/toolchains/node.toml` | `node` | Partial selector intentionally selects the Node 24 line; exact catalogue versions receive updates. |
+| `stock/toolchains/python.toml` | `python` | Partial selector intentionally selects the Python 3.12 line. |
+| `stock/toolchains/ruby.toml` | `ruby` | Partial selector intentionally selects the Ruby 3.4 line. |
+| `stock/toolchains/dotnet.toml` | `dotnet` | Partial selector intentionally selects the .NET 10.0 line. |
+| `stock/dependencies/postgres.yaml` | `version` | Default major 16 is fixed for AppTown 1.x; exact catalogue versions receive updates. |
+| `stock/dependencies/redis.yaml` | `version` | Default major 7 is fixed for AppTown 1.x. |
+| `stock/dependencies/mariadb.yaml` | `version` | Exact default is fixed for AppTown 1.x by the compatibility contract and its test; changing it would upgrade existing apps’ database servers implicitly. |
+<!-- renovate-exceptions:end -->
+
+Test fixtures (`testdata`, test files, fakes and `workertest`), `eval/`, examples in prose,
+frozen upgrade artifacts and schema/API versions are not current upstream
+dependencies. They remain fixed so they keep testing or describing their
+contract. The maintainers' separate repository is not visible to Renovate in
+`github.com/flokkit/apptown`; its deployment pins require manual maintenance.
+The pinned Renovate command below and the test's matching implementation
+assertion are updated together manually so config validation remains reproducible.
+
 Nothing opens by itself. Renovate keeps one issue, the **Dependency
 Dashboard**, listing the available updates, grouped so that one pull request
 is one thing to verify: Go modules, `web/` npm, each
@@ -122,7 +182,8 @@ npm_config_ignore_scripts=true npm exec --yes --package renovate@44.149.0 -- \
   sh -c 'node scripts/renovate-test.mjs "$(dirname "$(command -v renovate)")/../renovate"'
 ```
 
-This checks the custom pins, native manifests and mise files, owner groups,
+This checks the independent pin inventory, documented exceptions, enabled
+manager matches, qualification labels, native manifests and mise files, owner groups,
 paired architecture checksum edits, CI pins, stock and runtime versions, digest refreshes
 and the pin gate on the resulting temporary tree. It supplies fixture update
 values without fetching releases; registry availability and the three-day age
