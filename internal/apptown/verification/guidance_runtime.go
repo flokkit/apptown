@@ -107,7 +107,7 @@ func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run
 		// its candidate itself, as a person's request would, and probes it
 		// only once the same proof holds of what then runs.
 		if served == nil && candidate != "" {
-			if _, err := a.previews.RehearseChange(ctx, preview.Change{ID: ch.ID, ProjectID: run.ProjectID, Pinned: candidate}, false); err != nil {
+			if _, err := a.previews.RehearseChange(ctx, preview.Change{ID: ch.ID, Title: ch.Title, ProjectID: run.ProjectID, Pinned: candidate}, false); err != nil {
 				why = "AppTown booted the change's preview from the landing's candidate " + strs.ShortSHA(candidate) + " for its runtime checks, and the boot failed: " + err.Error()
 				return
 			}

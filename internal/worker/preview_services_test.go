@@ -50,7 +50,7 @@ func TestTheWorkerStartsAWorkflowsServicesFromThePreparedValue(t *testing.T) {
 			}
 			prepared := docker.Prepared{Version: docker.PreparedVersion, Contract: c, BrowserEnv: "{}", Origins: origin,
 				Services: []deploy.ServiceSpec{{Name: "cache", Image: "forge-test-cache:7", Health: "true"}}}
-			if _, err := previews.Boot(context.Background(), worker.PreviewSpec{Name: "apptown-preview-run-5", StackID: "pv55", Slug: "app",
+			if _, err := previews.Boot(context.Background(), worker.PreviewSpec{Name: "apptown-preview-run-5", StackID: "pv55", Slug: "app", ChangeTitle: "Try the shop",
 				Incarnation: "tree+digest", ProbeSeconds: 1}, prepared, tree); err != nil {
 				t.Fatal(err)
 			}
@@ -66,6 +66,11 @@ func TestTheWorkerStartsAWorkflowsServicesFromThePreparedValue(t *testing.T) {
 				if strings.Contains(line, " run ") || strings.HasPrefix(line, "run ") || strings.Contains(line, "run -d") {
 					if strings.Contains(line, "forge-test-cache:7") && strings.Contains(line, "pv55") {
 						started = true
+						for _, label := range []string{"apptown.info.project=app", "apptown.info.change=Try the shop"} {
+							if !strings.Contains(line, "--label "+label) {
+								t.Errorf("missing %s: %s", label, line)
+							}
+						}
 					}
 				}
 			}

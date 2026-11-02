@@ -38,8 +38,7 @@ type Ownership struct {
 	// persistent is a standing deployment's stack: its parts live with it
 	// (class env, restarted with the host), never idle-reaped.
 	persistent bool
-	// info is the informational labels a standing deployment's things carry
-	// for people (dockerlabel.Informational); nil for previews and runs.
+	// info is the labels a boot's resources carry for people only.
 	info []string
 }
 

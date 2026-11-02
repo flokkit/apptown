@@ -239,7 +239,7 @@ func TestLandingBootsItsCandidatesPreview(t *testing.T) {
 	if len(unjudged) != len(checks) {
 		t.Fatalf("required checks a failed boot left unjudged hold the landing: unjudged %v", unjudged)
 	}
-	want := preview.Change{ID: created.Change.ID, ProjectID: f.ProjectID, Pinned: candidate}
+	want := preview.Change{ID: created.Change.ID, Title: created.Change.Title, ProjectID: f.ProjectID, Pinned: candidate}
 	if len(previews.boots) != 1 || previews.boots[0] != want {
 		t.Fatalf("the landing should boot the change pinned to its candidate once, asked %+v", previews.boots)
 	}

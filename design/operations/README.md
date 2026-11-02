@@ -42,6 +42,22 @@ the inference listener through ordinary public ingress. A build succeeding,
 a dashboard displaying data, and a revision being deployed are separate facts.
 Record the actual deployed revision and smoke results when rolling out.
 
+## Reading Docker labels
+
+To show the project and deployment beside containers on a Docker host:
+
+```sh
+docker ps --format 'table {{.Names}}\t{{.Label "apptown.info.project"}}\t{{.Label "apptown.info.deployment"}}\t{{.Label "apptown.info.change"}}'
+```
+
+Standing deployments show their project slug and deployment name. Change previews
+show their project slug and change title; long titles keep a UTF-8-safe prefix of
+120 bytes plus an ellipsis. Run and release previews show their project slug.
+The same informational labels describe their networks and named volumes.
+`apptown.info.*` labels are for people only. AppTown identifies and removes
+resources through separate system labels and recorded resource IDs; see
+[container cleanup](../subsystems/container-lifecycle.md).
+
 ## Background status readings
 
 Pages read stored results. Opening a page or focusing its tab does not contact a

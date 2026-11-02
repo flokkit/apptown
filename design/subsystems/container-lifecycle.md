@@ -12,6 +12,14 @@ what they still use. Reaping selects labelled resource
 classes and retains persistent `env`/infrastructure resources and unknown classes.
 Execution cleanup uses the observed container ID, not a reusable name.
 
+Labels under `apptown.info.*` are for people only. Standing deployments carry
+`apptown.info.project` and `apptown.info.deployment`; change previews carry
+`apptown.info.project` and `apptown.info.change` (the title, truncated to a
+UTF-8-safe prefix of 120 bytes plus an ellipsis). Run and release previews
+carry the project label. These labels describe newly created containers,
+networks and named volumes. AppTown never reads them to identify, own or
+remove resources. Every system key stays outside `apptown.info.*`.
+
 Step, service and DinD cleanup checks recognized execution ownership after the
 age threshold. Previews are not reaped by age (see [Previews](#previews)).
 Active owners, unknown ownership and failed ownership reads prevent that

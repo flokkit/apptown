@@ -61,6 +61,7 @@ var (
 
 // PreviewSpec is what a preview boot is, besides its prepared value and tree.
 type PreviewSpec struct {
+	ChangeTitle  string `json:"changeTitle,omitempty"` // informational change title
 	Name         string `json:"name"`
 	StackID      string `json:"stackId"`
 	Slug         string `json:"slug"`
@@ -656,7 +657,7 @@ func (s *Server) bootPreview(w http.ResponseWriter, r *http.Request) {
 	}
 	// The boot's images, from the tool versions current as it begins.
 	res, err := docker.NewHost(prepared.Dependencies(&docker.Probe{}, s.toolVersions().Images)).Boot(bootLife, docker.BootRequest{Allowed: docker.AuthorisedWhenRequested,
-		Docker: s.previewScope().WithLifetime(bootLife), Name: name, StackID: spec.StackID, Workspace: tree, Slug: spec.Slug,
+		Docker: s.previewScope().WithLifetime(bootLife), Name: name, StackID: spec.StackID, Workspace: tree, Slug: spec.Slug, ChangeTitle: spec.ChangeTitle,
 		Deployment: "preview", Probe: time.Duration(spec.ProbeSeconds) * time.Second, PageCheck: spec.PageCheck, VisitorHost: spec.VisitorHost,
 		Services: prepared.Services, Incarnation: spec.Incarnation, Scratch: dir, Recorded: recorded,
 	}, prepared.Contract)

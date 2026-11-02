@@ -176,7 +176,7 @@ func TestAChangePreviewBootsOnTheWorkerAndNowhereElse(t *testing.T) {
 	t.Parallel()
 	s, w, local, dir, projectID := workerPreviewWorld(t)
 	writePreviewBootFixture(t, filepath.Join(dir, "workspaces", "change-00000000-0009-7000-8000-000000000000"))
-	out, err := s.RehearseChange(context.Background(), Change{ID: idstest.N(9), ProjectID: projectID}, false)
+	out, err := s.RehearseChange(context.Background(), Change{ID: idstest.N(9), ProjectID: projectID, Title: "Try the shop"}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestAChangePreviewBootsOnTheWorkerAndNowhereElse(t *testing.T) {
 		t.Fatalf("the answer: %+v", out)
 	}
 	if len(w.boots) != 1 || w.boots[0].Name != "apptown-preview-change-00000000-0009-7000-8000-000000000000" || w.boots[0].StackID != docker.ChangeStackID(idstest.N(9)) ||
-		w.boots[0].Incarnation != out.Incarnation || w.prepared[0].Contract == nil || w.prepared[0].Public().Digest() != out.Public.Digest() {
+		w.boots[0].ChangeTitle != "Try the shop" || w.boots[0].Incarnation != out.Incarnation || w.prepared[0].Contract == nil || w.prepared[0].Public().Digest() != out.Public.Digest() {
 		t.Fatalf("the worker was asked %+v", w.boots)
 	}
 	if w.prepared[0].Origins != out.URL {

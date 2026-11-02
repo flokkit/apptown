@@ -51,7 +51,7 @@ func TestBootChangeWorktreeSequence(t *testing.T) {
 	t.Parallel()
 	s, db, client, dir, projectID := previewBootWorld(t, "")
 	writePreviewBootFixture(t, filepath.Join(dir, "workspaces", "change-00000000-0007-7000-8000-000000000000"))
-	out, err := s.RehearseChange(context.Background(), Change{ID: idstest.N(7), ProjectID: projectID}, false)
+	out, err := s.RehearseChange(context.Background(), Change{ID: idstest.N(7), ProjectID: projectID, Title: "Try the shop"}, false)
 	if err != nil {
 		t.Fatalf("boot: %v\ncalls:\n%s", err, strings.Join(previewCommands(client), "\n"))
 	}
@@ -77,6 +77,17 @@ func TestBootChangeWorktreeSequence(t *testing.T) {
 	}
 	if service < 0 || init <= service || worker <= init || app <= worker || previewCommandIndex(calls, "pull reg.example/app:1") < 0 || !strings.HasSuffix(calls[app], " reg.example/app:1") || previewCommandIndex(calls, "build ") >= 0 {
 		t.Fatalf("wrong preview boot sequence: %v", calls)
+	}
+	for _, i := range []int{service, init, worker, app} {
+		for _, label := range []string{"apptown.info.project=p", "apptown.info.change=Try the shop"} {
+			if !strings.Contains(calls[i], "--label "+label) {
+				t.Errorf("missing %s: %s", label, calls[i])
+			}
+		}
+	}
+	network := previewCommandIndex(calls, "network create ")
+	if network < 0 || !strings.Contains(calls[network], "--label apptown.info.project=p --label apptown.info.change=Try the shop") {
+		t.Fatalf("preview network missing informational labels: %v", calls)
 	}
 	// The app names its stack, which an idle stop removes with it.
 	if !strings.Contains(calls[app], "--label "+docker.StackLabel+"="+docker.ChangeStackID(idstest.N(7))) {

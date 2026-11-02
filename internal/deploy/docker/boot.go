@@ -44,6 +44,7 @@ type BootRequest struct {
 	// Log reports phase entry. It receives no environment values or command output.
 	// Nil disables progress reporting without changing boot behavior.
 	Log          deploy.Logf
+	ChangeTitle  string  // informational title for a change preview; empty for runs and releases
 	Slug         string  // the application's current display address; not routing identity
 	ExactOrigins *string // nil retains captured route context; non-nil is the owner's exact browser origin (empty means none).
 	ServingLabel string  // immutable label for a standing host route; separate from secret scope
@@ -421,6 +422,8 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	t.own = Ownership{storage: t.Storage, restoreStorage: t.restoreStorage, Record: t.Record, Needs: map[string]string{}, priorResources: t.Owned, persistent: t.Persistent}
 	if t.Persistent {
 		t.own.info = dockerlabel.Informational(t.Slug, t.Deployment)
+	} else {
+		t.own.info = dockerlabel.PreviewInformational(t.Slug, t.ChangeTitle)
 	}
 	for _, n := range rs.Needs {
 		t.own.Needs[n.Name] = n.Data

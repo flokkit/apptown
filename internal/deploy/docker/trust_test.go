@@ -51,7 +51,7 @@ func TestAnAppsContainersAndBuildsAreGivenTheExtraCertificates(t *testing.T) {
 			t.Fatal(err)
 		}
 		plan := &appcontract.Plan{Init: []appcontract.InitContainer{{Name: "migrate", Image: "app:1"}}}
-		if err := runInitContainers(t.Context(), dk, "id", "net", plan, Delivery{Env: func(string) map[string]string { return nil }}); err != nil {
+		if err := runInitContainers(t.Context(), dk, "id", "net", plan, Delivery{Env: func(string) map[string]string { return nil }}, Ownership{}); err != nil {
 			t.Fatal(err)
 		}
 		if err := runServiceContainersWith(t.Context(), dk, "id", "net", []deploy.ServiceSpec{{Name: "worker", Image: "app:1", AppPart: true}, {Name: "db", Image: "postgres:16"}}, serviceRunOptions{class: "service"}, Ownership{}); err != nil {

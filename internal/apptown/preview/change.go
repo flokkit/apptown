@@ -14,6 +14,7 @@ import (
 type Change struct {
 	ID, ProjectID  ids.ID
 	SourceRevision string
+	Title          string // for people inspecting the preview on its Docker host
 	// Pinned is a saved commit the preview boots, and nothing else: not the
 	// change's folder (a chat on the worker's saved work).
 	Pinned string

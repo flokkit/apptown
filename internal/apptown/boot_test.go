@@ -231,6 +231,11 @@ func TestRunPreviewSequence(t *testing.T) {
 		t.Fatalf("preview step: %+v %v\ncalls:\n%s", step, err, strings.Join(f.joined(), "\n"))
 	}
 	runs := expectBootSequence(t, f, docker.RunStepStackID(stepID), docker.PreviewRunName(runID), false)
+	for _, run := range runs {
+		if !strings.Contains(run.call, "--label apptown.info.project=p") {
+			t.Errorf("run preview missing project label: %s", run.call)
+		}
+	}
 	if len(f.matching("build ")) != 0 || f.indexOf("pull reg.example/app:1") < 0 || !strings.HasSuffix(runs[3].call, " reg.example/app:1") {
 		t.Fatalf("preview step must run its declared image: %s", runs[3].call)
 	}
@@ -343,13 +348,8 @@ func TestRunDeploySequence(t *testing.T) {
 	if !strings.Contains(runs[3].call, "-p 127.0.0.1:"+strconv.Itoa(env.HostPort)+":8080") {
 		t.Fatalf("a standing deployment publishes its stable port: %s", runs[3].call)
 	}
-	// Its app container says, for people, which project and deployment it
-	// is for; previews do not carry these.
-	p, err := a.Projects.ByID(t.Context(), idstest.N(1))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info := strings.Join(dockerlabel.Informational(p.Slug, "main"), " "); !strings.Contains(runs[3].call, info) {
+	// The app labels are literal so a broken label writer cannot define the expectation.
+	if info := "--label apptown.info.project=p --label apptown.info.deployment=main"; !strings.Contains(runs[3].call, info) {
 		t.Fatalf("the app container does not say whose it is (%s): %s", info, runs[3].call)
 	}
 }

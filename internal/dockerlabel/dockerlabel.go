@@ -3,11 +3,17 @@
 // and own them. Labels outlive an AppTown build: a container started by one
 // build is found, inspected and removed by the next, so the keys are a
 // format. They are lowercase and dotted, and a key already out in the world
-// is renamed only with a way to move what carries it.
+// used for identity is renamed only with a way to move what carries it.
 //
 // Telemetry attribute names share the apptown. prefix; they are not labels
 // and are not listed here.
 package dockerlabel
+
+import (
+	"strings"
+
+	"github.com/flokkit/apptown/internal/strs"
+)
 
 // The keys AppTown writes when it makes something, and reads to find it.
 const (
@@ -49,24 +55,36 @@ const (
 	Artifact   = "apptown.artifact"   // the artifact it runs
 )
 
-// For people reading `docker ps` and `docker volume ls`: which project and
-// deployment a standing deployment's thing was made for, by name. Names can
-// change and are not unique over time, so nothing in AppTown reads these:
-// identity, ownership and removal go by the deployment's id and key
-// (Deployment, Owner). They are written only through Informational.
+// Informational keys are private so callers can only write them. No identity,
+// ownership or removal decision reads the apptown.info. namespace.
 const (
-	project        = "apptown.project"
-	deploymentName = "apptown.deployment.name"
+	infoProject    = "apptown.info.project"
+	infoDeployment = "apptown.info.deployment"
+	infoChange     = "apptown.info.change"
 )
 
-// Informational is the --label arguments that tell a person which project
-// and deployment a standing deployment's container, network or volume is
-// for. Nothing reads them back.
+// Informational tells people which project and standing deployment a resource
+// is for. Nothing reads these labels back.
 func Informational(project, deployment string) []string {
-	if project == "" && deployment == "" {
-		return nil
+	return informational(project, infoDeployment, deployment)
+}
+
+// PreviewInformational tells people which project and change a preview is for.
+// Long titles keep a UTF-8-safe prefix of 120 bytes followed by an ellipsis.
+func PreviewInformational(project, title string) []string {
+	// A title on one line keeps a docker ps table one row per thing.
+	return informational(project, infoChange, strs.Truncate(strings.Join(strings.Fields(title), " "), 120))
+}
+
+func informational(project, key, name string) []string {
+	var args []string
+	if project != "" {
+		args = append(args, "--label", infoProject+"="+project)
 	}
-	return []string{"--label", project + "=" + project, "--label", deploymentName + "=" + deployment}
+	if name != "" {
+		args = append(args, "--label", key+"="+name)
+	}
+	return args
 }
 
 // BuiltArgs is the --label argument every image build on a host's Docker
@@ -87,7 +105,7 @@ const (
 var keys = []string{
 	Class, ReadyFor, Owner, Created, Expires, Deadline, Instance, Stack, Source, Incarnation, Writes, Step, Task,
 	Profile, Request, Worker, Inference, Console, Built, ConsoleDind, ConsoleModel, ConsoleMounts,
-	Deployment, Generation, Artifact, project, deploymentName,
+	Deployment, Generation, Artifact, infoProject, infoDeployment, infoChange,
 	PiVersion, PiSubagentsVersion, PiLSPVersion, GlabVersion,
 }
 

@@ -7,6 +7,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -80,6 +81,40 @@ func spelledLabels(t *testing.T, name string, src []byte) []string {
 // Kills: a writer or reader that spells its own label key, including a new
 // or misspelled one and one inside an escaped --format template.
 func TestNoLabelKeyIsSpelledOutsideThisPackage(t *testing.T) {
+	// Any exported constant can be used by a reader. Informational keys must
+	// stay private, and every private label key belongs to that namespace.
+	src, err := os.ReadFile("dockerlabel.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := parser.ParseFile(token.NewFileSet(), "dockerlabel.go", src, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ast.Inspect(f, func(n ast.Node) bool {
+		d, ok := n.(*ast.GenDecl)
+		if !ok || d.Tok != token.CONST {
+			return true
+		}
+		for _, spec := range d.Specs {
+			v := spec.(*ast.ValueSpec)
+			for i, value := range v.Values {
+				lit, ok := value.(*ast.BasicLit)
+				if !ok || lit.Kind != token.STRING {
+					continue
+				}
+				key, err := strconv.Unquote(lit.Value)
+				if err != nil || !strings.HasPrefix(key, "apptown.") {
+					continue
+				}
+				info := strings.HasPrefix(key, "apptown.info.")
+				if info == ast.IsExported(v.Names[i].Name) {
+					t.Errorf("%s: informational keys must be private; system keys must be exported and outside apptown.info.*", v.Names[i].Name)
+				}
+			}
+		}
+		return false
+	})
 	root := filepath.Join("..", "..")
 	for _, dir := range []string{"internal", "cmd"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(p string, d os.DirEntry, err error) error {
@@ -165,30 +200,24 @@ func TestKeysAreOneCaseAndDistinct(t *testing.T) {
 	}
 }
 
-// The informational labels are for people: nothing outside this package
-// names Project or DeploymentName, so nothing can read them for identity,
-// ownership or removal; they are only written, through Informational.
-//
-// Kills: a reader, filter or template keyed on a project or deployment name.
-func TestNothingReadsTheInformationalLabels(t *testing.T) {
-	root := filepath.Join("..", "..")
-	use := regexp.MustCompile(`\bdockerlabel\.(Project|DeploymentName)\b`)
-	for _, dir := range []string{"internal", "cmd"} {
-		err := filepath.WalkDir(filepath.Join(root, dir), func(p string, d os.DirEntry, err error) error {
-			if err != nil || d.IsDir() || !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") || strings.Contains(p, filepath.Join("internal", "dockerlabel")) {
-				return err
+// Literal expectations catch misspelled keys and parameter shadowing.
+func TestInformationalLabels(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name      string
+		got, want []string
+	}{
+		{"standing", Informational("shop", "main"), []string{"--label", "apptown.info.project=shop", "--label", "apptown.info.deployment=main"}},
+		{"change", PreviewInformational("shop", "Try the shop"), []string{"--label", "apptown.info.project=shop", "--label", "apptown.info.change=Try the shop"}},
+		{"run", PreviewInformational("shop", ""), []string{"--label", "apptown.info.project=shop"}},
+		{"empty", Informational("", ""), nil},
+		{"multi-line title", PreviewInformational("shop", "Try\n\tthe  shop"), []string{"--label", "apptown.info.project=shop", "--label", "apptown.info.change=Try the shop"}},
+		{"long title", PreviewInformational("shop", strings.Repeat("é", 61)), []string{"--label", "apptown.info.project=shop", "--label", "apptown.info.change=" + strings.Repeat("é", 60) + "…"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if !reflect.DeepEqual(tc.got, tc.want) {
+				t.Fatalf("labels = %q, want %q", tc.got, tc.want)
 			}
-			src, err := os.ReadFile(p)
-			if err != nil {
-				return err
-			}
-			if m := use.Find(src); m != nil {
-				t.Errorf("%s names %s: the informational labels are written only through Informational", p, m)
-			}
-			return nil
 		})
-		if err != nil {
-			t.Fatal(err)
-		}
 	}
 }
