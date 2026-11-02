@@ -67,6 +67,19 @@ function overcommit(r: Resource, format: (v: number) => string): string {
   return requested > r.total.value ? `${format(requested)} requested${requestAge}; host total ${format(r.total.value)}${totalAge}. Review app limits or use a larger host.` : ''
 }
 
+// Container readings do not include the host's other processes or establish free RAM.
+function containerMemoryWords(c: TargetCapacity): string {
+  const tenants = c.tenants ?? []
+  const split = c.memory?.inUse
+  const known = tenants.filter(t => t.used.known)
+  const unread = tenants.filter(t => !t.used.known || t.used.reason).length
+  const figures = tenants.length ? known.map(t => t.used) : split ? [split.apptown, split.other].filter(f => f.known) : []
+  const complete = tenants.length ? unread === 0 : !!split?.apptown.known && !!split?.other.known && !split.apptown.reason && !split.other.reason
+  const oldest = figures.filter(f => f.stale && f.readAt).map(f => f.readAt!).sort()[0]
+  const use = figures.length ? `${briefBytes(figures.reduce((sum, f) => sum + f.value, 0))} used by containers${complete ? '' : ' (partial)'}${oldest ? ` · ${lastSeen(oldest)}` : ''}` : 'Container memory use is unknown'
+  return `${use}; whole-host use is not measured`
+}
+
 // TargetCapacity says how full a target is. A fixed host: what it has,
 // what the running containers are promised (the limits Docker enforces),
 // what they use, and its disk. An elastic one: what each deployment runs
@@ -81,13 +94,14 @@ export function Capacity({ name, diagnostics = false }: { name: string; diagnost
   const m = c.memory
   // Each reading says in words whether it was made; why one could not be
   // made (the provider's own error text) is under Host diagnostics.
-  const memoryWords = !m ? '' : !m.hostUsed ? 'Not measured on attached hosts'
+  const memoryWords = !m ? '' : !m.hostUsed ? containerMemoryWords(c)
     : m.hostUsed.known && m.total.known ? `${briefBytes(m.hostUsed.value)} used of ${briefBytes(m.total.value)}${m.hostUsed.stale && m.hostUsed.readAt ? ` · ${lastSeen(m.hostUsed.readAt)}` : ''}`
       : m.hostUsed.known ? `${briefBytes(m.hostUsed.value)} used; host total could not be read` : 'Memory use could not be read'
   const reasons = [
     m?.hostUsed && !m.hostUsed.known && m.hostUsed.reason ? `Memory use: ${m.hostUsed.reason}` : '',
     m && !m.total.known && m.total.reason ? `Memory total: ${m.total.reason}` : '',
     c.disk && !c.disk.free.known && c.disk.free.reason ? `Disk: ${c.disk.free.reason}` : '',
+    ...(c.tenants ?? []).filter(t => t.used.reason).map(t => `${t.name}: ${t.used.reason}`),
     c.error ?? '',
   ].filter((r, i, all) => r && all.indexOf(r) === i)
   return (
@@ -223,7 +237,7 @@ function Bars({ c }: { c: TargetCapacity }) {
             ...tenants.map((t) => ({
               name: t.name, kind: t.kind,
               to: t.project && t.deployment ? `/projects/${t.project}/settings/deployments` : undefined,
-              cells: [t.unknown ? 'unknown' : String(t.containers), f(t.used, fmtBytes), limitWords(t.promised, t.unlimited, t.containers, fmtBytes), t.unknown ? 'unknown' : String(t.unlimited),
+              cells: [t.unknown ? 'unknown' : String(t.containers), `${f(t.used, fmtBytes)}${t.used.reason ? ` · ${t.used.reason}` : ''}`, limitWords(t.promised, t.unlimited, t.containers, fmtBytes), t.unknown ? 'unknown' : String(t.unlimited),
                 cpuCell(t)],
             })),
             ...(host ? [{ name: 'the whole host', kind: 'host', cells: ['', f(host, fmtBytes), '', '', ''] }] : []),

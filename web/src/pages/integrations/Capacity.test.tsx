@@ -193,3 +193,18 @@ it('does not renew old requested memory with a newer capacity wrapper', () => {
  const html=render({readAt:new Date().toISOString(),memory:{total:fig(2*2**30),promised:{sum:{apptown:{...fig(4*2**30),...old},other:fig(0)},limited:count(1,0),unlimited:count(0,0),unread:count(0,0)},overcommitted:true}})
  expect(html).toContain('4 GB requested (last seen 40m ago); host total 2 GB')
 })
+
+it('describes attached container readings and names failed tenants, including retained readings', () => {
+  const memory = { total: fig(2 ** 30), promised: { sum: { apptown: fig(0), other: fig(0) }, limited: count(0, 0), unlimited: count(0, 0), unread: count(0, 0) }, inUse: { apptown: fig(20 * 2 ** 20), other: fig(0) }, overcommitted: false }
+  const tenant = { kind: 'deployment', name: 'shop/main', containers: 1, used: fig(20 * 2 ** 20), promised: fig(0), unlimited: 1, cpus: 0, cpuUnlimited: 1, cpuUnread: 0 }
+  const html = render({ memory, tenants: [tenant] })
+  expect(html).toContain('20.0 MB used by containers; whole-host use is not measured')
+  expect(html).not.toContain('Not measured on attached hosts')
+  const failed = render({ memory, tenants: [{ ...tenant, used: { ...tenant.used, stale: true, readAt: '2026-11-02T09:00:00Z', reason: 'the daemon did not report app-shop-db' } }] }, true)
+  expect(failed).toContain('(partial)')
+  expect(failed).toContain('last seen')
+  expect(failed).toContain('shop/main: the daemon did not report app-shop-db')
+  const unknown = render({ memory: { ...memory, inUse: undefined }, tenants: [{ ...tenant, used: none('stats failed') }] })
+  expect(unknown).toContain('Container memory use is unknown; whole-host use is not measured')
+  expect(unknown).toContain('stats failed')
+})

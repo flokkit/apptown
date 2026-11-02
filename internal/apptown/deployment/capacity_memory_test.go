@@ -3,6 +3,7 @@ package deployment
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 // A container that the host lists as running can have no stats yet. Its row
@@ -52,5 +53,30 @@ func TestAttachedCapacityOmitsUnsupportedHostMemory(t *testing.T) {
 	}
 	if c.Memory.HostUsed != nil || capacityFailure(c) != "" {
 		t.Fatalf("unsupported probe made capacity unknown: %+v", c.Memory)
+	}
+}
+
+// A failed refresh retains the last number and time, but also the current
+// per-tenant failure. A fresh retained value stays fresh; a successful retry
+// clears the failure without renewing siblings.
+func TestTenantMemoryFailureRetainsReasonUntilSuccessfulRetry(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 11, 2, 9, 0, 0, 0, time.UTC)
+	old := TargetCapacity{TenantsAt: at, Tenants: []Tenant{{Kind: "deployment", Name: "shop/main", Used: Figure{Known: true, Value: 42, ReadAt: at}}}}
+	next := TargetCapacity{TenantsAt: at.Add(time.Minute), Tenants: []Tenant{{Kind: "deployment", Name: "shop/main", Used: unknown("the daemon did not report app-shop-db")}}}
+	got := capacityAt(mergeCapacity(old, next, next.TenantsAt), next.TenantsAt)
+	f := got.Tenants[0].Used
+	if !f.Known || f.Stale || f.Value != 42 || !f.ReadAt.Equal(at) || !strings.Contains(f.Reason, "app-shop-db") {
+		t.Fatalf("failed refresh changed retained figure: %+v", f)
+	}
+	expired := capacityAt(got, at.Add(7*time.Hour)).Tenants[0].Used
+	if expired.Known || !strings.Contains(expired.Reason, "app-shop-db") {
+		t.Fatalf("expiry hid the failure: %+v", expired)
+	}
+	next.Tenants[0].Used = known(64)
+	got = mergeCapacity(got, next, at.Add(2*time.Minute))
+	f = got.Tenants[0].Used
+	if !f.Known || f.Stale || f.Reason != "" || f.Value != 64 || !f.ReadAt.Equal(at.Add(2*time.Minute)) {
+		t.Fatalf("retry did not refresh: %+v", f)
 	}
 }

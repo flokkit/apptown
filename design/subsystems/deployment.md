@@ -1186,7 +1186,8 @@ its worker's disks are shown on Infrastructure (`GET
 readings survive restart in their owner's database. Total memory, CPU count and
 disk size last seven days. Live use and free disk are fresh for fifteen minutes,
 then shown as last seen with their age, and unknown after six hours. A failed
-check retains successful figures and records its failure separately. Each figure
+check retains successful figures and records its failure separately; it does not
+make a retained figure stale before its freshness limit. Each figure
 has its own time, so a partial check cannot renew an unread sibling. See
 [background infrastructure readings](deploy-targets.md#background-infrastructure-readings).
 

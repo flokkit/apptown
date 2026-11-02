@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"strings"
@@ -30,6 +31,10 @@ type Client interface {
 }
 
 type Command struct {
+	// Dial connects to the selected daemon through its owner's bounded transport.
+	// CLI serves this through a private socket; all Docker HTTP connections use it.
+	Dial func(context.Context) (net.Conn, error)
+
 	Args    []string
 	Stdin   io.Reader
 	Stdout  io.Writer     // nil captures combined output; non-nil streams stdout only
@@ -70,6 +75,14 @@ func (c CLI) Run(ctx context.Context, host string, req Command) ([]byte, error) 
 	binary := c.Binary
 	if binary == "" {
 		binary = "docker"
+	}
+	if req.Dial != nil {
+		endpoint, close, err := commandProxy(ctx, req.Dial)
+		if err != nil {
+			return nil, err
+		}
+		defer close()
+		host = endpoint
 	}
 	args := req.Args
 	if host != "" {
