@@ -184,6 +184,9 @@ func (s *Service) passwordSession(ctx context.Context, a Account) (SignedIn, err
 	}
 	return SignedIn{Principal: a.principal("session"), Token: token}, nil
 }
+
+// SessionIdentity returns an empty principal for an unknown, expired or revoked
+// session, including a malformed token. Session-store read failures remain errors.
 func (s *Service) SessionIdentity(ctx context.Context, presented string) (access.Principal, error) {
 	user, id, found, err := s.sessions.resolve(ctx, presented)
 	if !found {

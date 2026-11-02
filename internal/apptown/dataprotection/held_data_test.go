@@ -193,7 +193,7 @@ func TestNothingToBackUpNeedsBothSourcesReadAndEmpty(t *testing.T) {
 			t.Fatalf("%s: the scheduled backup passed: %v", name, r)
 		}
 		collectProtectionForTest(t, s, pid, name)
-		if p, err := s.DeploymentProtection(context.Background(), pid, name); err != nil || p.Unknown == "" {
+		if p, err := s.DeploymentProtection(context.Background(), pid, name); err != nil || p.Unknown != "AppTown could not read this deployment's release contract." {
 			t.Fatalf("%s: protection %+v %v", name, p, err)
 		}
 	}
@@ -213,6 +213,14 @@ func TestNothingToBackUpNeedsBothSourcesReadAndEmpty(t *testing.T) {
 		t.Fatalf("declared and absent: %v", err)
 	}
 
+	protection, err := s.collectProtection(t.Context(), pid, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reading := observedProtection(protection, s.now())
+	if reading.Reason != "The data this deployment names is not on its host." || reading.NextStep != "Open deployment settings to check the deployment." {
+		t.Fatalf("absent data reading: %+v", reading)
+	}
 	releaseMain(t, s, "nb", "app:\n  web:\n    image: x:1\n    public: true\n")
 	if _, err := s.TakeBackup(context.Background(), pid, "main", "bls"); !errors.Is(err, errNothingToBackUp) {
 		t.Fatalf("nothing named: %v", err)
@@ -247,7 +255,7 @@ func TestAHostThatCannotBeAskedLeavesItsDataUnknown(t *testing.T) {
 	}
 	collectProtectionForTest(t, s, pid, "main")
 	p, err := s.DeploymentProtection(context.Background(), pid, "main")
-	if err != nil || p.Unknown == "" || len(p.Items) != 0 {
+	if err != nil || p.Unknown != "AppTown could not read what this deployment holds." || len(p.Items) != 0 {
 		t.Fatalf("protection of an unreachable host: %+v %v", p, err)
 	}
 }
@@ -525,4 +533,45 @@ func deployedNames(t *testing.T, s *both, pid ids.ID, name, slug string) docker.
 		t.Fatal(err)
 	}
 	return hostNamesOf(t, dep, slug)
+}
+
+// A source failure reading the project remains distinct from an unreadable
+// release contract and never exposes the source's diagnostic details.
+type unreadableProtectionProject struct{ deployment.ReleaseSources }
+
+func (unreadableProtectionProject) Project(context.Context, ids.ID) (deployment.ReleaseProject, error) {
+	return deployment.ReleaseProject{}, errors.New("private source credential")
+}
+
+func TestProtectionNamesUnreadableProject(t *testing.T) {
+	t.Parallel()
+	s, _, _, _, pid := backupWorld(t, "unread-project", 40022)
+	s.core.sources = unreadableProtectionProject{ReleaseSources: s.core.sources}
+	p, err := s.collectProtection(t.Context(), pid, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := observedProtection(p, s.now())
+	if got.Reason != "AppTown could not read this deployment's project." || got.NextStep != "Open deployment settings to check the deployment." {
+		t.Fatalf("project failure: %+v", got)
+	}
+}
+
+func TestProtectionNamesMissingLocalDockerAccess(t *testing.T) {
+	t.Parallel()
+	w := noLocalDockerWorld(t, "app:\n  web:\n    image: x:1\n    public: true\n    dataDir: /data\n")
+	s := w.service(true)
+	target, err := s.Targets.Put(t.Context(), &deployment.Target{Name: "local", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep := w.deployment(t, s, "local-data", target)
+	p, err := s.collectProtection(t.Context(), dep.ProjectID, dep.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := observedProtection(p, s.now())
+	if got.Reason != "This AppTown has no local Docker access." || got.NextStep != "Open deployment settings to check the deployment." {
+		t.Fatalf("Docker access failure: %+v", got)
+	}
 }

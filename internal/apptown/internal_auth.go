@@ -187,8 +187,7 @@ func (a *App) handleAuthLogout(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	http.SetCookie(w, &http.Cookie{Name: a.sessionCookieName(r), Value: "", Path: "/", MaxAge: -1,
-		HttpOnly: true, Secure: a.secureBrowser(r), SameSite: http.SameSiteLaxMode})
+	a.cfg.browserSession().End(w, r)
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 

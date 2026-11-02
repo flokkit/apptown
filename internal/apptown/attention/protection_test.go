@@ -2,6 +2,7 @@ package attention
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -28,11 +29,12 @@ func (p protectionDeployments) ForProject(context.Context, ids.ID) ([]*deploymen
 type protectionEvidence struct {
 	value dataprotection.ProtectionSnapshot
 	calls int
+	err   error
 }
 
 func (p *protectionEvidence) Snapshot(context.Context, ids.ID) (dataprotection.ProtectionSnapshot, error) {
 	p.calls++
-	return p.value, nil
+	return p.value, p.err
 }
 
 // The view must keep the owner's copy classification and distinguish missing
@@ -52,7 +54,7 @@ func TestProtectionSourceDistinguishesMissingFailedAndUnknownRecovery(t *testing
 		{"passed", dataprotection.RehearsalPassed, true, "", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			evidence := &protectionEvidence{value: dataprotection.ProtectionSnapshot{ObservedAt: at, OffHost: true, Items: []dataprotection.ProtectionItemObservation{{Key: "data", Need: "database", Copy: dataprotection.CopyFresh}}, Rehearsed: tc.recorded, RehearsalPassed: tc.outcome == dataprotection.RehearsalPassed, RehearsalOutcome: tc.outcome, RehearsalAt: at, RestoreTested: tc.recorded, RestoreOutcome: tc.outcome, RestoreAt: at}}
+			evidence := &protectionEvidence{value: dataprotection.ProtectionSnapshot{ObservedAt: at, OffHost: true, Items: []dataprotection.ProtectionItemObservation{{Key: "data", Need: "database", Copy: dataprotection.CopyFresh}}, Rehearsed: tc.recorded, RehearsalPassed: tc.outcome == dataprotection.RehearsalPassed, RehearsalOutcome: tc.outcome, RehearsalAt: at, RestoreTested: tc.recorded, RestoreOutcome: tc.outcome, RestoreAt: at, AttemptedAt: at.Add(time.Minute)}}
 			source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Kind: deployment.Standing, DataClass: "production", DisplayLabel: "Office"}}}, Observer: evidence, Now: func() time.Time { return at }}
 			got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
 			if err != nil || got.Known != tc.known {
@@ -66,6 +68,9 @@ func TestProtectionSourceDistinguishesMissingFailedAndUnknownRecovery(t *testing
 				t.Fatalf("recovery conditions %+v", got.Items)
 			}
 			for _, item := range got.Items {
+				if !item.AttemptedAt.IsZero() {
+					t.Fatalf("recovery acquired the coverage attempt time: %+v", item)
+				}
 				if !strings.Contains(item.Title, "Office: ") {
 					t.Fatalf("unnamed condition: %+v", item)
 				}
@@ -131,9 +136,76 @@ func TestProtectionFirstCheckAndStaleReading(t *testing.T) {
 			if err != nil || got.Known == tc.reading.Unknown || got.Stale != tc.reading.Stale || len(got.Items) != tc.wantItems {
 				t.Fatalf("protection coverage: %+v %v", got, err)
 			}
+			if tc.wantItems > 0 && got.Items[0].AttemptedAt != tc.reading.AttemptedAt {
+				t.Fatalf("coverage attempt time lost: %+v", got.Items[0])
+			}
 			if tc.wantItems > 0 && (!strings.Contains(got.Items[0].Title, "Backups not known") || !got.Items[0].Stale) {
 				t.Fatalf("protection warning: %+v", got.Items)
 			}
 		})
+	}
+}
+
+// Coverage uses the same public deployment label as conditions and never calls
+// a first check a failed read. Every failed attempt retains its safe reason.
+func TestProtectionCoverageWords(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name, label string
+		readErr     error
+		nextStep    string
+		reading     dataprotection.ProtectionSnapshot
+		want        string
+	}{
+		{"first", "Office", nil, "AppTown schedules a background check every five minutes.", dataprotection.ProtectionSnapshot{Unknown: true, Stale: true}, "Office: Backups have not been checked yet."},
+		{"failed", "Office", nil, "Open deployment settings to check the deployment.", dataprotection.ProtectionSnapshot{Unknown: true, Stale: true, AttemptedAt: at, Reason: "The protection check timed out."}, "Office: The protection check timed out."},
+		{"fallback name", "", nil, "AppTown schedules a background check every five minutes.", dataprotection.ProtectionSnapshot{Unknown: true, Stale: true}, "internal-name: Backups have not been checked yet."},
+		{"changed", "Office", nil, "Open deployment settings to check the deployment.", dataprotection.ProtectionSnapshot{Unknown: true, Stale: true, ObservedAt: at, AttemptedAt: at, Reason: "The deployment changed. Waiting for a protection check."}, "Office: The deployment changed. Waiting for a protection check."},
+		{"recorded check unreadable", "Office", errors.New("private database details"), "Reload the page to try reading the recorded backup check again.", dataprotection.ProtectionSnapshot{Unknown: true}, "Office: The recorded backup check could not be read."},
+		{"absent", "Office", nil, "Open deployment settings to check the deployment.", dataprotection.ProtectionSnapshot{Unknown: true, AttemptedAt: at, Reason: "The data this deployment names is not on its host.", NextStep: "Open deployment settings to check the deployment."}, "Office: The data this deployment names is not on its host."},
+		{"retry", "Office", nil, "The background check will try again in five minutes.", dataprotection.ProtectionSnapshot{Unknown: true, AttemptedAt: at, Reason: "AppTown could not read what this deployment holds.", NextStep: "The background check will try again in five minutes."}, "Office: AppTown could not read what this deployment holds."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Kind: deployment.Standing, Name: "internal-name", DisplayLabel: tc.label}}}, Observer: &protectionEvidence{value: tc.reading, err: tc.readErr}, Now: func() time.Time { return at }}
+			got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
+			if err != nil || got.Reason != tc.want || got.AttemptedAt != tc.reading.AttemptedAt || got.NextStep != strings.Split(tc.want, ": ")[0]+": "+tc.nextStep {
+				t.Fatalf("coverage: %+v %v", got, err)
+			}
+		})
+	}
+}
+
+// byDeployment answers each deployment's own backup reading.
+type byDeployment map[ids.ID]dataprotection.ProtectionSnapshot
+
+func (b byDeployment) Snapshot(_ context.Context, id ids.ID) (dataprotection.ProtectionSnapshot, error) {
+	return b[id], nil
+}
+
+// A healthy deployment beside a failing one adds no next step: the row names
+// only the deployment that needs something.
+func TestProtectionNextStepNamesOnlyDeploymentsWithAProblem(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+	healthy, failing := idstest.N(1), idstest.N(3)
+	source := Protection{
+		Projects: protectionProject{},
+		Deployments: protectionDeployments{[]*deployment.Deployment{
+			{ID: healthy, Kind: deployment.Standing, Name: "main", DisplayLabel: "Shop"},
+			{ID: failing, Kind: deployment.Standing, Name: "office", DisplayLabel: "Office"},
+		}},
+		Observer: byDeployment{
+			healthy: {ObservedAt: at, AttemptedAt: at},
+			failing: {Unknown: true, AttemptedAt: at, Reason: "The data this deployment names is not on its host.", NextStep: "Open deployment settings to check the deployment."},
+		},
+		Now: func() time.Time { return at },
+	}
+	got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.NextStep != "Office: Open deployment settings to check the deployment." || strings.Contains(got.Reason, "Shop") {
+		t.Fatalf("coverage named the healthy deployment: %+v", got)
 	}
 }

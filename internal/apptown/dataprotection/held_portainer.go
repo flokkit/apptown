@@ -25,7 +25,7 @@ func (s *core) heldOnPortainer(ctx context.Context, dk docker.Scope, layout port
 	sh := s.env.ToolVersions().Images.Sh
 	owned, err := s.owned.Owned(ctx, dep.ID)
 	if err != nil {
-		return heldItems{}, fmt.Errorf("%w: reading its list: %v", errDataNotKnown, err)
+		return heldItems{}, fmt.Errorf("%w: %w: reading its list: %v", errDataNotKnown, errDataInventoryUnavailable, err)
 	}
 	listed := map[string]bool{}
 	var wants []string
@@ -52,7 +52,7 @@ func (s *core) heldOnPortainer(ctx context.Context, dk docker.Scope, layout port
 		seen[vol] = true
 		there, err := dk.Exists(ctx, "volume", "inspect", vol)
 		if err != nil {
-			return heldItems{}, fmt.Errorf("%w: not known whether the volume %s is there: %v", errDataNotKnown, vol, err)
+			return heldItems{}, fmt.Errorf("%w: %w: not known whether the volume %s is there: %v", errDataNotKnown, errDataInventoryUnavailable, vol, err)
 		}
 		if !there {
 			continue
@@ -77,7 +77,7 @@ func (s *core) heldOnPortainer(ctx context.Context, dk docker.Scope, layout port
 			}
 			container, err := s.serviceContainer(ctx, dk, layout.Stack, need)
 			if err != nil {
-				return heldItems{}, fmt.Errorf("%w: %v", errDataNotKnown, err)
+				return heldItems{}, fmt.Errorf("%w: %w: %v", errDataNotKnown, errDataInventoryUnavailable, err)
 			}
 			if container == "" {
 				it = backupPlanItem{Kind: "need", Name: need, Volume: vol, File: vol + ".uncopied", Unresolved: "not copied: no running " + need + " container of the stack mounts " + vol}

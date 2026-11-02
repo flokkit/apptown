@@ -1077,3 +1077,74 @@ func TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership(t *testi
 		t.Fatal("refused member administration changed provider")
 	}
 }
+
+// A stale browser cookie is the same visitor as no cookie. Only an unreadable
+// store prevents that decision; it must preserve the cookie for a later retry.
+func TestUnresolvedSessionSignsOutAndClearsCookie(t *testing.T) {
+	for _, state := range []string{"unknown", "expired", "revoked", "malformed", "empty", "store failure"} {
+		t.Run(state, func(t *testing.T) {
+			t.Parallel()
+			a, h := internalApp(t)
+			request := func(path string, cookie *http.Cookie) *httptest.ResponseRecorder {
+				r := httptest.NewRequest("GET", path, nil)
+				if cookie != nil {
+					r.AddCookie(cookie)
+				}
+				w := httptest.NewRecorder()
+				h.ServeHTTP(w, r)
+				return w
+			}
+			visitor := request("/api/v1/auth/me", nil)
+			token := strings.Repeat("a", 64)
+			switch state {
+			case "expired", "revoked":
+				w := postJSON(h, "/api/v1/auth/bootstrap", firstAccount(t, a, "alice", "correct-horse"))
+				if w.Code != 200 {
+					t.Fatalf("bootstrap: %d %s", w.Code, w.Body)
+				}
+				token = w.Result().Cookies()[0].Value
+				if state == "expired" {
+					// Expiry has no owner operation; the session stays, so this request
+					// exercises expiry rather than the missing-session path.
+					// sql-guarantee: expire an issued session without deleting it.
+					if _, err := a.DB.SQL().ExecContext(t.Context(), `UPDATE sessions SET expires_at=$1 WHERE token_hash=$2`, time.Now().Add(-time.Hour), identity.HashToken(token)); err != nil {
+						t.Fatal(err)
+					}
+				} else if err := a.Access.SignOut(t.Context(), token); err != nil {
+					t.Fatal(err)
+				}
+				visitor = request("/api/v1/auth/me", nil)
+			case "malformed":
+				token = "not-a-session"
+			case "empty":
+				token = ""
+			}
+			cookie := &http.Cookie{Name: sessionCookie, Value: token}
+			for _, path := range []string{"/api/v1/auth/me", "/api/v1/projects"} {
+				restore := func() {}
+				if state == "store failure" {
+					restore = dbtest.NextStatementFailure(a.DB, "-- name: SessionByHash")
+				}
+				w := request(path, cookie)
+				restore()
+				if state == "store failure" {
+					if w.Code < 500 || len(w.Result().Cookies()) != 0 {
+						t.Fatalf("read fault hidden: %d %s cookies=%v", w.Code, w.Body, w.Result().Cookies())
+					}
+					continue
+				}
+				want := 401
+				if path == "/api/v1/auth/me" {
+					want = 200
+				}
+				if w.Code != want || (want == 200 && w.Body.String() != visitor.Body.String()) {
+					t.Fatalf("%s: %d %s; visitor %s", path, w.Code, w.Body, visitor.Body)
+				}
+				cookies := w.Result().Cookies()
+				if len(cookies) != 1 || cookies[0].Name != sessionCookie || cookies[0].Value != "" || cookies[0].MaxAge != -1 || cookies[0].Path != "/" || !cookies[0].HttpOnly {
+					t.Fatalf("invalid cookie not cleared: %v", cookies)
+				}
+			}
+		})
+	}
+}

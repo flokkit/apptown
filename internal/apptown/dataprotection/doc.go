@@ -25,6 +25,11 @@
 // reading cache. Live protection is fresh for fifteen minutes, then last seen
 // with its age, and unknown after six hours. Failed checks keep prior values.
 // Attention warns about age before six hours only when the latest check failed.
+// Failed data readings record a safe cause and next step: missing host data,
+// unreadable projects or release contracts, and absent local Docker access
+// direct the reader to deployment settings. Unavailable data inventories say
+// that the background check retries in five minutes. Raw provider diagnostics
+// are not used as Attention reasons.
 //
 // # What Deployment keeps
 //

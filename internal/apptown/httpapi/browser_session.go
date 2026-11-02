@@ -72,3 +72,9 @@ func (b BrowserSession) StartFor(w http.ResponseWriter, r *http.Request, token s
 		SameSite: http.SameSiteLaxMode, MaxAge: int(ttl.Seconds()),
 	})
 }
+
+// End removes the browser cookie after sign-out or an unresolved session.
+func (b BrowserSession) End(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{Name: b.CookieName(r), Value: "", Path: "/", MaxAge: -1,
+		HttpOnly: true, Secure: b.Secure(r), SameSite: http.SameSiteLaxMode})
+}

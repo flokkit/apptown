@@ -319,3 +319,19 @@ it('counts an expired item once when its owner coverage has the same key', () =>
  expect(result.unknown).toBe(1)
  expect(result.count).toBe(0)
 })
+
+it('shows a failed backup attempt as last tried, while a first check remains pending', async () => {
+ responses(() => json({items: [], sources: [
+  { ...known.sources[0], key: 'protection/pending', name: 'Lunch · backups', unknown: true, observedAt: '', reason: 'Office: Backups have not been checked yet.', nextStep: 'AppTown schedules a background check every five minutes.' },
+  { ...known.sources[0], key: 'protection/failed', name: 'Orders · backups', unknown: true, observedAt: '', attemptedAt: at, reason: "Office: The deployment's data could not be read because its platform's data inventory is unavailable.", nextStep: 'AppTown schedules a background check every five minutes.' }, // gitleaks:allow (a test fixture's reading key)
+ ]}))
+ const v = mount(<AttentionPage />); await settled(v.client)
+ const rows = v.el.querySelectorAll('article')
+ expect(rows).toHaveLength(2)
+ expect(rows[0].textContent).toContain('not checked yet')
+ expect(rows[0].textContent).toContain('every five minutes')
+ expect(rows[0].textContent).not.toContain('could not be read')
+ expect(rows[1].textContent).toContain('last tried')
+ expect(rows[1].textContent).not.toContain('not checked yet')
+ expect(rows[1].textContent).not.toContain('Ask an administrator')
+})
