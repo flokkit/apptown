@@ -40,7 +40,7 @@ func TestAdoptionFreezesWhatAProjectIsOn(t *testing.T) {
 	if err := a.Adoption.PutImports(t.Context(), p.ID, []wow.ResolvedPin{{BlockID: terse.ID, Name: terse.Name, Version: terse.LatestVersion}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Adoption.SelectLane(t.Context(), p.ID, "quick-change", true, "fixture"); err != nil {
+	if err := recordCatalogFixture(a.Adoption, t.Context(), p.ID, "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	recordFixtureAdoptions(t, a)
@@ -108,7 +108,7 @@ func TestAdoptionFreezesWhatAProjectIsOn(t *testing.T) {
 	if pin != terse.LatestVersion {
 		t.Fatalf("the import stays at %d, moved to %d", terse.LatestVersion, pin)
 	}
-	rw, err := a.lifecycle.SelectedWorkflow(t.Context(), &p, "land")
+	rw, err := a.lifecycle.ResolveWorkflow(t.Context(), &p, "land")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,17 +135,6 @@ func TestAdoptionFreezesWhatAProjectIsOn(t *testing.T) {
 	if ad.Revision != 2 || ad.Kind != adoption.AdoptionEdit || len(ad.Receipt.Guidance) != 2 || !strings.Contains(ad.Reason, "Guidance") {
 		t.Fatalf("the edit is revision 2: %+v", ad)
 	}
-	// A lane selected after the revision resolves as of the revision's time,
-	// never to a version published later: a moment passes on AppTown's
-	// clock, which stamps both.
-	moveClock(a, time.Second)
-	if err := a.lifecycle.SelectLane(t.Context(), p.ID, "fix-bug", true, "fixture"); err != nil {
-		t.Fatal(err)
-	}
-	if currentAdoption(a.DB, p.ID).Revision != 3 {
-		t.Fatal("selecting a lane is an edit: revision 3")
-	}
-
 	// Drift: something moved the rows outside the door. The rows are wrong,
 	// not the receipt: the revision stays, the project carries a note, and
 	// the next save through the door clears it.
@@ -499,16 +488,16 @@ func TestProjectRunsTheWorkflowVersionItAdopted(t *testing.T) {
 	if name, version, err := a.Ways.PublishWorkflow(t.Context(), v1, "fixture"); err != nil || name != "sub-flow" || version != 1 {
 		t.Fatalf("publish v1: %s@%d %v", name, version, err)
 	}
-	a.lifecycle.SelectLane(t.Context(), p.ID, "sub-flow", true, "fixture") // records revision 1, pinning sub-flow@1
+	recordCatalogFixture(a.Adoption, t.Context(), p.ID, "fixture") // records revision 1, pinning sub-flow@1
 
-	rw, err := a.lifecycle.SelectedWorkflow(t.Context(), &p, "sub-flow")
+	rw, err := a.lifecycle.ResolveWorkflow(t.Context(), &p, "sub-flow")
 	if err != nil || rw.Origin != "lib/sub-flow@1" {
 		t.Fatalf("v1 expected: %v %+v", err, rw)
 	}
 	if name, version, err := a.Ways.PublishWorkflow(t.Context(), v2, "fixture"); err != nil || name != "sub-flow" || version != 2 {
 		t.Fatalf("publish v2: %s@%d %v", name, version, err)
 	}
-	rw, err = a.lifecycle.SelectedWorkflow(t.Context(), &p, "sub-flow")
+	rw, err = a.lifecycle.ResolveWorkflow(t.Context(), &p, "sub-flow")
 	if err != nil || rw.Origin != "lib/sub-flow@1" || rw.YAML != v1 {
 		t.Fatalf("the adopted version stays: %v %+v", err, rw)
 	}
@@ -518,7 +507,7 @@ func TestProjectRunsTheWorkflowVersionItAdopted(t *testing.T) {
 	// No revision must not silently select the newer library version.
 	plainTestProject(t, a.DB, "old", "O")
 	o, _ := a.Projects.BySlug(context.Background(), "old")
-	rw, err = a.lifecycle.SelectedWorkflow(t.Context(), &o, "sub-flow")
+	rw, err = a.lifecycle.ResolveWorkflow(t.Context(), &o, "sub-flow")
 	if err == nil || rw != nil || !strings.Contains(err.Error(), "no recorded adoption") {
 		t.Fatalf("missing receipt must refuse: %v %+v", err, rw)
 	}
@@ -548,13 +537,10 @@ func TestARunKeepsTheWorkflowVersionItWasAdmittedUnder(t *testing.T) {
 	if name, version, err := a.Ways.PublishWorkflow(t.Context(), v2, "fixture"); err != nil || name != "flow" || version != 2 {
 		t.Fatalf("publish v2: %s@%d %v", name, version, err)
 	}
-	if err := a.Adoption.SelectLane(t.Context(), p.ID, "flow", false, "fixture"); err != nil {
+	if _, err := a.Adoption.AdvanceToLatest(t.Context(), p.ID, "adopt flow v2", "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Adoption.SelectLane(t.Context(), p.ID, "flow", true, "fixture"); err != nil {
-		t.Fatal(err)
-	}
-	if rw, err := a.lifecycle.SelectedWorkflow(t.Context(), p, "flow"); err != nil || rw.Origin != "lib/flow@2" {
+	if rw, err := a.lifecycle.ResolveWorkflow(t.Context(), p, "flow"); err != nil || rw.Origin != "lib/flow@2" {
 		t.Fatalf("the project now runs flow@2: %+v %v", rw, err)
 	}
 

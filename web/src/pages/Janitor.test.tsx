@@ -27,7 +27,7 @@ it('offers no consent form while automatic updates are unavailable', async () =>
     const data: Record<string, unknown> = {
       '/authz/me': { actorId: project }, '/projects/shop': { id: project, name: 'Shop', slug: 'shop' },
       [`/standing-approvals?projectId=${project}`]: [],
-      '/projects/shop/lanes': { lanes: [{ name: 'quick-change', version: 1, selected: true }], system: [] },
+      '/projects/shop/lanes': { lanes: [{ name: 'quick-change', version: 1 }], system: [] },
       '/projects/shop/deployments': [{ id: deployment, targetId: target, name: 'customer', displayLabel: 'Customer office', kind: 'standing' }],
     }
     if (!(path in data)) throw new Error(`unexpected read ${path}`)
@@ -65,7 +65,7 @@ it('disables saved consent, refreshes the list, and keeps history and revision a
     if (path === `/standing-approvals?projectId=${project}`) { reads++; return new Response(JSON.stringify([{ rule, reason: 'Automatic updates are not available yet.' }])) }
     if (path.endsWith('/history')) return new Response(JSON.stringify([rule, original]))
     if (path === '/projects') return new Response(JSON.stringify([{ id: project, slug: 'shop', name: 'Shop' }]))
-    if (path.endsWith('/lanes')) return new Response(JSON.stringify({ lanes: [{ name: 'quick-change', version: 1, selected: true }], system: [] }))
+    if (path.endsWith('/lanes')) return new Response(JSON.stringify({ lanes: [{ name: 'quick-change', version: 1 }], system: [] }))
     if (path.endsWith('/deployments')) return new Response('[]')
     if (path === '/projects/shop') return new Response(JSON.stringify({ id: project, slug: 'shop', name: 'Shop' }))
     throw new Error(`unexpected read ${path}`)

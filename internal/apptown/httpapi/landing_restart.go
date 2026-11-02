@@ -48,7 +48,7 @@ func (h LandingRestart) RestartLanding(w http.ResponseWriter, r *http.Request) {
 		writeReadFault(w, err, "no such project")
 		return
 	}
-	ch, err := workflow.ReadChangeIn(r.Context(), h.db, run.ChangeID)
+	_, err = workflow.ReadChangeIn(r.Context(), h.db, run.ChangeID)
 	if err != nil {
 		writeReadFault(w, err, "no such change")
 		return
@@ -57,7 +57,7 @@ func (h LandingRestart) RestartLanding(w http.ResponseWriter, r *http.Request) {
 	// amended mid-flight that the lane cannot satisfy) must not cost the
 	// parked landing — it stays parked, and the override on its law step
 	// is the recorded exception.
-	if _, rerr := h.lifecycle.SelectedWorkflow(r.Context(), &p, run.WorkflowName); rerr != nil {
+	if _, rerr := h.lifecycle.ResolveWorkflow(r.Context(), &p, run.WorkflowName); rerr != nil {
 		WriteError(w, 422, "the landing cannot restart under the current rules: %v — override the parked step to record an exception, or fix the lane", rerr)
 		return
 	}
@@ -65,7 +65,7 @@ func (h LandingRestart) RestartLanding(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	fresh, err := h.work.StartRun(r.Context(), workflow.StartChangeRun{ChangeID: ch.ID, Workflow: run.WorkflowName})
+	fresh, err := h.work.RestartLanding(r.Context(), run.ID)
 	if err != nil {
 		WriteError(w, 422, "old landing abandoned but the new one would not start: %v", err)
 		return

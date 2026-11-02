@@ -34,7 +34,7 @@ type definedWorkflows struct {
 func (d definedWorkflows) Workflow(ctx context.Context, req adoption.WorkflowRequest) (*adoption.ResolvedWorkflow, error) {
 	for _, definition := range d.definitions {
 		if definition.Workflow.Name == req.Name {
-			return &adoption.ResolvedWorkflow{Name: req.Name, Version: definition.Workflow.Version, Origin: definition.Workflow.Origin, Doc: &schema.Doc{Spec: definition.Spec}}, nil
+			return &adoption.ResolvedWorkflow{Name: req.Name, Version: definition.Workflow.Version, Origin: definition.Workflow.Origin, System: definition.System, Doc: &schema.Doc{Spec: definition.Spec}}, nil
 		}
 	}
 	return nil, fmt.Errorf("test has no definition %q", req.Name)

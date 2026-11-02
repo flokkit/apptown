@@ -1,6 +1,7 @@
 package wow
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -91,4 +92,51 @@ func TestStockReviewsReadTheReworkedReport(t *testing.T) {
 	if reviews == 0 {
 		t.Fatal("expected stock workflows with reviews of a report")
 	}
+}
+
+// Monthly maintenance is a separate choice, independent of technology guidance.
+func TestOnlyDependencyUpdatesPackSuppliesScheduledDependencyUplift(t *testing.T) {
+	packs, err := ReadStockPacks(stock.FS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, p := range packs {
+		if p.Name == "dependency-updates" {
+			found = true
+			if !p.Suggested || len(p.Schedules) != 1 || p.Schedules[0] != "dependency-uplift" || len(p.Workflows) != 1 || p.Workflows[0] != "dependency-uplift" || len(p.Guidance) != 0 || len(p.Policies) != 0 || p.Toolchain != "" || len(p.Tools) != 0 {
+				t.Fatalf("maintenance pack: %+v", p)
+			}
+			if !strings.HasPrefix(p.Description, "Monthly dependency updates\n") || !strings.Contains(p.Description, "once a month") || !strings.Contains(p.Description, "change to review") {
+				t.Fatalf("maintenance description: %s", p.Description)
+			}
+		} else {
+			if len(p.Schedules) != 0 {
+				t.Errorf("%s declares schedules: %v", p.Name, p.Schedules)
+			}
+			for _, name := range p.Workflows {
+				if name == "dependency-uplift" {
+					t.Errorf("%s still supplies dependency-uplift", p.Name)
+				}
+			}
+		}
+	}
+	if !found {
+		t.Fatal("dependency-updates pack is missing")
+	}
+	workflows, skipped := readStockWorkflows(stock.FS)
+	if skipped != 0 {
+		t.Fatalf("skipped workflows: %d", skipped)
+	}
+	for _, wf := range workflows {
+		if wf.Name != "dependency-uplift" {
+			continue
+		}
+		doc, err := schema.ParseWorkflow([]byte(wf.Content))
+		if err != nil || doc.Spec.On.Schedule == nil || doc.Spec.On.Schedule.Cron != "0 6 1 * *" {
+			t.Fatalf("monthly schedule: %+v %v", doc, err)
+		}
+		return
+	}
+	t.Fatal("dependency-uplift is missing")
 }

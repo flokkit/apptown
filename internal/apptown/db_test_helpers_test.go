@@ -26,13 +26,18 @@ func mustRecords[T any](records []T, err error) []T {
 	return records
 }
 
-func laneOn(t *testing.T, s *adoption.Service, projectID ids.ID, name string) bool {
+func workflowAvailable(t *testing.T, s *adoption.Service, projectID ids.ID, name string) bool {
 	t.Helper()
-	on, err := s.LaneSelected(t.Context(), projectID, name)
+	workflows, err := s.AvailableWorkflows(t.Context(), projectID)
 	if err != nil {
-		t.Fatalf("reading lane %s: %v", name, err)
+		t.Fatal(err)
 	}
-	return on
+	for _, wf := range workflows {
+		if wf.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 // These helpers ask the owning domain what a root test wants to know, so
@@ -371,4 +376,10 @@ func jobsInState(t *testing.T, a *App, operation, key, state string) int {
 		}
 	}
 	return n
+}
+
+// recordCatalogFixture pins the current library for tests of versioned procedures.
+func recordCatalogFixture(s *adoption.Service, ctx context.Context, project ids.ID, by string) error {
+	_, err := s.RecordCurrent(ctx, project, adoption.AdoptionEdit, "record workflow catalog", by)
+	return err
 }

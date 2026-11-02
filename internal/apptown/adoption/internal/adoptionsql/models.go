@@ -105,13 +105,6 @@ type ProjectAdoption struct {
 	ChangeID           ids.ID
 }
 
-type ProjectLane struct {
-	ProjectID ids.ID
-	Name      string
-	Enabled   bool
-	UpdatedAt time.Time
-}
-
 type ProjectPack struct {
 	ID                 ids.ID
 	ProjectID          ids.ID

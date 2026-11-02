@@ -31,7 +31,9 @@ env:
 	if err := a.Integrations.ServiceKinds.Save(context.Background(), "mailer", spec, "Mail Relay", "boss"); err != nil {
 		t.Fatal(err)
 	}
-	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "adopt-integration", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}})
+	defineWorkflows(t, a,
+		workflow.PreparedRun{System: true, Workflow: workflow.DefinitionRef{Name: "adopt-integration", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}},
+		workflow.PreparedRun{System: true, Workflow: workflow.DefinitionRef{Name: "retire-integration", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}})
 	h := a.Handler()
 	connector := `{"name":"smtp","capability":"mailer","provider":"service","config":{"host":"smtp.internal"}}`
 	for _, tc := range []struct {
@@ -181,6 +183,32 @@ env:
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &invoked); err != nil || w.Code != 200 || invoked.Run == nil || invoked.Run.ChangeID != invoked.Change.ID || invoked.Run.WorkflowName != "adopt-integration" {
 		t.Fatalf("default workflow wiring: %d %s %v", w.Code, w.Body.String(), err)
+	}
+	if w := authzCall(h, "owner", "POST", path+"/mailer/retire", `{"workflow":"land"}`); w.Code != 400 {
+		t.Fatalf("caller chose retirement workflow: %d %s", w.Code, w.Body.String())
+	}
+	if w := authzCall(h, "owner", "POST", path+"/missing/retire", `{}`); w.Code != 404 {
+		t.Fatalf("retirement without attachment: %d %s", w.Code, w.Body.String())
+	}
+	// Retirement is a dedicated integration operation, never an explicit
+	// user choice of a system workflow. It keeps the attachment until detach.
+	for _, tc := range []struct {
+		who  string
+		code int
+	}{{"outsider", 403}, {"owner", 200}} {
+		w := authzCall(h, tc.who, "POST", path+"/mailer/retire", `{}`)
+		if w.Code != tc.code {
+			t.Fatalf("retirement: %d %s", w.Code, w.Body.String())
+		}
+		if tc.code == 200 {
+			var retired struct {
+				Change workflow.Change
+				Run    *workflow.Run
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &retired); err != nil || retired.Run == nil || retired.Run.WorkflowName != "retire-integration" || retired.Run.ChangeID != retired.Change.ID {
+				t.Fatalf("retirement run: %s %v", w.Body.String(), err)
+			}
+		}
 	}
 	for _, tc := range []struct {
 		who  string

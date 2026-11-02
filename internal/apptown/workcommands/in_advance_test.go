@@ -16,7 +16,7 @@ import (
 // lanesOf answers a project's selected workflows from YAML bodies by name.
 type lanesOf map[string]string
 
-func (l lanesOf) SelectedWorkflow(_ context.Context, _ *project.Project, name string) (*adoption.ResolvedWorkflow, error) {
+func (l lanesOf) ResolveWorkflow(_ context.Context, _ *project.Project, name string) (*adoption.ResolvedWorkflow, error) {
 	body, ok := l[name]
 	if !ok {
 		return nil, errors.New("not selected")

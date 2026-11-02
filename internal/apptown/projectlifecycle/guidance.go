@@ -24,12 +24,6 @@ func (s *Service) NoteAdoption(ctx context.Context, projectID ids.ID, reason, by
 	}
 }
 
-// SelectLane selects or deselects a lane for by; the selection and the
-// adoption revision it makes commit together (adoption.SelectLane).
-func (s *Service) SelectLane(ctx context.Context, projectID ids.ID, name string, enabled bool, by string) error {
-	return s.adoption.SelectLane(ctx, projectID, name, enabled, by)
-}
-
 // ReplaceGuidance saves a person's edit of the guidance list: the imports and
 // the adoption revision they make commit together, and only if the way of
 // working is still at the revision the edit started from. The manifest audit

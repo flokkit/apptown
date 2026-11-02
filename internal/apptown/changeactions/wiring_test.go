@@ -39,7 +39,7 @@ func TestWiringModeCannotFallThroughToAdmission(t *testing.T) {
 	// No Work dependency: an invalid constructed value must stop before admission.
 	s := &Service{}
 	for _, mode := range []wiringMode{"", "typo"} {
-		ch, run, err := s.OpenWiring(context.Background(), Wiring{Mode: mode, Workflow: "wire"})
+		ch, run, err := s.OpenWiring(context.Background(), Wiring{Mode: mode})
 		if err == nil || ch != nil || run != nil {
 			t.Fatalf("invalid mode admitted work: %v %v %v", ch, run, err)
 		}
@@ -89,7 +89,7 @@ func newWiringFixture(t *testing.T) wiringFixture {
 		Abandonment:  wiringAbandonments{},
 		Repositories: &scm.RepositoryLocks{},
 		Resolve: func(_ context.Context, req workflow.StartRequest, src workflow.StartSource) (workflow.PreparedRun, error) {
-			return workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: req.WorkflowName, Version: 1}, AdoptionID: src.AdoptionID,
+			return workflow.PreparedRun{System: true, Workflow: workflow.DefinitionRef{Name: req.WorkflowName, Version: 1}, AdoptionID: src.AdoptionID,
 				Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}}, nil
 		},
 	})
@@ -102,7 +102,7 @@ func newWiringFixture(t *testing.T) wiringFixture {
 }
 
 func (f wiringFixture) open(mode wiringMode) (*workflow.Change, *workflow.Run, error) {
-	return f.actions.OpenWiring(f.ctx, Wiring{Mode: mode, Capability: "mailer", Workflow: "adopt-integration", Who: "operator",
+	return f.actions.OpenWiring(f.ctx, Wiring{Mode: mode, Capability: "mailer", Who: "operator",
 		Draft: workflow.ChangeDraft{ProjectID: f.project, Type: "feature", Title: "Connect Mail Relay", Body: "wire it"}})
 }
 

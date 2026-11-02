@@ -2288,7 +2288,6 @@ spec:
           with:
             means: I have read what changed and the checks, and it does what the change says.
 `})
-	scene.call("sam", "PUT", "/api/v1/projects/club-newsletter/lanes", map[string]any{"name": "design-review", "enabled": true})
 	// Extend one disposable project through public change operations. The camera uses these same records; script checks execute locally.
 	for i, title := range []string{"Add club contact details", "Publish membership fees", "Update the committee list", "Add the Saturday meeting point", "Publish the annual meeting date"} {
 		scene.later(20 * time.Minute)
@@ -2813,7 +2812,6 @@ spec:
           with:
             means: I have read the checks.
 `})
-		scene.call("sam", "PUT", "/api/v1/projects/club-newsletter/lanes", map[string]any{"name": "advisory-review", "enabled": true})
 		defineWorkflows(t, a, tourWorkflow, reviewWorkflow, workflow.PreparedRun{
 			Workflow: workflow.DefinitionRef{Name: "advisory-review", Version: 1},
 			Spec: schema.Spec{Kind: "lifecycle", Role: "working", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{

@@ -17,9 +17,8 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// Schedules fires scheduled workflows: library workflows with on.schedule,
-// for every project that selected them (design/decisions/workflows-as-lanes.md:
-// the schedule is a trigger on an explicitly selected, pinned lane). A firing
+// Schedules fires workflows with on.schedule for projects whose adopted packs
+// explicitly list those workflows under schedules. A firing
 // opens a Change and starts its run, attributed to AppTown acting through
 // the schedule.
 type Schedules struct {
@@ -29,7 +28,7 @@ type Schedules struct {
 	DB       *database.DB
 }
 
-// FireDueSchedules fires each selected schedule that is due at now, reading
+// FireDueSchedules fires each pack-supplied schedule that is due at now, reading
 // the cron from the workflow version the project adopted. A schedule seen
 // for the first time is armed at now, and missed historical firings are not
 // replayed. A schedule whose previous run is still active skips the firing
@@ -135,8 +134,8 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 	}
 }
 
-// carried is a schedule a project carries: a workflow it adopted and
-// selected whose adopted version declares on.schedule. err says why the
+// carried is a schedule from a workflow scheduled by an adopted pack, whose
+// resolved version declares on.schedule. err says why the
 // workflow could not be read, so whether it carries one is unknown.
 type carried struct {
 	workflow string
@@ -149,7 +148,7 @@ func (c carried) skipIfActive() bool {
 	return c.trigger.SkipIfActive == nil || *c.trigger.SkipIfActive
 }
 
-// carriedBy is every schedule the project's adopted workflows carry, the one
+// carriedBy is every schedule the project's adopted packs supply, the one
 // enumeration the scheduler fires from and the project's read shows, so the
 // two cannot disagree about which schedules exist. A project with nothing
 // adopted carries none; a failed adoption read is an error.
@@ -161,32 +160,28 @@ func (s Schedules) carriedBy(ctx context.Context, projectID ids.ID) ([]carried, 
 	if ad == nil {
 		return nil, nil
 	}
+	names, err := s.Adoption.ScheduledWorkflowNames(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
 	var out []carried
-	for _, wf := range ad.Receipt.Workflows {
-		selected, err := s.Adoption.LaneSelected(ctx, projectID, wf.Name)
+	for name := range names {
+		version, yaml, err := s.Adoption.WorkflowVersion(ctx, adoption.Source{ProjectID: ad.ProjectID, Revision: ad}, name)
 		if err != nil {
-			out = append(out, carried{workflow: wf.Name, err: fmt.Errorf("reading the project's lanes: %w", err)})
-			continue
-		}
-		if !selected {
-			continue
-		}
-		version, yaml, err := s.Adoption.WorkflowVersion(ctx, adoption.Source{ProjectID: ad.ProjectID, Revision: ad}, wf.Name)
-		if err != nil {
-			out = append(out, carried{workflow: wf.Name, err: err})
+			out = append(out, carried{workflow: name, err: err})
 			continue
 		}
 		doc, err := schema.ParseWorkflowStored([]byte(yaml))
 		if err != nil {
 			// Whether it carries a schedule is unknown, not no: the scheduler
 			// cannot fire it, and the read says it could not be read.
-			out = append(out, carried{workflow: wf.Name, version: version, err: fmt.Errorf("its stored definition does not parse: %w", err)})
+			out = append(out, carried{workflow: name, version: version, err: fmt.Errorf("its stored definition does not parse: %w", err)})
 			continue
 		}
-		if doc.Spec.On.Schedule == nil || doc.Spec.On.Schedule.Cron == "" {
+		if doc.Metadata.System || doc.Spec.On.Schedule == nil || doc.Spec.On.Schedule.Cron == "" {
 			continue
 		}
-		out = append(out, carried{workflow: wf.Name, version: version, trigger: *doc.Spec.On.Schedule})
+		out = append(out, carried{workflow: name, version: version, trigger: *doc.Spec.On.Schedule})
 	}
 	return out, nil
 }
@@ -218,7 +213,7 @@ type projectSchedule struct {
 }
 
 // Of is the project's schedules at now (AppTown's clock): each schedule
-// its adopted, selected workflows carry, with its next and last firing. A
+// its adopted packs supply, with its next and last firing. A
 // schedule not yet armed is armed at the scheduler's next tick and fires
 // first at its next time after that. Missed firings are never replayed, so
 // a past Next means one firing at the next tick, not a backlog.

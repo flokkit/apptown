@@ -65,7 +65,7 @@ func (h CatalogChanges) CatalogList(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		// What the project can run: its selected lanes plus the system
+		// What the project can run: library and pack workflows plus the system
 		// workflows. Read once, and a failed read fails the list, so a
 		// failure never reads as "this workflow is missing".
 		available, err := h.adoption.AvailableWorkflows(r.Context(), proj.ID)

@@ -26,7 +26,7 @@ func TestAppTownsClockStampsRevisionsAndPolicies(t *testing.T) {
 	}
 	at := time.Now().Add(-90 * 24 * time.Hour).UTC().Truncate(time.Microsecond)
 	s := New(db, Dependencies{Ways: ways, Now: func() time.Time { return at }})
-	if err := s.SelectLane(t.Context(), pid, "picked", true, "alice"); err != nil {
+	if err := recordCatalogFixture(s, t.Context(), pid, "alice"); err != nil {
 		t.Fatal(err)
 	}
 	history, err := s.History(t.Context(), pid, 10)

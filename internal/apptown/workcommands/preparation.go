@@ -130,6 +130,7 @@ func (a *Preparation) Resolve(ctx context.Context, req workflow.StartRequest, so
 		}
 	}
 	def, err := a.describe(ctx, req, workflow.DefinitionRef{Name: rw.Name, Version: rw.Version, Origin: rw.Origin}, &rw.Doc.Spec, ad)
+	def.System = rw.System
 	if err == nil {
 		def.Events = append(def.Events, pinning...)
 	}

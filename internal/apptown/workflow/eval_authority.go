@@ -93,7 +93,8 @@ type evalGate interface {
 }
 
 // EvalRun is a run the evals owner starts on a Change in one of its copies,
-// with the eval's authority: its working lane, or "land".
+// with the eval's authority: its working workflow. Accepted work lands through
+// the accepted landing path.
 type EvalRun struct {
 	ChangeID  ids.ID
 	Workflow  string
@@ -109,11 +110,7 @@ func (s *Service) StartEvalRun(ctx context.Context, in EvalRun) (*Run, error) {
 	if in.EvalID.IsZero() || strings.TrimSpace(in.StartedBy) == "" {
 		return nil, fmt.Errorf("an eval's run names its eval and who started it")
 	}
-	action := actionStartRun
-	if in.Workflow == "land" {
-		action = actionRequestLanding
-	}
-	project, actor, err := s.changeScope(ctx, in.ChangeID, action)
+	project, actor, err := s.changeScope(ctx, in.ChangeID, actionStartRun)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +124,7 @@ func (s *Service) StartEvalRun(ctx context.Context, in EvalRun) (*Run, error) {
 	if err != nil {
 		return nil, err
 	}
-	if change.State.Closed() || (in.Workflow == "land" && change.State != ChangeInProgress) {
+	if change.State.Closed() {
 		return nil, fmt.Errorf("change #%d is %s — it cannot run %s", change.ID, change.State, in.Workflow)
 	}
 	if s.starter == nil {

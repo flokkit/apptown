@@ -3,8 +3,10 @@ package adoption
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -206,7 +208,8 @@ func (s *Service) ResolveBlock(ctx context.Context, source Source, name string) 
 	return version.Body, version.Version, nil
 }
 
-// WorkflowVersion reads only the workflow version explicitly named by a receipt.
+// WorkflowVersion reads a recorded procedure pin, or the current library version
+// for a workflow the receipt does not pin. Availability is checked by Workflow.
 func (s *Service) WorkflowVersion(ctx context.Context, source Source, name string) (int, string, error) {
 	revision, err := source.receipt(fmt.Sprintf("workflow %q", name))
 	if err != nil {
@@ -228,10 +231,17 @@ func (s *Service) WorkflowVersion(ctx context.Context, source Source, name strin
 		}
 		return w.Version, wf.YAML, nil
 	}
-	// Said for the person who asked for the workflow (apptown plan on a pack
-	// with no planning workflow, or a lane not selected), not in the
-	// receipt's terms.
-	return 0, "", fault.New(fault.Unprocessable, fmt.Sprintf("%q is not one of this project's ways of working: Settings › Way of working lists the workflows its packs offer", name))
+	if s.deps.Ways == nil {
+		return 0, "", errCatalogUnavailable
+	}
+	metadata, err := s.deps.Ways.Workflow(ctx, wow.WorkflowRef{Name: name})
+	if err != nil {
+		if !errors.Is(err, wow.ErrNoWorkflow) && !errors.Is(err, sql.ErrNoRows) {
+			return 0, "", err
+		}
+		return 0, "", fault.New(fault.Unprocessable, fmt.Sprintf("workflow %q is not available to this project", name))
+	}
+	return metadata.Version, metadata.YAML, nil
 }
 
 type WorkflowRequest struct {
@@ -245,8 +255,8 @@ type ResolvedWorkflow struct {
 	System                   bool
 }
 
-// Workflow applies the project's live lane selection and installed policies to
-// the procedure version its receipt pinned. Those admission rules stay explicit.
+// Workflow checks catalog and pack availability and current policies before
+// resolving the procedure version.
 func (s *Service) Workflow(ctx context.Context, in WorkflowRequest) (*ResolvedWorkflow, error) {
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
@@ -271,13 +281,13 @@ func (s *Service) Workflow(ctx context.Context, in WorkflowRequest) (*ResolvedWo
 	if err != nil {
 		return nil, fmt.Errorf("workflow %q is invalid: %w", name, err)
 	}
-	if !doc.Metadata.System {
-		selected, err := s.LaneSelected(ctx, in.Source.ProjectID, name)
+	if !doc.Metadata.System && s.deps.Ways.Withdrawn(wow.KindWorkflow, metadata.Origin, name) {
+		names, err := packWorkflowNamesIn(ctx, s.db, in.Source.ProjectID)
 		if err != nil {
 			return nil, err
 		}
-		if !selected {
-			return nil, fault.New(fault.Conflict, fmt.Sprintf("%q is not one of %s's ways of working — add it under Settings › Way of working", name, in.ProjectSlug))
+		if !names[name] {
+			return nil, fault.New(fault.Unprocessable, fmt.Sprintf("workflow %q is not available to this project", name))
 		}
 	}
 	violations, err := s.CheckWorkflow(ctx, s.db, in.Source.ProjectID, name, &doc.Spec)

@@ -95,3 +95,20 @@ func TestAPackDeclaresNoInclusion(t *testing.T) {
 		t.Fatalf("a pack's inclusion was read: %v", err)
 	}
 }
+
+func TestPackSuggestionsAreBoolean(t *testing.T) {
+	t.Parallel()
+	for _, value := range []string{"true", "false", "[true]"} {
+		fsys := fstest.MapFS{"packs.yaml": {Data: []byte("packs:\n  - name: small\n    suggested: " + value + "\n")}}
+		packs, err := ReadStockPacks(fsys)
+		if value == "[true]" {
+			if err == nil {
+				t.Fatal("non-boolean suggestion accepted")
+			}
+			continue
+		}
+		if err != nil || len(packs) != 1 || packs[0].Suggested != (value == "true") {
+			t.Fatalf("suggested %s: %+v %v", value, packs, err)
+		}
+	}
+}

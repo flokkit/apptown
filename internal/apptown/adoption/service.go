@@ -13,7 +13,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
-	"github.com/flokkit/apptown/internal/fault"
 )
 
 // errCatalogUnavailable means an operation needs the catalog, but none was supplied.
@@ -113,7 +112,6 @@ type Service struct {
 	adoptions *adoptionStore
 	library   *libraryStore
 	policies  *policyStore
-	lanes     *laneStore
 	resolver  *resolver
 }
 
@@ -125,7 +123,7 @@ func New(db *database.DB, deps Dependencies) *Service {
 	policies.clock = deps.Now
 	library := newLibrary(db, deps.Ways)
 	library.clock = deps.Now
-	return &Service{db: db, deps: deps, adoptions: adoptions, library: library, policies: policies, lanes: newLanes(db), resolver: newResolver(db, deps.Ways)}
+	return &Service{db: db, deps: deps, adoptions: adoptions, library: library, policies: policies, resolver: newResolver(db, deps.Ways)}
 }
 func (s *Service) CurrentReceipt(ctx context.Context, projectID ids.ID) (*RecordedRevision, error) {
 	return s.adoptions.current(ctx, projectID)
@@ -215,30 +213,6 @@ func (s *Service) RefreshPolicyWording(ctx context.Context) error {
 	return s.policies.refreshAdoptedWording(ctx)
 }
 
-// LaneSelected says whether a project selected a lane. A failed read is an
-// error, never "not selected".
-func (s *Service) LaneSelected(ctx context.Context, projectID ids.ID, name string) (bool, error) {
-	return s.lanes.selected(ctx, projectID, name)
-}
-
-// SelectLane selects or deselects a lane and records the adoption revision
-// it makes, attributed to by, in one transaction: a selection never stands
-// without its history, nor history without its selection, and the revision
-// names who made it. A selection that changes nothing records nothing.
-func (s *Service) SelectLane(ctx context.Context, projectID ids.ID, name string, enabled bool, by string) error {
-	if by == "" {
-		return fault.New(fault.Invalid, "a lane selection must name who made it")
-	}
-	reason := "lane " + name + map[bool]string{true: " selected", false: " deselected"}[enabled]
-	_, err := s.Advance(ctx, projectID, AdoptionEdit, reason, by, func(tx *database.Tx, prior *RecordedRevision, now time.Time) (Receipt, error) {
-		if err := setLaneIn(ctx, tx, projectID, name, enabled, now); err != nil {
-			return Receipt{}, err
-		}
-		return s.UnionIn(ctx, tx, projectID, prior)
-	})
-	return err
-}
-
 func (s *Service) EnabledExtensions(ctx context.Context, projectID ids.ID) ([]string, error) {
 	return enabledExtensionsIn(ctx, s.db, projectID)
 }
@@ -249,23 +223,11 @@ func (s *Service) CheckWorkflow(ctx context.Context, q database.Queryer, project
 	return checkWorkflow(ctx, q, projectID, name, spec, integrationCapabilities{})
 }
 func (s *Service) ProjectConformance(ctx context.Context, q database.Queryer, projectID ids.ID) ([]Violation, error) {
-	return projectConformance(ctx, q, projectID, integrationCapabilities{})
+	return s.projectConformance(ctx, q, projectID, integrationCapabilities{})
 }
 func ImportersBehindIn(ctx context.Context, q database.Queryer, blockID ids.ID, version int) (int, error) {
 	n, e := adoptionsql.New(q.SQL()).ImportersBehind(ctx, adoptionsql.ImportersBehindParams{BlockID: blockID, Version: int64(version)})
 	return int(n), e
-}
-
-func WorkflowSelectionsIn(ctx context.Context, q database.Queryer) (map[string][]string, error) {
-	rows, e := adoptionsql.New(q.SQL()).WorkflowSelections(ctx)
-	if e != nil {
-		return nil, e
-	}
-	out := map[string][]string{}
-	for _, r := range rows {
-		out[r.Name] = append(out[r.Name], r.Slug)
-	}
-	return out, nil
 }
 
 // AdoptIn is the checked service door. The source is observed under the same

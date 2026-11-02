@@ -10,7 +10,7 @@ func mcpToolsFor(a *App) mcpapi.Catalog {
 	return mcpapi.Assemble(
 		mcpapi.NewProjectReads(mcpapi.ProjectReadsDependencies{Scope: scope, Work: a.Work, Adoption: a.Adoption, Ways: a.Ways, Conformance: a.conformance, Deployments: a.Deployment, DB: a.DB, DataDir: a.cfg.dataDir}),
 		mcpapi.NewWorkReads(mcpapi.WorkReadsDependencies{Scope: scope, Work: a.Work, DB: a.DB, Contributions: contributionsFor(a)}),
-		mcpapi.NewLaneCommands(mcpapi.LaneCommandsDependencies{Scope: scope, Work: a.Work, Adoption: a.Adoption, DB: a.DB, Now: a.cfg.clock.Now}),
+		mcpapi.NewLaneCommands(mcpapi.LaneCommandsDependencies{Scope: scope, Work: a.Work, DB: a.DB, Now: a.cfg.clock.Now}),
 		mcpapi.NewWorkCommands(mcpapi.WorkCommandsDependencies{Scope: scope, Work: a.Work, Actions: a.changeActions, DB: a.DB}),
 		mcpapi.NewChecks(mcpapi.ChecksDependencies{Scope: scope, Work: a.Work, Verification: a.verification}),
 		mcpapi.NewPreviews(mcpapi.PreviewsDependencies{Scope: scope, Work: a.Work, Previews: a.Preview, Preview: changePreviewViewsFor(a), DB: a.DB, Now: a.cfg.clock.Now}),

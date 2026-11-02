@@ -20,20 +20,13 @@ import (
 // remove, in one visible act. Nothing propagates as a side effect of
 // running work: a worker-level act must not mutate the rule surface.
 //
-// Two phases so removals are seen before they happen: the plan answers
-// "what would change", the pull does it. Since workflows-as-lanes a
-// project selects lanes and copies nothing, so a pull is a change of
-// selection: nothing of the project's own is ever overwritten.
+// The plan reports availability changes from pack membership. Library workflows
+// remain available independently of packs.
 
 type PullPlan struct {
 	Pack      string   `json:"pack"`
-	Additions []string `json:"additions"` // in the pack, not selected by the project
-	Removals  []string `json:"removals"`  // selected, no longer in the pack, nothing left calls it
-	// KeptReferenced: the pack dropped it, but a surviving workflow still
-	// CALLS it (workflow/call) — removing it would break a landing at the
-	// call site. Kept, loudly.
-	KeptReferenced []string `json:"keptReferenced"`
-	Deprecated     []string `json:"deprecated"` // in the pack but deprecated in the library — not installed
+	Additions []string `json:"additions"` // made available by the new pack
+	Removals  []string `json:"removals"`  // no longer supplied by the adopted packs
 	// Guidance: blocks the pack now carries that the project does not
 	// import — a way of working the pack adopted since the project took it.
 	// Listed for a person to add under Guidance; the project's own imports
@@ -48,7 +41,7 @@ type PullPlan struct {
 // PackPullPlan computes what pulling the pack would do to the project.
 func (s *Service) PackPullPlan(ctx context.Context, projectID ids.ID, pack wow.Pack) (PullPlan, error) {
 	plan := PullPlan{Pack: pack.Name, Additions: []string{}, Removals: []string{},
-		KeptReferenced: []string{}, Deprecated: []string{}, Guidance: []string{}, Conflicting: []string{}}
+		Guidance: []string{}, Conflicting: []string{}}
 	imports, err := importsIn(ctx, s.db, projectID)
 	if err != nil {
 		return plan, err
@@ -82,95 +75,48 @@ func (s *Service) PackPullPlan(ctx context.Context, projectID ids.ID, pack wow.P
 	if err != nil {
 		return plan, err
 	}
-	library := map[string]wow.WorkflowEntry{} // the library's latest, by name
-	system := map[string]bool{}
-	have := map[string]string{} // selected or system: name → the library's latest YAML
-	for _, e := range entries {
-		library[e.Name] = e
-		system[e.Name] = e.Doc.Metadata.System
-		selected := e.Doc.Metadata.System
-		if !selected {
-			if selected, err = s.lanes.selected(ctx, projectID, e.Name); err != nil {
-				return plan, err
-			}
-		}
-		if selected {
-			have[e.Name] = e.YAML
-		}
+	before, err := packWorkflowNamesIn(ctx, s.db, projectID)
+	if err != nil {
+		return plan, err
 	}
-	inPack := map[string]bool{}
-	for _, w := range pack.Workflows {
-		inPack[w] = true
-	}
-	// The project's other packs name lanes too: a pull of one pack never
-	// deselects a lane another of its packs carries.
+	after := map[string]bool{}
 	memberships, err := ProjectPacksIn(ctx, s.db, projectID)
 	if err != nil {
 		return plan, err
 	}
-	otherPacks := map[string]bool{}
 	for _, m := range memberships {
 		if m.Pack == pack.Name {
 			continue
 		}
 		var spec candidatePackSpec
 		if err := json.Unmarshal([]byte(m.SpecJSON), &spec); err != nil {
-			return plan, fmt.Errorf("pack %s v%d: its stored spec cannot be read: %w", m.Pack, m.Version, err)
+			return plan, fmt.Errorf("pack %s: %w", m.Pack, err)
 		}
-		for _, w := range spec.Workflows {
-			otherPacks[w] = true
+		for _, name := range spec.Workflows {
+			after[name] = true
 		}
 	}
-	for _, w := range pack.Workflows {
-		if _, ok := have[w]; ok {
-			continue // already selected: the library keeps it current
-		}
-		if e, ok := library[w]; ok {
-			deprecated := e.Doc.Metadata.Deprecated //lint:ignore SA1019 reading the deprecated flag is the point
-			if deprecated {
-				plan.Deprecated = append(plan.Deprecated, w)
-				continue
-			}
-		}
-		plan.Additions = append(plan.Additions, w)
+	for _, name := range pack.Workflows {
+		after[name] = true
 	}
-	referenced := func(name string) bool {
-		for other, yamlSrc := range have {
-			if other == name || (!inPack[other] && !system[other] && !otherPacks[other]) {
-				continue // itself, or a fellow removal candidate
-			}
-			if strings.Contains(yamlSrc, "workflow: "+name) {
-				return true
-			}
+	for _, entry := range entries {
+		if entry.Doc.Metadata.System || !entry.Withdrawn {
+			before[entry.Name], after[entry.Name] = true, true
 		}
-		for _, w := range pack.Workflows {
-			if _, present := have[w]; !present {
-				// An incoming addition calls it: read as stored, whether or
-				// not the library could parse it into an entry.
-				if obs, err := s.deps.Ways.Workflow(ctx, wow.WorkflowRef{Name: w}); err == nil && strings.Contains(obs.YAML, "workflow: "+name) {
-					return true
-				}
-			}
-		}
-		return false
 	}
-	// A selected lane the pack no longer carries is deselected unless
-	// something that stays still calls it.
-	names := make([]string, 0, len(have))
-	for name := range have {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		if inPack[name] || system[name] || otherPacks[name] {
-			continue // a pack of the project's carries it, or AppTown runs it regardless
+	for name := range after {
+		if !before[name] {
+			plan.Additions = append(plan.Additions, name)
 		}
-		if referenced(name) {
-			plan.KeptReferenced = append(plan.KeptReferenced, name)
-		} else {
+	}
+	for name := range before {
+		if !after[name] {
 			plan.Removals = append(plan.Removals, name)
 		}
 	}
+	sort.Strings(plan.Additions)
+	sort.Strings(plan.Removals)
+
 	return plan, nil
 }
 
@@ -196,18 +142,13 @@ func (s *Service) guidanceConflict(ctx context.Context, name string, pinned map[
 // Pulled is what a pull did.
 type Pulled struct {
 	Plan      PullPlan
-	Installed []string // lanes selected
-	Removed   []string // lanes deselected; every run that used one keeps its receipt
+	Installed []string // workflows newly available
+	Removed   []string // workflows no longer available; every run that used one keeps its receipt
 }
 
-// PullPack is a person's explicit act: selects the pack's added lanes,
-// deselects the removed, moves the project's membership of the pack to its
-// latest version, and writes the
-// edit revision that results. Guidance is not adopted here
-// (ways-of-working-versions.md §1.2, §9 step 1): what the pack carries
-// that the project lacks is in the plan for a person to add. within runs in
-// the same transaction once the membership has moved, for what the new pack
-// set implies in other owners' records.
+// PullPack moves the pack membership and records its adoption revision together.
+// Guidance additions remain explicit edits. within settles other owners' effects
+// in the membership transaction.
 func (s *Service) PullPack(ctx context.Context, projectID ids.ID, pack wow.Pack, who string, within func(*database.Tx) error) (Pulled, error) {
 	plan, err := s.PackPullPlan(ctx, projectID, pack)
 	if err != nil {
@@ -247,21 +188,11 @@ func (s *Service) PullPack(ctx context.Context, projectID ids.ID, pack wow.Pack,
 		out.Installed = append(out.Installed, name)
 	}
 	out.Removed = append(out.Removed, plan.Removals...)
-	// The selections, the pack and the revision they make commit together,
+	// The pack and its revision commit together,
 	// so no pull lands without its revision.
 	if _, err := s.Advance(ctx, projectID, AdoptionEdit, "pack "+pack.Name+" pulled (lanes)", who, func(tx *database.Tx, prior *RecordedRevision, now time.Time) (Receipt, error) {
-		for _, name := range out.Installed {
-			if err := setLaneIn(ctx, tx, projectID, name, true, now); err != nil {
-				return Receipt{}, err
-			}
-		}
-		for _, name := range out.Removed {
-			if err := setLaneIn(ctx, tx, projectID, name, false, now); err != nil {
-				return Receipt{}, err
-			}
-		}
 		// A pull selects this publication explicitly, in the same transaction
-		// as the lanes; the project's other packs stay as they are.
+		// as its receipt; the project's other packs stay as they are.
 		if pack.LatestVersion <= 0 {
 			return Receipt{}, fmt.Errorf("pulled pack %s has no selected publication", pack.Name)
 		}

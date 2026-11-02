@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -12,11 +13,11 @@ import (
 	"github.com/flokkit/apptown/internal/database/query"
 	"github.com/flokkit/apptown/internal/dbtest"
 
-	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/stock"
 )
 
 // Count real database round trips at the same interface generated code uses.
@@ -45,21 +46,17 @@ func (d *countedQueries) QueryRowContext(ctx context.Context, q string, args ...
 func TestLibraryCatalogReadsDoNotGrowWithWorkflowCount(t *testing.T) {
 	t.Parallel()
 	db := databaseSuite.New(t)
-	projects := make([]ids.ID, 0, 2)
 	for _, slug := range []string{"selected", "other"} {
-		id, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
+		if _, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
 			return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: slug, Name: slug})
-		})
-		if err != nil {
+		}); err != nil {
 			t.Fatal(err)
 		}
-		projects = append(projects, id)
 	}
 	declaration := func(name, description string) string {
 		return fmt.Sprintf("apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata: {name: %s, description: %s}\nspec: {kind: pipeline, stages: [{name: work, steps: [{name: work, uses: script, with: {run: 'true'}}]}]}\n", name, description)
 	}
 	library := wow.NewWorkflows(db)
-	selection := adoption.New(db, adoption.Dependencies{Ways: wow.New(db, wow.Dependencies{})})
 	for i := range 12 {
 		name := fmt.Sprintf("wf-%02d", i)
 		for _, description := range []string{"original", "current"} {
@@ -67,20 +64,15 @@ func TestLibraryCatalogReadsDoNotGrowWithWorkflowCount(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		for i, pid := range projects {
-			if err := selection.SelectLane(t.Context(), pid, name, i == 0, "alice"); err != nil {
-				t.Fatal(err)
-			}
-		}
 	}
 	counted := &countedQueries{Handle: db.SQL()}
 	catalog, err := loadLibraryCatalog(context.Background(), counted)
-	if err != nil || counted.reads != 3 || len(catalog.workflows) != 12 || len(catalog.projects) != 2 {
+	if err != nil || counted.reads != 1 || len(catalog.workflows) != 12 {
 		t.Fatalf("catalog: %d reads, %d workflows: %v", counted.reads, len(catalog.workflows), err)
 	}
 	for _, wf := range catalog.workflows {
-		if wf.Yaml != declaration(wf.Name, "current") || strings.Join(catalog.selected[wf.Name], ",") != "selected" {
-			t.Fatalf("catalog mixed versions or disabled lanes: %+v", wf)
+		if wf.Yaml != declaration(wf.Name, "current") {
+			t.Fatalf("catalog mixed workflow versions: %+v", wf)
 		}
 	}
 	for _, version := range []int{0, 1, 2} {
@@ -96,5 +88,23 @@ func TestLibraryCatalogReadsDoNotGrowWithWorkflowCount(t *testing.T) {
 	}
 	if _, _, err := wow.WorkflowVersionIn(t.Context(), db, "wf-00", 99); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("missing historical version silently fell back: %v", err)
+	}
+}
+
+func TestWorkflowLibraryDoesNotClaimEveryProjectUsesEveryWorkflow(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t)
+	_, err := database.Transact(t.Context(), db, func(tx *database.Tx) (ids.ID, error) {
+		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "unused", Name: "Unused"})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ways := wow.New(db, wow.Dependencies{Stock: stock.FS})
+	ways.SyncStockWorkflows(t.Context())
+	w := httptest.NewRecorder()
+	NewWorkflowCatalog(db, ways).LibraryList(w, httptest.NewRequest("GET", "/api/v1/workflows/library", nil))
+	if w.Code != 200 || strings.Contains(w.Body.String(), `"usedBy"`) {
+		t.Fatalf("library still has usedBy or failed: status %d", w.Code)
 	}
 }

@@ -57,9 +57,12 @@ type Pack struct {
 	Description string `yaml:"description" json:"description"`
 	// Platform: AppTown's own tier (design/subsystems/ways-of-working-versions.md
 	// §1.1) — every repo-backed project is on it; never offered as a choice.
+	// Suggested preselects an offered pack for new projects; people can untick it.
+	Suggested bool         `yaml:"suggested" json:"suggested,omitempty"`
 	Platform  bool         `yaml:"platform" json:"platform,omitempty"`
 	Guidance  []string     `yaml:"guidance" json:"guidance"`
 	Workflows []string     `yaml:"workflows" json:"workflows"`
+	Schedules []string     `yaml:"schedules" json:"schedules,omitempty"`
 	Policies  []PackPolicy `yaml:"policies" json:"policies"`
 	// Toolchain names a stock/toolchains/<name>.toml written as the
 	// project's mise.toml at pack apply — a pack whose guidance says "the
@@ -96,9 +99,11 @@ type Pack struct {
 // its own items only; packs are combined by a project taking several
 // (Combine), never by one pack including another.
 type PackSpec struct {
+	Suggested  bool                 `json:"suggested,omitempty"`
 	Platform   bool                 `json:"platform,omitempty"`
 	Guidance   []string             `json:"guidance"`
 	Workflows  []string             `json:"workflows"`
+	Schedules  []string             `json:"schedules,omitempty"`
 	Policies   []PackPolicy         `json:"policies"`
 	Toolchain  string               `json:"toolchain,omitempty"`
 	Tools      map[string]string    `json:"tools,omitempty"`
@@ -109,8 +114,8 @@ type PackSpec struct {
 
 // Spec is what the store keeps of the pack.
 func (p Pack) Spec() PackSpec {
-	return PackSpec{Platform: p.Platform,
-		Guidance: p.Guidance, Workflows: p.Workflows, Policies: p.Policies,
+	return PackSpec{Platform: p.Platform, Suggested: p.Suggested,
+		Guidance: p.Guidance, Workflows: p.Workflows, Schedules: p.Schedules, Policies: p.Policies,
 		Toolchain: p.Toolchain, Tools: p.Tools, Services: p.Services, Extensions: p.Extensions, Requires: p.Requires}
 }
 
@@ -128,6 +133,8 @@ func packFrom(p packRow, spec string) (Pack, error) {
 		return pk, fmt.Errorf("pack %s: its stored spec cannot be read: %w", p.Name, err)
 	}
 	pk.Guidance, pk.Workflows, pk.Policies, pk.Toolchain, pk.Services, pk.Extensions, pk.Platform = ps.Guidance, ps.Workflows, ps.Policies, ps.Toolchain, ps.Services, ps.Extensions, ps.Platform
+	pk.Suggested = ps.Suggested
+	pk.Schedules = ps.Schedules
 	pk.Tools = ps.Tools
 	pk.Requires = ps.Requires
 	return pk, nil

@@ -100,7 +100,7 @@ exit 0
 	var run *workflow.Run
 	if onChange {
 		defineWorkflows(t, a, prepared)
-		a.lifecycle.SelectLane(ctx, projectID, "work", true, "fixture")
+		recordCatalogFixture(a.Adoption, ctx, projectID, "fixture")
 		ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "folder runs"})
 		if err != nil {
 			t.Fatal(err)

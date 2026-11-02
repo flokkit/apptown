@@ -350,7 +350,7 @@ func TestRemediationResolutionPinsAcceptanceAndFullFeedback(t *testing.T) {
 	}
 	a.SyncStock(t.Context())
 	adopt(t, a, item.ProjectID, "hygiene", 1, checksJSON(shCheck("clean", "true", "high")))
-	if err := a.lifecycle.SelectLane(t.Context(), item.ProjectID, "quick-change", true, "fixture"); err != nil {
+	if err := recordCatalogFixture(a.Adoption, t.Context(), item.ProjectID, "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	recordFixtureAdoptions(t, a)
@@ -457,7 +457,7 @@ func TestARemediationItemOnAStandingOnlyCheckIsSkipped(t *testing.T) {
 	a, _, item, _ := remediationAttemptFixture(t, false)
 	a.SyncStock(t.Context())
 	adopt(t, a, item.ProjectID, "memory", 1, checksJSON(`{"appliesTo": ["repository"], "name":"memory-within","evaluator":"runtime","probe":"memory-within","severity":"high","expects":"the deployment runs within its memory"}`))
-	if err := a.lifecycle.SelectLane(t.Context(), item.ProjectID, "quick-change", true, "fixture"); err != nil {
+	if err := recordCatalogFixture(a.Adoption, t.Context(), item.ProjectID, "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	recordFixtureAdoptions(t, a)

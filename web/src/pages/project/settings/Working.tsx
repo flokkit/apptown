@@ -334,7 +334,7 @@ export function GuidanceTab({ slug }: { slug: string }) {
       </div>
       {conflict && (
         <div className="card tone-warn" style={{ marginTop: 8 }}>
-          <div>The project's way of working changed after you started (another edit, a pack pulled or a workflow selected). Your list is kept here, unsaved.</div>
+          <div>The project's way of working changed after you started (another edit, a pack pulled or packs changed). Your list is kept here, unsaved.</div>
           {guidance && <div className="muted small" style={{ marginTop: 4 }}>The list is now: {guidance.imports.map((im) => im.name).join(', ') || '(empty)'}.</div>}
           <div className="row" style={{ marginTop: 8 }}>
             <button onClick={keepMine}>Keep my list over it</button>
@@ -406,7 +406,7 @@ export function PoliciesCard({ slug }: { slug: string }) {
 }
 
 // Way of working › Workflows (design/decisions/workflows-as-lanes.md): the project
-// SELECTS lanes from the library — a checklist, nothing copied. Core is the
+// can run library workflows without selecting them. Core is the
 // short list, Extras the longer tail; System is what the apptown runs for
 // every project, shown so nobody wonders where landing lives.
 export type Lane = LaneView
@@ -414,16 +414,6 @@ export type Lane = LaneView
 export function WorkflowsTab({ slug }: { slug: string }) {
   const q = useGet<ProjectLanes>(`/projects/${slug}/lanes`)
   const data = q.data
-  const [busy, setBusy] = useState('')
-  // Selecting a workflow is a /projects write, so the project's reads on
-  // screen (the adoption line, the guidance) refresh with it.
-  const { run, err } = useAction()
-
-  const toggle = async (l: Lane) => {
-    setBusy(l.name)
-    await run(() => put(`/projects/${slug}/lanes`, { name: l.name, enabled: !l.selected }))
-    setBusy('')
-  }
   if (!data) return <ReadStatus q={q} what="the workflows" className="small" />
   const { lanes, system } = data
 
@@ -433,9 +423,7 @@ export function WorkflowsTab({ slug }: { slug: string }) {
   ]
   const row = (l: Lane, selectable: boolean) => (
     <label key={l.name} className="card" style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 8, cursor: selectable ? 'pointer' : 'default', opacity: l.deprecated ? 0.6 : 1 }}>
-      {selectable
-        ? <input type="checkbox" checked={l.selected} disabled={busy === l.name} onChange={() => toggle(l)} style={{ marginTop: 4 }} />
-        : <span className="badge" style={{ marginTop: 2 }}>{PRODUCT} runs it</span>}
+      {!selectable && <span className="badge" style={{ marginTop: 2 }}>{PRODUCT} runs it</span>}
       <span style={{ flex: 1, minWidth: 0 }}>
         <span className="row" style={{ gap: 8 }}>
           <strong>{l.name}</strong>
@@ -444,7 +432,7 @@ export function WorkflowsTab({ slug }: { slug: string }) {
           {l.summary && <span className="badge" title={l.summary.pacing === 'paced by people'
             ? 'stops at gates and waits for a person' : 'advances by itself when checks pass'}>{l.summary.pacing}</span>}
           {l.deprecated && <span className="badge">deprecated</span>}
-          {l.withdrawn && <span className="badge" title={`${PRODUCT} no longer ships this workflow; this project keeps it until it unselects it`}>No longer shipped</span>}
+          {l.withdrawn && <span className="badge" title={`${PRODUCT} no longer ships this workflow; an adopted pack provides it`}>No longer shipped</span>}
           <span className="muted small">{l.runsCount > 0 ? `used ${l.runsCount}× here` : 'never used here'}</span>
         </span>
         <span className="muted small" style={{ display: 'block', marginTop: 4 }}>{l.description}</span>
@@ -456,8 +444,8 @@ export function WorkflowsTab({ slug }: { slug: string }) {
     <div>
       <StaleNote q={q} />
       <details className="small"><summary>About adoption</summary><p className="muted small" style={{ maxWidth: 640, marginTop: 0 }}>
-        Select the workflows this project uses. Every run takes the version recorded in the project's adoption record above and
-        records which one ran. To change how a workflow works, clone it in <Link to="/workflows">Ways of working</Link> and tick the clone here.
+        Every core and extra library workflow is available to this project. A run uses the version pinned by the project's adoption record, or the library's latest version when the record has no pin.
+        Every run records which version ran. To change how a workflow works, clone it in <Link to="/workflows">Ways of working</Link> and run the clone.
       </p></details>
       {TIERS.map(([k, label, gloss]) => (
         <div key={k}>
@@ -468,7 +456,6 @@ export function WorkflowsTab({ slug }: { slug: string }) {
       ))}
       <h3 style={{ margin: '10px 0 6px' }}>System <span className="muted small" style={{ fontWeight: 400 }}>— {PRODUCT} runs these for every project</span></h3>
       {system.map((l) => row(l, false))}
-      {err && <div className="error">{err}</div>}
       <h2>Rules</h2>
       <PoliciesCard slug={slug} />
     </div>

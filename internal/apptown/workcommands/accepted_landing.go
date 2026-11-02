@@ -33,7 +33,7 @@ func (a AcceptedLandings) CanLand(ctx context.Context, projectID ids.ID) (bool, 
 	if projectErr != nil {
 		return false, fmt.Errorf("project %d is unavailable", projectID)
 	}
-	_, err := a.Lanes.SelectedWorkflow(ctx, &record, "land")
+	_, err := a.Lanes.ResolveWorkflow(ctx, &record, "land")
 	return err == nil, nil
 }
 
@@ -52,7 +52,7 @@ func (l LandingSentences) LandingMeans(ctx context.Context, projectID ids.ID) ([
 	if err != nil {
 		return nil, err
 	}
-	landing, err := l.Lanes.SelectedWorkflow(ctx, &record, "land")
+	landing, err := l.Lanes.ResolveWorkflow(ctx, &record, "land")
 	if err != nil {
 		return nil, err
 	}

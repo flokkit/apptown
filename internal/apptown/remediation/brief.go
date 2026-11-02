@@ -127,7 +127,7 @@ func ChangeTitle(sc conformance.DeclaredCheck) string {
 // worked as one.
 func WorkflowFor(ctx context.Context, resolver WorkflowResolver, p *project.Project) string {
 	for _, lane := range []string{"quick-change", "implement"} {
-		if _, err := resolver.SelectedWorkflow(ctx, p, lane); err == nil {
+		if _, err := resolver.ResolveWorkflow(ctx, p, lane); err == nil {
 			return lane
 		}
 	}
@@ -135,5 +135,5 @@ func WorkflowFor(ctx context.Context, resolver WorkflowResolver, p *project.Proj
 }
 
 type WorkflowResolver interface {
-	SelectedWorkflow(ctx context.Context, p *project.Project, requested string) (*adoption.ResolvedWorkflow, error)
+	ResolveWorkflow(ctx context.Context, p *project.Project, requested string) (*adoption.ResolvedWorkflow, error)
 }

@@ -50,7 +50,7 @@ func testsWorld(t *testing.T, with map[string]any) (*App, *project.Project, *wor
 	}
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "check", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working",
 		Stages: []schema.Stage{{Name: "gates", Steps: []schema.Step{{Name: "tests", Uses: "tests", With: with}}}}}})
-	if err := a.lifecycle.SelectLane(t.Context(), p.ID, "check", true, "check"); err != nil {
+	if err := recordCatalogFixture(a.Adoption, t.Context(), p.ID, "check"); err != nil {
 		t.Fatal(err)
 	}
 	ch := engineChange(t, a, p)

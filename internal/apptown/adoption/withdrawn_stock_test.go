@@ -48,18 +48,8 @@ spec:
       steps: [{name: check, uses: script, with: {run: "true"}}]
 `
 
-// An upgrade to a release that no longer ships a stock workflow, guidance
-// block and policy: none of them is offered any more, a custom block is,
-// and a project that adopted the block and selected the workflow keeps
-// both — the block still rendered with its checks and read as no longer
-// shipped, the workflow still in the revisions adoption builds and in the
-// project's selected workflows, labelled — while a project that had not
-// selected the workflow is not offered it. (Fresh installs are the same
-// minus the history; the upgrade is the case that needs the rule.)
-//
-// Kills: offering every stored stock entry (the library lists, a project's
-// lanes, the platform blocks a project is given); filtering adoption's own enumeration (the revision would drop the
-// selected workflow); dropping or not labelling the adopted block.
+// Withdrawn guidance retains its adopted contents and label. Withdrawn workflows
+// have no project selection to preserve and are not offered without a pack.
 func TestAnUpgradeStopsOfferingWithdrawnStockAndKeepsWhatProjectsUse(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
@@ -69,7 +59,7 @@ func TestAnUpgradeStopsOfferingWithdrawnStockAndKeepsWhatProjectsUse(t *testing.
 		"guidance/deploy/retired-platform.md": "---\nname: deploy/retired-platform\ntier: platform\n---\nAn old rule for every app.\n",
 		"policies.yaml":                       "  - name: retired-policy\n    description: an old rule\n    rule: requireStepBefore\n    with: { uses: deploy, requires: scan }\n",
 	})
-	before := wow.New(db, wow.Dependencies{Stock: old})
+	before := wow.New(db, wow.Dependencies{Stock: old, ToolLines: stock.Versions()})
 	before.SyncStock(t.Context())
 	s := New(db, Dependencies{Ways: before})
 	user, other := adoptionTestProject(t, db, "user", "User"), adoptionTestProject(t, db, "other", "Other")
@@ -81,7 +71,7 @@ func TestAnUpgradeStopsOfferingWithdrawnStockAndKeepsWhatProjectsUse(t *testing.
 	if _, err := s.ReplaceGuidance(t.Context(), user, new(int64), pins, "adopt", "alice"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SelectLane(t.Context(), user, "retired-lane", true, "alice"); err != nil {
+	if err := recordCatalogFixture(s, t.Context(), user, "alice"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := before.CreateBlock(t.Context(), "house/own-rule", "ours", "house", "alice"); err != nil {
@@ -150,8 +140,8 @@ func TestAnUpgradeStopsOfferingWithdrawnStockAndKeepsWhatProjectsUse(t *testing.
 	for _, w := range revised.Receipt.Workflows {
 		inRevision = inRevision || w.Name == "retired-lane"
 	}
-	if !inRevision {
-		t.Fatalf("the selected withdrawn workflow left the project's revision: %+v", revised.Receipt.Workflows)
+	if inRevision {
+		t.Fatalf("withdrawn workflow remained in the project's next revision: %+v", revised.Receipt.Workflows)
 	}
 	selected, err := s.AvailableWorkflows(t.Context(), user)
 	if err != nil {
@@ -161,8 +151,8 @@ func TestAnUpgradeStopsOfferingWithdrawnStockAndKeepsWhatProjectsUse(t *testing.
 	for _, w := range selected {
 		labelled = labelled || (w.Name == "retired-lane" && w.Withdrawn)
 	}
-	if !labelled {
-		t.Fatalf("the project's selected workflows lost or did not label the withdrawn one: %+v", selected)
+	if labelled {
+		t.Fatalf("withdrawn workflow remained available without a pack: %+v", selected)
 	}
 	elsewhere, err := s.AvailableWorkflows(t.Context(), other)
 	if err != nil {
@@ -170,7 +160,7 @@ func TestAnUpgradeStopsOfferingWithdrawnStockAndKeepsWhatProjectsUse(t *testing.
 	}
 	for _, w := range elsewhere {
 		if w.Name == "retired-lane" {
-			t.Fatal("a project that never selected the withdrawn workflow is given it")
+			t.Fatal("a project without its pack is given a withdrawn workflow")
 		}
 	}
 	library, err := after.Workflows(t.Context())
@@ -197,7 +187,7 @@ func TestAnUpgradeTurnsOffAStockPackItNoLongerShips(t *testing.T) {
 	old := releaseStock(t, map[string]string{
 		"packs.yaml": "  - name: retired-pack\n    description: an old pack\n    guidance: [repo/no-build-artifacts]\n    workflows: [land]\n",
 	})
-	before := wow.New(db, wow.Dependencies{Stock: old})
+	before := wow.New(db, wow.Dependencies{Stock: old, ToolLines: stock.Versions()})
 	before.SyncStock(t.Context())
 	pid := adoptionTestProject(t, db, "p", "P")
 	retired, err := before.Pack(t.Context(), "retired-pack")
@@ -231,4 +221,44 @@ func TestAnUpgradeTurnsOffAStockPackItNoLongerShips(t *testing.T) {
 	if err != nil || len(current) != 1 || current[0].Pack != "retired-pack" {
 		t.Fatalf("the project left the withdrawn pack: %+v %v", current, err)
 	}
+}
+
+func TestPolicyReportsIgnoreWithdrawnWorkflowsUnlessAPackSuppliesThem(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	old := releaseStock(t, map[string]string{"retired-lane.yaml": retiredLane, "packs.yaml": "  - name: retired-pack\n    description: Retired\n    workflows: [retired-lane]\n"})
+	before := wow.New(db, wow.Dependencies{Stock: old, ToolLines: stock.Versions()})
+	before.SyncStock(t.Context())
+	pid := adoptionTestProject(t, db, "report", "Report")
+	if err := newPolicies(db).install(t.Context(), pid, "approval", "", "requireStepBefore", map[string]any{"uses": "script", "requires": "scan"}, "", "alice"); err != nil {
+		t.Fatal(err)
+	}
+	after := wow.New(db, wow.Dependencies{Stock: stock.FS, ToolLines: stock.Versions()})
+	after.SyncStock(t.Context())
+	s := New(db, Dependencies{Ways: after})
+	check := func(want bool) {
+		t.Helper()
+		vs, err := s.ProjectConformance(t.Context(), db, pid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, v := range vs {
+			found = found || v.Workflow == "retired-lane"
+		}
+		if found != want {
+			t.Fatalf("withdrawn workflow in policy report = %t, want %t", found, want)
+		}
+	}
+	check(false)
+	pack, err := after.Pack(t.Context(), "retired-pack")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.InTx(t.Context(), func(tx *database.Tx) error {
+		return SetMembershipIn(t.Context(), tx, pid, []Membership{{Pack: pack.Name, Version: pack.Version}}, "test", "alice", time.Now())
+	}); err != nil {
+		t.Fatal(err)
+	}
+	check(true)
 }

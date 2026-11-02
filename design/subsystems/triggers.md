@@ -5,7 +5,8 @@ trigger entity with its own editable lifecycle.
 
 ## Schedules
 
-The daemon checks selected, pinned project workflows every 30 seconds. It reads
+The daemon checks workflows named by each project's adopted pack versions every
+30 seconds. Availability alone does not supply a schedule. It reads
 persisted last-fire state, evaluates cron eligibility and applies `skipIfActive`
 when requested. It does not backfill every missed execution after downtime.
 A firing uses the shared Change/run admission command and records attribution.

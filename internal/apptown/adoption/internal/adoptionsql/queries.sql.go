@@ -318,18 +318,6 @@ func (q *Queries) DeleteProjectExtensions(ctx context.Context, projectID ids.ID)
 	return result.RowsAffected()
 }
 
-const deleteProjectLanes = `-- name: DeleteProjectLanes :execrows
-DELETE FROM project_lanes WHERE project_id=$1
-`
-
-func (q *Queries) DeleteProjectLanes(ctx context.Context, projectID ids.ID) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteProjectLanes, projectID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
 const deleteProjectPacks = `-- name: DeleteProjectPacks :execrows
 DELETE FROM project_packs WHERE project_id=$1
 `
@@ -348,23 +336,6 @@ DELETE FROM policies WHERE id=$1
 
 func (q *Queries) DeleteProjectPolicy(ctx context.Context, id ids.ID) (int64, error) {
 	result, err := q.db.ExecContext(ctx, deleteProjectPolicy, id)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
-const deselectProjectLanes = `-- name: DeselectProjectLanes :execrows
-UPDATE project_lanes SET enabled=false,updated_at=$1 WHERE project_id=$2
-`
-
-type DeselectProjectLanesParams struct {
-	UpdatedAt time.Time
-	ProjectID ids.ID
-}
-
-func (q *Queries) DeselectProjectLanes(ctx context.Context, arg DeselectProjectLanesParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deselectProjectLanes, arg.UpdatedAt, arg.ProjectID)
 	if err != nil {
 		return 0, err
 	}
@@ -672,6 +643,47 @@ func (q *Queries) InsertProjectPack(ctx context.Context, arg InsertProjectPackPa
 	return i, err
 }
 
+const libraryWorkflows = `-- name: LibraryWorkflows :many
+SELECT l.id, l.name, l.description, l.latest_version, l.origin, l.updated_at,COALESCE(v.yaml,'')::text AS yaml
+FROM lib_workflows l LEFT JOIN lib_workflow_versions v ON v.lib_id=l.id AND v.version=l.latest_version ORDER BY l.name
+`
+
+type LibraryWorkflowsRow struct {
+	LibWorkflow LibWorkflow
+	Yaml        string
+}
+
+func (q *Queries) LibraryWorkflows(ctx context.Context) ([]LibraryWorkflowsRow, error) {
+	rows, err := q.db.QueryContext(ctx, libraryWorkflows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LibraryWorkflowsRow
+	for rows.Next() {
+		var i LibraryWorkflowsRow
+		if err := rows.Scan(
+			&i.LibWorkflow.ID,
+			&i.LibWorkflow.Name,
+			&i.LibWorkflow.Description,
+			&i.LibWorkflow.LatestVersion,
+			&i.LibWorkflow.Origin,
+			&i.LibWorkflow.UpdatedAt,
+			&i.Yaml,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const liveChecksForProjects = `-- name: LiveChecksForProjects :many
 SELECT gi.project_id,b.name,gi.version,COALESCE(v.checks_json,'[]'::jsonb)::text AS checks,(v.id IS NULL)::boolean AS missing_definition
 FROM guidance_imports gi JOIN guidance_blocks b ON b.id=gi.block_id
@@ -871,27 +883,6 @@ func (q *Queries) ProjectIdentity(ctx context.Context, id ids.ID) (Project, erro
 		&i.Purpose,
 		&i.ServingLabel,
 		&i.BlurbSource,
-	)
-	return i, err
-}
-
-const projectLane = `-- name: ProjectLane :one
-SELECT project_id, name, enabled, updated_at FROM project_lanes WHERE project_id=$1 AND name=$2
-`
-
-type ProjectLaneParams struct {
-	ProjectID ids.ID
-	Name      string
-}
-
-func (q *Queries) ProjectLane(ctx context.Context, arg ProjectLaneParams) (ProjectLane, error) {
-	row := q.db.QueryRowContext(ctx, projectLane, arg.ProjectID, arg.Name)
-	var i ProjectLane
-	err := row.Scan(
-		&i.ProjectID,
-		&i.Name,
-		&i.Enabled,
-		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -1180,35 +1171,6 @@ func (q *Queries) SetCurrentDrift(ctx context.Context, arg SetCurrentDriftParams
 	return i, err
 }
 
-const setProjectLane = `-- name: SetProjectLane :one
-INSERT INTO project_lanes(project_id,name,enabled,updated_at) VALUES($1,$2,$3,$4)
-ON CONFLICT(project_id,name) DO UPDATE SET enabled=excluded.enabled,updated_at=excluded.updated_at RETURNING project_id, name, enabled, updated_at
-`
-
-type SetProjectLaneParams struct {
-	ProjectID ids.ID
-	Name      string
-	Enabled   bool
-	At        time.Time
-}
-
-func (q *Queries) SetProjectLane(ctx context.Context, arg SetProjectLaneParams) (ProjectLane, error) {
-	row := q.db.QueryRowContext(ctx, setProjectLane,
-		arg.ProjectID,
-		arg.Name,
-		arg.Enabled,
-		arg.At,
-	)
-	var i ProjectLane
-	err := row.Scan(
-		&i.ProjectID,
-		&i.Name,
-		&i.Enabled,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const targetOwned = `-- name: TargetOwned :one
 SELECT EXISTS(SELECT 1 FROM project_adoptions WHERE id=$1 AND project_id=$2
 AND change_id IS NOT DISTINCT FROM $3 AND kind=$4 AND digest=$5)
@@ -1233,80 +1195,4 @@ func (q *Queries) TargetOwned(ctx context.Context, arg TargetOwnedParams) (bool,
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
-}
-
-const workflowSelections = `-- name: WorkflowSelections :many
-SELECT pl.name,p.slug FROM project_lanes pl JOIN projects p ON p.id=pl.project_id WHERE pl.enabled ORDER BY pl.name,p.slug
-`
-
-type WorkflowSelectionsRow struct {
-	Name string
-	Slug string
-}
-
-func (q *Queries) WorkflowSelections(ctx context.Context) ([]WorkflowSelectionsRow, error) {
-	rows, err := q.db.QueryContext(ctx, workflowSelections)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []WorkflowSelectionsRow
-	for rows.Next() {
-		var i WorkflowSelectionsRow
-		if err := rows.Scan(&i.Name, &i.Slug); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const workflowsForProject = `-- name: WorkflowsForProject :many
-SELECT l.id, l.name, l.description, l.latest_version, l.origin, l.updated_at,COALESCE(v.yaml,'')::text AS yaml,
- COALESCE((SELECT enabled FROM project_lanes WHERE project_id=$1 AND name=l.name),false)::boolean AS selected
-FROM lib_workflows l LEFT JOIN lib_workflow_versions v ON v.lib_id=l.id AND v.version=l.latest_version ORDER BY l.name
-`
-
-type WorkflowsForProjectRow struct {
-	LibWorkflow LibWorkflow
-	Yaml        string
-	Selected    bool
-}
-
-func (q *Queries) WorkflowsForProject(ctx context.Context, projectID ids.ID) ([]WorkflowsForProjectRow, error) {
-	rows, err := q.db.QueryContext(ctx, workflowsForProject, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []WorkflowsForProjectRow
-	for rows.Next() {
-		var i WorkflowsForProjectRow
-		if err := rows.Scan(
-			&i.LibWorkflow.ID,
-			&i.LibWorkflow.Name,
-			&i.LibWorkflow.Description,
-			&i.LibWorkflow.LatestVersion,
-			&i.LibWorkflow.Origin,
-			&i.LibWorkflow.UpdatedAt,
-			&i.Yaml,
-			&i.Selected,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }

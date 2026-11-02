@@ -38,7 +38,7 @@ type WhatIfRequest struct {
 	// it (one project's checklist may overshoot it).
 	Rubrics          bool  `json:"rubrics,omitempty"`
 	SpendLimitMicros int64 `json:"spendLimitMicros,omitempty"`
-	// AdvanceWorkflows asks the candidate to move each project's selected
+	// AdvanceWorkflows asks the candidate to move each project's available
 	// workflows that no pack of the version pins to the library's newest
 	// version (adoption.Request). Adopting from the what-if asks the same.
 	AdvanceWorkflows bool `json:"advanceWorkflows,omitempty"`

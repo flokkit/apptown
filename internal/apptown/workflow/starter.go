@@ -129,6 +129,9 @@ func (s *starter) definition(ctx context.Context, req StartRequest, source Start
 	if err != nil {
 		return PreparedRun{}, err
 	}
+	if def.System && !req.allowsSystemWorkflow() {
+		return PreparedRun{}, fault.New(fault.Unprocessable, fmt.Sprintf("workflow %q is run by AppTown; choose another workflow", def.Workflow.Name))
+	}
 	if len(def.Spec.Stages) == 0 || def.Spec.Stages[0].Name == "" {
 		return PreparedRun{}, fmt.Errorf("workflow %q has no initial stage", req.WorkflowName)
 	}

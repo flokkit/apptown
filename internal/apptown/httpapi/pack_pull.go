@@ -56,8 +56,8 @@ func (h PackPull) PackPullPlan(w http.ResponseWriter, r *http.Request) {
 }
 
 // PackPull: POST /projects/{slug}/pack/pull {pack?} — a person's
-// explicit act: selects the pack's added lanes, deselects the removed,
-// records the pack, and writes the adoption revision that results. It no
+// explicit act: updates the pack membership,
+// and writes the adoption revision that results. It no
 // longer adopts guidance (design/subsystems/ways-of-working-versions.md §1.2, §9 step
 // 1): blocks the pack now carries are listed for a person to add under
 // Guidance, and a contradicting one is refused there too. Amend-gated.
@@ -87,12 +87,11 @@ func (h PackPull) PackPull(w http.ResponseWriter, r *http.Request) {
 		}
 		plan := pulled.Plan
 		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, actor(r), p.ID, "pack.pulled", pack.Name, map[string]any{
-			"installed": pulled.Installed, "removed": pulled.Removed, "guidanceNotAdopted": plan.Guidance, "conflicting": plan.Conflicting,
-			"keptReferenced": plan.KeptReferenced, "deprecatedSkipped": plan.Deprecated})
+			"installed": pulled.Installed, "removed": pulled.Removed, "guidanceNotAdopted": plan.Guidance, "conflicting": plan.Conflicting})
 		// Guidance is not adopted here: what the pack carries that the project
 		// does not is reported, and a person adds it under Guidance.
 		WriteJSON(w, 200, PackPulled{Pack: pack.Name, Installed: pulled.Installed,
-			Removed: pulled.Removed, GuidanceToAdd: plan.Guidance, Conflicting: plan.Conflicting, KeptReferenced: plan.KeptReferenced, Deprecated: plan.Deprecated})
+			Removed: pulled.Removed, GuidanceToAdd: plan.Guidance, Conflicting: plan.Conflicting})
 	})
 }
 
@@ -115,11 +114,9 @@ func (h PackPull) resolveProjectPack(ctx context.Context, p *project.Project, re
 
 // PackPulled is what pulling a pack changed and what it left for a person.
 type PackPulled struct {
-	Pack           string   `json:"pack"`
-	Installed      []string `json:"installed"`
-	Removed        []string `json:"removed"`
-	GuidanceToAdd  []string `json:"guidanceToAdd"`
-	Conflicting    []string `json:"conflicting"`
-	KeptReferenced []string `json:"keptReferenced"`
-	Deprecated     []string `json:"deprecated"`
+	Pack          string   `json:"pack"`
+	Installed     []string `json:"installed"`
+	Removed       []string `json:"removed"`
+	GuidanceToAdd []string `json:"guidanceToAdd"`
+	Conflicting   []string `json:"conflicting"`
 }

@@ -9,7 +9,7 @@ import (
 // Withdrawn stock: a stored entry that came from stock and that the
 // running release no longer ships. It is no longer offered — the guidance,
 // workflow and policy libraries leave it out — but it is never deleted: a
-// project's adopted guidance points at its versions, a selected workflow is
+// project's adopted guidance points at its versions, a pack-provided workflow is
 // resolved from the library, and runs keep what they ran. Where a project
 // uses one, its reads say so. People cannot edit a stock entry (they clone
 // it), so a stock entry is always the release's own; custom entries are

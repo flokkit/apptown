@@ -14,9 +14,6 @@ SELECT * FROM projects ORDER BY namespace, name;
 -- name: ProjectByIDForUpdate :one
 SELECT * FROM projects WHERE id = $1 FOR UPDATE;
 
--- name: ProjectSlugs :many
-SELECT slug FROM projects ORDER BY slug;
-
 -- Project writes.
 -- name: InsertProject :one
 INSERT INTO projects (id, slug, name, namespace, blurb, blurb_source, icon, owner_group, default_approvers, created_at, purpose, serving_label)

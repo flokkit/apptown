@@ -1243,7 +1243,7 @@ func TestAWhatIfRecordsTheRulesItMovesBack(t *testing.T) {
 	if _, _, err := a.Ways.PublishWorkflow(t.Context(), v1, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Adoption.SelectLane(t.Context(), alpha, "review", true, "fixture"); err != nil {
+	if err := recordCatalogFixture(a.Adoption, t.Context(), alpha, "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := a.Ways.PublishWorkflow(t.Context(), strings.Replace(v1, "the direction is right", "the direction is right, v2", 1), "fixture"); err != nil {

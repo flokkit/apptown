@@ -90,9 +90,9 @@ a gate to pass before leaving each stage. Stored as YAML in the library
 (Ways of working › Workflows), in three tiers: **Core** (the short list
 most projects use), **Extras** (for particular situations), **System**
 (AppTown runs these itself — landing, shipping, wiring integrations in
-and out — nobody picks them). A project *selects* the lanes it uses under
-Settings › Way of working; nothing is copied, and every run records which
-library version ran.
+and out — nobody picks them). Every project can run every core and extra library workflow, plus workflows
+its adopted packs bring. Packs are its way-of-working choice. Nothing is
+copied, and every run records which library version ran.
 
 **Lane** — a workflow a person picks as a way of working on a change
 (quick-change, implement, fix-bug, dependency-uplift, …), as opposed to a

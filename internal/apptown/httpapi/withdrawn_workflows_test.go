@@ -13,13 +13,8 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// A stock workflow the running release no longer ships is not offered: the
-// workflow library leaves it out, and so does the lane list of a project
-// that never selected it. A project that selected it still sees it, marked.
-//
-// Kills: either list offering every stored stock workflow; a selected
-// withdrawn lane vanishing from its project or shown unmarked.
-func TestOnlyAProjectThatSelectedAWithdrawnWorkflowSeesIt(t *testing.T) {
+// Withdrawn stock is absent from library and project offers without an adopted pack.
+func TestWithdrawnWorkflowIsNotOfferedWithoutAPack(t *testing.T) {
 	t.Parallel()
 	f := newPackPullFixture(t)
 	f.ways.SyncStock(t.Context())
@@ -28,7 +23,7 @@ func TestOnlyAProjectThatSelectedAWithdrawnWorkflowSeesIt(t *testing.T) {
 	if err := wow.NewWorkflows(f.db).StockInsert(t.Context(), "retired-lane", "an old lane", retired); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.adoption.SelectLane(f.ctx, f.projectID, "retired-lane", true, "bls"); err != nil {
+	if err := recordCatalogFixture(f.adoption, f.ctx, f.projectID, "bls"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.Transact(t.Context(), f.db, func(tx *database.Tx) (ids.ID, error) {
@@ -48,7 +43,7 @@ func TestOnlyAProjectThatSelectedAWithdrawnWorkflowSeesIt(t *testing.T) {
 		r := httptest.NewRequest("GET", "/api/v1/projects/"+slug+"/lanes", nil).WithContext(f.ctx)
 		r.SetPathValue("slug", slug)
 		w := httptest.NewRecorder()
-		NewProjectWorkflows(f.projects, f.adoption, f.ways, nil, f.db).ProjectLanes(w, r)
+		NewProjectWorkflows(f.projects, f.adoption, nil, f.db).ProjectLanes(w, r)
 		var out ProjectLanes
 		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &out) != nil {
 			t.Fatalf("lanes of %s: %d %s", slug, w.Code, w.Body.String())
@@ -59,12 +54,12 @@ func TestOnlyAProjectThatSelectedAWithdrawnWorkflowSeesIt(t *testing.T) {
 		}
 		return byName
 	}
-	if l, ok := lanes("p")["retired-lane"]; !ok || !l.Selected || !l.Withdrawn {
-		t.Fatalf("the project that selected it: %+v %v", l, ok)
+	if l, ok := lanes("p")["retired-lane"]; ok {
+		t.Fatalf("withdrawn workflow was offered: %+v %v", l, ok)
 	}
 	q := lanes("q")
 	if _, ok := q["retired-lane"]; ok {
-		t.Fatal("a project that never selected the withdrawn workflow is offered it")
+		t.Fatal("a project without its pack is offered a withdrawn workflow")
 	}
 	if l, ok := q["quick-change"]; !ok || l.Withdrawn {
 		t.Fatalf("a shipped lane is not offered as it was: %+v %v", l, ok)

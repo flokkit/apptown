@@ -390,7 +390,7 @@ func TestTheMergeRequestStepSaysWhoOpenedTheChange(t *testing.T) {
 				{Name: "done", Steps: []schema.Step{{Name: "record", Uses: "approval", With: map[string]any{"means": "recorded"}}}},
 			}}
 			defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: spec})
-			a.lifecycle.SelectLane(t.Context(), projectID, "land", true, "fixture")
+			recordCatalogFixture(a.Adoption, t.Context(), projectID, "fixture")
 			ctx := asPerson("opener@corp.example")
 			ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "Export CSV", Body: "/merge\n@all please"})
 			if err != nil {

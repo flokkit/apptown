@@ -278,8 +278,8 @@ its own blocks, any condition (a contradiction, drift, a pack it names
 but is not on), and the revision history. *Project → Settings → Way of
 working → Guidance.*
 
-**B12 Edit guidance and lanes.** An owner adds, orders, disables or
-removes blocks and ticks lanes; each save is a new revision. *Same.*
+**B12 Edit guidance.** An owner adds, orders, disables or
+removes blocks; each save is a new revision. *Same.*
 
 **B13 Adopt an update.** When a pack has a newer version, the owner
 prepares it and sees what would change — blocks brought, moved, dropped;

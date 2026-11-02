@@ -312,7 +312,7 @@ type workflowCatalog struct {
 	Workflows []WorkflowListing
 }
 
-// ReadWorkflowCatalogIn reads current workflow declarations and project selections in two bulk reads.
+// ReadWorkflowCatalogIn reads current workflow declarations in one bulk read.
 func ReadWorkflowCatalogIn(ctx context.Context, db database.Queryer) (workflowCatalog, error) {
 	q := wowsql.New(db.SQL())
 	var out workflowCatalog

@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/apptown/adoption/internal/adoptionsql"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/dbschema"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -125,18 +124,6 @@ func extensionsOf(t *testing.T, db *database.DB, pid ids.ID) []string {
 		t.Fatal(err)
 	}
 	return e
-}
-
-// laneRow is the project's selection row for a workflow: whether one exists
-// at all (a deselected lane keeps its row), and whether it is enabled.
-func laneRow(t *testing.T, db *database.DB, pid ids.ID, name string) (found, enabled bool) {
-	t.Helper()
-	r, err := adoptionsql.New(db.SQL()).ProjectLane(context.Background(), adoptionsql.ProjectLaneParams{ProjectID: pid, Name: name})
-	found, err = database.Lookup(err)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return found, found && r.Enabled
 }
 
 // ledger is every receipt whose kind starts with prefix, read through the

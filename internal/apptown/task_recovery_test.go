@@ -91,7 +91,7 @@ func scriptTaskFixtureIn(t *testing.T, a *App, with map[string]any, more ...sche
 		{Name: "build", Steps: append([]schema.Step{{Name: "make", Uses: "script", With: with}}, more...)},
 	}}
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "work", Version: 1}, Spec: spec})
-	a.lifecycle.SelectLane(t.Context(), projectID, "work", true, "fixture")
+	recordCatalogFixture(a.Adoption, t.Context(), projectID, "fixture")
 	ctx := a.asAppTown(context.Background(), projectID, "fixture")
 	ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "fake tasks"})
 	if err != nil {

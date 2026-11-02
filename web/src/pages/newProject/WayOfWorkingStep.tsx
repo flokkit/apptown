@@ -6,7 +6,7 @@ import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { PackInspect } from '../Packs'
 import type { DependencyList, PackInterviewPick, PackInterviewQuestions, PackView } from '../../wire.gen'
-import { servicesFor, type Draft, type DraftAct } from './draft'
+import { suggestedPacks, servicesFor, type Draft, type DraftAct } from './draft'
 
 // Step 2 — Way of working: "pick for me" leads (a description, then perhaps
 // a question or two); the card wall only appears if someone asks to choose
@@ -29,7 +29,8 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
 
   const { name, packs: chosen, packWhy, choosing, questions, answers } = d
   // The packs ticked on the card wall, before they are taken.
-  const [ticked, setTicked] = useState<string[]>(chosen ?? [])
+  const [ticks, setTicked] = useState<string[] | null>(chosen)
+  const ticked = ticks ?? suggestedPacks(packs)
   // The chosen packs' proposal follows the packs and catalog as they arrive,
   // until someone edits the services (the reducer ignores it after that).
   const proposed = useMemo(() => (chosen ? servicesFor(chosen, packs, catalog) : []), [chosen, packs, catalog])
@@ -40,7 +41,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
   // (the interview can pick a pack before the pack list has answered).
   const readsKnown = (!!packsQ.data || !!packsQ.err) && (!!catQ.data || !!catQ.err)
   const pick = (names: string[], why = '', icon?: string, revision?: number) => act({ type: 'packs', packs: names, why, icon, revision, services: servicesFor(names, packs, catalog) })
-  const tick = (name: string) => setTicked((now) => now.includes(name) ? now.filter((n) => n !== name) : [...now, name])
+  const tick = (name: string) => setTicked(ticked.includes(name) ? ticked.filter(n => n !== name) : [...ticked, name])
   // An interview that cannot decide answers why and decides nothing: the
   // reason is shown and the person chooses from the ways of working.
   const interview = (withAnswers: boolean) => run(async () => {
@@ -55,7 +56,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
       act({ type: 'choosing', on: true, revision })
       throw e
     }
-    if (r.decided) { const p = r as PackInterviewPick; pick(p.packs ?? [], p.why ?? '', p.icon ?? '', revision) }
+    if (r.decided) { const p = r as PackInterviewPick; pick(suggestedPacks(packs, p.packs ?? []), p.why ?? '', p.icon ?? '', revision) }
     else act({ type: 'asked', questions: (r as PackInterviewQuestions).questions ?? [], revision })
   })
   const selected = packs.filter((p) => chosen?.includes(p.name))
@@ -64,6 +65,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
   return (
     <div className="card" style={{ padding: 'var(--space-5)' }}>
       <div className="mb-2"><strong>{choosing ? 'Choose a way of working' : 'Way of working'}</strong></div>
+      {!choosing && <ReadStatus q={packsQ} what="the ways of working" />}
       {chosen === null && !choosing && questions.length === 0 && (
         <>
           <div className="muted small mb-3">
@@ -73,7 +75,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
             placeholder={`e.g. "a game where you catch falling eggs and try to beat your high score"`}
             style={{ width: '100%', boxSizing: 'border-box', fontSize: 'var(--fs-base)' }} />
           <div className="row mt-3">
-            <button className="primary" disabled={pickBusy || !d.description.trim()}
+            <button className="primary" disabled={pickBusy || !packsQ.data || !d.description.trim()}
               style={{ fontSize: 'var(--fs-base)', padding: '10px 26px' }}
               onClick={() => interview(false)}>{pickBusy ? 'Thinking…' : 'Next →'}</button>
             <button className="subtle" onClick={() => act({ type: 'choosing', on: true })}>Choose a way of working myself →</button>
@@ -99,7 +101,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
             </div>
           ))}
           <div className="row mt-3">
-            <button className="primary" disabled={pickBusy || questions.some((q) => !answers[q])}
+            <button className="primary" disabled={pickBusy || !packsQ.data || questions.some((q) => !answers[q])}
               style={{ fontSize: 'var(--fs-base)', padding: '10px 26px' }}
               onClick={() => interview(true)}>{pickBusy ? 'Thinking…' : 'Done →'}</button>
             <button className="subtle" onClick={() => act({ type: 'unask' })}>← change my description</button>
@@ -117,7 +119,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
           ))}
           {packWhy && <div className="small mt-2">{packWhy}</div>}
           <div className="muted small mt-2">
-            <button className="subtle" onClick={() => act({ type: 'repick' })}>pick differently</button>
+            <button className="subtle" onClick={() => { setTicked(chosen); act({ type: 'repick' }) }}>pick differently</button>
           </div>
 
           {selected.some((p) => p.staticStarter) ? (
@@ -196,7 +198,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
               onClick={() => pick([])}
               onKeyDown={(e) => { if (e.key === 'Enter') pick([]) }}>
               <strong>none (bare)</strong>
-              <div className="muted small mt-2">Start without rules, checks or workflows.</div>
+              <div className="muted small mt-2">Start without optional packs.</div>
             </div>
           </div>
           <div className="row mt-3">

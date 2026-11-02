@@ -3,13 +3,23 @@
 A pack is a way of working: workflows, guidance, policies and checks that
 projects adopt. They are under **Ways of working → Packs**.
 
-Workflows come in three tiers. **Core** is the short list most projects
-use. **Extras** are for particular situations. **System** workflows are
-the ones AppTown runs itself, such as landing. Packs, workflows, guidance
-and policies marked **AppTown** come with AppTown. A new AppTown release
-adds new versions of them. A project moves to a new version only when it
-adopts the update under **Settings → Way of working**, where it also
-chooses its workflows.
+A project chooses its way of working through packs. Every core and extra
+library workflow is available, along with workflows its adopted packs bring.
+**Core** is the short list most projects use; **extra** workflows serve
+particular situations. **System** workflows are run by AppTown, such as
+landing, shipping and wiring integrations. People and agents cannot pick them.
+
+Scheduled workflows run only when an adopted pack version lists them under
+`schedules`. A workflow being available, or having `on.schedule`, does not start
+recurring work by itself. The `dependency-updates` pack declares
+`schedules: [dependency-uplift]`; technology packs declare no schedules.
+See the [pack format](ways-of-working-formats.md) for validation rules.
+
+Packs, workflows, guidance and policies marked **AppTown** come with AppTown.
+A release adds new versions. A project adopts updates under
+**Settings → Way of working**. A run uses its adoption record's workflow version
+when that record pins one; otherwise it uses the library's latest version.
+Every run records the version it used.
 
 - **Stop offering** a pack and new projects cannot pick it; projects on it
   keep it. Stock packs cannot be deleted. To change a stock pack, **Include

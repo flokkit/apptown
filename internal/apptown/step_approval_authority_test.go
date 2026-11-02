@@ -198,7 +198,7 @@ spec:
 		t.Fatal(err)
 	}
 	projectID := p.ID
-	if err := a.Adoption.SelectLane(t.Context(), projectID, "janitor-work", true, "boss"); err != nil {
+	if err := recordCatalogFixture(a.Adoption, t.Context(), projectID, "boss"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.Adoption.RecordCurrent(t.Context(), projectID, adoption.AdoptionEdit, "explicit standing declaration fixture", "boss"); err != nil {
@@ -312,7 +312,7 @@ spec:
 	if _, _, err := a.Ways.PublishWorkflow(t.Context(), strings.Replace(strings.Replace(workingYAML, "role: working", "role: record", 1), "name: janitor-work", "name: janitor-record", 1), "boss"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Adoption.SelectLane(t.Context(), projectID, "janitor-record", true, "boss"); err != nil {
+	if err := recordCatalogFixture(a.Adoption, t.Context(), projectID, "boss"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.Adoption.RecordCurrent(t.Context(), projectID, adoption.AdoptionEdit, "record workflow is not working acceptance", "boss"); err != nil {
@@ -323,16 +323,6 @@ spec:
 		t.Fatalf("record purpose admitted as working acceptance: %d %s", wrongRole.Code, wrongRole.Body)
 	}
 
-	if err := a.Adoption.SelectLane(t.Context(), projectID, "janitor-work", false, "boss"); err != nil {
-		t.Fatal(err)
-	}
-	withdrawn := authzCall(h, "boss", "POST", "/api/v1/standing-approvals/preview", definition)
-	if withdrawn.Code != http.StatusUnprocessableEntity || !strings.Contains(withdrawn.Body.String(), "ways of working") {
-		t.Fatalf("withdrawn selection was not a known refusal: %d %s", withdrawn.Code, withdrawn.Body)
-	}
-	if err := a.Adoption.SelectLane(t.Context(), projectID, "janitor-work", true, "boss"); err != nil {
-		t.Fatal(err)
-	}
 	if err := a.Adoption.InstallPolicy(t.Context(), projectID, "standing-needs-check", "Check before acceptance", "requireStepBefore", map[string]any{"uses": "approval", "requires": "checks"}, "fixture", "boss"); err != nil {
 		t.Fatal(err)
 	}
@@ -471,7 +461,7 @@ func TestRoutineUpliftCombinesActualAdoptionAndCommittedNPMSource(t *testing.T) 
 	write(repo, "package-lock.json", beforeLock)
 	git(repo, "add", ".")
 	git(repo, "commit", "-m", "initial source")
-	if err = a.Adoption.SelectLane(ctx, p.ID, "routine-work", true, "boss"); err != nil {
+	if err = recordCatalogFixture(a.Adoption, ctx, p.ID, "boss"); err != nil {
 		t.Fatal(err)
 	}
 	current, err := a.Adoption.RecordCurrent(ctx, p.ID, adoption.AdoptionEdit, "standing procedure fixture", "boss")

@@ -52,7 +52,8 @@ INSERT INTO slot_fallbacks(slot,fallback) VALUES
 					before[profile][task] = got
 				}
 			}
-			if n, err := dbschema.Migrate(t.Context(), db); err != nil || n != 1 {
+			// Every migration after 198 runs; later ones must tolerate the current schema they replay onto.
+			if n, err := dbschema.Migrate(t.Context(), db); err != nil || n != dbschema.Latest()-198 {
 				t.Fatalf("upgrade: %d %v", n, err)
 			}
 			if err := s.SeedFallbacks(t.Context()); err != nil {

@@ -30,7 +30,7 @@ func (guidanceMoved) FaultCode() string     { return "settings-moved" }
 // resulting adoption revision in one transaction. expected is the adoption
 // revision the edit started from: every change to the way of working
 // advances it, so an edit of a list that has moved on (another edit, a pack
-// pulled, a lane selected) is refused before anything is written.
+// pulled, packs changed) is refused before anything is written.
 func (s *Service) ReplaceGuidance(ctx context.Context, projectID ids.ID, expected *int64, pins []wow.ResolvedPin, reason, by string) (*RecordedRevision, error) {
 	if expected == nil {
 		return nil, errGuidanceRevisionRequired
@@ -98,7 +98,7 @@ func (s *Service) GuidanceSnapshot(ctx context.Context, projectID ids.ID) (guida
 // AdvanceToLatest moves a project to the newest version of everything it
 // already adopts, as one revision: each guidance import keeps its place and
 // disabled choice and is pinned to its block's latest version, and each
-// selected workflow resolves to the library's latest. Pack memberships,
+// available workflow resolves to the library's latest. Pack memberships,
 // lanes, policies and extensions are unchanged. An adoption already at the
 // latest records nothing new (Advance keeps an unchanged receipt).
 func (s *Service) AdvanceToLatest(ctx context.Context, projectID ids.ID, reason, by string) (*RecordedRevision, error) {

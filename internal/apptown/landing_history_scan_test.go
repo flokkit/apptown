@@ -128,7 +128,7 @@ exit 0
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "review", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{
 		{Name: "gates", Steps: []schema.Step{{Name: "secrets", Uses: "scan", With: map[string]any{"scanner": "secrets"}}}},
 	}}})
-	if err := a.lifecycle.SelectLane(t.Context(), p.ID, "review", true, "review"); err != nil {
+	if err := recordCatalogFixture(a.Adoption, t.Context(), p.ID, "review"); err != nil {
 		t.Fatal(err)
 	}
 	ch := engineChange(t, a, p)
@@ -196,7 +196,7 @@ func TestAScanRunsOnTheWorkerWhenOneIsConfigured(t *testing.T) {
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "review", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{
 		{Name: "gates", Steps: []schema.Step{{Name: "secrets", Uses: "scan", With: map[string]any{"scanner": "secrets"}}}},
 	}}})
-	if err := a.lifecycle.SelectLane(t.Context(), p.ID, "review", true, "review"); err != nil {
+	if err := recordCatalogFixture(a.Adoption, t.Context(), p.ID, "review"); err != nil {
 		t.Fatal(err)
 	}
 	ch := engineChange(t, a, p)

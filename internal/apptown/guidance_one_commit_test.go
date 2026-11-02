@@ -30,7 +30,7 @@ func step1ReviewGuidance(t *testing.T, repository bool, checks string) (*App, *w
 		}
 	}
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "review", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "gates", Steps: []schema.Step{{Name: "guidance", Uses: "guidance/conformance"}}}}}})
-	if err := a.lifecycle.SelectLane(t.Context(), p.ID, "review", true, "review"); err != nil {
+	if err := recordCatalogFixture(a.Adoption, t.Context(), p.ID, "review"); err != nil {
 		t.Fatal(err)
 	}
 	adopt(t, a, pid, "step1-review", 1, checks)

@@ -48,7 +48,7 @@ function ProjectSelection({ choice, value, full, update }: { choice: ProjectChoi
       <StaleNote q={lanes} />
       <label>Working workflow <select value={value.workflow} onChange={e => update({ ...value, workflow: e.target.value })}>
         <option value="">Select a workflow</option>
-        {lanes.data.lanes.filter(l => l.selected && !l.withdrawn).map(l => <option key={l.name} value={l.name}>{l.name} v{l.version}</option>)}
+        {lanes.data.lanes.filter(l => !l.withdrawn).map(l => <option key={l.name} value={l.name}>{l.name} v{l.version}</option>)}
       </select></label>
       <p className="muted small">Preview checks the current approval rules.</p>
     </>}

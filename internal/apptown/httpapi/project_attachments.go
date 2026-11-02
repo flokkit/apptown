@@ -454,9 +454,45 @@ those env vars are absent (local dev). Verify both modes.`, title, cap)
 		// One command admits, links and records the wiring; a failed link leaves
 		// nothing behind, and a live wiring answers 409 naming its Change.
 		ch, run, err := h.actions.OpenWiring(r.Context(), changeactions.Wiring{
-			Mode: mode, Capability: cap, Workflow: wireWorkflow, Who: actor(r),
+			Mode: mode, Capability: cap, Who: actor(r),
 			Draft: workflow.ChangeDraft{ProjectID: p.ID, Type: "feature", Title: "Connect " + title, Body: body},
 		})
+		if err != nil {
+			WriteFaultOr(w, err, 422)
+			return
+		}
+		WriteJSON(w, 200, IntegrationWiring{Change: *ch, Run: run, URL: changeactions.URL(h.publicHost, ch.ID)})
+	})
+}
+
+// RetireIntegration: POST /api/v1/projects/{slug}/integrations/{capability}/retire
+// Opens the code-removal Change. Detaching remains a separate operation.
+func (h ProjectAttachments) RetireIntegration(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	resource, err := h.projects.AuthorityResource(r.Context(), p.ID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	if _, ok := AuthorizeRequest(h.access, w, r, access.CapProjectIntegrations, resource, access.Context{}); !ok {
+		return
+	}
+	cap := r.PathValue("capability")
+	attached, err := h.integrations.Attachments.IsAttached(r.Context(), p.ID, cap)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	if !attached {
+		WriteError(w, 404, "%s is not attached to this project", cap)
+		return
+	}
+	jsonCommand(w, r, jsonBody{optional: true, strict: true}, func(in struct{}) {
+		body := fmt.Sprintf("Retire the %q integration: remove all of its wiring from this product. The service is being retired org-side; after this lands its env vars will stop being injected.", cap)
+		ch, run, err := h.actions.OpenRetirement(r.Context(), workflow.ChangeDraft{ProjectID: p.ID, Type: "feature", Title: "retire " + cap, Body: body}, cap, actor(r))
 		if err != nil {
 			WriteFaultOr(w, err, 422)
 			return
@@ -524,5 +560,3 @@ func (h ProjectAttachments) connectorNames(ctx context.Context, capability strin
 	}
 	return names, nil
 }
-
-const wireWorkflow = "adopt-integration"

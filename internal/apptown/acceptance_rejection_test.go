@@ -33,7 +33,7 @@ func TestAnEligiblePersonCanRejectAPartlyGivenAcceptance(t *testing.T) {
 			{Name: "approve", Steps: []schema.Step{{Name: "approve", Uses: "approval", With: map[string]any{"means": "merge the accepted work"}}}},
 			{Name: "done", Steps: []schema.Step{{Name: "hold", Uses: "approval"}}},
 		}}})
-	if err := a.lifecycle.SelectLane(t.Context(), pid, "land", true, "review"); err != nil {
+	if err := recordCatalogFixture(a.Adoption, t.Context(), pid, "review"); err != nil {
 		t.Fatal(err)
 	}
 	rebuildWork(t, a, func(d *workflow.Dependencies) { d.LandingMeans = acceptedLandingMeans{} })

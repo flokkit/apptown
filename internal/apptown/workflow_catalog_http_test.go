@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-
-	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
-func TestWorkflowLibraryHTTPSelectionHistoryAndValidation(t *testing.T) {
+func TestWorkflowLibraryHTTPAvailabilityHistoryAndValidation(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
 	h := a.Handler()
@@ -80,29 +78,10 @@ spec:
 		}
 	}
 	publish(source, 1)
-	if w := authzCall(h, "outsider", "PUT", "/api/v1/projects/game/lanes", `{"name":"custom-review","enabled":true}`); w.Code != 403 {
-		t.Fatalf("foreign selection: %d", w.Code)
-	}
-	if w := authzCall(h, "owner", "PUT", "/api/v1/projects/game/lanes", `{"name":"missing","enabled":true}`); w.Code != 404 {
-		t.Fatalf("missing selection: %d", w.Code)
-	}
-	if w := authzCall(h, "owner", "PUT", "/api/v1/projects/game/lanes", `{"name":"custom-review","enabled":true}`); w.Code != 200 {
-		t.Fatalf("select: %d %s", w.Code, w.Body.String())
-	}
-	// A deprecated workflow is not turned on anew, and the refusal names its
-	// replacement from the description (as change-request names quick-change).
-	retired := strings.Replace(strings.Replace(source, "name: custom-review, description: A review lane", "name: old-review, deprecated: true, description: Merged into custom-review — nothing new should use it", 1), "I reviewed the work", "I reviewed it", 1)
-	if w := authzCall(h, "boss", "POST", "/api/v1/workflows/library", body(retired)); w.Code != 200 {
-		t.Fatalf("publish deprecated: %d %s", w.Code, w.Body.String())
-	}
-	if w := authzCall(h, "owner", "PUT", "/api/v1/projects/game/lanes", `{"name":"old-review","enabled":true}`); w.Code != 422 || !strings.Contains(w.Body.String(), "deprecated") || !strings.Contains(w.Body.String(), "Merged into custom-review") {
-		t.Fatalf("deprecated selection: %d %s", w.Code, w.Body.String())
-	}
-	if laneOn(t, a.Adoption, idstest.N(1), "old-review") {
-		t.Fatal("a refused deprecated workflow was selected")
-	}
-	if w := authzCall(h, "owner", "PUT", "/api/v1/projects/game/lanes", `{"name":"old-review","enabled":false}`); w.Code != 200 {
-		t.Fatalf("turning a deprecated workflow off stays allowed: %d %s", w.Code, w.Body.String())
+	for _, who := range []string{"owner", "outsider"} {
+		if w := authzCall(h, who, "PUT", "/api/v1/projects/game/lanes", `{"name":"custom-review","enabled":true}`); w.Code != 404 {
+			t.Fatalf("removed selection API: %d %s", w.Code, w.Body.String())
+		}
 	}
 	check := func(version int, stage string) {
 		t.Helper()
@@ -111,7 +90,6 @@ spec:
 			Name          string
 			LatestVersion int
 			Stages        []string
-			UsedBy        []struct{ Project, Origin string }
 		}
 		if err := json.Unmarshal(w.Body.Bytes(), &library); err != nil || w.Code != 200 {
 			t.Fatalf("library: %d %s %v", w.Code, w.Body.String(), err)
@@ -120,8 +98,8 @@ spec:
 		for _, wf := range library {
 			if wf.Name == "custom-review" {
 				found = true
-				if wf.LatestVersion != version || len(wf.Stages) != 1 || wf.Stages[0] != stage || len(wf.UsedBy) != 1 || wf.UsedBy[0].Project != "game" {
-					t.Fatalf("selected library projection: %+v", wf)
+				if wf.LatestVersion != version || len(wf.Stages) != 1 || wf.Stages[0] != stage {
+					t.Fatalf("available library projection: %+v", wf)
 				}
 			}
 		}
@@ -159,12 +137,6 @@ spec:
 	}
 	if w := authzCall(h, "outsider", "DELETE", "/api/v1/workflows/library/custom-review", ""); w.Code != 403 {
 		t.Fatalf("foreign delete: %d", w.Code)
-	}
-	if w := authzCall(h, "owner", "PUT", "/api/v1/projects/game/lanes", `{"name":"custom-review","enabled":false}`); w.Code != 200 {
-		t.Fatalf("disable: %d %s", w.Code, w.Body.String())
-	}
-	if laneOn(t, a.Adoption, idstest.N(1), "custom-review") {
-		t.Fatal("disabled lane remained selected")
 	}
 	if w := authzCall(h, "boss", "DELETE", "/api/v1/workflows/library/custom-review", ""); w.Code != 200 {
 		t.Fatalf("delete: %d %s", w.Code, w.Body.String())

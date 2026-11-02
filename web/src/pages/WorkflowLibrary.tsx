@@ -2,7 +2,6 @@ import { Tabs } from '../Tabs'
 import { PhoneDetails } from '../GlanceRow'
 import { PRODUCT } from '../brand'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { LibraryWorkflow, del, post, put } from '../api'
 import { OriginChip } from '../OriginChip'
 import { firstErr, useAction, useGet } from '../data'
@@ -135,16 +134,6 @@ spec:
           <PhoneDetails>
           <div className="row muted small">
             <span className="workflow-description">{l.description.split(/(?<=[.!?])\s/)[0]}</span>
-            {tier !== 'system' && (
-              l.usedBy.length > 0
-                ? <details style={{ display: 'inline-block', margin: 0 }}>
-                    <summary className="muted small" style={{ display: 'inline-flex', padding: '0 6px', border: 'none', background: 'none' }}>used by {l.usedBy.length} project{l.usedBy.length === 1 ? '' : 's'}</summary>
-                    <span className="small" style={{ marginLeft: 6 }}>{l.usedBy.map((u, i) => (
-                      <span key={i}>{i > 0 && ', '}<Link to={`/projects/${u.project}/settings/working`}>{u.project}</Link></span>
-                    ))}</span>
-                  </details>
-                : <span>not used by any project</span>
-            )}
           </div>
           <details><summary className="muted small">Details</summary><p>{l.description}</p><p>{l.kind} · {l.stages.join(' → ')}</p><pre className="log">{l.yaml}</pre></details>
           </PhoneDetails>

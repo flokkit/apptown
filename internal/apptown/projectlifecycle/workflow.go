@@ -8,10 +8,8 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// SelectedWorkflow resolves the version of a workflow the project's adoption
-// revision pins, gated by the project's selection unless the workflow is a
-// system one.
-func (s *Service) SelectedWorkflow(ctx context.Context, p *project.Project, requested string) (*adoption.ResolvedWorkflow, error) {
+// ResolveWorkflow resolves an available workflow and checks current project policies.
+func (s *Service) ResolveWorkflow(ctx context.Context, p *project.Project, requested string) (*adoption.ResolvedWorkflow, error) {
 	revision, err := adoption.CurrentReceiptIn(ctx, s.db, p.ID)
 	if _, err := database.Lookup(err); err != nil {
 		return nil, err

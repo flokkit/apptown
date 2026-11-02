@@ -31,11 +31,11 @@ func (s StandingProcedures) StandingProcedure(ctx context.Context, q database.Qu
 	if err != nil {
 		return out, err
 	}
-	working, err := s.Lanes.SelectedWorkflow(ctx, &p, name)
+	working, err := s.Lanes.ResolveWorkflow(ctx, &p, name)
 	if err != nil {
 		return out, err
 	}
-	landing, err := s.Lanes.SelectedWorkflow(ctx, &p, "land")
+	landing, err := s.Lanes.ResolveWorkflow(ctx, &p, "land")
 	if err != nil {
 		return out, err
 	}

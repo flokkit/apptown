@@ -51,7 +51,7 @@ func newNoHostWorld(t *testing.T, command string, scriptMinutes int) noHostWorld
 				"timeoutMinutes": scriptMinutes, "env": map[string]any{"FAKE_OUTPUT": "ran", "FAKE_EXIT": "0", "FAKE_BLOCK": "1"}}},
 			{Name: "tests", Uses: "tests", With: map[string]any{"command": command}},
 		}}}}})
-	if err := a.lifecycle.SelectLane(t.Context(), pid, "proof", true, "proof"); err != nil {
+	if err := recordCatalogFixture(a.Adoption, t.Context(), pid, "proof"); err != nil {
 		t.Fatal(err)
 	}
 	ch := engineChange(t, a, p)

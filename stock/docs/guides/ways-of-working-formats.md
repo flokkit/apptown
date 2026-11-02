@@ -18,6 +18,9 @@ in a check, `gates` for `gate` in a stage, `autoAdopt` on a pack.
 
 ## Workflows
 
+See [packs, versions and workflow availability](packs-and-what-if.md) for which
+workflows a project can run.
+
 The schema is served at `GET /api/v1/workflows/schema` for editors and agents;
 `POST /api/v1/workflows/validate` checks a draft without saving it and says
 what is wrong, including the rules a schema cannot express (unique stage and
@@ -79,6 +82,21 @@ block, workflow and policy a pack names must be in the library when you save
 it, so its version can pin it; one that is not is refused by name. (A
 language pack lists system workflows such as `land` without pinning them:
 the platform pack pins those.)
+
+`suggested` is a boolean. When true, an offered pack starts ticked in the New
+project picker and is added to interview suggestions. People can untick it. An
+omitted or false value adds no suggestion.
+
+`workflows` makes workflows available. `schedules` separately names the workflows
+that run on a schedule, for example `schedules: [dependency-uplift]`. Each name
+must be a workflow the pack makes available or a library workflow, and its
+definition must have `on.schedule`. Unknown names and workflows without a
+schedule are refused when you save the pack.
+
+A project runs scheduled workflows only when one of its adopted pack versions
+lists them under `schedules`. Making a workflow available does not schedule it.
+An omitted or empty `schedules` list schedules nothing. A new pack publication
+does not change the schedules of a project still on an older version.
 
 Each saved version records exactly what it contains: each block and workflow at
 a version, and each policy's definition as it was when the version was

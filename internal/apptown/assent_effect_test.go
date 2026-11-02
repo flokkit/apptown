@@ -184,8 +184,19 @@ spec:
 func TestARunAdmittedBeforeTheRuleDoesNotLandOnRecovery(t *testing.T) {
 	t.Parallel()
 	a, _, ch, before := shipFixture(t)
+	// This models an old run via a caller-pickable copy with the same effects;
+	// system workflows cannot be picked through StartRun.
+	_, yaml, err := a.Ways.WorkflowVersion(t.Context(), "ship", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	yaml = strings.Replace(yaml, "name: ship", "name: old-ship", 1)
+	yaml = strings.Replace(yaml, "  system: true\n", "", 1)
+	if _, _, err := a.Ways.PublishWorkflow(t.Context(), yaml, "fixture"); err != nil {
+		t.Fatal(err)
+	}
 	a.Work.Stop()
-	run, err := a.Work.StartRun(asLander(t, a), workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "ship"})
+	run, err := a.Work.StartRun(asLander(t, a), workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "old-ship"})
 	if run == nil || err == nil || !strings.Contains(err.Error(), "dispatch") {
 		t.Fatalf("setup: %+v %v", run, err)
 	}
@@ -284,7 +295,7 @@ func TestALandingWithoutARepositoryStillWaitsForItsChecks(t *testing.T) {
 		{Name: "ready", Steps: []schema.Step{{Name: "check", Uses: "script", With: map[string]any{"script": "true"}}}},
 		{Name: "landed", Steps: []schema.Step{{Name: "record", Uses: "script", With: map[string]any{"script": "true"}}}},
 	}}})
-	a.lifecycle.SelectLane(t.Context(), p.ID, "land", true, "fixture")
+	recordCatalogFixture(a.Adoption, t.Context(), p.ID, "fixture")
 	ch := engineChange(t, a, p)
 	a.Work.Stop()
 	run, err := a.Work.StartRun(asLander(t, a), workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "land"})

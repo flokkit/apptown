@@ -71,6 +71,27 @@ func (s *Service) RequestLanding(ctx context.Context, changeID ids.ID) (*Run, er
 	return s.startChangeRun(ctx, StartChangeRun{ChangeID: changeID, Workflow: "land"}, actionRequestLanding)
 }
 
+// RestartLanding starts the same workflow as an abandoned root landing. The
+// workflow name comes from the stored run, never from a caller's choice.
+// The caller validates current rules before abandoning the previous run.
+func (s *Service) RestartLanding(ctx context.Context, runID ids.ID) (*Run, error) {
+	if _, _, err := s.runScope(ctx, runID, actionRequestLanding); err != nil {
+		return nil, err
+	}
+	run, err := readRun(ctx, s.db, runID)
+	if err != nil {
+		return nil, err
+	}
+	spec, err := run.Definition()
+	if err != nil {
+		return nil, err
+	}
+	if run.Status != RunAbandoned || !run.ParentRunID.IsZero() || run.ChangeID.IsZero() || spec.Role != "landing" {
+		return nil, fmt.Errorf("only an abandoned landing on a change can be restarted")
+	}
+	return s.startChangeRun(ctx, StartChangeRun{ChangeID: run.ChangeID, Workflow: run.WorkflowName}, actionRequestLanding)
+}
+
 func (s *Service) startChangeRun(ctx context.Context, in StartChangeRun, action commandAction) (*Run, error) {
 	project, actor, err := s.changeScope(ctx, in.ChangeID, action)
 	if err != nil {
@@ -89,7 +110,7 @@ func (s *Service) startChangeRun(ctx context.Context, in StartChangeRun, action 
 	if s.starter == nil {
 		return nil, fmt.Errorf("Run execution is unavailable")
 	}
-	return s.starter.start(ctx, StartRequest{ProjectID: project, ChangeID: change.ID, WorkflowName: in.Workflow, InputsJSON: string(in.Inputs), requestedBy: actor.InferenceOwner, owner: actor.Owner, receiptActor: actor.Receipt})
+	return s.starter.start(ctx, StartRequest{requestLanding: action == actionRequestLanding, ProjectID: project, ChangeID: change.ID, WorkflowName: in.Workflow, InputsJSON: string(in.Inputs), requestedBy: actor.InferenceOwner, owner: actor.Owner, receiptActor: actor.Receipt})
 }
 
 // StartSource says what a start of this request would start from: its

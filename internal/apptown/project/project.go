@@ -88,11 +88,6 @@ func readID(ctx context.Context, q database.Queryer, id ids.ID) (Project, error)
 	return record(r), nil
 }
 
-// SlugsIn is every project's slug, ordered.
-func SlugsIn(ctx context.Context, q database.Queryer) ([]string, error) {
-	return projectsql.New(q.SQL()).ProjectSlugs(ctx)
-}
-
 // Projects is the supported API over the project record.
 type Projects struct {
 	db        *database.DB

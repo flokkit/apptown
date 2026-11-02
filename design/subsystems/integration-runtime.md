@@ -81,6 +81,9 @@ explicit data reads.
 
 `POST /api/v1/projects/{slug}/integrations/{capability}/wire` calls one owner
 command, `changeactions.OpenWiring`. It is the only caller of the link.
+`apptown adopt` attaches the integration and uses this command for wiring.
+Work chooses `adopt-integration` internally; callers cannot choose a system
+workflow through ordinary change admission.
 
 - **One transaction.** Work admits the Change (in workflow mode, also its first
   `adopt-integration` Run). Inside the same transaction, an admission participant
@@ -105,6 +108,19 @@ command, `changeactions.OpenWiring`. It is the only caller of the link.
 `internal/apptown/changeactions/wiring_test.go` injects failures at the lock, the
 link and the receipt, and after commit at preparation and dispatch, and checks
 the persisted records through the owners' reads.
+
+## Retiring an attachment
+
+`POST /api/v1/projects/{slug}/integrations/{capability}/retire` opens a Change
+and starts AppTown's `retire-integration` workflow for an attached integration.
+It requires integration configuration permission and Change/run admission
+permissions. The workflow identity is chosen by Work, and the
+`integration.retire` receipt commits with the Change and Run. Preparation and
+failure settlement follow wiring's workflow admission.
+
+The attachment stays in place during the removal work. `apptown retire` uses
+this command, follows the Change and offers to detach afterward; detach remains
+a separate operation.
 
 ## Container registry checks
 

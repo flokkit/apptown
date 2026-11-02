@@ -7,20 +7,18 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
 )
 
 type ProjectWorkflows struct {
 	projects *project.Projects
 	adoption *adoption.Service
-	ways     *wow.Service
 	work     *workflow.Service
 	db       *database.DB
 }
 
-func NewProjectWorkflows(projects *project.Projects, adoption *adoption.Service, ways *wow.Service, work *workflow.Service, db *database.DB) ProjectWorkflows {
-	return ProjectWorkflows{projects: projects, adoption: adoption, ways: ways, work: work, db: db}
+func NewProjectWorkflows(projects *project.Projects, adoption *adoption.Service, work *workflow.Service, db *database.DB) ProjectWorkflows {
+	return ProjectWorkflows{projects: projects, adoption: adoption, work: work, db: db}
 }
 
 // ProjectWorkflowRow is one workflow a project can run, with its plain
@@ -33,7 +31,7 @@ type ProjectWorkflowRow struct {
 	LastRunAt string           `json:"lastRunAt,omitempty"`
 	System    bool             `json:"system"` // the apptown runs it; never a person's pick
 	Tier      string           `json:"tier"`   // core | extra | system
-	// Withdrawn: stock the running release no longer ships; still selected.
+	// Withdrawn: stock the running release no longer ships; supplied by a pack.
 	Withdrawn bool `json:"withdrawn,omitempty"`
 }
 
@@ -42,8 +40,7 @@ func (h ProjectWorkflows) ListWorkflows(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	// Library-backed (design/decisions/workflows-as-lanes.md): the project's selected
-	// lanes plus every system workflow, at the library's latest version.
+	// Present available library and pack workflows at their latest versions.
 	available, err := h.adoption.AvailableWorkflows(r.Context(), p.ID)
 	if err != nil {
 		WriteFault(w, err)
@@ -72,9 +69,7 @@ func (h ProjectWorkflows) ListWorkflows(w http.ResponseWriter, r *http.Request) 
 	WriteJSON(w, 200, out)
 }
 
-// ProjectLanes: GET /api/v1/projects/{slug}/lanes — every lane in the
-// library (core and extras) with whether this project selected it, and
-// the system workflows that apply regardless.
+// ProjectLanes lists runnable library and pack workflows, with system jobs separately.
 func (h ProjectWorkflows) ProjectLanes(w http.ResponseWriter, r *http.Request) {
 	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
@@ -85,7 +80,7 @@ func (h ProjectWorkflows) ProjectLanes(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	library, err := h.ways.Workflows(r.Context())
+	library, err := h.adoption.AvailableWorkflows(r.Context(), p.ID)
 	if err != nil {
 		WriteFault(w, err)
 		return
@@ -94,42 +89,30 @@ func (h ProjectWorkflows) ProjectLanes(w http.ResponseWriter, r *http.Request) {
 	for _, e := range library {
 		l := LaneView{Name: e.Name, Description: e.Doc.Metadata.Description, Tier: e.Doc.Metadata.EffectiveTier(),
 			Origin: e.Origin, Version: e.Version, Deprecated: e.Doc.Metadata.Deprecated, //lint:ignore SA1019 reading the deprecated flag is the point
-			RunsCount: usage[e.Name], Summary: summarizeWorkflow(e.YAML)}
+			Withdrawn: e.Withdrawn, RunsCount: usage[e.Name], Summary: summarizeWorkflow(e.YAML)}
 		if e.Doc.Metadata.System {
-			l.Selected = true
 			system = append(system, l)
 			continue
 		}
-		selected, err := h.adoption.LaneSelected(r.Context(), p.ID, e.Name)
-		if err != nil {
-			WriteFault(w, err)
-			return
-		}
-		if e.Withdrawn && !selected {
-			continue // not offered; a project that selected it keeps it, labelled
-		}
-		l.Selected, l.Withdrawn = selected, e.Withdrawn
 		lanes = append(lanes, l)
 	}
 	WriteJSON(w, 200, ProjectLanes{Lanes: lanes, System: system})
 }
 
-// LaneView is a workflow in the library and whether this project selected it.
+// LaneView is an available workflow and its usage in this project.
 type LaneView struct {
 	Name        string           `json:"name"`
 	Description string           `json:"description"`
 	Tier        string           `json:"tier"`
 	Origin      string           `json:"origin"`
 	Version     int              `json:"version"`
-	Selected    bool             `json:"selected"`
 	Deprecated  bool             `json:"deprecated,omitempty"`
 	Withdrawn   bool             `json:"withdrawn,omitempty"` // stock the release no longer ships
 	RunsCount   int              `json:"runsCount"`
 	Summary     *workflowSummary `json:"summary,omitempty"`
 }
 
-// ProjectLanes is every lane in the library with the project's selection,
-// and the system workflows that apply regardless.
+// ProjectLanes separates runnable workflows from AppTown's system jobs.
 type ProjectLanes struct {
 	Lanes  []LaneView `json:"lanes"`
 	System []LaneView `json:"system"`

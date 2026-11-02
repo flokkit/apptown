@@ -29,7 +29,7 @@ spec: ...
 Workflows live in the instance **library** (`lib_workflows`,
 `lib_workflow_versions`), versioned append-only. Stock workflows ship inside
 the binary and sync at boot; a changed stock workflow becomes a new version.
-A project selects lanes from the library; a run snapshots the definition it
+Every project can run core and extra library workflows and its packs' workflows; a run snapshots the definition it
 runs (`definition_json`) and records its origin (`stock/land@10`,
 `lib/our-land@2`). Workflows do not live in repositories.
 

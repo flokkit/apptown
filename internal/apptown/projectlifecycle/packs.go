@@ -21,7 +21,7 @@ import (
 )
 
 // ApplyPack adopts packs on a project: their pinned guidance, the platform
-// tier, lane selection, policies, the starter files and toolchain, and
+// tier, workflow pins, policies, the starter files and toolchain, and
 // extensions, as one union. Packs that disagree on something a project has
 // one of (a tool's line, the toolchain, a service, a policy, the starter)
 // are refused before anything is written. The domain command behind the

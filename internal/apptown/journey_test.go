@@ -335,7 +335,7 @@ func (h *jHarness) newProject(slug string, yamls ...string) {
 	names := publishLanes(h.t, h.app, yamls...)
 	h.mustCall("POST", "/projects", map[string]string{"slug": slug}, nil)
 	h.mustCall("POST", "/projects/"+slug+"/repo", map[string]string{}, nil)
-	selectLanes(h.t, h.app, slug, names...)
+	recordJourneyWorkflows(h.t, h.app, slug, names...)
 }
 
 // publishLanes publishes a journey's shape of each workflow as the library's
@@ -394,17 +394,15 @@ func publishLane(t *testing.T, a *App, yamlText string) string {
 	return name
 }
 
-// selectLanes selects published workflows for a project.
-func selectLanes(t *testing.T, a *App, slug string, names ...string) {
+// recordJourneyWorkflows records the current published workflow versions.
+func recordJourneyWorkflows(t *testing.T, a *App, slug string, names ...string) {
 	t.Helper()
 	p, err := a.Projects.BySlug(context.Background(), slug)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range names {
-		if err := a.lifecycle.SelectLane(t.Context(), p.ID, name, true, "fixture"); err != nil {
-			t.Fatal(err)
-		}
+	if err := recordCatalogFixture(a.Adoption, t.Context(), p.ID, "fixture"); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -913,7 +911,7 @@ func TestJourneyMultiplayer(t *testing.T) {
 	lanes := publishLanes(t, h.app, quorumLane)
 	boss.mustCall("POST", "/projects", map[string]string{"slug": slug}, nil)
 	boss.mustCall("POST", "/projects/"+slug+"/repo", map[string]string{}, nil)
-	selectLanes(t, h.app, slug, lanes...)
+	recordJourneyWorkflows(t, h.app, slug, lanes...)
 	// Roles are explicit. The panel both starts work and approves it, and no
 	// single project role does both.
 	boss.mustCall("POST", "/projects/"+slug+"/members", map[string]string{"grantee": "boss", "role": access.RoleProjectOwner}, nil)
@@ -1099,7 +1097,7 @@ func TestJourneyStackMigration(t *testing.T) {
 		t.Fatalf("re-pack plan removals: %+v", plan)
 	}
 	h.mustCall("POST", "/projects/"+slug+"/pack/pull", map[string]string{"pack": "stack-a"}, nil)
-	// The customized lanes are in the new pack too — the pull re-selects
+	// The customized workflows are in the new pack too — the pull records
 	// lanes; it never rewinds the library's newest version or drops the
 	// selection.
 	_, qcYAML, err := h.app.Ways.WorkflowVersion(t.Context(), "quick-change", 0)
@@ -1113,7 +1111,7 @@ func TestJourneyStackMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !laneOn(t, h.app.Adoption, repacked.ID, "quick-change") {
+	if !workflowAvailable(t, h.app.Adoption, repacked.ID, "quick-change") {
 		t.Fatal("re-pack dropped the quick-change selection")
 	}
 	ship("stack b page")

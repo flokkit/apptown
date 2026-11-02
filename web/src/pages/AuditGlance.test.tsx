@@ -117,3 +117,16 @@ it('keeps a withdrawn approval distinct from an approved person in the first vie
   expect(firstView(html)).toContain('Approval withdrawn by Mei')
   expect(firstView(html)).not.toContain('Approved by Sam')
 })
+
+// AppTown runs its own workflows; New change offers only what a person picks.
+it('offers no system workflow in New change', () => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/projects/club/workflows'), [
+    { name: 'quick-change', tier: 'core', description: 'small' }, { name: 'adopt-integration', tier: 'system', description: 'wire' }, { name: 'land', tier: 'system', description: 'land' },
+  ])
+  const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><NewChangeButton slug="club" external={{ open: true, onClose() {} }} /></QueryClientProvider></MemoryRouter>)
+  expect(html).toContain('Quick change')
+  expect(html).not.toContain('adopt-integration')
+  expect(html).not.toContain('Adopt an integration')
+  client.clear()
+})

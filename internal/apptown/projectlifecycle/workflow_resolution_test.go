@@ -13,14 +13,14 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// The project selects an adopted library workflow; system workflows resolve
-// through the instance binding without requiring a selected lane.
+// Library workflows resolve without project selection. System workflows use
+// the instance binding.
 func TestResolveWorkflowFromLibrary(t *testing.T) {
 	t.Parallel()
 	f := newOwnerFixture(t, false)
 	db := f.db
 	f.ways.SyncStockWorkflows(t.Context())
-	pid, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
+	_, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
 		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "p", Name: "P"})
 	})
 	if err != nil {
@@ -31,16 +31,7 @@ func TestResolveWorkflowFromLibrary(t *testing.T) {
 	if _, err := f.adoption.RecordCurrent(t.Context(), p.ID, adoption.AdoptionEdit, "explicit test configuration", "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	// A lane the project has not selected is refused, in plain words.
-	if _, err := f.lifecycle.SelectedWorkflow(t.Context(), &p, "quick-change"); err == nil || !strings.Contains(err.Error(), `"quick-change" is not one of this project's ways of working`) {
-		t.Fatalf("unselected lane must be refused: %v", err)
-	}
-	// Selected → the library's latest, with a stock origin receipt.
-	if err := f.adoption.SelectLane(t.Context(), pid, "quick-change", true, "fixture"); err != nil {
-		t.Fatal(err)
-	}
-	f.lifecycle.NoteAdoption(t.Context(), p.ID, "fixture selects quick-change", "fixture")
-	rw, err := f.lifecycle.SelectedWorkflow(t.Context(), &p, "quick-change")
+	rw, err := f.lifecycle.ResolveWorkflow(t.Context(), &p, "quick-change")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,26 +39,16 @@ func TestResolveWorkflowFromLibrary(t *testing.T) {
 		t.Fatalf("lane receipt wrong: %+v", rw)
 	}
 	dbtest.FailNextStatement(t, db, "-- name: CurrentAdoption :one")
-	if _, err := f.lifecycle.SelectedWorkflow(t.Context(), &p, "quick-change"); err == nil {
+	if _, err := f.lifecycle.ResolveWorkflow(t.Context(), &p, "quick-change"); err == nil {
 		t.Fatal("unavailable adoption receipt silently selected a workflow")
 	}
 	// A system workflow needs no selection and says it is one.
-	rw, err = f.lifecycle.SelectedWorkflow(t.Context(), &p, "land")
+	rw, err = f.lifecycle.ResolveWorkflow(t.Context(), &p, "land")
 	if err != nil || !rw.System {
 		t.Fatalf("land must resolve as system without selection: %v %+v", err, rw)
 	}
-	// An unselected or explicitly disabled lane stays unavailable.
-	if laneOn(t, f.adoption, pid, "fix-bug") {
-		t.Fatal("an unselected lane must not count as selected")
-	}
-	if err := f.adoption.SelectLane(t.Context(), pid, "fix-bug", false, "fixture"); err != nil {
-		t.Fatal(err)
-	}
-	if laneOn(t, f.adoption, pid, "fix-bug") {
-		t.Fatal("an explicit disabled lane must win")
-	}
 	// An unknown workflow cannot resolve.
-	if _, err := f.lifecycle.SelectedWorkflow(t.Context(), &p, "only-here"); err == nil || !strings.Contains(err.Error(), `"only-here" is not one of this project's ways of working`) {
+	if _, err := f.lifecycle.ResolveWorkflow(t.Context(), &p, "only-here"); err == nil {
 		t.Fatalf("an unknown workflow must not resolve: %v", err)
 	}
 }
@@ -105,20 +86,11 @@ spec:
 	if _, err := f.adoption.RecordCurrent(t.Context(), p.ID, adoption.AdoptionEdit, "explicit test configuration", "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	rw, err := f.lifecycle.SelectedWorkflow(t.Context(), &p, "land")
+	rw, err := f.lifecycle.ResolveWorkflow(t.Context(), &p, "land")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if rw.Name != "our-land" || rw.Origin != "lib/our-land@1" || !rw.System {
 		t.Fatalf("binding not honoured: %+v", rw)
 	}
-}
-
-func laneOn(t *testing.T, s *adoption.Service, projectID ids.ID, name string) bool {
-	t.Helper()
-	on, err := s.LaneSelected(t.Context(), projectID, name)
-	if err != nil {
-		t.Fatalf("reading lane %s: %v", name, err)
-	}
-	return on
 }

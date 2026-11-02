@@ -20,7 +20,8 @@ export function NewChangeButton({ slug, external, request }: { slug: string; req
   const [ref, setRef] = useState('')
   const [wf, setWf] = useState('')
   const { data: loadedWorkflows } = useGet<Workflow[]>(open ? `/projects/${slug}/workflows` : null)
-  const workflows = loadedWorkflows ?? []
+  // AppTown runs its own workflows (landing, integration wiring); a person picks among the rest.
+  const workflows = (loadedWorkflows ?? []).filter((w) => w.tier !== 'system')
   const { run, busy, err, setErr } = useAction()
 
   const create = async () => {

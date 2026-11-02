@@ -44,7 +44,7 @@ func TestPackPullKeepsCalledWorkflows(t *testing.T) {
 		if err != nil || name != x.name || version != 1 {
 			t.Fatalf("published workflow = %s@%d, want %s@1: %v", name, version, x.name, err)
 		}
-		if err := adopt.SelectLane(t.Context(), pid, x.name, true, "fixture"); err != nil {
+		if err := recordCatalogFixture(adopt, t.Context(), pid, "fixture"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -60,7 +60,7 @@ func TestPackPullKeepsCalledWorkflows(t *testing.T) {
 		t.Fatal(err)
 	}
 	plan, err := adopt.PackPullPlan(t.Context(), pid, *pack)
-	if err != nil || len(plan.Removals) != 0 || len(plan.KeptReferenced) != 1 || plan.KeptReferenced[0] != "ship" {
-		t.Fatalf("called workflow must be kept, loudly: removals=%v keptReferenced=%v err=%v", plan.Removals, plan.KeptReferenced, err)
+	if err != nil || len(plan.Removals) != 0 {
+		t.Fatalf("called workflow must be kept, loudly: removals=%v err=%v", plan.Removals, err)
 	}
 }

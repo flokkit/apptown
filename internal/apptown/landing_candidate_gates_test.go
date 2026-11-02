@@ -38,7 +38,7 @@ func reviewLanding(t *testing.T, a *App, steps []schema.Step, files map[string]s
 		{Name: "gates", Steps: steps},
 		{Name: "done", Steps: []schema.Step{{Name: "hold", Uses: "approval", With: map[string]any{"means": "done"}}}},
 	}}})
-	if err := a.lifecycle.SelectLane(t.Context(), p.ID, "land", true, "review"); err != nil {
+	if err := recordCatalogFixture(a.Adoption, t.Context(), p.ID, "review"); err != nil {
 		t.Fatal(err)
 	}
 	ch := engineChange(t, a, p)

@@ -235,3 +235,46 @@ func TestMCPAbandonWhoseReReadFailsSaysSo(t *testing.T) {
 		t.Fatalf("the change should be abandoned: %+v %v", ch, err)
 	}
 }
+
+func TestPeopleCannotPickSystemWorkflows(t *testing.T) {
+	t.Parallel()
+	a, boss := mcpWriteFixture(t)
+	a.Ways.SyncStockWorkflows(t.Context())
+	_, custom, err := a.Ways.WorkflowVersion(t.Context(), "retire-integration", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	custom = strings.Replace(custom, "name: retire-integration", "name: custom-system", 1)
+	if _, _, err := a.Ways.PublishWorkflow(t.Context(), custom, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	recordFixtureAdoptions(t, a)
+	p, err := a.Projects.BySlug(t.Context(), "app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ch, err := a.Work.Create(asPerson("boss"), workflow.ChangeDraft{ProjectID: p.ID, Title: "Work"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"land", "ship", "adopt-integration", "retire-integration", "custom-system"} {
+		t.Run(name, func(t *testing.T) {
+			res := mcp_call(t, a, boss, "create_change", map[string]any{"slug": "app", "title": "System work", "lane": name})
+			if res["isError"] != true || !strings.Contains(fmt.Sprint(res), "run by AppTown") {
+				t.Errorf("MCP create accepted system workflow: %v", res)
+			}
+			res = mcp_call(t, a, boss, "start_change_lane", map[string]any{"id": ch.ID, "lane": name})
+			if res["isError"] != true || !strings.Contains(fmt.Sprint(res), "run by AppTown") {
+				t.Errorf("MCP start accepted system workflow: %v", res)
+			}
+			created := authzCall(a.Handler(), "boss", "POST", "/api/v1/projects/app/changes", `{"title":"System work","workflow":"`+name+`"}`)
+			if created.Code != 422 || !strings.Contains(created.Body.String(), "run by AppTown") {
+				t.Errorf("HTTP change admission accepted system workflow: %d %s", created.Code, created.Body.String())
+			}
+			w := authzCall(a.Handler(), "boss", "POST", "/api/v1/changes/"+ch.ID.String()+"/runs", `{"workflow":"`+name+`"}`)
+			if w.Code != 422 || !strings.Contains(w.Body.String(), "run by AppTown") {
+				t.Errorf("HTTP accepted system workflow: %d %s", w.Code, w.Body.String())
+			}
+		})
+	}
+}

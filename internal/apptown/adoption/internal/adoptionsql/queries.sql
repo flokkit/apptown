@@ -1,7 +1,5 @@
 -- name: ProjectExtension :one
 SELECT * FROM project_pi_extensions WHERE project_id=$1 AND name=$2;
--- name: ProjectLane :one
-SELECT * FROM project_lanes WHERE project_id=$1 AND name=$2;
 -- name: AdoptionByID :one
 SELECT * FROM project_adoptions WHERE id=sqlc.arg(id) AND (sqlc.narg(project_id)::uuid IS NULL OR project_id=sqlc.narg(project_id));
 -- name: CurrentAdoption :one
@@ -32,13 +30,6 @@ INSERT INTO guidance_imports(id, project_id,position,block_id,version,disabled)
 VALUES(sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(position),sqlc.arg(block_id),sqlc.arg(version),sqlc.arg(disabled)) RETURNING *;
 -- name: DeleteGuidanceImportsForProject :execrows
 DELETE FROM guidance_imports WHERE project_id=$1;
--- name: SetProjectLane :one
-INSERT INTO project_lanes(project_id,name,enabled,updated_at) VALUES(sqlc.arg(project_id),sqlc.arg(name),sqlc.arg(enabled),sqlc.arg(at))
-ON CONFLICT(project_id,name) DO UPDATE SET enabled=excluded.enabled,updated_at=excluded.updated_at RETURNING *;
--- name: DeselectProjectLanes :execrows
-UPDATE project_lanes SET enabled=false,updated_at=$1 WHERE project_id=$2;
--- name: DeleteProjectLanes :execrows
-DELETE FROM project_lanes WHERE project_id=$1;
 -- name: EnableProjectExtension :execrows
 -- Already-enabled membership is a successful no-op and returns no inserted row.
 INSERT INTO project_pi_extensions(project_id,name) VALUES($1,$2) ON CONFLICT DO NOTHING;
@@ -86,11 +77,8 @@ SELECT b.* FROM guidance_blocks b WHERE b.tier=$1 AND NOT EXISTS(SELECT 1 FROM g
 SELECT COALESCE(MAX(position)+1,0)::bigint FROM guidance_imports WHERE project_id=$1;
 -- name: ImportersBehind :one
 SELECT COUNT(DISTINCT project_id) FROM guidance_imports WHERE block_id=$1 AND NOT disabled AND version<$2;
--- name: WorkflowSelections :many
-SELECT pl.name,p.slug FROM project_lanes pl JOIN projects p ON p.id=pl.project_id WHERE pl.enabled ORDER BY pl.name,p.slug;
--- name: WorkflowsForProject :many
-SELECT sqlc.embed(l),COALESCE(v.yaml,'')::text AS yaml,
- COALESCE((SELECT enabled FROM project_lanes WHERE project_id=$1 AND name=l.name),false)::boolean AS selected
+-- name: LibraryWorkflows :many
+SELECT sqlc.embed(l),COALESCE(v.yaml,'')::text AS yaml
 FROM lib_workflows l LEFT JOIN lib_workflow_versions v ON v.lib_id=l.id AND v.version=l.latest_version ORDER BY l.name;
 -- name: ProjectPacks :many
 SELECT sqlc.embed(p),sqlc.embed(pp),COALESCE(v.spec_json,'{}'::jsonb) AS version_spec

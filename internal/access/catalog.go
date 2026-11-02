@@ -98,7 +98,6 @@ const (
 	CapProjectServices     Capability = "project:configure-services"
 	CapProjectIntegrations Capability = "project:configure-integrations"
 	CapProjectModelProfile Capability = "project:configure-model-profile"
-	CapProjectWorkflow     Capability = "project:configure-workflow"
 	CapReleaseRead         Capability = "release:read"
 	CapReleasePromote      Capability = "release:promote"
 	CapDeploymentRead      Capability = "deployment:read"
@@ -200,7 +199,6 @@ var Definitions = map[Capability]definition{
 	CapProjectServices:     {"change the project's attached services", nil, "execute"},
 	CapProjectIntegrations: {"attach or wire integrations to the project", nil, "execute"},
 	CapProjectModelProfile: {"choose the project's model profile", nil, "execute"},
-	CapProjectWorkflow:     {"select or change the project's workflow copy", nil, "execute"},
 	CapReleaseRead:         {"read releases", readInherits, "read"},
 	CapReleasePromote:      {"promote a release to a wider tier", nil, "release"},
 	CapDeploymentRead:      {"read deployments", readInherits, "read"},
@@ -301,7 +299,7 @@ var (
 		CapConformanceRev)
 	maintainerCaps = append(append([]Capability{}, contributorCaps...),
 		CapChangeLand, CapChangeAbandon, CapChangeSendBack, CapRunOperate, CapDeploymentOperate,
-		CapProjectServices, CapProjectIntegrations, CapProjectGuidance, CapProjectWorkflow,
+		CapProjectServices, CapProjectIntegrations, CapProjectGuidance,
 		CapProjectWayOfWorking, CapProjectImport, CapConformanceFix, CapConformanceAI,
 		CapProjectManageMembers, CapSecretBind, CapDeploymentDeploy)
 	ownerCaps = append(append([]Capability{}, maintainerCaps...),

@@ -14,8 +14,8 @@ import (
 
 // resolver resolves what a project is on right now, as an adoption
 // receipt: every enabled import at its pinned version and position, every
-// selected or system workflow at the version the prior revision pinned
-// (a newly selected one at the library's latest), the policies, the
+// available workflow at the version the prior revision pinned
+// (an unpinned workflow at the library's latest), the policies, the
 // extensions, and the packs.
 type resolver struct {
 	workflows catalog
@@ -26,8 +26,7 @@ func newResolver(db *database.DB, ways catalog) *resolver {
 	return &resolver{workflows: ways, db: db}
 }
 
-// union records an explicit edit's view: existing selections retain their
-// pins; newly selected workflows take the version selected at this edit.
+// union records the current available workflows, retaining existing version pins.
 func (rs *resolver) union(ctx context.Context, projectID ids.ID, prior *RecordedRevision) (Receipt, error) {
 	return rs.unionIn(ctx, rs.db, projectID, prior)
 }
@@ -60,8 +59,12 @@ func (rs *resolver) unionIn(ctx context.Context, q database.Queryer, projectID i
 	if err != nil {
 		return r, err
 	}
+	packWorkflows, err := packWorkflowNamesIn(ctx, q, projectID)
+	if err != nil {
+		return r, err
+	}
 	for _, e := range entries {
-		if !e.Doc.Metadata.System && !laneSelectedIn(ctx, q, projectID, e.Name) {
+		if !e.Doc.Metadata.System && e.Withdrawn && !packWorkflows[e.Name] {
 			continue
 		}
 		version, yamlSrc := e.Version, e.YAML
@@ -95,10 +98,6 @@ func enabledExtensionsIn(ctx context.Context, q database.Queryer, projectID ids.
 	return adoptionsql.New(q.SQL()).EnabledExtensions(ctx, projectID)
 }
 
-func laneSelectedIn(ctx context.Context, q database.Queryer, projectID ids.ID, name string) bool {
-	r, e := adoptionsql.New(q.SQL()).ProjectLane(ctx, adoptionsql.ProjectLaneParams{ProjectID: projectID, Name: name})
-	return e == nil && r.Enabled
-}
 func (s *Service) UnionIn(ctx context.Context, q database.Queryer, projectID ids.ID, prior *RecordedRevision) (Receipt, error) {
 	return s.resolver.unionIn(ctx, q, projectID, prior)
 }
