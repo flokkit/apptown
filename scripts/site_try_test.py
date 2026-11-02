@@ -26,14 +26,22 @@ DOCKER = '''#!/bin/sh
 printf '%s\\n' "$*" >> "$CALLS"
 [ "$1" != container ] || shift
 case "$1" in
-info) [ "$#" = 1 ] || echo 17179869184 ;;
+info)
+  case "$3" in
+  *NCPU*) echo "${NCPU:-8}" ;;
+  *MemTotal*) echo "${MEM:-17179869184}" ;;
+  esac ;;
 inspect)
   case "$3" in
   *State.Status*) echo "$INITIAL_STATE" ;;
   *) echo true ;;
   esac ;;
 run|start) : ;;
-exec) cat "$CA_PEM" ;;
+exec)
+  case "$*" in
+  *' df '*) [ -z "$DF_FAIL" ] || exit 1; printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/vda1 100000000 1 %s 1%% /var/lib/apptown\n' "${FREE_K:-62914560}" ;;
+  *) cat "$CA_PEM" ;;
+  esac ;;
 logs)
   if [ "$INITIAL_STATE" = exited ]; then
     echo 'apptown: AppTown is ready at http://localhost:7777'
@@ -154,6 +162,33 @@ class TryScript(unittest.TestCase):
                 self.assertEqual(status, 0, out)
                 self.assertIn('AppTown is ready: http://localhost:7777/?setup=abc123', out)
                 self.assertIn('?setup=abc123', (self.base / 'browser').read_text())
+
+    def test_small_docker_warns_and_continues(self):
+        self.env.update(NCPU='2', MEM='4294967296', FREE_K='10485760')
+        for shell in SHELLS:
+            with self.subTest(shell=shell):
+                status, out = self.run_script(shell)
+                self.assertEqual(status, 0, out)
+                for words in ('Docker has 2 CPUs; AppTown needs at least 4', 'Docker has 4 GB of memory',
+                              'Docker has 10 GB of disk free; a trial needs about 30 GB in all'):
+                    self.assertIn(words, out)
+                self.assertIn('AppTown is ready', out)
+
+    def test_unreadable_disk_says_nothing_and_starts(self):
+        self.env['DF_FAIL'] = '1'
+        for shell in SHELLS:
+            with self.subTest(shell=shell):
+                status, out = self.run_script(shell)
+                self.assertEqual(status, 0, out)
+                self.assertNotIn('disk free', out)
+                self.assertIn('AppTown is ready', out)
+
+    def test_enough_docker_says_nothing_about_resources(self):
+        for shell in SHELLS:
+            with self.subTest(shell=shell):
+                status, out = self.run_script(shell)
+                self.assertEqual(status, 0, out)
+                self.assertNotIn('Continuing anyway', out)
 
     def test_retained_volume_is_reused_when_container_is_missing(self):
         # Untyped inspect finds the retained volume; only container inspect
