@@ -167,7 +167,11 @@ func TestOpenSSHReadsSharingAndRefusesDirectFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, err = runSSH(t.Context(), []string{"-F", cfg, "--", alias, "true"})
-	if err == nil || !strings.Contains(string(out), "Connection closed by UNKNOWN") {
+	// ProxyCommand false refuses the direct connection: OpenSSH then reports
+	// its stand-in peer, UNKNOWN, as closing ("Connection closed by UNKNOWN")
+	// or breaking ("Connection to UNKNOWN port 65535: Broken pipe"),
+	// depending on its version. Either way no host was reached.
+	if err == nil || !strings.Contains(string(out), "UNKNOWN port 65535") {
 		t.Fatalf("direct connection fallback was not refused: %v: %s", err, out)
 	}
 	if _, err := os.Stat(socket); !errors.Is(err, os.ErrNotExist) {

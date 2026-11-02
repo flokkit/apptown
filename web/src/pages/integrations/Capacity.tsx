@@ -85,15 +85,15 @@ function containerMemoryWords(c: TargetCapacity): string {
 // what they use, and its disk. An elastic one: what each deployment runs
 // on and what it is estimated to cost. Read on its own, so a slow host
 // never holds the target's page.
-export function Capacity({ name, diagnostics = false }: { name: string; diagnostics?: boolean }) {
+export function Capacity({ name }: { name: string }) {
   const q = useGet<TargetCapacity>(`/targets/${name}/capacity`)
   if (q.denied) return null
   if (q.loading) return <p className="muted small">Reading its capacity…</p>
   if (!q.data) return <p className="error small">Capacity unknown · {q.err || 'no answer'}</p>
   const c = q.data
   const m = c.memory
-  // Each reading says in words whether it was made; why one could not be
-  // made (the provider's own error text) is under Host diagnostics.
+  // Each reading says in words whether it was made, and why one could not
+  // be made is said beside it: no extra click to read one line.
   const memoryWords = !m ? '' : !m.hostUsed ? containerMemoryWords(c)
     : m.hostUsed.known && m.total.known ? `${briefBytes(m.hostUsed.value)} used of ${briefBytes(m.total.value)}${m.hostUsed.stale && m.hostUsed.readAt ? ` · ${lastSeen(m.hostUsed.readAt)}` : ''}`
       : m.hostUsed.known ? `${briefBytes(m.hostUsed.value)} used; host total could not be read` : 'Memory use could not be read'
@@ -104,9 +104,14 @@ export function Capacity({ name, diagnostics = false }: { name: string; diagnost
     ...(c.tenants ?? []).filter(t => t.used.reason).map(t => `${t.name}: ${t.used.reason}`),
     c.error ?? '',
   ].filter((r, i, all) => r && all.indexOf(r) === i)
+  // A Docker host with per-app readings is drawn as bars, always in view;
+  // the bars say what a summary table would, so there is none above them.
+  const bars = !!(c.tenants && c.tenants.length > 0)
+  const shown = reasons.slice(0, 3)
   return (
     <div className="small">
-      {!c.elastic && <dl className="facts capacity-summary">
+      {c.readAt && bars && <p className="muted" style={{ marginTop: 0 }}>Read {readingAge(c.readAt, c.stale).replace(/^checked /, '')}</p>}
+      {!c.elastic && !bars && <dl className="facts capacity-summary">
         {m && <><dt>Memory use</dt><dd>{memoryWords}</dd></>}
         {c.disk && <><dt>Disk</dt><dd>{`${c.disk.free.known ? briefBytes(c.disk.free.value) : 'unknown'} free of ${c.disk.total.known ? briefBytes(c.disk.total.value) : 'unknown'}${c.disk.free.stale && c.disk.free.readAt ? ` · ${lastSeen(c.disk.free.readAt)}` : ''}`}</dd></>}
         {c.readAt && <><dt>Read</dt><dd>{readingAge(c.readAt, c.stale)}</dd></>}
@@ -115,13 +120,9 @@ export function Capacity({ name, diagnostics = false }: { name: string; diagnost
       {c.disk?.refuses ? <p className="capacity-warning">Free disk space before starting a new release.</p>
         : c.disk?.low && <p className="capacity-warning">Low on disk. Free some space.</p>}
       {c.elastic && <p>{c.words}{c.readAt && <span className="muted"> · {readingAge(c.readAt, c.stale)}</span>}</p>}
-      {c.error && !reasons.some(r => r !== c.error) && !diagnostics && <p className="error small">Part of the capacity check failed. Open Host diagnostics to see why.</p>}
-      {diagnostics && <div className="capacity-diagnostics" style={{ margin: '8px 0' }}>
-        {reasons.length === 0 ? <p className="muted">Every reading was made.</p> : reasons.map((r) => <pre key={r} className="small" style={{ whiteSpace: 'pre-wrap', margin: '4px 0' }}>{r}</pre>)}
-        <p className="muted">{c.words}</p>
-      </div>}
-      <details className="capacity-details"><summary>Details</summary>
-      {c.tenants && c.tenants.length > 0 ? <Bars c={c} /> : c.memory && c.cpu && (
+      {shown.length > 0 && <p className="error small">Part of the capacity check failed: {shown.join('; ')}{reasons.length > shown.length ? `; and ${reasons.length - shown.length} more (App resource details)` : ''}</p>}
+      {bars ? <Bars c={c} /> : <details className="capacity-details"><summary>Details</summary>
+      {c.memory && c.cpu && (
         <table className="small" style={{ marginTop: 4 }}>
           <thead><tr><th></th><th>has</th><th>{c.kind === 'portainer' ? `declared by ${PRODUCT}'s deployments` : 'app resource limits'}</th><th>in use by containers</th></tr></thead>
           <tbody>
@@ -130,7 +131,7 @@ export function Capacity({ name, diagnostics = false }: { name: string; diagnost
           </tbody>
         </table>
       )}
-      {!(c.tenants && c.tenants.length > 0) && c.disk && <DiskLine d={c.disk} />}
+      {c.disk && <DiskLine d={c.disk} />}
       {c.elastic && (
         <table className="small" style={{ marginTop: 4 }}>
           <thead><tr><th>deployment</th><th>part</th><th>runs on</th><th>listed per month</th></tr></thead>
@@ -146,7 +147,7 @@ export function Capacity({ name, diagnostics = false }: { name: string; diagnost
           </tbody>
         </table>
       )}
-      </details>
+      </details>}
       {c.estimate && (
         <div style={{ marginTop: 4 }}>
           Estimated <b><FigureWords f={c.estimate} format={usd} /></b> a month (databases extra)
@@ -216,7 +217,8 @@ function Bars({ c }: { c: TargetCapacity }) {
     <div className="cap" style={{ marginTop: 6 }}>
       {used ? (
         <CapacityBar label="memory used" bar={used} format={fmtBytes}
-          sum={free !== null && free >= 0 ? `${fmtBytes(free)} free of ${fmtBytes(m.total.value)}` : `${f(m.total, fmtBytes)} · free not known`} />
+          // Without a whole-host reading, say what was measured and that the rest was not.
+          sum={free !== null && free >= 0 ? `${fmtBytes(free)} free of ${fmtBytes(m.total.value)}` : !host ? `${containerMemoryWords(c)} · host has ${f(m.total, fmtBytes)}` : `${f(m.total, fmtBytes)} · free not known`} />
       ) : <div className="muted">memory: <FigureWords f={m.total} format={fmtBytes} /></div>}
       {pm && <CapacityBar label="memory limits" bar={pm} format={fmtBytes}
         sum={`${pm.unknown.length ? 'Known app limits total' : 'Apps are set up to use'} ${fmtBytes(pm.sum)}; this server has ${fmtBytes(m.total.value)}${m.overcommitted ? ` · over by ${fmtBytes(pm.sum - m.total.value)}` : ''}`} />}
@@ -226,7 +228,7 @@ function Bars({ c }: { c: TargetCapacity }) {
           : `${cpuWords(pc.sum)} of ${cpuWords(c.cpu.total.value)}${c.cpu.overcommitted ? ` · over by ${cpuWords(pc.sum - c.cpu.total.value)}` : ''}`} />}
       {dk && c.disk ? (
         <>
-          <CapacityBar label={diskLabel(c.disk)} bar={dk} format={fmtBytes} sum={`${fmtBytes(c.disk.free.value)} free of ${fmtBytes(c.disk.total.value)}${c.disk.readAt ? ` · ${readingAge(c.disk.readAt, c.disk.free.stale)}` : ''}`} />
+          <CapacityBar label={diskLabel(c.disk)} bar={dk} format={fmtBytes} sum={`${fmtBytes(c.disk.free.value)} free of ${fmtBytes(c.disk.total.value)}${c.disk.readAt && c.disk.free.stale ? ` · ${readingAge(c.disk.readAt, true)}` : ''}`} />
           <DiskState d={c.disk} />
         </>
       ) : c.disk && <DiskLine d={c.disk} />}
