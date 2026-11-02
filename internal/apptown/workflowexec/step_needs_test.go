@@ -1,8 +1,13 @@
 package workflowexec
 
 import (
+	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/stock"
@@ -41,5 +46,40 @@ func TestAgentsAndTestsStartAPostgresForTheirTests(t *testing.T) {
 	services, _, _, _, err := (&commands{catalog: f.exec.dependencies}).testServices(t.Context(), staged)
 	if err != nil || len(services) != 1 || services[0].Env["APP_SUPERUSER"] != "true" {
 		t.Errorf("the tests step: %+v %v", services, err)
+	}
+}
+
+// The local sandbox must describe the services it really starts to the agent
+// and retain those names in its evidence, without connection values.
+func TestLocalAgentNamesItsStartedNeed(t *testing.T) {
+	t.Parallel()
+	a, _, stepID := admittedAgentStep(t, `{"prompt":"test the app","needs":true}`)
+	if _, _, err := a.agents.dependencies.SyncStock(t.Context(), stock.FS, "dependencies"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(a.hub, ".apptown"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(a.hub, ".apptown/app.yaml"), []byte("app: {web: {image: nginx, public: true}}\nneeds: {postgres: {}}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gittest.Run(t, a.hub, "add", ".apptown/app.yaml")
+	gittest.RunAsTester(t, a.hub, "commit", "-qm", "declare postgres")
+	pi := installFakePi(a, func(_ int, req execution.Request) execution.Outcome {
+		brief := req.Argv[len(req.Argv)-1]
+		if !strings.Contains(brief, "- postgres: DATABASE_URL") {
+			t.Errorf("local prompt lacks started need: %s", brief)
+		}
+		return execution.Outcome{Output: piSays("tested")}
+	})
+	if err := a.work.ExecuteStep(a.ctx, stepID); err != nil {
+		t.Fatal(err)
+	}
+	status, evidence := stepStatus(t, a, stepID)
+	if status != workflow.StatusPass || len(pi.requests()) != 1 {
+		t.Fatalf("step: %s %v", status, evidence)
+	}
+	if !strings.Contains(fmt.Sprint(evidence["needs"]), "postgres") {
+		t.Errorf("started need missing from evidence: %v", evidence)
 	}
 }

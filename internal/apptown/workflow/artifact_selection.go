@@ -140,3 +140,19 @@ func (s *Service) AcceptedScanReports(ctx context.Context, project ids.ID) ([]Ar
 	}
 	return out, nil
 }
+
+// ReadRunBinaryArtifactIn reads one binary artifact of kind from an admitted
+// run. Both the run and project scope are checked with the body read.
+func ReadRunBinaryArtifactIn(ctx context.Context, q database.Queryer, ref RunRef, id ids.ID, kind string) ([]byte, error) {
+	if ref.ID.IsZero() || ref.ProjectID.IsZero() || id.IsZero() {
+		return nil, fmt.Errorf("artifact body requires Run scope and identity")
+	}
+	row, err := workflowsql.New(q.SQL()).RunArtifactBody(ctx, workflowsql.RunArtifactBodyParams{ID: id, RunID: ref.ID, ProjectID: ref.ProjectID})
+	if err != nil {
+		return nil, database.Missing(err)
+	}
+	if row.Kind != kind || row.Body != "" || row.BodyBytes == nil {
+		return nil, fmt.Errorf("artifact %s is not a binary %s", id, kind)
+	}
+	return row.BodyBytes, nil
+}

@@ -138,11 +138,12 @@ function sentence(s: Step, live: boolean): string {
   if (s.status === 'not_applicable') return clip((s.type === 'scan' ? s.evidence.notApplicable : '') || reason)
   switch (s.type) {
     case 'agent/pi': {
-      if (failing && reason) return clip(reason)
       const files = (s.evidence.files ?? []).filter((f) => !f.startsWith('.apptown/'))
       if (s.status === 'running') return 'Working now.'
       if (s.status === 'pending') return 'Not started.'
-      return files.length ? `Changed ${plural(files.length, 'file')}: ${files.slice(0, 4).join(', ')}${files.length > 4 ? ', …' : ''}.` : 'Changed no files.'
+      const changed = files.length ? `Changed ${plural(files.length, 'file')}: ${files.slice(0, 4).join(', ')}${files.length > 4 ? ', …' : ''}.` : 'Changed no files.'
+      const needs = s.evidence.needs
+      return join(failing && reason ? clip(reason) : changed, needs?.started?.length ? `Needs started: ${needs.started.map(n => `${n.kind} (${n.env.join(', ')})`).join('; ')}` : '', needs?.refused && `Needs refused: ${needs.refused}`)
     }
     case 'agent/review':
       if (s.evidence.reviewerSummary) return `${clip(reason || s.evidence.summary || '')}; the reviewer itself passed it.`
@@ -193,6 +194,7 @@ function sentence(s: Step, live: boolean): string {
       return `${decided} by ${who}${ev.comment ? `: “${clip(ev.comment, 160)}”` : '.'}`
     }
     case 'preview':
+      return join(s.evidence.url || clip(reason), s.evidence.screenshots?.failedResources?.length ? `${plural(s.evidence.screenshots.failedResources.length + (s.evidence.screenshots.failedResourcesMore ?? 0), 'resource')} failed to load` : '')
     case 'deploy':
       return s.evidence.url ? s.evidence.url : clip(reason)
     case 'artifact/require':

@@ -171,3 +171,38 @@ func TestIntegrationScreenshotsTrustTheDeploymentsAuthority(t *testing.T) {
 		t.Fatalf("with the deployments authority: %d shots, unavailable %q, missing %v", len(c.Shots), c.Unavailable, c.Missing)
 	}
 }
+
+// A page can return 200 and inline styles while its real assets fail. Both
+// HTTP failures and network failures must survive the browser report.
+func TestIntegrationScreenshotsRecordFailedSubresources(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", page(`<style>@font-face{font-family:missing;src:url('/font.woff2')}body{font-family:missing}</style><h1>Home</h1><link rel="stylesheet" href="/style.css?secret=hidden"><link rel="stylesheet" href="http://host.docker.internal:1/dead.css?secret=hidden"><script src="/app.js"></script><img src="/photo.png">`))
+	for _, path := range []string{"/style.css", "/app.js", "/photo.png", "/font.woff2"} {
+		mux.HandleFunc(path, http.NotFound)
+	}
+	mux.HandleFunc("/healthy", page("<h1>Healthy</h1>"))
+	base := fmt.Sprintf("http://host.docker.internal:%d", listen(t, mux, nil))
+	c := localShots(nil).Take(t.Context(), base, []string{"/healthy"})
+	if c.Unavailable != "" || len(c.Shots) != 3 {
+		t.Fatalf("capture: %+v", c)
+	}
+	for _, view := range []string{"desktop", "phone"} {
+		got := map[string]FailedResource{}
+		for _, f := range c.FailedResources {
+			if strings.Contains(f.URL, "?") || strings.Contains(f.URL, "hidden") || f.Path != "/" {
+				t.Fatalf("wrong page or exposed query: %+v", f)
+			}
+			if f.View == view {
+				got[f.Type+" "+f.URL[strings.Index(f.URL, "/"):]] = f
+			}
+		}
+		for _, resource := range []string{"Stylesheet /style.css", "Script /app.js", "Image /photo.png", "Font /font.woff2"} {
+			if got[resource].Status != 404 {
+				t.Errorf("%s %s: %+v", view, resource, got)
+			}
+		}
+		if got["Stylesheet /dead.css"].Error == "" {
+			t.Errorf("%s missing network failure: %+v", view, got)
+		}
+	}
+}

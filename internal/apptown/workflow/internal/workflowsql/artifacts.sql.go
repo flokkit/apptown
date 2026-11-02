@@ -522,6 +522,30 @@ func (q *Queries) ReplaceSteeringArtifact(ctx context.Context, arg ReplaceSteeri
 	return err
 }
 
+const runArtifactBody = `-- name: RunArtifactBody :one
+SELECT a.kind,a.body,a.body_bytes FROM artifacts a JOIN runs r ON r.id=a.run_id
+WHERE a.id=$1 AND a.run_id=$2 AND r.project_id=$3
+`
+
+type RunArtifactBodyParams struct {
+	ID        ids.ID
+	RunID     ids.ID
+	ProjectID ids.ID
+}
+
+type RunArtifactBodyRow struct {
+	Kind      string
+	Body      string
+	BodyBytes []byte
+}
+
+func (q *Queries) RunArtifactBody(ctx context.Context, arg RunArtifactBodyParams) (RunArtifactBodyRow, error) {
+	row := q.db.QueryRowContext(ctx, runArtifactBody, arg.ID, arg.RunID, arg.ProjectID)
+	var i RunArtifactBodyRow
+	err := row.Scan(&i.Kind, &i.Body, &i.BodyBytes)
+	return i, err
+}
+
 const selectedTextArtifacts = `-- name: SelectedTextArtifacts :many
 SELECT a.id,a.run_id,a.kind,a.name,a.ref,a.body,a.created_at
 FROM artifacts a JOIN runs r ON r.id=a.run_id

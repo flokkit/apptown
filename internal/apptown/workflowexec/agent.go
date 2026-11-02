@@ -68,6 +68,7 @@ type agentConfig struct {
 	// told: it may be the change that fixes them, and refusing the step would
 	// leave no governed way to (greeting-api#21).
 	needsRefused string
+	needsStarted []needStarted
 	// Docker, when true, gives the agent a private Docker daemon.
 	Docker bool `json:"docker"`
 	// MayChangeNothing declares that an empty result is a complete answer
@@ -261,7 +262,6 @@ func (a *Executor) Run(task *workflow.Execution) {
 	if cfg.Needs {
 		cfg.needsRefused = a.workspaceNeedsRefusal(task.Context(), ws)
 	}
-	prompt := a.agentPrompt(task.Context(), run, &cfg, source, earlier)
 	mode, err := workflow.ParseRetryMode(cfg.RetryMode)
 	if err != nil {
 		fail(workflow.StatusError, map[string]any{"reason": err.Error()})
@@ -277,7 +277,6 @@ func (a *Executor) Run(task *workflow.Execution) {
 		fail(workflow.StatusError, map[string]any{"reason": err.Error()})
 		return
 	}
-	args := piharness.StepArgs(piharness.FolderStepPaths, sessionID, st.Text != "", model, k.thinking, prompt)
 
 	env, scmGranted, err := a.agentEnv(task.Context(), run, step, &cfg, ws, model, k)
 	if err != nil {
@@ -313,6 +312,8 @@ func (a *Executor) Run(task *workflow.Execution) {
 		return
 	}
 	defer cleanup()
+	prompt := a.agentPrompt(task.Context(), run, &cfg, source, earlier)
+	args := piharness.StepArgs(piharness.FolderStepPaths, sessionID, st.Text != "", model, k.thinking, prompt)
 
 	timeout := agentTimeout
 	if cfg.TimeoutMinutes > 0 {

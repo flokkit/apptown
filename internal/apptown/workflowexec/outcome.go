@@ -91,6 +91,7 @@ func (a *Executor) recordAgentOutcome(ctx context.Context, r agentRecord) (workf
 		label = func(key string) string { return r.worker.image.Labels[key] }
 	}
 	evidence := agentEvidence{
+		Needs:            needsEvidence{Started: r.cfg.needsStarted, Refused: r.cfg.needsRefused},
 		Model:            r.pi.Model,
 		ModelSlot:        r.modelSlot,
 		ModelProfile:     r.modelProfile,

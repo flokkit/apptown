@@ -106,24 +106,24 @@ func reviewFixture(t *testing.T, boot bool, process reviewProcess) (*workflow.Se
 
 // reviewFixtureWith lets a test replace the executor's private collaborators
 // (the scope reader) before any step runs.
-func reviewFixtureWith(t *testing.T, boot bool, process reviewProcess, adjust func(*Executor)) (*workflow.Service, context.Context, map[string]ids.ID, func(string), *usage.Ledger) {
+func reviewFixtureWith(t *testing.T, boot bool, process reviewProcess, adjust func(*Executor), preview ...workflow.Runner) (*workflow.Service, context.Context, map[string]ids.ID, func(string), *usage.Ledger) {
 	t.Helper()
 	steps := []schema.Step{{Name: "review", Uses: ReviewKind}}
 	if boot {
 		steps = append([]schema.Step{{Name: "boot", Uses: "preview"}}, steps...)
 	}
-	return reviewFixtureSteps(t, steps, process, adjust)
+	return reviewFixtureSteps(t, steps, process, adjust, preview...)
 }
 
 // reviewFixtureSteps admits a run of one stage of steps (review and preview
 // steps dispatched to the test, approvals left to a person).
-func reviewFixtureSteps(t *testing.T, steps []schema.Step, process reviewProcess, adjust func(*Executor)) (*workflow.Service, context.Context, map[string]ids.ID, func(string), *usage.Ledger) {
+func reviewFixtureSteps(t *testing.T, steps []schema.Step, process reviewProcess, adjust func(*Executor), preview ...workflow.Runner) (*workflow.Service, context.Context, map[string]ids.ID, func(string), *usage.Ledger) {
 	t.Helper()
-	return reviewFixtureFor(t, project.Ordinary, steps, process, adjust)
+	return reviewFixtureFor(t, project.Ordinary, steps, process, adjust, preview...)
 }
 
 // reviewFixtureFor is reviewFixtureSteps in a project made with purpose.
-func reviewFixtureFor(t *testing.T, purpose project.Purpose, steps []schema.Step, process reviewProcess, adjust func(*Executor)) (*workflow.Service, context.Context, map[string]ids.ID, func(string), *usage.Ledger) {
+func reviewFixtureFor(t *testing.T, purpose project.Purpose, steps []schema.Step, process reviewProcess, adjust func(*Executor), preview ...workflow.Runner) (*workflow.Service, context.Context, map[string]ids.ID, func(string), *usage.Ledger) {
 	t.Helper()
 	boot := slices.ContainsFunc(steps, func(s schema.Step) bool { return s.Uses == "preview" })
 	db := databaseSuite.New(t)
@@ -176,6 +176,9 @@ func reviewFixtureFor(t *testing.T, purpose project.Purpose, steps []schema.Step
 			t.Error(err)
 		}
 	}}
+	if len(preview) > 0 {
+		runners["preview"] = preview[0]
+	}
 	work := workflow.New(context.Background(), db, workflow.Dependencies{
 		Authority: access.Checked{Authority: directory, Projects: project.New(db, directory)},
 		DataDir:   dir, Repositories: &scm.RepositoryLocks{},

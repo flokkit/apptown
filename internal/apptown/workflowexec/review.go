@@ -219,7 +219,7 @@ func (a *Executor) Review(task *workflow.Execution) {
 		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
 		return
 	}
-	brief, err := a.reviewBrief(task.Context(), run, source, cfg, diff, scope)
+	brief, err := a.reviewBrief(task.Context(), run, source, cfg, diff, reviewed, scope)
 	if err != nil {
 		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
 		return
@@ -278,7 +278,7 @@ func (a *Executor) Review(task *workflow.Execution) {
 	pi := func(args []string, timeout time.Duration, name string) piResult {
 		return a.piInvoke(task.Context(), piCall{
 			Source: source, Step: step, Image: a.cfg.Image, Workspace: ws,
-			Args: args, Env: env, Timeout: timeout, Name: name,
+			Args: args, Env: env, Timeout: timeout, Name: name, Files: brief.files,
 		})
 	}
 	outcome := pi(piharness.ReviewArgs(model, thinking, false, brief.prompt()), timeout,
@@ -376,6 +376,7 @@ func (a *Executor) settleReview(task *workflow.Execution, v reviewVerdict, failu
 // any extra focus the workflow asks for.
 type reviewBrief struct {
 	request, claim, diff, notes, extra string
+	files                              []execution.File
 	// question is the step's own first question (reviewConfig.Question);
 	// empty is the shared one.
 	question string
@@ -411,7 +412,7 @@ type scopeReader func(ctx context.Context) (base string, files []repositoryedit.
 
 // reviewBrief assembles the reviewer's brief from the run's records, the
 // change's diff and its scope.
-func (a *Executor) reviewBrief(ctx context.Context, run *workflow.Run, source workflow.Source, cfg reviewConfig, diff string, scope scopeReader) (reviewBrief, error) {
+func (a *Executor) reviewBrief(ctx context.Context, run *workflow.Run, source workflow.Source, cfg reviewConfig, diff, reviewed string, scope scopeReader) (reviewBrief, error) {
 	var item *workflow.Change
 	if !run.ChangeID.IsZero() {
 		item, _ = workflow.ReadChangeIn(ctx, a.db, run.ChangeID)
@@ -453,7 +454,12 @@ func (a *Executor) reviewBrief(ctx context.Context, run *workflow.Run, source wo
 	if err != nil {
 		return reviewBrief{}, errors.New(scopeUnassessed(err))
 	}
-	b.notes = mandatedOutputsNote(steps) + note + undecidedFindingsNote(steps)
+	previewNote, files, err := a.previewEvidence(ctx, run, steps, reviewed)
+	if err != nil {
+		return reviewBrief{}, err
+	}
+	b.files = files
+	b.notes = mandatedOutputsNote(steps) + note + undecidedFindingsNote(steps) + previewNote
 
 	if cfg.Prompt != "" {
 		b.extra = "\nADDITIONAL REVIEW FOCUS:\n" + workflow.Interpolate(ctx, a.db, cfg.Prompt, run, item, slug) + "\n"

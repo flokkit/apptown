@@ -107,7 +107,8 @@ func agentWorkspace(stepID ids.ID, attempt int64) string {
 // request: what the request was built from, which its settlement reports.
 // A recovered invocation settles with these, never with settings read again.
 type agentAdmission struct {
-	Invocation string `json:"invocation"`
+	Needs      needsEvidence `json:"needs"`
+	Invocation string        `json:"invocation"`
 	// Number counts the attempt's invocations from 1: the transcript's
 	// record orders captures by it.
 	Number       int64                `json:"number"`
@@ -253,7 +254,7 @@ func (a *Executor) runOnWorker(task *workflow.Execution, attempt *stepAttempt, r
 		}
 		diff, err := hubReviewDiff(ctx, hub, source, call.commit)
 		if err == nil {
-			review.brief, err = a.reviewBrief(ctx, run, source, review.cfg, diff, hubScope(hub, source, call.commit))
+			review.brief, err = a.reviewBrief(ctx, run, source, review.cfg, diff, call.commit, hubScope(hub, source, call.commit))
 		}
 		if err != nil {
 			refuse(err)
@@ -292,6 +293,7 @@ func (a *Executor) runOnWorker(task *workflow.Execution, attempt *stepAttempt, r
 // startAttempt reserves an attempt's first invocation, with what its
 // request was built from, and drives the attempt from there.
 func (a *Executor) startAttempt(ctx context.Context, w *workerAttempt, call workerAgentCall, req workerAgentRequest, meta agentAdmission, fail func(workflow.StepState, map[string]any)) {
+	meta.Needs = req.needs
 	meta.Number, meta.Image, meta.Began, meta.Profile = 1, req.image, call.at, req.profile
 	meta.Model, meta.ModelSlot, meta.ModelProfile = req.model, req.modelSlot, req.modelProfile
 	meta.Timeout = req.spec.Admission.Limits.WallClock
@@ -812,6 +814,7 @@ func (a *Executor) recordWorkerAgent(ctx context.Context, w *workerAttempt, inv 
 	if res.outputErr != nil {
 		rec.outputUnread = res.outputErr.Error()
 	}
+	w.cfg.needsStarted, w.cfg.needsRefused = meta.Needs.Started, meta.Needs.Refused
 	var st steeringFile
 	st.Hash, st.GuidanceHash, st.Skills, st.Resources = meta.Steering.Hash, meta.Steering.GuidanceHash, meta.Steering.Skills, meta.Steering.Resources
 	status, err := a.recordAgentOutcome(ctx, agentRecord{task: w.task, cfg: &w.cfg, pi: res.piResult, files: h, steering: st,

@@ -146,6 +146,7 @@ type reviewCall struct {
 // workerAgentRequest is an invocation's admitted request, and what the
 // AppTown records about it.
 type workerAgentRequest struct {
+	needs                          needsEvidence
 	spec                           execution.TaskSpec
 	steering                       steeringFile
 	image                          execution.AgentImage
@@ -258,6 +259,10 @@ func (a *Executor) privateOnWorker(ctx context.Context, c workerAgentCall, cfg *
 			} else if err != nil {
 				return nil, nil, err
 			} else {
+				cfg.needsStarted, err = a.describeNeeds(ctx, needs)
+				if err != nil {
+					return nil, nil, err
+				}
 				services = append(services, needs...)
 				for key, v := range needEnv {
 					env = append(env, key+"="+v)
@@ -352,7 +357,7 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 	if !sessionIDPattern.MatchString(c.session) {
 		return workerAgentRequest{}, fmt.Errorf("invalid session id %q", c.session)
 	}
-	out := workerAgentRequest{image: image}
+	out := workerAgentRequest{image: image, needs: needsEvidence{Started: cfg.needsStarted, Refused: cfg.needsRefused}}
 	out.model, out.modelSlot, out.modelProfile, err = a.modelSelection.Resolve(ctx, run.ProjectID, k.model)
 	if err != nil {
 		return workerAgentRequest{}, fmt.Errorf("choosing the step's model: %w", err)
@@ -399,6 +404,11 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 		}
 	} else {
 		claim = c.review.brief.claim
+		for _, file := range c.review.brief.files {
+			if err := add(file.Path, file.Content, file.Mode); err != nil {
+				return workerAgentRequest{}, err
+			}
+		}
 	}
 	out.steering = st
 	out.claim = claim

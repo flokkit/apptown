@@ -87,12 +87,29 @@ type shot struct {
 	PNG  []byte
 }
 
-// Capture is a capture's answer: the pictures taken, the pages not
-// pictured and why, or why nothing could be (Unavailable).
+// FailedResource is a subresource the browser could not load. URL contains
+// only its host and path, never credentials, query parameters or fragments.
+type FailedResource struct {
+	Path   string `json:"path"`
+	View   string `json:"view"`
+	Type   string `json:"type"`
+	URL    string `json:"url"`
+	Status int    `json:"status,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
+// MaxFailedResources bounds the list retained in preview evidence.
+const MaxFailedResources = 50
+
+// Capture reports pictures, failed subresources and pages not pictured.
+// Unavailable explains why no pictures could be taken.
+// FailedResourcesMore counts failures omitted from the bounded list.
 type Capture struct {
-	Shots       []shot
-	Missing     []string
-	Unavailable string
+	FailedResourcesMore int
+	FailedResources     []FailedResource
+	Shots               []shot
+	Missing             []string
+	Unavailable         string
 }
 
 // pagePath is what a named page may be: a path on the preview, starting
@@ -223,10 +240,11 @@ func errText(err error) string {
 func readCapture(report []byte, wants []want) Capture {
 	var r struct {
 		Pages []struct {
-			Name     string `json:"name"`
-			FinalURL string `json:"finalUrl"`
-			PNG      string `json:"png"`
-			Reason   string `json:"reason"`
+			FailedResources []FailedResource `json:"failedResources"`
+			Name            string           `json:"name"`
+			FinalURL        string           `json:"finalUrl"`
+			PNG             string           `json:"png"`
+			Reason          string           `json:"reason"`
 		} `json:"pages"`
 	}
 	if err := json.Unmarshal(report, &r); err != nil {
@@ -236,7 +254,7 @@ func readCapture(report []byte, wants []want) Capture {
 	for i, p := range r.Pages {
 		byName[p.Name] = i
 	}
-	var c Capture
+	c := Capture{FailedResources: []FailedResource{}}
 	for _, w := range wants {
 		label := w.path + " · " + w.view.Name
 		i, ok := byName[w.name]
@@ -245,6 +263,14 @@ func readCapture(report []byte, wants []want) Capture {
 			continue
 		}
 		p := r.Pages[i]
+		for _, failure := range p.FailedResources {
+			failure.Path, failure.View = w.path, w.view.Name
+			if len(c.FailedResources) < MaxFailedResources {
+				c.FailedResources = append(c.FailedResources, failure)
+			} else {
+				c.FailedResourcesMore++
+			}
+		}
 		if p.PNG == "" {
 			c.Missing = append(c.Missing, label+": "+strs.Truncate(strs.FirstNonBlank(p.Reason, "not taken"), 200))
 			continue

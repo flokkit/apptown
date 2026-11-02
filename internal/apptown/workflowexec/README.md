@@ -54,3 +54,17 @@ usage write makes an agent or review step an error, records the incomplete-usage
 reason in its evidence, and prevents an empty-turn retry or review follow-up.
 The transcript and parsed output remain available for diagnosis; rerunning a
 model is not a way to repair missing accounting.
+
+Steps declaring `needs: true` receive a prompt block naming the need services
+started beside them and their connection environment variable names. The step's
+`needs` evidence records those names or the refusal reason, without connection
+values. A refused need is reported to the agent with an instruction to file
+`apptown complain` and identify the tests it could not run.
+
+Preview screenshots include failed stylesheet, script, image and font requests
+per page and viewport, with host and path plus HTTP status or network error.
+The approval panel and preview evidence show the failure count and a folded
+list. Review briefs read the latest completed preview's screenshots and failures
+from its evidence. Both review runners supply the recorded PNGs as read-only
+files under `/apptown/in/preview/`. The prompt directs reviewers to open these
+images to judge appearance and report when appearance cannot be assessed.

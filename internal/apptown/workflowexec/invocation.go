@@ -43,6 +43,7 @@ type piCall struct {
 	Step      *workflow.Step
 	Image     string
 	Workspace string
+	Files     []execution.File
 	Args      []string // pi's argv after "pi"
 	Env       []string
 	Network   string
@@ -99,7 +100,7 @@ func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 		}
 		amb := agentenv.AmbientFor(bound, c.Workspace)
 		var mounts []string
-		files := amb.Files // written beside the step's folder, never in it
+		files := append(amb.Files, c.Files...) // written beside the step's folder, never in it
 		env := append(append([]string{}, c.Env...), amb.Env...)
 		if cli, err := a.cli.Path(); err == nil {
 			mounts = append(mounts, cli+":"+agentenv.CLIDir+"/apptown:ro")
