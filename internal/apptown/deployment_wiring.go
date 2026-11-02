@@ -72,7 +72,7 @@ func instanceBackupDependencies(a *App) instancebackup.Dependencies {
 // hostSettings are this AppTown's Docker settings, which Deployment and
 // Preview reach daemons with.
 func hostSettingsFor(a *App) deployment.HostSettings {
-	return deployment.HostSettings{Scope: a.docker, DataDir: a.cfg.dataDir, SSHConfigPath: a.cfg.sshConfigPath,
+	return deployment.HostSettings{Scope: a.docker, DataDir: a.cfg.dataDir, SSHConfigPath: a.cfg.sshConfigPath, SSHCommand: a.cfg.targetSSHCommand,
 		BuiltInTarget: deployment.BuiltInTargetName, NoLocalDocker: a.cfg.noLocalDocker}
 }
 

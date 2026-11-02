@@ -108,7 +108,7 @@ func assembled(db *database.DB, rt testRuntime, deps deployment.Dependencies) *b
 	deps.Targets = deployment.NewTargets(db, rt.Connectors, rt.OfferedByConstruction...)
 	deps.Deployments = deployment.NewDeployments(db)
 	deps.Projects = rt.Projects
-	deps.Hosts = deployment.NewHosts(deps.Targets, rt.Secrets, deployment.HostSettings{Scope: rt.Scope, DataDir: rt.DataDir, SSHConfigPath: rt.SSHConfigPath,
+	deps.Hosts = deployment.NewHosts(deps.Targets, rt.Secrets, deployment.HostSettings{Scope: rt.Scope, DataDir: rt.DataDir, SSHConfigPath: rt.SSHConfigPath, SSHCommand: func(context.Context, []string) ([]byte, error) { return nil, nil },
 		BuiltInTarget: rt.BuiltInTarget, NoLocalDocker: rt.NoLocalDocker})
 	deps.Environment = deployment.NewEnvironment(deployment.EnvironmentDependencies{Secrets: rt.Secrets, Integrations: rt.Integrations, Needs: rt.Needs,
 		Probe: rt.Probe, ToolVersions: chownTools(rt.ChownImage), Routes: rt.Routes, Projects: rt.Projects})

@@ -220,6 +220,9 @@ func (h *digestHosts) daemon(target string) *dockerfake.Daemon {
 }
 
 func (h *digestHosts) Run(ctx context.Context, host string, req docker.Command) ([]byte, error) {
+	if strings.HasPrefix(host, "ssh://apptown-target-") && len(host) > 17 && host[len(host)-17] == '-' {
+		host = host[:len(host)-17]
+	}
 	h.mu.Lock()
 	d := h.daemons[host]
 	h.mu.Unlock()
@@ -399,7 +402,7 @@ func newDigestWorld(t *testing.T, secrets string, configure func(*digestWorld, *
 func newDigestWorldWith(t *testing.T, secrets, appYAML string, configure func(*digestWorld, *testRuntime)) *digestWorld {
 	t.Helper()
 	db := testDB(t)
-	w := &digestWorld{db: db, dir: t.TempDir(), registry: newDigestRegistry(t, digestRegistryUser, digestRegistryToken)}
+	w := &digestWorld{db: db, dir: shortHostDataDir(t), registry: newDigestRegistry(t, digestRegistryUser, digestRegistryToken)}
 	w.hosts = &digestHosts{t: t, platform: "linux x86_64", held: map[string]map[string]bool{},
 		daemons: map[string]*dockerfake.Daemon{"": newDockerFake(), digestHostOf("lab"): newDockerFake(), digestHostOf("lab2"): newDockerFake()}}
 	w.project = createTestProject(t, db, "p", "P")

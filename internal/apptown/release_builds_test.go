@@ -230,6 +230,9 @@ func (h *releaseHosts) daemon(target string) *fakeDocker {
 }
 
 func (h *releaseHosts) Run(ctx context.Context, host string, req docker.Command) ([]byte, error) {
+	if strings.HasPrefix(host, "ssh://apptown-target-") && len(host) > 17 && host[len(host)-17] == '-' {
+		host = host[:len(host)-17]
+	}
 	h.mu.Lock()
 	d := h.daemons[host]
 	h.mu.Unlock()

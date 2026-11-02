@@ -270,3 +270,32 @@ func (d forbiddenRestoreDatabase) Ensure(context.Context) (string, error) {
 	d.t.Fatal("Ensure before archive acceptance")
 	return "", nil
 }
+
+// SSH master sockets are transient and must not appear as backup omissions.
+func TestArchiveSkipsSSHControlSocketsWithoutWarnings(t *testing.T) {
+	t.Parallel()
+	dir, err := os.MkdirTemp("/tmp", "at-backup-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	if err := os.MkdirAll(filepath.Join(dir, "ssh/c"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: filepath.Join(dir, "ssh/c/master"), Net: "unix"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	dump := filepath.Join(t.TempDir(), "dump")
+	if err := os.WriteFile(dump, []byte("dump"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, left, err := writeArchive(filepath.Join(t.TempDir(), "backup"), backupPassphrase, &Manifest{}, dump, dir, ".staging")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(left) != 0 {
+		t.Fatalf("control sockets listed as omitted files: %v", left)
+	}
+}

@@ -176,7 +176,7 @@ func attachedHostBeside(t *testing.T, name string, local *fakeDocker) (*fakeDock
 		if host == "" && local != nil {
 			return local.Run(ctx, "", req)
 		}
-		if host != "ssh://apptown-target-"+name {
+		if !strings.HasPrefix(host, "ssh://apptown-target-"+name+"-") {
 			t.Errorf("docker %s was sent to %q, not the attached host", strings.Join(req.Args, " "), host)
 			return nil, docker.ErrNoLocalBackend
 		}
@@ -364,7 +364,7 @@ func TestAnAttachedDockerHostIsNamedAndReachedAsThatHost(t *testing.T) {
 		t.Fatalf("get_project's main URL: %q", url)
 	}
 	// The host is reached through the SSH config AppTown was given.
-	if b, err := os.ReadFile(a.cfg.sshConfigPath); err != nil || !strings.Contains(string(b), "Host apptown-target-lab\n  HostName 192.0.2.10\n") {
+	if b, err := os.ReadFile(a.cfg.sshConfigPath); err != nil || !strings.Contains(string(b), "\n  HostName 192.0.2.10\n") {
 		t.Fatalf("AppTown's SSH config %s: %q %v", a.cfg.sshConfigPath, b, err)
 	}
 }

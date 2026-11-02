@@ -30,12 +30,13 @@ import (
 // reads it. It holds the host settings every boot and copy shares: where
 // AppTown keeps its data, its boots' Docker configurations and each
 // project's repository. One instance serves Deployment, Preview and every
-// other caller; it keeps no state of its own beyond the ssh files it
-// writes.
+// other caller; it owns the ssh files and each target's connection and
+// concurrent-call limits.
 type Hosts struct {
-	targets  *Targets
-	secrets  *secret.Service
-	settings HostSettings
+	targets     *Targets
+	secrets     *secret.Service
+	settings    HostSettings
+	connections sync.Map
 }
 
 // HostSettings are this AppTown's Docker settings.
@@ -46,6 +47,8 @@ type HostSettings struct {
 	// AppTown writes attached hosts' stanzas into ("" is ~/.ssh/config of
 	// the user AppTown runs as).
 	DataDir, SSHConfigPath string
+	// SSHCommand supplies the local SSH transport; nil uses OpenSSH.
+	SSHCommand SSHCommand
 	// BuiltInTarget names the target that is this AppTown's own Docker.
 	BuiltInTarget string
 	// NoLocalDocker is an AppTown with no local Docker daemon (-no-local-docker):
@@ -114,18 +117,66 @@ func parseSSHAddress(s string) (sshAddress, error) {
 // is worked out on every use and never recorded.
 func sshAlias(targetName string) string { return "apptown-target-" + targetName }
 
+// Namespace aliases and stanza markers as well as sockets: two installations
+// running as one user may write to the same ~/.ssh/config.
+func sshTargetName(name, controlPath string) string {
+	sum := sha256.Sum256([]byte(filepath.Dir(controlPath)))
+	return name + "-" + hex.EncodeToString(sum[:8])
+}
+
 // sshStanza renders the config block for one target, between markers
 // AppTown owns so it can replace exactly its own block later.
-func sshStanza(targetName string, addr sshAddress, keyPath string) string {
-	return fmt.Sprintf("# BEGIN apptown target %s\nHost %s\n  HostName %s\n  User %s\n  Port %d\n  IdentityFile %s\n  IdentitiesOnly yes\n  StrictHostKeyChecking accept-new\n  ConnectTimeout 15\n# END apptown target %s\n",
-		targetName, sshAlias(targetName), addr.Host, addr.User, addr.Port, keyPath, targetName)
+func sshStanza(targetName string, addr sshAddress, keyPath, controlPath string) string {
+	return fmt.Sprintf("# BEGIN apptown target %s\nHost %s\n  HostName %s\n  User %s\n  Port %d\n  IdentityFile %s\n  IdentitiesOnly yes\n  StrictHostKeyChecking accept-new\n  ConnectTimeout 15\n  ControlMaster auto\n  ControlPath %s\n  ControlPersist 3m\n  ServerAliveInterval 15\n  ServerAliveCountMax 2\n  ProxyCommand false\nHost *\n# END apptown target %s\n",
+		sshTargetName(targetName, controlPath), sshAlias(sshTargetName(targetName, controlPath)), addr.Host, addr.User, addr.Port, sshConfigQuote(keyPath), sshConfigQuote(controlPath), sshTargetName(targetName, controlPath))
+}
+
+// targetControlPath keeps sockets private to this installation. Hashing the
+// connection identity also prevents a changed address or key reusing the old
+// authenticated connection. OpenSSH removes stale sockets when reconnecting and
+// removes live ones when ControlPersist expires after the last session closes.
+func targetControlPath(dataDir, name string, addr sshAddress, keyPath string) (string, error) {
+	if dataDir == "" {
+		return "", errors.New("SSH connection sharing needs AppTown's private data folder")
+	}
+	dir, err := filepath.Abs(filepath.Join(dataDir, "ssh", "c"))
+	if err != nil {
+		return "", err
+	}
+	key, err := os.ReadFile(keyPath)
+	if err != nil {
+		return "", fmt.Errorf("reading the SSH key for connection sharing: %w", err)
+	}
+	sum := sha256.Sum256(fmt.Appendf(nil, "%s\x00%s\x00%s\x00%s\x00%d\x00%s", dir, name, addr.User, addr.Host, addr.Port, key))
+	path := filepath.Join(dir, hex.EncodeToString(sum[:8]))
+	// macOS's sockaddr_un allows 104 bytes including NUL. OpenSSH adds
+	// a dot and 16 random characters while binding its temporary socket.
+	if len(path)+17 >= 104 {
+		return "", errors.New("SSH connection sharing socket path is too long; use a shorter path for AppTown's data folder")
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", fmt.Errorf("creating the private SSH connection sharing folder: %w", err)
+	}
+	info, err := os.Lstat(dir)
+	if err != nil {
+		return "", err
+	}
+	if !info.IsDir() || info.Mode().Perm() != 0o700 {
+		return "", errors.New("SSH connection sharing needs a private folder: set AppTown's ssh/c folder permissions to 0700 and remove any symlink there")
+	}
+	return path, nil
+}
+
+// Percent signs in paths are literal; OpenSSH otherwise expands tokens there.
+func sshConfigQuote(path string) string {
+	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`, "%", "%%").Replace(path) + `"`
 }
 
 // upsertSSHStanza writes the target's block into an ssh config file,
 // replacing an earlier block for the same target and leaving everything
 // else in the file untouched. Only a file that does not exist starts empty:
 // one that cannot be read is an error, never replaced by AppTown's block.
-func upsertSSHStanza(configPath, targetName, stanza string) error {
+func upsertSSHStanza(configPath, targetName, controlPath, stanza string) error {
 	if configPath == "" {
 		return errors.New("AppTown has no ssh config path: its home directory is unknown (set HOME)")
 	}
@@ -135,18 +186,25 @@ func upsertSSHStanza(configPath, targetName, stanza string) error {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("reading the ssh config %s: %w", configPath, err)
 	}
-	begin, end := "# BEGIN apptown target "+targetName+"\n", "# END apptown target "+targetName+"\n"
 	s := string(raw)
-	if i := strings.Index(s, begin); i >= 0 {
-		if j := strings.Index(s[i:], end); j >= 0 {
-			s = s[:i] + s[i+j+len(end):]
+	// Remove the unused alias from before installation namespacing as well as
+	// this installation's current block. Other installations keep their blocks.
+	for _, blockName := range []string{targetName, sshTargetName(targetName, controlPath)} {
+		begin, end := "# BEGIN apptown target "+blockName+"\n", "# END apptown target "+blockName+"\n"
+		if i := strings.Index(s, begin); i >= 0 {
+			if j := strings.Index(s[i:], end); j >= 0 {
+				s = s[:i] + s[i+j+len(end):]
+			}
 		}
 	}
-	s = strings.TrimRight(s, "\n")
+	s = strings.Trim(s, "\n")
 	if s != "" {
-		s += "\n\n"
+		s = "\n" + s + "\n"
 	}
-	s += stanza
+	// OpenSSH uses the first value it reads. Our alias must precede a
+	// user's Host * defaults, including ProxyCommand and ControlPath. The
+	// stanza ends with Host * to restore scope for their top-level settings.
+	s = stanza + s
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o700); err != nil {
 		return err
 	}
@@ -225,26 +283,30 @@ func (h *Hosts) materialiseTargetKey(ctx context.Context, targetName, keyFrom st
 }
 
 // prepareHostTarget makes the target reachable — key on disk, ssh stanza
-// in place — and returns the DOCKER_HOST to use. It is what a check and an
+// in place — and returns the DOCKER_HOST and control socket to use. It is what a check and an
 // attachment both do first.
-func (h *Hosts) prepareHostTarget(ctx context.Context, name string, addr sshAddress, keyFrom string) (string, error) {
+func (h *Hosts) prepareHostTarget(ctx context.Context, name string, addr sshAddress, keyFrom string) (string, string, error) {
 	keyPath, err := h.materialiseTargetKey(ctx, name, keyFrom)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	if err := upsertSSHStanza(h.settings.SSHConfigPath, name, sshStanza(name, addr, keyPath)); err != nil {
-		return "", fmt.Errorf("writing AppTown's ssh config: %w", err)
+	controlPath, err := targetControlPath(h.settings.DataDir, name, addr, keyPath)
+	if err != nil {
+		return "", "", err
 	}
-	return "ssh://" + sshAlias(name), nil
+	if err := upsertSSHStanza(h.settings.SSHConfigPath, name, controlPath, sshStanza(name, addr, keyPath, controlPath)); err != nil {
+		return "", "", fmt.Errorf("writing AppTown's ssh config: %w", err)
+	}
+	return "ssh://" + sshAlias(sshTargetName(name, controlPath)), controlPath, nil
 }
 
 // probeHostTarget asks the remote daemon to answer. ok and words.
 func (h *Hosts) probeHostTarget(ctx context.Context, name string, addr sshAddress, keyFrom string) (bool, string) {
-	dockerHost, err := h.prepareHostTarget(ctx, name, addr, keyFrom)
+	dockerHost, socket, err := h.prepareHostTarget(ctx, name, addr, keyFrom)
 	if err != nil {
 		return false, err.Error()
 	}
-	out, err := h.settings.Scope.WithHost(dockerHost, "", "").Run(ctx, "info", "--format", "{{.ServerVersion}} on {{.OperatingSystem}}, {{.ContainersRunning}}/{{.Containers}} containers")
+	out, err := h.attachedScope(dockerHost, "", "", socket).Run(ctx, "info", "--format", "{{.ServerVersion}} on {{.OperatingSystem}}, {{.ContainersRunning}}/{{.Containers}} containers")
 	if err != nil {
 		return false, fmt.Sprintf("%s did not answer as a Docker daemon over ssh: %s", addr.Host, strs.Truncate(strings.TrimSpace(string(out)), 200))
 	}
@@ -298,12 +360,12 @@ func (h *Hosts) DockerScope(ctx context.Context, t *Target) (docker.Scope, error
 	if err != nil {
 		return docker.Scope{}, err
 	}
-	host, err := h.prepareHostTarget(ctx, t.Name, addr, keyFrom)
+	host, socket, err := h.prepareHostTarget(ctx, t.Name, addr, keyFrom)
 	if err != nil {
 		return docker.Scope{}, err
 	}
 	door := attachedFrontDoor(t, addr.Host)
-	return h.settings.Scope.WithHost(host, door.Hostname, door.Domain), nil
+	return h.attachedScope(host, door.Hostname, door.Domain, socket), nil
 }
 
 // DockerScopeFor resolves exactly the recorded target. Missing identity or

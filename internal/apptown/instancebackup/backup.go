@@ -350,7 +350,7 @@ func keyFileNames(dataDir string) ([]string, error) {
 
 // writeInstanceArchive writes the archive at path: the manifest, the dump,
 // then the data directory without pgdata, cache, the staging of deployment
-// copies, the backup's own staging and the control socket. It says the
+// copies, the backup's own staging and the control sockets. It says the
 // archive's digest and size, and what of the data directory it passed over.
 func writeArchive(path, passphrase string, m *Manifest, dump, dataDir, staging string) (backuparchive.Digest, []string, error) {
 	if err := refusePendingRestore(dataDir); err != nil {
@@ -377,7 +377,7 @@ func writeArchive(path, passphrase string, m *Manifest, dump, dataDir, staging s
 	if _, err := w.File(dumpEntry, dump); err != nil {
 		return backuparchive.Digest{}, nil, err
 	}
-	skip := map[string]bool{"pgdata": true, "cache": true, "backups/.staging": true, staging: true, controlSocket: true}
+	skip := map[string]bool{"pgdata": true, "cache": true, "ssh/c": true, "backups/.staging": true, staging: true, controlSocket: true}
 	if err := w.Tree(strings.TrimSuffix(dataPrefix, "/"), dataDir, func(rel string) bool { return skip[rel] }); err != nil {
 		return backuparchive.Digest{}, nil, err
 	}
