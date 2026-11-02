@@ -572,3 +572,26 @@ func TestStockToolChecksNameStockScanners(t *testing.T) {
 		t.Fatalf("expected the stock tool checks (django, go, godot, hadolint), saw %d", seen)
 	}
 }
+
+// The toolchain check judges tools AppTown installs through mise: exactly the
+// stock toolchains. A part built with another tool (PHP, which the WordPress
+// way of working builds and tests in Docker) has no toolchain to declare, so
+// the check is not applicable to it rather than a finding. Derived from the
+// stock/toolchains folder, so a new toolchain must be added to the check.
+func TestToolchainDriftAppliesToTheStockToolchains(t *testing.T) {
+	t.Parallel()
+	files, err := os.ReadDir(filepath.Join("..", "..", "..", "stock", "toolchains"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want []string
+	for _, f := range files {
+		if name, ok := strings.CutSuffix(f.Name(), ".toml"); ok {
+			want = append(want, "tool:"+name)
+		}
+	}
+	got := sourcedNamed(t, "build/toolchain-mise", "toolchain-runtime-drift").Check.AppliesTo
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("toolchain-runtime-drift applies to %v, want the stock toolchains %v", got, want)
+	}
+}
