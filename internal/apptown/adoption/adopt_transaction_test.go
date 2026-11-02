@@ -68,8 +68,8 @@ func TestAdoptInSettlesSelectionsAndReceiptTogether(t *testing.T) {
 	if err := adopt(); err == nil {
 		t.Fatal("adoption without audit receipt succeeded")
 	}
-	for _, table := range []string{"guidance_imports", "project_lanes", "project_packs", "project_adoptions", "policies", "project_pi_extensions"} {
-		// sql-guarantee: rollback proof over every table adoption writes, including lane rows whatever their name; no owner read lists a project's rows of every table.
+	for _, table := range []string{"guidance_imports", "project_packs", "project_adoptions", "policies", "project_pi_extensions"} {
+		// sql-guarantee: rollback proof over every table adoption writes, no owner read lists a project's rows of every table.
 		dbtest.Count(t, db, 0, `SELECT count(*) FROM `+table+` WHERE project_id=$1`, pid)
 	}
 	if cur := currentOf(t, db, pid); cur.Revision != 0 || cur.Drift != "review" {
@@ -86,12 +86,6 @@ func TestAdoptInSettlesSelectionsAndReceiptTogether(t *testing.T) {
 	}
 	if n := countOf(extensionsOf(t, db, pid), func(e string) bool { return e == "agent-addon" }); n != 1 {
 		t.Fatalf("enabled extensions: %d", n)
-	}
-	if found, enabled := laneRow(t, db, pid, "selected-lane"); !found || !enabled {
-		t.Fatalf("selected lane: found=%v enabled=%v", found, enabled)
-	}
-	if found, _ := laneRow(t, db, pid, "system-lane"); found {
-		t.Fatal("a system workflow became a project lane")
 	}
 	if n := countOf(packsOf(t, db, pid), func(p ProjectPackRecord) bool { return p.Pack == packName && p.Version == 1 }); n != 1 {
 		t.Fatalf("pack memberships: %d", n)

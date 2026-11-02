@@ -1001,7 +1001,6 @@ export type LibraryWorkflow = {
   category: string
   tier: string
   system: boolean
-  usedBy: LibraryWorkflowUse[]
   yaml: string
 }
 
@@ -1111,8 +1110,6 @@ export type PackPulled = {
   removed: string[]
   guidanceToAdd: string[]
   conflicting: string[]
-  keptReferenced: string[]
-  deprecated: string[]
 }
 
 export type PackSaved = {
@@ -1125,9 +1122,11 @@ export type PackView = {
   apiVersion?: string
   name: string
   description: string
+  suggested?: boolean
   platform?: boolean
   guidance: string[]
   workflows: string[]
+  schedules?: string[]
   policies: PackPolicy[]
   toolchain?: string
   tools?: Record<string, string>
@@ -1424,8 +1423,6 @@ export type PullPlan = {
   pack: string
   additions: string[]
   removals: string[]
-  keptReferenced: string[]
-  deprecated: string[]
   guidance: string[]
   conflicting: string[]
 }
@@ -3437,11 +3434,6 @@ export type PackVersion = {
   version: number
 }
 
-export type LibraryWorkflowUse = {
-  project: string
-  origin: string
-}
-
 export type ModelEntry = {
   pattern: string
   binding: string
@@ -3508,9 +3500,11 @@ export type RedeployNumber = {
 }
 
 export type PackSpec = {
+  suggested?: boolean
   platform?: boolean
   guidance: string[]
   workflows: string[]
+  schedules?: string[]
   policies: PackPolicy[]
   toolchain?: string
   tools?: Record<string, string>
@@ -3730,7 +3724,6 @@ export type LaneView = {
   tier: string
   origin: string
   version: number
-  selected: boolean
   deprecated?: boolean
   withdrawn?: boolean
   runsCount: number

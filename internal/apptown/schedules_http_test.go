@@ -2,7 +2,9 @@ package apptown
 
 import (
 	"encoding/json"
+	"github.com/flokkit/apptown/internal/database"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
@@ -35,7 +37,19 @@ spec:
 	if _, _, err := a.Ways.PublishWorkflow(t.Context(), yaml, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Adoption.SelectLane(t.Context(), idstest.N(1), "monthly", true, "fixture"); err != nil {
+	if _, err := a.Ways.PublishPack(t.Context(), "monthly-work", "Monthly work", `{"workflows":["monthly"],"schedules":["monthly"]}`, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	pack, err := a.Ways.Pack(t.Context(), "monthly-work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.DB.InTx(t.Context(), func(tx *database.Tx) error {
+		return adoption.SetMembershipIn(t.Context(), tx, idstest.N(1), []adoption.Membership{{Pack: pack.Name, Version: pack.Version}}, "fixture", "fixture", time.Now())
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := recordCatalogFixture(a.Adoption, t.Context(), idstest.N(1), "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.Adoption.RecordCurrent(t.Context(), idstest.N(1), adoption.AdoptionEdit, "fixture selects monthly", "fixture"); err != nil {

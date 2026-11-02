@@ -138,16 +138,21 @@ func checkWorkflow(ctx context.Context, q database.Queryer, projectID ids.ID, wf
 	return violations, nil
 }
 
-// projectConformance judges every selected and system workflow in one
-// checked projection, rather than rereading lane selection per workflow
-// and silently omitting read failures.
-func projectConformance(ctx context.Context, q database.Queryer, projectID ids.ID, capabilities policyCapabilityObserver) ([]Violation, error) {
+// projectConformance judges library workflows in one checked projection.
+func (s *Service) projectConformance(ctx context.Context, q database.Queryer, projectID ids.ID, capabilities policyCapabilityObserver) ([]Violation, error) {
 	if _, err := adoptionsql.New(q.SQL()).ProjectIdentity(ctx, projectID); err != nil {
 		return nil, fmt.Errorf("project %d: %w", projectID, err)
 	}
-	workflows, err := adoptionsql.New(q.SQL()).WorkflowsForProject(ctx, projectID)
+	workflows, err := adoptionsql.New(q.SQL()).LibraryWorkflows(ctx)
 	if err != nil {
 		return nil, err
+	}
+	packWorkflows, err := packWorkflowNamesIn(ctx, q, projectID)
+	if err != nil {
+		return nil, err
+	}
+	if s.deps.Ways == nil {
+		return nil, errCatalogUnavailable
 	}
 	policies, err := ReadProjectPolicies(ctx, q, projectID)
 	if err != nil {
@@ -163,7 +168,7 @@ func projectConformance(ctx context.Context, q database.Queryer, projectID ids.I
 		if err != nil {
 			return nil, fmt.Errorf("policy workflow %q: %w", workflow.LibWorkflow.Name, err)
 		}
-		if !doc.Metadata.System && !workflow.Selected {
+		if !doc.Metadata.System && s.deps.Ways.Withdrawn(wow.KindWorkflow, workflow.LibWorkflow.Origin, workflow.LibWorkflow.Name) && !packWorkflows[workflow.LibWorkflow.Name] {
 			continue
 		}
 		for _, policy := range evaluations {

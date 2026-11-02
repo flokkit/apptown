@@ -50,7 +50,7 @@ func assertUnadoptedServiceProject(t *testing.T, db *database.DB, pid ids.ID) {
 	if cur := currentOf(t, db, pid); cur.Revision != 0 || cur.Drift != "pending review" {
 		t.Fatalf("refused settlement moved the aggregate: %+v", cur)
 	}
-	for _, table := range []string{"guidance_imports", "project_lanes", "project_packs", "project_adoptions", "policies", "project_pi_extensions", "audit_log"} {
+	for _, table := range []string{"guidance_imports", "project_packs", "project_adoptions", "policies", "project_pi_extensions", "audit_log"} {
 		// sql-guarantee: a refusal writes nothing to any table adoption owns, lane rows of any name included; no owner read lists every table's rows.
 		dbtest.Count(t, db, 0, `SELECT count(*) FROM `+table+` WHERE project_id=$1`, pid)
 	}

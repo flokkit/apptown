@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -30,7 +29,7 @@ func (h WorkflowCatalog) LibraryList(w http.ResponseWriter, r *http.Request) {
 	out := []LibraryWorkflow{}
 	for _, l := range catalog.workflows {
 		if h.ways.Withdrawn(wow.KindWorkflow, l.Origin, l.Name) {
-			continue // the library offers what the release ships; selections keep theirs
+			continue // adopted packs can still supply withdrawn workflows to their projects
 		}
 		yamlSrc := l.Yaml
 		stages := []string{}
@@ -43,21 +42,11 @@ func (h WorkflowCatalog) LibraryList(w http.ResponseWriter, r *http.Request) {
 			tier = doc.Metadata.EffectiveTier()
 			system = doc.Metadata.System
 		}
-		uses := []LibraryWorkflowUse{}
-		// Projects that selected this lane (design/decisions/workflows-as-lanes.md);
-		// every project for a system workflow.
-		projects, origin := catalog.selected[l.Name], "selected"
-		if system {
-			projects, origin = catalog.projects, "system"
-		}
-		for _, slug := range projects {
-			uses = append(uses, LibraryWorkflowUse{Project: slug, Origin: fmt.Sprintf("%s@%d", origin, l.LatestVersion)})
-		}
 		out = append(out, LibraryWorkflow{
 			Name: l.Name, Description: l.Description, LatestVersion: l.LatestVersion,
 			Origin: l.Origin, UpdatedAt: l.UpdatedAt.Format(time.RFC3339Nano), Stages: stages, Kind: kind, Category: category,
 			Tier: tier, System: system,
-			UsedBy: uses, YAML: yamlSrc,
+			YAML: yamlSrc,
 		})
 	}
 	WriteJSON(w, 200, out)
@@ -101,32 +90,25 @@ func (h WorkflowCatalog) ValidateWorkflow(w http.ResponseWriter, r *http.Request
 	})
 }
 
-// LibraryWorkflowUse is a project that runs a library workflow, and how.
-type LibraryWorkflowUse struct {
-	Project string `json:"project"`
-	Origin  string `json:"origin"`
-}
-
 // WorkflowStagePreview is one stage of a workflow being edited.
 type WorkflowStagePreview struct {
 	Name  string   `json:"name"`
 	Steps []string `json:"steps"`
 }
 
-// LibraryWorkflow is a workflow in the library, with the projects using it.
+// LibraryWorkflow is a workflow offered in the library.
 type LibraryWorkflow struct {
-	Name          string               `json:"name"`
-	Description   string               `json:"description"`
-	LatestVersion int64                `json:"latestVersion"`
-	Origin        string               `json:"origin"`
-	UpdatedAt     string               `json:"updatedAt"`
-	Stages        []string             `json:"stages"`
-	Kind          string               `json:"kind"`
-	Category      string               `json:"category"`
-	Tier          string               `json:"tier"`
-	System        bool                 `json:"system"`
-	UsedBy        []LibraryWorkflowUse `json:"usedBy"`
-	YAML          string               `json:"yaml"`
+	Name          string   `json:"name"`
+	Description   string   `json:"description"`
+	LatestVersion int64    `json:"latestVersion"`
+	Origin        string   `json:"origin"`
+	UpdatedAt     string   `json:"updatedAt"`
+	Stages        []string `json:"stages"`
+	Kind          string   `json:"kind"`
+	Category      string   `json:"category"`
+	Tier          string   `json:"tier"`
+	System        bool     `json:"system"`
+	YAML          string   `json:"yaml"`
 }
 
 // WorkflowInvalid is why a workflow being edited does not validate.

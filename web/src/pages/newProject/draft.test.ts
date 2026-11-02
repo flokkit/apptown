@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { DependencyKind, PackView } from '../../wire.gen'
-import { draftReducer, newDraft, originReady, servicesFor, slugOf, type Draft, type DraftAct } from './draft'
+import { draftReducer, newDraft, originReady, servicesFor, suggestedPacks, slugOf, type Draft, type DraftAct } from './draft'
 
 const play = (d: Draft, ...acts: DraftAct[]) => acts.reduce(draftReducer, d)
 
@@ -111,5 +111,19 @@ describe('working name and interview boundaries', () => {
     expect(chosen.packs).toEqual([])
     const backed = play(original, { type: 'step', step: 1 }, reply)
     expect(backed.packs).toBeNull()
+  })
+})
+
+
+describe('pack suggestions', () => {
+  it('uses offered pack declarations and preserves explicit picks once', () => {
+    const packs = [
+      { name: 'custom-maintenance', suggested: true, enabled: true },
+      { name: 'already-picked', suggested: true, enabled: true },
+      { name: 'off', suggested: true, enabled: false },
+      { name: 'dependency-updates', enabled: true },
+    ] as PackView[]
+    expect(suggestedPacks(packs, ['go', 'already-picked'])).toEqual(['go', 'already-picked', 'custom-maintenance'])
+    expect(suggestedPacks(packs)).toEqual(['custom-maintenance', 'already-picked'])
   })
 })

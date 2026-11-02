@@ -261,3 +261,29 @@ func TestRunPreparationUsesItsAuthorizedScope(t *testing.T) {
 		})
 	}
 }
+
+// Reservation follows workflow metadata, not a name or the caller's role.
+func TestSystemWorkflowsRequireAppTownInvocation(t *testing.T) {
+	t.Parallel()
+	s := &starter{runtime: startRuntime{resolve: func(context.Context, StartRequest, StartSource) (PreparedRun, error) {
+		return PreparedRun{System: true, Workflow: DefinitionRef{Name: "custom-system"}, Spec: schema.Spec{Role: "landing", Stages: []schema.Stage{{Name: "accept", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}}, nil
+	}}}
+	for _, tc := range []struct {
+		name    string
+		req     StartRequest
+		allowed bool
+	}{
+		{name: "explicit choice", allowed: false},
+		{name: "integration wiring", req: StartRequest{integrationWork: true}, allowed: true},
+		{name: "landing request", req: StartRequest{requestLanding: true}, allowed: true},
+		{name: "accepted landing", req: StartRequest{acceptedRunID: idstest.N(1)}, allowed: true},
+		{name: "declared call", req: StartRequest{parentRunID: idstest.N(1)}, allowed: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := s.definition(t.Context(), tc.req, StartSource{})
+			if (err == nil) != tc.allowed {
+				t.Fatalf("system invocation allowed=%t: %v", tc.allowed, err)
+			}
+		})
+	}
+}

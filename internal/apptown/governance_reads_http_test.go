@@ -35,7 +35,7 @@ func TestGovernanceViewsFailRatherThanReadEmpty(t *testing.T) {
 	for _, tc := range []struct{ who, path, read string }{
 		{"owner", "/api/v1/projects/game/manifest", "name: WorkflowCatalog :many"},
 		{"owner", "/api/v1/projects/game/manifest", "name: GuidanceImportsMeta :many"},
-		{"owner", "/api/v1/projects/game/lanes", "name: ProjectLane :one"},
+		{"owner", "/api/v1/projects/game/lanes", "name: ProjectPacks :many"},
 		{"boss", "/api/v1/policy-library", "name: PolicyAdoptions :many"},
 		{"boss", "/api/v1/policy-library", "name: OfferedPacks :many"},
 		{"boss", "/api/v1/packs", "name: OfferedPacks :many"},

@@ -229,10 +229,11 @@ On the command line, `apptown show <change>` lists what the change adds, and
 
 A workflow can carry a schedule: `on.schedule.cron` in its definition. The
 stock `dependency-uplift` carries `0 6 1 * *`, 06:00 UTC on the 1st of each
-month.
+month. The `dependency-updates` pack declares `schedules: [dependency-uplift]`.
 
-- **What fires.** Every project that adopted and selected the workflow gets
-  its own firing: a change opened by AppTown, with its run started. An
+- **What fires.** A project gets a firing only when one of its adopted packs
+  lists the workflow under `schedules` in its adopted version: a change opened
+  by AppTown, with its run started. Availability alone schedules nothing. An
   eval copy runs no schedules.
 - **When.** The cron is read in UTC, AppTown's time. AppTown looks
   every 30 seconds, so a firing starts within a minute of its time.

@@ -206,7 +206,7 @@ func TestPolicyDeclarationReadErrorsDoNotBecomeEmptyViolations(t *testing.T) {
 	}
 }
 
-func TestPolicyReportBatchesWorkflowSelectionAndCapabilityFacts(t *testing.T) {
+func TestPolicyReportChecksEveryLibraryWorkflowAndBatchesCapabilityFacts(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	pid := policyProject(t, db, "policy-report")
@@ -223,14 +223,14 @@ func TestPolicyReportBatchesWorkflowSelectionAndCapabilityFacts(t *testing.T) {
 			t.Fatal(err)
 		}
 		if i%2 == 0 {
-			if err := s.SelectLane(t.Context(), pid, name, true, "fixture"); err != nil {
+			if err := recordCatalogFixture(s, t.Context(), pid, "fixture"); err != nil {
 				t.Fatal(err)
 			}
 		}
 	}
 	counted := &policyCountedQueries{Handle: db.SQL()}
 	violations, err := s.ProjectConformance(context.Background(), counted, pid)
-	if err != nil || len(violations) != 11 || counted.reads != 3 {
+	if err != nil || len(violations) != 20 || counted.reads != 4 {
 		t.Fatalf("selection: violations=%d reads=%d %v", len(violations), counted.reads, err)
 	}
 	if err := newPolicies(db).install(t.Context(), pid, "scan-first", "", "requireCapabilityBound", map[string]any{"capability": "scanner"}, "", "alice"); err != nil {
@@ -238,7 +238,7 @@ func TestPolicyReportBatchesWorkflowSelectionAndCapabilityFacts(t *testing.T) {
 	}
 	counted = &policyCountedQueries{Handle: db.SQL()}
 	violations, err = s.ProjectConformance(context.Background(), counted, pid)
-	if err != nil || len(violations) != 11 || counted.reads != 4 {
+	if err != nil || len(violations) != 20 || counted.reads != 5 {
 		t.Fatalf("binding matrix: violations=%d reads=%d %v", len(violations), counted.reads, err)
 	}
 	dbtest.FailNextStatement(t, db, "FROM lib_workflows")
@@ -260,7 +260,7 @@ func TestServicePolicyDoorsObserveCapabilities(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	ctx := context.Background()
-	s := New(db, Dependencies{})
+	s := New(db, Dependencies{Ways: wow.New(db, wow.Dependencies{})})
 	policies := []Policy{{Name: "scanner-bound", Rule: "requireCapabilityBound", With: map[string]any{"capability": "scanner"}}}
 	evaluations, err := PrepareEvaluations(ctx, db, policies)
 	if err != nil || len(evaluations) != 1 || evaluations[0].Bound {

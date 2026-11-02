@@ -36,7 +36,7 @@ func mergeSettlementFixture(t *testing.T) (*App, workflow.MergeSource) {
 		{Name: "landed", Steps: []schema.Step{{Name: "record", Uses: "approval", With: map[string]any{"means": "the merge was recorded"}}}},
 	}}
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: spec})
-	a.lifecycle.SelectLane(t.Context(), projectID, "land", true, "fixture")
+	recordCatalogFixture(a.Adoption, t.Context(), projectID, "fixture")
 	ctx := a.asAppTown(context.Background(), projectID, "fixture")
 	ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "work to land"})
 	if err != nil {
@@ -232,7 +232,7 @@ func TestAScriptStepPublishesItsCommit(t *testing.T) {
 		return "", 0
 	})
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "work", Version: 1}, Spec: spec})
-	a.lifecycle.SelectLane(t.Context(), projectID, "work", true, "fixture")
+	recordCatalogFixture(a.Adoption, t.Context(), projectID, "fixture")
 	ctx := a.asAppTown(context.Background(), projectID, "fixture")
 	ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "scripted"})
 	if err != nil {

@@ -15,3 +15,7 @@ for a model response.
 Without a model, a new project's description stays empty. If generation fails,
 the current description stays. You can write your own in
 [project settings](project-settings.md).
+
+Choose the project's [packs](packs-and-what-if.md) in **Way of working**.
+The `dependency-updates` pack starts ticked for monthly dependency updates.
+You can untick it when choosing packs yourself.

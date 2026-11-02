@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/wow/internal/wowsql"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
@@ -219,6 +220,9 @@ func (s *packs) publishIn(ctx context.Context, tx *database.Tx, now time.Time, n
 	if how.refuseMissing && len(res.Missing) > 0 {
 		return 0, fmt.Errorf("%w: the library has no %s; add it first, or leave it out of the pack", errUnpinned, strings.Join(res.Missing, ", "))
 	}
+	if err := checkPackSchedules(ctx, tx, res.Spec); err != nil {
+		return 0, fmt.Errorf("pack %s: %w", name, err)
+	}
 	if err := s.checkTools(res.Spec); err != nil {
 		return 0, fmt.Errorf("pack %s: %w", name, err)
 	}
@@ -405,4 +409,27 @@ func packRecord(r wowsql.Pack) packRow {
 func PackByNameIn(ctx context.Context, q database.Queryer, name string) (packRow, error) {
 	r, e := wowsql.New(q.SQL()).PackByName(ctx, name)
 	return packRecord(r), e
+}
+
+var errPackSchedule = fault.New(fault.Invalid, "a pack schedules only known workflows with a schedule")
+
+// checkPackSchedules validates explicit recurring work against the workflow library.
+func checkPackSchedules(ctx context.Context, q database.Queryer, spec PackSpec) error {
+	for _, name := range spec.Schedules {
+		_, src, err := WorkflowVersionIn(ctx, q, name, 0)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w: workflow %q is unknown; add it to the library first", errPackSchedule, name)
+		}
+		if err != nil {
+			return fmt.Errorf("reading scheduled workflow %q: %w", name, err)
+		}
+		doc, err := schema.ParseWorkflowStored([]byte(src))
+		if err != nil {
+			return fmt.Errorf("reading scheduled workflow %q: %w", name, err)
+		}
+		if doc.Metadata.System || doc.Spec.On.Schedule == nil || doc.Spec.On.Schedule.Cron == "" {
+			return fmt.Errorf("%w: workflow %q has no usable schedule; choose a workflow with on.schedule", errPackSchedule, name)
+		}
+	}
+	return nil
 }

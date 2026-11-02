@@ -355,14 +355,14 @@ func defaultTip(t *testing.T, a *App) string {
 // token on the HTTP run route or the MCP lane tool, or a full-scope OAuth
 // connection, is refused and main does not move. Requesting a landing is
 // the agent's door and waits for a person. A person who may land starts
-// ship and it merges.
+// a governed landing rather than picking ship.
 func TestAnAgentCannotLandThroughALaneWithNoApproval(t *testing.T) {
 	t.Parallel()
 	t.Run("agent token over HTTP", func(t *testing.T) {
 		t.Parallel()
 		a, agent, ch, before := shipFixture(t)
 		w := bearerCall(a, agent, "POST", fmt.Sprintf("/api/v1/changes/%d/runs", ch.ID), `{"workflow":"ship"}`)
-		if w.Code != 403 || !strings.Contains(w.Body.String(), "request a landing") {
+		if w.Code != 422 || !strings.Contains(w.Body.String(), "run by AppTown") {
 			t.Fatalf("an agent started ship: %d %s", w.Code, w.Body.String())
 		}
 		a.Work.Wait()
@@ -373,7 +373,7 @@ func TestAnAgentCannotLandThroughALaneWithNoApproval(t *testing.T) {
 	t.Run("agent token over the MCP lane tool", func(t *testing.T) {
 		t.Parallel()
 		a, agent, ch, before := shipFixture(t)
-		if err := a.lifecycle.SelectLane(t.Context(), ch.ProjectID, "ship", true, "fixture"); err != nil {
+		if err := recordCatalogFixture(a.Adoption, t.Context(), ch.ProjectID, "fixture"); err != nil {
 			t.Fatal(err)
 		}
 		res := mcp_call(t, a, agent, "start_change_lane", map[string]any{"id": ch.ID, "lane": "ship"})
@@ -408,16 +408,16 @@ func TestAnAgentCannotLandThroughALaneWithNoApproval(t *testing.T) {
 			t.Fatalf("a landing request merged without approval: %s -> %s", before, after)
 		}
 	})
-	t.Run("a person who may land starts ship", func(t *testing.T) {
+	t.Run("a person who may land cannot pick ship", func(t *testing.T) {
 		t.Parallel()
 		a, _, ch, before := shipFixture(t)
 		cli := tokenFor(t, a, "boss-cli", "boss", "admin", access.TokenCLI)
-		if w := bearerCall(a, cli, "POST", fmt.Sprintf("/api/v1/changes/%d/runs", ch.ID), `{"workflow":"ship"}`); w.Code != 201 {
+		if w := bearerCall(a, cli, "POST", fmt.Sprintf("/api/v1/changes/%d/runs", ch.ID), `{"workflow":"ship"}`); w.Code != 422 || !strings.Contains(w.Body.String(), "run by AppTown") {
 			t.Fatalf("the person's ship: %d %s", w.Code, w.Body.String())
 		}
 		a.Work.Wait()
-		if after := defaultTip(t, a); after == before {
-			t.Fatal("the person's ship did not merge")
+		if after := defaultTip(t, a); after != before {
+			t.Fatal("a manually picked system workflow moved main")
 		}
 	})
 }

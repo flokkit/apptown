@@ -34,7 +34,7 @@ type Metadata struct {
 	Deprecated bool   `yaml:"deprecated,omitempty" json:"deprecated,omitempty"`
 	Project    string `yaml:"project,omitempty" json:"project,omitempty"`
 	// System: the apptown runs this itself (landing, shipping, wiring an
-	// integration in or out, the scheduled patch). Never offered to a person
+	// integration in or out). Never offered to a person
 	// as a way of working; never needs selecting by a project
 	// (design/decisions/workflows-as-lanes.md).
 	System bool `yaml:"system,omitempty" json:"system,omitempty"`

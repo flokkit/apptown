@@ -1,14 +1,11 @@
 package adoption
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/wow"
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -43,28 +40,6 @@ func TestSystemBindingsAndLanes(t *testing.T) {
 		t.Fatalf("system workflow receipts: %+v", r)
 	}
 
-	lanes := newLanes(db)
-	pid := adoptionTestProject(t, db, "ln", "Ln")
-	selected := func() bool {
-		t.Helper()
-		on, err := lanes.selected(t.Context(), pid, "ours/plain")
-		if err != nil {
-			t.Fatal(err)
-		}
-		return on
-	}
-	set := func(on bool) error {
-		return db.InTx(context.Background(), func(tx *database.Tx) error { return setLaneIn(t.Context(), tx, pid, "ours/plain", on, time.Now()) })
-	}
-	if selected() {
-		t.Fatal("no row means not selected")
-	}
-	if err := set(true); err != nil || !selected() {
-		t.Fatalf("select: %v", err)
-	}
-	if err := set(false); err != nil || selected() {
-		t.Fatalf("deselect: %v", err)
-	}
 }
 
 const laneYAML = `apiVersion: apptown.dev/v1

@@ -20,7 +20,7 @@ type Request struct {
 	RequiredCapabilities []string   `json:"requiredCapabilities,omitempty"`
 	Packs                []PackPick `json:"packs"`
 	Additions            []string   `json:"additions"`
-	// AdvanceWorkflows moves every selected workflow no candidate pack pins
+	// AdvanceWorkflows moves every available workflow no candidate pack pins
 	// to the library's latest version. Without it such a workflow keeps the
 	// version the project's receipt pins: a person's recorded procedure
 	// moves only when asked.
@@ -80,8 +80,8 @@ type Candidate struct {
 	Weakens      []string       `json:"weakens"`   // gating blocks a selected pack carries that the Candidate drops: needs the standards authority
 	// Kept names workflows and policies the project's current packs supplied
 	// that the candidate's packs no longer carry. Adoption keeps a project's
-	// workflow selections and installed policies, so these stay after
-	// adopting; removing one is a separate project edit
+	// available workflow version pins and installed policies after adopting.
+	// Policies are removed through explicit policy edits
 	// (design/subsystems/ways-of-working-versions.md).
 	Kept     []string `json:"kept"`
 	Problems []string `json:"problems"` // why it cannot be adopted as asked
@@ -254,22 +254,17 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 	for _, s := range conflicts {
 		c.Problems = append(c.Problems, s+" — both would be in force")
 	}
-	// Lanes: the packs' plus every lane selected now that no pack of the
-	// candidate's carries (a person's own selection stays).
+	// Workflows: every library workflow and the candidate packs' declarations.
 	receipt := cur.Receipt
 	receipt.Guidance = blocks
 	receipt.Packs = pickNames(c.Packs)
 	var wfs []ReceiptWorkflow
-	keep := map[string]bool{}
-	for _, wf := range cur.Receipt.Workflows {
-		keep[wf.Name] = true
-	}
 	entries, err := a.ways.Workflows(ctx)
 	if err != nil {
 		return nil, err
 	}
 	for _, e := range entries {
-		if !e.Doc.Metadata.System && !keep[e.Name] && !lanes[e.Name] {
+		if !e.Doc.Metadata.System && e.Withdrawn && !lanes[e.Name] {
 			continue
 		}
 		// A pack's pin wins; a lane no pack pins keeps the version the

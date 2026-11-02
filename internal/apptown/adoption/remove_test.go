@@ -41,9 +41,6 @@ func TestRemoveProjectInKeepsOtherProjects(t *testing.T) {
 		if _, err := q.InsertGuidanceImport(context.Background(), adoptionsql.InsertGuidanceImportParams{ID: ids.New(time.Now()), ProjectID: pid, BlockID: blockRecord.ID, Version: 1}); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := q.SetProjectLane(context.Background(), adoptionsql.SetProjectLaneParams{ProjectID: pid, Name: "land", Enabled: true, At: time.Now().UTC()}); err != nil {
-			t.Fatal(err)
-		}
 		if rows, err := q.EnableProjectExtension(context.Background(), adoptionsql.EnableProjectExtensionParams{ProjectID: pid, Name: "lsp"}); err != nil || rows != 1 {
 			t.Fatalf("extension: rows=%d err=%v", rows, err)
 		}
@@ -57,7 +54,7 @@ func TestRemoveProjectInKeepsOtherProjects(t *testing.T) {
 	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return RemoveProjectIn(context.Background(), tx, a) }); err != nil {
 		t.Fatal(err)
 	}
-	for _, table := range []string{"policies", "guidance_imports", "project_lanes", "project_pi_extensions", "project_packs", "project_adoptions", "adoptions"} {
+	for _, table := range []string{"policies", "guidance_imports", "project_pi_extensions", "project_packs", "project_adoptions", "adoptions"} {
 		var na, nb int
 		// sql-guarantee: removal must clear every table adoption owns for one project and leave a neighbour's rows; no owner read lists every table's rows.
 		if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM `+table+` WHERE project_id=$1`, a).Scan(&na); err != nil {

@@ -523,6 +523,7 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		"UPDATE slot_fallbacks SET fallback='primary-fast' WHERE slot='fast' AND fallback='default'",
 		"UPDATE model_slots SET slot='primary-fast' WHERE slot='fast'",
 	}},
+	{n: 200, note: "remove per-project workflow selection", stmts: []string{"DROP TABLE IF EXISTS project_lanes"}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

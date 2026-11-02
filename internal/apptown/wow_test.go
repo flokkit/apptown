@@ -99,14 +99,14 @@ func TestPrepareThenAdopt(t *testing.T) {
 	if apptownPack.LatestVersion != 2 {
 		t.Fatalf("a moved workflow cuts the pack that carries it: forge v%d", apptownPack.LatestVersion)
 	}
-	if rw, _ := a.lifecycle.SelectedWorkflow(t.Context(), a.projectByID(context.Background(), pid), "land"); rw.Version != landV {
+	if rw, _ := a.lifecycle.ResolveWorkflow(t.Context(), a.projectByID(context.Background(), pid), "land"); rw.Version != landV {
 		t.Fatalf("the project stays on land v%d until it adopts: v%d", landV, rw.Version)
 	}
 
 	w := tgReq(httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle).Prepare, "POST", "/api/v1/projects/tidy/adoption/prepare", `{"packs":[{"pack":"apptown","version":2},{"pack":"house-style","version":1}]}`, map[string]string{"slug": "tidy"})
 	var c adoption.Candidate
 	_ = json.Unmarshal(w.Body.Bytes(), &c)
-	if w.Code != 200 || len(c.Problems) != 0 || !containsString(c.Added, "prose/terse-style@1") || !containsString(c.LanesAdded, "quick-change") || c.ExpectedRevision != 2 || !containsString(c.Changed, fmt.Sprintf("workflow land v%d→v%d", landV, landV+1)) {
+	if w.Code != 200 || len(c.Problems) != 0 || !containsString(c.Added, "prose/terse-style@1") || len(c.LanesAdded) != 0 || c.ExpectedRevision != 2 || !containsString(c.Changed, fmt.Sprintf("workflow land v%d→v%d", landV, landV+1)) {
 		t.Fatalf("prepare: %d %s", w.Code, w.Body.String())
 	}
 	if currentAdoption(a.DB, pid).Revision != 2 {
@@ -120,7 +120,7 @@ func TestPrepareThenAdopt(t *testing.T) {
 	if code != 200 || !strings.Contains(body, `"revision":3`) {
 		t.Fatalf("adopt: %d %s", code, body)
 	}
-	if rw, _ := a.lifecycle.SelectedWorkflow(t.Context(), a.projectByID(context.Background(), pid), "land"); rw.Version != landV+1 {
+	if rw, _ := a.lifecycle.ResolveWorkflow(t.Context(), a.projectByID(context.Background(), pid), "land"); rw.Version != landV+1 {
 		t.Fatalf("adopted: the project runs land v%d now: v%d", landV+1, rw.Version)
 	}
 	ad := currentAdoption(a.DB, pid)
@@ -131,7 +131,7 @@ func TestPrepareThenAdopt(t *testing.T) {
 	for _, pp := range testProjectPacks(t, a, pid) {
 		on[pp.Pack] = pp.Version
 	}
-	if on["house-style"] != 1 || on["apptown"] != 2 || !laneOn(t, a.Adoption, pid, "quick-change") {
+	if on["house-style"] != 1 || on["apptown"] != 2 || !workflowAvailable(t, a.Adoption, pid, "quick-change") {
 		t.Fatalf("on both packs with the lane: %v", on)
 	}
 	if drift := a.VerifyAdoptions(t.Context()); len(drift) != 0 {
@@ -214,6 +214,12 @@ func TestAdoptViaChangeLandsAndFlips(t *testing.T) {
 	recordFixtureAdoptions(t, a)
 	adoptTestPlatform(t, a, pid)
 	testPack(t, a, "networked", []string{"data/networked-database"})
+	// Keep this settlement test on its controlled procedure; the automatic
+	// quick-change start is refused before a run exists by this fixture.
+	doc, _ := schema.ParseWorkflowStored([]byte(lifecycleYAML))
+	doc.Spec.Role = "landing"
+	installFakeGit(t, a, nil)
+	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "flow", Version: 1, Origin: "lib/flow@1"}, Spec: doc.Spec})
 	code, body := adoptReq(t, a, "sq", `{"expectedRevision":2,"viaChange":true,"packs":[{"pack":"apptown","version":1},{"pack":"networked","version":1}]}`)
 	if code != 200 || !strings.Contains(body, `"changeId":`) {
 		t.Fatalf("via change: %d %s", code, body)
@@ -240,11 +246,6 @@ func TestAdoptViaChangeLandsAndFlips(t *testing.T) {
 	if code, body := adoptReq(t, a, "sq", `{"expectedRevision":2,"viaChange":true,"packs":[{"pack":"apptown","version":1}]}`); code != 409 {
 		t.Fatalf("one open adoption change: %d %s", code, body)
 	}
-	// Its runs read the target; the target's checks are judged outright.
-	doc, _ := schema.ParseWorkflowStored([]byte(lifecycleYAML))
-	doc.Spec.Role = "landing"
-	installFakeGit(t, a, nil)
-	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "flow", Version: 1, Origin: "lib/flow@1"}, Spec: doc.Spec})
 	run, err := a.Work.StartRun(asPerson("bls"), workflow.StartChangeRun{ChangeID: chID, Workflow: "flow"})
 	if err != nil {
 		t.Fatal(err)
@@ -392,7 +393,7 @@ func TestOpeningAnAdoptionChangeStartsItsWorkingRun(t *testing.T) {
 			recordFixtureAdoptions(t, a)
 			adoptTestPlatform(t, a, pid)
 			testPack(t, a, "networked", []string{"data/networked-database"})
-			if err := a.lifecycle.SelectLane(t.Context(), pid, "quick-change", true, "fixture"); err != nil {
+			if err := recordCatalogFixture(a.Adoption, t.Context(), pid, "fixture"); err != nil {
 				t.Fatal(err)
 			}
 			if c.git {

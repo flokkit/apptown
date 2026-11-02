@@ -506,3 +506,62 @@ func TestASaveMayStateTheFormatVersion(t *testing.T) {
 		t.Fatalf("a v1 block: %d %s", w.Code, w.Body.String())
 	}
 }
+
+func TestASavedPackKeepsItsExplicitSchedules(t *testing.T) {
+	t.Parallel()
+	a := authzActors(t)
+	src := `apiVersion: apptown.dev/v1
+kind: Workflow
+metadata: {name: monthly}
+spec:
+  kind: pipeline
+  on:
+    schedule: {cron: '0 6 1 * *'}
+  stages:
+    - name: review
+      steps:
+        - name: approve
+          uses: approval
+          with: {approvers: [owner], means: "the monthly review is complete"}
+`
+	if _, _, err := a.Ways.PublishWorkflow(t.Context(), src, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if w := authzCall(a.Handler(), "boss", "POST", "/api/v1/packs", `{"name":"monthly-work","schedules":["monthly"]}`); w.Code != 200 {
+		t.Fatalf("save: %d %s", w.Code, w.Body.String())
+	}
+	v, err := wow.PackVersionIn(t.Context(), a.DB, "monthly-work", 1)
+	var stored wow.PackSpec
+	if err != nil || json.Unmarshal([]byte(v.SpecJSON), &stored) != nil || !slices.Equal(stored.Schedules, []string{"monthly"}) {
+		t.Fatalf("publication lost schedules: %+v %v", v, err)
+	}
+}
+
+func TestASavedPackKeepsItsSuggestion(t *testing.T) {
+	t.Parallel()
+	a := authzActors(t)
+	h := a.Handler()
+	if w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"suggested-work","suggested":"yes"}`); w.Code != 400 {
+		t.Fatalf("non-boolean suggestion: %d %s", w.Code, w.Body.String())
+	}
+	if w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"suggested-work","suggested":true}`); w.Code != 200 {
+		t.Fatalf("save: %d %s", w.Code, w.Body.String())
+	}
+	w := authzCall(h, "boss", "GET", "/api/v1/packs", "")
+	var packs []struct {
+		Name      string
+		Suggested bool
+	}
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &packs) != nil {
+		t.Fatalf("packs: %d %s", w.Code, w.Body.String())
+	}
+	for _, p := range packs {
+		if p.Name == "suggested-work" {
+			if !p.Suggested {
+				t.Fatal("offered pack lost its suggestion")
+			}
+			return
+		}
+	}
+	t.Fatal("saved pack missing from offers")
+}

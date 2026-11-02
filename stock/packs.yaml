@@ -21,6 +21,15 @@ packs:
       - repo/no-build-artifacts
       - repo/contract-matches-code
     workflows: [land, ship, adopt-integration, retire-integration]
+  - name: dependency-updates
+    suggested: true
+    description: |-
+      Monthly dependency updates
+
+      Updates a project's dependencies once a month through the
+      dependency-uplift workflow, opening a change to review.
+    workflows: [dependency-uplift]
+    schedules: [dependency-uplift]
   - name: conventions-only
     description: |-
       Container builds, previews, reviews and deployment.
@@ -60,7 +69,7 @@ packs:
       - deps/minimal-deps
       - api/rest-pragmatist
       - api/sse-over-websockets
-    workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
+    workflows: [land, implement, fix-bug, quick-change, plan-execute, adopt-integration, retire-integration, product-spec, research, excavate]
     policies: [deploy-requires-scan, scanner-bound]
   - name: go
     description: |-
@@ -265,5 +274,5 @@ packs:
       - prose/terse-style
       - prose/readme-plain
       - prose/no-claude-speak
-    workflows: [land, ship, implement, quick-change, fix-bug, dependency-uplift, research]
+    workflows: [land, ship, implement, quick-change, fix-bug, research]
     policies: [deploy-requires-scan, scanner-bound]

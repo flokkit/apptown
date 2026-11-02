@@ -71,7 +71,7 @@ func TestRuntimeSourcesUseExactPinsAndRejectForeignReceipts(t *testing.T) {
 	}
 	// A workflow the project has not adopted is refused in the asker's
 	// words (apptown plan on a pack with no planning workflow).
-	if _, _, err := s.WorkflowVersion(t.Context(), source, "plan-execute"); err == nil || err.Error() != `"plan-execute" is not one of this project's ways of working: Settings › Way of working lists the workflows its packs offer` || fault.KindOf(err) != fault.Unprocessable {
+	if _, _, err := s.WorkflowVersion(t.Context(), source, "plan-execute"); err == nil || err.Error() != `workflow "plan-execute" is not available to this project` || fault.KindOf(err) != fault.Unprocessable {
 		t.Fatalf("a workflow the adoption does not have: %v", err)
 	}
 	for _, invalid := range []Source{{ProjectID: idstest.N(3)}, {ProjectID: idstest.N(4), Revision: revision}} {

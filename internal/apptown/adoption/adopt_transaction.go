@@ -63,15 +63,6 @@ func adoptIn(ctx context.Context, tx *database.Tx, current *Adoption, candidate 
 	if err := PutImportsIn(ctx, tx, projectID, pins, at); err != nil {
 		return nil, err
 	}
-	var lanes []string
-	for _, workflow := range plan.receipt.Workflows {
-		if !workflow.System {
-			lanes = append(lanes, workflow.Name)
-		}
-	}
-	if err := selectOnlyIn(ctx, tx, projectID, lanes, at); err != nil {
-		return nil, err
-	}
 	if err := SetMembershipIn(ctx, tx, projectID, plan.memberships, reason, who, at); err != nil {
 		return nil, err
 	}

@@ -53,8 +53,8 @@ func TestStockLandingImageFailureLeavesMainUntouchedAndApprovalUnavailable(t *te
 	}
 	gittest.Run(t, ws, "add", "a.txt")
 	gittest.Run(t, ws, "commit", "-qm", "change")
-	ctx := a.asAppTown(context.Background(), pid, "fixture")
-	run, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "land"})
+	ctx := asLander(t, a)
+	run, err := a.Work.RequestLanding(ctx, ch.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

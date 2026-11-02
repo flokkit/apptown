@@ -94,3 +94,26 @@ func TestAPackWhoseSpecCannotBeReadIsAnError(t *testing.T) {
 		t.Fatalf("a good spec: %+v %v", pk, err)
 	}
 }
+
+func TestPackSchedulesRefuseUnknownAndUnscheduledWorkflows(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	wf := NewWorkflows(db)
+	if _, _, err := wf.Put(t.Context(), sprintf(laneYAML, "manual", "Manual", ""), "alice"); err != nil {
+		t.Fatal(err)
+	}
+	scheduled := strings.Replace(sprintf(laneYAML, "monthly", "Monthly", ""), "  kind: pipeline", "  on:\n    schedule: {cron: '0 6 1 * *'}\n  kind: pipeline", 1)
+	if _, _, err := wf.Put(t.Context(), scheduled, "alice"); err != nil {
+		t.Fatal(err)
+	}
+	packs := NewPacks(db)
+	for _, spec := range []string{`{"schedules":["unknown"]}`, `{"workflows":["manual"],"schedules":["manual"]}`} {
+		if _, err := packs.Publish(t.Context(), "bad", "Bad", spec, ""); err == nil || fault.KindOf(err) != fault.Invalid {
+			t.Errorf("accepted invalid schedules %s: %v", spec, err)
+		}
+	}
+	// A scheduled library workflow need not also appear under workflows.
+	if _, err := packs.Publish(t.Context(), "monthly", "Monthly", `{"schedules":["monthly"]}`, ""); err != nil {
+		t.Fatal(err)
+	}
+}

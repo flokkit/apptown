@@ -158,3 +158,9 @@ function suggestedName(description: string, d: Pick<Draft, 'origin' | 'bundleFil
   const words = (repository || description).trim().split(/\s+/).filter(Boolean)
   return words.length ? words.slice(0, 6).join(' ').slice(0, 60).trim() : ''
 }
+
+// Offered packs declare whether they start ticked. An explicit choice
+// (including an empty one) is kept by the picker.
+export function suggestedPacks(packs: PackView[], names: string[] = []): string[] {
+  return [...names, ...packs.filter(p => p.suggested && p.enabled !== false && !names.includes(p.name)).map(p => p.name)]
+}

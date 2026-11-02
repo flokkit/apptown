@@ -70,7 +70,7 @@ spec:
 	if name, version, err := a.Ways.PublishWorkflow(t.Context(), landingYAML, "fixture"); err != nil || name != "land" || version != 1 {
 		t.Fatalf("publish landing workflow: %s@%d err=%v", name, version, err)
 	}
-	a.lifecycle.SelectLane(t.Context(), p.ID, "land", true, "fixture")
+	recordCatalogFixture(a.Adoption, t.Context(), p.ID, "fixture")
 	return engineChange(t, a, p)
 }
 

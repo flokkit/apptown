@@ -111,7 +111,7 @@ func checkMCPWritePolicies(t *testing.T) {
 		workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "policy", Version: 1}, Spec: schema.Spec{Kind: "lifecycle", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "agent", Uses: "agent/pi"}, {Name: "approve", Uses: "approval"}}}}}},
 		workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "lifecycle", Role: "landing", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{{Name: "approve", Uses: "approval"}}}}}},
 	)
-	if err := a.lifecycle.SelectLane(t.Context(), p.ID, "policy", true, "fixture"); err != nil {
+	if err := recordCatalogFixture(a.Adoption, t.Context(), p.ID, "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {

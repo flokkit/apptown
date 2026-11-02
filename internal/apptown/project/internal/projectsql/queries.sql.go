@@ -842,33 +842,6 @@ func (q *Queries) ProjectRowForShare(ctx context.Context, id ids.ID) (ids.ID, er
 	return id, err
 }
 
-const projectSlugs = `-- name: ProjectSlugs :many
-SELECT slug FROM projects ORDER BY slug
-`
-
-func (q *Queries) ProjectSlugs(ctx context.Context) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, projectSlugs)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var slug string
-		if err := rows.Scan(&slug); err != nil {
-			return nil, err
-		}
-		items = append(items, slug)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const projectsByNamespaceAndName = `-- name: ProjectsByNamespaceAndName :many
 SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source FROM projects ORDER BY namespace, name
 `

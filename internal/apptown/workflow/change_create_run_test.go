@@ -144,7 +144,7 @@ func TestCreateAndRunRejectsBeforeEffectsAndRollsBackAdmission(t *testing.T) {
 					return def, err
 				}
 			case "participant":
-				in.Join = failingParticipant(t)
+				in.join = failingParticipant(t)
 			}
 			ch, run, err := s.CreateAndRun(t.Context(), in)
 			if err == nil || ch != nil || run != nil {

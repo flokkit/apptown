@@ -37,7 +37,7 @@ func mergeAdmissionFixture(t *testing.T, required ...string) (*App, workflow.Mer
 		spec.Stages[0].Gate = &schema.Gate{Require: required}
 	}
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: spec})
-	a.lifecycle.SelectLane(t.Context(), projectID, "land", true, "fixture")
+	recordCatalogFixture(a.Adoption, t.Context(), projectID, "fixture")
 	ctx := asPerson("reviewer")
 	ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "work to land"})
 	if err != nil {

@@ -105,22 +105,15 @@ func TestPackPull(t *testing.T) {
 	}{{"new-lane", false}, {"old-lane", false}, {"custom-lane", false}, {"dead-lane", true}} {
 		f.publishWorkflow(t, lane.name, lane.deprecated)
 	}
-	for _, name := range []string{"old-lane", "custom-lane"} {
-		if err := f.adoption.SelectLane(t.Context(), f.projectID, name, true, "alice"); err != nil {
-			t.Fatal(err)
-		}
-	}
 	pack := f.publishPack(t, "test-pack", []string{"new-lane", "dead-lane"})
 	plan, err := f.adoption.PackPullPlan(t.Context(), f.projectID, *pack)
-	if err != nil || len(plan.Additions) != 1 || plan.Additions[0] != "new-lane" {
+	if err != nil || len(plan.Additions) != 0 {
 		t.Fatalf("additions: %v err=%v", plan.Additions, err)
 	}
-	if len(plan.Removals) != 2 || plan.Removals[0] != "custom-lane" || plan.Removals[1] != "old-lane" {
+	if len(plan.Removals) != 0 {
 		t.Fatalf("removals (selections the pack dropped, sorted): %v", plan.Removals)
 	}
-	if len(plan.Deprecated) != 1 || plan.Deprecated[0] != "dead-lane" {
-		t.Fatalf("deprecated: %v", plan.Deprecated)
-	}
+
 	handler := NewPackPull(f.adoption, plainPull{f.adoption}, f.projects, f.identity, f.ways, f.db, nil)
 	req := httptest.NewRequest("POST", "/api/v1/projects/p/pack/pull", strings.NewReader(`{"pack":"test-pack"}`)).WithContext(f.ctx)
 	req.SetPathValue("slug", "p")
@@ -137,7 +130,7 @@ func TestPackPull(t *testing.T) {
 	for _, lane := range available {
 		names[lane.Name] = true
 	}
-	if !names["new-lane"] || names["old-lane"] || names["custom-lane"] || names["dead-lane"] {
+	if !names["new-lane"] || !names["old-lane"] || !names["custom-lane"] || !names["dead-lane"] {
 		t.Fatalf("post-pull selection wrong: %v", names)
 	}
 	recorded, err := f.adoption.CurrentReceipt(req.Context(), f.projectID)

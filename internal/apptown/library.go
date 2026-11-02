@@ -7,7 +7,7 @@ import (
 
 // Workflow library: the instance-level store of workflows, the only
 // source of one. Vendor entries sync from the embedded stock/ directory at
-// startup (§7.1); a project selects lanes from it and copies nothing
+// startup (§7.1); projects run its workflows and copy nothing
 // (design/decisions/workflows-as-lanes.md); a run records what ran as its origin
 // ("stock/<name>@<version>", "lib/<name>@<version>") — the receipt.
 

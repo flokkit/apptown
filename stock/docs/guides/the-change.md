@@ -11,6 +11,9 @@ infrastructure.
 
 This document is why.
 
+For the workflow choices when starting a change, see
+[packs and workflow availability](packs-and-what-if.md).
+
 ## The diff is no longer the story
 
 For twenty years the merge request was a reasonable proxy for a unit of

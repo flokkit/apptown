@@ -150,8 +150,6 @@ export function CatalogPicker({ slug, onClose }: { slug: string; onClose: () => 
     const lines = [
       plan.additions.length ? `adds: ${plan.additions.join(', ')}` : '',
       plan.removals.length ? `removes: ${plan.removals.join(', ')}` : '',
-      plan.keptReferenced.length ? `keeps (a workflow still calls it): ${plan.keptReferenced.join(', ')}` : '',
-      plan.deprecated.length ? `skips (deprecated): ${plan.deprecated.join(', ')}` : '',
       plan.guidance.length ? `guidance to add under Guidance: ${plan.guidance.join(', ')}` : '',
       plan.conflicting.length ? `not adopted (your choice): ${plan.conflicting.join('; ')}` : '',
     ].filter(Boolean).join('\n')

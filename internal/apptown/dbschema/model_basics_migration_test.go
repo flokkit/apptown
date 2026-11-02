@@ -54,7 +54,7 @@ INSERT INTO model_slots(slot,profile,pattern,updated_at) VALUES
 			if err := db.SQL().QueryRowContext(t.Context(), `SELECT fallback FROM slot_fallbacks WHERE slot=$1`, stock).Scan(&fallback); err != nil || fallback != "default" {
 				t.Fatalf("failed migration changed stock fallback: %q %v", fallback, err)
 			}
-			if n, err := Migrate(t.Context(), db); err != nil || n != 1 {
+			if n, err := Migrate(t.Context(), db); err != nil || n != Latest()-198 {
 				t.Fatalf("upgrade: %d %v", n, err)
 			}
 			if after := snapshot(); before != after {

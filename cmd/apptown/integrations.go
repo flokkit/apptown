@@ -39,8 +39,7 @@ func cmdAdopt(args []string) error {
 		fmt.Printf("%s %s attached (%s%s)\n", green("✓"), capability, att.Provenance,
 			map[bool]string{true: " via " + att.Connector, false: ""}[att.Connector != ""])
 	}
-	body := fmt.Sprintf("Adopt the %q integration: wire this app into the newly attached integration, following the integration's guidance.", capability)
-	return openAndFollow(slug, "adopt-integration", "adopt "+capability, body, *yes, false)
+	return integrationAndFollow(slug, capability, "wire", *yes)
 }
 
 func cmdRetire(args []string) error {
@@ -56,8 +55,7 @@ func cmdRetire(args []string) error {
 	if err != nil {
 		return err
 	}
-	body := fmt.Sprintf("Retire the %q integration: remove all of its wiring from this product. The service is being retired org-side; after this lands its env vars will stop being injected.", capability)
-	if err := openAndFollow(slug, "retire-integration", "retire "+capability, body, *yes, false); err != nil {
+	if err := integrationAndFollow(slug, capability, "retire", *yes); err != nil {
 		return err
 	}
 	ans := "y"
@@ -134,4 +132,23 @@ func cmdIntegrations(args []string) error {
 		}
 	}
 	return nil
+}
+
+func integrationAndFollow(slug, capability, operation string, yes bool) error {
+	var opened struct {
+		Change struct {
+			ID     ids.ID
+			Number int64
+		}
+		Run struct {
+			ID           ids.ID
+			WorkflowName string
+		}
+	}
+	if err := api.post("/projects/"+slug+"/integrations/"+capability+"/"+operation, struct{}{}, &opened); err != nil {
+		return err
+	}
+	name := changeRefOf(slug, opened.Change.Number, opened.Change.ID).Name
+	fmt.Printf("%s change %s on %s · %s · run %s\n", bold("▶"), bold(name), bold(slug), cyan(opened.Run.WorkflowName), opened.Run.ID)
+	return followChange(opened.Change.ID, opened.Run.ID, slug, yes)
 }

@@ -845,15 +845,6 @@ CREATE TABLE IF NOT EXISTS guidance_imports (
   version    BIGINT NOT NULL,
   disabled   BOOLEAN NOT NULL DEFAULT false
 );
--- Workflows as lanes (design/decisions/workflows-as-lanes.md): a project SELECTS
--- lanes from the library; system workflows are bound per instance.
-CREATE TABLE IF NOT EXISTS project_lanes (
-  project_id UUID NOT NULL,
-  name       TEXT NOT NULL,
-  enabled    BOOLEAN NOT NULL DEFAULT true,
-  updated_at TIMESTAMPTZ NOT NULL,
-  PRIMARY KEY (project_id, name)
-);
 -- Opt-in pi extensions enabled per project (extensions.go): the blessed
 -- baked extension set is off by default; a row here turns one on.
 CREATE TABLE IF NOT EXISTS project_pi_extensions (

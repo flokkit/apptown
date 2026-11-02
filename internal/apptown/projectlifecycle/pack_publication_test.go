@@ -25,6 +25,11 @@ func TestProjectCreationAndReceiptCommitTogether(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// sql-guarantee: creating a project must not create any workflow selection storage.
+	var selectionTables int
+	if err := f.db.SQL().QueryRowContext(t.Context(), `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='project_lanes'`).Scan(&selectionTables); err != nil || selectionTables != 0 {
+		t.Fatalf("selection storage: %d %v", selectionTables, err)
+	}
 	ad, err := f.adoption.CurrentReceipt(t.Context(), p.ID)
 	if err != nil || ad == nil || ad.Revision != 1 || ad.Kind != adoption.AdoptionCreate || len(ad.Receipt.Workflows) == 0 {
 		t.Fatalf("initial receipt: %+v %v", ad, err)
@@ -55,7 +60,7 @@ func TestPackApplyRecordsPinsAndRollsBackSetup(t *testing.T) {
 	if err != nil || failed.ID != before.ID {
 		t.Fatalf("failed pack moved adoption: %+v %v", failed, err)
 	}
-	for _, table := range []string{"guidance_imports", "project_lanes", "project_packs", "policies", "project_pi_extensions"} {
+	for _, table := range []string{"guidance_imports", "project_packs", "policies", "project_pi_extensions"} {
 		// sql-guarantee: A failed pack apply must leave no setup row in any of the five tables, including ones no single owner read lists together.
 		ownerCount(t, f.db, 0, `SELECT COUNT(*) FROM `+table+` WHERE project_id=$1`, p.ID)
 	}

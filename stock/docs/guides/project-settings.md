@@ -16,3 +16,6 @@ revision when the text changes, so an older draft cannot overwrite it. If the
 settings change while you edit, read the current values before saving again.
 
 Eval copies keep their fixed description and do not generate suggestions.
+
+Manage the project's [packs and adopted versions](packs-and-what-if.md) under
+**Settings → Way of working**.

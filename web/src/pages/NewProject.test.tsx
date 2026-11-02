@@ -214,11 +214,9 @@ describe('choosing several packs', () => {
   })
 })
 
-// The interview can pick a pack before the pack list has answered (the
-// no-model fallback answers at once). Its proposed services come from that
-// list, so leaving the step waits for it, and the project is created with
-// the services the pack proposes (review web-readgate-r2, W2-01).
-describe('an interview that answers before the pack list', () => {
+// Suggestions wait for the offered packs so monthly maintenance and proposed
+// services are included even when the catalogue read takes longer.
+describe('pack suggestions wait for the offered packs', () => {
   afterEach(() => { vi.unstubAllGlobals(); sessionStorage.clear() })
   it('waits for the pack list, then creates the project with the pack\'s services', async () => {
     const server = { name: 'web-server', description: 'a server', guidance: [], workflows: [], policies: [], services: [{ name: 'postgres', image: 'postgres:16-alpine' }], origin: 'stock', enabled: true, requires: [], guidanceBytes: 0, generatedBytes: 0, declaration: {} }
@@ -257,14 +255,20 @@ describe('an interview that answers before the pack list', () => {
       })
       await act(async () => { button(el, 'Next →')!.click() })
       await settle()
-      expect(el.textContent).toContain('web-server')
+      expect(calls.some(c => c.path === '/packs/interview')).toBe(false)
       expect(button(el, 'Next →')!.disabled).toBe(true)
-      await act(async () => { deliver(new Response(JSON.stringify([server]))) })
+      await act(async () => { deliver(new Response(JSON.stringify([server, { ...server, name: 'dependency-updates', suggested: true, services: [] }]))) })
       await settle()
       expect(button(el, 'Next →')!.disabled).toBe(false)
       await act(async () => { button(el, 'Next →')!.click() })
+      await settle()
+      expect(el.textContent).toContain('web-server')
+      expect(el.textContent).toContain('dependency-updates')
+      await act(async () => { button(el, 'Next →')!.click() })
       await act(async () => { button(el, 'Create project')!.click() })
       await settle()
+      const creation = calls.find(c => c.method === 'POST' && c.path === '/projects')
+      expect(JSON.parse(String(creation?.body)).packs).toEqual(['web-server', 'dependency-updates'])
       const services = calls.find((c) => c.method === 'POST' && c.path === '/projects/shop/services')
       expect(services && JSON.parse(String(services.body)).needs).toEqual([{ capability: 'postgres', params: { version: '16' } }])
     } finally {
@@ -326,6 +330,7 @@ describe('an interview that cannot decide', () => {
         Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(area, 'a shop')
         area.dispatchEvent(new Event('input', { bubbles: true }))
       })
+      await settle()
       await act(async () => { button(el, 'Next →')!.click() })
       await settle()
       expect(el.textContent).toContain('no model is set up to suggest a way of working')

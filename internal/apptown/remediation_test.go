@@ -100,7 +100,7 @@ spec:
 		t.Fatal(err)
 	}
 	for _, project := range projects {
-		if err := a.lifecycle.SelectLane(t.Context(), project.ID, "implement", true, "fixture"); err != nil {
+		if err := recordCatalogFixture(a.Adoption, t.Context(), project.ID, "fixture"); err != nil {
 			t.Fatal(err)
 		}
 	}

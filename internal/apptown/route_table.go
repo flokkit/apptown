@@ -65,7 +65,6 @@ func appRoutes(a *App) []routeSpec {
 	var runProgress httpapi.RunProgress
 	var projectWorkflows httpapi.ProjectWorkflows
 	var projectSchedules httpapi.ProjectSchedules
-	var workflowSelection httpapi.WorkflowSelection
 	var projectManifest httpapi.ProjectManifest
 	var workflowCatalog httpapi.WorkflowCatalog
 	var projectServices httpapi.ProjectServices
@@ -189,8 +188,7 @@ func appRoutes(a *App) []routeSpec {
 		projectServices = httpapi.NewProjectServices(a.Projects, a.Access, a.repositoryEdits, a.cfg.dataDir, a.authModeName())
 		workflowCatalog = httpapi.NewWorkflowCatalog(a.DB, a.Ways)
 		projectManifest = httpapi.NewProjectManifest(a.Projects, a.Adoption, a.DB, a.cfg.dataDir, a.Secrets)
-		workflowSelection = httpapi.NewWorkflowSelection(a.Projects, a.Access, a.Adoption, a.Ways, a.lifecycle, a.DB)
-		projectWorkflows = httpapi.NewProjectWorkflows(a.Projects, a.Adoption, a.Ways, a.Work, a.DB)
+		projectWorkflows = httpapi.NewProjectWorkflows(a.Projects, a.Adoption, a.Work, a.DB)
 		projectSchedules = httpapi.NewProjectSchedules(a.Projects, changeactions.Schedules{Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}, a.cfg.clock.Now)
 		runProgress = httpapi.NewRunProgress(a.Work, &a.progress)
 		catalogChanges = httpapi.NewCatalogChanges(a.Ways, a.Adoption, a.Projects, a.Access, a.changeActions, a.authModeName())
@@ -267,7 +265,6 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/workflows", projectWorkflows.ListWorkflows, access.CapProjectRead, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/lanes", projectWorkflows.ProjectLanes, access.CapProjectRead, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/schedules", projectSchedules.List, access.CapProjectRead, "project-slug"),
-		requireRoute("PUT /api/v1/projects/{slug}/lanes", workflowSelection.PutProjectLane, access.CapProjectWorkflow, "project-slug"),
 		requireRoute("GET /api/v1/instance-updates", instanceUpdates.Status, access.CapInstanceUpdates, "instance"),
 		requireRoute("POST /api/v1/instance-updates/check", instanceUpdates.Check, access.CapInstanceUpdates, "instance"),
 		publicRoute("GET /api/v1/system-workflows", systemWorkflows.SystemWorkflows, "systemWorkflows.SystemWorkflows: shared system workflow declarations"),
@@ -535,6 +532,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("POST /api/v1/projects/{slug}/integrations", projectAttachments.AttachIntegration, access.CapProjectIntegrations, "project-slug"),
 		requireRoute("DELETE /api/v1/projects/{slug}/integrations/{capability}", projectAttachments.DetachIntegration, access.CapProjectIntegrations, "project-slug"),
 		requireRoute("POST /api/v1/projects/{slug}/integrations/{capability}/wire", projectAttachments.WireIntegration, access.CapProjectIntegrations, "project-slug"),
+		requireRoute("POST /api/v1/projects/{slug}/integrations/{capability}/retire", projectAttachments.RetireIntegration, access.CapProjectIntegrations, "project-slug"),
 		publicRoute("GET /api/v1/attachables", projectAttachments.ListAttachables, "projectAttachments.ListAttachables: shared integration capability catalogue"),
 		requireRoute("POST /api/v1/changes/{id}/distill", changeNarratives.DistillChange, access.CapChangeNarrative, "change"),
 		requireRoute("POST /api/v1/projects/{slug}/import", changeNarratives.ImportBranch, access.CapProjectImport, "project-slug"),

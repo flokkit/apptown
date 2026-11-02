@@ -44,7 +44,6 @@ type Wiring struct {
 	Mode       wiringMode
 	Capability string
 	Draft      workflow.ChangeDraft
-	Workflow   string // the workflow a WiringWorkflow run starts
 	Who        string // receipt actor for the integration.wire record
 }
 
@@ -75,5 +74,14 @@ func (s *Service) OpenWiring(ctx context.Context, in Wiring) (*workflow.Change, 
 		ch, err := s.work.CreateWith(ctx, in.Draft, link)
 		return ch, nil, err
 	}
-	return s.work.CreateAndRun(ctx, workflow.InvokeChange{Change: in.Draft, Workflow: in.Workflow, Join: link})
+	return s.work.CreateIntegrationWiring(ctx, in.Draft, link)
+}
+
+// OpenRetirement admits a Change to remove an integration's wiring, recording
+// its purpose atomically. The attachment remains until a separate detach after
+// the removal lands, so the running app keeps its settings during the work.
+func (s *Service) OpenRetirement(ctx context.Context, draft workflow.ChangeDraft, capability, who string) (*workflow.Change, *workflow.Run, error) {
+	return s.work.CreateIntegrationRetirement(ctx, draft, func(ctx context.Context, tx *database.Tx, ch *workflow.Change) error {
+		return audit.At(s.now()).RecordIn(ctx, tx, who, ch.ProjectID, "integration.retire", capability, map[string]any{"change": ch.ID})
+	})
 }

@@ -4,7 +4,7 @@ Ways of Working (`wow`) owns published guidance blocks, workflows, packs, librar
 policies and system bindings. Adoption owns each project's selections, installed
 rules and revision history.
 
-Workflows live in the library and projects select them
+Core and extra library workflows are available to every project
 ([decision](../decisions/workflows-as-lanes.md)). Publishing a new version does
 not update a project's recorded adoption.
 
@@ -22,21 +22,26 @@ the platform pack included), and its memberships are written in the same
 transaction. A receipt recorded before projects took several packs keeps the
 JSON it was recorded with; its single `pack` key is not read.
 
+A pack's `workflows` list makes workflows available; its separate `schedules`
+list authorizes recurring work. The scheduler reads only `schedules` from the
+project's adopted pack versions. An absent or empty list schedules nothing,
+even when available workflows have `on.schedule`. Publication validates each
+scheduled name against the workflow library and requires a schedule.
+
 An explicit pack pull moves only that pack's membership to its latest
-publication, in the same transaction as lane selections and the adoption
+publication, in the same transaction as the adoption
 revision; the project's other memberships keep their versions and
 actor/time/reason. The pull is judged with the packs it leaves the project
-on, as any adoption is, and never deselects a lane another of the project's
-packs names. It reports guidance for a person to adopt separately.
+on, as any adoption is. Core and extra library workflows remain available
+independently of pack membership. It reports guidance for a person to adopt separately.
 
 Every pack version stores its pinned contents beside the declaration. Each
 pack has one recommended version: what new projects get, what applying the pack installs
 and sets up, and what projects on other versions are offered. Saving never
 moves it, a release's stock versions included, so a what-if can judge a
 version before projects are offered it; a person does
-(`standards:manage-packs`, no agent credential). Adopting a version that drops a
-workflow or replaces a policy keeps the project's existing ones and says so;
-removing them is a project edit. A selected workflow no pack of the
+(`standards:manage-packs`, no agent credential). Library workflows remain available when a pack drops them. Installed policies
+remain until an explicit policy edit removes them. A library workflow no pack of the
 candidate pins keeps the version the project's receipt pins, unless the
 request asks to advance workflows (`adoption.Request.AdvanceWorkflows`),
 which a what-if records and its adopt door repeats. A what-if may also name

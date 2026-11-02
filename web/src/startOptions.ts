@@ -10,6 +10,4 @@ export const START_OPTIONS: StartOption[] = [
   { wf: 'plan-execute', label: 'Plan & execute', hint: 'broader scope · you approve the plan first' },
   { wf: 'implement', label: 'Build', hint: 'a new app or a larger feature, from this description' },
   { wf: 'dependency-uplift', label: 'Dependency uplift', hint: 'bring dependencies current' },
-  { wf: 'adopt-integration', label: 'Adopt an integration', hint: 'connect the app to a newly attached integration' },
-  { wf: 'retire-integration', label: 'Retire an integration', hint: 'take a retired integration out of the code' },
 ]

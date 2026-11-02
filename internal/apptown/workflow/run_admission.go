@@ -17,8 +17,10 @@ import (
 const definitionVersion = 1
 
 type StartRequest struct {
-	receiptActor string // verified receipt attribution, distinct from inference owner
-	requestedBy  string // captured before dispatch; inherited by child/landing runs
+	integrationWork bool   // set only by integration wiring and retirement commands
+	requestLanding  bool   // set only by the governed landing request path
+	receiptActor    string // verified receipt attribution, distinct from inference owner
+	requestedBy     string // captured before dispatch; inherited by child/landing runs
 	// owner is requestedBy as admitted (principal and way), when the caller
 	// carried it; a root run records it rather than the name looked up.
 	owner             access.Actor
@@ -43,6 +45,12 @@ type StartRequest struct {
 // IsChild reports whether workflow admitted this request from a parent run.
 func (in StartRequest) IsChild() bool { return !in.parentRunID.IsZero() }
 
+// allowsSystemWorkflow identifies AppTown's own invocations. A caller cannot
+// set the integration or landing marker, parent execution, or accepted-run identity.
+func (in StartRequest) allowsSystemWorkflow() bool {
+	return in.integrationWork || in.requestLanding || in.IsChild() || !in.acceptedRunID.IsZero()
+}
+
 type DefinitionRef struct {
 	Name    string
 	Version int
@@ -53,6 +61,7 @@ type StartEvent struct {
 	Payload json.RawMessage
 }
 type PreparedRun struct {
+	System     bool // workflow metadata reserves this procedure for AppTown
 	Workflow   DefinitionRef
 	Spec       schema.Spec
 	AdoptionID ids.ID

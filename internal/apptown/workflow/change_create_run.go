@@ -18,9 +18,10 @@ type InvokeChange struct {
 	Change   ChangeDraft
 	Workflow string
 	Inputs   json.RawMessage
-	// Join, when set, records another owner's facts about the new Change in
+	// join, when set, records another owner's facts about the new Change in
 	// the admission transaction.
-	Join admissionParticipant
+	join            admissionParticipant
+	integrationWork bool
 }
 
 // admissionParticipant runs inside a new Change's admission transaction, after
@@ -33,6 +34,22 @@ type admissionParticipant func(ctx context.Context, tx *database.Tx, ch *Change)
 
 const invocationSettlementTimeout = 5 * time.Second
 const preparedChangeReadTimeout = 5 * time.Second
+
+// CreateIntegrationWiring admits the Change and AppTown's integration wiring
+// workflow together. Callers provide the Change and transactional attachment
+// link; the workflow identity belongs to AppTown. Authority, preparation and
+// failure settlement follow CreateAndRun.
+func (s *Service) CreateIntegrationWiring(ctx context.Context, draft ChangeDraft, join admissionParticipant) (*Change, *Run, error) {
+	return s.CreateAndRun(ctx, InvokeChange{Change: draft, Workflow: "adopt-integration", join: join, integrationWork: true})
+}
+
+// CreateIntegrationRetirement admits the Change and AppTown's integration
+// retirement workflow together. Callers cannot choose the workflow identity.
+// Admission and failure settlement follow CreateAndRun. The participant records
+// the integration owner's facts in the admission transaction.
+func (s *Service) CreateIntegrationRetirement(ctx context.Context, draft ChangeDraft, join admissionParticipant) (*Change, *Run, error) {
+	return s.CreateAndRun(ctx, InvokeChange{Change: draft, Workflow: "retire-integration", join: join, integrationWork: true})
+}
 
 // CreateAndRun composes governed Change creation and Run admission.
 // Nothing is committed unless both identities and the first stage are admitted.
@@ -53,7 +70,7 @@ func (s *Service) CreateAndRun(ctx context.Context, in InvokeChange) (*Change, *
 	if s.starter == nil {
 		return nil, nil, fmt.Errorf("Run execution is unavailable")
 	}
-	req := StartRequest{ProjectID: in.Change.ProjectID, WorkflowName: in.Workflow, InputsJSON: string(in.Inputs), requestedBy: actor.InferenceOwner, owner: actor.Owner, receiptActor: actor.Receipt}
+	req := StartRequest{integrationWork: in.integrationWork, ProjectID: in.Change.ProjectID, WorkflowName: in.Workflow, InputsJSON: string(in.Inputs), requestedBy: actor.InferenceOwner, owner: actor.Owner, receiptActor: actor.Receipt}
 	if req.InputsJSON == "" {
 		req.InputsJSON = "{}"
 	}
@@ -82,8 +99,8 @@ func (s *Service) CreateAndRun(ctx context.Context, in InvokeChange) (*Change, *
 		if item, err = readChange(ctx, tx, req.ChangeID); err != nil {
 			return nil, err
 		}
-		if in.Join != nil {
-			if err := in.Join(ctx, tx, item); err != nil {
+		if in.join != nil {
+			if err := in.join(ctx, tx, item); err != nil {
 				return nil, err
 			}
 		}

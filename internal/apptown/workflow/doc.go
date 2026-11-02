@@ -8,6 +8,9 @@
 // current permission, receipt attribution and inference ownership to stored
 // project scope. Already-admitted execution owners do not establish user access.
 //
+// Run admission refuses explicit choices of system workflows. Governed landing
+// requests, replacements, accepted landings, integration wiring/retirement and declared calls
+// can start them.
 // Run admission orders bounded preparation, readiness and dispatch. Execution
 // issues private attempt claims. Decisions, retries and rework own their guarded
 // transitions and receipts. Advancement, assertions, landing and merge owners

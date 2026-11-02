@@ -2,6 +2,7 @@ package changeactions_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -91,7 +92,8 @@ spec:
 	if name, version, err := w.ways.PublishWorkflow(t.Context(), yaml, "fixture"); err != nil || name != "clock" || version != 1 {
 		t.Fatalf("publish fixture workflow: %s@%d %v", name, version, err)
 	}
-	if err := w.adoption.SelectLane(t.Context(), w.project.ID, "clock", true, "fixture"); err != nil {
+	w.packWorkflow(t, w.project.ID, "clock")
+	if err := recordCatalogFixture(w.adoption, t.Context(), w.project.ID, "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.adoption.RecordCurrent(t.Context(), w.project.ID, adoption.AdoptionEdit, "fixture selects clock", "fixture"); err != nil {
@@ -150,7 +152,8 @@ spec:
 	if _, _, err := w.ways.PublishWorkflow(t.Context(), yaml, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.adoption.SelectLane(t.Context(), w.project.ID, "hourly", true, "fixture"); err != nil {
+	w.packWorkflow(t, w.project.ID, "hourly")
+	if err := recordCatalogFixture(w.adoption, t.Context(), w.project.ID, "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.adoption.RecordCurrent(t.Context(), w.project.ID, adoption.AdoptionEdit, "fixture selects hourly", "fixture"); err != nil {
@@ -214,7 +217,8 @@ spec:
 		t.Fatal(err)
 	}
 	for _, id := range []ids.ID{w.project.ID, copyID} {
-		if err := w.adoption.SelectLane(t.Context(), id, "clock", true, "fixture"); err != nil {
+		w.packWorkflow(t, id, "clock")
+		if err := recordCatalogFixture(w.adoption, t.Context(), id, "fixture"); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := w.adoption.RecordCurrent(t.Context(), id, adoption.AdoptionEdit, "fixture selects clock", "fixture"); err != nil {
@@ -234,7 +238,7 @@ spec:
 }
 
 // adoptScheduled publishes a workflow with an approval step that waits, so
-// its run stays active, and selects it in the project.
+// its run stays active, and records its version in the project.
 func (w scheduleWorld) adoptScheduled(t *testing.T, name, cron string) {
 	t.Helper()
 	yaml := `apiVersion: apptown.dev/v1
@@ -254,7 +258,7 @@ spec:
 	if _, _, err := w.ways.PublishWorkflow(t.Context(), yaml, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.adoption.SelectLane(t.Context(), w.project.ID, name, true, "fixture"); err != nil {
+	if err := recordCatalogFixture(w.adoption, t.Context(), w.project.ID, "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.adoption.RecordCurrent(t.Context(), w.project.ID, adoption.AdoptionEdit, "fixture selects "+name, "fixture"); err != nil {
@@ -280,6 +284,7 @@ func TestAScheduleShowsItsNextAndLastFiringAsTheSchedulerRecordedThem(t *testing
 	t.Parallel()
 	w := newScheduleWorld(t)
 	w.adoptScheduled(t, "hourly", "0 * * * *")
+	w.packWorkflow(t, w.project.ID, "hourly")
 	base := time.Date(2026, 9, 10, 0, 10, 0, 0, time.UTC)
 
 	s := w.schedule(t, base)
@@ -331,6 +336,7 @@ func TestAScheduleShowsAFiringThatCouldNotStart(t *testing.T) {
 	t.Parallel()
 	w := newScheduleWorld(t)
 	w.adoptScheduled(t, "hourly", "0 * * * *")
+	w.packWorkflow(t, w.project.ID, "hourly")
 	base := time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC)
 	w.schedules.FireDueSchedules(t.Context(), base)
 	due := base.Add(time.Hour)
@@ -352,6 +358,7 @@ func TestAProjectsScheduleReadSaysCopyNoneOrFailed(t *testing.T) {
 		t.Fatalf("no scheduled workflow: %+v %v", got, err)
 	}
 	w.adoptScheduled(t, "clock", "* * * * *")
+	w.packWorkflow(t, w.project.ID, "clock")
 	clear := dbtest.NextStatementFailure(w.schedules.DB, "name: WorkflowSchedulesOfProject")
 	_, err := w.schedules.Of(t.Context(), w.project, time.Now())
 	clear()
@@ -371,6 +378,7 @@ func TestAScheduleIsReadInUTCWhateverTheClocksZone(t *testing.T) {
 	t.Parallel()
 	w := newScheduleWorld(t)
 	w.adoptScheduled(t, "monthly", "0 6 1 * *")
+	w.packWorkflow(t, w.project.ID, "monthly")
 	melbourne := time.FixedZone("AEDT", 11*60*60)
 	now := time.Date(2026, 10, 11, 14, 0, 0, 0, melbourne)
 	want := time.Date(2026, 11, 1, 6, 0, 0, 0, time.UTC)
@@ -383,13 +391,14 @@ func TestAScheduleIsReadInUTCWhateverTheClocksZone(t *testing.T) {
 	}
 }
 
-// A selected workflow whose stored definition no longer parses may carry a
+// A pack workflow whose stored definition no longer parses may carry a
 // schedule: the read shows it as could-not-be-read, never as no schedule,
 // and the scheduler still does not fire it.
 func TestAnUnreadableWorkflowIsShownAsUnknownNotAsNoSchedule(t *testing.T) {
 	t.Parallel()
 	w := newScheduleWorld(t)
 	w.adoptScheduled(t, "hourly", "0 * * * *")
+	w.packWorkflow(t, w.project.ID, "hourly")
 	// Publishing validates a definition, so no operation stores one that
 	// fails to parse; this stands for older stored content.
 	// sql-guarantee: no owner operation can store an unparseable workflow.
@@ -404,5 +413,88 @@ func TestAnUnreadableWorkflowIsShownAsUnknownNotAsNoSchedule(t *testing.T) {
 	w.schedules.FireDueSchedules(t.Context(), base)
 	if _, armed, err := workflow.ScheduleLastFiredIn(t.Context(), w.schedules.DB, w.project.ID, "hourly"); err != nil || armed {
 		t.Fatalf("an unreadable workflow was armed: %v", err)
+	}
+}
+
+// Availability and a recorded pin do not authorize recurring work.
+func TestSchedulesRequireAnAdoptedPack(t *testing.T) {
+	t.Parallel()
+	w := newScheduleWorld(t)
+	w.adoptScheduled(t, "clock", "* * * * *")
+	base := time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC)
+	got, err := w.schedules.Of(t.Context(), w.project, base)
+	if err != nil || len(got.Schedules) != 0 {
+		t.Fatalf("library workflow acquired a schedule: %+v %v", got, err)
+	}
+	w.schedules.FireDueSchedules(t.Context(), base)
+	w.schedules.FireDueSchedules(t.Context(), base.Add(time.Minute))
+	if runs := w.runs(t); len(runs) != 0 {
+		t.Fatalf("available workflow fired without a pack: %+v", runs)
+	}
+}
+
+func (w scheduleWorld) packWorkflow(t *testing.T, projectID ids.ID, name string) {
+	t.Helper()
+	packName := "schedule-" + name
+	if _, err := w.ways.PublishPack(t.Context(), packName, "Scheduled work", fmt.Sprintf(`{"workflows":[%q],"schedules":[%q]}`, name, name), "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	pack, err := w.ways.Pack(t.Context(), packName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Membership participant is the adoption owner's operation for recording
+	// pack versions; this fixture does not need a repository adoption change.
+	if err := w.schedules.DB.InTx(t.Context(), func(tx *database.Tx) error {
+		return adoption.SetMembershipIn(t.Context(), tx, projectID, []adoption.Membership{{Pack: pack.Name, Version: pack.Version}}, "schedule fixture", "fixture", time.Now())
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Only an explicit declaration in the adopted publication authorizes a schedule.
+func TestSchedulesRequireDeclarationInAdoptedVersion(t *testing.T) {
+	t.Parallel()
+	for _, declaration := range []string{`{"workflows":["dependency-uplift"]}`, `{"workflows":["dependency-uplift"],"schedules":[]}`} {
+		t.Run(declaration, func(t *testing.T) {
+			w := newScheduleWorld(t)
+			w.adoptScheduled(t, "dependency-uplift", "* * * * *")
+			if _, err := w.ways.PublishPack(t.Context(), "maintenance", "Maintenance", declaration, "fixture"); err != nil {
+				t.Fatal(err)
+			}
+			set := func(version int64) {
+				t.Helper()
+				if err := w.schedules.DB.InTx(t.Context(), func(tx *database.Tx) error {
+					return adoption.SetMembershipIn(t.Context(), tx, w.project.ID, []adoption.Membership{{Pack: "maintenance", Version: version}}, "fixture", "fixture", time.Now())
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			set(1)
+			// Publishing a declaration must not change a project's older adopted version.
+			if _, err := w.ways.PublishPack(t.Context(), "maintenance", "Maintenance", `{"workflows":["dependency-uplift"],"schedules":["dependency-uplift"]}`, "fixture"); err != nil {
+				t.Fatal(err)
+			}
+			base := time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC)
+			got, err := w.schedules.Of(t.Context(), w.project, base)
+			if err != nil || len(got.Schedules) != 0 {
+				t.Fatalf("availability scheduled work: %+v %v", got, err)
+			}
+			w.schedules.FireDueSchedules(t.Context(), base)
+			w.schedules.FireDueSchedules(t.Context(), base.Add(time.Minute))
+			if _, armed, err := workflow.ScheduleLastFiredIn(t.Context(), w.schedules.DB, w.project.ID, "dependency-uplift"); err != nil || armed {
+				t.Fatalf("undeclared schedule armed: %v", err)
+			}
+			if runs := w.runs(t); len(runs) != 0 {
+				t.Fatalf("undeclared schedule fired: %+v", runs)
+			}
+			set(2)
+			w.schedule(t, base)
+			w.schedules.FireDueSchedules(t.Context(), base)
+			w.schedules.FireDueSchedules(t.Context(), base.Add(time.Minute))
+			if runs := w.runs(t); len(runs) != 1 || runs[0].WorkflowName != "dependency-uplift" {
+				t.Fatalf("declared schedule did not fire: %+v", runs)
+			}
+		})
 	}
 }

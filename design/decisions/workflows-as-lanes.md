@@ -1,10 +1,9 @@
-# Workflows live in the library; projects select them
+# Workflows live in the library; projects choose packs
 
 Two kinds of workflow share one word:
 
 - **System workflows** are how AppTown does its own jobs: landing (with
-  shipping as its stage), wiring an integration in or out, the scheduled
-  dependency patch. They are marked `metadata.system: true`. AppTown invokes
+  shipping as its stage) and wiring an integration in or out. They are marked `metadata.system: true`. AppTown invokes
   them by name; a person never picks one, and they are never offered in a "run
   a workflow…" list. Ways of working lists them under a System heading with one
   line on when the apptown runs each.
@@ -13,18 +12,16 @@ Two kinds of workflow share one word:
 
 ## The decision
 
-1. **Workflows live at the instance; projects select, never copy.** The library
-   is the only source. A project's way of working is a selection of lanes
-   (`project_lanes`, defaulted by its pack) plus the policies it adopts. A run
-   resolves the version the project's adoption revision pins and records its
-   origin (`stock/quick-change@10`, `lib/our-land@1`); that receipt replaces any
-   per-project copy.
+1. **Every project can run every core and extra library workflow**, plus
+   workflows its adopted packs bring. Packs are the project's way-of-working
+   choice. Workflows have no per-project selection or copies. Each run records
+   the exact version and origin it ran.
 2. **Customising is cloning at the instance.** A team clones a workflow into
-   its library and selects the clone. An administrator customises a system job
-   for the whole instance by binding the stock system name to a custom library
-   workflow that is itself marked system (`system_workflows`, audited).
-3. **Policies apply where they are adopted**: when a library workflow is saved,
-   when a project's selection changes, and when a run resolves its workflow.
+   its library and runs the clone. An administrator customises a system job
+   for the instance by binding its name to a custom system workflow
+   (`system_workflows`, audited).
+3. **Policies apply where they are adopted** and when a run resolves its
+   workflow. Authority checks apply to every invocation.
 4. **System workflows are parametrised by attachments, never edited per
    project.** `land` declares scan points, not scanners: `uses: scan` with
    `on: source` runs every attached scanner that reads source, and `on: image`
@@ -40,4 +37,4 @@ AppTown is missing an attachment point.** Add the point; do not fork the workflo
 Per-project copies created stale copies on every project, a second editing
 surface beside the library's, and policy checks hung on a save event that
 nobody needed. Per-project divergence is still possible, through
-clone-and-select, and every run says exactly what ran.
+library clones, and every run says exactly what ran.

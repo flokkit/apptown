@@ -1562,3 +1562,30 @@ func TestEveryFlagSetHasHelpTableUsage(t *testing.T) {
 		t.Fatalf("found only %d flag sets; the scan is broken", n)
 	}
 }
+
+func TestIntegrationCommandsUseTheirDedicatedAdmission(t *testing.T) {
+	for _, command := range []struct{ name, operation string }{{"adopt", "wire"}, {"retire", "retire"}} {
+		t.Run(command.name, func(t *testing.T) {
+			called := false
+			seen := fakeAppTown(t, func(method, path string) (int, string) {
+				if method == "POST" && path == "/projects/shop/integrations" {
+					return 200, `{}`
+				}
+				if method == "POST" && path == "/projects/shop/integrations/errors/"+command.operation {
+					called = true
+					return 422, `{"error":"dedicated admission reached"}`
+				}
+				return 422, `{"error":"unexpected generic admission"}`
+			})
+			_, err := run(t, command.name, "errors", "-p", "shop", "-y")
+			if !called || err == nil || !strings.Contains(err.Error(), "dedicated admission reached") {
+				t.Fatalf("admission: err=%v requests=%+v", err, *seen)
+			}
+			for _, request := range *seen {
+				if _, supplied := request.Body["workflow"]; supplied {
+					t.Fatal("caller named a system workflow")
+				}
+			}
+		})
+	}
+}

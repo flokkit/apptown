@@ -34,7 +34,7 @@ func inAdvanceQuestion(ctx context.Context, lanes remediation.WorkflowResolver, 
 		return q, nil
 	}
 	q.Workflow = lane
-	working, err := lanes.SelectedWorkflow(ctx, p, lane)
+	working, err := lanes.ResolveWorkflow(ctx, p, lane)
 	if err != nil {
 		return q, err
 	}
@@ -56,7 +56,7 @@ func inAdvanceQuestion(ctx context.Context, lanes remediation.WorkflowResolver, 
 		q.NotOffered = fmt.Sprintf("%s v%d's %s approval does not say what a yes given in advance means", lane, working.Version, accepts[0].Name)
 		return q, nil
 	}
-	landing, err := lanes.SelectedWorkflow(ctx, p, "land")
+	landing, err := lanes.ResolveWorkflow(ctx, p, "land")
 	if err != nil {
 		return q, err
 	}

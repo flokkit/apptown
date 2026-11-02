@@ -130,9 +130,7 @@ func (h projectReads) getProject(c *Call, args map[string]any) (any, error) {
 			"tier": e.Doc.Metadata.EffectiveTier(), "version": e.Version}
 		if e.Doc.Metadata.System {
 			system = append(system, l)
-		} else if selected, err := h.adoption.LaneSelected(c.Context, p.ID, e.Name); err != nil {
-			return nil, err
-		} else if selected {
+		} else {
 			lanes = append(lanes, l)
 		}
 	}

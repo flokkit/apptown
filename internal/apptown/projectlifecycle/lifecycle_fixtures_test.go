@@ -2,7 +2,6 @@ package projectlifecycle
 
 import (
 	"context"
-	"slices"
 	"testing"
 	"time"
 
@@ -59,11 +58,16 @@ func ownerCount(t *testing.T, db *database.DB, want int, query string, args ...a
 // slugTaken asks the project owner whether any project holds slug.
 func slugTaken(t *testing.T, db *database.DB, slug string) bool {
 	t.Helper()
-	slugs, err := project.SlugsIn(context.Background(), db)
+	projects, err := project.New(db, nil).All(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	return slices.Contains(slugs, slug)
+	for _, p := range projects {
+		if p.Slug == slug {
+			return true
+		}
+	}
+	return false
 }
 
 // lifecycleReceipts is every ledger line of exactly one kind. The read is
