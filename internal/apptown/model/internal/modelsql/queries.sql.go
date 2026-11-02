@@ -8,23 +8,20 @@ package modelsql
 import (
 	"context"
 	"time"
-
-	"github.com/flokkit/apptown/internal/ids"
 )
 
 const deleteSlotCell = `-- name: DeleteSlotCell :execrows
 DELETE FROM model_slots
-WHERE slot=$1 AND project_id IS NOT DISTINCT FROM $2 AND profile=$3
+WHERE slot=$1 AND profile=$2
 `
 
 type DeleteSlotCellParams struct {
-	Slot      string
-	ProjectID ids.ID
-	Profile   string
+	Slot    string
+	Profile string
 }
 
 func (q *Queries) DeleteSlotCell(ctx context.Context, arg DeleteSlotCellParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteSlotCell, arg.Slot, arg.ProjectID, arg.Profile)
+	result, err := q.db.ExecContext(ctx, deleteSlotCell, arg.Slot, arg.Profile)
 	if err != nil {
 		return 0, err
 	}
@@ -74,23 +71,21 @@ func (q *Queries) InsertFallback(ctx context.Context, arg InsertFallbackParams) 
 }
 
 const modelSlotCell = `-- name: ModelSlotCell :one
-SELECT slot, project_id, profile, pattern, updated_at FROM model_slots
-WHERE slot=$1 AND project_id IS NOT DISTINCT FROM $2 AND profile=$3
+SELECT slot, profile, pattern, updated_at FROM model_slots
+WHERE slot=$1 AND profile=$2
 `
 
 type ModelSlotCellParams struct {
-	Slot      string
-	ProjectID ids.ID
-	Profile   string
+	Slot    string
+	Profile string
 }
 
 // Records, grouped by table. Reads return complete rows.
 func (q *Queries) ModelSlotCell(ctx context.Context, arg ModelSlotCellParams) (ModelSlot, error) {
-	row := q.db.QueryRowContext(ctx, modelSlotCell, arg.Slot, arg.ProjectID, arg.Profile)
+	row := q.db.QueryRowContext(ctx, modelSlotCell, arg.Slot, arg.Profile)
 	var i ModelSlot
 	err := row.Scan(
 		&i.Slot,
-		&i.ProjectID,
 		&i.Profile,
 		&i.Pattern,
 		&i.UpdatedAt,
@@ -99,7 +94,7 @@ func (q *Queries) ModelSlotCell(ctx context.Context, arg ModelSlotCellParams) (M
 }
 
 const modelSlotsInstance = `-- name: ModelSlotsInstance :many
-SELECT slot, project_id, profile, pattern, updated_at FROM model_slots WHERE project_id IS NULL
+SELECT slot, profile, pattern, updated_at FROM model_slots
 `
 
 func (q *Queries) ModelSlotsInstance(ctx context.Context) ([]ModelSlot, error) {
@@ -113,7 +108,6 @@ func (q *Queries) ModelSlotsInstance(ctx context.Context) ([]ModelSlot, error) {
 		var i ModelSlot
 		if err := rows.Scan(
 			&i.Slot,
-			&i.ProjectID,
 			&i.Profile,
 			&i.Pattern,
 			&i.UpdatedAt,
@@ -131,43 +125,8 @@ func (q *Queries) ModelSlotsInstance(ctx context.Context) ([]ModelSlot, error) {
 	return items, nil
 }
 
-const overrides = `-- name: Overrides :many
-SELECT m.slot, m.pattern, p.slug AS project_slug
-FROM model_slots m JOIN projects p ON p.id=m.project_id
-WHERE m.project_id IS NOT NULL
-`
-
-type OverridesRow struct {
-	Slot        string
-	Pattern     string
-	ProjectSlug string
-}
-
-func (q *Queries) Overrides(ctx context.Context) ([]OverridesRow, error) {
-	rows, err := q.db.QueryContext(ctx, overrides)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []OverridesRow
-	for rows.Next() {
-		var i OverridesRow
-		if err := rows.Scan(&i.Slot, &i.Pattern, &i.ProjectSlug); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const profiles = `-- name: Profiles :many
-SELECT DISTINCT profile AS profile_name FROM model_slots WHERE project_id IS NULL AND profile != ''
+SELECT DISTINCT profile AS profile_name FROM model_slots WHERE profile != ''
 UNION SELECT DISTINCT model_profile AS profile_name FROM projects WHERE model_profile != ''
 ORDER BY profile_name
 `
@@ -195,54 +154,10 @@ func (q *Queries) Profiles(ctx context.Context) ([]string, error) {
 	return items, nil
 }
 
-const projectOverrides = `-- name: ProjectOverrides :many
-SELECT slot, pattern FROM model_slots WHERE project_id = $1 AND profile = '' ORDER BY slot
-`
-
-type ProjectOverridesRow struct {
-	Slot    string
-	Pattern string
-}
-
-func (q *Queries) ProjectOverrides(ctx context.Context, projectID ids.ID) ([]ProjectOverridesRow, error) {
-	rows, err := q.db.QueryContext(ctx, projectOverrides, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ProjectOverridesRow
-	for rows.Next() {
-		var i ProjectOverridesRow
-		if err := rows.Scan(&i.Slot, &i.Pattern); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const removeProjectSlots = `-- name: RemoveProjectSlots :execrows
-DELETE FROM model_slots WHERE project_id=$1
-`
-
-func (q *Queries) RemoveProjectSlots(ctx context.Context, projectID ids.ID) (int64, error) {
-	result, err := q.db.ExecContext(ctx, removeProjectSlots, projectID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
 const setDefaultSlot = `-- name: SetDefaultSlot :exec
-INSERT INTO model_slots (slot, project_id, profile, pattern, updated_at)
-VALUES ('default', NULL, $1, $2, $3)
-ON CONFLICT(slot, project_id, profile) DO UPDATE
+INSERT INTO model_slots (slot, profile, pattern, updated_at)
+VALUES ('default', $1, $2, $3)
+ON CONFLICT(slot, profile) DO UPDATE
 SET pattern=excluded.pattern, updated_at=excluded.updated_at
 `
 
@@ -269,15 +184,14 @@ func (q *Queries) SlotFallbackBySlot(ctx context.Context, slot string) (SlotFall
 }
 
 const upsertSlotCell = `-- name: UpsertSlotCell :execrows
-INSERT INTO model_slots (slot, project_id, profile, pattern, updated_at)
-VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT(slot, project_id, profile) DO UPDATE
+INSERT INTO model_slots (slot, profile, pattern, updated_at)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT(slot, profile) DO UPDATE
 SET pattern=excluded.pattern, updated_at=excluded.updated_at
 `
 
 type UpsertSlotCellParams struct {
 	Slot      string
-	ProjectID ids.ID
 	Profile   string
 	Pattern   string
 	UpdatedAt time.Time
@@ -286,7 +200,6 @@ type UpsertSlotCellParams struct {
 func (q *Queries) UpsertSlotCell(ctx context.Context, arg UpsertSlotCellParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, upsertSlotCell,
 		arg.Slot,
-		arg.ProjectID,
 		arg.Profile,
 		arg.Pattern,
 		arg.UpdatedAt,

@@ -172,8 +172,8 @@ func (m evalModels) OfferedProfile(ctx context.Context, profile string) (bool, e
 	return m.slots.OfferedProfile(ctx, profile)
 }
 func (m evalModels) Profiles(ctx context.Context) ([]string, error) { return m.slots.Profiles(ctx) }
-func (m evalModels) CopyModels(ctx context.Context, from, to ids.ID, profile string, withOverrides bool, who string) error {
-	return m.slots.CopyModels(ctx, from, to, profile, withOverrides, who)
+func (m evalModels) CopyModels(ctx context.Context, to ids.ID, profile string) error {
+	return m.slots.CopyModels(ctx, to, profile)
 }
 
 // evalDeployments takes an eval copy's standing deployments down.

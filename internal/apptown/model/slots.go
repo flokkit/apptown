@@ -63,7 +63,7 @@ func profileOf(declared string) string {
 	return declared
 }
 
-// Slots stores instance mappings, project overrides and slot fallbacks.
+// Slots stores profile mappings and slot fallbacks.
 // Callers authorize changes before invoking its mutation methods.
 type Slots struct {
 	db *database.DB
@@ -78,23 +78,16 @@ func (s *Slots) now() time.Time { return clock.Or(s.Now)() }
 
 // cell is one mapping: found is false when no row (or an empty pattern)
 // maps it. A failed read is an error, never an unmapped cell.
-func (s *Slots) cell(ctx context.Context, slot string, projectID ids.ID, profile string) (pattern string, found bool, err error) {
-	r, err := queries(s.db).ModelSlotCell(ctx, modelsql.ModelSlotCellParams{Slot: slot, ProjectID: projectID, Profile: profile})
+func (s *Slots) cell(ctx context.Context, slot, profile string) (pattern string, found bool, err error) {
+	r, err := queries(s.db).ModelSlotCell(ctx, modelsql.ModelSlotCellParams{Slot: slot, Profile: profile})
 	if found, err := database.Lookup(err); err != nil || !found {
 		return "", false, err
 	}
 	return r.Pattern, r.Pattern != "", nil
 }
 
-type cellRef struct {
-	decided string
-	project ids.ID
-	profile string
-}
-
 // resolve walks, most specific first, until a cell holds a pattern:
 //
-//	explicit project override row (profile '')     → profile "override"
 //	instance cell (slot, project's profile)        → that profile
 //	instance cell (slot, standard)                 → "standard"
 //	the slot's fallback (slot_fallbacks, then `default`), same lookup
@@ -106,7 +99,7 @@ type cellRef struct {
 // Only an absent cell or fallback row passes the walk on: a failed read
 // returns its error, so a database fault never selects a less specific model
 // or reads as "no model is set up".
-func (s *Slots) resolve(ctx context.Context, projectID ids.ID, projectProfile, requested string) (pattern, slot, profile string, err error) {
+func (s *Slots) resolve(ctx context.Context, projectProfile, requested string) (pattern, slot, profile string, err error) {
 	if requested != "" && !isSlot(requested) {
 		return requested, "", "", nil
 	}
@@ -118,23 +111,17 @@ func (s *Slots) resolve(ctx context.Context, projectID ids.ID, projectProfile, r
 	}
 	for name != "" && !seen[name] {
 		seen[name] = true
-		// Most specific first: what the receipt says decided, the cell's
-		// project (Nil for the instance) and its profile column.
-		var cells []cellRef
-		if !projectID.IsZero() {
-			cells = append(cells, cellRef{"override", projectID, ""})
-		}
-		cells = append(cells, cellRef{proj, ids.Nil, proj})
+		profiles := []string{proj}
 		if proj != StandardProfile {
-			cells = append(cells, cellRef{StandardProfile, ids.Nil, StandardProfile})
+			profiles = append(profiles, StandardProfile)
 		}
-		for _, c := range cells {
-			p, ok, err := s.cell(ctx, name, c.project, c.profile)
+		for _, profile := range profiles {
+			p, ok, err := s.cell(ctx, name, profile)
 			if err != nil {
 				return "", "", "", fmt.Errorf("reading the %s model slot: %w", name, err)
 			}
 			if ok {
-				return p, name, c.decided, nil
+				return p, name, profile, nil
 			}
 		}
 		r, err := queries(s.db).SlotFallbackBySlot(ctx, name)
@@ -169,36 +156,30 @@ func (s *Slots) SetDefault(ctx context.Context, pattern string) error {
 	return err
 }
 
-// Set maps a cell (a project override when projectID is set, else the
-// instance cell for the profile) or clears it when the pattern is empty,
-// with the receipt in the same transaction. A receipt failure rolls back the
-// mapping. The caller must authorize the change; who is audit attribution.
-// This validates the slot/profile names, not provider availability or model access.
-func (s *Slots) Set(ctx context.Context, slot string, projectID ids.ID, projectSlug, profile, pattern, who string) error {
+// Set maps a slot and profile, or clears the cell when pattern is empty.
+// The mapping and audit receipt commit together. Callers authorize the change;
+// who supplies attribution. Provider availability and access are not validated.
+func (s *Slots) Set(ctx context.Context, slot, profile, pattern, who string) error {
 	if !isSlot(slot) {
 		return errors.New("slot (no slash) required")
 	}
-	if projectID.IsZero() {
-		if profile == "" {
-			profile = StandardProfile
-		}
-		if !ValidProfile(profile) {
-			return errProfileName
-		}
-	} else {
-		profile = ""
+	if profile == "" {
+		profile = StandardProfile
+	}
+	if !ValidProfile(profile) {
+		return errProfileName
 	}
 	at := s.now()
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		q := queries(tx)
 		if pattern == "" {
-			if _, err := q.DeleteSlotCell(ctx, modelsql.DeleteSlotCellParams{Slot: slot, ProjectID: projectID, Profile: profile}); err != nil {
+			if _, err := q.DeleteSlotCell(ctx, modelsql.DeleteSlotCellParams{Slot: slot, Profile: profile}); err != nil {
 				return err
 			}
-		} else if _, err := q.UpsertSlotCell(ctx, modelsql.UpsertSlotCellParams{Slot: slot, ProjectID: projectID, Profile: profile, Pattern: pattern, UpdatedAt: at.UTC()}); err != nil {
+		} else if _, err := q.UpsertSlotCell(ctx, modelsql.UpsertSlotCellParams{Slot: slot, Profile: profile, Pattern: pattern, UpdatedAt: at.UTC()}); err != nil {
 			return err
 		}
-		return audit.At(at).RecordIn(ctx, tx, who, projectID, "model-slot.set", slot, map[string]any{"pattern": pattern, "project": projectSlug, "profile": profile})
+		return audit.At(at).RecordIn(ctx, tx, who, ids.Nil, "model-slot.set", slot, map[string]any{"pattern": pattern, "profile": profile})
 	})
 }
 
@@ -211,18 +192,6 @@ func (s *Slots) Cells(ctx context.Context) (map[string]map[string]string, error)
 			out[c.Slot] = map[string]string{}
 		}
 		out[c.Slot][c.Profile] = c.Pattern
-	}
-	return out, err
-}
-
-// override is a project's explicit mapping of a slot.
-type override struct{ Slot, Pattern, ProjectSlug string }
-
-func (s *Slots) Overrides(ctx context.Context) ([]override, error) {
-	rows, err := queries(s.db).Overrides(ctx)
-	out := make([]override, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, override{Slot: r.Slot, Pattern: r.Pattern, ProjectSlug: r.ProjectSlug})
 	}
 	return out, err
 }

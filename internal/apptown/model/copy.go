@@ -14,8 +14,7 @@ import (
 // slots and every slot the fallback chain names, resolved as Resolve
 // resolves them. An eval records it for each arm when it starts: the
 // baseline's from the source
-// project as it is now (its profile and its own overrides), the variant's
-// from the profile under test with no overrides.
+// project with its current profile, the variant's from the profile under test.
 func (s Selection) ArmSlots(ctx context.Context, projectID ids.ID, profile string) (map[string]string, error) {
 	fallbacks, err := s.slots.Fallbacks(ctx)
 	if err != nil {
@@ -35,7 +34,7 @@ func (s Selection) ArmSlots(ctx context.Context, projectID ids.ID, profile strin
 		if !projectID.IsZero() {
 			pattern, _, _, err = s.Resolve(ctx, projectID, slot)
 		} else {
-			pattern, _, _, err = s.slots.resolve(ctx, ids.Nil, profile, slot)
+			pattern, _, _, err = s.slots.resolve(ctx, profile, slot)
 		}
 		if err != nil {
 			return nil, err
@@ -52,33 +51,13 @@ func (s *Slots) OfferedProfile(ctx context.Context, profile string) (bool, error
 	return slices.Contains(profiles, profile), err
 }
 
-// CopyModels gives the project to the models a copy of from runs: its
-// profile, and, when withOverrides, its own slot overrides, each with its
-// receipt. It is how an eval's copy runs what its source runs (the
-// baseline) or the profile under test with nothing of the source's own
-// (the variant, profile set and withOverrides false).
-func (s *Slots) CopyModels(ctx context.Context, from, to ids.ID, profile string, withOverrides bool, who string) error {
-	p, err := project.ByIDIn(ctx, s.db, to)
-	if err != nil {
-		return err
-	}
+// CopyModels sets the profile an eval copy runs.
+func (s *Slots) CopyModels(ctx context.Context, to ids.ID, profile string) error {
 	if !ValidProfile(profile) {
 		return errProfileName
 	}
 	if err := project.New(s.db, nil).SetModelProfile(ctx, to, profile); err != nil {
 		return fmt.Errorf("setting the copy's model profile: %w", err)
-	}
-	if !withOverrides {
-		return nil
-	}
-	overrides, err := queries(s.db).ProjectOverrides(ctx, from)
-	if err != nil {
-		return err
-	}
-	for _, o := range overrides {
-		if err := s.Set(ctx, o.Slot, to, p.Slug, "", o.Pattern, who); err != nil {
-			return err
-		}
 	}
 	return nil
 }

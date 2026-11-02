@@ -281,7 +281,7 @@ func (fakeModels) OfferedProfile(ctx context.Context, profile string) (bool, err
 func (fakeModels) Profiles(ctx context.Context) ([]string, error) {
 	return []string{"standard", "frontier"}, nil
 }
-func (fakeModels) CopyModels(context.Context, ids.ID, ids.ID, string, bool, string) error {
+func (fakeModels) CopyModels(context.Context, ids.ID, string) error {
 	return nil
 }
 

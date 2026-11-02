@@ -47,12 +47,13 @@ ends at default.
 
 The table has a column per **profile**: `standard` and `high` ship, and
 each project declares which it wants (its demand level). Resolution
-walks, most specific first: a per-project override for that slot, the
-instance cell for the project's profile, the `standard` cell, then the
-slot's fallback. Map `review` to a paid model and every reviewer in
-every workflow upgrades in one edit. Per-project overrides ("this
-project's reviews run on the good model") are listed on the slots page
-and set through the API (`PUT /model-slots` with a `project`).
+walks, most specific first: the cell for the project's profile, the
+`standard` cell, then the slot's fallback with the same profile lookup.
+Map `review` to a paid model and every reviewer on that profile upgrades
+in one edit. A project that needs different models gets its own profile,
+even if it is the only project on it. Set cells through the API
+(`PUT /model-slots` with `slot`, `profile` and `pattern`). Evals compare a
+profile against the source project's profile.
 
 Receipts record the slot, the profile that decided, the model and
 provider that answered, and the pi runtime version baked into the agent

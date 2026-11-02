@@ -66,7 +66,7 @@ func TestIntegrationAgentEnvironmentConsoleLaunch(t *testing.T) {
 	if _, err := a.Integrations.Bindings.Save(context.Background(), "fixture", "model", "pi", config, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Models.Set(context.Background(), "chat", ids.Nil, "", "standard", "fixture/probe", "fixture"); err != nil {
+	if err := a.Models.Set(context.Background(), "chat", "standard", "fixture/probe", "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	// A console acts for a person, and its runtime credential opens the

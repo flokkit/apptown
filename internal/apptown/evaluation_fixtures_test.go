@@ -146,7 +146,7 @@ func (f askFunc) Ask(ctx context.Context, c modelcall.Call) (string, *modelcall.
 // setFastSlot points the instance's fast slot at pattern.
 func setFastSlot(t *testing.T, a *App, pattern string) {
 	t.Helper()
-	if err := a.Models.Set(context.Background(), "fast", ids.Nil, "", "standard", pattern, "fixture"); err != nil {
+	if err := a.Models.Set(context.Background(), "fast", "standard", pattern, "fixture"); err != nil {
 		t.Fatal(fmt.Errorf("setting the fast slot: %w", err))
 	}
 }

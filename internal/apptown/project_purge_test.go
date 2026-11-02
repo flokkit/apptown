@@ -67,11 +67,9 @@ func purgeFixtureState(t *testing.T, live bool) (*App, *fakeDocker, []string) {
 		if err := integration.NewAttachments(a.DB).Remember(t.Context(), idstest.N(uint64(id)), "errors", "test", `{}`); err != nil {
 			t.Fatal(err)
 		}
-		if err := model.New(a.DB).Set(context.Background(), "purge", idstest.N(uint64(id)), map[int]string{1: "game", 2: "open"}[id], "default", "provider/x", "boss"); err != nil {
-			t.Fatal(err)
-		}
+
 	}
-	if err := model.New(a.DB).Set(context.Background(), "purge", ids.Nil, "", "default", "provider/x", "boss"); err != nil {
+	if err := model.New(a.DB).Set(context.Background(), "purge", "default", "provider/x", "boss"); err != nil {
 		t.Fatal(err)
 	}
 	if err := usage.New(a.DB).Record(context.Background(), usage.Entry{ProjectID: idstest.N(1), RunID: fx.Run, RootRunID: fx.Run, Kind: "agent", Actor: "owner"}, usage.Totals{Total: 123}, ""); err != nil {
@@ -258,9 +256,6 @@ func TestProjectPurgeFailurePreservesDatabaseAndExternalState(t *testing.T) {
 			}
 			// sql-guarantee: a remembered (engine-internal) integration row has no owner read; the attachment reads hide rows without provenance.
 			completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM project_integrations WHERE project_id='00000000-0001-7000-8000-000000000000'`)
-			if n := slotOverrides(t, a, "game", "purge"); n != 1 {
-				t.Fatalf("project slot: %d", n)
-			}
 			if n := len(ledgerEntries(t, a, ids.Nil, "project.deleted")) + len(ledgerEntries(t, a, idstest.N(1), "project.purged")); n != 0 {
 				t.Fatalf("%d purge receipts after a failed purge", n)
 			}
@@ -337,10 +332,9 @@ func TestProjectPurgeReceiptPrecedesCleanupAndPreservesAccounting(t *testing.T) 
 		// sql-guarantee: the purge leaves no Work row anywhere; no owner read reaches rows of a purged project.
 		completionCount(t, a.DB, 0, `SELECT COUNT(*) FROM `+table)
 	}
-	for _, table := range []string{"project_integrations", "model_slots"} {
-		// sql-guarantee: orphaned rows of a purged project are invisible to the owners' reads, which join the project.
-		completionCount(t, a.DB, 0, `SELECT COUNT(*) FROM `+table+` WHERE project_id='00000000-0001-7000-8000-000000000000'`)
-	}
+	// sql-guarantee: orphaned integration attachments are invisible to owner reads.
+	completionCount(t, a.DB, 0, `SELECT COUNT(*) FROM project_integrations WHERE project_id='00000000-0001-7000-8000-000000000000'`)
+
 	// The usage receipt recorded above survives the purge as itself: still
 	// the project's only row, with its run, kind, actor and total unchanged.
 	// A rollup could agree with an altered row plus an added one.
@@ -359,9 +353,6 @@ func TestProjectPurgeReceiptPrecedesCleanupAndPreservesAccounting(t *testing.T) 
 	}
 	if cells, err := model.New(a.DB).Cells(context.Background()); err != nil || cells["purge"]["default"] != "provider/x" {
 		t.Fatalf("instance slot: %v %v", cells["purge"], err)
-	}
-	if n := slotOverrides(t, a, "open", "purge"); n != 1 {
-		t.Fatalf("other project's slot: %d", n)
 	}
 	// sql-guarantee: a remembered (engine-internal) integration row has no owner read.
 	completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM project_integrations WHERE project_id='00000000-0002-7000-8000-000000000000'`)

@@ -115,7 +115,7 @@ type models interface {
 	ArmSlots(ctx context.Context, projectID ids.ID, profile string) (map[string]string, error)
 	OfferedProfile(ctx context.Context, profile string) (bool, error)
 	Profiles(ctx context.Context) ([]string, error)
-	CopyModels(ctx context.Context, from, to ids.ID, profile string, withOverrides bool, who string) error
+	CopyModels(ctx context.Context, to ids.ID, profile string) error
 }
 
 // adoptionState is the adoption owner's part: what a copy adopts, the
@@ -403,7 +403,7 @@ func (s *Service) Start(ctx context.Context, in Start) (*Eval, error) {
 			}
 			for _, arm := range []string{armBaseline, armVariant} {
 				// A pack-version eval holds the model: both arms run the
-				// baseline's, overrides included.
+				// baseline's profile.
 				profile, from, adopted := profileOf(p.ModelProfile), src.change.ProjectID, src.baseline
 				if arm == armVariant {
 					adopted = src.variant

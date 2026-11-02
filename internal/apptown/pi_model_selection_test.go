@@ -2,6 +2,7 @@ package apptown
 
 import (
 	"context"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,7 +41,7 @@ func TestPiAgentSurfaceWithBakedExtension(t *testing.T) {
 		"default": "openrouter/openai/gpt-5.6-luna",
 		"fast":    "openrouter/google/gemini-3.7-flash",
 	} {
-		if err := slots.Set(context.Background(), slot, ids.Nil, "", "standard", pattern, "fixture"); err != nil {
+		if err := slots.Set(context.Background(), slot, "standard", pattern, "fixture"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -101,19 +102,16 @@ func TestPiAgentSurfaceWithBakedExtension(t *testing.T) {
 	}
 }
 
-func TestPiAgentSurfaceProjectSlotOverride(t *testing.T) {
+func TestPiAgentSurfaceProjectProfile(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	slots, home := piSurface(db, map[string]string{"apptown.pi-subagents.version": "0.61.0"})
 	plainTestProject(t, db, "p", "P")
-	for _, cell := range []struct {
-		projectID     ids.ID
-		slug, pattern string
-	}{
-		{ids.Nil, "", "openrouter/openai/gpt-5.6-luna"},
-		{idstest.N(1), "p", "anthropic/claude-sonnet-5"},
-	} {
-		if err := slots.Set(context.Background(), "default", cell.projectID, cell.slug, "", cell.pattern, "fixture"); err != nil {
+	if err := project.New(db, nil).SetModelProfile(t.Context(), idstest.N(1), "high"); err != nil {
+		t.Fatal(err)
+	}
+	for profile, pattern := range map[string]string{"standard": "openrouter/openai/gpt-5.6-luna", "high": "anthropic/claude-sonnet-5"} {
+		if err := slots.Set(t.Context(), "default", profile, pattern, "fixture"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -123,7 +121,7 @@ func TestPiAgentSurfaceProjectSlotOverride(t *testing.T) {
 	}
 	worker, _ := os.ReadFile(filepath.Join(dir, "agents", "worker.md"))
 	if !strings.Contains(string(worker), "model: anthropic/claude-sonnet-5") {
-		t.Fatalf("project slot override must reach the worker:\n%s", worker)
+		t.Fatalf("project profile must reach the worker:\n%s", worker)
 	}
 	// fast is unmapped here: scout degrades to the project default rather
 	// than to a dead slot.

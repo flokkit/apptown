@@ -512,6 +512,12 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 	{n: 197, note: "index personal project chat receipts", stmts: []string{
 		"CREATE INDEX audit_log_personal_chat ON audit_log(actor_principal, project_id, at) WHERE kind IN ('console.say','console.upload')",
 	}},
+	{n: 198, note: "model slots use profiles only", stmts: []string{
+		"DELETE FROM model_slots WHERE project_id IS NOT NULL",
+		"ALTER TABLE model_slots DROP COLUMN project_id",
+		"ALTER TABLE model_slots ALTER COLUMN profile SET DEFAULT 'standard'",
+		"ALTER TABLE model_slots ADD PRIMARY KEY (slot, profile)",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

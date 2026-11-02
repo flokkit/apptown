@@ -37,12 +37,12 @@ func (s Selection) profile(ctx context.Context, projectID ids.ID) (string, error
 
 // Resolve selects against the project's current profile and current slot mappings.
 // A zero project id selects the standard profile. A failed or missing project
-// read is an error, as is any failed slot read ([Slots.Resolve]); the returned
-// values otherwise have the meaning and fallback rules of [Slots.Resolve].
+// read is an error, as is any failed slot read ([Slots.resolve]); the returned
+// values otherwise have the meaning and fallback rules of [Slots.resolve].
 func (s Selection) Resolve(ctx context.Context, projectID ids.ID, requested string) (pattern, slot, profile string, err error) {
 	proj, err := s.profile(ctx, projectID)
 	if err != nil {
 		return "", "", "", err
 	}
-	return s.slots.resolve(ctx, projectID, proj, requested)
+	return s.slots.resolve(ctx, proj, requested)
 }

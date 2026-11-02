@@ -6,13 +6,10 @@ package modelsql
 
 import (
 	"time"
-
-	"github.com/flokkit/apptown/internal/ids"
 )
 
 type ModelSlot struct {
 	Slot      string
-	ProjectID ids.ID
 	Profile   string
 	Pattern   string
 	UpdatedAt time.Time

@@ -37,7 +37,7 @@ func stubLLM(t *testing.T, a *App, answer string, seen *[]string) {
 
 func bindFastSlot(t *testing.T, a *App) {
 	t.Helper()
-	if err := a.Models.Set(context.Background(), "fast", ids.Nil, "", "standard", "openrouter/test-model", "fixture"); err != nil {
+	if err := a.Models.Set(context.Background(), "fast", "standard", "openrouter/test-model", "fixture"); err != nil {
 		t.Fatal(err)
 	}
 }

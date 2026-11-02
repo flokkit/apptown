@@ -11,7 +11,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
-	"github.com/flokkit/apptown/internal/apptown/model"
 	"github.com/flokkit/apptown/internal/apptown/remediation"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
@@ -150,23 +149,6 @@ func projectExists(t *testing.T, a *App, id ids.ID) bool {
 		t.Fatal(err)
 	}
 	return found
-}
-
-// slotOverrides is how many explicit project mappings of the slot the model
-// catalogue lists for the project.
-func slotOverrides(t *testing.T, a *App, projectSlug, slot string) int {
-	t.Helper()
-	all, err := model.New(a.DB).Overrides(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	n := 0
-	for _, o := range all {
-		if o.ProjectSlug == projectSlug && o.Slot == slot {
-			n++
-		}
-	}
-	return n
 }
 
 // allRuns is every run in every project, roots and children, uncapped.

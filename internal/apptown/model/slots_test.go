@@ -29,57 +29,41 @@ func TestResolveWalksMostSpecificFirst(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A slash pattern passes through; nothing mapped resolves to no model.
-	if p, slot, prof, err := s.resolve(t.Context(), pid, "heavy", "openrouter/x"); err != nil || p != "openrouter/x" || slot != "" || prof != "" {
+	if p, slot, prof, err := s.resolve(t.Context(), "heavy", "openrouter/x"); err != nil || p != "openrouter/x" || slot != "" || prof != "" {
 		t.Fatalf("pass-through: %s %s %s", p, slot, prof)
 	}
-	if p, slot, prof, err := s.resolve(t.Context(), pid, "heavy", "review"); err != nil || p != "" || slot != "default" || prof != "" {
+	if p, slot, prof, err := s.resolve(t.Context(), "heavy", "review"); err != nil || p != "" || slot != "default" || prof != "" {
 		t.Fatalf("unmapped: %s %s %s", p, slot, prof)
 	}
 	if err := s.SetDefault(t.Context(), "local/std"); err != nil {
 		t.Fatal(err)
 	}
-	if p, _, prof, err := s.resolve(t.Context(), ids.Nil, "", ""); err != nil || p != "local/std" || prof != StandardProfile {
+	if p, _, prof, err := s.resolve(t.Context(), "", ""); err != nil || p != "local/std" || prof != StandardProfile {
 		t.Fatalf("the default slot: %s %s", p, prof)
 	}
 	// The chain: security → review → default (from the stock fallbacks).
 	if err := s.SeedFallbacks(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Set(context.Background(), "review", ids.Nil, "", StandardProfile, "cloud/reviewer", "alice"); err != nil {
+	if err := s.Set(context.Background(), "review", StandardProfile, "cloud/reviewer", "alice"); err != nil {
 		t.Fatal(err)
 	}
-	if p, slot, prof, err := s.resolve(t.Context(), pid, "heavy", "security"); err != nil || p != "cloud/reviewer" || slot != "review" || prof != StandardProfile {
+	if p, slot, prof, err := s.resolve(t.Context(), "heavy", "security"); err != nil || p != "cloud/reviewer" || slot != "review" || prof != StandardProfile {
 		t.Fatalf("fallback chain: %s %s %s", p, slot, prof)
 	}
-	// The project's profile column beats standard; a project override beats both.
-	if err := s.Set(context.Background(), "review", ids.Nil, "", "heavy", "cloud/heavy-reviewer", "alice"); err != nil {
+	// The project's profile column beats standard; the receipt names that profile.
+	if err := s.Set(context.Background(), "review", "heavy", "cloud/heavy-reviewer", "alice"); err != nil {
 		t.Fatal(err)
 	}
-	if p, _, prof, err := s.resolve(t.Context(), pid, "heavy", "review"); err != nil || p != "cloud/heavy-reviewer" || prof != "heavy" {
+	if p, _, prof, err := s.resolve(t.Context(), "heavy", "review"); err != nil || p != "cloud/heavy-reviewer" || prof != "heavy" {
 		t.Fatalf("profile cell: %s %s", p, prof)
 	}
-	if err := s.Set(context.Background(), "review", pid, "p", "", "local/mine", "alice"); err != nil {
-		t.Fatal(err)
-	}
-	if p, _, prof, err := s.resolve(t.Context(), pid, "heavy", "review"); err != nil || p != "local/mine" || prof != "override" {
-		t.Fatalf("override: %s %s", p, prof)
-	}
-	if err := s.Set(context.Background(), "review", pid, "p", "", "", "alice"); err != nil {
-		t.Fatal(err)
-	}
-	if p, _, _, err := s.resolve(t.Context(), pid, "heavy", "review"); err != nil || p != "cloud/heavy-reviewer" {
-		t.Fatalf("cleared override: %s", p)
-	}
-	if err := s.Set(context.Background(), "review", ids.Nil, "", "Bad Profile", "z", "alice"); !errors.Is(err, errProfileName) {
+	if err := s.Set(context.Background(), "review", "Bad Profile", "z", "alice"); !errors.Is(err, errProfileName) {
 		t.Fatalf("profile shape: %v", err)
 	}
 	profiles, _ := s.Profiles(t.Context())
 	if len(profiles) != 2 || profiles[0] != StandardProfile || profiles[1] != "heavy" {
 		t.Fatalf("profiles: %v", profiles)
-	}
-	overrides, _ := s.Overrides(context.Background())
-	if len(overrides) != 0 {
-		t.Fatalf("no overrides left: %+v", overrides)
 	}
 	receipts, err := audit.Recent(context.Background(), db, audit.Filter{KindPrefix: "model-slot.set", Limit: audit.MaxLimit})
 	if err != nil || len(receipts) == audit.MaxLimit {
@@ -92,7 +76,7 @@ func TestResolveWalksMostSpecificFirst(t *testing.T) {
 			set++
 		}
 	}
-	if set != 4 {
+	if set != 2 {
 		t.Fatalf("receipts: %d", set)
 	}
 }
@@ -107,7 +91,7 @@ func TestASlotsReceiptCarriesItsCellsTime(t *testing.T) {
 	s := New(db)
 	s.Now = clk.Now
 	reading := clk.Next()
-	if err := s.Set(context.Background(), "review", ids.Nil, "", StandardProfile, "cloud/reviewer", "alice"); err != nil {
+	if err := s.Set(context.Background(), "review", StandardProfile, "cloud/reviewer", "alice"); err != nil {
 		t.Fatal(err)
 	}
 	got, err := audit.Recent(context.Background(), db, audit.Filter{KindPrefix: "model-slot.set"})
@@ -127,7 +111,7 @@ func TestASlotIsNotSetForACallerThatHasGone(t *testing.T) {
 	s := New(db)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if err := s.Set(ctx, "review", ids.Nil, "", StandardProfile, "cloud/reviewer", "alice"); !errors.Is(err, context.Canceled) {
+	if err := s.Set(ctx, "review", StandardProfile, "cloud/reviewer", "alice"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("set for a gone caller: %v", err)
 	}
 	if cells, err := s.Cells(context.Background()); err != nil || cells["review"][StandardProfile] != "" {
@@ -139,8 +123,8 @@ func TestASlotIsNotSetForACallerThatHasGone(t *testing.T) {
 }
 
 // A failed read is never an unmapped cell: Resolve returns the error instead
-// of a less specific model (an override's read failing must not select the
-// instance mapping), "no model is set up" (a fallback read failing), or the
+// of a less specific model (a profile read failing must not select the
+// standard mapping), "no model is set up" (a fallback read failing), or the
 // standard profile (the project's profile read failing).
 func TestResolveReturnsReadFailures(t *testing.T) {
 	t.Parallel()
@@ -159,25 +143,21 @@ func TestResolveReturnsReadFailures(t *testing.T) {
 	if err := s.SeedFallbacks(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	for _, c := range [][4]string{{"review", "", StandardProfile, "cloud/std"}, {"review", "p", "", "local/mine"}, {"review", "", "heavy", "cloud/heavy"}} {
-		project := ids.Nil
-		if c[1] != "" {
-			project = pid
-		}
-		if err := s.Set(t.Context(), c[0], project, c[1], c[2], c[3], "alice"); err != nil {
+	for _, c := range [][2]string{{StandardProfile, "cloud/std"}, {"heavy", "cloud/heavy"}} {
+		if err := s.Set(t.Context(), "review", c[0], c[1], "alice"); err != nil {
 			t.Fatal(err)
 		}
 	}
-	// The override is the first cell read; failing it must not reach heavy.
+	// A failed profile cell read must not reach standard.
 	restore := dbtest.NextStatementFailure(db, "FROM model_slots")
-	if p, _, _, err := s.resolve(t.Context(), pid, "heavy", "review"); err == nil {
-		t.Fatalf("a failed override read resolved %q", p)
+	if p, _, _, err := s.resolve(t.Context(), "heavy", "review"); err == nil {
+		t.Fatalf("a failed profile cell read resolved %q", p)
 	}
 	restore()
 	// security has no cell and falls back to review: a failed fallback read
 	// is not "no model".
 	restore = dbtest.NextStatementFailure(db, "FROM slot_fallbacks")
-	if p, slot, _, err := s.resolve(t.Context(), ids.Nil, "", "security"); err == nil {
+	if p, slot, _, err := s.resolve(t.Context(), "", "security"); err == nil {
 		t.Fatalf("a failed fallback read resolved %q (slot %q)", p, slot)
 	}
 	restore()
@@ -187,11 +167,11 @@ func TestResolveReturnsReadFailures(t *testing.T) {
 		t.Fatalf("a failed profile read resolved %q from %q", p, prof)
 	}
 	restore()
-	// Nothing failing: the override, and security down its chain.
-	if p, _, prof, err := selection.Resolve(t.Context(), pid, "review"); err != nil || p != "local/mine" || prof != "override" {
-		t.Fatalf("override: %q %q %v", p, prof, err)
+	// Nothing failing: the profile cell, and security down its chain.
+	if p, _, prof, err := selection.Resolve(t.Context(), pid, "review"); err != nil || p != "cloud/heavy" || prof != "heavy" {
+		t.Fatalf("profile: %q %q %v", p, prof, err)
 	}
-	if p, slot, _, err := s.resolve(t.Context(), ids.Nil, "", "security"); err != nil || p != "cloud/std" || slot != "review" {
+	if p, slot, _, err := s.resolve(t.Context(), "", "security"); err != nil || p != "cloud/std" || slot != "review" {
 		t.Fatalf("security falls back to review: %q %q %v", p, slot, err)
 	}
 	// A project that does not exist has no profile to resolve against.
