@@ -381,3 +381,23 @@ it('shows a not-known light when Attention cannot be read', async () => {
  expect(light?.getAttribute('href')).toBe('/attention')
  expect(light?.textContent).toContain('unknown')
 })
+
+// Working checks fold into one line; the ones that are not working stay in view.
+it('folds working checks into one line and keeps the rest in view', async () => {
+ responses(() => json({ items: [], sources: [
+  { ...known.sources[0], key: 'ok-1', name: 'Fine one' },
+  { ...known.sources[0], key: 'protection/ok-2', name: 'Fine two' },
+  { ...known.sources[0], key: 'never', name: 'Never read', observedAt: '0001-01-01T00:00:00Z' },
+ ] }))
+ const v = mount(<AttentionPage />); await settled(v.client)
+ const all = v.el.querySelector('section[aria-label="All checks"]')!
+ const fold = all.querySelector('details.attention-working')!
+ expect(fold.hasAttribute('open')).toBe(false)
+ expect(fold.querySelector('summary')!.textContent).toBe('2 more checks working')
+ expect(fold.textContent).toContain('Fine one')
+ // Grouped by the same kinds as the problems above.
+ expect(fold.textContent).toContain('Hosts and deployments · 1')
+ expect(fold.textContent).toContain('Backups · 1')
+ const outside = [...all.querySelectorAll(':scope > * .attention-row, :scope .attention-row')].filter(r => !fold.contains(r))
+ expect(outside.map(r => r.textContent)).toEqual([expect.stringContaining('Never read')])
+})
