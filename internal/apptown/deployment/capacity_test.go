@@ -936,3 +936,33 @@ func TestCapacityPagesNeverCollectHostReadings(t *testing.T) {
 		t.Fatalf("expired page did host IO: %+v %v", old, err)
 	}
 }
+
+// Failed attempts keep the last figure's age and latest reason. Live figures
+// and machine totals still expire according to their own successful read times.
+func TestFailedCapacityFigureKeepsItsOwnFreshness(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 11, 2, 9, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name         string
+		size         bool
+		age          time.Duration
+		known, stale bool
+	}{
+		{"fresh live", false, 15 * time.Minute, true, false},
+		{"stale live", false, 15*time.Minute + time.Second, true, true},
+		{"last known live", false, 6 * time.Hour, true, true},
+		{"expired live", false, 6*time.Hour + time.Second, false, true},
+		{"known size", true, 7 * 24 * time.Hour, true, false},
+		{"expired size", true, 7*24*time.Hour + time.Second, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := Figure{Known: true, Value: 42, ReadAt: at}
+			f = mergeFigure(f, unknown("first failure"), at.Add(time.Minute))
+			f = mergeFigure(f, unknown("latest failure"), at.Add(tc.age))
+			got := figureAt(f, at.Add(tc.age), tc.size)
+			if got.Known != tc.known || got.Stale != tc.stale || got.Value != 42 || !got.ReadAt.Equal(at) || !strings.Contains(got.Reason, "latest failure") || strings.Contains(got.Reason, "first failure") {
+				t.Fatalf("failed attempt changed figure freshness or reason: %+v", got)
+			}
+		})
+	}
+}

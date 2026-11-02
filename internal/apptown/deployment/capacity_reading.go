@@ -7,7 +7,8 @@ const liveUnknown = 6 * time.Hour
 const sizeUnknown = 7 * 24 * time.Hour
 
 // Each successful figure owns its timestamp. A partial check cannot renew an
-// older figure by refreshing its wrapper or a sibling resource.
+// older figure by refreshing its wrapper or a sibling resource. Failed attempts
+// update the reason; freshness still follows the successful figure's own time.
 func mergeFigure(old, next Figure, at time.Time) Figure {
 	if next.Known {
 		if next.ReadAt.IsZero() {
@@ -16,6 +17,7 @@ func mergeFigure(old, next Figure, at time.Time) Figure {
 		return next
 	}
 	if old.Known {
+		old.Reason = next.Reason
 		return old
 	}
 	return next
@@ -122,9 +124,13 @@ func figureAt(f Figure, now time.Time, size bool) Figure {
 	}
 	if f.Known && (f.ReadAt.IsZero() || now.Sub(f.ReadAt) > limit) {
 		f.Known = false
-		f.Reason = "The last successful reading is too old."
+		reason := "The last successful reading is too old."
+		if f.Reason != "" {
+			reason += " " + f.Reason
+		}
+		f.Reason = reason
 	}
-	f.Stale = !size && !f.ReadAt.IsZero() && now.Sub(f.ReadAt) > liveFresh
+	f.Stale = f.Stale || !size && !f.ReadAt.IsZero() && now.Sub(f.ReadAt) > liveFresh
 	return f
 }
 func resourceAt(r *ResourceCapacity, now time.Time) *ResourceCapacity {

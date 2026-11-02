@@ -12,7 +12,9 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"time"
 )
 
 type masterFake struct {
@@ -54,6 +56,9 @@ func TestSSHMasterIsSharedAndReplacedAfterDeath(t *testing.T) {
 	master := &masterFake{}
 	streamStarted, endStream := make(chan struct{}), make(chan struct{})
 	client := sshDockerFake(func(_ context.Context, host string, cmd docker.Command) ([]byte, error) {
+		if cmd.Dial == nil {
+			t.Error("Docker call bypasses session transport")
+		}
 		if host != "ssh://apptown-target-box" {
 			t.Errorf("wrong host %q", host)
 		}
@@ -170,50 +175,43 @@ func TestOpenSSHReadsSharingAndRefusesDirectFallback(t *testing.T) {
 	}
 }
 
-func TestSSHCallsWaitAtThreePerTargetAndCanBeCancelled(t *testing.T) {
+// Permits count individual sessions, not CLI invocations. Queued requests must
+// cancel without opening a session, and closing one must let the queue advance.
+func TestSSHSessionsWaitAtTenAndCanBeCancelled(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		started, release := make(chan struct{}, 3), make(chan struct{})
-		t.Cleanup(func() { close(release) })
-		client := sshDockerFake(func(ctx context.Context, _ string, _ docker.Command) ([]byte, error) {
-			started <- struct{}{}
-			select {
-			case <-release:
-			case <-ctx.Done():
+		h := NewHosts(nil, nil, HostSettings{})
+		c := h.attachedScope("ssh://box", "", "", "/socket").Client.(sshDocker).connection
+		dial := func() (net.Conn, error) { a, b := net.Pipe(); t.Cleanup(func() { b.Close() }); return a, nil }
+		var conns []net.Conn
+		for range 10 {
+			conn, err := c.open(t.Context(), dial)
+			if err != nil {
+				t.Fatal(err)
 			}
-			return nil, nil
-		})
-		master := &masterFake{alive: true}
-		h := NewHosts(nil, nil, HostSettings{Scope: docker.Scope{Client: client}, SSHCommand: master.run})
-		ctx, cancel := context.WithCancel(t.Context())
-		defer cancel()
-		var wg sync.WaitGroup
-		t.Cleanup(wg.Wait)
-		for range 3 {
-			wg.Go(func() { _, _ = h.attachedScope("ssh://box", "", "", "/socket").Run(ctx, "events") })
-		}
-		for range 3 {
-			<-started
+			conns = append(conns, conn)
+			t.Cleanup(func() { conn.Close() })
 		}
 		waiting, stop := context.WithCancel(t.Context())
-		defer stop()
 		result := make(chan error, 1)
-		go func() { _, err := h.attachedScope("ssh://box", "", "", "/socket").Run(waiting, "info"); result <- err }()
+		go func() {
+			_, err := c.open(waiting, func() (net.Conn, error) { t.Error("eleventh session opened"); return dial() })
+			result <- err
+		}()
 		synctest.Wait()
-		if len(started) != 0 {
-			t.Error("a fourth Docker call ran while three calls were active")
-		}
 		stop()
 		if err := <-result; !errors.Is(err, context.Canceled) {
-			t.Fatalf("waiting Docker call ignored cancellation: %v", err)
+			t.Fatalf("waiting session: %v", err)
 		}
-		master.mu.Lock()
-		checks := master.checks
-		master.mu.Unlock()
-		if checks != 3 {
-			t.Fatalf("a fourth call reached SSH while three calls were active: %d checks", checks)
+		conns[0].Close()
+		conn, err := c.open(t.Context(), dial)
+		if err != nil {
+			t.Fatal(err)
 		}
-		cancel()
+		conn.Close()
+		if len(c.sessions) != 9 {
+			t.Fatalf("permits leaked: %d", len(c.sessions))
+		}
 	})
 }
 
@@ -244,4 +242,181 @@ func TestOpenSSHPreservesTopLevelDefaults(t *testing.T) {
 			}
 		}
 	}
+}
+
+// Queueing is part of the observation deadline, and the owner still classifies
+// that deadline as unreachable rather than caller cancellation.
+func TestSSHObservationDeadlineIncludesTransportAndKeepsClassification(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		master := &masterFake{alive: true}
+		client := sshDockerFake(func(ctx context.Context, _ string, _ docker.Command) ([]byte, error) {
+			if _, ok := ctx.Deadline(); !ok {
+				return nil, errors.New("observation has no deadline")
+			}
+			<-ctx.Done()
+			return nil, ctx.Err()
+		})
+		h := NewHosts(nil, nil, HostSettings{Scope: docker.Scope{Client: client}, SSHCommand: master.run})
+		_, err := h.attachedScope("ssh://box", "", "", "/socket").Command(t.Context(), docker.Command{Args: []string{"inspect", "app"}, Timeout: time.Second})
+		if !deploy.IsUnreachable(err) {
+			t.Fatalf("observation deadline lost classification: %v", err)
+		}
+	})
+}
+
+func TestSSHSessionCancellationClosesTransportAndReleasesPermit(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		c := &sshConnection{sessions: make(chan struct{}, 10)}
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		local, remote := net.Pipe()
+		defer remote.Close()
+		conn, err := c.open(ctx, func() (net.Conn, error) { return local, nil })
+		if err != nil {
+			t.Fatal(err)
+		}
+		cancel()
+		synctest.Wait()
+		if len(c.sessions) != 0 {
+			t.Fatal("cancelled session kept its permit")
+		}
+		if _, err := remote.Read(make([]byte, 1)); err == nil {
+			t.Fatal("cancelled session stayed open")
+		}
+		conn.Close() // transport cleanup can race cancellation; it releases once.
+		_, err = c.open(t.Context(), func() (net.Conn, error) { return nil, errors.New("dial failed") })
+		if err == nil || len(c.sessions) != 0 {
+			t.Fatalf("failed dial leaked a permit: %v", err)
+		}
+	})
+}
+
+// Three calls can each retain two streams and still acquire a third. Further
+// calls must wait before taking any sessions, including across retained scopes.
+func TestSSHCallsLeaveRoomForEachOthersConnections(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		master := &masterFake{alive: true}
+		release := make(chan struct{})
+		var mu sync.Mutex
+		started := 0
+		var connection *sshConnection
+		client := sshDockerFake(func(ctx context.Context, _ string, _ docker.Command) ([]byte, error) {
+			mu.Lock()
+			started++
+			mu.Unlock()
+			var conns []net.Conn
+			defer func() {
+				for _, conn := range conns {
+					conn.Close()
+				}
+			}()
+			// Use the production session limiter with in-memory transports.
+			for i := range 3 {
+				if i == 2 {
+					<-release
+				}
+				conn, err := connection.open(ctx, func() (net.Conn, error) {
+					a, b := net.Pipe()
+					t.Cleanup(func() { b.Close() })
+					return a, nil
+				})
+				if err != nil {
+					return nil, err
+				}
+				conns = append(conns, conn)
+			}
+			return nil, nil
+		})
+		h := NewHosts(nil, nil, HostSettings{Scope: docker.Scope{Client: client}, SSHCommand: master.run})
+		connection = h.attachedScope("ssh://box", "", "", "/socket").Client.(sshDocker).connection
+		results := make(chan error, 6)
+		call := func() {
+			scope := h.attachedScope("ssh://box", "", "", "/socket")
+			_, err := scope.Command(t.Context(), docker.Command{Args: []string{"run"}, Timeout: time.Second})
+			results <- err
+		}
+		for range 3 {
+			go call()
+		}
+		synctest.Wait()
+		for range 3 {
+			go call()
+		}
+		synctest.Wait()
+		mu.Lock()
+		n := started
+		mu.Unlock()
+		if n != 3 {
+			t.Errorf("started %d calls while three held sessions; want 3", n)
+		}
+		close(release)
+		for range 6 {
+			if err := <-results; err != nil {
+				t.Errorf("call did not finish: %v", err)
+			}
+		}
+	})
+}
+
+func TestSSHMasterCheckedOncePerCommand(t *testing.T) {
+	t.Parallel()
+	master := &masterFake{alive: true}
+	client := sshDockerFake(func(ctx context.Context, _ string, cmd docker.Command) ([]byte, error) {
+		for range 2 {
+			// Invalid SSH ports fail helper construction without starting a process.
+			if _, err := cmd.Dial(ctx); err == nil {
+				t.Error("invalid SSH port accepted")
+			}
+		}
+		return nil, nil
+	})
+	h := NewHosts(nil, nil, HostSettings{Scope: docker.Scope{Client: client}, SSHCommand: master.run})
+	if _, err := h.attachedScope("ssh://box:invalid", "", "", "/socket").Run(t.Context(), "info"); err != nil {
+		t.Fatal(err)
+	}
+	if master.checks != 1 {
+		t.Fatalf("master checked %d times for one command", master.checks)
+	}
+}
+
+func TestSSHSessionReportsUnsupportedHalfClose(t *testing.T) {
+	t.Parallel()
+	a, b := net.Pipe()
+	defer a.Close()
+	defer b.Close()
+	s := &sshSession{Conn: a}
+	if err := s.CloseWrite(); !errors.Is(err, errors.ErrUnsupported) {
+		t.Fatalf("half-close without transport support: %v", err)
+	}
+}
+
+func TestSSHCallQueueDeadlineDoesNotRunDockerOrLeakPermit(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		master := &masterFake{alive: true}
+		runs := 0
+		client := sshDockerFake(func(context.Context, string, docker.Command) ([]byte, error) {
+			runs++
+			return nil, errors.New("command failed")
+		})
+		h := NewHosts(nil, nil, HostSettings{Scope: docker.Scope{Client: client}, SSHCommand: master.run})
+		scope := h.attachedScope("ssh://box", "", "", "/socket")
+		c := scope.Client.(sshDocker).connection
+		for range 3 {
+			c.calls <- struct{}{}
+		}
+		_, err := scope.Command(t.Context(), docker.Command{Args: []string{"inspect", "app"}, Timeout: time.Second})
+		if !deploy.IsUnreachable(err) || runs != 0 || master.checks != 0 {
+			t.Fatalf("queued call: error %v, Docker runs %d, master checks %d", err, runs, master.checks)
+		}
+		for range 3 {
+			<-c.calls
+		}
+		if _, err := scope.Run(t.Context(), "info"); err == nil || runs != 1 || len(c.calls) != 0 {
+			t.Fatalf("failed call leaked admission: error %v, Docker runs %d, permits %d", err, runs, len(c.calls))
+		}
+	})
 }

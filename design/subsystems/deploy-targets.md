@@ -63,6 +63,26 @@ Docker scope is resolved for the selected target. Remote host routing, credentia
 and daemon reachability must come from that target's configuration rather than
 an implicit global Docker client.
 
+## Attached Docker connections and readings
+
+Every attached Docker command, including inventory and deployment inspection,
+uses the target's shared SSH master. At most three commands run per target so
+commands holding several connections leave room for each other to finish.
+The master is checked once before each command. Its Docker HTTP connections each acquire
+one of ten session slots, OpenSSH's default `MaxSessions`. Waiting is cancellable;
+a slot is released only after its `docker system dial-stdio` process closes.
+A private local HTTP proxy closes upstream connections after each response so
+idle sessions do not prevent remaining containers' stats streams from starting.
+Long streams count against the same limit. There is no direct SSH fallback.
+
+Capacity reads all running containers with one `docker stats --no-stream` call.
+A container absent from the answer has unknown use under its tenant, with its
+name in the reason. A failed refresh retains the previous value and successful
+reading time, marked stale with the latest failure reason; each cycle retries it.
+A successful read clears that reason. Attached hosts report container memory use,
+Docker's memory total and its storage filesystem. Whole-host memory use and free
+memory are unmeasured; container use alone cannot establish either.
+
 ## Portainer connection identity
 
 A Portainer target references one integration by immutable connection UUID and

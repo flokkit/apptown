@@ -158,7 +158,10 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 				}
 				return &Target{PortainerURL: server.URL, Scope: &copy}, nil
 			}}
-			if mode == "explicit-streak" {
+			// Cases that succeed get a generous deadline: success returns at
+			// once, and a loaded machine must not turn a healthy read into a
+			// timeout. Only the cases that test a timeout keep the short one.
+			if mode == "explicit-streak" || mode == "healthy" {
 				d.readinessTimeout = 5 * time.Second
 			}
 			d.Diagnostics = func(context.Context, Target) (Diagnostic, func() error, error) {

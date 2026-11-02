@@ -31,7 +31,7 @@ import (
 // AppTown keeps its data, its boots' Docker configurations and each
 // project's repository. One instance serves Deployment, Preview and every
 // other caller; it owns the ssh files and each target's connection and
-// concurrent-call limits.
+// call and session limits.
 type Hosts struct {
 	targets     *Targets
 	secrets     *secret.Service
