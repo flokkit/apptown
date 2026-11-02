@@ -237,14 +237,12 @@ export function TargetSettingsPage() {
   )
 }
 
-// CapacitySection: how full the host is, with its raw readings behind
-// Host diagnostics, so a failure is said once in words and the error text
-// stays available to whoever has to fix it.
+// CapacitySection: how full the host is; a reading that failed says why
+// beside it.
 function CapacitySection({ name }: { name: string }) {
-  const [diagnostics, setDiagnostics] = useState(false)
   return (
-    <Section title="Capacity" action={<button className="subtle" aria-expanded={diagnostics} onClick={() => setDiagnostics(!diagnostics)}>{diagnostics ? 'Hide diagnostics' : 'Host diagnostics'}</button>}>
-      <Capacity name={name} diagnostics={diagnostics} />
+    <Section title="Capacity">
+      <Capacity name={name} />
     </Section>
   )
 }

@@ -1283,7 +1283,7 @@ a.btn.primary:hover { background: var(--accent-hover); border-color: var(--accen
   --cap-deployment: #3E9C77; --cap-previews: #5E94DE; --cap-work: #9277D9; --cap-apptown: #C8703F;
   --cap-other: #7A766B; --cap-host: #5A574E; --cap-free: #171B1D;
 }
-.cap { max-width: 720px; }
+.cap { max-width: 100%; }
 .cap-row { margin: 10px 0 12px; }
 .cap-head { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-xs); margin-bottom: 4px; }
 .cap-label { color: var(--subtle); }
