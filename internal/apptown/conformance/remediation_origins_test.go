@@ -14,7 +14,7 @@ import (
 func TestRemediationOriginsAreCanonicalAndBatched(t *testing.T) {
 	t.Parallel()
 	store, previous, next := verdictReceiptFixture(t, "sh")
-	observations := []Observation{Recorded(previous)}
+	observations := []Observation{Recorded(previous, nil)}
 	for _, n := range []int{1, 12} {
 		for len(observations) < n {
 			v := previous
@@ -26,7 +26,7 @@ func TestRemediationOriginsAreCanonicalAndBatched(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			observations = append(observations, Recorded(saved))
+			observations = append(observations, Recorded(saved, nil))
 		}
 		tx, err := store.db.Begin(context.Background())
 		if err != nil {
@@ -57,7 +57,7 @@ func TestRemediationOriginsAreCanonicalAndBatched(t *testing.T) {
 func TestRemediationOriginsRejectMissingOrAlteredEvidence(t *testing.T) {
 	t.Parallel()
 	store, previous, _ := verdictReceiptFixture(t, "sh")
-	original := Recorded(previous)
+	original := Recorded(previous, nil)
 	changedRecord := previous
 	changedRecord.Detail = "invented evidence"
 	changedSubject := original
@@ -66,7 +66,7 @@ func TestRemediationOriginsRejectMissingOrAlteredEvidence(t *testing.T) {
 	changedCheck.Check = "invented check"
 	stale := original
 	stale.State = Stale
-	for _, observation := range []Observation{Unassessed(previous.reference()), Recorded(changedRecord), changedSubject, changedCheck, stale} {
+	for _, observation := range []Observation{Unassessed(previous.reference()), Recorded(changedRecord, nil), changedSubject, changedCheck, stale} {
 		tx, err := store.db.Begin(context.Background())
 		if err != nil {
 			t.Fatal(err)
@@ -93,7 +93,7 @@ func TestRemediationOriginsRejectMissingOrAlteredEvidence(t *testing.T) {
 func TestRemediationOriginsPreserveExpiredExceptionInterpretation(t *testing.T) {
 	t.Parallel()
 	store, previous, _ := verdictReceiptFixtureWithOutcome(t, "sh", Excepted)
-	observation := observe(previous, currentContext{Check: previous.reference(), HeadSHA: previous.SHA, ExceptionActive: false})
+	observation := observe(previous, currentContext{Check: previous.reference(), HeadSHA: previous.SHA, ExceptionActive: false}, nil)
 	tx, err := store.db.Begin(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -102,7 +102,7 @@ func TestRemediationOriginsPreserveExpiredExceptionInterpretation(t *testing.T) 
 	if err := ValidateRemediationOriginsIn(context.Background(), tx, []Observation{observation}); err != nil {
 		t.Fatalf("expired exception hid underlying finding: %v", err)
 	}
-	if err := ValidateRemediationOriginsIn(context.Background(), tx, []Observation{Recorded(previous)}); !errors.Is(err, errOriginsChanged) {
+	if err := ValidateRemediationOriginsIn(context.Background(), tx, []Observation{Recorded(previous, nil)}); !errors.Is(err, errOriginsChanged) {
 		t.Fatalf("active exception became a finding: %v", err)
 	}
 }
@@ -116,7 +116,7 @@ func TestRemediationOriginsRequireCurrentAIConfirmationAndCheckedReads(t *testin
 			return err
 		}
 		defer func() { _ = tx.Rollback() }()
-		return ValidateRemediationOriginsIn(ctx, tx, []Observation{Recorded(previous)})
+		return ValidateRemediationOriginsIn(ctx, tx, []Observation{Recorded(previous, nil)})
 	}
 	if err := check(context.Background()); !errors.Is(err, errOriginsChanged) {
 		t.Fatalf("unconfirmed AI finding admitted: %v", err)

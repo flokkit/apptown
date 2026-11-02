@@ -110,7 +110,7 @@ func landingRemediationFixture(t *testing.T, a *App, source *workflow.Run) (work
 	if _, err := a.Work.Abandon(ctx, workflow.StopWork{ChangeID: source.ChangeID, Reason: "replace the setup run with the remediation-owned landing"}); err != nil {
 		t.Fatalf("retire setup run: %v", err)
 	}
-	_, items, err := remediation.NewCreations(a.DB, nil).Create(ctx, remediation.CreationRequest{Scope: "project", Actor: "alice", Findings: []conformance.Observation{conformance.Recorded(verdict)}})
+	_, items, err := remediation.NewCreations(a.DB, nil).Create(ctx, remediation.CreationRequest{Scope: "project", Actor: "alice", Findings: []conformance.Observation{conformance.Recorded(verdict, nil)}})
 	if err != nil || len(items) != 1 {
 		t.Fatalf("remediation creation: items=%+v err=%v", items, err)
 	}

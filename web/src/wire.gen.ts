@@ -361,12 +361,13 @@ export type ConformanceObservation = {
   exceptedBy?: string
   evidenceHash?: string
   statusLabel: CheckLabel
+  lane: Lane
   state: string
 }
 
 export type ConformanceReviewDetail = {
   review: Review | null
-  verdicts: Verdict[]
+  verdicts: ConformanceObservation[]
 }
 
 export type ConformanceReviewList = {
@@ -2150,6 +2151,7 @@ export type Verdict = {
   exceptedBy?: string
   evidenceHash?: string
   statusLabel: CheckLabel
+  lane: Lane
 }
 
 export type WhatIf = {
@@ -2622,6 +2624,8 @@ export type Outcome = "conforms" | "does-not-conform" | "excepted" | "not-applic
 
 export type CheckLabel = "unknown" | "passed" | "failed" | "excepted" | "not applicable"
 
+export type Lane = "conforms" | "excepted" | "findings" | "flagged" | "na" | "broken" | "unassessed"
+
 export type Review = {
   id: string | null
   number: number
@@ -2680,6 +2684,7 @@ export type ProjectStanding = {
   sentence: string
   lanes: Lanes
   total: number
+  notKnown: string[]
   judged: number
   high: number
   adopted: string[]

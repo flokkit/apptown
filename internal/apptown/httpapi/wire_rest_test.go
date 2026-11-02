@@ -25,7 +25,6 @@ func init() {
 	registerWireMapped(instanceupdate.Candidate{}, "InstanceUpdateCandidate")
 	registerWireMapped(instanceupdate.Evidence{}, "InstanceUpdateEvidence")
 	registerWireMapped(instanceupdate.Artifact{}, "InstanceUpdateArtifact")
-	registerWireMapped(conformance.Verdict{}, "Verdict")
 	registerWireMapped(conformance.Observation{}, "ConformanceObservation")
 	registerWire(
 		wiregen.Named{Name: "Verdict", Value: conformance.VerdictView{}},

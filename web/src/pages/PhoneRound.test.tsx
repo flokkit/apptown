@@ -88,15 +88,15 @@ it('keeps project role names short with the complete description outside the nat
 })
 
 it('puts the failed check reason on the project row and keeps an empty assessment unknown', () => {
-  const p = { slug: 'shop', lanes: {}, total: 0 } as ProjectStanding
-  expect(projectFact(p, { byProject: { shop: [{ state: 'does-not-conform', detail: 'README missing' }] } } as unknown as ConformanceView)).toBe('README missing')
+  const p = { notKnown: [], slug: 'shop', lanes: {}, total: 0 } as unknown as ProjectStanding
+  expect(projectFact(p, { byProject: { shop: [{ lane: 'findings', state: 'does-not-conform', detail: 'README missing' }] } } as unknown as ConformanceView)).toBe('README missing')
   expect(projectFact(p, { byProject: {} } as ConformanceView)).toBe('No checks recorded.')
 })
 
 
 it('uses the check title on a phone row instead of a long technical diagnostic', () => {
-  const p = { slug: 'shop', lanes: { findings: 1 }, total: 1 } as ProjectStanding
-  const view = { byProject: { shop: [{ block: 'runtime', version: 1, check: 'ready', state: 'does-not-conform', detail: '.apptown/app.yaml: ' + 'raw technical detail '.repeat(20) }] }, checkDefs: { ready: { block: 'runtime', version: 1, check: 'ready', title: 'Add an app readiness check' } } } as unknown as ConformanceView
+  const p = { notKnown: [], slug: 'shop', lanes: { findings: 1 }, total: 1 } as unknown as ProjectStanding
+  const view = { byProject: { shop: [{ block: 'runtime', version: 1, check: 'ready', lane: 'findings', state: 'does-not-conform', detail: '.apptown/app.yaml: ' + 'raw technical detail '.repeat(20) }] }, checkDefs: { ready: { block: 'runtime', version: 1, check: 'ready', title: 'Add an app readiness check' } } } as unknown as ConformanceView
   expect(projectFact(p, view)).toBe('Fix: Add an app readiness check')
 })
 
@@ -120,22 +120,22 @@ it('shows the project release number in the phone departure fact', () => {
 })
 
 it('asks for review of an unconfirmed AI flag before asking to fix it', () => {
-  const p = { slug: 'shop', standing: 'needs-a-look', statusLabel: 'unknown', lanes: { flagged: 1 }, total: 1 } as ProjectStanding
+  const p = { notKnown: [], slug: 'shop', standing: 'needs-a-look', statusLabel: 'unknown', lanes: { flagged: 1 }, total: 1 } as unknown as ProjectStanding
   const view = {
     adjudications: {},
-    byProject: { shop: [{ id: 'ai-flag', block: 'docs', version: 1, check: 'readme', evaluator: 'llm', state: 'does-not-conform', statusLabel: 'failed' }] },
+    byProject: { shop: [{ id: 'ai-flag', block: 'docs', version: 1, check: 'readme', evaluator: 'llm', lane: 'flagged', state: 'does-not-conform', statusLabel: 'failed' }] },
     checkDefs: { readme: { block: 'docs', version: 1, check: 'readme', title: 'Explain how to run the app' } },
   } as unknown as ConformanceView
   expect(projectFact(p, view)).toMatch(/review/i)
   expect(projectFact(p, view)).not.toMatch(/^Fix:/)
-  view.adjudications['ai-flag'] = { verdictId: 'ai-flag', kind: 'confirmed' } as unknown as ConformanceView['adjudications'][string]
-  expect(projectFact({ ...p, standing: 'does-not-conform', lanes: { findings: 1 } } as ProjectStanding, view)).toBe('Fix: Explain how to run the app')
+  view.byProject.shop[0].lane = 'findings' // The refreshed owner projection includes the confirmation.
+  expect(projectFact({ ...p, standing: 'does-not-conform', lanes: { findings: 1 } } as unknown as ProjectStanding, view)).toBe('Fix: Explain how to run the app')
 })
 
 it('does not describe an evaluator error as a confirmed problem in the app', () => {
-  const p = { slug: 'shop', lanes: { broken: 1 }, total: 1 } as ProjectStanding
-  const view = { byProject: { shop: [{ state: 'error', detail: 'scanner unavailable' }] } } as unknown as ConformanceView
-  expect(projectFact(p, view)).toBe('A check could not run. Open for details.')
+  const p = { slug: 'shop', lanes: { broken: 1 }, notKnown: ['scanner: scanner unavailable'], total: 1 } as unknown as ProjectStanding
+  const view = { byProject: { shop: [{ lane: 'broken', state: 'error', detail: 'scanner unavailable' }] } } as unknown as ConformanceView
+  expect(projectFact(p, view)).toBe('Not known: scanner: scanner unavailable')
 })
 
 it('labels the project activity age on Home with what the timestamp measures', () => {

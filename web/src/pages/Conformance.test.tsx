@@ -120,7 +120,7 @@ describe('a project page while its review refreshes', () => {
   const uuid = (n: number) => `00000000-${String(n).padStart(4, '0')}-7000-8000-000000000000`
   const verdict = (id: number, reviewId: number, check: string, state: string) => ({
     id: uuid(id), reviewId: uuid(reviewId), projectSlug: 'shop', sha: 'abc1234', block: 'web', version: 1, check, evaluator: 'sh', evaluatorVer: '1',
-    mode: 'review', state, severity: 'low', detail: `${check} detail`, at: '2026-10-08T00:00:00Z',
+    mode: 'review', lane: 'conforms', state, severity: 'low', detail: `${check} detail`, at: '2026-10-08T00:00:00Z',
   })
   const review = (id: number, status: string) => ({ id: uuid(id), status, trigger: 'manual', actor: 'bls', startedAt: '2026-10-08T00:00:00Z', finishedAt: '', projects: 1, verdicts: 0, errors: 0, cost: 0, projectsTotal: 1, projectsDone: 0, currentProject: 'shop' })
   // A running review's lens: each reading has judged one more check, so
@@ -129,7 +129,7 @@ describe('a project page while its review refreshes', () => {
     const vs = Array.from({ length: judged }, (_, i) => verdict(reviewId * 100 + i + 1, reviewId, `check-${i + 1}`, 'conforms'))
     return {
       lens: { kind: 'review', review: review(reviewId, 'done') },
-      projects: [{ projectId: uuid(1), slug: 'shop', name: 'Shop', standing: 'conforms', sentence: 'meets everything', lanes: { ...lanes, conforms: judged }, total: judged, judged, high: 0, adopted: ['web'], sha: 'abc1234', judgedAt: '2026-10-08T00:00:00Z' }],
+      projects: [{ projectId: uuid(1), slug: 'shop', name: 'Shop', standing: 'conforms', notKnown: [], sentence: 'meets everything', lanes: { ...lanes, conforms: judged }, total: judged, judged, high: 0, adopted: ['web'], sha: 'abc1234', judgedAt: '2026-10-08T00:00:00Z' }],
       byProject: { shop: vs }, byCheck: {}, checkDefs: {}, exceptions: {}, adjudications: {}, priorConfirmations: {},
       summary: { projects: 1, byStanding: {}, findings: 0, flagged: 0, high: 0, checks: judged }, reviews: [],
     }

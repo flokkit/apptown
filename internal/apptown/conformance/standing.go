@@ -1,9 +1,13 @@
 package conformance
 
 import (
+	"database/sql/driver"
+	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
+	"github.com/flokkit/apptown/internal/enum"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -38,7 +42,8 @@ type ProjectStanding struct {
 	Standing    Standing   `json:"standing"`
 	Sentence    string     `json:"sentence"`
 	Lanes       Lanes      `json:"lanes"`
-	Total       int        `json:"total"` // M: adopted checks excluding n/a
+	Total       int        `json:"total"`    // M: adopted checks excluding n/a
+	NotKnown    []string   `json:"notKnown"` // attempted checks without an answer, with their reasons
 	Judged      int        `json:"judged"`
 	High        int        `json:"high"` // findings at severity high
 	Adopted     []string   `json:"adopted"`
@@ -78,7 +83,7 @@ type HistoryPoint struct {
 
 // LaneOf interprets a saved finding and its exact confirmation. Absence never
 // becomes an actionable finding, even on an incompletely constructed observation.
-func LaneOf(v Observation, adj map[ids.ID]Adjudication) lane {
+func LaneOf(v Observation, adj map[ids.ID]Adjudication) Lane {
 	if v.Record == nil {
 		return laneUnassessed
 	}
@@ -121,11 +126,11 @@ func standingFor(l Lanes, high, total int) (Standing, string) {
 			s += fmt.Sprintf(" (%d high)", high)
 		}
 		if l.Broken > 0 {
-			s += fmt.Sprintf(" · %d couldn't run", l.Broken)
+			s += fmt.Sprintf(" · %d not known", l.Broken)
 		}
 		return standingDoesNot, s
 	case l.Broken > 0:
-		return standingBroken, "Review incomplete · " + plural(l.Broken, "check couldn't run", "checks couldn't run")
+		return standingBroken, "Review incomplete · " + fmt.Sprintf("%d not known", l.Broken)
 	case l.Flagged > 0:
 		return StandingNeedsLook, "Needs a look · " + plural(l.Flagged, "AI flag", "AI flags")
 	case l.Unassessed > 0:
@@ -162,14 +167,18 @@ func standingRank(s Standing) int {
 
 // SummarizeProject counts each adopted check once and derives standing from its
 // interpretation. Saved evidence supplies the latest judged SHA/time.
-func SummarizeProject(projectID ids.ID, slug string, vs []Observation, adj map[ids.ID]Adjudication) ProjectStanding {
-	ps := ProjectStanding{ProjectID: projectID, Slug: slug}
+func SummarizeProject(projectID ids.ID, slug string, vs []Observation) ProjectStanding {
+	ps := ProjectStanding{ProjectID: projectID, Slug: slug, NotKnown: []string{}}
 	adopted := map[string]bool{}
 	for _, v := range vs {
 		if v.Block != "" {
 			adopted[fmt.Sprintf("%s@%d", v.Block, v.Version)] = true
 		}
-		switch LaneOf(v, adj) {
+		lane := v.lane
+		if lane == laneBroken {
+			ps.NotKnown = append(ps.NotKnown, v.Check+": "+v.Detail())
+		}
+		switch lane {
 		case laneConforms:
 			ps.Lanes.Conforms++
 		case laneExcepted:
@@ -197,8 +206,11 @@ func SummarizeProject(projectID ids.ID, slug string, vs []Observation, adj map[i
 	}
 	sort.Strings(ps.Adopted)
 	ps.Total = len(vs) - ps.Lanes.NA
-	ps.Judged = ps.Total - ps.Lanes.Unassessed
+	ps.Judged = ps.Total - ps.Lanes.Unassessed - ps.Lanes.Broken
 	ps.Standing, ps.Sentence = standingFor(ps.Lanes, ps.High, ps.Total)
+	if len(ps.NotKnown) > 0 {
+		ps.Sentence += ": " + strings.Join(ps.NotKnown, "; ")
+	}
 	ps.StatusLabel = ps.Standing.label()
 	return ps
 }
@@ -253,10 +265,11 @@ func CheckKey(block string, version int, check string) string {
 	return fmt.Sprintf("%s@%d·%s", block, version, check)
 }
 
-type lane uint8
+// Lane is the owner classification of a check observation.
+type Lane uint8
 
 const (
-	laneConforms lane = iota + 1
+	laneConforms Lane = iota + 1
 	laneExcepted
 	LaneFindings
 	laneFlagged
@@ -264,6 +277,13 @@ const (
 	laneBroken
 	laneUnassessed
 )
+
+var laneCodec = enum.Set[Lane]{Names: []string{"conforms", "excepted", "findings", "flagged", "na", "broken", "unassessed"}, Invalid: "invalid-lane", Err: errors.New("invalid lane"), ScanLabel: "value"}
+
+func (l Lane) String() string                   { return laneCodec.String(l) }
+func (l Lane) Value() (driver.Value, error)     { return laneCodec.Value(l) }
+func (l Lane) MarshalJSON() ([]byte, error)     { return laneCodec.JSON(l) }
+func (l *Lane) UnmarshalJSON(data []byte) error { return laneCodec.ReadJSON(l, data) }
 
 // sortProjects orders the fleet by standing, then findings and project name.
 func sortProjects(projects []ProjectStanding) {

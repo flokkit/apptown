@@ -338,7 +338,7 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 
 // judgeTreeRubrics runs ONE checklist call for a project's tree-scoped AI
 // rubrics and records a verdict per rubric carrying its evaluator identity and
-// evidence hash. No model → cannot-assess with the reason; a fail is recorded
+// evidence hash. A failed model call is an evaluation error; a fail is recorded
 // as does-not-conform, which the projection keeps in the "flagged by AI
 // review" lane until a person confirms it (conformance_lens.go).
 func (f Fleet) judgeTreeRubrics(ctx context.Context, execution *conformance.Execution, rev *conformance.Review, projectID ids.ID, checks []conformance.DeclaredCheck, src string) ([]conformance.Verdict, error) {
@@ -363,7 +363,7 @@ func (f Fleet) judgeTreeRubrics(ctx context.Context, execution *conformance.Exec
 	}
 	for i, it := range items {
 		extra := verdictExtra{EvaluatorVer: check.LLMEvaluatorVersion(it.Declaration), EvidenceHash: it.Hash}
-		state, detail := conformance.CannotAssess, "no verdict returned for this item"
+		state, detail := conformance.EvaluationError, "no verdict returned for this item"
 		if it.Unreadable != "" {
 			detail = "its evidence could not be read: " + it.Unreadable
 		} else if judgeErr != nil {
@@ -376,6 +376,9 @@ func (f Fleet) judgeTreeRubrics(ctx context.Context, execution *conformance.Exec
 			case "fail":
 				state = conformance.DoesNotConform
 			}
+		}
+		if state == conformance.EvaluationError {
+			rev.Errors++
 		}
 		v, err := f.recordVerdict(ctx, execution, projectID, adoptedFor(checks, it.Declared), state, detail, extra)
 		if err != nil {

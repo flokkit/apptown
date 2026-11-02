@@ -16,9 +16,15 @@ reads apply project visibility internally; a narrowed query parameter is not an
 authorization grant.
 
 Project standing keeps finding counts and checks that could not run visible
-together. Findings are amber; “N couldn't run” is red in the standing chip and
+together. Findings are amber; “N not known” is red in the standing chip and
 summary note, including on phones. Findings retain priority in standing without
-hiding incomplete evaluation.
+hiding incomplete evaluation. An attempted check that cannot give an answer is not known,
+with its reason, and contributes no confirmed problem or judged check.
+Routine deferrals stay not yet assessed and contribute no not-known count.
+Conformance classifies each observation once when it is built, using the
+exact verdict confirmation. Transports render that lane, including in live
+review feeds. Required
+checks that cannot give an answer still refuse the gate with their reason.
 
 Use [conformance](conformance.md) for record ownership and [remediation](remediation.md)
 for acting on findings.

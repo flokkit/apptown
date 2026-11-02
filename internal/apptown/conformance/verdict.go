@@ -1,8 +1,6 @@
 package conformance
 
 import (
-	"encoding/json"
-
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -54,8 +52,5 @@ type VerdictFields Verdict
 type VerdictView struct {
 	VerdictFields
 	StatusLabel CheckLabel `json:"statusLabel"`
-}
-
-func (v Verdict) MarshalJSON() ([]byte, error) {
-	return json.Marshal(VerdictView{VerdictFields(v), v.State.label()})
+	Lane        Lane       `json:"lane"`
 }

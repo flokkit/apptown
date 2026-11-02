@@ -23,7 +23,7 @@ func remediationCreationFixture(t *testing.T) (creations, CreationRequest) {
 		{ID: first, ProjectID: alpha, ProjectSlug: "alpha", Block: "hygiene", Version: 2, Check: "secure", SHA: "first-sha", EvaluatorVer: "evaluator-v2", EvidenceHash: "first-evidence", Detail: "First frozen finding"},
 		{ID: second, ProjectID: alpha, ProjectSlug: "alpha", Block: "hygiene", Version: 1, Check: "clean", SHA: "older-sha", EvaluatorVer: "evaluator-v1", EvidenceHash: "second-evidence", Detail: "Second frozen finding"},
 		{ID: third, ProjectID: beta, ProjectSlug: "beta", Block: "quality", Version: 3, Check: "tested", SHA: "beta-sha", EvaluatorVer: "evaluator-v3", EvidenceHash: "beta-evidence", Detail: "Beta frozen finding"},
-	})}
+	}, nil)}
 	// sql-guarantee: Keep review ID 42 and its exact historical start stamp; Conformance admission generates its identity and current time.
 	completionExec(t, db, `INSERT INTO conformance_reviews(id,number,trigger,actor,started_at,status) VALUES($1,42,'manual','reviewer','2000-01-01T00:00:00Z','done')`, idstest.N(42))
 	for i := range in.Findings {
@@ -35,7 +35,7 @@ func remediationCreationFixture(t *testing.T) (creations, CreationRequest) {
 		v.At = "2000-01-01T00:00:00Z"
 		// sql-guarantee: Preserve explicit verdict identities above 2^53 and historical provenance; Conformance assessment assigns new identities and timestamps.
 		completionExec(t, db, `INSERT INTO conformance_verdicts(id,review_id,project_id,project_slug,sha,block,version,check_name,evaluator,evaluator_ver,mode,state,severity,detail,created_at,excepted_by,evidence_hash) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`, v.ID, v.ReviewID, v.ProjectID, v.ProjectSlug, v.SHA, v.Block, v.Version, v.Check, v.Evaluator, v.EvaluatorVer, v.Mode, v.State, v.Severity, v.Detail, v.At, v.ExceptedBy, v.EvidenceHash)
-		in.Findings[i] = conformance.RecordedObservations([]conformance.Verdict{*v})[0]
+		in.Findings[i] = conformance.RecordedObservations([]conformance.Verdict{*v}, nil)[0]
 	}
 	return NewCreations(db, nil), in
 }

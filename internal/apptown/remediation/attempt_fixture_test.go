@@ -182,7 +182,7 @@ func (f *attemptScenario) job(t *testing.T, concurrency int, projects ...ids.ID)
 		if err != nil {
 			t.Fatal(err)
 		}
-		findings = append(findings, conformance.Recorded(verdict))
+		findings = append(findings, conformance.Recorded(verdict, nil))
 	}
 	if _, err := e.Finish(f.ctx, conformance.Completion{Projects: len(projects), ProjectsDone: len(projects)}, conformance.ReviewDone); err != nil {
 		t.Fatal(err)

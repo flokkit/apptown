@@ -54,9 +54,9 @@ func currentConformanceView(ctx context.Context, f *currentConformanceFacts, hea
 			if json.Unmarshal([]byte(v.ExceptedBy), &exception) != nil {
 				exception = DispositionRef{}
 			}
-			observed := observe(v, currentContext{Check: ref, HeadSHA: source.SHA, SourceUnavailable: source.Unavailable, ExceptionActive: active[exception.ID]})
+			observed := observe(v, currentContext{Check: ref, HeadSHA: source.SHA, SourceUnavailable: source.Unavailable, ExceptionActive: active[exception.ID]}, f.Adjudications)
 			observations = append(observations, observed)
-			if LaneOf(observed, f.Adjudications) == laneFlagged {
+			if observed.lane == laneFlagged {
 				if prior, ok := f.PriorConfirmations[v.ID]; ok {
 					view.PriorConfirmations[v.ID] = prior
 				}
@@ -66,7 +66,7 @@ func currentConformanceView(ctx context.Context, f *currentConformanceFacts, hea
 	view.ByProject = groupByProject(observations)
 	view.ByCheck = groupByCheck(observations)
 	for _, p := range f.Projects {
-		standing := SummarizeProject(p.ID, p.Slug, view.ByProject[p.Slug], view.Adjudications)
+		standing := SummarizeProject(p.ID, p.Slug, view.ByProject[p.Slug])
 		standing.Name = displayName(p.Name, p.Slug)
 		view.Projects = append(view.Projects, standing)
 	}

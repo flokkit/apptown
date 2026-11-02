@@ -35,8 +35,8 @@ func readConformance[T any](ctx context.Context, db *database.DB, read func(data
 }
 
 type ReviewDetail struct {
-	Review   *Review   `json:"review"`
-	Verdicts []Verdict `json:"verdicts"`
+	Review   *Review       `json:"review"`
+	Verdicts []Observation `json:"verdicts"`
 }
 
 // ErrNoReview and ErrNoVerdict are the absence of the review or verdict a
@@ -85,7 +85,11 @@ func (s reviewStore) detail(ctx context.Context, id ids.ID) (*ReviewDetail, erro
 		if err != nil {
 			return nil, err
 		}
-		return &ReviewDetail{Review: r, Verdicts: vs}, nil
+		adj, err := readAdjudications(ctx, db, verdictIDs(vs))
+		if err != nil {
+			return nil, err
+		}
+		return &ReviewDetail{Review: r, Verdicts: RecordedObservations(vs, adj)}, nil
 	})
 }
 
@@ -150,8 +154,8 @@ func readReviewSummaries(ctx context.Context, db database.Queryer, limit int) ([
 	out := make([]ReviewSummary, 0, len(reviews))
 	for _, r := range reviews {
 		s := ReviewSummary{Review: r, StatusLabel: r.Status.display()}
-		for _, pvs := range groupByProject(RecordedObservations(byReview[r.ID])) {
-			ps := SummarizeProject(ids.Nil, "", pvs, adj)
+		for _, pvs := range groupByProject(RecordedObservations(byReview[r.ID], adj)) {
+			ps := SummarizeProject(ids.Nil, "", pvs)
 			s.Findings += ps.Lanes.Findings
 			s.Flagged += ps.Lanes.Flagged
 			s.Judged += ps.Judged
@@ -204,7 +208,7 @@ func readProjectHistory(ctx context.Context, db database.Queryer, projectID ids.
 	byReview := verdictsByReview(vs)
 	out := make([]HistoryPoint, 0, len(reviews))
 	for _, r := range reviews {
-		ps := SummarizeProject(projectID, "", RecordedObservations(byReview[r.ID]), adj)
+		ps := SummarizeProject(projectID, "", RecordedObservations(byReview[r.ID], adj))
 		at := r.StartedAt
 		if r.FinishedAt.Valid {
 			at = r.FinishedAt.String()
@@ -240,7 +244,7 @@ func (s reviewStore) latestStanding(ctx context.Context, projectID ids.ID, slug 
 		if err != nil {
 			return nil, err
 		}
-		return &recordedStanding{ProjectStanding: SummarizeProject(projectID, slug, RecordedObservations(vs), adj), ReviewID: vs[0].ReviewID}, nil
+		return &recordedStanding{ProjectStanding: SummarizeProject(projectID, slug, RecordedObservations(vs, adj)), ReviewID: vs[0].ReviewID}, nil
 	})
 }
 

@@ -14,7 +14,7 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix }
   onConfirm?: (v: Verdict) => void; onFix?: (v: Verdict) => void
 }) {
   const [open, setOpen] = useState(false)
-  const lane = laneOf(v, adj ? { [String(v.id)]: adj } : {})
+  const lane = laneOf(v)
   return (
     <div style={{ borderTop: '1px solid var(--border)' }}>
       <div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)', padding: '8px 14px', cursor: 'pointer' }} onClick={() => setOpen(!open)}>
@@ -26,7 +26,7 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix }
         </span>
         <span className="row" style={{ gap: 'var(--space-2)', flex: '0 0 auto' }}>
           {lane === 'flagged' && prior && <span className="muted small" title={`confirmed before at ${shortSha(prior.sha)} by ${prior.by}`}>confirmed before at {shortSha(prior.sha)}</span>}
-          <StateChip finding={v.state === 'does-not-conform'} label={v.statusLabel} help={v.detail} />
+          <StateChip finding={v.lane === 'findings'} label={v.statusLabel} help={v.detail} />
         </span>
       </div>
       {open && (
@@ -121,7 +121,7 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
   if (!p) return <div className="muted" style={{ padding: '30px 0' }}>No conformance record for <span className="mono">{slug}</span>.</div>
 
   const groups: Record<keyof Lanes, Verdict[]> = { findings: [], flagged: [], broken: [], excepted: [], unassessed: [], na: [], conforms: [] }
-  for (const v of vs) groups[laneOf(v, view.adjudications)].push(v)
+  for (const v of vs) groups[laneOf(v)].push(v)
 
   const confirm = async (v: Verdict) => {
     const note = window.prompt('Confirm this AI flag is a real finding. A short note (optional):', '') ?? null

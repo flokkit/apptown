@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -62,6 +63,12 @@ func TestTheGuidanceStepActsOnWhatTheBrowserCheckEstablishes(t *testing.T) {
 			for _, r := range evidence.Checks {
 				if r.Check == "page-loads-browser-values" {
 					verdict = r.Verdict.String()
+					if tc.status == workflow.StatusError && tc.verdict == "cannot-assess" {
+						p := conformance.SummarizeProject(ids.Nil, "app", conformance.RecordedObservations([]conformance.Verdict{{Check: r.Check, State: conformance.EvaluationError, Detail: r.Detail, Evaluator: r.Evaluator}}, nil))
+						if p.StatusLabel.String() != "unknown" || p.Lanes.Findings != 0 || len(p.NotKnown) != 1 || r.Detail == "" {
+							t.Fatalf("required unanswered check must report not known with its reason while the gate refuses: %+v; check %+v", p, r)
+						}
+					}
 				}
 			}
 			if verdict != tc.verdict || saved.Status != tc.status {
