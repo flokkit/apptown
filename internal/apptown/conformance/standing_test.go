@@ -92,13 +92,18 @@ func TestLanesSeparateEvidenceFromAction(t *testing.T) {
 			t.Fatal(err)
 		}
 		var wire struct {
-			Lane string `json:"lane"`
+			Lane  string `json:"lane"`
+			Label string `json:"statusLabel"`
 		}
 		if err := json.Unmarshal(b, &wire); err != nil {
 			t.Fatal(err)
 		}
 		if wire.Lane != tc.want.String() {
 			t.Fatalf("owner classification missing from response: %s", b)
+		}
+		// An unconfirmed AI flag reads as needing review, never as a failure.
+		if (wire.Label == "needs review") != (tc.want == laneFlagged) {
+			t.Fatalf("%s: label %q for lane %s", tc.name, wire.Label, tc.want)
 		}
 		if got := LaneOf(tc.observation, tc.confirmations); got != tc.want {
 			t.Errorf("%s: got %v want %v", tc.name, got, tc.want)

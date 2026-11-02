@@ -9,7 +9,7 @@ export const STATUS_WORD = {
   waiting: 'waiting', failed: 'failed', landed: 'landed', finished: 'finished', deployed: 'deployed', passed: 'passed', excepted: 'excepted',
   'not applicable': 'not applicable', none: 'not configured', current: 'current', available: 'update available', fresh: 'working', overdue: 'failed', missing: 'failed', disposable: 'not applicable',
   'not checked yet': 'not checked yet', 'no automatic check': 'no automatic check', 'in progress': 'in progress', abandoned: 'abandoned',
-  incomplete: 'incomplete', 'nothing connected': 'nothing connected',
+  incomplete: 'incomplete', 'nothing connected': 'nothing connected', 'needs review': 'needs review',
 } as const satisfies Record<'no automatic check' | 'in progress' | 'abandoned' | 'not checked yet' | 'low' | 'blocked' | 'incomplete' | 'nothing connected' | DisplayStatus | RuntimeState | HealthStatus | CheckLabel | ReleaseLabel | UpdateLabel | CopyLabel | JobLabel | TargetLabel | DepartureLabel | ResourceLabel | ProgressLabel | ADRLabel, string>
 
 export const STATUS_LIGHT: Record<keyof typeof STATUS_WORD, string> = {
@@ -22,6 +22,8 @@ export const STATUS_LIGHT: Record<keyof typeof STATUS_WORD, string> = {
   // A finished piece of work that could not do all of it: not a failure, not a pass.
   incomplete: 'pending',
   'nothing connected': '',
+  // An AI flag no person has confirmed: amber, like work waiting on someone.
+  'needs review': 'pending',
 }
 
 // Health observations share operational words; work and evidence retain their
