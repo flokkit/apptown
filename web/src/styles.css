@@ -1946,3 +1946,14 @@ a.project-avatar, a.project-avatar:hover { text-decoration: none; color: inherit
 .section-body > dl.facts > :nth-last-child(-n+2) { border-bottom: 0; }
 .section-filter { width: min(320px, 50vw); padding: 7px 10px; font-size: var(--fs-sm); }
 .section-head:has(.section-filter) { align-items: center; }
+
+/* A progress bar's segment for work under way moves; one for work waiting
+   its turn is striped and still. Without motion, both are still stripes. */
+.bar-moving, .bar-waiting {
+  background-image: repeating-linear-gradient(-45deg, rgba(255,255,255,0.28) 0 4px, transparent 4px 8px);
+  background-size: 11.3px 11.3px;
+}
+.bar-waiting { background-image: repeating-linear-gradient(-45deg, var(--muted) 0 3px, transparent 3px 7px); }
+.bar-moving { animation: bar-move 0.8s linear infinite; }
+@keyframes bar-move { to { background-position: 11.3px 0; } }
+@media (prefers-reduced-motion: reduce) { .bar-moving { animation: none; } }

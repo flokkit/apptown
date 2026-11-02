@@ -36,7 +36,6 @@ export function RemediationPage({ id }: { id: string }) {
         </span>
       </div>
       {err && <div className="error small mb-3">{err}</div>}
-      <OccupancyCard occ={data.occupancy} />
       {Object.entries(byProject).map(([slug, items]) => (
         <div key={slug} className="card" style={{ padding: 0, marginBottom: 'var(--space-3)', overflow: 'hidden' }}>
           <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
@@ -67,6 +66,8 @@ export function RemediationPage({ id }: { id: string }) {
           })}
         </div>
       ))}
+      {/* The work itself first; how many run at once, below it. */}
+      <OccupancyCard occ={data.occupancy} />
     </div>
   )
 }

@@ -12,13 +12,18 @@ import { ITEM, ITEM_COLOR } from './parts'
 // --- Remediations ----------------------------------------------------------------------------------
 
 // The server omits counts when a job has none yet; that reads as an empty bar.
+const MOVING = new Set(['working', 'verifying', 'landing', 'accepting'])
+
 export function JobBar({ counts = {} }: { counts?: Record<string, number> }) {
   const order = ['done', 'verifying', 'landing', 'accepting', 'working', 'stuck', 'queued', 'skipped']
   const total = Math.max(counts.total ?? 0, 1)
   return (
     <span style={{ display: 'inline-flex', width: 180, height: 8, borderRadius: 'var(--radius-sm)', overflow: 'hidden', background: 'var(--panel2)', border: '1px solid var(--border)', flex: '0 0 auto' }}
       title={order.filter((k) => counts[k]).map((k) => `${counts[k]} ${ITEM[k]?.label ?? k}`).join(' · ')}>
-      {order.map((k) => (counts[k] ?? 0) > 0 && <span key={k} style={{ width: `${(counts[k] / total) * 100}%`, background: ITEM_COLOR[k] }} />)}
+      {/* Work under way moves; work waiting its turn is striped, so a bar
+          with nothing done yet still shows what is happening. */}
+      {order.map((k) => (counts[k] ?? 0) > 0 && <span key={k} className={MOVING.has(k) ? 'bar-moving' : k === 'queued' ? 'bar-waiting' : undefined}
+        style={{ width: `${(counts[k] / total) * 100}%`, backgroundColor: ITEM_COLOR[k] }} />)}
     </span>
   )
 }
@@ -36,7 +41,9 @@ export function OccupancyCard({ occ }: { occ: Occupancy }) {
   const holding = occ.holding ?? []
   return (
     <>
-      {(occ.busy > 0 || occ.queued > 0 || cooling) && <Section title="In progress" count={occ.busy || undefined} note={occ.queued > 0 ? `${occ.queued} queued` : undefined}>
+      {/* Only when something is being worked on (or work is paused): a
+          queue on its own is said by each item's own "waiting". */}
+      {(holding.length > 0 || cooling) && <Section title="In progress" count={occ.busy || undefined} note={occ.queued > 0 ? `${occ.queued} queued` : undefined}>
         {cooling && <p className="small" style={{ color: 'var(--warn)' }}>Paused until {fmtWhen(occ.cooldownUntil!)}: {occ.cooldownWhy}</p>}
         {holding.map((h) => (
           <div key={h.id} className="card row small" style={{ display: 'flex' }}>
