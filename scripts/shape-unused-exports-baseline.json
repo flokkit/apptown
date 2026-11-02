@@ -564,8 +564,6 @@
   "internal/gate/gate.go:Options.Client (field)",
   "internal/gitexec/folder.go:CheckFolder (func)",
   "internal/localtls/localtls.go:CertFile (const)",
-  "internal/stockupdate/stockbuild/stockbuild.go:Build (func)",
-  "internal/stockupdate/stockbuild/stockbuild.go:FileName (func)",
   "internal/stockupdate/stockupdate.go:ErrIncompatible (var)",
   "internal/stockupdate/stockupdate.go:ErrNoUpdate (var)",
   "internal/telemetry/telemetry.go:Providers.Flush (func)",
