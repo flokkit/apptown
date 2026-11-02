@@ -240,16 +240,13 @@ spec:
           with: { approvers: [journey], means: "I looked at what the agent did" }
 `
 
-// Journeys land through stock land, the landing every real project runs;
-// with no scanner attached its scan steps pass with a note. The one
-// exception is unscannedLand, which stands in for stock land (as an
-// instance's own landing does) in LawMidFlight only: that journey needs a
-// landing with no scan before its deploy, so the law it adds has something
-// to catch.
+// Journeys normally land through stock land. LawMidFlight starts a
+// non-system landing workflow explicitly, like tour-land: it needs a landing
+// with no scan before deploy so the amended law has something to catch.
 const unscannedLand = `
 apiVersion: apptown.dev/v1
 kind: Workflow
-metadata: { name: unscanned-land, system: true, category: landing }
+metadata: { name: unscanned-land, category: landing }
 spec:
   kind: pipeline
   role: landing
@@ -528,10 +525,9 @@ func TestJourneyKidStory(t *testing.T) {
 	}
 }
 
-// TestJourneyPackEvolution — D4 + the Hello Spring story: a catalog
-// change whose workflow the project lacks is offered grayed (never a
-// foreign pack), the pack evolves, the project pulls it, the change
-// becomes runnable and runs.
+// TestJourneyPackEvolution — library workflows are runnable independently
+// of packs; recurring work begins only when a project pulls a pack version
+// that declares its schedule. Publishing and recommending do not adopt it.
 func TestJourneyPackEvolution(t *testing.T) {
 	h := newJourney(t)
 	h.app.Ways.SyncStockWorkflows(t.Context()) // the boot act: stock workflows into the library
@@ -544,7 +540,7 @@ func TestJourneyPackEvolution(t *testing.T) {
 	h.mustCall("POST", "/projects/"+slug+"/repo", map[string]string{}, nil)
 	h.mustCall("POST", "/projects/"+slug+"/pack", map[string][]string{"names": {"jp"}}, nil)
 
-	// The shipped catalog's uplift/deps needs the missing workflow.
+	// Library availability does not require pack membership.
 
 	type catEntry struct {
 		Name            string `json:"name"`
@@ -567,39 +563,55 @@ func TestJourneyPackEvolution(t *testing.T) {
 		t.Fatal("catalog entry vanished")
 		return catEntry{}
 	}
-	e := find()
-	if e.MissingWorkflow != "dependency-uplift" || e.FromPack != "" {
-		t.Fatalf("must be grayed with NO foreign-pack offer (stock packs carry it): %+v", e)
+	assertAvailable := func() {
+		t.Helper()
+		if e := find(); e.MissingWorkflow != "" || e.FromPack != "" {
+			t.Fatalf("library workflow must be runnable without a pack offer: %+v", e)
+		}
 	}
+	assertSchedules := func(want int) {
+		t.Helper()
+		var got struct {
+			Schedules []struct {
+				Source        struct{ Workflow string } `json:"source"`
+				Cron, Problem string
+			} `json:"schedules"`
+		}
+		h.mustCall("GET", "/projects/"+slug+"/schedules", nil, &got)
+		if len(got.Schedules) != want {
+			t.Fatalf("want %d adopted schedules, got %+v", want, got)
+		}
+		if want == 1 && (got.Schedules[0].Source.Workflow != "dependency-uplift" || got.Schedules[0].Cron == "" || got.Schedules[0].Problem != "") {
+			t.Fatalf("pack must supply a readable dependency-uplift schedule: %+v", got)
+		}
+	}
+	assertAvailable()
+	assertSchedules(0)
 
-	// The pack evolves. Publishing never moves what projects are offered:
-	// a person recommends the new version, then the project pulls and the
-	// entry lights up.
+	// The old grayed-entry/own-pack-offer guarantee no longer exists for
+	// library workflows. The pack now opts into recurring dependency work.
 	var saved struct {
 		Version int64 `json:"version"`
 	}
 	h.mustCall("POST", "/packs", map[string]any{
-		"name": "jp", "workflows": []string{"quick-change", "land", "dependency-uplift"}}, &saved)
-	if e = find(); e.FromPack != "" {
-		t.Fatalf("a published but unrecommended version must not be offered: %+v", e)
-	}
+		"name": "jp", "workflows": []string{"quick-change", "land", "dependency-uplift"},
+		"schedules": []string{"dependency-uplift"}}, &saved)
+	assertAvailable()
+	assertSchedules(0)
 	h.mustCall("POST", "/packs/jp/recommended", map[string]int64{"version": saved.Version}, nil)
-	e = find()
-	if e.FromPack != "jp" {
-		t.Fatalf("the project's own pack must be offered: %+v", e)
-	}
+	assertAvailable()
+	assertSchedules(0)
 	var plan struct {
 		Additions []string `json:"additions"`
 		Removals  []string `json:"removals"`
 	}
 	h.mustCall("GET", "/projects/"+slug+"/pack/pull-plan?pack=jp", nil, &plan)
-	if len(plan.Additions) != 1 || plan.Additions[0] != "dependency-uplift" || len(plan.Removals) != 0 {
-		t.Fatalf("plan: %+v", plan)
+	if len(plan.Additions) != 0 || len(plan.Removals) != 0 {
+		t.Fatalf("pack evolution must not change library workflow availability: %+v", plan)
 	}
 	h.mustCall("POST", "/projects/"+slug+"/pack/pull", map[string]string{"pack": "jp"}, nil)
-	if e = find(); e.MissingWorkflow != "" {
-		t.Fatalf("after the pull the change must be runnable: %+v", e)
-	}
+	assertAvailable()
+	assertSchedules(1)
 
 	// Run it: the prepared change starts a real run on the real workflow.
 	var applied struct {
@@ -632,12 +644,19 @@ func TestJourneyPackEvolution(t *testing.T) {
 
 // TestJourneyLawMidFlight — W2 through the public surface: a landing
 // parks at its approval, the law changes underneath it, the approval is
-// granted — and the merge pauses with the next action stated, restart
-// starts a fresh landing, override is the recorded exit.
+// granted — and the merge pauses with the next action stated. An invalid
+// restart preserves the parked landing; override is the recorded exit.
 func TestJourneyLawMidFlight(t *testing.T) {
 	h := newJourney(t)
 	slug := fmt.Sprintf("law-%d", os.Getpid())
 	h.newProject(slug, journeyQuickChange, unscannedLand)
+
+	// People cannot start AppTown's system landing directly. A non-system
+	// landing, like tour-land, exercises the same current-law boundary.
+	if code := h.jCall("POST", "/projects/"+slug+"/changes",
+		map[string]string{"title": "system landing", "workflow": "land"}, nil); code != 422 {
+		t.Fatalf("explicit system landing must be refused, got %d", code)
+	}
 
 	// A change goes straight to the landing lane and parks at approval.
 	var created struct {
@@ -645,7 +664,7 @@ func TestJourneyLawMidFlight(t *testing.T) {
 		Run    struct{ ID ids.ID }
 	}
 	h.mustCall("POST", "/projects/"+slug+"/changes",
-		map[string]string{"title": "park me", "type": "chore", "workflow": "land"}, &created)
+		map[string]string{"title": "park me", "type": "chore", "workflow": "unscanned-land"}, &created)
 	chID := created.Change.ID
 	var approveID ids.ID
 	h.until("the landing to park at its approval", 30*time.Second, func() bool {
@@ -989,7 +1008,8 @@ func TestJourneyStackMigration(t *testing.T) {
 	// The working lane is customized (the journey shape) as the library's
 	// newest version before either pack pins it.
 	publishLanes(t, h.app, journeyQuickChange)
-	// The stack's first version carries a lane its next version drops.
+	// The stack carries research in v1 and drops it in v2; research also
+	// remains independently available from the library.
 	h.mustCall("POST", "/packs", map[string]any{"name": "stack-a", "workflows": []string{"quick-change", "land", "research"}}, nil)
 	h.mustCall("POST", "/projects", map[string]string{"slug": slug}, nil)
 	h.mustCall("POST", "/projects/"+slug+"/repo", map[string]string{}, nil)
@@ -1093,13 +1113,12 @@ func TestJourneyStackMigration(t *testing.T) {
 		Removals []string `json:"removals"`
 	}
 	h.mustCall("GET", "/projects/"+slug+"/pack/pull-plan?pack=stack-a", nil, &plan)
-	if len(plan.Removals) != 1 || plan.Removals[0] != "research" {
-		t.Fatalf("re-pack plan removals: %+v", plan)
+	if len(plan.Removals) != 0 {
+		t.Fatalf("re-pack must retain library workflow availability: %+v", plan)
 	}
 	h.mustCall("POST", "/projects/"+slug+"/pack/pull", map[string]string{"pack": "stack-a"}, nil)
-	// The customized workflows are in the new pack too — the pull records
-	// lanes; it never rewinds the library's newest version or drops the
-	// selection.
+	// Pulling a pack never rewinds customized library workflows. Removing
+	// research from the pack does not remove it from the project's library.
 	_, qcYAML, err := h.app.Ways.WorkflowVersion(t.Context(), "quick-change", 0)
 	if err != nil {
 		t.Fatal(err)
@@ -1112,7 +1131,18 @@ func TestJourneyStackMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !workflowAvailable(t, h.app.Adoption, repacked.ID, "quick-change") {
-		t.Fatal("re-pack dropped the quick-change selection")
+		t.Fatal("re-pack dropped quick-change availability")
+	}
+	var lanes struct {
+		Lanes []struct{ Name string } `json:"lanes"`
+	}
+	h.mustCall("GET", "/projects/"+slug+"/lanes", nil, &lanes)
+	hasResearch := false
+	for _, lane := range lanes.Lanes {
+		hasResearch = hasResearch || lane.Name == "research"
+	}
+	if !hasResearch {
+		t.Fatal("re-pack dropped the library research workflow from runnable lanes")
 	}
 	ship("stack b page")
 
