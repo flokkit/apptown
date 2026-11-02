@@ -106,10 +106,10 @@ export default function AttentionPage() {
       {(() => {
         // Checks that are working are the bulk and say nothing new: they fold
         // into one line, open for anyone asking whether a thing is watched.
-        // The rest (unknown, old, not set up, not checked yet) stay in view.
-        const working = (s: AttentionCoverage) => !s.unknown && !s.stale && !s.notSetUp && !neverChecked(s.observedAt)
+        // The rest (unknown, old, not checked yet) stay in view.
+        const working = (s: AttentionCoverage) => !s.unknown && !s.stale && !neverChecked(s.observedAt)
         const row = (source: AttentionCoverage) => <div key={source.key} className="card row attention-row">
-          <span className="row-status"><Status word={source.unknown ? 'unknown' : source.notSetUp ? 'not set up' : neverChecked(source.observedAt) ? 'not checked yet' : 'fresh'} observation staleAt={source.stale && !source.unknown ? source.observedAt : undefined} /></span>
+          <span className="row-status"><Status word={source.unknown ? 'unknown' : neverChecked(source.observedAt) ? 'not checked yet' : 'fresh'} observation staleAt={source.stale && !source.unknown ? source.observedAt : undefined} /></span>
           <span className="attention-what"><Link to={source.href}>{source.name}</Link></span>
           {(!source.stale || source.unknown) && (!neverChecked(source.observedAt) || !neverChecked(source.attemptedAt)) && <small className="muted attention-seen">{observed(source.observedAt, source.stale, source.attemptedAt)}</small>}
         </div>

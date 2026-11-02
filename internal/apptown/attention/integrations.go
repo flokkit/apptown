@@ -51,10 +51,12 @@ func (s Integrations) Snapshot(ctx context.Context) (Snapshot, error) {
 		}
 		at, _ := time.Parse(time.RFC3339, h.CheckedAt)
 		href := "/integrations/" + url.PathEscape(b.Name)
-		if !h.Automatic {
+		// A connection nobody set up and nothing uses has nothing to check; one
+		// an app depends on reads as failed (integration health), not here.
+		if !h.Automatic || h.StateLabel == integration.HealthNotSetUp {
 			continue
 		}
-		out.Coverage = append(out.Coverage, Coverage{Key: b.Name, Name: label, Href: href, ObservedAt: at, Stale: h.Stale, Unknown: h.Expired, NotSetUp: h.StateLabel == integration.HealthNotSetUp, NextStep: "An administrator can test the connection or correct its settings."})
+		out.Coverage = append(out.Coverage, Coverage{Key: b.Name, Name: label, Href: href, ObservedAt: at, Stale: h.Stale, Unknown: h.Expired, NextStep: "An administrator can test the connection or correct its settings."})
 		if h.Expired {
 			continue
 		}
