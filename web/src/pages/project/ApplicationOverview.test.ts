@@ -30,10 +30,20 @@ it.each(['partial', 'failed', 'pruned'] as const)('keeps a stale %s backup on it
   expect(entries).toEqual([])
 })
 
-it('labels a release with its linked change number even outside the recent activity window', () => {
-  const releases = [{ number: 6, changes: [{ id: 'older-change', number: 4, title: 'Keep photos' }], statusLabel: 'deployed', deployment: 'main', releasedAt: '2026-10-30' }] as unknown as import('../../api').Release[]
+// A release reads as what it shipped, even when its change is outside the
+// recent activity window: the change's own title, then the release.
+it('leads a release with the title of the change it shipped', () => {
+  const releases = [
+    { number: 6, changes: [{ id: 'older-change', number: 4, title: 'Keep photos' }], statusLabel: 'deployed', deployment: 'main', releasedAt: '2026-10-30' },
+    { number: 7, changes: [{ id: 'a', number: 5, title: 'Add a dark mode' }, { id: 'b', number: 6, title: 'Fix dates' }], statusLabel: 'deployed', deployment: 'main', releasedAt: '2026-10-31' },
+    { number: 5, changes: [], statusLabel: 'failed', deployment: 'main', releasedAt: '2026-10-29' },
+  ] as unknown as import('../../api').Release[]
   const entries = overviewActivity({ history: [] } as unknown as OverviewData, [], [], releases, 'club')
-  expect(entries[0].title).toBe('Change 4 → Release 6')
+  expect(entries.map(e => [e.number, e.title, e.source])).toEqual([
+    [undefined, 'Add a dark mode and 1 more', 'Release 7 · main'],
+    [4, 'Keep photos', 'Release 6 · main'],
+    [undefined, 'Release 5', 'main'],
+  ])
 })
 
 it('shows one activity row for a change included in a release', () => {
@@ -41,6 +51,6 @@ it('shows one activity row for a change included in a release', () => {
   const releases = [{ number: 6, changes: [{ id: 'change', number: 4, title: 'Fix photos' }], statusLabel: 'deployed', deployment: 'main', releasedAt: '2026-10-31' }] as unknown as import('../../api').Release[]
   const entries = overviewActivity({ history } as OverviewData, [], [], releases, 'club')
   expect(entries).toHaveLength(1)
-  expect(entries[0].title).toBe('Change 4 → Release 6')
+  expect(entries[0].title).toBe('Fix photos')
   expect(entries[0].to).toBe('/projects/club/releases/6')
 })
