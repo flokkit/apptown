@@ -167,9 +167,13 @@ SELECT EXISTS(SELECT 1 FROM runs WHERE id=sqlc.arg(id) AND project_id=sqlc.arg(p
 -- name: LatestLandingRunMeta :one
 SELECT id FROM runs WHERE project_id=$1 AND change_id IS NOT DISTINCT FROM $2 AND workflow_name='land' AND parent_run_id IS NULL ORDER BY number DESC LIMIT 1;
 
--- Narrative only needs identities/names/states, not large definitions/inputs.
+-- Read the exact library version for its purpose; never the current description.
 -- name: NarrativeRunsMeta :many
-SELECT id,workflow_name,status FROM runs WHERE change_id IS NOT DISTINCT FROM $1 AND project_id=$2 AND parent_run_id IS NULL ORDER BY number;
+SELECT r.id,r.workflow_name,r.status,COALESCE(v.yaml,'')::text AS workflow_yaml
+FROM runs r
+LEFT JOIN lib_workflows w ON w.name=r.workflow_name
+LEFT JOIN lib_workflow_versions v ON v.lib_id=w.id AND v.version=r.workflow_version
+WHERE r.change_id IS NOT DISTINCT FROM $1 AND r.project_id=$2 AND r.parent_run_id IS NULL ORDER BY r.number;
 
 -- Parent pin checks need the identity and pin only, not its large definition.
 -- name: ParentRunAdoptionMeta :one

@@ -59,7 +59,7 @@ export function Screenshots({ shots, head, at }: { shots?: PreviewScreenshots; h
             <span className={cmp.kind === 'different' ? 'warn' : undefined}>{cmp.text}.</span>
           </div>
           <div className="shot-row">
-            {taken.map((s) => <Thumb key={s.artifact} id={s.artifact} label={`${s.path} · ${s.view}`} onOpen={(src, label) => setOpen({ src, label })} />)}
+            {taken.map((s) => <Thumb key={s.artifact} id={s.artifact} label={`${s.path === '/' ? '' : `${s.path} · `}${s.view.charAt(0).toUpperCase()}${s.view.slice(1)}`} onOpen={(src, label) => setOpen({ src, label })} />)}
           </div>
         </>
       )}

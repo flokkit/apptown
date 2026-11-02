@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
+	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 )
@@ -210,5 +212,90 @@ func TestNarrativeSourceOwnsSelectionOrderingAndOneSnapshot(t *testing.T) {
 	fresh, err := owner.source(ctx, ch.ID)
 	if err != nil || fresh.Change.Body != "after" || len(fresh.Artifacts) != 2 || fresh.Artifacts[0].Body != "after report" {
 		t.Fatalf("fresh source: %+v %v", fresh, err)
+	}
+}
+
+func TestScheduledUpliftNarrativeReadsPurposeAtRunVersion(t *testing.T) {
+	t.Parallel()
+	for _, changeType := range []string{"scheduled", "system"} {
+		t.Run(changeType, func(t *testing.T) {
+			t.Parallel()
+			db, ch := changeEditFixture(t, ChangeDraft{Type: changeType, Title: "dependency-uplift @ 2026-11-01 06:00"})
+			ctx := context.Background()
+			library := wow.NewWorkflows(db)
+			declaration := `apiVersion: apptown.dev/v1
+kind: Workflow
+metadata:
+  name: dependency-uplift
+  description: Apply patch and minor dependency updates.
+spec:
+  kind: lifecycle
+  role: working
+  on:
+    schedule: {cron: "0 6 1 * *"}
+  stages:
+    - name: uplift
+      steps:
+        - name: accept
+          uses: approval
+          with: {means: Accept the uplift}
+`
+			if _, _, err := library.Put(ctx, declaration, "test"); err != nil {
+				t.Fatal(err)
+			}
+			narrativeRun(t, db, ch, "dependency-uplift", schema.Step{Name: "accept", Uses: "approval"})
+			// The run waits at approval. A later library edit must not replace its purpose.
+			if _, _, err := library.Put(ctx, strings.ReplaceAll(declaration, "Apply patch and minor dependency updates.", "Replace every dependency."), "test"); err != nil {
+				t.Fatal(err)
+			}
+			owner := newNarratives(db, nil)
+			source, err := owner.source(ctx, ch.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			evidence := NarrativeEvidence(source, "")
+			if !strings.Contains(evidence, "working workflow purpose: Apply patch and minor dependency updates.") || strings.Contains(evidence, "Replace every dependency.") || strings.Contains(evidence, "FOR:") || !strings.Contains(evidence, "work/accept (approval)") {
+				t.Fatalf("scheduled uplift must retain its stated purpose without inventing a written request: %s", evidence)
+			}
+			// A supplied body is included as FOR in the evidence.
+			source.Change.Body = "Update only the results parser dependency."
+			if got := NarrativeEvidence(source, ""); !strings.Contains(got, "FOR:\nUpdate only the results parser dependency.") {
+				t.Fatal(got)
+			}
+		})
+	}
+}
+
+// A person's title is the request even when the working workflow has a purpose.
+func TestTitleOnlyHumanNarrativeDoesNotUseWorkflowPurpose(t *testing.T) {
+	t.Parallel()
+	db, ch := changeEditFixture(t, ChangeDraft{Type: "bug", Title: "Login button does nothing on Safari"})
+	ctx := context.Background()
+	declaration := `apiVersion: apptown.dev/v1
+kind: Workflow
+metadata:
+  name: fix-bug
+  description: Investigate and fix a reported bug.
+spec:
+  kind: lifecycle
+  role: working
+  stages:
+    - name: fix
+      steps:
+        - name: accept
+          uses: approval
+          with: {means: Accept the fix}
+`
+	if _, _, err := wow.NewWorkflows(db).Put(ctx, declaration, "test"); err != nil {
+		t.Fatal(err)
+	}
+	narrativeRun(t, db, ch, "fix-bug", schema.Step{Name: "accept", Uses: "approval"})
+	source, err := newNarratives(db, nil).source(ctx, ch.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidence := NarrativeEvidence(source, "")
+	if !strings.Contains(evidence, "TITLE: Login button does nothing on Safari\n") || strings.Contains(evidence, "FOR:") || strings.Contains(evidence, "Investigate and fix a reported bug.") {
+		t.Fatalf("title-only human request must not be replaced by workflow purpose: %s", evidence)
 	}
 }

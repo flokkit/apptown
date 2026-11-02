@@ -11,7 +11,7 @@ async function render(shots: PreviewScreenshots, head?: string) {
   const root = createRoot(el)
   await act(async () => { root.render(<Screenshots shots={shots} head={head} />) })
   await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
-  const out = { text: el.textContent ?? '', imgs: el.querySelectorAll('img').length }
+  const out = { text: el.textContent ?? '', imgs: el.querySelectorAll('img').length, captions: Array.from(el.querySelectorAll('figcaption'), (c) => c.textContent) }
   act(() => root.unmount())
   vi.unstubAllGlobals()
   return out
@@ -24,6 +24,10 @@ describe('the screenshots at approval', () => {
     expect(imgs).toBe(2)
     expect(text).toContain('from commit aaaaaaa')
     expect(text).toContain("this is the change's current commit")
+  })
+  it('names the view alone at root and keeps other paths', async () => {
+    expect((await render(shots)).captions).toEqual(['Desktop', 'Phone'])
+    expect((await render({ shots: [{ artifact: 'a3', path: '/results', view: 'phone' }] })).captions).toEqual(['/results · Phone'])
   })
   it('says plainly when they show a different commit', async () => {
     const { text } = await render(shots, 'bbbbbbb2222')

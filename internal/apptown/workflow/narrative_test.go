@@ -128,3 +128,20 @@ func TestNarrativeKeepsWhatWouldSatisfyForUnknown(t *testing.T) {
 		t.Fatalf("a met request carries no gap: %+v %v", d, err)
 	}
 }
+
+// The judgement concerns the software; workflow progress cannot make it fall short.
+func TestNarrativePromptJudgesSoftwareRatherThanPendingProcess(t *testing.T) {
+	t.Parallel()
+	for _, rule := range []string{
+		"Judge the software, not completion of the governing workflow",
+		"Steps that have not run yet are never a shortfall",
+		"including the approval the reader is deciding and reviews still ahead",
+		"Workflow steps only limit what you may demand",
+		"For a person's change, TITLE is their request even when FOR is absent",
+		"Only for scheduled or system changes without FOR, use the working workflow's stated purpose",
+	} {
+		if !strings.Contains(strings.Join(strings.Fields(NarrativePrompt), " "), rule) {
+			t.Errorf("prompt lacks request judgement rule %q", rule)
+		}
+	}
+}

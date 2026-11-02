@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
@@ -18,12 +19,13 @@ import (
 )
 
 type narrativeRunView struct {
-	// Steps are the governing workflow's steps ("stage/name (type)"): what the
-	// work was actually required to pass.
-	Steps []string
-	ID    ids.ID
-	Name  string
-	State RunState
+	// Steps are the governing workflow's steps ("stage/name (type)"):
+	// process context, never additional software requirements.
+	Steps   []string
+	ID      ids.ID
+	Name    string
+	Purpose string
+	State   RunState
 }
 
 type narrativeArtifact struct{ Kind, Body string }
@@ -146,7 +148,7 @@ line 1: TITLE: a short label for the change, at most 8 plain words,
 naming the outcome (what changed in the software), never quoting the
 request verbatim, no trailing period.
 line 2: ASKED: then ONE word — yes, partly, no or unknown — saying
-whether the software now does what the request (FOR) asked, judged from
+whether the software now does what the request asked, judged from
 the diff and evidence, not from anyone's claim of success; after "partly"
 or "no", one plain sentence naming what was asked and is not done (e.g.
 "ASKED: no — the visible heading was asked for; only the browser tab
@@ -155,12 +157,18 @@ evidence cannot show it. After "partly", "no" or "unknown", ALWAYS add a
 second sentence beginning "To satisfy it:" naming concrete evidence or
 an action that would settle it (e.g. "To satisfy it: a test that
 restores an archived Done card", "To satisfy it: the rest of the diff,
-files X and Y", "To satisfy it: the agent's review report, sent with
-request_change_landing"). Judge against the request and the workflow
-that governed the change (its steps are listed in the evidence): never
-list something as missing, such as an independent review, that the
-workflow has no step for. If the evidence says part of the diff or an
-artifact was not read, you have not seen all of the work: never say
+files X and Y"). Judge the software, not completion of the governing workflow.
+Steps that have not run yet are never a shortfall, including the approval
+the reader is deciding and reviews still ahead. Never demand their completion
+or evidence of them in ASKED or "To satisfy it:". Workflow steps only limit
+what you may demand: never list something as missing, such as an independent
+review, that the workflow has no step for. For a person's change, TITLE is their
+request even when FOR is absent; FOR adds detail when supplied. Never replace
+that request with the workflow's generic purpose. Only for scheduled or system
+changes without FOR, use the working workflow's stated purpose as the request,
+not the generated title or its process steps. If no purpose is stated for such
+a change, say unknown.
+If the evidence says part of the diff or an artifact was not read, you have not seen all of the work: never say
 "partly" or "no" because something is absent from what you read when it
 could be in the unread part. Say yes only if what you read
 satisfies the whole request; otherwise unknown. Say "partly" or "no" only
@@ -189,7 +197,7 @@ headings, no bullets, no "I".`
 func NarrativeEvidence(source NarrativeSource, extra string) string {
 	ch := source.Change
 	var evidence strings.Builder
-	fmt.Fprintf(&evidence, "TITLE: %s\nSTATE: %s\n", ch.Title, ch.State)
+	fmt.Fprintf(&evidence, "TITLE: %s\nTYPE: %s\nSTATE: %s\n", ch.Title, ch.Type, ch.State)
 	if strings.TrimSpace(ch.Body) != "" {
 		fmt.Fprintf(&evidence, "FOR:\n%s\n", ch.Body)
 	}
@@ -197,6 +205,9 @@ func NarrativeEvidence(source NarrativeSource, extra string) string {
 	evidence.WriteString("RUNS:\n")
 	for _, run := range source.Runs {
 		fmt.Fprintf(&evidence, "- run %d %s: %s\n", run.ID, run.Name, run.State)
+		if strings.TrimSpace(run.Purpose) != "" {
+			fmt.Fprintf(&evidence, "  working workflow purpose: %s\n", run.Purpose)
+		}
 		if len(run.Steps) > 0 {
 			fmt.Fprintf(&evidence, "  steps of this workflow: %s\n", strings.Join(run.Steps, ", "))
 		}
@@ -320,7 +331,17 @@ func (s narratives) source(ctx context.Context, id ids.ID) (NarrativeSource, err
 		for _, st := range steps {
 			names = append(names, fmt.Sprintf("%s/%s (%s)", st.Stage, st.Name, st.Type))
 		}
-		source.Runs = append(source.Runs, narrativeRunView{ID: row.ID, Name: row.WorkflowName, State: state, Steps: names})
+		var purpose string
+		if (source.Change.Type == "scheduled" || source.Change.Type == "system") && row.WorkflowYaml != "" {
+			doc, err := schema.ParseWorkflowStored([]byte(row.WorkflowYaml))
+			if err != nil {
+				return NarrativeSource{}, err
+			}
+			if doc.Spec.Role == "working" {
+				purpose = doc.Metadata.Description
+			}
+		}
+		source.Runs = append(source.Runs, narrativeRunView{ID: row.ID, Name: row.WorkflowName, State: state, Steps: names, Purpose: purpose})
 	}
 	artifacts, err := records.NarrativeArtifacts(ctx, workflowsql.NarrativeArtifactsParams{ChangeID: id, ProjectID: source.Change.ProjectID})
 	if err != nil {
