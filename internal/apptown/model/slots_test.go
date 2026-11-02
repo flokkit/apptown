@@ -32,16 +32,16 @@ func TestResolveWalksMostSpecificFirst(t *testing.T) {
 	if p, slot, prof, err := s.resolve(t.Context(), "heavy", "openrouter/x"); err != nil || p != "openrouter/x" || slot != "" || prof != "" {
 		t.Fatalf("pass-through: %s %s %s", p, slot, prof)
 	}
-	if p, slot, prof, err := s.resolve(t.Context(), "heavy", "review"); err != nil || p != "" || slot != "default" || prof != "" {
+	if p, slot, prof, err := s.resolve(t.Context(), "heavy", "review"); err != nil || p != "" || slot != "main-strong" || prof != "" {
 		t.Fatalf("unmapped: %s %s %s", p, slot, prof)
 	}
 	if err := s.SetDefault(t.Context(), "local/std"); err != nil {
 		t.Fatal(err)
 	}
 	if p, _, prof, err := s.resolve(t.Context(), "", ""); err != nil || p != "local/std" || prof != StandardProfile {
-		t.Fatalf("the default slot: %s %s", p, prof)
+		t.Fatalf("the main-strong slot: %s %s", p, prof)
 	}
-	// The chain: security → review → default (from the stock fallbacks).
+	// The chain: security → review → secondary-strong → main-strong (from the stock fallbacks).
 	if err := s.SeedFallbacks(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -193,21 +193,21 @@ func TestTasksUseBasicChoicesUntilIndividuallySet(t *testing.T) {
 	}
 	for _, slot := range StockSlots {
 		if got, _, _, err := s.resolve(t.Context(), "standard", slot); err != nil || got != "vendor/strong" {
-			t.Fatalf("default-only %s: %q %v", slot, got, err)
+			t.Fatalf("main-strong-only %s: %q %v", slot, got, err)
 		}
 	}
-	for _, base := range []string{"primary-fast", "secondary-strong", "secondary-fast"} {
+	for _, base := range []string{"main-fast", "secondary-strong", "secondary-fast"} {
 		if err := s.Set(t.Context(), base, "standard", "vendor/"+base, "fixture"); err != nil {
 			t.Fatal(err)
 		}
 	}
 	for task, base := range map[string]string{
-		"default": "default", "plan": "default", "implement": "default", "chat": "default", "worker": "default",
-		"fast": "primary-fast", "scout": "primary-fast", "review": "secondary-strong", "security": "secondary-strong",
-		"primary-fast": "primary-fast", "secondary-strong": "secondary-strong", "secondary-fast": "secondary-fast",
+		"main-strong": "main-strong", "plan": "main-strong", "implement": "main-strong", "chat": "main-strong", "worker": "main-strong",
+		"fast": "main-fast", "scout": "main-fast", "review": "secondary-strong", "security": "secondary-strong",
+		"main-fast": "main-fast", "secondary-strong": "secondary-strong", "secondary-fast": "secondary-fast",
 	} {
 		want := "vendor/" + base
-		if base == "default" {
+		if base == "main-strong" {
 			want = "vendor/strong"
 		}
 		if got, _, _, err := s.resolve(t.Context(), "high", task); err != nil || got != want {
@@ -227,7 +227,7 @@ func TestTasksUseBasicChoicesUntilIndividuallySet(t *testing.T) {
 	if err := s.Set(t.Context(), "secondary-fast", "standard", "", "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if got, _, _, err := s.resolve(t.Context(), "high", "secondary-fast"); err != nil || got != "vendor/primary-fast" {
+	if got, _, _, err := s.resolve(t.Context(), "high", "secondary-fast"); err != nil || got != "vendor/main-fast" {
 		t.Fatalf("unset secondary fast: %q %v", got, err)
 	}
 }

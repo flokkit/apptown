@@ -6,6 +6,7 @@ import (
 	"os"
 	"slices"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -127,4 +128,49 @@ func keys(m map[string][]byte) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// Stock workflow model requests and shipped model guides use current slot names.
+func TestStockUsesCurrentModelNames(t *testing.T) {
+	t.Parallel()
+	for path, content := range files(t, os.DirFS(".")) {
+		if strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml") {
+			var root yaml.Node
+			if err := yaml.Unmarshal(content, &root); err != nil {
+				t.Fatalf("%s: %v", path, err)
+			}
+			var check func(*yaml.Node)
+			check = func(n *yaml.Node) {
+				if n.Kind == yaml.MappingNode {
+					for i := 0; i < len(n.Content); i += 2 {
+						key, value := n.Content[i], n.Content[i+1]
+						if key.Value == "model" && (value.Value == "default" || value.Value == "primary-fast") {
+							t.Errorf("%s requests retired model %s", path, value.Value)
+						}
+					}
+				}
+				for _, child := range n.Content {
+					check(child)
+				}
+			}
+			check(&root)
+		}
+		if strings.HasPrefix(path, "docs/") && strings.HasSuffix(path, ".md") {
+			modelGuide := strings.Contains(path, "model-pi.") || path == "docs/guides/architecture.md"
+			if path == "docs/guides/glossary.md" {
+				// Deployment profiles still legitimately name their base default.
+				_, modelTerms, ok := strings.Cut(string(content), "**Model profile**")
+				if !ok {
+					t.Fatal("glossary has no model profile entry")
+				}
+				modelTerms, _, _ = strings.Cut(modelTerms, "**System binding**")
+				if strings.Contains(modelTerms, "`default`") {
+					t.Errorf("%s names a retired model choice", path)
+				}
+			}
+			if bytes.Contains(content, []byte("primary-fast")) || (modelGuide && bytes.Contains(content, []byte("`default`"))) {
+				t.Errorf("%s names a retired model choice", path)
+			}
+		}
+	}
 }

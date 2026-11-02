@@ -23,7 +23,7 @@ ON CONFLICT (slot) DO NOTHING;
 
 -- name: SetDefaultSlot :exec
 INSERT INTO model_slots (slot, profile, pattern, updated_at)
-VALUES ('default', sqlc.arg(profile), sqlc.arg(pattern), sqlc.arg(updated_at))
+VALUES ('main-strong', sqlc.arg(profile), sqlc.arg(pattern), sqlc.arg(updated_at))
 ON CONFLICT(slot, profile) DO UPDATE
 SET pattern=excluded.pattern, updated_at=excluded.updated_at;
 

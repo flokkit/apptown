@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -30,12 +31,12 @@ func TestResolveModelSlot(t *testing.T) {
 	if p, slot, _, err := selection.Resolve(t.Context(), projectID, "prov/model"); err != nil || p != "prov/model" || slot != "" {
 		t.Fatalf("pattern passthrough broken: %q %q", p, slot)
 	}
-	// An undeclared profile uses the standard default.
-	if err := slots.Set(context.Background(), "default", "standard", "inst/model", "fixture"); err != nil {
+	// An undeclared profile uses the standard main-strong choice.
+	if err := slots.Set(context.Background(), "main-strong", "standard", "inst/model", "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if p, slot, _, err := selection.Resolve(t.Context(), projectID, ""); err != nil || p != "inst/model" || slot != "default" {
-		t.Fatalf("instance default not resolved: %q %q", p, slot)
+	if p, slot, _, err := selection.Resolve(t.Context(), projectID, ""); err != nil || p != "inst/model" || slot != "main-strong" {
+		t.Fatalf("standard main-strong not resolved: %q %q", p, slot)
 	}
 }
 
@@ -73,7 +74,7 @@ func TestModelProfileResolution(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	cell("default", "standard", "or/luna")
+	cell("main-strong", "standard", "or/luna")
 	cell("fast", "standard", "or/flash")
 	cell("worker", "high", "anthropic/sonnet")
 	cell("chat", "standard", "anthropic/opus")
@@ -84,8 +85,8 @@ func TestModelProfileResolution(t *testing.T) {
 		req  string
 		want want
 	}{
-		// standard project: worker unmapped in standard → falls to default.
-		{plain, "worker", want{"or/luna", "default", "standard"}},
+		// standard project: worker unmapped in standard → falls to main-strong.
+		{plain, "worker", want{"or/luna", "main-strong", "standard"}},
 		// high project: the high cell wins.
 		{game, "worker", want{"anthropic/sonnet", "worker", "high"}},
 		// high project, slot with no high cell: standard column serves it.
@@ -97,6 +98,24 @@ func TestModelProfileResolution(t *testing.T) {
 		p, s, prof, err := selection.Resolve(t.Context(), c.pid, c.req)
 		if err != nil || p != c.want.pattern || s != c.want.slot || prof != c.want.profile {
 			t.Fatalf("(%d,%q) = %q,%q,%q; want %v", c.pid, c.req, p, s, prof, c.want)
+		}
+	}
+}
+
+// Persisted requests and in-flight steps must fail at resolution after the
+// cutover, even when a main model is configured.
+func TestRetiredModelRequestsFailWithActionableError(t *testing.T) {
+	t.Parallel()
+	slots := New(testDB(t))
+	if err := slots.SetDefault(t.Context(), "vendor/main"); err != nil {
+		t.Fatal(err)
+	}
+	selection := NewSelection(slots)
+	for _, requested := range []string{"default", "primary-fast"} {
+		pattern, slot, profile, err := selection.Resolve(t.Context(), ids.Nil, requested)
+		want := fmt.Sprintf("unknown model choice %q: edit the model request to use main-strong or main-fast; the other basic choices are secondary-strong and secondary-fast", requested)
+		if err == nil || err.Error() != want || pattern != "" || slot != "" || profile != "" {
+			t.Fatalf("%s: resolved %q/%q/%q with %v; want %s", requested, pattern, slot, profile, err, want)
 		}
 	}
 }

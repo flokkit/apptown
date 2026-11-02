@@ -432,35 +432,37 @@ platform; words the agent reads are content.
 
 ## Choosing the model: slots × profiles
 
-A **model profile** sets four basic choices: **Main · strong** (`default`),
-**Main · fast** (`primary-fast`), **Second opinion · strong** (`secondary-strong`)
+A **model profile** sets four basic choices: **Main · strong** (`main-strong`),
+**Main · fast** (`main-fast`), **Second opinion · strong** (`secondary-strong`)
 and **Second opinion · fast** (`secondary-fast`). The main models do the work;
-the second-opinion models review it. Quick independent checks,
+the second-opinion models give a second opinion. Quick independent checks,
 including guidance checks and eval judges, ask for `secondary-fast` directly.
 
 Individual **tasks** are the advanced level. A task set individually takes
 priority over its basic choice. Planning, implementation, chat and delegated
-work fall back to `default`. Quick jobs (`fast`) fall back to `primary-fast`,
+work fall back to `main-strong`. Quick jobs (`fast`) fall back to `main-fast`,
 and quick lookups (`scout`) fall back to `fast`. Reviews fall back to
 `secondary-strong`; security reviews fall back to `review`.
-Unset secondary choices use the primary of the same speed. An unset
-`primary-fast` uses `default`, the end of every chain.
+Unset secondary choices use the main choice of the same speed. An unset
+`main-fast` uses `main-strong`, the end of every chain.
 
-Each project chooses a profile, such as `standard` or `high`. AppTown tries
-the requested task's cell for that profile, then its `standard` cell, then
-follows the fallback chain with the same lookup at each step. The record
-names the cell that supplied the model. A project that needs different
-models gets its own profile, even if it is the only project on it.
+Each project chooses a profile, such as `standard` or `high`. AppTown walks
+all the requested task's fallbacks in that profile, ending at `main-strong`.
+Only if none is set does it walk the same chain in `standard`. For `standard`,
+one walk is enough. A basic choice in the project's profile takes priority
+over a task set in `standard`. The record names the slot and profile that
+supplied the model. A project that needs different models gets its own profile,
+even if it is the only project on it.
 Model evals compare a profile against the source project's profile, with
 the source profile's secondary fast model judging both arms.
 
 ```mermaid
 flowchart TD
-    Q[step or session asks for slot S<br/>on project P] --> PR{cell S x P's profile?}
-    PR -->|yes| USE2[use it - receipt names the profile]
-    PR -->|no| SD{cell S x standard?}
-    SD -->|yes| USE3[use it]
-    SD -->|no| FB[follow S's fallback chain<br/>then the instance default]
+    Q[step or session asks for a task] --> PR{first set cell in the<br/>project profile's whole chain?}
+    PR -->|yes| USE[use it; record slot and profile]
+    PR -->|none| SD{first set cell in the<br/>standard profile's whole chain?}
+    SD -->|yes| USE
+    SD -->|none| NO[no model is set up]
 ```
 
 ## Serving: previews, deployments, releases

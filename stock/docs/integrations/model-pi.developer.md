@@ -14,14 +14,14 @@ every workflow.
 Reference slots, not models: `with: { model: review }`. Slot names route
 via the instance mapping for the project's profile; a slash value
 (`gpu1/Qwen3.6`) is a concrete-pattern escape hatch you should rarely
-need. Profiles have four basic choices: `default` (Main · strong),
-`primary-fast`, `secondary-strong` and `secondary-fast`. Individual tasks
+need. Profiles have four basic choices: `main-strong` (Main · strong),
+`main-fast`, `secondary-strong` and `secondary-fast`. Individual tasks
 are the advanced level. The task slots are plan, implement, review,
 security, fast, chat, worker and scout. An unset task follows its fallback:
-review → secondary-strong, security → review, fast → primary-fast,
-scout → fast, and the others → default. Quick independent checks ask for
-secondary-fast. Unset secondary choices use the primary of the same speed;
-primary-fast falls back to default. See the [admin guide](model-pi.admin.md)
+review → secondary-strong, security → review, fast → main-fast,
+scout → fast, and the others → main-strong. Quick independent checks ask for
+secondary-fast. Unset secondary choices use the main choice of the same speed;
+main-fast falls back to main-strong. See the [admin guide](model-pi.admin.md)
 for profile lookup and task overrides.
 
 ## What you can rely on
@@ -31,7 +31,7 @@ for profile lookup and task overrides.
 - No step or chat holds a provider key: they reach models through
   AppTown's inference gateway with a token of their own, and the keys stay
   with AppTown ([What chats and steps can use](../guides/runtime-environments.md)).
-- The project chat runs the `chat` slot (falling back to default);
+- The project chat runs the `chat` slot (falling back to main-strong);
   delegates it spawns run `worker` and `scout`. Paid models are
   available there when bound.
 

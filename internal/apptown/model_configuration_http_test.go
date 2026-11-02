@@ -27,7 +27,7 @@ func TestModelConfigurationHTTPUsesProfilesOnly(t *testing.T) {
 	}
 	// Only the test AppTown's own default model is set.
 	before, err := a.Models.Cells(context.Background())
-	if err != nil || len(before) != 1 || len(before["default"]) != 1 {
+	if err != nil || len(before) != 1 || len(before["main-strong"]) != 1 {
 		t.Fatalf("rejection created cells: %+v %v", before, err)
 	}
 	for _, body := range []string{`{"slot":"chat","pattern":"default-model"}`, `{"slot":"chat","profile":"economy","pattern":"small-model"}`} {

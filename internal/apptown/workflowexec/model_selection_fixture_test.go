@@ -8,7 +8,7 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// selectionWithDefault is model selection on db whose default slot names
+// selectionWithDefault is model selection on db whose main-strong slot names
 // pattern, as on an AppTown where an administrator chose a default model.
 func selectionWithDefault(t *testing.T, db *database.DB, pattern string) model.Selection {
 	t.Helper()

@@ -438,20 +438,21 @@ pulls from it.
 (yours). Guidance imports carry the same kind of receipt.
 
 **Model profile** — a named set of model choices that a project uses, such
-as `standard` or `high`. Its four basics are Main · strong (`default`),
-Main · fast (`primary-fast`), Second opinion · strong (`secondary-strong`)
+as `standard` or `high`. Its four basics are Main · strong (`main-strong`),
+Main · fast (`main-fast`), Second opinion · strong (`secondary-strong`)
 and Second opinion · fast (`secondary-fast`). The main models do the work;
 the second-opinion models review it. Individual tasks are the advanced
-level and can override those choices. An unset secondary uses the primary
-of the same speed; an unset fast primary uses `default`.
+level and can override those choices. An unset second-opinion choice uses the main
+choice of the same speed; an unset fast main choice uses `main-strong`.
 
 **Task (model)** — the purpose for which AppTown asks for a model, such as
 planning, writing code or review. Workflows name it as a slot, for example
 `model: review`. Each task follows a chain to a basic model choice unless
-set individually. AppTown tries the task's cell in the project's model
-profile, then in `standard`, before following its fallback. Reviews use the
-strong secondary; quick independent checks ask for the fast secondary.
-Every chain ends at `default`, the strong primary.
+set individually. AppTown walks the whole chain in the project's profile before
+trying the same chain in `standard`. A basic choice in the project's profile
+therefore takes priority over a task set in `standard`. Reviews use the strong
+second opinion; quick independent checks ask for the fast second opinion.
+Every chain ends at `main-strong`, the strong main choice.
 
 **System binding** — the instance's choice of which library workflow
 stands in for a stock system one (landing runs `our-land`, say). Set on

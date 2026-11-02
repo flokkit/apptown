@@ -50,7 +50,7 @@ func (a *Executor) resolveAgentKnobs(run *workflow.Run, cfg *agentConfig) agentK
 		}
 	}
 	// No explicit model on the step: leave empty so slot resolution walks
-	// default slot -> fallbacks.
+	// main-strong slot -> fallbacks.
 	if k.image == "" {
 		k.image = a.cfg.Image
 	}

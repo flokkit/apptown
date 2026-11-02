@@ -725,3 +725,32 @@ func TestAnAdmittedLocalAgentRunsNowhere(t *testing.T) {
 		t.Fatal("Pi ran for a refused step")
 	}
 }
+
+// A step admitted before the naming cutover reports the resolution error before
+// invoking an agent. New admission cannot produce this persisted old request.
+func TestInFlightAgentWithRetiredModelFailsVisibly(t *testing.T) {
+	for _, choice := range []string{"default", "primary-fast"} {
+		t.Run(choice, func(t *testing.T) {
+			t.Parallel()
+			f, _, stepID := admittedAgentStep(t, `{"prompt":"do it"}`)
+			// sql-guarantee: reproduce a pending step stored before the hard cutover.
+			if _, err := f.db.SQL().ExecContext(f.ctx, `UPDATE steps SET config_json=config_json || jsonb_build_object('model',$1::text) WHERE id=$2`, choice, stepID); err != nil {
+				t.Fatal(err)
+			}
+			runner := installFakePi(f, func(_ int, _ execution.Request) execution.Outcome {
+				return execution.Outcome{Output: piSays("unexpected execution")}
+			})
+			if err := f.work.ExecuteStep(f.ctx, stepID); err != nil {
+				t.Fatal(err)
+			}
+			status, evidence := stepStatus(t, f, stepID)
+			reason, _ := evidence["reason"].(string)
+			if status != workflow.StatusError || !strings.Contains(reason, fmt.Sprintf("unknown model choice %q", choice)) || !strings.Contains(reason, "edit the model request to use main-strong or main-fast") {
+				t.Fatalf("status %s, evidence %v", status, evidence)
+			}
+			if len(runner.requests()) != 0 {
+				t.Fatal("retired model request invoked an agent")
+			}
+		})
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
@@ -19,12 +20,12 @@ import (
 const StandardProfile = "standard"
 
 // StockSlots are the purposes AppTown itself names, in page order.
-var StockSlots = []string{"default", "primary-fast", "secondary-strong", "secondary-fast", "plan", "implement", "review", "security", "fast", "chat", "worker", "scout"}
+var StockSlots = []string{"main-strong", "main-fast", "secondary-strong", "secondary-fast", "plan", "implement", "review", "security", "fast", "chat", "worker", "scout"}
 
 // IsBase reports whether a slot is one of the four basic profile choices.
 func IsBase(slot string) bool {
 	switch slot {
-	case "default", "primary-fast", "secondary-strong", "secondary-fast":
+	case "main-strong", "main-fast", "secondary-strong", "secondary-fast":
 		return true
 	}
 	return false
@@ -32,8 +33,8 @@ func IsBase(slot string) bool {
 
 // Gloss: what each stock slot means, in ordinary words.
 var Gloss = map[string]string{
-	"default":          "Main · strong: the main model; the end of every fallback chain",
-	"primary-fast":     "Main · fast: quick everyday jobs",
+	"main-strong":      "Main · strong: the main model; the end of every fallback chain",
+	"main-fast":        "Main · fast: quick everyday jobs",
 	"secondary-strong": "Second opinion · strong: a second opinion on finished work",
 	"secondary-fast":   "Second opinion · fast: quick independent checks",
 	"plan":             "thinking a task through before the work starts",
@@ -47,13 +48,13 @@ var Gloss = map[string]string{
 }
 
 // stockFallbacks: where an unmapped slot degrades to. Seeded as data so
-// the chain is visible and editable; the final hop to `default` stays in
+// the chain is visible and editable; the final hop to `main-strong` stays in
 // the rule, because every chain must end somewhere.
 var stockFallbacks = map[string]string{
-	"plan": "default", "implement": "default", "review": "secondary-strong",
-	"security": "review", "fast": "primary-fast", "chat": "default",
-	"worker": "default", "scout": "fast",
-	"primary-fast": "default", "secondary-strong": "default", "secondary-fast": "primary-fast",
+	"plan": "main-strong", "implement": "main-strong", "review": "secondary-strong",
+	"security": "review", "fast": "main-fast", "chat": "main-strong",
+	"worker": "main-strong", "scout": "fast",
+	"main-fast": "main-strong", "secondary-strong": "main-strong", "secondary-fast": "main-fast",
 }
 
 var profileNameRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,23}$`)
@@ -99,36 +100,31 @@ func (s *Slots) cell(ctx context.Context, slot, profile string) (pattern string,
 	return r.Pattern, r.Pattern != "", nil
 }
 
-// resolve walks, most specific first, until a cell holds a pattern:
-//
-//	instance cell (slot, project's profile)        → that profile
-//	instance cell (slot, standard)                 → "standard"
-//	the slot's fallback (slot_fallbacks, then `default`), same lookup
-//
-// It returns the pattern, the slot that won (for receipts), and which
-// profile column decided. A slash-pattern passes through with slot "";
-// when nothing is mapped the pattern is "" with slot `default`: no model is
-// set up. Empty requested selects the default slot. Cycles end the same way.
-// Only an absent cell or fallback row passes the walk on: a failed read
-// returns its error, so a database fault never selects a less specific model
-// or reads as "no model is set up".
+// resolve walks the requested slot's whole fallback chain in the project's
+// profile before walking it in standard. A standard project needs only one walk.
+// The winning slot and profile identify the cell for receipts. Slash patterns
+// pass through. Empty requests use main-strong. Unmapped chains and cycles return
+// no model with slot main-strong. Retired choices and failed reads return errors.
 func (s *Slots) resolve(ctx context.Context, projectProfile, requested string) (pattern, slot, profile string, err error) {
+	if err := retiredChoice(requested); err != nil {
+		return "", "", "", err
+	}
 	if requested != "" && !isSlot(requested) {
 		return requested, "", "", nil
 	}
 	proj := profileOf(projectProfile)
-	seen := map[string]bool{}
-	name := requested
-	if name == "" {
-		name = "default"
+	profiles := []string{proj}
+	if proj != StandardProfile {
+		profiles = append(profiles, StandardProfile)
 	}
-	for name != "" && !seen[name] {
-		seen[name] = true
-		profiles := []string{proj}
-		if proj != StandardProfile {
-			profiles = append(profiles, StandardProfile)
+	for _, profile := range profiles {
+		seen := map[string]bool{}
+		name := requested
+		if name == "" {
+			name = "main-strong"
 		}
-		for _, profile := range profiles {
+		for name != "" && !seen[name] {
+			seen[name] = true
 			p, ok, err := s.cell(ctx, name, profile)
 			if err != nil {
 				return "", "", "", fmt.Errorf("reading the %s model slot: %w", name, err)
@@ -136,20 +132,28 @@ func (s *Slots) resolve(ctx context.Context, projectProfile, requested string) (
 			if ok {
 				return p, name, profile, nil
 			}
-		}
-		r, err := queries(s.db).SlotFallbackBySlot(ctx, name)
-		if _, err := database.Lookup(err); err != nil {
-			return "", "", "", fmt.Errorf("reading the %s model slot's fallback: %w", name, err)
-		}
-		if r.Fallback != "" {
-			name = r.Fallback
-		} else if name != "default" {
-			name = "default"
-		} else {
-			break
+			r, err := queries(s.db).SlotFallbackBySlot(ctx, name)
+			if _, err := database.Lookup(err); err != nil {
+				return "", "", "", fmt.Errorf("reading the %s model slot's fallback: %w", name, err)
+			}
+			if r.Fallback != "" {
+				name = r.Fallback
+			} else if name != "main-strong" {
+				name = "main-strong"
+			} else {
+				break
+			}
 		}
 	}
-	return "", "default", "", nil
+	return "", "main-strong", "", nil
+}
+
+// retiredChoice rejects names that no longer participate in model selection.
+func retiredChoice(slot string) error {
+	if slot == "default" || slot == "primary-fast" {
+		return fault.New(fault.Invalid, fmt.Sprintf("unknown model choice %q: edit the model request to use main-strong or main-fast; the other basic choices are secondary-strong and secondary-fast", slot))
+	}
+	return nil
 }
 
 // SeedFallbacks records the stock chain as data, only where no row says
@@ -163,7 +167,7 @@ func (s *Slots) SeedFallbacks(ctx context.Context) error {
 	return nil
 }
 
-// SetDefault replaces the `default` slot's standard cell (setup).
+// SetDefault replaces the `main-strong` slot's standard cell (setup).
 func (s *Slots) SetDefault(ctx context.Context, pattern string) error {
 	err := queries(s.db).SetDefaultSlot(ctx, modelsql.SetDefaultSlotParams{Profile: StandardProfile, Pattern: pattern, UpdatedAt: s.now().UTC()})
 	return err
@@ -171,8 +175,12 @@ func (s *Slots) SetDefault(ctx context.Context, pattern string) error {
 
 // Set maps a slot and profile, or clears the cell when pattern is empty.
 // The mapping and audit receipt commit together. Callers authorize the change;
-// who supplies attribution. Provider availability and access are not validated.
+// who supplies attribution. Retired choices are refused as invalid input.
+// Provider availability and access are not validated.
 func (s *Slots) Set(ctx context.Context, slot, profile, pattern, who string) error {
+	if err := retiredChoice(slot); err != nil {
+		return err
+	}
 	if !isSlot(slot) {
 		return errors.New("slot (no slash) required")
 	}

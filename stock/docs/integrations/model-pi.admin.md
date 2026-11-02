@@ -41,30 +41,30 @@ Integrations → Model slots. Each **model profile** has four basic choices:
 
 | Choice | Slot | Used for |
 | --- | --- | --- |
-| Main · strong | `default` | Planning, writing code, chat and delegated work |
-| Main · fast | `primary-fast` | Summaries, briefs and quick lookups |
+| Main · strong | `main-strong` | Planning, writing code, chat and delegated work |
+| Main · fast | `main-fast` | Summaries, briefs and quick lookups |
 | Second opinion · strong | `secondary-strong` | A second opinion, including reviews and security reviews |
 | Second opinion · fast | `secondary-fast` | Quick independent checks, including guidance checks and eval judges |
 
 Individual tasks are the advanced level. Workflows name a task with, for
 example, `model: review`. Set a task's cell to override its basic choice.
 The task slots are `plan`, `implement`, `review`, `security`, `fast`, `chat`,
-`worker` and `scout`. The `default` slot remains the main model and the end
+`worker` and `scout`. The `main-strong` slot remains the main model and the end
 of every fallback chain.
 
 Unset tasks follow this visible chain: `plan`, `implement`, `chat` and
-`worker` → `default`; `fast` → `primary-fast`; `scout` → `fast`;
+`worker` → `main-strong`; `fast` → `main-fast`; `scout` → `fast`;
 `review` → `secondary-strong`; `security` → `review`.
-An unset `secondary-strong` uses `default`. An unset `secondary-fast` uses
-`primary-fast`, which itself uses `default` when unset.
+An unset `secondary-strong` uses `main-strong`. An unset `secondary-fast` uses
+`main-fast`, which itself uses `main-strong` when unset.
 
 The table has a column per profile, such as `standard` or `high`.
-Each project chooses its profile. For each task, AppTown first tries the
-cell for that profile, then the `standard` cell. If neither is set, it
-follows the task's fallback and repeats the same lookup. A task set in
-`standard` therefore also takes priority over a basic choice in another
-profile. A project that needs different models gets its own profile,
-even if it is the only project on it. Set cells through the API
+Each project chooses its profile. AppTown walks the requested task and its
+fallbacks, ending at `main-strong`, using only that profile's cells. If none
+is set, it walks the same chain using `standard`'s cells. For `standard`,
+one walk is enough. A basic choice in the project's profile therefore takes
+priority over a task set in `standard`. A project that needs different models
+gets its own profile, even if it is the only project on it. Set cells through the API
 (`PUT /model-slots` with `slot`, `profile` and `pattern`). Evals compare a
 profile against the source project's profile. Both arms use the source
 profile's secondary fast model for judging.
@@ -72,3 +72,8 @@ profile's secondary fast model for judging.
 Receipts record the slot, the profile that decided, the model and
 provider that answered, and the pi runtime version baked into the agent
 image.
+
+The basic choices' names from before RC14 (listed in its release notes) fail
+at resolution and cannot be saved as slots. An unset custom name, including a typo, falls back to
+`main-strong`. Stored workflow model requests must use the current names; edit
+them by hand when changing model choices.

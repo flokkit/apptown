@@ -10,32 +10,29 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import type { ModelCatalogList, ModelSlotMatrix, ModelSlotView } from '../../wire.gen'
 
-// Model profiles: every model call names a job (a slot); a profile chooses a
-// model for each job, and each project uses one profile. A job left unset uses what it falls back to (Default,
-// in the end), and a profile's empty cell uses standard's. A project uses
-// standard unless it is moved to another profile. Selectors are fed by
-// /model-catalog.
+// Model profiles choose models for tasks. Each task follows its fallback chain
+// within the project's profile before trying the chain in standard.
 
 const fmtTokens = (n?: number) => fmtTokensShared(n ?? 0)
 // The four basic choices are named as the glossary names them; tasks by their own name.
-const BASIC: Record<string, string> = { default: 'Main · strong', 'primary-fast': 'Main · fast', 'secondary-strong': 'Second opinion · strong', 'secondary-fast': 'Second opinion · fast' }
+const BASIC: Record<string, string> = { 'main-strong': 'Main · strong', 'main-fast': 'Main · fast', 'secondary-strong': 'Second opinion · strong', 'secondary-fast': 'Second opinion · fast' }
 const jobName = (slot: string) => BASIC[slot] ?? slot.charAt(0).toUpperCase() + slot.slice(1)
 
-// effective is the model a job gets on a profile, walked as the server
-// resolves it: the profile's cell, then standard's, then the job it falls
-// back to. It names where the answer came from so an unset cell can say it.
-function effective(rows: ModelSlotView[], slot: string, profile: string): { model: string; from: string } {
+// Follow the server's profile-first resolution, including its deciding profile.
+function effective(rows: ModelSlotView[], slot: string, profile: string): { model: string; from: string; profile: string } {
   const bySlot = new Map(rows.map((r) => [r.slot, r]))
-  const seen = new Set<string>()
-  let name = slot
-  while (name && !seen.has(name)) {
-    seen.add(name)
-    const r = bySlot.get(name)
-    const m = r?.patterns[profile] || (profile !== 'standard' ? r?.patterns.standard : '')
-    if (m) return { model: m, from: name }
-    name = name === 'default' ? '' : r?.fallback || 'default'
+  for (const p of profile === 'standard' ? [profile] : [profile, 'standard']) {
+    const seen = new Set<string>()
+    let name = slot
+    while (name && !seen.has(name)) {
+      seen.add(name)
+      const r = bySlot.get(name)
+      const m = r?.patterns[p]
+      if (m) return { model: m, from: name, profile: p }
+      name = r?.fallback || (name === 'main-strong' ? '' : 'main-strong')
+    }
   }
-  return { model: '', from: '' }
+  return { model: '', from: '', profile: '' }
 }
 
 // The page's help, passed by Integrations so every menu page's help lives in one place.
@@ -138,9 +135,9 @@ export function ModelProfilePage() {
     }
     // An unset job says what it gets instead, and from where.
     const eff = effective(data.slots, row.slot, profile)
-    const unset = row.slot === 'default' && profile === 'standard' ? 'Not set'
-      : profile !== 'standard' && row.patterns.standard ? `Same as standard (${row.patterns.standard})`
-        : eff.model ? `Same as ${jobName(eff.from)} (${eff.model})` : 'Not set'
+    const unset = row.slot === 'main-strong' && profile === 'standard' ? 'Not set'
+      : eff.profile === 'standard' && profile !== 'standard' && eff.from === row.slot ? `Same as standard (${eff.model})`
+        : eff.model ? `Same as ${eff.profile === 'standard' && profile !== 'standard' ? "standard's " : ''}${jobName(eff.from)} (${eff.model})` : 'Not set'
     return (
       <select aria-label={`${jobName(row.slot)} model`}
         value={models.some((m) => m.pattern === mapped) ? mapped : mapped ? '__custom_current__' : ''}
@@ -164,8 +161,8 @@ export function ModelProfilePage() {
       <h1>{profile}</h1>
       <div className="page-head-line" style={{ marginBottom: 14 }}>
         {profile === 'standard' ? 'The default profile: every project uses it unless moved to another.'
-          : isNew ? "A new profile. Choose a model for any task to keep it; tasks left unset use standard's models."
-            : "Tasks left unset use standard's models."}
+          : isNew ? "A new profile. Choose a model for any task to keep it; tasks left unset follow this profile's basic choices, then standard's models."
+            : "Tasks left unset follow this profile's basic choices, then standard's models."}
       </div>
       <StaleNote q={slotsQ} />
       {!modelsQ.data && <ReadStatus q={modelsQ} what="the model catalogue" className="small" />}
@@ -190,7 +187,7 @@ export function ModelProfilePage() {
               <tr key={row.slot}>
                 <td className="stack-lead" style={{ verticalAlign: 'top', paddingRight: 16 }}>
                   <strong>{jobName(row.slot)}</strong>
-                  <div className="muted small">{row.slot === 'default' ? 'Used by tasks left unset' : jobName(row.gloss)}</div>
+                  <div className="muted small">{row.slot === 'main-strong' ? 'Used by tasks left unset' : jobName(row.gloss)}</div>
                 </td>
                 <td style={{ verticalAlign: 'top', paddingRight: 8 }}>{cell(row)}</td>
                 {spent && <td className="small muted" style={{ verticalAlign: 'top', whiteSpace: 'nowrap' }}>

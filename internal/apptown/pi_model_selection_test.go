@@ -36,10 +36,10 @@ func TestPiAgentSurfaceWithBakedExtension(t *testing.T) {
 	if err := slots.SeedFallbacks(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	// Instance slots: default and fast diverge, so worker and scout must too.
+	// Instance slots: main-strong and fast diverge, so worker and scout must too.
 	for slot, pattern := range map[string]string{
-		"default": "openrouter/openai/gpt-5.6-luna",
-		"fast":    "openrouter/google/gemini-3.7-flash",
+		"main-strong": "openrouter/openai/gpt-5.6-luna",
+		"fast":        "openrouter/google/gemini-3.7-flash",
 	} {
 		if err := slots.Set(context.Background(), slot, "standard", pattern, "fixture"); err != nil {
 			t.Fatal(err)
@@ -66,7 +66,7 @@ func TestPiAgentSurfaceWithBakedExtension(t *testing.T) {
 		t.Fatalf("stock roster must be off (the generated roster is the roster), got %v", s["subagents"])
 	}
 	if sub["defaultModel"] != "openrouter/openai/gpt-5.6-luna" {
-		t.Fatalf("subagent default model must be the default slot, got %v", sub["defaultModel"])
+		t.Fatalf("subagent default model must be the main-strong slot, got %v", sub["defaultModel"])
 	}
 
 	worker, err := os.ReadFile(filepath.Join(dir, "agents", "worker.md"))
@@ -74,7 +74,7 @@ func TestPiAgentSurfaceWithBakedExtension(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(worker), "model: openrouter/openai/gpt-5.6-luna") {
-		t.Fatalf("worker must run on the default slot:\n%s", worker)
+		t.Fatalf("worker must run on the main-strong slot:\n%s", worker)
 	}
 	scout, err := os.ReadFile(filepath.Join(dir, "agents", "scout.md"))
 	if err != nil {
@@ -111,7 +111,7 @@ func TestPiAgentSurfaceProjectProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	for profile, pattern := range map[string]string{"standard": "openrouter/openai/gpt-5.6-luna", "high": "anthropic/claude-sonnet-5"} {
-		if err := slots.Set(t.Context(), "default", profile, pattern, "fixture"); err != nil {
+		if err := slots.Set(t.Context(), "main-strong", profile, pattern, "fixture"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -127,6 +127,6 @@ func TestPiAgentSurfaceProjectProfile(t *testing.T) {
 	// than to a dead slot.
 	scout, _ := os.ReadFile(filepath.Join(dir, "agents", "scout.md"))
 	if !strings.Contains(string(scout), "model: anthropic/claude-sonnet-5") {
-		t.Fatalf("unmapped fast slot must fall back to default:\n%s", scout)
+		t.Fatalf("unmapped fast slot must fall back to main-strong:\n%s", scout)
 	}
 }
