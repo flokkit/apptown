@@ -199,3 +199,79 @@ func s3Settings(t *testing.T) []string {
 	}
 	return append(slices.Sorted(maps.Keys(kind.Provides)), "S3_PUBLIC_URL")
 }
+
+// The address check enforces the starter's declaration, rather than a list
+// of old hostnames or ways to call getenv. Either half of the old starter
+// must fail independently, and the current starter must pass as evaluated.
+func TestWordPressAddressCheckUsesTheStarterDeclaration(t *testing.T) {
+	t.Parallel()
+	check := sourcedNamed(t, "lang/selection/wordpress-bedrock", "deployment-home")
+	if check.Check.Severity != "high" {
+		t.Fatal("a broken deployment address must be a high-severity fleet finding")
+	}
+	read := func(path string) string {
+		t.Helper()
+		raw, err := stock.FS.ReadFile("seeds/wordpress/" + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(raw)
+	}
+	php, spec := read("config/application.php"), read("secretspec.toml")
+	start := strings.Index(php, "function deployment_home()")
+	const end = "define('WP_SITEURL', $home . '/wp');"
+	stop := strings.Index(php, end)
+	if start < 0 || stop < start || !strings.Contains(check.Check.Sh, php[start:stop+len(end)]) {
+		t.Fatal("the check's address block differs from the starter's own declaration")
+	}
+	parsed, err := secret.ParseSpec([]byte(spec))
+	if err != nil {
+		t.Fatal(err)
+	}
+	optional := false
+	for _, s := range parsed.SecretsIn("default") {
+		if s.Name == "WP_HOME" {
+			optional = !s.Required
+		}
+	}
+	if !optional {
+		t.Fatal("the starter must declare WP_HOME optional")
+	}
+	oldPHP := php[:start] + "$home = rtrim(required_env('WP_HOME'), '/');\n" + php[stop:]
+	oldSpec := strings.Replace(spec, "required = false", "required = true", 1)
+	for _, tc := range []struct {
+		name, php, spec string
+		pass            bool
+	}{
+		{"current starter", php, spec, true},
+		{"old starter", oldPHP, oldSpec, false},
+		{"old address only", oldPHP, spec, false},
+		{"required secret only", php, oldSpec, false},
+		{"helper bypassed", strings.Replace(php, "rtrim(deployment_home(),", "rtrim(required_env('WP_HOME'),", 1), spec, false},
+		{"origins ignored", strings.Replace(php, "getenv('APPTOWN_ORIGINS')", "getenv('OLD_ORIGINS')", 1), spec, false},
+		{"required profile override", php, spec + "\n[profiles.preview]\nWP_HOME = {required = true}\n", false},
+		{"missing application", "", spec, false},
+		{"missing spec", php, "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			files := map[string]string{".apptown/app.yaml": seedContractNaming(t, "wordpress", []string{"php"})}
+			if tc.php != "" {
+				files["config/application.php"] = tc.php
+			}
+			if tc.spec != "" {
+				files["secretspec.toml"] = tc.spec
+			}
+			writeTree(t, dir, files)
+			results, findings, errs := NewEvaluator(localChecks{}, nil, stock.Versions()).runShChecks(t.Context(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, "t-wordpress-home")
+			want, count := workflow.VerdictFail, 1
+			if tc.pass {
+				want, count = workflow.VerdictPass, 0
+			}
+			if errs != 0 || len(results) != 1 || results[0].Verdict != want || len(findings) != count {
+				t.Fatalf("want %s and %d findings: results=%+v findings=%+v errors=%d", want, count, results, findings, errs)
+			}
+		})
+	}
+}
