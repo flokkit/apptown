@@ -9,10 +9,13 @@
   "branchConcurrentLimit": 1,
   "prHourlyLimit": 1,
   "automerge": false,
+  "lockFileMaintenance": {
+    "enabled": true
+  },
   "rebaseWhen": "conflicted",
   "minimumReleaseAge": "3 days",
   "reviewers": ["bls"],
-  "enabledManagers": ["gomod", "npm", "github-actions", "dockerfile", "composer", "custom.regex", "mise"],
+  "enabledManagers": ["gomod", "npm", "github-actions", "dockerfile", "composer", "custom.regex", "mise", "docker-compose"],
   "ignorePaths": ["**/node_modules/**", "**/testdata/**", "eval/**"],
   "customManagers": [
     {
@@ -63,13 +66,6 @@
       "matchStrings": ["dotnet = \"(?<currentValue>[^\"]+)\""],
       "depNameTemplate": "dotnet-sdk",
       "datasourceTemplate": "dotnet-version"
-    },
-    {
-      "customType": "regex",
-      "managerFilePatterns": ["/^stock/dependencies/s3\\.yaml$/"],
-      "matchStrings": ["  image: (?<depName>[^\\s:]+):(?<currentValue>[^\\s@]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?"],
-      "datasourceTemplate": "docker",
-      "versioningTemplate": "docker"
     },
     {
       "customType": "regex",
@@ -142,6 +138,72 @@
       "matchStrings": ["(?:^|\\n)(?:alpine-git|caddy)[ \\t]+(?<currentValue>\\S+)[ \\t]+image (?<depName>[^\\s,]+)"],
       "datasourceTemplate": "docker",
       "versioningTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^Makefile$/"],
+      "matchStrings": ["SEMGREP_IMAGE = (?<depName>[^\\s:]+):(?<currentValue>[^\\s@]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?"],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^stock/(?:packs\\.yaml|dependencies/[^/]+\\.yaml)$/", "/^internal/dbtest/suite\\.go$/", "/^internal/apptown/dbboot\\.go$/"],
+      "matchStrings": ["(?:image: |client: |\\\")(?<depName>[a-z][a-z0-9./-]*):(?<currentValue>v?[0-9][a-zA-Z0-9_.-]*)(?:@(?<currentDigest>sha256:[a-f0-9]+))?"],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^deploy/ci-heavy/Dockerfile$/"],
+      "matchStrings": ["ARG PLAYWRIGHT_VERSION=(?<currentValue>\\S+)"],
+      "depNameTemplate": "playwright",
+      "datasourceTemplate": "npm",
+      "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^deploy/ci-heavy/Dockerfile$/"],
+      "matchStrings": ["ARG DOCKER_BUILDX_VERSION=(?<currentValue>\\S+)\\nARG DOCKER_BUILDX_SHA256=(?<currentDigest>[a-f0-9]{64})"],
+      "depNameTemplate": "docker/buildx",
+      "datasourceTemplate": "github-release-attachments",
+      "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^deploy/ci-heavy/Dockerfile$/"],
+      "matchStrings": ["ARG DOCKER_COMPOSE_VERSION=(?<currentValue>\\S+)\\nARG DOCKER_COMPOSE_SHA256=(?<currentDigest>[a-f0-9]{64})"],
+      "depNameTemplate": "docker/compose",
+      "datasourceTemplate": "github-release-attachments",
+      "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^deploy/ci-heavy/Dockerfile$/"],
+      "matchStrings": ["ARG OXIPNG_VERSION=(?<version>\\S+)\\nARG OXIPNG_SHA256=(?<currentDigest>[a-f0-9]{64})"],
+      "depNameTemplate": "shssoichiro/oxipng",
+      "datasourceTemplate": "github-release-attachments",
+      "versioningTemplate": "semver",
+      "currentValueTemplate": "v{{{version}}}",
+      "autoReplaceStringTemplate": "ARG OXIPNG_VERSION={{{replace '^v' '' newValue}}}\nARG OXIPNG_SHA256={{{newDigest}}}"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^stock/seeds/wordpress/Dockerfile$/"],
+      "matchStrings": ["https://github.com/wp-cli/wp-cli/releases/download/(?<currentValue>v[0-9.]+)/wp-cli-[0-9.]+\\.phar -o /usr/local/bin/wp-cli.phar \\\\\\n    && echo \\'(?<currentDigest>[a-f0-9]{64})"],
+      "depNameTemplate": "wp-cli/wp-cli",
+      "datasourceTemplate": "github-release-attachments",
+      "versioningTemplate": "semver",
+      "autoReplaceStringTemplate": "https://github.com/wp-cli/wp-cli/releases/download/{{{newValue}}}/wp-cli-{{{replace '^v' '' newValue}}}.phar -o /usr/local/bin/wp-cli.phar \\\n    && echo '{{{newDigest}}}"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^stock/seeds/wordpress/composer\\.json$/"],
+      "matchStrings": ["\"platform\": \\{\\s*\"php\": \"(?<currentValue>[0-9.]+)\""],
+      "depNameTemplate": "php",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker",
+      "extractVersionTemplate": "^(?<version>[0-9.]+)-apache-bookworm$"
     }
   ],
   "packageRules": [
@@ -274,9 +336,10 @@
       "groupName": "project scanner hadolint"
     },
     {
-      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go", "stock/tool-versions.yaml"],
       "matchPackageNames": ["barichello/godot-ci"],
-      "groupName": "project scanner godot-ci"
+      "groupName": "project scanner godot-ci",
+      "allowedVersions": "/^4\\.4(?:\\.|-|$)/"
     },
     {
       "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
@@ -349,12 +412,6 @@
     },
     {
       "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
-      "matchPackageNames": ["barichello/godot-ci"],
-      "allowedVersions": "/^4\\.4(?:\\.|\\+|-|$)/",
-      "groupName": "stock Godot 4.4"
-    },
-    {
-      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
       "matchPackageNames": ["php"],
       "allowedVersions": "/^8\\.3(?:\\.|\\+|-|$)/",
       "groupName": "stock PHP 8.3"
@@ -378,7 +435,7 @@
       "groupName": "stock Redis 7"
     },
     {
-      "matchFileNames": ["stock/toolchains/node.toml", "stock/toolchains/python.toml", "stock/toolchains/ruby.toml", "stock/toolchains/dotnet.toml", "stock/dependencies/postgres.yaml", "stock/dependencies/redis.yaml"],
+      "matchFileNames": ["stock/toolchains/node.toml", "stock/toolchains/python.toml", "stock/toolchains/ruby.toml", "stock/toolchains/dotnet.toml", "stock/dependencies/postgres.yaml", "stock/dependencies/redis.yaml", "stock/dependencies/mariadb.yaml"],
       "enabled": false
     },
     {
@@ -412,6 +469,57 @@
       "allowedVersions": "/^29(?:\\.|$)/",
       "groupName": "deployment Docker 29",
       "prBodyNotes": ["These CLI and daemon bases are separate from the private Docker runtime. Runtime and deployment acceptance remain manual."]
+    },
+    {
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["indirect"],
+      "enabled": true
+    },
+    {
+      "description": "App runtime, scanner execution and starter base changes need qualification before landing; dashboard approval only opens a proposal.",
+      "matchDatasources": ["docker"],
+      "automerge": false,
+      "addLabels": ["qualification-required"]
+    },
+    {
+      "description": "Stock language versions change the environment apps build and run in; qualify even patch releases.",
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "automerge": false,
+      "addLabels": ["qualification-required"]
+    },
+    {
+      "matchFileNames": ["deploy/ci-heavy/Dockerfile"],
+      "matchDatasources": ["npm", "github-release-attachments"],
+      "groupName": "heavy CI tools"
+    },
+    {
+      "matchFileNames": ["stock/packs.yaml"],
+      "matchPackageNames": ["mariadb"],
+      "groupName": "stock MariaDB 11.4",
+      "allowedVersions": "/^11\\.4(?:\\.|$)/"
+    },
+    {
+      "description": "Pack PostgreSQL selectors and the test database deliberately track major 16; adding a line requires a deliberate compatibility decision.",
+      "matchFileNames": ["stock/packs.yaml", "internal/dbtest/suite.go", "internal/apptown/dbboot.go"],
+      "matchPackageNames": ["postgres"],
+      "allowedVersions": "/^16(?:\\.|-|$)/",
+      "groupName": "Postgres 16 images"
+    },
+    {
+      "description": "The Composer platform version must follow the PHP image that runs the WordPress starter.",
+      "matchFileNames": ["stock/seeds/wordpress/**"],
+      "matchPackageNames": ["php"],
+      "allowedVersions": "/^8\\.3(?:\\.|-|$)/",
+      "groupName": "WordPress PHP runtime",
+      // A regex manager does not regenerate composer.lock, whose content hash includes config.platform.
+      "prBodyNotes": ["Before landing, run `composer update --lock` in stock/seeds/wordpress so composer.lock matches the new platform PHP version."]
+    },
+    {
+      "description": "S3 copy tooling uses Python 3.13 independently of the stock Python 3.12 language line.",
+      "matchFileNames": ["stock/dependencies/s3.yaml"],
+      "matchPackageNames": ["python"],
+      "allowedVersions": "/^3\\.13(?:\\.|-|$)/",
+      "groupName": "S3 Python client"
     }
   ],
   "vulnerabilityAlerts": {
