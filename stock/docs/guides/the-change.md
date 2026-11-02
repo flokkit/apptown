@@ -150,6 +150,11 @@ why. They stay with the run's record. Previews need their own address (a
 preview domain) for this; an AppTown whose previews answer only on a port
 of its own host takes none.
 
+The record lists up to 50 resources the browser failed to load and says how
+many more failed. Requests the browser cancelled are not failures. A review
+gets the same pictures and resource list, names the preview and review
+commits, and warns that pictures may be stale when those commits differ.
+
 A platform that can answer these has captured the value of the work.
 A platform that can only show you where the agents ran has captured
 its own reflection.

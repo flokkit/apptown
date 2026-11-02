@@ -104,6 +104,10 @@ func (a *Executor) startAgentSandbox(ctx context.Context, run *workflow.Run, ste
 			if err != nil {
 				return env, "", cleanup, err
 			}
+			cfg.needsStarted, err = a.describeNeeds(ctx, depSvcs)
+			if err != nil {
+				return env, "", cleanup, err
+			}
 			cfg.Services = append(cfg.Services, depSvcs...)
 			for key, v := range depEnv {
 				env = append(env, key+"="+v)

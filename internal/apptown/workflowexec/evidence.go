@@ -6,16 +6,17 @@ import "github.com/flokkit/apptown/internal/execution"
 // elsewhere (usage accounting, the model slot report, the live feed), so
 // nothing here is omitempty unless it was conditional before.
 type agentEvidence struct {
-	Model            string `json:"model"`
-	ModelSlot        string `json:"modelSlot"`
-	ModelProfile     string `json:"modelProfile"`
-	PiVersion        string `json:"piVersion"`
-	SteeringHash     string `json:"steeringHash"`
-	ScmAccess        string `json:"scmAccess"`
-	GlabVersion      string `json:"glabVersion"`
-	SubagentsVersion string `json:"subagentsVersion"`
-	Provider         string `json:"provider"`
-	Usage            any    `json:"usage"`
+	Needs            needsEvidence `json:"needs"`
+	Model            string        `json:"model"`
+	ModelSlot        string        `json:"modelSlot"`
+	ModelProfile     string        `json:"modelProfile"`
+	PiVersion        string        `json:"piVersion"`
+	SteeringHash     string        `json:"steeringHash"`
+	ScmAccess        string        `json:"scmAccess"`
+	GlabVersion      string        `json:"glabVersion"`
+	SubagentsVersion string        `json:"subagentsVersion"`
+	Provider         string        `json:"provider"`
+	Usage            any           `json:"usage"`
 	// UsageIncomplete, when present, says why the usage recorded for the
 	// step may be lower than what it spent: a transcript not read whole.
 	UsageIncomplete string         `json:"usageIncomplete,omitempty"`

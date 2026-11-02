@@ -250,3 +250,19 @@ it('names script checks individually and makes each receipt the disclosure', () 
  expect(html).not.toContain('<summary>Details</summary>')
  expect(html).toContain('Kind: Script')
 })
+
+it('shows preview resource failures and the needs given to an agent', () => {
+ const preview = { type: 'preview', status: 'pass', evidence: { url: 'https://preview.example', screenshots: { failedResources: [{ url: 'dead.example/style.css', status: 404 }] } } } as Step
+ expect(receiptOf(preview).sentence).toContain('1 resource failed to load')
+ const agent = { type: 'agent/pi', status: 'pass', evidence: { needs: { started: [{ kind: 'mariadb', env: ['DATABASE_URL'] }], refused: 's3 unavailable' } } } as Step
+ expect(receiptOf(agent).sentence).toContain('Needs started: mariadb (DATABASE_URL)')
+ expect(receiptOf(agent).sentence).toContain('Needs refused: s3 unavailable')
+ agent.status = 'fail'
+ agent.evidence.reason = 'tests failed'
+ expect(receiptOf(agent).sentence).toContain('Needs started: mariadb (DATABASE_URL)')
+})
+
+it('counts omitted preview resource failures in the receipt', () => {
+ const preview = { type: 'preview', status: 'pass', evidence: { screenshots: { failedResources: [{ url: 'example.test/a', status: 404 }], failedResourcesMore: 7 } } } as Step
+ expect(receiptOf(preview).sentence).toContain('8 resources failed to load')
+})

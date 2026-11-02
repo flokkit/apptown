@@ -37,6 +37,11 @@ files define their state vocabulary. [objects.go](objects.go) holds the pure
 record rules. Generated SQL lives in `internal/workflowsql`; application callers
 do not use it directly.
 
+`ReadRunBinaryArtifactIn` supplies an admitted runner with one artifact's binary
+body and expected kind, checking both Run and Project scope in the body query.
+Review execution uses it to supply AppTown's recorded preview PNGs to agents;
+text artifact selection continues to exclude binary bodies.
+
 A step's evidence is its runner's own JSON, except for the facts other owners
 judge. Approvals are typed in [approval.go](approval.go). A check step's
 receipts, check errors, undecided findings and placement are typed in

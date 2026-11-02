@@ -165,6 +165,12 @@ func (a *shipping) screenshots(ctx context.Context, run *workflow.Run, url, comm
 		ev["ignored"] = ignored
 	}
 	c := a.shots.Take(ctx, url, pages)
+	if c.FailedResources != nil {
+		ev["failedResources"] = c.FailedResources
+		if c.FailedResourcesMore > 0 {
+			ev["failedResourcesMore"] = c.FailedResourcesMore
+		}
+	}
 	if len(c.Missing) > 0 {
 		ev["missing"] = c.Missing
 	}

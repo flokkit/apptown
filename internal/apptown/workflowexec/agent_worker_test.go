@@ -964,6 +964,18 @@ func TestPrivateDockerOnTheWorkerIsFrozenInTheRequest(t *testing.T) {
 	f := agentOnWorkerFixture(t, map[string]any{"docker": true, "needs": true, "services": []map[string]any{{"name": "cache", "image": "redis:7-alpine"}}})
 	f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres:\n    database: sourdough\n"})
 	req := f.build(t)
+	prompt := req.spec.Argv[len(req.spec.Argv)-1]
+	for _, words := range []string{"AppTown started", "postgres: DATABASE_URL", "integration and end-to-end tests"} {
+		if !strings.Contains(prompt, words) {
+			t.Errorf("prompt lacks %q: %s", words, prompt)
+		}
+	}
+	if strings.Contains(prompt, "postgres://postgres/sourdough") {
+		t.Error("prompt exposes connection values")
+	}
+	if len(req.needs.Started) != 1 || req.needs.Started[0].Kind != "postgres" || strings.Join(req.needs.Started[0].Env, ",") != "DATABASE_URL" {
+		t.Fatalf("needs evidence: %+v", req.needs)
+	}
 	p := req.spec.Private
 	if p == nil || !p.Daemon || len(p.Services) != 2 || p.Services[0].Name != "cache" || p.Services[1].Name != "postgres" ||
 		p.Services[1].Image != "postgres:16-alpine" || p.Services[1].Env["POSTGRES_DB"] != "sourdough" {

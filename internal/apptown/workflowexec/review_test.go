@@ -283,7 +283,7 @@ func TestTheReviewerIsShownThePersonsSendBackNote(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		b, err := executor.reviewBrief(ctx, r, workflow.Source{}, reviewConfig{}, "the diff", func(context.Context) (string, []repositoryedit.ChangedFile, error) { return "", nil, nil })
+		b, err := executor.reviewBrief(ctx, r, workflow.Source{}, reviewConfig{}, "the diff", "", func(context.Context) (string, []repositoryedit.ChangedFile, error) { return "", nil, nil })
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -338,7 +338,7 @@ func TestAReviewStepsOwnQuestionReplacesTheSharedOne(t *testing.T) {
 		{"", []string{"1. " + shared, alreadyMet, "- the request not fully satisfied, or", `verdict must be "fail" if the request is not fully satisfied`}, []string{"question 1"}},
 		{own, []string{"1. Is the report an honest account of trying to reproduce the bug in Review the change?", "- the answer to question 1 is no, or", "If the answer to question 1 is yes and", `verdict must be "fail" if the answer to question 1 is no`}, []string{shared, alreadyMet, "fully satisfied", "fully satisfies"}},
 	} {
-		b, err := executor.reviewBrief(ctx, r, workflow.Source{}, reviewConfig{Question: c.question}, "the diff", scope)
+		b, err := executor.reviewBrief(ctx, r, workflow.Source{}, reviewConfig{Question: c.question}, "the diff", "", scope)
 		if err != nil {
 			t.Fatal(err)
 		}

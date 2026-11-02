@@ -31,6 +31,9 @@ func TestAnAgentIsToldOfTheNeedsAReleaseRefusesAndTestsRefuseThem(t *testing.T) 
 			body := "app: {web: {image: nginx, public: true}}\nneeds: " + declaration + "\n"
 			f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": body})
 			req := f.build(t)
+			if req.needs.Refused == "" || !strings.Contains(req.spec.Argv[len(req.spec.Argv)-1], "apptown complain") {
+				t.Fatalf("missing refusal evidence or complaint instruction: %+v", req.needs)
+			}
 			if req.spec.Private != nil && len(req.spec.Private.Services) > 0 {
 				t.Errorf("worker agent started need services: %+v", req.spec.Private.Services)
 			}
@@ -62,5 +65,15 @@ func TestAnAgentIsToldOfTheNeedsAReleaseRefusesAndTestsRefuseThem(t *testing.T) 
 				t.Errorf("local agent: %v, services %+v", err, cfg.Services)
 			}
 		})
+	}
+}
+
+func TestNeedsRefusalDistinguishesAppMistakesFromMissingKinds(t *testing.T) {
+	t.Parallel()
+	prompt := (needsEvidence{Refused: "bad declaration"}).prompt()
+	for _, want := range []string{"If the app declares a need incorrectly (including parse errors or bad parameters), fix .apptown/app.yaml as part of this change", "Only when a correctly declared kind is missing from the catalogue, file `apptown complain`"} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("missing refusal guidance %q: %s", want, prompt)
+		}
 	}
 }

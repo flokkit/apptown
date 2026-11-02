@@ -2,6 +2,7 @@ package workflowexec
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -41,7 +42,7 @@ func TestUnreadWorkerEventsCannotPassWithWrittenOutput(t *testing.T) {
 			}
 			var err error
 			got, err = f.exec.recordAgentOutcome(ctx, agentRecord{
-				task: task, cfg: &agentConfig{},
+				task: task, cfg: &agentConfig{needsStarted: []needStarted{{Kind: "mariadb", Env: []string{"DATABASE_URL"}}}, needsRefused: "s3 unavailable"},
 				pi:     piResult{Outcome: execution.Outcome{Termination: execution.Exited, ExitCode: 0}},
 				files:  workspaceHarvest{Output: "# completed report"},
 				worker: &workerRecord{outputUnread: "the invocation's events are over the 62 MiB read"},
@@ -56,10 +57,27 @@ func TestUnreadWorkerEventsCannotPassWithWrittenOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := work.StartRun(ctx, workflow.StartChangeRun{ChangeID: change.ID, Workflow: "write"}); err != nil {
+	run, err := work.StartRun(ctx, workflow.StartChangeRun{ChangeID: change.ID, Workflow: "write"})
+	if err != nil {
 		t.Fatal(err)
 	}
 	work.Wait()
+	steps, err := workflow.ReadScopedStepsIn(ctx, f.exec.db, workflow.RunRef{ID: run.ID, ProjectID: f.call.run.ProjectID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var evidence struct {
+		Needs needsEvidence `json:"needs"`
+	}
+	if len(steps) != 1 {
+		t.Fatalf("steps: %v", steps)
+	}
+	if err := json.Unmarshal(steps[0].Evidence, &evidence); err != nil {
+		t.Fatal(err)
+	}
+	if len(evidence.Needs.Started) != 1 || evidence.Needs.Started[0].Kind != "mariadb" || evidence.Needs.Refused != "s3 unavailable" {
+		t.Fatalf("recorded needs: %+v", evidence.Needs)
+	}
 	if got != workflow.StatusError {
 		t.Fatalf("unread worker events with written output settled as %s; want error", got)
 	}

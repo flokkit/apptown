@@ -1,4 +1,4 @@
-import { fmtStamp } from './format'
+import { count, fmtStamp } from './format'
 import { useEffect, useState } from 'react'
 import { get } from './api'
 import type { PreviewScreenshots } from './api'
@@ -63,6 +63,10 @@ export function Screenshots({ shots, head, at }: { shots?: PreviewScreenshots; h
           </div>
         </>
       )}
+      {!!shots.failedResources?.length && <details className="warn small">
+        <summary>{count(shots.failedResources.length + (shots.failedResourcesMore ?? 0), 'resource')} failed to load</summary>
+        <ul>{shots.failedResources.map((r, i) => <li key={i}>{r.path} · {r.view} · {r.type}: {r.url} — {r.status ?? r.error}</li>)}{!!shots.failedResourcesMore && <li>and {shots.failedResourcesMore} more</li>}</ul>
+      </details>}
       {shots.unavailable && <div className="error small">Screenshots could not be taken: {shots.unavailable}</div>}
       {(shots.missing?.length ?? 0) > 0 && <div className="muted small">Not pictured: {shots.missing!.join('; ')}</div>}
       {(shots.ignored?.length ?? 0) > 0 && <div className="muted small">Pages named but not on the preview: {shots.ignored!.join(', ')}</div>}

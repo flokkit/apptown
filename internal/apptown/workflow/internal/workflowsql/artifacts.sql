@@ -88,3 +88,7 @@ SELECT (sqlc.arg(kinds)::text[])[i]::text AS kind
 FROM generate_subscripts(sqlc.arg(kinds)::text[],1) AS requested(i)
 WHERE NOT EXISTS(SELECT 1 FROM artifacts a JOIN runs r ON r.id=a.run_id
  WHERE r.project_id=sqlc.arg(project_id) AND a.kind<>'agent-reported' AND a.kind=(sqlc.arg(kinds)::text[])[i]) ORDER BY i;
+
+-- name: RunArtifactBody :one
+SELECT a.kind,a.body,a.body_bytes FROM artifacts a JOIN runs r ON r.id=a.run_id
+WHERE a.id=sqlc.arg(id) AND a.run_id=sqlc.arg(run_id) AND r.project_id=sqlc.arg(project_id);

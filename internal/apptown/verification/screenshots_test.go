@@ -5,10 +5,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"net/url"
+	"os"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/trust"
@@ -139,5 +142,45 @@ func TestScreenshotsThatDidNotRunAreUnavailable(t *testing.T) {
 	}
 	if c := NewScreenshots(Executor{Run: func(context.Context, execution.Request) execution.Outcome { panic("ran") }, AgentImage: "a"}, nil).Take(context.Background(), "javascript:alert(1)", nil); c.Unavailable == "" {
 		t.Fatal("a non-web address was opened")
+	}
+}
+
+func TestCaptureKeepsResourceFailuresEvenWhenThePageHasNoPicture(t *testing.T) {
+	report := []byte(`{"pages":[{"name":"1-desktop","reason":"timeout","failedResources":[{"type":"Stylesheet","url":"assets.example/style.css","status":404}]},{"name":"unasked","failedResources":[{"url":"ignored"}]}]}`)
+	c := readCapture(report, []want{{"1-desktop", "/", desktop}})
+	if len(c.FailedResources) != 1 {
+		t.Fatalf("failures: %+v", c.FailedResources)
+	}
+	f := c.FailedResources[0]
+	if f.Path != "/" || f.View != "desktop" || f.URL != "assets.example/style.css" || f.Type != "Stylesheet" || f.Status != 404 {
+		t.Fatalf("failure: %+v", f)
+	}
+}
+
+func TestCaptureCapsResourceFailuresAcrossPagesAndCountsTheRest(t *testing.T) {
+	t.Parallel()
+	failures := make([]FailedResource, 31)
+	for i := range failures {
+		failures[i] = FailedResource{URL: "example.test/image.png", Status: 404}
+	}
+	report, err := json.Marshal(map[string]any{"pages": []map[string]any{{"name": "one", "failedResources": failures}, {"name": "two", "failedResources": failures}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := readCapture(report, []want{{"one", "/", desktop}, {"two", "/two", desktop}})
+	if len(c.FailedResources) != 50 || c.FailedResourcesMore != 12 {
+		t.Fatalf("got %d failures and %d more", len(c.FailedResources), c.FailedResourcesMore)
+	}
+	if c.FailedResources[49].Path != "/two" {
+		t.Fatal("lost failures on the second page")
+	}
+}
+
+func TestBrowserCancelledResourcesAreNotFailures(t *testing.T) {
+	t.Parallel()
+	executiontest.Files(t, "shoot.mjs", "testdata/shoot-events.mjs")
+	out := (execution.Runner{}).Run(t.Context(), execution.Local, execution.Request{Argv: []string{"node", "--experimental-vm-modules", "testdata/shoot-events.mjs"}, Env: os.Environ(), Timeout: time.Minute})
+	if !out.Exited0() {
+		t.Fatalf("DevTools resource events: %v\n%s", out.RunErr, out.Output)
 	}
 }

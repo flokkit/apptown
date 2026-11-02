@@ -65,7 +65,22 @@ const send = (method, params = {}, sessionId) => new Promise((resolve, reject) =
 // comes back, is not pictured.
 async function shoot(p, deadline) {
   const origin = new URL(p.url).origin
-  const out = { name: p.name, url: p.url, finalUrl: '' }
+  const out = { name: p.name, url: p.url, finalUrl: '', failedResources: [] }
+  const requests = new Map()
+  const failures = new Map()
+  const resourceTypes = new Set(['Stylesheet', 'Script', 'Image', 'Font'])
+  const failed = (id, result) => {
+    const request = requests.get(id)
+    if (!request) return
+    try {
+      const u = new URL(request.url)
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return
+      // Queries and credentials can contain secrets. Keep only host and path.
+      const failure = { type: request.type, url: u.host + u.pathname, ...result }
+      failures.set(id, failure)
+      out.failedResources = [...failures.values()]
+    } catch {}
+  }
   const left_ = () => deadline - Date.now()
   const within = (promise, what) => left_() <= 0 ? Promise.reject(new Error(what)) : withTimeout(promise, left_(), what)
   let targetId = ''
@@ -81,6 +96,20 @@ async function shoot(p, deadline) {
     if (msg.sessionId !== sessionId) return
     if (msg.method === 'Network.requestWillBeSent' && msg.params.type === 'Document' && msg.params.frameId === mainFrame) offOrigin(msg.params.request.url)
     if (msg.method === 'Page.frameNavigated' && !msg.params.frame.parentId) { out.finalUrl = msg.params.frame.url; offOrigin(msg.params.frame.url) }
+    if (msg.method === 'Network.requestWillBeSent' && resourceTypes.has(msg.params.type)) {
+      requests.set(msg.params.requestId, { type: msg.params.type, url: msg.params.request.url })
+    }
+    if (msg.method === 'Network.responseReceived' && resourceTypes.has(msg.params.type) && msg.params.response.status >= 400) {
+      failed(msg.params.requestId, { status: msg.params.response.status })
+    }
+    // Chromium can abort a stylesheet on its MIME check before emitting
+    // responseReceived. ExtraInfo still carries the HTTP failure status.
+    if (msg.method === 'Network.responseReceivedExtraInfo' && msg.params.statusCode >= 400) {
+      failed(msg.params.requestId, { status: msg.params.statusCode })
+    }
+    if (msg.method === 'Network.loadingFailed' && !msg.params.canceled && !failures.has(msg.params.requestId)) {
+      failed(msg.params.requestId, { error: msg.params.errorText })
+    }
     if (msg.method === 'Page.loadEventFired') loaded = true
   }
   listeners.add(onEvent)

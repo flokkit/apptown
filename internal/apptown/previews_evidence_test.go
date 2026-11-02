@@ -380,7 +380,7 @@ const onePixelPNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP
 // shotsAnswer is the driver's report a capture answers with
 // (workerCheckDocker): two pictures of the home page, and a named page that
 // left the preview.
-const shotsAnswer = `{"pages":[{"name":"1-desktop","png":"` + onePixelPNG + `"},{"name":"1-phone","png":"` + onePixelPNG + `"},{"name":"2-desktop","reason":"left the preview for https://elsewhere.example/"}]}`
+const shotsAnswer = `{"pages":[{"name":"1-desktop","failedResources":[{"type":"Stylesheet","url":"assets.example/style.css","status":404}],"png":"` + onePixelPNG + `"},{"name":"1-phone","png":"` + onePixelPNG + `"},{"name":"2-desktop","reason":"left the preview for https://elsewhere.example/"}]}`
 
 // bootWithShots boots a run's preview on an AppTown with a preview domain
 // and reads the boot step back.
@@ -446,8 +446,9 @@ func bootWithShots(t *testing.T, report string) (*App, *workflow.Step) {
 type shotsEvidence struct {
 	Commit      string
 	Screenshots struct {
-		Commit string
-		Shots  []struct {
+		Commit          string
+		FailedResources []verification.FailedResource
+		Shots           []struct {
 			Artifact ids.ID
 			Path     string
 			View     string
@@ -471,6 +472,9 @@ func TestABootRecordsScreenshotsOfThePreviewItBooted(t *testing.T) {
 	}
 	if ev.Commit == "" || ev.Screenshots.Commit != ev.Commit || len(ev.Screenshots.Shots) != 2 || ev.Screenshots.Unavailable != "" {
 		t.Fatalf("evidence: %s", step.Evidence)
+	}
+	if len(ev.Screenshots.FailedResources) != 1 || ev.Screenshots.FailedResources[0].Status != 404 || ev.Screenshots.FailedResources[0].URL != "assets.example/style.css" {
+		t.Fatalf("lost failed resources: %s", step.Evidence)
 	}
 	if !strings.Contains(strings.Join(ev.Screenshots.Missing, ";"), "/orders · desktop: left the preview") {
 		t.Fatalf("the named page's reason was lost: %v", ev.Screenshots.Missing)

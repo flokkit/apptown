@@ -70,6 +70,7 @@ export type ApprovalEvidence = EvidenceBase & {
   evalAuthorised?: string
 }
 export type AgentEvidence = EvidenceBase & {
+  needs?: { started?: { kind: string; env: string[] }[]; refused?: string }
   provider?: string; model?: string; output?: string
   guidanceHash?: string; skills?: Record<string, unknown>
   files?: string[]
@@ -99,6 +100,8 @@ export type ScanEvidence = EvidenceBase & {
 // A boot step's screenshots (workflowexec.screenshots): AppTown's own
 // pictures of the preview it booted, from commit, each an artifact.
 export type PreviewScreenshots = {
+  failedResourcesMore?: number
+  failedResources?: { path: string; view: string; type: string; url: string; status?: number; error?: string }[]
   commit?: string
   shots?: { artifact: string; path: string; view: string }[]
   missing?: string[]
