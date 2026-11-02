@@ -32,6 +32,9 @@ A failed personal-token, browser-session or MCP OAuth identity lookup returns
 a fallback to another identity source. MCP sends no authentication challenge
 for this unavailable state; browser OAuth issues no consent or code. Unknown,
 revoked and disabled credentials retain their normal refusal behavior.
+In internal mode, a cookie with no live session is signed out: `/auth/me` returns
+its visitor response and protected routes return 401. Both clear the cookie.
+A session-store read failure preserves the cookie and returns an error.
 
 `--auth-header` names the trusted proxy user header. `--auth-proxy-secret-env`
 names the environment variable containing its shared secret. Configure these with

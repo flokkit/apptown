@@ -3,6 +3,7 @@ package dataprotection
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -49,7 +50,8 @@ func TestProtectionFailureExplainsRetainedEvidenceAndRecovery(t *testing.T) {
 	if got.Unknown || got.Stale {
 		t.Fatalf("nine minutes is not overdue: %+v", got)
 	}
-	result = &Protection{Unknown: "provider secret and private volume"}
+	result = &Protection{}
+	result.recordDataFailure(errors.New("provider secret and private volume"))
 	if err := observer.run(t.Context(), dep.ID, identity); err == nil || err.Error() != result.Unknown {
 		t.Fatalf("held-data failure was reported as a successful job: %v", err)
 	}
@@ -88,7 +90,6 @@ func TestProtectionReasonsNameTheFailedCheckWithoutProviderDetails(t *testing.T)
 		protection Protection
 		reason     string
 	}{
-		{"held data", Protection{Unknown: "private volume and provider secret"}, "The deployment's data could not be read."},
 		{"declared data", Protection{Coverage: Coverage{NotAssessed: []string{"private volume"}}}, "Protection could not be assessed for some declared data."},
 		{"copy", Protection{Items: []ItemProtection{{Copy: copyUnknown}}}, "The latest data copy was interrupted."},
 		{"native", Protection{Items: []ItemProtection{{Native: &NativeBackups{Unknown: "provider secret"}}}}, "The provider backup check failed."},
@@ -181,5 +182,67 @@ func TestNativeReadingFreshnessIsClassifiedByOwner(t *testing.T) {
 	}
 	if !nativeBackupAt(n, at.Add(20*time.Minute)).Stale || n.Unknown != "" {
 		t.Fatalf("old reading: %+v", n)
+	}
+}
+
+func TestProtectionFirstReadingDoesNotClaimFailure(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+	got := protectionSnapshotAt(ProtectionSnapshot{}, at)
+	if got.Reason != "Backups have not been checked yet." || !got.AttemptedAt.IsZero() || !got.Unknown {
+		t.Fatalf("first reading: %+v", got)
+	}
+	failed := protectionSnapshotAt(ProtectionSnapshot{AttemptedAt: at, FailedAt: at, Reason: "The protection check timed out."}, at)
+	if failed.Reason != "The protection check timed out." {
+		t.Fatalf("failed reading became pending: %+v", failed)
+	}
+}
+
+// Each failed data read keeps its safe cause and action across a restart,
+// including when an older successful assessment remains available.
+func TestProtectionDataFailureRecordsCauseAndUsefulAction(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		cause          error
+		reason, action string
+	}{
+		{"unclassified", errors.New("private volume and provider secret"), "The deployment's data could not be read.", "Open deployment settings to check the deployment."},
+		{"inventory", errors.Join(errDataNotKnown, errDataInventoryUnavailable), "AppTown could not read what this deployment holds.", "The background check will try again in five minutes."},
+		{"absent", errHeldDataAbsent, "The data this deployment names is not on its host.", "Open deployment settings to check the deployment."},
+		{"contract", errContractUnreadable, "AppTown could not read this deployment's release contract.", "Open deployment settings to check the deployment."},
+		{"Docker access", deployment.ErrNoLocalDocker, "This AppTown has no local Docker access.", "Open deployment settings to check the deployment."},
+		{"project", errProjectUnreadable, "AppTown could not read this deployment's project.", "Open deployment settings to check the deployment."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+			now := at
+			dep := &deployment.Deployment{ID: idstest.N(1), ProjectID: idstest.N(2), Kind: deployment.Standing}
+			result := &Protection{}
+			observer := &ProtectionObserver{db: testDB(t), now: func() time.Time { return now }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return dep, "identity", nil }, read: func(context.Context, ids.ID, string) (*Protection, error) { return result, nil }}
+			if err := observer.run(t.Context(), dep.ID, "identity"); err != nil {
+				t.Fatal(err)
+			}
+			now = at.Add(time.Minute)
+			result = &Protection{}
+			result.recordDataFailure(fmt.Errorf("%w: private provider credential", tc.cause))
+			if err := observer.run(t.Context(), dep.ID, "identity"); err == nil {
+				t.Fatal("failed reading reported success")
+			}
+			restarted := &ProtectionObserver{db: observer.db, now: observer.now, resolve: observer.resolve}
+			got, err := restarted.Snapshot(t.Context(), dep.ID)
+			if err != nil || got.Reason != tc.reason || got.NextStep != tc.action || got.AttemptedAt != now || got.ObservedAt != at {
+				t.Fatalf("recorded failure: %+v %v", got, err)
+			}
+			result = &Protection{}
+			now = now.Add(time.Minute)
+			if err := observer.run(t.Context(), dep.ID, "identity"); err != nil {
+				t.Fatal(err)
+			}
+			got, err = restarted.Snapshot(t.Context(), dep.ID)
+			if err != nil || got.Reason != "" || got.NextStep != "" || got.ObservedAt != now {
+				t.Fatalf("recovered check kept failure instructions: %+v %v", got, err)
+			}
+		})
 	}
 }

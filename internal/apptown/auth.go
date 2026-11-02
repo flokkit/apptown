@@ -124,6 +124,9 @@ func (a *App) authMiddleware(next http.Handler) http.Handler {
 				return
 			}
 			if id == nil {
+				if _, cookieErr := r.Cookie(a.sessionCookieName(r)); cookieErr == nil {
+					a.cfg.browserSession().End(w, r)
+				}
 				// Console containers hold a per-session token, not a cookie.
 				// Attribution keeps the console provenance string, and no
 				// users row is minted — a console is an instrument the person

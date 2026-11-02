@@ -599,3 +599,16 @@ func (s *batchChecks) Snapshot(_ context.Context, projects []ids.ID) (Snapshot, 
 	s.calls = append(s.calls, projects...)
 	return Snapshot{Known: true, Items: []Item{{Key: "confirmed", Title: "Calendar checks", Count: 2}}}, nil
 }
+
+func TestDefaultNextStepNamesAnActionForAnyReader(t *testing.T) {
+	t.Parallel()
+	var view View
+	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+	view.add("protection/project", "Backups", Snapshot{AttemptedAt: at}, nil)
+	if view.Sources[0].AttemptedAt != at {
+		t.Fatalf("last attempt lost: %+v", view.Sources[0])
+	}
+	if got := view.Sources[0].NextStep; got != "Open the resource to check its settings." {
+		t.Fatalf("next step: %q", got)
+	}
+}

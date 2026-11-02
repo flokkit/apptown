@@ -32,6 +32,12 @@ import (
 // skipped, not failed. It is never said when either could not be read.
 var errNothingToBackUp = errors.New("the deployment holds no data: its list records no data volume and its release declares none — there is nothing to back up")
 
+// These identities distinguish safe failure summaries without interpreting
+// diagnostic text from the host, release sources or database.
+var errProjectUnreadable = errors.New("the project could not be read")
+var errContractUnreadable = errors.New("the release contract could not be read")
+var errDataInventoryUnavailable = errors.New("the data inventory could not be read")
+
 // errDataNotKnown is a deployment whose data could not be read: its
 // release, its list or its host. Nothing is said to be held or not held.
 var errDataNotKnown = fault.New(fault.Unavailable, "what this deployment holds is not known")
@@ -67,7 +73,7 @@ func (s *core) heldData(ctx context.Context, dep *deployment.Deployment, t *depl
 		}
 		p, err := project.ByIDIn(ctx, s.db, dep.ProjectID)
 		if err != nil {
-			return heldItems{}, fmt.Errorf("%w: reading the project: %v", errDataNotKnown, err)
+			return heldItems{}, fmt.Errorf("%w: %w: %v", errDataNotKnown, errProjectUnreadable, err)
 		}
 		layout, err := s.portainerLayout(ctx, t, dep, p.Slug)
 		if err != nil {
@@ -84,7 +90,7 @@ func (s *core) heldData(ctx context.Context, dep *deployment.Deployment, t *depl
 		}
 		p, err := project.ByIDIn(ctx, s.db, dep.ProjectID)
 		if err != nil {
-			return heldItems{}, fmt.Errorf("%w: reading the project: %v", errDataNotKnown, err)
+			return heldItems{}, fmt.Errorf("%w: %w: %v", errDataNotKnown, errProjectUnreadable, err)
 		}
 		held, err := s.heldOnHost(ctx, dk, p.Slug, dep)
 		held.dk = dk
@@ -101,21 +107,18 @@ func (s *core) heldData(ctx context.Context, dep *deployment.Deployment, t *depl
 // sources name no data; ErrDataNotKnown when either, or the host, could not
 // be read.
 func (s *core) heldOnHost(ctx context.Context, dk docker.Scope, slug string, dep *deployment.Deployment) (heldItems, error) {
-	unknown := func(format string, a ...any) (heldItems, error) {
-		return heldItems{}, fmt.Errorf("%w: %s", errDataNotKnown, fmt.Sprintf(format, a...))
-	}
 	owned, err := s.owned.Owned(ctx, dep.ID)
 	if err != nil {
-		return unknown("reading its list: %v", err)
+		return heldItems{}, fmt.Errorf("%w: %w: reading its list: %v", errDataNotKnown, errDataInventoryUnavailable, err)
 	}
 	c, err := s.releaseContract(ctx, dep)
 	if err != nil {
-		return unknown("%v", err)
+		return heldItems{}, fmt.Errorf("%w: %w", errDataNotKnown, err)
 	}
 	items, named, err := s.heldFrom(ctx, dk, slug, dep, owned, c)
 	switch {
 	case err != nil:
-		return unknown("%v", err)
+		return heldItems{}, fmt.Errorf("%w: %w: %v", errDataNotKnown, errDataInventoryUnavailable, err)
 	case !named:
 		return heldItems{}, errNothingToBackUp
 	case len(items) == 0:
@@ -133,18 +136,18 @@ func (s *core) heldOnHost(ctx context.Context, dk docker.Scope, slug string, dep
 // runs (its recorded revision), read through the release sources.
 func (s *core) releaseContract(ctx context.Context, dep *deployment.Deployment) (*appcontract.Contract, error) {
 	if dep.ReleaseSHA == "" {
-		return nil, fmt.Errorf("no release revision is recorded for %s; release it again", dep.Name)
+		return nil, fmt.Errorf("%w: no release revision is recorded for %s; release it again", errContractUnreadable, dep.Name)
 	}
 	if s.sources == nil {
-		return nil, errors.New("release sources are not configured")
+		return nil, fmt.Errorf("%w: release sources are not configured", errContractUnreadable)
 	}
 	proj, err := s.sources.Project(ctx, dep.ProjectID)
 	if err != nil {
-		return nil, fmt.Errorf("reading the project: %v", err)
+		return nil, fmt.Errorf("%w: %v", errProjectUnreadable, err)
 	}
 	c, _, err := s.sources.Contract(ctx, proj, dep.ReleaseSHA)
 	if err != nil || c == nil {
-		return nil, fmt.Errorf("reading .apptown/app.yaml at its release %s: %v", dep.ReleaseSHA, err)
+		return nil, fmt.Errorf("%w: reading .apptown/app.yaml at its release %s: %v", errContractUnreadable, dep.ReleaseSHA, err)
 	}
 	return c, nil
 }

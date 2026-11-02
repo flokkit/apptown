@@ -97,7 +97,12 @@ failed, naming that check and its safe reason. An old successful reading without
 a failed check raises nothing until it becomes unknown after six hours. Machine
 size expires after seven days. Unknown remains distinct from an old known value
 and from a successful empty answer. Pending first checks contribute unknown
-coverage without an Attention item.
+coverage without an Attention item. Backup coverage names deployments by their
+public display name, or their name when no display name is set. A first check
+says backups have not been checked yet. Failed attempts retain their safe reason
+and last attempt time; the page distinguishes that time from a successful
+reading. Each failed reading records its own cause and next step; the
+five-minute background schedule is named only where trying again can help.
 
 Inventory retains witnessed missing claims with the stored observation, filtered
 against the currently recorded subject identity. Native backup evidence retains

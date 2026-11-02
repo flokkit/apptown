@@ -26,14 +26,15 @@ type Item struct {
 	Count       int            `json:"count,omitempty"`
 	StatusLabel AttentionLabel `json:"statusLabel"`
 
-	Severity   string    `json:"severity"`
-	Key        string    `json:"key"`
-	Title      string    `json:"title"`
-	Detail     string    `json:"detail"`
-	Href       string    `json:"href"`
-	ObservedAt time.Time `json:"observedAt"`
-	Stale      bool      `json:"stale"`
-	Unknown    bool      `json:"unknown,omitempty"`
+	Severity    string    `json:"severity"`
+	Key         string    `json:"key"`
+	Title       string    `json:"title"`
+	Detail      string    `json:"detail"`
+	Href        string    `json:"href"`
+	ObservedAt  time.Time `json:"observedAt"`
+	AttemptedAt time.Time `json:"attemptedAt,omitempty"`
+	Stale       bool      `json:"stale"`
+	Unknown     bool      `json:"unknown,omitempty"`
 }
 
 // Snapshot can retain stale items while its source is unavailable. ObservedAt
@@ -42,11 +43,12 @@ type Snapshot struct {
 	Name, Href, NextStep string
 	Coverage             []Coverage
 	// Reason is an owner-supplied safe summary, never a raw provider error.
-	Reason     string
-	Items      []Item
-	ObservedAt time.Time
-	Known      bool
-	Stale      bool
+	Reason      string
+	Items       []Item
+	ObservedAt  time.Time
+	AttemptedAt time.Time
+	Known       bool
+	Stale       bool
 }
 
 // instanceReader reads an already-authorized instance snapshot. Cold/expired
@@ -79,14 +81,15 @@ type Sources struct {
 // Coverage reports source availability separately from the visible item count.
 // No underlying error strings or provider details cross this boundary.
 type Coverage struct {
-	Href       string    `json:"href"`
-	NextStep   string    `json:"nextStep"`
-	Reason     string    `json:"reason,omitempty"`
-	Key        string    `json:"key"`
-	Name       string    `json:"name"`
-	ObservedAt time.Time `json:"observedAt"`
-	Unknown    bool      `json:"unknown"`
-	Stale      bool      `json:"stale"`
+	Href        string    `json:"href"`
+	NextStep    string    `json:"nextStep"`
+	Reason      string    `json:"reason,omitempty"`
+	Key         string    `json:"key"`
+	Name        string    `json:"name"`
+	ObservedAt  time.Time `json:"observedAt"`
+	AttemptedAt time.Time `json:"attemptedAt,omitempty"`
+	Unknown     bool      `json:"unknown"`
+	Stale       bool      `json:"stale"`
 }
 
 type View struct {
@@ -238,7 +241,7 @@ func (v *View) add(key, name string, snapshot Snapshot, err error) {
 	if snapshot.Name != "" {
 		name = snapshot.Name
 	}
-	coverage := Coverage{Href: snapshot.Href, NextStep: snapshot.NextStep, Reason: snapshot.Reason, Key: key, Name: name, ObservedAt: snapshot.ObservedAt,
+	coverage := Coverage{Href: snapshot.Href, NextStep: snapshot.NextStep, Reason: snapshot.Reason, Key: key, Name: name, ObservedAt: snapshot.ObservedAt, AttemptedAt: snapshot.AttemptedAt,
 		Unknown: !snapshot.Known || err != nil, Stale: snapshot.Stale || err != nil}
 	if err != nil {
 		coverage.Reason = "The source check failed."
@@ -267,7 +270,7 @@ func (v *View) add(key, name string, snapshot Snapshot, err error) {
 		coverage.Reason = "No usable reading has been recorded yet."
 	}
 	if coverage.NextStep == "" {
-		coverage.NextStep = "Open the resource to check its settings. Ask an administrator to run the check."
+		coverage.NextStep = "Open the resource to check its settings."
 	}
 	if coverage.Href == "" {
 		coverage.Href = "/infrastructure"

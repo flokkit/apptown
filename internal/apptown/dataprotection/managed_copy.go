@@ -78,7 +78,7 @@ func managedProvider(t *deployment.Target) string {
 func (s *core) heldManaged(ctx context.Context, dep *deployment.Deployment, t *deployment.Target) (heldItems, error) {
 	insts, err := s.needs.ForDeployment(ctx, dep.ID)
 	if err != nil {
-		return heldItems{}, fmt.Errorf("%w: reading the deployment's need instances: %v", errDataNotKnown, err)
+		return heldItems{}, fmt.Errorf("%w: %w: reading the deployment's need instances: %v", errDataNotKnown, errDataInventoryUnavailable, err)
 	}
 	provider := managedProvider(t)
 	var out []backupPlanItem
@@ -110,7 +110,7 @@ func (s *core) heldManaged(ctx context.Context, dep *deployment.Deployment, t *d
 	}
 	owned, err := s.owned.Owned(ctx, dep.ID)
 	if err != nil {
-		return heldItems{}, fmt.Errorf("%w: reading the deployment's list: %v", errDataNotKnown, err)
+		return heldItems{}, fmt.Errorf("%w: %w: reading the deployment's list: %v", errDataNotKnown, errDataInventoryUnavailable, err)
 	}
 	for _, o := range owned {
 		if o.Kind != digitalocean.KindBucket || !o.Data {

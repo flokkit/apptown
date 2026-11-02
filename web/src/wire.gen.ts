@@ -125,6 +125,7 @@ export type AttentionCoverage = {
   key: string
   name: string
   observedAt: string
+  attemptedAt?: string
   unknown: boolean
   stale: boolean
 }
@@ -138,6 +139,7 @@ export type AttentionItem = {
   detail: string
   href: string
   observedAt: string
+  attemptedAt?: string
   stale: boolean
   unknown?: boolean
 }

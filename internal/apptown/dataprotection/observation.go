@@ -60,6 +60,8 @@ type ProtectionSnapshot struct {
 	ObservedAt                         time.Time
 	// Reason is a safe summary of the failed or overdue check.
 	Reason string
+	// NextStep is the protection owner's safe action for a failed data reading.
+	NextStep string
 	// AttemptedAt is when the latest protection attempt finished, successful or not.
 	AttemptedAt    time.Time
 	FailedAt       time.Time
@@ -152,7 +154,7 @@ func protectionSnapshotAt(s ProtectionSnapshot, now time.Time) ProtectionSnapsho
 		}
 	}
 	if s.ObservedAt.IsZero() && s.AttemptedAt.IsZero() {
-		s.Reason = "Waiting for the first protection check."
+		s.Reason = "Backups have not been checked yet."
 	}
 	return s
 }
@@ -189,6 +191,7 @@ func (o *ProtectionObserver) run(ctx context.Context, id ids.ID, identity string
 	now := o.now()
 	prior.AttemptedAt = now
 	reason := ""
+	prior.NextStep = ""
 	if err != nil || protection == nil {
 		reason = "The protection check failed."
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -208,6 +211,7 @@ func (o *ProtectionObserver) run(ctx context.Context, id ids.ID, identity string
 				prior.PlanNote = next.PlanNote
 			}
 			reason = next.Reason
+			prior.NextStep = next.NextStep
 			err = errors.New(reason)
 			if protection.Unknown != "" {
 				err = errors.New(protection.Unknown)
@@ -236,7 +240,8 @@ func (o *ProtectionObserver) run(ctx context.Context, id ids.ID, identity string
 func observedProtection(p *Protection, at time.Time) ProtectionSnapshot {
 	out := ProtectionSnapshot{DataClass: p.DataClass, OffHost: p.OffHost, ObservedAt: at, AttemptedAt: at, Unknown: p.Unknown != ""}
 	if p.Unknown != "" {
-		out.Reason = "The deployment's data could not be read."
+		out.Reason = p.failureReason
+		out.NextStep = p.failureNextStep
 	}
 	for _, limit := range p.Coverage.NotAssessed {
 		if limit != outsideNotAssessed {

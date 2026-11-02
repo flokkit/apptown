@@ -49,11 +49,13 @@ const copyCadence = 24 * time.Hour
 
 // Protection is a deployment's protection.
 type Protection struct {
-	plan       []BackupPlanItem
-	planNote   string
-	Reading    deployment.DetailReading `json:"reading"`
-	Deployment string                   `json:"deployment"`
-	DataClass  string                   `json:"dataClass"`
+	plan            []BackupPlanItem
+	planNote        string
+	failureReason   string
+	failureNextStep string
+	Reading         deployment.DetailReading `json:"reading"`
+	Deployment      string                   `json:"deployment"`
+	DataClass       string                   `json:"dataClass"`
 	// OffHost says AppTown keeps this deployment's copies off its host,
 	// in the attached backup store. Production data without it reads
 	// "not protected off-host".
@@ -337,7 +339,7 @@ func (s *Service) protection(ctx context.Context, projectID ids.ID, name string)
 	if unread != nil {
 		// No copy, check or final copy can start on a list not read: each
 		// door says so, and no take-down words are guessed.
-		out.Unknown = unread.Error()
+		out.recordDataFailure(unread)
 		out.Operations = s.operationsOf(ctx, dep, t, nil, unread)
 		return out, nil
 	}
@@ -539,7 +541,8 @@ const onAppTownDiskNote = "Backups are kept on this host only: they do not outli
 func (s *Service) dockerProtection(ctx context.Context, out *Protection, dep *deployment.Deployment, t *deployment.Target, hasStore bool) error {
 	p, err := project.ByIDIn(ctx, s.db, dep.ProjectID)
 	if err != nil {
-		return err
+		out.recordDataFailure(fmt.Errorf("%w: %v", errProjectUnreadable, err))
+		return nil
 	}
 	plan, err := s.heldPlan(ctx, dep.ProjectID, p.Slug, dep.Name)
 	switch {
@@ -548,7 +551,7 @@ func (s *Service) dockerProtection(ctx context.Context, out *Protection, dep *de
 		out.planNote = err.Error()
 		return nil // known to hold no data: nothing to say
 	case err != nil:
-		out.Unknown = err.Error() // not read, or named and not there: never shown as nothing
+		out.recordDataFailure(err) // not read, or named and not there: never shown as nothing
 		return nil
 	}
 	out.plan = displayBackupPlan(plan)
@@ -768,4 +771,26 @@ func (s *Service) localProtection(ctx context.Context, out *Protection, dep *dep
 		return err
 	}
 	return nil
+}
+
+// recordDataFailure keeps diagnostic details separate from the safe summary
+// recorded for Attention. Classification follows error identities, never text.
+func (p *Protection) recordDataFailure(err error) {
+	p.Unknown = err.Error()
+	p.failureNextStep = "Open deployment settings to check the deployment."
+	switch {
+	case errors.Is(err, errHeldDataAbsent):
+		p.failureReason = "The data this deployment names is not on its host."
+	case errors.Is(err, errProjectUnreadable):
+		p.failureReason = "AppTown could not read this deployment's project."
+	case errors.Is(err, errContractUnreadable):
+		p.failureReason = "AppTown could not read this deployment's release contract."
+	case errors.Is(err, deployment.ErrNoLocalDocker):
+		p.failureReason = "This AppTown has no local Docker access."
+	case errors.Is(err, errDataInventoryUnavailable):
+		p.failureReason = "AppTown could not read what this deployment holds."
+		p.failureNextStep = "The background check will try again in five minutes."
+	default:
+		p.failureReason = "The deployment's data could not be read."
+	}
 }

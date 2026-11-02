@@ -1563,6 +1563,10 @@
       },
       "Coverage": {
         "properties": {
+          "attemptedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
           "href": {
             "type": "string"
           },
@@ -2354,6 +2358,10 @@
       },
       "Item": {
         "properties": {
+          "attemptedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
           "count": {
             "type": "integer"
           },

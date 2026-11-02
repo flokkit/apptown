@@ -48,6 +48,7 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 	href := "/projects/" + url.PathEscape(project.Slug) + "/settings/deployments"
 	out.Name = projectName + " · backups"
 	out.Href = href
+
 	for _, dep := range deps {
 		if dep.Kind != deployment.Standing {
 			continue
@@ -55,32 +56,62 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 		reading, readErr := p.Observer.Snapshot(ctx, dep.ID)
 		unknown := reading.Unknown || readErr != nil
 		out.Known = out.Known && !unknown
-		if reading.Reason != "" {
+		label := dep.DisplayLabel
+		if label == "" {
+			label = dep.Name
+		}
+		reason := reading.Reason
+		pending := reading.AttemptedAt.IsZero() && reading.ObservedAt.IsZero() && readErr == nil
+		if pending {
+			reason = "Backups have not been checked yet."
+		}
+		if readErr != nil {
+			reason = "The recorded backup check could not be read."
+		}
+		nextStep := reading.NextStep
+		if pending {
+			nextStep = "AppTown schedules a background check every five minutes."
+		} else if readErr != nil {
+			nextStep = "Reload the page to try reading the recorded backup check again."
+		} else if nextStep == "" {
+			nextStep = "Open deployment settings to check the deployment."
+		}
+		// A deployment with nothing wrong adds no next step: the row would
+		// otherwise send people to check a healthy one.
+		if reason != "" {
+			if out.NextStep != "" {
+				out.NextStep += " "
+			}
+			out.NextStep += label + ": " + nextStep
 			if out.Reason != "" {
 				out.Reason += " "
 			}
-			out.Reason += dep.Name + ": " + reading.Reason
+			out.Reason += label + ": " + reason
 		}
 		out.Stale = out.Stale || reading.Stale
 		if reading.ObservedAt.IsZero() || reading.ObservedAt.Before(out.ObservedAt) {
 			out.ObservedAt = reading.ObservedAt
 		}
-		label := dep.DisplayLabel
-		if label == "" {
-			label = dep.Name
+		if reading.AttemptedAt.After(out.AttemptedAt) {
+			out.AttemptedAt = reading.AttemptedAt
 		}
 		base := fmt.Sprintf("%s/%d/%d", dep.ID, dep.ObservedGeneration, dep.DesiredGeneration)
 		add := func(key, title, detail, severity string, at time.Time) {
-			out.Items = append(out.Items, Item{Key: base + "/" + key, Unknown: unknown, Title: projectName + " · " + label + ": " + title, Detail: label + ": " + detail, Severity: severity, Href: href, ObservedAt: at, Stale: reading.Stale || unknown})
+			// Only coverage failures describe the protection check's attempt.
+			// A copy or recovery condition keeps its own evidence time.
+			var attemptedAt time.Time
+			if key == "unassessed" {
+				attemptedAt = reading.AttemptedAt
+			}
+			out.Items = append(out.Items, Item{Key: base + "/" + key, Unknown: unknown, Title: projectName + " · " + label + ": " + title, Detail: label + ": " + detail, Severity: severity, Href: href, ObservedAt: at, AttemptedAt: attemptedAt, Stale: reading.Stale || unknown})
 		}
 		// A queued first check is incomplete coverage, not an actionable failure.
-		pending := reading.AttemptedAt.IsZero() && reading.ObservedAt.IsZero() && readErr == nil
 		if (unknown || reading.Stale && !reading.FailedAt.IsZero()) && !pending && dep.DataClass == "production" {
 			title := "Backups not known"
 			if !unknown {
 				title = "Protection check failed"
 			}
-			add("unassessed", title, "Current protection coverage is unavailable or out of date. "+reading.Reason, SeverityWarning, reading.ObservedAt)
+			add("unassessed", title, "Current protection coverage is unavailable or out of date. "+reason, SeverityWarning, reading.ObservedAt)
 		}
 		// Copy cadence and disposable classification come from data protection.
 		// Previews and non-production data acquire no universal backup requirement.

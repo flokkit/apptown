@@ -4,7 +4,10 @@ import { attentionRows, attentionState, attentionSummary, useAttention } from '.
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { lastSeen, relTime } from '../format'
 
-export const observed = (at: string, stale = false) => !at || at.startsWith('0001-') ? 'not checked yet' : stale ? lastSeen(at) : `checked ${relTime(at) || 'at an unknown time'}`
+const hasTime = (at?: string): at is string => !!at && !at.startsWith('0001-')
+export const observed = (at: string, stale = false, attemptedAt?: string) => hasTime(attemptedAt) && (!hasTime(at) || Date.parse(attemptedAt) > Date.parse(at))
+  ? `last tried ${relTime(attemptedAt) || 'at an unknown time'}`
+  : !hasTime(at) ? 'not checked yet' : stale ? lastSeen(at) : `checked ${relTime(at) || 'at an unknown time'}`
 const groups = ['Hosts and deployments', 'Backups', 'Integrations', 'App checks'] as const
 export const attentionKind = (key: string): typeof groups[number] => key.startsWith('protection/') ? 'Backups' : key.startsWith('integrations') ? 'Integrations' : key.startsWith('checks') ? 'App checks' : 'Hosts and deployments'
 
@@ -27,20 +30,20 @@ export default function AttentionPage() {
             <Status word={item.unknown ? 'unknown' : item.statusLabel === 'low' ? 'low' : item.severity === 'advisory' ? 'not checked yet' : 'failed'} staleAt={item.stale && !item.unknown ? item.observedAt : undefined} help={item.detail} />
             <p>{item.detail}</p>
             <p><Link to={item.href}>Open {kind === 'Integrations' ? 'connection settings' : kind === 'App checks' ? 'app checks' : kind === 'Backups' ? 'backup settings' : 'diagnostics'} to resolve this</Link></p>
-            <small className="muted">{observed(item.observedAt, item.stale)}</small>
+            <small className="muted">{observed(item.observedAt, item.stale, item.attemptedAt)}</small>
           </article>)}
           {unknown.map(source => <article key={source.key} className="card attention-item">
             <h3><Link to={source.href}>{source.name}</Link></h3>
             <Status word="unknown" />
             <p>{source.reason || 'No usable reading has been recorded yet.'}</p>
             <p>{source.nextStep}</p>
-            <small className="muted">{observed(source.observedAt, source.stale)}</small>
+            <small className="muted">{observed(source.observedAt, source.stale, source.attemptedAt)}</small>
           </article>)}
         </section>
       })}
       <details><summary>All checks</summary>
         <ul>{q.data.sources.map(source => <li key={source.key}>
-          <Link to={source.href}>{source.name}</Link>: {source.unknown ? 'unknown' : source.stale ? observed(source.observedAt, source.stale) : 'working'}
+          <Link to={source.href}>{source.name}</Link>: {source.unknown ? 'unknown' : source.stale ? observed(source.observedAt, source.stale, source.attemptedAt) : 'working'}
         </li>)}</ul>
       </details>
     </>}
