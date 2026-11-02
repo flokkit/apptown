@@ -21,6 +21,10 @@ Which name reaches which deployment, by target:
 | Portainer | customer-named deployments, each with its own immutable stack, volumes and admitted address | endpoint scope and deployment ownership must be verified before effects |
 | App Platform | the platform's own name for each app | the same |
 
+For apps and previews reached at a published port on AppTown's own host,
+the app's port replaces any port in the public host. These direct Docker
+addresses use HTTP; tier domains keep their configured scheme and take precedence.
+
 A project's serving label is captured from its initial address and stays fixed.
 Changing the project's address does not add or move application hosts or
 certificate names; the initial address stays taken by the serving label until

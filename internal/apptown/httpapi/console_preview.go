@@ -54,7 +54,7 @@ func (h ConsolePreview) ConsolePreview(w http.ResponseWriter, r *http.Request) {
 		// its port on the host's loopback, which the chat cannot reach.
 		containerURL = out.URL
 	case h.publicHost != "":
-		containerURL = fmt.Sprintf("http://%s:%d", h.publicHost, port)
+		containerURL = out.URL
 	}
 	audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, s.Actor+" via console/"+s.ID, out.ProjectID, "change.preview", fmt.Sprintf("%d", id), map[string]any{"url": out.URL, "from": "console"})
 	WriteJSON(w, 200, ConsolePreviewAddress{URL: out.URL, ContainerURL: containerURL, Port: port})

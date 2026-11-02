@@ -61,3 +61,35 @@ func TestADockerDeploymentsAddressFollowsItsTarget(t *testing.T) {
 		t.Error("an attached target with no address was given this AppTown's")
 	}
 }
+
+// Published app ports replace AppTown's port for both deployments and previews.
+func TestPublishedAddressesReplaceThePublicHostPort(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ host, want string }{
+		{"localhost:7777", "http://localhost:43210"},
+		{"forge.example:8443", "http://forge.example:43210"},
+		{"forge.example", "http://forge.example:43210"},
+		{"", "http://localhost:43210"},
+		{"[::1]:7777", "http://[::1]:43210"},
+	} {
+		t.Run(tc.host, func(t *testing.T) {
+			r := Routing{PublicHost: tc.host}
+			for _, got := range []string{r.DeploymentURL("shop", 43210), r.PreviewURL("change-1", 43210)} {
+				if got != tc.want {
+					t.Errorf("address %q, want %q", got, tc.want)
+				}
+				if _, err := docker.ExactOrigin(got); err != nil {
+					t.Errorf("invalid app origin: %v", err)
+				}
+			}
+			r.MainScheme, r.MainDomain = "https", "apps.example"
+			r.PreviewScheme, r.PreviewDomain = "https", "preview.example"
+			if got := r.DeploymentURL("shop", 43210); got != "https://shop.apps.example" {
+				t.Errorf("main domain lost: %s", got)
+			}
+			if got := r.PreviewURL("change-1", 43210); got != "https://change-1.preview.example" {
+				t.Errorf("preview domain lost: %s", got)
+			}
+		})
+	}
+}

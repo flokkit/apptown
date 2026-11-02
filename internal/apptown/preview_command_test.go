@@ -143,6 +143,14 @@ func TestPreviewCommandChecksCurrentAuthorityAndTransports(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &consoleOut); err != nil || response.Code != 200 || consoleOut.Port != host.result.HostPort || !strings.Contains(consoleOut.ContainerURL, fmt.Sprint(host.result.HostPort)) {
 		t.Fatalf("console: %d %s %v", response.Code, response.Body.String(), err)
 	}
+	// The console uses the preview's address when AppTown has a public host,
+	// including when that host has its own port.
+	host.result.URL = "http://localhost:12345"
+	response = httptest.NewRecorder()
+	httpapi.NewConsolePreview(a.Console, a.Preview, a.DB, "localhost:7777", nil).ConsolePreview(response, r.WithContext(callerContext(r)))
+	if err := json.Unmarshal(response.Body.Bytes(), &consoleOut); err != nil || response.Code != 200 || consoleOut.ContainerURL != "http://localhost:12345" {
+		t.Fatalf("console with a public port: %d %s %v", response.Code, response.Body.String(), err)
+	}
 	// With a preview domain the chat is given that address: the port is
 	// published on the host's loopback, which its container cannot reach.
 	domained := environmentDependenciesFor(a)

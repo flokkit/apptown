@@ -2,12 +2,14 @@ package deployment
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/ids"
@@ -191,5 +194,50 @@ func TestDockerAddressesUseCapturedServingIdentityAndRefuseUnavailableIdentity(t
 		if err == nil || len(daemon.Commands()) != 0 {
 			t.Fatalf("unavailable identity reached driver effects: err=%v calls=%v", err, daemon.Commands())
 		}
+	}
+}
+
+func TestAPublicHostPortDoesNotRefuseABuiltInDeployment(t *testing.T) {
+	t.Parallel()
+	s, _, daemon, _, projectID := hostWorld(t, "localhost:7777")
+	c, ws := llmContract(t, "app:\n  web:\n    image: reg.example/app:1\n    ports: [\"8080\"]\n    public: true\n")
+	local, err := s.Targets.ByName(t.Context(), "local")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := s.Deployments.EnsureStanding(t.Context(), projectID, "main", local.ID, Attributes{Feed: "landing", Audience: "team", DataClass: "synthetic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	names, err := dep.HostNames()
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := s.Deployments.StablePort(t.Context(), projectID, "main", names.App())
+	if err != nil {
+		t.Fatal(err)
+	}
+	art, err := docker.SourceArtifact(deploy.Source{Workspace: ws, Revision: "revision", Slug: "p", Contract: c}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := idstest.N(7)
+	out, err := s.RunLanding(t.Context(), landingClaim{projectID, run}, LandingInput{
+		Start:  Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "public-port", Inputs: Inputs{ReleaseRun: run, Revision: "revision", ArtifactHash: art.Hash, DockerSource: string(art.Body)}},
+		Source: *art.Source, HostPort: port, DataClass: "synthetic",
+	})
+	if err != nil || out.Boot.Err != nil || out.Execution.Outcome != Applied {
+		t.Fatalf("landing: %+v %v", out, err)
+	}
+	stored, err := s.Deployments.ByID(t.Context(), dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := fmt.Sprintf("http://localhost:%d", port)
+	if got := s.URL(t.Context(), "p", stored); got != want {
+		t.Fatalf("address %q, want %q", got, want)
+	}
+	if !strings.Contains(fmt.Sprint(daemon.Commands()), "APPTOWN_ORIGINS="+want) {
+		t.Fatalf("app did not receive its origin: %v", daemon.Commands())
 	}
 }

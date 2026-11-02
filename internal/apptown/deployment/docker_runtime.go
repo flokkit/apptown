@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
+	"net/url"
+	"strconv"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
 
@@ -23,7 +26,9 @@ func (r Routing) publicURL(port int) string {
 	if host == "" {
 		host = "localhost"
 	}
-	return fmt.Sprintf("http://%s:%d", host, port)
+	// PublicHost can include AppTown's port; this app has its own.
+	authority := url.URL{Host: host}
+	return "http://" + net.JoinHostPort(authority.Hostname(), strconv.Itoa(port))
 }
 
 // PortAddressesHostOnly says whether an address at a port this AppTown's own
