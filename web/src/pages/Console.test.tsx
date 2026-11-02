@@ -96,10 +96,13 @@ describe('what the chat is about folds to one line on a phone', () => {
       window.matchMedia = ((q: string) => ({ matches: q === NARROW_QUERY, media: q, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia
     })
     afterEach(() => { window.matchMedia = had })
-    it('a change chat starts folded, its line naming the change and where it stands', () => {
-      const about = parse(firstPaint(ON_CHANGE)).querySelector('details.console-about')!
+    // The head names the change once; the fold line says where it stands.
+    it('a change chat starts folded: the head names the change, the fold line says where it stands', () => {
+      const page = parse(firstPaint(ON_CHANGE))
+      const about = page.querySelector('details.console-about')!
       expect(about.hasAttribute('open')).toBe(false)
-      expect(about.querySelector('summary')!.textContent).toBe('change 49 · ● waiting for you')
+      expect(about.querySelector('summary')!.textContent).toBe('About this change · ● waiting for you')
+      expect(page.querySelector('.console-head h1')!.textContent).toBe('Change 49')
     })
     // A worker that cannot be reached qualifies the conversation itself:
     // that line stays in view with the fold closed, for someone who may
@@ -139,10 +142,10 @@ describe('what the chat is about folds to one line on a phone', () => {
         act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
       }
     })
-    it('the line and the change card say the same words', () => {
+    it('the fold line and the change card say the same words', () => {
       const view = { statusLabel: 'waiting for you', change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' }, commits: [{}] }
       const line = parse(firstPaint(ON_CHANGE, view)).querySelector('details.console-about > summary')!.textContent
-      expect(line).toBe('change 49 · ● waiting for you')
+      expect(line).toBe('About this change · ● waiting for you')
       expect(renderToStaticMarkup(<ChangeContext view={view as unknown as ChangeView} />)).toContain('waiting for you')
     })
   })

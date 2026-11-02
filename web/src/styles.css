@@ -1193,7 +1193,10 @@ a.btn.primary:hover { background: var(--accent-hover); border-color: var(--accen
   .chat-input textarea { min-height: 64px; }
   /* The change's verbs are one compact row; Check and land keeps its
      green and the row's end. */
-  .workshop-actions { gap: 6px; padding: 6px 8px; margin-bottom: 8px; }
+  /* On a phone the two verbs are a plain row: no panel around them. */
+  .workshop-actions { gap: 8px; padding: 0; margin: 0 0 8px; border: 0; background: none; flex-wrap: nowrap; }
+  /* What the preview was built from is on the change page; the row keeps its verbs. */
+  .workshop-actions .tryit-built { display: none; }
   .workshop-actions button, .workshop-actions button.btn-big { font-size: var(--fs-sm); padding: 6px 10px; }
   .workshop-actions .finish { margin-left: auto; }
   /* The head's change chip is the same door to the change page. */
@@ -1516,9 +1519,11 @@ button.chat-starter { border-radius: var(--radius-sm); }
 .console-desk h1, .console-workshop h1 { color: var(--text); }
 .console-extra { background-image: none; }
 @media(max-width:800px) {
-  .console-head { flex-wrap: wrap; }
-  .console-head h1 { flex: 1 1 auto; }
-  .console-head > .chip { max-width: 100%; }
+  /* One line: the title gives way (ellipsis) before the state or the menu. */
+  .console-head { flex-wrap: nowrap; min-width: 0; }
+  .console-head h1 { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 18px; }
+  .console-head h1 a { color: inherit; text-decoration: none; }
+  .console-head > .chip { flex: none; }
 }
 
 .agent-activity.compact .chip { font-size: 0; }

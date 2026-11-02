@@ -50,11 +50,17 @@ export function SaveStatus({ s }: { s: ConsoleSessionView }) {
   )
 }
 
-// WorkerSaveLine is the chat page's line for a chat that opened on the worker.
+// WorkerSaveLine is the chat page's line for a chat that opened on the worker,
+// shown when its saving needs attention.
 export function WorkerSaveLine({ slug, session }: { slug: string; session: ConsoleSessionView }) {
   const list = useGet<ConsoleSessionList>(`/projects/${slug}/console`, { poll: 5000 })
   if (session.placement !== 'worker') return null
   const s = list.data?.sessions.find((x) => x.id === session.id)
+  // Saving as it should (nothing yet, saved, nothing new) says nothing: the
+  // line speaks only when a save went wrong, is in doubt, or the worker's
+  // copy of the conversation is old. The change page keeps the full account.
+  const routine = s && s.state !== 'unavailable' && (!s.saved || s.saved.outcome === 'saved' || s.saved.outcome === 'nothing-new')
+  if (routine && !list.err) return null
   return (
     <div className="muted small" style={{ marginBottom: 8 }} data-testid="worker-save-line">
       Runs on the worker.{' '}

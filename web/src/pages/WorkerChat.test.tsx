@@ -20,12 +20,11 @@ const line = (s: ConsoleSessionView, seeded = true) => {
 }
 
 describe('a chat on the worker says where its work stands', () => {
-  it('says it runs on the worker and when it was last saved', () => {
-    const html = line(session({ saved: { at: '2026-09-30T01:00:00Z', outcome: 'saved', commit: '0123456789abcdef' }, recordAsOf: '2026-09-30T01:01:00Z' }))
-    expect(html).toContain('Runs on the worker.')
-    expect(html).toContain('Last saved at')
-    expect(html).toContain('01234567')
-    expect(html).toContain('Conversation as of')
+  // Saving as it should takes no room above the conversation.
+  it('says nothing while saving is routine', () => {
+    expect(line(session({ saved: { at: '2026-09-30T01:00:00Z', outcome: 'saved', commit: '0123456789abcdef' }, recordAsOf: '2026-09-30T01:01:00Z' }))).toBe('')
+    expect(line(session({}))).toBe('')
+    expect(line(session({ saved: { at: '2026-09-30T01:00:00Z', outcome: 'nothing-new' } }))).toBe('')
   })
   it('says a refused save was refused, why, and where its commits are', () => {
     const html = line(session({ saved: { at: '2026-09-30T01:00:00Z', outcome: 'refused', reason: 'a .apptown path', kept: true } }))

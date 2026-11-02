@@ -74,7 +74,7 @@ export function TryIt({ changeId, label, style, className }: {
       <span className="row" style={{ gap: 6 }}>
         <button className={cls} style={style} title="Opens the preview of the change's files as they are now (built again if they changed)"
           onClick={() => boot(`/changes/${changeId}/preview`)}>{label ? label.replace(/try it/i, 'open') : '▶ Open'}</button>
-        {builtWords(st) && <span className="muted small">{builtWords(st)}</span>}
+        {builtWords(st) && <span className="muted small tryit-built">{builtWords(st)}</span>}
         <button className="subtle" title="Stop the preview and start it again from the current files"
           onClick={() => boot(`/changes/${changeId}/preview/restart`)}>restart</button>
         {err && <span className="error small">{err}</span>}
