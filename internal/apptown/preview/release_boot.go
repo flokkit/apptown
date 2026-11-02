@@ -88,6 +88,9 @@ func (h releaseBoots) BootReleasePreview(ctx context.Context, selected Release) 
 	}
 	// Every look starts with disposable data, including retries after a failed
 	// boot. Named standing-environment volumes are never part of this stack.
+	if err := s.beforeLocalAct(context.WithoutCancel(ctx)); err != nil {
+		return ReleaseResult{}, err
+	}
 	if err := docker.RemovePreview(context.WithoutCancel(ctx), s.hosts.Local(), name, stackID); err != nil {
 		return ReleaseResult{}, fmt.Errorf("removing what an earlier look at this version left: %w", err)
 	}

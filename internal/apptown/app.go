@@ -148,6 +148,7 @@ type App struct {
 	// The provider inventory cache (infrastructure_cache.go).
 	inventory          *deployment.InventoryReadings
 	hostSnapshots      *deployment.HostSnapshots
+	HostReaders        deployment.HostReaders
 	jobs               *jobs.Queue
 	reaper             *maintenance.Reaper
 	disks              maintenance.Disks
@@ -369,6 +370,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	deploymentDeps.RestoreFiller = starter
 	deploymentDeps.HostMemory = input.HostMemory
 	a.Deployment = deployment.New(ctx, db, deploymentDeps)
+	a.HostReaders = deployment.HostReaders{Snapshots: a.hostSnapshots, Targets: a.targets, Hosts: a.hosts, Providers: a.targetProviders, Inventory: a.Deployment.Inventory}
 	a.vhostRules.deployments = a.Deployment.Deployments // standing hostnames route by its records
 	a.DataProtection = dataprotection.New(starter, dataProtectionDependencies(a))
 	a.Backups = instancebackup.New(instanceBackupDependencies(a))

@@ -542,7 +542,7 @@ DELETE FROM deployment_hostname_claims c WHERE c.hostname=$1 AND NOT EXISTS(SELE
 SELECT number FROM releases WHERE project_id=sqlc.arg(project_id) ORDER BY number;
 
 -- name: Reading :one
-SELECT identity, generation, invalidated, payload FROM deployment_readings WHERE subject=$1 AND kind=$2;
+SELECT identity, generation, invalidated, payload, act_counter, complete_act_counter FROM deployment_readings WHERE subject=$1 AND kind=$2;
 
 -- name: StoreReading :exec
 INSERT INTO deployment_readings (id, subject, kind, identity, payload)
@@ -570,11 +570,21 @@ INSERT INTO deployment_readings (id, subject, kind, identity)
 VALUES ($1,$2,'host-snapshot',$3)
 ON CONFLICT (subject,kind) DO UPDATE SET
     identity=EXCLUDED.identity,
-    invalidated=CASE WHEN deployment_readings.identity=EXCLUDED.identity THEN deployment_readings.invalidated ELSE FALSE END,
     payload=CASE WHEN deployment_readings.identity=EXCLUDED.identity THEN deployment_readings.payload ELSE '{}'::jsonb END
-RETURNING identity, generation, invalidated, payload;
+RETURNING act_counter;
 
--- name: InvalidateHostSnapshot :exec
-UPDATE deployment_readings SET generation=generation+1, invalidated=TRUE,
-    payload=jsonb_set(payload, '{PredatesActAt}', to_jsonb(sqlc.arg(acted_at)::timestamptz))
-WHERE subject=sqlc.arg(subject) AND kind='host-snapshot';
+-- name: BeforeHostAct :exec
+INSERT INTO deployment_readings (id, subject, kind, identity, act_counter)
+SELECT sqlc.arg(id)::uuid,sqlc.arg(subject)::text,'host-snapshot',sqlc.arg(identity)::text,1
+WHERE EXISTS (SELECT 1 FROM targets WHERE id::text=sqlc.arg(subject) AND kind='docker-host')
+ON CONFLICT (subject,kind) DO UPDATE SET act_counter=deployment_readings.act_counter+1;
+
+-- name: FinishHostSnapshot :execrows
+UPDATE deployment_readings r SET payload=sqlc.arg(payload),
+    complete_act_counter=CASE WHEN sqlc.arg(complete)::boolean AND r.act_counter=sqlc.arg(act_counter)
+      THEN sqlc.arg(act_counter) ELSE r.complete_act_counter END
+WHERE r.subject=sqlc.arg(subject) AND r.kind='host-snapshot' AND r.identity=sqlc.arg(identity)
+ AND EXISTS (SELECT 1 FROM targets t WHERE t.id::text=r.subject AND t.settings_revision::text=r.identity AND t.status<>'retired');
+
+-- name: ActiveDockerTargets :many
+SELECT * FROM targets WHERE kind='docker-host' AND status<>'retired' ORDER BY name;

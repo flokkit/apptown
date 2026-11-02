@@ -266,7 +266,7 @@ func (s *starter) FillStart(ctx context.Context, in deployment.StartFill) (deplo
 	if err != nil {
 		return deployment.StartReceipt{}, err
 	}
-	dk, runner, err := s.copyRunner(ctx, t)
+	dk, runner, err := s.copyRunnerForAct(ctx, t)
 	if err != nil {
 		return deployment.StartReceipt{}, err
 	}

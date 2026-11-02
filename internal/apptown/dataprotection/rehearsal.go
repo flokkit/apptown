@@ -416,6 +416,9 @@ func (s *Service) clearPlace(ctx context.Context, place rehearsalPlace) []string
 	if err != nil {
 		return append(left, fmt.Sprintf("the rehearsal on %s: the host could not be reached: %v", place.Host, err))
 	}
+	if err := deployment.NewHostSnapshots(s.db, s.now).BeforeAct(ctx, t.ID); err != nil {
+		return append(left, err.Error())
+	}
 	if err := dk.RemoveDisposable(ctx, place.App); err != nil {
 		left = append(left, fmt.Sprintf("the app container %s on %s: %v", place.App, place.Host, err))
 	}
@@ -736,6 +739,9 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 	dk, err := s.rehearsalScope(ctx, host)
 	if err != nil {
 		return fail("reaching the host", fmt.Sprintf("%s could not be reached", host.Name))
+	}
+	if err := deployment.NewHostSnapshots(s.db, s.now).BeforeAct(ctx, host.ID); err != nil {
+		return fail("recording the host change", err.Error())
 	}
 	read, from, err := s.setReader(ctx, p.set)
 	if err != nil {

@@ -50,7 +50,7 @@ export function InfrastructureView() {
               <Link to={`/infrastructure/${t.target}`} className="row" style={{ display: 'flex', flex: 1, minWidth: 0 }}>
                 <span className="row-status"><Status observation word={state.word} help={help} /></span>
                 <strong>{t.target}</strong>
-                <span className="muted small">{[t.place, state.summary, t.asOf && !t.live && !state.summary.startsWith('last seen') ? lastSeen(t.asOf) : '', t.invalidated ? 'before the latest change' : ''].filter(Boolean).join(' · ')}</span>
+                <span className="muted small">{[t.place, state.summary, t.kind === 'docker-host' ? (t.asOf ? `read ${Math.max(0, Math.floor((Date.now() - Date.parse(t.asOf)) / 1000))} s ago, took ${Math.round(t.tookSeconds)} s` : 'never read') : t.asOf && !t.live && !state.summary.startsWith('last seen') ? lastSeen(t.asOf) : '', t.invalidated ? 'before the latest change' : ''].filter(Boolean).join(' · ')}</span>
               </Link>
               <span className="row-action"><Link className="btn" to={`/infrastructure/${t.target}`}>Manage</Link></span>
             </div>

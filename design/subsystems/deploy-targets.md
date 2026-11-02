@@ -245,32 +245,40 @@ records, not an error, and the inventory job and attention skip it.
 
 ## Background infrastructure readings
 
-A one-minute pass queues one `host-snapshot` job per active Docker target and
-settings revision. The snapshot reads four independently timed inventory sections:
-host, containers, volumes and networks, and recorded images. Disk use is added when
-capacity starts using it. A failed section retains its last successful value
-and time; a section never read stays unknown. A missing-resource claim is set
-only by a collection where all four inventory sections succeed, against the
-records read in that same collection. A record made after a collection is never
-compared against it. Claims are held back while the reading predates an act.
+Each active Docker target has one background reader loop, started with the
+daemon and cancelled when its target retires. Unreachable targets keep their
+loop; the built-in target has none when local Docker is disabled. Between laps
+the loop resolves current target settings. It reads host, containers, volumes
+and networks, and recorded images sequentially, then waits twenty seconds.
+Only this loop stores the host reading. Capacity, detail, protection,
+preview, runtime and health readers collect independently. A failed section
+retains its last successful value and time; a section never read stays unknown. A missing-resource claim is set only by a collection
+where all four inventory sections succeed, against records read in that same
+collection. A record made later is never compared against that collection.
+
+Before a Docker effect starts, its owner increments the host's act counter,
+even if the effect subsequently fails. A lap captures the counter before I/O.
+The storing write advances its complete-lap counter only for a complete lap
+whose counter still matches. Pages compare that counter with the current host
+counter, including acts since the last store. The whole reading remains marked
+as taken before the latest change until a complete lap begun after it succeeds;
+section timestamps cannot clear the mark. Missing-resource claims are held back
+while it is marked. Acts do not request an extra host reading. Foreground reads
+run independently and never store host evidence. Attached hosts allow three
+foreground commands alongside the loop's single command, under the shared
+ten-session cap.
 
 Durable jobs check other providers' inventory, every target's capacity and the
 controller/worker filesystems every five minutes, even with no readers. Startup
-queues both passes. Infrastructure pages and Attention show the latest recorded
-reading and its age. Reading a page never contacts a provider or host or requests
-a check; there is no inventory Refresh action or refresh query parameter.
-
-After a release is recorded, a need is fulfilled or a deployment is taken down,
-AppTown invalidates the target's reading and queues its inventory job immediately
-(`host-snapshot` for Docker).
-The reading's age remains visible and marked as predating the act until a
-post-act check succeeds. Until then, pages show records alone, without missing
-or unrecorded comparisons. Post-act requests coalesce into one job per target,
-including while it runs. An act during that check keeps the reading invalidated
-until the next scheduled pass; an overlapping check cannot clear that mark.
-Host snapshots have a one-minute timeout; other inventory jobs have thirty seconds. The scheduling pass attempts all
-targets and instance disks even when an admission fails, and reports errors
-together.
+queues that pass and starts the Docker reader loops. Infrastructure pages and
+Attention show recorded evidence and its age; a page never contacts a provider
+or host or requests a check. The Docker Infrastructure row shows how long ago
+it was read and how long it took. Attention warns when a Docker host's reading
+is more than five minutes old; never read counts as old. It includes the age
+and latest command error, if any. Other providers invalidate inventory and
+request a check after an act. Other inventory jobs have thirty seconds.
+The scheduling pass attempts all targets and instance disks even when an
+admission fails, and reports errors together.
 Shared Docker and Portainer placement verification is part of the background
 inventory check. Pages use that recorded verification; destructive removal still
 verifies fresh provider identity and placement before acting.
@@ -290,7 +298,7 @@ settings invalidates prior observations. A failed check keeps successful values
 and their times and records the failed attempt and its safe reason separately.
 A partial successful check cannot renew an unread sibling figure.
 
-Attention raises an item for an old live reading after fifteen minutes only
+For other providers, Attention raises an item for an old live reading after fifteen minutes only
 when the latest check failed. Age alone raises no item until the six-hour unknown
 limit. Known pressure and missing-resource findings retain their original
 evidence. Other providers store the missing claims witnessed by their successful inventory
@@ -299,7 +307,7 @@ succeed in the same collection, against the records read in that collection.
 A record made after a collection is never compared against it. Inventory age
 uses the oldest inventory section time. Missing-resource claims are held back
 while the reading predates an act. A first pending check contributes unknown
-coverage without an item.
+coverage; Docker host readings also raise the age warning described above.
 Docker disk admission still reads the filesystem at admission; retained display
 readings never authorize work.
 

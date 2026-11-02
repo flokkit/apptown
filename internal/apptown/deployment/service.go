@@ -184,7 +184,9 @@ func (s *Service) setClock(now func() time.Time) {
 	s.Inventory.deployments.clock, s.Inventory.needs.clock = now, now
 }
 
-// InfrastructureChanged queues a check after an infrastructure removal.
+// InfrastructureChanged notifies the post-act collaborator after a removal.
+// Docker readings use HostSnapshots.BeforeAct before the effect; post-act
+// checks are scheduled for other providers.
 func (s *Service) InfrastructureChanged(targetID ids.ID) {
 	if s.applied != nil {
 		s.applied(targetID)

@@ -168,6 +168,9 @@ func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal acc
 	if err := ask(""); err != nil {
 		return removalResult{}, err
 	}
+	if err := deployment.NewHostSnapshots(s.db, s.now).BeforeAct(ctx, selected.TargetID); err != nil {
+		return removalResult{}, err
+	}
 	if !synthetic {
 		fc, err := s.finalBackup(ctx, selected, target, owned, actor.Principal.Name)
 		var cannot *portainerUnreachable

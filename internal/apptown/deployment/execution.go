@@ -108,8 +108,9 @@ func (e *RunError) Unwrap() error {
 // inputs, owns context lifetime and handles workflow-specific evidence. No new
 // deadline is imposed on builds or provider rollouts.
 type Runner struct {
-	Store   executionStore
-	Applied func(ids.ID)
+	Store     executionStore
+	Applied   func(ids.ID)
+	BeforeAct func(context.Context, ids.ID) error
 }
 
 // Run admits the attempt, executes only a newly admitted identity, and records
@@ -161,6 +162,11 @@ func (r Runner) Run(ctx context.Context, in Start, execute execute) (ExecutionRe
 		// Admission committed, but this executor has not run: no provider effect
 		// needs guessing or observation. Settle the cancelled attempt as failed.
 		return failure(err, true)
+	}
+	if r.BeforeAct != nil {
+		if err := r.BeforeAct(ctx, in.TargetID); err != nil {
+			return failure(err, true)
+		}
 	}
 	o, err := execute(ctx, at, r.Store.Checkpoint(ctx, at))
 	result.Observed = o

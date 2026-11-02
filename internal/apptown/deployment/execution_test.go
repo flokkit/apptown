@@ -242,3 +242,32 @@ func TestExecutionLostUncertaintyWriteIsNotReportedAsSuccess(t *testing.T) {
 		t.Fatalf("%v calls=%v", err, s.calls)
 	}
 }
+
+func TestExecutionRecordsActBeforeEvenAFailedEffect(t *testing.T) {
+	for _, refuse := range []bool{false, true} {
+		t.Run(fmt.Sprint(refuse), func(t *testing.T) {
+			r, _, in, _ := executionFixture()
+			marked, effect := false, false
+			r.BeforeAct = func(_ context.Context, id ids.ID) error {
+				if id != in.TargetID {
+					t.Errorf("marked target %s, want %s", id, in.TargetID)
+				}
+				marked = true
+				if refuse {
+					return errors.New("counter write failed")
+				}
+				return nil
+			}
+			_, err := r.Run(t.Context(), in, func(context.Context, deployment.Attempt, deploy.Checkpoint) (deploy.Observation, error) {
+				if !marked {
+					t.Error("effect preceded act counter")
+				}
+				effect = true
+				return deploy.Observation{}, deploy.Terminal(errors.New("effect failed"))
+			})
+			if err == nil || !marked || effect == refuse {
+				t.Fatalf("marked=%v effect=%v refuse=%v err=%v", marked, effect, refuse, err)
+			}
+		})
+	}
+}

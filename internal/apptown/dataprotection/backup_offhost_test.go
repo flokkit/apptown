@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -561,5 +562,35 @@ func TestProtectionIdentitySurvivesAdmission(t *testing.T) {
 	_, after, err := w.s.protectionIdentity(t.Context(), dep.ID)
 	if err != nil || after != before {
 		t.Fatalf("admission invalidated protection: %s %s %v", before, after, err)
+	}
+}
+
+func TestBackupMarksHostBeforeFailedCopy(t *testing.T) {
+	t.Parallel()
+	w := newOffhostWorld(t, "before-copy", 40111)
+	w.s.Service.clock = func() time.Time { return time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC) }
+	target, err := w.s.Targets.ByName(t.Context(), "local")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := w.s.InventoryFor(t.Context(), target)
+	if err != nil || before.Invalidated {
+		t.Fatalf("fixture already marked: %+v %v", before, err)
+	}
+	called := false
+	w.client.SetReply(func(args []string) ([]byte, error, bool) {
+		if args[0] == "run" {
+			called = true
+			reading, err := w.s.InventoryFor(t.Context(), target)
+			if err != nil || !reading.Invalidated {
+				t.Errorf("copy effect preceded act counter: %+v %v", reading, err)
+			}
+			return nil, errors.New("copy failed"), true
+		}
+		return nil, nil, false
+	})
+	b := w.take("scheduled")
+	if !called || b.Status == BackupOK {
+		t.Fatalf("failed copy: called=%v backup=%+v", called, b)
 	}
 }

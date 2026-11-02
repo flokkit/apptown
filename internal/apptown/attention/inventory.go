@@ -15,11 +15,12 @@ import (
 )
 
 type InventoryReading struct {
-	Items      []deploy.Resource
-	Missing    []deploy.Resource
-	FailedAt   time.Time
-	Reason     string
-	ObservedAt time.Time
+	Items       []deploy.Resource
+	Missing     []deploy.Resource
+	FailedAt    time.Time
+	Reason      string
+	LastFailure string
+	ObservedAt  time.Time
 	// AttemptedAt is when the latest inventory attempt finished, successful or not.
 	AttemptedAt    time.Time
 	Unknown, Stale bool
@@ -92,6 +93,16 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 		out.Items = append(out.Items, items...)
 		// A queued first check is incomplete coverage, not an actionable failure.
 		pending := sample.AttemptedAt.IsZero() && sample.ObservedAt.IsZero() && recordErr == nil && readErr == nil
+		if t.Kind == deployment.KindDockerHost && !sample.Unreported {
+			if sample.ObservedAt.IsZero() || clock.Or(s.Now)().Sub(sample.ObservedAt) > 5*time.Minute {
+				age := "never read"
+				if !sample.ObservedAt.IsZero() {
+					age = fmt.Sprintf("read %.0f s ago", clock.Or(s.Now)().Sub(sample.ObservedAt).Seconds())
+				}
+				out.Items = append(out.Items, Item{Key: t.ID.String() + "/unassessed", Unknown: unknown, Title: label + ": host reading is old", Detail: age + ". " + sample.LastFailure, Severity: SeverityWarning, Href: href, ObservedAt: sample.ObservedAt, Stale: true})
+			}
+			continue
+		}
 		if (unknown || sample.Stale && !sample.FailedAt.IsZero()) && !sample.Unreported && !pending {
 			title := label + ": resources not known"
 			if !unknown {

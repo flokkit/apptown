@@ -109,6 +109,16 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 		if len(req.Args) > 1 && req.Args[0] == "volume" && req.Args[1] == "ls" {
 			return []byte("apptown-data-apptown-env-old-main\t\t\t" + testInstallation + "\n"), nil
 		}
+		if req.Args[0] == "rm" || len(req.Args) > 1 && req.Args[0] == "volume" && req.Args[1] == "rm" {
+			target, err := w.deployment.Targets.ByName(ctx, targetTestBuiltin)
+			if err != nil {
+				t.Fatal(err)
+			}
+			reading, err := w.deployment.InventoryFor(ctx, target)
+			if err != nil || !reading.Invalidated {
+				t.Errorf("removal effect preceded act counter: %+v %v", reading, err)
+			}
+		}
 		return w.docker.Run(ctx, host, req)
 	}))
 	builtin := w.seedBuiltin(t)

@@ -27,13 +27,9 @@ func (s *Service) RemoveRunForGood(ctx context.Context, runID ids.ID) error {
 // preview-step stacks. Worker stacks go with their run's preview; this list
 // names the local stacks. Every recorded step is attempted, including on retry.
 func (s *Service) RemoveRunStepsForGood(ctx context.Context, stepIDs []ids.ID) error {
-	dk := s.hosts.Local()
-	if dk.Absent() {
-		return nil
-	}
 	var failed []error
 	for _, stepID := range stepIDs {
-		failed = append(failed, dk.RemoveDisposableStack(ctx, docker.RunStepStackID(stepID)))
+		failed = append(failed, s.removeLocalStack(ctx, docker.RunStepStackID(stepID)))
 	}
 	return errors.Join(failed...)
 }
@@ -43,9 +39,7 @@ func (s *Service) RemoveRunStepsForGood(ctx context.Context, stepIDs []ids.ID) e
 func (s *Service) RemoveChangeForGood(ctx context.Context, changeID ids.ID) error {
 	name := docker.PreviewChangeName(changeID)
 	err := errors.Join(s.removePreviewForGood(ctx, name), s.removeLocalPreview(ctx, name))
-	if dk := s.hosts.Local(); !dk.Absent() {
-		err = errors.Join(err, dk.RemoveDisposableStack(ctx, docker.ChangeStackID(changeID)))
-	}
+	err = errors.Join(err, s.removeLocalStack(ctx, docker.ChangeStackID(changeID)))
 	return errors.Join(err, os.RemoveAll(s.changeSnapshots(changeID)))
 }
 
@@ -53,6 +47,9 @@ func (s *Service) removeLocalPreview(ctx context.Context, name string) error {
 	dk := s.hosts.Local()
 	if dk.Absent() {
 		return nil
+	}
+	if err := s.beforeLocalAct(ctx); err != nil {
+		return err
 	}
 	removed := dk.RemoveDisposable(ctx, name)
 	// A shared image still in use stays; permanent cleanup never forces it.
@@ -76,9 +73,7 @@ func (s *Service) RemoveReleaseForGood(ctx context.Context, projectID ids.ID, se
 	defer s.holdPreview(name)()
 	s.discardDecided(name)
 	err = errors.Join(s.removePreviewForGood(ctx, name), s.removeLocalPreview(ctx, name))
-	if dk := s.hosts.Local(); !dk.Absent() {
-		err = errors.Join(err, dk.RemoveDisposableStack(ctx, docker.ReleaseStackID(servingLabel, number)))
-	}
+	err = errors.Join(err, s.removeLocalStack(ctx, docker.ReleaseStackID(servingLabel, number)))
 	if err != nil {
 		return err
 	}
@@ -103,4 +98,15 @@ func (s *Service) RemoveReleaseForGood(ctx context.Context, projectID ids.ID, se
 		failures = append(failures, s.releasePreviewKey(ctx, row))
 	}
 	return errors.Join(failures...)
+}
+
+func (s *Service) removeLocalStack(ctx context.Context, stack string) error {
+	dk := s.hosts.Local()
+	if dk.Absent() {
+		return nil
+	}
+	if err := s.beforeLocalAct(ctx); err != nil {
+		return err
+	}
+	return dk.RemoveDisposableStack(ctx, stack)
 }

@@ -99,9 +99,15 @@
 // from successfully read figures. Inventory owns its stale/unknown classification;
 // transports render that decision.
 // [HostSnapshots] stores Docker host facts in five independently timed sections.
-// The inventory pass collects host, containers, resources and images; use is
-// reserved for separate collection. A failed section retains its evidence; an
-// unread section stays unknown. Docker inventory derives from the stored facts. Missing-resource claims compare records
+// [HostReaders] runs one sequential loop per active Docker target, collecting
+// host, containers, resources and images every twenty seconds after a lap. The
+// built-in host has no loop when local Docker is disabled; Attention expects no
+// reading from it. Use is reserved for capacity. Foreground reads never store
+// this evidence. A failed section retains its evidence; an
+// unread section stays unknown. BeforeAct increments the act counter before an
+// effect. Only a complete lap begun after that act clears the whole-reading
+// mark; passive reads compare with the current counter. Docker inventory
+// derives from the stored facts. Missing-resource claims compare records
 // and facts during the same complete collection; newer records cannot establish
 // absence against older facts. Placement verification runs during collection
 // so reading pages does not contact providers.
@@ -109,8 +115,8 @@
 // and Attention. Other providers' inventory stores a complete answer, verified
 // placement, witnessed missing claims and its invalidation generation. An act
 // during collection cannot clear invalidation, even with equal clock readings:
-// completion is fenced by generation. Retained sections must strictly postdate
-// the act at its stored microsecond precision to count as refreshed.
+// completion is fenced by generation. Docker whole-reading act provenance uses
+// counters, independent of section timestamp precision.
 // Pages only read this evidence; disk admission asks
 // the daemon independently and does not trust a display reading.
 package deployment

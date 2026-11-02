@@ -3311,6 +3311,7 @@ export type Declaration = {
 }
 
 export type InfrastructureView = {
+  tookSeconds: number
   statusLabel: TargetLabel
   target: string
   kind: string

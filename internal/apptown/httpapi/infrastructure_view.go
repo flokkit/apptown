@@ -180,6 +180,7 @@ func hostsWords(hs []deploy.ResourceHost) string {
 }
 
 type InfrastructureView struct {
+	TookSeconds float64                `json:"tookSeconds"`
 	StatusLabel deployment.TargetLabel `json:"statusLabel"`
 	Target      string                 `json:"target"`
 	Kind        string                 `json:"kind"`
@@ -206,5 +207,5 @@ type InfrastructureView struct {
 }
 
 type inventoryCache interface {
-	Live(context.Context, *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool, bool)
+	Live(context.Context, *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool, bool, float64)
 }

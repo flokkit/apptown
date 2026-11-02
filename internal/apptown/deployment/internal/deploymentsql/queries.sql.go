@@ -15,6 +15,50 @@ import (
 	"github.com/lib/pq"
 )
 
+const activeDockerTargets = `-- name: ActiveDockerTargets :many
+SELECT id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, status, created_at, updated_at, settings_revision, connection_id, provider_scope_json, display_label FROM targets WHERE kind='docker-host' AND status<>'retired' ORDER BY name
+`
+
+func (q *Queries) ActiveDockerTargets(ctx context.Context) ([]Target, error) {
+	rows, err := q.db.QueryContext(ctx, activeDockerTargets)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Target
+	for rows.Next() {
+		var i Target
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Kind,
+			&i.Provider,
+			&i.AddressJson,
+			&i.Origin,
+			&i.CapabilitiesJson,
+			&i.IngressJson,
+			&i.NeedsMode,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.SettingsRevision,
+			&i.ConnectionID,
+			&i.ProviderScopeJson,
+			&i.DisplayLabel,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const addHostnameClaimant = `-- name: AddHostnameClaimant :exec
 INSERT INTO deployment_hostname_claimants(hostname,deployment_id) VALUES($1,$2) ON CONFLICT DO NOTHING
 `
@@ -278,6 +322,24 @@ func (q *Queries) AttemptsForUpdate(ctx context.Context, arg AttemptsForUpdatePa
 		return nil, err
 	}
 	return items, nil
+}
+
+const beforeHostAct = `-- name: BeforeHostAct :exec
+INSERT INTO deployment_readings (id, subject, kind, identity, act_counter)
+SELECT $1::uuid,$2::text,'host-snapshot',$3::text,1
+WHERE EXISTS (SELECT 1 FROM targets WHERE id::text=$2 AND kind='docker-host')
+ON CONFLICT (subject,kind) DO UPDATE SET act_counter=deployment_readings.act_counter+1
+`
+
+type BeforeHostActParams struct {
+	ID       ids.ID
+	Subject  string
+	Identity string
+}
+
+func (q *Queries) BeforeHostAct(ctx context.Context, arg BeforeHostActParams) error {
+	_, err := q.db.ExecContext(ctx, beforeHostAct, arg.ID, arg.Subject, arg.Identity)
+	return err
 }
 
 const boundTargetDeployments = `-- name: BoundTargetDeployments :one
@@ -1190,6 +1252,36 @@ func (q *Queries) FinishAttempt(ctx context.Context, arg FinishAttemptParams) (i
 	return result.RowsAffected()
 }
 
+const finishHostSnapshot = `-- name: FinishHostSnapshot :execrows
+UPDATE deployment_readings r SET payload=$1,
+    complete_act_counter=CASE WHEN $2::boolean AND r.act_counter=$3
+      THEN $3 ELSE r.complete_act_counter END
+WHERE r.subject=$4 AND r.kind='host-snapshot' AND r.identity=$5
+ AND EXISTS (SELECT 1 FROM targets t WHERE t.id::text=r.subject AND t.settings_revision::text=r.identity AND t.status<>'retired')
+`
+
+type FinishHostSnapshotParams struct {
+	Payload    json.RawMessage
+	Complete   bool
+	ActCounter int64
+	Subject    string
+	Identity   string
+}
+
+func (q *Queries) FinishHostSnapshot(ctx context.Context, arg FinishHostSnapshotParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, finishHostSnapshot,
+		arg.Payload,
+		arg.Complete,
+		arg.ActCounter,
+		arg.Subject,
+		arg.Identity,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const finishInventoryReading = `-- name: FinishInventoryReading :execrows
 UPDATE deployment_readings SET payload=$5, invalidated=$6
 WHERE subject=$1 AND kind=$2 AND identity=$3 AND generation=$4
@@ -1839,22 +1931,6 @@ func (q *Queries) InterruptedAttempts(ctx context.Context, arg InterruptedAttemp
 		return nil, err
 	}
 	return items, nil
-}
-
-const invalidateHostSnapshot = `-- name: InvalidateHostSnapshot :exec
-UPDATE deployment_readings SET generation=generation+1, invalidated=TRUE,
-    payload=jsonb_set(payload, '{PredatesActAt}', to_jsonb($1::timestamptz))
-WHERE subject=$2 AND kind='host-snapshot'
-`
-
-type InvalidateHostSnapshotParams struct {
-	ActedAt time.Time
-	Subject string
-}
-
-func (q *Queries) InvalidateHostSnapshot(ctx context.Context, arg InvalidateHostSnapshotParams) error {
-	_, err := q.db.ExecContext(ctx, invalidateHostSnapshot, arg.ActedAt, arg.Subject)
-	return err
 }
 
 const invalidateReading = `-- name: InvalidateReading :exec
@@ -2892,7 +2968,7 @@ func (q *Queries) PutTarget(ctx context.Context, arg PutTargetParams) (Target, e
 }
 
 const reading = `-- name: Reading :one
-SELECT identity, generation, invalidated, payload FROM deployment_readings WHERE subject=$1 AND kind=$2
+SELECT identity, generation, invalidated, payload, act_counter, complete_act_counter FROM deployment_readings WHERE subject=$1 AND kind=$2
 `
 
 type ReadingParams struct {
@@ -2901,10 +2977,12 @@ type ReadingParams struct {
 }
 
 type ReadingRow struct {
-	Identity    string
-	Generation  int64
-	Invalidated bool
-	Payload     json.RawMessage
+	Identity           string
+	Generation         int64
+	Invalidated        bool
+	Payload            json.RawMessage
+	ActCounter         int64
+	CompleteActCounter int64
 }
 
 func (q *Queries) Reading(ctx context.Context, arg ReadingParams) (ReadingRow, error) {
@@ -2915,6 +2993,8 @@ func (q *Queries) Reading(ctx context.Context, arg ReadingParams) (ReadingRow, e
 		&i.Generation,
 		&i.Invalidated,
 		&i.Payload,
+		&i.ActCounter,
+		&i.CompleteActCounter,
 	)
 	return i, err
 }
@@ -4275,9 +4355,8 @@ INSERT INTO deployment_readings (id, subject, kind, identity)
 VALUES ($1,$2,'host-snapshot',$3)
 ON CONFLICT (subject,kind) DO UPDATE SET
     identity=EXCLUDED.identity,
-    invalidated=CASE WHEN deployment_readings.identity=EXCLUDED.identity THEN deployment_readings.invalidated ELSE FALSE END,
     payload=CASE WHEN deployment_readings.identity=EXCLUDED.identity THEN deployment_readings.payload ELSE '{}'::jsonb END
-RETURNING identity, generation, invalidated, payload
+RETURNING act_counter
 `
 
 type StartHostSnapshotParams struct {
@@ -4286,23 +4365,11 @@ type StartHostSnapshotParams struct {
 	Identity string
 }
 
-type StartHostSnapshotRow struct {
-	Identity    string
-	Generation  int64
-	Invalidated bool
-	Payload     json.RawMessage
-}
-
-func (q *Queries) StartHostSnapshot(ctx context.Context, arg StartHostSnapshotParams) (StartHostSnapshotRow, error) {
+func (q *Queries) StartHostSnapshot(ctx context.Context, arg StartHostSnapshotParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, startHostSnapshot, arg.ID, arg.Subject, arg.Identity)
-	var i StartHostSnapshotRow
-	err := row.Scan(
-		&i.Identity,
-		&i.Generation,
-		&i.Invalidated,
-		&i.Payload,
-	)
-	return i, err
+	var act_counter int64
+	err := row.Scan(&act_counter)
+	return act_counter, err
 }
 
 const startInventoryReading = `-- name: StartInventoryReading :one

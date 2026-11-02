@@ -136,6 +136,7 @@ func (targetSettingsMoved) FaultCode() string     { return "settings-moved" }
 // commits with it. Status checks write only the status, so they never make
 // an edit conflict.
 func (s *Targets) EditSettings(ctx context.Context, name string, in TargetSettingsEdit, who string) (*Target, error) {
+	defer s.notifyReaders()
 	now := s.now()
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (*Target, error) {
 		q := deploymentsql.New(tx.SQL())

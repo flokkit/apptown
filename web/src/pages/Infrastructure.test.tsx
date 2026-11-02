@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
@@ -8,7 +8,7 @@ import { InfrastructureView, ResourceTables } from './Infrastructure'
 
 const target = (name: string, fields: Partial<TargetInfra> = {}): TargetInfra => ({
   target: name, kind: 'portainer', family: 'containers', origin: 'attached', status: 'ready', statusLabel: 'working',
-  facts: '', place: name, vendor: '', live: false, invalidated: false, resources: [], ...fields,
+  facts: '', place: name, vendor: '', tookSeconds: 0, live: false, invalidated: false, resources: [], ...fields,
 })
 
 const show = (targets: TargetInfra[]) => {
@@ -95,4 +95,14 @@ it('does not confirm presence from inventory that predates a provider change', (
  expect(html).not.toContain('>present</span>')
  expect(html).toContain('Inventory predates the latest change.')
  expect(html).toContain('chip unknown')
+})
+
+it('shows Docker source age and lap duration alongside its act mark', () => {
+ vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-03T00:00:12Z'))
+ try {
+  const html = show([target('host', {kind:'docker-host', asOf:'2026-11-03T00:00:00Z', tookSeconds:3, invalidated:true})])
+  expect(html).toContain('read 12 s ago, took 3 s')
+  expect(html).toContain('before the latest change')
+  expect(show([target('host', {kind:'docker-host'})])).toContain('never read')
+ } finally { vi.restoreAllMocks() }
 })

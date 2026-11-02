@@ -150,7 +150,7 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 	if art.Kind == "docker-source" {
 		inputs.ImageDigest, inputs.DockerSource = "", string(art.Body)
 	}
-	result, err := (Runner{Store: s.Outcomes, Applied: s.applied}).Run(ctx,
+	result, err := (Runner{Store: s.Outcomes, Applied: s.applied, BeforeAct: NewHostSnapshots(s.db, s.now).BeforeAct}).Run(ctx,
 		Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: key, Inputs: inputs, BaseGeneration: req.baseGeneration},
 		func(ctx context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 			if err := allowed(ctx); err != nil {

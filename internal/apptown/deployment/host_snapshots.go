@@ -6,11 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
-	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
@@ -18,16 +16,16 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-const HostSnapshotJob = "host-snapshot"
+const hostReadingKind = "host-snapshot"
 
 // hostReading retains successful section evidence across partial attempts.
 // Invalidated means the evidence predates an act; deriving a view never renews it.
 type hostReading struct {
-	PredatesActAt time.Time
 	docker.HostFacts
 	AttemptedAt     time.Time
 	Outcome         string
-	WaitedFor, Took time.Duration
+	LastError       string
+	Took            time.Duration
 	Invalidated     bool
 	Instance        string
 	Also            []string
@@ -47,7 +45,7 @@ func NewHostSnapshots(db *database.DB, now func() time.Time) *HostSnapshots {
 
 // reading resolves the settings revision without contacting the provider.
 func (s *HostSnapshots) reading(ctx context.Context, t *Target) (hostReading, error) {
-	row, err := deploymentsql.New(s.db.SQL()).Reading(ctx, deploymentsql.ReadingParams{Subject: t.ID.String(), Kind: HostSnapshotJob})
+	row, err := deploymentsql.New(s.db.SQL()).Reading(ctx, deploymentsql.ReadingParams{Subject: t.ID.String(), Kind: hostReadingKind})
 	if errors.Is(err, sql.ErrNoRows) || err == nil && row.Identity != strconv.FormatInt(t.SettingsRevision, 10) {
 		return hostReading{}, nil
 	}
@@ -56,7 +54,7 @@ func (s *HostSnapshots) reading(ctx context.Context, t *Target) (hostReading, er
 	}
 	var r hostReading
 	err = json.Unmarshal(row.Payload, &r)
-	r.Invalidated = row.Invalidated
+	r.Invalidated = row.CompleteActCounter < row.ActCounter
 	return r, err
 }
 
@@ -69,7 +67,7 @@ func mergeHostSection[T any](old *docker.HostSection[T], next docker.HostSection
 	return false
 }
 
-// collect fences settings edits and acts with the reading's generation. A
+// collect captures act provenance before any host command. A
 // failed attempt is persisted as evidence, not retried as a second host read.
 func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope, q docker.HostQuery, also []string, records *Inventory) error {
 	queries := deploymentsql.New(s.db.SQL())
@@ -112,8 +110,10 @@ func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope,
 	if mergeHostSection(&prior.Use, facts.Use) {
 		successes++
 	}
+	prior.LastError = ""
 	prior.Outcome = "read"
 	if readErr != nil {
+		prior.LastError = readErr.Error()
 		prior.Outcome = "partial"
 		if successes == 0 {
 			prior.Outcome = "failed"
@@ -144,49 +144,36 @@ func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope,
 			}
 		}
 	}
-	// A partial collection cannot certify that every section postdates the act.
-	invalidated := row.Invalidated && readErr != nil
-	if !invalidated {
-		prior.PredatesActAt = time.Time{}
-	}
 	raw, err := json.Marshal(prior)
 	if err != nil {
 		return err
 	}
-	_, err = queries.FinishInventoryReading(finish, deploymentsql.FinishInventoryReadingParams{Subject: t.ID.String(), Kind: HostSnapshotJob, Identity: strconv.FormatInt(t.SettingsRevision, 10), Generation: row.Generation, Payload: raw, Invalidated: invalidated})
+	_, err = queries.FinishHostSnapshot(finish, deploymentsql.FinishHostSnapshotParams{Subject: t.ID.String(), Identity: strconv.FormatInt(t.SettingsRevision, 10), ActCounter: row, Payload: raw, Complete: readErr == nil})
 	return err
 }
 
-// Invalidate preserves facts, including an act before the first collection.
-func (s *HostSnapshots) Invalidate(ctx context.Context, t *Target) error {
-	q := deploymentsql.New(s.db.SQL())
-	_, err := q.StartHostSnapshot(ctx, deploymentsql.StartHostSnapshotParams{ID: ids.New(s.now()), Subject: t.ID.String(), Identity: strconv.FormatInt(t.SettingsRevision, 10)})
+// BeforeAct records that a Docker host may change, before the effect starts.
+// Failure prevents the caller's effect. Foreground reads never store evidence.
+func (s *HostSnapshots) BeforeAct(ctx context.Context, targetID ids.ID) error {
+	t, err := NewTargets(s.db, nil).ByID(ctx, targetID)
 	if err != nil {
 		return err
 	}
-	return q.InvalidateHostSnapshot(ctx, deploymentsql.InvalidateHostSnapshotParams{Subject: t.ID.String(), ActedAt: s.now()})
+	return deploymentsql.New(s.db.SQL()).BeforeHostAct(ctx, deploymentsql.BeforeHostActParams{ID: ids.New(s.now()), Subject: t.ID.String(), Identity: strconv.FormatInt(t.SettingsRevision, 10)})
 }
 
 // inventory derives the inventory view with the oldest source evidence time.
 // An unread inventory section cannot establish any missing resource.
 func (s *HostSnapshots) inventory(r hostReading) (inventoryObservation, error) {
-	out := inventoryObservation{AttemptedAt: r.AttemptedAt}
-	for _, section := range []struct {
+	out := inventoryObservation{LastFailure: r.LastError, AttemptedAt: r.AttemptedAt, Invalidated: r.Invalidated, TookSeconds: r.Took.Seconds()}
+	for i, section := range []struct {
 		at     time.Time
 		reason string
 	}{{r.Host.ObservedAt, r.Host.Reason}, {r.Containers.ObservedAt, r.Containers.Reason}, {r.Resources.ObservedAt, r.Resources.Reason}, {r.Images.ObservedAt, r.Images.Reason}} {
 		if section.at.IsZero() {
 			out.Unknown = true
 		}
-		// An unrelated failed use read cannot invalidate fresh inventory facts.
-		// Acts are stored as PostgreSQL timestamptz (microseconds); JSON
-		// section times retain nanoseconds. Equal at that precision is not
-		// proof that evidence follows the act. Collection generations, not
-		// timestamps, fence overlapping reads in FinishInventoryReading.
-		if r.Invalidated && (r.PredatesActAt.IsZero() || !section.at.Truncate(time.Microsecond).After(r.PredatesActAt)) {
-			out.Invalidated = true
-		}
-		if out.ObservedAt.IsZero() || section.at.Before(out.ObservedAt) {
+		if i == 0 || section.at.Before(out.ObservedAt) {
 			out.ObservedAt = section.at
 		}
 		if section.reason != "" {
@@ -210,42 +197,4 @@ func (s *HostSnapshots) inventory(r hostReading) (inventoryObservation, error) {
 	}
 	out.Missing = r.Missing
 	return out, nil
-}
-
-// HostSnapshotWorker resolves exact target revisions before collecting.
-type HostSnapshotWorker struct {
-	Snapshots *HostSnapshots
-	Targets   *Targets
-	Hosts     *Hosts
-	Providers *Providers
-	Inventory *Inventory
-}
-
-func (w HostSnapshotWorker) Run(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
-	raw, rev, ok := strings.Cut(key, "/")
-	id, err := ids.Parse(raw)
-	if err != nil || !ok {
-		return nil, jobs.Permanent(errors.New("invalid host snapshot identity"))
-	}
-	t, err := w.Targets.ByID(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	if t.Status == TargetRetired || strconv.FormatInt(t.SettingsRevision, 10) != rev {
-		return nil, nil
-	}
-	dk, err := w.Hosts.DockerScope(ctx, t)
-	if err != nil {
-		return nil, err
-	}
-	refs, err := w.Providers.recordedImages(ctx, t)
-	if err != nil {
-		return nil, err
-	}
-	var also []string
-	if t.Origin == OriginBuiltIn && w.Providers.databaseContainer != "" {
-		also = []string{w.Providers.databaseContainer}
-	}
-	err = w.Snapshots.collect(ctx, t, dk, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true, ImageRefs: refs}, also, w.Inventory)
-	return map[string]any{"target": t.Name}, err
 }

@@ -538,6 +538,15 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
  AND j.state IN ('available','pending','retryable','scheduled');
  END IF; END $$`,
 	}},
+	{n: 203, note: "host reader loops replace snapshot jobs", stmts: []string{
+		`ALTER TABLE deployment_readings ADD COLUMN act_counter BIGINT NOT NULL DEFAULT 0`,
+		`ALTER TABLE deployment_readings ADD COLUMN complete_act_counter BIGINT NOT NULL DEFAULT 0`,
+		`UPDATE deployment_readings SET act_counter=1 WHERE kind='host-snapshot' AND invalidated`,
+		`DO $$ BEGIN IF to_regclass('river_job') IS NOT NULL THEN
+ DELETE FROM river_job WHERE args->>'operation' IN ('host-snapshot','host-snapshot-pass')
+ AND state IN ('available','pending','retryable','scheduled');
+ END IF; END $$`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

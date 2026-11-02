@@ -424,3 +424,47 @@ func TestSSHCallQueueDeadlineDoesNotRunDockerOrLeakPermit(t *testing.T) {
 		}
 	})
 }
+
+// The serialized loop has its own single command; three foreground calls can
+// run alongside it, while the fourth foreground call still waits.
+func TestHostReaderDoesNotConsumeForegroundCommandLimit(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		master := &masterFake{alive: true}
+		started := make(chan string, 5)
+		release := make(chan struct{})
+		client := sshDockerFake(func(ctx context.Context, _ string, cmd docker.Command) ([]byte, error) {
+			started <- cmd.Args[0]
+			select {
+			case <-release:
+				return nil, nil
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		})
+		h := NewHosts(nil, nil, HostSettings{Scope: docker.Scope{Client: client}, SSHCommand: master.run})
+		scope := h.attachedScope("ssh://box", "", "", "/socket")
+		done := make(chan error, 5)
+		reader := scope
+		c := reader.Client.(sshDocker)
+		c.reader = true
+		reader.Client = c
+		go func() { _, err := reader.Run(t.Context(), "loop"); done <- err }()
+		for range 4 {
+			go func() { _, err := scope.Run(t.Context(), "foreground"); done <- err }()
+		}
+		synctest.Wait()
+		if len(started) != 4 {
+			t.Fatalf("admitted %d commands, want loop plus three foreground", len(started))
+		}
+		if len(c.connection.calls) != 3 {
+			t.Fatalf("loop counted as foreground: %d permits", len(c.connection.calls))
+		}
+		close(release)
+		for range 5 {
+			if err := <-done; err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
+}
