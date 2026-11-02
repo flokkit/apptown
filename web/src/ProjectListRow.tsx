@@ -8,8 +8,12 @@ import type { ProjectRow } from './wire.gen'
 
 // Production liveness is separate from the aggregate status, which may
 // describe a preview that needs attention while the app is still running.
-export function appRunning(project: ProjectRow, refreshFailed = false): boolean {
-  return !refreshFailed && project.prodRunning === true
+// Only an app seen stopped or unreachable, or a list that failed to
+// refresh, loses its link: not knowing yet (just after a restart, or while
+// a reading is late) is not stopped, and the address still works.
+export function mayOpenApp(project: ProjectRow, refreshFailed = false): boolean {
+  // A running app keeps its link even when a preview is what is unreachable.
+  return !refreshFailed && (project.prodRunning ?? project.observation !== 'unreachable')
 }
 
 export function projectHue(slug: string): number {
@@ -44,7 +48,7 @@ export function ProjectListRow({ project: p, refreshFailed = false, reason, chil
       {p.hasDeployments === false ? <strong className="small" style={{ color: 'var(--muted)' }}>Not deployed</strong> : <RuntimeStatus observation={observation} />}
       <div className="muted small">{age}</div>
     </div>} action={<div className="project-action">
-      {appRunning(p, refreshFailed) && p.productionUrl && <a className="btn primary" href={p.productionUrl} target="_blank" rel="noreferrer" aria-label={`Open app: ${p.name || p.slug} (opens in a new tab)`}>Open app <span aria-hidden="true">↗</span></a>}
+      {mayOpenApp(p, refreshFailed) && p.productionUrl && <a className="btn primary" href={p.productionUrl} target="_blank" rel="noreferrer" aria-label={`Open app: ${p.name || p.slug} (opens in a new tab)`}>Open app <span aria-hidden="true">↗</span></a>}
       {!refreshFailed && p.canChange && <>
         <button onClick={() => setChanging(true)}>Change</button>
         {changing && <NewChangeButton slug={p.slug} external={{ open: true, onClose: () => setChanging(false) }} />}
