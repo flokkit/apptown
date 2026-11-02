@@ -39,10 +39,11 @@ it('leads a release with the title of the change it shipped', () => {
     { number: 5, changes: [], statusLabel: 'failed', deployment: 'main', releasedAt: '2026-10-29' },
   ] as unknown as import('../../api').Release[]
   const entries = overviewActivity({ history: [] } as unknown as OverviewData, [], [], releases, 'club')
-  expect(entries.map(e => [e.number, e.title, e.source])).toEqual([
-    [undefined, 'Add a dark mode and 1 more', 'Release 7 · main'],
-    [4, 'Keep photos', 'Release 6 · main'],
-    [undefined, 'Release 5', 'main'],
+  // The title opens the change it names; the release is its own link.
+  expect(entries.map(e => [e.number, e.title, e.to, e.release?.to, e.source])).toEqual([
+    [undefined, 'Add a dark mode and 1 more', '/projects/club/releases/7', '/projects/club/releases/7', 'main'],
+    [4, 'Keep photos', '/changes/older-change', '/projects/club/releases/6', 'main'],
+    [undefined, 'Release 5', '/projects/club/releases/5', undefined, 'main'],
   ])
 })
 
@@ -52,5 +53,6 @@ it('shows one activity row for a change included in a release', () => {
   const entries = overviewActivity({ history } as OverviewData, [], [], releases, 'club')
   expect(entries).toHaveLength(1)
   expect(entries[0].title).toBe('Fix photos')
-  expect(entries[0].to).toBe('/projects/club/releases/6')
+  expect(entries[0].to).toBe('/changes/change')
+  expect(entries[0].release?.to).toBe('/projects/club/releases/6')
 })

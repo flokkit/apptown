@@ -144,19 +144,22 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
             <> Open it at <a href={r.notes} target="_blank" rel="noreferrer"><strong>{r.notes}</strong></a></>
           )}
         </div>
-        {data.sbomArtifact && (
-          <div className="muted small" style={{ margin: '6px 0' }}>
-            <a href={`/api/v1/artifacts/${data.sbomArtifact}`} target="_blank" rel="noreferrer">List of software components</a>.
-          </div>
-        )}
         {data.changes.length > 0 && (
-          <div style={{ margin: '12px 0' }}>
-            <div className="muted small" style={{ marginBottom: 4 }}>Changes in this release:</div>
+          <div style={{ margin: '16px 0' }}>
+            <h3 style={{ margin: '0 0 6px' }}>Changes</h3>
             {data.changes.map((c) => (
-              <div key={c.id}>• <Link to={`/changes/${c.id}`}>{c.title}</Link></div>
+              <div key={c.id} style={{ padding: '4px 0' }}><Link to={`/changes/${c.id}`}>{c.title}</Link></div>
             ))}
           </div>
         )}
+        {/* One list of facts: where it runs, what it is built from, what it
+            contains. Empty facts are left out rather than folded away. */}
+        <dl className="facts" style={{ margin: '16px 0' }}>
+          {data.bundle && <BundleFacts bundle={data.bundle} />}
+          {r.commitSha && <><dt>Commit</dt><dd><code>{r.commitSha.slice(0, 12)}</code></dd></>}
+          {!data.bundle && r.externalRef && <><dt>Image</dt><dd><ImageReference value={r.externalRef} /></dd></>}
+          {data.sbomArtifact && <><dt>Software list</dt><dd><a href={`/api/v1/artifacts/${data.sbomArtifact}`} target="_blank" rel="noreferrer">Components in this release (SBOM)</a></dd></>}
+        </dl>
         {data.events.length > 0 && (
           <details style={{ margin: '14px 0' }}><summary>Release log</summary><div>
             <div style={{ background: 'var(--code-bg)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }}>
@@ -174,12 +177,6 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
             <OpenThisVersion slug={slug} number={r.number} isLive={data.isLive} />
           </div>
         )}
-        {data.bundle && <BundleFacts bundle={data.bundle} />}
-        <details style={{ marginTop: 14 }}><summary>Build details</summary><div className="muted small">
-          {r.commitSha && <div>commit <code style={{ fontSize: 'var(--fs-xs)' }}>{r.commitSha.slice(0, 12)}</code></div>}
-          {r.externalRef && <div>image <code style={{ fontSize: 'var(--fs-xs)', wordBreak: 'break-all' }}>{r.externalRef}</code></div>}
-        </div>
-        </details>
         <div style={{ marginTop: 14 }}>
           <Link className="muted small" to={`/projects/${slug}`}>← back to the project</Link>
         </div>
@@ -209,42 +206,37 @@ export function OpenThisVersion({ slug, number, isLive }: { slug: string; number
 // Docker daemon that built them. Shown so a person can tell before
 // promoting whether a release can go to App Platform or Portainer.
 const APP_PLATFORM = 'linux/amd64'
+// BundleFacts: rows of the release's facts list (inside a <dl className="facts">).
 export function BundleFacts({ bundle }: { bundle: ReleaseBundleView }) {
   const images = [
     ...Object.entries(bundle.parts).sort(([a], [b]) => a.localeCompare(b)).map(([n, ref]) => ({ n, ref, init: false })),
     ...Object.entries(bundle.init).sort(([a], [b]) => a.localeCompare(b)).map(([n, ref]) => ({ n, ref, init: true })),
   ]
   return (
-    <div style={{ margin: '14px 0' }}>
-      <div className="muted small" style={{ marginBottom: 4 }}>What it ships:</div>
-      {bundle.byDigest
-        ? <div className="small">
-            <span>Built once; runs on any supported host.</span><details><summary>Compatibility</summary>{' '}
-            Images in <code style={{ wordBreak: 'break-all' }}>{bundle.registry}</code>, built for <code>{bundle.platform}</code>.{' '}
-            {bundle.platform === APP_PLATFORM
-              ? 'Any target that runs this platform can take this release, App Platform included.'
-              : `Any target that runs this platform can take it; App Platform runs ${APP_PLATFORM}, so it cannot.`}
-          </details></div>
-        : <div className="small">
-            <span>Runs on the server where it was built.</span><details><summary>Compatibility</summary>{' '}
-            The images exist only on the Docker daemon that built them, not in a registry. App Platform and Portainer take a
-            release by digest. Attach a container registry to the project, then land a change to make one.
-          </details></div>}
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', columnGap: 14, rowGap: 4, marginTop: 8 }}>
-        {images.map((i) => (
-          <Fragment key={(i.init ? 'init:' : '') + i.n}>
-            <span className="muted small">{i.init ? `init ${i.n}` : i.n}</span>
-            <ImageReference value={i.ref} />
-          </Fragment>
-        ))}
-      </div>
-    </div>
+    <>
+      <dt>Runs on</dt>
+      <dd>{bundle.byDigest
+        ? bundle.platform === APP_PLATFORM
+          ? <>Any <code>{bundle.platform}</code> host, App Platform included</>
+          : <>Any <code>{bundle.platform}</code> host; not App Platform, which runs {APP_PLATFORM}, so it cannot take it</>
+        : <>Only the server where it was built: its images are not in a registry. Attach a container registry to the project, then land a change, to release it elsewhere.</>}</dd>
+      {bundle.byDigest && bundle.registry && <><dt>Registry</dt><dd><code>{bundle.registry}</code></dd></>}
+      {images.map((i) => (
+        <Fragment key={(i.init ? 'init:' : '') + i.n}>
+          <dt>{i.init ? `Image · init ${i.n}` : `Image · ${i.n}`}</dt>
+          <dd><ImageReference value={i.ref} /></dd>
+        </Fragment>
+      ))}
+    </>
   )
 }
 
 function ImageReference({ value }: { value: string }) {
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
-  const short = value.includes('sha256:') ? value.split('sha256:')[1].slice(0, 7) : value.slice(0, 7)
-  return <div><button onClick={async () => { try { await navigator.clipboard.writeText(value); setCopied(true); setError('') } catch { setError('Could not copy. Open details to select the image reference.') } }}>{copied ? 'Copied' : `Copy image ${short}`}</button><details><summary>Image details</summary><code style={{ overflowWrap: 'anywhere' }}>{value}</code></details>{error && <p className="error">{error}</p>}</div>
+  return <span className="row" style={{ gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+    <code style={{ overflowWrap: 'anywhere', flex: '1 1 260px' }}>{value}</code>
+    <button className="subtle" onClick={async () => { try { await navigator.clipboard.writeText(value); setCopied(true); setError('') } catch { setError('Could not copy; select the reference instead.') } }}>{copied ? 'Copied' : 'Copy'}</button>
+    {error && <span className="error small">{error}</span>}
+  </span>
 }
