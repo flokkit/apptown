@@ -42,7 +42,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
   const open = data ? data.active.length + (data.open?.length ?? 0) : null
   return <div className="application-overview">
     <header className="application-heading">
-      <div className="application-title"><h1>{project.name}</h1>{app?.url && <AppAddress className="application-open" url={app.url} hostOnly={app.hostOnly}>Open app ↗</AppAddress>}</div>
+      <div className="application-title"><h1>{project.name}</h1>{app?.url && <AppAddress className="btn primary application-open" url={app.url} hostOnly={app.hostOnly}>Open app ↗</AppAddress>}</div>
       {project.blurb && <p className="muted">{project.blurb}</p>}
       {app?.url && <AppAddress className="application-address" url={app.url} hostOnly={app.hostOnly}>{app.url.replace(/^https?:\/\//, '')}</AppAddress>}
     </header>
