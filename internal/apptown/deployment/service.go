@@ -30,14 +30,15 @@ type Service struct {
 	limitsMu     sync.Mutex
 	limitsPruned time.Time
 	// hostMemory reads the built-in host; nil uses /proc/meminfo.
-	hostMemory func() (hostmem.Memory, error)
-	hosts      *Hosts
-	env        *Environment
-	providers  *Providers
-	projects   *project.Projects
-	authority  access.Authorizer
-	groups     groupDirectory
-	db         *database.DB
+	hostMemory       func() (hostmem.Memory, error)
+	hosts            *Hosts
+	env              *Environment
+	providers        *Providers
+	inventorySources map[string]func(context.Context, *Target) (inventoryObservation, error)
+	projects         *project.Projects
+	authority        access.Authorizer
+	groups           groupDirectory
+	db               *database.DB
 	// records is the context a release's log lines are written on: each
 	// says what already happened, so none is lost to its caller stopping.
 	records            context.Context
@@ -165,6 +166,7 @@ func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
 	}
 	s.Inventory.targets, s.Inventory.providers = targets, providers
 	s.setClock(deps.Now)
+	s.inventorySources = s.newInventorySources()
 	return s
 }
 

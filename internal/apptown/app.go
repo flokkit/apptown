@@ -147,6 +147,7 @@ type App struct {
 	Fixes               *remediation.Service // the remediation facade, built once in New
 	// The provider inventory cache (infrastructure_cache.go).
 	inventory          *deployment.InventoryReadings
+	hostSnapshots      *deployment.HostSnapshots
 	jobs               *jobs.Queue
 	reaper             *maintenance.Reaper
 	disks              maintenance.Disks
@@ -352,6 +353,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	// owner that uses them.
 	a.targets = deployment.NewTargets(db, targetConnectors{}, deployment.IntranetTargetName)
 	a.deployments = deployment.NewDeployments(db)
+	a.hostSnapshots = deployment.NewHostSnapshots(db, cfg.clock.Now)
 	a.hosts = deployment.NewHosts(a.targets, a.Secrets, hostSettingsFor(a))
 	a.environment = deployment.NewEnvironment(environmentDependenciesFor(a))
 	a.infrastructure = &infrastructureChecks{}

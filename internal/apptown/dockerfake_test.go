@@ -68,6 +68,14 @@ func (f *fakeDocker) Run(ctx context.Context, host string, req docker.Command) (
 	if f.command != nil {
 		return f.command(ctx, host, req)
 	}
+	if len(req.Args) >= 6 && slices.Equal(req.Args[:5], []string{"inspect", "--type", "container", "--format", "{{json .}}"}) {
+		out, err := f.run(req.Args...)
+		if req.Stdout != nil {
+			_, writeErr := req.Stdout.Write(out)
+			return nil, errors.Join(err, writeErr)
+		}
+		return out, err
+	}
 	if req.Stdin != nil || req.Stdout != nil {
 		return nil, errors.New("fake Docker streaming requires an explicit reply")
 	}
@@ -222,10 +230,56 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 	if len(args) == 0 {
 		return nil, nil
 	}
+	if slices.Equal(args, []string{"ps", "-aq", "--no-trunc"}) {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		var names []string
+		for name := range f.started {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+		return []byte(strings.Join(names, "\n")), nil
+	}
+	if len(args) >= 6 && slices.Equal(args[:5], []string{"inspect", "--type", "container", "--format", "{{json .}}"}) {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		var lines []string
+		for _, name := range args[5:] {
+			running, ok := f.started[name]
+			if !ok {
+				return nil, fmt.Errorf("unknown container %s", name)
+			}
+			c := docker.HostContainer{ID: dockerfake.ContainerID(name), Name: "/" + name}
+			c.Config.Image = "sha256:built"
+			c.Config.Labels = f.labels[name]
+			c.State.Running = running
+			c.State.Status = "exited"
+			if running {
+				c.State.Status = "running"
+			}
+			fmt.Sscan(f.limits[name], &c.HostConfig.Memory, &c.HostConfig.NanoCpus)
+			if record := f.storageContainers[name]; record != nil {
+				raw, _ := json.Marshal(record)
+				var stored docker.HostContainer
+				_ = json.Unmarshal(raw, &stored)
+				c.Mounts = stored.Mounts
+				c.Config.Image = stored.Config.Image
+			}
+			raw, err := json.Marshal(c)
+			if err != nil {
+				return nil, err
+			}
+			lines = append(lines, string(raw))
+		}
+		return []byte(strings.Join(lines, "\n")), nil
+	}
 	switch args[0] {
 	case "run", "create":
 		return f.printID(args, nil, nil), nil
 	case "info":
+		if len(args) == 3 && args[2] == "{{json .}}" {
+			return json.Marshal(map[string]any{"ID": "fake-daemon", "MemTotal": 8 << 30, "NCPU": 4, "DockerRootDir": "/var/lib/docker", "CgroupVersion": "2"})
+		}
 		if len(args) == 3 && strings.Contains(args[2], "MemTotal") {
 			return []byte("8589934592\t4\t/var/lib/docker\n"), nil
 		}

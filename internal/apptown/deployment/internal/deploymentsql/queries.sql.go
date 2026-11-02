@@ -1841,6 +1841,22 @@ func (q *Queries) InterruptedAttempts(ctx context.Context, arg InterruptedAttemp
 	return items, nil
 }
 
+const invalidateHostSnapshot = `-- name: InvalidateHostSnapshot :exec
+UPDATE deployment_readings SET generation=generation+1, invalidated=TRUE,
+    payload=jsonb_set(payload, '{PredatesActAt}', to_jsonb($1::timestamptz))
+WHERE subject=$2 AND kind='host-snapshot'
+`
+
+type InvalidateHostSnapshotParams struct {
+	ActedAt time.Time
+	Subject string
+}
+
+func (q *Queries) InvalidateHostSnapshot(ctx context.Context, arg InvalidateHostSnapshotParams) error {
+	_, err := q.db.ExecContext(ctx, invalidateHostSnapshot, arg.ActedAt, arg.Subject)
+	return err
+}
+
 const invalidateReading = `-- name: InvalidateReading :exec
 UPDATE deployment_readings SET generation=generation+1, invalidated=TRUE WHERE subject=$1 AND kind=$2
 `
@@ -4252,6 +4268,41 @@ func (q *Queries) StandingCount(ctx context.Context, arg StandingCountParams) (i
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const startHostSnapshot = `-- name: StartHostSnapshot :one
+INSERT INTO deployment_readings (id, subject, kind, identity)
+VALUES ($1,$2,'host-snapshot',$3)
+ON CONFLICT (subject,kind) DO UPDATE SET
+    identity=EXCLUDED.identity,
+    invalidated=CASE WHEN deployment_readings.identity=EXCLUDED.identity THEN deployment_readings.invalidated ELSE FALSE END,
+    payload=CASE WHEN deployment_readings.identity=EXCLUDED.identity THEN deployment_readings.payload ELSE '{}'::jsonb END
+RETURNING identity, generation, invalidated, payload
+`
+
+type StartHostSnapshotParams struct {
+	ID       ids.ID
+	Subject  string
+	Identity string
+}
+
+type StartHostSnapshotRow struct {
+	Identity    string
+	Generation  int64
+	Invalidated bool
+	Payload     json.RawMessage
+}
+
+func (q *Queries) StartHostSnapshot(ctx context.Context, arg StartHostSnapshotParams) (StartHostSnapshotRow, error) {
+	row := q.db.QueryRowContext(ctx, startHostSnapshot, arg.ID, arg.Subject, arg.Identity)
+	var i StartHostSnapshotRow
+	err := row.Scan(
+		&i.Identity,
+		&i.Generation,
+		&i.Invalidated,
+		&i.Payload,
+	)
+	return i, err
 }
 
 const startInventoryReading = `-- name: StartInventoryReading :one
