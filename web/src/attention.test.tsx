@@ -45,8 +45,8 @@ function responses(read: (init?: RequestInit) => Response | Promise<Response>, e
   }))
   return calls
 }
-// The lights: present only while something is confirmed broken; their label is the count to fix.
-const badge = (el: HTMLElement) => el.querySelector('.attention-lights')!
+// The lit lights: present only while something is confirmed broken; their label is the count to fix.
+const badge = (el: HTMLElement) => el.querySelector('.attention-light:not(.off)') ? el.querySelector('.attention-lights')! : null!
 
 describe('Attention surfaces share authorized current evidence', () => {
   it('shares one answer and request between narrow topbar and actual page, with actionable severity and links', async () => {
@@ -84,6 +84,14 @@ describe('Attention surfaces share authorized current evidence', () => {
     expect(v.el.querySelectorAll('article')).toHaveLength(0)
     expect(badge(v.el)).toBeNull()
     expect(v.el.textContent).not.toContain('Coverage incomplete')
+  })
+  it('keeps every kind in place, grey while nothing of that kind is broken', async () => {
+    responses(() => json(known))
+    const v = mount(<AttentionLights />); await settled(v.client)
+    const lights = [...v.el.querySelectorAll('.attention-light')]
+    expect(lights.map(l => l.getAttribute('href'))).toEqual(['/attention#hosts', '/attention#backups', '/attention#integrations', '/attention#checks'])
+    expect(lights.every(l => l.classList.contains('off'))).toBe(true)
+    expect(v.el.querySelector('.attention-lights')?.getAttribute('aria-label')).toBe('All quiet')
   })
   it('shows known conditions beside incomplete host coverage in the topbar', async () => {
     responses(() => json({ ...warning, sources: [{ ...known.sources[0], unknown: true }] }))
@@ -341,7 +349,7 @@ it('shows a never-checked source as not checked yet in the full list', async () 
 it('shows the lights to operators only, one per kind of condition, linking to its group', async () => {
  responses(() => json(warning))
  const v = mount(<AttentionLights />); await settled(v.client)
- const lights = [...v.el.querySelectorAll('.attention-light')]
+ const lights = [...v.el.querySelectorAll('.attention-light:not(.off)')]
  expect(lights.map(l => l.getAttribute('href'))).toEqual(['/attention#hosts', '/attention#backups'])
  expect(lights[0].getAttribute('title')).toBe('Hosts and deployments: 1 to fix')
  vi.unstubAllGlobals()

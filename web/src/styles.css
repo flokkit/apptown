@@ -1711,6 +1711,7 @@ button.chat-starter { border-radius: var(--radius-sm); }
 .attention-lights { gap: 4px; }
 .attention-light { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; color: var(--bad); background: var(--bad-bg, transparent); }
 .attention-light.low { color: var(--warn, #b7791f); background: var(--warn-bg, transparent); }
+.attention-light.off { color: var(--faint); background: transparent; }
 .attention-light:hover { outline: 1px solid currentColor; }
 
 .check-heading { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 100%; text-align: left; padding: 12px 14px; white-space: normal; }

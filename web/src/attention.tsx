@@ -54,24 +54,25 @@ export function useOperator() {
 
 // AttentionLights: one small light per kind of condition, lit only while
 // something of that kind is confirmed broken, for the people who can fix
-// it. Nothing shows when all is well, a check that could not run lights
-// nothing (Attention lists it), and members never see admin conditions.
+// it. Unlit kinds stay in place in grey, so a lit one stands out by colour
+// and position. A check that could not run lights nothing (Attention lists
+// it), and members never see admin conditions.
 export function AttentionLights() {
   const q = useAttention()
   const operator = useOperator()
   if (!operator) return null
   // A list that could not be read is not a list with nothing on it.
   if (!q.data) return q.err ? <Link className="small attention-unread" to="/attention" title={`Attention could not be read: ${q.reason || q.err}`}><Status word="unknown" /></Link> : null
-  const lit = ATTENTION_GROUPS.map((g) => ({ ...g, items: q.data!.items.filter((i) => !i.unknown && attentionGroup(i.key) === g.key) }))
-    .filter((g) => g.items.length > 0)
-  if (lit.length === 0) return <StaleNote q={q} inline />
-  const total = lit.reduce((n, g) => n + g.items.length, 0)
-  return <span className="row small attention-lights" role="group" aria-label={`${total} to fix`}>
-    {lit.map((g) => {
+  const groups = ATTENTION_GROUPS.map((g) => ({ ...g, items: q.data!.items.filter((i) => !i.unknown && attentionGroup(i.key) === g.key) }))
+  const total = groups.reduce((n, g) => n + g.items.length, 0)
+  const state = attentionState(q)
+  return <span className="row small attention-lights" role="group" aria-label={total > 0 ? `${total} to fix` : attentionSummary(state.count, state.unknown)}>
+    {groups.map((g) => {
       // Low disk is amber, like its row on Attention; everything else is red.
-      const low = g.items.every((i) => i.statusLabel === 'low')
-      const words = `${g.title}: ${g.items.length} to fix`
-      return <Link key={g.key} className={`attention-light${low ? ' low' : ''}`} to={`/attention#${g.key}`} title={words} aria-label={words}>
+      const off = g.items.length === 0
+      const low = !off && g.items.every((i) => i.statusLabel === 'low')
+      const words = off ? `${g.title}: nothing confirmed broken` : `${g.title}: ${g.items.length} to fix`
+      return <Link key={g.key} className={`attention-light${off ? ' off' : low ? ' low' : ''}`} to={`/attention#${g.key}`} title={words} aria-label={words}>
         <g.icon aria-hidden size={16} />
       </Link>
     })}
