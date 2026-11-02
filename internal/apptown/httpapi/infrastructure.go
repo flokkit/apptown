@@ -103,7 +103,8 @@ func (h Infrastructure) Infrastructure(w http.ResponseWriter, r *http.Request) {
 			v.Unknown = true
 		} else {
 			{
-				live, shared, errText, at, invalidated, unknown := h.cache.Live(r.Context(), t)
+				live, shared, errText, at, invalidated, unknown, took := h.cache.Live(r.Context(), t)
+				v.TookSeconds = took
 				v.Error, v.Invalidated = errText, invalidated
 				v.Unknown = unknown
 				if !at.IsZero() {
@@ -195,19 +196,10 @@ func (h Infrastructure) RemoveInfrastructure(w http.ResponseWriter, r *http.Requ
 				WriteFault(w, err)
 				return
 			}
-			dk, scopeErr := h.hosts.DockerScope(r.Context(), t)
-			if scopeErr != nil {
-				WriteError(w, 502, "not removed: %v", scopeErr)
-				return
-			}
 			if !admit() {
 				return
 			}
-			if in.Kind == "container" {
-				out, err = dk.Run(r.Context(), "rm", "-f", in.Name)
-			} else {
-				out, err = dk.Run(r.Context(), "volume", "rm", in.Name)
-			}
+			out, err = h.deployment.RemoveDockerResource(r.Context(), t, in.Kind, in.Name)
 		case t.Kind == deployment.KindPortainer && in.Kind == "stack":
 			cfg, cerr := h.providers.PortainerConfig(r.Context(), t)
 			if cerr != nil {

@@ -110,6 +110,7 @@ type ConnectorRetirement interface {
 // lock later, while another holds the table lock and waits for the row, is a
 // deadlock. Such changes are rare and short, so they simply queue.
 type Targets struct {
+	changed    chan struct{}
 	db         *database.DB
 	connectors ConnectorRetirement
 	implicit   []string         // targets offered to everyone by construction, by name
@@ -119,7 +120,7 @@ type Targets struct {
 func (s *Targets) now() time.Time { return clock.Or(s.clock)().UTC() }
 
 func NewTargets(db *database.DB, connectors ConnectorRetirement, offeredByConstruction ...string) *Targets {
-	return &Targets{db: db, connectors: connectors, implicit: offeredByConstruction}
+	return &Targets{changed: make(chan struct{}, 1), db: db, connectors: connectors, implicit: offeredByConstruction}
 }
 
 func targetRecord(r deploymentsql.Target, err error) (*Target, error) {
@@ -186,6 +187,7 @@ func (s *Targets) All(ctx context.Context) ([]*Target, error) {
 // creation uses Attach. A target AppTown derives from configuration
 // refreshes through Sync instead, which keeps the administrator's settings.
 func (s *Targets) Put(ctx context.Context, t *Target) (*Target, error) {
+	defer s.notifyReaders()
 	if _, err := t.Status.Value(); err != nil {
 		return nil, err
 	}
@@ -211,6 +213,7 @@ func (at attachment) receipts(ctx context.Context, tx *database.Tx, now time.Tim
 // attach creates a target under an unused name, with its receipts in the same
 // transaction: where projects may deploy is not changed without its record.
 func (s *Targets) attach(ctx context.Context, t *Target, at attachment) (*Target, error) {
+	defer s.notifyReaders()
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (*Target, error) { return s.attachIn(ctx, tx, t, at) })
 }
 
@@ -262,6 +265,7 @@ func putTargetParams(t *Target, now time.Time) deploymentsql.PutTargetParams {
 // An unchanged sync writes nothing. A retired target stays as it is. Status
 // belongs to checks and retirement, so a sync never changes it.
 func (s *Targets) sync(ctx context.Context, t *Target, who string) (*Target, error) {
+	defer s.notifyReaders()
 	now := s.now()
 	if _, err := t.Status.Value(); err != nil {
 		return nil, err
@@ -450,6 +454,7 @@ func (s *Targets) recordCheck(ctx context.Context, t *Target, answered bool, who
 // an unused cloud connector commit together. Retiring a retired target is
 // already done and changes nothing.
 func (s *Targets) Retire(ctx context.Context, name, who string) error {
+	defer s.notifyReaders()
 	now := s.now()
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		// Serialize target mutations so two sibling retirements cannot each
@@ -561,4 +566,27 @@ func (t *Target) HoldsBackups() error {
 		return fmt.Errorf("a %s target: %w", t.Kind, ErrTargetKeepsBackups)
 	}
 	return nil
+}
+
+func (s *Targets) notifyReaders() {
+	select {
+	case s.changed <- struct{}{}:
+	default:
+	}
+}
+
+func (s *Targets) activeDocker(ctx context.Context) ([]*Target, error) {
+	rows, err := deploymentsql.New(s.db.SQL()).ActiveDockerTargets(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []*Target
+	for _, row := range rows {
+		t, err := targetRecord(row, nil)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, nil
 }

@@ -30,6 +30,7 @@ func runSSH(ctx context.Context, args []string) ([]byte, error) {
 // sshDocker shares one authenticated connection and bounds actual SSH sessions,
 // including the separate HTTP streams opened by one docker stats command.
 type sshDocker struct {
+	reader                bool
 	client                docker.Client
 	run                   SSHCommand
 	config, alias, socket string
@@ -60,12 +61,14 @@ func (c sshDocker) Run(ctx context.Context, host string, cmd docker.Command) (ou
 	// A call can retain several sessions while requesting another (attach,
 	// BuildKit, stats). Admit at most three calls before taking session slots
 	// so those retained streams leave room for each call to make progress.
-	select {
-	case c.connection.calls <- struct{}{}:
-	case <-ctx.Done():
-		return nil, ctx.Err()
+	if !c.reader {
+		select {
+		case c.connection.calls <- struct{}{}:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		defer func() { <-c.connection.calls }()
 	}
-	defer func() { <-c.connection.calls }()
 	if err := c.ensure(ctx); err != nil {
 		return []byte(err.Error()), err
 	}

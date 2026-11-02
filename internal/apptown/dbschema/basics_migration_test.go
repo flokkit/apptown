@@ -1,9 +1,13 @@
-package model
+package dbschema
 
 import (
 	"testing"
+	"time"
 
-	"github.com/flokkit/apptown/internal/apptown/dbschema"
+	"github.com/flokkit/apptown/internal/apptown/model"
+	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // The combined upgrades preserve standard task models and apply each profile
@@ -16,11 +20,17 @@ func TestBasicChoicesAndNamesUpgrade(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			db := testDB(t)
-			s := New(db)
+			// Build the historical schema; changing a fresh database's version
+			// would replay later DDL that is already installed.
+			db := releaseDB(t)
+			if _, err := applyMigrations(t.Context(), db, migrations[:migrationIndex(t, 198)+1]); err != nil {
+				t.Fatal(err)
+			}
+			s := model.New(db)
 			// The current owner intentionally cannot seed old fallback values.
-			// sql-guarantee: reproduce the released stock chain and schema version.
-			if _, err := db.SQL().ExecContext(t.Context(), `UPDATE schema_version SET version=198;
+			// sql-guarantee: isolate the released model cells and stock chain.
+			if _, err := db.SQL().ExecContext(t.Context(), `DELETE FROM model_slots;
+DELETE FROM slot_fallbacks;
 INSERT INTO slot_fallbacks(slot,fallback) VALUES
 ('plan','default'),('implement','default'),('review','default'),('security','review'),
 ('fast','default'),('chat','default'),('worker','default'),('scout','fast')`); err != nil {
@@ -46,13 +56,24 @@ INSERT INTO slot_fallbacks(slot,fallback) VALUES
 				}
 			}
 			tasks := []string{"default", "plan", "implement", "review", "security", "fast", "chat", "worker", "scout"}
-			if n, err := dbschema.Migrate(t.Context(), db); err != nil || n != dbschema.Latest()-198 {
+			if n, err := Migrate(t.Context(), db); err != nil || n != Latest()-198 {
 				t.Fatalf("upgrade: %d %v", n, err)
 			}
 			if err := s.SeedFallbacks(t.Context()); err != nil {
 				t.Fatal(err)
 			}
+			selection := model.NewSelection(s)
+			projects := project.New(db, nil)
 			for _, profile := range []string{"standard", "high", "luna"} {
+				projectID, err := database.Transact(t.Context(), db, func(tx *database.Tx) (ids.ID, error) {
+					return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "upgrade-" + profile, Name: profile})
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := projects.SetModelProfile(t.Context(), projectID, profile); err != nil {
+					t.Fatal(err)
+				}
 				for _, task := range append(tasks, "secondary-fast") {
 					requested := task
 					if task == "default" {
@@ -86,7 +107,7 @@ INSERT INTO slot_fallbacks(slot,fallback) VALUES
 							}
 						}
 					}
-					if got, _, _, err := s.resolve(t.Context(), profile, requested); err != nil || got != want {
+					if got, _, _, err := selection.Resolve(t.Context(), projectID, requested); err != nil || got != want {
 						t.Errorf("%s/%s: %q, want %q (%v)", profile, requested, got, want, err)
 					}
 				}

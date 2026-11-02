@@ -263,7 +263,7 @@ func TestAttentionDiskStaysFreshThroughObserverCadence(t *testing.T) {
 	t.Parallel()
 	daemon := newDockerFake()
 	a := testApp(t, Config{DockerClient: daemon})
-	target, err := a.Deployment.Targets.Put(t.Context(), &deployment.Target{Name: "local", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
+	target, err := a.Deployment.Targets.Put(t.Context(), &deployment.Target{Name: deployment.BuiltInTargetName, Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
 	if err != nil {
 		t.Fatal(err)
 	}

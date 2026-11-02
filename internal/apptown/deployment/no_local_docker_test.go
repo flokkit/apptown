@@ -500,6 +500,10 @@ func TestNoLocalDockerRefusesOtherTargetsBeforeAnyBuild(t *testing.T) {
 		}
 		w.deployment(t, s, "on-"+name, targets[name])
 	}
+	reading, err := s.InventoryFor(t.Context(), targets["local"])
+	if err != nil || !reading.Unreported {
+		t.Fatalf("host without loop expects a reading: %+v %v", reading, err)
+	}
 	var queued AcceptedRelease
 	for name, words := range want {
 		accepted, err := s.RequestRelease(context.Background(), DeploySelection{ProjectID: w.project, DeploymentName: "on-" + name, BundleID: bundle})

@@ -23,6 +23,9 @@ import (
 // the Docker library owns probing, restart thresholds and backoff.
 func (s *Service) HealthController() *docker.HealthController {
 	return docker.NewHealthController(docker.HealthDependencies{
+		BeforeAct: func(ctx context.Context, w docker.Watched) error {
+			return NewHostSnapshots(s.db, s.now).BeforeAct(ctx, w.TargetID)
+		},
 		Watch:      func(ctx context.Context) []docker.Watched { return s.hosts.Watched(ctx, s.Deployments) },
 		PublicPart: s.healthPublicPart,
 		FrontDoor:  s.env.FrontDoorHeaders,

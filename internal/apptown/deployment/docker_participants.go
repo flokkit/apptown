@@ -155,7 +155,7 @@ func (s *Service) RunLanding(ctx context.Context, claim ClaimedExecution, in Lan
 		return fail(err)
 	}
 	ctx = context.WithoutCancel(ctx)
-	result, err := (Runner{Store: s.Outcomes, Applied: s.applied}).Run(ctx, in.Start, executor.execute)
+	result, err := (Runner{Store: s.Outcomes, Applied: s.applied, BeforeAct: NewHostSnapshots(s.db, s.now).BeforeAct}).Run(ctx, in.Start, executor.execute)
 	out := LandingResult{Execution: result, Boot: executor.result, Docker: dk, TargetID: target.ID}
 	if err == nil && result.Created && result.Outcome == Applied {
 		out.Evidence = executor.evidence(ctx)

@@ -47,6 +47,8 @@ func newApp(t *testing.T, db *database.DB, configs ...Config) *App {
 	if err := a.Models.SetDefault(context.Background(), "fake/model"); err != nil {
 		t.Fatal(err)
 	}
+	// Preview effects use the same built-in target record the daemon seeds.
+	a.Deployment.SeedTargets(t.Context(), nil)
 	return a
 }
 

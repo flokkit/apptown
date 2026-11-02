@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -67,6 +66,7 @@ import (
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/hostmem"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/stock"
 	"github.com/riverqueue/river/riverdriver"
 	"github.com/riverqueue/river/riverdriver/riverdatabasesql"
@@ -322,10 +322,13 @@ func TestTour(t *testing.T) {
 	writeTourPage(t, tourDir, stops)
 }
 
-// Both scenes collect real snapshot jobs over their disposable daemon.
+// Both scenes run the host reader loops over their disposable daemon.
 func TestHostSnapshotScenesReadInventory(t *testing.T) {
 	for _, garage := range []bool{false, true} {
 		t.Run(fmt.Sprint(garage), func(t *testing.T) {
+			if !garage {
+				t.Setenv("APPTOWN_DESIGN_HOLD", "127.0.0.1:0")
+			}
 			w := newTourWorld(t, garage)
 			targets, err := w.a.targets.All(t.Context())
 			if err != nil {
@@ -336,8 +339,25 @@ func TestHostSnapshotScenesReadInventory(t *testing.T) {
 					continue
 				}
 				inv, err := w.a.Deployment.InventoryFor(t.Context(), target)
-				if err != nil || inv.Unknown {
+				if err != nil || inv.Unknown || inv.Invalidated {
 					t.Fatalf("scene inventory unknown: %+v %v", inv, err)
+				}
+			}
+			if !garage {
+				target, err := w.a.targets.ByName(t.Context(), "built-in-docker")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := w.a.hostSnapshots.BeforeAct(t.Context(), target.ID); err != nil {
+					t.Fatal(err)
+				}
+				var last string
+				if !poll.Until(t.Context(), 25*time.Second, 10*time.Millisecond, func() bool {
+					inv, err := w.a.Deployment.InventoryFor(t.Context(), target)
+					last = fmt.Sprintf("%+v %v", inv, err)
+					return err == nil && !inv.Invalidated && !inv.Unknown
+				}) {
+					t.Fatalf("held tour never completed a lap after an act: %s", last)
 				}
 			}
 		})
@@ -1000,6 +1020,13 @@ func newTourWorld(t *testing.T, garage bool) *tourWorld {
 	go a.Deployment.RunObservations(runtimeCtx)
 	w := &tourWorld{t: t, a: a, scene: s, server: server, made: made, tourDir: tourDir, password: password, vite: vite, held: hold != ""}
 	w.observe()
+	// Fixture jobs finish before the first lap; the held manager owns later laps.
+	readHostsForTest(t, a)
+	if w.held {
+		done := make(chan struct{})
+		go func() { defer close(done); a.HostReaders.Run(runtimeCtx) }()
+		t.Cleanup(func() { stopRuntime(); <-done })
+	}
 	return w
 }
 
@@ -1009,9 +1036,6 @@ func newTourWorld(t *testing.T, garage bool) *tourWorld {
 func (w *tourWorld) observe() {
 	t, a := w.t, w.a
 	if _, err := infrastructureChecksFor(a).Run(context.Background(), "", nil); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := infrastructureChecksFor(a).HostSnapshotPass(context.Background(), "", nil); err != nil {
 		t.Fatal(err)
 	}
 	w.scene.call("sam", "GET", "/api/v1/attention", nil)
@@ -1039,7 +1063,7 @@ func (w *tourWorld) observe() {
 			return out
 		}
 	}
-	for _, kind := range []string{diskObservationJob, workerObservationJob, "capacity-observation", deployment.HostSnapshotJob, "inventory", "protection-observation", integration.HealthObservationJob, deployment.TargetObservationJob, deployment.DetailObservationJob, preview.ObservationJob, integration.ErrorObservationJob, dataprotection.StoreObservationJob} {
+	for _, kind := range []string{diskObservationJob, workerObservationJob, "capacity-observation", "inventory", "protection-observation", integration.HealthObservationJob, deployment.TargetObservationJob, deployment.DetailObservationJob, preview.ObservationJob, integration.ErrorObservationJob, dataprotection.StoreObservationJob} {
 		for _, job := range queued(kind) {
 			if job.State == "available" || job.State == "retryable" || job.State == "scheduled" {
 				result := runJobForTest(t, a, job.ID)
@@ -3534,9 +3558,7 @@ app:
 	if err := a.capacityObserver.Run(ctx, previewHost.ID, previewHost.SettingsRevision); err != nil {
 		t.Logf("preview capacity remains unknown: %v", err)
 	}
-	if _, err := (deployment.HostSnapshotWorker{Snapshots: a.hostSnapshots, Targets: a.targets, Hosts: a.hosts, Providers: a.targetProviders, Inventory: a.Deployment.Inventory}).Run(ctx, productionHost.ID.String()+"/"+strconv.FormatInt(productionHost.SettingsRevision, 10), nil); err != nil {
-		t.Fatal(err)
-	}
+	readHostsForTest(t, a)
 	// Keep the test daemon's observations fresh during the whole-site walk.
 	observeCtx, cancelObserve := context.WithCancel(ctx)
 	observeDone := make(chan struct{})

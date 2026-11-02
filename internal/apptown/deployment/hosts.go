@@ -401,7 +401,12 @@ func (h *Hosts) Watched(ctx context.Context, deployments *Deployments) []docker.
 			log.Printf("health controller: %s/%s: %v", e.Project, e.Name, err)
 			continue
 		}
-		out = append(out, docker.Watched{DeploymentID: e.ID, ProjectID: e.ProjectID, Identity: deploy.DockerIdentity{Deployment: e.label(), Generation: e.ObservedGeneration}, Slug: e.Project, Name: e.Name, HostPort: e.HostPort, Container: e.Container, Docker: dk})
+		out = append(out, docker.Watched{TargetID: e.TargetID, DeploymentID: e.ID, ProjectID: e.ProjectID, Identity: deploy.DockerIdentity{Deployment: e.label(), Generation: e.ObservedGeneration}, Slug: e.Project, Name: e.Name, HostPort: e.HostPort, Container: e.Container, Docker: dk})
 	}
 	return out
+}
+
+// readsDockerHost is the loop eligibility rule for an already selected Docker target.
+func (h *Hosts) readsDockerHost(t *Target) bool {
+	return t.Status != TargetRetired && !(t.Origin == OriginBuiltIn && h.NoLocalDocker())
 }

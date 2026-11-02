@@ -406,6 +406,7 @@ func main() {
 			flush: func(ctx context.Context) error { return apptown.CloseTelemetry(app, ctx) },
 			tasks: []daemonTask{
 				{"jobs", app.Jobs().Run},
+				{"host readings", daemonLoop(app.HostReaders.Run)},
 				{"health controller", daemonLoop(app.RunHealthController)},
 				{"deployment observations", daemonLoop(app.Deployment.RunObservations)},
 				{"deployment readiness", daemonLoop(app.Deployment.RunReadiness)},

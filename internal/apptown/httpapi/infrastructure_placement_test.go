@@ -128,12 +128,12 @@ type siblingInventoryCache map[string]struct {
 	error  string
 }
 
-func (c siblingInventoryCache) Live(_ context.Context, t *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool, bool) {
+func (c siblingInventoryCache) Live(_ context.Context, t *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool, bool, float64) {
 	at := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
 	if c[t.Name].error != "" {
 		at = time.Time{}
 	}
-	return c[t.Name].items, c[t.Name].shared, c[t.Name].error, at, false, at.IsZero()
+	return c[t.Name].items, c[t.Name].shared, c[t.Name].error, at, false, at.IsZero(), 3
 }
 func collectSiblingInventory(t *testing.T, w *targetHTTPWorld) siblingInventoryCache {
 	t.Helper()
@@ -557,5 +557,26 @@ func TestInfrastructureUsesInventoryOwnerUnknownDecision(t *testing.T) {
 		if got != (age > 6*time.Hour) {
 			t.Errorf("transport overruled owner at age %v: %+v", age, views[0])
 		}
+	}
+}
+
+// Age and duration must come from one reading, rather than querying a second
+// lap for duration while shaping the cached facts.
+func TestInfrastructureKeepsDurationWithItsSourceReading(t *testing.T) {
+	t.Parallel()
+	w := newTargetHTTPWorld(t)
+	w.seedBuiltin(t)
+	w.infra.cache = siblingInventoryCache{}
+	code, out := targetCall(t, w.infra.Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
+	if code != 200 {
+		t.Fatalf("infrastructure: %d %+v", code, out)
+	}
+	targets, ok := out["targets"].([]any)
+	if !ok || len(targets) != 1 {
+		t.Fatalf("targets: %+v", out)
+	}
+	row := targets[0].(map[string]any)
+	if row["tookSeconds"] != float64(3) || row["asOf"] != "2026-10-31T00:00:00Z" {
+		t.Fatalf("source metadata separated: %+v", row)
 	}
 }

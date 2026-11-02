@@ -164,3 +164,43 @@ func TestInventoryPendingFirstCheckIsCoverageOnly(t *testing.T) {
 		})
 	}
 }
+
+// A late Docker reading warns by age alone, including never read. A failed
+// command in a younger reading is displayed without raising a host warning.
+func TestDockerHostReadingWarnsOnlyAfterFiveMinutes(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 11, 3, 0, 10, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name string
+		at   time.Time
+		want bool
+	}{
+		{"never", time.Time{}, true},
+		{"young failed", now.Add(-time.Minute), false},
+		{"exact threshold", now.Add(-5 * time.Minute), false},
+		{"old", now.Add(-5*time.Minute - time.Microsecond), true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			target := &deployment.Target{ID: idstest.N(1), Name: "host", Kind: deployment.KindDockerHost, Status: deployment.TargetReady}
+			evidence := &inventoryEvidence{InventoryReading{ObservedAt: tc.at, AttemptedAt: now, FailedAt: now, LastFailure: "container read failed"}}
+			source := Inventory{Targets: capacityTargets{[]*deployment.Target{target}}, Records: &recordedInventory{}, Observer: evidence, Now: func() time.Time { return now }}
+			got, err := source.Snapshot(t.Context())
+			if err != nil || (len(got.Items) > 0) != tc.want {
+				t.Fatalf("host age warning: %+v %v", got, err)
+			}
+			if tc.want && (got.Items[0].Severity != SeverityWarning || !strings.Contains(got.Items[0].Detail, "container read failed")) {
+				t.Fatalf("age warning lost reason: %+v", got.Items)
+			}
+		})
+	}
+}
+
+func TestDockerHostWithoutLoopDoesNotWarnAboutNeverRead(t *testing.T) {
+	t.Parallel()
+	target := &deployment.Target{ID: idstest.N(1), Name: "built-in-docker", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady}
+	source := Inventory{Targets: capacityTargets{[]*deployment.Target{target}}, Records: &recordedInventory{}, Observer: &inventoryEvidence{InventoryReading{Unknown: true, Unreported: true}}}
+	got, err := source.Snapshot(t.Context())
+	if err != nil || len(got.Items) != 0 {
+		t.Fatalf("target without loop warned: %+v %v", got, err)
+	}
+}

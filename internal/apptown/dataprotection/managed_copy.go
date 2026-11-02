@@ -169,8 +169,8 @@ func (s *core) managedList(ctx context.Context, dep *deployment.Deployment, t *d
 	return held.items, err
 }
 
-// copyRunner is the Docker host a target's copy jobs run on.
-func (s *core) copyRunner(ctx context.Context, t *deployment.Target) (docker.Scope, string, error) {
+// copyRunnerForAct resolves and marks the Docker host before copy effects.
+func (s *core) copyRunnerForAct(ctx context.Context, t *deployment.Target) (docker.Scope, string, error) {
 	name := t.CopyRunner()
 	if name == "" {
 		return docker.Scope{}, "", deployment.ErrNoCopyRunner
@@ -180,6 +180,10 @@ func (s *core) copyRunner(ctx context.Context, t *deployment.Target) (docker.Sco
 		return docker.Scope{}, name, fmt.Errorf("the copy runner %s: %w", name, err)
 	}
 	dk, err := s.hosts.DockerScope(ctx, runner)
+	if err != nil {
+		return dk, name, err
+	}
+	err = deployment.NewHostSnapshots(s.db, s.now).BeforeAct(ctx, runner.ID)
 	return dk, name, err
 }
 
@@ -264,7 +268,7 @@ func (s *Service) takeStoreCopy(ctx context.Context, t *tracker, dep *deployment
 	if err != nil {
 		return nil, err
 	}
-	dk, runner, err := s.copyRunner(ctx, target)
+	dk, runner, err := s.copyRunnerForAct(ctx, target)
 	if err != nil {
 		return nil, err
 	}
@@ -476,7 +480,7 @@ func (s *Service) drill(ctx context.Context, t *tracker, b *Backup, target *depl
 	if err != nil {
 		return false, "", err
 	}
-	dk, runner, err := s.copyRunner(ctx, target)
+	dk, runner, err := s.copyRunnerForAct(ctx, target)
 	if err != nil {
 		return false, "", err
 	}

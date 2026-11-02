@@ -1698,6 +1698,8 @@ CREATE TABLE deployment_readings (
     generation BIGINT NOT NULL DEFAULT 0,
     invalidated BOOLEAN NOT NULL DEFAULT FALSE,
     payload JSONB NOT NULL DEFAULT '{}',
+    act_counter BIGINT NOT NULL DEFAULT 0,
+    complete_act_counter BIGINT NOT NULL DEFAULT 0,
     UNIQUE (subject, kind)
 );
 

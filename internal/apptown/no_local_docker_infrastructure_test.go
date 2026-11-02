@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -355,13 +354,7 @@ func TestAnAttachedDockerHostIsNamedAndReachedAsThatHost(t *testing.T) {
 		}
 	}
 	// The background job reaches the attached host; page reads only its evidence.
-	lab, err := a.targets.ByName(t.Context(), "lab")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := apptownJobKinds(a)[deployment.HostSnapshotJob].Run(t.Context(), lab.ID.String()+"/"+strconv.FormatInt(lab.SettingsRevision, 10), nil); err != nil {
-		t.Fatal(err)
-	}
+	readHostsForTest(t, a)
 	if w := authzCall(h, "boss", "GET", "/api/v1/infrastructure", ""); w.Code != 200 || strings.Contains(w.Body.String(), "this AppTown") || !strings.Contains(w.Body.String(), `"place":"Docker host · over SSH · 192.0.2.10"`) {
 		t.Fatalf("infrastructure: %d %s", w.Code, w.Body.String())
 	}

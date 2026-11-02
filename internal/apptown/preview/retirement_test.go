@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
@@ -37,7 +38,7 @@ func TestRemoveBuildImagesNeverForcesAndNamesFailures(t *testing.T) {
 		}
 		return nil, nil, false
 	})
-	service := &Service{hosts: deployment.NewHosts(nil, nil, deployment.HostSettings{Scope: docker.Scope{Client: daemon}})}
+	service := observationService(t, daemon)
 	failed := service.removeLocalPreview(context.Background(), "apptown-preview-run-00000000-0001-7000-8000-000000000000")
 	if failed == nil || !strings.Contains(failed.Error(), broken) {
 		t.Fatalf("failure: %v", failed)
@@ -55,7 +56,7 @@ func TestRemoveBuildImagesNeverForcesAndNamesFailures(t *testing.T) {
 
 	unlisted := newDockerFake()
 	unlisted.SetReply(func([]string) ([]byte, error, bool) { return []byte("daemon gone"), errors.New("exit status 1"), true })
-	service.hosts = deployment.NewHosts(nil, nil, deployment.HostSettings{Scope: docker.Scope{Client: unlisted}})
+	service.hosts = deployment.NewHosts(nil, nil, deployment.HostSettings{Scope: docker.Scope{Client: unlisted}, BuiltInTarget: "local"})
 	if failed := service.removeLocalPreview(context.Background(), "apptown-preview-run-00000000-0001-7000-8000-000000000000"); failed == nil {
 		t.Fatalf("a listing that failed: %q", failed)
 	}
@@ -159,7 +160,7 @@ func TestPermanentStepRetirementAttemptsEveryFrozenStack(t *testing.T) {
 		}
 		return nil, nil, false
 	})
-	s := &Service{hosts: deployment.NewHosts(nil, nil, deployment.HostSettings{Scope: docker.Scope{Client: daemon}})}
+	s := observationService(t, daemon)
 	if err := s.RemoveRunStepsForGood(t.Context(), []ids.ID{first, second}); err == nil {
 		t.Fatal("failed stack retirement succeeded")
 	}
@@ -180,4 +181,44 @@ func TestPermanentStepRetirementAttemptsEveryFrozenStack(t *testing.T) {
 
 func newDockerFake() *dockerfake.Daemon {
 	return dockerfake.New()
+}
+
+func TestLocalPreviewRetirementMarksHostBeforeFailedEffects(t *testing.T) {
+	t.Parallel()
+	for _, operation := range []string{"container", "stack", "run"} {
+		t.Run(operation, func(t *testing.T) {
+			w := newWorld(t, "", "")
+			s := w.service(Dependencies{Now: func() time.Time { return time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC) }})
+			target, err := w.records.Targets.ByName(t.Context(), "local")
+			if err != nil {
+				t.Fatal(err)
+			}
+			called := false
+			w.client.SetReply(func(args []string) ([]byte, error, bool) {
+				if args[0] == "ps" {
+					return []byte("owned-container"), nil, true
+				}
+				if args[0] == "rm" {
+					called = true
+					reading, err := w.records.InventoryFor(t.Context(), target)
+					if err != nil || !reading.Invalidated {
+						t.Errorf("retirement effect preceded counter: %+v %v", reading, err)
+					}
+					return nil, errors.New("removal failed"), true
+				}
+				return nil, nil, false
+			})
+			switch operation {
+			case "container":
+				err = s.removeLocalPreview(t.Context(), "preview")
+			case "stack":
+				err = s.removeLocalStack(t.Context(), "stack")
+			case "run":
+				err = s.DiscardRunPreview(t.Context(), idstest.N(7), nil)
+			}
+			if err == nil || !called {
+				t.Fatalf("failed effect: called=%v err=%v", called, err)
+			}
+		})
+	}
 }

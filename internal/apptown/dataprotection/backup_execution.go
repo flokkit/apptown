@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"io"
 	"log"
 	"os"
@@ -151,6 +152,9 @@ func (s *Service) takeBackup(ctx context.Context, projectID ids.ID, deploymentNa
 	held, err := s.heldData(ctx, dep, t)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", deploymentName, err)
+	}
+	if err := deployment.NewHostSnapshots(s.db, s.now).BeforeAct(ctx, dep.TargetID); err != nil {
+		return nil, err
 	}
 	b, err := s.takeSet(ctx, held.dk, projectID, slug, deploymentName, held.items, trigger, actor)
 	if s.applied != nil {
@@ -552,6 +556,9 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 	rec.begin(ctx, "stopping the app, so nothing writes while the data goes back")
 	recordStop := func(id string) error { return rec.stopping(ctx, id) }
 	recordStart := func(id string) { rec.started(ctx, id) }
+	if err := deployment.NewHostSnapshots(s.db, s.now).BeforeAct(ctx, dep.TargetID); err != nil {
+		return nil, err
+	}
 	parts, err := stopParts(ctx, dk, append(writers, owned...), recordStop)
 	// A part the running release names that Docker does not have cannot
 	// write, so the data still goes back; but the app does not come back

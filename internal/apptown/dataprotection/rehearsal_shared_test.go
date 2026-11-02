@@ -82,7 +82,7 @@ func newSharedRehearsalWorld(t *testing.T) *sharedRehearsalWorld {
 		t.Fatalf("the release: %+v %v", rel, err)
 	}
 	w.daemon.SetCommandReply(func(req docker.Command) ([]byte, error, bool) {
-		if req.Stdout != nil {
+		if req.Stdout != nil && req.Args[0] != "inspect" && req.Args[0] != "image" {
 			_, err := containerresulttest.WriteString(req.Stdout, "data from the deployment")
 			return nil, err, true
 		}

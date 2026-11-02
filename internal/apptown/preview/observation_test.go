@@ -25,7 +25,10 @@ func observationService(t *testing.T, client docker.Client) *Service {
 	t.Helper()
 	db := testDB(t)
 	targets, dir := deployment.NewTargets(db, nil), t.TempDir()
-	return New(db, Dependencies{DataDir: dir, Hosts: deployment.NewHosts(targets, nil, deployment.HostSettings{Scope: docker.Scope{Client: client}, DataDir: dir}),
+	if _, err := targets.Put(t.Context(), &deployment.Target{Name: "local", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady}); err != nil {
+		t.Fatal(err)
+	}
+	return New(db, Dependencies{Targets: targets, DataDir: dir, Hosts: deployment.NewHosts(targets, nil, deployment.HostSettings{Scope: docker.Scope{Client: client}, DataDir: dir, BuiltInTarget: "local"}),
 		Environment: deployment.NewEnvironment(deployment.EnvironmentDependencies{ToolVersions: stock.Versions()})})
 }
 
@@ -323,5 +326,31 @@ func TestPreviewPassKeepsAnActionReadingNewerThanItsSelection(t *testing.T) {
 	got := s.ChangeStatus(t.Context(), ids.Nil, id, false)
 	if got.Reading.Unknown || got.Reading.ObservedAt.IsZero() {
 		t.Fatalf("pass pruned a newer action reading: %+v", got)
+	}
+}
+
+func TestLocalPreviewRemovalMarksHostBeforeFailedEffect(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t, "", "")
+	s := w.service(Dependencies{Now: func() time.Time { return time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC) }})
+	target, err := w.records.Targets.ByName(t.Context(), "local")
+	if err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	w.client.SetReply(func(args []string) ([]byte, error, bool) {
+		if args[0] == "rm" {
+			called = true
+			reading, err := w.records.InventoryFor(t.Context(), target)
+			if err != nil || !reading.Invalidated {
+				t.Errorf("preview effect preceded act counter: %+v %v", reading, err)
+			}
+			return nil, errors.New("removal failed"), true
+		}
+		return nil, nil, false
+	})
+	err = s.removeChangePreview(t.Context(), idstest.N(7))
+	if err == nil || !called {
+		t.Fatalf("failed removal: called=%v err=%v", called, err)
 	}
 }

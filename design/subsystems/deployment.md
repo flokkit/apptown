@@ -1544,3 +1544,10 @@ unknown. Unclassified CLI failures remain unknown. A reachability failure keeps
 its first attempted time across subsequent unsuccessful reads, including unknown
 responses, until a successful sample or a placement identity change. The checked readers expose that time and the target display name;
 the web renders those facts without contacting the provider.
+
+Docker inventory comes from the deployment owner's per-host reader loop. Only
+the loop stores host facts; foreground act reads stay independent. Before an
+effect starts its owner records the host act counter, and inventory stays
+marked as taken before the latest change until a complete lap begun after it
+succeeds. The [background infrastructure contract](deploy-targets.md#background-infrastructure-readings)
+defines section retention, age and loop lifecycle.

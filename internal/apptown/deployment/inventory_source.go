@@ -31,6 +31,9 @@ func (s *Service) newInventorySources() map[string]func(context.Context, *Target
 	}
 	snapshots := NewHostSnapshots(s.db, s.now)
 	sources[KindDockerHost] = func(ctx context.Context, t *Target) (inventoryObservation, error) {
+		if !s.hosts.readsDockerHost(t) {
+			return inventoryObservation{Unknown: true, Unreported: true}, nil
+		}
 		r, err := snapshots.reading(ctx, t)
 		if err != nil {
 			return inventoryObservation{Unknown: true}, err
@@ -41,16 +44,17 @@ func (s *Service) newInventorySources() map[string]func(context.Context, *Target
 }
 
 // InventoryLive is the passive infrastructure view with source age and coverage.
-func (s *Service) InventoryLive(ctx context.Context, t *Target) ([]deploy.Resource, []SharedResource, string, time.Time, bool, bool) {
+// The final value is the source lap duration in seconds.
+func (s *Service) InventoryLive(ctx context.Context, t *Target) ([]deploy.Resource, []SharedResource, string, time.Time, bool, bool, float64) {
 	r, err := s.InventoryFor(ctx, t)
 	if err != nil {
-		return nil, nil, err.Error(), time.Time{}, false, true
+		return nil, nil, err.Error(), time.Time{}, false, true, 0
 	}
 	if r.Reason == "" && (r.Stale || r.Invalidated) {
 		r.Reason = "Inventory reading is out of date"
 	}
 	if r.Unknown {
-		return nil, nil, r.Reason, r.ObservedAt, r.Invalidated, r.Unknown
+		return nil, nil, r.Reason, r.ObservedAt, r.Invalidated, r.Unknown, r.TookSeconds
 	}
-	return r.Items, r.Shared, r.Reason, r.ObservedAt, r.Invalidated, r.Unknown
+	return r.Items, r.Shared, r.Reason, r.ObservedAt, r.Invalidated, r.Unknown, r.TookSeconds
 }

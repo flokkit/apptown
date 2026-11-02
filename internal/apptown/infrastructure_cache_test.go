@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +20,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/stamp"
 )
 
@@ -431,7 +431,7 @@ func TestOutboundChecksHaveTheirOwnBoundedQueue(t *testing.T) {
 
 // Docker's minute pass uses one revision-keyed job; other providers retain their
 // five-minute inventories and all capacity jobs remain until their conversion.
-func TestHostSnapshotPassKeepsOtherProviderRefreshes(t *testing.T) {
+func TestHostReaderCutoverKeepsOtherProviderRefreshes(t *testing.T) {
 	t.Parallel()
 	a, _, _, _ := doWorld(t)
 	ctx := t.Context()
@@ -467,43 +467,22 @@ func TestHostSnapshotPassKeepsOtherProviderRefreshes(t *testing.T) {
 		t.Fatal(err)
 	}
 	checks := infrastructureChecksFor(a)
-	for range 2 {
-		if _, err := checks.HostSnapshotPass(ctx, "", nil); err != nil {
-			t.Fatal(err)
-		}
-	}
+
+	readHostsForTest(t, a)
 	targets, err := a.targets.All(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshots := operationJobs(t, a, deployment.HostSnapshotJob)
-	var dockerTargets int
 	for _, target := range targets {
 		if target.Kind != deployment.KindDockerHost || target.Status == deployment.TargetRetired {
 			continue
 		}
-		dockerTargets++
-		found := false
-		for _, row := range snapshots {
-			if row.Key == target.ID.String()+"/"+strconv.FormatInt(target.SettingsRevision, 10) {
-				found = true
-			}
+		if err := a.hostSnapshots.BeforeAct(ctx, target.ID); err != nil {
+			t.Fatal(err)
 		}
-		if !found {
-			t.Fatalf("no snapshot for %s", target.Name)
-		}
-		checks.Applied(target.ID)
 		reading, err := a.Deployment.InventoryFor(ctx, target)
 		if err != nil || !reading.Invalidated {
 			t.Fatalf("act not marked: %+v %v", reading, err)
-		}
-	}
-	if len(operationJobs(t, a, deployment.HostSnapshotJob)) != dockerTargets {
-		t.Fatal("duplicate snapshot jobs")
-	}
-	for _, row := range snapshots {
-		if result := runJobForTest(t, a, row.ID); result.State != "completed" {
-			t.Fatalf("snapshot job: %+v", result)
 		}
 	}
 
@@ -541,20 +520,21 @@ func TestHostSnapshotPassKeepsOtherProviderRefreshes(t *testing.T) {
 	if err != nil || reading.Unknown {
 		t.Fatalf("DigitalOcean not refreshed: %+v %v", reading, err)
 	}
-	kinds := apptownJobKinds(a)
-	if kinds[deployment.HostSnapshotJob].Queue != "observations" || kinds[deployment.HostSnapshotJob].Timeout != time.Minute {
-		t.Fatal("snapshot queue/budget")
-	}
-	for _, schedule := range apptownJobSchedules() {
-		if schedule.Operation == hostSnapshotPassJob {
-			at := time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC)
-			if schedule.When.Next(at).Sub(at) != time.Minute {
-				t.Fatal("snapshot cadence")
+
+	for _, kind := range []string{"host-snapshot", "host-snapshot-pass"} {
+		if _, ok := apptownJobKinds(a)[kind]; ok {
+			t.Fatalf("retired job %s registered", kind)
+		}
+		if len(operationJobs(t, a, kind)) != 0 {
+			t.Fatalf("retired job %s admitted", kind)
+		}
+		for _, schedule := range apptownJobSchedules() {
+			if schedule.Operation == kind {
+				t.Fatalf("retired job %s scheduled", kind)
 			}
-			return
 		}
 	}
-	t.Fatal("snapshot schedule missing")
+
 }
 
 // A Try it preview recorded after a successful collection has no absence evidence.
@@ -568,11 +548,7 @@ func TestAttentionDoesNotReportNewPreviewMissingFromEarlierSnapshot(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	worker := deployment.HostSnapshotWorker{Snapshots: a.hostSnapshots, Targets: a.targets, Hosts: a.hosts, Providers: a.targetProviders, Inventory: a.Deployment.Inventory}
-	key := target.ID.String() + "/" + strconv.FormatInt(target.SettingsRevision, 10)
-	if _, err := worker.Run(t.Context(), key, nil); err != nil {
-		t.Fatal(err)
-	}
+	readHostsForTest(t, a)
 	source := &attention.Inventory{Targets: inventoryTargetOnly{target}, Records: a.Deployment.Inventory, Observer: attentionInventory{service: a.Deployment}}
 	check := func() {
 		t.Helper()
@@ -593,8 +569,55 @@ func TestAttentionDoesNotReportNewPreviewMissingFromEarlierSnapshot(t *testing.T
 	}
 	check()
 	// Once collected, the running preview still raises no condition.
-	if _, err := worker.Run(t.Context(), key, nil); err != nil {
+	readHostsForTest(t, a)
+	check()
+}
+
+// Run the actual loops and wait for a new stored lap, then join them. Timeout
+// is only a hang guard. A fixed injected lap clock identifies the storing write.
+func readHostsForTest(t *testing.T, a *App) {
+	t.Helper()
+	targets, err := a.targets.All(t.Context())
+	if err != nil {
 		t.Fatal(err)
 	}
-	check()
+	eligible := map[string]bool{}
+	lapAt := a.cfg.clock.Now().Truncate(time.Microsecond)
+	for _, target := range targets {
+		if target.Kind != deployment.KindDockerHost || target.Status == deployment.TargetRetired || target.Origin == deployment.OriginBuiltIn && a.hosts.NoLocalDocker() {
+			continue
+		}
+		reading, err := a.Deployment.InventoryFor(t.Context(), target)
+		if err != nil {
+			t.Fatal(err)
+		}
+		eligible[target.Name] = true
+		if !lapAt.After(reading.AttemptedAt) {
+			lapAt = reading.AttemptedAt.Add(time.Microsecond)
+		}
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	loops := a.HostReaders
+	loops.Snapshots = deployment.NewHostSnapshots(a.DB, func() time.Time { return lapAt })
+	go func() { defer close(done); loops.Run(ctx) }()
+	defer func() { cancel(); <-done }()
+	if !poll.Until(t.Context(), 10*time.Second, time.Millisecond, func() bool {
+		for _, target := range targets {
+			if !eligible[target.Name] {
+				continue
+			}
+			reading, err := a.Deployment.InventoryFor(t.Context(), target)
+			if err != nil {
+				t.Error(err)
+				return false
+			}
+			if !reading.AttemptedAt.Equal(lapAt) {
+				return false
+			}
+		}
+		return true
+	}) {
+		t.Fatal("host loops did not store their first lap")
+	}
 }

@@ -185,6 +185,10 @@ func (s *Service) stopIdle(ctx context.Context, name string, at place, looks map
 		if at.worker {
 			err = s.removeOnWorker(ctx, name)
 		} else {
+			if err := s.beforeLocalAct(context.WithoutCancel(ctx)); err != nil {
+				log.Printf("previews: recording act: %v", err)
+				return
+			}
 			err = docker.RemovePreview(context.WithoutCancel(ctx), s.hosts.Local(), name, at.stack)
 		}
 	}

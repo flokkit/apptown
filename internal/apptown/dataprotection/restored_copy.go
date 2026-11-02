@@ -626,7 +626,7 @@ func (s *Service) bootRestoredCopy(ctx context.Context, t *tracker, p *restoredP
 	if err := t.allowed(ctx); err != nil {
 		return "", c, "deploying it", err
 	}
-	res, err := (deployment.Runner{Store: s.outcomes, Applied: s.applied}).Run(ctx, deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: key, Inputs: inputs, BaseGeneration: &base},
+	res, err := s.runRestoredCopy(ctx, deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: key, Inputs: inputs, BaseGeneration: &base},
 		func(ctx context.Context, at deployment.Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 			return d.Reconcile(ctx, placement, at.Generation, art, key, logf, checkpoint)
 		})
@@ -1330,4 +1330,9 @@ func refusal(why string) error {
 		return nil
 	}
 	return fmt.Errorf("%w: %s", deployment.ErrRefusedContract, why)
+}
+
+// runRestoredCopy records host provenance before the restored app's reconcile.
+func (s *Service) runRestoredCopy(ctx context.Context, in deployment.Start, effect func(context.Context, deployment.Attempt, deploy.Checkpoint) (deploy.Observation, error)) (deployment.ExecutionResult, error) {
+	return (deployment.Runner{Store: s.outcomes, Applied: s.applied, BeforeAct: deployment.NewHostSnapshots(s.db, s.now).BeforeAct}).Run(ctx, in, effect)
 }

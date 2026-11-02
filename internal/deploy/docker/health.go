@@ -83,17 +83,18 @@ type partHealth struct {
 
 // Watched is one standing deployment the controller probes.
 type Watched struct {
-	DeploymentID, ProjectID ids.ID                // the selected records, never resolved again by name
-	Identity                deploy.DockerIdentity // the settled deployment and generation on this host
-	Slug                    string                // the application
-	Name                    string                // the deployment
-	HostPort                int
-	Container               string
-	Docker                  Scope // the daemon it stands on
+	TargetID, DeploymentID, ProjectID ids.ID                // the selected records, never resolved again by name
+	Identity                          deploy.DockerIdentity // the settled deployment and generation on this host
+	Slug                              string                // the application
+	Name                              string                // the deployment
+	HostPort                          int
+	Container                         string
+	Docker                            Scope // the daemon it stands on
 }
 
 // HealthDependencies is what the controller asks of the world.
 type HealthDependencies struct {
+	BeforeAct  func(context.Context, Watched) error
 	Watch      func(context.Context) []Watched                                           // the standing deployments the apptown runs on hosts it talks to
 	PublicPart func(context.Context, Watched) *appcontract.Part                          // the running release's public part, nil when unreadable
 	FrontDoor  func() map[string]string                                                  // the front-door signal a probe sends
@@ -278,6 +279,12 @@ func (c *HealthController) hold(ctx context.Context, e Watched, dk Scope, ph *pa
 	total := ph.restartsSeen + seen
 	log.Printf("health controller: %s/%s is crash-looping — Docker restarted it %d× in %s, %d in all, last exit code %s — stopping it",
 		e.Slug, e.Name, seen, CrashLoopWindow, total, exit)
+	if c.deps.BeforeAct != nil {
+		if err := c.deps.BeforeAct(ctx, e); err != nil {
+			log.Printf("health controller: recording act: %v", err)
+			return
+		}
+	}
 	out, err := dk.Run(ctx, "stop", rt.ID)
 	detail := strings.TrimSpace(string(out))
 	if err != nil {
@@ -314,6 +321,12 @@ func (c *HealthController) hold(ctx context.Context, e Watched, dk Scope, ph *pa
 func (c *HealthController) restart(ctx context.Context, e Watched, dk Scope, ph *partHealth) {
 	log.Printf("health controller: %s/%s failed liveness %d× past grace — restarting (attempt %d)",
 		e.Slug, e.Name, ph.fails, ph.restarts+1)
+	if c.deps.BeforeAct != nil {
+		if err := c.deps.BeforeAct(ctx, e); err != nil {
+			log.Printf("health controller: recording act: %v", err)
+			return
+		}
+	}
 	out, err := dk.Run(ctx, "restart", e.Container)
 	// The restart is made: its receipt is written though ctx has ended.
 	c.deps.Record(context.WithoutCancel(ctx), e, "deployment.health-restart", map[string]any{

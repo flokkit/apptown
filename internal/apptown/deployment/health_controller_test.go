@@ -51,8 +51,17 @@ func TestHealthControllerRestartsOnThreshold(t *testing.T) {
 	}
 	f.SetRunning(container, true) // StartedAt is empty, so startup grace has passed.
 
-	at := time.Now()
+	at := time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC)
 	s.clock = func() time.Time { return at }
+	f.SetReply(func(args []string) ([]byte, error, bool) {
+		if args[0] == "restart" {
+			reading, err := NewHostSnapshots(db, s.now).reading(t.Context(), target)
+			if err != nil || !reading.Invalidated {
+				t.Errorf("health effect preceded act counter: %+v %v", reading, err)
+			}
+		}
+		return nil, nil, false
+	})
 	hc := s.HealthController()
 	restarts := func() int { return len(f.Matching("restart " + container)) }
 
@@ -198,7 +207,15 @@ func crashLoopWorld(t *testing.T) (*Service, *database.DB, *dockerfake.Daemon, *
 	if err != nil {
 		t.Fatal(err)
 	}
+	s.setClock(func() time.Time { return time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC) })
 	f.SetReply(func(args []string) ([]byte, error, bool) {
+		if args[0] == "stop" {
+			reading, err := NewHostSnapshots(db, s.now).reading(t.Context(), target)
+			if err != nil || !reading.Invalidated {
+				t.Errorf("hold preceded act counter: %+v %v", reading, err)
+			}
+		}
+
 		if len(args) == 4 && args[0] == "inspect" && args[2] == docker.RuntimeFormat {
 			out, err := json.Marshal(docker.Runtime{ID: crashLoopContainerID, Labels: deploy.DockerIdentity{Deployment: dep.label(), Generation: dep.ObservedGeneration}.Labels()})
 			return out, err, true

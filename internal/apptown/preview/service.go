@@ -120,3 +120,12 @@ func New(db *database.DB, deps Dependencies) *Service {
 
 // now reads AppTown's clock.
 func (s *Service) now() time.Time { return clock.Or(s.clock)() }
+
+// beforeLocalAct marks the host before an effect, including one that fails.
+func (s *Service) beforeLocalAct(ctx context.Context) error {
+	t, err := s.targets.ByName(ctx, s.hosts.BuiltInTarget())
+	if err != nil {
+		return err
+	}
+	return deployment.NewHostSnapshots(s.db, s.now).BeforeAct(ctx, t.ID)
+}

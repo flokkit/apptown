@@ -31,7 +31,7 @@ func (w inventoryRefresh) Run(ctx context.Context, key string, args map[string]a
 		return nil, err
 	}
 	if t.Kind == deployment.KindDockerHost {
-		return nil, jobs.Permanent(errors.New("Docker inventory is collected by host-snapshot"))
+		return nil, jobs.Permanent(errors.New("Docker inventory is collected by the host reader loop"))
 	}
 	identity := inventoryTargetIdentity(t)
 	generation, err := w.cache.Start(ctx, t)
@@ -87,6 +87,6 @@ type inventorySources struct {
 func inventorySourcesFor(a *App) inventorySources {
 	return inventorySources{service: a.Deployment}
 }
-func (s inventorySources) Live(ctx context.Context, t *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool, bool) {
+func (s inventorySources) Live(ctx context.Context, t *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool, bool, float64) {
 	return s.service.InventoryLive(ctx, t)
 }
