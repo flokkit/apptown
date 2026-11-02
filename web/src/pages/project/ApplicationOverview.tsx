@@ -21,8 +21,19 @@ type ActivityEntry = { id: string; when: string; number?: number; title: string;
 export function overviewActivity(data: OverviewData, deployments: DeploymentView[], backups: Backup[], releases: Release[], slug: string): ActivityEntry[] {
   const released = new Set(releases.flatMap(r => (r.changes ?? []).map(c => c.id)))
   return [
-    ...data.history.filter(c => !released.has(c.changeId)).map(c => ({ id: `change-${c.changeId}`, when: c.when, number: c.changeNumber, title: c.title, source: `Change #${c.changeNumber}`, word: c.statusLabel, to: `/changes/${c.changeId}` })),
-    ...releases.map(r => ({ id: `release-${r.number}`, when: r.releasedAt || r.createdAt, title: r.changes?.length === 1 ? `Change ${r.changes[0].number} → Release ${r.number}` : `Release ${r.number}`, source: r.deployment, word: r.statusLabel, to: `/projects/${slug}/releases/${r.number}` })),
+    ...data.history.filter(c => !released.has(c.changeId)).map(c => ({ id: `change-${c.changeId}`, when: c.when, number: c.changeNumber, title: c.title, source: '', word: c.statusLabel, to: `/changes/${c.changeId}` })),
+    // A release reads as what it shipped: its change's title leads, the
+    // release and where it went follow in small print.
+    ...releases.map(r => {
+      const shipped = r.changes ?? []
+      return {
+        id: `release-${r.number}`, when: r.releasedAt || r.createdAt,
+        number: shipped.length === 1 ? shipped[0].number : undefined,
+        title: shipped.length === 0 ? `Release ${r.number}` : shipped.length === 1 ? shipped[0].title : `${shipped[0].title} and ${shipped.length - 1} more`,
+        source: shipped.length === 0 ? r.deployment : `Release ${r.number} · ${r.deployment}`,
+        word: r.statusLabel, to: `/projects/${slug}/releases/${r.number}`,
+      }
+    }),
   ].sort((a, b) => b.when.localeCompare(a.when))
 }
 
@@ -70,7 +81,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
         <Link key={e.id} to={e.to} className="card row" style={{ display: 'flex' }}>
           <span className="row-status"><Status word={e.word} help={e.help} /></span>
           <strong>{e.number !== undefined && <span className="muted" style={{ fontWeight: 400 }}>#{e.number} </span>}{e.title}</strong>
-          <span className="muted small">{fmtWhen(e.when)}{e.number === undefined && e.source ? ` · ${e.source}` : ''}</span>
+          <span className="muted small">{fmtWhen(e.when)}{e.source ? ` · ${e.source}` : ''}</span>
         </Link>
       ))}
       {events.length > activityCount && <div className="card"><button className="link" onClick={() => setActivityCount(n => n + 10)}>Show 10 more</button></div>}
