@@ -71,7 +71,7 @@ export function AttentionLights() {
       // Low disk is amber, like its row on Attention; everything else is red.
       const off = g.items.length === 0
       const low = !off && g.items.every((i) => i.statusLabel === 'low')
-      const words = off ? `${g.title}: nothing confirmed broken` : `${g.title}: ${g.items.length} to fix`
+      const words = off ? `${g.title}: no known issues` : `${g.title}: ${g.items.length} to fix`
       return <Link key={g.key} className={`attention-light${off ? ' off' : low ? ' low' : ''}`} to={`/attention#${g.key}`} title={words} aria-label={words}>
         <g.icon aria-hidden size={16} />
       </Link>

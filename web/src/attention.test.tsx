@@ -91,6 +91,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     const lights = [...v.el.querySelectorAll('.attention-light')]
     expect(lights.map(l => l.getAttribute('href'))).toEqual(['/attention#hosts', '/attention#backups', '/attention#integrations', '/attention#checks'])
     expect(lights.every(l => l.classList.contains('off'))).toBe(true)
+    expect(lights[0].getAttribute('title')).toBe('Hosts and deployments: no known issues')
     expect(v.el.querySelector('.attention-lights')?.getAttribute('aria-label')).toBe('All quiet')
   })
   it('shows known conditions beside incomplete host coverage in the topbar', async () => {
