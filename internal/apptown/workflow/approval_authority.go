@@ -53,14 +53,7 @@ func requireApprover(ctx context.Context, db database.Queryer, scope operationPe
 			return &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("this change's opener (%s) is not recorded as a person, so this project's independent approval cannot be judged; an administrator may approve it", author)}
 		}
 	}
-	expr := slices.Clone(approvers)
-	if len(expr) == 0 {
-		for _, item := range strings.Split(defaults, ",") {
-			if item = strings.TrimSpace(item); item != "" {
-				expr = append(expr, item)
-			}
-		}
-	}
+	expr := approvalExpressions(approvers, defaults)
 	if len(expr) == 0 {
 		return &DecisionDenied{Code: access.DenyNotEligible, Reason: "nobody is named as an approver for this step, and the project has no default approvers; name approvers on the step in the workflow (that applies to runs started afterwards)"}
 	}
@@ -110,4 +103,18 @@ func hasRole(grants []access.Grant, role string, scope access.ScopeKind, scopeID
 		}
 	}
 	return false
+}
+
+// approvalExpressions uses the step's declaration, or the project's defaults.
+// Keep the display of who is asked aligned with the eligibility rule.
+func approvalExpressions(approvers []string, defaults string) []string {
+	expr := slices.Clone(approvers)
+	if len(expr) == 0 {
+		for _, item := range strings.Split(defaults, ",") {
+			if item = strings.TrimSpace(item); item != "" {
+				expr = append(expr, item)
+			}
+		}
+	}
+	return expr
 }

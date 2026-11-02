@@ -813,6 +813,8 @@ export type InfrastructureTargets = {
 }
 
 export type InstanceActivity = {
+  open: PersonalOpenChange[]
+  openTotal: number
   agents: ActiveAgent[]
   active: RunRow[]
   history: ChangeHistory[]
@@ -3326,6 +3328,17 @@ export type InfrastructureView = {
   shared?: string
 }
 
+export type PersonalOpenChange = {
+  id: string | null
+  number: number
+  title: string
+  projectSlug: string
+  updatedAt: string
+  state: personalOpenState
+  reason: string
+  idleSince?: string
+}
+
 export type ActiveAgent = {
   project: string
   runId: string | null
@@ -4685,6 +4698,8 @@ export type FleetPackVersion = {
 }
 
 export type TargetLabel = "unknown" | "working" | "failed" | "stopped"
+
+export type personalOpenState = "running" | "waiting on you" | "waiting on someone else" | "idle"
 
 export type IntegrationUse = {
   projects: AttachedProject[]

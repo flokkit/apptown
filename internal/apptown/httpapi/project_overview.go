@@ -86,15 +86,7 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 	}
 	for _, item := range available {
 		oc := OpenChange{ChangeID: item.ID, ChangeNumber: item.Number, Title: item.Title, State: item.State}
-		if ws := (workflow.Layout{DataDir: h.dataDir}).ChangeWorkspace(oc.ChangeID); hasGitDirectory(ws) {
-			if out, err := gitexec.Run(ctx, ws, "status", "--porcelain"); err == nil {
-				for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
-					if line != "" && !strings.Contains(line, ".apptown/") {
-						oc.Editing++
-					}
-				}
-			}
-		}
+		oc.Editing = item.Editing
 		oc.StatusLabel = oc.State.OpenDisplay(oc.Editing)
 		open = append(open, oc)
 	}

@@ -188,6 +188,106 @@
         ],
         "type": "object"
       },
+      "ActiveAgent": {
+        "properties": {
+          "changeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "elapsedS": {
+            "type": "integer"
+          },
+          "project": {
+            "type": "string"
+          },
+          "runId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "step": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "runId",
+          "changeId",
+          "title",
+          "step",
+          "type",
+          "elapsedS"
+        ],
+        "type": "object"
+      },
+      "ActivityDeployment": {
+        "properties": {
+          "hostOnly": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "observation": {
+            "$ref": "#/components/schemas/RuntimeState"
+          },
+          "observationAttemptedAt": {
+            "type": "string"
+          },
+          "observationIssue": {
+            "type": "string"
+          },
+          "observationStale": {
+            "type": "boolean"
+          },
+          "observedAt": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "running": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "targetName": {
+            "type": "string"
+          },
+          "unreachableSince": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "name",
+          "url",
+          "running",
+          "observation",
+          "targetName",
+          "observationStale"
+        ],
+        "type": "object"
+      },
       "Actor": {
         "properties": {
           "name": {
@@ -1010,6 +1110,75 @@
           "sha",
           "subject",
           "when"
+        ],
+        "type": "object"
+      },
+      "ChangeHistory": {
+        "properties": {
+          "changeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changeNumber": {
+            "type": "integer"
+          },
+          "closedAs": {
+            "type": "string"
+          },
+          "completedRuns": {
+            "type": "integer"
+          },
+          "merged": {
+            "type": "boolean"
+          },
+          "project": {
+            "type": "string"
+          },
+          "runs": {
+            "type": "integer"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ChangeState"
+          },
+          "stateLabel": {
+            "type": "string"
+          },
+          "statusLabel": {
+            "$ref": "#/components/schemas/DisplayStatus"
+          },
+          "title": {
+            "type": "string"
+          },
+          "tookS": {
+            "type": "integer"
+          },
+          "type": {
+            "type": "string"
+          },
+          "when": {
+            "type": "string"
+          },
+          "workflows": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "completedRuns",
+          "merged",
+          "changeId",
+          "changeNumber",
+          "title",
+          "type",
+          "state",
+          "statusLabel",
+          "stateLabel",
+          "workflows",
+          "runs",
+          "when",
+          "tookS"
         ],
         "type": "object"
       },
@@ -2137,6 +2306,52 @@
         },
         "type": "object"
       },
+      "InstanceActivity": {
+        "properties": {
+          "active": {
+            "items": {
+              "$ref": "#/components/schemas/runRowView"
+            },
+            "type": "array"
+          },
+          "agents": {
+            "items": {
+              "$ref": "#/components/schemas/ActiveAgent"
+            },
+            "type": "array"
+          },
+          "deployments": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityDeployment"
+            },
+            "type": "array"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeHistory"
+            },
+            "type": "array"
+          },
+          "open": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalOpenChange"
+            },
+            "type": "array"
+          },
+          "openTotal": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "open",
+          "openTotal",
+          "agents",
+          "active",
+          "history",
+          "deployments"
+        ],
+        "type": "object"
+      },
       "Item": {
         "properties": {
           "count": {
@@ -2919,6 +3134,48 @@
           "guidanceBytes",
           "generatedBytes",
           "declaration"
+        ],
+        "type": "object"
+      },
+      "PersonalOpenChange": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "idleSince": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer"
+          },
+          "projectSlug": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/personalOpenState"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "title",
+          "projectSlug",
+          "updatedAt",
+          "state",
+          "reason"
         ],
         "type": "object"
       },
@@ -5620,6 +5877,90 @@
           "bound"
         ],
         "type": "object"
+      },
+      "personalOpenState": {
+        "enum": [
+          "running",
+          "waiting on you",
+          "waiting on someone else",
+          "idle"
+        ],
+        "type": "string"
+      },
+      "runRowView": {
+        "properties": {
+          "changeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changeNumber": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "durationS": {
+            "type": "integer"
+          },
+          "next": {
+            "items": {
+              "$ref": "#/components/schemas/NextAct"
+            },
+            "type": "array"
+          },
+          "project": {
+            "type": "string"
+          },
+          "runId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runNumber": {
+            "type": "integer"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunState"
+          },
+          "statusLabel": {
+            "$ref": "#/components/schemas/DisplayStatus"
+          },
+          "title": {
+            "type": "string"
+          },
+          "workflow": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "runId",
+          "runNumber",
+          "changeId",
+          "changeNumber",
+          "workflow",
+          "title",
+          "status",
+          "stage",
+          "statusLabel",
+          "startedAt",
+          "durationS",
+          "next"
+        ],
+        "type": "object"
       }
     }
   },
@@ -5718,8 +6059,15 @@
       "get": {
         "operationId": "getActivity",
         "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceActivity"
+                }
+              }
+            },
+            "description": "the operation's result"
           },
           "default": {
             "$ref": "#/components/responses/Refusal"
