@@ -47,8 +47,9 @@ it('leaves run counts in the change record, keeping history to title, outcome an
   expect(html).toContain('landed')
 })
 
-// A blocked change that the server offers to close shows "Close it" beside
-// its link; one it does not offer shows none.
+// A stuck change shows its next step as a button beside its link; closing
+// it happens on the change's page. One the server does not offer to close
+// shows no button.
 describe('a blocked change on the needs-you list', () => {
   const blocked = (next: RunRow['next']): RunRow => ({
     runId: '00000000-0022-7000-8000-000000000000', runNumber: 3, changeId: CHANGE, changeNumber: 13, workflow: 'adopt', title: 'Adopt the way of working: html-game',
@@ -57,13 +58,16 @@ describe('a blocked change on the needs-you list', () => {
   const buttons = (r: RunRow) => {
     const el = document.createElement('div')
     el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={newQueryClient()}><MemoryRouter><ActiveRunList runs={[r]} showProject /></MemoryRouter></QueryClientProvider>)
-    return { text: [...el.querySelectorAll('button')].map((b) => b.textContent), link: el.querySelector('a')!.getAttribute('href') }
+    return { text: [...el.querySelectorAll('a.btn, button')].map((b) => b.textContent), link: el.querySelector('a')!.getAttribute('href') }
   }
-  it('offers Close it when the server does, and keeps the row a link', () => {
-    expect(buttons(blocked([{ act: 'abandon', stepId: null, step: '' }]))).toEqual({ text: ['Close it'], link: `/changes/${CHANGE}` })
+  it('offers its next step, not Close it, and keeps the row a link', () => {
+    expect(buttons(blocked([{ act: 'abandon', stepId: null, step: '' }]))).toEqual({ text: ['Fix it'], link: `/changes/${CHANGE}` })
   })
-  it('offers nothing the server did not send', () => {
-    expect(buttons(blocked([])).text).toEqual([])
+  it('offers Fix it for a failed change even when the list carries no acts', () => {
+    expect(buttons(blocked([])).text).toEqual(['Fix it'])
+  })
+  it('offers nothing else the server did not send', () => {
+    expect(buttons({ ...blocked([]), statusLabel: 'waiting' } as RunRow).text).toEqual([])
   })
 })
 

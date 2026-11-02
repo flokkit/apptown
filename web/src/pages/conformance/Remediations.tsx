@@ -1,5 +1,4 @@
-import { PhoneDetails } from '../../GlanceRow'
-import { useNarrow } from '../../chrome'
+import { Section } from '../../Section'
 import { Status } from '../../Status'
 import { Link } from 'react-router-dom'
 import { useHolds } from '../../instancePages'
@@ -24,44 +23,43 @@ export function JobBar({ counts = {} }: { counts?: Record<string, number> }) {
   )
 }
 
+// OccupancyCard: what remediation work is under way, said only when there
+// is some (or work is paused), and the worker setting as its own section for
+// whoever may change it.
 export function OccupancyCard({ occ }: { occ: Occupancy }) {
   // The worker count is shown inside the remediation reads, so a change to
   // it refreshes those as well as /workers.
-  const narrow = useNarrow()
   const { run, busy, err } = useAction(undefined, { affects: ['/conformance'] })
   const setWorkers = (n: number) => run(() => put('/workers', { kind: 'remediation', count: n }))
   const mayConfigure = useHolds('identity:manage-auth')
   const cooling = !!occ.cooldownUntil && new Date(occ.cooldownUntil).getTime() > Date.now()
+  const holding = occ.holding ?? []
   return (
-    <div className={`card${cooling ? ' tone-warn' : ''}`} style={{ marginBottom: 'var(--space-4)', padding: '10px 14px' }}>
-      {narrow && <p>{cooling ? 'Work is paused.' : occ.busy ? `${occ.busy} updates in progress` : 'No updates in progress.'}</p>}
-      <PhoneDetails>
-      <div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)', alignItems: 'center' }}>
-        <div className="small">
-          <strong>{occ.busy} updates in progress</strong>
-          {occ.queued > 0 && <span className="muted"> · {occ.queued} queued</span>}
-          {(occ.holding ?? []).length > 0 && (
-            <div className="muted" style={{ marginTop: 2 }}>
-              {(occ.holding ?? []).map((h) => <span key={h.id} style={{ marginRight: 'var(--space-3)' }}>{h.projectSlug} <span className="mono">{h.check}</span> · {h.doing ? `on ${h.doing}` : (ITEM[h.state]?.label ?? h.state)}</span>)}
-            </div>
-          )}
-          {cooling && <div style={{ marginTop: 2, color: 'var(--warn)' }}>Paused until {fmtWhen(occ.cooldownUntil!)}: {occ.cooldownWhy}</div>}
-        </div>
-        {mayConfigure && <details><summary>Processing settings</summary><span className="row" style={{ gap: 'var(--space-2)', alignItems: 'center' }}>
-          <span className="muted small">workers</span>
-          <button className="subtle" disabled={busy || occ.workers <= 0} onClick={() => setWorkers(occ.workers - 1)}>−</button>
+    <>
+      {(occ.busy > 0 || occ.queued > 0 || cooling) && <Section title="In progress" count={occ.busy || undefined} note={occ.queued > 0 ? `${occ.queued} queued` : undefined}>
+        {cooling && <p className="small" style={{ color: 'var(--warn)' }}>Paused until {fmtWhen(occ.cooldownUntil!)}: {occ.cooldownWhy}</p>}
+        {holding.map((h) => (
+          <div key={h.id} className="card row small" style={{ display: 'flex' }}>
+            <span className="row-status muted">{h.doing ? `on ${h.doing}` : (ITEM[h.state]?.label ?? h.state)}</span>
+            <strong>{h.projectSlug}</strong>
+            <span className="muted">{h.check}</span>
+          </div>
+        ))}
+      </Section>}
+      {mayConfigure && <Section title="Processing" note="How many remediations work at once.">
+        <div className="row" style={{ gap: 'var(--space-2)', alignItems: 'center', padding: '10px 0' }}>
+          <span className="small">Workers</span>
+          <button className="subtle" aria-label="Fewer workers" disabled={busy || occ.workers <= 0} onClick={() => setWorkers(occ.workers - 1)}>−</button>
           <strong>{occ.workers}</strong>
-          <button className="subtle" disabled={busy || occ.workers >= 8} onClick={() => setWorkers(occ.workers + 1)}>+</button>
-        </span></details>}
-      </div>
-      </PhoneDetails>
-      {err && <div className="error small">{err}</div>}
-    </div>
+          <button className="subtle" aria-label="More workers" disabled={busy || occ.workers >= 8} onClick={() => setWorkers(occ.workers + 1)}>+</button>
+          {err && <span className="error small">{err}</span>}
+        </div>
+      </Section>}
+    </>
   )
 }
 
 export function RemediationsList() {
-  const narrow = useNarrow()
   const q = useGet<RemediationList>('/conformance/remediations', { poll: 5000 })
   const got = q.data
   if (!got) return <ReadStatus q={q} what="the remediations" className="small" />
@@ -72,26 +70,17 @@ export function RemediationsList() {
     <div>
       <StaleNote q={q} />
       <OccupancyCard occ={data.occupancy} />
-      {data.remediations.length === 0 && <div className="muted" style={{ padding: '30px 0', textAlign: 'center' }}>No remediations. Choose a check, project or Fix all findings.</div>}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-        {data.remediations.map((m) => narrow ? <Link key={m.id} to={`/conformance/remediations/${m.id}`} className="card" style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
-          <div className="host-row"><strong>Fix #{m.number}</strong><Status word={m.statusLabel} help={m.sentence} /><span className="muted small">{m.counts?.total ?? 0} {(m.counts?.total ?? 0) === 1 ? 'task' : 'tasks'}</span></div>
-        </Link> : (
-          <Link key={m.id} to={`/conformance/remediations/${m.id}`} className={`card${m.status === 'running' ? ' tone-busy' : m.status === 'completed_with_stuck' ? ' tone-bad' : ''}`} style={{ marginBottom: 0, textDecoration: 'none', color: 'inherit', display: 'block' }}>
-            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)' }}>
-              <div style={{ minWidth: 0 }}>
-                <div className="row" style={{ gap: 'var(--space-2)', alignItems: 'center' }}>
-                  <strong>#{m.number}</strong>
-                  <Status word={m.statusLabel} help={m.status.replaceAll('_', ' ')} />
-                  <span className="small">{m.sentence}</span>
-                </div>
-                <div className="muted small" style={{ marginTop: 2 }}>{m.actor} · {fmtWhen(m.createdAt)} · {m.mode}{m.cost ? ` · $${m.cost.toFixed(3)}` : ''}</div>
-              </div>
-              <JobBar counts={m.counts} />
-            </div>
+      <Section title="Remediations" count={data.remediations.length || undefined}>
+        {data.remediations.length === 0 && <p className="muted small">No remediations yet. Start one with Fix on a check or a project.</p>}
+        {data.remediations.map((m) => (
+          <Link key={m.id} to={`/conformance/remediations/${m.id}`} className="card row" style={{ display: 'flex' }}>
+            <span className="row-status"><Status word={m.statusLabel} /></span>
+            <strong><span className="muted" style={{ fontWeight: 400 }}>#{m.number} </span>{m.sentence}</strong>
+            <span className="muted small" style={{ flex: 1 }}>{m.actor} · {fmtWhen(m.createdAt)} · {m.mode}{m.cost ? ` · $${m.cost.toFixed(3)}` : ''}</span>
+            <span className="row-action phone-secondary"><JobBar counts={m.counts} /></span>
           </Link>
         ))}
-      </div>
+      </Section>
     </div>
   )
 }

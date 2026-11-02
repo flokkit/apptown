@@ -30,3 +30,11 @@ export function eventTitle(kind: string): string {
   }
   return titles[kind] || 'Activity recorded'
 }
+
+// routineEvent: plumbing a person reading the change's history does not
+// need in line — connections checked, steps starting and finishing, and
+// kinds with no plain name. They stay on the record, folded apart.
+const ROUTINE = new Set(['integration.resolved', 'step.started', 'step.finished'])
+export function routineEvent(kind: string): boolean {
+  return ROUTINE.has(kind) || eventTitle(kind) === 'Activity recorded'
+}

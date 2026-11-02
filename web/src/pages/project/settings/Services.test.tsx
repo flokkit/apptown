@@ -45,9 +45,9 @@ it('revisiting services edits the refreshed contract and names its declaration',
   try {
     await vi.waitFor(() => expect(f.tile('Postgres')?.getAttribute('aria-checked')).toBe('true'))
     // Nothing edited, nothing to save.
-    expect(f.button('Save (needs approval)')!.disabled).toBe(true)
+    expect(f.button('Save')!.disabled).toBe(true)
     await act(async () => { f.tile('Redis').click() })
-    await act(async () => { f.button('Save (needs approval)')!.click() })
+    await act(async () => { f.button('Save')!.click() })
     expect(sent).toEqual([{ needs: [{ capability: 'postgres' }, { capability: 'redis', params: {} }], title: 'Update services', expectedDeclaration: 'now' }])
   } finally {
     f.unmount()
@@ -67,7 +67,7 @@ it('a failed refresh of the services offers no form to save', async () => {
   const f = mountServices(client)
   try {
     await vi.waitFor(() => expect(f.el.textContent).toContain("not allowed"))
-    expect(f.button('Save (needs approval)')).toBeUndefined()
+    expect(f.button('Save')).toBeUndefined()
   } finally {
     f.unmount()
     client.clear()
@@ -88,7 +88,7 @@ it('keeps an edited services form through a background refresh', async () => {
     await vi.waitFor(() => expect(client.getQueryData(getKey(path))).toEqual(server))
     expect(f.tile('Postgres').getAttribute('aria-checked')).toBe('true')
     expect(f.tile('Redis').getAttribute('aria-checked')).toBe('true')
-    await act(async () => { f.button('Save (needs approval)')!.click() })
+    await act(async () => { f.button('Save')!.click() })
     expect(sent[0]).toMatchObject({ needs: [{ capability: 'postgres' }, { capability: 'redis' }], expectedDeclaration: 'b' })
   } finally {
     f.unmount()
@@ -113,13 +113,13 @@ it('on a moved declaration keeps the picks and puts only the person\'s edits on 
     await act(async () => { f.tile('Redis').click() })
     // Someone lands a Postgres upgrade meanwhile.
     server = { needs: [{ capability: 'postgres', params: { version: '17' } }], contract: 'app.yaml', declaration: 'c' }
-    await act(async () => { f.button('Save (needs approval)')!.click() })
+    await act(async () => { f.button('Save')!.click() })
     await vi.waitFor(() => expect(f.el.textContent).toContain('Declared now: postgres 17 (it was postgres 16 when you started). Keeping your edits gives postgres 17, redis.'))
     expect(f.el.textContent).toContain("The app's services changed on main after you started")
     expect(f.tile('Redis').getAttribute('aria-checked')).toBe('true')
     await act(async () => { f.button('Keep my edits on top of theirs')!.click() })
     conflict = false
-    await act(async () => { f.button('Save (needs approval)')!.click() })
+    await act(async () => { f.button('Save')!.click() })
     expect(sent[1]).toEqual({ needs: [{ capability: 'postgres', params: { version: '17' } }, { capability: 'redis', params: {} }], title: 'Update services', expectedDeclaration: 'c' })
   } finally {
     f.unmount()
@@ -143,13 +143,13 @@ it('keeping my edits puts only the parameters I changed on top of theirs', async
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '17')
       input.dispatchEvent(new Event('input', { bubbles: true }))
     })
-    expect(f.button('Save (needs approval)')!.disabled).toBe(false)
+    expect(f.button('Save')!.disabled).toBe(false)
     server = { needs: [{ capability: 'postgres', params: { version: '16', database: 'new_db' } }], contract: 'app.yaml', declaration: 'c' }
-    await act(async () => { f.button('Save (needs approval)')!.click() })
+    await act(async () => { f.button('Save')!.click() })
     await vi.waitFor(() => expect(f.button('Keep my edits on top of theirs')?.disabled).toBe(false))
     await act(async () => { f.button('Keep my edits on top of theirs')!.click() })
     conflict = false
-    await act(async () => { f.button('Save (needs approval)')!.click() })
+    await act(async () => { f.button('Save')!.click() })
     expect(sent[1]).toMatchObject({ needs: [{ capability: 'postgres', params: { version: '17', database: 'new_db' } }], expectedDeclaration: 'c' })
   } finally { f.unmount(); client.clear(); vi.unstubAllGlobals() }
 })
@@ -185,7 +185,7 @@ it('a tile shows the Experimental badge from data and the kind in one line', asy
     expect(f.tile('Postgres').textContent).not.toContain('Experimental')
     expect(f.tile('Redis').closest('.service-pick')?.textContent).toContain('A cache.')
     expect(f.tile('Redis').closest('.service-pick')?.textContent).not.toContain('no app has shipped')
-    expect(f.tile('Postgres').closest('.service-pick')?.querySelector('details')?.textContent).toContain('A database of its own.')
+    expect(f.tile('Postgres').closest('.service-pick')?.textContent).toContain('A database of its own.')
     expect(f.tile('Custom').closest('.service-pick')?.textContent).toContain('A kind with no summary.')
   } finally {
     f.unmount()
@@ -195,7 +195,7 @@ it('a tile shows the Experimental badge from data and the kind in one line', asy
 })
 
 
-it('keeps the AI models connection action in the service connection disclosure', async () => {
+it('keeps the AI models connection action inside the service row', async () => {
   const client = newQueryClient()
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/attachables')
     ? { attachables: [{ capability: 'llm', title: 'AI models', connectors: ['openrouter'], resourceFields: [], provisionable: false }] }

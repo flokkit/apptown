@@ -1,0 +1,8 @@
+/* Security › Findings and Suppressions. The status column lines up with the
+   row's text on its baseline rather than sitting below it. */
+.security-page .card.row { align-items: baseline; }
+.security-next p { margin: 12px 0; }
+.security-source code { flex: 0 0 auto; }
+@media (max-width: 600px) {
+  .security-suppression { flex-wrap: wrap; }
+}

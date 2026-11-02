@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { HttpError, del, post } from '../../../api'
 import { Status } from '../../../Status'
@@ -7,6 +8,8 @@ import { QuietConfirm } from '../../../QuietConfirm'
 import { useAction, useGet } from '../../../data'
 import { ReadStatus, StaleNote } from '../../../ReadGate'
 import { relTime } from '../../../format'
+import { Section } from '../../../Section'
+import './services.css'
 import type { Attachable, AttachableList, AttachmentList, AttachmentView, DependencyKind, DependencyList, IntegrationWiring, ProjectServiceList, ServicesProposed } from '../../../wire.gen'
 
 // The service selector: the databases and backing services this app runs
@@ -142,59 +145,52 @@ export function ServicesTab({ slug }: { slug: string }) {
   // empty form saved would remove them.
   // A refresh that fails once the form has started leaves it (and any draft)
   // in place under a stale note.
-  if (!base || base.slug !== slug) return svcQ.err
-    ? <div className="error">The project's services could not be read: {svcQ.reason}</div>
-    : <div className="muted small">Reading the project's services…</div>
+  if (!base || base.slug !== slug) return (
+    <Section title="Services">
+      {svcQ.err
+        ? <p className="error">The project's services could not be read: {svcQ.reason}</p>
+        : <p className="muted">Reading the project's services…</p>}
+    </Section>
+  )
   const contract = base.contract
 
   return (
-    <div>
+    <Section title="Services" count={needs.length || undefined}
+      note={contract === 'none' ? 'No runtime contract yet · build the app first.' : undefined}>
       <StaleNote q={svcQ} />
       <ReadStatus q={catQ} what="the service catalogue" className="small" />
       <StaleNote q={catQ} />
-      <details className="small"><summary>About services</summary><p className="muted small" style={{ maxWidth: 580 }}>
-        The services this app uses: each is a need declared in the app's contract, fulfilled by the
-        deployment's target or through an integration. Saving opens a change you preview and land.
-        A container not in this list is part of the app. What each gives the app: <Link to="/docs/guides/services-and-data">Services and data</Link>.
-        {contract === 'none' && <> <strong>No runtime contract yet</strong> — build the app first.</>}
-      </p></details>
-
-      <div className="pick-grid" style={{ marginTop: 8 }}>
-        {catalog.map((k) => {
-          const idx = pickedIdx(k.capability)
-          const on = idx >= 0
-          const version = on ? needs[idx].params?.version : k.defaults?.version
-          return (
-            <div key={k.capability} className={'pick-tile service-pick' + (on ? ' on' : '')}>
-              <div className="host-row"><strong>{k.title}</strong>
-                <button role="switch" aria-label={k.title} aria-checked={on} onClick={() => toggleNeed(k)}>{on ? 'On' : 'Off'}</button>
-              </div>
-              <details><summary>Where it runs</summary>
-                <p>{tileLine(k)}</p>
-                {k.status === 'experimental' && <p>Experimental</p>}
-                <ul>{fulfilledBy(k).map(line => <li key={line}>{line}</li>)}</ul>
-              {on && version !== undefined ? (
-                <div style={{ marginTop: 6 }} onClick={(e) => e.stopPropagation()}>
-                  <span className="muted small">Version </span>
+      {/* One row per kind: its name and what it is, where it runs as quiet
+          meta, its version when on, and the switch on the right. */}
+      {catalog.map((k) => {
+        const idx = pickedIdx(k.capability)
+        const on = idx >= 0
+        const version = on ? needs[idx].params?.version : undefined
+        return (
+          <div key={k.capability} className={'card service-pick' + (on ? ' on' : '')}>
+            <div className="service-main">
+              <div><strong>{k.title}</strong>{k.status === 'experimental' && <span className="badge" style={{ marginLeft: 8 }}>Experimental</span>}</div>
+              {tileLine(k) && <div className="muted small">{tileLine(k)}</div>}
+              <div className="muted small">Runs on: {fulfilledBy(k).join(' · ')}</div>
+              {k.register?.connector && <div className="service-connection"><ProjectIntegrationsTab slug={slug} onlyCapability={k.capability} /></div>}
+            </div>
+            <div className="service-controls">
+              {on && version !== undefined && (
+                <label className="muted small">Version{' '}
                   <input value={version} style={{ width: 56, fontSize: 'var(--fs-xs)', textAlign: 'center' }}
                     onChange={(e) => setVersion(k.capability, e.target.value)} />
-                </div>
-              ) : (
-                <div className="muted small" style={{ marginTop: 4, opacity: 0.7, fontSize: 'var(--fs-xs)' }}>
-                  {k.defaults?.version ? `Version ${k.defaults.version}` : ' '}
-                </div>
+                </label>
               )}
-              </details>
-              {k.register?.connector && <details><summary>Connection</summary><ProjectIntegrationsTab slug={slug} onlyCapability={k.capability} /></details>}
+              <button role="switch" aria-label={k.title} aria-checked={on} className={on ? 'service-on' : undefined} onClick={() => toggleNeed(k)}>{on ? 'On' : 'Off'}</button>
             </div>
-          )
-        })}
-      </div>
+          </div>
+        )
+      })}
       {needs.length === 0 &&
-        <div className="muted small" style={{ marginTop: 10 }}>None declared · fine for a client-only site or a stateless service.</div>}
+        <p className="muted small">None declared · fine for a client-only site or a stateless service.</p>}
 
       {conflict && draft && (
-        <div className="card tone-warn" style={{ marginTop: 10 }}>
+        <div className="card tone-warn" style={{ margin: '10px 0' }}>
           <div>The app's services changed on main after you started. Your picks are kept here, unsaved.</div>
           {newer && now && <div className="muted small" style={{ marginTop: 4 }}>
             Declared now: {said(now.needs || [])} (it was {said(base.needs)} when you started). Keeping your edits gives {said(onto(now.needs || [], base.needs, draft))}.
@@ -207,17 +203,19 @@ export function ServicesTab({ slug }: { slug: string }) {
         </div>
       )}
 
-      <div className="row" style={{ marginTop: 16, gap: 10, alignItems: 'center' }}>
+      <div className="row service-save">
         <button className="primary" disabled={busy || contract === 'none' || !changed || conflict} onClick={save}>
-          {busy ? 'opening a change…' : 'Save (needs approval)'}
+          {busy ? 'Opening a change…' : 'Save'}
         </button>
-        {!changed && <span className="muted small">Turn a service on or off, or change its version, then save for approval.</span>}
+        {changed
+          ? <span className="muted small">needs approval: saving opens a change</span>
+          : <span className="muted small">Turn a service on or off, or change its version, then save for approval.</span>}
         {createdChange && (
           <span className="small">✓ Change {createdChange.number} opened · <Link to={`/changes/${createdChange.id}`}>preview &amp; land it</Link></span>
         )}
         {err && !conflict && <span className="error small">{err}</span>}
       </div>
-    </div>
+    </Section>
   )
 }
 
@@ -278,14 +276,14 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
   const unattached = attachables.filter((a) => !items.some((i) => i.capability === a.capability) && (onlyCapability ? a.capability === onlyCapability : !catalog.some(k => k.capability === a.capability)))
 
   // Never read is not "nothing attached".
-  if (!itemsQ.data) return <ReadStatus q={itemsQ} what="the project's integrations" />
-  return (
-    <div style={{ maxWidth: 760 }}>
+  // Inside a service's row only the connection itself shows; on its own it
+  // is the page's Connections section.
+  const frame = (body: ReactNode) => onlyCapability ? <div>{body}</div> : <Section title="Connections" count={items.length || undefined}>{body}</Section>
+  if (!itemsQ.data) return frame(<ReadStatus q={itemsQ} what="the project's integrations" />)
+  return frame(
+    <>
       <StaleNote q={[itemsQ, attachablesQ]} />
       <ReadStatus q={attachablesQ} what="the integrations that can be attached" className="small" />
-      <div className="muted small" style={{ marginBottom: 12 }}>
-        Connections for this app.
-      </div>
       {/* Integrations are big-ticket: something to crow about, not a
           row of chips. One card each — the face, the state from the app's
           side, the proof, the guide, the doors. */}
@@ -306,7 +304,7 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
                   {i.provenance === 'provisioned' ? `linked · ${i.connector}` : i.connector ? `via ${i.connector}` : 'direct'}
                 </span>
               </div>
-              {i.capability === 'container-registry' ? <p className="muted small">Stores your app’s built images</p> : desc && <details><summary>About this connection</summary>{desc}</details>}
+              {i.capability === 'container-registry' ? <p className="muted small">Stores your app’s built images</p> : desc && <p className="muted small">{desc}</p>}
             </div>
           </div>
 
@@ -358,11 +356,12 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
               ))}
             </div>
           )}
-          <details className="muted small" style={{ marginTop: 8 }}><summary>Connection details</summary>
+          {/* The connection's own settings, shown and labelled rather than folded. */}
+          <dl className="facts small" style={{ marginTop: 8, overflowWrap: 'anywhere' }}>
             {Object.entries(i.resource)
               .filter(([k]) => !['unresolved', 'issuesError'].includes(k))
-              .map(([k, v]) => `${k}: ${String(v)}`).join(' · ')}
-          </details>
+              .map(([k, v]) => <Fragment key={k}><dt>{RESOURCE_LABEL[k] ?? k}</dt><dd>{String(v)}</dd></Fragment>)}
+          </dl>
           <div className="row integ-foot">
             {i.docs && <Link to={i.docs} className="small">Guide: how it is wired in and how to test it</Link>}
             <span style={{ flex: 1 }} />
@@ -372,11 +371,11 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
         )
       })}
       </div>
-      {items.length === 0 && <div className="muted small" style={{ marginBottom: 8 }}>Nothing attached yet.</div>}
+      {items.length === 0 && !onlyCapability && <p className="muted small">Nothing attached yet.</p>}
 
       <ReadStatus q={catalogQ} what="the service catalogue" /><StaleNote q={catalogQ} />
       {adding === null ? (
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        <div className="row service-attach" style={{ gap: 8, flexWrap: 'wrap' }}>
           {catalogQ.data && !catalogQ.refreshFailed && unattached.map((a) => (
             <button key={a.capability} onClick={() => openAdd(a)} title={a.description}>+ {a.title}</button>
           ))}
@@ -418,6 +417,9 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
         </div>
       )}
       {adding === null && err && <div className="error">{err}</div>}
-    </div>
+    </>
   )
 }
+
+// Plain labels for the settings a connection records; anything else shows its own name.
+const RESOURCE_LABEL: Record<string, string> = { repo: 'Images kept at', bucket: 'Bucket', database: 'Database', host: 'Host', url: 'Address', dsn: 'Connection', project: 'Project' }

@@ -1,0 +1,5 @@
+/* Your account: the link controls sit inside the section panel. */
+.account-signin { padding: 12px 0; }
+.account-signin > p:first-child { margin-top: 0; }
+.account-signin .row { gap: 8px; }
+.account-signin input[type=password] { min-width: 0; flex: 0 1 16em; }

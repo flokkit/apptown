@@ -71,9 +71,15 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
     setPageContext({ crumbs: [{ label: shopId ? `Chat · ${shopName}` : 'Chat' }] })
     return () => setPageContext({})
   }, [shopId, shopName])
-  if (!session && openErr) return <div><h1>Chat is not available here</h1>
-    <p><Link to={`/projects/${slug}`}>Open a change from the project</Link></p>
-    <details><summary>Details</summary><p>{openErr}</p>{appTownInstead && <button onClick={() => void open('apptown')}>Open it on {PRODUCT} instead</button>}</details>
+  // A chat that cannot open says why in one line and goes back where the
+  // person came from: the change, or the project for its own chat.
+  if (!session && openErr) return <div>
+    <h1>{isWorkshop ? 'Change chat' : 'Project chat'}</h1>
+    <p className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+      <span>Chat can't open here: {openErr}</span>
+      <Link to={shopId ? `/changes/${shopId}` : `/projects/${slug}`}>{shopId ? `Back to ${change.data ? shopName : 'the change'}` : 'Back to the project'}</Link>
+      {appTownInstead && <button onClick={() => void open('apptown')}>Open it on {PRODUCT} instead</button>}
+    </p>
   </div>
   return (
     <div className={`console ${isWorkshop ? 'console-workshop' : 'console-desk'}`}>
@@ -152,14 +158,14 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           one qualifies the conversation, the other may be the next thing to
           do. */}
       <div className="console-extra">
-        {(shopId || !introSeen || session?.continuedFrom) && (
+        {(shopId || (!shopId && !introSeen) || session?.continuedFrom) && (
           <details className="console-about" open={!narrow}>
             <summary className="small">
               {shopId
                 ? <>{shopName}{change.data && <> · {changeChip(change.data)}</>}</>
                 : 'About this chat'}
             </summary>
-            {!introSeen && <ChatIntro changeName={shopId ? shopName : undefined} slug={slug}
+            {!shopId && !introSeen && <ChatIntro slug={slug}
               onDismiss={() => { localStorage.setItem(introKey, '1'); setIntroSeen(true) }} />}
             {session?.continuedFrom && (
               <div className="muted small" style={{ marginBottom: 8 }}>
@@ -209,17 +215,14 @@ function useKickoff(kickoff: string, slug: string, changeId: string, session: Co
   }, [kickoff, session, attached, changeId, slug])
 }
 
-// A one-card answer to "what do I do here, and what will happen?" —
-// dismissible per project, because operators know and first-time users don't yet.
-function ChatIntro({ changeName, slug, onDismiss }: { changeName?: string; slug: string; onDismiss: () => void }) {
+// The project chat's one-card answer to "what happens here?": nothing is
+// built in it; the helper opens a change. Dismissible per project. A change
+// chat has none: its box says what to do, and the change shows the rest.
+function ChatIntro({ slug, onDismiss }: { slug: string; onDismiss: () => void }) {
   return (
     <div className="card row tone-accent" style={{ marginBottom: 8 }}>
       <span className="small" style={{ flex: 1, lineHeight: 1.5 }}>
-        {changeName ? (
-          <>Say what to change. Checks and an approval come before it lands.</>
-        ) : (
-          <>Ask about <strong>{slug}</strong> or describe what to build. The helper opens a change for the work.</>
-        )}
+        Ask about <strong>{slug}</strong> or describe what to build. The helper opens a change for the work.
       </span>
       <button className="subtle" onClick={onDismiss}>Dismiss</button>
     </div>

@@ -92,12 +92,21 @@ describe('pages about the whole AppTown', () => {
     const { el, unmount } = await render(<SidebarNav />)
     const links = () => [...el.querySelectorAll('a.nav')].map((a) => a.textContent)
     await vi.waitFor(() => expect(links()).not.toContain('People'))
-    expect(links()).toEqual(['Home', 'Projects', 'Deployments', 'Ways of working', 'Your account', 'Usage', 'Docs'])
+    expect(links()).toEqual(['Home', 'Projects', 'Deployments', 'Ways of working', 'Usage', 'Docs'])
+    // Inside the Deployments drawer, a member sees only their own pages.
+    await act(async () => { (el.querySelector('button[aria-label="Open Deployments"]') as HTMLButtonElement).click() })
+    expect(links().slice(2, 5)).toEqual(['Deployments', 'Departures', 'Apps'])
+    expect(links()).not.toContain('Infrastructure')
+    expect(links()).not.toContain('Backups')
     unmount()
     answer(admin)
     const again = await render(<SidebarNav />)
-    await vi.waitFor(() => expect([...again.el.querySelectorAll('a.nav')].map((a) => a.textContent)).toContain('People'))
-    expect([...again.el.querySelectorAll('a.nav')].map((a) => a.textContent)).toEqual(['Home', 'Projects', 'Deployments', 'Infrastructure', 'Conformance', 'Ways of working', 'Evals', 'Integrations', 'Your account', 'People', 'Usage', 'Complaints', 'Docs'])
+    const all = () => [...again.el.querySelectorAll('a.nav')].map((a) => a.textContent)
+    await vi.waitFor(() => expect(all()).toContain('People'))
+    expect(all()).toEqual(['Home', 'Projects', 'Deployments', 'Conformance', 'Ways of working', 'Integrations', 'Services', 'Evals', 'People', 'Usage', 'Docs', 'Complaints'])
+    await act(async () => { (again.el.querySelector('button[aria-label="Open Deployments"]') as HTMLButtonElement).click() })
+    expect(all()).toContain('Infrastructure')
+    expect(all()).toContain('Backups')
   })
 
   // Deployments keeps the caller's own departures and deployments; the hosts
@@ -105,9 +114,8 @@ describe('pages about the whole AppTown', () => {
   it('leaves infrastructure out of Deployments for a project member', async () => {
     answer(member)
     const { el } = await render(<Routes><Route path="/deployments/:gtab" element={<Deployments />} /></Routes>, '/deployments/backups')
+    // The menu's drawer leaves the pages out (above); a direct address says so.
     await vi.waitFor(() => expect(el.textContent).toContain('Not available to you'))
-    const tabs = [...el.querySelectorAll('.tabs a')].map((a) => a.textContent)
-    expect(tabs).toEqual(['Departures', 'Deployments'])
   })
 })
 

@@ -15,6 +15,7 @@ import { RemediationPage } from './conformance/RemediationPage'
 import { FleetVersionsTab } from './conformance/FleetVersions'
 import { WhatIfsList } from './conformance/WhatIfs'
 import { PageHead } from '../PageHead'
+import './conformance.css'
 
 // Conformance (design/subsystems/conformance-surface.md): projects first, reviews as
 // records, checks third. Every view is read through a LENS — the current
@@ -82,31 +83,24 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
 
   return (
     <div>
-      <PageHead page="conformance" />
+      {/* The page's actions sit on the title's line: one primary, Check now;
+          fixing every finding is a plain button beside it. While a review
+          runs, its progress takes their place. */}
+      <PageHead page="conformance" actions={!readOnly && (tab !== 'project' || (live && isUnfinished(live.review.status))) ? (live && isUnfinished(live.review.status)
+        ? <ReviewProgress d={live} />
+        : <span className="row" style={{ gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            {s && s.findings > 0 && <button disabled={busy} title="Start a remediation over every finding: one change per project at a time, each waiting for your approval" onClick={() => remediation.start('all', '')}>Fix {s.findings} {s.findings === 1 ? 'problem' : 'problems'}</button>}
+            <button className="primary" disabled={busy} onClick={() => run()}>{busy ? 'Starting…' : 'Check now'}</button>
+          </span>) : undefined} />
 
       {view && <LensBanner view={view} />}
-
-      {!readOnly && (active === tab || following !== '') && (
-        <div className="card" style={{ marginBottom: 'var(--space-4)', padding: '10px 14px' }}>
-          <div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)', alignItems: 'center' }}>
-            <div className="small">
-              {tab === 'projects' && (s ? <>{s.findings} confirmed problem{s.findings === 1 ? '' : 's'} to fix now. {s.flagged > 0 && `${s.flagged} possible problem${s.flagged === 1 ? '' : 's'} to review. `}{s.incompleteProjects} app{s.incompleteProjects === 1 ? '' : 's'} not fully checked.</> : 'No checks yet.')}
-            </div>
-            {live && isUnfinished(live.review.status)
-              ? <ReviewProgress d={live} />
-              : <span className="row" style={{ gap: 'var(--space-2)' }}>
-                  {s && s.findings > 0 && <button disabled={busy} title="Start a remediation over every finding: one change per project at a time, each waiting for your approval" onClick={() => remediation.start('all', '')}>Fix {s.findings} problems</button>}
-                  <button className="primary" disabled={busy} onClick={() => run()}>{busy ? 'Starting…' : 'Check now'}</button>
-                </span>}
-          </div>
-        </div>
-      )}
+      {!readOnly && tab === 'projects' && s && <p className="muted small" style={{ margin: '4px 0 0' }}>{s.findings} confirmed problem{s.findings === 1 ? '' : 's'} to fix now. {s.flagged > 0 && `${s.flagged} possible problem${s.flagged === 1 ? '' : 's'} to review. `}{s.incompleteProjects} app{s.incompleteProjects === 1 ? '' : 's'} not fully checked.</p>}
       {readOnly && live && live.review.id === rid && <ReviewFeed d={live} />}
       {shownErr && <div className="error small mb-3">{shownErr}</div>}
       <StaleNote q={[viewQ, liveQ]} />
       {following !== '' && <ReadStatus q={liveQ} what="the running review" className="small" />}
 
-      <Tabs className="tabs">
+      <Tabs className="tabs conformance-tabs">
         <Link to={base} className={tabClass(active === 'projects')}>Projects</Link>
         <Link to="/conformance/reviews" className={tabClass(active === 'reviews')}>Fleet reviews{view?.reviews?.filter(isFleetReview).length ? ` (${view.reviews.filter(isFleetReview).length})` : ''}</Link>
         <Link to={`${base}/checks`} className={tabClass(active === 'checks')}>Checks</Link>
@@ -118,7 +112,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
       {!view && <ReadStatus q={viewQ} what="the conformance record" className="small" />}
       {/* Keyed by what they show: a refresh keeps the person's open folds,
           moving to another review or project starts its own. */}
-      {view && tab === 'projects' && <ProjectsList key={base} view={view} base={base} onCheck={readOnly || busy ? undefined : sl => run([sl])} />}
+      {view && tab === 'projects' && <ProjectsList key={base} view={view} base={base} />}
       {view && tab === 'project' && slug && <ProjectPage key={`${base}/projects/${slug}`} view={view} slug={slug} readOnly={readOnly} onRunOne={(sl) => run([sl])} />}
       {tab === 'reviews' && <ReviewsList />}
       {view && tab === 'checks' && <ChecksList key={base} view={view} base={base} />}

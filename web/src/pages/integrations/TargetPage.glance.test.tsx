@@ -4,9 +4,9 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { getKey, newQueryClient } from '../../data'
-import { TargetPage } from './TargetPage'
+import { TargetPage, TargetSettingsPage } from './TargetPage'
 
-it.each([false, true])('leads with the host name, state and app address while settings stay behind a tap (unknown capacity: %s)', (unknown) => {
+it.each([false, true])('leads with the host name, state and app address, and links to its settings (unknown capacity: %s)', (unknown) => {
   const client = newQueryClient()
   client.setQueryData(getKey('/auth/me'), { mode: 'internal', user: 'sam' })
   client.setQueryData(getKey('/attention'), { sources: [], items: unknown ? [{ key: 'inventory', title: 'Kitchen: resources not known', detail: 'Inventory could not be checked.', href: '/infrastructure/kitchen', statusLabel: 'unknown', stale: true }] : [] })
@@ -22,11 +22,17 @@ it.each([false, true])('leads with the host name, state and app address while se
   const html = renderToStaticMarkup(<MemoryRouter initialEntries={['/infrastructure/kitchen']}><QueryClientProvider client={client}><Routes><Route path="/infrastructure/:name" element={<TargetPage />} /></Routes></QueryClientProvider></MemoryRouter>)
   const el = document.createElement('div')
   el.innerHTML = html
-  expect(el.querySelector('.target-settings')?.textContent).toContain('SSH key: secret HOST_KEY')
-  expect(el.querySelector('.target-settings a[href="/integrations/secrets"]')?.textContent).toBe('Edit secret')
-  expect([...el.querySelectorAll('.target-settings summary')].map(s => s.textContent)).not.toContain('Key')
-  el.querySelectorAll('details').forEach(d => d.remove())
-  // The state light itself is also a disclosure; its summary remains visible.
+  // Setting the target up is its page under Integrations; this page links to it.
+  expect(el.querySelector('.target-settings')).toBeNull()
+  expect(el.querySelector('a[href="/integrations/targets/kitchen"]')?.textContent).toBe('Settings')
+  const settings = document.createElement('div')
+  settings.innerHTML = renderToStaticMarkup(<MemoryRouter initialEntries={['/integrations/targets/kitchen']}><QueryClientProvider client={client}><Routes><Route path="/integrations/targets/:name" element={<TargetSettingsPage />} /></Routes></QueryClientProvider></MemoryRouter>)
+  expect(settings.querySelector('.target-settings')?.textContent).toContain('SSH keysecret HOST_KEY')
+  expect(settings.querySelector('.target-settings a[href="/integrations/secrets"]')?.textContent).toBe('Edit secret')
+  expect(settings.querySelector('a[href="/infrastructure/kitchen"]')?.textContent).toBe('What runs here')
+  // The lead is everything before the first section: name, state, address.
+  el.querySelectorAll('section').forEach(d => d.remove())
+  el.querySelectorAll('.status-help > div').forEach(d => d.remove())
   const first = el.textContent
   expect(first).toContain('Kitchen')
   expect(first).toContain('*.apps.example.test')
@@ -36,5 +42,5 @@ it.each([false, true])('leads with the host name, state and app address while se
     expect(first).not.toContain('Kitchen:')
     expect(html).not.toContain('working</span>')
   }
-  expect(first).not.toMatch(/HOST_KEY|10\.0\.0\.4|replace|has disks|emulators|Edit display name|Check target/)
+  expect(first).not.toMatch(/HOST_KEY|10\.0\.0\.4|replace|has disks|emulators|Edit display name/)
 })

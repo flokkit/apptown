@@ -37,6 +37,7 @@ describe('the daily usage chart', () => {
       })
       await settled(client)
       expect(el.querySelector('[role=slider]')).not.toBeNull()
+      expect(el.querySelector('section[aria-label="Daily tokens"] [role=slider]')).not.toBeNull()
       expect(el.querySelector('.usage-chart')?.getAttribute('aria-valuetext')).toContain('500 tokens')
       await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Details')!.click() })
       const shown = () => el.querySelector('.usage-day')?.textContent ?? ''
@@ -69,8 +70,10 @@ describe('the daily usage chart', () => {
         root.render(<QueryClientProvider client={client}><UsageView project="demo" /></QueryClientProvider>)
       })
       await settled(client)
-      expect(el.querySelector('.stat-card')?.textContent).toContain('Cost in 30 days$0.00')
-      expect(el.textContent).toContain('Some calls not priced.')
+      expect(el.querySelector('.usage-figure')?.textContent).toContain('Cost, 30 days$0.00')
+      expect(el.textContent).toContain('2 activity records have unknown or partial cost.')
+      // A window with no use names no kinds of use in the legend.
+      expect(el.querySelector('.usage-legend')).toBeNull()
     } finally {
       act(() => root.unmount())
       client.clear()

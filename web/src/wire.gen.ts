@@ -1258,6 +1258,7 @@ export type ProjectDeletionState = {
 }
 
 export type ProjectDetail = {
+  chatAvailable: boolean
   id: string | null
   slug: string
   name: string
@@ -1357,6 +1358,7 @@ export type ProjectRow = {
   createdAt: string
   requireIndependentApproval: boolean
   settingsRevision: number
+  canChange: boolean
   lastWorkedAt: string | null
   activeItems: number
   adrCount: number

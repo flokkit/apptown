@@ -11,7 +11,6 @@ import type { KindInfo, OfferCaps } from './wire.gen'
 // uses, and their
 // titles.
 export const FAMILY_ORDER = ['built-in', 'attached', 'intranet', 'cloud']
-export const FAMILY_TITLE: Record<string, string> = { 'built-in': 'Built-in', attached: 'Attached', intranet: 'Intranet', cloud: 'Cloud' }
 // familyRank is a family's place in that order; a family not listed goes last.
 export const familyRank = (f: string) => { const i = FAMILY_ORDER.indexOf(f); return i < 0 ? FAMILY_ORDER.length : i }
 

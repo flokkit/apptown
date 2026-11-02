@@ -69,10 +69,7 @@ export function BigChangeBox({ slug, inline = false }: { slug: string; inline?: 
     if (busy) return
     setBusy(true); setErr('')
     try {
-      const stamp = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-      const r = await post<CreatedChange>(`/projects/${slug}/changes`, {
-        title: `Chat change (${stamp})`, titleFromChat: true, type: 'feature', body: '', workflow: '',
-      })
+      const r = await createChatChange(slug)
       nav(`/projects/${slug}/console?change=${r.change.id}`)
     } catch (e) { setErr((e as Error).message); setBusy(false) }
   }
@@ -98,11 +95,11 @@ export function BigChangeBox({ slug, inline = false }: { slug: string; inline?: 
             sub={request ? `"${request.slice(0, 60)}${request.length > 60 ? '…' : ''}"` : 'no app here yet · start it in a building chat'}
             busy={busy} onMain={buildV0} items={[]} />
         )}
-        <SplitButton icon="💬" label="Change" sub="describe what you want changed"
+        <SplitButton icon="" label="Change" sub="describe what you want changed"
           primary={!buildFirst} busy={busy} onMain={startChat}
           items={[
-            { label: '📋 Catalog change', hint: 'run one of the prepared changes', onClick: () => setCatalogOpen(true) },
-            { label: '✏️ New change, detailed', hint: 'pick the title and workflow yourself', onClick: () => setDetailedOpen(true) },
+            { label: 'Catalog change', hint: 'run one of the prepared changes', onClick: () => setCatalogOpen(true) },
+            { label: 'New change, detailed', hint: 'pick the title and workflow yourself', onClick: () => setDetailedOpen(true) },
           ]} />
         {canRelease && (
           <SplitButton icon="↑" label="Release"
@@ -241,4 +238,13 @@ export function ReleaseRows({ slug, releases }: { slug: string; releases: Releas
         </div>
       )}
   </>
+}
+
+
+// Both navigation and the overview start the same ordinary change.
+export function createChatChange(slug: string) {
+  const stamp = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return post<CreatedChange>(`/projects/${slug}/changes`, {
+    title: `Chat change (${stamp})`, titleFromChat: true, type: 'feature', body: '', workflow: '',
+  })
 }

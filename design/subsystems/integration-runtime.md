@@ -28,7 +28,8 @@ Every kind with a meaningful check is renewed: package and container registries,
 GitLab, Infisical, built-in secrets, the Docker executor and deployment connection,
 model providers, OpenRouter, GlitchTip, feedback services, cloud accounts and scanners. Built-in
 secrets checks that its key is readable in AppTown's database. A scanner checks
-its image where checks run. Target checks include attached Docker, Portainer,
+its image where checks run; a scanner that runs inside the app's own image
+(target `exec-image`) has no image of its own and no automatic check. Target checks include attached Docker, Portainer,
 App Platform and object stores. The attached backup bucket has its own scheduled
 write/read/delete check. Worker protocol readings are durable and scheduled too.
 

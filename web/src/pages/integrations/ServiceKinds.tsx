@@ -50,21 +50,21 @@ export function ServiceKindsPanel() {
   const remove = (capability: string) => run(() => del(`/services/${capability}`))
 
   return (
-    <div style={{ maxWidth: 720 }}>
+    <div>
       <div className="muted small" style={{ marginBottom: 12 }}>
-        YAML definitions · attach under Project settings › Services.
+        Projects attach these under Project settings › Services.
       </div>
-      <ReadStatus q={kindsQ} what="the service kinds" />
+      <ReadStatus q={kindsQ} what="the shared services" />
       <StaleNote q={kindsQ} />
       {kinds.map((k) => (
         <div key={k.capability} className="card">
           <div className="row">
             <strong>{k.title}</strong>
             <span className="badge">{k.capability}</span>
-            {k.error && <Status word="failed" help={`${k.error} Correct this service kind definition.`} />}
+            {k.error && <Status word="failed" help={`${k.error} Correct its definition.`} />}
             <span style={{ flex: 1 }} />
             <button className="subtle" onClick={() => setEditing(k.yaml)}>Edit</button>
-            <QuietConfirm label="Delete" ask={`Delete service kind "${k.capability}"?`} onYes={() => void remove(k.capability)} />
+            <QuietConfirm label="Delete" ask={`Delete the shared service "${k.capability}"?`} onYes={() => void remove(k.capability)} />
           </div>
           {k.description && <div className="muted small" style={{ marginTop: 4 }}>{k.description}</div>}
           <div className="muted small" style={{ marginTop: 4 }}>
@@ -73,7 +73,7 @@ export function ServiceKindsPanel() {
         </div>
       ))}
       {editing === null ? (
-        <button onClick={() => setEditing(KIND_EXAMPLE)}>+ Define service kind</button>
+        <button onClick={() => setEditing(KIND_EXAMPLE)}>+ Define a shared service</button>
       ) : (
         <div className="card">
           <textarea value={editing} onChange={(e) => setEditing(e.target.value)} rows={20}

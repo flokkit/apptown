@@ -1,0 +1,4 @@
+/* Complaints rows sit in the section panel; the panel supplies the frame. */
+.complaint { padding: 14px 0; }
+.complaint-steering { padding: 14px 0; }
+.complaint-steering pre { max-width: 100%; }

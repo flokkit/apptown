@@ -7,17 +7,16 @@ export function NameStep({ d, act }: { d: Draft; act: Dispatch<DraftAct> }) {
   const slug = slugOf(d)
   const next = () => act({ type: 'step', step: 2 })
   return (
-    <div className="card" style={{ padding: 'var(--space-5)' }}>
-      <label htmlFor="project-description"><strong>What would you like to build?</strong></label>
-      <textarea id="project-description" className="prose mt-2" rows={4} autoFocus
+    <div className="np-panel">
+      <label htmlFor="project-description" className="np-label"><strong>What would you like to build?</strong></label>
+      <textarea id="project-description" className="prose" rows={4} autoFocus
         value={d.description} onChange={(e) => act({ type: 'describe', description: e.target.value })}
         placeholder="A lunch ordering app for our office"
         style={{ width: '100%', boxSizing: 'border-box' }} />
-      <label className="row mt-3" style={{ gap: 'var(--space-2)' }}>
-        <span>Name</span>
+      <label className="np-field mt-3">
+        <strong>Name</strong>
         <input value={d.name} onChange={(e) => act({ type: 'name', name: e.target.value })}
-          placeholder="Suggested from your description" onKeyDown={(e) => e.key === 'Enter' && next()}
-          style={{ flex: 1, minWidth: 0 }} />
+          placeholder="Suggested from your description" onKeyDown={(e) => e.key === 'Enter' && nameReady(d) && next()} />
       </label>
       {(slug || d.address !== null || editingSlug) && (
         <div className="muted small mt-2">
@@ -33,8 +32,7 @@ export function NameStep({ d, act }: { d: Draft; act: Dispatch<DraftAct> }) {
       )}
       <div className="row mt-4">
         <span className="grow" />
-        <button className="primary" disabled={!nameReady(d)} onClick={next}
-          style={{ fontSize: 'var(--fs-base)', padding: '10px 26px' }}>Next →</button>
+        <button className="primary" disabled={!nameReady(d)} onClick={next}>Next →</button>
       </div>
     </div>
   )

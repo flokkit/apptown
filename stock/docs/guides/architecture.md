@@ -432,10 +432,10 @@ platform; words the agent reads are content.
 
 ## Choosing the model: slots × profiles
 
-A **model profile** sets four basic choices: **Primary · strong** (`default`),
-**Primary · fast** (`primary-fast`), **Secondary · strong** (`secondary-strong`)
-and **Secondary · fast** (`secondary-fast`). The primary models do the work;
-the secondary models give a second opinion. Quick independent checks,
+A **model profile** sets four basic choices: **Main · strong** (`default`),
+**Main · fast** (`primary-fast`), **Second opinion · strong** (`secondary-strong`)
+and **Second opinion · fast** (`secondary-fast`). The main models do the work;
+the second-opinion models review it. Quick independent checks,
 including guidance checks and eval judges, ask for `secondary-fast` directly.
 
 Individual **tasks** are the advanced level. A task set individually takes

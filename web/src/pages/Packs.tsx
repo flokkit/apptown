@@ -1,12 +1,13 @@
+import { LibraryRow, LibraryRows, firstSentence } from '../LibraryRow'
+import { Section } from '../Section'
+import { MoreMenu } from '../MoreMenu'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { renderMd } from '../md'
 import { GuidanceBlock, del, post } from '../api'
 import { fmtSize, sizeTitle } from '../format'
 import { Status } from '../Status'
 import { OriginChip } from '../OriginChip'
 import { Modal } from '../Modal'
-import { QuietConfirm } from '../QuietConfirm'
 import { firstErr, useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import type { GuidanceBlockDetail, LibraryWorkflow, PackPolicy, PackSaved, PolicyLibraryList, PackView } from '../wire.gen'
@@ -46,8 +47,7 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
   const packPol = pack.policies ?? []
   const packBytes = pack.guidance.reduce((n, name) => n + (blocks.find((x) => x.name === name)?.bytes ?? 0), 0)
 
-  return (
-    <Modal onClose={onClose} title={<><h2 style={{ margin: 0 }}>{pack.name}</h2><OriginChip origin={pack.origin} /></>}>
+  const body = (
       <div>
         <div className="small" style={{ marginBottom: 12 }}>{pack.description}</div>
         {loadErr && <div className="error small" style={{ marginBottom: 12 }}>The library could not be read, so sizes and details may be missing: {loadErr}</div>}
@@ -98,7 +98,9 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
           </div>
         ))}
       </div>
-    </Modal>
+  )
+  return (
+    <Modal onClose={onClose} title={<><h2 style={{ margin: 0 }}>{pack.name}</h2><OriginChip origin={pack.origin} /></>}>{body}</Modal>
   )
 }
 
@@ -106,10 +108,9 @@ export default function Packs() {
   const packsQ = useGet<PackView[]>('/packs', { kind: 'config' })
   const packs = packsQ.data ?? []
   const [editing, setEditing] = useState<{ draft: Draft; existing: boolean } | null>(null)
-  const [inspecting, setInspecting] = useState<PackView | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const { run, busy, err: actErr } = useAction()
   const [msg, setMsg] = useState('')
-  const [showAll, setShowAll] = useState(false)
 
   const blank = (): Draft => draftFrom('', '', { guidance: [], workflows: [], policies: [] })
   const copyOf = (p: PackView): Draft => draftFrom(`${p.name}-ours`, '', p.declaration)
@@ -132,47 +133,47 @@ export default function Packs() {
 
   return (
     <div>
-      <div className="row" style={{ marginBottom: 12 }}>
-        <span style={{ flex: 1 }} />
-        <button className="primary" onClick={() => setEditing({ draft: blank(), existing: false })}>New pack</button>
-      </div>
       {msg && <div className="muted small" style={{ marginBottom: 8 }}>{msg}</div>}
       <StaleNote q={packsQ} />
       {actErr && <div className="error">{actErr}</div>}
-      {inspecting && <PackInspect pack={inspecting} onClose={() => setInspecting(null)} />}
 
-      <div className="pack-grid">
-        {(showAll ? packs : packs.slice(0, 8)).map((p) => (
-          <div key={p.name} className="card" style={{ margin: 0, opacity: p.enabled === false ? 0.6 : 1 }}>
-            <div className="row">
-              <Link to={`/packs/${p.name}`}><strong>{p.name}</strong></Link>
-              {p.origin !== 'stock' && <span className="badge">Custom</span>}
-              {p.version ? <span className="badge" title="New projects get this version">v{p.version}</span> : null}
-              <span className="badge">{p.enabled === false ? 'Hidden' : 'Available'}</span>
-            </div>
-
-            {p.requires.some(r => !r.bound) && (
-              <div className="small" style={{ marginTop: 10 }}>
-                <Status word="not set up" /><details><summary>What needs setting up?</summary>Missing: {p.requires.filter(r => !r.bound).map(r => r.capability).join(', ')}</details>
-              </div>
-            )}
-            <div className="row pack-actions" aria-label={`Actions for ${p.name}`}>
-              <button className="link" onClick={() => setInspecting(p)}>Contents</button>
-              <button className="link" onClick={() => setEditing({ draft: copyOf(p), existing: false })} title="a pack of your own that starts as a copy of this one">Copy</button>
-              {p.enabled === false
-                ? <button className="link" disabled={busy} onClick={() => void setOn(p, true)}>Make available</button>
-                : <button className="link" disabled={busy} onClick={() => void setOn(p, false)}>Hide</button>}
-              {p.origin !== 'stock' && (
-                <>
-                  <button className="link" onClick={() => setEditing({ draft: declared(p), existing: true })}>Edit</button>
-                  <QuietConfirm className="link danger" label="Delete" ask={`Delete pack "${p.name}"? Projects that applied it keep the versions they applied.`} onYes={() => void remove(p)} />
-                </>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-      {!showAll && packs.length > 8 && <button onClick={() => setShowAll(true)}>Show all packs ({packs.length})</button>}
+      <Section title="Packs" count={packs.length} action={<button className="primary" onClick={() => setEditing({ draft: blank(), existing: false })}>New pack</button>}>
+      <LibraryRows>
+        {packs.map((p) => {
+          const missing = p.requires.filter(r => !r.bound).map(r => r.capability)
+          return (
+          // A pack is too large to open in place: the row goes to its page,
+          // which holds everything. The less common acts sit behind ⋯.
+          <LibraryRow key={p.name} name={p.name} to={`/packs/${p.name}`}
+            // What is unusual about a pack sits with its name; the normal case says nothing.
+            badges={<>
+              {experimental(p) && <span className="badge">experimental</span>}
+              {p.origin !== 'stock' && <span className="badge">yours</span>}
+              {p.enabled === false && <span className="badge">hidden</span>}
+            </>}
+            purpose={purpose(p)}
+            state={missing.length > 0 && <Status word="not set up" help={`Missing: ${missing.join(', ')}`} />}
+            menu={<MoreMenu label={p.name} items={[
+                { label: 'Copy', hint: 'Make a pack of your own from this one.', onClick: () => setEditing({ draft: copyOf(p), existing: false }) },
+              p.enabled === false
+                ? { label: 'Make available', hint: 'Offer this pack to new projects.', disabled: busy, onClick: () => void setOn(p, true) }
+                : { label: 'Hide', hint: 'Stop offering this pack to new projects. Existing projects keep it.', disabled: busy, onClick: () => void setOn(p, false) },
+              ...(p.origin !== 'stock' ? [
+                { label: 'Edit', onClick: () => setEditing({ draft: declared(p), existing: true }) },
+                { label: 'Delete…', danger: true, onClick: () => setDeleting(p.name) },
+              ] : []),
+            ]} />}
+            >
+            {deleting === p.name && <div className="row small" onClick={(e) => e.stopPropagation()}>
+              Delete pack “{p.name}”? Projects that applied it keep the versions they applied.
+              <button className="danger" disabled={busy} onClick={() => { setDeleting(null); void remove(p) }}>Delete</button>
+              <button className="subtle" onClick={() => setDeleting(null)}>Keep it</button>
+            </div>}
+          </LibraryRow>
+          )
+        })}
+      </LibraryRows>
+      </Section>
     </div>
   )
 }
@@ -285,4 +286,13 @@ function BlockBody({ id }: { id: string }) {
         dangerouslySetInnerHTML={{ __html: renderMd(q.data.block.bodyMd || '(empty)') }} />
     </>
   )
+}
+
+const experimental = (p: { description?: string }) => /^experimental\b/i.test((p.description ?? '').trim())
+
+// purpose is the first sentence, without a leading "Experimental": the chip
+// beside the name already says it.
+function purpose(p: { description?: string }): string {
+  const first = firstSentence(p.description)
+  return experimental(p) ? first.replace(/^experimental[:\s]+/i, '').replace(/^./, (c) => c.toUpperCase()) : first
 }

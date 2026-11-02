@@ -10,6 +10,7 @@ import type { DocGuide, DocLinks, DocsIndex, IntegrationDocs } from '../wire.gen
 import { useDarkTheme } from '../theme'
 import { fillLiveLinks } from '../liveLinks'
 import { routeDocLinks } from '../docRoutes'
+import './Docs.css'
 
 // Shipped documentation: guides plus the per-integration admin/developer
 // documents. Everything renders from markdown embedded in the apptownd binary,
@@ -93,10 +94,10 @@ export default function DocsPage() {
               </optgroup>
             )}
           </select>
-          <nav className="conn-subnav">
+          <nav className="conn-subnav docs-contents" aria-label="Contents">
             {manifest.groups.map((group) => (
-              <details key={group.title} className="docs-group" aria-label={group.title} open={group.guides.some(g => section === 'guides' && slug === g.slug)}>
-                <summary className="docs-group-title">{group.title}</summary>
+              <div key={group.title} className="docs-group" role="group" aria-label={group.title}>
+                <div className="docs-group-title">{group.title}</div>
                 {group.guides.map((g) => (
                   <button
                     key={g.slug}
@@ -104,11 +105,11 @@ export default function DocsPage() {
                     onClick={() => nav(`/docs/guides/${g.slug}`)}
                   >{g.title}</button>
                 ))}
-              </details>
+              </div>
             ))}
             {manifest.integrations.length > 0 && (
-              <details className="docs-group" aria-label="Integrations">
-                <summary className="docs-group-title">Integrations</summary>
+              <div className="docs-group" role="group" aria-label="Integrations">
+                <div className="docs-group-title">Integrations</div>
                 {manifest.integrations.map((i) => (
                   <button
                     key={`${i.capability}-${i.provider}`}
@@ -116,7 +117,7 @@ export default function DocsPage() {
                     onClick={() => nav(`/docs/${i.capability}/${i.provider}`)}
                   >{i.title}</button>
                 ))}
-              </details>
+              </div>
             )}
           </nav>
           <div className="docs-body">

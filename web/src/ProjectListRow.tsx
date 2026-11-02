@@ -1,6 +1,7 @@
-import type { CSSProperties, ReactNode } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
+import { ListRow } from './ListRow'
+import { NewChangeButton } from './pages/project/NewChange'
 import { Link } from 'react-router-dom'
-import { Status } from './Status'
 import { RuntimeStatus } from './runtime'
 import { relTime } from './format'
 import type { ProjectRow } from './wire.gen'
@@ -22,26 +23,31 @@ export function projectHue(slug: string): number {
 export function ProjectListRow({ project: p, refreshFailed = false, reason, children }: {
   project: ProjectRow; refreshFailed?: boolean; reason?: string; children?: ReactNode
 }) {
+  const [changing, setChanging] = useState(false)
   const observation = refreshFailed ? { ...p, observation: 'unknown' as const, observationStale: true, observationIssue: reason } : p
   const age = p.hasDeployments === false
     ? p.lastRunAt ? `Work updated ${relTime(p.lastRunAt)}` : 'No changes yet'
-    : p.observedAt ? `Checked ${relTime(p.observedAt)}` : 'Not checked yet'
-  return <div className="project-row" role="listitem">
-    <div className="project-identity">
-      <span className={`project-avatar${p.icon ? '' : ' project-letter'}`} aria-hidden="true"
-        style={{ '--project-hue': projectHue(p.slug) } as CSSProperties}>{p.icon || p.name.slice(0, 1).toUpperCase()}</span>
+    : p.observedAt ? `Checked ${relTime(p.observedAt)}`
+      // An attempt that got no answer has been checked; say what went wrong.
+      : p.observation === 'unreachable' ? `Can't reach ${p.targetName || 'its host'}`
+      : p.observation === 'unknown' ? 'Not checked yet' : ''
+  return <ListRow listItem className="project-row" identity={<div className="project-identity">
+      {/* The icon opens the project too; the name stays the one keyboard stop. */}
+      <Link to={`/projects/${p.slug}`} tabIndex={-1} aria-hidden="true" className={`project-avatar${p.icon ? '' : ' project-letter'}`}
+        style={{ '--project-hue': projectHue(p.slug) } as CSSProperties}>{p.icon || p.name.slice(0, 1).toUpperCase()}</Link>
       <div className="project-copy">
         <Link to={`/projects/${p.slug}`} className="project-name"><strong>{p.name}</strong></Link>
         {p.blurb && <div className="muted small project-description">{p.blurb}</div>}
         {children}
       </div>
-    </div>
-    <div className="project-state">
-      {p.hasDeployments === false ? <Status word="none" /> : <RuntimeStatus observation={observation} />}
+    </div>} state={<div className="project-state">
+      {p.hasDeployments === false ? <strong className="small" style={{ color: 'var(--muted)' }}>Not deployed</strong> : <RuntimeStatus observation={observation} />}
       <div className="muted small">{age}</div>
-    </div>
-    <div className="project-action">
+    </div>} action={<div className="project-action">
       {appRunning(p, refreshFailed) && p.productionUrl && <a className="btn primary" href={p.productionUrl} target="_blank" rel="noreferrer" aria-label={`Open app: ${p.name || p.slug} (opens in a new tab)`}>Open app <span aria-hidden="true">↗</span></a>}
-    </div>
-  </div>
+      {!refreshFailed && p.canChange && <>
+        <button onClick={() => setChanging(true)}>Change</button>
+        {changing && <NewChangeButton slug={p.slug} external={{ open: true, onClose: () => setChanging(false) }} />}
+      </>}
+    </div>} />
 }

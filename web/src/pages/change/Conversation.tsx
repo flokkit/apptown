@@ -1,6 +1,8 @@
+import { Section } from '../../Section'
 import { fmtWhen } from '../../format'
 import { PRODUCT } from '../../brand'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { renderMd } from '../../md'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
@@ -10,24 +12,28 @@ import { pastedPictures } from '../../pictures'
 // The change's conversations: what was said to the helper and what it said
 // back, across every chat session this change has had. Sessions end; the
 // words are part of the change's story and read back from the record.
-export function ConversationLog({ changeId }: { changeId: string }) {
+export function ConversationLog({ changeId, chatHref }: { changeId: string; chatHref?: string }) {
   // Read when the tab opens; the tab is where a person asks for it.
   const q = useGet<ChatHistoryView>(`/changes/${changeId}/transcript`)
   const data = q.data
   const sessions = data ? data.sessions ?? [] : null
+  const none = sessions?.length === 0 && !data?.unreadable
+  // chatHref: where this change's chat opens, given only where a chat can
+  // start on it.
+  const action = chatHref ? <Link to={chatHref}>{none ? 'Start a chat' : 'Open the chat'}</Link> : undefined
   return (
-    <div>
+    <Section title="Conversation" count={sessions?.length || undefined} action={action}>
       <ReadStatus q={q} what="the conversation" className="small" />
       <StaleNote q={q} />
       {data && <UnreadableNote view={data} />}
-      {sessions?.length === 0 && !data?.unreadable && <div className="muted small">No chat on this change.</div>}
+      {none && <p className="muted">No chat yet.</p>}
       {sessions?.map((se) => (
-        <div key={se.id} style={{ marginBottom: 14 }}>
+        <div key={se.id} style={{ margin: '12px 0' }}>
           <div className="muted small" style={{ margin: '6px 0' }}>{chatByline(se)}</div>
           <ChatMessages chat={se} pictures={`/api/v1/changes/${changeId}/transcript/${se.id}/pictures/`} />
         </div>
       ))}
-    </div>
+    </Section>
   )
 }
 
@@ -68,26 +74,37 @@ export function ChatMessages({ chat, pictures }: { chat: ChatHistoryEntry; pictu
 
 // The ended chats opened on the project itself rather than on a change,
 // folded: read only when someone opens the fold.
-export function PastChats({ slug }: { slug: string }) {
+export function PastChats({ slug, section = false }: { slug: string; section?: boolean }) {
   const [open, setOpen] = useState(false)
   const q = useGet<ChatHistoryView>(open ? `/projects/${slug}/transcript` : null)
   const data = q.data
   const sessions = data ? data.sessions ?? [] : null
-  return (
-    <details style={{ marginTop: 18 }} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
-      {/* One child: the fold's summary is a flex row, which would split the
-          words into columns on a phone. */}
-      <summary><span><strong>Past chats</strong></span></summary>
+  const body = <>
       {open && <ReadStatus q={q} what="the past chats" className="small" />}
       {open && <StaleNote q={q} />}
       {data && <UnreadableNote view={data} />}
-      {sessions?.length === 0 && !data?.unreadable && <div className="muted small">No ended chats on this project.</div>}
+      {sessions?.length === 0 && !data?.unreadable && <div className="muted small" style={{ margin: '12px 0' }}>No ended chats on this project.</div>}
       {sessions?.map((se) => (
         <details key={se.id} style={{ margin: '8px 0 0 12px' }}>
           <summary><span>{chatOpening(se)}<span className="muted small" style={{ display: 'block' }}>{chatByline(se)}</span></span></summary>
           <div style={{ paddingLeft: 12 }}><ChatMessages chat={se} pictures={`/api/v1/projects/${slug}/transcript/${se.id}/pictures/`} /></div>
         </details>
       ))}
+  </>
+  // As a page section the chats load only when asked for, like the fold did.
+  if (section) {
+    return (
+      <Section title="Past chats" note={open ? undefined : 'Chats that have ended, with what was said.'} action={<button className="link" aria-expanded={open} onClick={() => setOpen(o => !o)}>{open ? 'Hide' : 'Show'}</button>}>
+        {open ? body : null}
+      </Section>
+    )
+  }
+  return (
+    <details style={{ marginTop: 18 }} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
+      {/* One child: the fold's summary is a flex row, which would split the
+          words into columns on a phone. */}
+      <summary><span><strong>Past chats</strong></span></summary>
+      {body}
     </details>
   )
 }

@@ -9,6 +9,11 @@ lists tools, mounts, services and credential grants.
 
 ## Opening and continuing a chat
 
+Project navigation offers Chat only when the viewer can create and invoke a
+change and conversation admission reports a configured model and usable placement.
+The availability probe has a deadline so an unresponsive worker does not hold up
+project pages. Opening a chat repeats admission's full checks.
+
 Conversation resolves project/change identity and authority, selects or prepares
 the workspace, then opens the session through `console.Service`. Project chats
 receive a read-only repository snapshot and writable scratch; change chats receive

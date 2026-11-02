@@ -365,6 +365,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	deploymentDeps.CopyStarter = starter
 	deploymentDeps.CopyCheck = starter
 	deploymentDeps.RestoreFiller = starter
+	deploymentDeps.HostMemory = input.HostMemory
 	a.Deployment = deployment.New(ctx, db, deploymentDeps)
 	a.vhostRules.deployments = a.Deployment.Deployments // standing hostnames route by its records
 	a.DataProtection = dataprotection.New(starter, dataProtectionDependencies(a))
@@ -393,7 +394,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.consoleAdmission = consoleAdmissionFor(a)
 	a.health = a.Deployment.HealthController()
 	a.reaper = maintenance.New(db, maintenance.Dependencies{Docker: a.docker, Sessions: a.Console, Runtime: consoleDeps.Agent, ToolVersions: cfg.stock.Tools, Now: cfg.clock.Now}, cfg.dataDir)
-	a.disks = maintenance.Disks{DataDir: cfg.dataDir, Now: cfg.clock.Now}
+	a.disks = maintenance.Disks{DataDir: cfg.dataDir, Space: input.DataDiskSpace, Now: cfg.clock.Now}
 	if cfg.worker != nil {
 		a.disks.Worker = *cfg.worker
 	}

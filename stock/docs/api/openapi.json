@@ -3430,6 +3430,9 @@
           "blurbSource": {
             "type": "string"
           },
+          "canChange": {
+            "type": "boolean"
+          },
           "createdAt": {
             "type": "string"
           },
@@ -3548,6 +3551,7 @@
           "createdAt",
           "requireIndependentApproval",
           "settingsRevision",
+          "canChange",
           "lastWorkedAt",
           "activeItems",
           "adrCount",

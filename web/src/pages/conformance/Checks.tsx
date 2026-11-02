@@ -1,63 +1,81 @@
-import { useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
+import { Section, Group } from '../../Section'
+import { Status } from '../../Status'
 import { Link } from 'react-router-dom'
 import type { ConformanceView, CheckDefinition } from '../../wire.gen'
-import { type Verdict, stateOf, laneOf, StateChip, SevDot, HowJudged, useStartRemediation } from './parts'
+import { type Verdict, stateOf, laneOf, StateChip, HowJudged, useStartRemediation } from './parts'
 
 // --- Checks (the catalog) -------------------------------------------------------------------------
 
-function CheckCard({ def, vs, view, base }: { def?: CheckDefinition; vs: Verdict[]; view: ConformanceView; base: string }) {
+// tally: a check's results in one line, findings first:
+// "1 finding · 2 passed · 1 not applicable".
+function tally(vs: Verdict[]): string {
+  const findings = vs.filter(v => v.lane === 'findings').length
+  const rest = new Map<string, number>()
+  for (const v of vs) if (v.lane !== 'findings') rest.set(v.statusLabel, (rest.get(v.statusLabel) ?? 0) + 1)
+  return [findings > 0 ? `${findings} ${findings === 1 ? 'finding' : 'findings'}` : '', ...[...rest].map(([label, n]) => `${n} ${label}`)].filter(Boolean).join(' · ')
+}
+
+// worst: the label a check's row leads with, the most urgent of its results.
+const worst = (vs: Verdict[]) => {
+  const labels = new Set(vs.map(v => v.statusLabel))
+  return (['failed', 'unknown', 'excepted', 'passed', 'not applicable'] as const).find(s => labels.has(s)) ?? 'unknown'
+}
+
+// CheckRow: one row per check — status, title, tally, and Fix everywhere
+// when it has findings. Selecting the row opens each project's result.
+function CheckRow({ title, vs, view, base, fixKey, children }: { title: string; vs: Verdict[]; view: ConformanceView; base: string; fixKey?: string; children?: ReactNode }) {
   const remediation = useStartRemediation()
   const findings = vs.filter((v) => laneOf(v) === 'findings').length
-  const act = vs.filter((v) => ['findings', 'flagged', 'broken'].includes(laneOf(v))).length
-  const states = [...new Set(vs.map(v => v.state))]
   const [open, setOpen] = useState(false)
-  const sorted = [...vs].sort((a, b) => stateOf(a.state).rank - stateOf(b.state).rank || a.projectSlug.localeCompare(b.projectSlug))
+  const id = useId()
   return (
-    <div className={`card${vs.some(v => laneOf(v) === 'broken') ? ' tone-bad' : act > 0 ? ' tone-warn' : ''}`} style={{ padding: 0, marginBottom: 0, overflow: 'hidden' }}>
-      <div className="check-heading"><button className="subtle" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <span className="row check-title"><SevDot sev={def?.severity ?? vs[0]?.severity ?? 'note'} /><span>{def?.title || def?.check || vs[0]?.check}</span></span>
-        </button><span className="check-states small">{states.map(state => {
-          const results = vs.filter(v => v.state === state)
-          return <span key={state}><StateChip label={results[0].statusLabel} finding={results.every(v => v.lane === 'findings')} findings={results.length} /> · {results.length} {results.length === 1 ? 'app' : 'apps'}</span>
-        })}</span>
+    <>
+      <div className="card row check-row" style={{ display: 'flex' }}>
+        <button className="row subtle check-open" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}>
+          <span className="row-status">{findings > 0 ? <span className="finding-count">{findings} {findings === 1 ? 'finding' : 'findings'}</span> : <Status word={worst(vs)} />}</span>
+          <strong>{title}</strong>
+          <span className="muted small">{tally(vs)}</span>
+        </button>
+        {view.lens.kind === 'current' && findings > 0 && fixKey && (
+          <span className="row-action"><button disabled={remediation.busy} title="One change per project, each waiting for approval" onClick={() => remediation.start('check', fixKey)}>Fix everywhere</button></span>
+        )}
       </div>
-          {view.lens.kind === 'current' && findings > 0 && def && (
-            <div className="row" style={{ padding: '8px 14px', gap: 'var(--space-3)', borderTop: '1px solid var(--border)' }}>
-              <button disabled={remediation.busy} onClick={() => remediation.start('check', def.key)}>Fix everywhere · {findings} project{findings === 1 ? '' : 's'}</button>
-              <span className="muted small">Each change needs approval.</span>
-              {remediation.err && <span className="error small">{remediation.err}</span>}
-            </div>
-          )}
-      {open && (
-        <div style={{ borderTop: '1px solid var(--border)' }}>
-          <details><summary>Check details</summary><HowJudged def={def} /></details>
-          {sorted.map((v) => (
-            <div key={v.projectSlug} className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)', padding: '7px 14px', borderTop: '1px solid var(--border)' }}>
-              <Link to={`${base}/projects/${v.projectSlug}`} style={{ fontWeight: 600, textDecoration: 'none', color: 'inherit' }}>{v.projectSlug}</Link>
-              <StateChip finding={v.lane === 'findings'} label={v.statusLabel} help={v.detail} />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+      {remediation.err && <p className="error small">{remediation.err}</p>}
+      {open && <div id={id} className="check-results">{children ?? <Results vs={vs} base={base} />}</div>}
+    </>
   )
 }
 
-// A group still answers whether any version needs attention before it opens.
+function Results({ vs, base, def }: { vs: Verdict[]; base: string; def?: CheckDefinition }) {
+  const sorted = [...vs].sort((a, b) => stateOf(a.state).rank - stateOf(b.state).rank || a.projectSlug.localeCompare(b.projectSlug))
+  return <>
+    {sorted.map((v) => (
+      <Link key={v.projectSlug} to={`${base}/projects/${v.projectSlug}`} className="row small" style={{ display: 'flex', gap: 'var(--space-3)', padding: '6px 0 6px 16px' }}>
+        <span className="row-status"><StateChip finding={v.lane === 'findings'} label={v.statusLabel} /></span>
+        <strong>{v.projectSlug}</strong>
+        {v.detail && <span className="muted">{v.detail}</span>}
+      </Link>
+    ))}
+    {def && <details className="small" style={{ padding: '4px 0 8px 16px' }}><summary>How this check judges</summary><HowJudged def={def} /></details>}
+  </>
+}
+
+function CheckCard({ def, vs, view, base }: { def?: CheckDefinition; vs: Verdict[]; view: ConformanceView; base: string }) {
+  return <CheckRow title={def?.title || def?.check || vs[0]?.check || 'Check'} vs={vs} view={view} base={base} fixKey={def?.key}>
+    <Results vs={vs} base={base} def={def} />
+  </CheckRow>
+}
+
+// A check with several versions is one row; opening it lists each version's
+// results, each with its own Fix everywhere.
 function CheckVersions({ versions, view, base }: { versions: [string, Verdict[]][]; view: ConformanceView; base: string }) {
   const verdicts = versions.flatMap(v => v[1])
-  const labels = new Set(verdicts.map(v => v.statusLabel))
-  const label = (['failed', 'unknown', 'excepted', 'passed', 'not applicable'] as const).find(s => labels.has(s)) ?? 'unknown'
-  const [open, setOpen] = useState(false)
-  const findings = verdicts.filter(v => laneOf(v) === 'findings').length
-  return <div className="card" style={{ padding: 0 }}>
-    <div className="check-heading"><button className="subtle" aria-expanded={open} onClick={() => setOpen(!open)}>
-      <span className="check-title"><SevDot sev={view.checkDefs[versions[0][0]]?.severity ?? 'note'} /><span>{view.checkDefs[versions[0][0]]?.title || 'Check'}</span></span>
-      </button><span className="check-states small"><StateChip label={label} finding={findings > 0} findings={findings} /> · {new Set(verdicts.map(v => v.projectSlug)).size} {new Set(verdicts.map(v => v.projectSlug)).size === 1 ? 'app' : 'apps'}</span>
-    </div>
-<p className="muted small" style={{ padding: '0 14px' }}>{findings > 0 ? `${findings} problems. Open to choose a version to fix.` : 'Open for results by version.'}</p>
-    {open && versions.map(([key, vs]) => <div key={key}><p>Version {view.checkDefs[key]?.version}</p><CheckCard def={view.checkDefs[key]} vs={vs} view={view} base={base} /></div>)}
-  </div>
+  return <CheckRow title={view.checkDefs[versions[0][0]]?.title || 'Check'} vs={verdicts} view={view} base={base}>
+    {versions.map(([key, vs]) => <Group key={key} label={`Version ${view.checkDefs[key]?.version ?? ''}`}>
+      <CheckCard def={view.checkDefs[key]} vs={vs} view={view} base={base} />
+    </Group>)}
+  </CheckRow>
 }
 
 export function ChecksList({ view, base }: { view: ConformanceView; base: string }) {
@@ -71,13 +89,13 @@ export function ChecksList({ view, base }: { view: ConformanceView; base: string
   const checks = [...grouped.entries()]
   const act = (vs: Verdict[]) => vs.filter((v) => ['findings', 'flagged', 'broken'].includes(laneOf(v))).length
   checks.sort((a, b) => act(b[1].flatMap(x => x[1])) - act(a[1].flatMap(x => x[1])) || a[0].localeCompare(b[0]))
-  if (checks.length === 0) return <div className="muted" style={{ padding: '40px 0', textAlign: 'center' }}>No checks recorded.</div>
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+    <Section title="Checks" count={checks.length || undefined}>
+      {checks.length === 0 && <p className="muted small">No checks recorded.</p>}
       {checks.slice(0, limit).map(([key, versions]) => versions.length === 1
         ? <CheckCard key={key} def={view.checkDefs[versions[0][0]]} vs={versions[0][1]} view={view} base={base} />
         : <CheckVersions key={key} versions={versions} view={view} base={base} />)}
-      {checks.length > limit && <button onClick={() => setLimit(n => n + 10)}>Show more checks</button>}
-    </div>
+      {checks.length > limit && <p><button onClick={() => setLimit(n => n + 10)}>Show more checks</button></p>}
+    </Section>
   )
 }

@@ -20,6 +20,52 @@ const CAP_META: Record<string, { title: string; blurb: string }> = {
 // The order groups appear in; kinds not named here follow, then cloud accounts.
 export const CAP_ORDER = ['scm', 'secrets', 'executor', 'model', 'deploy', 'scanner', 'registry', 'errors', 'llm']
 
+// Two menu areas: Integrations, the outside services AppTown itself runs
+// on, and Services, what projects attach (the instance side of a project's
+// Settings › Services). Each item is one page under /<area>/<key>, listing
+// the kinds it names; a kind defined at run time (a shared service) is shown
+// on the Shared services page, beside its definition. Deployment targets
+// hold the connections they are built on, so setting one up is one page.
+export type Area = 'integrations' | 'services'
+type MenuItem = { key: string; title: string; blurb: string; kinds?: string[] }
+export const INTEGRATION_MENU: { key: Area; heading: string; items: MenuItem[] }[] = [
+  { key: 'integrations', heading: 'Integrations', items: [
+    ...['scm', 'executor', 'model'].map(menuKind),
+    { key: 'profiles', title: 'Model profiles', blurb: 'Which AI model does each task, for each kind of project' },
+    { key: 'targets', title: 'Deployment targets', blurb: 'Where apps are deployed, and who may use each', kinds: ['deploy', 'cloud-account'] },
+    ...['registry', 'scanner', 'secrets'].map(menuKind),
+  ] },
+  { key: 'services', heading: 'Services', items: [
+    ...['llm', 'errors'].map(menuKind),
+    { key: 'shared', title: 'Shared services', blurb: 'Your organisation’s own services, described in YAML, which projects can attach' },
+  ] },
+]
+function menuKind(key: string): MenuItem { return { key, ...CAP_META[key], kinds: [key] } }
+
+const ITEMS = INTEGRATION_MENU.flatMap((g) => g.items.map((i) => ({ ...i, area: g.key })))
+// Every menu page's key.
+export const PAGE_KEYS = new Set(ITEMS.map((i) => i.key))
+// The page each kind is listed on; a kind not here is a shared service.
+const KIND_PAGE = new Map(ITEMS.flatMap((i) => (i.kinds ?? []).map((k) => [k, i] as const)))
+export const MENU_KINDS = new Set(KIND_PAGE.keys())
+
+// The area a page key or a kind belongs to.
+export function areaOf(key: string): Area {
+  return (ITEMS.find((i) => i.key === key) ?? KIND_PAGE.get(key))?.area ?? 'services'
+}
+// The page a kind's services are listed on.
+export function kindPath(cap: string): string {
+  const i = KIND_PAGE.get(cap)
+  return i ? `/${i.area}/${i.key}` : '/services/shared'
+}
+// The kinds a menu page lists: its own, or for Shared services every kind
+// defined at run time.
+export function pageKinds(key: string, present: string[]): string[] {
+  const i = ITEMS.find((x) => x.key === key)
+  if (key === 'shared') return [...new Set(present)].filter((c) => !MENU_KINDS.has(c))
+  return i?.kinds ?? [key]
+}
+
 export function capabilityMeta(capability: string, catalogTitle?: string): { title: string; blurb: string } {
   return CAP_META[capability] ?? { title: catalogTitle ?? capability, blurb: '' }
 }
@@ -30,9 +76,7 @@ export function capabilityMeta(capability: string, catalogTitle?: string): { tit
 //   unchecked  AppTown has no check for this kind (checked is false), so
 //              the reading says nothing either way
 export type HealthState = import('../../wire.gen').HealthStatus
-export function healthIsOld(h: IntegrationHealth, _now?: number): boolean { return !!h.stale }
 export function healthState(h: IntegrationHealth, _now?: number): HealthState { return h.stateLabel }
-export { STATUS_LIGHT as HEALTH_CHIP } from '../../Status'
 
 // What names an integration, counted for its row: "2 projects · 1
 // deployment", or '' when nothing names it directly.

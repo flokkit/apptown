@@ -53,16 +53,19 @@ export function ReviewsList() {
           <div key={r.id} className={`card${r.status === 'queued' || r.status === 'running' ? ' tone-busy' : ''}`} style={{ marginBottom: 0, textDecoration: 'none', color: 'inherit', display: 'block' }}>
             <div className="host-row">
               <Link to={`/conformance/reviews/${r.id}`}><strong>{fmtWhen(r.finishedAt || r.startedAt)}</strong></Link>
-              <Status word={r.statusLabel} help={r.status === 'error' ? 'This review could not finish. Open the review for details.' : undefined} />
+              {/* A review that finished with checks that could not run is incomplete, never a green finish. */}
+              <Status word={r.status === 'done' && r.errors > 0 ? 'incomplete' : r.statusLabel} help={r.status === 'error' ? 'This review could not finish. Open the review for details.' : undefined} />
               <span className="small">{r.status === 'running' ? `${r.projectsDone} of ${r.projectsTotal} apps checked` : [r.status === 'done' ? `${r.findings} confirmed problem${r.findings === 1 ? '' : 's'} at this review` : '', r.errors > 0 ? 'Checks could not run' : r.judged < r.total ? 'Not fully checked' : '', r.flagged > 0 ? `${r.flagged} possible problem${r.flagged === 1 ? '' : 's'} to review` : ''].filter(Boolean).join(' · ')}</span>
             </div>
-            <details className="small"><summary>Details</summary>Started by {r.actor}.
+            <div className="small muted">
+              Started by {r.actor}
               {r.delta && r.delta.comparedProjects > 0 && (
-                <span className="small muted" title={`compared over ${r.delta.comparedProjects} projects with the review before it`}>
-                  <span style={{ color: r.delta.fixed ? 'var(--ok)' : undefined }}>{r.delta.fixed} fixed</span> · <span style={{ color: r.delta.new ? 'var(--bad)' : undefined }}>{r.delta.new} new</span>
+                <span title={`compared over ${r.delta.comparedProjects} projects with the review before it`}>
+                  {' · '}<span style={{ color: r.delta.fixed ? 'var(--ok)' : undefined }}>{r.delta.fixed} fixed</span>
+                  {' · '}<span style={{ color: r.delta.new ? 'var(--bad)' : undefined }}>{r.delta.new} new</span>
                 </span>
-              )} <Link to={`/conformance/reviews/${r.id}`}>Open review</Link>
-            </details>
+              )}
+            </div>
           </div>
         ))}
       </div>

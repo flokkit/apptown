@@ -47,3 +47,26 @@ func TestAppTownsDisksAreEachTheirOwnReading(t *testing.T) {
 		t.Fatalf("no worker: %+v", alone)
 	}
 }
+
+// A supplied reader is how the data folder is read: its figures are the
+// reading, and its failure is a reading not taken, never free space.
+//
+// Kills: the data folder read past the supplied reader.
+func TestTheDataFolderIsReadByTheSuppliedReader(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 10, 17, 1, 0, 0, 0, time.UTC)
+	asked := ""
+	own, _, err := Disks{DataDir: "/data", Now: func() time.Time { return at }, Space: func(path string) (diskspace.Space, error) {
+		asked = path
+		return diskspace.Space{TotalBytes: 500 << 30, FreeBytes: 312 << 30}, nil
+	}}.read(t.Context())
+	if err != nil || asked != "/data" || own.TotalBytes != 500<<30 || own.FreeBytes != 312<<30 || own.Unknown != "" {
+		t.Fatalf("asked %q: %+v err=%v", asked, own, err)
+	}
+	own, _, _ = Disks{DataDir: "/data", Now: func() time.Time { return at }, Space: func(string) (diskspace.Space, error) {
+		return diskspace.Space{}, errors.New("unreadable")
+	}}.read(t.Context())
+	if own.Unknown == "" || own.FreeBytes != 0 {
+		t.Fatalf("a failed read: %+v", own)
+	}
+}

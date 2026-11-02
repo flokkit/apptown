@@ -3,7 +3,7 @@ import { homeFinished, homeSections, homeStatus, type Activity } from './Dashboa
 
 it.each([true, false])('summarizes counted to fix once when coverage is known: %s', known => {
   expect(homeStatus({ operations: { count: 8, known }, needsYou: 3, running: 0, deployments: [] }))
-    .toBe('3 needs you · 8 to fix')
+    .toBe('3 waiting on you · 8 to fix')
 })
 
 type Dep = Activity['deployments'][number]
@@ -22,19 +22,19 @@ describe('the home status sentence', () => {
   it('never turns an unread needs-you count into zero', () => {
     const s = homeStatus({ operations: { count: 0, known: true }, needsYou: null, running: 2, deployments: [] })
     expect(s).not.toMatch(/\b0\b/)
-    expect(s).toMatch(/needs you/)
+    expect(s).toMatch(/waiting on you/)
   })
 
-  it('counts an app live once, and only on a current running observation', () => {
+  it('counts a running project once, and only on a current running observation', () => {
     const s = homeStatus({ operations: { count: 0, known: true }, needsYou: 2, running: 0, deployments: [
       dep('a'), dep('a', { name: 'staging' }), dep('b'),
       dep('c', { observationStale: true }), dep('d', { running: null, observation: 'unknown' }),
       dep('e', { running: false, observation: 'stopped' }),
     ] })
-    expect(s).toMatch(/^2 needs you/)
-    expect(s).toMatch(/\b2 apps live/)
+    expect(s).toMatch(/^2 waiting on you/)
+    expect(s).toMatch(/\b2 running/)
     // c is stale and d unknown: neither live nor stopped.
-    expect(s).toMatch(/\b2 apps status unknown/)
+    expect(s).toMatch(/\b2 running status unknown/)
   })
 })
 
@@ -44,7 +44,7 @@ describe('the home sections', () => {
   const run = (runId: number, changeId: number, state: string) =>
     ({ runId: id(runId), changeId: id(changeId), state, workflow: 'w', title: 't', status: 'running', stage: 's', project: 'p', durationS: 1 }) as unknown as Parameters<typeof homeSections>[0][number]
 
-  it('lists a blocked run under needs you, not running', () => {
+  it('lists a blocked run as waiting on you, not running', () => {
     const s = homeSections([run(1, 10, 'blocked'), run(2, 11, 'agent working')], [{ changeId: id(12) }])
     expect(s.blocked.map((r) => r.runId)).toEqual([id(1)])
     expect(s.happening.map((r) => r.runId)).toEqual([id(2)])
@@ -58,13 +58,13 @@ describe('the home sections', () => {
     expect(s.waiting.map((a) => a.changeId)).toEqual([id(12), id(12)])
   })
 
-  // The sentence above "Needs you" counts what the list holds: a failed
+  // The sentence above "Changes waiting on you" counts what the list holds: a failed
   // operation waiting on the person is not "All quiet".
   it('counts an operation that waits on the person, in the list and the sentence', () => {
     const s = homeSections([], [], [{ id: id(20), state: 'failed' }])
     expect(s.needsYouCount).toBe(1)
     const sentence = homeStatus({ operations: { count: 0, known: true }, needsYou: s.needsYouCount, running: 0, deployments: [dep('a')] })
-    expect(sentence).toBe('1 needs you · 1 app live')
+    expect(sentence).toBe('1 waiting on you · 1 running')
   })
 
   it('does not ask for an approval on a change whose run is working again', () => {
@@ -74,9 +74,11 @@ describe('the home sections', () => {
   })
 })
 
-it('keeps recently finished to landed and failed when the stop actor is unavailable', () => {
+// The feed is what changed: landed only; a failed change that needs
+// something is already waiting on someone.
+it('keeps the activity feed to landed changes', () => {
   const history = ['landed', 'failed', 'stopped', 'finished', 'unknown'].map(statusLabel => ({
     statusLabel, title: statusLabel === 'stopped' ? 'Release check: a chat answers' : statusLabel,
   })) as Activity['history']
-  expect(homeFinished(history).map(c => c.statusLabel)).toEqual(['landed', 'failed'])
+  expect(homeFinished(history).map(c => c.statusLabel)).toEqual(['landed'])
 })

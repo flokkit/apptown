@@ -1,12 +1,31 @@
-import { Tabs } from '../Tabs'
-import { PhoneDetails } from '../GlanceRow'
+import { LibraryRow, LibraryRows, firstSentence } from '../LibraryRow'
+import { MoreMenu } from '../MoreMenu'
+import { Section } from '../Section'
 import { PRODUCT } from '../brand'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { LibraryWorkflow, del, post, put } from '../api'
-import { OriginChip } from '../OriginChip'
 import { firstErr, useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import type { SystemWorkflowBindings, WorkflowPublished } from '../wire.gen'
+
+const NEW_TEMPLATE = `apiVersion: apptown.dev/v1
+kind: Workflow
+metadata:
+  name: team/my-workflow
+  category: change
+  tier: extra
+  description: What this workflow does.
+spec:
+  kind: lifecycle
+  stages:
+    - name: work
+      steps:
+        - name: do-it
+          uses: agent/pi
+        - name: accept
+          uses: approval
+`
 
 export default function WorkflowLibrary() {
   const libsQ = useGet<LibraryWorkflow[]>('/workflows/library', { kind: 'config' })
@@ -19,7 +38,13 @@ export default function WorkflowLibrary() {
   // longer tail we are less sure of; System — AppTown's own jobs, kept
   // apart but never hidden. A workflow declares its tier in its YAML;
   // custom ones land where they say, Extras by default.
-  const [tier, setTier] = useState<'core' | 'extra' | 'system'>('core')
+  // The page's New workflow (in the title row) opens the editor here.
+  const [params, setParams] = useSearchParams()
+  useEffect(() => {
+    if (params.get('new') === null) return
+    setSaveErr(''); setEditor({ yaml: NEW_TEMPLATE })
+    setParams((p) => { p.delete('new'); return p }, { replace: true })
+  }, [params, setParams, setSaveErr])
   // The instance's system bindings: which library workflow stands in for
   // each stock system one (design/decisions/workflows-as-lanes.md — how an admin
   // customises landing or wiring for the whole instance without forking
@@ -52,30 +77,12 @@ export default function WorkflowLibrary() {
     })
   }
 
-  const NEW_TEMPLATE = `apiVersion: apptown.dev/v1
-kind: Workflow
-metadata:
-  name: team/my-workflow
-  category: change
-  tier: extra
-  description: What this workflow does.
-spec:
-  kind: lifecycle
-  stages:
-    - name: work
-      steps:
-        - name: do-it
-          uses: agent/pi
-        - name: accept
-          uses: approval
-`
+
+  const TIERS = [['core', 'Everyday work'], ['extra', 'More workflows'], ['system', `${PRODUCT} administration`]] as const
+  const copy = (l: LibraryWorkflow) => { setSaveErr(''); setEditor({ yaml: l.yaml.replace(/name: .*/, 'name: team/my-workflow') }) }
 
   return (
     <div>
-      <div className="row" style={{ marginBottom: 12 }}>
-        <span style={{ flex: 1 }} />
-        {!editor && <button className="primary" onClick={() => { setSaveErr(''); setEditor({ yaml: NEW_TEMPLATE }) }}>New workflow</button>}
-      </div>
       {editor && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="row" style={{ marginBottom: 6 }}>
@@ -95,50 +102,66 @@ spec:
       {msg && <div className="muted small">{msg}</div>}
       <ReadStatus q={libsQ} what="the workflows" />
       <StaleNote q={libsQ} />
-      {libsQ.data && !libs.some(l => (l.tier ?? 'extra') === tier) && <p>No workflows in this group.</p>}
-      <Tabs className="tabs" style={{ marginTop: 4 }}>
-        {([['core', 'Everyday work'], ['extra', 'More workflows'], ['system', `${PRODUCT} administration`]] as const).map(([k, label]) => (
-          <button key={k} className={tier === k ? 'active' : ''} onClick={() => setTier(k)}>
-            {label} <span className="muted small">{libs.filter((l) => (l.tier ?? 'extra') === k).length}</span>
-          </button>
-        ))}
-      </Tabs>
-
-      {libs.filter((l) => (l.tier ?? 'extra') === tier).sort((a, b) => a.name.localeCompare(b.name)).map((l) => (
-        <div className="card" key={l.name}>
-          <div className="row">
-            <strong>{l.name}</strong>
-            <OriginChip origin={l.origin} />
-            <span className="badge">v{l.latestVersion}</span>
-
-            <span style={{ flex: 1 }} />
-            {l.origin !== 'stock' && <>
-              <button className="subtle" onClick={() => { setSaveErr(''); setEditor({ yaml: l.yaml }) }}>edit</button>
-              <button className="subtle" disabled={busy} onClick={() => void removeCustom(l.name)}>delete</button>
-            </>}
-          </div>
-          {tier === 'system' && bindings && bindings.bindings.some((b) => b.stock === l.name) && (() => {
-            const b = bindings.bindings.find((x) => x.stock === l.name)!
-            return (
-              <div className="row small" style={{ margin: '4px 0 8px' }}>
-                <span className="muted">{PRODUCT} runs:</span>
-                <select value={b.custom ? b.name : ''} disabled={busy} onChange={(e) => void bind(l.name, e.target.value)}>
-                  <option value="">{l.name} (stock)</option>
-                  {bindings.candidates.map((c) => <option key={c} value={c}>{c} (yours)</option>)}
-                </select>
-                {b.custom && <span className="badge">custom</span>}
-                <details><summary>Custom workflow</summary>A custom workflow must declare <code>system: true</code>.</details>
-              </div>
-            )
-          })()}
-          <PhoneDetails>
-          <div className="row muted small">
-            <span className="workflow-description">{l.description.split(/(?<=[.!?])\s/)[0]}</span>
-          </div>
-          <details><summary className="muted small">Details</summary><p>{l.description}</p><p>{l.kind} · {l.stages.join(' → ')}</p><pre className="log">{l.yaml}</pre></details>
-          </PhoneDetails>
-        </div>
-      ))}
+      {libsQ.data && libs.length === 0 && <p className="muted">No workflows.</p>}
+      {TIERS.map(([tier, label]) => {
+        const rows = libs.filter((l) => (l.tier ?? 'extra') === tier).sort((a, b) => a.name.localeCompare(b.name))
+        if (rows.length === 0) return null
+        return (
+          <Section key={tier} title={label} count={rows.length}>
+            <LibraryRows>
+              {rows.map((l) => (
+                <WorkflowRow key={l.name} l={l} busy={busy}
+                  binding={tier === 'system' ? bindings?.bindings.find((b) => b.stock === l.name) : undefined}
+                  candidates={bindings?.candidates ?? []}
+                  onBind={(name) => void bind(l.name, name)}
+                  onCopy={() => copy(l)}
+                  onEdit={() => { setSaveErr(''); setEditor({ yaml: l.yaml }) }}
+                  onDelete={() => void removeCustom(l.name)} />
+              ))}
+            </LibraryRows>
+          </Section>
+        )
+      })}
     </div>
+  )
+}
+
+// purpose is the first sentence of a workflow's description: what it is for.
+// One workflow: its name and purpose, who ships it and its version. The
+// whole row opens what it does in full; the less common acts sit behind ⋯.
+function WorkflowRow({ l, busy, binding, candidates, onBind, onCopy, onEdit, onDelete }: {
+  l: LibraryWorkflow; busy: boolean
+  binding?: { stock: string; name: string; custom: boolean }; candidates: string[]
+  onBind: (name: string) => void; onCopy: () => void; onEdit: () => void; onDelete: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const stock = l.origin === 'stock' || (l.origin ?? '').startsWith('stock/')
+  return (
+    <LibraryRow name={l.name} open={open} onToggle={() => setOpen(!open)}
+      badges={binding?.custom && <span className="badge">custom</span>}
+      purpose={l.description && firstSentence(l.description)}
+      state={<span className="muted small">{stock ? PRODUCT : 'yours'} · v{l.latestVersion}</span>}
+      menu={<MoreMenu label={l.name} items={[
+        { label: 'Copy', hint: 'Make a workflow of your own from this one. Save it with a new name.', onClick: onCopy },
+        ...(!stock ? [
+          { label: 'Edit', onClick: onEdit },
+          { label: 'Delete', danger: true, disabled: busy, onClick: onDelete },
+        ] : []),
+      ]} />}
+      detail={<>
+          {l.description && <p>{l.description}</p>}
+          <p className="small">{l.kind} · {l.stages.join(' → ')}</p>
+          {binding && (
+            <div className="row small" style={{ margin: '4px 0 8px' }}>
+              <span className="muted">{PRODUCT} runs:</span>
+              <select value={binding.custom ? binding.name : ''} disabled={busy} onChange={(e) => onBind(e.target.value)}>
+                <option value="">{l.name} (stock)</option>
+                {candidates.map((c) => <option key={c} value={c}>{c} (yours)</option>)}
+              </select>
+              <span className="muted">A custom workflow must declare <code>system: true</code>.</span>
+            </div>
+          )}
+          <pre className="log">{l.yaml}</pre>
+      </>} />
   )
 }

@@ -103,6 +103,7 @@ func TestVisibleProjectAggregatesKeepSectionsScopedWithoutReadReceipts(t *testin
 		var projects []struct {
 			Slug        string
 			ActiveItems int
+			CanChange   bool
 			AdrCount    int
 		}
 		if err := json.Unmarshal(w.Body.Bytes(), &projects); err != nil || w.Code != 200 {
@@ -119,6 +120,9 @@ func TestVisibleProjectAggregatesKeepSectionsScopedWithoutReadReceipts(t *testin
 			t.Fatalf("%s projects: %+v", who, projects)
 		}
 		for _, p := range projects {
+			if p.CanChange != (who == "owner" || who == "boss") {
+				t.Fatalf("%s change navigation authority: %+v", who, p)
+			}
 			if !all && p.Slug != "game" {
 				t.Fatalf("foreign project: %+v", p)
 			}

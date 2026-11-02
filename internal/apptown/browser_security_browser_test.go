@@ -12,17 +12,21 @@ import (
 	"html"
 	"io"
 	"io/fs"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -36,6 +40,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
+	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
 	"github.com/flokkit/apptown/internal/apptown/preview"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -51,11 +56,15 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/deploy/s3bucket/s3fake"
+	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/execution"
 	testinputs "github.com/flokkit/apptown/internal/execution/executiontest"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
+	"github.com/flokkit/apptown/internal/hostmem"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/stock"
 	"github.com/riverqueue/river/riverdriver"
@@ -254,125 +263,21 @@ func (t *browserTerminal) Write(p []byte) (int, error) {
 // run). The chats are recorded transcripts on the console's fake agent,
 // so no model is called; the commands they quote ran in the change's
 // folder. Not part of any gate: make tour runs it.
+//
+// The tour is the healthy AppTown: its executor's image is present, its
+// app is running, every container the deployments recorded is on the
+// host, and its disk and memory readings are fixed, roomy ones rather than
+// this machine's. TestGarage is the same AppTown with one example of each
+// trouble.
 func TestTour(t *testing.T) {
-	root, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
+	w := newTourWorld(t, false)
+	stops := readTourStops(t, filepath.Join(w.tourDir, "tour.yaml"))
+	if w.hold() {
+		return
 	}
-	tourDir := filepath.Join(root, "site", "tour")
-	stops := readTourStops(t, filepath.Join(tourDir, "tour.yaml"))
-
-	server := httptest.NewUnstartedServer(nil)
-	t.Cleanup(server.Close)
-	_, port, err := net.SplitHostPort(server.Listener.Addr().String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	runtime := consoletest.NewAgent()
-	// A readable data folder: the infrastructure page names it.
-	dataDir := "/tmp/apptown-tour"
-	_ = os.RemoveAll(dataDir)
-	if err := os.MkdirAll(dataDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(dataDir) })
-	// The tour has no Docker: the fake answers AppTown's questions about
-	// its (empty) host, has no images and builds none.
-	daemon := newFakeDocker()
-	daemon.reply = func(args []string) (string, error, bool) {
-		switch {
-		case len(args) > 0 && args[0] == "inspect" && strings.HasPrefix(args[len(args)-1], "tour-runtime-"):
-			switch strings.TrimPrefix(args[len(args)-1], "tour-runtime-") {
-			case "running":
-				return `{"id":"tour-running","running":true}`, nil, true
-			case "stopped":
-				return `{"id":"tour-stopped","running":false}`, nil, true
-			case "unreachable":
-				return "", deploy.Unreachable(&net.OpError{Op: "dial", Net: "tcp", Err: errors.New("tour host offline")}), true
-			default:
-				return "", errors.New("tour provider response could not be read"), true
-			}
-		case len(args) > 1 && args[0] == "image" && args[1] == "inspect":
-			return "Error: No such image", errors.New("exit status 1"), true
-		case len(args) > 0 && args[0] == "build":
-			return "", errors.New("the tour has no Docker to build an image"), true
-		}
-		return "", nil, false
-	}
-	a, h := internalApp(t, Config{DataDir: dataDir, PublicHost: "apptown.localhost:" + port, TierDomains: []string{"preview=preview.localhost"},
-		DockerClient: daemon, ConsoleAgent: runtime, ConsoleCLI: fixtureCLI(t),
-		InferenceURL: "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}})
-	// The scene's two weeks end yesterday: AppTown's clock starts at
-	// midnight UTC fourteen days back, the scene moves it forward act by
-	// act, and it is set right before the camera comes.
-	y, m, d := a.cfg.clock.Now().UTC().Date()
-	start := time.Date(y, m, d-14, 0, 0, 0, 0, time.UTC)
-	moveClock(a, start.Sub(a.cfg.clock.Now()))
-	// What apptownd seeds at start: stock content, integrations, targets.
-	ctx := context.Background()
-	a.SyncStock(ctx)
-	a.SyncSeedIntegrations(ctx)
-	a.SeedTargets(ctx)
-	verification.SyncStockScanners(ctx, a.Integrations, stock.FS)
-	a.SyncStockDependencies(ctx)
-	configureConsoleModel(t, a)
-	setFastSlot(t, a, fakeModelProvider(t, a.Integrations.Bindings, func(q providerQuestion) (int, string) {
-		phrase := "Project work"
-		switch {
-		case strings.Contains(q.User, "Lunch Orders"):
-			phrase = "Daily lunch orders"
-		case strings.Contains(q.User, "Club Newsletter"):
-			phrase = "Cycling club news"
-		case strings.Contains(q.User, "Rocket Garden"):
-			phrase = "Growing and launching rockets"
-		}
-		return 200, chatAnswer(phrase, 20, 5, 0)
-	}))
-	// The conformance review's checks run where the tour can run them; then
-	// Work, stopped by that rewiring, is built again with the tour's
-	// landing workflow.
-	tourChecks(t, a)
-	useScriptTasks(t, a, tourScript)
-	defineWorkflows(t, a, tourWorkflow)
-
-	const password = "tour-password-not-secret"
-	boot := postJSON(h, "/api/v1/auth/bootstrap", firstAccount(t, a, "sam", password))
-	if boot.Code != http.StatusOK {
-		t.Fatalf("bootstrap: %d %s", boot.Code, boot.Body.String())
-	}
-	s := &tourScene{t: t, a: a, runtime: runtime, password: password, cookies: map[string]*http.Cookie{}}
-	// configureConsoleModel supplied an explicit fixture binding; no provider is contacted.
-	// The team: Sam runs AppTown; Priya and Tom make apps.
-	for _, u := range []string{"priya", "tom"} {
-		s.call("sam", "POST", "/api/v1/users", map[string]string{"username": u, "role": "member", "password": password})
-	}
-	made := s.play(start)
-	for _, job := range operationJobs(t, a, project.DescriptionJob) {
-		runQueuedJobForTest(t, a, project.DescriptionJob, job.Key)
-	}
-	moveClock(a, -a.cfg.clock.ahead)
-	tourRuntimeDeployments(t, a)
-	runtimeCtx, stopRuntime := context.WithCancel(context.Background())
-	t.Cleanup(stopRuntime)
-	go a.Deployment.RunObservations(runtimeCtx)
-	// Run the normal scheduled pass and its observation jobs before photographing Home.
-	if _, err := infrastructureChecksFor(a).Run(ctx, "", nil); err != nil {
-		t.Fatal(err)
-	}
-	s.call("sam", "GET", "/api/v1/attention", nil)
-	for _, kind := range []string{diskObservationJob, workerObservationJob, "capacity-observation", "inventory", "protection-observation", integration.HealthObservationJob, deployment.TargetObservationJob, deployment.DetailObservationJob, preview.ObservationJob, integration.ErrorObservationJob, dataprotection.StoreObservationJob} {
-		for _, job := range operationJobs(t, a, kind) {
-			if job.State == "available" || job.State == "retryable" || job.State == "scheduled" {
-				result := runQueuedJobForTest(t, a, kind, job.Key)
-				t.Logf("tour observation %s: %s", kind, result.State)
-			}
-		}
-	}
-	t.Logf("tour operational observations: %s", s.call("sam", "GET", "/api/v1/attention", nil))
-
-	h = a.Handler()
-	server.Config.Handler = h
-	server.StartTLS()
+	w.server.Config.Handler = w.a.Handler()
+	w.server.StartTLS()
+	a, password, tourDir, made := w.a, w.password, w.tourDir, w.made
 
 	// The stops, with the ids the scene made.
 	vars := map[string]string{"{before}": made.before, "{after}": made.after, "{review}": made.review.String(), "{chat}": made.chat.String(), "{session}": made.session}
@@ -416,11 +321,698 @@ func TestTour(t *testing.T) {
 	writeTourPage(t, tourDir, stops)
 }
 
-// tourStop is one stop of site/tour/tour.yaml.
-// The tour cannot build images. Seed the persisted container pointer only:
-// no public operation can import an existing standing container without a release.
-// The provider fake supplies runtime facts; no release or check receipt is invented.
-func tourRuntimeDeployments(t *testing.T, a *App) {
+// TestGarage is the tour's AppTown with deliberate trouble, one example of
+// each kind the UI has a screen for, so problem screens can be looked at
+// (APPTOWN_DESIGN_HOLD, as for the tour): the executor's image is missing;
+// a scanner Sam added names an image that does not exist; Lunch Orders'
+// second landing's deploy failed (the host would not start its container),
+// and it has a stopped, an unknown and an unreachable deployment beside
+// main, and its contract does not say it is built with Python (a
+// confirmed app-check problem); one container a deployment recorded is
+// gone from the host; the host's disk and memory cannot be read (its
+// capacity check fails); the data folder's disk is low; gitlab and
+// infisical are not set up (as in the tour). Not part of any gate.
+func TestGarage(t *testing.T) {
+	w := newTourWorld(t, true)
+	if w.hold() {
+		return
+	}
+	// Each kind of trouble is on the attention list: the garage is only
+	// useful while it shows them.
+	var view struct {
+		Items []struct {
+			Key, Title string
+			Unknown    bool
+		}
+	}
+	if err := json.Unmarshal(w.scene.call("sam", "GET", "/api/v1/attention", nil), &view); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]int{"integrations/docker": 0, "integrations/semgrep-strict": 0, "disks/": 0, "capacity/": 0, "checks/": 0, "inventory/": 0,
+		"tour-stopped": 0, "tour-unknown": 0, "tour-unreachable": 0, "main: Release failed": 0}
+	for _, item := range view.Items {
+		// App checks that could not run (the scenes call no model) are not
+		// known, not the garage's confirmed check problem; only that counts.
+		if strings.HasPrefix(item.Key, "checks/") && item.Unknown {
+			continue
+		}
+		for k := range want {
+			if strings.HasPrefix(item.Key, k) || strings.Contains(item.Title, k) {
+				want[k]++
+			}
+		}
+	}
+	for k, n := range want {
+		// The failed deploy removed main's running container before the
+		// host refused the new one: the inventory misses it as well as
+		// tour-unknown's database.
+		if k == "inventory/" && n == 2 {
+			continue
+		}
+		if n != 1 {
+			t.Errorf("the garage shows %d of %q on the attention list, want 1", n, k)
+		}
+	}
+}
+
+// tourWorld is the tour's AppTown after its two weeks, observed and ready
+// to photograph or hold open.
+type tourWorld struct {
+	t        *testing.T
+	a        *App
+	scene    *tourScene
+	server   *httptest.Server
+	made     tourIDs
+	tourDir  string
+	password string
+	vite     string
+	held     bool
+}
+
+// tourAgentImage is the executor's image: present on the tour's Docker,
+// missing in the garage's.
+const tourAgentImage = "apptown-agent"
+
+// garageScannerImage is the garage's misconfigured scanner's image: a
+// Semgrep version that does not exist.
+const garageScannerImage = "semgrep/semgrep:1.999.0"
+
+// newTourWorld builds the tour's AppTown; garage adds its trouble.
+func newTourWorld(t *testing.T, garage bool) *tourWorld {
+	root, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tourDir := filepath.Join(root, "site", "tour")
+
+	server := httptest.NewUnstartedServer(nil)
+	t.Cleanup(server.Close)
+	// APPTOWN_DESIGN_HOLD keeps the tour open on a fixed local address, over
+	// plain HTTP, with web pages from the APPTOWN_DESIGN_VITE dev server, for
+	// a person to look at instead of photographing it.
+	hold, vite := os.Getenv("APPTOWN_DESIGN_HOLD"), os.Getenv("APPTOWN_DESIGN_VITE")
+	if hold != "" {
+		l, err := net.Listen("tcp", hold)
+		if err != nil {
+			t.Fatal(err)
+		}
+		server.Listener.Close()
+		server.Listener = l
+	}
+	_, port, err := net.SplitHostPort(server.Listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime := consoletest.NewAgent()
+	// A readable data folder: the infrastructure page names it. Each
+	// running scene makes its own and removes only that one, so any number
+	// of tours and garages can be open, or photographed, together.
+	scene := "tour"
+	if garage {
+		scene = "garage"
+	}
+	dataDir, err := os.MkdirTemp("/tmp", "apptown-"+scene+"-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dataDir) })
+	// The tour's apps run on no real Docker: the fake answers AppTown's
+	// commands as a working host would. (The landings' source scans, which
+	// run where AppTown's checks run, use this machine's Docker for real.) It has the executor's image (not in the garage),
+	// holds an image once a build or pull made it, and starts what it is
+	// asked to run, except the run the garage refuses (refuseRun). Every
+	// container it started answers on one front door: the scene's app
+	// server, which is up and says the release a static part was told.
+	// The garage's extra deployments, seeded below, are on the host as
+	// recorded (onHost).
+	var onHost atomic.Pointer[[]deploy.Resource]
+	var refuseRun atomic.Bool
+	// listening is each started container's server on its published port.
+	listening := struct {
+		sync.Mutex
+		on   map[string]*http.Server
+		port map[string]int
+	}{on: map[string]*http.Server{}, port: map[string]int{}}
+	t.Cleanup(func() {
+		listening.Lock()
+		defer listening.Unlock()
+		for _, srv := range listening.on {
+			_ = srv.Close()
+		}
+	})
+	images := map[string]bool{}
+	var imagesMu sync.Mutex
+	daemon := newFakeDocker()
+	told := &atomic.Pointer[string]{}
+	// answer is what a started container serves: a page saying what it is,
+	// and the release a static part was told (release) at ReleasePath.
+	answer := func(release func() string) http.Handler {
+		return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == appcontract.ReleasePath {
+				_, _ = rw.Write([]byte(release()))
+				return
+			}
+			rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = fmt.Fprintf(rw, "<!doctype html><title>%s</title><p>%s runs on the UI tour's stand-in Docker host, which answers for its container here.</p>", html.EscapeString(r.Host), html.EscapeString(r.Host))
+		})
+	}
+	// The apps' front door (the main tier domain, below) is one server for
+	// every app; it says the release a static part was told last.
+	app := httptest.NewServer(answer(func() string {
+		if v := told.Load(); v != nil {
+			return *v
+		}
+		return ""
+	}))
+	t.Cleanup(app.Close)
+	appPort := app.Listener.Addr().(*net.TCPAddr).Port
+	// The apps' front door (the main tier domain, below) is that port on
+	// *.localhost, which may resolve to ::1 first.
+	if l, err := net.Listen("tcp", fmt.Sprintf("[::1]:%d", appPort)); err == nil {
+		v6 := &http.Server{Handler: app.Config.Handler}
+		go func() { _ = v6.Serve(l) }()
+		t.Cleanup(func() { _ = v6.Close() })
+	}
+	daemon.port, daemon.told = appPort, told
+	held := func(ref string) bool {
+		imagesMu.Lock()
+		defer imagesMu.Unlock()
+		if images[ref] {
+			return true
+		}
+		for image := range images {
+			if ref == dockerfake.ImageID(image) { // the ID the fake gives the image
+				return true
+			}
+		}
+		return false
+	}
+	// The one streamed question the scene's AppTown asks is the
+	// inventory's: which of the recorded images the host holds.
+	daemon.command = func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
+		const imageNames = "{{json .RepoTags}}\t{{json .RepoDigests}}\t{{json .Id}}"
+		if req.Stdin == nil && req.Stdout == nil {
+			return daemon.run(req.Args...)
+		}
+		args := req.Args
+		if len(args) < 5 || args[0] != "image" || args[1] != "inspect" || args[3] != imageNames || req.Stdin != nil {
+			// What a container's processes print (a database's dump among
+			// them) the stand-in host cannot give: it runs no processes.
+			return nil, errors.New("the tour's stand-in Docker host runs no processes, so it has nothing of theirs to stream")
+		}
+		var missing error
+		for _, ref := range args[4:] {
+			if !held(ref) {
+				if req.Stderr != nil {
+					fmt.Fprintf(req.Stderr, "Error: No such image: %s\n", ref)
+				}
+				missing = errors.New("exit status 1")
+				continue
+			}
+			fmt.Fprintf(req.Stdout, "[%q]\t[]\t%q\n", ref, dockerfake.ImageID(ref))
+		}
+		return nil, missing
+	}
+	tagOf := func(args []string) string {
+		for i := 0; i+1 < len(args); i++ {
+			if args[i] == "-t" || args[i] == "--tag" {
+				return args[i+1]
+			}
+		}
+		return ""
+	}
+	daemon.reply = func(args []string) (string, error, bool) {
+		if len(args) > 0 && (args[0] == "build" || (args[0] == "buildx" && len(args) > 1 && args[1] == "build")) {
+			if tag := tagOf(args); tag != "" {
+				imagesMu.Lock()
+				images[tag], images["sha256:built"] = true, true // the fake names every image it holds by this ID
+				imagesMu.Unlock()
+			}
+			return "", nil, false
+		}
+		if len(args) == 2 && args[0] == "pull" && !(garage && args[1] == garageScannerImage) {
+			imagesMu.Lock()
+			images[args[1]], images["sha256:built"] = true, true
+			imagesMu.Unlock()
+			return "", nil, false
+		}
+		if len(args) > 0 && args[0] == "run" && refuseRun.Load() && slices.Contains(args, "-p") {
+			// The app container is refused; the fake recorded it as
+			// started before asking, so it forgets it as the daemon would
+			// never have had it.
+			name := containerNameOf(strings.Join(args, " "))
+			daemon.mu.Lock()
+			delete(daemon.started, name)
+			daemon.mu.Unlock()
+			return "docker: Error response from daemon: failed to create task for container: OCI runtime create failed: exec: \"gunicorn\": executable file not found in $PATH: unknown.", errors.New("exit status 127"), true
+		}
+		if len(args) > 0 && args[0] == "run" {
+			// A container that publishes a port answers on it, as long as
+			// it runs.
+			name, published, release := containerNameOf(strings.Join(args, " ")), "", ""
+			for i := 0; i+1 < len(args); i++ {
+				switch {
+				case args[i] == "-p":
+					published = args[i+1]
+				case args[i] == "-e" && strings.HasPrefix(args[i+1], appcontract.ReleaseEnvVar+"="):
+					release = strings.TrimPrefix(args[i+1], appcontract.ReleaseEnvVar+"=")
+				}
+			}
+			if published != "" {
+				parts := strings.Split(published, ":") // bind:host:container, host empty for any
+				hostPort := "0"
+				if len(parts) == 3 && parts[1] != "" {
+					hostPort = parts[1]
+				}
+				l, err := net.Listen("tcp", "127.0.0.1:"+hostPort)
+				if err != nil {
+					return "docker: Error response from daemon: driver failed programming external connectivity: " + err.Error(), errors.New("exit status 125"), true
+				}
+				srv := &http.Server{Handler: answer(func() string { return release })}
+				go func() { _ = srv.Serve(l) }()
+				listening.Lock()
+				if was := listening.on[name]; was != nil {
+					_ = was.Close()
+				}
+				listening.on[name] = srv
+				listening.port[name] = l.Addr().(*net.TCPAddr).Port
+				listening.Unlock()
+			}
+			return "", nil, false
+		}
+		if len(args) > 1 && args[0] == "rm" {
+			name := args[len(args)-1]
+			listening.Lock()
+			if was := listening.on[name]; was != nil {
+				_ = was.Close()
+			}
+			delete(listening.on, name)
+			delete(listening.port, name)
+			listening.Unlock()
+			return "", nil, false
+		}
+		if len(args) > 1 && args[0] == "port" {
+			listening.Lock()
+			port, ok := listening.port[args[1]]
+			listening.Unlock()
+			if ok {
+				return fmt.Sprintf("127.0.0.1:%d\n", port), nil, true
+			}
+			return "", nil, false
+		}
+		if len(args) == 4 && args[0] == "inspect" && args[1] == "--format" && args[2] == "{{json .Config}}" && daemon.isStarted(args[3]) {
+			// How a container was started: its image and the -e its run gave it.
+			daemon.mu.Lock()
+			record := daemon.storageContainers[args[3]]
+			daemon.mu.Unlock()
+			var run []string
+			for _, c := range daemon.joined() {
+				if strings.HasPrefix(c, "run ") && containerNameOf(c) == args[3] {
+					run = strings.Fields(c)
+				}
+			}
+			env := []string{}
+			for i := 0; i+1 < len(run); i++ {
+				if run[i] == "-e" && strings.Contains(run[i+1], "=") {
+					env = append(env, run[i+1])
+				}
+			}
+			image, _ := record["Config"].(map[string]string)
+			out, err := json.Marshal(map[string]any{"Image": image["Image"], "Env": env})
+			return string(out), err, true
+		}
+		if len(args) == 4 && args[0] == "inspect" && args[1] == "-f" && strings.HasPrefix(args[2], "{{range .Mounts}}") {
+			// A container's mounts are the -v its run gave it.
+			daemon.mu.Lock()
+			record := daemon.storageContainers[args[3]]
+			daemon.mu.Unlock()
+			if !daemon.isStarted(args[3]) || record == nil {
+				return "", nil, false
+			}
+			var lines []string
+			for _, m := range record["Mounts"].([]map[string]string) {
+				switch {
+				case strings.Contains(args[2], "{{.Type}}"):
+					lines = append(lines, m["Type"]+"\t"+m["Name"]+"\t\t"+m["Destination"])
+				case m["Type"] == "volume":
+					lines = append(lines, m["Name"]+"\t"+m["Destination"])
+				}
+			}
+			return strings.Join(lines, "\n") + "\n", nil, true
+		}
+		if len(args) == 3 && args[0] == "ps" && args[1] == "-q" && args[2] == "--no-trunc" {
+			// The running containers, by the IDs their runs printed.
+			var ids []string
+			daemon.mu.Lock()
+			for name, up := range daemon.started {
+				if up {
+					ids = append(ids, dockerfake.ContainerID(name))
+				}
+			}
+			daemon.mu.Unlock()
+			slices.Sort(ids)
+			return strings.Join(ids, "\n"), nil, true
+		}
+		if len(args) > 5 && args[0] == "inspect" && args[1] == "--type" && args[2] == "container" && strings.HasPrefix(args[4], "{{.Name}}\t{{.HostConfig.Memory}}") {
+			// Each running container's limits, as its run set them, and the
+			// labels it was made with.
+			var lines []string
+			daemon.mu.Lock()
+			for _, ref := range args[5:] {
+				for name, up := range daemon.started {
+					if !up || (ref != name && ref != dockerfake.ContainerID(name)) {
+						continue
+					}
+					var memory, nano int64
+					fmt.Sscan(daemon.limits[name], &memory, &nano)
+					labels := daemon.labels[name]
+					value := func(k string) string {
+						if v, ok := labels[k]; ok {
+							return v
+						}
+						return "<no value>"
+					}
+					lines = append(lines, fmt.Sprintf("/%s\t%d\t%d\t0\t0\t\t%s\t%s", name, memory, nano, value(dockerlabel.Class), value(dockerlabel.Owner)))
+				}
+			}
+			daemon.mu.Unlock()
+			return strings.Join(lines, "\n") + "\n", nil, true
+		}
+		if len(args) > 3 && args[0] == "stats" {
+			// Each running container uses a steady, modest amount of
+			// memory; with no names, every running container is reported.
+			names := args[4:]
+			if len(names) == 0 {
+				daemon.mu.Lock()
+				for name, up := range daemon.started {
+					if up {
+						names = append(names, name)
+					}
+				}
+				daemon.mu.Unlock()
+				slices.Sort(names)
+			}
+			var lines []string
+			for _, name := range names {
+				if daemon.isStarted(name) {
+					lines = append(lines, name+"\t48MiB / 160MiB")
+				}
+			}
+			return strings.Join(lines, "\n"), nil, true
+		}
+		switch {
+		case len(args) > 0 && args[0] == "inspect" && strings.HasPrefix(args[len(args)-1], "tour-runtime-"):
+			switch strings.TrimPrefix(args[len(args)-1], "tour-runtime-") {
+			case "stopped":
+				return `{"id":"tour-stopped","running":false}`, nil, true
+			case "unreachable":
+				return "", deploy.Unreachable(&net.OpError{Op: "dial", Net: "tcp", Err: errors.New("tour host offline")}), true
+			default:
+				return "", errors.New("tour provider response could not be read"), true
+			}
+		case len(args) > 1 && args[0] == "image" && args[1] == "inspect":
+			ref := args[len(args)-1]
+			if ref == tourAgentImage {
+				if !garage {
+					return `"sha256:` + strings.Repeat("a", 64) + `" {}`, nil, true
+				}
+			} else if held(ref) {
+				if slices.Contains(args, "{{json .Id}} {{json (index .Config \"Labels\")}}") {
+					return fmt.Sprintf("%q {}", dockerfake.ImageID(ref)), nil, true
+				}
+				return "", nil, false // the fake's own answer for an image it holds
+			}
+			return "Error: No such image: " + ref, errors.New("exit status 1"), true
+		case garage && len(args) > 0 && args[0] == "pull" && args[len(args)-1] == garageScannerImage:
+			return "Error response from daemon: manifest for " + garageScannerImage + " not found: manifest unknown", errors.New("exit status 1"), true
+		case len(args) > 2 && args[0] == "ps" && args[1] == "-a" && strings.HasPrefix(args[len(args)-1], "{{.Names}}\t{{.Status}}"),
+			len(args) > 1 && (args[0] == "volume" || args[0] == "network") && args[1] == "ls":
+			// The host lists what it made and still has, with the labels
+			// it was made with, and the garage's seeded leftovers (onHost).
+			seen := map[string]bool{}
+			var lines []string
+			line := func(kind, name, status string, labels map[string]string) {
+				if seen[kind+" "+name] {
+					return
+				}
+				seen[kind+" "+name] = true
+				owner, instance := labels[dockerlabel.Owner], labels[dockerlabel.Instance]
+				if kind == "container" {
+					lines = append(lines, name+"\t"+status+"\t\t"+owner+"\t\t"+instance)
+				} else {
+					lines = append(lines, name+"\t"+owner+"\t\t"+instance)
+				}
+			}
+			daemon.mu.Lock()
+			for key, made := range daemon.objects {
+				kind, name, _ := strings.Cut(key, " ")
+				if made && kind == args[0] {
+					line(kind, name, "", nil)
+				}
+			}
+			if args[0] == "ps" {
+				for name, up := range daemon.started {
+					if up {
+						line("container", name, "Up 2 days", daemon.labels[name])
+					}
+				}
+			}
+			daemon.mu.Unlock()
+			if seeded := onHost.Load(); seeded != nil {
+				for _, r := range *seeded {
+					switch {
+					case args[0] == "ps" && r.Kind == "container":
+						status := "Up 2 days"
+						if r.Name == "tour-runtime-stopped" {
+							status = "Exited (0) 3 hours ago"
+						}
+						line("container", r.Name, status, nil)
+					case args[0] == r.Kind:
+						line(r.Kind, r.Name, "", nil)
+					}
+				}
+			}
+			slices.Sort(lines)
+			return strings.Join(lines, "\n"), nil, true
+		}
+		return "", nil, false
+	}
+	// The garage has its own host name: browsers share cookies across ports
+	// on one host, so a tour session would otherwise reach the garage.
+	host := "apptown.localhost"
+	if garage {
+		host = "garage.localhost"
+	}
+	publicHost := host + ":" + port
+	if hold != "" {
+		publicHost = "http://" + publicHost
+	}
+	// The data folder and the host's memory read the same on every machine:
+	// roomy and readable in the tour, low and unreadable in the garage.
+	dataDisk := func(string) (diskspace.Space, error) {
+		return diskspace.Space{TotalBytes: 500 << 30, FreeBytes: 312 << 30}, nil
+	}
+	hostMemory := func() (hostmem.Memory, error) {
+		// The fake daemon's total (dockerfake_test.go), so the two agree.
+		return hostmem.Memory{TotalBytes: 8 << 30, AvailableBytes: 6 << 30}, nil
+	}
+	if garage {
+		dataDisk = func(string) (diskspace.Space, error) {
+			return diskspace.Space{TotalBytes: 500 << 30, FreeBytes: 30 << 30}, nil
+		}
+		hostMemory = func() (hostmem.Memory, error) {
+			return hostmem.Memory{}, errors.New("the host's memory could not be read")
+		}
+	}
+	a, h := internalApp(t, Config{DataDir: dataDir, PublicHost: publicHost, TierDomains: []string{"preview=preview.localhost", fmt.Sprintf("main=http://apps.localhost:%d", appPort)},
+		DockerClient: daemon, ConsoleAgent: runtime, ConsoleCLI: fixtureCLI(t), AgentImage: tourAgentImage,
+		DataDiskSpace: dataDisk, HostMemory: hostMemory,
+		InferenceURL: "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}})
+	// The scene's two weeks end yesterday: AppTown's clock starts at
+	// midnight UTC fourteen days back, the scene moves it forward act by
+	// act, and it is set right before the camera comes.
+	y, m, d := a.cfg.clock.Now().UTC().Date()
+	start := time.Date(y, m, d-14, 0, 0, 0, 0, time.UTC)
+	moveClock(a, start.Sub(a.cfg.clock.Now()))
+	// What apptownd seeds at start: stock content, integrations, targets.
+	ctx := context.Background()
+	a.SyncStock(ctx)
+	a.SyncSeedIntegrations(ctx)
+	a.SeedTargets(ctx)
+	verification.SyncStockScanners(ctx, a.Integrations, stock.FS)
+	a.SyncStockDependencies(ctx)
+	configureConsoleModel(t, a)
+	setFastSlot(t, a, fakeModelProvider(t, a.Integrations.Bindings, func(q providerQuestion) (int, string) {
+		phrase := "Project work"
+		switch {
+		case strings.Contains(q.User, "Lunch Orders"):
+			phrase = "Daily lunch orders"
+		case strings.Contains(q.User, "Club Newsletter"):
+			phrase = "Cycling club news"
+		case strings.Contains(q.User, "Rocket Garden"):
+			phrase = "Growing and launching rockets"
+		}
+		return 200, chatAnswer(phrase, 20, 5, 0)
+	}))
+	// The conformance review's checks run where the tour can run them; then
+	// Work, stopped by that rewiring, is built again with the tour's
+	// landing workflow.
+	tourChecks(t, a)
+	useScriptTasks(t, a, tourScript)
+	defineWorkflows(t, a, tourWorkflow)
+
+	const password = "tour-password-not-secret"
+	boot := postJSON(h, "/api/v1/auth/bootstrap", firstAccount(t, a, "sam", password))
+	if boot.Code != http.StatusOK {
+		t.Fatalf("bootstrap: %d %s", boot.Code, boot.Body.String())
+	}
+	s := &tourScene{t: t, a: a, runtime: runtime, password: password, cookies: map[string]*http.Cookie{}, garage: garage, refuseRun: &refuseRun}
+	// configureConsoleModel supplied an explicit fixture binding; no provider is contacted.
+	// The team: Sam runs AppTown; Priya and Tom make apps.
+	for _, u := range []string{"priya", "tom"} {
+		s.call("sam", "POST", "/api/v1/users", map[string]string{"username": u, "role": "member", "password": password})
+	}
+	made := s.play(start)
+	for _, job := range operationJobs(t, a, project.DescriptionJob) {
+		runQueuedJobForTest(t, a, project.DescriptionJob, job.Key)
+	}
+	moveClock(a, -a.cfg.clock.ahead)
+	if garage {
+		// Since the last landing the built-in host's disk cannot be read:
+		// its capacity check fails, and it would refuse a new deploy.
+		daemon.disk.Answer = func() (int, []byte, string) { return 125, nil, "df: /d: Input/output error" }
+	}
+	// Each app's main runs what its landings deployed; in the garage, three
+	// more of Lunch Orders' deployments are stopped, unknown and
+	// unreachable.
+	var runtimeStates []string
+	if garage {
+		runtimeStates = []string{"stopped", "unknown", "unreachable"}
+	}
+	recorded := tourRuntimeDeployments(t, a, runtimeStates)
+	// The host has what was recorded for the seeded deployments, except, in
+	// the garage, the unknown deployment's database container. What the
+	// landings deployed the fake made itself.
+	var present []deploy.Resource
+	removed := 0
+	for _, r := range recorded {
+		if len(r.Hosts) != 1 || !strings.HasPrefix(r.Hosts[0].Deployment, "tour-") {
+			continue
+		}
+		if r.Kind == "container" && r.Hosts[0].Deployment == "tour-unknown" && r.Hosts[0].Need != "" {
+			removed++
+			continue
+		}
+		present = append(present, r)
+	}
+	if garage && removed != 1 {
+		t.Fatalf("the garage found no database container of tour-unknown to remove: %+v", recorded)
+	}
+	onHost.Store(&present)
+	if garage {
+		// Sam adds a Semgrep scanner with a mistyped version: its image
+		// cannot be pulled.
+		s.call("sam", "POST", "/api/v1/integrations", map[string]any{"name": "semgrep-strict", "capability": "scanner", "provider": "tool", "config": map[string]any{
+			"description": "SAST via semgrep", "image": garageScannerImage, "command": "semgrep scan --config auto --sarif --output /work/.apptown/semgrep.sarif /work",
+			"report": ".apptown/semgrep.sarif", "format": "sarif", "kind": "sast", "network": true, "appliesTo": []string{"repository"}}})
+	}
+	runtimeCtx, stopRuntime := context.WithCancel(context.Background())
+	t.Cleanup(stopRuntime)
+	go a.Deployment.RunObservations(runtimeCtx)
+	w := &tourWorld{t: t, a: a, scene: s, server: server, made: made, tourDir: tourDir, password: password, vite: vite, held: hold != ""}
+	w.observe()
+	return w
+}
+
+// observe runs the normal scheduled pass and its observation jobs, as
+// AppTown's job queue would: before photographing Home, and while the
+// scene is held open, so its readings do not age into unknown.
+func (w *tourWorld) observe() {
+	t, a := w.t, w.a
+	if _, err := infrastructureChecksFor(a).Run(context.Background(), "", nil); err != nil {
+		t.Fatal(err)
+	}
+	w.scene.call("sam", "GET", "/api/v1/attention", nil)
+	// Before the camera every job is accounted for (operationJobs refuses
+	// a capped list). A held scene refreshes every few minutes and its job
+	// history passes the list's cap within the hour: there the open jobs,
+	// which the list gives first, are run and a capped list is only noted.
+	queued := func(kind string) []jobs.Job { return operationJobs(t, a, kind) }
+	if w.held {
+		queued = func(kind string) []jobs.Job {
+			const cap = 500
+			all, err := jobs.List(context.Background(), a.DB, cap)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(all) >= cap {
+				t.Logf("the job list reached its cap of %d; running the open jobs it shows", cap)
+			}
+			var out []jobs.Job
+			for _, j := range all {
+				if j.Kind == kind {
+					out = append(out, j)
+				}
+			}
+			return out
+		}
+	}
+	for _, kind := range []string{diskObservationJob, workerObservationJob, "capacity-observation", "inventory", "protection-observation", integration.HealthObservationJob, deployment.TargetObservationJob, deployment.DetailObservationJob, preview.ObservationJob, integration.ErrorObservationJob, dataprotection.StoreObservationJob} {
+		for _, job := range queued(kind) {
+			if job.State == "available" || job.State == "retryable" || job.State == "scheduled" {
+				result := runJobForTest(t, a, job.ID)
+				t.Logf("tour observation %s: %s", kind, result.State)
+			}
+		}
+	}
+	t.Logf("tour operational observations: %s", w.scene.call("sam", "GET", "/api/v1/attention", nil))
+}
+
+// hold serves the scene on APPTOWN_DESIGN_HOLD until interrupted, with web
+// pages from the Vite dev server; false when no hold was asked for.
+func (w *tourWorld) hold() bool {
+	t := w.t
+	if !w.held {
+		return false
+	}
+	h := w.a.Handler()
+	frontend, err := url.Parse(w.vite)
+	if err != nil || frontend.Hostname() != "127.0.0.1" {
+		t.Fatal("APPTOWN_DESIGN_VITE must be a local Vite server")
+	}
+	proxy := httputil.NewSingleHostReverseProxy(frontend)
+	w.server.Config.Handler = http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			h.ServeHTTP(rw, r)
+			return
+		}
+		proxy.ServeHTTP(rw, r)
+	})
+	w.server.Start()
+	t.Logf("%s open at http://%s (sam, priya or tom / %s); interrupt to stop", t.Name(), w.a.cfg.publicHost, w.password)
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	refresh := time.NewTicker(5 * time.Minute)
+	defer refresh.Stop()
+	for {
+		select {
+		case <-stop:
+			return true
+		case <-refresh.C:
+			w.observe()
+		}
+	}
+}
+
+// tourRuntimeDeployments seeds Lunch Orders' troubled deployments on the
+// built-in host (the garage's), one in each runtime state named, and
+// returns what the host's inventory records: those and what the landings
+// deployed. The troubled ones are a stopped, an unknown and an unreachable
+// container no landing made: seed the persisted container pointer only, as
+// no public operation imports an existing standing container without a
+// release. The provider fake supplies their runtime facts; no release or
+// check receipt is invented for them.
+func tourRuntimeDeployments(t *testing.T, a *App, states []string) []deploy.Resource {
 	t.Helper()
 	ctx := asPerson("sam")
 	p, err := a.Projects.BySlug(ctx, "lunch-orders")
@@ -431,7 +1023,7 @@ func tourRuntimeDeployments(t *testing.T, a *App) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, word := range []string{"running", "stopped", "unknown", "unreachable"} {
+	for _, word := range states {
 		d, err := a.Deployment.Deployments.EnsureStanding(ctx, p.ID, "tour-"+word, target.ID, deployment.Attributes{}.WithDefaults())
 		if err != nil {
 			t.Fatal(err)
@@ -458,11 +1050,17 @@ func tourRuntimeDeployments(t *testing.T, a *App) {
 			seen[want] = true
 		}
 	}
-	if len(seen) != 4 {
-		t.Fatalf("tour runtime states: %v", seen)
+	if len(seen) != len(states) {
+		t.Fatalf("tour runtime states: %v, want %v", seen, states)
 	}
+	recorded, err := a.Deployment.Inventory.Recorded(ctx, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return recorded
 }
 
+// tourStop is one stop of site/tour/tour.yaml.
 type tourStop struct {
 	ID      string `yaml:"id"`
 	Title   string `yaml:"title"`
@@ -558,6 +1156,58 @@ type tourScene struct {
 	runtime  *consoletest.Agent
 	password string
 	cookies  map[string]*http.Cookie
+	// garage keeps the trouble the tour leaves out: Lunch Orders' contract
+	// does not say it is built with Python, and its second landing's deploy
+	// fails.
+	garage bool
+	// refuseRun, while set, has the fake Docker host refuse to start an
+	// app's container.
+	refuseRun *atomic.Bool
+}
+
+// clubSignInKind is the shared service Sam defines: the cycling club's
+// own sign-in, which the club's apps use instead of keeping passwords.
+const clubSignInKind = `capability: club-sign-in
+title: Club sign-in
+description: Hilltop Cycling Club's own sign-in (OpenID Connect), so members use their club account in club apps.
+connector:
+  fields:
+    - key: url
+      label: Issuer base URL
+      placeholder: https://sign-in.hilltop-cycling.example
+resource:
+  fields:
+    - key: client_id
+      label: Client ID for this app
+    - key: client_secret_from
+      label: Client secret (secret name)
+      type: secretRef
+env:
+  - key: OIDC_ISSUER
+    value: "{{connector.url}}"
+  - key: OIDC_CLIENT_ID
+    value: "{{resource.client_id}}"
+  - key: OIDC_CLIENT_SECRET
+    value: "{{secret:resource.client_secret_from}}"
+steering: |
+  Members sign in with their Hilltop Cycling Club account (OpenID Connect).
+  The issuer, client ID and secret arrive as OIDC_ISSUER, OIDC_CLIENT_ID and
+  OIDC_CLIENT_SECRET; read them from the environment, never hardcode them.
+`
+
+// clubSignIn sets up one shared service as Sam would: he defines the
+// club's sign-in under Services › Shared services, connects it, and
+// attaches it to the newsletter under its Settings › Services, with the
+// newsletter's client secret held in the built-in secret store (a
+// disposable value; the issuer is a reserved .example name nothing
+// answers on).
+func (s *tourScene) clubSignIn() {
+	s.call("sam", "POST", "/api/v1/services", map[string]string{"yaml": clubSignInKind})
+	s.call("sam", "POST", "/api/v1/integrations", map[string]any{"name": "hilltop-sign-in", "capability": "club-sign-in", "provider": "service",
+		"config": map[string]any{"url": "https://sign-in.hilltop-cycling.example"}})
+	s.call("sam", "PUT", "/api/v1/secrets/CLUB_NEWSLETTER_SIGN_IN_SECRET", map[string]string{"value": "disposable-club-sign-in-secret"})
+	s.call("sam", "POST", "/api/v1/projects/club-newsletter/integrations", map[string]any{"capability": "club-sign-in", "connector": "hilltop-sign-in",
+		"resource": map[string]string{"client_id": "club-newsletter", "client_secret_from": "CLUB_NEWSLETTER_SIGN_IN_SECRET"}})
 }
 
 func (s *tourScene) later(d time.Duration) { moveClock(s.a, d) }
@@ -581,7 +1231,9 @@ func (s *tourScene) session(who string) *http.Cookie {
 		s.t.Fatalf("%s signs in: %d %s", who, w.Code, w.Body.String())
 	}
 	for _, c := range w.Result().Cookies() {
-		if c.Name == secureSessionCookie && c.Value != "" {
+		// A held design scene serves plain HTTP, which names the cookie
+		// without the __Host- prefix.
+		if (c.Name == secureSessionCookie || c.Name == "apptown_session") && c.Value != "" {
 			s.cookies[who] = c
 			return c
 		}
@@ -753,6 +1405,14 @@ func (s *tourScene) approve(runID ids.ID, who string) {
 	adds := shownAdds(s.t, s.a, asPerson(who), step.ID)
 	s.call(who, "POST", fmt.Sprintf("/api/v1/steps/%s/approve", step.ID), map[string]string{"decision": "approve", "adds": adds})
 	s.a.Work.Wait()
+	// The merged main is deployed, unless the host was told to refuse it.
+	want := "pass"
+	if s.refuseRun.Load() {
+		want = "fail"
+	}
+	if d := s.steps(runID)["deploy"]; d.Status != want {
+		s.t.Fatalf("run %s: deploy is %q, want %q: %s (%+v)", runID, d.Status, want, d.Evidence, s.steps(runID))
+	}
 }
 
 // ship is a change with its checks passing, approved after wait and
@@ -879,14 +1539,20 @@ func (l *piLog) bytes() []byte {
 
 // tourWorkflow is how the tour's projects land a change: the repository's
 // own checks, run on the landing's staged commit, then a person's
-// approval; the merge follows the approval.
+// approval; the merge follows the approval, and on entering ship the
+// merged main is built and deployed to the project's main deployment, as
+// the stock land workflow does, with its release record required.
 var tourWorkflow = workflow.PreparedRun{
 	Workflow: workflow.DefinitionRef{Name: "tour-land", Version: 1},
-	Spec: schema.Spec{Kind: "lifecycle", Role: "landing", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{
+	Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{
 		{Name: "tests", Uses: "script", With: map[string]any{"run": "sh checks/tests.sh", "env": map[string]any{tourCheckEnv: "checks/tests.sh"}}},
 		{Name: "style", Uses: "script", With: map[string]any{"run": "sh checks/style.sh", "env": map[string]any{tourCheckEnv: "checks/style.sh"}}},
+		{Name: "scan-source", Uses: "scan", With: map[string]any{"on": "source"}},
 		{Name: "accept", Uses: "approval", With: map[string]any{"means": "I have read what changed and the checks, and it does what the change says."}},
-	}}}},
+	}}, {Name: "ship",
+		OnEnter: []schema.Step{{Name: "deploy", Uses: "deploy", With: map[string]any{"deployment": "main"}}},
+		Steps:   []schema.Step{{Name: "release-exists", Uses: "artifact/require", With: map[string]any{"kind": "release"}}},
+	}}},
 }
 
 // tourIDs are the ids the scene made that the stops name.
@@ -982,6 +1648,7 @@ func (s *tourScene) play(start time.Time) tourIDs {
 	}
 	// Priya looks after the newsletter and approves its issues.
 	s.call("sam", "POST", "/api/v1/projects/club-newsletter/members", map[string]string{"grantee": "user:priya", "role": "project-approver"})
+	s.clubSignIn()
 	// Adopting a way of working queues a review of the project; AppTown's
 	// job queue runs it.
 	for _, j := range operationJobs(t, s.a, verification.ReviewJob) {
@@ -990,7 +1657,20 @@ func (s *tourScene) play(start time.Time) tourIDs {
 
 	at(0, "9:20")
 	lunch1 := s.open("priya", "lunch-orders", "Start the lunch app", "A pick page with the four dishes we order most, and a list for whoever orders at 11am.")
-	s.write(lunch1, lunchStart)
+	files := maps.Clone(lunchStart)
+	// The app's dependencies are locked (uv lock, testdata/tour), so the
+	// landing's dependency scan has what it reads.
+	lock, err := os.ReadFile(filepath.Join("testdata", "tour", "lunch-orders-uv.lock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	files["uv.lock"] = string(lock)
+	if !s.garage {
+		// The app is Django: its contract says the web part is built with
+		// Python, so the Python checks apply where its pyproject.toml is.
+		files[".apptown/app.yaml"] = lunchContract
+	}
+	s.write(lunch1, files)
 	s.commit(lunch1, "priya", "Start the lunch app: pick a dish, see today's orders")
 	at(0, "10:05")
 	run := s.land(lunch1, "priya", map[string]string{"tests": "pass", "style": "pass"})
@@ -1041,7 +1721,11 @@ func (s *tourScene) play(start time.Time) tourIDs {
 	s.endChat("tom", session)
 	run = s.land(lunch2, "tom", map[string]string{"tests": "pass", "style": "pass"})
 	at(4, "13:55")
+	// In the garage the host will not start the new version: the deploy
+	// fails and the change does not ship.
+	s.refuseRun.Store(s.garage)
 	s.approve(run, "sam")
+	s.refuseRun.Store(false)
 
 	// Day 7: the ride calendar, approved by Priya.
 	at(7, "20:10")
@@ -1195,6 +1879,23 @@ func tourScript(spec execution.TaskSpec) (string, int) {
 // code here earns.
 
 // Lunch Orders, first version: pick a dish, see the 11am list.
+// lunchContract is the Django starter's contract with the tool its web
+// part is built with named.
+const lunchContract = `version: 2
+app:
+  web:
+    build: .
+    tools: [python]
+    ports: ["8080"]
+    public: true
+    resources: { memory: 160Mi }
+    health:
+      readiness: { http: /healthz }
+needs:
+  postgres:
+    version: "16"
+`
+
 var lunchStart = map[string]string{
 	"README.md": `
 # Lunch Orders
@@ -1212,7 +1913,7 @@ stray print() calls.
 name = "lunch-orders"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["django>=5.1,<5.2", "psycopg[binary]>=3.2"]
+dependencies = ["django>=5.2,<5.3", "psycopg[binary]>=3.2"]
 `,
 	"manage.py": `
 #!/usr/bin/env python
@@ -1229,11 +1930,21 @@ if __name__ == "__main__":
 	"lunch/settings.py": `
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 DEBUG = os.environ.get("DJANGO_DEBUG") == "1"
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost").split(",")
+
+# AppTown's front door: its origins, wildcards in Django's leading-dot form.
+APPTOWN_ORIGINS = [o for o in os.environ.get("APPTOWN_ORIGINS", "").split(",") if o]
+ALLOWED_HOSTS = [
+    "." + h[2:] if h.startswith("*.") else h
+    for h in (urlsplit(o).hostname for o in APPTOWN_ORIGINS)
+] or ["localhost", "127.0.0.1"]
+CSRF_TRUSTED_ORIGINS = APPTOWN_ORIGINS
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -1245,6 +1956,7 @@ INSTALLED_APPS = [
     "orders",
 ]
 MIDDLEWARE = [
+    "app.health.healthz",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -2211,6 +2923,17 @@ func TestWebUICapture(t *testing.T) {
 	}
 	server := httptest.NewUnstartedServer(nil)
 	t.Cleanup(server.Close)
+	// APPTOWN_DESIGN_HOLD keeps the scene open on a fixed local address for
+	// a person to look at, over plain HTTP, instead of photographing it.
+	hold := os.Getenv("APPTOWN_DESIGN_HOLD")
+	if hold != "" {
+		l, err := net.Listen("tcp", hold)
+		if err != nil {
+			t.Fatal(err)
+		}
+		server.Listener.Close()
+		server.Listener = l
+	}
 	_, port, err := net.SplitHostPort(server.Listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
@@ -2221,7 +2944,11 @@ func TestWebUICapture(t *testing.T) {
 	cloudAPI := httptest.NewServer(cloud.Handler())
 	t.Cleanup(cloudAPI.Close)
 
-	a, h := internalApp(t, Config{DataDir: t.TempDir(), PublicHost: "apptown.localhost:" + port,
+	publicHost := "apptown.localhost:" + port
+	if hold != "" {
+		publicHost = "http://" + publicHost
+	}
+	a, h := internalApp(t, Config{DataDir: t.TempDir(), PublicHost: publicHost,
 		SSHConfigPath: filepath.Join(t.TempDir(), "ssh-config"),
 		TierDomains:   []string{"preview=preview.localhost", "main=apps.example.test"}, DockerClient: daemon,
 		DigitalOcean: digitalocean.Options{APIBase: cloudAPI.URL},
@@ -2885,6 +3612,14 @@ spec:
 		}
 		proxy.ServeHTTP(w, r)
 	})
+	if hold != "" {
+		server.Start()
+		t.Logf("design scene open at http://%s (sam / %s); interrupt to stop", a.cfg.publicHost, password)
+		stop := make(chan os.Signal, 1)
+		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+		<-stop
+		return
+	}
 	server.StartTLS()
 	module := os.Getenv("APPTOWN_PLAYWRIGHT_MODULE")
 	if module == "" {

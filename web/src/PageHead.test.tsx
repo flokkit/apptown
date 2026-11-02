@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
-import { PAGE_HELP, PageHead } from './PageHead'
+import { PAGE_HELP, PageHead, SUB_HELP } from './PageHead'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -37,7 +37,7 @@ describe('page help', () => {
     expect(q(el).getAttribute('aria-expanded')).toBe('true')
     expect(q(el).getAttribute('aria-controls')).toBe(pop(el)?.id)
     expect(pop(el)?.textContent).toContain(PAGE_HELP.deployments.line)
-    expect(pop(el)?.textContent).toContain('Every change that lands updates it.')
+    expect(pop(el)?.textContent).toContain('which every change that lands updates')
     expect(pop(el)?.querySelector('a')?.getAttribute('href')).toBe('/docs/guides/container-lifecycle')
   })
 
@@ -74,9 +74,33 @@ describe('page help', () => {
 describe('every page help entry', () => {
   const guides = new Set((readdirSync('../stock/docs/guides') as string[]).filter((f) => f.endsWith('.md')).map((f) => f.replace(/\.md$/, '')))
   for (const [page, h] of Object.entries(PAGE_HELP)) {
-    it(`${page} links a shipped guide and has a one-sentence line`, () => {
+    it(`${page} links a shipped guide and has at most a one-sentence line`, () => {
       expect(guides).toContain(h.guide)
-      expect(h.line.match(/[.!?](\s|$)/g) ?? []).toHaveLength(1)
+      const line: string | undefined = 'line' in h ? h.line : undefined
+      if (line !== undefined) expect(line.match(/[.!?](\s|$)/g) ?? []).toHaveLength(1)
     })
   }
+})
+
+// A page inside an area says what it is for, not the area's help, and its
+// "Read more" opens a shipped guide.
+describe('every area page help entry', () => {
+  const guides = new Set((readdirSync('../stock/docs/guides') as string[]).filter((f) => f.endsWith('.md')).map((f) => f.replace(/\.md$/, '')))
+  for (const [area, pages] of Object.entries(SUB_HELP)) {
+    for (const [title, h] of Object.entries(pages ?? {})) {
+      it(`${area} › ${title} links a shipped guide`, () => { expect(guides).toContain(h.guide) })
+    }
+  }
+})
+
+it("shows a page's own help inside its area, not the area's", () => {
+  const el = document.createElement('div'); document.body.append(el)
+  const root = createRoot(el)
+  act(() => root.render(<MemoryRouter><PageHead page="deployments" sub="Backups" /></MemoryRouter>))
+  act(() => el.querySelector<HTMLButtonElement>('.page-help-q')!.click())
+  const text = el.querySelector('.page-help-pop')!.textContent
+  expect(text).toContain("latest backups")
+  expect(text).not.toContain(PAGE_HELP.deployments.line)
+  expect(el.querySelector('.page-help-pop a')?.getAttribute('href')).toBe('/docs/guides/deployment-backups')
+  act(() => root.unmount()); el.remove()
 })

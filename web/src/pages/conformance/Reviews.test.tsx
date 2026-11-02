@@ -25,5 +25,15 @@ it('distinguishes a clean assessment from incomplete checks, evaluator errors an
   expect(html).toContain('in progress')
   expect(html).toContain('1 of 3 apps checked')
   expect(html).toContain('finished')
-  expect(html).toContain('<summary>Details</summary>Started by Alice')
+  expect(html).toContain('Started by Alice')
+  expect(html).not.toContain('<summary>Details</summary>Started by')
  })
+
+// A finished review whose checks could not all run is incomplete (amber), never a green finish.
+it('marks a finished review with checks that could not run as incomplete', () => {
+  const record = { projects: 2, projectsTotal: 2, projectsDone: 2, startedAt: '2026-10-31T01:00:00Z', findings: 0, judged: 1, total: 2, flagged: 0, actor: 'Alice', status: 'done', statusLabel: 'finished' }
+  reviews.splice(0, reviews.length, { ...record, id: 'partial', errors: 1 })
+  const html = renderToStaticMarkup(<MemoryRouter><ReviewsList /></MemoryRouter>)
+  expect(html).toMatch(/chip pending[^>]*>[\s\S]*?incomplete/)
+  expect(html).not.toContain('chip pass')
+})

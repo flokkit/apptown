@@ -173,7 +173,7 @@ func appRoutes(a *App) []routeSpec {
 		modelSlots = httpapi.NewModelSlots(a.Models, a.Projects, a.Ways, a.Access, a.DB, a.cfg.clock.Now)
 		releaseHistory = httpapi.NewReleaseHistory(a.Projects, a.Work, a.Deployment, a.DB)
 		projectSettings = httpapi.NewProjectSettings(a.Projects, a.Access, a.lifecycle)
-		projectViews = httpapi.NewProjectViews(a.Projects, a.Work, a.ADRs, a.Deployment, a.processRunner, a.branches, a.cfg.dataDir)
+		projectViews = httpapi.NewProjectViews(a.Projects, a.Work, a.ADRs, a.Deployment, a.processRunner, a.branches, a.cfg.dataDir, a.consoleAdmission, a.Access)
 		projectDeletion = httpapi.NewProjectDeletion(a.Projects, a.Access, a.deletion)
 		changePreviews = httpapi.NewChangePreviews(a.Preview, a.DB, a.cfg.clock.Now)
 		consolePreview = httpapi.NewConsolePreview(a.Console, a.Preview, a.DB, a.cfg.publicHost, a.cfg.clock.Now)

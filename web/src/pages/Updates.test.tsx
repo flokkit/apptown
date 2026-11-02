@@ -31,12 +31,16 @@ describe('authenticated update notifications', () => {
     await settled(client)
     return { el, client, calls, close: async () => { await act(async () => root.unmount()); client.clear() } }
   }
-  it('explains how a development build is updated and keeps the manual check reachable', async () => {
+  // A development build is updated by deploying it, so there is no release
+  // check to run.
+  it('explains how a development build is updated and offers no release check', async () => {
     const view = await mount(true, 'no-release', false, 'dev-abcdef')
     try {
       expect(view.el.textContent).toContain('This AppTown runs a development build. Updates come by deployment.')
       expect(view.el.textContent).not.toContain('No releases in this channel')
-      expect(view.el.querySelector('button')?.textContent).toBe('Check for updates')
+      expect([...view.el.querySelectorAll('button')].some(b => b.textContent === 'Check for updates')).toBe(false)
+      expect(view.el.textContent).not.toContain('Last checked')
+      expect(view.el.textContent).not.toContain('Channel')
       expect(view.el.textContent).toContain('v1.2.0')
     } finally { await view.close() }
   })
@@ -71,7 +75,8 @@ describe('authenticated update notifications', () => {
     const view = await mount(true, 'stale')
     try {
       expect(view.el.querySelector('a[href="/updates"]')).toBeNull()
-      expect(view.el.querySelector('.chip.unknown')?.getAttribute('title')).toContain('Release information expired')
+      expect(view.el.querySelector('.chip.unknown')).not.toBeNull()
+      expect(view.el.textContent).toContain('Release information expired')
       expect(view.el.textContent).toContain('v1.2.0')
       expect(view.el.textContent).not.toContain('How to update')
       expect(view.calls.every(c => c.method === 'GET')).toBe(true)
@@ -92,7 +97,8 @@ describe('authenticated update notifications', () => {
     try {
       await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ReleaseAvailabilityNote /><UpdatesPage /></MemoryRouter></QueryClientProvider>))
       await advance(1); await advance(1)
-      expect(el.querySelector('.chip.pending')?.getAttribute('title')).toContain('Checking release signatures')
+      expect(el.querySelector('.chip.pending')).not.toBeNull()
+      expect(el.textContent).toContain('Checking release signatures')
       expect(el.querySelector<HTMLButtonElement>('button')!.disabled).toBe(true)
       phase = 'available'
       await advance(5_000); await advance(1)

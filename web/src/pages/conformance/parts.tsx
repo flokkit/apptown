@@ -46,7 +46,7 @@ export const LANE_COLOR: Record<string, string> = {
 }
 export const LANE_LABEL: Record<string, string> = {
   conforms: 'conform', excepted: 'excepted', flagged: 'flagged by AI review', findings: 'findings',
-  unassessed: 'not yet judged', broken: "couldn't run", na: 'not applicable',
+  unassessed: 'not judged yet', broken: "couldn't run", na: 'not applicable',
 }
 
 export const ITEM: Record<string, { label: string }> = {
@@ -74,7 +74,7 @@ export function BrokenNote({ broken }: { broken: number }) {
 }
 export function StateChip({ label, help, finding = false, findings = 1 }: { label: import('../../wire.gen').CheckLabel; help?: string; finding?: boolean; findings?: number }) {
   if (finding) return <span className="finding-count" title={help}>{findings} {findings === 1 ? 'finding' : 'findings'}</span>
-  return <Status word={label} help={help || (label === 'unknown' ? 'This check has no current result. Open the project for details.' : undefined)} />
+  return <Status word={label} help={help} />
 }
 
 export function SevDot({ sev }: { sev: string }) {

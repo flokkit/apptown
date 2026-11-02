@@ -1,12 +1,12 @@
 import { Status } from '../../Status'
 import { PRODUCT } from '../../brand'
-import { Link } from 'react-router-dom'
+import { Section } from '../../Section'
 import type { Artifact, RunDetail, Step } from '../../api'
 import { renderMd } from '../../md'
 import { useGet } from '../../data'
 
 // The disagreement, shown so a person can see what the problem is and
-// adjudicate it: every failed machine verdict in the
+// adjudicate it: every failed check's verdict in the
 // current stage, in full, beside the implementer's claim. The symmetry is
 // deliberate: a person is judging a dispute between two parties, not
 // reading an error log. The same reading as `apptown show` (cmd/apptown
@@ -29,14 +29,16 @@ export function disputeOf(d: RunDetail): Verdict[] {
   return d.steps
     .filter((s) => s.stage === d.run.currentStage && s.type !== 'approval' && (s.status === 'fail' || s.status === 'error') && !s.overrideBy)
     .map((s) => {
-      const ev = s.evidence as { summary?: string; reason?: string; findings?: unknown; logTail?: string; reviewerSummary?: string }
+      const ev = s.evidence as { summary?: string; reason?: string; findings?: unknown; logTail?: string; log?: string; reviewerSummary?: string }
       const [text, repeatText] = once(s.name, ev.summary || ev.reason)
-      const [log, repeatLog] = once(s.name, ev.logTail)
+      // A script check records its whole output as log; a long-running step
+      // keeps only its tail.
+      const [log, repeatLog] = once(s.name, ev.logTail || ev.log)
       // A review the model passed and AppTown's file check failed is the
       // AppTown's failure; the reviewer's pass is shown apart.
       const reviewerPassed = ev.reviewerSummary || undefined
       return {
-        step: s, who: reviewerPassed ? `${PRODUCT}'s file check` : WHO[s.type] ?? 'machine check', text, log, reviewerPassed,
+        step: s, who: reviewerPassed ? `${PRODUCT}'s file check` : WHO[s.type] ?? '', text, log, reviewerPassed,
         findings: Array.isArray(ev.findings) ? ev.findings.map(String) : [],
         repeatOf: repeatText ?? repeatLog,
       }
@@ -59,21 +61,17 @@ export function claimOf(d: RunDetail): Artifact | undefined {
   return [...d.artifacts].reverse().find((a) => audited.has(a.kind))
 }
 
-export function Disagreement({ detail, codeTab }: { detail: RunDetail; codeTab: string }) {
+export function Disagreement({ detail }: { detail: RunDetail }) {
   const verdicts = disputeOf(detail)
   if (verdicts.length === 0) return null
   const claim = claimOf(detail)
   return (
-    <section className="ch-dispute" aria-label="What failed">
-      <div className="ch-section-head">
-        <h2>What failed</h2>
-      </div>
+    <Section title="What failed">
       <div className={claim ? 'ch-dispute-grid' : undefined}>
         <div className="ch-dispute-side">
-          <div className="ch-label">What the checks found</div>
           {verdicts.map((v) => (
             <div key={v.step.id} className="ch-verdict">
-              <div className="row"><Status word="failed" help="Fix what this check found, then run the check again." /><strong>{v.step.name}</strong><span className="muted">{v.who}</span></div>
+              <div className="row"><Status word="failed" /><strong>{v.step.name}</strong>{v.who && <span className="muted">{v.who}</span>}</div>
               {v.text && <pre className="ch-verdict-text">{v.text}</pre>}
               {v.reviewerPassed && <div className="muted small">The reviewer itself passed it: “{v.reviewerPassed}”</div>}
               {v.findings.length > 0 && <ol className="ch-findings">{v.findings.map((f, i) => <li key={i}>{f}</li>)}</ol>}
@@ -84,8 +82,7 @@ export function Disagreement({ detail, codeTab }: { detail: RunDetail; codeTab: 
         </div>
         {claim && <Claim artifact={claim} />}
       </div>
-      <div className="muted small" style={{ marginTop: 8 }}>The code itself: <Link to={codeTab}>the Code tab</Link>.</div>
-    </section>
+    </Section>
   )
 }
 
@@ -95,7 +92,7 @@ function Claim({ artifact }: { artifact: Artifact }) {
   const body = full.data?.body ?? artifact.body
   return (
     <div className="ch-dispute-side">
-      <div className="ch-label">What the agent says ({artifact.kind})</div>
+      <div className="ch-claim-label">What the agent says ({artifact.kind})</div>
       {full.err && <div className="error small">Showing the first part only; the rest could not be read: {full.err}</div>}
       {body ? <div className="md ch-claim" dangerouslySetInnerHTML={{ __html: renderMd(body) }} /> : <div className="muted small">The report is empty.</div>}
     </div>

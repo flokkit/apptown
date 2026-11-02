@@ -14,7 +14,7 @@ every workflow.
 Reference slots, not models: `with: { model: review }`. Slot names route
 via the instance mapping for the project's profile; a slash value
 (`gpu1/Qwen3.6`) is a concrete-pattern escape hatch you should rarely
-need. Profiles have four basic choices: `default` (Primary · strong),
+need. Profiles have four basic choices: `default` (Main · strong),
 `primary-fast`, `secondary-strong` and `secondary-fast`. Individual tasks
 are the advanced level. The task slots are plan, implement, review,
 security, fast, chat, worker and scout. An unset task follows its fallback:

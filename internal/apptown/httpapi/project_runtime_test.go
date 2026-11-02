@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/flokkit/apptown/internal/ids"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -25,7 +27,7 @@ func TestSourcePackagedSignals(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := access.WithCaller(t.Context(), access.Caller{Verified: true, Principal: testAdmittedPrincipal(t, authority, "reader"), Receipt: "reader"})
-	h := NewProjectViews(project.New(db, authority), nil, nil, nil, execution.Runner{}, scm.NewBranches(db, &scm.RepositoryLocks{}), dataDir)
+	h := NewProjectViews(project.New(db, authority), nil, nil, nil, execution.Runner{}, scm.NewBranches(db, &scm.RepositoryLocks{}), dataDir, noChangeChat{}, authority)
 
 	sourceID := httpTestProject(t, db, "src", "S")
 	repo := filepath.Join(dataDir, "workspaces", "project-"+sourceID.String())
@@ -76,3 +78,7 @@ func TestSourcePackagedSignals(t *testing.T) {
 		t.Fatal("static with Dockerfile must be ready")
 	}
 }
+
+type noChangeChat struct{}
+
+func (noChangeChat) ChangeChatAvailable(context.Context, ids.ID) (bool, error) { return false, nil }

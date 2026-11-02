@@ -23,14 +23,21 @@ type Disks struct {
 	Worker interface {
 		Disks(context.Context) ([]diskspace.Reading, error)
 	}
-	Now func() time.Time
+	// Space reads the data folder's filesystem; nil reads it
+	// (diskspace.Statfs). A test scene supplies its own reading.
+	Space func(path string) (diskspace.Space, error)
+	Now   func() time.Time
 }
 
 // read collects the controller and worker filesystems under the background job.
 // Worker failure stays typed so the observer can retain earlier evidence.
 func (d Disks) read(ctx context.Context) (diskspace.Reading, []diskspace.Reading, error) {
 	now := clock.Or(d.Now)
-	space, err := diskspace.Statfs(d.DataDir)
+	statfs := d.Space
+	if statfs == nil {
+		statfs = diskspace.Statfs
+	}
+	space, err := statfs(d.DataDir)
 	own := diskspace.NewReading("this AppTown's data folder", d.DataDir, space, err, now())
 	// Controller admission is not protected by this advisory observation.
 	own.Refuses, own.FloorBytes = false, 0

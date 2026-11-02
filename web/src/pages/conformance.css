@@ -1,0 +1,10 @@
+/* Conformance: a check row is a button that opens its results; it reads as
+   the row it is, not as a button. */
+.check-row .check-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-3); text-align: left; border: 0; background: transparent; padding: 0; min-height: 0; color: inherit; font: inherit; }
+.check-results { padding: 4px 0 8px; border-bottom: 1px solid var(--border); }
+/* On a phone the tab strip starts at its first tab and scrolls under an
+   edge fade; each tab keeps its words on one line. */
+@media (max-width: 800px) {
+  .conformance-tabs { scroll-snap-type: x proximity; }
+  .conformance-tabs > * { white-space: nowrap; }
+}

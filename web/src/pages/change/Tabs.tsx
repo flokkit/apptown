@@ -1,4 +1,4 @@
-import { GlanceRow } from '../../GlanceRow'
+import { Section } from '../../Section'
 import { Status } from '../../Status'
 import { PRODUCT } from '../../brand'
 import { FormEvent, useEffect, useState } from 'react'
@@ -8,12 +8,13 @@ import { TryIt } from '../../TryIt'
 import { Adr, Artifact, ChangeView, RunDetail, Step, isStep, patch, post } from '../../api'
 import { sameCommitWords } from '../../Screenshots'
 import { landingMeansFor } from '../../DecisionForm'
+import { checkTypes } from './Evidence'
 import { useAction, useGet } from '../../data'
 import { fmtStamp } from '../../format'
 import { checkedWords } from '../../runtime'
 import type { RunTrace } from '../../wire.gen'
 import { StepCard } from './Steps'
-import { eventSentence, eventTitle } from './events'
+import { eventSentence, eventTitle, routineEvent } from './events'
 
 // The tabs under a change's evidence: everything a person reads to dig in,
 // none of it needed to know what the change is doing or what to do next.
@@ -53,7 +54,7 @@ export function WorkTab({ view, reload, runId, focusStep, deciding, runHref }: {
   return (
     <div>
       {runs.length > 1 && (
-        <div className="row ch-runpick" role="navigation" aria-label="runs of this change">
+        <div className="row ch-runpick" role="navigation" aria-label="runs of this change" style={{ marginTop: 24 }}>
           <span className="muted small">Runs:</span>
           {runs.slice(0, runCount).map((r) => (
             <Link key={r.id} to={runHref(r.id!)} className={'ch-runchip' + (r.id === (detail?.run.id ?? view.detail?.run.id) ? ' on' : '')}>
@@ -65,7 +66,7 @@ export function WorkTab({ view, reload, runId, focusStep, deciding, runHref }: {
       )}
       {err && <div className="error">The run could not be read: {err}</div>}
       {!detail && !err && (view.detail ? <div className="muted">Reading the run…</div> : <div className="muted">No run has started on this change yet.</div>)}
-      {detail && <details open={!!focusStep || !!runId}><summary>Step details</summary><RunWork view={view} detail={detail} reload={reload} focusStep={focusStep} deciding={detail.run.id === view.detail?.run.id ? deciding : undefined} /></details>}
+      {detail && <RunWork view={view} detail={detail} reload={reload} focusStep={focusStep} deciding={detail.run.id === view.detail?.run.id ? deciding : undefined} />}
     </div>
   )
 }
@@ -75,59 +76,70 @@ function RunWork({ view, detail, reload, focusStep, deciding }: { view: ChangeVi
   const currentIdx = detail.stages.indexOf(run.currentStage)
   const running = run.status === 'running'
   const currentSteps = detail.steps.filter((s) => s.stage === run.currentStage)
+  // A check in this stage that failed and was not accepted anyway holds the approval.
+  const failedCheck = currentSteps.find((s) => checkTypes.has(s.type) && (s.status === 'fail' || s.status === 'error') && !s.overrideBy)?.name
   const earlierSteps = detail.steps.filter((s) => s.stage !== run.currentStage)
   const hasAdrCheck = currentSteps.some((s) => s.type === 'adr/require')
   const isLatest = run.id === view.detail?.run.id
+  const stageNote = `${run.workflowName} · version ${run.workflowVersion} · run ${run.number} · started ${fmtStamp(run.createdAt)}`
+  const stages = detail.stages.length > 1 && (
+    <div className="stagebar" aria-label="stages">
+      {detail.stages.map((s, i) => (
+        <span key={s} className={'stage' + (i === currentIdx && running ? ' current' : i < currentIdx || run.status === 'done' ? ' past' : '')}>{s}</span>
+      ))}
+      <span className={'stage' + (run.status === 'done' ? ' past' : '')}>done</span>
+    </div>
+  )
   return (
-    <div>
-      <div className="row">
-<h3 style={{ margin: 0 }}>{running ? 'Current work' : 'Finished work'}</h3>
-        <Status word={running && isLatest ? view.statusLabel : run.statusLabel} />
-        <details><summary>Run details</summary>{run.workflowName} · version {run.workflowVersion} · run {run.number} · started {fmtStamp(run.createdAt)}</details>
-      </div>
-      <details><summary>Stages</summary><div className="stagebar">
-        {detail.stages.map((s, i) => (
-          <span key={s} className={'stage' + (i === currentIdx && running ? ' current' : i < currentIdx || run.status === 'done' ? ' past' : '')}>{s}</span>
-        ))}
-        <span className={'stage' + (run.status === 'done' ? ' past' : '')}>done</span>
-      </div></details>
-
-      {running ? (
-        <>
-          <h3>Steps</h3>
-          {currentSteps.map((s) => <StepCard key={s.id} step={s} head={view.head} onChange={reload} expanded={focusStep === s.id} awaitingDecision={isLatest && view.approval?.viewer === 'yes' && view.approval.stepId === s.id} hideApproveForm={s.id === deciding} landingMeans={landingMeansFor(detail, s)} />)}
-          {earlierSteps.length > 0 && (
-            <details open={earlierSteps.some((s) => s.id === focusStep)}>
-              <summary>Earlier stages ({earlierSteps.length} steps)</summary>
-              {earlierSteps.map((s) => <StepCard key={s.id} step={s} head={view.head} onChange={reload} expanded={focusStep === s.id} />)}
-            </details>
-          )}
-        </>
-      ) : detail.steps.map((s) => <StepCard key={s.id} step={s} head={view.head} onChange={reload} expanded={focusStep === s.id} />)}
+    <>
+      <Section title={running ? 'Current work' : 'Finished work'} count={detail.steps.length} note={<>{stageNote}{stages}</>}
+        action={<Status word={running && isLatest ? view.statusLabel : run.statusLabel} />}>
+        {running ? (
+          <>
+            {currentSteps.map((s) => <StepCard key={s.id} step={s} head={view.head} onChange={reload} expanded={focusStep === s.id} awaitingDecision={isLatest && view.approval?.viewer === 'yes' && view.approval.stepId === s.id} hideApproveForm={s.id === deciding} landingMeans={landingMeansFor(detail, s)} failedCheck={failedCheck} />)}
+            {earlierSteps.length > 0 && (
+              <details open={earlierSteps.some((s) => s.id === focusStep)} style={{ padding: '10px 0' }}>
+                <summary>Earlier stages ({earlierSteps.length} steps)</summary>
+                {earlierSteps.map((s) => <StepCard key={s.id} step={s} head={view.head} onChange={reload} expanded={focusStep === s.id} />)}
+              </details>
+            )}
+          </>
+        ) : detail.steps.map((s) => <StepCard key={s.id} step={s} head={view.head} onChange={reload} expanded={focusStep === s.id} />)}
+      </Section>
 
       {isLatest && (hasAdrCheck || view.adrs.length > 0) && (
-        <details open={hasAdrCheck}>
-          <summary>Linked decisions ({view.adrs.length})</summary>
+        <Section title="Linked decisions" count={view.adrs.length}>
           <AdrLinks view={view} onChange={reload} />
-        </details>
+        </Section>
       )}
 
-      <details>
-        <summary>Artifacts ({detail.artifacts.length})</summary>
-        {detail.artifacts.map((a) => (
-          <div className="card" key={a.id}>
-            <div className="row">
-              <span className="badge">{a.kind === 'agent-reported' ? `reported by the agent (not checked by ${PRODUCT})` : a.kind}</span>
-              <strong>{a.name || '(unnamed)'}</strong>
-              {a.ref && <a href={a.ref} target="_blank" rel="noreferrer">{a.ref}</a>}
-              {a.body && <span className="muted small">{a.body.length.toLocaleString()} chars</span>}
-            </div>
-            {a.body && <ArtifactBody artifact={a} />}
+      <Artifacts detail={detail} reload={reload} />
+    </>
+  )
+}
+
+// The run's records: one row each, a long body folded until asked for, and
+// attaching another record one quiet action away.
+function Artifacts({ detail, reload }: { detail: RunDetail; reload: () => void }) {
+  const [adding, setAdding] = useState(false)
+  const action = <button className="link" aria-expanded={adding} onClick={() => setAdding(!adding)}>{adding ? 'Cancel' : 'Attach a record'}</button>
+  // A finished run with no records has no records section; a running one
+  // keeps the door to attach one.
+  if (detail.artifacts.length === 0 && !adding) return detail.run.status === 'running' ? <Section title="Records" action={action}><p className="muted">No records attached to this run.</p></Section> : null
+  return (
+    <Section title="Records" count={detail.artifacts.length || undefined} action={action}>
+      {adding && <AddArtifact runId={detail.run.id!} onChange={() => { setAdding(false); reload() }} />}
+      {detail.artifacts.map((a) => (
+        <div className="card" key={a.id}>
+          <div className="row" style={{ flexWrap: 'wrap' }}>
+            <strong>{a.name || '(unnamed)'}</strong>
+            <span className="muted small">{a.kind === 'agent-reported' ? `reported by the agent (not checked by ${PRODUCT})` : a.kind}</span>
+            {a.ref && <a href={a.ref} target="_blank" rel="noreferrer" style={{ overflowWrap: 'anywhere' }}>{a.ref}</a>}
           </div>
-        ))}
-        <AddArtifact runId={run.id!} onChange={reload} />
-      </details>
-    </div>
+          {a.body && <ArtifactBody artifact={a} />}
+        </div>
+      ))}
+    </Section>
   )
 }
 
@@ -142,7 +154,7 @@ function ArtifactBody({ artifact }: { artifact: Artifact }) {
   const isJson = body.trimStart().startsWith('{') || body.trimStart().startsWith('[')
   return (
     <details onToggle={(e) => { if ((e.target as HTMLDetailsElement).open) setOpened(true) }}>
-      <summary>view{truncated ? ` (${((artifact.bodyBytes ?? 0) / 1024).toFixed(0)}KB, loads on open)` : ''}</summary>
+      <summary className="small">Show the record ({truncated ? `${((artifact.bodyBytes ?? 0) / 1024).toFixed(0)} KB, loads on open` : `${artifact.body.length.toLocaleString()} characters`})</summary>
       {fullQ.err && <div className="error small">Showing the first part only; the rest could not be read: {fullQ.err}</div>}
       {truncated && full === null
         ? <div className="muted small">Reading the full body…</div>
@@ -169,7 +181,7 @@ function AdrLinks({ view, onChange }: { view: ChangeView; onChange: () => void }
     <div>
       {view.adrs.map((a) => (
         <div className="card row" key={a.id}>
-          <Status word={a.statusLabel} help={`Decision: ${a.status}.`} />
+          <Status word={a.statusLabel} />
           <Link to={`/adrs/${a.id}`}>ADR-{String(a.number).padStart(3, '0')} {a.title}</Link>
           <span className="muted small">{a.tags}</span>
         </div>
@@ -200,10 +212,10 @@ function AddArtifact({ runId, onChange }: { runId: string; onChange: () => void 
     if (await run(() => post(`/runs/${runId}/artifacts`, { kind, name, ref })) !== undefined) { setKind(''); setName(''); setRef('') }
   }
   return (
-    <form onSubmit={add} className="row" style={{ marginTop: 6 }}>
-      <input placeholder="kind (e.g. notes)" value={kind} onChange={(e) => setKind(e.target.value)} required />
-      <input placeholder="name" value={name} onChange={(e) => setName(e.target.value)} />
-      <input placeholder="url / ref (optional)" value={ref} onChange={(e) => setRef(e.target.value)} style={{ width: 220 }} />
+ <form onSubmit={add} className="row" style={{ padding: '12px 0', flexWrap: 'wrap' }}>
+      <input placeholder="Kind (for example notes)" value={kind} onChange={(e) => setKind(e.target.value)} required />
+      <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+      <input placeholder="Link (optional)" value={ref} onChange={(e) => setRef(e.target.value)} style={{ width: 220, maxWidth: '100%' }} />
       <button type="submit">Attach</button>
       {err && <span className="error">{err}</span>}
     </form>
@@ -226,104 +238,101 @@ export function ReleasesTab({ view }: { view: ChangeView }) {
   const releaseLinks = of('release')
   const releases = view.evidence?.releases ?? []
   return (
-    <div className="ch-tab-stack">
-      <section>
-        <h3>Preview</h3>
-        <div className="row">
-          <TryIt changeId={ch.id!} label={ch.state === 'shipped' ? '▶ View as of this change' : undefined} className="" />
-          <span className="muted small">A preview boots this change's files on demand, apart from any deployment.</span>
-        </div>
+    <>
+      <Section title="Preview">
+        <div className="card row" style={{ display: 'flex' }}><TryIt changeId={ch.id!} label={ch.state === 'shipped' ? 'View as of this change' : undefined} className="" /></div>
         {previews.map((p) => {
           const commit = boot?.evidence.url === p.ref ? boot?.evidence.commit : undefined
           return (
-            <div key={p.id} className="small" style={{ marginTop: 6 }}>This run's preview: <a href={p.ref} target="_blank" rel="noreferrer">{p.ref}</a>
-              {commit && <span className="muted"> · built from commit <code>{commit.slice(0, 7)}</code> ({sameCommitWords(commit, view.head).text})</span>}
+            <div key={p.id} className="card">This run's preview: <a href={p.ref} target="_blank" rel="noreferrer" style={{ overflowWrap: 'anywhere' }}>{p.ref}</a>
+              {commit && <span className="muted small"> · built from commit <code>{commit.slice(0, 7)}</code> ({sameCommitWords(commit, view.head).text})</span>}
             </div>
           )
         })}
-      </section>
+      </Section>
       {mrs.length > 0 && (
-        <section>
-          <h3>Merge requests</h3>
-          {mrs.map((m) => <div key={m.id}><a href={m.ref} target="_blank" rel="noreferrer">{m.name || m.ref} ↗</a></div>)}
-        </section>
+        <Section title="Merge requests" count={mrs.length}>
+          {mrs.map((m) => <div key={m.id} className="card"><a href={m.ref} target="_blank" rel="noreferrer">{m.name || m.ref} ↗</a></div>)}
+        </Section>
       )}
-      <section>
-        <h3>Releases</h3>
-        {releases.length === 0 && releaseLinks.length === 0 && <div className="muted">No release is recorded for this change.</div>}
+      <Section title="Releases" count={releases.length + releaseLinks.length || undefined}>
+        {releases.length === 0 && releaseLinks.length === 0 && <p className="muted">No release is recorded for this change.</p>}
         {releases.map((r) => (
-          <div key={r.number} className="row" style={{ marginBottom: 4 }}>
-            <Link to={`/projects/${view.projectSlug}/releases/${r.number}`}>Release #{r.number}</Link>
-            <span className="muted small">to {r.deployment} · {r.statusLabel}</span>
-            {r.serving && <Status word="running" />}
+          <Link key={r.number} className="card row" style={{ display: 'flex', flexWrap: 'wrap' }} to={`/projects/${view.projectSlug}/releases/${r.number}`}>
+            <span className="row-status"><Status word={r.statusLabel} /></span>
+            <span style={{ flex: 1, minWidth: 0 }}>Release #{r.number} <span className="muted small">to {r.deployment}</span></span>
+            {r.serving && <Status word="running" observation />}
             {!r.serving && r.observed && <span className="muted small" title={r.reason}>
               {r.observed === 'stopped' ? 'stopped' : r.observed === 'missing' ? 'its container is missing' : `running: ${r.observed}`}
             </span>}
             {r.observed && <span className="muted small">{checkedWords(r)}</span>}
-          </div>
+          </Link>
         ))}
         {releaseLinks.map((a) => (
-          <div key={a.id} className="small"><a href={a.ref} target="_blank" rel="noreferrer">Open the recorded release ({a.name}) ↗</a></div>
+          <div key={a.id} className="card"><a href={a.ref} target="_blank" rel="noreferrer">Open the recorded release ({a.name}) ↗</a></div>
         ))}
-      </section>
-    </div>
+      </Section>
+    </>
   )
 }
 
 // ---- History ---------------------------------------------------------------
 
 // Every root run this change had, and the latest run's event log: the
-// order things happened in, as recorded.
+// order things happened in, as recorded. Routine plumbing (connections
+// checked, steps starting and finishing, kinds without a plain name) is
+// kept apart, folded at the end with its exact record.
 export function HistoryTab({ view, runHref }: { view: ChangeView; runHref: (runId: string) => string }) {
   const [count, setCount] = useState(10)
+  const [eventCount, setEventCount] = useState(20)
   const runs = view.runs ?? []
-  const events = view.detail?.events ?? []
-  const groups: typeof events[] = []
-  for (const event of [...events].reverse()) {
-    const prior = groups.at(-1)
-    if (prior && eventTitle(prior[0].kind) === eventTitle(event.kind)) prior.push(event)
-    else groups.push([event])
-  }
+  const events = [...(view.detail?.events ?? [])].reverse()
+  const shown = events.filter((e) => !routineEvent(e.kind))
+  const routine = events.filter((e) => routineEvent(e.kind))
+  // A run still going on the latest attempt is in whatever state the change
+  // is in (failed, waiting for you), not merely "in progress".
+  const result = (r: typeof runs[number]) => r.status === 'running' && r.id === view.detail?.run.id ? view.statusLabel : r.statusLabel
   return (
-    <div className="ch-tab-stack">
-      <section>
-        <h3>Work history ({runs.length})</h3>
-        {runs.length === 0 ? <div className="muted">No run has started on this change.</div> : (
-          <table className="stack">
-            <thead><tr><th>Run</th><th>Workflow</th><th>Role</th><th>Result</th><th>Updated</th></tr></thead>
-            <tbody>
-              {runs.slice(0, count).map((r) => (
-                <GlanceRow name={0} state={3} fact={4} labels={["Work", "Workflow", "Role", "Result", "Updated"]} key={r.id}>
-                  <td><Link className="tap-open" to={runHref(r.id!)} title={`started ${fmtStamp(r.createdAt)}`}>{r.role === 'landing' ? 'Landing' : 'Work'} · {fmtStamp(r.createdAt)}</Link></td>
-<td><details><summary>Workflow details</summary>{r.workflowName}</details></td>
-                  <td className="muted">{r.role ?? ''}</td>
-                  <td><Status word={r.statusLabel} /></td>
-                  <td className="muted small">{fmtStamp(r.updatedAt)}</td>
-                </GlanceRow>
-              ))}
-            </tbody>
-          </table>
+    <>
+      <Section title="Runs" count={runs.length}>
+        {runs.length === 0 && <p className="muted">No run has started on this change.</p>}
+        {runs.slice(0, count).map((r) => (
+          <Link key={r.id} to={runHref(r.id!)} className="card row" style={{ display: 'flex' }} title={`started ${fmtStamp(r.createdAt)}`}>
+            <span className="row-status"><Status word={result(r)} /></span>
+            <span style={{ flex: 1, minWidth: 0 }}>{r.role === 'landing' ? 'Landing' : 'Work'} <span className="muted small">{r.workflowName} · run {r.number}</span></span>
+            <span className="muted small">{fmtStamp(r.updatedAt)}</span>
+          </Link>
+        ))}
+        {runs.length > count && <p><button className="link" onClick={() => setCount(n => n + 10)}>Show 10 more runs</button></p>}
+      </Section>
+      <Section title="Activity" count={shown.length}>
+        {shown.length === 0 && <p className="muted">No events recorded.</p>}
+        <div className="event-log">
+          {shown.slice(0, eventCount).map((e) => <EventRow key={e.id} e={e} />)}
+        </div>
+        {shown.length > eventCount && <p><button className="link" onClick={() => setEventCount(n => n + 20)}>Show 20 more</button></p>}
+        {routine.length > 0 && (
+          <details className="ch-routine" style={{ padding: '10px 0' }}>
+            <summary className="small">{routine.length} routine {routine.length === 1 ? 'event' : 'events'}</summary>
+            <div className="event-log">{routine.map((e) => <EventRow key={e.id} e={e} raw />)}</div>
+          </details>
         )}
-        {runs.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more runs</button>}
-      </section>
-      <section>
-        <h3>Activity ({events.length})</h3>
-        {events.length === 0 ? <div className="muted">No events recorded.</div> : (
-          <div className="event-log">
-            {groups.slice(0, count).map((group) => { const e = group[0]; return (
-              <details className="ch-receipt" key={e.id}>
-                <summary className="ch-line">
-                  <span className="ch-line-what">{eventTitle(e.kind)}{group.length > 1 && ` ×${group.length}`}</span>
-                  <span className="muted small">{fmtStamp(e.at)}</span>
-                  <span aria-hidden="true">›</span>
-                </summary>
-                <div className="ch-receipt-body small">{group.map(event => <div key={event.id}>{fmtStamp(event.at)}: {eventSentence(event) ?? <pre className="event-payload">{event.kind}{'\n'}{JSON.stringify(event.payload, null, 2)}</pre>}</div>)}</div>
-              </details>
-            )})}
-          </div>
-        )}
-        {groups.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more</button>}
-      </section>
+      </Section>
+    </>
+  )
+}
+
+type RunEvent = NonNullable<ChangeView['detail']>['events'][number]
+
+function EventRow({ e, raw }: { e: RunEvent; raw?: boolean }) {
+  const p = (e.payload ?? {}) as Record<string, unknown>
+  const named = typeof p.step === 'string' ? p.step : typeof p.name === 'string' ? p.name : ''
+  const said = eventSentence(e) ?? (raw ? `${e.kind} ${JSON.stringify(e.payload, null, 2)}` : named)
+  return (
+    <div className="ch-event">
+      <span>{eventTitle(e.kind)}</span>
+      <span className="ch-event-when">{fmtStamp(e.at)}</span>
+      {said && (raw ? <pre className="ch-event-detail event-payload">{said}</pre> : <span className="ch-event-detail">{said}</span>)}
     </div>
   )
 }

@@ -67,3 +67,17 @@ func ReserveProject(ctx context.Context, sessions *console.Service, db database.
 	}
 	return release, nil
 }
+
+// ChangeChatAvailable is a hint for showing a Chat button: a chat model is
+// chosen for the project and there is somewhere a chat can run (AppTown
+// itself, or a worker). It does not ask the worker anything, so it does not
+// say the worker is up or can reach the registries the chat's builds use:
+// a read must stay cheap and free of outbound traffic. Opening a chat checks
+// authority, placement and model selection again and reports what fails.
+func (c *Admission) ChangeChatAvailable(ctx context.Context, projectID ids.ID) (bool, error) {
+	chosen, _, _, err := c.models.Resolve(ctx, projectID, "chat")
+	if err != nil || chosen == "" {
+		return false, err
+	}
+	return c.workers != nil || !c.noLocal, nil
+}

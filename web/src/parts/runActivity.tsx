@@ -6,7 +6,6 @@ import { ChangeState, Doing, Release, RunStatus, post } from '../api'
 import { useAction } from '../data'
 import { fmtDuration, fmtWhen, relTime } from '../format'
 import type { NextAct, ProjectOverviewView } from '../wire.gen'
-import { CloseIt } from '../CloseIt'
 
 // Shared presentation pieces for run activity and change history, used by
 // the project's Overview tab and the front page.
@@ -34,16 +33,16 @@ export type OpenChange = { changeId: string | null; changeNumber: number; title:
 // The server's overview, with the run rows' state read as the Doing union.
 export type OverviewData = Omit<ProjectOverviewView, 'active'> & { active: RunRow[] }
 
-export function ActiveRunList({ runs, showProject }: { runs: RunRow[]; showProject?: boolean }) {
+export function ActiveRunList({ runs, showProject, names = {}, why = false }: { runs: RunRow[]; showProject?: boolean; names?: Record<string, string>; why?: boolean }) {
   if (runs.length === 0) return null
   return (
     <div>
       {runs.map((r) => {
         const body = (
           <>
-            <Status word={r.statusLabel} />
+            <span className="row-status"><Status word={r.statusLabel} reason={why ? waitingWhy(r.statusLabel) : undefined} /></span>
             <strong>{r.changeNumber ? <span className="muted" style={{ fontWeight: 400 }}>#{r.changeNumber} </span> : null}{r.title || `run ${r.runNumber}`}</strong>
-            <span className="muted small">{showProject ? `${r.project} · ` : ''}{relTime(r.startedAt)}</span>
+            <span className="muted small">{showProject ? `${names[r.project ?? ''] ?? r.project} · ` : ''}{relTime(r.startedAt)}</span>
           </>
         )
         // A run with no change (a scheduled uplift, a system run) has no
@@ -57,18 +56,21 @@ export function ActiveRunList({ runs, showProject }: { runs: RunRow[]; showProje
             </div>
           )
         }
-        const closable = (r.next ?? []).some((a) => a.act === 'abandon')
+        // A stuck change offers its next step, the same button every list
+        // row uses; closing it is a considered act on the change's own page.
+        // A failed change always has a next step, whether or not this list
+        // was sent the change's offered acts.
+        const stuck = r.statusLabel === 'failed' || r.statusLabel === 'waiting for you' || (r.next ?? []).some((a) => a.act === 'abandon')
         const link = (
-          <Link key={r.runId} to={`/changes/${r.changeId}`} className={closable ? 'row' : 'card row'} style={{ display: 'flex', flex: closable ? 1 : undefined }}>
+          <Link key={r.runId} to={`/changes/${r.changeId}`} className={stuck ? 'row' : 'card row'} style={{ display: 'flex', flex: stuck ? 1 : undefined }}>
             {body}
           </Link>
         )
-        if (!closable) return link
-        // The row stays a link; closing it is beside it, not inside it.
+        if (!stuck) return link
         return (
           <div key={r.runId} className="card row" style={{ display: 'flex' }}>
             {link}
-            <CloseIt changeId={r.changeId} />
+            <span className="row-action"><Link to={`/changes/${r.changeId}`} className="btn">{r.statusLabel === 'failed' ? 'Fix it' : r.statusLabel === 'waiting for you' ? 'Review' : 'Open'}</Link></span>
           </div>
         )
       })}
@@ -135,4 +137,9 @@ export function ChangeHistoryTable({ changes, showProject, releases, slug }: {
       </tbody>
     </table>
   )
+}
+
+// waitingWhy says, for a change waiting on a person, why it is waiting.
+export function waitingWhy(label: string): string | undefined {
+  return ({ failed: 'a check failed', 'waiting for you': 'ready for your approval', blocked: 'stopped, needs a decision' } as Record<string, string>)[label]
 }

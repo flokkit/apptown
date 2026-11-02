@@ -1,18 +1,18 @@
 import { useHostStates } from '../../hostState'
-import { GlanceRow } from '../../GlanceRow'
 import { Status } from '../../Status'
 import { changedTargetSettings, editTarget, NEEDS_MODES, type TargetSettings as SettingsCommand } from '../../targetCommands'
 import { DisplayLabelEdit } from '../../DisplayLabel'
 import { PRODUCT } from '../../brand'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { HttpError, post } from '../../api'
+import { HttpError, del, post } from '../../api'
 import { QuietConfirm } from '../../QuietConfirm'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { TargetView, capsWords, placeOf } from '../../targets'
 import { ResourceTables, type Resource, type TargetInfra } from '../Infrastructure'
 import { Capacity } from './Capacity'
+import { Section } from '../../Section'
 
 // resourceWord: one word per resource for the "made of" column — a stack,
 // a container, a data volume, an app, a database, its need's name when it has one.
@@ -22,7 +22,8 @@ const resourceWord = (r: Resource) => {
   return need ? `${noun} for ${need}` : noun
 }
 import { fmtStamp, lastSeen, readingAge } from '../../format'
-import type { InfrastructureTargets, RegistryReading, TargetPage } from '../../wire.gen'
+import type { InfrastructureTargets, RegistryReading, TargetList, TargetPage } from '../../wire.gen'
+import { OfferForm } from './Targets'
 import { shownActor } from '../../systemActors'
 
 // One deploy target (design/subsystems/deployment.md §2.2): what it is, what
@@ -55,10 +56,32 @@ const EVENT_WORDS: Record<string, string> = {
   'target.refreshed': 'refreshed from its configuration',
 }
 
+// What a target is and how it is reached, as its pages say it.
+function targetFacts(t: TargetView) {
+  const caps = t.capabilities
+  const facts: string[] = []
+  if (caps.needs?.length) facts.push(`provides ${caps.needs.join(', ')}`)
+  if (caps.rollout?.length) facts.push(caps.rollout.join(', '))
+  facts.push(caps.persistentVolumes ? 'has disks' : 'no disks · networked databases only')
+  if (caps.previews) facts.push('previews may bind here')
+  if (caps.ownLiveness) facts.push('restarts its own containers')
+  const addr = t.address as Record<string, string | number | undefined>
+  const concrete: string[] = []
+  if (addr.user && addr.hostname) concrete.push(`ssh ${addr.user}@${addr.hostname}${addr.port && addr.port !== 22 ? ':' + addr.port : ''}`)
+  if (addr.url) concrete.push(String(addr.url))
+  if (addr.urlFrom) concrete.push(`URL from secret ${addr.urlFrom}`)
+  if (addr.apiKeyFrom) concrete.push(`API key from secret ${addr.apiKeyFrom}`)
+  if (addr.environment) concrete.push(`Portainer environment ${addr.environment}`)
+  if (addr.region) concrete.push(`region ${addr.region}`)
+  return { facts, addr, concrete }
+}
+
+// TargetPage: what runs on a target and how it is doing. Setting it up —
+// its connection, settings and who it is offered to — is its page under
+// Integrations › Deployment targets.
 export function TargetPage() {
   const { name } = useParams()
   const hostState = useHostStates()
-  const nav = useNavigate()
   const pageQ = useGet<TargetPage>(`/targets/${name}`)
   const load = pageQ.reload
   const { data } = pageQ
@@ -69,150 +92,160 @@ export function TargetPage() {
   if (!data || !data.target) return <ReadStatus q={pageQ} what="the deployment target" />
   const t = data.target
   const state = hostState(t.name, t.statusLabel)
-  const caps = t.capabilities
-  const facts: string[] = []
-  if (caps.needs?.length) facts.push(`provides ${caps.needs.join(', ')}`)
-  if (caps.rollout?.length) facts.push(caps.rollout.join(', '))
-  facts.push(caps.persistentVolumes ? 'has disks' : 'no disks · networked databases only')
-  if (caps.previews) facts.push('previews may bind here')
-  if (caps.ownLiveness) facts.push('restarts its own containers')
   const domain = typeof t.ingress?.domain === 'string' ? t.ingress.domain : ''
   const retired = t.status === 'retired'
-  const addr = t.address as Record<string, string | number | undefined>
-  const concrete: string[] = []
-  if (addr.user && addr.hostname) concrete.push(`ssh ${addr.user}@${addr.hostname}${addr.port && addr.port !== 22 ? ':' + addr.port : ''}`)
-  if (addr.url) concrete.push(String(addr.url))
-  if (addr.urlFrom) concrete.push(`URL from secret ${addr.urlFrom}`)
-  if (addr.apiKeyFrom) concrete.push(`API key from secret ${addr.apiKeyFrom}`)
-  if (addr.environment) concrete.push(`Portainer environment ${addr.environment}`)
-  if (addr.region) concrete.push(`region ${addr.region}`)
 
+  const reloadAll = () => { infra.reload(); load() }
+  const resources = here?.resources ?? []
+  const unaccounted = resources.filter((r) => r.record !== 'recorded').length
+  // The header's status is the host's one state (the same word the
+  // infrastructure list shows); its reason is said once, in the section it
+  // is about, except a failed connection, which is about the whole host.
+  return (
+    <div>
+      <div className="muted small" style={{ marginBottom: 8 }}><Link to="/deployments/infrastructure">Infrastructure</Link> › {t.name}</div>
+      <StaleNote q={pageQ} />
+      <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+        <h1 style={{ flex: 1, margin: 0 }}>{t.displayLabel || t.name}</h1>
+        <Status observation word={state.word} help={state.help.startsWith('Host connection') ? undefined : state.help} />
+        {!retired && <button className="primary" disabled={busy} onClick={() => void run(async () => { await post(`/targets/${t.name}/check`, {}); await load() })}>Check target</button>}
+        <Link className="btn" to={`/integrations/targets/${t.name}`}>Settings</Link>
+      </div>
+      <div className="muted small" style={{ marginTop: 4 }}>{[domain ? `*.${domain}` : '', t.kind === 'do-app' ? 'Cloud hosting: apps update without downtime' : '', state.word === 'unknown' || t.statusLabel === 'failed' ? state.summary : ''].filter(Boolean).join(' · ')}</div>
+      {actErr && <div className="error small">{actErr}</div>}
+      {t.retained > 0 && <p className="error">{t.retained} old {t.retained === 1 ? 'resource may still cost' : 'resources may still cost'} money. <a href="#target-resources">Review {t.retained === 1 ? 'it' : 'them'}.</a></p>}
+      {resources.some(r => r.record === 'missing') && <p>Check missing resources below.</p>}
+
+      {!retired && <CapacitySection name={t.name} />}
+
+      <Section title="Deployments" count={t.deployments.length}>
+        {t.deployments.length === 0 && <p className="muted small">No deployments on this target.</p>}
+        {t.deployments.map((e) => {
+          const mine = resources.filter((r) => (r.hosts ?? []).some((h) => h.project === e.project && h.deployment === e.name))
+          const meta = [e.url ? e.url.replace(/^https?:\/\//, '') : '', e.audience, e.data, mine.map(resourceWord).join(', ')].filter(Boolean).join(' · ')
+          return (
+            <div key={e.project + '/' + e.name} className="card row" style={{ display: 'flex' }}>
+              <Link to={`/projects/${e.project}/settings/deployments`} className="row" style={{ display: 'flex', flex: 1, minWidth: 0 }}>
+                <span className="row-status"><Status observation word={e.statusLabel} /></span>
+                <strong>{e.project}/{e.name}{e.generation ? <span className="muted" style={{ fontWeight: 400 }}> gen {e.generation}</span> : null}</strong>
+                <span className="muted small">{meta}</span>
+              </Link>
+              <span className="row-action"><Link className="btn" to={`/projects/${e.project}/settings/deployments`}>View deployment</Link></span>
+            </div>
+          )
+        })}
+      </Section>
+
+      <Section title="Not accounted for" count={here && (here.live || here.asOf) ? unaccounted : undefined} label="Resources not accounted for">
+        {here
+          ? <Unaccounted here={here} onChanged={reloadAll} />
+          : retired ? <p className="muted small">Retired: not checked.</p>
+            : infra.err ? <p className="error small">The target's inventory could not be read: {infra.reason}</p>
+              : <p className="muted small">Checking…</p>}
+      </Section>
+      {here && resources.length > 0 && <div id="target-resources"><Section title="All resources" count={resources.length}>
+        <ResourceTables t={here} onChanged={reloadAll} />
+      </Section></div>}
+
+      <Section title="History" count={data.history.length}>
+        {data.history.length === 0
+          ? <p className="muted small">No history yet.</p>
+          : data.history.map((e, i) => (
+            <div key={i} className="card row small" style={{ display: 'flex' }}>
+              <span className="muted" style={{ flex: '0 0 auto' }}>{fmtStamp(e.at)}</span>
+              <span>{EVENT_WORDS[e.kind] ?? e.kind} by {shownActor(e.actor)}
+                {e.kind === 'target.checked' && <> — {(e.payload as Record<string, unknown>).ok ? '✓' : '✗'} {String((e.payload as Record<string, unknown>).detail ?? '')}</>}
+                {e.kind === 'target.offered' && <> — to {String((e.payload as Record<string, unknown>).group) === '*' ? 'everyone' : String((e.payload as Record<string, unknown>).group)}</>}
+                {e.kind === 'target.offer-withdrawn' && <> — from {String((e.payload as Record<string, unknown>).group) === '*' ? 'everyone' : String((e.payload as Record<string, unknown>).group)}</>}
+              </span>
+            </div>
+          ))}
+      </Section>
+    </div>
+  )
+}
+
+// TargetSettingsPage: setting up one deployment target — how it is reached,
+// its settings, and which groups may deploy to it.
+export function TargetSettingsPage() {
+  const { name } = useParams()
+  const hostState = useHostStates()
+  const nav = useNavigate()
+  const pageQ = useGet<TargetPage>(`/targets/${name}`)
+  const listQ = useGet<TargetList>('/targets')
+  const load = () => { pageQ.reload(); listQ.reload() }
+  const { data } = pageQ
+  const { run, err: actErr } = useAction()
+  const [offering, setOffering] = useState(false)
+
+  if (!data || !data.target) return <ReadStatus q={pageQ} what="the deployment target" />
+  const t = data.target
+  const state = hostState(t.name, t.statusLabel)
+  const retired = t.status === 'retired'
+  const { facts, addr, concrete } = targetFacts(t)
   const retire = async () => {
     const r = await run(() => post(`/targets/${t.name}/retire`, { confirm: t.name }))
     if (r) nav('/integrations/targets')
   }
+  const withdraw = (id: string) => run(() => del(`/targets/${t.name}/offers/${id}`)).then(load)
 
   return (
-    <div style={{ maxWidth: 860 }}>
-      <div className="muted small" style={{ marginBottom: 8 }}><Link to="/infrastructure">Infrastructure</Link> › {t.name}</div>
+    <div>
+      <div className="muted small int-crumb"><Link to="/integrations">Integrations</Link> › <Link to="/integrations/targets">Deployment targets</Link></div>
       <StaleNote q={pageQ} />
-      <div className="card" style={{ padding: 20 }}>
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h1 style={{ margin: 0 }}>{t.displayLabel || t.name}</h1>
+      <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+        <h1 style={{ flex: 1, margin: 0 }}>{t.displayLabel || t.name}</h1>
+        <Status observation word={state.word} help={state.help} />
+        <Link className="btn" to={`/infrastructure/${t.name}`}>What runs here</Link>
+      </div>
+      {actErr && <div className="error small">{actErr}</div>}
 
-            <div className="muted">{domain ? `*.${domain}` : 'App address not set'}</div>
-          </div>
-          <Status observation word={state.word} help={state.help} />
-        </div>
-        {t.kind === 'do-app' && <p>Cloud hosting: apps update without downtime.</p>}
-        {t.retained > 0 && <p className="error">{t.retained} old {t.retained === 1 ? 'resource may still cost' : 'resources may still cost'} money. <a href="#target-resources" onClick={() => { const details = document.getElementById('target-resources') as HTMLDetailsElement | null; if (details) details.open = true }}>Review {t.retained === 1 ? 'it' : 'them'}.</a></p>}
-        {state.summary && <p>{state.summary}</p>}
-        {here?.resources?.some(r => r.record === 'missing') && <p>Check missing resources below.</p>}
-
-        {!retired && (
-          <>
-            <h3 style={{ margin: '18px 0 6px' }}>Capacity</h3>
-            <Capacity name={t.name} />
-          </>
-        )}
-
-        <details className="target-deployments"><summary>Apps ({t.deployments.length})</summary>
-        {t.deployments.length === 0
-          ? <div className="muted small">No deployments on this target.</div>
-          : (
-            <table className="small">
-              <thead><tr><th>deployment</th><th>address</th><th>status</th><th>audience</th><th>data</th><th>made of</th></tr></thead>
-              <tbody>
-                {t.deployments.map((e) => {
-                  const mine = (here?.resources ?? []).filter((r) => (r.hosts ?? []).some((h) => h.project === e.project && h.deployment === e.name))
-                  return (
-                    <GlanceRow name={0} state={2} labels={["App", "Address", "State", "Audience", "Data", "Resources"]} key={e.project + '/' + e.name}>
-                      <td><Link to={`/projects/${e.project}/settings/deployments`}>{e.project}/{e.name}</Link>{e.generation ? <span className="muted"> gen {e.generation}</span> : null}</td>
-                      <td>{e.url ? <a href={e.url} target="_blank" rel="noreferrer">{e.url.replace(/^https?:\/\//, '')}</a> : <span className="muted">—</span>}</td>
-                      <td><Status observation word={e.statusLabel} help={`Deployment: ${e.readiness}.`} /></td>
-                      <td>{e.audience}</td>
-                      <td>{e.data}</td>
-                      <td>{mine.length === 0
-                        ? <span className="muted">{here ? 'nothing found at the target' : '…'}</span>
-                        : mine.map((r) => <span key={r.kind + r.name}>{resourceWord(r)} <Status observation word={r.statusLabel} help={r.name + (r.record === 'missing' ? ' · recorded, gone from the target' : '')} /></span>)}</td>
-                    </GlanceRow>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
-        </details>
-        <details id="target-resources" className="target-resources"><summary>Resources</summary>
-        {here
-          ? <Unaccounted here={here} onChanged={() => { infra.reload(); load() }} />
-          : retired ? <div className="muted small">retired: not checked</div>
-            : infra.err ? <div className="error small">The target's inventory could not be read: {infra.reason}</div>
-              : <div className="muted small">checking…</div>}
-
-        {here && (here.resources ?? []).length > 0 && (
-          <details style={{ marginTop: 14 }}>
-            <summary className="small" style={{ cursor: 'pointer' }}>All resources at the target ({(here.resources ?? []).length})</summary>
-            <div style={{ marginTop: 8 }}><ResourceTables t={here} onChanged={() => { infra.reload(); load() }} /></div>
-          </details>
-        )}
-
-        </details>
-        <details className="target-settings"><summary>Settings</summary>
+      <div className="target-settings"><Section title="Settings">
         <DisplayLabelEdit keyLabel="Target ID" value={t.displayLabel || t.name} machineKey={t.name} path={`/targets/${t.id}/label`} />
-        {addr.keyFrom && <p className="small">SSH key: secret <code>{addr.keyFrom}</code> · <Link to="/integrations/secrets">Edit secret</Link></p>}
-        <div className="muted small">{placeOf(t.kindInfo, t.address)}</div>
-        <div className="muted small" style={{ marginTop: 6 }}>{facts.join(' · ')} · needs are {t.needsMode}</div>
-        {t.ingress?.rehearsals === true && <div className="small" style={{ marginTop: 6 }}><b>Kept for restore rehearsals.</b> {rehearsalHostMeaning}</div>}
+        <dl className="facts">
+          <dt>Kind</dt><dd>{placeOf(t.kindInfo, t.address)}</dd>
+          <dt>Provides</dt><dd>{facts.join(' · ')} · needs are {t.needsMode}</dd>
+          {(concrete.length > 0 || t.provider) && <><dt>Address</dt><dd>{concrete.join(' · ')}{t.provider && <> · through the <Link to="/integrations">{t.provider}</Link> connection</>}</dd></>}
+          {addr.keyFrom && <><dt>SSH key</dt><dd>secret <code>{addr.keyFrom}</code> · <Link to="/integrations/secrets">Edit secret</Link></dd></>}
+        </dl>
+        {t.ingress?.rehearsals === true && <p className="small"><b>Kept for restore rehearsals.</b> {rehearsalHostMeaning}</p>}
         {t.copies && <CopyRunnerLine t={t} />}
-        {(concrete.length > 0 || t.provider) && (
-          <div className="small" style={{ marginTop: 6 }}>
-            {concrete.join(' · ')}
-            {t.provider && <> · through the <Link to="/integrations">{t.provider}</Link> connection</>}
-          </div>
-        )}
-
-
-        {t.kindInfo.environment && !t.providerScope && !retired && <div className="small" style={{ marginTop: 12 }}>Provider endpoint: <b>unknown</b>. Releases are refused until {PRODUCT} reads the endpoint.</div>}
+        {t.kindInfo.environment && !t.providerScope && !retired && <p className="small">Provider endpoint: <b>unknown</b>. Releases are refused until {PRODUCT} reads the endpoint.</p>}
         {data.registry && <RegistryLine r={data.registry} />}
-
-        {!retired && <button disabled={busy} onClick={() => void run(async () => { await post(`/targets/${t.name}/check`, {}); await load() })}>Check target</button>}
-        {actErr && <div className="error small">{actErr}</div>}
         {!retired && !data.builtIn && <EditTarget t={t} current={pageQ.current} onSaved={load} />}
-        {!retired && !data.builtIn && <QuietConfirm label="Retire this target" ask={`Retire ${t.name}? This fails while any deployment uses it; its offers are withdrawn.`} onYes={retire} yes="Retire" className="subtle" />}
-        </details>
+        {!retired && !data.builtIn && <div style={{ margin: '10px 0' }}><QuietConfirm label="Retire this target" ask={`Retire ${t.name}? This fails while any deployment uses it; its offers are withdrawn.`} onYes={retire} yes="Retire" className="subtle" /></div>}
+        {data.builtIn && <p className="muted small">This is {PRODUCT}'s own host; it cannot be retired.</p>}
+      </Section></div>
 
-        <details><summary>Access and history</summary>
-        <h3 style={{ margin: '18px 0 6px' }}>Offers</h3>
+      <Section title="Offered to" count={t.offers.length}
+        action={!retired && !offering && !t.offers.some((o) => o.implicit) && <button onClick={() => setOffering(true)}>Offer</button>}>
+        {offering && <OfferForm target={t.name} groups={listQ.data?.groups ?? []} onDone={(saved) => { setOffering(false); if (saved) load() }} />}
         {t.offers.length === 0
-          ? <div className="muted small">Not offered to anyone, so projects cannot deploy here. Offer it from the <Link to="/integrations/targets">targets list</Link>.</div>
+          ? <p className="muted small">Not offered to anyone, so projects cannot deploy here.</p>
           : t.offers.map((o) => (
-            <div key={o.id || 'implicit'} className="small">
-              <span className="badge accent">{o.group === '*' ? 'everyone' : o.group}</span>{' '}
-              {capsWords(o.caps) || <span className="muted">no limits</span>}{o.implicit ? <span className="muted"> · by construction</span> : <span className="muted"> · by {o.createdBy}</span>}
+            <div key={o.id || 'implicit'} className="card row small" style={{ display: 'flex' }}>
+              <span className="badge accent">{o.group === '*' ? 'everyone' : o.group}</span>
+              <span>{capsWords(o.caps) || <span className="muted">no limits</span>}</span>
+              <span className="muted" style={{ flex: 1 }}>{o.implicit ? 'by construction' : `by ${o.createdBy}`}</span>
+              {!o.implicit && <QuietConfirm label="Withdraw" ask={`Withdraw the offer to ${o.group === '*' ? 'everyone' : o.group}? Deployments already here stay.`}
+                onYes={() => void withdraw(o.id!)} yes="Withdraw" className="subtle" />}
             </div>
           ))}
+      </Section>
 
-        <h3 style={{ margin: '18px 0 6px' }}>History</h3>
-        {data.history.length === 0
-          ? <div className="muted small">No history yet.</div>
-          : (
-            <div className="small" style={{ background: 'var(--code-bg)', borderRadius: 'var(--radius-sm)', padding: '8px 12px' }}>
-              {data.history.map((e, i) => (
-                <div key={i}>
-                  <span className="muted">{fmtStamp(e.at)}</span> · {EVENT_WORDS[e.kind] ?? e.kind} by {shownActor(e.actor)}
-                  {e.kind === 'target.checked' && <> — {(e.payload as Record<string, unknown>).ok ? '✓' : '✗'} {String((e.payload as Record<string, unknown>).detail ?? '')}</>}
-                  {e.kind === 'target.offered' && <> — to {String((e.payload as Record<string, unknown>).group) === '*' ? 'everyone' : String((e.payload as Record<string, unknown>).group)}</>}
-                  {e.kind === 'target.offer-withdrawn' && <> — from {String((e.payload as Record<string, unknown>).group) === '*' ? 'everyone' : String((e.payload as Record<string, unknown>).group)}</>}
-                </div>
-              ))}
-            </div>
-          )}
-
-        {data.builtIn && <div className="muted small" style={{ marginTop: 18 }}>This is {PRODUCT}'s own host; it cannot be retired.</div>}
-        </details>
-      </div>
     </div>
+  )
+}
+
+// CapacitySection: how full the host is, with its raw readings behind
+// Host diagnostics, so a failure is said once in words and the error text
+// stays available to whoever has to fix it.
+function CapacitySection({ name }: { name: string }) {
+  const [diagnostics, setDiagnostics] = useState(false)
+  return (
+    <Section title="Capacity" action={<button className="subtle" aria-expanded={diagnostics} onClick={() => setDiagnostics(!diagnostics)}>{diagnostics ? 'Hide diagnostics' : 'Host diagnostics'}</button>}>
+      <Capacity name={name} diagnostics={diagnostics} />
+    </Section>
   )
 }
 

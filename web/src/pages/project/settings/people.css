@@ -1,0 +1,25 @@
+/* Settings › Secrets and Members: rows inside section panels. */
+.secrets-page > .page-section:first-of-type { margin-top: 24px; }
+.secrets-profile { display: inline-flex; align-items: center; gap: 6px; }
+.secrets-profile select { padding: 2px 6px; min-height: 0; height: auto; font-size: var(--fs-sm); }
+.secret-what { flex: 1 1 12em; min-width: 0; overflow-wrap: anywhere; }
+.secret-acts { flex: 0 0 auto; gap: 6px; align-items: center; }
+.section-head h2 .status-help, .section-head h2 .chip { font-size: var(--fs-sm); font-weight: 400; }
+.member-row .member-who { flex: 0 0 12em; min-width: 0; overflow-wrap: anywhere; }
+.member-row .member-roles { flex: 1; min-width: 0; }
+.member-manage { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.member-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; padding: 12px 0; }
+.member-add label { display: grid; gap: 4px; }
+.members-policy { padding: 12px 0; display: grid; gap: 4px; }
+.adr-row .adr-num { flex: 0 0 6em; font-variant-numeric: tabular-nums; }
+.adr-new { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 0; }
+.adr-new input { flex: 1 1 200px; min-width: 0; }
+@media (max-width: 600px) {
+  .secret-row { flex-wrap: wrap; }
+  .secret-acts { margin-left: auto; }
+  .member-row { flex-wrap: wrap; }
+  .member-row .member-who { flex: 1 1 auto; }
+  .member-row .member-roles { flex-basis: 100%; order: 3; }
+  .adr-row { flex-wrap: wrap; }
+  .adr-row .adr-num { flex: 0 0 auto; }
+}

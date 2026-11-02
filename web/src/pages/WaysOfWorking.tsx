@@ -1,7 +1,7 @@
-import { Tabs } from '../Tabs'
+import { Link } from 'react-router-dom'
 import { PageHead } from '../PageHead'
-import { NavLink } from 'react-router-dom'
 import Packs from './Packs'
+import './WaysOfWorking.css'
 import WorkflowLibrary from './WorkflowLibrary'
 import GuidanceLibrary from './GuidanceLibrary'
 import PoliciesPage from './PoliciesPage'
@@ -23,13 +23,10 @@ const TABS: { key: WowTab; to: string; label: string }[] = [
 
 export default function WaysOfWorking({ tab }: { tab: WowTab }) {
   return (
-    <div>
-      <PageHead page="waysOfWorking" />
-      <Tabs className="tabs">
-        {TABS.map((t) => (
-          <NavLink key={t.key} to={t.to} className={() => 'tab' + (tab === t.key ? ' active' : '')}>{t.label}</NavLink>
-        ))}
-      </Tabs>
+    <div className="wow-page">
+      {/* The menu's Ways of working drawer holds these pages; the title says which. */}
+      <PageHead page="waysOfWorking" sub={TABS.find(t => t.key === tab)?.label}
+        actions={tab === 'workflows' ? <Link className="btn primary" to="/workflows?new=1">New workflow</Link> : undefined} />
       {tab === 'packs' && <Packs />}
       {tab === 'workflows' && <WorkflowLibrary />}
       {tab === 'guidance' && <GuidanceLibrary />}

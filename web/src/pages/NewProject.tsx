@@ -11,6 +11,7 @@ import { RepositoryAttachment } from './project/settings/RepositoryAttachment'
 import { NameStep } from './newProject/NameStep'
 import { WayOfWorkingStep } from './newProject/WayOfWorkingStep'
 import { RepositoryStep } from './newProject/RepositoryStep'
+import './NewProject.css'
 
 // The new-project wizard: next → next → done, ONE
 // decision per screen, defaults that are almost always right.
@@ -138,7 +139,7 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
 
   return (
     <div style={{ maxWidth: 720 }}>
-      <h1>New project</h1>
+      <h1 style={{ margin: 0 }}>New project</h1>
       <fieldset disabled={busy} style={{ border: 0, padding: 0, margin: 0 }}>
       <StepChips step={d.step} />
       {d.step === 1 && <NameStep d={d} act={act} />}
@@ -162,13 +163,13 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
 // The three steps of making a project, the current one marked.
 function StepChips({ step }: { step: number }) {
   return (
-    <div className="row" style={{ marginBottom: 18 }}>
+    <ol className="np-steps">
       {['Software', 'Way of working', 'Repository'].map((label, i) => (
-        <span key={label} className="badge">
+        <li key={label} className={step === i + 1 ? 'current' : step > i + 1 ? 'done' : ''} aria-current={step === i + 1 ? 'step' : undefined}>
           {step > i + 1 ? '✓ ' : `${i + 1} · `}{label}
-        </span>
+        </li>
       ))}
-    </div>
+    </ol>
   )
 }
 

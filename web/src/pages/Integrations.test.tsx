@@ -1,3 +1,5 @@
+// @ts-expect-error -- this package has no Node types; only this read is used.
+import { readdirSync } from 'node:fs'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
@@ -93,6 +95,8 @@ async function mount(at: string, client: QueryClient = newQueryClient()) {
           <Routes>
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/integrations/:name" element={<Integrations />} />
+            <Route path="/services" element={<Integrations />} />
+            <Route path="/services/:name" element={<Integrations />} />
           </Routes>
           <Where />
         </MemoryRouter>
@@ -110,24 +114,73 @@ describe('the integrations list', () => {
 
   // Each row says what the service is and whether it works; a service the
   // AppTown has no check for reads as unknown, never as working.
-  it('groups services by kind and keeps working, failing and unchecked apart', async () => {
+  // Integrations lists what AppTown runs on, Services what projects attach;
+  // each says where something is failing before its page is opened.
+  it('lists each kind in its area, with what is connected and failing', async () => {
     stubAppTown({ 'GET /integrations': json({ integrations: [gitlab, scanner, sso, quiet] }), 'GET /integrations/catalog': json({ catalog }) })
+    const rowIn = (p: { el: HTMLElement }) => (name: string) => [...p.el.querySelectorAll('[role=listitem].int-row')].find((r) => r.querySelector('.int-name')!.textContent === name)
     const page = await mount('/integrations')
-    await vi.waitFor(() => expect(page.text()).toContain('gitlab'))
-    const groups = [...page.el.querySelectorAll('.int-group')].map((g) => g.textContent)
-    expect(groups[0]).toContain('Source control')
-    expect(groups[1]).toContain('Scanners')
-    const row = (name: string) => [...page.el.querySelectorAll('tr.int-row')].find((r) => r.textContent!.includes(name))!
+    await vi.waitFor(() => expect(page.text()).toContain('Source control'))
+    const row = rowIn(page)
+    expect(page.el.querySelector('h1')!.textContent).toBe('Integrations')
+    expect(row('Error reporting')).toBeUndefined()
+    // The state, not a count.
+    expect(row('Source control')!.textContent).toContain('working')
+    expect(row('Source control')!.textContent).not.toMatch(/\d+ connected/)
+    expect(row('Scanners')!.querySelector('.chip')!.className).toContain('fail')
+    expect(row('Package registries')!.textContent).toContain('working')
+    const services = await mount('/services')
+    await vi.waitFor(() => expect(services.text()).toContain('Error reporting'))
+    expect(services.el.querySelector('h1')!.textContent).toBe('Services')
+    expect(rowIn(services)('Scanners')).toBeUndefined()
+    // A kind defined at run time counts under Shared services.
+    // A service that cannot be checked on its own says so; it is neither working nor a problem.
+    expect(rowIn(services)('Shared services')!.textContent).toContain('no automatic check')
+    expect(rowIn(services)('Error reporting')!.textContent).toContain('nothing connected')
+    services.done()
+    row('Scanners')!.querySelector<HTMLElement>('.int-name')!.click()
+    await vi.waitFor(() => expect(page.where()).toBe('/integrations/scanner'))
+    page.done()
+  })
+
+  it('opens an older link to a kind on its area page', async () => {
+    stubAppTown({ 'GET /integrations': json({ integrations: [gitlab] }), 'GET /integrations/catalog': json({ catalog }) })
+    const page = await mount('/integrations/errors')
+    await vi.waitFor(() => expect(page.where()).toBe('/services/errors'))
+    const shared = await mount('/integrations/services')
+    await vi.waitFor(() => expect(shared.where()).toBe('/services/shared'))
+    // Deploy connectors and cloud accounts are listed with the targets built on them.
+    const deploy = await mount('/integrations/deploy')
+    await vi.waitFor(() => expect(deploy.where()).toBe('/integrations/targets'))
+    page.done(); shared.done(); deploy.done()
+  })
+
+  // Each row says what the service is and whether it works; a service the
+  // AppTown has no check for reads as unknown, never as working.
+  it('shows one kind per page and keeps working, failing and unchecked apart', async () => {
+    stubAppTown({ 'GET /integrations': json({ integrations: [gitlab, scanner, sso, quiet] }), 'GET /integrations/catalog': json({ catalog }) })
+    const at = async (path: string) => { const p = await mount(path); await vi.waitFor(() => expect(p.el.querySelector('[role=listitem].int-row')).not.toBeNull()); return p }
+    const rowIn = (p: { el: HTMLElement }) => (name: string) => [...p.el.querySelectorAll('[role=listitem].int-row')].find((r) => r.textContent!.includes(name))!
+    const scm = await at('/integrations/scm')
+    expect(scm.el.querySelector('h1')!.textContent).toBe('Source control')
+    expect(scm.text()).not.toContain('django-check')
+    const sc = await at('/integrations/scanner')
+    const shared = await at('/services/shared')
+    const reg = await at('/integrations/registry')
+    // A kind with nothing configured lists nothing: Connect at the top is the one way to add.
+    const errs = await mount('/services/errors')
+    await vi.waitFor(() => expect(errs.text()).toContain('Nothing connected yet. Use Connect to add one.'))
+    expect(errs.el.querySelector('[role=listitem].int-row')).toBeNull()
+    const row = (name: string) => [scm, sc, shared, reg].map((p) => rowIn(p)(name)).find(Boolean)!
     expect(row('gitlab').querySelector('.chip')!.className).toContain('pass')
     expect(row('gitlab').textContent).toContain('working')
-    expect(row('django-check')).toBeUndefined()
-    const collapsed = [...page.el.querySelectorAll('button')].find(b => b.textContent?.startsWith('Scanners ('))!
-    expect(collapsed.getAttribute('aria-expanded')).toBe('false')
-    expect(collapsed.textContent).toContain('Scanners (1) · 1 failed')
-    await act(async () => { [...page.el.querySelectorAll('button')].find(b => b.textContent?.startsWith('Scanners ('))!.click() })
+    expect(row('gitlab').textContent).toContain('GitLab.')
+    // Every group shows its rows; a failure is never folded away, and only it carries Fix.
+    expect(sc.el.querySelector('button.group-toggle')).toBeNull()
     expect(row('django-check').querySelector('.chip')!.className).toContain('fail')
-    expect(row('django-check').textContent).not.toContain('Django deploy checks')
-    expect(page.el.querySelector('th')?.textContent).toBe('Service')
+    expect(row('django-check').querySelector('.list-action')!.textContent).toBe('Fix')
+    expect(row('gitlab').querySelector('.list-action')!.textContent).toBe('')
+    expect(row('django-check').textContent).toContain('Django deploy checks')
     expect(row('authentik').querySelector('.chip')!.className).toBe('chip ')
     expect(row('authentik').textContent).toContain('no automatic check')
     expect(row('authentik').textContent).not.toContain('working')
@@ -137,16 +190,18 @@ describe('the integrations list', () => {
     // What names each one, counted; nothing named reads as a dash, not zero.
     expect(row('django-check').querySelector('.int-usedby')).toBeNull()
     expect(row('gitlab').querySelector('.int-usedby')).toBeNull()
-    // A kind the catalogue offers with nothing connected can be connected from its place.
-    expect(row('Error reporting (GlitchTip)').textContent).toContain('not set up')
-    expect(page.text()).toContain('4 connected · 1 need attention · 1 not tested')
-    page.done()
+    expect(row('authentik').querySelector('.status-help')).toBeNull()
+    expect(sc.el.querySelector('section[aria-label="Connected"] .section-count')).toBeNull()
+    expect(sc.el.querySelector('section[aria-label="Connected"] .section-note')?.textContent).toContain('1 need attention')
+    // With one kind connected, Shared services adds no sub-heading repeating the page.
+    expect(shared.el.querySelector('.group-label')).toBeNull()
+    for (const p of [scm, sc, shared, reg, errs]) p.done()
   })
 
   it('says nothing is connected only when AppTown said so', async () => {
     stubAppTown({ 'GET /integrations': json({ integrations: null }), 'GET /integrations/catalog': json({ catalog: [] }) })
-    const page = await mount('/integrations')
-    await vi.waitFor(() => expect(page.text()).toContain('No services are connected yet.'))
+    const page = await mount('/integrations/scm')
+    await vi.waitFor(() => expect(page.text()).toContain('Nothing connected yet. Use Connect to add one.'))
     page.done()
   })
 
@@ -154,7 +209,7 @@ describe('the integrations list', () => {
     stubAppTown({ 'GET /integrations': json({ error: 'bad request' }, 400), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations')
     await vi.waitFor(() => expect(page.text()).toContain('The integrations could not be read: bad request'))
-    expect(page.text()).not.toContain('No services are connected')
+    expect(page.text()).not.toContain('Nothing connected yet')
     page.done()
   })
 
@@ -163,7 +218,7 @@ describe('the integrations list', () => {
     const page = await mount('/integrations')
     await vi.waitFor(() => expect(page.text()).toContain('Not available to you'))
     expect(page.el.querySelector('.error')).toBeNull()
-    expect(page.text()).not.toContain('No services are connected')
+    expect(page.text()).not.toContain('Nothing connected yet')
     page.done()
   })
 
@@ -175,12 +230,12 @@ describe('the integrations list', () => {
       'GET /integrations/catalog': json({ catalog }),
     })
     const client = newQueryClient()
-    const page = await mount('/integrations', client)
+    const page = await mount('/integrations/scm', client)
     await vi.waitFor(() => expect(page.text()).toContain('working'))
     fail = true
     await act(async () => { await client.invalidateQueries({ queryKey: getKey('/integrations') }) })
     await vi.waitFor(() => expect(page.text()).toContain('unknown'))
-    expect(page.el.querySelector('tr.int-row .chip')!.className).toContain('unknown')
+    expect(page.el.querySelector('[role=listitem].int-row .chip')!.className).toContain('unknown')
     expect(page.text()).toContain('unknown')
     expect(page.el.querySelector('.chip.unknown')?.getAttribute('aria-label')).toContain('(AppTown unreachable)')
     page.done()
@@ -188,9 +243,10 @@ describe('the integrations list', () => {
 
   it('opens an integration on its own page', async () => {
     stubAppTown({ 'GET /integrations': json({ integrations: [gitlab, scanner] }), 'GET /integrations/catalog': json({ catalog }) })
-    const page = await mount('/integrations')
+    const page = await mount('/integrations/scm')
     await vi.waitFor(() => expect(page.text()).toContain('gitlab'))
-    await act(async () => { ([...page.el.querySelectorAll('tr.int-row')].find((r) => r.textContent!.includes('gitlab')) as HTMLElement).click() })
+    // The row itself opens it, not only its name.
+    await act(async () => { ([...page.el.querySelectorAll('[role=listitem].int-row')].find((r) => r.textContent!.includes('gitlab')) as HTMLElement).querySelector<HTMLElement>('.int-when')!.click() })
     expect(page.where()).toBe('/integrations/gitlab')
     expect(page.el.querySelector('h1')!.textContent).toBe('gitlab')
     page.done()
@@ -207,14 +263,13 @@ describe('one integration', () => {
     const page = await mount('/integrations/gitlab')
     await vi.waitFor(() => expect(page.text()).toContain('authenticated as forge-bot'))
     expect(page.text()).toContain('checked 5m ago')
-    const sections = [...page.el.querySelectorAll('section')]
-    const credentials = sections.find((s) => s.querySelector('h2')?.textContent === 'Credentials')!
-    expect(credentials.textContent).toContain('tokenFrom')
-    expect(credentials.textContent).toContain('GITLAB_TOKEN')
-    const config = sections.find((s) => s.querySelector('h2')?.textContent === 'Configuration')!
-    expect(config.textContent).toContain('PRIVATE-TOKEN')
-    expect(config.textContent).not.toContain('tokenFrom')
-    expect(page.text()).toContain('abc123def456')
+    const connection = page.el.querySelector('section[aria-label="Connection"]')!
+    const fact = (k: string) => [...connection.querySelectorAll('dt')].find((d) => d.textContent === k)?.nextElementSibling?.textContent
+    expect(fact('tokenFrom')).toBe('GITLAB_TOKEN')
+    expect(fact('auth')).toBe('PRIVATE-TOKEN')
+    expect(connection.textContent).toContain('abc123def456')
+    // Nothing folded away on this page.
+    expect(page.el.querySelector('details:not(.status-help)')).toBeNull()
     // AppTown-managed: no removing it.
     expect(page.button('Remove')).toBeUndefined()
     page.done()
@@ -224,13 +279,14 @@ describe('one integration', () => {
     stubAppTown({ 'GET /integrations': json({ integrations: [scanner, gitlab] }), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations/django-check')
     await vi.waitFor(() => expect(page.text()).toContain('Used by'))
-    const used = [...page.el.querySelectorAll('section')].find((s) => s.querySelector('h2')?.textContent === 'Used by')!
-    const links = [...used.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')])
+    const used = page.el.querySelector('section[aria-label="Used by"]')!
+    const links = [...used.querySelectorAll('a')].map((a) => [(a.classList.contains('int-name') ? a : a.querySelector('.int-name') ?? a).textContent, a.getAttribute('href')])
     expect(links).toEqual([['Shop', '/projects/shop'], ['Blog', '/projects/blog'], ['shop/prod', '/projects/shop/settings/deployments'], ['lan-host', '/infrastructure/lan-host']])
     page.done()
     const other = await mount('/integrations/gitlab')
     await vi.waitFor(() => expect(other.text()).toContain('Used by'))
-    expect(other.text()).toContain('Old resources may still be kept')
+    // Source control serves every project without being named by one.
+    expect(other.el.querySelector('section[aria-label="Used by"]')!.textContent).toContain('Every project.')
     other.done()
   })
 
@@ -264,7 +320,7 @@ describe('one integration', () => {
     page.done()
   })
 
-  it('removes it after asking, and returns to the list', async () => {
+  it('removes it after asking, and returns to its kind', async () => {
     let gone = false
     const calls = stubAppTown({
       'GET /integrations': () => new Response(JSON.stringify({ integrations: gone ? [] : [scanner] })),
@@ -276,7 +332,7 @@ describe('one integration', () => {
     await act(async () => { page.button('Remove')!.click() })
     expect(page.text()).toContain('Remove “django-check”?')
     await act(async () => { page.button('Yes')!.click() })
-    await vi.waitFor(() => expect(page.where()).toBe('/integrations'))
+    await vi.waitFor(() => expect(page.where()).toBe('/integrations/scanner'))
     expect(calls.some((c) => c.method === 'DELETE' && c.path === '/integrations/django-check')).toBe(true)
     page.done()
   })
@@ -292,14 +348,15 @@ describe('one integration', () => {
 it.each([false, true])('keeps an unconfigured integration neutral and out of connected and attention counts (phone=%s)', async narrow => {
   vi.stubGlobal('matchMedia', () => ({ matches: narrow, addEventListener() {}, removeEventListener() {} }))
   stubAppTown({ 'GET /integrations': json({ integrations: [{ ...gitlab, health: { checked: false, ok: false, detail: 'Set credentials', automatic:true,stateLabel: 'not set up' } }] }), 'GET /integrations/catalog': json({ catalog }) })
-  const page = await mount('/integrations')
+  const page = await mount('/integrations/scm')
   try {
-    await vi.waitFor(() => expect(page.text()).toContain('not set up'))
-    expect(page.el.querySelector('.int-summary')?.textContent).not.toContain('need attention')
-    expect(page.el.querySelector('.int-summary')?.textContent).toContain('0 connected')
-    expect(page.el.querySelector('tr.int-row')?.textContent).not.toContain('not checked yet')
-    expect(page.el.querySelector('tr.int-row .chip [aria-hidden]')).toBeNull()
-    expect(page.el.querySelector('tr.int-row .chip.fail')).toBeNull()
+    await vi.waitFor(() => expect(page.text()).toContain('not configured'))
+    expect(page.el.querySelector('section[aria-label="Connected"] .section-note')?.textContent ?? '').not.toContain('need attention')
+    expect(page.el.querySelector('section[aria-label="Connected"] .section-count')).toBeNull()
+    expect(page.el.querySelector('[role=listitem].int-row')?.textContent).not.toContain('not checked yet')
+    // Neutral: a grey dot, never a colour.
+    expect(page.el.querySelector('[role=listitem].int-row .chip')?.className).toBe('chip ')
+    expect(page.el.querySelector('[role=listitem].int-row .chip.fail')).toBeNull()
   } finally { page.done(); vi.unstubAllGlobals() }
 })
 
@@ -324,24 +381,88 @@ it('shows an event time when a server check is slightly ahead of the reader cloc
 })
 
 it('uses owner freshness even when the browser clock is far ahead', async () => {
- const {healthState,healthIsOld}=await import('./integrations/kinds')
+ const {healthState}=await import('./integrations/kinds')
  const h=checked(true,'Connection answered')
  const future=Date.parse(fiveMinutesAgo)+24*3600000
  expect(healthState(h,future)).toBe('passed')
- expect(healthIsOld(h,future)).toBe(false)
- expect(healthIsOld({...h,stale:true},0)).toBe(true)
 })
 
 it('shows a manual-only integration neutrally and shows an old test age once', async () => {
  const old={...sso,id:'old-sso',name:'old-sso',health:{...sso.health,checked:true,stateLabel:'passed' as const,ok:true,stale:true,checkedAt:fiveMinutesAgo}}
  stubAppTown({'GET /integrations':json({integrations:[sso,old]}),'GET /integrations/catalog':json({catalog})})
- const page=await mount('/integrations')
+ const page=await mount('/services/shared')
  try {
-  await vi.waitFor(()=>expect(page.el.querySelectorAll('tr.int-row:not(.int-unbound)')).toHaveLength(2))
-  const rows=page.el.querySelectorAll('tr.int-row:not(.int-unbound)')
-  expect(rows[0].querySelector('.chip')?.textContent).toBe('no automatic check')
+  // Connected services link to their page; an unconnected kind's Connect row does not.
+  const bound=()=>[...page.el.querySelectorAll('[role=listitem].int-row')].filter(r=>r.querySelector('a.int-name'))
+  await vi.waitFor(()=>expect(bound()).toHaveLength(2))
+  const rows=bound()
+  expect(rows[0].querySelector('.chip')?.textContent).toBe('● no automatic check')
   expect(rows[0].querySelector('.chip')?.className).toBe('chip ')
   expect(rows[1].querySelector('.chip')?.textContent).toContain('old · working')
   expect(rows[1].textContent?.match(/last seen/g)).toHaveLength(1)
  } finally {page.done()}
+})
+
+// Each menu page's "?" says what that kind is for, not the area's list.
+it('gives every menu page its own help, naming a shipped guide', async () => {
+  const guides = new Set((readdirSync('../stock/docs/guides') as string[]).map((f) => f.replace(/\.md$/, '')))
+  const { INTEGRATION_MENU } = await import('./integrations/kinds')
+  const { KIND_HELP } = await import('./Integrations')
+  for (const it of [...INTEGRATION_MENU.flatMap((g) => g.items), { key: 'targets' }]) {
+    expect(KIND_HELP[it.key], it.key).toBeDefined()
+    expect(guides, it.key).toContain(KIND_HELP[it.key].guide)
+  }
+})
+
+// A connector with no presets (OpenRouter) is still offered in Connect.
+it('offers a connector that has no presets', async () => {
+  const { CatalogPicker } = await import('./integrations/Catalog')
+  const picked = vi.fn()
+  const el = document.createElement('div'); document.body.appendChild(el)
+  const root = createRoot(el)
+  await act(async () => { root.render(<MemoryRouter><CatalogPicker catalog={[spec('llm', 'openrouter', 'AI models (OpenRouter)')]} onPick={picked} onOpen={() => {}} onClose={() => {}} /></MemoryRouter>) })
+  const tile = [...document.querySelectorAll<HTMLElement>('.cat-tile')].find((t) => t.textContent!.includes('AI models (OpenRouter)'))!
+  await act(async () => { tile.click() })
+  expect(picked).toHaveBeenCalledWith(expect.objectContaining({ provider: 'openrouter' }), undefined)
+  act(() => root.unmount()); el.remove()
+})
+
+// A kind with one working connection and one never configured reads working.
+it('judges a kind on what is configured, not on what was never set up', async () => {
+  const notSetUp = { ...gitlab, id: 'g2', name: 'infisical', capability: 'scm', health: { checked: false, ok: false, detail: '', automatic: true, stateLabel: 'not set up' as const } }
+  stubAppTown({ 'GET /integrations': json({ integrations: [gitlab, notSetUp] }), 'GET /integrations/catalog': json({ catalog }) })
+  const page = await mount('/integrations')
+  await vi.waitFor(() => expect(page.text()).toContain('Source control'))
+  const row = [...page.el.querySelectorAll('[role=listitem].int-row')].find((r) => r.querySelector('.int-name')!.textContent === 'Source control')!
+  expect(row.textContent).toContain('working')
+  page.done()
+})
+
+// A row is working or a problem: a check that cannot run on its own does not
+// hold it back, and deployment targets count the targets themselves.
+it('reads a row as working or a problem, counting targets', async () => {
+  const quietCheck = { ...scanner, id: 's2', name: 'in-app', health: { checked: false, ok: false, detail: '', automatic: false, stateLabel: 'unknown' as const } }
+  const passing = { ...scanner, id: 's3', name: 'gitleaks', health: checked(true, 'image present') }
+  stubAppTown({
+    'GET /integrations': json({ integrations: [passing, quietCheck] }), 'GET /integrations/catalog': json({ catalog }),
+    'GET /targets': json({ targets: [{ id: 't', name: 'home', statusLabel: 'failed', offers: [], kindInfo: { family: 'docker' }, address: {} }], groups: [] }),
+  })
+  const page = await mount('/integrations')
+  await vi.waitFor(() => expect(page.text()).toContain('Scanners'))
+  const row = (name: string) => [...page.el.querySelectorAll('[role=listitem].int-row')].find((r) => r.querySelector('.int-name')!.textContent === name)!
+  expect(row('Scanners').textContent).toContain('working')
+  await vi.waitFor(() => expect(row('Deployment targets').querySelector('.chip')?.className).toContain('fail'))
+  page.done()
+})
+
+// A working row built on an old reading says how old, never plain working.
+it('shows an old passed reading on the overview as last seen', async () => {
+  const old = { ...gitlab, health: { ...checked(true, 'reachable'), stale: true, checkedAt: '2026-01-01T00:00:00Z' } }
+  stubAppTown({ 'GET /integrations': json({ integrations: [old] }), 'GET /integrations/catalog': json({ catalog }) })
+  const page = await mount('/integrations')
+  await vi.waitFor(() => expect(page.text()).toContain('Source control'))
+  const row = [...page.el.querySelectorAll('[role=listitem].int-row')].find((r) => r.querySelector('.int-name')!.textContent === 'Source control')!
+  expect(row.querySelector('.chip')!.textContent).toContain('last seen')
+  expect(row.querySelector('.chip')!.className).not.toContain('pass')
+  page.done()
 })

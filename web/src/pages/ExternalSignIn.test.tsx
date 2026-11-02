@@ -41,6 +41,6 @@ it('shows personal access tokens on Your account', async () => {
  const el = document.createElement('div'), root = createRoot(el)
  await act(async () => root.render(<QueryClientProvider client={newQueryClient()}><MyExternalSignIn /></QueryClientProvider>))
  await vi.waitFor(() => expect(el.textContent).toContain('my-laptop'))
- expect(el.textContent).toContain('Your access tokens')
+ expect(el.querySelector('section[aria-label="Access tokens"] .section-count')?.textContent).toBe('1')
  act(() => root.unmount())
 })

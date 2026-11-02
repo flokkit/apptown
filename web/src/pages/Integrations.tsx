@@ -1,26 +1,30 @@
-import { GlanceRow } from '../GlanceRow'
+import { Section, Group } from '../Section'
+import { PageHead } from '../PageHead'
+import { useHostStates } from '../hostState'
+import { ListRow } from '../ListRow'
 import { Status } from '../Status'
 import { DisplayLabelEdit } from '../DisplayLabel'
 import { PRODUCT } from '../brand'
-import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Fragment, type ReactNode, useState } from 'react'
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { del, post } from '../api'
 import { ConnIcon, iconForBinding } from '../icons'
 import { QuietConfirm } from '../QuietConfirm'
 import { fmtWhen, relTime, lastSeen, fmtStamp } from '../format'
 import { useAction, useGet, useRefresh } from '../data'
 import { ReadStatus, StaleNote, type Gated } from '../ReadGate'
-import type { ConnectorCatalog, ConnectorEntry, ConnectorPreset, IntegrationEntry, IntegrationHealth, IntegrationList, IntegrationUse } from '../wire.gen'
+import type { TargetList, ConnectorCatalog, ConnectorEntry, ConnectorPreset, IntegrationEntry, IntegrationHealth, IntegrationList, IntegrationUse } from '../wire.gen'
 import { CatalogPicker, DocsModal } from './integrations/Catalog'
 import { ConnectorForm, asNumber } from './integrations/ConnectorForm'
 import { InstanceSecretsPanel } from './integrations/InstanceSecrets'
-import { ModelSlotsPanel } from './integrations/ModelSlots'
+import { ModelProfiles } from './integrations/ModelSlots'
 import { ServiceKindsPanel } from './integrations/ServiceKinds'
-import { TargetsPanel } from './integrations/Targets'
+import { TargetRows } from './integrations/Targets'
 import { useNow } from '../hooks'
 import {
-  CAP_ORDER, HealthState, capabilityMeta, credentialKeys, fmtVal, healthState, healthIsOld, specFor, usedFor,
+  type Area, HealthState, INTEGRATION_MENU, MENU_KINDS, PAGE_KEYS, areaOf, kindPath, pageKinds, capabilityMeta, credentialKeys, fmtVal, healthState, specFor, usedFor,
 } from './integrations/kinds'
+import './Integrations.css'
 
 // Integrations: the outside services this AppTown works with. The list says,
 // for each, what it is, what it is for and whether it is working right now;
@@ -33,30 +37,33 @@ import {
 // no check says so (checked false); it is never shown as working.
 
 // Settings that sit beside the services rather than being one. Each has its
-// own page; their paths are reserved, so an integration with one of these
-// names is shown in the list but opens the setting.
-const SECTIONS: Record<string, { title: string; blurb: string }> = {
-  slots: { title: 'Model slots', blurb: 'Map the model names workflows ask for to real models, per project profile.' },
-  targets: { title: 'Deployment targets', blurb: 'Deployment targets and who they are offered to.' },
-  services: { title: 'Service kinds', blurb: 'Organisational services described in YAML, which projects can attach.' },
-  secrets: { title: 'Secrets', blurb: `Credentials ${PRODUCT} itself uses. Values are never shown.` },
-}
+// own page in the menu; their paths are reserved, as are the kinds', so an
+// integration with one of these names opens the menu page.
+const SECTIONS = ['profiles']
 
+// Mounted at /integrations and /services: the two menu areas share the
+// list, the kind pages and each connection's own page.
 export default function Integrations() {
   const { name } = useParams()
-  if (name && name in SECTIONS) return <SectionPage which={name} />
-  return <IntegrationsBook name={name} />
+  const area: Area = useLocation().pathname.startsWith('/services') ? 'services' : 'integrations'
+  // The shared services page was /integrations/services before Services had a menu of its own.
+  if (area === 'integrations' && name === 'services') return <Navigate to="/services/shared" replace />
+  // Model profiles were at /integrations/slots.
+  if (name === 'slots') return <Navigate to="/integrations/profiles" replace />
+  if (name && SECTIONS.includes(name)) return <SectionPage which={name} />
+  return <IntegrationsBook name={name} area={area} />
 }
 
 type Editing = { spec: ConnectorEntry; name: string; config: Record<string, unknown>; icon: string }
 
-function IntegrationsBook({ name }: { name?: string }) {
+function IntegrationsBook({ name, area }: { name?: string; area: Area }) {
   const navigate = useNavigate()
   const list = useGet<IntegrationList>('/integrations')
   const catalogQ = useGet<ConnectorCatalog>('/integrations/catalog', { kind: 'config' })
   const catalog = catalogQ.data?.catalog ?? []
   const [editing, setEditing] = useState<Editing | null>(null)
-  const [picking, setPicking] = useState(false)
+  // The kinds Connect offers: all of them, or one page's.
+  const [picking, setPicking] = useState<string[] | 'all' | null>(null)
   const [docsFor, setDocsFor] = useState<ConnectorEntry | null>(null)
   const refresh = useRefresh('/integrations', '/services', '/secrets')
   const now = useNow(30_000)
@@ -72,20 +79,26 @@ function IntegrationsBook({ name }: { name?: string }) {
             : v ?? (f.type === 'bool' ? false : '')
     }
     const icon = from ? iconForBinding(from) : preset?.icon ?? spec.icon ?? spec.capability
-    setPicking(false)
+    setPicking(null)
     setEditing({ spec, name: from ? (from.managed ? `${from.name}-custom` : from.name) : preset?.suggest ?? '', config: cfg, icon })
   }
 
   if (editing) {
     return <ConnectorForm spec={editing.spec} icon={editing.icon} initialName={editing.name} initialConfig={editing.config}
-      onDone={(saved) => { setEditing(null); if (saved) { refresh(); navigate(`/integrations/${saved}`) } }} />
+      onDone={(saved) => { setEditing(null); if (saved) { refresh(); navigate(`/${area}/${saved}`) } }} />
   }
 
   // Cloud accounts are added from Infrastructure, so the catalogue offered
   // here leaves them out.
   const creatable = catalog.filter((c) => c.capability !== 'cloud-account')
   const modals = <>
-    {picking && <CatalogPicker catalog={creatable} onPick={(spec, preset) => openFor(spec, undefined, preset)} onClose={() => setPicking(false)} />}
+    {picking && <CatalogPicker catalog={picking === 'all' ? creatable : creatable.filter((c) => picking.includes(c.capability))}
+      onPick={(spec, preset) => openFor(spec, undefined, preset)} onClose={() => setPicking(null)}
+      onOpen={(spec) => {
+        const b = list.data?.integrations?.find((x) => x.capability === spec.capability && x.provider === spec.provider)
+        setPicking(null)
+        navigate(b ? `/${areaOf(b.capability)}/${b.name}` : kindPath(spec.capability))
+      }} />}
     {docsFor && <DocsModal spec={docsFor} onClose={() => setDocsFor(null)} />}
   </>
 
@@ -101,6 +114,19 @@ function IntegrationsBook({ name }: { name?: string }) {
   const bindings = list.data.integrations ?? []
   const reading: Reading = { q: list, now }
 
+  const props: PageProps = {
+    area, bindings, catalog, offered: creatable, catalogErr: catalogQ.err, reading, refreshing: list.refreshing,
+    onNew: (caps) => setPicking(caps ?? 'all'),
+  }
+  const isPage = (k: string) => PAGE_KEYS.has(k) || MENU_KINDS.has(k)
+    || bindings.some((x) => x.capability === k) || catalog.some((c) => c.capability === k)
+  if (name && isPage(name)) {
+    // A kind opens on the page that lists it; an older link to a kind lands there too.
+    const at = PAGE_KEYS.has(name) ? `/${areaOf(name)}/${name}` : kindPath(name)
+    if (at !== `/${area}/${name}`) return <Navigate to={at} replace />
+    return <>{modals}<KindPage which={name} {...props} /></>
+  }
+
   if (name) {
     const b = bindings.find((x) => x.name === name)
     if (b) {
@@ -110,25 +136,68 @@ function IntegrationsBook({ name }: { name?: string }) {
           onEdit={openFor} onDocs={setDocsFor} />
       </>
     }
-    if (!bindings.some((x) => x.capability === name) && !catalog.some((c) => c.capability === name)) {
-      return (
+    return (
         <div>
-          <div className="muted small int-crumb"><Link to="/integrations">Integrations</Link> › {name}</div>
+          <div className="muted small int-crumb"><Link to={`/${area}`}>{areaTitle(area)}</Link> › {name}</div>
           <h1>{name}</h1>
           <div className="card">No integration is called “{name}”. It may have been removed or renamed.{' '}
-            <Link to="/integrations">See them all</Link>.</div>
+            <Link to={`/${area}`}>See them all</Link>.</div>
         </div>
-      )
-    }
-    // An older link to a kind (/integrations/scanner) opens the list at it.
+    )
   }
 
-  return <>
-    {modals}
-    <ListPage bindings={bindings} catalog={catalog} offered={creatable} catalogErr={catalogQ.err} reading={reading} refreshing={list.refreshing}
-      focus={name} onNew={() => setPicking(true)} onConnect={(spec) => openFor(spec, undefined, spec.presets?.[0])} />
-  </>
+  return <>{modals}<Overview {...props} /></>
 }
+
+// What each menu page is for, behind its "?": the area's help would only
+// repeat the list of pages. Each names the shipped guide that says more.
+export const KIND_HELP: Record<string, { body: ReactNode; guide: string }> = {
+  scm: { guide: 'quickstart', body: <>
+    <p>Connect a code hosting service, such as GitLab. Each project's code is mirrored there, as a backup and to work with your other development tools.</p>
+    <p>Optional: {PRODUCT} keeps each project's code itself either way.</p>
+  </> },
+  executor: { guide: 'runtime-environments', body: <>
+    <p>Choose where {PRODUCT} does its work: agents writing code, checks, and previews (trial runs of an app). Each runs in its own container, an isolated environment that is thrown away afterwards.</p>
+    <p>Required. The built-in executor uses {PRODUCT}'s own server; a worker (a second server set up for this) can take the load instead.</p>
+  </> },
+  model: { guide: 'architecture', body: <>
+    <p>Connect the AI model accounts coding agents use, such as Anthropic, OpenAI or your own model server.</p>
+    <p>Required: agents cannot work without one.</p>
+  </> },
+  profiles: { guide: 'architecture', body: <>
+    <p>Choose which AI model does each task, such as planning, writing code or reviewing. Workflows ask for a task, not a model, so a change here applies to every workflow at once.</p>
+    <p>Every project uses the standard profile unless you move it to another, for example one with stronger models for demanding projects. A task left unset uses the task it falls back to, and in the end Default's model; another profile's unset task uses standard's.</p>
+  </> },
+  registry: { guide: 'toolchains', body: <>
+    <p>Connect a package mirror: a local copy of the libraries apps are built from, such as npm or PyPI. Builds fetch from it instead of the internet, so they are faster and less affected by outside outages.</p>
+    <p>Optional.</p>
+  </> },
+  scanner: { guide: 'conformance', body: <>
+    <p>Ready-made checks that can run on a project's code, such as looking for passwords committed by mistake or libraries with known security holes. Each project's way of working decides which ones run.</p>
+  </> },
+  secrets: { guide: 'secrets', body: <>
+    <p>Choose where passwords, API keys and other credentials are stored, for {PRODUCT} and for apps. Values are never shown once saved.</p>
+    <p>Required. The built-in store works straight away.</p>
+  </> },
+  llm: { guide: 'services-and-data', body: <>
+    <p>Connect an AI model account that the apps your team builds can use. Each deployment and preview gets its own key with a spending limit.</p>
+    <p>Optional: needed only by apps that use AI.</p>
+  </> },
+  errors: { guide: 'monitoring', body: <>
+    <p>Connect an error tracking service, such as GlitchTip, to see when an app breaks and why. A project turns it on under Settings › Services.</p>
+    <p>Optional.</p>
+  </> },
+  shared: { guide: 'services-and-data', body: <>
+    <p>Describe services your organisation already runs, such as a sign-in system, so apps can be connected to them. A project attaches one under Settings › Services.</p>
+    <p>Optional.</p>
+  </> },
+  targets: { guide: 'deployment-targets', body: <>
+    <p>Set up the places apps are deployed to, such as a Docker host or a cloud provider, and choose which groups may use each one.</p>
+    <p>Optional: without one, apps run on {PRODUCT}'s own server. What runs on each target is under <Link to="/deployments/infrastructure">Deployments › Infrastructure</Link>.</p>
+  </> },
+}
+
+const areaTitle = (a: Area) => INTEGRATION_MENU.find((g) => g.key === a)!.heading
 
 // What the page knows about the health reading it shows.
 type Reading = { q: Gated; now: number }
@@ -140,11 +209,15 @@ export const uncheckedWords = (testable: boolean) => testable
   ? `${PRODUCT} does not check this kind of service on its own; Test connection asks it now.`
   : `${PRODUCT} has no live check for this kind of service, so whether it works is unknown. Ask an administrator to verify its configuration.`
 
-function StatusChip({ state, stale, testable, health }: { state: HealthState; stale: boolean; testable: boolean; health?: IntegrationHealth }) {
+function StatusChip({ state, stale, health, plain = false }: { state: HealthState; stale: boolean; health?: IntegrationHealth; plain?: boolean }) {
   const word = stale ? 'unknown' : !health?.checked && !health?.automatic && state !== 'not set up' ? 'no automatic check' : state === 'unknown' && !health?.checked ? 'not checked yet' : state
+  // Help only where it says more than the word: why it is unknown, or what
+  // a check answered. "not set up" and "no automatic check" say it already.
   const help = stale ? 'Refresh failed. Last answer shown. The background check renews connection readings every five minutes.'
-    : state === 'unknown' && health?.lastResult ? `Last result: ${health.lastResult}. ${health.detail}` : health?.detail || uncheckedWords(testable)
-  return <Status observation word={word} old={!!health?.stale && word !== 'unknown'} help={help} />
+    : state === 'unknown' && health?.lastResult ? `Last result: ${health.lastResult}. ${health.detail}`
+      : plain || word === 'no automatic check' || word === 'not set up' || word === 'not checked yet' ? undefined : health?.detail || undefined
+  // A failure keeps the failure colour when it is old; its age is on the checked line.
+  return <Status observation word={word} old={!!health?.stale && word !== 'unknown' && word !== 'failed'} help={help} />
 }
 
 const checkedAt = (h: IntegrationHealth): number => h.checkedAt ? Date.parse(h.checkedAt) || 0 : 0
@@ -155,7 +228,8 @@ export function lastChecked(h: IntegrationHealth, now: number): string {
 }
 
 
-function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing, focus, onNew, onConnect }: {
+type PageProps = {
+  area: Area
   bindings: IntegrationEntry[]
   catalog: ConnectorEntry[]
   // offered: the connectors that can be connected from this page.
@@ -163,128 +237,172 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
   catalogErr: string
   reading: Reading
   refreshing: boolean
-  focus?: string
-  onNew: () => void
-  onConnect: (spec: ConnectorEntry) => void
-}) {
+  onNew: (capabilities?: string[]) => void
+}
+
+const kindsOf = (key: string, bindings: IntegrationEntry[], offered: ConnectorEntry[]) =>
+  pageKinds(key, [...bindings.map((b) => b.capability), ...offered.map((c) => c.capability)])
+
+// Overview: every page of the menu, each with what is connected there and
+// whether any of it is failing, so a problem shows before a page is opened.
+// rowState is one overview row: working or a problem, from everything it
+// holds that can be judged. A connection never configured, or one that
+// cannot be checked on its own (it runs inside each app, or has no check),
+// says nothing either way; a check that was tried and gave no answer is
+// not known, never working.
+type RowState = 'problem' | 'not known' | 'working' | 'unjudged' | 'nothing'
+function rowState(states: { failed: boolean; notKnown: boolean; passed: boolean }[], configured: number): RowState {
+  if (configured === 0) return 'nothing'
+  if (states.some((x) => x.failed)) return 'problem'
+  if (states.some((x) => x.notKnown)) return 'not known'
+  return states.some((x) => x.passed) ? 'working' : 'unjudged'
+}
+const judged = (b: IntegrationEntry) => {
+  const st = healthState(b.health)
+  const neutral = st === 'not set up' || (!b.health.checked && !b.health.automatic)
+  return { failed: st === 'failed', notKnown: st === 'unknown' && !neutral, passed: st === 'passed', neutral, configured: st !== 'not set up' }
+}
+
+function Overview({ area, bindings, offered: all, catalogErr, reading, onNew }: PageProps) {
   const navigate = useNavigate()
-  const [scannersOpen, setScannersOpen] = useState(false)
-  useEffect(() => {
-    if (focus) document.getElementById(`kind-${focus}`)?.scrollIntoView({ block: 'start' })
-  }, [focus])
+  // Deployment targets are judged on the targets themselves as well as their connections.
+  const targetsQ = useGet<TargetList>(area === 'integrations' ? '/targets' : null)
+  // A target's state as its own page shows it: its connection and its Attention conditions together.
+  const hostState = useHostStates()
+  const targets = (targetsQ.data?.targets ?? []).map((t) => {
+    const word = hostState(t.name, t.statusLabel).word
+    return { failed: word === 'failed' || word === 'stopped', notKnown: word === 'unknown', passed: word === 'working' }
+  })
+  const one = INTEGRATION_MENU.find((g) => g.key === area)!
+  // Connect offers only this area's kinds.
+  const caps = one.items.flatMap((it) => kindsOf(it.key, bindings, all))
+  const offered = all.filter((c) => caps.includes(c.capability))
+  return (
+    <div>
+      <PageHead page={area} actions={<button className="primary" onClick={() => onNew(caps)} disabled={offered.length === 0}
+        title={offered.length === 0 ? 'The connector catalogue has not been read' : undefined}>Connect a service</button>} />
+      {catalogErr && <div className="error small">The connector catalogue could not be read, so connecting and editing are unavailable: {catalogErr}</div>}
+      <StaleNote q={reading.q} />
+      {[one].map((g) => (
+        <Section key={g.heading} title="" label={g.heading}>
+          <div role="list">
+            {g.items.map((it) => {
+              const caps = kindsOf(it.key, bindings, offered)
+              const rows = bindings.filter((b) => caps.includes(b.capability))
+              const failing = rows.filter((b) => healthState(b.health) === 'failed').length + (it.key === 'targets' ? targets.filter((t) => t.failed).length : 0)
+              const marks = [...rows.map(judged), ...(it.key === 'targets' ? targets : [])]
+              const counted = rowState(marks, rows.filter((b) => judged(b).configured).length + (it.key === 'targets' ? targets.length : 0))
+              // A list whose refresh failed is not known now; a working row
+              // built on an old reading says how old.
+              const state = counted === 'working' && reading.q.refreshFailed ? 'not known' : counted
+              const olds = rows.filter((b) => b.health.stale && healthState(b.health) === 'passed')
+              const oldest = olds.map((b) => b.health.checkedAt ?? '').filter(Boolean).sort()[0]
+              const to = `/${area}/${it.key}`
+              const setting = !it.kinds && it.key !== 'shared'
+              return (
+                <div key={it.key} role="listitem" className="list-row-open int-row" onClick={() => navigate(to)}>
+                  <ListRow className="int-list-row"
+                    identity={<div style={{ minWidth: 0 }}>
+                      <Link to={to} className="int-name" onClick={(e) => e.stopPropagation()}>{it.title}</Link>
+                      <div className="muted small">{it.blurb}</div>
+                    </div>}
+                    // Working or a problem; a number only when something needs attention.
+                    state={setting ? undefined
+                      : state === 'problem' ? <Status word="failed" reason={`${failing} failing`} />
+                        : state === 'not known' ? <Status word="unknown" />
+                          : state === 'working' ? <Status observation word="fresh" staleAt={oldest} old={olds.length > 0 && !oldest} />
+                            : state === 'unjudged' ? <Status word="no automatic check" />
+                              : <Status word="nothing connected" />} />
+                </div>
+              )
+            })}
+          </div>
+        </Section>
+      ))}
+    </div>
+  )
+}
 
-  const byCap = new Map<string, IntegrationEntry[]>()
-  for (const b of bindings) byCap.set(b.capability, [...(byCap.get(b.capability) ?? []), b])
-  // A kind the catalogue offers with nothing connected yet shows as one
-  // "not connected" row, so it can be connected from where it would be.
-  const unbound = new Map<string, ConnectorEntry>()
-  for (const c of offered) {
-    if (c.multi && !c.managed && !byCap.has(c.capability) && !unbound.has(c.capability)) unbound.set(c.capability, c)
-  }
-  const all = [...byCap.keys(), ...unbound.keys()]
-  const caps = [
-    ...CAP_ORDER.filter((c) => all.includes(c)),
-    ...all.filter((c) => !CAP_ORDER.includes(c) && c !== 'cloud-account'),
-    ...all.filter((c) => c === 'cloud-account'),
-  ]
-
-  const states = bindings.map((b) => healthState(b.health))
-
+// KindPage: one menu page — the services of one kind (or, for Shared
+// services, of every kind defined at run time), with what sits beside them.
+function KindPage({ which, area, bindings, catalog, offered, catalogErr, reading, refreshing, onNew }: PageProps & { which: string }) {
+  const caps = kindsOf(which, bindings, offered)
+  const item = INTEGRATION_MENU.flatMap((g) => g.items).find((i) => i.key === which)
+  const meta = item ?? { ...capabilityMeta(which, offered.find((c) => c.capability === which)?.title), key: which }
+  const rows = bindings.filter((b) => caps.includes(b.capability))
+  const states = rows.map((b) => healthState(b.health))
   const failing = states.filter((s) => s === 'failed').length
-  const unchecked = states.filter((s) => s === 'unknown').length
-  const summary = [
-    `${states.filter(s => s !== 'not set up').length} connected`,
-    failing > 0 ? `${failing} need attention` : '',
-    unchecked > 0 ? `${unchecked} not tested` : '',
-  ].filter(Boolean).join(' · ')
+  // Only a check that was tried and gave no answer is not tested; one that cannot run on its own says nothing.
+  const unchecked = rows.filter((b) => judged(b).notKnown).length
+  // Only what is configured is listed; Connect at the top is how to add one.
+  const groups = caps.map((cap) => ({
+    cap,
+    rows: rows.filter((b) => b.capability === cap),
+  })).filter((g) => g.rows.length > 0)
+  const labelled = groups.filter((g) => g.rows.length > 0).length > 1
 
   return (
     <div>
-      <div className="int-pagehead">
-        <div>
-          <h1>Integrations</h1>
-
-        </div>
-        <button className="primary btn-big" onClick={onNew} disabled={offered.length === 0}
-          title={offered.length === 0 ? 'The connector catalogue has not been read' : undefined}>Connect a service</button>
-      </div>
-
+      <PageHead page={area} sub={meta.title} help={KIND_HELP[which]} line={meta.blurb || undefined} actions={which === 'targets'
+        ? <Link className="btn primary" to="/integrations/targets/new">Add a deployment target</Link>
+        : <button className="primary" onClick={() => onNew(caps)}>Connect</button>} />
       {catalogErr && <div className="error small">The connector catalogue could not be read, so connecting and editing are unavailable: {catalogErr}</div>}
       <StaleNote q={reading.q} />
-      {bindings.length > 0 && (
-        <div className={`int-summary ${failing > 0 ? 'bad' : ''}`}>
-          {summary}{refreshing && !reading.q.refreshFailed ? <span className="muted"> · checking again…</span> : null}
-
-        </div>
-      )}
-
-      {caps.length === 0 ? (
-        <div className="card">
-          <div className="int-lead">No services are connected yet.</div>
-        </div>
-      ) : (
-        <section className="int-sheet">
-          <table className="int-table stack">
-            <thead>
-              <tr><th>Service</th><th>Status</th><th>Last checked</th></tr>
-            </thead>
-            {caps.map((cap) => {
-              const rows = byCap.get(cap) ?? []
-              const spare = unbound.get(cap)
-              const meta = capabilityMeta(cap, (rows[0] && specFor(catalog, rows[0])?.title) ?? spare?.title)
-              return (
-                <tbody key={cap} id={`kind-${cap}`} className={focus === cap ? 'int-focus' : undefined}>
-                  <tr className="int-group">
-                    <th colSpan={3}>{cap === 'scanner' ? <button className="subtle" aria-expanded={scannersOpen} onClick={() => setScannersOpen(v => !v)}>Scanners ({rows.length}){rows.some(b => healthState(b.health) === 'failed') ? ` · ${rows.filter(b => healthState(b.health) === 'failed').length} failed` : ''}{rows.some(b => healthState(b.health) === 'unknown') ? ` · ${rows.filter(b => healthState(b.health) === 'unknown').length} not tested` : ''} · {scannersOpen ? 'Hide' : 'Show'}</button> : meta.title}</th>
-                  </tr>
-                  {(cap === 'scanner' && !scannersOpen ? [] : rows).map((b) => {
-                    const state = healthState(b.health)
-                    const to = `/integrations/${b.name}`
-                    return (
-                      <GlanceRow name={0} state={1} fact={2} labels={["Service", "State", "Last checked"]} key={b.id} className="int-row" onClick={() => navigate(to)}>
-                        <td className="stack-lead">
-                          <div className="int-who">
-                            <ConnIcon name={iconForBinding(b)} size={13} />
-                            <div style={{ minWidth: 0 }}>
-                              <Link to={to} className="int-name tap-open" onClick={(e) => e.stopPropagation()}>{b.displayLabel || b.name}</Link>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td><StatusChip state={state} stale={reading.q.refreshFailed} testable={b.testable} health={b.health} /></td>
-                        <td className="int-when">{lastChecked(b.health, reading.now)}</td>
-                      </GlanceRow>
-                    )
-                  })}
-                  {rows.length === 0 && spare && (
-                    <tr className="int-row int-unbound">
-                      <td className="stack-lead">
-                        <div className="int-who">
-                          <ConnIcon name={spare.icon ?? spare.capability} size={13} />
-                          <div><span className="int-name">{spare.title}</span></div>
-                        </div>
-                      </td>
-
-                      <td><Status word="none" help="No service connected." /></td>
-                      <td className="int-open"><button className="subtle" onClick={() => onConnect(spare)}>Connect</button></td>
-                    </tr>
-                  )}
-                </tbody>
-              )
+      {which === 'targets' && <Section title="Targets"><TargetRows /></Section>}
+      {(groups.length > 0 || which !== 'shared') && (
+        <Section title={which === 'targets' ? 'Connections' : 'Connected'}
+          note={rows.length > 0 && (failing > 0 || unchecked > 0 || refreshing) ? <span style={failing > 0 ? { color: "var(--bad)" } : undefined}>
+            {[failing > 0 ? `${failing} need attention` : '', unchecked > 0 ? `${unchecked} not tested` : ''].filter(Boolean).join(' · ')}
+            {refreshing && !reading.q.refreshFailed ? <span className="muted"> · checking again…</span> : null}
+          </span> : undefined}>
+          {groups.length === 0 ? <p className="muted">Nothing connected yet. Use Connect to add one.</p>
+            : groups.map((g) => {
+              const rowsEl = <KindRows area={area} rows={g.rows} catalog={catalog} reading={reading} />
+              // A page holding several kinds names each one, once more than one
+              // has something connected; a lone kind would only repeat the page.
+              return labelled && g.rows.length > 0
+                ? <div key={g.cap} className="int-kind-group"><Group label={capabilityMeta(g.cap, specFor(catalog, g.rows[0])?.title).title}>{rowsEl}</Group></div>
+                : <div key={g.cap} className="int-kind-group">{rowsEl}</div>
             })}
-          </table>
-        </section>
+        </Section>
       )}
+      {which === 'model' && <p className="muted small">Which workflows use which model is set in <Link to="/integrations/profiles">Model profiles</Link>.</p>}
+      {which === 'secrets' && <Section title={`Credentials ${PRODUCT} uses`}><InstanceSecretsPanel /></Section>}
+      {which === 'shared' && <Section title="Definitions"><ServiceKindsPanel /></Section>}
+    </div>
+  )
+}
 
-      <h2>Related settings</h2>
-      <div className="int-related">
-        {Object.entries(SECTIONS).map(([k, s]) => (
-          <Link key={k} to={`/integrations/${k}`} className="int-related-item">
-            <span className="int-name">{s.title}</span>
-
-          </Link>
-        ))}
-      </div>
+function KindRows({ area, rows, catalog, reading }: {
+  area: Area; rows: IntegrationEntry[]; catalog: ConnectorEntry[]; reading: Reading
+}) {
+  const navigate = useNavigate()
+  // A failure leads, so it is never below the fold of a long list.
+  const sorted = [...rows].sort((a, b) => Number(healthState(b.health) === 'failed') - Number(healthState(a.health) === 'failed'))
+  return (
+    <div role="list">
+      {sorted.map((b) => {
+        const state = healthState(b.health)
+        const to = `/${area}/${b.name}`
+        return (
+          // The whole row opens the service; Fix is shown only where it differs from looking.
+          <div key={b.id} role="listitem" className="list-row-open int-row" onClick={() => navigate(to)}>
+            <ListRow className="int-list-row"
+              identity={<div className="int-who">
+                <ConnIcon name={iconForBinding(b)} size={13} />
+                <div style={{ minWidth: 0 }}>
+                  <Link to={to} className="int-name" onClick={(e) => e.stopPropagation()}>{b.displayLabel || b.name}</Link>
+                  <div className="muted small">{usedFor(b, specFor(catalog, b))}</div>
+                </div>
+              </div>}
+              state={<>
+                <StatusChip state={state} stale={reading.q.refreshFailed} health={b.health} />
+                <div className="int-when">{lastChecked(b.health, reading.now)}</div>
+              </>}
+              action={state === 'failed' ? <Link className="btn" to={to} onClick={(e) => e.stopPropagation()}>Fix</Link> : undefined} />
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -310,7 +428,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
   const [test, setTest] = useState<{ h?: IntegrationHealth; err?: string; at: number } | null>(null)
   const [testing, setTesting] = useState(false)
   const refreshChecks = useRefresh('/integrations', '/attention')
-  const remove = useAction(() => navigate('/integrations'), { affects: ['/services', '/secrets'] })
+  const remove = useAction(() => navigate(kindPath(b.capability)), { affects: ['/services', '/secrets'] })
 
   const runTest = async () => {
     setTesting(true); setTest(null)
@@ -324,14 +442,16 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
   const creds = credentialKeys(b, spec)
   // Every setting, empty ones included: a missing value is often why it is not working.
   const settings = Object.entries(b.config).filter(([k]) => !creds.includes(k))
-  const tone = reading.q.refreshFailed || healthIsOld(b.health,reading.now) ? 'unknown' : state === 'passed' ? 'ok' : state === 'failed' ? 'bad' : 'unknown'
   const testState = test?.h ? healthState(test.h) : null
   const at = checkedAt(b.health)
+  // One rule for the test button: it leads when the state asks for it.
+  const needsTest = state === 'failed' || state === 'not set up'
+  const message = b.health.detail || (at ? '' : uncheckedWords(b.testable))
 
   return (
     <div className="int-detail">
       <div className="muted small int-crumb">
-        <Link to="/integrations">Integrations</Link> › <Link to={`/integrations/${b.capability}`}>{meta.title}</Link>
+        <Link to={`/${areaOf(b.capability)}`}>{areaTitle(areaOf(b.capability))}</Link> › <Link to={kindPath(b.capability)}>{meta.title}</Link>
       </div>
       <div className="int-detail-head">
         <ConnIcon name={iconForBinding(b)} size={22} />
@@ -339,31 +459,30 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
           <h1>{b.displayLabel || b.name}</h1>
           <div className="int-sub">{usedFor(b, spec)}</div>
         </div>
-
       </div>
 
-      <div className={`card tone-${tone} int-state`}>
+      <div className="int-state">
         <div className="row">
-          <StatusChip state={state} stale={reading.q.refreshFailed} testable={b.testable} health={b.health} />
-          <span className="int-lead">
-            {state === 'failed' ? 'Check the connection settings, then test again.' : state === 'passed' ? 'Connection test passed.' : ''}
-          </span>
+          {/* The detail is written out below, so the chip carries no help. */}
+          <StatusChip plain state={state} stale={reading.q.refreshFailed} health={b.health} />
+          {at > 0 && <span className="muted small">{lastChecked(b.health, reading.now)}</span>}
         </div>
-        <div className="muted int-checked">
-          {at ? lastChecked(b.health, reading.now) : b.health.detail || uncheckedWords(b.testable)}
-        </div>
-<details><summary>Connection details</summary><p>{b.health.detail}</p>{b.health.lastGood && <p>Last successful check: {b.health.lastGood.checkedAt}. {b.health.lastGood.detail}</p>}</details>
+        {message && <p className="int-message">{message}</p>}
+        {/* A connector AppTown sets up reads its credentials from its secrets; say where to set them. */}
+        {b.managed && state === 'not set up' && <p className="int-message"><Link to="/integrations/secrets">Set its secrets under Secrets →</Link></p>}
+        {state === 'failed' && <p className="int-message">Check the connection settings, then test again.</p>}
+        {b.health.lastGood && state !== 'passed' && <p className="muted small">Last worked {b.health.lastGood.checkedAt ? fmtWhen(b.health.lastGood.checkedAt) : 'at an unknown time'}{b.health.lastGood.detail ? `: ${b.health.lastGood.detail}` : ''}</p>}
         <StaleNote q={reading.q} />
         {test?.h && testState && (
           <div className={`int-test ${testState === 'failed' ? 'bad' : ''}`}>
-            <StatusChip state={testState} stale={false} testable={b.testable} health={test.h} />{' '}
+            <StatusChip plain state={testState} stale={false} health={test.h} />{' '}
             {testState === 'unknown' ? '' : test.h.detail}
             <span className="muted"> · {fmtStamp(new Date(test.at).toISOString())}</span>
           </div>
         )}
         {test?.err && <div className="int-test bad">The test could not be run: {test.err}</div>}
         <div className="row int-actions">
-          <button className={state === 'passed' ? '' : 'primary'} onClick={runTest} disabled={testing}>{testing ? 'Testing…' : 'Test connection'}</button>
+          <button className={needsTest ? 'primary' : ''} onClick={runTest} disabled={testing}>{testing ? 'Testing…' : 'Test connection'}</button>
           {editSpec && (
             <button onClick={() => onEdit(editSpec, b)} disabled={!current}
               title={current ? undefined : 'Waiting for the current settings'}>
@@ -378,113 +497,68 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
           )}
         </div>
         {remove.err && <div className="error small">{remove.err}</div>}
+        {b.capability === 'cloud-account' && (
+          <div className="muted int-note">Its deployment targets are under <Link to="/integrations/targets">Deployment targets</Link>.</div>
+        )}
+        {b.capability === 'model' && (
+          <div className="muted int-note">Which workflows use which model is set in <Link to="/integrations/profiles">Model profiles</Link>.</div>
+        )}
       </div>
 
-      {b.capability === 'cloud-account' && (
-        <div className="muted int-note">Its deployment targets are managed under <Link to="/infrastructure">Infrastructure</Link>.</div>
-      )}
-      {b.capability === 'model' && (
-        <div className="muted int-note">Which workflows use which model is set in <Link to="/integrations/slots">Model slots</Link>.</div>
-      )}
+      {/* Each run records the version and configuration hash it used. */}
+      <Section title="Connection" note={b.managed ? `${PRODUCT} configures this one and re-syncs it with each release.${editSpec ? ' Clone it to change it.' : ''}` : undefined}>
+        <dl className="facts int-facts">
+          <dt>Name</dt>
+          <dd><DisplayLabelEdit value={b.displayLabel || b.name} machineKey={b.name} path={`/integrations/${b.id}/label`} /></dd>
+          {creds.map((k) => (
+            <Fragment key={k}><dt>{k}</dt><dd>{fmtVal(b.config[k]) || <span className="muted">not set</span>}</dd></Fragment>
+          ))}
+          {settings.map(([k, v]) => (
+            <Fragment key={k}><dt>{k}</dt><dd>{fmtVal(v) || <span className="muted">not set</span>}</dd></Fragment>
+          ))}
+          <dt>Kind</dt><dd>{b.capability} · {b.provider}</dd>
+          <dt>Version</dt><dd>v{b.version}{b.updatedAt ? ` · changed ${fmtWhen(b.updatedAt)}` : ''}</dd>
+          <dt>Configuration hash</dt><dd><code>{b.configHash}</code></dd>
+        </dl>
+      </Section>
 
-      {b.usedBy && <UsedBy use={b.usedBy} />}
-
-      {creds.length > 0 && <p>Credential: {creds.every(k => !!fmtVal(b.config[k])) ? 'stored reference' : 'not set'}</p>}
-      <details><summary>Technical details</summary>
-      <DisplayLabelEdit value={b.displayLabel || b.name} machineKey={b.name} path={`/integrations/${b.id}/label`} />
-      {b.managed && <p>Configured by {PRODUCT}.</p>}
-      {creds.length > 0 && (
-        <section>
-          <h2>Credentials</h2>
-          <p className="muted int-section-note">Secret names only. Values are hidden.</p>
-          <table className="kv">
-            <tbody>
-              {creds.map((k) => (
-                <tr key={k}>
-                  <td className="kv-key">{k}</td>
-                  <td className="kv-val int-wrap">{fmtVal(b.config[k]) || <span className="muted">not set</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
-
-      <section>
-        <h2>Configuration</h2>
-        {settings.length === 0 ? <div className="muted">No other settings.</div> : (
-          <table className="kv">
-            <tbody>
-              {settings.map(([k, v]) => (
-                <tr key={k}>
-                  <td className="kv-key">{k}</td>
-                  <td className="kv-val int-wrap">{fmtVal(v) || <span className="muted">not set</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-
-      <section>
-        <h2>Record</h2>
-        <table className="kv">
-          <tbody>
-            <tr><td className="kv-key">version</td><td className="kv-val">v{b.version}</td></tr>
-            <tr><td className="kv-key">last changed</td><td className="kv-val">{b.updatedAt ? fmtWhen(b.updatedAt) : '—'}</td></tr>
-            <tr><td className="kv-key">configuration hash</td><td className="kv-val int-wrap">{b.configHash}</td></tr>
-            <tr><td className="kv-key">kind</td><td className="kv-val">{b.capability} · {b.provider}</td></tr>
-          </tbody>
-        </table>
-        <details className="small"><summary>About this connection</summary><p className="muted int-section-note">Each run records the version and configuration hash it used.
-          {b.managed ? ` ${PRODUCT} configures this one itself and re-syncs it with each release; clone it to change it.` : ''}</p></details>
-      </section></details>
+      {b.usedBy && <Section title="Used by"><UsedBy use={b.usedBy} capability={b.capability} /></Section>}
     </div>
   )
 }
+
+// Kinds AppTown itself runs on: every project uses them without naming them.
+const APPTOWN_WIDE = new Set(['scm', 'executor', 'model', 'secrets', 'registry'])
 
 // What names this integration: the projects that attach it and the standing
 // deployments on targets it reaches. An AppTown-wide service is used without
 // being named, so none here does not mean it is unused.
-function UsedBy({ use }: { use: IntegrationUse }) {
-  const none = use.projects.length === 0 && use.deployments.length === 0
-  return (
-    <section>
-      <h2>Used by</h2>
-      {none ? (
-        <div className="muted">No direct use. Old resources may still be kept on hosting targets.</div>
-      ) : <>
-        {use.projects.length > 0 && <>
-          <div className="int-section-note">Projects that attach it</div>
-          <ul className="int-uses">
-            {use.projects.map((p) => (
-              <li key={p.slug}><Link to={`/projects/${p.slug}`}>{p.name}</Link> <span className="muted">({p.slug})</span></li>
-            ))}
-          </ul>
-        </>}
-        {use.deployments.length > 0 && <>
-          <div className="int-section-note">Deployments on targets it reaches</div>
-          <ul className="int-uses">
-            {use.deployments.map((d) => (
-              <li key={`${d.project}/${d.name}`}>
-                <Link to={`/projects/${d.project}/settings/deployments`}>{d.project}/{d.name}</Link>{' '}
-                <span className="muted">on <Link to={`/infrastructure/${d.target}`}>{d.target}</Link></span>
-              </li>
-            ))}
-          </ul>
-        </>}
-      </>}
-    </section>
-  )
+function UsedBy({ use, capability }: { use: IntegrationUse; capability: string }) {
+  if (use.projects.length === 0 && use.deployments.length === 0) {
+    // What AppTown itself runs on serves every project without being named
+    // by one; what a project attaches says so plainly when nobody has yet.
+    const words = APPTOWN_WIDE.has(capability) ? 'Every project.'
+      : capability === 'scanner' ? "Projects whose way of working includes this check."
+        : capability === 'deploy' || capability === 'cloud-account' ? 'No deployment runs through it yet.'
+          : 'No project uses it yet.'
+    return <p className="muted">{words}</p>
+  }
+  return <>
+    {use.projects.map((p) => (
+      <Link key={p.slug} to={`/projects/${p.slug}`} className="card row int-related-row">
+        <span className="int-name">{p.name}</span><span className="muted small">project</span>
+      </Link>
+    ))}
+    {use.deployments.map((d) => (
+      <div key={`${d.project}/${d.name}`} className="card row int-related-row">
+        <Link className="int-name" to={`/projects/${d.project}/settings/deployments`}>{d.project}/{d.name}</Link>
+        <span className="muted small">deployment on <Link to={`/infrastructure/${d.target}`}>{d.target}</Link></span>
+      </div>
+    ))}
+  </>
 }
 
 function SectionPage({ which }: { which: string }) {
-  const s = SECTIONS[which]
-  return (
-    <div>
-      <div className="muted small int-crumb"><Link to="/integrations">Integrations</Link> › {s.title}</div>
-      <h1>{s.title}</h1>
-      {which === 'slots' ? <ModelSlotsPanel /> : which === 'targets' ? <TargetsPanel /> : which === 'secrets' ? <InstanceSecretsPanel /> : <ServiceKindsPanel />}
-    </div>
-  )
+  const s = INTEGRATION_MENU.flatMap((g) => g.items).find((i) => i.key === which)!
+  return <ModelProfiles title={s.title} help={KIND_HELP[which]} />
 }

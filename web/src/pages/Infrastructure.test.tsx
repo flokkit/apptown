@@ -82,17 +82,17 @@ it('shows an old failed inventory as last seen while its values remain known', (
 it('separates confirmed presence from health and ownership for non-running resources', () => {
  const client=newQueryClient()
  const html=renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><ResourceTables t={target('host',{live:true,resources:[{kind:'volume',name:'calendar-data',record:'recorded',statusLabel:'unknown'}]})} onChanged={()=>{}}/></QueryClientProvider></MemoryRouter>)
- expect(html).toContain('<th>Presence</th><th>Health</th>')
- expect(html).toContain('>present</span>')
- expect(html).toContain('not applicable')
- expect(html).toContain('>recorded</span>')
+ // A volume has no health to check: its row says it is present, and its
+ // ownership is said under View resource, not as a guess at health.
+ expect(html).toContain('<span class="row-status"><span class="muted">present</span></span>')
  expect(html).not.toContain('chip unknown')
+ expect(html).not.toContain('unrecorded')
  client.clear()
 })
 
 it('does not confirm presence from inventory that predates a provider change', () => {
  const html=show([target('host',{live:false,invalidated:true,unknown:false,asOf:new Date(Date.now()-60000).toISOString(),resources:[{kind:'volume',name:'new-data',record:'recorded',statusLabel:'unknown'}]})])
- expect(html).not.toContain('>present · last seen')
+ expect(html).not.toContain('>present</span>')
  expect(html).toContain('Inventory predates the latest change.')
- expect(html).toContain('>recorded</span>')
+ expect(html).toContain('chip unknown')
 })

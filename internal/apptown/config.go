@@ -25,7 +25,9 @@ import (
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/hostmem"
 	"github.com/flokkit/apptown/internal/worker"
 
 	"github.com/flokkit/apptown/internal/apptown/inference"
@@ -52,6 +54,12 @@ type Config struct {
 	// DigitalOcean supplies external driver options at construction. The zero
 	// value keeps driver defaults; later changes do not reconfigure App.
 	DigitalOcean digitalocean.Options
+	// DataDiskSpace reads the data folder's filesystem for the disk
+	// observation; nil reads it. A test scene supplies its own reading.
+	DataDiskSpace diskspace.Reader
+	// HostMemory reads the built-in Docker host's memory for its capacity;
+	// nil reads /proc/meminfo. A test scene supplies its own reading.
+	HostMemory hostmem.Reader
 	// DockerProbe supplies readiness timing before deployment owners are wired.
 	// Nil uses production timing; replacing this input later has no effect.
 	DockerProbe *docker.Probe

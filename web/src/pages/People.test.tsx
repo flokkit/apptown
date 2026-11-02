@@ -144,7 +144,7 @@ describe('disabling an account', () => {
         <UsersCard users={[sso, typo]} act={() => {}} canEdit invites={false} me="bls" />
       </QueryClientProvider>)
     })
-    const ssoRow = [...el.querySelectorAll('tr')].find((r) => r.textContent?.includes('sso'))
+    const ssoRow = [...el.querySelectorAll('.list-row')].find((r) => r.textContent?.includes('sso'))
     expect([...(ssoRow?.querySelectorAll('button') ?? [])].map((b) => b.textContent)).toContain('disable')
     expect(el.textContent).toContain('Names without an account (1)')
     expect(buttons(el).filter((b) => b.textContent === 'remove')).toHaveLength(1)
@@ -263,7 +263,7 @@ describe('a password reset link', () => {
       </QueryClientProvider>)
     })
     const resetFor = async (name: string) => {
-      const row = [...el.querySelectorAll('tr')].find((r) => r.textContent?.includes(name))!
+      const row = [...el.querySelectorAll('.list-row')].find((r) => r.textContent?.includes(name))!
       await act(async () => { [...row.querySelectorAll('button')].find((b) => b.textContent === 'reset password')!.click() })
       await press(el, 'Make link')
       await vi.waitFor(() => expect(el.textContent).toContain(`apptown_invite_${name}`))
@@ -343,7 +343,7 @@ it('splits People into tabs and keeps account actions and inactive names folded'
  const el = document.createElement('div'), root = createRoot(el)
  await act(async () => root.render(<QueryClientProvider client={newQueryClient()}><MemoryRouter><People /></MemoryRouter></QueryClientProvider>))
  await vi.waitFor(() => expect(el.querySelector('.people-accounts')).not.toBeNull())
- expect(el.querySelector('.tabs [aria-current="page"]')?.textContent).toBe('People')
+ expect(el.querySelector('.tabs [aria-current="page"]')?.textContent).toBe('Accounts')
  expect(el.textContent).not.toContain('Where administrators may sign in')
  expect(el.querySelector('.people-accounts')?.textContent).not.toContain('old')
  expect(el.querySelector('.account-actions')?.hasAttribute('open')).toBe(false)
@@ -352,7 +352,7 @@ it('splits People into tabs and keeps account actions and inactive names folded'
  await act(async () => groups.click())
  await vi.waitFor(() => expect(el.textContent).toContain('Roles in'))
  expect(el.querySelector('.people-accounts')).toBeNull()
- const permissions = [...el.querySelectorAll('details')].find(d => d.querySelector('summary')?.textContent === 'About permissions')!
+ const permissions = [...el.querySelectorAll('details')].find(d => d.querySelector('summary')?.textContent === 'What each role can do')!
  expect(permissions.open).toBe(false)
  expect(permissions.textContent).toContain('project:read')
  act(() => root.unmount()); vi.unstubAllGlobals()

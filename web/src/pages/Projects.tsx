@@ -1,6 +1,8 @@
+import { useNarrow } from '../chrome'
+import { Section, Group } from '../Section'
 import { RuntimeObservation } from '../runtime'
 import { ProjectListRow } from '../ProjectListRow'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
@@ -57,8 +59,18 @@ export default function Projects() {
   const [filter, setFilter] = useState(params.get('q') ?? '')
   const [offset, setOffset] = useState(0)
   const pageQ = useGet<ProjPage>(`/projects?limit=50&offset=${offset}&q=${encodeURIComponent(filter.trim())}`, { poll: 5000 })
-  const page = pageQ.data
+  // While a new filter's answer is on its way, keep showing the last one:
+  // the page, and the filter being typed in, stay put.
+  const last = useRef<ProjPage | undefined>(undefined)
+  if (pageQ.data) last.current = pageQ.data
+  const page = pageQ.data ?? last.current
   const projects = page?.projects
+  // The filter is where a person starts on this page; a phone would raise
+  // its keyboard over the list, so it waits for a tap there.
+  const filterRef = useRef<HTMLInputElement>(null)
+  const narrow = useNarrow()
+  const listed = !!projects
+  useEffect(() => { if (!narrow && listed) filterRef.current?.focus() }, [narrow, listed])
 
   if (!projects) return <ReadStatus q={pageQ} what="the projects" />
 
@@ -69,51 +81,46 @@ export default function Projects() {
   const namespaces = [...byNs.keys()].sort((a, b) => (a || 'zz').localeCompare(b || 'zz'))
   const grouped = namespaces.length > 1 || (namespaces.length === 1 && namespaces[0] !== '')
 
+  const ProjectRows = ({ rows }: { rows: typeof projects }) => (
+    <div className="project-rows" role="list">
+      {rows.map(p => <ProjectListRow key={p.id} project={p} refreshFailed={pageQ.refreshFailed} reason={pageQ.reason}>
+        <div className="small muted project-summary">{p.activeItems > 0 && <>{p.activeItems} in progress · </>}{p.doneRuns} shipped{p.lastChangeTitle && <> · {p.lastChangeTitle}</>}</div>
+      </ProjectListRow>)}
+    </div>
+  )
+
   return (
     <div>
-      <div className="row" style={{ marginBottom: 12, gap: 10 }}>
-        <h1 style={{ margin: 0 }}>Projects</h1>
-        <input
-          aria-label="filter projects"
-          value={filter}
-          onChange={(e) => { setFilter(e.target.value); setOffset(0) }}
-          placeholder="Filter projects"
-          style={{ flex: 1, maxWidth: 480, fontSize: 'var(--fs-base)', padding: '9px 12px', boxSizing: 'border-box' }}
-        />
-        <span style={{ flex: 1 }} />
-        <Link to="/projects/_new"><button className="primary btn-big">+ New project</button></Link>
+      {/* The same shape as Home: the page and its main action, then the list
+          as a section with its count and its filter, rows on one surface. */}
+      <div className="row" style={{ marginBottom: 4, gap: 10 }}>
+        <h1 style={{ margin: 0, flex: 1 }}>Projects</h1>
+        <Link to="/projects/_new"><button className="primary">+ New project</button></Link>
       </div>
       <StaleNote q={pageQ} />
       {removed && <RemovalNotice slug={removed} onDismiss={() => { params.delete('removed'); setParams(params, { replace: true }) }} />}
-      {page?.total === 0 && !q && (
-        <div className="card" style={{ padding: 18, maxWidth: 560 }}>
-          <strong>No projects yet.</strong>
-        </div>
-      )}
-      {q !== '' && shown.length === 0 && (
-        <div className="muted" style={{ padding: 12 }}>Nothing matches “{filter}”.</div>
-      )}
-      {namespaces.map((ns) => (
-        <section key={ns || '_'} className="conn-section">
-          {grouped && (
-            <div className="conn-section-head">
-              <h2>{ns || 'ungrouped'}</h2>
-              <span className="muted small">{(byNs.get(ns) ?? []).length} project{(byNs.get(ns) ?? []).length === 1 ? '' : 's'}</span>
-            </div>
-          )}
-          <div className="project-rows" role="list">
-            {(byNs.get(ns) ?? []).map(p => <ProjectListRow key={p.id} project={p} refreshFailed={pageQ.refreshFailed} reason={pageQ.reason}>
-              <div className="small muted project-summary">{p.activeItems > 0 && <>{p.activeItems} in progress · </>}{p.doneRuns} shipped{p.lastChangeTitle && <> · {p.lastChangeTitle}</>}</div>
-            </ProjectListRow>)}
-          </div>
-        </section>
-      ))}
+      <Section title="All projects" label="All projects" count={page?.total}
+        action={<input ref={filterRef} aria-label="filter projects" className="section-filter" value={filter}
+          onChange={(e) => { setFilter(e.target.value); setOffset(0) }} placeholder="Filter projects" />}>
+        {page?.total === 0 && !q && <p className="muted">No projects yet.</p>}
+        {q !== '' && shown.length === 0 && <p className="muted">Nothing matches “{filter}”.</p>}
+        {!pageQ.data && <ReadStatus q={pageQ} what="the projects" className="small" />}
+        {namespaces.map((ns) => (
+          grouped
+            ? <Group key={ns || '_'} label={<>{ns || 'ungrouped'} <span className="section-count">{(byNs.get(ns) ?? []).length}</span></>}>
+                <ProjectRows rows={byNs.get(ns) ?? []} />
+              </Group>
+            : <ProjectRows key={ns || '_'} rows={byNs.get(ns) ?? []} />
+        ))}
+      </Section>
 
-      <div className="row" style={{ gap: 12, marginTop: 16 }}>
+      {/* Paging only when the list does not fit on one page; the section's
+          count already says how many there are. */}
+      {(offset > 0 || (page?.total ?? 0) > 50) && <div className="row" style={{ gap: 12, marginTop: 12 }}>
         <button disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 50))}>Previous</button>
         <span className="muted small">{projects.length ? `${offset + 1}–${offset + projects.length} of ${page?.total}` : `0 of ${page?.total}`} projects</span>
         <button disabled={offset + 50 >= (page?.total ?? 0)} onClick={() => setOffset(offset + 50)}>Next</button>
-      </div>
+      </div>}
     </div>
   )
 }

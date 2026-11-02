@@ -104,6 +104,8 @@ type Dependencies struct {
 	CopyCheck dataCopyCheck
 	// Now is AppTown's clock; nil is the real one.
 	Now func() time.Time
+	// HostMemory reads the built-in host's memory; nil reads /proc/meminfo.
+	HostMemory func() (hostmem.Memory, error)
 }
 
 func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
@@ -134,6 +136,7 @@ func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
 		providers = NewProviders(ctx, db, ProviderRecords{Targets: targets, Deployments: deployments}, hosts, env, ProviderDependencies{Projects: deps.Projects, Now: deps.Now})
 	}
 	s := &Service{
+		hostMemory:         deps.HostMemory,
 		records:            context.WithoutCancel(ctx),
 		hosts:              hosts,
 		env:                env,

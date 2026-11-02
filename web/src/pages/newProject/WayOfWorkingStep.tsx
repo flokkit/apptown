@@ -63,7 +63,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
   const unbound = selected.flatMap((p) => p.requires.filter((r) => !r.bound)).filter((r, i, all) => all.findIndex((o) => o.capability === r.capability) === i)
 
   return (
-    <div className="card" style={{ padding: 'var(--space-5)' }}>
+    <div className="np-panel">
       <div className="mb-2"><strong>{choosing ? 'Choose a way of working' : 'Way of working'}</strong></div>
       {!choosing && <ReadStatus q={packsQ} what="the ways of working" />}
       {chosen === null && !choosing && questions.length === 0 && (
@@ -186,7 +186,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
                     <div className="row" style={{ gap: 'var(--space-1)' }}>
                       {missing.map((r) => (
                         <span key={r.capability} className="badge" title="no integration provides this yet">
-                          needs {r.capability} — not set up
+                          needs {r.capability} — not configured
                         </span>
                       ))}
                     </div>

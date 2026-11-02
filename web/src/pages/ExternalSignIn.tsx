@@ -4,6 +4,10 @@ import { PRODUCT } from '../brand'
 import { del, post, put } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadGate } from '../ReadGate'
+import { Link } from 'react-router-dom'
+import { Section } from '../Section'
+import { useHolds } from '../instancePages'
+import './ExternalSignIn.css'
 import type { AuthMe, ExternalProvider, ExternalProviderChange, ExternalBindingList, ExternalBindRequest, ExternalEnableRequest, ExternalRedirect, ExternalStartRequest } from '../wire.gen'
 
 export function ExternalProviderSettings() {
@@ -42,28 +46,47 @@ export function ExternalProviderSettings() {
   </section>
 }
 
+// Your own tokens: who holds them and when they were last used. Making one
+// is on People → Agents and tokens, for those who may.
 function YourTokens() {
  const q = useGet<AuthMe>('/auth/me')
- return <section className="card"><h2>Your access tokens</h2>
+ const canMint = useHolds('identity:manage-auth')
+ const tokens = q.data?.ownTokens ?? []
+ return <Section title="Access tokens" count={q.data ? tokens.length : undefined} action={canMint && <Link to="/people?tab=agents">New token →</Link>}>
    <ReadGate q={q} what="your access tokens">
-     {!q.data?.ownTokens?.length && <p className="muted">No access tokens.</p>}
-     {q.data?.ownTokens?.map(t => <p key={t.Name}><strong>{t.Name}</strong> · {t.Purpose === 'agent' ? 'Coding agent' : 'Command line'} · last used {t.LastUsed ? fmtWhen(t.LastUsed) : 'never'}</p>)}
+     {!tokens.length && <p className="muted">No access tokens. A token lets the apptown command line or a coding agent act for you.</p>}
+     {tokens.map(t => <div key={t.Name} className="card row" style={{ display: 'flex' }}>
+       <strong>{t.Name}</strong>
+       <span className="muted small">{t.Purpose === 'agent' ? 'Coding agent' : 'Command line'} · last used {t.LastUsed ? fmtWhen(t.LastUsed) : 'never'}</span>
+     </div>)}
    </ReadGate>
- </section>
+ </Section>
 }
 
 export function MyExternalSignIn({ embedded = false }: { embedded?: boolean }) {
-  const me = useGet<AuthMe>(embedded ? null : '/auth/me')
+  const me = useGet<AuthMe>('/auth/me')
   const q = useGet<ExternalBindingList>('/auth/external/bindings')
   const [password, setPassword] = useState('')
   const { run, err } = useAction()
-  return <>{!embedded && <><h1>Your account</h1><ReadGate q={me} what="your account"><p><strong>{me.data?.user}</strong>{me.data?.role === 'admin' && ' · Admin'}</p></ReadGate><YourTokens /></>}<section className="card"><h2>{embedded ? 'Link your sign-in' : 'External sign-in'}</h2>
-    <details className="small"><summary>About linking accounts</summary><p>Linking requires a local-password session and your password, then recent authentication at the provider. It never matches by email.</p></details>
-    <label style={{ display: 'block', margin: '12px 0' }}>Local password <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} /></label>
-    <button disabled={!password} onClick={() => { const input: ExternalStartRequest = { name: '', returnPath: '/account', password, link: true }; void run(async () => { const out = await post<ExternalRedirect>('/auth/external/start', input); setPassword(''); window.location.assign(out.url) }) }}>Link identity</button>
+  const provider = me.data?.external?.displayName
+  const linked = q.data?.bindings.filter(b => !b.revoked) ?? []
+  const passwordField = <input type="password" aria-label="Your password" placeholder="Your password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />
+  return <>{!embedded && <><h1>Your account</h1><ReadGate q={me} what="your account"><p><strong>{me.data?.user}</strong>{me.data?.role === 'admin' && ' · Admin'}</p></ReadGate><YourTokens /></>}
+  <Section title={embedded ? 'Link your sign-in' : 'External sign-in'} count={q.data ? linked.length : undefined}>
+    <div className="account-signin">
+    {me.data && !provider && <p className="muted">No external sign-in is turned on here.</p>}
+    {provider && <p>Link your {provider} sign-in to this account: enter your password to confirm. Accounts are never matched by email.</p>}
+    {(provider || linked.length > 0) && <div className="row">
+      {passwordField}
+      {provider && <button className="subtle" disabled={!password} onClick={() => { const input: ExternalStartRequest = { name: '', returnPath: '/account', password, link: true }; void run(async () => { const out = await post<ExternalRedirect>('/auth/external/start', input); setPassword(''); window.location.assign(out.url) }) }}>Link sign-in</button>}
+    </div>}
     {err && <p className="error">{err}</p>}
-    <ReadGate q={q} what="your external identities">{q.data?.bindings.map(b => <p key={b.id}>{b.issuer} / {b.subject} — {b.revoked ? 'revoked' : <button disabled={!password} onClick={() => { void run(async () => { await post(`/auth/external/bindings/${b.id}/unlink`, { password }); setPassword('') }) }}>Unlink using local password</button>}</p>)}</ReadGate>
-  </section></>
+    </div>
+    <ReadGate q={q} what="your external identities">{q.data?.bindings.map(b => <div key={b.id} className="card row" style={{ display: 'flex' }}>
+      <span style={{ flex: 1, overflowWrap: 'anywhere' }}>{b.issuer} / {b.subject}</span>
+      <span className="row-action">{b.revoked ? <span className="muted small">revoked</span> : <button className="subtle" disabled={!password} title={password ? undefined : 'Enter your password above first'} onClick={() => { void run(async () => { await post(`/auth/external/bindings/${b.id}/unlink`, { password }); setPassword('') }) }}>Unlink</button>}</span>
+    </div>)}</ReadGate>
+  </Section></>
 }
 
 export function externalSignInFailure(code: string | null): string {

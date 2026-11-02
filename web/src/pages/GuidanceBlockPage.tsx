@@ -6,6 +6,7 @@ import { BlockView, patch } from '../api'
 import { fmtSize, sizeTitle } from '../format'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
+import { Section } from '../Section'
 
 export default function GuidanceBlockPage() {
   const { id } = useParams()
@@ -43,43 +44,23 @@ export default function GuidanceBlockPage() {
     setParams({})
   })
 
+  const checks = view.checks ?? []
+  const canEdit = !editing && !viewingOld && block.origin !== 'stock'
   return (
     <div>
       <div className="muted small"><Link to="/guidance">Guidance</Link></div>
-      <div>
-        <h1 style={{ marginBottom: 0 }}>{block.name.split('/').at(-1)!.replaceAll('-', ' ')}</h1>
-        <details><summary>Technical details</summary><span className="badge">v{shownVersion}{viewingOld ? ` (latest is v${block.latestVersion})` : ''}</span>
-        <span className="badge" title={sizeTitle(block.bytes)}>{fmtSize(block.bytes)}</span>
-        {block.origin === 'stock'
-          ? <span className="badge" title={`Ships with ${PRODUCT}; read-only, updates with each release`}>{PRODUCT}</span>
-          : <span className="badge" title="You authored this · editable">yours</span>}
-      <div className="muted small" style={{ marginBottom: 12 }}>
-        <p><code>{block.name}</code></p>tags: {block.tags || '—'} · versions:{' '}
-        {versions.map((v) => (
-          <button key={v.version} className="subtle"
-            onClick={() => setParams(v.version === block.latestVersion ? {} : { version: String(v.version) })}>
-            v{v.version}
-          </button>
-        ))}
+      <div className="row" style={{ alignItems: 'baseline', flexWrap: 'wrap' }}>
+        <h1 style={{ flex: 1, margin: 0 }}>{block.name.split('/').at(-1)!.replaceAll('-', ' ')}</h1>
+        {canEdit && <button disabled={!current} title={current ? undefined : 'Reading the current text first'} onClick={() => setEditing(true)}>Edit</button>}
       </div>
-      {usedBy.length > 0 && (
-        <div className="muted small" style={{ marginBottom: 12 }}>
-          imported by: {usedBy.map((u, i) => (
-            <span key={i}>
-              {i > 0 && ', '}
-              <Link to={`/projects/${u.projectSlug}`}>{u.projectSlug}</Link> (v{u.version}{u.disabled ? ', disabled' : ''})
-            </span>
-          ))}
-        </div>
-      )}
-      </details></div>
-      <div className="row" style={{ marginBottom: 12 }}>
-        {!editing && !viewingOld && block.origin !== 'stock' &&
-          <button disabled={!current} title={current ? undefined : 'Reading the current text first'} onClick={() => setEditing(true)}>Edit (creates v{block.latestVersion + 1})</button>}
-        {!viewingOld && block.origin === 'stock' &&
-          <details className="muted small"><summary>Included with {PRODUCT} · Read-only</summary>To change it, write your own guidance and use it in a pack instead.</details>}
-        {viewingOld && <span className="muted small">an older version, read-only</span>}
-      </div>
+      {/* What it is, in one line: its full name, version, size, who ships it and its tags. */}
+      <p className="muted small" style={{ marginTop: 4 }}>
+        <code>{block.name}</code> · v{shownVersion}{viewingOld ? ` (latest is v${block.latestVersion})` : ''}
+        {' · '}<span title={sizeTitle(block.bytes)}>{fmtSize(block.bytes)} per step</span>
+        {' · '}{block.origin === 'stock' ? `included with ${PRODUCT}, read-only` : 'yours'}
+        {block.tags && <> · tags: {block.tags.split(',').join(', ')}</>}
+      </p>
+      {block.origin === 'stock' && !viewingOld && <p className="muted small">To change it, write your own guidance and use it in a pack instead.</p>}
       <StaleNote q={viewQ} />
       {actErr && <div className="error">{actErr}</div>}
 
@@ -98,21 +79,39 @@ export default function GuidanceBlockPage() {
           <p className="muted small">Saving creates a version. Projects update separately.</p>
         </div>
       ) : (
-        <details className="card"><summary>Read guidance</summary><div className="md" dangerouslySetInnerHTML={{ __html: renderMd(block.bodyMd || '_empty block_') }} /></details>
+        <Section title="Text">
+          <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(block.bodyMd || '_No text yet._') }} />
+        </Section>
       )}
 
-      {!editing && (view.checks ?? []).length > 0 && (
-        <details className="card"><summary>Checks ({view.checks?.length})</summary>
-          <div className="row" style={{ marginBottom: 6 }}>
-            <strong>Checks</strong>
-            <span className="muted small">checked on every change; versioned with this text</span>
-          </div>
-          {(view.checks ?? []).map((c) => (
-            <div key={c.name} style={{ marginTop: 8 }}>
-              <div className="row">
+      {versions.length > 1 && (
+        <Section title="Versions" count={versions.length}>
+          {versions.map((v) => (
+            <button key={v.version} className="card row" style={{ width: '100%', textAlign: 'left' }} aria-pressed={v.version === shownVersion}
+              onClick={() => setParams(v.version === block.latestVersion ? {} : { version: String(v.version) })}>
+              <strong>v{v.version}</strong>{v.version === block.latestVersion && <span className="muted small">latest</span>}
+              {v.version === shownVersion && <span className="muted small">shown</span>}
+            </button>
+          ))}
+        </Section>
+      )}
+
+      <Section title="Used by" count={usedBy.length}>
+        {usedBy.length === 0 ? <p className="muted small">No project uses it directly.</p>
+          : usedBy.map((u, i) => (
+            <Link key={i} className="card row" to={`/projects/${u.projectSlug}`}>
+              <strong>{u.projectSlug}</strong><span className="muted small">v{u.version}{u.disabled ? ' · turned off' : ''}</span>
+            </Link>
+          ))}
+      </Section>
+
+      {!editing && checks.length > 0 && (
+        <Section title="Checks" count={checks.length} note="Checked on every change; versioned with this text.">
+          {checks.map((c) => (
+            <div key={c.name} className="card">
+              <div className="row" style={{ flexWrap: 'wrap' }}>
+                <strong className="small">{c.title || c.name}</strong>
                 <span className="badge">{c.severity}</span>
-                <strong className="small">{c.title || c.name}</strong>{c.title && <code className="muted small">{c.name}</code>}
-                <span className="badge">{c.evaluator}</span>
                 <span className="muted small">
                   {c.evaluator === 'llm' && (c.scope ?? 'diff') === 'diff'
                     ? 'judged at landing only, on the change\'s diff · advisory, never blocks'
@@ -127,7 +126,7 @@ export default function GuidanceBlockPage() {
               {c.files && c.files.length > 0 && <div className="muted small mono" style={{ marginTop: 2 }}>judged on: {c.files.join(', ')}</div>}
             </div>
           ))}
-        </details>
+        </Section>
       )}
     </div>
   )

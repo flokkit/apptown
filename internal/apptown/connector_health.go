@@ -164,6 +164,9 @@ func (h connectorHealth) test(ctx context.Context, capability, provider string, 
 		url, _ := config["url"].(string)
 		return agentenv.ProbeRegistry(format, url), true
 	case verification.ScannerCapability:
+		if integration.ScannerRunsInAppImage(config) {
+			return integration.Health{}, false
+		}
 		image, _ := config["image"].(string)
 		return verification.TestScannerImage(ctx, image, h.docker, h.images), true
 	case integration.CapModel:
