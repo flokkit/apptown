@@ -246,6 +246,24 @@ if [ "$mem" -gt 0 ] && [ "$mem" -lt 7500000000 ]; then
 	say "Docker has $((mem / 1073741824)) GB of memory; AppTown needs at least 8 GB (16 GB recommended)."
 	say "In Docker Desktop: Settings > Resources > Memory. Continuing anyway."
 fi
+# The sizes are the desktop trial's row in Supported platforms (platforms.md).
+cpus=$(docker info --format '{{.NCPU}}' 2>/dev/null || echo 0)
+if [ "$cpus" -gt 0 ] && [ "$cpus" -lt 4 ]; then
+	say "Docker has $cpus CPUs; AppTown needs at least 4, or builds and checks are slow."
+	say "In Docker Desktop: Settings > Resources > CPU limit. Continuing anyway."
+fi
+
+# disk_check: free space where AppTown keeps its images, builds and data.
+# Docker reports no free space itself, so AppTown's container looks, once it
+# runs; an answer that is not a number says nothing.
+disk_check() {
+	free=$(docker exec "$NAME" df -Pk /var/lib/apptown 2>/dev/null | awk 'NR == 2 { print $4 }') || free=''
+	case $free in '' | *[!0-9]*) return 0 ;; esac
+	if [ "$free" -lt 31457280 ]; then
+		say "Docker has $((free / 1048576)) GB of disk free; a trial needs about 30 GB in all for app images and builds."
+		say "In Docker Desktop: Settings > Resources > Disk usage limit, or remove images you no longer use. Continuing anyway."
+	fi
+}
 
 # Only this start's log counts: a stopped trial's log still holds its last ready line.
 started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -270,6 +288,7 @@ none)
 	docker start "$NAME" >/dev/null
 	;;
 esac
+disk_check
 
 # Wait for its ready line, which carries the link (with the one-time setup
 # token the first time).
