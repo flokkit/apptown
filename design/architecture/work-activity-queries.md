@@ -33,3 +33,20 @@ change ID omits it. Run detail and trace use
 [the coherent evidence snapshot](work-evidence-snapshots.md), including their
 event and artifact projections. The MCP catalog has no request context in its
 call value, so its adapter supplies a background context.
+
+Home's activity response also includes `open` (at most 20 changes) and
+`openTotal`. `workflow.Service.OpenChanges` selects unclosed changes whose
+recorded requester principal is the reader's principal, within projects they
+can currently read. Approving or viewing another person's change does not add
+it. Selection orders by the latest run activity or change creation time, then
+change ID. Changes with no active run remain visible as idle, with `idleSince`.
+The selection and run activity use one read snapshot; read failures fail the
+response rather than appearing as no open work.
+
+Each row has one state and a reason supplied by Work: running (including queued
+work), waiting on you, waiting on someone else, or idle. The existing run
+classifier supplies the step or failed check. Approval authority determines
+whether the reader may decide; a reader who already voted waits on other
+approvers. Reasons retain the declared people, groups or roles, using project
+default approvers when the step declares none. These observations grant no
+permission to act.

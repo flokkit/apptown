@@ -268,3 +268,31 @@ func TestMemberDeparturesNeedTheReleaseRead(t *testing.T) {
 		t.Fatalf("releases shown without release read: %d %s", w.Code, w.Body.String())
 	}
 }
+
+// Home can show the reader's requests between runs even when no run or approval puts
+// them in the activity sections. An administrator still sees only their own.
+func TestActivityIncludesPersonalChangesBetweenRuns(t *testing.T) {
+	t.Parallel()
+	a := workAuthorityFixture(t)
+	ch, err := a.Work.Create(asPerson("outsider"), workflow.ChangeDraft{ProjectID: idstest.N(2), Title: "My idle request"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Work.Create(asPerson("boss"), workflow.ChangeDraft{ProjectID: idstest.N(2), Title: "Somebody else's request"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, who := range []string{"outsider", "boss"} {
+		w := authzCall(a.Handler(), who, "GET", "/api/v1/activity", "")
+		var response struct {
+			Open  []workflow.PersonalOpenChange `json:"open"`
+			Total int64                         `json:"openTotal"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil || w.Code != 200 || response.Total != 1 || len(response.Open) != 1 {
+			t.Fatalf("%s open changes: %d %s (%v)", who, w.Code, w.Body.String(), err)
+		}
+		row := response.Open[0]
+		if row.State.String() != "waiting on you" || row.Reason != "ready to land" || row.IdleSince != "" || (row.ID == ch.ID) != (who == "outsider") {
+			t.Fatalf("%s personal row: %+v", who, row)
+		}
+	}
+}

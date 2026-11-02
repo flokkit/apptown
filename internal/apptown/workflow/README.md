@@ -45,6 +45,15 @@ receipts, check errors, undecided findings and placement are typed in
 it cannot read is reported as unreadable, never as nothing. The run snapshot
 gives the page that reading as `Step.CheckReading`.
 
+`Service.OpenChanges` returns the reader's own unclosed changes in currently
+readable projects, with one state and reason per row. Running workflows use the
+run classifier; approval eligibility uses `MayApprove`. Without a running run,
+landing and observed workspace edits count as running, and an available Land act
+means waiting on the reader. Remaining changes are idle with the reason
+"No workflow is running" and a timestamp. Project overview shares Work's
+workspace edit observation. The list is bounded to 20 rows with a total count;
+its activity time counts change creation and run updates.
+
 ## Follow a retry
 
 The caller invokes `service.RetryStep(ctx, RetryCommand{StepID: id, Mode:

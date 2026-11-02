@@ -477,6 +477,7 @@ var cliOperations = map[string]described{
 // describedOperations add full schemas at existing non-CLI API doors. They
 // share reflection with CLI descriptions, without claiming CLI usage.
 var describedOperations = map[string]described{
+	"GET /api/v1/activity":                     {status: 200, response: httpapi.InstanceActivity{}},
 	"POST /api/v1/projects/{slug}/deployments": {request: httpapi.DeploymentConfigurationRequest{}, strict: true, status: 200, response: deployment.Deployment{}},
 	"GET /api/v1/projects/{slug}/deployments":  {status: 200, response: []httpapi.DeploymentView{}},
 }

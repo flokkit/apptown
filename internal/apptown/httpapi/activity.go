@@ -55,6 +55,12 @@ func (h Activity) Activity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	open, openTotal, err := work.OpenChanges(ctx)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+
 	// deployments across the instance
 	envs := []ActivityDeployment{}
 	runtime, err := h.deployment.Runtime(ctx)
@@ -69,17 +75,19 @@ func (h Activity) Activity(w http.ResponseWriter, r *http.Request) {
 		envs = append(envs, e)
 	}
 
-	WriteJSON(w, 200, InstanceActivity{Agents: agents, Active: active, History: history, Deployments: envs})
+	WriteJSON(w, 200, InstanceActivity{Open: open, OpenTotal: openTotal, Agents: agents, Active: active, History: history, Deployments: envs})
 }
 
 // InstanceActivity is what the whole instance is doing: agents at work, runs
-// under way, recent Changes and every deployment.
+// under way, recent Changes, the reader's open Changes and every deployment.
 type (
 	InstanceActivity struct {
-		Agents      []ActiveAgent            `json:"agents"`
-		Active      []runRowView             `json:"active"`
-		History     []workflow.ChangeHistory `json:"history"`
-		Deployments []ActivityDeployment     `json:"deployments"`
+		Open        []workflow.PersonalOpenChange `json:"open"`
+		OpenTotal   int64                         `json:"openTotal"`
+		Agents      []ActiveAgent                 `json:"agents"`
+		Active      []runRowView                  `json:"active"`
+		History     []workflow.ChangeHistory      `json:"history"`
+		Deployments []ActivityDeployment          `json:"deployments"`
 	}
 	// ActiveAgent is a running step and how long it has run.
 	ActiveAgent struct {

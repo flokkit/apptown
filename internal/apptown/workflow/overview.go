@@ -3,7 +3,11 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"github.com/flokkit/apptown/internal/gitexec"
 	"math"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/status"
@@ -85,10 +89,11 @@ func readChangeHistory(ctx context.Context, q database.Queryer, in HistoryQuery,
 }
 
 type openChange struct {
-	ID     ids.ID
-	Number int64 // within its project
-	Title  string
-	State  ChangeState
+	ID      ids.ID
+	Number  int64 // within its project
+	Title   string
+	State   ChangeState
+	Editing int // uncommitted worktree files outside .apptown
 }
 
 func (s *Service) OpenChangesWithoutRuns(ctx context.Context, project ids.ID, limit int) ([]openChange, error) {
@@ -111,7 +116,7 @@ func (s *Service) OpenChangesWithoutRuns(ctx context.Context, project ids.ID, li
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, openChange{ID: row.ID, Number: row.Number, Title: row.Title, State: state})
+		out = append(out, openChange{ID: row.ID, Number: row.Number, Title: row.Title, State: state, Editing: s.editingFiles(ctx, row.ID)})
 	}
 	return out, nil
 }
@@ -170,4 +175,24 @@ func historyLabel(state ChangeState, closedAs string, merged bool) status.Displa
 		return status.DisplayLanded
 	}
 	return (&Change{State: state, ClosedAs: closedAs}).Display(nil)
+}
+
+// editingFiles observes the same workspace changes for overview and personal work.
+// As in the overview, an unavailable workspace supplies no observed edits.
+func (s *Service) editingFiles(ctx context.Context, id ids.ID) int {
+	ws := (Layout{DataDir: s.dataDir}).ChangeWorkspace(id)
+	if _, err := os.Stat(filepath.Join(ws, ".git")); err != nil {
+		return 0
+	}
+	out, err := gitexec.Run(ctx, ws, "status", "--porcelain")
+	if err != nil {
+		return 0
+	}
+	count := 0
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		if line != "" && !strings.Contains(line, ".apptown/") {
+			count++
+		}
+	}
+	return count
 }
