@@ -55,7 +55,7 @@ func (s schedule) Queue(ctx context.Context) (remediationQueue, error) {
 			return remediationQueue{}, err
 		}
 		for _, item := range items {
-			busy, err := projectBusyIn(ctx, tx, item.ProjectID, item.ChangeID)
+			busy, err := projectBusyIn(ctx, tx, item.ProjectID)
 			if err != nil {
 				return remediationQueue{}, err
 			}

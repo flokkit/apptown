@@ -91,6 +91,7 @@ type Item struct {
 	Rank          int                  `json:"rank"`
 	State         string               `json:"state"`
 	Reason        string               `json:"reason,omitempty"`
+	Waiting       *Waiting             `json:"waiting,omitempty"`
 	// Frozen provenance (design §12.1): the exact finding this item fixes.
 	OriginVerdictID    ids.ID `json:"originVerdictId"`
 	OriginSHA          string `json:"originSha"`

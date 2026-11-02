@@ -128,10 +128,19 @@ ORDER BY c.number DESC LIMIT NULLIF(sqlc.arg(limit_count)::integer,0);
 -- name: PendingUpliftAdoptions :many
 SELECT id,project_id FROM changes WHERE type='uplift' AND state=$1 AND adopted_revision=0 ORDER BY id;
 
--- name: ProjectWorkBusy :one
-SELECT (EXISTS(SELECT 1 FROM changes WHERE changes.project_id=sqlc.arg(project_id) AND changes.state=sqlc.arg(landing_state)) OR
- EXISTS(SELECT 1 FROM runs WHERE runs.project_id=sqlc.arg(project_id) AND runs.status=sqlc.arg(running_run_state) AND (runs.change_id IS DISTINCT FROM sqlc.arg(replacing_change_id) OR runs.change_id IS NULL)) OR
- EXISTS(SELECT 1 FROM steps s JOIN runs r ON r.id=s.run_id WHERE r.project_id=sqlc.arg(project_id) AND r.change_id IS NOT DISTINCT FROM sqlc.arg(replacing_change_id) AND s.status=sqlc.arg(running_step_state)))::boolean;
+-- name: ProjectWorkBlockers :many
+WITH busy AS (
+ SELECT c.id AS change_id, true AS landing FROM changes c
+ WHERE c.project_id=sqlc.arg(project_id) AND c.state=sqlc.arg(landing_state)
+ UNION ALL
+ SELECT r.change_id, false AS landing FROM runs r
+ WHERE r.project_id=sqlc.arg(project_id)
+ AND EXISTS(SELECT 1 FROM steps s WHERE s.run_id=r.id AND s.status=sqlc.arg(running_step_state))
+)
+SELECT COALESCE(c.id, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS id, COALESCE(c.number, 0)::bigint AS number,
+ CASE WHEN bool_or(busy.landing) THEN 'landing' ELSE 'step' END::text AS kind
+FROM busy LEFT JOIN changes c ON c.id=busy.change_id AND c.project_id=sqlc.arg(project_id)
+GROUP BY c.id, c.number ORDER BY number, id;
 
 -- Branch metadata avoids large Change bodies in conformance attribution.
 -- name: ShippedChangeBranchesMeta :many

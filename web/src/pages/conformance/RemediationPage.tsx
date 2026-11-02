@@ -7,6 +7,17 @@ import type { Item, RemediationDetail } from '../../wire.gen'
 import { fmtWhen } from '../../format'
 import { JobBar, OccupancyCard } from './Remediations'
 
+function ItemReason({ item }: { item: Item }) {
+  const waiting = item.state === 'queued' ? item.waiting : undefined
+  const reason = item.state === 'queued' ? waiting?.reason : item.reason
+  if (!reason) return null
+  return <div className="small" style={{ marginTop: 'var(--space-1)', color: item.state === 'stuck' ? 'var(--bad)' : 'var(--muted)', whiteSpace: 'pre-wrap' }}>
+    {reason}
+    {waiting?.changes?.map((change) => <span key={change.id}> · <Link to={`/changes/${change.id}`}>change {change.number}</Link></span>)}
+    {waiting?.remediationId && <span> · <Link to={`/conformance/remediations/${waiting.remediationId}`}>remediation {waiting.remediationNumber}</Link></span>}
+  </div>
+}
+
 export function RemediationPage({ id }: { id: string }) {
   const q = useGet<RemediationDetail>(`/conformance/remediations/${id}`, { poll: 5000 })
   const data = q.data
@@ -47,7 +58,7 @@ export function RemediationPage({ id }: { id: string }) {
               <div key={it.id} style={{ padding: '8px 14px', borderTop: '1px solid var(--border)' }}>
                 <div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)' }}>
                   <span className="row" style={{ gap: 'var(--space-2)', alignItems: 'center', minWidth: 0 }}>
-                    <Status word={it.statusLabel} help={it.reason || it.state} />
+                    <Status word={it.statusLabel} help={it.state === 'queued' ? it.waiting?.reason : (it.reason || it.state)} />
                     <span className="mono" style={{ fontSize: 'var(--fs-sm)' }}>{it.check}</span>
                     {it.changeId ? <Link to={`/changes/${it.changeId}`} className="subtle small">{it.changeNumber ? `change ${it.projectSlug}#${it.changeNumber}` : 'the change'}</Link> : null}
                     {it.attempt > 1 && <span className="muted small">attempt {it.attempt}</span>}
@@ -58,7 +69,7 @@ export function RemediationPage({ id }: { id: string }) {
                     {(it.state === 'stuck' || it.state === 'queued') && <button className="subtle" disabled={busy} onClick={() => { const r = window.prompt('Skip it · why?', ''); if (r) act(`/conformance/remediations/${m.id}/items/${it.id}/skip`, { reason: r }) }}>Skip</button>}
                   </span>
                 </div>
-                {it.reason && <div className="small" style={{ marginTop: 'var(--space-1)', color: it.state === 'stuck' ? 'var(--bad)' : 'var(--muted)', whiteSpace: 'pre-wrap' }}>{it.reason}</div>}
+                <ItemReason item={it} />
                 {it.state === 'accepting' && it.changeId ? <div className="small mt-1">The fix is ready: <Link to={`/changes/${it.changeId}`}>accept it on the change page</Link> and it lands itself.</div> : null}
                 {tries.length > 1 && <div className="muted small mt-1">{tries.map((t) => `#${t.n}: ${t.outcome || 'in progress'}${t.reason ? ` (${t.reason.slice(0, 80)})` : ''}`).join(' · ')}</div>}
               </div>

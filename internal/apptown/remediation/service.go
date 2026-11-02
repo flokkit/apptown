@@ -243,11 +243,24 @@ func (s *Service) SkipItem(ctx context.Context, jobID ids.ID, itemID ids.ID, by,
 // Remediations lists the newest jobs, each with the sentence that says what
 // it covers and how far it has got.
 func (s *Service) Remediations(ctx context.Context, limit int) ([]Remediation, error) {
-	jobs, err := readJobs(ctx, s.db, limit)
+	tx, err := s.db.ReadSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	jobs, err := readJobs(ctx, tx, limit)
 	if err != nil {
 		return nil, err
 	}
 	for i := range jobs {
+		items, err := readItems(ctx, tx, &jobs[i].ID)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.waitingItemsIn(ctx, tx, jobs[i], items); err != nil {
+			return nil, err
+		}
+		addWaitingCounts(&jobs[i], items)
 		jobs[i].Sentence = jobs[i].scopeSentence() + " · " + jobs[i].Sentence
 	}
 	return jobs, nil
@@ -255,20 +268,51 @@ func (s *Service) Remediations(ctx context.Context, limit int) ([]Remediation, e
 
 // Remediation is one job and its sentence.
 func (s *Service) Remediation(ctx context.Context, id ids.ID) (*Remediation, error) {
-	m, err := readJob(ctx, s.db, id)
+	tx, err := s.db.ReadSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	m, err := readJob(ctx, tx, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("%w %d", errNoRemediation, id)
 	}
 	if err != nil {
 		return nil, err
 	}
+	items, err := readItems(ctx, tx, &id)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.waitingItemsIn(ctx, tx, *m, items); err != nil {
+		return nil, err
+	}
+	addWaitingCounts(m, items)
 	m.Sentence = m.scopeSentence() + " · " + m.Sentence
 	return m, nil
 }
 
 // Items are a job's items, or every worker holder when jobID is nil.
 func (s *Service) Items(ctx context.Context, jobID *ids.ID) ([]Item, error) {
-	return readItems(ctx, s.db, jobID)
+	tx, err := s.db.ReadSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	items, err := readItems(ctx, tx, jobID)
+	if err != nil {
+		return nil, err
+	}
+	if jobID != nil && len(items) > 0 {
+		job, err := readJob(ctx, tx, *jobID)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.waitingItemsIn(ctx, tx, *job, items); err != nil {
+			return nil, err
+		}
+	}
+	return items, nil
 }
 
 // Attempts is each item's history for one job.

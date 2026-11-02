@@ -173,7 +173,7 @@ func (s Attempts) Start(ctx context.Context, snapshot Item, def StartDefinition,
 	if busy >= capacity || (limit > 0 && own >= limit) {
 		return nil, nil
 	}
-	occupied, err := projectBusyIn(ctx, tx, item.ProjectID, item.ChangeID)
+	occupied, err := projectBusyIn(ctx, tx, item.ProjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -247,14 +247,11 @@ func (s Attempts) Failed(ctx context.Context, snapshot Item, reason string) erro
 
 // The queue and locked attempt admission use the same durable occupancy rule.
 // The item being admitted is queued, so it is not itself an active lease.
-func projectBusyIn(ctx context.Context, tx *database.Tx, project, previousChange ids.ID) (bool, error) {
-	var occupied bool
-	occupied, err := queries(tx).ProjectHasActiveItem(ctx, project)
-	if err != nil {
-		return false, err
+func projectBusyIn(ctx context.Context, tx *database.Tx, project ids.ID) (bool, error) {
+	active, err := queries(tx).ProjectActiveItems(ctx, project)
+	if err != nil || len(active) > 0 {
+		return len(active) > 0, err
 	}
-	if occupied {
-		return true, nil
-	}
-	return workflow.ProjectBusyIn(ctx, tx, workflow.OccupancyScope{ProjectID: project, ReplacingChangeID: previousChange})
+	blockers, err := workflow.ProjectBlockersIn(ctx, tx, project)
+	return len(blockers) > 0, err
 }

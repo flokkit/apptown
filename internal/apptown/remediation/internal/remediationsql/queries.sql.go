@@ -768,16 +768,38 @@ func (q *Queries) PoolByKind(ctx context.Context, kind string) (WorkerPool, erro
 	return i, err
 }
 
-const projectHasActiveItem = `-- name: ProjectHasActiveItem :one
-SELECT EXISTS(SELECT 1 FROM remediation_items WHERE project_id = $1
-  AND state IN ('working', 'accepting', 'landing', 'verifying'))
+const projectActiveItems = `-- name: ProjectActiveItems :many
+SELECT i.id, i.remediation_id, m.number FROM remediation_items i JOIN remediations m ON m.id=i.remediation_id
+WHERE i.project_id = $1 AND i.state IN ('working', 'accepting', 'landing', 'verifying') ORDER BY i.id
 `
 
-func (q *Queries) ProjectHasActiveItem(ctx context.Context, projectID ids.ID) (bool, error) {
-	row := q.db.QueryRowContext(ctx, projectHasActiveItem, projectID)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
+type ProjectActiveItemsRow struct {
+	ID            ids.ID
+	RemediationID ids.ID
+	Number        int64
+}
+
+func (q *Queries) ProjectActiveItems(ctx context.Context, projectID ids.ID) ([]ProjectActiveItemsRow, error) {
+	rows, err := q.db.QueryContext(ctx, projectActiveItems, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ProjectActiveItemsRow
+	for rows.Next() {
+		var i ProjectActiveItemsRow
+		if err := rows.Scan(&i.ID, &i.RemediationID, &i.Number); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const queuedItemsForJob = `-- name: QueuedItemsForJob :many
