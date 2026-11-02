@@ -2627,7 +2627,7 @@ export type HistoryPoint = {
 
 export type Outcome = "conforms" | "does-not-conform" | "excepted" | "not-applicable" | "cannot-assess" | "error"
 
-export type CheckLabel = "unknown" | "passed" | "failed" | "excepted" | "not applicable"
+export type CheckLabel = "unknown" | "passed" | "failed" | "excepted" | "not applicable" | "needs review"
 
 export type Lane = "conforms" | "excepted" | "findings" | "flagged" | "na" | "broken" | "unassessed"
 

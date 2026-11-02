@@ -46,7 +46,7 @@ func TestDisplayLabelUsesCurrentInterpretationWithoutChangingSavedEvidence(t *te
 }
 
 func TestStandingLabelsDoNotPresentIncompleteReviewsAsPassed(t *testing.T) {
-	for state, want := range map[Standing]CheckLabel{standingDoesNot: checkFailed, standingBroken: checkUnknown, StandingNeedsLook: checkUnknown, standingSoFar: checkUnknown, standingExcepted: checkExcepted, StandingConforms: checkPassed, standingNothing: checkUnknown} {
+	for state, want := range map[Standing]CheckLabel{standingDoesNot: checkFailed, standingBroken: checkUnknown, StandingNeedsLook: checkNeedsReview, standingSoFar: checkUnknown, standingExcepted: checkExcepted, StandingConforms: checkPassed, standingNothing: checkUnknown} {
 		if got := state.label(); got != want {
 			t.Errorf("%s: %s, want %s", state, got, want)
 		}

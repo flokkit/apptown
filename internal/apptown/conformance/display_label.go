@@ -17,9 +17,12 @@ const (
 	checkFailed
 	checkExcepted
 	checkNotApplicable
+	// checkNeedsReview: an AI judge flagged it and no person has confirmed it
+	// yet. Not a confirmed failure, and not missing evidence either.
+	checkNeedsReview
 )
 
-var checkLabelCodec = enum.Set[CheckLabel]{Names: []string{"unknown", "passed", "failed", "excepted", "not applicable"}, Invalid: "invalid-check-label", Err: errors.New("invalid check label"), ScanLabel: "value"}
+var checkLabelCodec = enum.Set[CheckLabel]{Names: []string{"unknown", "passed", "failed", "excepted", "not applicable", "needs review"}, Invalid: "invalid-check-label", Err: errors.New("invalid check label"), ScanLabel: "value"}
 
 func (s CheckLabel) String() string                   { return checkLabelCodec.String(s) }
 func (s CheckLabel) Value() (driver.Value, error)     { return checkLabelCodec.Value(s) }
@@ -55,6 +58,8 @@ func (s Standing) label() CheckLabel {
 		return checkPassed
 	case standingExcepted:
 		return checkExcepted
+	case StandingNeedsLook:
+		return checkNeedsReview
 	default:
 		return checkUnknown
 	}

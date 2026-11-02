@@ -141,5 +141,14 @@ func (o Observation) MarshalJSON() ([]byte, error) {
 		State       ObservationState `json:"state"`
 		StatusLabel CheckLabel       `json:"statusLabel"`
 		Lane        Lane             `json:"lane"`
-	}{VerdictFields(evidence), o.State, displayLabel(o.State), o.lane})
+	}{VerdictFields(evidence), o.State, o.label(), o.lane})
+}
+
+// label is the row's word: a flagged does-not-conform is awaiting a person's
+// review, not a confirmed failure.
+func (o Observation) label() CheckLabel {
+	if o.lane == laneFlagged {
+		return checkNeedsReview
+	}
+	return displayLabel(o.State)
 }
