@@ -67,6 +67,19 @@ func TestHandleModelSlotsMatrix(t *testing.T) {
 	for _, s := range body.Slots {
 		byName[s["slot"].(string)] = s
 	}
+	for i, name := range []string{"default", "primary-fast", "secondary-strong", "secondary-fast"} {
+		if body.Slots[i]["slot"] != name || body.Slots[i]["base"] != true || byName[name]["gloss"] == "" {
+			t.Fatalf("base choice %s missing or out of order: %v", name, body.Slots)
+		}
+	}
+	for _, name := range []string{"plan", "review", "fast", "bespoke"} {
+		if byName[name]["base"] != false {
+			t.Fatalf("task %s marked as a base: %v", name, byName[name])
+		}
+	}
+	if byName["fast"]["fallback"] != "primary-fast" || byName["review"]["fallback"] != "secondary-strong" {
+		t.Fatalf("task fallbacks: %v", body.Slots)
+	}
 	plan := byName["plan"]
 	if plan == nil || plan["gloss"] == "" {
 		t.Fatalf("plan slot must carry its gloss: %+v", plan)

@@ -19,28 +19,41 @@ import (
 const StandardProfile = "standard"
 
 // StockSlots are the purposes AppTown itself names, in page order.
-var StockSlots = []string{"default", "plan", "implement", "review", "security", "fast", "chat", "worker", "scout"}
+var StockSlots = []string{"default", "primary-fast", "secondary-strong", "secondary-fast", "plan", "implement", "review", "security", "fast", "chat", "worker", "scout"}
+
+// IsBase reports whether a slot is one of the four basic profile choices.
+func IsBase(slot string) bool {
+	switch slot {
+	case "default", "primary-fast", "secondary-strong", "secondary-fast":
+		return true
+	}
+	return false
+}
 
 // Gloss: what each stock slot means, in ordinary words.
 var Gloss = map[string]string{
-	"default":   "what runs when nothing more specific is mapped; the end of every fallback chain",
-	"plan":      "thinking a task through before the work starts",
-	"implement": "writing the code",
-	"review":    "a second set of eyes on finished work",
-	"security":  "looking for ways the work could be unsafe",
-	"fast":      "quick cheap jobs: summaries, briefs, small checks",
-	"chat":      "the helper people talk to on a project page",
-	"worker":    "a helper's delegate that carries out a written brief",
-	"scout":     "a helper's delegate for quick read-only lookups",
+	"default":          "Primary · strong: the main model; the end of every fallback chain",
+	"primary-fast":     "Primary · fast: quick everyday jobs",
+	"secondary-strong": "Secondary · strong: a second opinion on finished work",
+	"secondary-fast":   "Secondary · fast: quick independent checks",
+	"plan":             "thinking a task through before the work starts",
+	"implement":        "writing the code",
+	"review":           "a second set of eyes on finished work",
+	"security":         "looking for ways the work could be unsafe",
+	"fast":             "quick cheap jobs: summaries, briefs, small checks",
+	"chat":             "the helper people talk to on a project page",
+	"worker":           "a helper's delegate that carries out a written brief",
+	"scout":            "a helper's delegate for quick read-only lookups",
 }
 
 // stockFallbacks: where an unmapped slot degrades to. Seeded as data so
 // the chain is visible and editable; the final hop to `default` stays in
 // the rule, because every chain must end somewhere.
 var stockFallbacks = map[string]string{
-	"plan": "default", "implement": "default", "review": "default",
-	"security": "review", "fast": "default", "chat": "default",
+	"plan": "default", "implement": "default", "review": "secondary-strong",
+	"security": "review", "fast": "primary-fast", "chat": "default",
 	"worker": "default", "scout": "fast",
+	"primary-fast": "default", "secondary-strong": "default", "secondary-fast": "primary-fast",
 }
 
 var profileNameRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,23}$`)

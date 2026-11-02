@@ -991,7 +991,7 @@ func TestAWhatIfSpendsOnModelRubricsOnlyUnderItsLimit(t *testing.T) {
 	}
 	var answers []string
 	calls := 0
-	setFastSlot(t, a, fakeModelProvider(t, a.Integrations.Bindings, func(providerQuestion) (int, string) {
+	setSecondaryFastSlot(t, a, fakeModelProvider(t, a.Integrations.Bindings, func(providerQuestion) (int, string) {
 		body := answers[min(calls, len(answers)-1)]
 		calls++
 		return 200, body
@@ -1188,7 +1188,7 @@ func TestAWhatIfStoppedWhileItRunsEndsInterrupted(t *testing.T) {
 	job, stop := context.WithCancel(context.Background())
 	defer stop()
 	calls := 0
-	setFastSlot(t, a, fakeModelProvider(t, a.Integrations.Bindings, func(providerQuestion) (int, string) {
+	setSecondaryFastSlot(t, a, fakeModelProvider(t, a.Integrations.Bindings, func(providerQuestion) (int, string) {
 		if calls++; calls == 2 {
 			stop()
 		}

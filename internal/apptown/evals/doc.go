@@ -34,7 +34,7 @@
 // and on the Change's base (read once for the Change), finding by finding:
 // new, fixed, already there, or not comparable with why. Model rubrics in
 // it go through the judge's door ([Gate.AdmitJudge]): only the judge
-// recorded for the Change at start (the baseline's fast model), for its
+// recorded for the Change at start (the baseline's secondary fast model), for its
 // copies, while the eval may proceed. The arm's own models do not grow.
 //
 // # Authority

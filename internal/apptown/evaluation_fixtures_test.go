@@ -150,3 +150,12 @@ func setFastSlot(t *testing.T, a *App, pattern string) {
 		t.Fatal(fmt.Errorf("setting the fast slot: %w", err))
 	}
 }
+
+// setSecondaryFastSlot chooses the independent judge without configuring the
+// primary fast model, so checks accidentally asking for fast fail.
+func setSecondaryFastSlot(t *testing.T, a *App, pattern string) {
+	t.Helper()
+	if err := a.Models.Set(t.Context(), "secondary-fast", "standard", pattern, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+}

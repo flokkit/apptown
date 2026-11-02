@@ -179,3 +179,55 @@ func TestResolveReturnsReadFailures(t *testing.T) {
 		t.Fatalf("a missing project resolved %q", p)
 	}
 }
+
+// Every task uses its basic choice until an explicit task cell overrides it.
+// Independent expectations keep a changed stock fallback from silently passing.
+func TestTasksUseBasicChoicesUntilIndividuallySet(t *testing.T) {
+	t.Parallel()
+	s := New(testDB(t))
+	if err := s.SeedFallbacks(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetDefault(t.Context(), "vendor/strong"); err != nil {
+		t.Fatal(err)
+	}
+	for _, slot := range StockSlots {
+		if got, _, _, err := s.resolve(t.Context(), "standard", slot); err != nil || got != "vendor/strong" {
+			t.Fatalf("default-only %s: %q %v", slot, got, err)
+		}
+	}
+	for _, base := range []string{"primary-fast", "secondary-strong", "secondary-fast"} {
+		if err := s.Set(t.Context(), base, "standard", "vendor/"+base, "fixture"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for task, base := range map[string]string{
+		"default": "default", "plan": "default", "implement": "default", "chat": "default", "worker": "default",
+		"fast": "primary-fast", "scout": "primary-fast", "review": "secondary-strong", "security": "secondary-strong",
+		"primary-fast": "primary-fast", "secondary-strong": "secondary-strong", "secondary-fast": "secondary-fast",
+	} {
+		want := "vendor/" + base
+		if base == "default" {
+			want = "vendor/strong"
+		}
+		if got, _, _, err := s.resolve(t.Context(), "high", task); err != nil || got != want {
+			t.Fatalf("%s basic: %q, want %q (%v)", task, got, want, err)
+		}
+		if err := s.Set(t.Context(), task, "high", "vendor/task", "fixture"); err != nil {
+			t.Fatal(err)
+		}
+		if got, _, profile, err := s.resolve(t.Context(), "high", task); err != nil || got != "vendor/task" || profile != "high" {
+			t.Fatalf("%s override: %q %q %v", task, got, profile, err)
+		}
+		if err := s.Set(t.Context(), task, "high", "", "fixture"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// With no independent fast choice, quick checks use the primary fast choice.
+	if err := s.Set(t.Context(), "secondary-fast", "standard", "", "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _, _, err := s.resolve(t.Context(), "high", "secondary-fast"); err != nil || got != "vendor/primary-fast" {
+		t.Fatalf("unset secondary fast: %q %v", got, err)
+	}
+}

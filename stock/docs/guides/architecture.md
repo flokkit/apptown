@@ -432,15 +432,27 @@ platform; words the agent reads are content.
 
 ## Choosing the model: slots × profiles
 
-Everything that spends tokens names its demand with a **slot** (a
-purpose: `default`, `plan`, `implement`, `review`, `security`, `fast`,
-`chat`, `worker`, `scout`). A project declares a **profile**
-(how demanding its work is: `standard`, `high`).
-The instance maps (slot × profile) → model in one visible matrix;
-resolution is a lookup, never arithmetic, and the receipt records which
-cell won. A project that needs different models gets its own profile,
-even if it is the only project on it. Model evals compare a profile against
-the source project's profile.
+A **model profile** sets four basic choices: **Primary · strong** (`default`),
+**Primary · fast** (`primary-fast`), **Secondary · strong** (`secondary-strong`)
+and **Secondary · fast** (`secondary-fast`). The primary models do the work;
+the secondary models give a second opinion. Quick independent checks,
+including guidance checks and eval judges, ask for `secondary-fast` directly.
+
+Individual **tasks** are the advanced level. A task set individually takes
+priority over its basic choice. Planning, implementation, chat and delegated
+work fall back to `default`. Quick jobs (`fast`) fall back to `primary-fast`,
+and quick lookups (`scout`) fall back to `fast`. Reviews fall back to
+`secondary-strong`; security reviews fall back to `review`.
+Unset secondary choices use the primary of the same speed. An unset
+`primary-fast` uses `default`, the end of every chain.
+
+Each project chooses a profile, such as `standard` or `high`. AppTown tries
+the requested task's cell for that profile, then its `standard` cell, then
+follows the fallback chain with the same lookup at each step. The record
+names the cell that supplied the model. A project that needs different
+models gets its own profile, even if it is the only project on it.
+Model evals compare a profile against the source project's profile, with
+the source profile's secondary fast model judging both arms.
 
 ```mermaid
 flowchart TD

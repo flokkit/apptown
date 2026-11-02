@@ -5,7 +5,7 @@
 The agents that build, review and scan your code
 need a language model to think with. Providers are where models live
 (a cloud API, a GPU box in the cupboard); slots are the names a workflow
-uses for a *kind* of thinking — "review", "implement", "cheap" — so the
+uses for a *kind* of thinking — "review", "implement", "fast" — so the
 instance can decide which model answers to each name without editing
 every workflow.
 
@@ -14,10 +14,15 @@ every workflow.
 Reference slots, not models: `with: { model: review }`. Slot names route
 via the instance mapping for the project's profile; a slash value
 (`gpu1/Qwen3.6`) is a concrete-pattern escape hatch you should rarely
-need. Stock vocabulary: default, plan, implement, review, security,
-fast, chat, worker, scout — an unmapped slot degrades along its
-fallback chain (security → review, scout → fast, the rest →
-default).
+need. Profiles have four basic choices: `default` (Primary · strong),
+`primary-fast`, `secondary-strong` and `secondary-fast`. Individual tasks
+are the advanced level. The task slots are plan, implement, review,
+security, fast, chat, worker and scout. An unset task follows its fallback:
+review → secondary-strong, security → review, fast → primary-fast,
+scout → fast, and the others → default. Quick independent checks ask for
+secondary-fast. Unset secondary choices use the primary of the same speed;
+primary-fast falls back to default. See the [admin guide](model-pi.admin.md)
+for profile lookup and task overrides.
 
 ## What you can rely on
 
