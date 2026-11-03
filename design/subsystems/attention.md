@@ -75,6 +75,17 @@ Checks that cannot give an answer contribute a separate not-known row, with
 the recorded reasons. Neither row includes checks not run yet. The row names its inner count,
 and counts as one item in the header, Attention summary and Home.
 
+A Docker host whose `docker info` command fails on two consecutive reader laps
+appears once in Hosts and deployments as not reachable, with the first failure
+time, error and number of deployments that cannot be checked. It links to the
+target page and its connection check, and lights that group's top-bar indicator.
+While it is down, unknown runtime, data and resource conditions fold into the
+host item. An All checks row folds only when every subject in it is on a down
+host; rows that also cover healthy hosts remain visible. Host reachability is
+read once per host in each Attention response. Confirmed failed releases, crash holds and check problems remain
+listed. A complete reader lap clears the outage. Project-only readers keep their
+deployment coverage because they cannot read the instance host item.
+
 The page groups named links under Hosts and deployments, Backups, Integrations
 and App checks. Unknown coverage names its resource, reason and next step.
 

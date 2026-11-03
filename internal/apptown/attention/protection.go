@@ -25,7 +25,8 @@ type Protection struct {
 	Observer interface {
 		Snapshot(context.Context, ids.ID) (dataprotection.ProtectionSnapshot, error)
 	}
-	Now func() time.Time
+	Hosts hostReachabilityReader
+	Now   func() time.Time
 }
 
 func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, error) {
@@ -49,13 +50,26 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 	out.Name = projectName + " · backups"
 	out.Href = href
 
+	subjects, folded := 0, 0
 	for _, dep := range deps {
 		if dep.Kind != deployment.Standing {
 			continue
 		}
+		down := false
+		if p.Hosts != nil && !dep.TargetID.IsZero() {
+			host, err := p.Hosts.HostReachability(ctx, dep.TargetID)
+			if err != nil {
+				return Snapshot{}, err
+			}
+			down = host.Down
+		}
+		subjects++
+		if down {
+			folded++
+		}
 		reading, readErr := p.Observer.Snapshot(ctx, dep.ID)
 		unknown := reading.Unknown || readErr != nil
-		out.Known = out.Known && !unknown
+		out.Known = out.Known && (!unknown || down)
 		label := dep.DisplayLabel
 		if label == "" {
 			label = dep.Name
@@ -78,7 +92,7 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 		}
 		// A deployment with nothing wrong adds no next step: the row would
 		// otherwise send people to check a healthy one.
-		if reason != "" {
+		if reason != "" && !down {
 			if out.NextStep != "" {
 				out.NextStep += " "
 			}
@@ -102,6 +116,9 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 			var attemptedAt time.Time
 			if key == "unassessed" {
 				attemptedAt = reading.AttemptedAt
+			}
+			if down && (key == "unassessed" || unknown && (key == "off-host" || key == "restore-unavailable" || key == "rehearsal" && !reading.Rehearsed || key == "restore-test" && !reading.RestoreTested)) {
+				return
 			}
 			out.Items = append(out.Items, Item{Key: base + "/" + key, Unknown: unknown, Title: projectName + " · " + label + ": " + title, Detail: label + ": " + detail, Severity: severity, Href: href, ObservedAt: at, AttemptedAt: attemptedAt, Stale: reading.Stale || unknown})
 		}
@@ -132,8 +149,10 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 			case dataprotection.CopyNone:
 				add(item.Key+"/copy", "Backup missing", item.Need+" has no retained successful copy.", SeverityWarning, reading.ObservedAt)
 			default:
-				out.Known = false
-				add(item.Key+"/copy", "A required data copy could not be assessed", item.Need+" has unknown copy coverage.", SeverityWarning, reading.ObservedAt)
+				if !down {
+					out.Known = false
+					add(item.Key+"/copy", "A required data copy could not be assessed", item.Need+" has unknown copy coverage.", SeverityWarning, reading.ObservedAt)
+				}
 			}
 			if item.DrillKnown && !item.DrillPassed {
 				add(item.Key+"/drill", "A data recovery check failed", item.Need+" did not pass its latest recovery check.", SeverityWarning, item.DrillAt)
@@ -173,5 +192,6 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 			add("restore-test", "Recovery has not been tested on its platform", "A rehearsal does not replace a restore test on the deployment's own platform.", severityAdvisory, reading.ObservedAt)
 		}
 	}
+	out.Folded = subjects > 0 && folded == subjects
 	return out, nil
 }

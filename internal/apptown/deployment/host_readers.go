@@ -18,6 +18,7 @@ type HostReaders struct {
 	Hosts     *Hosts
 	Providers *Providers
 	Inventory *Inventory
+	Interval  time.Duration
 }
 
 const hostReadInterval = 20 * time.Second
@@ -25,6 +26,10 @@ const hostReadInterval = 20 * time.Second
 // Run owns the loops until cancellation, including cancellation of host I/O.
 // Target changes wake reconciliation; unreachable targets keep their loop.
 func (r HostReaders) Run(ctx context.Context) {
+	interval := r.Interval
+	if interval <= 0 {
+		interval = hostReadInterval
+	}
 	type loop struct {
 		cancel context.CancelFunc
 		done   chan struct{}
@@ -63,7 +68,7 @@ func (r HostReaders) Run(ctx context.Context) {
 					if err := r.lap(life, id); err != nil && life.Err() == nil {
 						log.Printf("host reading %s: %v", id, err)
 					}
-					timer := time.NewTimer(hostReadInterval)
+					timer := time.NewTimer(interval)
 					select {
 					case <-life.Done():
 						timer.Stop()
@@ -83,7 +88,7 @@ func (r HostReaders) Run(ctx context.Context) {
 	}
 	reconcile()
 	// Targets.changed wakes only its own Targets instance; reconcile other instances too.
-	ticker := time.NewTicker(hostReadInterval)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {

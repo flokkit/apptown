@@ -22,16 +22,20 @@ const hostReadingKind = "host-snapshot"
 // Invalidated means the evidence predates an act; deriving a view never renews it.
 type hostReading struct {
 	docker.HostFacts
-	AttemptedAt     time.Time
-	Outcome         string
-	LastError       string
-	Took            time.Duration
-	Invalidated     bool
-	Instance        string
-	Also            []string
-	Shared          []SharedResource
-	Missing         []deploy.Resource
-	PlacementReason string
+	HostFailures     int
+	UnreachableSince time.Time
+	UnreachableError string
+	HostDown         bool
+	AttemptedAt      time.Time
+	Outcome          string
+	LastError        string
+	Took             time.Duration
+	Invalidated      bool
+	Instance         string
+	Also             []string
+	Shared           []SharedResource
+	Missing          []deploy.Resource
+	PlacementReason  string
 }
 
 type HostSnapshots struct {
@@ -94,6 +98,23 @@ func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope,
 		return nil
 	}
 	prior.AttemptedAt, prior.Took, prior.Instance, prior.Also = started, s.now().Sub(started), dk.Instance, also
+	if facts.Host.Reason != "" {
+		if prior.HostFailures == 0 && !prior.HostDown {
+			prior.UnreachableSince = started
+		}
+		prior.HostFailures++
+		prior.UnreachableError = facts.Host.Reason
+		if prior.HostFailures >= 2 {
+			prior.HostDown = true
+		}
+	} else {
+		prior.HostFailures = 0
+	}
+	if readErr == nil {
+		prior.HostDown = false
+		prior.UnreachableSince = time.Time{}
+		prior.UnreachableError = ""
+	}
 	successes := 0
 	if mergeHostSection(&prior.Host, facts.Host) {
 		successes++
@@ -197,4 +218,29 @@ func (s *HostSnapshots) inventory(r hostReading) (inventoryObservation, error) {
 	}
 	out.Missing = r.Missing
 	return out, nil
+}
+
+// HostReachability describes the loop's confirmed host outage. Only a complete
+// lap clears an outage; a successful info command alone cannot clear it.
+type HostReachability struct {
+	Down        bool
+	Since       time.Time
+	Error       string
+	Deployments int
+}
+
+// HostReachability reads local evidence only. Callers authorize the target or
+// its deployment before reading; no connection check is performed here.
+// A target without a stored host reading has no confirmed outage.
+func (s *Service) HostReachability(ctx context.Context, targetID ids.ID) (HostReachability, error) {
+	t, err := s.Targets.ByID(ctx, targetID)
+	if err != nil {
+		return HostReachability{}, err
+	}
+	r, err := NewHostSnapshots(s.db, s.now).reading(ctx, t)
+	if err != nil || !r.HostDown {
+		return HostReachability{}, err
+	}
+	deps, err := s.Deployments.OnTarget(ctx, targetID)
+	return HostReachability{Down: r.HostDown, Since: r.UnreachableSince, Error: r.UnreachableError, Deployments: len(deps)}, err
 }

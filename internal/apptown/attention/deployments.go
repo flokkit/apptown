@@ -28,7 +28,8 @@ type Deployments struct {
 	Runtime interface {
 		Operational(context.Context, ids.ID) ([]deployment.OperationalObservation, error)
 	}
-	Now func() time.Time
+	Hosts hostReachabilityReader
+	Now   func() time.Time
 }
 
 func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, error) {
@@ -49,12 +50,25 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 	}
 	now := clock.Or(s.Now)()
 	out := Snapshot{Known: true, ObservedAt: now, Name: projectName + " · deployments", Href: "/projects/" + url.PathEscape(p.Slug) + "/settings/deployments", NextStep: "Open the deployment diagnostics. Someone with deployment permission can repair or release it."}
+	subjects, folded := 0, 0
 	for _, d := range rows {
+		down := false
+		if s.Hosts != nil && !d.TargetID.IsZero() {
+			host, err := s.Hosts.HostReachability(ctx, d.TargetID)
+			if err != nil {
+				return Snapshot{}, err
+			}
+			down = host.Down
+		}
+		subjects++
+		if down {
+			folded++
+		}
 		r := d.Runtime
 		unknown := r.Err != nil || r.State == deployment.RuntimeUnknown || r.ObservedAt.IsZero()
 		// A recent good reading covers a missed one; never a status not yet seen.
 		late := (unknown || r.Stale) && !r.ObservedAt.IsZero() && now.Sub(r.ObservedAt) < runtimeGrace
-		out.Known = out.Known && (!unknown || late)
+		out.Known = out.Known && (!unknown || late || down)
 		out.Stale = out.Stale || (r.Stale && !late)
 		if r.ObservedAt.IsZero() || r.ObservedAt.Before(out.ObservedAt) {
 			out.ObservedAt = r.ObservedAt
@@ -89,18 +103,22 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 			}
 			at, _ := time.Parse(time.RFC3339Nano, d.Hold.At)
 			add("crash-hold", title, detail, SeverityWarning, at, unknown || r.Stale)
+			if down && d.Hold.Confirmed {
+				out.Items[len(out.Items)-1].Unknown = false
+			}
 		}
 		// A queued first check is incomplete coverage, not an actionable failure.
 		pending := r.AttemptedAt.IsZero() && r.ObservedAt.IsZero() && r.Err == nil
 		switch {
-		case (unknown || r.Stale) && !pending && !late:
+		case (unknown || r.Stale) && !pending && !late && !down:
 			add("runtime", "App status not known", "The latest runtime observation is unavailable or out of date.", SeverityWarning, r.ObservedAt, true)
-		case r.State == deployment.RuntimeStopped && !held:
+		case r.State == deployment.RuntimeStopped && !held && !(down && (unknown || r.Stale)):
 			out.Known = false
 			add("runtime", "Stopped; check whether it should be running", "The runtime is absent. This observation does not establish whether it was stopped intentionally.", severityAdvisory, r.ObservedAt, r.Stale)
 		case r.Health == "unhealthy" || r.Rollout == "failed":
 			add("runtime", "Deployment runtime needs attention", "The observed serving generation is unhealthy or its provider rollout failed.", SeverityWarning, r.ObservedAt, r.Stale)
 		}
 	}
+	out.Folded = subjects > 0 && folded == subjects
 	return out, nil
 }

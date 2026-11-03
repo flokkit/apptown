@@ -275,7 +275,13 @@ Attention show recorded evidence and its age; a page never contacts a provider
 or host or requests a check. The Docker Infrastructure row shows how long ago
 it was read and how long it took. Attention warns when a Docker host's reading
 is more than five minutes old; never read counts as old. It includes the age
-and latest command error, if any. Other providers invalidate inventory and
+and latest command error, if any. Two consecutive laps whose first command,
+`docker info`, fails confirm that the host is not reachable. Attention lists
+one host item with the first failure time, error and number of deployments that
+cannot be checked, linking to the target's connection check. Unknown runtime,
+data and resource conditions on that host fold into it. Confirmed conditions
+remain listed. The first complete lap clears the host item.
+Other providers invalidate inventory and
 request a check after an act. Other inventory jobs have thirty seconds.
 The scheduling pass attempts all targets and instance disks even when an
 admission fails, and reports errors together.

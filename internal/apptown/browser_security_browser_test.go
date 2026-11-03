@@ -271,7 +271,7 @@ func (t *browserTerminal) Write(p []byte) (int, error) {
 // this machine's. TestGarage is the same AppTown with one example of each
 // trouble.
 func TestTour(t *testing.T) {
-	w := newTourWorld(t, false)
+	w := newTourWorld(t, false, 0)
 	stops := readTourStops(t, filepath.Join(w.tourDir, "tour.yaml"))
 	if w.hold() {
 		return
@@ -329,7 +329,7 @@ func TestHostSnapshotScenesReadInventory(t *testing.T) {
 			if !garage {
 				t.Setenv("APPTOWN_DESIGN_HOLD", "127.0.0.1:0")
 			}
-			w := newTourWorld(t, garage)
+			w := newTourWorld(t, garage, 10*time.Millisecond)
 			targets, err := w.a.targets.All(t.Context())
 			if err != nil {
 				t.Fatal(err)
@@ -376,7 +376,7 @@ func TestHostSnapshotScenesReadInventory(t *testing.T) {
 // capacity check fails); the data folder's disk is low; gitlab and
 // infisical are not set up (as in the tour). Not part of any gate.
 func TestGarage(t *testing.T) {
-	w := newTourWorld(t, true)
+	w := newTourWorld(t, true, 0)
 	if w.hold() {
 		return
 	}
@@ -441,7 +441,7 @@ const tourAgentImage = "apptown-agent"
 const garageScannerImage = "semgrep/semgrep:1.999.0"
 
 // newTourWorld builds the tour's AppTown; garage adds its trouble.
-func newTourWorld(t *testing.T, garage bool) *tourWorld {
+func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tourWorld {
 	root, err := filepath.Abs("../..")
 	if err != nil {
 		t.Fatal(err)
@@ -1023,8 +1023,10 @@ func newTourWorld(t *testing.T, garage bool) *tourWorld {
 	// Fixture jobs finish before the first lap; the held manager owns later laps.
 	readHostsForTest(t, a)
 	if w.held {
+		readers := a.HostReaders
+		readers.Interval = readerInterval
 		done := make(chan struct{})
-		go func() { defer close(done); a.HostReaders.Run(runtimeCtx) }()
+		go func() { defer close(done); readers.Run(runtimeCtx) }()
 		t.Cleanup(func() { stopRuntime(); <-done })
 	}
 	return w
