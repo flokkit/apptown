@@ -216,7 +216,7 @@ it('keeps sent-back work and abandoned landing attempts in their own cards', () 
   ] as RunDetail['events']
   const first = detail('first-landing', [step('merge-one', 'scm/merged', 'fail', { startedAt: '2026-11-01T11:00:00Z' })]); first.run.kind = 'landing'; first.run.createdAt = '2026-11-01T11:00:00Z'
   const second = detail('second-landing', [step('merge-two', 'scm/merged', 'pass', { startedAt: '2026-11-01T12:00:00Z' })]); second.run.kind = 'landing'; second.run.createdAt = '2026-11-01T12:00:00Z'
-  const phases = storyPhases([...runStory(work), ...runStory(first), ...runStory(second)].sort((a, b) => a.at.localeCompare(b.at)))
+  const phases = storyPhases([...runStory(work), ...runStory(first), ...runStory(second)].sort((a, b) => a.at.localeCompare(b.at)), [{ id: 'first-landing', role: 'landing' }, { id: 'second-landing', role: 'landing' }] as ChangeView['runs'])
   expect(phases.map(p => p.title)).toEqual(['Work', 'Work, round 2 — sent back by priya: Keep the invitation.', 'Landing', 'Landing'])
 })
 
@@ -314,4 +314,48 @@ it('keeps not-applicable check reasons and the merge re-check on the live Detail
 it('keeps known counts distinct from unknown evidence when some tests were skipped', () => {
   const s = step('tests', 'tests', 'pass', { evidence: { testCounts: { passed: 8, failed: 0, skipped: 2 } } })
   expect(checkResult(s)).toBe('✓ · 8 passed, 2 skipped')
+})
+
+it('keeps the landing merge and its later checks in Landing using the recorded role', async () => {
+  const v = view()
+  v.detail = detail('land', [step('reconcile', 'reconcile', 'pass'), step('tests', 'tests', 'pass', { startedAt: '2026-11-01T11:00:00Z', evidence: { testCounts: { passed: 8, failed: 0, skipped: 0 } } })])
+  v.detail.run.kind = 'pipeline'
+  v.runs = [{ id: 'land', role: 'landing' }] as ChangeView['runs']
+  v.detail.events = [{ id: 'merge', kind: 'main.merged', at: '2026-11-01T10:02:00Z', payload: {} }] as RunDetail['events']
+  const f = await mount(v)
+  try {
+    expect([...f.el.querySelectorAll('.ch-phase h2')].map(e => e.textContent)).toEqual(['Work', 'Landing'])
+    const landing = [...f.el.querySelectorAll('.ch-phase')].find(e => e.querySelector('h2')?.textContent === 'Landing')!
+    expect(landing.querySelector('#entry-tests-0')).not.toBeNull()
+    expect(landing.querySelector('#entry-event-merge .ch-event-label')?.textContent).toBe('Brought up to date with main')
+    expect([...landing.querySelectorAll('.ch-event-label')].filter(e => e.textContent === 'Brought up to date with main')).toHaveLength(1)
+  } finally { f.close() }
+})
+
+it('shows a few request lines once and links to the complete request without a disclosure', async () => {
+  const v = view()
+  v.change.body = Array.from({ length: 40 }, (_, i) => `Request line ${i + 1}.`).join('\n')
+  const f = await mount(v)
+  try {
+    const asked = f.el.querySelector('.ch-request-row')!
+    expect(asked.textContent?.match(/Request line 1\./g)).toHaveLength(1)
+    expect(asked.textContent).toContain('Request line 4.')
+    expect(asked.textContent).not.toContain('Request line 5.')
+    const link = [...asked.querySelectorAll('a')].find(a => a.textContent === 'full request')!
+    expect(link.getAttribute('href')).toBe('/changes/change?tab=details#request-text')
+    await f.click(link)
+    expect(f.el.querySelector('#request-text')?.textContent).toBe(v.change.body)
+    expect(f.el.querySelector('details')).toBeNull()
+  } finally { f.close() }
+})
+
+it('marks a rejected review red before its positive opening and preserves the later objection', async () => {
+  const v = view()
+  v.detail!.steps = [step('review', 'agent/review', 'fail', { evidence: { verdict: 'fail', summary: 'The preview was styled.\n\nThe requested adoption is incomplete.' } })]
+  const f = await mount(v)
+  try {
+    const row = f.el.querySelector('#entry-review-0')!
+    expect(row.querySelector('.ch-mark.bad')?.textContent).toBe('✗')
+    expect(row.querySelector('.ch-story-line')?.textContent).toBe('✗ Rejected · The preview was styled.\n\nThe requested adoption is incomplete.')
+  } finally { f.close() }
 })

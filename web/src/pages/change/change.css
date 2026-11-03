@@ -373,3 +373,6 @@
 .ch-check-about dt { color: var(--muted); }
 .ch-check-about dd { margin: 0; }
 @media (max-width: 640px) { .ch-check-about { grid-template-columns: minmax(0, 1fr); } }
+
+.ch-review-text { white-space: pre-wrap; }
+.ch-tabs-sheet { box-sizing: border-box; }

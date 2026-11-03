@@ -61,15 +61,15 @@ function Records({ records, opened }: { records: Artifact[]; opened: Set<string>
 
 type Phase = { key: string; title: string; entries: StoryEntry[]; landing: boolean }
 // Receipts, rather than the current step state, define round boundaries.
-export function storyPhases(story: StoryEntry[]): Phase[] {
+export function storyPhases(story: StoryEntry[], summaries: ChangeView['runs']): Phase[] {
   const phases: Phase[] = []
   let round = 0
   const runs = new Map(story.map(e => [e.detail.run.id, e.detail.run]))
   for (const entry of story) {
     const parent = entry.detail.run.parentRunId ? runs.get(entry.detail.run.parentRunId) : undefined
-    const landing = (parent || entry.detail.run).kind === 'landing' || ['reconcile', 'policy/current', 'scm/merged', 'deploy'].includes(entry.step?.type || '')
+    const landing = summaries.some(r => r.id === (parent || entry.detail.run).id && r.role === 'landing')
     let phase = phases.at(-1)
-    const newRound = entry.step?.type === 'agent/pi' && phase?.entries.some(e => e.step?.type === 'agent/pi')
+    const newRound = !landing && entry.step?.type === 'agent/pi' && phase?.entries.some(e => e.step?.type === 'agent/pi')
     if (!phase || phase.landing !== landing || (landing && phase.entries[0]?.detail.run.id !== entry.detail.run.id) || newRound || (!landing && !parent && phase.entries.length > 0 && phase.entries.at(-1)?.detail.run.id !== entry.detail.run.id)) {
       if (!landing) round++
       const sentBack = [...story.flatMap(e => e.events)].filter(e => e.kind === 'step.sendback' && e.at <= entry.at).sort((a, b) => a.at.localeCompare(b.at)).at(-1)
@@ -101,7 +101,7 @@ export function ChangeDetails({ view, current, reload, focusStep, runId }: { vie
   const ids = new Set([...(view.runs ?? []).map(r => r.id!), ...(runId ? [runId] : []), ...details.flatMap(d => d.steps.flatMap(s => s.type === 'workflow/call' && s.evidence.childRunId ? [s.evidence.childRunId] : []))])
   ids.delete(view.detail?.run.id ?? '')
   const story = details.flatMap(runStory).sort((a, b) => a.at.localeCompare(b.at))
-  const phases = storyPhases(story)
+  const phases = storyPhases(story, view.runs ?? [])
   if (!phases.length || phases[0].landing) phases.unshift({ key: 'request', title: 'Work', landing: false, entries: [] })
   const latest = view.detail
   const previewEntry = [...story].reverse().find(e => e.step?.type === 'preview') || story.find(e => e.step?.type === 'agent/pi')
@@ -146,10 +146,10 @@ export function ChangeDetails({ view, current, reload, focusStep, runId }: { vie
     const open = opened.has(key) || (!!focusStep && focusStep === s?.id) || (opened.has('summary') && e === reportEntry) || (opened.has('preview') && e === previewEntry) || (opened.has('review') && e === reviewEntry)
     const agentWork = s?.type === 'agent/pi' || e.key.startsWith('work-')
     const facts = e.key.startsWith('work-') ? (e.detail.run.id === latest?.run.id && view.diffstat?.match(/\d+ files? changed/)?.[0]) || 'no report' : e.text
-    const label = s?.type === 'agent/pi' ? 'Agent worked' : s?.type === 'agent/review' ? 'Reviewer' : s?.type === 'approval' ? 'Approval' : s?.type === 'scm/merged' ? 'Merged' : s?.type === 'deploy' ? 'Released' : e.text.startsWith('Abandoned') ? 'Abandoned' : e.text.startsWith('Checks:') ? 'Checks' : 'Agent worked'
+    const label = e.key.startsWith('event-') && e.events.some(event => event.kind === 'main.merged') ? 'Brought up to date with main' : s?.type === 'agent/pi' ? 'Agent worked' : s?.type === 'agent/review' ? 'Reviewer' : s?.type === 'approval' ? 'Approval' : s?.type === 'scm/merged' ? 'Merged' : s?.type === 'deploy' ? 'Released' : e.text.startsWith('Abandoned') ? 'Abandoned' : e.text.startsWith('Checks:') ? 'Checks' : 'Agent worked'
     return <li key={key} id={key} className="ch-detail-row ch-story-entry">
       {time(e.at)}<div className="ch-event-label">{label}</div>
-      <div className="ch-detail-facts"><div className="ch-story-line">{e === mergedEntry && view.change.landedSha ? `merged at ${view.change.landedSha.slice(0, 12)}` : facts.replace(/^(Reviewer|Approval|Landing): |^Agent worked,? ?|^Abandoned ?/, '') || 'Finished'}</div>
+      <div className="ch-detail-facts"><div className={`ch-story-line${s?.type === 'agent/review' ? ' ch-review-text' : ''}`}>{s?.type === 'agent/review' ? <ResultMark text={facts.replace(/^Reviewer: /, '')} /> : e === mergedEntry && view.change.landedSha ? `merged at ${view.change.landedSha.slice(0, 12)}` : facts.replace(/^(Reviewer|Approval|Landing): |^Agent worked,? ?|^Abandoned ?/, '') || 'Finished'}</div>
         {e === previewEntry && <span id="preview" />}{e === reviewEntry && <span id="review" />}
         <TechnicalWords shown={technical}>{e.detail.run.workflowName} v{e.detail.run.workflowVersion} · run {e.detail.run.number}{s && ` · ${s.name} · ${s.type}`}{s?.type === 'agent/pi' && s.evidence.model && ` · ${s.evidence.model}`}{s?.type === 'approval' && s.config.means && ` · ${s.config.means}`}</TechnicalWords>
         {entryEvidence(e, open)}
