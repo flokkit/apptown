@@ -40,6 +40,7 @@ func TestEveryBootingStageChecksConformanceAndTellsTheAgentTheBar(t *testing.T) 
 					for _, rule := range []string{
 						"A blocker is anything outside this repository that the change needs: a decision, a secret, access, a setting only a person can change (for example a stored preview secret), or a smaller request.",
 						"Anything your report says a person or operator must do belongs in Blockers.",
+						"Add the Blockers field only when there is at least one blocker. Leave it out otherwise.",
 						"If you were sent back for such a reason, declare it as a blocker rather than trying again.",
 						"Do not finish with a preview that fails to start unless the reason is listed in Blockers.",
 					} {

@@ -1,9 +1,13 @@
 package workflowexec
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+)
 
 // reportBlockers reads the declared Blockers: field of a change report.
-// Every following bullet up to the next non-list line is a person action.
+// Following bullets up to the next non-list line name person actions.
+// A bullet declaring no blockers is not a person action.
 func reportBlockers(report string) []string {
 	var actions []string
 	in := false
@@ -22,6 +26,10 @@ func reportBlockers(report string) []string {
 			break
 		}
 		if action := strings.TrimSpace(strings.TrimPrefix(line, "- ")); action != "" {
+			switch strings.ToLower(strings.TrimRightFunc(action, unicode.IsPunct)) {
+			case "none", "n/a", "no blockers":
+				continue
+			}
 			actions = append(actions, action)
 		}
 	}
