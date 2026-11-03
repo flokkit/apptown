@@ -88,27 +88,15 @@ type fakePiBuilt struct {
 	image, fail string
 }
 
-var fakePiBuild, fakePiGitBuild fakePiBuilt
+var fakePiBuild fakePiBuilt
 
-// fakePiImage builds the fake agent image from the pinned busybox on this
-// machine's Docker, once per test binary, named by its content.
+// fakePiImage supplies the harness's Node event capture and git, with a
+// scripted Pi. The pinned Alpine Git base also supplies the shell tools the
+// scripts use; Node is required even though Pi itself is fake.
 func fakePiImage(t *testing.T) string {
 	t.Helper()
-	return fakePiImageFrom(t, &fakePiBuild, "FROM "+stock.Images().DF+"\n")
-}
-
-// fakePiGitImage is the fake agent image with git, for an agent that
-// commits and pushes as a real one does: the check image (stock.Images().Sh's
-// alpine/git) without its git entrypoint.
-func fakePiGitImage(t *testing.T) string {
-	t.Helper()
-	return fakePiImageFrom(t, &fakePiGitBuild, "FROM alpine/git:v2.47.2\nENTRYPOINT []\n")
-}
-
-func fakePiImageFrom(t *testing.T, fakePiBuild *fakePiBuilt, base string) string {
-	t.Helper()
 	fakePiBuild.once.Do(func() {
-		dockerfile := base + "LABEL apptown.pi.version=\"" + fakePiVersion + "\"\nCOPY pi /usr/local/bin/pi\n"
+		dockerfile := "FROM alpine/git:v2.47.2\nRUN apk add --no-cache nodejs\nENTRYPOINT []\nLABEL apptown.pi.version=\"" + fakePiVersion + "\"\nCOPY pi /usr/local/bin/pi\n"
 		sum := sha256.Sum256([]byte(dockerfile + fakePiScript))
 		image := "forge-it-fake-pi:" + hex.EncodeToString(sum[:])[:12]
 		if dockertest.Run("image", "inspect", image) == nil {
