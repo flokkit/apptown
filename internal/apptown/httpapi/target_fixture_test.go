@@ -175,10 +175,12 @@ func newDockerFake() *dockerfake.Daemon {
 	return dockerfake.New()
 }
 
-// shortHostDataDir leaves room for OpenSSH's temporary Unix socket suffix.
+// shortHostDataDir omits the test name to leave room for OpenSSH's socket
+// suffix. Keep it under TMPDIR: the heavy runner shares only that root with
+// the Docker host, so bind mounts must use paths beneath it.
 func shortHostDataDir(t *testing.T) string {
 	t.Helper()
-	dir, err := os.MkdirTemp("/tmp", "at-host-")
+	dir, err := os.MkdirTemp("", "at-")
 	if err != nil {
 		t.Fatal(err)
 	}

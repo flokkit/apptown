@@ -186,7 +186,7 @@ say "built, ran and reached the service"`,
 func composedAgentImage(t *testing.T) (dir, image string) {
 	t.Helper()
 	dir = t.TempDir()
-	files := map[string]string{"Dockerfile": "FROM docker:27-dind\nENTRYPOINT [\"docker-entrypoint.sh\"]\nLABEL apptown.pi.version=\"" + fakePiVersion + "\"\nCOPY pi /usr/local/bin/pi\n", "pi": fakePiScript}
+	files := map[string]string{"Dockerfile": "FROM docker:27-dind\nRUN apk add --no-cache nodejs\nENTRYPOINT [\"docker-entrypoint.sh\"]\nLABEL apptown.pi.version=\"" + fakePiVersion + "\"\nCOPY pi /usr/local/bin/pi\n", "pi": fakePiScript}
 	for name, body := range files {
 		if err := execfile.Write(filepath.Join(dir, name), []byte(body), 0o755); err != nil {
 			t.Fatal(err)

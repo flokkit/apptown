@@ -138,7 +138,7 @@ say "asked AppTown"`})
 func TestIntegrationAppTownCheckOnTheWorkerChecksTheAgentsCommitAsFeedback(t *testing.T) {
 	t.Parallel()
 	requireDocker(t)
-	image := fakePiGitImage(t)
+	image := fakePiImage(t)
 	namespace := fmt.Sprintf("agentscratch%d", time.Now().UnixNano()%1_000_000_000)
 	removeTaskContainers(t, namespace)
 	ca := workertest.NewCA(t)
