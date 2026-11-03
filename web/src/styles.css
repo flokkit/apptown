@@ -953,6 +953,7 @@ a.infra-card:hover, a.infra-add:hover { text-decoration: none; border-color: var
 .adds-removed::before { content: "\2212"; color: var(--bad); }
 .adds-unknown::before { content: "?"; color: var(--warn); }
 .adds-unknown { color: var(--warn); }
+.adds-contract .adds-lines li::before { content: none; }
 .ch-sendback textarea { font-family: var(--font-sans); font-size: var(--fs-sm); }
 a.btn {
   display: inline-block; background: var(--panel); color: var(--text); border: 1px solid var(--border-strong);
@@ -1965,3 +1966,11 @@ a.project-avatar, a.project-avatar:hover { text-decoration: none; color: inherit
 .bar-moving { animation: bar-move 0.8s linear infinite; }
 @keyframes bar-move { to { background-position: 11.3px 0; } }
 @media (prefers-reduced-motion: reduce) { .bar-moving { animation: none; } }
+
+.agent-actions-switch { display: flex; align-items: center; gap: 6px; margin: 6px 0 12px; cursor: pointer; }
+.agent-actions-switch input { width: auto; margin: 0; }
+
+.ch-mark { font-weight: 600; }
+.ch-mark.ok { color: var(--ok); }
+.ch-mark.bad { color: var(--bad); }
+.ch-mark.warn { color: var(--warn); }

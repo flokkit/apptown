@@ -2405,6 +2405,7 @@ export type Change = {
   closedAt?: string
   closedAs?: string
   stateLabel: string
+  abandonedBy?: string
   targetAdoptionId?: string | null
   expectedRevision?: number
   adoptedRevision?: number
@@ -4490,6 +4491,7 @@ export type ChangeSummary = {
   closedAt?: string
   closedAs?: string
   stateLabel: string
+  abandonedBy?: string
   targetAdoptionId?: string | null
   expectedRevision?: number
   adoptedRevision?: number

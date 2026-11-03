@@ -1,3 +1,4 @@
+import WorkRecordPage from './pages/change/WorkRecord'
 import { SECURITY_TABS, SETTINGS_TABS, SETTINGS_LABEL } from './pages/project/tabs'
 import { projectHue } from './ProjectListRow'
 import { ArrowLeft, Blocks, BookOpen, BookText, ChartColumn, ChevronDown, ChevronRight, FlaskConical, FolderKanban, House, LayoutDashboard, MessageSquare, MessageSquareWarning, Plug, RefreshCw, Rocket, Settings, Shield, ShieldCheck, Users } from 'lucide-react'
@@ -273,6 +274,7 @@ export default function App() {
           <Route path="/operations/:id" element={<OperationPage />} />
           <Route path="/projects/:slug/:tab" element={<Project />} />
           <Route path="/projects/:slug/:tab/:stab" element={<Project />} />
+          <Route path="/changes/:id/work/:stepId" element={<WorkRecordPage />} />
           <Route path="/changes/:id" element={<ChangePage />} />
           <Route path="/adrs/:id" element={<AdrPage />} />
           <Route path="/guidance" element={<WaysOfWorking tab="guidance" />} />

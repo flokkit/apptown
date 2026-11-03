@@ -349,13 +349,14 @@ function KindPage({ which, area, bindings, catalog, offered, catalogErr, reading
       {catalogErr && <div className="error small">The connector catalogue could not be read, so connecting and editing are unavailable: {catalogErr}</div>}
       <StaleNote q={reading.q} />
       {which === 'targets' && <Section title="Targets"><TargetRows /></Section>}
+      {/* A neutral name: each row says whether it is set up and working, so the heading never claims it. */}
       {(groups.length > 0 || which !== 'shared') && (
-        <Section title={which === 'targets' ? 'Connections' : 'Connected'}
+        <Section title="Connections"
           note={rows.length > 0 && (failing > 0 || unchecked > 0 || refreshing) ? <span style={failing > 0 ? { color: "var(--bad)" } : undefined}>
             {[failing > 0 ? `${failing} need attention` : '', unchecked > 0 ? `${unchecked} not tested` : ''].filter(Boolean).join(' · ')}
             {refreshing && !reading.q.refreshFailed ? <span className="muted"> · checking again…</span> : null}
           </span> : undefined}>
-          {groups.length === 0 ? <p className="muted">Nothing connected yet. Use Connect to add one.</p>
+          {groups.length === 0 ? <p className="muted">No connections yet. Use Connect to add one.</p>
             : groups.map((g) => {
               const rowsEl = <KindRows area={area} rows={g.rows} catalog={catalog} reading={reading} />
               // A page holding several kinds names each one, once more than one

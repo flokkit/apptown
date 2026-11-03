@@ -328,3 +328,10 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
 export function decisionStatus(step: Step, awaitingDecision = false): Step['statusLabel'] {
   return step.type === 'approval' && step.status === 'pending' && awaitingDecision ? 'waiting for you' : step.statusLabel
 }
+
+// Pending work in a later stage does not hold an earlier decision. Running
+// work anywhere does: accepting must wait for the result being produced.
+export function checksRunning(steps: Step[], stage?: string): boolean {
+  return steps.some(s => s.type !== 'approval' && (s.status === 'running' || (s.status === 'pending' && (!stage || s.stage === stage)
+    && ['tests', 'scan', 'script', 'agent/pi', 'agent/review', 'guidance/conformance', 'preview', 'workflow/call'].includes(s.type))))
+}

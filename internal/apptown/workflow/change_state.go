@@ -144,8 +144,9 @@ type Change struct {
 	// StateLabel is State.Label(ClosedAs), filled where the
 	// change is read.
 	StateLabel string `json:"stateLabel"`
-	// Projected from the abandonment receipt, never a second stored reason.
+	// Projected from the abandonment receipt; neither is stored on the change.
 	AbandonReason string `json:"-"`
+	AbandonedBy   string `json:"abandonedBy,omitempty"`
 	// An uplift's target revision, what it must prove, the revision it was
 	// prepared from and the one it moved the project to (§11).
 	TargetAdoptionID    ids.ID `json:"targetAdoptionId,omitzero"`

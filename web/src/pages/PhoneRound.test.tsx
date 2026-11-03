@@ -10,8 +10,6 @@ import WaysOfWorking from './WaysOfWorking'
 import { StoreSection } from './DataProtection'
 import Deployments from './Deployments'
 import Dashboard from './Dashboard'
-import { HistoryTab } from './change/Tabs'
-import type { ChangeView } from '../api'
 import { MembersTab } from './project/settings/Members'
 import { projectFact } from './conformance/Projects'
 import type { ConformanceView, ProjectStanding } from '../wire.gen'
@@ -59,17 +57,6 @@ it('says when the workflow library is empty, and still offers a new workflow', (
   expect(el.textContent).toContain('No workflows.')
   expect(el.textContent).toContain('New workflow')
 })
-
-it('folds routine history events apart while keeping each exact event and its time', () => {
-  const view = { runs: [], detail: { events: Array.from({ length: 6 }, (_, i) => ({ id: String(i), kind: 'integration.resolved', at: '2026-10-31T01:00:00Z', payload: { connection: `resource-${i}` } })) } } as unknown as ChangeView
-  const el = page(<HistoryTab view={view} runHref={() => '/work'} />)
-  expect(firstView(el)).toContain('6 routine events')
-  expect(el.querySelectorAll('details.ch-routine')).toHaveLength(1)
-  expect(el.querySelector('details.ch-routine')?.hasAttribute('open')).toBe(false)
-  for (let i = 0; i < 6; i++) expect(el.textContent).toContain(`resource-${i}`)
-  expect(firstView(el)).not.toContain('run 5')
-})
-
 
 it('keeps project role names short with the complete description outside the native picker', () => {
   const description = 'Opens changes and contributes revisions for other people to review.'

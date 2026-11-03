@@ -1,11 +1,13 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { ChangeView, Step } from '../../api'
 import { newQueryClient } from '../../data'
+import { HeldDecision } from './HeldDecision'
 import { changeChip, nextStep, Primary } from './next'
-import { StatePanel } from './StatePanel'
+import { StatePanel, StateRecord } from './StatePanel'
 
 // The change page's head says where a change is and offers ONE primary act
 // for whoever is looking. Each state the server can report gets its words
@@ -46,10 +48,11 @@ const view = (o: Opts): ChangeView => ({
 
 const render = (v: ChangeView, stale = false) => renderToStaticMarkup(
   <MemoryRouter><QueryClientProvider client={newQueryClient()}>
-    <StatePanel view={v} onChange={() => {}} workTab={() => '/changes/9?tab=work'} reading={{ data: {}, refreshFailed: stale, answeredAt: 0, err: '', reason: stale ? 'network down' : '', loading: false, denied: false }} />
+    <StatePanel view={v} reading={{ data: {}, refreshFailed: stale, answeredAt: 0, err: '', reason: stale ? 'network down' : '', loading: false, denied: false }} />
   </QueryClientProvider></MemoryRouter>)
-// The panel's primary buttons and links, by their words.
-const primaries = (html: string) => [...html.matchAll(/class="(?:btn )?primary"[^>]*>([^<]*)</g)].map((m) => m[1])
+const details = (v: ChangeView) => renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}>
+  <HeldDecision view={v} onChange={() => {}} />
+</QueryClientProvider></MemoryRouter>)
 
 // AppTown's offer of an approval step, as the run snapshot carries it.
 const offer = (s: Step) => [{ act: 'approve', stepId: s.id, step: s.name }]
@@ -204,31 +207,24 @@ const cases: { name: string; v: ChangeView; primary: Primary; headline: RegExp; 
   },
 ]
 
-describe('the change head', () => {
+describe('the change state and actions', () => {
   it.each(cases.map((c) => [c.name, c] as const))('%s: one state, one next action', (_, c) => {
     const n = nextStep(c.v)
     expect(n.primary).toBe(c.primary)
     expect(n.headline).toMatch(c.headline)
     if (c.waitingOn) expect(n.waitingOn ?? '').toMatch(c.waitingOn)
-    const html = render(c.v)
-    const p = primaries(html)
-    // At most one primary act on the panel, and it is the right one.
-    expect(p.length).toBeLessThanOrEqual(1)
-    if (c.button) expect(p).toEqual([c.button])
-    else expect(p).toEqual([])
   })
 
   it('says the sender and their words when work was sent back', () => {
-    const html = render(cases[2].v)
+    const html = renderToStaticMarkup(<StateRecord view={cases[2].v} />)
     expect(html).toContain('bls sent it back')
     expect(html).toContain('use crypto/rand')
   })
 
   it('names who an approval waits on and what approving means', () => {
     const html = render(cases[1].v)
-    expect(html).toContain('Waiting on: <strong>bls</strong>')
-    expect(html).toContain('I glanced.')
-    expect(html).toContain('I answer for this landing.')
+    expect(html).toContain('Waiting for approval to land')
+    expect(nextStep(cases[1].v).waitingOn).toBe('bls')
   })
 
   it('shows an answer whose refresh failed as not current, never as plain success', () => {
@@ -273,7 +269,6 @@ describe('the change head', () => {
     }
     const html = render({ ...waiting, approval: { stepId: approval.id, viewer: 'yes' } } as ChangeView)
     expect(html).not.toContain('Waiting on: <strong>you</strong>')
-    expect(html.match(/I answer for this landing\./g)?.length).toBe(1)
     expect(html).not.toContain('Approving lands it')
     expect(changeChip({ ...waiting, approval: { stepId: approval.id, viewer: 'yes' } } as ChangeView)).toEqual({ text: 'waiting for you', cls: 'pending' })
     expect(changeChip(view({ change: 'landing', state: 'working' })).text).toBe('working')
@@ -291,13 +286,7 @@ describe('the change head', () => {
     const child = view({ state: 'waiting on you', steps: [call] })
     child.detail!.pendingApproval = uuid(999)
     expect(nextStep(child).primary).toBe('open-decision')
-    expect(primaries(render(child))).toEqual(['Open the decision'])
     expect(nextStep(child).step?.id).toBe(call.id)
-    expect(render(child)).toContain('Waiting for approval')
-    const decisionLink = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}>
-      <StatePanel view={child} onChange={() => {}} workTab={(id) => `/work?step=${id}`} />
-    </QueryClientProvider></MemoryRouter>)
-    expect(decisionLink).toContain(`/work?step=${call.id}`)
     const settled = { ...accept, status: 'pass' } as Step
     expect(nextStep(view({ state: 'waiting on you', steps: [settled], next: offer(settled) })).primary).toBe('none')
   })
@@ -311,37 +300,25 @@ describe('the change head', () => {
     const interrupted = view({ change: 'landing', state: 'blocked', merged: true, steps: [cut], next: retry(cut) })
     expect(nextStep(interrupted).primary).toBe('try-again')
     for (const v of [merged, interrupted]) {
-      const html = render(v)
+      const html = details(v)
       for (const refused of ['Send it back', 'Take it to chat', 'Abandon']) expect(html).not.toContain(refused)
-      expect(html).toContain('Accept it anyway')
-      expect(html).toContain('See the check&#x27;s record')
-      expect(primaries(html)).toEqual(['Try again'])
+      expect(nextStep(v).primary).toBe('try-again')
     }
-    const before = render(cases.find((c) => c.name === 'landing blocked by a gate')!.v)
+    const before = details(cases.find((c) => c.name === 'landing blocked by a gate')!.v)
     // Before the merge the stopped landing goes back to the agent with what
     // the check found; the chat is among the other options.
-    expect(primaries(before)).toEqual(['Fix it'])
-    expect(before).toContain('Other options')
-  })
-
-  // A merge check that read no merge needs a person; AppTown offers to
-  // read it again, and the panel words it as a check, quietly. Without the
-  // offer there is no such button.
-  it('offers a re-check of a merge check only as AppTown offers it', () => {
-    const merged = step({ type: 'scm/merged', name: 'merged', status: 'needs_human', evidence: { reason: 'not merged yet' } })
-    expect(render(view({ state: 'blocked', steps: [merged], next: retry(merged) }))).toContain('>Re-check<')
-    expect(render(view({ state: 'blocked', steps: [merged] }))).not.toContain('Re-check')
-    expect(render(view({ state: 'blocked', steps: [trivy] }))).not.toContain('Try again')
+    expect(before).toContain('Go to chat')
+    expect(details(cases.find((c) => c.name === 'landing blocked by a gate')!.v)).toContain('Go to chat')
   })
 
   it('keeps the abandonment reason on the first screen', () => {
-    expect(render(cases.find((c) => c.name === 'abandoned')!.v)).toContain('superseded by #12')
+    expect(renderToStaticMarkup(<StateRecord view={cases.find((c) => c.name === 'abandoned')!.v} />)).toContain('superseded by #12')
   })
 
   it('names a nothing-to-change close in the chip, and an abandonment as one', () => {
     const closed = cases.find((c) => c.name === 'closed by AppTown: nothing to change')!.v
     expect(changeChip(closed).text).toBe('stopped')
-    expect(render(closed)).toContain('the project declares no dependencies')
+    expect(renderToStaticMarkup(<StateRecord view={closed} />)).toContain('the project declares no dependencies')
     expect(changeChip(cases.find((c) => c.name === 'abandoned')!.v).text).toBe('stopped')
   })
 })

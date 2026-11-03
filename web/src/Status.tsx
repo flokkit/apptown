@@ -1,6 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useContext, useEffect, useRef } from 'react'
 import { lastSeen } from './format'
 import type { DisplayStatus, RuntimeState, HealthStatus, CheckLabel, ReleaseLabel, UpdateLabel, CopyLabel, JobLabel, TargetLabel, DepartureLabel, ResourceLabel, ProgressLabel, ADRLabel } from './wire.gen'
+
+import { InlineHelp } from './InlineHelp'
 
 // Recorded owner labels are inputs, never page-local chip wording.
 export const STATUS_WORD = {
@@ -31,6 +33,7 @@ export const STATUS_LIGHT: Record<keyof typeof STATUS_WORD, string> = {
 // reason, for work waiting on a person, replaces the word with why it is
 // waiting ("a check failed"); the light still says which state it is.
 export function Status({ word, help, staleAt, observation = false, old = false, reason }: { word: keyof typeof STATUS_WORD; help?: string; staleAt?: string; observation?: boolean; old?: boolean; reason?: string }) {
+  const inlineHelp = useContext(InlineHelp)
   const operational = observation && ['running', 'working', 'passed', 'current', 'fresh'].includes(word) ? 'working' : STATUS_WORD[word]
   const label = staleAt && !['failed', 'unreachable', 'unknown', 'not set up', 'not applicable', 'not checked yet', 'none'].includes(word) ? lastSeen(staleAt) : old ? `old · ${operational}` : operational
   // An old reading is amber, except a failure: an old failure is still a failure.
@@ -55,6 +58,7 @@ export function Status({ word, help, staleAt, observation = false, old = false, 
   }, [])
   const chip = <span className={`chip ${tone}`} title={help} aria-label={help ? `${label}: ${help}` : undefined}>{/* Every state has its dot; a neutral one is grey, so it sits in line with the rest. */}<span aria-hidden="true">● </span>{reason ?? label}</span>
   if (!help) return chip
+  if (inlineHelp) return <span className="status-inline">{chip} <span className="small muted">{help}</span></span>
   return <details ref={ref} className="status-help" onClick={(e) => e.stopPropagation()}>
     <summary onClick={(e) => {
       // A linked row must open its help without following the row's link.

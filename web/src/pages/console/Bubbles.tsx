@@ -4,6 +4,8 @@ import { useGet } from '../../data'
 import { renderMd } from '../../md'
 import { pastedPictures } from '../../pictures'
 import { ReadStatus, StaleNote } from '../../ReadGate'
+import { AgentActionsSwitch, ToolFold, foldTools, useAgentActions } from '../../AgentActions'
+export { foldTools, toolSummary } from '../../AgentActions'
 import type { PastedPicture } from '../../wire.gen'
 
 // ---- the bubble surface ----------------------------------------------------
@@ -16,63 +18,11 @@ import type { PastedPicture } from '../../wire.gen'
 const CHECK_MARK = /^\[(?:apptown|forge) check\]/
 export type Bubble = { i: number; role: 'you' | 'helper'; text?: string; tools?: { name: string; detail?: string }[]; error?: boolean; stopped?: boolean }
 
-const TOOL_WORDS: Record<string, string> = {
-  bash: 'ran', read: 'read', edit: 'edited', write: 'wrote',
-  grep: 'searched', find: 'looked for', ls: 'listed',
-}
-
-// What the helper's tool use amounts to, in words: "ran 4 commands, read
-// 1 file, edited 1 file". The commands themselves are one click down.
-const TOOL_COUNTS: Record<string, [string, string]> = {
-  bash: ['ran', 'command'], read: ['read', 'file'], edit: ['edited', 'file'], write: ['wrote', 'file'],
-  grep: ['searched', 'time'], find: ['looked for files', ''], ls: ['listed', 'folder'],
-}
-export function toolSummary(tools: { name: string }[]): string {
-  const counts = new Map<string, number>()
-  for (const t of tools) counts.set(t.name, (counts.get(t.name) ?? 0) + 1)
-  return [...counts].map(([name, n]) => {
-    const [verb, noun] = TOOL_COUNTS[name] ?? [`used ${name}`, 'time']
-    return noun ? `${verb} ${n} ${noun}${n === 1 ? '' : 's'}` : verb
-  }).join(', ')
-}
-
-// ToolFold: the helper's tool use, folded under its summary; the exact
-// commands and files are inside.
-function ToolFold({ tools }: { tools: { name: string; detail?: string }[] }) {
-  return (
-    <details className="tool-fold">
-      <summary className="small">{toolSummary(tools)}</summary>
-      {tools.map((t, i) => (
-        <div key={i} className="small tool-line">
-          {TOOL_WORDS[t.name] ?? t.name}{t.detail ? <> <code>{t.detail}</code></> : ''}
-        </div>
-      ))}
-    </details>
-  )
-}
-
-// foldTools: a run of helper messages that are only tool use becomes one
-// message carrying all their tools, so a turn reads as words with its
-// working folded between them.
 // retired says the record holds the message just sent: any "you" message at
 // or after the count the record had when it was sent. Text is never compared
 // (the terminal path may normalise it).
 export function retired(sent: { at: number } | null, msgs: Bubble[]): boolean {
   return !!sent && msgs.some((m, i) => m.role === 'you' && i >= sent.at)
-}
-
-export function foldTools(msgs: Bubble[]): Bubble[] {
-  const out: Bubble[] = []
-  for (const m of msgs) {
-    const prev = out[out.length - 1]
-    const toolOnly = (b?: Bubble) => !!b && b.role === 'helper' && !b.text && !b.error && !b.stopped && (b.tools?.length ?? 0) > 0
-    if (toolOnly(m) && toolOnly(prev)) {
-      out[out.length - 1] = { ...prev!, tools: [...prev!.tools!, ...m.tools!] }
-    } else {
-      out.push(m)
-    }
-  }
-  return out
 }
 
 // readOnly names whose chat it is when the reader may look but not act:
@@ -132,7 +82,8 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly }: { ses
     catch (e) { setSendErr((e as Error).message); setSent(null); setText(text); setImages(held) }
   }
 
-  const shown = foldTools(msgs)
+  const [showActions, setShowActions] = useAgentActions()
+  const shown = showActions ? msgs : foldTools(msgs)
   // Whose turn it is is the server's reading of the record: the helper has
   // handed back only when its last message is words with no tool call (or
   // failed) and the record has been quiet. Read from the bubbles alone,
@@ -142,6 +93,7 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly }: { ses
 
   return (
     <div className="chat-pane">
+      <AgentActionsSwitch shown={showActions} onChange={setShowActions} />
       <div
         onScroll={(e) => {
           const el = e.currentTarget
@@ -206,10 +158,11 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly }: { ses
               </div>
             )
           }
+          if (!m.text && m.tools?.length) return <ToolFold key={`${m.i}-${showActions}`} tools={m.tools} show={showActions} />
           return (
             <div key={m.i} className={'bubble-row' + (m.role === 'you' ? ' you' : '')}>
               <div className={'bubble' + (m.role === 'you' ? ' you' : isFinal ? ' final' : '') + (isWorking ? ' working' : '')}>
-                {(m.tools?.length ?? 0) > 0 && <ToolFold tools={m.tools!} />}
+                {(m.tools?.length ?? 0) > 0 && <ToolFold key={String(showActions)} tools={m.tools!} show={showActions} />}
                 {m.text && (m.role === 'helper'
                   ? <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(m.text) }} />
                   : (() => {

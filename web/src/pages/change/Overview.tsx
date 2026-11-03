@@ -1,0 +1,188 @@
+import { TurnDecision, viewerTurn } from './Turn'
+import { HeldDecision, heldLabels } from './HeldDecision'
+import { StaleNote } from '../../ReadGate'
+import { InlineHelp } from '../../InlineHelp'
+import { Link, useNavigate } from 'react-router-dom'
+import { QuietConfirm } from '../../QuietConfirm'
+import { DecisionContextOnly } from '../../DecisionChoices'
+import { post, type AdvanceResult, type ChangeView, type Step } from '../../api'
+import { Screenshots } from '../../Screenshots'
+import { TryIt } from '../../TryIt'
+import { DecisionForm, landingMeansFor } from '../../DecisionForm'
+import { useAction, useGet } from '../../data'
+import { fmtCost } from '../../format'
+import { TechnicalWords, useTechnicalDetail } from './TechnicalDetail'
+import type { DeploymentView } from '../../wire.gen'
+import type { ChatHistoryView, ApprovalQuestion } from '../../wire.gen'
+import { AddsSection, contractUnread, contractChanged } from '../../DecisionForm'
+import { shortDiffstat, changeReport, firstLine } from './Head'
+import { checkTypes, stepTitle, testsNote } from './Evidence'
+import { latestBoot, requestShortfall, requestUnchecked } from './StatePanel'
+import { DecisionChoices } from '../../DecisionChoices'
+import { useState } from 'react'
+import { nextStep, checksRunning, offered } from './next'
+
+// Non-applicable checks count as fine here; their reasons remain in Details.
+export function CheckSummary({ steps, contractNeedsAttention = false, technical = false }: { steps: Step[]; contractNeedsAttention?: boolean; technical?: boolean }) {
+  const checks = steps.filter(s => s.type !== 'approval' && (checkTypes.has(s.type) || s.status === 'not_applicable'))
+  const attention = steps.filter(s => s.type !== 'approval' && s.status !== 'not_applicable' && (
+    s.overrideBy || ['unknown', 'excepted'].includes(s.statusLabel) || s.checkReading?.unreadable || s.checkReading?.undecided?.length || s.checkReading?.checkErrors
+    || s.checkReading?.checks?.some(c => c.verdict !== 'pass' && c.verdict !== 'not-applicable')
+    || (s.type === 'tests' && s.status === 'pass' && !testsNote(s.evidence).plain)
+    || (checkTypes.has(s.type) && s.status !== 'pass')
+    || ['fail', 'error', 'needs_human', 'skipped'].includes(s.status)
+  ))
+  if (!steps.some(s => checkTypes.has(s.type) && !['pending', 'skipped'].includes(s.status))) return <span>Not checked yet. Checks run when you press Check and land.</span>
+  const running = attention.filter(s => !s.overrideBy && ['running', 'pending'].includes(s.status))
+  const unfinished = running.map(stepTitle)
+  return <div className="ch-check-summary">
+    {!!unfinished.length && <p>Still running: {unfinished.join(', ')}</p>}
+    {contractNeedsAttention && <p className="ch-check-exception">Changes to the app contract need checking.</p>}
+    {!attention.length && !unfinished.length && !contractNeedsAttention && <span>{checks.length ? <><span className="ch-mark ok">✓</span> All checks passed</> : 'No verification checks recorded.'}</span>}
+    {attention.filter(s => !running.includes(s)).map((s, i) => {
+      const problems = s.checkReading?.checks?.filter(c => c.verdict !== 'pass' && c.verdict !== 'not-applicable').map(c => c.detail || `${c.check}: ${c.verdict}`) ?? []
+      const recorded = s.overrideBy ? `An exception was recorded by ${s.overrideBy}: ${s.overrideReason}` : s.checkReading?.unreadable ? `The result could not be read: ${s.checkReading.unreadable}` : ['unknown', 'excepted'].includes(s.statusLabel) ? `The result is ${s.statusLabel}: ${s.evidence.reason || 'The recorded result needs review.'}` : s.evidence.reason
+      const log = (s.type === 'script' || s.type === 'tests') ? s.evidence.log?.trim().split('\n')[0] : ''
+      const reason = (recorded || problems[0] || log || '').split(/(?<=[.!?])\s+/)[0]
+      return <p className="ch-check-exception" key={s.id ?? i}>{stepTitle(s)} {s.overrideBy ? 'excepted' : ['fail', 'error', 'needs_human'].includes(s.status) || problems.length ? 'failed' : s.status === 'skipped' ? 'not run' : 'unknown'}{reason && `: ${reason}`}
+        {s.type === 'tests' && !testsNote(s.evidence).plain && <> {testsNote(s.evidence).note}</>}
+        {!!s.checkReading?.undecided?.length && <> {s.checkReading.undecided.join(', ')}: unknown.</>}
+        {!!s.checkReading?.checkErrors && <> {s.checkReading.checkErrors} checks could not run.</>}
+        <TechnicalWords shown={technical}>{(s.type === 'script' || s.type === 'tests') && s.evidence.command}</TechnicalWords>
+      </p>
+    })}
+  </div>
+}
+
+export function ChangeOverview({ view, onChange, workTab, steps, extraErr, current, shown = true }: {
+  view: ChangeView; onChange: () => void; workTab: (step?: string | null, run?: string | null) => string
+  steps: Step[]; extraErr?: string; current: boolean; shown?: boolean
+}) {
+  const nav = useNavigate()
+  const { run: act, busy: actionBusy, err: actionErr } = useAction(onChange)
+  const turn = viewerTurn(view) && current && !extraErr
+  const ch = view.change
+  const d = view.detail
+  const next = nextStep(view)
+  const approval = next.primary === 'approve' && next.step?.type === 'approval' ? next.step : undefined
+  const busy = checksRunning(d?.steps ?? [], d?.run.currentStage)
+  const deployments = useGet<DeploymentView[]>(`/projects/${view.projectSlug}/deployments`)
+  const deciding = approval && turn && !busy && current && !extraErr && deployments.current
+  const question = useGet<ApprovalQuestion>(approval ? `/steps/${approval.id}/question` : null)
+  const summary = changeReport(view, true)
+  const brief = useGet<{ brief: string }>(approval && turn ? `/steps/${approval.id}/brief` : null)
+  const briefParts = approvalBrief(brief.data?.brief)
+  const transcript = useGet<ChatHistoryView>(!summary ? `/changes/${ch.id}/transcript` : null, { poll: 3000 })
+  const reply = transcript.data?.sessions?.flatMap(s => s.messages).filter(m => m.role === 'helper' && m.text?.trim()).at(-1)?.text
+  const [advance, setAdvance] = useState<AdvanceResult | null>(null)
+  const [note, setNote] = useState('')
+  const review = [...steps].reverse().find(s => s.type === 'agent/review')
+  const boot = latestBoot(steps)
+  const saved = steps.flatMap(s => s.type === 'approval' ? (s.evidence.decisions ?? []).filter(d => d.adds) : []).at(-1)
+  const adds = approval ? (question.current ? question.data?.adds ?? undefined : undefined) : saved?.adds
+  const shortfall = requestShortfall(ch)
+  const unchecked = requestUnchecked(ch)
+  const [technical] = useTechnicalDetail()
+  const destination = deployments.current ? deployments.data?.find(e => e.feed === 'landing') : undefined
+  const report = summary?.split(/\n+/).map(s => s.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, '').trim()).filter(s => s && !s.startsWith('#')).flatMap(s => s.split(/(?<=[.!?])\s+/)).slice(0, 4).map(line => firstLine(line))
+  const checks = steps.filter(s => checkTypes.has(s.type))
+  const checked = checks.some(s => !['pending', 'skipped'].includes(s.status))
+  const detail = workTab()
+  const trailer = (href: string, text: string) => <Link className="ch-trailer" to={href}>{text}</Link>
+  return <div className="ch-overview">
+    <section hidden={!shown} className="ch-change-card" aria-label="The change">
+    <div className="ch-overview-line"><div className="ch-row-label">Preview</div><div className="ch-value ch-preview">
+      {!!boot?.evidence.screenshots?.shots?.length && <Screenshots hero unfolded shots={boot?.evidence.screenshots} head={view.head} at={boot?.finishedAt} />}
+      <TryIt changeId={ch.id!} label="Open it and try it" />
+      {!boot?.evidence.screenshots?.shots?.length && <p className="small muted">{boot?.evidence.screenshots?.unavailable || 'No screenshots were recorded for this preview.'}</p>}
+    </div>{trailer(detail + '#preview', `${boot?.evidence.screenshots?.commit ? `built from ${boot.evidence.screenshots.commit.slice(0, 7)} · ` : ''}logs →`)}</div>
+    <div className="ch-overview-line ch-request"><div className="ch-row-label">You asked</div><div className="ch-value">{firstLine(ch.body || ch.title)}</div>{trailer(detail + '#request', (ch.body || ch.title) !== firstLine(ch.body || ch.title) ? 'full request →' : 'request →')}</div>
+    <div className="ch-overview-line"><div className="ch-row-label">{!summary && reply ? 'The agent says' : 'What was made'}</div><div className="ch-value">{report?.length ? <ul>{report.map((line, i) => <li key={i}>{line}</li>)}</ul> : reply ? <p className="ch-chat-excerpt">{reply.split('\n').slice(0, 4).join('\n')}</p> : <p className="muted">{transcript.err ? `The conversation could not be read: ${transcript.err}` : transcript.data?.unreadable ? 'Some of the conversation could not be read.' : !transcript.data ? 'Reading the conversation…' : 'No report from the agent'}</p>}
+      {!summary && <StaleNote q={transcript} />}<TechnicalWords shown={technical}>{d && `${d.run.workflowName} v${d.run.workflowVersion} · run ${d.run.number}`} · {ch.branch} · {view.head}{steps.flatMap(s => s.type === 'agent/pi' && s.evidence.model ? [` · ${s.evidence.model}`] : []).join('')}{view.usage && ` · ${fmtCost(view.usage.costMicros)}`}</TechnicalWords>
+    </div>{!summary && reply ? trailer(`/changes/${ch.id}?tab=conversation`, 'full conversation →') : trailer(`/changes/${ch.id}?tab=changes`, `${shortDiffstat(view.diffstat).replace(/^(.*) in (\d+ files?)$/, '$2 $1') || 'Code'}${view.head ? ` · ${view.head.slice(0, 7)}` : ''} →`)}</div>
+    <div className="ch-overview-line"><div className="ch-row-label">Checks</div><div className="ch-value"><CheckSummary technical={technical} steps={steps} contractNeedsAttention={contractUnread(adds)} /><TechnicalWords shown={technical}>{checks.filter(s => s.status !== 'not_applicable').map(s => s.name).join(' · ')}</TechnicalWords></div>{checked && trailer(detail + '#checks', 'details →')}</div>
+    {review?.type === 'agent/review' && <div className="ch-overview-line"><div className="ch-row-label">Reviewer</div><p className="ch-value">{review.status === 'running' || review.status === 'pending' ? 'working' : review.checkReading?.unreadable ? 'could not be read' : review.evidence.verdict === 'approve' ? 'approves' : review.evidence.verdict || review.status} — {firstLine(review.evidence.reviewerSummary || review.evidence.summary || review.evidence.reason || 'No review conclusion recorded.').split(/(?<=[.!?])\s+/)[0]}</p>{trailer(workTab(undefined, review.runId) + '#review', 'full review →')}</div>}
+    {checked && contractChanged(adds) && adds && <div className="ch-overview-line"><div className="ch-row-label">App contract</div><div className="ch-value"><InlineHelp.Provider value={false}><AddsSection adds={adds} /></InlineHelp.Provider></div><span /></div>}
+    </section>
+    <TurnDecision approvalWaiting={!!approval && !!turn} active={!!turn} shown={shown} ready={<>{briefParts?.what ? <>
+        <p>{briefParts.what}</p>
+        {briefParts.call && <p><strong>Your call:</strong> {briefParts.call}</p>}
+        {briefParts.look && <p><strong>Worth a look:</strong> {briefParts.look}</p>}
+      </> : approval && turn ? <p>You asked: {firstLine(ch.body || ch.title)}</p> : null}{!next.recovery && <CheckSummary steps={steps} contractNeedsAttention={contractUnread(adds)} />}</>} actions={approval ? [destination ? 'Accept and put live' : 'Accept', 'Go to chat', 'Rework with comment', 'Abandon change'] : heldLabels(view)}>
+      {next.sentBack && <p>{next.sentBack.by} sent it back: “{next.sentBack.note}”</p>}
+      {view.mainConflict && <p>{view.mainConflict.mainBranch} conflicts with this change: {view.mainConflict.files.join(', ')}. <Link to={detail} onClick={e => e.currentTarget.closest('dialog')?.close()}>Open Details for the catch-up command</Link>.</p>}
+      {extraErr && <p className="error">The work this landing carries could not be read: {extraErr}</p>}
+      {shortfall && <p>The summary says this change falls short of the request: {shortfall}</p>}
+      {unchecked && <p>The summary could not check all of the request: {unchecked}</p>}
+      {steps.filter(s => s.type === 'workflow/call' && s.evidence.childRunId).map(s => <ChildOverview key={s.id} step={s} onChange={onChange} />)}
+      {busy && !steps.some(s => s.type === 'workflow/call' && s.status === 'running') && <p>Checks are running; you can accept when they finish.</p>}
+      {approval && (!current || extraErr) && <p>Reading the current change before you can accept.</p>}
+      {approval && !deployments.current && <p className={deployments.err ? 'error' : 'muted'}>{deployments.err ? `The deployment consequence could not be read: ${deployments.err}` : 'Reading where accepting puts this change…'}</p>}
+      {deciding && d && <>
+        <p>{destination ? destination.url ? `This puts it live at ${destination.url} for everyone.` : 'This puts it live for everyone; the deployment has no address yet.' : 'This adds it to the app’s main version.'}</p>
+        <DecisionForm overview externalBusy={actionBusy} stopLanding={ch.state === 'landing'}
+          chat={{ label: 'Go to chat', run: () => act(async () => {
+            if (ch.state === 'landing') await post(`/runs/${d.run.id}/abandon`, { reason: 'returned to the change chat to keep working' })
+            nav(`/projects/${view.projectSlug}/console?change=${ch.id}`)
+          }) }}
+          abandon={{ label: 'Abandon change', run: () => act(() => post(`/changes/${ch.id}/abandon`, {})) }} stepId={approval.id!} means={approval.config.means} alsoMeans={landingMeansFor(d, approval)} instructions={approval.config.instructions} onDone={onChange}
+          approveLabel={destination ? 'Accept and put live' : 'Accept'} rejectLabel="Send back with a note" placeholder="Note (optional)" />
+      </>}
+      {turn && !approval && <HeldDecision view={view} onChange={onChange} />}
+      <DecisionContextOnly.Consumer>{contextOnly => !contextOnly && current && !extraErr && d && !['shipped', 'abandoned'].includes(ch.state) && <div className="row">
+        {offered(d.next, 'advance') && <button className="primary" disabled={actionBusy} onClick={() => act(async () => setAdvance(await post<AdvanceResult>(`/runs/${d.run.id}/advance`)))}>Continue</button>}
+        {advance?.followUpsPending && <span>Workflow finished. Follow-ups pending.</span>}
+        {advance && !advance.advanced && !!advance.blocking?.length && <span className="error">Blocked by: {advance.blocking.map(b => `${b.name} (${b.status})`).join(', ')}</span>}
+        {!!advance?.missing?.length && <span className="error">Missing required checks: {advance.missing.join(', ')}.</span>}
+        {advance?.advanced && <span>Continued.</span>}
+        {d.run.status === 'running' && ch.state !== 'landing' && <QuietConfirm disabled={actionBusy} label="Stop this attempt" ask="Stop this attempt? Nothing is deleted; the change stays open."
+          onYes={() => act(() => post(`/runs/${d.run.id}/abandon`, { reason: 'stopped from the change page' }))} />}
+      </div>}</DecisionContextOnly.Consumer>
+      {actionErr && <p className="error">{actionErr}</p>}
+      {!approval && !turn && !deciding && !['shipped', 'abandoned'].includes(ch.state) && <DecisionChoices note={note} setNote={setNote} busy={actionBusy || !current}
+        accept={offered(view.next, 'land') ? { label: 'Check and land', run: () => act(() => post(`/changes/${ch.id}/land`, {})) } : undefined}
+        chat={['chat', 'land'].includes(next.primary) || offered(view.next, 'chat') ? { label: 'Go to chat', run: () => nav(`/projects/${view.projectSlug}/console?change=${ch.id}`) } : undefined}
+        rework={offered(view.next, 'send-back') ? { label: 'Rework with comment', run: () => act(() => post(`/changes/${ch.id}/sendback`, { note })) } : undefined}
+        abandon={(ch.state === 'in_progress' || offered(view.next, 'abandon')) ? { label: 'Abandon change', run: () => act(() => post(`/changes/${ch.id}/abandon`, {})) } : undefined} />}
+      {question.err && <p className="error">Changes to the app contract could not be read: {question.err}</p>}
+    </TurnDecision>
+    <footer hidden={!shown} className="small muted"><Link to={`/changes/${ch.id}?tab=changes`}>{view.diffstat?.match(/\d+ files? changed/)?.[0] || 'Code'} → Code</Link> · <Link to={detail}>How it was done → Details</Link></footer>
+  </div>
+}
+
+// Called workflows keep their own checks and meanings. Their required
+// decisions are visible on Overview as well as reachable in the run record.
+function ChildOverview({ step, onChange }: { step: Step; onChange: () => void }) {
+  const childId = step.type === 'workflow/call' ? step.evidence.childRunId : undefined
+  const trace = useGet<{ run: { currentStage: string; status: string }; steps: Step[] }>(childId ? `/runs/${childId}/trace` : null, { poll: 3000 })
+  const steps = trace.data?.steps ?? []
+  const waiting = steps.find(s => s.type === 'approval' && s.status === 'pending' && s.stage === trace.data?.run?.currentStage)
+  const question = useGet<ApprovalQuestion>(waiting ? `/steps/${waiting.id}/question` : null)
+  const saved = steps.flatMap(s => s.type === 'approval' ? (s.evidence.decisions ?? []).filter(d => d.adds) : []).at(-1)
+  const adds = waiting ? (question.current ? question.data?.adds ?? undefined : undefined) : saved?.adds
+  if (!childId) return null
+  const busy = checksRunning(steps, trace.data?.run?.currentStage)
+  const failed = steps.some(s => s.stage === trace.data?.run?.currentStage && checkTypes.has(s.type) && ['fail', 'error', 'needs_human'].includes(s.status) && !s.overrideBy)
+  return <div className="ch-child-overview">
+    <h3>{step.name.replace(/[-_]/g, ' ')}</h3>
+    {trace.err && <p className="error">The called workflow’s checks could not be read: {trace.err}</p>}
+    {!trace.data && !trace.err && <p>Reading the called workflow’s checks…</p>}
+    {trace.data && <><CheckSummary steps={steps} contractNeedsAttention={contractUnread(adds)} /></>}
+    {busy && !steps.some(s => s.type === 'workflow/call' && s.status === 'running') && <p>Checks are running; you can accept when they finish.</p>}
+    {failed && <p>Checks need attention before you can accept.</p>}
+    {trace.current && !busy && !failed && trace.data?.run?.status === 'running' && steps.filter(s => s.type === 'approval' && s.status === 'pending' && s.stage === trace.data?.run?.currentStage).map(s => s.type === 'approval' && <DecisionForm key={s.id} stepId={s.id!} means={s.config.means} instructions={s.config.instructions} onDone={onChange} approveLabel="Accept" rejectLabel="Send back with a note" />)}
+  </div>
+}
+
+// The approval brief is written for the approver in four labelled parts; the
+// decision screen shows what it is, the judgment left to them and anything odd.
+// A brief without those labels (no model configured) is not shown.
+export function approvalBrief(text?: string): { what?: string; call?: string; look?: string } | undefined {
+  if (!text) return undefined
+  const parts: Record<string, string> = {}
+  const re = /^\s*\**(WHAT THIS IS|ALREADY VERIFIED|YOUR CALL|WORTH A LOOK)\**\s*[—:–-]*\s*/gm
+  const marks = [...text.matchAll(re)]
+  marks.forEach((m, i) => { parts[m[1]] = text.slice(m.index! + m[0].length, marks[i + 1]?.index ?? text.length).replace(/\s+/g, ' ').trim() })
+  if (!parts['WHAT THIS IS']) return undefined
+  return { what: parts['WHAT THIS IS'], call: parts['YOUR CALL'] || undefined, look: parts['WORTH A LOOK'] || undefined }
+}

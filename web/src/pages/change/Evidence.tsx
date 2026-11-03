@@ -257,6 +257,16 @@ export function receiptOf(s: Step, live = true, awaitingDecision = false): Recei
 
 export type RunEvidence = { run: Run; role?: string; steps: Step[] }
 
+export function EvidenceContext({ view }: { view: ChangeView }) {
+  const proof = view.evidence
+  return <Section title="Requirements and delivery">
+    {proof?.inAdvance && <p><strong>Accepted in advance</strong> by {proof.inAdvance.approver}, {fmtStamp(proof.inAdvance.at)}: {proof.inAdvance.shown.join(' ')}</p>}
+    {proof?.targets.map(t => <div key={`${t.block}:${t.check}`}><strong>{t.title || t.expects || t.check}</strong><p>{t.expects}</p><p className="muted small">{t.block}{t.version ? `@${t.version}` : ''} · {t.check}</p></div>)}
+    <p>{proof?.merged ? 'The merge into main is recorded.' : 'No merge is recorded for this change.'}</p>
+    {proof && <Status word={proof.mergeLabel} />}
+  </Section>
+}
+
 export function Evidence({ view, runs, workTab, extraErr }: {
   view: ChangeView
   // runs: the latest run first, then the work it lands, when read.
@@ -387,4 +397,34 @@ function Line({ r, to }: { r: Receipt; to: string }) {
       </div>
     </details>
   )
+}
+
+// checkPurpose says in one sentence what a check is for. A workflow step may
+// declare it (`description:`); built-in check types have AppTown's own words;
+// a script with no description says only that it is the workflow's own check.
+export function checkPurpose(s: Step): string | undefined {
+  const declared = (s.config as { description?: unknown } | null)?.description
+  if (typeof declared === 'string' && declared.trim()) return declared.trim()
+  const title = stepTitle(s)
+  switch (s.type) {
+    case 'tests': return 'Runs the tests each part of the app declares, in that part’s folder.'
+    case 'scan':
+      if (title === 'Secret scan') return 'Looks for passwords, keys and tokens written into the code.'
+      if (title === 'Dependency scan') return 'Checks the libraries the app uses against the public list of known security problems.'
+      if (title === 'Licence scan') return 'Checks that the licences of the software the app uses are allowed.'
+      return 'Lists the software the app is built from and looks for known security problems in it.'
+    case 'guidance/conformance': return 'Checks the change against the project’s written rules.'
+    case 'agent/review': return 'A second agent reads the change and judges whether it does what was asked.'
+    case 'preview': return 'Starts the app the way it will run, so it can be tried.'
+    case 'scm/merged': return 'Confirms the change merged into the main version.'
+    case 'script': return undefined
+  }
+  return undefined
+}
+
+// checkMethod says how the check ran, from what it recorded.
+export function checkMethod(s: Step): string | undefined {
+  const cmd = (s.evidence as { command?: unknown }).command
+  if (typeof cmd === 'string' && cmd) return `Ran ${cmd}`
+  return undefined
 }

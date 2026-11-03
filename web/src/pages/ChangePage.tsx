@@ -1,42 +1,39 @@
+import { runStory } from './change/story'
+import { InlineHelp } from '../InlineHelp'
 import { Tabs } from '../Tabs'
 import { useEffect } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { setProjectScope } from '../projectScope'
 import { setPageContext } from '../chrome'
 import { ChangeView } from '../api'
 import { useGet } from '../data'
-import { ChangeBrief, ChangeHeader, ChangesTab } from './change/Head'
-import { Evidence, RunEvidence } from './change/Evidence'
+import { ChangesTab, changeReport, changeTitle, useChangeSummary } from './change/Head'
+import { ChangeOverview } from './change/Overview'
 import { StatePanel } from './change/StatePanel'
-import { Disagreement } from './change/Disagreement'
 import { ConversationLog } from './change/Conversation'
-import { HistoryTab, ReleasesTab, WorkTab, useRunDetail } from './change/Tabs'
+import { useRunDetail } from './change/Tabs'
 import { changeChip, nextStep } from './change/next'
-import { ChangeWorkerChats } from './WorkerChat'
+import { ChangeDetails } from './change/Details'
 import './change/change.css'
 
-// The change page, in the order a person asks:
-//   1. what this change is — title, project, when and how it started, one line;
-//   2. where it is, with ONE next action for whoever is looking (or who it
-//      waits on), and anything that needs a person — a decision, a failure,
-//      the disagreement, a chat's refused save — on the first screen;
-//   3. the evidence as receipts, one ruled line per recorded fact;
-//   4. tabs for the rest, addressable by URL (?tab=work&step=…).
-
-export const CHANGE_TABS = ['changes', 'work', 'conversation', 'releases', 'history', 'about'] as const
+// Overview contains the change and its decision; Details keeps the complete
+// run, records and reference material. A step is addressable with tab=details.
+export const CHANGE_TABS = ['overview', 'changes', 'conversation', 'details'] as const
 export type ChangeTab = typeof CHANGE_TABS[number]
 
 export default function ChangePage() {
   const { id } = useParams()
+  const location = useLocation()
   const [params] = useSearchParams()
   const rawTab = params.get('tab') ?? ''
-  const tab: ChangeTab = (CHANGE_TABS as readonly string[]).includes(rawTab) ? rawTab as ChangeTab : 'work'
+  const tab: ChangeTab = (CHANGE_TABS as readonly string[]).includes(rawTab) ? rawTab as ChangeTab : 'overview'
   const runParam = params.get('run') || undefined
   const stepParam = params.get('step') || undefined
 
   // The address names the change by its id or its friendly form (slug#n).
   const read = useGet<ChangeView>(`/changes/${encodeURIComponent(id ?? '')}`, { poll: 3000 })
   const { data: view, err, reload, current } = read
+  useChangeSummary(view?.change.id ?? undefined, !!view && nextStep(view).primary === 'approve' && !view.change.summary && !view.report)
 
   useEffect(() => { if (view) setProjectScope(view.projectSlug) }, [view?.projectSlug]) // eslint-disable-line react-hooks/exhaustive-deps
   // The bar's sentence: what you are DOING, not just what you see.
@@ -45,10 +42,10 @@ export default function ChangePage() {
     const ch = view.change
     const chip = changeChip(view)
     setPageContext({
-      crumbs: [{ label: `Change ${ch.number} · ${ch.title}` }],
+      crumbs: [{ label: `Change ${ch.number} · ${changeTitle(ch)}` }],
       chip,
     })
-  }, [view?.change.number, view?.change.state, view?.change.title, view && changeChip(view).text]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view?.change.number, view?.change.state, view?.change.title, view?.change.body, view && changeChip(view).text]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => setPageContext({}), [])
 
   useEffect(() => {
@@ -59,6 +56,11 @@ export default function ChangePage() {
     if (item.left < frame.left) nav.scrollLeft += item.left - frame.left
     else if (item.right > frame.right) nav.scrollLeft += item.right - frame.right
   }, [tab, view?.change.id])
+
+  useEffect(() => {
+    if (!location.hash || !view) return
+    document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: 'start' })
+  }, [tab, location.key, location.hash, view?.change.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The work a landing carries: when the latest run is a landing, its
   // receipts are only half the story — the implementation and review are
@@ -75,38 +77,24 @@ export default function ChangePage() {
 
   const href = (t: ChangeTab, extra: Record<string, string | null | undefined> = {}) => {
     const q = new URLSearchParams()
-    if (t !== 'work') q.set('tab', t)
+    if (t !== 'overview') q.set('tab', t)
     for (const [k, v] of Object.entries(extra)) if (v != null) q.set(k, String(v))
     const s = q.toString()
     return `/changes/${view.change.id}${s ? `?${s}` : ''}`
   }
-  const workTab = (stepId?: string | null, runId?: string | null) => href('work', { run: runId && runId !== view.detail?.run.id ? runId : undefined, step: stepId })
-  const runHref = (runId: string) => href('work', { run: runId !== view.detail?.run.id ? runId : undefined })
+  const workTab = (stepId?: string | null, runId?: string | null) => href('details', { run: runId && runId !== view.detail?.run.id ? runId : undefined, step: stepId })
 
-  const next = nextStep(view)
-  const deciding = next.primary === 'approve' ? next.step?.id ?? undefined : undefined
-  const evidenceRuns: RunEvidence[] = []
-  if (view.detail) evidenceRuns.push({ run: view.detail.run, role: latestRole, steps: view.detail.steps })
-  if (workRunId && work.detail) evidenceRuns.push({ run: work.detail.run, role: 'working', steps: work.detail.steps })
-
+  const steps = [...(workRunId && work.detail ? work.detail.steps : []), ...(view.detail?.steps ?? [])]
   const TABS: { key: ChangeTab; label: string }[] = [
-    { key: 'work', label: 'Work' },
+    { key: 'overview', label: 'Overview' },
     { key: 'changes', label: 'Code' },
     { key: 'conversation', label: 'Conversation' },
-    { key: 'releases', label: 'Releases' },
-    { key: 'history', label: 'History' },
-    { key: 'about', label: 'About' },
+    { key: 'details', label: 'Details' },
   ]
 
   return (
-    <div className="ch-page">
-      <ChangeHeader view={view} />
-
-      <StatePanel view={view} onChange={reload} workTab={(s) => workTab(s)}
-        reading={read} />
-
-      {view.detail && <Disagreement detail={view.detail} />}
-      <ChangeWorkerChats changeId={view.change.id!} />
+    <InlineHelp.Provider value><div className="ch-page">
+      <StatePanel view={view} reading={read} />
 
 
       <section className="ch-tabs-sheet">
@@ -118,16 +106,15 @@ export default function ChangePage() {
         <div className="ch-tab-body">
 
           {tab === 'changes' && <ChangesTab view={view} run={view.detail?.run} />}
-          {tab === 'work' && <Evidence view={view} runs={evidenceRuns} workTab={workTab} extraErr={workRunId && !work.detail ? work.err : undefined} />}
-          {tab === 'work' && <WorkTab view={view} reload={reload} runId={runParam} focusStep={stepParam} deciding={deciding} runHref={runHref} />}
+          <ChangeOverview shown={tab === 'overview'} view={view} current={current} steps={steps} extraErr={workRunId && !work.detail ? work.err : undefined} onChange={reload} workTab={workTab} />
           {tab === 'conversation' && (
-            <ConversationLog changeId={view.change.id!} chatHref={view.change.state === 'in_progress' ? `/projects/${view.projectSlug}/console?change=${view.change.id}` : undefined} />
+            <ConversationLog earlierRuns={(view.runs ?? []).map(r => r.id!).filter(id => id !== view.detail?.run.id && id !== work.detail?.run.id)} rounds={[...(workRunId && work.detail ? runStory(work.detail) : []), ...(view.detail ? runStory(view.detail) : [])].filter(e => e.step?.type === 'agent/pi' || e.key.startsWith('work-'))} request={view.change.body || view.change.title} report={changeReport(view)} changeId={view.change.id!} chatHref={view.change.state === 'in_progress' ? `/projects/${view.projectSlug}/console?change=${view.change.id}` : undefined} />
           )}
-          {tab === 'releases' && <ReleasesTab view={view} />}
-          {tab === 'history' && <HistoryTab view={view} runHref={runHref} />}
-          {tab === 'about' && <ChangeBrief view={view} current={current} reload={reload} />}
+          {tab === 'details' && <ChangeDetails key={view.change.id} view={view} current={current} reload={reload} runId={runParam} focusStep={stepParam} />}
+
         </div>
       </section>
-    </div>
+
+    </div></InlineHelp.Provider>
   )
 }

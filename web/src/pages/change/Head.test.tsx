@@ -53,3 +53,13 @@ describe('change state and committed evidence', () => {
     expect(footer(noCode(15))).toContain('Loading…')
   })
 })
+
+it('uses a short display title for a request copied into the title, preserving human titles', () => {
+  const v = view('landing')
+  v.change.body = 'A ride calendar with dates and places for every ride in the coming season.'
+  v.change.title = v.change.body.slice(0, 60)
+  const render = () => renderToStaticMarkup(<ChangeHeader view={v} />)
+  expect(render()).toContain('</span> Ride calendar</h1>')
+  v.change.title = 'Winter rides'
+  expect(render()).toContain('</span> Winter rides</h1>')
+})

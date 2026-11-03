@@ -1,3 +1,4 @@
+import { AgentActionsSwitch, ToolFold, foldTools, useAgentActions } from '../../AgentActions'
 import { Section } from '../../Section'
 import { fmtWhen } from '../../format'
 import { PRODUCT } from '../../brand'
@@ -6,13 +7,17 @@ import { Link } from 'react-router-dom'
 import { renderMd } from '../../md'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
-import type { ChatHistoryEntry, ChatHistoryView } from '../../wire.gen'
+import type { ChatHistoryEntry, ChatHistoryView, RunTrace } from '../../wire.gen'
+import type { StoryEntry } from './story'
+import type { RunDetail } from '../../api'
+import { runStory } from './story'
+import { workRecordHref } from './WorkRecord'
 import { pastedPictures } from '../../pictures'
 
 // The change's conversations: what was said to the helper and what it said
 // back, across every chat session this change has had. Sessions end; the
 // words are part of the change's story and read back from the record.
-export function ConversationLog({ changeId, chatHref }: { changeId: string; chatHref?: string }) {
+export function ConversationLog({ changeId, chatHref, request, report, rounds = [], earlierRuns = [] }: { earlierRuns?: string[]; rounds?: StoryEntry[]; changeId: string; chatHref?: string; request?: string; report?: string }) {
   // Read when the tab opens; the tab is where a person asks for it.
   const q = useGet<ChatHistoryView>(`/changes/${changeId}/transcript`)
   const data = q.data
@@ -26,7 +31,12 @@ export function ConversationLog({ changeId, chatHref }: { changeId: string; chat
       <ReadStatus q={q} what="the conversation" className="small" />
       <StaleNote q={q} />
       {data && <UnreadableNote view={data} />}
-      {none && <p className="muted">No chat yet.</p>}
+      {none && (request ? <>
+        <div className="bubble-row you"><div className="bubble you" style={{ whiteSpace: 'pre-wrap' }}>{request}</div></div>
+        {report && <div className="bubble-row"><div className="bubble"><div className="md" dangerouslySetInnerHTML={{ __html: renderMd(report, true) }} /></div></div>}
+      </> : <p className="muted">No chat yet.</p>)}
+      {earlierRuns.map(id => <RunRounds key={id} id={id} changeId={changeId} />)}
+      {rounds.map((e, i) => <p key={e.key}><Link to={workRecordHref(changeId, e)}>Agent round {i + 1} · work record</Link></p>)}
       {sessions?.map((se) => (
         <div key={se.id} style={{ margin: '12px 0' }}>
           <div className="muted small" style={{ margin: '6px 0' }}>{chatByline(se)}</div>
@@ -35,6 +45,14 @@ export function ConversationLog({ changeId, chatHref }: { changeId: string; chat
       ))}
     </Section>
   )
+}
+
+
+function RunRounds({ id, changeId }: { id: string; changeId: string }) {
+  const q = useGet<RunTrace>(`/runs/${id}/trace`)
+  const t = q.data
+  const d: RunDetail | undefined = t?.run ? { run: t.run, steps: t.steps.filter(Boolean) as RunDetail['steps'], events: t.events as RunDetail['events'], artifacts: t.artifacts, stages: t.stages, next: [], landingMeans: [] } : undefined
+  return <><ReadStatus q={q} what="agent rounds" /><StaleNote q={q} />{d && runStory(d).filter(e => e.step?.type === 'agent/pi' || e.key.startsWith('work-')).map(e => <p key={e.key}><Link to={workRecordHref(changeId, e)}>Run {d.run.number} · {e.step?.name || 'work'} · {fmtWhen(e.at)} · work record</Link></p>)}</>
 }
 
 // Who opened a chat and when; a chat moved from another AppTown says so.
@@ -54,16 +72,18 @@ export function chatOpening(se: ChatHistoryEntry): string {
 // ChatMessages shows a chat's words and its pasted pictures, read from
 // pictures + the picture's own name; a picture opens full size on its own.
 export function ChatMessages({ chat, pictures }: { chat: ChatHistoryEntry; pictures: string }) {
+  const [showActions, setShowActions] = useAgentActions()
+  const messages = showActions ? chat.messages : foldTools(chat.messages)
   return (
     <>
-      {chat.messages.map((m) => (
+      <AgentActionsSwitch shown={showActions} onChange={setShowActions} />
+      {messages.map((m) => !m.text && m.tools?.length ?
+        <ToolFold inline key={`${m.i}-${showActions}`} tools={m.tools} show={showActions} /> : (
         <div key={m.i} className={'bubble-row' + (m.role === 'you' ? ' you' : '')}>
           <div className={'bubble' + (m.role === 'you' ? ' you' : '')}>
-            {(m.tools ?? []).map((t, i) => (
-              <div key={i} className="small" style={{ opacity: 0.7 }}>🔧 {t.name}{t.detail ? <> <code style={{ fontSize: 'var(--fs-xs)' }}>{t.detail}</code></> : ''}</div>
-            ))}
+            {!!m.tools?.length && <ToolFold inline key={String(showActions)} tools={m.tools} show={showActions} />}
             {m.text && (m.role === 'helper'
-              ? <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(m.text) }} />
+              ? <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(m.text, true) }} />
               : <YourWords text={m.text} pictures={pictures} />)}
           </div>
         </div>

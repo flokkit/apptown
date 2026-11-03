@@ -819,6 +819,9 @@
       },
       "Change": {
         "properties": {
+          "abandonedBy": {
+            "type": "string"
+          },
           "adoptedRevision": {
             "type": "integer"
           },
@@ -1296,6 +1299,9 @@
       },
       "ChangeSummary": {
         "properties": {
+          "abandonedBy": {
+            "type": "string"
+          },
           "adoptedRevision": {
             "type": "integer"
           },

@@ -169,7 +169,7 @@ describe('the integrations list', () => {
     const reg = await at('/integrations/registry')
     // A kind with nothing configured lists nothing: Connect at the top is the one way to add.
     const errs = await mount('/services/errors')
-    await vi.waitFor(() => expect(errs.text()).toContain('Nothing connected yet. Use Connect to add one.'))
+    await vi.waitFor(() => expect(errs.text()).toContain('No connections yet. Use Connect to add one.'))
     expect(errs.el.querySelector('[role=listitem].int-row')).toBeNull()
     const row = (name: string) => [scm, sc, shared, reg].map((p) => rowIn(p)(name)).find(Boolean)!
     expect(row('gitlab').querySelector('.chip')!.className).toContain('pass')
@@ -191,8 +191,8 @@ describe('the integrations list', () => {
     expect(row('django-check').querySelector('.int-usedby')).toBeNull()
     expect(row('gitlab').querySelector('.int-usedby')).toBeNull()
     expect(row('authentik').querySelector('.status-help')).toBeNull()
-    expect(sc.el.querySelector('section[aria-label="Connected"] .section-count')).toBeNull()
-    expect(sc.el.querySelector('section[aria-label="Connected"] .section-note')?.textContent).toContain('1 need attention')
+    expect(sc.el.querySelector('section[aria-label="Connections"] .section-count')).toBeNull()
+    expect(sc.el.querySelector('section[aria-label="Connections"] .section-note')?.textContent).toContain('1 need attention')
     // With one kind connected, Shared services adds no sub-heading repeating the page.
     expect(shared.el.querySelector('.group-label')).toBeNull()
     for (const p of [scm, sc, shared, reg, errs]) p.done()
@@ -201,7 +201,7 @@ describe('the integrations list', () => {
   it('says nothing is connected only when AppTown said so', async () => {
     stubAppTown({ 'GET /integrations': json({ integrations: null }), 'GET /integrations/catalog': json({ catalog: [] }) })
     const page = await mount('/integrations/scm')
-    await vi.waitFor(() => expect(page.text()).toContain('Nothing connected yet. Use Connect to add one.'))
+    await vi.waitFor(() => expect(page.text()).toContain('No connections yet. Use Connect to add one.'))
     page.done()
   })
 
@@ -351,8 +351,8 @@ it.each([false, true])('keeps an unconfigured integration neutral and out of con
   const page = await mount('/integrations/scm')
   try {
     await vi.waitFor(() => expect(page.text()).toContain('not configured'))
-    expect(page.el.querySelector('section[aria-label="Connected"] .section-note')?.textContent ?? '').not.toContain('need attention')
-    expect(page.el.querySelector('section[aria-label="Connected"] .section-count')).toBeNull()
+    expect(page.el.querySelector('section[aria-label="Connections"] .section-note')?.textContent ?? '').not.toContain('need attention')
+    expect(page.el.querySelector('section[aria-label="Connections"] .section-count')).toBeNull()
     expect(page.el.querySelector('[role=listitem].int-row')?.textContent).not.toContain('not checked yet')
     // Neutral: a grey dot, never a colour.
     expect(page.el.querySelector('[role=listitem].int-row .chip')?.className).toBe('chip ')
