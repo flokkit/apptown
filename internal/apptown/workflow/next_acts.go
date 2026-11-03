@@ -73,6 +73,7 @@ func nextActs(run *Run, steps []*Step, a Activity, runnable func(string) bool, l
 			running = running || s.Status == StatusRunning
 		}
 	}
+	held := a.State == ActivityBlocked || (a.Held && !running)
 	var agent *Step
 	rulesChanged := false
 	var retries []NextAct
@@ -86,10 +87,10 @@ func nextActs(run *Run, steps []*Step, a Activity, runnable func(string) bool, l
 		// approval still asking may be decided, in the stage's order.
 		case a.State == ActivityWaiting && ownApproval && s.Type == "approval" && s.Status == StatusPending:
 			acts = append(acts, NextAct{Act: NextApprove, StepID: s.ID, Step: s.Name})
-		case a.State == ActivityBlocked && s.Type != "approval" && s.OverrideBy == "" && overridable(s.Status):
+		case held && s.Type != "approval" && s.OverrideBy == "" && overridable(s.Status):
 			acts = append(acts, NextAct{Act: nextOverride, StepID: s.ID, Step: s.Name})
 		}
-		if a.State == ActivityBlocked && stopped && s.Type != "approval" && !running && runnable != nil && runnable(s.Type) {
+		if held && stopped && s.Type != "approval" && !running && runnable != nil && runnable(s.Type) {
 			retries = append(retries, NextAct{Act: nextRetry, StepID: s.ID, Step: s.Name})
 		}
 		rulesChanged = rulesChanged || (landing && s.Type == "policy/current" && stopped)
@@ -101,7 +102,7 @@ func nextActs(run *Run, steps []*Step, a Activity, runnable func(string) bool, l
 	if agent != nil && !running {
 		acts = append(acts, NextAct{Act: nextRework, StepID: agent.ID, Step: agent.Name})
 	}
-	if a.State == ActivityBlocked && rulesChanged {
+	if held && rulesChanged {
 		acts = append(acts, NextAct{Act: nextRestartLanding})
 	}
 	return acts
@@ -131,7 +132,8 @@ func ChangeActs(ch *Change, current *RunSnapshot, merged, mayAbandon bool) []Nex
 	if ch.State == ChangeInProgress && !running && !queued {
 		acts = append(acts, NextAct{Act: NextLand})
 	}
-	if ch.State.canRun() && !merged && running && current.State == ActivityBlocked {
+	held := running && (current.State == ActivityBlocked || current.held)
+	if ch.State.canRun() && !merged && held {
 		acts = append(acts, NextAct{Act: nextSendBack})
 		if mayAbandon {
 			acts = append(acts, NextAct{Act: nextAbandon})

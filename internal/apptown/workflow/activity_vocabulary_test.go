@@ -39,28 +39,73 @@ func TestWorkflowActivityUsesAbandonedRunState(t *testing.T) {
 	}
 }
 
-// Detail reads use the same persisted classifier as list activity. A failed
-// gate must remain visible as blocked even while the run row is still open,
-// once no work of the stage is still to run; while some is, it is named.
-func TestWorkflowDetailPreservesBlockedActivity(t *testing.T) {
+// A held run has the same state and reason in detail and list reads. Pending
+// work beyond the hold cannot make it appear to be working.
+func TestHeldRunsExplainTheDispatchHoldInEveryRead(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, kind, next, nextKind, role, evidence, want string
+		state                                            StepState
+	}{
+		{"apply-change", "agent/pi", "boot", "preview", "working", `{"reason":"credentials are missing","actions":["Bind the secret in Settings","Confirm access"]}`, "apply-change (needs_human): credentials are missing. Bind the secret in Settings; Confirm access", StatusNeedsHuman},
+		{"guidance-conformance", "guidance/conformance", "scan-image:trivy", "scan", "landing", `{"reason":"required guidance is missing"}`, "guidance-conformance (fail): required guidance is missing. Send back, re-run the step, or override the failure.", StatusFail},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			db, run, _ := completionFixture(t, tc.role)
+			held := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: tc.name, Type: tc.kind, Status: tc.state.String()})
+			// sql-guarantee: a completed attempt's evidence without triggering automatic rework.
+			completionExec(t, db, `UPDATE steps SET evidence_json=$2 WHERE id=$1`, held, tc.evidence)
+			next := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: tc.next, Type: tc.nextKind, Status: StatusPending.String()})
+			svc := newService(db, allowProject(run.ProjectID), Runtime{Automatic: []string{"agent/pi", "preview", "scan", "guidance/conformance"}})
+			detail, err := svc.Snapshot(context.Background(), run.ID, DetailView)
+			if err != nil {
+				t.Fatal(err)
+			}
+			listed, err := svc.Activities(context.Background(), []ids.ID{run.ID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			rows, err := (queries{db: db}).list(context.Background(), RunQuery{ProjectID: run.ProjectID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if detail.State != ActivityWaiting || detail.StateDetail != tc.want || listed[run.ID] != (Activity{State: ActivityWaiting, Detail: tc.want, Held: true}) || len(rows) != 1 || rows[0].State != detail.State || rows[0].StateDetail != tc.want {
+				t.Fatalf("detail %s %q, activities %+v, rows %+v; want waiting: %s", detail.State, detail.StateDetail, listed, rows, tc.want)
+			}
+			if ready, err := dispatchReady(context.Background(), db, storedStep(t, db, next)); err != nil || ready {
+				t.Fatalf("held step dispatchable: %v %v", ready, err)
+			}
+			if acts := ChangeActs(&Change{State: ChangeInProgress}, detail, false, true); !slices.Contains(acts, NextAct{Act: nextSendBack}) {
+				t.Fatalf("held change lacks send back: %+v", acts)
+			}
+			if len(detail.Next) == 0 {
+				t.Fatal("held run offers no next action")
+			}
+		})
+	}
+}
+
+// A dispatchable step between attempts remains AppTown's move.
+func TestDispatchableRunStillSaysWorking(t *testing.T) {
 	t.Parallel()
 	db, run, _ := completionFixture(t, "working")
-	insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "build-v1", Type: "agent/pi", ConfigJson: []byte(`{}`), Status: StatusFail.String()})
-	insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "review", Type: "agent/review", ConfigJson: []byte(`{}`), Status: StatusFail.String()})
-	detail, err := newService(db, allowProject(run.ProjectID), Runtime{}).Snapshot(context.Background(), run.ID, DetailView)
+	insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "apply-change", Type: "agent/pi", Status: StatusPass.String()})
+	next := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "boot", Type: "preview", Status: StatusPending.String()})
+	svc := newService(db, allowProject(run.ProjectID), Runtime{})
+	detail, err := svc.Snapshot(context.Background(), run.ID, DetailView)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if detail.State != ActivityBlocked {
-		t.Fatalf("failed gate detail state: %q (%s)", detail.State, detail.StateDetail)
-	}
-	insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "boot", Type: "preview", ConfigJson: []byte(`{}`), Status: StatusPending.String()})
-	detail, err = newService(db, allowProject(run.ProjectID), Runtime{}).Snapshot(context.Background(), run.ID, DetailView)
+	listed, err := svc.Activities(context.Background(), []ids.ID{run.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if detail.State != ActivityWorking || detail.StateDetail != "boot next; review (fail) so far" {
-		t.Fatalf("failed gate with a boot still to run: %q (%s)", detail.State, detail.StateDetail)
+	if detail.State != ActivityWorking || detail.StateDetail != "boot next" || listed[run.ID] != (Activity{State: ActivityWorking, Detail: "boot next"}) {
+		t.Fatalf("dispatchable run: %+v, %+v", detail, listed)
+	}
+	if ready, err := dispatchReady(context.Background(), db, storedStep(t, db, next)); err != nil || !ready {
+		t.Fatalf("next step not ready: %v %v", ready, err)
 	}
 }
 
@@ -78,7 +123,7 @@ func TestActivityTreatsAVerdictOlderThanTheReworkAsBeingRechecked(t *testing.T) 
 		}
 		want := ActivityWorking
 		if fresh {
-			want = ActivityBlocked
+			want = ActivityWaiting
 		}
 		svc := newService(s.db, allowProject(run.ProjectID), Runtime{})
 		detail, err := svc.Snapshot(context.Background(), run.ID, DetailView)

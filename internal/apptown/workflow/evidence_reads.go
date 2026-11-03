@@ -67,6 +67,7 @@ const (
 // is available for composition without adding another field to the detail payload.
 // A read never gives its returned Steps authority to finish a runner attempt.
 type RunSnapshot struct {
+	held        bool          // the shared activity classifier found a dispatch hold
 	Run         *Run          `json:"run"`
 	Definition  *schema.Spec  `json:"-"`
 	Stages      []string      `json:"stages"`
@@ -136,7 +137,7 @@ func readWorkflowSnapshot(ctx context.Context, db database.Queryer, id ids.ID, v
 		if err != nil {
 			return nil, err
 		}
-		out.State, out.StateDetail = activity.State, activity.Detail
+		out.State, out.StateDetail, out.held = activity.State, activity.Detail, activity.Held
 		runnable := func(kind string) bool { return assertionKind(kind) || automatic != nil && automatic(kind) }
 		out.Next = nextActs(run, steps, activity, runnable, spec.Role == "landing")
 		if run.Status == RunAbandoned {
@@ -222,7 +223,7 @@ func readWorkflowSnapshotActivity(ctx context.Context, db database.Queryer, run 
 			}
 			return graph.classify(run.ID, wait, make(map[ids.ID]bool))
 		}
-		node.steps = append(node.steps, workflowActivityStep{id: step.ID, attempt: step.Attempt, name: step.Name, kind: step.Type, state: step.Status, override: step.OverrideBy, finished: step.FinishedAt.NullTime})
+		node.steps = append(node.steps, workflowActivityStep{id: step.ID, attempt: step.Attempt, name: step.Name, kind: step.Type, state: step.Status, override: step.OverrideBy, evidence: step.Evidence, finished: step.FinishedAt.NullTime})
 	}
 	// Only a landing's approval can be waiting for an acceptance it has yet
 	// to take; other runs spend no read on it.

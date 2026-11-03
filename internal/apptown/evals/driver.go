@@ -541,7 +541,7 @@ func (s *Service) stopIfBlocked(ctx context.Context, e evalssql.Eval, a Arm, wor
 		log.Printf("eval arm %d: reading its run's activity: %v", a.ID, err)
 		return ""
 	}
-	if activity[current.ID].State != workflow.ActivityBlocked {
+	if activity[current.ID].State != workflow.ActivityBlocked && !activity[current.ID].Held {
 		return ""
 	}
 	why := "its run was blocked: " + activity[current.ID].Detail + ". No one can unblock a run in an eval"

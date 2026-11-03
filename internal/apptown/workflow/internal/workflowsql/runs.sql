@@ -233,7 +233,7 @@ JOIN steps call ON call.id=child.parent_step_id AND call.run_id=parent.id AND ca
 ) SELECT r.id,r.project_id,r.parent_run_id,r.parent_step_id,r.parent_step_attempt,r.status,
 COALESCE(CASE WHEN r.status='abandoned' THEN (SELECT e.payload_json->>'reason' FROM run_events e WHERE e.run_id=r.id AND e.kind='run.abandoned' ORDER BY e.id DESC LIMIT 1) END,'')::text AS abandonment_reason,
 s.id AS step_id,COALESCE(s.attempt,0)::bigint AS step_attempt,COALESCE(s.name,'')::text AS step_name,COALESCE(s.type,'')::text AS step_type,COALESCE(s.status,'')::text AS step_status,
-COALESCE(CASE WHEN s.type='workflow/call' THEN s.evidence_json ELSE jsonb_build_object('placement',s.evidence_json->'placement') END,'{}'::jsonb)::jsonb AS evidence,COALESCE(s.override_by,'')::text AS step_override_by,
+COALESCE(CASE WHEN s.type='workflow/call' THEN s.evidence_json ELSE jsonb_build_object('placement',s.evidence_json->'placement','reason',s.evidence_json->'reason','actions',s.evidence_json->'actions') END,'{}'::jsonb)::jsonb AS evidence,COALESCE(s.override_by,'')::text AS step_override_by,
 COALESCE(g.stage_declaration,'null'::jsonb)::jsonb AS stage_declaration,COALESCE(g.stage_checks,'null'::jsonb)::jsonb AS stage_checks,
 s.finished_at AS step_finished_at,
 EXISTS(SELECT 1 FROM workflow_landings l WHERE l.landing_run_id=r.id AND NOT l.acceptance_applied) AS awaiting_acceptance

@@ -105,7 +105,7 @@ func TestPersonalOpenChangesClassifyRunningAndReaderApproval(t *testing.T) {
 	}{
 		{name: "approval", spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{{Name: "accept", Uses: "approval", With: map[string]any{"approvers": []string{"owner"}}}}}}}, state: "waiting on you", reason: "Approve accept"},
 		{name: "running", spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", OnEnter: []schema.Step{{Name: "build", Uses: "script"}}, Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}, state: "running", reason: "build", start: true},
-		{name: "failed check", spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", OnEnter: []schema.Step{{Name: "build", Uses: "script"}}, Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}, state: "waiting on you", reason: "build (fail)", start: true, fail: true},
+		{name: "failed check", spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", OnEnter: []schema.Step{{Name: "build", Uses: "script"}}, Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}, state: "waiting on you", reason: "build (fail). Send back, re-run the step, or override the failure.", start: true, fail: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

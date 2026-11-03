@@ -68,6 +68,12 @@ the same rule when evidence changes; later assertions cannot block earlier
 ones. An override dispatches the stage’s pending work before it can advance.
 Review starts after its prerequisites pass and does not poll for boot.
 
+Run activity uses the dispatcher's prerequisite rule. Pending work counts as
+working only when its earlier steps are settled. If nothing can dispatch and a
+step holds the stage, activity says "waiting on you" with that step's reason
+and requested actions, or how to send back, re-run or override a failure. Detail,
+run lists, the change page and the CLI share this classification.
+
 ## Follow a retry
 
 The caller invokes `service.RetryStep(ctx, RetryCommand{StepID: id, Mode:

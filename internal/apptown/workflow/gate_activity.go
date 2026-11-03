@@ -18,7 +18,7 @@ import (
 // results alone would show such a run as ready while every attempt to advance
 // it is refused, the reason only in its event log.
 func judgedByGate(a Activity, stage *schema.Stage, checks []Check, steps []*Step) Activity {
-	if (a.State != ActivityReady && a.State != ActivityWaiting) || stage == nil {
+	if a.Held || (a.State != ActivityReady && a.State != ActivityWaiting) || stage == nil {
 		return a
 	}
 	gate, err := evaluateGate(stage, checks, steps)
@@ -64,7 +64,7 @@ func (g workflowActivityGraph) judgedByGate(id ids.ID, a Activity) Activity {
 // judgedByGateInSnapshot judges a detail view's run from the steps it already
 // read; only a run waiting at its gate costs one more read, of the receipt.
 func judgedByGateInSnapshot(ctx context.Context, q database.Queryer, run *Run, steps []*Step, a Activity) (Activity, error) {
-	if a.State != ActivityReady && a.State != ActivityWaiting {
+	if a.Held || (a.State != ActivityReady && a.State != ActivityWaiting) {
 		return a, nil
 	}
 	_, stage, err := run.currentStage()

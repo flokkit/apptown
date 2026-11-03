@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -32,6 +33,8 @@ type Activity struct {
 	// "waiting on you": the run's own, or a called workflow's when the
 	// waiting is carried up from it. Zero otherwise.
 	Approval ids.ID
+	// Held distinguishes a stopped stage from a pending approval.
+	Held bool `json:"-"`
 }
 
 func (a Activity) Active() bool {
@@ -44,7 +47,7 @@ type workflowActivityStep struct {
 	attempt              int64
 	name, kind, override string
 	state                StepState
-	evidence             json.RawMessage // a call's, else only its placement
+	evidence             json.RawMessage // call identity, placement and hold reason/actions
 	finished             sql.NullTime
 }
 type workflowActivityRun struct {
@@ -83,8 +86,12 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 	var pendingAgent, pendingWork, pendingApproval, failing, rechecking string
 	var pendingApprovalID ids.ID
 	reworked := latestAgentWork(run.steps)
+	prerequisitesSettled := true
+	var held *workflowActivityStep
 	for _, step := range run.steps {
-		if step.state == StatusPending && activityShowsPendingWork(step.kind) && pendingWork == "" {
+		ready := prerequisitesSettled
+		prerequisitesSettled = prerequisitesSettled && dispatchSettled(step.state)
+		if ready && step.state == StatusPending && activityShowsPendingWork(step.kind) && pendingWork == "" {
 			pendingWork = step.name
 		}
 		switch {
@@ -126,6 +133,9 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 		case step.kind == "approval" && step.state == StatusPending:
 			pendingApproval, pendingApprovalID = step.name, step.id
 		case (step.kind == "agent/pi" || step.kind == "script" || step.kind == "agent/review") && step.state == StatusPending:
+			if !ready {
+				continue
+			}
 			if step.kind != "agent/review" {
 				pendingAgent = step.name
 			}
@@ -138,18 +148,16 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 			rechecking = step.name
 		case step.state == StatusFail || step.state == StatusError || step.state == StatusNeedsHuman:
 			failing = step.name + " (" + step.state.String() + ")"
+			if held == nil {
+				hold := step
+				held = &hold
+			}
 		}
 	}
 	if pendingAgent != "" {
 		return Activity{State: activityQueued, Detail: pendingAgent}, nil
 	}
-	// The stage's own work still to run (a gate dispatched a moment after
-	// the step before it finished) is AppTown working: neither a person's
-	// move nor a block. Read as "waiting on you", the gap invites an approval
-	// before boot and review have run, and then reads "blocked" by the steps
-	// about to start. A failure
-	// already in is named beside it: work still to run (a review, a boot)
-	// may yet send the stage back for rework.
+	// Only work whose prerequisites permit dispatch counts as the next work.
 	if pendingWork != "" {
 		detail := pendingWork + " next"
 		if failing != "" {
@@ -157,8 +165,8 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 		}
 		return Activity{State: ActivityWorking, Detail: detail}, nil
 	}
-	if failing != "" {
-		return Activity{State: ActivityBlocked, Detail: failing}, nil
+	if held != nil {
+		return Activity{State: ActivityWaiting, Detail: held.holdDetail(), Held: true}, nil
 	}
 	// A verdict on the work before its rework is about to be checked again;
 	// the stage is not blocked by it (wait called such runs wedged).
@@ -174,6 +182,28 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 		return g.judgedByGate(id, Activity{State: ActivityWaiting, Detail: pendingApproval, Approval: pendingApprovalID}), nil
 	}
 	return g.judgedByGate(id, Activity{State: ActivityReady}), nil
+}
+
+// holdDetail names the step and its recorded reason, followed by the person's
+// requested actions. Failure recovery uses the existing run and change acts.
+func (step workflowActivityStep) holdDetail() string {
+	detail := step.name + " (" + step.state.String() + ")"
+	var evidence struct {
+		Reason  string   `json:"reason"`
+		Actions []string `json:"actions"`
+	}
+	if json.Unmarshal(step.evidence, &evidence) == nil {
+		if evidence.Reason != "" {
+			detail += ": " + evidence.Reason
+		}
+		if len(evidence.Actions) > 0 {
+			return detail + ". " + strings.Join(evidence.Actions, "; ")
+		}
+	}
+	if step.state == StatusNeedsHuman {
+		return detail + ". Complete the requested action, then re-run the step."
+	}
+	return detail + ". Send back, re-run the step, or override the failure."
 }
 
 // latestAgentWork is when the stage's agent last finished work that passed.
