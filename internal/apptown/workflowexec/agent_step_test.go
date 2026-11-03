@@ -811,3 +811,46 @@ func TestAnAgentReportsAllBlockersAndItsRetryStillNeedsChecks(t *testing.T) {
 		t.Fatal("retry escaped review and acceptance")
 	}
 }
+
+// The recorded agent report excerpt supplied with the bug has this exact
+// Blockers field. Replay it through report collection and step settlement.
+func TestAnAgentDeclaringNoBlockersProceedsToChecks(t *testing.T) {
+	recorded, err := os.ReadFile("testdata/reports/no-blockers.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, report := range []string{string(recorded), "Blockers:\n- None", "Blockers:\n- none", "Blockers:\n- N/A", "Blockers:\n- No blockers", "Blockers:\n- NO BLOCKERS!", "Blockers: none"} {
+		t.Run(strings.TrimSpace(report), func(t *testing.T) {
+			t.Parallel()
+			a, runID, stepID := admittedAgentStep(t, `{"prompt":"do it","output":{"kind":"change-report","file":".apptown/CHANGE.md"}}`, schema.Step{Name: "report", Uses: "artifact/require", With: map[string]any{"kind": "change-report"}}, schema.Step{Name: "accept", Uses: "approval"})
+			installFakePi(a, func(_ int, req execution.Request) execution.Outcome {
+				if err := os.WriteFile(filepath.Join(req.Workspace, ".apptown", "CHANGE.md"), []byte(report), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(req.Workspace, "page.txt"), []byte("changed\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				return execution.Outcome{Output: piSays("done")}
+			})
+			if err := a.work.ExecuteStep(a.ctx, stepID); err != nil {
+				t.Fatal(err)
+			}
+			if status, ev := stepStatus(t, a, stepID); status != workflow.StatusPass || ev["nothingToChange"] == true {
+				t.Fatalf("no-blocker report stopped work: %s %+v", status, ev)
+			}
+			snapshot, err := a.work.Snapshot(a.ctx, runID, workflow.DetailView)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, s := range snapshot.Steps {
+				if s.Name == "report" {
+					if status, ev := stepStatus(t, a, s.ID); status != workflow.StatusPass {
+						t.Fatalf("report check did not pass: %s %+v", status, ev)
+					}
+					return
+				}
+			}
+			t.Fatal("report check missing")
+		})
+	}
+}

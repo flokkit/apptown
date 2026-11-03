@@ -80,6 +80,9 @@ needs from a person. This holds the whole change, even when it committed edits
 or described them as complete. No rounds are spent and subsequent checks stay
 pending. A person's retry with a blocker-free report follows the ordinary
 checked path. The change page lists the person's actions together.
+Reports omit the field when there are no blockers. Bullets saying only `None`,
+`N/A` or `No blockers` (ignoring case and trailing punctuation) declare no
+blockers, as does `Blockers: none` on one line.
 
 Every stock stage that boots an app checks guidance conformance before review.
 Its agents are instructed to commit, run `apptown check`, run `apptown dev up`,

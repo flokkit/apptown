@@ -40,6 +40,8 @@ spec:
               Blockers:
               - What you cannot do and what you need from a person.
               Use one bullet per blocker, each on one line.
+              Add the Blockers field only when there is at least one blocker.
+              Leave it out otherwise.
               A blocker is anything outside this repository that the change
               needs: a decision, a secret, access, a setting only a person can
               change (for example a stored preview secret), or a smaller request.
