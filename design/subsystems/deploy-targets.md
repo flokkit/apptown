@@ -21,6 +21,10 @@ A retired target keeps its name with its history, and nothing revives it:
 attaching another target under that name is refused with a 409 that says the
 target was retired and a new name is needed.
 
+Retired targets read `stopped` on their target pages. They count as neither
+failing, unknown nor working in the Integrations overview and raise no target
+conditions in Attention.
+
 Attaching a Docker host, Portainer target or bucket website creates a new record;
 concurrent attachments under one name cannot replace the winner's configuration.
 The attachment and check receipts commit only with that new record. An unavailable

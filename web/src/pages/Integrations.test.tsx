@@ -7,7 +7,7 @@ import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { getKey, newQueryClient } from '../data'
-import type { ConnectorEntry, IntegrationEntry, IntegrationHealth } from '../wire.gen'
+import type { ConnectorEntry, IntegrationEntry, IntegrationHealth, TargetLabel } from '../wire.gen'
 import Integrations from './Integrations'
 import { ConnectorForm } from './integrations/ConnectorForm'
 
@@ -452,8 +452,39 @@ it('reads a row as working or a problem, counting targets', async () => {
   const row = (name: string) => [...page.el.querySelectorAll('[role=listitem].int-row')].find((r) => r.querySelector('.int-name')!.textContent === name)!
   expect(row('Scanners').textContent).toContain('working')
   await vi.waitFor(() => expect(row('Deployment targets').querySelector('.chip')?.className).toContain('fail'))
+  expect(row('Deployment targets').textContent).toContain('1 failing')
   page.done()
 })
+
+// Retired targets contribute no verdict, including when they are the only targets.
+it.each([
+  { active: 'working', issue: false, expected: 'working' },
+  { active: 'failed', issue: false, expected: '1 failing' },
+  { active: 'unknown', issue: false, expected: 'unknown' },
+  { active: null, issue: false, expected: 'no automatic check' },
+  { active: 'working', issue: true, expected: '1 failing' },
+] satisfies { active: TargetLabel | null; issue: boolean; expected: string }[])(
+  'ignores retired targets beside $active with Attention failure $issue', async ({ active, issue, expected }) => {
+    const target = (name: string, statusLabel: TargetLabel) => ({
+      id: name, name, status: statusLabel === 'stopped' ? 'retired' : 'ready', statusLabel,
+      offers: [], kindInfo: { family: 'docker' }, address: {},
+    })
+    stubAppTown({
+      'GET /integrations': json({ integrations: [] }), 'GET /integrations/catalog': json({ catalog }),
+      'GET /targets': json({ targets: [target('retired-one', 'stopped'), target('retired-two', 'stopped'), ...(active ? [target('home', active)] : [])], groups: [] }),
+      'GET /infrastructure': json({ targets: [] }),
+      'GET /auth/me': json({ mode: 'internal', user: 'sam' }),
+      'GET /attention': json({ sources: [], items: issue ? [{ key: 'capacity/home/disk', title: 'Home: disk full', href: '/infrastructure/home', severity: 'warning', statusLabel: 'failed' }] : [] }),
+    })
+    const page = await mount('/integrations')
+    try {
+      const row = () => [...page.el.querySelectorAll('[role=listitem].int-row')].find(r => r.querySelector('.int-name')!.textContent === 'Deployment targets')!
+      await vi.waitFor(() => expect(row().querySelector('.chip')?.textContent).toBe(`● ${expected}`))
+    } finally {
+      page.done()
+    }
+  },
+)
 
 // A working row built on an old reading says how old, never plain working.
 it('shows an old passed reading on the overview as last seen', async () => {
