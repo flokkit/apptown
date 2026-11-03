@@ -527,9 +527,9 @@ const outputPage = 4 << 20
 // followOutput streams an invocation's summary lines to the step's live
 // feed while it runs, until ctx ends, from its log. It reads only whole
 // lines and keeps nothing: the result is read from the invocation's events
-// file once it exits. The channel carries how many events it summarized
-// (the log holds stderr too, which the file does not, so the catch-up
-// counts events, never bytes).
+// file once it exits. The channel counts events retained in that file;
+// stderr and cumulative tool updates appear only in the log and do not
+// count toward catch-up.
 func (a *Executor) followOutput(ctx context.Context, ref execution.TaskRef, stepID ids.ID) <-chan int64 {
 	done := make(chan int64, 1)
 	driver := a.worker.Tasks.Driver
@@ -546,7 +546,7 @@ func (a *Executor) followOutput(ctx context.Context, ref execution.TaskRef, step
 				if cut >= 0 {
 					a.summarize(stepID, buf[:cut+1])
 					for _, line := range bytes.SplitAfter(buf[:cut+1], []byte("\n")) {
-						if piharness.IsEvent(line) {
+						if piharness.IsCapturedEvent(line) {
 							summarized++
 						}
 					}

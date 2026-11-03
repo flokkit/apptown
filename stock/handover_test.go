@@ -32,6 +32,22 @@ func TestEveryBootingStageChecksConformanceAndTellsTheAgentTheBar(t *testing.T) 
 				t.Fatal(err)
 			}
 			for _, stage := range workflow.Spec.Stages {
+				for _, s := range append(stage.OnEnter, stage.Steps...) {
+					if s.Uses != "agent/pi" || !strings.Contains(s.With.Prompt, "Blockers:") {
+						continue
+					}
+					prompt := strings.Join(strings.Fields(s.With.Prompt), " ")
+					for _, rule := range []string{
+						"A blocker is anything outside this repository that the change needs: a decision, a secret, access, a setting only a person can change (for example a stored preview secret), or a smaller request.",
+						"Anything your report says a person or operator must do belongs in Blockers.",
+						"If you were sent back for such a reason, declare it as a blocker rather than trying again.",
+						"Do not finish with a preview that fails to start unless the reason is listed in Blockers.",
+					} {
+						if !strings.Contains(prompt, rule) {
+							t.Errorf("%s/%s lacks %s", stage.Name, s.Name, rule)
+						}
+					}
+				}
 				all := append(stage.OnEnter, stage.Steps...)
 				boot, conformance, review, accept := -1, -1, -1, -1
 				for i, s := range all {
