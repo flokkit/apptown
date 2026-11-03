@@ -169,7 +169,8 @@ func TestAHeldVolumeNothingCanCopyMakesTheSetPartial(t *testing.T) {
 // "Nothing to back up" is said only when the list and the release were
 // both read and neither names data. A deployment with no recorded release,
 // or whose release cannot be read, is not known: its backup fails, the
-// scheduled one too, and protection reads unknown. Data named but absent
+// scheduled one too. Protection waits before the first successful attempt and
+// reports unknown when an applied release cannot be read. Data named but absent
 // from the host is not "nothing" either.
 //
 // Kills: treating an unread source as empty; the empty-plan shortcut.
@@ -193,7 +194,7 @@ func TestNothingToBackUpNeedsBothSourcesReadAndEmpty(t *testing.T) {
 			t.Fatalf("%s: the scheduled backup passed: %v", name, r)
 		}
 		collectProtectionForTest(t, s, pid, name)
-		if p, err := s.DeploymentProtection(context.Background(), pid, name); err != nil || p.Unknown != "AppTown could not read this deployment's release contract." {
+		if p, err := s.DeploymentProtection(context.Background(), pid, name); err != nil || (name == "fresh" && !p.Reading.Waiting) || (name != "fresh" && p.Unknown != "AppTown could not read this deployment's release contract.") {
 			t.Fatalf("%s: protection %+v %v", name, p, err)
 		}
 	}

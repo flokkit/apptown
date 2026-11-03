@@ -1,16 +1,16 @@
 -- Record reads, grouped by table.
 
 -- name: DeploymentByID :one
-SELECT * FROM deployments WHERE id=$1;
+SELECT sqlc.embed(d), (SELECT a.finished_at FROM deployment_attempts a WHERE a.deployment_id=d.id AND a.generation=d.observed_generation AND a.status='done') AS last_applied_at FROM deployments d WHERE d.id=$1;
 
 -- name: DeploymentByName :one
-SELECT * FROM deployments WHERE project_id=$1 AND name=$2;
+SELECT sqlc.embed(d), (SELECT a.finished_at FROM deployment_attempts a WHERE a.deployment_id=d.id AND a.generation=d.observed_generation AND a.status='done') AS last_applied_at FROM deployments d WHERE d.project_id=$1 AND d.name=$2;
 
 -- A restored copy is not one of the project's deployments: it is shown on
 -- its source's card only (RestoredCopiesOf), never in listings, health,
 -- conformance or the sweeps that read these.
 -- name: DeploymentsForProject :many
-SELECT * FROM deployments WHERE project_id=$1 AND kind<>'restored-copy' ORDER BY kind DESC,id;
+SELECT sqlc.embed(d), (SELECT a.finished_at FROM deployment_attempts a WHERE a.deployment_id=d.id AND a.generation=d.observed_generation AND a.status='done') AS last_applied_at FROM deployments d WHERE d.project_id=$1 AND d.kind<>'restored-copy' ORDER BY d.kind DESC,d.id;
 
 -- name: PreviewDeployments :many
 SELECT * FROM deployments WHERE kind=$1 ORDER BY id;
@@ -367,7 +367,7 @@ SELECT EXISTS(SELECT 1 FROM targets WHERE provider=$1 AND status<>$2);
 
 -- Runtime display/observation facts. NULL scope is private to the background sweep.
 -- name: RuntimeDeployments :many
-SELECT sqlc.embed(d), p.slug FROM deployments d JOIN projects p ON p.id=d.project_id
+SELECT sqlc.embed(d), (SELECT a.finished_at FROM deployment_attempts a WHERE a.deployment_id=d.id AND a.generation=d.observed_generation AND a.status='done') AS last_applied_at, p.slug FROM deployments d JOIN projects p ON p.id=d.project_id
 WHERE d.kind<>'restored-copy' AND (sqlc.narg(project_ids)::uuid[] IS NULL OR d.project_id=ANY(sqlc.narg(project_ids)::uuid[]))
 ORDER BY d.kind DESC,d.id;
 

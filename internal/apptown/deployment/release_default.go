@@ -42,7 +42,7 @@ func (s *Service) ReadReleaseDefault(ctx context.Context, projectID ids.ID) (Rel
 	out.DeploymentID, out.Revision = row.DefaultDeploymentID, row.Revision
 	if !out.DeploymentID.IsZero() {
 		q := deploymentsql.New(s.db.SQL())
-		dep, err := deploymentRecord(q.DeploymentByID(ctx, out.DeploymentID))
+		dep, err := deploymentByIDRecord(q.DeploymentByID(ctx, out.DeploymentID))
 		if err != nil {
 			return out, err
 		}
@@ -81,7 +81,7 @@ func (s *Service) SetReleaseDefault(ctx context.Context, projectID, deploymentID
 		}
 		q := deploymentsql.New(tx.SQL())
 		if !deploymentID.IsZero() {
-			dep, err := deploymentRecord(q.DeploymentByID(ctx, deploymentID))
+			dep, err := deploymentByIDRecord(q.DeploymentByID(ctx, deploymentID))
 			if err != nil {
 				return ReleaseDefault{}, err
 			}

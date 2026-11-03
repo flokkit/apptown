@@ -9,6 +9,7 @@ import (
 // OperationalObservation joins current local intent with matching cached
 // runtime and exact-generation hold evidence. It performs no provider reads.
 type OperationalObservation struct {
+	LastApplied                           *AppliedAttempt
 	ID, TargetID                          ids.ID
 	Name, DisplayLabel, UpdatedAt         string
 	Kind                                  Kind
@@ -30,7 +31,7 @@ func (s *Service) Operational(ctx context.Context, projectID ids.ID) ([]Operatio
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, OperationalObservation{ID: d.ID, TargetID: d.TargetID, Name: d.Name, DisplayLabel: d.DisplayLabel, UpdatedAt: d.UpdatedAt, Kind: d.Kind, DesiredGeneration: d.DesiredGeneration, ObservedGeneration: d.ObservedGeneration, Readiness: d.Readiness, Runtime: s.observations.read(r, s.now()), Hold: hold})
+		out = append(out, OperationalObservation{LastApplied: r.summary.LastApplied, ID: d.ID, TargetID: d.TargetID, Name: d.Name, DisplayLabel: d.DisplayLabel, UpdatedAt: d.UpdatedAt, Kind: d.Kind, DesiredGeneration: d.DesiredGeneration, ObservedGeneration: d.ObservedGeneration, Readiness: d.Readiness, Runtime: s.observations.read(r, s.now()), Hold: hold})
 	}
 	return out, ctx.Err()
 }

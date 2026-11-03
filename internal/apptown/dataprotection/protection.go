@@ -656,7 +656,7 @@ func (s *Service) DeploymentProtection(ctx context.Context, projectID ids.ID, na
 		return nil, err
 	}
 	observer := NewProtectionObserver(s, nil)
-	reading, err := observer.Snapshot(ctx, dep.ID)
+	reading, identity, err := observer.snapshot(ctx, dep.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -671,7 +671,7 @@ func (s *Service) DeploymentProtection(ctx context.Context, projectID ids.ID, na
 	if err != nil {
 		return nil, err
 	}
-	if target.HoldsBackups() == nil && reading.Protection != nil {
+	if !reading.Unknown && target.HoldsBackups() == nil && reading.Protection != nil {
 		plan := make([]backupPlanItem, 0, len(reading.Plan))
 		for _, it := range reading.Plan {
 			p := backupPlanItem{Kind: it.Kind, Name: it.Name, Volume: it.Volume}
@@ -689,12 +689,17 @@ func (s *Service) DeploymentProtection(ctx context.Context, projectID ids.ID, na
 		if err := s.dockerProtectionFromPlan(ctx, out, dep, target, store != nil, plan); err != nil {
 			return nil, err
 		}
-	} else if target.DataAccess() == deployment.DataOnManagedPlatform && reading.Protection != nil {
+	} else if target.DataAccess() == deployment.DataOnManagedPlatform {
 		items, err := s.managedList(ctx, dep, target)
 		if err != nil {
 			return nil, err
 		}
 		out.Operations = s.operationsOf(ctx, dep, target, items, nil)
+		purpose, err := s.env.Purpose(ctx, projectID)
+		if err != nil {
+			return nil, err
+		}
+		out.TakeDown = takeDownWords(out.Operations.FinalCopy, len(items) > 0 && purpose.KeepsData())
 		sets, err := s.backups.ForDeployment(ctx, dep.ProjectID, dep.Name, 50)
 		if err != nil {
 			return nil, err
@@ -721,15 +726,22 @@ func (s *Service) DeploymentProtection(ctx context.Context, projectID ids.ID, na
 			}
 		}
 	}
-	out.Reading = deployment.DetailReading{ObservedAt: reading.ObservedAt, AttemptedAt: reading.AttemptedAt, Failure: reading.Reason, Stale: reading.Stale, Unknown: reading.Unknown}
-	if reading.Unknown {
-		if out.Unknown != "" || reading.Protection == nil {
+	if reading.Protection != nil && reading.Identity != identity {
+		out.Operations = nil
+		out.TakeDown = ""
+	}
+	out.Reading = deployment.DetailReading{Identity: reading.Identity, Waiting: reading.Waiting, ObservedAt: reading.ObservedAt, AttemptedAt: reading.AttemptedAt, Failure: reading.Reason, Stale: reading.Stale, Unknown: reading.Unknown}
+	if reading.Unknown && !reading.Waiting {
+		if out.Unknown != "" || reading.Protection == nil || reading.Identity != identity {
 			out.Coverage = Coverage{Assessed: []string{}, NotAssessed: []string{"the deployment's own data: what it holds is unknown", outsideNotAssessed}}
 		}
 		out.Unknown = reading.Reason
 		if out.Unknown == "" {
 			out.Unknown = "The last protection check is more than six hours old."
 		}
+	}
+	if reading.Waiting {
+		out.Unknown = ""
 	}
 	return out, nil
 }

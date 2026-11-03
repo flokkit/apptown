@@ -500,6 +500,10 @@ func (s *Service) Diagnostics(ctx context.Context, projectID ids.ID, name string
 		out.Unsettled = stored.Unsettled
 		return nil
 	})
+	if stored.Reading.Waiting && !stored.Reading.ObservedAt.IsZero() {
+		stored.Runtime, stored.Hold = out.Runtime, out.Hold
+		return stored, err
+	}
 	out.Reading = stored.Reading
 	return out, err
 }

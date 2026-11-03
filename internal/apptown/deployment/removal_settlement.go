@@ -85,7 +85,7 @@ func SelectRemovalIn(ctx context.Context, tx *database.Tx, projectID ids.ID, nam
 		return nil, err
 	}
 	q := deploymentsql.New(tx.SQL())
-	dep, err := deploymentRecord(q.DeploymentByName(ctx, deploymentsql.DeploymentByNameParams{ProjectID: projectID, Name: name}))
+	dep, err := deploymentByNameRecord(q.DeploymentByName(ctx, deploymentsql.DeploymentByNameParams{ProjectID: projectID, Name: name}))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrDeploymentMissing
 	}

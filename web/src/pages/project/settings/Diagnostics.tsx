@@ -75,12 +75,12 @@ export function DiagnosticsLines({ slug, name }: { slug: string; name: string })
       setBusy(false)
     }
   }
-  const failing = d.parts.filter((p) => trouble(p) !== '')
+  const failing = d.reading?.waiting ? [] : d.parts.filter((p) => trouble(p) !== '')
   return (
     <div id={anchor} className="small">
       <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
         <span className="muted">diagnostics</span>
-        {d.unsupported
+        {d.reading?.waiting ? <span className="muted">Last values (old)</span> : d.unsupported
           ? <span className="muted">{d.unsupported}</span>
           : failing.length === 0
             ? <Status word="running" help={`All ${d.parts.length} parts are running.`} />
@@ -132,7 +132,7 @@ function DiagnosticsDetail({ d, busy, onLog }: { d: Diag; busy: boolean; onLog: 
             <tbody>
               {d.parts.map((p) => {
                 const f = p.facts
-                const old = p.stale && f
+                const old = (p.stale || d.reading?.waiting) && f
                 return (
                   <tr key={p.part || 'app'} title={p.observedAt ? `read ${p.observedAt}${p.attemptedAt && p.attemptedAt !== p.observedAt ? `, last asked ${p.attemptedAt}` : ''}` : 'never read'}>
                     <td>
@@ -146,7 +146,7 @@ function DiagnosticsDetail({ d, busy, onLog }: { d: Diag; busy: boolean; onLog: 
                       {!old && f?.exitCode != null ? ` · exit ${f.exitCode}` : ''}
                       {!old && f?.oomKilled ? <Status word="failed" help="The app ran out of memory. Raise its memory limit or fix its memory use, then deploy again." /> : null}
                       {!old && f && <span className="muted"> · {f.running ? `started ${at(f.startedAt)}` : `finished ${at(f.finishedAt)}`}</span>}
-                      {p.reason && <div className="muted">{p.reason}</div>}
+                      {p.reason && !d.reading?.waiting && <div className="muted">{p.reason}</div>}
                       {old && <div className="muted">last read {at(p.observedAt)}: {f.status}{f.exitCode != null ? `, exit ${f.exitCode}` : ''}{f.oomKilled ? ', out of memory' : ''}</div>}
                     </td>
                     <td style={old ? { opacity: 0.6 } : undefined}>{f ? f.restarts : ''}</td>

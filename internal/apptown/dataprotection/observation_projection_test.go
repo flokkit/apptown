@@ -28,7 +28,7 @@ func TestProtectionObservationKeepsUnknownRehearsalDistinctFromFailure(t *testin
 func TestProtectionFailureExplainsRetainedEvidenceAndRecovery(t *testing.T) {
 	at := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
 	now := at
-	dep := deployment.Deployment{ID: idstest.N(1), ProjectID: idstest.N(2), Kind: deployment.Standing, Name: "main"}
+	dep := deployment.Deployment{ID: idstest.N(1), ProjectID: idstest.N(2), LastApplied: &deployment.AppliedAttempt{At: time.Now(), Generation: 1}, Kind: deployment.Standing, Name: "main"}
 	identity := strings.Repeat("a", 64)
 	result := &Protection{}
 	var readErr error
@@ -108,7 +108,7 @@ func TestProtectionReadingSurvivesRestartAndBecomesUnknownAfterSixHours(t *testi
 	db := testDB(t)
 	now := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
 	first := now
-	dep := &deployment.Deployment{ID: idstest.N(1), Kind: deployment.Standing}
+	dep := &deployment.Deployment{ID: idstest.N(1), Kind: deployment.Standing, LastApplied: &deployment.AppliedAttempt{At: now, Generation: 1}}
 	resolve := func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return dep, "identity", nil }
 	observer := &ProtectionObserver{db: db, now: func() time.Time { return now }, resolve: resolve, read: func(context.Context, ids.ID, string) (*Protection, error) { return &Protection{}, nil }}
 	if err := observer.run(t.Context(), dep.ID, "identity"); err != nil {
@@ -217,7 +217,7 @@ func TestProtectionDataFailureRecordsCauseAndUsefulAction(t *testing.T) {
 			t.Parallel()
 			at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
 			now := at
-			dep := &deployment.Deployment{ID: idstest.N(1), ProjectID: idstest.N(2), Kind: deployment.Standing}
+			dep := &deployment.Deployment{ID: idstest.N(1), ProjectID: idstest.N(2), LastApplied: &deployment.AppliedAttempt{At: at, Generation: 1}, Kind: deployment.Standing}
 			result := &Protection{}
 			observer := &ProtectionObserver{db: testDB(t), now: func() time.Time { return now }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return dep, "identity", nil }, read: func(context.Context, ids.ID, string) (*Protection, error) { return result, nil }}
 			if err := observer.run(t.Context(), dep.ID, "identity"); err != nil {
@@ -244,5 +244,132 @@ func TestProtectionDataFailureRecordsCauseAndUsefulAction(t *testing.T) {
 				t.Fatalf("recovered check kept failure instructions: %+v %v", got, err)
 			}
 		})
+	}
+}
+
+func TestNewDeploymentWaitsButRestoreAdoptionStillAssessesProtection(t *testing.T) {
+	t.Parallel()
+	w := newDataWorld(t)
+	ctx := t.Context()
+	dep, err := w.bind(w.project, "prod", "production", ids.Nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := NewProtectionObserver(w.s.Service, nil)
+	_, identity, err := o.resolve(ctx, dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := o.run(ctx, dep.ID, identity); err != nil {
+		t.Fatal(err)
+	}
+	pending, err := o.Snapshot(ctx, dep.ID)
+	if err != nil || !pending.Waiting || !pending.AttemptedAt.IsZero() || pending.Reason != "Not released yet." {
+		t.Fatalf("unreleased: %+v %v", pending, err)
+	}
+	if rel, _ := w.release("prod"); rel.State != deployment.Released {
+		t.Fatal(rel.State)
+	}
+	dep, err = w.s.deployments.ByID(ctx, dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dep.LastApplied == nil {
+		t.Fatal("successful attempt missing")
+	}
+	if !w.api.AdvanceDeployment(dep.Handle["appId"].(string), "another-release") {
+		t.Fatal("provider app missing")
+	}
+	if _, err := w.s.deployments.HoldAfterRestore(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (deployment.JobWorker{Service: w.s.deploymentOwner}).CheckAfterRestore(ctx, "", nil); err != nil {
+		t.Fatal(err)
+	}
+	dep, err = w.s.deployments.ByID(ctx, dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dep.ReleaseSHA != "" || dep.LastApplied == nil || dep.RestoreCheck != "" {
+		t.Fatalf("adoption did not preserve application evidence: %+v", dep)
+	}
+	_, identity, err = o.resolve(ctx, dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = o.run(ctx, dep.ID, identity)
+	got, err := o.Snapshot(ctx, dep.ID)
+	if err != nil || got.Waiting || got.AttemptedAt.IsZero() {
+		t.Fatalf("restore-adopted assessment suppressed: %+v %v", got, err)
+	}
+}
+
+func TestEmptyRevisionWithSuccessfulAttemptStillReportsContractFailure(t *testing.T) {
+	t.Parallel()
+	s, db, _, _, pid := backupWorld(t, "unknown-contract", answeringPort(t))
+	dep, err := s.Deployments.ByName(t.Context(), pid, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Docker has no restore-adoption operation. Reproduce the empty revision
+	// that adoption records, leaving the successful attempt intact.
+	// sql-guarantee: reproduce adoption’s empty revision; no Docker operation performs restore adoption.
+	mustExec(t, db, `UPDATE deployments SET release_sha='' WHERE id=$1`, dep.ID)
+	collectProtectionForTest(t, s, pid, "main")
+	got, err := NewProtectionObserver(s.Service, nil).Snapshot(t.Context(), dep.ID)
+	if err != nil || got.Waiting || !got.Unknown || got.AttemptedAt.IsZero() || got.Reason != "AppTown could not read this deployment's release contract." {
+		t.Fatalf("applied without revision: %+v %v", got, err)
+	}
+}
+
+func TestChangedProtectionKeepsDisplayWithoutReusingEvidence(t *testing.T) {
+	t.Parallel()
+	at := time.Now()
+	dep := &deployment.Deployment{ID: idstest.N(1), Kind: deployment.Standing, LastApplied: &deployment.AppliedAttempt{At: at, Generation: 1}}
+	identity := "first"
+	observer := &ProtectionObserver{db: testDB(t), now: func() time.Time { return at }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return dep, identity, nil }, read: func(context.Context, ids.ID, string) (*Protection, error) {
+		return &Protection{Items: []ItemProtection{{Need: "postgres", Copy: CopyFresh, CopyLabel: CopyFresh.label()}}, Operations: &DataOperations{}}, nil
+	}}
+	if err := observer.run(t.Context(), dep.ID, identity); err != nil {
+		t.Fatal(err)
+	}
+	identity = "second"
+	got, err := observer.Snapshot(t.Context(), dep.ID)
+	if err != nil || !got.Waiting || !got.Unknown || !got.Stale || got.Protection == nil || len(got.Protection.Items) != 1 || len(got.Items) != 0 || got.Identity != "first" || !got.ObservedAt.Equal(at) {
+		t.Fatalf("old display became evidence or was lost: %+v %v", got, err)
+	}
+	observer.read = func(context.Context, ids.ID, string) (*Protection, error) { return nil, errors.New("failed") }
+	_ = observer.run(t.Context(), dep.ID, identity)
+	got, err = observer.Snapshot(t.Context(), dep.ID)
+	if err != nil || got.Waiting || !got.Unknown || len(got.Items) != 0 || got.Identity != "first" || got.Protection == nil {
+		t.Fatalf("failed new check borrowed evidence: %+v %v", got, err)
+	}
+}
+
+func TestOldProtectionPayloadCannotOfferOperationsForTheNewGeneration(t *testing.T) {
+	t.Parallel()
+	w := newDataWorld(t)
+	dep, err := w.bind(w.project, "prod", "production", ids.Nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rel, _ := w.release("prod"); rel.State != deployment.Released {
+		t.Fatal(rel.State)
+	}
+	collectProtectionForTest(t, w.s, w.project, "prod")
+	old, err := w.s.DeploymentProtection(t.Context(), w.project, "prod")
+	if err != nil || old.Operations == nil {
+		t.Fatalf("initial protection: %+v %v", old, err)
+	}
+	if rel, _ := w.release("prod"); rel.State != deployment.Released {
+		t.Fatal(rel.State)
+	}
+	got, err := w.s.DeploymentProtection(t.Context(), w.project, "prod")
+	if err != nil || !got.Reading.Waiting || !got.Reading.Unknown || got.Operations != nil || got.TakeDown != "" || len(got.Items) != len(old.Items) || got.Reading.Identity != old.Reading.Identity || !got.Reading.ObservedAt.Equal(old.Reading.ObservedAt) {
+		t.Fatalf("old payload authorized operations or was discarded: %+v %v", got, err)
+	}
+	snapshot, err := NewProtectionObserver(w.s.Service, nil).Snapshot(t.Context(), dep.ID)
+	if err != nil || len(snapshot.Items) != 0 {
+		t.Fatalf("old items became Attention evidence: %+v %v", snapshot, err)
 	}
 }

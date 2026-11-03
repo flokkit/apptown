@@ -20,7 +20,7 @@ type standingConsentSelection struct {
 
 func ReadStandingConsentSelection(ctx context.Context, q database.Queryer, projectID, deploymentID, targetID ids.ID) (standingConsentSelection, error) {
 	var out standingConsentSelection
-	dep, err := deploymentRecord(deploymentsql.New(q.SQL()).DeploymentByID(ctx, deploymentID))
+	dep, err := deploymentByIDRecord(deploymentsql.New(q.SQL()).DeploymentByID(ctx, deploymentID))
 	if err != nil {
 		return out, database.Missing(err)
 	}

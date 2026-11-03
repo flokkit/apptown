@@ -66,8 +66,11 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 		}
 		r := d.Runtime
 		unknown := r.Err != nil || r.State == deployment.RuntimeUnknown || r.ObservedAt.IsZero()
-		// A recent good reading covers a missed one; never a status not yet seen.
+		// A successful attempt gives the observer time to read the new runtime.
 		late := (unknown || r.Stale) && !r.ObservedAt.IsZero() && now.Sub(r.ObservedAt) < runtimeGrace
+		if d.LastApplied != nil && r.ObservedAt.Before(d.LastApplied.At) && now.Sub(d.LastApplied.At) < runtimeGrace {
+			late = true
+		}
 		out.Known = out.Known && (!unknown || late || down)
 		out.Stale = out.Stale || (r.Stale && !late)
 		if r.ObservedAt.IsZero() || r.ObservedAt.Before(out.ObservedAt) {
@@ -108,7 +111,7 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 			}
 		}
 		// A queued first check is incomplete coverage, not an actionable failure.
-		pending := r.AttemptedAt.IsZero() && r.ObservedAt.IsZero() && r.Err == nil
+		pending := d.LastApplied == nil && r.AttemptedAt.IsZero() && r.ObservedAt.IsZero() && r.Err == nil
 		switch {
 		case (unknown || r.Stale) && !pending && !late && !down:
 			add("runtime", "App status not known", "The latest runtime observation is unavailable or out of date.", SeverityWarning, r.ObservedAt, true)

@@ -119,3 +119,33 @@ func TestDeploymentGraceNeverHidesACrashHold(t *testing.T) {
 		t.Fatalf("crash hold during grace: %+v %v", got, err)
 	}
 }
+
+// Grace is anchored to application, including a first release and a rebuild;
+// metadata edits cannot extend it and an unattempted observer cannot wait forever.
+func TestRuntimeGraceUsesLastSuccessfulAttempt(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC)
+	for _, attempted := range []bool{false, true} {
+		d := deployment.OperationalObservation{ID: idstest.N(1), Name: "main", LastApplied: &deployment.AppliedAttempt{At: at, Generation: 1}, Runtime: deployment.RuntimeObservation{State: deployment.RuntimeUnknown, Stale: true}}
+		if attempted {
+			d.Runtime.AttemptedAt = at
+			d.Runtime.Err = errors.New("not read")
+		}
+		now := at.Add(time.Minute)
+		read := func(want int) {
+			t.Helper()
+			got, err := (Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{d}}, Now: func() time.Time { return now }}).ProjectSnapshot(t.Context(), idstest.N(2))
+			if err != nil || len(got.Items) != want {
+				t.Fatalf("attempted %v: %+v %v", attempted, got, err)
+			}
+		}
+		read(0)
+		d.UpdatedAt = now.Format(time.RFC3339Nano)
+		now = at.Add(2 * time.Minute)
+		read(1)
+		d.LastApplied = &deployment.AppliedAttempt{At: now, Generation: 2}
+		read(0)
+		now = now.Add(2 * time.Minute)
+		read(1)
+	}
+}

@@ -95,8 +95,10 @@ The read path uses local records and recorded owner observations. Inventory,
 capacity, controller/worker disks and protection observations are collected by
 durable jobs every five minutes, including while nobody reads the pages.
 Startup queues the first pass. Readers never request these checks or contact
-providers. After AppTown changes a provider, it queues that target's inventory
-check immediately and marks the old reading as predating the act. An overlapping
+providers. After an act, AppTown queues deployment detail and protection for
+every standing deployment on the target, and the target's capacity. Provider
+inventory is also queued and invalidated for non-Docker targets; Docker host
+inventory remains the host reader loop's responsibility. An overlapping
 pre-act check cannot renew that evidence or establish newly missing resources.
 Invalidation alone does not create a resources-not-known item.
 
@@ -124,7 +126,15 @@ memory fallback when an owner read fails.
 
 Worker availability still requests bounded background observation from reads;
 age alone creates no worker-unavailable item. Deployment runtime uses its existing
-background observation owner. Target configuration and deployment identity changes
+background observation owner. With no runtime reading since the last successful
+attempt, a missing status waits two minutes from that attempt's finish time,
+including first releases and rebuilds. Metadata edits do not restart this interval.
+Attempt failures and crash holds remain visible during it. Once applied, a
+pending first runtime reading cannot wait indefinitely. Protection remains pending
+until a deployment has a successful attempt. An applied deployment with an empty
+release revision is still assessed. Readings waiting after a change contribute no
+Attention items; retained payloads from the old identity are for display only.
+Target configuration and deployment identity changes
 reject late answers for older subjects. A fresh successful observation clears
 only the conditions it actually reassesses.
 

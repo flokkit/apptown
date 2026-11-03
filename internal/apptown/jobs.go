@@ -190,9 +190,8 @@ func (c infrastructureChecks) Run(ctx context.Context, _ string, _ map[string]an
 	return nil, errors.Join(errs...)
 }
 
-// Applied preserves non-Docker evidence and queues a post-act check even
-// when a scheduled check is already running. Docker readings use BeforeAct. Inventory requests coalesce per
-// target; deployment checks have a fresh admission for each act.
+// Applied queues fresh detail, protection and capacity checks after every act.
+// Docker inventory remains owned by the host reader loop.
 func (c *infrastructureChecks) Applied(targetID ids.ID) {
 	ctx := context.WithoutCancel(c.life)
 	target, err := c.targets.ByID(ctx, targetID)
@@ -200,19 +199,24 @@ func (c *infrastructureChecks) Applied(targetID ids.ID) {
 		log.Printf("infrastructure: finding changed target: %v", err)
 		return
 	}
-	if target.Kind == deployment.KindDockerHost {
-		return
-	}
-	if err := c.inventory.Invalidate(ctx, target.Name); err != nil {
-		log.Printf("infrastructure: invalidating %s: %v", target.Name, err)
-	}
-	err = c.db.InTx(ctx, func(tx *database.Tx) error {
-		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: "inventory", Key: target.Name + "/act", Values: map[string]any{"target": target.Name}})
-	})
-	if err != nil {
-		log.Printf("infrastructure: scheduling %s after an act: %v", target.Name, err)
-	}
+	if target.Kind != deployment.KindDockerHost {
+		if err := c.inventory.Invalidate(ctx, target.Name); err != nil {
+			log.Printf("infrastructure: invalidating %s: %v", target.Name, err)
+		}
+		err = c.db.InTx(ctx, func(tx *database.Tx) error {
+			return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: "inventory", Key: target.Name + "/act", Values: map[string]any{"target": target.Name}})
+		})
+		if err != nil {
+			log.Printf("infrastructure: scheduling %s after an act: %v", target.Name, err)
+		}
 
+	}
+	if err := c.db.InTx(ctx, func(tx *database.Tx) error {
+		key := target.ID.String() + "/" + strconv.FormatInt(target.SettingsRevision, 10) + "/" + ids.New(c.now()).String()
+		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: deployment.CapacityObservationJob, Key: key})
+	}); err != nil {
+		log.Printf("infrastructure: scheduling capacity after an act: %v", err)
+	}
 	deployments, err := c.deployments.All(ctx)
 	if err != nil {
 		log.Printf("infrastructure: listing changed deployments: %v", err)

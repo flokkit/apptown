@@ -442,6 +442,22 @@
         ],
         "type": "object"
       },
+      "AppliedAttempt": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "generation": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "at",
+          "generation"
+        ],
+        "type": "object"
+      },
       "ApprovalQuestion": {
         "properties": {
           "adds": {
@@ -1726,6 +1742,16 @@
           "kind": {
             "$ref": "#/components/schemas/Kind"
           },
+          "lastApplied": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppliedAttempt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "name": {
             "type": "string"
           },
@@ -1960,6 +1986,16 @@
           },
           "kind": {
             "type": "string"
+          },
+          "lastApplied": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppliedAttempt"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "name": {
             "type": "string"

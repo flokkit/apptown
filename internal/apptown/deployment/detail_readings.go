@@ -21,6 +21,9 @@ const DetailObservationJob = "deployment-detail-observation"
 // DetailReading dates a stored page reading separately from its last attempt.
 // A failed collection keeps the last good value until it expires.
 type DetailReading struct {
+	// Identity belongs to the displayed value, not the most recent attempt.
+	Identity    string    `json:"identity,omitempty"`
+	Waiting     bool      `json:"waiting"`
 	ObservedAt  time.Time `json:"observedAt,omitzero"`
 	AttemptedAt time.Time `json:"attemptedAt,omitzero"`
 	Failure     string    `json:"failure,omitempty"`
@@ -75,12 +78,13 @@ func loadDeploymentDetail[T any](ctx context.Context, s *Service, dep *Deploymen
 		return out, err
 	}
 	err = json.Unmarshal(r.Payload, &out)
-	if r.Identity != identity {
-		var empty T
-		out.Value = empty
+	if out.Reading.Identity != identity {
 		out.Reading.Unknown = true
 		out.Reading.Stale = true
-		out.Reading.Failure = "The deployment changed. Waiting for a background check."
+		out.Reading.Waiting = r.Identity != identity || (out.Reading.Identity == "" && out.Reading.Failure == "")
+		if out.Reading.Waiting {
+			out.Reading.Failure = ""
+		}
 	}
 	return out, err
 }
@@ -102,17 +106,18 @@ func readDeploymentDetail[T any](ctx context.Context, s *Service, project ids.ID
 	reading := stored.Reading
 	reading.Stale = reading.Stale || reading.ObservedAt.IsZero() || s.now().Sub(reading.ObservedAt) > 15*time.Minute
 	reading.Unknown = reading.Unknown || reading.ObservedAt.IsZero() || s.now().Sub(reading.ObservedAt) > 6*time.Hour
-	if reading.Unknown && reading.Failure == "" {
+	if reading.Unknown && !reading.Waiting && reading.Failure == "" {
 		reading.Failure = "The last background check is more than six hours old."
 	}
 	if reading.AttemptedAt.IsZero() {
+		reading.Waiting = true
 		reading.Failure = "Waiting for the first background check."
 	}
 
 	switch v := any(&stored.Value).(type) {
 	case *Diagnostics:
 		v.Reading = reading
-		if reading.Unknown {
+		if reading.Unknown && !reading.Waiting {
 			v.Deployment = dep.Name
 			v.Generation = dep.ObservedGeneration
 			v.Desired = dep.DesiredGeneration
@@ -128,7 +133,7 @@ func readDeploymentDetail[T any](ctx context.Context, s *Service, project ids.ID
 		}
 	case *DeploymentResources:
 		v.Reading = reading
-		if reading.Unknown || reading.Failure != "" {
+		if !reading.Waiting && (reading.Unknown || reading.Failure != "") {
 			for i := range v.Parts {
 				v.Parts[i].Observed.Known = false
 				v.Parts[i].Observed.Reason = reading.Failure
@@ -140,7 +145,7 @@ func readDeploymentDetail[T any](ctx context.Context, s *Service, project ids.ID
 			if reading.Failure != "" {
 				(*v)[i].Unknown = reading.Failure
 			}
-			if reading.Unknown {
+			if reading.Unknown && !reading.Waiting {
 				(*v)[i].Allowance = nil
 			}
 		}
@@ -185,7 +190,7 @@ func collectDeploymentDetail[T any](ctx context.Context, s *Service, dep *Deploy
 				continue
 			}
 			for _, old := range last.Parts {
-				if old.Part == p.Part {
+				if prior.Reading.Identity == identity && old.Part == p.Part {
 					p.Facts, p.ObservedAt, p.Generation = old.Facts, old.ObservedAt, old.Generation
 					break
 				}
@@ -200,6 +205,8 @@ func collectDeploymentDetail[T any](ctx context.Context, s *Service, dep *Deploy
 	}
 	if reason == "" {
 		prior.Value = value
+		prior.Reading.Identity = identity
+		prior.Reading.Waiting = false
 		prior.Reading.Unknown, prior.Reading.Stale = false, false
 		prior.Reading.ObservedAt = s.now()
 	}

@@ -621,3 +621,68 @@ func readHostsForTest(t *testing.T, a *App) {
 		t.Fatal("host loops did not store their first lap")
 	}
 }
+
+func TestDockerActQueuesReadingsWithoutWritingHostSnapshot(t *testing.T) {
+	t.Parallel()
+	a := testApp(t, Config{DockerClient: dockerfake.New()})
+	ctx := t.Context()
+	projectID := createReadTestProject(t, a, "after-act")
+	target, err := a.targets.ByName(ctx, deployment.BuiltInTargetName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := a.deployments.EnsureStanding(ctx, projectID, "main", target.ID, deployment.Attributes{}.WithDefaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	at, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: dep.ID, TargetID: target.ID, Key: "first", Inputs: deployment.Inputs{Revision: "first"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := (capacityObservationRequests{db: a.DB}).requestCapacityObservation(ctx, target.ID, target.SettingsRevision); err != nil {
+		t.Fatal(err)
+	}
+	a.infrastructure.Applied(target.ID)
+	a.infrastructure.Applied(target.ID)
+	if rows := operationJobs(t, a, "inventory"); len(rows) != 0 {
+		t.Fatalf("Docker provider inventory queued: %+v", rows)
+	}
+	for _, kind := range []string{deployment.DetailObservationJob, "protection-observation", deployment.CapacityObservationJob} {
+		rows := operationJobs(t, a, kind)
+		want := 2
+		if kind == deployment.CapacityObservationJob {
+			want = 3 // periodic and both acts must each survive coalescing
+		}
+		if len(rows) != want {
+			t.Fatalf("%s: %+v", kind, rows)
+		}
+		for _, row := range rows {
+			if got := runQueuedJobForTest(t, a, kind, row.Key); kind == deployment.CapacityObservationJob && got.State != "completed" {
+				t.Fatalf("%s job did not complete: %+v", kind, got)
+			}
+		}
+	}
+	testAccounts(t, a.DB, "reading-admin")
+	testAdministrator(t, a, "reading-admin")
+	person := access.WithCaller(ctx, access.Caller{Verified: true, Principal: access.Principal{ID: testPrincipalOf(t, a.DB, "reading-admin"), Kind: "user", Name: "reading-admin", Via: "session"}})
+	detail, err := a.Deployment.Diagnostics(person, projectID, "main")
+	if err != nil || detail.Reading.AttemptedAt.IsZero() || detail.Reading.Waiting {
+		t.Fatalf("detail not checked: %+v %v", detail, err)
+	}
+	protection, err := a.protectionObserver.Snapshot(ctx, dep.ID)
+	if err != nil || protection.AttemptedAt.IsZero() || protection.Waiting {
+		t.Fatalf("protection not checked: %+v %v", protection, err)
+	}
+	capacity, err := a.capacityObserver.Snapshot(ctx, target)
+	if err != nil || capacity.AttemptedAt.IsZero() {
+		t.Fatalf("capacity not checked: %+v %v", capacity, err)
+	}
+	// Any host collection, including a failed one, records its attempt time.
+	inventory, err := a.Deployment.InventoryFor(ctx, target)
+	if err != nil || !inventory.AttemptedAt.IsZero() {
+		t.Fatalf("post-act readings wrote host inventory: %+v %v", inventory, err)
+	}
+}

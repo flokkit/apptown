@@ -119,7 +119,7 @@ func CreateReleaseIn(ctx context.Context, tx *database.Tx, d ReleaseDraft) (Numb
 		if found, err := database.Lookup(err); err != nil {
 			return NumberedRelease{}, err
 		} else if found {
-			deploymentID = dep.ID
+			deploymentID = dep.Deployment.ID
 		}
 	}
 	if err := takeDownHeldIn(ctx, tx, d.ProjectID, deploymentID); err != nil {

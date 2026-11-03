@@ -68,6 +68,10 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 			folded++
 		}
 		reading, readErr := p.Observer.Snapshot(ctx, dep.ID)
+		if readErr == nil && reading.Waiting {
+			out.Known = false
+			continue
+		}
 		unknown := reading.Unknown || readErr != nil
 		out.Known = out.Known && (!unknown || down)
 		label := dep.DisplayLabel

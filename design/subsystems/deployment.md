@@ -1191,6 +1191,25 @@ make a retained figure stale before its freshness limit. Each figure
 has its own time, so a partial check cannot renew an unread sibling. See
 [background infrastructure readings](deploy-targets.md#background-infrastructure-readings).
 
+After an act, detail, protection and target capacity checks are queued immediately
+on every target. Docker host inventory is written only by its reader loop.
+The deployment read includes `LastApplied`: the observed generation's successful
+attempt and its finish time. A deployment with no successful attempt is not
+released yet; its protection check stays pending. Managed-deployment operation
+availability uses the current recorded resources even while that check is
+pending. Take-down instructions state whether a final copy is available and
+require the explicit choice to go without one when it cannot be taken.
+Restore adoption preserves successful-attempt evidence even when the release
+revision is unknown.
+
+While readings wait after a change, the deployment card says once that AppTown
+is checking after the release, with its time. Sections keep prior values marked
+old, with their own reading identity and age. Old values cannot establish current
+evidence or make protection operations available. A real post-release collection
+failure is reported as a failure. Host memory overcommit appears once, alongside
+Review server; the card's address remains visible.
+
+
 Every container a boot starts (the public part, the other parts, a
 preview's throwaway needs, a standing need, an init step) logs through
 Docker's `json-file` driver rotated at 10 MiB with three files kept

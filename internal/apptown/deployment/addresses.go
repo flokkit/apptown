@@ -98,7 +98,7 @@ func (s *Service) ReadAddress(ctx context.Context, projectID, deploymentID ids.I
 		return AddressReading{}, err
 	}
 	q := deploymentsql.New(s.db.SQL())
-	dep, err := deploymentRecord(q.DeploymentByID(ctx, deploymentID))
+	dep, err := deploymentByIDRecord(q.DeploymentByID(ctx, deploymentID))
 	if err != nil {
 		return AddressReading{}, err
 	}
@@ -149,7 +149,7 @@ func (s *Service) EditAddress(ctx context.Context, projectID, deploymentID ids.I
 			return AddressSnapshot{}, err
 		}
 		q := deploymentsql.New(tx.SQL())
-		dep, err := deploymentRecord(q.DeploymentByID(ctx, deploymentID))
+		dep, err := deploymentByIDRecord(q.DeploymentByID(ctx, deploymentID))
 		if err != nil {
 			return AddressSnapshot{}, err
 		}

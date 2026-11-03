@@ -17,7 +17,7 @@ import { ProtectionLines } from '../../DataProtection'
 import { DiagnosticsLines } from './Diagnostics'
 import { Section } from '../../../Section'
 import './deployments.css'
-import type { AIModelsKey, DeploymentAIModels, DeploymentProtection, DeploymentResources, OverrideResult, ProjectSecrets, DeploymentView, DeploymentChecked, DeploymentRemoved, FinalCopies, OperationAdmitted, ProjectTargets, ReleaseRequested, RetainedList } from '../../../wire.gen'
+import type { AIModelsKey, DeploymentAIModels, DeploymentProtection, DeploymentResources, DeploymentDiagnostics, OverrideResult, ProjectSecrets, DeploymentView, DeploymentChecked, DeploymentRemoved, FinalCopies, OperationAdmitted, ProjectTargets, ReleaseRequested, RetainedList } from '../../../wire.gen'
 
 // Settings → Deployments (design/subsystems/deployment.md §2.3, §2.7, §15.7): the
 // standing deployments of this project, each bound to a target the
@@ -97,12 +97,18 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
   // failed read could offer the choice to keep the data after a final copy
   // became possible, or the other way round. The question is asked again
   // on open, and an open question closes if its answer goes stale.
-  const known = !holdsData || prot.current
+  const known = !holdsData || (prot.current && !!prot.data)
   const noFinalCopy = known && !!prot.data?.takeDown && !prot.data.operations?.finalCopy.available
   const tearDown = async () => {
     const r = await run(() => del<DeploymentRemoved | OperationAdmitted>(`/projects/${slug}/deployments/${e.name}`, noFinalCopy ? { withoutFinalCopy: e.name } : undefined))
     if (r) { setTorn(r); onChanged() }
   }
+  const base = `/projects/${slug}/deployments/${e.name}`
+  const resources = useGet<DeploymentResources>(e.generation ? `${base}/resources` : null, { poll: 5000 })
+  const diagnostics = useGet<DeploymentDiagnostics>(e.generation ? `${base}/diagnostics` : null, { poll: 5000 })
+  const protection = useGet<DeploymentProtection>(e.target?.kind === 'do-app' || e.target?.kind === 'docker-host' ? `${base}/protection` : null, { poll: 5000 })
+  const models = useGet<DeploymentAIModels>(e.aiModels?.length ? `${base}/ai-models` : null, { poll: 5000 })
+  const waiting = [resources.data?.reading, diagnostics.data?.reading, protection.data?.reading, ...(models.data?.keys.map(k => k.reading) ?? [])].some(r => r?.waiting)
   const place = e.target ? placeWords(e.target.title, e.target.vendor, e.target.region) : 'not bound'
   const meta = [
     `${place}${e.target ? ` (${e.target.displayLabel || e.target.name})` : ''}`,
@@ -135,6 +141,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
         {action && <span className="row-action">{action}</span>}
       </div>
       <div className="deploy-lines small">
+        {waiting && e.lastApplied && <div className="muted">Checking after the release (since {fmtWhen(e.lastApplied.at)})</div>}
         {e.needs && e.needs.length > 0 && (
           <div>
             <span className="muted">backed by</span>{' '}
@@ -210,11 +217,11 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
   )
 }
 
-// A resource warning replaces the address as the row's one fact.
+// Disk warnings replace the address; memory overcommit is shown by ShareLine.
 function DeploymentFact({ slug, env }: { slug: string; env: DeploymentView }) {
   const q = useGet<DeploymentResources>(env.generation ? `/projects/${slug}/deployments/${env.name}/resources` : null)
   const share = q.data?.share
-  const warning = share?.diskRefuses ? 'Free disk space before deploying' : share?.lowDisk ? 'Server is low on disk space' : share?.overcommitted && share.requested?.known && share.hostMemory.known ? `${fmtBytes(share.requested.value)} requested; host total ${fmtBytes(share.hostMemory.value)}` : ''
+  const warning = share?.diskRefuses ? 'Free disk space before deploying' : share?.lowDisk ? 'Server is low on disk space' : ''
   return <span className="small muted">{warning && share ? <Link to={`/infrastructure/${share.target}`}>{warning}</Link>
     : env.url ? <AppAddress url={env.url} hostOnly={env.hostOnly}>{env.hostOnly ? null : env.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</AppAddress> : 'no address yet'}</span>
 }
@@ -426,7 +433,7 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
   const clear = async (p: string) => done(await run(() => del<OverrideResult>(`/projects/${slug}/deployments/${name}/resources`, { part: p, reason: 'cleared by hand' })))
   return (
     <div className="small">
-      <ShareLine share={r.share} />
+      <ShareLine share={r.share} old={r.reading?.waiting} />
       <BackgroundReading reading={r.reading} />
       <details><summary>Resources</summary>
       {r.parts.map(p => <p key={p.part || 'app'}>{p.need ? 'Database' : p.part || 'App'}: {p.observed.known ? `uses ${fmtBytes(p.observed.usedBytes)}${p.observed.limitBytes > 0 ? ` of ${fmtBytes(p.observed.limitBytes)}` : ''}` : 'Memory use not available'}</p>)}
@@ -435,7 +442,7 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
         <span className="muted">profile</span>{' '}
         {r.recorded ? <><b>{r.profile}</b> <span className="muted">({howWords[r.how || ''] || r.how})</span></> : <span className="muted">not recorded</span>}
         {mine && choice.data && choice.data.choosable.length > 1 && (
-          <select style={{ marginLeft: 8 }} value={mine.chosen} disabled={busy} onChange={(ev) => choose(ev.target.value)}
+          <select style={{ marginLeft: 8 }} value={mine.chosen} disabled={busy || r.reading?.unknown} onChange={(ev) => choose(ev.target.value)}
             title="the profile this deployment uses from its next deploy, for app.yaml and secretspec.toml alike">
             {choice.data.choosable.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
@@ -459,7 +466,7 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
                     {p.overrideApplied ? '' : ' · not applied yet'}
                   </span>
                 )}
-                {p.override && !p.suppliedService && <button className="link small" disabled={busy} onClick={() => clear(p.part)}>clear</button>}
+                {p.override && !p.suppliedService && <button className="link small" disabled={busy || r.reading?.unknown} onClick={() => clear(p.part)}>clear</button>}
               </td>
             </tr>
           ))}
@@ -467,7 +474,7 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
       </table>
       {r.parts.some((p) => p.suppliedService) && <div className="muted">Workflow service limits are set in the workflow service declaration.</div>}
       <LimitEventLines r={r} />
-      {parts.length > 0 && !open && <button className="link small" onClick={() => setOpen(true)}>Override memory…</button>}
+      {parts.length > 0 && !open && !r.reading?.unknown && <button className="link small" onClick={() => setOpen(true)}>Override memory…</button>}
       {open && picked && (
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
           {parts.length > 1 && (
@@ -477,7 +484,7 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
           )}
           <input placeholder="memory, e.g. 2Gi or none" value={memory} onChange={(ev) => setMemory(ev.target.value)} style={{ width: 120 }} />
           <input placeholder="why" value={reason} onChange={(ev) => setReason(ev.target.value)} style={{ minWidth: 220 }} />
-          <button className="primary" disabled={busy || !memory || !reason.trim()} onClick={set} title="records who and why, then redeploys what runs so it applies now">Override and redeploy</button>
+          <button className="primary" disabled={busy || r.reading?.unknown || !memory || !reason.trim()} onClick={set} title="records who and why, then redeploys what runs so it applies now">Override and redeploy</button>
           <button className="link small" onClick={() => setOpen(false)}>cancel</button>
         </div>
       )}
@@ -521,16 +528,16 @@ export function LimitEventLines({ r }: { r: DeploymentResources }) {
 // ShareLine says what the deployment holds of a fixed host: its declared
 // limits and its use against the host's memory, and the host's state;
 // on an elastic target, that it grows.
-export function ShareLine({ share }: { share?: DeploymentResources['share'] }) {
+export function ShareLine({ share, old }: { share?: DeploymentResources['share']; old?: boolean }) {
   if (!share) return null
   if (share.elastic) return <div className="muted">on {share.target}, which grows on demand</div>
   return <div>
     {!share.readAt && !share.error && <div className="muted small">Waiting for the first host check.</div>}
-    {share.readAt && <div className="muted small">Host read {fmtStamp(share.readAt)}</div>}
-    {(share.error || (share.stale && share.readAt)) && <p className="error small">{share.error || "The host reading is out of date."}</p>}
+    {share.readAt && <div className="muted small">Host read {fmtStamp(share.readAt)}{old ? ' (old)' : ''}</div>}
+    {(share.error || (share.stale && share.readAt)) && <p className={old ? "muted small" : "error small"}>{share.error || "The host reading is out of date."}</p>}
     {share.overcommitted && share.requested?.known && share.hostMemory.known && <p className="capacity-warning">{fmtBytes(share.requested.value)} requested; host total {fmtBytes(share.hostMemory.value)}. <Link to={`/infrastructure/${share.target}`}>Review server</Link></p>}
-    {share.diskRefuses ? <p className="error">Server is short on disk space. New deployments are blocked.</p>
-      : share.lowDisk && <p className="error">Server is low on disk space.</p>}
+    {share.diskRefuses ? <p className={old ? "muted" : "error"}>Server is short on disk space. New deployments are blocked.</p>
+      : share.lowDisk && <p className={old ? "muted" : "error"}>Server is low on disk space.</p>}
   </div>
 }
 

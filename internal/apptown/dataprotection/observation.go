@@ -41,6 +41,8 @@ type ProtectionItemObservation struct {
 }
 
 type ProtectionSnapshot struct {
+	Identity                           string
+	Waiting                            bool
 	Protection                         *Protection
 	Plan                               []BackupPlanItem
 	PlanNote                           string
@@ -109,21 +111,31 @@ func (s *Service) protectionIdentity(ctx context.Context, id ids.ID) (*deploymen
 }
 
 func (o *ProtectionObserver) Snapshot(ctx context.Context, id ids.ID) (ProtectionSnapshot, error) {
+	snapshot, _, err := o.snapshot(ctx, id)
+	return snapshot, err
+}
+
+// snapshot also returns the current identity, separately from the displayed
+// value's identity. That distinction must not be persisted as observation data.
+func (o *ProtectionObserver) snapshot(ctx context.Context, id ids.ID) (ProtectionSnapshot, string, error) {
 	if err := ctx.Err(); err != nil {
-		return ProtectionSnapshot{Unknown: true, Stale: true}, err
+		return ProtectionSnapshot{Unknown: true, Stale: true}, "", err
 	}
 	dep, identity, err := o.resolve(ctx, id)
 	if err != nil {
-		return ProtectionSnapshot{Unknown: true, Stale: true}, err
+		return ProtectionSnapshot{Unknown: true, Stale: true}, "", err
 	}
 	if dep.Kind != deployment.Standing {
-		return ProtectionSnapshot{Unknown: true}, errors.New("protection observations require a standing deployment")
+		return ProtectionSnapshot{Unknown: true}, "", errors.New("protection observations require a standing deployment")
+	}
+	if dep.LastApplied == nil {
+		return ProtectionSnapshot{Unknown: true, Waiting: true, Reason: "Not released yet."}, identity, nil
 	}
 	r, err := o.load(ctx, id, identity)
 	if err != nil {
-		return ProtectionSnapshot{Unknown: true, Stale: true}, err
+		return ProtectionSnapshot{Unknown: true, Stale: true}, "", err
 	}
-	return protectionSnapshotAt(r, o.now()), nil
+	return protectionSnapshotAt(r, o.now()), identity, nil
 }
 func (o *ProtectionObserver) load(ctx context.Context, id ids.ID, identity string) (ProtectionSnapshot, error) {
 	row, err := protectionsql.New(o.db.SQL()).Reading(ctx, protectionsql.ReadingParams{Subject: id.String(), Kind: "protection"})
@@ -136,10 +148,16 @@ func (o *ProtectionObserver) load(ctx context.Context, id ids.ID, identity strin
 	var out ProtectionSnapshot
 	err = json.Unmarshal(row.Payload, &out)
 	if row.Identity != identity {
-		out = ProtectionSnapshot{ObservedAt: out.ObservedAt, AttemptedAt: out.AttemptedAt}
+		out = ProtectionSnapshot{Protection: out.Protection, Plan: out.Plan, Identity: out.Identity, ObservedAt: out.ObservedAt, AttemptedAt: out.AttemptedAt}
 		out.Unknown = true
 		out.Stale = true
-		out.Reason = "The deployment changed. Waiting for a protection check."
+		out.Waiting = true
+	}
+	if out.Identity != identity {
+		out.Waiting = out.Waiting || (out.Identity == "" && out.Reason == "")
+		out.Items = nil
+		out.RestoreSupported, out.RestoreAvailable = false, false
+		out.Unknown, out.Stale = true, true
 	}
 	return out, err
 }
@@ -154,6 +172,7 @@ func protectionSnapshotAt(s ProtectionSnapshot, now time.Time) ProtectionSnapsho
 		}
 	}
 	if s.ObservedAt.IsZero() && s.AttemptedAt.IsZero() {
+		s.Waiting = true
 		s.Reason = "Backups have not been checked yet."
 	}
 	return s
@@ -164,6 +183,9 @@ func (o *ProtectionObserver) run(ctx context.Context, id ids.ID, identity string
 	defer cancel()
 	dep, current, err := o.resolve(ctx, id)
 	if err == nil && (current != identity || dep.Kind != deployment.Standing) {
+		return nil
+	}
+	if err == nil && dep.LastApplied == nil {
 		return nil
 	}
 	var protection *Protection
@@ -189,6 +211,7 @@ func (o *ProtectionObserver) run(ctx context.Context, id ids.ID, identity string
 		return errors.Join(err, loadErr)
 	}
 	now := o.now()
+	prior.Waiting = false
 	prior.AttemptedAt = now
 	reason := ""
 	prior.NextStep = ""
@@ -202,11 +225,13 @@ func (o *ProtectionObserver) run(ctx context.Context, id ids.ID, identity string
 		}
 	} else {
 		next := observedProtection(protection, now)
+		next.Identity = identity
 		next.Plan, next.PlanNote = protection.plan, protection.planNote
 		next.Protection = protection
 		if next.Unknown {
 			if prior.Protection == nil || protection.Unknown == "" {
 				prior.Protection = protection
+				prior.Identity = identity
 				prior.Plan = next.Plan
 				prior.PlanNote = next.PlanNote
 			}
