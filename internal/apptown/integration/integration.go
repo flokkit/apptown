@@ -13,6 +13,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/integration/internal/integrationsql"
+	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
@@ -46,6 +47,7 @@ var (
 // Bindings is the supported API over the instance's bindings.
 type Bindings struct {
 	db    *database.DB
+	jobs  jobs.Enqueuer
 	clock func() time.Time // AppTown's clock, which stamps versions; nil is the real one
 	// committed runs after a save's binding and receipt have committed:
 	// a test stops the caller there.
@@ -150,7 +152,7 @@ func (s *Bindings) Count(ctx context.Context, name, capability string) (int, err
 
 // Upsert records a binding's configuration: version 1 for a new name, the
 // next version when the configuration changed, nothing when it did not. It
-// returns the version that stands.
+// returns the version that stands and queues health when the configuration changes.
 func (s *Bindings) Upsert(ctx context.Context, name, capability, provider, configJSON string, managed bool) (int, error) {
 	return s.upsertAt(ctx, s.now(), name, capability, provider, configJSON, managed, nil)
 }
@@ -186,7 +188,7 @@ func (s *Bindings) upsertAt(ctx context.Context, now time.Time, name, capability
 			}
 		}
 		if receipt == nil {
-			return nil
+			return s.requestHealthIn(ctx, tx, name)
 		}
 		return receipt(tx)
 	})
@@ -204,7 +206,10 @@ func (s *Bindings) Save(ctx context.Context, name, capability, provider, configJ
 	}
 	at := s.now()
 	version, err := s.upsertAt(ctx, at, name, capability, provider, configJSON, false, func(tx *database.Tx) error {
-		return audit.At(at).RecordIn(ctx, tx, who, ids.Nil, "integration.saved", name, map[string]any{"capability": capability, "provider": provider})
+		if err := audit.At(at).RecordIn(ctx, tx, who, ids.Nil, "integration.saved", name, map[string]any{"capability": capability, "provider": provider}); err != nil {
+			return err
+		}
+		return s.requestHealthIn(ctx, tx, name)
 	})
 	if err != nil {
 		return 0, err
@@ -232,7 +237,10 @@ func (s *Bindings) CreateIn(ctx context.Context, tx *database.Tx, name, capabili
 	if err != nil {
 		return err
 	}
-	return audit.At(now).RecordIn(ctx, tx, who, ids.Nil, "integration.saved", name, map[string]any{"capability": capability, "provider": provider})
+	if err := audit.At(now).RecordIn(ctx, tx, who, ids.Nil, "integration.saved", name, map[string]any{"capability": capability, "provider": provider}); err != nil {
+		return err
+	}
+	return s.requestHealthIn(ctx, tx, name)
 }
 
 // Delete removes a person's binding with its receipt: managed bindings
@@ -606,4 +614,20 @@ func LinkWireIn(ctx context.Context, tx *database.Tx, projectID ids.ID, capabili
 		return fmt.Errorf("the wiring link for %s was not recorded", capability)
 	}
 	return nil
+}
+
+// requestHealthIn admits the saved version with its configuration and receipt.
+func (s *Bindings) requestHealthIn(ctx context.Context, tx *database.Tx, name string) error {
+	if s.jobs == nil {
+		return nil
+	}
+	row, err := integrationsql.New(tx.SQL()).BindingByName(ctx, name)
+	if err != nil {
+		return err
+	}
+	b := bindingRecord(row)
+	if !b.HasAutomaticCheck() {
+		return nil
+	}
+	return s.jobs.EnqueueIn(ctx, tx, jobs.Request{Operation: HealthObservationJob, Key: b.HealthObservationKey()})
 }

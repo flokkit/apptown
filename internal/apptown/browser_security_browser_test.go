@@ -1040,6 +1040,9 @@ func (w *tourWorld) observe() {
 	if _, err := infrastructureChecksFor(a).Run(context.Background(), "", nil); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := infrastructureChecksFor(a).RunHourly(context.Background(), "", nil); err != nil {
+		t.Fatal(err)
+	}
 	w.scene.call("sam", "GET", "/api/v1/attention", nil)
 	// Before the camera every job is accounted for (operationJobs refuses
 	// a capped list). A held scene refreshes every few minutes and its job

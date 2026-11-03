@@ -22,17 +22,19 @@
 // database. New observers over the same database read that evidence after a
 // restart. Provider backup readings are stored with their own successful time;
 // a new assessment cannot renew an older provider answer. There is no in-memory
-// reading cache. Live protection is fresh for fifteen minutes, then last seen
+// reading cache. Live protection is fresh for seventy-five minutes, then last seen
 // with its age, and unknown after six hours. Failed checks keep prior values.
 // A deployment with no successful attempt remains pending without collection.
 // An empty revision alone does not make a running deployment pending. After an
 // identity change, old protection payloads retain their identity and age for
 // display; they supply neither Attention evidence nor operation availability.
 // Attention warns about age before six hours only when the latest check failed.
+// Hourly jobs refresh protection, and settled backup attempts and acts request
+// fresh readings without waiting for the next periodic pass.
 // Failed data readings record a safe cause and next step: missing host data,
 // unreadable projects or release contracts, and absent local Docker access
 // direct the reader to deployment settings. Unavailable data inventories say
-// that the background check retries in five minutes. Raw provider diagnostics
+// that the background check retries within an hour. Raw provider diagnostics
 // are not used as Attention reasons.
 //
 // # What Deployment keeps

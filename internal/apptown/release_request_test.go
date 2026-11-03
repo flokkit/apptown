@@ -65,6 +65,15 @@ func TestReleaseRequestRiverInsertIsAtomic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Binding setup can already have queued health. A refused release must
+	// leave that work intact and add no job of its own.
+	beforeJobs, err := jobs.List(t.Context(), a.DB, 500)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(beforeJobs) >= 500 {
+		t.Fatal("job list reached its cap; a count over it is not a total")
+	}
 	completionExec(t, a.DB, `CREATE FUNCTION veto_release_job() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
 	completionExec(t, a.DB, `CREATE TRIGGER veto_release_job BEFORE INSERT ON river_job FOR EACH ROW EXECUTE FUNCTION veto_release_job()`)
 	got, err := acceptBundleForTest(t, a, p, env, b, "alice")
@@ -72,8 +81,12 @@ func TestReleaseRequestRiverInsertIsAtomic(t *testing.T) {
 		t.Fatalf("missing queue receipt accepted: %+v %v", got, err)
 	}
 	for _, table := range []string{"releases", "release_changes", "release_events", "release_requests", "river_job"} {
+		want := 0
+		if table == "river_job" {
+			want = len(beforeJobs)
+		}
 		// sql-guarantee: the refused queue write must roll back every release row; only whole-table counts show nothing hidden was written.
-		completionCount(t, a.DB, 0, `SELECT COUNT(*) FROM `+table)
+		completionCount(t, a.DB, want, `SELECT COUNT(*) FROM `+table)
 	}
 	completionExec(t, a.DB, `DROP TRIGGER veto_release_job ON river_job`)
 	got, err = acceptBundleForTest(t, a, p, env, b, "alice")

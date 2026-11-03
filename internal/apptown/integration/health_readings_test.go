@@ -33,7 +33,12 @@ func TestIntegrationReadingsKeepResultAgeAndConfigurationIdentity(t *testing.T) 
 	if err != nil || h.StateLabel != HealthFailed || h.CheckedAt != now.Format(time.RFC3339) || calls != 1 {
 		t.Fatalf("reading: %+v %v calls=%d", h, err, calls)
 	}
-	now = now.Add(30 * time.Minute)
+	now = now.Add(50 * time.Minute)
+	h, err = s.RecordedHealth(t.Context(), "registry")
+	if err != nil || h.Stale || h.Expired || h.StateLabel != HealthFailed {
+		t.Fatalf("hourly result is current: %+v %v", h, err)
+	}
+	now = now.Add(26 * time.Minute)
 	h, err = s.RecordedHealth(t.Context(), "registry")
 	if err != nil || !h.Stale || h.StateLabel != HealthFailed {
 		t.Fatalf("old result: %+v %v", h, err)

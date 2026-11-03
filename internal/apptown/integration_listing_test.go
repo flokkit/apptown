@@ -3,16 +3,19 @@ package apptown
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"sync/atomic"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/apptown/attention"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"time"
 )
 
 // The integrations list says what names each integration: the projects that
@@ -78,7 +81,16 @@ func TestPackageRegistryIsCheckedByTheJobAndNeverByThePage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = b
+	rows := operationJobs(t, a, integration.HealthObservationJob)
+	found := false
+	for _, row := range rows {
+		if row.Key == fmt.Sprintf("packages/%d", b) && row.State == "available" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("saved connection did not request health")
+	}
 	h := a.Handler()
 	read := func() {
 		t.Helper()
@@ -116,5 +128,22 @@ func TestPackageRegistryIsCheckedByTheJobAndNeverByThePage(t *testing.T) {
 	read()
 	if calls.Load() != 2 {
 		t.Fatal("page checked after Check now")
+	}
+	moveClock(a, 50*time.Minute)
+	snapshot, err := (attention.Integrations{Deployments: a.Deployment, Service: a.Integrations, Bindings: a.Integrations.Bindings, Attachments: a.Integrations.Attachments}).Snapshot(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	found = false
+	for _, coverage := range snapshot.Coverage {
+		if coverage.Key == "packages" {
+			found = true
+			if coverage.Stale || coverage.Unknown {
+				t.Fatalf("50-minute connection reading is not current: %+v", coverage)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("connection coverage missing")
 	}
 }

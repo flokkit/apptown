@@ -327,6 +327,17 @@ func TestTheDeploymentSaysHowItsDataIsProtected(t *testing.T) {
 	if err != nil || p.OffHost || p.Note != "not protected off-host: no backup store is attached" || len(p.Items) != 1 || p.Items[0].Copy != CopyNone {
 		t.Fatalf("before a store: %+v %v", p, err)
 	}
+	checks := 0
+	w.s.applied = func(targetID ids.ID) {
+		checks++
+		if targetID != dep.TargetID {
+			t.Errorf("copy checked target %s, want %s", targetID, dep.TargetID)
+		}
+		sets, err := w.s.backups.ForDeployment(ctx, w.project, "prod", 100)
+		if err != nil || len(sets) != checks {
+			t.Errorf("reading requested before backup settled: %d sets, %d checks, %v", len(sets), checks, err)
+		}
+	}
 	w.protect()
 	w.api.SeedNativeBackups(id, "2026-10-01T06:10:00Z", "2026-10-07T06:10:00Z")
 	op, err := w.s.RequestCopy(ctx, w.project, "prod")
@@ -335,6 +346,9 @@ func TestTheDeploymentSaysHowItsDataIsProtected(t *testing.T) {
 	}
 	if got := w.run(op); !endedAs(got, operationNotVerified) {
 		t.Fatalf("copy %s: %s", got.State, got.Detail)
+	}
+	if checks != 1 {
+		t.Fatalf("successful copy requested %d checks", checks)
 	}
 	collectProtectionForTest(t, w.s, w.project, "prod")
 	p, err = w.s.DeploymentProtection(ctx, w.project, "prod")
@@ -373,6 +387,9 @@ func TestTheDeploymentSaysHowItsDataIsProtected(t *testing.T) {
 	}
 	if got := w.run(op); got.State != operations.Failed {
 		t.Fatalf("failing copy %s", got.State)
+	}
+	if checks != 2 {
+		t.Fatalf("failed copy requested %d total checks", checks)
 	}
 	w.api.Fail("GET", "/v2/databases/"+id+"/backups", 500)
 	collectProtectionForTest(t, w.s, w.project, "prod")
@@ -1101,7 +1118,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 		t.Fatalf("first evidence: %+v %v", got, err)
 	}
 	got.Items[0].Copy = CopyFresh
-	now = now.Add(30 * time.Minute)
+	now = now.Add(76 * time.Minute)
 	if err := o.run(t.Context(), dep.ID, identity); err != nil {
 		t.Fatal(err)
 	}

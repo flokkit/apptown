@@ -257,6 +257,9 @@ func (s *core) staging(op ids.ID) (string, func(), error) {
 // disk, written to the store private and checked there. The set records,
 // for each item, the instance and database it certifies.
 func (s *Service) takeStoreCopy(ctx context.Context, t *tracker, dep *deployment.Deployment, target *deployment.Target, trigger string) (*Backup, error) {
+	if s.applied != nil {
+		defer s.applied(dep.TargetID)
+	}
 	items, err := s.managedList(ctx, dep, target)
 	if err != nil {
 		return nil, err

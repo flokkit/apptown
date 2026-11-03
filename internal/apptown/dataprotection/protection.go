@@ -801,7 +801,7 @@ func (p *Protection) recordDataFailure(err error) {
 		p.failureReason = "This AppTown has no local Docker access."
 	case errors.Is(err, errDataInventoryUnavailable):
 		p.failureReason = "AppTown could not read what this deployment holds."
-		p.failureNextStep = "The background check will try again in five minutes."
+		p.failureNextStep = "The background check will try again within an hour."
 	default:
 		p.failureReason = "The deployment's data could not be read."
 	}

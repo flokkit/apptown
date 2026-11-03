@@ -7,6 +7,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 
 	"github.com/flokkit/apptown/internal/apptown/integration/internal/integrationsql"
+	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/clock"
@@ -36,6 +37,7 @@ type kindCatalog interface {
 }
 
 type Dependencies struct {
+	Jobs jobs.Enqueuer
 	// Kinds is the dependency catalog: the stock definitions say what an
 	// app with a dependency is given.
 	Kinds           kindCatalog
@@ -48,6 +50,7 @@ type Dependencies struct {
 
 func NewService(db *database.DB, deps Dependencies) *Service {
 	bindings, kinds, attachments := NewWithClock(db, deps.Now), newServiceKinds(db), NewAttachments(db)
+	bindings.jobs = deps.Jobs
 	kinds.clock, attachments.clock = deps.Now, deps.Now
 	return &Service{kinds: deps.Kinds, projects: deps.Projects, secrets: deps.Secrets, scmRepositories: deps.SCMRepositories, Bindings: bindings, ServiceKinds: kinds, Attachments: attachments, clock: deps.Now}
 }

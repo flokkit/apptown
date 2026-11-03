@@ -158,6 +158,32 @@ func (c infrastructureChecks) Run(ctx context.Context, _ string, _ map[string]an
 		}); err != nil {
 			errs = append(errs, err)
 		}
+	}
+
+	for _, kind := range []string{preview.ObservationJob, integration.ErrorObservationJob, dataprotection.StoreObservationJob} {
+		if err := c.db.InTx(ctx, func(tx *database.Tx) error {
+			return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: kind, Key: "instance"})
+		}); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if err := (diskObservationRequests{db: c.db}).requestDiskObservation(ctx); err != nil {
+		errs = append(errs, fmt.Errorf("instance disks: %w", err))
+	}
+	return nil, errors.Join(errs...)
+}
+
+// RunHourly checks protection and connection health, whose answers change over hours.
+func (c infrastructureChecks) RunHourly(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
+	var errs []error
+	deployments, err := c.deployments.All(ctx)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("list deployments: %w", err))
+	}
+	for _, dep := range deployments {
+		if dep.Kind != deployment.Standing {
+			continue
+		}
 		if err := c.protection.Request(ctx, dep.ID); err != nil {
 			errs = append(errs, fmt.Errorf("%s protection: %w", dep.ID, err))
 		}
@@ -177,16 +203,6 @@ func (c infrastructureChecks) Run(ctx context.Context, _ string, _ map[string]an
 		}
 	}
 
-	for _, kind := range []string{preview.ObservationJob, integration.ErrorObservationJob, dataprotection.StoreObservationJob} {
-		if err := c.db.InTx(ctx, func(tx *database.Tx) error {
-			return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: kind, Key: "instance"})
-		}); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if err := (diskObservationRequests{db: c.db}).requestDiskObservation(ctx); err != nil {
-		errs = append(errs, fmt.Errorf("instance disks: %w", err))
-	}
 	return nil, errors.Join(errs...)
 }
 
@@ -236,7 +252,12 @@ func (c *infrastructureChecks) Applied(targetID ids.ID) {
 // request starts collection without waiting for the first periodic tick.
 func (c infrastructureChecks) request(ctx context.Context) error {
 	return c.db.InTx(ctx, func(tx *database.Tx) error {
-		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: infrastructureCheckJob, Key: passScheduledKey})
+		for _, operation := range []string{infrastructureCheckJob, hourlyInfrastructureCheckJob} {
+			if err := (jobQueue{}).EnqueueIn(ctx, tx, jobs.Request{Operation: operation, Key: passScheduledKey}); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 

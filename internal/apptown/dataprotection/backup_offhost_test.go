@@ -543,6 +543,23 @@ func TestTakingABackupRequestsFreshDeploymentChecks(t *testing.T) {
 	if calls != 1 {
 		t.Fatalf("backup requested %d fresh checks", calls)
 	}
+	dep, err := w.s.deployments.ByName(t.Context(), w.pid, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.s.applied = func(id ids.ID) {
+		calls++
+		if id != dep.TargetID {
+			t.Errorf("checked target %s, want %s", id, dep.TargetID)
+		}
+	}
+	w.client.SetCommandReply(func(req docker.Command) ([]byte, error, bool) { return nil, errors.New("host unavailable"), true })
+	if _, err := w.s.takeBackup(t.Context(), w.pid, "main", "scheduled", "alice"); err == nil {
+		t.Fatal("expected failed backup attempt")
+	}
+	if calls != 2 {
+		t.Fatalf("failed attempt requested %d total checks, want 2", calls)
+	}
 }
 
 func TestProtectionIdentitySurvivesAdmission(t *testing.T) {

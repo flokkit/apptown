@@ -163,11 +163,11 @@ func (o *ProtectionObserver) load(ctx context.Context, id ids.ID, identity strin
 }
 func protectionSnapshotAt(s ProtectionSnapshot, now time.Time) ProtectionSnapshot {
 	s.Items = slices.Clone(s.Items)
-	s.Stale = s.Stale || s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > 15*time.Minute
+	s.Stale = s.Stale || s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > 75*time.Minute
 	s.Unknown = s.Unknown || s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > 6*time.Hour
 	for _, item := range s.Items {
 		if item.Native {
-			s.Stale = s.Stale || item.NativeAt.IsZero() || now.Sub(item.NativeAt) > 15*time.Minute
+			s.Stale = s.Stale || item.NativeAt.IsZero() || now.Sub(item.NativeAt) > 75*time.Minute
 			s.Unknown = s.Unknown || item.NativeAt.IsZero() || now.Sub(item.NativeAt) > 6*time.Hour
 		}
 	}
