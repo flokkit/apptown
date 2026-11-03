@@ -84,3 +84,32 @@ func TestServiceConnectorSpecDerivation(t *testing.T) {
 		t.Fatalf("field types: %+v", spec.Fields)
 	}
 }
+
+// Every hosted provider offered by Connect names its credential and default
+// with the same binding prefix that slots and pi consume.
+func TestHostedModelPresetsIncludeTheirCredentials(t *testing.T) {
+	t.Parallel()
+	spec := FindConnector(CapModel, "pi")
+	for name, credential := range map[string]string{
+		"openrouter": "OPENROUTER_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY",
+	} {
+		found := false
+		for _, p := range spec.Presets {
+			if p.Name != name {
+				continue
+			}
+			found = true
+			refs, _ := p.Config["secretEnv"].([]string)
+			model, _ := p.Config["model"].(string)
+			if p.Suggest != name || p.Icon == "" || len(refs) != 1 || refs[0] != credential || !strings.HasPrefix(model, name+"/") {
+				t.Errorf("invalid hosted preset: %+v", p)
+			}
+			if name == "openai" && (p.Title != "OpenAI" || model != "openai/gpt-5.6-luna") {
+				t.Errorf("OpenAI preset: %+v", p)
+			}
+		}
+		if !found {
+			t.Errorf("Connect is missing %s", name)
+		}
+	}
+}

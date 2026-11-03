@@ -67,10 +67,10 @@ func (d *inferenceDiscovery) models(ctx context.Context, p *inferenceProvider, n
 }
 
 // discoverable is a binding whose provider is asked for its models: one
-// with its own address and an OpenAI-style dialect. A built-in provider at
-// its fixed address lists only what the binding declares.
+// with an OpenAI-style dialect and either its own address or the built-in
+// OpenAI address. Other built-in providers list what the binding declares.
 func discoverable(p *inferenceProvider, cfg integration.ModelConfig) bool {
-	return (cfg.BaseURL != "" || cfg.ProviderDef["baseUrl"] != nil) && strings.HasPrefix(p.api, "openai-")
+	return (p.name == "openai" || cfg.BaseURL != "" || cfg.ProviderDef["baseUrl"] != nil) && strings.HasPrefix(p.api, "openai-")
 }
 
 // discoverModels adds what the provider lists live to what the binding

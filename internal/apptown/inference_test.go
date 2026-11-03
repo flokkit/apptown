@@ -2,7 +2,11 @@ package apptown
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
+	"fmt"
+	"net"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -101,5 +105,91 @@ func TestInferenceRuntimeRejectsCredentialMetadata(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// Serial: routes api.openai.com to a local TLS fixture via DefaultTransport.
+// The saved preset uses the real built-in URL, never an endpoint override.
+func TestOpenAIConnectionDiscoversModelsAndRendersPiConfiguration(t *testing.T) {
+	a := testApp(t)
+	status, probes := http.StatusOK, 0
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		probes++
+		if r.Host != "api.openai.com" || r.URL.Path != "/v1/models" || r.Header.Get("Authorization") != "Bearer openai-connection-canary" {
+			t.Errorf("unexpected OpenAI request: %s %s", r.Host, r.URL.Path)
+		}
+		w.WriteHeader(status)
+		fmt.Fprint(w, `{"data":[{"id":"gpt-5.6-luna"},{"id":"gpt-5.6-terra"},{"id":"gpt-5.6-sol"}]}`)
+	}))
+	defer server.Close()
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		if addr != "api.openai.com:443" {
+			return nil, fmt.Errorf("unexpected upstream %s", addr)
+		}
+		// Only the local fixture is dialed, with its own test TLS settings.
+		return (&tls.Dialer{Config: server.Client().Transport.(*http.Transport).TLSClientConfig}).DialContext(ctx, network, server.Listener.Addr().String())
+	}
+	original := http.DefaultTransport
+	http.DefaultTransport = transport
+	t.Cleanup(func() { http.DefaultTransport = original; transport.CloseIdleConnections() })
+	if err := a.Secrets.SetInstance(t.Context(), "OPENAI_API_KEY", "openai-connection-canary", "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	var config map[string]any
+	for _, preset := range integration.FindConnector(integration.CapModel, "pi").Presets {
+		if preset.Name == "openai" {
+			config = preset.Config
+		}
+	}
+	if config == nil {
+		t.Fatal("Connect is missing OpenAI")
+	}
+	health := connectorHealthFor(a)
+	for _, code := range []int{http.StatusOK, http.StatusUnauthorized} {
+		status = code
+		before := probes
+		h := health.Test(t.Context(), integration.CapModel, "pi", config)
+		if !h.Checked || h.OK != (code == http.StatusOK) || probes != before+1 {
+			t.Fatalf("Test connection for HTTP %d: %+v, probes %d", code, h, probes-before)
+		}
+	}
+	status = http.StatusOK
+	if _, err := a.Integrations.Bindings.Save(t.Context(), "openai", integration.CapModel, "pi", mustJSON(config), "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	ids, err := a.providers.Discover(t.Context(), "openai", config)
+	if err != nil || len(ids) != 3 {
+		t.Fatalf("discovery: %v %v", ids, err)
+	}
+	entries, unlisted, err := a.providers.Models(t.Context())
+	if err != nil || len(unlisted) != 0 {
+		t.Fatalf("slot models: %+v %v", unlisted, err)
+	}
+	for _, id := range ids {
+		found := false
+		for _, entry := range entries {
+			found = found || entry.Pattern == "openai/"+id
+		}
+		if !found {
+			t.Errorf("slot picker lacks openai/%s", id)
+		}
+	}
+	raw, err := inferenceRuntimeFor(a).ModelsJSON(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg struct {
+		Providers map[string]struct {
+			API, BaseURL, APIKey string
+			Models               []struct{ ID string }
+		}
+	}
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	p := cfg.Providers["openai"]
+	if p.API != "openai-responses" || !strings.HasSuffix(p.BaseURL, "/providers/openai") || p.APIKey != "$APPTOWN_SESSION_TOKEN" || len(p.Models) != 3 || strings.Contains(string(raw), "openai-connection-canary") {
+		t.Fatalf("pi configuration does not preserve the OpenAI provider/model boundary: %s", raw)
 	}
 }

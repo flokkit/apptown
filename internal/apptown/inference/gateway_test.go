@@ -2,7 +2,9 @@ package inference
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -17,6 +19,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -329,5 +332,45 @@ func TestInferenceAsksTheModelChoiceOfTheWorkloadsProject(t *testing.T) {
 	}
 	if len(asked) != 1 || asked[0] != idstest.N(3).String()+" paid/allowed" {
 		t.Fatalf("asked %v", asked)
+	}
+}
+
+type openAITransport func(*http.Request) (*http.Response, error)
+
+func (f openAITransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestOpenAIGatewayUsesResponsesAtTheBuiltInAddress(t *testing.T) {
+	t.Parallel()
+	g, _ := inferenceFixture(t, func(w http.ResponseWriter, r *http.Request) {})
+	p, err := resolveInferenceProvider("openai", integration.ModelConfig{
+		Model: "openai/gpt-5.6-luna", Models: []string{"gpt-5.6-terra", "gpt-5.6-sol"}, SecretEnv: []string{"OPENAI_API_KEY"},
+	}, map[string]string{"OPENAI_API_KEY": "openai-gateway-canary"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.providers = func(context.Context) (map[string]*inferenceProvider, error) {
+		return map[string]*inferenceProvider{"openai": p}, nil
+	}
+	calls := 0
+	g.client = &http.Client{Transport: openAITransport(func(r *http.Request) (*http.Response, error) {
+		calls++
+		if r.URL.String() != "https://api.openai.com/v1/responses" || r.Method != http.MethodPost || r.Header.Get("Authorization") != "Bearer openai-gateway-canary" {
+			t.Errorf("incorrect OpenAI request: %s %s", r.Method, r.URL)
+		}
+		var body struct{ Model string }
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || (body.Model != "gpt-5.6-terra" && body.Model != "gpt-5.6-sol") {
+			t.Errorf("upstream model must be unprefixed: %+v %v", body, err)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(`{"usage":{"input_tokens":1,"output_tokens":1}}`))}, nil
+	})}
+	for _, id := range []string{"gpt-5.6-terra", "gpt-5.6-sol"} {
+		w := httptest.NewRecorder()
+		g.ServeHTTP(w, inferenceRequest("/providers/openai/responses", `{"model":"`+id+`"}`))
+		if w.Code != http.StatusOK || strings.Contains(w.Body.String(), "openai-gateway-canary") {
+			t.Fatalf("gateway: %d %s", w.Code, w.Body.String())
+		}
+	}
+	if calls != 2 {
+		t.Fatalf("OpenAI calls = %d, want 2", calls)
 	}
 }

@@ -165,3 +165,37 @@ func TestAnUnreadModelListIsNotACurrentOne(t *testing.T) {
 		t.Fatalf("a first failure: %+v %+v %v", entries, unlisted, err)
 	}
 }
+
+func TestSavedOpenAIBindingUsesResponsesAndItsSecret(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t)
+	secrets := secret.NewService(db, secret.Config{DataDir: t.TempDir()})
+	if err := secrets.SetInstance(t.Context(), "OPENAI_API_KEY", "openai-test-key", "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := integration.NewWithClock(db, nil).Save(t.Context(), "openai", integration.CapModel, "pi", `{"model":"openai/gpt-5.6-luna","secretEnv":["OPENAI_API_KEY"]}`, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	b, err := integration.NewWithClock(db, nil).ByName(t.Context(), "openai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := b.ModelConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	all, err := secrets.WithContext(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := resolveInferenceProvider(b.Name, cfg, all)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.baseURL != "https://api.openai.com/v1" || p.api != "openai-responses" || p.key != "openai-test-key" || !p.allows("gpt-5.6-luna") {
+		t.Fatal("saved OpenAI binding did not resolve its endpoint, API, credential and unprefixed model")
+	}
+	if !discoverable(p, cfg) {
+		t.Fatal("built-in OpenAI must discover models for the gateway and slot picker")
+	}
+}
