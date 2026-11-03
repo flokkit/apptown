@@ -10,12 +10,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
@@ -85,7 +90,9 @@ func wordpressSeedKeepsDataAndMedia(t *testing.T, size string) {
 		_ = dockertest.Run("image", "rm", "-f", image)
 	})
 	must("build", "-t", image, dir)
-	must("network", "create", "--internal", network)
+	// A normal bridge publishes the web port for the front-door probe. The
+	// needs have no published ports and remain reachable only on this network.
+	must("network", "create", network)
 	catalogued := func(name string) *LocalService {
 		t.Helper()
 		raw, err := fs.ReadFile(stock.FS, "dependencies/"+name+".yaml")
@@ -243,7 +250,7 @@ func wordpressSeedKeepsDataAndMedia(t *testing.T, size string) {
 	wp("rewrite", "structure", "/%postname%/")
 	start := func() {
 		t.Helper()
-		args := []string{"run", "-d", "--name", web, "--network", network, "--network-alias", "blog.site.test", "--memory", "256m"}
+		args := []string{"run", "-d", "--name", web, "--network", network, "--network-alias", "blog.site.test", "--memory", "256m", "-p", "127.0.0.1::8080"}
 		for k, v := range env {
 			args = append(args, "-e", k+"="+v)
 		}
@@ -422,6 +429,51 @@ echo json_encode($seen);`)
 	if oom := must("inspect", "-f", "{{.State.OOMKilled}}", db); oom != "false" {
 		t.Fatalf("database OOM: %s", oom)
 	}
+
+	// Preview the seed through a front door with one exact origin, as preview
+	// preparation supplies it. Keep Host unchanged across the proxy.
+	must("rm", "-f", web)
+	var backend atomic.Pointer[url.URL]
+	proxy := &httputil.ReverseProxy{Rewrite: func(r *httputil.ProxyRequest) { r.SetURL(backend.Load()); r.Out.Host = r.In.Host }}
+	front := httptest.NewServer(proxy)
+	t.Cleanup(front.Close)
+	env["APPTOWN_ORIGINS"] = front.URL
+	start()
+	destination, err := url.Parse("http://" + must("port", web, "8080/tcp"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.Store(destination)
+	if got := must("exec", web, "printenv", "APPTOWN_ORIGINS"); got != front.URL || strings.Contains(got, "*") {
+		t.Fatalf("preview origin: %s", got)
+	}
+	if state, detail := check.JudgePageOwnAddress(ctx, front.URL, []string{"*.preview.test", "*.site.test"}); state != check.Conforms {
+		t.Fatalf("exact-origin seed: %s: %s", state, detail)
+	}
+	// A stored address from a different preview must fail even though it can
+	// still override the starter's request-derived address.
+	must("rm", "-f", web)
+	// Both preview addresses use the same scheme and port, as tier hosts do.
+	// Otherwise WordPress first canonicalizes the port on the request host.
+	frontAddress, err := url.Parse(front.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env["WP_HOME"] = "http://old.preview.test:" + frontAddress.Port()
+	start()
+	destination, err = url.Parse("http://" + must("port", web, "8080/tcp"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.Store(destination)
+	if state, detail := check.JudgePageOwnAddress(ctx, front.URL, []string{"*.preview.test", "*.site.test"}); state != check.DoesNotConform || !strings.Contains(detail, "old.preview.test") {
+		t.Fatalf("bound old preview: %s: %s", state, detail)
+	}
+	// Return to the address used by the media persistence assertions below.
+	must("rm", "-f", web)
+	delete(env, "WP_HOME")
+	env["APPTOWN_ORIGINS"] = "https://*.preview.test,http://*.site.test"
+	start()
 	// Readiness remains independent when the data services become unavailable.
 	must("stop", db, s3)
 	if got := must("exec", web, "curl", "-fsS", "http://localhost:8080/healthz.php"); got != "ready" {

@@ -200,12 +200,11 @@ func s3Settings(t *testing.T) []string {
 	return append(slices.Sorted(maps.Keys(kind.Provides)), "S3_PUBLIC_URL")
 }
 
-// The address check enforces the starter's declaration, rather than a list
-// of old hostnames or ways to call getenv. Either half of the old starter
-// must fail independently, and the current starter must pass as evaluated.
-func TestWordPressAddressCheckUsesTheStarterDeclaration(t *testing.T) {
+// Optional WP_HOME declarations let a preview boot without a supplied address;
+// a required override in any profile must fail independently.
+func TestWordPressHomeIsOptionalInEveryProfile(t *testing.T) {
 	t.Parallel()
-	check := sourcedNamed(t, "lang/selection/wordpress-bedrock", "deployment-home")
+	check := sourcedNamed(t, "lang/selection/wordpress-bedrock", "wp-home-optional")
 	if check.Check.Severity != "high" {
 		t.Fatal("a broken deployment address must be a high-severity fleet finding")
 	}
@@ -217,49 +216,22 @@ func TestWordPressAddressCheckUsesTheStarterDeclaration(t *testing.T) {
 		}
 		return string(raw)
 	}
-	php, spec := read("config/application.php"), read("secretspec.toml")
-	start := strings.Index(php, "function deployment_home()")
-	const end = "define('WP_SITEURL', $home . '/wp');"
-	stop := strings.Index(php, end)
-	if start < 0 || stop < start || !strings.Contains(check.Check.Sh, php[start:stop+len(end)]) {
-		t.Fatal("the check's address block differs from the starter's own declaration")
-	}
-	parsed, err := secret.ParseSpec([]byte(spec))
-	if err != nil {
-		t.Fatal(err)
-	}
-	optional := false
-	for _, s := range parsed.SecretsIn("default") {
-		if s.Name == "WP_HOME" {
-			optional = !s.Required
-		}
-	}
-	if !optional {
-		t.Fatal("the starter must declare WP_HOME optional")
-	}
-	oldPHP := php[:start] + "$home = rtrim(required_env('WP_HOME'), '/');\n" + php[stop:]
+	spec := read("secretspec.toml")
 	oldSpec := strings.Replace(spec, "required = false", "required = true", 1)
 	for _, tc := range []struct {
-		name, php, spec string
-		pass            bool
+		name, spec string
+		pass       bool
 	}{
-		{"current starter", php, spec, true},
-		{"old starter", oldPHP, oldSpec, false},
-		{"old address only", oldPHP, spec, false},
-		{"required secret only", php, oldSpec, false},
-		{"helper bypassed", strings.Replace(php, "rtrim(deployment_home(),", "rtrim(required_env('WP_HOME'),", 1), spec, false},
-		{"origins ignored", strings.Replace(php, "getenv('APPTOWN_ORIGINS')", "getenv('OLD_ORIGINS')", 1), spec, false},
-		{"required profile override", php, spec + "\n[profiles.preview]\nWP_HOME = {required = true}\n", false},
-		{"missing application", "", spec, false},
-		{"missing spec", php, "", false},
+		{"current starter", spec, true},
+		{"required secret", oldSpec, false},
+		{"required profile override", spec + "\n[profiles.preview]\nWP_HOME = {required = true}\n", false},
+		{"optional profile override", spec + "\n[profiles.preview]\nWP_HOME = {required = false}\n", true},
+		{"missing spec", "", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
 			files := map[string]string{".apptown/app.yaml": seedContractNaming(t, "wordpress", []string{"php"})}
-			if tc.php != "" {
-				files["config/application.php"] = tc.php
-			}
 			if tc.spec != "" {
 				files["secretspec.toml"] = tc.spec
 			}

@@ -22,6 +22,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
 
@@ -41,6 +43,7 @@ import (
 // The daemon scope is shared explicitly so instance-local injection and updates
 // have the same visibility as other callers; it cannot reach any App operation.
 type Runtime struct {
+	environment   *deployment.Environment
 	deployment    *deployment.Service
 	hosts         *deployment.Hosts
 	db            *database.DB
@@ -53,6 +56,8 @@ type RuntimeDependencies struct {
 	// Deployment observes the standing deployment on its own target and
 	// says where it is reached.
 	Deployment *deployment.Service
+	// Environment supplies configured app address namespaces for preview and standing checks.
+	Environment *deployment.Environment
 	// Hosts reaches the daemon a standing deployment runs on.
 	Hosts   *deployment.Hosts
 	DB      *database.DB
@@ -64,7 +69,7 @@ type RuntimeDependencies struct {
 }
 
 func NewRuntime(d RuntimeDependencies) *Runtime {
-	return &Runtime{deployment: d.Deployment, hosts: d.Hosts, db: d.DB, docker: d.Docker, dataDir: d.DataDir, browserValues: d.BrowserValues}
+	return &Runtime{environment: d.Environment, deployment: d.Deployment, hosts: d.Hosts, db: d.DB, docker: d.Docker, dataDir: d.DataDir, browserValues: d.BrowserValues}
 }
 
 // repo is a project's repository in this AppTown's data directory.
@@ -323,6 +328,10 @@ func (o Runtime) observe(ctx context.Context, projectID ids.ID, source, probe st
 		v := o.judgeBrowser(ctx, t)
 		return outcomeOf(v.Outcome), v.Detail
 	}
+	if ps.PageOwnAddress {
+		v := o.judgeOwnAddress(ctx, t)
+		return outcomeOf(v.Outcome), v.Detail
+	}
 	if ps.Page {
 		state, detail := check.JudgePage(ctx, t.FrontDoor)
 		return outcomeOf(state), detail
@@ -375,6 +384,9 @@ func (o Runtime) Probe(ctx context.Context, t guidanceTarget, probe string) chec
 	}
 	if ps.BrowserEnv {
 		return o.judgeBrowser(ctx, t)
+	}
+	if ps.PageOwnAddress {
+		return o.judgeOwnAddress(ctx, t)
 	}
 	if ps.Page {
 		state, detail := check.JudgePage(ctx, t.FrontDoor)
@@ -431,4 +443,21 @@ func (o Runtime) declaredReadinessPathAt(ctx context.Context, t guidanceTarget) 
 		return "", false
 	}
 	return readinessPathOf(c)
+}
+
+// judgeOwnAddress uses configured namespaces, never the preview's exact boot origin.
+func (o Runtime) judgeOwnAddress(ctx context.Context, t guidanceTarget) check.ProbeVerdict {
+	if o.environment == nil {
+		return check.ProbeVerdict{Outcome: check.CannotAssess, Detail: "AppTown cannot read its configured app address namespaces", Fault: true}
+	}
+	var hosts []string
+	for _, origin := range strings.Split(o.environment.PublicOrigins(ctx), ",") {
+		u, err := url.Parse(origin)
+		if err != nil || u.Hostname() == "" {
+			continue
+		}
+		hosts = append(hosts, u.Hostname())
+	}
+	state, detail := check.JudgePageOwnAddress(ctx, t.FrontDoor, hosts)
+	return check.ProbeVerdict{Outcome: state, Detail: detail}
 }

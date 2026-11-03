@@ -33,6 +33,7 @@ import (
 //	                               whenever AppTown gives it values
 //	page                           the root a visitor opens, through the front
 //	                               door only, is not refused (page.go)
+//	page-own-address               redirects and app assets use the front door host
 //	memory-declared                each part the apptown runs from a build or
 //	                               image declares its memory, in the contract
 //	                               being judged (the caller parses it); needs
@@ -45,11 +46,12 @@ import (
 
 // ProbeSpec is a parsed `probe` field.
 type ProbeSpec struct {
-	Path       string
-	Expect     int
-	Readiness  bool // resolve the path from the contract's declared readiness
-	BrowserEnv bool // judge the page against AppTown's /_apptown/env.js
-	Page       bool // judge the front page through the front door (JudgePage)
+	Path           string
+	Expect         int
+	Readiness      bool // resolve the path from the contract's declared readiness
+	BrowserEnv     bool // judge the page against AppTown's /_apptown/env.js
+	PageOwnAddress bool // judge resolved redirects and HTML asset addresses
+	Page           bool // judge the front page through the front door (JudgePage)
 	// MemoryDeclared judges the contract, not the running app.
 	MemoryDeclared bool
 	// MemoryWithin is the share of its applied limit, in percent, a part of
@@ -76,6 +78,8 @@ func ParseProbe(s string) (ProbeSpec, error) {
 		return ProbeSpec{Readiness: true, Expect: 200}, nil
 	case len(f) == 1 && strings.EqualFold(f[0], "browser-env"):
 		return ProbeSpec{BrowserEnv: true}, nil
+	case len(f) == 1 && strings.EqualFold(f[0], "page-own-address"):
+		return ProbeSpec{PageOwnAddress: true}, nil
 	case len(f) == 1 && strings.EqualFold(f[0], "page"):
 		return ProbeSpec{Page: true}, nil
 	case len(f) == 1 && strings.EqualFold(f[0], "memory-declared"):
@@ -97,11 +101,11 @@ func ParseProbe(s string) (ProbeSpec, error) {
 			}
 			ps.Expect = n
 		} else if len(f) != 2 {
-			return ps, fmt.Errorf("probe %q: use \"GET /path [expect N]\", \"readiness\", \"browser-env\", \"page\", \"memory-declared\" or \"memory-within [N%%]\"", s)
+			return ps, fmt.Errorf("probe %q: use \"GET /path [expect N]\", \"readiness\", \"browser-env\", \"page\", \"page-own-address\", \"memory-declared\" or \"memory-within [N%%]\"", s)
 		}
 		return ps, nil
 	}
-	return ProbeSpec{}, fmt.Errorf("probe %q: use \"GET /path [expect N]\", \"readiness\", \"browser-env\", \"page\", \"memory-declared\" or \"memory-within [N%%]\"", s)
+	return ProbeSpec{}, fmt.Errorf("probe %q: use \"GET /path [expect N]\", \"readiness\", \"browser-env\", \"page\", \"page-own-address\", \"memory-declared\" or \"memory-within [N%%]\"", s)
 }
 
 // prober makes one probe request and reports the status it got.
