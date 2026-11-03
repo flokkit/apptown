@@ -21,6 +21,7 @@ Rust services and tools: stable toolchain pinned in mise.toml
   writes the app uncomments it and declares
   `test: ["make test"]` on the part in `.apptown/app.yaml` (the landing's
   tests step fails for a part built with rust while it declares no tests).
+  Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).
 - The release binary is the deployable: the seeded `.apptown/app.yaml`
   builds it with `build: .` (the seeded Dockerfile runs `cargo install
   --locked`, so `Cargo.lock` is committed, and starts the binary as an

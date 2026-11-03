@@ -26,8 +26,9 @@ middleware right after `SecurityMiddleware` and
 starter's Makefile ships its `make test` target commented out until the app
 exists; the change that writes the app uncomments it and declares
 `test: ["make test"]` on the part in `.apptown/app.yaml` (the landing's tests
-step fails for a part built with python while it declares no tests). The image
-migrates at start and serves with gunicorn (`runserver` is development only);
+step fails for a part built with python while it declares no tests).
+Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).
+The image migrates at start and serves with gunicorn (`runserver` is development only);
 both stages are `python:3.12-slim`, never the full `python` image. The seeded
 `.apptown/app.yaml` declares the web part, `/healthz` and the Postgres need.
 

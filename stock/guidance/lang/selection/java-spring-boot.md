@@ -17,12 +17,11 @@ stale and fails the image scan).
       -d dependencies=web,data-jpa,postgresql,flyway,validation,actuator \
       | tar -xzf - --skip-old-files --exclude=mvnw --exclude=mvnw.cmd --exclude=.mvn
 
-No wrapper scripts (mise declares the toolchain); `--skip-old-files` keeps the
-seed's files. Add a `/healthz` endpoint (one `@GetMapping`, 200, no database),
-one controller and a test that hits it (`mvn test`). In `.apptown/app.yaml`,
-declare `test: ["mvn -q -Dmaven.repo.local=/apptown-cache/m2 test"]` on the part.
-The seed names `/healthz` and the Postgres need; Flyway migrates at boot,
-so no init step.
+No wrappers (mise sets the toolchain); `--skip-old-files` keeps seeded files.
+Add a controller with `/healthz` (`@GetMapping`, 200, no database) and a test
+that hits it. In `.apptown/app.yaml`, declare `test: ["mvn -q -Dmaven.repo.local=/apptown-cache/m2 test"]` on the part.
+Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).
+The seed declares `/healthz` and Postgres; Flyway migrates at boot, with no init step.
 
 **Managed versions that pass the image scan.** In the same first change raise
 Boot's managed Tomcat and Jackson with Boot's own properties in `pom.xml`

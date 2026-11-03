@@ -107,6 +107,7 @@ of Program.cs).
   app exists; the change that writes the app uncomments it and declares
   `test: ["make test"]` on the part in `.apptown/app.yaml` (the landing's tests
   step fails for a part built with dotnet while it declares no tests).
+  Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).
   The test database starts empty and `--init` is not passed, so a test that
   reaches the database brings the schema up first through the init step's code.
 

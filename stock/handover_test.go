@@ -72,12 +72,41 @@ func TestEveryBootingStageChecksConformanceAndTellsTheAgentTheBar(t *testing.T) 
 					if s.Uses != "agent/pi" {
 						continue
 					}
-					for _, bar := range []string{"commit your changes", "apptown check", "apptown dev up", "what ran and what came back", "Blockers:", "declared `test:` commands"} {
+					for _, bar := range []string{"commit your changes", "apptown check", "apptown dev up", "what ran and what came back", "Blockers:", "declared `test:` commands", "Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`)."} {
 						if !strings.Contains(s.With.Prompt, bar) {
 							t.Errorf("%s/%s lacks %s", stage.Name, s.Name, bar)
 						}
 					}
 				}
+			}
+		})
+	}
+}
+
+// Every place that teaches test declarations explains the fresh landing folder.
+func TestDeclaredTestsExplainCleanCheckout(t *testing.T) {
+	t.Parallel()
+	paths := []string{
+		"catalog.yaml",
+		"guidance/frontend/vite-react.md",
+		"guidance/lang/selection/django-fullstack.md",
+		"guidance/lang/selection/dotnet-aspnet.md",
+		"guidance/lang/selection/go-for-services.md",
+		"guidance/lang/selection/java-spring-boot.md",
+		"guidance/lang/selection/node-fullstack.md",
+		"guidance/lang/selection/rails.md",
+		"guidance/lang/selection/rust.md",
+		"docs/guides/contract-reference.md",
+	}
+	for _, path := range paths {
+		t.Run(path, func(t *testing.T) {
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			text := strings.Join(strings.Fields(string(raw)), " ")
+			if !strings.Contains(text, "Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).") {
+				t.Error("test declaration must explain the clean checkout and installing dependencies first")
 			}
 		})
 	}

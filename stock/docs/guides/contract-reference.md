@@ -104,6 +104,7 @@ notAppCode: [docs/site]
   delivery is refused.
 - **`test`** on a `build` or `static` part lists its test commands, for example
   `test: ["go test ./...", "npm --prefix frontend ci && npm --prefix frontend test"]`.
+  Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).
   The landing tests step runs every declaration in order as `sh -c`, in the
   part's folder: the build context, static build context or committed static
   folder. The staged repository remains available, including root toolchain
