@@ -19,7 +19,8 @@ type Capacity struct {
 	Observer interface {
 		Snapshot(context.Context, *deployment.Target) (deployment.CapacitySnapshot, error)
 	}
-	Now func() time.Time
+	Hosts hostReachabilityReader
+	Now   func() time.Time
 }
 
 func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
@@ -36,11 +37,20 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 		if target.Status == deployment.TargetRetired || (target.Kind != deployment.KindDockerHost && target.Kind != deployment.KindPortainer) {
 			continue
 		}
+		down := false
+		if c.Hosts != nil {
+			host, err := c.Hosts.HostReachability(ctx, target.ID)
+			if err != nil {
+				return Snapshot{}, err
+			}
+			down = host.Down
+			out.Folded = out.Folded || down
+		}
 		reading, readErr := c.Observer.Snapshot(ctx, target)
-		if reading.Unknown || readErr != nil {
+		if !down && (reading.Unknown || readErr != nil) {
 			out.Known = false
 		}
-		if reading.Reason != "" {
+		if reading.Reason != "" && !down {
 			if out.Reason != "" {
 				out.Reason += " "
 			}
@@ -55,7 +65,9 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 			label = target.Name
 		}
 		href := "/infrastructure/" + url.PathEscape(target.Name)
-		out.Coverage = append(out.Coverage, Coverage{Key: target.ID.String(), Name: label, Href: href, Unknown: reading.Unknown || readErr != nil, Stale: reading.Stale, ObservedAt: reading.ObservedAt, Reason: reading.Reason, NextStep: "Open host diagnostics. An administrator can check its connection and supported measurements."})
+		if !down {
+			out.Coverage = append(out.Coverage, Coverage{Key: target.ID.String(), Name: label, Href: href, Unknown: !down && (reading.Unknown || readErr != nil), Stale: reading.Stale, ObservedAt: reading.ObservedAt, Reason: reading.Reason, NextStep: "Open host diagnostics. An administrator can check its connection and supported measurements."})
+		}
 		disk := reading.Disk
 		// A queued first check is incomplete coverage, not an actionable failure.
 		if reading.AttemptedAt.IsZero() && reading.ObservedAt.IsZero() && disk == nil && readErr == nil {
@@ -64,7 +76,7 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 		diskStale := disk != nil && disk.StaleAt(now)
 		out.Stale = out.Stale || diskStale
 		if reading.DiskUnknown || disk == nil || !disk.Free.Known || !disk.Total.Known || diskStale && !reading.FailedAt.IsZero() {
-			if reading.DiskUnknown || disk == nil || !disk.Free.Known || !disk.Total.Known {
+			if !down && (reading.DiskUnknown || disk == nil || !disk.Free.Known || !disk.Total.Known) {
 				out.Known = false
 			}
 			at := reading.AttemptedAt
@@ -77,12 +89,14 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 			if disk != nil && disk.Free.Known && disk.Total.Known {
 				title = label + ": capacity check failed"
 			}
-			out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: target.ID.String() + "/disk-unassessed", Unknown: reading.DiskUnknown || disk == nil || !disk.Free.Known || !disk.Total.Known, Title: title, Detail: label + ": check the host’s disk. The latest reading is unavailable or out of date. " + reading.Reason + " " + capacityAdmission(target.Kind), Href: href, ObservedAt: at, Stale: true})
+			if !down {
+				out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: target.ID.String() + "/disk-unassessed", Unknown: reading.DiskUnknown || disk == nil || !disk.Free.Known || !disk.Total.Known, Title: title, Detail: label + ": check the host’s disk. The latest reading is unavailable or out of date. " + reading.Reason + " " + capacityAdmission(target.Kind), Href: href, ObservedAt: at, Stale: true})
+			}
 			if disk == nil || !disk.Free.Known || !disk.Total.Known {
 				continue
 			}
 		}
-		if (reading.Stale && !reading.FailedAt.IsZero() || reading.LiveUnknown) && !reading.DiskUnknown && !diskStale {
+		if !down && (reading.Stale && !reading.FailedAt.IsZero() || reading.LiveUnknown) && !reading.DiskUnknown && !diskStale {
 			out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: target.ID.String() + "/capacity-unassessed", Unknown: reading.LiveUnknown, Title: label + ": capacity check failed", Detail: reading.Reason, Href: href, ObservedAt: reading.ObservedAt, Stale: true})
 		}
 		if !disk.Free.Known || (!disk.Low && !disk.Refuses) {

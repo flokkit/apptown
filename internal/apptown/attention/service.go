@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -40,6 +41,9 @@ type Item struct {
 // Snapshot can retain stale items while its source is unavailable. ObservedAt
 // describes the actual source evidence; nested item timestamps remain unchanged.
 type Snapshot struct {
+	// Folded omits source coverage only when every subject is on a down host.
+	// Other unknown coverage still appears; this never marks a check successful.
+	Folded               bool
 	Name, Href, NextStep string
 	Coverage             []Coverage
 	// Reason is an owner-supplied safe summary, never a raw provider error.
@@ -61,6 +65,10 @@ type instanceReader interface {
 // for an old deployment identity must never become current under a newer one.
 type projectReader interface {
 	ProjectSnapshot(context.Context, ids.ID) (Snapshot, error)
+}
+
+type hostReachabilityReader interface {
+	HostReachability(context.Context, ids.ID) (deployment.HostReachability, error)
 }
 
 // Sources is the complete finite source set. Missing sources remain unassessed,
@@ -107,7 +115,7 @@ func New(authority access.ReadAuthorizer, sources Sources) *Service {
 }
 
 // Read resolves current scope before collecting observations. No authority
-// decision or caller-filtered response is cached. A denied instance source is
+// decision or caller-filtered response is retained between reads. A denied instance source is
 // omitted entirely, including its coverage/count; an authority failure aborts.
 func (s *Service) Read(ctx context.Context) (View, error) {
 	empty := View{Items: []Item{}, Sources: []Coverage{}}
@@ -129,6 +137,7 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 	if instanceErr != nil && fault.KindOf(instanceErr) != fault.Forbidden {
 		return empty, instanceErr
 	}
+	ctx = context.WithValue(ctx, hostReadCacheKey{}, make(hostReadCache))
 	out := empty
 	if instanceErr == nil {
 		for _, source := range []struct {
@@ -274,6 +283,9 @@ func (v *View) add(key, name string, snapshot Snapshot, err error) {
 	}
 	if coverage.Href == "" {
 		coverage.Href = "/infrastructure"
+	}
+	if snapshot.Folded && snapshot.Known && err == nil && len(snapshot.Coverage) == 0 {
+		return
 	}
 	if len(snapshot.Coverage) > 0 && err == nil {
 		for _, child := range snapshot.Coverage {

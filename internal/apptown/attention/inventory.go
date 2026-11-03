@@ -42,7 +42,8 @@ type Inventory struct {
 	Observer interface {
 		Snapshot(context.Context, *deployment.Target) (InventoryReading, error)
 	}
-	Now func() time.Time
+	Hosts hostReachabilityReader
+	Now   func() time.Time
 }
 
 func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
@@ -54,15 +55,39 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 		return Snapshot{}, err
 	}
 	out := Snapshot{Known: true, ObservedAt: clock.Or(s.Now)()}
+	subjects, folded := 0, 0
 	for _, t := range targets {
 		if t.Status == deployment.TargetRetired {
 			continue
 		}
+		down := false
+		if s.Hosts != nil {
+			host, err := s.Hosts.HostReachability(ctx, t.ID)
+			if err != nil {
+				return Snapshot{}, err
+			}
+			down = host.Down
+			if host.Down {
+				label := t.DisplayLabel
+				if label == "" {
+					label = t.Name
+				}
+				noun := "deployments"
+				if host.Deployments == 1 {
+					noun = "deployment"
+				}
+				out.Items = append(out.Items, Item{Key: t.ID.String() + "/unreachable", Title: label + " is not reachable", Detail: fmt.Sprintf("Since %s: %s · %d %s can't be checked. Open the target page and check its connection.", host.Since.UTC().Format("2 Jan, 15:04 UTC"), host.Error, host.Deployments, noun), Href: "/infrastructure/" + url.PathEscape(t.Name), Severity: SeverityWarning, ObservedAt: host.Since})
+			}
+		}
+		subjects++
+		if down {
+			folded++
+		}
 		records, recordErr := s.Records.Recorded(ctx, t)
 		sample, readErr := s.Observer.Snapshot(ctx, t)
 		unknown := recordErr != nil || readErr != nil || sample.Unknown || sample.ObservedAt.IsZero()
-		out.Known = out.Known && !unknown
-		if sample.Reason != "" {
+		out.Known = out.Known && (!unknown || down)
+		if sample.Reason != "" && !down {
 			if out.Reason != "" {
 				out.Reason += " "
 			}
@@ -88,11 +113,14 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 			if recordErr == nil && !currentSubjects[key] {
 				continue
 			}
-			items = append(items, Item{Key: key, Unknown: unknown, Title: label + ": resource missing", Detail: label + ": the complete inventory did not contain a recorded " + r.Kind + ".", Severity: SeverityWarning, Href: href, ObservedAt: sample.ObservedAt, Stale: unknown || sample.Stale || !sample.FailedAt.IsZero() || sample.Invalidated})
+			items = append(items, Item{Key: key, Unknown: unknown && !down, Title: label + ": resource missing", Detail: label + ": the complete inventory did not contain a recorded " + r.Kind + ".", Severity: SeverityWarning, Href: href, ObservedAt: sample.ObservedAt, Stale: unknown || sample.Stale || !sample.FailedAt.IsZero() || sample.Invalidated})
 		}
 		out.Items = append(out.Items, items...)
 		// A queued first check is incomplete coverage, not an actionable failure.
 		pending := sample.AttemptedAt.IsZero() && sample.ObservedAt.IsZero() && recordErr == nil && readErr == nil
+		if down {
+			continue
+		}
 		if t.Kind == deployment.KindDockerHost && !sample.Unreported {
 			if sample.ObservedAt.IsZero() || clock.Or(s.Now)().Sub(sample.ObservedAt) > 5*time.Minute {
 				age := "never read"
@@ -111,6 +139,7 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 			out.Items = append(out.Items, Item{Key: t.ID.String() + "/unassessed", Unknown: unknown, Title: title, Detail: label + ": current resource presence and target availability could not be confirmed. " + sample.Reason, Severity: SeverityWarning, Href: href, ObservedAt: sample.ObservedAt, Stale: true})
 		}
 	}
+	out.Folded = subjects > 0 && folded == subjects
 	return out, nil
 }
 
