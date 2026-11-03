@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { act, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, beforeEach, vi } from 'vitest'
+beforeEach(() => vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} }))
 import { DecisionChoices } from './DecisionChoices'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -54,4 +55,25 @@ it('asks once inline before abandoning and lets the viewer keep it', () => {
   expect(el.querySelector('.ch-inline-confirm')).toBeNull()
   click('Abandon change'); click('Abandon')
   expect(abandoned).toHaveBeenCalledTimes(1)
+})
+
+it.each([4, 5, 6])('keeps %i equal choices in full rows on desktop and at 390px, with Abandon last', count => {
+  let width = 900, resize = () => {}
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({ width }) as DOMRect)
+  vi.stubGlobal('ResizeObserver', class { constructor(fn: () => void) { resize = fn } observe() {} disconnect() {} })
+  const el = document.createElement('div'), root = createRoot(el)
+  try {
+    act(() => root.render(<DecisionChoices note="" setNote={() => {}} busy={false}
+      accept={{ label: 'Accept', run: () => {} }} chat={{ label: 'Chat', run: () => {} }} rework={{ label: 'Rework', run: () => {} }}
+      recovery={Array.from({ length: count - 4 }, (_, i) => ({ label: `Recovery ${i}`, run: () => {} }))}
+      abandon={{ label: 'Abandon change', run: () => {} }} />))
+    const grid = el.querySelector<HTMLElement>('.ch-decision-choices')!
+    expect(grid.style.gridTemplateColumns).toBe(`repeat(${count}, minmax(0, 1fr))`)
+    width = 390
+    act(() => resize())
+    expect(grid.style.gridTemplateColumns).toBe(`repeat(${count === 5 ? 1 : 2}, minmax(0, 1fr))`)
+    expect(grid.lastElementChild?.textContent).toBe('Abandon change')
+    expect(grid.lastElementChild?.className).toBe('danger')
+    expect(grid.firstElementChild?.className).toBe('primary')
+  } finally { act(() => root.unmount()); vi.restoreAllMocks() }
 })

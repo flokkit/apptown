@@ -36,6 +36,8 @@
 // direct the reader to deployment settings. Unavailable data inventories say
 // that the background check retries within an hour. Raw provider diagnostics
 // are not used as Attention reasons.
+// Targets with no data access hold no deployment data: their assessments
+// contain no own-data coverage limits or copies note and remain known.
 //
 // # What Deployment keeps
 //

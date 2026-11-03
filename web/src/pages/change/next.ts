@@ -50,6 +50,13 @@ export type NextStep = {
 // AppTown's answer; the page only words and places it.
 export const offered = (acts: NextAct[] | undefined, act: string, stepId?: string | null) =>
   (acts ?? []).find((a) => a.act === act && (stepId == null || a.stepId === stepId))
+// Findings are the reviewer's structured objections. Without them, retain the
+// complete recorded text, including positive observations before an objection.
+export function reviewText(s: Step): string {
+  if (s.type !== 'agent/review') return s.evidence.reason || 'Read what the check found.'
+  return [s.evidence.findings?.join('\n'), s.evidence.reason || s.evidence.summary].filter(Boolean).join('\n\n') || 'No review conclusion recorded.'
+}
+
 // rerunLabel: how a step run again reads — a check that reads a record is
 // checked again, anything else is tried again.
 export const rerunLabel = (s: Step) => ['artifact/require', 'adr/require', 'scm/merged'].includes(s.type) ? 'Re-check' : 'Try again'
@@ -230,11 +237,9 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
       : offered(d.next, 'retry', failing.id) ? 'try-again'
       : offered(d.next, 'override', failing.id) ? 'override'
       : chat ? 'take-to-chat' : 'none'
-    const reason = (failing.evidence?.reason || 'Read what the check found.').trim()
-    const first = reason.match(/^.*?[.!?](?=\s|$)/s)?.[0] ?? reason.split('\n')[0]
     return {
-      tone: 'warn', stamp: 'waiting', headline: `Waiting for you: ${failing.name}: ${first}`,
-      sentence: reason.slice(first.length).trim() || undefined, step: failing, primary, recovery: true,
+      tone: 'warn', stamp: 'waiting', headline: failing.type === 'agent/review' ? 'The reviewer rejected this change.' : 'A check needs your attention.',
+      sentence: reviewText(failing), step: failing, primary, recovery: true,
     }
   }
   if (state === 'blocked') {

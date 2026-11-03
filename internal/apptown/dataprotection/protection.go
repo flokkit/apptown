@@ -324,8 +324,8 @@ func (s *Service) protection(ctx context.Context, projectID ids.ID, name string)
 	case t.HoldsBackups() == nil: // AppTown takes its own backups here
 		return out, s.dockerProtection(ctx, out, dep, t, store != nil)
 	case t.DataAccess() != deployment.DataOnManagedPlatform:
-		out.Note = "copies of this deployment's data are on the Backups page"
-		out.Coverage.NotAssessed = append(out.Coverage.NotAssessed, "the deployment's own data: AppTown does not read what a deployment on "+t.Kind+" holds")
+		// Docker and Portainer were handled above; targets with no data
+		// access hold no deployment data to assess or copy.
 		return out, nil
 	case store == nil && dep.DataClass == "production":
 		out.Note = "not protected off-host: no backup store is attached"

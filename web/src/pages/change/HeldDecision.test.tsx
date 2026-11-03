@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -8,8 +8,9 @@ import { MemoryRouter } from 'react-router-dom'
 import { newQueryClient } from '../../data'
 import type { ChangeView, Step } from '../../api'
 import { StatePanel, recoveryNote } from './StatePanel'
-import { HeldDecision } from './HeldDecision'
+import { HeldDecision, heldLabels } from './HeldDecision'
 import { viewerTurn } from './Turn'
+beforeEach(() => vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} }))
 const CHANGE = '00000000-0004-7000-8000-000000000000'
 describe('held runs offer recovery rather than an approval', () => {
   const held = (rounds = 3): ChangeView => ({
@@ -39,15 +40,42 @@ describe('held runs offer recovery rather than an approval', () => {
     expect(viewerTurn(held())).toBe(true)
     const el = markup(held())
     expect(el.querySelector('.ch-headline')?.textContent).toBe('Waiting for a person')
-    expect(el.textContent).toContain('Waiting for you: review-change: reviewer rejected: The page never loaded.')
+    expect(el.textContent).toContain('The reviewer rejected this change.')
+    expect(el.querySelector('p')?.textContent).not.toContain('review-change')
     expect(el.textContent?.match(/The page never loaded\./g)).toHaveLength(1)
     expect(el.textContent?.match(/The screenshot shows the loading screen\./g)).toHaveLength(1)
     expect(el.textContent).not.toContain('loaded..')
     expect(el.textContent).not.toContain('Open the decision')
     expect(el.textContent).not.toContain('or abandon it')
-    expect(el.querySelector('button.primary')?.textContent).toBe('Take it to chat')
-    expect([...el.querySelectorAll('.ch-decision-choices button')].map((b) => b.textContent)).toEqual(['Take it to chat', 'Fix it', 'Accept it anyway', 'Try again', 'Abandon change'])
+    expect(el.querySelector('.ch-decision-choices')?.lastElementChild?.textContent).toBe('Abandon change')
+    expect([...el.querySelectorAll('button.primary')].map(b => b.textContent)).toEqual(['Accept it anyway'])
+    expect([...el.querySelectorAll('button')].find(b => b.textContent === 'Accept it anyway')?.className).toBe('primary')
+    expect([...el.querySelectorAll('.ch-decision-choices button')].map((b) => b.textContent)).toEqual(['Accept it anyway', 'Take it to chat', 'Fix it', 'Try again', 'Stop this attempt', 'Abandon change'])
   })
+  it.each([['chat', 3, 'Take it to chat'], ['fix', 0, 'Fix it'], ['retry', 0, 'Try again'], ['recheck', 0, 'Re-check']] as const)('keeps one existing primary without acceptance: %s', (kind, rounds, primary) => {
+    const v = held(rounds)
+    v.detail!.next = v.detail!.next.filter(a => a.act !== 'override')
+    if (kind === 'retry' || kind === 'recheck') v.next = [{ act: 'abandon' }] as ChangeView['next']
+    if (kind === 'recheck') v.detail!.steps[1].type = 'artifact/require'
+    const el = markup(v)
+    expect([...el.querySelectorAll('button.primary')].map(b => b.textContent)).toEqual([primary])
+    const labels = ['Take it to chat', ...(kind === 'chat' || kind === 'fix' ? ['Fix it'] : []), kind === 'recheck' ? 'Re-check' : 'Try again', 'Stop this attempt', 'Abandon change']
+    expect([...el.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(labels)
+    expect(heldLabels(v)).toEqual(labels)
+    expect(el.querySelector('button.danger')?.textContent).toBe('Abandon change')
+  })
+
+  it('highlights only the first acceptance when several checks offer exceptions', () => {
+    const v = held()
+    v.detail!.next.reverse()
+    v.detail!.next.push({ act: 'override', stepId: 'agent', step: 'apply-change' })
+    const el = markup(v)
+    expect([...el.querySelectorAll('button.primary')].map(b => b.textContent)).toEqual(['Accept it anyway'])
+    const labels = ['Accept it anyway', 'Accept it anyway', 'Take it to chat', 'Fix it', 'Try again', 'Stop this attempt', 'Abandon change']
+    expect([...el.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(labels)
+    expect(heldLabels(v)).toEqual(labels)
+  })
+
   it('keeps the full failure output and requested human actions in the send-back note', () => {
     const v = held()
     v.detail!.steps[1] = { ...v.detail!.steps[1], type: 'script', evidence: { log: 'The form failed validation.\n' + 'full log\n'.repeat(60) } } as Step
@@ -62,7 +90,7 @@ describe('held runs offer recovery rather than an approval', () => {
     v.detail!.steps[1].evidence.reason += ' More details.'.repeat(50)
     expect(markup(v).querySelector('details')).toBeNull()
     expect(markup(v).textContent?.match(/More details\./g)).toHaveLength(50)
-    expect(markup(v).querySelector('button.primary')?.textContent).toBe('Fix it')
+    expect([...markup(v).querySelectorAll('button.primary')].map(b => b.textContent)).toEqual(['Accept it anyway'])
     v.next = []
     v.detail!.next = [{ act: 'retry', stepId: 'review', step: 'review-change' }]
     const el = markup(v)
@@ -71,7 +99,7 @@ describe('held runs offer recovery rather than an approval', () => {
     v.next = [{ act: 'abandon', stepId: null, step: '' }]
     v.detail!.next = []
     expect(viewerTurn(v)).toBe(true)
-    expect(markup(v).querySelector('button')?.textContent).toBe('Abandon change')
+    expect([...markup(v).querySelectorAll('button')].at(-1)?.textContent).toBe('Abandon change')
     v.next = []
     v.detail!.next = [{ act: 'override', stepId: 'review', step: 'review-change' }]
     expect(markup(v).querySelector('button')?.textContent).toBe('Accept it anyway')
@@ -113,10 +141,39 @@ describe('held runs offer recovery rather than an approval', () => {
       expect(sent).toHaveLength(4)
       await click('Abandon')
       expect(sent[4]).toEqual({ url: `/api/v1/changes/${CHANGE}/abandon`, body: {} })
+      await click('Stop this attempt')
+      await click('Yes')
+      expect(sent[5]).toEqual({ url: '/api/v1/runs/run/abandon', body: { reason: 'stopped from the change page' } })
     } finally {
       await act(async () => root.unmount())
       client.clear()
       vi.unstubAllGlobals()
     }
   })
+})
+
+it.each([false, true])('retains the complete reviewer text and leads with structured findings when supplied (%s)', findings => {
+  const text = 'The preview looked styled and the page loaded.\n\nThe adoption is incomplete. Every project needs the new rule.'
+  const v = {
+    change: { state: 'in_progress' }, state: 'waiting on you', next: [{ act: 'abandon' }],
+    detail: { run: { currentStage: 'apply', status: 'running' }, next: [], events: [], steps: [
+      { id: 'review', name: 'review-change', type: 'agent/review', stage: 'apply', status: 'fail', config: {}, evidence: { summary: text, ...(findings ? { findings: ['Two projects lack the rule.'] } : {}) } },
+    ] },
+  } as unknown as ChangeView
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><HeldDecision view={v} onChange={() => {}} /></QueryClientProvider></MemoryRouter>)
+  expect(el.querySelector('p')?.textContent).toBe('The reviewer rejected this change.')
+  const reason = el.querySelector('.ch-review-text')!.textContent!
+  expect(reason).toBe(findings ? 'Two projects lack the rule.\n\n' + text : text)
+  expect(el.querySelector('.ch-technical[aria-hidden="true"]')?.textContent).toBe('review-change')
+})
+
+it.each(['landing', 'finished'])('omits Stop this attempt when it is not an act in this state (%s)', state => {
+  const v = { change: { state: state === 'landing' ? 'landing' : 'in_progress' }, state: 'waiting on you', next: [{ act: 'abandon' }], detail: {
+    run: { currentStage: 'apply', status: state === 'finished' ? 'pass' : 'running' }, next: [], events: [], steps: [
+      { type: 'agent/review', name: 'review-change', stage: 'apply', status: 'fail', evidence: { reason: 'An objection.' } },
+    ],
+  } } as unknown as ChangeView
+  const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><HeldDecision view={v} onChange={() => {}} /></QueryClientProvider></MemoryRouter>)
+  expect(html).not.toContain('Stop this attempt')
 })

@@ -74,3 +74,13 @@ it('shows app-contract help openly on the change page', () => {
   expect(el.textContent).toContain('The app contract is what this app asks')
   expect(el.textContent).toContain('needs a database (postgres)')
 })
+
+it('treats a skipped standing-deployment rule like Details and says the result once', () => {
+  const el = dom(renderToStaticMarkup(<CheckSummary steps={[step('pass', { type: 'guidance/conformance', checkReading: { checks: [{ check: 'memory-within', verdict: 'skipped', detail: 'judged on the standing deployment in reviews, not on a preview' }] } })]} />))
+  expect(el.textContent).toBe('✓ All checks passed')
+  expect(el.textContent).not.toContain('failed')
+})
+it('states an unknown test count in one clear phrase', () => {
+  const el = dom(renderToStaticMarkup(<CheckSummary steps={[step('pass', { type: 'tests' })]} />))
+  expect(el.textContent).toBe('Tests: number unknown')
+})

@@ -69,7 +69,11 @@ Change pages show help without disclosures. The decision screen shows the app-co
 comparison from the approval question whose digest the vote submits, including
 known changes alongside unread declarations or starting commits. Overview's
 Next steps and decision screen keep the offered Continue action and Stop this
-attempt beside the other controls. Details keeps conflict catch-up commands and
+attempt beside the other controls. Held recovery puts Stop this attempt in the
+same equal-size button grid. Acceptance comes first, then chat, rework or fix,
+retry or re-check, Stop this attempt and Abandon last and red. Acceptance is the
+only highlighted button when offered; otherwise the next action is highlighted.
+Rows contain equal numbers of buttons. Details keeps conflict catch-up commands and
 the complete state account beside the run history. Details groups the chronological
 record into Work cards, one per round, and Landing cards, one per attempt,
 followed by About this change. A sent-back round names the person and their note.
@@ -82,9 +86,13 @@ record in place. Attach a record ends the Work card. About this change contains
 only valued Branch, Started from, Kind, Cost and Attachments rows, with an attach
 a file link when allowed. Workflow names and versions appear as technical detail
 inside the event facts. Empty rows and sections are omitted. Overview shows the
-request's first line and links to its full text in Details. Long reports and
+request's first line and links to its full text in Details. Details shows the
+first four request lines once, with a full request link for longer text.
+Rejected reviews show a red failure mark and Rejected before the complete recorded
+explanation. Structured findings lead when present; sentences are not selected
+as inferred rejection reasons. Step names stay in Techno Goggles. Long reports and
 reviewer conclusions also link to their full evidence.
-Overview counts not-applicable checks as fine and omits them; their reasons stay in Details. Conversation action summaries
+Overview counts not-applicable checks and skipped rules within a passing check as fine and omits them; their reasons stay in Details. Conversation action summaries
 are plain text; the Show agent actions switch reveals their commands and files.
 Security results from before a change to main cannot claim main has passed.
 

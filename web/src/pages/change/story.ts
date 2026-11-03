@@ -1,5 +1,5 @@
 import type { Artifact, RunDetail, RunEvent, Step } from '../../api'
-import { approversOf } from './next'
+import { approversOf, reviewText } from './next'
 import { firstLine } from './Head'
 import { stepTitle, testsNote } from './Evidence'
 
@@ -35,6 +35,7 @@ export function stepSentence(s: Step): string {
     const files = s.evidence.files
     return `Agent ${s.status === 'running' ? 'working' : s.status === 'pending' ? 'not started' : 'worked'}${took}${files ? ` · ${files.length} ${files.length === 1 ? 'file' : 'files'} changed` : ''}${['fail', 'error', 'needs_human'].includes(s.status) ? ` · ${s.evidence.reason || 'stopped without finishing'}` : ''}`
   }
+  if (s.type === 'agent/review' && ['fail', 'error', 'needs_human'].includes(s.status) && !s.overrideBy) return `Reviewer: ✗ Rejected · ${reviewText(s)}`
   if (s.type === 'agent/review') return `Reviewer: ${s.evidence.verdict || checkResult(s)}${s.status !== 'pass' && s.evidence.verdict ? ` · ${checkResult(s)}` : ''}${s.evidence.summary ? ` · ${firstLine(s.evidence.summary)}` : ''}`
   if (s.type === 'approval') {
     if (s.evidence.evalAuthorised) return `Approval: authorised for evaluation: ${s.evidence.evalAuthorised}`

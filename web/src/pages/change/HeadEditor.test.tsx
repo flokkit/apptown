@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { ChangeView } from '../../api'
 import { newQueryClient } from '../../data'
+import { MemoryRouter } from 'react-router-dom'
 import { RequestEntry } from './Head'
 
 // Record ids are UUIDv7 strings.
@@ -34,7 +35,7 @@ function mount(answer: () => Response) {
   const el = document.createElement('div')
   const root = createRoot(el)
   const render = (v: ChangeView, current = true) => act(async () => {
-    root.render(<QueryClientProvider client={client}><RequestEntry view={v} current={current} reload={() => {}} /></QueryClientProvider>)
+    root.render(<MemoryRouter><QueryClientProvider client={client}><RequestEntry view={v} current={current} reload={() => {}} /></QueryClientProvider></MemoryRouter>)
   })
   const button = (text: string) => [...el.querySelectorAll('button')].find((b) => b.textContent === text)
   const textarea = () => el.querySelector('textarea') as HTMLTextAreaElement

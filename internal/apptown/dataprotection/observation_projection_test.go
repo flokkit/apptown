@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +13,43 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
+
+// Targets without data access hold no deployment data. Their completed
+// assessment supplies no unknown coverage or copy items to Attention.
+func TestNoDataAccessTargetRecordsNothingDeclared(t *testing.T) {
+	t.Parallel()
+	s, _, _, _, pid := backupWorld(t, "static-site", answeringPort(t))
+	target, err := s.Targets.Put(t.Context(), &deployment.Target{
+		Name: "website", Kind: deployment.KindS3Bucket, Origin: deployment.OriginAttached, Status: deployment.TargetReady,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := s.Deployments.EnsureStanding(t.Context(), pid, "website", target.ID, deployment.Attributes{DataClass: "production"}.WithDefaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	runRelease(t, s, dep, "static-release", "app:\n  web: {static: site, public: true}\n")
+	o := NewProtectionObserver(s.Service, nil)
+	_, identity, err := o.resolve(t.Context(), dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := o.run(t.Context(), dep.ID, identity); err != nil {
+		t.Fatal(err)
+	}
+	reading, err := o.Snapshot(t.Context(), dep.ID)
+	if err != nil || reading.Unknown || reading.Waiting || reading.Unassessed || reading.Reason != "" || len(reading.Items) != 0 || reading.ObservedAt.IsZero() {
+		t.Fatalf("empty deployment raised Attention evidence: %+v %v", reading, err)
+	}
+	p, err := s.DeploymentProtection(t.Context(), pid, "website")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Note != "" || p.Unknown != "" || len(p.Items) != 0 || len(p.Coverage.Assessed) != 0 || !slices.Equal(p.Coverage.NotAssessed, []string{outsideNotAssessed}) {
+		t.Fatalf("empty deployment claimed data or copies: %+v", p)
+	}
+}
 
 func TestProtectionObservationKeepsUnknownRehearsalDistinctFromFailure(t *testing.T) {
 	t.Parallel()

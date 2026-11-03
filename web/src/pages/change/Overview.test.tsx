@@ -65,7 +65,7 @@ it('keeps unknown evidence, exceptions, skips, non-applicability and required ap
     step('guidance/conformance', 'pass', {}, { checkReading: { checks: [{ check: 'privacy', verdict: 'not-applicable', detail: 'No personal data.' }], undecided: ['performance'] } }),
     step('scan', 'fail', {}, { id: 'exception', overrideBy: 'sam', overrideReason: 'Documented exception' }), approval]
   const html = renderToStaticMarkup(<CheckSummary steps={steps} />)
-  for (const fact of ['The scan could not be decoded.', 'Number of tests unknown', 'Exit 2', 'performance: unknown', 'Documented exception']) expect(html).toContain(fact)
+  for (const fact of ['The scan could not be decoded.', 'Tests: number unknown', 'Exit 2', 'performance: unknown', 'Documented exception']) expect(html).toContain(fact)
   expect(html).not.toContain('All checks passed')
 })
 
@@ -229,7 +229,7 @@ it('shows a long request excerpt with a link to the complete request', () => {
   expect(el.textContent).toContain('First line.')
   expect(el.textContent).not.toContain('Last request line.')
   const link = [...el.querySelectorAll('a')].find(a => a.textContent === 'full request →')!
-  expect(link.getAttribute('href')).toBe('/?tab=details#request')
+  expect(link.getAttribute('href')).toBe('/?tab=details#request-text')
 })
 
 it('keeps large code files, screenshot failures and status help open on a change', () => {
@@ -353,15 +353,18 @@ it('identifies offered held recovery and keeps its action labels in decision ord
 })
 
 it('keeps one decision screen measured to the content column and closes without deciding', async () => {
-  const bounds = { height: 84, left: 234, width: 900 }
+  const bounds = { height: 84, left: 234, width: 900, top: 120 }
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => bounds as DOMRect)
   const action = vi.fn(), el = document.createElement('div'), root = createRoot(el)
   document.body.append(el)
   const labels = ['Accept and put live', 'Go to chat', 'Rework with comment', 'Abandon change']
-  const draw = (active: boolean) => act(() => root.render(<div className="ch-page"><TurnDecision active={active} actions={labels} ready={<p>Ready: checks passed</p>}><p>Accepting puts this live.</p><DecisionChoices note="" setNote={() => {}} busy={false} accept={{ label: labels[0], run: action }} chat={{ label: labels[1], run: action }} rework={{ label: labels[2], run: action }} abandon={{ label: labels[3], run: action }} /></TurnDecision></div>))
+  const draw = (active: boolean) => act(() => root.render(<div className="ch-page"><section className="ch-tabs-sheet"><TurnDecision active={active} actions={labels} ready={<p>Ready: checks passed</p>}><p>Accepting puts this live.</p><DecisionChoices note="" setNote={() => {}} busy={false} accept={{ label: labels[0], run: action }} chat={{ label: labels[1], run: action }} rework={{ label: labels[2], run: action }} abandon={{ label: labels[3], run: action }} /></TurnDecision></section></div>))
   draw(true)
   const page = el.querySelector<HTMLElement>('.ch-page')!, floater = el.querySelector<HTMLElement>('.ch-turn-floater')!, screen = el.querySelector<HTMLDialogElement>('dialog')!
+  const sheet = page.querySelector<HTMLElement>('.ch-tabs-sheet')!
   expect(page.style.paddingBottom).toBe('84px')
+  expect(sheet.style.maxHeight).toBe('')
+  expect(sheet.style.overflowY).toBe('')
   expect(floater.style.left).toBe('234px'); expect(floater.style.width).toBe('900px')
   expect(screen.style.getPropertyValue('--page-left')).toBe('234px')
   expect(screen.style.getPropertyValue('--page-width')).toBe('900px')
@@ -385,12 +388,20 @@ it('keeps one decision screen measured to the content column and closes without 
   Object.assign(bounds, { left: 0, width: 390, height: 96 })
   act(() => window.dispatchEvent(new Event('resize')))
   expect(page.style.paddingBottom).toBe('96px')
+  // The document keeps normal page scrolling with room below its last content.
+  bounds.top = 40
+  act(() => window.dispatchEvent(new Event('scroll')))
+  expect(page.style.paddingBottom).toBe('96px')
+  expect(sheet.style.maxHeight).toBe('')
+  expect(sheet.style.overflowY).toBe('')
   expect(floater.style.left).toBe('0px'); expect(floater.style.width).toBe('390px')
   expect(screen.style.getPropertyValue('--page-left')).toBe('0px')
   expect(screen.style.getPropertyValue('--page-width')).toBe('390px')
   draw(false)
   expect(el.querySelector('.ch-turn-floater, dialog')).toBeNull()
   expect(page.style.paddingBottom).toBe('')
+  expect(sheet.style.maxHeight).toBe('')
+  expect(sheet.style.overflowY).toBe('')
   expect(el.querySelector<HTMLElement>('#decision')!.hidden).toBe(false)
   expect(el.querySelector('#decision h2')?.textContent).toBe('Next steps')
   act(() => root.unmount()); el.remove(); vi.restoreAllMocks()
@@ -458,7 +469,7 @@ it('opens held recovery buttons only in Decide and shows the complete reason onc
     const dialog = el.querySelector('dialog[open]')!
     expect(dialog.textContent?.match(/The page never loaded\./g)).toHaveLength(1)
     expect(dialog.textContent?.match(/The screen stayed blank\./g)).toHaveLength(1)
-    expect([...dialog.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(['Fix it', 'Take it to chat', 'Try again', 'Accept it anyway', 'Abandon change'])
+    expect([...dialog.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept it anyway', 'Take it to chat', 'Fix it', 'Try again', 'Stop this attempt', 'Abandon change'])
     expect(dialog.querySelector('details')).toBeNull()
     expect(dialog.textContent).not.toContain('Open the decision')
     expect(dialog.textContent).not.toContain('Accept despite failures')

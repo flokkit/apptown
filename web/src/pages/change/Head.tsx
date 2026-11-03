@@ -1,3 +1,4 @@
+import { Link, useLocation } from 'react-router-dom'
 import { shortName } from '../newProject/draft'
 import { Status } from '../../Status'
 import { useEffect, useRef, useState } from 'react'
@@ -85,8 +86,8 @@ export function useChangeSummary(changeId: string | undefined, needed: boolean) 
   }, [changeId, needed])
 }
 
-// What this change is for, in full: the request (editable), where it is up
-// to, and its reference material.
+// What this change is for: a few request lines and a link to the full text,
+// with the request editor and its reference material.
 //
 // The request editor follows design/architecture/web-data.md: it opens only
 // on an answer the page read itself, keeps the draft while the page polls,
@@ -94,6 +95,10 @@ export function useChangeSummary(changeId: string | undefined, needed: boolean) 
 // conflict shows the current text and lets the person choose.
 export function RequestEntry({ view, current = true, reload }: { view: ChangeView; current?: boolean; reload: () => void }) {
   const ch = view.change
+  const location = useLocation()
+  const request = ch.body || ch.title
+  const lines = request.split('\n')
+  const full = location.hash === '#request-text'
   // The request is fixed once work starts: it is what the work was asked to do. Only the ticket link stays editable.
   const started = !!view.detail
   const [editing, setEditing] = useState(false)
@@ -132,10 +137,10 @@ export function RequestEntry({ view, current = true, reload }: { view: ChangeVie
   return (
     <div id="request">
       <div className="ch-story-line">
-        <span>{ch.openedBy ? `by ${ch.openedBy}` : 'Requested'}: “{firstLine(ch.body || ch.title)}”</span><button className="link" disabled={!editing && !current} onClick={() => (editing ? discard() : open())}>{editing ? 'Cancel' : started ? (ch.externalRef ? 'Edit ticket link' : 'Add ticket link') : 'Edit'}</button>
+        <span>{ch.openedBy ? `by ${ch.openedBy}` : 'Requested'}</span><button className="link" disabled={!editing && !current} onClick={() => (editing ? discard() : open())}>{editing ? 'Cancel' : started ? (ch.externalRef ? 'Edit ticket link' : 'Add ticket link') : 'Edit'}</button>
         <time dateTime={ch.createdAt}>{fmtStamp(ch.createdAt)}</time>
       </div>
-      {!editing && (ch.body || ch.title) !== firstLine(ch.body || ch.title) && <div className="ch-request">{ch.body || ch.title}</div>}
+      {!editing && <div id={full ? 'request-text' : undefined} className="ch-request">{full ? request : lines.slice(0, 4).join('\n')}{!full && lines.length > 4 && <><br /><Link to={`${location.pathname}?tab=details#request-text`}>full request</Link></>}</div>}
       {!editing && ch.externalRef && <p className="muted small">Ticket: {ch.externalRef}</p>}
         {editing && (
           <div style={{ padding: '12px 0' }}>
