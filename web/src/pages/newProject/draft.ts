@@ -155,8 +155,23 @@ function suggestedName(description: string, d: Pick<Draft, 'origin' | 'bundleFil
   if (d.origin === 'url') {
     try { repository = decodeURIComponent(new URL(d.sourceURL).pathname.split('/').filter(Boolean).at(-1) ?? '').replace(/\.git$/i, '') } catch { /* An unfinished URL supplies no title. */ }
   }
-  const words = (repository || description).trim().split(/\s+/).filter(Boolean)
-  return words.length ? words.slice(0, 6).join(' ').slice(0, 60).trim() : ''
+  if (repository) return repository.slice(0, 60).trim()
+  return shortName(description)
+}
+
+// shortName offers a name from what someone said they want to build: the
+// thing itself, not the sentence. It stops at the first clause (a comma,
+// "with", "that", "for"...), drops a leading article and keeps at most four
+// words: "Feet catalog with hundreds of pictures" becomes "Feet catalog".
+// Only an offer: the field stays editable.
+const joiners = new Set(['with', 'that', 'which', 'where', 'for', 'to', 'so', 'and', 'where', 'who', 'showing', 'listing'])
+export function shortName(description: string): string {
+  const clause = description.trim().split(/[.,;:!?()\n—–-]\s/)[0].split(/[.,;:!?()\n]/)[0]
+  const words = clause.split(/\s+/).filter(Boolean)
+  if (/^(a|an|the|my|our)$/i.test(words[0] ?? '') && words.length > 1) words.shift()
+  const cut = words.findIndex((w, i) => i > 0 && joiners.has(w.toLowerCase()))
+  const kept = (cut > 0 ? words.slice(0, cut) : words).slice(0, 4).join(' ')
+  return kept ? kept[0].toUpperCase() + kept.slice(1) : ''
 }
 
 // Offered packs declare whether they start ticked. An explicit choice

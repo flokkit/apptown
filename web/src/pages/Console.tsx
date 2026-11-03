@@ -54,7 +54,6 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
   const [introSeen, setIntroSeen] = useState(() => localStorage.getItem(introKey) === '1')
   const termRef = useRef<HTMLDivElement>(null)
   const status = useTerminal(session?.id ?? null, !!session?.mayAct, termRef)
-  useKickoff(kickoff, slug, changeId, session, status === 'attached')
 
   // Two visually distinct kinds of chat:
   // the project chat (questions, setup, starting work) and the change chat
@@ -65,6 +64,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
   // One read of the change feeds the action bar and the status card; its
   // status shows once, above both.
   const change = useGet<ChangeView>(shopId ? `/changes/${shopId}` : null, { poll: 4000 })
+  useKickoff(kickoff, slug, changeId, session, status === 'attached', change.data?.change.body)
   // A change is named by its number, known once the change is read.
   const shopName = change.data ? `change ${change.data.change.number}` : 'this change'
   useEffect(() => {
@@ -206,19 +206,27 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
 // "Build the first version" arrives with ?kickoff=1: send the opening
 // message on the operator's behalf (that IS what the button says), once —
 // the guard survives refreshes so a reload can't re-kick the helper.
-function useKickoff(kickoff: string, slug: string, changeId: string, session: ConsoleSessionView | null, attached: boolean) {
+// kickoffText is the opening message for a change chat. It carries the
+// change's request in the person's own words.
+export function kickoffText(kickoff: string, request: string): string {
+  const asked = request.trim()
+  if (kickoff === 'stuck') return 'The lane stopped — where and why is in your briefing under "Where the lane stopped". Say where things stand and what you think went wrong, in plain words; then we go from there.'
+  if (kickoff === 'go') return asked ? `Please do this:\n\n${asked}\n\nTell me what you changed and when I can try it.` : 'Please do what this change asks. Tell me what you changed and when I can try it.'
+  return asked ? `Please build the first version:\n\n${asked}\n\nKeep it simple, get it working, and tell me as soon as I can try it.` : 'Please build the first version. Nothing was written about what it should do: ask me first.'
+}
+
+// The opening message carries the change's request in the person's own
+// words, so the chat shows what the agent was asked, not a pointer to a
+// briefing nobody can see. It waits until the change is read.
+function useKickoff(kickoff: string, slug: string, changeId: string, session: ConsoleSessionView | null, attached: boolean, request: string | undefined) {
   useEffect(() => {
-    if (!kickoff || !session || !session.mayAct || !attached || changeId === '') return
+    if (!kickoff || !session || !session.mayAct || !attached || changeId === '' || request === undefined) return
     const guard = kickoff === 'stuck' ? `kickoff-sent-${slug}-${changeId}-${session.id}` : `kickoff-sent-${slug}-${changeId}`
     if (localStorage.getItem(guard) === '1') return
     localStorage.setItem(guard, '1')
-    const text = kickoff === 'stuck'
-      ? 'The lane stopped — where and why is in your briefing under "Where the lane stopped". Say where things stand and what you think went wrong, in plain words; then we go from there.'
-      : kickoff === 'go'
-      ? 'Please do what this change asks — it is in your briefing (the Change intent). Tell me what you changed and when I can try it.'
-      : 'Please build the first version now. What it should do is in your briefing (the Change intent) — if the briefing says nothing was written, ask me first. Keep it simple, get it working, and tell me as soon as I can try it.'
+    const text = kickoffText(kickoff, request)
     post(`/console/${session.id}/say`, { text }).catch(() => localStorage.removeItem(guard))
-  }, [kickoff, session, attached, changeId, slug])
+  }, [kickoff, session, attached, changeId, slug, request])
 }
 
 // The project chat's one-card answer to "what happens here?": nothing is
