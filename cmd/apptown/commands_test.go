@@ -1589,3 +1589,32 @@ func TestIntegrationCommandsUseTheirDedicatedAdmission(t *testing.T) {
 		})
 	}
 }
+
+func TestStatusShowsOnlyTheOfferedRecoveryActs(t *testing.T) {
+	fakeAppTown(t, func(method, path string) (int, string) {
+		return 200, `{"run":{"id":"00000000-0007-7000-8000-000000000000","status":"running","currentStage":"work","workflowName":"quick-change"},"state":"waiting on you","stateDetail":"review-change (fail): The page never loaded.","stages":["work"],"steps":[],"next":[{"act":"retry","step":"review-change"},{"act":"override","step":"review-change"}]}`
+	})
+	out, err := run(t, "status", "00000000-0007-7000-8000-000000000000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "next: retry: review-change · override: review-change") || strings.Contains(out, "approve/reject") || strings.Contains(out, "Send back, re-run") {
+		t.Fatalf("status recovery choices: %s", out)
+	}
+}
+
+func TestShowRendersChangeAndRunRecoveryActsTogether(t *testing.T) {
+	fakeAppTown(t, func(method, path string) (int, string) {
+		if strings.HasPrefix(path, "/changes/") && !strings.HasSuffix(path, "/preview") {
+			return 200, `{"projectSlug":"shop","change":{"id":"00000000-0007-7000-8000-000000000000","number":7,"title":"Fix the page","state":"in_progress"},"state":"waiting on you","stateDetail":"review-change (fail): The page never loaded.","next":[{"act":"send-back"}],"detail":{"steps":[],"next":[{"act":"retry","step":"review-change"}]},"runs":[],"commits":[]}`
+		}
+		return 200, `{}`
+	})
+	out, err := run(t, "show", "00000000-0007-7000-8000-000000000000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "next: send-back · retry: review-change") || strings.Contains(out, "apptown land") {
+		t.Fatalf("show recovery choices: %s", out)
+	}
+}

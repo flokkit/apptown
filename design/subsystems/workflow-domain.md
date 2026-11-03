@@ -97,6 +97,13 @@ or stale-decision checks. Retry, automatic rework, send-back and landing recheck
 share revision fencing but have different eligibility and preservation rules.
 They are not one command with interchangeable flags.
 
+A held run's activity detail names the stopped step and its recorded reason.
+Recovery choices come from the offered acts: the web renders buttons and the CLI
+renders text. The change card shows the reason once, with long detail folded.
+`RunSnapshot.PendingApproval` identifies the pending decision, including one in a
+called workflow; waiting activity alone does not imply approval. After three
+rework rounds the card leads with chat when another agent round is offered.
+
 A running run's detail snapshot lists its next acts (`RunSnapshot.Next`):
 `approve` for the approvals it waits on, `override` for failed or errored checks
 blocking its stage, `retry` for stopped steps a step run accepts again, and

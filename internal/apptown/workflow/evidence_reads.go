@@ -74,6 +74,8 @@ type RunSnapshot struct {
 	Steps       []*Step       `json:"steps"`
 	State       ActivityState `json:"state,omitempty"`
 	StateDetail string        `json:"stateDetail,omitempty"`
+	// PendingApproval identifies the decision this run waits on, including a called workflow.
+	PendingApproval ids.ID `json:"pendingApproval,omitempty"`
 	// Ending is why an abandoned run ended (runEnding); empty for any
 	// other run.
 	Ending    string     `json:"ending,omitempty"`
@@ -138,6 +140,7 @@ func readWorkflowSnapshot(ctx context.Context, db database.Queryer, id ids.ID, v
 			return nil, err
 		}
 		out.State, out.StateDetail, out.held = activity.State, activity.Detail, activity.Held
+		out.PendingApproval = activity.Approval
 		runnable := func(kind string) bool { return assertionKind(kind) || automatic != nil && automatic(kind) }
 		out.Next = nextActs(run, steps, activity, runnable, spec.Role == "landing")
 		if run.Status == RunAbandoned {

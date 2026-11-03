@@ -168,7 +168,7 @@ func TestWorkflowActivityBatchesNestedCallsAndChecksOwnership(t *testing.T) {
 				}
 				return
 			}
-			if err != nil || activity.State != ActivityWaiting || activity.Detail != "private verdict (fail). Send back, re-run the step, or override the failure. (in inspect) (in build)" {
+			if err != nil || activity.State != ActivityWaiting || activity.Detail != "private verdict (fail) (in inspect) (in build)" {
 				t.Fatalf("nested state: %+v %v", activity, err)
 			}
 		})
@@ -270,7 +270,7 @@ func TestWorkflowActivityPreservesQueuePriorityAndCallStartup(t *testing.T) {
 		waiting bool
 		want    Activity
 	}{
-		{"agent behind a hold cannot queue", []workflowActivityStep{{id: idstest.N(1), name: "prepare", kind: "script", state: StatusNeedsHuman}, {id: idstest.N(2), name: "work", kind: "agent/pi", state: StatusPending}}, false, Activity{State: ActivityWaiting, Detail: "prepare (needs_human). Complete the requested action, then re-run the step.", Held: true}},
+		{"agent behind a hold cannot queue", []workflowActivityStep{{id: idstest.N(1), name: "prepare", kind: "script", state: StatusNeedsHuman}, {id: idstest.N(2), name: "work", kind: "agent/pi", state: StatusPending}}, false, Activity{State: ActivityWaiting, Detail: "prepare (needs_human)", Held: true}},
 		{"entry queue before failed gate", []workflowActivityStep{{id: idstest.N(1), name: "build", kind: "agent/pi", state: StatusPending}, {id: idstest.N(2), name: "scan", kind: "scan", state: StatusFail}}, false, Activity{State: activityQueued, Detail: "build"}},
 		// A review still to run may send the stage back for rework, so the
 		// stage is not blocked yet; the failure already in is named.

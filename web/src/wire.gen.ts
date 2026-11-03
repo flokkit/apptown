@@ -2468,6 +2468,7 @@ export type RunSnapshot = {
   steps: (Step | null)[]
   state?: string
   stateDetail?: string
+  pendingApproval?: string | null
   ending?: string
   events: Event[]
   artifacts: Artifact[]

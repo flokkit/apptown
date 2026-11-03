@@ -4606,6 +4606,13 @@
             },
             "type": "array"
           },
+          "pendingApproval": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "run": {
             "anyOf": [
               {

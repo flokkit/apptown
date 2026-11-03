@@ -52,13 +52,13 @@ export function StatePanel({ view, onChange, reading, workTab }: {
   const tone = ({pass:'ok', pending:'warn', fail:'bad', unknown:'unknown', '':'neutral'} as Record<string, string>)[light]
   // A failed check the agent can fix leads with what the check found, in
   // its own first words, instead of the step's recorded reason.
-  const found = fixable(view, next) && view.detail ? foundLine(view.detail) : ''
+  const found = !next.recovery && fixable(view, next) && view.detail ? foundLine(view.detail) : ''
   return (
     <section className={`ch-state tone-${tone}`} aria-label="Where this change is">
       <div className="ch-state-words">
         <div className="ch-state-head">
           <span className={`ch-dot ${tone}`} aria-hidden="true" />
-          <span className="ch-headline">{handover?.headline ?? next.headline}</span>
+          <span className="ch-headline">{next.recovery ? next.headline : handover?.headline ?? next.headline}</span>
         </div>
         {next.sentBack && (
           <div className="ch-sentence">
@@ -66,8 +66,10 @@ export function StatePanel({ view, onChange, reading, workTab }: {
             <span className="ch-quote">“{firstLines(next.sentBack.note, 3)}”</span>
           </div>
         )}
-        {found ? <div className="ch-sentence">{found}</div> : next.sentence && <div className="ch-sentence">{next.sentence}</div>}
-        {!found && !next.sentence && next.primary === 'take-to-chat' && view.detail && <FoundLine detail={view.detail} />}
+        {found ? <div className="ch-sentence">{found}</div> : next.sentence && (next.recovery && next.sentence.length > 240
+          ? <details className="ch-sentence"><summary>Full reason</summary>{next.sentence}</details>
+          : <div className="ch-sentence">{next.sentence}</div>)}
+        {!next.recovery && !found && !next.sentence && next.primary === 'take-to-chat' && view.detail && <FoundLine detail={view.detail} />}
         {next.waitingOn && !(next.primary === 'approve' && next.waitingOn === 'you') && <div className="ch-waiting">Waiting on: <strong>{next.waitingOn}</strong></div>}
         {handover && handover.actions.length > 0 && <ul>{handover.actions.map((action, i) => <li key={i}>{action}</li>)}</ul>}
         {handover && handover.attempts.length > 0 && <details className="ch-sentence">
@@ -136,8 +138,8 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
   // The quiet acts every stopped step shares: accept it anyway (an
   // override, with its meaning said before it is recorded; AppTown decides
   // who may), and its full record in the Work tab.
-  const acceptAnyway = (s: Step) => (
-    <QuietPrompt label="Accept it anyway" className="subtle" yes="Accept it anyway"
+  const acceptAnyway = (s: Step, primary = false) => (
+    <QuietPrompt label="Accept it anyway" className={primary ? 'primary' : 'subtle'} yes="Accept it anyway"
       ask={`Accept the change although “${s.name}” did not pass? This records an exception in your name, with your reason; the check's result stays on the record.`}
       fields={[{ key: 'reason', placeholder: 'Why (required)', required: true, width: 260 }]}
       onYes={(v) => act(() => post(`/steps/${s.id}/override`, { user: currentUser(), reason: v.reason.trim() }))} />
@@ -146,7 +148,29 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
 
   let body: React.ReactNode = null
   let quiet: React.ReactNode = null
-  switch (next.primary) {
+  if (next.recovery && step && d) {
+    const chat = offered(d.next, 'rework')
+    const agent = chat && d.steps.find((s) => s.id === chat.stepId)
+    const sendBack = offered(view.next, 'send-back')
+    const fix = () => act(() => post(`/changes/${changeId}/sendback`, { note: recoveryNote(d) }))
+    const cls = (primary: boolean) => primary ? 'primary' : 'subtle'
+    const send = sendBack && <button className={cls(next.primary === 'send-back')} disabled={busy} onClick={fix}>Fix it</button>
+    const talk = agent && <button className={cls(next.primary === 'take-to-chat')} disabled={busy} onClick={() => takeToChat(agent)}>Take it to chat</button>
+    body = <div className="row ch-primary">
+      {next.primary === 'take-to-chat' ? <>{talk}{send}</> : <>{send}{talk}</>}
+      {d.next.filter((a) => a.act === 'retry' || a.act === 'override').map((a) => {
+        const target = d.steps.find((s) => s.id === a.stepId)
+        if (!target) return null
+        return <span key={`${a.act}-${a.stepId}`}>
+          {a.act === 'retry'
+            ? <button className={cls(next.primary === 'try-again' && target.id === step.id)} disabled={busy} onClick={() => rerun(target)}>{rerunLabel(target)}</button>
+            : acceptAnyway(target, next.primary === 'override' && target.id === step.id)}
+        </span>
+      })}
+      {offered(view.next, 'abandon') && abandon}
+    </div>
+    quiet = record(step)
+  } else switch (next.primary) {
     case 'approve': {
       if (step?.type !== 'approval' || !d || !run) break
       const toLand = isLandingApproval(view, step)
@@ -256,8 +280,10 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
       )
       quiet = <>{stopAttempt}</>
       break
+    case 'override':
+      break
     case 'open-decision':
-      body = <div className="row ch-primary"><Link className="btn primary" to={workTab()}>Open the decision</Link></div>
+      body = <div className="row ch-primary"><Link className="btn primary" to={workTab(next.step?.id ?? d?.pendingApproval)}>Open the decision</Link></div>
       quiet = <>{stopAttempt}</>
       break
     case 'land':
@@ -519,6 +545,17 @@ function FixIt({ changeId, note, onDone }: { changeId: string; note: string; onD
   )
 }
 
+// Recovery carries the recorded failure and requested actions in full to the agent.
+export function recoveryNote(d: NonNullable<ChangeView['detail']>): string {
+  return d.steps.filter((s) => s.stage === d.run.currentStage && ['fail', 'error', 'needs_human'].includes(s.status))
+    .map((s) => {
+      const ev = s.evidence as { reason?: string; actions?: string[]; summary?: string; findings?: string[]; log?: string; logTail?: string }
+      const words = [...new Set([ev.reason, ev.summary, ...(ev.findings ?? []), ev.log, ev.logTail, ...(ev.actions ?? [])].filter(Boolean))]
+      return `${s.name}:\n${words.join('\n')}`
+    })
+    .join('\n\n')
+}
+
 // OtherOptions: the acts besides the primary one, one click away, in one
 // quiet style on one line.
 function OtherOptions({ children }: { children: React.ReactNode }) {
@@ -561,7 +598,7 @@ function ReleaseRows({ view }: { view: ChangeView }) {
 // again. A person's retry starts a fresh allowance; history remains visible.
 function handoverState(view: ChangeView, next: NextStep): { headline: string; actions: string[]; attempts: string[] } | undefined {
   const d = view.detail
-  if (!d || d.run.status === 'abandoned' || next.tone === 'unknown') return undefined
+  if (!d || d.run.status === 'abandoned' || next.tone === 'unknown' || next.primary === 'open-decision') return undefined
   const steps = d.steps.filter((s) => s.stage === d.run.currentStage)
   const events = d.events ?? []
   const attempts = events.filter((e) => e.kind === 'step.rework').map((e) => {
@@ -572,12 +609,12 @@ function handoverState(view: ChangeView, next: NextStep): { headline: string; ac
   const lastRetry = events.map((e) => e.kind).lastIndexOf('step.retried')
   const rounds = events.slice(lastRetry + 1).filter((e) => e.kind === 'step.rework').length
   const held = steps.filter((s) => (s.status === 'needs_human' || s.status === 'error'))
-  const actions = held.flatMap((s) => s.evidence?.actions?.length ? s.evidence.actions : [`${s.name}: ${s.evidence?.reason || 'could not run. Open the work details and resolve the error, then try again.'}`])
+  const actions = held.flatMap((s) => s.evidence?.actions ?? [])
   const busy = steps.some((s) => s.type === 'agent/pi' && (s.status === 'pending' || s.status === 'running'))
   if (busy && !held.length) return { headline: `The agent is working on it${rounds ? ` (round ${Math.min(rounds, 3)} of 3)` : ''}`, actions, attempts }
-  if (held.length) return { headline: `Waiting for you: ${actions[0]}`, actions, attempts }
+  if (held.length) return { headline: `Waiting for you: ${held[0].name} needs your help`, actions, attempts }
   const failed = steps.find((s) => s.status === 'fail')
-  if (failed && rounds >= 3) return { headline: `Waiting for you: the agent tried 3 times; ${failed.name} still fails: ${failed.evidence?.reason || 'read what the check found'}. Take it to chat, or abandon it.`, actions, attempts }
+  if (failed && rounds >= 3) return { headline: `Waiting for you: the agent tried 3 times; ${failed.name} still fails: ${failed.evidence?.reason || 'read what the check found'}`, actions, attempts }
   if (failed) return { headline: `Waiting for you: ${failed.name} failed: ${failed.evidence?.reason || 'read what the check found'}`, actions, attempts }
   if (next.primary === 'approve') return { headline: `Waiting for ${next.waitingOn === 'you' ? 'you' : next.waitingOn || 'a person'}: approve this change`, actions, attempts }
   if (d.run.status === 'done') return { headline: 'Passed', actions, attempts }

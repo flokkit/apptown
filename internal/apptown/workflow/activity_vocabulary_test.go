@@ -47,8 +47,8 @@ func TestHeldRunsExplainTheDispatchHoldInEveryRead(t *testing.T) {
 		name, kind, next, nextKind, role, evidence, want string
 		state                                            StepState
 	}{
-		{"apply-change", "agent/pi", "boot", "preview", "working", `{"reason":"credentials are missing","actions":["Bind the secret in Settings","Confirm access"]}`, "apply-change (needs_human): credentials are missing. Bind the secret in Settings; Confirm access", StatusNeedsHuman},
-		{"guidance-conformance", "guidance/conformance", "scan-image:trivy", "scan", "landing", `{"reason":"required guidance is missing"}`, "guidance-conformance (fail): required guidance is missing. Send back, re-run the step, or override the failure.", StatusFail},
+		{"apply-change", "agent/pi", "boot", "preview", "working", `{"reason":"credentials are missing","actions":["Bind the secret in Settings","Confirm access"]}`, "apply-change (needs_human): credentials are missing", StatusNeedsHuman},
+		{"guidance-conformance", "guidance/conformance", "scan-image:trivy", "scan", "landing", `{"reason":"required guidance is missing"}`, "guidance-conformance (fail): required guidance is missing", StatusFail},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -70,7 +70,7 @@ func TestHeldRunsExplainTheDispatchHoldInEveryRead(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if detail.State != ActivityWaiting || detail.StateDetail != tc.want || listed[run.ID] != (Activity{State: ActivityWaiting, Detail: tc.want, Held: true}) || len(rows) != 1 || rows[0].State != detail.State || rows[0].StateDetail != tc.want {
+			if !detail.PendingApproval.IsZero() || detail.State != ActivityWaiting || detail.StateDetail != tc.want || listed[run.ID] != (Activity{State: ActivityWaiting, Detail: tc.want, Held: true}) || len(rows) != 1 || rows[0].State != detail.State || rows[0].StateDetail != tc.want {
 				t.Fatalf("detail %s %q, activities %+v, rows %+v; want waiting: %s", detail.State, detail.StateDetail, listed, rows, tc.want)
 			}
 			if ready, err := dispatchReady(context.Background(), db, storedStep(t, db, next)); err != nil || ready {
@@ -338,5 +338,38 @@ func TestAbandonIsOfferedOnlyToWhoMayAbandon(t *testing.T) {
 	}
 	if got := ChangeActs(&Change{State: ChangeInProgress}, blocked, false, true); !slices.Contains(got, NextAct{Act: nextAbandon}) {
 		t.Errorf("a reader who may abandon was offered %+v", got)
+	}
+}
+
+// The web needs the actual pending decision identity: "waiting on you" also
+// describes a held failure, including a failure before a later approval.
+func TestSnapshotNamesOnlyTheApprovalItWaitsOn(t *testing.T) {
+	t.Parallel()
+	q, run, approval := activityFixture(t)
+	svc := newService(q.db, allowProject(run.ProjectID), Runtime{})
+	detail, err := svc.Snapshot(context.Background(), run.ID, DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detail.PendingApproval != approval {
+		t.Fatalf("pending decision = %v, want %v", detail.PendingApproval, approval)
+	}
+	child, _ := activityChild(t, q.db, run, "inspect")
+	pending := insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: child.ID, Stage: "finish", Name: "child acceptance", Type: "approval", Status: StatusPending.String()})
+	detail, err = svc.Snapshot(context.Background(), run.ID, DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detail.PendingApproval != pending {
+		t.Fatalf("called decision = %v, want %v", detail.PendingApproval, pending)
+	}
+
+}
+
+func TestHoldDetailKeepsReasonWithoutInventingRecoveryOptions(t *testing.T) {
+	t.Parallel()
+	step := workflowActivityStep{name: "review-change", state: StatusFail, evidence: json.RawMessage(`{"reason":"reviewer rejected: The page never loaded.","actions":["Send back or override"]}`)}
+	if got, want := step.holdDetail(), "review-change (fail): reviewer rejected: The page never loaded."; got != want {
+		t.Fatalf("hold detail = %q, want %q", got, want)
 	}
 }
