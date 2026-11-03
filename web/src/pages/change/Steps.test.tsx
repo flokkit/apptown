@@ -22,18 +22,18 @@ describe('a decided approval', () => {
       id: STEP, runId: RUN, stage: 'approval', name: 'approve-landing', type: 'approval', status: 'pass', attempt: 1, overrideBy: '', config: { means: 'I am answerable' },
       evidence: {
         approver: 'bls', decision: 'approve', comment: '',
-        decisions: [{ approver: 'bls', decision: 'approve', adds: { base: 'b', head: 'h', digest: 'd', rows: [], readFrom: 'secrets, services and app parts', nothingNew: '', lines: [{ kind: 'added', text: 'Secrets: STRIPE_KEY' }] } }],
+        decisions: [{ approver: 'bls', decision: 'approve', adds: { base: 'b', head: 'h', digest: 'd', rows: [{ name: 'secrets', added: ['STRIPE_KEY'], removed: [] }, { name: 'services', added: [], removed: [] }, { name: 'app parts', added: [], removed: [] }], readFrom: 'secrets, services and app parts', nothingNew: '', lines: [{ kind: 'added', text: 'Secrets: STRIPE_KEY' }] } }],
       },
     } as unknown as Step
     const el = document.createElement('div')
     const root = createRoot(el)
     act(() => root.render(<QueryClientProvider client={newQueryClient()}><MemoryRouter>
-      <StepCard step={step} onChange={() => {}} expanded />
+      <StepCard step={step} onChange={() => {}} />
     </MemoryRouter></QueryClientProvider>))
     const saved = el.querySelector('.saved-adds')
     expect(saved?.textContent).toContain('shown to bls when approving')
-    expect(saved?.textContent).toContain('Secrets: STRIPE_KEY')
-    expect(saved?.textContent).toContain('Read from secrets, services and app parts')
+    expect(saved?.textContent).toContain('+ needs the secret STRIPE_KEY, which someone must set before it can run')
+    expect(saved?.textContent).toContain('Changes the app contract')
     act(() => root.unmount())
   })
 })
@@ -41,7 +41,7 @@ describe('a decided approval', () => {
 // A conformance step lists the checks the server read from its evidence, and
 // says so when it could not read them, never showing an empty or blank list.
 describe('a conformance step', () => {
-  const render = (checkReading: object, expanded = false) => {
+  const render = (checkReading: object) => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     const step = {
       id: STEP, runId: RUN, stage: 'check', name: 'guidance', type: 'guidance/conformance', status: 'pass', statusLabel: 'unknown', attempt: 1, overrideBy: '', config: {},
@@ -50,16 +50,15 @@ describe('a conformance step', () => {
     const el = document.createElement('div')
     const root = createRoot(el)
     act(() => root.render(<QueryClientProvider client={newQueryClient()}><MemoryRouter>
-      <StepCard step={step} onChange={() => {}} expanded={expanded} />
+      <StepCard step={step} onChange={() => {}} />
     </MemoryRouter></QueryClientProvider>))
     const text = el.textContent ?? ''
     act(() => root.unmount())
     return text
   }
-  it('keeps a passing step with readable checks to one line', () => {
+  it('shows a passing step with readable checks openly', () => {
     const text = render({ checks: [{ check: 'tidy', verdict: 'pass', statusLabel: 'passed', block: 'b', version: 1, evaluator: 'sh' }] })
-    expect(text).not.toContain('tidy')
-    expect(render({ checks: [{ check: 'tidy', verdict: 'pass', statusLabel: 'passed', block: 'b', version: 1, evaluator: 'sh' }] }, true)).toContain('tidy')
+    expect(text).toContain('tidy')
   })
   it('opens a passing step whose evidence could not be read, and says so', () => {
     const text = render({ unreadable: 'unreadable check evidence: check "tone": invalid check verdict: ""' })
@@ -158,8 +157,19 @@ it('labels the currently offered approval as waiting for you in Work', () => {
 it('holds the approval form while a check has failed', () => {
  const el = document.createElement('div'), root = createRoot(el), client = newQueryClient()
  const step = { id: STEP, runId: RUN, stage: 'check', name: 'accept', type: 'approval', status: 'pending', statusLabel: 'waiting for checks', overrideBy: '', evidence: {}, config: {} } as unknown as Step
- act(() => root.render(<QueryClientProvider client={client}><MemoryRouter><StepCard step={step} expanded failedCheck="Style" onChange={() => {}} /></MemoryRouter></QueryClientProvider>))
+ act(() => root.render(<QueryClientProvider client={client}><MemoryRouter><StepCard step={step} failedCheck="Style" onChange={() => {}} /></MemoryRouter></QueryClientProvider>))
  expect(el.textContent).toContain('Approval opens once the checks pass. “Style” failed')
  expect([...el.querySelectorAll('button')].some(b => b.textContent === 'Approve')).toBe(false)
  act(() => root.unmount()); client.clear()
+})
+
+it('holds a child decision while its checks are running', async () => {
+  const approval = { id: STEP, runId: CHILD, stage: 'check', name: 'accept', type: 'approval', status: 'pending', statusLabel: 'waiting for you', config: { means: 'I accept the complete child report.', instructions: 'Read its findings before accepting.' }, evidence: {}, overrideBy: '' } as unknown as Step
+  const check = { ...approval, id: 'check', name: 'tests', type: 'script', status: 'running', config: {} } as Step
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  client.setQueryData(getKey(`/runs/${CHILD}/trace`), { run: { status: 'running', currentStage: 'check' }, steps: [check, approval] })
+  act(() => root.render(<QueryClientProvider client={client}><MemoryRouter><ChildRunSteps childId={CHILD} workflow="child" live onChange={() => {}} /></MemoryRouter></QueryClientProvider>))
+  expect(el.textContent).toContain('Checks are running; you can accept when they finish.')
+  expect(el.querySelector('.decision-form')).toBeNull()
+  act(() => root.unmount()); client.clear()
 })

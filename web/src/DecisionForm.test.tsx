@@ -78,10 +78,10 @@ describe('the decision bar', () => {
 describe('what the change adds', () => {
   const question = {
     step: 'accept', status: 'pending', means: 'I read it', instructions: '', landingMeans: [],
-    adds: { base: 'b', head: 'h', digest: 'd1', rows: [], readFrom: 'secrets, services and app parts', nothingNew: '',
+    adds: { base: 'b', head: 'h', digest: 'd1', rows: [{ name: 'secrets', added: ['STRIPE_KEY'], removed: [] }, { name: 'services', added: [], removed: [] }, { name: 'app parts', added: ['part worker'], removed: [] }], readFrom: 'secrets, services and app parts', nothingNew: '',
       lines: [{ kind: 'added', text: 'Secrets: STRIPE_KEY' }, { kind: 'unknown', text: 'App parts: unknown, .apptown/app.yaml at h does not parse' }] },
   }
-  const mount = async (answer: unknown) => {
+  const mount = async (answer: unknown, compact = false) => {
     const sent: { url: string; body: Record<string, unknown> }[] = []
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).endsWith('/question')) return new Response(JSON.stringify(answer))
@@ -91,25 +91,29 @@ describe('what the change adds', () => {
     const el = document.createElement('div')
     const root = createRoot(el)
     await act(async () => {
-      root.render(<QueryClientProvider client={newQueryClient()}><DecisionForm stepId={STEP} means="I read it" onDone={() => {}} /></QueryClientProvider>)
+      root.render(<QueryClientProvider client={newQueryClient()}><DecisionForm compact={compact} stepId={STEP} means="I read it" onDone={() => {}} /></QueryClientProvider>)
     })
     await settle()
     return { el, sent, done: () => { act(() => root.unmount()); vi.unstubAllGlobals() } }
   }
   const button = (el: HTMLElement, label: string) => [...el.querySelectorAll('button')].find((b) => b.textContent === label)!
 
-  it('is shown above the decision, naming what was read', async () => {
-    const { el, done } = await mount(question)
+  it.each([false, true])('shows contract changes and their meaning before parent or child decisions (compact=%s)', async compact => {
+    const { el, done } = await mount(question, compact)
     const section = el.querySelector('.adds')!
-    expect(section.textContent).toContain('This change adds')
-    expect(section.textContent).toContain('Approving accepts these into the app. Read from secrets, services and app parts.')
-    expect([...section.querySelectorAll('li')].map((li) => li.className)).toEqual(['small adds-added', 'small adds-unknown'])
+    expect(section.textContent).toContain('Changes the app contract')
+    expect(section.textContent).toContain('+ needs the secret STRIPE_KEY, which someone must set before it can run')
+    await act(async () => section.querySelector<HTMLButtonElement>('button')!.click())
+    expect(section.textContent).toContain('AppTown supplies exactly what it asks for.')
+    expect(el.textContent).toContain('and the app contract changes above')
+    expect([...section.querySelectorAll('li')].map((li) => li.className)).toEqual(['small adds-added', 'small adds-added'])
     done()
   })
 
-  it('omits the additions box when nothing is new', async () => {
-    const { el, done } = await mount({ ...question, adds: { ...question.adds, lines: [], nothingNew: 'Nothing new in secrets, services or app parts' } })
+  it('shows the scope read even when nothing is new', async () => {
+    const { el, done } = await mount({ ...question, adds: { ...question.adds, rows: question.adds.rows.map(r => ({ ...r, added: [] })), lines: [], nothingNew: 'Nothing new in secrets, services or app parts' } })
     expect(el.querySelector('.adds')).toBeNull()
+    expect(el.textContent).not.toContain('and the app contract changes above')
     done()
   })
 
@@ -134,4 +138,34 @@ describe('what the change adds', () => {
     expect(button(el, 'Approve').disabled).toBe(true)
     expect(button(el, 'Reject').disabled).toBe(false)
   })
+})
+
+it('shows full meaning and instructions even inside a child decision', () => {
+  const html = renderToStaticMarkup(<QueryClientProvider client={newQueryClient()}>
+    <DecisionForm compact stepId={STEP} means="I accept the entire report" alsoMeans={['Merge this change']} instructions="Read the report first" onDone={() => {}} />
+  </QueryClientProvider>)
+  expect(html).toContain('I accept the entire report')
+  expect(html).toContain('Merge this change')
+  expect(html).toContain('Read the report first')
+  expect(html).not.toContain('font-style:italic')
+})
+
+it('brings the recorded acceptance meaning on screen before casting an overview decision', async () => {
+  const sent: unknown[] = []
+  vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => { if (init?.body) sent.push(init.body); return new Response('{}') }))
+  const el = document.createElement('div'), root = createRoot(el), client = newQueryClient()
+  await act(async () => root.render(<QueryClientProvider client={client}><DecisionForm overview stepId={STEP} means="I read it" onDone={() => {}} approveLabel="Accept and put live" /></QueryClientProvider>))
+  await settle()
+  const meaning = el.querySelector<HTMLElement>('.decision-meaning')!
+  const scroll = vi.fn(); meaning.scrollIntoView = scroll
+  const bounds = vi.spyOn(meaning, 'getBoundingClientRect').mockReturnValue({ top: 900, bottom: 1000 } as DOMRect)
+  const accept = el.querySelector<HTMLButtonElement>('.ch-decision-choices button')!
+  await act(async () => accept.click())
+  expect(sent).toHaveLength(0)
+  expect(scroll).toHaveBeenCalled()
+  expect(el.querySelector('[role=status]')?.textContent).toContain('Read what accepting records')
+  bounds.mockReturnValue({ top: 300, bottom: 350 } as DOMRect)
+  await act(async () => accept.click())
+  expect(sent).toHaveLength(1)
+  act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
 })

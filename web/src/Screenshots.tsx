@@ -44,17 +44,19 @@ function Thumb({ id, label, onOpen }: { id: string; label: string; onOpen: (src:
   )
 }
 
-export function Screenshots({ shots, head, at }: { shots?: PreviewScreenshots; head?: string; at?: string }) {
+export function Screenshots({ shots, head, at, unfolded = false, hero = false }: { hero?: boolean; unfolded?: boolean; shots?: PreviewScreenshots; head?: string; at?: string }) {
   const [open, setOpen] = useState<{ src: string; label: string } | null>(null)
   if (!shots) return null
-  const taken = shots.shots ?? []
+  const Resources = unfolded ? 'section' : 'details'
+  const Heading = unfolded ? 'p' : 'summary'
+  const taken = hero ? [...(shots.shots ?? [])].sort((a, b) => Number(b.view === 'desktop') - Number(a.view === 'desktop')) : shots.shots ?? []
   const cmp = sameCommitWords(shots.commit, head)
   return (
-    <div className="ch-shots">
-      <div className="ch-label">What the preview looked like</div>
+    <div className={hero ? "ch-shots ch-shots-hero" : "ch-shots"}>
+      {!hero && <div className="ch-label">What the preview looked like</div>}
       {taken.length > 0 && (
         <>
-          <div className="muted small">
+          <div className={hero && cmp.kind === 'same' ? "ch-shot-provenance muted small" : "muted small"}>
             Taken by {PRODUCT} from commit <code>{(shots.commit ?? '').slice(0, 7) || 'unknown'}</code>{at ? ` at ${fmtStamp(at)}` : ''}: {' '}
             <span className={cmp.kind === 'different' ? 'warn' : undefined}>{cmp.text}.</span>
           </div>
@@ -63,10 +65,10 @@ export function Screenshots({ shots, head, at }: { shots?: PreviewScreenshots; h
           </div>
         </>
       )}
-      {!!shots.failedResources?.length && <details className="warn small">
-        <summary>{count(shots.failedResources.length + (shots.failedResourcesMore ?? 0), 'resource')} failed to load</summary>
+      {!!shots.failedResources?.length && <Resources className="warn small">
+        <Heading>{count(shots.failedResources.length + (shots.failedResourcesMore ?? 0), 'resource')} failed to load</Heading>
         <ul>{shots.failedResources.map((r, i) => <li key={i}>{r.path} · {r.view} · {r.type}: {r.url} — {r.status ?? r.error}</li>)}{!!shots.failedResourcesMore && <li>and {shots.failedResourcesMore} more</li>}</ul>
-      </details>}
+      </Resources>}
       {shots.unavailable && <div className="error small">Screenshots could not be taken: {shots.unavailable}</div>}
       {(shots.missing?.length ?? 0) > 0 && <div className="muted small">Not pictured: {shots.missing!.join('; ')}</div>}
       {(shots.ignored?.length ?? 0) > 0 && <div className="muted small">Pages named but not on the preview: {shots.ignored!.join(', ')}</div>}

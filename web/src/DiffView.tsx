@@ -64,12 +64,14 @@ export function parseUnifiedDiff(raw: string): DiffFile[] {
   return files.filter((x) => x.path || x.lines.length > 0)
 }
 
-export default function DiffView({ raw }: { raw: string }) {
+export default function DiffView({ raw, unfolded = false }: { raw: string; unfolded?: boolean }) {
   const files = useMemo(() => parseUnifiedDiff(raw), [raw])
   if (files.length === 0) return <div className="muted small">(empty diff)</div>
   const totalAdds = files.reduce((n, f) => n + f.adds, 0)
   const totalDels = files.reduce((n, f) => n + f.dels, 0)
 
+  const File = unfolded ? 'section' : 'details'
+  const Heading = unfolded ? 'div' : 'summary'
   return (
     <div style={{ marginTop: 8 }}>
       <div className="row" style={{ marginBottom: 8 }}>
@@ -81,13 +83,13 @@ export default function DiffView({ raw }: { raw: string }) {
         ))}
       </div>
       {files.map((f) => (
-        <details key={f.path} id={`diff-${f.path}`} className="diff-file" open={f.lines.length <= 400}>
-          <summary>
+        <File key={f.path} id={`diff-${f.path}`} className="diff-file" open={unfolded ? undefined : f.lines.length <= 400}>
+          <Heading className="diff-heading">
             <span className="badge">{f.status}</span>
             <code>{f.status === 'renamed' ? `${f.oldPath} → ${f.path}` : f.path}</code>
             <span className="small" style={{ color: 'var(--ok)' }}>+{f.adds}</span>
             <span className="small" style={{ color: 'var(--bad)' }}>−{f.dels}</span>
-          </summary>
+          </Heading>
           {f.status === 'binary'
             ? <div className="muted small" style={{ padding: 8 }}>binary file</div>
             : (
@@ -106,7 +108,7 @@ export default function DiffView({ raw }: { raw: string }) {
                 </table>
               </div>
             )}
-        </details>
+        </File>
       ))}
     </div>
   )

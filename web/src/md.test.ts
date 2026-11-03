@@ -91,3 +91,11 @@ describe('Markdown image resources', () => {
     expect(el.querySelector('source,picture,svg,video')).toBeNull()
   })
 })
+
+it('shows embedded disclosures as open sections when the change page requests it', () => {
+  const text = '<details><summary>Recorded commands</summary><p>npm test</p><details><summary>Result</summary><p>Passed</p></details></details>'
+  const el = document.createElement('div'); el.innerHTML = renderMd(text, true)
+  expect(el.querySelector('details, summary')).toBeNull()
+  expect(el.textContent).toBe('Recorded commandsnpm testResultPassed')
+  expect(renderMd(text)).toContain('<details>')
+})

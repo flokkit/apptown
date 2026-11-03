@@ -39,12 +39,18 @@ func TestChangeDetailExplainsDraftsAndRecordedAbandonment(t *testing.T) {
 			var got struct {
 				State, StateDetail string
 				Detail             *struct{ State, StateDetail string }
+				Change             struct{ AbandonedBy string }
 			}
 			if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil || w.Code != 200 {
 				t.Fatalf("detail: %d %s %v", w.Code, w.Body.String(), err)
 			}
 			if got.State != state || got.StateDetail != want {
 				t.Fatalf("explanation: %+v; want %q / %q", got, state, want)
+			}
+			if kind == "closed draft" || kind == "closed run" {
+				if got.Change.AbandonedBy != "bls" {
+					t.Fatalf("abandonment actor: %q", got.Change.AbandonedBy)
+				}
 			}
 			if withRun && (got.Detail == nil || got.Detail.State != state || got.Detail.StateDetail != want) {
 				t.Fatalf("run explanation: %+v", got.Detail)

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { TechnicalDetailMark, TechnicalDetailSwitch } from './pages/change/TechnicalDetail'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { post } from './api'
 import { usePageContext } from './chrome'
@@ -112,10 +113,10 @@ export function AccountCorner({ me }: { me: Me | null }) {
   const name = me?.user || 'Account'
   return (
     <details className="account-corner">
-      <summary aria-label="Account menu"><span className="account-avatar" aria-hidden>{name.slice(0, 1).toUpperCase()}</span><span className="account-name" title={name}>{name}</span></summary>
+      <summary aria-label="Account menu"><span className="account-avatar" aria-hidden>{name.slice(0, 1).toUpperCase()}</span><span className="account-name" title={name}>{name}</span><TechnicalDetailMark /></summary>
       <div>
         <Link to="/account">Your account</Link>
-        <ThemeSwitch />
+        <div className="account-switches"><ThemeSwitch /><TechnicalDetailSwitch /></div>
         {me?.mode === 'internal' && <button className="subtle" onClick={() => post('/auth/logout').then(() => location.reload())}>Sign out</button>}
       </div>
     </details>

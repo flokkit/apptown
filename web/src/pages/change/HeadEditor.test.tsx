@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { ChangeView } from '../../api'
 import { newQueryClient } from '../../data'
-import { ChangeBrief } from './Head'
+import { RequestEntry } from './Head'
 
 // Record ids are UUIDv7 strings.
 const CHANGE = '00000000-0005-7000-8000-000000000000'
@@ -34,7 +34,7 @@ function mount(answer: () => Response) {
   const el = document.createElement('div')
   const root = createRoot(el)
   const render = (v: ChangeView, current = true) => act(async () => {
-    root.render(<QueryClientProvider client={client}><ChangeBrief view={v} current={current} reload={() => {}} /></QueryClientProvider>)
+    root.render(<QueryClientProvider client={client}><RequestEntry view={v} current={current} reload={() => {}} /></QueryClientProvider>)
   })
   const button = (text: string) => [...el.querySelectorAll('button')].find((b) => b.textContent === text)
   const textarea = () => el.querySelector('textarea') as HTMLTextAreaElement

@@ -56,14 +56,36 @@ show `last seen <age>`; fresh readings show `checked <age>`. Integration chips
 carry state while adjacent text carries age once. The server classifies fresh,
 old and unknown; the browser formats ages without duplicating expiry thresholds.
 Low disk is an amber warning. An exception remains excepted.
-The word stays visible. Reasons and check times use a disclosure that opens with
-a tap, click or keyboard. Help opens beside its chip, stays within the viewport and does not resize the table. Only one status help is open at a time; tapping outside or pressing Escape closes it. Static chips are not live regions. A completed backup remains finished when its old
+The word stays visible. Outside change pages, reasons and check times use a
+disclosure that opens with a tap, click or keyboard. Help opens beside its chip, stays within the viewport and does not resize the table. Only one status help is open at a time; tapping outside or pressing Escape closes it. Static chips are not live regions. A completed backup remains finished when its old
 stored copy is pruned. A guidance/conformance step with unmet blocking rules displays failed even when
 the gate permits existing failures; its recorded gate outcome stays unchanged.
 Checks marked non-gating remain advisory and do not change a passing step’s
 state. A tests step with no reported test count shows an explicit unknown marker
 with the reason, including on a folded card. An omitted gating flag means blocking. Script and scan steps retain
 their recorded outcome.
+
+Change pages show help without disclosures. The decision screen shows the app-contract
+comparison from the approval question whose digest the vote submits, including
+known changes alongside unread declarations or starting commits. Overview's
+Next steps and decision screen keep the offered Continue action and Stop this
+attempt beside the other controls. Details keeps conflict catch-up commands and
+the complete state account beside the run history. Details groups the chronological
+record into Work cards, one per round, and Landing cards, one per attempt,
+followed by About this change. A sent-back round names the person and their note.
+Each event has fixed time, label, facts and action columns. Dates appear only
+when the day changes. On phones, time sits above the label, facts use the full
+width and actions follow. Checks use an aligned title, result, duration and action
+table inside their phase. Check actions share one line; produced records link beside the result. Failures retain their reason and any recorded action that would satisfy them. Run-level work shows its changed-file count when available, with session and code links; missing output says “no report”. Session links open a separate work record at `/changes/:id/work/:stepId`, with the run and attempt in the query string. It shows recorded inputs, the retained agent-log summary in order, produced files and records, and change-level worker chats. Unknown facts use — or not recorded; the header omits missing facts. Each section keeps at most one muted context line. Workflow facts omit empty separators. File counts from the committed diff are labelled as whole-change counts. Only Technical detail shows the trace JSON. Agent work rows link Code to the whole change and keep session evidence on the work record page.
+Evidence links stay on the row that produced the evidence; plain links open the
+record in place. Attach a record ends the Work card. About this change contains
+only valued Branch, Started from, Kind, Cost and Attachments rows, with an attach
+a file link when allowed. Workflow names and versions appear as technical detail
+inside the event facts. Empty rows and sections are omitted. Overview shows the
+request's first line and links to its full text in Details. Long reports and
+reviewer conclusions also link to their full evidence.
+Overview counts not-applicable checks as fine and omits them; their reasons stay in Details. Conversation action summaries
+are plain text; the Show agent actions switch reveals their commands and files.
 Security results from before a change to main cannot claim main has passed.
 
 The authorization response exposes `actorId` only for a verified person with a
@@ -171,4 +193,48 @@ counts; red failed labels describe checks that could not run. The attention
 header keeps the condition count beside the number of sources not known. Backup history, activity, job groups, change events and departures
 start with a bounded selection and offer the next ten records. Successful jobs
 with the same operation and subject collapse; failures and open jobs stay apart.
-The change page keeps its evidence on Work, after the tab navigation.
+The change page keeps its full evidence in Details, after the tab navigation.
+
+The Conversation tab and chat view show the person's messages and the agent's
+text replies, including its final report. Agent actions fold into quiet summaries
+between replies. Each summary opens only its own run. “Show agent actions” opens
+all actions in record order; the browser remembers the choice for each viewer.
+The switch works when browser storage is unavailable. Full tool results remain
+reachable in the chat terminal and the change's recorded agent activity.
+Overview has two bordered cards: The change and an action card. The change uses
+shared label, value and evidence-link columns, with preview thumbnails first,
+followed by the request, report, checks, reviewer when present and app contract
+when checked and changed. Without a report, the latest chat reply appears as
+“The agent says”, with its first few lines and a full conversation link. Only an
+empty report and empty chat show “No report from the agent”. Before any checks
+run, the check row says “Not checked yet. Checks run when you press Check and
+land.” Unread app-contract comparisons do not create a separate heading then. Once checks start, unfinished checks and an unread app contract share one “Still running” line. Failed checks show their title and the first sentence of the recorded finding, with a Details link; evaluator instructions stay out of the summary. Commands appear only under Technical detail.
+On phones, each label sits above its value and evidence link. Failures,
+exceptions and unknown results remain visible with what would satisfy them.
+Grey trailers link to addressable phase entries or Code; browser Back returns
+to Overview. The Technical detail switch adds tool names, workflow, run, branch,
+commit, model and cost as grey second lines inside facts, without moving columns.
+Hidden words leave no blank gap. The choice is remembered per viewer and works
+without browser storage.
+
+The context card is “Your decision” when an eligible approval waits for the viewer,
+and “Next steps” otherwise. For the viewer's turn, the context card shows what is
+ready, failed checks and the acceptance meaning without its own buttons. The
+prototype Decision switch beside Technical detail selects a bar or floating
+Decide… button, remembered per browser. Both appear on every change tab only
+while it is the viewer's turn. The pinned bar aligns with the content column,
+leaves the sidebar usable and reserves its measured height below the page.
+Phones use one equal-width row: Accept, Chat, Rework, Abandon. Desktop uses full
+labels; acceptance says Accept when releases are manual, otherwise Accept and
+put live. Bar choices open a confirmation for that choice with the full meaning.
+The floating button opens a decision screen with the readiness, checks and
+acceptance meaning before four equal buttons: Accept, Go to chat, Rework with
+comment, Abandon change, using the full acceptance label. It fills the screen on
+phones. Closing returns to the same tab and scroll position. Acceptance is
+primary, abandonment red and the other choices secondary. Rework requires a
+comment; abandonment and stopping a landing for chat retain their confirmations.
+Step recovery operations remain beside their steps in Details. Existing changes
+do not offer Run a workflow. Request-started changes with no chat show the request and agent
+report as conversation messages.
+Approvals appear in the decision card. A placeholder summary (“Project work”)
+uses the agent's change report. The change section links its diffstat to Code.

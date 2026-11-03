@@ -80,18 +80,20 @@ and steps aside while you type.
 
 ## The change page
 
-`web/src/pages/ChangePage.tsx` leads with what the change is
-(title, project, when and under which workflow it opened, one line of the
-request and summary); its state, with one primary action for the viewer or
-the person or thing it waits on (`pages/change/next.ts` derives this from the
-page's payload, and a failed refresh shows the answer as not current); and tabs
-addressed by `?tab=` (changes, work, conversation, releases, history, about;
-`&run=` and `&step=` open a run and a step in Work). Work leads with the current work and keeps
-the evidence, merge and release receipts in its Evidence disclosure. History
-groups repeated events while retaining every event and timestamp in Details.
-A failed machine verdict
-in the current stage is shown beside the implementer's claim as "the
-disagreement", on the first screen, as `apptown show` prints it.
+`web/src/pages/ChangePage.tsx` leads with the change's title and current state,
+with one primary action for the viewer (`pages/change/next.ts` derives this from
+the page's payload; a failed refresh shows the answer as not current). The four
+tabs are Overview, Code, Conversation and Details. Overview contains the report,
+request's first line, checks and acceptance controls. Code contains the diff.
+Conversation contains messages and the switch for showing agent actions.
+
+Details tells the change's story as one chronological timeline, including earlier
+runs and abandoned landings. Each entry has its time on the right and plain links
+that open its evidence inline. Records attach to their producing entry; actions
+sit on the entry they affect. A small facts table follows. Full request text and
+its guarded editor live on the request entry. Empty sections and workflow labels
+are omitted from the timeline; workflow names and versions belong in the facts.
+`&run=` and `&step=` address evidence in Details.
 
 ## Remaining design
 

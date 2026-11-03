@@ -1,12 +1,12 @@
+import { shortName } from '../newProject/draft'
 import { Status } from '../../Status'
 import { useEffect, useRef, useState } from 'react'
-import { Section } from '../../Section'
 import type { ChangeAttachment } from '../../wire.gen'
 import { renderMd } from '../../md'
 import DiffView from '../../DiffView'
 import { ChangeView, HttpError, Run, del, patch, post } from '../../api'
 import { closedNothingToChange } from '../../states'
-import { fmtCost, fmtStamp, fmtTokens } from '../../format'
+import { fmtStamp } from '../../format'
 import { useAction, useGet, useGetText } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 
@@ -36,17 +36,24 @@ export function shortDiffstat(stat?: string): string {
 
 // The page's head: what this change is — its title, its state, who asked
 // for it (when the record says), when it was opened and how big it is. The
-// request, the summary and the attachments are in the About tab.
-export function ChangeHeader({ view }: { view: ChangeView }) {
+// request and summary are on Overview; editing and attachments are in Details.
+export function changeTitle(ch: ChangeView['change']): string {
+  const title = ch.title.trim()
+  const request = ch.body?.trim() ?? ''
+  const copied = title.replace(/[…]+$|\.\.\.$/g, '').trim()
+  return request && copied.length > 35 && request.startsWith(copied) ? shortName(request) || title : title
+}
+
+export function ChangeHeader({ view, compact }: { view: ChangeView; compact?: boolean }) {
   const ch = view.change
   return (
     <header className="ch-head">
       <div className="ch-title-row">
-        <h1>{ch.type === 'uplift' ? 'Update this app’s way of working' : ch.title}</h1>
-        <Status word={view.statusLabel} />
+        <h1><span className="ch-number">Change #{ch.number}:</span> {changeTitle(ch)}</h1>
+        {!compact && <Status word={view.statusLabel} />}
         {ch.provenance && <span className="badge" title="Adopted from an outside branch: history reconstructed from commits, not witnessed as it happened.">{ch.provenance}</span>}
       </div>
-      <div className="ch-byline">
+      {!compact && <div className="ch-byline">
         {[
           ch.openedBy && `Asked by ${ch.openedBy}`,
           `Opened ${fmtStamp(ch.createdAt)}`,
@@ -54,9 +61,28 @@ export function ChangeHeader({ view }: { view: ChangeView }) {
           shortDiffstat(view.diffstat),
           ch.externalRef,
         ].filter(Boolean).join(' · ')}
-      </div>
+      </div>}
     </header>
   )
+}
+
+export function changeReport(view: ChangeView, plainFirst = false): string | undefined {
+  // The written summary is for people; the agent's own report is for engineers. Overview asks for the summary first.
+  return (plainFirst ? [view.change.summary, view.report] : [view.report, view.change.summary]).find(text => text?.trim()
+    && !/^project work[.!]?$/i.test(text.trim())
+    && ![view.change.body?.trim(), view.change.title?.trim()].includes(text.trim()))
+
+}
+
+// Keep the existing automatic summary request for a waiting acceptance.
+// It belongs to the page so moving between tabs does not ask again.
+export function useChangeSummary(changeId: string | undefined, needed: boolean) {
+  const asked = useRef<string>()
+  useEffect(() => {
+    if (!changeId || !needed || asked.current === changeId) return
+    asked.current = changeId
+    post(`/changes/${changeId}/distill`, {}).catch(() => { /* A missing summary makes no claim about the change. */ })
+  }, [changeId, needed])
 }
 
 // What this change is for, in full: the request (editable), where it is up
@@ -66,8 +92,10 @@ export function ChangeHeader({ view }: { view: ChangeView }) {
 // on an answer the page read itself, keeps the draft while the page polls,
 // saves only what changed with the revision it started from, and on a
 // conflict shows the current text and lets the person choose.
-export function ChangeBrief({ view, current = true, reload }: { view: ChangeView; current?: boolean; reload: () => void }) {
+export function RequestEntry({ view, current = true, reload }: { view: ChangeView; current?: boolean; reload: () => void }) {
   const ch = view.change
+  // The request is fixed once work starts: it is what the work was asked to do. Only the ticket link stays editable.
+  const started = !!view.detail
   const [editing, setEditing] = useState(false)
   const [base, setBase] = useState<{ brief: Brief; revision: number } | null>(null)
   const [draft, setDraft] = useState<Brief>({ body: '', externalRef: '' })
@@ -101,27 +129,19 @@ export function ChangeBrief({ view, current = true, reload }: { view: ChangeView
     setConflict(false); setSaveErr('')
   }
   const discard = () => { setEditing(false); setConflict(false); setSaveErr('') }
-  const emptyCommitted = view.committedDiff?.status === 'empty'
-  const soFar = emptyCommitted ? view.committedDiff?.message : ch.summary || view.report
-  const { run: distill, busy: distilling, err: distillErr } = useAction()
-  const redistill = () => distill(() => post(`/changes/${ch.id}/distill`, {}))
-  const u = view.usage
   return (
-    <div>
-      <Section title="Request" action={
-        <button className="link" disabled={!editing && !current} onClick={() => (editing ? discard() : open())}
-          title={!editing && !current ? 'reading the current change before editing' : undefined}>
-          {editing ? 'Cancel' : 'Edit'}
-        </button>}>
-        {!editing && (ch.body
-          ? <div className="ch-request">{ch.body}</div>
-          : <p className="muted">No request text was written; the title is the request.</p>)}
-        {!editing && ch.externalRef && <p className="muted small">External reference: {ch.externalRef}</p>}
+    <div id="request">
+      <div className="ch-story-line">
+        <span>{ch.openedBy ? `by ${ch.openedBy}` : 'Requested'}: “{firstLine(ch.body || ch.title)}”</span><button className="link" disabled={!editing && !current} onClick={() => (editing ? discard() : open())}>{editing ? 'Cancel' : started ? (ch.externalRef ? 'Edit ticket link' : 'Add ticket link') : 'Edit'}</button>
+        <time dateTime={ch.createdAt}>{fmtStamp(ch.createdAt)}</time>
+      </div>
+      {!editing && (ch.body || ch.title) !== firstLine(ch.body || ch.title) && <div className="ch-request">{ch.body || ch.title}</div>}
+      {!editing && ch.externalRef && <p className="muted small">Ticket: {ch.externalRef}</p>}
         {editing && (
           <div style={{ padding: '12px 0' }}>
-            <textarea rows={4} style={{ width: '100%' }} value={draft.body} disabled={saving} aria-label="what was asked for" onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))} />
+            {!started && <textarea rows={4} style={{ width: '100%' }} value={draft.body} disabled={saving} aria-label="what was asked for" onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))} />}
             <div className="row" style={{ marginTop: 6, flexWrap: 'wrap' }}>
-              <input placeholder="External reference (ticket key or link)" value={draft.externalRef} disabled={saving} onChange={(e) => setDraft((d) => ({ ...d, externalRef: e.target.value }))} />
+              <input placeholder="Ticket key or link" value={draft.externalRef} disabled={saving} onChange={(e) => setDraft((d) => ({ ...d, externalRef: e.target.value }))} />
               <button className="primary" onClick={save} disabled={saving || conflict}>{saving ? 'Saving…' : 'Save'}</button>
               {saveErr && !conflict && <span className="error small">{saveErr}</span>}
             </div>
@@ -139,27 +159,6 @@ export function ChangeBrief({ view, current = true, reload }: { view: ChangeView
             )}
           </div>
         )}
-      </Section>
-
-      <Section title="Summary"
-        note={!soFar ? undefined : emptyCommitted ? 'From the committed diff.' : ch.summary ? 'An AI summary of the recorded work.' : "The agent's latest change report."}
-        action={<button className="link" onClick={redistill} disabled={distilling}
-          title="Write the summary from the current evidence">{distilling ? 'Writing…' : soFar ? 'Write it again' : 'Write summary'}</button>}>
-        {distillErr && <p className="error small">The summary could not be written: {distillErr}</p>}
-        {soFar ? <div style={{ padding: '12px 0' }}><SoFarNote text={soFar} /></div> : <p className="muted">No summary yet.</p>}
-      </Section>
-
-      <Attachments changeId={ch.id!} readOnly={ch.state === 'shipped' || ch.state === 'abandoned'} />
-
-      <Section title="Details">
-        <dl className="ch-facts">
-          {ch.branch && <><dt>Branch</dt><dd><code>{ch.branch}</code></dd></>}
-          {ch.baseSha && <><dt>Started from</dt><dd><code>{ch.baseSha.slice(0, 12)}</code></dd></>}
-          {ch.landedSha && <><dt>Landed as</dt><dd><code>{ch.landedSha.slice(0, 12)}</code></dd></>}
-          <dt>Kind</dt><dd>{ch.type}</dd>
-          <dt>Cost so far</dt><dd>{u != null && u.total > 0 ? <>{fmtTokens(u.total)} tokens{u.costMicros > 0 && <> · {fmtCost(u.costMicros)}</>}</> : 'No model usage recorded.'}</dd>
-        </dl>
-      </Section>
     </div>
   )
 }
@@ -183,16 +182,15 @@ export function Attachments({ changeId, readOnly }: { changeId: string; readOnly
   if (readOnly && itemsQ.data && items.length === 0 && !itemsQ.refreshFailed) return null
   const attach = !readOnly && (
     <label className="link ch-attach">
-      Attach a file
+      attach a file →
       <input type="file" style={{ display: 'none' }} disabled={busy}
         onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
     </label>
   )
   return (
-    <Section title="Attachments" count={items.length || undefined} action={attach || undefined}>
+    <tr><th scope="row">Attachments</th><td>{attach}
       <ReadStatus q={itemsQ} what="the attachments" className="small" />
       <StaleNote q={itemsQ} />
-      {itemsQ.data && items.length === 0 && <p className="muted">No attachments.</p>}
       {items.map((i) => (
         <div key={i.name} className="card row" style={{ display: 'flex' }}>
           <a style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }} href={`/api/v1/changes/${changeId}/attachments/${encodeURIComponent(i.name)}`} target="_blank" rel="noreferrer">{i.name}</a>
@@ -201,7 +199,7 @@ export function Attachments({ changeId, readOnly }: { changeId: string; readOnly
         </div>
       ))}
       {err && <p className="error small">{err}</p>}
-    </Section>
+    </td></tr>
   )
 }
 
@@ -246,15 +244,14 @@ export function ChangesTab({ view, run }: { view: ChangeView; run?: Run }) {
 // The latest run's own diff and workspace: what the run's workspace holds,
 // which can differ from the committed diff while work is under way.
 function RunDiff({ runId, number }: { runId: string; number: number }) {
-  const [open, setOpen] = useState(false)
   return (
-    <details onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
-      <summary>The latest run's workspace (run {number})</summary>
+    <section>
+      <h4>The latest run's workspace (run {number})</h4>
       <div className="row" style={{ marginBottom: 6 }}>
         <a href={`/api/v1/runs/${runId}/workspace/`} target="_blank" rel="noreferrer" className="btn">Browse the workspace ↗</a>
       </div>
-      {open && <RunDiffBody runId={runId} />}
-    </details>
+      <RunDiffBody runId={runId} />
+    </section>
   )
 }
 
@@ -281,30 +278,17 @@ function DiffBlock({ path, what, empty }: { path: string; what: string; empty: s
       ? <div className="muted small">{empty}</div>
       : !diff.startsWith('diff --git')
         ? <pre className="log" style={{ maxHeight: 200, marginTop: 8 }}>{diff}</pre>
-        : <div style={{ maxHeight: 560, overflowY: 'auto' }}><DiffView raw={diff} /></div>}
+        : <div style={{ maxHeight: 560, overflowY: 'auto' }}><DiffView raw={diff} unfolded /></div>}
   </>
 }
 
-// SoFarNote: long notes clip at a sentence boundary and expand IN PLACE —
-// never a mid-word cut, never the same text rendered twice.
-export function SoFarNote({ text }: { text: string }) {
-  const [open, setOpen] = useState(false)
-  let cut = text.length
-  if (text.length > 520) {
-    const window = text.slice(280, 520)
-    const dot = window.search(/[.!?]\s/)
-    cut = dot >= 0 ? 280 + dot + 1 : 440
-  }
-  const clipped = cut < text.length
-  const shown = open || !clipped ? text : text.slice(0, cut)
-  return (
-    <div>
-      <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(shown) }} />
-      {clipped && (
-        <button className="subtle" style={{ marginTop: 4 }} onClick={() => setOpen(!open)}>
-          {open ? '− show less' : '+ read the rest'}
-        </button>
-      )}
-    </div>
-  )
+// Overview excerpts link to the complete text in Details.
+export function SoFarNote({ text, href, label = 'Read the full report →', plain = false }: { plain?: boolean; text: string; href?: string; label?: string }) {
+  const lines = text.split('\n')
+  const clipped = !!href && (text.length > 520 || lines.length > 4)
+  const shown = clipped ? lines.slice(0, 4).join('\n').slice(0, 520) + '…' : text
+  return <div>
+    <>{plain ? <div className="ch-request">{shown}</div> : <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(shown, true) }} />}</>
+    {clipped && <a href={href}>{label}</a>}
+  </div>
 }

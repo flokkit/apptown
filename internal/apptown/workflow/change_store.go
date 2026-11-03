@@ -30,6 +30,7 @@ func readChangeInProject(ctx context.Context, db database.Queryer, id ids.ID, pr
 			var receipt abandonAudit
 			if err = json.Unmarshal(receipts[0].Payload, &receipt); err == nil {
 				ch.AbandonReason = receipt.Reason
+				ch.AbandonedBy = receipts[0].Actor
 			}
 		}
 	}

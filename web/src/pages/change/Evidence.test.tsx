@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import type { ChangeView, Run, RunDetail, Step } from '../../api'
-import { Evidence, receiptOf, verificationSummary } from './Evidence'
+import { Evidence, checkPurpose, receiptOf, verificationSummary } from './Evidence'
 import { claimOf, disputeOf } from './Disagreement'
 
 const step = (status: Step['status'], overrideBy = '') => ({ type: 'tests', status, overrideBy } as Step)
@@ -265,4 +265,11 @@ it('shows preview resource failures and the needs given to an agent', () => {
 it('counts omitted preview resource failures in the receipt', () => {
  const preview = { type: 'preview', status: 'pass', evidence: { screenshots: { failedResources: [{ url: 'example.test/a', status: 404 }], failedResourcesMore: 7 } } } as Step
  expect(receiptOf(preview).sentence).toContain('8 resources failed to load')
+})
+
+it('says what a check is for: declared first, built-in words next, nothing invented for scripts', () => {
+  const s = (type: string, name: string, config: unknown = {}) => ({ ...step('pass'), type, name, config } as Step)
+  expect(checkPurpose(s('script', 'style', { description: 'Every page passes the style rules.' }))).toBe('Every page passes the style rules.')
+  expect(checkPurpose(s('scan', 'gitleaks'))).toBe('Looks for passwords, keys and tokens written into the code.')
+  expect(checkPurpose(s('script', 'style'))).toBeUndefined()
 })
