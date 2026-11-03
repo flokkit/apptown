@@ -45,7 +45,7 @@ func (h Activity) Activity(w http.ResponseWriter, r *http.Request) {
 	active := workflowRunRows(activeRuns, now)
 	for i := range active {
 		// A blocked run's change can be closed from the list by someone who may.
-		if active[i].State == workflow.ActivityBlocked && !active[i].ChangeID.IsZero() {
+		if (activeRuns[i].Held || active[i].State == workflow.ActivityBlocked) && !active[i].ChangeID.IsZero() {
 			active[i].Next = work.AbandonOffer(ctx, active[i].ChangeID)
 		}
 	}

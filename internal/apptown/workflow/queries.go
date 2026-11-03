@@ -37,6 +37,8 @@ type RunQuery struct {
 	Limit       int // zero is uncapped, used by the project overview
 }
 type RunSummary struct {
+	// Held is the activity classifier’s dispatch hold, for actions on list rows.
+	Held            bool                 `json:"-"`
 	StatusLabel     status.DisplayStatus `json:"statusLabel"`
 	ID              ids.ID               `json:"id"`
 	Number          int64                `json:"number"` // within its project
@@ -125,7 +127,7 @@ func readWorkflowSummaries(ctx context.Context, db database.Queryer, query RunQu
 		if err != nil {
 			return nil, err
 		}
-		rows[i].State, rows[i].StateDetail = activity.State, activity.Detail
+		rows[i].State, rows[i].StateDetail, rows[i].Held = activity.State, activity.Detail, activity.Held
 	}
 	return rows, nil
 }

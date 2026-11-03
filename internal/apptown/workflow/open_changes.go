@@ -109,6 +109,10 @@ func (s *Service) OpenChanges(ctx context.Context) ([]PersonalOpenChange, int64,
 			case ActivityReady:
 				item.State, item.Reason = openWaitingReader, "Ready to advance"
 			case ActivityWaiting:
+				if activity.Held {
+					item.State = openWaitingReader
+					break
+				}
 				item.State, item.Reason, err = s.openApprovalState(ctx, tx, activity.Approval, actor.Owner.Principal)
 				if err != nil {
 					return nil, 0, err

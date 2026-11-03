@@ -599,7 +599,7 @@ func TestABlockedArmFailsAndFreesItsPlace(t *testing.T) {
 			working = a
 		}
 	}
-	w.work.activities = map[ids.ID]workflow.Activity{blocked.RunID: {State: workflow.ActivityBlocked, Detail: "review (fail)"}}
+	w.work.activities = map[ids.ID]workflow.Activity{blocked.RunID: {State: workflow.ActivityWaiting, Detail: "review (fail)", Held: true}}
 	if err := w.service.pass(context.Background()); err != nil {
 		t.Fatal(err)
 	}
