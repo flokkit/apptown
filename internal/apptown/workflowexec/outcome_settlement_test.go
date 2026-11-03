@@ -17,7 +17,7 @@ import (
 // step stands for every runner that settles through Execution.Settle.
 func TestAFailedOutcomeWriteIsTriedAgain(t *testing.T) {
 	t.Parallel()
-	f, ch, _ := testsWorld(t, map[string]any{"command": "cat marker.txt"})
+	f, ch, _ := declaredTestsWorld(t, "cat marker.txt")
 	seen := &markersSeen{}
 	f.checks = seen.run
 	run := testsRun(t, f, ch)

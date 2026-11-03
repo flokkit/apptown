@@ -45,7 +45,7 @@ func TestBaselineClassificationCarriesItsProvenance(t *testing.T) {
 }
 
 // Every gate compares the commit it checks with that commit's fork from
-// main (WorkflowProvenanceBase, Changes.forkBase): for a working run and a
+// main (workflowProvenanceBase, Changes.forkBase): for a working run and a
 // landing alike, and for work that caught up with main in a commit the
 // change's published branch does not hold yet (a step's scratch commit).
 // main's own work is then not the change's. baseProvenance says whether a
@@ -98,7 +98,7 @@ func TestEveryGateComparesTheCheckedCommitWithItsFork(t *testing.T) {
 	source := workflow.Source{ProjectID: pid, ChangeID: idstest.N(1), Slug: "baseline", DefaultBranch: "main", Branch: "change", RootRole: "working", ChangeBaseSHA: recorded}
 	for _, role := range []string{"working", "landing"} {
 		source.RootRole = role
-		if got, err := WorkflowProvenanceBase(t.Context(), dataDir, source, caughtUp); err != nil || got != mainNow {
+		if got, err := workflowProvenanceBase(t.Context(), dataDir, source, caughtUp); err != nil || got != mainNow {
 			t.Fatalf("%s run: base %s %v, want main as the checked commit merged it (%s)", role, got, err, mainNow)
 		}
 	}
@@ -108,7 +108,7 @@ func TestEveryGateComparesTheCheckedCommitWithItsFork(t *testing.T) {
 		t.Fatalf("apptown check: base %s %v, want %s", got, err, mainNow)
 	}
 	// Off a change there is nothing to compare with.
-	if got, err := WorkflowProvenanceBase(t.Context(), dataDir, workflow.Source{ProjectID: pid, Slug: "baseline", DefaultBranch: "main"}, caughtUp); err != nil || got != "" {
+	if got, err := workflowProvenanceBase(t.Context(), dataDir, workflow.Source{ProjectID: pid, Slug: "baseline", DefaultBranch: "main"}, caughtUp); err != nil || got != "" {
 		t.Fatalf("no change: %q %v", got, err)
 	}
 

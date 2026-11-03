@@ -270,7 +270,10 @@ func TestWithAWorkerAPassingGateLands(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
 	calls := onWorkerWithATripwire(t, a)
-	run, source := reviewLanding(t, a, []schema.Step{{Name: "tests", Uses: "tests"}}, map[string]string{"go.mod": "module example\n"}, nil)
+	run, source := reviewLanding(t, a, []schema.Step{{Name: "tests", Uses: "tests"}}, map[string]string{
+		"go.mod":            "module example\n",
+		".apptown/app.yaml": "version: 2\napp:\n  web:\n    build: .\n    public: true\n    ports: [\"8080\"]\n    tools: [go]\n    test: [\"go test -json ./...\"]\n",
+	}, nil)
 	step := reviewExecute(t, a, run, "tests")
 	if p := placementOf(t, step); step.Status != workflow.StatusPass || p == nil || *p != (workflow.Placement{Worker: a.cfg.worker.URL}) {
 		t.Fatalf("the tests gate on the worker: %s %s", step.Status, step.Evidence)

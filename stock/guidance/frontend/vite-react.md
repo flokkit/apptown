@@ -18,6 +18,9 @@ these names; the Dockerfile, the checks and the README run them:
 `tsconfig.json` keeps `"strict": true`. The checks `builds` and
 `tests-pass` run `npm ci` and these scripts on every change.
 
+In `.apptown/app.yaml`, declare
+`test: ["npm ci --no-audit --no-fund && npm test"]` on the part, even if static.
+
 **Tests.** Put the app's rules (calculations, parsing, what a saved value
 means) in plain modules and test them with Vitest beside the code
 (`src/thing.test.ts`). Every change that alters behaviour adds or updates a

@@ -23,6 +23,7 @@ func TestASaveRefusesAnOptionTheStepKindDoesNotTake(t *testing.T) {
 	refused := map[string]string{
 		"approval minApprovals":     workflowWithStep("approval", "{approvers: [alice, bob], means: Both checked it., minApprovals: 2}"),
 		"approval cased Quorum":     workflowWithStep("approval", "{approvers: [alice, bob], means: Both checked it., Quorum: 2}"),
+		"tests removed command":     workflowWithStep("tests", "{command: make test}"),
 		"tests invented option":     workflowWithStep("tests", "{command: make test, retries: 3}"),
 		"reconcile takes none":      workflowWithStep("reconcile", "{base: main}"),
 		"retry mode is recorded":    workflowWithStep("agent/pi", "{prompt: do it, retryMode: continue}"),

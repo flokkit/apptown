@@ -30,7 +30,8 @@ spec:
             output: { kind: build-report, name: build-report, file: .apptown/REPORT.md }
             timeoutMinutes: 40
             prompt: |
-              Before finishing, commit your changes. Run `apptown check` and
+              Before finishing, run each part’s declared `test:` commands in its folder,
+              then commit your changes. Run `apptown check` and
               fix introduced failures and this change's acceptance checks.
               Run `apptown dev up` and open the pages this change touches.
               Say in your report what ran and what came back. Report
@@ -116,7 +117,8 @@ spec:
             output: { kind: verify-report, name: verify-report, file: .apptown/VERIFY.md }
             timeoutMinutes: 25
             prompt: |
-              Before finishing, commit your changes. Run `apptown check` and
+              Before finishing, run each part’s declared `test:` commands in its folder,
+              then commit your changes. Run `apptown check` and
               fix introduced failures and this change's acceptance checks.
               Run `apptown dev up` and open the pages this change touches.
               Say in your report what ran and what came back. Report
@@ -139,8 +141,8 @@ spec:
               (BUILD.md or README.md at the root says how to run it, the build
               report is in .apptown/REPORT.md).
               Verify it end to end with your bash tool: install, build, run the
-              test suite, start the app and exercise its main flows. Your app's
-              declared needs are running as emulators, reachable by capability
+              declared `test:` commands in each part’s folder. Start the app and
+              exercise its main flows. Your app's declared needs are running as emulators, reachable by capability
               hostname (postgres, redis, …, NOT localhost), with their
               connection env already set ($DATABASE_URL, $PG*, $REDIS_URL, …) —
               read it; do NOT install database servers or hard-code hosts.

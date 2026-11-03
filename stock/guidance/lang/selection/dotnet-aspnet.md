@@ -104,8 +104,9 @@ of Program.cs).
 - **Tests:** xunit against the real app via `WebApplicationFactory`;
   `make test` runs `dotnet test App.Tests` — keep it running the whole suite.
   The starter's Makefile ships its `make test` target commented out until the
-  app exists; the change that writes the app uncomments it (the landing's tests
-  step fails for a part built with dotnet while there is no test command).
+  app exists; the change that writes the app uncomments it and declares
+  `test: ["make test"]` on the part in `.apptown/app.yaml` (the landing's tests
+  step fails for a part built with dotnet while it declares no tests).
   The test database starts empty and `--init` is not passed, so a test that
   reaches the database brings the schema up first through the init step's code.
 

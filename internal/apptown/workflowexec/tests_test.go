@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -12,35 +11,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/execution"
 )
-
-// Detect supported project test commands, excluding npm's placeholder.
-func TestDetectTestCommand(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	if got := detectTestCommand(dir); got != "" {
-		t.Fatalf("empty dir must detect nothing, got %q", got)
-	}
-	_ = os.WriteFile(filepath.Join(dir, "package.json"),
-		[]byte(`{"scripts":{"test":"echo \"Error: no test specified\" && exit 1"}}`), 0o644)
-	if got := detectTestCommand(dir); got != "" {
-		t.Fatalf("npm's no-test placeholder must not count, got %q", got)
-	}
-	_ = os.WriteFile(filepath.Join(dir, "package.json"),
-		[]byte(`{"scripts":{"test":"vitest run"}}`), 0o644)
-	if got := detectTestCommand(dir); !strings.Contains(got, "npm test") {
-		t.Fatalf("real npm test script must detect, got %q", got)
-	}
-	_ = os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module x\n"), 0o644)
-	// Go writes its own report format to the file the step reads.
-	if got := detectTestCommand(dir); got != `go test -json ./... > "$APPTOWN_TEST_REPORT"` {
-		t.Fatalf("go.mod must win, got %q", got)
-	}
-	mvn := t.TempDir()
-	_ = os.WriteFile(filepath.Join(mvn, "pom.xml"), []byte("<project/>"), 0o644)
-	if got := detectTestCommand(mvn); !strings.Contains(got, "mvn") {
-		t.Fatalf("pom.xml must detect maven, got %q", got)
-	}
-}
 
 // A tests run whose declared toolchain did not install, and whose command
 // then failed, is AppTown's error (the tests never had their tools), not

@@ -40,7 +40,7 @@ func testsExecutor(t *testing.T, a *App, run func(execution.Request) execution.O
 
 // testsWorld is a change whose working lane has one tests step, and its
 // folder with a first commit.
-func testsWorld(t *testing.T, with map[string]any) (*App, *project.Project, *workflow.Change, string) {
+func testsWorld(t *testing.T, command string) (*App, *project.Project, *workflow.Change, string) {
 	t.Helper()
 	a := testApp(t)
 	pid := plainTestProject(t, a.DB, "tests-commit", "Tests Commit")
@@ -49,7 +49,7 @@ func testsWorld(t *testing.T, with map[string]any) (*App, *project.Project, *wor
 		t.Fatal(err)
 	}
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "check", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working",
-		Stages: []schema.Stage{{Name: "gates", Steps: []schema.Step{{Name: "tests", Uses: "tests", With: with}}}}}})
+		Stages: []schema.Stage{{Name: "gates", Steps: []schema.Step{{Name: "tests", Uses: "tests"}}}}}})
 	if err := recordCatalogFixture(a.Adoption, t.Context(), p.ID, "check"); err != nil {
 		t.Fatal(err)
 	}
@@ -58,8 +58,17 @@ func testsWorld(t *testing.T, with map[string]any) (*App, *project.Project, *wor
 		t.Fatal(err)
 	}
 	folder := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
+	commitAppDeclaration(t, folder, testAppDeclaration(command))
 	writeMarker(t, folder, "folder")
 	return a, p, ch, folder
+}
+
+func testAppDeclaration(commands ...string) string {
+	quoted := make([]string, len(commands))
+	for i, command := range commands {
+		quoted[i] = fmt.Sprintf("%q", command)
+	}
+	return "app: {web: {build: ., public: true, test: [" + strings.Join(quoted, ", ") + "]}}\n"
 }
 
 func writeMarker(t *testing.T, folder, value string) string {
@@ -157,8 +166,8 @@ func TestALandingTestsItsCandidateWithoutItsFolder(t *testing.T) {
 	a := testApp(t)
 	seen := &markersSeen{}
 	testsExecutor(t, a, seen.run)
-	run, source := reviewLanding(t, a, []schema.Step{{Name: "tests", Uses: "tests", With: map[string]any{"command": "cat marker.txt"}}},
-		map[string]string{"marker.txt": "candidate\n"}, nil)
+	run, source := reviewLanding(t, a, []schema.Step{{Name: "tests", Uses: "tests"}},
+		map[string]string{"marker.txt": "candidate\n", ".apptown/app.yaml": testAppDeclaration("cat marker.txt")}, nil)
 	if err := os.RemoveAll(filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("run-%d", run.ID))); err != nil {
 		t.Fatal(err)
 	}
@@ -169,29 +178,25 @@ func TestALandingTestsItsCandidateWithoutItsFolder(t *testing.T) {
 	}
 }
 
-// A change that adds the tests' command (a Makefile with a test target)
-// to a base without it has no tests at the base: its failures are its own,
-// never carried because the command could not run on the base, which is
-// not asked.
-func TestABaseWithoutTheDetectedTestCommandCarriesNothing(t *testing.T) {
+// A newly declared failing suite fails the landing, even with no suite on the base.
+func TestANewDeclaredSuiteFailsTheLanding(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
 	seen := &markersSeen{answer: func(int, execution.Request) execution.Outcome {
 		return execution.Outcome{Termination: execution.Exited, ExitCode: 2}
 	}}
 	testsExecutor(t, a, seen.run)
-	run, _ := reviewLanding(t, a, []schema.Step{{Name: "tests", Uses: "tests"}}, map[string]string{"Makefile": "test:\n\tfalse\n"}, nil)
+	run, _ := reviewLanding(t, a, []schema.Step{{Name: "tests", Uses: "tests"}}, map[string]string{".apptown/app.yaml": testAppDeclaration("make test"), "Makefile": "test:\n\tfalse\n"}, nil)
 	step := reviewExecute(t, a, run, "tests")
 	ev := stepEvidence(t, step)
-	base, _ := ev["base"].(string)
-	if step.Status != workflow.StatusFail || ev["carried"] != nil || !strings.Contains(base, "no make test") || len(seen.all()) != 1 {
+	if step.Status != workflow.StatusFail || ev["carried"] != nil || len(seen.all()) != 1 {
 		t.Fatalf("a failure where the base has no tests: %s %s, ran %d", step.Status, step.Evidence, len(seen.all()))
 	}
 }
 
 // With a worker configured, a tests step runs on the worker and nothing on
-// this machine: its command passes and fails by the worker's exit code, a
-// failure's base rerun is a second worker run, and a worker that cannot be
+// this machine: its command passes and fails by the worker's exit code,
+// and a worker that cannot be
 // reached is an error, never a pass or a run here.
 func TestATestsStepRunsOnTheWorker(t *testing.T) {
 	t.Parallel()
@@ -201,12 +206,12 @@ func TestATestsStepRunsOnTheWorker(t *testing.T) {
 		runs          int
 	}{
 		{"passes", "true", workflow.StatusPass, 1},
-		{"fails, and the base is asked with the same configuration", "exit 7", workflow.StatusPass, 2},
+		{"fails", "exit 7", workflow.StatusFail, 1},
 		{"cannot reach the worker", "true", workflow.StatusError, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			a, _, ch, _ := testsWorld(t, map[string]any{"command": tc.command})
+			a, _, ch, _ := testsWorld(t, tc.command)
 			bindNodeMirror(t, a, "https://mirror.invalid/node/")
 			calls := onWorkerWithATripwire(t, a)
 			if tc.runs == 0 {
@@ -215,7 +220,7 @@ func TestATestsStepRunsOnTheWorker(t *testing.T) {
 			}
 			step := reviewExecute(t, a, testsRun(t, a, ch), "tests")
 			_, carried := stepEvidence(t, step)["carried"]
-			if step.Status != tc.want || (tc.runs == 2) != carried {
+			if step.Status != tc.want || carried {
 				t.Fatalf("tests on the worker answered %s: %s", step.Status, step.Evidence)
 			}
 			recorded, _ := os.ReadFile(calls)
@@ -230,7 +235,7 @@ func TestATestsStepRunsOnTheWorker(t *testing.T) {
 	}
 }
 
-const postgresApp = "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres: {}\n"
+const postgresApp = "app:\n  web:\n    build: .\n    test: [make test]\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres: {}\n"
 
 const postgresURL = "DATABASE_URL=postgres://app:app@postgres:5432/app?sslmode=disable"
 
@@ -251,7 +256,7 @@ func commitAppDeclaration(t *testing.T, folder, body string) {
 // runs on this machine.
 func TestATestsStepOnTheWorkerRunsBesideTheAppsNeeds(t *testing.T) {
 	t.Parallel()
-	a, _, ch, folder := testsWorld(t, map[string]any{"command": "make test"})
+	a, _, ch, folder := testsWorld(t, "make test")
 	a.SyncStockDependencies(context.Background())
 	commitAppDeclaration(t, folder, postgresApp)
 	calls := onWorkerWithATripwire(t, a)

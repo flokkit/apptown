@@ -118,11 +118,11 @@ func TestIntegrationAnImplementationStepBuildsWithPrivateDockerOnAWorker(t *test
 			}
 			run, steps := agentWorkerChange(t, a, []schema.Step{
 				{Name: "implement", Uses: "agent/pi", With: map[string]any{"prompt": "build it", "executor": "docker", "docker": true, "needs": true}},
-				{Name: "tests", Uses: "tests", With: map[string]any{"command": `grep -q "hello from a nested build" built.txt && grep -q nested nested.txt && grep -q reached kv.txt && echo "the agent's work holds"`}},
+				{Name: "tests", Uses: "tests"},
 			}, map[string]string{
 				"Dockerfile":        "FROM " + stock.Images().DF + "\nCOPY greeting.txt /greeting.txt\nCMD [\"cat\", \"/greeting.txt\"]\n",
 				"greeting.txt":      "hello from a nested build\n",
-				".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  kv:\n    flavour: sourdough\n",
+				".apptown/app.yaml": "app:\n  web:\n    build: .\n    test: [" + fmt.Sprintf("%q", `grep -q "hello from a nested build" built.txt && grep -q nested nested.txt && grep -q reached kv.txt && echo "the agent's work holds"`) + "]\n    ports: [\"8080\"]\n    public: true\nneeds:\n  kv:\n    flavour: sourdough\n",
 				"fake-pi.sh": `docker build -q -t composed-greeting /work >/dev/null 2>build.log && docker run --rm composed-greeting > built.txt
 docker run --rm -v /work:/work ` + stock.Images().DF + ` sh -c 'echo nested > /work/nested.txt'
 nc -z kv 6379 && echo reached > kv.txt

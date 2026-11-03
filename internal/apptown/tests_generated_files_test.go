@@ -29,7 +29,7 @@ func TestTestsThatCannotStartAreAnErrorNeverCarried(t *testing.T) {
 	}
 	a := testApp(t, Config{ProcessRunner: execution.Runner{DockerBinary: binary, Scratch: scratch}})
 	bindNodeMirror(t, a, "https://mirror.invalid/node/")
-	run, _ := reviewLanding(t, a, []schema.Step{{Name: "tests", Uses: "tests", With: map[string]any{"command": "exit 1"}}}, map[string]string{"value.txt": "candidate\n"}, nil)
+	run, _ := reviewLanding(t, a, []schema.Step{{Name: "tests", Uses: "tests"}}, map[string]string{"value.txt": "candidate\n", ".apptown/app.yaml": testAppDeclaration("exit 1")}, nil)
 	step := reviewExecute(t, a, run, "tests")
 	if b, err := os.ReadFile(calls); !os.IsNotExist(err) {
 		t.Fatalf("Docker was called: %s (%v)", b, err)
@@ -41,7 +41,7 @@ func TestTestsThatCannotStartAreAnErrorNeverCarried(t *testing.T) {
 
 // Both attempts receive the same admitted bytes at the same read-only path,
 // with each mount source outside its project tree.
-func TestTheBaseRerunGetsTheSameGeneratedFiles(t *testing.T) {
+func TestEveryDeclarationGetsTheSameGeneratedFiles(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	calls := filepath.Join(dir, "docker-calls")
@@ -69,7 +69,7 @@ exit 1
 	}
 	a := testApp(t, Config{ProcessRunner: execution.Runner{DockerBinary: binary}})
 	bindNodeMirror(t, a, "https://mirror.invalid/node/")
-	run, _ := reviewLanding(t, a, []schema.Step{{Name: "tests", Uses: "tests", With: map[string]any{"command": "exit 1"}}}, map[string]string{"value.txt": "candidate\n"}, nil)
+	run, _ := reviewLanding(t, a, []schema.Step{{Name: "tests", Uses: "tests"}}, map[string]string{"value.txt": "candidate\n", ".apptown/app.yaml": testAppDeclaration("exit 1", "exit 2")}, nil)
 	step := reviewExecute(t, a, run, "tests")
 	b, err := os.ReadFile(calls)
 	if err != nil {
@@ -77,30 +77,9 @@ exit 1
 	}
 	parts := strings.Split(string(b), "END\n")
 	if len(parts) != 3 || parts[0] != parts[1] || !strings.Contains(parts[0], "https://mirror.invalid/node/") {
-		t.Fatalf("candidate/base configuration differs or is absent: %q", b)
+		t.Fatalf("per-command configuration differs or is absent: %q", b)
 	}
-	if step.Status != workflow.StatusPass || !strings.Contains(string(step.Evidence), "carried") {
-		t.Fatalf("ordinary nonzero exits: %s %s", step.Status, step.Evidence)
-	}
-}
-
-// A candidate witnessed failing is carried only by a base witnessed failing:
-// a base that could not start says nothing about the base, and the change's
-// failure stands.
-func TestABaseThatCannotStartNeverCarriesAFailure(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	binary := filepath.Join(dir, "docker")
-	// The candidate runs and fails; once its container is removed the
-	// Docker it used is gone, so the base cannot start.
-	if err := execfile.Write(binary, []byte("#!/bin/sh\ncase \"$1\" in\ninspect) echo false; exit 0;;\nrm) chmod -x \"$0\"; exit 0;;\nesac\nexit 1\n"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	a := testApp(t, Config{ProcessRunner: execution.Runner{DockerBinary: binary}})
-	bindNodeMirror(t, a, "https://mirror.invalid/node/")
-	run, _ := reviewLanding(t, a, []schema.Step{{Name: "tests", Uses: "tests", With: map[string]any{"command": "exit 1"}}}, map[string]string{"value.txt": "candidate\n"}, nil)
-	step := reviewExecute(t, a, run, "tests")
 	if step.Status != workflow.StatusFail || strings.Contains(string(step.Evidence), "carried") {
-		t.Fatalf("a failure carried by a base that never ran: %s %s", step.Status, step.Evidence)
+		t.Fatalf("ordinary nonzero exits: %s %s", step.Status, step.Evidence)
 	}
 }

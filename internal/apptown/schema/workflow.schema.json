@@ -513,7 +513,6 @@
                             "additionalProperties": false,
                             "properties": {
                               "appliesTo": {},
-                              "command": {},
                               "require": {},
                               "timeoutMinutes": {}
                             }
@@ -911,7 +910,6 @@
                             "additionalProperties": false,
                             "properties": {
                               "appliesTo": {},
-                              "command": {},
                               "require": {},
                               "timeoutMinutes": {}
                             }

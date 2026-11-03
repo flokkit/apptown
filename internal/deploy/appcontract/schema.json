@@ -14,6 +14,10 @@
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
+        "allOf": [{
+          "if": { "required": ["image"] },
+          "then": { "not": { "required": ["test"] } }
+        }],
         "properties": {
           "build": {
             "type": "string",
@@ -110,6 +114,11 @@
           "public": {
             "type": "boolean",
             "description": "Marks the one front-door part the preview/deploy URL points at."
+          },
+          "test": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Ordered shell commands for the landing tests step, run in this part’s folder. Supported on build: and both static: forms; refused on image: parts."
           },
           "tools": {
             "type": "array",

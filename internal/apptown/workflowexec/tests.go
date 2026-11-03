@@ -2,12 +2,10 @@ package workflowexec
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -27,14 +25,8 @@ import (
 	"github.com/flokkit/apptown/internal/trust"
 )
 
-// The tests gate (design/the-change.md: boundaries are where invariants
-// live). "The tree that merges ran its tests" is a RECEIPT on the change,
-// not a pipeline somewhere else: the step stages the COMMITTED tree (dirty
-// files cannot pass tests on their way out — same posture as scans and
-// releases), detects or is told the test command, runs it in the agent
-// container with the ambient toolchain, and records command, exit, and
-// output as evidence. A project with no tests passes vacuously AND SAYS SO
-// — unless the workflow declares require: true.
+// The tests step stages one committed repository and runs every part's declared
+// test commands. Applicability determines missing declarations, not which commands run.
 
 const testsTimeout = 10 * time.Minute
 
@@ -47,39 +39,6 @@ const (
 	testReportPath = "/work/" + testReportFile
 	skippedShown   = 20
 )
-
-// detectTestCommand: the conventional test entrypoints, most specific
-// first. Detection is deliberately small and named in evidence; anything
-// unusual belongs in the step's `command` config.
-func detectTestCommand(dir string) string {
-	if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-		// Go's own report format: its stream gives the counts, and the
-		// receipt's log is rendered from it.
-		return `go test -json ./... > "$` + testReportEnv + `"`
-	}
-	if b, err := os.ReadFile(filepath.Join(dir, "package.json")); err == nil {
-		var pkg struct {
-			Scripts map[string]string `json:"scripts"`
-		}
-		if json.Unmarshal(b, &pkg) == nil {
-			if t := pkg.Scripts["test"]; t != "" && !strings.Contains(t, "no test specified") {
-				return "npm ci --no-audit --no-fund >/dev/null 2>&1 && npm test"
-			}
-		}
-	}
-	if b, err := os.ReadFile(filepath.Join(dir, "Makefile")); err == nil {
-		if regexp.MustCompile(`(?m)^test:`).Match(b) {
-			return "make test"
-		}
-	}
-	// Maven arrives via the repo's mise.toml pin (the java pack's declared
-	// way of working — no wrapper scripts); the local repo lives in the
-	// shared cache volume so dependency downloads survive across runs.
-	if _, err := os.Stat(filepath.Join(dir, "pom.xml")); err == nil {
-		return "mvn -q -Dmaven.repo.local=/apptown-cache/m2 test"
-	}
-	return ""
-}
 
 // RunTests executes a tests step.
 func (a *commands) RunTests(task *workflow.Execution) {
@@ -133,14 +92,8 @@ func (a *commands) RunTests(task *workflow.Execution) {
 	defer cleanup()
 	tree := strs.ShortSHA(sel.Commit)
 
-	command := cfg.Command
-	detected := false
-	if command == "" {
-		command = detectTestCommand(staged)
-		detected = command != ""
-	}
-	if command == "" {
-		status, reason := noTestCommand(cfg, staged)
+	declarations, status, reason := declaredTests(cfg, staged)
+	if status == workflow.StatusError || len(declarations) == 0 {
 		finish(status, map[string]any{"reason": reason, "tree": tree})
 		return
 	}
@@ -155,8 +108,7 @@ func (a *commands) RunTests(task *workflow.Execution) {
 	// Go, Maven and the rest come from the declaration). MISE_DATA_DIR's
 	// folder is the container's own; the download cache is shared (the
 	// executor adds a cache volume here, the worker its tool cache). Its
-	// files are generated beside the tree, never in it, and the base rerun
-	// below is given the same ones.
+	// files are generated beside the tree, never in it.
 	bound, err := integration.RegistryBindings(task.Context(), a.db)
 	if err != nil {
 		finish(workflow.StatusError, map[string]any{"reason": err.Error(), "tree": tree})
@@ -191,46 +143,104 @@ func (a *commands) RunTests(task *workflow.Execution) {
 	}
 	// A tests check reaches the network (installs need it) and writes its
 	// scratch tree; it publishes nothing.
-	runIn := func(dir, label string) execution.Outcome {
+	runIn := func(declaration testDeclaration) execution.Outcome {
 		// A report committed with the tree is not this run's.
-		if err := os.Remove(filepath.Join(dir, testReportFile)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		if err := os.Remove(filepath.Join(staged, testReportFile)); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return execution.Outcome{Termination: execution.LaunchFailed, ExitCode: -1, RunErr: fmt.Errorf("removing the tree's own %s: %w", testReportFile, err)}
 		}
 		return checks.Run(task.Context(), execution.Request{
-			Workspace: dir,
+			Workspace: staged,
 			// Shims go on PATH only when the install SUCCEEDED: a shim for a tool
 			// mise couldn't install shadows the image-baked toolchain and re-fails
 			// at exec time: a tests gate can say "continuing with image
 			// toolchains" while a node shim blocks the image's node from running.
-			Argv:     []string{"sh", "-c", testsScript(command)},
+			Argv:     []string{"sh", "-c", testsScript("cd " + shellQuote(declaration.Folder) + " && sh -c " + shellQuote(declaration.Command))},
 			Image:    checks.Image,
 			Timeout:  timeout,
-			Name:     execution.UniqueName(execution.StepContainer(stepID, "tests"+label)),
+			Name:     execution.UniqueName(execution.StepContainer(stepID, "tests")),
 			Files:    amb.Files,
 			Env:      append(env[:len(env):len(env)], testReportEnv+"="+testReportPath),
 			Services: services,
 			Report:   testReportFile,
 		})
 	}
-	start := a.now()
-	outcome := runIn(staged, "")
-	evidence := map[string]any{
-		"command":    command,
-		"detected":   detected,
-		"tree":       tree,
-		"durationMs": a.now().Sub(start).Milliseconds(),
+	evidence := map[string]any{"tree": tree}
+	var results []map[string]any
+	var logs []string
+	var summary map[string]any
+	rank := map[workflow.StepState]int{workflow.StatusPass: 0, workflow.StatusFail: 1, workflow.StatusError: 2}
+	for _, declaration := range declarations {
+		start := a.now()
+		outcome := runIn(declaration)
+		result := map[string]any{
+			"part": declaration.Part, "folder": declaration.Folder,
+			"command": declaration.Command, "exitCode": outcome.ExitCode,
+			"durationMs": a.now().Sub(start).Milliseconds(), "output": string(outcome.Output),
+		}
+		log := string(outcome.Output)
+		if outcome.Answered() {
+			log = recordTestReport(result, outcome, log)
+		}
+		if len(log) > 4000 {
+			log = log[len(log)-4000:]
+		}
+		if strings.TrimSpace(log) == "" && outcome.Answered() && outcome.ExitCode != 0 {
+			log = check.ReportLost("the tests")
+		}
+		result["logTail"] = log
+		logs = append(logs, declaration.Part+": "+declaration.Command+"\n"+log)
+		commandStatus := workflow.StatusPass
+		switch {
+		case toolchainUnavailable(outcome):
+			commandStatus = workflow.StatusError
+			result["outcome"] = "toolchain_unavailable"
+			result["reason"] = "the toolchain this project declares could not be installed, so the tests could not run; the installer's output is in the log. This is not a failure of the change: run the checks again"
+		case !outcome.Answered():
+			commandStatus = workflow.StatusError
+			result["outcome"] = outcomeKind(outcome)
+			result["reason"] = unansweredReason(outcome, timeout)
+		default:
+			result["outcome"] = "exited"
+			if outcome.ExitCode != 0 {
+				commandStatus = workflow.StatusFail
+				result["reason"] = "tests failed: " + declaration.Part + ": " + declaration.Command
+			}
+		}
+		result["status"] = commandStatus
+		// Keep the first command at the worst status. Missing declarations
+		// can set the status without providing a command summary.
+		if rank[commandStatus] > rank[status] {
+			status = commandStatus
+			summary = nil
+		}
+		if summary == nil && rank[commandStatus] == rank[status] {
+			summary = result
+		}
+		results = append(results, result)
 	}
-	log := string(outcome.Output)
-	if outcome.Answered() {
-		log = recordTestReport(evidence, outcome, log)
+	for k, v := range summary {
+		evidence[k] = v
 	}
-	if len(log) > 4000 {
-		log = log[len(log)-4000:]
+	commandReason, _ := summary["reason"].(string)
+	var reasons []string
+	for _, r := range []string{reason, commandReason} {
+		if r != "" {
+			reasons = append(reasons, r)
+		}
 	}
-	if strings.TrimSpace(log) == "" && outcome.Answered() && outcome.ExitCode != 0 {
-		log = check.ReportLost("the tests")
+	if len(reasons) > 0 {
+		evidence["reason"] = strings.Join(reasons, "; ")
 	}
-	evidence["logTail"] = log
+	if len(results) > 1 {
+		// One command's counts cannot describe all the suites.
+		for _, key := range []string{"testCounts", "testReportFormat", "skippedTests", "testReportUnreadable"} {
+			delete(evidence, key)
+		}
+		evidence["testReport"] = "reports are recorded per command; combined test counts are not known"
+	}
+	evidence["commands"] = results
+	evidence["logTail"] = strings.Join(logs, "\n")
+
 	if len(services) > 0 {
 		names := make([]string, len(services))
 		for i, svc := range services {
@@ -247,59 +257,7 @@ func (a *commands) RunTests(task *workflow.Execution) {
 	if len(unfulfilled) > 0 {
 		evidence["unfulfilled"] = "the app needs " + strings.Join(unfulfilled, ", ") + ", which the dependency catalog cannot run beside the tests; they ran without it"
 	}
-	switch {
-	case toolchainUnavailable(outcome):
-		// The tests never had their tools: AppTown's error, not a
-		// failure of the change ("mvn: not found" must not read as "tests
-		// failed").
-		evidence["outcome"] = "toolchain_unavailable"
-		evidence["reason"] = "the toolchain this project declares could not be installed, so the tests could not run; the installer's output is in the log. This is not a failure of the change: run the checks again"
-		finish(workflow.StatusError, evidence)
-	case !outcome.Answered():
-		// Only a witnessed ordinary exit answers. A run that could not start
-		// (its generated files among the reasons), timed out, was cancelled,
-		// left its container behind, or whose answer was lost says nothing
-		// about the tests: AppTown's error, never a failure of the tests,
-		// never a pass, and no base run can make it carried debt.
-		evidence["outcome"] = outcomeKind(outcome)
-		evidence["reason"] = unansweredReason(outcome, timeout)
-		finish(workflow.StatusError, evidence)
-	case outcome.ExitCode != 0:
-		// Provenance, as for scans and guidance checks (N32): a failure that
-		// reproduces on the change's base commit is the estate's debt, not
-		// this change's — greeting-api's Testcontainers suite needs a Docker
-		// daemon the step has none of, failed on main exactly as on the
-		// change, and wedged a README fix and a readiness fix on it.
-		base, baseErr := verification.WorkflowProvenanceBase(task.Context(), a.cfg.DataDir, source, sel.Commit)
-		if baseErr != nil {
-			evidence["base"] = "the commit this change is compared with could not be read: " + baseErr.Error() // the failure stands
-		}
-		if base != "" {
-			hub, pathErr := source.Repository(a.cfg.DataDir)
-			carried, why := false, ""
-			if pathErr != nil {
-				why = pathErr.Error()
-			} else {
-				carried, why = testsFailOnBase(task.Context(), a.cfg.DataDir, hub, base, command, detected, runIn)
-			}
-			switch {
-			case carried:
-				short := base[:min(8, len(base))]
-				evidence["carried"] = "the same tests fail on the base commit " + short + " — the estate's debt, not this change's; it is reported, not gating"
-				evidence["baseCommit"] = short
-				finish(workflow.StatusPass, evidence)
-				return
-			case why != "":
-				evidence["base"] = why // not known on the base: the failure stands
-			}
-		}
-		evidence["outcome"] = "exited"
-		evidence["reason"] = "tests failed: " + command
-		finish(workflow.StatusFail, evidence)
-	default:
-		evidence["outcome"] = "exited"
-		finish(workflow.StatusPass, evidence)
-	}
+	finish(status, evidence)
 }
 
 // recordTestReport records what the run's test report says in evidence:
@@ -432,35 +390,6 @@ func unansweredReason(o execution.Outcome, timeout time.Duration) string {
 	return "the tests gave no answer: " + errText(o.RunErr)
 }
 
-// testsFailOnBase runs the same test command over the change's base commit,
-// from the project's repository, and reports whether it was witnessed
-// failing there too; otherwise why the base is not known. Only reached on a
-// witnessed failure, so a passing suite costs nothing extra. A detected
-// command the base does not have (the change added the Makefile's test
-// target, say) is no tests at the base: the base run would fail for want
-// of the command, not of the tests, so every failure is the change's.
-func testsFailOnBase(ctx context.Context, dataDir, repo, base, command string, detected bool, runIn func(dir, label string) execution.Outcome) (bool, string) {
-	dir, cleanup, err := verification.StageCommittedTree(ctx, dataDir, repo, base)
-	if err != nil {
-		return false, "the base commit could not be staged: " + err.Error()
-	}
-	defer cleanup()
-	if detected && detectTestCommand(dir) != command {
-		return false, "the base commit has no " + command + " to run, so no tests fail there: every failure is this change's"
-	}
-	out := runIn(dir, "-base")
-	// Only a witnessed failure on the base carries: the base's command ran
-	// and exited non-zero. One that could not start, timed out or left its
-	// run unsettled says nothing about the base.
-	if !out.Answered() {
-		return false, "the base commit's tests gave no answer (" + outcomeKind(out) + ")"
-	}
-	if toolchainUnavailable(out) {
-		return false, "the base commit's toolchain could not be installed, so its tests gave no answer"
-	}
-	return out.ExitCode != 0, ""
-}
-
 func errText(err error) string {
 	if err == nil {
 		return "no reason given"
@@ -470,37 +399,72 @@ func errText(err error) string {
 
 // testsConfig is a tests step's options (schema.StepOptions("tests")).
 type testsConfig struct {
-	Command        string `json:"command"`
-	Require        bool   `json:"require"`
-	TimeoutMinutes int    `json:"timeoutMinutes"`
-	// AppliesTo names, in the checks' words, the parts whose having no test
-	// command is a failure: the declaration says they are built with a tool
-	// that has tests. With no command and no such part, the step is not
-	// applicable. A test command that exists always runs.
+	Require        bool `json:"require"`
+	TimeoutMinutes int  `json:"timeoutMinutes"`
+	// AppliesTo identifies parts required to declare tests. Every declaration runs.
 	AppliesTo []string `json:"appliesTo"`
 }
 
-// noTestCommand is what a tests step says when it finds no command: a
-// failure where the workflow requires tests or a declared part it applies
-// to has none, else not applicable, with the reason.
-func noTestCommand(cfg testsConfig, staged string) (workflow.StepState, string) {
-	const conventions = "go.mod, a package.json test script, a Makefile test target or pom.xml at the root, or the step's command"
+type testDeclaration struct{ Part, Folder, Command string }
+
+// declaredTests keeps the obligation per part, even where parts share a folder.
+// Missing declarations do not prevent other parts' commands from running.
+func declaredTests(cfg testsConfig, staged string) ([]testDeclaration, workflow.StepState, string) {
+	contract, err := docker.ReadWorkspaceContract(staged)
+	if err != nil && !errors.Is(err, docker.ErrNoContract) {
+		return nil, workflow.StatusError, err.Error()
+	}
+	var declarations []testDeclaration
+	declared := map[string]bool{}
+	if contract != nil {
+		for _, part := range contract.Parts {
+			declared[part.Name] = len(part.Test) > 0
+			for _, command := range part.Test {
+				declarations = append(declarations, testDeclaration{part.Name, part.Folder(), command})
+			}
+		}
+	}
+	var missing []string
+	why := "no tests are declared in .apptown/app.yaml"
+	if len(cfg.AppliesTo) > 0 {
+		src := verification.CheckSource(staged)
+		places, explanation, err := check.Applies(cfg.AppliesTo, src)
+		if err != nil {
+			return nil, workflow.StatusError, err.Error()
+		}
+		why += "; " + explanation
+		for _, place := range places {
+			for _, name := range place.Parts {
+				if declared[name] {
+					continue
+				}
+				var tools []string
+				for _, part := range src.Parts {
+					if part.Name != name {
+						continue
+					}
+					for _, tool := range part.Tools {
+						if slices.Contains(check.AppliesTools(cfg.AppliesTo), tool) {
+							tools = append(tools, tool)
+						}
+					}
+				}
+				description := "declares no tests"
+				if len(tools) > 0 {
+					description = "is built with " + strings.Join(tools, " and ") + " and " + description
+				}
+				missing = append(missing, name+" "+description+": add `test:` to the part in .apptown/app.yaml")
+			}
+		}
+	}
+	if len(missing) > 0 {
+		return declarations, workflow.StatusFail, strings.Join(missing, "; ")
+	}
+	if len(declarations) > 0 {
+		return declarations, workflow.StatusPass, ""
+	}
 	if cfg.Require {
-		return workflow.StatusFail, "this workflow requires tests, and none were found (" + conventions + "). Add tests, or set the step's command."
+		return nil, workflow.StatusFail, "this workflow requires tests, and none are declared: add `test:` to a part in .apptown/app.yaml"
 	}
-	if len(cfg.AppliesTo) == 0 {
-		return workflow.StatusNotApplicable, "no test command was found (" + conventions + ")"
-	}
-	places, why, err := check.Applies(cfg.AppliesTo, verification.CheckSource(staged))
-	switch {
-	case err != nil:
-		return workflow.StatusError, err.Error()
-	case len(places) == 0:
-		return workflow.StatusNotApplicable, "no test command, and " + why
-	}
-	var parts []string
-	for _, pl := range places {
-		parts = append(parts, pl.Parts...)
-	}
-	return workflow.StatusFail, fmt.Sprintf("%s %s built with a tool that has tests (tools: in .apptown/app.yaml), and no test command was found (%s): add the tests, or correct the part's tools", strings.Join(parts, ", "), map[bool]string{true: "is", false: "are"}[len(parts) == 1], conventions)
+	return nil, workflow.StatusNotApplicable, why
 }

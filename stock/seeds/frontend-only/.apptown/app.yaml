@@ -6,3 +6,4 @@ app:
       output: dist
     public: true
     tools: [node]
+    test: ["npm ci --no-audit --no-fund && npm test"]

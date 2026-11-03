@@ -49,7 +49,7 @@ func newNoHostWorld(t *testing.T, command string, scriptMinutes int) noHostWorld
 		Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{
 			{Name: "make", Uses: "script", With: map[string]any{"run": "true", "executor": "docker", "image": "fake",
 				"timeoutMinutes": scriptMinutes, "env": map[string]any{"FAKE_OUTPUT": "ran", "FAKE_EXIT": "0", "FAKE_BLOCK": "1"}}},
-			{Name: "tests", Uses: "tests", With: map[string]any{"command": command}},
+			{Name: "tests", Uses: "tests"},
 		}}}}})
 	if err := recordCatalogFixture(a.Adoption, t.Context(), pid, "proof"); err != nil {
 		t.Fatal(err)
@@ -58,7 +58,9 @@ func newNoHostWorld(t *testing.T, command string, scriptMinutes int) noHostWorld
 	if err := prepareChangeWorkspaceForTest(a, p, ch); err != nil {
 		t.Fatal(err)
 	}
-	writeMarker(t, filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID)), "folder")
+	folder := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
+	commitAppDeclaration(t, folder, testAppDeclaration(command))
+	writeMarker(t, folder, "folder")
 	bindNodeMirror(t, a, "https://mirror.invalid/node/")
 
 	w := noHostWorld{a: a, fake: fake}
@@ -157,8 +159,7 @@ func (w noHostWorld) nothingRanHere(t *testing.T) string {
 //   - the script runs as a task on the worker, which keeps its generated
 //     configuration in the task's own folder;
 //   - the tests step runs on the worker with the same configuration,
-//     passing and failing by the worker's exit code, and a failure's base
-//     rerun is a second worker run;
+//     passing and failing by the worker's exit code, without a base rerun;
 //   - a worker that cannot be reached is an error for both, never a pass
 //     and never a run here (a script keeps asking until its deadline).
 func TestNoScriptOrTestsStepRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.T) {
@@ -181,21 +182,21 @@ func TestNoScriptOrTestsStepRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.
 			t.Fatalf("the tests check got the registry configuration %d times:\n%s", n, recorded)
 		}
 	})
-	t.Run("failing tests, and their base rerun", func(t *testing.T) {
+	t.Run("failing tests", func(t *testing.T) {
 		t.Parallel()
 		w := newNoHostWorld(t, "exit 7", 10)
 		w.runScript(t)
 		step := reviewExecute(t, w.a, w.run, "tests")
-		// The same tests fail on the base: carried, not this change's.
-		if _, carried := stepEvidence(t, step)["carried"]; step.Status != workflow.StatusPass || !carried {
+		// A failed suite fails the step.
+		if _, carried := stepEvidence(t, step)["carried"]; step.Status != workflow.StatusFail || carried {
 			t.Fatalf("failing tests on the worker: %s %s", step.Status, step.Evidence)
 		}
 		recorded := w.nothingRanHere(t)
-		if n := strings.Count(recorded, "--init --name apptown-check-"); n != 2 {
-			t.Fatalf("the worker ran %d tests checks, want the change's and the base's:\n%s", n, recorded)
+		if n := strings.Count(recorded, "--init --name apptown-check-"); n != 1 {
+			t.Fatalf("the worker ran %d tests checks, want one:\n%s", n, recorded)
 		}
-		if n := strings.Count(recorded, "https://mirror.invalid/node/"); n != 2 {
-			t.Fatalf("%d of the 2 runs got the registry configuration:\n%s", n, recorded)
+		if n := strings.Count(recorded, "https://mirror.invalid/node/"); n != 1 {
+			t.Fatalf("%d of the runs got the registry configuration:\n%s", n, recorded)
 		}
 	})
 	t.Run("a worker that cannot be reached", func(t *testing.T) {

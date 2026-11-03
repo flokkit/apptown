@@ -72,7 +72,7 @@ func TestEveryBootingStageChecksConformanceAndTellsTheAgentTheBar(t *testing.T) 
 					if s.Uses != "agent/pi" {
 						continue
 					}
-					for _, bar := range []string{"commit your changes", "apptown check", "apptown dev up", "what ran and what came back", "Blockers:"} {
+					for _, bar := range []string{"commit your changes", "apptown check", "apptown dev up", "what ran and what came back", "Blockers:", "declared `test:` commands"} {
 						if !strings.Contains(s.With.Prompt, bar) {
 							t.Errorf("%s/%s lacks %s", stage.Name, s.Name, bar)
 						}
