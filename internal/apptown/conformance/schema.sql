@@ -30,7 +30,9 @@ CREATE TABLE IF NOT EXISTS conformance_reviews (
   -- default budget).
   selected_projects JSONB NOT NULL DEFAULT 'null'::jsonb,
   build             BOOLEAN NOT NULL DEFAULT false,
-  build_budget      BIGINT NOT NULL DEFAULT 0
+  build_budget      BIGINT NOT NULL DEFAULT 0,
+  source_run UUID,
+  candidate TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS conformance_verdicts (
   id UUID PRIMARY KEY,

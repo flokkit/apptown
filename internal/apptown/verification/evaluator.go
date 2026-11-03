@@ -76,6 +76,7 @@ func (e *evaluator) runShChecks(ctx context.Context, sh string, checks []conform
 	for _, ev := range e.judge(ctx, sh).EvaluateSh(declaredAll(checks), CheckSource(src), check.Gate, namePrefix) {
 		res := resultOf(ev)
 		res.DurationMs = new(ev.Evidence.Duration.Milliseconds())
+		res.EvaluatorVer = evaluatorVersion(ev.Declaration, sh)
 		if res.Verdict != workflow.VerdictPass && res.Verdict != workflow.VerdictFail && res.Verdict != workflow.VerdictNotApplicable {
 			res.Verdict = workflow.VerdictError // a script that neither passed nor found anything errored
 			shErrors++

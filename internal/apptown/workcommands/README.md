@@ -18,7 +18,9 @@ still run real preparation, receipt resolution and admission. Persistence rollba
 parent-link and landing integration checks remain at those actual boundaries.
 
 `LandingEffects` supplies SCM's per-operation driver and observes its results:
-drift audit, contract snapshot and branch publication. It does not own merge
+drift audit, contract snapshot, conformance results and branch publication.
+It passes the guidance receipts to conformance only after a successful merge
+is recorded. A recording failure is logged; the merge remains completed. It does not own merge
 admission or settlement. `Uplift.OpenUplift` translates an Adoption candidate into
 Workflow's checked Change admission. Adoption supplies its target recorder at
 invocation; Workflow keeps all target, Change and receipt writes in one transaction.

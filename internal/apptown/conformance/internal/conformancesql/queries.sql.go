@@ -78,7 +78,7 @@ func (q *Queries) AdjudicationsForVerdicts(ctx context.Context, dollar_1 []ids.I
 }
 
 const allReviews = `-- name: AllReviews :many
-SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget FROM conformance_reviews ORDER BY id DESC
+SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate FROM conformance_reviews ORDER BY id DESC
 `
 
 func (q *Queries) AllReviews(ctx context.Context) ([]ConformanceReview, error) {
@@ -110,6 +110,8 @@ func (q *Queries) AllReviews(ctx context.Context) ([]ConformanceReview, error) {
 			&i.SelectedProjects,
 			&i.Build,
 			&i.BuildBudget,
+			&i.SourceRun,
+			&i.Candidate,
 		); err != nil {
 			return nil, err
 		}
@@ -125,7 +127,7 @@ func (q *Queries) AllReviews(ctx context.Context) ([]ConformanceReview, error) {
 }
 
 const claimQueuedReview = `-- name: ClaimQueuedReview :one
-UPDATE conformance_reviews SET status = $1 WHERE id=$2 AND status = $3 RETURNING id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget
+UPDATE conformance_reviews SET status = $1 WHERE id=$2 AND status = $3 RETURNING id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate
 `
 
 type ClaimQueuedReviewParams struct {
@@ -158,6 +160,8 @@ func (q *Queries) ClaimQueuedReview(ctx context.Context, arg ClaimQueuedReviewPa
 		&i.SelectedProjects,
 		&i.Build,
 		&i.BuildBudget,
+		&i.SourceRun,
+		&i.Candidate,
 	)
 	return i, err
 }
@@ -192,6 +196,34 @@ func (q *Queries) ClaimQueuedWhatIf(ctx context.Context, id ids.ID) (WhatIfRevie
 		&i.AlsoPacks,
 	)
 	return i, err
+}
+
+const completeLandingReview = `-- name: CompleteLandingReview :execrows
+UPDATE conformance_reviews SET source_run=$1, candidate=$2,
+  status='done', finished_at=$3, projects=1, projects_total=1, projects_done=1, verdicts=$4
+WHERE id=$5 AND status='running'
+`
+
+type CompleteLandingReviewParams struct {
+	SourceRun ids.ID
+	Candidate string
+	At        sql.NullTime
+	Verdicts  int64
+	ID        ids.ID
+}
+
+func (q *Queries) CompleteLandingReview(ctx context.Context, arg CompleteLandingReviewParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, completeLandingReview,
+		arg.SourceRun,
+		arg.Candidate,
+		arg.At,
+		arg.Verdicts,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const conformanceProjects = `-- name: ConformanceProjects :many
@@ -824,7 +856,7 @@ func (q *Queries) InsertFix(ctx context.Context, arg InsertFixParams) (Conforman
 
 const insertReview = `-- name: InsertReview :one
 INSERT INTO conformance_reviews (id, number, trigger, actor, actor_principal, actor_via, started_at, status, selected_projects, build, build_budget)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::text::jsonb, $10, $11) RETURNING id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::text::jsonb, $10, $11) RETURNING id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate
 `
 
 type InsertReviewParams struct {
@@ -876,6 +908,8 @@ func (q *Queries) InsertReview(ctx context.Context, arg InsertReviewParams) (Con
 		&i.SelectedProjects,
 		&i.Build,
 		&i.BuildBudget,
+		&i.SourceRun,
+		&i.Candidate,
 	)
 	return i, err
 }
@@ -1145,6 +1179,17 @@ func (q *Queries) InterruptUnfinishedWhatIfs(ctx context.Context, arg InterruptU
 	return result.RowsAffected()
 }
 
+const landingResultsRecorded = `-- name: LandingResultsRecorded :one
+SELECT EXISTS(SELECT 1 FROM conformance_reviews WHERE source_run=$1 AND trigger='landing')
+`
+
+func (q *Queries) LandingResultsRecorded(ctx context.Context, sourceRun ids.ID) (bool, error) {
+	row := q.db.QueryRowContext(ctx, landingResultsRecorded, sourceRun)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const latestVerdictForCheck = `-- name: LatestVerdictForCheck :one
 SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash FROM conformance_verdicts
 WHERE project_id = $1 AND block = $2 AND version = $3 AND check_name = $4
@@ -1384,7 +1429,7 @@ func (q *Queries) PriorAdjudicatedVerdicts(ctx context.Context, dollar_1 []ids.I
 }
 
 const priorReviewBefore = `-- name: PriorReviewBefore :one
-SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget FROM conformance_reviews WHERE id < $1 AND status = $2 ORDER BY id DESC LIMIT 1
+SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate FROM conformance_reviews WHERE id < $1 AND status = $2 ORDER BY id DESC LIMIT 1
 `
 
 type PriorReviewBeforeParams struct {
@@ -1415,6 +1460,8 @@ func (q *Queries) PriorReviewBefore(ctx context.Context, arg PriorReviewBeforePa
 		&i.SelectedProjects,
 		&i.Build,
 		&i.BuildBudget,
+		&i.SourceRun,
+		&i.Candidate,
 	)
 	return i, err
 }
@@ -1468,7 +1515,7 @@ func (q *Queries) RecentWhatIfs(ctx context.Context, maxRows int32) ([]WhatIfRev
 }
 
 const reviewByID = `-- name: ReviewByID :one
-SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget FROM conformance_reviews WHERE id = $1
+SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate FROM conformance_reviews WHERE id = $1
 `
 
 func (q *Queries) ReviewByID(ctx context.Context, id ids.ID) (ConformanceReview, error) {
@@ -1494,12 +1541,14 @@ func (q *Queries) ReviewByID(ctx context.Context, id ids.ID) (ConformanceReview,
 		&i.SelectedProjects,
 		&i.Build,
 		&i.BuildBudget,
+		&i.SourceRun,
+		&i.Candidate,
 	)
 	return i, err
 }
 
 const reviewByIDForUpdate = `-- name: ReviewByIDForUpdate :one
-SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget FROM conformance_reviews WHERE id = $1 FOR UPDATE
+SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate FROM conformance_reviews WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) ReviewByIDForUpdate(ctx context.Context, id ids.ID) (ConformanceReview, error) {
@@ -1525,6 +1574,8 @@ func (q *Queries) ReviewByIDForUpdate(ctx context.Context, id ids.ID) (Conforman
 		&i.SelectedProjects,
 		&i.Build,
 		&i.BuildBudget,
+		&i.SourceRun,
+		&i.Candidate,
 	)
 	return i, err
 }
@@ -1621,7 +1672,7 @@ WITH page AS (
   SELECT id FROM page
   UNION (SELECT r.id FROM conformance_reviews r WHERE r.status = $2 AND r.id < (SELECT page.id FROM page ORDER BY page.id LIMIT 1) ORDER BY r.id DESC LIMIT 1)
 )
-SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget FROM conformance_reviews WHERE id IN (SELECT id FROM needed) ORDER BY id DESC
+SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate FROM conformance_reviews WHERE id IN (SELECT id FROM needed) ORDER BY id DESC
 `
 
 type ReviewSummariesPageParams struct {
@@ -1661,6 +1712,8 @@ func (q *Queries) ReviewSummariesPage(ctx context.Context, arg ReviewSummariesPa
 			&i.SelectedProjects,
 			&i.Build,
 			&i.BuildBudget,
+			&i.SourceRun,
+			&i.Candidate,
 		); err != nil {
 			return nil, err
 		}
@@ -1676,7 +1729,7 @@ func (q *Queries) ReviewSummariesPage(ctx context.Context, arg ReviewSummariesPa
 }
 
 const reviewsTouchingProject = `-- name: ReviewsTouchingProject :many
-SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget FROM conformance_reviews
+SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate FROM conformance_reviews
 WHERE id IN (SELECT DISTINCT review_id FROM conformance_verdicts WHERE project_id = $1 ORDER BY review_id DESC LIMIT $2)
 ORDER BY id
 `
@@ -1715,6 +1768,8 @@ func (q *Queries) ReviewsTouchingProject(ctx context.Context, arg ReviewsTouchin
 			&i.SelectedProjects,
 			&i.Build,
 			&i.BuildBudget,
+			&i.SourceRun,
+			&i.Candidate,
 		); err != nil {
 			return nil, err
 		}

@@ -233,22 +233,26 @@ func (s reviewStore) snapshotExceptions(ctx context.Context, reviewID, projectID
 		if err := lockRunningReview(ctx, tx, reviewID); err != nil {
 			return nil, err
 		}
-		ds, err := readDispositions(ctx, tx, []ids.ID{projectID}, true, s.now())
-		if err != nil {
+		return s.snapshotExceptionsIn(ctx, tx, reviewID, projectID)
+	})
+}
+
+func (s reviewStore) snapshotExceptionsIn(ctx context.Context, tx *database.Tx, reviewID, projectID ids.ID) ([]Disposition, error) {
+	ds, err := readDispositions(ctx, tx, []ids.ID{projectID}, true, s.now())
+	if err != nil {
+		return nil, err
+	}
+	for _, d := range ds {
+		created := stamp.Parse(d.CreatedAt)
+		if _, err := queries(tx).InsertReviewException(ctx, conformancesql.InsertReviewExceptionParams{ID: ids.New(created.Time),
+			ReviewID: reviewID, ProjectID: projectID, DispositionID: d.ID, Fingerprint: d.Fingerprint,
+			Identifier: d.Identifier, Package: d.Package, Status: d.Status.String(),
+			Justification: d.Justification, By: d.By, ByPrincipal: d.ByPrincipal, ByVia: d.byVia, CreatedAt: created.Time, ExpiresAt: d.ExpiresAt.NullTime,
+		}); err != nil {
 			return nil, err
 		}
-		for _, d := range ds {
-			created := stamp.Parse(d.CreatedAt)
-			if _, err := queries(tx).InsertReviewException(ctx, conformancesql.InsertReviewExceptionParams{ID: ids.New(created.Time),
-				ReviewID: reviewID, ProjectID: projectID, DispositionID: d.ID, Fingerprint: d.Fingerprint,
-				Identifier: d.Identifier, Package: d.Package, Status: d.Status.String(),
-				Justification: d.Justification, By: d.By, ByPrincipal: d.ByPrincipal, ByVia: d.byVia, CreatedAt: created.Time, ExpiresAt: d.ExpiresAt.NullTime,
-			}); err != nil {
-				return nil, err
-			}
-		}
-		return ds, nil
-	})
+	}
+	return ds, nil
 }
 
 func readConformanceReviews(ctx context.Context, db database.Queryer) ([]Review, error) {

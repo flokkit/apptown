@@ -547,6 +547,10 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
  AND state IN ('available','pending','retryable','scheduled');
  END IF; END $$`,
 	}},
+	{n: 204, note: "record landing conformance sources", stmts: []string{
+		`ALTER TABLE conformance_reviews ADD COLUMN source_run UUID`,
+		`ALTER TABLE conformance_reviews ADD COLUMN candidate TEXT NOT NULL DEFAULT ''`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

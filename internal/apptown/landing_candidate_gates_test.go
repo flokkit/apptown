@@ -12,17 +12,22 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
 
+	"github.com/flokkit/apptown/internal/apptown/agentenv"
+	"github.com/flokkit/apptown/internal/apptown/conformance"
+	"github.com/flokkit/apptown/internal/apptown/modelcall"
 	"github.com/flokkit/apptown/internal/apptown/preview"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // Real admission, repository preparation and steps, with dispatch stopped so
@@ -321,5 +326,195 @@ func TestALandingDoesNotJudgeTheChangesFolderPreview(t *testing.T) {
 	refusePreviewBoots(daemon)
 	if verdict, _, detail := landingVerdict(t, a, run); verdict == workflow.VerdictPass {
 		t.Fatalf("the folder's preview was judged as the candidate: %s", detail)
+	}
+}
+
+// Standing must use the landing's saved judgement of the checked tree, including
+// old findings and exceptions, without asking any evaluator to judge it again.
+func TestALandingsChecksBecomeItsStanding(t *testing.T) {
+	for _, scenario := range []string{"pass", "preexisting", "exception", "main-moved", "missing-receipt", "AI"} {
+		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+			a := testApp(t)
+			testAdministrator(t, a, "reviewer")
+			var calls atomic.Int64
+			var modelCalls atomic.Int64
+			bindSecondaryFastSlot(t, a)
+			installCheckEffects(t, a, checkOverrides{complete: func(string, string, string) (string, *modelcall.Usage, error) {
+				modelCalls.Add(1)
+				return `[{"item":1,"verdict":"pass","evidence":"work.txt:1","note":"one judgement"}]`, &modelcall.Usage{Prompt: 1, Completion: 1, Model: "fixture"}, nil
+			}, run: func(req execRequest) execOutcome {
+				calls.Add(1)
+				return agentenv.Execute(a.processRunner, context.Background(), execution.Local, req, a.cfg.clock.Now())
+			}})
+			script := "echo landing-judgement; exit 0"
+			if scenario == "preexisting" || scenario == "exception" {
+				script = "echo saved-failure; exit 1"
+			}
+			var exception *conformance.Disposition
+			run, source := reviewLanding(t, a, []schema.Step{{Name: "guidance", Uses: "guidance/conformance"}}, map[string]string{"work.txt": "changed\n"}, func(pid ids.ID) {
+				checks := checksJSON(shCheck("rule", script, "high"))
+				if scenario == "preexisting" {
+					checks = strings.Replace(checks, `"severity":`, `"occurrences":"lines","severity":`, 1)
+				}
+				if scenario == "AI" {
+					checks = `[{"appliesTo":["repository"],"name":"rule","evaluator":"llm","scope":"tree","files":["work.txt"],"rubric":"the change is clear","severity":"high","expects":"clear change"}]`
+				}
+				adopt(t, a, pid, "standing-check", 1, checks)
+				if scenario == "exception" {
+					var err error
+					exception, err = a.conformance.CreateDisposition(testConformanceContext("reviewer"), conformance.ExceptionRequest{
+						ProjectID: pid, Fingerprint: "guidance|standing-check@1|rule|", Kind: conformance.AcceptedRisk, Justification: "accepted for this project",
+					})
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+			})
+			if scenario == "missing-receipt" {
+				// The runner errored before producing this adopted check's receipt. A
+				// non-gating error can still reach landing; it must not create a review.
+				rebuildWork(t, a, func(d *workflow.Dependencies) {
+					d.Runners["guidance/conformance"] = func(e *workflow.Execution) {
+						if _, err := e.Claim(); err != nil {
+							t.Error(err)
+							return
+						}
+						if err := e.Finish(workflow.CheckEvidence{}.Outcome(workflow.StatusPass, map[string]any{"reason": "no receipt", "commit": source.Landing.Candidate, "candidate": source.Landing.Candidate})); err != nil {
+							t.Error(err)
+						}
+					}
+				})
+				a.Work.Stop()
+			}
+			checked := reviewExecute(t, a, run, "guidance")
+			if checked.Status != workflow.StatusPass {
+				t.Fatalf("guidance: %s %s", checked.Status, checked.Evidence)
+			}
+			evidence, err := workflow.ReadCheckEvidence(checked.Evidence)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if scenario == "preexisting" && (len(evidence.Checks) != 1 || !evidence.Checks[0].Preexisting) {
+				t.Fatalf("fixture needs a pre-existing finding: %s", checked.Evidence)
+			}
+			before := calls.Load()
+			if scenario == "AI" && modelCalls.Load() != 1 {
+				t.Fatalf("want one AI judgement at the gate, got %d: %s", modelCalls.Load(), checked.Evidence)
+			}
+			repo := requireLocation(t)(source.Repository(a.cfg.dataDir))
+			if scenario == "main-moved" {
+				if err := os.WriteFile(filepath.Join(repo, "other.txt"), []byte("other landing"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				gittest.Run(t, repo, "add", "other.txt")
+				gittest.Run(t, repo, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "another landing")
+			}
+			result, err := mergeEffectForTest(t, a, source)
+			ctx := testConformanceContext("reviewer")
+			history, readErr := a.conformance.ProjectHistory(ctx, run.ProjectID, 40)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if scenario == "main-moved" {
+				if err == nil || result.Merged || len(history) != 0 {
+					t.Fatalf("refused landing recorded results: %+v %v %+v", result, err, history)
+				}
+				return
+			}
+			if err != nil || !result.Merged {
+				t.Fatalf("landing: %+v %v", result, err)
+			}
+			if scenario == "missing-receipt" {
+				reviews, readErr := a.conformance.Reviews(ctx, 40)
+				if readErr != nil {
+					t.Fatal(readErr)
+				}
+				for _, r := range reviews {
+					if r.Trigger == "landing" && r.SourceRun == run.ID {
+						t.Fatalf("incomplete receipts created a review: %+v", r)
+					}
+				}
+				if len(history) != 0 {
+					t.Fatalf("partial review: %+v", history)
+				}
+				return
+			}
+			if len(history) != 1 {
+				t.Fatalf("want the landing's one saved assessment: %+v", history)
+			}
+			// A repeated merge observation must not become a second assessment.
+			repeated, err := mergeEffectForTest(t, a, source)
+			if err != nil || !repeated.Merged {
+				t.Fatalf("repeat observation: %+v %v", repeated, err)
+			}
+			history, err = a.conformance.ProjectHistory(ctx, run.ProjectID, 40)
+			if err != nil || len(history) != 1 {
+				t.Fatalf("landing recorded twice: %+v %v", history, err)
+			}
+			landed := gittest.Run(t, repo, "rev-parse", "HEAD")
+			detail, err := a.conformance.Review(ctx, history[0].ReviewID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := detail.Review
+			if r.Trigger != "landing" || r.Status != conformance.ReviewDone || r.SourceRun != run.ID || r.Candidate != source.Landing.Candidate {
+				t.Fatalf("landing provenance: %+v", r)
+			}
+			if len(detail.Verdicts) != 1 {
+				t.Fatalf("verdicts: %+v", detail.Verdicts)
+			}
+			v := detail.Verdicts[0].Record
+			receipt := evidence.Checks[0]
+			if v.SHA != landed || v.Mode != "gate" || v.Block != receipt.Block || v.Version != receipt.Version || v.Check != receipt.Check || v.EvaluatorVer != receipt.EvaluatorVer || v.EvaluatorVer == "" || v.Severity != "high" {
+				t.Fatalf("saved identity: %+v, receipt %+v", v, receipt)
+			}
+			want := conformance.Conforms
+			if scenario == "preexisting" {
+				want = conformance.DoesNotConform
+			}
+			if scenario == "exception" {
+				want = conformance.Excepted
+			}
+			assertStanding := func(want conformance.Outcome) *conformance.View {
+				t.Helper()
+				view, err := a.conformance.View(ctx, ids.Nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				got := view.ByProject["review-landing"]
+				if len(got) != 1 || got[0].State != want || got[0].Record.ID != v.ID {
+					t.Fatalf("current standing: %+v, want %s", got, want)
+				}
+				return view
+			}
+			assertStanding(want)
+			if v.State != want {
+				t.Fatalf("saved outcome: %+v", v)
+			}
+			if scenario == "exception" {
+				historical, err := a.conformance.View(ctx, r.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if historical.ByProject["review-landing"][0].State != conformance.Excepted || len(historical.Exceptions["review-landing"]) != 1 || v.ExceptedBy == "" || !strings.Contains(v.Detail, "saved-failure") {
+					t.Fatalf("lost exception or underlying failure: %+v %+v", v, historical.Exceptions)
+				}
+				if _, err := a.conformance.RevokeDisposition(ctx, exception.ID); err != nil {
+					t.Fatal(err)
+				}
+				assertStanding(conformance.DoesNotConform)
+				historical, err = a.conformance.View(ctx, r.ID)
+				if err != nil || historical.ByProject["review-landing"][0].State != conformance.Excepted || len(historical.Exceptions["review-landing"]) != 1 {
+					t.Fatalf("history changed after revocation: %+v %v", historical, err)
+				}
+			}
+			if scenario == "AI" && (modelCalls.Load() != 1 || receipt.EvidenceHash == "" || receipt.EvidenceHash != v.EvidenceHash) {
+				t.Fatalf("AI rejudged or evidence lost: calls=%d receipt=%+v saved=%+v", modelCalls.Load(), receipt, v)
+			}
+			if calls.Load() != before {
+				t.Fatalf("landing or view evaluated again: %d -> %d", before, calls.Load())
+			}
+		})
 	}
 }

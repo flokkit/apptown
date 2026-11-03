@@ -59,6 +59,8 @@ type ConformanceReview struct {
 	SelectedProjects json.RawMessage
 	Build            bool
 	BuildBudget      int64
+	SourceRun        ids.ID
+	Candidate        string
 }
 
 type ConformanceReviewException struct {
