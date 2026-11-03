@@ -355,7 +355,9 @@ func runInitContainers(ctx context.Context, dk Scope, id, network string, c *app
 		args = append(args, img)
 		args = append(args, it.Command...)
 		if out, err := dk.Run(ctx, args...); err != nil {
-			return fmt.Errorf("init %q failed: %s", it.Name, strs.Truncate(dk.redacted(out), 400))
+			// How it exited, and the end of what it printed, where a
+			// command's failure usually is; never an empty reason.
+			return fmt.Errorf("init %q failed (%v): %s", it.Name, err, strs.Tail(strings.TrimSpace(dk.redacted(out)), 1500))
 		}
 	}
 	return nil
