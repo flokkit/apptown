@@ -339,10 +339,10 @@ func TestRunDeploySequence(t *testing.T) {
 	if err != nil || env.Container != names.App() || env.ReleaseRun != runID || env.HostPort == 0 {
 		t.Fatalf("environment record: %+v %v", env, err)
 	}
-	for _, kind := range []string{deployment.DetailObservationJob, "protection-observation"} {
+	for _, kind := range []string{deployment.DetailObservationJob, "protection-observation", deployment.CapacityObservationJob} {
 		rows := operationJobs(t, a, kind)
-		if len(rows) != 0 {
-			t.Fatalf("Docker act queued post-act %s: %+v", kind, rows)
+		if len(rows) != 1 {
+			t.Fatalf("Docker act did not queue post-act %s: %+v", kind, rows)
 		}
 	}
 	if !strings.Contains(runs[3].call, "-p 127.0.0.1:"+strconv.Itoa(env.HostPort)+":8080") {

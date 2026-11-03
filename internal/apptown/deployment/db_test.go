@@ -150,10 +150,11 @@ func storedBundleFixture(t *testing.T, db *database.DB, p deploymentsql.InsertBu
 func mutateStoredDeployment(t *testing.T, db *database.DB, projectID ids.ID, name string, mutate func(*deploymentsql.Deployment)) {
 	t.Helper()
 	q := deploymentsql.New(db.SQL())
-	r, err := q.DeploymentByName(context.Background(), deploymentsql.DeploymentByNameParams{ProjectID: projectID, Name: name})
+	row, err := q.DeploymentByName(context.Background(), deploymentsql.DeploymentByNameParams{ProjectID: projectID, Name: name})
 	if err != nil {
 		t.Fatal(err)
 	}
+	r := row.Deployment
 	mutate(&r)
 	if _, err := q.EnsureStanding(context.Background(), deploymentsql.EnsureStandingParams{ID: ids.New(r.UpdatedAt), ProjectID: r.ProjectID, Name: r.Name, Kind: r.Kind, TargetID: r.TargetID, Feed: r.Feed, Audience: r.Audience, DataClass: r.DataClass, UpdatedAt: r.UpdatedAt}); err != nil {
 		t.Fatal(err)

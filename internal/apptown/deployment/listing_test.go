@@ -141,10 +141,11 @@ func TestListFailsStoredFactsAndAuthorityBeforeProviderCalls(t *testing.T) {
 			case "needs":
 				dbtest.FailNextStatement(t, s.db, "-- name: NeedInstances")
 			case "malformed-deployment":
-				r, err := deploymentsql.New(s.db.SQL()).DeploymentByID(ctx, envs[0].ID)
+				row, err := deploymentsql.New(s.db.SQL()).DeploymentByID(ctx, envs[0].ID)
 				if err != nil {
 					t.Fatal(err)
 				}
+				r := row.Deployment
 				if _, err := deploymentsql.New(s.db.SQL()).ObserveGeneration(ctx, deploymentsql.ObserveGenerationParams{ID: r.ID, ObservedGeneration: r.ObservedGeneration, HandleJson: []byte(`[]`), Url: r.Url, Container: r.Container, HostPort: r.HostPort, ReleaseRun: r.ReleaseRun, ReleaseSha: r.ReleaseSha, ImageDigest: r.ImageDigest, Readiness: r.Readiness, UpdatedAt: r.UpdatedAt}); err != nil {
 					t.Fatal(err)
 				}

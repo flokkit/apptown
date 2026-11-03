@@ -92,6 +92,7 @@ type NeedSummary struct {
 	Status                                needState
 }
 type Summary struct {
+	LastApplied  *AppliedAttempt
 	TargetID     ids.ID
 	DisplayLabel string
 	ID           ids.ID
@@ -218,7 +219,7 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 		byDeployment[row.DeploymentID] = append(byDeployment[row.DeploymentID], need)
 	}
 	for i, row := range rows {
-		e, err := deploymentRecord(row.Deployment, nil)
+		e, err := appliedDeploymentRecord(row.Deployment, row.LastAppliedAt, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -244,7 +245,7 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 				needs = append(needs, NeedSummary{Need: o.Need, Name: o.Name, ID: o.ID, Status: NeedReady})
 			}
 		}
-		out[i] = listingRecord{project: row.Slug, deployment: e, target: byTarget[e.TargetID], summary: Summary{DisplayLabel: e.DisplayLabel,
+		out[i] = listingRecord{project: row.Slug, deployment: e, target: byTarget[e.TargetID], summary: Summary{LastApplied: e.LastApplied, DisplayLabel: e.DisplayLabel,
 			ID: e.ID, TargetID: e.TargetID, Name: e.Name, RestoreCheck: e.RestoreCheck, Kind: e.Kind, URL: e.URL, HostPort: e.HostPort, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt,
 			Attributes: e.releaseAttributes(), Protected: e.Protected(), Generation: e.ObservedGeneration, Readiness: e.Readiness,
 			ChangeID: e.ChangeID, Target: summaries[e.TargetID], Needs: needs, AIModelsKeys: keys,

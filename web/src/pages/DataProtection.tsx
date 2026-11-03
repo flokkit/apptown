@@ -187,7 +187,7 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
   const p = q.data
   // A failed refresh keeps the last answer, said as such: no state is
   // claimed as it is now.
-  const old = q.refreshFailed
+  const old = q.refreshFailed || p.reading?.unknown
   const asRead = old ? ` as read ${elapsed(new Date(q.answeredAt).toISOString())} ago` : ''
   const start = (what: 'copies' | 'drills' | 'rehearsals') => run(() => post<OperationAdmitted>(`/projects/${slug}/deployments/${name}/${what}`, {}))
   const last = p.recent.find((o) => !live(o))
@@ -204,7 +204,7 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
   const shown = (ops ? [ops.copy, ops.check, ...(p.rehearsalNote !== 'never rehearsed: no rehearsal place' ? [ops.rehearsal] : []), ...(p.dataClass === 'production' ? [ops.restore] : [])] : []).filter(applies)
   const whyNot = Array.from(new Set(shown.filter((o) => !o.available && o.why).map((o) => o.why!)))
   const runnerMissing = shown.some((o) => o.reason === 'no-copy-runner')
-  if (p.unknown) return <div className="small"><Status word={"unknown"} help={p.unknown} /> couldn't read what this deployment holds. <BackgroundReading reading={p.reading} /><CoverageLines c={p.coverage} unknown /></div>
+  if (p.unknown && !p.reading?.waiting) return <div className="small"><Status word={"unknown"} help={p.unknown} /> couldn't read what this deployment holds. <BackgroundReading reading={p.reading} /><CoverageLines c={p.coverage} unknown /></div>
   // A deployment that holds no data AppTown knows of says only what is
   // not assessed; one whose take-down would still act on data, or with an
   // operation or copy standing, shows the whole card.
@@ -217,7 +217,7 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
       <StaleNote q={q} /><BackgroundReading reading={p.reading} />
       {onHost
         ? <div className="muted">{p.keptOn === 'store' ? 'Backups kept in the backup store' : p.keptOn === 'host' ? <>Backups kept on <span title="lost with this host's disk">this host ⚠</span></> : 'No backup yet'} · <Link to="/docs/guides/deployment-backups">How backups work</Link></div>
-        : p.note && <div className={p.dataClass === 'production' && !p.offHost ? 'error' : 'muted'}>{p.note}</div>}
+        : p.note && <div className={!old && p.dataClass === 'production' && !p.offHost ? 'error' : 'muted'}>{p.note}</div>}
       {p.startFrom && !p.startFrom.filled && <div className="muted">starts from a backup set: its first release fills its data before the app starts</div>}
       {p.items.map((it) => (
         <div key={`${it.need}:${it.volume ?? ''}`}>
@@ -225,15 +225,15 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
           <div style={{ marginLeft: 12 }}>
             <div><Status observation word={old ? 'unknown' : it.copyLabel} help={old ? `Last answer shown${asRead}.` : undefined} /> {copyLine(it)}</div>
             {nativeLine(it) && <div className="muted">{nativeLine(it)}</div>}
-            {(!ops || applies(ops.check)) && <div className={it.drill && !it.drill.passed ? 'error' : 'muted'}>{drillLine(it)}</div>}
+            {(!ops || applies(ops.check)) && <div className={!old && it.drill && !it.drill.passed ? 'error' : 'muted'}>{drillLine(it)}</div>}
           </div>
         </div>
       ))}
       <CoverageLines c={p.coverage} />
-      {(p.rehearsal || !ops || ops.rehearsal.available || p.rehearsalNote === 'never rehearsed: no rehearsal place') && <div className={p.rehearsal && !p.rehearsal.passed ? 'error' : 'muted'}>{rehearsalLine(p.rehearsal, p.rehearsalNote)}{p.rehearsal && asRead}</div>}
+      {(p.rehearsal || !ops || ops.rehearsal.available || p.rehearsalNote === 'never rehearsed: no rehearsal place') && <div className={!old && p.rehearsal && !p.rehearsal.passed ? 'error' : 'muted'}>{rehearsalLine(p.rehearsal, p.rehearsalNote)}{p.rehearsal && asRead}</div>}
       {p.rehearsal && <div className="muted" style={{ marginLeft: 12 }}>{heldBack(p.rehearsal)}</div>}
       {p.rehearsal?.previous && <div className="muted" style={{ marginLeft: 12 }}>before that: {rehearsalLine(p.rehearsal.previous).replace('last restore rehearsal ', '')}</div>}
-      {(p.restoreTest || !ops || applies(ops.restore)) && <div className={p.restoreTest && !(p.restoreTest.outcome ?? '').startsWith('passed') ? 'error' : 'muted'}>{restoreTestLine(p.restoreTest, p.restoreTestNote)}{p.restoreTest && asRead}</div>}
+      {(p.restoreTest || !ops || applies(ops.restore)) && <div className={!old && p.restoreTest && !(p.restoreTest.outcome ?? '').startsWith('passed') ? 'error' : 'muted'}>{restoreTestLine(p.restoreTest, p.restoreTestNote)}{p.restoreTest && asRead}</div>}
       {p.restoredCopies.filter((c) => !c.endedAt).map((c) => <RestoredCopyLines key={c.id} slug={slug} source={name} copy={c} asRead={asRead} />)}
       {p.running && (
         <div style={{ marginTop: 4 }}>

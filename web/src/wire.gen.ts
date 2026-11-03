@@ -596,6 +596,7 @@ export type DeploymentResources = {
 }
 
 export type DeploymentView = {
+  lastApplied?: AppliedAttempt | null
   readinessLabel: ProgressLabel
   restoreLabel: ProgressLabel
   targetId: string | null
@@ -2923,6 +2924,8 @@ export type RecoveryResult = {
 }
 
 export type DetailReading = {
+  identity?: string
+  waiting: boolean
   observedAt?: string
   attemptedAt?: string
   failure?: string
@@ -3076,6 +3079,11 @@ export type LimitCount = {
   kind: string
   count: number
   last: string
+}
+
+export type AppliedAttempt = {
+  at: string
+  generation: number
 }
 
 export type ProgressLabel = "unknown" | "deployed" | "deploying" | "failed" | "passed" | "working" | "stopped" | "waiting" | "excepted"
@@ -4909,6 +4917,8 @@ export type Split = {
 }
 
 export type TargetReading = {
+  identity?: string
+  waiting: boolean
   observedAt?: string
   attemptedAt?: string
   failure?: string

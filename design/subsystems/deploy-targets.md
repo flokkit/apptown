@@ -274,7 +274,10 @@ ten-session cap.
 
 Durable jobs check other providers' inventory, every target's capacity and the
 controller/worker filesystems every five minutes, even with no readers. Startup
-queues that pass and starts the Docker reader loops. Infrastructure pages and
+queues that pass and starts the Docker reader loops. After an act finishes,
+AppTown also queues capacity and every standing deployment's detail and protection
+checks on that target. Non-Docker inventory is invalidated and queued at that
+point; Docker inventory remains with its sole reader loop. Infrastructure pages and
 Attention show recorded evidence and its age; a page never contacts a provider
 or host or requests a check. The Docker Infrastructure row shows how long ago
 it was read and how long it took. Attention warns when a Docker host's reading

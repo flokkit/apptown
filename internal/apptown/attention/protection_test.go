@@ -209,3 +209,19 @@ func TestProtectionNextStepNamesOnlyDeploymentsWithAProblem(t *testing.T) {
 		t.Fatalf("coverage named the healthy deployment: %+v", got)
 	}
 }
+
+func TestWaitingProtectionDoesNotReportOldEvidenceAsAttention(t *testing.T) {
+	t.Parallel()
+	evidence := &protectionEvidence{value: dataprotection.ProtectionSnapshot{Waiting: true, Unknown: true, Stale: true, AttemptedAt: time.Now(), Items: []dataprotection.ProtectionItemObservation{{Copy: dataprotection.CopyNone}}}}
+	source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Kind: deployment.Standing, DataClass: "production"}}}, Observer: evidence}
+	got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
+	if err != nil || len(got.Items) != 0 || got.Known {
+		t.Fatalf("waiting reading reported a problem: %+v %v", got, err)
+	}
+	evidence.value.Waiting = false
+	evidence.value.Reason = "AppTown could not read this deployment's release contract."
+	got, err = source.ProjectSnapshot(t.Context(), idstest.N(2))
+	if err != nil || len(got.Items) == 0 {
+		t.Fatalf("failed assessment suppressed: %+v %v", got, err)
+	}
+}

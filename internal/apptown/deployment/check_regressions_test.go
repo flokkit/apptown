@@ -3,9 +3,12 @@ package deployment
 import (
 	"context"
 	"errors"
+	"github.com/flokkit/apptown/internal/deploy"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/dbtest"
 )
 
 func TestDetailReadingsSurviveAdmissionAndReadinessChanges(t *testing.T) {
@@ -104,5 +107,85 @@ func TestBackgroundTargetChecksRequireRepeatedFailureAndAuditTransitions(t *test
 	}
 	if count() != 3 {
 		t.Fatal("shutdown audited a failure")
+	}
+}
+
+// A changed identity keeps the prior payload and its age for display, but
+// remains unknown until a successful check of the new identity.
+func TestChangedDetailKeepsOldValuesWithoutClaimingCurrentEvidence(t *testing.T) {
+	t.Parallel()
+	w := newDiagnosticsWorld(t)
+	ctx := t.Context()
+	if err := w.s.observeDetails(ctx, w.main.ID); err != nil {
+		t.Fatal(err)
+	}
+	old, err := w.s.Diagnostics(ctx, w.project, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := w.s.Deployments.ByID(ctx, w.main.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := w.s.detailIdentity(ctx, dep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := loadDeploymentDetail[Diagnostics](ctx, w.s, dep, identity+"changed", "Diagnostics")
+	if err != nil || !got.Reading.Waiting || !got.Reading.Unknown || !got.Reading.Stale || got.Reading.Failure != "" || len(got.Value.Parts) != len(old.Parts) || !got.Reading.ObservedAt.Equal(old.Reading.ObservedAt) || got.Reading.Identity != identity {
+		t.Fatalf("old display lost or current: %+v %v", got, err)
+	}
+	if got.Value.Generation != old.Generation || got.Value.Parts[0].Facts == nil {
+		t.Fatalf("old identity and facts lost: %+v", got)
+	}
+}
+
+func TestLastAppliedSurvivesAddressEditsAndAdvancesOnRebuild(t *testing.T) {
+	t.Parallel()
+	w := newDiagnosticsWorld(t)
+	w.s.setClock(w.s.clock)
+	ctx := t.Context()
+	// Deployment reads must select application evidence with the row, rather
+	// than issuing the old per-row CompletedAttempt query.
+	clear := dbtest.NextStatementFailure(w.s.db, "-- name: CompletedAttempt")
+	t.Cleanup(clear)
+	byID, err := w.s.Deployments.ByID(ctx, w.main.ID)
+	if err != nil || byID.LastApplied == nil {
+		t.Fatalf("deployment application evidence: %+v %v", byID, err)
+	}
+	first := byID.LastApplied
+	byName, err := w.s.Deployments.ByName(ctx, w.main.ProjectID, w.main.Name)
+	if err != nil || byName.LastApplied == nil {
+		t.Fatalf("named deployment application evidence: %+v %v", byName, err)
+	}
+	project, err := w.s.Deployments.ForProject(ctx, w.main.ProjectID)
+	if err != nil || len(project) == 0 || project[0].LastApplied == nil {
+		t.Fatalf("project application evidence: %+v %v", project, err)
+	}
+	rows, err := w.s.listRecords(ctx, nil)
+	if err != nil || len(rows) == 0 || rows[0].summary.LastApplied == nil {
+		t.Fatalf("listing application evidence: %+v %v", rows, err)
+	}
+	clear()
+	if first == nil {
+		t.Fatal("successful attempt not exposed")
+	}
+	w.advance(time.Minute)
+	if err := w.s.Deployments.RecordAddress(ctx, w.main.ID, "https://new.example"); err != nil {
+		t.Fatal(err)
+	}
+	if got := w.reread(t).LastApplied; got == nil || *got != *first {
+		t.Fatalf("address edit restarted application time: %+v %+v", first, got)
+	}
+	attempt, _, err := w.s.Outcomes.Admit(ctx, Start{DeploymentID: w.main.ID, TargetID: w.main.TargetID, Key: "rebuild", Inputs: Inputs{Revision: w.main.ReleaseSHA}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	finished := w.advance(time.Minute)
+	if _, err := w.s.Outcomes.Complete(ctx, Completion{Attempt: attempt, Observed: deploy.Observation{Generation: attempt.Generation, Rollout: "active"}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := w.reread(t).LastApplied; got == nil || !got.At.Equal(finished) || got.Generation != attempt.Generation {
+		t.Fatalf("rebuild not exposed: %+v", got)
 	}
 }

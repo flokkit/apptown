@@ -220,6 +220,12 @@ const CapacityObservationJob = "capacity-observation"
 func (o *CapacityObserver) RunJob(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
 	rawID, rawRevision, ok := strings.Cut(key, "/")
 	id, idErr := ids.Parse(rawID)
+	rawRevision, act, hasAct := strings.Cut(rawRevision, "/")
+	if hasAct {
+		if actID, err := ids.Parse(act); err != nil || actID.IsZero() {
+			return nil, jobs.Permanent(errors.New("invalid capacity observation act"))
+		}
+	}
 	revision, revisionErr := strconv.ParseInt(rawRevision, 10, 64)
 	if !ok || idErr != nil || id.IsZero() || revisionErr != nil || revision < 0 {
 		return nil, jobs.Permanent(errors.New("invalid capacity observation identity"))

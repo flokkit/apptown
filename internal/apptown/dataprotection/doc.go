@@ -24,6 +24,10 @@
 // a new assessment cannot renew an older provider answer. There is no in-memory
 // reading cache. Live protection is fresh for fifteen minutes, then last seen
 // with its age, and unknown after six hours. Failed checks keep prior values.
+// A deployment with no successful attempt remains pending without collection.
+// An empty revision alone does not make a running deployment pending. After an
+// identity change, old protection payloads retain their identity and age for
+// display; they supply neither Attention evidence nor operation availability.
 // Attention warns about age before six hours only when the latest check failed.
 // Failed data readings record a safe cause and next step: missing host data,
 // unreadable projects or release contracts, and absent local Docker access

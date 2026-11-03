@@ -32,11 +32,8 @@ func (s *Service) SettledApplied(ctx context.Context, d *Deployment) (AppliedPro
 // zero time is not known (nothing settled, or an attempt that kept no
 // finish time).
 func (s *Service) settled(ctx context.Context, d *Deployment) (AppliedProfile, time.Time, error) {
-	if d.ObservedGeneration == 0 {
-		return AppliedProfile{}, time.Time{}, nil
-	}
-	at, err := deploymentsql.New(s.db.SQL()).CompletedAttempt(ctx, deploymentsql.CompletedAttemptParams{DeploymentID: d.ID, Generation: d.ObservedGeneration, Status: AttemptDone.String()})
-	if found, err := database.Lookup(err); err != nil || !found {
+	at, found, err := s.Deployments.completedAttempt(ctx, d)
+	if err != nil || !found {
 		return AppliedProfile{}, time.Time{}, err
 	}
 	var since time.Time
@@ -376,6 +373,9 @@ func (s *Service) Resources(ctx context.Context, projectID ids.ID, name string) 
 	stored, err := readDeploymentDetail[DeploymentResources](ctx, s, projectID, name, "Resources")
 	if err != nil {
 		return DeploymentResources{}, err
+	}
+	if stored.Reading.Waiting && !stored.Reading.ObservedAt.IsZero() {
+		return stored, nil
 	}
 	out, err := s.resources(ctx, projectID, name, func(context.Context, *Deployment) ([]PartMemory, error) {
 		observed := []PartMemory{}

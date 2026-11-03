@@ -1028,11 +1028,9 @@ func TestADrillIsDueByAppTownsOwnClock(t *testing.T) {
 	}
 }
 
-// A managed instance AppTown cannot copy (here a first fulfilment that
-// stopped once the provider had made the cluster, before its database and
-// user: the record names an instance and no database) stays in the
-// deployment's list: a protection row that says why, never left out, and a
-// take-down that keeps the cluster rather than counting the rest as covered.
+// A first fulfilment can stop after making a cluster, before its database
+// and user. Without a successful attempt, protection waits, but the take-down
+// still keeps that owned cluster unless a person explicitly goes without a copy.
 func TestAManagedInstanceAppTownCannotCopyStaysInTheList(t *testing.T) {
 	t.Parallel()
 	w := newDataWorld(t)
@@ -1051,7 +1049,7 @@ func TestAManagedInstanceAppTownCannotCopyStaysInTheList(t *testing.T) {
 	}
 	collectProtectionForTest(t, w.s, w.project, "prod")
 	p, err := w.s.DeploymentProtection(ctx, w.project, "prod")
-	if err != nil || p.Unknown == "" || len(p.Items) != 1 || p.Items[0].Copy != CopyNone || !strings.Contains(p.Items[0].CopyNote, "names no instance") || p.Operations.FinalCopy.Available {
+	if err != nil || !p.Reading.Waiting || !p.Reading.Unknown || len(p.Items) != 0 || p.Operations == nil || p.Operations.FinalCopy.Available || p.TakeDown == "" {
 		t.Fatalf("an instance AppTown cannot copy: %+v %v", p, err)
 	}
 	if _, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"}); !errors.Is(err, errNoFinalCopy) {
@@ -1073,7 +1071,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	t.Parallel()
 	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
 	first := now
-	dep := deployment.Deployment{ID: idstest.N(1), ProjectID: idstest.N(2), Kind: deployment.Standing, Name: "production"}
+	dep := deployment.Deployment{ID: idstest.N(1), ProjectID: idstest.N(2), LastApplied: &deployment.AppliedAttempt{At: now, Generation: 1}, Kind: deployment.Standing, Name: "production"}
 	identity := strings.Repeat("a", 64)
 	q := &protectionObservationRequests{}
 	calls := 0
@@ -1127,7 +1125,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 		t.Fatal(err)
 	}
 	got, err = o.Snapshot(t.Context(), dep.ID)
-	if err != nil || !got.Unknown || got.AttemptedAt.IsZero() || !strings.Contains(got.Reason, "deployment changed") {
+	if err != nil || !got.Unknown || got.AttemptedAt.IsZero() || !got.Waiting || got.Reason != "" {
 		t.Fatalf("old generation published under replacement: %+v %v", got, err)
 	}
 	replace = false
@@ -1145,7 +1143,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 func TestProtectionSnapshotsDoNotWaitForProviderAndRefuseCanceledPublication(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
-	dep := deployment.Deployment{ID: idstest.N(1), ProjectID: idstest.N(2), Kind: deployment.Standing, Name: "production"}
+	dep := deployment.Deployment{ID: idstest.N(1), ProjectID: idstest.N(2), LastApplied: &deployment.AppliedAttempt{At: now, Generation: 1}, Kind: deployment.Standing, Name: "production"}
 	identity := strings.Repeat("a", 64)
 	started := make(chan struct{})
 	ctx, cancel := context.WithCancel(t.Context())

@@ -27,23 +27,30 @@ import (
 // nuance (§2.3a). This package owns the record and its rules; AppTown holds
 // the doors and the drivers.
 
-// Deployment is one row of the deployments table.
+// AppliedAttempt identifies the observed generation’s successful attempt and finish time.
+type AppliedAttempt struct {
+	At         time.Time `json:"at"`
+	Generation int64     `json:"generation"`
+}
+
+// Deployment includes the last successful attempt of its observed generation.
 type Deployment struct {
-	DisplayLabel       string         `json:"displayLabel"`
-	ID                 ids.ID         `json:"id"`
-	ProjectID          ids.ID         `json:"projectId"`
-	Kind               Kind           `json:"kind"`
-	Name               string         `json:"name"`
-	ChangeID           ids.ID         `json:"changeId,omitzero"`
-	TargetID           ids.ID         `json:"targetId"`
-	Handle             map[string]any `json:"handle"`
-	DesiredGeneration  int64          `json:"desiredGeneration"`
-	ObservedGeneration int64          `json:"observedGeneration"`
-	Readiness          Readiness      `json:"readiness"`
-	Feed               string         `json:"feed"`
-	Audience           string         `json:"audience"`
-	DataClass          string         `json:"data"`
-	URL                string         `json:"url"`
+	LastApplied        *AppliedAttempt `json:"lastApplied,omitempty"`
+	DisplayLabel       string          `json:"displayLabel"`
+	ID                 ids.ID          `json:"id"`
+	ProjectID          ids.ID          `json:"projectId"`
+	Kind               Kind            `json:"kind"`
+	Name               string          `json:"name"`
+	ChangeID           ids.ID          `json:"changeId,omitzero"`
+	TargetID           ids.ID          `json:"targetId"`
+	Handle             map[string]any  `json:"handle"`
+	DesiredGeneration  int64           `json:"desiredGeneration"`
+	ObservedGeneration int64           `json:"observedGeneration"`
+	Readiness          Readiness       `json:"readiness"`
+	Feed               string          `json:"feed"`
+	Audience           string          `json:"audience"`
+	DataClass          string          `json:"data"`
+	URL                string          `json:"url"`
 	// The built-in host's handle, as columns (the Docker driver reads them).
 	HostPort  int    `json:"-"`
 	Container string `json:"-"`
@@ -210,11 +217,11 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 }
 
 func (s *Deployments) ByID(ctx context.Context, id ids.ID) (*Deployment, error) {
-	return deploymentRecord(deploymentsql.New(s.db.SQL()).DeploymentByID(ctx, id))
+	return deploymentByIDRecord(deploymentsql.New(s.db.SQL()).DeploymentByID(ctx, id))
 }
 
 func (s *Deployments) ByName(ctx context.Context, projectID ids.ID, name string) (*Deployment, error) {
-	return deploymentRecord(deploymentsql.New(s.db.SQL()).DeploymentByName(ctx, deploymentsql.DeploymentByNameParams{ProjectID: projectID, Name: name}))
+	return deploymentByNameRecord(deploymentsql.New(s.db.SQL()).DeploymentByName(ctx, deploymentsql.DeploymentByNameParams{ProjectID: projectID, Name: name}))
 }
 
 // ForProject lists a project's deployments, standing first.
@@ -225,7 +232,7 @@ func (s *Deployments) ForProject(ctx context.Context, projectID ids.ID) ([]*Depl
 	}
 	var out []*Deployment
 	for _, r := range rows {
-		e, err := deploymentRecord(r, nil)
+		e, err := appliedDeploymentRecord(r.Deployment, r.LastAppliedAt, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -380,4 +387,34 @@ func nameFreeOfDataIn(ctx context.Context, tx *database.Tx, projectID ids.ID, na
 		what = append(what, r.Need)
 	}
 	return fmt.Errorf("%w: %s (%s); delete it and mark it deleted under Left behind, or choose another name", ErrNameHeldByData, name, strings.Join(what, ", "))
+}
+
+// completedAttempt selects successful application evidence for release inputs.
+func (s *Deployments) completedAttempt(ctx context.Context, d *Deployment) (deploymentsql.DeploymentAttempt, bool, error) {
+	if d.ObservedGeneration == 0 {
+		return deploymentsql.DeploymentAttempt{}, false, nil
+	}
+	at, err := deploymentsql.New(s.db.SQL()).CompletedAttempt(ctx, deploymentsql.CompletedAttemptParams{DeploymentID: d.ID, Generation: d.ObservedGeneration, Status: AttemptDone.String()})
+	found, err := database.Lookup(err)
+	return at, found, err
+}
+
+// The successful attempt is selected in the same statement as the deployment.
+func appliedDeploymentRecord(row deploymentsql.Deployment, at sql.NullTime, err error) (*Deployment, error) {
+	d, err := deploymentRecord(row, err)
+	if err != nil {
+		return nil, err
+	}
+	if at.Valid {
+		d.LastApplied = &AppliedAttempt{At: at.Time, Generation: d.ObservedGeneration}
+	}
+	return d, nil
+}
+
+func deploymentByIDRecord(row deploymentsql.DeploymentByIDRow, err error) (*Deployment, error) {
+	return appliedDeploymentRecord(row.Deployment, row.LastAppliedAt, err)
+}
+
+func deploymentByNameRecord(row deploymentsql.DeploymentByNameRow, err error) (*Deployment, error) {
+	return appliedDeploymentRecord(row.Deployment, row.LastAppliedAt, err)
 }

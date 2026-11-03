@@ -43,7 +43,8 @@ describe('taking down a deployment that holds data', () => {
   }
 
   it('asks for the choice to go without a final copy, and sends it, when none can be taken', async () => {
-    const { el, deletes, button, done } = await mount(protection(refused, false))
+    const { el, deletes, button, done } = await mount({ ...protection(refused, false), reading: { unknown: true, waiting: true } })
+    expect(button('Tear down')?.disabled).toBe(false)
     await act(async () => { button('Tear down')!.click() })
     expect(el.textContent).toContain(refused)
     await act(async () => { button('Take it down without a final copy')!.click() })

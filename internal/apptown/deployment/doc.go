@@ -98,6 +98,10 @@
 // recording the failure separately. A first partial check takes its read time
 // from successfully read figures. Inventory owns its stale/unknown classification;
 // transports render that decision.
+// Deployment reads expose LastApplied from the completed attempt of the observed
+// generation. Detail readings keep prior payloads and their identity and age
+// after a change, marked unknown and old for display only. Post-act detail,
+// protection and capacity checks run on every target.
 // [HostSnapshots] stores Docker host facts in five independently timed sections.
 // [HostReaders] runs one sequential loop per active Docker target, collecting
 // host, containers, resources and images every twenty seconds after a lap. The

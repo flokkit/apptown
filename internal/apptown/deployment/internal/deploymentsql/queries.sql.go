@@ -714,45 +714,51 @@ func (q *Queries) DeploymentAddressSettingsForUpdate(ctx context.Context, deploy
 
 const deploymentByID = `-- name: DeploymentByID :one
 
-SELECT id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, url, start_from_backup, started_from_at, restore_check, display_label FROM deployments WHERE id=$1
+SELECT d.id, d.project_id, d.name, d.host_label, d.host_port, d.container, d.release_run, d.updated_at, d.release_sha, d.image_digest, d.kind, d.change_id, d.target_id, d.handle_json, d.desired_generation, d.observed_generation, d.readiness, d.feed, d.audience, d.data_class, d.url, d.start_from_backup, d.started_from_at, d.restore_check, d.display_label, (SELECT a.finished_at FROM deployment_attempts a WHERE a.deployment_id=d.id AND a.generation=d.observed_generation AND a.status='done') AS last_applied_at FROM deployments d WHERE d.id=$1
 `
 
+type DeploymentByIDRow struct {
+	Deployment    Deployment
+	LastAppliedAt sql.NullTime
+}
+
 // Record reads, grouped by table.
-func (q *Queries) DeploymentByID(ctx context.Context, id ids.ID) (Deployment, error) {
+func (q *Queries) DeploymentByID(ctx context.Context, id ids.ID) (DeploymentByIDRow, error) {
 	row := q.db.QueryRowContext(ctx, deploymentByID, id)
-	var i Deployment
+	var i DeploymentByIDRow
 	err := row.Scan(
-		&i.ID,
-		&i.ProjectID,
-		&i.Name,
-		&i.HostLabel,
-		&i.HostPort,
-		&i.Container,
-		&i.ReleaseRun,
-		&i.UpdatedAt,
-		&i.ReleaseSha,
-		&i.ImageDigest,
-		&i.Kind,
-		&i.ChangeID,
-		&i.TargetID,
-		&i.HandleJson,
-		&i.DesiredGeneration,
-		&i.ObservedGeneration,
-		&i.Readiness,
-		&i.Feed,
-		&i.Audience,
-		&i.DataClass,
-		&i.Url,
-		&i.StartFromBackup,
-		&i.StartedFromAt,
-		&i.RestoreCheck,
-		&i.DisplayLabel,
+		&i.Deployment.ID,
+		&i.Deployment.ProjectID,
+		&i.Deployment.Name,
+		&i.Deployment.HostLabel,
+		&i.Deployment.HostPort,
+		&i.Deployment.Container,
+		&i.Deployment.ReleaseRun,
+		&i.Deployment.UpdatedAt,
+		&i.Deployment.ReleaseSha,
+		&i.Deployment.ImageDigest,
+		&i.Deployment.Kind,
+		&i.Deployment.ChangeID,
+		&i.Deployment.TargetID,
+		&i.Deployment.HandleJson,
+		&i.Deployment.DesiredGeneration,
+		&i.Deployment.ObservedGeneration,
+		&i.Deployment.Readiness,
+		&i.Deployment.Feed,
+		&i.Deployment.Audience,
+		&i.Deployment.DataClass,
+		&i.Deployment.Url,
+		&i.Deployment.StartFromBackup,
+		&i.Deployment.StartedFromAt,
+		&i.Deployment.RestoreCheck,
+		&i.Deployment.DisplayLabel,
+		&i.LastAppliedAt,
 	)
 	return i, err
 }
 
 const deploymentByName = `-- name: DeploymentByName :one
-SELECT id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, url, start_from_backup, started_from_at, restore_check, display_label FROM deployments WHERE project_id=$1 AND name=$2
+SELECT d.id, d.project_id, d.name, d.host_label, d.host_port, d.container, d.release_run, d.updated_at, d.release_sha, d.image_digest, d.kind, d.change_id, d.target_id, d.handle_json, d.desired_generation, d.observed_generation, d.readiness, d.feed, d.audience, d.data_class, d.url, d.start_from_backup, d.started_from_at, d.restore_check, d.display_label, (SELECT a.finished_at FROM deployment_attempts a WHERE a.deployment_id=d.id AND a.generation=d.observed_generation AND a.status='done') AS last_applied_at FROM deployments d WHERE d.project_id=$1 AND d.name=$2
 `
 
 type DeploymentByNameParams struct {
@@ -760,35 +766,41 @@ type DeploymentByNameParams struct {
 	Name      string
 }
 
-func (q *Queries) DeploymentByName(ctx context.Context, arg DeploymentByNameParams) (Deployment, error) {
+type DeploymentByNameRow struct {
+	Deployment    Deployment
+	LastAppliedAt sql.NullTime
+}
+
+func (q *Queries) DeploymentByName(ctx context.Context, arg DeploymentByNameParams) (DeploymentByNameRow, error) {
 	row := q.db.QueryRowContext(ctx, deploymentByName, arg.ProjectID, arg.Name)
-	var i Deployment
+	var i DeploymentByNameRow
 	err := row.Scan(
-		&i.ID,
-		&i.ProjectID,
-		&i.Name,
-		&i.HostLabel,
-		&i.HostPort,
-		&i.Container,
-		&i.ReleaseRun,
-		&i.UpdatedAt,
-		&i.ReleaseSha,
-		&i.ImageDigest,
-		&i.Kind,
-		&i.ChangeID,
-		&i.TargetID,
-		&i.HandleJson,
-		&i.DesiredGeneration,
-		&i.ObservedGeneration,
-		&i.Readiness,
-		&i.Feed,
-		&i.Audience,
-		&i.DataClass,
-		&i.Url,
-		&i.StartFromBackup,
-		&i.StartedFromAt,
-		&i.RestoreCheck,
-		&i.DisplayLabel,
+		&i.Deployment.ID,
+		&i.Deployment.ProjectID,
+		&i.Deployment.Name,
+		&i.Deployment.HostLabel,
+		&i.Deployment.HostPort,
+		&i.Deployment.Container,
+		&i.Deployment.ReleaseRun,
+		&i.Deployment.UpdatedAt,
+		&i.Deployment.ReleaseSha,
+		&i.Deployment.ImageDigest,
+		&i.Deployment.Kind,
+		&i.Deployment.ChangeID,
+		&i.Deployment.TargetID,
+		&i.Deployment.HandleJson,
+		&i.Deployment.DesiredGeneration,
+		&i.Deployment.ObservedGeneration,
+		&i.Deployment.Readiness,
+		&i.Deployment.Feed,
+		&i.Deployment.Audience,
+		&i.Deployment.DataClass,
+		&i.Deployment.Url,
+		&i.Deployment.StartFromBackup,
+		&i.Deployment.StartedFromAt,
+		&i.Deployment.RestoreCheck,
+		&i.Deployment.DisplayLabel,
+		&i.LastAppliedAt,
 	)
 	return i, err
 }
@@ -898,47 +910,53 @@ func (q *Queries) DeploymentOverrides(ctx context.Context, deploymentID ids.ID) 
 }
 
 const deploymentsForProject = `-- name: DeploymentsForProject :many
-SELECT id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, url, start_from_backup, started_from_at, restore_check, display_label FROM deployments WHERE project_id=$1 AND kind<>'restored-copy' ORDER BY kind DESC,id
+SELECT d.id, d.project_id, d.name, d.host_label, d.host_port, d.container, d.release_run, d.updated_at, d.release_sha, d.image_digest, d.kind, d.change_id, d.target_id, d.handle_json, d.desired_generation, d.observed_generation, d.readiness, d.feed, d.audience, d.data_class, d.url, d.start_from_backup, d.started_from_at, d.restore_check, d.display_label, (SELECT a.finished_at FROM deployment_attempts a WHERE a.deployment_id=d.id AND a.generation=d.observed_generation AND a.status='done') AS last_applied_at FROM deployments d WHERE d.project_id=$1 AND d.kind<>'restored-copy' ORDER BY d.kind DESC,d.id
 `
+
+type DeploymentsForProjectRow struct {
+	Deployment    Deployment
+	LastAppliedAt sql.NullTime
+}
 
 // A restored copy is not one of the project's deployments: it is shown on
 // its source's card only (RestoredCopiesOf), never in listings, health,
 // conformance or the sweeps that read these.
-func (q *Queries) DeploymentsForProject(ctx context.Context, projectID ids.ID) ([]Deployment, error) {
+func (q *Queries) DeploymentsForProject(ctx context.Context, projectID ids.ID) ([]DeploymentsForProjectRow, error) {
 	rows, err := q.db.QueryContext(ctx, deploymentsForProject, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Deployment
+	var items []DeploymentsForProjectRow
 	for rows.Next() {
-		var i Deployment
+		var i DeploymentsForProjectRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Name,
-			&i.HostLabel,
-			&i.HostPort,
-			&i.Container,
-			&i.ReleaseRun,
-			&i.UpdatedAt,
-			&i.ReleaseSha,
-			&i.ImageDigest,
-			&i.Kind,
-			&i.ChangeID,
-			&i.TargetID,
-			&i.HandleJson,
-			&i.DesiredGeneration,
-			&i.ObservedGeneration,
-			&i.Readiness,
-			&i.Feed,
-			&i.Audience,
-			&i.DataClass,
-			&i.Url,
-			&i.StartFromBackup,
-			&i.StartedFromAt,
-			&i.RestoreCheck,
-			&i.DisplayLabel,
+			&i.Deployment.ID,
+			&i.Deployment.ProjectID,
+			&i.Deployment.Name,
+			&i.Deployment.HostLabel,
+			&i.Deployment.HostPort,
+			&i.Deployment.Container,
+			&i.Deployment.ReleaseRun,
+			&i.Deployment.UpdatedAt,
+			&i.Deployment.ReleaseSha,
+			&i.Deployment.ImageDigest,
+			&i.Deployment.Kind,
+			&i.Deployment.ChangeID,
+			&i.Deployment.TargetID,
+			&i.Deployment.HandleJson,
+			&i.Deployment.DesiredGeneration,
+			&i.Deployment.ObservedGeneration,
+			&i.Deployment.Readiness,
+			&i.Deployment.Feed,
+			&i.Deployment.Audience,
+			&i.Deployment.DataClass,
+			&i.Deployment.Url,
+			&i.Deployment.StartFromBackup,
+			&i.Deployment.StartedFromAt,
+			&i.Deployment.RestoreCheck,
+			&i.Deployment.DisplayLabel,
+			&i.LastAppliedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -4144,14 +4162,15 @@ func (q *Queries) RevokeOffer(ctx context.Context, arg RevokeOfferParams) (Targe
 }
 
 const runtimeDeployments = `-- name: RuntimeDeployments :many
-SELECT d.id, d.project_id, d.name, d.host_label, d.host_port, d.container, d.release_run, d.updated_at, d.release_sha, d.image_digest, d.kind, d.change_id, d.target_id, d.handle_json, d.desired_generation, d.observed_generation, d.readiness, d.feed, d.audience, d.data_class, d.url, d.start_from_backup, d.started_from_at, d.restore_check, d.display_label, p.slug FROM deployments d JOIN projects p ON p.id=d.project_id
+SELECT d.id, d.project_id, d.name, d.host_label, d.host_port, d.container, d.release_run, d.updated_at, d.release_sha, d.image_digest, d.kind, d.change_id, d.target_id, d.handle_json, d.desired_generation, d.observed_generation, d.readiness, d.feed, d.audience, d.data_class, d.url, d.start_from_backup, d.started_from_at, d.restore_check, d.display_label, (SELECT a.finished_at FROM deployment_attempts a WHERE a.deployment_id=d.id AND a.generation=d.observed_generation AND a.status='done') AS last_applied_at, p.slug FROM deployments d JOIN projects p ON p.id=d.project_id
 WHERE d.kind<>'restored-copy' AND ($1::uuid[] IS NULL OR d.project_id=ANY($1::uuid[]))
 ORDER BY d.kind DESC,d.id
 `
 
 type RuntimeDeploymentsRow struct {
-	Deployment Deployment
-	Slug       string
+	Deployment    Deployment
+	LastAppliedAt sql.NullTime
+	Slug          string
 }
 
 // Runtime display/observation facts. NULL scope is private to the background sweep.
@@ -4190,6 +4209,7 @@ func (q *Queries) RuntimeDeployments(ctx context.Context, projectIds []ids.ID) (
 			&i.Deployment.StartedFromAt,
 			&i.Deployment.RestoreCheck,
 			&i.Deployment.DisplayLabel,
+			&i.LastAppliedAt,
 			&i.Slug,
 		); err != nil {
 			return nil, err

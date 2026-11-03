@@ -192,10 +192,11 @@ func TestRequestReleaseCheckedSelection(t *testing.T) {
 				mutateStoredDeployment(t, s.db, in.ProjectID, in.DeploymentName, func(r *deploymentsql.Deployment) { r.Feed = "landing" })
 				want = errFedByLanding
 			case "preview":
-				r, err := deploymentsql.New(s.db.SQL()).DeploymentByName(ctx, deploymentsql.DeploymentByNameParams{ProjectID: in.ProjectID, Name: in.DeploymentName})
+				row, err := deploymentsql.New(s.db.SQL()).DeploymentByName(ctx, deploymentsql.DeploymentByNameParams{ProjectID: in.ProjectID, Name: in.DeploymentName})
 				if err != nil {
 					t.Fatal(err)
 				}
+				r := row.Deployment
 				if _, err := deploymentsql.New(s.db.SQL()).DeleteDeployment(ctx, r.ID); err != nil {
 					t.Fatal(err)
 				}

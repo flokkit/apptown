@@ -165,7 +165,7 @@ func heldAfterRestoreIn(ctx context.Context, tx *database.Tx, deploymentID ids.I
 	if deploymentID.IsZero() {
 		return nil
 	}
-	dep, err := deploymentRecord(deploymentsql.New(tx.SQL()).DeploymentByID(ctx, deploymentID))
+	dep, err := deploymentByIDRecord(deploymentsql.New(tx.SQL()).DeploymentByID(ctx, deploymentID))
 	if found, err := database.Lookup(err); err != nil || !found {
 		return err
 	}
