@@ -104,3 +104,38 @@ func TestABootsFailureNeverHoldsTheNeedsGeneratedCredentials(t *testing.T) {
 		})
 	}
 }
+
+// A failed init step says how it exited and keeps the end of its output:
+// an agent fixing the app reads this reason, and an empty one left it
+// guessing (Fieldnotes change 7, 3 Nov). Both a silent exit and a failure
+// after long progress output are covered.
+func TestAFailedInitSaysHowItExitedAndKeepsTheEnd(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ name, init, want string }{
+		{"silent", "", `init "migrate" failed (exit status 1)`},
+		{"after progress", strings.Repeat("progress line\n", 200) + "Error: No plugins activated.\n", "Error: No plugins activated."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			client := &fakeClient{}
+			client.reply = func(req Command) ([]byte, error) {
+				if strings.Contains(strings.Join(req.Args, " "), "--name "+Current.Init("pvinit", "migrate")) {
+					return []byte(tc.init), errors.New("exit status 1")
+				}
+				if len(req.Args) > 0 && req.Args[0] == "image" {
+					return []byte("\n"), nil
+				}
+				return nil, nil
+			}
+			c, err := appcontract.Parse([]byte("app:\n  web:\n    image: app:1\n    ports: [\"8080\"]\n    public: true\ninit:\n  - name: migrate\n    image: app:1\n    command: [\"migrate\"]\n"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: reviewNoSecrets{}, Needs: credentialNeed{"unused"}, Probe: &Probe{Settle: time.Millisecond}}).Boot(context.Background(),
+				BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "apptown-preview-init", StackID: "pvinit", Workspace: t.TempDir(), Slug: "app", Deployment: "preview", Probe: 200 * time.Millisecond, Scratch: t.TempDir()}, c)
+			if be := AsBootError(err); err == nil || be.Phase != PhaseParts || !strings.Contains(err.Error(), tc.want) || !strings.Contains(err.Error(), "exit status 1") {
+				t.Fatalf("init failure: %v", err)
+			}
+		})
+	}
+}
