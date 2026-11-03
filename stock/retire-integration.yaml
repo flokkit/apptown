@@ -36,8 +36,14 @@ spec:
               blockers in your report, using this declared field:
               Blockers:
               - What you cannot do and what you need from a person.
-              Use one bullet per blocker, each on one line. Name the
-              decision, secret, access, or smaller request you need.
+              Use one bullet per blocker, each on one line.
+              A blocker is anything outside this repository that the change
+              needs: a decision, a secret, access, a setting only a person can
+              change (for example a stored preview secret), or a smaller request.
+              Anything your report says a person or operator must do belongs
+              in Blockers. If you were sent back for such a reason, declare it
+              as a blocker rather than trying again. Do not finish with a
+              preview that fails to start unless the reason is listed in Blockers.
               Do not work around a check you cannot satisfy.
 
               An organisational service is being retired from this project —

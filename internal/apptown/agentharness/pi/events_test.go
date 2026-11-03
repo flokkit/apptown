@@ -40,19 +40,50 @@ func TestTheCaptureKeepsPisStatusAndItsEvents(t *testing.T) {
 }
 
 // The catch-up after exit shows the events the live feed did not: it
-// counts events, not bytes, since the live log carries stderr the file
-// does not.
+// counts captured events, not bytes: the live log also carries stderr
+// and cumulative tool updates that the file omits.
 func TestTheCatchUpShowsTheEventsTheLiveFeedMissed(t *testing.T) {
 	t.Parallel()
-	log := "installing the toolchain\n{\"type\":\"turn_start\"}\nmise WARN something\n{\"type\":\"turn_end\"}\n"
+	log := "installing the toolchain\n{\"type\":\"turn_start\"}\nmise WARN something\n{\"type\":\"tool_execution_update\",\"partialResult\":{}}\n{\"type\":\"turn_end\"}\n"
 	file := "{\"type\":\"turn_start\"}\n{\"type\":\"turn_end\"}\n{\"type\":\"agent_end\"}\n"
 	var seen int64
 	for _, line := range strings.SplitAfter(log, "\n") {
-		if piharness.IsEvent([]byte(line)) {
+		if piharness.IsCapturedEvent([]byte(line)) {
 			seen++
 		}
 	}
 	if got := string(piharness.EventsAfter([]byte(file), seen)); got != "{\"type\":\"agent_end\"}\n" {
 		t.Fatalf("caught up with %q", got)
+	}
+}
+
+// A broken capture cannot report Pi's successful exit as its own success.
+func TestCaptureFailureFailsTheInvocation(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	argv := piharness.CapturedArgv([]string{"sh", "-c", "echo '{\"type\":\"agent_end\"}'"}, "missing/events", "status")
+	out := execution.Runner{}.Run(t.Context(), execution.Local, execution.Request{Workspace: dir, Argv: argv, Timeout: time.Minute})
+	if out.ExitCode == 0 {
+		t.Fatalf("failed capture exited successfully: %+v", out)
+	}
+}
+
+func TestToolCutsCountBytesAndKeepSmallResults(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	original := "START" + strings.Repeat("x", 20000) + "END"
+	input := `{"type":"tool_execution_end","result":{"content":[{"type":"text","text":"` + original + `"},{"type":"text","text":"small result"}],"details":{"usage":{"input":31}}}}` + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "input"), []byte(input), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	argv := piharness.CapturedArgv([]string{"cat", "input"}, "events", "status")
+	out := execution.Runner{}.Run(t.Context(), execution.Local, execution.Request{Workspace: dir, Argv: argv, Timeout: time.Minute})
+	captured, err := os.ReadFile(filepath.Join(dir, "events"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := strings.Repeat("x", 8192-5) + `\n[AppTown cut 3624 bytes of tool output]\n` + strings.Repeat("x", 8192-3)
+	if out.ExitCode != 0 || string(out.Output) != string(captured) || !strings.Contains(string(captured), expected) || !strings.Contains(string(captured), `"text":"small result"`) || !strings.Contains(string(captured), `"input":31`) {
+		t.Fatalf("capture changed a small result, lost usage or miscounted the cut: %.200s", captured)
 	}
 }
