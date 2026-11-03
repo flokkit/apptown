@@ -115,8 +115,8 @@ func (a *shipping) RunDeploy(task *workflow.Execution) {
 			return // the step stays running for its recovery
 		}
 		if !ok {
-			task.Settle(workflow.EncodeRework(map[string]any{
-				"reason": "merge-only release refused: the committed tree does not build from a clean checkout — " + reason}))
+			task.Settle(workflow.EncodeOutcome(workflow.StatusFail, map[string]any{
+				"reason": "merge-only release refused: the committed tree does not build from a clean checkout — " + reason}, nil))
 			return
 		}
 		if err := recordArtifact(task.Context(), a.db, run.ID, "release", cfg.Deployment, "merge-only (no runtime contract)", "", a.now()); err != nil {
@@ -253,11 +253,7 @@ func (a *shipping) RunDeploy(task *workflow.Execution) {
 		log.Printf("deployment %d: %v", result.Attempt.ID, err)
 	}
 	if decision := landingDeploymentDecision(result, err, out.Boot); decision != nil {
-		if decision.rework {
-			task.Settle(workflow.EncodeRework(decision.evidence))
-		} else {
-			finish(decision.status, decision.evidence)
-		}
+		finish(decision.status, decision.evidence)
 		return
 	}
 	url := out.Boot.URL

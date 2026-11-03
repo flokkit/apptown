@@ -1390,3 +1390,39 @@ func TestALandingDoesNotReleaseOverDataItCouldNotCopy(t *testing.T) {
 		t.Fatalf("an earlier acceptance carried over to a later attempt: %+v %v", s, err)
 	}
 }
+
+func TestAMissingPreviewSecretWaitsWithThePersonsAction(t *testing.T) {
+	a, _ := bootWorld(t)
+	run, stepID := bootRun(t, a, "working", "preview")
+	ws := requireLocation(t)(workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir))
+	writeBootFixture(t, ws)
+	const spec = `[project]
+name = "app"
+revision = "1.0"
+[profiles.default]
+WP_ADMIN_PASSWORD = { description = "administrator password" }
+[scopes.web]
+secrets = ["WP_ADMIN_PASSWORD"]
+`
+	if err := os.WriteFile(filepath.Join(ws, "secretspec.toml"), []byte(spec), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	commitFolder(t, ws)
+	if err := a.Work.ExecuteStep(a.asEngine(context.Background()), stepID); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := workflow.ReadStepIn(context.Background(), a.DB, stepID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var evidence struct {
+		Actions []string
+		Reason  string
+	}
+	if err := json.Unmarshal(saved.Evidence, &evidence); err != nil {
+		t.Fatal(err)
+	}
+	if saved.Status != workflow.StatusNeedsHuman || len(evidence.Actions) != 1 || !strings.Contains(evidence.Actions[0], "WP_ADMIN_PASSWORD") || !strings.Contains(evidence.Actions[0], "Settings") {
+		t.Fatalf("missing secret must name the person's action: %s %s", saved.Status, saved.Evidence)
+	}
+}

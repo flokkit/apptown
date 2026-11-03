@@ -293,16 +293,13 @@ func TestWorkflowRetryEarlierProducerAndBusyLanding(t *testing.T) {
 	expect(t, storedRun(t, s.db, landing).Status == RunRunning, "live landing was interrupted")
 }
 
-func TestWorkflowRetryEntryPrerequisitesAndSkippedDependents(t *testing.T) {
+func TestWorkflowRetryEntryPrerequisitesAndPendingDependents(t *testing.T) {
 	t.Parallel()
 	spec := retryWorkflowSpec()
 	spec.Stages[0].OnEnter = append(spec.Stages[0].OnEnter, schema.Step{Name: "after", Uses: "script"})
 	spec.Stages[0].Steps = append(spec.Stages[0].Steps, schema.Step{Name: "accept", Uses: "approval"})
 	w, run, agent, _ := retryFixtureWithSpec(t, spec)
 	after := admittedStepID(t, queries{db: w.db}, run, "after")
-	if err := newDispatchPlans(w.db, []string{"script"}).Skip(context.Background(), run.ID, after, "build"); err != nil {
-		t.Fatal(err)
-	}
 	recordScopeStep(t, w.db, workflowsql.RecordApprovalParams{At: time.Now(), ID: agent, Status: "fail"})
 	if _, err := w.retryExpected(context.Background(), retryIntent{RetryCommand: RetryCommand{StepID: after}, Actor: commandActor{Receipt: "alice"}}, nil); err == nil {
 		t.Fatal("retry bypassed failed prerequisite")
@@ -310,7 +307,7 @@ func TestWorkflowRetryEntryPrerequisitesAndSkippedDependents(t *testing.T) {
 	if _, err := w.retryExpected(context.Background(), retryIntent{RetryCommand: RetryCommand{StepID: agent}, Actor: commandActor{Receipt: "alice"}}, nil); err != nil {
 		t.Fatal(err)
 	}
-	expect(t, storedStep(t, w.db, after).Status == StatusPending, "skipped dependent was not reopened")
+	expect(t, storedStep(t, w.db, after).Status == StatusPending, "blocked dependent did not stay pending")
 }
 
 func TestWorkflowRetryPreservesLegacySessionAndUnconsumedFeedback(t *testing.T) {

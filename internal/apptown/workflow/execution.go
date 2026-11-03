@@ -219,8 +219,8 @@ type StepError struct {
 
 func (e *StepError) Error() string { return fmt.Sprintf("step %d: %s", e.StepID, e.Reason) }
 
-// ExecuteStep invokes one registered runner under explicit caller authority.
-// It does not advance the stage; normal scheduling owns that ordering boundary.
+// ExecuteStep runs one step directly for tests under explicit caller authority.
+// It does not apply stage ordering or advance the stage.
 func (s *Service) ExecuteStep(ctx context.Context, id ids.ID) error {
 	if _, err := s.require(ctx, operationPermission{Action: actionIdentify}); err != nil {
 		return err
@@ -320,11 +320,8 @@ func (s *Service) finishAttempt(ctx context.Context, claim *Step, outcome StepOu
 		return fmt.Errorf("recording where the step ran: %w", err)
 	}
 	outcome.Evidence = s.masked(ctx, evidence)
-	if !outcome.Rework {
-		return s.stepAttempts.finish(ctx, claim, outcome)
-	}
 	if outcome.Status != StatusFail {
-		return fmt.Errorf("rework requires a failed verdict")
+		return s.stepAttempts.finish(ctx, claim, outcome)
 	}
 	result, err := (reworkStore{s.db, s.clocked}).fail(ctx, claim, outcome)
 	if err == nil {

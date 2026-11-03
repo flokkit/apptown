@@ -30,6 +30,19 @@ spec:
             output: { kind: build-report, name: build-report, file: .apptown/REPORT.md }
             timeoutMinutes: 40
             prompt: |
+              Before finishing, commit your changes. Run `apptown check` and
+              fix introduced failures and this change's acceptance checks.
+              Run `apptown dev up` and open the pages this change touches.
+              Say in your report what ran and what came back. Report
+              pre-existing or undecided findings without widening the change.
+              If you cannot honestly satisfy a check, stop and list ALL
+              blockers in your report, using this declared field:
+              Blockers:
+              - What you cannot do and what you need from a person.
+              Use one bullet per blocker, each on one line. Name the
+              decision, secret, access, or smaller request you need.
+              Do not work around a check you cannot satisfy.
+
               Build what is described below in the CURRENT WORKING DIRECTORY —
               source files and config, and BUILD.md at the root when the
               project has a toolchain (an install, build or test command).
@@ -97,6 +110,19 @@ spec:
             output: { kind: verify-report, name: verify-report, file: .apptown/VERIFY.md }
             timeoutMinutes: 25
             prompt: |
+              Before finishing, commit your changes. Run `apptown check` and
+              fix introduced failures and this change's acceptance checks.
+              Run `apptown dev up` and open the pages this change touches.
+              Say in your report what ran and what came back. Report
+              pre-existing or undecided findings without widening the change.
+              If you cannot honestly satisfy a check, stop and list ALL
+              blockers in your report, using this declared field:
+              Blockers:
+              - What you cannot do and what you need from a person.
+              Use one bullet per blocker, each on one line. Name the
+              decision, secret, access, or smaller request you need.
+              Do not work around a check you cannot satisfy.
+
               You are in the workspace of the freshly implemented application
               (BUILD.md or README.md at the root says how to run it, the build
               report is in .apptown/REPORT.md).

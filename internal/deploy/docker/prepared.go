@@ -106,7 +106,7 @@ func (p PublicPrepared) Digest() string {
 // stop the boot.
 func PrepareBoot(ctx context.Context, deps Dependencies, registry *RegistryCredential, slug, deployment, ws string, c *appcontract.Contract) (Prepared, error) {
 	if err := RefusesHealth(c); err != nil {
-		return Prepared{}, &BootError{Phase: PhaseResolve, Err: err}
+		return Prepared{}, &BootError{Phase: PhaseResolve, Err: &ContractRefusal{err}}
 	}
 	if deployment == "" {
 		deployment = "preview"
@@ -115,12 +115,16 @@ func PrepareBoot(ctx context.Context, deps Dependencies, registry *RegistryCrede
 	var needErr error
 	p.Needs, p.NeedEnv, needErr = deps.Needs.Fulfil(ctx, c.Needs, c.NeedParams)
 	if needErr != nil {
+		var refused interface{ ContractRefusal() }
+		if errors.As(needErr, &refused) {
+			needErr = &ContractRefusal{needErr}
+		}
 		return Prepared{}, &BootError{Phase: PhaseResolve, Err: needErr}
 	}
 	var sizeErr error
 	p.Needs, sizeErr = sizedServices(c, p.Needs)
 	if sizeErr != nil {
-		return Prepared{}, &BootError{Phase: PhaseResolve, Err: sizeErr}
+		return Prepared{}, &BootError{Phase: PhaseResolve, Err: &ContractRefusal{sizeErr}}
 	}
 	for _, s := range p.Needs {
 		data, err := deps.Needs.Data(ctx, s.Name)
@@ -318,3 +322,10 @@ func SweepBootConfigs(scratch string) error {
 	}
 	return errors.Join(failed...)
 }
+
+// ContractRefusal means the selected app declaration cannot be executed.
+// Preparation failures that cannot judge the declaration remain ordinary errors.
+type ContractRefusal struct{ Cause error }
+
+func (e *ContractRefusal) Error() string { return e.Cause.Error() }
+func (e *ContractRefusal) Unwrap() error { return e.Cause }

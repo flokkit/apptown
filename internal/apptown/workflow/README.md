@@ -59,6 +59,15 @@ means waiting on the reader. Remaining changes are idle with the reason
 workspace edit observation. The list is bounded to 20 rows with a total count;
 its activity time counts change creation and run updates.
 
+The dispatcher runs steps in stage order. Every earlier step must pass or be
+not applicable (or have its condition skip its work). Failed steps, person
+actions, errors and unfinished work leave later steps pending. Approval votes
+require the same earlier steps to pass. `ExecuteStep` runs a step directly for
+tests without applying stage ordering. Assertions use
+the same rule when evidence changes; later assertions cannot block earlier
+ones. An override dispatches the stage’s pending work before it can advance.
+Review starts after its prerequisites pass and does not poll for boot.
+
 ## Follow a retry
 
 The caller invokes `service.RetryStep(ctx, RetryCommand{StepID: id, Mode:

@@ -25,7 +25,9 @@ func TestSendBackHTTPDeliversFeedbackToTheReturnedWork(t *testing.T) {
 			return
 		}
 		executed <- step
-		if err := task.Finish(workflow.StepOutcome{Status: workflow.StatusFail}, nil); err != nil {
+		// Hold for a person so this test observes only HTTP send-backs,
+		// rather than the engine's automatic repair rounds.
+		if err := task.Finish(workflow.EncodeOutcome(workflow.StatusNeedsHuman, map[string]any{"reason": "the agent needs a person to decide what to change"}, nil)); err != nil {
 			t.Error(err)
 		}
 	}

@@ -15,7 +15,6 @@ import (
 // StepOutcome carries runner-owned evidence and optional receipt details as exact
 // JSON. Step identity, status and attempt in the receipt always come from Work.
 type StepOutcome struct {
-	Rework   bool // failure should request the stage's permitted rework
 	Status   StepState
 	Evidence json.RawMessage
 	Details  json.RawMessage

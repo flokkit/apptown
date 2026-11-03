@@ -51,7 +51,6 @@ const (
 	moveStepReset
 	moveStepEvaluate
 	moveStepWithdraw
-	moveStepSkip
 )
 
 // transition is the single state rule for each kind of step operation. Stores
@@ -82,8 +81,6 @@ func (s StepState) transition(move stepMove, next StepState) (StepState, error) 
 		allowed = s != StatusRunning && (next == StatusPass || next == StatusFail || next == StatusNeedsHuman || next == StatusError)
 	case moveStepWithdraw:
 		allowed = (s == StatusPending || s == StatusNeedsHuman) && next == StatusFail
-	case moveStepSkip:
-		allowed = (s == StatusPending || s == StatusError) && next == StatusSkipped
 	}
 	if !allowed {
 		return 0, fmt.Errorf("%w: operation %d cannot move %s to %s", errStepTransition, move, s, next)

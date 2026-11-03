@@ -64,7 +64,7 @@ func (a *Executor) recordAgentOutcome(ctx context.Context, r agentRecord) (workf
 		status, reason = workflow.StatusError, r.files.Problem
 	} else if r.files.MissingOutput != "" {
 		// The declared output is the output: nothing else stands in for it.
-		status, reason = workflow.StatusFail, "the step declares its output in "+r.files.MissingOutput+", and the agent did not write it (or left it empty)"
+		status, reason = workflow.StatusFail, "Your previous attempt produced no report in "+r.files.MissingOutput+" (the file is missing or empty)"
 	} else if strings.TrimSpace(r.files.Output) == "" {
 		if perr := piharness.LastModelError(r.pi.Events); perr != "" {
 			// Infrastructure, not the agent's work: an error, and the
@@ -143,6 +143,13 @@ func (a *Executor) recordAgentOutcome(ctx context.Context, r agentRecord) (workf
 		status = workflow.StatusError
 		evidence.Reason = "the step's work could not be published: " + published.Error()
 	}
+	if status == workflow.StatusPass && r.cfg.Output.Kind != "" {
+		if actions := reportBlockers(r.files.Output); len(actions) > 0 {
+			status = workflow.StatusNeedsHuman
+			evidence.Actions = actions
+			evidence.Reason = "the agent needs your help: " + strings.Join(actions, "; ")
+		}
+	}
 	noChange := false
 	if status == workflow.StatusPass {
 		switch empty, adoption, err := a.leftNoChange(ctx, run, step, r.cfg); {
@@ -168,10 +175,10 @@ func (a *Executor) recordAgentOutcome(ctx context.Context, r agentRecord) (workf
 	switch {
 	case status == workflow.StatusPass:
 		outcome.Artifacts = agentArtifacts(r.cfg, r.files, step.Name)
-	case noChange:
-		// The report is the agent's account of why it changed nothing: the
-		// stage's reviewer and a person read it (a bug that could not be
-		// reproduced is an honest stop, stock/fix-bug.yaml).
+	case noChange || status == workflow.StatusNeedsHuman:
+		// Keep the agent's account of an empty attempt or a request for a
+		// person's help. Failures use the same rework rule as every step;
+		// person actions wait. The continuing agent and person need the report.
 		outcome.Artifacts = agentArtifacts(r.cfg, r.files, step.Name)[:1]
 	}
 	// The invocation and the publication are done; only the recording is
@@ -276,10 +283,10 @@ func adoptionNeedsNoCode(step, report string) string {
 
 // madeNoChange is the reason an implementing step that changed nothing
 // fails, with the agent's own explanation when it wrote one: a step that
-// could not do the work (a bug it could not reproduce) says why, and a
-// person reads that, not another round of the same work.
+// could not do the work says why, and the continuing agent receives it
+// through the same rework rule as every failed step.
 func madeNoChange(report string) string {
-	reason := "the step made no change: its report is reviewed against the change's diff, and the change has nothing committed"
+	reason := "Your previous attempt changed nothing: its report is reviewed against the change's diff, and the change has nothing committed"
 	if report = strings.TrimSpace(report); report != "" {
 		reason += ". The agent's report: " + strs.Truncate(report, 600)
 	}

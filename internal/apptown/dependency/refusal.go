@@ -141,3 +141,7 @@ func (c *Catalog) RefusesNeedRefs(ctx context.Context, refs []appcontract.NeedRe
 	}
 	return "", nil
 }
+
+// ContractRefusal identifies a refused app declaration at the runtime boundary.
+func (*UnknownNeeds) ContractRefusal() {}
+func (*Refused) ContractRefusal()      {}

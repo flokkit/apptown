@@ -151,22 +151,6 @@ func reviewFixtureFor(t *testing.T, purpose project.Purpose, steps []schema.Step
 		adjust(executor)
 	}
 	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: steps}}}
-	// Only review and preview steps are dispatched; an approval waits for a
-	// person.
-	dispatched := 0
-	for _, s := range steps {
-		if s.Uses == ReviewKind || s.Uses == "preview" {
-			dispatched++
-		}
-	}
-	ready := make(chan *workflow.Execution, dispatched)
-	capture := func(task *workflow.Execution) {
-		select {
-		case ready <- task:
-		default:
-			t.Error("dispatched more executions than declared steps")
-		}
-	}
 	runners := map[string]workflow.Runner{ReviewKind: executor.Review, "preview": func(task *workflow.Execution) {
 		if _, err := task.Claim(); err != nil {
 			t.Error(err)
@@ -179,6 +163,7 @@ func reviewFixtureFor(t *testing.T, purpose project.Purpose, steps []schema.Step
 	if len(preview) > 0 {
 		runners["preview"] = preview[0]
 	}
+	armed := false
 	work := workflow.New(context.Background(), db, workflow.Dependencies{
 		Authority: access.Checked{Authority: directory, Projects: project.New(db, directory)},
 		DataDir:   dir, Repositories: &scm.RepositoryLocks{},
@@ -187,8 +172,16 @@ func reviewFixtureFor(t *testing.T, purpose project.Purpose, steps []schema.Step
 		},
 		Automatic: []string{ReviewKind, "preview"},
 		Runners: map[string]workflow.Runner{
-			ReviewKind: capture,
-			"preview":  capture,
+			ReviewKind: func(task *workflow.Execution) {
+				if armed {
+					runners[ReviewKind](task)
+				}
+			},
+			"preview": func(task *workflow.Execution) {
+				if armed {
+					runners["preview"](task)
+				}
+			},
 		},
 	})
 	t.Cleanup(work.Stop)
@@ -212,20 +205,12 @@ func reviewFixtureFor(t *testing.T, purpose project.Purpose, steps []schema.Step
 	if stepIDs["review"].IsZero() || boot && stepIDs["boot"].IsZero() {
 		t.Fatalf("missing admitted steps: %+v", snapshot.Steps)
 	}
-	if len(ready) != dispatched {
-		t.Fatalf("dispatched %d steps, want %d", len(ready), dispatched)
-	}
-	pending := map[string]*workflow.Execution{}
-	for range dispatched {
-		task := <-ready
-		pending[task.Step().Name] = task
-	}
+	armed = true
+
 	return work, ctx, stepIDs, func(name string) {
-		task := pending[name]
-		if task == nil {
-			t.Fatalf("no admitted execution for %q", name)
+		if err := work.ExecuteStep(ctx, stepIDs[name]); err != nil {
+			t.Fatal(err)
 		}
-		runners[task.Step().Type](task)
 	}, executor.ledger
 }
 

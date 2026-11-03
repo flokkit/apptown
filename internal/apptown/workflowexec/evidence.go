@@ -34,8 +34,9 @@ type agentEvidence struct {
 	// NothingToChange: the step declared that an empty result is a complete
 	// answer and left the change empty; the run ends without landing
 	// (workflow.NothingToChangeEvidence reads it).
-	NothingToChange bool   `json:"nothingToChange,omitempty"`
-	StderrTail      string `json:"stderrTail,omitempty"`
+	Actions         []string `json:"actions,omitempty"`
+	NothingToChange bool     `json:"nothingToChange,omitempty"`
+	StderrTail      string   `json:"stderrTail,omitempty"`
 	// Worker names where an attempt on a worker ran, Source the commit it
 	// was given and Result its commits as kept in the hub.
 	Worker string              `json:"worker,omitempty"`

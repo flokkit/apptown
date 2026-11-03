@@ -35,6 +35,9 @@ func mergeAdmissionFixture(t *testing.T, required ...string) (*App, workflow.Mer
 	}}}}
 	if required != nil {
 		spec.Stages[0].Gate = &schema.Gate{Require: required}
+		// An optional later approval does not gate the earlier merge. Earlier
+		// steps still obey stage ordering even when the gate omits them.
+		spec.Stages[0].Steps[0], spec.Stages[0].Steps[1] = spec.Stages[0].Steps[1], spec.Stages[0].Steps[0]
 	}
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: spec})
 	recordCatalogFixture(a.Adoption, t.Context(), projectID, "fixture")
@@ -115,7 +118,7 @@ func approveMergeFixture(t *testing.T, a *App, approval ids.ID) {
 func TestSCMAssertionLandsAfterApprovalAndKeepsItsReceipt(t *testing.T) {
 	t.Parallel()
 	a, source, approval, merge := mergeAdmissionFixture(t)
-	if step, err := a.Work.Evaluate(a.asEngine(context.Background()), merge); err != nil || step.Status != workflow.StatusNeedsHuman {
+	if step, err := a.Work.Evaluate(a.asEngine(context.Background()), merge); err != nil || step.Status != workflow.StatusPending {
 		t.Fatalf("pending approval: %+v %v", step, err)
 	}
 	approveMergeFixture(t, a, approval)
@@ -166,7 +169,12 @@ func TestSCMAdmissionReevaluatesRelaxedLaw(t *testing.T) {
 	if err := a.Adoption.RemovePolicy(t.Context(), policies[0].ID, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if step, err := a.Work.Evaluate(a.asEngine(context.Background()), merge); err != nil || step.Status != workflow.StatusPass {
+	// Refresh the held current-rules check after the person changes the law;
+	// the merge waits for that check under the same rule as every other step.
+	if _, err := advanceAs(a, source.RunID, "system"); err != nil {
+		t.Fatal(err)
+	}
+	if step, err := a.Work.Step(a.asEngine(context.Background()), merge); err != nil || step.Step.Status != workflow.StatusPass {
 		t.Fatalf("relaxed law: %+v %v", step, err)
 	}
 	requireEvents(t, a, 1, eventKind("law.satisfied"))

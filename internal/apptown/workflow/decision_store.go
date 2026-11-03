@@ -94,17 +94,14 @@ func (s stepDecisionStore) approve(ctx context.Context, expected stepDecisionSna
 		if err != nil {
 			return stepApprovalResult{}, err
 		}
-		// An approval judges the stage's work, so it is given after that
-		// work: approving while boot and review are still to run would
-		// rubber-stamp work no check had seen. A rejection may
-		// come at any time.
+		// Approval waits for the same earlier steps as dispatch; rejection may come at any time.
 		if request.Decision == VoteApprove {
-			unfinished, err := unfinishedStageWork(ctx, tx, step)
+			ready, err := dispatchReady(ctx, tx, step)
 			if err != nil {
 				return stepApprovalResult{}, err
 			}
-			if len(unfinished) > 0 {
-				return stepApprovalResult{}, &approvalTooEarly{Unfinished: unfinished}
+			if !ready {
+				return stepApprovalResult{}, &approvalTooEarly{}
 			}
 		}
 		// Current evidence can contain another eligible person's concurrent vote.

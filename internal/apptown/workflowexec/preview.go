@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/preview"
+	"github.com/flokkit/apptown/internal/apptown/secret"
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -67,7 +67,7 @@ func (a *shipping) RunPreview(task *workflow.Execution) {
 	}
 	var unreadable *preview.ContractError
 	if errors.As(err, &unreadable) {
-		task.Settle(workflow.EncodeRework(map[string]any{"reason": err.Error()}))
+		task.Settle(workflow.EncodeOutcome(workflow.StatusFail, map[string]any{"reason": err.Error()}, nil))
 		return
 	}
 	res := booted.Boot
@@ -80,29 +80,34 @@ func (a *shipping) RunPreview(task *workflow.Execution) {
 	}
 	if err != nil {
 		be := docker.AsBootError(err)
+		status := workflow.StatusFail
+		ev := map[string]any{"reason": be.Error(), "logTail": be.LogTail, "url": url}
 		switch be.Phase {
-		case docker.PhaseNeeds:
-			finish(workflow.StatusError, map[string]any{"reason": be.Error()})
+		case docker.PhaseResolve:
+			var refused *docker.ContractRefusal
+			if !errors.As(err, &refused) {
+				status = workflow.StatusError
+			}
+		case docker.PhaseNeeds, docker.PhaseFill:
+			status = workflow.StatusError
 		case docker.PhaseSecrets:
-			// A person's task (bind the secret), or a declaration the agent
-			// must fix: either way a fail with the sentence, never an error.
-			finish(workflow.StatusFail, map[string]any{"reason": be.Error()})
-		case docker.PhaseProbe, docker.PhasePage:
-			// A page a visitor is refused, or a static site whose page is
-			// missing, fails like an app that never answered: the why
-			// rides as the log tail, ahead of the app's own last words.
-			logTail := be.LogTail
-			if be.Phase == docker.PhasePage {
-				logTail = strings.TrimSpace(be.Error() + "\n" + be.LogTail)
+			var missing *secret.MissingError
+			var unavailable *secret.UnavailableError
+			switch {
+			case errors.As(err, &missing):
+				status = workflow.StatusNeedsHuman
+				ev["actions"] = []string{be.Error() + ". Bind the required secrets in Settings > Secrets."}
+			case errors.As(err, &unavailable):
+				status = workflow.StatusError
 			}
-			ev := map[string]any{"reason": "app did not come up in a cold container", "url": url, "logTail": logTail}
-			if res.Page != nil {
-				ev["frontPage"] = res.Page
-			}
-			task.Settle(workflow.EncodeRework(ev))
-		default:
-			finish(workflow.StatusFail, map[string]any{"reason": be.Error()})
+		case docker.PhaseConfig:
+			status = workflow.StatusNeedsHuman
+			ev["actions"] = []string{be.Error() + ". Check the browser configuration in Settings > Integrations."}
 		}
+		if res.Page != nil {
+			ev["frontPage"] = res.Page
+		}
+		finish(status, ev)
 		return
 	}
 	public := res.Stack.Plan.PublicPart()

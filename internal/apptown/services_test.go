@@ -147,7 +147,7 @@ func TestBootFailureBecomesAgentFeedback(t *testing.T) {
 			}
 			outcome := workflow.StepOutcome{Status: workflow.StatusPass}
 			if task.Step().Type == "preview" {
-				outcome = workflow.StepOutcome{Status: workflow.StatusFail, Evidence: json.RawMessage(`{"reason":"app did not come up in a cold container","logTail":"mise ERROR No version is set for shim: go"}`), Rework: true}
+				outcome = workflow.StepOutcome{Status: workflow.StatusFail, Evidence: json.RawMessage(`{"reason":"app did not come up in a cold container","logTail":"mise ERROR No version is set for shim: go"}`)}
 			}
 			if err := task.Finish(outcome, nil); err != nil {
 				t.Fatal(err)
@@ -168,14 +168,13 @@ func TestBootFailureBecomesAgentFeedback(t *testing.T) {
 		}
 	}
 	fb := workflow.Interpolate(ctx, a.DB, "${{feedback.latest}}", run, nil, "p")
-	if !strings.Contains(fb, "cold boot gate") || !strings.Contains(fb, "No version is set for shim: go") {
+	if !strings.Contains(fb, "boot (preview)") || !strings.Contains(fb, "No version is set for shim: go") {
 		t.Fatalf("preview crash not rendered as feedback: %q", fb)
 	}
 }
 
-// A review that was not run because the boot failed settles after the boot,
-// so it is the newest failure; the agent's next prompt must still carry the
-// boot's own log line, not only "the app did not come up".
+// Review stays pending after boot fails; the next agent prompt must carry
+// the boot's own log line.
 func TestABootFailuresLogReachesTheReworkPromptPastTheUnrunReview(t *testing.T) {
 	t.Parallel()
 	a, ctx, run := completionScenario(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "finish", OnEnter: []schema.Step{{Name: "build", Uses: "agent/pi"}}, Steps: []schema.Step{{Name: "boot", Uses: "preview"}, {Name: "review", Uses: "agent/review"}, {Name: "accept", Uses: "approval"}}}}})
@@ -187,7 +186,7 @@ func TestABootFailuresLogReachesTheReworkPromptPastTheUnrunReview(t *testing.T) 
 			}
 			outcome := workflow.StepOutcome{Status: workflow.StatusPass}
 			if task.Step().Type == "preview" {
-				outcome = workflow.StepOutcome{Status: workflow.StatusFail, Evidence: json.RawMessage(`{"reason":"app did not come up in a cold container","logTail":"PG::UndefinedTable: relation \"books\" does not exist"}`), Rework: true}
+				outcome = workflow.StepOutcome{Status: workflow.StatusFail, Evidence: json.RawMessage(`{"reason":"app did not come up in a cold container","logTail":"PG::UndefinedTable: relation \"books\" does not exist"}`)}
 			}
 			if err := task.Finish(outcome, nil); err != nil {
 				t.Fatal(err)
@@ -201,7 +200,7 @@ func TestABootFailuresLogReachesTheReworkPromptPastTheUnrunReview(t *testing.T) 
 		t.Fatal(err)
 	}
 	for _, step := range snapshot.Steps {
-		if step.Type != "approval" {
+		if step.Type == "agent/pi" || step.Type == "preview" {
 			if err := a.Work.ExecuteStep(ctx, step.ID); err != nil {
 				t.Fatal(err)
 			}
@@ -212,7 +211,7 @@ func TestABootFailuresLogReachesTheReworkPromptPastTheUnrunReview(t *testing.T) 
 		t.Fatal(err)
 	}
 	for _, step := range after.Steps {
-		if step.Type == "agent/review" && (step.Status != workflow.StatusFail || !strings.Contains(string(step.Evidence), "notRun")) {
+		if step.Type == "agent/review" && step.Status != workflow.StatusPending {
 			t.Fatalf("the review must be recorded as not run on a failed boot: %s %s", step.Status, step.Evidence)
 		}
 	}
@@ -350,5 +349,73 @@ spec:
 	}
 	if old.Run.Status != workflow.RunAbandoned {
 		t.Fatalf("the superseded landing is %s, want abandoned", old.Run.Status)
+	}
+}
+
+// The ordinary stage retains boot as the sole cause. Review never turns
+// a person's action or AppTown's failure into another revision of the work.
+func TestHandoverStageClassifiesBootOnlyOnce(t *testing.T) {
+	for _, status := range []workflow.StepState{workflow.StatusNeedsHuman, workflow.StatusError, workflow.StatusFail} {
+		t.Run(status.String(), func(t *testing.T) {
+			a, ctx, run := completionScenario(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "finish", OnEnter: []schema.Step{{Name: "build", Uses: "agent/pi"}, {Name: "boot", Uses: "preview"}}, Steps: []schema.Step{{Name: "review", Uses: "agent/review"}, {Name: "accept", Uses: "approval"}}}}})
+			rebuildWork(t, a, func(deps *workflow.Dependencies) {
+				deps.Report = func(error) {}
+				deps.Automatic = []string{"agent/pi", "preview", "agent/review"}
+				deps.Runners = map[string]workflow.Runner{"agent/pi": func(task *workflow.Execution) {
+					if _, err := task.Claim(); err != nil {
+						t.Fatal(err)
+					}
+					if err := task.Finish(workflow.StepOutcome{Status: workflow.StatusPass}, nil); err != nil {
+						t.Fatal(err)
+					}
+				},
+					"preview": func(task *workflow.Execution) {
+						if _, err := task.Claim(); err != nil {
+							t.Fatal(err)
+						}
+						if err := task.Finish(workflow.EncodeOutcome(status, map[string]any{"reason": "bind WP_ADMIN_PASSWORD in Settings > Secrets", "actions": []string{"bind WP_ADMIN_PASSWORD in Settings > Secrets"}}, nil)); err != nil {
+							t.Fatal(err)
+						}
+					},
+					"agent/review": a.agents.Review}
+			})
+			a.Work.Stop()
+			snapshot, err := a.Work.Snapshot(ctx, run.ID, workflow.DetailView)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, step := range snapshot.Steps {
+				if step.Type == "agent/pi" || step.Type == "preview" {
+					if err := a.Work.ExecuteStep(ctx, step.ID); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			snapshot, err = a.Work.Snapshot(ctx, run.ID, workflow.DetailView)
+			if err != nil {
+				t.Fatal(err)
+			}
+			reworks := 0
+			for _, event := range snapshot.Events {
+				if event.Kind == "step.rework" {
+					reworks++
+				}
+			}
+			want := 0
+			if status == workflow.StatusFail {
+				want = 1
+			}
+			if reworks != want {
+				t.Fatalf("boot %s spent %d rounds, want %d", status, reworks, want)
+			}
+			for _, step := range snapshot.Steps {
+				if step.Type == "preview" && (step.Status != status || !strings.Contains(string(step.Evidence), "WP_ADMIN_PASSWORD")) {
+					t.Fatalf("boot diagnosis lost: %+v", step)
+				}
+				if step.Type == "agent/review" && step.Status != workflow.StatusPending {
+					t.Fatalf("review judged an unbooted app: %+v", step)
+				}
+			}
+		})
 	}
 }

@@ -180,7 +180,6 @@ func (s landingRechecks) recheckIn(ctx context.Context, tx *database.Tx, req Lan
 		return result, err
 	}
 	var selected []*Step
-	blockedReasons := map[string]bool{}
 	for _, step := range steps {
 		if step.Status == StatusRunning {
 			return result, fmt.Errorf("wait for the running steps to finish before rechecking")
@@ -188,20 +187,8 @@ func (s landingRechecks) recheckIn(ctx context.Context, tx *database.Tx, req Lan
 		if !slices.Contains(s.automatic, step.Type) || step.OverrideBy != "" {
 			continue
 		}
-		entry := entryStep(stage, step)
-		var evidence struct {
-			Reason string `json:"reason"`
-		}
-		if step.Status == StatusSkipped {
-			if err := json.Unmarshal(step.Evidence, &evidence); err != nil {
-				return result, err
-			}
-		}
-		if step.Status == StatusFail || step.Status == StatusError || (entry && step.Status == StatusSkipped && blockedReasons[evidence.Reason]) {
+		if step.Status == StatusFail || step.Status == StatusError {
 			selected = append(selected, step)
-			if entry {
-				blockedReasons[skipReason(step.Name)] = true
-			}
 		}
 	}
 	if len(selected) == 0 {

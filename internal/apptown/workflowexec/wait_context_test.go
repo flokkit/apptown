@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/tasks"
-	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/execution"
 )
 
@@ -50,35 +49,5 @@ func TestAStartsRetryPauseEndsWithItsContext(t *testing.T) {
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("the pause before observing again outlived its context")
-	}
-}
-
-// A review waits for its stage's boot to settle; the wait ends with the
-// review's context, answering the boot as last read.
-func TestAReviewsWaitForItsBootEndsWithItsContext(t *testing.T) {
-	t.Parallel()
-	var executor *Executor
-	_, ctx, stepIDs, _, _ := reviewFixtureWith(t, true, func(execution.Request) execution.Outcome {
-		t.Error("nothing is invoked")
-		return execution.Outcome{}
-	}, func(e *Executor) { executor = e })
-	boot, err := workflow.ReadStepIn(ctx, executor.db, stepIDs["boot"])
-	if err != nil {
-		t.Fatal(err)
-	}
-	if boot.Status != workflow.StatusPending {
-		t.Fatalf("the boot is %s; the test needs it unsettled", boot.Status)
-	}
-	waiting, stop := context.WithTimeout(ctx, 50*time.Millisecond)
-	defer stop()
-	done := make(chan *workflow.Step, 1)
-	go func() { done <- executor.awaitStageBoot(waiting, boot.RunID, boot.Stage) }()
-	select {
-	case got := <-done:
-		if got == nil || got.ID != boot.ID || got.Status != workflow.StatusPending {
-			t.Fatalf("the wait answered %+v; want the boot as last read", got)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("the wait for the stage's boot outlived its context")
 	}
 }

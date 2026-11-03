@@ -35,7 +35,7 @@ func TestLandingDecisionNeverPassesReplayOrUnrecordedOutcome(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			d := landingDeploymentDecision(tc.result, tc.err, deployment.LandingBoot{})
-			if d == nil || d.status != workflow.StatusError || d.rework || !strings.Contains(d.evidence["reason"].(string), tc.reason) {
+			if d == nil || d.status != workflow.StatusError || !strings.Contains(d.evidence["reason"].(string), tc.reason) {
 				t.Fatalf("%+v", d)
 			}
 		})
@@ -43,7 +43,7 @@ func TestLandingDecisionNeverPassesReplayOrUnrecordedOutcome(t *testing.T) {
 	for _, cause := range []error{context.Canceled, context.DeadlineExceeded} {
 		d := landingDeploymentDecision(deployment.ExecutionResult{Created: true}, &deployment.RunError{Stage: deployment.Execution, Cause: cause},
 			deployment.LandingBoot{Err: &docker.BootError{Phase: docker.PhasePage, Err: errors.New("late boot result")}})
-		if d == nil || d.rework || d.status != workflow.StatusError {
+		if d == nil || d.status != workflow.StatusError {
 			t.Fatalf("cancelled landing requested rework: %+v", d)
 		}
 	}
@@ -179,7 +179,7 @@ func TestLandingBootFailureEvidence(t *testing.T) {
 			boot := deployment.LandingBoot{Err: err, URL: "http://app:8080"}
 
 			decision := landingDeploymentDecision(deployment.ExecutionResult{Attempt: at, Created: true}, &deployment.RunError{Stage: deployment.Execution, Cause: err}, boot)
-			if decision == nil || decision.status != workflow.StatusFail || decision.rework != tc.rework {
+			if decision == nil || decision.status != workflow.StatusFail {
 				t.Fatalf("lost workflow decision: %+v", decision)
 			}
 			if tc.phase == docker.PhaseProbe && (decision.evidence["url"] != "http://app:8080" || decision.evidence["logTail"] != "last lines") {

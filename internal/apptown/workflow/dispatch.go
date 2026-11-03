@@ -135,46 +135,6 @@ func entryStep(stage *schema.Stage, step *Step) bool {
 	return false
 }
 
-// Keep the persisted reason stable: rechecks also recognize existing skips.
-func skipReason(after string) string { return "not run: “" + after + "” did not pass" }
-
-// A skip and its receipt commit together. Only an unstarted or restart-orphaned
-// step in a still-active stage can be skipped; a finished outcome is preserved.
-func (w dispatchPlans) Skip(ctx context.Context, runID, stepID ids.ID, after string) error {
-	return w.db.InTx(ctx, func(tx *database.Tx) error {
-		run, current, err := lockStep(ctx, tx, stepID)
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if run.ID != runID || run.Status != RunRunning || run.CurrentStage != current.Stage || current.OverrideBy != "" || !slices.Contains(w.automatic, current.Type) {
-			return nil
-		}
-		if current.Status != StatusPending && !restartOrphan(current) {
-			return nil
-		}
-		if _, err := current.Status.transition(moveStepSkip, StatusSkipped); err != nil {
-			return err
-		}
-		evidence, err := json.Marshal(struct {
-			Reason string `json:"reason"`
-		}{skipReason(after)})
-		if err != nil {
-			return err
-		}
-		count, err := workflowsql.New(tx.SQL()).DispatchSkip(ctx, workflowsql.DispatchSkipParams{At: w.now(), EvidenceJson: evidence, ID: stepID, RunID: runID})
-		if err := requireAttemptWrite(count, err); err != nil {
-			return err
-		}
-		return recordReceiptIn(ctx, tx, runID, "step.skipped", struct {
-			Step  string `json:"step"`
-			After string `json:"after"`
-		}{current.Name, after}, w.now())
-	})
-}
-
 // Prepare the restart retry before invoking its runner. Agents continue their
 // saved session; clearing the orphan verdict and recording the resume are one
 // write. If this fails, no external work starts.
@@ -223,4 +183,25 @@ func restartOrphan(step *Step) bool {
 		Reason string `json:"reason"`
 	}
 	return step.Status == StatusError && json.Unmarshal(step.Evidence, &evidence) == nil && evidence.Reason == "orphaned by apptownd restart"
+}
+
+// dispatchSettled is the dispatcher's prerequisite rule. A conditional skip has
+// no work to finish, just as a step whose subject does not apply has none.
+func dispatchSettled(status StepState) bool { return status.passesGate() }
+
+// dispatchReady applies the ordered prerequisite rule to assertions and approvals. Later steps cannot hold an earlier step.
+func dispatchReady(ctx context.Context, db database.Queryer, step *Step) (bool, error) {
+	steps, err := readStageSteps(ctx, db, step.RunID, step.Stage)
+	if err != nil {
+		return false, err
+	}
+	for _, earlier := range steps {
+		if earlier.ID == step.ID {
+			return true, nil
+		}
+		if !dispatchSettled(earlier.Status) {
+			return false, nil
+		}
+	}
+	return false, nil
 }

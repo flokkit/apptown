@@ -149,13 +149,6 @@ func (e CheckEvidence) Outcome(status StepState, extension map[string]any) (Step
 	return EncodeOutcome(status, fields, nil)
 }
 
-// Rework is Outcome for a verdict that asks for the stage's rework.
-func (e CheckEvidence) Rework(extension map[string]any) (StepOutcome, error) {
-	outcome, err := e.Outcome(StatusFail, extension)
-	outcome.Rework = true
-	return outcome, err
-}
-
 // ReadCheckEvidence is the one reader of the typed facts. Empty evidence has
 // none. Evidence that is not an object, a typed key of another shape or an
 // unknown verdict is unreadable: an error, which each caller turns into its

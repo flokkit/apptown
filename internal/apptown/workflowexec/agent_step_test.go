@@ -360,7 +360,7 @@ func TestAnImplementingAgentStepThatChangesNothingFails(t *testing.T) {
 		nothing      bool
 		adoption     bool
 	}{
-		{"reviewed, changed nothing", output, ordinary, review("change-report"), false, workflow.StatusFail, false, false},
+		{"reviewed, changed nothing", output, ordinary, review("change-report"), false, workflow.StatusPending, false, false},
 		{"reviewed, changed the code", output, ordinary, review("change-report"), true, workflow.StatusPass, false, false},
 		{"not reviewed against the diff", output, ordinary, review("other-report"), false, workflow.StatusPass, false, false},
 		{"declared, changed nothing", declared, ordinary, review("change-report"), false, workflow.StatusPass, true, false},
@@ -368,7 +368,7 @@ func TestAnImplementingAgentStepThatChangesNothingFails(t *testing.T) {
 		{"adoption, changed nothing", output, openAdoptionChange, review("change-report"), false, workflow.StatusPass, false, true},
 		{"adoption, declared, changed nothing", declared, openAdoptionChange, review("change-report"), false, workflow.StatusPass, false, true},
 		{"adoption, changed the code", output, openAdoptionChange, review("change-report"), true, workflow.StatusPass, false, false},
-		{"typed uplift without a target, changed nothing", output, typedUplift, review("change-report"), false, workflow.StatusFail, false, false},
+		{"typed uplift without a target, changed nothing", output, typedUplift, review("change-report"), false, workflow.StatusPending, false, false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -389,7 +389,7 @@ func TestAnImplementingAgentStepThatChangesNothingFails(t *testing.T) {
 			}
 			status, ev := stepStatus(t, a, stepID)
 			reason := fmt.Sprint(ev["reason"])
-			if status != c.want || c.want == workflow.StatusFail && (!strings.HasPrefix(reason, "the step made no change") || !strings.Contains(reason, "does not exist")) {
+			if status != c.want || c.want == workflow.StatusPending && (!strings.HasPrefix(reason, "Your previous attempt changed nothing") || !strings.Contains(reason, "does not exist")) {
 				t.Fatalf("status %s, reason %q", status, reason)
 			}
 			if got := ev["nothingToChange"] == true; got != c.nothing || c.nothing && (!strings.HasPrefix(reason, "nothing to change: the ") || !strings.Contains(reason, "does not exist")) {
@@ -752,5 +752,62 @@ func TestInFlightAgentWithRetiredModelFailsVisibly(t *testing.T) {
 				t.Fatal("retired model request invoked an agent")
 			}
 		})
+	}
+}
+
+func TestAnAgentReportsAllBlockersAndItsRetryStillNeedsChecks(t *testing.T) {
+	a, runID, stepID := admittedAgentStep(t, `{"prompt":"do it","mayChangeNothing":true,"output":{"kind":"change-report","file":".apptown/CHANGE.md"}}`, schema.Step{Name: "report", Uses: "artifact/require", With: map[string]any{"kind": "change-report"}}, schema.Step{Name: "review", Uses: ReviewKind, With: map[string]any{"of": "change-report"}}, schema.Step{Name: "accept", Uses: "approval"})
+	report := "Completed the edit.\n\nBlockers:\n- I cannot choose the retention period; decide how long to retain records.\n- I cannot authenticate; bind WP_ADMIN_PASSWORD in Settings > Secrets.\n"
+	installFakePi(a, func(_ int, req execution.Request) execution.Outcome {
+		if err := os.WriteFile(filepath.Join(req.Workspace, ".apptown", "CHANGE.md"), []byte(report), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(req.Workspace, "page.txt"), []byte("changed\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return execution.Outcome{Output: piSays("done")}
+	})
+	if err := a.work.ExecuteStep(a.ctx, stepID); err != nil {
+		t.Fatal(err)
+	}
+	status, ev := stepStatus(t, a, stepID)
+	if status != workflow.StatusNeedsHuman || ev["nothingToChange"] == true {
+		t.Fatalf("blockers became completed work: %s %+v", status, ev)
+	}
+	actions, ok := ev["actions"].([]any)
+	if !ok || len(actions) != 2 {
+		t.Fatalf("lost blocker list: %+v", ev)
+	}
+	if got := runIDEvents(t, a, runID, "step.rework"); len(got) != 0 {
+		t.Fatalf("blockers spent rounds: %+v", got)
+	}
+	snapshot, err := a.work.Snapshot(a.ctx, runID, workflow.DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range snapshot.Steps {
+		if s.ID != stepID && s.Status != workflow.StatusPending {
+			t.Fatalf("check ran: %+v", s)
+		}
+	}
+	if result, err := a.work.AdvanceFrom(a.ctx, snapshot.Run); err != nil || result.Advanced || result.RunStatus != workflow.RunRunning {
+		t.Fatal("blocked change advanced")
+	}
+	run, err := workflow.ReadRunIn(a.ctx, a.db, runID)
+	if err != nil || run.Status != workflow.RunRunning {
+		t.Fatalf("blocked change closed: %+v %v", run, err)
+	}
+	if _, err := a.work.RetryStep(a.ctx, workflow.RetryCommand{StepID: stepID}); err != nil && !errors.Is(err, workflow.ErrDispatchStopped) {
+		t.Fatal(err)
+	}
+	report = "Completed the edit. Checked the changed page."
+	if err := a.work.ExecuteStep(a.ctx, stepID); err != nil {
+		t.Fatal(err)
+	}
+	if status, ev = stepStatus(t, a, stepID); status != workflow.StatusPass || ev["nothingToChange"] == true {
+		t.Fatalf("blocker-free retry: %s %+v", status, ev)
+	}
+	if result, err := a.work.AdvanceFrom(a.ctx, snapshot.Run); err != nil || result.Advanced || result.RunStatus != workflow.RunRunning {
+		t.Fatal("retry escaped review and acceptance")
 	}
 }

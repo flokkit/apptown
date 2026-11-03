@@ -204,6 +204,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 		assertions = s.merges
 	}
 	s.assertions = NewAssertions(db, assertions)
+	s.assertions.dispatchRework = s.dispatchRework
 	s.assertions.clocked = s.clocked
 	s.advancer = newAdvancer(db, advanceRuntime{stages: s.stages, assertions: s.assertions, checks: checks, completion: deps.Completion, carry: s.answerFromAcceptance, endNothing: s.endNothingToChange, clocked: s.clocked})
 	s.starter = newStarter(db, s.stages, deps.Chats, startRuntime{

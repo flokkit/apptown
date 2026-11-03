@@ -74,7 +74,7 @@ func TestAnAgentStepWithoutItsDeclaredOutputFails(t *testing.T) {
 		return execution.Outcome{Output: piSays("wrote some notes")}
 	})
 	a.work.ExecuteStep(a.ctx, stepID)
-	if status, ev := stepStatus(t, a, stepID); status != workflow.StatusFail || !strings.Contains(ev["reason"].(string), ".apptown/R.md") {
+	if status, ev := stepStatus(t, a, stepID); status != workflow.StatusPending || !strings.Contains(ev["reason"].(string), "Your previous attempt produced no report in .apptown/R.md") {
 		t.Fatalf("want a failure naming the declared output, got %s %v", status, ev)
 	}
 }

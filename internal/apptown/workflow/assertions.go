@@ -49,9 +49,11 @@ type assertions struct {
 	db    *database.DB
 	merge mergeObserver
 	clocked
+	dispatchRework func(reworkedResult)
 }
 
 type assertionScope struct {
+	held   bool
 	run    *Run
 	step   *Step
 	source MergeSource
@@ -77,6 +79,14 @@ func (s assertions) evaluate(ctx context.Context, request Assertion, expected *a
 			return assertionScope{}, err
 		}
 		scope := assertionScope{run: run, step: step}
+		ready, err := dispatchReady(ctx, tx, step)
+		if err != nil {
+			return assertionScope{}, err
+		}
+		scope.held = !ready
+		if scope.held {
+			return scope, nil
+		}
 		if step.Type == "scm/merged" && step.OverrideBy == "" {
 			scope.source, err = readMergeSourceForRun(ctx, tx, run)
 			if err != nil {
@@ -88,7 +98,7 @@ func (s assertions) evaluate(ctx context.Context, request Assertion, expected *a
 	if err != nil {
 		return nil, err
 	}
-	if prepared.step.OverrideBy != "" {
+	if prepared.held || prepared.step.OverrideBy != "" {
 		return prepared.step, nil
 	}
 	var merged *MergeObservation
@@ -102,7 +112,8 @@ func (s assertions) evaluate(ctx context.Context, request Assertion, expected *a
 		}
 		merged = &observation
 	}
-	return database.Transact(ctx, s.db, func(tx *database.Tx) (*Step, error) {
+	var reworked reworkedResult
+	finished, err := database.Transact(ctx, s.db, func(tx *database.Tx) (*Step, error) {
 		run, step, err := lockStep(ctx, tx, request.StepID)
 		if err != nil {
 			return nil, err
@@ -126,15 +137,6 @@ func (s assertions) evaluate(ctx context.Context, request Assertion, expected *a
 		if err != nil {
 			return nil, err
 		}
-		if outcome.state != StatusPass && step.Status == StatusPending && step.Type != "scm/merged" {
-			waiting, err := awaitingStageWork(ctx, tx, step)
-			if err != nil {
-				return nil, err
-			}
-			if waiting {
-				return step, nil
-			}
-		}
 		next, err := step.Status.transition(moveStepEvaluate, outcome.state)
 		if err != nil {
 			return nil, err
@@ -152,43 +154,23 @@ func (s assertions) evaluate(ctx context.Context, request Assertion, expected *a
 				return nil, err
 			}
 		}
-		return stepResult(workflowsql.New(tx.SQL()).StepByID(ctx, step.ID))
-	})
-}
-
-// awaitingStageWork reports whether a step of the assertion's stage that does
-// work, rather than approve or assert, has yet to finish. That work may still
-// attach the artifact or decision the assertion asks for (a deploy attaches the
-// release), so a fact missing now is not yet a failure: the assertion stays
-// pending, and each finished step refreshes it. A merge check is excluded
-// because its observation is an SCM effect whose result must be recorded.
-func awaitingStageWork(ctx context.Context, tx *database.Tx, assertion *Step) (bool, error) {
-	unfinished, err := unfinishedStageWork(ctx, tx, assertion)
-	return len(unfinished) > 0, err
-}
-
-// unfinishedStageWork names the steps of step's stage that do work and have
-// yet to finish: pending or running. Assertions wait for them, an approval
-// may not be given before them, and activity reads them as AppTown
-// working.
-func unfinishedStageWork(ctx context.Context, tx *database.Tx, step *Step) ([]string, error) {
-	steps, err := readStageSteps(ctx, tx, step.RunID, step.Stage)
-	if err != nil {
-		return nil, err
-	}
-	var names []string
-	for _, s := range steps {
-		if doesStageWork(s.Type) && (s.Status == StatusPending || s.Status == StatusRunning) {
-			names = append(names, s.Name)
+		current, err := stepResult(workflowsql.New(tx.SQL()).StepByID(ctx, step.ID))
+		if err != nil {
+			return nil, err
 		}
+		if next == StatusFail {
+			reworked, err = (reworkStore{s.db, s.clocked}).requestIn(ctx, tx, run, current, false)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return current, nil
+	})
+	if err == nil && s.dispatchRework != nil {
+		s.dispatchRework(reworked)
 	}
-	return names, nil
+	return finished, err
 }
-
-// doesStageWork says whether a step kind does the stage's work: everything
-// but an approval (a person's decision) and an assertion (a check of facts
-// the work leaves).
-func doesStageWork(kind string) bool { return kind != "approval" && !assertionKind(kind) }
 
 func assertionEligible(run *Run, step *Step) error {
 	if step == nil || run == nil || step.RunID != run.ID || run.Status != RunRunning || run.CurrentStage != step.Stage {
@@ -338,8 +320,8 @@ func (s *Service) Evaluate(ctx context.Context, stepID ids.ID) (*Step, error) {
 }
 
 // RefreshAssertions rechecks the current stage after its evidence changes, then
-// redispatches any stale checks whose reset committed. Independent assertions
-// still run when one fails; all failures are returned for the caller to report.
+// redispatches any stale checks whose reset committed. Assertions
+// wait behind earlier unfinished steps; evaluation errors are returned for the caller to report.
 func (s *Service) RefreshAssertions(ctx context.Context, runID ids.ID) error {
 	project, _, err := s.runScope(ctx, runID, actionRunStep)
 	if err != nil {
@@ -354,6 +336,16 @@ func (s *Service) refreshAssertions(ctx context.Context, ref RunRef) error {
 	if err != nil || run.Status != RunRunning {
 		return err
 	}
+	// Reworked output invalidates the old check before it is evaluated again.
+	// In particular, a still-missing report needs a new evaluation receipt,
+	// not a new timestamp on the previous failure's receipt.
+	changed, err := (reworkStore{s.db, s.clocked}).refresh(ctx, runID)
+	if err != nil {
+		return err
+	}
+	if changed {
+		s.DispatchCommittedRetry(runID)
+	}
 	steps, err := readStageSteps(ctx, s.db, runID, run.CurrentStage)
 	if err != nil {
 		return err
@@ -365,10 +357,6 @@ func (s *Service) refreshAssertions(ctx context.Context, ref RunRef) error {
 				failures = append(failures, fmt.Errorf("assertion %s: %w", step.Name, err))
 			}
 		}
-	}
-	changed, err := (reworkStore{s.db, s.clocked}).refresh(ctx, runID)
-	if err == nil && changed {
-		s.DispatchCommittedRetry(runID)
 	}
 	return errors.Join(append(failures, err)...)
 }

@@ -28,6 +28,19 @@ spec:
             output: { kind: adopt-report, name: adopt-report, file: .apptown/ADOPT.md }
             timeoutMinutes: 25
             prompt: |
+              Before finishing, commit your changes. Run `apptown check` and
+              fix introduced failures and this change's acceptance checks.
+              Run `apptown dev up` and open the pages this change touches.
+              Say in your report what ran and what came back. Report
+              pre-existing or undecided findings without widening the change.
+              If you cannot honestly satisfy a check, stop and list ALL
+              blockers in your report, using this declared field:
+              Blockers:
+              - What you cannot do and what you need from a person.
+              Use one bullet per blocker, each on one line. Name the
+              decision, secret, access, or smaller request you need.
+              Do not work around a check you cannot satisfy.
+
               This project has been attached to an organisational service —
               the Change below names it. Your steering contains an
               "(attached, generated)" section for that service describing

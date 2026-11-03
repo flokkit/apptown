@@ -75,7 +75,7 @@ func TestReworkCommandsDispatchOnlyCommittedWork(t *testing.T) {
 				}
 				command := func() error {
 					if !human {
-						return service.finishAttempt(ctx, claim, StepOutcome{Status: StatusFail, Rework: true, Evidence: json.RawMessage(`{"reason":"revise"}`)})
+						return service.finishAttempt(ctx, claim, StepOutcome{Status: StatusFail, Evidence: json.RawMessage(`{"reason":"revise"}`)})
 					}
 					_, err := service.Approve(ctx, Approval{StepID: approval, Decision: VoteReject, Comment: "revise"})
 					return err
@@ -132,7 +132,7 @@ func TestReworkCommandRetainsRequestFromItsRunningStage(t *testing.T) {
 			}
 			outcome := StepOutcome{Status: StatusPass}
 			if reviews.Add(1) == 1 {
-				outcome = StepOutcome{Status: StatusFail, Rework: true, Evidence: json.RawMessage(`{"reason":"fix it"}`)}
+				outcome = StepOutcome{Status: StatusFail, Evidence: json.RawMessage(`{"reason":"fix it"}`)}
 			}
 			if err := task.Finish(outcome, nil); err != nil {
 				t.Error(err)
@@ -168,7 +168,7 @@ func TestWorkflowReworkRecoversCommittedIntent(t *testing.T) {
 					if _, err := service.Approve(ctx, Approval{StepID: approval, Decision: VoteReject, Comment: "revise"}); err != nil {
 						t.Fatal(err)
 					}
-				} else if err := service.finishAttempt(ctx, review, StepOutcome{Status: StatusFail, Rework: true, Evidence: json.RawMessage(`{"reason":"revise"}`)}); err != nil {
+				} else if err := service.finishAttempt(ctx, review, StepOutcome{Status: StatusFail, Evidence: json.RawMessage(`{"reason":"revise"}`)}); err != nil {
 					t.Fatal(err)
 				}
 				if claimed {
@@ -215,7 +215,7 @@ func TestWorkflowReworkRecoversCommittedIntent(t *testing.T) {
 							if claim.Attempt != agent.Attempt+1 {
 								t.Errorf("restart attempt: %d -> %d", agent.Attempt, claim.Attempt)
 							}
-							for _, outcome := range []StepOutcome{{Status: StatusPass}, {Status: StatusFail, Rework: true, Evidence: json.RawMessage(`{"reason":"stale"}`)}} {
+							for _, outcome := range []StepOutcome{{Status: StatusPass}, {Status: StatusFail, Evidence: json.RawMessage(`{"reason":"stale"}`)}} {
 								if err := service.finishAttempt(ctx, agent, outcome); !errors.Is(err, ErrStepAttemptLost) {
 									t.Errorf("stale finish: %v", err)
 								}

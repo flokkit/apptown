@@ -46,6 +46,7 @@ export function StatePanel({ view, onChange, reading, workTab }: {
   const live = chats.refreshFailed ? undefined
     : chats.data?.sessions.find((x) => x.changeId === view.change.id && x.state !== 'dead' && !!x.turn)
   const next = nextStep(view, { chat: live?.turn })
+  const handover = handoverState(view, next)
   const stale = !!reading?.refreshFailed
   const light = stale ? 'unknown' : STATUS_LIGHT[view.statusLabel]
   const tone = ({pass:'ok', pending:'warn', fail:'bad', unknown:'unknown', '':'neutral'} as Record<string, string>)[light]
@@ -57,7 +58,7 @@ export function StatePanel({ view, onChange, reading, workTab }: {
       <div className="ch-state-words">
         <div className="ch-state-head">
           <span className={`ch-dot ${tone}`} aria-hidden="true" />
-          <span className="ch-headline">{next.headline}</span>
+          <span className="ch-headline">{handover?.headline ?? next.headline}</span>
         </div>
         {next.sentBack && (
           <div className="ch-sentence">
@@ -68,6 +69,11 @@ export function StatePanel({ view, onChange, reading, workTab }: {
         {found ? <div className="ch-sentence">{found}</div> : next.sentence && <div className="ch-sentence">{next.sentence}</div>}
         {!found && !next.sentence && next.primary === 'take-to-chat' && view.detail && <FoundLine detail={view.detail} />}
         {next.waitingOn && !(next.primary === 'approve' && next.waitingOn === 'you') && <div className="ch-waiting">Waiting on: <strong>{next.waitingOn}</strong></div>}
+        {handover && handover.actions.length > 0 && <ul>{handover.actions.map((action, i) => <li key={i}>{action}</li>)}</ul>}
+        {handover && handover.attempts.length > 0 && <details className="ch-sentence">
+          <summary>What the agent tried ({handover.attempts.length})</summary>
+          <ol>{handover.attempts.map((attempt, i) => <li key={i}>{attempt}</li>)}</ol>
+        </details>}
         {view.mainConflict && <MainConflictLine conflict={view.mainConflict} />}
         {reading && <StaleNote q={reading} />}
       </div>
@@ -549,4 +555,32 @@ function ReleaseRows({ view }: { view: ChangeView }) {
       ))}
     </div>
   )
+}
+
+// Rework events keep each attempt's reason even after the step is checked
+// again. A person's retry starts a fresh allowance; history remains visible.
+function handoverState(view: ChangeView, next: NextStep): { headline: string; actions: string[]; attempts: string[] } | undefined {
+  const d = view.detail
+  if (!d || d.run.status === 'abandoned' || next.tone === 'unknown') return undefined
+  const steps = d.steps.filter((s) => s.stage === d.run.currentStage)
+  const events = d.events ?? []
+  const attempts = events.filter((e) => e.kind === 'step.rework').map((e) => {
+    const reason = typeof e.payload.reason === 'string' && !e.payload.reason.includes('evidence fed back') && !e.payload.reason.includes('their words fed back')
+      ? e.payload.reason : 'The reason was not kept.'
+    return `${String(e.payload.step ?? 'Check')}: ${reason}`
+  })
+  const lastRetry = events.map((e) => e.kind).lastIndexOf('step.retried')
+  const rounds = events.slice(lastRetry + 1).filter((e) => e.kind === 'step.rework').length
+  const held = steps.filter((s) => (s.status === 'needs_human' || s.status === 'error'))
+  const actions = held.flatMap((s) => s.evidence?.actions?.length ? s.evidence.actions : [`${s.name}: ${s.evidence?.reason || 'could not run. Open the work details and resolve the error, then try again.'}`])
+  const busy = steps.some((s) => s.type === 'agent/pi' && (s.status === 'pending' || s.status === 'running'))
+  if (busy && !held.length) return { headline: `The agent is working on it${rounds ? ` (round ${Math.min(rounds, 3)} of 3)` : ''}`, actions, attempts }
+  if (held.length) return { headline: `Waiting for you: ${actions[0]}`, actions, attempts }
+  const failed = steps.find((s) => s.status === 'fail')
+  if (failed && rounds >= 3) return { headline: `Waiting for you: the agent tried 3 times; ${failed.name} still fails: ${failed.evidence?.reason || 'read what the check found'}. Take it to chat, or abandon it.`, actions, attempts }
+  if (failed) return { headline: `Waiting for you: ${failed.name} failed: ${failed.evidence?.reason || 'read what the check found'}`, actions, attempts }
+  if (next.primary === 'approve') return { headline: `Waiting for ${next.waitingOn === 'you' ? 'you' : next.waitingOn || 'a person'}: approve this change`, actions, attempts }
+  if (d.run.status === 'done') return { headline: 'Passed', actions, attempts }
+  if (next.primary === 'continue') return { headline: 'Waiting for you: continue to the next stage', actions, attempts }
+  return { headline: `${PRODUCT} is running the checks.`, actions, attempts }
 }

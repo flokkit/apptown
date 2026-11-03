@@ -56,6 +56,36 @@ An ordinary row read cannot manufacture a valid claim. A failed settlement is an
 error, not evidence that a desired status persisted. Telemetry observes this
 result; it is not the authoritative work record.
 
+## Handover checks
+
+After an agent finishes, AppTown runs the stage's checks. Every `fail`,
+including an assertion, asks the stage's agent to repair the work with the
+failing step's full evidence. The engine applies this rule; runners report
+outcomes rather than choose retries. A `needs_human` outcome names the person's
+actions; an `error` says AppTown or infrastructure could not run the check.
+Either outcome holds the stage: later checks stay pending until the person
+resolves it. Neither spends an automatic round. Work blocked by an earlier
+failure also stays pending, including a review waiting for boot; it runs once
+the blocker is resolved. A check that did not run cannot let the gate through.
+
+AppTown sends failures back automatically up to three times since the last
+person's retry. A further failure waits for a person. Each `step.rework` event
+keeps its check and a short reason so the change page can show what was tried
+after later checks replace their evidence. The continuing agent receives the
+complete evidence from the check that requested its revision.
+
+An agent may instead finish its declared report with a `Blockers:` field:
+following bullets, each on one line, name everything it cannot do and what it
+needs from a person. This holds the whole change, even when it committed edits
+or described them as complete. No rounds are spent and subsequent checks stay
+pending. A person's retry with a blocker-free report follows the ordinary
+checked path. The change page lists the person's actions together.
+
+Every stock stage that boots an app checks guidance conformance before review.
+Its agents are instructed to commit, run `apptown check`, run `apptown dev up`,
+open affected pages, and report what ran and what came back. AppTown's own
+checks still judge the committed work.
+
 ## Decisions, reruns and completion
 
 Approvals, overrides and retries recheck the relevant decision snapshot and

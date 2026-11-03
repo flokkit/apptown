@@ -376,30 +376,20 @@ func TestRemediationDecisionCannotUndoManualStepRetry(t *testing.T) {
 	if err := prepared.DispatchStarted(item.RunID); err != nil {
 		t.Fatal(err)
 	}
-	var dispatchErr error
 	select {
 	case <-finished:
-	case dispatchErr = <-dispatchErrors:
-		// Dispatch may already have reported the expected advancement error
-		// after the runner closed finished. Preserve that error for validation.
-		select {
-		case <-finished:
-		default:
-			t.Fatalf("dispatch failed before the runner finished: %v", dispatchErr)
-		}
+	case err := <-dispatchErrors:
+		t.Fatalf("dispatch failed before the runner finished: %v", err)
 	case <-time.After(30 * time.Second):
 		t.Fatal("worker did not reach the expected boundary")
 	}
 	prepared.Wait()
-	if dispatchErr == nil {
-		select {
-		case dispatchErr = <-dispatchErrors:
-		default:
-			t.Fatal("failed step did not report its expected unavailable advancement")
-		}
-	}
-	if !strings.Contains(dispatchErr.Error(), "current advancement checks are unavailable") {
-		t.Fatalf("unexpected dispatch error: %v", dispatchErr)
+	// A failed step holds dispatch before advancement. The later manual retry
+	// must still invalidate the reconciliation decision about that failure.
+	select {
+	case err := <-dispatchErrors:
+		t.Fatalf("failed step attempted advancement: %v", err)
+	default:
 	}
 	prepared.Stop()
 	f.work = prepared

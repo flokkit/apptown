@@ -1,12 +1,14 @@
 package workflow
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/database"
@@ -75,58 +77,14 @@ func Interpolate(ctx context.Context, q database.Queryer, s string, run *Run, it
 				return previewValue(ctx, q, run, key)
 			}
 		case "feedback":
-			// ${{feedback.latest}}: the most recent rejection on this run —
-			// a reviewer's words, an approver's comment, or a failed boot
-			// gate's crash log — fed to the agent on re-run. This is the
-			// rejection loop: reject → re-run producing step → re-verify.
+			// The check that requested the revision, or a person's rejection.
+			// Runners keep their own evidence shape; one renderer serves them all.
 			feedback, err := latestFeedbackIn(ctx, q, RunRef{ID: run.ID, ProjectID: run.ProjectID})
 			if _, err := database.Lookup(err); err != nil {
 				log.Printf("read failed: %v", err)
 			}
 			if err == nil && feedback != nil {
-				var ev struct {
-					LastRejection *ApprovalRejection  `json:"lastRejection"`
-					Withdrawal    *ApprovalWithdrawal `json:"withdrawal"`
-					Comment       string              `json:"comment"`
-					Approver      string              `json:"approver"`
-					Summary       string              `json:"summary"`
-					Findings      []string            `json:"findings"`
-					Reason        string              `json:"reason"`
-					LogTail       string              `json:"logTail"`
-					// Set when AppTown's file check failed a review the model passed.
-					ReviewerSummary string `json:"reviewerSummary"`
-				}
-				if json.Unmarshal(feedback.Evidence, &ev) == nil {
-					if ev.Summary != "" { // agent/review rejection
-						fb := ev.Summary
-						if len(ev.Findings) > 0 {
-							fb += "\nFindings:\n- " + strings.Join(ev.Findings, "\n- ")
-						}
-						if ev.LogTail != "" { // a review not run because the boot failed carries the boot's log
-							fb += "\n--- container log tail ---\n" + ev.LogTail
-						}
-						if ev.ReviewerSummary != "" {
-							return fb + " (— AppTown's file check; the reviewer itself passed the work)"
-						}
-						return fb + " (— automated reviewer)"
-					}
-					if ev.Withdrawal != nil {
-						return fmt.Sprintf("acceptance withdrawn: %s (— %s)", ev.Withdrawal.Reason, ev.Withdrawal.By)
-					}
-					if ev.LastRejection != nil && ev.Comment == "" {
-						return fmt.Sprintf("%s (— %s)", ev.LastRejection.Comment, ev.LastRejection.Approver)
-					}
-					if ev.Comment != "" {
-						return fmt.Sprintf("%s (— %s)", ev.Comment, ev.Approver)
-					}
-					if ev.Reason != "" { // boot gate: the app's own crash is the feedback
-						fb := "the app failed its cold boot gate: " + ev.Reason
-						if ev.LogTail != "" {
-							fb += "\n--- container log tail ---\n" + ev.LogTail
-						}
-						return fb + "\n(— boot gate; fix the contract or the app so a COLD container can build and serve it)"
-					}
-				}
+				return renderFeedback(feedback)
 			}
 			return "(no review feedback on this run)"
 		case "latest":
@@ -177,4 +135,68 @@ func previewValue(ctx context.Context, q database.Queryer, run *Run, key string)
 		return "This preview is not host routed; the console Host-header method cannot open it."
 	}
 	return u.Host
+}
+
+// Evidence belongs to its runner. Render its complete JSON rather than assuming
+// one runner's schema (scan findings, for example, are an object).
+func renderFeedback(step *Step) string {
+	var ev struct {
+		LastRejection *ApprovalRejection  `json:"lastRejection"`
+		Withdrawal    *ApprovalWithdrawal `json:"withdrawal"`
+		Comment       string              `json:"comment"`
+		Approver      string              `json:"approver"`
+	}
+	if json.Unmarshal(step.Evidence, &ev) == nil {
+		if ev.Withdrawal != nil {
+			return fmt.Sprintf("acceptance withdrawn: %s (— %s)", ev.Withdrawal.Reason, ev.Withdrawal.By)
+		}
+		if ev.LastRejection != nil && ev.Comment == "" {
+			return fmt.Sprintf("%s (— %s)", ev.LastRejection.Comment, ev.LastRejection.Approver)
+		}
+		if ev.Comment != "" {
+			return fmt.Sprintf("%s (— %s)", ev.Comment, ev.Approver)
+		}
+	}
+	return fmt.Sprintf("Feedback from %s (%s):\n%s", step.Name, step.Type, renderEvidence(step.Evidence))
+}
+
+func evidenceReason(raw json.RawMessage) string {
+	var ev struct {
+		Reason  string `json:"reason"`
+		Summary string `json:"summary"`
+	}
+	if json.Unmarshal(raw, &ev) == nil {
+		if ev.Reason != "" {
+			return ev.Reason
+		}
+		if ev.Summary != "" {
+			return ev.Summary
+		}
+	}
+	return string(raw)
+}
+
+func renderEvidence(raw json.RawMessage) string {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(raw, &fields) == nil && fields != nil {
+		keys := make([]string, 0, len(fields))
+		for key := range fields {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		var lines []string
+		for _, key := range keys {
+			lines = append(lines, key+": "+renderEvidence(fields[key]))
+		}
+		return strings.Join(lines, "\n")
+	}
+	var value string
+	if json.Unmarshal(raw, &value) == nil {
+		return value
+	}
+	var pretty bytes.Buffer
+	if err := json.Indent(&pretty, raw, "", "  "); err != nil {
+		return string(raw)
+	}
+	return pretty.String()
 }

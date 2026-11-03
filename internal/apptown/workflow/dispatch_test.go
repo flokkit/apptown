@@ -107,189 +107,164 @@ func TestDispatchPlanUsesOneSnapshot(t *testing.T) {
 }
 func TestDispatchTransitionsRequireCurrentScopeAndExplicitRestart(t *testing.T) {
 	t.Parallel()
-	for _, operation := range []string{"skip", "resume"} {
-		t.Run(operation, func(t *testing.T) {
+	for _, state := range []string{"ordinary error", "finished", "wrong run", "old stage", "closed run", "manual step", "override"} {
+		t.Run(state, func(t *testing.T) {
 			t.Parallel()
-			for _, state := range []string{"ordinary error", "finished", "wrong run", "old stage", "closed run", "manual step", "override"} {
-				t.Run(state, func(t *testing.T) {
-					t.Parallel()
-					db, run, _ := completionFixture(t, "working")
-					storedReadyStart(t, db, run.ID)
-					owner := newDispatchPlans(db, []string{"script", "scan", "agent/pi"})
-					typ := "script"
-					if state == "manual step" {
-						typ = "approval"
-					}
-					id := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "accept", Type: typ, Status: StatusPending.String()})
-					status := StatusPending
-					if operation == "resume" {
-						status = StatusError
-					}
-					{
-						current, err := workflowsql.New(owner.db.SQL()).StepByID(context.Background(), id)
-						if err != nil {
-							t.Fatal(err)
-						}
-						if rows, err := workflowsql.New(owner.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: id, Attempt: current.Attempt, ExpectedStatus: current.Status, Status: status.String(), EvidenceJson: []byte(`{"reason":"orphaned by apptownd restart"}`)}); err != nil || rows != 1 {
-							t.Fatalf("stored step state: rows=%d err=%v", rows, err)
-						}
-					}
-					target := run.ID
-					switch state {
-					case "ordinary error":
-						{
-							current, err := workflowsql.New(owner.db.SQL()).StepByID(context.Background(), id)
-							if err != nil {
-								t.Fatal(err)
-							}
-							if rows, err := workflowsql.New(owner.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: id, Attempt: current.Attempt, ExpectedStatus: current.Status, Status: StatusError.String(), EvidenceJson: []byte(`{"reason":"failed normally"}`)}); err != nil || rows != 1 {
-								t.Fatalf("stored step state: rows=%d err=%v", rows, err)
-							}
-						}
-					case "finished":
-						{
-							current, err := workflowsql.New(owner.db.SQL()).StepByID(context.Background(), id)
-							if err != nil {
-								t.Fatal(err)
-							}
-							if rows, err := workflowsql.New(owner.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: id, Attempt: current.Attempt, ExpectedStatus: current.Status, Status: "pass", EvidenceJson: current.EvidenceJson}); err != nil || rows != 1 {
-								t.Fatalf("stored step status: rows=%d err=%v", rows, err)
-							}
-						}
-					case "wrong run":
-						target = idstest.N(999999)
-					case "old stage":
-						if err := requireRunWrite(workflowsql.New(owner.db.SQL()).TransitionRun(context.Background(), workflowsql.TransitionRunParams{At: time.Now(), ID: run.ID, ExpectedStatus: run.Status.String(), CurrentStage: run.CurrentStage, RetryRevision: run.RetryRevision, NextStage: "later", NextStatus: run.Status.String()})); err != nil {
-							t.Fatal(err)
-						}
-					case "manual step":
-						// The manual kind was supplied at insertion.
-					case "override":
-						// sql-guarantee: Retain a pending/error row with an override actor to test dispatch refusal; OverrideStep would turn it into a passed row.
-						completionExec(t, owner.db, `UPDATE steps SET override_by='person' WHERE id=$1`, id)
-					case "closed run":
-						{
-							current, err := workflowsql.New(owner.db.SQL()).RunByID(context.Background(), workflowsql.RunByIDParams{ID: run.ID})
-							if err != nil {
-								t.Fatal(err)
-							}
-							if rows, err := workflowsql.New(owner.db.SQL()).TransitionRun(context.Background(), workflowsql.TransitionRunParams{At: time.Now(), ID: run.ID, ExpectedStatus: current.Status, CurrentStage: current.CurrentStage, RetryRevision: current.RetryRevision, NextStage: current.CurrentStage, NextStatus: "abandoned"}); err != nil || rows != 1 {
-								t.Fatalf("stored run transition: rows=%d err=%v", rows, err)
-							}
-						}
-					}
-					if operation == "skip" {
-						if err := owner.Skip(context.Background(), target, id, "prior"); err != nil {
-							t.Fatal(err)
-						}
-					} else {
-						ok, err := owner.Resume(context.Background(), target, id)
-						if err != nil || ok {
-							t.Fatalf("resumed stale work: %v %v", ok, err)
-						}
-					}
-					wantEventCount(t, owner.db, 0, ofKind("step.skipped", "step.resumed"))
-				})
+			db, run, _ := completionFixture(t, "working")
+			storedReadyStart(t, db, run.ID)
+			owner := newDispatchPlans(db, []string{"script", "scan", "agent/pi"})
+			typ := "script"
+			if state == "manual step" {
+				typ = "approval"
 			}
-		})
-	}
-}
-func TestDispatchTransitionsRequireWritesAndReceipts(t *testing.T) {
-	t.Parallel()
-	for _, operation := range []string{"skip", "resume"} {
-		for _, failure := range []string{"none", "write", "suppressed", "receipt"} {
-			t.Run(operation+"/"+failure, func(t *testing.T) {
-				t.Parallel()
-				db, run, _ := completionFixture(t, "working")
-				storedReadyStart(t, db, run.ID)
-				owner := newDispatchPlans(db, []string{"script", "scan", "agent/pi"})
-				before, after := StatusPending, StatusSkipped
-				if operation == "resume" {
-					before, after = StatusError, StatusPending
+			id := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "accept", Type: typ, Status: StatusPending.String()})
+			status := StatusError
+			{
+				current, err := workflowsql.New(owner.db.SQL()).StepByID(context.Background(), id)
+				if err != nil {
+					t.Fatal(err)
 				}
-				id := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "accept", Type: "agent/pi", Status: before.String(), ConfigJson: []byte(`{"n":9007199254740993,"extra":{"keep":true}}`)})
+				if rows, err := workflowsql.New(owner.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: id, Attempt: current.Attempt, ExpectedStatus: current.Status, Status: status.String(), EvidenceJson: []byte(`{"reason":"orphaned by apptownd restart"}`)}); err != nil || rows != 1 {
+					t.Fatalf("stored step state: rows=%d err=%v", rows, err)
+				}
+			}
+			target := run.ID
+			switch state {
+			case "ordinary error":
 				{
 					current, err := workflowsql.New(owner.db.SQL()).StepByID(context.Background(), id)
 					if err != nil {
 						t.Fatal(err)
 					}
-					if rows, err := workflowsql.New(owner.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: id, Attempt: current.Attempt, ExpectedStatus: current.Status, Status: before.String(), EvidenceJson: []byte(`{"reason":"orphaned by apptownd restart"}`)}); err != nil || rows != 1 {
+					if rows, err := workflowsql.New(owner.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: id, Attempt: current.Attempt, ExpectedStatus: current.Status, Status: StatusError.String(), EvidenceJson: []byte(`{"reason":"failed normally"}`)}); err != nil || rows != 1 {
 						t.Fatalf("stored step state: rows=%d err=%v", rows, err)
 					}
 				}
-				switch failure {
-				case "write":
-					dbtest.FailNextStatement(t, owner.db, "UPDATE steps SET status=")
-				case "receipt":
-					dbtest.FailNextStatement(t, owner.db, "INSERT INTO run_events")
-				case "suppressed":
-					completionExec(t, owner.db, `CREATE FUNCTION veto_dispatch() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
-					completionExec(t, owner.db, `CREATE TRIGGER veto_dispatch BEFORE UPDATE ON steps FOR EACH ROW EXECUTE FUNCTION veto_dispatch()`)
-				}
-				var err error
-				if operation == "skip" {
-					err = owner.Skip(context.Background(), run.ID, id, "prior")
-				} else {
-					var ok bool
-					ok, err = owner.Resume(context.Background(), run.ID, id)
-					if ok != (failure == "none") {
-						t.Errorf("resume permission=%v failure=%s err=%v", ok, failure, err)
+			case "finished":
+				{
+					current, err := workflowsql.New(owner.db.SQL()).StepByID(context.Background(), id)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if rows, err := workflowsql.New(owner.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: id, Attempt: current.Attempt, ExpectedStatus: current.Status, Status: "pass", EvidenceJson: current.EvidenceJson}); err != nil || rows != 1 {
+						t.Fatalf("stored step status: rows=%d err=%v", rows, err)
 					}
 				}
-				if (err == nil) != (failure == "none") {
-					t.Fatalf("failure=%s err=%v", failure, err)
+			case "wrong run":
+				target = idstest.N(999999)
+			case "old stage":
+				if err := requireRunWrite(workflowsql.New(owner.db.SQL()).TransitionRun(context.Background(), workflowsql.TransitionRunParams{At: time.Now(), ID: run.ID, ExpectedStatus: run.Status.String(), CurrentStage: run.CurrentStage, RetryRevision: run.RetryRevision, NextStage: "later", NextStatus: run.Status.String()})); err != nil {
+					t.Fatal(err)
 				}
-				count := 1
-				if failure != "none" {
-					count = 0
-					after = before
+			case "manual step":
+				// The manual kind was supplied at insertion.
+			case "override":
+				// sql-guarantee: Retain a pending/error row with an override actor to test dispatch refusal; OverrideStep would turn it into a passed row.
+				completionExec(t, owner.db, `UPDATE steps SET override_by='person' WHERE id=$1`, id)
+			case "closed run":
+				{
+					current, err := workflowsql.New(owner.db.SQL()).RunByID(context.Background(), workflowsql.RunByIDParams{ID: run.ID})
+					if err != nil {
+						t.Fatal(err)
+					}
+					if rows, err := workflowsql.New(owner.db.SQL()).TransitionRun(context.Background(), workflowsql.TransitionRunParams{At: time.Now(), ID: run.ID, ExpectedStatus: current.Status, CurrentStage: current.CurrentStage, RetryRevision: current.RetryRevision, NextStage: current.CurrentStage, NextStatus: "abandoned"}); err != nil || rows != 1 {
+						t.Fatalf("stored run transition: rows=%d err=%v", rows, err)
+					}
 				}
-				wantEventCount(t, owner.db, count, ofKind("step.skipped", "step.resumed"))
-				wantJSONField(t, "config", storedStep(t, owner.db, id).Config, "n", "9007199254740993", "extra.keep", "true")
-				wantStepState(t, owner.db, id, after)
-				if failure == "none" && operation == "resume" {
-					wantJSONField(t, "config", storedStep(t, owner.db, id).Config, "retryMode", "continue")
+			}
+			{
+				ok, err := owner.Resume(context.Background(), target, id)
+				if err != nil || ok {
+					t.Fatalf("resumed stale work: %v %v", ok, err)
 				}
-			})
-		}
+			}
+			wantEventCount(t, owner.db, 0, ofKind("step.resumed"))
+		})
+	}
+}
+
+func TestDispatchTransitionsRequireWritesAndReceipts(t *testing.T) {
+	t.Parallel()
+	for _, failure := range []string{"none", "write", "suppressed", "receipt"} {
+		t.Run(failure, func(t *testing.T) {
+			t.Parallel()
+			db, run, _ := completionFixture(t, "working")
+			storedReadyStart(t, db, run.ID)
+			owner := newDispatchPlans(db, []string{"script", "scan", "agent/pi"})
+			before, after := StatusError, StatusPending
+			id := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "accept", Type: "agent/pi", Status: before.String(), ConfigJson: []byte(`{"n":9007199254740993,"extra":{"keep":true}}`)})
+			{
+				current, err := workflowsql.New(owner.db.SQL()).StepByID(context.Background(), id)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if rows, err := workflowsql.New(owner.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: id, Attempt: current.Attempt, ExpectedStatus: current.Status, Status: before.String(), EvidenceJson: []byte(`{"reason":"orphaned by apptownd restart"}`)}); err != nil || rows != 1 {
+					t.Fatalf("stored step state: rows=%d err=%v", rows, err)
+				}
+			}
+			switch failure {
+			case "write":
+				dbtest.FailNextStatement(t, owner.db, "UPDATE steps SET status=")
+			case "receipt":
+				dbtest.FailNextStatement(t, owner.db, "INSERT INTO run_events")
+			case "suppressed":
+				completionExec(t, owner.db, `CREATE FUNCTION veto_dispatch() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
+				completionExec(t, owner.db, `CREATE TRIGGER veto_dispatch BEFORE UPDATE ON steps FOR EACH ROW EXECUTE FUNCTION veto_dispatch()`)
+			}
+			var err error
+			{
+				var ok bool
+				ok, err = owner.Resume(context.Background(), run.ID, id)
+				if ok != (failure == "none") {
+					t.Errorf("resume permission=%v failure=%s err=%v", ok, failure, err)
+				}
+			}
+			if (err == nil) != (failure == "none") {
+				t.Fatalf("failure=%s err=%v", failure, err)
+			}
+			count := 1
+			if failure != "none" {
+				count = 0
+				after = before
+			}
+			wantEventCount(t, owner.db, count, ofKind("step.resumed"))
+			wantJSONField(t, "config", storedStep(t, owner.db, id).Config, "n", "9007199254740993", "extra.keep", "true")
+			wantStepState(t, owner.db, id, after)
+			if failure == "none" {
+				wantJSONField(t, "config", storedStep(t, owner.db, id).Config, "retryMode", "continue")
+			}
+		})
 	}
 }
 func TestDispatchTransitionCancelsItsLockWait(t *testing.T) {
 	t.Parallel()
-	for _, operation := range []string{"skip", "resume"} {
-		t.Run(operation, func(t *testing.T) {
-			t.Parallel()
-			owner, run, id := dispatchFixture(t)
-			gate, err := owner.db.Begin(context.Background())
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer func() { _ = gate.Rollback() }()
-			if _, err := workflowsql.New(gate.SQL()).ProjectForUpdate(context.Background(), run.ProjectID); err != nil {
-				t.Fatal(err)
-			}
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			done := make(chan error, 1)
-			go func() {
-				if operation == "skip" {
-					done <- owner.Skip(ctx, run.ID, id, "prior")
-				} else {
-					_, err := owner.Resume(ctx, run.ID, id)
-					done <- err
-				}
-			}()
-			dbtest.WaitForLock(t, owner.db, "-- name: ProjectForUpdate")
-			cancel()
-			select {
-			case err := <-done:
-				if !errors.Is(err, context.Canceled) {
-					t.Fatalf("cancellation: %v", err)
-				}
-			case <-time.After(3 * time.Second):
-				t.Fatal("wait did not cancel")
-			}
-			wantEventCount(t, owner.db, 0, ofKind("step.skipped", "step.resumed"))
-		})
+	owner, run, id := dispatchFixture(t)
+	gate, err := owner.db.Begin(context.Background())
+	if err != nil {
+		t.Fatal(err)
 	}
+	defer func() { _ = gate.Rollback() }()
+	if _, err := workflowsql.New(gate.SQL()).ProjectForUpdate(context.Background(), run.ProjectID); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		{
+			_, err := owner.Resume(ctx, run.ID, id)
+			done <- err
+		}
+	}()
+	dbtest.WaitForLock(t, owner.db, "-- name: ProjectForUpdate")
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("cancellation: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("wait did not cancel")
+	}
+	wantEventCount(t, owner.db, 0, ofKind("step.resumed"))
 }
