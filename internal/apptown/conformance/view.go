@@ -27,15 +27,30 @@ type LensInfo struct {
 	Delta  *ReviewDelta `json:"delta,omitempty"`
 }
 
+// RemediationCoverage is current work covering one adopted check.
+type RemediationCoverage struct {
+	ProjectID ids.ID `json:"projectId"`
+	ChangeID  ids.ID `json:"changeId"`
+	Number    int64  `json:"number"`
+	Block     string `json:"block"`
+	Version   int    `json:"version"`
+	Check     string `json:"check"`
+}
+
+// OpenRemediations reads Work's coverage for an authorized project selection.
+type OpenRemediations func(context.Context, []ids.ID) ([]RemediationCoverage, error)
+
 // View is the one response shape both lenses render.
 type View struct {
-	Lens          LensInfo                   `json:"lens"`
-	Projects      []ProjectStanding          `json:"projects"`
-	ByProject     map[string][]Observation   `json:"byProject"`
-	ByCheck       map[string][]Observation   `json:"byCheck"`
-	CheckDefs     map[string]CheckDefinition `json:"checkDefs"`
-	Exceptions    map[string][]Disposition   `json:"exceptions"`
-	Adjudications map[ids.ID]Adjudication    `json:"adjudications"`
+	// OpenRemediations is current work, including on a historical review.
+	OpenRemediations []RemediationCoverage      `json:"openRemediations"`
+	Lens             LensInfo                   `json:"lens"`
+	Projects         []ProjectStanding          `json:"projects"`
+	ByProject        map[string][]Observation   `json:"byProject"`
+	ByCheck          map[string][]Observation   `json:"byCheck"`
+	CheckDefs        map[string]CheckDefinition `json:"checkDefs"`
+	Exceptions       map[string][]Disposition   `json:"exceptions"`
+	Adjudications    map[ids.ID]Adjudication    `json:"adjudications"`
 	// PriorConfirmations: for a fresh AI flag, the earlier confirmed verdict of
 	// the same check on the same project (sha, by, at) — so a second confirm is
 	// informed, never automatic (§9 item 2).
@@ -55,7 +70,11 @@ func (s *Service) View(ctx context.Context, reviewID ids.ID) (*View, error) {
 		if err != nil {
 			return nil, err
 		}
-		return currentConformanceView(ctx, facts, s.sourceHead)
+		view, err := currentConformanceView(ctx, facts, s.sourceHead)
+		if err != nil {
+			return nil, err
+		}
+		return s.withOpenRemediations(ctx, view)
 	}
 	h, err := store.historical(ctx, reviewID)
 	if err != nil {
@@ -86,7 +105,7 @@ func (s *Service) View(ctx context.Context, reviewID ids.ID) (*View, error) {
 	}
 	sortProjects(view.Projects)
 	view.Summary = summarizeFleet(view.Projects, len(view.ByCheck))
-	return view, nil
+	return s.withOpenRemediations(ctx, view)
 }
 
 func displayName(name, fallback string) string {
@@ -94,4 +113,14 @@ func displayName(name, fallback string) string {
 		return name
 	}
 	return fallback
+}
+
+func (s *Service) withOpenRemediations(ctx context.Context, view *View) (*View, error) {
+	projects := make([]ids.ID, 0, len(view.Projects))
+	for _, p := range view.Projects {
+		projects = append(projects, p.ProjectID)
+	}
+	var err error
+	view.OpenRemediations, err = s.openRemediations(ctx, projects)
+	return view, err
 }

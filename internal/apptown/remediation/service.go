@@ -135,8 +135,13 @@ func (s *Service) SetWorkerCount(ctx context.Context, kind string, n int, by str
 // CURRENT lens: verdicts in the findings lane (deterministic does-not-conform,
 // or an AI flag a person confirmed). Unconfirmed AI flags, excepted, n/a and
 // unassessed verdicts are never in scope (design §3, §12.6). The result is
-// ranked worst-first within each project.
+// ranked worst-first within each project. Findings covered by an open
+// remediation change are excluded.
 func (s *Service) Scope(ctx context.Context, scope, ref string) ([]conformance.Observation, error) {
+	return s.scope(ctx, scope, ref, false)
+}
+
+func (s *Service) scope(ctx context.Context, scope, ref string, includeCovered bool) ([]conformance.Observation, error) {
 	var view *conformance.View
 	var err error
 	if scope == "review" {
@@ -163,7 +168,16 @@ func (s *Service) Scope(ctx context.Context, scope, ref string) ([]conformance.O
 			if scope == "check" && conformance.CheckKey(v.Block, v.Version, v.Check) != ref {
 				continue
 			}
-			out = append(out, v)
+			covered := false
+			for _, c := range view.OpenRemediations {
+				if c.ProjectID == v.ProjectID && c.Block == v.Block && c.Version == v.Version && c.Check == v.Check {
+					covered = true
+					break
+				}
+			}
+			if !covered || includeCovered {
+				out = append(out, v)
+			}
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
@@ -187,7 +201,7 @@ func (s *Service) Start(ctx context.Context, scope, ref, actor string, concurren
 	default:
 		return nil, nil, fmt.Errorf("scope must be all, check, project or review")
 	}
-	findings, err := s.Scope(ctx, scope, ref)
+	findings, err := s.scope(ctx, scope, ref, true)
 	if err != nil {
 		return nil, nil, err
 	}

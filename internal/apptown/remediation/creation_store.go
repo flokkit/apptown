@@ -3,6 +3,8 @@ package remediation
 import (
 	"context"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"sort"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -64,6 +66,45 @@ func (s creations) Create(ctx context.Context, in CreationRequest) (*Remediation
 		return nil, nil, err
 	}
 	defer func() { _ = tx.Rollback() }()
+	// Match change admission's project lock before checking coverage. Sort the
+	// projects so overlapping fleet requests acquire their locks in one order.
+	projects := []ids.ID{}
+	seen := map[ids.ID]bool{}
+	for _, v := range in.Findings {
+		if !seen[v.ProjectID] {
+			projects = append(projects, v.ProjectID)
+			seen[v.ProjectID] = true
+		}
+	}
+	sort.Slice(projects, func(i, j int) bool { return projects[i].String() < projects[j].String() })
+	for _, id := range projects {
+		if _, err := queries(tx).LockProjectForRemediation(ctx, id); err != nil {
+			return nil, nil, err
+		}
+	}
+	covered, err := workflow.OpenRemediationsIn(ctx, tx, projects)
+	if err != nil {
+		return nil, nil, err
+	}
+	findings := make([]conformance.Observation, 0, len(in.Findings))
+	var refusal error
+	for _, v := range in.Findings {
+		var conflict bool
+		for _, c := range covered {
+			if c.ProjectID == v.ProjectID && c.Block == v.Block && c.Version == v.Version && c.Check == v.Check {
+				conflict = true
+				refusal = c.Refusal()
+				break
+			}
+		}
+		if !conflict {
+			findings = append(findings, v)
+		}
+	}
+	if len(findings) == 0 {
+		return nil, nil, refusal
+	}
+	in.Findings = findings
 	number, err := queries(tx).NextRemediationNumber(ctx)
 	if err != nil {
 		return nil, nil, err

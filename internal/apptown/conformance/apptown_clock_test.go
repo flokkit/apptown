@@ -22,7 +22,7 @@ func TestAppTownsClockStampsAndExpiresExceptions(t *testing.T) {
 	id := createTestProject(t, db, "clocked", "Clocked", "main")
 	at := time.Now().Add(-90 * 24 * time.Hour).UTC().Truncate(time.Second)
 	clock := at
-	s := New(db, nil, &testSource{head: "abc"}, func() time.Time { return clock })
+	s := New(db, nil, &testSource{head: "abc"}, func() time.Time { return clock }, noOpenRemediations)
 	s.authority = testAuthority{}
 	saved, err := s.CreateDisposition(caller("ops"), ExceptionRequest{ProjectID: id, Identifier: "CVE-1", Kind: AcceptedRisk, Justification: "until the fix ships", ExpiresAt: stamp.Of(at.Add(time.Hour))})
 	if err != nil {
@@ -59,7 +59,7 @@ func TestAConformanceReceiptCarriesItsRecordsTime(t *testing.T) {
 	block := stockCheckFixture(t, db, wow.StockBlock{Name: "prose", ChecksJSON: `[{"appliesTo": ["repository"], "name":"readme-plain","evaluator":"llm","scope":"tree","rubric":"README is plain","files":["README.md"]}]`})
 	pinCheckFixture(t, db, id, wow.ResolvedPin{BlockID: block, Name: "prose", Version: 1})
 	clk := clocktest.NewStepping(time.Date(2026, 3, 1, 9, 0, 0, 0, time.UTC), time.Second)
-	s := New(db, nil, &confirmationSource{head: "first-head"}, clk.Now)
+	s := New(db, nil, &confirmationSource{head: "first-head"}, clk.Now, noOpenRemediations)
 	s.authority = testAuthority{}
 	receiptAt := func(kind string) time.Time {
 		t.Helper()

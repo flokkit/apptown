@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"strings"
 	"time"
 
@@ -91,6 +92,8 @@ func (s changeStore) create(ctx context.Context, in ChangeDraft, who string, joi
 // The project lock precedes creation. Atomic remediation already holds it before
 // its item locks; this participant joins that transaction without committing or
 // preparing a workspace. Other admission opens its own transaction above.
+// Remediation acceptance checks cannot overlap another open remediation
+// change on this project. The project lock makes that refusal atomic with creation.
 // at is AppTown's time the Change is made.
 func CreateChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who string, at time.Time) (CreatedChange, error) {
 	if in.ProjectID.IsZero() || strings.TrimSpace(in.Title) == "" || strings.TrimSpace(who) == "" {
@@ -124,6 +127,19 @@ func insertChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who st
 	}
 	if in.Type == "" {
 		in.Type = "feature"
+	}
+	if in.Type == "remediation" && in.Acceptance != nil {
+		covered, err := OpenRemediationsIn(ctx, tx, []ids.ID{in.ProjectID})
+		if err != nil {
+			return CreatedChange{}, err
+		}
+		for _, c := range covered {
+			for _, check := range in.Acceptance.Checks {
+				if c.Block == check.Block && c.Version == check.Version && c.Check == check.Check {
+					return CreatedChange{}, c.Refusal()
+				}
+			}
+		}
 	}
 	state, owner := ChangeInProgress, titleHuman
 	if in.TitleFromChat {

@@ -5,7 +5,7 @@ import { post } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import type { ConformanceReviewDetail, ConformanceView, Review } from '../wire.gen'
-import { type LiveReview, isUnfinished, LensBanner, ReviewFeed, ReviewProgress, tabClass, useStartRemediation } from './conformance/parts'
+import { type LiveReview, fixableFindings, isUnfinished, LensBanner, ReviewFeed, ReviewProgress, tabClass, useStartRemediation } from './conformance/parts'
 import { ProjectsList } from './conformance/Projects'
 import { ProjectPage } from './conformance/ProjectPage'
 import { ReviewsList, isFleetReview } from './conformance/Reviews'
@@ -78,6 +78,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
   const shownErr = actErr || remediation.err
 
   const s = view?.summary
+  const fixable = view ? fixableFindings(view, Object.values(view.byProject).flat()) : 0
   const readOnly = rid !== ''
   const active = tab === 'project' ? 'projects' : tab === 'remediation' ? 'remediations' : tab
 
@@ -89,7 +90,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
       <PageHead page="conformance" actions={!readOnly && (tab !== 'project' || (live && isUnfinished(live.review.status))) ? (live && isUnfinished(live.review.status)
         ? <ReviewProgress d={live} />
         : <span className="row" style={{ gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-            {s && s.findings > 0 && <button disabled={busy} title="Start a remediation over every finding: one change per project at a time, each waiting for your approval" onClick={() => remediation.start('all', '')}>Fix {s.findings} {s.findings === 1 ? 'problem' : 'problems'}</button>}
+            {fixable > 0 && <button disabled={busy} title="Start a remediation over every finding: one change per project at a time, each waiting for your approval" onClick={() => remediation.start('all', '')}>Fix {fixable} {fixable === 1 ? 'problem' : 'problems'}</button>}
             <button className="primary" disabled={busy} onClick={() => run()}>{busy ? 'Starting…' : 'Check now'}</button>
           </span>) : undefined} />
 

@@ -15,7 +15,7 @@ func TestReviewHTTPReportsStorageFailureInsteadOfMissingHistory(t *testing.T) {
 	t.Parallel()
 	db := databaseSuite.New(t)
 	projectID, slug := confirmationHTTPProject(t, db, "reviewed")
-	service := conformance.New(db, confirmationHTTPAuthority{}, confirmationHTTPSource{}, nil)
+	service := conformance.New(db, confirmationHTTPAuthority{}, confirmationHTTPSource{}, nil, nil)
 	ctx := confirmationHTTPContext(t, db)
 	verdict := confirmationHTTPVerdict(t, service, ctx, projectID, slug, conformance.DoesNotConform)
 	handler := NewConformance(service, project.New(db, nil), nil)

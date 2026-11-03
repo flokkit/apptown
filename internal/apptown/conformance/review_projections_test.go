@@ -58,7 +58,7 @@ func newProjectionFixture(t *testing.T) *projectionFixture {
 	t.Helper()
 	f := &projectionFixture{db: testDB(t), source: &headSource{heads: map[ids.ID]string{}},
 		clock: &projectionClock{at: time.Date(2026, 3, 1, 9, 0, 0, 0, time.UTC)}, blocks: map[string]ids.ID{}}
-	f.service = New(f.db, nil, f.source, f.clock.now)
+	f.service = New(f.db, nil, f.source, f.clock.now, noOpenRemediations)
 	f.service.authority = testAuthority{}
 	return f
 }

@@ -9,7 +9,8 @@ import (
 
 // New builds conformance; now is AppTown's clock, which stamps reviews,
 // verdicts, exceptions and fixes and judges an exception's expiry (nil is
-// the real clock).
-func New(db *database.DB, authority access.Authorizer, source Source, now func() time.Time) *Service {
-	return &Service{db: db, records: reviewStore{db: db, checks: source, clock: now}, authority: commandAuthority{db: db, checked: authority}, source: source}
+// the real clock). openRemediations supplies current Work coverage; it is required
+// when reading a View.
+func New(db *database.DB, authority access.Authorizer, source Source, now func() time.Time, openRemediations OpenRemediations) *Service {
+	return &Service{db: db, openRemediations: openRemediations, records: reviewStore{db: db, checks: source, clock: now}, authority: commandAuthority{db: db, checked: authority}, source: source}
 }
