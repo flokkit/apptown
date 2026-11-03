@@ -14,7 +14,7 @@ func scanStepsFor(a *App) *verification.ScanSteps {
 }
 
 func runtimeFor(a *App) *verification.Runtime {
-	return verification.NewRuntime(verification.RuntimeDependencies{Deployment: a.Deployment, Hosts: a.hosts, DB: a.DB, Docker: &a.docker, DataDir: a.cfg.dataDir, BrowserValues: a.Integrations.BrowserEnvironment})
+	return verification.NewRuntime(verification.RuntimeDependencies{Environment: a.environment, Deployment: a.Deployment, Hosts: a.hosts, DB: a.DB, Docker: &a.docker, DataDir: a.cfg.dataDir, BrowserValues: a.Integrations.BrowserEnvironment})
 }
 
 func changesFor(a *App) *verification.Changes {

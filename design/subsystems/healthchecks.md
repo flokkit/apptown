@@ -30,6 +30,18 @@ worker as here. The runtime probe `page`
 asks the same question of a running deployment through its real front door
 (`internal/check/page.go`).
 
+The runtime probe `page-own-address` checks the front door's root for address
+mistakes. Each redirect Location resolves against the response URL and must
+keep the front door's host. Stylesheet and script references resolve against
+the final document URL and its first `<base href>`. An asset on a different
+host fails when that host matches a configured preview, main or eval namespace;
+other asset hosts count as third parties. Verification supplies those namespaces
+from `deployment.Environment.PublicOrigins` for preview and standing checks;
+`internal/check` receives host patterns only. Refused or failing pages are
+cannot-assess here and are judged by `page`. This inspects HTML without fetching
+assets or running JavaScript; custom domains outside the configured namespaces
+count as third parties for assets.
+
 ## Execution policy
 
 HTTP readiness and supported liveness probes accept `period`, `timeout`,

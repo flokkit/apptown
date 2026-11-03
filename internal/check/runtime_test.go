@@ -66,8 +66,11 @@ func TestParseProbeGrammar(t *testing.T) {
 	if ps, err := check.ParseProbe("readiness"); err != nil || !ps.Readiness {
 		t.Fatalf("readiness: %+v %v", ps, err)
 	}
+	if ps, err := check.ParseProbe("page-own-address"); err != nil || !ps.PageOwnAddress || !ps.NeedsApp() || ps.Standing() {
+		t.Fatalf("page-own-address: %+v %v", ps, err)
+	}
 	for _, bad := range []string{"", "POST /x", "GET x", "GET /x expect lots",
-		"memory-within 0%", "memory-within 101%", "memory-within lots", "memory-within 80", "memory-declared 80%"} {
+		"page-own-address /", "memory-within 0%", "memory-within 101%", "memory-within lots", "memory-within 80", "memory-declared 80%"} {
 		if _, err := check.ParseProbe(bad); err == nil {
 			t.Errorf("%q should be refused", bad)
 		}
