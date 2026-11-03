@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -47,7 +46,9 @@ func TestApprovalMalformedConfigurationOrEvidenceCannotRecordAVote(t *testing.T)
 
 func TestWorkflowPartialApprovalRequiresVoteWrite(t *testing.T) {
 	t.Parallel()
-	store, run, _, _, approval := retryStageFixture(t)
+	store, run, _, review, approval := retryStageFixture(t)
+	// sql-guarantee: isolate vote persistence after the external review has passed.
+	transitionStoredStepForTest(t, store.db, review, StatusPass)
 	people(t, store.db, "verified-person")
 	completionExec(t, store.db, `CREATE FUNCTION veto_vote() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
 	completionExec(t, store.db, `CREATE TRIGGER veto_vote BEFORE UPDATE ON steps FOR EACH ROW EXECUTE FUNCTION veto_vote()`)
@@ -143,28 +144,31 @@ func TestStepApprovalFencesAuthoritySnapshot(t *testing.T) {
 	}
 }
 
-// An approval judges its stage's work, so it is refused while that work is
-// still to run and given once it has finished; the refusal records nothing.
-// In the gap between one step finishing and the next starting, apptown quick
-// -y once approved before boot and review had run (live smoke, run 507).
-func TestAnApprovalWaitsForItsStagesWork(t *testing.T) {
+// Approval must wait for earlier steps to pass, including assertions and person holds.
+func TestAnApprovalWaitsForEarlierStepsToPass(t *testing.T) {
 	t.Parallel()
-	s, run, _, review, approval := retryStageFixture(t)
-	// sql-guarantee: the review as the dispatcher leaves it before starting it; no owner operation stops between a finished step and the next one's start.
-	retryScopeStep(t, s.db, review, json.RawMessage(`{}`))
-	service := newService(s.db, allowProject(run.ProjectID), Runtime{})
-	before := completionSnapshot(t, s.db)
-	_, err := service.Approve(context.Background(), Approval{StepID: approval, Decision: VoteApprove, Comment: "early"})
-	var early *approvalTooEarly
-	if !errors.As(err, &early) || len(early.Unfinished) != 1 || early.Unfinished[0] != "review" {
-		t.Fatalf("approval before the review ran: %v", err)
-	}
-	if completionSnapshot(t, s.db) != before {
-		t.Fatal("a refused early approval changed votes, steps or receipts")
-	}
-	// sql-guarantee: the review's pass as its runner records it; running a reviewer needs the agent runtime.
-	recordScopeStep(t, s.db, workflowsql.RecordApprovalParams{At: time.Now(), ID: review, Status: "pass"})
-	if _, err := service.Approve(context.Background(), Approval{StepID: approval, Decision: VoteApprove, Comment: "after"}); err != nil {
-		t.Fatalf("approval after the review passed: %v", err)
+	for _, kind := range []string{"script", "artifact/require", "approval"} {
+		for _, state := range []StepState{StatusPending, StatusRunning, StatusFail, StatusNeedsHuman, StatusError} {
+			t.Run(kind+"/"+state.String(), func(t *testing.T) {
+				s, run, _, earlier, approval := retryStageFixture(t)
+				// sql-guarantee: isolate each prerequisite kind and outcome without an external runner or automatic rework.
+				completionExec(t, s.db, `UPDATE steps SET type=$1 WHERE id=$2`, kind, earlier)
+				transitionStoredStepForTest(t, s.db, earlier, state)
+				service := newService(s.db, allowProject(run.ProjectID), Runtime{})
+				before := completionSnapshot(t, s.db)
+				_, err := service.Approve(context.Background(), Approval{StepID: approval, Decision: VoteApprove})
+				var early *approvalTooEarly
+				if !errors.As(err, &early) {
+					t.Fatalf("approval with earlier %s step %s: %v", kind, state, err)
+				}
+				if completionSnapshot(t, s.db) != before {
+					t.Fatal("refused approval changed votes, steps or receipts")
+				}
+				transitionStoredStepForTest(t, s.db, earlier, StatusPass)
+				if _, err := service.Approve(context.Background(), Approval{StepID: approval, Decision: VoteApprove}); err != nil {
+					t.Fatalf("approval after prerequisite passed: %v", err)
+				}
+			})
+		}
 	}
 }

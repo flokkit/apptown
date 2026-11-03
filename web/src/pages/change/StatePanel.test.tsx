@@ -86,3 +86,63 @@ describe('the approval panel and not-applicable checks', () => {
   ])
  })
 })
+
+describe('handover checks', () => {
+  const view = (status: string, evidence: object = {}, events: unknown[] = []) => ({
+    change: { id: CHANGE, number: 4, state: 'in_progress' }, projectSlug: 'demo', runs: [], state: 'blocked', statusLabel: 'failed',
+    detail: { run: { id: 'run', workflowName: 'quick-change', currentStage: 'apply', status: 'running' }, state: 'blocked', next: [], events,
+      steps: [{ id: 'agent', name: 'apply-change', type: 'agent/pi', stage: 'apply', status, evidence, config: {} },
+        { id: 'boot', name: 'boot', type: 'preview', stage: 'apply', status: 'fail', evidence: { reason: 'fourth failure' }, config: {} }] },
+  } as unknown as ChangeView)
+  const html = (v: ChangeView) => renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}>
+    <StatePanel view={v} onChange={() => {}} workTab={() => '/work'} />
+  </QueryClientProvider></MemoryRouter>)
+  const events = ['first failure', 'second failure', 'third failure'].map((reason) => ({ kind: 'step.rework', payload: { step: 'boot', reason } }))
+  it('leads with agent work while revising, even with the earlier failed check', () => {
+    expect(html(view('pending', {}, events.slice(0, 2)))).toContain('The agent is working on it (round 2 of 3)')
+    expect(html(view('running', {}, events))).not.toContain('the agent tried 3 times;')
+  })
+  it('keeps every attempt reason after the latest check replaces its evidence', () => {
+    const result = html(view('pass', {}, events))
+    expect(result).toContain('the agent tried 3 times; boot still fails: fourth failure')
+    for (const reason of ['first failure', 'second failure', 'third failure']) expect(result).toContain(reason)
+    expect(result).toContain('Take it to chat, or abandon it.')
+  })
+  it('lists every person action together and keeps an inherited boot cause once', () => {
+    const v = view('needs_human', { actions: ['Decide the retention period', 'Bind WP_ADMIN_PASSWORD'] })
+    v.detail!.steps[1] = { ...v.detail!.steps[1], status: 'needs_human', evidence: { actions: ['Repair the browser configuration'] } } as Step
+    v.detail!.steps.push({ name: 'review', stage: 'apply', type: 'agent/review', status: 'skipped', evidence: { blockedBy: 'boot' } } as Step)
+    const el = document.createElement('div'); el.innerHTML = html(v)
+    const actions = [...el.querySelectorAll('.ch-state-words li')].map((e) => e.textContent)
+    expect(actions).toEqual(['Decide the retention period', 'Bind WP_ADMIN_PASSWORD', 'Repair the browser configuration'])
+    expect(el.textContent).toContain('Waiting for you:')
+  })
+  it('leads with the person action while an agent is still pending', () => {
+    const v = view('pending')
+    v.detail!.steps[1] = { ...v.detail!.steps[1], status: 'needs_human', evidence: { actions: ['Bind WP_ADMIN_PASSWORD'] } } as Step
+    const el = document.createElement('div'); el.innerHTML = html(v)
+    expect(el.querySelector('.ch-headline')?.textContent).toBe('Waiting for you: Bind WP_ADMIN_PASSWORD')
+  })
+  it('says old attempt reasons were not kept and a person retry resets the allowance', () => {
+    const result = html(view('pass', {}, [...events, { kind: 'step.retried', payload: {} }, { kind: 'step.rework', payload: { step: 'boot', reason: 'preview failed — evidence fed back to the agent' } }]))
+    expect(result).toContain('The reason was not kept.')
+    expect(result).not.toContain('the agent tried 3 times;')
+  })
+  it('says passed when the checked run is done', () => {
+    const v = view('pass'); v.detail!.run.status = 'done'; v.detail!.steps[1].status = 'pass'
+    expect(html(v)).toContain('Passed')
+  })
+})
+
+ it('states a landing failure with the same state line and offers Fix it', () => {
+  const v = { change: { id: CHANGE, number: 3, state: 'landing' }, projectSlug: 'lunch-orders', runs: [], state: 'blocked', statusLabel: 'failed', next: [{ act: 'send-back', stepId: null, step: '' }],
+    detail: { run: { id: 'run', currentStage: 'land', status: 'running' }, state: 'blocked', next: [], events: [], steps: [
+      { id: 'boot', name: 'boot', type: 'preview', stage: 'land', status: 'fail', evidence: { reason: 'the app did not start' }, config: {} }
+    ] } } as unknown as ChangeView
+  const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}>
+    <StatePanel view={v} onChange={() => {}} workTab={() => '/work'} />
+  </QueryClientProvider></MemoryRouter>)
+  const el = document.createElement('div'); el.innerHTML = html
+  expect(el.querySelector('.ch-headline')?.textContent).toBe('Waiting for you: boot failed: the app did not start')
+  expect(el.textContent).toContain('Fix it')
+ })

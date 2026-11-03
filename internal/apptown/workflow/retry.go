@@ -286,12 +286,12 @@ func (s stepRetries) retryIn(ctx context.Context, tx *database.Tx, run *Run, ste
 		} else if req.Mode == RetryContinue {
 			// Freeze the feedback before invalidating the checks that supplied
 			// it. Recovery must see the same message as immediate dispatch.
-			feedback, err := workflowsql.New(tx.SQL()).LatestRetryFeedback(ctx, workflowsql.LatestRetryFeedbackParams{RunID: run.ID, Stage: step.Stage})
+			feedback, err := latestFeedbackIn(ctx, tx, RunRef{ID: run.ID, ProjectID: run.ProjectID})
 			if err != nil && !errors.Is(err, sql.ErrNoRows) {
 				return err
 			}
-			if feedback != "" {
-				setRetryField(cfg, "sendback", "The previous check reported:\n"+feedback)
+			if feedback != nil {
+				setRetryField(cfg, "sendback", renderFeedback(feedback))
 			}
 		}
 	}

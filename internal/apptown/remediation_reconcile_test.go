@@ -39,5 +39,5 @@ func TestRemediationLandingRecheckRejectsOldSnapshot(t *testing.T) {
 	if outcomeSnapshot(t, a.DB) != before {
 		t.Fatal("stale recheck consumed retry budget or renewed lease")
 	}
-	requireEvents(t, a, 3, eventKind("step.recheck"))
+	requireEvents(t, a, 2, eventKind("step.recheck"))
 }

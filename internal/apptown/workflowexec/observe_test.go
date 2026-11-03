@@ -176,7 +176,7 @@ func TestObserverWithoutProvidersIsANoOp(t *testing.T) {
 }
 
 // A span reports what settlement recorded: the status when it persisted, a
-// distinct settlement error when it did not, and rework by name.
+// distinct settlement error when it did not, and a failed check.
 func TestSettlementOutcomeReportsWhatWasRecorded(t *testing.T) {
 	t.Parallel()
 	if got := settlementOutcome(workflow.StatusPass, nil); got != "pass" {
@@ -185,10 +185,10 @@ func TestSettlementOutcomeReportsWhatWasRecorded(t *testing.T) {
 	if got := settlementOutcome(workflow.StatusPass, errors.New("db down")); got != outcomeSettlementError {
 		t.Fatalf("failed settlement reported %q", got)
 	}
-	if got := reworkOutcome(nil); got != outcomeRework {
+	if got := settlementOutcome(workflow.StatusFail, nil); got != "fail" {
 		t.Fatalf("rework: %q", got)
 	}
-	if got := reworkOutcome(errors.New("db down")); got != outcomeSettlementError {
+	if got := settlementOutcome(workflow.StatusFail, errors.New("db down")); got != outcomeSettlementError {
 		t.Fatalf("failed rework settlement reported %q", got)
 	}
 }

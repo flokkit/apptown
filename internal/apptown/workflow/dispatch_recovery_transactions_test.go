@@ -102,17 +102,14 @@ func TestWorkflowRecoveryUsesPinnedSequenceAndRecordedScanners(t *testing.T) {
 		t.Fatalf("replayed completed work or deployed past failure: %v", calls)
 	}
 	state, err := plans.State(context.Background(), id, ready[2].ID)
-	if err != nil || state.Status != StatusSkipped {
+	if err != nil || state.Status != StatusPending {
 		t.Fatalf("deploy=%+v, %v", state, err)
 	}
 	for _, step := range ready[3:] {
 		state, err := plans.State(context.Background(), id, step.ID)
-		if err != nil || state.Status != StatusPass {
-			t.Fatalf("independent scan=%+v, %v", state, err)
+		if err != nil || state.Status != StatusPending {
+			t.Fatalf("blocked scan=%+v, %v", state, err)
 		}
-	}
-	if reason, _ := jsonText(t, storedStep(t, db, ready[2].ID).Evidence, "reason"); !strings.Contains(reason, "image:old-image") {
-		t.Fatalf("skip lost its prerequisite: %q", reason)
 	}
 }
 

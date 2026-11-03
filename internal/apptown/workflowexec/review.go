@@ -16,7 +16,6 @@ import (
 	piharness "github.com/flokkit/apptown/internal/apptown/agentharness/pi"
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/gitexec"
-	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/strs"
 
 	"github.com/flokkit/apptown/internal/execution"
@@ -84,42 +83,6 @@ func (a *Executor) Review(task *workflow.Execution) {
 		if _, claimErr := task.Claim(); claimErr == nil {
 			finish(workflow.StatusError, map[string]any{"reason": cfgErr.Error()})
 		}
-		return
-	}
-
-	// A review of a tree that did not boot is not a review: the boot in
-	// this stage settles first (a median 5 s), and if it failed the
-	// reviewer's minutes are not spent — the verdict is the boot's reason,
-	// and the rework the boot already asked for carries it. Otherwise the
-	// reviewer spends minutes on the same tree only to fail it again.
-	if boot := a.awaitStageBoot(task.Context(), run.ID, step.Stage); boot != nil && (boot.Status == workflow.StatusFail || boot.Status == workflow.StatusError) {
-		if claim, err := task.Claim(); err != nil {
-			return
-		} else {
-			*step = *claim
-		}
-		reason := "the app did not boot"
-		var ev struct {
-			Reason  string `json:"reason"`
-			LogTail string `json:"logTail"`
-		}
-		if json.Unmarshal(boot.Evidence, &ev) == nil && ev.Reason != "" {
-			reason += ": " + ev.Reason
-		}
-		// This verdict settles after the boot's, so it is the newest
-		// failure ${{feedback.latest}} reads: it carries the boot's log
-		// tail, or the agent is told only that the app did not come up and
-		// never why (a missing table, a crash on start).
-		verdict := map[string]any{"verdict": "fail", "summary": reason + " — nothing to review until it does",
-			"findings": []string{reason}, "notRun": "the reviewer was not consulted: the boot step already failed this tree"}
-		if ev.LogTail != "" {
-			verdict["logTail"] = ev.LogTail
-		}
-		attempt.settle(reworkOutcome(task.Finish(workflow.EncodeRework(verdict))))
-		// The boot's reason goes back to the agent as a review's would:
-		// a tree that does not build or come up is the agent's to fix,
-		// and without a send-back the change waits with nobody asked to
-		// fix it.
 		return
 	}
 
@@ -331,7 +294,7 @@ func discardReviewerChanges(ctx context.Context, folder *gitexec.Folder, reviewe
 }
 
 // settleReview records a review's outcome: an error with its reason when no
-// verdict counts (failure); a pass; or a fail, as a machine rework. It
+// verdict counts; a pass; or a failure of the work. It
 // returns the observer's settlement and the error when the outcome could
 // not be recorded.
 func (a *Executor) settleReview(task *workflow.Execution, v reviewVerdict, failure string, evidence map[string]any) (string, error) {
@@ -357,14 +320,7 @@ func (a *Executor) settleReview(task *workflow.Execution, v reviewVerdict, failu
 					evidence["reason"] = "reviewer rejected: " + v.Summary + "; AppTown's file check also failed: " + check
 				}
 			}
-			// A machine verdict earns a machine rework: the findings are
-			// already in ${{feedback.latest}}; no human should be the
-			// transport for them.
-			recorded, err := a.settleProducedStep(task, workflow.StatusFail, func() error { return task.Finish(workflow.EncodeRework(evidence)) })
-			if recorded == workflow.StatusFail {
-				return reworkOutcome(err), err
-			}
-			return settlementOutcome(recorded, err), err
+			status = workflow.StatusFail
 		}
 	}
 	recorded, err := a.settleProducedStep(task, status, func() error { return task.Finish(workflow.EncodeOutcome(status, evidence, nil)) })
@@ -858,27 +814,4 @@ func parseReviewVerdict(raw []byte) (reviewVerdict, bool) {
 		return reviewVerdict{}, false
 	}
 	return v, true
-}
-
-// awaitStageBoot waits for the stage's preview step, when it has one, to
-// settle — up to the boot's own budget, or until ctx ends — and returns it
-// as last read; nil when the stage boots nothing. Polling is cheap next to
-// the model call it may save.
-func (a *Executor) awaitStageBoot(ctx context.Context, runID ids.ID, stage string) *workflow.Step {
-	var boot *workflow.Step
-	poll.Until(ctx, 3*time.Minute, 2*time.Second, func() bool {
-		steps, err := workflow.ReadStageStepsIn(ctx, a.db, runID, stage)
-		if err != nil {
-			boot = nil
-			return true
-		}
-		boot = nil
-		for _, s := range steps {
-			if s.Type == "preview" {
-				boot = s
-			}
-		}
-		return boot == nil || (boot.Status != workflow.StatusPending && boot.Status != workflow.StatusRunning)
-	})
-	return boot
 }

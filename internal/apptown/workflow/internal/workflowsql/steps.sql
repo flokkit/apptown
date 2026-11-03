@@ -4,11 +4,18 @@
 SELECT * FROM steps WHERE run_id=sqlc.arg(run_id) AND stage=sqlc.arg(stage) AND name=sqlc.arg(name) AND type='agent/pi';
 
 -- name: LatestFeedbackStep :one
+WITH revision AS (
+ SELECT e.payload_json->>'triggerStep' AS step FROM run_events e
+ WHERE e.run_id=sqlc.arg(run_id) AND e.kind='step.rework'
+ AND EXISTS(SELECT 1 FROM steps agent WHERE agent.run_id=e.run_id AND agent.id::text=e.payload_json->>'agentStep' AND agent.status IN ('pending','running'))
+ ORDER BY e.id DESC LIMIT 1
+)
 SELECT s.* FROM steps s JOIN runs r ON r.id=s.run_id
 WHERE r.id=sqlc.arg(run_id) AND r.project_id=sqlc.arg(project_id)
-AND ((s.type IN ('approval','agent/review','preview','guidance/conformance','tests') AND s.status=sqlc.arg(failed_state))
+AND (s.status=sqlc.arg(failed_state) OR s.id::text=(SELECT step FROM revision)
  OR (s.type='approval' AND s.evidence_json #>> '{lastRejection,at}' IS NOT NULL))
-ORDER BY COALESCE(s.finished_at,NULLIF(s.evidence_json #>> '{lastRejection,at}','')::timestamptz) DESC,s.id DESC LIMIT 1;
+ORDER BY (s.id::text=(SELECT step FROM revision)) DESC NULLS LAST,
+ COALESCE(s.finished_at,NULLIF(s.evidence_json #>> '{lastRejection,at}','')::timestamptz) DESC,s.id DESC LIMIT 1;
 
 -- name: RunSteps :many
 SELECT * FROM steps WHERE run_id = sqlc.arg(run_id) AND (NOT sqlc.arg(stage_only)::boolean OR stage = sqlc.arg(stage))
@@ -38,7 +45,7 @@ SELECT * FROM steps WHERE run_id = $1 AND stage = $2 ORDER BY id FOR UPDATE;
 -- name: StaleChecksForUpdate :many
 SELECT * FROM steps WHERE run_id = $1 AND stage = $2 AND override_by = '' AND finished_at < $3
   AND ((type = 'approval' AND status = 'fail')
-    OR (type IN ('agent/review','scan','tests','preview','guidance/conformance') AND status IN ('pass','fail','skipped','not_applicable')))
+    OR (type NOT IN ('agent/pi','approval') AND status IN ('pass','fail','error','needs_human','skipped','not_applicable')))
 ORDER BY id FOR UPDATE;
 
 -- name: StepForUpdate :one
@@ -66,11 +73,6 @@ DELETE FROM steps WHERE run_id IN (SELECT id FROM runs WHERE project_id=$1);
 UPDATE steps SET status='pending', started_at=NULL, finished_at=NULL, evidence_json='{}',
 config_json=CASE WHEN type='agent/pi' THEN jsonb_set(config_json, '{retryMode}', '"continue"'::jsonb, true) ELSE config_json END
 WHERE steps.id=sqlc.arg(id) AND steps.run_id=sqlc.arg(run_id) AND status='error' AND evidence_json->>'reason'='orphaned by apptownd restart'
-AND EXISTS (SELECT 1 FROM runs r WHERE r.id=steps.run_id AND r.status='running' AND r.current_stage=steps.stage);
-
--- name: DispatchSkip :execrows
-UPDATE steps SET status='skipped', evidence_json=sqlc.arg(evidence_json), finished_at=sqlc.arg(at)::timestamptz
-WHERE steps.id=sqlc.arg(id) AND steps.run_id=sqlc.arg(run_id) AND (status='pending' OR (status='error' AND evidence_json->>'reason'='orphaned by apptownd restart'))
 AND EXISTS (SELECT 1 FROM runs r WHERE r.id=steps.run_id AND r.status='running' AND r.current_stage=steps.stage);
 
 -- name: FinishAttempt :execrows
@@ -226,11 +228,6 @@ SELECT COALESCE(MAX(finished_at) FILTER (WHERE status='pass'), 'epoch'::timestam
  (COUNT(*) FILTER (WHERE status='pass' AND finished_at IS NOT NULL)>0)::boolean AS has_latest_work,
  COALESCE(bool_or(status IN ('pending','running')),false)::boolean AS busy
 FROM steps WHERE run_id=$1 AND stage=$2 AND type='agent/pi';
-
--- name: LatestRetryFeedback :one
-SELECT evidence_json::text FROM steps WHERE run_id=$1 AND stage=$2 AND status='fail'
-AND type IN ('approval','agent/review','preview','guidance/conformance','tests')
-ORDER BY finished_at DESC NULLS LAST,id DESC LIMIT 1;
 
 -- Preview identity only; step config/evidence can be large.
 -- name: PreviewStepIDsMeta :many

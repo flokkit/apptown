@@ -248,3 +248,32 @@ func TestAStepIsClaimedOnlyWhileItsEvalMayProceed(t *testing.T) {
 		wantJSONField(t, "evidence", step.Evidence, "reason", why)
 	}
 }
+
+func TestExecuteStepRunsDirectlyWithoutStageOrdering(t *testing.T) {
+	t.Parallel()
+	for _, state := range []StepState{StatusPending, StatusRunning, StatusFail, StatusNeedsHuman, StatusError} {
+		t.Run(state.String(), func(t *testing.T) {
+			q, run := admitWorkflowSpec(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "finish", Steps: []schema.Step{{Name: "earlier", Uses: "script"}, {Name: "later", Uses: "script"}}}}})
+			earlier, later := admittedStepID(t, q, run, "earlier"), admittedStepID(t, q, run, "later")
+			// sql-guarantee: isolate prerequisite outcomes without running external work or automatic rework.
+			transitionStoredStepForTest(t, q.db, earlier, state)
+			calls := 0
+			s := newServiceWithAuthority(q.db, Dependencies{Automatic: []string{"script"}, Runners: map[string]Runner{"script": func(e *Execution) {
+				calls++
+				if _, err := e.Claim(); err != nil {
+					t.Fatal(err)
+				}
+				if err := e.Finish(StepOutcome{Status: StatusPass}, nil); err != nil {
+					t.Fatal(err)
+				}
+			}}}, allowProject(run.ProjectID))
+			if err := s.ExecuteStep(context.Background(), later); err != nil {
+				t.Fatal(err)
+			}
+			if calls != 1 {
+				t.Fatalf("runner calls = %d", calls)
+			}
+			wantStepState(t, q.db, later, StatusPass)
+		})
+	}
+}

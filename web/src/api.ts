@@ -50,6 +50,8 @@ export type Release = ReleaseListed
 
 type EvidenceBase = {
   reason?: string; durationMs?: number
+  actions?: string[]
+  blockedBy?: string
   logTail?: string
   // The commit it judged. Where it ran is the step's checkReading.
   candidate?: string

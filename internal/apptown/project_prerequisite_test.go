@@ -87,8 +87,8 @@ func TestAgentRequiresArtifactPreflight(t *testing.T) {
 	// No agent session was ever created (the workspace has no .apptown/sessions).
 	if started := workEventCount(t, a, func(e workflow.Event) bool {
 		return e.RunID == runID && e.Kind == "step.started" && payloadField(e, "step") == "build-v1"
-	}); started != 1 {
-		t.Fatalf("exactly one started event (the fast-fail), got %d", started)
+	}); started != 4 {
+		t.Fatalf("initial failure plus three automatic rounds, all before invoking the agent, got %d", started)
 	}
 
 	// The actual prerequisite reader now accepts evidence recorded through Work.

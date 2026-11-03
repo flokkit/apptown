@@ -81,7 +81,11 @@ func TestTheLatestFeedbackIsTheNewestByAppTownsClock(t *testing.T) {
 		t.Parallel()
 		svc, run, stepIDs := feedbackClockFixture(t)
 		rejectForTest(t, svc, stepIDs["accept"], "not yet")
-		finishForTest(t, svc, stepIDs["review"], StatusFail)
+		finishForTest(t, svc, stepIDs["build"], StatusPass)
+		claim := reworkReviewClaim(t, svc.db, stepIDs["review"])
+		if err := svc.finishAttempt(context.Background(), claim, StepOutcome{Status: StatusFail}); err != nil {
+			t.Fatal(err)
+		}
 		got, err := latestFeedbackIn(context.Background(), svc.db, RunRef{ID: run.ID, ProjectID: run.ProjectID})
 		if err != nil || got == nil || got.ID != stepIDs["review"] {
 			t.Fatalf("latest feedback %s, want the review: %v", stepName(got), err)

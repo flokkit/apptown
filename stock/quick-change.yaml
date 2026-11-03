@@ -29,6 +29,19 @@ spec:
             output: { kind: change-report, name: change-report, file: .apptown/CHANGE.md }
             timeoutMinutes: 10
             prompt: |
+              Before finishing, commit your changes. Run `apptown check` and
+              fix introduced failures and this change's acceptance checks.
+              Run `apptown dev up` and open the pages this change touches.
+              Say in your report what ran and what came back. Report
+              pre-existing or undecided findings without widening the change.
+              If you cannot honestly satisfy a check, stop and list ALL
+              blockers in your report, using this declared field:
+              Blockers:
+              - What you cannot do and what you need from a person.
+              Use one bullet per blocker, each on one line. Name the
+              decision, secret, access, or smaller request you need.
+              Do not work around a check you cannot satisfy.
+
               The current working directory is this project's repository.
               Apply the SMALL change below: the minimal edit that satisfies
               it, nothing else. Verify the changed behavior with your bash
@@ -68,6 +81,8 @@ spec:
         - name: boot
           uses: preview
       steps:
+        - name: guidance-conformance
+          uses: guidance/conformance
         - name: report-exists
           uses: artifact/require
           with: { kind: change-report }

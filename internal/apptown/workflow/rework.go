@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/strs"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
@@ -41,6 +42,9 @@ func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, s
 		return result, nil
 	}
 	kind := "step.finished"
+	if source.isAssertion() {
+		kind = "check.evaluated"
+	}
 	if human {
 		kind = "approval"
 	}
@@ -86,9 +90,9 @@ func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, s
 	if err := requireAttemptWrite(workflowsql.New(tx.SQL()).ReworkAgent(ctx, workflowsql.ReworkAgentParams{ID: agent.ID, Attempt: agent.Attempt})); err != nil {
 		return result, err
 	}
-	reason := source.Type + " failed — evidence fed back to the agent"
+	reason := strs.Truncate(evidenceReason(source.Evidence), 600)
 	if human {
-		reason = "rejected by a person — their words fed back to the agent"
+		reason = strs.Truncate(renderFeedback(source), 600)
 	}
 	if err := recordReceiptIn(ctx, tx, run.ID, "step.rework", reworkReceipt{source.Name, agent.ID, reason, source.ID, history.TriggerEvent, agent.OverrideBy, agent.OverrideReason}, s.now()); err != nil {
 		return result, err
@@ -100,11 +104,11 @@ func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, s
 	return result, nil
 }
 
-// Machine runners select which failures warrant rework. The verdict and the
+// Every failed check requests rework through the same rule. The verdict and the
 // continuation commit together, so a restart cannot lose that decision.
 func (s reworkStore) fail(ctx context.Context, claim *Step, outcome StepOutcome) (reworkedResult, error) {
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (reworkedResult, error) {
-		finished, err := newStepAttempts(s.db, nil).finishIn(ctx, tx, claim, outcome)
+		finished, err := (stepAttempts{db: s.db, clocked: s.clocked}).finishIn(ctx, tx, claim, outcome)
 		if err != nil {
 			return reworkedResult{}, err
 		}

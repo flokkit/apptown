@@ -193,7 +193,9 @@ func TestWorkflowReworkRoundLimit(t *testing.T) {
 
 func TestWorkflowReworkRejectionHistoryAndConcurrentVotes(t *testing.T) {
 	t.Parallel()
-	s, _, agent, _, approval := retryStageFixture(t)
+	s, _, agent, review, approval := retryStageFixture(t)
+	// sql-guarantee: isolate vote history after the external review has passed.
+	transitionStoredStepForTest(t, s.db, review, StatusPass)
 	people(t, s.db, "alice", "bob", "carol")
 	cast := func(who string, decision ApprovalDecision, comment string) error {
 		service := newService(s.db, authorityFunc(func(context.Context, operationPermission) (string, error) { return who, nil }), Runtime{})
@@ -237,6 +239,8 @@ func TestWorkflowReworkRejectionHistoryAndConcurrentVotes(t *testing.T) {
 			t.Fatalf("stored step status: rows=%d err=%v", rows, err)
 		}
 	}
+	// sql-guarantee: the review reset by rejection passes before the next approval.
+	transitionStoredStepForTest(t, s.db, review, StatusPass)
 	if err := cast("alice", VoteApprove, "now OK"); err != nil {
 		t.Fatal(err)
 	}

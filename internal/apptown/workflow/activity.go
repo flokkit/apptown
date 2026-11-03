@@ -84,7 +84,7 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 	var pendingApprovalID ids.ID
 	reworked := latestAgentWork(run.steps)
 	for _, step := range run.steps {
-		if step.state == StatusPending && doesStageWork(step.kind) && pendingWork == "" {
+		if step.state == StatusPending && activityShowsPendingWork(step.kind) && pendingWork == "" {
 			pendingWork = step.name
 		}
 		switch {
@@ -213,3 +213,6 @@ func slotWaitWords(binding string, ahead int) string {
 		return fmt.Sprintf("%s, %d ahead", s, ahead)
 	}
 }
+
+// activityShowsPendingWork distinguishes automatic work from decisions and assertions in the activity display.
+func activityShowsPendingWork(kind string) bool { return kind != "approval" && !assertionKind(kind) }

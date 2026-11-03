@@ -191,7 +191,6 @@ func attemptFailed(res piResult) bool { return attemptOutcome(res) != "ok" }
 // was intended: when the step's own settlement failed to persist, the span
 // says so rather than repeating the status that was never written.
 const (
-	outcomeRework          = "rework"
 	outcomeSettlementError = "settlement_error"
 )
 
@@ -200,11 +199,4 @@ func settlementOutcome(status workflow.StepState, err error) string {
 		return outcomeSettlementError
 	}
 	return status.String()
-}
-
-func reworkOutcome(err error) string {
-	if err != nil {
-		return outcomeSettlementError
-	}
-	return outcomeRework
 }

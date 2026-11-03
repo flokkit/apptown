@@ -87,19 +87,19 @@ func TestLandingRecheckAtomicBatchPreservesDecisions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(result.Names, []string{"image", "deploy", "tests"}) {
+	if !reflect.DeepEqual(result.Names, []string{"image", "tests"}) {
 		t.Fatalf("rechecked: %v", result.Names)
 	}
-	wantStepCount(t, owner.db, 3, func(s *Step) bool { return untouchedIn(StatusPending)(s) && !s.StartedAt.Valid && s.Attempt == 1 })
-	wantEventCount(t, owner.db, 3, func(e Event) bool {
+	wantStepCount(t, owner.db, 2, func(s *Step) bool { return untouchedIn(StatusPending)(s) && !s.StartedAt.Valid && s.Attempt == 1 })
+	wantEventCount(t, owner.db, 2, func(e Event) bool {
 		return kindWith("step.recheck", "by", "alice", "attempt", "1")(e) && hasKey(e.Payload, "previousEvidence")
 	})
 	wantStepCount(t, owner.db, 1, func(s *Step) bool {
 		return s.Name == "approve" && s.Status == StatusFail && hasFields(s.Evidence, "comment", "keep my decision")
 	})
 	wantStepCount(t, owner.db, 1, func(s *Step) bool { return s.Name == "override" && s.Status == StatusFail && s.OverrideBy == "alice" })
-	wantStepCount(t, owner.db, 4, func(s *Step) bool {
-		return s.Status != StatusPending && (s.Name == "old" || s.Name == "require" || s.Name == "passed" || s.Name == "optional")
+	wantStepCount(t, owner.db, 5, func(s *Step) bool {
+		return s.Status != StatusPending && (s.Name == "deploy" || s.Name == "old" || s.Name == "require" || s.Name == "passed" || s.Name == "optional")
 	})
 	if err := (advanceStore{db: owner.db, completion: completionRecorderFunc(noCompletionEffects)}).complete(context.Background(), run); err != ErrRunMoved {
 		t.Fatalf("old advancement decision accepted: %v", err)

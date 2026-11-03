@@ -24,7 +24,9 @@ func TestDecisionServiceRequiresAuthorityBeforeStorage(t *testing.T) {
 }
 func TestDecisionServiceOwnsEligibilityAndExactRoundReceipts(t *testing.T) {
 	t.Parallel()
-	store, run, _, _ := retryFixture(t)
+	store, run, _, review := retryFixture(t)
+	// sql-guarantee: isolate voting after the external review has passed.
+	transitionStoredStepForTest(t, store.db, review, StatusPass)
 	id := insertStoredStep(t, store.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "accept", Type: "approval", Status: StatusPending.String(), ConfigJson: []byte(`{"quorum":2,"approvers":["reviewers"]}`)})
 	if rows, err := workflowsql.New(store.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: id, ExpectedStatus: StatusPending.String(), Status: StatusPending.String(), EvidenceJson: []byte(`{"n":9007199254740993}`)}); err != nil || rows != 1 {
 		t.Fatalf("stored evidence: rows=%d err=%v", rows, err)

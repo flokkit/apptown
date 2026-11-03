@@ -7,10 +7,12 @@ import (
 
 	"encoding/json"
 	"errors"
+	"github.com/flokkit/apptown/stock"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -81,7 +83,10 @@ func TestTheGuidanceStepActsOnWhatTheBrowserCheckEstablishes(t *testing.T) {
 // browserLane is the workflow shape a gate runs in: whether it boots a
 // preview before the step, whether that preview is still running when the
 // step runs, and whether it boots one only in a later stage.
-type browserLane struct{ boots, running, later bool }
+type browserLane struct {
+	boots, running, later bool
+	stock                 string
+}
 
 // runBrowserGate runs one guidance step over a static change whose preview was
 // started with installed, serves served, and answers page.
@@ -105,6 +110,17 @@ func runBrowserGate(t *testing.T, lane browserLane, installed, served, page stri
 		steps = append([]schema.Step{{Name: "boot", Uses: "preview"}}, steps...)
 	}
 	stages := []schema.Stage{{Name: "wire", Steps: steps}}
+	if lane.stock != "" {
+		raw, err := stock.FS.ReadFile(lane.stock + ".yaml")
+		if err != nil {
+			t.Fatal(err)
+		}
+		doc, err := schema.ParseWorkflow(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stages = doc.Spec.Stages
+	}
 	if lane.later {
 		stages = append(stages, schema.Stage{Name: "runtime", OnEnter: []schema.Step{{Name: "boot", Uses: "preview"}}, Steps: []schema.Step{{Name: "runtime-guidance", Uses: "guidance/conformance"}}})
 	}
@@ -120,6 +136,17 @@ func runBrowserGate(t *testing.T, lane browserLane, installed, served, page stri
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {
 		deps.Automatic = []string{"guidance/conformance", "preview"}
 		deps.Runners = a.workDependencies().Runners
+		if lane.stock != "" {
+			deps.Automatic = append(deps.Automatic, "agent/pi")
+			deps.Runners["agent/pi"] = func(task *workflow.Execution) {
+				if _, err := task.Claim(); err != nil {
+					t.Fatal(err)
+				}
+				if err := task.Finish(workflow.StepOutcome{Status: workflow.StatusPass, Artifacts: []workflow.StepArtifact{{ArtifactDraft: workflow.ArtifactDraft{Kind: "change-report", Name: "change-report", Body: "Done"}}}}, nil); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
 		deps.Report = a.workDependencies().Report
 	})
 	a.Work.Stop()
@@ -149,13 +176,24 @@ func runBrowserGate(t *testing.T, lane browserLane, installed, served, page stri
 	if err != nil {
 		t.Fatal(err)
 	}
-	var gate, boot ids.ID
+	var gate, boot, agent ids.ID
 	for _, st := range snap.Steps {
+		if st.Type == "agent/pi" {
+			agent = st.ID
+		}
 		switch st.Name {
 		case "guidance-conformance":
 			gate = st.ID
 		case "boot":
 			boot = st.ID
+		}
+	}
+	if gate.IsZero() {
+		t.Fatal("the booting stage has no guidance conformance step")
+	}
+	if lane.stock != "" {
+		if err := a.Work.ExecuteStep(ctx, agent); err != nil {
+			t.Fatal(err)
 		}
 	}
 	// A lane that boots runs its preview step for real, then the case sets
@@ -181,5 +219,36 @@ func runBrowserGate(t *testing.T, lane browserLane, installed, served, page stri
 	if err != nil {
 		t.Fatal(err)
 	}
+	if lane.stock != "" {
+		snapshot, err := a.Work.Snapshot(ctx, run.ID, workflow.DetailView)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rounds := 0
+		for _, e := range snapshot.Events {
+			if e.Kind == "step.rework" {
+				rounds++
+			}
+		}
+		if rounds != 1 {
+			t.Fatalf("runtime failure requested %d revisions, want one", rounds)
+		}
+		for _, step := range snapshot.Steps {
+			if step.ID == agent && step.Status != workflow.StatusPending {
+				t.Fatal("runtime failure did not return to the agent")
+			}
+			if step.Type == "approval" && step.Status != workflow.StatusPending {
+				t.Fatal("runtime failure reached acceptance")
+			}
+		}
+	}
 	return saved
+}
+
+func TestQuickChangeReturnsAFailingRuntimeDeclarationBeforeAcceptance(t *testing.T) {
+	const values = `{"SENTRY_DSN":"https://key@errors.example/3"}`
+	saved := runBrowserGate(t, browserLane{boots: true, running: true, stock: "quick-change"}, values, values, `<html><script src="game.js"></script></html>`, false)
+	if saved.Status != workflow.StatusFail || !strings.Contains(string(saved.Evidence), "page-loads-browser-values") {
+		t.Fatalf("runtime declaration was not checked: %s %s", saved.Status, saved.Evidence)
+	}
 }

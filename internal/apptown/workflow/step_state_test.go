@@ -34,10 +34,8 @@ func TestStepStateLifecycle(t *testing.T) {
 	}
 	allow(moveStepWithdraw, StatusPending, StatusFail)
 	allow(moveStepWithdraw, StatusNeedsHuman, StatusFail)
-	allow(moveStepSkip, StatusPending, StatusSkipped)
-	allow(moveStepSkip, StatusError, StatusSkipped)
 	states := []StepState{0, StatusPending, StatusRunning, StatusPass, StatusFail, StatusNeedsHuman, StatusError, StatusSkipped, 255}
-	for move := stepMove(0); move <= moveStepSkip+1; move++ {
+	for move := stepMove(0); move <= moveStepWithdraw+1; move++ {
 		for _, from := range states {
 			for _, to := range states {
 				next, err := from.transition(move, to)

@@ -9,9 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
-	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
-	"github.com/flokkit/apptown/internal/ids"
 )
 
 // A step claimed just before its run is abandoned ends in error once its
@@ -23,9 +21,7 @@ func TestAStepRunningWhenItsRunIsAbandonedEndsWhenItsRunnerReturns(t *testing.T)
 	t.Parallel()
 	for _, c := range []struct{ abandoned, finishes bool }{{true, true}, {true, false}, {false, false}} {
 		finishes := c.finishes
-		q, run, _ := activityFixture(t)
-		storedReadyStart(t, q.db, run.ID)
-		step := insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "dep-scan", Type: "scan", Status: StatusPending.String()})
+		q, run, step := admitSingleStep(t, schema.Step{Name: "dep-scan", Uses: "scan"})
 		abandon := NewAbandonments(q.db, abandonRecorderFunc(noAbandonEffects), &scm.RepositoryLocks{})
 		var during StepState
 		runner := func(e *Execution) {
@@ -105,9 +101,7 @@ func TestAnAbandonedRunCancelsItsWaitingRunner(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			q, run, _ := activityFixture(t)
-			storedReadyStart(t, q.db, run.ID)
-			step := insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "agent", Type: "scan", Status: StatusPending.String()})
+			q, run, step := admitSingleStep(t, schema.Step{Name: "agent", Uses: "scan"})
 			abandon := NewAbandonments(q.db, abandonRecorderFunc(noAbandonEffects), &scm.RepositoryLocks{})
 			var cause, current, finished, inAttempt error
 			wrote := false
@@ -206,9 +200,7 @@ func TestALossDuringAFencedTransactionIsAnsweredByTheFence(t *testing.T) {
 	for _, op := range []string{"finish", "in-attempt"} {
 		t.Run(op, func(t *testing.T) {
 			t.Parallel()
-			q, run, _ := activityFixture(t)
-			storedReadyStart(t, q.db, run.ID)
-			step := insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "task", Type: "scan", Status: StatusPending.String()})
+			q, run, step := admitSingleStep(t, schema.Step{Name: "task", Uses: "scan"})
 			abandon := NewAbandonments(q.db, abandonRecorderFunc(noAbandonEffects), &scm.RepositoryLocks{})
 			var answer error
 			wrote := false
@@ -258,9 +250,7 @@ func TestALossDuringAFencedTransactionIsAnsweredByTheFence(t *testing.T) {
 // that waits on the context stops.
 func TestAnExecutionKeptPastItsRunnerStillRecordsItsOutcome(t *testing.T) {
 	t.Parallel()
-	q, run, _ := activityFixture(t)
-	storedReadyStart(t, q.db, run.ID)
-	step := insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "agent", Type: "scan", Status: StatusPending.String()})
+	q, run, step := admitSingleStep(t, schema.Step{Name: "agent", Uses: "scan"})
 	var kept *Execution
 	runner := func(e *Execution) {
 		if _, err := e.Claim(); err != nil {

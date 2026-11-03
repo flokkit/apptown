@@ -10,10 +10,11 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-func TestRefreshAssertionsOwnsSelectionAndContinuesAfterFailure(t *testing.T) {
+func TestRefreshAssertionsStopsBehindAnUnsettledAssertion(t *testing.T) {
 	t.Parallel()
-	q, run, _ := activityFixture(t)
+	q, run, approval := activityFixture(t)
 	storedReadyStart(t, q.db, run.ID)
+	transitionStoredStepForTest(t, q.db, approval, StatusPass)
 	s := newServiceWithAuthority(q.db, Dependencies{}, allowProject(run.ProjectID))
 	broken := insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "broken", Type: "artifact/require", ConfigJson: []byte(`{"kind":[]}`), Status: StatusPending.String()})
 	ready := insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "ready", Type: "artifact/require", Status: StatusPending.String()})
@@ -31,14 +32,14 @@ func TestRefreshAssertionsOwnsSelectionAndContinuesAfterFailure(t *testing.T) {
 		t.Fatal("malformed assertion was not reported")
 	}
 	wantStepState(t, q.db, broken, StatusPending)
-	wantStepState(t, q.db, ready, StatusPass)
-	wantEventCount(t, q.db, 1, kindWith("check.evaluated", "step", "ready"))
-	wantEventCount(t, q.db, 1, anyEvent)
+	wantStepState(t, q.db, ready, StatusPending)
+	wantEventCount(t, q.db, 0, kindWith("check.evaluated", "step", "ready"))
+	wantEventCount(t, q.db, 0, anyEvent)
 	transitionStoredRunForTest(t, q.db, run.ID, "", RunDone)
 	if err := s.RefreshAssertions(context.Background(), run.ID); err != nil {
 		t.Fatalf("completed run should not reevaluate its checks: %v", err)
 	}
-	wantEventCount(t, q.db, 1, anyEvent)
+	wantEventCount(t, q.db, 0, anyEvent)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	if err := s.RefreshAssertions(ctx, run.ID); !errors.Is(err, context.Canceled) {
@@ -57,7 +58,16 @@ func TestStaleVerdictReopens(t *testing.T) {
 	dispatched := map[ids.ID]bool{}
 	runners := map[string]Runner{}
 	for _, kind := range []string{"scan", "preview"} {
-		runners[kind] = func(e *Execution) { dispatched[e.Step().ID] = true }
+		runners[kind] = func(e *Execution) {
+			dispatched[e.Step().ID] = true
+			if _, err := e.Claim(); err != nil {
+				t.Error(err)
+				return
+			}
+			if err := e.Finish(StepOutcome{Status: StatusPass}, nil); err != nil {
+				t.Error(err)
+			}
+		}
 	}
 	s := newServiceWithAuthority(q.db, Dependencies{Automatic: []string{"scan", "preview"}, Runners: runners}, allowProject(run.ProjectID))
 
@@ -95,22 +105,21 @@ func TestStaleVerdictReopens(t *testing.T) {
 	if gotNew {
 		t.Fatal("a verdict newer than the work must stand")
 	}
-	if status := storedStep(t, q.db, oldID).Status; status != StatusPending {
-		t.Fatalf("the reopened step is pending, got %q", status)
+	if status := storedStep(t, q.db, oldID).Status; status != StatusPass {
+		t.Fatalf("the reopened step ran, got %q", status)
 	}
 }
 
-// An assertion whose fact is missing while its stage still has work to do is
-// not yet failed: that work (a deploy attaching its release) may supply it.
-// It stays pending without a receipt, passes as soon as the fact arrives, and
-// fails only once every working step has finished. Approvals do not hold it.
+// An assertion waits for every earlier step even when its evidence has already
+// arrived. Only a settled prerequisite lets the assertion pass or fail.
 func TestAssertionWaitsForItsStageWorkBeforeFailing(t *testing.T) {
 	t.Parallel()
 	for _, sibling := range []StepState{StatusPending, StatusRunning, StatusPass, StatusFail, StatusNeedsHuman, StatusError, StatusSkipped} {
 		t.Run(sibling.String(), func(t *testing.T) {
 			t.Parallel()
-			q, run, _ := activityFixture(t)
+			q, run, approval := activityFixture(t)
 			storedReadyStart(t, q.db, run.ID)
+			transitionStoredStepForTest(t, q.db, approval, StatusPass)
 			s := newServiceWithAuthority(q.db, Dependencies{}, allowProject(run.ProjectID))
 			insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "deploy", Type: "deploy", Status: sibling.String()})
 			release := insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "release-exists", Type: "artifact/require", ConfigJson: []byte(`{"kind":"release"}`), Status: StatusPending.String()})
@@ -118,7 +127,7 @@ func TestAssertionWaitsForItsStageWorkBeforeFailing(t *testing.T) {
 				t.Fatal(err)
 			}
 			want := StatusFail
-			if sibling == StatusPending || sibling == StatusRunning {
+			if sibling == StatusPending || sibling == StatusRunning || sibling == StatusFail || sibling == StatusNeedsHuman || sibling == StatusError {
 				want = StatusPending
 			}
 			if got := assertionStatusForTest(t, s, release); got != want {
@@ -135,7 +144,11 @@ func TestAssertionWaitsForItsStageWorkBeforeFailing(t *testing.T) {
 			if err := s.RefreshAssertions(context.Background(), run.ID); err != nil {
 				t.Fatal(err)
 			}
-			if got := assertionStatusForTest(t, s, release); got != StatusPass {
+			want = StatusPass
+			if sibling == StatusPending || sibling == StatusRunning || sibling == StatusFail || sibling == StatusNeedsHuman || sibling == StatusError {
+				want = StatusPending
+			}
+			if got := assertionStatusForTest(t, s, release); got != want {
 				t.Fatalf("attached release left release-exists %s", got)
 			}
 		})
@@ -164,4 +177,35 @@ func evaluationReceiptsForTest(t *testing.T, s *Service, runID ids.ID) int {
 		}
 	}
 	return count
+}
+
+// A later held assertion cannot prevent an earlier one from observing new
+// evidence. Once the earlier one passes, the later one is rechecked too.
+func TestTwoHeldAssertionsReevaluateInStageOrder(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	owner, run, first := assertionOwnerFixture(t, "scm/merged", `{}`)
+	second := insertStoredStep(t, owner.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: run.CurrentStage, Name: "second", Type: "scm/merged", ConfigJson: []byte(`{}`), Status: StatusPending.String()})
+	merged := true
+	owner.merge = mergeObserverFunc(func(context.Context, mergeAssertion) (MergeObservation, error) {
+		return MergeObservation{Merged: merged}, nil
+	})
+	if got, err := owner.Evaluate(ctx, Assertion{StepID: first}); err != nil || got.Status != StatusPass {
+		t.Fatalf("first observation: %+v %v", got, err)
+	}
+	merged = false
+	for _, id := range []ids.ID{second, first} {
+		if got, err := owner.Evaluate(ctx, Assertion{StepID: id}); err != nil || got.Status != StatusNeedsHuman {
+			t.Fatalf("held assertion: %+v %v", got, err)
+		}
+	}
+	merged = true
+	svc := newServiceWithAuthority(owner.db, Dependencies{}, allowProject(run.ProjectID))
+	svc.assertions.merge = owner.merge
+	if err := svc.refreshAssertions(ctx, RunRef{ID: run.ID, ProjectID: run.ProjectID}); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []ids.ID{first, second} {
+		wantStepState(t, owner.db, id, StatusPass)
+	}
 }

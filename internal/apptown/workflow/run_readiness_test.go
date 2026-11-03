@@ -238,7 +238,7 @@ func TestRunReadinessPreservesAdmittedOutcomeWithoutRework(t *testing.T) {
 				// sql-guarantee: Isolate an unfinished preparation flag on admitted test records; no runtime operation reverses readiness.
 				completionExec(t, owner.db, `UPDATE run_starts SET ready=false`)
 			}
-			result, err := (reworkStore{db: owner.db}).fail(ctx, claim, StepOutcome{Status: StatusFail, Evidence: []byte(`{"reason":"needs changes"}`), Rework: true})
+			result, err := (reworkStore{db: owner.db}).fail(ctx, claim, StepOutcome{Status: StatusFail, Evidence: []byte(`{"reason":"needs changes"}`)})
 			var refused runReadinessError
 			if err != nil || !result.agentID.IsZero() || !errors.As(result.refusal, &refused) || refused.missing != missing {
 				t.Fatalf("admitted outcome/rework: %+v %v", result, err)

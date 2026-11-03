@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"sync"
 	"testing"
@@ -29,10 +30,6 @@ func (s *dispatchTestRecords) State(_ context.Context, _, id ids.ID) (dispatchSt
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.states[id], s.readErr
-}
-func (s *dispatchTestRecords) Skip(_ context.Context, _ ids.ID, id ids.ID, _ string) error {
-	s.set(id, StatusSkipped)
-	return nil
 }
 func (s *dispatchTestRecords) Resume(_ context.Context, _ ids.ID, id ids.ID) (bool, error) {
 	s.mu.Lock()
@@ -80,11 +77,11 @@ func TestWorkflowDispatchRecoveryPreservesEntryFailures(t *testing.T) {
 			steps := []ReadyStep{{idstest.N(1), "script", true, "prepare"}, {idstest.N(2), "scan", true, "image:scanner"}, {idstest.N(3), "deploy", true, "deploy"}, {idstest.N(4), "tests", false, "independent"}}
 			d, s := testDispatcher(steps)
 			d.runners["scan"] = func(id ids.ID) { s.ran(id, StatusFail) }
-			wantCalls := []ids.ID{idstest.N(1), idstest.N(2), idstest.N(4)}
+			wantCalls := []ids.ID{idstest.N(1), idstest.N(2)}
 			if recovery {
 				s.set(idstest.N(1), StatusPass)
 				s.set(idstest.N(2), StatusFail)
-				wantCalls = []ids.ID{idstest.N(4)}
+				wantCalls = nil
 				d.restartPending(nil)
 			} else {
 				d.dispatch(s.p, false)
@@ -93,7 +90,7 @@ func TestWorkflowDispatchRecoveryPreservesEntryFailures(t *testing.T) {
 			if !reflect.DeepEqual(s.calls, wantCalls) {
 				t.Fatalf("runners = %v, want %v", s.calls, wantCalls)
 			}
-			if s.states[idstest.N(3)].Status != StatusSkipped || s.advances != 1 || len(s.errors) != 0 {
+			if s.states[idstest.N(3)].Status != StatusPending || s.advances != 0 || len(s.errors) != 0 {
 				t.Fatalf("deploy=%+v, advances=%d, errors=%v", s.states[idstest.N(3)], s.advances, s.errors)
 			}
 		})
@@ -425,4 +422,47 @@ func TestDispatcherStartsNoStepWhileNewWorkIsHeld(t *testing.T) {
 		t.Fatal("the step did not start once new work was released")
 	}
 	d.stop()
+}
+
+func TestEveryUnsettledStepLeavesAllLaterChecksPending(t *testing.T) {
+	t.Parallel()
+	for _, kind := range []string{"agent/pi", "preview", "guidance/conformance"} {
+		for _, status := range []StepState{StatusFail, StatusNeedsHuman, StatusError, StatusPending} {
+			for _, recovery := range []string{"fresh", "completed", "running"} {
+				t.Run(fmt.Sprint(kind, "/", status, "/", recovery), func(t *testing.T) {
+					steps := []ReadyStep{{idstest.N(1), kind, true, "held"}, {idstest.N(2), "preview", true, "boot"}, {idstest.N(3), "guidance/conformance", false, "conformance"}, {idstest.N(4), "agent/review", false, "review"}}
+					d, s := testDispatcher(steps)
+					d.runners[kind] = func(id ids.ID) { s.ran(id, status) }
+					if recovery == "completed" {
+						s.set(idstest.N(1), status)
+					}
+					if recovery == "running" {
+						s.set(idstest.N(1), StatusRunning)
+						d.adopt = map[ids.ID]bool{idstest.N(1): true}
+						d.recover = map[string]func(ids.ID){kind: d.runners[kind]}
+					}
+					d.dispatch(s.p, false)
+					d.wait()
+					for _, id := range []ids.ID{idstest.N(2), idstest.N(3), idstest.N(4)} {
+						if s.states[id].Status != StatusPending {
+							t.Fatalf("held stage ran/skipped check %s: %+v", id, s.states[id])
+						}
+					}
+					if s.advances != 0 {
+						t.Fatal("held change advanced")
+					}
+					// A person's retry is ordinary work: it must run every check.
+					s.set(idstest.N(1), StatusPending)
+					d.runners[kind] = func(id ids.ID) { s.ran(id, StatusPass) }
+					d.dispatch(s.p, false)
+					d.wait()
+					for _, step := range steps {
+						if s.states[step.ID].Status != StatusPass {
+							t.Fatalf("retry skipped %s", step.Name)
+						}
+					}
+				})
+			}
+		}
+	}
 }

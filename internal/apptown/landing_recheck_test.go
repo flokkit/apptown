@@ -27,41 +27,10 @@ func landingRecheckFixture(t *testing.T) (*App, *workflow.Run, map[string]ids.ID
 	t.Helper()
 	spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "finish",
 		OnEnter: []schema.Step{{Name: "image", Uses: "scan"}, {Name: "deploy", Uses: "deploy"}},
-		Steps:   []schema.Step{{Name: "tests", Uses: "tests"}, {Name: "passed", Uses: "scan"}, {Name: "accept", Uses: "approval"}},
+		Steps:   []schema.Step{{Name: "passed", Uses: "scan"}, {Name: "tests", Uses: "tests"}, {Name: "accept", Uses: "approval"}},
 	}}}
 	a, ctx, ch := changeScenario(t, spec, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: spec})
-	rebuildWork(t, a, func(deps *workflow.Dependencies) {
-		deps.Automatic = []string{"scan", "deploy", "tests"}
-		deps.Report = func(err error) {
-			var verdict *workflow.StepError
-			if !errors.As(err, &verdict) {
-				t.Error(err)
-			}
-		}
-		runner := func(task *workflow.Execution) {
-			current := task.Step()
-			if current.Name == "deploy" {
-				t.Error("failed image admitted deployment")
-				return
-			}
-			claim, err := task.Claim()
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			state := workflow.StatusPass
-			if claim.Name == "image" {
-				state = workflow.StatusFail
-			}
-			if claim.Name == "tests" {
-				state = workflow.StatusError
-			}
-			if err := task.Finish(workflow.StepOutcome{Status: state, Evidence: []byte(`{"reason":"provider overloaded"}`)}, nil); err != nil {
-				t.Error(err)
-			}
-		}
-		deps.Runners = map[string]workflow.Runner{"scan": runner, "deploy": runner, "tests": runner}
-	})
+	prepareLandingRecheckFixture(t, a)
 	run, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "land"})
 	if err != nil {
 		t.Fatal(err)
@@ -81,6 +50,12 @@ func landingRecheckFixture(t *testing.T) (*App, *workflow.Run, map[string]ids.ID
 	stepIDs := map[string]ids.ID{}
 	for _, step := range snapshot.Steps {
 		stepIDs[step.Name] = step.ID
+	}
+	// ExecuteStep deliberately records gate outcomes that ordered dispatch could not produce.
+	for _, name := range []string{"passed", "tests"} {
+		if err := a.Work.ExecuteStep(ctx, stepIDs[name]); err != nil {
+			t.Fatal(err)
+		}
 	}
 	return a, snapshot.Run, stepIDs
 }
@@ -117,19 +92,31 @@ func landingRemediationFixture(t *testing.T, a *App, source *workflow.Run) (work
 	item := items[0]
 	spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "finish",
 		OnEnter: []schema.Step{{Name: "image", Uses: "scan"}, {Name: "deploy", Uses: "deploy"}},
-		Steps:   []schema.Step{{Name: "tests", Uses: "tests"}, {Name: "passed", Uses: "scan"}, {Name: "accept", Uses: "approval"}},
+		Steps:   []schema.Step{{Name: "passed", Uses: "scan"}, {Name: "tests", Uses: "tests"}, {Name: "accept", Uses: "approval"}},
 	}}}
 	prepared := workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: spec, AdoptionID: source.AdoptionID}
 	started, err := remediation.NewAttempts(a.DB, a.Work, ctx, nil).Start(ctx, item, remediation.StartDefinition{Title: "Fix the landing", Base: "original-sha", Run: prepared}, "worker")
 	if err != nil || started == nil {
 		t.Fatalf("start remediation attempt: run=%+v err=%v", started, err)
 	}
-	rebuildWork(t, a, func(*workflow.Dependencies) {})
+	prepareLandingRecheckFixture(t, a)
 	if err := a.Work.DispatchStarted(started.ID); err != nil {
 		t.Fatal(err)
 	}
 	a.Work.Wait()
 	a.Work.Stop()
+	steps, err := a.Work.RunSteps(ctx, started.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// ExecuteStep deliberately records gate outcomes that ordered dispatch could not produce.
+	for _, step := range steps {
+		if step.Name == "passed" || step.Name == "tests" {
+			if err := a.Work.ExecuteStep(ctx, step.ID); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
 	if err := a.DB.InTx(ctx, func(tx *database.Tx) error {
 		_, err := workflow.TransitionChangeIn(ctx, tx, started.ProjectID, started.ChangeID, workflow.ChangeMove{Action: workflow.LandChange, RunID: started.ID}, time.Now())
 		return err
@@ -179,7 +166,9 @@ func TestLandingRecheckRollbackIncludesRetryBudgetAndNeverDispatches(t *testing.
 			if calls.Load() != 0 {
 				t.Fatal("uncommitted work was dispatched")
 			}
-			requireSteps(t, a, 0, func(s *workflow.Step) bool { return s.Status == workflow.StatusPending && s.Type != "approval" })
+			requireSteps(t, a, 1, func(s *workflow.Step) bool {
+				return s.RunID == run.ID && s.Name == "deploy" && s.Status == workflow.StatusPending
+			})
 			requireEvents(t, a, 0, eventKind("step.recheck"))
 			if got, err := a.Work.Run(a.asEngine(context.Background()), run.ID); err != nil || got.RetryRevision != 0 {
 				t.Fatalf("rolled back retry revision: %+v %v", got, err)
@@ -202,10 +191,10 @@ func TestLandingRecheckConcurrentRequestsHaveOneBatch(t *testing.T) {
 		}
 		return len(result.Names)
 	})
-	if count(results, 3) != 1 || count(results, 0) != 7 {
+	if count(results, 2) != 1 || count(results, 0) != 7 {
 		t.Fatalf("batches: %v", results)
 	}
-	requireEvents(t, a, 3, eventKind("step.recheck"))
+	requireEvents(t, a, 2, eventKind("step.recheck"))
 	if got, err := a.Work.Run(a.asEngine(context.Background()), landing.ID); err != nil || got.RetryRevision != 1 {
 		t.Fatalf("one batch revises the run once: %+v %v", got, err)
 	}
@@ -235,7 +224,7 @@ func TestLandingRecheckRemediationCallerCountsOnlyCommittedWork(t *testing.T) {
 			if item := recheckItem(t, a, req); item.TransientRetries != 1 {
 				t.Errorf("dispatched before the retry was committed: %+v", item)
 			}
-			requireEvents(t, a, 3, eventKind("step.recheck"))
+			requireEvents(t, a, 2, eventKind("step.recheck"))
 			calls.Add(1)
 			_, err := task.Claim()
 			if err != nil {
@@ -308,8 +297,10 @@ func TestLandingRecheckFailedEntryStillBlocksDeployment(t *testing.T) {
 	if deployed.Load() {
 		t.Fatal("deployment ran after a failed image scan")
 	}
-	requireSteps(t, a, 1, func(s *workflow.Step) bool { return s.Name == "deploy" && s.Status == workflow.StatusSkipped })
-	requireSteps(t, a, 1, func(s *workflow.Step) bool { return s.Name == "tests" && s.Status == workflow.StatusPass })
+	requireSteps(t, a, 1, func(s *workflow.Step) bool {
+		return s.RunID == run.ID && s.Name == "deploy" && s.Status == workflow.StatusPending
+	})
+	requireSteps(t, a, 1, func(s *workflow.Step) bool { return s.Name == "tests" && s.Status == workflow.StatusPending })
 }
 
 func TestLandingRecheckManagedRecoveryHonorsEntryOrder(t *testing.T) {
@@ -349,7 +340,7 @@ func TestLandingRecheckManagedRecoveryHonorsEntryOrder(t *testing.T) {
 				t.Fatalf("entry order / replay: %v", calls)
 			}
 			requireSteps(t, a, 2, func(s *workflow.Step) bool { return evidenceField(s, "result") == "fresh" && s.Attempt == 2 })
-			// Deployment was skipped before it ever claimed an attempt.
+			// Deployment stayed pending before it ever claimed an attempt.
 			requireSteps(t, a, 1, func(s *workflow.Step) bool {
 				return s.Name == "deploy" && evidenceField(s, "result") == "fresh" && s.Attempt == 1
 			})
@@ -394,4 +385,42 @@ func TestAChangesLandingGatesRunAgainFromItsOwnRoute(t *testing.T) {
 	if calls.Load() == 0 {
 		t.Fatal("the rechecked gates were not dispatched")
 	}
+}
+
+// Record the intended failed gates through controlled runners; later errors
+// must not depend on unavailable external tools or run past an earlier hold.
+func prepareLandingRecheckFixture(t *testing.T, a *App) {
+	t.Helper()
+	rebuildWork(t, a, func(deps *workflow.Dependencies) {
+		deps.Automatic = []string{"scan", "deploy", "tests"}
+		deps.Report = func(err error) {
+			var verdict *workflow.StepError
+			if !errors.As(err, &verdict) {
+				t.Error(err)
+			}
+		}
+		runner := func(task *workflow.Execution) {
+			current := task.Step()
+			if current.Name == "deploy" {
+				t.Error("failed image admitted deployment")
+				return
+			}
+			claim, err := task.Claim()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			state := workflow.StatusPass
+			if claim.Name == "image" {
+				state = workflow.StatusFail
+			}
+			if claim.Name == "tests" {
+				state = workflow.StatusError
+			}
+			if err := task.Finish(workflow.StepOutcome{Status: state, Evidence: []byte(`{"reason":"provider overloaded"}`)}, nil); err != nil {
+				t.Error(err)
+			}
+		}
+		deps.Runners = map[string]workflow.Runner{"scan": runner, "deploy": runner, "tests": runner}
+	})
 }

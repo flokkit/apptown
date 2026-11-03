@@ -67,16 +67,11 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
 		return
 	}
-	rework := func(evidence map[string]any) { task.Settle(facts.Rework(evidence)) }
 	if pinned {
-		report, send := finish, rework
+		report := finish
 		finish = func(status workflow.StepState, evidence map[string]any) {
 			evidence["candidate"] = rev
 			report(status, evidence)
-		}
-		rework = func(evidence map[string]any) {
-			evidence["candidate"] = rev
-			send(evidence)
 		}
 	}
 
@@ -241,7 +236,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 				return
 			}
 			evidence["reason"] = "the change's own acceptance checks must pass outright: " + strings.Join(unmet, "; ")
-			rework(evidence)
+			finish(workflow.StatusFail, evidence)
 			return
 		}
 	}
@@ -252,7 +247,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 		evidence["summary"] = fmt.Sprintf("scope: %d file(s) the repository ignores were committed", len(files))
 		evidence["findings"] = []string{"ignored files committed: " + strings.Join(files, ", ")}
 		evidence["reason"] = "the repository's own .gitignore says these are not source (build output, or AppTown runtime files under .apptown/): " + strings.Join(files, ", ") + " — remove them from git (git rm --cached <path>) and commit only the fix"
-		rework(evidence)
+		finish(workflow.StatusFail, evidence)
 		return
 	}
 	if failing > 0 {
@@ -262,7 +257,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 		if n := len(already) + len(undecided); n > 0 {
 			evidence["reason"] = evidence["reason"].(string) + fmt.Sprintf("; %d other finding(s) already fail on main, or could not be compared with it, and are not this change's to fix", n)
 		}
-		rework(evidence)
+		finish(workflow.StatusFail, evidence)
 		return
 	}
 	// A required runtime check AppTown probed and could not judge holds the

@@ -20,7 +20,6 @@ import (
 type landingDeploymentFailure struct {
 	status   workflow.StepState
 	evidence map[string]any
-	rework   bool
 }
 
 // Decision maps execution outcomes to workflow evidence without writing a step.
@@ -51,7 +50,6 @@ func landingDeploymentDecision(result deployment.ExecutionResult, err error, boo
 			case docker.PhaseProbe:
 				d.evidence["url"], d.evidence["logTail"] = boot.URL, be.LogTail
 			case docker.PhasePage:
-				d.rework = true
 				d.evidence["url"] = boot.URL
 				if boot.Boot.Page != nil {
 					d.evidence["frontPage"] = boot.Boot.Page

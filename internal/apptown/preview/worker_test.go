@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -606,5 +607,31 @@ func TestAWorkerPreviewTheWorkerCannotHoldIsRefusedBeforeAnything(t *testing.T) 
 	}
 	if len(w.boots) != 0 || w.admitted != 2 {
 		t.Fatalf("a refused run preview: boots %d, admissions %d", len(w.boots), w.admitted)
+	}
+}
+
+func TestARefusedDeclarationIsTheWorksOnEitherPreviewPlacement(t *testing.T) {
+	for _, remote := range []bool{false, true} {
+		t.Run(fmt.Sprint(remote), func(t *testing.T) {
+			var s *Service
+			var dir string
+			var projectID ids.ID
+			if remote {
+				s, _, _, dir, projectID = workerPreviewWorld(t)
+			} else {
+				s, _, _, dir, projectID = previewBootWorld(t, "")
+			}
+			ws := filepath.Join(dir, "workspaces", "change-00000000-0009-7000-8000-000000000000")
+			writePreviewBootFixture(t, ws)
+			contract := strings.Replace(resolvedStackFixture, "postgres: {}", "quantumdb: {}", 1)
+			if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(contract), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			_, err := s.RehearseChange(t.Context(), Change{ID: idstest.N(9), ProjectID: projectID}, false)
+			var refused *docker.ContractRefusal
+			if !errors.As(err, &refused) {
+				t.Fatalf("app declaration became infrastructure: %v", err)
+			}
+		})
 	}
 }

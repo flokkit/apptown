@@ -186,7 +186,7 @@ func (e *Environment) PrepareBoot(ctx context.Context, projectID ids.ID, slug, d
 	}
 	if why, err := e.refusesNeeds(ctx, c); err != nil || why != "" {
 		if err == nil {
-			err = fault.New(fault.Unprocessable, why)
+			err = &docker.ContractRefusal{Cause: fault.New(fault.Unprocessable, why)}
 		}
 		return docker.Prepared{}, &docker.BootError{Phase: docker.PhaseResolve, Err: err}
 	}

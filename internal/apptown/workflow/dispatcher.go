@@ -19,7 +19,6 @@ import (
 
 type dispatchRecords interface {
 	State(context.Context, ids.ID, ids.ID) (dispatchState, error)
-	Skip(context.Context, ids.ID, ids.ID, string) error
 	Resume(context.Context, ids.ID, ids.ID) (bool, error)
 	RestartCandidates(context.Context) ([]ids.ID, error)
 	RunOf(context.Context, ids.ID) (ids.ID, error)
@@ -220,7 +219,6 @@ func (d *dispatcher) isStopped() bool {
 }
 
 func (d *dispatcher) execute(plan DispatchPlan) bool {
-	halted := ""
 	for i := 0; i < len(plan.Steps); i++ {
 		if d.isStopped() {
 			return false
@@ -234,7 +232,7 @@ func (d *dispatcher) execute(plan DispatchPlan) bool {
 				go func() {
 					defer wg.Done()
 					defer d.reportPanic("workflow scan dispatch")
-					_, ok[j] = d.executeStep(plan.RunID, step, "")
+					ok[j] = d.executeStep(plan.RunID, step)
 				}()
 			}
 			wg.Wait()
@@ -246,50 +244,40 @@ func (d *dispatcher) execute(plan DispatchPlan) bool {
 			i += len(group) - 1
 			continue
 		}
-		failed, ok := d.executeStep(plan.RunID, step, halted)
+		ok := d.executeStep(plan.RunID, step)
 		if !ok {
 			return false
-		}
-		if step.OnEnter && failed && halted == "" {
-			halted = step.Name
 		}
 	}
 	return true
 }
 
-// Completed steps are observed, never replayed. That observation is crucial
-// after restart: an earlier failure still halts entry steps, while independent
-// gate checks continue. Read/write errors stop dispatch rather than guessing.
-func (d *dispatcher) executeStep(runID ids.ID, step ReadyStep, halted string) (failed, ok bool) {
+// Completed steps are observed, never replayed. Every later step waits until
+// its predecessors settle. Read/write errors stop dispatch rather than guessing.
+func (d *dispatcher) executeStep(runID ids.ID, step ReadyStep) bool {
 	if d.isStopped() {
-		return false, false
+		return false
 	}
 	// New work waits while AppTown holds it; a stop ends the wait, and the
 	// step is left for the next start, as any stop leaves it.
 	if d.hold != nil {
 		if err := d.hold(d.life); err != nil {
-			return false, false
+			return false
 		}
 		if d.isStopped() {
-			return false, false
+			return false
 		}
 	}
 	state, err := d.records.State(d.life, runID, step.ID)
 	if err != nil {
 		d.report(fmt.Errorf("run %d step %d: reading dispatch state: %w", runID, step.ID, err))
-		return false, false
+		return false
 	}
 	if !state.Active {
-		return false, false
+		return false
 	}
-	if step.OnEnter && halted != "" {
-		if state.runnable() {
-			if err := d.records.Skip(d.life, runID, step.ID, halted); err != nil {
-				d.report(fmt.Errorf("run %d step %d: recording skip: %w", runID, step.ID, err))
-				return false, false
-			}
-		}
-		return false, true
+	if !dispatchSettled(state.Status) && !state.runnable() && state.Status != StatusRunning {
+		return false
 	}
 	if state.Status == StatusRunning {
 		// A running step is another process's or this one's work in
@@ -298,50 +286,50 @@ func (d *dispatcher) executeStep(runID ids.ID, step ReadyStep, halted string) (f
 		// running the steps after it.
 		recover, adopted := d.recover[step.Type], d.takeAdopted(step.ID)
 		if !adopted || recover == nil {
-			return false, false
+			return false
 		}
 		recover(step.ID)
 		state, err = d.records.State(d.life, runID, step.ID)
 		if err != nil {
 			d.report(fmt.Errorf("run %d step %d: reading outcome: %w", runID, step.ID, err))
-			return false, false
+			return false
 		}
-		if !state.Active || state.Status == StatusRunning {
-			return false, false
+		if !state.Active || !dispatchSettled(state.Status) {
+			return false
 		}
-		return state.Status == StatusFail || state.Status == StatusError, true
+		return dispatchSettled(state.Status)
 	}
 	if state.runnable() {
 		if state.Orphaned {
 			resumed, err := d.records.Resume(d.life, runID, step.ID)
 			if err != nil {
 				d.report(fmt.Errorf("run %d step %d: preparing resume: %w", runID, step.ID, err))
-				return false, false
+				return false
 			}
 			if !resumed {
 				// Another writer changed this step.
-				return false, false
+				return false
 			}
 		}
 		runner, exists := d.runners[step.Type]
 		if !exists {
 			d.report(fmt.Errorf("run %d step %d: no runner for %s", runID, step.ID, step.Type))
-			return false, false
+			return false
 		}
 		runner(step.ID)
 		state, err = d.records.State(d.life, runID, step.ID)
 		if err != nil {
 			d.report(fmt.Errorf("run %d step %d: reading outcome: %w", runID, step.ID, err))
-			return false, false
+			return false
 		}
-		if !state.Active || state.Status == StatusRunning {
+		if !state.Active || !dispatchSettled(state.Status) {
 			// A runner that returns with its step still running left work
 			// without a recorded outcome (a task whose result could not be
 			// recorded yet): nothing after it runs on that basis.
-			return false, false
+			return false
 		}
 	}
-	return state.Status == StatusFail || state.Status == StatusError, true
+	return dispatchSettled(state.Status)
 }
 
 // takeAdopted reports whether step was left running with recorded work by a
@@ -354,7 +342,7 @@ func (d *dispatcher) takeAdopted(step ids.ID) bool {
 	return adopted
 }
 
-// Scanners expanded from the same gate point can run together. Entry steps
+// Scanners at one gate point inspect the same work independently, so they run in parallel. Entry steps
 // always retain their declared order, even when they are scanners.
 func scanPointGroup(auto []ReadyStep, i int) []ReadyStep {
 	point := func(s ReadyStep) string {

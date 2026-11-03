@@ -14,10 +14,3 @@ func EncodeOutcome(status StepState, evidence any, extra map[string]any) (StepOu
 	}
 	return StepOutcome{Status: status, Evidence: body, Details: details}, nil
 }
-
-// Rework is a verdict intent; Work owns the budget, reset and committed dispatch.
-func EncodeRework(evidence any) (StepOutcome, error) {
-	outcome, err := EncodeOutcome(StatusFail, evidence, nil)
-	outcome.Rework = true
-	return outcome, err
-}

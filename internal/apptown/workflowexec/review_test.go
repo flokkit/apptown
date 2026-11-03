@@ -97,17 +97,20 @@ func TestReviewIsNotConsultedWhenTheBootFailed(t *testing.T) {
 					t.Fatalf("boot did not fail: %+v %v", failed, err)
 				}
 			}
-			run("review")
+			if boot {
+				bootStep, _ := work.Step(ctx, stepIDs["boot"])
+				work.DispatchCommittedRetry(bootStep.Step.RunID)
+				work.Wait()
+			} else {
+				run("review")
+			}
 			got, err := work.Step(ctx, stepIDs["review"])
 			if err != nil {
 				t.Fatal(err)
 			}
 			if boot {
-				if calls != 0 || got.Step.Status != workflow.StatusFail {
+				if calls != 0 || got.Step.Status != workflow.StatusPending {
 					t.Fatalf("reviewer calls=%d, status=%s", calls, got.Step.Status)
-				}
-				if !strings.Contains(string(got.Step.Evidence), "did not come up") || !strings.Contains(string(got.Step.Evidence), "notRun") {
-					t.Fatalf("missing boot refusal evidence: %s", got.Step.Evidence)
 				}
 			} else if calls == 0 || got.Step.Status != workflow.StatusPass {
 				t.Fatalf("without a boot step, review must run and pass: calls=%d, status=%s", calls, got.Step.Status)

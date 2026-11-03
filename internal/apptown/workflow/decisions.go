@@ -18,12 +18,11 @@ var (
 	errStepApprovalInput    = fault.New(fault.Invalid, "invalid approval request")
 )
 
-// approvalTooEarly refuses an approval while its stage's work is still to
-// finish; it can be given once those steps have.
-type approvalTooEarly struct{ Unfinished []string }
+// approvalTooEarly refuses approval until every earlier step passes its gate.
+type approvalTooEarly struct{}
 
 func (e *approvalTooEarly) Error() string {
-	return "the stage's work has not finished (" + strings.Join(e.Unfinished, ", ") + "); approve once it has"
+	return "earlier steps have not passed; approve once they have"
 }
 func (e *approvalTooEarly) FaultKind() fault.Kind { return fault.Conflict }
 func (e *approvalTooEarly) FaultCode() string     { return "stage-work-unfinished" }
@@ -121,6 +120,7 @@ func (s *Service) Override(ctx context.Context, in Override) (*Step, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.DispatchCommittedRetry(step.RunID)
 	s.advanceCommitted(RunRef{ID: step.RunID, ProjectID: expected.scope.ProjectID})
 	return step, nil
 }
@@ -184,6 +184,9 @@ func (s *Service) Approve(ctx context.Context, in Approval) (*Step, error) {
 		return nil, err
 	}
 	s.dispatchRework(result.rework)
+	if result.step.Status == StatusPass {
+		s.DispatchCommittedRetry(result.step.RunID)
+	}
 	s.advanceCommitted(RunRef{ID: result.step.RunID, ProjectID: expected.scope.ProjectID})
 	return result.step, nil
 }

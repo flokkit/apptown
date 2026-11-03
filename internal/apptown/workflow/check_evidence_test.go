@@ -17,8 +17,8 @@ func TestCheckEvidenceReadsBackWhatWasWrittenAndRefusesWhatItCannotRead(t *testi
 		CheckErrors: 2,
 		Undecided:   []string{"a finding"},
 	}
-	outcome, err := facts.Rework(map[string]any{"reason": "fix it"})
-	if err != nil || !outcome.Rework || outcome.Status != StatusFail {
+	outcome, err := facts.Outcome(StatusFail, map[string]any{"reason": "fix it"})
+	if err != nil || outcome.Status != StatusFail {
 		t.Fatalf("rework: %+v %v", outcome, err)
 	}
 	got, err := ReadCheckEvidence(outcome.Evidence)

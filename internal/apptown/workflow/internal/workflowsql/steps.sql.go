@@ -521,32 +521,6 @@ func (q *Queries) DispatchResume(ctx context.Context, arg DispatchResumeParams) 
 	return result.RowsAffected()
 }
 
-const dispatchSkip = `-- name: DispatchSkip :execrows
-UPDATE steps SET status='skipped', evidence_json=$1, finished_at=$2::timestamptz
-WHERE steps.id=$3 AND steps.run_id=$4 AND (status='pending' OR (status='error' AND evidence_json->>'reason'='orphaned by apptownd restart'))
-AND EXISTS (SELECT 1 FROM runs r WHERE r.id=steps.run_id AND r.status='running' AND r.current_stage=steps.stage)
-`
-
-type DispatchSkipParams struct {
-	EvidenceJson json.RawMessage
-	At           time.Time
-	ID           ids.ID
-	RunID        ids.ID
-}
-
-func (q *Queries) DispatchSkip(ctx context.Context, arg DispatchSkipParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, dispatchSkip,
-		arg.EvidenceJson,
-		arg.At,
-		arg.ID,
-		arg.RunID,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
 const dispatchStepState = `-- name: DispatchStepState :one
 SELECT s.status, (s.status='error' AND COALESCE(s.evidence_json->>'reason','')='orphaned by apptownd restart') AS orphaned,
  (r.status='running' AND r.current_stage=s.stage) AS active
@@ -853,11 +827,18 @@ func (q *Queries) LandingApprover(ctx context.Context, arg LandingApproverParams
 }
 
 const latestFeedbackStep = `-- name: LatestFeedbackStep :one
+WITH revision AS (
+ SELECT e.payload_json->>'triggerStep' AS step FROM run_events e
+ WHERE e.run_id=$1 AND e.kind='step.rework'
+ AND EXISTS(SELECT 1 FROM steps agent WHERE agent.run_id=e.run_id AND agent.id::text=e.payload_json->>'agentStep' AND agent.status IN ('pending','running'))
+ ORDER BY e.id DESC LIMIT 1
+)
 SELECT s.attempt, s.id, s.run_id, s.stage, s.name, s.type, s.config_json, s.status, s.evidence_json, s.override_by, s.override_by_principal, s.override_by_via, s.override_reason, s.started_at, s.finished_at FROM steps s JOIN runs r ON r.id=s.run_id
 WHERE r.id=$1 AND r.project_id=$2
-AND ((s.type IN ('approval','agent/review','preview','guidance/conformance','tests') AND s.status=$3)
+AND (s.status=$3 OR s.id::text=(SELECT step FROM revision)
  OR (s.type='approval' AND s.evidence_json #>> '{lastRejection,at}' IS NOT NULL))
-ORDER BY COALESCE(s.finished_at,NULLIF(s.evidence_json #>> '{lastRejection,at}','')::timestamptz) DESC,s.id DESC LIMIT 1
+ORDER BY (s.id::text=(SELECT step FROM revision)) DESC NULLS LAST,
+ COALESCE(s.finished_at,NULLIF(s.evidence_json #>> '{lastRejection,at}','')::timestamptz) DESC,s.id DESC LIMIT 1
 `
 
 type LatestFeedbackStepParams struct {
@@ -912,24 +893,6 @@ func (q *Queries) LatestFinishedAgentWork(ctx context.Context, arg LatestFinishe
 	var i LatestFinishedAgentWorkRow
 	err := row.Scan(&i.LatestWork, &i.HasLatestWork, &i.Busy)
 	return i, err
-}
-
-const latestRetryFeedback = `-- name: LatestRetryFeedback :one
-SELECT evidence_json::text FROM steps WHERE run_id=$1 AND stage=$2 AND status='fail'
-AND type IN ('approval','agent/review','preview','guidance/conformance','tests')
-ORDER BY finished_at DESC NULLS LAST,id DESC LIMIT 1
-`
-
-type LatestRetryFeedbackParams struct {
-	RunID ids.ID
-	Stage string
-}
-
-func (q *Queries) LatestRetryFeedback(ctx context.Context, arg LatestRetryFeedbackParams) (string, error) {
-	row := q.db.QueryRowContext(ctx, latestRetryFeedback, arg.RunID, arg.Stage)
-	var evidence_json string
-	err := row.Scan(&evidence_json)
-	return evidence_json, err
 }
 
 const overrideStep = `-- name: OverrideStep :execrows
@@ -1527,7 +1490,7 @@ func (q *Queries) StageStepsForUpdate(ctx context.Context, arg StageStepsForUpda
 const staleChecksForUpdate = `-- name: StaleChecksForUpdate :many
 SELECT attempt, id, run_id, stage, name, type, config_json, status, evidence_json, override_by, override_by_principal, override_by_via, override_reason, started_at, finished_at FROM steps WHERE run_id = $1 AND stage = $2 AND override_by = '' AND finished_at < $3
   AND ((type = 'approval' AND status = 'fail')
-    OR (type IN ('agent/review','scan','tests','preview','guidance/conformance') AND status IN ('pass','fail','skipped','not_applicable')))
+    OR (type NOT IN ('agent/pi','approval') AND status IN ('pass','fail','error','needs_human','skipped','not_applicable')))
 ORDER BY id FOR UPDATE
 `
 

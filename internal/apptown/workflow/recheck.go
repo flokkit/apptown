@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -44,11 +45,32 @@ func (s reworkStore) refresh(ctx context.Context, RunID ids.ID) (bool, error) {
 	if work.Busy || !work.HasLatestWork {
 		return false, nil
 	}
+	agent, err := stepResult(q.StageAgentForUpdate(ctx, workflowsql.StageAgentForUpdateParams{RunID: RunID, Stage: run.CurrentStage}))
+	if err != nil {
+		return false, err
+	}
+	if agent.Status != StatusPass {
+		return false, nil
+	}
+	definition, err := run.Definition()
+	if err != nil {
+		return false, err
+	}
+	stage, _ := definition.Stage(run.CurrentStage)
+	if stage == nil {
+		return false, fmt.Errorf("stage %q is missing from the pinned definition", run.CurrentStage)
+	}
 	steps, err := stepRecords(q.StaleChecksForUpdate(ctx, workflowsql.StaleChecksForUpdateParams{RunID: RunID, Stage: run.CurrentStage, FinishedAt: sql.NullTime{Time: work.LatestWork, Valid: true}}))
 	if err != nil {
 		return false, err
 	}
+	reset := 0
 	for _, step := range steps {
+		// Entry prerequisites before the producer did not judge its output.
+		// Explicit retries preserve these same prerequisites.
+		if entryStep(stage, step) && step.ID.Compare(agent.ID) < 0 {
+			continue
+		}
 		if step.Type == "approval" {
 			if err := resetApprovalIn(ctx, tx, step); err != nil {
 				return false, err
@@ -58,11 +80,12 @@ func (s reworkStore) refresh(ctx context.Context, RunID ids.ID) (bool, error) {
 				return false, err
 			}
 		}
+		reset++
 		if err := recordReceiptIn(ctx, tx, RunID, "step.reverified", recheckReceipt{step.Name, step.Attempt, "verdict predates reworked output", step.Status, step.Evidence}, s.now()); err != nil {
 			return false, err
 		}
 	}
-	if len(steps) == 0 {
+	if reset == 0 {
 		return false, nil
 	}
 	if err := invalidateRunDecisionIn(ctx, tx, run, s.now()); err != nil {
