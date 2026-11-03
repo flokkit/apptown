@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -184,26 +183,17 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 	return g.judgedByGate(id, Activity{State: ActivityReady}), nil
 }
 
-// holdDetail names the step and its recorded reason, followed by the person's
-// requested actions. Failure recovery uses the existing run and change acts.
+// holdDetail names the step and its recorded reason. Clients render recovery
+// choices from the offered acts, rather than a second list in this sentence.
 func (step workflowActivityStep) holdDetail() string {
 	detail := step.name + " (" + step.state.String() + ")"
 	var evidence struct {
-		Reason  string   `json:"reason"`
-		Actions []string `json:"actions"`
+		Reason string `json:"reason"`
 	}
-	if json.Unmarshal(step.evidence, &evidence) == nil {
-		if evidence.Reason != "" {
-			detail += ": " + evidence.Reason
-		}
-		if len(evidence.Actions) > 0 {
-			return detail + ". " + strings.Join(evidence.Actions, "; ")
-		}
+	if json.Unmarshal(step.evidence, &evidence) == nil && evidence.Reason != "" {
+		detail += ": " + evidence.Reason
 	}
-	if step.state == StatusNeedsHuman {
-		return detail + ". Complete the requested action, then re-run the step."
-	}
-	return detail + ". Send back, re-run the step, or override the failure."
+	return detail
 }
 
 // latestAgentWork is when the stage's agent last finished work that passed.

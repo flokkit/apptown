@@ -454,6 +454,7 @@ type runDetail struct {
 	}
 	State       string
 	StateDetail string
+	Next        []nextAct
 	// SentBack is the rework AppTown says the current stage is in.
 	SentBack *struct {
 		StepID ids.ID
@@ -520,9 +521,8 @@ func cmdStatus(args []string) error {
 		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", s.ID, s.Stage, s.Name, s.Type, status)
 	}
 	w.Flush()
-	if d.Run.Status == "running" {
-		fmt.Printf("\nnext: apptown advance %d · approve/reject <step-id> · run-step <step-id> · attach %d -k <kind>\n",
-			d.Run.ID, d.Run.ID)
+	if next := nextActsText(d.Next); next != "" {
+		fmt.Printf("\nnext: %s\n", next)
 	}
 	return nil
 }
@@ -1123,4 +1123,17 @@ func cmdExecuting(args []string) error {
 	}
 	exitProcess(3)
 	return nil
+}
+
+// nextActsText keeps CLI recovery choices in the server's offered order.
+func nextActsText(acts []nextAct) string {
+	var choices []string
+	for _, a := range acts {
+		choice := a.Act
+		if a.Step != "" {
+			choice += ": " + a.Step
+		}
+		choices = append(choices, choice)
+	}
+	return strings.Join(choices, " · ")
 }

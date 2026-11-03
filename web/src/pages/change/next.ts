@@ -25,6 +25,7 @@ export type Primary =
   | 'continue'         // advance a stage that has everything it needs
   | 'land'             // start landing finished work
   | 'open-release'     // open what shipped
+  | 'override'
   | 'open-decision'    // a decision that lives in the work (a called workflow's approval)
   | 'none'
 
@@ -40,6 +41,7 @@ export type NextStep = {
   // The step the state is about (the approval, the stuck check, the running step).
   step?: Step
   // A person's (or a check's) words the agent is reworking from.
+  recovery?: boolean
   sentBack?: SentBack
 }
 
@@ -188,9 +190,9 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
   if (state === 'waiting on you') {
     // The approval to decide is the one AppTown offers (its next act),
     // never one the page picks from the steps.
-    const offered = d.next.find((a) => a.act === 'approve')
-    const approval = offered && stage.find((s) => s.id === offered.stepId)
-    if (approval?.type === 'approval') {
+    const decision = d.next.find((a) => a.act === 'approve')
+    const approval = decision && stage.find((s) => s.id === decision.stepId)
+    if (approval?.type === 'approval' && approval.status === 'pending') {
       const toLand = isLandingApproval(view, approval)
       const ev = approval.evidence
       const quorum = (ev.quorum ?? 0) > 1 ? `${ev.approvals ?? 0} of ${ev.quorum} approvals so far.` : ''
@@ -210,9 +212,29 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
         waitingOn: mine ? 'you' : approversOf(approval), primary: 'approve',
       }
     }
+    if (d.pendingApproval) {
+      return {
+        tone: 'warn', stamp: 'waiting', headline: 'Waiting for approval',
+        step: stage.find((s) => s.type === 'workflow/call' && s.status === 'running'),
+        sentence: view.stateDetail, waitingOn: 'a person', primary: 'open-decision',
+      }
+    }
+    const failing = stage.find(failed)
+    if (!failing) return { tone: 'unknown', stamp: 'not known', headline: 'What this run is waiting for is not known', sentence: view.stateDetail, primary: 'none' }
+    const events = d.events ?? []
+    const lastRetry = events.map((e) => e.kind).lastIndexOf('step.retried')
+    const rounds = events.slice(lastRetry + 1).filter((e) => e.kind === 'step.rework').length
+    const chat = offered(d.next, 'rework')
+    const primary: Primary = rounds >= 3 && chat ? 'take-to-chat'
+      : offered(view.next, 'send-back') ? 'send-back'
+      : offered(d.next, 'retry', failing.id) ? 'try-again'
+      : offered(d.next, 'override', failing.id) ? 'override'
+      : chat ? 'take-to-chat' : 'none'
+    const reason = (failing.evidence?.reason || 'Read what the check found.').trim()
+    const first = reason.match(/^.*?[.!?](?=\s|$)/s)?.[0] ?? reason.split('\n')[0]
     return {
-      tone: 'warn', stamp: 'waiting', headline: 'Waiting for a person',
-      sentence: view.stateDetail, waitingOn: 'a person', primary: 'open-decision',
+      tone: 'warn', stamp: 'waiting', headline: `Waiting for you: ${failing.name}: ${first}`,
+      sentence: reason.slice(first.length).trim() || undefined, step: failing, primary, recovery: true,
     }
   }
   if (state === 'blocked') {

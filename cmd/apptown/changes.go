@@ -212,6 +212,7 @@ func cmdShow(args []string) error {
 		Report      string
 		State       string
 		StateDetail string
+		Next        []nextAct
 		Runs        []struct {
 			ID           ids.ID
 			Number       int64
@@ -225,6 +226,7 @@ func cmdShow(args []string) error {
 		Head   string
 		Detail *struct {
 			Steps []cockpitStep `json:"steps"`
+			Next  []nextAct     `json:"next"`
 		}
 		// Approval is the approval the change waits on, with what its
 		// commit adds.
@@ -348,8 +350,12 @@ func cmdShow(args []string) error {
 			fmt.Printf("  %s %s %s\n", c.SHA, c.Subject, dim(c.When))
 		}
 	}
-	if ch.State == "in_progress" {
-		fmt.Printf("\n%s apptown follow %d · apptown preview %d · apptown land %d · apptown invoke -c %d -w <workflow>\n", dim("next:"), ch.ID, ch.ID, ch.ID, ch.ID)
+	acts := append([]nextAct{}, view.Next...)
+	if view.Detail != nil {
+		acts = append(acts, view.Detail.Next...)
+	}
+	if next := nextActsText(acts); next != "" {
+		fmt.Printf("\n%s %s\n", dim("next:"), next)
 	}
 	return nil
 }

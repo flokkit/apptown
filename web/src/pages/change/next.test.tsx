@@ -286,7 +286,20 @@ describe('the change head', () => {
     const offered = nextStep(view({ state: 'waiting on you', steps: [accept, second], next: offer(second) }))
     expect(offered.primary).toBe('approve')
     expect(offered.step?.id).toBe(second.id)
-    expect(nextStep(view({ state: 'waiting on you', steps: [accept] })).primary).toBe('open-decision')
+    expect(nextStep(view({ state: 'waiting on you', steps: [accept] })).primary).toBe('none')
+    const call = step({ type: 'workflow/call', status: 'running', name: 'inspect' })
+    const child = view({ state: 'waiting on you', steps: [call] })
+    child.detail!.pendingApproval = uuid(999)
+    expect(nextStep(child).primary).toBe('open-decision')
+    expect(primaries(render(child))).toEqual(['Open the decision'])
+    expect(nextStep(child).step?.id).toBe(call.id)
+    expect(render(child)).toContain('Waiting for approval')
+    const decisionLink = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}>
+      <StatePanel view={child} onChange={() => {}} workTab={(id) => `/work?step=${id}`} />
+    </QueryClientProvider></MemoryRouter>)
+    expect(decisionLink).toContain(`/work?step=${call.id}`)
+    const settled = { ...accept, status: 'pass' } as Step
+    expect(nextStep(view({ state: 'waiting on you', steps: [settled], next: offer(settled) })).primary).toBe('none')
   })
 
   // After the merge AppTown refuses a send-back, a chat and abandoning
