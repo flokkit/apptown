@@ -293,3 +293,11 @@ AND EXISTS (
  AND EXISTS(SELECT 1 FROM jsonb_array_elements(bv.checks_json) c WHERE c->>'name'=v.check_name)
 )
 ORDER BY p.slug, v.id;
+
+-- name: CompleteLandingReview :execrows
+UPDATE conformance_reviews SET source_run=sqlc.arg(source_run), candidate=sqlc.arg(candidate),
+  status='done', finished_at=sqlc.arg(at), projects=1, projects_total=1, projects_done=1, verdicts=sqlc.arg(verdicts)
+WHERE id=sqlc.arg(id) AND status='running';
+
+-- name: LandingResultsRecorded :one
+SELECT EXISTS(SELECT 1 FROM conformance_reviews WHERE source_run=$1 AND trigger='landing');

@@ -8,10 +8,12 @@ import (
 // Review is the immutable, read-only record of one estate sweep (§3.1).
 // The next review is a new record and never overwrites this one.
 type Review struct {
-	ID      ids.ID `json:"id"`
-	Number  int64  `json:"number"` // within AppTown, as people name it ("review 9")
-	Trigger string `json:"trigger"`
-	Actor   string `json:"actor"`
+	ID        ids.ID `json:"id"`
+	Number    int64  `json:"number"` // within AppTown, as people name it ("review 9")
+	SourceRun ids.ID `json:"sourceRun,omitzero"`
+	Candidate string `json:"candidate,omitempty"`
+	Trigger   string `json:"trigger"`
+	Actor     string `json:"actor"`
 	// ActorPrincipal is the starter's principal; zero for AppTown, or one
 	// not resolved to a person.
 	ActorPrincipal ids.ID     `json:"actorPrincipal,omitzero"`

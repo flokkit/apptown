@@ -102,7 +102,7 @@ func (p changePages) URL(id ids.ID) string { return changeactions.URL(p.host, id
 // mergeEffectsFor assembles effects without retaining the composition root.
 func mergeEffectsFor(a *App) workcommands.LandingEffects {
 	return workcommands.LandingEffects{
-		DB: a.DB, Contracts: a.Projects.Contracts(), DataDir: a.cfg.dataDir,
+		DB: a.DB, Contracts: a.Projects.Contracts(), Conformance: a.conformance, DataDir: a.cfg.dataDir,
 		Drivers: scm.GitDrivers{Runner: a.processRunner, DataDir: a.cfg.dataDir, Provider: a.repositoryAttachments.VerifyRecorded,
 			ChangeURL: changePages{host: a.cfg.publicHost}.URL},
 		Publisher: repositoryPublisher{attachments: a.repositoryAttachments, db: a.DB, now: a.cfg.clock.Now},

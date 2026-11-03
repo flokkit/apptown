@@ -21,6 +21,22 @@ binds recorded verdicts to the admitted project, declaration version and source.
 Callers cannot substitute another project or check after evaluation. Terminal
 review state rejects further writes.
 
+After a successful landing is recorded, conformance saves its guidance check
+results as a completed review with trigger `landing`. The record names the source run
+and checked candidate; each verdict names the landed commit, block version,
+check and evaluator version, in `gate` mode. The checked candidate already
+contains main, and SCM publishes that checked tree. Recording never evaluates
+checks again. A repeated observation of the same landing keeps the same record.
+
+Every adopted check must have a result before any landing review is saved.
+Skipped and unknown results remain unassessed. Findings already on main remain
+findings. Active whole-check exceptions apply to failures; the saved exception
+reference, snapshot and failure detail keep history intact and let the current
+view show the failure when an exception expires or is removed. Missing results
+leave the project unassessed until a review. If recording fails after merging,
+AppTown logs the failure and the completed landing stands. The project remains
+unassessed until a review.
+
 Reviews assess adopted declarations against committed source. Publishing a new
 block does not change earlier verdicts or silently replace a project's adoption.
 Current conformance is a projection of recorded evidence, with source/version

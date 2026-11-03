@@ -2633,6 +2633,8 @@ export type Lane = "conforms" | "excepted" | "findings" | "flagged" | "na" | "br
 export type Review = {
   id: string | null
   number: number
+  sourceRun?: string | null
+  candidate?: string
   trigger: string
   actor: string
   actorPrincipal?: string | null
@@ -2651,6 +2653,8 @@ export type Review = {
 export type ReviewSummary = {
   id: string | null
   number: number
+  sourceRun?: string | null
+  candidate?: string
   trigger: string
   actor: string
   actorPrincipal?: string | null

@@ -53,7 +53,7 @@ func review(r conformancesql.ConformanceReview) (Review, error) {
 		return Review{}, err
 	}
 	return Review{
-		ID: r.ID, Number: r.Number, Trigger: r.Trigger, Actor: r.Actor, ActorPrincipal: r.ActorPrincipal, StartedAt: stamp.Of(r.StartedAt).String(),
+		ID: r.ID, Number: r.Number, SourceRun: r.SourceRun, Candidate: r.Candidate, Trigger: r.Trigger, Actor: r.Actor, ActorPrincipal: r.ActorPrincipal, StartedAt: stamp.Of(r.StartedAt).String(),
 		FinishedAt: stamp.Time{NullTime: r.FinishedAt}, Projects: int(r.Projects), Verdicts: int(r.Verdicts),
 		Errors: int(r.Errors), Cost: r.Cost, Status: status,
 		ProjectsTotal: int(r.ProjectsTotal), ProjectsDone: int(r.ProjectsDone), CurrentProject: r.CurrentProject,
