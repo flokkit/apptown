@@ -246,10 +246,10 @@ const kindsOf = (key: string, bindings: IntegrationEntry[], offered: ConnectorEn
 // Overview: every page of the menu, each with what is connected there and
 // whether any of it is failing, so a problem shows before a page is opened.
 // rowState is one overview row: working or a problem, from everything it
-// holds that can be judged. A connection never configured, or one that
-// cannot be checked on its own (it runs inside each app, or has no check),
-// says nothing either way; a check that was tried and gave no answer is
-// not known, never working.
+// holds that can be judged. A retired target, a connection never configured,
+// or one that cannot be checked on its own (it runs inside each app, or has
+// no check), says nothing either way; a check that was tried and gave no
+// answer is not known, never working.
 type RowState = 'problem' | 'not known' | 'working' | 'unjudged' | 'nothing'
 function rowState(states: { failed: boolean; notKnown: boolean; passed: boolean }[], configured: number): RowState {
   if (configured === 0) return 'nothing'
@@ -271,7 +271,7 @@ function Overview({ area, bindings, offered: all, catalogErr, reading, onNew }: 
   const hostState = useHostStates()
   const targets = (targetsQ.data?.targets ?? []).map((t) => {
     const word = hostState(t.name, t.statusLabel).word
-    return { failed: word === 'failed' || word === 'stopped', notKnown: word === 'unknown', passed: word === 'working' }
+    return { failed: word === 'failed', notKnown: word === 'unknown', passed: word === 'working' }
   })
   const one = INTEGRATION_MENU.find((g) => g.key === area)!
   // Connect offers only this area's kinds.
