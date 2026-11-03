@@ -2,6 +2,8 @@ package apptown
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/flokkit/apptown/internal/ids"
 	"strings"
 	"testing"
 
@@ -62,5 +64,55 @@ func TestAStandingOnlyCheckIsNotRemediationWork(t *testing.T) {
 	}
 	if changes, err := a.Work.Changes(testConformanceContext("t"), alpha, workflow.ChangeList{}); err != nil || len(changes) != 0 {
 		t.Fatalf("the refusal opened changes: %+v %v", changes, err)
+	}
+}
+
+func TestRemediationCoverageExcludesOpenChangesAndReturnsAfterAbandonment(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	alpha, beta := failingFixture(t, a)
+	ctx := testConformanceContext("t")
+	body := `{"project":"alpha","block":"hygiene","check":"no-fixme"}`
+	w := authzCall(a.Handler(), "t", "POST", "/api/v1/conformance/remediate", body)
+	var opened struct{ Change workflow.Change }
+	if err := json.Unmarshal(w.Body.Bytes(), &opened); err != nil || w.Code != 201 {
+		t.Fatalf("open: %d %s %v", w.Code, w.Body.String(), err)
+	}
+	for _, scope := range []string{"all", "project", "check"} {
+		ref := map[string]string{"all": "", "project": "alpha", "check": "hygiene@1·no-fixme"}[scope]
+		findings, err := a.Fixes.Scope(ctx, scope, ref)
+		want := 1
+		if scope == "project" {
+			want = 0
+		}
+		if err != nil || len(findings) != want {
+			t.Fatalf("%s scope: %+v %v", scope, findings, err)
+		}
+	}
+	view, err := a.conformance.View(ctx, ids.Nil)
+	if err != nil || len(view.OpenRemediations) != 1 || view.OpenRemediations[0].ChangeID != opened.Change.ID {
+		t.Fatalf("coverage view: %+v %v", view, err)
+	}
+	w = authzCall(a.Handler(), "t", "POST", "/api/v1/conformance/remediate", body)
+	if w.Code != 422 || !strings.Contains(w.Body.String(), fmt.Sprintf("change #%d", opened.Change.Number)) {
+		t.Fatalf("duplicate: %d %s", w.Code, w.Body.String())
+	}
+	if _, _, err := a.Fixes.Start(ctx, "project", "alpha", "t", 0); err == nil || !strings.Contains(err.Error(), fmt.Sprintf("change #%d", opened.Change.Number)) {
+		t.Fatalf("duplicate queue start: %v", err)
+	}
+	_, items, err := a.Fixes.Start(ctx, "all", "", "t", 0)
+	if err != nil || len(items) != 1 || items[0].ProjectID != beta {
+		t.Fatalf("mixed start: %+v %v", items, err)
+	}
+	if _, err := a.Work.Abandon(asPerson("t"), workflow.StopWork{ChangeID: opened.Change.ID, Reason: "Try another fix"}); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := a.Fixes.Scope(ctx, "project", "alpha")
+	if err != nil || len(findings) != 1 || findings[0].ProjectID != alpha {
+		t.Fatalf("after abandon: %+v %v", findings, err)
+	}
+	view, err = a.conformance.View(ctx, ids.Nil)
+	if err != nil || len(view.OpenRemediations) != 0 {
+		t.Fatalf("abandoned view: %+v %v", view, err)
 	}
 }

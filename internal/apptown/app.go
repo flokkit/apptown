@@ -333,7 +333,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 		extensionNames = append(extensionNames, ext.Name)
 	}
 	a.lifecycle = projectlifecycle.New(db, projectlifecycle.Dependencies{Jobs: jobQueue{}, Identity: a.Access, Adoption: a.Adoption, Projects: a.Projects, Ways: a.Ways, Repositories: &a.repositories, Publisher: repositoryPublisher{attachments: a.repositoryAttachments, db: db, now: cfg.clock.Now}, Changes: changes, Superseded: workflow.NewAbandonments(db, abandonmentEffects{now: cfg.clock.Now}, &a.repositories).WithClock(cfg.clock.Now), Secrets: a.Secrets}, projectlifecycle.Config{DataDir: cfg.dataDir, Extensions: extensionNames, Seeding: cfg.seeding, Now: cfg.clock.Now})
-	a.conformance = conformance.New(db, access.Checked{Authority: identity.Scoped(a.Access, "conformance"), Projects: a.Projects}, verification.NewSource(a.Adoption, cfg.dataDir), cfg.clock.Now)
+	a.conformance = conformance.New(db, access.Checked{Authority: identity.Scoped(a.Access, "conformance"), Projects: a.Projects}, verification.NewSource(a.Adoption, cfg.dataDir), cfg.clock.Now, openRemediationsFor(db))
 	// Work consumes remediation's stateless budget participant. Remediation
 	// then consumes the fully constructed Work service.
 	a.steering = agentenv.NewInstructions(db, a.Integrations)

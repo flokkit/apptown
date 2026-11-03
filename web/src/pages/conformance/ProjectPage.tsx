@@ -5,13 +5,13 @@ import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import type { ConformanceFixList, ConformanceHistory, ConformanceView, CheckDefinition, Adjudication, Disposition, Lanes, PriorConfirmation, RemediationOpened } from '../../wire.gen'
 import { fmtWhen } from '../../format'
-import { type Verdict, laneOf, shortSha, StateChip, HowJudged, Evidence, useStartRemediation } from './parts'
+import { type Verdict, coveringChange, fixableFindings, BeingFixed, laneOf, shortSha, StateChip, HowJudged, Evidence, useStartRemediation } from './parts'
 import { Section } from '../../Section'
 
 // --- one project ---------------------------------------------------------------------------------
 
-function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix }: {
-  v: Verdict; def?: CheckDefinition; exceptions: Disposition[]; adj?: Adjudication; prior?: PriorConfirmation; readOnly: boolean
+function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, covered }: {
+  covered?: ConformanceView['openRemediations'][number]; v: Verdict; def?: CheckDefinition; exceptions: Disposition[]; adj?: Adjudication; prior?: PriorConfirmation; readOnly: boolean
   onConfirm?: (v: Verdict) => void; onFix?: (v: Verdict) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -27,6 +27,7 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix }
             ? (v.detail ? v.detail.charAt(0).toUpperCase() + v.detail.slice(1) : 'Not run yet')
             : [`from ${v.block}`, lane === 'flagged' && prior ? `confirmed before at ${shortSha(prior.sha)} by ${prior.by}` : ''].filter(Boolean).join(' · ')}</span>
         </button>
+        {covered && <BeingFixed change={covered} />}
       </div>
       {open && (
         <div className="check-results">
@@ -36,8 +37,8 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix }
             {!readOnly && (lane === 'findings' || lane === 'flagged') && (
               <div className="row" style={{ gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
                 {lane === 'flagged' && onConfirm && <button onClick={() => onConfirm(v)}>Confirm finding</button>}
-                {onFix && <button className={lane === 'findings' ? 'primary' : ''} onClick={() => onFix(v)}>Open a change to fix</button>}
-                <span className="muted small">{lane === 'flagged' ? 'A possible problem counts as a finding only after a person confirms it.' : 'Opens a change with this check as its acceptance test.'}</span>
+                {onFix && !covered && <button className={lane === 'findings' ? 'primary' : ''} onClick={() => onFix(v)}>Open a change to fix</button>}
+                <span className="muted small">{covered ? '' : lane === 'flagged' ? 'A possible problem counts as a finding only after a person confirms it.' : 'Opens a change with this check as its acceptance test.'}</span>
               </div>
             )}
           </div>
@@ -92,7 +93,7 @@ function LaneSection({ lane, title, hint, groups, view, exceptions, readOnly, on
     <Section title={title} count={list.length} note={hint}>
       {list.map((v) => (
         <CheckRow key={v.id || `${v.block}${v.check}`} v={v} def={view.checkDefs[`${v.block}@${v.version}·${v.check}`]} exceptions={exceptions}
-          adj={view.adjudications[String(v.id)]} prior={view.priorConfirmations[String(v.id)]} readOnly={readOnly}
+          covered={coveringChange(view, v)} adj={view.adjudications[String(v.id)]} prior={view.priorConfirmations[String(v.id)]} readOnly={readOnly}
           onConfirm={onConfirm} onFix={onFix} />
       ))}
     </Section>
@@ -125,6 +126,7 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
     if (r) nav(`/changes/${r.change.id}`)
   }
 
+  const fixable = fixableFindings(view, vs)
   const sectionProps = { groups, view, exceptions, readOnly: readOnly || busy, onConfirm: confirm, onFix: fix }
 
   return (
@@ -133,7 +135,7 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
         <h2 style={{ margin: 0, flex: 1, textTransform: 'none', letterSpacing: 0 }}>{p.name || slug}</h2>
         {!readOnly && (
           <span className="row" style={{ gap: 'var(--space-2)' }}>
-            {p.lanes.findings > 0 && <button disabled={busy} onClick={() => remediation.start('project', slug)}>Fix {p.lanes.findings} {p.lanes.findings === 1 ? 'problem' : 'problems'}</button>}
+            {fixable > 0 && <button disabled={busy} onClick={() => remediation.start('project', slug)}>Fix {fixable} {fixable === 1 ? 'problem' : 'problems'}</button>}
             <button disabled={busy} onClick={() => onRunOne(slug)}>Check this project</button>
           </span>
         )}

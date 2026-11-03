@@ -118,7 +118,7 @@ it('keeps a broken check red beside amber findings', async () => {
 
 it.each([false, true])('keeps failed execution beside findings in list and project notes (phone=%s)', async narrow => {
   const p = { notKnown: ['scanner: no Docker executor'], slug: 'calendar', name: 'Calendar', standing: 'does-not-conform', statusLabel: 'failed', sentence: '2 findings · 1 could not run', lanes: { findings: 2, broken: 1, conforms: 0, excepted: 0, flagged: 0, unassessed: 0, na: 0 }, total: 3, adopted: [] }
-  const view = { projects: [p], byProject: {}, exceptions: {}, adjudications: {}, checkDefs: {} } as unknown as ConformanceView
+  const view = { openRemediations: [], projects: [p], byProject: {}, exceptions: {}, adjudications: {}, checkDefs: {} } as unknown as ConformanceView
   // The findings count is the status; what could not run is said once, in the meta line.
   for (const ui of [<ProjectsList view={view} base="/conformance" />, <ConformanceProject view={view} slug="calendar" readOnly onRunOne={() => {}} />]) {
     const el = await show(ui, {}, narrow)
@@ -132,11 +132,26 @@ it.each([false, true])('keeps failed execution beside findings in list and proje
 it('lists not-judged checks with their reason and says what could not run once', async () => {
   const p = { notKnown: [], slug: 'calendar', name: 'Calendar', standing: 'cannot-assess', statusLabel: 'unknown', sentence: 'Review incomplete · 1 not known: scanner', lanes: { findings: 0, broken: 1, conforms: 0, excepted: 0, flagged: 0, unassessed: 1, na: 0 }, total: 2, adopted: [] }
   const waiting = { id: 'w', lane: 'unassessed', state: 'cannot-assess', statusLabel: 'unknown', block: 'deploy', version: 1, check: 'serve', detail: 'judged on a standing deployment; there is none here' }
-  const view = { projects: [p], byProject: { calendar: [waiting] }, exceptions: {}, adjudications: {}, priorConfirmations: {}, checkDefs: {} } as unknown as ConformanceView
+  const view = { openRemediations: [], projects: [p], byProject: { calendar: [waiting] }, exceptions: {}, adjudications: {}, priorConfirmations: {}, checkDefs: {} } as unknown as ConformanceView
   const el = await show(<ConformanceProject view={view} slug="calendar" readOnly onRunOne={() => {}} />, {}, false)
   const section = el.querySelector('section[aria-label="Not judged yet"]')!
   expect(section.textContent).toContain('Judged on a standing deployment; there is none here')
   expect(section.querySelector('.chip')).toBeNull()
   expect(el.textContent!.split('not known')).toHaveLength(2)
   expect(el.textContent).not.toContain("couldn't run")
+})
+
+it.each([false, true])('offers only uncovered fixes and keeps evidence and links (phone=%s)', async narrow => {
+  const finding = { id: 'finding', projectId: 'project', projectSlug: 'calendar', block: 'hygiene', version: 1, check: 'clean', lane: 'findings', state: 'does-not-conform', statusLabel: 'failed', severity: 'high', detail: 'README missing', sha: '12345678', reviewId: 'review', evaluator: 'sh', at: '2026-01-01T00:00:00Z' }
+  const p = { projectId: 'project', slug: 'calendar', name: 'Calendar', standing: 'does-not-conform', sentence: '2 findings', lanes: { findings: 2 }, notKnown: [] }
+  const view = { openRemediations: [{ projectId: 'project', changeId: 'change', number: 12, block: 'hygiene', version: 1, check: 'clean' }], projects: [p], byProject: { calendar: [finding, { ...finding, id: 'other', check: 'other' }] }, exceptions: {}, adjudications: {}, priorConfirmations: {}, checkDefs: {} } as unknown as ConformanceView
+  const el = await show(<ConformanceProject view={view} slug="calendar" readOnly={false} onRunOne={() => {}} />, {}, narrow)
+  expect([...el.querySelectorAll('button')].map(b => b.textContent)).toContain('Fix 1 problem')
+  expect(el.querySelector('a[href="/changes/change"]')?.textContent).toBe('change #12')
+  expect(el.querySelector('a[href="/projects/calendar"]')).not.toBeNull()
+  await act(async () => { (el.querySelector('button.check-open') as HTMLButtonElement).click() })
+  expect(el.textContent).toContain('README missing')
+  expect(el.textContent).toContain('hygiene version 1 · clean')
+  expect(el.querySelector('a[href="/conformance/reviews/review"]')).not.toBeNull()
+  expect(el.textContent).not.toContain('Open a change to fix')
 })

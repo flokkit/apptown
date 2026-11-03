@@ -24,7 +24,7 @@ describe('following a conformance review', () => {
     const client = newQueryClient()
     const review = { id: REVIEW, status: 'running', projects: 0, projectsTotal: 0, verdicts: 0, errors: 0, cost: 0, startedAt: '2026-09-28T00:00:00Z', finishedAt: '', actor: 'reviewer' }
     const done = { ...review, status: 'done' }
-    const view = { lens: { kind: 'current', review }, projects: [], reviews: [review], summary: { projects: 0, byStanding: {}, findings: 0, flagged: 0, high: 0, checks: 0 } }
+    const view = { openRemediations: [], byProject: {}, lens: { kind: 'current', review }, projects: [], reviews: [review], summary: { projects: 0, byStanding: {}, findings: 0, flagged: 0, high: 0, checks: 0 } }
     client.setQueryData(getKey('/conformance'), view)
     client.setQueryData(getKey(`/conformance/reviews/${REVIEW}`), { review: done, verdicts: [] })
     // The list's refreshes are held until the test lets them answer, so the
@@ -82,7 +82,7 @@ describe('a queued conformance review', () => {
   it('is followed and says queued', async () => {
     const client = newQueryClient()
     const review = { id: REVIEW, status: 'queued', trigger: 'manual', projects: 0, projectsTotal: 0, projectsDone: 0, verdicts: 0, errors: 0, cost: 0, startedAt: '2026-10-10T00:00:00Z', finishedAt: '', actor: 'reviewer', currentProject: '' }
-    const view = { lens: { kind: 'current', review }, projects: [], reviews: [review], summary: { projects: 0, byStanding: {}, findings: 0, flagged: 0, high: 0, checks: 0 } }
+    const view = { openRemediations: [], byProject: {}, lens: { kind: 'current', review }, projects: [], reviews: [review], summary: { projects: 0, byStanding: {}, findings: 0, flagged: 0, high: 0, checks: 0 } }
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       if (url.endsWith('/conformance')) return new Response(JSON.stringify(view))
       if (url.endsWith(`/conformance/reviews/${REVIEW}`)) return new Response(JSON.stringify({ review, verdicts: [] }))
@@ -130,7 +130,7 @@ describe('a project page while its review refreshes', () => {
     return {
       lens: { kind: 'review', review: review(reviewId, 'done') },
       projects: [{ projectId: uuid(1), slug: 'shop', name: 'Shop', standing: 'conforms', notKnown: [], sentence: 'meets everything', lanes: { ...lanes, conforms: judged }, total: judged, judged, high: 0, adopted: ['web'], sha: 'abc1234', judgedAt: '2026-10-08T00:00:00Z' }],
-      byProject: { shop: vs }, byCheck: {}, checkDefs: {}, exceptions: {}, adjudications: {}, priorConfirmations: {},
+      openRemediations: [], byProject: { shop: vs }, byCheck: {}, checkDefs: {}, exceptions: {}, adjudications: {}, priorConfirmations: {},
       summary: { projects: 1, byStanding: {}, findings: 0, flagged: 0, high: 0, checks: judged }, reviews: [],
     }
   }
@@ -188,7 +188,7 @@ describe('a project page while its review refreshes', () => {
 it.each(['projects', 'reviews', 'checks', 'remediations', 'ways', 'what-ifs'] as const)('keeps fleet actions available on %s', async tab => {
   const client = newQueryClient()
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/conformance') ? {
-    lens: { kind: 'current' }, projects: [], reviews: [], summary: { findings: 2, flagged: 0, incompleteProjects: 0 }, byCheck: {}, checkDefs: {}, adjudications: {}, checks: [],
+    openRemediations: [], byProject: { shop: [{ lane: 'findings' }, { lane: 'findings' }] }, lens: { kind: 'current' }, projects: [], reviews: [], summary: { findings: 2, flagged: 0, incompleteProjects: 0 }, byCheck: {}, checkDefs: {}, adjudications: {}, checks: [],
   } : url.endsWith('/wow') ? { packs: [], blocks: [] } : url.endsWith('/remediations') ? { remediations: [], occupancy: { workers: 2, busy: 0 } } : url.endsWith('/what-ifs') ? { whatIfs: [] } : {}))))
   const el = document.createElement('div'); const root = createRoot(el)
   try {

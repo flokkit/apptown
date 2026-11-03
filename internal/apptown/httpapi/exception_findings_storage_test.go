@@ -19,7 +19,7 @@ import (
 func TestExceptionReadFailuresReachEveryFindingsView(t *testing.T) {
 	t.Parallel()
 	f := newWorkflowHTTPFixture(t, true)
-	service := conformance.New(f.DB, confirmationHTTPAuthority{}, confirmationHTTPSource{}, nil)
+	service := conformance.New(f.DB, confirmationHTTPAuthority{}, confirmationHTTPSource{}, nil, nil)
 	for _, view := range []struct {
 		name    string
 		handler http.HandlerFunc
@@ -81,7 +81,7 @@ func TestProjectFindingsListUnreadableReportsAndTheirChange(t *testing.T) {
 	if _, err := f.Work.AttachArtifact(f.Context, run.ID, workflow.ArtifactDraft{Kind: "conformance-report", Name: "review", Body: `not json`}); err != nil {
 		t.Fatal(err)
 	}
-	findings := NewFindings(f.Projects, f.Work, conformance.New(f.DB, confirmationHTTPAuthority{}, confirmationHTTPSource{}, nil), f.DB, t.TempDir())
+	findings := NewFindings(f.Projects, f.Work, conformance.New(f.DB, confirmationHTTPAuthority{}, confirmationHTTPSource{}, nil, nil), f.DB, t.TempDir())
 	get := func(handler http.HandlerFunc, out any) string {
 		t.Helper()
 		req := httptest.NewRequest("GET", "/", nil).WithContext(f.Context)

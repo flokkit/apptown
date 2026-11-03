@@ -3,7 +3,7 @@ import { Section, Group } from '../../Section'
 import { Status } from '../../Status'
 import { Link } from 'react-router-dom'
 import type { ConformanceView, CheckDefinition } from '../../wire.gen'
-import { type Verdict, stateOf, laneOf, StateChip, HowJudged, useStartRemediation } from './parts'
+import { type Verdict, coveringChange, BeingFixed, fixableFindings, stateOf, laneOf, StateChip, HowJudged, useStartRemediation } from './parts'
 
 // --- Checks (the catalog) -------------------------------------------------------------------------
 
@@ -37,25 +37,25 @@ function CheckRow({ title, vs, view, base, fixKey, children }: { title: string; 
           <strong>{title}</strong>
           <span className="muted small">{tally(vs)}</span>
         </button>
-        {view.lens.kind === 'current' && findings > 0 && fixKey && (
+        {view.lens.kind === 'current' && fixableFindings(view, vs) > 0 && fixKey && (
           <span className="row-action"><button disabled={remediation.busy} title="One change per project, each waiting for approval" onClick={() => remediation.start('check', fixKey)}>Fix everywhere</button></span>
         )}
       </div>
       {remediation.err && <p className="error small">{remediation.err}</p>}
-      {open && <div id={id} className="check-results">{children ?? <Results vs={vs} base={base} />}</div>}
+      {open && <div id={id} className="check-results">{children ?? <Results vs={vs} base={base} view={view} />}</div>}
     </>
   )
 }
 
-function Results({ vs, base, def }: { vs: Verdict[]; base: string; def?: CheckDefinition }) {
+function Results({ vs, base, def, view }: { vs: Verdict[]; base: string; view: ConformanceView; def?: CheckDefinition }) {
   const sorted = [...vs].sort((a, b) => stateOf(a.state).rank - stateOf(b.state).rank || a.projectSlug.localeCompare(b.projectSlug))
   return <>
     {sorted.map((v) => (
-      <Link key={v.projectSlug} to={`${base}/projects/${v.projectSlug}`} className="row small" style={{ display: 'flex', gap: 'var(--space-3)', padding: '6px 0 6px 16px' }}>
+      <div key={v.projectSlug}><Link to={`${base}/projects/${v.projectSlug}`} className="row small" style={{ display: 'flex', gap: 'var(--space-3)', padding: '6px 0 6px 16px' }}>
         <span className="row-status"><StateChip finding={v.lane === 'findings'} label={v.statusLabel} /></span>
         <strong>{v.projectSlug}</strong>
         {v.detail && <span className="muted">{v.detail}</span>}
-      </Link>
+      </Link>{coveringChange(view, v) && <BeingFixed change={coveringChange(view, v)!} />}</div>
     ))}
     {def && <details className="small" style={{ padding: '4px 0 8px 16px' }}><summary>How this check judges</summary><HowJudged def={def} /></details>}
   </>
@@ -63,7 +63,7 @@ function Results({ vs, base, def }: { vs: Verdict[]; base: string; def?: CheckDe
 
 function CheckCard({ def, vs, view, base }: { def?: CheckDefinition; vs: Verdict[]; view: ConformanceView; base: string }) {
   return <CheckRow title={def?.title || def?.check || vs[0]?.check || 'Check'} vs={vs} view={view} base={base} fixKey={def?.key}>
-    <Results vs={vs} base={base} def={def} />
+    <Results vs={vs} base={base} view={view} def={def} />
   </CheckRow>
 }
 

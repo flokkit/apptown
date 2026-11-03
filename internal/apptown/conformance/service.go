@@ -75,10 +75,11 @@ type Source interface {
 // Service is the supported internal API. Persistence is private and transports
 // supply authority through the same port. Source work happens outside SQL locks.
 type Service struct {
-	db        *database.DB
-	records   reviewStore
-	authority operationAuthority
-	source    Source
+	openRemediations OpenRemediations
+	db               *database.DB
+	records          reviewStore
+	authority        operationAuthority
+	source           Source
 }
 
 func (s *Service) require(ctx context.Context, p permission) (string, error) {

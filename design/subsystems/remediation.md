@@ -42,3 +42,19 @@ See [quality](quality.md) for the evaluation-to-remediation sequence and the
 - [internal/apptown/remediation/attempt_store.go](../../internal/apptown/remediation/attempt_store.go)
 - [internal/apptown/remediation/outcome_store.go](../../internal/apptown/remediation/outcome_store.go)
 - [internal/apptown/remediation/verify.go](../../internal/apptown/remediation/verify.go)
+
+### Findings already being fixed
+
+An open remediation Change covers each of its acceptance checks by project,
+block, version and check name. Coverage ends when the Change lands or is
+abandoned. Pausing or cancelling a remediation job does not end its Change's
+coverage.
+
+Conformance keeps covered findings visible with a link saying “being fixed in
+change #N”. The Fix count and remediation preview exclude them. Starting a job
+queues only uncovered findings, in the existing order. If every selected finding
+is covered, the request is refused with the open Change's number.
+
+Work checks coverage under the existing project lock when creating a remediation
+Change. Both single-finding actions and queued attempts use that transaction, so
+concurrent starts cannot create two open Changes for the same finding.

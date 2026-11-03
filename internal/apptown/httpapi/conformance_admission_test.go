@@ -34,7 +34,7 @@ func TestConformanceReviewHTTPValidatesBeforeAdmittingAndPreservesScope(t *testi
 	db := databaseSuite.New(t)
 	pid, _ := confirmationHTTPProject(t, db, "reviewed")
 	confirmationHTTPProject(t, db, "elsewhere")
-	checks := conformance.New(db, confirmationHTTPAuthority{}, confirmationHTTPSource{}, nil)
+	checks := conformance.New(db, confirmationHTTPAuthority{}, confirmationHTTPSource{}, nil, nil)
 	fleet := &admittedHTTPReview{checks: checks}
 	h := NewConformanceReviews(project.New(db, nil), fleet)
 	ctx := confirmationHTTPContext(t, db)

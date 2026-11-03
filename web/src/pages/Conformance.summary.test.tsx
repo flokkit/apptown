@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import Conformance from './Conformance'
 vi.mock('../data', () => ({
   useGet: (path: string) => ({ data: path === '/conformance' ? {
-    lens: { kind: 'current' }, reviews: [], projects: [],
+    openRemediations: [], byProject: {}, lens: { kind: 'current' }, reviews: [], projects: [],
     summary: { findings: 0, flagged: 0, incompleteProjects: 1, byStanding: { 'review-broken': 1 } },
   } : null, reload: () => {}, current: true }),
   useAction: () => ({ run: () => {}, busy: false, err: '' }),

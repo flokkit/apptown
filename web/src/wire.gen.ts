@@ -377,6 +377,7 @@ export type ConformanceReviewList = {
 }
 
 export type ConformanceView = {
+  openRemediations: RemediationCoverage[]
   lens: LensInfo
   projects: ProjectStanding[]
   byProject: Record<string, ConformanceObservation[]>
@@ -2675,6 +2676,15 @@ export type ReviewSummary = {
   judged: number
   total: number
   delta?: ReviewDelta | null
+}
+
+export type RemediationCoverage = {
+  projectId: string | null
+  changeId: string | null
+  number: number
+  block: string
+  version: number
+  check: string
 }
 
 export type LensInfo = {

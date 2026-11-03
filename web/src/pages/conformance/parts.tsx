@@ -270,3 +270,15 @@ export function useStartRemediation() {
   }
   return { start, busy, err }
 }
+
+export function coveringChange(view: ConformanceView, v: Verdict) {
+  return view.openRemediations.find(c => c.projectId === v.projectId && c.block === v.block && c.version === v.version && c.check === v.check)
+}
+
+export function fixableFindings(view: ConformanceView, vs: Verdict[]) {
+  return vs.filter(v => laneOf(v) === 'findings' && !coveringChange(view, v)).length
+}
+
+export function BeingFixed({ change }: { change: ConformanceView['openRemediations'][number] }) {
+  return <span className="muted small">being fixed in <Link to={`/changes/${change.changeId}`}>change #{change.number}</Link></span>
+}

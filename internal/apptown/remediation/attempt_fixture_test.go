@@ -167,7 +167,7 @@ func (f *attemptScenario) eventCount(t *testing.T, runID ids.ID, kind string) in
 
 func (f *attemptScenario) job(t *testing.T, concurrency int, projects ...ids.ID) []Item {
 	t.Helper()
-	checks := conformance.New(f.db, reconcileActor{}, attemptChecks{}, nil)
+	checks := conformance.New(f.db, reconcileActor{}, attemptChecks{}, nil, nil)
 	e, err := checks.BeginReview(f.ctx, conformance.ReviewRequest{Trigger: "manual", Projects: projects})
 	if err != nil {
 		t.Fatal(err)

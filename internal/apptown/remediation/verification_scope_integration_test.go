@@ -15,7 +15,7 @@ func TestConformanceRemediationMandateCannotChangeProjectOrObservation(t *testin
 	f, outcomes, item, _ := outcomeFixture(t)
 	f.moveChange(t, item, workflow.ShipChange)
 	item = f.outcome(t, item, Outcome{Kind: "landed"})
-	checks := conformance.New(f.db, reconcileActor{}, attemptChecks{}, nil)
+	checks := conformance.New(f.db, reconcileActor{}, attemptChecks{}, nil, nil)
 	service := New(f.db, Dependencies{Work: f.work, Caller: f.ctx, Checks: checks})
 	reviews := func() int {
 		t.Helper()

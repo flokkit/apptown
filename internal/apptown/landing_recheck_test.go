@@ -66,7 +66,7 @@ func landingRemediationFixture(t *testing.T, a *App, source *workflow.Run) (work
 	if err := project.New(a.DB, nil).SetDefaultBranch(ctx, source.ProjectID, "main"); err != nil {
 		t.Fatalf("set review source branch: %v", err)
 	}
-	checks := conformance.New(a.DB, testActor{}, remediationFixtureChecks{}, nil)
+	checks := conformance.New(a.DB, testActor{}, remediationFixtureChecks{}, nil, nil)
 	review, err := checks.BeginReview(ctx, conformance.ReviewRequest{Trigger: "landing retry fixture", Projects: []ids.ID{source.ProjectID}})
 	if err != nil {
 		t.Fatalf("begin review: %v", err)

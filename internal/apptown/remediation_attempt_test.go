@@ -35,7 +35,7 @@ func remediationAttemptFixture(t *testing.T, previous bool) (*App, remediation.A
 	}
 	testAccounts(t, a.DB, "alice")
 	ctx := asPerson("alice")
-	checks := conformance.New(a.DB, testActor{}, remediationFixtureChecks{}, nil)
+	checks := conformance.New(a.DB, testActor{}, remediationFixtureChecks{}, nil, nil)
 	review, err := checks.BeginReview(ctx, conformance.ReviewRequest{Trigger: "manual", Projects: []ids.ID{projectID}})
 	if err != nil {
 		t.Fatal(err)

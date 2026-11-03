@@ -40,7 +40,7 @@ func TestAStoppedPassStartsNoQueuedWork(t *testing.T) {
 	entered, release := make(chan struct{}), make(chan struct{})
 	var releaseOnce sync.Once
 	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
-	service := New(f.db, Dependencies{Work: f.work, Caller: f.ctx, Checks: conformance.New(f.db, reconcileActor{}, attemptChecks{}, nil),
+	service := New(f.db, Dependencies{Work: f.work, Caller: f.ctx, Checks: conformance.New(f.db, reconcileActor{}, attemptChecks{}, nil, nil),
 		Review: func(context.Context, Item, VerificationScope) Review {
 			close(entered)
 			<-release
@@ -73,7 +73,7 @@ func TestACoolingPoolStartsNothing(t *testing.T) {
 	t.Parallel()
 	f, _, _, _ := outcomeFixture(t)
 	queued := f.job(t, 0, f.project(t, "queued"))[0]
-	service := New(f.db, Dependencies{Work: f.work, Caller: f.ctx, Checks: conformance.New(f.db, reconcileActor{}, attemptChecks{}, nil),
+	service := New(f.db, Dependencies{Work: f.work, Caller: f.ctx, Checks: conformance.New(f.db, reconcileActor{}, attemptChecks{}, nil, nil),
 		Resolve: func(context.Context, Item, VerificationScope) (StartDefinition, error) {
 			t.Error("a cooling pool offered queued work")
 			return StartDefinition{}, dbtest.ErrInjectedFailure

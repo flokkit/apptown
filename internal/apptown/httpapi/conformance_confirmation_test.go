@@ -122,7 +122,7 @@ func TestConfirmationHTTPDistinguishesCommandErrors(t *testing.T) {
 	db := databaseSuite.New(t)
 	projectID, slug := confirmationHTTPProject(t, db, "reviewed")
 	projects := project.New(db, nil)
-	service := conformance.New(db, confirmationHTTPAuthority{}, confirmationHTTPSource{}, nil)
+	service := conformance.New(db, confirmationHTTPAuthority{}, confirmationHTTPSource{}, nil, nil)
 	ctx := confirmationHTTPContext(t, db)
 	flagged := confirmationHTTPVerdict(t, service, ctx, projectID, slug, conformance.DoesNotConform)
 	handler := NewConformance(service, projects, nil)

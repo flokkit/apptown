@@ -251,7 +251,11 @@ func TestReviewExceptionSnapshotRejectsSuppressedRows(t *testing.T) {
 }
 
 func newServiceWithAuthority(db *database.DB, authority operationAuthority, source Source) *Service {
-	s := New(db, nil, source, nil)
+	s := New(db, nil, source, nil, noOpenRemediations)
 	s.authority = authority
 	return s
+}
+
+func noOpenRemediations(context.Context, []ids.ID) ([]RemediationCoverage, error) {
+	return []RemediationCoverage{}, nil
 }
