@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/attention"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
+	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
@@ -284,6 +285,10 @@ func TestInfrastructureScheduleChecksAllTargetsWithoutReaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := integration.NewWithClock(a.DB, a.cfg.clock.Now).Upsert(t.Context(), "hourly-registry", integration.CapRegistry, "registry", `{"format":"npm","url":"https://packages.invalid"}`, false); err != nil {
+		t.Fatal(err)
+	}
+	beforeHealth := len(operationJobs(t, a, integration.HealthObservationJob))
 	before := f.Snapshot().ListRequests
 	if err := infrastructureChecksFor(a).request(t.Context()); err != nil {
 		t.Fatal(err)
@@ -307,8 +312,39 @@ func TestInfrastructureScheduleChecksAllTargetsWithoutReaders(t *testing.T) {
 	if len(operationJobs(t, a, diskObservationJob)) != 1 || len(operationJobs(t, a, deployment.CapacityObservationJob)) != len(targets) {
 		t.Fatal("periodic pass omitted disk checks")
 	}
+	if len(operationJobs(t, a, "protection-observation")) != 0 {
+		t.Fatal("five-minute pass requested protection")
+	}
+	if len(operationJobs(t, a, deployment.DetailObservationJob)) != 1 {
+		t.Fatal("five-minute pass omitted deployment detail")
+	}
+	bindings, err := a.Integrations.Bindings.All(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := infrastructureChecksFor(a).Run(t.Context(), "", nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(operationJobs(t, a, integration.HealthObservationJob)) != beforeHealth {
+		t.Fatal("five-minute pass requested integration health")
+	}
+	runQueuedJobForTest(t, a, hourlyInfrastructureCheckJob, passScheduledKey)
 	if len(operationJobs(t, a, "protection-observation")) != 1 {
-		t.Fatal("periodic pass omitted protection observations")
+		t.Fatal("hourly pass omitted protection")
+	}
+	for _, b := range bindings {
+		if !b.HasAutomaticCheck() {
+			continue
+		}
+		found := false
+		for _, row := range operationJobs(t, a, integration.HealthObservationJob) {
+			if row.Key == b.HealthObservationKey() && row.State == "available" {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("hourly pass omitted health for %s", b.Name)
+		}
 	}
 	if f.Snapshot().ListRequests != before {
 		t.Fatal("scheduler performed provider IO")
@@ -326,6 +362,19 @@ func TestInfrastructureScheduleChecksAllTargetsWithoutReaders(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("background schedule missing")
+	}
+	found = false
+	for _, schedule := range apptownJobSchedules() {
+		if schedule.Operation == hourlyInfrastructureCheckJob {
+			found = true
+			at := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
+			if schedule.When.Next(at).Sub(at) != time.Hour {
+				t.Fatal("hourly schedule is not one hour")
+			}
+		}
+	}
+	if !found {
+		t.Fatal("hourly schedule missing")
 	}
 }
 

@@ -57,8 +57,8 @@ Those actions enforce their own current permissions. Global items contain safe
 summaries, not provider errors, credentials, logs or storage paths.
 
 Integration readings come from the integration owner. Kinds with automatic
-checks are collected by jobs every five minutes. Attention never calls a
-provider. An unused connection without configuration is not set up; partial
+checks are collected by jobs every hour and requested when a connection is saved.
+Attention never calls a provider. An unused connection without configuration is not set up; partial
 configuration or a required missing connection is failed. Only integrations
 with a background check whose latest result failed contribute a row. Evidence
 past its six-hour shelf life contributes a not-known row; pending first checks
@@ -92,8 +92,10 @@ and App checks. Unknown coverage names its resource, reason and next step.
 ## Observation lifecycle
 
 The read path uses local records and recorded owner observations. Inventory,
-capacity, controller/worker disks and protection observations are collected by
-durable jobs every five minutes, including while nobody reads the pages.
+capacity, deployment detail and controller/worker disks are collected by durable
+jobs every five minutes, including while nobody reads the pages. Protection and
+connection health are collected hourly. Settled backup attempts request fresh
+protection readings, whether they succeed or fail.
 Startup queues the first pass. Readers never request these checks or contact
 providers. After an act, AppTown queues deployment detail and protection for
 every standing deployment on the target, and the target's capacity. Provider
@@ -105,8 +107,10 @@ Invalidation alone does not create a resources-not-known item.
 Owners persist successful readings and failed attempts in their databases.
 Restarting AppTown does not create a pending first check. Failed checks retain
 successful evidence and its original time. Live evidence older than fifteen
-minutes shows its age; an Attention item is raised only when the latest check
-failed, naming that check and its safe reason. An old successful reading without
+minutes shows its age; protection and connection health stay current for
+seventy-five minutes to allow an hourly check plus scheduling slack. An Attention
+item is raised only when the latest check failed, naming that check and its safe
+reason. An old successful reading without
 a failed check raises nothing until it becomes unknown after six hours. Machine
 size expires after seven days. Unknown remains distinct from an old known value
 and from a successful empty answer. Pending first checks contribute unknown
@@ -115,7 +119,7 @@ public display name, or their name when no display name is set. A first check
 says backups have not been checked yet. Failed attempts retain their safe reason
 and last attempt time; the page distinguishes that time from a successful
 reading. Each failed reading records its own cause and next step; the
-five-minute background schedule is named only where trying again can help.
+background schedule is named only where trying again can help.
 
 Inventory retains witnessed missing claims with the stored observation, filtered
 against the currently recorded subject identity. Native backup evidence retains

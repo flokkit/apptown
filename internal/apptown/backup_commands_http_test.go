@@ -10,12 +10,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/apptown/attention"
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/deploy"
@@ -94,6 +96,26 @@ func TestBackupHTTPCommandsRequireAuthorityAndConfirmedScopedRestore(t *testing.
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &taken); err != nil || w.Code != 200 || !taken.OK || taken.Backup.ID.IsZero() || taken.Backup.ProjectID != idstest.N(1) || taken.Backup.Actor != "boss" || taken.Backup.Trigger != "manual" || taken.Backup.Status != dataprotection.BackupOK {
 		t.Fatalf("backup receipt: %d %s %v", w.Code, w.Body.String(), err)
+	}
+	foundProtection := false
+	for _, row := range operationJobs(t, a, dataprotection.ProtectionObservationJob) {
+		if strings.HasPrefix(row.Key, dep.ID.String()+"/") && row.State == "available" {
+			foundProtection = true
+		}
+	}
+	if !foundProtection {
+		t.Fatal("settled backup did not request its deployment's protection reading")
+	}
+	for _, row := range operationJobs(t, a, dataprotection.ProtectionObservationJob) {
+		if strings.HasPrefix(row.Key, dep.ID.String()+"/") {
+			runQueuedJobForTest(t, a, dataprotection.ProtectionObservationJob, row.Key)
+		}
+	}
+	moveClock(a, 50*time.Minute)
+	snapshot, err := (attention.Protection{Projects: a.Projects, Deployments: a.deployments, Observer: a.protectionObserver, Now: a.cfg.clock.Now}).ProjectSnapshot(t.Context(), idstest.N(1))
+	moveClock(a, -50*time.Minute)
+	if err != nil || !snapshot.Known || snapshot.Stale {
+		t.Fatalf("50-minute backup reading is not current: %+v %v", snapshot, err)
 	}
 	source := taken.Backup.ID
 	path := fmt.Sprintf("%s/%d/restore", base, source)

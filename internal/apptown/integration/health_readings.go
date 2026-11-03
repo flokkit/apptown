@@ -88,7 +88,7 @@ func (s *Service) saveHealth(ctx context.Context, b Binding, h Health) error {
 }
 
 // RecordedHealth is the sole reading used by the integration list and Attention.
-// Results older than fifteen minutes show their age. Automatic results expire
+// Results older than seventy-five minutes show their age. Automatic results expire
 // after six hours, including explicit tests. Kinds without an automatic
 // check supply no Attention coverage.
 func (s *Service) RecordedHealth(ctx context.Context, name string) (Health, error) {
@@ -128,7 +128,7 @@ func (s *Service) RecordedHealth(ctx context.Context, name string) (Health, erro
 	at, err := time.Parse(time.RFC3339, h.CheckedAt)
 	if err == nil {
 		age := s.now().Sub(at)
-		h.Stale = age > 15*time.Minute
+		h.Stale = age > 75*time.Minute
 		if automatic && age > 6*time.Hour {
 			h.StateLabel = HealthUnknown
 			h.Expired = true

@@ -24,7 +24,7 @@ func TestProtectionObservationKeepsUnknownRehearsalDistinctFromFailure(t *testin
 }
 
 // A failed assessment retains the evidence it could not renew, with the latest
-// attempt and a safe reason. Age marks evidence stale after fifteen minutes and unknown after six hours.
+// attempt and a safe reason. Age marks evidence stale after seventy-five minutes and unknown after six hours.
 func TestProtectionFailureExplainsRetainedEvidenceAndRecovery(t *testing.T) {
 	at := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
 	now := at
@@ -76,7 +76,7 @@ func TestProtectionFailureExplainsRetainedEvidenceAndRecovery(t *testing.T) {
 	}
 	readErr = nil
 	_ = run()
-	now = now.Add(30 * time.Minute)
+	now = now.Add(76 * time.Minute)
 	got, _ = observer.Snapshot(t.Context(), dep.ID)
 	if got.Unknown || !got.Stale || got.Reason != "" {
 		t.Fatalf("overdue evidence claimed known: %+v", got)
@@ -115,9 +115,9 @@ func TestProtectionReadingSurvivesRestartAndBecomesUnknownAfterSixHours(t *testi
 		t.Fatal(err)
 	}
 	restarted := &ProtectionObserver{db: db, now: func() time.Time { return now }, resolve: resolve}
-	now = first.Add(30 * time.Minute)
+	now = first.Add(50 * time.Minute)
 	got, err := restarted.Snapshot(t.Context(), dep.ID)
-	if err != nil || got.Unknown || !got.Stale || got.ObservedAt != first {
+	if err != nil || got.Unknown || got.Stale || got.ObservedAt != first {
 		t.Fatalf("restart: %+v %v", got, err)
 	}
 	now = first.Add(6*time.Hour + time.Second)
@@ -207,7 +207,7 @@ func TestProtectionDataFailureRecordsCauseAndUsefulAction(t *testing.T) {
 		reason, action string
 	}{
 		{"unclassified", errors.New("private volume and provider secret"), "The deployment's data could not be read.", "Open deployment settings to check the deployment."},
-		{"inventory", errors.Join(errDataNotKnown, errDataInventoryUnavailable), "AppTown could not read what this deployment holds.", "The background check will try again in five minutes."},
+		{"inventory", errors.Join(errDataNotKnown, errDataInventoryUnavailable), "AppTown could not read what this deployment holds.", "The background check will try again within an hour."},
 		{"absent", errHeldDataAbsent, "The data this deployment names is not on its host.", "Open deployment settings to check the deployment."},
 		{"contract", errContractUnreadable, "AppTown could not read this deployment's release contract.", "Open deployment settings to check the deployment."},
 		{"Docker access", deployment.ErrNoLocalDocker, "This AppTown has no local Docker access.", "Open deployment settings to check the deployment."},
@@ -371,5 +371,17 @@ func TestOldProtectionPayloadCannotOfferOperationsForTheNewGeneration(t *testing
 	snapshot, err := NewProtectionObserver(w.s.Service, nil).Snapshot(t.Context(), dep.ID)
 	if err != nil || len(snapshot.Items) != 0 {
 		t.Fatalf("old items became Attention evidence: %+v %v", snapshot, err)
+	}
+}
+
+func TestHourlyProtectionAndNativeReadingsStayCurrentWithSlack(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	reading := ProtectionSnapshot{ObservedAt: at, Items: []ProtectionItemObservation{{Native: true, NativeAt: at}}}
+	for _, age := range []time.Duration{50 * time.Minute, 65 * time.Minute, 76 * time.Minute, 6*time.Hour + time.Second} {
+		got := protectionSnapshotAt(reading, at.Add(age))
+		if got.Stale != (age > 75*time.Minute) || got.Unknown != (age > 6*time.Hour) {
+			t.Fatalf("age %s: %+v", age, got)
+		}
 	}
 }

@@ -88,7 +88,7 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 		}
 		nextStep := reading.NextStep
 		if pending {
-			nextStep = "AppTown schedules a background check every five minutes."
+			nextStep = "AppTown schedules a background check every hour."
 		} else if readErr != nil {
 			nextStep = "Reload the page to try reading the recorded backup check again."
 		} else if nextStep == "" {

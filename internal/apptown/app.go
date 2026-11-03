@@ -310,7 +310,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.Secrets = secret.NewService(db, secret.Config{DataDir: cfg.dataDir, Client: input.SecretsHTTPClient, Now: cfg.clock.Now})
 	a.repositoryAttachments = scm.NewRepositoryAttachments(db, scm.AttachmentDependencies{Projects: a.Projects, Authority: access.Checked{Authority: identity.Scoped(a.Access, "scm"), Projects: a.Projects}, Provider: repositoryProvider{bindings: integration.NewWithClock(db, cfg.clock.Now), secrets: a.Secrets}, Locks: &a.repositories, DataDir: cfg.dataDir, Now: cfg.clock.Now})
 	a.Dependencies = dependency.NewCatalog(db, cfg.clock.Now)
-	a.Integrations = integration.NewService(db, integration.Dependencies{Kinds: a.Dependencies, Projects: a.Projects, Secrets: a.Secrets, SCMRepositories: scmRepositoryTokens{a.repositoryAttachments}, Now: cfg.clock.Now})
+	a.Integrations = integration.NewService(db, integration.Dependencies{Jobs: jobQueue{}, Kinds: a.Dependencies, Projects: a.Projects, Secrets: a.Secrets, SCMRepositories: scmRepositoryTokens{a.repositoryAttachments}, Now: cfg.clock.Now})
 	a.workshop = agentenv.NewWorkshop(&a.docker, a.Integrations, &a.progress, cfg.dataDir, cfg.agentImage, images.PrivateDocker, cfg.clock.Now)
 	a.workshop.Limits = cfg.taskLimits
 	a.Usage = usage.NewService(db, access.Checked{Authority: identity.Scoped(a.Access, "usage"), Projects: a.Projects}, cfg.clock.Now)

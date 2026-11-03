@@ -21,6 +21,10 @@
 // bindings within the caller's transaction. [Attachments.Detach] removes the record
 // without deprovisioning the provider resource.
 //
+// Saved connections queue a health check with their configuration and receipt.
+// TestSaved records the same check immediately. Automatic checks also run hourly;
+// results stay current for seventy-five minutes and expire after six hours.
+//
 // # Service kinds and contributions
 //
 // [ParseDefinition] validates a YAML service kind: connector/resource fields,

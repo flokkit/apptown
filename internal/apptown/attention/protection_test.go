@@ -158,9 +158,9 @@ func TestProtectionCoverageWords(t *testing.T) {
 		reading     dataprotection.ProtectionSnapshot
 		want        string
 	}{
-		{"first", "Office", nil, "AppTown schedules a background check every five minutes.", dataprotection.ProtectionSnapshot{Unknown: true, Stale: true}, "Office: Backups have not been checked yet."},
+		{"first", "Office", nil, "AppTown schedules a background check every hour.", dataprotection.ProtectionSnapshot{Unknown: true, Stale: true}, "Office: Backups have not been checked yet."},
 		{"failed", "Office", nil, "Open deployment settings to check the deployment.", dataprotection.ProtectionSnapshot{Unknown: true, Stale: true, AttemptedAt: at, Reason: "The protection check timed out."}, "Office: The protection check timed out."},
-		{"fallback name", "", nil, "AppTown schedules a background check every five minutes.", dataprotection.ProtectionSnapshot{Unknown: true, Stale: true}, "internal-name: Backups have not been checked yet."},
+		{"fallback name", "", nil, "AppTown schedules a background check every hour.", dataprotection.ProtectionSnapshot{Unknown: true, Stale: true}, "internal-name: Backups have not been checked yet."},
 		{"changed", "Office", nil, "Open deployment settings to check the deployment.", dataprotection.ProtectionSnapshot{Unknown: true, Stale: true, ObservedAt: at, AttemptedAt: at, Reason: "The deployment changed. Waiting for a protection check."}, "Office: The deployment changed. Waiting for a protection check."},
 		{"recorded check unreadable", "Office", errors.New("private database details"), "Reload the page to try reading the recorded backup check again.", dataprotection.ProtectionSnapshot{Unknown: true}, "Office: The recorded backup check could not be read."},
 		{"absent", "Office", nil, "Open deployment settings to check the deployment.", dataprotection.ProtectionSnapshot{Unknown: true, AttemptedAt: at, Reason: "The data this deployment names is not on its host.", NextStep: "Open deployment settings to check the deployment."}, "Office: The data this deployment names is not on its host."},
