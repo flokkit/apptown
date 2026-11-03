@@ -29,3 +29,4 @@ deploy/memory-declared says how to choose and check it.
 
 Declare `test: ["go test ./..."]` on the part in `.apptown/app.yaml`.
 Include commands for every suite, including a frontend below the part’s folder.
+Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).

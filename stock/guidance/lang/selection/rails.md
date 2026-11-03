@@ -73,6 +73,7 @@ the front-door lines below.
   app exists; the change that writes the app uncomments it and declares
   `test: ["make test"]` on the part in `.apptown/app.yaml` (the landing's tests
   step fails for a part built with ruby while it declares no tests).
+  Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).
 - `Gemfile.lock` is committed and agrees with the `Gemfile` (run `bundle lock`
   after changing it). `.gitignore` names `tmp/` and `log/`.
 

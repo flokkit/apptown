@@ -37,4 +37,5 @@ catalog:
         2. mise.toml / .mise.toml: set the go tool version to {{goVersion}} if the file exists.
         3. Dockerfiles and CI configs: update any golang:<version> image references to {{goVersion}}.
         4. Run a full build and each part’s declared `test:` commands with the new toolchain; fix anything the version bump itself broke (vet/deprecation errors), and NOTHING else. gofmt output changes from the new toolchain are fine and expected — apply them.
+        Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).
         This is a toolchain move, not a refactor, and it must not change what the program IS: a CLI stays a CLI — do not add servers, serve modes, new entry points, or runtime-contract (.apptown/app.yaml) changes. Never edit AppTown-written files (.apptown/steering.md, .apptown/REPORT.md). If the target toolchain is not installable or tests fail for reasons unrelated to the bump, STOP and report the blocker rather than working around it.

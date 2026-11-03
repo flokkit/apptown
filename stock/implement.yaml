@@ -31,7 +31,9 @@ spec:
             timeoutMinutes: 40
             prompt: |
               Before finishing, run each part’s declared `test:` commands in its folder,
-              then commit your changes. Run `apptown check` and
+              then commit your changes.
+              Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).
+              Run `apptown check` and
               fix introduced failures and this change's acceptance checks.
               Run `apptown dev up` and open the pages this change touches.
               Say in your report what ran and what came back. Report
@@ -118,7 +120,9 @@ spec:
             timeoutMinutes: 25
             prompt: |
               Before finishing, run each part’s declared `test:` commands in its folder,
-              then commit your changes. Run `apptown check` and
+              then commit your changes.
+              Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).
+              Run `apptown check` and
               fix introduced failures and this change's acceptance checks.
               Run `apptown dev up` and open the pages this change touches.
               Say in your report what ran and what came back. Report

@@ -7,24 +7,23 @@ A browser UI is TypeScript and React, built with Vite and tested with
 Vitest. No server-side-rendering framework until search ranking or first
 paint at scale demands it.
 
-**The scripts in package.json are the declaration.** Keep these four, with
-these names; the Dockerfile, the checks and the README run them:
+**package.json scripts.** Dockerfile, checks and README use:
 
     "dev":     "vite"
     "build":   "tsc --noEmit && vite build"
     "test":    "vitest run"
     "preview": "vite preview --host 0.0.0.0 --port 8080"
 
-`tsconfig.json` keeps `"strict": true`. The checks `builds` and
-`tests-pass` run `npm ci` and these scripts on every change.
+`tsconfig.json` keeps `"strict": true`; `builds` and `tests-pass` run
+`npm ci` and the scripts on every change.
 
 In `.apptown/app.yaml`, declare
-`test: ["npm ci --no-audit --no-fund && npm test"]` on the part, even if static.
+`test: ["npm ci && npm test"]` on each part, including static.
+Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).
 
-**Tests.** Put the app's rules (calculations, parsing, what a saved value
-means) in plain modules and test them with Vitest beside the code
-(`src/thing.test.ts`). Every change that alters behaviour adds or updates a
-test. Add `jsdom` only when logic lives in the DOM.
+**Tests.** Test app rules in plain modules with Vitest beside the code
+(`src/thing.test.ts`); update tests for every behaviour change.
+Use `jsdom` only for DOM logic.
 
 **Dependencies.** A few npm libraries where they do something hard (dates,
 charts); each adds to every visitor's download, so prefer the platform

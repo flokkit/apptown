@@ -55,6 +55,7 @@ Commit `package-lock.json`; add one test that hits the API, and give the
 root package a `test` script that runs every workspace's tests: the
 part declares `test: ["npm ci --no-audit --no-fund && npm test"]` in
 `.apptown/app.yaml`. Include every workspace’s suite.
+Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).
 
 Build output stays out of git: `.gitignore` names `node_modules/` and
 `dist/`, so an install or a build can never be committed by accident.
