@@ -1190,7 +1190,9 @@ a.btn.primary:hover { background: var(--accent-hover); border-color: var(--accen
     background:
       linear-gradient(to top, var(--ground), transparent) center bottom / 100% 24px no-repeat local,
       radial-gradient(farthest-side at 50% 100%, var(--scroll-shade), transparent) center bottom / 100% 12px no-repeat scroll; }
-  .chat-input textarea { min-height: 64px; }
+  /* The input starts one line high and grows with what is typed (up to a
+     third of the screen), so the conversation keeps the room. */
+  .chat-input textarea { min-height: 44px; field-sizing: content; max-height: 33dvh; }
   /* The change's verbs are one compact row; Check and land keeps its
      green and the row's end. */
   /* On a phone the two verbs are a plain row: no panel around them. */
@@ -1710,7 +1712,7 @@ button.chat-starter { border-radius: var(--radius-sm); }
 .tab-strip { min-width: 0; position: relative; }
 .tab-strip .tabs { flex-wrap: nowrap; overflow-x: auto; scroll-padding: 12px; }
 .tab-strip.more-tabs::after { content: ''; position: absolute; right: 0; top: 0; bottom: 16px; width: 12px; pointer-events: none; background: linear-gradient(to right, transparent, var(--bg)); }
-.attention-lights { gap: 4px; }
+.attention-lights { gap: 4px; flex-wrap: nowrap; flex-shrink: 0; }
 .attention-light { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; color: var(--bad); background: var(--bad-bg, transparent); }
 .attention-light.low { color: var(--warn, #b7791f); background: var(--warn-bg, transparent); }
 .attention-light.off { color: var(--faint); background: transparent; }
@@ -1795,6 +1797,9 @@ button.link.danger { color: var(--bad); }
   .project-action .btn { padding: 8px 10px; font-size: var(--fs-sm); }
   .list-table, .list-table tbody, .list-table-row, .list-table-row > td { display: block; width: 100%; }
   .topbar { gap: 6px; padding-inline: 8px; }
+  /* The four lights stay one row beside the logo on a phone. */
+  .attention-lights { gap: 0; }
+  .attention-light { width: 26px; height: 26px; }
   .topbar > .account-menu { flex-shrink: 0; }
   .topbar > .account-menu:last-child { min-width: 44px; max-width: 76px; flex-shrink: 1; }
   .topbar .account-menu > summary { min-height: 44px; line-height: 36px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

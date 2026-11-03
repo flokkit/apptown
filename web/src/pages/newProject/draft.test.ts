@@ -69,8 +69,8 @@ describe('the new-project draft', () => {
 describe('description-first project identity', () => {
   it('proposes a usable name without a model and preserves explicit choices', () => {
     let d = play(newDraft(), { type: 'describe', description: 'Lunch orders for the office' })
-    expect(d.name).toBe('Lunch orders for the office')
-    expect(slugOf(d)).toBe('lunch-orders-for-the-office')
+    expect(d.name).toBe('Lunch orders')
+    expect(slugOf(d)).toBe('lunch-orders')
     d = play(d, { type: 'name', name: 'Our kitchen' }, { type: 'address', address: 'kitchen' },
       { type: 'describe', description: 'Dinner orders instead' })
     expect(d.name).toBe('Our kitchen')
