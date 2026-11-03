@@ -15,7 +15,7 @@ Two pieces: PROVIDERS (inference backends agents can reach) and SLOTS
 
 Integrations → Model providers. Two kinds:
 
-- **Built-in pi providers** (OpenRouter, Anthropic): set the credential
+- **Built-in pi providers** (OpenRouter, Anthropic, OpenAI): set the credential
   as a secret reference (never a pasted value); for OpenRouter, curate
   the enabled models from its live catalog — only curated models appear
   in slot selectors.
@@ -24,6 +24,15 @@ Integrations → Model providers. Two kinds:
   GENERATES pi's config per container from the binding — including
   live-discovering what the endpoint currently serves, so swapping
   models on the box needs no binding edit.
+
+For **OpenAI**, keep the binding name `openai`. Add your key to instance
+secrets as `OPENAI_API_KEY` and keep that reference in Provider credentials.
+Test connection asks OpenAI for its models and fails if the key is refused.
+Browse the provider catalog to select models, or leave Enabled models empty
+to offer the live list in slot selectors. The default is
+`openai/gpt-5.6-luna`; slots can use `openai/gpt-5.6-terra` or
+`openai/gpt-5.6-sol` when OpenAI lists them for your key. AppTown sends
+requests to `https://api.openai.com/v1` using the Responses API.
 
 Provider credentials stay on AppTown. Pi and its delegates use their AppTown
 session token through the private inference proxy. The curated model list is

@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/inference"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/clock"
@@ -27,6 +30,7 @@ type connectorHealth struct {
 	deployment   *deployment.Service
 	providers    *deployment.Providers
 	integrations *integration.Service
+	inference    *inference.Catalog
 	agentImage   string
 	// With no local Docker, the worker answers for the agent image and
 	// pulls a scanner's image.
@@ -36,7 +40,7 @@ type connectorHealth struct {
 }
 
 func connectorHealthFor(a *App) connectorHealth {
-	return connectorHealth{secrets: a.Secrets, docker: &a.docker, deployment: a.Deployment, providers: a.targetProviders, integrations: a.Integrations, agentImage: a.cfg.agentImage,
+	return connectorHealth{secrets: a.Secrets, docker: &a.docker, deployment: a.Deployment, providers: a.targetProviders, integrations: a.Integrations, inference: a.providers, agentImage: a.cfg.agentImage,
 		worker: a.cfg.worker, images: checksFor(a).Image, now: a.cfg.clock.Now}
 }
 
@@ -170,7 +174,20 @@ func (h connectorHealth) test(ctx context.Context, capability, provider string, 
 		image, _ := config["image"].(string)
 		return verification.TestScannerImage(ctx, image, h.docker, h.images), true
 	case integration.CapModel:
-		return h.integrations.TestModelBinding(ctx, config), true
+		credentials := h.integrations.TestModelBinding(ctx, config)
+		if !credentials.OK {
+			return credentials, true
+		}
+		model, _ := config["model"].(string)
+		name, _, _ := strings.Cut(model, "/")
+		if name == "openai" {
+			ids, err := h.inference.Discover(ctx, name, config)
+			if err != nil {
+				return integration.Health{Detail: err.Error()}, true
+			}
+			return integration.Health{OK: true, Detail: fmt.Sprintf("OpenAI listed %d models", len(ids))}, true
+		}
+		return credentials, true
 	}
 	return integration.Health{}, false
 }
