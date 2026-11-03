@@ -14,7 +14,7 @@ import (
 // A failed catalogue read is not an absent kind: tests cannot claim
 // success after AppTown fails to read the setting they declared.
 func TestACatalogueReadFailureCannotBecomePassingTests(t *testing.T) {
-	f, ch, folder := testsWorld(t, map[string]any{"command": "make test"})
+	f, ch, folder := declaredTestsWorld(t, "make test")
 	if _, _, err := dependency.NewCatalog(f.db, nil).SyncStock(t.Context(), stock.FS, "dependencies"); err != nil {
 		t.Fatal(err)
 	}

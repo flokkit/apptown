@@ -35,8 +35,7 @@ import (
 // which executor AppTown chooses (the worker's, or this machine's) is the
 // composition root's (TestATestsStepRunsOnTheWorker). A landing's tests,
 // which need the landing's pinned candidate, are root journeys too
-// (TestALandingTestsItsCandidateWithoutItsFolder); a failure's base rerun
-// is asked on a working lane here as well.
+// (TestALandingTestsItsCandidateWithoutItsFolder).
 
 // testsWorld is a change whose working lane has one tests step, and its
 // folder with a first commit.
@@ -47,6 +46,13 @@ func testsWorld(t *testing.T, with map[string]any) (*taskAppTown, *workflow.Chan
 	ch := f.beginChange(t)
 	folder := filepath.Join(f.dir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
 	writeMarker(t, folder, "folder")
+	return f, ch, folder
+}
+
+func declaredTestsWorld(t *testing.T, command string) (*taskAppTown, *workflow.Change, string) {
+	t.Helper()
+	f, ch, folder := testsWorld(t, nil)
+	commitAppDeclaration(t, folder, "app: {web: {build: ., public: true, test: ["+fmt.Sprintf("%q", command)+"]}}\n")
 	return f, ch, folder
 }
 
@@ -163,7 +169,7 @@ func stepEvidence(t *testing.T, step *workflow.Step) map[string]any {
 // and the branch when the folder is absent. The evidence names that commit.
 func TestATestsStepTestsTheWorkTheChangeSaved(t *testing.T) {
 	t.Parallel()
-	f, ch, folder := testsWorld(t, map[string]any{"command": "cat marker.txt"})
+	f, ch, folder := declaredTestsWorld(t, "cat marker.txt")
 	before := gittest.Run(t, folder, "rev-parse", "HEAD")
 	saved := writeMarker(t, folder, "saved")
 	// Fixture: the branch in the project's repository has the saved commit,
@@ -222,7 +228,7 @@ func TestATestsStepWithoutItsSourceIsAnError(t *testing.T) {
 // changes neither what they read nor the commit the evidence names.
 func TestATestsStepNamesTheCommitItSelected(t *testing.T) {
 	t.Parallel()
-	f, ch, folder := testsWorld(t, map[string]any{"command": "cat marker.txt"})
+	f, ch, folder := declaredTestsWorld(t, "cat marker.txt")
 	selected := gittest.Run(t, folder, "rev-parse", "HEAD")
 	seen := &markersSeen{answer: func(int, execution.Request) execution.Outcome {
 		writeMarker(t, folder, "moved") // the folder moves on during the run
@@ -252,7 +258,7 @@ func TestATestsRunWithoutAnAnswerIsAnError(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			f, ch, _ := testsWorld(t, map[string]any{"command": "cat marker.txt"})
+			f, ch, _ := declaredTestsWorld(t, "cat marker.txt")
 			seen := &markersSeen{answer: func(int, execution.Request) execution.Outcome { return out }}
 			f.checks = seen.run
 			step := f.execute(t, testsRun(t, f, ch), "tests")
@@ -270,42 +276,25 @@ func TestATestsRunWithoutAnAnswerIsAnError(t *testing.T) {
 	}
 }
 
-// After the change's own tests fail, the base is asked whether it fails
-// too. A base rerun that gives no answer is not known, and the change's own
-// witnessed failure stands; only a base witnessed failing carries.
-func TestABaseWithoutAnAnswerNeverCarriesAFailure(t *testing.T) {
+// A failing declaration remains a failure even where the base would fail too.
+func TestAFailureIsNeverExcusedByTheBase(t *testing.T) {
 	t.Parallel()
-	for name, base := range map[string]execution.Outcome{
-		"cleanup_failed": {Termination: execution.Exited, ExitCode: 1, CleanupErr: errors.New("left behind")},
-		"timed_out":      {Termination: execution.TimedOut, TimedOut: true, ExitCode: -1},
-		"out_of_memory":  {Termination: execution.OutOfMemory, ExitCode: -1},
-		"witnessed":      {Termination: execution.Exited, ExitCode: 1},
-	} {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			f, ch, _ := testsWorld(t, map[string]any{"command": "exit 1"})
-			seen := &markersSeen{answer: func(n int, _ execution.Request) execution.Outcome {
-				if n == 1 {
-					return execution.Outcome{Termination: execution.Exited, ExitCode: 1}
-				}
-				return base
-			}}
-			f.checks = seen.run
-			step := f.execute(t, testsRun(t, f, ch), "tests")
-			ev := stepEvidence(t, step)
-			if len(seen.all()) != 2 {
-				t.Fatalf("%s: the base was not asked: ran %d", name, len(seen.all()))
-			}
-			if name == "witnessed" {
-				if step.Status != workflow.StatusPass || ev["carried"] == nil {
-					t.Fatalf("a base witnessed failing: %s %s", step.Status, step.Evidence)
-				}
-				return
-			}
-			if step.Status != workflow.StatusFail || ev["carried"] != nil || ev["base"] == nil {
-				t.Fatalf("%s base: %s %s", name, step.Status, step.Evidence)
-			}
-		})
+	f, _ := newTaskAppTown(t, "check", schema.Spec{Kind: "pipeline", Role: "working",
+		Stages: []schema.Stage{{Name: "gates", Steps: []schema.Step{{Name: "tests", Uses: TestsKind}}}}})
+	hubCommit(t, f.hub, map[string]string{
+		".apptown/app.yaml": "app: {web: {build: ., public: true, test: [make test]}}",
+		"Makefile":          "test:\n\tfalse\n",
+	})
+	ch := f.beginChange(t)
+	folder := filepath.Join(f.dir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
+	writeMarker(t, folder, "changed")
+	seen := &markersSeen{answer: func(int, execution.Request) execution.Outcome {
+		return execution.Outcome{Termination: execution.Exited, ExitCode: 1}
+	}}
+	f.checks = seen.run
+	step := f.execute(t, testsRun(t, f, ch), "tests")
+	if step.Status != workflow.StatusFail || len(seen.all()) != 1 || stepEvidence(t, step)["carried"] != nil {
+		t.Fatalf("failure: %s %s, runs %d", step.Status, step.Evidence, len(seen.all()))
 	}
 }
 
@@ -326,7 +315,7 @@ func TestALostTestsAnswerIsAskedAgainAndRepeatsItsEffects(t *testing.T) {
 		}
 	}))
 	defer service.Close()
-	f, ch, _ := testsWorld(t, map[string]any{"command": "curl -sf -X POST " + service.URL + "/record"})
+	f, ch, _ := declaredTestsWorld(t, "curl -sf -X POST "+service.URL+"/record")
 	var calls atomic.Int32
 	f.checks = func(req execution.Request) execution.Outcome {
 		out := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{Argv: req.Argv, Workspace: req.Workspace, Timeout: time.Minute})
@@ -413,7 +402,7 @@ func TestARunWithoutAChangeTestsItsFolder(t *testing.T) {
 	}
 	seen := &markersSeen{}
 	f.checks = seen.run
-	run := f.admitRunWithoutAChange(t, pid, map[string]any{"command": "cat marker.txt"})
+	run := f.admitRunWithoutAChange(t, pid, nil)
 	if !run.ChangeID.IsZero() {
 		t.Fatalf("run %d belongs to change %d", run.ID, run.ChangeID)
 	}
@@ -421,6 +410,7 @@ func TestARunWithoutAChangeTestsItsFolder(t *testing.T) {
 	// then belongs to this run, rather than to a clone still on main.
 	f.prepareTestsRun(t, run)
 	folder := filepath.Join(f.dir, "workspaces", fmt.Sprintf("run-%d", run.ID))
+	commitAppDeclaration(t, folder, "app: {web: {build: ., public: true, test: [cat marker.txt]}}")
 	head := writeMarker(t, folder, "folder")
 	step := f.execute(t, run, "tests")
 	if ev := stepEvidence(t, step); step.Status != workflow.StatusPass || ev["commit"] != head || strings.Join(seen.all(), ",") != "folder" {
@@ -455,7 +445,7 @@ func TestATestsStepWithoutADefaultBranchStillReadsACommit(t *testing.T) {
 					return execution.Outcome{Termination: execution.Exited, ExitCode: 7}
 				}}
 				f.checks = seen.run
-				run := f.admitRunWithoutAChange(t, pid, map[string]any{"require": require, "command": "exit 7"})
+				run := f.admitRunWithoutAChange(t, pid, map[string]any{"require": require})
 				source, err := workflow.ReadSourceIn(context.Background(), f.db, workflow.RunRef{ID: run.ID, ProjectID: pid})
 				if err != nil {
 					t.Fatal(err)
@@ -475,6 +465,7 @@ func TestATestsStepWithoutADefaultBranchStillReadsACommit(t *testing.T) {
 					gittest.Run(t, folder, "init", "-q")
 					gittest.Run(t, folder, "config", "user.name", "Reviewer")
 					gittest.Run(t, folder, "config", "user.email", "reviewer@example.invalid")
+					commitAppDeclaration(t, folder, "app: {web: {build: ., public: true, test: [exit 7]}}")
 					writeMarker(t, folder, "committed")
 					want, executions = workflow.StatusFail, 1
 				}
@@ -488,7 +479,7 @@ func TestATestsStepWithoutADefaultBranchStillReadsACommit(t *testing.T) {
 	}
 }
 
-const postgresApp = "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres: {}\n"
+const postgresApp = "app:\n  web:\n    build: .\n    test: [make test]\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres: {}\n"
 
 const postgresURL = "DATABASE_URL=postgres://app:app@postgres:5432/app?sslmode=disable"
 
@@ -525,7 +516,7 @@ func TestATestsStepRunsBesideTheAppsDeclaredNeeds(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			f, ch, folder := testsWorld(t, map[string]any{"command": "make test"})
+			f, ch, folder := declaredTestsWorld(t, "make test")
 			if _, _, err := dependency.NewCatalog(f.db, nil).SyncStock(context.Background(), stock.FS, "dependencies"); err != nil {
 				t.Fatal(err)
 			}
@@ -577,7 +568,7 @@ STRIPE_API_KEY = { description = "payments", required = true }
 // value.
 func TestATestsStepGetsThrowawayGeneratedSecretsAndNoCredentials(t *testing.T) {
 	t.Parallel()
-	f, ch, folder := testsWorld(t, map[string]any{"command": "make test"})
+	f, ch, folder := declaredTestsWorld(t, "make test")
 	if err := os.WriteFile(filepath.Join(folder, "secretspec.toml"), []byte(djangoSecrets), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -667,7 +658,7 @@ func TestATestsStepRecordsWhatItsReportSays(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			f, ch, folder := testsWorld(t, map[string]any{"command": "go test ./..."})
+			f, ch, folder := declaredTestsWorld(t, "go test ./...")
 			if err := os.WriteFile(filepath.Join(folder, ".forge-test-report"), []byte(`<testsuite><testcase name="stale"/></testsuite>`), 0o644); err != nil {
 				t.Fatal(err)
 			}
@@ -707,11 +698,10 @@ func TestATestsStepRecordsWhatItsReportSays(t *testing.T) {
 	}
 }
 
-// When the change's tests fail and the base is asked, the step's counts
-// stay the change's: the base's report is not this change's evidence.
-func TestATestsStepCountsTheChangeNotItsBase(t *testing.T) {
+// A failed run records the tested commit’s report without a base rerun.
+func TestAFailedTestsStepRecordsItsReport(t *testing.T) {
 	t.Parallel()
-	f, ch, _ := testsWorld(t, map[string]any{"command": "exit 1"})
+	f, ch, _ := declaredTestsWorld(t, "exit 1")
 	seen := &markersSeen{answer: func(n int, _ execution.Request) execution.Outcome {
 		if n == 1 {
 			return execution.Outcome{Termination: execution.Exited, ExitCode: 1, Report: []byte(goStream)}
@@ -721,18 +711,18 @@ func TestATestsStepCountsTheChangeNotItsBase(t *testing.T) {
 	f.checks = seen.run
 	step := f.execute(t, testsRun(t, f, ch), "tests")
 	counts, _ := json.Marshal(stepEvidence(t, step)["testCounts"])
-	if len(seen.all()) != 2 || string(counts) != `{"failed":0,"passed":1,"skipped":1}` {
+	if len(seen.all()) != 1 || string(counts) != `{"failed":0,"passed":1,"skipped":1}` {
 		t.Fatalf("ran %d; evidence %s", len(seen.all()), step.Evidence)
 	}
 }
 
 // A tests run that fails with nothing that arrived keeps its verdict from
-// the exit code (here the base fails too, so it is carried), and its log
+// the exit code, and its log
 // says the report was lost, never an empty log a reader takes for
 // "nothing to say".
 func TestAFailedTestsRunWhoseOutputDidNotArriveSaysReportLost(t *testing.T) {
 	t.Parallel()
-	f, ch, folder := testsWorld(t, map[string]any{"command": "go test ./..."})
+	f, ch, folder := declaredTestsWorld(t, "go test ./...")
 	commitFolder(t, folder)
 	seen := &markersSeen{answer: func(int, execution.Request) execution.Outcome {
 		return execution.Outcome{Termination: execution.Exited, ExitCode: 1}
@@ -744,15 +734,8 @@ func TestAFailedTestsRunWhoseOutputDidNotArriveSaysReportLost(t *testing.T) {
 	}
 }
 
-// With no test command, a tests step is a failure where a part the step
-// applies to is built with a tool that has tests, and not applicable where
-// no part is, never a pass on nothing; a command that exists runs
-// whatever the contract says, so a project whose contract names no tools
-// yet keeps its test run.
-//
-// Kills: no command read as a pass; a contract that names no tools
-// stopping a detected command; not applicable without the step's
-// appliesTo, or a failure with no part it applies to.
+// Missing declarations fail for matching parts or require: true. Conventional
+// files do not supply tests; declarations run even on parts naming no tools.
 func TestATestsStepWithNoCommandIsNotApplicableOrAFailure(t *testing.T) {
 	t.Parallel()
 	goPart := "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n    tools: [go]\n"
@@ -767,12 +750,13 @@ func TestATestsStepWithNoCommandIsNotApplicableOrAFailure(t *testing.T) {
 		says     string
 		ran      int
 	}{
-		{"a go part with no command", map[string]any{"appliesTo": stockWords}, goPart, false, workflow.StatusFail, "web is built with a tool that has tests", 0},
+		{"a go part with no command", map[string]any{"appliesTo": stockWords}, goPart, false, workflow.StatusFail, "web is built with go and declares no tests: add `test:` to the part in .apptown/app.yaml", 0},
 		{"no part built with a tool", map[string]any{"appliesTo": stockWords}, noTools, false, workflow.StatusNotApplicable, "no part is built with go or node", 0},
 		{"no contract", map[string]any{"appliesTo": stockWords}, "", false, workflow.StatusNotApplicable, "no .apptown/app.yaml", 0},
-		{"a step without appliesTo", nil, goPart, false, workflow.StatusNotApplicable, "no test command was found", 0},
+		{"a step without appliesTo", nil, goPart, false, workflow.StatusNotApplicable, "no tests are declared", 0},
+		{"a Makefile never supplies a declaration", map[string]any{"appliesTo": stockWords}, noTools, true, workflow.StatusNotApplicable, "no tests are declared", 0},
 		{"required", map[string]any{"require": true}, noTools, false, workflow.StatusFail, "requires tests", 0},
-		{"a command found whatever the contract names", map[string]any{"appliesTo": stockWords}, noTools, true, workflow.StatusPass, "", 1},
+		{"a declaration runs without tools", map[string]any{"appliesTo": stockWords}, noTools + "    test: [make test]\n", true, workflow.StatusPass, "", 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

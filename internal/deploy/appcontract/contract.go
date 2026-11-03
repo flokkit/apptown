@@ -89,6 +89,8 @@ type Part struct {
 	// and AppTown still gives its page browser values.
 	ServesStatic bool
 	// Tools names what the part is built with; a part with a folder only.
+	// Test lists shell commands run in Folder(), in order, by the landing tests step.
+	Test  []string
 	Tools []string
 }
 

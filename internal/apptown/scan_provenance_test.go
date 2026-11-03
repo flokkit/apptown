@@ -6,13 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
 
 // The provenance base is the branch's fork point from main — not the tip the
 // landing run started at (which is the change's own head).
-func TestProvenanceBaseIsTheForkPoint(t *testing.T) {
+func TestLandingSourceRetainsTheForkPoint(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
 	pid, fork, git := fleetRepo(t, a, "fp", map[string]string{"a.txt": "one"})
@@ -54,7 +53,7 @@ func TestProvenanceBaseIsTheForkPoint(t *testing.T) {
 	if source.RunBaseSHA != tip1 {
 		t.Fatalf("landing run must retain branch tip %s as its run base, got %q", tip1[:8], source.RunBaseSHA)
 	}
-	if got, err := verification.WorkflowProvenanceBase(t.Context(), a.cfg.dataDir, workflowSourceForTest(t, a, run), "refs/heads/"+branch); err != nil || got != fork {
-		t.Fatalf("provenance base must be the fork point %s, not the run's base_sha %s: got %s %v", fork[:8], tip1[:8], got, err)
+	if source.ChangeBaseSHA != fork {
+		t.Fatalf("change base must retain the fork point %s, not the run base %s: got %s", fork, tip1, source.ChangeBaseSHA)
 	}
 }

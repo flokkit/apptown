@@ -29,7 +29,8 @@ spec:
             output: { kind: change-report, name: change-report, file: .apptown/CHANGE.md }
             timeoutMinutes: 10
             prompt: |
-              Before finishing, commit your changes. Run `apptown check` and
+              Before finishing, run each part’s declared `test:` commands in its folder,
+              then commit your changes. Run `apptown check` and
               fix introduced failures and this change's acceptance checks.
               Run `apptown dev up` and open the pages this change touches.
               Say in your report what ran and what came back. Report

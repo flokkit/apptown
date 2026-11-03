@@ -53,7 +53,8 @@ once you have a migration tool):
 
 Commit `package-lock.json`; add one test that hits the API, and give the
 root package a `test` script that runs every workspace's tests: the
-landing runs `npm test` at the root.
+part declares `test: ["npm ci --no-audit --no-fund && npm test"]` in
+`.apptown/app.yaml`. Include every workspace’s suite.
 
 Build output stays out of git: `.gitignore` names `node_modules/` and
 `dist/`, so an install or a build can never be committed by accident.

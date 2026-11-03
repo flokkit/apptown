@@ -26,3 +26,6 @@ build resolves the same thing everywhere.
 5–15 MB, so declare `resources: { memory: 48Mi }` in `.apptown/app.yaml` and
 raise it when the deployment's card shows it near the limit.
 deploy/memory-declared says how to choose and check it.
+
+Declare `test: ["go test ./..."]` on the part in `.apptown/app.yaml`.
+Include commands for every suite, including a frontend below the part’s folder.

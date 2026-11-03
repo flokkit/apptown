@@ -44,6 +44,7 @@ type appYamlPart struct {
 	Public      bool    `yaml:"public"`
 	// Tools names what the part is built with (go, node): the checks for
 	// a tool judge the parts that name it, in the part's folder.
+	Test     []string `yaml:"test"`
 	Tools    []string `yaml:"tools"`
 	Replicas any      `yaml:"replicas"` // omitted/null or 1; larger counts are not supported
 	// Resources is the most the part may use (resources.go); none is no limit.
@@ -305,7 +306,11 @@ func Parse(raw []byte) (*Contract, error) {
 		if err := checkTools(p); err != nil {
 			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: %w", name, err)
 		}
+		if p.Image != "" && p.Test != nil {
+			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: test: runs in a part’s source folder; remove it from an image: part", name)
+		}
 		part := Part{
+			Test:      slices.Clone(p.Test),
 			Tools:     slices.Clone(p.Tools),
 			Resources: resources,
 			Name:      name, Build: p.Build, Image: p.Image, Static: p.Static.Folder, StaticBuild: built,

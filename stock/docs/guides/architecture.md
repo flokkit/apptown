@@ -310,7 +310,7 @@ Step types, by what gates them:
 | `agent/review` | an independent agent checks claim vs diff | the diff satisfies the request, or the step's own `question` is answered yes |
 | `approval` | a person decides | the named approvers (or quorum) said yes — **against a written standard of approval** |
 | `scan` | dep scan, secrets scan, sbom | the scanner found nothing blocking |
-| `tests` | the committed tree runs its own tests | they passed — or none exist and the evidence says so |
+| `tests` | the committed tree runs every part’s declared `test:` commands | all passed; missing required declarations fail, and no applicable tests is reported |
 | `preview` / boot gate | the app cold-boots from the workspace | it came up and looks like an app |
 | `guidance/conformance` | the project's guidance checks run against the committed tree | every gating check passed |
 | `artifact/require` | a required document exists | it is attached to the run |

@@ -102,6 +102,19 @@ notAppCode: [docs/site]
   inside the project, written relative) and how values are
   generated and delivered. Delivery is by environment variable; `file`
   delivery is refused.
+- **`test`** on a `build` or `static` part lists its test commands, for example
+  `test: ["go test ./...", "npm --prefix frontend ci && npm --prefix frontend test"]`.
+  The landing tests step runs every declaration in order as `sh -c`, in the
+  part's folder: the build context, static build context or committed static
+  folder. The staged repository remains available, including root toolchain
+  configuration. Commands get the step's toolchains, registry settings,
+  declared services and throwaway secrets. Each command's exit and output are
+  recorded; a failed command fails the step, even if it also fails on the base.
+  An `image` part cannot declare `test`.
+  The workflow's tests `appliesTo` names which parts must declare tests; a
+  declaration on one part does not satisfy another. Static parts with matching
+  tools must declare tests too. Every declared command runs regardless of
+  applicability. `require: true` requires at least one command in the app.
 - **`tools`** on a part names what it is built with, from its folder:
   `tools: [go]`, or `tools: [go, node]` for a Go service that builds its
   Vite UI in the same image. The names are the tool versions' (go, node,

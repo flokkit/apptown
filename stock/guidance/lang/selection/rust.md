@@ -18,8 +18,9 @@ Rust services and tools: stable toolchain pinned in mise.toml
   `make test`, and the seeded Makefile runs `cargo test --locked`: keep
   that target running the whole suite. The starter's Makefile ships its
   `make test` target commented out until the app exists; the change that
-  writes the app uncomments it (the landing's tests step fails for a part
-  built with rust while there is no test command).
+  writes the app uncomments it and declares
+  `test: ["make test"]` on the part in `.apptown/app.yaml` (the landing's
+  tests step fails for a part built with rust while it declares no tests).
 - The release binary is the deployable: the seeded `.apptown/app.yaml`
   builds it with `build: .` (the seeded Dockerfile runs `cargo install
   --locked`, so `Cargo.lock` is committed, and starts the binary as an

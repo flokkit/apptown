@@ -70,8 +70,9 @@ the front-door lines below.
 - **Tests:** `make test` installs gems, runs `RAILS_ENV=test bin/rails
   db:prepare` and `bin/rails test` against an empty database; keep both steps.
   The starter's Makefile ships its `make test` target commented out until the
-  app exists; the change that writes the app uncomments it (the landing's tests
-  step fails for a part built with ruby while there is no test command).
+  app exists; the change that writes the app uncomments it and declares
+  `test: ["make test"]` on the part in `.apptown/app.yaml` (the landing's tests
+  step fails for a part built with ruby while it declares no tests).
 - `Gemfile.lock` is committed and agrees with the `Gemfile` (run `bundle lock`
   after changing it). `.gitignore` names `tmp/` and `log/`.
 

@@ -34,7 +34,8 @@ spec:
             output: { kind: uplift-report, name: uplift-report, file: .apptown/UPLIFT.md }
             timeoutMinutes: 40
             prompt: |
-              Before finishing, commit your changes. Run `apptown check` and
+              Before finishing, run each part’s declared `test:` commands in its folder,
+              then commit your changes. Run `apptown check` and
               fix introduced failures and this change's acceptance checks.
               Run `apptown dev up` and open the pages this change touches.
               Say in your report what ran and what came back. Report
@@ -56,8 +57,8 @@ spec:
               This workspace holds the project as it stands on main: the work
               landed so far, which may be only the starting seed. Do not
               assume it builds or that any feature is finished: run the build
-              and tests once before changing anything, and report what
-              already failed so it is not blamed on an update.
+              and each part’s declared `test:` commands once before changing anything.
+              Report what already failed so it is not blamed on an update.
               Bring its dependencies current:
 
               - Apply PATCH and MINOR updates. Prioritise anything with a
@@ -70,8 +71,8 @@ spec:
                 end-of-life, moving to the current supported line is
                 security-priority maintenance, NOT a major — do it, verify
                 hard, and call it out in the report.
-              - After updating, run the full build and test suite and exercise
-                the app's main flows. Revert any update that breaks something
+              - After updating, run the full build and the declared `test:` commands.
+                Exercise the app's main flows. Revert any update that breaks something
                 and record the reversion with the reason.
               - Nothing to update (no declared dependencies, or all current)
                 is a complete answer: change nothing and say so in the report.

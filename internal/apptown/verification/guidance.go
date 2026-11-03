@@ -129,7 +129,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 			return
 		}
 	}
-	baseSHA, err := WorkflowProvenanceBase(task.Context(), a.dataDir, source, commit)
+	baseSHA, err := workflowProvenanceBase(task.Context(), a.dataDir, source, commit)
 	if err != nil {
 		evidence["reason"] = "reading the commit this change is compared with: " + err.Error()
 		finish(workflow.StatusError, evidence)

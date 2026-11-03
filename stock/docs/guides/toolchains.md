@@ -32,21 +32,22 @@ is read-only; use a change workspace for edits and project-local installs.
 
 ## Test counts
 
-The tests check sets `APPTOWN_TEST_REPORT` (`/work/.forge-test-report`) for its
-command. A command that writes a report there, as JUnit XML or as a
-`go test -json` stream, gets its counts recorded: how many tests passed,
-failed and were skipped, and the first skipped tests' names. AppTown's
-detected Go command, `go test -json ./... > "$APPTOWN_TEST_REPORT"`, does this
-already, and its receipt's log is rendered from the stream: build output, each
-package's result, and the full output of every test that failed or skipped,
+The tests step runs each part’s declared `test:` commands from `.apptown/app.yaml`
+in the part’s folder. It sets `APPTOWN_TEST_REPORT`
+(`/work/.forge-test-report`) for each command. A command that writes a report
+there, as JUnit XML or as a `go test -json` stream, gets its counts recorded: how many tests passed,
+failed and were skipped, and the first skipped tests' names. Declare
+`go test -json ./... > "$APPTOWN_TEST_REPORT"` to record Go counts. The command’s
+log is rendered from the stream: build output, each package's result, and the full output of every test that failed or skipped,
 with the skip's reason. Another runner opts in through its JUnit reporter, for
 example `pytest --junitxml="$APPTOWN_TEST_REPORT"` or
-`vitest run --reporter=junit --outputFile="$APPTOWN_TEST_REPORT"` in the step's
-`command` or the project's test script.
+`vitest run --reporter=junit --outputFile="$APPTOWN_TEST_REPORT"` in the
+part’s `test:` declaration or the project’s test script.
 
 The exit code alone decides the check. A pass with skipped tests, or whose
 command wrote no report AppTown can read, reads "passed with notes" and says
-which. Limits: the receipt keeps the last 4,000 bytes of the log; a report over
+which. Multiple commands keep their reports separately; combined counts are
+not known. Each command’s log summary keeps the last 4,000 bytes; a report over
 64 MiB is not read; while Go tests run, the live feed shows only what the
 command prints to stderr, since its stdout is the report.
 

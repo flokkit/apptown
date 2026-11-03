@@ -22,7 +22,7 @@ var stepOptions = map[string][]string{
 	"adr/require":          {"status", "tags"},
 	"preview":              {"services"},
 	"deploy":               {"deployment", "services"},
-	"tests":                {"command", "require", "timeoutMinutes", "appliesTo"},
+	"tests":                {"require", "timeoutMinutes", "appliesTo"},
 	"scan":                 {"on", "scanner", "failOn", "timeoutMinutes"},
 	"guidance/conformance": {"failOn"},
 	"workflow/call":        {"workflow", "with"},

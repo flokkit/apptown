@@ -24,8 +24,9 @@ middleware right after `SecurityMiddleware` and
 `STATIC_ROOT = BASE_DIR / "staticfiles"`; one test. `make test` runs
 `uv run python manage.py test`: keep it running the whole suite. The
 starter's Makefile ships its `make test` target commented out until the app
-exists; the change that writes the app uncomments it (the landing's tests
-step fails for a part built with python while there is no test command). The image
+exists; the change that writes the app uncomments it and declares
+`test: ["make test"]` on the part in `.apptown/app.yaml` (the landing's tests
+step fails for a part built with python while it declares no tests). The image
 migrates at start and serves with gunicorn (`runserver` is development only);
 both stages are `python:3.12-slim`, never the full `python` image. The seeded
 `.apptown/app.yaml` declares the web part, `/healthz` and the Postgres need.

@@ -209,7 +209,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		// is the image of the commit this change forked from — its OS CVEs
 		// are carried debt, not this change's. Scanned first, with the same
 		// binding, in the same workspace (the report path is shared).
-		baseSHA, err := WorkflowProvenanceBase(task.Context(), a.dataDir, source, rev)
+		baseSHA, err := workflowProvenanceBase(task.Context(), a.dataDir, source, rev)
 		if err != nil {
 			evidence["reason"] = "reading the commit this change is compared with: " + strs.Truncate(err.Error(), 300)
 			finish(workflow.StatusError, evidence)
@@ -347,7 +347,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 			base.Note = "found in the commits this landing adds to main"
 			compared = false
 		case m.Looks() == "source":
-			baseSHA, err := WorkflowProvenanceBase(task.Context(), a.dataDir, source, rev)
+			baseSHA, err := workflowProvenanceBase(task.Context(), a.dataDir, source, rev)
 			if err != nil {
 				evidence["reason"] = "reading the commit this change is compared with: " + strs.Truncate(err.Error(), 300)
 				finish(workflow.StatusError, evidence)
