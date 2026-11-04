@@ -1,5 +1,5 @@
 import { ListRow } from '../ListRow'
-import { Group, Section } from '../Section'
+import { Section } from '../Section'
 import { Status } from '../Status'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -7,7 +7,7 @@ import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { NotAvailable, useInstancePages } from '../instancePages'
 import { FleetDeploymentStatus } from '../deploymentStatus'
-import { fmtDay, fmtStamp, lastSeen } from '../format'
+import { fmtStamp, lastSeen } from '../format'
 import { InfrastructureView } from './Infrastructure'
 import { BackupsView } from './Backups'
 import type { ProjectRow } from '../wire.gen'
@@ -60,15 +60,14 @@ function DeparturesBoard() {
     <>
     <StaleNote q={q} />
     {unlisted && <p className="muted small" title={data?.previewsReason}>Running previews are not shown: they could not be listed ({unlisted}).</p>}
-    {/* One line per deploy, grouped by day: the app, which release went
-        where and who sent it, then how it went and when. */}
+    {/* One line per deploy, newest first: the app, which release went
+        where and who sent it, then how it went and when. Each row carries
+        its own date, so there are no day headings. */}
     {moves.length === 0 ? <p className="muted small">No deploys yet.</p> : (() => {
       const shown = moves.slice(0, count)
-      const days = [...new Set(shown.map((d) => fmtDay(d.at)))]
-      return <Section title="" label="Deploys">{days.map((day) => (
-        <Group key={day} label={day || 'Not yet'}>
+      return <Section title="" label="Deploys">
           <div role="list">
-            {shown.filter((d) => fmtDay(d.at) === day).map((d, i) => {
+            {shown.map((d, i) => {
               const release = d.releaseNumber ? `release #${d.releaseNumber}` : d.label
               const to = d.releaseNumber ? `/projects/${d.slug}/releases/${d.releaseNumber}` : `/projects/${d.slug}`
               return (
@@ -79,13 +78,12 @@ function DeparturesBoard() {
                     <div className="muted small">{d.releaseNumber ? `${release} to ${d.tier}` : release}{d.who ? ` · by ${d.who}` : ''}{d.url ? <> · <a href={d.url} target="_blank" rel="noreferrer">open</a></> : null}</div>
                   </>}
                   state={<><Status word={d.state} help={d.reason && d.reason.toLowerCase() !== d.state ? d.reason : undefined} />
-                    <div className="muted small" style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtStamp(d.at)}</div></>}
+                    <div className="muted small" style={{ fontVariantNumeric: 'tabular-nums' }}>{d.at ? fmtStamp(d.at) : 'not yet'}</div></>}
                   action={<Link className="btn" to={to}>{d.state === 'failed' ? 'Review failure' : d.releaseNumber ? 'View release' : 'View app'}</Link>} />
               )
             })}
           </div>
-        </Group>
-      ))}</Section>
+      </Section>
     })()}
     {moves.length > count && <button style={{ marginTop: 10 }} onClick={() => setCount(n => n + 10)}>Show 10 more</button>}
     </>
