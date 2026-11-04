@@ -651,6 +651,7 @@ func TestATestsStepRecordsWhatItsReportSays(t *testing.T) {
 		counts    string
 		note      string
 	}{
+		"zero tests":        {report: `<testsuites tests="0"></testsuites>`, counts: `{"failed":0,"passed":0,"skipped":0}`},
 		"a go stream":       {report: goStream, counts: `{"failed":0,"passed":1,"skipped":1}`},
 		"no report":         {report: "", note: "wrote no report"},
 		"an unreadable one": {reportErr: errors.New("the report is over the limit"), note: "over the limit"},
@@ -684,8 +685,8 @@ func TestATestsStepRecordsWhatItsReportSays(t *testing.T) {
 			note, _ := ev["testReport"].(string)
 			if tc.counts != "" {
 				log, _ := ev["logTail"].(string)
-				if string(counts) != tc.counts || note != "" || fmt.Sprint(ev["skippedTests"]) != "[ex/store TestImport]" ||
-					!strings.Contains(log, "go: downloading x") || !strings.Contains(log, "WAYPOINT_POSTGRES_TESTS not set") || strings.Contains(log, "--- PASS") {
+				if string(counts) != tc.counts || note != "" || (name == "a go stream" && fmt.Sprint(ev["skippedTests"]) != "[ex/store TestImport]") ||
+					!strings.Contains(log, "go: downloading x") || (name == "a go stream" && !strings.Contains(log, "WAYPOINT_POSTGRES_TESTS not set")) || strings.Contains(log, "--- PASS") {
 					t.Fatalf("%s: %s", name, step.Evidence)
 				}
 				return

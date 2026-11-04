@@ -44,6 +44,16 @@ example `pytest --junitxml="$APPTOWN_TEST_REPORT"` or
 `vitest run --reporter=junit --outputFile="$APPTOWN_TEST_REPORT"` in the
 part’s `test:` declaration or the project’s test script.
 
+For Node 24's built-in runner, keep readable output in the log and write
+JUnit separately:
+
+```sh
+node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination="$APPTOWN_TEST_REPORT"
+```
+
+A readable report containing zero tests says "no tests". Requiring tests is
+a separate rule in the project's way of working.
+
 The exit code alone decides the check. A pass with skipped tests, or whose
 command wrote no report AppTown can read, reads "passed with notes" and says
 which. Multiple commands keep their reports separately; combined counts are

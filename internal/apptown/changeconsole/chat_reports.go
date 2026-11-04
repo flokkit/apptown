@@ -2,21 +2,25 @@ package changeconsole
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/strs"
 )
 
-// ChatReports is what a change's chats tell its narrative writer: from each
-// chat, its newest two substantial helper messages (over 120 characters),
-// newest first. Chat reports can name deviations absent from artifacts.
-func ChatReports(chats []*console.Session) string {
+// ChatReports gives the narrative writer the person's whole messages in order,
+// followed by each chat's newest two substantial helper reports (over 120
+// characters). Reports can name deviations absent from artifacts.
+func ChatReports(chats []console.Conversation) string {
 	var evidence strings.Builder
+	var messages []console.Message
 	for _, session := range chats {
-		evidence.WriteString(chatReport(session.Messages()))
+		transcript := session.Messages
+		messages = append(messages, transcript...)
+		evidence.WriteString(chatReport(transcript))
 	}
-	return evidence.String()
+	return chatRequest(messages) + evidence.String()
 }
 
 func chatReport(messages []console.Message) string {
@@ -29,4 +33,36 @@ func chatReport(messages []console.Message) string {
 		}
 	}
 	return evidence.String()
+}
+
+// Keep whole messages within the same 120 kB budget as narrative evidence.
+// Omitting an oversized message is explicit: it is a writer input limit,
+// never a claim that the person sent an incomplete request.
+func chatRequest(messages []console.Message) string {
+	const budget = 120_000
+	// Sessions can overlap. Transcript timestamps use a fixed UTC format;
+	// preserve transcript order for messages with the same timestamp.
+	messages = slices.Clone(messages)
+	slices.SortStableFunc(messages, func(a, b console.Message) int { return strings.Compare(a.At, b.At) })
+	var request strings.Builder
+	omitted := 0
+	for _, message := range messages {
+		if message.Role != "you" || strings.TrimSpace(message.Text) == "" {
+			continue
+		}
+		if request.Len()+len(message.Text)+1 > budget {
+			omitted++
+			continue
+		}
+		request.WriteString(message.Text)
+		request.WriteByte('\n')
+	}
+	if request.Len() == 0 && omitted == 0 {
+		return ""
+	}
+	note := ""
+	if omitted > 0 {
+		note = fmt.Sprintf("Writer input bound: %d whole messages omitted to fit %d bytes. The person’s messages were not cut off; this is a limit on what you were given. Do not judge omitted requests as unmet.\n", omitted, budget)
+	}
+	return "PERSON'S CHAT REQUEST (messages in order; part of the ask):\n" + note + request.String()
 }

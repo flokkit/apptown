@@ -182,7 +182,7 @@ func TestAViewerLooksAtAnotherPersonsChatAndCannotActOnIt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a viewer ended the chat: %v", err)
 	}
-	if got := s.Messages(); len(got) != 1 || w.agent.Interrupted(w.chat) {
+	if got := sessionMessages(t, w.a.Console, s); len(got) != 1 || w.agent.Interrupted(w.chat) {
 		t.Fatalf("a viewer's acts reached the chat: %+v", got)
 	}
 	if files, _ := os.ReadDir(filepath.Join(s.Dir, "uploads")); len(files) != 0 {
@@ -450,7 +450,7 @@ func TestAChatsCredentialActsOnlyOnItsOwnChat(t *testing.T) {
 		h.ServeHTTP(resp, r)
 		return resp
 	}
-	if resp := say(other.ID, mine.Token); resp.Code != 403 || len(other.Messages()) != 0 {
+	if resp := say(other.ID, mine.Token); resp.Code != 403 || len(sessionMessages(t, a.Console, other)) != 0 {
 		t.Fatalf("a chat said into another: %d %s", resp.Code, resp.Body.String())
 	}
 	r := httptest.NewRequest("GET", "/api/v1/console/"+other.ID+"/messages?from=0", nil)

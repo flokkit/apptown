@@ -128,6 +128,14 @@ func TestASentBackRunsPersonFeedbackIsTheNote(t *testing.T) {
 	if got, err := LatestPersonFeedbackIn(ctx, s.db, RunRef{ID: result.RunID, ProjectID: idstest.N(999999)}); err != nil || got != nil {
 		t.Fatalf("another project's view of the run: %+v %v", got, err)
 	}
+
+	narrative, err := (narratives{db: s.db}).source(ctx, source.ChangeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if evidence := NarrativeEvidence(narrative, ""); !strings.Contains(evidence, "also upgrade the logging library") {
+		t.Fatalf("the narrative lost the send-back ask: %s", evidence)
+	}
 	// The continued run's approval brief carries the note as part of the
 	// ask, so an approver is not told the requested work is a deviation.
 	ref := RunRef{ID: result.RunID, ProjectID: source.ProjectID}

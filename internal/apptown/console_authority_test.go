@@ -78,7 +78,7 @@ func TestConsoleRoutesIsolateProjectMessagesAndAttachments(t *testing.T) {
 			}
 		})
 	}
-	if got := session.Messages(); len(got) != 1 || got[0].Text != "private conversation" || agent.Interrupted(session.ID) {
+	if got := sessionMessages(t, a.Console, session); len(got) != 1 || got[0].Text != "private conversation" || agent.Interrupted(session.ID) {
 		t.Fatalf("denied requests reached the agent: %+v", got)
 	}
 	files, err := os.ReadDir(filepath.Join(session.Dir, "uploads"))
@@ -104,4 +104,18 @@ func TestConsoleRoutesIsolateProjectMessagesAndAttachments(t *testing.T) {
 	if w.Code != 200 || !agent.Interrupted(session.ID) {
 		t.Fatalf("owner interrupt: %d %s", w.Code, w.Body.String())
 	}
+}
+
+func sessionMessages(t *testing.T, sessions *console.Service, session *console.Session) []console.Message {
+	t.Helper()
+	conversations, unreadable, err := sessions.Transcript(t.Context(), session.Scope)
+	if err != nil || len(unreadable) != 0 {
+		t.Fatalf("read chat transcript: %v; unreadable: %v", err, unreadable)
+	}
+	for _, conversation := range conversations {
+		if conversation.ID == session.ID {
+			return conversation.Messages
+		}
+	}
+	return nil
 }

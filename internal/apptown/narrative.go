@@ -35,7 +35,7 @@ type narrativeBuilder struct {
 // from missing transcripts or empty model output.
 type narrativeEvidence struct {
 	Stat, Patch string // the committed diff
-	Text        string // the chats' reports
+	Text        string // the chats' requests and reports
 	Empty       bool
 }
 

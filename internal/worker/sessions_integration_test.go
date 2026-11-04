@@ -224,7 +224,7 @@ func TestIntegrationARealChatOnAWorker(t *testing.T) {
 		t.Fatalf("a message to a real chat on the worker: %v\nscreen:\n%s", err, screenOf(t, svc, s.ID))
 	}
 	if !poll.Until(context.Background(), 30*time.Second, 100*time.Millisecond, func() bool {
-		for _, m := range s.Messages() {
+		for _, m := range sessionMessages(t, svc, s) {
 			if strings.Contains(m.Text, "hello from AppTown") {
 				return true
 			}

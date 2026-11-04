@@ -519,7 +519,8 @@ it.each([undefined, 'Malformed app declaration', 'Starting app declaration unrea
     { name: 'app parts', added: [], removed: [] },
   ], lines: [{ kind: 'added', text: 'Secrets: PAYMENT_KEY' }] }
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
-    String(url).endsWith('/question') ? { adds } : String(url).endsWith('/deployments') ? [] : {}
+    String(url).endsWith('/question') ? { adds } : String(url).endsWith('/deployments') ? []
+      : String(url).endsWith('/steps/deploy/live?from=0') ? { running: true, lines: ['Building the accepted image'], total: 1 } : {}
   ))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
@@ -544,6 +545,7 @@ it.each([undefined, 'Malformed app declaration', 'Starting app declaration unrea
       v.detail!.steps = [step('approval', 'pass', { approver: 'sam' }), step('deploy', 'running')]
       v.waitingOn = { ...v.waitingOn, kind: 'work', run: 'landing', step: 'deploy', says: 'Landing: deploying — step 2 of 2', you: 'no' }
       await redraw()
+      await vi.waitFor(async () => { await act(async () => {}); expect(dialog.textContent).toContain('Building the accepted image') })
       expect(el.querySelector('dialog')).toBe(dialog)
       expect((dialog as HTMLDialogElement).open).toBe(true)
       expect(dialog.querySelector('[aria-label="Now"]')?.textContent).toContain('Landing — step 2 of 2')

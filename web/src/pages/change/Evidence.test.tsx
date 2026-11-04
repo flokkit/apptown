@@ -187,6 +187,12 @@ describe('a finished run with a tests receipt', () => {
   expect(html).toContain('All checks passed')
   expect(receiptOf(tests({ testCounts: { passed: 44, failed: 0, skipped: 0 } })).sentence).toContain('44 passed')
  })
+ it('presents a witnessed zero as no tests, without notes or uncertainty', () => {
+  const s = tests({ testCounts: { passed: 0, failed: 0, skipped: 0 } })
+  expect(receiptOf(s).sentence).toContain('no tests')
+  expect(receiptOf(s).result).toBe('passed')
+  expect(rendered(s)).not.toContain('passed with notes')
+ })
  for (const [name, evidence, note] of [
   ['skips', { testCounts: { passed: 41, failed: 0, skipped: 3 }, skippedTests: ['ex/store TestImport'] }, '41 passed, 3 skipped'],
   ['no report', { testReport: 'the test command wrote no report to $APPTOWN_TEST_REPORT, so how many tests ran or were skipped is not known' }, 'Number of tests unknown'],

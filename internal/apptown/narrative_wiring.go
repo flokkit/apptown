@@ -15,7 +15,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/conversation"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/console"
 )
 
 func narrativeFor(a *App) narrativeBuilder {
@@ -34,9 +33,14 @@ func narrativeFor(a *App) narrativeBuilder {
 			if err != nil || diff.Empty {
 				return diff, err
 			}
-			// Snapshot the session list under its lock; never hold that lock
-			// during Git or model work.
-			chats := sessions.List(ctx, console.Match{Scope: conversation.Key(ids.Nil, source.Change.ID)})
+			// Read the retained transcript, including chats that have ended.
+			chats, unreadable, err := sessions.Transcript(ctx, conversation.Key(ids.Nil, source.Change.ID))
+			if err != nil {
+				return narrativeEvidence{}, err
+			}
+			if len(unreadable) > 0 {
+				return narrativeEvidence{}, fmt.Errorf("reading narrative chat requests: unreadable chats: %s", strings.Join(unreadable, ", "))
+			}
 			diff.Text += changeconsole.ChatReports(chats)
 			return diff, nil
 		},

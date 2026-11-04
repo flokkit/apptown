@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview --host 0.0.0.0 --port 8080",
-    "test": "node --test"
+    "test": "node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=\"$APPTOWN_TEST_REPORT\""
   },
   "dependencies": {
     "three": ">=0.160.0 <1.0.0"

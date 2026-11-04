@@ -26,6 +26,7 @@ type narrativeRunView struct {
 	Name    string
 	Purpose string
 	State   RunState
+	Asked   *PersonFeedback
 }
 
 type narrativeArtifact struct{ Kind, Body string }
@@ -163,7 +164,12 @@ the reader is deciding and reviews still ahead. Never demand their completion
 or evidence of them in ASKED or "To satisfy it:". Workflow steps only limit
 what you may demand: never list something as missing, such as an independent
 review, that the workflow has no step for. For a person's change, TITLE is their
-request even when FOR is absent; FOR adds detail when supplied. Never replace
+request even when FOR is absent; FOR adds detail when supplied. When
+PERSON'S CHAT REQUEST is present, those messages are the person's request
+in order; TITLE may only be a shortened label. FOR and any SEND-BACK NOTE
+remain part of the ask. A writer input bound means you were not given all messages, not that the person sent an incomplete request. Never ask the
+person to complete a request because of that bound; say unknown if the omitted
+messages prevent assessment. Never replace
 that request with the workflow's generic purpose. Only for scheduled or system
 changes without FOR, use the working workflow's stated purpose as the request,
 not the generated title or its process steps. If no purpose is stated for such
@@ -205,6 +211,9 @@ func NarrativeEvidence(source NarrativeSource, extra string) string {
 	evidence.WriteString("RUNS:\n")
 	for _, run := range source.Runs {
 		fmt.Fprintf(&evidence, "- run %d %s: %s\n", run.ID, run.Name, run.State)
+		if run.Asked != nil {
+			fmt.Fprintf(&evidence, "SEND-BACK NOTE (part of the ask, from %s):\n%s\n", run.Asked.By, run.Asked.Note)
+		}
 		if strings.TrimSpace(run.Purpose) != "" {
 			fmt.Fprintf(&evidence, "  working workflow purpose: %s\n", run.Purpose)
 		}
@@ -341,7 +350,11 @@ func (s narratives) source(ctx context.Context, id ids.ID) (NarrativeSource, err
 				purpose = doc.Metadata.Description
 			}
 		}
-		source.Runs = append(source.Runs, narrativeRunView{ID: row.ID, Name: row.WorkflowName, State: state, Steps: names, Purpose: purpose})
+		asked, err := LatestPersonFeedbackIn(ctx, tx, RunRef{ID: row.ID, ProjectID: source.Change.ProjectID})
+		if err != nil {
+			return NarrativeSource{}, err
+		}
+		source.Runs = append(source.Runs, narrativeRunView{Asked: asked, ID: row.ID, Name: row.WorkflowName, State: state, Steps: names, Purpose: purpose})
 	}
 	artifacts, err := records.NarrativeArtifacts(ctx, workflowsql.NarrativeArtifactsParams{ChangeID: id, ProjectID: source.Change.ProjectID})
 	if err != nil {
