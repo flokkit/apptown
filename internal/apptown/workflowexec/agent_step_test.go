@@ -113,7 +113,7 @@ func piSays(text string) []byte {
 // ended with stopReason "error" and the provider's words on it.
 func piRefuses(msg string) []byte {
 	return mustJSONLine(map[string]any{"type": "turn_end", "message": map[string]any{
-		"role": "assistant", "content": []any{}, "stopReason": "error", "errorMessage": msg,
+		"role": "assistant", "provider": "openai", "model": "gpt-test", "content": []any{}, "stopReason": "error", "errorMessage": msg,
 	}})
 }
 
@@ -187,8 +187,8 @@ func TestAgentSessionIDPerAttemptAndContinueResumesPrevious(t *testing.T) {
 
 // A provider refusal (billing, auth, quota) is infrastructure, not "the
 // agent produced nothing": one call (no retry), status error, and the
-// provider's own words as the reason.
-func TestAgentProviderRefusedRecordsTheProvidersWords(t *testing.T) {
+// classified reason with the raw words kept as evidence.
+func TestAgentProviderRefusedKeepsRawWordsOutOfTheReason(t *testing.T) {
 	t.Parallel()
 	a, _, stepID := admittedAgentStep(t, `{"prompt":"do it"}`)
 	f := installFakePi(a, func(int, execution.Request) execution.Outcome {
@@ -200,9 +200,8 @@ func TestAgentProviderRefusedRecordsTheProvidersWords(t *testing.T) {
 	}
 	status, ev := stepStatus(t, a, stepID)
 	reason := fmt.Sprint(ev["reason"])
-	if status != workflow.StatusError || !strings.HasPrefix(reason, "its model never answered: 400 ") ||
-		!strings.Contains(reason, "credit balance is too low") {
-		t.Fatalf("want error with the provider's sentence, got %s %q", status, reason)
+	if status != workflow.StatusError || reason != "OpenAI refused the call (HTTP 400)" {
+		t.Fatalf("want error with a classified refusal, got %s %q", status, reason)
 	}
 	if ev["stderrTail"] == nil {
 		t.Fatal("the raw transcript tail must be kept as evidence")

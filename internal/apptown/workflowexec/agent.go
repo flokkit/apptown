@@ -342,7 +342,7 @@ func (a *Executor) Run(task *workflow.Execution) {
 	attempt.harness(res)
 
 	attempt.settle(settlementOutcome(a.recordAgentOutcome(task.Context(), agentRecord{
-		task: task, cfg: &cfg, pi: res, files: h, steering: st,
+		task: task, cfg: &cfg, pi: res, files: h, steering: st, selectedModel: model,
 		modelSlot: modelSlot, modelProfile: modelProfile, image: k.image,
 		scmGranted: scmGranted, start: start, queuedMs: queuedMs, attempts: attempts,
 	})))

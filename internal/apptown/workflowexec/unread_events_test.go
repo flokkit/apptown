@@ -26,8 +26,8 @@ func TestWorkerAgentRequiresReadableModelAnswer(t *testing.T) {
 		status               workflow.StepState
 	}{
 		{name: "unread", unread: "the invocation's events are over the 62 MiB read", reason: "the agent's output could not be read: the invocation's events are over the 62 MiB read", status: workflow.StatusError},
-		{name: "refused", events: piRefuses("openai refused the call (HTTP 429)"), reason: "its model never answered: openai refused the call (HTTP 429)", status: workflow.StatusError},
-		{name: "zero output", reason: "its model never answered", status: workflow.StatusError},
+		{name: "refused", events: piRefuses("openai refused the call (HTTP 429)"), reason: "OpenAI refused the call: rate limit or out of credit (HTTP 429)", status: workflow.StatusError},
+		{name: "zero output", reason: "The model returned nothing", status: workflow.StatusError},
 		{name: "answered", events: piSays("done"), status: workflow.StatusPass},
 	} {
 		t.Run(row.name, func(t *testing.T) {

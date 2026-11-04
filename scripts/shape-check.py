@@ -88,7 +88,7 @@ ALLOWED = {
     "conversation":     {"adoption", "agentenv", "agentharness", "changeactions", "complaint", "console", "integration",
                          "model", "project", "scm", "usage", "workflow", "wow"},
     "workflowexec":     {"adoption", "agentenv", "agentharness", "changeactions", "complaint", "console", "deployment",
-                         "integration", "model", "preview", "project", "repositoryedit", "scm", "secret", "tasks", "usage",
+                         "inference", "integration", "model", "preview", "project", "repositoryedit", "scm", "secret", "tasks", "usage",
                          "verification", "workflow", "wow"},
     "verification":     {"adoption", "agentenv", "conformance", "deployment", "integration", "model", "modelcall",
                          "preview", "project", "remediation", "repositoryedit", "scm", "secret", "usage", "workflow"},

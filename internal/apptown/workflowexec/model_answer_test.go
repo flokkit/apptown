@@ -21,9 +21,9 @@ func TestLocalStepsRequireAModelAnswer(t *testing.T) {
 			events []byte
 			reason string
 		}{
-			{"refused", append(piRefuses("first refusal"), piRefuses("openai refused the call (HTTP 429)")...), "its model never answered: openai refused the call (HTTP 429)"},
-			{"zero output", []byte(`{"type":"message_end","message":{"role":"assistant","usage":{"input":10,"output":0}}}` + "\n"), "its model never answered"},
-			{"warm-up only", cacheWarmOutput, "its model never answered"},
+			{"refused", append(piRefuses("first refusal"), piRefuses("openai refused the call (HTTP 429)")...), "OpenAI refused the call: rate limit or out of credit (HTTP 429)"},
+			{"zero output", []byte(`{"type":"message_end","message":{"role":"assistant","usage":{"input":10,"output":0}}}` + "\n"), "fake/model returned nothing"},
+			{"warm-up only", cacheWarmOutput, "fake/model returned nothing"},
 			{"answered", append(piSays("done"), []byte(`{"type":"message_end","message":{"role":"assistant","usage":{"output":0}}}`+"\n")...), ""},
 		} {
 			t.Run(kind+"/"+row.name, func(t *testing.T) {
@@ -68,9 +68,9 @@ func TestWorkerReviewRequiresAModelAnswer(t *testing.T) {
 		events []byte
 		reason string
 	}{
-		{"refused", piRefuses("openai refused the call (HTTP 429)"), "its model never answered: openai refused the call (HTTP 429)"},
-		{"zero output", nil, "its model never answered"},
-		{"warm-up only", cacheWarmOutput, "its model never answered"},
+		{"refused", piRefuses("openai refused the call (HTTP 429)"), "OpenAI refused the call: rate limit or out of credit (HTTP 429)"},
+		{"zero output", nil, "The model returned nothing"},
+		{"warm-up only", cacheWarmOutput, "The model returned nothing"},
 		{"answered", piSays("reviewed"), ""},
 	} {
 		t.Run(row.name, func(t *testing.T) {
@@ -120,7 +120,7 @@ func TestCacheWarmOutputIsSpendWithoutAModelAnswer(t *testing.T) {
 	if spent.Totals.Output != 1 || spent.Totals.Total != 3 || spent.Totals.CostMicros != 1000 {
 		t.Fatalf("warm-up spend lost: %+v", spent)
 	}
-	if failure := modelAnswerFailure(spent.AssistantOutput, cacheWarmOutput); failure != "its model never answered" {
+	if failure := modelAnswerFailure(spent.AssistantOutput, cacheWarmOutput, "fake/model"); failure != "fake/model returned nothing" {
 		t.Fatalf("warm-up counted as answer: %q", failure)
 	}
 }

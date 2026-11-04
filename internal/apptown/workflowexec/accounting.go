@@ -3,8 +3,8 @@ package workflowexec
 import (
 	piharness "github.com/flokkit/apptown/internal/apptown/agentharness/pi"
 
+	"github.com/flokkit/apptown/internal/apptown/inference"
 	"github.com/flokkit/apptown/internal/apptown/usage"
-	"github.com/flokkit/apptown/internal/strs"
 )
 
 // piUsage is one invocation's spending as its transcript reports it.
@@ -39,13 +39,20 @@ func sumPiUsage(out []byte) piUsage {
 
 // modelAnswerFailure judges the invocations already read by the outcome code.
 // A report or file is not proof that the model answered.
-func modelAnswerFailure(outputTokens int64, events []byte) string {
+func modelAnswerFailure(outputTokens int64, events []byte, model string) string {
 	if outputTokens > 0 {
 		return ""
 	}
-	reason := "its model never answered"
-	if last := piharness.LastModelError(events); last != "" {
-		reason += ": " + strs.Truncate(last, 300)
+	return modelFailure(events, model)
+}
+
+func modelFailure(events []byte, selected string) string {
+	_, model, provider, _ := piharness.ParseOutput(events)
+	if p, m := piharness.ModelErrorIdentity(events); m != "" || p != "" {
+		provider, model = p, m
 	}
-	return reason
+	if model == "" {
+		model = selected
+	}
+	return inference.Failure(provider, model, 0, piharness.LastModelError(events))
 }

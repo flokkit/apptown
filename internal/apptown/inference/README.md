@@ -52,3 +52,12 @@ AppTown constructs Catalog before console environments and the gateway after the
 console registry. The listener and interrupted-request startup hook remain in
 AppTown. Network policy, request deadlines and runtime credential lifetime are
 unchanged. This package does not implement hard spending limits.
+
+`Failure` owns provider failure headlines for gateway responses, AppTown calls
+and step outcomes. It names the provider by its connector title and classifies
+its upstream HTTP status: refused API key (401), refused model access (403),
+rate limit or credit (429), or internal error (5xx). Connection failures say
+AppTown could not reach the provider; an empty answer with no reported error
+names the model that returned nothing. SDK errors supply their HTTP status when
+there is no structured status. Raw provider text belongs in transcript evidence
+and logs, never in these headlines.

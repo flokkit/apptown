@@ -19,7 +19,9 @@ Tests execute a committed tree and preserve the existing base-failure policy.
 The different ordering is deliberate; there is no universal runner algorithm.
 
 An agent's or reviewer's outcome is recorded after its paid invocation and
-publication. A failed recording is retried with the same outcome, under the
+publication. Provider failure headlines come from `inference.Failure`; the Pi
+adapter supplies the failed turn's identity and raw transcript evidence.
+A failed recording is retried with the same outcome, under the
 attempt fence and a bounded backoff (`settleProduced`); the invocation is never
 repeated for it. Past the bound the step is an error saying its result could
 not be recorded; if even that fails, it stays running for startup repair.

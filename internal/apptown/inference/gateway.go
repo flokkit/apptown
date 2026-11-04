@@ -327,7 +327,7 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 		if status < 400 {
 			code = 502
 		}
-		fail(code, fmt.Sprintf("inference provider rejected the request (HTTP %d)", status))
+		fail(code, Failure(p.name, model, status, ""))
 		return
 	case errors.Is(err, errUnsendable):
 		fail(503, "invalid inference provider configuration")
@@ -336,7 +336,7 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 		if ctx.Err() != nil {
 			outcome = "cancelled"
 		}
-		fail(502, "inference provider request failed")
+		fail(502, Failure(p.name, model, 0, "connection failure"))
 		return
 	}
 	defer resp.Body.Close()

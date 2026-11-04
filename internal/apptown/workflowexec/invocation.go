@@ -22,7 +22,6 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 
 	"github.com/flokkit/apptown/internal/apptown/usage"
-	"github.com/flokkit/apptown/internal/strs"
 
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/execution"
@@ -181,10 +180,10 @@ func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 		}
 		// A provider that refused the request (billing, auth, quota) leaves
 		// an empty turn with an error on it. That is not "the agent produced
-		// nothing" and retrying does not help — say what the provider said.
+		// nothing" and retrying does not help — classify the refusal.
 		if perr := piharness.LastModelError(r.Events); perr != "" && strings.TrimSpace(r.Text) == "" {
 			r.ProviderError = perr
-			a.progress.Append(c.Step.ID, "✗ the model provider refused: "+strs.Truncate(perr, 200))
+			a.progress.Append(c.Step.ID, "✗ "+modelFailure(r.Events, r.Model))
 			break
 		}
 		if c.RetryEmpty && strings.TrimSpace(r.Text) == "" && !out.TimedOut && r.RunErr == nil && tries < 2 {

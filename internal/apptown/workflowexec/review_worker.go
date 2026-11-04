@@ -6,6 +6,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/dockerlabel"
 
+	"github.com/flokkit/apptown/internal/apptown/inference"
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/execution"
@@ -72,7 +73,7 @@ func reviewStep(invocation string, res invocationResult) (v reviewVerdict, next,
 	case res.ExitCode != 0:
 		return v, "", fmt.Sprintf("the review did not complete: its %s exited with code %d, so its report does not count", invocation, res.ExitCode)
 	case res.ProviderError != "":
-		return v, "", "the model provider refused the request: " + strs.Truncate(res.ProviderError, 300)
+		return v, "", inference.Failure(res.Provider, res.Model, 0, res.ProviderError)
 	case res.resultsErr != nil:
 		return v, "", "the review's report could not be read: " + res.resultsErr.Error()
 	}
@@ -130,7 +131,7 @@ func (a *Executor) judgeReview(ctx context.Context, w *workerAttempt, meta agent
 	}
 	j.verdict, _, j.failure = reviewStep(meta.Invocation, res)
 	if res.outputErr == nil && res.UsageError == nil {
-		if failure := modelAnswerFailure(res.OutputTokens, res.Events); failure != "" {
+		if failure := modelAnswerFailure(res.OutputTokens, res.Events, meta.Model); failure != "" {
 			j.verdict, j.failure = reviewVerdict{}, failure
 		}
 	}
