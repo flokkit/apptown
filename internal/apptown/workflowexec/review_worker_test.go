@@ -51,7 +51,7 @@ func TestTheReviewVerdictTable(t *testing.T) {
 		{name: "exit 0, result files unreadable", res: result(0, pass, func(r *invocationResult) { r.resultsErr = errors.New("worker gone") }), failure: "worker gone"},
 		{name: "timed out, a report written", res: result(0, pass, timedOut), next: reviewWrapUpInvocation, followUp: "timed out"},
 		{name: "non-zero exit, a pass", res: result(1, pass), failure: "exited with code 1"},
-		{name: "a provider error, a pass", res: result(0, pass, func(r *invocationResult) { r.ProviderError = "credit balance too low" }), failure: "provider refused the request: credit balance too low"},
+		{name: "a provider error, a pass", res: result(0, pass, func(r *invocationResult) { r.ProviderError = "credit balance too low" }), failure: "The model provider refused the call"},
 		{name: "output unread, a pass", res: result(0, pass, func(r *invocationResult) { r.outputErr = errors.New("no answer") }), failure: "output could not be read"},
 	}
 	for _, row := range rows {

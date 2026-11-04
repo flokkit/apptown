@@ -630,7 +630,7 @@ func (a *Executor) readReviewVerdict(stepID ids.ID, verdictPath, model string, o
 	}
 	raw, err := os.ReadFile(verdictPath)
 	if err != nil {
-		if failure := modelAnswerFailure(outputTokens, lastEvents); failure != "" {
+		if failure := modelAnswerFailure(outputTokens, lastEvents, model); failure != "" {
 			return reviewVerdict{}, failure
 		}
 		if outcome.TimedOut {
@@ -653,7 +653,7 @@ func (a *Executor) readReviewVerdict(stepID ids.ID, verdictPath, model string, o
 			}
 		}
 	}
-	if failure := modelAnswerFailure(outputTokens, lastEvents); failure != "" {
+	if failure := modelAnswerFailure(outputTokens, lastEvents, model); failure != "" {
 		return reviewVerdict{}, failure
 	}
 	if !ok {

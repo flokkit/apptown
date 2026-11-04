@@ -26,6 +26,7 @@ type agentRecord struct {
 	steering steeringFile
 
 	modelSlot, modelProfile string
+	selectedModel           string
 	image                   string
 	scmGranted              string
 	start                   time.Time
@@ -62,7 +63,7 @@ func (a *Executor) recordAgentOutcome(ctx context.Context, r agentRecord) (workf
 		status, reason = workflow.StatusError, "the agent's output could not be read: "+r.worker.outputUnread
 	} else if r.files.Problem != "" {
 		status, reason = workflow.StatusError, r.files.Problem
-	} else if failure := modelAnswerFailure(r.pi.OutputTokens, r.pi.Events); failure != "" {
+	} else if failure := modelAnswerFailure(r.pi.OutputTokens, r.pi.Events, r.selectedModel); failure != "" {
 		status, reason = workflow.StatusError, failure
 	} else if r.files.MissingOutput != "" {
 		// The declared output is the output: nothing else stands in for it.
@@ -70,9 +71,8 @@ func (a *Executor) recordAgentOutcome(ctx context.Context, r agentRecord) (workf
 	} else if strings.TrimSpace(r.files.Output) == "" {
 		if perr := piharness.LastModelError(r.pi.Events); perr != "" {
 			// Infrastructure, not the agent's work: an error, and the
-			// provider's own words ('credit balance too low' must not read
-			// as 'agent produced no output').
-			status, reason = workflow.StatusError, "the model provider refused the request: "+strs.Truncate(perr, 300)
+			// classified refusal must not read as 'agent produced no output'.
+			status, reason = workflow.StatusError, modelFailure(r.pi.Events, r.selectedModel)
 		} else {
 			status, reason = workflow.StatusFail, "agent produced no output (no text, no files)"
 		}

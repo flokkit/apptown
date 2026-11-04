@@ -20,7 +20,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
-	"github.com/flokkit/apptown/internal/strs"
 )
 
 // An agent step attempt on a worker (design/operations/workers.md, "Agent
@@ -648,7 +647,7 @@ func (a *Executor) readInvocation(ctx context.Context, w *workerAttempt, inv tas
 		a.recordWorkerUsage(ctx, w, inv, meta, &res)
 		if perr := piharness.LastModelError(out); perr != "" && strings.TrimSpace(res.Text) == "" {
 			res.ProviderError = perr
-			a.progress.Append(w.step.ID, "✗ the model provider refused: "+strs.Truncate(perr, 200))
+			a.progress.Append(w.step.ID, "✗ "+modelFailure(res.Events, res.Model))
 		}
 	}
 	// The transcript is kept before anything later runs in the session.
@@ -825,7 +824,7 @@ func (a *Executor) recordWorkerAgent(ctx context.Context, w *workerAttempt, inv 
 	w.cfg.needsStarted, w.cfg.needsRefused = meta.Needs.Started, meta.Needs.Refused
 	var st steeringFile
 	st.Hash, st.GuidanceHash, st.Skills, st.Resources = meta.Steering.Hash, meta.Steering.GuidanceHash, meta.Steering.Skills, meta.Steering.Resources
-	status, err := a.recordAgentOutcome(ctx, agentRecord{task: w.task, cfg: &w.cfg, pi: res.piResult, files: h, steering: st,
+	status, err := a.recordAgentOutcome(ctx, agentRecord{task: w.task, cfg: &w.cfg, pi: res.piResult, files: h, steering: st, selectedModel: meta.Model,
 		modelSlot: meta.ModelSlot, modelProfile: meta.ModelProfile, image: meta.Image.Name,
 		start: meta.Began, queuedMs: meta.QueuedMs, attempts: meta.Dispatches, worker: rec})
 	return settlementOutcome(status, err), err

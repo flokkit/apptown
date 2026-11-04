@@ -156,3 +156,17 @@ func LastModelError(out []byte) string {
 	}
 	return last
 }
+
+// ModelErrorIdentity returns the identity on the last assistant error turn.
+// A turn_end error need not have a corresponding message_end event.
+func ModelErrorIdentity(out []byte) (provider, model string) {
+	for _, line := range strings.Split(string(out), "\n") {
+		var ev struct {
+			Message struct{ Role, StopReason, Provider, Model string }
+		}
+		if json.Unmarshal([]byte(line), &ev) == nil && ev.Message.Role == "assistant" && ev.Message.StopReason == "error" {
+			provider, model = ev.Message.Provider, ev.Message.Model
+		}
+	}
+	return
+}

@@ -20,6 +20,17 @@ func TestLastModelErrorReadsTheProvidersWords(t *testing.T) {
 	}
 }
 
+func TestErrorIdentityComesFromTheLastFailedTurn(t *testing.T) {
+	t.Parallel()
+	out := []byte(`{"type":"turn_end","message":{"role":"assistant","stopReason":"error","provider":"anthropic","model":"old"}}
+{"type":"turn_end","message":{"role":"assistant","stopReason":"error","provider":"openai","model":"gpt-test"}}
+{"type":"message_end","message":{"role":"assistant","stopReason":"stop","provider":"other","model":"other"}}`)
+	provider, model := ModelErrorIdentity(out)
+	if provider != "openai" || model != "gpt-test" {
+		t.Fatalf("%s/%s", provider, model)
+	}
+}
+
 // Completed events remain authoritative when update events contain only deltas.
 // This stream comes from two real CLI invocations sharing one session.
 func TestRecordedPiOutputAndUsage(t *testing.T) {

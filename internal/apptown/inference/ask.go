@@ -16,7 +16,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
-	"github.com/flokkit/apptown/internal/strs"
 )
 
 // appTownActor is the actor of AppTown's own model calls when the caller
@@ -90,7 +89,7 @@ func (g *Gateway) Ask(ctx context.Context, call modelcall.Call) (string, *modelc
 		attribute.String("apptown.workload.kind", who.Kind), attribute.String("apptown.inference.purpose", call.Purpose), attribute.String("apptown.project", who.ProjectID.String()), attribute.String("apptown.run", who.RunID.String())))
 	callCtx, cancel := context.WithTimeout(spanCtx, g.timeout)
 	defer cancel()
-	a := g.send(callCtx, p, path, raw)
+	a := g.send(callCtx, p, id, path, raw)
 	if a.outcome == "" {
 		a.outcome = "upstream_error"
 	}
@@ -105,6 +104,9 @@ func (g *Gateway) Ask(ctx context.Context, call modelcall.Call) (string, *modelc
 		log.Printf("inference: AppTown call %d's spend was not settled (settled=%v): %v", receipt, settled, err)
 	}
 	g.observe(spanCtx, span, p.name, id, a.status, a.outcome, a.usage, g.now().Sub(started))
+	if a.err != nil {
+		log.Printf("inference: %s/%s: %v", p.name, id, a.err)
+	}
 	if a.rejected {
 		return "", nil, a.err
 	}
@@ -141,7 +143,7 @@ type answer struct {
 }
 
 // send makes the upstream call and reads its answer whole.
-func (g *Gateway) send(ctx context.Context, p *inferenceProvider, path string, raw []byte) answer {
+func (g *Gateway) send(ctx context.Context, p *inferenceProvider, model, path string, raw []byte) answer {
 	var a answer
 	protocol := http.Header{}
 	if p.api == "anthropic-messages" {
@@ -158,7 +160,7 @@ func (g *Gateway) send(ctx context.Context, p *inferenceProvider, path string, r
 	case errors.As(err, &rejected):
 		// Upstream errors may echo credentials: keep the status, never the body.
 		a.status, a.outcome, a.rejected = rejected.status, "rejected", true
-		a.err = fmt.Errorf("the %s provider rejected the call (HTTP %d)", p.name, a.status)
+		a.err = errors.New(Failure(p.name, model, a.status, ""))
 		return a
 	case err != nil:
 		if ctx.Err() != nil {
@@ -166,7 +168,8 @@ func (g *Gateway) send(ctx context.Context, p *inferenceProvider, path string, r
 		}
 		a.incomplete = "the call ended after it was sent, before the provider answered"
 		// The transport's error may carry the provider's URL, never a key.
-		a.err = fmt.Errorf("the %s model call failed: %s", p.name, strs.Truncate(err.Error(), 160))
+		a.err = errors.New(Failure(p.name, model, 0, "connection failure"))
+		log.Printf("inference: %s/%s: %v", p.name, model, err)
 		return a
 	}
 	defer resp.Body.Close()
@@ -195,6 +198,9 @@ func (g *Gateway) send(ctx context.Context, p *inferenceProvider, path string, r
 	switch {
 	case a.err != nil:
 		a.incomplete = "the provider's answer could not be read"
+		if errors.Is(a.err, errNoText) {
+			a.err = errors.New(Failure(p.name, model, 0, ""))
+		}
 	case !a.usage.Observed:
 		a.incomplete = "the provider reported no usage"
 	case !a.usage.Priced && a.usage.Input+a.usage.Output > 0:
@@ -219,6 +225,8 @@ func completionRequest(api, model, system, prompt string) (string, map[string]an
 	}
 	return "chat/completions", map[string]any{"model": model, "messages": []map[string]string{{"role": "system", "content": system}, {"role": "user", "content": prompt}}}
 }
+
+var errNoText = errors.New("the model's response had no text")
 
 // completionText reads the model's text from a non-streaming response.
 func completionText(api string, body []byte) (string, error) {
@@ -270,8 +278,11 @@ func completionText(api string, body []byte) (string, error) {
 			text.WriteString(r.Choices[0].Message.Content)
 		}
 	}
-	if err != nil || text.Len() == 0 {
-		return "", fmt.Errorf("the model's response had no text")
+	if err != nil {
+		return "", errors.New("the model's response could not be read")
+	}
+	if text.Len() == 0 {
+		return "", errNoText
 	}
 	return text.String(), nil
 }
