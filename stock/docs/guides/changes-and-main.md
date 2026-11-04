@@ -269,6 +269,10 @@ running app:
     apptown preview 57      # boot (or reuse) the change's preview and print its address
     apptown wait 57         # wait until it ships, stops, or needs a person
 
+`apptown preview` is for a person's terminal and change chats. In a workflow
+step, the workflow's preview step boots the preview; reviewers receive
+`${{preview.url}}`. Run `apptown dev up` to rehearse the boot inside a step.
+
 At an approval it shows the briefing and asks: approve, reject, show the
 plan, spec or report the stage asks for, or see the diff. Rejecting takes a
 comment and sends the work back with it. With `-y` each approval is one

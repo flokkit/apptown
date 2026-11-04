@@ -79,6 +79,13 @@ when AppTown has one, otherwise on AppTown's host.
 - `apptown dev generate`: write `.apptown/docker-compose.yml` and stop.
 - `apptown dev down`: stop either, and remove its volumes.
 
+`apptown dev up` and `apptown dev generate` read the contract's secret
+declaration (`secrets.spec`, or `secretspec.toml`). Generated secrets get fresh
+values on each run, shared only with their declared parts and init containers.
+Declared defaults are also supplied. Other secrets are withheld and listed by
+name. These commands do not read deployed secrets or store generated values
+for reuse; regenerating the Compose file replaces them.
+
 `apptown dev` asks your AppTown to render the files, so it needs the address
 and token the command line uses.
 

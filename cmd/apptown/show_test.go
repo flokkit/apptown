@@ -295,3 +295,21 @@ func TestShowQualifiesMissingPrices(t *testing.T) {
 		})
 	}
 }
+
+// A workflow step refuses locally, even when it names a change explicitly.
+func TestPreviewInWorkflowExplainsBootRehearsalWithoutRequest(t *testing.T) {
+	t.Setenv("APPTOWN_RUN_ID", "run-123")
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
+		return 403, `{"error":"read-only console API: not available on this port"}`
+	})
+	for _, args := range [][]string{nil, {"00000000-0024-7000-8000-000000000000"}} {
+		err := cmdPreview(args)
+		want := "a workflow step cannot boot a preview: the workflow's preview step does; run `apptown dev up` to rehearse the boot"
+		if err == nil || err.Error() != want {
+			t.Errorf("preview: %v, want %s", err, want)
+		}
+	}
+	if len(*seen) != 0 {
+		t.Fatalf("preview contacted server: %+v", *seen)
+	}
+}

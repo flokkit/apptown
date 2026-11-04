@@ -64,6 +64,7 @@ type (
 	}
 	// DevComposition is a contract rendered for local development.
 	DevComposition struct {
+		Withheld []string          `json:"withheld,omitempty"`
 		Compose  string            `json:"compose"`
 		Env      map[string]string `json:"env"`
 		Procfile string            `json:"procfile"`
@@ -147,8 +148,9 @@ func (h Configuration) ConfigValidate(w http.ResponseWriter, r *http.Request) {
 // app.yaml text so it renders the dev's local working copy.
 func (h Configuration) DevCompose(w http.ResponseWriter, r *http.Request) {
 	jsonCommand(w, r, jsonBody{errorText: "appYaml required"}, func(in struct {
-		AppYAML string `json:"appYaml"`
-		Mode    string `json:"mode"`
+		AppYAML    string `json:"appYaml"`
+		SecretSpec string `json:"secretSpec"`
+		Mode       string `json:"mode"`
 		// Host is where the needs' published ports answer for a process
 		// on the caller's machine: localhost, or the host of the caller's
 		// own Docker daemon (a chat's tcp://dind:2375; complaint #94).
@@ -165,8 +167,9 @@ func (h Configuration) DevCompose(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var compose string
+		var withheld []string
 		if in.Mode == "full" {
-			compose, err = h.generateDevCompose(r.Context(), c)
+			compose, withheld, err = h.generateDevCompose(r.Context(), c, in.SecretSpec)
 		} else {
 			compose, err = h.generateNeedsCompose(r.Context(), c)
 		}
@@ -194,7 +197,7 @@ func (h Configuration) DevCompose(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		out := DevComposition{Compose: compose, Env: env, Procfile: generateProcfile(c)}
+		out := DevComposition{Withheld: withheld, Compose: compose, Env: env, Procfile: generateProcfile(c)}
 		if in.Mode == "full" {
 			out.StaticBuilds = devStaticBuilds(c)
 		}

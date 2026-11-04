@@ -135,8 +135,10 @@ curl http://dind:8080/
 
 Substitute the project's image, test command and container port. Published
 ports are reached at `dind`, not the helper's `localhost`, and are not published
-on AppTown's host for the person's browser. Use `apptown preview` for a served
-preview URL.
+on AppTown's host for the person's browser. `apptown preview` boots a served
+preview from a person's terminal or a change chat. In a workflow step, the
+workflow's preview step boots it; reviewers receive `${{preview.url}}`. Run
+`apptown dev up` to rehearse the boot inside a step.
 
 AppTown sets up a `apptown` Buildx builder with DNS and the bound Docker Hub
 mirror. A change chat loads local builds into its daemon by itself; an

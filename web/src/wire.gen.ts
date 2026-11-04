@@ -631,6 +631,7 @@ export type DeploymentView = {
 }
 
 export type DevComposition = {
+  withheld?: string[]
   compose: string
   env: Record<string, string>
   procfile: string
