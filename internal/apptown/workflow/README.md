@@ -5,6 +5,22 @@ being proposed; a Run executes a pinned workflow definition against it; a Step i
 one task or check in that run. The records and their state types live here, along
 with the rules and transactions that change them.
 
+Approval briefs and failure advice read their evidence here through
+`Service.ApprovalBrief` and `Service.FailureAdvice`. The latter requires the
+classifier's current held check, includes acts for that target and uses an
+attempt-specific artifact key. Non-empty answers are cached even when their act
+line is malformed; those answers have no recommendation. Failed model calls
+cool that attempt for ten minutes in the briefs process before another call. `briefs.Service` owns the prose and cache
+orchestration; `SaveBrief` owns its artifact write. `BriefDiff` reads the committed
+comparison and reports an unavailable diff explicitly.
+
+Evidence refresh and advancement request a narrative when a run enters a held
+check or approval wait through `HeldSummaries`. Repeated refusals and unchanged
+evidence refreshes do not request another narrative. Classification preserves
+automatic rework and running work before requesting a summary. Advancement
+queues the request in the transaction recording its blocked receipt; neither
+record survives if that transaction fails.
+
 ## Start here
 
 Construct `Service` once with `New(db, Dependencies{...})`. Both are in
@@ -71,7 +87,7 @@ Review starts after its prerequisites pass and does not poll for boot.
 Run activity uses the dispatcher's prerequisite rule. `WaitingOn` projects that
 classification into one phrase (`says`) and tone for Home, project lists, the
 change head and the CLI. It identifies the holding run and step, including a
-called workflow's, and counts effective failed checks in its current stage.
+called workflow's, carries the held check's attempt, and counts effective failed checks in its current stage.
 Running work, dispatchable work, queued rework and stale verdicts take precedence
 before a held check or decision is named. Other holds keep their recorded reason.
 
@@ -80,7 +96,9 @@ also checks whether this person already voted in its current round. Denial is
 `no`; unavailable eligibility, or an actionable view that has not checked the
 reader, is `unknown`. Work, chat, queued and closed attention have no current
 act and report `no`. Effective deciders retain their person, group or role kind and use
-project defaults when the step names none.
+project defaults when the step names none. Role deciders retain the role ID
+in `name` and carry the catalog title in `displayName`; shared wording uses
+that title.
 `Service.Dashboard` partitions readable current work once by this answer, with
 each change appearing once. Home includes every visible running root waiting
 on the reader and at most 20 other running roots, newest first. List rows omit events and artifacts; an unreadable attention

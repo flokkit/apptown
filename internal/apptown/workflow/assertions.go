@@ -336,6 +336,11 @@ func (s *Service) refreshAssertions(ctx context.Context, ref RunRef) error {
 	if err != nil || run.Status != RunRunning {
 		return err
 	}
+	before, err := readWorkflowSnapshot(ctx, s.db, runID, DetailView, nil, run.ProjectID, nil)
+	if err != nil {
+		return err
+	}
+	held := summaryHolding(before)
 	// Reworked output invalidates the old check before it is evaluated again.
 	// In particular, a still-missing report needs a new evaluation receipt,
 	// not a new timestamp on the previous failure's receipt.
@@ -357,6 +362,11 @@ func (s *Service) refreshAssertions(ctx context.Context, ref RunRef) error {
 				failures = append(failures, fmt.Errorf("assertion %s: %w", step.Name, err))
 			}
 		}
+	}
+	if len(failures) == 0 {
+		err = s.db.InTx(ctx, func(tx *database.Tx) error {
+			return requestHeldSummaryIn(ctx, tx, run.ID, s.heldSummaries, &held)
+		})
 	}
 	return errors.Join(append(failures, err)...)
 }

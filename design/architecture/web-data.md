@@ -76,7 +76,10 @@ acts are offered, the existing next primary chooses one. Acceptance says
 Accept and put live when there is a landing destination, otherwise Accept;
 advance says Continue, a failed check's exception says Accept anyway, an
 execution error's retry says Try again, and a record check's retry says Re-check.
-A reviewer rejection has no reviewer retry button. Send back… replaces the
+A reviewer rejection has no reviewer retry button. Failure advice keeps these
+choices and moves only their highlight. A recommendation for an act outside
+those shown keeps the default highlight. Advice polls until it has a non-empty
+answer and reads again when the holding step or attempt changes. Send back… replaces the
 buttons in place with What should change?, a focused field, Send to agent and
 Cancel. Sending stays disabled until there is text; held decisions prefill the
 failure reason. Cancel restores the choices. Sending back an approval records the approver’s rejection and comment on the approval step; held recovery uses the offered send-back or rework operation. Acceptance has no optional note.

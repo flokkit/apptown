@@ -48,6 +48,7 @@ func init() {
 		wiregen.Named{Name: "RoleCatalog", Value: RoleCatalog{}},
 		wiregen.Named{Name: "GrantList", Value: GrantList{}},
 		wiregen.Named{Name: "ApprovalBrief", Value: ApprovalBrief{}},
+		wiregen.Named{Name: "FailureAdvice", Value: FailureAdvice{}},
 		wiregen.Named{Name: "ApprovalPolicy", Value: ApprovalPolicy{}},
 	)
 }

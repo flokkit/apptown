@@ -56,6 +56,19 @@ describe('held runs offer recovery rather than an approval', () => {
     expect(el.textContent).not.toContain('Stop this attempt')
     expect(el.querySelector('a')?.textContent).toBe('Open the conversation →')
   })
+  it.each(['send-back', 'retry', 'override'])('leads with advice and highlights only its offered %s act', async recommend => {
+    const v = held()
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ text: 'The reviewer found a bug. Ask the agent to fix it.', recommend }))))
+    const el = document.createElement('div'), root = createRoot(el), client = newQueryClient()
+    await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><HeldDecision view={v} onChange={() => {}} /></QueryClientProvider></MemoryRouter>))
+    await act(async () => { for (let i = 0; i < 20; i++) await new Promise(r => setTimeout(r, 0)) })
+    expect(el.textContent).toContain("AppTown's summary")
+    expect(el.textContent!.indexOf('The reviewer found a bug.')).toBeLessThan(el.textContent!.indexOf('The page never loaded.'))
+    const label = recommend === 'send-back' ? 'Send back…' : 'Accept anyway'
+    expect([...el.querySelectorAll('button.primary')].map(b => b.textContent)).toEqual([label])
+    expect([...el.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(heldLabels(v))
+    act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
+  })
   it('selects only one offered forward act and never retries a reviewer rejection', () => {
     const v = held()
     expect(heldLabels(v)).toEqual(['Accept anyway', 'Send back…', 'Abandon change'])

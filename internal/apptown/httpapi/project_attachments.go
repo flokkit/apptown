@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -277,7 +278,7 @@ func (h ProjectAttachments) ListProjectIntegrations(w http.ResponseWriter, r *ht
 	var out []AttachmentView
 	for _, p := range attachments {
 		x := AttachmentView{Capability: p.Capability, Connector: p.Binding, Provenance: p.Provenance,
-			Resource: decodeBriefMap(p.ResourceJSON), CreatedAt: p.CreatedAt.UTC().Format(time.RFC3339Nano), Wirable: p.Capability != integration.CapContainerRegistry}
+			Resource: attachmentResource(p.ResourceJSON), CreatedAt: p.CreatedAt.UTC().Format(time.RFC3339Nano), Wirable: p.Capability != integration.CapContainerRegistry}
 		if !p.WireChangeID.IsZero() {
 			state, err := workflow.ParseChangeState(p.WireState)
 			if err != nil {
@@ -559,4 +560,10 @@ func (h ProjectAttachments) connectorNames(ctx context.Context, capability strin
 		return []string{}, nil
 	}
 	return names, nil
+}
+
+func attachmentResource(raw string) map[string]any {
+	m := map[string]any{}
+	_ = json.Unmarshal([]byte(raw), &m)
+	return m
 }

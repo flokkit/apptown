@@ -15,21 +15,24 @@ import (
 // WaitingOn describes attention, after workflow classification. It is not a
 // lifecycle or permission to execute an act; commands check current authority.
 type WaitingOn struct {
-	Kind   string    `json:"kind"`
-	Run    ids.ID    `json:"run"`
-	Step   ids.ID    `json:"step"`
-	Checks int       `json:"checks"`
-	Who    []Decider `json:"who"`
-	You    string    `json:"you"`
-	Says   string    `json:"says"`
-	Tone   string    `json:"tone"`
+	Kind    string    `json:"kind"`
+	Run     ids.ID    `json:"run"`
+	Step    ids.ID    `json:"step"`
+	Attempt int64     `json:"attempt,omitempty"`
+	Checks  int       `json:"checks"`
+	Who     []Decider `json:"who"`
+	You     string    `json:"you"`
+	Says    string    `json:"says"`
+	Tone    string    `json:"tone"`
 }
 
 // Decider retains whether an effective approval expression names a person,
-// group or role. Name is the expression's name without its kind prefix.
+// group or role. Name retains the expression without its kind prefix; roles
+// also carry the title from the role catalog for display.
 type Decider struct {
-	Kind string `json:"kind"`
-	Name string `json:"name"`
+	Kind        string `json:"kind"`
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName,omitempty"`
 }
 
 func unknownWaitingOn() WaitingOn {
@@ -59,7 +62,7 @@ func waitingOn(ch *Change, d *RunSnapshot) WaitingOn {
 	}
 	a := d.activity
 	if a.holdingStep != nil {
-		w.Step = a.holdingStep.id
+		w.Step, w.Attempt = a.holdingStep.id, a.holdingStep.attempt
 	}
 	w.Run = a.holdingRun
 	if w.Run.IsZero() {
@@ -71,7 +74,7 @@ func waitingOn(ch *Change, d *RunSnapshot) WaitingOn {
 	case a.Held || a.State == ActivityBlocked:
 		w.Kind, w.You = "person", "unknown"
 		if a.holdingStep != nil {
-			w.Step = a.holdingStep.id
+			w.Step, w.Attempt = a.holdingStep.id, a.holdingStep.attempt
 			if checkHold(*a.holdingStep) {
 				w.Kind, w.Checks = "check", a.failedChecks
 			}
@@ -122,7 +125,11 @@ func sayWaitingOn(w WaitingOn, a Activity, ch *Change) WaitingOn {
 		names := []string{}
 		collective := false
 		for _, who := range w.Who {
-			names = append(names, who.Name)
+			name := who.Name
+			if who.Kind == "role" {
+				name = who.DisplayName
+			}
+			names = append(names, name)
 			collective = collective || who.Kind != "person"
 		}
 		switch {
@@ -182,7 +189,11 @@ func (s *Service) readerWaitingOn(ctx context.Context, ch *Change, d *RunSnapsho
 				who.Kind, who.Name = "group", name
 			}
 			if name, ok := strings.CutPrefix(expression, "role:"); ok {
-				who.Kind, who.Name = "role", name
+				role := access.RoleByName(name)
+				if role == nil {
+					return w
+				}
+				who.Kind, who.Name, who.DisplayName = "role", name, role.Title
 			}
 			w.Who = append(w.Who, who)
 		}

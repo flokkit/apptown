@@ -17,7 +17,8 @@ import (
 // Service is the supported caller-facing Work API. Its stores and query plans
 // are private; actor strings in commands never establish permission.
 type Service struct {
-	stepCtx func(context.Context, ids.ID) context.Context
+	stepCtx       func(context.Context, ids.ID) context.Context
+	heldSummaries heldSummaryRequests
 	// attemptWatch is how often a running step's run is looked at.
 	attemptWatch time.Duration
 	// beforeFence is a test seam: it runs after a fenced transaction's
@@ -76,6 +77,8 @@ type Service struct {
 // context, the sources it reads over time, and the recorders other
 // subsystems supply for the effects Work's transactions carry.
 type Dependencies struct {
+	HeldSummaries heldSummaryRequests
+
 	Jobs         jobs.Enqueuer
 	Authority    access.ReadAuthorizer
 	Scanners     scannerSource                                                         // Conformance's attachment snapshot, pinned at stage entry
@@ -154,7 +157,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	automatic := slices.Clone(deps.Automatic)
 	isAutomatic := func(kind string) bool { return slices.Contains(automatic, kind) }
 	authority := commandAuthority{db: db, checked: deps.Authority, visibility: deps.Authority, clocked: clocked{deps.Now}}
-	s := &Service{life: life, db: db, authority: authority, wait: deps.Slots, means: deps.LandingMeans, inAdvance: deps.InAdvance, runners: maps.Clone(deps.Runners), recoverers: maps.Clone(deps.Recoverers), placement: deps.Placement, evalGate: deps.EvalGate, stepCtx: deps.StepContext, masker: deps.Masker, clocked: clocked{deps.Now}, attemptWatch: deps.AttemptWatch}
+	s := &Service{heldSummaries: deps.HeldSummaries, life: life, db: db, authority: authority, wait: deps.Slots, means: deps.LandingMeans, inAdvance: deps.InAdvance, runners: maps.Clone(deps.Runners), recoverers: maps.Clone(deps.Recoverers), placement: deps.Placement, evalGate: deps.EvalGate, stepCtx: deps.StepContext, masker: deps.Masker, clocked: clocked{deps.Now}, attemptWatch: deps.AttemptWatch}
 	if s.attemptWatch <= 0 {
 		s.attemptWatch = defaultAttemptWatch
 	}
@@ -206,7 +209,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	s.assertions = NewAssertions(db, assertions)
 	s.assertions.dispatchRework = s.dispatchRework
 	s.assertions.clocked = s.clocked
-	s.advancer = newAdvancer(db, advanceRuntime{stages: s.stages, assertions: s.assertions, checks: checks, completion: deps.Completion, carry: s.answerFromAcceptance, endNothing: s.endNothingToChange, clocked: s.clocked})
+	s.advancer = newAdvancer(db, advanceRuntime{stages: s.stages, assertions: s.assertions, checks: checks, completion: deps.Completion, heldSummaries: deps.HeldSummaries, carry: s.answerFromAcceptance, endNothing: s.endNothingToChange, clocked: s.clocked})
 	s.starter = newStarter(db, s.stages, deps.Chats, startRuntime{
 		source: s.runAdmissions.Source,
 		supersede: func(ctx context.Context, failed RunRef, next string) error {

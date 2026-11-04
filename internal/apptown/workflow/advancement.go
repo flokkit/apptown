@@ -19,10 +19,11 @@ type advanceChecks interface {
 	Merge(context.Context, *Run) (MergeResult, error)
 }
 type advanceRuntime struct {
-	stages     stages
-	assertions *assertions
-	checks     advanceChecks
-	completion completionRecorder
+	stages        stages
+	assertions    *assertions
+	checks        advanceChecks
+	completion    completionRecorder
+	heldSummaries heldSummaryRequests
 	// carry applies an accepted change's acceptance to the approvals waiting
 	// in a landing's current stage; nil carries nothing.
 	carry func(context.Context, *Run) (bool, error)
@@ -63,7 +64,12 @@ func newAdvancer(db *database.DB, runtime advanceRuntime) *advancer {
 			} else if repeat {
 				return
 			}
-			if err := db.InTx(ctx, func(tx *database.Tx) error { return recordReceiptIn(ctx, tx, id, kind, in, owner.now()) }); err != nil {
+			if err := db.InTx(ctx, func(tx *database.Tx) error {
+				if err := requestHeldSummaryIn(ctx, tx, id, runtime.heldSummaries, nil); err != nil {
+					return err
+				}
+				return recordReceiptIn(ctx, tx, id, kind, in, owner.now())
+			}); err != nil {
 				log.Printf("workflow event %s for run %d: %v", kind, id, err)
 			}
 		},
