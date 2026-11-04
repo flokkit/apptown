@@ -60,12 +60,12 @@ type stockUse struct {
 var StockUses = []stockUse{
 	{Slot: "main-strong", Job: "change summaries", Sources: []string{"narrative_wiring.go"}},
 	{Slot: "main-strong", Job: "failure explanations", Sources: []string{"briefs/service.go"}},
+	{Slot: "main-strong", Job: "approval briefs", Sources: []string{"briefs/approval.go"}},
 	{Slot: "main-strong", Job: "tasks left unset"},
 	{Slot: "main-strong", Job: "model setup status", Sources: []string{"httpapi/setup_status.go"}},
 	{Slot: "chat", Job: "project chat", Sources: []string{"conversation/admission.go", "conversation/open.go", "conversation/environment.go"}},
 	{Slot: "worker", Job: "helpers' written briefs", Sources: []string{"agentharness/pi/preparation.go"}},
 	{Slot: "scout", Job: "helpers' quick lookups", Sources: []string{"agentharness/pi/preparation.go"}},
-	{Slot: "fast", Job: "approval briefs", Sources: []string{"briefs/approval.go"}},
 	{Slot: "fast", Job: "project descriptions", Sources: []string{"projectlifecycle/description.go"}},
 	{Slot: "fast", Job: "ways-of-working setup interviews", Sources: []string{"httpapi/pack_assistance.go"}},
 	{Slot: "secondary-fast", Job: "ways-of-working model checks", Sources: []string{"verification/guidance_models.go"}},

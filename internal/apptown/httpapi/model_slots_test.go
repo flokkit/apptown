@@ -40,8 +40,8 @@ spec:
 		t.Fatalf("built-in consumers missing: %+v", c)
 	}
 	for slot, want := range map[string][]string{
-		"main-strong":    {"change summaries", "failure explanations", "tasks left unset"},
-		"fast":           {"approval briefs", "project descriptions"},
+		"main-strong":    {"change summaries", "failure explanations", "approval briefs", "tasks left unset"},
+		"fast":           {"project descriptions"},
 		"secondary-fast": {"ways-of-working model checks", "fleet dependency checks"},
 		"scout":          {"helpers' quick lookups"},
 	} {

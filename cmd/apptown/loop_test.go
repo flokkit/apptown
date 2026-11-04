@@ -175,7 +175,7 @@ func TestAnApprovalUnderYesIsOneLine(t *testing.T) {
 		case "/steps/00000000-004d-7000-8000-000000000000/question":
 			return 200, `{"step":"accept","status":"pending","means":"I read it","landingMeans":["it ships on my say-so"],"instructions":"Read the report."}`
 		case "/steps/00000000-004d-7000-8000-000000000000/brief":
-			return 200, `{"brief":"WHAT THIS IS\n\nthree paragraphs"}`
+			return 200, `{"brief":"Adds a water demo.\n\nRequires WebGL."}`
 		case "/steps/00000000-004d-7000-8000-000000000000/approve":
 			return 200, `{"name":"accept","status":"pass"}`
 		}
@@ -413,5 +413,24 @@ func TestHelpsPromisedSectionIsTheCompatibilityPagesCommands(t *testing.T) {
 		if !strings.HasPrefix(s.heading, "not promised in 1.x") {
 			t.Fatalf("section %q does not say it is not promised", s.heading)
 		}
+	}
+}
+
+// An absent generated brief still presents the approval's meaning.
+func TestApprovalWithoutBriefShowsQuestion(t *testing.T) {
+	fakeAppTown(t, func(_, path string) (int, string) {
+		switch path {
+		case "/steps/00000000-004d-7000-8000-000000000000/question":
+			return 200, `{"step":"accept","status":"pending","means":"I read it"}`
+		case "/steps/00000000-004d-7000-8000-000000000000/brief":
+			return 200, `{"brief":""}`
+		}
+		return 404, `{"error":"no"}`
+	})
+	out := capture(t, func() {
+		_ = handleApproval(&loopRunDetail{}, idstest.N(9), idstest.N(77), "accept", false, map[ids.ID]bool{})
+	})
+	if !strings.Contains(out, "I read it") || strings.Contains(out, "briefing") {
+		t.Fatalf("absent brief output: %s", out)
 	}
 }

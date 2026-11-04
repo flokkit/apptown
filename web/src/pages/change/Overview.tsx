@@ -136,10 +136,8 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
     {review?.type === 'agent/review' && <div className="ch-overview-line"><div className="ch-row-label">Reviewer</div><p className="ch-value">{review.status === 'running' || review.status === 'pending' ? 'working' : review.checkReading?.unreadable ? 'could not be read' : review.evidence.verdict === 'approve' ? 'approves' : ['fail', 'error', 'needs_human'].includes(review.status) && !review.overrideBy ? <strong className="ch-bad-text"><span className="ch-mark bad">✗</span> Rejected</strong> : review.evidence.verdict || review.status} — {firstLine(review.evidence.reviewerSummary || review.evidence.summary || review.evidence.reason || 'No review conclusion recorded.').split(/(?<=[.!?])\s+/)[0]}</p>{trailer(workTab(undefined, review.runId) + '#review', 'full review →')}</div>}
     {checked && contractChanged(adds) && adds && <div className="ch-overview-line"><div className="ch-row-label">App contract</div><div className="ch-value"><InlineHelp.Provider value={false}><AddsSection adds={adds} /></InlineHelp.Provider></div><span /></div>}
     </section>
-    <TurnDecision progress={nowRunning(view) ? <Now view={view} /> : undefined} outcome={<p>{view.waitingOn.says}{view.stateDetail && ` · ${view.stateDetail}`}</p>} approvalWaiting={!!approval && !!turn} active={!!turn} shown={shown && (!nowRunning(view) || !!turn)} ready={<>{briefParts?.what ? <>
-        <p>{briefParts.what}</p>
-        {briefParts.call && <p><strong>Your call:</strong> {briefParts.call}</p>}
-        {briefParts.look && <p><strong>Worth a look:</strong> {briefParts.look}</p>}
+    <TurnDecision progress={nowRunning(view) ? <Now view={view} /> : undefined} outcome={<p>{view.waitingOn.says}{view.stateDetail && ` · ${view.stateDetail}`}</p>} approvalWaiting={!!approval && !!turn} active={!!turn} shown={shown && (!nowRunning(view) || !!turn)} ready={<>{briefParts?.length ? <>
+        {briefParts.map((paragraph, i) => <p key={i}>{paragraph}</p>)}
       </> : approval && turn ? <p>You asked: {firstLine(ch.body || ch.title)}</p> : null}{turn && !next.recovery && <CheckSummary steps={steps} contractNeedsAttention={contractUnread(adds)} />}</>} actions={approval ? [destination ? 'Accept and put live' : 'Accept', ...(offered(view.next, 'send-back') || offered(d?.next, 'rework') ? ['Send back…'] : []), ...(offered(view.next, 'abandon') ? ['Abandon change'] : [])] : heldLabels(view)}>
       {next.sentBack && <p>{next.sentBack.by} sent it back: “{next.sentBack.note}”</p>}
       {view.mainConflict && <p>{view.mainConflict.mainBranch} conflicts with this change: {view.mainConflict.files.join(', ')}. <Link to={detail} onClick={e => e.currentTarget.closest('dialog')?.close()}>Open Details for the catch-up command</Link>.</p>}
@@ -205,15 +203,8 @@ function ChildOverview({ step, onChange }: { step: Step; onChange: () => void })
   </div>
 }
 
-// The approval brief is written for the approver in four labelled parts; the
-// decision screen shows what it is, the judgment left to them and anything odd.
-// A brief without those labels (no model configured) is not shown.
-export function approvalBrief(text?: string): { what?: string; call?: string; look?: string } | undefined {
-  if (!text) return undefined
-  const parts: Record<string, string> = {}
-  const re = /^\s*\**(WHAT THIS IS|ALREADY VERIFIED|YOUR CALL|WORTH A LOOK)\**\s*[—:–-]*\s*/gm
-  const marks = [...text.matchAll(re)]
-  marks.forEach((m, i) => { parts[m[1]] = text.slice(m.index! + m[0].length, marks[i + 1]?.index ?? text.length).replace(/\s+/g, ' ').trim() })
-  if (!parts['WHAT THIS IS']) return undefined
-  return { what: parts['WHAT THIS IS'], call: parts['YOUR CALL'] || undefined, look: parts['WORTH A LOOK'] || undefined }
+// Approval prose is plain text; paragraph breaks are its only structure.
+export function approvalBrief(text?: string): string[] | undefined {
+  const paragraphs = text?.trim().split(/\n\s*\n/).map(p => p.trim()).filter(Boolean)
+  return paragraphs?.length ? paragraphs : undefined
 }

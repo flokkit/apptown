@@ -43,8 +43,8 @@ func (f *briefEvidence) ApprovalBrief(context.Context, ids.ID) (workflow.Approva
 func (f *briefEvidence) FailureAdvice(context.Context, ids.ID) (workflow.ApprovalBriefInputs, error) {
 	return f.read(true), nil
 }
-func (f *briefEvidence) BriefDiff(context.Context, workflow.ApprovalBriefInputs) string {
-	return "one file changed"
+func (f *briefEvidence) BriefDiff(context.Context, workflow.ApprovalBriefInputs) (string, string) {
+	return "one file changed", "diff --git a/water.js b/water.js\n+ ripple(pointer.x, pointer.y)"
 }
 func (f *briefEvidence) SaveBrief(_ context.Context, _ ids.ID, _, name, body string) error {
 	f.mu.Lock()
@@ -67,6 +67,7 @@ func (m briefModels) Resolve(_ context.Context, _ ids.ID, slot string) (string, 
 }
 
 type briefCompletion struct {
+	check func(modelcall.Call)
 	calls atomic.Int32
 	out   string
 	err   error
@@ -74,6 +75,9 @@ type briefCompletion struct {
 
 func (c *briefCompletion) Ask(_ context.Context, call modelcall.Call) (string, *modelcall.Usage, error) {
 	c.calls.Add(1)
+	if c.check != nil {
+		c.check(call)
+	}
 	if call.Model != "strong" {
 		return "", nil, errors.New("wrong model")
 	}
@@ -90,10 +94,7 @@ func TestConcurrentBriefReadsBuildAndPersistOnce(t *testing.T) {
 		t.Run(map[bool]string{false: "approval", true: "failure"}[failure], func(t *testing.T) {
 			t.Parallel()
 			f := evidenceForBriefs()
-			slot := "fast"
-			if failure {
-				slot = "main-strong"
-			}
+			slot := "main-strong"
 			c := &briefCompletion{out: "retry\nThe check could not run. Try it again."}
 			s := &Service{work: f, selection: briefModels{slot: slot, pattern: "strong"}, completion: c}
 			read := func() {
@@ -221,5 +222,40 @@ func TestFailedAdviceCoolsOnlyTheFailedAttempt(t *testing.T) {
 	}
 	if c.calls.Load() != 3 {
 		t.Fatal("expired cooling period prevented retry")
+	}
+}
+
+// Only completed model prose may be saved. Missing models and failed answers
+// leave no artifact, so a later open can build the brief.
+func TestApprovalCachesOnlyModelProse(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, pattern, out string
+		err                error
+		wantError          bool
+	}{
+		{name: "no model"},
+		{name: "model error", pattern: "strong", err: errors.New("provider failed"), wantError: true},
+		{name: "empty answer", pattern: "strong", out: " \n ", wantError: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			f := evidenceForBriefs()
+			c := &briefCompletion{out: tc.out, err: tc.err}
+			s := &Service{work: f, selection: briefModels{slot: "main-strong", pattern: tc.pattern}, completion: c}
+			text, err := s.Approval(t.Context(), f.in.Step.ID)
+			if text != "" || (err != nil) != tc.wantError || f.writes != 0 {
+				t.Fatalf("brief=%q error=%v writes=%d", text, err, f.writes)
+			}
+			if tc.err != nil && !errors.Is(err, tc.err) {
+				t.Fatalf("lost provider error: %v", err)
+			}
+			c.err, c.out = nil, "Adds working links."
+			s.selection = briefModels{slot: "main-strong", pattern: "strong"}
+			text, err = s.Approval(t.Context(), f.in.Step.ID)
+			if err != nil || text != c.out || f.writes != 1 {
+				t.Fatalf("retry brief=%q error=%v writes=%d", text, err, f.writes)
+			}
+		})
 	}
 }
