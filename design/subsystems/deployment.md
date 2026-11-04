@@ -1573,7 +1573,7 @@ defines section retention, age and loop lifecycle.
 
 ## The address given to apps
 
-`APPTOWN_URL` gives every app part and init step one selected deployment
+`APPTOWN_APP_URL` gives every app part and init step one selected deployment
 address. Standing Docker boots use `dockerReach` through `Driver.URL`.
 Preview preparation captures `Routing.PreviewURL` in `Prepared.URL`, includes
 it in the public incarnation digest and serializes it to the worker alongside

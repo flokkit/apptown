@@ -369,10 +369,10 @@ func TestWordPressDeploymentURLGuidanceCutsANewPackVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(current), "`APPTOWN_URL`") {
+	if !strings.Contains(string(current), "`APPTOWN_APP_URL`") {
 		t.Fatal("WordPress guidance does not use the deployment address")
 	}
-	old := []byte(strings.ReplaceAll(string(current), "`APPTOWN_URL`", "`WP_HOME`"))
+	old := []byte(strings.ReplaceAll(string(current), "`APPTOWN_APP_URL`", "`APPTOWN_URL`"))
 	db := testDB(t)
 	previous := New(db, Dependencies{Stock: changedStock{FS: stock.FS, files: fstest.MapFS{path: {Data: old}}}, ToolLines: stock.Versions()})
 	previous.SyncStock(t.Context())

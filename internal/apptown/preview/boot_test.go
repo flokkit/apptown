@@ -80,7 +80,7 @@ func TestBootChangeWorktreeSequence(t *testing.T) {
 	if service < 0 || init <= service || worker <= init || app <= worker || previewCommandIndex(calls, "pull reg.example/app:1") < 0 || !strings.HasSuffix(calls[app], " reg.example/app:1") || previewCommandIndex(calls, "build ") >= 0 {
 		t.Fatalf("wrong preview boot sequence: %v", calls)
 	}
-	if !strings.Contains(calls[app], "-e APPTOWN_URL="+out.URL+" ") {
+	if !strings.Contains(calls[app], "-e APPTOWN_APP_URL="+out.URL+" ") {
 		t.Fatalf("change preview app did not receive its URL %s: %s", out.URL, calls[app])
 	}
 	for _, i := range []int{service, init, worker, app} {
@@ -485,7 +485,7 @@ func TestALocalRunPreviewCapsItsSuppliedService(t *testing.T) {
 		t.Fatal(err)
 	}
 	app := client.Matching("run -d --name " + docker.PreviewRunName(idstest.N(4)))
-	if len(app) != 1 || !strings.Contains(strings.Join(app[0], " "), "-e APPTOWN_URL="+out.URL+" ") {
+	if len(app) != 1 || !strings.Contains(strings.Join(app[0], " "), "-e APPTOWN_APP_URL="+out.URL+" ") {
 		t.Fatalf("run preview app did not receive its URL %s: %v", out.URL, app)
 	}
 	name := docker.Current.Service(docker.RunStepStackID(idstest.N(11)), "cache")

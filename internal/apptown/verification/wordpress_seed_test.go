@@ -279,7 +279,7 @@ func TestWordPressInitializerUsesTheDeploymentURLUnlessHomeIsPinned(t *testing.T
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
-			out := (localChecks{}).Run(t.Context(), execution.Request{Workspace: dir, Timeout: time.Minute, Argv: []string{"sh", "-c", stub + script}, Env: []string{"WP_ADMIN_PASSWORD=fixture", "WP_HOME=" + tc.home, "APPTOWN_URL=" + tc.url}})
+			out := (localChecks{}).Run(t.Context(), execution.Request{Workspace: dir, Timeout: time.Minute, Argv: []string{"sh", "-c", stub + script}, Env: []string{"WP_ADMIN_PASSWORD=fixture", "WP_HOME=" + tc.home, "APPTOWN_APP_URL=" + tc.url, "APPTOWN_URL=https://server.example"}})
 			if out.ExitCode != 0 || !out.Answered() {
 				t.Fatalf("initializer: %+v", out)
 			}

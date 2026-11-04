@@ -57,20 +57,23 @@ func TestBootGivesEveryAppConsumerItsDeploymentURL(t *testing.T) {
 			}
 			consumers := map[string]bool{"web": false, "worker": false, "init-migrate": false}
 			for _, call := range client.calls {
+				if strings.Contains(call, "APPTOWN_URL=") {
+					t.Fatalf("CLI address injected into app: %s", call)
+				}
 				for consumer := range consumers {
 					if !strings.Contains(call, "-e SECRET_FOR=value-for-"+consumer+" ") {
 						continue
 					}
 					consumers[consumer] = true
 					if want == "" {
-						if strings.Contains(call, "APPTOWN_URL=") {
+						if strings.Contains(call, "APPTOWN_APP_URL=") {
 							t.Fatalf("unknown address injected: %s", call)
 						}
-					} else if !strings.Contains(call, "-e APPTOWN_URL="+want+" ") {
+					} else if !strings.Contains(call, "-e APPTOWN_APP_URL="+want+" ") {
 						t.Fatalf("%s missing selected URL: %s", consumer, call)
 					}
 				}
-				if strings.Contains(call, "--network-alias postgres ") && strings.Contains(call, "APPTOWN_URL=") {
+				if strings.Contains(call, "--network-alias postgres ") && strings.Contains(call, "APPTOWN_APP_URL=") {
 					t.Fatalf("need received app address: %s", call)
 				}
 			}

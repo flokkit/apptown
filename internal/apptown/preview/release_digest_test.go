@@ -201,7 +201,7 @@ func TestALocalReleasePreviewIsNotRoutedToTheWorker(t *testing.T) {
 	if len(local()) == 0 || len(w.boots) != 0 {
 		t.Fatal("fixture: the preview did not boot here")
 	}
-	if !strings.Contains(strings.Join(local(), "\n"), "-e APPTOWN_URL="+out.URL+" ") {
+	if !strings.Contains(strings.Join(local(), "\n"), "-e APPTOWN_APP_URL="+out.URL+" ") {
 		t.Fatalf("local release preview app did not receive its URL %s: %v", out.URL, local())
 	}
 	wantOrigin := "APPTOWN_ORIGINS=https://" + docker.ReleasePreviewLabel("p", recorded) + ".preview.example"

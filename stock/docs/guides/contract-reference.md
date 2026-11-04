@@ -77,7 +77,7 @@ notAppCode: [docs/site]
   image's `CMD`, including its run of `APPTOWN_TRUST`, so a command that
   calls out behind a TLS-inspecting proxy runs `eval "${APPTOWN_TRUST:-}"`
   first.
-- **`environment`** may not set `PORT`, `APPTOWN_ORIGINS`, `APPTOWN_URL`, `DATA_DIR`,
+- **`environment`** may not set `PORT`, `APPTOWN_ORIGINS`, `APPTOWN_APP_URL`, `DATA_DIR`,
   `APPTOWN_RELEASE`, `APPTOWN_BROWSER_ENV` or `APPTOWN_TRUST`: AppTown sets them (see "The
   environment an app gets"), and an app's own value would win on one target
   and lose on another. Names starting `APPTOWN_` are AppTown's, in parts,
@@ -229,13 +229,17 @@ AppTown adds a few values of its own, which differ by target:
 | --- | --- | --- | --- |
 | `PORT` | every part that has a port | every part that has a port | not set by AppTown |
 | `APPTOWN_ORIGINS` | public part: its own standing or configured preview origin | public part: its admitted deployment ingress hosts | public part: the app's own address |
-| `APPTOWN_URL` | every app part and init step: the selected deployment or preview address, when known | every app part and init step: the admitted ingress URL | every service, worker and pre-deploy job: `${APP_URL}` |
+| `APPTOWN_APP_URL` | every app part and init step: the selected deployment or preview address, when known | every app part and init step: the admitted ingress URL | every service, worker and pre-deploy job: `${APP_URL}` |
 | `DATA_DIR` | public part, when it has a `dataDir`, set last | public part, the same | — (no `dataDir`) |
 | `APPTOWN_TRUST` | every part and init step but a static site's, when the server is given extra certificate authorities: a script the start command runs (`eval "${APPTOWN_TRUST:-}"`) to trust them | the same | the same |
 | attached integrations: `SENTRY_DSN` (error reporting); `FEEDBACK_URL` and `FEEDBACK_APP_KEY` (customer feedback, Experimental) | public part | public part, the same | not delivered; the release records it |
 | order of precedence | need values and scoped secrets over the part's own `environment`; a name shared by both is refused | the same | the same |
 
-`APPTOWN_URL` is one address for links: scheme, host and port when needed,
+`APPTOWN_URL` is the AppTown server address used by the CLI and agent sessions.
+`APPTOWN_APP_URL` is the app's own deployment or preview address. These are
+different values; apps use `APPTOWN_APP_URL` for their own links.
+
+`APPTOWN_APP_URL` is one address for links: scheme, host and port when needed,
 with no trailing slash. `APPTOWN_ORIGINS` lists the Hosts an app should accept.
 The URL is unset when the address is not yet known. A domainless preview gets
 its port after init, so its init steps, running parts and commands inheriting
@@ -245,7 +249,7 @@ it after the port becomes known. Need containers do not receive it.
 So that an app runs the same everywhere:
 
 - read `PORT` if it is set, and fall back to the port you declared;
-- leave `PORT`, `APPTOWN_ORIGINS`, `APPTOWN_URL` and `DATA_DIR` to AppTown (the contract
+- leave `PORT`, `APPTOWN_ORIGINS`, `APPTOWN_APP_URL` and `DATA_DIR` to AppTown (the contract
   refuses them in `environment`);
 - read every connection value from the need's variables;
 - keep durable files in the public part's `dataDir` or in a need.

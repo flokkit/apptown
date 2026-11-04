@@ -226,7 +226,7 @@ func wordpressSeedKeepsDataAndMedia(t *testing.T, size string) {
 		t.Fatal("staging indexing setting leaked into production data")
 	}
 	// CLI work that stores URLs is given the deployment's address for that run.
-	out, err := ephemeral([]string{"-e", "APPTOWN_URL=http://blog.site.test:8080"}, "/app/bin/wp", "post", "create", "--post_title=Persistent story", "--post_content=Written before replacement", "--post_status=publish", "--porcelain")
+	out, err := ephemeral([]string{"-e", "APPTOWN_APP_URL=http://blog.site.test:8080"}, "/app/bin/wp", "post", "create", "--post_title=Persistent story", "--post_content=Written before replacement", "--post_status=publish", "--porcelain")
 	if err != nil {
 		t.Fatalf("WP-CLI: %v %s", err, out)
 	}
@@ -285,18 +285,21 @@ func wordpressSeedKeepsDataAndMedia(t *testing.T, size string) {
 			t.Fatalf("host %s, outside APPTOWN_ORIGINS, answered %s, want 400", host, got)
 		}
 	}
-	if out, err := ephemeral([]string{"-e", "APPTOWN_URL=https://deployment.example"}, "/app/bin/wp", "eval", "echo home_url();"); err != nil || strings.TrimSpace(out) != "https://deployment.example" {
+	if out, err := ephemeral([]string{"-e", "APPTOWN_APP_URL=https://deployment.example", "-e", "APPTOWN_URL=https://server.example"}, "/app/bin/wp", "eval", "echo home_url();"); err != nil || strings.TrimSpace(out) != "https://deployment.example" {
 		t.Fatalf("WP-CLI did not receive deployment address: %v %s", err, out)
 	}
-	if out, err := ephemeral([]string{"-e", "APPTOWN_URL=https://deployment.example", "-e", "WP_HOME=https://canonical.example"}, "/app/bin/wp", "eval", "echo home_url();"); err != nil || strings.TrimSpace(out) != "https://canonical.example" {
+	if out, err := ephemeral([]string{"-e", "APPTOWN_APP_URL=https://deployment.example", "-e", "WP_HOME=https://canonical.example"}, "/app/bin/wp", "eval", "echo home_url();"); err != nil || strings.TrimSpace(out) != "https://canonical.example" {
 		t.Fatalf("a bound WP_HOME is not the site's address: %v %s", err, out)
+	}
+	if out, err := ephemeral([]string{"-e", "APPTOWN_URL=https://server.example"}, "/app/bin/wp", "eval", "echo home_url();"); err != nil || strings.TrimSpace(out) != "http://localhost" {
+		t.Fatalf("WP-CLI used the CLI server address as its own: %v %s", err, out)
 	}
 	// Real media import goes through WordPress's S3 stream wrapper and image
 	// editors. WP-CLI has no request, so it is given the site's address.
 	site := "http://blog.site.test:8080"
 	cli := func(command ...string) string {
 		t.Helper()
-		return must(append([]string{"exec", "-e", "APPTOWN_URL=" + site, web, "/app/bin/wp"}, command...)...)
+		return must(append([]string{"exec", "-e", "APPTOWN_APP_URL=" + site, web, "/app/bin/wp"}, command...)...)
 	}
 	must("exec", web, "php", "-r", `$i=imagecreatetruecolor(800,600);imagefill($i,0,0,imagecolorallocate($i,42,83,61));imagepng($i,'/tmp/probe.png');`)
 	attachment := cli("media", "import", "/tmp/probe.png", "--title=Persistent image", "--porcelain")

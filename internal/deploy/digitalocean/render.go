@@ -282,7 +282,7 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		// deployment's is (APPTOWN_ORIGINS), so its framework trusts its front
 		// door: the platform's own URL for the app, its primary domain,
 		// which App Platform binds when the app runs.
-		wiring := map[string]string{"APPTOWN_URL": appURL}
+		wiring := map[string]string{"APPTOWN_APP_URL": appURL}
 		if p.Public {
 			wiring["APPTOWN_ORIGINS"] = appURL
 		}
@@ -332,7 +332,7 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		if err != nil {
 			return deploy.Artifact{}, err
 		}
-		wiring := map[string]string{"APPTOWN_URL": appURL}
+		wiring := map[string]string{"APPTOWN_APP_URL": appURL}
 		if script := trust.Current().Script(false); script != "" {
 			wiring[appcontract.TrustEnvVar] = script
 		}

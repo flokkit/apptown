@@ -65,10 +65,10 @@ func TestTheWorkerStartsAWorkflowsServicesFromThePreparedValue(t *testing.T) {
 			if origin == "" && strings.Contains(body, "APPTOWN_ORIGINS=") {
 				t.Fatalf("domainless preview gained origin: %s", body)
 			}
-			if url != "" && !strings.Contains(body, "APPTOWN_URL="+url) {
+			if url != "" && !strings.Contains(body, "APPTOWN_APP_URL="+url) {
 				t.Fatalf("captured URL changed in worker boot: %s", body)
 			}
-			if url == "" && strings.Contains(body, "APPTOWN_URL=") {
+			if url == "" && strings.Contains(body, "APPTOWN_APP_URL=") {
 				t.Fatalf("unknown URL reconstructed from origins: %s", body)
 			}
 			var started bool

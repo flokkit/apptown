@@ -396,7 +396,10 @@ func TestIntranetGivesEveryAppConsumerTheSelectedURL(t *testing.T) {
 				if consumer == "database" {
 					want = ""
 				}
-				got, set := env["APPTOWN_URL"]
+				if _, set := env["APPTOWN_URL"]; set {
+					t.Fatalf("CLI address injected into %s", consumer)
+				}
+				got, set := env["APPTOWN_APP_URL"]
 				if got != want || (want == "" && set) {
 					t.Fatalf("%s URL = %q (set %v), want %q", consumer, got, set, want)
 				}

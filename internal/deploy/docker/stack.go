@@ -313,7 +313,7 @@ func nonPublicPartServices(c *appcontract.Plan, secrets Delivery, url string) []
 			spec.Env[k] = v // this part's own secrets, and only those
 		}
 		if url != "" {
-			spec.Env["APPTOWN_URL"] = url
+			spec.Env["APPTOWN_APP_URL"] = url
 		}
 		if p.Port != 0 {
 			spec.Env["PORT"] = fmt.Sprintf("%d", p.Port)
@@ -355,7 +355,7 @@ func runInitContainers(ctx context.Context, dk Scope, id, network string, c *app
 			args = append(args, "-e", k+"="+v)
 		}
 		if url != "" {
-			args = append(args, "-e", "APPTOWN_URL="+url)
+			args = append(args, "-e", "APPTOWN_APP_URL="+url)
 		}
 		args = append(args, trust.ContainerArgs(!dk.remote())...)
 		args = append(args, img)

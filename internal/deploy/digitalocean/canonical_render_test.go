@@ -63,8 +63,11 @@ init:
 		if comp.Name == "web" && comp.HTTPPort != 8080 {
 			t.Fatalf("public port = %d, want 8080", comp.HTTPPort)
 		}
-		if env["APPTOWN_URL"] != "${APP_URL}" {
-			t.Fatalf("deployment URL in %s: %q", comp.Name, env["APPTOWN_URL"])
+		if _, set := env["APPTOWN_URL"]; set {
+			t.Fatalf("CLI address injected into %s", comp.Name)
+		}
+		if env["APPTOWN_APP_URL"] != "${APP_URL}" {
+			t.Fatalf("deployment URL in %s: %q", comp.Name, env["APPTOWN_APP_URL"])
 		}
 		if env["DATABASE_URL"] != "resolved" {
 			t.Fatalf("need connection overridden in %s", comp.Name)
