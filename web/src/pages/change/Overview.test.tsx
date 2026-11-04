@@ -33,10 +33,10 @@ const view = (): ChangeView => ({
   projectSlug: 'club', state: 'waiting on you', statusLabel: 'waiting for you',
   detail: { run: { id: 'run', number: 2, currentStage: 'check', status: 'running', statusLabel: 'working', workflowName: 'work', workflowVersion: 1, createdAt: '' },
     stages: ['check'], steps: [step('script'), step('agent/review', 'pass', { verdict: 'approve', summary: 'The calendar matches the request.' }), approval],
-    next: [{ act: 'approve', stepId: approval.id }], landingMeans: ['Merge and release the accepted work.'], events: [],
+    next: [{ act: 'approve', stepId: approval.id }, { act: 'rework', stepId: 'agent' }], landingMeans: ['Merge and release the accepted work.'], events: [],
     artifacts: [{ id: 'record', runId: 'run', name: 'supporting report', kind: 'report', body: 'The complete report is retained.', ref: 'https://example.test/report', createdAt: '' }] },
   evidence: { targets: [{ title: 'Every ride has a start time', block: 'calendar', check: 'ride-times', expects: 'All times are shown.' }], merged: false, releases: [], mergeLabel: 'not merged', inAdvance: { approver: 'sam', at: '', shown: ['Acceptance recorded in advance.'] } },
-  approval: { stepId: approval.id, viewer: 'yes' }, next: [], runs: [], adrs: [], editing: 0, commits: [], diffstat: '5 files changed, 35 insertions(+), 15 deletions(-)', usage: { total: 1200, costMicros: 1000 }, committedDiff: { status: 'changed' },
+  approval: { stepId: approval.id, viewer: 'yes' }, next: [{ act: 'abandon' }], runs: [], adrs: [], editing: 0, commits: [], diffstat: '5 files changed, 35 insertions(+), 15 deletions(-)', usage: { total: 1200, costMicros: 1000 }, committedDiff: { status: 'changed' },
 } as unknown as ChangeView)
 const render = (v: ChangeView) => renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>)
 afterEach(() => { vi.unstubAllGlobals(); vi.stubGlobal('IntersectionObserver', Observer); vi.stubGlobal('ResizeObserver', Observer) })
@@ -133,11 +133,11 @@ it('opens Overview by default and keeps code, conversation, full records and edi
   await settle()
   expect(el.querySelector('.ch-tabs [aria-current]')?.textContent).toBe('Code')
   expect(el.querySelector('dialog[open] h2')?.textContent).toBe('Accept this change?')
-  expect([...el.querySelectorAll('dialog .ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept', 'Go to chat', 'Rework with comment', 'Abandon change'])
+  expect([...el.querySelectorAll('dialog .ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept', 'Send back…', 'Abandon change'])
   expect(el.querySelector('#decision button')).toBeNull()
-  await act(async () => el.querySelector<HTMLButtonElement>('dialog header button')!.click())
+  await act(async () => el.querySelector<HTMLAnchorElement>('dialog a[href$="tab=conversation"]')!.click())
   expect(el.querySelector('dialog[open]')).toBeNull()
-  expect(el.querySelector('.ch-tabs [aria-current]')?.textContent).toBe('Code')
+  expect(el.querySelector('.ch-tabs [aria-current]')?.textContent).toBe('Conversation')
   expect(vi.mocked(fetch).mock.calls.some(([url, init]) => init?.method === 'POST' && /approve|abandon|console/.test(String(url)))).toBe(false)
   for (const name of ['Overview', 'Conversation', 'Details', 'Code']) {
     await click(name)
@@ -253,8 +253,9 @@ it('links a long reviewer conclusion to the run that recorded it', () => {
   expect(link.getAttribute('href')).toBe('/?tab=details&run=working-run&step=undefined#review')
 })
 
-it.each([true, false])('states the actual acceptance consequence and keeps its formal meaning at decision time (deploys=%s)', async deploys => {
+it.each([[true, true], [true, false], [false, true], [false, false]])('states acceptance consequences and only offered decisions (deploys=%s, abandon=%s)', async (deploys, abandon) => {
   const v = view()
+  if (!abandon) v.next = []
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
     String(url).endsWith('/deployments') ? deploys ? [{ feed: 'landing', url: 'https://school.example.test' }] : []
       : String(url).endsWith('/question') ? { adds: null } : String(url).endsWith('/auth/me') ? { user: `consequence-${deploys}` } : {}
@@ -271,9 +272,22 @@ it.each([true, false])('states the actual acceptance consequence and keeps its f
   expect(el.querySelector('dialog[open]')).not.toBeNull()
   expect(el.querySelector('dialog .decision-meaning')!.compareDocumentPosition(el.querySelector('dialog .ch-decision-choices')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(el.querySelector('dialog .decision-meaning')?.textContent).toContain('By accepting, you confirm: “I accept this work in full.”')
-  expect([...el.querySelectorAll('dialog .ch-decision-choices button')].map(b => b.textContent)).toEqual([label, 'Go to chat', 'Rework with comment', 'Abandon change'])
+  expect([...el.querySelectorAll('dialog .ch-decision-choices button')].map(b => b.textContent)).toEqual([label, 'Send back…', ...(abandon ? ['Abandon change'] : [])])
   for (let i = 0; i < 8; i++) await act(async () => { await new Promise(r => setTimeout(r, 0)) })
   expect(el.querySelector<HTMLButtonElement>('dialog .primary')!.disabled).toBe(false)
+  expect(el.querySelector('dialog textarea, dialog input')).toBeNull()
+  const click = async (text: string) => act(async () => [...el.querySelectorAll<HTMLButtonElement>('dialog button')].find(b => b.textContent === text)!.click())
+  await click('Send back…')
+  await act(async () => {
+    const field = el.querySelector('textarea')!
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(field, 'Change the time')
+    field.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await click('Cancel')
+  el.querySelector<HTMLElement>('dialog .decision-meaning')!.getBoundingClientRect = () => ({ top: 100, bottom: 150 }) as DOMRect
+  await click(label)
+  const request = vi.mocked(fetch).mock.calls.find(([url, init]) => String(url).endsWith('/approve') && init?.method === 'POST')
+  expect(JSON.parse(String(request![1]!.body))).toMatchObject({ decision: 'approve', comment: '' })
   await act(async () => root.unmount()); client.clear()
 })
 
@@ -346,7 +360,7 @@ it('identifies offered held recovery and keeps its action labels in decision ord
   v.next = [{ act: 'send-back' }, { act: 'abandon' }] as ChangeView['next']
   v.detail!.next = [{ act: 'retry', stepId: 'agent/pi', step: 'agent/pi' }]
   expect(viewerTurn(v)).toBe(true)
-  expect(heldLabels(v)).toEqual(['Go to chat', 'Rework with comment', 'Abandon change'])
+  expect(heldLabels(v)).toEqual(['Send back…', 'Abandon change'])
   const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><StatePanel view={v} /></QueryClientProvider></MemoryRouter>)
   expect(html).toContain('ch-state tone-warn')
   expect(html).toContain('Your turn: Choose the start time.')
@@ -357,8 +371,8 @@ it('keeps one decision screen measured to the content column and closes without 
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => bounds as DOMRect)
   const action = vi.fn(), el = document.createElement('div'), root = createRoot(el)
   document.body.append(el)
-  const labels = ['Accept and put live', 'Go to chat', 'Rework with comment', 'Abandon change']
-  const draw = (active: boolean) => act(() => root.render(<div className="ch-page"><section className="ch-tabs-sheet"><TurnDecision active={active} actions={labels} ready={<p>Ready: checks passed</p>}><p>Accepting puts this live.</p><DecisionChoices note="" setNote={() => {}} busy={false} accept={{ label: labels[0], run: action }} chat={{ label: labels[1], run: action }} rework={{ label: labels[2], run: action }} abandon={{ label: labels[3], run: action }} /></TurnDecision></section></div>))
+  const labels = ['Accept and put live', 'Send back…', 'Abandon change']
+  const draw = (active: boolean) => act(() => root.render(<div className="ch-page"><section className="ch-tabs-sheet"><TurnDecision active={active} actions={labels} ready={<p>Ready: checks passed</p>}><p>Accepting puts this live.</p><DecisionChoices note="" setNote={() => {}} busy={false} accept={{ label: labels[0], run: action }} conversation={{ href: '?tab=conversation', run: action }} rework={{ label: labels[1], run: action }} abandon={{ label: labels[2], run: action }} /></TurnDecision></section></div>))
   draw(true)
   const page = el.querySelector<HTMLElement>('.ch-page')!, floater = el.querySelector<HTMLElement>('.ch-turn-floater')!, screen = el.querySelector<HTMLDialogElement>('dialog')!
   const sheet = page.querySelector<HTMLElement>('.ch-tabs-sheet')!
@@ -379,7 +393,7 @@ it('keeps one decision screen measured to the content column and closes without 
   expect(screen.textContent).toContain('Ready: checks passed')
   expect(screen.textContent).toContain('Accepting puts this live.')
   expect([...screen.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(labels)
-  expect([...screen.querySelectorAll('.ch-decision-choices button')].map(b => b.className)).toEqual(['primary', '', '', 'danger'])
+  expect([...screen.querySelectorAll('.ch-decision-choices button')].map(b => b.className)).toEqual(['primary', '', 'danger'])
   act(() => screen.querySelector<HTMLButtonElement>('header button')!.click())
   expect(screen.open).toBe(false)
   expect(screen.querySelector('button, input')).toBeNull()
@@ -407,7 +421,7 @@ it('keeps one decision screen measured to the content column and closes without 
   act(() => root.unmount()); el.remove(); vi.restoreAllMocks()
 })
 
-it('shows chat replies and the same ordered equal decision choices before any checks run', async () => {
+it('shows the latest chat reply and Continue chat as the only action before any run', async () => {
   const v = view(); v.change.summary = ''; v.change.state = 'in_progress'; v.state = ''; v.detail = null; v.approval = undefined
   v.next = [{ act: 'land' }] as ChangeView['next']
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/transcript') ? { sessions: [{ messages: [{ role: 'helper', text: 'Old answer.' }, { role: 'helper', text: 'The menu can be edited.\nOrders keep their names.' }] }], unreadable: 0 } : []))))
@@ -418,12 +432,12 @@ it('shows chat replies and the same ordered equal decision choices before any ch
   expect(el.textContent).not.toContain('Old answer.')
   expect(el.textContent).not.toContain('No report from the agent')
   expect(el.querySelector('a[href$="tab=conversation"]')?.textContent).toBe('full conversation →')
-  expect(el.textContent).toContain('Not checked yet. Checks run when you press Check and land.')
+  expect(el.textContent).toContain('Not checked yet. Checks run when you press Check and land in the chat.')
   for (const absent of ['0 checks', 'Read the app declarations', 'App contract', 'Run a workflow']) expect(el.textContent).not.toContain(absent)
   expect(el.querySelector('.ch-decision h2')?.textContent).toBe('Next steps')
   const buttons = [...el.querySelectorAll('.ch-decision-choices button')]
-  expect(buttons.map(b => b.textContent)).toEqual(['Check and land', 'Go to chat', 'Abandon change'])
-  expect(buttons[0].className).toBe('primary'); expect(buttons[2].className).toBe('danger')
+  expect(buttons.map(b => b.textContent)).toEqual(['Continue chat'])
+  expect(buttons[0].className).toBe('primary')
   await act(async () => root.unmount()); client.clear()
 })
 
@@ -433,7 +447,7 @@ it('groups unfinished checks and app contract, showing findings without evaluato
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<CheckSummary steps={steps} contractNeedsAttention />)
   expect(el.querySelector('.ch-check-summary > p')?.textContent).toBe('Still running: Dependency scan, Secret scan, Security scan')
-  expect([...el.querySelectorAll('.ch-check-exception')].map(e => e.firstChild?.textContent)).toEqual(['Changes to the app contract need checking.', 'Style failed: Missing a label.'])
+  expect([...el.querySelectorAll('.ch-check-exception')].map(e => e.firstChild?.textContent)).toEqual(['Style failed: Missing a label.', 'Changes to the app contract need checking.'])
   for (const text of ['Resolve the reported issue', 'Let the check finish', 'No passing result', 'Add it before shipping']) expect(el.textContent).not.toContain(text)
   const command = el.querySelector('.ch-technical')!
   expect(command.getAttribute('aria-hidden')).toBe('true')
@@ -469,7 +483,7 @@ it('opens held recovery buttons only in Decide and shows the complete reason onc
     const dialog = el.querySelector('dialog[open]')!
     expect(dialog.textContent?.match(/The page never loaded\./g)).toHaveLength(1)
     expect(dialog.textContent?.match(/The screen stayed blank\./g)).toHaveLength(1)
-    expect([...dialog.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept it anyway', 'Take it to chat', 'Fix it', 'Try again', 'Stop this attempt', 'Abandon change'])
+    expect([...dialog.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept anyway', 'Send back…', 'Abandon change'])
     expect(dialog.querySelector('details')).toBeNull()
     expect(dialog.textContent).not.toContain('Open the decision')
     expect(dialog.textContent).not.toContain('Accept despite failures')
@@ -506,6 +520,36 @@ it.each([undefined, 'Malformed app declaration', 'Starting app declaration unrea
     const vote = vi.mocked(fetch).mock.calls.find(([url, init]) => String(url).endsWith('/steps/approval/approve') && init?.method === 'POST')
     expect(vote).toBeDefined()
     expect(JSON.parse(vote![1]!.body as string)).toMatchObject({ decision: 'approve', adds: 'shown-digest', alsoApproves: ['Merge and release the accepted work.'] })
+  } finally { await act(async () => root.unmount()); client.clear() }
+})
+
+it.each(['send-back', 'rework'])('records the approver’s rejection and note when %s offers Send back', async offeredAct => {
+  const v = view()
+  if (offeredAct === 'send-back') {
+    v.next.push({ act: 'send-back' } as ChangeView['next'][number])
+    v.detail!.next = v.detail!.next.filter(a => a.act !== 'rework')
+  }
+  const sent: { url: string; body: unknown }[] = []
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    if (init?.method === 'POST') sent.push({ url: String(url), body: JSON.parse(String(init.body)) })
+    return new Response(JSON.stringify(String(url).endsWith('/deployments') ? [] : {}))
+  }))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  const settle = () => act(async () => { for (let i = 0; i < 12; i++) await new Promise(r => setTimeout(r, 0)) })
+  const click = async (label: string) => act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === label)!.click())
+  try {
+    await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
+    await settle()
+    await click('Decide…')
+    await settle()
+    await click('Send back…')
+    const field = el.querySelector<HTMLTextAreaElement>('dialog textarea')!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(field, 'Keep the dinner invitation.')
+      field.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await click('Send to agent')
+    expect(sent).toEqual([{ url: `/api/v1/steps/${approval.id}/approve`, body: expect.objectContaining({ decision: 'reject', comment: 'Keep the dinner invitation.' }) }])
   } finally { await act(async () => root.unmount()); client.clear() }
 })
 
@@ -553,4 +597,25 @@ it.each(['no', 'partly', 'unknown', 'yes'])('keeps the request assessment in the
   if (met === 'no' || met === 'partly') expect(html).toContain('falls short of the request: The rest of the calendar was not read.')
   else if (met === 'unknown') expect(html).toContain('could not check all of the request: The rest of the calendar was not read.')
   else expect(html).not.toContain('The rest of the calendar was not read.')
+})
+
+// The shield gives the whole check verdict, while the Checks row retains
+// its evidence and turns red only for a failure.
+it.each([
+  ['pass', {}, 'ok', 'All checks passed'],
+  ['fail', { reason: 'Build broke.' }, 'bad', 'Build failed'],
+  ['pass', {}, 'unknown', 'Checks not all known'],
+  ['running', {}, 'neutral', 'Checks running'],
+] as const)('shows the checks shield for %s / %s', (status, evidence, tone, text) => {
+  const v = view()
+  v.detail!.steps = [step('script', status, evidence, { name: 'Build', ...(tone === 'unknown' ? { statusLabel: 'unknown' } : {}) })]
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><StatePanel view={v} /><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>)
+  const shield = el.querySelector('.ch-shield')!
+  expect(shield.classList.contains(tone)).toBe(true)
+  expect(shield.textContent).toBe(text)
+  expect(shield.querySelector('a, button')).toBeNull()
+  expect(shield.querySelector('svg')).not.toBeNull()
+  const row = [...el.querySelectorAll('.ch-overview-line')].find(e => e.querySelector('.ch-row-label')?.textContent === 'Checks')!
+  expect(row.classList.contains('ch-line-bad')).toBe(tone === 'bad')
 })

@@ -301,14 +301,14 @@ describe('the change state and actions', () => {
     expect(nextStep(interrupted).primary).toBe('try-again')
     for (const v of [merged, interrupted]) {
       const html = details(v)
-      for (const refused of ['Send it back', 'Take it to chat', 'Abandon']) expect(html).not.toContain(refused)
+      for (const refused of ['Send back…', 'Take it to chat', 'Abandon']) expect(html).not.toContain(refused)
       expect(nextStep(v).primary).toBe('try-again')
     }
     const before = details(cases.find((c) => c.name === 'landing blocked by a gate')!.v)
     // Before the merge the stopped landing goes back to the agent with what
     // the check found; the chat is among the other options.
-    expect(before).toContain('Go to chat')
-    expect(details(cases.find((c) => c.name === 'landing blocked by a gate')!.v)).toContain('Go to chat')
+    expect(before).toContain('Open the conversation →')
+    expect(details(cases.find((c) => c.name === 'landing blocked by a gate')!.v)).toContain('Open the conversation →')
   })
 
   it('keeps the abandonment reason on the first screen', () => {

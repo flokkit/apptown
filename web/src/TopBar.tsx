@@ -54,6 +54,8 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu }:
 
   // The sentence: AppTown › project › page · state.
   const crumbs: { label: string; to?: string }[] = []
+  // Inside a project the crumbs are the one way up: AppTown (home) › Projects › the project.
+  if (slug) crumbs.push({ label: 'Projects', to: '/projects' })
   if (slug) crumbs.push({ label: `${proj?.icon ? proj.icon + ' ' : ''}${proj?.name ?? slug}`, to: `/projects/${slug}` })
   if (page.crumbs && page.crumbs.length > 0) {
     crumbs.push(...page.crumbs)

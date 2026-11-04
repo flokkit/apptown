@@ -54,7 +54,7 @@ export const offered = (acts: NextAct[] | undefined, act: string, stepId?: strin
 // complete recorded text, including positive observations before an objection.
 export function reviewText(s: Step): string {
   if (s.type !== 'agent/review') return s.evidence.reason || 'Read what the check found.'
-  return [s.evidence.findings?.join('\n'), s.evidence.reason || s.evidence.summary].filter(Boolean).join('\n\n') || 'No review conclusion recorded.'
+  return [s.evidence.findings?.join('\n'), (s.evidence.reason || s.evidence.summary)?.replace(/^reviewer rejected:\s*/i, '')].filter(Boolean).join('\n\n') || 'No review conclusion recorded.'
 }
 
 // rerunLabel: how a step run again reads — a check that reads a record is

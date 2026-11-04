@@ -1,4 +1,5 @@
-import { BackgroundReading } from '../../../BackgroundReading'
+import { TechnicalWords, useTechnicalDetail } from '../../change/TechnicalDetail'
+import { DeploymentLine } from './DeploymentLine'
 import { Status } from '../../../Status'
 import { PRODUCT } from '../../../brand'
 import { useEffect, useState } from 'react'
@@ -12,7 +13,7 @@ import type { DeploymentDiagnostics, PartLog } from '../../../wire.gen'
 // Diagnostics (design/subsystems/deployment.md, "Runtime diagnostics"):
 // what the deployment's settled generation runs, part by part, as its host
 // reports it now. The failure and what to do about it come first; the
-// per-part facts, limit events and log are one fold down. A read that did
+// per-part facts and limit events stay in technical detail. A read that did
 // not answer is unknown, with the last facts read and their age, never
 // stopped. A part's log is read only when someone asks, and kept nowhere.
 
@@ -47,20 +48,21 @@ function nextStep(p: Part): string {
 }
 
 export function DiagnosticsLines({ slug, name }: { slug: string; name: string }) {
+  const [technical] = useTechnicalDetail()
   const q = useGet<Diag>(`/projects/${slug}/deployments/${name}/diagnostics`, { poll: 15000 })
   const anchor = `diagnostics-${name}`
   const linked = useLocation().hash === `#${anchor}`
-  const [open, setOpen] = useState(linked)
   // The log lives in this component's state alone: not in the read cache,
   // and not through useAction, whose mutation cache would keep its text.
   const [log, setLog] = useState<PartLog | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const hasData = !!q.data
   useEffect(() => {
     if (linked) document.getElementById(anchor)?.scrollIntoView({ block: 'center' })
-  }, [linked, anchor, q.data != null])
+  }, [linked, anchor, hasData])
   if (q.denied) return null
-  if (!q.data) return <div id={anchor}><ReadStatus q={q} what="its diagnostics" className="small" /></div>
+  if (!q.data) return <DeploymentLine label="Parts"><div id={anchor}><ReadStatus q={q} what="its diagnostics" /></div></DeploymentLine>
   const d = q.data
   const readLog = async (part: string) => {
     if (busy) return
@@ -75,46 +77,34 @@ export function DiagnosticsLines({ slug, name }: { slug: string; name: string })
       setBusy(false)
     }
   }
-  const failing = d.reading?.waiting ? [] : d.parts.filter((p) => trouble(p) !== '')
+  const unknown = d.parts.some(p => p.presence === 'unknown')
   return (
-    <div id={anchor} className="small">
-      <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-        <span className="muted">diagnostics</span>
-        {d.reading?.waiting ? <span className="muted">Last values (old)</span> : d.unsupported
-          ? <span className="muted">{d.unsupported}</span>
-          : failing.length === 0
-            ? <Status word="running" help={`All ${d.parts.length} parts are running.`} />
-            : failing.map((p) => (
-              <span key={p.part}>{partName(p)}: <Status word={p.presence === 'unknown' ? 'unknown' : 'failed'} help={`${p.reason || trouble(p)}. Next: ${nextStep(p)}.`} /></span>
-            ))}
-        {d.hold && <Status word="failed" help={`${d.hold.confirmed ? 'Stopped after a crash loop.' : 'Crash loop: stop not confirmed.'} ${d.hold.detail || 'Read the app log and fix the crash, then deploy again.'}`} />}
-        {d.unsettled && <span className="badge" title="only a part whose own container names its generation is shown with one">{d.unsettled}</span>}
-        {(d.parts.length > 0 || d.events.length > 0) && <button className="link small" onClick={() => setOpen(!open)}>{open ? 'hide details' : 'details'}</button>}
-        <StaleNote q={q} inline /><BackgroundReading reading={d.reading} />
-      </div>
-      {failing.length > 0 && !d.unsupported && (
-        <div>
-          {failing.map((p) => (
-            <div key={p.part}>
-              <b>{partName(p)}</b>: {nextStep(p)}
-              {d.containers && p.presence !== 'absent' && <button className="link small" disabled={busy} onClick={() => readLog(p.part)}>read log</button>}
-            </div>
-          ))}
-        </div>
-      )}
+    <DeploymentLine label="Parts" trailer={d.containers ? <a href={`#${anchor}-logs`}>logs →</a> : undefined}><div id={anchor}>
+      {d.reading?.waiting && <div className="muted">Last values (old)</div>}
+      {d.unsupported && <div className="muted">{d.unsupported}</div>}
+      {d.parts.map(p => <div key={p.part}>
+        {partName(p)}: <Status observation word={p.presence === 'unknown' || d.reading?.unknown || q.refreshFailed ? 'unknown' : trouble(p) ? 'failed' : 'running'} help={p.presence === 'unknown' ? p.reason : undefined} />
+        {p.presence !== 'unknown' && trouble(p) && !d.reading?.waiting && <span> {nextStep(p)}<TechnicalWords shown={technical}> · {trouble(p)}</TechnicalWords></span>}
+      </div>)}
+      {unknown && !d.reading?.waiting && <div>Its host did not report the state of every part. It is asked again shortly.</div>}
+      <TechnicalWords shown={technical}>{d.unsettled}</TechnicalWords>
+      <StaleNote q={q} inline />{d.reading?.failure && <div className="muted">{d.reading.failure}</div>}
       {d.hold && (
         <div>
           {d.hold.confirmed
             ? <>{PRODUCT} stopped it {at(d.hold.at)} after {d.hold.restarts} restarts in {d.hold.window}; the next deploy replaces it.</>
             : <>{PRODUCT} tried to stop it {at(d.hold.at)} after {d.hold.restarts} restarts in {d.hold.window}, but the stop was not confirmed{d.hold.detail ? `: ${d.hold.detail}` : ''}.</>}
-          {' '}<span className="muted">receipt {d.hold.receipt}</span>
+          {' '}<TechnicalWords shown={technical}>receipt {d.hold.receipt}</TechnicalWords>
           {d.releaseNumber ? <> · <Link to={`/projects/${slug}/releases/${d.releaseNumber}`}>release #{d.releaseNumber}</Link></> : null}
         </div>
       )}
-      {open && <DiagnosticsDetail d={d} busy={busy} onLog={readLog} />}
+      {technical && <DiagnosticsDetail d={d} busy={busy} onLog={readLog} />}
+      {d.containers && <div id={`${anchor}-logs`} className="row">
+        {d.parts.filter(p => p.presence !== 'absent').map(p => <button key={p.part} className="link" disabled={busy} onClick={() => readLog(p.part)}>Read {partName(p)} log</button>)}
+      </div>}
       {err && <div className="error">{err}</div>}
       {log && <LogView log={log} onClose={() => setLog(null)} />}
-    </div>
+    </div></DeploymentLine>
   )
 }
 

@@ -1,0 +1,5 @@
+/* Overview facts share one label | value | trailer grid. */
+.ch-overview-line, .deploy-entry .deploy-line { display: grid; grid-template-columns: 9rem minmax(0, 1fr) 12rem; align-items: start; gap: 16px; margin: 0; padding: 16px 0; border-top: 1px solid var(--border); }
+@media (max-width: 600px) {
+  .ch-overview-line, .deploy-entry .deploy-line { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+}

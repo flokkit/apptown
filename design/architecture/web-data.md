@@ -68,12 +68,24 @@ their recorded outcome.
 Change pages show help without disclosures. The decision screen shows the app-contract
 comparison from the approval question whose digest the vote submits, including
 known changes alongside unread declarations or starting commits. Overview's
-Next steps and decision screen keep the offered Continue action and Stop this
-attempt beside the other controls. Held recovery puts Stop this attempt in the
-same equal-size button grid. Acceptance comes first, then chat, rework or fix,
-retry or re-check, Stop this attempt and Abandon last and red. Acceptance is the
-only highlighted button when offered; otherwise the next action is highlighted.
-Rows contain equal numbers of buttons. Details keeps conflict catch-up commands and
+Next steps and the Decide… screen show at most three equal decision buttons:
+one highlighted forward act, Send back… when send-back or rework is offered,
+and Abandon change last and red when offered. The acts come from `view.next`
+and `detail.next`; the page only words and places them. When several forward
+acts are offered, the existing next primary chooses one. Acceptance says
+Accept and put live when there is a landing destination, otherwise Accept;
+advance says Continue, a failed check's exception says Accept anyway, an
+execution error's retry says Try again, and a record check's retry says Re-check.
+A reviewer rejection has no reviewer retry button. Send back… replaces the
+buttons in place with What should change?, a focused field, Send to agent and
+Cancel. Sending stays disabled until there is text; held decisions prefill the
+failure reason. Cancel restores the choices. Sending back an approval records the approver’s rejection and comment on the approval step; held recovery uses the offered send-back or rework operation. Acceptance has no optional note.
+Abandon asks inline: “Abandon this change? The branch is kept; the workspace is
+removed.” A plain conversation link sits below the choices and closes the
+screen. When the Conversation tab cannot resume a stuck agent, that link opens
+the existing worker console continuation. Stop this attempt stays only in
+non-decision Next steps for a running run.
+Details keeps conflict catch-up commands and
 the complete state account beside the run history. Details groups the chronological
 record into Work cards, one per round, and Landing cards, one per attempt,
 followed by About this change. A sent-back round names the person and their note.
@@ -187,7 +199,8 @@ needs a guard instead, as the ADR editor has.
 ## Reading at a glance
 
 Home and Projects share app rows: identity and optional one-line purpose, state
-and age, then Open app for running production. Phones keep the name and state
+and age when stale, then Open app for running production. Fresh observations omit
+the age line; unreachable, unchecked and undeployed rows retain their context. Phones keep the name and state
 beside a compact Open app action, with purpose
 and age beneath. Home reads at most 50 projects, selecting running production
 apps before the limit, and links to All projects for the rest. Creation stays secondary unless no projects
@@ -203,6 +216,20 @@ start with a bounded selection and offer the next ten records. Successful jobs
 with the same operation and subject collapse; failures and open jobs stay apart.
 The change page keeps its full evidence in Details, after the tab navigation.
 
+Project Settings › Deployments lists each deployment with its status, display
+name, address, backup warning when needed, and serving release or preview change.
+Disk warnings and uncertain readiness stay visible in the summary. Rows place
+status first, then name and address, summary facts and the action. Each row opens
+`/projects/:slug/deployments/:name`, which keeps the full deployment card and its
+controls. The page title keeps status beside the deployment name and its address
+below. Overview, the deployment list, the detail heading and the instance fleet
+use `deploymentStatus.tsx` for overall status: a running generation with missing,
+stale or unknown diagnostics, or any part not reporting, is unknown. Stopped
+and unreachable runtime observations keep their words. The Backups row states
+missing copies, host-only retention and the declared-needs coverage limit once;
+provider names and assessed-item detail use Techno Goggles.
+Creation, release preferences and old resources stay on the list page.
+
 The Conversation tab and chat view show the person's messages and the agent's
 text replies, including its final report. Agent actions fold into quiet summaries
 between replies. Each summary opens only its own run. “Show agent actions” opens
@@ -216,7 +243,10 @@ when checked and changed. Without a report, the latest chat reply appears as
 “The agent says”, with its first few lines and a full conversation link. Only an
 empty report and empty chat show “No report from the agent”. Before any checks
 run, the check row says “Not checked yet. Checks run when you press Check and
-land.” Unread app-contract comparisons do not create a separate heading then. Once checks start, unfinished checks and an unread app contract share one “Still running” line. Failed checks show their title and the first sentence of the recorded finding, with a Details link; evaluator instructions stay out of the summary. Commands appear only under Technical detail.
+land.” Unread app-contract comparisons do not create a separate heading then. Once checks start, unfinished checks and an unread app contract share one “Still running” line. Failed checks show their title and the first sentence of the recorded finding, with a Details link; evaluator instructions stay out of the summary. Rejected agent
+reviews say “Review: rejected” and show a bounded excerpt of the complete review,
+with structured findings first and the redundant “reviewer rejected:” prefix
+omitted. Review excerpts do not select a first sentence. Commands appear only under Technical detail.
 On phones, each label sits above its value and evidence link. Failures,
 exceptions and unknown results remain visible with what would satisfy them.
 Grey trailers link to addressable phase entries or Code; browser Back returns

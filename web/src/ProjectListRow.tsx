@@ -31,7 +31,7 @@ export function ProjectListRow({ project: p, refreshFailed = false, reason, chil
   const observation = refreshFailed ? { ...p, observation: 'unknown' as const, observationStale: true, observationIssue: reason } : p
   const age = p.hasDeployments === false
     ? p.lastRunAt ? `Work updated ${relTime(p.lastRunAt)}` : 'No changes yet'
-    : p.observedAt ? `Checked ${relTime(p.observedAt)}`
+    : p.observedAt ? (observation.observationStale || p.observation === 'unreachable' ? `Checked ${relTime(p.observedAt)}` : '')
       // An attempt that got no answer has been checked; say what went wrong.
       : p.observation === 'unreachable' ? `Can't reach ${p.targetName || 'its host'}`
       : p.observation === 'unknown' ? 'Not checked yet' : ''
@@ -46,7 +46,7 @@ export function ProjectListRow({ project: p, refreshFailed = false, reason, chil
       </div>
     </div>} state={<div className="project-state">
       {p.hasDeployments === false ? <strong className="small" style={{ color: 'var(--muted)' }}>Not deployed</strong> : <RuntimeStatus observation={observation} />}
-      <div className="muted small">{age}</div>
+      {age && <div className="muted small">{age}</div>}
     </div>} action={<div className="project-action">
       {mayOpenApp(p, refreshFailed) && p.productionUrl && <a className="btn primary" href={p.productionUrl} target="_blank" rel="noreferrer" aria-label={`Open app: ${p.name || p.slug} (opens in a new tab)`}>Open app <span aria-hidden="true">↗</span></a>}
       {!refreshFailed && p.canChange && <>

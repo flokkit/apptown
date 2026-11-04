@@ -1,9 +1,11 @@
+import { TechnicalWords, useTechnicalDetail } from './change/TechnicalDetail'
+import { DeploymentLine } from './project/settings/DeploymentLine'
 import { Section } from '../Section'
 import { BackgroundReading } from '../BackgroundReading'
 import { GlanceRow } from '../GlanceRow'
 import { Status } from '../Status'
 import { PRODUCT } from '../brand'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { del, post, put } from '../api'
 import { useAction, useGet } from '../data'
@@ -163,10 +165,11 @@ export function copyHead(c: RestoredCopy, source: string): string {
 // never data the app keeps outside its deployment, so no card reads as a
 // whole application's protection.
 export function CoverageLines({ c, unknown }: { c: Coverage; unknown?: boolean }) {
+  const [technical] = useTechnicalDetail()
   return (
     <div style={{ overflowWrap: 'anywhere' }}>
-      <div className="muted">covers: {c.assessed.length ? [...new Set(c.assessed.map(n => /postgres|maria|database|volume/.test(n) ? 'database' : n))].join(', ') : unknown ? 'nothing assessed' : `no data ${PRODUCT} knows of`}</div>
-      {c.notAssessed.length > 0 && <><div className="muted">Not covered: anything the app stores elsewhere</div><details><summary>Coverage details</summary>{c.notAssessed.map(n => <div key={n}><Status observation word={c.statusLabel} /> {n}</div>)}</details></>}
+      <TechnicalWords shown={technical}>covers: {c.assessed.length ? [...new Set(c.assessed.map(n => /postgres|maria|database|volume/.test(n) ? 'database' : n))].join(', ') : unknown ? 'nothing assessed' : `no data ${PRODUCT} knows of`}</TechnicalWords>
+      {c.notAssessed.length > 0 && <><div className="muted">Not covered: anything the app stores outside its declared needs</div><TechnicalWords shown={technical}>{c.notAssessed.map(n => <div key={n}><Status observation word={c.statusLabel} /> {n}</div>)}</TechnicalWords></>}
     </div>
   )
 }
@@ -176,14 +179,16 @@ const rehearseTitle = "boot the release it serves on its newest backup, on the h
 // ProtectionLines is a cloud deployment's protection on its card: each
 // item, the running operation, and the doors to copy and check now.
 export function ProtectionLines({ slug, name }: { slug: string; name: string }) {
+  const [technical] = useTechnicalDetail()
   const q = useGet<DeploymentProtection>(`/projects/${slug}/deployments/${name}/protection`, { poll: 5000 })
   const { run, busy, err } = useAction()
   useNow(1000, !!q.data?.running)
   // The way to the target's settings is offered only to those who can edit
   // them; AppTown refuses the edit to anyone else.
   const canEditTargets = useHolds('platform:manage-deploy-targets')
+  const line = (children: ReactNode) => <DeploymentLine label="Backups" trailer={<Link to="/docs/guides/deployment-backups">how backups work →</Link>}>{children}</DeploymentLine>
   if (q.denied) return null
-  if (!q.data) return <ReadStatus q={q} what="how its data is protected" className="small" />
+  if (!q.data) return line(<ReadStatus q={q} what="how its data is protected" />)
   const p = q.data
   // A failed refresh keeps the last answer, said as such: no state is
   // claimed as it is now.
@@ -202,37 +207,38 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
   // Each greyed button's reason, said once under the buttons: several share
   // one (no copy runner), each from its own door's answer.
   const shown = (ops ? [ops.copy, ops.check, ...(p.rehearsalNote !== 'never rehearsed: no rehearsal place' ? [ops.rehearsal] : []), ...(p.dataClass === 'production' ? [ops.restore] : [])] : []).filter(applies)
-  const whyNot = Array.from(new Set(shown.filter((o) => !o.available && o.why).map((o) => o.why!)))
+  const missingBackup = p.items.some(it => it.copy === 'none')
+  const whyNot = Array.from(new Set(shown.filter((o) => !o.available && o.why && (!missingBackup || o.reason !== 'no-copy')).map((o) => o.why!)))
   const runnerMissing = shown.some((o) => o.reason === 'no-copy-runner')
-  if (p.unknown && !p.reading?.waiting) return <div className="small"><Status word={"unknown"} help={p.unknown} /> couldn't read what this deployment holds. <BackgroundReading reading={p.reading} /><CoverageLines c={p.coverage} unknown /></div>
+  if (p.unknown && !p.reading?.waiting) return line(<div className="small"><Status word={"unknown"} help={p.unknown} /> couldn't read what this deployment holds. {p.reading?.failure && <span className="muted">{p.reading.failure}</span>}<CoverageLines c={p.coverage} unknown /></div>)
   // A deployment that holds no data AppTown knows of says only what is
   // not assessed; one whose take-down would still act on data, or with an
   // operation or copy standing, shows the whole card.
-  if (p.items.length === 0 && !p.takeDown && !p.running && !p.restoredCopies.some((c) => !c.endedAt)) return <div className="small"><StaleNote q={q} /><BackgroundReading reading={p.reading} /><CoverageLines c={p.coverage} /></div>
+  if (p.items.length === 0 && !p.takeDown && !p.running && !p.restoredCopies.some((c) => !c.endedAt)) return line(<div className="small"><StaleNote q={q} />{p.reading?.failure && <span className="muted">{p.reading.failure}</span>}<CoverageLines c={p.coverage} /></div>)
   // A Docker host's backups on AppTown's own disk are a choice, said
   // plainly; App Platform data with no copy at all is a warning.
   const onHost = ops?.copy.reason === 'backups-page'
-  return (
-    <div className="small" style={{ marginTop: 2 }}>
-      <StaleNote q={q} /><BackgroundReading reading={p.reading} />
-      {onHost
-        ? <div className="muted">{p.keptOn === 'store' ? 'Backups kept in the backup store' : p.keptOn === 'host' ? <>Backups kept on <span title="lost with this host's disk">this host ⚠</span></> : 'No backup yet'} · <Link to="/docs/guides/deployment-backups">How backups work</Link></div>
-        : p.note && <div className={!old && p.dataClass === 'production' && !p.offHost ? 'error' : 'muted'}>{p.note}</div>}
+  return line(
+    <div>
+      <StaleNote q={q} />{p.reading?.failure && <span className="muted">{p.reading.failure}</span>}
       {p.startFrom && !p.startFrom.filled && <div className="muted">starts from a backup set: its first release fills its data before the app starts</div>}
       {p.items.map((it) => (
         <div key={`${it.need}:${it.volume ?? ''}`}>
-          <span className="muted">{itemLabel(it, p.items)}</span> <b>{it.where}</b>
-          <div style={{ marginLeft: 12 }}>
-            <div><Status observation word={old ? 'unknown' : it.copyLabel} help={old ? `Last answer shown${asRead}.` : undefined} /> {copyLine(it)}</div>
-            {nativeLine(it) && <div className="muted">{nativeLine(it)}</div>}
-            {(!ops || applies(ops.check)) && <div className={!old && it.drill && !it.drill.passed ? 'error' : 'muted'}>{drillLine(it)}</div>}
-          </div>
+          {it.copy === 'none' ? <div id={`backup-${name}-${it.need}-${it.volume || 'data'}`} className={old ? 'muted' : 'error'}>✗ No backup yet: {itemLabel(it, p.items)}{/postgres|maria/.test(it.need) ? ' database' : ''}{asRead}</div>
+            : <div><Status observation word={old ? 'unknown' : it.copyLabel} help={old ? `Last answer shown${asRead}.` : undefined} /> {itemLabel(it, p.items)}: {copyLine(it)}</div>}
+          <TechnicalWords shown={technical}>{it.where}</TechnicalWords>
+          {it.copy === 'none' && it.copyNote && !onHost && <div className="muted">{it.copyNote}</div>}
+          {nativeLine(it) && <div className="muted">{nativeLine(it)}</div>}
+          {(!ops || applies(ops.check)) && <div className={!old && it.drill && !it.drill.passed ? 'error' : 'muted'}>{drillLine(it)}</div>}
         </div>
       ))}
+      {onHost && p.keptOn === 'host' ? <div className="muted">Kept on this host only; it does not outlive its disk</div>
+        : onHost && p.keptOn === 'store' ? <div className="muted">Backups kept in the backup store</div>
+        : p.note && <div className={!old && p.dataClass === 'production' && !p.offHost ? 'error' : 'muted'}>{p.note}</div>}
       <CoverageLines c={p.coverage} />
       {(p.rehearsal || !ops || ops.rehearsal.available || p.rehearsalNote === 'never rehearsed: no rehearsal place') && <div className={!old && p.rehearsal && !p.rehearsal.passed ? 'error' : 'muted'}>{rehearsalLine(p.rehearsal, p.rehearsalNote)}{p.rehearsal && asRead}</div>}
-      {p.rehearsal && <div className="muted" style={{ marginLeft: 12 }}>{heldBack(p.rehearsal)}</div>}
-      {p.rehearsal?.previous && <div className="muted" style={{ marginLeft: 12 }}>before that: {rehearsalLine(p.rehearsal.previous).replace('last restore rehearsal ', '')}</div>}
+      {p.rehearsal && <div className="muted">{heldBack(p.rehearsal)}</div>}
+      {p.rehearsal?.previous && <div className="muted">before that: {rehearsalLine(p.rehearsal.previous).replace('last restore rehearsal ', '')}</div>}
       {(p.restoreTest || !ops || applies(ops.restore)) && <div className={!old && p.restoreTest && !(p.restoreTest.outcome ?? '').startsWith('passed') ? 'error' : 'muted'}>{restoreTestLine(p.restoreTest, p.restoreTestNote)}{p.restoreTest && asRead}</div>}
       {p.restoredCopies.filter((c) => !c.endedAt).map((c) => <RestoredCopyLines key={c.id} slug={slug} source={name} copy={c} asRead={asRead} />)}
       {p.running && (
@@ -250,8 +256,8 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
         <div className="row" style={{ gap: 6, marginTop: 4 }}>
           {applies(ops.copy) && <button className="subtle" disabled={busy || !ops.copy.available} onClick={() => start('copies')} title={ops.copy.why || 'copy its data to the backup store now'}>Copy now</button>}
           {applies(ops.check) && <button className="subtle" disabled={busy || !ops.check.available} onClick={() => start('drills')} title={ops.check.why || 'fill the newest copy into a new database, check it, and remove it'}>Check it comes back</button>}
-          {p.rehearsalNote !== 'never rehearsed: no rehearsal place' && (
-            <button className="subtle" disabled={busy || !ops.rehearsal.available} onClick={() => start('rehearsals')} title={ops.rehearsal.why || rehearseTitle}>Test a restore</button>
+          {(p.rehearsalNote !== 'never rehearsed: no rehearsal place' || missingBackup) && (
+            <button className="subtle" disabled={busy || !ops.rehearsal.available} aria-describedby={missingBackup ? p.items.filter(it => it.copy === 'none').map(it => `backup-${name}-${it.need}-${it.volume || 'data'}`).join(' ') : undefined} onClick={() => start('rehearsals')} title={ops.rehearsal.why || rehearseTitle}>Test a restore</button>
           )}
           {p.dataClass === 'production' && applies(ops.restore) && (
             <button className="subtle" disabled={busy || !ops.restore.available} onClick={() => run(() => post<OperationAdmitted>(`/projects/${slug}/deployments/${name}/restored-copies`, {}))} title={ops.restore.why || restoreTestTitle}>Test a restore here</button>
