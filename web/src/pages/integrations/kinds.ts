@@ -96,7 +96,11 @@ export const specFor = (catalog: ConnectorEntry[], b: { capability: string; prov
 // What one integration is used for: its own description when it carries one
 // (a scanner), else the first sentence of its connector's description, else
 // what its kind is for.
-export function usedFor(b: Pick<IntegrationEntry, 'capability' | 'config'>, spec?: ConnectorEntry): string {
+export function usedFor(b: Pick<IntegrationEntry, 'name' | 'capability' | 'config'>, spec?: ConnectorEntry): string {
+  if (b.capability === 'model') {
+    const source = b.config.baseUrl || b.config.providerDef ? 'from your own server' : ({ openai: 'from OpenAI', anthropic: 'from Anthropic', openrouter: 'through OpenRouter' }[b.name] ?? 'from your own server')
+    return `The models agents call, ${source}.`
+  }
   const own = typeof b.config.description === 'string' ? b.config.description.trim() : ''
   if (own) return own
   const d = (spec?.description ?? '').trim()
@@ -120,3 +124,9 @@ export const fmtVal = (v: unknown): string =>
     : Array.isArray(v) ? (v as unknown[]).join(' ')
     : typeof v === 'object' && v !== null ? JSON.stringify(v)
       : String(v)
+
+// Explicit endpoints retain live discovery, including under a built-in name.
+export function builtInModel(name: string, config: Record<string, unknown>): boolean {
+  const def = config.providerDef as Record<string, unknown> | undefined
+  return ['openai', 'anthropic', 'openrouter'].includes(name) && !config.baseUrl && !def?.baseUrl
+}

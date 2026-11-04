@@ -17,7 +17,7 @@ import (
 func TestTheSetupDefaultModelIsAdmitted(t *testing.T) {
 	const pattern = "openrouter/anthropic/claude-sonnet-5.5"
 	p, err := resolveInferenceProvider("openrouter", integration.ModelConfig{
-		Model: pattern, SecretEnv: []string{"OPENROUTER_API_KEY"},
+		Model: pattern, Models: []string{"anthropic/claude-sonnet-5.5"}, SecretEnv: []string{"OPENROUTER_API_KEY"},
 	}, map[string]string{"OPENROUTER_API_KEY": "review-key"})
 	if err != nil {
 		t.Fatal(err)

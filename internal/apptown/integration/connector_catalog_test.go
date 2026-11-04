@@ -101,10 +101,10 @@ func TestHostedModelPresetsIncludeTheirCredentials(t *testing.T) {
 			found = true
 			refs, _ := p.Config["secretEnv"].([]string)
 			model, _ := p.Config["model"].(string)
-			if p.Suggest != name || p.Icon == "" || len(refs) != 1 || refs[0] != credential || !strings.HasPrefix(model, name+"/") {
+			if p.Suggest != name || p.Icon == "" || len(refs) != 1 || refs[0] != credential || (name != "openai" && !strings.HasPrefix(model, name+"/")) {
 				t.Errorf("invalid hosted preset: %+v", p)
 			}
-			if name == "openai" && (p.Title != "OpenAI" || model != "openai/gpt-5.6-luna") {
+			if name == "openai" && (p.Title != "OpenAI" || model != "" || p.Icon != "openai") {
 				t.Errorf("OpenAI preset: %+v", p)
 			}
 		}

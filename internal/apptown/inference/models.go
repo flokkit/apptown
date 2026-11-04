@@ -15,8 +15,8 @@ import (
 type ModelEntry struct {
 	Pattern string `json:"pattern"`
 	Binding string `json:"binding"`
-	// Source is where the pattern comes from: the binding's default, its
-	// curated list, or the provider's own model list (live).
+	// Source is where the pattern comes from: the binding's curated list
+	// or the provider's own model list (live).
 	Source string `json:"source"`
 }
 
@@ -33,7 +33,7 @@ type UnlistedBinding struct {
 var errNoEndpoint = fault.New(fault.Unprocessable, "no discoverable endpoint for this provider")
 
 // Models lists the patterns a model slot may name, binding by binding:
-// the default, the curated list, and what the provider lists live, read
+// built-in enabled models, or custom endpoint models listed live, read
 // through the same resolution and discovery cache the gateway admits by.
 // A binding whose models could not all be listed is named in unlisted with
 // why, so an unread list is never shown as an empty or current one.
@@ -60,9 +60,11 @@ func (catalog Catalog) Models(ctx context.Context) (entries []ModelEntry, unlist
 			unlisted = append(unlisted, UnlistedBinding{Binding: b.Name, Error: "its configuration could not be read"})
 			continue
 		}
-		add(cfg.Model, b.Name, "default")
 		for _, id := range cfg.Models {
 			add(b.Name+"/"+id, b.Name, "curated")
+		}
+		if cfg.BuiltIn(b.Name) || len(cfg.Models) > 0 {
+			continue
 		}
 		p, err := resolveInferenceProvider(b.Name, cfg, secrets)
 		if err != nil {
@@ -72,12 +74,14 @@ func (catalog Catalog) Models(ctx context.Context) (entries []ModelEntry, unlist
 		if p == nil || !discoverable(p, cfg) {
 			continue
 		}
-		ids, err := catalog.discovery.models(ctx, p, clock.Or(catalog.Now)())
+		list, err := catalog.discovery.listed(ctx, p, clock.Or(catalog.Now)())
 		if err != nil {
 			unlisted = append(unlisted, UnlistedBinding{Binding: b.Name, Error: err.Error()})
 		}
-		for _, id := range ids {
-			add(b.Name+"/"+id, b.Name, "live")
+		for _, m := range list {
+			if m.agentCallable() {
+				add(b.Name+"/"+m.ID, b.Name, "live")
+			}
 		}
 	}
 	return entries, unlisted, nil

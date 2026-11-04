@@ -38,9 +38,14 @@ authorized by its route or job, so there is no token and no network check; the
 workload is `apptown`, acting as `apptown-system` unless the call names an actor.
 The gateway is always constructed; `-inference-url` only opens the listener.
 
-`Catalog.Models` lists the patterns a slot may name (default, curated and
-discovered), and `Catalog.Discover` asks an unsaved binding's provider, both
-through the same resolution and discovery cache the gateway admits by.
+`Catalog.Models` lists only enabled patterns for built-in OpenAI, Anthropic and
+OpenRouter providers. An empty enabled list offers and admits nothing, including
+the configured default. Custom endpoints with no enabled list use live discovery,
+using capability fields where supplied without inferring capabilities from IDs.
+The default is not added separately. Stored profile models outside these choices
+remain visible with a warning. `Catalog.Discover` asks an unsaved binding’s provider
+for its full catalog. Both use the gateway’s provider resolution; saved choices
+share its discovery cache.
 Discovery asks a provider under that binding's own lock only.
 
 AppTown constructs Catalog before console environments and the gateway after the

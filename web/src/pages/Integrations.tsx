@@ -1,3 +1,4 @@
+import { useTechnicalDetail } from './change/TechnicalDetail'
 import { Section, Group } from '../Section'
 import { PageHead } from '../PageHead'
 import { useHostStates } from '../hostState'
@@ -22,7 +23,7 @@ import { ServiceKindsPanel } from './integrations/ServiceKinds'
 import { TargetRows } from './integrations/Targets'
 import { useNow } from '../hooks'
 import {
-  type Area, HealthState, INTEGRATION_MENU, MENU_KINDS, PAGE_KEYS, areaOf, kindPath, pageKinds, capabilityMeta, credentialKeys, fmtVal, healthState, specFor, usedFor,
+  type Area, HealthState, INTEGRATION_MENU, MENU_KINDS, PAGE_KEYS, areaOf, builtInModel, kindPath, pageKinds, capabilityMeta, credentialKeys, fmtVal, healthState, specFor, usedFor,
 } from './integrations/kinds'
 import './Integrations.css'
 
@@ -73,6 +74,7 @@ function IntegrationsBook({ name, area }: { name?: string; area: Area }) {
     const cfg: Record<string, unknown> = {}
     for (const f of spec.fields ?? []) {
       const v = src[f.key]
+      if (v === undefined) continue
       cfg[f.key] = f.type === 'command' && Array.isArray(v) ? v.join(' ')
         : f.type === 'secretRef' || f.type === 'modelList' ? (Array.isArray(v) ? v : [])
           : f.type === 'number' ? asNumber(v)
@@ -417,6 +419,9 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
   onDocs: (spec: ConnectorEntry) => void
 }) {
   const navigate = useNavigate()
+  const [technical] = useTechnicalDetail()
+  const model = b.capability === 'model'
+  const needsModels = model && builtInModel(b.name, b.config) && !(Array.isArray(b.config.models) && b.config.models.length)
   const spec = specFor(catalog, b)
   // Only a connector people can make more of can be edited or cloned here;
   // cloud accounts are looked after under Infrastructure.
@@ -443,6 +448,12 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
   const creds = credentialKeys(b, spec)
   // Every setting, empty ones included: a missing value is often why it is not working.
   const settings = Object.entries(b.config).filter(([k]) => !creds.includes(k))
+  const modelFacts: [string, unknown][] = [
+    ['Credentials', [b.config.secretEnv, b.config.apiKeyFrom].map(fmtVal).filter(Boolean).join(' · ')],
+    ['Enabled models', b.config.models], ['Default model', b.config.model],
+    ['Calls at once', b.config.concurrency], ['Base URL', b.config.baseUrl],
+    ['API dialect', b.config.api], ['Models', b.config.modelsJson],
+  ]
   const testState = test?.h ? healthState(test.h) : null
   const at = checkedAt(b.health)
   // One rule for the test button: it leads when the state asks for it.
@@ -465,7 +476,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
       <div className="int-state">
         <div className="row">
           {/* The detail is written out below, so the chip carries no help. */}
-          <StatusChip plain state={state} stale={reading.q.refreshFailed} health={b.health} />
+          {needsModels ? <Status word="waiting for you" reason="Enable at least one model" /> : <StatusChip plain state={state} stale={reading.q.refreshFailed} health={b.health} />}
           {at > 0 && <span className="muted small">{lastChecked(b.health, reading.now)}</span>}
         </div>
         {message && <p className="int-message">{message}</p>}
@@ -485,7 +496,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
         <div className="row int-actions">
           <button className={needsTest ? 'primary' : ''} onClick={runTest} disabled={testing}>{testing ? 'Testing…' : 'Test connection'}</button>
           {editSpec && (
-            <button onClick={() => onEdit(editSpec, b)} disabled={!current}
+            <button className={needsModels ? 'primary' : ''} onClick={() => onEdit(editSpec, b)} disabled={!current}
               title={current ? undefined : 'Waiting for the current settings'}>
               {b.managed ? 'Clone…' : 'Edit'}
             </button>
@@ -511,7 +522,10 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
         <dl className="facts int-facts">
           <dt>Name</dt>
           <dd><DisplayLabelEdit value={b.displayLabel || b.name} machineKey={b.name} path={`/integrations/${b.id}/label`} /></dd>
-          {creds.map((k) => (
+          {model && !technical && modelFacts.filter(([, v]) => fmtVal(v)).map(([label, v]) => (
+            <Fragment key={label}><dt>{label}</dt><dd>{fmtVal(v)}</dd></Fragment>
+          ))}
+          {(!model || technical) && <>{creds.map((k) => (
             <Fragment key={k}><dt>{k}</dt><dd>{fmtVal(b.config[k]) || <span className="muted">not set</span>}</dd></Fragment>
           ))}
           {settings.map(([k, v]) => (
@@ -519,7 +533,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
           ))}
           <dt>Kind</dt><dd>{b.capability} · {b.provider}</dd>
           <dt>Version</dt><dd>v{b.version}{b.updatedAt ? ` · changed ${fmtWhen(b.updatedAt)}` : ''}</dd>
-          <dt>Configuration hash</dt><dd><code>{b.configHash}</code></dd>
+          <dt>Configuration hash</dt><dd><code>{b.configHash}</code></dd></>}
         </dl>
       </Section>
 

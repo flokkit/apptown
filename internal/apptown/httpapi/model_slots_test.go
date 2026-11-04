@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -37,6 +38,21 @@ spec:
 	// Built-in consumers are always present.
 	if len(c["main-strong"]) == 0 || len(c["chat"]) == 0 {
 		t.Fatalf("built-in consumers missing: %+v", c)
+	}
+	for slot, want := range map[string][]string{
+		"main-strong":    {"change summaries", "failure explanations", "tasks left unset"},
+		"fast":           {"approval briefs", "project descriptions"},
+		"secondary-fast": {"ways-of-working model checks", "fleet dependency checks"},
+		"scout":          {"helpers' quick lookups"},
+	} {
+		for _, job := range want {
+			if !slices.Contains(c[slot], job) {
+				t.Errorf("%s missing consumer %q: %v", slot, job, c[slot])
+			}
+		}
+	}
+	if slices.Contains(c["fast"], "change summaries") {
+		t.Error("change summaries use main-strong, not fast")
 	}
 	// The 'plan' slot now has a workflow consumer naming the sample.
 	found := false

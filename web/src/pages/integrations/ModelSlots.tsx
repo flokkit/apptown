@@ -135,23 +135,32 @@ export function ModelProfilePage() {
     }
     // An unset job says what it gets instead, and from where.
     const eff = effective(data.slots, row.slot, profile)
+    const first = row.fallback || 'main-strong'
+    const source = first === eff.from ? jobName(eff.from) : `${jobName(first)} → ${jobName(eff.from)}`
     const unset = row.slot === 'main-strong' && profile === 'standard' ? 'Not set'
       : eff.profile === 'standard' && profile !== 'standard' && eff.from === row.slot ? `Same as standard (${eff.model})`
-        : eff.model ? `Same as ${eff.profile === 'standard' && profile !== 'standard' ? "standard's " : ''}${jobName(eff.from)} (${eff.model})` : 'Not set'
+        : eff.model ? `Same as ${eff.profile === 'standard' && profile !== 'standard' ? "standard's " : ''}${source} (${eff.model})` : 'Not set'
+    const binding = eff.model.split('/')[0]
+    const notEnabled = modelsQ.data && !modelsQ.refreshFailed && eff.model
+      && !models.some((m) => m.pattern === eff.model)
+      && !modelsQ.data.unlisted?.some((u) => u.binding === binding)
     return (
-      <select aria-label={`${jobName(row.slot)} model`}
-        value={models.some((m) => m.pattern === mapped) ? mapped : mapped ? '__custom_current__' : ''}
-        onChange={(e) => {
-          const v = e.target.value
-          if (v === '__custom__') { setCustom(row.slot); setCustomVal(mapped) }
-          else set(row.slot, v)
-        }}
-        style={{ maxWidth: 280 }}>
-        <option value="">{unset}</option>
-        {models.map((m) => <option key={m.pattern} value={m.pattern}>{m.pattern}</option>)}
-        {mapped && !models.some((m) => m.pattern === mapped) && <option value="__custom_current__">{mapped}</option>}
-        <option value="__custom__">Another model…</option>
-      </select>
+      <div>
+        <select aria-label={`${jobName(row.slot)} model`}
+          value={models.some((m) => m.pattern === mapped) ? mapped : mapped ? '__custom_current__' : ''}
+          onChange={(e) => {
+            const v = e.target.value
+            if (v === '__custom__') { setCustom(row.slot); setCustomVal(mapped) }
+            else set(row.slot, v)
+          }}
+          style={{ maxWidth: 280 }}>
+          <option value="">{unset}</option>
+          {models.map((m) => <option key={m.pattern} value={m.pattern}>{m.pattern}</option>)}
+          {mapped && !models.some((m) => m.pattern === mapped) && <option value="__custom_current__">{mapped}</option>}
+          <option value="__custom__">Another model…</option>
+        </select>
+        {notEnabled && <div className="error small">not enabled on {binding}</div>}
+      </div>
     )
   }
 
@@ -187,7 +196,8 @@ export function ModelProfilePage() {
               <tr key={row.slot}>
                 <td className="stack-lead" style={{ verticalAlign: 'top', paddingRight: 16 }}>
                   <strong>{jobName(row.slot)}</strong>
-                  <div className="muted small">{row.slot === 'main-strong' ? 'Used by tasks left unset' : jobName(row.gloss)}</div>
+                  <div className="muted small">{jobName(row.gloss)}</div>
+                  <div className="muted small">Used by: {row.consumers?.length ? row.consumers.join(', ') : 'no jobs request it directly'}</div>
                 </td>
                 <td style={{ verticalAlign: 'top', paddingRight: 8 }}>{cell(row)}</td>
                 {spent && <td className="small muted" style={{ verticalAlign: 'top', whiteSpace: 'nowrap' }}>

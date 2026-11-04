@@ -16,9 +16,9 @@ Two pieces: PROVIDERS (inference backends agents can reach) and SLOTS
 Integrations → Model providers. Two kinds:
 
 - **Built-in pi providers** (OpenRouter, Anthropic, OpenAI): set the credential
-  as a secret reference (never a pasted value); for OpenRouter, curate
-  the enabled models from its live catalog — only curated models appear
-  in slot selectors.
+  as a secret reference (never a pasted value) and explicitly enable the
+  models agents may use. Only enabled models appear in slot selectors.
+  An empty enabled list offers and allows no models.
 - **Custom OpenAI-compatible endpoints** (LM Studio, vLLM, llama.cpp):
   base URL, API dialect, endpoint key as a secret reference. AppTown
   GENERATES pi's config per container from the binding — including
@@ -31,18 +31,24 @@ OpenAI uses Responses and Anthropic uses Messages. Custom endpoints use the
 single dialect set in their binding. Per-model API overrides are not supported.
 
 For **OpenAI**, keep the binding name `openai`. Add your key to instance
-secrets as `OPENAI_API_KEY` and keep that reference in Provider credentials.
+secrets as `OPENAI_API_KEY` and keep that reference in Credentials.
 Test connection asks OpenAI for its models and fails if the key is refused.
-Browse the provider catalog to select models, or leave Enabled models empty
-to offer the live list in slot selectors. The default is
-`openai/gpt-5.6-luna`; slots can use `openai/gpt-5.6-terra` or
-`openai/gpt-5.6-sol` when OpenAI lists them for your key. AppTown sends
+Browse the provider catalog to select Enabled models. For built-in providers,
+choose Default model from Enabled models; saving a default outside that list
+is refused, including when the list is empty. The provider page says
+“Enable at least one model” until models are enabled. A stored profile model
+outside the choices stays visible with a red “not enabled on <provider>” mark.
+Custom endpoints keep live discovery when their enabled list is empty. AppTown
+uses capability fields where the endpoint reports them and does not infer
+capabilities from model names. No OpenAI model is
+prefilled: choose a model currently available to your key. AppTown sends
 requests to `https://api.openai.com/v1` using the Responses API.
 
-Provider credentials stay on AppTown. Pi and its delegates use their AppTown
+Credentials stay on AppTown. Pi and its delegates use their AppTown
 session token through the private inference proxy. The curated model list is
-also an admission allowlist; when using fuzzy `~` selectors, curate concrete
-model IDs. Model agents run in containers. Without a worker they run on AppTown's own Docker. With a worker, agent and review steps and most change
+also an admission allowlist. The provider default accepts a fuzzy `~` selector
+only for custom endpoints with an empty Enabled models list. When using fuzzy
+`~` selectors in model slots, curate concrete model IDs. Model agents run in containers. Without a worker they run on AppTown's own Docker. With a worker, agent and review steps and most change
 chats run there, while project chats and chats that continue a step's agent
 stay on AppTown; with `-no-local-docker` AppTown runs none and refuses
 what the worker cannot take. They

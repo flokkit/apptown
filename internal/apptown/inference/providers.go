@@ -195,9 +195,9 @@ func resolveInferenceProvider(name string, cfg integration.ModelConfig, secrets 
 			return nil, err
 		}
 	}
-	// A curated list is a real admission limit. Without one, declared models
-	// and the configured default pattern are allowed, never every provider model.
-	if len(cfg.Models) > 0 {
+	// Built-ins require explicit enablement, including for a stored default.
+	// Custom endpoints retain their declared models and live discovery.
+	if cfg.BuiltIn(name) || len(cfg.Models) > 0 {
 		p.patterns = append(p.patterns, cfg.Models...)
 	} else {
 		for id := range p.models {

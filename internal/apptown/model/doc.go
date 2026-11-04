@@ -6,6 +6,8 @@
 // Four base slots configure a profile: main-strong, main-fast,
 // secondary-strong and secondary-fast. Task slots, such as implement, review or
 // chat, are advanced overrides; unset tasks follow their recorded fallback.
+// Model profile pages show the first fallback and resolved model. [StockUses]
+// names built-in jobs beside [Gloss]; published workflows add their own consumers.
 // A slot names a purpose, such as implement, review or chat. A profile selects an
 // instance mapping for that purpose; an undeclared profile is standard. A request
 // containing a slash is already a provider/model pattern and bypasses slot lookup.

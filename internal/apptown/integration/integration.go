@@ -201,7 +201,7 @@ func (s *Bindings) Save(ctx context.Context, name, capability, provider, configJ
 	if b, err := s.ByName(ctx, name); err == nil && b.Managed {
 		return 0, fmt.Errorf("%q: %w", name, errManaged)
 	}
-	if err := validateConfig(capability, configJSON); err != nil {
+	if err := validateConfig(name, capability, configJSON); err != nil {
 		return 0, err
 	}
 	at := s.now()
@@ -224,7 +224,7 @@ func (s *Bindings) Save(ctx context.Context, name, capability, provider, configJ
 // in the caller's transaction. Any existing name is a conflict; this never
 // edits a binding. The caller owns commit and rollback.
 func (s *Bindings) CreateIn(ctx context.Context, tx *database.Tx, name, capability, provider, configJSON, who string) error {
-	if err := validateConfig(capability, configJSON); err != nil {
+	if err := validateConfig(name, capability, configJSON); err != nil {
 		return err
 	}
 	now := s.now()

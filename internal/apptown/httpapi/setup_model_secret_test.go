@@ -33,6 +33,14 @@ func TestSetupModelWritesSecrets(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatalf("setup: %d %s", w.Code, w.Body.String())
 	}
+	binding, err := integration.NewWithClock(db, nil).ByName(req.Context(), "anthropic")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := binding.ModelConfig()
+	if err != nil || len(cfg.Models) != 1 || cfg.Models[0] != "claude-sonnet-9" {
+		t.Fatalf("setup must enable its default: %+v %v", cfg, err)
+	}
 	envPath := filepath.Join(dir, "secrets.env")
 	b, err := os.ReadFile(envPath)
 	if err != nil {

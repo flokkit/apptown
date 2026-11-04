@@ -112,7 +112,7 @@ func (h SetupModel) SetupModel(w http.ResponseWriter, r *http.Request) {
 		}
 		// The gateway reaches the provider through its binding: without it the
 		// model is not set up, whatever the main-strong slot says.
-		if _, err := h.integrations.Bindings.Upsert(r.Context(), in.Provider, "model", "pi", encodedJSON(map[string]any{"model": model, "secretEnv": []string{secretName}}), false); err != nil {
+		if _, err := h.integrations.Bindings.Upsert(r.Context(), in.Provider, "model", "pi", encodedJSON(map[string]any{"model": model, "models": []string{strings.TrimPrefix(model, in.Provider+"/")}, "secretEnv": []string{secretName}}), false); err != nil {
 			WriteError(w, 500, "the key was saved in secrets.env, but the %s binding could not be recorded (%v); the default model was not changed", in.Provider, err)
 			return
 		}

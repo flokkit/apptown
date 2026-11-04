@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -19,19 +20,24 @@ const AnthropicBase = "https://api.anthropic.com"
 // listedModel is one entry of a provider's model list: its id, and for an
 // OpenRouter alias the model it names.
 type listedModel struct {
-	ID          string `json:"id"`
+	ID                 string   `json:"id"`
+	SupportedEndpoints []string `json:"supported_endpoints"`
+	Architecture       struct {
+		OutputModalities []string `json:"output_modalities"`
+	} `json:"architecture"`
 	AliasTarget struct {
 		Slug string `json:"slug"`
 	} `json:"alias_target"`
 }
 
 // listModels is the one way AppTown asks a provider for its models: a GET
-// of url, with authorize setting the binding's headers and credential
+// of url, with authorize using the binding's models-listing api dialect
+// to set its headers and credential
 // (nil for a public list), bounded by ctx and ten seconds, on a pool of its
 // own with no proxy and no redirects (a key goes to url only), at most
 // 8 MiB, 200 only. name names the provider in errors, which never quote
 // the answer.
-func listModels(ctx context.Context, name, url string, authorize func(http.Header)) ([]listedModel, error) {
+func listModels(ctx context.Context, name, url, api string, authorize func(http.Header, string)) ([]listedModel, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -39,7 +45,7 @@ func listModels(ctx context.Context, name, url string, authorize func(http.Heade
 		return nil, err
 	}
 	if authorize != nil {
-		authorize(req.Header)
+		authorize(req.Header, api)
 	}
 	transport := trust.Transport(trust.Inference)
 	transport.Proxy = nil
@@ -69,8 +75,8 @@ func listModels(ctx context.Context, name, url string, authorize func(http.Heade
 // names no such model, is an error.
 func AnthropicNewest(ctx context.Context, base, key, family string) (string, error) {
 	p := &inferenceProvider{name: "anthropic", baseURL: strings.TrimRight(base, "/"), api: "anthropic-messages", key: key, headers: map[string]string{}}
-	list, err := listModels(ctx, "Anthropic", p.baseURL+"/v1/models", func(h http.Header) {
-		p.authorize(h, p.api)
+	list, err := listModels(ctx, "Anthropic", p.baseURL+"/v1/models", p.api, func(h http.Header, api string) {
+		p.authorize(h, api)
 		h.Set("Anthropic-Version", "2023-06-01")
 	})
 	if err != nil {
@@ -89,7 +95,7 @@ func AnthropicNewest(ctx context.Context, base, key, family string) (string, err
 // today "anthropic/claude-sonnet-5.5"). The list needs no key. An alias
 // that is missing, names no target, or names another alias is an error.
 func OpenRouterAlias(ctx context.Context, base, alias string) (string, error) {
-	list, err := listModels(ctx, "OpenRouter", strings.TrimRight(base, "/")+"/models", nil)
+	list, err := listModels(ctx, "OpenRouter", strings.TrimRight(base, "/")+"/models", "", nil)
 	if err != nil {
 		return "", err
 	}
@@ -108,7 +114,7 @@ func OpenRouterAlias(ctx context.Context, base, alias string) (string, error) {
 // fetchModels lists the model IDs an OpenAI-style provider offers at
 // /models, with the binding's own headers and credential.
 func fetchModels(ctx context.Context, p *inferenceProvider) ([]string, error) {
-	list, err := listModels(ctx, "the "+p.name+" provider", p.baseURL+"/models", func(h http.Header) { p.authorize(h, p.api) })
+	list, err := listModels(ctx, "the "+p.name+" provider", p.baseURL+"/models", p.api, p.authorize)
 	if err != nil {
 		return nil, err
 	}
@@ -119,4 +125,18 @@ func fetchModels(ctx context.Context, p *inferenceProvider) ([]string, error) {
 		}
 	}
 	return ids, nil
+}
+
+// Use endpoint capability fields where reported. IDs do not imply capabilities.
+func (m listedModel) agentCallable() bool {
+	if m.ID == "" {
+		return false
+	}
+	if m.SupportedEndpoints != nil {
+		return slices.Contains(m.SupportedEndpoints, "responses") || slices.Contains(m.SupportedEndpoints, "chat/completions")
+	}
+	if m.Architecture.OutputModalities != nil {
+		return slices.Contains(m.Architecture.OutputModalities, "text")
+	}
+	return true
 }

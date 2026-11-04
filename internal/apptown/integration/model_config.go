@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
+	"strings"
 
 	"github.com/flokkit/apptown/internal/fault"
 )
@@ -23,6 +25,13 @@ type ModelConfig struct {
 	SecretEnv   []string       `json:"secretEnv"`
 }
 
+// BuiltIn reports whether the binding uses a built-in provider's address.
+// An explicit endpoint keeps custom model discovery, even under a built-in name.
+func (cfg ModelConfig) BuiltIn(name string) bool {
+	base, _ := cfg.ProviderDef["baseUrl"].(string)
+	return (name == "openai" || name == "anthropic" || name == "openrouter") && cfg.BaseURL == "" && base == ""
+}
+
 func (b Binding) ModelConfig() (ModelConfig, error) {
 	var cfg ModelConfig
 	err := json.Unmarshal([]byte(b.ConfigJSON), &cfg)
@@ -38,7 +47,7 @@ var ErrInvalidConfig = fault.New(fault.Invalid, "the binding's configuration is 
 // decode fails every step that asks for a model, and every other binding's
 // steps with it (a string "concurrency":"2" was once accepted, then every
 // step failed "invalid model binding").
-func validateConfig(capability, configJSON string) error {
+func validateConfig(name, capability, configJSON string) error {
 	if capability == CapLLM {
 		cfg, err := strictJSONMap(configJSON)
 		if err != nil {
@@ -59,6 +68,10 @@ func validateConfig(capability, configJSON string) error {
 			return fmt.Errorf("%w: %q must be %s, not %s", ErrInvalidConfig, typed.Field, typeWords(typed.Type), valueWords(typed.Value))
 		}
 		return fmt.Errorf("%w: %w", ErrInvalidConfig, err)
+	}
+	defaultID := strings.TrimPrefix(cfg.Model, name+"/")
+	if cfg.Model != "" && (cfg.BuiltIn(name) || len(cfg.Models) > 0) && (strings.HasPrefix(defaultID, "~") || !slices.Contains(cfg.Models, defaultID)) {
+		return fmt.Errorf("%w: choose a default model from Enabled models", ErrInvalidConfig)
 	}
 	if cfg.Concurrency < 0 {
 		return fmt.Errorf("%w: \"concurrency\" must be a whole number of steps, 1 or more, or left empty for the default", ErrInvalidConfig)

@@ -176,13 +176,9 @@ func (h ModelSlots) PutProjectModelProfile(w http.ResponseWriter, r *http.Reques
 // whose YAML names it. Changing a cell is safer when its blast radius is
 // visible first.
 func (h ModelSlots) slotConsumers(ctx context.Context) (map[string][]string, error) {
-	out := map[string][]string{
-		"main-strong":    {"any step without a model named", "end of every fallback chain"},
-		"chat":           {"project chat"},
-		"worker":         {"delegate: carries out briefs (chat + steps)"},
-		"scout":          {"delegate: quick lookups (chat + steps)"},
-		"fast":           {"change summaries", "briefs", "setup probes"},
-		"secondary-fast": {"guidance checks", "eval judges", "fleet conformance checks"},
+	out := map[string][]string{}
+	for _, use := range model.StockUses {
+		out[use.Slot] = append(out[use.Slot], use.Job)
 	}
 	// Consumers are library workflows now (design/decisions/workflows-as-lanes.md);
 	// the sample names the workflow, not a project copy.
