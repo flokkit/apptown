@@ -21,7 +21,7 @@ import (
 // are recorded as skipped — conformance must not depend on a model being up.
 func (a *Guidance) runLLMChecklist(ctx context.Context, source workflow.Source, checks []conformance.DeclaredCheck, at checked) (results Results, findings []conformance.Finding, meta map[string]any) {
 	src := at.Src
-	items := append(check.TreeItems(declaredAll(checks), src), check.DiffItems(declaredAll(checks), "")...)
+	items := append(check.TreeItems(declaredAll(checks), CheckSource(src)), check.DiffItems(declaredAll(checks), "")...)
 	if len(items) == 0 {
 		return nil, nil, nil
 	}
@@ -104,6 +104,7 @@ func (a *Guidance) runLLMChecklist(ctx context.Context, source workflow.Source, 
 			// included, which is a model declining to say. Any other word
 			// is a model not saying either (the outcome is cannot-assess).
 			res.Verdict, res.Evidence, res.Note = workflow.VerdictUnclear, v.Evidence, v.Note
+			res.Detail = llmVerdictDetail(v, it, m)
 			if v.Verdict == "pass" || v.Verdict == "fail" {
 				res.Verdict, _ = workflow.ParseCheckVerdict(v.Verdict)
 			}
@@ -158,7 +159,7 @@ func (a *Guidance) llmBaseline(ctx context.Context, source workflow.Source, chec
 	if len(failing) == 0 {
 		return out
 	}
-	items := check.TreeItems(declaredAll(failing), src)
+	items := check.TreeItems(declaredAll(failing), CheckSource(src))
 	byItem, _, err := a.judgeChecklist(ctx, source, items, "")
 	if err != nil {
 		return append(out, unassessed("the model could not judge main's tree: "+err.Error())...)

@@ -128,6 +128,7 @@ type CheckDeclaration struct {
 	Tool        string   `json:"tool,omitempty"`
 	Scope       string   `json:"scope,omitempty"`
 	Files       []string `json:"files,omitempty"`
+	SourceFiles bool     `json:"sourceFiles,omitempty"`
 	Occurrences string   `json:"occurrences,omitempty"`
 	AppliesTo   []string `json:"appliesTo,omitempty"`
 }

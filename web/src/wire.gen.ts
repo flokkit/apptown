@@ -2747,6 +2747,7 @@ export type CheckDefinition = {
   probe?: string
   scope: string
   files?: string[]
+  sourceFiles?: boolean
   judgedWhere: string
   adopters: string[]
 }
@@ -3321,6 +3322,7 @@ export type Declaration = {
   tool?: string
   scope?: string
   files?: string[]
+  sourceFiles?: boolean
   occurrences?: string
   appliesTo?: string[]
 }

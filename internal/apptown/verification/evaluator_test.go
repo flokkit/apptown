@@ -93,3 +93,35 @@ func TestAShellChecksDurationIsAppTownsClock(t *testing.T) {
 		t.Fatalf("a check seven seconds long on AppTown's clock: %+v", results)
 	}
 }
+
+// Even an unclear verdict must say how much matching evidence the model saw.
+func TestRubricDetailReportsBudgetOmissions(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	files := map[string]string{}
+	for _, name := range []string{"a.go", "b.go", "c.go", "d.go", "e.go", "f.go"} {
+		files[name] = strings.Repeat("x", 20*1024)
+	}
+	writeTree(t, dir, files)
+	sc := conformance.DeclaredCheck{Block: "test", Version: 1, Check: check.Declaration{Name: "state", Evaluator: "llm", Scope: "tree", Files: []string{"**/*.go"}}}
+	checks := []conformance.DeclaredCheck{sc, sc, sc, sc, sc, sc}
+	items := check.TreeItems(declaredAll(checks), CheckSource(dir))
+	meta := &llmMetadata{Served: "test-model"}
+	v := check.Verdict{Verdict: "unclear", Note: "insufficient evidence"}
+	for _, i := range []int{0, 5} {
+		detail := llmVerdictDetail(v, items[i], meta)
+		want := "judged on 3 of 6 matching files"
+		if i == 5 {
+			want = "judged on 0 of 6 matching files"
+		}
+		if !strings.Contains(detail, want) {
+			t.Fatalf("detail %q lacks %q", detail, want)
+		}
+	}
+	got := judgeRubrics(checks[:1], assessInput{tool: toolContext{BuildDir: dir}, judge: func([]check.Item, string) (map[int]check.Verdict, *llmMetadata, error) {
+		return map[int]check.Verdict{1: v}, meta, nil
+	}})
+	if len(got) != 1 || !strings.Contains(got[0].Detail, "judged on 3 of 6 matching files") {
+		t.Fatalf("unclear assessment: %+v", got)
+	}
+}

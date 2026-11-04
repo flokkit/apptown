@@ -151,8 +151,15 @@ func llmVerdictDetail(v check.Verdict, it check.Item, meta *llmMetadata) string 
 			served = meta.Pattern
 		}
 		s += fmt.Sprintf("\n— judged by %s", served)
-		if len(it.Files) > 0 {
-			s += fmt.Sprintf(" on %d file(s): %s", len(it.Files), strs.Truncate(strings.Join(it.Files, ", "), 200))
+		if it.Scope == check.ScopeTree {
+			if it.MatchingFiles > len(it.Files) {
+				s += fmt.Sprintf("; judged on %d of %d matching files", len(it.Files), it.MatchingFiles)
+			} else {
+				s += fmt.Sprintf(" on %d file(s)", len(it.Files))
+			}
+			if len(it.Files) > 0 {
+				s += ": " + strs.Truncate(strings.Join(it.Files, ", "), 200)
+			}
 		}
 	}
 	return strings.TrimSpace(s)

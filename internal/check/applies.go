@@ -396,6 +396,13 @@ func AppliesHere(words []string, src Source) (string, error) {
 // when it does not apply, or nil when it does (an error is the check's
 // error, never a pass).
 func NotApplicableHere(d Declared, src Source, mode Mode) *Evaluation {
+	if d.SourceFiles {
+		if _, err := sourceFolders(d.Declaration, src); err != nil {
+			// The collector records missing source context as cannot-assess,
+			// rather than treating an absent contract as no applicable code.
+			return nil
+		}
+	}
 	why, err := AppliesHere(d.AppliesTo, src)
 	switch {
 	case err != nil:

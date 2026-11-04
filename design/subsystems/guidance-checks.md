@@ -14,6 +14,41 @@ the evidence supports that distinction. An unavailable base must not make findin
 disappear. Exceptions and human confirmation are applied as decisions over the
 recorded evidence.
 
+## Tree rubric evidence
+
+A model check with `scope: "tree"` declares `files` (repository-relative paths
+or globs), `sourceFiles: true`, or both. For example:
+
+```json
+{"name":"state","expects":"state lives in declared services","evaluator":"llm","scope":"tree","appliesTo":["container"],"sourceFiles":true,"files":[".apptown/app.yaml","**/pom.xml"],"rubric":"Judge where application state is stored."}
+```
+
+`sourceFiles` selects programming-language source within each applicable part's
+folder, including tests and mixed-language code. A repository check selects the
+union of all declared part folders. Parts supplied by images have no source
+folder. Part `tools` determine applicability but do not narrow source languages.
+Verification supplies the checked tree's resolved contract to every evaluation,
+including baselines, fleet reviews and what-ifs. Missing or unreadable contract
+context is cannot-assess; collection never guesses a repository-wide scope.
+
+The pure Go implementation of go-enry v2.9.6 classifies full file content with
+its language type data. Source discovery excludes its vendor, generated,
+documentation and binary matches, the contract's `notAppCode` folders, and the
+collector's dependency, build and runtime directories. These exclusions are
+heuristics. Unknown files are reported as unclassified, never as proof that no
+code exists. Explicit `files` select context independently, so an explicitly
+requested README remains evidence.
+
+The collector resolves a symlink tree root and excludes links within the tree.
+It sorts and deduplicates paths before packing. Content contributes at most
+12 KiB per file, 48 KiB per rubric and 160 KiB per batch, with explicit omission
+markers. Budget omissions report “judged on N of M matching files”; M counts
+eligible source and explicit context before caps. Unclassified paths are a
+bounded report in the bundle, separate from eligible matching-file counts.
+Evaluator identity includes selector semantics and classifier version. Evidence
+records the included paths and exact bundle hash. Stock sync publishes changed
+checks as new versions; adoption remains explicit.
+
 ## Feedback and evidence
 
 `apptown check` (and MCP `run_change_checks`) runs a change's declared

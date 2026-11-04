@@ -17,6 +17,8 @@ import (
 
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/flokkit/apptown/internal/strs"
+	"github.com/go-enry/go-enry/v2"
+	"github.com/go-enry/go-enry/v2/data"
 )
 
 // AI-judged checks (design/subsystems/conformance-surface.md §2.2, §9): a rubric is judged
@@ -32,7 +34,7 @@ import (
 // PackingVersion changes whenever the packing algorithm below changes —
 // exclusions, caps, ordering, truncation markers. It is part of every AI
 // verdict's evaluator identity.
-const PackingVersion = "pack-v2"
+const PackingVersion = "pack-v4"
 
 // Caps (§9): per file, per rubric, per batch bundle.
 const (
@@ -49,7 +51,8 @@ or the DIFF of one change (judge only what the diff shows; unchanged code is out
 Respond with ONLY a JSON array, one object per item, in order:
 [{"item": 1, "verdict": "pass"|"fail"|"unclear", "evidence": "file:line or short quote", "note": "one sentence"}]
 "fail" requires concrete cited evidence. When the evidence gives no basis to judge an item,
-use "unclear", never "fail".`
+use "unclear", never "fail". Unclassified files may contain source: never infer that code
+is absent from a lack of classified source; use "unclear" when that prevents assessment.`
 
 func TemplateHash() string {
 	h := sha256.Sum256([]byte(checklistSystem))
@@ -57,12 +60,15 @@ func TemplateHash() string {
 }
 
 // LLMEvaluatorVersion is the evaluator identity of an AI check: packing version,
-// template hash, and the hash of the rubric and its file globs. A changed
-// rubric, file list, template or packing is a changed evaluator.
+// template hash, and the hash of the rubric, selectors and classifier identity.
+// A changed rubric, selector, classifier, template or packing changes identity.
 func LLMEvaluatorVersion(c Declaration) string {
-	h := sha256.Sum256([]byte(c.Rubric + "\x00" + strings.Join(c.Files, "\x00")))
+	h := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%s\x00sourceFiles=%t\x00%s", c.Rubric, strings.Join(c.Files, "\x00"), c.SourceFiles, sourceClassifier)))
 	return fmt.Sprintf("llm/%s/%s/%s", PackingVersion, TemplateHash(), hex.EncodeToString(h[:4]))
 }
+
+// sourceClassifier identifies both the classifier data and selection semantics.
+const sourceClassifier = "go-enry/v2.9.6/programming/parts/no-tool-narrowing/v1"
 
 // --- evidence packing ---------------------------------------------------------
 
@@ -106,10 +112,25 @@ func isMinified(rel string) bool {
 // packEvidence collects the files matching globs under src, deterministically
 // (sorted relative paths; excluded dirs, except files a glob names exactly,
 // symlinks, binaries and minified files skipped; per-file and per-rubric caps with explicit markers), and returns
-// the bundle text plus the list of files it contains. A file or directory
+// the bundle, included paths and eligible match count before caps. A file or directory
 // that cannot be read is the error: a bundle without it would be judged as
 // if it were the whole evidence.
-func packEvidence(src string, globs []string) (bundle string, files []string, err error) {
+func packEvidence(source Source, c Declaration) (bundle string, files []string, matching int, err error) {
+	src, globs := source.Tree, c.Files
+	var folders []string
+	if c.SourceFiles {
+		folders, err = sourceFolders(c, source)
+		if err != nil {
+			return "", nil, 0, err
+		}
+	}
+	var unclassified []string
+	// Resolve the caller's tree root once: WalkDir does not descend into a
+	// symlink root. Links inside that tree remain excluded below.
+	src, err = filepath.EvalSymlinks(src)
+	if err != nil {
+		return "", nil, 0, fmt.Errorf("reading the evidence: %w", err)
+	}
 	var matched []string
 	walkErr := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -138,14 +159,28 @@ func packEvidence(src string, globs []string) (bundle string, files []string, er
 				break
 			}
 		}
+		if c.SourceFiles && withinFolders(rel, folders) && !withinFolders(rel, source.NotAppCode) && !enry.IsVendor(rel) && !enry.IsDocumentation(rel) {
+			b, err := os.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			if !enry.IsBinary(b) && !enry.IsGenerated(rel, b) {
+				language := enry.GetLanguage(rel, b)
+				if language == "" {
+					unclassified = append(unclassified, rel)
+				} else if data.LanguagesType[language] == int(data.TypeProgramming) {
+					matched = append(matched, rel)
+				}
+			}
+		}
 		return nil
 	})
 	if walkErr != nil {
-		return "", nil, fmt.Errorf("reading the evidence: %w", walkErr)
+		return "", nil, 0, fmt.Errorf("reading the evidence: %w", walkErr)
 	}
 	named, err := namedFiles(src, globs)
 	if err != nil {
-		return "", nil, err
+		return "", nil, 0, err
 	}
 	for _, rel := range named {
 		if !slices.Contains(matched, rel) {
@@ -153,33 +188,56 @@ func packEvidence(src string, globs []string) (bundle string, files []string, er
 		}
 	}
 	sort.Strings(matched)
+	matched = slices.Compact(matched)
 
 	var sb strings.Builder
-	total := 0
-	for i, rel := range matched {
-		if total >= rubricCap {
-			fmt.Fprintf(&sb, "[%d more matching file(s) omitted: rubric evidence cap]\n", len(matched)-i)
-			break
+	if len(unclassified) > 0 {
+		// Bound the report so unknown paths leave room for source evidence.
+		fmt.Fprintf(&sb, "[unclassified files: %d; these may contain source]\n", len(unclassified))
+		for i, rel := range unclassified {
+			if sb.Len()+len(rel)+1 > fileCap {
+				fmt.Fprintf(&sb, "[%d more unclassified paths omitted]\n", len(unclassified)-i)
+				break
+			}
+			fmt.Fprintf(&sb, "[unclassified: %s]\n", rel)
 		}
+	}
+	capped := false
+	// Leave room for an omission marker without exceeding the rubric budget.
+	marker := fmt.Sprintf("[%d more matching file(s) omitted: rubric evidence cap]\n", len(matched))
+	for _, rel := range matched {
 		b, err := os.ReadFile(filepath.Join(src, rel))
 		if err != nil {
-			return "", nil, fmt.Errorf("reading the evidence: %w", err)
+			return "", nil, 0, fmt.Errorf("reading the evidence: %w", err)
 		}
 		if looksBinary(b) {
+			continue
+		}
+		matching++
+		if capped {
 			continue
 		}
 		body := string(b)
 		if len(body) > fileCap {
 			body = body[:fileCap] + fmt.Sprintf("\n… [truncated: %d more bytes]\n", len(b)-fileCap)
 		}
-		fmt.Fprintf(&sb, "=== %s ===\n%s\n", rel, body)
+		section := fmt.Sprintf("=== %s ===\n%s\n", rel, body)
+		if sb.Len()+len(section)+len(marker) > rubricCap {
+			capped = true
+			continue
+		}
+		sb.WriteString(section)
 		files = append(files, rel)
-		total = sb.Len()
 	}
-	if len(matched) == 0 {
+	if matching > len(files) {
+		fmt.Fprintf(&sb, "[%d more matching file(s) omitted: rubric evidence cap]\n", matching-len(files))
+	}
+	if matching == 0 && c.SourceFiles {
+		sb.WriteString("[no classified programming source matched; unclassified files do not establish absence of code]\n")
+	} else if matching == 0 {
 		sb.WriteString("[no files matched: " + strings.Join(globs, ", ") + "]\n")
 	}
-	return sb.String(), files, nil
+	return sb.String(), files, matching, nil
 }
 
 // namedFiles are the globs that name one exact path (no pattern characters)
@@ -237,10 +295,11 @@ func BundleHash(s string) string {
 // Item is one rubric with the evidence it is judged on.
 type Item struct {
 	Declared
-	Scope    string // tree | diff
-	Evidence string // packed files for tree; "" for diff (the shared diff is attached once)
-	Files    []string
-	Hash     string // hash of the exact evidence this item is judged on
+	Scope         string // tree | diff
+	Evidence      string // packed files for tree; "" for diff (the shared diff is attached once)
+	Files         []string
+	MatchingFiles int    // eligible matching files before rubric and batch caps
+	Hash          string // hash of the exact evidence this item is judged on
 	// Unreadable says why the item's evidence could not be read: it is not
 	// put to the model, and its judgement is cannot-assess.
 	Unreadable string
@@ -320,14 +379,14 @@ func Judgement(it Item, v Verdict, answered bool, meta *checklistMeta, mode Mode
 
 // TreeItems packs every tree-scoped rubric's evidence from src, applying the
 // batch-level cap in order (later rubrics lose their evidence first, marked).
-func TreeItems(checks []Declared, src string) []Item {
+func TreeItems(checks []Declared, src Source) []Item {
 	var items []Item
 	total := 0
 	for _, sc := range checks {
 		if Evaluator(sc.Declaration) != "llm" || Scope(sc.Declaration) != ScopeTree {
 			continue
 		}
-		ev, files, err := packEvidence(src, sc.Files)
+		ev, files, matching, err := packEvidence(src, sc.Declaration)
 		if err != nil {
 			items = append(items, Item{Declared: sc, Scope: ScopeTree, Unreadable: err.Error()})
 			continue
@@ -337,7 +396,7 @@ func TreeItems(checks []Declared, src string) []Item {
 			files = nil
 		}
 		total += len(ev)
-		items = append(items, Item{Declared: sc, Scope: ScopeTree, Evidence: ev, Files: files, Hash: BundleHash(ev)})
+		items = append(items, Item{Declared: sc, Scope: ScopeTree, Evidence: ev, Files: files, MatchingFiles: matching, Hash: BundleHash(ev)})
 	}
 	return items
 }
