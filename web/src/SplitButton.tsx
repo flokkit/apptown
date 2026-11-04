@@ -26,12 +26,10 @@ export function SplitButton({ icon, label, sub, busy, primary, green, compact = 
                    borderLeft: '1px solid var(--overlay)', ...toneStyle }}>▾</button>
       )}
       {open && (
-        <div className="card" role="menu" style={{ position: 'absolute', top: '100%', right: 0, zIndex: 10, marginTop: 6,
-             minWidth: 280, padding: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div className="split-menu" role="menu">
           {items.map((it) => (
             <button key={it.label} className="subtle" role="menuitem" disabled={it.disabled}
-              style={{ textAlign: 'left', padding: '10px 12px', fontSize: 'var(--fs-base)',
-                       opacity: it.disabled ? 0.45 : 1, cursor: it.disabled ? 'default' : undefined }}
+              style={{ opacity: it.disabled ? 0.45 : 1, cursor: it.disabled ? 'default' : undefined }}
               onClick={() => { if (it.disabled) return; setOpen(false); it.onClick?.() }}>
               {it.label}
               {it.hint && <div className="muted small" style={{ marginTop: 2 }}>{it.hint}</div>}
