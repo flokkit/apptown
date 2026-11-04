@@ -9,6 +9,12 @@ lists tools, mounts, services and credential grants.
 
 ## Opening and continuing a chat
 
+Change on Home and the Projects list creates a chat change and opens its
+conversation when chat is available. Its menu offers Catalog change and New
+change, detailed. Without chat, Change opens the detailed form and the menu
+still offers Catalog change. The project overview shares the same Change
+control, with its descriptive sub-label.
+
 Project navigation offers Chat only when the viewer can create and invoke a
 change and conversation admission reports a configured model and usable placement.
 The availability probe has a deadline so an unresponsive worker does not hold up

@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
 import { useDismiss } from './Modal'
 
-export function SplitButton({ icon, label, sub, busy, primary, green, onMain, items }: {
-  icon: string; label: string; sub: string; busy?: boolean; primary?: boolean; green?: boolean
+export function SplitButton({ icon, label, sub, busy, primary, green, compact = false, onMain, items }: {
+  icon: string; label: string; sub?: string; compact?: boolean; busy?: boolean; primary?: boolean; green?: boolean
   onMain: () => void
   items: { label: string; hint?: string; onClick?: () => void; disabled?: boolean }[]
 }) {
@@ -13,16 +13,16 @@ export function SplitButton({ icon, label, sub, busy, primary, green, onMain, it
   const face = primary ? 'primary' : ''
   const toneStyle = green ? { background: 'var(--ok-bg)', border: '1px solid var(--ok)' } : {}
   return (
-    <div ref={box} style={{ position: 'relative', display: 'flex', flex: '1 1 300px', alignItems: 'stretch' }}>
-      <button className={`${face} btn-door`} onClick={onMain} disabled={busy}
+    <div ref={box} style={{ position: 'relative', display: 'flex', flex: compact ? undefined : '1 1 300px', alignItems: 'stretch' }}>
+      <button className={`${face}${compact ? '' : ' btn-door'}`} onClick={onMain} disabled={busy}
         style={{ flex: 1, borderTopRightRadius: items.length > 0 ? 0 : undefined, borderBottomRightRadius: items.length > 0 ? 0 : undefined, ...toneStyle }}>
-        {busy ? '…' : `${icon} ${label}`}
-        <div className="btn-sub">{sub}</div>
+        {busy ? '…' : `${icon ? icon + ' ' : ''}${label}`}
+        {sub && <div className="btn-sub">{sub}</div>}
       </button>
       {items.length > 0 && (
         <button className={face} onClick={() => setOpen((o) => !o)} aria-label={`${label}: more options`}
           aria-expanded={open} aria-haspopup="menu" title="more options"
-          style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: '0 14px', fontSize: 'var(--fs-base)',
+          style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: compact ? '0 8px' : '0 14px', fontSize: 'var(--fs-base)',
                    borderLeft: '1px solid var(--overlay)', ...toneStyle }}>▾</button>
       )}
       {open && (

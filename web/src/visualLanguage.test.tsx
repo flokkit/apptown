@@ -31,7 +31,7 @@ it('offers the ordinary change form only with project creation authority and a c
   const p = { slug: 'app', name: 'Library', hasDeployments: false, canChange: true } as ProjectRow
   const el = await mount(<><ProjectListRow project={p} /><ProjectListRow project={{ ...p, canChange: false }} /><ProjectListRow project={p} refreshFailed /></>)
   const buttons = [...el.querySelectorAll<HTMLButtonElement>('.project-action button')]
-  expect(buttons.map(b => b.textContent)).toEqual(['Change'])
+  expect(buttons.map(b => b.textContent)).toEqual(['Change', '▾'])
   await act(async () => buttons[0].click())
   expect(el.querySelector('[role=dialog]')?.textContent).toContain('New change')
   expect(el.querySelector('[role=dialog] textarea')).not.toBeNull()

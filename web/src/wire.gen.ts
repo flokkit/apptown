@@ -1368,6 +1368,7 @@ export type ProjectRow = {
   requireIndependentApproval: boolean
   settingsRevision: number
   canChange: boolean
+  chatAvailable: boolean
   lastWorkedAt: string | null
   activeItems: number
   adrCount: number
