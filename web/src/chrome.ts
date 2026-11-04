@@ -30,3 +30,26 @@ export function useNarrow(): boolean {
   }, [])
   return narrow
 }
+
+// Safari's keyboard resizes the visual viewport, not the CSS viewport.
+// Publish its position too, so focus panning cannot move the chat's head away.
+export function useChatViewport(narrow: boolean): void {
+  useEffect(() => {
+    const viewport = window.visualViewport
+    if (!narrow || !viewport) return
+    const style = document.documentElement.style
+    const update = () => {
+      style.setProperty('--viewport-h', `${viewport.height}px`)
+      style.setProperty('--viewport-top', `${viewport.offsetTop}px`)
+    }
+    update()
+    viewport.addEventListener('resize', update)
+    viewport.addEventListener('scroll', update)
+    return () => {
+      viewport.removeEventListener('resize', update)
+      viewport.removeEventListener('scroll', update)
+      style.removeProperty('--viewport-h')
+      style.removeProperty('--viewport-top')
+    }
+  }, [narrow])
+}

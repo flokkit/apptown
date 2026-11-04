@@ -60,6 +60,13 @@ describe('a chat says which kind it is from its first paint', () => {
     expect(html).toContain('The helper opens a change for the work.')
     expect(html).not.toContain('Change chat')
   })
+  it('anchors the offscreen terminal at the top instead of below the conversation', () => {
+    const el = document.createElement('div')
+    el.innerHTML = firstPaint('')
+    const terminal = el.querySelector<HTMLElement>('.console-term')!
+    expect(terminal.style.position).toBe('absolute')
+    expect(terminal.style.top).toBe('0px')
+  })
   // The intro uses the glossary's names for the two chats, not room names.
   it('neither chat calls itself a workshop or a front desk', () => {
     for (const search of [ON_CHANGE, '']) {
@@ -166,5 +173,107 @@ describe('what the chat is about folds to one line on a phone', () => {
     try {
       expect(parse(firstPaint('')).querySelector('details.console-about')).toBeNull()
     } finally { localStorage.removeItem('chat-intro-seen-p') }
+  })
+})
+
+// Once the conversation starts, phone controls fold without removing the
+// preview or landing actions. The choice belongs to this page view only.
+describe('phone change controls', () => {
+  let messageCount = 1
+  beforeEach(() => {
+    localStorage.clear()
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q === NARROW_QUERY, media: q, addEventListener() {}, removeEventListener() {} }))
+    vi.stubGlobal('WebSocket', class { send() {} close() {} })
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const u = String(url)
+      const data = u.endsWith('/projects/p/console')
+        ? { sessions: [{ id: 's1', projectSlug: 'p', state: 'detached', changeId: CHANGE, openedBy: 'ana', mayAct: true }] }
+        : u.endsWith(`/changes/${CHANGE}`)
+          ? { statusLabel: 'in progress', change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }
+          : u.endsWith('/preview') ? { state: 'live', url: 'https://preview.example' }
+            : u.includes('/messages') ? { messages: Array.from({ length: messageCount }, (_, i) => ({ i, role: 'you', text: 'Hello' })), turn: 'handed-back' }
+              : { changes: [] }
+      return new Response(JSON.stringify(data))
+    }))
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  async function mount() {
+    window.history.replaceState(null, '', `/projects/p/console${ON_CHANGE}`)
+    const client = newQueryClient()
+    const el = document.createElement('div')
+    document.body.append(el)
+    const root = createRoot(el)
+    await act(async () => {
+      root.render(<MemoryRouter initialEntries={[`/projects/p/console${ON_CHANGE}`]}>
+        <QueryClientProvider client={client}>
+          <Routes><Route path="/projects/:slug/console" element={<Console />} /></Routes>
+        </QueryClientProvider>
+      </MemoryRouter>)
+    })
+    await vi.waitFor(() => expect(el.textContent).toContain('▶ Open'))
+    return { el, client, done: () => { act(() => root.unmount()); el.remove(); client.clear() } }
+  }
+  function mainActions(el: HTMLElement) {
+    for (const text of ['▶ Open', '✓ Check and land']) {
+      const button = [...el.querySelectorAll('button')].find(b => b.textContent === text)!
+      expect(button).toBeDefined()
+      expect(button.closest('[hidden]')).toBeNull()
+    }
+  }
+  function secondary(el: HTMLElement, hidden: boolean) {
+    for (const selector of ['.tryit-restart', '.head-menu', '.console-secondary']) {
+      expect((el.querySelector(selector) as HTMLElement).hidden).toBe(hidden)
+    }
+    expect(el.querySelector('.console-secondary summary')?.textContent).toBe('About this change')
+    expect(el.querySelector('.console-secondary [role="switch"]')).not.toBeNull()
+  }
+  it('folds after a message, opens from either toggle, and always keeps the main actions', async () => {
+    messageCount = 1
+    const { el, done } = await mount()
+    try {
+      const toggle = el.querySelector<HTMLButtonElement>('.change-controls-toggle')!
+      expect(toggle?.getAttribute('aria-expanded')).toBe('false')
+      expect(toggle.getAttribute('aria-label')).toBe('Show change controls')
+      secondary(el, true); mainActions(el)
+      act(() => toggle.click())
+      expect(toggle.getAttribute('aria-expanded')).toBe('true')
+      expect(toggle.getAttribute('aria-label')).toBe('Hide change controls')
+      secondary(el, false); mainActions(el)
+      act(() => el.querySelector<HTMLButtonElement>('.change-controls-title')!.click())
+      expect(toggle.getAttribute('aria-expanded')).toBe('false')
+      secondary(el, true); mainActions(el)
+    } finally { done() }
+  })
+  it('starts an empty chat unfolded, folds on its first message, and preserves an explicit choice on refresh', async () => {
+    messageCount = 0
+    const { el, client, done } = await mount()
+    try {
+      const toggle = el.querySelector<HTMLButtonElement>('.change-controls-toggle')!
+      expect(toggle?.getAttribute('aria-expanded')).toBe('true')
+      secondary(el, false); mainActions(el)
+      await act(async () => { client.setQueryData(getKey('/console/s1/messages?from=0'), { messages: [{ i: 0, role: 'you', text: 'Hello' }] }); await new Promise(r => setTimeout(r, 0)) })
+      expect(toggle.getAttribute('aria-expanded')).toBe('false')
+      act(() => toggle.click())
+      await act(async () => { client.setQueryData(getKey('/console/s1/messages?from=0'), { messages: [{ i: 0, role: 'you', text: 'Hello' }, { i: 1, role: 'helper', text: 'Hi' }] }); await new Promise(r => setTimeout(r, 0)) })
+      expect(toggle.getAttribute('aria-expanded')).toBe('true')
+      act(() => el.querySelector<HTMLTextAreaElement>('textarea')!.focus())
+      expect(toggle.getAttribute('aria-expanded')).toBe('false')
+      secondary(el, true); mainActions(el)
+      act(() => el.querySelector<HTMLTextAreaElement>('textarea')!.blur())
+      expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    } finally { done() }
+  })
+  it('keeps desktop controls unfolded after messages', async () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {} }))
+    messageCount = 1
+    const { el, done } = await mount()
+    try {
+      expect(el.querySelector('.change-controls-toggle')).toBeNull()
+      expect(el.querySelector<HTMLDetailsElement>('.head-menu')!.hidden).toBe(false)
+      expect(el.querySelector<HTMLDetailsElement>('.console-about')!.open).toBe(true)
+      mainActions(el)
+    } finally { done() }
   })
 })

@@ -38,6 +38,20 @@ Workflowexec owns step execution and settlement through Workflow.
 
 ## Looking and acting
 
+The chat page fills the space below the topbar at every width without page
+scrolling. On narrow screens it follows the visual viewport, including while
+the keyboard is open. Only the conversation scrolls as messages arrive, and it follows new activity only while the reader is already at the
+bottom. The working indicator and stop button have a reserved row above the
+composer, so pauses between tool calls do not change the conversation's height.
+Tool folds keep their place and open state when the helper's busy state changes.
+
+On phones, a change chat's head folds after its first message. Its title, state,
+preview action and Check and land stay visible. The title or disclosure button
+opens restart, the session menu, About this change and Show agent actions in
+place. About this change has its own disclosure. An empty chat starts expanded;
+the reader's choice lasts for that page view. Focusing the composer folds the
+head while typing. Expanded controls scroll within the available space.
+
 A chat is not private to the person who opened it.
 Anyone who can read its project may look at it: its conversation, its
 terminal's screen and who opened it. Acting on it needs `change:invoke-lane`

@@ -458,7 +458,17 @@ tbody tr:hover td { background: var(--hover); }
 /* A line in a log that went partly wrong: a step skipped, the rest fine. */
 .warn-line { color: var(--warn); background: var(--warn-bg); border-left: 3px solid var(--warn-mark); padding: 2px 8px; margin: 2px 0; }
 
-.console { display: flex; flex-direction: column; height: calc(100vh - var(--topbar-h) - 48px); }
+/* The layout bounds the chat at every width; padding participates in its
+   flex sizing instead of being subtracted from a viewport calculation. */
+html:has(.console) { height: 100%; overflow: clip; }
+body:has(.console) { position: fixed; inset: 0; overflow: clip; }
+.layout:has(.console) { height: 100dvh; min-height: 0; overflow: clip; }
+.main:has(.console) { display: flex; flex-direction: column; min-height: 0; overflow: clip; }
+.console { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.console-controls { display: contents; }
+.console > :not(.chat-pane):not(.console-term) { flex-shrink: 0; }
+.console-extra { max-height: 33dvh; overflow-y: auto; }
+.console .chat-scroll { overscroll-behavior-y: contain; }
 /* Two rooms, unmistakable at a glance:
    the FRONT DESK (project chat — amber, questions/setup/dispatch) and the
    WORKSHOP (change chat — accent, where building happens). */
@@ -1167,11 +1177,21 @@ a.btn.primary:hover { background: var(--accent-hover); border-color: var(--accen
 
 /* ---- The chat on a phone --------------------------------------------------
    The chat fills the screen down to the input, which sits at the bottom
-   and rises with the on-screen keyboard (index.html asks the browser to
-   resize the page for it). While you type, what the chat is about steps
+   and rises with the on-screen keyboard (chrome.ts reads the visual
+   viewport, including on Safari). While you type, what the chat is about steps
    aside so the conversation keeps the room. */
 @media (max-width: 800px) {
-  .console { height: calc(100dvh - var(--topbar-h) - 32px); }
+  /* Hidden overflow still permits programmatic scrolling. Fix the body and
+     clip the page; the visual viewport positions the chat shell below. */
+  html:has(.console) { height: 100%; overflow: clip; }
+  body:has(.console) { position: fixed; inset: 0; overflow: clip; }
+  .layout:has(.console) {
+    position: fixed; top: var(--viewport-top, 0px); left: 0; right: 0;
+    height: var(--viewport-h, 100dvh); min-height: 0; overflow: hidden;
+  }
+  .layout:has(.console) .topbar { top: var(--viewport-top, 0px); }
+  .main:has(.console) { display: flex; flex-direction: column; min-height: 0; padding-bottom: 0; overflow: clip; }
+  .console > :not(.chat-pane):not(.console-term) { flex-shrink: 0; }
   /* The head is one line: the chip gives way first. */
   .console-head h1 { font-size: 20px; white-space: nowrap; }
   .console-head { gap: 6px; flex-wrap: nowrap; }
@@ -1179,15 +1199,17 @@ a.btn.primary:hover { background: var(--accent-hover); border-color: var(--accen
   .console-head button { white-space: nowrap; padding-left: 8px; padding-right: 8px; }
   .console-about .card.row { flex-direction: column; align-items: stretch; }
   .console-about .card.row > button { align-self: flex-end; }
-  .console:has(.chat-input textarea:focus) :is(.console-extra:not(:has(.console-about-line)), .console-actions) { display: none; }
+  .console:has(.chat-input textarea:focus) .console-secondary { display: none; }
   /* However much the chat is about, the conversation keeps the room: the
      part above it is folded to one line (Console.tsx), holds at most a
      third when opened and scrolls, shaded at the edge where there is more;
-     the conversation never gets less than 40% of the column. On a screen
-     too short for both, the page scrolls rather than hide either. */
-  .console .chat-pane { min-height: 40%; }
+     the conversation takes the remaining height and scrolls inside the
+     page, leaving the composer at the bottom even when it is empty. */
+  .console .chat-pane { flex: 1; min-height: 0; }
+  .console .chat-scroll { overscroll-behavior-y: contain; }
+  .console .chat-input { flex-shrink: 0; }
   .console-about[open] > summary { margin-bottom: 8px; }
-  .console-extra { max-height: 33dvh; overflow-y: auto; flex-shrink: 0;
+  .console-extra { max-height: calc(var(--viewport-h, 100dvh) / 3); overflow-y: auto; flex-shrink: 0;
     background:
       linear-gradient(to top, var(--ground), transparent) center bottom / 100% 24px no-repeat local,
       radial-gradient(farthest-side at 50% 100%, var(--scroll-shade), transparent) center bottom / 100% 12px no-repeat scroll; }
@@ -2019,8 +2041,55 @@ a.project-avatar, a.project-avatar:hover { text-decoration: none; color: inherit
   .console .chat-working button { min-height: 32px; padding: 0 8px; font-size: var(--fs-xs); }
   .console .chat-input { margin-top: 4px !important; gap: 6px; align-items: flex-end; }
   .console .chat-input textarea {
-    min-width: 0; min-height: calc(2lh + 12px); max-height: min(160px, 33dvh);
+    min-width: 0; min-height: calc(2lh + 12px); max-height: min(160px, calc(var(--viewport-h, 100dvh) / 3));
     padding: 5px 8px; font-size: 16px; line-height: 1.4; field-sizing: fixed; overflow-y: auto;
   }
   .console .chat-input button { min-height: 32px; padding: 4px 10px; font-size: var(--fs-sm); }
+}
+
+/* On phones the change title, state and primary actions share one line.
+   display: contents keeps one TryIt instance (including its request state)
+   while placing restart on the expanded line beside the session menu. */
+@media (max-width: 800px) {
+  .console-controls { display: block; min-height: 0; max-height: 45%; overflow-y: auto; }
+  .console-controls:is(.controls-open, .controls-folded) { display: grid; grid-template-columns: auto auto minmax(max-content, 1fr) auto auto; gap: 4px; align-items: center; }
+  .console-controls:is(.controls-open, .controls-folded) .console-head,
+  .console-controls:is(.controls-open, .controls-folded) .console-primary-actions,
+  .console-controls:is(.controls-open, .controls-folded) .console-actions,
+  .console-controls:is(.controls-open, .controls-folded) .workshop-actions,
+  .console-controls:is(.controls-open, .controls-folded) .tryit { display: contents; }
+  .console-controls:is(.controls-open, .controls-folded) .console-head h1 { grid-column: 1; grid-row: 1; overflow: visible; font-size: var(--fs-xs); }
+  .console-controls:is(.controls-open, .controls-folded) .console-state { grid-column: 2; grid-row: 1; }
+  .console-controls:is(.controls-open, .controls-folded) .console-state .chip { padding: 0; border: 0; font-size: var(--fs-xs); white-space: nowrap; }
+  .console-controls:is(.controls-open, .controls-folded) .tryit > button:not(.tryit-restart),
+  .console-controls:is(.controls-open, .controls-folded) .workshop-actions > button.primary { grid-column: 3; grid-row: 1; justify-self: end; }
+  .console-controls:is(.controls-open, .controls-folded) .workshop-actions .finish { grid-column: 4; grid-row: 1; margin: 0; }
+  .console-controls:is(.controls-open, .controls-folded) .change-controls-toggle { grid-column: 5; grid-row: 1; }
+  .console-controls:is(.controls-open, .controls-folded) button { min-height: 28px; padding: 3px 5px; white-space: nowrap; font-size: var(--fs-xs); }
+  .console-controls:is(.controls-open, .controls-folded) .change-controls-title { padding: 3px 0; background: none; border: 0; font: inherit; color: inherit; }
+  .console-controls:is(.controls-open, .controls-folded) .change-controls-toggle { padding: 3px; }
+  .console-controls:is(.controls-open, .controls-folded) .head-menu { grid-column: 2; grid-row: 2; }
+  .console-controls:is(.controls-open, .controls-folded) .tryit-restart { grid-column: 1; grid-row: 2; }
+  .console-controls:is(.controls-open, .controls-folded) > :not(.console-head):not(.console-primary-actions),
+  .console-controls:is(.controls-open, .controls-folded) .console-actions > *,
+  .console-controls:is(.controls-open, .controls-folded) .console-head > .status-help,
+  .console-controls:is(.controls-open, .controls-folded) .workshop-actions > .small,
+  .console-controls:is(.controls-open, .controls-folded) .workshop-actions > .error,
+  .console-controls:is(.controls-open, .controls-folded) .tryit > .status-help,
+  .console-controls:is(.controls-open, .controls-folded) .tryit > span { grid-column: 1 / -1; }
+  .console-controls:is(.controls-open, .controls-folded) .console-secondary { max-height: none; overflow: visible; }
+  .console-controls:is(.controls-open, .controls-folded) .console-head-space,
+  .console-controls:is(.controls-open, .controls-folded) .console-head > .agent-activity { display: none; }
+  .controls-folded .head-menu,
+  .controls-folded .tryit-restart,
+  .controls-folded .console-secondary { display: none; }
+}
+
+@media (max-width: 800px) {
+  /* Expanded controls give the preview and restart one shared action line. */
+  .console-controls.controls-open .tryit > button:not(.tryit-restart) { grid-column: 1; grid-row: 2; justify-self: start; }
+  .console-controls.controls-open .tryit-restart { grid-column: 2; grid-row: 2; }
+  .console-controls.controls-open .workshop-actions .finish { grid-column: 3 / -1; grid-row: 2; justify-self: end; }
+  .console-controls.controls-open .head-menu { grid-column: 1 / -1; grid-row: 3; }
+  .console-controls.controls-open .head-menu-card { position: static; width: auto; min-width: 0; }
 }
