@@ -38,6 +38,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/apptown/tasks"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
@@ -1699,11 +1700,15 @@ func TestDeploymentProgressIsLiveBeforeTransferAndReadableAfterSettlement(t *tes
 				t.Helper()
 				out := authzCall(h, "boss", "GET", fmt.Sprintf("/api/v1/steps/%d/live", stepID), "")
 				var live struct {
-					Running bool     `json:"running"`
-					Lines   []string `json:"lines"`
+					Stage   deploy.DeployStage `json:"stage"`
+					Running bool               `json:"running"`
+					Lines   []string           `json:"lines"`
 				}
 				if err := json.Unmarshal(out.Body.Bytes(), &live); err != nil || out.Code != 200 {
 					t.Fatalf("live endpoint: %d %s (%v)", out.Code, out.Body.String(), err)
+				}
+				if live.Running && live.Stage != deploy.Building {
+					t.Errorf("image transfer stage = %s, want building", live.Stage)
 				}
 				text := strings.Join(live.Lines, "\n")
 				if strings.Contains(text, registryToken) {
@@ -1742,8 +1747,17 @@ func TestDeploymentProgressIsLiveBeforeTransferAndReadableAfterSettlement(t *tes
 			if failed {
 				want = workflow.StatusFail
 			}
-			if step := w.step(t, stepID); step.Status != want {
+			step := w.step(t, stepID)
+			if step.Status != want {
 				t.Fatalf("deploy: %s %s", step.Status, step.Evidence)
+			}
+			if failed {
+				var evidence struct {
+					FailedStage deploy.DeployStage `json:"failedStage"`
+				}
+				if err := json.Unmarshal(step.Evidence, &evidence); err != nil || evidence.FailedStage != deploy.Building {
+					t.Fatalf("build failure evidence: %s (%v)", step.Evidence, err)
+				}
 			}
 			running, text := read()
 			if running || !strings.Contains(text, "Building ") {

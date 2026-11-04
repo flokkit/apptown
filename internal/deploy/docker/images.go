@@ -27,6 +27,9 @@ func (h *Host) prepareImages(ctx context.Context, t BootRequest, c *appcontract.
 	prepare := func(name, build, static string, sb *appcontract.StaticBuild, image string, port int, recorded string) (string, error) {
 		if t.Recorded != nil {
 			t.logf("Preparing recorded image %s on the Docker host", name)
+			if IsDigestReference(recorded) && t.Stage != nil {
+				t.Stage(deploy.Building)
+			}
 			id, err := t.Recorded.onDaemon(ctx, t.Docker, name, recorded)
 			if err == nil && IsDigestReference(recorded) {
 				err = t.own.created(deploy.Owned{Kind: "image", ID: recorded})
@@ -44,6 +47,9 @@ func (h *Host) prepareImages(ctx context.Context, t BootRequest, c *appcontract.
 			return id, nil
 		}
 		t.logf("Preparing image %s on the Docker host", name)
+		if t.Stage != nil && (sb != nil || build != "" || static != "" || (!isLocalBuildTag(image) && !strings.HasPrefix(image, "sha256:"))) {
+			t.Stage(deploy.Building)
+		}
 		if sb != nil {
 			root, err := SelectedPath(t.Workspace, sb.Context)
 			if err != nil {

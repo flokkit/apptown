@@ -11,6 +11,7 @@ export default defineConfig({
     // Pure logic runs in node; a test that needs a DOM says so at its top
     // (// @vitest-environment jsdom).
     environment: 'node',
+    css: { include: [/change\.css/] },
     include: ['src/**/*.test.{ts,tsx}'],
   },
 })

@@ -14,6 +14,7 @@ import (
 const maxLines = 500
 
 type feed struct {
+	stage   string
 	lines   []string
 	total   int
 	started time.Time
@@ -33,6 +34,7 @@ func (f *Feeds) now() time.Time { return clock.Or(f.Now)() }
 
 // snapshotFor is a detached copy; callers may retain or edit Lines safely.
 type snapshotFor struct {
+	Stage     string
 	Lines     []string
 	Total     int
 	ElapsedMs int64
@@ -65,6 +67,15 @@ func (f *Feeds) Append(id ids.ID, lines ...string) {
 		b.lines = b.lines[:len(b.lines)-extra]
 	}
 	b.lines = append(b.lines, lines...)
+}
+
+// SetStage records the caller's named milestone independently of output lines.
+func (f *Feeds) SetStage(id ids.ID, stage string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if b := f.feeds[id]; b != nil {
+		b.stage = stage
+	}
 }
 
 // Read returns lines after an absolute offset, clamped to the retained tail.
@@ -103,5 +114,5 @@ func snapshot(b *feed, from int, now time.Time) snapshotFor {
 	if start < len(b.lines) {
 		lines = append(lines, b.lines[start:]...)
 	}
-	return snapshotFor{Lines: lines, Total: b.total, ElapsedMs: now.Sub(b.started).Milliseconds()}
+	return snapshotFor{Stage: b.stage, Lines: lines, Total: b.total, ElapsedMs: now.Sub(b.started).Milliseconds()}
 }

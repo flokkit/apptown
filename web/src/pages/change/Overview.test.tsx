@@ -559,7 +559,7 @@ it.each([undefined, 'Malformed app declaration', 'Starting app declaration unrea
       v.waitingOn = { ...v.waitingOn, kind: 'closed', says: 'landed', you: 'no' }
       await redraw()
       expect((dialog as HTMLDialogElement).open).toBe(true)
-      expect(dialog.textContent).toContain('landed')
+      expect(dialog.textContent?.match(/landed/g)).toHaveLength(1)
       expect(dialog.querySelector('[aria-label="Now"]')).toBeNull()
     }
 
@@ -707,7 +707,7 @@ it('uses WaitingOn for decision status and hides Next steps during landing deplo
   v.waitingOn = { ...v.waitingOn, kind: 'check', says: 'Deploy could not run', you: 'no' }
   el = document.createElement('div'); el.innerHTML = render(v)
   expect(el.querySelector('#decision')?.hasAttribute('hidden')).toBe(false)
-  expect(el.querySelector('#decision')?.textContent).toContain('Deploy could not run')
+  expect(el.querySelector('.ch-overview > .ch-deploy-result')?.textContent).toContain('Stopped while deploying')
 })
 
 // Only the reading's explicit gates=false makes a result advisory.
@@ -784,4 +784,45 @@ it.each(['empty', 'failed'])('shows the original ask when the approval brief is 
   } finally {
     await act(async () => root.unmount()); client.clear()
   }
+})
+
+function landingResult(status: 'pass' | 'fail', held = false) {
+  const v = view()
+  v.change.state = held ? 'landing' : 'shipped'
+  v.waitingOn = { ...v.waitingOn, kind: held ? 'check' : 'idle', you: held ? 'yes' : 'no', step: 'deploy', says: held ? 'Deploy failed' : 'Landed' } as ChangeView['waitingOn']
+  v.stateDetail = 'deploy (fail): The app container exited during startup.'
+  v.detail!.run.createdAt = '2026-11-05T01:00:00Z'
+  v.detail!.steps = [step('deploy', status, { reason: 'The app container exited during startup.', failedStage: 'starting', url: 'https://club.example.test' }, { finishedAt: '2026-11-05T01:01:12Z' })]
+  v.detail!.next = held ? [{ act: 'override', stepId: 'deploy' }] as NonNullable<ChangeView['detail']>['next'] : []
+  v.next = held ? [{ act: 'send-back' }, { act: 'abandon' }] as ChangeView['next'] : []
+  v.runs = [{ ...v.detail!.run, role: 'landing' }] as ChangeView['runs']
+  v.evidence!.releases = [{ number: 7 }] as NonNullable<ChangeView['evidence']>['releases']
+  return v
+}
+
+it('says a held deploy failure once and keeps recovery actions and conversation', async () => {
+  const v = landingResult('fail', true)
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify([]))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
+    await act(async () => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
+    const dialog = el.querySelector('dialog[open]')!
+    expect(dialog.textContent?.match(/The app container exited during startup\./g)).toHaveLength(1)
+    expect(dialog.textContent).not.toContain('Deploy failed')
+    expect(dialog.textContent).toContain('Stopped while starting the app')
+    expect([...dialog.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept anyway', 'Send back…', 'Abandon change'])
+    expect(dialog.querySelector('a[href$="tab=conversation"]')).not.toBeNull()
+  } finally { await act(async () => root.unmount()); client.clear() }
+})
+
+it.each(['pass', 'fail'] as const)('puts an unheld %s landing result above the change on a later visit without celebration', status => {
+  const el = document.createElement('div'); el.innerHTML = render(landingResult(status))
+  const result = el.querySelector('.ch-overview > .ch-deploy-result')
+  expect(result).not.toBeNull()
+  expect(result!.hasAttribute('hidden')).toBe(false)
+  expect(result!.compareDocumentPosition(el.querySelector('.ch-change-card')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(result!.querySelector('.celebrate')).toBeNull()
+  expect(el.querySelectorAll('.ch-deploy-result')).toHaveLength(1)
+  for (const text of status === 'pass' ? ['Release 7 is live', 'https://club.example.test', 'Landing took 72s', 'Open the app'] : ['Stopped while starting the app', 'The app container exited during startup.']) expect(result!.textContent).toContain(text)
 })

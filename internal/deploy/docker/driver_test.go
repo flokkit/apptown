@@ -286,7 +286,7 @@ func TestObserveDistinguishesUnavailableFromStopped(t *testing.T) {
 func TestAFailedBootIsAKnownFailure(t *testing.T) {
 	t.Parallel()
 	phases := map[string]bool{"": false}
-	for _, p := range []string{PhaseResolve, PhaseSecrets, PhaseConfig, PhaseNeeds, PhaseFill, PhaseParts, PhaseApp, PhaseProbe, PhasePage} {
+	for _, p := range []string{PhaseImages, PhaseResolve, PhaseSecrets, PhaseConfig, PhaseNeeds, PhaseFill, PhaseParts, PhaseApp, PhaseProbe, PhasePage} {
 		phases[p] = true
 	}
 	for phase, terminal := range phases {
@@ -388,7 +388,7 @@ func TestARecordedBootWithAMissingImageChangesNothing(t *testing.T) {
 	}}
 	_, err = NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Name: ByKey(idstest.N(7)).App(), StackID: ByKey(idstest.N(7)).Stack(), Workspace: t.TempDir(), Docker: Scope{Client: fake}, Persistent: true,
 		Identity: &deploy.DockerIdentity{Deployment: "7", Generation: 2}, Recorded: &RecordedImages{Parts: map[string]string{"game": "sha256:gone"}}}, c)
-	if !errors.Is(err, ErrRecordedImageMissing) || AsBootError(err).Phase != PhaseResolve {
+	if !errors.Is(err, ErrRecordedImageMissing) || AsBootError(err).Phase != PhaseImages {
 		t.Fatalf("a missing recorded image: %v", err)
 	}
 	for _, args := range fake.args {

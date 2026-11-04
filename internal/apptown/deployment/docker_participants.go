@@ -21,6 +21,8 @@ type ClaimedExecution interface {
 }
 
 type LandingInput struct {
+	// Stage reports deploy milestones without interpreting human log lines.
+	Stage     func(deploy.DeployStage)
 	Log       deploy.Logf // Optional phase progress; no environment values or command output.
 	Start     Start
 	Source    deploy.Source
@@ -111,6 +113,7 @@ func (s *Service) RunLanding(ctx context.Context, claim ClaimedExecution, in Lan
 	owner := s.Deployments.OwnerOf(dep)
 	request.Storage = s.Deployments.StorageOf(dep)
 	request.Log = in.Log
+	request.Stage = in.Stage
 	request.Record = func(o deploy.Owned) error { return owner.Created(ctx, o) }
 	if request.Owned, err = s.Deployments.Owned(ctx, dep.ID); err != nil {
 		return fail(fmt.Errorf("reading what the deployment owns: %w", err))

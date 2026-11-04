@@ -29,6 +29,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/tasks"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/execution"
 )
 
@@ -1442,8 +1443,14 @@ func (r *TaskRunner) holdResult(task *workflow.Execution, attempt tasks.Attempt,
 // or no longer this attempt's. When it is not, the caller leaves the attempt
 // recorded for a restarted AppTown.
 func (r *TaskRunner) failStep(task *workflow.Execution, operation, reason string) bool {
+	evidence := map[string]any{"reason": reason}
+	// A deploy's worker task builds release images; infrastructure failures
+	// of that task stop the same building stage as a nonzero build exit.
+	if task.Step().Type == "deploy" {
+		evidence["failedStage"] = deploy.Building
+	}
 	err := r.settleRepeatedly(task, func() error {
-		return task.Finish(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": reason}, nil))
+		return task.Finish(workflow.EncodeOutcome(workflow.StatusError, evidence, nil))
 	})
 	if err != nil && !errors.Is(err, workflow.ErrStepAttemptLost) {
 		log.Printf("task %s: recording its step's error (%s): %v; it stays recorded for recovery", operation, reason, err)

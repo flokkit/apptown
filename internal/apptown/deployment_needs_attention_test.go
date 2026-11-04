@@ -12,7 +12,9 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/deploy"
 	dockerhost "github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -215,6 +217,18 @@ func TestAReleaseWhoseMigrationFailsEndsFailed(t *testing.T) {
 	if _, err := a.Deployment.CheckAgain(asPerson("alice"), env.ProjectID, env.Name); err == nil {
 		t.Fatal("Check again found something in doubt after a failed release")
 	}
+	step, err := workflow.ReadStepIn(t.Context(), a.DB, stepID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var evidence struct {
+		FailedStage deploy.DeployStage `json:"failedStage"`
+		Reason      string             `json:"reason"`
+	}
+	if err := json.Unmarshal(step.Evidence, &evidence); err != nil || evidence.FailedStage != deploy.Starting || !strings.Contains(evidence.Reason, "migration failed") {
+		t.Fatalf("boot failure evidence: %s (%v)", step.Evidence, err)
+	}
+
 }
 
 // An attempt left uncertain with no record that its new version came up
