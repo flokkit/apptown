@@ -35,7 +35,9 @@ func TestWorkflowCompletionRollsBackEveryRequiredRecord(t *testing.T) {
 	t.Parallel()
 	a, ctx, run, _ := completionReleaseScenario(t)
 	store := a.DB
-	priorJobs := len(operationJobs(t, a, project.DescriptionJob))
+	// The fixture committed an approval wait after deployment, including its
+	// narrative request. A later failed completion must preserve those jobs.
+	priorJobs := len(operationJobs(t, a, project.DescriptionJob)) + len(operationJobs(t, a, narrativeJob))
 	before, err := a.Work.Change(ctx, run.ChangeID)
 	if err != nil {
 		t.Fatal(err)

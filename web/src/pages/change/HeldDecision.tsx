@@ -1,7 +1,9 @@
+import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { type ChangeView, currentUser, post } from '../../api'
 import type { ConsoleOpened } from '../../wire.gen'
+import { useFailureAdvice } from './advice'
 import { useAction } from '../../data'
 import { DecisionChoices, type DecisionChoice } from '../../DecisionChoices'
 import { TechnicalWords, useTechnicalDetail } from './TechnicalDetail'
@@ -29,6 +31,7 @@ export function heldLabels(view: ChangeView): string[] {
   ]
 }
 export function HeldDecision({ view, onChange }: { view: ChangeView; onChange: () => void }) {
+  const advice = useFailureAdvice(view)
   const [technical] = useTechnicalDetail()
   const [note, setNote] = useState(view.detail ? recoveryNote(view.detail) : '')
   const { run, busy, err } = useAction(onChange)
@@ -41,7 +44,7 @@ export function HeldDecision({ view, onChange }: { view: ChangeView; onChange: (
     nav(`/projects/${view.projectSlug}/console?change=${view.change.id}&session=${r.session.id}&kickoff=stuck`)
   })
   const accept: DecisionChoice | undefined = a ? {
-    label: heldLabels(view)[0],
+    label: a.act === 'override' ? 'Accept anyway' : a.act === 'advance' ? 'Continue' : rerunLabel(target!),
     run: () => run(() => post(a.act === 'advance' ? `/runs/${d!.run.id}/advance` : `/steps/${target!.id}/run`)),
     ...(a.act === 'override' ? { prompt: {
       ask: `Accept the change although ${stepTitle(target!).toLowerCase()} did not pass? This records an exception in your name, with your reason; the check's result stays on the record.`,
@@ -49,8 +52,9 @@ export function HeldDecision({ view, onChange }: { view: ChangeView; onChange: (
     } } : {}),
   } : undefined
   return <>
+    {advice.text && <div><small>{PRODUCT}'s summary</small><p>{advice.text}</p></div>}
     {next.recovery && <><p>{next.headline}</p>{next.sentence && <p className="ch-review-text">{next.sentence}</p>}<TechnicalWords shown={technical}>{next.step?.name}</TechnicalWords></>}
-    <DecisionChoices note={note} setNote={setNote} busy={busy} accept={accept}
+    <DecisionChoices note={note} setNote={setNote} busy={busy} accept={accept} highlight={['send-back', 'rework'].includes(advice.recommend) && heldLabels(view).includes('Send back…') ? 'rework' : undefined}
       conversation={{ href: `/changes/${view.change.id}?tab=conversation`, ...(agent ? { run: takeToChat } : { run: () => nav(`/changes/${view.change.id}?tab=conversation`) }) }}
       rework={heldLabels(view).includes('Send back…') ? { label: 'Send back…', run: () => run(() => post(offered(view.next, 'send-back') ? `/changes/${view.change.id}/sendback` : `/steps/${agent!.stepId}/run`, offered(view.next, 'send-back') ? { note } : { feedback: note })) } : undefined}
       abandon={offered(view.next, 'abandon') ? { label: 'Abandon change', run: () => run(() => post(`/changes/${view.change.id}/abandon`, {})) } : undefined} />

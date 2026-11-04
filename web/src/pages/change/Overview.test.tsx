@@ -100,7 +100,7 @@ it('opens Overview by default and keeps code, conversation, full records and edi
   v.change.summary = ''
   await act(async () => { await client.invalidateQueries({ queryKey: getKey(`/changes/${id}`) }) })
   await settle()
-  expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/distill'))).toHaveLength(1)
+  expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/distill'))).toHaveLength(0)
   const click = async (name: string) => { await act(async () => [...el.querySelectorAll('.ch-tabs a')].find(a => a.textContent === name)!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }))); await settle() }
   await act(async () => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
   const catchUp = [...el.querySelectorAll('dialog a')].find(a => a.textContent === 'Open Details for the catch-up command')!
@@ -631,4 +631,14 @@ it('keeps a called approval on the approval path without parent recovery control
   expect(html).toContain('Reading the called workflow’s checks…')
   expect(html).not.toContain('ch-turn-floater')
   expect(html).not.toContain('Accept anyway')
+})
+
+it('labels an unsummarized agent report and excludes verification claims while keeping identifiers', () => {
+  const v = view(); v.change.summary = ''; v.report = 'Set WP_HOME for HTTPS.\nVerified with curl.\nKept WP_SITEURL unchanged.'
+  const el = document.createElement('div'); el.innerHTML = render(v)
+  const row = [...el.querySelectorAll('.ch-overview-line')].find(r => r.querySelector('.ch-row-label')?.textContent === 'The agent says')!
+  expect(row.textContent).toContain('WP_HOME')
+  expect(row.textContent).toContain('WP_SITEURL')
+  expect(row.textContent).not.toContain('Verified with')
+  expect(el.textContent).not.toContain('What was made')
 })

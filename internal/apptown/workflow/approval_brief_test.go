@@ -50,7 +50,7 @@ func TestApprovalBriefSnapshotAndCacheInvalidation(t *testing.T) {
 	} // establish the older snapshot
 	// sql-guarantee: Advance only worker.finished_at past the Jan 2 cache after the read snapshot is established; generated finish mutations cannot supply this exact historical timestamp.
 	completionExec(t, q.db, `UPDATE steps SET finished_at='2026-01-03T00:00:00Z' WHERE id=$1`, worker)
-	old, err := readApprovalBriefIn(ctx, tx, RunRef{ID: run.ID, ProjectID: run.ProjectID}, approval)
+	old, err := readBriefIn(ctx, tx, RunRef{ID: run.ID, ProjectID: run.ProjectID}, approval, false)
 	if err != nil || old.Cached != "cached" {
 		t.Fatalf("mixed snapshot %+v: %v", old, err)
 	}

@@ -26,7 +26,7 @@ func narrativeFor(a *App) narrativeBuilder {
 		work:   a.Work,
 		models: a.inference,
 		resolve: func(ctx context.Context, projectID ids.ID) (string, string, error) {
-			pattern, slot, _, err := models.Resolve(ctx, projectID, "fast")
+			pattern, slot, _, err := models.Resolve(ctx, projectID, "main-strong")
 			return pattern, slot, err
 		},
 		evidence: func(ctx context.Context, source workflow.NarrativeSource) (narrativeEvidence, error) {
@@ -78,7 +78,7 @@ func (narratives) requestIn(ctx context.Context, tx *database.Tx, changeID ids.I
 // RunJob is the job queue's handler for narrativeJob, refreshing as the
 // engine once the act that asked for it was admitted. A refresh that returns
 // an error fails the job; nothing retries it. A completed job is not a
-// publication receipt (with no fast model nothing is published):
+// publication receipt (with no main-strong model nothing is published):
 // change.narrative-updated is.
 func (n narratives) RunJob(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
 	rest, _ := strings.CutPrefix(key, "change/")
@@ -90,4 +90,8 @@ func (n narratives) RunJob(ctx context.Context, key string, _ map[string]any) (m
 		return nil, err
 	}
 	return map[string]any{"changeId": changeID}, nil
+}
+
+func (n narratives) RequestHeldSummaryIn(ctx context.Context, tx *database.Tx, changeID ids.ID) error {
+	return n.requestIn(ctx, tx, changeID)
 }

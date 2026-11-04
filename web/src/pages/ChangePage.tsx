@@ -7,12 +7,12 @@ import { setProjectScope } from '../projectScope'
 import { setPageContext } from '../chrome'
 import { ChangeView } from '../api'
 import { useGet } from '../data'
-import { ChangesTab, changeReport, changeTitle, useChangeSummary } from './change/Head'
+import { ChangesTab, changeReport, changeTitle } from './change/Head'
 import { ChangeOverview } from './change/Overview'
 import { StatePanel } from './change/StatePanel'
 import { ConversationLog } from './change/Conversation'
 import { useRunDetail } from './change/Tabs'
-import { changeChip, nextStep } from './change/next'
+import { changeChip } from './change/next'
 import { ChangeDetails } from './change/Details'
 import './change/change.css'
 
@@ -33,7 +33,6 @@ export default function ChangePage() {
   // The address names the change by its id or its friendly form (slug#n).
   const read = useGet<ChangeView>(`/changes/${encodeURIComponent(id ?? '')}`, { poll: 3000 })
   const { data: view, err, reload, current } = read
-  useChangeSummary(view?.change.id ?? undefined, !!view && nextStep(view).primary === 'approve' && !view.change.summary && !view.report)
 
   useEffect(() => { if (view) setProjectScope(view.projectSlug) }, [view?.projectSlug]) // eslint-disable-line react-hooks/exhaustive-deps
   // The bar's sentence: what you are DOING, not just what you see.

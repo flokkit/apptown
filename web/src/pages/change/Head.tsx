@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { shortName } from '../newProject/draft'
+import { useFailureAdvice, recommendationWords } from './advice'
 import { ChangeStatus } from '../../Status'
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeAttachment } from '../../wire.gen'
@@ -18,7 +19,7 @@ const briefOf = (c: { body: string; externalRef?: string }): Brief => ({ body: c
 export function firstLine(text: string, max = 180): string {
   const t = text.replace(/^#+ .*\n+/, '').trim()
   const line = t.split('\n').find((l) => l.trim() && !l.trim().startsWith('#'))?.trim() ?? ''
-  const plain = line.replace(/[*_`]/g, '')
+  const plain = line.replace(/[*`]/g, '')
   const dot = plain.search(/[.!?](\s|$)/)
   const one = dot > 20 ? plain.slice(0, dot + 1) : plain
   return one.length > max ? one.slice(0, max - 1) + '…' : one
@@ -47,11 +48,12 @@ export function changeTitle(ch: ChangeView['change']): string {
 
 export function ChangeHeader({ view, compact }: { view: ChangeView; compact?: boolean }) {
   const ch = view.change
+  const advice = useFailureAdvice(view)
   return (
     <header className="ch-head">
       <div className="ch-title-row">
         <h1><span className="ch-number">Change #{ch.number}:</span> {changeTitle(ch)}</h1>
-        {!compact && <ChangeStatus waiting={view.waitingOn} />}
+        {!compact && <><ChangeStatus waiting={view.waitingOn} />{advice.text && advice.recommend && <span>{recommendationWords(advice.recommend)}</span>}</>}
         {ch.provenance && <span className="badge" title="Adopted from an outside branch: history reconstructed from commits, not witnessed as it happened.">{ch.provenance}</span>}
       </div>
       {!compact && <div className="ch-byline">
@@ -73,17 +75,6 @@ export function changeReport(view: ChangeView, plainFirst = false): string | und
     && !/^project work[.!]?$/i.test(text.trim())
     && ![view.change.body?.trim(), view.change.title?.trim()].includes(text.trim()))
 
-}
-
-// Keep the existing automatic summary request for a waiting acceptance.
-// It belongs to the page so moving between tabs does not ask again.
-export function useChangeSummary(changeId: string | undefined, needed: boolean) {
-  const asked = useRef<string>()
-  useEffect(() => {
-    if (!changeId || !needed || asked.current === changeId) return
-    asked.current = changeId
-    post(`/changes/${changeId}/distill`, {}).catch(() => { /* A missing summary makes no claim about the change. */ })
-  }, [changeId, needed])
 }
 
 // What this change is for: a few request lines and a link to the full text,
@@ -296,4 +287,9 @@ export function SoFarNote({ text, href, label = 'Read the full report →', plai
     <>{plain ? <div className="ch-request">{shown}</div> : <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(shown, true) }} />}</>
     {clipped && <a href={href}>{label}</a>}
   </div>
+}
+
+// The agent's verification claims are not a person's summary or check evidence.
+export function agentReport(text: string): string {
+  return text.split('\n').filter(line => !/^\s*(?:[-*•]\s*)?Verified with\b/i.test(line)).join('\n')
 }

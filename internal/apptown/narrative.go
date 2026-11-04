@@ -13,10 +13,11 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
 
-// The living narrative (design/subsystems/dev-loop.md §cockpit): the Change's "So far"
+// The Change's summary
 // is a short plain-prose note re-distilled from evidence as work proceeds —
-// never a big-bang generation at the end. Distillation runs on the `fast`
-// model slot after a root run finishes and after a change console session
+// never a big-bang generation at the end. Distillation runs on the `main-strong`
+// model slot when a check holds for a person, after a root run finishes,
+// and after a change console session
 // ends. Failed publication retains the previous summary and is logged; explicit
 // refresh also returns the error. Already incurred model usage is independent.
 
@@ -64,7 +65,7 @@ func (b narrativeBuilder) refresh(ctx context.Context, changeID ids.ID) (err err
 		return fmt.Errorf("choosing the narrative's model: %w", err)
 	}
 	if pattern == "" {
-		return nil // no fast model: the change keeps its committed facts only
+		return nil // no main-strong model: the change keeps its committed facts only
 	}
 	// The gateway writes the call's spend, independent of publication.
 	out, _, err := b.models.Ask(ctx, modelcall.Call{Purpose: "narrative", ProjectID: ch.ProjectID, Model: pattern, System: workflow.NarrativePrompt, User: workflow.NarrativeEvidence(source, extra.Text)})

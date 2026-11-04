@@ -49,7 +49,7 @@ type NarrativeSource struct {
 const agentReportKind = "agent-reported"
 
 // narrativeBudget is the most bytes of any one evidence block (the committed
-// diff, one artifact) handed to the writer. It is sized for the fast model's
+// diff, one artifact) handed to the writer. It is sized for the summary model's
 // context (about 30k tokens per block), so ordinary changes are read whole;
 // whatever is cut is said so in the evidence.
 const narrativeBudget = 120_000

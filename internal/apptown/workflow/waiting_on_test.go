@@ -28,7 +28,7 @@ func TestWaitingOnNamesTheHoldingChild(t *testing.T) {
 		}
 		graph := workflowActivityGraph{
 			parent: {id: parent, projectID: parent, state: RunRunning, steps: []workflowActivityStep{{id: call, attempt: 1, kind: "workflow/call", state: StatusRunning, evidence: json.RawMessage(`{"childRunId":"00000000-0002-7000-8000-000000000000","workflow":"child"}`)}}},
-			child:  {id: child, projectID: parent, parentID: parent, parentStepID: call, parentAttempt: 1, state: RunRunning, steps: []workflowActivityStep{{id: decision, name: "review", kind: kind, state: state}}},
+			child:  {id: child, projectID: parent, parentID: parent, parentStepID: call, parentAttempt: 1, state: RunRunning, steps: []workflowActivityStep{{id: decision, attempt: 2, name: "review", kind: kind, state: state}}},
 		}
 		a, err := graph.classify(parent, nil, map[ids.ID]bool{})
 		if err != nil {
@@ -38,6 +38,20 @@ func TestWaitingOnNamesTheHoldingChild(t *testing.T) {
 		w := waitingOn(nil, &RunSnapshot{Run: run, activity: a})
 		if w.Run != child || w.Step != decision {
 			t.Fatalf("lost child identity: %+v", w)
+		}
+
+		if state != StatusPending {
+			raw, err := json.Marshal(w)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var wire struct{ Attempt int64 }
+			if err := json.Unmarshal(raw, &wire); err != nil {
+				t.Fatal(err)
+			}
+			if wire.Attempt != 2 {
+				t.Fatalf("lost held attempt: %s", raw)
+			}
 		}
 		want := map[StepState]string{StatusPending: "waiting for approval", StatusFail: "review failed", StatusError: "review could not run"}[state]
 		if w.Says != want {
@@ -340,5 +354,36 @@ func TestWaitingOnWithoutAnActDoesNotNeedTheReader(t *testing.T) {
 				t.Fatalf("nothing to act on: %+v", w)
 			}
 		})
+	}
+}
+
+func TestWaitingOnApprovalDisplaysTheRoleTitleAndRetainsItsID(t *testing.T) {
+	t.Parallel()
+	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}
+	a := stepAuthorityProjectRunnerFixture(t, spec, nil, project.Spec{Slug: "game", Name: "G", DefaultApprovers: "role:" + access.RoleProjectApprover})
+	if _, err := a.Access.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: "owner", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: a.ProjectID.String(), By: "boss"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	ctx := stepVerifiedContext(t.Context(), access.Principal{Kind: "user", Name: "owner", Via: "session"})
+	d, err := a.Work.Snapshot(ctx, a.RunID, DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := d.WaitingOn
+	role := access.RoleByName(access.RoleProjectApprover)
+	raw, err := json.Marshal(w.Who)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var who []struct{ Kind, Name, DisplayName string }
+	if err := json.Unmarshal(raw, &who); err != nil {
+		t.Fatal(err)
+	}
+	if len(who) != 1 || who[0].Kind != "role" || who[0].Name != access.RoleProjectApprover || who[0].DisplayName != role.Title {
+		t.Fatalf("deciders: %s", raw)
+	}
+	want := "waiting for you or " + role.Title
+	if w.You != "yes" || w.Says != want {
+		t.Fatalf("says=%q want %q", w.Says, want)
 	}
 }

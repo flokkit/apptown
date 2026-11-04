@@ -24,7 +24,8 @@ export function DecisionGrid({ children }: { children: ReactNode }) {
 export type DecisionChoice = { label: string; run: () => unknown; disabled?: boolean; prompt?: { ask: string; run: (reason: string) => unknown } }
 
 // The page words and places only the acts AppTown offers.
-export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, conversation, busy }: {
+export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, conversation, busy, highlight }: {
+  highlight?: 'accept' | 'rework' | 'none'
   note: string; setNote: (note: string) => void
   // chat: a change worked in a chat continues there; it takes the send-back place.
   accept?: DecisionChoice; chat?: DecisionChoice; rework?: DecisionChoice; abandon?: DecisionChoice
@@ -57,11 +58,11 @@ export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, 
         <button disabled={busy} onClick={() => setMode('choices')}>Cancel</button>
       </div>
     </div> : <DecisionGrid>
-      {accept && <button className={chat ? undefined : 'primary'} disabled={busy || accept.disabled} onClick={() => {
+      {accept && <button className={highlight ? highlight === 'accept' ? 'primary' : undefined : chat ? undefined : 'primary'} disabled={busy || accept.disabled} onClick={() => {
         if (accept.prompt) { setReason(''); setMode('reason') } else accept.run()
       }}>{accept.label}</button>}
       {chat && <button className={accept ? undefined : 'primary'} disabled={busy} onClick={chat.run}>{chat.label}</button>}
-      {rework && <button disabled={busy} onClick={() => {
+      {rework && <button className={highlight === 'rework' ? 'primary' : undefined} disabled={busy} onClick={() => {
         setMode('comment')
       }}>Send back…</button>}
       {abandon && <button className="danger" disabled={busy} onClick={() => setMode('abandon')}>Abandon change</button>}

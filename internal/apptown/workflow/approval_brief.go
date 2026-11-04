@@ -21,8 +21,10 @@ type ApprovalBriefInputs struct {
 	// Asked is what a person last asked of the run's work since the change
 	// was opened (a send-back note or an approver's rejection comment); nil
 	// when nobody has. It is part of the ask, not a deviation from it.
-	Asked  *PersonFeedback
-	Cached string
+	Asked     *PersonFeedback
+	Cached    string
+	CacheName string
+	Acts      []NextAct
 }
 
 func (s *Service) ApprovalBrief(ctx context.Context, id ids.ID) (ApprovalBriefInputs, error) {
@@ -35,7 +37,7 @@ func (s *Service) ApprovalBrief(ctx context.Context, id ids.ID) (ApprovalBriefIn
 		return ApprovalBriefInputs{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	out, err := readApprovalBriefIn(ctx, tx, ref, id)
+	out, err := readBriefIn(ctx, tx, ref, id, false)
 	if err != nil {
 		return ApprovalBriefInputs{}, err
 	}
@@ -45,8 +47,8 @@ func (s *Service) ApprovalBrief(ctx context.Context, id ids.ID) (ApprovalBriefIn
 	return out, nil
 }
 
-// readApprovalBriefIn composes observations in the supplied read snapshot.
-func readApprovalBriefIn(ctx context.Context, tx *database.Tx, ref RunRef, id ids.ID) (ApprovalBriefInputs, error) {
+// readBriefIn composes observations in the supplied read snapshot.
+func readBriefIn(ctx context.Context, tx *database.Tx, ref RunRef, id ids.ID, failure bool) (ApprovalBriefInputs, error) {
 	if ref.ID.IsZero() || ref.ProjectID.IsZero() || id.IsZero() {
 		return ApprovalBriefInputs{}, fmt.Errorf("approval brief requires Step and Run scope")
 	}
@@ -54,7 +56,7 @@ func readApprovalBriefIn(ctx context.Context, tx *database.Tx, ref RunRef, id id
 	if err != nil {
 		return ApprovalBriefInputs{}, err
 	}
-	if observed.Step.Type != "approval" {
+	if !failure && observed.Step.Type != "approval" {
 		// Only an approval step has a brief.
 		return ApprovalBriefInputs{}, database.Missing(sql.ErrNoRows)
 	}
@@ -77,13 +79,20 @@ func readApprovalBriefIn(ctx context.Context, tx *database.Tx, ref RunRef, id id
 			out.Steps = append(out.Steps, step)
 		}
 	}
-	cache, err := ReadRunArtifactsIn(ctx, tx, ref, ArtifactSelection{Kinds: []string{"approval-brief"}, Name: fmt.Sprintf("step-%d", id), Latest: true})
+	kind, name := "approval-brief", fmt.Sprintf("step-%d", id)
+	if failure {
+		kind, name = "failure-advice", failureAdviceName(observed.Step)
+	}
+	out.CacheName = name
+	cache, err := ReadRunArtifactsIn(ctx, tx, ref, ArtifactSelection{Kinds: []string{kind}, Name: name, Latest: true})
 	if err != nil {
 		return ApprovalBriefInputs{}, err
 	}
-	if len(cache) > 0 && cache[0].Body != "" && (!latest.Valid || stamp.Parse(cache[0].CreatedAt).After(latest)) {
+	if len(cache) > 0 && cache[0].Body != "" && (failure || !latest.Valid || stamp.Parse(cache[0].CreatedAt).After(latest)) {
 		out.Cached = cache[0].Body
-		return out, nil
+		if !failure {
+			return out, nil
+		}
 	}
 	if !observed.Run.ChangeID.IsZero() {
 		out.Change, err = readChangeInProject(ctx, tx, observed.Run.ChangeID, ref.ProjectID)
@@ -103,4 +112,52 @@ func readApprovalBriefIn(ctx context.Context, tx *database.Tx, ref RunRef, id id
 		return ApprovalBriefInputs{}, err
 	}
 	return out, nil
+}
+
+// failureAdviceName identifies prose about one recorded attempt.
+func failureAdviceName(step *Step) string {
+	return fmt.Sprintf("step-%d-attempt-%d", step.ID, step.Attempt)
+}
+
+// FailureAdvice reads only a currently held check and its scoped evidence.
+func (s *Service) FailureAdvice(ctx context.Context, id ids.ID) (ApprovalBriefInputs, error) {
+	ref, err := s.stepScope(ctx, id)
+	if err != nil {
+		return ApprovalBriefInputs{}, err
+	}
+	tx, err := s.db.ReadSnapshot(ctx)
+	if err != nil {
+		return ApprovalBriefInputs{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	d, err := readWorkflowSnapshot(ctx, tx, ref.ID, DetailView, s.wait, ref.ProjectID, s.stepAttempts.automatic)
+	if err != nil {
+		return ApprovalBriefInputs{}, err
+	}
+	w := waitingOn(nil, d)
+	if w.Kind != "check" || w.Step != id {
+		return ApprovalBriefInputs{}, database.Missing(sql.ErrNoRows)
+	}
+	out, err := readBriefIn(ctx, tx, ref, id, true)
+	if err != nil {
+		return out, err
+	}
+	for _, act := range d.Next {
+		if (act.Act != nextOverride && act.Act != nextRetry) || act.StepID == id {
+			out.Acts = append(out.Acts, act)
+		}
+	}
+	if out.Change != nil {
+		out.Acts = append(out.Acts, ChangeActs(out.Change, d, false, false)...)
+	}
+	if err := tx.Commit(); err != nil {
+		return ApprovalBriefInputs{}, err
+	}
+	return out, nil
+}
+
+// SaveBrief persists completed prose through workflow's artifact owner.
+func (s *Service) SaveBrief(ctx context.Context, run ids.ID, kind, name, body string) error {
+	_, err := AddArtifactIn(ctx, s.db, run, kind, name, "", body, s.Now())
+	return err
 }

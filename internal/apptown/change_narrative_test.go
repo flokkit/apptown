@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/integration"
+	"github.com/flokkit/apptown/internal/apptown/model"
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
@@ -284,5 +285,22 @@ func TestEmptyCommittedNarrativeSkipsModelAndPreservesPublicationChecks(t *testi
 				t.Fatalf("empty narrative changed meaning/title: %+v", ch)
 			}
 		})
+	}
+}
+
+// Summary wiring must select the strong slot even when a fast slot is set.
+func TestNarrativeResolvesMainStrong(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	slots := model.New(db)
+	for slot, pattern := range map[string]string{"main-strong": "vendor/strong", "fast": "vendor/fast"} {
+		if err := slots.Set(t.Context(), slot, "standard", pattern, "fixture"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b := narrativeFor(&App{modelSelection: model.NewSelection(slots)})
+	pattern, slot, err := b.resolve(t.Context(), ids.Nil)
+	if err != nil || pattern != "vendor/strong" || slot != "main-strong" {
+		t.Fatalf("summary chose %q %q: %v", pattern, slot, err)
 	}
 }

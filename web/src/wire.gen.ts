@@ -770,6 +770,11 @@ export type ExternalStartRequest = {
   link: boolean
 }
 
+export type FailureAdvice = {
+  text: string
+  recommend: string
+}
+
 export type FinalCopies = {
   copies: FinalCopy[]
 }
@@ -2468,6 +2473,7 @@ export type WaitingOn = {
   kind: string
   run: string | null
   step: string | null
+  attempt?: number
   checks: number
   who: Decider[]
   you: string
@@ -4497,6 +4503,7 @@ export type ChangeSummary = {
 export type Decider = {
   kind: string
   name: string
+  displayName?: string
 }
 
 export type SentBack = {

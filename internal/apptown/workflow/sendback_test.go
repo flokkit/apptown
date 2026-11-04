@@ -146,7 +146,7 @@ func TestASentBackRunsPersonFeedbackIsTheNote(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback() }()
-	brief, err := readApprovalBriefIn(ctx, tx, ref, accept)
+	brief, err := readBriefIn(ctx, tx, ref, accept, false)
 	if err != nil || brief.Asked == nil || brief.Asked.Note != "also upgrade the logging library" || brief.Asked.By != "alice" {
 		t.Fatalf("the continued run's approval brief: %+v %v", brief.Asked, err)
 	}

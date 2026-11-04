@@ -9,7 +9,9 @@ import (
 func TestWorkflowCompletionRequiresReleaseMembership(t *testing.T) {
 	t.Parallel()
 	a, ctx, run, _ := completionReleaseScenario(t)
-	priorJobs := len(operationJobs(t, a, project.DescriptionJob))
+	// The fixture committed an approval wait after deployment, including its
+	// narrative request. A later failed completion must preserve those jobs.
+	priorJobs := len(operationJobs(t, a, project.DescriptionJob)) + len(operationJobs(t, a, narrativeJob))
 	completionExec(t, a.DB, `CREATE FUNCTION veto_completion() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
 	completionExec(t, a.DB, `CREATE TRIGGER veto_completion BEFORE INSERT ON release_changes FOR EACH ROW EXECUTE FUNCTION veto_completion()`)
 	before := workflowResetSnapshot(t, a.DB)

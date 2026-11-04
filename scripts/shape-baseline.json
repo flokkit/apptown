@@ -20,7 +20,7 @@
   "rootfiles": 83,
   "roottests": 272,
   "transportaudit": 3,
-  "transportdb": 47,
+  "transportdb": 46,
   "hubpaths": 0,
   "kindbranches": 45,
   "historycomments": 0,
@@ -28,5 +28,5 @@
   "testexecfixtures": 66,
   "droppederrors": 32,
   "workflowexports": 356,
-  "unusedexports": 593
+  "unusedexports": 592
 }

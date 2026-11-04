@@ -47,6 +47,13 @@ func newWorkflowHTTPFixtureWithSpec(t *testing.T, withRun bool, spec schema.Spec
 }
 
 func newWorkflowHTTPFixtureWithDefinitions(t *testing.T, withRun bool, definitions map[string]schema.Spec, automatic []string, runners map[string]workflow.Runner) workflowHTTPFixture {
+	return workflowHTTPFixtureWithData(t, withRun, definitions, automatic, runners, "")
+}
+func newWorkflowHTTPFixtureAt(t *testing.T, dataDir string) workflowHTTPFixture {
+	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}
+	return workflowHTTPFixtureWithData(t, true, map[string]schema.Spec{"": spec}, nil, nil, dataDir)
+}
+func workflowHTTPFixtureWithData(t *testing.T, withRun bool, definitions map[string]schema.Spec, automatic []string, runners map[string]workflow.Runner, dataDir string) workflowHTTPFixture {
 	t.Helper()
 	db := databaseSuite.New(t)
 	directory := identity.New(db, identity.Config{Projects: project.NewCatalogue(db)})
@@ -62,6 +69,7 @@ func newWorkflowHTTPFixtureWithDefinitions(t *testing.T, withRun bool, definitio
 	}
 	ctx := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "bls", Via: "session"}, Verified: true})
 	work := workflow.New(context.Background(), db, workflow.Dependencies{
+		DataDir:      dataDir,
 		Authority:    access.Checked{Authority: identity.Scoped(directory, "workflow"), Projects: projects},
 		Abandonment:  workflowHTTPAbandonRecorder{},
 		Repositories: &scm.RepositoryLocks{},

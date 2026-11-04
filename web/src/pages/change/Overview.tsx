@@ -15,7 +15,7 @@ import { TechnicalWords, useTechnicalDetail } from './TechnicalDetail'
 import type { DeploymentView } from '../../wire.gen'
 import type { ChatHistoryView, ApprovalQuestion } from '../../wire.gen'
 import { AddsSection, contractUnread, contractChanged } from '../../DecisionForm'
-import { shortDiffstat, changeReport, firstLine } from './Head'
+import { shortDiffstat, agentReport, changeReport, firstLine } from './Head'
 import { checkTypes, stepTitle, testsNote } from './Evidence'
 import { latestBoot, requestShortfall, requestUnchecked } from './StatePanel'
 import { DecisionChoices } from '../../DecisionChoices'
@@ -91,10 +91,12 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
   const deployments = useGet<DeploymentView[]>(`/projects/${view.projectSlug}/deployments`)
   const deciding = approval && turn && !busy && current && !extraErr && deployments.current
   const question = useGet<ApprovalQuestion>(approval ? `/steps/${approval.id}/question` : null)
-  const summary = changeReport(view, true)
+  const summary = changeReport({ ...view, report: '' }, true)
+  const agent = agentReport(changeReport(view) ?? '')
+  const made = summary || agent
   const brief = useGet<{ brief: string }>(approval && turn ? `/steps/${approval.id}/brief` : null)
   const briefParts = approvalBrief(brief.data?.brief)
-  const transcript = useGet<ChatHistoryView>(!summary ? `/changes/${ch.id}/transcript` : null, { poll: 3000 })
+  const transcript = useGet<ChatHistoryView>(!made ? `/changes/${ch.id}/transcript` : null, { poll: 3000 })
   const reply = transcript.data?.sessions?.flatMap(s => s.messages).filter(m => m.role === 'helper' && m.text?.trim()).at(-1)?.text
   const [advance, setAdvance] = useState<AdvanceResult | null>(null)
   const [note, setNote] = useState('')
@@ -106,7 +108,7 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
   const unchecked = requestUnchecked(ch)
   const [technical] = useTechnicalDetail()
   const destination = deployments.current ? deployments.data?.find(e => e.feed === 'landing') : undefined
-  const report = summary?.split(/\n+/).map(s => s.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, '').trim()).filter(s => s && !s.startsWith('#')).flatMap(s => s.split(/(?<=[.!?])\s+/)).slice(0, 4).map(line => firstLine(line))
+  const report = made?.split(/\n+/).map(s => s.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, '').trim()).filter(s => s && !s.startsWith('#')).flatMap(s => s.split(/(?<=[.!?])\s+/)).slice(0, 4).map(line => firstLine(line))
   const checks = steps.filter(s => checkTypes.has(s.type))
   const checked = checks.some(s => !['pending', 'skipped'].includes(s.status))
   const detail = workTab()
@@ -119,7 +121,7 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
       {!boot?.evidence.screenshots?.shots?.length && <p className="small muted">{boot?.evidence.screenshots?.unavailable || 'No screenshots were recorded for this preview.'}</p>}
     </div>{trailer(detail + '#preview', `${boot?.evidence.screenshots?.commit ? `built from ${boot.evidence.screenshots.commit.slice(0, 7)} · ` : ''}logs →`)}</div>
     <div className="ch-overview-line ch-request"><div className="ch-row-label">You asked</div><div className="ch-value">{firstLine(ch.body || ch.title)}</div>{trailer(detail + '#request-text', (ch.body || ch.title) !== firstLine(ch.body || ch.title) ? 'full request →' : 'request →')}</div>
-    <div className="ch-overview-line"><div className="ch-row-label">{!summary && reply ? 'The agent says' : 'What was made'}</div><div className="ch-value">{report?.length ? <ul>{report.map((line, i) => <li key={i}>{line}</li>)}</ul> : reply ? <p className="ch-chat-excerpt">{reply.split('\n').slice(0, 4).join('\n')}</p> : <p className="muted">{transcript.err ? `The conversation could not be read: ${transcript.err}` : transcript.data?.unreadable ? 'Some of the conversation could not be read.' : !transcript.data ? 'Reading the conversation…' : 'No report from the agent'}</p>}
+    <div className="ch-overview-line"><div className="ch-row-label">{summary ? 'What was made' : 'The agent says'}</div><div className="ch-value">{report?.length ? <ul>{report.map((line, i) => <li key={i}>{line}</li>)}</ul> : reply ? <p className="ch-chat-excerpt">{reply.split('\n').slice(0, 4).join('\n')}</p> : <p className="muted">{transcript.err ? `The conversation could not be read: ${transcript.err}` : transcript.data?.unreadable ? 'Some of the conversation could not be read.' : !transcript.data ? 'Reading the conversation…' : 'No report from the agent'}</p>}
       {!summary && <StaleNote q={transcript} />}<TechnicalWords shown={technical}>{d && `${d.run.workflowName} v${d.run.workflowVersion} · run ${d.run.number}`} · {ch.branch} · {view.head}{steps.flatMap(s => s.type === 'agent/pi' && s.evidence.model ? [` · ${s.evidence.model}`] : []).join('')}{view.usage && ` · ${fmtCost(view.usage.costMicros)}`}</TechnicalWords>
     </div>{!summary && reply ? trailer(`/changes/${ch.id}?tab=conversation`, 'full conversation →') : trailer(`/changes/${ch.id}?tab=changes`, `${shortDiffstat(view.diffstat).replace(/^(.*) in (\d+ files?)$/, '$2 $1') || 'Code'}${view.head ? ` · ${view.head.slice(0, 7)}` : ''} →`)}</div>
     <div className={`ch-overview-line${checksVerdict(steps)?.tone === 'bad' ? ' ch-line-bad' : ''}`}><div className="ch-row-label">Checks</div><div className="ch-value"><CheckSummary technical={technical} steps={steps} contractNeedsAttention={contractUnread(adds)} /><TechnicalWords shown={technical}>{checks.filter(s => s.status !== 'not_applicable').map(s => s.name).join(' · ')}</TechnicalWords></div>{checked && trailer(detail + '#checks', 'details →')}</div>

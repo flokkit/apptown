@@ -1,15 +1,13 @@
-package httpapi
+package briefs
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
-	"os"
-	"path/filepath"
+
 	"strings"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 
@@ -24,7 +22,7 @@ func (m noBriefModel) Resolve(context.Context, ids.ID, string) (string, string, 
 }
 func TestBuildApprovalBriefSkeleton(t *testing.T) {
 	t.Parallel()
-	h := ApprovalBriefs{selection: noBriefModel{}}
+	h := Service{selection: noBriefModel{}}
 	approval := &workflow.Step{ID: idstest.N(4), Name: "accept", Type: "approval", Status: workflow.StatusPending,
 		Config: json.RawMessage(`{"means":"you are accepting the visual design","instructions":"look at the screenshots"}`)}
 	brief, err := h.buildApprovalBrief(context.Background(), workflow.ApprovalBriefInputs{
@@ -71,80 +69,12 @@ func TestBuildApprovalBriefSkeleton(t *testing.T) {
 	}
 }
 
-// The brief tells the approver what they accept: the change's committed
-// diff, its base to its branch, file by file, without what it merged from
-// main. A diff that cannot be read says so;
-// it is never shown as no changes.
-func TestTheApprovalBriefCarriesTheChangesDiffStat(t *testing.T) {
-	t.Parallel()
-	f := newWorkflowHTTPFixture(t, true)
-	dataDir := t.TempDir()
-	hub := filepath.Join(dataDir, "workspaces", "project-"+f.ProjectID.String())
-	if err := os.MkdirAll(hub, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	git := func(args ...string) string {
-		t.Helper()
-		cmd := gittest.Command(args...)
-		cmd.Dir = hub
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("git %v: %s", args, out)
-		}
-		return strings.TrimSpace(string(out))
-	}
-	write := func(name, body string) {
-		t.Helper()
-		if err := os.WriteFile(filepath.Join(hub, name), []byte(body), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	git("init", "-q", "-b", "main")
-	git("config", "user.email", "t@t")
-	git("config", "user.name", "t")
-	write("README.md", "hello\n")
-	git("add", "-A")
-	git("commit", "-q", "-m", "base")
-	base := git("rev-parse", "HEAD")
-	git("checkout", "-q", "-b", "apptown/change-00000000-0001-7000-8000-000000000000")
-	write("settings.tsx", "export const dark = true\n")
-	git("add", "-A")
-	git("commit", "-q", "-m", "the change")
-	run, err := workflow.ReadRunIn(f.Context, f.DB, f.RunID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := f.Projects.SetDefaultBranch(context.Background(), f.ProjectID, "main"); err != nil {
-		t.Fatal(err)
-	}
-	h := ApprovalBriefs{db: f.DB, dataDir: dataDir}
-	inputs := workflow.ApprovalBriefInputs{StepContext: workflow.StepContext{Run: run}, Change: &workflow.Change{ID: f.ChangeID, Branch: "apptown/change-00000000-0001-7000-8000-000000000000", BaseSHA: base}}
-	if stat := h.diffStat(f.Context, inputs); !strings.Contains(stat, "settings.tsx | 1 +") || !strings.Contains(stat, "1 file changed") {
-		t.Fatalf("the diff stat: %q", stat)
-	}
-	// Main moves and the change catches up with it: main's file is not the
-	// change's, and the brief must not ask the approver to accept it.
-	git("checkout", "-q", "main")
-	write("main_test.go", "package main\n")
-	git("add", "-A")
-	git("commit", "-q", "-m", "on main")
-	git("checkout", "-q", "apptown/change-00000000-0001-7000-8000-000000000000")
-	git("merge", "-q", "--no-edit", "-m", "Merge main into apptown/change-00000000-0001-7000-8000-000000000000", "main")
-	if stat := h.diffStat(f.Context, inputs); strings.Contains(stat, "main_test.go") || !strings.Contains(stat, "1 file changed") {
-		t.Fatalf("after catching up with main, the diff stat: %q", stat)
-	}
-	inputs.Change.Branch = "apptown/change-gone"
-	if stat := h.diffStat(f.Context, inputs); !strings.HasPrefix(stat, "could not be read: ") {
-		t.Fatalf("an unreadable diff: %q", stat)
-	}
-}
-
 // A fast-model selection that cannot be read is a failure, not "no model":
 // the bare skeleton is not returned to be saved as the approval's brief.
 func TestApprovalBriefRefusesAnUnreadModelSelection(t *testing.T) {
 	t.Parallel()
 	unread := errors.New("model slots unreadable")
-	h := ApprovalBriefs{selection: noBriefModel{err: unread}}
+	h := Service{selection: noBriefModel{err: unread}}
 	approval := &workflow.Step{ID: idstest.N(4), Name: "accept", Type: "approval", Status: workflow.StatusPending}
 	brief, err := h.buildApprovalBrief(context.Background(), workflow.ApprovalBriefInputs{
 		StepContext: workflow.StepContext{Step: approval, Run: &workflow.Run{ProjectID: idstest.N(1)}},
@@ -153,5 +83,14 @@ func TestApprovalBriefRefusesAnUnreadModelSelection(t *testing.T) {
 	}, "")
 	if !errors.Is(err, unread) || brief != "" {
 		t.Fatalf("an unread selection gave %q, %v", brief, err)
+	}
+}
+
+func TestApprovalBriefDoesNotHideUnreadableEvidence(t *testing.T) {
+	t.Parallel()
+	h := Service{selection: noBriefModel{}}
+	_, err := h.buildApprovalBrief(context.Background(), workflow.ApprovalBriefInputs{StepContext: workflow.StepContext{Step: &workflow.Step{ID: idstest.N(1)}, Run: &workflow.Run{}}, Steps: []*workflow.Step{{ID: idstest.N(2), Name: "tests", Evidence: json.RawMessage(`{broken`)}}}, "")
+	if err == nil {
+		t.Fatal("unreadable evidence became an empty machine result")
 	}
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
+	"github.com/flokkit/apptown/internal/apptown/briefs"
 	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/complaint"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
@@ -145,7 +146,7 @@ func appRoutes(a *App) []routeSpec {
 		whatIfs = httpapi.NewWhatIfs(a.Projects, a.conformance, fleetReviewsFor(a), a.Ways)
 		evalRoutes = httpapi.NewEvals(a.Evals)
 		packAssistance = httpapi.NewPackAssistance(a.Ways, a.lifecycle, a.modelSelection, a.inference)
-		approvalBriefs = httpapi.NewApprovalBriefs(a.Work, a.modelSelection, a.inference, a.DB, a.cfg.dataDir)
+		approvalBriefs = httpapi.NewApprovalBriefs(a.Work, briefs.New(a.Work, a.modelSelection, a.inference, a.cfg.clock.Now))
 		browserErrors = httpapi.NewBrowserErrors(selfErrorsFor(a))
 		setupModel = httpapi.NewSetupModel(a.Secrets, a.Integrations, a.Models, a.DB, a.cfg.clock.Now)
 		setupStatus = httpapi.NewSetupStatus(&a.setup, a.modelSelection, a.authModeName() == "open" && a.cfg.listenAddr != "" && !loopbackAddr(a.cfg.listenAddr))
@@ -476,6 +477,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("POST /api/v1/steps/{id}/interrupt", stepInterruption.StepInterrupt, access.CapChangeInvokeLane, "step"),
 		requireRoute("GET /api/v1/steps/{id}/live", runProgress.StepLive, access.CapRunRead, "step"),
 		requireRoute("POST /api/v1/steps/{id}/approve", runs.Approve, access.CapChangeApprove, "step"),
+		requireRoute("GET /api/v1/steps/{id}/advice", approvalBriefs.FailureAdvice, access.CapRunRead, "step"),
 		requireRoute("GET /api/v1/steps/{id}/brief", approvalBriefs.ApprovalBrief, access.CapRunRead, "step"),
 		requireRoute("GET /api/v1/steps/{id}/question", approvalBriefs.ApprovalQuestion, access.CapRunRead, "step"),
 		requireRoute("POST /api/v1/steps/{id}/override", runs.Override, access.CapChangeOverride, "step"),
