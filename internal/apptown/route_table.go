@@ -146,7 +146,7 @@ func appRoutes(a *App) []routeSpec {
 		whatIfs = httpapi.NewWhatIfs(a.Projects, a.conformance, fleetReviewsFor(a), a.Ways)
 		evalRoutes = httpapi.NewEvals(a.Evals)
 		packAssistance = httpapi.NewPackAssistance(a.Ways, a.lifecycle, a.modelSelection, a.inference)
-		approvalBriefs = httpapi.NewApprovalBriefs(a.Work, briefs.New(a.Work, a.modelSelection, a.inference, a.cfg.clock.Now))
+		approvalBriefs = httpapi.NewApprovalBriefs(a.Work, briefs.New(a.Work, a.modelSelection, a.inference, a.Console, a.cfg.clock.Now))
 		browserErrors = httpapi.NewBrowserErrors(selfErrorsFor(a))
 		setupModel = httpapi.NewSetupModel(a.Secrets, a.Integrations, a.Models, a.DB, a.cfg.clock.Now)
 		setupStatus = httpapi.NewSetupStatus(&a.setup, a.modelSelection, a.authModeName() == "open" && a.cfg.listenAddr != "" && !loopbackAddr(a.cfg.listenAddr))

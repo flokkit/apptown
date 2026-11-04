@@ -58,7 +58,8 @@ func (h ApprovalBriefs) ApprovalQuestion(w http.ResponseWriter, r *http.Request)
 	WriteJSON(w, 200, question)
 }
 
-// ApprovalBrief is the plain-words brief shown to an approver.
+// ApprovalBrief contains model prose shown to an approver, or an empty Brief
+// when no model is configured. Generation failures return an HTTP error.
 type ApprovalBrief struct {
 	Brief string `json:"brief"`
 }

@@ -32,7 +32,12 @@ func TestApprovalBriefSnapshotAndCacheInvalidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := workflowsql.New(q.db.SQL()).InsertTextArtifact(ctx, workflowsql.InsertTextArtifactParams{ID: ids.New(created), RunID: run.ID, Kind: "approval-brief", Name: fmt.Sprintf("step-%d", approval), Body: "cached", CreatedAt: created}); err != nil {
+	if _, err := workflowsql.New(q.db.SQL()).InsertTextArtifact(ctx, workflowsql.InsertTextArtifactParams{ID: ids.New(created), RunID: run.ID, Kind: "approval-brief", Name: fmt.Sprintf("step-%d-v3", approval), Body: "cached", CreatedAt: created}); err != nil {
+		t.Fatal(err)
+	}
+	// A newer artifact from the old writer may contain its mechanical input.
+	// It must never replace model prose.
+	if _, err := AddArtifactIn(ctx, q.db, run.ID, "approval-brief", fmt.Sprintf("step-%d-v2", approval), "", "THE ASK: cached skeleton", created.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	s := newService(q.db, allowProject(run.ProjectID), Runtime{})
@@ -112,5 +117,25 @@ func TestTheApprovalBriefReadsEarlierStagesAndTheDeclaredReport(t *testing.T) {
 	}
 	if brief.Report != "the implementer's claim" {
 		t.Fatalf("the brief's implementer's report: %q", brief.Report)
+	}
+}
+
+func TestApprovalBriefDoesNotReadOldPromptCache(t *testing.T) {
+	t.Parallel()
+	q, run, approval := activityFixture(t)
+	s := newService(q.db, allowProject(run.ProjectID), Runtime{})
+	if err := s.SaveBrief(t.Context(), run.ID, "approval-brief", fmt.Sprintf("step-%d", approval), "WHAT THIS IS — old brief"); err != nil {
+		t.Fatal(err)
+	}
+	in, err := s.ApprovalBrief(t.Context(), approval)
+	if err != nil || in.Cached != "" {
+		t.Fatalf("old prompt cache returned: %q: %v", in.Cached, err)
+	}
+	if err := s.SaveBrief(t.Context(), run.ID, "approval-brief", in.CacheName, "Adds touch ripples."); err != nil {
+		t.Fatal(err)
+	}
+	in, err = s.ApprovalBrief(t.Context(), approval)
+	if err != nil || in.Cached != "Adds touch ripples." {
+		t.Fatalf("current cache not reused: %q: %v", in.Cached, err)
 	}
 }

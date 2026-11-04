@@ -79,7 +79,7 @@ func readBriefIn(ctx context.Context, tx *database.Tx, ref RunRef, id ids.ID, fa
 			out.Steps = append(out.Steps, step)
 		}
 	}
-	kind, name := "approval-brief", fmt.Sprintf("step-%d", id)
+	kind, name := "approval-brief", fmt.Sprintf("step-%d-v3", id)
 	if failure {
 		kind, name = "failure-advice", failureAdviceName(observed.Step)
 	}

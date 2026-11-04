@@ -1,6 +1,8 @@
 // Package briefs writes advisory prose from workflow evidence. One shared
 // Service serializes cache reads, model work and completed writes per key.
-// Prose never changes a check result or grants permission to act.
+// Prose never changes a check result or grants permission to act. Approval
+// briefs contain only model prose: no model means no brief, and failed or empty
+// model answers return an error without caching, so the next read retries.
 package briefs
 
 import (
@@ -14,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/ids"
 	"golang.org/x/sync/singleflight"
 )
@@ -26,9 +29,14 @@ type evidence interface {
 	ApprovalBrief(context.Context, ids.ID) (workflow.ApprovalBriefInputs, error)
 	FailureAdvice(context.Context, ids.ID) (workflow.ApprovalBriefInputs, error)
 	SaveBrief(context.Context, ids.ID, string, string, string) error
-	BriefDiff(context.Context, workflow.ApprovalBriefInputs) string
+	BriefDiff(context.Context, workflow.ApprovalBriefInputs) (string, string)
 }
+type transcripts interface {
+	Transcript(context.Context, string) ([]console.Conversation, []string, error)
+}
+
 type Service struct {
+	chats      transcripts
 	now        func() time.Time
 	work       evidence
 	selection  selection
@@ -37,9 +45,12 @@ type Service struct {
 	failures   sync.Map // cache name -> cooling deadline; no persistence
 }
 
-func New(work *workflow.Service, models selection, completion modelcall.Completer, now func() time.Time) *Service {
-	return &Service{work: work, selection: models, completion: completion, now: now}
+func New(work *workflow.Service, models selection, completion modelcall.Completer, chats transcripts, now func() time.Time) *Service {
+	return &Service{chats: chats, work: work, selection: models, completion: completion, now: now}
 }
+
+// Approval returns cached or freshly written model prose. Without a model it
+// returns an empty string. Input and model failures return an error and save nothing.
 func (s *Service) Approval(ctx context.Context, id ids.ID) (string, error) {
 	if _, err := s.work.Step(ctx, id); err != nil {
 		return "", err
@@ -52,7 +63,8 @@ func (s *Service) Approval(ctx context.Context, id ids.ID) (string, error) {
 		if in.Cached != "" {
 			return in.Cached, nil
 		}
-		text, err := s.buildApprovalBrief(ctx, in, s.work.BriefDiff(ctx, in))
+		files, patch := s.work.BriefDiff(ctx, in)
+		text, err := s.buildApprovalBrief(ctx, in, files, patch)
 		if err != nil {
 			return "", err
 		}
@@ -165,6 +177,7 @@ func (s *Service) buildFailure(ctx context.Context, in workflow.ApprovalBriefInp
 	if pattern == "" || s.completion == nil {
 		return Advice{}, nil
 	}
+	files, _ := s.work.BriefDiff(ctx, in)
 	material, err := json.Marshal(struct {
 		Ask    *workflow.Change
 		Asked  *workflow.PersonFeedback
@@ -172,7 +185,7 @@ func (s *Service) buildFailure(ctx context.Context, in workflow.ApprovalBriefInp
 		Others []*workflow.Step
 		Acts   []workflow.NextAct
 		Diff   string
-	}{in.Change, in.Asked, in.Step, in.Steps, in.Acts, s.work.BriefDiff(ctx, in)})
+	}{in.Change, in.Asked, in.Step, in.Steps, in.Acts, files})
 	if err != nil {
 		return Advice{}, err
 	}

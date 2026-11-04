@@ -15,7 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-func TestHandleApprovalBriefCaches(t *testing.T) {
+func TestHandleApprovalBriefWithoutModelIsEmptyAndNotCached(t *testing.T) {
 	t.Parallel()
 	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{{Name: "accept", Uses: "approval", With: map[string]any{"means": "you are accepting the visual design"}}}}}}
 	f := newWorkflowHTTPFixtureWithSpec(t, true, spec, nil, nil)
@@ -28,7 +28,7 @@ func TestHandleApprovalBriefCaches(t *testing.T) {
 		r := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/steps/%d/brief", stepID), nil).WithContext(f.Context)
 		r.SetPathValue("id", fmt.Sprint(stepID))
 		w := httptest.NewRecorder()
-		NewApprovalBriefs(f.Work, briefs.New(f.Work, noBriefModel{}, nil, nil)).ApprovalBrief(w, r)
+		NewApprovalBriefs(f.Work, briefs.New(f.Work, noBriefModel{}, nil, nil, nil)).ApprovalBrief(w, r)
 		return w
 	}
 	first := call()
@@ -41,11 +41,11 @@ func TestHandleApprovalBriefCaches(t *testing.T) {
 	if err := json.Unmarshal(first.Body.Bytes(), &body1); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(body1.Brief, "WHAT YOUR OK MEANS HERE") {
-		t.Fatalf("brief body missing the means line:\n%s", body1.Brief)
+	if body1.Brief != "" {
+		t.Fatalf("expected no brief:\n%s", body1.Brief)
 	}
 	cached, err := f.Work.RunArtifacts(f.Context, f.RunID, workflow.ArtifactSelection{Kinds: []string{"approval-brief"}})
-	if err != nil || len(cached) != 1 || cached[0].Body != body1.Brief {
+	if err != nil || len(cached) != 0 {
 		t.Fatalf("saved brief: %+v %v", cached, err)
 	}
 	second := call()
@@ -62,7 +62,7 @@ func TestHandleApprovalBriefCaches(t *testing.T) {
 		t.Fatalf("cached brief differs:\n%q\nvs\n%q", body2.Brief, body1.Brief)
 	}
 	again, err := f.Work.RunArtifacts(f.Context, f.RunID, workflow.ArtifactSelection{Kinds: []string{"approval-brief"}})
-	if err != nil || len(again) != 1 || again[0].ID != cached[0].ID || again[0].Body != body1.Brief {
+	if err != nil || len(again) != 0 {
 		t.Fatalf("cache hit changed the saved artifact: %+v %v", again, err)
 	}
 }
@@ -87,7 +87,7 @@ func TestHandleApprovalBriefRejectsNonApproval(t *testing.T) {
 	r := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/steps/%d/brief", proofID), nil).WithContext(f.Context)
 	r.SetPathValue("id", fmt.Sprint(proofID))
 	w := httptest.NewRecorder()
-	NewApprovalBriefs(f.Work, briefs.New(f.Work, noBriefModel{}, nil, nil)).ApprovalBrief(w, r)
+	NewApprovalBriefs(f.Work, briefs.New(f.Work, noBriefModel{}, nil, nil, nil)).ApprovalBrief(w, r)
 	if w.Code != 404 {
 		t.Fatalf("a non-approval step must 404: %d %s", w.Code, w.Body.String())
 	}
@@ -122,12 +122,12 @@ func TestHeldCheckAdviceResponseAndArtifact(t *testing.T) {
 		NewApprovalBriefs(f.Work, service).FailureAdvice(w, r)
 		return w
 	}
-	absent := call(briefs.New(f.Work, noBriefModel{}, nil, nil))
+	absent := call(briefs.New(f.Work, noBriefModel{}, nil, nil, nil))
 	if absent.Code != 200 || strings.TrimSpace(absent.Body.String()) != `{"text":"","recommend":""}` {
 		t.Fatalf("absent: %d %s", absent.Code, absent.Body.String())
 	}
 	c := &adviceCompleter{}
-	service := briefs.New(f.Work, adviceModel{}, c, nil)
+	service := briefs.New(f.Work, adviceModel{}, c, nil, nil)
 	for range 2 {
 		w := call(service)
 		if w.Code != 200 || !strings.Contains(w.Body.String(), `"recommend":"retry"`) {

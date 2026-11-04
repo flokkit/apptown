@@ -464,11 +464,24 @@ it('summarizes a script finding from its recorded output when it has no reason',
   expect(el.querySelector('.ch-check-exception')?.firstChild?.textContent).toBe('Style failed: orders/views.py:24: print("order total", total)')
 })
 
-it('reads the approval brief into what it is, the call and anything odd', () => {
-  const brief = 'WHAT THIS IS — Adds the November newsletter page. It links from the index.\nALREADY VERIFIED — Tests passed.\nYOUR CALL — Whether the dinner details are right.\nWORTH A LOOK — The index lost a heading.'
-  expect(approvalBrief(brief)).toEqual({ what: 'Adds the November newsletter page. It links from the index.', call: 'Whether the dinner details are right.', look: 'The index lost a heading.' })
-  expect(approvalBrief('GATE INSTRUCTIONS: approve it')).toBeUndefined()
-  expect(approvalBrief('**WHAT THIS IS**: A page.')?.look).toBeUndefined()
+it('keeps plain approval paragraphs without labels', () => {
+  const brief = 'Adds a water surface that ripples where you tap.\n\nThe demo needs WebGL.'
+  expect(approvalBrief(brief)).toEqual(['Adds a water surface that ripples where you tap.', 'The demo needs WebGL.'])
+  expect(approvalBrief('A water demo.')).toEqual(['A water demo.'])
+  expect(approvalBrief('  ')).toBeUndefined()
+})
+
+it('shows both approval paragraphs in the decision screen', async () => {
+  const v = view()
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/brief') ? { brief: 'Adds water that ripples where you tap.\n\nRequires WebGL.' } : []))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
+  await act(async () => { for (let i = 0; i < 12; i++) await new Promise(r => setTimeout(r, 0)) })
+  const paragraphs = [...el.querySelectorAll('#decision p')].map(p => p.textContent)
+  expect(paragraphs).toContain('Adds water that ripples where you tap.')
+  expect(paragraphs).toContain('Requires WebGL.')
+  expect(el.querySelector('#decision')?.textContent).not.toContain('Your call:')
+  await act(async () => root.unmount()); client.clear()
 })
 
 it('opens held recovery buttons only in Decide and shows the complete reason once there', async () => {
@@ -752,4 +765,23 @@ it('keeps advisory details separate from a gating failure', () => {
   const el = document.createElement('div'); el.innerHTML = renderToStaticMarkup(<CheckSummary steps={steps} />)
   expect(el.querySelector('.ch-check-exception')?.textContent).toBe('Ways of working failed: Remove the exposed password.')
   expect(el.querySelector('p:last-child')?.textContent).toBe('Note: Shorten the introduction.')
+})
+
+
+it.each(['empty', 'failed'])('shows the original ask when the approval brief is %s', async (result) => {
+  const v = view()
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (String(url).endsWith('/brief')) return result === 'failed'
+      ? new Response(JSON.stringify({ error: 'Model unavailable' }), { status: 500 })
+      : new Response(JSON.stringify({ brief: '' }))
+    return new Response(JSON.stringify([]))
+  }))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
+    await act(async () => { for (let i = 0; i < 12; i++) await new Promise(r => setTimeout(r, 0)) })
+    expect(el.querySelector('#decision')?.textContent).toContain(`You asked: ${(v.change.body || v.change.title).split('\n')[0]}`)
+  } finally {
+    await act(async () => root.unmount()); client.clear()
+  }
 })

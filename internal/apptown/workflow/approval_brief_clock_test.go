@@ -48,7 +48,7 @@ func TestAKeptBriefIsStaleOnceAStepFinishesAfterItWhateverTheDatabasesClock(t *t
 			storedReadyStart(t, q.db, run.ID)
 			ctx := context.Background()
 			moveDatabaseClock(t, q.db, skew)
-			if _, err := AddArtifactIn(ctx, q.db, run.ID, "approval-brief", fmt.Sprintf("step-%d", approval), "", "kept", time.Now()); err != nil {
+			if _, err := AddArtifactIn(ctx, q.db, run.ID, "approval-brief", fmt.Sprintf("step-%d-v3", approval), "", "kept", time.Now()); err != nil {
 				t.Fatal(err)
 			}
 			later := insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "build", Type: "build", Status: StatusPending.String(), ConfigJson: json.RawMessage(`{}`)})
@@ -97,7 +97,7 @@ func TestABriefIsJudgedAgainstAGateWorkCreatesByAppTownsClock(t *testing.T) {
 			approval := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: run.CurrentStage, Name: "accept", Type: "approval", Status: StatusPending.String(), ConfigJson: json.RawMessage(`{}`)})
 			moveDatabaseClock(t, db, tc.skew)
 			keep := func() {
-				if _, err := AddArtifactIn(ctx, db, run.ID, "approval-brief", fmt.Sprintf("step-%d", approval), "", "kept", time.Now()); err != nil {
+				if _, err := AddArtifactIn(ctx, db, run.ID, "approval-brief", fmt.Sprintf("step-%d-v3", approval), "", "kept", time.Now()); err != nil {
 					t.Fatal(err)
 				}
 			}

@@ -11,7 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 )
 
-func TestTheApprovalBriefCarriesTheChangesDiffStat(t *testing.T) {
+func TestTheApprovalBriefCarriesTheChangesFilesAndPatch(t *testing.T) {
 	t.Parallel()
 	dataDir := t.TempDir()
 	f := newWorkflowHTTPFixtureAt(t, dataDir)
@@ -55,8 +55,8 @@ func TestTheApprovalBriefCarriesTheChangesDiffStat(t *testing.T) {
 	}
 	h := f.Work
 	inputs := workflow.ApprovalBriefInputs{StepContext: workflow.StepContext{Run: run}, Change: &workflow.Change{ID: f.ChangeID, Branch: "apptown/change-00000000-0001-7000-8000-000000000000", BaseSHA: base}}
-	if stat := h.BriefDiff(f.Context, inputs); !strings.Contains(stat, "settings.tsx | 1 +") || !strings.Contains(stat, "1 file changed") {
-		t.Fatalf("the diff stat: %q", stat)
+	if files, patch := h.BriefDiff(f.Context, inputs); !strings.Contains(files, "settings.tsx | 1 +") || !strings.Contains(files, "1 file changed") || !strings.Contains(patch, "+export const dark = true") {
+		t.Fatalf("the diff: %q %q", files, patch)
 	}
 	// Main moves and the change catches up with it: main's file is not the
 	// change's, and the brief must not ask the approver to accept it.
@@ -66,11 +66,18 @@ func TestTheApprovalBriefCarriesTheChangesDiffStat(t *testing.T) {
 	git("commit", "-q", "-m", "on main")
 	git("checkout", "-q", "apptown/change-00000000-0001-7000-8000-000000000000")
 	git("merge", "-q", "--no-edit", "-m", "Merge main into apptown/change-00000000-0001-7000-8000-000000000000", "main")
-	if stat := h.BriefDiff(f.Context, inputs); strings.Contains(stat, "main_test.go") || !strings.Contains(stat, "1 file changed") {
-		t.Fatalf("after catching up with main, the diff stat: %q", stat)
+	if files, patch := h.BriefDiff(f.Context, inputs); strings.Contains(files, "main_test.go") || !strings.Contains(files, "1 file changed") || !strings.Contains(patch, "+export const dark = true") {
+		t.Fatalf("after catching up with main, the diff: %q %q", files, patch)
+	}
+	write("large.txt", strings.Repeat("water\n", 4000))
+	git("add", "-A")
+	git("commit", "-q", "-m", "large patch")
+	files, patch := h.BriefDiff(f.Context, inputs)
+	if len(patch) > 16100 || !strings.Contains(patch, "[Patch truncated at 16000 bytes.]") || !strings.Contains(files, "settings.tsx") {
+		t.Fatalf("unbounded or silent truncation: %d bytes, files %q", len(patch), files)
 	}
 	inputs.Change.Branch = "apptown/change-gone"
-	if stat := h.BriefDiff(f.Context, inputs); !strings.HasPrefix(stat, "could not be read: ") {
-		t.Fatalf("an unreadable diff: %q", stat)
+	if files, patch := h.BriefDiff(f.Context, inputs); !strings.HasPrefix(files, "could not be read: ") {
+		t.Fatalf("an unreadable diff: %q %q", files, patch)
 	}
 }
