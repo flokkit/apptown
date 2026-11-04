@@ -74,3 +74,29 @@ it('shows a stale running app as last seen', async () => {
     act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
   }
 })
+
+// Departures carry their own date and time on each row; there are no
+// day headings repeating them.
+it('lists departures without day headings, each with its own date', async () => {
+  const departures = [
+    { releaseNumber: 7, at: '2026-11-04T07:41:00Z', slug: 'fieldnotes', name: 'Fieldnotes', tier: 'main deployment', label: 'release', who: 'bls', state: 'deployed' },
+    { releaseNumber: 2, at: '2026-11-03T08:22:00Z', slug: 'feet', name: 'Feet catalog', tier: 'haha deployment', label: 'release', who: 'bls', state: 'deployed' },
+  ]
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+    url.includes('/tiers/departures') ? { departures } : url.endsWith('/tiers') ? { tiers: [] } : [],
+  ))))
+  const client = newQueryClient()
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/deployments/departures']}><Routes><Route path="/deployments/:gtab" element={<Deployments />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelectorAll('.departure-row')).toHaveLength(2))
+    expect(el.textContent).not.toMatch(/NOV 2026/i)
+    expect(el.querySelectorAll('.departure-row')[0].textContent).toMatch(/4 Nov/)
+    expect(el.querySelectorAll('.departure-row')[1].textContent).toMatch(/3 Nov/)
+  } finally {
+    act(() => root.unmount())
+    client.clear()
+    vi.unstubAllGlobals()
+  }
+})
