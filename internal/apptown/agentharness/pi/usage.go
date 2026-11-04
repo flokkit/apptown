@@ -8,6 +8,7 @@ import (
 )
 
 type usageReport struct {
+	Assistant       bool // usage from an assistant message, rather than a cache warm-up
 	Model, Provider string
 	Usage           console.Usage
 }
@@ -25,7 +26,7 @@ type usageStream struct {
 	Incomplete string
 }
 
-// ReadUsage reads every assistant message_end usage report of a whole
+// ReadUsage reads assistant message_end and appended usage reports of a whole
 // transcript. The caller joins the transcript's bytes before calling, so a
 // record split across reads is one line here. Lines that are not JSON (a
 // wrapper's own words on the shared output) are not records and are
@@ -45,7 +46,12 @@ func ReadUsage(out []byte) usageStream {
 			s.Incomplete = "the last record has no newline (a partial record)"
 		}
 		var ev struct {
-			Type    string `json:"type"`
+			Type  string `json:"type"`
+			Entry struct {
+				Type            string `json:"type"`
+				Model, Provider string
+				Usage           console.Usage `json:"usage"`
+			} `json:"entry"`
 			Message struct {
 				Role     string        `json:"role"`
 				Model    string        `json:"model"`
@@ -60,7 +66,10 @@ func ReadUsage(out []byte) usageStream {
 			continue
 		}
 		if ev.Type == "message_end" && ev.Message.Role == "assistant" {
-			s.Reports = append(s.Reports, usageReport{Model: ev.Message.Model, Provider: ev.Message.Provider, Usage: ev.Message.Usage})
+			s.Reports = append(s.Reports, usageReport{Assistant: true, Model: ev.Message.Model, Provider: ev.Message.Provider, Usage: ev.Message.Usage})
+		}
+		if ev.Type == "entry_appended" && ev.Entry.Type == "usage" {
+			s.Reports = append(s.Reports, usageReport{Model: ev.Entry.Model, Provider: ev.Entry.Provider, Usage: ev.Entry.Usage})
 		}
 	}
 	return s

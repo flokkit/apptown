@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -243,7 +244,7 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	model, _ := jsonString(request["model"])
-	path, model, err := p.inferencePath(parts[1], r.URL.Query(), model)
+	path, model, api, err := p.inferencePath(parts[1], r.URL.Query(), model)
 	if err != nil {
 		fail(400, "unsupported inference operation")
 		return
@@ -282,7 +283,7 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	spanCtx, span := g.tracer.Start(r.Context(), "inference.request", append(spanOpts, trace.WithAttributes(
-		attribute.String("apptown.inference.provider", p.name), attribute.String("apptown.inference.model", model), attribute.String("apptown.inference.api", p.api),
+		attribute.String("apptown.inference.provider", p.name), attribute.String("apptown.inference.model", model), attribute.String("apptown.inference.api", api),
 		attribute.String("apptown.workload.kind", who.Kind), attribute.String("apptown.project", who.ProjectID.String()), attribute.String("apptown.run", who.RunID.String()), attribute.String("apptown.step", who.StepID.String())))...)
 	r = r.WithContext(spanCtx)
 	defer func() {
@@ -315,7 +316,7 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 			protocol.Set(h, v)
 		}
 	}
-	resp, err := g.dispatch(ctx, p, path, body, r.Header.Get("Accept"), protocol)
+	resp, err := g.dispatch(ctx, p, api, path, body, r.Header.Get("Accept"), protocol)
 	var rejected upstreamRejected
 	switch {
 	case errors.As(err, &rejected):
@@ -387,7 +388,7 @@ func (e upstreamRejected) Error() string {
 // (an SDK's Anthropic-Version and Anthropic-Beta), and the binding's own
 // headers and credential (authorize). A transport failure is its error; an
 // answer outside 2xx is upstreamRejected, its body closed unread.
-func (g *Gateway) dispatch(ctx context.Context, p *inferenceProvider, path string, body []byte, accept string, protocol http.Header) (*http.Response, error) {
+func (g *Gateway) dispatch(ctx context.Context, p *inferenceProvider, api, path string, body []byte, accept string, protocol http.Header) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+path, bytes.NewReader(body))
 	if err != nil {
 		return nil, errUnsendable
@@ -397,7 +398,7 @@ func (g *Gateway) dispatch(ctx context.Context, p *inferenceProvider, path strin
 	for k, v := range protocol {
 		req.Header[k] = v
 	}
-	p.authorize(req.Header)
+	p.authorize(req.Header, api)
 	resp, err := g.client.Do(req)
 	if err != nil {
 		return nil, err
@@ -412,14 +413,18 @@ func (g *Gateway) dispatch(ctx context.Context, p *inferenceProvider, path strin
 // authorize sets the binding's own upstream headers and its credential, in
 // the header its dialect expects. Only the gateway's upstream requests carry
 // them.
-func (p *inferenceProvider) authorize(h http.Header) {
+func (p *inferenceProvider) authorize(h http.Header, api string) {
 	for k, v := range p.headers {
 		h.Set(k, v)
 	}
 	if p.key != "" {
-		switch p.api {
+		switch api {
 		case "anthropic-messages":
-			h.Set("X-Api-Key", p.key)
+			if p.name == "openrouter" {
+				h.Set("Authorization", "Bearer "+p.key)
+			} else {
+				h.Set("X-Api-Key", p.key)
+			}
 		case "google-generative-ai":
 			h.Set("X-Goog-Api-Key", p.key)
 		default:
@@ -430,29 +435,50 @@ func (p *inferenceProvider) authorize(h http.Header) {
 
 func jsonString(b []byte) (string, error) { var s string; err := json.Unmarshal(b, &s); return s, err }
 
-func (p *inferenceProvider) inferencePath(path string, q url.Values, model string) (string, string, error) {
-	bad := func() (string, string, error) { return "", "", fmt.Errorf("unsupported operation") }
+func (p *inferenceProvider) inferencePath(path string, q url.Values, model string) (string, string, string, error) {
+	bad := func() (string, string, string, error) { return "", "", "", fmt.Errorf("unsupported operation") }
+	api := ""
+	switch path {
+	case "chat/completions":
+		api = "openai-completions"
+	case "responses":
+		api = "openai-responses"
+	case "messages", "v1/messages":
+		api = "anthropic-messages"
+	default:
+		if strings.HasPrefix(strings.TrimPrefix(path, "v1beta/"), "models/") {
+			api = "google-generative-ai"
+		}
+	}
+	if !slices.Contains(p.apis, api) {
+		return bad()
+	}
 	// Query parameters never carry credentials or alternate upstream URLs.
 	for k, v := range q {
-		if k != "alt" || len(v) != 1 || v[0] != "sse" || p.api != "google-generative-ai" {
+		if len(v) != 1 || !((k == "alt" && v[0] == "sse" && api == "google-generative-ai") ||
+			(k == "beta" && v[0] == "true" && api == "anthropic-messages")) {
 			return bad()
 		}
 	}
-	switch p.api {
+	switch api {
 	case "openai-completions":
 		if path == "chat/completions" {
-			return "/chat/completions", model, nil
+			return "/chat/completions", model, api, nil
 		}
 	case "openai-responses":
 		if path == "responses" {
-			return "/responses", model, nil
+			return "/responses", model, api, nil
 		}
 	case "anthropic-messages":
 		if path == "v1/messages" || path == "messages" {
-			if strings.HasSuffix(p.baseURL, "/v1") {
-				return "/messages", model, nil
+			suffix := ""
+			if len(q) > 0 {
+				suffix = "?beta=true"
 			}
-			return "/v1/messages", model, nil
+			if strings.HasSuffix(p.baseURL, "/v1") {
+				return "/messages" + suffix, model, api, nil
+			}
+			return "/v1/messages" + suffix, model, api, nil
 		}
 	case "google-generative-ai":
 		path = strings.TrimPrefix(path, "v1beta/")
@@ -473,7 +499,7 @@ func (p *inferenceProvider) inferencePath(path string, q url.Values, model strin
 				if len(q) > 0 {
 					suffix = "?alt=sse"
 				}
-				return prefix + path + suffix, m, nil
+				return prefix + path + suffix, m, api, nil
 			}
 		}
 	}

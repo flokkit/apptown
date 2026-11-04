@@ -57,7 +57,8 @@ cumulative output superseded by `tool_execution_end`. The live feed still
 receives bounded updates. Assistant messages stay whole. Session transcripts
 and the worker's result-file read limits are separate and unchanged.
 
-Agent and review attempts with zero model output tokens in the invocations read
+Cache-warm usage counts toward spend, but only assistant message output counts
+as a model answer. Agent and review attempts with zero assistant output tokens in the invocations read
 for their outcome end as errors, even when a report or written files exist. The
 reason includes Pi's last provider error when present. Output counts across
 retries and follow-ups in memory; worker recovery reads only the newest

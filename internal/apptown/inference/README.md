@@ -14,7 +14,10 @@ runtime environment delivery surfaces.
 `New` binds Identity, Catalog and Usage.Requests into the dedicated HTTP gateway.
 A request passes network and credential checks, capacity admission, provider/model
 validation and a second current-identity check. Only then is the upstream
-called. Streaming observes usage and cancellation; the request's telemetry
+called. Built-in bindings get their permitted API dialects from provider defaults;
+custom endpoints declare one. The requested operation must use a permitted
+dialect, which selects routing and provider authentication. Model definitions
+may repeat the binding’s dialect but cannot select a different one. Streaming observes usage and cancellation; the request's telemetry
 reports the outcome even on disconnect or provider failure. A bounded watcher
 rechecks authority while the stream lives. No provider credential reaches a
 harness, client response or telemetry.

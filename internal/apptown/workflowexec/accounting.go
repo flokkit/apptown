@@ -10,6 +10,7 @@ import (
 // piUsage is one invocation's spending as its transcript reports it.
 type piUsage struct {
 	Totals          usage.Totals
+	AssistantOutput int64  // assistant message output only; cache warming still counts in Totals
 	Model, Provider string // the last reported
 	// Incomplete says why Totals may be lower than what was spent; "" when
 	// the whole transcript was read.
@@ -25,6 +26,9 @@ func sumPiUsage(out []byte) piUsage {
 	r := piUsage{Incomplete: stream.Incomplete}
 	for _, report := range stream.Reports {
 		m := report.Usage
+		if report.Assistant {
+			r.AssistantOutput += int64(m.Output)
+		}
 		r.Totals.Add(m.Input, m.Output, m.CacheRead, m.CacheWrite, m.Total, m.Cost.Total)
 		if report.Model != "" {
 			r.Model, r.Provider = report.Model, report.Provider

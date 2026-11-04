@@ -23,7 +23,7 @@ import (
 	"github.com/flokkit/apptown/internal/strs"
 )
 
-// Usage is what an assistant entry says it cost: the accounting ledger's
+// Usage is what a model call says it cost: the accounting ledger's
 // source.
 type Usage struct {
 	Input      float64 `json:"input"`
@@ -195,6 +195,9 @@ func parseLine(line string) (entry, bool) {
 	var raw struct {
 		Type      string `json:"type"`
 		Timestamp string `json:"timestamp"`
+		Provider  string `json:"provider"`
+		Model     string `json:"model"`
+		Usage     Usage  `json:"usage"`
 		Message   struct {
 			Role         string          `json:"role"`
 			Provider     string          `json:"provider"`
@@ -211,6 +214,9 @@ func parseLine(line string) (entry, bool) {
 	e := entry{Type: raw.Type, Role: raw.Message.Role, Provider: raw.Message.Provider,
 		Model: raw.Message.Model, Usage: raw.Message.Usage,
 		StopReason: raw.Message.StopReason, ErrorMessage: raw.Message.ErrorMessage}
+	if raw.Type == "usage" {
+		e.Provider, e.Model, e.Usage = raw.Provider, raw.Model, raw.Usage
+	}
 	if raw.Timestamp != "" {
 		e.At, _ = time.Parse(time.RFC3339Nano, raw.Timestamp)
 	}

@@ -658,7 +658,7 @@ func (a *Executor) readInvocation(ctx context.Context, w *workerAttempt, inv tas
 // recordWorkerUsage keeps the invocation's spend before its result can count.
 func (a *Executor) recordWorkerUsage(ctx context.Context, w *workerAttempt, inv tasks.Attempt, meta agentAdmission, res *invocationResult) {
 	spent := sumPiUsage(res.Events)
-	res.OutputTokens = spent.Totals.Output
+	res.OutputTokens = spent.AssistantOutput
 	incomplete := spent.Incomplete
 	if incomplete == "" && meta.Delegated {
 		// The pinned runtime's stream carries no usage for the

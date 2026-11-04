@@ -18,35 +18,47 @@ func TestReaderParsesRealShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 9 {
-		t.Fatalf("want 9 entries, got %d", len(entries))
+	if len(entries) != 11 {
+		t.Fatalf("want 11 entries, got %d", len(entries))
 	}
 	for i, typ := range []string{"session", "model_change", "thinking_level_change", "message"} {
 		if entries[i].Type != typ {
 			t.Errorf("entry %d type: want %s got %s", i, typ, entries[i].Type)
 		}
 	}
-	want, _ := time.Parse(time.RFC3339Nano, "2026-05-15T09:58:01.155Z")
-	if !entries[3].At.Equal(want) || entries[3].Role != "user" || entries[3].Text != "Hi, can you count the SLOC of c in this project" {
-		t.Errorf("user entry parsed wrong: %+v", entries[3])
+	want, _ := time.Parse(time.RFC3339Nano, "2026-11-04T09:05:28.288Z")
+	if !entries[4].At.Equal(want) || entries[4].Role != "user" || entries[4].Text != "Run the fixture tool." {
+		t.Errorf("user entry parsed wrong: %+v", entries[4])
 	}
-	if e := entries[4]; e.Role != "assistant" || e.hasText() || len(e.Tools) != 1 || e.Tools[0].Name != "bash" ||
-		!strings.HasPrefix(e.Tools[0].detail(), "cd /work && find") {
+	if e := entries[5]; e.Role != "assistant" || e.hasText() || len(e.Tools) != 2 || e.Tools[0].Name != "bash" ||
+		!strings.HasPrefix(e.Tools[0].detail(), "printf") {
 		t.Errorf("tool-calling entry parsed wrong: %+v", e)
 	}
-	if e := entries[5]; e.Role != "toolResult" || !e.hasText() {
+	if e := entries[6]; e.Role != "toolResult" || !e.hasText() {
 		t.Errorf("toolResult entry parsed wrong: %+v", e)
 	}
-	if e := entries[6]; e.Role != "assistant" || e.hasText() || len(e.Tools) != 0 || e.Usage.Total != 1912 {
+	if e := entries[8]; e.Role != "assistant" || e.hasText() || len(e.Tools) != 0 || e.Usage.Total != 125 {
 		t.Errorf("thinking-only entry parsed wrong: %+v", e)
 	}
-	if e := entries[8]; e.Provider != "openrouter" || e.Model != "anthropic/claude-sonnet-4" ||
-		e.Usage.Total != 2660 || e.Usage.Cost.Total != 0.0012 || !strings.HasPrefix(e.Text, "About 38k") {
+	if e := entries[10]; e.Provider != "fixture" || e.Model != "pi-upgrade" ||
+		e.Usage.Total != 148 || e.Usage.Cost.Total != 0.000156 || e.Text != "The fixture completed." {
 		t.Errorf("final entry parsed wrong: %+v", e)
+	}
+	edit := entries[5].Tools[1]
+	edits, ok := edit.Args["edits"].([]any)
+	if edit.Name != "edit" || edit.detail() != "fixture.txt" || !ok || len(edits) != 1 {
+		t.Fatalf("edit arguments: %+v", edit)
+	}
+	change := edits[0].(map[string]any)
+	if change["oldText"] != "before" || change["newText"] != "after" {
+		t.Fatalf("edit replacement: %v", change)
+	}
+	if entries[7].Role != "toolResult" || !entries[7].hasText() {
+		t.Fatalf("edit result: %+v", entries[7])
 	}
 	// Timestamps are times, not strings: the continued-session rule compares
 	// them against createdAt, which Go writes in a different layout.
-	if !entries[8].At.After(entries[3].At) {
+	if !entries[10].At.After(entries[4].At) {
 		t.Error("timestamps must order as times")
 	}
 }

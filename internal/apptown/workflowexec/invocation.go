@@ -160,7 +160,7 @@ func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 			r.RunErr = errors.Join(r.RunErr, fmt.Errorf("the agent's output could not be read: %w", readErr))
 		} else {
 			r.Events = events
-			outputTokens += sumPiUsage(events).Totals.Output
+			outputTokens += sumPiUsage(events).AssistantOutput
 			r.Text, r.Model, r.Provider, r.Usage = piharness.ParseOutput(events)
 			incomplete, usageErr := a.recordInvocationUsage(ctx, c, name, r)
 			if incomplete != "" && usageIncomplete == "" {

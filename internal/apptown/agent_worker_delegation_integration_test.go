@@ -34,7 +34,7 @@ import (
 const subagentsTestImage = "apptown-agent:s5-subagents-test"
 
 // A delegated invocation on the worker (R10/R17): the packaged Pi runtime
-// with its pinned subagent extension (pi 0.84.3, pi-subagents 0.61.0) runs
+// with its pinned subagent extension (pi 1.5.0, pi-subagents 0.61.0) runs
 // an agent step whose model calls the subagent tool, and the delegate's own
 // model call goes through the same controlled endpoint with its own,
 // distinct usage (1000 in, 200 out; the parent's calls are single digits).
