@@ -55,6 +55,14 @@ Commit `package-lock.json`; add one test that hits the API, and give the
 root package a `test` script that runs every workspace's tests: the
 part declares `test: ["npm ci --no-audit --no-fund && npm test"]` in
 `.apptown/app.yaml`. Include every workspace’s suite.
+Make the test script write a JUnit report to `$APPTOWN_TEST_REPORT` as well
+as readable output to stdout. With Node 24's built-in runner, use:
+
+```sh
+node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination="$APPTOWN_TEST_REPORT"
+```
+
+With Vitest, use its JUnit reporter and `--outputFile="$APPTOWN_TEST_REPORT"`.
 Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).
 
 Build output stays out of git: `.gitignore` names `node_modules/` and

@@ -248,10 +248,10 @@ func (s *Session) record() *Transcript {
 // usage accounting reads. A folder that cannot be read is an error.
 func (s *Session) Records() ([]string, error) { return s.record().sessionFiles() }
 
-// Messages is the conversation as chat bubbles, oldest first.
-func (s *Session) Messages() []Message { return s.record().messages() }
+// messages is the conversation as chat bubbles, oldest first.
+func (s *Session) messages() []Message { return s.record().messages() }
 
-// readMessages is Messages, with the failure to read the record when there
+// readMessages is messages, with the failure to read the record when there
 // was one.
 func (s *Session) readMessages() ([]Message, error) { return s.record().readMessages() }
 
@@ -269,7 +269,7 @@ func (s *Session) turn() Turn {
 // Activity is the turn as another page reads it: empty before the first
 // message, so a chat nobody has spoken in is not said to be working.
 func (s *Session) Activity() Turn {
-	if len(s.Messages()) == 0 {
+	if len(s.messages()) == 0 {
 		return ""
 	}
 	return s.turn()

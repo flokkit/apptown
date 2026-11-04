@@ -57,14 +57,14 @@ func consoleHTTPRequest(handler http.HandlerFunc, sid, method, path, body string
 
 func TestConsoleMessageHTTPDeliveryPollingAndInterrupt(t *testing.T) {
 	t.Parallel()
-	_, agent, session, h := consoleHTTPFixture(t, nil)
+	sessions, agent, session, h := consoleHTTPFixture(t, nil)
 	for _, body := range []string{`{"text":`, `{"text":4}`, `{"text":" \n "}`} {
 		w := consoleHTTPRequest(h.ConsoleSay, session.ID, "POST", "/", body)
 		if w.Code != 400 {
 			t.Fatalf("invalid message accepted: %d %s", w.Code, w.Body.String())
 		}
 	}
-	if got := session.Messages(); len(got) != 0 {
+	if got := sessionMessages(t, sessions, session); len(got) != 0 {
 		t.Fatalf("invalid requests reached the agent: %+v", got)
 	}
 	w := consoleHTTPRequest(h.ConsoleSay, session.ID, "POST", "/", `{"text":"Please keep\nthese words."}`)
@@ -103,14 +103,14 @@ func TestConsoleMessageHTTPKeepsSuccessfulDeliveryWhenNamingFails(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, session, h := consoleHTTPFixture(t, map[string]string{conversation.ProjectLabel: fmt.Sprint(f.ProjectID), conversation.ChangeLabel: fmt.Sprint(change.ID)})
+	sessions, _, session, h := consoleHTTPFixture(t, map[string]string{conversation.ProjectLabel: fmt.Sprint(f.ProjectID), conversation.ChangeLabel: fmt.Sprint(change.ID)})
 	h.db = f.DB
 	t.Cleanup(dbtest.NextStatementFailure(f.DB, "-- name: EditChangeTitle :execrows"))
 	r := httptest.NewRequest("POST", "/", strings.NewReader(`{"text":"Build a little game"}`)).WithContext(f.Context)
 	r.SetPathValue("sid", session.ID)
 	w := httptest.NewRecorder()
 	h.ConsoleSay(w, r)
-	if w.Code != 200 || len(session.Messages()) != 1 || session.Messages()[0].Text != "Build a little game" {
+	if messages := sessionMessages(t, sessions, session); w.Code != 200 || len(messages) != 1 || messages[0].Text != "Build a little game" {
 		t.Fatalf("naming failure encouraged duplicate delivery: %d %s", w.Code, w.Body.String())
 	}
 	stored, err := f.Work.Change(f.Context, change.ID)
@@ -133,7 +133,7 @@ func TestConsoleMessageHTTPRejectsEndedAndUnknownSessions(t *testing.T) {
 			}
 		}
 	}
-	if agent.Running(session.ID) || agent.Interrupted(session.ID) || len(session.Messages()) != 0 {
+	if agent.Running(session.ID) || agent.Interrupted(session.ID) || len(sessionMessages(t, sessions, session)) != 0 {
 		t.Fatal("unavailable session was revived or received an operation")
 	}
 }
@@ -227,4 +227,18 @@ func TestAPageOfMessagesTakesOneMaskSnapshot(t *testing.T) {
 	if snapshots != 1 {
 		t.Fatalf("%d snapshots for one page", snapshots)
 	}
+}
+
+func sessionMessages(t *testing.T, sessions *console.Service, session *console.Session) []console.Message {
+	t.Helper()
+	conversations, unreadable, err := sessions.Transcript(t.Context(), session.Scope)
+	if err != nil || len(unreadable) != 0 {
+		t.Fatalf("read chat transcript: %v; unreadable: %v", err, unreadable)
+	}
+	for _, conversation := range conversations {
+		if conversation.ID == session.ID {
+			return conversation.Messages
+		}
+	}
+	return nil
 }

@@ -111,7 +111,7 @@ func TestModelErrorSurfacesInChat(t *testing.T) {
 `
 	path := writeSessionRecord(t, dir, "2026-09-04T09-57-00-000Z_console.jsonl", rec)
 	s := &Session{Dir: dir}
-	msgs := s.Messages()
+	msgs := s.messages()
 	if len(msgs) != 2 {
 		t.Fatalf("want the user turn and the helper's error, got %+v", msgs)
 	}
@@ -142,7 +142,7 @@ func TestStopSurfacesInChat(t *testing.T) {
 `
 	path := writeSessionRecord(t, dir, "2026-09-04T12-40-00-000Z_console.jsonl", rec)
 	s := &Session{Dir: dir}
-	msgs := s.Messages()
+	msgs := s.messages()
 	if len(msgs) != 2 || msgs[1].Role != "helper" || !msgs[1].Stopped || msgs[1].Error {
 		t.Fatalf("an abort is a helper 'stopped' bubble, not an error: %+v", msgs)
 	}

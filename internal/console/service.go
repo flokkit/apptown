@@ -356,7 +356,7 @@ func (s *Service) Messages(ctx context.Context, id string, from int) (MessagePag
 	if err != nil {
 		return MessagePage{}, err
 	}
-	all := sess.Messages()
+	all := sess.messages()
 	out := make([]Message, 0, len(all))
 	for _, m := range all {
 		if m.I >= from {

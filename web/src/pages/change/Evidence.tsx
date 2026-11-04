@@ -80,6 +80,7 @@ export function stepTitle(s: Step): string {
 export function testsNote(ev: TestsEvidence): { note: string; plain: boolean } {
   const c = ev.testCounts
   if (c) {
+    if (c.passed === 0 && c.failed === 0 && c.skipped === 0) return { note: 'no tests', plain: true }
     const parts = [`${c.passed} passed`]
     if (c.failed) parts.push(`${c.failed} failed`)
     if (c.skipped) parts.push(`${c.skipped} skipped`)

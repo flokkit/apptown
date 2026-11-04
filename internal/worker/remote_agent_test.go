@@ -123,7 +123,7 @@ func TestAChatRunsOnAWorkerThroughTheChatService(t *testing.T) {
 	}
 
 	eventually(t, "the message in AppTown's copy", func() bool {
-		for _, m := range s.Messages() {
+		for _, m := range sessionMessages(t, c.service, s) {
 			if strings.Contains(m.Text, "hello there") {
 				return true
 			}
@@ -132,7 +132,7 @@ func TestAChatRunsOnAWorkerThroughTheChatService(t *testing.T) {
 	})
 	c.runtime.Reply(s.ID, "hi, how can I help")
 	eventually(t, "the reply in AppTown's copy", func() bool {
-		msgs := s.Messages()
+		msgs := sessionMessages(t, c.service, s)
 		return len(msgs) > 0 && strings.Contains(msgs[len(msgs)-1].Text, "how can I help")
 	})
 	// The copy's time is written after its files, so it can trail the reply.
@@ -680,4 +680,18 @@ func TestTheRecordsCopyTimeNeverReadsAsNeverCopiedOnceItHasBeen(t *testing.T) {
 		}
 		reads++
 	}
+}
+
+func sessionMessages(t *testing.T, sessions *console.Service, session *console.Session) []console.Message {
+	t.Helper()
+	conversations, unreadable, err := sessions.Transcript(t.Context(), session.Scope)
+	if err != nil || len(unreadable) != 0 {
+		t.Fatalf("read chat transcript: %v; unreadable: %v", err, unreadable)
+	}
+	for _, conversation := range conversations {
+		if conversation.ID == session.ID {
+			return conversation.Messages
+		}
+	}
+	return nil
 }

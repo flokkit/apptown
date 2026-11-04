@@ -2,11 +2,16 @@ package apptown
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"github.com/flokkit/apptown/internal/apptown/conversation"
+	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/ids"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
@@ -96,5 +101,41 @@ func TestEmptyNarrativeComparisonIgnoresDirtyWorkAndLaterMainCommits(t *testing.
 		if err == nil || got.Empty {
 			t.Fatalf("unknown base became empty: %+v %v", got, err)
 		}
+	}
+}
+
+func TestNarrativeReadsRequestAfterChatEnds(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	pid, cid := idstest.N(2), idstest.N(1)
+	repo := filepath.Join(dir, "workspaces", "project-"+pid.String())
+	commits := gittest.Repository(t, repo, "main", gittest.Commit{Message: "base"}, gittest.Commit{Message: "change", Files: map[string]string{"game.txt": "blue"}})
+	chats := console.New(console.Dependencies{Config: console.Config{DataDir: dir}})
+	session := chats.Restore(console.Meta{ID: "abc123", Scope: conversation.Key(ids.Nil, cid), CreatedAt: time.Now()})
+	records := filepath.Join(session.Dir, "sessions")
+	if err := os.MkdirAll(records, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	request := "A glowing circle with tap to open, to change the water colour please."
+	line, err := json.Marshal(map[string]any{"type": "message", "message": map[string]any{"role": "user", "content": request}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(records, "chat.jsonl"), append(line, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// An archived transcript is the fixture; a new service has no live sessions.
+	if err := os.Rename(filepath.Join(session.Dir, console.MetaFile), filepath.Join(session.Dir, console.EndedFile)); err != nil {
+		t.Fatal(err)
+	}
+	chats = console.New(console.Dependencies{Config: console.Config{DataDir: dir}})
+	a := &App{Console: chats, cfg: configuration{dataDir: dir}}
+	source := workflow.NarrativeSource{Change: &workflow.Change{ID: cid, ProjectID: pid, Title: "A glowing circle with tap to", Branch: "main", BaseSHA: commits[0]}, Slug: "game", DefaultBranch: "main"}
+	extra, err := narrativeFor(a).evidence(t.Context(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := workflow.NarrativeEvidence(source, extra.Text); !strings.Contains(got, request) {
+		t.Fatalf("ended chat request lost: %s", got)
 	}
 }

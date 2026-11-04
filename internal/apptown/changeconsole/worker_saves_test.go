@@ -59,7 +59,7 @@ func TestARefusedSaveIsToldToTheChat(t *testing.T) {
 		t.Fatalf("recorded: %+v", save)
 	}
 	eventually(t, "the chat told of the refusal", func() bool {
-		for _, m := range s.Messages() {
+		for _, m := range sessionMessages(t, w.sessions, s) {
 			if strings.Contains(m.Text, "[apptown save]") && strings.Contains(m.Text, "git reset --soft") {
 				return true
 			}

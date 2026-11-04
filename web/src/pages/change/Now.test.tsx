@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { expect, it, vi } from 'vitest'
 import type { ChangeView, Step } from '../../api'
-import { newQueryClient } from '../../data'
+import { getKey, newQueryClient } from '../../data'
 import { Now } from './Now'
 import { ContinueDecision, TurnDecision } from './Turn'
 
@@ -101,4 +101,19 @@ it.each(['Accept', 'Continue'])('keeps the decision open after %s through progre
   act(() => [...dialog.querySelectorAll('button')].find(b => b.textContent === 'Close')!.click())
   expect(el.querySelector('dialog')?.open ?? false).toBe(false)
  } finally { act(() => root.unmount()); vi.unstubAllGlobals() }
+})
+
+// Seed the completed response so rendering must read it, independent of fetch timing.
+it.each([
+ { running: true, total: 0 },
+ { running: true, lines: null, total: 0 },
+ { running: true, lines: [], total: 0 },
+])('keeps deployment visible when progress has no lines: %j', progress => {
+ const client = newQueryClient()
+ client.setQueryData(getKey('/steps/deploy/live?from=0'), progress)
+ try {
+  const text = renderToStaticMarkup(<QueryClientProvider client={client}><Now view={view()} /></QueryClientProvider>)
+  expect(text).toContain('Deploying the accepted work')
+  expect(text).toContain('Landing — step 3 of 4')
+ } finally { client.clear() }
 })
