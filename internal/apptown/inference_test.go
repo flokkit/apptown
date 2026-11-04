@@ -5,11 +5,13 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -139,12 +141,16 @@ func TestOpenAIConnectionDiscoversModelsAndRendersPiConfiguration(t *testing.T) 
 	var config map[string]any
 	for _, preset := range integration.FindConnector(integration.CapModel, "pi").Presets {
 		if preset.Name == "openai" {
-			config = preset.Config
+			config = maps.Clone(preset.Config)
 		}
 	}
 	if config == nil {
 		t.Fatal("Connect is missing OpenAI")
 	}
+	// A connected built-in provider explicitly enables its chosen models.
+	config["model"] = "openai/gpt-5.6-sol"
+	config["models"] = []string{"gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"}
+	config["modelsJson"] = `[{"id":"gpt-5.6-luna"},{"id":"gpt-5.6-terra"},{"id":"gpt-5.6-sol"}]`
 	health := connectorHealthFor(a)
 	for _, code := range []int{http.StatusOK, http.StatusUnauthorized} {
 		status = code
@@ -159,7 +165,7 @@ func TestOpenAIConnectionDiscoversModelsAndRendersPiConfiguration(t *testing.T) 
 		t.Fatal(err)
 	}
 	ids, err := a.providers.Discover(t.Context(), "openai", config)
-	if err != nil || len(ids) != 3 {
+	if err != nil || !slices.Equal(ids, []string{"gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra"}) {
 		t.Fatalf("discovery: %v %v", ids, err)
 	}
 	entries, unlisted, err := a.providers.Models(t.Context())
@@ -191,5 +197,33 @@ func TestOpenAIConnectionDiscoversModelsAndRendersPiConfiguration(t *testing.T) 
 	p := cfg.Providers["openai"]
 	if p.API != "openai-responses" || !strings.HasSuffix(p.BaseURL, "/providers/openai") || p.APIKey != "$APPTOWN_SESSION_TOKEN" || len(p.Models) != 3 || strings.Contains(string(raw), "openai-connection-canary") {
 		t.Fatalf("pi configuration does not preserve the OpenAI provider/model boundary: %s", raw)
+	}
+	var rendered []string
+	for _, m := range p.Models {
+		rendered = append(rendered, m.ID)
+	}
+	slices.Sort(rendered)
+	if !slices.Equal(rendered, ids) {
+		t.Fatalf("Pi models %v differ from discovered models %v", rendered, ids)
+	}
+
+	// Clearing enablement must remove every model from Pi configuration,
+	// even while the provider retains its model definitions.
+	delete(config, "model")
+	config["models"] = []string{}
+	if _, err := a.Integrations.Bindings.Save(t.Context(), "openai", integration.CapModel, "pi", mustJSON(config), "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	before := probes
+	raw, err = inferenceRuntimeFor(a).ModelsJSON(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Providers = nil
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Providers["openai"].Models) != 0 || probes != before {
+		t.Fatalf("empty enabled list rendered models or probed upstream: %s, probes %d", raw, probes-before)
 	}
 }

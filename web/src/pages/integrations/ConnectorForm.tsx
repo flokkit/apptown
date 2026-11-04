@@ -4,6 +4,7 @@ import { post } from '../../api'
 import { ConnIcon } from '../../icons'
 import { firstErr, useAction, useGet } from '../../data'
 import type { ConnectorEntry, DiscoveredModels, IntegrationHealth, SecretNameList } from '../../wire.gen'
+import { builtInModel } from './kinds'
 import { storeWords } from './InstanceSecrets'
 
 // The secret selector: pick credential references from the names that
@@ -135,6 +136,29 @@ function ModelListPicker({ value, onChange, providerName, config, help }: {
   )
 }
 
+function DefaultModelPicker({ value, enabled, name, config, onChange, catalog, onCatalog }: {
+  value: string; enabled: string[]; name: string; config: Record<string, unknown>; onChange: (v: string) => void; catalog: string[]; onCatalog: (models: string[]) => void
+}) {
+  const discovery = useAction()
+  const builtIn = builtInModel(name, config)
+  const choices = (builtIn || enabled.length ? enabled : catalog).filter(id => !id.startsWith('~'))
+  return <span>
+    <select aria-label="Default model" value={choices.some(id => value === `${name}/${id}`) ? value : ''}
+      onChange={e => onChange(e.target.value)}>
+      <option value="">{value && !choices.some(id => value === `${name}/${id}`) ? `Choose a model (${value} is not selected)` : 'Choose a model…'}</option>
+      {choices.map(id => <option key={id} value={`${name}/${id}`}>{id}</option>)}
+    </select>
+    {!builtIn && !enabled.length && <>
+      <button className="subtle" disabled={discovery.busy} onClick={() => void discovery.run(async () => {
+        onCatalog((await post<DiscoveredModels>('/integrations/discover', { name, config })).models)
+      })}>Browse default models…</button>
+      <label className="small">Fuzzy ~ selector <input aria-label="Fuzzy selector" value={value.startsWith(`${name}/~`) ? value.slice(name.length + 2) : ''}
+        placeholder="model selector" onChange={e => onChange(e.target.value ? `${name}/~${e.target.value}` : '')} /></label>
+    </>}
+    {discovery.err && <span className="error small">{discovery.err}</span>}
+  </span>
+}
+
 // A number field holds a number, or nothing when it is empty: AppTown
 // refuses a quoted number ("2") or an empty string where a number belongs.
 // A value saved as text before the field was a number is read back as one.
@@ -153,8 +177,19 @@ export function ConnectorForm({ spec, icon, initialName, initialConfig, onDone }
   const [name, setName] = useState(initialName)
   const [cfg, setCfg] = useState(initialConfig)
   const [test, setTest] = useState<IntegrationHealth | null>(null)
+  const [defaultCatalog, setDefaultCatalog] = useState<string[]>([])
   const tester = useAction()
   const saver = useAction(() => onDone(name))
+  const isModel = spec.capability === 'model'
+  const custom = isModel && (icon === 'gpu' || !!initialConfig.baseUrl || !!initialConfig.providerDef || !!initialConfig.api || !!initialConfig.modelsJson)
+  const enabled = Array.isArray(cfg.models) ? cfg.models as string[] : []
+  const builtIn = isModel && builtInModel(name, cfg)
+  const defaultChoices = (builtIn || enabled.length ? enabled : defaultCatalog).filter(id => !id.startsWith('~'))
+  const fuzzyDefault = !builtIn && enabled.length === 0 && String(cfg.model).startsWith(`${name}/~`) && String(cfg.model).length > name.length + 2
+  const invalidDefault = isModel && !!cfg.model && !defaultChoices.some(id => cfg.model === `${name}/${id}`) && !fuzzyDefault
+  const fields = (spec.fields ?? []).filter(f => !isModel || (custom
+    ? !['secretEnv', 'models'].includes(f.key)
+    : !['baseUrl', 'api', 'apiKeyFrom', 'modelsJson'].includes(f.key)))
   const testing = tester.busy
   const err = firstErr(tester.err, saver.err)
 
@@ -165,7 +200,7 @@ export function ConnectorForm({ spec, icon, initialName, initialConfig, onDone }
     })
   }
 
-  const save = () => void saver.run(() => post('/integrations', { name, capability: spec.capability, provider: spec.provider, config: cfg }))
+  const save = () => !invalidDefault && void saver.run(() => post('/integrations', { name, capability: spec.capability, provider: spec.provider, config: cfg }))
 
   return (
     <div style={{ maxWidth: 700 }}>
@@ -184,10 +219,13 @@ export function ConnectorForm({ spec, icon, initialName, initialConfig, onDone }
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="my-scanner" autoFocus style={{ width: '100%' }} />
             <div className="muted small">Workflows refer to this integration by name; runs record which version they used.</div>
           </span>
-          {(spec.fields ?? []).map((f) => (
+          {fields.map((f) => (
             <span key={f.key} style={{ display: 'contents' }}>
               <label>{f.label}</label>
-              {f.type === 'modelList' ? (
+              {isModel && f.key === 'model' ? (
+                <span><DefaultModelPicker value={String(cfg.model ?? '')} enabled={enabled} name={name} config={cfg} catalog={defaultCatalog} onCatalog={setDefaultCatalog} onChange={v => setCfg({ ...cfg, model: v })} />
+                {f.help && <HelpButton about="Default model" guide="server-setup">{f.help}</HelpButton>}</span>
+              ) : f.type === 'modelList' ? (
               <ModelListPicker
                 value={Array.isArray(cfg[f.key]) ? (cfg[f.key] as string[]) : []}
                 onChange={(v) => setCfg({ ...cfg, [f.key]: v })}
@@ -236,12 +274,13 @@ export function ConnectorForm({ spec, icon, initialName, initialConfig, onDone }
           <span className="small"><strong>No test for this kind</strong></span>
         </div>
       ))}
+      {invalidDefault && <div className="error">{builtIn || enabled.length ? 'Choose a default model from Enabled models.' : 'Browse the live catalog and choose a default model.'}</div>}
       {err && <div className="error">{err}</div>}
       <div className="row" style={{ marginTop: 12 }}>
         <button onClick={runTest} disabled={testing}>{testing ? 'Testing…' : 'Test connection'}</button>
         <span style={{ flex: 1 }} />
         <button onClick={() => onDone()}>Cancel</button>
-        <button className="primary" onClick={save} disabled={saver.busy || !name.trim()}>Save</button>
+        <button className="primary" onClick={save} disabled={saver.busy || !name.trim() || invalidDefault}>Save</button>
       </div>
     </div>
   )

@@ -113,10 +113,11 @@ func TestHandleModelCatalog(t *testing.T) {
 	bindings := integration.NewWithClock(db, nil)
 	handler := NewModelDiscovery(inference.NewCatalog(db, secret.NewService(db, secret.Config{})))
 
+	// Upsert represents a stored binding predating default validation.
 	// A model binding with a default pattern and a curated list; no baseUrl,
 	// so no network probe is attempted.
 	cfg := `{"model":"anthropic/claude","models":["claude-opus","claude-haiku"]}`
-	if _, err := bindings.Save(context.Background(), "anthropic", "model", "anthropic", cfg, "fixture"); err != nil {
+	if _, err := bindings.Upsert(context.Background(), "anthropic", "model", "anthropic", cfg, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -136,8 +137,8 @@ func TestHandleModelCatalog(t *testing.T) {
 	for _, m := range body.Models {
 		got[m["pattern"]] = m["source"]
 	}
-	if got["anthropic/claude"] != "default" {
-		t.Fatalf("the binding's default pattern must be present: %+v", body.Models)
+	if len(got) != 2 || got["anthropic/claude"] != "" {
+		t.Fatalf("a default outside the enabled list must not be offered: %+v", body.Models)
 	}
 	if got["anthropic/claude-opus"] != "curated" || got["anthropic/claude-haiku"] != "curated" {
 		t.Fatalf("curated models must be prefixed with the binding name: %+v", body.Models)

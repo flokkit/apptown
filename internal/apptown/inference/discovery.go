@@ -26,18 +26,18 @@ type inferenceDiscoverySlot struct {
 	entry inferenceDiscoveryEntry
 }
 type inferenceDiscoveryEntry struct {
-	key [32]byte
-	at  time.Time
-	ids []string
-	err error // the provider's answer could not be had; ids is then empty
+	key  [32]byte
+	at   time.Time
+	list []listedModel
+	err  error // the provider's answer could not be had; list is then empty
 }
 
-// Cache only public model IDs, indexed by binding. Credentials never become
+// Cache only public model IDs and capability fields, indexed by binding. Credentials never become
 // runtime metadata; the digest only invalidates discovery after key rotation.
 // The provider is asked under its binding's own lock only. A failed request
 // is cached as a failure for the same minute: its ids are never the list an
 // earlier request saw, so an unknown list is never shown as current.
-func (d *inferenceDiscovery) models(ctx context.Context, p *inferenceProvider, now time.Time) ([]string, error) {
+func (d *inferenceDiscovery) listed(ctx context.Context, p *inferenceProvider, now time.Time) ([]listedModel, error) {
 	key := discoveryKey(p)
 	d.mu.Lock()
 	if d.entries == nil {
@@ -53,24 +53,24 @@ func (d *inferenceDiscovery) models(ctx context.Context, p *inferenceProvider, n
 	defer slot.mu.Unlock()
 	old := slot.entry
 	if old.key == key && now.Sub(old.at) < time.Minute {
-		return old.ids, old.err
+		return old.list, old.err
 	}
 	entry := inferenceDiscoveryEntry{key: key, at: now}
 	// The answer is cached for every caller this minute: one caller
 	// stopping must not leave a failure the others read.
-	entry.ids, entry.err = fetchModels(context.WithoutCancel(ctx), p)
+	entry.list, entry.err = listModels(context.WithoutCancel(ctx), "the "+p.name+" provider", p.baseURL+"/models", p.api, p.authorize)
 	if entry.err != nil {
-		entry.ids = nil
+		entry.list = nil
 	}
 	slot.entry = entry
-	return entry.ids, entry.err
+	return entry.list, entry.err
 }
 
 // discoverable is a binding whose provider is asked for its models: one
-// with an OpenAI-style dialect and either its own address or the built-in
-// OpenAI address. Other built-in providers list what the binding declares.
+// with an OpenAI-style dialect and its own address. Built-in providers
+// offer and admit only their enabled models.
 func discoverable(p *inferenceProvider, cfg integration.ModelConfig) bool {
-	return (p.name == "openai" || cfg.BaseURL != "" || cfg.ProviderDef["baseUrl"] != nil) && strings.HasPrefix(p.api, "openai-")
+	return !cfg.BuiltIn(p.name) && (cfg.BaseURL != "" || cfg.ProviderDef["baseUrl"] != nil) && strings.HasPrefix(p.api, "openai-")
 }
 
 // discoverModels adds what the provider lists live to what the binding
@@ -103,4 +103,15 @@ func discoveryKey(p *inferenceProvider) [32]byte {
 	var key [32]byte
 	h.Sum(key[:0])
 	return key
+}
+
+func (d *inferenceDiscovery) models(ctx context.Context, p *inferenceProvider, now time.Time) ([]string, error) {
+	list, err := d.listed(ctx, p, now)
+	var ids []string
+	for _, m := range list {
+		if m.ID != "" {
+			ids = append(ids, m.ID)
+		}
+	}
+	return ids, err
 }

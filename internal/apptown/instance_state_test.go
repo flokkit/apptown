@@ -15,7 +15,7 @@ func TestModelCatalogCacheStaysWithApplication(t *testing.T) {
 	first, second := testApp(t), testApp(t)
 	for i, a := range []*App{first, second} {
 		name := []string{"first", "second"}[i]
-		if _, err := a.Integrations.Bindings.Save(context.Background(), name, integration.CapModel, name, mustJSON(map[string]string{"model": name + "/model"}), "fixture"); err != nil {
+		if _, err := a.Integrations.Bindings.Save(context.Background(), name, integration.CapModel, name, mustJSON(map[string]any{"model": name + "/model", "models": []string{"model"}}), "fixture"); err != nil {
 			t.Fatal(err)
 		}
 	}

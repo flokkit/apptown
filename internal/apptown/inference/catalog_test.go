@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -44,8 +46,8 @@ var databaseSuite = dbtest.NewSuite(dbschema.Open)
 func TestMain(m *testing.M) { os.Exit(databaseSuite.Run(m)) }
 
 // The model picker lists through the gateway's own resolution: a binding's
-// default, its curated list and what its provider lists live. Concurrent
-// readers of one binding ask its provider once, a curation change shows at
+// enabled list or what its provider lists live. Concurrent
+// readers of one binding ask its provider once, a saved change shows at
 // once, and an unsaved binding's provider is asked with the same rules.
 //
 // Kills: a second resolver for the picker (its own key rules or cache); a
@@ -83,7 +85,7 @@ func TestTheModelListIsTheGatewaysOwn(t *testing.T) {
 	var wg sync.WaitGroup
 	for range 8 {
 		wg.Go(func() {
-			if entries, unlisted, err := catalog.Models(context.Background()); err != nil || len(entries) != 2 || len(unlisted) != 0 {
+			if entries, unlisted, err := catalog.Models(context.Background()); err != nil || len(entries) != 1 || len(unlisted) != 0 {
 				t.Errorf("models: %+v %v %v", entries, unlisted, err)
 			}
 		})
@@ -98,7 +100,7 @@ func TestTheModelListIsTheGatewaysOwn(t *testing.T) {
 	}
 	save("provider/second")
 	entries, _, err := catalog.Models(context.Background())
-	if err != nil || len(entries) != 2 || entries[0] != (ModelEntry{Pattern: "provider/second", Binding: "provider", Source: "default"}) || entries[1].Pattern != "provider/live" || entries[1].Source != "live" {
+	if err != nil || len(entries) != 1 || entries[0] != (ModelEntry{Pattern: "provider/live", Binding: "provider", Source: "live"}) {
 		t.Fatalf("a saved change shows at once: %+v %v", entries, err)
 	}
 	// The provider's list is kept a minute by AppTown's clock, then asked
@@ -173,7 +175,7 @@ func TestSavedOpenAIBindingUsesResponsesAndItsSecret(t *testing.T) {
 	if err := secrets.SetInstance(t.Context(), "OPENAI_API_KEY", "openai-test-key", "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := integration.NewWithClock(db, nil).Save(t.Context(), "openai", integration.CapModel, "pi", `{"model":"openai/gpt-5.6-luna","secretEnv":["OPENAI_API_KEY"]}`, "fixture"); err != nil {
+	if _, err := integration.NewWithClock(db, nil).Save(t.Context(), "openai", integration.CapModel, "pi", `{"model":"openai/gpt-5.6-luna","models":["gpt-5.6-luna"],"secretEnv":["OPENAI_API_KEY"]}`, "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	b, err := integration.NewWithClock(db, nil).ByName(t.Context(), "openai")
@@ -195,8 +197,94 @@ func TestSavedOpenAIBindingUsesResponsesAndItsSecret(t *testing.T) {
 	if p.baseURL != "https://api.openai.com/v1" || p.api != "openai-responses" || p.key != "openai-test-key" || !p.allows("gpt-5.6-luna") {
 		t.Fatal("saved OpenAI binding did not resolve its endpoint, API, credential and unprefixed model")
 	}
-	if !discoverable(p, cfg) {
-		t.Fatal("built-in OpenAI must discover models for the gateway and slot picker")
+	if discoverable(p, cfg) {
+		t.Fatal("built-in OpenAI must use its enabled list")
+	}
+}
+
+func TestSlotChoicesHonourEnabledModels(t *testing.T) {
+	t.Parallel()
+	for _, curated := range []bool{true, false} {
+		t.Run(fmt.Sprint(curated), func(t *testing.T) {
+			t.Parallel()
+			db := databaseSuite.New(t)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(`{"data":[{"id":"gpt-text"},{"id":"gpt-text-2026-01-01"},{"id":"tts-1"},{"id":"omni-moderation-latest"},{"id":"gpt-realtime"},{"id":"gpt-live-transcribe"},{"id":"text-embedding-3-small"},{"id":"gpt-image-1"},{"id":"whisper-1"},{"id":"dall-e-3"},{"id":"opaque-image","architecture":{"output_modalities":["image"]}},{"id":"opaque-chat","architecture":{"output_modalities":["text"]}},{"id":"opaque-audio","supported_endpoints":["audio/speech"]},{"id":"opaque-responses","supported_endpoints":["responses"]}]}`))
+			}))
+			defer server.Close()
+			cfg := map[string]any{"baseUrl": server.URL, "model": "provider/disabled-default"}
+			want := []string{"provider/gpt-text", "provider/gpt-text-2026-01-01", "provider/tts-1", "provider/omni-moderation-latest", "provider/gpt-realtime", "provider/gpt-live-transcribe", "provider/text-embedding-3-small", "provider/gpt-image-1", "provider/whisper-1", "provider/dall-e-3", "provider/opaque-chat", "provider/opaque-responses"}
+			if curated {
+				cfg["models"] = []string{"enabled-one", "enabled-two"}
+				want = []string{"provider/enabled-one", "provider/enabled-two"}
+			}
+			raw, _ := json.Marshal(cfg)
+			// Upsert represents a stored binding predating default validation.
+			if _, err := integration.NewWithClock(db, nil).Upsert(t.Context(), "provider", "model", "provider", string(raw), false); err != nil {
+				t.Fatal(err)
+			}
+			catalog := NewCatalog(db, secret.NewService(db, secret.Config{DataDir: t.TempDir()}))
+			entries, unlisted, err := catalog.Models(t.Context())
+			var got []string
+			for _, entry := range entries {
+				got = append(got, entry.Pattern)
+			}
+			if err != nil || len(unlisted) != 0 || !slices.Equal(got, want) {
+				t.Fatalf("choices = %v, unlisted %v, err %v; want %v", got, unlisted, err, want)
+			}
+		})
+	}
+}
+
+// Empty built-in enabled lists offer and admit nothing, even when a stored
+// default, model definition or live catalog names a model.
+func TestBuiltInModelsRequireExplicitEnablement(t *testing.T) {
+	for _, name := range []string{"openai", "anthropic", "openrouter"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			db := databaseSuite.New(t)
+			cfg := integration.ModelConfig{Model: name + "/default", ProviderDef: map[string]any{"models": []any{map[string]any{"id": "declared"}}}}
+			raw, _ := json.Marshal(cfg)
+			// Upsert represents an existing binding saved before this requirement.
+			if _, err := integration.NewWithClock(db, nil).Upsert(t.Context(), name, "model", "pi", string(raw), false); err != nil {
+				t.Fatal(err)
+			}
+			catalog := NewCatalog(db, secret.NewService(db, secret.Config{DataDir: t.TempDir()}))
+			p, err := resolveInferenceProvider(name, cfg, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			catalog.discovery.entries = map[string]*inferenceDiscoverySlot{name: {entry: inferenceDiscoveryEntry{key: discoveryKey(p), at: time.Now(), list: []listedModel{{ID: "live"}}}}}
+			entries, unlisted, err := catalog.Models(t.Context())
+			if err != nil || len(entries) != 0 || len(unlisted) != 0 {
+				t.Fatalf("empty built-in: %v %v %v", entries, unlisted, err)
+			}
+			ps, err := catalog.providers(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, id := range []string{"default", "declared", "live"} {
+				if ps[name].allows(id) {
+					t.Errorf("empty built-in admits %s", id)
+				}
+			}
+			cfg.Models = []string{"default"}
+			raw, _ = json.Marshal(cfg)
+			if _, err := integration.NewWithClock(db, nil).Save(t.Context(), name, "model", "pi", string(raw), "fixture"); err != nil {
+				t.Fatal(err)
+			}
+			entries, unlisted, err = catalog.Models(t.Context())
+			if err != nil || len(unlisted) != 0 || !slices.Equal(entries, []ModelEntry{{Pattern: name + "/default", Binding: name, Source: "curated"}}) {
+				t.Fatalf("enabled built-in: %v %v %v", entries, unlisted, err)
+			}
+			ps, err = catalog.providers(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !ps[name].allows("default") || ps[name].allows("declared") || ps[name].allows("live") {
+				t.Fatal("built-in admission must match enabled models")
+			}
+		})
 	}
 }
 

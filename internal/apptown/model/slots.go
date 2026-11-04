@@ -41,10 +41,35 @@ var Gloss = map[string]string{
 	"implement":        "writing the code",
 	"review":           "a second set of eyes on finished work",
 	"security":         "looking for ways the work could be unsafe",
-	"fast":             "quick cheap jobs: summaries, briefs, small checks",
+	"fast":             "quick jobs: approval briefs, project descriptions, setup interviews",
 	"chat":             "the helper people talk to on a project page",
 	"worker":           "a helper's delegate that carries out a written brief",
 	"scout":            "a helper's delegate for quick read-only lookups",
+}
+
+// stockUse names a built-in job and the resolver call sites that request its slot.
+// Sources are relative to internal/apptown; an empty list describes fallback use.
+type stockUse struct {
+	Slot    string
+	Job     string
+	Sources []string
+}
+
+// StockUses owns the job names shown beneath model profile tasks, beside Gloss.
+// Workflow consumers are added from their published definitions.
+var StockUses = []stockUse{
+	{Slot: "main-strong", Job: "change summaries", Sources: []string{"narrative_wiring.go"}},
+	{Slot: "main-strong", Job: "failure explanations", Sources: []string{"briefs/service.go"}},
+	{Slot: "main-strong", Job: "tasks left unset"},
+	{Slot: "main-strong", Job: "model setup status", Sources: []string{"httpapi/setup_status.go"}},
+	{Slot: "chat", Job: "project chat", Sources: []string{"conversation/admission.go", "conversation/open.go", "conversation/environment.go"}},
+	{Slot: "worker", Job: "helpers' written briefs", Sources: []string{"agentharness/pi/preparation.go"}},
+	{Slot: "scout", Job: "helpers' quick lookups", Sources: []string{"agentharness/pi/preparation.go"}},
+	{Slot: "fast", Job: "approval briefs", Sources: []string{"briefs/approval.go"}},
+	{Slot: "fast", Job: "project descriptions", Sources: []string{"projectlifecycle/description.go"}},
+	{Slot: "fast", Job: "ways-of-working setup interviews", Sources: []string{"httpapi/pack_assistance.go"}},
+	{Slot: "secondary-fast", Job: "ways-of-working model checks", Sources: []string{"verification/guidance_models.go"}},
+	{Slot: "secondary-fast", Job: "fleet dependency checks", Sources: []string{"verification/fleet_dependencies.go"}},
 }
 
 // stockFallbacks: where an unmapped slot degrades to. Seeded as data so

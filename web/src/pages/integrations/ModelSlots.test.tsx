@@ -10,7 +10,7 @@ import { ModelProfilePage, ModelProfiles } from './ModelSlots'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 afterEach(() => { vi.unstubAllGlobals() })
 
-const row = (slot: string, patterns: Record<string, string>, fallback?: string) => ({ slot, gloss: `${slot} work`, patterns, fallback })
+const row = (slot: string, patterns: Record<string, string>, fallback?: string) => ({ slot, gloss: `${slot} work`, patterns, fallback, consumers: slot === 'fast' ? ['approval briefs', 'project descriptions'] : [] })
 
 // An unset job says the model it actually gets and where from: its
 // fallback task, Main · strong in the end, then standard's chain.
@@ -18,7 +18,7 @@ it('says what an unset task gets, on each profile', async () => {
   const matrix = {
     profiles: ['standard', 'high'], spendNote: '', overrides: [],
     projects: [{ slug: 'a', name: 'A', profile: 'high' }],
-    slots: [row('main-strong', { standard: 'm/base' }), row('review', { standard: 'm/review' }), row('worker', {}, 'review'), row('plan', {}), row('main-fast', {}), row('secondary-strong', {}), row('secondary-fast', {})],
+    slots: [row('main-strong', { standard: 'm/base' }), row('review', { standard: 'm/review' }, 'secondary-strong'), row('worker', {}, 'review'), row('plan', {}), row('main-fast', {}), row('secondary-strong', {}), row('secondary-fast', {}, 'main-fast'), row('security', {}, 'review'), row('fast', {}, 'main-fast'), row('scout', {}, 'fast'), row('inspect', {}, 'scout')],
   }
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
     url.includes('/model-slots') ? matrix : { models: [], unlisted: [] }))))
@@ -42,9 +42,21 @@ it('says what an unset task gets, on each profile', async () => {
   expect(unset('Plan')).toBe('Same as Main · strong (m/base)')
   expect(unset('Worker')).toBe('Same as Review (m/review)')
   expect(unset('Main · strong')).toBe('Not set')
-  for (const label of ['Main · fast', 'Second opinion · strong', 'Second opinion · fast']) {
+  for (const label of ['Main · fast', 'Second opinion · strong']) {
     expect(unset(label)).toBe('Same as Main · strong (m/base)')
   }
+  expect(unset('Second opinion · fast')).toBe('Same as Main · fast → Main · strong (m/base)')
+  expect(unset('Security')).toBe('Same as Review (m/review)')
+  expect(unset('Fast')).toBe('Same as Main · fast → Main · strong (m/base)')
+  expect(unset('Scout')).toBe('Same as Fast → Main · strong (m/base)')
+  expect(unset('Inspect')).toBe('Same as Scout → Main · strong (m/base)')
+  expect(el.querySelector('select[aria-label="Fast model"]')!.closest('tr')!.textContent).toContain('Used by: approval briefs, project descriptions')
+  matrix.slots[1].patterns.standard = ''
+  await act(async () => { await client.invalidateQueries() })
+  await vi.waitFor(() => expect(unset('Review')).toBe('Same as Second opinion · strong → Main · strong (m/base)'))
+  expect(unset('Security')).toBe('Same as Review → Main · strong (m/base)')
+  matrix.slots[1].patterns.standard = 'm/review'
+  await act(async () => { await client.invalidateQueries() })
   // Another profile's unset jobs use standard's models, and it names its projects.
   await at('/integrations/profiles/high')
   await vi.waitFor(() => expect(el.querySelector('h1')!.textContent).toBe('high'))
@@ -54,7 +66,27 @@ it('says what an unset task gets, on each profile', async () => {
   // A profile's basic choice beats a task cell in standard, including the label.
   matrix.slots[0].patterns.high = 'm/high'
   await act(async () => { await client.invalidateQueries() })
-  await vi.waitFor(() => expect(unset('Review')).toBe('Same as Main · strong (m/high)'))
-  expect(unset('Worker')).toBe('Same as Main · strong (m/high)')
+  await vi.waitFor(() => expect(unset('Review')).toBe('Same as Second opinion · strong → Main · strong (m/high)'))
+  expect(unset('Worker')).toBe('Same as Review → Main · strong (m/high)')
   act(() => root.unmount()); el.remove(); client.clear()
+})
+
+// A previously stored choice remains selected even when curation excludes it.
+it('marks a stored model outside the enabled list in red', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+    url.includes('/model-slots')
+      ? { profiles: ['standard'], slots: [row('main-strong', { standard: 'openai/old-model' })], projects: [] }
+      : { models: [{ pattern: 'openai/enabled-model', binding: 'openai', source: 'curated' }], unlisted: [] }))))
+  const client = newQueryClient()
+  const el = document.createElement('div'); document.body.appendChild(el)
+  const root = createRoot(el)
+  try {
+    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><ModelProfilePage /></MemoryRouter></QueryClientProvider>) })
+    await vi.waitFor(() => expect(el.querySelector('.error.small')?.textContent).toBe('not enabled on openai'))
+    const select = el.querySelector('select')!
+    expect(select.selectedOptions[0].textContent).toBe('openai/old-model')
+    expect([...select.options].map(o => o.textContent)).toContain('openai/enabled-model')
+  } finally {
+    act(() => root.unmount()); el.remove(); client.clear()
+  }
 })

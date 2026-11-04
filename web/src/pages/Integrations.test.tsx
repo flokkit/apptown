@@ -9,6 +9,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { getKey, newQueryClient } from '../data'
 import type { ConnectorEntry, IntegrationEntry, IntegrationHealth, TargetLabel } from '../wire.gen'
 import Integrations from './Integrations'
+import { TechnicalDetailSwitch } from './change/TechnicalDetail'
 import { ConnectorForm } from './integrations/ConnectorForm'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -525,4 +526,108 @@ it('shows an old passed reading on the overview as last seen', async () => {
   expect(row.querySelector('.chip')!.textContent).toContain('last seen')
   expect(row.querySelector('.chip')!.className).not.toContain('pass')
   page.done()
+})
+
+describe('model provider settings', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  const modelSpec = spec('model', 'pi', 'Model provider', { fields: [
+    { key: 'secretEnv', label: 'Credentials', type: 'secretRef' },
+    { key: 'models', label: 'Enabled models', type: 'modelList' },
+    { key: 'model', label: 'Default model', type: 'string' },
+    { key: 'concurrency', label: 'Calls at once', type: 'number' },
+    { key: 'baseUrl', label: 'Base URL', type: 'string' },
+    { key: 'api', label: 'API dialect', type: 'select' },
+    { key: 'apiKeyFrom', label: 'Endpoint API key', type: 'secretRef' },
+    { key: 'modelsJson', label: 'Models (JSON array)', type: 'string' },
+  ] })
+
+  it('shows built-in fields and requires an enabled default before saving', async () => {
+    const saved: unknown[] = []
+    stubAppTown({
+      'GET /integrations': json({ integrations: [binding('openai', 'model', 'pi', checked(true, 'OpenAI listed 140 models'), {
+        config: { secretEnv: ['OPENAI_API_KEY'], models: ['current', 'fast'], model: 'openai/stale' },
+      })] }),
+      'GET /integrations/catalog': json({ catalog: [modelSpec] }),
+      'GET /secrets/names': json({ names: ['OPENAI_API_KEY'] }),
+      'POST /integrations': (_m, body) => { saved.push(body); return json({ ok: true })() },
+    })
+    const page = await mount('/integrations/openai')
+    await vi.waitFor(() => expect(page.button('Edit')).toBeDefined())
+    await act(async () => page.button('Edit')!.click())
+    expect(page.text()).toContain('Credentials')
+    for (const label of ['Base URL', 'API dialect', 'Endpoint API key', 'Models (JSON array)']) expect(page.text()).not.toContain(label)
+    expect(page.button('Save')!.disabled).toBe(true)
+    const choose = page.el.querySelector<HTMLSelectElement>('[aria-label="Default model"]')!
+    expect([...choose.options].map(o => o.value)).toEqual(['', 'openai/current', 'openai/fast'])
+    await act(async () => { choose.value = 'openai/current'; choose.dispatchEvent(new Event('change', { bubbles: true })) })
+    expect(page.button('Save')!.disabled).toBe(false)
+    await act(async () => page.button('Save')!.click())
+    expect(saved).toEqual([expect.objectContaining({ config: expect.objectContaining({ model: 'openai/current' }) })])
+    page.done()
+  })
+
+  it('shows custom endpoint fields without built-in credentials or enabled models', async () => {
+    const el = document.createElement('div'); const root = createRoot(el)
+    await act(async () => root.render(<QueryClientProvider client={newQueryClient()}><ConnectorForm spec={modelSpec} icon="gpu" initialName="local" initialConfig={{ api: 'openai-completions' }} onDone={() => {}} /></QueryClientProvider>))
+    for (const label of ['Base URL', 'API dialect', 'Endpoint API key', 'Models (JSON array)']) expect(el.textContent).toContain(label)
+    expect([...el.querySelectorAll('.form-grid > span > label')].map(l => l.textContent)).not.toContain('Enabled models')
+    expect(el.textContent).not.toContain('Credentials')
+    act(() => root.unmount())
+  })
+
+  it('offers discovered defaults for a custom endpoint when the enabled list is empty', async () => {
+    stubAppTown({
+      'GET /secrets/names': json({ names: [] }),
+      'POST /integrations/discover': json({ models: ['live-model'] }),
+    })
+    const el = document.createElement('div'); const root = createRoot(el)
+    await act(async () => root.render(<QueryClientProvider client={newQueryClient()}><ConnectorForm spec={modelSpec} icon="gpu" initialName="local" initialConfig={{ baseUrl: "http://localhost:1234" }} onDone={() => {}} /></QueryClientProvider>))
+    await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Browse default models…')!.click())
+    expect([...el.querySelector<HTMLSelectElement>('[aria-label="Default model"]')!.options].map(o => o.value)).toEqual(['', 'local/live-model'])
+    act(() => root.unmount())
+  })
+
+  it.each(['openai', 'anthropic', 'openrouter'])('requires enabling models on the %s provider page and editor', async name => {
+    stubAppTown({
+      'GET /integrations': json({ integrations: [binding(name, 'model', 'pi', checked(true, 'Catalog read'), { config: { model: `${name}/default`, models: [] } })] }),
+      'GET /integrations/catalog': json({ catalog: [modelSpec] }),
+      'GET /secrets/names': json({ names: [] }),
+    })
+    const page = await mount(`/integrations/${name}`)
+    await vi.waitFor(() => expect(page.button('Edit')).toBeDefined())
+    expect(page.text()).toContain('Enable at least one model')
+    expect(page.el.querySelector('.int-state .chip')?.className).toContain('pending')
+    expect(page.el.querySelector('.int-state')?.textContent).not.toContain('working')
+    await act(async () => page.button('Edit')!.click())
+    expect(page.button('Save')!.disabled).toBe(true)
+    expect(page.button('Browse default models…')).toBeUndefined()
+    expect(page.el.querySelector('[aria-label="Fuzzy selector"]')).toBeNull()
+    expect([...page.el.querySelector<HTMLSelectElement>('[aria-label="Default model"]')!.options].map(o => o.value)).toEqual([''])
+    page.done()
+  })
+
+  it('shows labelled, set facts and one status; raw settings require Techno Goggles', async () => {
+    stubAppTown({
+      'GET /integrations': json({ integrations: [binding('openai', 'model', 'pi', checked(true, 'OpenAI listed 140 models'), {
+        config: { secretEnv: ['OPENAI_API_KEY'], models: ['current'], model: 'openai/current', concurrency: 3, apiKeyFrom: [], api: '', baseUrl: '', modelsJson: '' },
+      })] }),
+      'GET /integrations/catalog': json({ catalog: [modelSpec] }),
+    })
+    const page = await mount('/integrations/openai')
+    await vi.waitFor(() => expect(page.text()).toContain('OPENAI_API_KEY'))
+    expect(page.text()).toContain('The models agents call, from OpenAI.')
+    expect([...page.el.querySelectorAll('dt')].map(d => d.textContent)).toEqual(['Name', 'Credentials', 'Enabled models', 'Default model', 'Calls at once'])
+    for (const raw of ['secretEnv', 'apiKeyFrom', 'modelsJson', 'Configuration hash', 'not set']) expect(page.text()).not.toContain(raw)
+    expect(page.el.querySelectorAll('.int-state .chip')).toHaveLength(1)
+    expect(page.text().match(/OpenAI listed 140 models/g)).toHaveLength(1)
+    expect(page.el.querySelector('svg[aria-label="openai"]')).not.toBeNull()
+    const controls = document.createElement('div'); const controlRoot = createRoot(controls)
+    await act(async () => controlRoot.render(<QueryClientProvider client={newQueryClient()}><TechnicalDetailSwitch /></QueryClientProvider>))
+    await act(async () => controls.querySelector('button')!.click())
+    expect(page.text()).toContain('secretEnv')
+    expect(page.text()).toContain('Configuration hash')
+    await act(async () => controls.querySelector('button')!.click())
+    act(() => controlRoot.unmount())
+    page.done()
+  })
 })
