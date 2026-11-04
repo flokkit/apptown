@@ -89,8 +89,13 @@ func validateBody(path string) (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading %s: %w", path, err)
 	}
-	body := map[string]string{"appYaml": string(b)}
-	if c, err := appcontract.Parse(b); err == nil {
+	return localConfigBody(path, string(b)), nil
+}
+
+// localConfigBody includes the local secret declaration for contract tooling.
+func localConfigBody(path, yaml string) map[string]string {
+	body := map[string]string{"appYaml": yaml}
+	if c, err := appcontract.Parse([]byte(yaml)); err == nil {
 		specPath := strs.FirstNonBlank(c.SecretSpecPath, "secretspec.toml")
 		if appcontract.CheckSpecPath(specPath) == nil {
 			if ss, err := os.ReadFile(filepath.Join(filepath.Dir(filepath.Dir(path)), specPath)); err == nil {
@@ -98,7 +103,7 @@ func validateBody(path string) (map[string]string, error) {
 			}
 		}
 	}
-	return body, nil
+	return body
 }
 
 // apptown dev — local development in two gears (design/decisions/forge-native-contract.md):
@@ -129,7 +134,9 @@ func cmdDev(args []string) error {
 		if err != nil {
 			return err
 		}
-		raw, err := api.request("POST", "/dev-compose", map[string]string{"appYaml": yaml, "mode": mode, "host": host})
+		body := localConfigBody(appYamlPath, yaml)
+		body["mode"], body["host"] = mode, host
+		raw, err := api.request("POST", "/dev-compose", body)
 		if err != nil {
 			return err
 		}
@@ -138,9 +145,13 @@ func cmdDev(args []string) error {
 			Env          map[string]string `json:"env"`
 			Procfile     string            `json:"procfile"`
 			StaticBuilds []devStaticBuild  `json:"staticBuilds"`
+			Withheld     []string          `json:"withheld"`
 		}
 		if err := json.Unmarshal(raw, &out); err != nil {
 			return err
+		}
+		if len(out.Withheld) > 0 {
+			fmt.Printf("secrets withheld from local containers (no generated value or declared default): %s\n", strings.Join(out.Withheld, ", "))
 		}
 		// Generated files live under .apptown/, which AppTown never stages
 		// and every step ignores — so running `apptown dev` in a change's

@@ -14,6 +14,9 @@ import (
 // address the chat's container can reach. Outside a chat it once refused,
 // though AppTown previews any change on request (sweep 7).
 func cmdPreview(args []string) error {
+	if os.Getenv("APPTOWN_RUN_ID") != "" {
+		return fmt.Errorf("a workflow step cannot boot a preview: the workflow's preview step does; run `apptown dev up` to rehearse the boot")
+	}
 	if len(args) > 0 {
 		if err := changeArg(args, ""); err != nil {
 			return err

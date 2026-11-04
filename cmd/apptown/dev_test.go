@@ -212,3 +212,40 @@ func TestDevUpRunsStaticBuildsBeforeComposeAndRecreatesTheirServices(t *testing.
 		t.Fatalf("an app without static builds ran %q, want %q", *ran, want)
 	}
 }
+
+func TestDevSendsSecretDeclarationAndPrintsWithheldNames(t *testing.T) {
+	t.Chdir(t.TempDir())
+	t.Setenv("DOCKER_HOST", "tcp://dind:2375")
+	if err := os.MkdirAll(".apptown", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	app := "app:\n  web: {image: 'app:1', public: true}\n"
+	for name, body := range map[string]string{appYamlPath: app, "secretspec.toml": "root spec", "custom.toml": "custom spec"} {
+		if err := os.WriteFile(name, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
+		return 200, `{"compose":"services: {}", "withheld":["EXTERNAL_TOKEN"]}`
+	})
+	for _, custom := range []bool{false, true} {
+		want := "root spec"
+		if custom {
+			want = "custom spec"
+			if err := os.WriteFile(appYamlPath, []byte(app+"secrets: {spec: custom.toml}\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		out, err := run(t, "dev", "generate")
+		if err != nil {
+			t.Fatal(err)
+		}
+		request := (*seen)[len(*seen)-1]
+		if request.Path != "/dev-compose" || request.Body["secretSpec"] != want || request.Body["mode"] != "full" {
+			t.Fatalf("request: %+v", request)
+		}
+		if !strings.Contains(out, "EXTERNAL_TOKEN") {
+			t.Fatalf("withheld name missing: %s", out)
+		}
+	}
+}

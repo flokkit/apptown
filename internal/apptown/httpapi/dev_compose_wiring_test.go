@@ -1,8 +1,11 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http/httptest"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -31,7 +34,7 @@ func TestContainerDevResolvesNeedReferences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := h.generateDevCompose(t.Context(), c)
+	raw, _, err := h.generateDevCompose(t.Context(), c, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,5 +70,61 @@ func TestContainerModeAllowsDifferentConsumerEnvironments(t *testing.T) {
 	h.DevCompose(w, httptest.NewRequest("POST", "/api/v1/dev-compose", strings.NewReader(string(body))))
 	if w.Code != 200 {
 		t.Fatalf("container mode refused independent environments: status %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// The shipped WordPress boot receives its install password only in install,
+// while keys shared by web and install have one fresh value per request.
+func TestWordPressDevDeliversScopedFreshSecrets(t *testing.T) {
+	t.Parallel()
+	h := configurationFixture(t)
+	app, err := os.ReadFile("../../../stock/seeds/wordpress/.apptown/app.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec, err := os.ReadFile("../../../stock/seeds/wordpress/secretspec.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var previous string
+	for range 2 {
+		body, err := json.Marshal(map[string]string{"appYaml": string(app), "secretSpec": string(spec), "mode": "full"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := httptest.NewRecorder()
+		h.DevCompose(w, httptest.NewRequest("POST", "/api/v1/dev-compose", bytes.NewReader(body)))
+		if w.Code != 200 {
+			t.Fatalf("dev compose: %d %s", w.Code, w.Body.String())
+		}
+		var out DevComposition
+		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+			t.Fatal(err)
+		}
+		var compose struct {
+			Services map[string]struct {
+				Environment map[string]string `yaml:"environment"`
+			} `yaml:"services"`
+		}
+		if err := yaml.Unmarshal([]byte(out.Compose), &compose); err != nil {
+			t.Fatal(err)
+		}
+		web, install := compose.Services["web"].Environment, compose.Services["install"].Environment
+		if install["WP_ADMIN_PASSWORD"] == "" {
+			t.Fatal("install has no admin password")
+		}
+		if _, ok := web["WP_ADMIN_PASSWORD"]; ok {
+			t.Fatal("admin password reached web")
+		}
+		if web["AUTH_KEY"] == "" || web["AUTH_KEY"] != install["AUTH_KEY"] {
+			t.Fatal("web and install need the same generated key")
+		}
+		if previous == install["WP_ADMIN_PASSWORD"] {
+			t.Fatal("password reused across requests")
+		}
+		previous = install["WP_ADMIN_PASSWORD"]
+		if !reflect.DeepEqual(out.Withheld, []string{"WP_HOME"}) {
+			t.Fatalf("withheld: %v", out.Withheld)
+		}
 	}
 }

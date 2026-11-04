@@ -18,7 +18,10 @@ func TestBothDevComposeModesUseTheCatalogueSize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, generate := range []func(*appcontract.Contract) (string, error){func(c *appcontract.Contract) (string, error) { return h.generateDevCompose(t.Context(), c) }, func(c *appcontract.Contract) (string, error) { return h.generateNeedsCompose(t.Context(), c) }} {
+	for _, generate := range []func(*appcontract.Contract) (string, error){func(c *appcontract.Contract) (string, error) {
+		raw, _, err := h.generateDevCompose(t.Context(), c, "")
+		return raw, err
+	}, func(c *appcontract.Contract) (string, error) { return h.generateNeedsCompose(t.Context(), c) }} {
 		out, err := generate(c)
 		if err != nil {
 			t.Fatal(err)
@@ -84,8 +87,11 @@ func TestBothDevComposeModesGiveANeedItsDataFolder(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, generate := range map[string]func(*appcontract.Contract) (string, error){
-		"container": func(c *appcontract.Contract) (string, error) { return h.generateDevCompose(t.Context(), c) },
-		"process":   func(c *appcontract.Contract) (string, error) { return h.generateNeedsCompose(t.Context(), c) },
+		"container": func(c *appcontract.Contract) (string, error) {
+			raw, _, err := h.generateDevCompose(t.Context(), c, "")
+			return raw, err
+		},
+		"process": func(c *appcontract.Contract) (string, error) { return h.generateNeedsCompose(t.Context(), c) },
 	} {
 		out, err := generate(c)
 		if err != nil {

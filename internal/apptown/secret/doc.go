@@ -36,6 +36,10 @@
 // throwaway values minted per call, and its declared defaults. It reads no
 // binding or store, and names the secrets it withholds.
 //
+// [DevDelivery] gives local containers fresh generated values and declared defaults,
+// with deployment consumer scopes. It reads no bindings or stores, persists nothing,
+// and names withheld credentials. Each call generates new values.
+//
 // # Stores and runtime resolution
 //
 // [Vault] encrypts values with a key in the same database's secret_store_key table.
