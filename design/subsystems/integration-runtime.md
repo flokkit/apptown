@@ -275,7 +275,13 @@ anonymously. No registry attached reads public images anonymously.
 An administrator sets or removes one of AppTown's own credentials (the secret
 a target's `tokenFrom` or `keyFrom` names) with `PUT`/`DELETE /api/v1/secrets/{name}`,
 `apptown secret set <NAME>` (the value on standard input) or Integrations → Secrets,
-and from the target wizard beside the field that names it. The value goes to
+and from the target wizard beside the field that names it. Under Credentials
+AppTown uses, Add a credential opens a name and value row at the top of the list.
+Rows offer Replace and confirmed Remove for local credentials; Infisical rows
+say to change the value there. A shared storage location is stated once above
+the list. Used by lists references from the integration configuration already
+read by the page, including model providers; it does not claim a complete
+inventory of credential consumers. The value goes to
 `secrets.env` and is never answered back; each change leaves a
 `secret.instance-set` or `secret.instance-removed` receipt with the actor and
 name. A name Infisical holds is refused, because a `secrets.env` line would

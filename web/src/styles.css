@@ -1974,3 +1974,18 @@ a.project-avatar, a.project-avatar:hover { text-decoration: none; color: inherit
 .ch-mark.ok { color: var(--ok); }
 .ch-mark.bad { color: var(--bad); }
 .ch-mark.warn { color: var(--warn); }
+
+/* Credentials stay visible in compact shared rows, including on phones. */
+.credential-list .credential-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; padding: 6px 0; }
+.credential-list .list-state:empty { display: none; }
+.credential-stores .credential-row, .credential-uses .credential-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+.credential-row .list-state { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.credential-stores.credential-uses .list-state { display: grid; grid-template-columns: 1fr 1fr; }
+.credential-row .list-action { max-width: 100%; }
+.credential-add { flex-wrap: wrap; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.credential-add input { width: 220px; max-width: 100%; }
+@media (max-width: 800px) {
+  .credential-list .credential-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .credential-row .list-action { grid-column: 2; grid-row: 1 / span 2; }
+  .credential-row .list-state { grid-column: 1; }
+}

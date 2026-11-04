@@ -92,10 +92,98 @@ describe('instance secrets', () => {
     const { el, root } = await mount(<InstanceSecretsPanel />)
     expect(el.textContent).toContain('DEMO_KEY')
     expect(el.textContent).toContain('OPENROUTER_API_KEY')
-    await act(async () => { button(el, 'remove').click() })
+    await act(async () => { button(el, 'Remove').click() })
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(false)
+    expect(el.textContent).toContain('Anything that names it will no longer find it.')
     await act(async () => { button(el, 'Yes').click() })
     await advance(0)
     expect(calls.some((c) => c.method === 'DELETE' && c.path === '/secrets/DEMO_KEY')).toBe(true)
+    act(() => root.unmount())
+  })
+
+  it('adds at the top with validated name and value, and cancels cleanly', async () => {
+    const calls = stubAppTown({ EXISTING: 'secrets.env' })
+    const { el, root } = await mount(<InstanceSecretsPanel />)
+    expect(el.querySelector('input')).toBeNull()
+    expect(el.textContent).not.toContain('Set a secret')
+    await act(async () => { button(el, 'Add a credential').click() })
+    const editor = el.querySelector('[role=list]')!.firstElementChild!
+    expect(editor.tagName).toBe('FORM')
+    const name = editor.querySelector('input[aria-label="secret name"]') as HTMLInputElement
+    const value = editor.querySelector('input[type=password]') as HTMLInputElement
+    expect(document.activeElement).toBe(name)
+    expect(button(el, 'Save').disabled).toBe(true)
+    await type(name, '9bad')
+    await type(value, 'private-value')
+    expect(el.textContent).toContain('starting with a letter')
+    expect(button(el, 'Save').disabled).toBe(true)
+    await type(name, ' new_key ')
+    await act(async () => { button(el, 'Save').click() })
+    await advance(0)
+    expect(calls.filter((c) => c.method === 'PUT')).toEqual([{ method: 'PUT', path: '/secrets/NEW_KEY', body: { value: 'private-value' } }])
+    expect(el.querySelector('form')).toBeNull()
+    expect(el.innerHTML).not.toContain('private-value')
+    expect([...el.querySelectorAll('code')].map((n) => n.textContent)).toEqual(['EXISTING', 'NEW_KEY'])
+    await act(async () => { button(el, 'Add a credential').click() })
+    await type(el.querySelector('input[aria-label="secret name"]') as HTMLInputElement, 'CANCELLED')
+    await act(async () => { button(el, 'Cancel').click() })
+    expect(el.querySelector('form')).toBeNull()
+    await act(async () => { button(el, 'Add a credential').click() })
+    expect((el.querySelector('input[aria-label="secret name"]') as HTMLInputElement).value).toBe('')
+    act(() => root.unmount())
+  })
+
+  it('states a common store once with normal Replace and Remove buttons', async () => {
+    const calls = stubAppTown({ FIRST: 'secrets.env', SECOND: 'secrets.env' })
+    const { el, root } = await mount(<InstanceSecretsPanel />)
+    expect(el.textContent!.match(/AppTown's secrets file/g)).toHaveLength(1)
+    expect(el.textContent).toContain("All stored in AppTown's secrets file")
+    expect(el.textContent).not.toContain('Infisical')
+    expect(el.textContent).not.toContain('Used by')
+    for (const row of el.querySelectorAll('[role=listitem]')) {
+      for (const label of ['Replace', 'Remove']) {
+        const action = button(row as HTMLElement, label)
+        expect(action).toBeTruthy()
+        expect(action.classList.contains('subtle')).toBe(false)
+      }
+      expect(row.querySelector('summary')).toBeNull()
+    }
+    await act(async () => { button(el, 'Replace').click() })
+    await type(el.querySelector('input[type=password]') as HTMLInputElement, 'replacement')
+    await act(async () => { button(el, 'Set').click() })
+    expect(calls.some((c) => c.method === 'PUT' && c.path === '/secrets/FIRST')).toBe(true)
+    act(() => root.unmount())
+  })
+
+  it('shows mixed stores and change advice only on Infisical rows', async () => {
+    stubAppTown({ LOCAL: 'secrets.env', REMOTE: 'infisical' })
+    const { el, root } = await mount(<InstanceSecretsPanel />)
+    const rows = [...el.querySelectorAll('[role=listitem]')]
+    expect(el.textContent).not.toContain('All stored')
+    expect(rows[0].textContent).toContain("AppTown's secrets file")
+    expect(rows[0].textContent).not.toContain('Infisical')
+    expect(rows[1].textContent).toContain('change it in Infisical')
+    expect(rows[1].querySelector('button')).toBeNull()
+    expect(el.textContent!.match(/change it in Infisical/g)).toHaveLength(1)
+    await act(async () => { button(el, 'Add a credential').click() })
+    await type(el.querySelector('input[aria-label="secret name"]') as HTMLInputElement, 'REMOTE')
+    await type(el.querySelector('input[type=password]') as HTMLInputElement, 'value')
+    expect(button(el, 'Save').disabled).toBe(true)
+    act(() => root.unmount())
+  })
+
+  it('hides the list and open editor after a failed refresh', async () => {
+    const unreadable = { on: false }
+    stubAppTown({ EXISTING: 'secrets.env' }, unreadable)
+    const { el, root, client } = await mount(<InstanceSecretsPanel />)
+    await act(async () => { button(el, 'Add a credential').click() })
+    unreadable.on = true
+    await act(async () => { void client.invalidateQueries() })
+    await advance(retries)
+    expect(el.textContent).toContain('Unknown')
+    expect(el.textContent).not.toContain('EXISTING')
+    expect(el.querySelector('input')).toBeNull()
+    expect(button(el, 'Add a credential')).toBeUndefined()
     act(() => root.unmount())
   })
 

@@ -1,11 +1,14 @@
-import { PhoneDetails } from '../../GlanceRow'
+import { ListRow } from '../../ListRow'
+import { Section } from '../../Section'
+import { Link } from 'react-router-dom'
+import { credentialKeys, specFor, areaOf } from './kinds'
 import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { del, put } from '../../api'
 import { QuietConfirm } from '../../QuietConfirm'
 import { useAction, useGet } from '../../data'
 import { ReadStatus } from '../../ReadGate'
-import type { InstanceSecret, SecretNameList } from '../../wire.gen'
+import type { ConnectorEntry, IntegrationEntry, InstanceSecret, SecretNameList } from '../../wire.gen'
 
 // Instance secrets: the credentials AppTown itself uses (a target's API
 // token, an SSH key, a registry password), named by targets and
@@ -21,7 +24,7 @@ export function storeWords(store: string | undefined) {
 
 // SetSecretNow: a password field that sets one named secret. Closed, it is
 // a link-sized button; after a set it says AppTown holds the name.
-export function SetSecretNow({ name, held, label }: { name: string; held?: boolean; label?: string }) {
+export function SetSecretNow({ name, held, label, className = 'subtle' }: { name: string; held?: boolean; label?: string; className?: string }) {
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState('')
   const [done, setDone] = useState(false)
@@ -31,7 +34,7 @@ export function SetSecretNow({ name, held, label }: { name: string; held?: boole
     return (
       <span className="row" style={{ gap: 6 }}>
         {done && <span className="small">✓ {PRODUCT} holds {name}</span>}
-        <button type="button" className="subtle" disabled={!valid} title={valid ? '' : 'a secret name is upper case letters, digits and _'}
+        <button type="button" className={className} disabled={!valid} title={valid ? '' : 'a secret name is upper case letters, digits and _'}
           onClick={() => { setOpen(true); setDone(false) }}>
           {label ?? (held || done ? 'replace its value' : 'set this secret now')}
         </button>
@@ -77,60 +80,70 @@ export function SecretNameStatus({ name }: { name: string }) {
   )
 }
 
-// InstanceSecretsPanel: every secret AppTown holds, by name and where;
-// set a new one, replace or remove one in AppTown's secrets file.
-export function InstanceSecretsPanel() {
+// Uses only the integration configuration already read by the route.
+export function InstanceSecretsPanel({ bindings = [], catalog = [] }: { bindings?: IntegrationEntry[]; catalog?: ConnectorEntry[] }) {
   const namesQ = useGet<SecretNameList>('/secrets/names')
-  const [name, setName] = useState('')
+  const [adding, setAdding] = useState(false)
   const { run, err: actErr } = useAction()
   // A failed read is unknown, never "holds none": a list kept from before
   // the failure is not shown as current, and nothing is offered to set.
   const known = !!namesQ.data && !namesQ.err
   const names = namesQ.data?.names ?? []
   const stores = namesQ.data?.stores ?? {}
-  const typed = name.trim().toUpperCase()
+  const places = new Set(names.map((n) => stores[n]))
+  const mixed = places.size > 1
+  const uses = names.map((name) => bindings.filter((b) => credentialKeys(b, specFor(catalog, b)).some((key) => {
+    const ref = b.config[key]
+    return Array.isArray(ref) ? ref.includes(name) : ref === name
+  })))
+  const showUses = uses.some((users) => users.length > 0)
   return (
-    <div style={{ maxWidth: 760 }}>
-      <div className="muted small" style={{ marginBottom: 12 }}>
-        Values hidden · edit Infisical secrets in Infisical.
-      </div>
+    <Section title={`Credentials ${PRODUCT} uses`} action={known && <button onClick={() => setAdding(true)} disabled={adding}>Add a credential</button>}>
       {/* Here a failed refresh hides the list too, rather than marking it stale. */}
       {namesQ.err && <div className="error small">Unknown: {PRODUCT}'s secrets could not be read. {namesQ.reason}</div>}
       {!namesQ.err && <ReadStatus q={namesQ} what={`${PRODUCT}'s secrets`} className="small" />}
-      {known && (
-        <div style={{ borderTop: '1px solid var(--rule)' }}>
-          {names.length === 0 && <div className="muted small" style={{ padding: '10px 0' }}>{PRODUCT} holds no secrets yet.</div>}
-          {names.map((n) => (
-            <div key={n} className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '10px 0', borderBottom: '1px solid var(--rule-faint)' }}>
-              <div style={{ minWidth: 0 }}>
-                <code style={{ overflowWrap: 'anywhere' }}>{n}</code>
-
-              </div>
-              <PhoneDetails><div className="muted small">Stored in {storeWords(stores[n])}</div>
-              {stores[n] === 'secrets.env'
-                ? <span className="row small" style={{ gap: 6, flexWrap: 'wrap' }}>
-                    <SetSecretNow name={n} held />
-                    <QuietConfirm label="remove" ask={<>Remove {n}? Anything that names it will no longer find it.</>}
-                      onYes={() => run(() => del<InstanceSecret>(`/secrets/${n}`))} />
-                  </span>
-                : <span className="muted small">change it in Infisical</span>}
-              </PhoneDetails>
-            </div>
-          ))}
-        </div>
-      )}
-      {actErr && <div className="error small">{actErr}</div>}
       {known && <>
-      <h3 style={{ marginTop: 20 }}>Set a secret</h3>
-      <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="NAME_OF_THE_SECRET" aria-label="secret name"
-          style={{ width: 240, maxWidth: '100%' }} />
-        {typed && !NAME.test(typed) && <span className="error small">upper case letters, digits and _, starting with a letter</span>}
-        {typed && NAME.test(typed) && (stores[typed] === 'infisical'
-          ? <span className="muted small">{typed} is held in Infisical; change it there</span>
-          : <SetSecretNow key={typed} name={typed} held={!!stores[typed]} label={stores[typed] ? 'replace its value' : 'set its value'} />)}
-      </div>
+        {names.length > 0 && !mixed && <div className="muted small">All stored in {storeWords(stores[names[0]])}</div>}
+        <div role="list" className={`credential-list${mixed ? ' credential-stores' : ''}${showUses ? ' credential-uses' : ''}`}>
+          {adding && <AddCredential stores={stores} onDone={() => setAdding(false)} />}
+          {names.length === 0 && <div className="muted small" style={{ padding: '10px 0' }}>{PRODUCT} holds no secrets yet.</div>}
+          {names.map((n, i) => <ListRow key={n} listItem className="credential-row"
+            identity={<code>{n}</code>}
+            state={<>
+              {mixed && <span className="muted small">{storeWords(stores[n])}</span>}
+              {showUses && <span className="small credential-users">{uses[i].length > 0 && <>Used by {uses[i].map((b, j) => <span key={b.name}>{j > 0 && ', '}<Link to={`/${areaOf(b.capability)}/${b.name}`}>{b.displayLabel || b.name}</Link></span>)}</>}</span>}
+            </>}
+            action={stores[n] === 'secrets.env' ? <>
+              <SetSecretNow name={n} held label="Replace" className="" />
+              <QuietConfirm label="Remove" className="danger" ask={<>Remove {n}? Anything that names it will no longer find it.</>}
+                onYes={() => run(() => del<InstanceSecret>(`/secrets/${n}`))} />
+            </> : stores[n] === 'infisical' ? <span className="muted small">change it in Infisical</span> : null} />)}
+        </div>
       </>}
-    </div>
+      {actErr && <div className="error small">{actErr}</div>}
+    </Section>
   )
+}
+
+function AddCredential({ stores, onDone }: { stores: Record<string, string>; onDone: () => void }) {
+  const [name, setName] = useState('')
+  const [value, setValue] = useState('')
+  const { run, busy, err } = useAction()
+  const typed = name.trim().toUpperCase()
+  const infisical = stores[typed] === 'infisical'
+  const valid = NAME.test(typed) && !!value.trim() && !infisical
+  return <form role="listitem" className="credential-add row" onSubmit={async (e) => {
+    e.preventDefault()
+    if (!valid || busy) return
+    const r = await run(() => put<InstanceSecret>(`/secrets/${typed}`, { value }))
+    if (r?.held) onDone()
+  }}>
+    <input value={name} onChange={(e) => setName(e.target.value)} placeholder="NAME_OF_THE_SECRET" aria-label="secret name" autoFocus disabled={busy} />
+    <input type="password" autoComplete="off" value={value} onChange={(e) => setValue(e.target.value)} placeholder="Value" aria-label="credential value" disabled={busy} />
+    <button className="primary" disabled={busy || !valid}>{busy ? 'Saving…' : 'Save'}</button>
+    <button type="button" disabled={busy} onClick={onDone}>Cancel</button>
+    {typed && !NAME.test(typed) && <span className="error small">upper case letters, digits and _, starting with a letter</span>}
+    {infisical && <span className="muted small">{typed} is held in Infisical; change it there</span>}
+    {err && <span className="error small">{err}</span>}
+  </form>
 }

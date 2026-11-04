@@ -112,6 +112,35 @@ async function mount(at: string, client: QueryClient = newQueryClient()) {
 describe('the integrations list', () => {
   afterEach(() => { vi.unstubAllGlobals() })
 
+  it('shows credential users from existing integration reads and keeps Add in the section heading', async () => {
+    const model = binding('models', 'model', 'pi', checked(true, ''), {
+      displayLabel: 'Model account', config: { secretEnv: ['GITLAB_TOKEN'], endpoint: 'UNREFERENCED' },
+    })
+    const custom = binding('custom', 'sso', 'service', checked(true, ''), { config: { password: 'CUSTOM_KEY' } })
+    const calls = stubAppTown({
+      'GET /integrations': json({ integrations: [gitlab, model, custom] }),
+      'GET /integrations/catalog': json({ catalog: [...catalog.filter((c) => c.capability !== 'sso'), spec('sso', 'service', 'SSO', {
+        fields: [{ key: 'password', label: 'Password', type: 'secretRef' }],
+      })] }),
+      'GET /secrets/names': json({ names: ['GITLAB_TOKEN', 'CUSTOM_KEY', 'UNREFERENCED'], stores: {
+        GITLAB_TOKEN: 'secrets.env', CUSTOM_KEY: 'secrets.env', UNREFERENCED: 'secrets.env',
+      } }),
+    })
+    const page = await mount('/integrations/secrets')
+    await vi.waitFor(() => expect(page.text()).toContain('GITLAB_TOKEN'))
+    const section = page.el.querySelector('section[aria-label="Credentials AppTown uses"]')!
+    expect(section.querySelector('.section-head button')!.textContent).toBe('Add a credential')
+    const rows = [...section.querySelectorAll('[role=listitem]')]
+    const users = [...rows[0].querySelectorAll('a')]
+    expect(users.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+      ['gitlab', '/integrations/gitlab'], ['Model account', '/integrations/models'],
+    ])
+    expect(rows[1].textContent).toContain('Used by custom')
+    expect(rows[2].textContent).not.toContain('Used by')
+    expect(new Set(calls.map((c) => c.path))).toEqual(new Set(['/integrations', '/integrations/catalog', '/secrets/names']))
+    page.done()
+  })
+
   // Each row says what the service is and whether it works; a service the
   // AppTown has no check for reads as unknown, never as working.
   // Integrations lists what AppTown runs on, Services what projects attach;
