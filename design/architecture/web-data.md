@@ -107,7 +107,13 @@ Rejected reviews show a red failure mark and Rejected before the complete record
 explanation. Structured findings lead when present; sentences are not selected
 as inferred rejection reasons. Step names stay in Techno Goggles. Long reports and
 reviewer conclusions also link to their full evidence.
-Overview counts not-applicable checks and skipped rules within a passing check as fine and omits them; their reasons stay in Details. Conversation action summaries
+Overview counts not-applicable checks and skipped rules within a passing check
+as fine and omits them; their reasons stay in Details. The checks shield uses
+gating results: failed is red, unknown is amber, running is grey and passed is
+green, in that order. Only a check reading with `gates: false` is advisory.
+Advisory problems appear as plain notes below the Checks row’s pass and add a
+note count to the green shield; they do not make passing checks unknown.
+Conversation action summaries
 are plain text; the Show agent actions switch reveals their commands and files.
 Security results from before a change to main cannot claim main has passed.
 

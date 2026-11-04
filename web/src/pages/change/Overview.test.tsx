@@ -12,7 +12,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { getKey, newQueryClient } from '../../data'
 import type { ChangeView, Step } from '../../api'
 import ChangePage from '../ChangePage'
-import { CheckSummary, ChangeOverview, approvalBrief } from './Overview'
+import { CheckSummary, ChangeOverview, approvalBrief, checkAttention, checksVerdict } from './Overview'
 import { nextStep, checksRunning } from './next'
 import { TurnDecision, viewerTurn } from './Turn'
 import { DecisionChoices } from '../../DecisionChoices'
@@ -695,4 +695,61 @@ it('uses WaitingOn for decision status and hides Next steps during landing deplo
   el = document.createElement('div'); el.innerHTML = render(v)
   expect(el.querySelector('#decision')?.hasAttribute('hidden')).toBe(false)
   expect(el.querySelector('#decision')?.textContent).toContain('Deploy could not run')
+})
+
+// Only the reading's explicit gates=false makes a result advisory.
+it.each([
+  [false, 'fail', 'ok', 'All checks passed · 1 note'],
+  [false, 'unknown', 'ok', 'All checks passed · 1 note'],
+  [true, 'unknown', 'unknown', 'Checks not all known'],
+  [true, 'fail', 'bad', 'Ways of working failed'],
+  [undefined, 'unknown', 'unknown', 'Checks not all known'],
+  [undefined, 'fail', 'bad', 'Ways of working failed'],
+  [null, 'fail', 'bad', 'Ways of working failed'],
+] as const)('uses gates=%s for a %s check in the shield and Checks row', (gates, verdict, tone, text) => {
+  const v = view()
+  v.detail!.steps = [step('guidance/conformance', 'pass', {}, { checkReading: { checks: [
+    { check: 'arbitrary-rule', gates, verdict, detail: 'Use shorter sentences in the README.' },
+    { check: 'another-rule', gates: true, verdict: 'pass' },
+  ] } })]
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><StatePanel view={v} /><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>)
+  expect(el.querySelector('.ch-shield')?.classList.contains(tone)).toBe(true)
+  expect(el.querySelector('.ch-shield')?.textContent).toBe(text)
+  const summary = el.querySelector('.ch-overview-line .ch-check-summary')!
+  expect(summary.textContent).toContain('Use shorter sentences in the README.')
+  if (gates === false) {
+    expect(checkAttention(v.detail!.steps)).toEqual([])
+    const passed = document.createElement('div'); passed.innerHTML = renderToStaticMarkup(<CheckSummary steps={v.detail!.steps} />)
+    expect(passed.textContent).toContain('All checks passed')
+    expect(passed.querySelector('.ch-mark.ok')).not.toBeNull()
+    expect(passed.querySelector('p')?.textContent).toBe('Note: Use shorter sentences in the README.')
+  }
+})
+
+it('counts advisory problems as notes and omits passing and non-applicable results', () => {
+  const steps = [step('guidance/conformance', 'pass', {}, { checkReading: { checks: [
+    { check: 'a', gates: false, verdict: 'fail', detail: 'Shorten the introduction.' },
+    { check: 'b', gates: false, verdict: 'unknown', detail: 'The examples need a review.' },
+    ...['pass', 'not-applicable', 'skipped'].map(verdict => ({ check: verdict, gates: false, verdict })),
+  ] } })]
+  expect(checksVerdict(steps)).toEqual({ tone: 'ok', text: 'All checks passed · 2 notes' })
+  const el = document.createElement('div'); el.innerHTML = renderToStaticMarkup(<CheckSummary steps={steps} />)
+  expect([...el.querySelectorAll('p')].map(p => p.textContent)).toEqual(['Note: Shorten the introduction.', 'Note: The examples need a review.'])
+})
+
+it('keeps gating uncertainty amber while another check runs', () => {
+  const steps = [step('guidance/conformance', 'pass', {}, { checkReading: { undecided: ['Performance'] } }), step('script', 'running')]
+  expect(checksVerdict(steps)).toEqual({ tone: 'unknown', text: 'Checks not all known' })
+})
+
+it('keeps advisory details separate from a gating failure', () => {
+  const steps = [step('guidance/conformance', 'pass', {}, { checkReading: { checks: [
+    { check: 'tone', gates: false, verdict: 'fail', detail: 'Shorten the introduction.' },
+    { check: 'privacy', gates: true, verdict: 'fail', detail: 'Remove the exposed password.' },
+  ] } })]
+  expect(checksVerdict(steps)?.tone).toBe('bad')
+  const el = document.createElement('div'); el.innerHTML = renderToStaticMarkup(<CheckSummary steps={steps} />)
+  expect(el.querySelector('.ch-check-exception')?.textContent).toBe('Ways of working failed: Remove the exposed password.')
+  expect(el.querySelector('p:last-child')?.textContent).toBe('Note: Shorten the introduction.')
 })
