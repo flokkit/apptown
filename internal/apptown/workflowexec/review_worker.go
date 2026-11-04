@@ -129,6 +129,11 @@ func (a *Executor) judgeReview(ctx context.Context, w *workerAttempt, meta agent
 		j.fields["usageIncomplete"] = res.UsageIncomplete
 	}
 	j.verdict, _, j.failure = reviewStep(meta.Invocation, res)
+	if res.outputErr == nil && res.UsageError == nil {
+		if failure := modelAnswerFailure(res.OutputTokens, res.Events); failure != "" {
+			j.verdict, j.failure = reviewVerdict{}, failure
+		}
+	}
 	if j.failure == "reviewer verdict unparseable" {
 		j.fields["raw"] = strs.Truncate(string(res.results["review"].Content), 1000)
 	}

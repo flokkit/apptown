@@ -65,11 +65,12 @@ type piResult struct {
 	execution.Outcome
 	// Events is pi's --mode json stream, read from the file it was written
 	// to (piharness.CaptureEvents), never from the log: the result.
-	Events   []byte
-	Text     string // all assistant text, joined
-	Model    string
-	Provider string
-	Usage    map[string]any
+	Events       []byte
+	Text         string // all assistant text, joined
+	OutputTokens int64  // output tokens in the invocations read for this attempt
+	Model        string
+	Provider     string
+	Usage        map[string]any
 	// ProviderError: the provider's own words when the turn ended in an
 	// error and produced no text (billing, auth, quota) — infrastructure,
 	// not the agent's work.
@@ -92,6 +93,7 @@ type piResult struct {
 func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 	var r piResult
 	usageIncomplete := ""
+	var outputTokens int64
 	for tries := 1; ; tries++ {
 		bound, err := integration.RegistryBindings(ctx, a.db)
 		if err != nil {
@@ -158,6 +160,7 @@ func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 			r.RunErr = errors.Join(r.RunErr, fmt.Errorf("the agent's output could not be read: %w", readErr))
 		} else {
 			r.Events = events
+			outputTokens += sumPiUsage(events).Totals.Output
 			r.Text, r.Model, r.Provider, r.Usage = piharness.ParseOutput(events)
 			incomplete, usageErr := a.recordInvocationUsage(ctx, c, name, r)
 			if incomplete != "" && usageIncomplete == "" {
@@ -192,6 +195,7 @@ func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 		break
 	}
 	r.UsageIncomplete = usageIncomplete
+	r.OutputTokens = outputTokens
 	return r
 }
 

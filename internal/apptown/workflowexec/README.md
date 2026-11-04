@@ -57,6 +57,12 @@ cumulative output superseded by `tool_execution_end`. The live feed still
 receives bounded updates. Assistant messages stay whole. Session transcripts
 and the worker's result-file read limits are separate and unchanged.
 
+Agent and review attempts with zero model output tokens in the invocations read
+for their outcome end as errors, even when a report or written files exist. The
+reason includes Pi's last provider error when present. Output counts across
+retries and follow-ups in memory; worker recovery reads only the newest
+invocation and can reject an attempt whose earlier invocation answered.
+
 Each paid invocation must record its usage before its answer can count. A failed
 usage write makes an agent or review step an error, records the incomplete-usage
 reason in its evidence, and prevents an empty-turn retry or review follow-up.

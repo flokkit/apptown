@@ -603,7 +603,13 @@ func undecidedFindingsNote(steps []*workflow.Step) string {
 // work already done. The same net catches a clean exit that forgot the file:
 // the reviewer did the work, just never wrote the verdict.
 func (a *Executor) readReviewVerdict(stepID ids.ID, verdictPath, model string, outcome piResult, pi func([]string, time.Duration, string) piResult, evidence map[string]any) (reviewVerdict, string) {
+	var outputTokens int64
+	var lastEvents []byte
 	usageFailure := func(result piResult) string {
+		outputTokens += result.OutputTokens
+		if piharness.LastModelError(result.Events) != "" {
+			lastEvents = result.Events
+		}
 		if result.UsageIncomplete != "" {
 			evidence["usageIncomplete"] = result.UsageIncomplete
 		}
@@ -624,6 +630,9 @@ func (a *Executor) readReviewVerdict(stepID ids.ID, verdictPath, model string, o
 	}
 	raw, err := os.ReadFile(verdictPath)
 	if err != nil {
+		if failure := modelAnswerFailure(outputTokens, lastEvents); failure != "" {
+			return reviewVerdict{}, failure
+		}
 		if outcome.TimedOut {
 			return reviewVerdict{}, "review timed out (no verdict even after wrap-up resume)"
 		}
@@ -643,6 +652,9 @@ func (a *Executor) readReviewVerdict(stepID ids.ID, verdictPath, model string, o
 				raw, v, ok = raw2, v2, true
 			}
 		}
+	}
+	if failure := modelAnswerFailure(outputTokens, lastEvents); failure != "" {
+		return reviewVerdict{}, failure
 	}
 	if !ok {
 		evidence["raw"] = strs.Truncate(string(raw), 1000)

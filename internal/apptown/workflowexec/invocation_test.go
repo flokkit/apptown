@@ -33,17 +33,17 @@ func TestEmptyTurnRetryCountsTheUsageOfBothTries(t *testing.T) {
 		if len(names) == 2 {
 			text = `,"content":[{"type":"text","text":"done"}]`
 		}
-		return execution.Outcome{Output: fmt.Appendf(nil, `{"type":"message_end","message":{"role":"assistant","model":"m","provider":"p"%s,"usage":{"input":%d,"output":0,"totalTokens":%d}}}`+"\n", text, len(names)*1000, len(names)*1000)}
+		return execution.Outcome{Output: fmt.Appendf(nil, `{"type":"message_end","message":{"role":"assistant","model":"m","provider":"p"%s,"usage":{"input":%d,"output":%d,"totalTokens":%d}}}`+"\n", text, len(names)*1000, 2-len(names), len(names)*1000+2-len(names))}
 	}))
 	res := a.piInvoke(t.Context(), piCall{
 		Source:    workflow.Source{ProjectID: idstest.N(1), RunID: idstest.N(5), RootRunID: idstest.N(5), WorkflowName: "w", WorkflowVersion: 1},
 		Step:      &workflow.Step{ID: idstest.N(9), Attempt: 1, Name: "implement"},
 		Workspace: t.TempDir(), Name: "apptown-step-00000000-0009-7000-8000-000000000000", RetryEmpty: true,
 	})
-	if res.Tries != 2 || res.Text != "done" || len(names) != 2 || names[1] != "apptown-step-00000000-0009-7000-8000-000000000000-r2" {
+	if res.OutputTokens != 1 || res.Tries != 2 || res.Text != "done" || len(names) != 2 || names[1] != "apptown-step-00000000-0009-7000-8000-000000000000-r2" {
 		t.Fatalf("an empty turn is re-run once: tries=%d text=%q names=%v", res.Tries, res.Text, names)
 	}
-	if total, _, err := a.ledger.RunTotal(context.Background(), idstest.N(5)); err != nil || total != 1000+2000 {
+	if total, _, err := a.ledger.RunTotal(context.Background(), idstest.N(5)); err != nil || total != 1001+2000 {
 		t.Fatalf("both tries count: %d %v", total, err)
 	}
 }
