@@ -150,6 +150,9 @@ func (s *Service) Snapshot(ctx context.Context, id ids.ID, view ReadView) (*RunS
 	if out.Run.ProjectID != project {
 		return nil, &access.Denied{Reason: "Work scope changed during read"}
 	}
+	if view != TraceView {
+		out.WaitingOn = s.readerWaitingOn(ctx, nil, out)
+	}
 	if view == DetailView {
 		for _, step := range out.Steps {
 			if step.Status == StatusPending && isAcceptance(out.Run, step) {
@@ -228,7 +231,28 @@ func (s *Service) Runs(ctx context.Context, in RunQuery) ([]RunSummary, error) {
 	if len(in.projects) == 0 {
 		return []RunSummary{}, nil
 	}
-	return (queries{db: s.db, wait: s.wait}).list(ctx, in)
+	rows, err := (queries{db: s.db, wait: s.wait}).list(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	for i := range rows {
+		r := &rows[i]
+		run, err := readScopedRun(ctx, s.db, r.ID, ids.Nil)
+		if err != nil || r.WaitingOn.Tone == "unknown" {
+			r.WaitingOn = unknownWaitingOn()
+			continue
+		}
+		var ch *Change
+		if run.Status != RunRunning && !run.ChangeID.IsZero() {
+			ch, err = ReadChangeIn(ctx, s.db, run.ChangeID)
+			if err != nil {
+				r.WaitingOn = unknownWaitingOn()
+				continue
+			}
+		}
+		r.WaitingOn = s.readerWaitingOn(ctx, ch, &RunSnapshot{Run: run, State: r.State, StateDetail: r.StateDetail, activity: r.activity})
+	}
+	return rows, nil
 }
 
 func (s *Service) Activities(ctx context.Context, idList []ids.ID) (map[ids.ID]Activity, error) {

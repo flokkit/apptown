@@ -86,8 +86,8 @@ func TestChangesSaysWhatEachChangeWaitsOn(t *testing.T) {
 		switch path {
 		case "/projects/shop/board":
 			return 200, `{"columns":[
-				{"state":"in_progress","total":2,"items":[{"id":"00000000-0005-7000-8000-000000000000","title":"add stats","stage":"apply","runStatus":"running","workflowName":"quick-change"},
-					{"id":"00000000-0006-7000-8000-000000000000","title":"fix totals","stage":"fix","runStatus":"running","workflowName":"fix-bug"}]},
+				{"state":"in_progress","total":2,"items":[{"id":"00000000-0005-7000-8000-000000000000","waitingOn":{"says":"ready for your approval"},"title":"add stats","stage":"apply","runStatus":"running","workflowName":"quick-change"},
+					{"id":"00000000-0006-7000-8000-000000000000","waitingOn":{"says":"working"},"title":"fix totals","stage":"fix","runStatus":"running","workflowName":"fix-bug"}]},
 				{"state":"shipped","total":12,"items":[{"id":"00000000-0003-7000-8000-000000000000","title":"the cart","runStatus":"done"}]}]}`
 		case "/runs":
 			return 200, `[{"id":"00000000-0032-7000-8000-000000000000","changeId":"00000000-0005-7000-8000-000000000000","state":"waiting on you","stateDetail":"accept"},{"id":"00000000-003d-7000-8000-000000000000","changeId":"00000000-0006-7000-8000-000000000000","state":"agent working","stateDetail":"fix"},
@@ -96,10 +96,10 @@ func TestChangesSaysWhatEachChangeWaitsOn(t *testing.T) {
 		return 404, `{"error":"no"}`
 	})
 	out, err := run(t, "changes", "-p", "shop")
-	if err != nil || !strings.Contains(out, "waiting on you: accept") || !strings.Contains(out, "fix-bug · fix") || strings.Contains(out, "the cart") {
+	if err != nil || !strings.Contains(out, "ready for your approval") || !strings.Contains(out, "working") || strings.Contains(out, "the cart") {
 		t.Fatalf("changes: %v\n%s", err, out)
 	}
-	if q := (*seen)[0]; q.Path != "/runs" || q.Query != "status=running&project=shop" {
+	if q := (*seen)[0]; q.Path != "/projects/shop/board" {
 		t.Fatalf("activity read: %+v", q)
 	}
 	out, err = run(t, "changes", "-p", "shop", "--all")
@@ -114,18 +114,18 @@ func TestShowSaysWhatTheChangeIsDoing(t *testing.T) {
 	fakeAppTown(t, func(_, path string) (int, string) {
 		switch path {
 		case "/changes/00000000-0005-7000-8000-000000000000":
-			return 200, `{"change":{"id":"00000000-0005-7000-8000-000000000000","title":"add stats","state":"in_progress","summary":"stats added"},"state":"waiting on you","stateDetail":"accept","runs":[]}`
+			return 200, `{"change":{"id":"00000000-0005-7000-8000-000000000000","title":"add stats","state":"in_progress","summary":"stats added"},"waitingOn":{"says":"ready for your approval"},"state":"waiting on you","stateDetail":"accept","runs":[]}`
 		case "/changes/00000000-0006-7000-8000-000000000000":
-			return 200, `{"change":{"id":"00000000-0006-7000-8000-000000000000","title":"the cart","state":"shipped","summary":"the cart works"},"runs":[]}`
+			return 200, `{"change":{"id":"00000000-0006-7000-8000-000000000000","title":"the cart","state":"shipped","summary":"the cart works"},"waitingOn":{"says":"landed"},"runs":[]}`
 		}
 		return 404, `{"error":"no"}`
 	})
 	out, err := run(t, "show", "00000000-0005-7000-8000-000000000000")
-	if err != nil || !strings.Contains(out, "Now waiting on you: accept — apptown follow 00000000-0005-7000-8000-000000000000") || !strings.Contains(out, "So far") {
+	if err != nil || !strings.Contains(out, "Now ready for your approval") || !strings.Contains(out, "So far") {
 		t.Fatalf("show 5: %v\n%s", err, out)
 	}
 	out, err = run(t, "show", "00000000-0006-7000-8000-000000000000")
-	if err != nil || strings.Contains(out, "So far") || !strings.Contains(out, "What shipped") || strings.Contains(out, "Now") {
+	if err != nil || strings.Contains(out, "So far") || !strings.Contains(out, "What shipped") || !strings.Contains(out, "landed") {
 		t.Fatalf("show 6: %v\n%s", err, out)
 	}
 }
@@ -144,9 +144,9 @@ func TestTheCLISaysAppTownsStateLabel(t *testing.T) {
 				{"id":"` + abandoned + `","number":9,"title":"try a thing","stateLabel":"abandoned"}]},
 				{"state":"shipped","total":1,"items":[{"id":"` + record + `","number":10,"title":"research a thing","closedAs":"record","stateLabel":"finished"}]}]}`
 		case "/changes/" + closed:
-			return 200, `{"projectSlug":"speed","change":{"id":"` + closed + `","number":8,"title":"update dependencies","state":"abandoned","closedAs":"nothing-to-change","stateLabel":"closed: nothing to change"},"state":"abandoned","stateDetail":"Nothing to update","runs":[]}`
+			return 200, `{"projectSlug":"speed","change":{"id":"` + closed + `","number":8,"title":"update dependencies","state":"abandoned","closedAs":"nothing-to-change","stateLabel":"closed: nothing to change"},"state":"abandoned","stateDetail":"Nothing to update","waitingOn":{"says":"closed: nothing to change"},"runs":[]}`
 		case "/changes/" + abandoned:
-			return 200, `{"projectSlug":"speed","change":{"id":"` + abandoned + `","number":9,"title":"try a thing","state":"abandoned","stateLabel":"abandoned"},"state":"abandoned","stateDetail":"Nothing to update","runs":[]}`
+			return 200, `{"projectSlug":"speed","change":{"id":"` + abandoned + `","number":9,"title":"try a thing","state":"abandoned","stateLabel":"abandoned"},"state":"abandoned","stateDetail":"Nothing to update","waitingOn":{"says":"abandoned"},"runs":[]}`
 		case "/runs":
 			return 200, `[]`
 		}
@@ -245,5 +245,29 @@ func TestTheTestsNoteTellsSkipsAndUnknownCountsApart(t *testing.T) {
 	lines := testsLines([]runDetail{d})
 	if len(lines) != 1 || !strings.Contains(lines[0], "tests: 4 of 5 skipped — ex/a TestA, ex/a TestB, ex/a TestC, …") {
 		t.Fatalf("show's tests lines: %q", lines)
+	}
+}
+
+// State words come directly from the same owner payload for all CLI views.
+func TestShowChangesAndWaitPrintTheSameSays(t *testing.T) {
+	previousExit := exitProcess
+	exitProcess = func(int) {}
+	t.Cleanup(func() { exitProcess = previousExit })
+	const id = "00000000-0005-7000-8000-000000000000"
+	const says = "review failed"
+	fakeAppTown(t, func(_, path string) (int, string) {
+		switch path {
+		case "/projects/shop/board":
+			return 200, `{"columns":[{"state":"in_progress","items":[{"id":"` + id + `","title":"Fix photos","waitingOn":{"kind":"check","says":"` + says + `","tone":"bad"}}]}]}`
+		case "/changes/" + id:
+			return 200, `{"change":{"id":"` + id + `","title":"Fix photos","state":"in_progress"},"waitingOn":{"kind":"check","says":"` + says + `","tone":"bad"},"state":"blocked","detail":{"run":{"id":"` + id + `","status":"running"},"state":"blocked"},"runs":[]}`
+		}
+		return 404, `{"error":"unexpected request"}`
+	})
+	for _, args := range [][]string{{"show", id}, {"changes", "-p", "shop"}, {"wait", "-c", id}} {
+		out, _ := run(t, args...)
+		if !strings.Contains(out, says) {
+			t.Fatalf("%v lost the API says: %s", args, out)
+		}
 	}
 }

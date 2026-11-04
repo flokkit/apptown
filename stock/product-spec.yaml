@@ -44,7 +44,7 @@ spec:
           with:
             approvers: ["role:project-approver"]
             means: "The spec describes what I actually want built."
-            instructions: "Read the spec. Approve it, or reject with comments."
+            instructions: "Read the spec. To send it back, use Send back… and say what should change."
     - name: finalize
       onEnter:
         - name: tighten-spec
@@ -72,4 +72,4 @@ spec:
           with:
             approvers: ["role:project-approver"]
             means: "This spec is final: work built to it is what I want built."
-            instructions: "Accept the spec as final, or reject with comments."
+            instructions: "Accept the spec as final. To send it back, use Send back… and say what should change."

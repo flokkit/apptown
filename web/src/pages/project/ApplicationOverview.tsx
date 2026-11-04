@@ -2,26 +2,26 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
-import { Status, STATUS_LIGHT } from '../../Status'
+import { ChangeStatus, Status, STATUS_LIGHT } from '../../Status'
 import { DeploymentStatus } from '../../deploymentStatus'
 import { AppAddress } from '../../runtime'
 import { fmtWhen } from '../../format'
 import type { Backup, DeploymentBackups, DeploymentView, ProjectDetail } from '../../wire.gen'
 import type { Release } from '../../api'
-import { ActiveRunList, waitingWhy, type OverviewData } from '../../parts/runActivity'
+import { ActiveRunList, type OverviewData } from '../../parts/runActivity'
 import { BigChangeBox, ReleaseRows } from './Overview'
 import { ScheduleRows } from './Schedules'
 import { Section } from '../../Section'
 import './overview.css'
 
-type ActivityEntry = { id: string; when: string; number?: number; title: string; source: string; word: keyof typeof STATUS_LIGHT; to: string; help?: string; release?: { label: string; to: string } }
+type ActivityEntry = { waitingOn?: import('../../wire.gen').WaitingOn; id: string; when: string; number?: number; title: string; source: string; word: keyof typeof STATUS_LIGHT; to: string; help?: string; release?: { label: string; to: string } }
 
 // Keep each recorded fact attached to its source. A runtime observation is
 // neither release evidence nor an approval.
 export function overviewActivity(data: OverviewData, deployments: DeploymentView[], backups: Backup[], releases: Release[], slug: string): ActivityEntry[] {
   const released = new Set(releases.flatMap(r => (r.changes ?? []).map(c => c.id)))
   return [
-    ...data.history.filter(c => !released.has(c.changeId)).map(c => ({ id: `change-${c.changeId}`, when: c.when, number: c.changeNumber, title: c.title, source: '', word: c.statusLabel, to: `/changes/${c.changeId}` })),
+    ...data.history.filter(c => !released.has(c.changeId)).map(c => ({ id: `change-${c.changeId}`, when: c.when, number: c.changeNumber, title: c.title, source: '', word: c.statusLabel, waitingOn: c.waitingOn, to: `/changes/${c.changeId}` })),
     // A release reads as what it shipped: its change's title leads and opens
     // the change; the release is its own link in the small print. A release
     // of several changes opens the release, which lists them.
@@ -64,17 +64,17 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
     <Section title="Changes" count={open ?? undefined} action={(project.lifecycle?.state ?? 'active') === 'active' ? <BigChangeBox slug={slug} inline /> : undefined}>
       <ReadStatus q={activityQ} what="activity" />
       {data && !open && <p className="muted">No open changes.</p>}
-      {data && <ActiveRunList runs={data.active} why />}
+      {data && <ActiveRunList runs={data.active} />}
       {/* An open change with no run yet: the same row as a run, its number
           before its title, its one action on the right. */}
       {data?.open?.map(c => (
         <div key={c.changeId} className="card row" style={{ display: 'flex' }}>
           <Link to={`/changes/${c.changeId}`} className="row" style={{ display: 'flex', flex: 1 }}>
-            <span className="row-status">{chatOpen(c) ? <Status word="chat open" /> : <Status word={c.statusLabel} reason={waitingWhy(c.statusLabel)} />}</span>
+            <span className="row-status"><ChangeStatus waiting={c.waitingOn} /></span>
             <strong><span className="muted" style={{ fontWeight: 400 }}>#{c.changeNumber} </span>{c.title}</strong>
             {c.editing > 0 && <span className="muted small">{c.editing} file{c.editing === 1 ? '' : 's'} being edited</span>}
           </Link>
-          <span className="row-action">{chatOpen(c) ? <Link to={`/projects/${slug}/console?change=${c.changeId}`} className="btn">Continue chat</Link> : <Link to={`/changes/${c.changeId}`} className="btn">Open</Link>}</span>
+          <span className="row-action">{c.waitingOn.kind === 'chat' ? <Link to={`/projects/${slug}/console?change=${c.changeId}`} className="btn">Continue chat</Link> : <Link to={`/changes/${c.changeId}`} className="btn">Open</Link>}</span>
         </div>
       ))}
     </Section>
@@ -84,7 +84,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       {events.slice(0, activityCount).map(e => (
         <div key={e.id} className="card row" style={{ display: 'flex' }}>
           <Link to={e.to} className="row" style={{ display: 'flex', flex: 1 }}>
-            <span className="row-status"><Status word={e.word} help={e.help} /></span>
+            <span className="row-status">{e.waitingOn ? <ChangeStatus waiting={e.waitingOn} /> : <Status word={e.word} help={e.help} />}</span>
             <strong>{e.number !== undefined && <span className="muted" style={{ fontWeight: 400 }}>#{e.number} </span>}{e.title}</strong>
             <span className="muted small">{fmtWhen(e.when)}</span>
           </Link>
@@ -134,4 +134,3 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
 }
 
 // An open change with no run yet is worked in its chat: say so, not "waiting".
-const chatOpen = (c: { state: string; statusLabel: string }) => c.state === 'in_progress' && c.statusLabel === 'waiting'

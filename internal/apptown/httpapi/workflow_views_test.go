@@ -162,22 +162,16 @@ func TestHandleDashboardSplit(t *testing.T) {
 	r := httptest.NewRequest("GET", "/api/v1/dashboard", nil).WithContext(f.Context)
 	w := httptest.NewRecorder()
 	decisions := adrs.New(f.DB, access.Checked{Authority: identity.Scoped(f.Access, "adrs"), Projects: f.Projects}, nil, nil)
-	NewDashboard(f.Work, decisions, operations.New(f.DB, nil, nil, nil)).Dashboard(w, r)
+	NewDashboard(decisions, operations.New(f.DB, nil, nil, nil)).Dashboard(w, r)
 	if w.Code != 200 {
 		t.Fatalf("dashboard: %d %s", w.Code, w.Body.String())
 	}
-	var body struct {
-		PendingApprovals []map[string]any
-		ActiveRuns       []map[string]any
-		RecentAdrs       []map[string]any
-	}
-	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+	work, err := f.Work.Dashboard(f.Context)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if len(body.PendingApprovals) != 1 || body.PendingApprovals[0]["runId"] != f.RunID.String() || body.PendingApprovals[0]["stepName"] != "accept" {
-		t.Fatalf("pending approval: %v", body.PendingApprovals)
+	if len(work.WaitingOnYou) != 1 || work.WaitingOnYou[0].ID != f.RunID || len(work.ActiveRuns) != 1 || work.ActiveRuns[0].ID != runB.ID {
+		t.Fatalf("work: %+v", work)
 	}
-	if len(body.ActiveRuns) != 1 || body.ActiveRuns[0]["runId"] != runB.ID.String() {
-		t.Fatalf("active split: %v", body.ActiveRuns)
-	}
+
 }

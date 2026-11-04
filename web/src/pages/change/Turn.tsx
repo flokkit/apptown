@@ -1,22 +1,10 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { DecisionContextOnly } from '../../DecisionChoices'
 import type { ChangeView } from '../../api'
-import { checksRunning, nextStep, offered, viewerMayApprove } from './next'
 
 // Only an eligible approval or an offered recovery needs the viewer now.
 export function viewerTurn(view: ChangeView): boolean {
-  const next = nextStep(view)
-  const steps = view.detail?.steps ?? []
-  const busy = view.state === 'blocked' ? steps.some(s => s.status === 'running') : checksRunning(steps, view.detail?.run.currentStage)
-  if (['shipped', 'abandoned'].includes(view.change.state) || busy) return false
-  if (view.state === 'blocked' && steps.some(s => s.stage === view.detail?.run.currentStage && s.type === 'agent/pi' && s.status === 'pending')
-    && !steps.some(s => s.stage === view.detail?.run.currentStage && ['needs_human', 'error'].includes(s.status))) return false
-  if (next.primary === 'approve') return !!next.step && viewerMayApprove(view, next.step)
-  return ['blocked', 'waiting on you'].includes(view.state) && !!view.detail && (
-    ['take-to-chat', 'send-back', 'pick-up', 'restart-landing', 'try-again', 'override'].includes(next.primary)
-    || !!offered(view.next, 'send-back')
-    || !!next.recovery && !!offered(view.next, 'abandon')
-  )
+  return view.waitingOn.you === 'yes' && ['approval', 'check', 'person'].includes(view.waitingOn.kind)
 }
 
 export function TurnDecision({ active, actions, children, approvalWaiting = active, shown = true, ready }: { active: boolean; actions: string[]; children: ReactNode; approvalWaiting?: boolean; shown?: boolean; ready?: ReactNode }) {

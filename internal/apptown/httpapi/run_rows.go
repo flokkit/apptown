@@ -11,9 +11,10 @@ import (
 )
 
 type runRowView struct {
-	RunID     ids.ID `json:"runId"`
-	RunNumber int64  `json:"runNumber"`
-	ChangeID  ids.ID `json:"changeId"`
+	WaitingOn workflow.WaitingOn `json:"waitingOn"`
+	RunID     ids.ID             `json:"runId"`
+	RunNumber int64              `json:"runNumber"`
+	ChangeID  ids.ID             `json:"changeId"`
 	// ChangeNumber is 0 when the run has no change.
 	ChangeNumber int64                  `json:"changeNumber"`
 	Workflow     string                 `json:"workflow"`
@@ -51,7 +52,7 @@ func workflowRunRows(rows []workflow.RunSummary, now time.Time) []runRowView {
 		if row.Status == workflow.RunRunning {
 			end = current
 		}
-		out = append(out, runRowView{RunID: row.ID, RunNumber: row.Number, ChangeID: row.ChangeID, ChangeNumber: row.ChangeNumber, Workflow: row.WorkflowName, Title: row.ItemTitle,
+		out = append(out, runRowView{WaitingOn: row.WaitingOn, RunID: row.ID, RunNumber: row.Number, ChangeID: row.ChangeID, ChangeNumber: row.ChangeNumber, Workflow: row.WorkflowName, Title: row.ItemTitle,
 			StatusLabel: row.State.Display(), Status: row.Status, Stage: row.CurrentStage, State: row.State, Detail: row.StateDetail, Project: row.ProjectSlug,
 			StartedAt: row.CreatedAt, DurationS: durationSeconds(row.CreatedAt, end), Next: []workflow.NextAct{}})
 	}

@@ -97,12 +97,31 @@ or stale-decision checks. Retry, automatic rework, send-back and landing recheck
 share revision fencing but have different eligibility and preservation rules.
 They are not one command with interchangeable flags.
 
-A held run's activity detail names the stopped step and its recorded reason.
-Recovery choices come from the offered acts: the web renders buttons and the CLI
-renders text. The change card shows the reason once, with long detail folded.
-`RunSnapshot.PendingApproval` identifies the pending decision, including one in a
-called workflow; waiting activity alone does not imply approval. After three
-rework rounds the card leads with chat when another agent round is offered.
+`WaitingOn` is the workflow owner's attention projection after classification.
+It names the holding run and step, including a child's, counts current failed
+checks without stale or overridden verdicts, and supplies the phrase and tone
+shown on Home, project lists, the change head and `apptown show`, `changes`
+and `wait`. A failed check takes precedence over a later pending approval;
+an error says the check could not run. Other holds retain their explanation.
+Ready work says "ready to continue", accepted work awaiting its landing says
+"queued to land", and an open change without running work says "chat open".
+
+The projection's `you` answers the current reader's eligibility for relevant
+acts using command permissions. Approval eligibility includes current-round
+vote identity: a person who already voted is not asked again while a quorum
+waits. Deciders come from the effective approval expressions, including project
+defaults, and retain person, group or role kind. Denied eligibility is `no`;
+unavailable eligibility is `unknown`. Work, chat, queued and closed attention
+report `no` because they have no current act. Offered acts alone establish neither.
+Home's `/activity` response supplies one server partition by `you=yes`, each
+change once. Personal work is unlimited; other work keeps the newest 20 visible
+running roots, including readable work awaiting somebody else. The web
+renders it without a second partition. `/dashboard` supplies recent decisions
+and the caller's ended operations.
+
+Recovery buttons still come from offered acts. After three rework rounds chat
+is the preferred recovery action when another agent round is offered. The
+checks shield reads recorded step results independently of attention wording.
 
 A running run's detail snapshot lists its next acts (`RunSnapshot.Next`):
 `approve` for the approvals it waits on, `override` for failed or errored checks
@@ -110,10 +129,13 @@ blocking its stage, `retry` for stopped steps a step run accepts again, and
 `rework` for another round of the stage agent, each naming its step; and the
 run acts `advance` and
 `restart-landing` (a landing whose rules changed). The change page's projection
-carries the change acts from `ChangeActs`: `land` (in progress, nothing
-running, no landing queued) and `send-back` (open, blocked, not merged) and, with it, `abandon` for a reader who may abandon the change. A
-landing queued for accepted work is the stated fact `LandingQueued`. Apart from `abandon`, they say what is available, not who may do it: every command
-still checks authority and freshness when it arrives. Clients submit these acts
+carries the change acts from `ChangeActs`: `land` (in progress, an existing run,
+nothing running, no landing queued), `send-back` (open, blocked, not merged),
+and `abandon` for a reader who may abandon the blocked change. A no-run open
+chat change also offers `abandon` to a reader who may abandon it; landing
+starts from its chat. A landing queued for accepted work is the stated fact
+`LandingQueued`. Apart from `abandon`, the acts say what is available, not who
+may do it: every command still checks authority and freshness when it arrives. Clients submit these acts
 rather than pick targets from step types or statuses, and branch on a
 refusal's code, never its sentence (another change landing is
 `landing-occupied`).

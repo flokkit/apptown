@@ -1,5 +1,5 @@
 import { GlanceRow } from '../GlanceRow'
-import { Status } from '../Status'
+import { ChangeStatus, Status } from '../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChangeState, Doing, Release, RunStatus, post } from '../api'
@@ -18,6 +18,7 @@ export type RunRow = {
   project?: string; startedAt: string; durationS: number
   // What the server offers the reader on the row's change (abandon, for a blocked one they may close).
   next: NextAct[]
+  waitingOn: import('../wire.gen').WaitingOn
 }
 
 // History is CHANGE history: one row per finished change — what it was,
@@ -25,6 +26,7 @@ export type RunRow = {
 // holds the runs for the drill-in.
 export type ChangeRow = {
   changeId: string | null; changeNumber: number; title: string; type: string; state: ChangeState; closedAs?: string; stateLabel: string; statusLabel: import('../wire.gen').DisplayStatus; completedRuns?: number; merged?: boolean
+  waitingOn: import('../wire.gen').WaitingOn
   project?: string; workflows: string; runs: number; when: string; tookS: number
 }
 
@@ -33,14 +35,14 @@ export type OpenChange = { changeId: string | null; changeNumber: number; title:
 // The server's overview, with the run rows' state read as the Doing union.
 export type OverviewData = Omit<ProjectOverviewView, 'active'> & { active: RunRow[] }
 
-export function ActiveRunList({ runs, showProject, names = {}, why = false }: { runs: RunRow[]; showProject?: boolean; names?: Record<string, string>; why?: boolean }) {
+export function ActiveRunList({ runs, showProject, names = {} }: { runs: RunRow[]; showProject?: boolean; names?: Record<string, string> }) {
   if (runs.length === 0) return null
   return (
     <div>
       {runs.map((r) => {
         const body = (
           <>
-            <span className="row-status"><Status word={r.statusLabel} reason={why ? waitingWhy(r.statusLabel) : undefined} /></span>
+            <span className="row-status"><ChangeStatus waiting={r.waitingOn} /></span>
             <strong>{r.changeNumber ? <span className="muted" style={{ fontWeight: 400 }}>#{r.changeNumber} </span> : null}{r.title || `run ${r.runNumber}`}</strong>
             <span className="muted small">{showProject ? `${names[r.project ?? ''] ?? r.project} · ` : ''}{relTime(r.startedAt)}</span>
           </>
@@ -60,7 +62,7 @@ export function ActiveRunList({ runs, showProject, names = {}, why = false }: { 
         // row uses; closing it is a considered act on the change's own page.
         // A failed change always has a next step, whether or not this list
         // was sent the change's offered acts.
-        const stuck = r.statusLabel === 'failed' || r.statusLabel === 'waiting for you' || (r.next ?? []).some((a) => a.act === 'abandon')
+        const stuck = r.waitingOn.kind === 'check' || r.waitingOn.you === 'yes' || (r.next ?? []).some((a) => a.act === 'abandon')
         const link = (
           <Link key={r.runId} to={`/changes/${r.changeId}`} className={stuck ? 'row' : 'card row'} style={{ display: 'flex', flex: stuck ? 1 : undefined }}>
             {body}
@@ -70,7 +72,7 @@ export function ActiveRunList({ runs, showProject, names = {}, why = false }: { 
         return (
           <div key={r.runId} className="card row" style={{ display: 'flex' }}>
             {link}
-            <span className="row-action"><Link to={`/changes/${r.changeId}`} className="btn">{r.statusLabel === 'failed' ? 'Fix it' : r.statusLabel === 'waiting for you' ? 'Review' : 'Open'}</Link></span>
+            <span className="row-action"><Link to={`/changes/${r.changeId}`} className="btn">{r.waitingOn.kind === 'check' && r.waitingOn.you === 'yes' ? 'Fix it' : r.waitingOn.kind === 'approval' && r.waitingOn.you === 'yes' ? 'Review' : 'Open'}</Link></span>
           </div>
         )
       })}
@@ -113,7 +115,7 @@ export function ChangeHistoryTable({ changes, showProject, releases, slug }: {
             <td className="muted small" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(e.when)}</td>
             {showProject && <td className="muted small">{e.c.project}</td>}
             <td className="stack-lead"><Link className="tap-open" to={`/changes/${e.c.changeId}`}><span className="muted small">#{e.c.changeNumber}</span> {e.c.title}</Link></td>
-            <td><Status word={e.c.statusLabel} /></td>
+            <td><ChangeStatus waiting={e.c.waitingOn} /></td>
             {e.c.statusLabel === 'landed'
               ? <td className="muted small" data-label="took">{fmtDuration(e.c.tookS)}</td>
               : <td className="muted small stack-hide" />}
@@ -137,9 +139,4 @@ export function ChangeHistoryTable({ changes, showProject, releases, slug }: {
       </tbody>
     </table>
   )
-}
-
-// waitingWhy says, for a change waiting on a person, why it is waiting.
-export function waitingWhy(label: string): string | undefined {
-  return ({ failed: 'a check failed', 'waiting for you': 'ready for your approval', blocked: 'stopped, needs a decision' } as Record<string, string>)[label]
 }

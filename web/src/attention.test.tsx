@@ -20,8 +20,8 @@ const warning: AttentionView = { ...known, items: [
   { key: 'workers/a', title: 'Worker unavailable', detail: 'Work is waiting.', href: '/infrastructure', statusLabel: 'waiting', severity: 'warning', observedAt: at, stale: false },
   { key: 'protection/a', title: 'Recovery is untested', detail: 'No recovery evidence yet.', href: '/projects/game/settings/data', statusLabel: 'waiting', severity: 'advisory', observedAt: at, stale: false },
 ] }
-const emptyDashboard = { pendingApprovals: [], activeRuns: [], recentAdrs: [], endedOperations: [] }
-const emptyActivity = { agents: [], active: [], history: [], deployments: [] }
+const emptyDashboard = { recentAdrs: [], endedOperations: [] }
+const emptyActivity = { waitingOnYou: [], agents: [], active: [], history: [], deployments: [] }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 const pathOf = (url: unknown) => String(url).replace(/^.*\/api\/v1/, '')
 const mounted: { close: () => void }[] = []
@@ -174,23 +174,23 @@ describe('Attention surfaces share authorized current evidence', () => {
     // A check that could not run lights nothing in the top bar.
     expect(badge(v.el)).toBeNull()
   })
-  it('keeps Home approvals and blocked work, and refuses all-quiet on missing host observations', async () => {
-    const active = [{ runId: 'run-blocked', runNumber: 1, changeId: 'change-blocked', changeNumber: 1, workflow: 'implement', title: 'Blocked change', status: 'blocked', stage: 'gate', state: 'blocked', detail: 'Needs repair', project: 'game', startedAt: at, durationS: 10 }]
-    responses(() => json({ error: 'cannot read operations' }, 503), {
-      '/activity': { ...emptyActivity, active },
-      '/dashboard': { ...emptyDashboard, pendingApprovals: [{ id: 'approval', changeId: 'change-review', changeNumber: 2, runId: 'run-review', itemTitle: 'Review change', projectSlug: 'game', stepName: 'accept' }] },
-      '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'game', name: 'Game', productionUrl: 'https://game.example.test', deployed: true, hasDeployments: true, observation: 'unreachable', targetName: 'Club host', observationStale: false }], total: 1 },
-      '/projects/game/deployments': [],
+  it('renders the server Home partition and count without moving other people’s work', async () => {
+    const row = (id: string, kind: string, says: string, you: string) => ({ runId: id, runNumber: 1, changeId: id, changeNumber: 1, workflow: 'work', title: id, status: 'running', stage: 'check', state: 'blocked', project: 'game', startedAt: at, durationS: 10, next: [], waitingOn: { kind, says, you, tone: kind === 'check' ? 'bad' : 'warn', run: id, step: 'review', checks: 1, who: [] } })
+    responses(() => json(known), {
+      '/activity': { ...emptyActivity, active: [row('Another check', 'check', 'review failed', 'no'), row('Another approval', 'approval', 'waiting for Priya', 'no')], waitingOnYou: [row('My check', 'check', 'review failed', 'yes')] },
+      '/dashboard': emptyDashboard,
+      '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'game', name: 'Game' }], total: 1 }, '/projects/game/deployments': [],
     })
     const v = mount(<Dashboard />, '/'); await settled(v.client)
-    expect(v.el.textContent).not.toContain('server status not available')
-    expect(v.el.textContent).not.toContain('Operations')
-    expect(v.el.querySelector('section[aria-label="Waiting on you"] .section-count')?.textContent).toBe('2')
-    expect(v.el.textContent).toContain('Blocked change')
-    expect(v.el.textContent).toContain('Review change')
-    expect(v.el.textContent).not.toContain('All quiet')
-  })
-})
+    const personal = v.el.querySelector('section[aria-label="Waiting on you"]')!
+    expect(personal.querySelector('.section-count')?.textContent).toBe('1')
+    expect(personal.textContent).toContain('My check')
+    expect(personal.textContent).toContain('review failed')
+    expect(personal.textContent).not.toContain('Another')
+    expect(v.el.querySelectorAll('a[href="/changes/My check"]').length).toBe(2)
+    expect(v.el.textContent).toContain('Another check')
+    expect(v.el.textContent).toContain('waiting for Priya')
+  })})
 
 it.each([[true, true], [true, false], [false, true], [false, false]])('Home keeps unreachable visible with production %s on phone %s', async (production, narrow) => {
  vi.stubGlobal('matchMedia', () => ({ matches: narrow, addEventListener() {}, removeEventListener() {} }))

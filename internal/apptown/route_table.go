@@ -165,7 +165,7 @@ func appRoutes(a *App) []routeSpec {
 		stepInterruption = httpapi.NewStepInterruption(a.Work, &a.docker, a.tasks)
 		administratorNetworks = httpapi.NewAdministratorNetworks(a.Access, a.cfg.proxies)
 		changeDetail = httpapi.NewChangeDetail(a.Work, a.ADRs, a.Deployment, a.DB, a.Usage.Ledger, a.cfg.dataDir)
-		dashboard = httpapi.NewDashboard(a.Work, a.ADRs, a.operations)
+		dashboard = httpapi.NewDashboard(a.ADRs, a.operations)
 		attention = httpapi.NewAttention(a.attention)
 		activity = httpapi.NewActivity(a.Work, a.Deployment)
 		projectOverview = httpapi.NewProjectOverview(a.Projects, a.Work, a.cfg.dataDir)

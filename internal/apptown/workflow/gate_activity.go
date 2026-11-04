@@ -84,14 +84,25 @@ func judgedByGateInSnapshot(ctx context.Context, q database.Queryer, run *Run, s
 	return judgedByGate(a, stage, checks, current), nil
 }
 
-// stageFacts decodes the activity row's stage columns; null means none.
-func stageFacts(declaration, checks json.RawMessage) (*schema.Stage, []Check, error) {
-	if len(declaration) == 0 || string(declaration) == "null" {
+// stageFacts decodes each run's definition separately so a malformed row
+// cannot prevent the other runs in a board from being classified.
+func stageFacts(definition json.RawMessage, current string, checks json.RawMessage) (*schema.Stage, []Check, error) {
+	if len(definition) == 0 || string(definition) == "null" {
 		return nil, nil, nil
 	}
-	var stage schema.Stage
-	if err := json.Unmarshal(declaration, &stage); err != nil {
+	var spec schema.Spec
+	if err := json.Unmarshal(definition, &spec); err != nil {
 		return nil, nil, err
+	}
+	var stage *schema.Stage
+	for i := range spec.Stages {
+		if spec.Stages[i].Name == current {
+			stage = &spec.Stages[i]
+			break
+		}
+	}
+	if stage == nil {
+		return nil, nil, nil
 	}
 	var recorded []Check
 	if len(checks) > 0 && string(checks) != "null" {
@@ -99,5 +110,5 @@ func stageFacts(declaration, checks json.RawMessage) (*schema.Stage, []Check, er
 			return nil, nil, err
 		}
 	}
-	return &stage, recorded, nil
+	return stage, recorded, nil
 }

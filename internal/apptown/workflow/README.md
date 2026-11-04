@@ -54,7 +54,7 @@ gives the page that reading as `Step.CheckReading`.
 readable projects, with one state and reason per row. Running workflows use the
 run classifier; approval eligibility uses `MayApprove`. Without a running run,
 landing and observed workspace edits count as running, and an available Land act
-means waiting on the reader. Remaining changes are idle with the reason
+means waiting on the reader. A no-run chat change has no Land act. Remaining changes are idle with the reason
 "No workflow is running" and a timestamp. Project overview shares Work's
 workspace edit observation. The list is bounded to 20 rows with a total count;
 its activity time counts change creation and run updates.
@@ -68,11 +68,32 @@ the same rule when evidence changes; later assertions cannot block earlier
 ones. An override dispatches the stage’s pending work before it can advance.
 Review starts after its prerequisites pass and does not poll for boot.
 
-Run activity uses the dispatcher's prerequisite rule. Pending work counts as
-working only when its earlier steps are settled. If nothing can dispatch and a
-step holds the stage, activity says "waiting on you" with that step's reason
-and requested actions, or how to send back, re-run or override a failure. Detail,
-run lists, the change page and the CLI share this classification.
+Run activity uses the dispatcher's prerequisite rule. `WaitingOn` projects that
+classification into one phrase (`says`) and tone for Home, project lists, the
+change head and the CLI. It identifies the holding run and step, including a
+called workflow's, and counts effective failed checks in its current stage.
+Running work, dispatchable work, queued rework and stale verdicts take precedence
+before a held check or decision is named. Other holds keep their recorded reason.
+
+`WaitingOn.you` checks relevant command permissions without effects. An approval
+also checks whether this person already voted in its current round. Denial is
+`no`; unavailable eligibility, or an actionable view that has not checked the
+reader, is `unknown`. Work, chat, queued and closed attention have no current
+act and report `no`. Effective deciders retain their person, group or role kind and use
+project defaults when the step names none.
+`Service.Dashboard` partitions readable current work once by this answer, with
+each change appearing once. Home includes every visible running root waiting
+on the reader and at most 20 other running roots, newest first. List rows omit events and artifacts; an unreadable attention
+projection says "unknown" without removing other rows. `/activity` carries that
+partition; `/dashboard`
+supplies recent decisions and ended operations. Clients render the partition
+and phrase without inferring a person's turn from global offered acts.
+
+An open change without a run, or with a completed or abandoned last run, reads
+"chat open". Finished runs without an open change read as closed. A queued
+landing reads "queued to land". `ChangeActs` offers
+abandon for a no-run chat change when the reader may abandon it; landing that
+change starts from its chat.
 
 ## Follow a retry
 

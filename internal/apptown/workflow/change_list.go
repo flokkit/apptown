@@ -24,6 +24,7 @@ type ChangeList struct {
 }
 
 type ChangeSummary struct {
+	WaitingOn WaitingOn `json:"waitingOn"`
 	Change
 	Stage        string           `json:"stage"`
 	RunStatus    OptionalRunState `json:"runStatus"`

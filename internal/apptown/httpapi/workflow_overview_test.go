@@ -157,16 +157,16 @@ func TestHandleActivity(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatalf("activity: %d %s", w.Code, w.Body.String())
 	}
-	var body struct{ Agents, Active, History, Deployments []map[string]any }
+	var body struct{ Agents, WaitingOnYou, Active, History, Deployments []map[string]any }
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if len(body.Agents) != 1 || body.Agents[0]["step"] != "agent" || len(body.Active) != 2 || len(body.History) != 1 || body.History[0]["project"] != "shop" || len(body.Deployments) != 1 || body.Deployments[0]["name"] != "staging" || body.Deployments[0]["running"] != nil || body.Deployments[0]["observation"] != "unknown" {
+	if len(body.Agents) != 1 || body.Agents[0]["step"] != "agent" || len(body.Active) != 1 || len(body.WaitingOnYou) != 1 || len(body.History) != 1 || body.History[0]["project"] != "shop" || len(body.Deployments) != 1 || body.Deployments[0]["name"] != "staging" || body.Deployments[0]["running"] != nil || body.Deployments[0]["observation"] != "unknown" {
 		t.Fatalf("activity partitions: %+v", body)
 	}
 }
 
-func TestWorkflowActivityRequiredReadsFailAtHTTP(t *testing.T) {
+func TestWorkflowProjectionFailuresKeepRowsUnknownAtHTTP(t *testing.T) {
 	t.Parallel()
 	for _, view := range []string{"runs", "overview", "activity", "run"} {
 		t.Run(view, func(t *testing.T) {
@@ -193,8 +193,35 @@ func TestWorkflowActivityRequiredReadsFailAtHTTP(t *testing.T) {
 				out = httptest.NewRecorder()
 				NewRuns(f.Work, nil).GetRun(out, r)
 			}
-			if out.Code != 500 {
-				t.Fatalf("required read failure: %d %s", out.Code, out.Body.String())
+			if view == "run" {
+				if out.Code != 500 {
+					t.Fatalf("required detail read failure: %d %s", out.Code, out.Body.String())
+				}
+				return
+			}
+			if out.Code != 200 {
+				t.Fatalf("projection removed rows: %d %s", out.Code, out.Body.String())
+			}
+			var rows []struct {
+				WaitingOn workflow.WaitingOn `json:"waitingOn"`
+			}
+			if view == "runs" {
+				if err := json.Unmarshal(out.Body.Bytes(), &rows); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				var body struct {
+					Active []struct {
+						WaitingOn workflow.WaitingOn `json:"waitingOn"`
+					} `json:"active"`
+				}
+				if err := json.Unmarshal(out.Body.Bytes(), &body); err != nil {
+					t.Fatal(err)
+				}
+				rows = body.Active
+			}
+			if len(rows) != 1 || rows[0].WaitingOn.Says != "unknown" || rows[0].WaitingOn.Tone != "unknown" || rows[0].WaitingOn.You != "unknown" {
+				t.Fatalf("projection became known or empty: %+v", rows)
 			}
 		})
 	}

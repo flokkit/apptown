@@ -140,3 +140,23 @@ func TestOnlyDependencyUpdatesPackSuppliesScheduledDependencyUplift(t *testing.T
 	}
 	t.Fatal("dependency-uplift is missing")
 }
+
+func TestStockSendBackInstructionsNameTheButton(t *testing.T) {
+	t.Parallel()
+	items, skipped := readStockWorkflows(stock.FS)
+	if skipped != 0 {
+		t.Fatalf("unreadable workflows: %d", skipped)
+	}
+	count := 0
+	for _, item := range items {
+		if strings.Contains(item.Content, "To send it back,") {
+			count++
+			if !strings.Contains(item.Content, "To send it back, use Send back… and say what should change.") || strings.Contains(item.Content, "reject with") {
+				t.Errorf("%s: send-back instructions do not name the button", item.Name)
+			}
+		}
+	}
+	if count == 0 {
+		t.Fatal("no send-back instructions checked")
+	}
+}

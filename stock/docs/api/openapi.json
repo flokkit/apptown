@@ -1091,9 +1091,13 @@
           },
           "usage": {
             "$ref": "#/components/schemas/ChangeUsage"
+          },
+          "waitingOn": {
+            "$ref": "#/components/schemas/WaitingOn"
           }
         },
         "required": [
+          "waitingOn",
           "change",
           "projectSlug",
           "detail",
@@ -1177,6 +1181,9 @@
           "type": {
             "type": "string"
           },
+          "waitingOn": {
+            "$ref": "#/components/schemas/WaitingOn"
+          },
           "when": {
             "type": "string"
           },
@@ -1185,6 +1192,7 @@
           }
         },
         "required": [
+          "waitingOn",
           "completedRuns",
           "merged",
           "changeId",
@@ -1421,11 +1429,15 @@
           "type": {
             "type": "string"
           },
+          "waitingOn": {
+            "$ref": "#/components/schemas/WaitingOn"
+          },
           "workflowName": {
             "type": "string"
           }
         },
         "required": [
+          "waitingOn",
           "id",
           "number",
           "projectId",
@@ -1645,6 +1657,21 @@
         "required": [
           "change",
           "run"
+        ],
+        "type": "object"
+      },
+      "Decider": {
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name"
         ],
         "type": "object"
       },
@@ -2386,9 +2413,16 @@
           },
           "openTotal": {
             "type": "integer"
+          },
+          "waitingOnYou": {
+            "items": {
+              "$ref": "#/components/schemas/runRowView"
+            },
+            "type": "array"
           }
         },
         "required": [
+          "waitingOnYou",
           "open",
           "openTotal",
           "agents",
@@ -4663,9 +4697,13 @@
               ]
             },
             "type": "array"
+          },
+          "waitingOn": {
+            "$ref": "#/components/schemas/WaitingOn"
           }
         },
         "required": [
+          "waitingOn",
           "run",
           "stages",
           "steps",
@@ -5733,6 +5771,56 @@
         ],
         "type": "object"
       },
+      "WaitingOn": {
+        "properties": {
+          "checks": {
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "run": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "says": {
+            "type": "string"
+          },
+          "step": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tone": {
+            "type": "string"
+          },
+          "who": {
+            "items": {
+              "$ref": "#/components/schemas/Decider"
+            },
+            "type": "array"
+          },
+          "you": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "run",
+          "step",
+          "checks",
+          "who",
+          "you",
+          "says",
+          "tone"
+        ],
+        "type": "object"
+      },
       "changeEvidence": {
         "properties": {
           "inAdvance": {
@@ -6021,11 +6109,15 @@
           "title": {
             "type": "string"
           },
+          "waitingOn": {
+            "$ref": "#/components/schemas/WaitingOn"
+          },
           "workflow": {
             "type": "string"
           }
         },
         "required": [
+          "waitingOn",
           "runId",
           "runNumber",
           "changeId",

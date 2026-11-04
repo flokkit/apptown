@@ -13,74 +13,44 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// waitVerdict reads AppTown's own activity for a running run (the state
-// the change page shows) and reports the moment waiting stops being useful:
-// "decision" (a person must approve), "wedged" (the stage is blocked and
-// cannot pass on its own), "reworking" (AppTown says the stage's agent is
-// working from send-back words, a person's or a check's), or "working". AppTown, not this client, decides
-// what is settled: a verdict about to be checked again after a rework and a
-// landing still taking its acceptance read as working there, so wait no
-// longer calls them wedged or a person's move in the seconds before they
-// settle.
+// waitVerdict uses the owner's holding identity, including called workflows.
 func waitVerdict(d runDetail) (kind string, stepID ids.ID, name string) {
-	var approval, failed ids.ID
-	var aName, fName string
-	for _, s := range d.Steps {
-		if s.Stage != d.Run.CurrentStage {
-			continue
-		}
-		if s.Type == "approval" && s.Status == "pending" && approval.IsZero() {
-			approval, aName = s.ID, s.Name
-		}
-		if (s.Status == "fail" || s.Status == "error" || s.Status == "needs_human") && s.OverrideBy == "" && failed.IsZero() {
-			failed, fName = s.ID, s.Name
-		}
+	switch d.WaitingOn.Kind {
+	case "approval":
+		return "decision", d.WaitingOn.Step, d.WaitingOn.Says
+	case "check", "person":
+		return "wedged", d.WaitingOn.Step, d.WaitingOn.Says
 	}
-	switch d.State {
-	case "waiting on you":
-		if approval.IsZero() {
-			// The approval is in a called workflow; AppTown names it.
-			return "decision", ids.Nil, d.StateDetail
-		}
-		return "decision", approval, aName
-	case "blocked":
-		if failed.IsZero() {
-			return "wedged", ids.Nil, d.StateDetail
-		}
-		return "wedged", failed, fName
-	}
-	// A rework is announced so no human plays redundant transport: the
-	// server names the step and who sent it back.
 	if sb := d.SentBack; sb != nil {
 		return "reworking", sb.StepID, fmt.Sprintf("%s, sent back by %s", sb.Step, sb.By)
 	}
 	return "working", ids.Nil, ""
 }
 
-// approveHint is the decision line: the approval and how to give it.
-func approveHint(name string, id ids.ID) string {
-	if id.IsZero() {
-		return name
+func waitAction(d runDetail) string {
+	w := d.WaitingOn
+	if w.Kind == "approval" {
+		return fmt.Sprintf("%s — step %s — apptown approve %s", w.Says, w.Step, w.Step)
 	}
-	return fmt.Sprintf("%s — apptown approve %d (or reject)", name, id)
+	line := w.Says
+	if !w.Step.IsZero() {
+		line += fmt.Sprintf(" — step %s", w.Step)
+	}
+	line += fmt.Sprintf(" — apptown status %s", w.Run)
+	if acts := nextActsText(d.Next); acts != "" {
+		line += " — available: " + acts
+	}
+	return line
 }
 
-// stepRef names a step for a sentence, with its id when AppTown gave one.
-func stepRef(name string, id ids.ID) string {
-	if id.IsZero() {
-		return name
-	}
-	return fmt.Sprintf("%s (%d)", name, id)
-}
-
-// cmdWait blocks until there is nothing to wait FOR: the run or change
-// finishes, fails, or stops at a decision a person must make. It prints
-// what happened and, when a decision is needed, exactly which step.
-// Exit codes: 0 finished well · 1 abandoned/blocked · 2 needs a person.
 // exitProcess ends the CLI with a code; wait's tests replace it to read the
 // code instead.
 var exitProcess = os.Exit
 
+// cmdWait waits for a run or change to finish, fail, need approval, or stop
+// at a held check or person. WaitingOn supplies the outcome and holding step;
+// sentBack announces reworking while polling continues.
+// Exit codes: 0 finished well; 1 failed, abandoned or blocked; 2 approval or ended change.
 func cmdWait(args []string) error {
 	fs := newFlags("wait")
 	change := fs.Bool("c", false, "the id is a change's, not a run's (<project>#<number> always names a change)")
@@ -211,6 +181,7 @@ func cmdWait(args []string) error {
 				Change       struct{ State string }
 				State        string
 				StateDetail  string
+				WaitingOn    Waiting
 				Detail       *runDetail
 				MainConflict *mainConflict
 			}
@@ -225,27 +196,31 @@ func cmdWait(args []string) error {
 			}
 			switch v.Change.State {
 			case "shipped":
-				return stop(WaitOutcome{Outcome: "shipped", Detail: "shipped"}, v.Detail, ids.Nil, fmt.Sprintf("✓ change %s shipped", id))
+				return stop(WaitOutcome{Outcome: "shipped", Detail: "shipped"}, v.Detail, ids.Nil, fmt.Sprintf("✓ change %s: %s", id, v.WaitingOn.Says))
 			case "abandoned":
-				return stop(WaitOutcome{Outcome: "abandoned", ExitCode: 1, Detail: "abandoned"}, v.Detail, ids.Nil, fmt.Sprintf("✗ change %s abandoned", id))
+				return stop(WaitOutcome{Outcome: "abandoned", ExitCode: 1, Detail: "abandoned"}, v.Detail, ids.Nil, fmt.Sprintf("✗ change %s: %s", id, v.WaitingOn.Says))
 			}
 			switch {
 			case v.Detail != nil && v.Detail.Run.Status == "running":
 				d := *v.Detail
-				note(fmt.Sprintf("… change %s: run %d (%s) in %s", id, d.Run.ID, d.Run.WorkflowName, d.Run.CurrentStage))
+				d.WaitingOn = v.WaitingOn
+				note(v.WaitingOn.Says)
 				switch kind, sid, name := waitVerdict(d); kind {
 				case "decision":
-					return stop(WaitOutcome{Outcome: "needs_decision", ExitCode: 2, Detail: name}, &d, sid, fmt.Sprintf("⏸ change %s needs a decision: %s", id, approveHint(name, sid)))
+					return stop(WaitOutcome{Outcome: "needs_decision", ExitCode: 2, Detail: name}, &d, sid, fmt.Sprintf("⏸ change %s: %s", id, waitAction(d)))
 				case "wedged":
-					return stop(WaitOutcome{Outcome: "blocked", ExitCode: 1, Detail: name}, &d, sid, fmt.Sprintf("✗ change %s: run %d is blocked — %s failed; fix, send back, override, or abandon", id, d.Run.ID, stepRef(name, sid)))
+					return stop(WaitOutcome{Outcome: "blocked", ExitCode: 1, Detail: name}, &d, sid, fmt.Sprintf("✗ change %s: %s", id, waitAction(d)))
 				case "reworking":
 					note(fmt.Sprintf("↻ change %s: %s — the agent is reworking it (no action needed)", id, name))
 				}
 			case v.State == "queued":
 				// Accepted work whose landing has not started yet.
-				note(fmt.Sprintf("… change %s: %s queued", id, v.StateDetail))
+				note(v.WaitingOn.Says)
 			default:
-				return stop(WaitOutcome{Outcome: "ended", ExitCode: 2, Detail: endedDetail(v.Change.State, v.Detail)}, v.Detail, ids.Nil, noRunGoing(id, v.Change.State, v.Detail))
+				if v.Detail != nil && v.Detail.Ending != "" {
+					note(v.Detail.Ending)
+				}
+				return stop(WaitOutcome{Outcome: "ended", ExitCode: 2, Detail: endedDetail(v.Change.State, v.Detail)}, v.Detail, ids.Nil, fmt.Sprintf("change %s: %s", id, v.WaitingOn.Says))
 			}
 		} else {
 			var d runDetail
@@ -259,12 +234,12 @@ func cmdWait(args []string) error {
 			case "done":
 				return stop(WaitOutcome{Outcome: "done", Detail: "done"}, &d, ids.Nil, fmt.Sprintf("✓ run %s done (%s)", id, d.Run.WorkflowName))
 			case "running":
-				note(fmt.Sprintf("… run %s (%s) in %s", id, d.Run.WorkflowName, d.Run.CurrentStage))
+				note(d.WaitingOn.Says)
 				switch kind, sid, name := waitVerdict(d); kind {
 				case "decision":
-					return stop(WaitOutcome{Outcome: "needs_decision", ExitCode: 2, Detail: name}, &d, sid, fmt.Sprintf("⏸ run %s needs a decision: %s", id, approveHint(name, sid)))
+					return stop(WaitOutcome{Outcome: "needs_decision", ExitCode: 2, Detail: name}, &d, sid, fmt.Sprintf("⏸ run %s: %s", id, waitAction(d)))
 				case "wedged":
-					return stop(WaitOutcome{Outcome: "blocked", ExitCode: 1, Detail: name}, &d, sid, fmt.Sprintf("✗ run %s is blocked — %s failed; fix, send back, override, or abandon", id, stepRef(name, sid)))
+					return stop(WaitOutcome{Outcome: "blocked", ExitCode: 1, Detail: name}, &d, sid, fmt.Sprintf("✗ run %s: %s", id, waitAction(d)))
 				case "reworking":
 					note(fmt.Sprintf("↻ run %s: %s — the agent is reworking it (no action needed)", id, name))
 				}
@@ -318,18 +293,6 @@ type mainConflict struct {
 func (c mainConflict) line(id string) string {
 	return fmt.Sprintf("! change %s: %s has moved and AppTown could not merge it in before step %s: %s conflict. Catch up in the change's chat: %s",
 		id, c.MainBranch, c.Step, strings.Join(c.Files, ", "), c.CatchUp)
-}
-
-// noRunGoing is wait's answer for a change with no run going. When its last
-// run ended without finishing (a landing that found main had moved, a
-// person's stop), it says why in AppTown's words, which carry what to do
-// next: a chat told only "a person's move" went on saying its landing
-// awaited approval (change 61).
-func noRunGoing(id, state string, last *runDetail) string {
-	if last != nil && last.Ending != "" {
-		return fmt.Sprintf("⏸ change %s is %s with no run going — run %d (%s) ended: %s", id, state, last.Run.ID, last.Run.WorkflowName, last.Ending)
-	}
-	return fmt.Sprintf("⏸ change %s is %s with no run going — a person's move", id, state)
 }
 
 // runEnded is wait's answer for a run that ended without finishing, with
@@ -445,7 +408,8 @@ func cmdRuns(args []string) error {
 }
 
 type runDetail struct {
-	Run struct {
+	WaitingOn Waiting
+	Run       struct {
 		ID           ids.ID
 		Number       int64
 		Status       string

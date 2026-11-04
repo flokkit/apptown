@@ -185,8 +185,13 @@ checked, never taken on trust.
 
 ## The `apptown` command line
 
-The `apptown` CLI talks to the same AppTown over its API. On macOS or
-Linux, install it with [Homebrew](https://brew.sh):
+The `apptown` CLI talks to the same AppTown over its API. `apptown show`,
+`apptown changes` and `apptown wait` print the server's same state phrase.
+A failed review says "review failed"; an approval names who it waits for and
+says "your" only when you can decide. An open change without running work
+says "chat open".
+
+On macOS or Linux, install it with [Homebrew](https://brew.sh):
 
 ```
 brew install flokkit/tap/apptown

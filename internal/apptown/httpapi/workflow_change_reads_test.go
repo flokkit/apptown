@@ -71,9 +71,9 @@ func TestHandleGetChangeNoRun(t *testing.T) {
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"detail":null`) || !strings.Contains(w.Body.String(), `"runs":[]`) {
 		t.Fatalf("no-run payload: %d %s", w.Code, w.Body.String())
 	}
-	// Work's change acts ride on the page: an idle change in progress lands.
+	// An open chat change can be abandoned; landing starts from its chat.
 	var view struct{ Next []workflow.NextAct }
-	if err := json.Unmarshal(w.Body.Bytes(), &view); err != nil || len(view.Next) != 1 || view.Next[0].Act != workflow.NextLand {
+	if err := json.Unmarshal(w.Body.Bytes(), &view); err != nil || len(view.Next) != 1 || view.Next[0].Act != "abandon" {
 		t.Fatalf("change acts: %+v %v", view.Next, err)
 	}
 }

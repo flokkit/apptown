@@ -74,7 +74,7 @@ func TestPersonalOpenChangesPreserveRequesterAndCurrentVisibility(t *testing.T) 
 	for _, row := range rows {
 		found[row.ID] = row
 	}
-	if v := found[idle.ID]; v.State.String() != "waiting on you" || v.IdleSince != "" || v.Reason != "ready to land" || v.Number != idle.Number || v.Title != idle.Title || v.ProjectSlug != "game" {
+	if v := found[idle.ID]; v.State.String() != "idle" || v.IdleSince == "" || v.Reason != "No workflow is running" || v.Number != idle.Number || v.Title != idle.Title || v.ProjectSlug != "game" {
 		t.Fatalf("idle: %+v", v)
 	}
 	if v := found[a.ChangeID]; v.State.String() != "waiting on someone else" || !strings.Contains(v.Reason, "boss, group:reviewers") {
@@ -213,7 +213,7 @@ func TestPersonalOpenChangesWithoutRunningRun(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			wantState, wantReason := "waiting on you", "ready to land"
+			wantState, wantReason := "idle", "No workflow is running"
 			switch name {
 			case "landing":
 				ch.ID = a.ChangeID
@@ -256,7 +256,7 @@ func TestPersonalOpenChangesWithoutRunningRun(t *testing.T) {
 				if row.ID != ch.ID {
 					continue
 				}
-				if row.State.String() != wantState || row.Reason != wantReason || (row.IdleSince != "") != (name == "idle") {
+				if row.State.String() != wantState || row.Reason != wantReason || (row.IdleSince != "") != (name == "idle" || name == "ready to land") {
 					t.Fatalf("classification: %+v", row)
 				}
 				if name == "idle" && row.IdleSince != row.UpdatedAt {

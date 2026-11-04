@@ -68,6 +68,11 @@ func stepAuthoritySpecFixture(t *testing.T, spec schema.Spec) *stepAuthorityTest
 // The fixture retains real project-scoped grants and the approval policy.
 func stepAuthorityRunnerFixture(t *testing.T, spec schema.Spec, runners map[string]Runner) *stepAuthorityTestRig {
 	t.Helper()
+	return stepAuthorityProjectRunnerFixture(t, spec, runners, project.Spec{Slug: "game", Name: "G"})
+}
+
+func stepAuthorityProjectRunnerFixture(t *testing.T, spec schema.Spec, runners map[string]Runner, projectSpec project.Spec) *stepAuthorityTestRig {
+	t.Helper()
 	var automatic []string
 	for kind := range runners {
 		automatic = append(automatic, kind)
@@ -83,7 +88,12 @@ func stepAuthorityRunnerFixture(t *testing.T, spec schema.Spec, runners map[stri
 			t.Fatal(err)
 		}
 	}
-	projectID := workflowTestProject(t, db, "game", "G", "")
+	projectID, err := database.Transact(t.Context(), db, func(tx *database.Tx) (ids.ID, error) {
+		return project.CreateAt(t.Context(), tx, time.Now(), projectSpec)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	otherID := workflowTestProject(t, db, "other", "O", "")
 	for _, g := range []identity.Spec{
 		{SubjectType: "user", Subject: "owner", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: fmt.Sprint(projectID), By: "boss"},

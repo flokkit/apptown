@@ -127,13 +127,6 @@ SELECT (SELECT id FROM runs WHERE change_id IS NOT DISTINCT FROM $1 AND parent_r
 WITH RECURSIVE tree(id) AS (SELECT sqlc.arg(run_id)::uuid UNION ALL SELECT r.id FROM runs r JOIN tree t ON r.parent_run_id=t.id WHERE r.project_id=sqlc.arg(project_id))
 SELECT EXISTS(SELECT 1 FROM steps s WHERE s.run_id IN (SELECT id FROM tree) AND s.type='deploy' AND s.status=sqlc.arg(status) AND COALESCE(s.config_json->>'deployment','main') IN ('prod','main'));
 
--- name: DashboardActiveRuns :many
-SELECT r.id AS run_id,r.number AS run_number,r.change_id,COALESCE(c.number,0)::bigint AS change_number,COALESCE(c.title,'')::text AS item_title,r.workflow_name,r.current_stage,p.slug AS project_slug
-FROM runs r JOIN projects p ON p.id=r.project_id LEFT JOIN changes c ON c.id=r.change_id AND c.project_id=r.project_id
-WHERE r.project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND r.status=sqlc.arg(running)
-AND NOT EXISTS(SELECT 1 FROM steps s WHERE s.run_id=r.id AND s.stage=r.current_stage AND s.type='approval' AND s.status IN (sqlc.arg(pending),sqlc.arg(needs_human)))
-ORDER BY r.updated_at DESC,r.id DESC LIMIT 20;
-
 -- name: DispatchRestartCandidates :many
 SELECT r.id FROM runs r JOIN steps s ON s.run_id=r.id AND s.stage=r.current_stage
 WHERE r.status='running' AND s.type=ANY($1::text[])
@@ -234,12 +227,12 @@ JOIN steps call ON call.id=child.parent_step_id AND call.run_id=parent.id AND ca
 COALESCE(CASE WHEN r.status='abandoned' THEN (SELECT e.payload_json->>'reason' FROM run_events e WHERE e.run_id=r.id AND e.kind='run.abandoned' ORDER BY e.id DESC LIMIT 1) END,'')::text AS abandonment_reason,
 s.id AS step_id,COALESCE(s.attempt,0)::bigint AS step_attempt,COALESCE(s.name,'')::text AS step_name,COALESCE(s.type,'')::text AS step_type,COALESCE(s.status,'')::text AS step_status,
 COALESCE(CASE WHEN s.type='workflow/call' THEN s.evidence_json ELSE jsonb_build_object('placement',s.evidence_json->'placement','reason',s.evidence_json->'reason','actions',s.evidence_json->'actions') END,'{}'::jsonb)::jsonb AS evidence,COALESCE(s.override_by,'')::text AS step_override_by,
-COALESCE(g.stage_declaration,'null'::jsonb)::jsonb AS stage_declaration,COALESCE(g.stage_checks,'null'::jsonb)::jsonb AS stage_checks,
+r.current_stage, COALESCE(g.stage_definition,'null'::jsonb)::jsonb AS stage_definition,COALESCE(g.stage_checks,'null'::jsonb)::jsonb AS stage_checks,
 s.finished_at AS step_finished_at,
 EXISTS(SELECT 1 FROM workflow_landings l WHERE l.landing_run_id=r.id AND NOT l.acceptance_applied) AS awaiting_acceptance
 FROM activity_tree r
 LEFT JOIN LATERAL (
-  SELECT (SELECT st FROM runs rd, jsonb_array_elements(rd.definition_json->'stages') st WHERE rd.id=r.id AND st->>'name'=r.current_stage LIMIT 1) AS stage_declaration,
+  SELECT (SELECT rd.definition_json FROM runs rd WHERE rd.id=r.id) AS stage_definition,
          (SELECT e.payload_json->'checks' FROM run_events e WHERE e.run_id=r.id AND e.kind='stage.entered' AND e.payload_json->>'stage'=r.current_stage ORDER BY e.id DESC LIMIT 1) AS stage_checks
   WHERE r.status=sqlc.arg(run_running)::text
 ) g ON true

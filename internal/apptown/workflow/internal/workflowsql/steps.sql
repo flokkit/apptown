@@ -192,13 +192,6 @@ SELECT sqlc.embed(r), EXISTS (
 -- name: ContinuationStepCount :one
 SELECT count(*) FROM steps WHERE run_id=$1 AND stage=$2;
 
--- name: DashboardPendingApprovals :many
-SELECT s.id AS step_id,s.name AS step_name,s.stage,r.id AS run_id,r.change_id,COALESCE(c.number,0)::bigint AS change_number,COALESCE(c.title,'')::text AS item_title,p.slug AS project_slug,p.name AS project_name
-FROM steps s JOIN runs r ON r.id=s.run_id JOIN projects p ON p.id=r.project_id
-LEFT JOIN changes c ON c.id=r.change_id AND c.project_id=r.project_id
-WHERE r.project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND s.type='approval' AND s.status IN (sqlc.arg(pending),sqlc.arg(needs_human))
-AND r.status=sqlc.arg(running) AND s.stage=r.current_stage ORDER BY s.id;
-
 -- name: DispatchStepState :one
 SELECT s.status, (s.status='error' AND COALESCE(s.evidence_json->>'reason','')='orphaned by apptownd restart') AS orphaned,
  (r.status='running' AND r.current_stage=s.stage) AS active

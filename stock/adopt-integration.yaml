@@ -121,4 +121,4 @@ spec:
           with:
             approvers: ["role:project-approver"]
             means: "I confirmed the wiring matches the report, and this integration is one we want to depend on."
-            instructions: "Read the adopt report and the diff. To send it back, reject with a comment."
+            instructions: "Read the adopt report and the diff. To send it back, use Send back… and say what should change."

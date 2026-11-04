@@ -378,69 +378,6 @@ func (q *Queries) ContinuationStart(ctx context.Context, runID ids.ID) (int64, e
 	return result.RowsAffected()
 }
 
-const dashboardActiveRuns = `-- name: DashboardActiveRuns :many
-SELECT r.id AS run_id,r.number AS run_number,r.change_id,COALESCE(c.number,0)::bigint AS change_number,COALESCE(c.title,'')::text AS item_title,r.workflow_name,r.current_stage,p.slug AS project_slug
-FROM runs r JOIN projects p ON p.id=r.project_id LEFT JOIN changes c ON c.id=r.change_id AND c.project_id=r.project_id
-WHERE r.project_id=ANY($1::uuid[]) AND r.status=$2
-AND NOT EXISTS(SELECT 1 FROM steps s WHERE s.run_id=r.id AND s.stage=r.current_stage AND s.type='approval' AND s.status IN ($3,$4))
-ORDER BY r.updated_at DESC,r.id DESC LIMIT 20
-`
-
-type DashboardActiveRunsParams struct {
-	ProjectIds []ids.ID
-	Running    string
-	Pending    string
-	NeedsHuman string
-}
-
-type DashboardActiveRunsRow struct {
-	RunID        ids.ID
-	RunNumber    int64
-	ChangeID     ids.ID
-	ChangeNumber int64
-	ItemTitle    string
-	WorkflowName string
-	CurrentStage string
-	ProjectSlug  string
-}
-
-func (q *Queries) DashboardActiveRuns(ctx context.Context, arg DashboardActiveRunsParams) ([]DashboardActiveRunsRow, error) {
-	rows, err := q.db.QueryContext(ctx, dashboardActiveRuns,
-		pq.Array(arg.ProjectIds),
-		arg.Running,
-		arg.Pending,
-		arg.NeedsHuman,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []DashboardActiveRunsRow
-	for rows.Next() {
-		var i DashboardActiveRunsRow
-		if err := rows.Scan(
-			&i.RunID,
-			&i.RunNumber,
-			&i.ChangeID,
-			&i.ChangeNumber,
-			&i.ItemTitle,
-			&i.WorkflowName,
-			&i.CurrentStage,
-			&i.ProjectSlug,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const deleteProjectRuns = `-- name: DeleteProjectRuns :exec
 DELETE FROM runs WHERE project_id=$1
 `
@@ -1664,12 +1601,12 @@ JOIN steps call ON call.id=child.parent_step_id AND call.run_id=parent.id AND ca
 COALESCE(CASE WHEN r.status='abandoned' THEN (SELECT e.payload_json->>'reason' FROM run_events e WHERE e.run_id=r.id AND e.kind='run.abandoned' ORDER BY e.id DESC LIMIT 1) END,'')::text AS abandonment_reason,
 s.id AS step_id,COALESCE(s.attempt,0)::bigint AS step_attempt,COALESCE(s.name,'')::text AS step_name,COALESCE(s.type,'')::text AS step_type,COALESCE(s.status,'')::text AS step_status,
 COALESCE(CASE WHEN s.type='workflow/call' THEN s.evidence_json ELSE jsonb_build_object('placement',s.evidence_json->'placement','reason',s.evidence_json->'reason','actions',s.evidence_json->'actions') END,'{}'::jsonb)::jsonb AS evidence,COALESCE(s.override_by,'')::text AS step_override_by,
-COALESCE(g.stage_declaration,'null'::jsonb)::jsonb AS stage_declaration,COALESCE(g.stage_checks,'null'::jsonb)::jsonb AS stage_checks,
+r.current_stage, COALESCE(g.stage_definition,'null'::jsonb)::jsonb AS stage_definition,COALESCE(g.stage_checks,'null'::jsonb)::jsonb AS stage_checks,
 s.finished_at AS step_finished_at,
 EXISTS(SELECT 1 FROM workflow_landings l WHERE l.landing_run_id=r.id AND NOT l.acceptance_applied) AS awaiting_acceptance
 FROM activity_tree r
 LEFT JOIN LATERAL (
-  SELECT (SELECT st FROM runs rd, jsonb_array_elements(rd.definition_json->'stages') st WHERE rd.id=r.id AND st->>'name'=r.current_stage LIMIT 1) AS stage_declaration,
+  SELECT (SELECT rd.definition_json FROM runs rd WHERE rd.id=r.id) AS stage_definition,
          (SELECT e.payload_json->'checks' FROM run_events e WHERE e.run_id=r.id AND e.kind='stage.entered' AND e.payload_json->>'stage'=r.current_stage ORDER BY e.id DESC LIMIT 1) AS stage_checks
   WHERE r.status=$1::text
 ) g ON true
@@ -1697,7 +1634,8 @@ type WorkflowActivityRow struct {
 	StepStatus         string
 	Evidence           json.RawMessage
 	StepOverrideBy     string
-	StageDeclaration   json.RawMessage
+	CurrentStage       string
+	StageDefinition    json.RawMessage
 	StageChecks        json.RawMessage
 	StepFinishedAt     sql.NullTime
 	AwaitingAcceptance bool
@@ -1729,7 +1667,8 @@ func (q *Queries) WorkflowActivity(ctx context.Context, arg WorkflowActivityPara
 			&i.StepStatus,
 			&i.Evidence,
 			&i.StepOverrideBy,
-			&i.StageDeclaration,
+			&i.CurrentStage,
+			&i.StageDefinition,
 			&i.StageChecks,
 			&i.StepFinishedAt,
 			&i.AwaitingAcceptance,
