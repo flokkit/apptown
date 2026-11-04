@@ -191,4 +191,4 @@ spec:
           with:
             approvers: ["role:project-approver"]
             means: "I am satisfied the bug is actually fixed and the regression test would catch its return."
-            instructions: "Read the fix report and the diff. To send it back, reject with a comment."
+            instructions: "Read the fix report and the diff. To send it back, use Send back… and say what should change."

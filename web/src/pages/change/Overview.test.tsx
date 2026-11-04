@@ -13,7 +13,7 @@ import { getKey, newQueryClient } from '../../data'
 import type { ChangeView, Step } from '../../api'
 import ChangePage from '../ChangePage'
 import { CheckSummary, ChangeOverview, approvalBrief } from './Overview'
-import { checksRunning } from './next'
+import { nextStep, checksRunning } from './next'
 import { TurnDecision, viewerTurn } from './Turn'
 import { DecisionChoices } from '../../DecisionChoices'
 import { heldLabels } from './HeldDecision'
@@ -29,7 +29,7 @@ const id = '00000000-0009-7000-8000-000000000000'
 const step = (type: Step['type'], status = 'pass', evidence = {}, extra = {}) => ({ id: type, runId: 'run', stage: 'check', name: type, type, status, statusLabel: status === 'pass' ? 'passed' : status, config: {}, evidence, overrideBy: '', overrideReason: '', ...extra } as Step)
 const approval = step('approval', 'pending', {}, { config: { means: 'I accept this work in full.', instructions: 'Read every check.' } })
 const view = (): ChangeView => ({
-  change: { id, number: 9, title: 'Winter rides', body: 'Show all the winter ride times.\nKeep the dinner invitation.', summary: 'Adds the winter ride calendar.', state: 'landing', createdAt: '2026-11-01T10:00:00Z', branch: 'change-9', baseSha: 'abc', editRevision: 0, openedBy: 'sam', type: 'feature' },
+  waitingOn: { kind: 'approval', says: 'ready for your approval', tone: 'warn', run: 'run', step: 'approval', checks: 0, who: [], you: 'yes' }, change: { id, number: 9, title: 'Winter rides', body: 'Show all the winter ride times.\nKeep the dinner invitation.', summary: 'Adds the winter ride calendar.', state: 'landing', createdAt: '2026-11-01T10:00:00Z', branch: 'change-9', baseSha: 'abc', editRevision: 0, openedBy: 'sam', type: 'feature' },
   projectSlug: 'club', state: 'waiting on you', statusLabel: 'waiting for you',
   detail: { run: { id: 'run', number: 2, currentStage: 'check', status: 'running', statusLabel: 'working', workflowName: 'work', workflowVersion: 1, createdAt: '' },
     stages: ['check'], steps: [step('script'), step('agent/review', 'pass', { verdict: 'approve', summary: 'The calendar matches the request.' }), approval],
@@ -52,7 +52,7 @@ it('leads with the preview, separates request from report and links every eviden
 
 it('holds acceptance during a check, while keeping pending later-stage work separate', () => {
   const v = view()
-  v.detail!.steps.push(step('scan', 'running'))
+  v.detail!.steps.push(step('scan', 'running')); v.waitingOn = { ...v.waitingOn, kind: 'work', says: 'working', you: 'no' }
   expect(render(v)).toContain('Checks are running; you can accept when they finish.')
   expect(render(v)).not.toContain('>Accept and land<')
   expect(checksRunning([step('scan', 'pending', {}, { stage: 'ship' })], 'check')).toBe(false)
@@ -150,7 +150,7 @@ it('opens Overview by default and keeps code, conversation, full records and edi
 it('never puts terminal output or the acceptance form in the top card', async () => {
   const v = view()
   v.detail!.steps[0] = step('agent/pi', 'running')
-  v.state = 'agent working'; v.statusLabel = 'working'; v.change.state = 'in_progress'
+  v.waitingOn = { ...v.waitingOn, kind: 'work', says: 'working', tone: 'neutral', you: 'no' }; v.state = 'agent working'; v.statusLabel = 'working'; v.change.state = 'in_progress'
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/console') ? { sessions: [] } : String(url).endsWith('/deployments') ? [] : String(url).endsWith('/auth/me') ? { user: 'sam' } : v))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/changes/${id}`]}><Routes><Route path="/changes/:id" element={<ChangePage />} /></Routes></MemoryRouter></QueryClientProvider>))
@@ -158,7 +158,7 @@ it('never puts terminal output or the acceptance form in the top card', async ()
   expect(el.querySelector('.ch-state h1')?.textContent).toBe('Change #9: Winter rides')
   expect(el.querySelector('.ch-state .terminal')).toBeNull()
   expect(el.querySelector('.ch-state .decision-form')).toBeNull()
-  expect(el.querySelector('.ch-state')?.textContent).toContain('The agent is working on it')
+  expect(el.querySelector('.ch-state')?.textContent).toContain('working')
   expect(el.querySelector('.ch-decision')?.textContent).toContain('Checks are running; you can accept when they finish.')
   await act(async () => root.unmount()); client.clear()
 })
@@ -344,18 +344,18 @@ it('marks only the eligible viewer’s turn, excluding working, checking and clo
   const v = view()
   expect(viewerTurn(v)).toBe(true)
   expect(render(v)).toContain('ch-your-turn')
-  v.approval = { ...v.approval!, viewer: 'no' }
+  v.approval = { ...v.approval!, viewer: 'no' }; v.waitingOn.you = 'no'
   expect(viewerTurn(v)).toBe(false)
   expect(render(v)).not.toContain('ch-your-turn')
   v.approval = { ...v.approval!, viewer: 'yes' }
-  v.detail!.steps.push(step('scan', 'running'))
+  v.detail!.steps.push(step('scan', 'running')); v.waitingOn = { ...v.waitingOn, kind: 'work', says: 'working', you: 'no' }
   expect(viewerTurn(v)).toBe(false)
   v.detail!.steps = [approval]
-  for (const state of ['shipped', 'abandoned']) { v.change.state = state as ChangeView['change']['state']; expect(viewerTurn(v)).toBe(false) }
+  for (const state of ['shipped', 'abandoned']) { v.waitingOn = { ...v.waitingOn, kind: 'closed', says: state, you: 'no' }; v.change.state = state as ChangeView['change']['state']; expect(viewerTurn(v)).toBe(false) }
 })
 
 it('identifies offered held recovery and keeps its action labels in decision order', () => {
-  const v = view(); v.change.state = 'in_progress'; v.state = 'blocked'
+  const v = view(); v.change.state = 'in_progress'; v.state = 'blocked'; v.waitingOn = { ...v.waitingOn, kind: 'person', step: 'agent/pi', says: 'agent/pi (needs_human)', tone: 'warn', you: 'yes' }
   v.detail!.steps = [step('agent/pi', 'needs_human', { actions: ['Choose the start time.'] })]
   v.next = [{ act: 'send-back' }, { act: 'abandon' }] as ChangeView['next']
   v.detail!.next = [{ act: 'retry', stepId: 'agent/pi', step: 'agent/pi' }]
@@ -363,7 +363,7 @@ it('identifies offered held recovery and keeps its action labels in decision ord
   expect(heldLabels(v)).toEqual(['Send back…', 'Abandon change'])
   const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><StatePanel view={v} /></QueryClientProvider></MemoryRouter>)
   expect(html).toContain('ch-state tone-warn')
-  expect(html).toContain('Your turn: Choose the start time.')
+  expect(html).toContain('agent/pi (needs_human)')
 })
 
 it('keeps one decision screen measured to the content column and closes without deciding', async () => {
@@ -422,7 +422,7 @@ it('keeps one decision screen measured to the content column and closes without 
 })
 
 it('shows the latest chat reply and Continue chat as the only action before any run', async () => {
-  const v = view(); v.change.summary = ''; v.change.state = 'in_progress'; v.state = ''; v.detail = null; v.approval = undefined
+  const v = view(); v.change.summary = ''; v.change.state = 'in_progress'; v.state = ''; v.detail = null; v.approval = undefined; v.waitingOn = { ...v.waitingOn, kind: 'chat', says: 'chat open', tone: 'neutral', you: 'no' }
   v.next = [{ act: 'land' }] as ChangeView['next']
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/transcript') ? { sessions: [{ messages: [{ role: 'helper', text: 'Old answer.' }, { role: 'helper', text: 'The menu can be edited.\nOrders keep their names.' }] }], unreadable: 0 } : []))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
@@ -470,7 +470,7 @@ it('reads the approval brief into what it is, the call and anything odd', () => 
 it('opens held recovery buttons only in Decide and shows the complete reason once there', async () => {
   const v = view()
   v.change.state = 'in_progress'
-  v.detail!.steps = [step('agent/pi'), step('preview', 'fail', { reason: 'The page never loaded. The screen stayed blank.' }), approval]
+  v.waitingOn = { ...v.waitingOn, kind: 'check', step: 'preview', says: 'preview failed', tone: 'bad', you: 'yes' }; v.detail!.steps = [step('agent/pi'), step('preview', 'fail', { reason: 'The page never loaded. The screen stayed blank.' }), approval]
   v.detail!.next = [{ act: 'rework', stepId: 'agent/pi' }, { act: 'retry', stepId: 'preview' }, { act: 'override', stepId: 'preview' }, { act: 'override', stepId: 'approval' }] as NonNullable<ChangeView['detail']>['next']
   v.next = [{ act: 'send-back' }, { act: 'abandon' }] as ChangeView['next']
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/deployments') ? [] : { sessions: [] }))))
@@ -554,7 +554,7 @@ it.each(['send-back', 'rework'])('records the approver’s rejection and note wh
 })
 
 it('preserves Continue when the server offers a stage advance', () => {
-  const v = view(); v.change.state = 'in_progress'; v.state = 'ready to advance'
+  const v = view(); v.change.state = 'in_progress'; v.state = 'ready to advance'; v.waitingOn = { ...v.waitingOn, kind: 'ready', says: 'ready to continue', tone: 'warn', step: null, you: 'yes' }
   v.detail!.steps = [step('script')]
   v.detail!.next = [{ act: 'advance' }] as NonNullable<ChangeView['detail']>['next']
   const el = document.createElement('div'); el.innerHTML = render(v)
@@ -566,7 +566,7 @@ it.each([
   { advanced: false, blocking: [{ name: 'Tests', status: 'fail' }], missing: ['Review'] },
   { advanced: false, followUpsPending: true },
 ])('continues the offered run and shows its result: %j', async result => {
-  const v = view(); v.change.state = 'in_progress'; v.state = 'ready to advance'
+  const v = view(); v.change.state = 'in_progress'; v.state = 'ready to advance'; v.waitingOn = { ...v.waitingOn, kind: 'ready', says: 'ready to continue', tone: 'warn', step: null, you: 'yes' }
   v.detail!.steps = [step('script')]
   v.detail!.next = [{ act: 'advance' }] as NonNullable<ChangeView['detail']>['next']
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
@@ -618,4 +618,17 @@ it.each([
   expect(shield.querySelector('svg')).not.toBeNull()
   const row = [...el.querySelectorAll('.ch-overview-line')].find(e => e.querySelector('.ch-row-label')?.textContent === 'Checks')!
   expect(row.classList.contains('ch-line-bad')).toBe(tone === 'bad')
+})
+
+
+it('keeps a called approval on the approval path without parent recovery controls', () => {
+  const v = view()
+  v.waitingOn = { ...v.waitingOn, kind: 'approval', step: 'child-approval', run: 'child', you: 'yes' }
+  v.detail!.steps = [step('workflow/call', 'running', { childRunId: 'child' })]
+  v.detail!.next = []
+  expect(nextStep(v).primary).toBe('open-decision')
+  const html = render(v)
+  expect(html).toContain('Reading the called workflow’s checks…')
+  expect(html).not.toContain('ch-turn-floater')
+  expect(html).not.toContain('Accept anyway')
 })

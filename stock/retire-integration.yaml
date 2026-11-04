@@ -105,4 +105,4 @@ spec:
           with:
             approvers: ["role:project-approver"]
             means: "I confirmed the removal is complete: nothing is left commented out or unused."
-            instructions: "Read the retire report and the diff. To send it back, reject with a comment."
+            instructions: "Read the retire report and the diff. To send it back, use Send back… and say what should change."

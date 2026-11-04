@@ -33,7 +33,10 @@ type Activity struct {
 	// waiting is carried up from it. Zero otherwise.
 	Approval ids.ID
 	// Held distinguishes a stopped stage from a pending approval.
-	Held bool `json:"-"`
+	Held         bool `json:"-"`
+	holdingRun   ids.ID
+	holdingStep  *workflowActivityStep
+	failedChecks int
 }
 
 func (a Activity) Active() bool {
@@ -50,6 +53,7 @@ type workflowActivityStep struct {
 	finished             sql.NullTime
 }
 type workflowActivityRun struct {
+	readError         error // malformed facts affect this run and its callers only
 	id                ids.ID
 	projectID         ids.ID
 	parentID          ids.ID
@@ -66,14 +70,22 @@ type workflowActivityRun struct {
 }
 type workflowActivityGraph map[ids.ID]*workflowActivityRun
 
-func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.ID]bool) (Activity, error) {
+func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.ID]bool) (out Activity, err error) {
 	run := g[id]
 	if run == nil {
 		return Activity{}, fmt.Errorf("run %d is missing from the activity snapshot", id)
 	}
+	if run.readError != nil {
+		return Activity{}, run.readError
+	}
 	if path[id] {
 		return Activity{}, fmt.Errorf("run %d has a cyclic workflow call", id)
 	}
+	defer func() {
+		if err == nil && out.holdingRun.IsZero() {
+			out.holdingRun = id
+		}
+	}()
 	path[id] = true
 	defer delete(path, id)
 	if run.state == RunAbandoned {
@@ -128,7 +140,7 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 			if step.kind == "agent/pi" {
 				state = activityAgentWorking
 			}
-			return Activity{State: state, Detail: step.name}, nil
+			return Activity{State: state, Detail: step.name, holdingStep: &step}, nil
 		case step.kind == "approval" && step.state == StatusPending:
 			pendingApproval, pendingApprovalID = step.name, step.id
 		case (step.kind == "agent/pi" || step.kind == "script" || step.kind == "agent/review") && step.state == StatusPending:
@@ -165,7 +177,13 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 		return Activity{State: ActivityWorking, Detail: detail}, nil
 	}
 	if held != nil {
-		return Activity{State: ActivityWaiting, Detail: held.holdDetail(), Held: true}, nil
+		count := 0
+		for _, step := range run.steps {
+			if step.override == "" && !step.stale(reworked) && checkHold(step) {
+				count++
+			}
+		}
+		return Activity{State: ActivityWaiting, Detail: held.holdDetail(), Held: true, holdingStep: held, failedChecks: count}, nil
 	}
 	// A verdict on the work before its rework is about to be checked again;
 	// the stage is not blocked by it (wait called such runs wedged).

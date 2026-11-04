@@ -141,4 +141,4 @@ spec:
           with:
             approvers: ["role:project-approver"]
             means: "I checked every item marked 'needs a human'; the routine updates ship on the strength of their build, tests and scan."
-            instructions: "Open the uplift report: read its 'Needs a human' section first, then the list of routine updates. To send it back, reject with a comment."
+            instructions: "Open the uplift report: read its 'Needs a human' section first, then the list of routine updates. To send it back, use Send back… and say what should change."

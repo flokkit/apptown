@@ -37,15 +37,16 @@ func (h Activity) Activity(w http.ResponseWriter, r *http.Request) {
 		agents = append(agents, row)
 	}
 
-	activeRuns, err := work.Runs(ctx, workflow.RunQuery{State: workflow.RunRunning, RootsOnly: true, Limit: 30})
+	activeRuns, err := work.Dashboard(ctx)
 	if err != nil {
 		WriteFault(w, err)
 		return
 	}
-	active := workflowRunRows(activeRuns, now)
+	waiting := workflowRunRows(activeRuns.WaitingOnYou, now)
+	active := workflowRunRows(activeRuns.ActiveRuns, now)
 	for i := range active {
 		// A blocked run's change can be closed from the list by someone who may.
-		if (activeRuns[i].Held || active[i].State == workflow.ActivityBlocked) && !active[i].ChangeID.IsZero() {
+		if (activeRuns.ActiveRuns[i].Held || active[i].State == workflow.ActivityBlocked) && !active[i].ChangeID.IsZero() {
 			active[i].Next = work.AbandonOffer(ctx, active[i].ChangeID)
 		}
 	}
@@ -75,19 +76,20 @@ func (h Activity) Activity(w http.ResponseWriter, r *http.Request) {
 		envs = append(envs, e)
 	}
 
-	WriteJSON(w, 200, InstanceActivity{Open: open, OpenTotal: openTotal, Agents: agents, Active: active, History: history, Deployments: envs})
+	WriteJSON(w, 200, InstanceActivity{WaitingOnYou: waiting, Open: open, OpenTotal: openTotal, Agents: agents, Active: active, History: history, Deployments: envs})
 }
 
 // InstanceActivity is what the whole instance is doing: agents at work, runs
 // under way, recent Changes, the reader's open Changes and every deployment.
 type (
 	InstanceActivity struct {
-		Open        []workflow.PersonalOpenChange `json:"open"`
-		OpenTotal   int64                         `json:"openTotal"`
-		Agents      []ActiveAgent                 `json:"agents"`
-		Active      []runRowView                  `json:"active"`
-		History     []workflow.ChangeHistory      `json:"history"`
-		Deployments []ActivityDeployment          `json:"deployments"`
+		WaitingOnYou []runRowView                  `json:"waitingOnYou"`
+		Open         []workflow.PersonalOpenChange `json:"open"`
+		OpenTotal    int64                         `json:"openTotal"`
+		Agents       []ActiveAgent                 `json:"agents"`
+		Active       []runRowView                  `json:"active"`
+		History      []workflow.ChangeHistory      `json:"history"`
+		Deployments  []ActivityDeployment          `json:"deployments"`
 	}
 	// ActiveAgent is a running step and how long it has run.
 	ActiveAgent struct {

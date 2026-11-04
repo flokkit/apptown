@@ -103,7 +103,7 @@ func TestShowJSONCarriesTheApprovalItWaitsOn(t *testing.T) {
 			"state":"waiting on you","stateDetail":"accept",
 			"runs":[{"id":"` + runUUID + `","number":812,"workflowName":"quick-change","role":"working","status":"running","currentStage":"build"}],
 			"commits":[{"sha":"abc1234","subject":"Add a footer","when":"1 minute ago"}],
-			"approval":{"stepId":"` + stepUUID + `"}}`
+			"approval":{"stepId":"` + stepUUID + `"},"waitingOn":{"kind":"approval","step":"` + stepUUID + `","says":"ready for your approval","you":"yes","tone":"warn","who":[]}}`
 	})
 	out, err := run(t, "show", changeUUID, "--json")
 	if err != nil {
@@ -114,7 +114,7 @@ func TestShowJSONCarriesTheApprovalItWaitsOn(t *testing.T) {
 	if got.Change.Name != "shop#61" || got.State != "in_progress" || got.StateDetail != "accept" || got.Branch != "apptown/change-61" ||
 		len(got.Runs) != 1 || got.Runs[0] != (RunDetail{Run: RunRef{ID: mustID(t, runUUID), Number: 812}, Workflow: "quick-change", Role: "working", Status: "running", Stage: "build"}) ||
 		len(got.Commits) != 1 || got.Commits[0] != (Commit{SHA: "abc1234", Subject: "Add a footer"}) ||
-		got.WaitingOn == nil || got.WaitingOn.Step != mustID(t, stepUUID) {
+		got.WaitingOn.Step != mustID(t, stepUUID) {
 		t.Fatalf("got %+v", got)
 	}
 }
@@ -132,7 +132,7 @@ func TestChangesJSONFailsOnAnUnreadableBoard(t *testing.T) {
 	}
 	var got ChangeList
 	oneDocument(t, out, &got)
-	if len(got.Changes) != 1 || got.Changes[0] != (ChangeRow{Change: ChangeRef{ID: mustID(t, changeUUID), Number: 61, Name: "shop#61", Project: "shop"}, Title: "footer", State: "in_progress"}) {
+	if len(got.Changes) != 1 || !reflect.DeepEqual(got.Changes[0], ChangeRow{Change: ChangeRef{ID: mustID(t, changeUUID), Number: 61, Name: "shop#61", Project: "shop"}, Title: "footer", State: "in_progress"}) {
 		t.Fatalf("got %+v", got)
 	}
 
@@ -174,7 +174,11 @@ func TestWaitJSONGivesWhatAScriptActsOn(t *testing.T) {
 	steps := `[{"id":"00000000-0002-7000-8000-000000000000","stage":"build","name":"review","type":"agent/review","status":"fail"},
 		{"id":"` + stepUUID + `","stage":"build","name":"accept","type":"approval","status":"pending"}]`
 	running := func(state string) string {
-		return `{"run":{"id":"` + runUUID + `","number":812,"status":"running","currentStage":"build","workflowName":"quick-change"},"state":"` + state + `","steps":` + steps + `}`
+		kind, step, says := "approval", stepUUID, "accept"
+		if state == "blocked" {
+			kind, step, says = "check", "00000000-0002-7000-8000-000000000000", "review"
+		}
+		return `{"waitingOn":{"kind":"` + kind + `","step":"` + step + `","says":"` + says + `"},"run":{"id":"` + runUUID + `","number":812,"status":"running","currentStage":"build","workflowName":"quick-change"},"state":"waiting on you","steps":` + steps + `}`
 	}
 	ref := &RunRef{ID: mustID(t, runUUID), Number: 812}
 

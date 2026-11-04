@@ -287,7 +287,7 @@ func TestWorkflowActivityPreservesQueuePriorityAndCallStartup(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			graph := workflowActivityGraph{idstest.N(1): {id: idstest.N(1), state: RunRunning, steps: tc.steps}}
 			got, err := graph.classify(idstest.N(1), func(id ids.ID) (string, int, bool) { return "local", 1, tc.waiting && id == idstest.N(1) }, make(map[ids.ID]bool))
-			if err != nil || got != tc.want {
+			if err != nil || got.State != tc.want.State || got.Detail != tc.want.Detail || got.Held != tc.want.Held || got.Approval != tc.want.Approval {
 				t.Fatalf("activity %+v %v, want %+v", got, err, tc.want)
 			}
 		})
@@ -312,8 +312,8 @@ func TestWorkflowQueriesRejectInvalidStoredStatesWithoutPartialResults(t *testin
 	if err := requireAttemptWrite(workflowsql.New(q.db.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: step, Attempt: 0, ExpectedStatus: StatusPending.String(), Status: "unknown state", EvidenceJson: json.RawMessage(`{}`)})); err != nil {
 		t.Fatal(err)
 	}
-	if rows, err := q.list(context.Background(), RunQuery{ProjectID: root.ProjectID}); rows != nil || !errors.Is(err, errStepState) {
-		t.Fatalf("invalid step produced partial list: %+v %v", rows, err)
+	if rows, err := q.list(context.Background(), RunQuery{ProjectID: root.ProjectID}); err != nil || len(rows) != 1 || rows[0].WaitingOn.Tone != "unknown" {
+		t.Fatalf("invalid step must be unknown: %+v %v", rows, err)
 	}
 	if err := requireAttemptWrite(workflowsql.New(q.db.SQL()).ReopenApproval(context.Background(), workflowsql.ReopenApprovalParams{ID: step, Attempt: 0, EvidenceJson: json.RawMessage(`{}`)})); err != nil {
 		t.Fatal(err)

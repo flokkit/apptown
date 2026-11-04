@@ -163,7 +163,7 @@ export type Artifact = WireArtifact
 // A run snapshot as the page reads it: the run and its steps are always
 // present in a snapshot (the Go side holds them by pointer), steps are typed
 // by their type, and the state is one of the Doing words.
-export type RunDetail = Omit<RunSnapshot, 'run' | 'steps' | 'events' | 'state'> & {
+export type RunDetail = Omit<RunSnapshot, 'run' | 'steps' | 'events' | 'state' | 'waitingOn'> & {
   run: Run; steps: Step[]; events: RunEvent[]; state?: Doing
 }
 

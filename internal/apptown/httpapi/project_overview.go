@@ -85,7 +85,7 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	for _, item := range available {
-		oc := OpenChange{ChangeID: item.ID, ChangeNumber: item.Number, Title: item.Title, State: item.State}
+		oc := OpenChange{WaitingOn: item.WaitingOn, ChangeID: item.ID, ChangeNumber: item.Number, Title: item.Title, State: item.State}
 		oc.Editing = item.Editing
 		oc.StatusLabel = oc.State.OpenDisplay(oc.Editing)
 		open = append(open, oc)
@@ -97,6 +97,7 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 // OpenChange is an open change with no running run, and how many files it is
 // editing.
 type OpenChange struct {
+	WaitingOn    workflow.WaitingOn   `json:"waitingOn"`
 	StatusLabel  status.DisplayStatus `json:"statusLabel"`
 	ChangeID     ids.ID               `json:"changeId"`
 	ChangeNumber int64                `json:"changeNumber"` // within the project

@@ -14,7 +14,7 @@ beforeEach(() => vi.stubGlobal('ResizeObserver', class { observe() {} disconnect
 const CHANGE = '00000000-0004-7000-8000-000000000000'
 describe('held runs offer recovery rather than an approval', () => {
   const held = (rounds = 3): ChangeView => ({
-    change: { id: CHANGE, number: 4, title: 'Fix the menu', state: 'in_progress' }, projectSlug: 'fieldnotes', state: 'waiting on you', statusLabel: 'waiting for you',
+    waitingOn: { kind: 'check', says: 'review-change failed', tone: 'bad', run: 'run', step: 'review', checks: 1, who: [], you: 'yes' }, change: { id: CHANGE, number: 4, title: 'Fix the menu', state: 'in_progress' }, projectSlug: 'fieldnotes', state: 'waiting on you', statusLabel: 'waiting for you',
     stateDetail: 'review-change (fail): reviewer rejected: The page never loaded.',
     next: [{ act: 'send-back' }, { act: 'abandon' }],
     detail: {
@@ -136,21 +136,21 @@ describe('held runs offer recovery rather than an approval', () => {
 it.each([false, true])('retains the complete reviewer text and leads with structured findings when supplied (%s)', findings => {
   const text = 'The preview looked styled and the page loaded.\n\nThe adoption is incomplete. Every project needs the new rule.'
   const v = {
-    change: { state: 'in_progress' }, state: 'waiting on you', next: [{ act: 'abandon' }],
+    waitingOn: { kind: 'check', says: 'review-change failed', tone: 'bad', run: 'run', step: 'review', checks: 1, who: [], you: 'yes' }, change: { state: 'in_progress' }, state: 'waiting on you', next: [{ act: 'abandon' }],
     detail: { run: { currentStage: 'apply', status: 'running' }, next: [], events: [], steps: [
       { id: 'review', name: 'review-change', type: 'agent/review', stage: 'apply', status: 'fail', config: {}, evidence: { reason: `reviewer rejected: ${text}`, summary: text, ...(findings ? { findings: ['Two projects lack the rule.'] } : {}) } },
     ] },
   } as unknown as ChangeView
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><HeldDecision view={v} onChange={() => {}} /></QueryClientProvider></MemoryRouter>)
-  expect(el.querySelector('p')?.textContent).toBe('The reviewer rejected this change.')
+  expect(el.querySelector('p')?.textContent).toBe('review-change failed')
   const reason = el.querySelector('.ch-review-text')!.textContent!
   expect(reason).toBe(findings ? 'Two projects lack the rule.\n\n' + text : text)
   expect(el.querySelector('.ch-technical[aria-hidden="true"]')?.textContent).toBe('review-change')
 })
 
 it.each(['landing', 'finished'])('omits Stop this attempt when it is not an act in this state (%s)', state => {
-  const v = { change: { state: state === 'landing' ? 'landing' : 'in_progress' }, state: 'waiting on you', next: [{ act: 'abandon' }], detail: {
+  const v = { waitingOn: { kind: 'check', says: 'review-change failed', tone: 'bad', run: 'run', step: 'review', checks: 1, who: [], you: 'yes' }, change: { state: state === 'landing' ? 'landing' : 'in_progress' }, state: 'waiting on you', next: [{ act: 'abandon' }], detail: {
     run: { currentStage: 'apply', status: state === 'finished' ? 'pass' : 'running' }, next: [], events: [], steps: [
       { type: 'agent/review', name: 'review-change', stage: 'apply', status: 'fail', evidence: { reason: 'An objection.' } },
     ],

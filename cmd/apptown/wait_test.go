@@ -44,6 +44,12 @@ func TestWaitJudgesFromAppTownsActivity(t *testing.T) {
 		if err := json.Unmarshal([]byte(`{"run":{"status":"running","currentStage":"build"},"state":"`+c.state+`","stateDetail":"`+c.detail+`","steps":`+steps+c.sentBack+`}`), &d); err != nil {
 			t.Fatal(err)
 		}
+		switch c.kind {
+		case "decision":
+			d.WaitingOn = Waiting{Kind: "approval", Step: c.id, Says: c.name}
+		case "wedged":
+			d.WaitingOn = Waiting{Kind: "check", Step: c.id, Says: c.name}
+		}
 		kind, id, name := waitVerdict(d)
 		if kind != c.kind || id != c.id || name != c.name {
 			t.Errorf("%s: got %s %d %q, want %s %d %q", c.state, kind, id, name, c.kind, c.id, c.name)
@@ -52,6 +58,7 @@ func TestWaitJudgesFromAppTownsActivity(t *testing.T) {
 	// An approval in a called workflow: AppTown's words name it.
 	var d runDetail
 	_ = json.Unmarshal([]byte(`{"run":{"status":"running","currentStage":"build"},"state":"waiting on you","stateDetail":"accept (in land)","steps":[]}`), &d)
+	d.WaitingOn = Waiting{Kind: "approval", Says: "accept (in land)"}
 	if kind, id, name := waitVerdict(d); kind != "decision" || !id.IsZero() || name != "accept (in land)" {
 		t.Errorf("called approval: %s %d %q", kind, id, name)
 	}
@@ -79,12 +86,12 @@ func TestWaitPrintsAStateOnce(t *testing.T) {
 func TestWaitForAMissingRunWaitsOnTheChangeItNames(t *testing.T) {
 	seen := fakeAppTown(t, func(_, path string) (int, string) {
 		if path == "/changes/00000000-0514-7000-8000-000000000000" {
-			return 200, `{"change":{"id":"00000000-0514-7000-8000-000000000000","state":"shipped"}}`
+			return 200, `{"change":{"id":"00000000-0514-7000-8000-000000000000","state":"shipped"},"waitingOn":{"kind":"closed","says":"landed","tone":"ok"}}`
 		}
 		return 404, `{"error":"no run 1300"}`
 	})
 	out, err := run(t, "wait", "00000000-0514-7000-8000-000000000000", "-i", "0")
-	if err != nil || !strings.Contains(out, "00000000-0514-7000-8000-000000000000 is a change") || !strings.Contains(out, "change 00000000-0514-7000-8000-000000000000 shipped") {
+	if err != nil || !strings.Contains(out, "00000000-0514-7000-8000-000000000000 is a change") || !strings.Contains(out, "change 00000000-0514-7000-8000-000000000000: landed") {
 		t.Fatalf("wait: %v\n%s", err, out)
 	}
 	runs := 0
@@ -112,12 +119,12 @@ func TestWaitTakesAChangesNameAsTheChange(t *testing.T) {
 		seen := fakeAppTown(t, func(_, path string) (int, string) {
 			switch path {
 			case "/changes/shop#12", "/changes/" + change:
-				return 200, `{"change":{"id":"` + change + `","state":"shipped"}}`
+				return 200, `{"change":{"id":"` + change + `","state":"shipped"},"waitingOn":{"kind":"closed","says":"landed","tone":"ok"}}`
 			}
 			return 404, `{"error":"no such thing"}`
 		})
 		out, err := run(t, args...)
-		if err != nil || !strings.Contains(out, "change "+change+" shipped") {
+		if err != nil || !strings.Contains(out, "change "+change+": landed") {
 			t.Fatalf("%v: %v\n%s", args, err, out)
 		}
 		for _, r := range *seen {
@@ -199,19 +206,18 @@ func TestWaitNamesWhyTheLastRunEnded(t *testing.T) {
 	if err := json.Unmarshal(body, &d); err != nil {
 		t.Fatal(err)
 	}
-	if got := noRunGoing("61", "in_progress", &d); !strings.Contains(got, "run 00000000-032c-7000-8000-000000000000 (land) ended: "+ending) || strings.Contains(got, "a person's move") {
-		t.Fatalf("wait -c on an ended landing: %s", got)
+	previousExit := exitProcess
+	exitProcess = func(int) {}
+	t.Cleanup(func() { exitProcess = previousExit })
+	changeBody, _ := json.Marshal(map[string]any{"change": map[string]any{"state": "in_progress"}, "waitingOn": map[string]any{"kind": "chat", "says": "chat open"}, "detail": d})
+	fakeAppTown(t, func(_, path string) (int, string) { return 200, string(changeBody) })
+	if out, err := run(t, "wait", "-c", "00000000-0061-7000-8000-000000000000"); err != nil || !strings.Contains(out, ending) || !strings.Contains(out, "chat open") {
+		t.Fatalf("ended change: %v %s", err, out)
 	}
 	if got := runEnded("812", d); got != "✗ run 812 abandoned: "+ending {
 		t.Fatalf("wait on the ended landing: %s", got)
 	}
-	// With no ending (no run yet, or one that finished), the next move is a person's.
-	if got := noRunGoing("61", "in_progress", nil); !strings.HasSuffix(got, "a person's move") {
-		t.Fatalf("no run: %s", got)
-	}
-	if got := noRunGoing("61", "in_progress", &runDetail{}); !strings.HasSuffix(got, "a person's move") {
-		t.Fatalf("a run with no ending: %s", got)
-	}
+
 }
 
 // A release is waited on by its project and number: wait follows its log,
@@ -258,9 +264,9 @@ func TestWatchAndHomeSayWhatARunIsDoing(t *testing.T) {
 		case "/runs/00000000-0046-7000-8000-000000000000":
 			return 200, `{"run":{"id":"00000000-0046-7000-8000-000000000000","status":"running","currentStage":"stage-2b"},"state":"waiting on you","stateDetail":"accept",
 				"steps":[{"id":"00000000-02bd-7000-8000-000000000000","stage":"stage-2b","name":"accept","type":"approval","status":"pending"}]}`
-		case "/dashboard":
-			return 200, `{"pendingApprovals":[],"activeRuns":[{"runId":"00000000-0047-7000-8000-000000000000","changeId":"00000000-0007-7000-8000-000000000000","itemTitle":"add stats","workflow":"quick-change","stage":"stage-2b","state":"agent working","stateDetail":"implement","projectSlug":"shop"},
-				{"runId":"00000000-0048-7000-8000-000000000000","changeId":"00000000-0008-7000-8000-000000000000","itemTitle":"old AppTown","workflow":"quick-change","stage":"stage-2b","projectSlug":"shop"}]}`
+		case "/activity":
+			return 200, `{"waitingOnYou":[],"active":[{"runId":"00000000-0047-7000-8000-000000000000","changeId":"00000000-0007-7000-8000-000000000000","title":"add stats","waitingOn":{"says":"working"},"workflow":"quick-change","stage":"stage-2b","state":"agent working","stateDetail":"implement","projectSlug":"shop"},
+				{"runId":"00000000-0048-7000-8000-000000000000","changeId":"00000000-0008-7000-8000-000000000000","title":"old AppTown","waitingOn":{"says":"chat open"},"workflow":"quick-change","stage":"stage-2b","projectSlug":"shop"}]}`
 		}
 		return 404, `{"error":"no"}`
 	})
@@ -269,7 +275,7 @@ func TestWatchAndHomeSayWhatARunIsDoing(t *testing.T) {
 		t.Fatalf("watch: %v\n%s", err, out)
 	}
 	out = capture(t, func() { err = cmdHome() })
-	if err != nil || !strings.Contains(out, "quick-change · agent working: implement") || !strings.Contains(out, "quick-change · unknown") || strings.Contains(out, "stage-2b") {
+	if err != nil || !strings.Contains(out, "working") || !strings.Contains(out, "chat open") || strings.Contains(out, "stage-2b") {
 		t.Fatalf("home: %v\n%s", err, out)
 	}
 }
@@ -399,5 +405,33 @@ func TestReleaseHostnameCarriesTheObservedAddressRevision(t *testing.T) {
 		if request.Method != "GET" {
 			t.Fatalf("failed address read sent %s", request.Method)
 		}
+	}
+}
+
+func TestWaitTextNamesTheHoldingStepAndAvailableAction(t *testing.T) {
+	for _, kind := range []string{"approval", "check", "person"} {
+		t.Run(kind, func(t *testing.T) {
+			d := runDetail{WaitingOn: Waiting{Kind: kind, Step: idstest.N(2), Run: idstest.N(1), Says: "held"}, Next: []nextAct{{Act: "retry", Step: "review"}}}
+			line := waitAction(d)
+			if !strings.Contains(line, "step "+d.WaitingOn.Step.String()) {
+				t.Fatal(line)
+			}
+			if kind == "approval" {
+				if !strings.Contains(line, "apptown approve "+d.WaitingOn.Step.String()) {
+					t.Fatal(line)
+				}
+			} else if !strings.Contains(line, "apptown status "+d.WaitingOn.Run.String()) || !strings.Contains(line, "retry: review") {
+				t.Fatal(line)
+			}
+		})
+	}
+}
+
+func TestWaitTextOmitsAbsentHoldingStep(t *testing.T) {
+	t.Parallel()
+	d := runDetail{WaitingOn: Waiting{Kind: "person", Run: idstest.N(1), Says: "missing evidence"}, Next: []nextAct{{Act: "send-back"}}}
+	want := "missing evidence — apptown status " + d.WaitingOn.Run.String() + " — available: send-back"
+	if got := waitAction(d); got != want {
+		t.Fatalf("got %q, want %q", got, want)
 	}
 }

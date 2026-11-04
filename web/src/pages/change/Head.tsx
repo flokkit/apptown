@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { shortName } from '../newProject/draft'
-import { Status } from '../../Status'
+import { ChangeStatus } from '../../Status'
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeAttachment } from '../../wire.gen'
 import { renderMd } from '../../md'
@@ -51,7 +51,7 @@ export function ChangeHeader({ view, compact }: { view: ChangeView; compact?: bo
     <header className="ch-head">
       <div className="ch-title-row">
         <h1><span className="ch-number">Change #{ch.number}:</span> {changeTitle(ch)}</h1>
-        {!compact && <Status word={view.statusLabel} />}
+        {!compact && <ChangeStatus waiting={view.waitingOn} />}
         {ch.provenance && <span className="badge" title="Adopted from an outside branch: history reconstructed from commits, not witnessed as it happened.">{ch.provenance}</span>}
       </div>
       {!compact && <div className="ch-byline">

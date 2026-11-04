@@ -104,8 +104,7 @@ func (s *Service) prepareDecision(ctx context.Context, id ids.ID, action command
 // so it records no denial. A refusal is a *DecisionDenied;
 // any other error means eligibility could not be read.
 func (s *Service) MayApprove(ctx context.Context, id ids.ID) error {
-	_, _, err := s.prepareDecision(ctx, id, actionApproveStep)
-	return err
+	return s.mayVote(ctx, id)
 }
 
 func (s *Service) Override(ctx context.Context, in Override) (*Step, error) {

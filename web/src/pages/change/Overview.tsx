@@ -82,7 +82,7 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
 }) {
   const nav = useNavigate()
   const { run: act, busy: actionBusy, err: actionErr } = useAction(onChange)
-  const turn = viewerTurn(view) && current && !extraErr
+  const turn = viewerTurn(view) && current && !extraErr && nextStep(view).primary !== 'open-decision'
   const ch = view.change
   const d = view.detail
   const next = nextStep(view)
@@ -148,7 +148,7 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
           abandon={offered(view.next, 'abandon') ? { label: 'Abandon change', run: () => act(() => post(`/changes/${ch.id}/abandon`, {})) } : undefined} stepId={approval.id!} means={approval.config.means} alsoMeans={landingMeansFor(d, approval)} instructions={approval.config.instructions} onDone={onChange}
           approveLabel={destination ? 'Accept and put live' : 'Accept'} />
       </>}
-      {turn && !approval && <HeldDecision view={view} onChange={onChange} />}
+      {turn && view.waitingOn.kind !== 'approval' && <HeldDecision view={view} onChange={onChange} />}
       <DecisionContextOnly.Consumer>{contextOnly => !contextOnly && !turn && current && !extraErr && d && !['shipped', 'abandoned'].includes(ch.state) && <div className="row">
         {offered(d.next, 'advance') && <button className="primary" disabled={actionBusy} onClick={() => act(async () => setAdvance(await post<AdvanceResult>(`/runs/${d.run.id}/advance`)))}>Continue</button>}
         {advance?.followUpsPending && <span>Workflow finished. Follow-ups pending.</span>}

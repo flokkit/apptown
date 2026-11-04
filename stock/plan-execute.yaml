@@ -59,7 +59,7 @@ spec:
           with:
             approvers: ["role:project-approver"]
             means: "The work will be checked against this plan's acceptance criteria, not against my memory of what I wanted."
-            instructions: "Read the plan. Approving locks it, and the work is checked against its acceptance criteria. To have it redrafted, reject with a comment."
+            instructions: "Read the plan. Approving locks it, and the work is checked against its acceptance criteria. To send it back, use Send back… and say what should change."
     - name: execute
       onEnter:
         - name: execute-plan
@@ -165,4 +165,4 @@ spec:
           with:
             approvers: ["role:project-approver"]
             means: "The locked plan's acceptance criteria are met, per the report and the diff."
-            instructions: "Read the execution report's checklist of criteria and the diff. To send it back, reject with a comment."
+            instructions: "Read the execution report's checklist of criteria and the diff. To send it back, use Send back… and say what should change."

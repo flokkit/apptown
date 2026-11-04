@@ -15,7 +15,7 @@ const PROJECT = '00000000-0001-7000-8000-000000000000'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const view = (body: string, editRevision: number, externalRef = ''): ChangeView => ({
-  change: { id: CHANGE, number: 5, projectId: PROJECT, type: 'feature', title: 'Cart', body, externalRef, runId: null, createdAt: '', state: 'in_progress', editRevision },
+  waitingOn: { kind: 'chat', says: 'chat open', tone: 'neutral', run: null, step: null, checks: 0, who: [], you: 'no' }, change: { id: CHANGE, number: 5, projectId: PROJECT, type: 'feature', title: 'Cart', body, externalRef, runId: null, createdAt: '', state: 'in_progress', editRevision },
   evidence: {}, editing: 0, runs: [], commits: [],
 } as unknown as ChangeView)
 

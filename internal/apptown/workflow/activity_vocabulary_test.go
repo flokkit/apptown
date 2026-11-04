@@ -70,7 +70,7 @@ func TestHeldRunsExplainTheDispatchHoldInEveryRead(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !detail.PendingApproval.IsZero() || detail.State != ActivityWaiting || detail.StateDetail != tc.want || listed[run.ID] != (Activity{State: ActivityWaiting, Detail: tc.want, Held: true}) || len(rows) != 1 || rows[0].State != detail.State || rows[0].StateDetail != tc.want {
+			if !detail.PendingApproval.IsZero() || detail.State != ActivityWaiting || detail.StateDetail != tc.want || listed[run.ID].State != ActivityWaiting || listed[run.ID].Detail != tc.want || !listed[run.ID].Held || len(rows) != 1 || rows[0].State != detail.State || rows[0].StateDetail != tc.want {
 				t.Fatalf("detail %s %q, activities %+v, rows %+v; want waiting: %s", detail.State, detail.StateDetail, listed, rows, tc.want)
 			}
 			if ready, err := dispatchReady(context.Background(), db, storedStep(t, db, next)); err != nil || ready {
@@ -101,7 +101,7 @@ func TestDispatchableRunStillSaysWorking(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if detail.State != ActivityWorking || detail.StateDetail != "boot next" || listed[run.ID] != (Activity{State: ActivityWorking, Detail: "boot next"}) {
+	if detail.State != ActivityWorking || detail.StateDetail != "boot next" || listed[run.ID].State != ActivityWorking || listed[run.ID].Detail != "boot next" {
 		t.Fatalf("dispatchable run: %+v, %+v", detail, listed)
 	}
 	if ready, err := dispatchReady(context.Background(), db, storedStep(t, db, next)); err != nil || !ready {
@@ -133,6 +133,9 @@ func TestActivityTreatsAVerdictOlderThanTheReworkAsBeingRechecked(t *testing.T) 
 		listed, err := svc.Activities(context.Background(), []ids.ID{run.ID})
 		if err != nil {
 			t.Fatal(err)
+		}
+		if fresh && (detail.WaitingOn.Checks != 1 || detail.WaitingOn.Says != "late-review failed") {
+			t.Fatalf("stale checks counted: %+v", detail.WaitingOn)
 		}
 		if detail.State != want || listed[run.ID].State != want {
 			t.Fatalf("fresh=%v: detail %q (%s), list %q (%s), want %q", fresh, detail.State, detail.StateDetail, listed[run.ID].State, listed[run.ID].Detail, want)
@@ -188,6 +191,9 @@ func TestDoneWorkWithAReservedLandingReadsAsQueued(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if reserved && (detail.WaitingOn.Kind != "queued" || detail.WaitingOn.Says != "queued to land") {
+			t.Fatalf("queued: %+v", detail.WaitingOn)
+		}
 		// The queued landing is a stated fact, not only the words.
 		if reserved && (detail.State != activityQueued || detail.StateDetail != "landing" || !detail.LandingQueued) || !reserved && (detail.State != "" || detail.LandingQueued) {
 			t.Fatalf("reserved=%v: %q %q", reserved, detail.State, detail.StateDetail)
@@ -228,6 +234,10 @@ func TestTheSnapshotOffersTheActsAPersonCanTakeNow(t *testing.T) {
 		{"checks that need a person", "", nil,
 			[]step{{"work", "agent/pi", StatusPass}, {"lint", "script", StatusNeedsHuman}, {"merged", "scm/merged", StatusNeedsHuman}},
 			[]NextAct{{Act: nextRetry, Step: "lint"}, {Act: nextRetry, Step: "merged"}, {Act: nextRework, Step: "work"}}},
+		{"unmerged work", "", nil,
+			[]step{{"merged", "scm/merged", StatusNeedsHuman}}, []NextAct{{Act: nextRetry, Step: "merged"}}},
+		{"a check could not run", "", nil,
+			[]step{{"tests", "tests", StatusError}, {"accept", "approval", StatusPending}}, []NextAct{{Act: nextOverride, Step: "tests"}, {Act: nextRetry, Step: "tests"}}},
 		{"a gate missing evidence", "", scan,
 			[]step{{"work", "agent/pi", StatusPass}, {"accept", "approval", StatusPending}},
 			[]NextAct{{Act: nextRework, Step: "work"}}},
@@ -261,6 +271,27 @@ func TestTheSnapshotOffersTheActsAPersonCanTakeNow(t *testing.T) {
 			detail, err := newService(db, allowProject(run.ProjectID), Runtime{Automatic: []string{"agent/pi", "tests", "preview", "script"}}).Snapshot(context.Background(), run.ID, DetailView)
 			if err != nil {
 				t.Fatal(err)
+			}
+			w := detail.WaitingOn
+			expected := map[string]string{
+				"waiting on an approval": "approval", "blocked by a failed check": "check", "a rejection with no agent to rework it": "check",
+				"checks that need a person": "person", "unmerged work": "person", "a check could not run": "check", "a gate missing evidence": "person", "ready to advance": "ready",
+				"a landing whose rules changed": "person", "a working run with a stopped rules check": "person", "the agent queued for another round": "work", "a check running": "work",
+			}[c.name]
+			if w.Kind != expected || w.Run != run.ID {
+				t.Fatalf("waiting on %+v, want %s on %s", w, expected, run.ID)
+			}
+			if c.name == "a check could not run" && w.Says != "tests could not run" {
+				t.Fatalf("error: %+v", w)
+			}
+			if expected == "person" && w.Says != detail.StateDetail {
+				t.Fatalf("hold explanation lost: %+v", w)
+			}
+			if expected == "ready" && w.Says != "ready to continue" {
+				t.Fatalf("ready: %+v", w)
+			}
+			if c.name == "blocked by a failed check" && (w.Checks != 3 || w.Step != stepIDs["tests"] || w.Says != "3 checks failed" || w.Tone != "bad") {
+				t.Fatalf("checks: %+v", w)
 			}
 			want := []NextAct{}
 			for _, a := range c.want {
@@ -311,7 +342,7 @@ func TestTheChangeOffersLandingAndSendingBack(t *testing.T) {
 		merged  bool
 		want    []NextAct
 	}{
-		{"no run yet", ChangeInProgress, nil, false, []NextAct{land}},
+		{"no run yet", ChangeInProgress, nil, false, []NextAct{abandon}},
 		{"work done", ChangeInProgress, run(RunDone, "", false), false, []NextAct{land}},
 		{"work stopped", ChangeInProgress, run(RunAbandoned, ActivityAbandoned, false), false, []NextAct{land}},
 		{"its landing queued", ChangeInProgress, run(RunDone, activityQueued, true), false, []NextAct{}},
@@ -332,6 +363,9 @@ func TestTheChangeOffersLandingAndSendingBack(t *testing.T) {
 // Closing a blocked change is offered only to a reader who may abandon it.
 func TestAbandonIsOfferedOnlyToWhoMayAbandon(t *testing.T) {
 	t.Parallel()
+	if got := ChangeActs(&Change{State: ChangeInProgress}, nil, false, false); len(got) != 0 {
+		t.Fatalf("chat reader offered %+v", got)
+	}
 	blocked := &RunSnapshot{Run: &Run{Status: RunRunning}, State: ActivityBlocked}
 	if got := ChangeActs(&Change{State: ChangeInProgress}, blocked, false, false); !slices.Equal(got, []NextAct{{Act: nextSendBack}}) {
 		t.Errorf("a reader who may not abandon was offered %+v", got)

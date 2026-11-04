@@ -58,7 +58,7 @@ type ChangeDetail struct {
 	Branch      string      `json:"branch" doc:"its branch, empty before its first run"`
 	Runs        []RunDetail `json:"runs" doc:"its runs, newest first"`
 	Commits     []Commit    `json:"commits" doc:"its commits not on main, newest first"`
-	WaitingOn   *Waiting    `json:"waitingOn" doc:"the approval it waits on, or null"`
+	WaitingOn   Waiting     `json:"waitingOn" doc:"what the change waits on, including the server wording and reader eligibility"`
 }
 
 // RunDetail is one run of a change.
@@ -76,9 +76,22 @@ type Commit struct {
 	Subject string `json:"subject" doc:"its first line"`
 }
 
-// Waiting is the approval a change waits on.
+// Waiting is the server’s attention projection for a change.
 type Waiting struct {
-	Step ids.ID `json:"step" doc:"the approval step's UUID: apptown approve <step>"`
+	Kind   string           `json:"kind" doc:"approval, check, person, ready, chat, work, queued, closed or unknown"`
+	Run    ids.ID           `json:"run" doc:"the holding run, including a child's, or null"`
+	Step   ids.ID           `json:"step" doc:"the holding step, or null"`
+	Checks int              `json:"checks" doc:"current failed checks in the holding stage"`
+	Who    []WaitingDecider `json:"who" doc:"effective deciders, with person, group or role kind"`
+	You    string           `json:"you" doc:"yes, no or unknown: whether the reader may perform a relevant act"`
+	Says   string           `json:"says" doc:"the server's plain phrase, shared by every view"`
+	Tone   string           `json:"tone" doc:"ok, bad, warn, neutral or unknown"`
+}
+
+// WaitingDecider is one effective approval expression.
+type WaitingDecider struct {
+	Kind string `json:"kind" doc:"person, group or role"`
+	Name string `json:"name" doc:"the person, group or role name"`
 }
 
 // ChangeList is what changes prints.
@@ -88,9 +101,10 @@ type ChangeList struct {
 
 // ChangeRow is one change in changes.
 type ChangeRow struct {
-	Change ChangeRef `json:"change" doc:"the change"`
-	Title  string    `json:"title" doc:"its title"`
-	State  string    `json:"state" doc:"its board column: in_progress, landing, shipped or abandoned"`
+	WaitingOn Waiting   `json:"waitingOn" doc:"what the change waits on, with the server wording and reader eligibility"`
+	Change    ChangeRef `json:"change" doc:"the change"`
+	Title     string    `json:"title" doc:"its title"`
+	State     string    `json:"state" doc:"its board column: in_progress, landing, shipped or abandoned"`
 	// ClosedAs is how a closed change was closed, when that is more than
 	// its state (workflow.Change.ClosedAs).
 	ClosedAs string `json:"closedAs,omitempty" doc:"nothing-to-change when AppTown closed an abandoned change because its run found nothing to change; shipped-with when a later landing shipped main containing this change's merge after its own landing could not ship; record when a record run (research, a specification) closed it with nothing to land; absent otherwise"`

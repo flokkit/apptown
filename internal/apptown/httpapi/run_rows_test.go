@@ -31,6 +31,7 @@ func TestWorkflowRunRowsFormatsTypedSummariesAndTimesRunningOnesByWorksClock(t *
 	rows := workflowRunRows([]workflow.RunSummary{{
 		ID: idstest.N(7), Number: 40, ChangeID: idstest.N(9), ChangeNumber: 12, WorkflowName: "build", ItemTitle: "Ship it",
 		Status: workflow.RunDone, CurrentStage: "finish", State: workflow.ActivityDone,
+		WaitingOn:   workflow.WaitingOn{Kind: "closed", Says: "landed", Tone: "ok"},
 		StateDetail: "completed", ProjectSlug: "game",
 		CreatedAt: "2026-01-01T00:00:00Z", UpdatedAt: "2026-01-01T00:00:45Z",
 	}, {
@@ -40,7 +41,7 @@ func TestWorkflowRunRowsFormatsTypedSummariesAndTimesRunningOnesByWorksClock(t *
 		t.Fatalf("rows: %+v", rows)
 	}
 	got := rows[0]
-	if got.RunID != idstest.N(7) || got.RunNumber != 40 || got.ChangeID != idstest.N(9) || got.ChangeNumber != 12 || got.Workflow != "build" || got.Title != "Ship it" || got.Status != workflow.RunDone || got.Stage != "finish" || got.State != workflow.ActivityDone || got.Detail != "completed" || got.Project != "game" || got.StartedAt != "2026-01-01T00:00:00Z" || got.DurationS != 45 {
+	if got.WaitingOn.Says != "landed" || got.WaitingOn.Tone != "ok" || got.RunID != idstest.N(7) || got.RunNumber != 40 || got.ChangeID != idstest.N(9) || got.ChangeNumber != 12 || got.Workflow != "build" || got.Title != "Ship it" || got.Status != workflow.RunDone || got.Stage != "finish" || got.State != workflow.ActivityDone || got.Detail != "completed" || got.Project != "game" || got.StartedAt != "2026-01-01T00:00:00Z" || got.DurationS != 45 {
 		t.Fatalf("formatted row: %+v", got)
 	}
 	// A running run has run until now, Work's clock, not the wall clock.

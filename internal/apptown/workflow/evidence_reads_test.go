@@ -313,3 +313,16 @@ func TestTheSnapshotCarriesTheOwnersReadingOfCheckEvidence(t *testing.T) {
 		t.Errorf("a review has no check evidence: %+v", r)
 	}
 }
+
+func TestAttentionRowsOmitEventsAndArtifacts(t *testing.T) {
+	t.Parallel()
+	q, run, _ := activityFixture(t)
+	counted := &countedQueries{Handle: q.db.SQL()}
+	snapshot, err := readWorkflowSnapshot(t.Context(), counted, run.ID, rowView, nil, run.ProjectID, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if counted.reads != 3 || len(snapshot.Events) != 0 || len(snapshot.Artifacts) != 0 || snapshot.WaitingOn.Kind != "approval" {
+		t.Fatalf("attention row: reads=%d %+v", counted.reads, snapshot)
+	}
+}

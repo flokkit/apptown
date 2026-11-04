@@ -37,6 +37,8 @@ type RunQuery struct {
 	Limit       int // zero is uncapped, used by the project overview
 }
 type RunSummary struct {
+	WaitingOn WaitingOn `json:"waitingOn"`
+	activity  Activity
 	// Held is the activity classifier’s dispatch hold, for actions on list rows.
 	Held            bool                 `json:"-"`
 	StatusLabel     status.DisplayStatus `json:"statusLabel"`
@@ -115,19 +117,22 @@ func readWorkflowSummaries(ctx context.Context, db database.Queryer, query RunQu
 			idList = append(idList, row.ID)
 		}
 	}
-	graph, err := readWorkflowActivity(ctx, db, idList)
-	if err != nil {
-		return nil, err
-	}
+	graph, graphErr := readWorkflowActivity(ctx, db, idList)
 	for i := range rows {
 		if rows[i].Status != RunRunning {
 			continue
 		}
+		if graphErr != nil {
+			rows[i].WaitingOn = unknownWaitingOn()
+			continue
+		}
 		activity, err := graph.classify(rows[i].ID, wait, make(map[ids.ID]bool))
 		if err != nil {
-			return nil, err
+			rows[i].WaitingOn = unknownWaitingOn()
+			continue
 		}
 		rows[i].State, rows[i].StateDetail, rows[i].Held = activity.State, activity.Detail, activity.Held
+		rows[i].activity = activity
 	}
 	return rows, nil
 }
@@ -153,15 +158,16 @@ func readWorkflowActivity(ctx context.Context, db database.Queryer, idList []ids
 		node := graph[row.ID]
 		if node == nil {
 			node = &workflowActivityRun{id: row.ID, projectID: row.ProjectID, parentID: row.ParentRunID, parentStepID: row.ParentStepID, parentAttempt: row.ParentStepAttempt, state: state, abandonmentReason: row.AbandonmentReason, awaitingAcceptance: row.AwaitingAcceptance}
-			if node.stage, node.checks, err = stageFacts(row.StageDeclaration, row.StageChecks); err != nil {
-				return nil, fmt.Errorf("run %d stage facts: %w", row.ID, err)
+			if node.stage, node.checks, err = stageFacts(row.StageDefinition, row.CurrentStage, row.StageChecks); err != nil {
+				node.readError = fmt.Errorf("run %d stage facts: %w", row.ID, err)
 			}
 			graph[row.ID] = node
 		}
 		if !row.StepID.IsZero() {
 			stepState, err := parseStepState(row.StepStatus)
 			if err != nil {
-				return nil, err
+				node.readError = err
+				continue
 			}
 			node.steps = append(node.steps, workflowActivityStep{id: row.StepID, attempt: row.StepAttempt, name: row.StepName, kind: row.StepType, override: row.StepOverrideBy, state: stepState, evidence: rawJSON(string(row.Evidence)), finished: row.StepFinishedAt})
 		}

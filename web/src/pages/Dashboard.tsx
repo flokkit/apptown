@@ -10,7 +10,6 @@ import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
 import { Section } from '../Section'
-import { waitingWhy } from '../parts/runActivity'
 import { ActiveRunList, ChangeRow, RunRow } from '../parts/runActivity'
 import type { Operation, ProjectPage, SetupState } from '../wire.gen'
 import { endedWords } from './DataProtection'
@@ -20,6 +19,7 @@ import { LocalTrialNote } from '../LocalTrialNote'
 
 export type Activity = {
   agents: { project: string; runId: string | null; changeId: string | null; title: string; step: string; type: string; elapsedS: number }[]
+  waitingOnYou: RunRow[]
   active: RunRow[]
   history: ChangeRow[]
   deployments: (RuntimeObservation & { project: string; name: string; url: string; hostOnly?: boolean; running: boolean | null })[]
@@ -103,14 +103,14 @@ export function homeStatus(input: HomeStatusInput): string {
 }
 
 // homeStatusParts is the sentence in parts, each with where it is shown in
-// full: what waits on you and what is running are the sections below, the
+// full: what waits on you and other change work are the sections below, the
 // conditions to fix are Attention, and running apps are the Apps list. A
 // part links only to a page that lists exactly what it counts.
 export function homeStatusParts({ needsYou, running, deployments, operations }: HomeStatusInput): { text: string; to?: string }[] {
   const parts: { text: string; to?: string }[] = []
   if (needsYou === null) parts.push({ text: 'could not read what is waiting on you' })
   else if (needsYou > 0) parts.push({ text: `${needsYou} waiting on you` })
-  if (running > 0) parts.push({ text: `${running} running` })
+  if (running > 0) parts.push({ text: `${running} other work item${running === 1 ? '' : 's'}` })
   if (operations.count || operations.unknown) parts.push({ text: attentionSummary(operations.count, operations.unknown ?? 0), to: '/attention' })
   if (needsYou === 0 && running === 0 && operations.known && operations.count === 0) parts.unshift({ text: 'All quiet' })
   // An app is live when one of its deployments was seen running on the
@@ -127,26 +127,6 @@ export function homeStatusParts({ needsYou, running, deployments, operations }: 
   if (live.size > 0) parts.push({ text: `${live.size} running`, to: '/deployments/table' })
   if (unknown.size > 0) parts.push({ text: `${unknown.size} running status unknown`, to: '/deployments/table' })
   return parts
-}
-
-// homeSections splits the active runs and pending approvals into what
-// needs a person (approvals, blocked runs) and what is running. needsYouCount
-// is everything under "Needs you", the heading and the sentence alike: each
-// change once (two approvals on one change are one change), and each ended
-// operation that waits on the person.
-export function homeSections<A extends { changeId: string | null }>(active: RunRow[], approvals: A[], ended: unknown[] = []) {
-  const happening = active.filter((r) => r.state !== 'waiting on you' && r.state !== 'blocked')
-  const blocked = active.filter((r) => r.state === 'blocked')
-  // A change has one card: a working run's (possibly stale) approval waits
-  // behind the run, and a blocked run's approval behind the block, which is
-  // what has to be dealt with first.
-  const runChanges = new Set([...happening, ...blocked].map((r) => r.changeId))
-  const waiting = approvals.filter((a) => !runChanges.has(a.changeId))
-  const needsYouCount = new Set([
-    ...waiting.map((a) => `c${a.changeId}`),
-    ...blocked.map((r) => r.changeId ? `c${r.changeId}` : `r${r.runId}`),
-  ]).size + ended.length
-  return { happening, blocked, waiting, needsYouCount }
 }
 
 // History has no stop-actor field, so stopped work cannot be attributed here.
@@ -168,20 +148,10 @@ export default function Dashboard() {
   const listed = projects ?? []
   const finished = homeFinished(act?.history ?? [])
 
-  // One work item, one card. "Running" is one card PER RUN (its current
-  // step is shown inside the card), never one per running step — a run churning
-  // through auto-rework used to surface once per in-flight step here AND again
-  // as a needs-you card. A run that is actively working shows here; suppress its
-  // (possibly stale, mid-rework) pending approval from "Needs you" so the
-  // same item never appears in two sections at once.
-  //
-  // A blocked run is not running: it waits for a person to fix, send back,
-  // override or abandon it, so it is listed under "Needs you" with the
-  // approvals, and counted there.
-  // A copy, check or take-down you asked for that failed, or whose outcome
-  // is not known, waits here until you put it away. A success needs nobody.
   const ended = dash?.endedOperations ?? []
-  const { happening, blocked, waiting, needsYouCount } = homeSections(act?.active ?? [], dash?.pendingApprovals ?? [], ended)
+  const happening = act?.active ?? []
+  const waiting = act?.waitingOnYou ?? []
+  const needsYouCount = waiting.length + ended.length
 
   // The page leads with one sentence about the situation, then only the
   // sections that have something in them. With no projects yet it says
@@ -191,7 +161,7 @@ export default function Dashboard() {
   // else they are not part of Home's sentence.
   const status = homeStatusParts({
     operations: operator ? attentionState(operationsQ) : { count: 0, known: true, unknown: 0 },
-    needsYou: dash ? needsYouCount : null,
+    needsYou: act && dash ? needsYouCount : null,
     running: happening.length,
     deployments: act?.deployments ?? [],
   })
@@ -221,19 +191,9 @@ export default function Dashboard() {
 
       {!act && <ReadStatus q={actQ} what="activity" />}
       {!dash && <ReadStatus q={dashQ} what="what is waiting on you" />}
-      {(waiting.length > 0 || blocked.length > 0 || ended.length > 0) && <Section title={ended.length > 0 ? "Waiting on you" : "Changes waiting on you"} label="Waiting on you" count={needsYouCount}>
+      {(waiting.length > 0 || ended.length > 0) && <Section title={ended.length > 0 ? "Waiting on you" : "Changes waiting on you"} label="Waiting on you" count={needsYouCount}>
         {ended.map((op) => <EndedOperation key={op.id} op={op} />)}
-        <ActiveRunList runs={blocked} showProject names={projectNames} why />
-        {waiting.map((a) => (
-          <div key={a.stepId} className="card row" style={{ display: 'flex' }}>
-            <Link to={`/changes/${a.changeId}`} className="row" style={{ display: 'flex', flex: 1 }}>
-              <span className="row-status"><Status word={a.statusLabel} reason={waitingWhy(a.statusLabel)} /></span>
-              <strong>{a.changeNumber ? <span className="muted" style={{ fontWeight: 400 }}>#{a.changeNumber} </span> : null}{a.itemTitle || `change ${a.changeNumber}`}</strong>
-              <span className="muted small">{a.projectName}{act?.active.find(r => r.changeId === a.changeId)?.startedAt && ` · ${relTime(act?.active.find(r => r.changeId === a.changeId)!.startedAt)}`}</span>
-            </Link>
-            <span className="row-action"><Link to={`/changes/${a.changeId}`} className="btn">Review</Link></span>
-          </div>
-        ))}
+        <ActiveRunList runs={waiting} showProject names={projectNames} />
       </Section>}
       {!noProjects && <Section title="Recent projects"
         action={<Link to="/projects">All projects{projectsQ.data ? ` (${projectsQ.data.total})` : ''} →</Link>}>
@@ -244,7 +204,7 @@ export default function Dashboard() {
       </Section>}
 
       {!noProjects && <>
-      {happening.length > 0 && <Section title="Working" count={happening.length}>
+      {happening.length > 0 && <Section title="Other work" count={happening.length}>
         <ActiveRunList runs={happening} showProject names={projectNames} />
       </Section>}
 

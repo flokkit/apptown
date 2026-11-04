@@ -28,7 +28,22 @@ func (s *Service) Changes(ctx context.Context, project ids.ID, in ChangeList) ([
 	if _, err := s.require(ctx, operationPermission{Action: actionListChanges, ProjectID: project}); err != nil {
 		return nil, err
 	}
-	return readChangeList(ctx, s.db, project, in)
+	rows, err := readChangeList(ctx, s.db, project, in)
+	if err != nil {
+		return nil, err
+	}
+	for i := range rows {
+		var d *RunSnapshot
+		if !rows[i].RunID.IsZero() && !rows[i].State.Closed() {
+			d, err = s.Snapshot(ctx, rows[i].RunID, rowView)
+			if err != nil {
+				rows[i].WaitingOn = unknownWaitingOn()
+				continue
+			}
+		}
+		rows[i].WaitingOn = s.ChangeWaitingOn(ctx, &rows[i].Change, d)
+	}
+	return rows, nil
 }
 func (s *Service) Create(ctx context.Context, in ChangeDraft) (*Change, error) {
 	return s.CreateWith(ctx, in, nil)

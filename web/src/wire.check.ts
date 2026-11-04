@@ -29,8 +29,6 @@ export const handTypesMatchTheServer: [
   Declares<Item<A.ChangeEvidence['targets']>, W.AcceptanceCheck>,
   Declares<Item<A.ChangeEvidence['releases']>, W.ChangeRelease>,
   Declares<A.Dashboard, W.DashboardView>,
-  Declares<Item<A.Dashboard['pendingApprovals']>, W.PendingApproval>,
-  Declares<Item<A.Dashboard['activeRuns']>, W.ActiveRun>,
   Declares<A.Adr, W.ADRRecord>,
   Declares<Activity, W.InstanceActivity>,
   Declares<Item<Activity['agents']>, W.ActiveAgent>,
@@ -39,4 +37,4 @@ export const handTypesMatchTheServer: [
   Declares<RuntimeObservation, W.ActivityDeployment>,
   Declares<Bubble, W.Message>,
   Declares<StartedChange, W.ConsoleChange>,
-] = [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]
+] = [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]

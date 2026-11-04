@@ -291,7 +291,7 @@ func TestActivityIncludesPersonalChangesBetweenRuns(t *testing.T) {
 			t.Fatalf("%s open changes: %d %s (%v)", who, w.Code, w.Body.String(), err)
 		}
 		row := response.Open[0]
-		if row.State.String() != "waiting on you" || row.Reason != "ready to land" || row.IdleSince != "" || (row.ID == ch.ID) != (who == "outsider") {
+		if row.State.String() != "idle" || row.Reason != "No workflow is running" || row.IdleSince == "" || (row.ID == ch.ID) != (who == "outsider") {
 			t.Fatalf("%s personal row: %+v", who, row)
 		}
 	}

@@ -102,7 +102,7 @@ it.each([true, false])('shows open chats without a Past chats section (chat=%s)'
   const alpha = project(1, 'a', 'Alpha')
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
     const body = url.endsWith('/projects/a') ? alpha
-      : url.endsWith('/overview') ? { active: [], history: [], open: chat ? [{ changeId: 'chat', changeNumber: 3, title: 'Add lunch orders', state: 'in_progress', statusLabel: 'waiting' }] : [] }
+      : url.endsWith('/overview') ? { active: [], history: [], open: chat ? [{ changeId: 'chat', changeNumber: 3, waitingOn: { kind: 'chat', says: 'chat open', tone: 'neutral', you: 'no' }, title: 'Add lunch orders', state: 'in_progress', statusLabel: 'waiting' }] : [] }
       : url.endsWith('/schedules') ? { schedules: [] }
       : url.endsWith('/transcript') ? { sessions: [{ id: 'past', title: 'A completed chat' }] }
       : url.endsWith('/release/plan') ? { configured: false }

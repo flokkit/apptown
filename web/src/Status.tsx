@@ -80,3 +80,9 @@ export function Status({ word, help, staleAt, observation = false, old = false, 
     <div className="small muted">{help}</div>
   </details>
 }
+
+// Change wording and tone are supplied by Workflow together.
+export const waitingTone = (tone: string): string => ({ ok: 'pass', bad: 'fail', warn: 'pending', neutral: '', unknown: 'unknown' })[tone] ?? 'unknown'
+export function ChangeStatus({ waiting }: { waiting: import('./wire.gen').WaitingOn }) {
+  return <span className={`chip ${waitingTone(waiting.tone)}`}><span aria-hidden="true">● </span>{waiting.says}</span>
+}

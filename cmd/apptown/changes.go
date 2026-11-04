@@ -40,7 +40,6 @@ func cmdChanges(args []string) error {
 		}
 		return printJSON(rows)
 	}
-	activity := runningActivity(*project)
 	w := tw()
 	fmt.Fprintln(w, "CHANGE\tPROJECT\tTITLE\tSTATE\tWHERE")
 	rows := 0
@@ -61,7 +60,7 @@ func cmdChanges(args []string) error {
 				continue
 			}
 			for _, it := range c.Items {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", changeName(slug, it.Number, it.ID), slug, truncateStr(it.Title, 48), it.StateLabel, changeWhere(it, activity[it.ID], closed))
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", changeName(slug, it.Number, it.ID), slug, truncateStr(it.Title, 48), it.StateLabel, it.WaitingOn.Says)
 				rows++
 			}
 			if closed && c.Total > len(c.Items) {
@@ -101,7 +100,7 @@ func changeRows(slugs []string, all bool) (ChangeList, error) {
 				continue
 			}
 			for _, it := range c.Items {
-				out.Changes = append(out.Changes, ChangeRow{Change: changeRefOf(slug, it.Number, it.ID), Title: it.Title, State: c.State, ClosedAs: it.ClosedAs, StateLabel: it.StateLabel})
+				out.Changes = append(out.Changes, ChangeRow{WaitingOn: it.WaitingOn, Change: changeRefOf(slug, it.Number, it.ID), Title: it.Title, State: c.State, ClosedAs: it.ClosedAs, StateLabel: it.StateLabel})
 			}
 		}
 	}
@@ -110,6 +109,7 @@ func changeRows(slugs []string, all bool) (ChangeList, error) {
 
 // boardItem is one change on a project's board.
 type boardItem struct {
+	WaitingOn    Waiting
 	ID           ids.ID
 	Number       int64
 	Title        string
@@ -120,36 +120,6 @@ type boardItem struct {
 	StateLabel   string // AppTown's words for its state
 }
 
-// runActivity is AppTown's reading of a running run: the words the
-// change page shows ("waiting on you", "blocked", …) and their detail.
-type runActivity struct {
-	ID                 ids.ID
-	State, StateDetail string
-}
-
-// runningActivity reads every running run's activity, by change: the
-// change's root run, which reports a called workflow's state as its own.
-func runningActivity(project string) map[ids.ID]runActivity {
-	q := "/runs?status=running"
-	if project != "" {
-		q += "&project=" + project
-	}
-	var runs []struct {
-		runActivity
-		ChangeID ids.ID
-	}
-	out := map[ids.ID]runActivity{}
-	if api.get(q, &runs) != nil {
-		return out
-	}
-	for _, r := range runs {
-		if have, ok := out[r.ChangeID]; !r.ChangeID.IsZero() && (!ok || r.ID.Compare(have.ID) < 0) {
-			out[r.ChangeID] = r.runActivity
-		}
-	}
-	return out
-}
-
 // stateWords is a running run's activity as the change page says it
 // ("waiting on you: accept"), or "unknown" when AppTown gave none: a
 // stage name is the workflow's own label, not what the run is doing.
@@ -158,26 +128,6 @@ func stateWords(state, detail string) string {
 		return "unknown"
 	}
 	return strings.TrimSuffix(state+": "+detail, ": ")
-}
-
-// changeWhere says where a change is: AppTown's own state when a run is
-// going ("waiting on you: accept", "blocked: tests (fail)"), else its
-// workflow and stage. The stage name alone ("apply", "fix") once hid that
-// a change was waiting on its reader (sweep 7).
-func changeWhere(it boardItem, act runActivity, closed bool) string {
-	switch {
-	case closed:
-		return "-"
-	case act.State == "working" || act.State == "agent working":
-		return it.WorkflowName + " · " + it.Stage
-	case act.State != "":
-		return stateWords(act.State, act.StateDetail)
-	case it.RunStatus == "running":
-		return it.WorkflowName + " · " + it.Stage
-	case it.RunStatus != "" && it.RunStatus != "done":
-		return it.WorkflowName + " · " + it.RunStatus
-	}
-	return "idle"
 }
 
 // cmdShow: the cockpit in the terminal — what the change is FOR, where it's
@@ -212,6 +162,7 @@ func cmdShow(args []string) error {
 		Report      string
 		State       string
 		StateDetail string
+		WaitingOn   Waiting
 		Next        []nextAct
 		Runs        []struct {
 			ID           ids.ID
@@ -246,7 +197,7 @@ func cmdShow(args []string) error {
 	ch := view.Change
 	if *asJSON {
 		d := ChangeDetail{Change: changeRefOf(view.ProjectSlug, ch.Number, ch.ID), Title: ch.Title, State: ch.State, ClosedAs: ch.ClosedAs, StateLabel: ch.StateLabel,
-			StateDetail: view.StateDetail, Branch: ch.Branch, Runs: []RunDetail{}, Commits: []Commit{}}
+			StateDetail: view.StateDetail, WaitingOn: view.WaitingOn, Branch: ch.Branch, Runs: []RunDetail{}, Commits: []Commit{}}
 		for _, r := range view.Runs {
 			d.Runs = append(d.Runs, RunDetail{Run: RunRef{ID: r.ID, Number: r.Number}, Workflow: r.WorkflowName,
 				Role: r.Role, Status: r.Status, Stage: r.CurrentStage})
@@ -254,12 +205,9 @@ func cmdShow(args []string) error {
 		for _, c := range view.Commits {
 			d.Commits = append(d.Commits, Commit{SHA: c.SHA, Subject: c.Subject})
 		}
-		if view.Approval != nil && !view.Approval.StepID.IsZero() {
-			d.WaitingOn = &Waiting{Step: view.Approval.StepID}
-		}
 		return printJSON(d)
 	}
-	fmt.Printf("%s %s  %s\n", bold("change "+changeName(view.ProjectSlug, ch.Number, ch.ID)), ch.Title, stateChip(ch.State, ch.StateLabel))
+	fmt.Printf("%s %s  %s\n", bold("change "+changeName(view.ProjectSlug, ch.Number, ch.ID)), ch.Title, view.WaitingOn.Says)
 	meta := []string{view.ProjectSlug}
 	if ch.Branch != "" {
 		meta = append(meta, ch.Branch)
@@ -280,7 +228,7 @@ func cmdShow(args []string) error {
 	if strings.TrimSpace(ch.Body) != "" {
 		fmt.Printf("\n%s\n%s\n", bold("For"), indentBody(ch.Body, 20))
 	}
-	if now := nowLine(ch.ID, view.State, view.StateDetail); now != "" {
+	if now := view.WaitingOn.Says; now != "" {
 		fmt.Printf("\n%s %s\n", bold("Now"), now)
 	}
 	if a := view.Approval; a != nil {
@@ -360,22 +308,6 @@ func cmdShow(args []string) error {
 	return nil
 }
 
-// nowLine is what the change is doing, in AppTown's words, with the move
-// that answers it: a change waiting on an approval once showed only its
-// stage name (sweep 7).
-func nowLine(changeID ids.ID, state, detail string) string {
-	words := strings.TrimSuffix(state+": "+detail, ": ")
-	switch state {
-	case "", "done", "abandoned":
-		return ""
-	case "waiting on you":
-		return yellow(words) + dim(fmt.Sprintf(" — apptown follow %d", changeID))
-	case "blocked":
-		return red(words) + dim(fmt.Sprintf(" — apptown follow %d for next steps", changeID))
-	}
-	return words
-}
-
 // storyHeading names the change's story: "So far" while it is open, what
 // it became once it is closed (a shipped change's report read "So far").
 func storyHeading(state string) string {
@@ -391,48 +323,36 @@ func storyHeading(state string) string {
 // cmdHome: bare `apptown status` — the operator's world in one screen:
 // what's waiting on you, what's running, what shipped lately.
 func cmdHome() error {
-	var dash struct {
-		PendingApprovals []struct {
-			StepID       ids.ID
-			StepName     string
-			RunID        ids.ID
-			ChangeID     ids.ID
-			ChangeNumber int64
-			ItemTitle    string
-			ProjectSlug  string
-		}
-		ActiveRuns []struct {
-			RunID        ids.ID
-			ChangeID     ids.ID
-			ChangeNumber int64
-			ItemTitle    string
-			Workflow     string
-			State        string
-			StateDetail  string
-			ProjectSlug  string
-		}
+	type row struct {
+		ChangeID     ids.ID
+		ChangeNumber int64
+		Project      string
+		Title        string
+		WaitingOn    Waiting
 	}
-	if err := api.get("/dashboard", &dash); err != nil {
+	var activity struct {
+		WaitingOnYou []row
+		Active       []row
+	}
+	if err := api.get("/activity", &activity); err != nil {
 		return err
 	}
-	if len(dash.PendingApprovals) > 0 {
-		fmt.Println(bold("Waiting on you"))
-		for _, p := range dash.PendingApprovals {
-			name := changeName(p.ProjectSlug, p.ChangeNumber, p.ChangeID)
-			fmt.Printf("  %s %s %s %s %s\n", yellow("●"), name,
-				truncateStr(p.ItemTitle, 48), dim(p.ProjectSlug+" · "+p.StepName),
-				dim("→ apptown follow "+name))
-		}
-	} else {
+	if len(activity.WaitingOnYou) == 0 {
 		fmt.Println(dim("Nothing waiting on you."))
 	}
-	if len(dash.ActiveRuns) > 0 {
-		fmt.Println(bold("\nIn flight"))
-		for _, r := range dash.ActiveRuns {
-			fmt.Printf("  %s %s %s %s\n", cyan("⧗"), changeName(r.ProjectSlug, r.ChangeNumber, r.ChangeID),
-				truncateStr(r.ItemTitle, 48), dim(r.ProjectSlug+" · "+r.Workflow+" · "+stateWords(r.State, r.StateDetail)))
+	for _, section := range []struct {
+		title string
+		rows  []row
+	}{{"Waiting on you", activity.WaitingOnYou}, {"Other work", activity.Active}} {
+		if len(section.rows) == 0 {
+			continue
+		}
+		fmt.Println(bold(section.title))
+		for _, r := range section.rows {
+			fmt.Printf("  %s %s %s\n", changeName(r.Project, r.ChangeNumber, r.ChangeID), truncateStr(r.Title, 48), r.WaitingOn.Says)
 		}
 	}
+
 	fmt.Printf("\n%s\n", dim("apptown changes · apptown show <id> · apptown follow <id>"))
 	return nil
 }

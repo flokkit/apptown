@@ -61,12 +61,15 @@ type ReadView uint8
 const (
 	DetailView ReadView = iota + 1
 	TraceView
+	rowView // attention only: no events, artifacts, or decision presentation
 )
 
 // One detached Work snapshot serves detail, trace and internal callers. Definition
 // is available for composition without adding another field to the detail payload.
 // A read never gives its returned Steps authority to finish a runner attempt.
 type RunSnapshot struct {
+	WaitingOn   WaitingOn `json:"waitingOn"`
+	activity    Activity
 	held        bool          // the shared activity classifier found a dispatch hold
 	Run         *Run          `json:"run"`
 	Definition  *schema.Spec  `json:"-"`
@@ -97,7 +100,7 @@ type RunSnapshot struct {
 }
 
 func (q queries) scopedSnapshot(ctx context.Context, id ids.ID, view ReadView, project ids.ID) (*RunSnapshot, error) {
-	if view != DetailView && view != TraceView {
+	if view != DetailView && view != TraceView && view != rowView {
 		return nil, fmt.Errorf("invalid Work snapshot view")
 	}
 	tx, err := q.db.ReadSnapshot(ctx)
@@ -129,27 +132,30 @@ func readWorkflowSnapshot(ctx context.Context, db database.Queryer, id ids.ID, v
 	}
 	for _, step := range steps {
 		step.runEnded = run.Status != RunRunning
-		if carriesCheckEvidence(step.Type) {
+		if view != rowView && carriesCheckEvidence(step.Type) {
 			step.CheckReading = readingOf(step.Evidence)
 		}
 	}
 	out := &RunSnapshot{Run: run, Definition: spec, Stages: spec.StageNames(), Steps: steps, Artifacts: []Artifact{}, Next: []NextAct{}}
-	if view == DetailView && (run.Status == RunRunning || run.Status == RunAbandoned) {
+	if view != TraceView && (run.Status == RunRunning || run.Status == RunAbandoned) {
 		activity, err := readWorkflowSnapshotActivity(ctx, db, run, steps, wait)
 		if err != nil {
 			return nil, err
 		}
 		out.State, out.StateDetail, out.held = activity.State, activity.Detail, activity.Held
 		out.PendingApproval = activity.Approval
-		runnable := func(kind string) bool { return assertionKind(kind) || automatic != nil && automatic(kind) }
-		out.Next = nextActs(run, steps, activity, runnable, spec.Role == "landing")
-		if run.Status == RunAbandoned {
+		out.activity = activity
+		if view == DetailView {
+			runnable := func(kind string) bool { return assertionKind(kind) || automatic != nil && automatic(kind) }
+			out.Next = nextActs(run, steps, activity, runnable, spec.Role == "landing")
+		}
+		if view == DetailView && run.Status == RunAbandoned {
 			out.Ending = runEnding(activity.Detail, run, steps)
 		}
 	}
 	// Accepted work is done before its landing starts; until it does, the
 	// change is not waiting on anyone (wait once called it a person's move).
-	if view == DetailView && run.Status == RunDone && run.ParentRunID.IsZero() && !run.ChangeID.IsZero() && spec.Role == "working" {
+	if view != TraceView && run.Status == RunDone && run.ParentRunID.IsZero() && !run.ChangeID.IsZero() && spec.Role == "working" {
 		queued, err := workflowsql.New(db.SQL()).LandingQueued(ctx, workflowsql.LandingQueuedParams{WorkRunID: run.ID, ChangeState: ChangeInProgress.String()})
 		if err != nil {
 			return nil, err
@@ -157,6 +163,10 @@ func readWorkflowSnapshot(ctx context.Context, db database.Queryer, id ids.ID, v
 		if queued {
 			out.State, out.StateDetail, out.LandingQueued = activityQueued, "landing", true
 		}
+	}
+	out.WaitingOn = waitingOn(nil, out)
+	if view == rowView {
+		return out, nil
 	}
 	out.Events, err = readWorkflowEvents(ctx, db, id, view)
 	if err != nil {

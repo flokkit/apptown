@@ -23,7 +23,7 @@ function home(projects: ProjectRow[], activity: unknown = { active: [], agents: 
     '/auth/me': { mode: 'internal', user: 'reviewer' },
     '/attention': { items: [], sources: [{ key: 'workers', unknown: false, stale: false }] },
     '/activity': activity,
-    '/dashboard': { pendingApprovals: [], endedOperations: [] },
+    '/dashboard': { endedOperations: [] },
     // The previous request is seeded so regressions fail on rendered behaviour.
     '/projects': projects,
     '/projects?limit=5&order=mine': { projects, total: projects.length },

@@ -6,24 +6,17 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/operations"
 
 	"github.com/flokkit/apptown/internal/apptown/adrs"
-	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
 
 type Dashboard struct {
-	work       *workflow.Service
 	adrs       *adrs.Service
 	operations *operations.Service
 }
 
-func NewDashboard(work *workflow.Service, adrs *adrs.Service, ops *operations.Service) Dashboard {
-	return Dashboard{work: work, adrs: adrs, operations: ops}
+func NewDashboard(adrs *adrs.Service, ops *operations.Service) Dashboard {
+	return Dashboard{adrs: adrs, operations: ops}
 }
 func (h Dashboard) Dashboard(w http.ResponseWriter, r *http.Request) {
-	dashboard, err := h.work.Dashboard(r.Context())
-	if err != nil {
-		WriteFault(w, err)
-		return
-	}
 	recentADRs, err := h.adrs.List(r.Context(), adrs.Filter{Recent: true, Limit: 5})
 	if err != nil {
 		WriteFault(w, err)
@@ -36,15 +29,13 @@ func (h Dashboard) Dashboard(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	WriteJSON(w, 200, DashboardView{PendingApprovals: dashboard.PendingApprovals, ActiveRuns: dashboard.ActiveRuns, RecentADRs: recentADRs, EndedOperations: ended})
+	WriteJSON(w, 200, DashboardView{RecentADRs: recentADRs, EndedOperations: ended})
 }
 
-// DashboardView is the instance's front page: approvals waiting, runs under
-// way, recent decisions.
+// DashboardView supplies recent decisions and the reader’s ended operations.
+// Change work and its reader-aware partition are on /activity.
 type DashboardView struct {
-	PendingApprovals []workflow.PendingApproval `json:"pendingApprovals"`
-	ActiveRuns       []workflow.ActiveRun       `json:"activeRuns"`
-	RecentADRs       []adrs.Record              `json:"recentAdrs"`
+	RecentADRs []adrs.Record `json:"recentAdrs"`
 	// EndedOperations are the caller's own data operations (a copy, a
 	// check, a take-down) that failed or whose outcome is not known, and
 	// that they have not put away.

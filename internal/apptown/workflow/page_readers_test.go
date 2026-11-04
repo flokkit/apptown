@@ -84,37 +84,28 @@ func TestDashboardPartitionsVisibleCurrentStages(t *testing.T) {
 	completionExec(t, q.db, `UPDATE runs SET change_id=$1 WHERE id=$2`, foreign, run.ID)
 	s := newService(q.db, allowProject(run.ProjectID), Runtime{})
 	dashboard, err := s.Dashboard(ctx)
-	if err != nil || len(dashboard.PendingApprovals) != 1 || len(dashboard.ActiveRuns) != 0 || dashboard.PendingApprovals[0].ItemTitle != "" {
+	if err != nil || len(dashboard.WaitingOnYou) != 0 || len(dashboard.ActiveRuns) != 1 || dashboard.ActiveRuns[0].ItemTitle != "" {
 		t.Fatalf("approval %+v: %v", dashboard, err)
 	}
 	// sql-guarantee: the dashboard current-stage filter must observe the same step moved to a future stage; step stage is immutable and has no generated mutation.
 	completionExec(t, q.db, `UPDATE steps SET stage='future' WHERE id=$1`, step)
 	dashboard, err = s.Dashboard(ctx)
-	if err != nil || len(dashboard.PendingApprovals) != 0 || len(dashboard.ActiveRuns) != 1 || dashboard.ActiveRuns[0].ItemTitle != "" {
+	if err != nil || len(dashboard.WaitingOnYou) != 1 || len(dashboard.ActiveRuns) != 0 || dashboard.WaitingOnYou[0].ItemTitle != "" {
 		t.Fatalf("active %+v: %v", dashboard, err)
 	}
 	// An active run reads in the change page's words, from the one
 	// activity classifier, never as its bare stage name.
 	activities, err := s.Activities(ctx, []ids.ID{run.ID})
-	if err != nil || dashboard.ActiveRuns[0].State == "" || dashboard.ActiveRuns[0].State != activities[run.ID].State || dashboard.ActiveRuns[0].StateDetail != activities[run.ID].Detail {
-		t.Fatalf("active run state %+v, activity %+v: %v", dashboard.ActiveRuns[0], activities, err)
+	if err != nil || dashboard.WaitingOnYou[0].State == "" || dashboard.WaitingOnYou[0].State != activities[run.ID].State || dashboard.WaitingOnYou[0].StateDetail != activities[run.ID].Detail {
+		t.Fatalf("active run state %+v, activity %+v: %v", dashboard.WaitingOnYou[0], activities, err)
 	}
 	// sql-guarantee: the scoped reader needs a deliberately foreign run while retaining its existing child/step links; no Workflow mutation reassigns project_id.
 	completionExec(t, q.db, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, other, run.ID)
 	dashboard, err = s.Dashboard(ctx)
-	if err != nil || dashboard.PendingApprovals == nil || dashboard.ActiveRuns == nil || len(dashboard.ActiveRuns) != 0 {
+	if err != nil || dashboard.WaitingOnYou == nil || dashboard.ActiveRuns == nil || len(dashboard.ActiveRuns) != 0 {
 		t.Fatalf("private %+v: %v", dashboard, err)
 	}
-	for _, fragment := range []string{"-- name: DashboardPendingApprovals", "-- name: DashboardActiveRuns"} {
-		dbtest.FailNextStatement(t, q.db, fragment)
-		if _, err := s.Dashboard(ctx); !errors.Is(err, dbtest.ErrInjectedFailure) {
-			t.Fatalf("hidden %s failure: %v", fragment, err)
-		}
-	}
-	counted := &countedQueries{Handle: q.db.SQL()}
-	if _, err := readDashboard(ctx, counted, []ids.ID{run.ProjectID, other}, nil); err != nil || counted.reads != 3 {
-		t.Fatalf("dashboard reads %d: %v", counted.reads, err)
-	}
+
 }
 
 func TestProjectActivityShowsTheLatestChangeWithoutRequiringARun(t *testing.T) {

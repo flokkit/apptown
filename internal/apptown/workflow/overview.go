@@ -38,6 +38,7 @@ type HistoryQuery struct {
 }
 
 type ChangeHistory struct {
+	WaitingOn     WaitingOn            `json:"waitingOn"`
 	CompletedRuns int                  `json:"completedRuns"`
 	Merged        bool                 `json:"merged"`
 	ChangeID      ids.ID               `json:"changeId"`
@@ -83,17 +84,18 @@ func readChangeHistory(ctx context.Context, q database.Queryer, in HistoryQuery,
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, ChangeHistory{ChangeID: row.ID, ChangeNumber: row.Number, Title: row.Title, Type: row.Type, State: state, Project: row.Project, Workflows: row.Workflows, Runs: int(row.Runs), When: row.ActivityAt.Format(time.RFC3339Nano), TookS: row.TookS, CompletedRuns: int(row.Completed), Merged: row.Merged, ClosedAs: row.ClosedAs, StatusLabel: historyLabel(state, row.ClosedAs, row.Merged), StateLabel: state.Label(row.ClosedAs)})
+		out = append(out, ChangeHistory{WaitingOn: waitingOn(&Change{State: state, ClosedAs: row.ClosedAs}, nil), ChangeID: row.ID, ChangeNumber: row.Number, Title: row.Title, Type: row.Type, State: state, Project: row.Project, Workflows: row.Workflows, Runs: int(row.Runs), When: row.ActivityAt.Format(time.RFC3339Nano), TookS: row.TookS, CompletedRuns: int(row.Completed), Merged: row.Merged, ClosedAs: row.ClosedAs, StatusLabel: historyLabel(state, row.ClosedAs, row.Merged), StateLabel: state.Label(row.ClosedAs)})
 	}
 	return out, nil
 }
 
 type openChange struct {
-	ID      ids.ID
-	Number  int64 // within its project
-	Title   string
-	State   ChangeState
-	Editing int // uncommitted worktree files outside .apptown
+	WaitingOn WaitingOn
+	ID        ids.ID
+	Number    int64 // within its project
+	Title     string
+	State     ChangeState
+	Editing   int // uncommitted worktree files outside .apptown
 }
 
 func (s *Service) OpenChangesWithoutRuns(ctx context.Context, project ids.ID, limit int) ([]openChange, error) {
@@ -116,7 +118,18 @@ func (s *Service) OpenChangesWithoutRuns(ctx context.Context, project ids.ID, li
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, openChange{ID: row.ID, Number: row.Number, Title: row.Title, State: state, Editing: s.editingFiles(ctx, row.ID)})
+		w := unknownWaitingOn()
+		ch, err := ReadChangeIn(ctx, s.db, row.ID)
+		if err == nil {
+			var d *RunSnapshot
+			if !ch.RunID.IsZero() {
+				d, err = s.Snapshot(ctx, ch.RunID, rowView)
+			}
+			if err == nil {
+				w = s.ChangeWaitingOn(ctx, ch, d)
+			}
+		}
+		out = append(out, openChange{WaitingOn: w, ID: row.ID, Number: row.Number, Title: row.Title, State: state, Editing: s.editingFiles(ctx, row.ID)})
 	}
 	return out, nil
 }

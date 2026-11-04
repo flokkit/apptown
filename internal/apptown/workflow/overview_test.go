@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -45,7 +46,7 @@ func TestWorkHistoryUsesOneRootAggregateAndProjectFence(t *testing.T) {
 	}
 	service := newService(q.db, allowProject(run.ProjectID), Runtime{})
 	visible, err := service.ChangeHistory(context.Background(), HistoryQuery{Limit: 30})
-	if err != nil || len(visible) != 1 || visible[0] != h {
+	if err != nil || len(visible) != 1 || !reflect.DeepEqual(visible[0], h) {
 		t.Fatalf("visible history %+v: %v", visible, err)
 	}
 	insertRunEventForTest(t, q.db, run.ID, "merge.completed", nil)

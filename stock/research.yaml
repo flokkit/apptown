@@ -49,7 +49,7 @@ spec:
           with:
             approvers: ["role:project-approver"]
             means: "The investigation is aimed where I want it, and more work on it is worth doing."
-            instructions: "Check the direction. If it is wrong, reject with a comment saying where to look instead."
+            instructions: "Check the direction. To send it back, use Send back… and say where to look instead."
     - name: synthesize
       onEnter:
         - name: report
@@ -82,4 +82,4 @@ spec:
           with:
             approvers: ["role:project-approver"]
             means: "The report answers the question I asked, well enough to act on."
-            instructions: "Read the report. To ask for more, reject with a comment."
+            instructions: "Read the report. To send it back, use Send back… and say what should change."

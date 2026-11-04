@@ -47,7 +47,7 @@ describe('main that conflicts with the change', () => {
 describe('the state panel', () => {
   it('says main conflicts while the change has not caught up', () => {
     const conflict = { mainBranch: 'main', main: 'abc', step: 'rework', files: ['README.md'], catchUp: 'git fetch' }
-    const view = { change: { id: CHANGE, number: 4, title: 'Fix the menu', state: 'in_progress' }, projectSlug: 'demo', detail: null, stateDetail: '', runs: [], mainConflict: conflict } as unknown as ChangeView
+    const view = { waitingOn: { kind: 'check', says: 'boot failed', tone: 'bad', run: 'run', step: 'boot', checks: 1, who: [], you: 'yes' }, change: { id: CHANGE, number: 4, title: 'Fix the menu', state: 'in_progress' }, projectSlug: 'demo', detail: null, stateDetail: '', runs: [], mainConflict: conflict } as unknown as ChangeView
     const html = (v: ChangeView) => renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}>
       <StatePanel view={v} /><StateRecord view={v} />
     </QueryClientProvider></MemoryRouter>)
@@ -58,7 +58,7 @@ describe('the state panel', () => {
 
 describe('handover checks', () => {
   const view = (status: string, evidence: object = {}, events: unknown[] = []) => ({
-    change: { id: CHANGE, number: 4, title: 'Fix the menu', state: 'in_progress' }, projectSlug: 'demo', runs: [], state: 'blocked', statusLabel: 'failed',
+    waitingOn: { kind: 'check', says: 'boot failed', tone: 'bad', run: 'run', step: 'boot', checks: 1, who: [], you: 'yes' }, change: { id: CHANGE, number: 4, title: 'Fix the menu', state: 'in_progress' }, projectSlug: 'demo', runs: [], state: 'blocked', statusLabel: 'failed',
     detail: { run: { id: 'run', workflowName: 'quick-change', currentStage: 'apply', status: 'running' }, state: 'blocked', next: [], events,
       steps: [{ id: 'agent', name: 'apply-change', type: 'agent/pi', stage: 'apply', status, evidence, config: {} },
         { id: 'boot', name: 'boot', type: 'preview', stage: 'apply', status: 'fail', evidence: { reason: 'fourth failure' }, config: {} }] },
@@ -68,14 +68,13 @@ describe('handover checks', () => {
   </QueryClientProvider></MemoryRouter>)
   const events = ['first failure', 'second failure', 'third failure'].map((reason) => ({ kind: 'step.rework', payload: { step: 'boot', reason } }))
   it('leads with agent work while revising, even with the earlier failed check', () => {
-    expect(html(view('pending', {}, events.slice(0, 2)))).toContain('The agent is working on it')
+    const v = view('pending', {}, events.slice(0, 2)); v.waitingOn = { ...v.waitingOn, kind: 'work', says: 'working', tone: 'neutral', you: 'no' }; expect(html(v)).toContain('working')
     expect(html(view('running', {}, events))).not.toContain('the agent tried 3 times;')
   })
   it('keeps every attempt reason after the latest check replaces its evidence', () => {
     const result = html(view('pass', {}, events))
-    expect(result).toContain('the agent tried 3 times; boot still fails: fourth failure')
+    expect(result).toContain('boot failed')
     for (const reason of ['first failure', 'second failure', 'third failure']) expect(result).toContain(reason)
-    expect(result).toContain('Take it to chat, or abandon it.')
   })
   it('lists every person action together and keeps an inherited boot cause once', () => {
     const v = view('needs_human', { actions: ['Decide the retention period', 'Bind WP_ADMIN_PASSWORD'] })
@@ -84,13 +83,13 @@ describe('handover checks', () => {
     const el = document.createElement('div'); el.innerHTML = html(v)
     const actions = [...el.querySelectorAll('.ch-state-record li')].map((e) => e.textContent)
     expect(actions).toEqual(['Decide the retention period', 'Bind WP_ADMIN_PASSWORD', 'Repair the browser configuration'])
-    expect(el.textContent).toContain('Your turn:')
+    expect(el.textContent).toContain('boot failed')
   })
   it('leads with the person action while an agent is still pending', () => {
     const v = view('pending')
     v.detail!.steps[1] = { ...v.detail!.steps[1], status: 'needs_human', evidence: { actions: ['Bind WP_ADMIN_PASSWORD'] } } as Step
     const el = document.createElement('div'); el.innerHTML = html(v)
-    expect(el.querySelector('.ch-headline')?.textContent).toBe('Your turn: Bind WP_ADMIN_PASSWORD')
+    expect(el.querySelector('.ch-headline')?.textContent).toBe('boot failed')
   })
   it('says old attempt reasons were not kept and a person retry resets the allowance', () => {
     const result = html(view('pass', {}, [...events, { kind: 'step.retried', payload: {} }, { kind: 'step.rework', payload: { step: 'boot', reason: 'preview failed — evidence fed back to the agent' } }]))
@@ -99,12 +98,12 @@ describe('handover checks', () => {
   })
   it('keeps the finished run state without calling it passed', () => {
     const v = view('pass'); v.detail!.run.status = 'done'; v.detail!.steps[1].status = 'pass'
-    expect(html(v)).toContain('The quick-change run finished')
+    v.waitingOn = { ...v.waitingOn, kind: 'chat', says: 'chat open', tone: 'neutral', you: 'no' }; expect(html(v)).toContain('chat open')
   })
 })
 
  it('keeps the top card to title and state while the action belongs on Overview', () => {
-  const v = { change: { id: CHANGE, number: 3, title: 'Fix the menu', state: 'landing' }, projectSlug: 'lunch-orders', evidence: { merged: false }, runs: [], state: 'blocked', statusLabel: 'failed', next: [{ act: 'send-back', stepId: null, step: '' }],
+  const v = { waitingOn: { kind: 'check', says: 'boot failed', tone: 'bad', run: 'run', step: 'boot', checks: 1, who: [], you: 'yes' }, change: { id: CHANGE, number: 3, title: 'Fix the menu', state: 'landing' }, projectSlug: 'lunch-orders', evidence: { merged: false }, runs: [], state: 'blocked', statusLabel: 'failed', next: [{ act: 'send-back', stepId: null, step: '' }],
     detail: { run: { id: 'run', currentStage: 'land', status: 'running' }, state: 'blocked', next: [], events: [], steps: [
       { id: 'boot', name: 'boot', type: 'preview', stage: 'land', status: 'fail', evidence: { reason: 'the app did not start' }, config: {} }
     ] } } as unknown as ChangeView
@@ -112,6 +111,6 @@ describe('handover checks', () => {
     <StatePanel view={v} /><StateRecord view={v} />
   </QueryClientProvider></MemoryRouter>)
   const el = document.createElement('div'); el.innerHTML = html
-  expect(el.querySelector('.ch-headline')?.textContent).toBe('Your turn: resolve the reported check problems')
+  expect(el.querySelector('.ch-headline')?.textContent).toBe('boot failed')
   expect(el.textContent).not.toContain('Fix it')
  })

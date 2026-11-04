@@ -241,6 +241,7 @@ export type ChangeBoard = {
 }
 
 export type ChangeCockpit = {
+  waitingOn: WaitingOn
   change: Change
   projectSlug: string
   detail: RunSnapshot | null
@@ -459,8 +460,6 @@ export type CreatedChange = {
 }
 
 export type DashboardView = {
-  pendingApprovals: PendingApproval[]
-  activeRuns: ActiveRun[]
   recentAdrs: ADRRecord[]
   endedOperations: Operation[]
 }
@@ -817,6 +816,7 @@ export type InfrastructureTargets = {
 }
 
 export type InstanceActivity = {
+  waitingOnYou: RunRow[]
   open: PersonalOpenChange[]
   openTotal: number
   agents: ActiveAgent[]
@@ -1687,6 +1687,7 @@ export type RunFindingsView = {
 }
 
 export type RunRow = {
+  waitingOn: WaitingOn
   runId: string | null
   runNumber: number
   changeId: string | null
@@ -2463,7 +2464,19 @@ export type BoardColumn = {
   items: ChangeSummary[]
 }
 
+export type WaitingOn = {
+  kind: string
+  run: string | null
+  step: string | null
+  checks: number
+  who: Decider[]
+  you: string
+  says: string
+  tone: string
+}
+
 export type RunSnapshot = {
+  waitingOn: WaitingOn
   run: Run | null
   stages: string[]
   steps: (Step | null)[]
@@ -2816,33 +2829,6 @@ export type ConsoleSave = {
 export type ContractSummary = {
   parts: string[]
   needs: string[]
-}
-
-export type PendingApproval = {
-  statusLabel: DisplayStatus
-  stepId: string | null
-  stepName: string
-  stage: string
-  runId: string | null
-  changeId: string | null
-  changeNumber: number
-  itemTitle: string
-  projectSlug: string
-  projectName: string
-}
-
-export type ActiveRun = {
-  runId: string | null
-  runNumber: number
-  changeId: string | null
-  changeNumber: number
-  itemTitle: string
-  workflow: string
-  stage: string
-  projectSlug: string
-  statusLabel: DisplayStatus
-  state: string
-  stateDetail?: string
 }
 
 export type Delegation = {
@@ -3377,6 +3363,7 @@ export type ActiveAgent = {
 }
 
 export type ChangeHistory = {
+  waitingOn: WaitingOn
   completedRuns: number
   merged: boolean
   changeId: string | null
@@ -3822,6 +3809,7 @@ export type OverviewRepo = {
 }
 
 export type OpenChange = {
+  waitingOn: WaitingOn
   statusLabel: DisplayStatus
   changeId: string | null
   changeNumber: number
@@ -4473,6 +4461,7 @@ export type CatalogParam = {
 }
 
 export type ChangeSummary = {
+  waitingOn: WaitingOn
   id: string | null
   number: number
   projectId: string | null
@@ -4503,6 +4492,11 @@ export type ChangeSummary = {
   stage: string
   runStatus: RunState | ""
   workflowName: string
+}
+
+export type Decider = {
+  kind: string
+  name: string
 }
 
 export type SentBack = {

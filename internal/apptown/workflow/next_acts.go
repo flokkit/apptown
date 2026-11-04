@@ -121,16 +121,19 @@ func overridable(state StepState) bool {
 // ChangeActs is what a person can do on the change itself, from its state,
 // its current run's snapshot (nil when it has none) and whether its landing
 // merged: land an in-progress change nothing is running on and no landing is
-// queued for; send back the work of an open change whose current run is
+// queued for, once it has a run; send back the work of an open change whose current run is
 // blocked, until its landing has merged (the work is then on main); and, to
-// a reader who mayAbandon, close that blocked change, so work that can never
+// a reader who mayAbandon, close that blocked or no-run chat change, so work that can never
 // pass is not left stuck.
 func ChangeActs(ch *Change, current *RunSnapshot, merged, mayAbandon bool) []NextAct {
 	acts := []NextAct{}
 	running := current != nil && current.Run != nil && current.Run.Status == RunRunning
 	queued := current != nil && current.LandingQueued
-	if ch.State == ChangeInProgress && !running && !queued {
+	if ch.State == ChangeInProgress && current != nil && !running && !queued {
 		acts = append(acts, NextAct{Act: NextLand})
+	}
+	if ch.State.canRun() && current == nil && mayAbandon {
+		acts = append(acts, NextAct{Act: nextAbandon})
 	}
 	held := running && (current.State == ActivityBlocked || current.held)
 	if ch.State.canRun() && !merged && held {

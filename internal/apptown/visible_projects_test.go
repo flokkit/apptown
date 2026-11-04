@@ -150,9 +150,7 @@ func TestVisibleProjectAggregatesKeepSectionsScopedWithoutReadReceipts(t *testin
 		}
 		w = authzCall(h, who, "GET", "/api/v1/dashboard", "")
 		var dash struct {
-			PendingApprovals []workflow.PendingApproval
-			ActiveRuns       []workflow.ActiveRun
-			RecentADRs       []adrs.Record
+			RecentADRs []adrs.Record
 		}
 		if err := json.Unmarshal(w.Body.Bytes(), &dash); err != nil || w.Code != 200 {
 			t.Fatalf("%s dashboard: %d %s %v", who, w.Code, w.Body.String(), err)
@@ -165,18 +163,20 @@ func TestVisibleProjectAggregatesKeepSectionsScopedWithoutReadReceipts(t *testin
 				t.Fatalf("foreign ADR: %+v", row)
 			}
 		}
-		workCount := len(dash.PendingApprovals) + len(dash.ActiveRuns)
-		if (workCount > 0) != wantWork {
-			t.Fatalf("%s Work section: %+v", who, dash)
+		w = authzCall(h, who, "GET", "/api/v1/activity", "")
+		var activity struct {
+			WaitingOnYou []struct{ Project string }
+			Active       []struct{ Project string }
 		}
-		for _, row := range dash.PendingApprovals {
-			if !all && row.ProjectSlug != "game" {
-				t.Fatalf("foreign approval: %+v", row)
-			}
+		if err := json.Unmarshal(w.Body.Bytes(), &activity); err != nil || w.Code != 200 {
+			t.Fatalf("activity: %d %s %v", w.Code, w.Body.String(), err)
 		}
-		for _, row := range dash.ActiveRuns {
-			if !all && row.ProjectSlug != "game" {
-				t.Fatalf("foreign run: %+v", row)
+		if (len(activity.WaitingOnYou)+len(activity.Active) > 0) != wantWork {
+			t.Fatalf("%s Work: %+v", who, activity)
+		}
+		for _, row := range append(activity.WaitingOnYou, activity.Active...) {
+			if !all && row.Project != "game" {
+				t.Fatalf("foreign work: %+v", row)
 			}
 		}
 		w = authzCall(h, who, "GET", "/api/v1/adrs", "")
