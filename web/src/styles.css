@@ -1794,7 +1794,7 @@ button.link.danger { color: var(--bad); }
 }
 :root[data-theme="dark"] .project-letter { background: hsl(var(--project-hue) 35% 24%); color: hsl(var(--project-hue) 45% 88%); }
 /* Shared list cells keep actions aligned, regardless of authored text. */
-.list-row { display: grid; grid-template-columns: minmax(0, 1fr) 180px 220px; gap: 12px 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.list-row { display: grid; grid-template-columns: minmax(0, 1fr) 180px 240px; gap: 12px 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border); }
 .list-identity, .list-state, .list-action { min-width: 0; overflow-wrap: anywhere; }
 .list-identity strong { font-weight: var(--fw-strong); }
 .list-action { justify-self: end; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -1807,7 +1807,7 @@ button.link.danger { color: var(--bad); }
 .list-table { width: 100%; }
 .list-table > thead { display: none; }
 .list-table-row > td { padding: 0; border: 0; }
-.project-action { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.project-action { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
 .tabs a.tab, .tabs button { min-height: 44px; display: inline-flex; align-items: center; gap: 0.3em; }
 .tab-strip { min-width: 0; }
 .tab-strip.previous-tabs::before { content: ''; position: absolute; left: 0; top: 0; bottom: 16px; width: 16px; pointer-events: none; z-index: 1; background: linear-gradient(to left, transparent, var(--bg)); }
@@ -2093,3 +2093,13 @@ a.project-avatar, a.project-avatar:hover { text-decoration: none; color: inherit
   .console-controls.controls-open .head-menu { grid-column: 1 / -1; grid-row: 3; }
   .console-controls.controls-open .head-menu-card { position: static; width: auto; min-width: 0; }
 }
+
+/* A split button's menu is a popup sheet: opaque, above the rows after it,
+   one item per line with its hint underneath. */
+.split-menu { position: absolute; top: 100%; right: 0; z-index: 30; margin-top: 6px; min-width: 280px; padding: 6px;
+  display: flex; flex-direction: column; gap: 2px; background: var(--panel); border: 1px solid var(--border-strong); }
+.split-menu > button { display: block; width: 100%; text-align: left; padding: 10px 12px; font-size: var(--fs-base); white-space: normal; }
+.split-menu > button:hover { background: var(--hover); }
+/* Each row's action cell is lifted above the row's full-row link; while its
+   menu is open it also sits above the rows after it. */
+.project-row .list-action:has([aria-expanded="true"]) { z-index: 31; }
