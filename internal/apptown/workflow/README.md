@@ -91,6 +91,10 @@ called workflow's, carries the held check's attempt, and counts effective failed
 Running work, dispatchable work, queued rework and stale verdicts take precedence
 before a held check or decision is named. Other holds keep their recorded reason.
 
+For work, `WaitingOn.says` names Work or Landing and the current step, including
+a called workflow's running step. Deploy wording includes the step's position
+within its current stage. Lists, detail and CLI readers use that same wording.
+
 `WaitingOn.you` checks relevant command permissions without effects. An approval
 also checks whether this person already voted in its current round. Denial is
 `no`; unavailable eligibility, or an actionable view that has not checked the
@@ -98,7 +102,11 @@ reader, is `unknown`. Work, chat, queued and closed attention have no current
 act and report `no`. Effective deciders retain their person, group or role kind and use
 project defaults when the step names none. Role deciders retain the role ID
 in `name` and carry the catalog title in `displayName`; shared wording uses
-that title.
+that title. Approval summaries say “waiting for you” for a sole named
+person who can decide, or “waiting for you or another approver” for broader
+decider lists. For other readers they name the first decider and count any
+others; `who` retains the complete list. Failed checks use the change page’s
+plain step titles instead of step IDs.
 `Service.Dashboard` partitions readable current work once by this answer, with
 each change appearing once. Home includes every visible running root waiting
 on the reader and at most 20 other running roots, newest first. List rows omit events and artifacts; an unreadable attention

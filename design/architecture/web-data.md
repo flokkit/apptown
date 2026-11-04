@@ -239,6 +239,19 @@ between replies. Each summary opens only its own run. “Show agent actions” o
 all actions in record order; the browser remembers the choice for each viewer.
 The switch works when browser storage is unavailable. Full tool results remain
 reachable in the chat terminal and the change's recorded agent activity.
+While the current change run is working, Overview leads with Now: Work or
+Landing, the active step position, start time and ordered current-stage rows.
+The position uses WaitingOn’s run and step within that run’s current stage,
+matching the count in its deploy wording. While Now is shown and the reader has
+no decision, the Next steps card is hidden. Decision status uses WaitingOn.says.
+Running called workflows include their current stages. Consecutive scans, tests
+and conformance checks share a Checks row with their names; a running or failed
+check expands that group automatically. Each row keeps its status, plain title,
+short fact and duration or start time visible. Now is absent while idle.
+After Accept or Continue, an open decision screen stays open and shows the same
+progress until work finishes or stops, then the outcome or failure and its
+offered decision. Close remains available throughout.
+
 Overview has two bordered cards: The change and an action card. The change uses
 shared label, value and evidence-link columns, with preview thumbnails first,
 followed by the request, report, checks, reviewer when present and app contract

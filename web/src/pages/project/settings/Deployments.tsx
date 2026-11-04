@@ -8,7 +8,7 @@ import { DeploymentAddressEdit } from './DeploymentAddress'
 import { ReleaseDefaultPicker } from './ReleaseDefault'
 import { DisplayLabelEdit } from '../../../DisplayLabel'
 import { PRODUCT } from '../../../brand'
-import { AppAddress, runtimeDescription } from '../../../runtime'
+import { AppAddress } from '../../../runtime'
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { del, post, put, type ChangeView } from '../../../api'
@@ -86,7 +86,7 @@ export function DeploymentRow({ slug, env: e }: { slug: string; env: DeploymentV
   const releases = useGet<ReleaseListed[]>(e.kind !== 'preview' ? `/projects/${slug}/releases` : null)
   const change = useGet<ChangeView>(e.kind === 'preview' && e.changeId ? `/changes/${e.changeId}` : null)
   const release = releases.data?.find(r => r.deployment === e.name && r.serving)
-  const observation = useDeploymentStatus(slug, e)
+  const status = useDeploymentStatus(slug, e)
   const p = protection.data
   const backup = !hasProtection || protection.denied ? ''
     : !p || protection.refreshFailed || p.unknown || p.reading?.unknown || p.reading?.stale ? 'backup unknown'
@@ -99,7 +99,7 @@ export function DeploymentRow({ slug, env: e }: { slug: string; env: DeploymentV
     : resources.refreshFailed || resources.data?.reading?.unknown || resources.data?.reading?.stale ? 'resources unknown' : ''
   return <ListRow listItem className="deployment-row"
     identity={<><Link to={base}><strong>{e.displayLabel || e.name}</strong></Link><div><DeploymentFact env={e} /></div></>}
-    state={<Status observation word={observation.observation} staleAt={e.observationStale && observation.observation !== 'unknown' ? e.observedAt : undefined} help={runtimeDescription(e)} />}
+    state={<Status observation {...status} />}
     detail={<>
       <div className="muted small">{e.kind === 'preview'
         ? e.changeId ? <Link to={`/changes/${e.changeId}`}>Preview of {change.data ? `change #${change.data.change.number}: ${change.data.change.title}` : 'change'}</Link> : 'Change not recorded'
@@ -159,7 +159,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
   const protection = useGet<DeploymentProtection>(e.target?.kind === 'do-app' || e.target?.kind === 'docker-host' ? `${base}/protection` : null, { poll: 5000 })
   const models = useGet<DeploymentAIModels>(e.aiModels?.length ? `${base}/ai-models` : null, { poll: 5000 })
   const waiting = [resources.data?.reading, diagnostics.data?.reading, protection.data?.reading, ...(models.data?.keys.map(k => k.reading) ?? [])].some(r => r?.waiting)
-  const headObservation = useDeploymentStatus(slug, e).observation
+  const status = useDeploymentStatus(slug, e)
   const place = e.target ? placeWords(e.target.title, e.target.vendor, e.target.region) : 'not bound'
   const meta = [
     `${place}${e.target ? ` (${e.target.displayLabel || e.target.name})` : ''}`,
@@ -180,7 +180,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
         <div className="row">
           <h1>{e.displayLabel || e.name}</h1>
           <div className="deploy-status">
-          <Status observation word={headObservation} staleAt={e.observationStale && headObservation !== 'unknown' ? e.observedAt : undefined} help={e.observation === 'unreachable' || e.observationIssue ? runtimeDescription(e) : undefined} />
+          <Status observation {...status} help={status.word === 'deploying' || e.observation === 'unreachable' || e.observationIssue ? status.help : undefined} />
           {e.protected && <span className="badge" title="reaches partners or the public, or holds production data · deploys need the release grant">protected</span>}
         </div>
         </div>

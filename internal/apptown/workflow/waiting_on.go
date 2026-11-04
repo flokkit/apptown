@@ -2,9 +2,13 @@ package workflow
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -86,7 +90,15 @@ func waitingOn(ch *Change, d *RunSnapshot) WaitingOn {
 	default:
 		w.Kind = "work"
 	}
-	return sayWaitingOn(w, a, ch)
+	w = sayWaitingOn(w, a, ch)
+	if w.Kind == "work" {
+		name := "Work"
+		if d.Definition != nil && d.Definition.Role == "landing" {
+			name = "Landing"
+		}
+		w.Says = name + ": " + w.Says
+	}
+	return w
 }
 
 // sayWaitingOn is the one source of common state wording for every client.
@@ -106,44 +118,105 @@ func sayWaitingOn(w WaitingOn, a Activity, ch *Change) WaitingOn {
 		if w.Checks > 1 {
 			w.Says = fmt.Sprintf("%d checks failed", w.Checks)
 		} else if a.holdingStep.state == StatusError {
-			w.Says = a.holdingStep.name + " could not run"
+			w.Says = checkTitle(*a.holdingStep) + " could not run"
 		} else {
-			w.Says = a.holdingStep.name + " failed"
+			w.Says = checkTitle(*a.holdingStep) + " failed"
 		}
 	case "person":
 		w.Says, w.Tone = a.Detail, "warn"
 	case "chat":
 		w.Says = "chat open"
 	case "work":
-		w.Says = "working"
+		w.Says = a.workPhrase
+		if w.Says == "" {
+			w.Says = a.Detail
+		}
+		if w.Says == "" {
+			w.Says = "starting the run"
+		}
 	case "queued":
 		w.Says = "queued to land"
 	case "ready":
 		w.Says, w.Tone = "ready to continue", "warn"
 	case "approval":
 		w.Tone = "warn"
-		names := []string{}
-		collective := false
-		for _, who := range w.Who {
-			name := who.Name
-			if who.Kind == "role" {
-				name = who.DisplayName
-			}
-			names = append(names, name)
-			collective = collective || who.Kind != "person"
-		}
 		switch {
-		case w.You == "yes" && collective:
-			w.Says = "waiting for you or " + strings.Join(names, " or ")
+		case w.You == "yes" && len(w.Who) == 1 && w.Who[0].Kind == "person":
+			w.Says = "waiting for you"
 		case w.You == "yes":
-			w.Says = "ready for your approval"
-		case len(names) > 0:
-			w.Says = "waiting for " + strings.Join(names, " or ")
+			w.Says = "waiting for you or another approver"
+		case len(w.Who) > 0:
+			first := w.Who[0].Name
+			if w.Who[0].Kind == "role" {
+				first = w.Who[0].DisplayName
+			}
+			w.Says = "waiting for " + first
+			if len(w.Who) > 1 {
+				others := "others"
+				if len(w.Who) == 2 {
+					others = "other"
+				}
+				w.Says += fmt.Sprintf(" and %d %s", len(w.Who)-1, others)
+			}
 		default:
 			w.Says = "waiting for approval"
 		}
 	}
 	return w
+}
+
+var titleSeparators = regexp.MustCompile(`[-_]+`)
+
+// checkTitle uses the same plain check titles as the change page's stepTitle.
+func checkTitle(s workflowActivityStep) string {
+	switch s.kind {
+	case "agent/pi":
+		return "Implementation"
+	case "agent/review":
+		return "Review"
+	case "tests":
+		return "Tests"
+	case "guidance/conformance":
+		return "Ways of working"
+	case "preview":
+		return "Preview"
+	case "deploy":
+		return "Deploy"
+	case "reconcile":
+		return "Up to date with main"
+	case "adr/require":
+		return "Decision record"
+	case "workflow/call":
+		return "Called workflow"
+	case "artifact/require":
+		var evidence struct {
+			Kind string `json:"kind"`
+		}
+		if s.name == "release-exists" || json.Unmarshal(s.evidence, &evidence) == nil && evidence.Kind == "release" {
+			return "Release created"
+		}
+		return "Required file recorded"
+	case "scan":
+		switch {
+		case strings.Contains(s.name, "license"):
+			return "Licence scan"
+		case strings.Contains(s.name, "osv"):
+			return "Dependency scan"
+		case strings.Contains(s.name, "gitleaks"):
+			return "Secret scan"
+		default:
+			return "Security scan"
+		}
+	case "script":
+		if s.name == "" {
+			return "Script"
+		}
+		title := titleSeparators.ReplaceAllString(s.name, " ")
+		first, size := utf8.DecodeRuneInString(title)
+		return string(unicode.ToUpper(first)) + title[size:]
+	default:
+		return "Check"
+	}
 }
 
 func eligibility(err error) string {

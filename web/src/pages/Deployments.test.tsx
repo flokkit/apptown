@@ -18,7 +18,7 @@ it('counts an app\'s placements and only the current running ones as working', a
   ]
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
     url.endsWith('/tiers') ? { tiers: [{ name: 'release', title: 'Released environments', apps }] }
-      : url.endsWith('/projects') ? [{ slug: 'ledger', name: 'Ledger' }] : url.endsWith('/deployments') ? [{ id: 'east', name: 'east', generation: 1, observation: 'running', observationStale: false }] : { parts: [] },
+      : url.endsWith('/projects') ? [{ slug: 'ledger', name: 'Ledger' }] : url.endsWith('/deployments') ? [{ id: 'east', name: 'east', generation: 1, observation: 'running', observationStale: false }] : url.endsWith('/releases') ? [] : { parts: [] },
   ))))
   const client = newQueryClient()
   const el = document.createElement('div')
@@ -41,7 +41,7 @@ it('uses the app observation even when the first tier has no deployments', async
   vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
     url.endsWith('/tiers') ? { tiers: [{ name: 'preview', title: 'Preview', apps: [] }, { name: 'main', title: 'Production', apps: [{ slug: 'ledger', name: 'Ledger', deploymentLabel: 'Production', running: true, observation: 'running', targetName: 'Kitchen', observationStale: false }] }] }
-      : url.endsWith('/projects') ? [{ slug: 'ledger', name: 'Ledger', deployed: true, observation: 'running', targetName: 'Kitchen', observationStale: false }] : url.endsWith('/deployments') ? [{ name: 'main', generation: 1, observation: 'running', observationStale: false }] : { parts: [] },
+      : url.endsWith('/projects') ? [{ slug: 'ledger', name: 'Ledger', deployed: true, observation: 'running', targetName: 'Kitchen', observationStale: false }] : url.endsWith('/deployments') ? [{ name: 'main', generation: 1, observation: 'running', observationStale: false }] : url.endsWith('/releases') ? [] : { parts: [] },
   ))))
   const client = newQueryClient()
   const el = document.createElement('div')
@@ -61,7 +61,7 @@ it('uses the app observation even when the first tier has no deployments', async
 it('shows a stale running app as last seen', async () => {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
     url.endsWith('/tiers') ? { tiers: [{ name: 'main', title: 'Production', apps: [{ slug: 'ledger', name: 'Ledger', deploymentLabel: 'Production', running: true, observation: 'running', targetName: 'Kitchen', observationStale: true, observedAt: '2026-01-01T00:00:00Z' }] }] }
-      : url.endsWith('/projects') ? [{ slug: 'ledger', name: 'Ledger', deployed: true, observation: 'running', targetName: 'Kitchen', observationStale: true, observedAt: '2026-01-01T00:00:00Z' }] : url.endsWith('/deployments') ? [{ name: 'main', generation: 1, observation: 'running', observationStale: true, observedAt: '2026-01-01T00:00:00Z' }] : { parts: [] },
+      : url.endsWith('/projects') ? [{ slug: 'ledger', name: 'Ledger', deployed: true, observation: 'running', targetName: 'Kitchen', observationStale: true, observedAt: '2026-01-01T00:00:00Z' }] : url.endsWith('/deployments') ? [{ name: 'main', generation: 1, observation: 'running', observationStale: true, observedAt: '2026-01-01T00:00:00Z' }] : url.endsWith('/releases') ? [] : { parts: [] },
   ))))
   const client = newQueryClient()
   const el = document.createElement('div')

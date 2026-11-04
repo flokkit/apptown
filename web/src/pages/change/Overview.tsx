@@ -1,4 +1,5 @@
-import { TurnDecision, viewerTurn } from './Turn'
+import { Now, nowRunning } from './Now'
+import { ContinueDecision, TurnDecision, viewerTurn } from './Turn'
 import { HeldDecision, heldLabels } from './HeldDecision'
 import { StaleNote } from '../../ReadGate'
 import { InlineHelp } from '../../InlineHelp'
@@ -114,6 +115,7 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
   const detail = workTab()
   const trailer = (href: string, text: string) => <Link className="ch-trailer" to={href}>{text}</Link>
   return <div className="ch-overview">
+    <div hidden={!shown}><Now view={view} /></div>
     <section hidden={!shown} className="ch-change-card" aria-label="The change">
     <div className="ch-overview-line"><div className="ch-row-label">Preview</div><div className="ch-value ch-preview">
       {!!boot?.evidence.screenshots?.shots?.length && <Screenshots hero unfolded shots={boot?.evidence.screenshots} head={view.head} at={boot?.finishedAt} />}
@@ -128,7 +130,7 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
     {review?.type === 'agent/review' && <div className="ch-overview-line"><div className="ch-row-label">Reviewer</div><p className="ch-value">{review.status === 'running' || review.status === 'pending' ? 'working' : review.checkReading?.unreadable ? 'could not be read' : review.evidence.verdict === 'approve' ? 'approves' : ['fail', 'error', 'needs_human'].includes(review.status) && !review.overrideBy ? <strong className="ch-bad-text"><span className="ch-mark bad">✗</span> Rejected</strong> : review.evidence.verdict || review.status} — {firstLine(review.evidence.reviewerSummary || review.evidence.summary || review.evidence.reason || 'No review conclusion recorded.').split(/(?<=[.!?])\s+/)[0]}</p>{trailer(workTab(undefined, review.runId) + '#review', 'full review →')}</div>}
     {checked && contractChanged(adds) && adds && <div className="ch-overview-line"><div className="ch-row-label">App contract</div><div className="ch-value"><InlineHelp.Provider value={false}><AddsSection adds={adds} /></InlineHelp.Provider></div><span /></div>}
     </section>
-    <TurnDecision approvalWaiting={!!approval && !!turn} active={!!turn} shown={shown} ready={<>{briefParts?.what ? <>
+    <TurnDecision progress={nowRunning(view) ? <Now view={view} /> : undefined} outcome={<p>{view.waitingOn.says}{view.stateDetail && ` · ${view.stateDetail}`}</p>} approvalWaiting={!!approval && !!turn} active={!!turn} shown={shown && (!nowRunning(view) || !!turn)} ready={<>{briefParts?.what ? <>
         <p>{briefParts.what}</p>
         {briefParts.call && <p><strong>Your call:</strong> {briefParts.call}</p>}
         {briefParts.look && <p><strong>Worth a look:</strong> {briefParts.look}</p>}
@@ -139,7 +141,7 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
       {shortfall && <p>The summary says this change falls short of the request: {shortfall}</p>}
       {unchecked && <p>The summary could not check all of the request: {unchecked}</p>}
       {steps.filter(s => s.type === 'workflow/call' && s.evidence.childRunId).map(s => <ChildOverview key={s.id} step={s} onChange={onChange} />)}
-      {busy && !steps.some(s => s.type === 'workflow/call' && s.status === 'running') && <p>Checks are running; you can accept when they finish.</p>}
+      <p>{view.waitingOn.says}</p>
       {approval && (!current || extraErr) && <p>Reading the current change before you can accept.</p>}
       {approval && !deployments.current && <p className={deployments.err ? 'error' : 'muted'}>{deployments.err ? `The deployment consequence could not be read: ${deployments.err}` : 'Reading where accepting puts this change…'}</p>}
       {deciding && d && <>
@@ -152,7 +154,7 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
       </>}
       {turn && view.waitingOn.kind !== 'approval' && <HeldDecision view={view} onChange={onChange} />}
       <DecisionContextOnly.Consumer>{contextOnly => !contextOnly && !turn && current && !extraErr && d && !['shipped', 'abandoned'].includes(ch.state) && <div className="row">
-        {offered(d.next, 'advance') && <button className="primary" disabled={actionBusy} onClick={() => act(async () => setAdvance(await post<AdvanceResult>(`/runs/${d.run.id}/advance`)))}>Continue</button>}
+        {offered(d.next, 'advance') && <ContinueDecision busy={actionBusy} run={() => act(async () => setAdvance(await post<AdvanceResult>(`/runs/${d.run.id}/advance`)))} />}
         {advance?.followUpsPending && <span>Workflow finished. Follow-ups pending.</span>}
         {advance && !advance.advanced && !!advance.blocking?.length && <span className="error">Blocked by: {advance.blocking.map(b => `${b.name} (${b.status})`).join(', ')}</span>}
         {!!advance?.missing?.length && <span className="error">Missing required checks: {advance.missing.join(', ')}.</span>}

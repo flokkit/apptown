@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -37,6 +38,7 @@ type Activity struct {
 	holdingRun   ids.ID
 	holdingStep  *workflowActivityStep
 	failedChecks int
+	workPhrase   string
 }
 
 func (a Activity) Active() bool {
@@ -99,7 +101,7 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 	reworked := latestAgentWork(run.steps)
 	prerequisitesSettled := true
 	var held *workflowActivityStep
-	for _, step := range run.steps {
+	for index, step := range run.steps {
 		ready := prerequisitesSettled
 		prerequisitesSettled = prerequisitesSettled && dispatchSettled(step.state)
 		if ready && step.state == StatusPending && activityShowsPendingWork(step.kind) && pendingWork == "" {
@@ -140,7 +142,7 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 			if step.kind == "agent/pi" {
 				state = activityAgentWorking
 			}
-			return Activity{State: state, Detail: step.name, holdingStep: &step}, nil
+			return Activity{State: state, Detail: step.name, holdingStep: &step, workPhrase: runningStepWords(step, index+1, len(run.steps))}, nil
 		case step.kind == "approval" && step.state == StatusPending:
 			pendingApproval, pendingApprovalID = step.name, step.id
 		case (step.kind == "agent/pi" || step.kind == "script" || step.kind == "agent/review") && step.state == StatusPending:
@@ -254,3 +256,26 @@ func slotWaitWords(binding string, ahead int) string {
 
 // activityShowsPendingWork distinguishes automatic work from decisions and assertions in the activity display.
 func activityShowsPendingWork(kind string) bool { return kind != "approval" && !assertionKind(kind) }
+
+// Running wording belongs with activity so called workflows retain their own
+// step position when their activity is carried to the parent.
+func runningStepWords(step workflowActivityStep, position, total int) string {
+	switch step.kind {
+	case "agent/pi":
+		return "agent working"
+	case "preview":
+		return "starting the preview"
+	case "deploy":
+		return fmt.Sprintf("deploying — step %d of %d", position, total)
+	case "agent/review":
+		return "reviewing the work"
+	case "scan":
+		return "running " + step.name
+	case "tests":
+		return "running tests"
+	case "guidance/conformance":
+		return "checking ways of working"
+	default:
+		return strings.ReplaceAll(strings.ReplaceAll(step.name, "-", " "), "_", " ")
+	}
+}

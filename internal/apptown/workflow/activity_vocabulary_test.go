@@ -134,7 +134,7 @@ func TestActivityTreatsAVerdictOlderThanTheReworkAsBeingRechecked(t *testing.T) 
 		if err != nil {
 			t.Fatal(err)
 		}
-		if fresh && (detail.WaitingOn.Checks != 1 || detail.WaitingOn.Says != "late-review failed") {
+		if fresh && (detail.WaitingOn.Checks != 1 || detail.WaitingOn.Says != "Review failed") {
 			t.Fatalf("stale checks counted: %+v", detail.WaitingOn)
 		}
 		if detail.State != want || listed[run.ID].State != want {
@@ -281,7 +281,7 @@ func TestTheSnapshotOffersTheActsAPersonCanTakeNow(t *testing.T) {
 			if w.Kind != expected || w.Run != run.ID {
 				t.Fatalf("waiting on %+v, want %s on %s", w, expected, run.ID)
 			}
-			if c.name == "a check could not run" && w.Says != "tests could not run" {
+			if c.name == "a check could not run" && w.Says != "Tests could not run" {
 				t.Fatalf("error: %+v", w)
 			}
 			if expected == "person" && w.Says != detail.StateDetail {

@@ -17,15 +17,25 @@ it.each([
   ['running', 'ready', { unknown: true }, 'unknown'],
   ['running', 'ready', { stale: true }, 'unknown'],
   ['running', 'missing', {}, 'unknown'],
+  ['unknown', 'missing', {}, 'unknown'],
   ['stopped', 'unknown', {}, 'stopped'],
   ['unreachable', 'unknown', {}, 'unreachable'],
-] as const)('agrees across all deployment views for %s / %s / %j', (observation, presence, reading, word) => {
+  ['unknown', 'missing', {}, 'deploying', 'releasing'],
+  ['running', 'ready', { stale: true }, 'deploying', 'releasing'],
+  ['unreachable', 'unknown', {}, 'deploying', 'releasing'],
+  ['unknown', 'missing', {}, 'unknown', 'released'],
+  ['running', 'ready', {}, 'working', 'released'],
+  ['unknown', 'missing', {}, 'unknown', 'failed'],
+] as const)('agrees across all deployment views for %s / %s / %j', (observation, presence, reading, word, releaseState = undefined) => {
   const client = newQueryClient()
-  const env = { id: 'deployment', name: 'main', observation, generation: 1, kind: 'standing', feed: 'landing' } as DeploymentView
+  const env = { id: 'deployment', name: 'main', observation, generation: 1, kind: 'standing', feed: 'landing', observationIssue: 'Runtime status is unavailable', observationStale: word === 'deploying', observedAt: '2026-11-01T00:00:00Z' } as DeploymentView
   const values = {
     '/projects/lunch/deployments': [env],
     '/projects/lunch/overview': { active: [], open: [], history: [] },
-    '/projects/lunch/releases': [],
+    '/projects/lunch/releases': [
+      { number: 8, state: 'releasing', statusLabel: 'deploying', deployment: 'other', createdAt: '2026-11-01T00:00:00Z' },
+      ...(releaseState ? [{ number: 7, state: releaseState, statusLabel: releaseState === 'releasing' ? 'deploying' : releaseState === 'released' ? 'deployed' : 'failed', deployment: env.name, createdAt: '2026-11-01T00:00:00Z' }] : []),
+    ],
     '/projects/lunch/deployments/main/resources': { parts: [], limits: [], limitsKnown: true },
     '/projects/lunch/deployments/main/backups': { backups: [], plan: [] },
     ...(presence === 'missing' ? {} : { '/projects/lunch/deployments/main/diagnostics': { reading, parts: [{ part: 'web', presence }], events: [], eventsKnown: true } }),
@@ -38,8 +48,16 @@ it.each([
     <div id="page"><EnvCard slug="lunch" env={env} onChanged={() => {}} /></div>
     <div id="fleet"><FleetDeploymentStatus slug="lunch" id={env.id} /></div>
   </MemoryRouter></QueryClientProvider>)
-  for (const selector of ['#overview .row-status .chip', '#list .list-state .chip', '#page .deploy-head .chip', '#fleet .chip']) {
-    expect(el.querySelector(selector)?.textContent?.replace(/^●\s*/, '').trim(), selector).toBe(word)
+  for (const selector of ['#overview .card.row > .row-status .chip', '#list .list-state .chip', '#page .deploy-head .chip', '#fleet .chip']) {
+    const chip = el.querySelector(selector)
+    expect(chip?.textContent?.replace(/^●\s*/, '').trim(), selector).toBe(word)
+    if (word === 'deploying') {
+      expect(chip?.classList.contains('running'), selector).toBe(true)
+      expect(chip?.getAttribute('title'), selector).toBe('Release 7')
+    } else if (observation === 'unknown') {
+      expect(chip?.classList.contains('unknown'), selector).toBe(true)
+      expect(chip?.getAttribute('title'), selector).toBe('Runtime status is unavailable')
+    }
   }
   client.clear()
 })
@@ -47,6 +65,6 @@ it.each([
 it('keeps observations without generation diagnostics and downgrades a failed diagnostics refresh', async () => {
   const { deploymentStatus } = await import('./deploymentStatus')
   const env = { observation: 'running', generation: 0 } as DeploymentView
-  expect(deploymentStatus(env).observation).toBe('running')
-  expect(deploymentStatus({ ...env, generation: 1 }, { parts: [] } as never, true).observation).toBe('unknown')
+  expect(deploymentStatus(env).word).toBe('running')
+  expect(deploymentStatus({ ...env, generation: 1 }, { parts: [] } as never, true).word).toBe('unknown')
 })
