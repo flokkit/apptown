@@ -111,13 +111,14 @@ func panickingJudge(t *testing.T, scanners []check.Scanner) *check.Judge {
 }
 
 // Against an empty project, with no files and no contract, every shipped
-// check, every stock scanner at its scan point and the stock landing's
+// check except a source selector is not applicable. Source selectors cannot
+// assess without declared part context. Every stock scanner and the landing's
 // tests step is not applicable, with its reason, and nothing runs: never a
 // pass on nothing.
 //
 // Kills: a check or scanner that passes, errors or runs on an empty
 // project (each passed on nothing before applicability existed).
-func TestEveryShippedCheckIsNotApplicableToAnEmptyProject(t *testing.T) {
+func TestEmptyProjectsDoNotPassChecksWithoutEvidence(t *testing.T) {
 	t.Parallel()
 	src := CheckSource(t.TempDir())
 	if !src.Empty || !src.NoContract {
@@ -136,7 +137,11 @@ func TestEveryShippedCheckIsNotApplicableToAnEmptyProject(t *testing.T) {
 		t.Fatalf("%d evaluations of %d checks", len(evs), len(declared))
 	}
 	for _, ev := range evs {
-		if ev.Outcome != check.NotApplicable || ev.Detail == "" {
+		want := check.NotApplicable
+		if ev.SourceFiles {
+			want = check.CannotAssess
+		}
+		if ev.Outcome != want || ev.Detail == "" {
 			t.Errorf("%s · %s on an empty project: %s %q", ev.Namespace, ev.Name, ev.Outcome, ev.Detail)
 		}
 	}

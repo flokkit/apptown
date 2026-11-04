@@ -356,7 +356,7 @@ func (f Fleet) judgeTreeRubrics(ctx context.Context, execution *conformance.Exec
 		}
 		out = append(out, v)
 	}
-	items := check.TreeItems(declaredAll(checks), src)
+	items := check.TreeItems(declaredAll(checks), CheckSource(src))
 	byItem, meta, judgeErr := f.judgeChecklist(ctx, modelcall.Call{Purpose: "conformance-review", ProjectID: projectID}, items, "")
 	if meta != nil && meta.Usage != nil {
 		rev.Cost += meta.Usage.Cost

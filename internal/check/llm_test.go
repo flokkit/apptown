@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -33,13 +34,13 @@ func TestLLMEvaluatorIdentity(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir, "README.md", "one")
 	writeFile(t, dir, "b/README.md", "two")
-	b1, files, _ := check.PackEvidence(dir, []string{"**/README.md"})
-	b2, _, _ := check.PackEvidence(dir, []string{"**/README.md"})
+	b1, files, _, _ := check.PackEvidence(check.Source{Tree: dir}, check.Declaration{Files: []string{"**/README.md"}})
+	b2, _, _, _ := check.PackEvidence(check.Source{Tree: dir}, check.Declaration{Files: []string{"**/README.md"}})
 	if b1 != b2 || len(files) != 2 || files[0] != "README.md" || files[1] != "b/README.md" {
 		t.Fatalf("packing must be deterministic and sorted: %v", files)
 	}
 	writeFile(t, dir, "README.md", "changed")
-	if b3, _, _ := check.PackEvidence(dir, []string{"**/README.md"}); check.BundleHash(b3) == check.BundleHash(b1) {
+	if b3, _, _, _ := check.PackEvidence(check.Source{Tree: dir}, check.Declaration{Files: []string{"**/README.md"}}); check.BundleHash(b3) == check.BundleHash(b1) {
 		t.Fatal("changed evidence must change the bundle hash")
 	}
 }
@@ -91,7 +92,7 @@ func TestNamedFilesAreEvidenceEvenUnderSkippedDirectories(t *testing.T) {
 	writeFile(t, without, "README.md", "an app")
 	writeFile(t, without, ".apptown/CHANGE.md", "the implementer's report")
 	writeFile(t, without, ".apptown/sessions/s.md", "a transcript")
-	if bundle, files, _ := check.PackEvidence(without, globs); len(files) != 1 || files[0] != "README.md" || strings.Contains(bundle, "transcript") || strings.Contains(bundle, "report") {
+	if bundle, files, _, _ := check.PackEvidence(check.Source{Tree: without}, check.Declaration{Files: globs}); len(files) != 1 || files[0] != "README.md" || strings.Contains(bundle, "transcript") || strings.Contains(bundle, "report") {
 		t.Fatalf("without a contract only README.md is evidence, got %v\n%s", files, bundle)
 	}
 
@@ -99,7 +100,7 @@ func TestNamedFilesAreEvidenceEvenUnderSkippedDirectories(t *testing.T) {
 	writeFile(t, with, "README.md", "an app")
 	writeFile(t, with, ".apptown/app.yaml", "app:\n  web: { build: ., public: true }\n")
 	writeFile(t, with, ".apptown/CHANGE.md", "the implementer's report")
-	bundle, files, _ := check.PackEvidence(with, globs)
+	bundle, files, _, _ := check.PackEvidence(check.Source{Tree: with}, check.Declaration{Files: globs})
 	if strings.Join(files, ",") != ".apptown/app.yaml,README.md" || !strings.Contains(bundle, "=== .apptown/app.yaml ===\napp:") {
 		t.Fatalf("a committed contract is evidence, got %v\n%s", files, bundle)
 	}
@@ -110,7 +111,7 @@ func TestNamedFilesAreEvidenceEvenUnderSkippedDirectories(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(linked, ".apptown")); err != nil {
 		t.Fatal(err)
 	}
-	if bundle, files, _ := check.PackEvidence(linked, globs); len(files) != 0 || strings.Contains(bundle, "outside") {
+	if bundle, files, _, _ := check.PackEvidence(check.Source{Tree: linked}, check.Declaration{Files: globs}); len(files) != 0 || strings.Contains(bundle, "outside") {
 		t.Fatalf("a symlinked directory must not lead evidence outside the tree, got %v", files)
 	}
 }
@@ -134,7 +135,7 @@ func TestARubricWhoseEvidenceCannotBeReadIsNotJudged(t *testing.T) {
 		return check.Declared{Identity: check.Identity{Namespace: "b", Version: 1},
 			Declaration: check.Declaration{AppliesTo: repoWide, Name: name, Evaluator: "llm", Scope: "tree", Rubric: "judge", Expects: "it holds", Files: files}}
 	}
-	items := check.TreeItems([]check.Declared{rubric("partial", "README.md", unreadable), rubric("whole", "README.md")}, src)
+	items := check.TreeItems([]check.Declared{rubric("partial", "README.md", unreadable), rubric("whole", "README.md")}, check.Source{Tree: src})
 	if len(items) != 2 || items[0].Unreadable == "" || items[1].Unreadable != "" {
 		t.Fatalf("items: %+v", items)
 	}
@@ -170,8 +171,80 @@ func TestARubricWhoseEvidenceCannotBeReadIsNotJudged(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = os.Chmod(closed, 0o755) })
-		if _, _, err := check.PackEvidence(src, []string{"**/*.md"}); err == nil {
+		if _, _, _, err := check.PackEvidence(check.Source{Tree: src}, check.Declaration{Files: []string{"**/*.md"}}); err == nil {
 			t.Fatal("an unreadable directory was left out of the evidence")
 		}
+	}
+}
+
+// The exact state-behind-needs globs collect app code at every depth, even
+// when the caller reaches the checked tree through a directory symlink.
+func TestStateRubricCollectsAppTree(t *testing.T) {
+	t.Parallel()
+	globs := []string{".apptown/app.yaml", "go.mod", "requirements*.txt", "pyproject.toml", "package.json", "Gemfile", "**/settings.py", "config/database.yml", "**/*.go", "**/*.py", "**/*.rb", "**/*.ts", "**/*.js"}
+	dir := t.TempDir()
+	want := []string{".apptown/app.yaml", "go.mod", "requirements-dev.txt", "pyproject.toml", "package.json", "Gemfile", "settings.py", "config/database.yml", "main.go", "src/main.ts", "src/lib/store.js", "app/models/record.rb", "app/api/nested/store.py"}
+	for _, rel := range want {
+		writeFile(t, dir, rel, "evidence for "+rel)
+	}
+	for _, rel := range []string{"node_modules/client.js", "vendor/client.go", "dist/main.js", "build/main.js", ".venv/client.py", "__pycache__/client.py", ".apptown/sessions/code.py", ".forge/code.go", ".next/code.js", "target/code.go", ".git/code.go", "src/client.min.js", "src/client.js.map"} {
+		writeFile(t, dir, rel, "excluded")
+	}
+	writeFile(t, dir, "src/binary.go", "binary\x00")
+	outside := t.TempDir()
+	writeFile(t, outside, "outside.py", "outside tree")
+	if err := os.Symlink(outside, filepath.Join(dir, "linked")); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "tree")
+	if err := os.Symlink(dir, link); err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(want)
+	for _, src := range []string{dir, link} {
+		items := check.TreeItems([]check.Declared{{Declaration: check.Declaration{Evaluator: "llm", Scope: "tree", Rubric: "state", Files: globs}}}, check.Source{Tree: src})
+		if len(items) != 1 || items[0].Unreadable != "" || !slices.Equal(items[0].Files, want) {
+			t.Fatalf("tree %s: got %+v, want %v", src, items, want)
+		}
+	}
+}
+
+// Packing keeps a sorted prefix within both existing budgets and distinguishes
+// excluded files from text evidence omitted by a budget.
+func TestTreeEvidenceBudgetsKeepMatchingCounts(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	for _, name := range []string{"a.go", "b.go", "c.go", "d.go", "e.go", "f.go"} {
+		writeFile(t, dir, name, strings.Repeat("x", 20*1024))
+	}
+	writeFile(t, dir, "z.go", "binary\x00")
+	var checks []check.Declared
+	for i := 0; i < 6; i++ {
+		checks = append(checks, check.Declared{Declaration: check.Declaration{Evaluator: "llm", Scope: "tree", Files: []string{"**/*.go"}}})
+	}
+	items := check.TreeItems(checks, check.Source{Tree: dir})
+	total := 0
+	omitted := false
+	for _, it := range items {
+		total += len(it.Evidence)
+		if it.MatchingFiles != 6 {
+			t.Fatalf("eligible matches: %d, want 6", it.MatchingFiles)
+		}
+		if len(it.Evidence) > 48*1024 {
+			t.Fatalf("rubric exceeds budget: %d", len(it.Evidence))
+		}
+		if len(it.Files) == 0 {
+			omitted = true
+			if !strings.Contains(it.Evidence, "project bundle cap") {
+				t.Fatalf("missing batch omission: %s", it.Evidence)
+			}
+		} else {
+			if !slices.Equal(it.Files, []string{"a.go", "b.go", "c.go"}) || !strings.Contains(it.Evidence, "3 more matching file(s) omitted") || !strings.Contains(it.Evidence, "truncated: 8192 more bytes") {
+				t.Fatalf("capped evidence: %v, %s", it.Files, it.Evidence)
+			}
+		}
+	}
+	if total > 160*1024 || !omitted {
+		t.Fatalf("batch budget: bytes=%d, omitted=%v", total, omitted)
 	}
 }

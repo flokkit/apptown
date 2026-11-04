@@ -389,3 +389,25 @@ func TestGateJudgesTheMemoryContractAndSkipsTheStandingCheck(t *testing.T) {
 		t.Errorf("no tree to judge: %+v", res)
 	}
 }
+
+// Guidance receipts expose budget omissions for the same evidence as reviews.
+func TestGuidanceRubricReceiptsReportBudgetOmissions(t *testing.T) {
+	t.Parallel()
+	f := newScannerOwnerFixture(t)
+	f.Effects.answer = `[{"item":1,"verdict":"unclear"},{"item":2,"verdict":"unclear"},{"item":3,"verdict":"unclear"},{"item":4,"verdict":"unclear"},{"item":5,"verdict":"unclear"},{"item":6,"verdict":"unclear"}]`
+	src := t.TempDir()
+	files := map[string]string{}
+	for _, name := range []string{"a.go", "b.go", "c.go", "d.go", "e.go", "f.go"} {
+		files[name] = strings.Repeat("x", 20*1024)
+	}
+	writeTree(t, src, files)
+	a := NewGuidance(GuidanceDependencies{DB: f.DB, Scanners: f.Scanners, Evaluator: NewEvaluator(f.Effects, nil, stock.Versions()), Selection: selectionWithDefault(t, f.DB, "openrouter/test-model")})
+	var checks []conformance.DeclaredCheck
+	for _, name := range []string{"one", "two", "three", "four", "five", "six"} {
+		checks = append(checks, conformance.DeclaredCheck{Block: "state", Version: 1, Check: check.Declaration{AppliesTo: []string{"repository"}, Name: name, Evaluator: "llm", Rubric: name, Scope: check.ScopeTree, Files: []string{"**/*.go"}}})
+	}
+	results, _, _ := a.runLLMChecklist(t.Context(), workflow.Source{RunID: idstest.N(1), ProjectID: f.ProjectID}, checks, checked{Src: src})
+	if len(results) != 6 || !strings.Contains(results[0].Detail, "judged on 3 of 6 matching files") || !strings.Contains(results[5].Detail, "judged on 0 of 6 matching files") {
+		t.Fatalf("budget details: %+v", results)
+	}
+}

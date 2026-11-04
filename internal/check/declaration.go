@@ -24,9 +24,11 @@ type Declaration struct {
 	// fleet review; "diff" — a transition made by one change, judged at the gate
 	// only. sh/tool/runtime are always tree. An llm rubric defaults to diff (the
 	// meaning every existing block version has) and may declare tree, in which
-	// case Files names the evidence the rubric is judged on.
+	// case Files and SourceFiles name the evidence the rubric is judged on.
 	Scope string   `json:"scope,omitempty"`
 	Files []string `json:"files,omitempty"`
+	// SourceFiles adds programming-language source within applicable part folders.
+	SourceFiles bool `json:"sourceFiles,omitempty"`
 	// Occurrences says how the check reports WHAT it found: "lines" — one
 	// occurrence per output line, so a gate can tell a pre-existing finding
 	// from a new one (design/subsystems/ways-of-working-versions.md §4.2). Unset: the
@@ -153,7 +155,7 @@ func Validate(checks []Declaration) error {
 			case "", ScopeDiff:
 				c.Scope = ScopeDiff
 			case ScopeTree:
-				if len(c.Files) == 0 {
+				if len(c.Files) == 0 && !c.SourceFiles {
 					return fmt.Errorf("check %q: a tree-scoped rubric must list the files it is judged on", c.Name)
 				}
 			default:
@@ -164,6 +166,9 @@ func Validate(checks []Declaration) error {
 				return fmt.Errorf("check %q: a %s check is always tree-scoped (it has no before/after)", c.Name, c.Evaluator)
 			}
 			c.Scope = ScopeTree
+		}
+		if c.SourceFiles && (c.Evaluator != "llm" || c.Scope != ScopeTree) {
+			return fmt.Errorf("check %q: sourceFiles requires a tree-scoped rubric", c.Name)
 		}
 		if c.Severity == "" {
 			c.Severity = "note"

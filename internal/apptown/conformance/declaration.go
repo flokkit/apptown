@@ -49,6 +49,7 @@ type CheckDefinition struct {
 	Probe       string   `json:"probe,omitempty"`
 	Scope       string   `json:"scope"`
 	Files       []string `json:"files,omitempty"`
+	SourceFiles bool     `json:"sourceFiles,omitempty"`
 	JudgedWhere string   `json:"judgedWhere"`
 	Adopters    []string `json:"adopters"`
 }
@@ -63,7 +64,7 @@ func definitionOf(block string, version int, c CheckDeclaration) CheckDefinition
 		Key: CheckKey(block, version, c.Name), Block: block, Version: version, Check: c.Name,
 		Title: c.Title, Expects: c.Expects, Evaluator: check.Evaluator(c), Severity: severity,
 		Sh: c.Sh, Rubric: c.Rubric, Tool: c.Tool, Probe: c.Probe,
-		Scope: check.Scope(c), Files: c.Files, JudgedWhere: check.JudgedWhere(c),
+		Scope: check.Scope(c), Files: c.Files, SourceFiles: c.SourceFiles, JudgedWhere: check.JudgedWhere(c),
 	}
 }
 

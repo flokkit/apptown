@@ -58,7 +58,7 @@ func (j *Judge) namePrefix() string {
 
 // evaluateRubrics judges every rubric in the batch in one checklist call.
 func (j *Judge) evaluateRubrics(ctx context.Context, checks []Declared, src Source, mode Mode) []Evaluation {
-	items := append(TreeItems(checks, src.Tree), DiffItems(checks, src.Diff)...)
+	items := append(TreeItems(checks, src), DiffItems(checks, src.Diff)...)
 	if len(items) == 0 {
 		return nil
 	}

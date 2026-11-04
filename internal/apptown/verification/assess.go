@@ -146,7 +146,7 @@ func judgeRubrics(rubrics []conformance.DeclaredCheck, in assessInput) []treeAss
 		return out
 	}
 	declared := declaredAll(rubrics)
-	items := append(check.TreeItems(declared, in.tool.BuildDir), check.DiffItems(declared, in.diff)...)
+	items := append(check.TreeItems(declared, CheckSource(in.tool.BuildDir)), check.DiffItems(declared, in.diff)...)
 	byItem, meta, err := in.judge(items, in.diff)
 	for i, it := range items {
 		sc := adoptedFor(rubrics, it.Declared)
@@ -158,7 +158,10 @@ func judgeRubrics(rubrics []conformance.DeclaredCheck, in assessInput) []treeAss
 		ev := check.Judgement(it, v, answered, nil, check.Gate)
 		a := treeAssessment{Check: sc, State: outcomeOf(ev.Outcome), Detail: llmVerdictDetail(v, it, meta), Findings: ev.Findings}
 		if ev.Outcome != check.Conforms && ev.Outcome != check.DoesNotConform {
-			a.State, a.Reason, a.Detail = conformance.CannotAssess, conformance.NotAssessedError, ev.Detail
+			a.State, a.Reason = conformance.CannotAssess, conformance.NotAssessedError
+			if it.Unreadable != "" || !answered {
+				a.Detail = ev.Detail
+			}
 		}
 		out = append(out, a)
 	}

@@ -14,6 +14,8 @@ web bundle is listed with its licence, copyright and notice files, verbatim,
 in THIRD_PARTY_NOTICES (shipped with each release; scripts/third-party-notices.py
 writes it). River, the job queue, is under the Mozilla Public License 2.0 and
 used unmodified; THIRD_PARTY_NOTICES gives the address of its exact source.
+Source-file classification uses go-enry v2.9.6, under the Apache License 2.0;
+its licence is included in THIRD_PARTY_NOTICES by the release notice generator.
 The web interface's fonts (IBM Plex Sans and IBM Plex Mono) are
 under the SIL Open Font License 1.1; their copyright lines and licence are in
 web/public/third-party-fonts.txt, served with them as /third-party-fonts.txt.
