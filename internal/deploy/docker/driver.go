@@ -111,7 +111,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 		return deploy.Observation{}, deploy.Terminal(err)
 	}
 	req := BootRequest{
-		Log: logf, ExactOrigins: &origin,
+		Log: logf, ExactOrigins: &origin, URL: originURL,
 		Name: name, StackID: names.Stack(), Slug: slug, ServingLabel: d.ServingLabel, Workspace: ws,
 		Deployment: p.Name, DataClass: d.DataClass, HostPort: p.HostPort, Persistent: true, Probe: 90 * time.Second, Docker: dk,
 		Identity: &id, Services: SourceServices(art), Revision: source.Revision, fill: d.Fill, Allowed: d.Allowed, Storage: d.Storage, restoreStorage: d.RestoreStorage,

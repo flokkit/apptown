@@ -194,11 +194,15 @@ func TestInTheNoLocalDockerModeOnlyPublishedReleasesArePreviewed(t *testing.T) {
 func TestALocalReleasePreviewIsNotRoutedToTheWorker(t *testing.T) {
 	t.Parallel()
 	s, w, local, b, _, recorded := releasePreviewWorld(t)
-	if _, err := s.RequestReleasePreview(context.Background(), ReleaseSelection{ProjectID: b.ProjectID, Number: recorded}); err != nil {
+	out, err := s.RequestReleasePreview(context.Background(), ReleaseSelection{ProjectID: b.ProjectID, Number: recorded})
+	if err != nil {
 		t.Fatal(err)
 	}
 	if len(local()) == 0 || len(w.boots) != 0 {
 		t.Fatal("fixture: the preview did not boot here")
+	}
+	if !strings.Contains(strings.Join(local(), "\n"), "-e APPTOWN_URL="+out.URL+" ") {
+		t.Fatalf("local release preview app did not receive its URL %s: %v", out.URL, local())
 	}
 	wantOrigin := "APPTOWN_ORIGINS=https://" + docker.ReleasePreviewLabel("p", recorded) + ".preview.example"
 	if !strings.Contains(strings.Join(local(), "\n"), wantOrigin) || strings.Contains(strings.Join(local(), "\n"), "https://*.preview.example") {

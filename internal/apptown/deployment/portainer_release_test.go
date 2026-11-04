@@ -268,7 +268,7 @@ func TestANamedPortainerReleaseRecordsTheAddressItRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stack, _ := p.lastStack(t); !strings.Contains(stack, ".apps.example`)") || strings.Contains(stack, ".intra.example") || !strings.Contains(stack, `APPTOWN_ORIGINS: "`+dep.URL+`"`) {
+	if stack, _ := p.lastStack(t); !strings.Contains(stack, ".apps.example`)") || strings.Contains(stack, ".intra.example") || !strings.Contains(stack, `APPTOWN_ORIGINS: "`+dep.URL+`"`) || !strings.Contains(stack, `APPTOWN_URL: "`+dep.URL+`"`) {
 		t.Fatalf("the stack routes:\n%s", stack)
 	}
 }
@@ -362,7 +362,7 @@ func TestCustomerPortainerDeploymentsKeepIndependentReleaseOwnership(t *testing.
 						for _, st := range snapshots {
 							if st.Name == o.Name {
 								stackFound = true
-								for _, want := range []string{dep.ID.String(), addresses[i].Ingress.URL, passwords[i]} {
+								for _, want := range []string{dep.ID.String(), addresses[i].Ingress.URL, `APPTOWN_URL: "` + addresses[i].Ingress.URL + `"`, passwords[i]} {
 									if !strings.Contains(st.Compose, want) {
 										t.Fatalf("stack %s missing its ownership or input %q", st.Name, want)
 									}

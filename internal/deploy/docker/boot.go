@@ -46,6 +46,7 @@ type BootRequest struct {
 	Log          deploy.Logf
 	ChangeTitle  string  // informational title for a change preview; empty for runs and releases
 	Slug         string  // the application's current display address; not routing identity
+	URL          string  // selected deployment address; empty when unknown
 	ExactOrigins *string // nil retains captured route context; non-nil is the owner's exact browser origin (empty means none).
 	ServingLabel string  // immutable label for a standing host route; separate from secret scope
 	DataClass    string  // what a standing deployment holds; "" or "synthetic" lets a moved service be recreated
@@ -538,7 +539,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	if err := allowed(ctx); err != nil {
 		return res, &BootError{Phase: PhaseParts, Err: err}
 	}
-	plan, network, err = bringUpParts(ctx, t.Docker, t.StackID, t.Name, t.Workspace, network, plan, rs.Secrets, t.own)
+	plan, network, err = bringUpParts(ctx, t.Docker, t.StackID, t.Name, t.Workspace, network, plan, rs.Secrets, t.own, t.URL)
 	if err != nil {
 		return res, &BootError{Phase: PhaseParts, Err: err}
 	}

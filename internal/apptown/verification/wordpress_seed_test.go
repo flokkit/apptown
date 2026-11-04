@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"io/fs"
 	"maps"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/dependency"
@@ -16,6 +19,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/stock"
 )
 
@@ -243,6 +247,48 @@ func TestWordPressHomeIsOptionalInEveryProfile(t *testing.T) {
 			}
 			if errs != 0 || len(results) != 1 || results[0].Verdict != want || len(findings) != count {
 				t.Fatalf("want %s and %d findings: results=%+v findings=%+v errors=%d", want, count, results, findings, errs)
+			}
+		})
+	}
+}
+
+// This checks the initializer's explicit argument selection. WordPress's actual
+// configured home address is checked separately by the image integration test.
+func TestWordPressInitializerUsesTheDeploymentURLUnlessHomeIsPinned(t *testing.T) {
+	t.Parallel()
+	raw, err := stock.FS.ReadFile("seeds/wordpress/bin/initialize")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Keep the shipped shell logic, with WP-CLI replaced by an argument recorder
+	// and /app replaced by the test workspace. No WordPress install is simulated.
+	script := strings.Replace(string(raw), "cd /app", "", 1)
+	script = strings.ReplaceAll(script, "bin/wp", "wp")
+	stub := `wp() {
+ case "$*" in
+   'core is-installed') return 1 ;;
+   'core install '*) printf '%s\n' "$@" > install.args ;;
+ esac
+ }
+ `
+	for _, tc := range []struct{ name, home, url, want string }{
+		{"deployment", "", "https://preview.example", "https://preview.example"},
+		{"pinned", "https://canonical.example", "https://preview.example", "https://canonical.example"},
+		{"unknown", "", "", "http://localhost"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			out := (localChecks{}).Run(t.Context(), execution.Request{Workspace: dir, Timeout: time.Minute, Argv: []string{"sh", "-c", stub + script}, Env: []string{"WP_ADMIN_PASSWORD=fixture", "WP_HOME=" + tc.home, "APPTOWN_URL=" + tc.url}})
+			if out.ExitCode != 0 || !out.Answered() {
+				t.Fatalf("initializer: %+v", out)
+			}
+			args, err := os.ReadFile(filepath.Join(dir, "install.args"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Contains(strings.Split(string(args), "\n"), "--url="+tc.want) {
+				t.Fatalf("install args: %s, want --url=%s", args, tc.want)
 			}
 		})
 	}

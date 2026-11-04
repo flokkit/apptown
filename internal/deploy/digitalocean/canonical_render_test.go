@@ -29,6 +29,7 @@ func TestDigitalOceanRendersCanonicalPortsAndScopedConnections(t *testing.T) {
 	}}, Options{PushImage: push})
 	c, err := appcontract.Parse([]byte(`app:
   web: {image: app:1, public: true, environment: {PUBLIC_ONLY: web, DATABASE_URL: wrong}}
+  helper: {image: helper:1, ports: ["9000"]}
   worker: {image: worker:1, environment: {WORKER_ONLY: worker, DATABASE_URL: wrong}}
 init:
   - {name: migrate, image: migrate:1, environment: {DATABASE_URL: wrong}}
@@ -43,7 +44,7 @@ init:
 	if err != nil {
 		t.Fatal(err)
 	}
-	artifact, err := driver.Render(context.Background(), deploy.Placement{Name: "cloud"}, deploy.Source{Images: map[string]string{"web": "app:1", "worker": "worker:1"}, Init: map[string]string{"migrate": "migrate:1"}, Contract: c, Revision: "selected"}, deploy.NeedBindings{"postgres": {Env: map[string]string{"DATABASE_URL": "resolved"}}}, scopedRenderSecrets{"worker": {"WORKER_SECRET": "scoped"}}, func(string, ...any) {})
+	artifact, err := driver.Render(context.Background(), deploy.Placement{Name: "cloud"}, deploy.Source{Images: map[string]string{"web": "app:1", "worker": "worker:1", "helper": "helper:1"}, Init: map[string]string{"migrate": "migrate:1"}, Contract: c, Revision: "selected"}, deploy.NeedBindings{"postgres": {Env: map[string]string{"DATABASE_URL": "resolved"}}}, scopedRenderSecrets{"worker": {"WORKER_SECRET": "scoped"}}, func(string, ...any) {})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,13 +52,19 @@ init:
 	if err := json.Unmarshal(renderedSpecBody(t, artifact), &spec); err != nil {
 		t.Fatal(err)
 	}
-	if len(spec.Services) != 1 || spec.Services[0].HTTPPort != 8080 || len(spec.Workers) != 1 || len(spec.Jobs) != 1 {
+	if len(spec.Services) != 2 || len(spec.Workers) != 1 || len(spec.Jobs) != 1 {
 		t.Fatalf("canonical port did not reach provider: %+v", spec)
 	}
-	for _, comp := range []Component{spec.Services[0], spec.Workers[0], spec.Jobs[0]} {
+	for _, comp := range append(append(spec.Services, spec.Workers...), spec.Jobs...) {
 		env := map[string]string{}
 		for _, v := range comp.Envs {
 			env[v.Key] = v.Value
+		}
+		if comp.Name == "web" && comp.HTTPPort != 8080 {
+			t.Fatalf("public port = %d, want 8080", comp.HTTPPort)
+		}
+		if env["APPTOWN_URL"] != "${APP_URL}" {
+			t.Fatalf("deployment URL in %s: %q", comp.Name, env["APPTOWN_URL"])
 		}
 		if env["DATABASE_URL"] != "resolved" {
 			t.Fatalf("need connection overridden in %s", comp.Name)

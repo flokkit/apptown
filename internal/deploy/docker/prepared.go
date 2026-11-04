@@ -53,6 +53,7 @@ type Prepared struct {
 	SecretsFingerprint string              `json:"secretsFingerprint,omitempty"`
 	BrowserEnv         string              `json:"browserEnv"`
 	FrontDoor          map[string]string   `json:"frontDoor,omitempty"`
+	URL                string              `json:"url,omitempty"`
 	Origins            string              `json:"origins,omitempty"`
 	Registry           *RegistryCredential `json:"registry,omitempty"`
 }
@@ -80,6 +81,7 @@ type PublicPrepared struct {
 	NeedData           map[string]string     `json:"needData,omitempty"`
 	BrowserEnv         string                `json:"browserEnv"`
 	FrontDoor          map[string]string     `json:"frontDoor,omitempty"`
+	URL                string                `json:"url,omitempty"`
 	Origins            string                `json:"origins,omitempty"`
 }
 
@@ -88,7 +90,7 @@ type PublicPrepared struct {
 func (p Prepared) Public() PublicPrepared {
 	return PublicPrepared{Version: p.Version, Contract: p.Contract, Services: p.Services, Receipts: p.Receipts, Profile: p.Profile, SecretsFingerprint: p.SecretsFingerprint,
 		Needs: p.Needs, NeedEnv: p.NeedEnv, NeedData: p.NeedData,
-		BrowserEnv: p.BrowserEnv, FrontDoor: p.FrontDoor, Origins: p.Origins}
+		BrowserEnv: p.BrowserEnv, FrontDoor: p.FrontDoor, Origins: p.Origins, URL: p.URL}
 }
 
 // Digest identifies the public prepared values, the contract among them:

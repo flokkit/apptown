@@ -20,8 +20,9 @@ initial administrator/title settings in `install.env`. Run the same image for bo
     docker run --rm --network site --env-file site.env --env-file install.env wordpress-starter /app/bin/initialize
     docker run --rm --network site --env-file site.env -p 8080:8080 wordpress-starter
 
-AppTown serves the site at its own address; elsewhere, and for WP-CLI runs that
-write content or links, set WP_HOME to the public URL. The bucket stays
+AppTown supplies APPTOWN_URL to web, init and WP-CLI commands. Set WP_HOME only
+to pin a different canonical address, or to supply the public URL when running
+outside AppTown. The bucket stays
 private and objects carry no ACL: media URLs are the site's own
 (/app/uploads/...), and web/media.php reads each object from the bucket.
 

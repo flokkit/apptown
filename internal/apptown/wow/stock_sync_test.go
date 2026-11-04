@@ -359,3 +359,44 @@ func TestPackSetupRefusesAPolicyNamedWithoutItsDefinition(t *testing.T) {
 		t.Fatalf("a version holding its policy's definition: %+v %v", setup, err)
 	}
 }
+
+// Changed WordPress address guidance publishes a new pack version. Adoption
+// stays explicit, and the earlier publication retains its original guidance.
+func TestWordPressDeploymentURLGuidanceCutsANewPackVersion(t *testing.T) {
+	t.Parallel()
+	const path = "guidance/lang/selection/wordpress-bedrock.md"
+	current, err := stock.FS.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(current), "`APPTOWN_URL`") {
+		t.Fatal("WordPress guidance does not use the deployment address")
+	}
+	old := []byte(strings.ReplaceAll(string(current), "`APPTOWN_URL`", "`WP_HOME`"))
+	db := testDB(t)
+	previous := New(db, Dependencies{Stock: changedStock{FS: stock.FS, files: fstest.MapFS{path: {Data: old}}}, ToolLines: stock.Versions()})
+	previous.SyncStock(t.Context())
+	before, err := libraryRows(db).PackByName(t.Context(), "wordpress")
+	if err != nil {
+		t.Fatal(err)
+	}
+	original, err := libraryRows(db).PackVersion(t.Context(), wowsql.PackVersionParams{PackID: before.ID, Version: before.LatestVersion})
+	if err != nil {
+		t.Fatal(err)
+	}
+	release := New(db, Dependencies{Stock: stock.FS, ToolLines: stock.Versions()})
+	release.SyncStock(t.Context())
+	after, err := libraryRows(db).PackByName(t.Context(), "wordpress")
+	if err != nil || after.LatestVersion != before.LatestVersion+1 || after.RecommendedVersion != before.RecommendedVersion {
+		t.Fatalf("new WordPress publication: before=%+v after=%+v err=%v", before, after, err)
+	}
+	kept, err := libraryRows(db).PackVersion(t.Context(), wowsql.PackVersionParams{PackID: before.ID, Version: before.LatestVersion})
+	if err != nil || string(kept.PinsJson) != string(original.PinsJson) {
+		t.Fatalf("old publication changed: %+v %v", kept, err)
+	}
+	release.SyncStock(t.Context())
+	again, err := libraryRows(db).PackByName(t.Context(), "wordpress")
+	if err != nil || again.LatestVersion != after.LatestVersion {
+		t.Fatalf("repeat sync published again: %+v %v", again, err)
+	}
+}

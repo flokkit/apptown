@@ -6,10 +6,10 @@ if ! bin/wp core is-installed >/dev/null 2>&1; then
     # WP-CLI echoes noninteractive prompts/expanded commands to stdout. Discard
     # that stream; failures still report stderr and stop initialization.
     printf '%s\n' "$WP_ADMIN_PASSWORD" | bin/wp core install \
-      --url="${WP_HOME:-http://localhost}" --title="${WP_SITE_TITLE:-WordPress}" \
+      --url="${WP_HOME:-${APPTOWN_URL:-http://localhost}}" --title="${WP_SITE_TITLE:-WordPress}" \
       --admin_user="${WP_ADMIN_USER:-editor}" --admin_email="${WP_ADMIN_EMAIL:-editor@example.invalid}" \
       --skip-email --quiet --prompt=admin_password >/dev/null
-    # The install writes its URL (a placeholder unless WP_HOME is bound) into
+    # The install writes its URL (localhost only while the address is unknown) into
     # stored data that the configuration does not override: the administrator's
     # website and WordPress's sample post and pages, one of which links to the
     # dashboard. Remove both; this starter installs no example content.

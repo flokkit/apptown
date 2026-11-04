@@ -48,7 +48,11 @@ func TestTheWorkerStartsAWorkflowsServicesFromThePreparedValue(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(tree, "index.html"), []byte("<html></html>"), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			prepared := docker.Prepared{Version: docker.PreparedVersion, Contract: c, BrowserEnv: "{}", Origins: origin,
+			url := ""
+			if origin == "https://change-5.preview.example" {
+				url = "https://change-5.preview.example"
+			}
+			prepared := docker.Prepared{URL: url, Version: docker.PreparedVersion, Contract: c, BrowserEnv: "{}", Origins: origin,
 				Services: []deploy.ServiceSpec{{Name: "cache", Image: "forge-test-cache:7", Health: "true"}}}
 			if _, err := previews.Boot(context.Background(), worker.PreviewSpec{Name: "apptown-preview-run-5", StackID: "pv55", Slug: "app", ChangeTitle: "Try the shop",
 				Incarnation: "tree+digest", ProbeSeconds: 1}, prepared, tree); err != nil {
@@ -60,6 +64,12 @@ func TestTheWorkerStartsAWorkflowsServicesFromThePreparedValue(t *testing.T) {
 			}
 			if origin == "" && strings.Contains(body, "APPTOWN_ORIGINS=") {
 				t.Fatalf("domainless preview gained origin: %s", body)
+			}
+			if url != "" && !strings.Contains(body, "APPTOWN_URL="+url) {
+				t.Fatalf("captured URL changed in worker boot: %s", body)
+			}
+			if url == "" && strings.Contains(body, "APPTOWN_URL=") {
+				t.Fatalf("unknown URL reconstructed from origins: %s", body)
 			}
 			var started bool
 			for _, line := range dk.commands("") {

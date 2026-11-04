@@ -46,6 +46,7 @@ type portainerStackOf struct {
 	Base     string
 	Prefix   string
 	Hosts    []string
+	URL      string // admitted ingress address
 	Domain   string
 	Contract *appcontract.Contract // the effective contract
 	Revision string
@@ -89,7 +90,7 @@ func (e *Environment) portainerStack(ctx context.Context, in portainerStackOf, l
 		origins[i] = "https://" + host
 	}
 	st := deploy.IntranetStack{Base: in.Base, Prefix: in.Prefix, Hosts: in.Hosts, Domain: in.Domain, Image: in.Images.Parts[c.PublicPart().Name], Command: plan.PublicPart().Command, Resources: plan.PublicPart().Resources, Port: c.PublicPart().Port,
-		Env: plan.PublicPart().Env, Integrations: given, BrowserEnv: browser, DataDir: plan.PublicPart().DataDir, Origins: strings.Join(origins, ","), Init: plan.Init, Needs: docker.IntranetNeeds(rs.Needs),
+		Env: plan.PublicPart().Env, Integrations: given, BrowserEnv: browser, DataDir: plan.PublicPart().DataDir, Origins: strings.Join(origins, ","), URL: in.URL, Init: plan.Init, Needs: docker.IntranetNeeds(rs.Needs),
 		Secrets: in.Secrets, PublicPart: c.PublicPart().Name, Release: c.PublicRelease(strings.TrimSpace(in.Revision)),
 		// Portainer's machines are not this one: the extra certificates
 		// without this machine's local authority.
