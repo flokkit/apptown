@@ -1,3 +1,5 @@
+import { DeploySceneScope } from './DeployScene'
+import { DeployResult } from './DeployResult'
 import { Now, nowRunning } from './Now'
 import { ContinueDecision, TurnDecision, viewerTurn } from './Turn'
 import { HeldDecision, heldLabels } from './HeldDecision'
@@ -90,6 +92,9 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
   const nav = useNavigate()
   const { run: act, busy: actionBusy, err: actionErr } = useAction(onChange)
   const turn = viewerTurn(view) && current && !extraErr && nextStep(view).primary !== 'open-decision'
+  const landingDeploy = [...steps].reverse().find((s): s is Extract<Step, { type: 'deploy' }> => s.type === 'deploy' && !['pending', 'skipped', 'not_applicable'].includes(s.status) && !!view.runs?.some(r => r.id === s.runId && r.role === 'landing'))
+  const resultOnOverview = landingDeploy && !turn
+  const deployDecision = landingDeploy && nextStep(view).step?.id === landingDeploy.id
   const ch = view.change
   const d = view.detail
   const next = nextStep(view)
@@ -120,7 +125,8 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
   const checked = checks.some(s => !['pending', 'skipped'].includes(s.status))
   const detail = workTab()
   const trailer = (href: string, text: string) => <Link className="ch-trailer" to={href}>{text}</Link>
-  return <div className="ch-overview">
+  return <DeploySceneScope key={ch.id}><div className="ch-overview">
+    {resultOnOverview && <DeployResult key={landingDeploy.id} view={view} step={landingDeploy} hidden={!shown} />}
     <div hidden={!shown}><Now view={view} /></div>
     <section hidden={!shown} className="ch-change-card" aria-label="The change">
     <div className="ch-overview-line"><div className="ch-row-label">Preview</div><div className="ch-value ch-preview">
@@ -136,7 +142,7 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
     {review?.type === 'agent/review' && <div className="ch-overview-line"><div className="ch-row-label">Reviewer</div><p className="ch-value">{review.status === 'running' || review.status === 'pending' ? 'working' : review.checkReading?.unreadable ? 'could not be read' : review.evidence.verdict === 'approve' ? 'approves' : ['fail', 'error', 'needs_human'].includes(review.status) && !review.overrideBy ? <strong className="ch-bad-text"><span className="ch-mark bad">✗</span> Rejected</strong> : review.evidence.verdict || review.status} — {firstLine(review.evidence.reviewerSummary || review.evidence.summary || review.evidence.reason || 'No review conclusion recorded.').split(/(?<=[.!?])\s+/)[0]}</p>{trailer(workTab(undefined, review.runId) + '#review', 'full review →')}</div>}
     {checked && contractChanged(adds) && adds && <div className="ch-overview-line"><div className="ch-row-label">App contract</div><div className="ch-value"><InlineHelp.Provider value={false}><AddsSection adds={adds} /></InlineHelp.Provider></div><span /></div>}
     </section>
-    <TurnDecision progress={nowRunning(view) ? <Now view={view} /> : undefined} outcome={<p>{view.waitingOn.says}{view.stateDetail && ` · ${view.stateDetail}`}</p>} approvalWaiting={!!approval && !!turn} active={!!turn} shown={shown && (!nowRunning(view) || !!turn)} ready={<>{briefParts?.length ? <>
+    <TurnDecision outcome={resultOnOverview ? <DeployResult key={landingDeploy.id} view={view} step={landingDeploy} /> : undefined} progress={nowRunning(view) ? <Now view={view} /> : undefined} approvalWaiting={!!approval && !!turn} active={!!turn} shown={shown && (!nowRunning(view) || !!turn)} ready={<>{briefParts?.length ? <>
         {briefParts.map((paragraph, i) => <p key={i}>{paragraph}</p>)}
       </> : approval && turn ? <p>You asked: {firstLine(ch.body || ch.title)}</p> : null}{turn && !next.recovery && <CheckSummary steps={steps} contractNeedsAttention={contractUnread(adds)} />}</>} actions={approval ? [destination ? 'Accept and put live' : 'Accept', ...(offered(view.next, 'send-back') || offered(d?.next, 'rework') ? ['Send back…'] : []), ...(offered(view.next, 'abandon') ? ['Abandon change'] : [])] : heldLabels(view)}>
       {next.sentBack && <p>{next.sentBack.by} sent it back: “{next.sentBack.note}”</p>}
@@ -145,7 +151,8 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
       {shortfall && <p>The summary says this change falls short of the request: {shortfall}</p>}
       {unchecked && <p>The summary could not check all of the request: {unchecked}</p>}
       {steps.filter(s => s.type === 'workflow/call' && s.evidence.childRunId).map(s => <ChildOverview key={s.id} step={s} onChange={onChange} />)}
-      <p>{view.waitingOn.says}</p>
+      {!landingDeploy && <p>{view.waitingOn.says}{view.stateDetail && ` · ${view.stateDetail}`}</p>}
+      {landingDeploy && !resultOnOverview && <DeployResult key={landingDeploy.id} view={view} step={landingDeploy} />}
       {approval && (!current || extraErr) && <p>Reading the current change before you can accept.</p>}
       {approval && !deployments.current && <p className={deployments.err ? 'error' : 'muted'}>{deployments.err ? `The deployment consequence could not be read: ${deployments.err}` : 'Reading where accepting puts this change…'}</p>}
       {deciding && d && <>
@@ -156,7 +163,7 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
           abandon={offered(view.next, 'abandon') ? { label: 'Abandon change', run: () => act(() => post(`/changes/${ch.id}/abandon`, {})) } : undefined} stepId={approval.id!} means={approval.config.means} alsoMeans={landingMeansFor(d, approval)} instructions={approval.config.instructions} onDone={onChange}
           approveLabel={destination ? 'Accept and put live' : 'Accept'} />
       </>}
-      {turn && view.waitingOn.kind !== 'approval' && <HeldDecision view={view} onChange={onChange} />}
+      {turn && view.waitingOn.kind !== 'approval' && <HeldDecision view={view} onChange={onChange} resultShown={!!deployDecision} />}
       <DecisionContextOnly.Consumer>{contextOnly => !contextOnly && !turn && current && !extraErr && d && !['shipped', 'abandoned'].includes(ch.state) && <div className="row">
         {offered(d.next, 'advance') && <ContinueDecision busy={actionBusy} run={() => act(async () => setAdvance(await post<AdvanceResult>(`/runs/${d.run.id}/advance`)))} />}
         {advance?.followUpsPending && <span>Workflow finished. Follow-ups pending.</span>}
@@ -176,7 +183,7 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
       {question.err && <p className="error">Changes to the app contract could not be read: {question.err}</p>}
     </TurnDecision>
     <footer hidden={!shown} className="small muted"><Link to={`/changes/${ch.id}?tab=changes`}>{view.diffstat?.match(/\d+ files? changed/)?.[0] || 'Code'} → Code</Link> · <Link to={detail}>How it was done → Details</Link></footer>
-  </div>
+  </div></DeploySceneScope>
 }
 
 // Called workflows keep their own checks and meanings. Their required

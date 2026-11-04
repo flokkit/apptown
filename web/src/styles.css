@@ -38,6 +38,8 @@
   --panel: #FFFFFF;
   --panel2: #EEF0F0;
   --chrome: #EEF0F0;
+  --scene-ink: var(--muted);
+  --scene-ground: var(--border);
   --border: #CFD4D5;         /* the edge of a sheet */
   --border-strong: #9EA8AC;  /* controls: buttons, inputs */
   --rule: #DFE3E4;           /* ruled lines inside a sheet */
@@ -98,6 +100,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #171B1D; --panel: #1D2225; --panel2: #272E32; --chrome: #14181A;
+    --scene-ink: var(--muted); --scene-ground: var(--border);
     --border: #3B454A; --border-strong: #66747B; --rule: #333D42; --rule-faint: #293237;
     --text: #D2D9DC; --muted: #98A4AA; --subtle: #8E9AA0; --faint: #7A766B;
     --accent: #D4E0E4; --accent-hover: #FFFFFF; --accent-bg: #313D43; --on-accent: #182126;
@@ -118,6 +121,7 @@
 }
 :root[data-theme="dark"] {
     --bg: #171B1D; --panel: #1D2225; --panel2: #272E32; --chrome: #14181A;
+    --scene-ink: var(--muted); --scene-ground: var(--border);
     --border: #3B454A; --border-strong: #66747B; --rule: #333D42; --rule-faint: #293237;
     --text: #D2D9DC; --muted: #98A4AA; --subtle: #8E9AA0; --faint: #7A766B;
     --accent: #D4E0E4; --accent-hover: #FFFFFF; --accent-bg: #313D43; --on-accent: #182126;

@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/trust"
 )
@@ -44,6 +45,16 @@ func landingDeploymentDecision(result deployment.ExecutionResult, err error, boo
 		case boot.Err != nil:
 			be := docker.AsBootError(boot.Err)
 			d := failure(workflow.StatusFail, be.Error())
+			switch be.Phase {
+			case docker.PhaseResolve, docker.PhaseSecrets, docker.PhaseConfig:
+				d.evidence["failedStage"] = deploy.Preparing
+			case docker.PhaseImages:
+				d.evidence["failedStage"] = deploy.Building
+			case docker.PhaseNeeds, docker.PhaseFill, docker.PhaseParts, docker.PhaseApp:
+				d.evidence["failedStage"] = deploy.Starting
+			case docker.PhaseProbe, docker.PhasePage:
+				d.evidence["failedStage"] = deploy.Checking
+			}
 			switch be.Phase {
 			case docker.PhaseParts:
 				d.evidence["reason"] = "bringing up the app: " + be.Error()

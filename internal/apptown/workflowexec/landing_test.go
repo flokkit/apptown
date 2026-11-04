@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
@@ -170,9 +171,9 @@ func TestAStoppedCleanBuildIsNotAFailedOne(t *testing.T) {
 func TestLandingBootFailureEvidence(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
-		phase  string
-		rework bool
-	}{{docker.PhaseResolve, false}, {docker.PhaseSecrets, false}, {docker.PhaseNeeds, false}, {docker.PhaseParts, false}, {docker.PhaseApp, false}, {docker.PhaseProbe, false}, {docker.PhasePage, true}} {
+		phase string
+		stage deploy.DeployStage
+	}{{docker.PhaseResolve, deploy.Preparing}, {docker.PhaseSecrets, deploy.Preparing}, {docker.PhaseConfig, deploy.Preparing}, {docker.PhaseImages, deploy.Building}, {docker.PhaseNeeds, deploy.Starting}, {docker.PhaseFill, deploy.Starting}, {docker.PhaseParts, deploy.Starting}, {docker.PhaseApp, deploy.Starting}, {docker.PhaseProbe, deploy.Checking}, {docker.PhasePage, deploy.Checking}} {
 		t.Run(tc.phase, func(t *testing.T) {
 			at := deployment.Attempt{ID: idstest.N(7), DeploymentID: idstest.N(3), Generation: 2}
 			err := &docker.BootError{Phase: tc.phase, Err: errors.New("boot failed"), LogTail: "last lines"}
@@ -181,6 +182,9 @@ func TestLandingBootFailureEvidence(t *testing.T) {
 			decision := landingDeploymentDecision(deployment.ExecutionResult{Attempt: at, Created: true}, &deployment.RunError{Stage: deployment.Execution, Cause: err}, boot)
 			if decision == nil || decision.status != workflow.StatusFail {
 				t.Fatalf("lost workflow decision: %+v", decision)
+			}
+			if decision.evidence["failedStage"] != tc.stage {
+				t.Fatalf("failed stage: %v, want %s", decision.evidence, tc.stage)
 			}
 			if tc.phase == docker.PhaseProbe && (decision.evidence["url"] != "http://app:8080" || decision.evidence["logTail"] != "last lines") {
 				t.Fatalf("lost probe evidence: %v", decision.evidence)

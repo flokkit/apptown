@@ -41,6 +41,8 @@ type BootRequest struct {
 	// Allowed is required: a current permission check repeated before effects,
 	// or AuthorisedWhenRequested for an owner that authorizes at request time.
 	Allowed func(context.Context) error
+	// Stage reports deploy milestones when the boot enters that work. Nil disables it.
+	Stage func(deploy.DeployStage)
 	// Log reports phase entry. It receives no environment values or command output.
 	// Nil disables progress reporting without changing boot behavior.
 	Log          deploy.Logf
@@ -184,6 +186,7 @@ func (r BootResult) Image() string { return r.Stack.Plan.PublicPart().Image }
 // Boot phases, on BootError. The callers word their own failures per phase
 // — the step evidence, the button's sentence and the rebuild log all differ.
 const (
+	PhaseImages  = "images"  // preparing or pulling selected images
 	PhaseResolve = "resolve" // an unknown need: refused at the door
 	PhaseSecrets = "secrets" // a declared secret nothing provides, or a broken declaration
 	PhaseConfig  = "config"  // the values a browser may be given could not be read
@@ -467,13 +470,16 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	if t.Identity != nil || t.Recorded != nil {
 		plan, err = h.prepareImages(ctx, t, plan)
 		if err != nil && t.Recorded != nil {
-			return res, &BootError{Phase: PhaseResolve, Err: err} // only asked the daemon: nothing changed
+			return res, &BootError{Phase: PhaseImages, Err: err} // only asked the daemon: nothing changed
 		}
 		if err != nil {
-			return res, &BootError{Phase: PhaseApp, Err: err}
+			return res, &BootError{Phase: PhaseImages, Err: err}
 		}
 	}
 
+	if t.Stage != nil {
+		t.Stage(deploy.Starting)
+	}
 	if err := allowed(ctx); err != nil {
 		return res, &BootError{Phase: PhaseNeeds, Err: err}
 	}
@@ -555,6 +561,9 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		return res, &BootError{Phase: PhaseApp, Err: err}
 	}
 	res.HostPort = hostPort
+	if t.Stage != nil {
+		t.Stage(deploy.Checking)
+	}
 	t.logf("Checking application readiness")
 	if t.Sealed != nil {
 		// Nothing outside the host can reach the app, AppTown's probe

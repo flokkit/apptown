@@ -56,7 +56,7 @@ export function TurnDecision({ active, actions, children, approvalWaiting = acti
         <button className="ch-decide" onClick={() => setOpen(true)}>Decide…</button>
       </div>
       <dialog ref={dialog} className="ch-decision-screen" aria-label={approvalWaiting ? 'Accept this change?' : 'Next steps'} onClose={() => setOpen(false)}>
-        {open && <><header><h2>{approvalWaiting ? 'Accept this change?' : 'Next steps'}</h2><button onClick={() => setOpen(false)}>Close</button></header>{progress || <>{!active && outcome}{ready}{children}</>}</>}
+        {open && <><header><h2>{approvalWaiting ? 'Accept this change?' : 'Next steps'}</h2><button onClick={() => setOpen(false)}>Close</button></header>{progress}<div hidden={!!progress}>{!active && outcome}{ready}{children}</div></>}
       </dialog>
     </>}
   </OpenDecision.Provider>

@@ -104,7 +104,16 @@ its own bugs. See the [contract reference](../../stock/docs/guides/contract-refe
 
 ## Deploy step progress
 
-A landing's deploy step exposes phase messages through its existing live log:
+A landing's deploy step reports a named `stage` on `GET /steps/{id}/live`:
+`preparing`, `building`, `starting`, `checking`, and `live`. The deploy step owns
+these milestones; Docker reports image preparation, startup and readiness entry.
+Reused images skip building. A stage advances only when that work begins, and
+`live` follows publication and recording. Failures record `failedStage` alongside
+the reason; Docker boot phases identify preparation, images, startup or checking.
+The web scene stops when progress cannot be read. Completed landings show the
+recorded address and duration; only a page that saw the deploy running celebrates.
+
+The same step exposes phase messages through its existing live log:
 source and target selection, worker image build, publication of each image,
 runtime configuration, host image preparation, dependency startup, initialization
 and app parts, readiness and visitor-page checks, and release recording. An elapsed

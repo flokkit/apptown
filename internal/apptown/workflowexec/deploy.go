@@ -41,7 +41,24 @@ func (a *shipping) RunDeploy(task *workflow.Execution) {
 	if cfg.Deployment == "" {
 		cfg.Deployment = "main" // the standing env that tracks main (design/subsystems/deployment.md)
 	}
+	stage := deploy.Preparing
+	reportStage := func(next deploy.DeployStage) {
+		stage = next
+		a.progress.SetStage(stepID, next.String())
+	}
 	finish := func(status workflow.StepState, evidence any) {
+		if status != workflow.StatusPass {
+			if feed, ok := a.progress.Read(stepID, 0); ok {
+				if reported, err := deploy.ParseDeployStage(feed.Stage); err == nil {
+					stage = reported
+				}
+			}
+			if fields, ok := evidence.(map[string]any); ok {
+				if _, exists := fields["failedStage"]; !exists {
+					fields["failedStage"] = stage
+				}
+			}
+		}
 		task.Settle(workflow.EncodeOutcome(status, evidence, nil))
 	}
 	if claim, err := task.Claim(); err != nil {
@@ -57,6 +74,7 @@ func (a *shipping) RunDeploy(task *workflow.Execution) {
 	// output-silent for tens of seconds — heartbeat so it doesn't look hung.
 	stopHB := a.progress.Heartbeat(stepID, "deploying")
 	defer stopHB()
+	reportStage(deploy.Preparing)
 	defer workflow.CaptureProgress(task.Context(), a.db, a.progress, stepID, a.clock)
 	logf := func(format string, args ...any) { a.progress.Append(stepID, fmt.Sprintf(format, args...)) }
 	logf("Selecting the committed source for deployment %s", cfg.Deployment)
@@ -97,6 +115,7 @@ func (a *shipping) RunDeploy(task *workflow.Execution) {
 	defer cleanup()
 	selectedContract, err := docker.ReadSelectedContract(selectedTree)
 	if err == docker.ErrNoContract {
+		reportStage(deploy.Building)
 		logf("Checking the committed source builds; no runtime deployment is declared")
 		// CLI/library projects have nothing to deploy — but the merge IS
 		// the release, so verify the COMMITTED tree compiles from a clean
@@ -115,8 +134,8 @@ func (a *shipping) RunDeploy(task *workflow.Execution) {
 			return // the step stays running for its recovery
 		}
 		if !ok {
-			task.Settle(workflow.EncodeOutcome(workflow.StatusFail, map[string]any{
-				"reason": "merge-only release refused: the committed tree does not build from a clean checkout — " + reason}, nil))
+			finish(workflow.StatusFail, map[string]any{
+				"reason": "merge-only release refused: the committed tree does not build from a clean checkout — " + reason})
 			return
 		}
 		if err := recordArtifact(task.Context(), a.db, run.ID, "release", cfg.Deployment, "merge-only (no runtime contract)", "", a.now()); err != nil {
@@ -240,6 +259,7 @@ func (a *shipping) RunDeploy(task *workflow.Execution) {
 	logf("Preparing the runtime deployment %s", cfg.Deployment)
 	out, err := a.deployment.RunLanding(task.Context(), task, deployment.LandingInput{
 		Log:    logf,
+		Stage:  reportStage,
 		Start:  deployment.Start{DeploymentID: env.ID, TargetID: env.TargetID, Key: fmt.Sprintf("run-%d-deploy-%d-attempt-%d", run.ID, stepID, step.Attempt), Inputs: inputs},
 		Source: deploy.Source{Workspace: ws, Revision: relSHA, Slug: slug, Contract: c}, Services: cfg.Services, HostPort: hostPort, DataClass: dataClass,
 		Bundle: bundle,
@@ -310,6 +330,7 @@ func (a *shipping) RunDeploy(task *workflow.Execution) {
 		logf("The data its needs held before the release is still there")
 	}
 
+	reportStage(deploy.Live)
 	logf("Deployment completed: %s", url)
 	finish(workflow.StatusPass, depEv)
 }

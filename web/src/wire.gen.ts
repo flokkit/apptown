@@ -2010,6 +2010,7 @@ export type StepInterrupted = {
 }
 
 export type StepProgress = {
+  stage?: DeployStage
   running: boolean
   status?: StepState | null
   lines: string[]
@@ -4126,6 +4127,8 @@ export type CheckReading = {
   checks?: checkReceiptView[]
   unreadable?: string
 }
+
+export type DeployStage = "preparing" | "building" | "starting" | "checking" | "live"
 
 export type SystemWorkflowBinding = {
   stock: string

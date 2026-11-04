@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/progress"
 )
@@ -120,5 +121,26 @@ func TestStepLiveChecksAuthorityForMemoryAndPersistedEvidence(t *testing.T) {
 	}
 	if got := read("owner", "token", true); got.Code != 403 {
 		t.Fatalf("revoked reader: %d %s", got.Code, got.Body.String())
+	}
+}
+
+// Named deployment milestones survive the feed and the HTTP codec independently
+// of log wording and offsets.
+func TestDeployStagesRoundTripThroughLiveRead(t *testing.T) {
+	t.Parallel()
+	f := newWorkflowHTTPFixtureWithSpec(t, true, workflowLiveSpec(), nil, nil)
+	id := workflowLiveStep(t, f)
+	var feeds progress.Feeds
+	feeds.Start(id)
+	for _, stage := range []deploy.DeployStage{deploy.Preparing, deploy.Building, deploy.Starting, deploy.Checking, deploy.Live} {
+		feeds.SetStage(id, stage.String())
+		r := httptest.NewRequest("GET", "/steps/"+id.String()+"/live?from=50", nil).WithContext(f.Context)
+		r.SetPathValue("id", id.String())
+		w := httptest.NewRecorder()
+		NewRunProgress(f.Work, &feeds).StepLive(w, r)
+		var got StepProgress
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil || w.Code != 200 || got.Stage != stage || !got.Running || len(got.Lines) != 0 {
+			t.Fatalf("stage %s: %d %s (%v)", stage, w.Code, w.Body.String(), err)
+		}
 	}
 }

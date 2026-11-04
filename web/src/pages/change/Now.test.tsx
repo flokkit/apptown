@@ -25,7 +25,7 @@ it('shows landing progress, ordered plain titles, approval fact and timings duri
  expect(text).toContain('Started')
  expect(text).toContain('aria-label="running"')
  const el = document.createElement('div'); el.innerHTML = text
- expect([...el.querySelectorAll('li strong')].map(s => s.textContent)).toEqual(['Approval', 'Merged', 'Deploy', 'Required file recorded'])
+ expect([...el.querySelectorAll('.ch-now-steps li strong')].map(s => s.textContent)).toEqual(['Approval', 'Merged', 'Deploy', 'Required file recorded'])
  expect(el.querySelector('details')).toBeNull()
 })
 
@@ -33,12 +33,12 @@ it('groups consecutive checks and expands the whole group on failure or running'
  const v = view()
  v.detail!.steps = [step('secret scan', 'scan', 'pass'), step('dependencies', 'scan', 'pass'), step('unit tests', 'tests', 'pass'), step('conformance', 'guidance/conformance', 'pending'), step('deploy', 'deploy', 'running')]
  const draw = () => { const el = document.createElement('div'); el.innerHTML = html(v); return el }
- expect(draw().querySelectorAll('li')).toHaveLength(2)
+ expect(draw().querySelectorAll('.ch-now-steps li')).toHaveLength(2)
  expect(draw().querySelector('li')!.textContent).toContain('secret scan, dependencies, unit tests, conformance')
  for (const status of ['fail', 'running'] as const) {
   v.detail!.steps[1].status = status
-  expect(draw().querySelectorAll('li')).toHaveLength(5)
-  expect(draw().querySelectorAll('li')[1].textContent).toContain(status === 'fail' ? '✗' : 'Security scan')
+  expect(draw().querySelectorAll('.ch-now-steps li')).toHaveLength(5)
+  expect(draw().querySelectorAll('.ch-now-steps li')[1].textContent).toContain(status === 'fail' ? '✗' : 'Security scan')
  }
 })
 

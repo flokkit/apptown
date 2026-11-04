@@ -256,7 +256,13 @@ check expands that group automatically. Each row keeps its status, plain title,
 short fact and duration or start time visible. Now is absent while idle.
 After Accept or Continue, an open decision screen stays open and shows the same
 progress until work finishes or stops, then the outcome or failure and its
-offered decision. Close remains available throughout.
+offered decision. Close remains available throughout. A landing deploy result names
+its recorded failure stage and reason once; its recovery choices and conversation
+link follow without another failure heading or reason. Windows light only once
+starting has completed. A completed landing without a held decision leads Overview
+with a compact still scene, release and address when known, landing duration and
+Open the app link for success. Opening an already completed landing does not
+replay celebration.
 
 Overview has two bordered cards: The change and an action card. The change uses
 shared label, value and evidence-link columns, with preview thumbnails first,

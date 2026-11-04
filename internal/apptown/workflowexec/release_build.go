@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/tasks"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
@@ -67,8 +68,8 @@ const (
 )
 
 // releaseRefused finishes a deploy step refused before any effect.
-func releaseRefused(task *workflow.Execution, reason string) {
-	task.Settle(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": "release refused: " + reason}, nil))
+func (a *shipping) releaseRefused(task *workflow.Execution, reason string) {
+	task.Settle(workflow.EncodeOutcome(workflow.StatusError, a.deployFailure(task, "release refused: "+reason), nil))
 }
 
 // releaseTarget is what a release build is checked against before it
@@ -94,7 +95,7 @@ func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 	runner := a.builds.Tasks
 	driver, ok := runner.Driver.(releaseTaskDriver)
 	if !ok {
-		releaseRefused(task, "AppTown's task backend ("+runner.backend()+") cannot build releases: it reports no images")
+		a.releaseRefused(task, "AppTown's task backend ("+runner.backend()+") cannot build releases: it reports no images")
 		return nil, false
 	}
 	run, step := task.Run(), task.Step()
@@ -103,49 +104,49 @@ func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 	// Refused before anything is built, each with its next action.
 	t, err := a.deployment.Targets.ByID(ctx, in.deployment.TargetID)
 	if err != nil {
-		finishError(task, "reading the deployment's target: "+err.Error())
+		a.finishError(task, "reading the deployment's target: "+err.Error())
 		return nil, false
 	}
 	if t.Kind != deployment.KindDockerHost {
-		releaseRefused(task, fmt.Sprintf("a landing deploys to a Docker host, and %s is on %s (%s); deploy %s on a Docker host and promote to %s", in.deployment.Name, t.Name, t.Kind, in.deployment.Name, t.Kind))
+		a.releaseRefused(task, fmt.Sprintf("a landing deploys to a Docker host, and %s is on %s (%s); deploy %s on a Docker host and promote to %s", in.deployment.Name, t.Name, t.Kind, in.deployment.Name, t.Kind))
 		return nil, false
 	}
 	logf("Deployment target: %s (Docker host)", t.Name)
 	if _, err := a.deployment.LandingRegistry(ctx, run.ProjectID, "apptown-system", map[string]any{"run": run.ID, "step": step.ID}); errors.Is(err, deployment.ErrReleaseRefused) {
-		releaseRefused(task, strings.TrimPrefix(err.Error(), deployment.ErrReleaseRefused.Error()+": "))
+		a.releaseRefused(task, strings.TrimPrefix(err.Error(), deployment.ErrReleaseRefused.Error()+": "))
 		return nil, false
 	} else if err != nil {
-		finishError(task, err.Error())
+		a.finishError(task, err.Error())
 		return nil, false
 	}
 	if !a.builds.PrivateDocker {
-		releaseRefused(task, "a release is built in private Docker on the worker, and this AppTown was started with -private-docker=false")
+		a.releaseRefused(task, "a release is built in private Docker on the worker, and this AppTown was started with -private-docker=false")
 		return nil, false
 	}
 	profile, err := driver.Profile(ctx)
 	if err != nil {
-		finishError(task, "reading the worker's profile: "+err.Error())
+		a.finishError(task, "reading the worker's profile: "+err.Error())
 		return nil, false
 	}
 	platform, err := oci.Platform("linux", profile.Architecture)
 	if err != nil {
-		releaseRefused(task, "the worker's platform is unknown: "+err.Error())
+		a.releaseRefused(task, "the worker's platform is unknown: "+err.Error())
 		return nil, false
 	}
 	targetPlatform, err := a.deployment.TargetPlatform(ctx, t)
 	if err != nil {
-		releaseRefused(task, "the target's platform is unknown: "+err.Error())
+		a.releaseRefused(task, "the target's platform is unknown: "+err.Error())
 		return nil, false
 	}
 	if targetPlatform != platform {
-		releaseRefused(task, fmt.Sprintf("the worker builds for %s and %s runs %s", platform, t.Name, targetPlatform))
+		a.releaseRefused(task, fmt.Sprintf("the worker builds for %s and %s runs %s", platform, t.Name, targetPlatform))
 		return nil, false
 	}
 	plan := deployment.PlanRelease(in.contract)
 	// The build's static server, from the tool versions current as it begins.
 	script, files, images, err := releaseBuildRequest(in.tree, plan, platform, a.deployment.ToolVersions().Images.StaticServer)
 	if err != nil {
-		releaseRefused(task, err.Error())
+		a.releaseRefused(task, err.Error())
 		return nil, false
 	}
 	build := deployment.BundleBuild{Worker: runner.backend(), Role: "agent", Profile: profile}
@@ -158,7 +159,7 @@ func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 	}
 	agentImage, err := driver.AgentImage(ctx)
 	if err != nil {
-		finishError(task, "reading the worker's agent image: "+err.Error())
+		a.finishError(task, "reading the worker's agent image: "+err.Error())
 		return nil, false
 	}
 	limits := privateLimits(runner.Profile.Limits)
@@ -167,7 +168,7 @@ func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 	admitted := execution.Admission{Profile: runner.Profile.Name, Limits: limits, Network: runner.Profile.Network, Expires: now.Add(releaseBuildWallClock + taskGrace)}
 	private := &execution.PrivateDocker{Daemon: true, Profile: &profile}
 	if err := private.Valid(limits); err != nil {
-		releaseRefused(task, "the release build's private Docker: "+err.Error())
+		a.releaseRefused(task, "the release build's private Docker: "+err.Error())
 		return nil, false
 	}
 	operation := fmt.Sprintf("step-%d-attempt-%d-release-build", step.ID, step.OwnedAttempt())
@@ -177,9 +178,10 @@ func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 		Owner:   tasks.Owner{ProjectID: run.ProjectID, RunID: run.ID, StepID: step.ID, Attempt: step.OwnedAttempt()},
 		Backend: runner.backend(), Container: operation, Digest: spec.Digest(), Source: in.commit, Admitted: admitted, Deadline: now.Add(releaseBuildWallClock)})
 	if err != nil {
-		finishError(task, "recording the release build: "+err.Error())
+		a.finishError(task, "recording the release build: "+err.Error())
 		return nil, false
 	}
+	a.progress.SetStage(step.ID, deploy.Building.String())
 	logf("Building %d release images on the worker (%s)", len(images), platform)
 	attempt, code, timedOut, _, ok := runner.execute(task, a.db, attempt, spec, taskKind{})
 	if !ok {
@@ -200,7 +202,7 @@ func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 			runner.stopQuietly(ctx, attempt, ref) // its stop is recorded; the release removes it either way
 			reason = fmt.Sprintf("the release build ran past its %s", releaseBuildWallClock)
 		}
-		task.Settle(workflow.EncodeOutcome(workflow.StatusFail, map[string]any{"reason": reason, "logTail": outputTail(page.Data)}, nil))
+		task.Settle(workflow.EncodeOutcome(workflow.StatusFail, map[string]any{"reason": reason, "failedStage": deploy.Building, "logTail": outputTail(page.Data)}, nil))
 		return nil, false
 	}
 	var captured map[string]execution.ImageCapture
@@ -209,14 +211,14 @@ func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 		captured, err = driver.ImageResults(ctx, ref)
 		return err
 	}); err != nil {
-		finishError(task, "reading the release build's images: "+err.Error())
+		a.finishError(task, "reading the release build's images: "+err.Error())
 		return nil, false
 	}
 	built := map[string]oci.Layout{}
 	for _, img := range images {
 		c := captured[img.Name]
 		if c.State != execution.ResultPresent {
-			finishError(task, fmt.Sprintf("the release build left its image %s %s %s", img.Name, c.State, c.Reason))
+			a.finishError(task, fmt.Sprintf("the release build left its image %s %s %s", img.Name, c.State, c.Reason))
 			return nil, false
 		}
 		built[img.Name] = execution.ImageLayout{Files: driver, Ref: ref, Image: img.Name}
@@ -232,7 +234,7 @@ func (a *shipping) publishBuilt(task *workflow.Execution, in deployment.ReleaseP
 		return a.deployment.PublishRelease(ctx, in)
 	})
 	if err != nil {
-		finishError(task, err.Error())
+		a.finishError(task, err.Error())
 		return nil, false
 	}
 	return bundle, true
@@ -361,6 +363,16 @@ func outputTail(out []byte) string {
 	return strings.ToValidUTF8(string(out), "")
 }
 
-func finishError(task *workflow.Execution, reason string) {
-	task.Settle(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": reason}, nil))
+func (a *shipping) finishError(task *workflow.Execution, reason string) {
+	task.Settle(workflow.EncodeOutcome(workflow.StatusError, a.deployFailure(task, reason), nil))
+}
+
+func (a *shipping) deployFailure(task *workflow.Execution, reason string) map[string]any {
+	stage := deploy.Preparing
+	if feed, ok := a.progress.Read(task.Step().ID, 0); ok {
+		if reported, err := deploy.ParseDeployStage(feed.Stage); err == nil {
+			stage = reported
+		}
+	}
+	return map[string]any{"reason": reason, "failedStage": stage}
 }
