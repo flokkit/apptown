@@ -28,7 +28,7 @@ export function retired(sent: { at: number } | null, msgs: Bubble[]): boolean {
 
 // readOnly names whose chat it is when the reader may look but not act:
 // the conversation shows, the ways to act on it do not.
-export function Bubbles({ sessionId, onBusy, footer, starters, readOnly, actionsSwitch = true }: { sessionId: string; actionsSwitch?: boolean; onBusy?: (b: boolean) => void; footer?: React.ReactNode; starters?: string[]; readOnly?: string }) {
+export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, readOnly, actionsSwitch = true }: { sessionId: string; onHasMessages?: (hasMessages: boolean) => void; actionsSwitch?: boolean; onBusy?: (b: boolean) => void; footer?: React.ReactNode; starters?: string[]; readOnly?: string }) {
   // The conversation is the record's answer; the only local message is the
   // one just sent, until the record holds it.
   const [sent, setSent] = useState<{ text: string; at: number } | null>(null)
@@ -49,7 +49,7 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly, actions
   // Pasted pictures waiting to go with the next message: server path + a
   // local thumbnail. The file is already uploaded; send() names it.
   const [images, setImages] = useState<{ path: string; thumb: string }[]>([])
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const stick = useRef(true) // autoscroll unless the reader scrolled up
 
   const addImage = (file: File) => {
@@ -75,11 +75,9 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly, actions
   const record = useGet<{ messages: Bubble[]; turn?: string }>(`/console/${sessionId}/messages?from=0`, { poll: 2000 })
   const msgs = record.data?.messages ?? []
   const pending = retired(sent, msgs) ? null : sent?.text ?? null
+  const hasMessages = msgs.length > 0 || pending !== null
+  useEffect(() => { onHasMessages?.(hasMessages) }, [hasMessages, onHasMessages])
   const [stopErr, setStopErr] = useState('')
-
-  useEffect(() => {
-    if (stick.current) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [msgs.length, pending])
 
   const send = async () => {
     let t = text.trim()
@@ -103,11 +101,18 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly, actions
   // "Let me create it now:" with its command still running looked finished.
   const helperBusy = pending !== null || (msgs.length > 0 && record.data?.turn !== 'handed-back')
   useEffect(() => { onBusy?.(!!helperBusy) }, [helperBusy, onBusy])
+  useEffect(() => {
+    const box = scrollRef.current
+    // Only the conversation moves. Scrolling a descendant into view also
+    // pans Safari's page, leaving the head behind and space below the input.
+    if (box && stick.current) box.scrollTop = box.scrollHeight
+  }, [record.data?.messages, pending, showActions])
 
   return (
     <div className="chat-pane">
       {actionsSwitch && <AgentActionsSwitch shown={showActions} onChange={setShowActions} />}
       <div
+        ref={scrollRef}
         onScroll={(e) => {
           const el = e.currentTarget
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
@@ -202,17 +207,16 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly, actions
             <div className="bubble you pending">{pending}</div>
           </div>
         )}
-        {helperBusy && (
-          <div className="row chat-working" style={{ margin: '6px 0', gap: 10 }}>
-            <span className="small robot-busy" style={{ border: 'none', padding: 0 }}>Working…</span>
-            {readOnly === undefined && <button className="subtle" title="Stop what it's doing right now · then tell it what you'd rather have"
-              onClick={() => { setStopErr(''); post(`/console/${sessionId}/interrupt`, {}).catch((e) => setStopErr(`It could not be stopped: ${(e as Error).message}`)) }}>
-              ⏹ stop
-            </button>}
-          </div>
-        )}
         {stopErr && <div className="error small">{stopErr}</div>}
-        <div ref={bottomRef} />
+      </div>
+      {/* Keep this slot for the session, including pauses between tool calls.
+          Visibility preserves its height without offering an idle stop button. */}
+      <div className="row chat-working" style={{ margin: '6px 0', gap: 10, flexShrink: 0, visibility: helperBusy ? 'visible' : 'hidden' }} aria-hidden={!helperBusy}>
+        <span className="small robot-busy" style={{ border: 'none', padding: 0 }}>Working…</span>
+        {readOnly === undefined && <button className="subtle" title="Stop what it's doing right now · then tell it what you'd rather have"
+          onClick={() => { setStopErr(''); post(`/console/${sessionId}/interrupt`, {}).catch((e) => setStopErr(`It could not be stopped: ${(e as Error).message}`)) }}>
+          ⏹ stop
+        </button>}
       </div>
       {footer}
       {sendErr && <div className="error">{sendErr}</div>}

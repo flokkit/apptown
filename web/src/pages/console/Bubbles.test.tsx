@@ -93,6 +93,79 @@ describe('the conversation as read', () => {
   }
   const down = () => new Response(JSON.stringify({ error: 'the worker cannot be reached' }), { status: 400 })
 
+  it.each([true, false])('scrolls only the conversation, and only while following its bottom (narrow=%s)', async (narrow) => {
+    vi.stubGlobal('matchMedia', () => ({ matches: narrow, addEventListener() {}, removeEventListener() {} }))
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+    const intoView = vi.fn()
+    Element.prototype.scrollIntoView = intoView
+    const windowScroll = vi.spyOn(window, 'scroll').mockImplementation(() => {})
+    const windowScrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    const windowScrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => {})
+    let record: Bubble[] = [{ i: 0, role: 'you', text: 'build it' }]
+    // mount's other tests supply a jsdom scrollIntoView stub.
+    const { el, client, done } = await mount(() => new Response(JSON.stringify({ messages: record })))
+    Element.prototype.scrollIntoView = intoView
+    try {
+      await vi.waitFor(() => expect(el.textContent).toContain('build it'))
+      const box = el.querySelector<HTMLDivElement>('.chat-scroll')!
+      Object.defineProperties(box, {
+        scrollHeight: { configurable: true, value: 1000 },
+        clientHeight: { configurable: true, value: 200 },
+      })
+      const append = async () => {
+        record = [...record, { i: record.length, role: 'helper', text: `update ${record.length}` }]
+        await act(async () => { await client.refetchQueries({ queryKey: getKey(messages) }) })
+        await vi.waitFor(() => expect(el.textContent).toContain(`update ${record.length - 1}`))
+      }
+      await append()
+      expect(box.scrollTop).toBe(1000)
+      box.scrollTop = 100
+      act(() => box.dispatchEvent(new Event('scroll')))
+      await append()
+      expect(box.scrollTop).toBe(100)
+      box.scrollTop = 800
+      act(() => box.dispatchEvent(new Event('scroll')))
+      await append()
+      expect(box.scrollTop).toBe(1000)
+      expect(intoView).not.toHaveBeenCalled()
+      expect(windowScroll).not.toHaveBeenCalled()
+      expect(windowScrollTo).not.toHaveBeenCalled()
+      expect(windowScrollBy).not.toHaveBeenCalled()
+    } finally { done(); vi.restoreAllMocks() }
+  })
+
+  it('keeps the working slot and tool folds in place across busy changes', async () => {
+    const record: Bubble[] = [
+      { i: 0, role: 'you', text: 'build it' },
+      { i: 1, role: 'helper', tools: [{ name: 'read', detail: 'main.go' }] },
+    ]
+    let turn = 'working'
+    const { el, client, done } = await mount(() => new Response(JSON.stringify({ messages: record, turn })))
+    try {
+      await vi.waitFor(() => expect(el.querySelector('.tool-fold')).not.toBeNull())
+      const slot = el.querySelector<HTMLElement>('.chat-working')!
+      const fold = el.querySelector<HTMLDetailsElement>('.tool-fold')!
+      fold.open = true
+      const parent = slot.parentElement
+      const before = slot.previousElementSibling
+      const after = slot.nextElementSibling
+      expect(slot.closest('.chat-scroll')).toBeNull()
+      for (turn of ['handed-back', 'working', 'handed-back', 'working']) {
+        await act(async () => { await client.refetchQueries({ queryKey: getKey(messages) }) })
+        await vi.waitFor(() => expect(slot.style.visibility).toBe(turn === 'working' ? 'visible' : 'hidden'))
+        expect(el.querySelector('.chat-working')).toBe(slot)
+        expect(slot.parentElement).toBe(parent)
+        expect(slot.previousElementSibling).toBe(before)
+        expect(slot.nextElementSibling).toBe(after)
+        expect(slot.style.display).not.toBe('none')
+        expect(slot.hidden).toBe(false)
+        expect(slot.getAttribute('aria-hidden')).toBe(String(turn !== 'working'))
+        expect(el.querySelector('.tool-fold')).toBe(fold)
+        expect(fold.open).toBe(true)
+      }
+    } finally { done() }
+  })
+
   it('says a conversation that could not be read could not be read, with no starters', async () => {
     const { el, done } = await mount(down)
     await vi.waitFor(() => expect(el.querySelector('.error .chip')?.getAttribute('title')).toContain('the worker cannot be reached'))

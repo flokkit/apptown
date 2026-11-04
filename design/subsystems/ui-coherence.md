@@ -74,9 +74,13 @@ accessible by its address.
 Other wide tables scroll in their own box with a shaded edge. Dialogs take the whole screen. On the change page the approval's
 comment and decisions are a bar held at the foot of the screen while the
 approval, and what approving means, is in view. In the chat the message box
-sits at the bottom and rises with the keyboard (`interactive-widget` in
-`web/index.html`); what the chat is about takes at most a third of the screen
-and steps aside while you type.
+sits at the bottom, including in an empty conversation, and rises with the
+keyboard. On narrow screens `useChatViewport` in `web/src/chrome.ts` sizes
+and positions the chat shell within the visual viewport; without that API,
+CSS uses `100dvh`. The conversation scrolls inside the shell rather than
+scrolling the page. The top bar and chat head stay above it. What the chat
+is about takes at most a third of the visible screen and steps aside while
+you type; the change's About line and agent-actions switch stay visible.
 
 ## The change page
 

@@ -28,8 +28,8 @@ export function builtWords(st?: PreviewState): string {
   return st.commit ? `built from commit ${st.commit.slice(0, 7)} at ${when}` : `built from the change's working files at ${when}`
 }
 
-export function TryIt({ changeId, label, style, className }: {
-  changeId: string; label?: string; style?: CSSProperties; className?: string
+export function TryIt({ changeId, label, style, className, hideRestart = false }: {
+  changeId: string; label?: string; style?: CSSProperties; className?: string; hideRestart?: boolean
 }) {
   const { data: st, reload: load } = useGet<PreviewState>(`/changes/${changeId}/preview`, { poll: 5000 })
   const { run, busy, err } = useAction()
@@ -45,7 +45,7 @@ export function TryIt({ changeId, label, style, className }: {
 
   if (state === 'none') {
     return (
-      <span className="row" style={{ gap: 8 }}>
+      <span className="row tryit" style={{ gap: 8 }}>
         <button disabled style={style} title="the app has no runtime contract yet">Nothing to try yet</button>
         <span className="muted small">the first change makes the app</span>
       </span>
@@ -56,11 +56,11 @@ export function TryIt({ changeId, label, style, className }: {
   }
   if (state === 'live' && st?.url && st.hostOnly) {
     return (
-      <span className="row" style={{ gap: 6 }}>
+      <span className="row tryit" style={{ gap: 6 }}>
         <Status observation word={"running"} help={`${st.url} answers on ${PRODUCT}'s host only`} />
         <span className="muted small">{hostOnlyWords(st.url)}</span>
         {builtWords(st) && <span className="muted small">{builtWords(st)}</span>}
-        <button className="subtle" title="Stop the preview and start it again from the current files"
+        <button hidden={hideRestart} className="subtle tryit-restart" title="Stop the preview and start it again from the current files"
           onClick={() => boot(`/changes/${changeId}/preview/restart`)}>restart</button>
         {err && <span className="error small">{err}</span>}
       </span>
@@ -71,18 +71,18 @@ export function TryIt({ changeId, label, style, className }: {
     // running one only while it serves the files as they are now, and
     // builds again otherwise, so what opens is never an older version.
     return (
-      <span className="row" style={{ gap: 6 }}>
+      <span className="row tryit" style={{ gap: 6 }}>
         <button className={cls} style={style} title="Opens the preview of the change's files as they are now (built again if they changed)"
           onClick={() => boot(`/changes/${changeId}/preview`)}>{label ?? '▶ Open'}</button>
         {builtWords(st) && <span className="muted small tryit-built">{builtWords(st)}</span>}
-        <button className="subtle" title="Stop the preview and start it again from the current files"
+        <button hidden={hideRestart} className="subtle tryit-restart" title="Stop the preview and start it again from the current files"
           onClick={() => boot(`/changes/${changeId}/preview/restart`)}>restart</button>
         {err && <span className="error small">{err}</span>}
       </span>
     )
   }
   return (
-    <span className="row" style={{ gap: 8, flexWrap: 'wrap', minWidth: 0, maxWidth: '100%' }}>
+    <span className="row tryit" style={{ gap: 8, flexWrap: 'wrap', minWidth: 0, maxWidth: '100%' }}>
       {state === 'broken' && (
         <Status observation word={"failed"} help={st?.reason} />
       )}

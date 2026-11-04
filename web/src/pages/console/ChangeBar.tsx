@@ -27,7 +27,7 @@ export const LAND_REQUEST =
   'anything with a clear fix, then land it and follow it through. If something needs a ' +
   'decision only I can make, stop and ask me.'
 
-export function WorkshopActions({ changeId, view, robotBusy, sessionId }: { changeId: string; view: ChangeView; robotBusy: boolean; sessionId?: string }) {
+export function WorkshopActions({ changeId, view, robotBusy, sessionId, hideRestart = false }: { changeId: string; view: ChangeView; robotBusy: boolean; sessionId?: string; hideRestart?: boolean }) {
   const [confirming, setConfirming] = useState(false)
   const [landed, setLanded] = useState(false)
   const [handed, setHanded] = useState(false)
@@ -88,7 +88,7 @@ export function WorkshopActions({ changeId, view, robotBusy, sessionId }: { chan
     <div className="workshop-actions">
       {!confirming ? (
         <>
-          <TryIt changeId={changeId} className="primary btn-big" />
+          <TryIt changeId={changeId} hideRestart={hideRestart} className="primary btn-big" />
           <Link className="go-change" to={`/changes/${changeId}`}><button className="btn-big">Go to change</button></Link>
           <button className="finish btn-big" disabled={robotBusy}
             title={robotBusy ? 'the helper is still working · check and land when it hands back' : `your helper runs ${PRODUCT}'s checks and starts the landing; nothing goes live until it is approved`}
