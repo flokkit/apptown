@@ -200,7 +200,7 @@ func TestAgentProviderRefusedRecordsTheProvidersWords(t *testing.T) {
 	}
 	status, ev := stepStatus(t, a, stepID)
 	reason := fmt.Sprint(ev["reason"])
-	if status != workflow.StatusError || !strings.HasPrefix(reason, "the model provider refused the request: 400 ") ||
+	if status != workflow.StatusError || !strings.HasPrefix(reason, "its model never answered: 400 ") ||
 		!strings.Contains(reason, "credit balance is too low") {
 		t.Fatalf("want error with the provider's sentence, got %s %q", status, reason)
 	}

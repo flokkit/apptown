@@ -54,7 +54,7 @@ func TestReviewUnparseableVerdictAfterResumeIsError(t *testing.T) {
 		if calls == 2 {
 			out = reviewFile(t, req, `{"verdict":"maybe","summary":"?"}`)
 		}
-		out.Output = append(out.Output, fmt.Sprintf(`{"type":"message_end","message":{"role":"assistant","model":"m","provider":"p","usage":{"input":%d,"output":1,"totalTokens":%d}}}`+"\n", calls*100, calls*100+1)...)
+		out.Output = []byte(fmt.Sprintf(`{"type":"message_end","message":{"role":"assistant","model":"m","provider":"p","usage":{"input":%d,"output":1,"totalTokens":%d}}}`+"\n", calls*100, calls*100+1))
 		return out
 	})
 	run("review")

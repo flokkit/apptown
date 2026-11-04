@@ -219,5 +219,5 @@ func reviewFile(t *testing.T, req execution.Request, verdict string) execution.O
 	if err := os.WriteFile(filepath.Join(req.Workspace, ".apptown", "review.json"), []byte(verdict), 0600); err != nil {
 		t.Fatal(err)
 	}
-	return execution.Outcome{Output: []byte(`{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"working"}]}}` + "\n")}
+	return execution.Outcome{Output: piSays("working")}
 }

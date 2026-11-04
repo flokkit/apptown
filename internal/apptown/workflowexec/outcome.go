@@ -62,6 +62,8 @@ func (a *Executor) recordAgentOutcome(ctx context.Context, r agentRecord) (workf
 		status, reason = workflow.StatusError, "the agent's output could not be read: "+r.worker.outputUnread
 	} else if r.files.Problem != "" {
 		status, reason = workflow.StatusError, r.files.Problem
+	} else if failure := modelAnswerFailure(r.pi.OutputTokens, r.pi.Events); failure != "" {
+		status, reason = workflow.StatusError, failure
 	} else if r.files.MissingOutput != "" {
 		// The declared output is the output: nothing else stands in for it.
 		status, reason = workflow.StatusFail, "Your previous attempt produced no report in "+r.files.MissingOutput+" (the file is missing or empty)"

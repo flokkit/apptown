@@ -148,13 +148,14 @@ type reviewAdmission struct {
 // workerAttempt is an agent step attempt running on the worker, as its
 // invocations are driven and settled.
 type workerAttempt struct {
-	task   *workflow.Execution
-	step   *workflow.Step // claimed
-	run    *workflow.Run
-	source workflow.Source
-	cfg    agentConfig
-	folder *gitexec.Folder // the run's folder, locked: publication brings it forward
-	obs    *stepAttempt
+	task         *workflow.Execution
+	step         *workflow.Step // claimed
+	run          *workflow.Run
+	source       workflow.Source
+	cfg          agentConfig
+	folder       *gitexec.Folder // the run's folder, locked: publication brings it forward
+	obs          *stepAttempt
+	outputTokens int64
 }
 
 // runOnWorker runs an agent step's attempt, or a review step's (review is
@@ -361,6 +362,10 @@ func (a *Executor) RecoverAgent(task *workflow.Execution) {
 		log.Printf("run %d step %d: reading its recorded invocations: %v (%d); it stays running", run.ID, step.ID, err, len(invocations))
 		return
 	}
+	// Recovery reads only the newest invocation. If an earlier invocation
+	// answered and the newest produced no output, the model-answer guard may
+	// reject this attempt. That rare failure is accepted; earlier events are
+	// not reread to reconstruct the in-memory count.
 	newest := invocations[len(invocations)-1]
 	source, err := workflow.ReadSourceIn(ctx, a.db, workflow.RunRef{ID: run.ID, ProjectID: run.ProjectID})
 	if err != nil {
@@ -450,6 +455,8 @@ func (a *Executor) continueInvocation(ctx context.Context, w *workerAttempt, inv
 		log.Printf("task %s: %v; it stays recorded for recovery", operation, err)
 		return
 	}
+	w.outputTokens += res.OutputTokens
+	res.OutputTokens = w.outputTokens
 	next := nextInvocation(kept.Agent.Invocation, res)
 	if next == agentRetryInvocation && kept.Task.Private != nil {
 		// As on AppTown's host: an agent with private Docker is not run
@@ -651,6 +658,7 @@ func (a *Executor) readInvocation(ctx context.Context, w *workerAttempt, inv tas
 // recordWorkerUsage keeps the invocation's spend before its result can count.
 func (a *Executor) recordWorkerUsage(ctx context.Context, w *workerAttempt, inv tasks.Attempt, meta agentAdmission, res *invocationResult) {
 	spent := sumPiUsage(res.Events)
+	res.OutputTokens = spent.Totals.Output
 	incomplete := spent.Incomplete
 	if incomplete == "" && meta.Delegated {
 		// The pinned runtime's stream carries no usage for the
