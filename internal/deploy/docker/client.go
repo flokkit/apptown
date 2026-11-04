@@ -33,6 +33,8 @@ type Client interface {
 type Command struct {
 	// Dial connects to the selected daemon through its owner's bounded transport.
 	// CLI serves this through a private socket; all Docker HTTP connections use it.
+	// Before returning, CLI closes every connection and waits for pending dials
+	// and connection releases, bounded by the command context.
 	Dial func(context.Context) (net.Conn, error)
 
 	Args    []string
@@ -71,7 +73,7 @@ func (dk Scope) Absent() bool {
 	return ok
 }
 
-func (c CLI) Run(ctx context.Context, host string, req Command) ([]byte, error) {
+func (c CLI) Run(ctx context.Context, host string, req Command) (output []byte, runErr error) {
 	binary := c.Binary
 	if binary == "" {
 		binary = "docker"
@@ -81,7 +83,7 @@ func (c CLI) Run(ctx context.Context, host string, req Command) ([]byte, error) 
 		if err != nil {
 			return nil, err
 		}
-		defer close()
+		defer func() { runErr = errors.Join(runErr, close()) }()
 		host = endpoint
 	}
 	args := req.Args
