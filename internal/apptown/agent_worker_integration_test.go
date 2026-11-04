@@ -818,7 +818,10 @@ func TestIntegrationAnAgentsOutputOnTheWorker(t *testing.T) {
 			files:  map[string]string{"REPORT.md": "# Kept\n", "fake-pi.sh": `say "nothing new"`},
 			status: workflow.StatusPass, report: "# Kept\n"},
 		"files only": {output: map[string]any{"kind": "report", "name": "r"},
-			files:  map[string]string{"fake-pi.sh": `silent; printf '# Notes\n' > notes.md`},
+			// Writing a file takes model output for the tool call, even without prose.
+			files: map[string]string{"fake-pi.sh": `
+printf '%s\n' '{"type":"message_end","message":{"role":"assistant","model":"fake-model","provider":"fake","content":[{"type":"toolCall","id":"write-notes","name":"write","arguments":{"path":"notes.md","content":"# Notes\n"}}],"usage":{"input":10,"output":5,"totalTokens":15}}}'
+printf '# Notes\n' > notes.md`},
 			status: workflow.StatusPass, report: "# Notes\n"},
 		"an oversized output file": {output: map[string]any{"kind": "report", "name": "r", "file": "big.md"},
 			files:  map[string]string{"fake-pi.sh": `head -c 1100000 /dev/zero | tr '\000' a > big.md; say "wrote a lot"`},
