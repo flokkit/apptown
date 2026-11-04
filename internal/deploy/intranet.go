@@ -179,7 +179,7 @@ func IntranetCompose(st IntranetStack) string {
 	if st.BrowserEnv != "" {
 		appTrust = "" // a static site's file server calls nothing
 	}
-	writeEnv(appcontract.MergeEnv(st.Integrations, appcontract.MergeEnv(st.Env, st.Secrets.EnvFor(st.PublicPart))), [2]string{"PORT", strconv.Itoa(st.Port)}, [2]string{"DATA_DIR", st.DataDir}, [2]string{"APPTOWN_ORIGINS", st.Origins}, [2]string{"APPTOWN_URL", st.URL}, [2]string{appcontract.ReleaseEnvVar, st.Release}, [2]string{appcontract.BrowserEnvVar, st.BrowserEnv}, [2]string{appcontract.TrustEnvVar, appTrust})
+	writeEnv(appcontract.MergeEnv(st.Integrations, appcontract.MergeEnv(st.Env, st.Secrets.EnvFor(st.PublicPart))), [2]string{"PORT", strconv.Itoa(st.Port)}, [2]string{"DATA_DIR", st.DataDir}, [2]string{"APPTOWN_ORIGINS", st.Origins}, [2]string{"APPTOWN_APP_URL", st.URL}, [2]string{appcontract.ReleaseEnvVar, st.Release}, [2]string{appcontract.BrowserEnvVar, st.BrowserEnv}, [2]string{appcontract.TrustEnvVar, appTrust})
 	if st.DataDir != "" {
 		b.WriteString("    volumes:\n")
 		fmt.Fprintf(&b, "      - %s:%s\n", st.dataVolume(st.Base), ComposeLiteral(st.DataDir))
@@ -239,7 +239,7 @@ func IntranetCompose(st IntranetStack) string {
 		fmt.Fprintf(&b, "    image: %s\n", ComposeLiteral(img))
 		b.WriteString("    restart: \"no\"\n")
 		writeCommand(it.Command)
-		writeEnv(appcontract.MergeEnv(it.Env, st.Secrets.EnvFor("init-"+it.Name)), [2]string{appcontract.TrustEnvVar, st.Trust}, [2]string{"APPTOWN_URL", st.URL})
+		writeEnv(appcontract.MergeEnv(it.Env, st.Secrets.EnvFor("init-"+it.Name)), [2]string{appcontract.TrustEnvVar, st.Trust}, [2]string{"APPTOWN_APP_URL", st.URL})
 		deps := needsReady()
 		if i > 0 {
 			deps = append(deps, fmt.Sprintf("      init-%s:\n        condition: service_completed_successfully\n", st.Init[i-1].Name))
@@ -259,7 +259,7 @@ func IntranetCompose(st IntranetStack) string {
 		if p.Port != 0 {
 			env["PORT"] = fmt.Sprintf("%d", p.Port)
 		}
-		writeEnv(env, [2]string{appcontract.TrustEnvVar, st.Trust}, [2]string{"APPTOWN_URL", st.URL})
+		writeEnv(env, [2]string{appcontract.TrustEnvVar, st.Trust}, [2]string{"APPTOWN_APP_URL", st.URL})
 		writeHealth(p.Health)
 		if p.DataDir != "" {
 			vol := st.dataVolume(st.Base + "-" + p.Name)

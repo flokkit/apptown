@@ -148,7 +148,7 @@ const TrustEnvVar = trust.EnvVar
 // app that set one would win over AppTown's value on one target and lose on
 // another, so the contract refuses it in a part's or a profile's
 // environment (the contract reference, "The environment an app gets").
-var appTownSetEnv = []string{"PORT", "APPTOWN_ORIGINS", "APPTOWN_URL", "DATA_DIR", ReleaseEnvVar, BrowserEnvVar, TrustEnvVar}
+var appTownSetEnv = []string{"PORT", "APPTOWN_ORIGINS", "APPTOWN_APP_URL", "DATA_DIR", ReleaseEnvVar, BrowserEnvVar, TrustEnvVar}
 
 // setsAppTownEnv names the first of AppTownSetEnv that env sets, or "".
 func setsAppTownEnv(env environment) string {

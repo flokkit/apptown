@@ -443,7 +443,7 @@ func TestARehearsalRunsTheReleaseOnACopyWithNoAddressAndTakesItDown(t *testing.T
 	}
 	dep, _ := w.s.Deployments.ByName(t.Context(), w.project, "prod")
 	origin, _ := rehearsalOrigin(dep)
-	if !slices.Contains(run, "APPTOWN_URL=https://"+origin) {
+	if !slices.Contains(run, "APPTOWN_APP_URL=https://"+origin) {
 		t.Errorf("the app did not receive its deployment URL %s: %s", origin, joined)
 	}
 	if !slices.Contains(run, "APPTOWN_ORIGINS=https://"+origin) {

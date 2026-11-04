@@ -237,7 +237,7 @@ func TestAPublicHostPortDoesNotRefuseABuiltInDeployment(t *testing.T) {
 	if got := s.URL(t.Context(), "p", stored); got != want {
 		t.Fatalf("address %q, want %q", got, want)
 	}
-	if !strings.Contains(fmt.Sprint(daemon.Commands()), "APPTOWN_URL="+want) || !strings.Contains(fmt.Sprint(daemon.Commands()), "APPTOWN_ORIGINS="+want) {
+	if !strings.Contains(fmt.Sprint(daemon.Commands()), "APPTOWN_APP_URL="+want) || !strings.Contains(fmt.Sprint(daemon.Commands()), "APPTOWN_ORIGINS="+want) {
 		t.Fatalf("app did not receive its origin: %v", daemon.Commands())
 	}
 }

@@ -15,7 +15,7 @@ function deployment_home(): string {
     if ($bound !== false && $bound !== '') {
         return $bound;
     }
-    $deployment = getenv('APPTOWN_URL');
+    $deployment = getenv('APPTOWN_APP_URL');
     if ($deployment !== false && $deployment !== '') {
         return $deployment;
     }

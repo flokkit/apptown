@@ -57,7 +57,7 @@ core database updates for an existing installation without resetting users or
 content. It does not automatically seed demonstration content. Existing plugin
 migrations require that plugin's own documented procedure.
 
-The starter uses `APPTOWN_URL`, the deployment's own address supplied by
+The starter uses `APPTOWN_APP_URL`, the deployment's own address supplied by
 AppTown to web, init and WP-CLI commands. Bind `WP_HOME` only to pin a different
 canonical address. Remove stored `WP_HOME` bindings equal to the deployment's
 own address in Settings > Secrets. Leave preview bindings unset: they are
@@ -66,7 +66,7 @@ shared by all of a project's previews.
 When the address is unknown, the starter takes the request Host only when it
 matches an origin in `APPTOWN_ORIGINS`, refusing any other Host with 400.
 `APPTOWN_ORIGINS` may list several origins or wildcards and is never a URL.
-Requestless commands use `http://localhost` only while `APPTOWN_URL` is unknown.
+Requestless commands use `http://localhost` only while `APPTOWN_APP_URL` is unknown.
 Initialization removes the administrator's website and sample content; if it
 stops between install and cleanup, delete the sample content in the dashboard.
 Readiness uses

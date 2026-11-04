@@ -25,9 +25,9 @@ The declared needs are MariaDB and `s3`. The app reads their injected env:
 `DB_*`, and `S3_BUCKET`, `AWS_REGION`, `AWS_ENDPOINT_URL_S3`,
 `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`.
 The site's address is the deployment's own: `config/application.php` uses
-`APPTOWN_URL`, which AppTown gives web, init and WP-CLI commands. A bound
+`APPTOWN_APP_URL`, which AppTown gives web, init and WP-CLI commands. A bound
 `WP_HOME` only pins a different canonical address and takes precedence. When
-`APPTOWN_URL` is unknown, use the request Host only when it matches
+`APPTOWN_APP_URL` is unknown, use the request Host only when it matches
 `APPTOWN_ORIGINS`, refusing any other Host with 400. Never use
 `APPTOWN_ORIGINS` itself as the URL. Keep `WP_HOME` optional in `secretspec.toml`
 and leave preview bindings unset. Use the starter's address block from
