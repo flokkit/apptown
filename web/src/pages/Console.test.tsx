@@ -136,6 +136,14 @@ describe('what the chat is about folds to one line on a phone', () => {
       try {
         await vi.waitFor(() => expect(el.textContent).toContain('The worker cannot be reached'))
         expect(el.querySelector('details.console-about')!.hasAttribute('open')).toBe(false)
+        // The switch shares the About line and stays outside its disclosure.
+        const aboutLine = el.querySelector('.console-about-line')!
+        expect(aboutLine.querySelector('summary')?.textContent).toContain('About this change')
+        expect(aboutLine.querySelector('[role="switch"]')).not.toBeNull()
+        expect(el.querySelectorAll('[role="switch"]')).toHaveLength(1)
+        expect(aboutLine.querySelector('[role="switch"]')!.closest('details')).toBeNull()
+        await act(async () => { (aboutLine.querySelector('[role="switch"]') as HTMLInputElement).click() })
+        expect(el.querySelector('details.console-about')!.hasAttribute('open')).toBe(false)
         const line = Array.from(el.querySelectorAll('strong')).find((n) => n.textContent?.startsWith('The worker cannot be reached'))!
         expect(line.closest('details')).toBeNull()
       } finally {

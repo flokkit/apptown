@@ -4,6 +4,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../../data'
+import { NARROW_QUERY } from '../../chrome'
 import { Bubbles, foldTools, retired, toolSummary, type Bubble } from './Bubbles'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -132,6 +133,27 @@ describe('the conversation as read', () => {
     await vi.waitFor(() => expect(el.querySelector('.bubble.you.pending')).toBeNull())
     expect(el.querySelectorAll('.bubble.you')).toHaveLength(1)
     done()
+  })
+
+
+  it('on a phone the composer starts with two rows, grows for a draft and shrinks after sending', async () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q === NARROW_QUERY, addEventListener() {}, removeEventListener() {} }))
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+    const { el, done } = await mount(() => new Response(JSON.stringify({ messages: [] })))
+    try {
+      const box = el.querySelector('textarea')!
+      expect(box.rows).toBe(2)
+      expect(box.placeholder).toBe('Say what to change. You can paste images.')
+      Object.defineProperty(box, 'scrollHeight', { configurable: true, get: () => box.value ? 120 : 56 })
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(box, 'A longer draft\nwith several lines')
+        box.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+      expect(box.style.height).toBe('122px')
+      await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Send')!.click() })
+      expect(box.value).toBe('')
+      expect(box.style.height).toBe('58px')
+    } finally { done() }
   })
 
   it('retires the message just sent on any later message from the person, never on an earlier one', () => {
