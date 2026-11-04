@@ -23,11 +23,14 @@ import { DecisionChoices } from '../../DecisionChoices'
 import { useState } from 'react'
 import { nextStep, checksRunning, offered, reviewText } from './next'
 
-// Non-applicable checks count as fine here; their reasons remain in Details.
+const checkProblems = (s: Step) => s.checkReading?.checks?.filter(c => !['pass', 'not-applicable', 'skipped'].includes(c.verdict)) ?? []
+const checkNotes = (steps: Step[]) => steps.filter(s => s.type !== 'approval' && s.status !== 'not_applicable').flatMap(s => checkProblems(s).filter(c => c.gates === false))
+
+// Non-applicable checks count as fine here; advisory problems remain notes.
 export function checkAttention(steps: Step[]) {
   return steps.filter(s => s.type !== 'approval' && s.status !== 'not_applicable' && (
     s.overrideBy || ['unknown', 'excepted'].includes(s.statusLabel) || s.checkReading?.unreadable || s.checkReading?.undecided?.length || s.checkReading?.checkErrors
-    || s.checkReading?.checks?.some(c => !['pass', 'not-applicable', 'skipped'].includes(c.verdict))
+    || checkProblems(s).some(c => c.gates !== false)
     || (s.type === 'tests' && s.status === 'pass' && !testsNote(s.evidence).plain)
     || (checkTypes.has(s.type) && s.status !== 'pass')
     || ['fail', 'error', 'needs_human', 'skipped'].includes(s.status)
@@ -43,9 +46,10 @@ export function checksVerdict(steps: Step[]): { tone: 'ok' | 'bad' | 'unknown' |
   const attention = checkAttention(steps)
   const failed = attention.filter(failedStep)
   if (failed.length) return { tone: 'bad', text: failed.length === 1 ? `${stepTitle(failed[0])} failed` : `${failed.length} checks failed` }
-  if (attention.some(s => ['running', 'pending'].includes(s.status))) return { tone: 'neutral', text: 'Checks running' }
-  if (attention.some(s => !s.overrideBy)) return { tone: 'unknown', text: 'Checks not all known' }
-  return { tone: 'ok', text: 'All checks passed' }
+  if (attention.some(s => !s.overrideBy && !['running', 'pending'].includes(s.status))) return { tone: 'unknown', text: 'Checks not all known' }
+  if (attention.some(s => !s.overrideBy && ['running', 'pending'].includes(s.status))) return { tone: 'neutral', text: 'Checks running' }
+  const notes = checkNotes(steps).length
+  return { tone: 'ok', text: `All checks passed${notes ? ` · ${notes} ${notes === 1 ? 'note' : 'notes'}` : ''}` }
 }
 
 export function CheckSummary({ steps, contractNeedsAttention = false, technical = false }: { steps: Step[]; contractNeedsAttention?: boolean; technical?: boolean }) {
@@ -54,11 +58,12 @@ export function CheckSummary({ steps, contractNeedsAttention = false, technical 
   if (!steps.some(s => checkTypes.has(s.type) && !['pending', 'skipped'].includes(s.status))) return <span>Not checked yet. Checks run when you press Check and land in the chat.</span>
   const running = attention.filter(s => !s.overrideBy && ['running', 'pending'].includes(s.status))
   const unfinished = running.map(stepTitle)
+  const notes = checkNotes(steps)
   return <div className="ch-check-summary">
     {!!unfinished.length && <p>Still running: {unfinished.join(', ')}</p>}
     {!attention.length && !unfinished.length && !contractNeedsAttention && <span>{checks.length ? <><span className="ch-mark ok">✓</span> All checks passed</> : 'No verification checks recorded.'}</span>}
     {attention.filter(s => !running.includes(s)).map((s, i) => {
-      const problems = s.checkReading?.checks?.filter(c => !['pass', 'not-applicable', 'skipped'].includes(c.verdict)).map(c => c.detail || `${c.check}: ${c.verdict}`) ?? []
+      const problems = checkProblems(s).filter(c => c.gates !== false).map(c => c.detail || `${c.check}: ${c.verdict}`)
       const recorded = s.overrideBy ? `An exception was recorded by ${s.overrideBy}: ${s.overrideReason}` : s.checkReading?.unreadable ? `The result could not be read: ${s.checkReading.unreadable}` : ['unknown', 'excepted'].includes(s.statusLabel) ? `The result is ${s.statusLabel}: ${s.evidence.reason || 'The recorded result needs review.'}` : s.evidence.reason
       const log = (s.type === 'script' || s.type === 'tests') ? s.evidence.log?.trim().split('\n')[0] : ''
       const rejected = s.type === 'agent/review' && !s.overrideBy && ['fail', 'error', 'needs_human'].includes(s.status)
@@ -73,6 +78,7 @@ export function CheckSummary({ steps, contractNeedsAttention = false, technical 
         <TechnicalWords shown={technical}>{(s.type === 'script' || s.type === 'tests') && s.evidence.command}</TechnicalWords>
       </p>
     })}
+    {notes.map((c, i) => <p key={`note-${i}`}>Note: {c.detail || c.note || 'An advisory check needs review.'}</p>)}
     {contractNeedsAttention && <p className="ch-check-exception">Changes to the app contract need checking.</p>}
   </div>
 }
