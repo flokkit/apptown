@@ -29,7 +29,13 @@ model to be enabled in it, asks the eval model choice for a project's call (or,
 for `Judge`, the judge's door, `ChooseJudge`, instead), takes a concurrency slot
 under `forge/<purpose>/<project>`, and writes a pending spend line
 (`usage.Requests.OpenCall`) before sending. When the call ends it settles
-that line once, on its own context, with the provider's counts and price;
+that line once, on its own context, with the provider's counts and price.
+When the provider omits a price, it uses the embedded model catalog generated
+from the exact worker Pi pin, or the declared custom endpoint model rates.
+Cache reads, writes, long cache writes and context tiers use Pi's rate semantics.
+Provider prices, including a reported zero, take precedence. All-zero or absent
+model rates are unpriced. Each call records `provider-reported`, `catalog` or
+`none`;
 unknown spend (no usage, tokens with no price, an unreadable or cut-off answer)
 settles as incomplete, and a line never settled counts as unknown once its time
 (the call limit plus five minutes) runs out. Callers get the usage back for
@@ -52,6 +58,18 @@ AppTown constructs Catalog before console environments and the gateway after the
 console registry. The listener and interrupted-request startup hook remain in
 AppTown. Network policy, request deadlines and runtime credential lifetime are
 unchanged. This package does not implement hard spending limits.
+
+Built-in provider model definitions in the public view carry the pinned catalog's
+costs, so discovery cannot replace Pi's prices with zero placeholders. Cost
+model overrides are removed for built-in providers; custom endpoints retain their
+declared costs and overrides. Agent and chat spend is recorded only from Pi
+transcripts, using `cost.totalFromProvider` to distinguish reported prices from
+model calculations. The HTTP proxy never writes another spend line for them.
+
+`make generate-model-catalog` updates `model-catalog.json` from the agent's exact
+`PI_VERSION`. It installs the package into a temporary directory and exports the
+built-in chat model definitions; the daemon needs no Node runtime. The version
+test requires regeneration with every worker Pi update.
 
 `Failure` owns provider failure headlines for gateway responses, AppTown calls
 and step outcomes. It names the provider by its connector title and classifies

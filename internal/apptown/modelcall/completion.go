@@ -39,8 +39,11 @@ type Completer interface {
 }
 
 // Usage is what one call (or the retries of one question) cost, as the
-// provider reported it.
+// provider reported it or calculated from the model catalog.
 type Usage struct {
+	// PriceSource describes a single call: provider-reported, catalog, or none.
+	// Retry aggregates leave it empty when the sources differ.
+	PriceSource string `json:"priceSource"`
 	// The JSON names are those of the evidence already recorded.
 	Prompt     int64   `json:"prompt_tokens"`
 	Completion int64   `json:"completion_tokens"`
@@ -59,6 +62,11 @@ type Usage struct {
 func (u *Usage) Add(o *Usage) {
 	if o == nil {
 		return
+	}
+	if u.Prompt == 0 && u.Completion == 0 && u.Cost == 0 {
+		u.PriceSource = o.PriceSource
+	} else if u.PriceSource != o.PriceSource {
+		u.PriceSource = ""
 	}
 	u.Prompt += o.Prompt
 	u.Completion += o.Completion

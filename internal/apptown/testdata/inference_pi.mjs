@@ -10,12 +10,19 @@ const {ModelRuntime}=await import(pathToFileURL(path.join(root,'dist/core/model-
 const runtime=await ModelRuntime.create({modelsPath:process.env.APPTOWN_PI_CONFIG,authPath:path.join(process.env.HOME,'auth.json'),modelsStorePath:path.join(process.env.HOME,'model-cache'),allowModelNetwork:false});
 assert.equal(runtime.getError(),undefined);
 for(const provider of ['openrouter','openai','anthropic','google','custom']){
- const model=runtime.getModels(provider).find(m=>provider==='custom' ? m.id==='allowed' : provider==='openrouter' ? m.api==='anthropic-messages' && m.id.includes('claude') : true);
+ const model=runtime.getModels(provider).find(m=>provider==='openai' ? m.id==='gpt-6.1-terra' : provider==='custom' ? m.id==='allowed' : provider==='openrouter' ? m.api==='anthropic-messages' && m.id.includes('claude') : true);
  assert.ok(model,`no ${provider} model`);
  assert.ok(model.baseUrl.startsWith(process.env.APPTOWN_PI_PROXY+'/providers/'+provider), `${provider} bypassed proxy: ${model.baseUrl}`);
  const auth=await runtime.getAuth(model);
  assert.equal(auth.auth.apiKey,process.env.APPTOWN_SESSION_TOKEN,'Pi must send the session token it was given');
  const result=await runtime.completeSimple(model,{messages:[{role:'user',content:'hello',timestamp:Date.now()}]},{maxTokens:16});
+ if(provider==='openai') {
+  assert.equal(result.stopReason,'stop',result.errorMessage);
+  assert.ok(result.usage.cost.total>0,'built-in model cost was replaced with zero');
+  assert.equal(result.usage.cost.totalFromProvider,false);
+  console.log(`${provider} ${model.id}: catalog cost ${result.usage.cost.total}`);
+  continue;
+ }
  // The fixture returns a deliberate 418. This exercises Pi's real protocol
  // client, authentication, endpoint and error path without paid inference.
  assert.equal(result.stopReason,'error');

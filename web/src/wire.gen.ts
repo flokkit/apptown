@@ -2527,6 +2527,7 @@ export type DisplayStatus = "unknown" | "working" | "waiting" | "failed" | "stop
 export type ChangeUsage = {
   total: number
   costMicros: number
+  unpriced: number
 }
 
 export type NextAct = {
@@ -4262,6 +4263,9 @@ export type TierView = {
 }
 
 export type Totals = {
+  providerReported: number
+  catalog: number
+  unpriced: number
   input: number
   output: number
   cacheRead: number
@@ -4273,6 +4277,9 @@ export type Totals = {
 
 export type UsageKindLine = {
   kind: string
+  providerReported: number
+  catalog: number
+  unpriced: number
   input: number
   output: number
   total: number
@@ -4281,6 +4288,9 @@ export type UsageKindLine = {
 
 export type UsageModelLine = {
   model: string
+  providerReported: number
+  catalog: number
+  unpriced: number
   input: number
   output: number
   total: number
@@ -4289,6 +4299,9 @@ export type UsageModelLine = {
 
 export type UsageDayLine = {
   day: string
+  providerReported: number
+  catalog: number
+  unpriced: number
   input: number
   output: number
   total: number
@@ -4296,6 +4309,9 @@ export type UsageDayLine = {
 }
 
 export type UsageDayKind = {
+  providerReported: number
+  catalog: number
+  unpriced: number
   day: string
   kind: string
   total: number
@@ -4304,6 +4320,9 @@ export type UsageDayKind = {
 
 export type UsageWorkflowLine = {
   workflow: string
+  providerReported: number
+  catalog: number
+  unpriced: number
   input: number
   output: number
   total: number
@@ -4312,6 +4331,9 @@ export type UsageWorkflowLine = {
 
 export type UsageProjectLine = {
   project: string
+  providerReported: number
+  catalog: number
+  unpriced: number
   input: number
   output: number
   total: number

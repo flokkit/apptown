@@ -23,6 +23,9 @@ func (a spendLines) open(ctx context.Context, w identity.Workload, purpose, prov
 
 // settle settles an AppTown call's spend line.
 func (a spendLines) settle(ctx context.Context, id ids.ID, u inferenceUsage, incomplete string) (bool, error) {
-	return a.requests.SettleCall(ctx, id,
-		usage.Totals{Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite, Total: u.Input + u.Output, CostMicros: int64(math.Round(u.Cost * 1e6))}, incomplete)
+	totals := usage.Totals{Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite, Total: u.Input + u.Output, CostMicros: int64(math.Round(u.Cost * 1e6))}
+	if u.Observed || incomplete != "" {
+		totals.AddPriceSource(u.PriceSource)
+	}
+	return a.requests.SettleCall(ctx, id, totals, incomplete)
 }

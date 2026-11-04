@@ -189,6 +189,7 @@ func cmdShow(args []string) error {
 		Usage *struct {
 			Total      int64
 			CostMicros int64
+			Unpriced   int64
 		}
 	}
 	if err := api.get(fmt.Sprintf("/changes/%d", id), &view); err != nil {
@@ -221,8 +222,19 @@ func cmdShow(args []string) error {
 	if ch.Provenance != "" {
 		meta = append(meta, yellow(ch.Provenance+" — reconstructed evidence"))
 	}
-	if view.Usage != nil && view.Usage.Total > 0 {
-		meta = append(meta, fmt.Sprintf("%dk tok · $%.2f", view.Usage.Total/1000, float64(view.Usage.CostMicros)/1e6))
+	if view.Usage != nil && (view.Usage.Total > 0 || view.Usage.CostMicros > 0 || view.Usage.Unpriced > 0) {
+		price := fmt.Sprintf("$%.2f", float64(view.Usage.CostMicros)/1e6)
+		if view.Usage.Unpriced > 0 {
+			price = "not priced"
+			if view.Usage.CostMicros > 0 {
+				if view.Usage.CostMicros >= 1e6 {
+					price = "at least " + price
+				} else {
+					price = fmt.Sprintf("at least $%.4f", float64(view.Usage.CostMicros)/1e6)
+				}
+			}
+		}
+		meta = append(meta, fmt.Sprintf("%dk tok · %s", view.Usage.Total/1000, price))
 	}
 	fmt.Println(dim(strings.Join(meta, " · ")))
 	if strings.TrimSpace(ch.Body) != "" {

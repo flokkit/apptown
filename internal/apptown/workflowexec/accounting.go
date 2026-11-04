@@ -30,6 +30,9 @@ func sumPiUsage(out []byte) piUsage {
 			r.AssistantOutput += int64(m.Output)
 		}
 		r.Totals.Add(m.Input, m.Output, m.CacheRead, m.CacheWrite, m.Total, m.Cost.Total)
+		if m.Total > 0 || m.Cost.Total > 0 {
+			r.Totals.AddPriceSource(m.PriceSource())
+		}
 		if report.Model != "" {
 			r.Model, r.Provider = report.Model, report.Provider
 		}

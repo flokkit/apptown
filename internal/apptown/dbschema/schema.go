@@ -551,6 +551,13 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		`ALTER TABLE conformance_reviews ADD COLUMN source_run UUID`,
 		`ALTER TABLE conformance_reviews ADD COLUMN candidate TEXT NOT NULL DEFAULT ''`,
 	}},
+	{n: 205, note: "record model price sources", stmts: []string{
+		`ALTER TABLE token_usage ADD COLUMN provider_reported BIGINT NOT NULL DEFAULT 0`,
+		`ALTER TABLE token_usage ADD COLUMN catalog BIGINT NOT NULL DEFAULT 0`,
+		`ALTER TABLE token_usage ADD COLUMN unpriced BIGINT NOT NULL DEFAULT 0`,
+		// Old observations cannot establish provenance; keep their amounts as recorded.
+		`UPDATE token_usage SET unpriced=1 WHERE total>0`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

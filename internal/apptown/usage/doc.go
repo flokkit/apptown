@@ -22,6 +22,17 @@
 // micro-dollars, not reconciled provider invoices. Token/cache categories retain
 // provider semantics and can overlap.
 //
+// Price-source counts accompany tokens and amounts through every ledger write
+// and report: ProviderReported, Catalog and Unpriced. They count calls within
+// each observation, preserving mixed sources when a transcript is aggregated.
+// Pi's totalFromProvider marker establishes reported prices (including zero);
+// other positive transcript costs are model catalog calculations. Zero costs
+// without that marker are unpriced. Reports distinguish missing price sources
+// from a known zero price, using spend records rather than call counts because
+// historical observations can contain many calls. Historical rows without source information retain
+// their recorded amounts and count as one unpriced observation each; migration
+// does not invent a historical source or reprice old calls.
+//
 // # AppTown's own model calls
 //
 // For a call AppTown makes for itself (inference.Gateway.Ask),

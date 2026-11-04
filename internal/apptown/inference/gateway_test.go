@@ -184,8 +184,8 @@ func TestInferenceUsageProtocols(t *testing.T) {
 	}{
 		{"completions", `{"usage":{"prompt_tokens":7,"completion_tokens":3,"prompt_tokens_details":{"cached_tokens":2}}}`, false, inferenceUsage{Observed: true, Input: 7, Output: 3, CacheRead: 2}},
 		// A reported price is kept, and a reported 0 is a price, not none.
-		{"priced", `{"usage":{"prompt_tokens":7,"completion_tokens":3,"cost":0.0125}}`, false, inferenceUsage{Observed: true, Input: 7, Output: 3, Cost: 0.0125, Priced: true}},
-		{"free", `{"usage":{"prompt_tokens":7,"completion_tokens":3,"cost":0}}`, false, inferenceUsage{Observed: true, Input: 7, Output: 3, Priced: true}},
+		{"priced", `{"usage":{"prompt_tokens":7,"completion_tokens":3,"cost":0.0125}}`, false, inferenceUsage{Observed: true, Input: 7, Output: 3, Cost: 0.0125, Priced: true, PriceSource: "provider-reported"}},
+		{"free", `{"usage":{"prompt_tokens":7,"completion_tokens":3,"cost":0}}`, false, inferenceUsage{Observed: true, Input: 7, Output: 3, Priced: true, PriceSource: "provider-reported"}},
 		{"responses", "data: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens\":7,\"output_tokens\":3}}}\n\n", true, inferenceUsage{Observed: true, Input: 7, Output: 3}},
 		{"anthropic", "data: {\"message\":{\"usage\":{\"input_tokens\":7,\"output_tokens\":1,\"cache_creation_input_tokens\":4}}}\n\ndata: {\"usage\":{\"output_tokens\":3}}\n\n", true, inferenceUsage{Observed: true, Input: 7, Output: 3, CacheWrite: 4}},
 		{"google", `{"usageMetadata":{"promptTokenCount":7,"candidatesTokenCount":3,"cachedContentTokenCount":2}}`, false, inferenceUsage{Observed: true, Input: 7, Output: 3, CacheRead: 2}},

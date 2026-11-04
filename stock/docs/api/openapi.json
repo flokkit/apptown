@@ -1463,11 +1463,15 @@
           },
           "total": {
             "type": "integer"
+          },
+          "unpriced": {
+            "type": "integer"
           }
         },
         "required": [
           "total",
-          "costMicros"
+          "costMicros",
+          "unpriced"
         ],
         "type": "object"
       },

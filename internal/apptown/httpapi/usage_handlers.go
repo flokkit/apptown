@@ -47,7 +47,7 @@ func (h Usage) Usage(w http.ResponseWriter, r *http.Request) {
 	}
 	byDayKind := []UsageDayKind{}
 	for _, d := range rep.ByDayKind {
-		byDayKind = append(byDayKind, UsageDayKind{Day: d.Day, Kind: d.Kind, Total: d.Total, CostMicros: d.CostMicros})
+		byDayKind = append(byDayKind, UsageDayKind{Day: d.Day, Kind: d.Kind, Total: d.Total, CostMicros: d.CostMicros, ProviderReported: d.ProviderReported, Catalog: d.Catalog, Unpriced: d.Unpriced})
 	}
 	resp := UsageReport{
 		WindowDays: rep.WindowDays, Totals: rep.Totals,
@@ -68,7 +68,7 @@ func (h Usage) Usage(w http.ResponseWriter, r *http.Request) {
 func usageLines[T any](ls []usage.Line, line func(key string, c UsageCounts) T) []T {
 	out := make([]T, 0, len(ls))
 	for _, l := range ls {
-		out = append(out, line(l.Key, UsageCounts{Input: l.Input, Output: l.Output, Total: l.Total, CostMicros: l.CostMicros}))
+		out = append(out, line(l.Key, UsageCounts{Input: l.Input, Output: l.Output, Total: l.Total, CostMicros: l.CostMicros, ProviderReported: l.ProviderReported, Catalog: l.Catalog, Unpriced: l.Unpriced}))
 	}
 	return out
 }
@@ -88,6 +88,11 @@ type UsageReport struct {
 
 // UsageCounts is one line's tokens and cost.
 type UsageCounts struct {
+	// Counts retain each call's source even when a transcript is aggregated.
+	ProviderReported int64 `json:"providerReported"`
+	Catalog          int64 `json:"catalog"`
+	Unpriced         int64 `json:"unpriced"`
+
 	Input      int64 `json:"input"`
 	Output     int64 `json:"output"`
 	Total      int64 `json:"total"`
@@ -121,6 +126,11 @@ type UsageProjectLine struct {
 
 // UsageDayKind is one day's spend of one kind, for the stacked chart.
 type UsageDayKind struct {
+	// Counts retain each call's source even when a transcript is aggregated.
+	ProviderReported int64 `json:"providerReported"`
+	Catalog          int64 `json:"catalog"`
+	Unpriced         int64 `json:"unpriced"`
+
 	Day        string `json:"day"`
 	Kind       string `json:"kind"`
 	Total      int64  `json:"total"`

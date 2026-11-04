@@ -87,7 +87,7 @@ func (catalog Catalog) discoverModels(ctx context.Context, p *inferenceProvider,
 			p.patterns = append(p.patterns, id)
 		}
 		if p.allows(id) && p.models[id] == nil {
-			p.models[id] = map[string]any{"id": id, "contextWindow": 131072, "maxTokens": 16384, "cost": map[string]int{"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}}
+			p.models[id] = map[string]any{"id": id, "contextWindow": 131072, "maxTokens": 16384}
 		}
 	}
 }

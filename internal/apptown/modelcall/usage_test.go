@@ -12,3 +12,16 @@ func TestUsageAddKeepsIncompleteness(t *testing.T) {
 		t.Fatalf("sum: %+v", u)
 	}
 }
+
+func TestRetryUsageOnlyNamesASourceWhenAllCallsAgree(t *testing.T) {
+	u := &Usage{}
+	u.Add(&Usage{Prompt: 1, Cost: 0.1, PriceSource: "catalog"})
+	u.Add(&Usage{Prompt: 1, Cost: 0.1, PriceSource: "catalog"})
+	if u.PriceSource != "catalog" {
+		t.Fatalf("source %+v", u)
+	}
+	u.Add(&Usage{Prompt: 1, Cost: 0.2, PriceSource: "provider-reported"})
+	if u.PriceSource != "" {
+		t.Fatalf("mixed source claimed: %+v", u)
+	}
+}

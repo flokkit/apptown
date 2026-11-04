@@ -79,10 +79,10 @@ func TestAnAppTownCallWritesItsOneSpendLine(t *testing.T) {
 	t.Parallel()
 	w := newAskWorld(t, "openai-completions", answering(`{"model":"vendor/judge-1","choices":[{"message":{"content":"fine"}}],"usage":{"prompt_tokens":10,"completion_tokens":5,"cost":0.002}}`))
 	text, u, err := w.g.Ask(context.Background(), narrative)
-	if err != nil || text != "fine" || u == nil || u.Prompt != 10 || u.Completion != 5 || u.Cost != 0.002 || u.Model != "vendor/judge-1" || u.Incomplete != "" {
+	if err != nil || text != "fine" || u == nil || u.Prompt != 10 || u.Completion != 5 || u.Cost != 0.002 || u.PriceSource != "provider-reported" || u.Model != "vendor/judge-1" || u.Incomplete != "" {
 		t.Fatalf("answer: %q %+v %v", text, u, err)
 	}
-	if got := w.spent(t); got.Input != 10 || got.Output != 5 || got.Total != 15 || got.CostMicros != 2000 || got.Incomplete != 0 {
+	if got := w.spent(t); got.Input != 10 || got.Output != 5 || got.Total != 15 || got.CostMicros != 2000 || got.ProviderReported != 1 || got.Incomplete != 0 {
 		t.Fatalf("the spend line: %+v", got)
 	}
 	report, err := w.ledger.Summary(context.Background(), 1, idstest.N(7), "")
@@ -207,5 +207,33 @@ func TestAnAppTownCallSpeaksTheBindingsDialect(t *testing.T) {
 	}
 	if got := w.spent(t); got.Total != 6 || got.Incomplete != 1 {
 		t.Fatalf("the spend line: %+v", got)
+	}
+}
+
+func TestAskUsesTheCatalogWhenTheProviderOmitsPrice(t *testing.T) {
+	w := newAskWorld(t, "openai-responses", answering(`{"model":"gpt-6.1-terra","output":[{"content":[{"type":"output_text","text":"fine"}]}],"usage":{"input_tokens":1000,"output_tokens":50,"input_tokens_details":{"cached_tokens":200}}}`))
+	// Resolve the built-in binding with its real model id through the normal path.
+	ps, err := w.g.providers(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	native := ps["native"]
+	config, _ := json.Marshal(map[string]any{"baseUrl": native.baseURL, "models": []string{"gpt-6.1-terra"}})
+	if _, err := integration.NewWithClock(w.db, nil).Save(t.Context(), "openai", "model", "openai", string(config), "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	call := narrative
+	call.Model = "openai/gpt-6.1-terra"
+	_, u, err := w.g.Ask(t.Context(), call)
+	if err != nil || u == nil || u.Cost <= 0 || u.PriceSource != "catalog" || u.Incomplete != "" {
+		t.Fatalf("answer %+v %v", u, err)
+	}
+	got := w.spent(t)
+	if got.CostMicros <= 0 || got.Catalog != 1 || got.Unpriced != 0 || got.ProviderReported != 0 {
+		t.Fatalf("stored source: %+v", got)
+	}
+	rep, err := w.ledger.Summary(t.Context(), 1, idstest.N(7), "")
+	if err != nil || rep.Totals.Catalog != 1 || rep.ByModel[0].Catalog != 1 || rep.ByDayKind[0].Catalog != 1 {
+		t.Fatalf("report %+v %v", rep, err)
 	}
 }

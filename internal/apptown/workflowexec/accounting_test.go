@@ -40,3 +40,14 @@ func TestSumPiUsageOfABrokenTranscriptIsIncomplete(t *testing.T) {
 		t.Fatalf("want the valid records' 350, incomplete: %+v", spent)
 	}
 }
+
+func TestTranscriptRetainsEachCallsPriceSource(t *testing.T) {
+	spent := sumPiUsage([]byte(`{"type":"message_end","message":{"role":"assistant","usage":{"input":10,"output":1,"totalTokens":11,"cost":{"total":0.002,"totalFromProvider":true}}}}
+{"type":"message_end","message":{"role":"assistant","usage":{"input":10,"output":1,"totalTokens":11,"cost":{"total":0.001,"totalFromProvider":false}}}}
+{"type":"message_end","message":{"role":"assistant","usage":{"input":10,"output":1,"totalTokens":11,"cost":{"total":0}}}}
+{"type":"message_end","message":{"role":"assistant","usage":{"input":10,"output":1,"totalTokens":11,"cost":{"total":0,"totalFromProvider":true}}}}
+`))
+	if spent.Totals.ProviderReported != 2 || spent.Totals.Catalog != 1 || spent.Totals.Unpriced != 1 || spent.Totals.CostMicros != 3000 {
+		t.Fatalf("sources or amounts lost: %+v", spent)
+	}
+}

@@ -3,6 +3,7 @@ package inference
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sort"
 )
 
@@ -29,9 +30,29 @@ func (catalog Catalog) PublicProviders(ctx context.Context, baseURL string) ([]p
 	}
 	public := make([]publicProvider, 0, len(ps))
 	for name, p := range ps {
-		view := publicProvider{Name: name, URL: baseURL + "/providers/" + name, API: p.api, Metadata: p.metadata}
+		view := publicProvider{Name: name, URL: baseURL + "/providers/" + name, API: p.api, Metadata: maps.Clone(p.metadata)}
+		if builtinPricing(name) {
+			if overrides, ok := p.metadata["modelOverrides"].(map[string]any); ok {
+				clean := map[string]any{}
+				for id, v := range overrides {
+					m := maps.Clone(v.(map[string]any))
+					delete(m, "cost")
+					clean[id] = m
+				}
+				view.Metadata["modelOverrides"] = clean
+			}
+		}
 		for id, m := range p.models {
 			if p.allows(id) {
+				m = maps.Clone(m)
+				if builtinPricing(name) {
+					// Pi treats definitions as replacements, including absent costs.
+					// Keep the exact pinned catalog rates, never discovery placeholders.
+					delete(m, "cost")
+					if model, ok := builtInCatalog.Providers[name][id]; ok {
+						m["cost"] = model.Cost
+					}
+				}
 				view.Models = append(view.Models, m)
 			}
 		}

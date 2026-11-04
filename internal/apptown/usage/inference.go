@@ -73,6 +73,6 @@ func (r *Requests) SettleCall(ctx context.Context, call ids.ID, u Totals, incomp
 // decides a race with LockInUnknownIn.
 func settleCallIn(ctx context.Context, q database.Queryer, call ids.ID, u Totals, incomplete string, at time.Time) (bool, error) {
 	n, err := usagesql.New(q.SQL()).SettleCallLine(ctx, usagesql.SettleCallLineParams{Now: at, Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite,
-		Total: u.Total, CostMicros: u.CostMicros, Incomplete: incomplete, Observation: CallKey(call)})
+		Total: u.Total, CostMicros: u.CostMicros, ProviderReported: u.ProviderReported, Catalog: u.Catalog, Unpriced: u.Unpriced, Incomplete: incomplete, Observation: CallKey(call)})
 	return n == 1, err
 }

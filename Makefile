@@ -369,3 +369,7 @@ GATE_IMAGE ?= apptown-gate:local
 .PHONY: gate-image
 gate-image:              ## build the restore gate image (GATE_IMAGE=apptown-gate:local)
 	docker build --platform linux/amd64 -f cmd/apptown-gate/Dockerfile -t $(GATE_IMAGE) .
+
+.PHONY: generate-model-catalog
+generate-model-catalog:
+	node scripts/generate-model-catalog.mjs
