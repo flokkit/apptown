@@ -1,6 +1,6 @@
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { type CSSProperties, type ReactNode } from 'react'
 import { ListRow } from './ListRow'
-import { NewChangeButton } from './pages/project/NewChange'
+import { ChangeButton } from './pages/project/ChangeButton'
 import { Link } from 'react-router-dom'
 import { RuntimeStatus } from './runtime'
 import { relTime } from './format'
@@ -27,7 +27,6 @@ export function projectHue(slug: string): number {
 export function ProjectListRow({ project: p, refreshFailed = false, reason, children }: {
   project: ProjectRow; refreshFailed?: boolean; reason?: string; children?: ReactNode
 }) {
-  const [changing, setChanging] = useState(false)
   const observation = refreshFailed ? { ...p, observation: 'unknown' as const, observationStale: true, observationIssue: reason } : p
   const age = p.hasDeployments === false
     ? p.lastRunAt ? `Work updated ${relTime(p.lastRunAt)}` : 'No changes yet'
@@ -49,9 +48,6 @@ export function ProjectListRow({ project: p, refreshFailed = false, reason, chil
       {age && <div className="muted small">{age}</div>}
     </div>} action={<div className="project-action">
       {mayOpenApp(p, refreshFailed) && p.productionUrl && <a className="btn primary" href={p.productionUrl} target="_blank" rel="noreferrer" aria-label={`Open app: ${p.name || p.slug} (opens in a new tab)`}>Open app <span aria-hidden="true">↗</span></a>}
-      {!refreshFailed && p.canChange && <>
-        <button onClick={() => setChanging(true)}>Change</button>
-        {changing && <NewChangeButton slug={p.slug} external={{ open: true, onClose: () => setChanging(false) }} />}
-      </>}
+      {!refreshFailed && p.canChange && <ChangeButton slug={p.slug} chatAvailable={p.chatAvailable} compact />}
     </div>} />
 }

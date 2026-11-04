@@ -111,7 +111,12 @@ func (h ProjectViews) ListProjects(w http.ResponseWriter, r *http.Request) {
 			WriteFault(w, err)
 			return
 		}
-		out = append(out, ProjectRow{Project: p, CanChange: decision.Allow, LastWorkedAt: p.LastWorkedAt, ActiveItems: work.ActiveItems, DoneRuns: work.DoneRuns, LastRunAt: work.LastRunAt, LastChangeTitle: work.LastChangeTitle})
+		chatAvailable, err := h.chats.ChangeChatAvailable(r.Context(), p.ID)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		out = append(out, ProjectRow{Project: p, ChatAvailable: chatAvailable, CanChange: decision.Allow, LastWorkedAt: p.LastWorkedAt, ActiveItems: work.ActiveItems, DoneRuns: work.DoneRuns, LastRunAt: work.LastRunAt, LastChangeTitle: work.LastChangeTitle})
 	}
 	counts, err := h.adrs.Counts(r.Context(), idList)
 	if err != nil {
@@ -266,7 +271,8 @@ func hasGitDirectory(dir string) bool {
 // is running.
 type ProjectRow struct {
 	project.Project
-	CanChange bool `json:"canChange"`
+	CanChange     bool `json:"canChange"`
+	ChatAvailable bool `json:"chatAvailable"`
 	// LastWorkedAt is when the caller last worked on the project, set only
 	// for order=mine; null there means never, and on other lists means not
 	// worked out.
