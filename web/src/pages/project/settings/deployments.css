@@ -1,22 +1,30 @@
-/* Settings › Deployments: one row per deployment (status | name and meta |
-   address | one action), its standing facts in small lines beneath. */
-.deployments-settings .deploy-entry { padding: 12px 0; }
-.deployments-settings .deploy-head { flex-wrap: nowrap; align-items: baseline; gap: 12px; }
-.deployments-settings .deploy-status { display: flex; flex-wrap: wrap; gap: 6px; }
-.deployments-settings .deploy-name { flex: 1 1 auto; min-width: 0; }
-.deployments-settings .deploy-meta { display: block; margin-top: 2px; }
-.deployments-settings .deploy-address { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; text-align: right; }
-.deployments-settings .deploy-lines { margin-left: calc(13em + 12px); margin-top: 6px; display: grid; gap: 4px; }
-.deployments-settings .deploy-lines:empty { display: none; }
-.deployments-settings .deploy-more { gap: 4px 14px; }
-.deployments-settings .deploy-more > div { margin-top: 0 !important; }
+@import "../../../overview-line.css";
+/* The change Overview grid: label | value | trailer, stacked on phones. */
+.deploy-entry .deploy-head { border-top: 0; padding-top: 0; }
+.deploy-entry .deploy-status { display: flex; flex-wrap: wrap; gap: 6px; }
+.deploy-entry .deploy-value, .deploy-entry .deploy-trailer { min-width: 0; overflow-wrap: anywhere; }
+.deploy-entry .deploy-value > .small, .deploy-entry table.small { font-size: inherit; }
+.deploy-entry .deploy-value p { margin: 0; }
+.deploy-entry .deploy-more { border-top: 1px solid var(--border); padding-top: 16px; gap: 4px 14px; flex-wrap: wrap; }
+.deploy-entry .deploy-more > div { margin-top: 0 !important; }
 .deployments-settings .deploy-new { padding: 12px 0; display: grid; gap: 10px; }
 .release-default { padding: 12px 0; }
 .release-default select { max-width: 100%; }
-@media (max-width: 800px) {
-  .deployments-settings .deploy-head { flex-wrap: wrap; }
-  .deployments-settings .deploy-name { flex-basis: calc(100% - 9em); }
-  .deployments-settings .deploy-address { flex: 1 1 auto; text-align: left; }
-  .deployments-settings .deploy-head { align-items: flex-start; }
-  .deployments-settings .deploy-lines { margin-left: 0; }
+
+.deploy-entry .deploy-fact { margin-left: .3em; }
+
+.deploy-warning { color: var(--warn); }
+
+.deploy-head { margin-bottom: 20px; }
+.deploy-head h1 { margin: 0; }
+.deployment-address { margin-top: 6px; overflow-wrap: anywhere; }
+.deployment-row.list-row { grid-template-columns: 110px minmax(180px, 1fr) minmax(180px, 1fr) auto; }
+.deployment-row > .list-state { grid-column: 1; grid-row: 1; }
+.deployment-row > .list-identity { grid-column: 2; grid-row: 1; }
+.deployment-row > .list-detail { grid-column: 3; grid-row: 1; }
+.deployment-row > .list-action { grid-column: 4; grid-row: 1; }
+@media (max-width: 640px) {
+  .deployment-row.list-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .deployment-row > .list-detail { grid-column: 2; grid-row: 2; }
+  .deployment-row > .list-action { grid-column: 3; }
 }

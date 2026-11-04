@@ -38,6 +38,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/conversation"
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
@@ -263,7 +264,9 @@ func (t *browserTerminal) Write(p []byte) (int, error) {
 // Docker; checks that need a tool's image or a model say they could not
 // run). The chats are recorded transcripts on the console's fake agent,
 // so no model is called; the commands they quote ran in the change's
-// folder. Not part of any gate: make tour runs it.
+// folder. The extra fieldnotes case imports recorded outcomes, labelled as
+// such, with a local preview stand-in (tour_fieldnotes_browser_test.go).
+// Not part of any gate: make tour runs it.
 //
 // The tour is the healthy AppTown: its executor's image is present, its
 // app is running, every container the deployments recorded is on the
@@ -330,6 +333,7 @@ func TestHostSnapshotScenesReadInventory(t *testing.T) {
 				t.Setenv("APPTOWN_DESIGN_HOLD", "127.0.0.1:0")
 			}
 			w := newTourWorld(t, garage, 10*time.Millisecond)
+			assertFieldnotesDecision(t, w.scene)
 			targets, err := w.a.targets.All(t.Context())
 			if err != nil {
 				t.Fatal(err)
@@ -948,6 +952,8 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 			phrase = "Daily lunch orders"
 		case strings.Contains(q.User, "Club Newsletter"):
 			phrase = "Cycling club news"
+		case strings.Contains(q.User, "fieldnotes"):
+			phrase = "A journal of everyday things"
 		case strings.Contains(q.User, "Rocket Garden"):
 			phrase = "Growing and launching rockets"
 		}
@@ -972,6 +978,7 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 		s.call("sam", "POST", "/api/v1/users", map[string]string{"username": u, "role": "member", "password": password})
 	}
 	made := s.play(start)
+	s.fieldnotes()
 	for _, job := range operationJobs(t, a, project.DescriptionJob) {
 		runQueuedJobForTest(t, a, project.DescriptionJob, job.Key)
 	}
@@ -3755,4 +3762,211 @@ type cameraStandingProcedure struct{}
 
 func (cameraStandingProcedure) StandingProcedure(context.Context, database.Queryer, ids.ID, string) (workflow.StandingProcedure, error) {
 	return workflow.StandingProcedure{Acceptance: workflow.StandingPurpose{Workflow: "design-review", Version: 1, Step: "accept", Means: "accept small dependency fixes after checks pass"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land the checked update"}}, nil
+}
+
+// fieldnotesRecording contains only the supplied change view's request,
+// report, procedure and verdict. It contains no invented commits, screenshots,
+// execution receipts or deployment evidence.
+type fieldnotesRecording struct {
+	Title, Body, Report, Diffstat string
+	Review                        map[string]any
+	Steps                         []struct {
+		Name, Type, Status string
+		Config             map[string]any
+	}
+}
+
+func readFieldnotesRecording(t *testing.T) fieldnotesRecording {
+	t.Helper()
+	b, err := os.ReadFile("testdata/tour/fieldnotes9.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r fieldnotesRecording
+	if err := json.Unmarshal(b, &r); err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+// fieldnotes adds a recorded rejection after the tour's existing history.
+// The runners import historical outcomes through Work's attempt owner; they
+// explicitly label their provenance and claim no local agent or container run.
+func (s *tourScene) fieldnotes() {
+	t, a := s.t, s.a
+	r := readFieldnotesRecording(t)
+	s.call("sam", "POST", "/api/v1/projects", map[string]string{"slug": "fieldnotes", "name": "fieldnotes", "blurb": "A journal of everyday things"})
+	s.call("sam", "POST", "/api/v1/projects/fieldnotes/repo", map[string]string{"defaultBranch": "main"})
+	// Give main its own shipped app before opening the recorded change. This
+	// is a local tour stand-in, not a reconstruction of the WordPress site.
+	first := s.open("sam", "fieldnotes", "Start the journal", "A journal of everyday things, with a page for each entry.")
+	s.write(first, map[string]string{
+		".apptown/app.yaml": "version: 2\napp:\n  site:\n    static: public\n    public: true\n",
+		"public/index.html": "<!doctype html><title>fieldnotes — local tour stand-in</title><h1>fieldnotes</h1><p>A journal of everyday things</p><p>Local tour stand-in for a WordPress journal.</p>",
+		"checks/tests.sh":   "test -s public/index.html\n",
+		"checks/style.sh":   "test -s .apptown/app.yaml\n",
+	})
+	s.commit(first, "sam", "Add local journal stand-in")
+	s.ship(first, "sam", "sam", time.Minute)
+	c := s.open("sam", "fieldnotes", r.Title, r.Body)
+	// The source contains no preview image bytes or complete source tree. Serve
+	// an explicit local stand-in, never the remote preview or a claimed rebuild.
+	s.write(c, map[string]string{".apptown/app.yaml": "version: 2\napp:\n  site:\n    static: public\n    public: true\n", "public/index.html": "<!doctype html><title>fieldnotes — recorded change</title><h1>fieldnotes</h1><p>Local tour stand-in for the recorded adoption change. The original WordPress preview is not reproduced here.</p>"})
+	s.commit(c, "sam", "Add local tour preview stand-in")
+	previewURL := s.serveSite(c)
+	steps := make([]schema.Step, 0, len(r.Steps))
+	for _, step := range r.Steps {
+		steps = append(steps, schema.Step{Name: step.Name, Uses: step.Type, With: step.Config})
+	}
+	a.Work.Wait()
+	a.Work.Stop()
+	defineWorkflows(t, a, tourWorkflow, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "quick-change", Version: 13}, Spec: schema.Spec{Kind: "lifecycle", Role: "working", Stages: []schema.Stage{{Name: "apply", OnEnter: steps[:1], Steps: steps[1:]}}}})
+	rebuildWork(t, a, func(deps *workflow.Dependencies) {
+		for _, kind := range []string{"agent/pi", "preview", "agent/review"} {
+			original := deps.Runners[kind]
+			deps.Runners[kind] = func(e *workflow.Execution) {
+				if e.Run().ChangeID != c.ID {
+					original(e)
+					return
+				}
+				if _, err := e.Claim(); err != nil {
+					t.Error(err)
+					return
+				}
+				evidence := map[string]any{"recording": "Imported from fieldnotes change #9; no local agent or container execution."}
+				outcome := workflow.StepOutcome{Status: workflow.StatusPass}
+				switch e.Step().Name {
+				case "apply-change":
+					evidence["output"] = r.Report
+					outcome.Artifacts = []workflow.StepArtifact{{ArtifactDraft: workflow.ArtifactDraft{Kind: "change-report", Name: "change-report", Body: r.Report}}, {ArtifactDraft: workflow.ArtifactDraft{Kind: "recording", Name: "Recorded source", Body: "Imported fieldnotes change #9. The report and reviewer verdict describe that recorded change, not execution in this tour. The preview is a local stand-in. Original diffstat: " + r.Diffstat}}}
+				case "boot":
+					evidence["url"] = previewURL
+					evidence["recording"] = "Local tour stand-in; the recorded demo boot passed. No WordPress rebuild or screenshot capture was performed."
+					outcome.Artifacts = []workflow.StepArtifact{{ArtifactDraft: workflow.ArtifactDraft{Kind: "preview", Name: "preview", Ref: previewURL}}}
+				case "review-change":
+					for k, v := range r.Review {
+						evidence[k] = v
+					}
+					outcome.Status = workflow.StatusFail
+				default:
+					t.Errorf("unexpected recorded step %s", e.Step().Name)
+					return
+				}
+				var err error
+				outcome.Evidence, err = json.Marshal(evidence)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				if err := e.Finish(outcome, nil); err != nil {
+					t.Error(err)
+				}
+			}
+		}
+	})
+	var started struct{ Run struct{ ID string } }
+	if err := json.Unmarshal(s.call("sam", "POST", fmt.Sprintf("/api/v1/changes/%s/runs", c.ID), map[string]string{"workflow": "quick-change"}), &started); err != nil {
+		t.Fatal(err)
+	}
+	a.Work.Wait()
+	t.Logf("fieldnotes recorded rejection: /changes/%s", c.ID)
+}
+
+// assertFieldnotesDecision protects the signed-in data used by Decide… and
+// its decision screen, without opening or driving a browser.
+func assertFieldnotesDecision(t *testing.T, s *tourScene) {
+	t.Helper()
+	assertFieldnotesProject(t, s)
+	r := readFieldnotesRecording(t)
+	var changes []struct {
+		ID    string
+		Title string
+	}
+	if err := json.Unmarshal(s.call("sam", "GET", "/api/v1/projects/fieldnotes/changes", nil), &changes); err != nil {
+		t.Fatal(err)
+	}
+	if len(changes) != 2 {
+		t.Fatalf("recorded change missing: %+v", changes)
+	}
+	var heldID string
+	for _, c := range changes {
+		if c.Title == r.Title {
+			heldID = c.ID
+		}
+	}
+	if heldID == "" {
+		t.Fatal("recorded rejection missing")
+	}
+	var page struct {
+		Change                     struct{ Title, Body string }
+		State, StateDetail, Report string
+		Detail                     struct {
+			Steps []struct {
+				Name, Type, Status string
+				Evidence           map[string]any
+			}
+			Next      []struct{ Act string }
+			Artifacts []struct{ Kind, Ref string }
+		}
+	}
+	if err := json.Unmarshal(s.call("sam", "GET", "/api/v1/changes/"+heldID, nil), &page); err != nil {
+		t.Fatal(err)
+	}
+	if page.Change.Title != r.Title || page.Change.Body != r.Body || page.Report != r.Report || page.State != "waiting on you" || page.StateDetail != "review-change (fail): "+r.Review["reason"].(string) {
+		t.Fatalf("recorded rejection changed: %+v", page)
+	}
+	if len(page.Detail.Steps) != len(r.Steps) {
+		t.Fatalf("steps: %+v", page.Detail.Steps)
+	}
+	for i, step := range page.Detail.Steps {
+		want := r.Steps[i]
+		if step.Name != want.Name || step.Type != want.Type || step.Status != want.Status {
+			t.Errorf("step %d: %+v, want %+v", i, step, want)
+		}
+		if step.Name == "review-change" {
+			for k, v := range r.Review {
+				gotJSON, _ := json.Marshal(step.Evidence[k])
+				wantJSON, _ := json.Marshal(v)
+				if string(gotJSON) != string(wantJSON) {
+					t.Errorf("review %s changed: %s", k, gotJSON)
+				}
+			}
+		}
+	}
+	acts := map[string]bool{}
+	for _, n := range page.Detail.Next {
+		acts[n.Act] = true
+	}
+	if !acts["rework"] || !acts["override"] {
+		t.Errorf("held decision not offered to Sam: %+v", page.Detail.Next)
+	}
+	for _, artifact := range page.Detail.Artifacts {
+		if artifact.Kind == "preview" && artifact.Ref != "" {
+			return
+		}
+	}
+	t.Error("recorded change has no local preview")
+}
+
+// assertFieldnotesProject protects the project data used to offer Open app
+// instead of Build the first version, without driving a browser.
+func assertFieldnotesProject(t *testing.T, s *tourScene) {
+	t.Helper()
+	var p httpapi.ProjectDetail
+	if err := json.Unmarshal(s.call("sam", "GET", "/api/v1/projects/fieldnotes", nil), &p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Blurb != "A journal of everyday things" || p.OriginalRequest != "A journal of everyday things" || p.RuntimeForm != "static site" || !p.IntranetReady {
+		t.Errorf("fieldnotes project is not ready: %+v", p)
+	}
+	var deployments []httpapi.DeploymentView
+	if err := json.Unmarshal(s.call("sam", "GET", "/api/v1/projects/fieldnotes/deployments", nil), &deployments); err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range deployments {
+		if d.Name == "main" && d.URL != "" && d.Running != nil && *d.Running {
+			return
+		}
+	}
+	t.Errorf("fieldnotes has no running main with an address: %+v", deployments)
 }

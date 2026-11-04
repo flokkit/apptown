@@ -2,8 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 
 export const DecisionContextOnly = createContext(false)
 
-// Use the widest equal grid that fills every row. Five choices stay in one
-// column on a phone; six choices can use two columns without an orphan.
+// Keep the offered choices equal in size, with full rows at each width.
 export function DecisionGrid({ children }: { children: ReactNode }) {
   const grid = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -22,36 +21,55 @@ export function DecisionGrid({ children }: { children: ReactNode }) {
   return <div ref={grid} className="ch-decision-choices">{children}</div>
 }
 
-export type DecisionChoice = { label: string; run: () => unknown; disabled?: boolean }
+export type DecisionChoice = { label: string; run: () => unknown; disabled?: boolean; prompt?: { ask: string; run: (reason: string) => unknown } }
 
-// Both acceptance and held recovery use the same note and action order.
-export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, recovery = [], busy, stopLanding = false }: {
+// The page words and places only the acts AppTown offers.
+export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, conversation, busy }: {
   note: string; setNote: (note: string) => void
+  // chat: a change worked in a chat continues there; it takes the send-back place.
   accept?: DecisionChoice; chat?: DecisionChoice; rework?: DecisionChoice; abandon?: DecisionChoice
-  recovery?: DecisionChoice[]; busy: boolean; stopLanding?: boolean
+  conversation: { href: string; run?: () => unknown }; busy: boolean
 }) {
-  const field = useRef<HTMLInputElement>(null)
-  const [required, setRequired] = useState(false)
-  const [confirm, setConfirm] = useState<'abandon' | 'chat' | null>(null)
+  const [mode, setMode] = useState<'choices' | 'comment' | 'abandon' | 'reason'>('choices')
+  const [reason, setReason] = useState('')
   const contextOnly = useContext(DecisionContextOnly)
   if (contextOnly) return null
   return <>
-    <input ref={field} aria-label="comment" placeholder="Note (optional)" value={note} onChange={e => { setNote(e.target.value); setRequired(false) }} aria-invalid={required || undefined} />
-    {required && <p className="error" role="alert">Say what should change</p>}
-    <DecisionGrid>
-      {accept && <button className="primary" disabled={busy || accept.disabled} onClick={accept.run}>{accept.label}</button>}
-      {chat && <button disabled={busy} onClick={() => stopLanding ? setConfirm('chat') : chat.run()}>{chat.label}</button>}
+    <div className="ch-decision-slot">
+    {mode === 'comment' ? <div className="ch-send-back">
+      <h3>What should change?</h3>
+      <textarea className="prose" rows={2} autoFocus aria-label="What should change?" value={note} onChange={e => setNote(e.target.value)} />
+      <div className="row">
+        <button className="primary" disabled={busy || !note.trim()} onClick={rework?.run}>Send to agent</button>
+        <button disabled={busy} onClick={() => setMode('choices')}>Cancel</button>
+      </div>
+    </div> : mode === 'abandon' ? <div className="ch-inline-confirm">
+      <p>Abandon this change? The branch is kept; the workspace is removed.</p>
+      <div className="row">
+        <button className="danger" disabled={busy} onClick={() => { abandon?.run(); setMode('choices') }}>Abandon</button>
+        <button disabled={busy} onClick={() => setMode('choices')}>Keep it</button>
+      </div>
+    </div> : mode === 'reason' ? <div className="ch-forward-reason">
+      <p>{accept?.prompt?.ask}</p>
+      <input autoFocus aria-label="Why (required)" placeholder="Why (required)" value={reason} onChange={e => setReason(e.target.value)} />
+      <div className="row">
+        <button className="primary" disabled={busy || !reason.trim()} onClick={async () => { await accept?.prompt?.run(reason.trim()); setMode('choices') }}>{accept?.label}</button>
+        <button disabled={busy} onClick={() => setMode('choices')}>Cancel</button>
+      </div>
+    </div> : <DecisionGrid>
+      {accept && <button className={chat ? undefined : 'primary'} disabled={busy || accept.disabled} onClick={() => {
+        if (accept.prompt) { setReason(''); setMode('reason') } else accept.run()
+      }}>{accept.label}</button>}
+      {chat && <button className={accept ? undefined : 'primary'} disabled={busy} onClick={chat.run}>{chat.label}</button>}
       {rework && <button disabled={busy} onClick={() => {
-        if (!note.trim()) { setRequired(true); field.current?.focus(); return }
-        rework.run()
-      }}>{rework.label}</button>}
-      {recovery.map(action => <button key={action.label} disabled={busy || action.disabled} onClick={action.run}>{action.label}</button>)}
-      {abandon && <button className="danger" disabled={busy} onClick={() => setConfirm('abandon')}>{abandon.label}</button>}
-    </DecisionGrid>
-    {confirm && <div className="row ch-inline-confirm">
-      <span>{confirm === 'abandon' ? 'Abandon this change?' : 'Stop the landing and go back to the chat?'}</span>
-      <button disabled={busy} onClick={() => { (confirm === 'abandon' ? abandon : chat)?.run(); setConfirm(null) }}>{confirm === 'abandon' ? 'Abandon' : 'Yes, stop it'}</button>
-      <button disabled={busy} onClick={() => setConfirm(null)}>{confirm === 'abandon' ? 'Keep it' : 'Stay'}</button>
-    </div>}
+        setMode('comment')
+      }}>Send back…</button>}
+      {abandon && <button className="danger" disabled={busy} onClick={() => setMode('abandon')}>Abandon change</button>}
+    </DecisionGrid>}
+    </div>
+    {!chat && <p>Want to talk it through first? <a href={conversation.href} onClick={e => {
+      e.currentTarget.closest('dialog')?.close()
+      if (conversation.run) { e.preventDefault(); conversation.run() }
+    }}>Open the conversation →</a></p>}
   </>
 }

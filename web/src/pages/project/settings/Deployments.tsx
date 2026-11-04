@@ -1,13 +1,17 @@
-import { BackgroundReading } from '../../../BackgroundReading'
+import { useDeploymentStatus } from '../../../deploymentStatus'
+import { ListRow } from '../../../ListRow'
+import { setPageContext } from '../../../chrome'
+import { TechnicalWords, useTechnicalDetail } from '../../change/TechnicalDetail'
+import { DeploymentLine } from './DeploymentLine'
 import { Status } from '../../../Status'
 import { DeploymentAddressEdit } from './DeploymentAddress'
 import { ReleaseDefaultPicker } from './ReleaseDefault'
 import { DisplayLabelEdit } from '../../../DisplayLabel'
 import { PRODUCT } from '../../../brand'
-import { AppAddress, RuntimeStatus } from '../../../runtime'
-import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { del, post, put } from '../../../api'
+import { AppAddress, runtimeDescription } from '../../../runtime'
+import { useEffect, useLayoutEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { del, post, put, type ChangeView } from '../../../api'
 import { QuietConfirm } from '../../../QuietConfirm'
 import { useAction, useGet, useRefresh } from '../../../data'
 import { ReadStatus, StaleNote } from '../../../ReadGate'
@@ -17,10 +21,10 @@ import { ProtectionLines } from '../../DataProtection'
 import { DiagnosticsLines } from './Diagnostics'
 import { Section } from '../../../Section'
 import './deployments.css'
-import type { AIModelsKey, DeploymentAIModels, DeploymentProtection, DeploymentResources, DeploymentDiagnostics, OverrideResult, ProjectSecrets, DeploymentView, DeploymentChecked, DeploymentRemoved, FinalCopies, OperationAdmitted, ProjectTargets, ReleaseRequested, RetainedList } from '../../../wire.gen'
+import type { AIModelsKey, DeploymentAIModels, DeploymentProtection, DeploymentResources, DeploymentDiagnostics, OverrideResult, ProjectSecrets, DeploymentView, DeploymentChecked, DeploymentRemoved, FinalCopies, OperationAdmitted, ProjectTargets, ReleaseRequested, RetainedList, ReleaseListed } from '../../../wire.gen'
 
-// Settings → Deployments (design/subsystems/deployment.md §2.3, §2.7, §15.7): the
-// standing deployments of this project, each bound to a target the
+// Project deployments (design/subsystems/deployment.md §2.3, §2.7, §15.7): the
+// deployments of this project, each bound to a target the
 // project was offered. A project opts in here; what it may opt into is
 // whatever its group, or everyone, was offered. Deploying ships the latest
 // bundle and opens the release; tearing down backs up the deployment's data,
@@ -33,7 +37,7 @@ export function DeploymentsTab({ slug }: { slug: string }) {
   const offeredQ = useGet<ProjectTargets>(`/projects/${slug}/targets`)
   const retainedQ = useGet<RetainedList>(`/projects/${slug}/retained`)
   const [adding, setAdding] = useState(false)
-  const envs = envsQ.data && offeredQ.data && retainedQ.data ? envsQ.data.filter((x) => x.kind !== 'preview') : null
+  const envs = envsQ.data && offeredQ.data && retainedQ.data ? envsQ.data : null
   const offered = offeredQ.data?.targets ?? []
   const retained = retainedQ.data?.retained ?? []
   const load = useRefresh('/projects')
@@ -53,10 +57,10 @@ export function DeploymentsTab({ slug }: { slug: string }) {
         action={!adding && choices.length > 0 ? <button onClick={() => setAdding(true)}>New deployment</button> : undefined}>
         {adding && <AddDeployment slug={slug} choices={choices} existing={envs.map((e) => e.name)} onDone={(added) => { setAdding(false); if (added) load() }} />}
         {envs.length === 0 && !adding && <p className="muted">Not deployed yet.</p>}
-        {envs.map((e) => <EnvCard key={e.name} slug={slug} env={e} onChanged={load} />)}
+        <div role="list">{envs.map((e) => <DeploymentRow key={e.name} slug={slug} env={envsQ.refreshFailed ? { ...e, observation: 'unknown' } : e} />)}</div>
       </Section>
 
-      <ReleaseDefaultPicker slug={slug} deployments={envs} />
+      <ReleaseDefaultPicker slug={slug} deployments={envs.filter(e => e.kind !== 'preview')} />
 
       {(open.length > 0 || settled.length > 0) && (
         <Section title="Old resources" count={open.length || undefined}
@@ -73,7 +77,53 @@ export function DeploymentsTab({ slug }: { slug: string }) {
   )
 }
 
+// Summary reads share the detail card's resource keys and freshness rules.
+export function DeploymentRow({ slug, env: e }: { slug: string; env: DeploymentView }) {
+  const base = `/projects/${slug}/deployments/${e.name}`
+  const resources = useGet<DeploymentResources>(e.generation ? `${base}/resources` : null, { poll: 5000 })
+  const hasProtection = e.target?.kind === 'do-app' || e.target?.kind === 'docker-host'
+  const protection = useGet<DeploymentProtection>(hasProtection ? `${base}/protection` : null, { poll: 5000 })
+  const releases = useGet<ReleaseListed[]>(e.kind !== 'preview' ? `/projects/${slug}/releases` : null)
+  const change = useGet<ChangeView>(e.kind === 'preview' && e.changeId ? `/changes/${e.changeId}` : null)
+  const release = releases.data?.find(r => r.deployment === e.name && r.serving)
+  const observation = useDeploymentStatus(slug, e)
+  const p = protection.data
+  const backup = !hasProtection || protection.denied ? ''
+    : !p || protection.refreshFailed || p.unknown || p.reading?.unknown || p.reading?.stale ? 'backup unknown'
+    : p.items.some(i => i.copy === 'none') ? 'no backup yet'
+    : p.items.some(i => i.copyLabel === 'overdue') ? 'backup overdue'
+    : p.items.some(i => i.copyLabel === 'unknown') ? 'backup unknown' : ''
+  const share = resources.data?.share
+  const warning = e.readiness === 'uncertain' ? 'uncertain'
+    : share?.diskRefuses ? 'disk full' : share?.lowDisk ? 'low disk'
+    : resources.refreshFailed || resources.data?.reading?.unknown || resources.data?.reading?.stale ? 'resources unknown' : ''
+  return <ListRow listItem className="deployment-row"
+    identity={<><Link to={base}><strong>{e.displayLabel || e.name}</strong></Link><div><DeploymentFact env={e} /></div></>}
+    state={<Status observation word={observation.observation} staleAt={e.observationStale && observation.observation !== 'unknown' ? e.observedAt : undefined} help={runtimeDescription(e)} />}
+    detail={<>
+      <div className="muted small">{e.kind === 'preview'
+        ? e.changeId ? <Link to={`/changes/${e.changeId}`}>Preview of {change.data ? `change #${change.data.change.number}: ${change.data.change.title}` : 'change'}</Link> : 'Change not recorded'
+        : release ? <><Link to={`/projects/${slug}/releases/${release.number}`}>Release #{release.number}</Link> · {fmtStamp(release.releasedAt || release.createdAt)}</>
+        : releases.loading ? 'Reading release…' : releases.err ? 'Release unknown' : 'No serving release recorded'}<StaleNote q={e.kind === 'preview' ? change : releases} inline /></div>
+      {backup && <span className={backup === 'no backup yet' ? 'error small' : 'deploy-warning small'}> {backup}</span>}
+      {warning && <span className={share?.diskRefuses ? 'error small' : 'deploy-warning small'}> {warning}</span>}</>}
+    action={<Link className="btn" to={base}>Open</Link>} />
+}
+
+export function DeploymentPage() {
+  const { slug, name } = useParams()
+  const q = useGet<DeploymentView[]>(`/projects/${slug}/deployments`, { poll: 5000 })
+  const e = q.data?.find(e => e.name === name)
+  useLayoutEffect(() => {
+    setPageContext({ crumbs: [{ label: 'Deployments', to: `/projects/${slug}/settings/deployments` }, { label: e?.displayLabel || name! }] })
+    return () => setPageContext({})
+  }, [slug, name, e?.displayLabel])
+  if (!q.data) return <ReadStatus q={q} what="the deployment" />
+  return <><StaleNote q={q} />{e ? <EnvCard key={`${slug}/${name}`} slug={slug!} env={q.refreshFailed ? { ...e, observation: 'unknown' } : e} onChanged={q.reload} /> : <p>Deployment not found.</p>}</>
+}
+
 export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: DeploymentView; onChanged: () => void }) {
+  const [technical] = useTechnicalDetail()
   const nav = useNavigate()
   const { run, busy, err } = useAction()
   // A take-down is done now (DeploymentRemoved), or admitted as an
@@ -109,13 +159,13 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
   const protection = useGet<DeploymentProtection>(e.target?.kind === 'do-app' || e.target?.kind === 'docker-host' ? `${base}/protection` : null, { poll: 5000 })
   const models = useGet<DeploymentAIModels>(e.aiModels?.length ? `${base}/ai-models` : null, { poll: 5000 })
   const waiting = [resources.data?.reading, diagnostics.data?.reading, protection.data?.reading, ...(models.data?.keys.map(k => k.reading) ?? [])].some(r => r?.waiting)
+  const headObservation = useDeploymentStatus(slug, e).observation
   const place = e.target ? placeWords(e.target.title, e.target.vendor, e.target.region) : 'not bound'
   const meta = [
     `${place}${e.target ? ` (${e.target.displayLabel || e.target.name})` : ''}`,
     e.feed === 'landing' ? 'updates on every change' : 'updates when released',
     e.audience === 'team' ? 'team only' : e.audience,
     `${e.data === 'synthetic' ? 'test' : e.data} data`,
-    e.generation ? `generation ${e.generation}` : '',
   ].filter(Boolean).join(' · ')
   // The row's one action: settle an uncertain deployment first; otherwise
   // ship to one fed by promotion. One fed by landing needs neither.
@@ -126,21 +176,19 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
     : null
   return (
     <div className="card deploy-entry">
-      <div className="row deploy-head">
-        <span className="row-status deploy-status">
-          <RuntimeStatus observation={e} />
-          {e.readiness && e.readiness !== 'reconciled' && <Status word={e.readinessLabel} help={`Deployment: ${e.readiness}.`} />}
-          {e.restoreCheck && <Status word={e.restoreLabel} help={restoreCheckWords(e.restoreCheck)} />}
-        </span>
-        <span className="deploy-name">
-          <strong>{e.displayLabel || e.name}</strong>
-          {e.protected && <span className="badge" style={{ marginLeft: 8 }} title="reaches partners or the public, or holds production data · deploys need the release grant">protected</span>}
-          <span className="muted small deploy-meta">{meta}</span>
-        </span>
-        <span className="deploy-address"><DeploymentFact slug={slug} env={e} /></span>
-        {action && <span className="row-action">{action}</span>}
-      </div>
-      <div className="deploy-lines small">
+      <header className="deploy-head">
+        <div className="row">
+          <h1>{e.displayLabel || e.name}</h1>
+          <div className="deploy-status">
+          <Status observation word={headObservation} staleAt={e.observationStale && headObservation !== 'unknown' ? e.observedAt : undefined} help={e.observation === 'unreachable' || e.observationIssue ? runtimeDescription(e) : undefined} />
+          {e.protected && <span className="badge" title="reaches partners or the public, or holds production data · deploys need the release grant">protected</span>}
+        </div>
+        </div>
+        <div className="deployment-address"><DeploymentFact env={e} /></div>
+      </header>
+      <div className="deploy-lines">
+        <DeploymentLine label="Runs on">
+          {meta}{' '}<TechnicalWords shown={technical}>{e.generation ? `generation ${e.generation}` : ''}</TechnicalWords>
         {waiting && e.lastApplied && <div className="muted">Checking after the release (since {fmtWhen(e.lastApplied.at)})</div>}
         {e.needs && e.needs.length > 0 && (
           <div>
@@ -156,13 +204,14 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
           </div>
         )}
         {e.target?.kind === 'portainer' && e.id && <DeploymentAddressEdit slug={slug} id={e.id} />}
-        {e.aiModels && e.aiModels.length > 0 && <AIModelsLine slug={slug} name={e.name} />}
-        {e.generation ? <ResourceLines slug={slug} name={e.name} /> : null}
+        </DeploymentLine>
         {e.generation ? <DiagnosticsLines slug={slug} name={e.name} /> : null}
+        {e.generation ? <ResourceLines slug={slug} name={e.name} /> : null}
+        {e.aiModels && e.aiModels.length > 0 && <AIModelsLine slug={slug} name={e.name} />}
         {(e.target?.kind === 'do-app' || e.target?.kind === 'docker-host') && <ProtectionLines slug={slug} name={e.name} />}
-        {e.restoreCheck && <div>{restoreCheckWords(e.restoreCheck)}</div>}
+        {e.restoreCheck && <DeploymentLine label="After restore"><Status word={e.restoreLabel} /> {restoreCheckWords(e.restoreCheck)}</DeploymentLine>}
         {e.dataAfterRestore && (
-          <div>
+          <DeploymentLine label="Data after restore">
             {e.dataAfterRestore.state === 'waiting' && <>Its data from {PRODUCT}'s backup goes back in when it is rebuilt, before the app starts.</>}
             {e.dataAfterRestore.state === 'filled' && <>Its data came back from {PRODUCT}'s backup{e.dataAfterRestore.set ? <> (set {e.dataAfterRestore.set})</> : null} before the app started.</>}
             {e.dataAfterRestore.state === 'failed' && (
@@ -171,17 +220,42 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
                 {e.dataAfterRestore.set ? <> Once it runs, restore set {e.dataAfterRestore.set} from its backups.</> : null}
               </span>
             )}
-          </div>
+          </DeploymentLine>
         )}
+        {e.readiness && e.readiness !== 'reconciled' && e.readiness !== 'uncertain' && <DeploymentLine label="Readiness"><Status word={e.readinessLabel} /><TechnicalWords shown={technical}>Deployment: {e.readiness}.</TechnicalWords></DeploymentLine>}
         {e.readiness === 'uncertain' && (
-          <div>
+          <DeploymentLine label="Readiness">
+            <Status word={e.readinessLabel} />{' '}
             {PRODUCT} does not know whether this deployment stands: its last attempt was cut off, or its
             records disagree. Check again asks its host and settles what it finds; it deploys nothing.
-          </div>
+          </DeploymentLine>
         )}
+        {checked && (
+          <DeploymentLine label="Check results">
+            {checked.checked.map((c) => (
+              <div key={c.attempt}>attempt {c.attempt}: {c.outcome}{c.reason ? ` · ${c.reason}` : ''}</div>
+            ))}
+          </DeploymentLine>
+        )}
+        {torn && 'operationId' in torn && (
+          <DeploymentLine label="Take-down">
+            Taking it down: the app goes first so nothing writes, then a final copy is taken and checked before the database
+            cluster is deleted. <Link to={`/operations/${torn.operationId}`}>Follow it</Link>.
+          </DeploymentLine>
+        )}
+        {torn && !('operationId' in torn) && (
+          <DeploymentLine label="Take-down">
+            Taken down.
+            {torn.finalBackup && <> Its data is in a final backup ({fmtBytes(torn.finalBackup.bytes)}), kept with the project.</>}
+            {torn.deleted.length > 0 && <> Deleted: {torn.deleted.join('; ')}.</>}
+            {torn.orphans.length > 0 ? <> Left at the target: {torn.orphans.join('; ')}.</> : ' Nothing was left behind.'}
+          </DeploymentLine>
+        )}
+        <DeploymentLine label="Checked">{(diagnostics.data?.reading?.observedAt || e.observedAt) ? <>{fmtStamp(diagnostics.data?.reading?.observedAt || e.observedAt!)}{diagnostics.data?.reading?.stale || e.observationStale ? ' (old)' : ''}</> : 'Not checked yet.'}</DeploymentLine>
         <div className="row deploy-more">
+          {action}
           <DisplayLabelEdit value={e.displayLabel || e.name} machineKey={e.name} path={`/projects/${slug}/deployments/${e.id}/label`} onChanged={onChanged} />
-          <Link to={`/projects/${slug}/releases`}>releases</Link>
+          <Link to={`/projects/${slug}/releases`}>Releases →</Link>
           {e.name !== 'main' && !torn && (
             <QuietConfirm key={known ? 'known' : 'unknown'} label="Tear down" disabled={!known}
               title={known ? undefined : 'reading what a take-down would do to its data…'}
@@ -191,39 +265,14 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
           )}
           {err && <span className="error small">{err}</span>}
         </div>
-        {checked && (
-          <div>
-            {checked.checked.map((c) => (
-              <div key={c.attempt}>attempt {c.attempt}: {c.outcome}{c.reason ? ` · ${c.reason}` : ''}</div>
-            ))}
-          </div>
-        )}
-        {torn && 'operationId' in torn && (
-          <div>
-            Taking it down: the app goes first so nothing writes, then a final copy is taken and checked before the database
-            cluster is deleted. <Link to={`/operations/${torn.operationId}`}>Follow it</Link>.
-          </div>
-        )}
-        {torn && !('operationId' in torn) && (
-          <div>
-            Taken down.
-            {torn.finalBackup && <> Its data is in a final backup ({fmtBytes(torn.finalBackup.bytes)}), kept with the project.</>}
-            {torn.deleted.length > 0 && <> Deleted: {torn.deleted.join('; ')}.</>}
-            {torn.orphans.length > 0 ? <> Left at the target: {torn.orphans.join('; ')}.</> : ' Nothing was left behind.'}
-          </div>
-        )}
       </div>
     </div>
   )
 }
 
-// Disk warnings replace the address; memory overcommit is shown by ShareLine.
-function DeploymentFact({ slug, env }: { slug: string; env: DeploymentView }) {
-  const q = useGet<DeploymentResources>(env.generation ? `/projects/${slug}/deployments/${env.name}/resources` : null)
-  const share = q.data?.share
-  const warning = share?.diskRefuses ? 'Free disk space before deploying' : share?.lowDisk ? 'Server is low on disk space' : ''
-  return <span className="small muted">{warning && share ? <Link to={`/infrastructure/${share.target}`}>{warning}</Link>
-    : env.url ? <AppAddress url={env.url} hostOnly={env.hostOnly}>{env.hostOnly ? null : env.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</AppAddress> : 'no address yet'}</span>
+// The address stays available when resource warnings need attention.
+function DeploymentFact({ env }: { env: DeploymentView }) {
+  return <span className="muted">{env.url ? <AppAddress url={env.url} hostOnly={env.hostOnly}>{env.hostOnly ? null : env.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</AppAddress> : 'no address yet'}</span>
 }
 
 function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choices: OfferedTarget[]; existing: string[]; onDone: (added: boolean) => void }) {
@@ -376,17 +425,16 @@ function AIModelsLine({ slug, name }: { slug: string; name: string }) {
   const q = useGet<DeploymentAIModels>(`/projects/${slug}/deployments/${name}/ai-models`)
   if (q.denied) return null
   return (
-    <div className="small">
-      <span className="muted">AI models</span>{' '}
+    <DeploymentLine label="AI models"><div>
       {q.loading ? <span className="muted">reading the allowance…</span>
         : !q.data ? <span className="error">allowance unknown · {q.err || 'no answer'}</span>
         : q.data.keys.map((k) => (
           <span key={k.name} title={`OpenRouter key ${k.name}`} style={{ marginRight: 8 }}>
-            {k.allowance ? allowanceWords(k) : <span className="muted">{allowanceWords(k)}</span>} <BackgroundReading reading={k.reading} />
+            {k.allowance ? allowanceWords(k) : <span className="muted">{allowanceWords(k)}</span>} {k.reading?.stale && <span className="muted">(old)</span>} {k.reading?.failure}
           </span>
         ))}
       <StaleNote q={q} inline />
-    </div>
+    </div></DeploymentLine>
   )
 }
 
@@ -410,8 +458,8 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
   const [reason, setReason] = useState('')
   const [said, setSaid] = useState('')
   if (q.denied) return null
-  if (q.loading) return <div className="muted small">reading its resources…</div>
-  if (!q.data) return <div className="error small">resources unknown · {q.err || 'no answer'}</div>
+  if (q.loading) return <DeploymentLine label="Resources"><span className="muted">reading its resources…</span></DeploymentLine>
+  if (!q.data) return <DeploymentLine label="Resources"><span className="error">resources unknown · {q.err || 'no answer'}</span></DeploymentLine>
   const r = q.data
   const parts = r.parts.filter((p) => p.part && !p.suppliedService)
   const picked = parts.find((p) => p.part === part)?.part || parts[0]?.part
@@ -432,12 +480,11 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
   }
   const clear = async (p: string) => done(await run(() => del<OverrideResult>(`/projects/${slug}/deployments/${name}/resources`, { part: p, reason: 'cleared by hand' })))
   return (
-    <div className="small">
+    <DeploymentLine label="Resources"><div>
+      {r.reading?.stale && <div className="muted">Last values (old)</div>}
       <ShareLine share={r.share} old={r.reading?.waiting} />
-      <BackgroundReading reading={r.reading} />
-      <details><summary>Resources</summary>
-      {r.parts.map(p => <p key={p.part || 'app'}>{p.need ? 'Database' : p.part || 'App'}: {p.observed.known ? `uses ${fmtBytes(p.observed.usedBytes)}${p.observed.limitBytes > 0 ? ` of ${fmtBytes(p.observed.limitBytes)}` : ''}` : 'Memory use not available'}</p>)}
-      <details><summary>Limits and settings</summary>
+      {r.reading?.failure && <div className="muted">{r.reading.failure}</div>}
+
       <div>
         <span className="muted">profile</span>{' '}
         {r.recorded ? <><b>{r.profile}</b> <span className="muted">({howWords[r.how || ''] || r.how})</span></> : <span className="muted">not recorded</span>}
@@ -449,17 +496,8 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
         )}
         {mine && r.recorded && mine.chosen !== r.profile && <span className="badge" style={{ marginLeft: 6 }} title="takes effect at the next deploy">next: {mine.chosen}</span>}
       </div>
-      <table className="small" style={{ marginTop: 2 }}>
-        <thead><tr><th>part</th><th>memory</th><th>cpu</th><th>using now</th><th></th></tr></thead>
-        <tbody>
-          {r.parts.map((p) => (
-            <tr key={p.part || 'app'}>
-              <td>{p.part || 'app'}{p.public && p.part ? <span className="muted"> (front door)</span> : null}{p.need ? <span className="muted"> (service)</span> : null}{p.suppliedService ? <span className="muted"> (workflow service)</span> : null}</td>
-              {/* 'forge' is AppTown's default as generations from before the AppTown rename recorded it. */}
-              <td>{p.memory}{p.size && <div className="muted">size {p.size}</div>}{p.memoryDefault && <div className="muted">{p.memoryDefault.kind === 'catalogue' ? `catalogue ${p.memoryDefault.name}` : (p.memoryDefault.kind === 'apptown' || p.memoryDefault.kind === 'forge') ? PRODUCT : p.memoryDefault.kind} default</div>}{p.memoryUnlimited && <span className="badge">explicit no limit</span>}{p.runsOn && <div className="muted">{p.runsOn}</div>}</td>
-              <td>{p.cpu}</td>
-              <td>{p.observed.known ? fmtBytes(p.observed.usedBytes) : <span className="muted" title={p.observed.reason}>unknown</span>}</td>
-              <td>
+      {r.parts.map(p => <div key={p.part || 'app'} className="deploy-resource-part">
+        <b>{p.part || 'app'}</b>{p.public && p.part ? ' (front door)' : ''}{p.need ? ' (service)' : ''}{p.suppliedService ? ' (workflow service)' : ''}: memory {p.memory}{p.size && <span className="muted deploy-fact">size {p.size}</span>}{p.memoryDefault && <span className="muted deploy-fact">{p.memoryDefault.kind === 'catalogue' ? `catalogue ${p.memoryDefault.name}` : (p.memoryDefault.kind === 'apptown' || p.memoryDefault.kind === 'forge') ? PRODUCT : p.memoryDefault.kind} default</span>}{p.memoryUnlimited && <span className="badge">explicit no limit</span>}{p.runsOn && <span className="muted deploy-fact">{p.runsOn}</span>} · CPU {p.cpu} · {p.observed.known ? `uses ${fmtBytes(p.observed.usedBytes)}${p.observed.limitBytes > 0 ? ` of ${fmtBytes(p.observed.limitBytes)}` : ''}` : <span className="muted" title={p.observed.reason}>Memory use unknown</span>}
                 {p.override && (
                   <span><Status word={p.overrideLabel} help={`${p.override.reason} · ${p.override.setBy}, ${p.override.setAt}`} />{' '}
                     override {p.override.memoryUnlimited ? "no memory limit " : ""}{p.override.resources.memoryBytes ? fmtBytes(p.override.resources.memoryBytes) : ''}{p.override.resources.cpus ? ` ${p.override.resources.cpus} cpu` : ''}
@@ -467,11 +505,7 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
                   </span>
                 )}
                 {p.override && !p.suppliedService && <button className="link small" disabled={busy || r.reading?.unknown} onClick={() => clear(p.part)}>clear</button>}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      </div>)}
       {r.parts.some((p) => p.suppliedService) && <div className="muted">Workflow service limits are set in the workflow service declaration.</div>}
       <LimitEventLines r={r} />
       {parts.length > 0 && !open && !r.reading?.unknown && <button className="link small" onClick={() => setOpen(true)}>Override memory…</button>}
@@ -491,8 +525,8 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
       {said && <div className="muted">{said}</div>}
       {err && <div className="error">{err}</div>}
       <StaleNote q={q} inline />
-      </details></details>
-    </div>
+
+    </div></DeploymentLine>
   )
 }
 
@@ -512,16 +546,17 @@ export function timesWords(n: number): string {
 // the target reports none, it says so, so an empty list is never read as
 // "nothing happened".
 export function LimitEventLines({ r }: { r: DeploymentResources }) {
-  if (!r.limitsKnown) return <div className="muted">limit events: {r.limitsSource}</div>
+  const [technical] = useTechnicalDetail()
+  if (!r.limitsKnown) return <div className="muted">Limit events were not reported. <TechnicalWords shown={technical}>{r.limitsSource}</TechnicalWords></div>
   if (r.limits.length === 0) return <div className="muted" title={r.limitsSource}>no out-of-memory kills or exits recorded in the last day</div>
   return (
-    <ul className="small" style={{ margin: '2px 0', paddingLeft: 16 }} title={r.limitsSource}>
+    <div title={r.limitsSource}>
       {r.limits.map((l) => (
-        <li key={`${l.part}/${l.kind}`}>
+        <div key={`${l.part}/${l.kind}`}>
           <b>{l.part || 'app'}</b>: {limitKindWords[l.kind] || l.kind}, {timesWords(l.count)} in the last day <span className="muted">(last {fmtWhen(l.last)})</span>
-        </li>
+        </div>
       ))}
-    </ul>
+    </div>
   )
 }
 
@@ -529,11 +564,12 @@ export function LimitEventLines({ r }: { r: DeploymentResources }) {
 // limits and its use against the host's memory, and the host's state;
 // on an elastic target, that it grows.
 export function ShareLine({ share, old }: { share?: DeploymentResources['share']; old?: boolean }) {
+  const [technical] = useTechnicalDetail()
   if (!share) return null
   if (share.elastic) return <div className="muted">on {share.target}, which grows on demand</div>
   return <div>
     {!share.readAt && !share.error && <div className="muted small">Waiting for the first host check.</div>}
-    {share.readAt && <div className="muted small">Host read {fmtStamp(share.readAt)}{old ? ' (old)' : ''}</div>}
+    {share.readAt && <TechnicalWords shown={technical}>Host read {fmtStamp(share.readAt)}{old ? ' (old)' : ''}</TechnicalWords>}
     {(share.error || (share.stale && share.readAt)) && <p className={old ? "muted small" : "error small"}>{share.error || "The host reading is out of date."}</p>}
     {share.overcommitted && share.requested?.known && share.hostMemory.known && <p className="capacity-warning">{fmtBytes(share.requested.value)} requested; host total {fmtBytes(share.hostMemory.value)}. <Link to={`/infrastructure/${share.target}`}>Review server</Link></p>}
     {share.diskRefuses ? <p className={old ? "muted" : "error"}>Server is short on disk space. New deployments are blocked.</p>

@@ -9,7 +9,7 @@ import { newQueryClient } from '../../data'
 import type { ChangeView, Step } from '../../api'
 import { StatePanel, recoveryNote } from './StatePanel'
 import { HeldDecision, heldLabels } from './HeldDecision'
-import { viewerTurn } from './Turn'
+;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 beforeEach(() => vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} }))
 const CHANGE = '00000000-0004-7000-8000-000000000000'
 describe('held runs offer recovery rather than an approval', () => {
@@ -36,44 +36,41 @@ describe('held runs offer recovery rather than an approval', () => {
     </QueryClientProvider></MemoryRouter>)
     return el
   }
-  it('shows the reason once and the offered buttons after three rounds, despite a later pending approval', () => {
-    expect(viewerTurn(held())).toBe(true)
-    const el = markup(held())
-    expect(el.querySelector('.ch-headline')?.textContent).toBe('Waiting for a person')
-    expect(el.textContent).toContain('The reviewer rejected this change.')
-    expect(el.querySelector('p')?.textContent).not.toContain('review-change')
-    expect(el.textContent?.match(/The page never loaded\./g)).toHaveLength(1)
-    expect(el.textContent?.match(/The screenshot shows the loading screen\./g)).toHaveLength(1)
-    expect(el.textContent).not.toContain('loaded..')
-    expect(el.textContent).not.toContain('Open the decision')
-    expect(el.textContent).not.toContain('or abandon it')
-    expect(el.querySelector('.ch-decision-choices')?.lastElementChild?.textContent).toBe('Abandon change')
-    expect([...el.querySelectorAll('button.primary')].map(b => b.textContent)).toEqual(['Accept it anyway'])
-    expect([...el.querySelectorAll('button')].find(b => b.textContent === 'Accept it anyway')?.className).toBe('primary')
-    expect([...el.querySelectorAll('.ch-decision-choices button')].map((b) => b.textContent)).toEqual(['Accept it anyway', 'Take it to chat', 'Fix it', 'Try again', 'Stop this attempt', 'Abandon change'])
-  })
-  it.each([['chat', 3, 'Take it to chat'], ['fix', 0, 'Fix it'], ['retry', 0, 'Try again'], ['recheck', 0, 'Re-check']] as const)('keeps one existing primary without acceptance: %s', (kind, rounds, primary) => {
-    const v = held(rounds)
-    v.detail!.next = v.detail!.next.filter(a => a.act !== 'override')
-    if (kind === 'retry' || kind === 'recheck') v.next = [{ act: 'abandon' }] as ChangeView['next']
-    if (kind === 'recheck') v.detail!.steps[1].type = 'artifact/require'
-    const el = markup(v)
-    expect([...el.querySelectorAll('button.primary')].map(b => b.textContent)).toEqual([primary])
-    const labels = ['Take it to chat', ...(kind === 'chat' || kind === 'fix' ? ['Fix it'] : []), kind === 'recheck' ? 'Re-check' : 'Try again', 'Stop this attempt', 'Abandon change']
-    expect([...el.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(labels)
-    expect(heldLabels(v)).toEqual(labels)
-    expect(el.querySelector('button.danger')?.textContent).toBe('Abandon change')
-  })
-
-  it('highlights only the first acceptance when several checks offer exceptions', () => {
+  it.each([
+    ['review rejection', 'agent/review', 'fail', 'override', 'Accept anyway'],
+    ['failed check', 'script', 'fail', 'override', 'Accept anyway'],
+    ['could not run', 'script', 'error', 'retry', 'Try again'],
+    ['record required', 'artifact/require', 'needs_human', 'retry', 'Re-check'],
+    ['decision required', 'adr/require', 'fail', 'retry', 'Re-check'],
+    ['merge required', 'scm/merged', 'fail', 'retry', 'Re-check'],
+  ])('offers three ordered decisions and one highlighted forward act: %s', (_name, type, status, forward, label) => {
     const v = held()
-    v.detail!.next.reverse()
-    v.detail!.next.push({ act: 'override', stepId: 'agent', step: 'apply-change' })
+    Object.assign(v.detail!.steps[1], { type, status })
+    v.detail!.next = [{ act: forward, stepId: 'review' }, { act: 'rework', stepId: 'agent' }] as ChangeView['next']
     const el = markup(v)
-    expect([...el.querySelectorAll('button.primary')].map(b => b.textContent)).toEqual(['Accept it anyway'])
-    const labels = ['Accept it anyway', 'Accept it anyway', 'Take it to chat', 'Fix it', 'Try again', 'Stop this attempt', 'Abandon change']
+    const labels = [label, 'Send back…', 'Abandon change']
     expect([...el.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(labels)
     expect(heldLabels(v)).toEqual(labels)
+    expect([...el.querySelectorAll('.ch-decision-choices button')].map(b => b.className)).toEqual(['primary', '', 'danger'])
+    expect(el.querySelector('input, details')).toBeNull()
+    expect(el.textContent).not.toContain('Stop this attempt')
+    expect(el.querySelector('a')?.textContent).toBe('Open the conversation →')
+  })
+  it('selects only one offered forward act and never retries a reviewer rejection', () => {
+    const v = held()
+    expect(heldLabels(v)).toEqual(['Accept anyway', 'Send back…', 'Abandon change'])
+    v.detail!.next = v.detail!.next.filter(a => a.act !== 'override')
+    expect(heldLabels(v)).toEqual(['Send back…', 'Abandon change'])
+    v.next = []
+    v.detail!.next = []
+    expect(heldLabels(v)).toEqual([])
+    expect(markup(v).querySelector('button')).toBeNull()
+  })
+  it('uses the existing primary when more than one forward act is eligible', () => {
+    const v = held(0)
+    v.next = []
+    v.detail!.steps[1].type = 'artifact/require'
+    expect(heldLabels(v)).toEqual(['Re-check', 'Send back…'])
   })
 
   it('keeps the full failure output and requested human actions in the send-back note', () => {
@@ -85,71 +82,55 @@ describe('held runs offer recovery rather than an approval', () => {
     expect(note.match(/full log/g)).toHaveLength(60)
     expect(note).toContain('Bind the missing secret')
   })
-  it('keeps a long remaining reason open and offers only the acts supplied', () => {
-    const v = held(0)
-    v.detail!.steps[1].evidence.reason += ' More details.'.repeat(50)
-    expect(markup(v).querySelector('details')).toBeNull()
-    expect(markup(v).textContent?.match(/More details\./g)).toHaveLength(50)
-    expect([...markup(v).querySelectorAll('button.primary')].map(b => b.textContent)).toEqual(['Accept it anyway'])
-    v.next = []
-    v.detail!.next = [{ act: 'retry', stepId: 'review', step: 'review-change' }]
-    const el = markup(v)
-    expect(el.querySelector('button')?.textContent).toBe('Try again')
-    for (const absent of ['Fix it', 'Take it to chat', 'Accept it anyway', 'Abandon change']) expect(el.textContent).not.toContain(absent)
-    v.next = [{ act: 'abandon', stepId: null, step: '' }]
-    v.detail!.next = []
-    expect(viewerTurn(v)).toBe(true)
-    expect([...markup(v).querySelectorAll('button')].at(-1)?.textContent).toBe('Abandon change')
-    v.next = []
-    v.detail!.next = [{ act: 'override', stepId: 'review', step: 'review-change' }]
-    expect(markup(v).querySelector('button')?.textContent).toBe('Accept it anyway')
-  })
-
-  it('sends the failure as the note, retries the offered step, and continues the offered agent in chat', async () => {
+  it('prefills recovery, cancels exactly, sends feedback and keeps stuck-agent continuation behind the link', async () => {
     const sent: { url: string; body: unknown }[] = []
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
       if (init?.method === 'POST') sent.push({ url, body: init.body ? JSON.parse(String(init.body)) : undefined })
-      return new Response(JSON.stringify(init?.method === 'POST' ? { session: { id: 'chat' } } : { sessions: [] }))
+      return new Response(JSON.stringify({ session: { id: 'chat' } }))
     }))
     const el = document.createElement('div'), root = createRoot(el), client = newQueryClient()
+    document.body.append(el)
+    const v = held()
+    const draw = async () => act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><HeldDecision view={v} onChange={() => {}} /></QueryClientProvider></MemoryRouter>))
+    const click = async (text: string) => act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === text)!.click())
     try {
-      await act(async () => { root.render(<MemoryRouter><QueryClientProvider client={client}>
-        <HeldDecision view={held()} onChange={() => {}} />
-      </QueryClientProvider></MemoryRouter>) })
-      const click = async (text: string) => {
-        await act(async () => { await new Promise(r => setTimeout(r, 0)) })
-        await act(async () => { [...el.querySelectorAll('button')].find((b) => b.textContent === text)!.click() })
-        await act(async () => { await new Promise(r => setTimeout(r, 0)) })
-      }
-      await click('Fix it')
-      expect(sent[0].url).toContain(`/changes/${CHANGE}/sendback`)
-      expect(sent[0].body).toEqual({ note: recoveryNote(held().detail!) })
-      await click('Try again')
-      expect(sent[1].url).toContain('/steps/review/run')
-      await click('Accept it anyway')
+      await draw()
+      const initial = el.querySelector('.ch-decision-choices')!.innerHTML
+      await click('Send back…')
+      expect(el.querySelector('textarea')!.value).toBe(recoveryNote(v.detail!))
+      expect(document.activeElement).toBe(el.querySelector('textarea'))
+      await click('Cancel')
+      expect(el.querySelector('.ch-decision-choices')!.innerHTML).toBe(initial)
+      await click('Send back…'); await click('Send to agent')
+      expect(sent.pop()).toEqual({ url: `/api/v1/changes/${CHANGE}/sendback`, body: { note: recoveryNote(v.detail!) } })
+      await click('Cancel')
+      await click('Accept anyway')
+      expect(el.querySelector('button.primary')!.hasAttribute('disabled')).toBe(true)
+      expect(el.querySelectorAll('button')).toHaveLength(2)
       await act(async () => {
         const input = el.querySelector<HTMLInputElement>('input[placeholder="Why (required)"]')!
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'Checked by hand')
         input.dispatchEvent(new Event('input', { bubbles: true }))
       })
-      await click('Accept it anyway')
-      expect(sent[2].url).toContain('/steps/review/override')
-      expect(sent[2].body).toMatchObject({ reason: 'Checked by hand' })
-      await click('Take it to chat')
-      expect(sent[3]).toEqual({ url: '/api/v1/projects/fieldnotes/console', body: { changeId: CHANGE, continueStep: 'agent' } })
-      await click('Abandon change')
-      expect(sent).toHaveLength(4)
-      await click('Abandon')
-      expect(sent[4]).toEqual({ url: `/api/v1/changes/${CHANGE}/abandon`, body: {} })
-      await click('Stop this attempt')
-      await click('Yes')
-      expect(sent[5]).toEqual({ url: '/api/v1/runs/run/abandon', body: { reason: 'stopped from the change page' } })
-    } finally {
-      await act(async () => root.unmount())
-      client.clear()
-      vi.unstubAllGlobals()
-    }
+      await click('Accept anyway')
+      expect(sent.pop()).toMatchObject({ url: '/api/v1/steps/review/override', body: { reason: 'Checked by hand' } })
+      await act(async () => el.querySelector('a')!.click())
+      expect(sent.pop()).toEqual({ url: '/api/v1/projects/fieldnotes/console', body: { changeId: CHANGE, continueStep: 'agent' } })
+      // A rework-only offer uses the existing step-run feedback contract.
+      v.next = []
+      await draw(); await click('Send back…'); await click('Send to agent')
+      expect(sent.pop()).toEqual({ url: '/api/v1/steps/agent/run', body: { feedback: recoveryNote(v.detail!) } })
+      await click('Cancel')
+      v.detail!.next = [{ act: 'retry', stepId: 'review' }] as ChangeView['next']
+      Object.assign(v.detail!.steps[1], { type: 'script', status: 'error' })
+      await draw(); await click('Try again')
+      expect(sent.pop()?.url).toBe('/api/v1/steps/review/run')
+      Object.assign(v.detail!.steps[1], { type: 'artifact/require', status: 'needs_human' })
+      await draw(); await click('Re-check')
+      expect(sent.pop()?.url).toBe('/api/v1/steps/review/run')
+    } finally { await act(async () => root.unmount()); el.remove(); client.clear(); vi.unstubAllGlobals() }
   })
+
 })
 
 it.each([false, true])('retains the complete reviewer text and leads with structured findings when supplied (%s)', findings => {
@@ -157,7 +138,7 @@ it.each([false, true])('retains the complete reviewer text and leads with struct
   const v = {
     change: { state: 'in_progress' }, state: 'waiting on you', next: [{ act: 'abandon' }],
     detail: { run: { currentStage: 'apply', status: 'running' }, next: [], events: [], steps: [
-      { id: 'review', name: 'review-change', type: 'agent/review', stage: 'apply', status: 'fail', config: {}, evidence: { summary: text, ...(findings ? { findings: ['Two projects lack the rule.'] } : {}) } },
+      { id: 'review', name: 'review-change', type: 'agent/review', stage: 'apply', status: 'fail', config: {}, evidence: { reason: `reviewer rejected: ${text}`, summary: text, ...(findings ? { findings: ['Two projects lack the rule.'] } : {}) } },
     ] },
   } as unknown as ChangeView
   const el = document.createElement('div')

@@ -6,7 +6,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { NotAvailable, useInstancePages } from '../instancePages'
-import { runtimeDescription } from '../runtime'
+import { FleetDeploymentStatus } from '../deploymentStatus'
 import { fmtDay, fmtStamp, lastSeen } from '../format'
 import { InfrastructureView } from './Infrastructure'
 import { BackupsView } from './Backups'
@@ -132,16 +132,12 @@ function FleetTable() {
   const SHOW_LABEL: Record<Show, string> = { all: 'All', running: 'Running', stopped: 'Stopped', nowhere: 'Not deployed' }
 
   const placements = (r: Row) => tiers.filter(t => !t.future).flatMap(t => r.cells[t.name] ?? [])
-  // The row's status is the app's own observation (the deployment owner
-  // classifies it); an app with only previews uses its first placement's.
-  // The time it was read goes in the meta line, once.
+  // Use the deployment read and diagnostics shared by its project pages.
+  // The first current placement represents an app with several deployments.
   const state = (r: Row) => {
     const apps = placements(r)
     if (apps.length === 0) return <span className="muted">Not deployed</span>
-    const project = projects.find(p => p.slug === r.slug)
-    const o = project?.deployed ? project : apps[0]
-    // An old reading says when it was seen, never plain working.
-    return <Status observation word={o.observation} staleAt={o.observationStale && o.observation !== 'unknown' ? o.observedAt : undefined} help={o.observation === 'unreachable' || o.observationIssue ? runtimeDescription(o) : undefined} />
+    return <FleetDeploymentStatus slug={r.slug} id={apps[0].deploymentId} />
   }
   const meta = (r: Row) => {
     const apps = placements(r)

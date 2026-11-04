@@ -1,3 +1,4 @@
+@import "../../overview-line.css";
 /* The change page keeps its headings and tab strip on the page. */
 .ch-page .ch-head { border-bottom: 0; padding-bottom: 0; }
 .ch-page .ch-byline { font-size: var(--fs-sm); color: var(--muted); font-family: var(--font-sans); }
@@ -163,7 +164,7 @@
 /* Shared columns keep values and their evidence links aligned across rows. */
 .ch-change-card, .ch-page .ch-decision { border: 1px solid var(--border); border-radius: 8px; background: var(--panel); padding: 20px; margin: 0 0 20px; min-width: 0; }
 .ch-overview h2 { font-size: 18px; margin: 0 0 16px; }
-.ch-overview-line { display: grid; grid-template-columns: 9rem minmax(0, 1fr) 12rem; align-items: start; gap: 16px; margin: 0; padding: 16px 0; border-top: 1px solid var(--border); }
+
 .ch-row-label { color: var(--muted); }
 .ch-value { min-width: 0; overflow-wrap: anywhere; }
 .ch-value > .ch-technical, .ch-value .ch-check-exception > .ch-technical, .ch-items-table .ch-technical { display: block; overflow-wrap: anywhere; }
@@ -187,7 +188,6 @@
 .ch-check-actions > a { display: block; font-size: var(--fs-sm); color: var(--muted); margin-top: 4px; }
 @media (max-width: 600px) {
   .ch-change-card, .ch-page .ch-decision { padding: 14px; }
-  .ch-overview-line { grid-template-columns: minmax(0, 1fr); gap: 6px; }
   .decision-bottom { flex-direction: column; gap: 12px; }
   .ch-items-table th, .ch-items-table td { padding: 8px 3px; font-size: 12px; }
   .ch-items-table .ch-check-duration { width: 2.5rem; }
@@ -201,7 +201,7 @@
 .ch-page section.ch-state.tone-warn { background: var(--warn-bg); border-color: var(--warn-mark); }
 .ch-page .ch-decision.ch-your-turn { border-left: 4px solid var(--warn-mark); }
 .ch-turn-label { color: var(--warn); font-size: var(--fs-sm); margin-bottom: 6px; }
-.ch-decision-choices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 8px; margin-top: 12px; }
+.ch-decision-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 8px; margin-top: 12px; }
 .ch-decision-choices button { width: 100%; min-width: 0; white-space: normal; padding: 10px 8px; }
 .ch-decision .decision-form > input, .ch-decision > input { width: 100%; box-sizing: border-box; }
 .ch-inline-confirm { margin-top: 12px; flex-wrap: wrap; }
@@ -324,7 +324,7 @@
 .ch-decision-screen { box-sizing: border-box; width: min(960px, calc(var(--page-width, 100vw) - 32px)); margin-left: calc(var(--page-left, 0px) + (var(--page-width, 100vw) - min(960px, calc(var(--page-width, 100vw) - 32px))) / 2); margin-right: auto; max-height: calc(100dvh - 48px); padding: 28px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow-y: auto; }
 .ch-decision-screen::backdrop { background: var(--overlay); }
 .ch-decision-screen header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
-.ch-decision-screen .ch-decision-choices { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ch-decision-screen .ch-decision-choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .ch-decision-screen input { width: 100%; box-sizing: border-box; }
 .ch-decision-screen .decision-meaning { margin-top: 16px; }
 @media (max-width: 600px) {
@@ -376,3 +376,17 @@
 
 .ch-review-text { white-space: pre-wrap; }
 .ch-tabs-sheet { box-sizing: border-box; }
+
+.ch-decision-slot { display: flow-root; }
+.ch-send-back { padding-top: 12px; }
+.ch-send-back h3 { margin: 0 0 8px; }
+.ch-send-back textarea { width: 100%; box-sizing: border-box; margin-bottom: 8px; }
+
+/* The checks shield: clear green when ready, clear red when a check failed. */
+.ch-shield { display: inline-flex; align-items: center; gap: 6px; margin-left: 16px; padding: 3px 10px; border-radius: 999px; font-size: var(--fs-sm); font-weight: 600; text-decoration: none; border: 1px solid currentColor; }
+.ch-shield.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+.ch-shield.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+.ch-shield.unknown { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.ch-shield.neutral { color: var(--muted); }
+.ch-overview-line.ch-line-bad { border-left: 4px solid var(--bad); background: color-mix(in srgb, var(--bad) 8%, transparent); padding-left: 12px; margin-left: -16px; }
+.ch-bad-text { color: var(--bad); }

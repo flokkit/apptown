@@ -94,7 +94,9 @@ describe('each data operation follows its own answer', () => {
     expect(button(el, 'Check it comes back')?.disabled).toBe(true)
     expect(button(el, 'Test a restore here')?.disabled).toBe(true)
     expect(button(el, 'Test a restore')?.disabled).toBe(false)
-    expect(el.textContent).toContain(noCopy.why)
+    expect(button(el, 'Check it comes back')?.title).toBe(noCopy.why)
+    expect(el.textContent).toContain('No backup yet: postgres database')
+    expect(el.textContent).not.toContain(noCopy.why)
     expect(el.textContent).not.toContain(why)
   })
 })
@@ -120,7 +122,7 @@ describe('a deployment on a Docker host', () => {
     expect(el.textContent).not.toContain('never checked to come back')
     expect(el.textContent).not.toContain('App Platform only')
     expect(el.textContent).toContain(onDisk.why)
-    const kept = Array.from(el.querySelectorAll('div')).filter((d) => d.textContent?.startsWith('Backups kept on this host ⚠')).pop()
+    const kept = Array.from(el.querySelectorAll('div')).filter((d) => d.textContent?.startsWith('Kept on this host only; it does not outlive its disk')).pop()
     expect(kept?.className).toBe('muted')
     expect(el.textContent).not.toContain(body.note)
   })
@@ -145,7 +147,7 @@ describe('what a Docker deployment card says it holds', () => {
     expect(text).not.toContain('this host')
   })
   it('says where the newest backup is', async () => {
-    expect(await read({ ...base, keptOn: 'host' })).toContain('Backups kept on this host')
+    expect(await read({ ...base, keptOn: 'host' })).toContain('Kept on this host only; it does not outlive its disk')
     expect(await read({ ...base, keptOn: 'store', offHost: true })).toContain('Backups kept in the backup store')
   })
   it('says it could not read what the deployment holds, rather than nothing', async () => {

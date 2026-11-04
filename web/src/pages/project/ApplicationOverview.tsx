@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { Status, STATUS_LIGHT } from '../../Status'
-import { AppAddress, RuntimeStatus } from '../../runtime'
+import { DeploymentStatus } from '../../deploymentStatus'
+import { AppAddress } from '../../runtime'
 import { fmtWhen } from '../../format'
 import type { Backup, DeploymentBackups, DeploymentView, ProjectDetail } from '../../wire.gen'
 import type { Release } from '../../api'
@@ -11,7 +12,6 @@ import { ActiveRunList, waitingWhy, type OverviewData } from '../../parts/runAct
 import { BigChangeBox, ReleaseRows } from './Overview'
 import { ScheduleRows } from './Schedules'
 import { Section } from '../../Section'
-import { PastChats } from '../change/Conversation'
 import './overview.css'
 
 type ActivityEntry = { id: string; when: string; number?: number; title: string; source: string; word: keyof typeof STATUS_LIGHT; to: string; help?: string; release?: { label: string; to: string } }
@@ -70,11 +70,11 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       {data?.open?.map(c => (
         <div key={c.changeId} className="card row" style={{ display: 'flex' }}>
           <Link to={`/changes/${c.changeId}`} className="row" style={{ display: 'flex', flex: 1 }}>
-            <span className="row-status"><Status word={c.statusLabel} reason={waitingWhy(c.statusLabel)} /></span>
+            <span className="row-status">{chatOpen(c) ? <Status word="chat open" /> : <Status word={c.statusLabel} reason={waitingWhy(c.statusLabel)} />}</span>
             <strong><span className="muted" style={{ fontWeight: 400 }}>#{c.changeNumber} </span>{c.title}</strong>
             {c.editing > 0 && <span className="muted small">{c.editing} file{c.editing === 1 ? '' : 's'} being edited</span>}
           </Link>
-          <span className="row-action"><Link to={`/changes/${c.changeId}`} className="btn">Open</Link></span>
+          <span className="row-action">{chatOpen(c) ? <Link to={`/projects/${slug}/console?change=${c.changeId}`} className="btn">Continue chat</Link> : <Link to={`/changes/${c.changeId}`} className="btn">Open</Link>}</span>
         </div>
       ))}
     </Section>
@@ -102,7 +102,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       {deploymentsQ.data && !deployments.length && <p className="muted">Not deployed yet.</p>}
       {deployments.map(d => (
         <div key={d.id} className="card row" style={{ display: 'flex' }}>
-          <span className="row-status"><RuntimeStatus observation={d} /></span>
+          <span className="row-status"><DeploymentStatus slug={slug} env={d} /></span>
           <strong>{d.displayLabel || d.name}</strong>
           <span className="muted small">
             {d.url ? <AppAddress url={d.url} hostOnly={d.hostOnly}>{d.url.replace(/^https?:\/\//, '')}</AppAddress> : 'no address yet'}
@@ -130,6 +130,8 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
         ? <p style={{ whiteSpace: 'pre-wrap', margin: '12px 0' }}><span className="muted small" style={{ display: 'block', marginBottom: 4 }}>What was first asked for</span>{project.originalRequest}</p>
         : <p className="muted">No original request recorded.</p>}
     </Section>
-    <PastChats slug={slug} section />
   </div>
 }
+
+// An open change with no run yet is worked in its chat: say so, not "waiting".
+const chatOpen = (c: { state: string; statusLabel: string }) => c.state === 'in_progress' && c.statusLabel === 'waiting'

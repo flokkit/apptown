@@ -51,7 +51,7 @@ export function landingMeansFor(detail: { stages: string[]; landingMeans: string
   return step.type === 'approval' && step.stage === last && detail.landingMeans.length > 0 ? detail.landingMeans : undefined
 }
 
-export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, approveLabel = 'Approve', rejectLabel = 'Reject', placeholder = 'comment (optional)', compact, overview, chat, abandon, stopLanding, externalBusy = false }: {
+export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, approveLabel = 'Approve', rejectLabel = 'Reject', placeholder = 'comment (optional)', compact, overview, conversation, canSendBack, abandon, externalBusy = false }: {
   stepId: string
   means?: string; instructions?: string
   // alsoMeans: what the landing's approvals say. Accepting counts for them
@@ -62,9 +62,9 @@ export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, a
   rejectLabel?: string
   placeholder?: string
   // compact: inline in a list row — subtle buttons, no headline.
-  chat?: DecisionChoice
+  conversation?: { href: string; run?: () => unknown }
+  canSendBack?: boolean
   abandon?: DecisionChoice
-  stopLanding?: boolean
   externalBusy?: boolean
   overview?: boolean
   compact?: boolean
@@ -85,7 +85,7 @@ export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, a
     run(async () => {
       try {
         return await post(`/steps/${stepId}/approve`, {
-          user: currentUser(), decision, comment,
+          user: currentUser(), decision, comment: overview && decision === 'approve' ? '' : comment,
           ...(alsoMeans ? { alsoApproves: alsoMeans } : {}),
           ...(decision === 'approve' && adds ? { adds: adds.digest } : {}),
         })
@@ -109,7 +109,7 @@ export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, a
       {question.err && <div className="error small">What approving agrees to could not be read: {question.err}</div>}
       {overview && <div className="decision-bottom"><div ref={meaning} className="small muted decision-meaning">By accepting, you confirm: “{means}”{alsoMeans?.map(m => <span key={m}> You also confirm: “{m}”</span>)}{contractChanged(adds) && ' and the app contract changes above'}</div></div>}
 
-      {overview ? <DecisionChoices note={comment} setNote={setComment} busy={busy || externalBusy} stopLanding={stopLanding}
+      {overview ? <DecisionChoices note={comment} setNote={setComment} busy={busy || externalBusy}
         accept={{ label: approveLabel, run: () => {
           const bounds = meaning.current?.getBoundingClientRect()
           if (bounds && (bounds.top < 70 || bounds.bottom > window.innerHeight)) {
@@ -117,7 +117,7 @@ export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, a
           }
           decide('approve')
         }, disabled: unread }}
-        chat={chat} rework={{ label: 'Rework with comment', run: () => decide('reject') }} abandon={abandon} /> : <div className={compact ? 'row' : 'row decision-bar'} style={compact ? { gap: 4 } : { marginTop: 8 }}>
+        conversation={conversation!} rework={canSendBack ? { label: 'Send back…', run: () => decide('reject') } : undefined} abandon={abandon} /> : <div className={compact ? 'row' : 'row decision-bar'} style={compact ? { gap: 4 } : { marginTop: 8 }}>
         <input placeholder={placeholder} value={comment} onChange={(e) => setComment(e.target.value)}
           style={compact ? { width: 180 } : undefined} aria-label="comment" />
         <button className={compact ? 'subtle' : 'primary'} disabled={busy || unread} onClick={() => decide('approve')}

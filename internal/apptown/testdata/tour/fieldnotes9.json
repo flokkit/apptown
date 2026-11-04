@@ -1,0 +1,74 @@
+{
+  "title": "Adopt the way of working: apptown v17, server-base v1, wordpress v3",
+  "body": "Bring this app onto: apptown v17, server-base v1, wordpress v3.\n\nWHAT MUST HOLD — every check below re-evaluates to CONFORMS against your change's tree,\njudged outright (they are what the new way of working brings):\n  - lang/selection/wordpress-bedrock · runtime-stage-not-build-image: the final Docker stage runs PHP/Apache, not the Composer dependency installer\n  - lang/selection/wordpress-bedrock · uploads-through-s3-need: composer.json requires S3 Uploads (humanmade/s3-uploads), and it writes to the deployment's own s3 need: .apptown/app.yaml declares it, and secretspec.toml declares none of the variables the need gives the app nor S3_PUBLIC_URL\n  - lang/selection/wordpress-bedrock · deployment-home: the site serves at each deployment's own address: redirects and its own stylesheets and scripts stay on the address the visitor opened\n  - lang/selection/wordpress-bedrock · wp-home-optional: secretspec.toml declares WP_HOME with required = false in every profile that defines it\n\nNOTHING TO CHANGE is a correct result: when every check above already holds on the base,\nthe right change is empty. Say so in your report, with the evidence for each check, and add\nnothing (no needs, parts, endpoints or features) to give the change something to do.\n\nACCEPTANCE: the ordinary gates still pass (tests, boot/preview, review) — do not satisfy a\ncheck by deleting a feature or weakening the app; you did not edit any check definition.\n\nSCOPE: this Change adopts the way of working above and nothing else. Findings outside the\nlist that already fail on main are not yours here.\n\nWhen this Change lands, the project's way of working moves to the target — unless the\nproject moved on meanwhile, in which case the landing is refused and the change is prepared\nagain. Work in this Change's workspace and land through the ordinary gates.",
+  "report": "Changed the deployment to use a Composer build stage and a PHP/Apache runtime stage. Added the AppTown S3 need and switched uploads to the need-provided configuration with deployment-local media URLs. Made WP_HOME optional and derive the site address from the request when unset; removed S3 need variables from secretspec.\n\nVerified with `docker build --progress=plain -t wordpress-change .` and a cold container probe: `GET /healthz.php` returned 200. Host PHP lint was unavailable because `php` is not installed on the agent.\n\nFiles changed: Dockerfile, .apptown/app.yaml, bin/initialize, config/application.php, secretspec.toml.\n\nFollow-up: fixed initialization for optional WP_HOME. The init container does not receive a request origin, so `bin/initialize` now uses the first `APPTOWN_ORIGINS` origin when available and otherwise uses the install-only `http://localhost` URL. Runtime configuration still derives the visitor's deployment origin, so WP_HOME remains optional and no deployment-origin requirement is imposed on init.\n\nReverified with `sh -n bin/initialize` and a Docker rebuild. Initialization no longer fails when neither WP_HOME nor APPTOWN_ORIGINS is injected; it proceeds to the expected administrator-password check.\n\nFollow-up: declared Bash with `pipefail` in the Composer build stage so the checksum pipeline passes the Dockerfile lint gate. This is the only additional source change.\nPages: /\n",
+  "diffstat": "5 files changed, 29 insertions(+), 21 deletions(-)",
+  "review": {
+    "reason": "reviewer rejected: The preview was visually assessed and looked styled on desktop and phone; /, /about/, /?p=1, the theme stylesheet, and /healthz.php all returned 200, with no failed resources reported. The change otherwise adds the Composer build/PHP runtime split, S3 need wiring, deployment-local media URL setting, and optional WP_HOME as claimed, but the unset-WP_HOME HTTPS case is incorrect.",
+    "summary": "The preview was visually assessed and looked styled on desktop and phone; /, /about/, /?p=1, the theme stylesheet, and /healthz.php all returned 200, with no failed resources reported. The change otherwise adds the Composer build/PHP runtime split, S3 need wiring, deployment-local media URL setting, and optional WP_HOME as claimed, but the unset-WP_HOME HTTPS case is incorrect.",
+    "verdict": "fail",
+    "findings": [
+      "config/application.php derives the fallback WP_HOME scheme before it applies the trusted HTTP_X_FORWARDED_PROTO value. When a visitor opens an HTTPS deployment and Apache sees only the proxy's X-Forwarded-Proto: https (with HTTPS unset), the fallback becomes http://host, so WordPress redirects and generated styles/scripts use the wrong scheme rather than the address the visitor opened. Apply the forwarded-proto handling before deriving $home (or use it directly in the scheme calculation)."
+    ]
+  },
+  "steps": [
+    {
+      "name": "apply-change",
+      "type": "agent/pi",
+      "status": "pass",
+      "config": {
+        "needs": true,
+        "docker": true,
+        "output": {
+          "file": ".apptown/CHANGE.md",
+          "kind": "change-report",
+          "name": "change-report"
+        },
+        "prompt": "The current working directory is this project's repository.\nApply the SMALL change below: the minimal edit that satisfies\nit, nothing else. Verify the changed behavior with your bash\ntool.\n\nIf the application does not exist yet (the repository holds\nonly what the project started with: a packaging recipe, a\nREADME, ignore rules, .apptown/app.yaml), first build the\nsmallest working application your steering guidance describes\nfor an empty repository (for example its generator command),\nthen make the change in it. Say in the report that you\ncreated the application.\n\nIf a reviewer has previously rejected this change, their\nfeedback is: ${{feedback.latest}}\nAddress it precisely.\n\nWRITE a short change report to .apptown/CHANGE.md:\nwhat changed and how you verified it. Chat output is not\ncaptured. If the change affects pages a person would look at, end the\nreport with one line `Pages: /path /other/path` naming up to\nthree of them (paths on the app). AppTown pictures them, and\nthe home page, for whoever approves. Do not commit the report: AppTown\ncollects it from the workspace, and .apptown/ is ignored.\nThe report describes the WHOLE change: the full branch diff\nagainst the base, not just this session's edits. After rework\nrounds, run git diff against the base branch and account for\nEVERY changed file — an unclaimed change reads as deception to\nthe reviewer. Files a generator wrote (rails new, uv init) are\naccounted for by naming their directory (`app/`, `config`,\n`bin`); a file at the top level, a dotfile included, is named\nitself.\n\n--- CHANGE ---\n\n${{change.body}}\n",
+        "skills": [
+          "skill/implementation"
+        ],
+        "retryMode": "continue",
+        "timeoutMinutes": 10
+      }
+    },
+    {
+      "name": "boot",
+      "type": "preview",
+      "status": "pass",
+      "config": {}
+    },
+    {
+      "name": "report-exists",
+      "type": "artifact/require",
+      "status": "pass",
+      "config": {
+        "kind": "change-report"
+      }
+    },
+    {
+      "name": "review-change",
+      "type": "agent/review",
+      "status": "fail",
+      "config": {
+        "of": "change-report",
+        "model": "review",
+        "prompt": "If the diff adds or changes a form, or a handler a form posts to, the report must say the form was submitted once against the running app and what came back (the status, and the page or redirect). A form that was never submitted, or whose submit failed, is a finding.\nOpen the running app yourself. This change's preview is recorded at ${{preview.url}}. Request its home page and each page the request names or the diff changes, as a visitor would: curl -sS -D /tmp/head.txt -o /tmp/page.html -w '%{http_code}' -H \"Host: ${{preview.host}}\" \"$APPTOWN_URL/<path>\" (AppTown serves the preview by that host) and read the saved page. A page that is an error (a 5xx, an exception or stack trace, PHP's \"Fatal error\"), that is empty, or that is plainly unstyled where the request asked for a look, is a finding. Follow a redirect to the same preview by requesting its path the same way; a redirect elsewhere (an outside sign-in) is an answer, not a failure. Name each URL you opened and its status in the summary. If no preview URL is recorded, say so; if the preview could not be opened, say that separately."
+      }
+    },
+    {
+      "name": "accept",
+      "type": "approval",
+      "status": "pending",
+      "config": {
+        "means": "This change is small and low-risk enough that a quick look is enough, and I have looked at it.",
+        "approvers": [
+          "role:project-approver"
+        ],
+        "inAdvance": "I accept this change before it is worked, on a condition AppTown checks: it changes no code, and every step of its run passes with every check passing or not applicable, none excused.",
+        "instructions": "Look at CHANGE.md and the diff. To send it back, reject with a comment.",
+        "inAdvanceAdmitsNotApplicable": true
+      }
+    }
+  ]
+}

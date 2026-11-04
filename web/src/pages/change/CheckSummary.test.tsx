@@ -84,3 +84,27 @@ it('states an unknown test count in one clear phrase', () => {
   const el = dom(renderToStaticMarkup(<CheckSummary steps={[step('pass', { type: 'tests' })]} />))
   expect(el.textContent).toBe('Tests: number unknown')
 })
+
+it.each(['fail', 'error', 'needs_human'])('labels a rejected review and leads with structured findings (%s)', status => {
+  const el = dom(renderToStaticMarkup(<CheckSummary steps={[step(status, { type: 'agent/review', name: 'Review', evidence: {
+    reason: 'reviewer rejected: The preview looked styled. The requested adoption is incomplete.',
+    findings: ['Two projects lack the required rule.'],
+  } })]} />))
+  expect(el.querySelector('.ch-check-exception')?.textContent).toBe('✗ Review failed Two projects lack the required rule. The preview looked styled. The requested adoption is incomplete.')
+})
+
+it('keeps the review conclusion beyond its positive opening and removes the redundant prefix', () => {
+  const el = dom(renderToStaticMarkup(<CheckSummary steps={[step('fail', { type: 'agent/review', name: 'Review', evidence: {
+    reason: 'reviewer rejected: The preview looked styled. The requested adoption is incomplete.',
+  } })]} />))
+  expect(el.textContent).toBe('✗ Review failed The preview looked styled. The requested adoption is incomplete.')
+})
+
+it('bounds a long rejected review excerpt without selecting a sentence', () => {
+  const el = dom(renderToStaticMarkup(<CheckSummary steps={[step('fail', { type: 'agent/review', name: 'Review', evidence: {
+    summary: 'The preview looked styled. ' + 'The adoption is incomplete. '.repeat(40),
+  } })]} />))
+  expect(el.textContent).toContain('✗ Review failed The preview looked styled. The adoption is incomplete.')
+  expect(el.textContent?.endsWith('…')).toBe(true)
+  expect(el.textContent!.length).toBeLessThanOrEqual(260)
+})

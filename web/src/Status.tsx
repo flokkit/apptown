@@ -12,7 +12,9 @@ export const STATUS_WORD = {
   'not applicable': 'not applicable', none: 'not configured', current: 'current', available: 'update available', fresh: 'working', overdue: 'failed', missing: 'failed', disposable: 'not applicable',
   'not checked yet': 'not checked yet', 'no automatic check': 'no automatic check', 'in progress': 'in progress', abandoned: 'abandoned',
   incomplete: 'incomplete', 'nothing connected': 'nothing connected', 'needs review': 'needs review',
-} as const satisfies Record<'no automatic check' | 'in progress' | 'abandoned' | 'not checked yet' | 'low' | 'blocked' | 'incomplete' | 'nothing connected' | DisplayStatus | RuntimeState | HealthStatus | CheckLabel | ReleaseLabel | UpdateLabel | CopyLabel | JobLabel | TargetLabel | DepartureLabel | ResourceLabel | ProgressLabel | ADRLabel, string>
+  // A change worked in a chat that has no run yet: nobody is blocked on it.
+  'chat open': 'chat open',
+} as const satisfies Record<'chat open' | 'no automatic check' | 'in progress' | 'abandoned' | 'not checked yet' | 'low' | 'blocked' | 'incomplete' | 'nothing connected' | DisplayStatus | RuntimeState | HealthStatus | CheckLabel | ReleaseLabel | UpdateLabel | CopyLabel | JobLabel | TargetLabel | DepartureLabel | ResourceLabel | ProgressLabel | ADRLabel, string>
 
 export const STATUS_LIGHT: Record<keyof typeof STATUS_WORD, string> = {
   'not set up': '', low: 'pending', blocked: 'pending', running: 'running', working: 'running', deploying: 'running',
@@ -24,6 +26,7 @@ export const STATUS_LIGHT: Record<keyof typeof STATUS_WORD, string> = {
   // A finished piece of work that could not do all of it: not a failure, not a pass.
   incomplete: 'pending',
   'nothing connected': '',
+  'chat open': '',
   // An AI flag no person has confirmed: amber, like work waiting on someone.
   'needs review': 'pending',
 }

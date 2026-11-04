@@ -95,3 +95,32 @@ it('a draft in the settings form survives a failed refresh of the project', asyn
     vi.unstubAllGlobals()
   }
 })
+
+// Open chats have one continuation. Completed chats do not become a second
+// history section underneath the project's activity record.
+it.each([true, false])('shows open chats without a Past chats section (chat=%s)', async chat => {
+  const alpha = project(1, 'a', 'Alpha')
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    const body = url.endsWith('/projects/a') ? alpha
+      : url.endsWith('/overview') ? { active: [], history: [], open: chat ? [{ changeId: 'chat', changeNumber: 3, title: 'Add lunch orders', state: 'in_progress', statusLabel: 'waiting' }] : [] }
+      : url.endsWith('/schedules') ? { schedules: [] }
+      : url.endsWith('/transcript') ? { sessions: [{ id: 'past', title: 'A completed chat' }] }
+      : url.endsWith('/release/plan') ? { configured: false }
+      : []
+    return new Response(JSON.stringify(body))
+  }))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/a']}><Routes><Route path="/projects/:slug" element={<Project />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.textContent).toContain(chat ? 'Add lunch orders' : 'No open changes.'))
+    if (chat) {
+      expect(el.querySelector('.row-status .chip')?.textContent).toContain('chat open')
+      expect(el.querySelector('.row-action a')?.textContent).toBe('Continue chat')
+      expect(el.querySelector('.row-action a')?.getAttribute('href')).toBe('/projects/a/console?change=chat')
+    }
+    expect(el.textContent).not.toContain('Past chats')
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).endsWith('/transcript'))).toBe(false)
+  } finally {
+    act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
+  }
+})

@@ -1,7 +1,8 @@
+import { DeploymentPage } from './pages/project/settings/Deployments'
 import WorkRecordPage from './pages/change/WorkRecord'
 import { SECURITY_TABS, SETTINGS_TABS, SETTINGS_LABEL } from './pages/project/tabs'
 import { projectHue } from './ProjectListRow'
-import { ArrowLeft, Blocks, BookOpen, BookText, ChartColumn, ChevronDown, ChevronRight, FlaskConical, FolderKanban, House, LayoutDashboard, MessageSquare, MessageSquareWarning, Plug, RefreshCw, Rocket, Settings, Shield, ShieldCheck, Users } from 'lucide-react'
+import { Blocks, BookOpen, BookText, ChartColumn, ChevronDown, ChevronRight, FlaskConical, FolderKanban, House, LayoutDashboard, MessageSquare, MessageSquareWarning, Plug, RefreshCw, Rocket, Settings, Shield, ShieldCheck, Users } from 'lucide-react'
 import { createChatChange } from './pages/project/Overview'
 import Janitor from './pages/Janitor'
 import { PRODUCT } from './brand'
@@ -84,7 +85,6 @@ export function SidebarNav() {
     const name = project?.name ?? slug
     return (
       <>
-        <NavLink to="/projects" end className="nav"><ArrowLeft aria-hidden size={16} />All projects</NavLink>
         {/* The project, as the app rows show it: its colour and its name. */}
         <div className="sidebar-project" title={name}>
           <span className="project-avatar project-letter" aria-hidden style={{ '--project-hue': projectHue(slug) } as CSSProperties}>{name.slice(0, 1).toUpperCase()}</span>
@@ -270,6 +270,7 @@ export default function App() {
           <Route path="/projects/_new" element={<NewProject />} />
           <Route path="/janitor" element={<Janitor />} />
           <Route path="/projects/:slug/janitor" element={<Janitor />} />
+          <Route path="/projects/:slug/deployments/:name" element={<DeploymentPage />} />
           <Route path="/projects/:slug" element={<Project />} />
           <Route path="/operations/:id" element={<OperationPage />} />
           <Route path="/projects/:slug/:tab" element={<Project />} />
