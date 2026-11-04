@@ -169,7 +169,8 @@ func TestIntegrationTheReviewVerdictTableOnTheWorker(t *testing.T) {
 		"no report, then a wrap-up's pass and exit 1": {script: `if [ "$PI_INVOCATION" = 2 ]; then ` + reviewPass + `say "wrapped"; exit 1; fi; say "forgot"`,
 			status: workflow.StatusError, reason: "review-wrapup exited with code 1", invocations: "review,review-wrapup"},
 		"a provider error beside a pass": {script: reviewPass + providerError,
-			status: workflow.StatusError, reason: "provider refused the request: credit balance too low", invocations: "review"},
+			// No model output: the model-answer guard rejects even a valid report.
+			status: workflow.StatusError, reason: "fake refused the call", invocations: "review"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
