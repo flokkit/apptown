@@ -334,6 +334,11 @@ func TestHostSnapshotScenesReadInventory(t *testing.T) {
 			}
 			w := newTourWorld(t, garage, 10*time.Millisecond)
 			assertFieldnotesDecision(t, w.scene)
+			if garage {
+				assertGarageProgress(t, w.scene)
+				w.observe()
+				assertGarageProgress(t, w.scene)
+			}
 			targets, err := w.a.targets.All(t.Context())
 			if err != nil {
 				t.Fatal(err)
@@ -378,7 +383,9 @@ func TestHostSnapshotScenesReadInventory(t *testing.T) {
 // confirmed app-check problem); one container a deployment recorded is
 // gone from the host; the host's disk and memory cannot be read (its
 // capacity check fails); the data folder's disk is low; gitlab and
-// infisical are not set up (as in the tour). Not part of any gate.
+// infisical are not set up (as in the tour). Three additional changes
+// hold a landing, agent work with a starting preview, and a release in
+// progress. Their paths are logged at scene start. Not part of any gate.
 func TestGarage(t *testing.T) {
 	w := newTourWorld(t, true, 0)
 	if w.hold() {
@@ -927,8 +934,24 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 			return hostmem.Memory{}, errors.New("the host's memory could not be read")
 		}
 	}
+	// The working preview waits before the fake host starts its container.
+	// The daemon remains available for inventory and every other case.
+	freeze := make(chan struct{})
+	frozen := make(chan struct{}, 1)
+	client := dockerClientFunc(func(ctx context.Context, host string, req docker.Command) ([]byte, error) {
+		args := req.Args
+		if len(args) >= 2 && args[0] == "--config" {
+			args = args[2:]
+		}
+		if garage && len(args) > 0 && args[0] == "run" && slices.Contains(args, "apptown.info.project=garage-work") {
+			frozen <- struct{}{}
+			<-freeze
+			return nil, context.Canceled
+		}
+		return daemon.Run(ctx, host, req)
+	})
 	a, h := internalApp(t, Config{DataDir: dataDir, PublicHost: publicHost, TierDomains: []string{"preview=preview.localhost", fmt.Sprintf("main=http://apps.localhost:%d", appPort)},
-		DockerClient: daemon, ConsoleAgent: runtime, ConsoleCLI: fixtureCLI(t), AgentImage: tourAgentImage,
+		DockerClient: client, ConsoleAgent: runtime, ConsoleCLI: fixtureCLI(t), AgentImage: tourAgentImage,
 		DataDiskSpace: dataDisk, HostMemory: hostMemory,
 		InferenceURL: "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}})
 	// The scene's two weeks end yesterday: AppTown's clock starts at
@@ -979,6 +1002,9 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 	}
 	made := s.play(start)
 	s.fieldnotes()
+	if garage {
+		s.progress(freeze, frozen, daemon)
+	}
 	for _, job := range operationJobs(t, a, project.DescriptionJob) {
 		runQueuedJobForTest(t, a, project.DescriptionJob, job.Key)
 	}
@@ -3969,4 +3995,171 @@ func assertFieldnotesProject(t *testing.T, s *tourScene) {
 		}
 	}
 	t.Errorf("fieldnotes has no running main with an address: %+v", deployments)
+}
+
+// The garage keeps progress visible across observation laps, using the same
+// signed-in payloads as the change and deployment screens.
+func assertGarageProgress(t *testing.T, s *tourScene) {
+	t.Helper()
+	for _, slug := range []string{"garage-landing", "garage-work", "garage-release"} {
+		var changes []struct{ ID string }
+		if err := json.Unmarshal(s.call("sam", "GET", "/api/v1/projects/"+slug+"/changes", nil), &changes); err != nil || len(changes) != 1 {
+			t.Fatalf("%s progress change: %+v %v", slug, changes, err)
+		}
+		var page struct {
+			State  string
+			Detail struct {
+				Steps []struct{ Name, Status string }
+			}
+		}
+		if err := json.Unmarshal(s.call("sam", "GET", "/api/v1/changes/"+changes[0].ID, nil), &page); err != nil {
+			t.Fatal(err)
+		}
+		want := map[string]string{"tests": "pass", "style": "pass", "accept": "pass", "deploy": "running", "release-exists": "pending"}
+		if slug == "garage-work" {
+			want = map[string]string{"apply-change": "running"}
+			if page.State != "agent working" {
+				t.Errorf("working change state: %q", page.State)
+			}
+			var status struct{ State string }
+			if err := json.Unmarshal(s.call("sam", "GET", "/api/v1/changes/"+changes[0].ID+"/preview", nil), &status); err != nil || status.State != "starting" {
+				t.Fatalf("working preview: %+v %v", status, err)
+			}
+		}
+		if slug == "garage-release" {
+			var deployments []httpapi.DeploymentView
+			var releases []httpapi.ReleaseListed
+			if err := json.Unmarshal(s.call("sam", "GET", "/api/v1/projects/"+slug+"/deployments", nil), &deployments); err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(s.call("sam", "GET", "/api/v1/projects/"+slug+"/releases", nil), &releases); err != nil {
+				t.Fatal(err)
+			}
+			if len(deployments) != 1 || len(releases) != 1 || releases[0].Deployment != deployments[0].Name || releases[0].State != deployment.Releasing || releases[0].Number < 1 || releases[0].StatusLabel.String() != "deploying" {
+				t.Fatalf("%s deploying status inputs: deployments=%+v releases=%+v", slug, deployments, releases)
+			}
+		}
+		for _, step := range page.Detail.Steps {
+			if status, ok := want[step.Name]; ok {
+				if step.Status != status {
+					t.Errorf("%s %s: %s, want %s", slug, step.Name, step.Status, status)
+				}
+				delete(want, step.Name)
+			}
+		}
+		if len(want) != 0 {
+			t.Errorf("%s missing progress steps: %+v", slug, want)
+		}
+	}
+}
+
+// progress adds live owner transitions with deliberately unfinished external
+// work. No receipts are asserted and no owner tables need raw writes.
+func (s *tourScene) progress(freeze chan struct{}, frozen <-chan struct{}, daemon *fakeDocker) {
+	t, a := s.t, s.a
+	changes := map[string]*tourChange{}
+	for _, item := range []struct{ slug, title string }{
+		{"garage-landing", "Publish the club notice"},
+		{"garage-work", "Write the next club notice"},
+		{"garage-release", "Release the new club notice"},
+	} {
+		s.call("sam", "POST", "/api/v1/projects", map[string]string{"slug": item.slug, "name": item.slug})
+		s.call("sam", "POST", "/api/v1/projects/"+item.slug+"/repo", map[string]string{"defaultBranch": "main"})
+		c := s.open("sam", item.slug, item.title, "Local garage example with work held in progress.")
+		s.write(c, newsletterStart)
+		s.commit(c, "sam", item.title)
+		changes[item.slug] = c
+	}
+	working := workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "garage-work", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "apply-change", Uses: "agent/pi", With: map[string]any{"prompt": "Write the next club notice."}}}}}}}
+	defineWorkflows(t, a, tourWorkflow, working)
+	rebuildWork(t, a, func(deps *workflow.Dependencies) {
+		for _, kind := range []string{"agent/pi", "deploy"} {
+			original := deps.Runners[kind]
+			deps.Runners[kind] = func(e *workflow.Execution) {
+				id := e.Run().ChangeID
+				if id != changes["garage-work"].ID && id != changes["garage-landing"].ID && id != changes["garage-release"].ID {
+					original(e)
+					return
+				}
+				// The fake executor claims its work but never supplies an
+				// outcome. Returning keeps the durable step running without
+				// timers or background goroutines in the held scene.
+				if _, err := e.Claim(); err != nil {
+					t.Error(err)
+				}
+			}
+		}
+	})
+	var previewDone chan struct{}
+	t.Cleanup(func() {
+		a.Work.BeginShutdown()
+		close(freeze)
+		if previewDone != nil {
+			<-previewDone
+		}
+		a.Work.Wait()
+	})
+	// Each landing runs the real check scripts before Sam approves it.
+	runs := map[string]ids.ID{}
+	for _, slug := range []string{"garage-landing", "garage-release"} {
+		runs[slug] = s.land(changes[slug], "sam", map[string]string{"tests": "pass", "style": "pass"})
+	}
+	s.call("sam", "POST", fmt.Sprintf("/api/v1/changes/%s/runs", changes["garage-work"].ID), map[string]string{"workflow": "garage-work"})
+	a.Work.Wait()
+	for _, slug := range []string{"garage-landing", "garage-release"} {
+		step := s.steps(runs[slug])["accept"]
+		s.call("sam", "POST", fmt.Sprintf("/api/v1/steps/%s/approve", step.ID), map[string]string{"decision": "approve", "adds": shownAdds(t, a, asPerson("sam"), step.ID)})
+	}
+	a.Work.Wait()
+	previewDone = make(chan struct{})
+	go func() {
+		defer close(previewDone)
+		_, err := a.Preview.RequestChangePreview(asPerson("sam"), preview.Selection{ChangeID: changes["garage-work"].ID})
+		if err == nil {
+			t.Error("the frozen preview completed")
+		}
+	}()
+	// Wait for the boot to reach its host, not just admission.
+	if !poll.Until(t.Context(), 25*time.Second, 10*time.Millisecond, func() bool {
+		select {
+		case <-frozen:
+			return true
+		default:
+			return false
+		}
+	}) {
+		t.Fatal("garage preview never reached the frozen host")
+	}
+
+	// The release example admits an explicit branch release through its
+	// owner. Its target has a container, supplied by the existing host fake;
+	// neither the release nor the executor claims a completed deployment.
+	c := changes["garage-release"]
+	ch, err := a.Work.Change(asPerson("sam"), c.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, err := a.Deployment.Targets.ByName(t.Context(), "built-in-docker")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), ch.ProjectID, "main", target.ID, deployment.Attributes{}.WithDefaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	names, err := dep.HostNames()
+	if err != nil {
+		t.Fatal(err)
+	}
+	daemon.markStarted(names.App())
+	if _, err := a.Deployment.Releases.Start(t.Context(), deployment.ReleaseDraft{
+		Source: deployment.ReleaseFromBranch, ProjectID: ch.ProjectID, DeploymentID: dep.ID,
+		RunID: runs["garage-release"], Deployment: "main", Revision: ch.LandedSHA, Actor: "sam",
+	}, "Garage example: waiting for the local target"); err != nil {
+		t.Fatal(err)
+	}
+	assertGarageProgress(t, s)
+	for _, slug := range []string{"garage-landing", "garage-work", "garage-release"} {
+		t.Logf("%s in progress: /changes/%s", slug, changes[slug].ID)
+	}
 }

@@ -1,22 +1,28 @@
 import { useGet } from './data'
-import { RuntimeStatus, type RuntimeObservation } from './runtime'
-import type { DeploymentDiagnostics, DeploymentView } from './wire.gen'
+import { RuntimeStatus, runtimeDescription } from './runtime'
+import { Status } from './Status'
+import type { ComponentProps } from 'react'
+import type { DeploymentDiagnostics, DeploymentView, ReleaseListed } from './wire.gen'
 
-// A host-level running observation cannot establish that every part reports.
-// Keep failures and stopped observations even when diagnostics are unavailable.
-export function deploymentStatus(env: DeploymentView, diagnostics?: DeploymentDiagnostics | null, unavailable = false): RuntimeObservation {
+// Release progress takes precedence while containers are being replaced.
+// Otherwise diagnostics qualify the host-level runtime observation.
+export function deploymentStatus(env: DeploymentView, diagnostics?: DeploymentDiagnostics | null, unavailable = false, releases: ReleaseListed[] = []): ComponentProps<typeof Status> {
+  const release = releases.find(r => r.deployment === env.name && r.state === 'releasing')
+  if (release) return { word: 'deploying', help: `Release ${release.number}` }
   const uncertain = !!env.generation && (unavailable || !diagnostics || diagnostics.reading?.unknown || diagnostics.reading?.stale || diagnostics.parts.some(p => p.presence === 'unknown'))
-  return env.observation === 'running' && uncertain ? { ...env, observation: 'unknown' } : env
+  const word = env.observation === 'running' && uncertain ? 'unknown' : env.observation
+  return { word, help: runtimeDescription(env), staleAt: env.observationStale && word !== 'unknown' ? env.observedAt : undefined }
 }
 
 export function useDeploymentStatus(slug: string, env: DeploymentView) {
   const q = useGet<DeploymentDiagnostics>(env.generation ? `/projects/${slug}/deployments/${env.name}/diagnostics` : null, { poll: 5000 })
-  return deploymentStatus(env, q.data, q.refreshFailed)
+  const releases = useGet<ReleaseListed[]>(env.kind !== 'preview' ? `/projects/${slug}/releases` : null, { poll: 5000 })
+  return deploymentStatus(env, q.data, q.refreshFailed, releases.refreshFailed ? [] : releases.data ?? [])
 }
 
 export function DeploymentStatus({ slug, env }: { slug: string; env: DeploymentView }) {
-  const observation = useDeploymentStatus(slug, env)
-  return <RuntimeStatus observation={observation} />
+  const status = useDeploymentStatus(slug, env)
+  return <Status observation {...status} />
 }
 
 export function FleetDeploymentStatus({ slug, id }: { slug: string; id?: string | null }) {

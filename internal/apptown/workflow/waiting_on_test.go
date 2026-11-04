@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -53,7 +54,7 @@ func TestWaitingOnNamesTheHoldingChild(t *testing.T) {
 				t.Fatalf("lost held attempt: %s", raw)
 			}
 		}
-		want := map[StepState]string{StatusPending: "waiting for approval", StatusFail: "review failed", StatusError: "review could not run"}[state]
+		want := map[StepState]string{StatusPending: "waiting for approval", StatusFail: "Review failed", StatusError: "Review could not run"}[state]
 		if w.Says != want {
 			t.Fatalf("%s: %+v", state, w)
 		}
@@ -86,7 +87,7 @@ func TestWaitingOnRecoveryChecksTheReadersPermission(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if d.WaitingOn.You != answer || d.WaitingOn.Kind != "check" || d.WaitingOn.Says != "review failed" {
+		if d.WaitingOn.You != answer || d.WaitingOn.Kind != "check" || d.WaitingOn.Says != "Review failed" {
 			t.Fatalf("%s: %+v", answer, d.WaitingOn)
 		}
 	}
@@ -112,7 +113,7 @@ func TestWaitingOnApprovalNamesDefaultsAndTheNextEligibleVoter(t *testing.T) {
 		w := d.WaitingOn
 		want, says := "no", "waiting for reviewers"
 		if person == "boss" {
-			want, says = "yes", "waiting for you or reviewers"
+			want, says = "yes", "waiting for you or another approver"
 		}
 		if w.You != want || w.Says != says || len(w.Who) != 1 || w.Who[0] != (Decider{Kind: "group", Name: "reviewers"}) {
 			t.Fatalf("%s: %+v", person, w)
@@ -148,7 +149,7 @@ func TestHomeWorkPartitionsTheReadersCurrentDecisions(t *testing.T) {
 		if len(home.WaitingOnYou) != want || len(home.ActiveRuns) != 2-want {
 			t.Fatalf("recovery=%v: %+v", mayRecover, home)
 		}
-		if mayRecover && (home.WaitingOnYou[0].ChangeID != run.ChangeID || home.WaitingOnYou[0].WaitingOn.Says != "review failed") {
+		if mayRecover && (home.WaitingOnYou[0].ChangeID != run.ChangeID || home.WaitingOnYou[0].WaitingOn.Says != "Review failed") {
 			t.Fatalf("personal row: %+v", home)
 		}
 	}
@@ -382,8 +383,66 @@ func TestWaitingOnApprovalDisplaysTheRoleTitleAndRetainsItsID(t *testing.T) {
 	if len(who) != 1 || who[0].Kind != "role" || who[0].Name != access.RoleProjectApprover || who[0].DisplayName != role.Title {
 		t.Fatalf("deciders: %s", raw)
 	}
-	want := "waiting for you or " + role.Title
+	want := "waiting for you or another approver"
 	if w.You != "yes" || w.Says != want {
 		t.Fatalf("says=%q want %q", w.Says, want)
+	}
+}
+
+// Summaries stay short while every effective decider remains available to clients.
+func TestWaitingOnApprovalSummarizesCompleteDeciders(t *testing.T) {
+	t.Parallel()
+	person := Decider{Kind: "person", Name: "Alex"}
+	role := Decider{Kind: "role", Name: "project-approver", DisplayName: "Project approver"}
+	group := Decider{Kind: "group", Name: "reviewers"}
+	for _, tc := range []struct {
+		name, you string
+		who       []Decider
+		want      string
+	}{
+		{"sole person", "yes", []Decider{person}, "waiting for you"},
+		{"several people", "yes", []Decider{person, {Kind: "person", Name: "Sam"}}, "waiting for you or another approver"},
+		{"role", "yes", []Decider{role}, "waiting for you or another approver"},
+		{"group", "yes", []Decider{group}, "waiting for you or another approver"},
+		{"roles", "yes", []Decider{role, {Kind: "role", Name: "project-owner", DisplayName: "Project owner"}}, "waiting for you or another approver"},
+		{"other person", "no", []Decider{person}, "waiting for Alex"},
+		{"other role", "no", []Decider{role}, "waiting for Project approver"},
+		{"other group", "no", []Decider{group}, "waiting for reviewers"},
+		{"other people", "no", []Decider{person, role, group}, "waiting for Alex and 2 others"},
+		{"other roles", "no", []Decider{role, person}, "waiting for Project approver and 1 other"},
+		{"unknown reader", "unknown", []Decider{role, person}, "waiting for Project approver and 1 other"},
+		{"unspecified", "no", nil, "waiting for approval"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := sayWaitingOn(WaitingOn{Kind: "approval", You: tc.you, Who: tc.who}, Activity{}, nil)
+			if w.Says != tc.want || !reflect.DeepEqual(w.Who, tc.who) {
+				t.Fatalf("waiting = %+v, want %q and complete deciders", w, tc.want)
+			}
+		})
+	}
+}
+
+func TestWaitingOnFailedChecksUsePlainTitles(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ name, kind, title string }{
+		{"review-change", "agent/review", "Review"},
+		{"test-change", "tests", "Tests"},
+		{"style", "script", "Style"},
+		{"check_code-style", "script", "Check code style"},
+		{"scan-osv", "scan", "Dependency scan"},
+	} {
+		for _, state := range []StepState{StatusFail, StatusError} {
+			t.Run(tc.name+state.String(), func(t *testing.T) {
+				step := workflowActivityStep{name: tc.name, kind: tc.kind, state: state}
+				w := waitingOn(nil, &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{State: ActivityBlocked, holdingStep: &step, failedChecks: 1}})
+				suffix := " failed"
+				if state == StatusError {
+					suffix = " could not run"
+				}
+				if w.Says != tc.title+suffix {
+					t.Fatalf("says=%q, want %q", w.Says, tc.title+suffix)
+				}
+			})
+		}
 	}
 }

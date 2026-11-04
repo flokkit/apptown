@@ -53,7 +53,10 @@ it('leads with the preview, separates request from report and links every eviden
 it('holds acceptance during a check, while keeping pending later-stage work separate', () => {
   const v = view()
   v.detail!.steps.push(step('scan', 'running')); v.waitingOn = { ...v.waitingOn, kind: 'work', says: 'working', you: 'no' }
-  expect(render(v)).toContain('Checks are running; you can accept when they finish.')
+  const el = document.createElement('div'); el.innerHTML = render(v)
+  expect(el.querySelector('[aria-label="Now"]')).not.toBeNull()
+  expect(el.querySelector('#decision')?.hasAttribute('hidden')).toBe(true)
+  expect(el.textContent).not.toContain('Checks are running; you can accept when they finish.')
   expect(render(v)).not.toContain('>Accept and land<')
   expect(checksRunning([step('scan', 'pending', {}, { stage: 'ship' })], 'check')).toBe(false)
   expect(checksRunning([step('scan', 'running', {}, { stage: 'ship' })], 'check')).toBe(true)
@@ -159,7 +162,8 @@ it('never puts terminal output or the acceptance form in the top card', async ()
   expect(el.querySelector('.ch-state .terminal')).toBeNull()
   expect(el.querySelector('.ch-state .decision-form')).toBeNull()
   expect(el.querySelector('.ch-state')?.textContent).toContain('working')
-  expect(el.querySelector('.ch-decision')?.textContent).toContain('Checks are running; you can accept when they finish.')
+  expect(el.querySelector('.ch-decision')?.hasAttribute('hidden')).toBe(true)
+  expect(el.querySelector('.ch-decision')?.textContent).not.toContain('Checks are running; you can accept when they finish.')
   await act(async () => root.unmount()); client.clear()
 })
 
@@ -520,6 +524,32 @@ it.each([undefined, 'Malformed app declaration', 'Starting app declaration unrea
     const vote = vi.mocked(fetch).mock.calls.find(([url, init]) => String(url).endsWith('/steps/approval/approve') && init?.method === 'POST')
     expect(vote).toBeDefined()
     expect(JSON.parse(vote![1]!.body as string)).toMatchObject({ decision: 'approve', adds: 'shown-digest', alsoApproves: ['Merge and release the accepted work.'] })
+    if (!unread) {
+      const redraw = async () => act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={{ ...v }} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
+      v.runs = [{ id: 'landing', role: 'landing' }] as ChangeView['runs']
+      v.detail!.run = { ...v.detail!.run, id: 'landing' }
+      v.detail!.steps = [step('approval', 'pass', { approver: 'sam' }), step('deploy', 'running')]
+      v.waitingOn = { ...v.waitingOn, kind: 'work', run: 'landing', step: 'deploy', says: 'Landing: deploying — step 2 of 2', you: 'no' }
+      await redraw()
+      expect(el.querySelector('dialog')).toBe(dialog)
+      expect((dialog as HTMLDialogElement).open).toBe(true)
+      expect(dialog.querySelector('[aria-label="Now"]')?.textContent).toContain('Landing — step 2 of 2')
+      v.detail!.steps[1].status = 'error'
+      v.detail!.steps[1].evidence = { reason: 'The image could not be built.' }
+      v.detail!.next = [{ act: 'retry', stepId: 'deploy' }] as NonNullable<ChangeView['detail']>['next']
+      v.waitingOn = { ...v.waitingOn, kind: 'check', step: 'deploy', says: 'deploy could not run', you: 'yes' }
+      await redraw()
+      expect((dialog as HTMLDialogElement).open).toBe(true)
+      expect(dialog.textContent).toContain('The image could not be built.')
+      expect([...dialog.querySelectorAll('button')].map(b => b.textContent)).toContain('Try again')
+      v.change.state = 'shipped'; v.detail!.run.status = 'done'
+      v.waitingOn = { ...v.waitingOn, kind: 'closed', says: 'landed', you: 'no' }
+      await redraw()
+      expect((dialog as HTMLDialogElement).open).toBe(true)
+      expect(dialog.textContent).toContain('landed')
+      expect(dialog.querySelector('[aria-label="Now"]')).toBeNull()
+    }
+
   } finally { await act(async () => root.unmount()); client.clear() }
 })
 
@@ -641,4 +671,22 @@ it('labels an unsummarized agent report and excludes verification claims while k
   expect(row.textContent).toContain('WP_SITEURL')
   expect(row.textContent).not.toContain('Verified with')
   expect(el.textContent).not.toContain('What was made')
+})
+
+
+it('uses WaitingOn for decision status and hides Next steps during landing deployment', () => {
+  const v = view()
+  v.runs = [{ id: 'run', role: 'landing' }] as ChangeView['runs']
+  v.detail!.steps = [step('deploy', 'running'), step('artifact/require', 'pending')]
+  v.detail!.next = []
+  v.waitingOn = { ...v.waitingOn, kind: 'work', run: 'run', step: 'deploy', says: 'Landing: deploying — step 1 of 2', you: 'no' }
+  let el = document.createElement('div'); el.innerHTML = render(v)
+  expect(el.querySelector('[aria-label="Now"] h3')?.textContent).toBe('Landing — step 1 of 2')
+  expect(el.querySelector('#decision')?.hasAttribute('hidden')).toBe(true)
+  expect(el.textContent).not.toContain('Checks are running; you can accept when they finish.')
+  v.detail!.steps[0].status = 'error'
+  v.waitingOn = { ...v.waitingOn, kind: 'check', says: 'Deploy could not run', you: 'no' }
+  el = document.createElement('div'); el.innerHTML = render(v)
+  expect(el.querySelector('#decision')?.hasAttribute('hidden')).toBe(false)
+  expect(el.querySelector('#decision')?.textContent).toContain('Deploy could not run')
 })

@@ -390,3 +390,16 @@
 .ch-shield.neutral { color: var(--muted); }
 .ch-overview-line.ch-line-bad { border-left: 4px solid var(--bad); background: color-mix(in srgb, var(--bad) 8%, transparent); padding-left: 12px; margin-left: -16px; }
 .ch-bad-text { color: var(--bad); }
+
+.ch-now { border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+.ch-now h2 { margin-top: 0; }
+.ch-now-steps { list-style: none; padding: 0; margin: 12px 0 0; }
+.ch-now-steps li { display: grid; grid-template-columns: 64px minmax(100px, 180px) 1fr auto; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); align-items: start; }
+.ch-now-fact { min-width: 0; overflow-wrap: anywhere; }
+.ch-now-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: ch-now-spin 1s linear infinite; }
+@keyframes ch-now-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ch-now-spinner { animation: none; } }
+@media (max-width: 600px) {
+  .ch-now-steps li { grid-template-columns: 64px 1fr; }
+  .ch-now-fact, .ch-now-steps time, .ch-now-steps li > :last-child { grid-column: 2; }
+}

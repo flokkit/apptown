@@ -1117,6 +1117,12 @@ bounded wait; remote operations may outlive it.
 
 ## Runtime diagnostics
 
+Home project rows, project pages and deployment lists and pages share one
+status function. While a release for the deployment is releasing, its status
+shows `deploying` with the running tone and `Release N` as help. When the release
+finishes, runtime observation and diagnostics decide the status again. Without
+a release in progress, an unknown runtime observation stays unknown.
+
 A deployment's card has a Diagnostics line (`GET
 /projects/{slug}/deployments/{name}/diagnostics`, the deployment read grant). It
 is about the generation the deployment settled on: its parts and needs are the
