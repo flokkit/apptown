@@ -18,6 +18,11 @@ import (
 // Totals is a sum of spending; the cost accumulates in dollars and is
 // reported in micro-dollars.
 type Totals struct {
+	// Counts retain each call's source even when a transcript is aggregated.
+	ProviderReported int64 `json:"providerReported"`
+	Catalog          int64 `json:"catalog"`
+	Unpriced         int64 `json:"unpriced"`
+
 	Input      int64 `json:"input"`
 	Output     int64 `json:"output"`
 	CacheRead  int64 `json:"cacheRead"`
@@ -38,6 +43,18 @@ func (u *Totals) Add(input, output, cacheRead, cacheWrite, total float64, costUS
 	u.Total += int64(total)
 	u.costUSD += costUSD
 	u.CostMicros = int64(u.costUSD * 1e6)
+}
+
+// AddPriceSource records the provenance of one call, independently of its amount.
+func (u *Totals) AddPriceSource(source string) {
+	switch source {
+	case "provider-reported":
+		u.ProviderReported++
+	case "catalog":
+		u.Catalog++
+	default:
+		u.Unpriced++
+	}
 }
 
 // Entry is one ledger row's identity: who spent, on what.
@@ -97,7 +114,7 @@ func (l *Ledger) recordIn(ctx context.Context, q database.Queryer, e Entry, u To
 		At: l.now().UTC(), Kind: e.Kind, ProjectID: e.ProjectID, RunID: e.RunID, RootRunID: e.RootRunID, StepID: e.StepID,
 		WorkflowName: e.WorkflowName, WorkflowVersion: e.WorkflowVersion, SessionID: e.SessionID, Actor: e.Actor, ActorPrincipal: spender.Principal, ActorVia: spender.Via, Provider: e.Provider, Model: e.Model,
 		Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite, Total: u.Total, CostMicros: u.CostMicros,
-		Incomplete: incomplete,
+		Incomplete: incomplete, ProviderReported: u.ProviderReported, Catalog: u.Catalog, Unpriced: u.Unpriced,
 	})
 }
 
@@ -129,7 +146,7 @@ func (l *Ledger) RecordOnce(ctx context.Context, key string, e Entry, u Totals, 
 		At: l.now().UTC(), Kind: e.Kind, ProjectID: e.ProjectID, RunID: e.RunID, RootRunID: e.RootRunID, StepID: e.StepID,
 		WorkflowName: e.WorkflowName, WorkflowVersion: e.WorkflowVersion, SessionID: e.SessionID, Actor: e.Actor, ActorPrincipal: spender.Principal, ActorVia: spender.Via, Provider: e.Provider, Model: e.Model,
 		Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite, Total: u.Total, CostMicros: u.CostMicros,
-		Observation: key, Incomplete: incomplete,
+		Observation: key, Incomplete: incomplete, ProviderReported: u.ProviderReported, Catalog: u.Catalog, Unpriced: u.Unpriced,
 	})
 }
 
@@ -148,7 +165,7 @@ func (l *Ledger) Observed(ctx context.Context, key string) (observation, bool, e
 	if err != nil || !found {
 		return observation{}, false, err
 	}
-	return observation{Totals: Totals{Input: r.Input, Output: r.Output, CacheRead: r.CacheRead, CacheWrite: r.CacheWrite, Total: r.Total, CostMicros: r.CostMicros}, Incomplete: r.Incomplete}, true, nil
+	return observation{Totals: Totals{Input: r.Input, Output: r.Output, CacheRead: r.CacheRead, CacheWrite: r.CacheWrite, Total: r.Total, CostMicros: r.CostMicros, ProviderReported: r.ProviderReported, Catalog: r.Catalog, Unpriced: r.Unpriced}, Incomplete: r.Incomplete}, true, nil
 }
 
 // Cursor is how far a session file has been read; 0 when never.
@@ -183,12 +200,12 @@ func (l *Ledger) RecordHarvest(ctx context.Context, path string, offset int64, r
 // RunTotal sums the spending of the run trees rooted at rootRunIDs: one
 // run's, or a change's across every run it has had (its spending does not
 // end with the run it is on now).
-func (l *Ledger) RunTotal(ctx context.Context, rootRunIDs ...ids.ID) (total, costMicros int64, err error) {
+func (l *Ledger) RunTotal(ctx context.Context, rootRunIDs ...ids.ID) (Totals, error) {
 	if len(rootRunIDs) == 0 {
-		return 0, 0, nil
+		return Totals{}, nil
 	}
 	r, err := usagesql.New(l.db.SQL()).RunTotal(ctx, rootRunIDs)
-	return r.Total, r.CostMicros, err
+	return Totals{Total: r.Total, CostMicros: r.CostMicros, Unpriced: r.Unpriced}, err
 }
 
 // StepCost is what one step spent across every turn: the sum, and how
@@ -217,12 +234,22 @@ func (l *Ledger) StepCosts(ctx context.Context, steps []ids.ID) (map[ids.ID]Step
 
 // Line is one row of a rollup.
 type Line struct {
+	// Counts retain each call's source even when a transcript is aggregated.
+	ProviderReported int64 `json:"providerReported"`
+	Catalog          int64 `json:"catalog"`
+	Unpriced         int64 `json:"unpriced"`
+
 	Key                              string
 	Input, Output, Total, CostMicros int64
 }
 
 // dayKind is one day's spending by kind, for the stacked chart.
 type dayKind struct {
+	// Counts retain each call's source even when a transcript is aggregated.
+	ProviderReported int64 `json:"providerReported"`
+	Catalog          int64 `json:"catalog"`
+	Unpriced         int64 `json:"unpriced"`
+
 	Day, Kind         string
 	Total, CostMicros int64
 }
@@ -275,13 +302,13 @@ func (l *Ledger) summary(ctx context.Context, windowDays int, scope usageScope, 
 	if err != nil {
 		return rep, err
 	}
-	rep.Totals = Totals{Input: totals.Input, Output: totals.Output, CacheRead: totals.CacheRead, CacheWrite: totals.CacheWrite, Total: totals.Total, CostMicros: totals.CostMicros, Incomplete: totals.Incomplete}
+	rep.Totals = Totals{Input: totals.Input, Output: totals.Output, CacheRead: totals.CacheRead, CacheWrite: totals.CacheWrite, Total: totals.Total, CostMicros: totals.CostMicros, Incomplete: totals.Incomplete, ProviderReported: totals.ProviderReported, Catalog: totals.Catalog, Unpriced: totals.Unpriced}
 	group := func(dimension string) ([]Line, error) {
 		rows, err := q.UsageGroups(ctx, usagesql.UsageGroupsParams{Dimension: dimension, Since: since, WholeInstance: scope.Instance, ProjectIds: projects, Workflow: workflow})
 		kept := make([]Line, 0, len(rows))
 		for _, r := range rows {
 			if r.Key != "" {
-				kept = append(kept, Line{Key: r.Key, Input: r.Input, Output: r.Output, Total: r.Total, CostMicros: r.CostMicros})
+				kept = append(kept, Line{Key: r.Key, Input: r.Input, Output: r.Output, Total: r.Total, CostMicros: r.CostMicros, ProviderReported: r.ProviderReported, Catalog: r.Catalog, Unpriced: r.Unpriced})
 			}
 		}
 		return kept, err
@@ -302,7 +329,7 @@ func (l *Ledger) summary(ctx context.Context, windowDays int, scope usageScope, 
 	}
 	rep.ByDayKind = make([]dayKind, 0, len(days))
 	for _, d := range days {
-		rep.ByDayKind = append(rep.ByDayKind, dayKind{Day: d.Day, Kind: d.Kind, Total: d.Total, CostMicros: d.CostMicros})
+		rep.ByDayKind = append(rep.ByDayKind, dayKind{Day: d.Day, Kind: d.Kind, Total: d.Total, CostMicros: d.CostMicros, ProviderReported: d.ProviderReported, Catalog: d.Catalog, Unpriced: d.Unpriced})
 	}
 	if byWorkflow {
 		rep.ByWorkflow, err = group("workflow")
@@ -327,7 +354,7 @@ func (l *Ledger) ProjectsTotal(ctx context.Context, q database.Queryer, projectI
 		q = l.db
 	}
 	r, err := usagesql.New(q.SQL()).ProjectsTotal(ctx, usagesql.ProjectsTotalParams{Now: l.now(), ProjectIds: projectIDs})
-	return Totals{Input: r.Input, Output: r.Output, Total: r.Total, CostMicros: r.CostMicros, Incomplete: r.Incomplete}, err
+	return Totals{Input: r.Input, Output: r.Output, Total: r.Total, CostMicros: r.CostMicros, Incomplete: r.Incomplete, ProviderReported: r.ProviderReported, Catalog: r.Catalog, Unpriced: r.Unpriced}, err
 }
 
 // LockInUnknownIn locks in the listed projects' expired pending lines as

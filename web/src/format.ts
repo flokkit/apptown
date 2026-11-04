@@ -95,3 +95,9 @@ export function lastSeen(at: string, now = Date.now()): string {
 export function readingAge(at: string, stale = false, now = Date.now()): string {
  return stale ? lastSeen(at, now) : `checked ${relTime(at, now) || 'at an unknown time'}`
 }
+
+// Missing price sources qualify recorded amounts, including historical spend.
+export function fmtPrice(cost: number, unpriced: number): string {
+  if (unpriced > 0) return cost > 0 ? `at least ${fmtCost(cost)}` : 'not priced'
+  return `$${(cost / 1e6).toFixed(2)}`
+}

@@ -101,7 +101,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 	if !item.RunID.IsZero() && !slices.Contains(roots, item.RunID) {
 		roots = append(roots, item.RunID)
 	}
-	usageTotal, usageCost, err := h.usage.RunTotal(r.Context(), roots...)
+	spend, err := h.usage.RunTotal(r.Context(), roots...)
 	if err != nil {
 		WriteFault(w, err)
 		return
@@ -190,7 +190,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, ChangeCockpit{WaitingOn: h.work.ChangeWaitingOn(r.Context(), item, detail), Change: *item, ProjectSlug: slug, Detail: detail, ADRs: adrRecords, Evidence: evidence,
 		Runs: runs, Commits: commits, Head: head, Diffstat: diffstat, CommittedDiff: comparison, Report: report, Editing: editing,
 		StatusLabel: item.Display(detail), State: state, StateDetail: stateDetail, Approval: h.approvalStanding(r, detail), MainConflict: mainConflict,
-		Usage: ChangeUsage{Total: usageTotal, CostMicros: usageCost}, Next: workflow.ChangeActs(item, detail, evidence.Merged, h.work.MayAbandon(r.Context(), id) == nil)})
+		Usage: ChangeUsage{Total: spend.Total, CostMicros: spend.CostMicros, Unpriced: spend.Unpriced}, Next: workflow.ChangeActs(item, detail, evidence.Merged, h.work.MayAbandon(r.Context(), id) == nil)})
 }
 
 // approvalStanding: whether the viewer could decide the approval the run
@@ -297,6 +297,7 @@ type (
 	ChangeUsage struct {
 		Total      int64 `json:"total"`
 		CostMicros int64 `json:"costMicros"`
+		Unpriced   int64 `json:"unpriced"`
 	}
 )
 

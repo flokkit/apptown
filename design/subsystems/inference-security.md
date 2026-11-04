@@ -108,9 +108,13 @@ counts retain provider semantics; they are not a normalized bill. A restart
 locks in AppTown's own calls still pending as unknown spend without inventing
 final usage.
 
-The existing Pi-derived usage dashboard remains a separate, advisory accounting
-surface. Do not add these two ledgers together: they can describe the same
-request. Neither ledger provides authoritative monetary settlement.
+Agent and chat spend has one writer: transcript accounting. Pi calculates model
+costs from its model definitions and marks a provider-reported total explicitly.
+Generated built-in definitions use the pinned Pi catalog rates; custom endpoints
+keep their declared rates. The Usage ledger retains counts by price source and
+shows calls without a price as “not priced”. AppTown's own calls use provider
+prices when present and the same embedded catalog otherwise. Proxy telemetry is
+not another spend ledger. These estimates are not reconciled provider invoices.
 
 ## Runtime and deployment contract
 

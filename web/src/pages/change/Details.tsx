@@ -6,7 +6,7 @@ import type { Artifact, ChangeView, RunDetail } from '../../api'
 import { post } from '../../api'
 import type { ReleaseDetail, RunTrace } from '../../wire.gen'
 import { Screenshots } from '../../Screenshots'
-import { fmtCost, fmtStamp, fmtTokens } from '../../format'
+import { fmtPrice, fmtStamp, fmtTokens } from '../../format'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { Attachments, RequestEntry, changeReport } from './Head'
@@ -192,7 +192,7 @@ export function ChangeDetails({ view, current, reload, focusStep, runId }: { vie
       {view.change.branch && <tr><th scope="row">Branch</th><td><code>{view.change.branch}</code></td></tr>}
       {view.change.baseSha && <tr><th scope="row">Started from</th><td><code>{view.change.baseSha}</code></td></tr>}
       {view.change.type && <tr><th scope="row">Kind</th><td>{view.change.type}</td></tr>}
-      {u && (u.total > 0 || u.costMicros > 0) && <tr><th scope="row">Cost</th><td>{fmtTokens(u.total)} tokens{u.costMicros > 0 && ` · ${fmtCost(u.costMicros)}`}</td></tr>}
+      {u && (u.total > 0 || u.costMicros > 0 || u.unpriced > 0) && <tr><th scope="row">Cost</th><td>{fmtTokens(u.total)} tokens{` · ${fmtPrice(u.costMicros, u.unpriced)}`}</td></tr>}
       <Attachments changeId={view.change.id!} readOnly={['shipped', 'abandoned'].includes(view.change.state)} />
     </tbody></table></section>
   </div></OpenEvidence.Provider>

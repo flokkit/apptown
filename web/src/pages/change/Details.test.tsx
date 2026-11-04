@@ -359,3 +359,13 @@ it('marks a rejected review red before its positive opening and preserves the la
     expect(row.querySelector('.ch-story-line')?.textContent).toBe('✗ Rejected · The preview was styled.\n\nThe requested adoption is incomplete.')
   } finally { f.close() }
 })
+
+it.each([[0, 2, 'not priced'], [3000, 1, 'at least $0.0030'], [0, 0, '$0.00']] as const)('shows the recorded price state in Details (%s, %s)', async (costMicros, unpriced, expected) => {
+  const v = view()
+  v.usage = { total: unpriced ? 0 : 100, costMicros, unpriced }
+  const f = await mount(v)
+  try {
+    const row = [...f.el.querySelectorAll('.ch-facts-table tr')].find(r => r.querySelector('th')?.textContent === 'Cost')
+    expect(row?.textContent).toContain(expected)
+  } finally { f.close() }
+})

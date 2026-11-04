@@ -8,14 +8,15 @@ import (
 // Provider-reported counts observed on the trusted transport, not numbers
 // submitted by a runtime. Missing usage is explicit, never a zero-cost claim.
 type inferenceUsage struct {
-	Observed   bool  `json:"observed"`
-	Input      int64 `json:"input"`
-	Output     int64 `json:"output"`
-	CacheRead  int64 `json:"cacheRead"`
-	CacheWrite int64 `json:"cacheWrite"`
-	// Cost is the price the provider reported for the call (OpenRouter's
-	// usage.cost), in dollars; Priced says it reported one. A reported 0 is
-	// a price; no price at all is not.
+	PriceSource  string `json:"priceSource"`
+	CacheWrite1h int64  `json:"-"`
+	Observed     bool   `json:"observed"`
+	Input        int64  `json:"input"`
+	Output       int64  `json:"output"`
+	CacheRead    int64  `json:"cacheRead"`
+	CacheWrite   int64  `json:"cacheWrite"`
+	// Cost is dollars, either provider-reported or calculated from model rates.
+	// A provider-reported zero is priced; absent or all-zero model rates are not.
 	Cost   float64 `json:"cost,omitempty"`
 	Priced bool    `json:"priced,omitempty"`
 }
@@ -110,6 +111,7 @@ func (u *inferenceUsageReader) observe(b []byte) {
 		var c *float64
 		if json.Unmarshal(v, &c) == nil && c != nil && *c >= 0 {
 			u.usage.Cost, u.usage.Priced = *c, true
+			u.usage.PriceSource = "provider-reported"
 		}
 	}
 	set("prompt_tokens", &u.usage.Input)
@@ -118,11 +120,20 @@ func (u *inferenceUsageReader) observe(b []byte) {
 	set("output_tokens", &u.usage.Output)
 	set("cache_read_input_tokens", &u.usage.CacheRead)
 	set("cache_creation_input_tokens", &u.usage.CacheWrite)
+	var creation struct {
+		Long int64 `json:"ephemeral_1h_input_tokens"`
+	}
+	if json.Unmarshal(counts["cache_creation"], &creation) == nil {
+		u.usage.CacheWrite1h = creation.Long
+	}
 	for _, key := range []string{"prompt_tokens_details", "input_tokens_details"} {
 		var details map[string]int64
 		if json.Unmarshal(counts[key], &details) == nil {
 			if n, ok := details["cached_tokens"]; ok && n >= 0 {
 				u.usage.CacheRead = n
+			}
+			if n, ok := details["cache_write_tokens"]; ok && n >= 0 {
+				u.usage.CacheWrite = n
 			}
 		}
 	}

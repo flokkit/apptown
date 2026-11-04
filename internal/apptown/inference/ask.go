@@ -110,7 +110,7 @@ func (g *Gateway) Ask(ctx context.Context, call modelcall.Call) (string, *modelc
 	if a.rejected {
 		return "", nil, a.err
 	}
-	u := &modelcall.Usage{Prompt: a.usage.Input, Completion: a.usage.Output, Cost: a.usage.Cost, Model: a.served, Incomplete: a.incomplete}
+	u := &modelcall.Usage{Prompt: a.usage.Input, Completion: a.usage.Output, Cost: a.usage.Cost, PriceSource: a.usage.PriceSource, Model: a.served, Incomplete: a.incomplete}
 	return a.text, u, a.err
 }
 
@@ -144,7 +144,7 @@ type answer struct {
 
 // send makes the upstream call and reads its answer whole.
 func (g *Gateway) send(ctx context.Context, p *inferenceProvider, model, path string, raw []byte) answer {
-	var a answer
+	a := answer{usage: inferenceUsage{PriceSource: "none"}}
 	protocol := http.Header{}
 	if p.api == "anthropic-messages" {
 		protocol.Set("Anthropic-Version", "2023-06-01")
@@ -178,6 +178,7 @@ func (g *Gateway) send(ctx context.Context, p *inferenceProvider, model, path st
 	reader := newInferenceUsageReader()
 	_, _ = reader.Write(body)
 	a.usage = reader.result()
+	p.price(model, &a.usage)
 	var served struct{ Model, ModelVersion string }
 	_ = json.Unmarshal(body, &served)
 	a.served = served.Model

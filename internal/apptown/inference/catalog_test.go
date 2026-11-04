@@ -298,3 +298,57 @@ func TestPublicPiModelRetainsNewChatControls(t *testing.T) {
 		}
 	}
 }
+
+// Discovered built-in definitions must not replace Pi's prices with zero.
+// Custom endpoints retain their declared prices, including explicit zeros.
+func TestPublicModelsPreserveCatalogPricesAndCustomDeclarations(t *testing.T) {
+	db := databaseSuite.New(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":[{"id":"gpt-6.1-terra"},{"id":"new-unpriced"}]}`))
+	}))
+	defer server.Close()
+	bindings := integration.NewWithClock(db, nil)
+	for _, name := range []string{"openai", "anthropic", "openrouter", "custom"} {
+		id := "gpt-6.1-terra"
+		if name == "anthropic" {
+			id = "claude-sonnet-4-5"
+		}
+		if name == "openrouter" {
+			id = "openai/gpt-5"
+		}
+		config, _ := json.Marshal(map[string]any{"baseUrl": server.URL, "models": []string{"*"}, "providerDef": map[string]any{"models": []any{map[string]any{"id": id, "cost": map[string]int{"input": 9}}}, "modelOverrides": map[string]any{id: map[string]any{"cost": map[string]int{"input": 99}}}}})
+		if _, err := bindings.Save(t.Context(), name, "model", name, string(config), "fixture"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	catalog := NewCatalog(db, secret.NewService(db, secret.Config{DataDir: t.TempDir()}))
+	public, err := catalog.PublicProviders(t.Context(), "http://proxy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range public {
+		for _, m := range p.Models {
+			id := m["id"].(string)
+			raw, _ := json.Marshal(m["cost"])
+			if p.Name == "custom" && id == "gpt-6.1-terra" {
+				if string(raw) != `{"input":9}` {
+					t.Fatalf("changed custom cost: %s", raw)
+				}
+			} else if known, ok := builtInCatalog.Providers[p.Name][id]; ok {
+				want, _ := json.Marshal(known.Cost)
+				if string(raw) != string(want) {
+					t.Fatalf("%s/%s: %s want %s", p.Name, id, raw, want)
+				}
+			} else if id == "new-unpriced" && m["cost"] != nil {
+				t.Fatalf("invented discovery price: %+v", m)
+			}
+		}
+		if p.Name != "custom" {
+			for _, v := range p.Metadata["modelOverrides"].(map[string]any) {
+				if v.(map[string]any)["cost"] != nil {
+					t.Fatalf("built-in override changes prices: %+v", v)
+				}
+			}
+		}
+	}
+}

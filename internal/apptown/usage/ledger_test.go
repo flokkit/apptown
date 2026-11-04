@@ -39,9 +39,9 @@ func TestLedgerRecordsRollsUpAndKeepsCursors(t *testing.T) {
 	if err := l.Record(context.Background(), Entry{Kind: "console", ProjectID: pid, SessionID: "s1", Actor: "alice", Provider: "local", Model: "n"}, c, ""); err != nil {
 		t.Fatal(err)
 	}
-	total, cost, err := l.RunTotal(context.Background(), idstest.N(7))
-	if err != nil || total != 165 || cost != 2500 {
-		t.Fatalf("run total: %d %d %v", total, cost, err)
+	spend, err := l.RunTotal(context.Background(), idstest.N(7))
+	if err != nil || spend.Total != 165 || spend.CostMicros != 2500 {
+		t.Fatalf("run total: %d %d %v", spend.Total, spend.CostMicros, err)
 	}
 	rep, err := l.Summary(context.Background(), 30, ids.Nil, "")
 	if err != nil || rep.Totals.Total != 205 || len(rep.ByKind) != 2 || len(rep.ByProject) != 1 || rep.ByProject[0].Key != "u" || len(rep.ByDay) != 1 {
@@ -88,8 +88,8 @@ func TestLedgerRecordOnceCountsEachObservationOnce(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if total, cost, err := l.RunTotal(context.Background(), idstest.N(3)); err != nil || total != 15 || cost != 1000 {
-		t.Fatalf("a replayed observation counts once: %d %d %v", total, cost, err)
+	if spend, err := l.RunTotal(context.Background(), idstest.N(3)); err != nil || spend.Total != 15 || spend.CostMicros != 1000 {
+		t.Fatalf("a replayed observation counts once: %d %d %v", spend.Total, spend.CostMicros, err)
 	}
 	if err := l.RecordOnce(context.Background(), "step:4:a1:first-r2", e, u, ""); err != nil {
 		t.Fatal(err)
@@ -99,8 +99,8 @@ func TestLedgerRecordOnceCountsEachObservationOnce(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if total, _, err := l.RunTotal(context.Background(), idstest.N(3)); err != nil || total != 60 {
-		t.Fatalf("distinct observations and unkeyed records each count: %d %v", total, err)
+	if spend, err := l.RunTotal(context.Background(), idstest.N(3)); err != nil || spend.Total != 60 {
+		t.Fatalf("distinct observations and unkeyed records each count: %d %v", spend.Total, err)
 	}
 	if err := l.RecordOnce(context.Background(), "", e, u, ""); err == nil {
 		t.Fatal("an observation without a key was accepted")
@@ -225,5 +225,24 @@ func TestAHarvestAdvancesItsCursorOnlyWithItsRows(t *testing.T) {
 	}
 	if got, err := l.ProjectsTotal(t.Context(), db, pid); err != nil || got.Total != 15 {
 		t.Fatalf("ledger %v (%v)", got, err)
+	}
+}
+
+func TestKeyedTranscriptUsageRetainsSourceCounts(t *testing.T) {
+	db := testDB(t)
+	l := New(db)
+	u := Totals{Input: 10, Output: 5, Total: 15, CostMicros: 1000, ProviderReported: 2, Catalog: 3, Unpriced: 4}
+	for range 2 {
+		if err := l.RecordOnce(t.Context(), "priced-step", Entry{Kind: "step", Provider: "custom", Model: "m"}, u, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	saved, found, err := l.Observed(t.Context(), "priced-step")
+	if err != nil || !found || saved.Totals.ProviderReported != 2 || saved.Totals.Catalog != 3 || saved.Totals.Unpriced != 4 {
+		t.Fatalf("saved sources: %+v %v %v", saved, found, err)
+	}
+	report, err := l.Summary(t.Context(), 1, ids.Nil, "")
+	if err != nil || report.Totals.ProviderReported != 2 || report.ByKind[0].Catalog != 3 || report.ByModel[0].Unpriced != 4 {
+		t.Fatalf("report sources: %+v %v", report, err)
 	}
 }

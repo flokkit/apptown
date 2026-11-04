@@ -50,6 +50,9 @@ func HarvestUsage(ctx context.Context, ledger *usage.Ledger, s *console.Session)
 			}
 			m := e.Usage
 			agg[k].Add(m.Input, m.Output, m.CacheRead, m.CacheWrite, m.Total, m.Cost.Total)
+			if m.Total > 0 || m.Cost.Total > 0 {
+				agg[k].AddPriceSource(m.PriceSource())
+			}
 		}
 		var rows []usage.Harvested
 		for _, k := range order {

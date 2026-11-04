@@ -1,6 +1,6 @@
 import { Tabs } from '../Tabs'
 import { useState } from 'react'
-import { fmtCost, fmtDuration, fmtTokens } from '../format'
+import { fmtCost, fmtPrice as price, fmtDuration, fmtTokens } from '../format'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import type { TimingReport, UsageReport } from '../wire.gen'
@@ -33,6 +33,10 @@ function StatCard({ label, value, sub }: { label: string; value: React.ReactNode
   )
 }
 
+function sources(reported: number, catalog: number, unpriced: number): string {
+  return [reported > 0 ? `${reported} reported by the provider` : '', catalog > 0 ? `${catalog} from the model catalog` : '', unpriced > 0 ? `${unpriced} spend record${unpriced === 1 ? '' : 's'} without a price source` : ''].filter(Boolean).join(' · ')
+}
+
 function BarList({ title, rows, labelKey, hasCost, mapLabel }: {
   title: string; rows?: Row[]; labelKey: string; hasCost: boolean
   mapLabel?: (s: string) => string
@@ -49,7 +53,8 @@ function BarList({ title, rows, labelKey, hasCost, mapLabel }: {
             <div className="bar-row-head">
               <span className="bar-row-label">{label}</span>
               <span className="muted small">
-                {fmtTokens(Number(r.total))}{hasCost && Number(r.costMicros) > 0 ? ` · ${fmtCost(Number(r.costMicros))}` : ''}
+                {fmtTokens(Number(r.total))}{hasCost || Number(r.unpriced) > 0 ? ` · ${price(Number(r.costMicros), Number(r.unpriced))}` : ''}
+                <span className="muted">{sources(Number(r.providerReported), Number(r.catalog), Number(r.unpriced)) ? ` · ${sources(Number(r.providerReported), Number(r.catalog), Number(r.unpriced))}` : ''}</span>
               </span>
             </div>
             <div className="bar-track"><div className="bar-fill" style={{ width: `${(Number(r.total) / max) * 100}%` }} /></div>
@@ -212,7 +217,10 @@ export function UsageView({ project }: { project?: string }) {
   if (!data) return <ReadStatus q={uq} what="the usage" />
 
   const hasCost = data.totals.costMicros > 0
-  const chatCost = Number(data.byKind.find((k) => k.kind === 'console')?.costMicros ?? 0)
+  const chat = data.byKind.find((k) => k.kind === 'console')
+  const chatCost = Number(chat?.costMicros ?? 0)
+  const chatUnpriced = chat?.unpriced ?? 0
+  const workUnpriced = data.totals.unpriced - chatUnpriced
   const workCost = data.totals.costMicros - chatCost
 
   // Daily chart: fill every day in the window so gaps are visible.
@@ -242,11 +250,12 @@ export function UsageView({ project }: { project?: string }) {
         ))}
       </div>}>
         <div className="usage-totals">
-          <StatCard label={`Cost, ${window} days`} value={`$${(data.totals.costMicros / 1e6).toFixed(2)}`}
+          <StatCard label={`Cost, ${window} days`} value={price(data.totals.costMicros, data.totals.unpriced)}
             sub={data.totals.incomplete > 0 ? `${data.totals.incomplete} activity records have unknown or partial cost.` : undefined} />
-          <StatCard label="Automated work" value={`$${(workCost / 1e6).toFixed(2)}`} />
-          <StatCard label="Chat" value={`$${(chatCost / 1e6).toFixed(2)}`} />
+          <StatCard label="Automated work" value={price(workCost, workUnpriced)} />
+          <StatCard label="Chat" value={price(chatCost, chatUnpriced)} />
         </div>
+        <p className="muted small">{sources(data.totals.providerReported, data.totals.catalog, data.totals.unpriced)}</p>
       </Section>
 
       <Tabs className="tabs" aria-label="Usage views">

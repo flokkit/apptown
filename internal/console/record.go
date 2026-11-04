@@ -32,8 +32,20 @@ type Usage struct {
 	CacheWrite float64 `json:"cacheWrite"`
 	Total      float64 `json:"totalTokens"`
 	Cost       struct {
-		Total float64 `json:"total"`
+		Total             float64 `json:"total"`
+		TotalFromProvider bool    `json:"totalFromProvider"`
 	} `json:"cost"`
+}
+
+// PriceSource is Pi's explicit provider-price marker or its calculated model cost.
+func (u Usage) PriceSource() string {
+	if u.Cost.TotalFromProvider {
+		return "provider-reported"
+	}
+	if u.Cost.Total > 0 {
+		return "catalog"
+	}
+	return "none"
 }
 
 // entry is one line of the record, reduced to what AppTown reads. One

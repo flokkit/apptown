@@ -48,21 +48,21 @@ spec:
 		root        ids.ID
 		total, cost int64
 	}{{first.ID, 1000, 30000}, {restarted.Run.ID, 10, 500}, {idstest.N(999999), 7, 7}} {
-		if err := ledger.Record(ctx, usage.Entry{Kind: "step", ProjectID: ch.ProjectID, RunID: spent.root, RootRunID: spent.root, Actor: "alice"}, usage.Totals{Total: spent.total, CostMicros: spent.cost}, ""); err != nil {
+		if err := ledger.Record(ctx, usage.Entry{Kind: "step", ProjectID: ch.ProjectID, RunID: spent.root, RootRunID: spent.root, Actor: "alice"}, usage.Totals{Total: spent.total, CostMicros: spent.cost, Unpriced: 2}, ""); err != nil {
 			t.Fatal(err)
 		}
 	}
 	w = authzCall(h, "alice", "GET", fmt.Sprintf("/api/v1/changes/%d", ch.ID), "")
 	var got struct {
-		Usage struct{ Total, CostMicros int64 }
+		Usage struct{ Total, CostMicros, Unpriced int64 }
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil || w.Code != 200 {
 		t.Fatalf("detail: %d %s", w.Code, w.Body.String())
 	}
-	if got.Usage.Total != 1010 || got.Usage.CostMicros != 30500 {
+	if got.Usage.Total != 1010 || got.Usage.CostMicros != 30500 || got.Usage.Unpriced != 4 {
 		t.Fatalf("the change's cost is not its runs' spending: %+v", got.Usage)
 	}
-	if total, cost, err := ledger.RunTotal(ctx, restarted.Run.ID); err != nil || total != 10 || cost != 500 {
-		t.Fatalf("one run's own figure: %d %d %v", total, cost, err)
+	if spend, err := ledger.RunTotal(ctx, restarted.Run.ID); err != nil || spend.Total != 10 || spend.CostMicros != 500 {
+		t.Fatalf("one run's own figure: %d %d %v", spend.Total, spend.CostMicros, err)
 	}
 }

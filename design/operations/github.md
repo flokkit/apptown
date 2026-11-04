@@ -132,6 +132,11 @@ and its build images). Project Go tools stay separate from AppTown's build/CI
 compiler. Major updates stay separate from minor and patch updates; coupled
 pins and packages released together (React with React DOM) move together.
 
+When changing `PI_VERSION` in the agent Dockerfile, run `make generate-model-catalog`
+and commit the generated inference catalog in the same change. The catalog version
+test requires the artifact and worker pin to agree. Generation installs the exact
+pinned package in a temporary directory with install scripts disabled.
+
 Pi harness updates (`@earendil-works/pi-coding-agent`) open proposals without
 dashboard approval after the three-day minimum release age. They keep the
 normal reviewer and never automerge. Pi extensions remain in their own group

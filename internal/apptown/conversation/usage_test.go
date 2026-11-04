@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/usage"
+	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/console"
@@ -247,5 +248,24 @@ func TestHarvestIncludesCacheRefreshOnce(t *testing.T) {
 	}
 	if rows.Next() || rows.Err() != nil {
 		t.Fatalf("unexpected spend rows: %v", rows.Err())
+	}
+}
+
+func TestHarvestRetainsMixedPriceSourcesExactlyOnce(t *testing.T) {
+	db := databaseSuite.New(t)
+	ledger := usage.New(db)
+	lines := []string{"{\"type\":\"session\",\"version\":3,\"id\":\"test\"}\n"}
+	for _, cost := range []string{`{"total":0.002,"totalFromProvider":true}`, `{"total":0.001}`, `{"total":0}`, `{"total":0,"totalFromProvider":true}`} {
+		lines = append(lines, `{"type":"message","message":{"role":"assistant","provider":"custom","model":"m","usage":{"input":10,"output":1,"totalTokens":11,"cost":`+cost+`}}}`+"\n")
+	}
+	s, _ := recordSession(t, lines)
+	for range 2 {
+		if err := HarvestUsage(t.Context(), ledger, s); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rep, err := ledger.Summary(t.Context(), 1, ids.Nil, "")
+	if err != nil || rep.Totals.ProviderReported != 2 || rep.Totals.Catalog != 1 || rep.Totals.Unpriced != 1 || rep.Totals.CostMicros != 3000 {
+		t.Fatalf("harvest: %+v %v", rep, err)
 	}
 }

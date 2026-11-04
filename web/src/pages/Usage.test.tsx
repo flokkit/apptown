@@ -81,6 +81,36 @@ describe('the daily usage chart', () => {
   })
 })
 
+describe('model prices', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+  it('describes source-less historical spend without claiming call counts and retains catalog and provider provenance', async () => {
+    const report = {
+      windowDays: 30, totals: { total: 44, input: 40, output: 4, cacheRead: 0, cacheWrite: 0, costMicros: 0, incomplete: 0, providerReported: 0, catalog: 0, unpriced: 4 },
+      byKind: [{ kind: 'console', total: 44, costMicros: 0, unpriced: 4 }], byModel: [], byDay: [], byProject: [], byWorkflow: [], byDayKind: [],
+    }
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(report))))
+    const client = newQueryClient()
+    const el = document.createElement('div')
+    const root = createRoot(el)
+    try {
+      await act(async () => { root.render(<QueryClientProvider client={client}><UsageView project="demo" /></QueryClientProvider>) })
+      await settled(client)
+      expect(el.querySelector('.usage-figure')?.textContent).toContain('not priced')
+      expect(el.textContent).toContain('4 spend records without a price source')
+      report.totals.costMicros = 3000
+      report.totals.providerReported = 2
+      report.totals.catalog = 1
+      report.totals.unpriced = 1
+      await act(async () => { await client.invalidateQueries() })
+      await settled(client)
+      expect(el.querySelector('.usage-figure')?.textContent).toContain('at least $0.003')
+      expect(el.textContent).toContain('2 reported by the provider')
+      expect(el.textContent).toContain('1 from the model catalog')
+      expect(el.textContent).toContain('1 spend record without a price source')
+    } finally { act(() => root.unmount()); client.clear() }
+  })
+})
+
 describe('where the time goes', () => {
   afterEach(() => { vi.unstubAllGlobals() })
 

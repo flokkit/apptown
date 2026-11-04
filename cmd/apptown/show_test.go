@@ -271,3 +271,27 @@ func TestShowChangesAndWaitPrintTheSameSays(t *testing.T) {
 		}
 	}
 }
+
+// Price-source counts come from the change's ledger total, including zero-token spend.
+func TestShowQualifiesMissingPrices(t *testing.T) {
+	const id = "00000000-0008-7000-8000-000000000000"
+	for _, tc := range []struct {
+		total, cost, unpriced int64
+		want                  string
+	}{
+		{0, 0, 2, "not priced"}, {100, 3000, 1, "at least $0.0030"}, {100, 0, 0, "$0.00"},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			fakeAppTown(t, func(_, path string) (int, string) {
+				if path == "/changes/"+id {
+					return 200, fmt.Sprintf(`{"projectSlug":"shop","change":{"id":"%s","number":8,"title":"Price test"},"usage":{"total":%d,"costMicros":%d,"unpriced":%d}}`, id, tc.total, tc.cost, tc.unpriced)
+				}
+				return 404, `{"error":"no"}`
+			})
+			out, err := run(t, "show", id)
+			if err != nil || !strings.Contains(out, " · "+tc.want) {
+				t.Fatalf("show missing prices: %v\n%s", err, out)
+			}
+		})
+	}
+}

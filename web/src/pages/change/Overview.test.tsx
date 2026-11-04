@@ -673,6 +673,12 @@ it('labels an unsummarized agent report and excludes verification claims while k
   expect(el.textContent).not.toContain('What was made')
 })
 
+// A missing price must remain visible even when no tokens were recorded.
+it.each([[0, 2, 'not priced'], [3000, 1, 'at least $0.0030'], [0, 0, '$0.00']] as const)('qualifies the overview cost (%s, %s)', (costMicros, unpriced, expected) => {
+  const v = view()
+  v.usage = { total: 0, costMicros, unpriced }
+  expect(render(v)).toContain(` · ${expected}`)
+})
 
 it('uses WaitingOn for decision status and hides Next steps during landing deployment', () => {
   const v = view()

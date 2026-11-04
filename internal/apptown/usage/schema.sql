@@ -26,7 +26,10 @@ CREATE TABLE IF NOT EXISTS token_usage (
   -- An AppTown model call's line is written before the call is sent and is
   -- pending until settled; past this time an unsettled line counts as
   -- unknown spend. NULL for every settled or ordinary line.
-  pending_until    TIMESTAMPTZ
+  pending_until    TIMESTAMPTZ,
+  provider_reported BIGINT NOT NULL DEFAULT 0,
+  catalog BIGINT NOT NULL DEFAULT 0,
+  unpriced BIGINT NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_token_usage_at ON token_usage(at);
 CREATE UNIQUE INDEX IF NOT EXISTS token_usage_observation ON token_usage(observation) WHERE observation <> '';

@@ -4,7 +4,11 @@ package apptown
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	piharness "github.com/flokkit/apptown/internal/apptown/agentharness/pi"
+	"github.com/flokkit/apptown/internal/console"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -40,6 +44,20 @@ func TestInferencePinnedPi(t *testing.T) {
 		if token != "" && strings.Contains(fmt.Sprint(r.Header), token) {
 			t.Error("AppTown token leaked upstream")
 		}
+		if r.URL.Path == "/responses" {
+			w.Header().Set("Content-Type", "text/event-stream")
+			events := []map[string]any{
+				{"type": "response.output_item.added", "output_index": 0, "item": map[string]any{"type": "message", "id": "msg_1", "role": "assistant", "content": []any{}}},
+				{"type": "response.output_text.delta", "output_index": 0, "content_index": 0, "delta": "Hello."},
+				{"type": "response.completed", "response": map[string]any{"id": "resp_fixture", "status": "completed", "model": "gpt-6.1-terra", "output": []any{}, "usage": map[string]any{"input_tokens": 1000, "output_tokens": 20, "total_tokens": 1020, "input_tokens_details": map[string]any{"cached_tokens": 200}}}},
+			}
+			for _, event := range events {
+				raw, _ := json.Marshal(event)
+				_, _ = fmt.Fprintf(w, "data: %s\n\n", raw)
+			}
+			_, _ = io.WriteString(w, "data: [DONE]\n\n")
+			return
+		}
 		http.Error(w, "upstream-canary", 418)
 	}))
 	defer upstream.Close()
@@ -55,6 +73,9 @@ func TestInferencePinnedPi(t *testing.T) {
 	configs := map[string]string{"openrouter": "openai-completions", "openai": "openai-responses", "anthropic": "anthropic-messages", "google": "google-generative-ai", "custom": "openai-completions"}
 	for name, api := range configs {
 		cfg := map[string]any{"model": name + "/*", "providerDef": map[string]any{"baseUrl": upstream.URL, "api": api, "apiKey": "upstream-canary"}}
+		if name == "openai" {
+			cfg["modelsJson"] = `[{"id":"gpt-6.1-terra","cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0}}]`
+		}
 		if name == "custom" {
 			cfg["modelsJson"] = `[{"id":"allowed"}]`
 		}
@@ -88,6 +109,45 @@ func TestInferencePinnedPi(t *testing.T) {
 	} else {
 		t.Log(string(out))
 	}
+	// Exercise the CLI too: this writes Pi's real session transcript and JSON
+	// events, so accounting is checked against the same records workers emit.
+	session := filepath.Join(home, "priced-session.jsonl")
+	cli := (execution.Runner{}).Run(t.Context(), execution.Local, execution.Request{
+		Argv:      []string{strings.TrimSpace(string(found.Output)), filepath.Join(module, "dist/cli.js"), "--mode", "json", "--model", "openai/gpt-6.1-terra", "--no-extensions", "--no-mcp", "--no-skills", "--no-context-files", "--no-tools", "--session", session, "--print", "hello"},
+		Workspace: home, Env: append(cmd.Env, "PI_CODING_AGENT_DIR="+home), Timeout: time.Minute,
+	})
+	if !cli.Exited0() {
+		t.Fatalf("Pi CLI: %s %d %v\n%s", cli.Termination, cli.ExitCode, cli.RunErr, cli.Output)
+	}
+	out := cli.Output
+	stream := piharness.ReadUsage(out)
+	if stream.Incomplete != "" || len(stream.Reports) != 1 || stream.Reports[0].Model != "gpt-6.1-terra" || stream.Reports[0].Usage.Cost.Total <= 0 || stream.Reports[0].Usage.PriceSource() != "catalog" {
+		t.Fatalf("Pi cost: %+v\n%s", stream, out)
+	}
+	recorded, err := os.ReadFile(session)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := (&console.Reader{Path: session}).Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundPrice := false
+	for _, entry := range entries {
+		if entry.Role == "assistant" && entry.Model == "gpt-6.1-terra" && entry.Usage.Cost.Total > 0 && entry.Usage.PriceSource() == "catalog" {
+			foundPrice = true
+		}
+	}
+	if !foundPrice {
+		t.Fatal("the saved Pi session lacks the priced assistant message")
+	}
+
+	if destination := os.Getenv("APPTOWN_PI_TRANSCRIPT"); destination != "" {
+		if err := os.WriteFile(destination, recorded, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Logf("Pi 1.5.0 openai/gpt-6.1-terra transcript cost.total=%g", stream.Reports[0].Usage.Cost.Total)
 	// Every SDK's request crossed the proxy to the provider (an SDK may
 	// retry the provider's refusal, so at least one each).
 	if seen := int(reached.Load()); seen < len(configs) {

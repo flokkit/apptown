@@ -390,8 +390,8 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 		}
 		sum += spent.Totals.Total
 	}
-	if total, _, err := b.Usage.Ledger.RunTotal(t.Context(), run.ID); err != nil || total != sum {
-		t.Fatalf("the run's recorded usage is %d, its invocations' %d (%v)", total, sum, err)
+	if spend, err := b.Usage.Ledger.RunTotal(t.Context(), run.ID); err != nil || spend.Total != sum {
+		t.Fatalf("the run's recorded usage is %d, its invocations' %d (%v)", spend.Total, sum, err)
 	}
 
 	// The gateway and the API were shown the attempts' derived tokens and

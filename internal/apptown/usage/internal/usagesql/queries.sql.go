@@ -69,17 +69,20 @@ func (q *Queries) LockedInIncomplete(ctx context.Context, projectIds []ids.ID) (
 }
 
 const observationByKey = `-- name: ObservationByKey :one
-SELECT input, output, cache_read, cache_write, total, cost_micros, incomplete FROM token_usage WHERE observation=$1 AND observation <> ''
+SELECT input, output, cache_read, cache_write, total, cost_micros, incomplete, provider_reported, catalog, unpriced FROM token_usage WHERE observation=$1 AND observation <> ''
 `
 
 type ObservationByKeyRow struct {
-	Input      int64
-	Output     int64
-	CacheRead  int64
-	CacheWrite int64
-	Total      int64
-	CostMicros int64
-	Incomplete string
+	Input            int64
+	Output           int64
+	CacheRead        int64
+	CacheWrite       int64
+	Total            int64
+	CostMicros       int64
+	Incomplete       string
+	ProviderReported int64
+	Catalog          int64
+	Unpriced         int64
 }
 
 func (q *Queries) ObservationByKey(ctx context.Context, observation string) (ObservationByKeyRow, error) {
@@ -93,6 +96,9 @@ func (q *Queries) ObservationByKey(ctx context.Context, observation string) (Obs
 		&i.Total,
 		&i.CostMicros,
 		&i.Incomplete,
+		&i.ProviderReported,
+		&i.Catalog,
+		&i.Unpriced,
 	)
 	return i, err
 }
@@ -140,6 +146,7 @@ func (q *Queries) OpenCallLine(ctx context.Context, arg OpenCallLineParams) erro
 const projectsTotal = `-- name: ProjectsTotal :one
 SELECT COALESCE(SUM(input),0)::bigint AS input, COALESCE(SUM(output),0)::bigint AS output,
 COALESCE(SUM(total),0)::bigint AS total, COALESCE(SUM(cost_micros),0)::bigint AS cost_micros,
+COALESCE(SUM(provider_reported),0)::bigint AS provider_reported, COALESCE(SUM(catalog),0)::bigint AS catalog, COALESCE(SUM(unpriced),0)::bigint AS unpriced,
 COUNT(*) FILTER (WHERE incomplete <> '' OR pending_until <= $1::timestamptz)::bigint AS incomplete
 FROM token_usage WHERE project_id = ANY($2::uuid[])
 `
@@ -150,11 +157,14 @@ type ProjectsTotalParams struct {
 }
 
 type ProjectsTotalRow struct {
-	Input      int64
-	Output     int64
-	Total      int64
-	CostMicros int64
-	Incomplete int64
+	Input            int64
+	Output           int64
+	Total            int64
+	CostMicros       int64
+	ProviderReported int64
+	Catalog          int64
+	Unpriced         int64
+	Incomplete       int64
 }
 
 // All the spending of the listed projects, whenever it was recorded, with
@@ -167,39 +177,45 @@ func (q *Queries) ProjectsTotal(ctx context.Context, arg ProjectsTotalParams) (P
 		&i.Output,
 		&i.Total,
 		&i.CostMicros,
+		&i.ProviderReported,
+		&i.Catalog,
+		&i.Unpriced,
 		&i.Incomplete,
 	)
 	return i, err
 }
 
 const recordUsage = `-- name: RecordUsage :exec
-INSERT INTO token_usage(id, at,kind,project_id,run_id,root_run_id,step_id,workflow_name,workflow_version,session_id,actor,actor_principal,actor_via,provider,model,input,output,cache_read,cache_write,total,cost_micros,incomplete)
-VALUES ($1, $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+INSERT INTO token_usage(id, at,kind,project_id,run_id,root_run_id,step_id,workflow_name,workflow_version,session_id,actor,actor_principal,actor_via,provider,model,input,output,cache_read,cache_write,total,cost_micros,incomplete,provider_reported,catalog,unpriced)
+VALUES ($1, $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
 `
 
 type RecordUsageParams struct {
-	ID              ids.ID
-	At              time.Time
-	Kind            string
-	ProjectID       ids.ID
-	RunID           ids.ID
-	RootRunID       ids.ID
-	StepID          ids.ID
-	WorkflowName    string
-	WorkflowVersion int64
-	SessionID       string
-	Actor           string
-	ActorPrincipal  ids.ID
-	ActorVia        string
-	Provider        string
-	Model           string
-	Input           int64
-	Output          int64
-	CacheRead       int64
-	CacheWrite      int64
-	Total           int64
-	CostMicros      int64
-	Incomplete      string
+	ID               ids.ID
+	At               time.Time
+	Kind             string
+	ProjectID        ids.ID
+	RunID            ids.ID
+	RootRunID        ids.ID
+	StepID           ids.ID
+	WorkflowName     string
+	WorkflowVersion  int64
+	SessionID        string
+	Actor            string
+	ActorPrincipal   ids.ID
+	ActorVia         string
+	Provider         string
+	Model            string
+	Input            int64
+	Output           int64
+	CacheRead        int64
+	CacheWrite       int64
+	Total            int64
+	CostMicros       int64
+	Incomplete       string
+	ProviderReported int64
+	Catalog          int64
+	Unpriced         int64
 }
 
 func (q *Queries) RecordUsage(ctx context.Context, arg RecordUsageParams) error {
@@ -226,40 +242,46 @@ func (q *Queries) RecordUsage(ctx context.Context, arg RecordUsageParams) error 
 		arg.Total,
 		arg.CostMicros,
 		arg.Incomplete,
+		arg.ProviderReported,
+		arg.Catalog,
+		arg.Unpriced,
 	)
 	return err
 }
 
 const recordUsageOnce = `-- name: RecordUsageOnce :exec
-INSERT INTO token_usage(id, at,kind,project_id,run_id,root_run_id,step_id,workflow_name,workflow_version,session_id,actor,actor_principal,actor_via,provider,model,input,output,cache_read,cache_write,total,cost_micros,observation,incomplete)
-VALUES ($1, $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+INSERT INTO token_usage(id, at,kind,project_id,run_id,root_run_id,step_id,workflow_name,workflow_version,session_id,actor,actor_principal,actor_via,provider,model,input,output,cache_read,cache_write,total,cost_micros,observation,incomplete,provider_reported,catalog,unpriced)
+VALUES ($1, $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
 ON CONFLICT (observation) WHERE observation <> '' DO NOTHING
 `
 
 type RecordUsageOnceParams struct {
-	ID              ids.ID
-	At              time.Time
-	Kind            string
-	ProjectID       ids.ID
-	RunID           ids.ID
-	RootRunID       ids.ID
-	StepID          ids.ID
-	WorkflowName    string
-	WorkflowVersion int64
-	SessionID       string
-	Actor           string
-	ActorPrincipal  ids.ID
-	ActorVia        string
-	Provider        string
-	Model           string
-	Input           int64
-	Output          int64
-	CacheRead       int64
-	CacheWrite      int64
-	Total           int64
-	CostMicros      int64
-	Observation     string
-	Incomplete      string
+	ID               ids.ID
+	At               time.Time
+	Kind             string
+	ProjectID        ids.ID
+	RunID            ids.ID
+	RootRunID        ids.ID
+	StepID           ids.ID
+	WorkflowName     string
+	WorkflowVersion  int64
+	SessionID        string
+	Actor            string
+	ActorPrincipal   ids.ID
+	ActorVia         string
+	Provider         string
+	Model            string
+	Input            int64
+	Output           int64
+	CacheRead        int64
+	CacheWrite       int64
+	Total            int64
+	CostMicros       int64
+	Observation      string
+	Incomplete       string
+	ProviderReported int64
+	Catalog          int64
+	Unpriced         int64
 }
 
 func (q *Queries) RecordUsageOnce(ctx context.Context, arg RecordUsageOnceParams) error {
@@ -287,23 +309,27 @@ func (q *Queries) RecordUsageOnce(ctx context.Context, arg RecordUsageOnceParams
 		arg.CostMicros,
 		arg.Observation,
 		arg.Incomplete,
+		arg.ProviderReported,
+		arg.Catalog,
+		arg.Unpriced,
 	)
 	return err
 }
 
 const runTotal = `-- name: RunTotal :one
-SELECT COALESCE(SUM(total),0)::bigint AS total, COALESCE(SUM(cost_micros),0)::bigint AS cost_micros FROM token_usage WHERE root_run_id=ANY($1::uuid[])
+SELECT COALESCE(SUM(total),0)::bigint AS total, COALESCE(SUM(cost_micros),0)::bigint AS cost_micros, COALESCE(SUM(unpriced),0)::bigint AS unpriced FROM token_usage WHERE root_run_id=ANY($1::uuid[])
 `
 
 type RunTotalRow struct {
 	Total      int64
 	CostMicros int64
+	Unpriced   int64
 }
 
 func (q *Queries) RunTotal(ctx context.Context, rootRunIds []ids.ID) (RunTotalRow, error) {
 	row := q.db.QueryRowContext(ctx, runTotal, pq.Array(rootRunIds))
 	var i RunTotalRow
-	err := row.Scan(&i.Total, &i.CostMicros)
+	err := row.Scan(&i.Total, &i.CostMicros, &i.Unpriced)
 	return i, err
 }
 
@@ -323,20 +349,23 @@ func (q *Queries) SetCursor(ctx context.Context, arg SetCursorParams) error {
 
 const settleCallLine = `-- name: SettleCallLine :execrows
 UPDATE token_usage SET input=$1, output=$2, cache_read=$3, cache_write=$4,
-total=$5, cost_micros=$6, incomplete=$7, pending_until=NULL
-WHERE observation=$8 AND observation <> '' AND pending_until > $9::timestamptz
+total=$5, cost_micros=$6, provider_reported=$7, catalog=$8, unpriced=$9, incomplete=$10, pending_until=NULL
+WHERE observation=$11 AND observation <> '' AND pending_until > $12::timestamptz
 `
 
 type SettleCallLineParams struct {
-	Input       int64
-	Output      int64
-	CacheRead   int64
-	CacheWrite  int64
-	Total       int64
-	CostMicros  int64
-	Incomplete  string
-	Observation string
-	Now         time.Time
+	Input            int64
+	Output           int64
+	CacheRead        int64
+	CacheWrite       int64
+	Total            int64
+	CostMicros       int64
+	ProviderReported int64
+	Catalog          int64
+	Unpriced         int64
+	Incomplete       string
+	Observation      string
+	Now              time.Time
 }
 
 // Settles a pending line, only while it is still pending and its time has
@@ -349,6 +378,9 @@ func (q *Queries) SettleCallLine(ctx context.Context, arg SettleCallLineParams) 
 		arg.CacheWrite,
 		arg.Total,
 		arg.CostMicros,
+		arg.ProviderReported,
+		arg.Catalog,
+		arg.Unpriced,
 		arg.Incomplete,
 		arg.Observation,
 		arg.Now,
@@ -398,7 +430,7 @@ func (q *Queries) StepCosts(ctx context.Context, stepIds []ids.ID) ([]StepCostsR
 
 const usageDaysByKind = `-- name: UsageDaysByKind :many
 SELECT to_char(at AT TIME ZONE 'UTC','YYYY-MM-DD')::text AS day, kind,
-SUM(total)::bigint AS total, SUM(cost_micros)::bigint AS cost_micros
+SUM(total)::bigint AS total, SUM(cost_micros)::bigint AS cost_micros, SUM(provider_reported)::bigint AS provider_reported, SUM(catalog)::bigint AS catalog, SUM(unpriced)::bigint AS unpriced
 FROM token_usage
 WHERE at>=$1 AND ($2::boolean OR project_id=ANY($3::uuid[]))
 AND ($4::text='' OR workflow_name=$4)
@@ -413,10 +445,13 @@ type UsageDaysByKindParams struct {
 }
 
 type UsageDaysByKindRow struct {
-	Day        string
-	Kind       string
-	Total      int64
-	CostMicros int64
+	Day              string
+	Kind             string
+	Total            int64
+	CostMicros       int64
+	ProviderReported int64
+	Catalog          int64
+	Unpriced         int64
 }
 
 func (q *Queries) UsageDaysByKind(ctx context.Context, arg UsageDaysByKindParams) ([]UsageDaysByKindRow, error) {
@@ -438,6 +473,9 @@ func (q *Queries) UsageDaysByKind(ctx context.Context, arg UsageDaysByKindParams
 			&i.Kind,
 			&i.Total,
 			&i.CostMicros,
+			&i.ProviderReported,
+			&i.Catalog,
+			&i.Unpriced,
 		); err != nil {
 			return nil, err
 		}
@@ -459,7 +497,7 @@ SELECT COALESCE(CASE $1::text
  WHEN 'day' THEN to_char(u.at AT TIME ZONE 'UTC','YYYY-MM-DD')
  WHEN 'workflow' THEN CASE WHEN u.kind='console' THEN '(interactive console)' ELSE u.workflow_name END
  WHEN 'project' THEN CASE WHEN EXISTS (SELECT 1 FROM eval_copies e WHERE e.project_id = u.project_id) THEN 'evals' ELSE p.slug END END,'')::text AS key,
-SUM(u.input)::bigint AS input, SUM(u.output)::bigint AS output, SUM(u.total)::bigint AS total, SUM(u.cost_micros)::bigint AS cost_micros
+SUM(u.input)::bigint AS input, SUM(u.output)::bigint AS output, SUM(u.total)::bigint AS total, SUM(u.cost_micros)::bigint AS cost_micros, SUM(u.provider_reported)::bigint AS provider_reported, SUM(u.catalog)::bigint AS catalog, SUM(u.unpriced)::bigint AS unpriced
 FROM token_usage u LEFT JOIN projects p ON p.id=u.project_id
 WHERE u.at>=$2 AND ($3::boolean OR u.project_id=ANY($4::uuid[]))
 AND ($5::text='' OR u.workflow_name=$5)
@@ -475,11 +513,14 @@ type UsageGroupsParams struct {
 }
 
 type UsageGroupsRow struct {
-	Key        string
-	Input      int64
-	Output     int64
-	Total      int64
-	CostMicros int64
+	Key              string
+	Input            int64
+	Output           int64
+	Total            int64
+	CostMicros       int64
+	ProviderReported int64
+	Catalog          int64
+	Unpriced         int64
 }
 
 // Each supported report dimension uses the same filter and aggregation. Keep
@@ -505,6 +546,9 @@ func (q *Queries) UsageGroups(ctx context.Context, arg UsageGroupsParams) ([]Usa
 			&i.Output,
 			&i.Total,
 			&i.CostMicros,
+			&i.ProviderReported,
+			&i.Catalog,
+			&i.Unpriced,
 		); err != nil {
 			return nil, err
 		}
@@ -523,6 +567,7 @@ const usageTotals = `-- name: UsageTotals :one
 SELECT COALESCE(SUM(input),0)::bigint AS input, COALESCE(SUM(output),0)::bigint AS output,
 COALESCE(SUM(cache_read),0)::bigint AS cache_read, COALESCE(SUM(cache_write),0)::bigint AS cache_write,
 COALESCE(SUM(total),0)::bigint AS total, COALESCE(SUM(cost_micros),0)::bigint AS cost_micros,
+COALESCE(SUM(provider_reported),0)::bigint AS provider_reported, COALESCE(SUM(catalog),0)::bigint AS catalog, COALESCE(SUM(unpriced),0)::bigint AS unpriced,
 COUNT(*) FILTER (WHERE incomplete <> '' OR pending_until <= $1::timestamptz)::bigint AS incomplete
 FROM token_usage
 WHERE at>=$2 AND ($3::boolean OR project_id=ANY($4::uuid[]))
@@ -538,13 +583,16 @@ type UsageTotalsParams struct {
 }
 
 type UsageTotalsRow struct {
-	Input      int64
-	Output     int64
-	CacheRead  int64
-	CacheWrite int64
-	Total      int64
-	CostMicros int64
-	Incomplete int64
+	Input            int64
+	Output           int64
+	CacheRead        int64
+	CacheWrite       int64
+	Total            int64
+	CostMicros       int64
+	ProviderReported int64
+	Catalog          int64
+	Unpriced         int64
+	Incomplete       int64
 }
 
 // A report reads the whole instance, or only the listed projects; an empty
@@ -565,6 +613,9 @@ func (q *Queries) UsageTotals(ctx context.Context, arg UsageTotalsParams) (Usage
 		&i.CacheWrite,
 		&i.Total,
 		&i.CostMicros,
+		&i.ProviderReported,
+		&i.Catalog,
+		&i.Unpriced,
 		&i.Incomplete,
 	)
 	return i, err
