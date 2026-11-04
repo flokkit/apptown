@@ -1179,7 +1179,7 @@ a.btn.primary:hover { background: var(--accent-hover); border-color: var(--accen
   .console-head button { white-space: nowrap; padding-left: 8px; padding-right: 8px; }
   .console-about .card.row { flex-direction: column; align-items: stretch; }
   .console-about .card.row > button { align-self: flex-end; }
-  .console:has(.chat-input textarea:focus) :is(.console-extra, .console-actions) { display: none; }
+  .console:has(.chat-input textarea:focus) :is(.console-extra:not(:has(.console-about-line)), .console-actions) { display: none; }
   /* However much the chat is about, the conversation keeps the room: the
      part above it is folded to one line (Console.tsx), holds at most a
      third when opened and scrolls, shaded at the edge where there is more;
@@ -1988,4 +1988,39 @@ a.project-avatar, a.project-avatar:hover { text-decoration: none; color: inherit
   .credential-list .credential-row { grid-template-columns: minmax(0, 1fr) auto; }
   .credential-row .list-action { grid-column: 2; grid-row: 1 / span 2; }
   .credential-row .list-state { grid-column: 1; }
+}
+
+/* The chat's phone controls leave room for the conversation. */
+@media (max-width: 800px) {
+  .console { padding-top: 6px; }
+  .console .console-head { margin-bottom: 4px !important; }
+  .console-head .head-menu { margin-top: 0; flex: none; }
+  .console-head .head-menu > summary {
+    min-height: 0; min-width: 0; height: 24px; padding: 0 6px;
+    border: 0; line-height: 24px; margin-bottom: 0;
+  }
+  .console .workshop-actions { margin-bottom: 4px; gap: 6px; }
+  .console .workshop-actions button { min-height: 32px; padding: 4px 10px; white-space: nowrap; }
+  .console-about-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; column-gap: 6px; }
+  .console-about-line > details { grid-column: 1 / -1; grid-row: 1; }
+  .console-about-line > details.console-about > summary { width: calc(100% - 152px); min-height: 28px; padding: 0; margin: 0; font-size: var(--fs-xs); }
+  .console-about > summary { min-height: 28px; padding: 2px 0; gap: 4px; font-size: var(--fs-xs); flex-wrap: wrap; }
+  .console-about-line > .agent-actions-switch {
+    grid-column: 2; grid-row: 1; z-index: 1; min-height: 28px;
+    margin: 0; gap: 4px; font-size: var(--fs-xs); white-space: nowrap;
+  }
+  .console .agent-actions-switch input { width: 14px; height: 14px; padding: 0; }
+  .console .chat-scroll { padding: 2px 0; }
+  .console .bubble-row { margin: 4px 0; }
+  .console .bubble { width: 100%; max-width: 100%; min-width: 0; padding: 6px 8px; overflow-wrap: anywhere; }
+  .console .bubble > :first-child, .console .bubble .md > :first-child { margin-top: 0; }
+  .console .bubble > :last-child, .console .bubble .md > :last-child { margin-bottom: 0; }
+  .console .chat-working { margin: 0 !important; gap: 6px !important; }
+  .console .chat-working button { min-height: 32px; padding: 0 8px; font-size: var(--fs-xs); }
+  .console .chat-input { margin-top: 4px !important; gap: 6px; align-items: flex-end; }
+  .console .chat-input textarea {
+    min-width: 0; min-height: calc(2lh + 12px); max-height: min(160px, 33dvh);
+    padding: 5px 8px; font-size: 16px; line-height: 1.4; field-sizing: fixed; overflow-y: auto;
+  }
+  .console .chat-input button { min-height: 32px; padding: 4px 10px; font-size: var(--fs-sm); }
 }

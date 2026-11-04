@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { post } from '../../api'
+import { useNarrow } from '../../chrome'
 import { useGet } from '../../data'
 import { renderMd } from '../../md'
 import { pastedPictures } from '../../pictures'
@@ -27,11 +28,23 @@ export function retired(sent: { at: number } | null, msgs: Bubble[]): boolean {
 
 // readOnly names whose chat it is when the reader may look but not act:
 // the conversation shows, the ways to act on it do not.
-export function Bubbles({ sessionId, onBusy, footer, starters, readOnly }: { sessionId: string; onBusy?: (b: boolean) => void; footer?: React.ReactNode; starters?: string[]; readOnly?: string }) {
+export function Bubbles({ sessionId, onBusy, footer, starters, readOnly, actionsSwitch = true }: { sessionId: string; actionsSwitch?: boolean; onBusy?: (b: boolean) => void; footer?: React.ReactNode; starters?: string[]; readOnly?: string }) {
   // The conversation is the record's answer; the only local message is the
   // one just sent, until the record holds it.
   const [sent, setSent] = useState<{ text: string; at: number } | null>(null)
   const [text, setText] = useState('')
+  const narrow = useNarrow()
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  // Measure wrapping and pasted text too; the CSS cap leaves long drafts scrollable.
+  useEffect(() => {
+    const input = inputRef.current
+    if (!narrow || !input) return
+    const fit = () => { input.style.height = 'auto'; input.style.height = `${input.scrollHeight + 2}px` }
+    fit()
+    const observer = new ResizeObserver(fit)
+    observer.observe(input)
+    return () => observer.disconnect()
+  }, [narrow, text])
   const [sendErr, setSendErr] = useState('')
   // Pasted pictures waiting to go with the next message: server path + a
   // local thumbnail. The file is already uploaded; send() names it.
@@ -93,7 +106,7 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly }: { ses
 
   return (
     <div className="chat-pane">
-      <AgentActionsSwitch shown={showActions} onChange={setShowActions} />
+      {actionsSwitch && <AgentActionsSwitch shown={showActions} onChange={setShowActions} />}
       <div
         onScroll={(e) => {
           const el = e.currentTarget
@@ -190,7 +203,7 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly }: { ses
           </div>
         )}
         {helperBusy && (
-          <div className="row" style={{ margin: '6px 0', gap: 10 }}>
+          <div className="row chat-working" style={{ margin: '6px 0', gap: 10 }}>
             <span className="small robot-busy" style={{ border: 'none', padding: 0 }}>Working…</span>
             {readOnly === undefined && <button className="subtle" title="Stop what it's doing right now · then tell it what you'd rather have"
               onClick={() => { setStopErr(''); post(`/console/${sessionId}/interrupt`, {}).catch((e) => setStopErr(`It could not be stopped: ${(e as Error).message}`)) }}>
@@ -226,7 +239,9 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly }: { ses
         </div>
       ) : <div className="row chat-input" style={{ marginTop: 8 }}>
         <textarea
-          rows={1}
+          ref={inputRef}
+          rows={narrow ? 2 : 1}
+          style={narrow ? undefined : { height: 'auto' }}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onPaste={onPaste}

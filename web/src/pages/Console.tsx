@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ChangeView, post } from '../api'
 import AgentActivity from '../AgentActivity'
+import { AgentActionsSwitch, useAgentActions } from '../AgentActions'
 import { setPageContext, useNarrow } from '../chrome'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
@@ -50,6 +51,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
   // (styles.css hides the fold's line on a desk). React writes `open` only
   // when this changes, so a tap holds until the screen crosses the breakpoint.
   const narrow = useNarrow()
+  const [showActions, setShowActions] = useAgentActions()
   const introKey = `chat-intro-seen-${slug}`
   const [introSeen, setIntroSeen] = useState(() => localStorage.getItem(introKey) === '1')
   const termRef = useRef<HTMLDivElement>(null)
@@ -60,6 +62,9 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
   // (where building happens). People were confusing them; the chat says
   // which it is before a word is typed.
   const shopId = session?.changeId || changeId
+  // On a phone the head already shows the change's state, so this line
+  // leaves its chip out and has room for the agent-actions switch.
+  const actionsBesideAbout = narrow && !!shopId && !!session && zoom === 'chat'
   const isWorkshop = shopId !== ''
   // One read of the change feeds the action bar and the status card; its
   // status shows once, above both.
@@ -165,21 +170,24 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           do. */}
       <div className="console-extra">
         {(shopId || (!shopId && !introSeen) || session?.continuedFrom) && (
-          <details className="console-about" open={!narrow}>
-            <summary className="small">
-              {shopId
-                ? <>{narrow ? 'About this change' : shopName}{change.data && <> · {changeChip(change.data)}</>}</>
-                : 'About this chat'}
-            </summary>
-            {!shopId && !introSeen && <ChatIntro slug={slug}
-              onDismiss={() => { localStorage.setItem(introKey, '1'); setIntroSeen(true) }} />}
-            {session?.continuedFrom && (
-              <div className="muted small" style={{ marginBottom: 8 }}>
-                This chat continues {session.continuedFrom}: it remembers what it did in the lane. That earlier work is on the change page.
-              </div>
-            )}
-            {session?.changeId && change.data ? <ChangeContext view={change.data} /> : null}
-          </details>
+          <div className={actionsBesideAbout ? 'console-about-line' : undefined}>
+            <details className="console-about" open={!narrow}>
+              <summary className="small">
+                {shopId
+                  ? <>{narrow ? 'About this change' : shopName}{change.data && !actionsBesideAbout && <> · {changeChip(change.data)}</>}</>
+                  : 'About this chat'}
+              </summary>
+              {!shopId && !introSeen && <ChatIntro slug={slug}
+                onDismiss={() => { localStorage.setItem(introKey, '1'); setIntroSeen(true) }} />}
+              {session?.continuedFrom && (
+                <div className="muted small" style={{ marginBottom: 8 }}>
+                  This chat continues {session.continuedFrom}: it remembers what it did in the lane. That earlier work is on the change page.
+                </div>
+              )}
+              {session?.changeId && change.data ? <ChangeContext view={change.data} /> : null}
+            </details>
+            {actionsBesideAbout && <AgentActionsSwitch shown={showActions} onChange={setShowActions} />}
+          </div>
         )}
         {/* Outside the fold: when the worker cannot be reached, this line
             says the conversation shown is AppTown's last copy. */}
@@ -187,7 +195,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
         {session && <StartedChanges sessionId={session.id} />}
       </div>
       {session && zoom === 'chat' && (
-        <Bubbles key={session.id} sessionId={session.id} onBusy={setRobotBusy}
+        <Bubbles key={session.id} sessionId={session.id} onBusy={setRobotBusy} actionsSwitch={!actionsBesideAbout}
           readOnly={session.mayAct ? undefined : session.openedBy}
           starters={session.changeId ? undefined : [
             // The project chat's three jobs, as things you could say (the
