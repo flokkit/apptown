@@ -57,22 +57,19 @@ core database updates for an existing installation without resetting users or
 content. It does not automatically seed demonstration content. Existing plugin
 migrations require that plugin's own documented procedure.
 
-The site's address is the address each deployment is served at, so nobody
-supplies it: the starter takes a request's Host when it matches an origin in
-`APPTOWN_ORIGINS` (where AppTown's front door routes the deployment) and refuses
-any other Host with 400. `APPTOWN_ORIGINS` may list several origins or wildcards
-and is never used as the URL itself. To pin one canonical address, bind
-`WP_HOME` for that deployment; a preview `WP_HOME` binding is shared by all of
-a project's previews, so leave it unbound there. WP-CLI has no request, so
-without `WP_HOME` it sees the placeholder `http://localhost`. First
-initialization removes what the install stores under that placeholder (the
-administrator's website and WordPress's sample post and pages); if it stops
-between the install and that cleanup, delete the sample content in the
-dashboard. Give any later WP-CLI run that creates content or writes links
-(seeding, import, search-replace) the deployment's address for that run with
-`WP_HOME=<its URL>` in its environment; otherwise what it stores keeps the
-placeholder. Post GUIDs from such a run are identifiers WordPress does not use
-as links. Readiness uses
+The starter uses `APPTOWN_URL`, the deployment's own address supplied by
+AppTown to web, init and WP-CLI commands. Bind `WP_HOME` only to pin a different
+canonical address. Remove stored `WP_HOME` bindings equal to the deployment's
+own address in Settings > Secrets. Leave preview bindings unset: they are
+shared by all of a project's previews.
+
+When the address is unknown, the starter takes the request Host only when it
+matches an origin in `APPTOWN_ORIGINS`, refusing any other Host with 400.
+`APPTOWN_ORIGINS` may list several origins or wildcards and is never a URL.
+Requestless commands use `http://localhost` only while `APPTOWN_URL` is unknown.
+Initialization removes the administrator's website and sample content; if it
+stops between install and cleanup, delete the sample content in the dashboard.
+Readiness uses
 a separate fast endpoint; it does not prove database or object-store health.
 Functional checks must render a page and upload/read actual media, including
 thumbnail creation and media access after replacing the web container.

@@ -41,6 +41,9 @@ func TestCheckEnvironmentIsDerivedFromTheDeclaration(t *testing.T) {
 	if !strings.HasPrefix(env["DATABASE_URL"], "postgres://") || !strings.Contains(env["DATABASE_URL"], "check.apptown.local") {
 		t.Fatalf("a declared need brings its emulator's connection env: %q", env["DATABASE_URL"])
 	}
+	if env["APPTOWN_URL"] != "https://check.apptown.local" {
+		t.Fatalf("check address: %v", env)
+	}
 	if env["APPTOWN_ORIGINS"] == "" {
 		t.Fatal("APPTOWN_ORIGINS is set as it is in every environment")
 	}
@@ -49,7 +52,7 @@ func TestCheckEnvironmentIsDerivedFromTheDeclaration(t *testing.T) {
 	}
 	// No declaration: only what AppTown sets everywhere.
 	bare := t.TempDir()
-	if got := s.checkEnvironment(t.Context(), bare); len(got) != 1 || !strings.HasPrefix(got[0], "APPTOWN_ORIGINS=") {
+	if got := s.checkEnvironment(t.Context(), bare); len(got) != 2 || !strings.Contains(strings.Join(got, " "), "APPTOWN_URL=https://check.apptown.local") {
 		t.Fatalf("an app declaring nothing gets nothing invented: %v", got)
 	}
 }

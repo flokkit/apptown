@@ -299,7 +299,7 @@ func preparePreviewBuilds(ctx context.Context, dk Scope, ws, name string, c *app
 // nonPublicPartServices turns the non-public app parts into services that run
 // on the app network (alias = part name). The plan already contains each
 // part's image and resolved connections; scoped secrets are delivered last.
-func nonPublicPartServices(c *appcontract.Plan, secrets Delivery) []deploy.ServiceSpec {
+func nonPublicPartServices(c *appcontract.Plan, secrets Delivery, url string) []deploy.ServiceSpec {
 	var out []deploy.ServiceSpec
 	for _, p := range c.Parts {
 		if p.Public {
@@ -311,6 +311,9 @@ func nonPublicPartServices(c *appcontract.Plan, secrets Delivery) []deploy.Servi
 		}
 		for k, v := range secrets.EnvFor(p.Name) {
 			spec.Env[k] = v // this part's own secrets, and only those
+		}
+		if url != "" {
+			spec.Env["APPTOWN_URL"] = url
 		}
 		if p.Port != 0 {
 			spec.Env["PORT"] = fmt.Sprintf("%d", p.Port)
@@ -331,7 +334,7 @@ func nonPublicPartServices(c *appcontract.Plan, secrets Delivery) []deploy.Servi
 // runInitContainers runs each init container to completion on the app network,
 // in order, BEFORE the app parts start. A non-zero exit fails the boot loudly
 // with the init's output (a failed migration must stop the app coming up).
-func runInitContainers(ctx context.Context, dk Scope, id, network string, c *appcontract.Plan, secrets Delivery, own Ownership) error {
+func runInitContainers(ctx context.Context, dk Scope, id, network string, c *appcontract.Plan, secrets Delivery, own Ownership, url string) error {
 	for _, it := range c.Init {
 		img := it.Image
 		if img == "" {
@@ -351,6 +354,9 @@ func runInitContainers(ctx context.Context, dk Scope, id, network string, c *app
 		for k, v := range secrets.EnvFor("init-" + it.Name) {
 			args = append(args, "-e", k+"="+v)
 		}
+		if url != "" {
+			args = append(args, "-e", "APPTOWN_URL="+url)
+		}
 		args = append(args, trust.ContainerArgs(!dk.remote())...)
 		args = append(args, img)
 		args = append(args, it.Command...)
@@ -369,7 +375,7 @@ func runInitContainers(ctx context.Context, dk Scope, id, network string, c *app
 // It ensures a network exists when there is init/extra-part work but no needs
 // stack created one. Returns the prepared execution plan and
 // the network to run the public app on.
-func bringUpParts(ctx context.Context, dk Scope, id, name, ws, network string, c *appcontract.Plan, secrets Delivery, own Ownership) (*appcontract.Plan, string, error) {
+func bringUpParts(ctx context.Context, dk Scope, id, name, ws, network string, c *appcontract.Plan, secrets Delivery, own Ownership, url string) (*appcontract.Plan, string, error) {
 	hasExtra := len(c.Init) > 0
 	for _, p := range c.Parts {
 		if !p.Public {
@@ -388,10 +394,10 @@ func bringUpParts(ctx context.Context, dk Scope, id, name, ws, network string, c
 	if err := preparePreviewBuilds(ctx, dk, ws, name, c); err != nil {
 		return nil, "", err
 	}
-	if err := runInitContainers(ctx, dk, id, network, c, secrets, own); err != nil {
+	if err := runInitContainers(ctx, dk, id, network, c, secrets, own, url); err != nil {
 		return nil, "", err
 	}
-	if extra := nonPublicPartServices(c, secrets); len(extra) > 0 {
+	if extra := nonPublicPartServices(c, secrets, url); len(extra) > 0 {
 		// A deployed deployment's own parts live with the deployment:
 		// class env (never idle-reaped) and restart unless-stopped. Preview
 		// and run stacks stay throwaway.

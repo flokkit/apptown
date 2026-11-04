@@ -429,7 +429,7 @@ func TestDriverKeepsServingIdentitySeparateFromDisplayAddress(t *testing.T) {
 			if remote {
 				want = "https://original.apps.example"
 			}
-			if err != nil || out.URL != want || observedLabel != "original" || boot.req.ServingLabel != "original" || boot.req.Slug != "renamed" || boot.req.ExactOrigins == nil || *boot.req.ExactOrigins != want {
+			if err != nil || out.URL != want || observedLabel != "original" || boot.req.ServingLabel != "original" || boot.req.Slug != "renamed" || boot.req.URL != want || boot.req.ExactOrigins == nil || *boot.req.ExactOrigins != want {
 				t.Fatalf("serving/display boundary: out=%+v callback=%q request=%+v err=%v", out, observedLabel, boot.req, err)
 			}
 		})

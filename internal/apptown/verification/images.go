@@ -143,7 +143,7 @@ func (s *Scanners) reuseReleaseImage(ctx context.Context, projectID ids.ID, sha,
 // AppTown does not set in a deployment it does not set here either.
 func (s *Scanners) checkEnvironment(ctx context.Context, buildDir string) []string {
 	const host = "check.apptown.local"
-	env := map[string]string{"APPTOWN_ORIGINS": "https://" + host}
+	env := map[string]string{"APPTOWN_ORIGINS": "https://" + host, "APPTOWN_URL": "https://" + host}
 	if spec, present, err := secret.ReadSpec(buildDir, ""); err == nil && present {
 		profile := "default"
 		if _, ok := spec.Profiles[profile]; !ok {

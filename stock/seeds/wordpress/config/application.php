@@ -7,19 +7,17 @@ function required_env(string $name): string {
     }
     return $value;
 }
-// The site's address. A bound WP_HOME is the canonical address. Otherwise it
-// is this deployment's own address: AppTown's front door routes a request
-// here by its Host and passes that Host on, and APPTOWN_ORIGINS lists the
-// origins the app is served at, so a Host matching one of them (exactly, or
-// under a *. wildcard) is where the visitor reached this deployment; that
-// origin gives the scheme. Any other Host is refused, as Django and Rails
-// refuse a host they were not told. WP-CLI (init, maintenance) has no
-// request: WordPress reads WP_HOME on every web request, so the placeholder
-// only fills the home option init's install writes.
+// WP_HOME pins a different canonical address. Otherwise AppTown supplies this
+// deployment's address, including for CLI commands. When it is unknown, accept
+// only a request Host matching APPTOWN_ORIGINS; CLI uses a localhost placeholder.
 function deployment_home(): string {
     $bound = getenv('WP_HOME');
     if ($bound !== false && $bound !== '') {
         return $bound;
+    }
+    $deployment = getenv('APPTOWN_URL');
+    if ($deployment !== false && $deployment !== '') {
+        return $deployment;
     }
     if (PHP_SAPI === 'cli') {
         return 'http://localhost';

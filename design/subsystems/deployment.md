@@ -1570,3 +1570,24 @@ effect starts its owner records the host act counter, and inventory stays
 marked as taken before the latest change until a complete lap begun after it
 succeeds. The [background infrastructure contract](deploy-targets.md#background-infrastructure-readings)
 defines section retention, age and loop lifecycle.
+
+## The address given to apps
+
+`APPTOWN_URL` gives every app part and init step one selected deployment
+address. Standing Docker boots use `dockerReach` through `Driver.URL`.
+Preview preparation captures `Routing.PreviewURL` in `Prepared.URL`, includes
+it in the public incarnation digest and serializes it to the worker alongside
+`Prepared.Origins`. Portainer carries the admitted `Source.Ingress.URL` through
+`portainerStackOf` and `IntranetStack`, preserving the selected custom address.
+DigitalOcean renders the provider's `${APP_URL}` binding into services, workers
+and pre-deploy jobs. Sealed data-protection rehearsals use the generation’s
+deployment origin with `https://` when that origin is known. Image verification
+uses `https://check.apptown.local`.
+
+Each boot or render uses the same selected value for all app consumers, without
+reading it from `APPTOWN_ORIGINS`. Need containers do not receive it. A preview
+without a domain has no known address before its public container starts; the
+URL stays unset for that boot, including init and commands inheriting the
+running container environment. No port reservation or environment refresh takes
+place. The [contract reference](../../stock/docs/guides/contract-reference.md#the-environment-an-app-gets)
+describes the environment apps receive.

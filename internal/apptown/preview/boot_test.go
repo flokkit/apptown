@@ -49,7 +49,9 @@ func TestAppPortBindsLoopbackEvenWithPublicHost(t *testing.T) {
 
 func TestBootChangeWorktreeSequence(t *testing.T) {
 	t.Parallel()
-	s, db, client, dir, projectID := previewBootWorld(t, "")
+	w := newWorld(t, "", "")
+	w.env.Routes.PreviewScheme, w.env.Routes.PreviewDomain = "https", "preview.example"
+	s, db, client, dir, projectID := w.service(Dependencies{}), w.db, w.client, w.dir, w.projectID
 	writePreviewBootFixture(t, filepath.Join(dir, "workspaces", "change-00000000-0007-7000-8000-000000000000"))
 	out, err := s.RehearseChange(context.Background(), Change{ID: idstest.N(7), ProjectID: projectID, Title: "Try the shop"}, false)
 	if err != nil {
@@ -77,6 +79,9 @@ func TestBootChangeWorktreeSequence(t *testing.T) {
 	}
 	if service < 0 || init <= service || worker <= init || app <= worker || previewCommandIndex(calls, "pull reg.example/app:1") < 0 || !strings.HasSuffix(calls[app], " reg.example/app:1") || previewCommandIndex(calls, "build ") >= 0 {
 		t.Fatalf("wrong preview boot sequence: %v", calls)
+	}
+	if !strings.Contains(calls[app], "-e APPTOWN_URL="+out.URL+" ") {
+		t.Fatalf("change preview app did not receive its URL %s: %s", out.URL, calls[app])
 	}
 	for _, i := range []int{service, init, worker, app} {
 		for _, label := range []string{"apptown.info.project=p", "apptown.info.change=Try the shop"} {
@@ -465,7 +470,9 @@ func TestAnOversizedPreviewLeavesTheRunningOneAlone(t *testing.T) {
 // Local run previews use the same resolved sidecar caps as worker previews.
 func TestALocalRunPreviewCapsItsSuppliedService(t *testing.T) {
 	t.Parallel()
-	s, _, client, dir, projectID := previewBootWorld(t, "")
+	w := newWorld(t, "", "")
+	w.env.Routes.PreviewScheme, w.env.Routes.PreviewDomain = "https", "preview.example"
+	s, client, dir, projectID := w.service(Dependencies{}), w.client, w.dir, w.projectID
 	ws := filepath.Join(dir, "workspaces", "run-00000000-0004-7000-8000-000000000000")
 	writePreviewBootFixture(t, ws)
 	gitCommitAll(t, ws, "the run's work")
@@ -473,9 +480,13 @@ func TestALocalRunPreviewCapsItsSuppliedService(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = s.RunPreview(t.Context(), claimedPreviewStep{projectID, idstest.N(4), idstest.N(11)}, RunInput{Source: deploy.Source{Workspace: ws, Revision: "HEAD", Slug: "p", Contract: c}, Services: []deploy.ServiceSpec{{Name: "cache", Image: "redis:7"}}})
+	out, err := s.RunPreview(t.Context(), claimedPreviewStep{projectID, idstest.N(4), idstest.N(11)}, RunInput{Source: deploy.Source{Workspace: ws, Revision: "HEAD", Slug: "p", Contract: c}, Services: []deploy.ServiceSpec{{Name: "cache", Image: "redis:7"}}})
 	if err != nil {
 		t.Fatal(err)
+	}
+	app := client.Matching("run -d --name " + docker.PreviewRunName(idstest.N(4)))
+	if len(app) != 1 || !strings.Contains(strings.Join(app[0], " "), "-e APPTOWN_URL="+out.URL+" ") {
+		t.Fatalf("run preview app did not receive its URL %s: %v", out.URL, app)
 	}
 	name := docker.Current.Service(docker.RunStepStackID(idstest.N(11)), "cache")
 	if memory, _ := client.Limits(name); memory != 512<<20 {

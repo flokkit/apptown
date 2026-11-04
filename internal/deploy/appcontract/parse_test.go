@@ -197,6 +197,8 @@ func TestAppYamlRefusesWhatNoTargetUses(t *testing.T) {
 		{"seed", base + "    seed: ./seed.sh\n", "seed: is not run by any target yet"},
 		{"dataDir on a worker", base + "  worker:\n    build: .\n    dataDir: /data\n", `app part "worker": dataDir: is kept only for the public part`},
 		{"PORT", base + "    environment: {PORT: \"8080\"}\n", "sets PORT in environment:, which only AppTown sets"},
+		{"APPTOWN_URL", base + "    environment: {APPTOWN_URL: https://x}\n", "sets APPTOWN_URL in environment:"},
+		{"APPTOWN_URL profile", base + "profiles:\n  big:\n    web:\n      environment: {APPTOWN_URL: https://x}\n", "sets APPTOWN_URL, which only AppTown sets"},
 		{"APPTOWN_ORIGINS", base + "    environment: {APPTOWN_ORIGINS: https://x}\n", "sets APPTOWN_ORIGINS in environment:"},
 		{"DATA_DIR", base + "  worker:\n    build: .\n    environment: {DATA_DIR: /d}\n", `app part "worker" sets DATA_DIR`},
 		{"APPTOWN_RELEASE", base + "    environment: {APPTOWN_RELEASE: x}\n", "sets APPTOWN_RELEASE"},

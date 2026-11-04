@@ -24,19 +24,21 @@ Do not fetch an unpinned WordPress archive in a release entrypoint.
 The declared needs are MariaDB and `s3`. The app reads their injected env:
 `DB_*`, and `S3_BUCKET`, `AWS_REGION`, `AWS_ENDPOINT_URL_S3`,
 `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`.
-The site's address is the deployment's own: `config/application.php` takes the
-request's Host when it matches an origin in `APPTOWN_ORIGINS` (the front door
-routes by Host and passes it on) and refuses any other Host with 400. Never use
-`APPTOWN_ORIGINS` itself as the URL. A bound `WP_HOME` overrides it with one
-canonical address. Keep `WP_HOME` optional in `secretspec.toml` and leave preview
-bindings unset. Use the starter's address block from `deployment_home()` through `WP_SITEURL`
-as the recommended implementation. The `deployment-home` runtime check judges
-redirects and stylesheet/script addresses on the running page; it does not
-require particular PHP code. When adopting it in an older app, report that an operator must remove
-stored preview `WP_HOME` bindings in Settings > Secrets. Remediation changes
-repository files and cannot remove those bindings. WP-CLI has no request: run a
-WP-CLI command that creates content or writes links with `WP_HOME=<the deployment's URL>` in its
-environment, or what it stores names `http://localhost`. Nobody enters an
+The site's address is the deployment's own: `config/application.php` uses
+`APPTOWN_URL`, which AppTown gives web, init and WP-CLI commands. A bound
+`WP_HOME` only pins a different canonical address and takes precedence. When
+`APPTOWN_URL` is unknown, use the request Host only when it matches
+`APPTOWN_ORIGINS`, refusing any other Host with 400. Never use
+`APPTOWN_ORIGINS` itself as the URL. Keep `WP_HOME` optional in `secretspec.toml`
+and leave preview bindings unset. Use the starter's address block from
+`deployment_home()` through `WP_SITEURL` as the recommended implementation.
+The `deployment-home` runtime check judges redirects and stylesheet/script
+addresses on the running page; it does not require particular PHP code.
+When adopting it in an older app, report that an operator must remove stored
+`WP_HOME` bindings equal to the deployment's own address, including preview
+bindings, in Settings > Secrets. Remediation changes repository files and
+cannot remove those bindings. WP-CLI receives the deployment address without
+an extra setting. Nobody enters an
 S3 setting: never declare the need's variables or `S3_PUBLIC_URL` in
 `secretspec.toml`. AppTown generates stable signing keys/salts and the initial administrator
 password. Only initialization receives the password; it never appears in argv.

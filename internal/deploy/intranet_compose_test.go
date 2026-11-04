@@ -370,3 +370,37 @@ func TestAnIntranetStackFinishesInitInOrderBeforeWorkersStart(t *testing.T) {
 		}
 	}
 }
+
+// The admitted URL can differ from the generated hostname and origins order.
+func TestIntranetGivesEveryAppConsumerTheSelectedURL(t *testing.T) {
+	t.Parallel()
+	for _, url := range []string{"https://custom.example", ""} {
+		t.Run("url="+url, func(t *testing.T) {
+			t.Parallel()
+			st := IntranetStack{Secrets: noSecrets{}, Prefix: "apptown-", Base: "dep-one", Hosts: []string{"generated.example", "custom.example"}, Domain: "example", Image: "app:1", Port: 8080,
+				URL: url, Origins: "https://generated.example,https://custom.example",
+				Init:  []appcontract.InitContainer{{Name: "migrate", Image: "init:1"}},
+				Parts: []appcontract.Part{{Name: "worker", Image: "worker:1"}},
+				Needs: []IntranetNeed{{Name: "database", Image: "db:1"}}}
+			var stack struct {
+				Services map[string]struct {
+					Environment map[string]string `yaml:"environment"`
+				}
+			}
+			if err := yaml.Unmarshal([]byte(IntranetCompose(st)), &stack); err != nil {
+				t.Fatal(err)
+			}
+			for _, consumer := range []string{"app", "init-migrate", "worker", "database"} {
+				env := stack.Services[consumer].Environment
+				want := url
+				if consumer == "database" {
+					want = ""
+				}
+				got, set := env["APPTOWN_URL"]
+				if got != want || (want == "" && set) {
+					t.Fatalf("%s URL = %q (set %v), want %q", consumer, got, set, want)
+				}
+			}
+		})
+	}
+}

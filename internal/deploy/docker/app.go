@@ -281,6 +281,9 @@ func (h *Host) startAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// The volume's location is deploy topology, not app preference: injected
 	// LAST so a stray DATA_DIR in the contract env cannot point the app away
 	// from its persistent mount (docker: last -e wins).
+	if t.URL != "" {
+		args = append(args, "-e", "APPTOWN_URL="+t.URL)
+	}
 	if c.DataDir != "" {
 		args = append(args, "-e", "DATA_DIR="+c.DataDir)
 	}

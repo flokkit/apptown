@@ -213,7 +213,7 @@ func (h changeBoots) BootPreview(ctx context.Context, ch Change, restart bool) (
 	if err := s.beforeLocalAct(life); err != nil {
 		return Result{}, err
 	}
-	res, err := s.env.PreparedHost(prepared).Boot(life, docker.BootRequest{Allowed: docker.AuthorisedWhenRequested, Docker: s.hosts.Local().WithLifetime(life),
+	res, err := s.env.PreparedHost(prepared).Boot(life, docker.BootRequest{URL: prepared.URL, Allowed: docker.AuthorisedWhenRequested, Docker: s.hosts.Local().WithLifetime(life),
 		Name: name, StackID: docker.ChangeStackID(ch.ID), Workspace: ws, Slug: b.slug, ChangeTitle: ch.Title,
 		Deployment: "preview", Probe: 45 * time.Second, Incarnation: incarnation, Scratch: s.hosts.BootScratch(),
 		Record: func(o deploy.Owned) error { created = append(created, o); return nil },
@@ -317,9 +317,10 @@ func (s *Service) preparePreview(ctx context.Context, projectID ids.ID, slug, pr
 		return p, err
 	}
 	routes := s.env.RoutesFor(ctx, projectID)
-	p.Origins = ""
+	p.Origins, p.URL = "", ""
 	if routes.PreviewDomain != "" {
-		p.Origins, err = docker.ExactOrigin(routes.PreviewURL(label, 0))
+		p.URL = routes.PreviewURL(label, 0)
+		p.Origins, err = docker.ExactOrigin(p.URL)
 		if err != nil {
 			return p, err
 		}

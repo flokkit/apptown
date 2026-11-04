@@ -33,7 +33,7 @@ app:
 	}
 	dk := Scope{Client: f}
 	plan := appcontract.Prepare(c, nil)
-	if _, _, err := bringUpParts(t.Context(), dk, "pvtest", "apptown-preview-limits", t.TempDir(), "", plan, Delivery{}, Ownership{}); err != nil {
+	if _, _, err := bringUpParts(t.Context(), dk, "pvtest", "apptown-preview-limits", t.TempDir(), "", plan, Delivery{}, Ownership{}, ""); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).startAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: dk, Name: "apptown-preview-limits", Workspace: t.TempDir()}, plan.PublicPart(), "", nil); err != nil {
@@ -108,7 +108,7 @@ init:
 	}
 	dk := Scope{Client: f}
 	plan := appcontract.Prepare(c, nil)
-	if _, _, err := bringUpParts(t.Context(), dk, "pvtest", "apptown-preview-logs", t.TempDir(), "", plan, Delivery{}, Ownership{}); err != nil {
+	if _, _, err := bringUpParts(t.Context(), dk, "pvtest", "apptown-preview-logs", t.TempDir(), "", plan, Delivery{}, Ownership{}, ""); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).startAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: dk, Name: "apptown-preview-logs", Workspace: t.TempDir()}, plan.PublicPart(), "", nil); err != nil {
@@ -120,7 +120,7 @@ init:
 	if _, err := EnsureStandingServices(t.Context(), dk, "envtest", []deploy.ServiceSpec{{Name: "db", Image: "need:standing"}}, "", Ownership{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := runInitContainers(t.Context(), dk, "pvtest", "net", plan, Delivery{}, Ownership{}); err != nil {
+	if err := runInitContainers(t.Context(), dk, "pvtest", "net", plan, Delivery{}, Ownership{}, ""); err != nil {
 		t.Fatal(err)
 	}
 	runs := map[string][]string{}

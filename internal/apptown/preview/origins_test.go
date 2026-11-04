@@ -32,7 +32,7 @@ func TestPreparedPreviewOriginsAreExactAndPartOfIncarnation(t *testing.T) {
 				if domain != "" {
 					want = "https://" + label + ".preview.example"
 				}
-				if p.Origins != want || strings.Contains(p.Origins, "*") {
+				if p.URL != want || p.Origins != want || strings.Contains(p.Origins, "*") {
 					t.Fatalf("label %q: %q want %q", label, p.Origins, want)
 				}
 				raw, err := json.Marshal(p)
@@ -43,8 +43,13 @@ func TestPreparedPreviewOriginsAreExactAndPartOfIncarnation(t *testing.T) {
 				if err := json.Unmarshal(raw, &sent); err != nil {
 					t.Fatal(err)
 				}
-				if sent.Origins != want || sent.Public().Digest() != p.Public().Digest() {
+				if sent.URL != want || sent.Origins != want || sent.Public().Digest() != p.Public().Digest() {
 					t.Fatal("serialization changed route identity")
+				}
+				changedURL := p
+				changedURL.URL = "https://different.example"
+				if changedURL.Public().Digest() == p.Public().Digest() {
+					t.Fatal("URL is missing from incarnation")
 				}
 				old := p
 				old.Origins = "https://*.preview.example"
