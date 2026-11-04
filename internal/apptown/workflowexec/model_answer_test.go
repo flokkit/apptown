@@ -23,6 +23,7 @@ func TestLocalStepsRequireAModelAnswer(t *testing.T) {
 		}{
 			{"refused", append(piRefuses("first refusal"), piRefuses("openai refused the call (HTTP 429)")...), "its model never answered: openai refused the call (HTTP 429)"},
 			{"zero output", []byte(`{"type":"message_end","message":{"role":"assistant","usage":{"input":10,"output":0}}}` + "\n"), "its model never answered"},
+			{"warm-up only", cacheWarmOutput, "its model never answered"},
 			{"answered", append(piSays("done"), []byte(`{"type":"message_end","message":{"role":"assistant","usage":{"output":0}}}`+"\n")...), ""},
 		} {
 			t.Run(kind+"/"+row.name, func(t *testing.T) {
@@ -69,11 +70,12 @@ func TestWorkerReviewRequiresAModelAnswer(t *testing.T) {
 	}{
 		{"refused", piRefuses("openai refused the call (HTTP 429)"), "its model never answered: openai refused the call (HTTP 429)"},
 		{"zero output", nil, "its model never answered"},
+		{"warm-up only", cacheWarmOutput, "its model never answered"},
 		{"answered", piSays("reviewed"), ""},
 	} {
 		t.Run(row.name, func(t *testing.T) {
 			t.Parallel()
-			res := invocationResult{piResult: piResult{Events: row.events, OutputTokens: sumPiUsage(row.events).Totals.Output}, results: map[string]execution.ResultFile{"review": {State: execution.ResultPresent, Content: []byte(`{"verdict":"pass","summary":"fine","findings":[]}`)}}}
+			res := invocationResult{piResult: piResult{Events: row.events, OutputTokens: sumPiUsage(row.events).AssistantOutput}, results: map[string]execution.ResultFile{"review": {State: execution.ResultPresent, Content: []byte(`{"verdict":"pass","summary":"fine","findings":[]}`)}}}
 			a := &Executor{}
 			j := a.judgeReview(t.Context(), &workerAttempt{run: &workflow.Run{}}, agentAdmission{Invocation: reviewInvocation, Review: &reviewAdmission{}}, res, "", repositoryedit.Candidate{})
 			if j.failure != row.reason || row.reason == "" && j.verdict.Verdict != "pass" || row.reason != "" && j.verdict.Verdict != "" {
@@ -107,5 +109,18 @@ func TestModelAnswerSurvivesReviewFollowUp(t *testing.T) {
 				t.Fatalf("got %s %v (%d calls)", status, ev, len(fake.requests()))
 			}
 		})
+	}
+}
+
+var cacheWarmOutput = []byte(`{"type":"entry_appended","entry":{"type":"usage","kind":"cache_warm","provider":"p","model":"warm","usage":{"input":2,"output":1,"totalTokens":3,"cost":{"total":0.001}}}}` + "\n")
+
+func TestCacheWarmOutputIsSpendWithoutAModelAnswer(t *testing.T) {
+	t.Parallel()
+	spent := sumPiUsage(cacheWarmOutput)
+	if spent.Totals.Output != 1 || spent.Totals.Total != 3 || spent.Totals.CostMicros != 1000 {
+		t.Fatalf("warm-up spend lost: %+v", spent)
+	}
+	if failure := modelAnswerFailure(spent.AssistantOutput, cacheWarmOutput); failure != "its model never answered" {
+		t.Fatalf("warm-up counted as answer: %q", failure)
 	}
 }

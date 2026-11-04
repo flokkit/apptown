@@ -64,27 +64,8 @@ func TestHarvestConsoleUsageFromRecord(t *testing.T) {
 	if err := HarvestUsage(context.Background(), ledger, s); err != nil {
 		t.Fatal(err)
 	}
-	// sql-guarantee: One stored row per paid provider for this session is the guarantee; the usage rollups sum rows and cannot show how many were written.
-	rows, err := db.SQL().QueryContext(context.Background(), `SELECT provider, model, total, cost_micros FROM token_usage WHERE session_id='t' ORDER BY provider`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rows.Close()
-	type row struct {
-		provider, model string
-		total, cost     int64
-	}
-	var got []row
-	for rows.Next() {
-		var r row
-		if err := rows.Scan(&r.provider, &r.model, &r.total, &r.cost); err != nil {
-			t.Fatal(err)
-		}
-		got = append(got, r)
-	}
-	if len(got) != 2 || got[0].provider != "ds4" || got[0].total != 1833+1912 ||
-		got[1].provider != "openrouter" || got[1].total != 2660 || got[1].cost != 1200 {
-		t.Fatalf("ledger rows: %+v", got)
+	if total, err := ledger.ProjectsTotal(t.Context(), db, idstest.N(1)); err != nil || total.Total != 383 || total.CostMicros != 406 {
+		t.Fatalf("fixture spend: %+v %v", total, err)
 	}
 	off, err := ledger.Cursor(context.Background(), path)
 	if err != nil {
@@ -98,9 +79,9 @@ func TestHarvestConsoleUsageFromRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	var n int
-	// sql-guarantee: As above: the row count, not a rollup, shows a second harvest wrote nothing.
+	// sql-guarantee: One stored row shows a second harvest of this single-model record wrote nothing.
 	_ = db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM token_usage WHERE session_id='t'`).Scan(&n)
-	if n != 2 {
+	if n != 1 {
 		t.Errorf("a second harvest of an unchanged record must add nothing, got %d rows", n)
 	}
 }
@@ -128,7 +109,7 @@ func TestTheLastHarvestRecordsSpendThoughTheCallerStopped(t *testing.T) {
 	if err := os.RemoveAll(s.Dir); err != nil { // the chat ends; its record goes
 		t.Fatal(err)
 	}
-	if total, err := ledger.ProjectsTotal(t.Context(), db, idstest.N(1)); err != nil || total.Total != 1833+1912+2660 || total.CostMicros != 1200 {
+	if total, err := ledger.ProjectsTotal(t.Context(), db, idstest.N(1)); err != nil || total.Total != 383 || total.CostMicros != 406 {
 		t.Fatalf("spend after a stopped last harvest: %+v %v", total, err)
 	}
 	if off, err := ledger.Cursor(t.Context(), path); err != nil || off != fi.Size() {
@@ -213,7 +194,7 @@ func TestAFailedHarvestKeepsItsSpendForTheNext(t *testing.T) {
 	if err := HarvestUsage(t.Context(), ledger, s); err != nil {
 		t.Fatal(err)
 	}
-	if total, err := ledger.ProjectsTotal(t.Context(), db, idstest.N(1)); err != nil || total.Total != 1833+1912+2660 {
+	if total, err := ledger.ProjectsTotal(t.Context(), db, idstest.N(1)); err != nil || total.Total != 383 {
 		t.Fatalf("spend after the retry: %+v %v", total, err)
 	}
 	unreadable := &console.Session{Meta: console.Meta{ID: "u", AgentSession: console.AgentSession}, Dir: t.TempDir()}
@@ -222,5 +203,49 @@ func TestAFailedHarvestKeepsItsSpendForTheNext(t *testing.T) {
 	}
 	if err := HarvestUsage(t.Context(), ledger, unreadable); err == nil {
 		t.Fatal("an unreadable record folder harvested nothing, as if it held no records")
+	}
+}
+
+// A cache refresh is a top-level usage entry, with its own model. Cursor
+// advancement must make an unchanged record cost the same on a second read.
+func TestHarvestIncludesCacheRefreshOnce(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t)
+	ledger := usage.New(db)
+	s, _ := recordSession(t, []string{`{"type":"usage","id":"warm","timestamp":"2026-11-04T00:00:00.000Z","kind":"cache_warm","provider":"p","model":"warm","usage":{"input":2,"cacheRead":100,"totalTokens":102,"cost":{"total":0.001,"totalFromProvider":true}}}` + "\n",
+		`{"type":"message","id":"answer","message":{"role":"assistant","provider":"q","model":"answer","usage":{"input":10,"output":5,"totalTokens":15,"cost":{"total":0.002}}}}` + "\n"})
+	s.Labels = map[string]string{ProjectLabel: idstest.N(1).String()}
+	for range 2 {
+		if err := HarvestUsage(t.Context(), ledger, s); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if total, err := ledger.ProjectsTotal(t.Context(), db, idstest.N(1)); err != nil || total.Total != 117 || total.CostMicros != 3000 {
+		t.Fatalf("cache refresh spend: %+v %v", total, err)
+	}
+	// sql-guarantee: rollups cannot prove each provider/model kept its own row.
+	rows, err := db.SQL().QueryContext(t.Context(), `SELECT provider, model, total, cost_micros FROM token_usage WHERE session_id='t' ORDER BY provider`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	for _, want := range []struct {
+		provider, model string
+		total, cost     int64
+	}{{"p", "warm", 102, 1000}, {"q", "answer", 15, 2000}} {
+		var provider, model string
+		var total, cost int64
+		if !rows.Next() {
+			t.Fatalf("missing spend row: %v", rows.Err())
+		}
+		if err := rows.Scan(&provider, &model, &total, &cost); err != nil {
+			t.Fatal(err)
+		}
+		if provider != want.provider || model != want.model || total != want.total || cost != want.cost {
+			t.Fatalf("spend row: %s/%s %d %d; want %+v", provider, model, total, cost, want)
+		}
+	}
+	if rows.Next() || rows.Err() != nil {
+		t.Fatalf("unexpected spend rows: %v", rows.Err())
 	}
 }

@@ -54,7 +54,7 @@ func TestWorkerAgentRequiresReadableModelAnswer(t *testing.T) {
 					var err error
 					got, err = f.exec.recordAgentOutcome(ctx, agentRecord{
 						task: task, cfg: &agentConfig{needsStarted: []needStarted{{Kind: "mariadb", Env: []string{"DATABASE_URL"}}}, needsRefused: "s3 unavailable"},
-						pi:     piResult{Outcome: execution.Outcome{Termination: execution.Exited, ExitCode: 0}, Events: row.events, OutputTokens: sumPiUsage(row.events).Totals.Output},
+						pi:     piResult{Outcome: execution.Outcome{Termination: execution.Exited, ExitCode: 0}, Events: row.events, OutputTokens: sumPiUsage(row.events).AssistantOutput},
 						files:  workspaceHarvest{Output: "# completed report"},
 						worker: &workerRecord{outputUnread: row.unread},
 					})

@@ -39,7 +39,7 @@ func inferenceFixture(t *testing.T, upstream http.HandlerFunc) (*Gateway, *atomi
 		return identity.Workload{Kind: "console", Actor: "alice", ProjectID: idstest.N(3), SessionID: "chat-1"}, nil
 	}
 	g.providers = func(context.Context) (map[string]*inferenceProvider, error) {
-		return map[string]*inferenceProvider{"paid": {name: "paid", baseURL: server.URL, api: "openai-completions", key: "provider-canary", patterns: []string{"allowed"}}}, nil
+		return map[string]*inferenceProvider{"paid": {name: "paid", baseURL: server.URL, api: "openai-completions", apis: []string{"openai-completions"}, key: "provider-canary", patterns: []string{"allowed"}}}, nil
 	}
 	return g, live
 }
@@ -243,9 +243,9 @@ func TestInferenceNativeRoutes(t *testing.T) {
 		{"anthropic-messages", "https://api.example/v1", "v1/messages", "", "/messages", "m"},
 		{"google-generative-ai", "https://api.example", "v1beta/models/gemini:streamGenerateContent", "alt=sse", "/v1beta/models/gemini:streamGenerateContent?alt=sse", "gemini"},
 	} {
-		p := &inferenceProvider{api: tc.api, baseURL: tc.base}
+		p := &inferenceProvider{api: tc.api, apis: []string{tc.api}, baseURL: tc.base}
 		q, _ := url.ParseQuery(tc.query)
-		path, m, err := p.inferencePath(tc.path, q, "m")
+		path, m, _, err := p.inferencePath(tc.path, q, "m")
 		if err != nil || path != tc.want || m != tc.model {
 			t.Errorf("%s: %s %s %v", tc.api, path, m, err)
 		}
@@ -372,5 +372,97 @@ func TestOpenAIGatewayUsesResponsesAtTheBuiltInAddress(t *testing.T) {
 	}
 	if calls != 2 {
 		t.Fatalf("OpenAI calls = %d, want 2", calls)
+	}
+}
+
+// A provider's supported protocols govern admission; the caller cannot choose
+// another protocol or cause its runtime credential to reach the provider.
+func TestOpenRouterBindingProtocols(t *testing.T) {
+	t.Parallel()
+	var calls atomic.Int32
+	g, _ := inferenceFixture(t, func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		if r.URL.Path != "/api/v1/messages" && r.URL.Path != "/api/v1/chat/completions" {
+			t.Errorf("upstream path %s", r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "Bearer provider-canary" || r.Header.Get("X-Api-Key") != "" {
+			t.Errorf("wrong OpenRouter authentication: %v", r.Header)
+		}
+		w.WriteHeader(200)
+	})
+	original := g.providers
+	ps, _ := original(t.Context())
+	base := ps["paid"].baseURL
+	p, err := resolveInferenceProvider("openrouter", integration.ModelConfig{BaseURL: base + "/api/v1", API: "openai-responses", Model: "anthropic/claude-fable-latest", ProviderDef: map[string]any{"apiKey": "provider-canary"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.providers = func(context.Context) (map[string]*inferenceProvider, error) {
+		return map[string]*inferenceProvider{"openrouter": p}, nil
+	}
+	for _, tc := range []struct {
+		route  string
+		status int
+	}{{"v1/messages", 200}, {"messages", 200}, {"v1/messages?beta=true", 200}, {"v1/messages?beta=false", 400}, {"v1/messages?beta=true&beta=true", 400}, {"chat/completions?beta=true", 400}, {"chat/completions", 200}, {"responses", 400}} {
+		w := httptest.NewRecorder()
+		r := inferenceRequest("/providers/openrouter/"+tc.route, `{"model":"anthropic/claude-fable-latest"}`)
+		r.Header.Set("X-Api-Key", "session-secret")
+		g.ServeHTTP(w, r)
+		if w.Code != tc.status {
+			t.Errorf("%s: got %d: %s", tc.route, w.Code, w.Body.String())
+		}
+	}
+	if calls.Load() != 4 {
+		t.Fatalf("upstream calls = %d", calls.Load())
+	}
+}
+
+func TestBindingProtocolsComeFromProvider(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		apis []string
+	}{
+		{"openrouter", []string{"openai-completions", "anthropic-messages"}},
+		{"openai", []string{"openai-responses"}},
+		{"anthropic", []string{"anthropic-messages"}},
+		{"google", []string{"google-generative-ai"}},
+		{"custom", []string{"anthropic-messages"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p, err := resolveInferenceProvider(tc.name, integration.ModelConfig{BaseURL: "https://example.com", API: "anthropic-messages"}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if fmt.Sprint(p.apis) != fmt.Sprint(tc.apis) {
+				t.Fatalf("protocols = %v, want %v", p.apis, tc.apis)
+			}
+		})
+	}
+	for _, field := range []string{"models", "modelsJson", "modelOverrides"} {
+		for _, api := range []string{"openai-completions", "anthropic-messages"} {
+			t.Run(field+"/"+api, func(t *testing.T) {
+				def := map[string]any{"baseUrl": "https://example.com", "api": "openai-completions"}
+				m := map[string]any{"id": "m", "api": api}
+				cfg := integration.ModelConfig{ProviderDef: def}
+				switch field {
+				case "models":
+					def[field] = []any{m}
+				case "modelsJson":
+					raw, _ := json.Marshal([]any{m})
+					cfg.ModelsJSON = string(raw)
+				case "modelOverrides":
+					def[field] = map[string]any{"m": m}
+				}
+				p, err := resolveInferenceProvider("custom", cfg, nil)
+				if api != "openai-completions" {
+					if err == nil || !strings.Contains(err.Error(), `"custom"`) {
+						t.Fatalf("different dialect must name binding: %v", err)
+					}
+				} else if err != nil || p == nil {
+					t.Fatalf("matching dialect refused: %v", err)
+				}
+			})
+		}
 	}
 }

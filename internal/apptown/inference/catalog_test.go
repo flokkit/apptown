@@ -199,3 +199,14 @@ func TestSavedOpenAIBindingUsesResponsesAndItsSecret(t *testing.T) {
 		t.Fatal("built-in OpenAI must discover models for the gateway and slot picker")
 	}
 }
+
+// Public metadata must retain the chat-model controls accepted by Pi 1.5.
+func TestPublicPiModelRetainsNewChatControls(t *testing.T) {
+	for _, field := range []string{"inputLimits", "promptCache", "samplingParamsByThinkingLevel"} {
+		value := map[string]any{"fixture": true}
+		got := publicPiModel(map[string]any{field: value, "apiKey": "secret"})
+		if got[field] == nil || got["apiKey"] != nil {
+			t.Fatalf("%s: %v", field, got)
+		}
+	}
+}

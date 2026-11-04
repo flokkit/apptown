@@ -70,7 +70,7 @@ func listModels(ctx context.Context, name, url string, authorize func(http.Heade
 func AnthropicNewest(ctx context.Context, base, key, family string) (string, error) {
 	p := &inferenceProvider{name: "anthropic", baseURL: strings.TrimRight(base, "/"), api: "anthropic-messages", key: key, headers: map[string]string{}}
 	list, err := listModels(ctx, "Anthropic", p.baseURL+"/v1/models", func(h http.Header) {
-		p.authorize(h)
+		p.authorize(h, p.api)
 		h.Set("Anthropic-Version", "2023-06-01")
 	})
 	if err != nil {
@@ -108,7 +108,7 @@ func OpenRouterAlias(ctx context.Context, base, alias string) (string, error) {
 // fetchModels lists the model IDs an OpenAI-style provider offers at
 // /models, with the binding's own headers and credential.
 func fetchModels(ctx context.Context, p *inferenceProvider) ([]string, error) {
-	list, err := listModels(ctx, "the "+p.name+" provider", p.baseURL+"/models", p.authorize)
+	list, err := listModels(ctx, "the "+p.name+" provider", p.baseURL+"/models", func(h http.Header) { p.authorize(h, p.api) })
 	if err != nil {
 		return nil, err
 	}

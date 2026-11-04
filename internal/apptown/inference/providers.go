@@ -18,6 +18,7 @@ import (
 // serialize it into a workspace, a console, a receipt or an error response.
 type inferenceProvider struct {
 	name, baseURL, api, key string
+	apis                    []string
 	headers                 map[string]string
 	models                  map[string]map[string]any
 	patterns                []string
@@ -80,31 +81,47 @@ func resolveInferenceProvider(name string, cfg integration.ModelConfig, secrets 
 	if s, ok := def["api"].(string); ok {
 		p.api = s
 	}
-	if p.baseURL == "" {
-		switch name {
-		case "openrouter":
-			p.baseURL, p.api = "https://openrouter.ai/api/v1", "openai-completions"
-		case "anthropic":
-			p.baseURL, p.api = "https://api.anthropic.com", "anthropic-messages"
-		case "openai":
-			p.baseURL, p.api = "https://api.openai.com/v1", "openai-responses"
-		case "google":
-			p.baseURL, p.api = "https://generativelanguage.googleapis.com", "google-generative-ai"
-		default:
-			if cfg.Model == "" && len(cfg.Models) == 0 && len(def) == 0 {
-				return nil, nil
-			}
+	// Built-in provider protocols are server-owned, including when its base URL
+	// is redirected to a private endpoint. Custom bindings declare one protocol.
+	switch name {
+	case "openrouter":
+		p.apis = []string{"openai-completions", "anthropic-messages"}
+		if p.baseURL == "" {
+			p.baseURL = "https://openrouter.ai/api/v1"
+		}
+	case "anthropic":
+		p.apis = []string{"anthropic-messages"}
+		if p.baseURL == "" {
+			p.baseURL = "https://api.anthropic.com"
+		}
+	case "openai":
+		p.apis = []string{"openai-responses"}
+		if p.baseURL == "" {
+			p.baseURL = "https://api.openai.com/v1"
+		}
+	case "google":
+		p.apis = []string{"google-generative-ai"}
+		if p.baseURL == "" {
+			p.baseURL = "https://generativelanguage.googleapis.com"
+		}
+	default:
+		if p.baseURL == "" && cfg.Model == "" && len(cfg.Models) == 0 && len(def) == 0 {
+			return nil, nil
+		}
+		if p.baseURL == "" {
 			return nil, fmt.Errorf("model binding %q needs an explicit inference base URL and API dialect", name)
 		}
+		if p.api == "" {
+			p.api = "openai-completions"
+		}
+		switch p.api {
+		case "openai-completions", "openai-responses", "anthropic-messages", "google-generative-ai":
+		default:
+			return nil, fmt.Errorf("model binding %q has an unsupported inference API", name)
+		}
+		p.apis = []string{p.api}
 	}
-	if p.api == "" {
-		p.api = "openai-completions"
-	}
-	switch p.api {
-	case "openai-completions", "openai-responses", "anthropic-messages", "google-generative-ai":
-	default:
-		return nil, fmt.Errorf("model binding %q has an unsupported inference API", name)
-	}
+	p.api = p.apis[0]
 	u, err := url.Parse(p.baseURL)
 	if err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		return nil, fmt.Errorf("model binding %q needs an HTTP(S) base URL without credentials or query parameters", name)
@@ -159,8 +176,8 @@ func resolveInferenceProvider(name string, cfg integration.ModelConfig, secrets 
 			if id == "" {
 				return fmt.Errorf("model binding %q contains an unnamed model", name)
 			}
-			if api, ok := m["api"].(string); ok && api != p.api {
-				return fmt.Errorf("model binding %q mixes API dialects; split it into separate bindings", name)
+			if api, ok := m["api"]; ok && api != p.api {
+				return fmt.Errorf("model binding %q cannot override a model API dialect", name)
 			}
 			p.models[id] = publicPiModel(m)
 		}
@@ -199,6 +216,9 @@ func resolveInferenceProvider(name string, cfg integration.ModelConfig, secrets 
 		clean := map[string]any{}
 		for id, v := range overrides {
 			if m, ok := v.(map[string]any); ok {
+				if api, ok := m["api"]; ok && api != p.api {
+					return nil, fmt.Errorf("model binding %q cannot override a model API dialect", name)
+				}
 				clean[id] = publicPiModel(m)
 			}
 		}
@@ -209,7 +229,7 @@ func resolveInferenceProvider(name string, cfg integration.ModelConfig, secrets 
 
 func publicPiModel(m map[string]any) map[string]any {
 	out := map[string]any{}
-	for _, k := range []string{"id", "name", "reasoning", "thinkingLevelMap", "input", "contextWindow", "maxTokens", "cost", "compat", "samplingParams"} {
+	for _, k := range []string{"id", "name", "reasoning", "thinkingLevelMap", "input", "contextWindow", "maxTokens", "cost", "compat", "samplingParams", "samplingParamsByThinkingLevel", "inputLimits", "promptCache"} {
 		if v, ok := m[k]; ok {
 			out[k] = v
 		}

@@ -63,7 +63,13 @@ The proxy admits native OpenAI Chat Completions, OpenAI Responses, Anthropic
 Messages and Google generate-content requests. It does not expose uploads,
 files, model administration, batch APIs, arbitrary paths or redirects. It
 rejects query-string credentials, fallback model lists and background requests.
-Mixed API dialects need separate bindings. Upstream auth headers are rebuilt
+Each binding permits its provider’s API dialects. Built-in defaults in
+`inference/providers.go` permit OpenRouter Chat Completions and Anthropic
+Messages, OpenAI Responses, Anthropic Messages, and Google generate-content.
+Custom endpoints permit the one dialect they declare. Model definitions cannot
+override dialects. The admitted operation selects the upstream path and
+authentication; OpenRouter uses bearer authentication for both protocols.
+Upstream auth headers are rebuilt
 server-side; runtime cookies, auth, actor and forwarding headers are discarded.
 Error bodies and redirect locations are not reflected because providers may
 echo credentials in them. Clients receive the upstream error status.

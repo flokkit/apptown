@@ -69,7 +69,7 @@ func (g *Gateway) Ask(ctx context.Context, call modelcall.Call) (string, *modelc
 	}
 	defer g.release(key)
 	route, body := completionRequest(p.api, id, call.System, call.User)
-	path, _, err := p.inferencePath(route, nil, id)
+	path, _, _, err := p.inferencePath(route, nil, id)
 	if err != nil {
 		return "", nil, fmt.Errorf("the %q model binding cannot answer a single question: %w", name, err)
 	}
@@ -147,7 +147,7 @@ func (g *Gateway) send(ctx context.Context, p *inferenceProvider, path string, r
 	if p.api == "anthropic-messages" {
 		protocol.Set("Anthropic-Version", "2023-06-01")
 	}
-	resp, err := g.dispatch(ctx, p, path, raw, "application/json", protocol)
+	resp, err := g.dispatch(ctx, p, p.api, path, raw, "application/json", protocol)
 	var rejected upstreamRejected
 	switch {
 	case errors.Is(err, errUnsendable):

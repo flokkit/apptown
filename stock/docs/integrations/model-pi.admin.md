@@ -25,6 +25,11 @@ Integrations → Model providers. Two kinds:
   live-discovering what the endpoint currently serves, so swapping
   models on the box needs no binding edit.
 
+Built-in providers use their supported API dialects automatically. OpenRouter
+accepts Chat Completions and Anthropic Messages, including pi’s Claude aliases.
+OpenAI uses Responses and Anthropic uses Messages. Custom endpoints use the
+single dialect set in their binding. Per-model API overrides are not supported.
+
 For **OpenAI**, keep the binding name `openai`. Add your key to instance
 secrets as `OPENAI_API_KEY` and keep that reference in Provider credentials.
 Test connection asks OpenAI for its models and fails if the key is refused.

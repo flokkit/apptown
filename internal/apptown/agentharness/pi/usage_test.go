@@ -49,3 +49,17 @@ func TestReadUsageSaysWhetherTheTranscriptWasReadWhole(t *testing.T) {
 		})
 	}
 }
+
+// Cache refreshes are paid calls outside assistant turns. The same usage
+// repeated in a boundary event must not be counted again.
+func TestReadUsageIncludesCacheRefreshOnce(t *testing.T) {
+	out := usageLine + "\n" + `{"type":"entry_appended","entry":{"type":"usage","kind":"cache_warm","provider":"p","model":"warm","usage":{"input":2,"cacheRead":100,"totalTokens":102,"cost":{"total":0.001,"totalFromProvider":true}}}}` + "\n" + `{"type":"turn_end","message":{"role":"assistant","usage":{"totalTokens":15}}}` + "\n"
+	s := ReadUsage([]byte(out))
+	if s.Incomplete != "" || len(s.Reports) != 2 {
+		t.Fatalf("refresh usage: %+v", s)
+	}
+	r := s.Reports[1]
+	if !s.Reports[0].Assistant || r.Assistant || r.Model != "warm" || r.Provider != "p" || r.Usage.Total != 102 || r.Usage.Cost.Total != 0.001 {
+		t.Fatalf("refresh attribution: %+v", r)
+	}
+}

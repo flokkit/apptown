@@ -208,6 +208,14 @@
   ],
   "packageRules": [
     {
+      "description": "Keep the harness catalog current through reviewed proposals.",
+      "matchDatasources": ["npm"],
+      "matchPackageNames": ["@earendil-works/pi-coding-agent"],
+      "groupName": "project pi harness",
+      "dependencyDashboardApproval": false,
+      "automerge": false
+    },
+    {
       "matchManagers": ["gomod"],
       "matchUpdateTypes": ["minor", "patch", "digest"],
       "groupName": "Go modules"
@@ -302,7 +310,7 @@
     },
     {
       "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
-      "matchPackageNames": ["@earendil-works/pi-coding-agent", "pi-subagents", "@narumitw/pi-lsp"],
+      "matchPackageNames": ["pi-subagents", "@narumitw/pi-lsp"],
       "groupName": "project pi tools"
     },
     {

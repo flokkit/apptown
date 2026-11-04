@@ -279,6 +279,18 @@ try {
   assert.equal(config.minimumReleaseAge, '3 days');
   assert.equal(config.dependencyDashboardApproval, true);
   assert.equal(config.automerge, false);
+  const pi = deps(agent, '@earendil-works/pi-coding-agent');
+  assert.equal(pi.length, 1);
+  assert.equal(pi[0].dependencyDashboardApproval, false);
+  assert.equal(pi[0].minimumReleaseAge, '3 days');
+  assert.equal(pi[0].automerge, false);
+  assert.deepEqual(pi[0].reviewers, config.reviewers);
+  assert.equal(pi[0].groupName, 'project pi harness');
+  for (const name of ['pi-subagents', '@narumitw/pi-lsp']) {
+    const extension = deps(agent, name)[0];
+    assert.equal(extension.dependencyDashboardApproval, true);
+    assert.notEqual(extension.groupName, pi[0].groupName);
+  }
   const privateDocker = live.filter(d => d.groupName === 'runtime private Docker 27');
   assert(privateDocker.some(d => d.packageFile === agent));
   assert.equal(privateDocker.filter(d => d.packageFile === 'deploy/tool-pins.txt').length, 2);

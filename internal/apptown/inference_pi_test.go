@@ -28,7 +28,7 @@ import (
 func TestInferencePinnedPi(t *testing.T) {
 	module := os.Getenv("APPTOWN_PI_MODULE")
 	if module == "" {
-		t.Skip("set APPTOWN_PI_MODULE to Pi 0.84.3's package directory")
+		t.Skip("set APPTOWN_PI_MODULE to Pi 1.5.0's package directory")
 	}
 	var token string
 	var reached atomic.Int32

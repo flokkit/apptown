@@ -132,7 +132,13 @@ and its build images). Project Go tools stay separate from AppTown's build/CI
 compiler. Major updates stay separate from minor and patch updates; coupled
 pins and packages released together (React with React DOM) move together.
 
-An update whose release is at least three days old waits under "Pending
+Pi harness updates (`@earendil-works/pi-coding-agent`) open proposals without
+dashboard approval after the three-day minimum release age. They keep the
+normal reviewer and never automerge. Pi extensions remain in their own group
+and require dashboard approval. This keeps the harness model catalog and
+prices current through reviewed updates.
+
+Other updates whose release is at least three days old wait under "Pending
 Approval". One less than three days old, or one whose registry gives no
 release date, is listed under "Pending Status Checks". Ticking a box there
 opens the pull request at once, skipping the three-day wait. Leave a dated

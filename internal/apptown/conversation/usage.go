@@ -40,7 +40,7 @@ func HarvestUsage(ctx context.Context, ledger *usage.Ledger, s *console.Session)
 		agg := map[key]*usage.Totals{}
 		var order []key
 		for _, e := range entries {
-			if e.Role != "assistant" {
+			if e.Role != "assistant" && e.Type != "usage" {
 				continue
 			}
 			k := key{e.Provider, e.Model}

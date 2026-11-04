@@ -48,7 +48,7 @@ biome           2.3.14        arg BIOME_VERSION
 # renovate: datasource=go depName=golang.org/x/tools/gopls versioning=semver
 gopls           v0.23.0       arg GOPLS_VERSION
 # renovate: datasource=npm depName=@earendil-works/pi-coding-agent versioning=semver
-pi              0.84.3        arg PI_VERSION
+pi              1.5.0         arg PI_VERSION
 # renovate: datasource=npm depName=pi-subagents versioning=semver
 pi-subagents    0.61.0        arg PI_SUBAGENTS_VERSION
 # renovate: datasource=npm depName=@narumitw/pi-lsp versioning=semver
