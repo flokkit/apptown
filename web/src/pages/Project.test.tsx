@@ -124,3 +124,27 @@ it.each([true, false])('shows open chats without a Past chats section (chat=%s)'
     act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
   }
 })
+
+// Public app addresses omit the scheme in text and keep it in the safe new-tab link.
+it('shows the public app host and path beneath the description as an https link', async () => {
+  const url = 'https://alpha.apps.example.test/public/path'
+  const label = 'alpha.apps.example.test/public/path'
+  vi.stubGlobal('fetch', vi.fn(async (path: string) => new Response(JSON.stringify(
+    path.endsWith('/projects/a') ? { ...project(1, 'a', 'Alpha'), blurb: 'Our app' }
+      : path.endsWith('/overview') ? { active: [], history: [], open: [] }
+      : path.endsWith('/deployments') ? [{ id: 'main', name: 'main', url, running: true, observation: 'running' }]
+      : path.endsWith('/schedules') ? { schedules: [] } : []
+  ))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/a']}><Routes><Route path="/projects/:slug" element={<Project />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('.application-heading .app-address')?.textContent).toBe(label))
+    const address = el.querySelector('.application-heading .app-address') as HTMLAnchorElement
+    expect(address.tagName).toBe('A')
+    expect(address.getAttribute('href')).toBe(url)
+    expect(address.target).toBe('_blank')
+    expect(address.rel.split(' ')).toContain('noopener')
+    expect(address.previousElementSibling?.textContent).toBe('Our app')
+    expect([...el.querySelectorAll('.app-address')].map(a => a.textContent)).toEqual([label, label])
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

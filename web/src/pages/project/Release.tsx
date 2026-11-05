@@ -1,4 +1,5 @@
 import './Release.css'
+import { AppAddress } from '../../runtime'
 import { Status } from '../../Status'
 import { Fragment, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -51,10 +52,7 @@ function ReleasePage({ slug }: { slug: string }) {
         {plan?.url && (
           <div className="release-block">
             <div className="muted small mb-1" >It will live at</div>
-            <a href={plan.url} target="_blank" rel="noreferrer"
-               className="release-address">
-              {plan.url}
-            </a>
+            <AppAddress url={plan.url} />
           </div>
         )}
         {plan?.head && (

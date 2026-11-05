@@ -1,5 +1,5 @@
 import { PRODUCT } from './brand'
-import type { CSSProperties, ReactNode } from 'react'
+import { Fragment, type CSSProperties, type ReactNode } from 'react'
 import { fmtStamp } from './format'
 
 import type { ActivityDeployment, RuntimeState } from './wire.gen'
@@ -33,6 +33,8 @@ export function RuntimeStatus({ observation }: { observation: RuntimeObservation
   return <Status observation word={observation.observation} staleAt={observation.observationStale && observation.observation !== 'unknown' ? observation.observedAt : undefined} help={runtimeDescription(observation)} />
 }
 
+// Without a label, show the public host and path with shared styling and wrap
+// points after dots and slashes. Explicit labels keep their own treatment.
 // AppAddress: where an app answers, as a link, unless AppTown says the
 // address answers on the AppTown host only (no domain for it, so it is a port
 // AppTown's own Docker publishes on that host's loopback). Then it is not
@@ -48,7 +50,12 @@ export function AppAddress({ url, hostOnly, className, style, title, children }:
       </span>
     )
   }
-  return <a href={url} target="_blank" rel="noreferrer" className={className} style={style} title={title}>{children}</a>
+  const address = children === undefined
+  return <a href={url} target="_blank" rel="noopener noreferrer"
+    className={address ? ['app-address', className].filter(Boolean).join(' ') : className}
+    style={style} title={title}>
+    {address ? url.replace(/^https?:\/\//, '').split(/(?<=[./])/).map((part, i) => <Fragment key={i}>{i > 0 && <wbr />}{part}</Fragment>) : children}
+  </a>
 }
 
 // hostOnlyWords: where a host-only address works, in words.
