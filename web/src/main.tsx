@@ -35,12 +35,14 @@ import './styles/sections.css'
 // Popups last among components: their rules beat the rows they open from
 // (.list-action button) at equal specificity.
 import './styles/menus.css'
+import { bootSize } from './size'
 import { bootTheme } from './theme'
 import { bootErrorReporting } from './errors'
 import { PRODUCT } from './brand'
 
 document.title = PRODUCT
 bootTheme()
+bootSize()
 void bootErrorReporting()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

@@ -7,6 +7,7 @@ import { AttentionLights } from './attention'
 import { PRODUCT } from './brand'
 import { useProjectScope } from './projectScope'
 import { useGet } from './data'
+import { type Size, applySize, currentSize } from './size'
 import { Theme, applyTheme, currentTheme } from './theme'
 import type { ProjectDetail, ProjectPage } from './wire.gen'
 
@@ -118,7 +119,7 @@ export function AccountCorner({ me }: { me: Me | null }) {
       <summary aria-label="Account menu"><span className="account-avatar" aria-hidden>{name.slice(0, 1).toUpperCase()}</span><span className="account-name" title={name}>{name}</span><TechnicalDetailMark /></summary>
       <div>
         <Link to="/account">Your account</Link>
-        <div className="account-switches"><ThemeSwitch /><TechnicalDetailSwitch /></div>
+        <div className="account-switches"><ThemeSwitch /><SizeSwitch /><TechnicalDetailSwitch /></div>
         {me?.mode === 'internal' && <button className="subtle" onClick={() => post('/auth/logout').then(() => location.reload())}>Sign out</button>}
       </div>
     </details>
@@ -200,6 +201,22 @@ export function ThemeSwitch() {
       {opts.map((o) => (
         <button key={o.k} className={'subtle' + (t === o.k ? ' active' : '')} title={o.title} aria-label={o.title}
           aria-pressed={t === o.k} onClick={() => pick(o.k)}>{o.label}</button>
+      ))}
+    </div>
+  )
+}
+
+// One shared scale, chosen by the person reading on this browser.
+export function SizeSwitch() {
+  const [size, setSize] = useState<Size>(currentSize)
+  const pick = (next: Size) => { applySize(next); setSize(next) }
+  return (
+    <div className="theme-switch size-switch" role="group" aria-label="Text size">
+      {(['small', 'medium', 'large'] as const).map((option) => (
+        <button key={option} className={'subtle' + (size === option ? ' active' : '')}
+          aria-pressed={size === option} onClick={() => pick(option)}>
+          {option[0].toUpperCase() + option.slice(1)}
+        </button>
       ))}
     </div>
   )

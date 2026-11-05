@@ -2,7 +2,7 @@
 /* For screen readers only: the word beside a status dot. */
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* Folds keep their calm even when someone put muted/small on the summary. */
-details > summary.muted, details > summary.small { color: var(--text); font-size: 14px; }
+details > summary.muted, details > summary.small { color: var(--text); font-size: var(--fs-base); }
 @media (max-width: 800px) {
   /* A lone link in a fact row or a note is a tap target of its own. */
   a.tap { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }

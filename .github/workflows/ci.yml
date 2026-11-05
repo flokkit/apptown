@@ -79,7 +79,7 @@ jobs:
         working-directory: web
       # The guides' checks: docs-links.py reads Markdown with web/'s library.
       - run: make check-docs
-      - run: make check-web-css
+      - run: make check-web-css check-web-type
       - run: npx tsc --noEmit
         working-directory: web
       - run: npm run lint

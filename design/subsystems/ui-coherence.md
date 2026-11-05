@@ -42,12 +42,27 @@ as passed, stopped or empty. Fonts are bundled by the build
 variant keeps the same roles and follows the system unless a person pins
 light or dark.
 
+Text size is per browser, beside the theme controls in the account menu:
+Small, Medium (the default), and Large. The root uses 87.5%, 100%, and 112.5%
+of the browser's font size. Type and space tokens use rem against the 14px
+Small reference; at the browser default, body text is 14px, 16px, or 18px.
+`web/src/size.ts` applies the saved choice before rendering. A `?size=` URL
+hint applies for that load without changing the saved choice. The terminal
+resolves its font through an element and refits when the size changes.
+`make check-web-type` rejects pixel font sizes, pixel line heights, numeric
+React font sizes, and type or space tokens outside rem. `--fs-field` is the
+named exception: `max(1rem, 16px)` keeps phone fields from zooming on focus.
+The browser fixture `web/type-scale.browser-test.mjs` checks computed phone
+field sizes at all three settings using the installed Playwright module
+(`APPTOWN_PLAYWRIGHT_MODULE`).
+
 ## Phones and touch
 
 One interface serves every screen; a narrow one reflows rather than hides.
 Under the shell's breakpoint (`NARROW_QUERY` in `web/src/chrome.ts`) the
-sidebar is a menu, the type tokens step up so body text is 16px and nothing
-read is under 13px, and on any touch screen every control is at least 44px.
+sidebar is a menu. Text follows the browser size choice; form fields, including
+the console composer, stay at least 16px. On any touch screen controls have
+a 44px minimum.
 Every tabbed page uses `Tabs`: one horizontally scrolling row, a shaded edge
 at either edge where more tabs lie off screen, and the active tab kept in view on selection
 and resize. Links and buttons keep their native keyboard semantics. The phone

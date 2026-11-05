@@ -27,7 +27,7 @@
 .application-title h1 { margin: 0 0 8px; }
 .application-open { white-space: nowrap; }
 /* A host-only address is words, not a link: framed, but not a button. */
-span.application-open { color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 8px 14px; font-size: 14px; }
+span.application-open { color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 8px 14px; font-size: var(--fs-base); }
 .application-address { font: var(--fs-sm) var(--font-mono); color: var(--muted); overflow-wrap: anywhere; }
 .application-status { border-block: 1px solid var(--border-strong); padding: 8px 0; display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; }
 .application-section-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0 12px; }
@@ -35,7 +35,7 @@ span.application-open { color: var(--text); border: 1px solid var(--border-stron
 .overview-actions > .row { gap: 8px !important; justify-content: flex-start; }
 .overview-actions .split-button { flex: 0 1 auto; }
 /* Beside the page's other actions the door is a standard button, not a big one. */
-.overview-actions .btn-door { font-size: 14px; padding: 8px 14px; text-align: left; }
+.overview-actions .btn-door { font-size: var(--fs-base); padding: 8px 14px; text-align: left; }
 .overview-actions .btn-sub { display: none; }
 .application-request { display: grid; grid-template-columns: 140px minmax(0,1fr) auto auto; gap: 8px 16px; padding: 12px 0; border-bottom: 1px solid var(--border); color: var(--text); }
 .application-details { margin-top: 28px; border-top: 1px solid var(--border-strong); display: grid; grid-template-columns: 1.5fr 1fr 1fr; column-gap: 24px; }

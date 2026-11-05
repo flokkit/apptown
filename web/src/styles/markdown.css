@@ -2,9 +2,9 @@
 /* A rendered task list's box is disabled only because the text is read-only: its tick is the content. */
 .md input[type="checkbox"]:disabled, .md-doc input[type="checkbox"]:disabled { opacity: 1; cursor: default; }
 
-.md { line-height: 1.6; font-size: 14px; }
+.md { line-height: 1.6; font-size: var(--fs-base); }
 .md h1, .md h2, .md h3 { color: var(--text); letter-spacing: 0; }
-.md h1 { font-size: 22px; } .md h2 { font-size: 19px; } .md h3 { font-size: 15px; }
+.md h1 { font-size: var(--fs-title-sm); } .md h2 { font-size: var(--fs-subheading); } .md h3 { font-size: var(--fs-button); }
 .md pre { background: var(--code-bg); border: 1px solid var(--rule); padding: 10px; border-radius: var(--radius-sm); overflow-x: auto; }
 .md code { background: var(--panel2); padding: 1px 4px; border-radius: var(--radius-xs); }
 .md pre code { background: none; padding: 0; }
@@ -20,7 +20,7 @@
 .conn-subnav-item {
   display: flex; align-items: center; gap: 8px;
   background: none; border: none; color: var(--text); cursor: pointer;
-  padding: 7px 9px; border-radius: var(--radius-sm); font-family: inherit; font-size: 14px; text-align: left;
+  padding: 7px 9px; border-radius: var(--radius-sm); font-family: inherit; font-size: var(--fs-base); text-align: left;
 }
 .conn-subnav-item:hover { background: var(--panel2); }
 .docs-layout { display: flex; gap: 24px; align-items: flex-start; }
@@ -28,7 +28,7 @@
 /* A heading over each group of guides, in reading order. */
 .docs-group { display: block; }
 .docs-group + .docs-group { margin-top: 10px; }
-.docs-group-title { margin: 0; padding: 4px 9px; font-size: 12px; font-weight: var(--fw-strong); color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.docs-group-title { margin: 0; padding: 4px 9px; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .docs-body { flex: 1; min-width: 0; max-width: 860px; }
 .docs-pick { display: none; }
 @media (max-width: 800px) {
@@ -44,7 +44,7 @@
 
 /* Rendered integration docs */
 .md-doc { font-size: var(--fs-sm); line-height: 1.55; }
-.md-doc h1 { font-size: 18px; } .md-doc h2 { font-size: 15px; margin-top: 18px; }
+.md-doc h1 { font-size: var(--fs-md); } .md-doc h2 { font-size: var(--fs-button); margin-top: 18px; }
 .md-doc table { border-collapse: collapse; margin: 8px 0; }
 .md-doc th, .md-doc td { border: 1px solid var(--border); padding: 4px 10px; font-size: var(--fs-xs); }
 .md-doc code { background: var(--panel2); padding: 1px 4px; border-radius: var(--radius-xs); }
