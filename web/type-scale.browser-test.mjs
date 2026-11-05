@@ -24,11 +24,11 @@ try {
     <div class="console"><div class="chat-input"><textarea aria-label="Composer"></textarea></div></div>
     <div class="md"><h1>Heading</h1><h2>Subheading</h2><h3>Lead</h3></div>
     <aside class="sidebar open"><div class="sidebar-inner">
-      <details open class="account-corner"><summary>Account</summary><div>
+      <div class="popover"><div class="popover-content"><div>
         <div class="account-switches"><div class="theme-switch size-switch" role="group" aria-label="Text size">
           <button>Small</button><button>Medium</button><button>Large</button>
         </div></div>
-      </div></details>
+      </div></div></div>
     </div></aside>`)
   const results = []
   for (const [size, root] of [['small', 14], ['medium', 16], ['large', 18]]) {
@@ -56,7 +56,7 @@ try {
     for (const size of ['small', 'medium', 'large']) {
       await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
       const fits = await page.evaluate(() => {
-        const panel = document.querySelector('.account-corner > div').getBoundingClientRect()
+        const panel = document.querySelector('.popover').getBoundingClientRect()
         const buttons = [...document.querySelectorAll('.size-switch button')]
         const top = buttons[0].getBoundingClientRect().top
         // Inside the panel and on one line: the panel grows to fit the choices.

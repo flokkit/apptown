@@ -6,7 +6,7 @@
 .int-focus .group-label { color: var(--accent); }
 
 /* name | state and when | an action only where it differs from opening */
-.list-row.int-list-row { grid-template-columns: minmax(0, 1fr) 200px 96px; padding: 10px 0; }
+.list-row.int-list-row { grid-template-columns: minmax(0, 1fr) minmax(0, 16ch) auto; padding: 10px 0; }
 .int-row .int-when { color: var(--subtle); font-size: var(--fs-xs); margin-top: 2px; }
 .int-row .int-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .int-row .list-action .btn, .int-row .list-action button { min-height: 32px; }
@@ -24,16 +24,10 @@
 .int-message { margin: 8px 0 0; font-size: var(--fs-base); }
 .int-facts dd .small { margin-top: 0 !important; }
 
-/* On a phone: state on the name line, the row is the tap target, no
-   buttons taking a line of their own. */
-@media (max-width: 800px) {
-  .list-row.int-list-row { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 10px 0; }
-  .int-list-row .list-identity { grid-column: 1; grid-row: 1; }
-  .int-list-row .list-state { grid-column: 2; grid-row: 1; text-align: right; align-self: start; }
-  .int-list-row .list-action { display: none; }
+@container rows (max-width: 48rem) {
+  .list-row.int-list-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .int-list-row > :is(.list-identity, .list-state, .list-action) { grid-column: 1; grid-row: auto; justify-self: start; }
   .int-related-row .int-name { min-width: 0; }
-  /* What each service does stays on one line on a phone; its page has the rest. */
-  .int-list-row .list-identity .muted.small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 .int-kind-group [role="list"] > .int-row:last-child > .list-row, .section-body > [role="list"] > .int-row:last-child > .list-row { border-bottom: 0; }
 @media (max-width: 800px) {

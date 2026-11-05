@@ -89,7 +89,7 @@ export default function WorkflowLibrary() {
             <strong>Custom workflow</strong>
             <span className="muted small">Stock names are read-only.</span>
           </div>
-          <textarea rows={16} value={editor.yaml} onChange={(e) => setEditor({ yaml: e.target.value })}
+          <textarea aria-label="Workflow YAML" rows={16} value={editor.yaml} onChange={(e) => setEditor({ yaml: e.target.value })}
             style={{ width: '100%', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }} />
           {saveErr && <div className="error" style={{ marginTop: 6 }}>{saveErr}</div>}
           <div className="row" style={{ marginTop: 8 }}>
@@ -154,7 +154,7 @@ function WorkflowRow({ l, busy, binding, candidates, onBind, onCopy, onEdit, onD
           {binding && (
             <div className="row small" style={{ margin: '4px 0 8px' }}>
               <span className="muted">{PRODUCT} runs:</span>
-              <select value={binding.custom ? binding.name : ''} disabled={busy} onChange={(e) => onBind(e.target.value)}>
+              <select aria-label={`Workflow for ${binding.stock}`} value={binding.custom ? binding.name : ''} disabled={busy} onChange={(e) => onBind(e.target.value)}>
                 <option value="">{l.name} (stock)</option>
                 {candidates.map((c) => <option key={c} value={c}>{c} (yours)</option>)}
               </select>

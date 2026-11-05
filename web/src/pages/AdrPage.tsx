@@ -126,11 +126,11 @@ export default function AdrPage() {
         <div>
           <div className="form-grid" style={{ marginBottom: 8, maxWidth: 700 }}>
             <label>Title</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} />
+            <input aria-label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
             <label>Tags</label>
-            <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="comma,separated" />
+            <input aria-label="Tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="comma,separated" />
           </div>
-          <textarea rows={18} value={body} onChange={(e) => setBody(e.target.value)} placeholder="# Context&#10;…&#10;# Decision&#10;…&#10;# Consequences&#10;…" />
+          <textarea aria-label="Decision" rows={18} value={body} onChange={(e) => setBody(e.target.value)} placeholder="# Context&#10;…&#10;# Decision&#10;…&#10;# Consequences&#10;…" />
           <div className="row" style={{ marginTop: 8 }}>
             <button className="primary" disabled={busy || moved} onClick={() => void save()}>Save</button>
             <button onClick={() => { setEditing(false); load() }}>Cancel</button>

@@ -1,3 +1,4 @@
+import { Disclosure } from '../Popover'
 import { ListRow } from '../ListRow'
 import { Section } from '../Section'
 import './People.css'
@@ -160,7 +161,7 @@ export function AdminNetworksCard({ canEdit }: { canEdit: boolean }) {
         ))}
         {editable && (
           <>
-            <input placeholder="network, e.g. 192.168.1.0/24" value={draft} onChange={(e) => setDraft(e.target.value)} style={{ width: 220 }} />
+            <input aria-label="Network" placeholder="network, e.g. 192.168.1.0/24" value={draft} onChange={(e) => setDraft(e.target.value)} style={{ width: 220 }} />
             <button disabled={!draft.trim()} onClick={async () => { if (await save([...nets, draft.trim()])) setDraft('') }}>Add</button>
           </>
         )}
@@ -213,17 +214,17 @@ export function TokensCard() {
         </div>
       ))}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <input placeholder="token name (e.g. laptop-cli)" value={name} onChange={e => setName(e.target.value)} />
-        <select value={actsAs} onChange={e => setActsAs(e.target.value)} title="whose name the token's actions are recorded under">
+        <input aria-label="Token name" placeholder="token name (e.g. laptop-cli)" value={name} onChange={e => setName(e.target.value)} />
+        <select aria-label="Record actions as" value={actsAs} onChange={e => setActsAs(e.target.value)} title="whose name the token's actions are recorded under">
           <option value="">acts as you</option>
           {names.map(n => <option key={n} value={n}>acts as {n}</option>)}
         </select>
-        <select value={role} onChange={e => setRole(e.target.value)} title="the most the token may do: a command-line token takes its person's own role unless narrowed; an agent token is a member's">
+        <select aria-label="Maximum role" value={role} onChange={e => setRole(e.target.value)} title="the most the token may do: a command-line token takes its person's own role unless narrowed; an agent token is a member's">
           <option value="">their own role</option>
           <option value="member">member</option>
           <option value="admin">admin</option>
         </select>
-        <select value={purpose} onChange={e => setPurpose(e.target.value)} title="who will hold the token">
+        <select aria-label="Token holder" value={purpose} onChange={e => setPurpose(e.target.value)} title="who will hold the token">
           <option value="">for…</option>
           {Object.entries(tokenPurposes).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
@@ -287,11 +288,11 @@ function RolesCard({ roles, grants, users, groups, act, canEdit }: {
       ))}
       {canEdit && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <select value={subject} onChange={e => setSubject(e.target.value)}>
+          <select aria-label="Subject" value={subject} onChange={e => setSubject(e.target.value)}>
             <option value="">who…</option>
             {grantees.map(g => <option key={g} value={g}>{g.startsWith('group:') ? groupLabel(g.slice(6)) : g}</option>)}
           </select>
-          <select value={role} onChange={e => setRole(e.target.value)}>
+          <select aria-label="Role to grant" value={role} onChange={e => setRole(e.target.value)}>
             <option value="">gets the role…</option>
             {offered.map(r => <option key={r.name} value={r.name} title={r.description}>{r.title}</option>)}
             <option value="release-manager">Release manager</option>
@@ -331,7 +332,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
     {list.map(u => <ListRow key={u.username} listItem
       identity={<><strong>{u.username}</strong>{u.disabled && <span className="badge">Disabled</span>}<span className="people-role">{u.role === 'admin' ? 'Admin' : 'Member'}</span></>}
       state={<span className="muted small">{u.lastSeen ? `seen ${fmtStamp(u.lastSeen)}` : 'never signed in'}</span>}
-      action={canEdit && <details className="account-actions"><summary aria-label={`Actions for ${u.username}`}>Manage</summary>
+      action={canEdit && <Disclosure className="account-actions" closeOnAction={false} trigger={<button className="subtle" aria-label={`Actions for ${u.username}`}>Manage</button>}>
         <div className="account-action-list">
         <label>Role                 {canEdit ? (
                   <select value={u.role}
@@ -372,7 +373,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
                 ))}
 
         </div>
-      </details>} />)}
+      </Disclosure>} />)}
   </div>
   const active = accounts.filter(u => !u.disabled)
   const withPassword = (
@@ -563,7 +564,7 @@ function GroupsCard({ groups, users, act, canEdit }: {
         </div>
       ))}
       {canEdit && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <input placeholder="new group name (e.g. reviewers)" value={name} onChange={e => setName(e.target.value)} />
+        <input aria-label="New group name" placeholder="new group name (e.g. reviewers)" value={name} onChange={e => setName(e.target.value)} />
         <button disabled={!name}
           onClick={() => act(() => post('/groups', { name, members: [] }).then(() => setName('')))}>
           Add group

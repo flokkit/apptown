@@ -23,7 +23,7 @@ export function projectHue(slug: string): number {
   return ((hash ^ (hash >>> 16)) >>> 0) % 360
 }
 
-// Three cells at every width: authored text never changes the action's column.
+// Identity yields space to actions; narrow lists stack the cells in reading order.
 export function ProjectListRow({ project: p, refreshFailed = false, reason, children }: {
   project: ProjectRow; refreshFailed?: boolean; reason?: string; children?: ReactNode
 }) {

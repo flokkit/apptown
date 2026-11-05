@@ -227,7 +227,7 @@ export default function App() {
             <div className="user">
               acting as
               <input
-                value={user}
+                aria-label="Acting as" value={user}
                 onChange={(e) => { setUser(e.target.value); setCurrentUser(e.target.value) }}
               />
             </div>

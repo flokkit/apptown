@@ -237,7 +237,7 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
       <div className="form-grid" style={{ maxWidth: 'none' }}>
         <label>To</label>
         <span className="row">
-          <select value={offer ? group : ''} onChange={(e) => { if (e.target.value === '') setOffer(false); else { setOffer(true); setGroup(e.target.value) } }}>
+          <select aria-label="Offer to" value={offer ? group : ''} onChange={(e) => { if (e.target.value === '') setOffer(false); else { setOffer(true); setGroup(e.target.value) } }}>
             <option value="*">everyone</option>
             {groups.map((g) => <option key={g} value={g}>{g}</option>)}
             <option value="">nobody yet</option>
@@ -245,7 +245,7 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
         </span>
         {offer && <>
           <label title="leave empty for no limit">At most</label>
-          <span className="row"><input value={maxStanding} onChange={(e) => setMaxStanding(e.target.value)} placeholder="no limit" style={{ width: 90 }} inputMode="numeric" /> <span className="muted small">standing deployments per project</span></span>
+          <span className="row"><input aria-label="At most standing deployments per project" value={maxStanding} onChange={(e) => setMaxStanding(e.target.value)} placeholder="no limit" style={{ width: 90 }} inputMode="numeric" /> <span className="muted small">standing deployments per project</span></span>
           <label title="leave all unticked to allow any">Audiences</label>
           <span className="row">{AUDIENCES.map((x) => <label key={x} className="small"><input type="checkbox" checked={audiences.includes(x)} onChange={() => toggle(audiences, setAudiences, x)} /> {x}</label>)}</span>
           <label title="leave all unticked to allow any">Data</label>
@@ -256,14 +256,14 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
       <div className="form-grid" style={{ maxWidth: 'none' }}>
         {!cloud && <>
           <label>Apps domain</label>
-          <span className="row"><input value={draft.domain} onChange={(e) => set('domain', e.target.value)} placeholder="apps.example.com" style={{ width: 220 }} /> <span className="muted small">apps are reached at name.domain; empty means host:port</span></span>
+          <span className="row"><input aria-label="Apps domain" value={draft.domain} onChange={(e) => set('domain', e.target.value)} placeholder="apps.example.com" style={{ width: 220 }} /> <span className="muted small">apps are reached at name.domain; empty means host:port</span></span>
         </>}
         <label>Disks</label>
         <span><label className="small"><input type="checkbox" checked={draft.persistentVolumes} onChange={(e) => set('persistentVolumes', e.target.checked)} /> keeps disks (a dataDir may bind)</label></span>
         <label>Previews</label>
         <span><label className="small"><input type="checkbox" checked={draft.previews} onChange={(e) => set('previews', e.target.checked)} /> previews may bind</label></span>
         <label>Needs</label>
-        <span><select value={draft.needsMode} onChange={(e) => set('needsMode', e.target.value)}>
+        <span><select aria-label="Needs" value={draft.needsMode} onChange={(e) => set('needsMode', e.target.value)}>
           {NEEDS_MODES.map(({ value, title }) => <option key={value} value={value}>{title}</option>)}
         </select></span>
       </div>

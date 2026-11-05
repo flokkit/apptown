@@ -128,7 +128,7 @@ export function EvalStartPage() {
             <h3 style={{ marginTop: 0 }}>2. The work to re-run (up to {max} landed Changes)</h3>
             <ReadStatus q={projectsQ} what="your projects" />
             {projectsQ.data && (
-              <select value={slug} onChange={(e) => { setSlug(e.target.value); setConfirming(false) }}>
+              <select aria-label="Project" value={slug} onChange={(e) => { setSlug(e.target.value); setConfirming(false) }}>
                 <option value="">a project…</option>
                 {projectsQ.data.map((p) => <option key={p.slug} value={p.slug}>{p.name}</option>)}
               </select>

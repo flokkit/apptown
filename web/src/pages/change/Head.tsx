@@ -137,7 +137,7 @@ export function RequestEntry({ view, current = true, reload }: { view: ChangeVie
           <div style={{ padding: '12px 0' }}>
             {!started && <textarea rows={4} style={{ width: '100%' }} value={draft.body} disabled={saving} aria-label="what was asked for" onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))} />}
             <div className="row" style={{ marginTop: 6, flexWrap: 'wrap' }}>
-              <input placeholder="Ticket key or link" value={draft.externalRef} disabled={saving} onChange={(e) => setDraft((d) => ({ ...d, externalRef: e.target.value }))} />
+              <input aria-label="Ticket key or link" placeholder="Ticket key or link" value={draft.externalRef} disabled={saving} onChange={(e) => setDraft((d) => ({ ...d, externalRef: e.target.value }))} />
               <button className="primary" onClick={save} disabled={saving || conflict}>{saving ? 'Saving…' : 'Save'}</button>
               {saveErr && !conflict && <span className="error small">{saveErr}</span>}
             </div>

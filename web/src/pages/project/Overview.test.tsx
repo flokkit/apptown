@@ -93,7 +93,7 @@ it('opens the selected UUID and shows customer labels instead of LAN assumptions
     expect(h.el.textContent).toContain('Customer office')
     expect(h.el.textContent).not.toContain('intranet')
     act(() => { (h.el.querySelector('[aria-label="Open: more options"]') as HTMLButtonElement).click() })
-    expect(h.el.textContent).toContain('Old lab')
+    expect(document.querySelector('.popover')?.textContent).toContain('Old lab')
     await h.refresh()
     h.clickOpen()
     expect(h.opened).toHaveBeenLastCalledWith('https://old.example', '_blank')

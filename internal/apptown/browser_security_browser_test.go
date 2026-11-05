@@ -3768,7 +3768,7 @@ spec:
 		home, _ := os.UserHomeDir()
 		module = filepath.Join(home, ".local/share/forge-nightly/playwright/node_modules/playwright/index.mjs")
 	}
-	testinputs.Files(t, "testdata/web-ui.mjs")
+	testinputs.Files(t, "testdata/web-ui.mjs", "../../web/row-action-lines.mjs")
 	run := (execution.Runner{}).Run(ctx, execution.Local, execution.Request{
 		Argv: []string{"node", "testdata/web-ui.mjs"},
 		Env: []string{"APPTOWN_PLAYWRIGHT_MODULE=" + module, "DESIGN_URL=https://" + a.cfg.publicHost,

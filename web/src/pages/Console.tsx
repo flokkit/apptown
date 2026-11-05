@@ -1,3 +1,4 @@
+import { Disclosure } from '../Popover'
 import { Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { useEffect, useRef, useState } from 'react'
@@ -127,8 +128,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
         {(!narrow || zoom !== 'chat') && <button disabled={!session} className="subtle" onClick={() => setZoomKeep(zoom === 'chat' ? 'terminal' : 'chat')}>
           {zoom === 'chat' ? 'Terminal ▾' : '← back to the chat'}
         </button>}
-        <details className="head-menu" hidden={compactHead && !expanded}>
-          <summary title="session details and resets">⋯</summary>
+        <Disclosure className="head-menu" hidden={compactHead && !expanded} trigger={<button className="subtle" aria-label="Session details and resets">⋯</button>}>
           <div className="head-menu-card">
             <div className="muted small" style={{ padding: '4px 6px' }}>
               {session?.openedBy && <>opened by {session.openedBy}<br /></>}
@@ -143,7 +143,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
               <button className="subtle danger" onClick={() => void end()}>end chat</button>
             </>}
           </div>
-        </details>
+        </Disclosure>
       </div>
       {/* Which chats exist: until it is read, nothing opens; a chat on the
           worker's save line already marks this same read when it is old. */}

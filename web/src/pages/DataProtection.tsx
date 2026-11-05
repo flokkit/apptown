@@ -364,7 +364,7 @@ export function StoreSection({ canAttach }: { canAttach: boolean }) {
   const field = (k: keyof typeof form, label: string, hint: string) => (
     <>
       <label>{label}</label>
-      <input value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value.trim() })} placeholder={hint} style={{ width: 320, maxWidth: '100%' }} />
+      <input aria-label={label} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value.trim() })} placeholder={hint} style={{ width: 320, maxWidth: '100%' }} />
     </>
   )
   const action = canAttach && !open ? <button onClick={() => setOpen(true)}>{st ? 'Attach another' : 'Attach backup store'}</button> : undefined

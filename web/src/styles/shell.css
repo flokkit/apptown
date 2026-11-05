@@ -133,4 +133,7 @@
 @media (max-width: 800px) {
   .topbar > .account-menu:last-child { min-width: 44px; max-width: 76px; flex-shrink: 1; }
 }
+@media (prefers-reduced-motion: reduce) {
+  .sidebar, .sidebar.open { transition: none; }
+}
 }

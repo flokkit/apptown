@@ -42,12 +42,12 @@ export function NewChangeButton({ slug, external, request }: { slug: string; req
           <div style={{ fontSize: 'var(--fs-base)', fontWeight: 'normal' }}>
             <div className="form-grid">
               <label>Title</label>
-              <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} />
+              <input aria-label="Title" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} />
               <label>For</label>
-              <textarea className="prose" rows={4} value={body} onChange={(e) => setBody(e.target.value)}
+              <textarea aria-label="For" className="prose" rows={4} value={body} onChange={(e) => setBody(e.target.value)}
                 placeholder={START_OPTIONS.find((l) => l.wf === wf)?.bodyHint ?? 'Why this change exists · agents work from this text.'} />
               <label>Reference</label>
-              <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Jira key / ticket URL (optional)" />
+              <input aria-label="Reference" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Jira key / ticket URL (optional)" />
             </div>
             <div style={{ marginTop: 10 }}>
               <div className="muted small" style={{ marginBottom: 6 }}>Workflow</div>

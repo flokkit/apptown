@@ -178,12 +178,12 @@ function BindModal({ slug, env, name, stores, onClose, onDone }: {
       </div>
       {store === 'internal' ? (
         <>
-          <textarea rows={3} value={value} onChange={(e) => setValue(e.target.value)} placeholder="the value · pasted once, never shown again" autoFocus style={{ width: '100%' }} />
+          <textarea aria-label="Secret value" rows={3} value={value} onChange={(e) => setValue(e.target.value)} placeholder="the value · pasted once, never shown again" autoFocus style={{ width: '100%' }} />
           <p className="muted small">Database backups include the encryption key and can reveal all secret values. Use Infisical for team secrets.</p>
         </>
       ) : (
         <>
-          <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="KEY_NAME in Infisical" autoFocus style={{ width: '100%' }} />
+          <input aria-label="Infisical key name" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="KEY_NAME in Infisical" autoFocus style={{ width: '100%' }} />
           <p className="muted small">The key must exist in the configured Infisical project and environment.</p>
         </>
       )}

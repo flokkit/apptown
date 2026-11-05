@@ -46,13 +46,13 @@ it('starts an ordinary chat change and navigates straight to its conversation', 
 it('offers catalog and detailed paths, and opens the detailed form without creating a change', async () => {
   const h = await row()
   await h.click('[aria-label="Change: more options"]')
-  const items = [...h.el.querySelectorAll('[role=menuitem]')]
+  const items = [...document.querySelectorAll('.popover .split-menu > button')]
   expect(items.map(b => b.firstChild?.textContent)).toEqual(['Catalog change', 'New change, detailed'])
   await act(async () => (items[1] as HTMLButtonElement).click())
   expect(h.el.querySelector('[role=dialog] textarea')).not.toBeNull()
   await h.click('[role=dialog] button[aria-label="close"]')
   await h.click('[aria-label="Change: more options"]')
-  await h.click('[role=menuitem]')
+  await act(async () => (document.querySelector('.popover .split-menu > button') as HTMLButtonElement).click())
   expect(h.el.querySelector('[role=dialog]')?.textContent).toContain('Catalog change')
   expect(h.fetch.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
 })
@@ -60,7 +60,7 @@ it('offers catalog and detailed paths, and opens the detailed form without creat
 it('opens the detailed form directly when chat is unavailable and keeps Catalog change in the menu', async () => {
   const h = await row(false)
   await h.click('[aria-label="Change: more options"]')
-  expect([...h.el.querySelectorAll('[role=menuitem]')].map(b => b.firstChild?.textContent)).toEqual(['Catalog change'])
+  expect([...document.querySelectorAll('.popover .split-menu > button')].map(b => b.firstChild?.textContent)).toEqual(['Catalog change'])
   await h.click('.project-action button')
   expect(h.el.querySelector('[role=dialog]')?.textContent).toContain('New change')
   expect(h.el.querySelector('[role=dialog] textarea')).not.toBeNull()

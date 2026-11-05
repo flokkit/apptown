@@ -54,7 +54,9 @@ React font sizes, and type or space tokens outside rem. `--fs-field` is the
 named exception: `max(1rem, 16px)` keeps phone fields from zooming on focus.
 The browser fixture `web/type-scale.browser-test.mjs` checks computed phone
 field sizes at all three settings using the installed Playwright module
-(`APPTOWN_PLAYWRIGHT_MODULE`).
+(`APPTOWN_PLAYWRIGHT_MODULE`). `make check-web-layout`, included in
+`make precheck`, runs it alongside the row and disclosure browser checks.
+The pixel grid-track count may only decrease from `scripts/web-grid-baseline.json`.
 
 ## Phones and touch
 
@@ -73,11 +75,21 @@ truncates long names; its menu shows the full identity.
 
 Home, Projects, Deployments, Infrastructure inventories, Integrations, People
 accounts and Conformance projects share `ListRow`: identity and purpose, state
-and freshness, then the next action. These cells align on desktop and stack in
-the same order on phones. Technical evidence and maintenance open beneath a row
+and freshness, then the next action. Actions size to their contents; identity
+text wraps in the remaining space. Lists supply a container query so cells
+stack in the same reading order when their available width is narrow. Technical evidence and maintenance open beneath a row
 or on its linked page. Packs and workflows lead with their authored purpose;
 versions and maintenance remain secondary. Usage labels its chart in tokens and
 its money total as recorded cost, with incomplete pricing stated explicitly.
+
+Shared disclosures use `web/src/Popover.tsx`: an opaque, scrolling panel capped
+by the visual viewport. Opening focuses the first control; Escape and outside
+click close it and return focus to the trigger. Controls keep ordinary Tab
+navigation. Account navigation remains links. Find focuses its input, keeps
+focus there while typing, and follows the first result on Enter. Status help
+keeps its separate placement code. Phone chat controls wrap with 44px targets.
+Dialogs derive their accessible name from the visible title, and `FieldRow`
+connects a label to its control by id.
 
 Home and Projects offer Change only where current authority permits
 creation. It opens the ordinary change form. Project navigation offers Chat

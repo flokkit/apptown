@@ -51,5 +51,6 @@ it('R2: retains global finding on the narrow projects page', async () => {
   const el = await render(<App />)
   const menu = el.querySelector<HTMLButtonElement>('[aria-label="open the menu"]')!
   await act(async () => menu.click())
-  expect(el.querySelector('#find-projects')).not.toBeNull()
+  await act(async () => (el.querySelector('[aria-label="Search"]') as HTMLButtonElement).click())
+  expect(document.querySelector('#find-projects')).not.toBeNull()
 })

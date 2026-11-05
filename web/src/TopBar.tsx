@@ -1,3 +1,4 @@
+import { Disclosure } from './Popover'
 import { useEffect, useRef, useState } from 'react'
 import { TechnicalDetailMark, TechnicalDetailSwitch } from './pages/change/TechnicalDetail'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -77,9 +78,8 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu }:
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         const input = document.getElementById(FIND_BOX_ID) as HTMLInputElement | null
-        const account = input?.closest('details')
-        if (account) account.open = true
-        input?.focus()
+        if (input) input.focus()
+        else document.getElementById('open-find')?.click()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -101,10 +101,9 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu }:
       ))}
       <span style={{ flex: 1 }} />
       {me && <AttentionLights />}
-      <details className="account-menu topbar-search">
-        <summary aria-label="Search">Find</summary>
-        <div><Find /></div>
-      </details>
+      <Disclosure className="account-menu topbar-search" closeOnAction={false} trigger={<button id="open-find" className="subtle" aria-label="Search">Find</button>}>
+        {close => <Find onNavigate={close} />}
+      </Disclosure>
       <Link to="/projects">Projects</Link>
     </header>
   )
@@ -115,14 +114,13 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu }:
 export function AccountCorner({ me }: { me: Me | null }) {
   const name = me?.user || 'Account'
   return (
-    <details className="account-corner">
-      <summary aria-label="Account menu"><span className="account-avatar" aria-hidden>{name.slice(0, 1).toUpperCase()}</span><span className="account-name" title={name}>{name}</span><TechnicalDetailMark /></summary>
+    <Disclosure className="account-corner" placement="above" closeOnAction={false} trigger={<button className="subtle" aria-label="Account menu"><span className="account-avatar" aria-hidden>{name.slice(0, 1).toUpperCase()}</span><span className="account-name" title={name}>{name}</span><TechnicalDetailMark /></button>}>
       <div>
         <Link to="/account">Your account</Link>
         <div className="account-switches"><ThemeSwitch /><SizeSwitch /><TechnicalDetailSwitch /></div>
         {me?.mode === 'internal' && <button className="subtle" onClick={() => post('/auth/logout').then(() => location.reload())}>Sign out</button>}
       </div>
-    </details>
+    </Disclosure>
   )
 }
 
@@ -140,7 +138,7 @@ function usePageProject(): string | null {
 }
 
 export const FIND_BOX_ID = 'find-projects'
-export function Find() {
+export function Find({ onNavigate }: { onNavigate?: () => void }) {
   const nav = useNavigate()
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
@@ -161,17 +159,15 @@ export function Find() {
     ...hits.map((p) => ({ label: `${p.icon ? p.icon + ' ' : ''}${p.name}`, hint: p.blurb, to: `/projects/${p.slug}` })),
     ...(t && !changeRef && !bare ? [{ label: `All projects matching “${q.trim()}” →`, to: `/projects?q=${encodeURIComponent(q.trim())}` }] : []),
   ]
-  const go = (to: string) => { setQ(''); setOpen(false); ref.current?.blur(); nav(to) }
+  const go = (to: string) => { setQ(''); setOpen(false); onNavigate?.(); nav(to) }
 
   return (
     <div className="topbar-find">
       <input ref={ref} id={FIND_BOX_ID} value={q} placeholder="Find a project or #change" aria-label="find"
         onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 120)}
         onChange={(e) => { setQ(e.target.value); setOpen(true) }}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && rows[0]) go(rows[0].to)
-          if (e.key === 'Escape') { setQ(''); setOpen(false); ref.current?.blur() }
+          if (e.key === 'Enter' && rows[0]) { e.preventDefault(); go(rows[0].to) }
         }} />
       {open && t && (
         <div className="topbar-find-menu">

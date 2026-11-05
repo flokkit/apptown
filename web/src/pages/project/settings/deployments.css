@@ -18,14 +18,14 @@
 .deploy-head { margin-bottom: 20px; }
 .deploy-head h1 { margin: 0; }
 .deployment-address { margin-top: 6px; overflow-wrap: anywhere; }
-.deployment-row.list-row { grid-template-columns: 110px minmax(180px, 1fr) minmax(180px, 1fr) auto; }
+.deployment-row.list-row { grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto; }
 .deployment-row > .list-state { grid-column: 1; grid-row: 1; }
 .deployment-row > .list-identity { grid-column: 2; grid-row: 1; }
-.deployment-row > .list-detail { grid-column: 3; grid-row: 1; }
+.deployment-row > .list-detail { grid-column: 3; grid-row: 1; min-width: 0; overflow-wrap: anywhere; }
 .deployment-row > .list-action { grid-column: 4; grid-row: 1; }
-@media (max-width: 640px) {
-  .deployment-row.list-row { grid-template-columns: auto minmax(0, 1fr) auto; }
-  .deployment-row > .list-detail { grid-column: 2; grid-row: 2; }
-  .deployment-row > .list-action { grid-column: 3; }
+@container rows (max-width: 48rem) {
+  .deployment-row.list-row { grid-template-columns: minmax(0, 1fr); }
+  .deployment-row > :is(.list-state, .list-identity, .list-detail, .list-action) { grid-column: 1; grid-row: auto; justify-self: start; }
+  .deployment-row > .list-identity { grid-row: 1; }
 }
 }

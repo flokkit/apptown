@@ -43,7 +43,7 @@ input, textarea, select {
   background: var(--panel); color: var(--text); border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm); padding: 7px 10px; font-family: inherit; font-size: var(--fs-base);
 }
-input::placeholder, textarea::placeholder { color: var(--faint); }
+input::placeholder, textarea::placeholder { color: var(--subtle); }
 input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 textarea { width: 100%; font-family: var(--font-mono); font-size: var(--fs-xs); }
 /* A textarea for sentences, not code. */

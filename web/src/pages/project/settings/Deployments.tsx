@@ -299,10 +299,10 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
       <strong>New deployment</strong>
       <div className="form-grid">
         <label>Name</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="staging, cloud, demo…" style={{ width: 240 }} />
+        <input aria-label="Deployment name" value={name} onChange={(e) => setName(e.target.value)} placeholder="staging, cloud, demo…" style={{ width: 240 }} />
         <label>Deployment target</label>
         <div>
-          <select value={picked?.name ?? ''} onChange={(e) => setTarget(e.target.value)} disabled={choices.length === 0}>
+          <select aria-label="Target" value={picked?.name ?? ''} onChange={(e) => setTarget(e.target.value)} disabled={choices.length === 0}>
             {choices.map((t) => <option key={t.name} value={t.name}>{t.name} — {placeOf(t.kindInfo, t.address)}</option>)}
           </select>
           {picked?.offer && (
@@ -315,17 +315,17 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
           )}
         </div>
         <label title="who can reach it">Audience</label>
-        <select value={audience} onChange={(e) => setAudience(e.target.value)}>
+        <select aria-label="Audience" value={audience} onChange={(e) => setAudience(e.target.value)}>
           {AUDIENCES.map((x) => <option key={x} value={x}>{x}</option>)}
         </select>
         <label title="what kind of data it holds">Data</label>
-        <select value={data} onChange={(e) => setData(e.target.value)}>
+        <select aria-label="Data" value={data} onChange={(e) => setData(e.target.value)}>
           {DATA_CLASSES.map((x) => <option key={x} value={x}>{x}</option>)}
         </select>
         {picked?.kind === 'do-app' && (finalsQ.data?.copies.length ?? 0) > 0 && <>
           <label title="its first release fills its database from this copy, and checks it, before the app starts">Start from</label>
           <div>
-            <select value={startFrom} onChange={(e) => setStartFrom(e.target.value)}>
+            <select aria-label="Start from" value={startFrom} onChange={(e) => setStartFrom(e.target.value)}>
               <option value="">empty</option>
               {finalsQ.data!.copies.map((c) => (
                 <option key={c.backup} value={c.backup ?? ''}>
@@ -381,7 +381,7 @@ export function RetainedRow({ slug, r, onChanged }: { slug: string; r: Retained;
       <td>
         {r.disposition === 'retained' && (
           <span className="row" style={{ gap: 6 }}>
-            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="note (optional)" style={{ width: 160 }} />
+            <input aria-label="Deployment note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="note (optional)" style={{ width: 160 }} />
             <button className="subtle" disabled={busy} onClick={settle} title="you deleted it at the provider">I deleted it</button>
             {err && <span className="error small">{err}</span>}
           </span>
@@ -490,7 +490,7 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
         <span className="muted">profile</span>{' '}
         {r.recorded ? <><b>{r.profile}</b> <span className="muted">({howWords[r.how || ''] || r.how})</span></> : <span className="muted">not recorded</span>}
         {mine && choice.data && choice.data.choosable.length > 1 && (
-          <select style={{ marginLeft: 8 }} value={mine.chosen} disabled={busy || r.reading?.unknown} onChange={(ev) => choose(ev.target.value)}
+          <select aria-label="Profile" style={{ marginLeft: 8 }} value={mine.chosen} disabled={busy || r.reading?.unknown} onChange={(ev) => choose(ev.target.value)}
             title="the profile this deployment uses from its next deploy, for app.yaml and secretspec.toml alike">
             {choice.data.choosable.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
@@ -513,12 +513,12 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
       {open && picked && (
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
           {parts.length > 1 && (
-            <select value={picked} onChange={(ev) => setPart(ev.target.value)}>
+            <select aria-label="App part" value={picked} onChange={(ev) => setPart(ev.target.value)}>
               {parts.map((p) => <option key={p.part} value={p.part}>{p.part}</option>)}
             </select>
           )}
-          <input placeholder="memory, e.g. 2Gi or none" value={memory} onChange={(ev) => setMemory(ev.target.value)} style={{ width: 120 }} />
-          <input placeholder="why" value={reason} onChange={(ev) => setReason(ev.target.value)} style={{ minWidth: 220 }} />
+          <input aria-label="Memory limit" placeholder="memory, e.g. 2Gi or none" value={memory} onChange={(ev) => setMemory(ev.target.value)} style={{ width: 120 }} />
+          <input aria-label="Reason for override" placeholder="why" value={reason} onChange={(ev) => setReason(ev.target.value)} style={{ minWidth: 220 }} />
           <button className="primary" disabled={busy || r.reading?.unknown || !memory || !reason.trim()} onClick={set} title="records who and why, then redeploys what runs so it applies now">Override and redeploy</button>
           <button className="link small" onClick={() => setOpen(false)}>cancel</button>
         </div>

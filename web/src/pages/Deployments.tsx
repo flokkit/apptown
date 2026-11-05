@@ -150,7 +150,7 @@ function FleetTable() {
     <div>
       <StaleNote q={[tiersQ, projectsQ]} />
       <div className="row" style={{ margin: '0 0 10px', gap: 8, flexWrap: 'wrap' }}>
-        <input value={filter} onChange={(e) => setFilter(e.target.value)}
+        <input aria-label="Find an app" value={filter} onChange={(e) => setFilter(e.target.value)}
           placeholder="Find an app" style={{ width: 280, maxWidth: '100%' }} />
         {(['all', 'running', 'stopped', 'nowhere'] as Show[]).map((k) => (
           <button key={k} className={'subtle' + (show === k ? ' active' : '')} aria-pressed={show === k}

@@ -158,17 +158,17 @@ function PolicyEditor({ policy, onDone }: { policy: PolicyLibraryEntry; onDone: 
       <h2>{policy.name && policy.origin === '' && policy.name === p.name ? `Edit: ${policy.name}` : 'New policy'}</h2>
       <div className="form-grid" style={{ marginBottom: 12 }}>
         <label>Name</label>
-        <input value={p.name} onChange={(e) => setP({ ...p, name: e.target.value })} placeholder="my-rule" autoFocus />
+        <input aria-label="Name" value={p.name} onChange={(e) => setP({ ...p, name: e.target.value })} placeholder="my-rule" autoFocus />
         <label>Description</label>
-        <input value={p.description} onChange={(e) => setP({ ...p, description: e.target.value })} />
+        <input aria-label="Description" value={p.description} onChange={(e) => setP({ ...p, description: e.target.value })} />
         <label>Rule</label>
-        <select value={p.rule} onChange={(e) => setP({ ...p, rule: e.target.value, with: {} })}>
+        <select aria-label="Rule" value={p.rule} onChange={(e) => setP({ ...p, rule: e.target.value, with: {} })}>
           {RULES.map((r) => <option key={r.rule} value={r.rule}>{r.label}</option>)}
         </select>
         {form.params.map((param) => (
           <span key={param} style={{ display: 'contents' }}>
             <label>{param}</label>
-            <input value={String(p.with?.[param] ?? '')}
+            <input aria-label={param} value={String(p.with?.[param] ?? '')}
               onChange={(e) => setP({ ...p, with: { ...p.with, [param]: e.target.value } })} />
           </span>
         ))}

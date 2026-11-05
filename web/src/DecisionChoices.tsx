@@ -1,24 +1,10 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useState, type ReactNode } from 'react'
 
 export const DecisionContextOnly = createContext(false)
 
 // Keep the offered choices equal in size, with full rows at each width.
 export function DecisionGrid({ children }: { children: ReactNode }) {
-  const grid = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const el = grid.current!
-    const measure = () => {
-      const count = el.childElementCount
-      let columns = Math.min(count, Math.max(1, Math.floor(el.getBoundingClientRect().width / 150)))
-      while (columns > 1 && count % columns !== 0) columns--
-      el.style.gridTemplateColumns = `repeat(${columns || 1}, minmax(0, 1fr))`
-    }
-    measure()
-    const resize = new ResizeObserver(measure), mutation = new MutationObserver(measure)
-    resize.observe(el); mutation.observe(el, { childList: true })
-    return () => { resize.disconnect(); mutation.disconnect() }
-  }, [])
-  return <div ref={grid} className="ch-decision-choices">{children}</div>
+  return <div className="ch-decision-choices">{children}</div>
 }
 
 export type DecisionChoice = { label: string; run: () => unknown; disabled?: boolean; prompt?: { ask: string; run: (reason: string) => unknown } }

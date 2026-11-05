@@ -10,6 +10,13 @@ import type { Account } from '../wire.gen'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
+const panels = (el: HTMLElement) => [...el.querySelectorAll('[aria-expanded="true"][aria-controls]')].map(trigger => document.getElementById(trigger.getAttribute('aria-controls')!)).filter((panel): panel is HTMLElement => !!panel)
+const panelText = (el: HTMLElement) => panels(el).map(panel => panel.textContent).join('')
+async function manage(el: HTMLElement, name: string) {
+  for (const button of el.querySelectorAll<HTMLButtonElement>('.account-actions > [aria-expanded="true"]')) await act(async () => button.click())
+  await act(async () => (el.querySelector(`[aria-label="Actions for ${name}"]`) as HTMLButtonElement).click())
+}
+
 describe('administrator networks', () => {
   afterEach(() => { vi.unstubAllGlobals() })
 
@@ -97,7 +104,7 @@ describe('disabling an account', () => {
 
   const account = (username: string, disabled: boolean, role = 'member'): Account =>
     ({ principalId: '00000000-0001-7000-8000-000000000000', username, role, hasPassword: true, acted: true, lastSeen: '2026-10-02T00:00:00Z', disabled, groups: [] })
-  const buttons = (el: HTMLElement) => [...el.querySelectorAll('button')]
+  const buttons = (el: HTMLElement) => [...el.querySelectorAll('button'), ...panels(el).flatMap(panel => [...panel.querySelectorAll<HTMLButtonElement>('button')])]
   const press = async (el: HTMLElement, text: string) => act(async () => { buttons(el).find((b) => b.textContent === text)!.click() })
 
   // An administrator disables an account after confirming, sending no role so
@@ -117,15 +124,17 @@ describe('disabling an account', () => {
         <UsersCard users={[account('bls', false, 'admin'), account('kim', false, 'admin'), account('probe', true)]} act={act$} canEdit invites={false} me="bls" />
       </QueryClientProvider>)
     })
+    await manage(el, 'kim')
     expect(buttons(el).filter((b) => b.textContent === 'disable')).toHaveLength(1)
     expect(el.textContent).toContain('Disabled')
     await press(el, 'disable')
     expect(sent).toHaveLength(0)
-    expect(el.textContent).toContain('Disable kim? They are signed out at once')
+    expect(panelText(el)).toContain('Disable kim? They are signed out at once')
     await press(el, 'Yes')
     await vi.waitFor(() => expect(sent).toEqual([{ username: 'kim', disabled: true }]))
+    await manage(el, 'probe')
     await press(el, 'enable')
-    expect(el.textContent).toContain('Enable probe?')
+    expect(panelText(el)).toContain('Enable probe?')
     await press(el, 'Yes')
     await vi.waitFor(() => expect(sent[1]).toEqual({ username: 'probe', disabled: false }))
     act(() => root.unmount())
@@ -145,7 +154,8 @@ describe('disabling an account', () => {
       </QueryClientProvider>)
     })
     const ssoRow = [...el.querySelectorAll('.list-row')].find((r) => r.textContent?.includes('sso'))
-    expect([...(ssoRow?.querySelectorAll('button') ?? [])].map((b) => b.textContent)).toContain('disable')
+    await act(async () => (ssoRow?.querySelector('button') as HTMLButtonElement).click())
+    expect(buttons(el).map(b => b.textContent)).toContain('disable')
     expect(el.textContent).toContain('Names without an account (1)')
     expect(buttons(el).filter((b) => b.textContent === 'remove')).toHaveLength(1)
     act(() => root.unmount())
@@ -182,9 +192,10 @@ describe('disabling an account', () => {
         <UsersCard users={[account('kim', false, 'admin'), seen]} act={(fn) => { void fn() }} canEdit invites={invites} me="bls" />
       </QueryClientProvider>)
     })
-    expect(el.querySelector('summary[aria-label="Actions for kim"]')?.parentElement?.textContent).toContain('set password')
+    await manage(el, 'kim')
+    expect(panelText(el)).toContain('set password')
     const typePassword = async () => act(async () => {
-      const input = el.querySelector('input[type=password][placeholder="min 8 characters"]') as HTMLInputElement
+      const input = el.querySelector('input[type=password][placeholder="min 8 characters"]') ?? panels(el).flatMap(panel => [...panel.querySelectorAll('input[type=password]')])[0] as HTMLInputElement
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'new-password-1')
       input.dispatchEvent(new Event('input', { bubbles: true }))
     })
@@ -205,7 +216,7 @@ describe('a password reset link', () => {
 
   const account = (username: string, disabled: boolean): Account =>
     ({ principalId: '00000000-0001-7000-8000-000000000000', username, role: 'member', hasPassword: true, acted: true, lastSeen: '2026-10-02T00:00:00Z', disabled, groups: [] })
-  const buttons = (el: HTMLElement) => [...el.querySelectorAll('button')]
+  const buttons = (el: HTMLElement) => [...el.querySelectorAll('button'), ...panels(el).flatMap(panel => [...panel.querySelectorAll<HTMLButtonElement>('button')])]
   const press = async (el: HTMLElement, text: string) => act(async () => { buttons(el).find((b) => b.textContent === text)!.click() })
 
   // An administrator asks for a reset link for an enabled account and sees
@@ -228,10 +239,11 @@ describe('a password reset link', () => {
         <UsersCard users={[account('kim', false), account('probe', true)]} act={() => {}} canEdit invites me="bls" />
       </QueryClientProvider>)
     })
+    await manage(el, 'kim')
     expect(buttons(el).filter((b) => b.textContent === 'reset password')).toHaveLength(1)
     await press(el, 'reset password')
     expect(posted).toHaveLength(0)
-    expect(el.textContent).toContain('Make a password reset link for kim?')
+    expect(panelText(el)).toContain('Make a password reset link for kim?')
     await press(el, 'Make link')
     await vi.waitFor(() => expect(el.textContent).toContain('https://forge.test/invite/apptown_invite_reset'))
     expect(posted).toEqual([{ url: '/api/v1/password-links', body: { username: 'kim' } }])
@@ -263,8 +275,8 @@ describe('a password reset link', () => {
       </QueryClientProvider>)
     })
     const resetFor = async (name: string) => {
-      const row = [...el.querySelectorAll('.list-row')].find((r) => r.textContent?.includes(name))!
-      await act(async () => { [...row.querySelectorAll('button')].find((b) => b.textContent === 'reset password')!.click() })
+      await manage(el, name)
+      await press(el, 'reset password')
       await press(el, 'Make link')
       await vi.waitFor(() => expect(el.textContent).toContain(`apptown_invite_${name}`))
     }
@@ -291,7 +303,8 @@ describe('a password reset link', () => {
     })
     expect(buttons(el).map((b) => b.textContent)).not.toContain('reset password')
     expect(buttons(el).map((b) => b.textContent)).not.toContain('set password')
-    expect(el.querySelector('summary[aria-label="Actions for kim"]')).toBeTruthy()
+    await manage(el, 'kim')
+    expect(document.querySelector('.popover')).toBeTruthy()
     expect(el.textContent).toContain("Reset passwords through your sign-in provider.")
     act(() => root.unmount())
   })
@@ -347,7 +360,8 @@ it('splits People into tabs and keeps account actions and inactive names folded'
  expect(el.textContent).not.toContain('Where administrators may sign in')
  expect(el.querySelector('.people-accounts')?.textContent).not.toContain('old')
  expect(el.querySelector('.account-actions')?.hasAttribute('open')).toBe(false)
- expect(el.querySelector('.account-actions')?.textContent).toContain('set password')
+ await act(async () => (el.querySelector('.account-actions > button') as HTMLButtonElement).click())
+ expect(panelText(el)).toContain('set password')
  const groups = el.querySelector('a[href="/people?tab=groups"]') as HTMLAnchorElement
  await act(async () => groups.click())
  await vi.waitFor(() => expect(el.textContent).toContain('Roles in'))

@@ -92,8 +92,8 @@ details.console-about { margin: 0; }
   .main:has(.console) { display: flex; flex-direction: column; min-height: 0; padding-bottom: 0; overflow: clip; }
   .console > :not(.chat-pane):not(.console-term) { flex-shrink: 0; }
   /* The head is one line: the chip gives way first. */
-  .console-head h1 { font-size: var(--fs-symbol); white-space: nowrap; }
-  .console-head { gap: 6px; flex-wrap: nowrap; }
+  .console-head h1 { font-size: var(--fs-symbol); overflow-wrap: anywhere; }
+  .console-head { gap: 6px; flex-wrap: wrap; }
   .console-head .chip { min-width: 0; white-space: nowrap; }
   .console-head button { white-space: nowrap; padding-left: 8px; padding-right: 8px; }
   .console-about .card.row { flex-direction: column; align-items: stretch; }
@@ -145,18 +145,18 @@ details.console-about { margin: 0; }
   .console { padding-top: 6px; }
   .console .console-head { margin-bottom: 4px !important; }
   .console-head .head-menu { margin-top: 0; flex: none; }
-  .console-head .head-menu > summary {
-    min-height: 0; min-width: 0; height: 24px; padding: 0 6px;
+  .console-head .head-menu > button {
+    min-height: 44px; min-width: 44px; padding: 0 6px;
     border: 0; line-height: 1.7142857143; margin-bottom: 0;
   }
   .console .workshop-actions { margin-bottom: 4px; gap: 6px; }
-  .console .workshop-actions button { min-height: 32px; padding: 4px 10px; white-space: nowrap; }
-  .console-about-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; column-gap: 6px; }
-  .console-about-line > details { grid-column: 1 / -1; grid-row: 1; }
-  .console-about-line > details.console-about > summary { width: calc(100% - 152px); min-height: 28px; padding: 0; margin: 0; font-size: var(--fs-xs); }
-  .console-about > summary { min-height: 28px; padding: 2px 0; gap: 4px; font-size: var(--fs-xs); flex-wrap: wrap; }
+  .console .workshop-actions button { min-height: 44px; padding: 4px 10px; white-space: nowrap; }
+  .console-about-line { display: flex; flex-wrap: wrap; align-items: start; column-gap: 6px; }
+  .console-about-line > details { flex: 1 1 12rem; }
+  .console-about-line > details.console-about > summary { width: auto; min-height: 44px; padding: 0; margin: 0; font-size: var(--fs-xs); }
+  .console-about > summary { min-height: 44px; padding: 2px 0; gap: 4px; font-size: var(--fs-xs); flex-wrap: wrap; }
   .console-about-line > .agent-actions-switch {
-    grid-column: 2; grid-row: 1; z-index: 1; min-height: 28px;
+    flex: 0 0 auto; z-index: 1; min-height: 44px;
     margin: 0; gap: 4px; font-size: var(--fs-xs); white-space: nowrap;
   }
   .console .agent-actions-switch input { width: 14px; height: 14px; padding: 0; }
@@ -165,49 +165,38 @@ details.console-about { margin: 0; }
   .console .bubble > :first-child, .console .bubble .md > :first-child { margin-top: 0; }
   .console .bubble > :last-child, .console .bubble .md > :last-child { margin-bottom: 0; }
   .console .chat-working { margin: 0 !important; gap: 6px !important; }
-  .console .chat-working button { min-height: 32px; padding: 0 8px; font-size: var(--fs-xs); }
+  .console .chat-working button { min-height: 44px; padding: 0 8px; font-size: var(--fs-xs); }
   .console .chat-input textarea {
     min-width: 0; min-height: calc(2lh + 12px); max-height: min(160px, calc(var(--viewport-h, 100dvh) / 3));
     padding: 5px 8px; font-size: var(--fs-field); line-height: 1.4; field-sizing: fixed; overflow-y: auto;
   }
-  .console .chat-input button { min-height: 32px; padding: 4px 10px; font-size: var(--fs-sm); }
+  .console .chat-input button { min-height: 44px; padding: 4px 10px; font-size: var(--fs-sm); }
   .console-controls { display: block; min-height: 0; max-height: 45%; overflow-y: auto; }
-  .console-controls:is(.controls-open, .controls-folded) { display: grid; grid-template-columns: auto auto minmax(max-content, 1fr) auto auto; gap: 4px; align-items: center; }
+  .console-controls:is(.controls-open, .controls-folded) { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
   .console-controls:is(.controls-open, .controls-folded) .console-head,
   .console-controls:is(.controls-open, .controls-folded) .console-primary-actions,
   .console-controls:is(.controls-open, .controls-folded) .console-actions,
   .console-controls:is(.controls-open, .controls-folded) .workshop-actions,
   .console-controls:is(.controls-open, .controls-folded) .tryit { display: contents; }
-  .console-controls:is(.controls-open, .controls-folded) .console-head h1 { grid-column: 1; grid-row: 1; overflow: visible; font-size: var(--fs-xs); }
-  .console-controls:is(.controls-open, .controls-folded) .console-state { grid-column: 2; grid-row: 1; }
+  .console-controls:is(.controls-open, .controls-folded) .console-head h1 { flex: 1 1 8rem; min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-xs); }
   .console-controls:is(.controls-open, .controls-folded) .console-state .chip { padding: 0; border: 0; font-size: var(--fs-xs); white-space: nowrap; }
-  .console-controls:is(.controls-open, .controls-folded) .tryit > button:not(.tryit-restart),
-  .console-controls:is(.controls-open, .controls-folded) .workshop-actions > button.primary { grid-column: 3; grid-row: 1; justify-self: end; }
-  .console-controls:is(.controls-open, .controls-folded) .workshop-actions .finish { grid-column: 4; grid-row: 1; margin: 0; }
-  .console-controls:is(.controls-open, .controls-folded) .change-controls-toggle { grid-column: 5; grid-row: 1; padding: 3px; }
-  .console-controls:is(.controls-open, .controls-folded) button { min-height: 28px; padding: 3px 5px; white-space: nowrap; font-size: var(--fs-xs); }
+  .console-controls:is(.controls-open, .controls-folded) button { min-height: 44px; min-width: 44px; padding: 3px 5px; white-space: nowrap; font-size: var(--fs-xs); }
   .console-controls:is(.controls-open, .controls-folded) .change-controls-title { padding: 3px 0; background: none; border: 0; font: inherit; color: inherit; }
-  .console-controls:is(.controls-open, .controls-folded) .head-menu { grid-column: 2; grid-row: 2; }
-  .console-controls:is(.controls-open, .controls-folded) .tryit-restart { grid-column: 1; grid-row: 2; }
   .console-controls:is(.controls-open, .controls-folded) > :not(.console-head):not(.console-primary-actions),
   .console-controls:is(.controls-open, .controls-folded) .console-actions > *,
   .console-controls:is(.controls-open, .controls-folded) .console-head > .status-help,
   .console-controls:is(.controls-open, .controls-folded) .workshop-actions > .small,
   .console-controls:is(.controls-open, .controls-folded) .workshop-actions > .error,
   .console-controls:is(.controls-open, .controls-folded) .tryit > .status-help,
-  .console-controls:is(.controls-open, .controls-folded) .tryit > span { grid-column: 1 / -1; }
+  .console-controls:is(.controls-open, .controls-folded) .tryit > span { flex-basis: 100%; }
   .console-controls:is(.controls-open, .controls-folded) .console-secondary { max-height: none; overflow: visible; }
   .console-controls:is(.controls-open, .controls-folded) .console-head-space,
   .console-controls:is(.controls-open, .controls-folded) .console-head > .agent-activity { display: none; }
   .controls-folded .head-menu,
   .controls-folded .tryit-restart,
   .controls-folded .console-secondary { display: none; }
-  /* Expanded controls give the preview and restart one shared action line. */
-  .console-controls.controls-open .tryit > button:not(.tryit-restart) { grid-column: 1; grid-row: 2; justify-self: start; }
-  .console-controls.controls-open .tryit-restart { grid-column: 2; grid-row: 2; }
-  .console-controls.controls-open .workshop-actions .finish { grid-column: 3 / -1; grid-row: 2; justify-self: end; }
-  .console-controls.controls-open .head-menu { grid-column: 1 / -1; grid-row: 3; }
-  .console-controls.controls-open .head-menu-card { position: static; width: auto; min-width: 0; }
+  .console-controls.controls-open .head-menu { flex: 0 0 auto; }
+
 }
 .agent-actions-switch input { width: auto; margin: 0; }
 }

@@ -158,7 +158,7 @@ function RestoreInto({ b, busy, onRestore }: { b: ProjectBackup; busy: boolean; 
   const [into, setInto] = useState('')
   return (
     <span className="row" style={{ gap: 6 }}>
-      <input value={into} onChange={(e) => setInto(e.target.value.trim())} placeholder="a deployment" style={{ width: 120 }}
+      <input aria-label="Restore into deployment" value={into} onChange={(e) => setInto(e.target.value.trim())} placeholder="a deployment" style={{ width: 120 }}
         title={`a deployment of ${b.project}; what is there is copied to a safety set first, then replaced`} />
       <button className="subtle" disabled={busy || into === ''} onClick={() => onRestore(into)}>Restore {into || '…'}</button>
       {caveatNote(b.items) && <span className="muted small">{caveatNote(b.items).trim()}</span>}
