@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -33,6 +34,7 @@ func init() {
 		wiregen.Named{Name: "PackSaved", Value: PackSaved{}},
 		wiregen.Named{Name: "PackPulled", Value: PackPulled{}},
 		wiregen.Named{Name: "PullPlan", Value: adoption.PullPlan{}},
+		wiregen.Named{Name: "LandingDeployAttempt", Value: deployment.LandingDeployAttempt{}},
 		wiregen.Named{Name: "DeploymentView", Value: DeploymentView{}},
 		wiregen.Named{Name: "AuthMe", Value: AuthMe{}},
 		wiregen.Named{Name: "ToolchainWritten", Value: ToolchainWritten{}},

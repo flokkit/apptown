@@ -51,7 +51,8 @@ export function landingMeansFor(detail: { stages: string[]; landingMeans: string
   return step.type === 'approval' && step.stage === last && detail.landingMeans.length > 0 ? detail.landingMeans : undefined
 }
 
-export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, approveLabel = 'Approve', rejectLabel = 'Reject', placeholder = 'comment (optional)', compact, overview, conversation, canSendBack, abandon, externalBusy = false }: {
+export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, approveLabel = 'Approve', rejectLabel = 'Reject', placeholder = 'comment (optional)', compact, overview, conversation, canSendBack, abandon, externalBusy = false, onAccepted }: {
+  onAccepted?: () => void
   stepId: string
   means?: string; instructions?: string
   // alsoMeans: what the landing's approvals say. Accepting counts for them
@@ -84,11 +85,13 @@ export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, a
     // question is read again, so the new list is what the person sees.
     run(async () => {
       try {
-        return await post(`/steps/${stepId}/approve`, {
+        const result = await post(`/steps/${stepId}/approve`, {
           user: currentUser(), decision, comment: overview && decision === 'approve' ? '' : comment,
           ...(alsoMeans ? { alsoApproves: alsoMeans } : {}),
           ...(decision === 'approve' && adds ? { adds: adds.digest } : {}),
         })
+        if (decision === 'approve') onAccepted?.()
+        return result
       } catch (e) {
         void question.reload()
         throw e

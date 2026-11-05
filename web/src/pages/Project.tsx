@@ -4,7 +4,8 @@ import { useParams } from 'react-router-dom'
 import { post } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
-import { ApplicationOverview } from './project/ApplicationOverview'
+import { ProjectDeployments } from './project/ProjectDeployments'
+import { ApplicationOverview, ProjectChanges } from './project/ApplicationOverview'
 import { UsageView } from './Usage'
 import { NewReleasePage, ReleasePermalinkPage } from './project/Release'
 import { FindingsTab, SuppressionsTab } from './project/Security'
@@ -76,6 +77,8 @@ export default function Project() {
       <IntegrityBanner slug={project.slug} files={project.outOfBandEdits} onResolved={load} />
       <MainNote main={project.main} />
       {tab === 'overview' && <ApplicationOverview project={project} />}
+      {tab === 'changes' && <ProjectChanges project={project} />}
+      {tab === 'deployments' && <ProjectDeployments slug={slug!} />}
       {tab === 'security' && (
         <>
           {/* The menu's Security drawer holds these pages; the heading says which. */}

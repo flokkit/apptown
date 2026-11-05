@@ -37,6 +37,7 @@ export function HeldDecision({ view, onChange, resultShown = false }: { view: Ch
   const { run, busy, err } = useAction(onChange)
   const nav = useNavigate()
   const next = nextStep(view), d = view.detail, a = forwardAct(view)
+  const adviceText = resultShown && advice.text.trim() === next.step?.evidence.reason?.trim() ? '' : advice.text
   const target = d?.steps.find(s => s.id === a?.stepId)
   const agent = offered(d?.next, 'rework')
   const takeToChat = () => run(async () => {
@@ -52,7 +53,7 @@ export function HeldDecision({ view, onChange, resultShown = false }: { view: Ch
     } } : {}),
   } : undefined
   return <>
-    {advice.text && <div><small>{PRODUCT}'s summary</small><p>{advice.text}</p></div>}
+    {adviceText && <div><small>{PRODUCT}'s summary</small><p>{adviceText}</p></div>}
     {next.recovery && !resultShown && <><p>{next.headline}</p>{next.sentence && <p className="ch-review-text">{next.sentence}</p>}<TechnicalWords shown={technical}>{next.step?.name}</TechnicalWords></>}
     <DecisionChoices showConversation={!resultShown} note={note} setNote={setNote} busy={busy} accept={accept} highlight={['send-back', 'rework'].includes(advice.recommend) && heldLabels(view).includes('Send back…') ? 'rework' : undefined}
       conversation={{ href: `/changes/${view.change.id}?tab=conversation`, ...(agent ? { run: takeToChat } : { run: () => nav(`/changes/${view.change.id}?tab=conversation`) }) }}

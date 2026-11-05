@@ -1,5 +1,6 @@
 import './deployments.css'
 import '../../../overview-line.css'
+import { DeploymentDeploys } from '../DeploymentDeploys'
 import { useDeploymentStatus } from '../../../deploymentStatus'
 import { ListRow } from '../../../ListRow'
 import { setPageContext } from '../../../chrome'
@@ -115,11 +116,13 @@ export function DeploymentPage() {
   const q = useGet<DeploymentView[]>(`/projects/${slug}/deployments`, { poll: 5000 })
   const e = q.data?.find(e => e.name === name)
   useLayoutEffect(() => {
-    setPageContext({ crumbs: [{ label: 'Deployments', to: `/projects/${slug}/settings/deployments` }, { label: e?.displayLabel || name! }] })
+    setPageContext({ crumbs: [{ label: 'Deployments', to: `/projects/${slug}/deployments` }, { label: e?.displayLabel || name! }] })
     return () => setPageContext({})
   }, [slug, name, e?.displayLabel])
-  if (!q.data) return <ReadStatus q={q} what="the deployment" />
-  return <><StaleNote q={q} />{e ? <EnvCard key={`${slug}/${name}`} slug={slug!} env={q.refreshFailed ? { ...e, observation: 'unknown' } : e} onChanged={q.reload} /> : <p>Deployment not found.</p>}</>
+  return <><ReadStatus q={q} what="the deployment" /><StaleNote q={q} />
+    <DeploymentDeploys key={`${slug}/${name}`} slug={slug!} name={name!} displayLabel={e?.displayLabel} url={e?.url} />
+    {e && <EnvCard slug={slug!} env={q.refreshFailed ? { ...e, observation: 'unknown' } : e} onChanged={q.reload} />}
+  </>
 }
 
 export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: DeploymentView; onChanged: () => void }) {
@@ -178,7 +181,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
     <div className="card deploy-entry">
       <header className="deploy-head">
         <div className="row">
-          <h1>{e.displayLabel || e.name}</h1>
+          <h2>{e.displayLabel || e.name}</h2>
           <div className="deploy-status">
           <Status observation {...status} help={status.word === 'deploying' || e.observation === 'unreachable' || e.observationIssue ? status.help : undefined} />
           {e.protected && <span className="badge" title="reaches partners or the public, or holds production data · deploys need the release grant">protected</span>}

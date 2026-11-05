@@ -12,15 +12,15 @@ import { DeployResult, previousLanding, landingDuration } from './DeployResult'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const view = { projectSlug: 'club', change: { id: 'change' }, detail: { run: { createdAt: '2026-11-05T01:00:00Z' } }, evidence: { releases: [{ number: 7 }, { number: 6 }] } } as ChangeView
 const step = { id: 'deploy', runId: 'landing', type: 'deploy', config: { deployment: 'main' }, status: 'pass', startedAt: '2026-11-05T01:01:00Z', finishedAt: '2026-11-05T01:01:12Z', evidence: { url: 'https://club.example.test' } } as unknown as Extract<Step, { type: 'deploy' }>
-function draw(s = step, v = view, showRunning = false, releases: import('../../wire.gen').ReleaseListed[] = []) {
+function draw(s = step, v = view, _showRunning = false, releases: import('../../wire.gen').ReleaseListed[] = []) {
   const client = newQueryClient()
   client.setQueryData(getKey('/projects/club/releases'), releases)
   client.setQueryData(getKey('/runs/old/trace'), { run: { createdAt: '2026-11-04T01:00:00Z' }, steps: [{ type: 'deploy', status: 'pass', finishedAt: '2026-11-04T01:01:12Z' }] })
-  return renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><DeployResult view={v} step={s} showRunning={showRunning} /></QueryClientProvider></MemoryRouter>)
+  return renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><DeployResult slug={v.projectSlug} changeId={v.change.id!} release={v.evidence?.releases?.[0]?.number} runStartedAt={v.detail?.run.createdAt} step={s} /></QueryClientProvider></MemoryRouter>)
 }
 it('ends a completed landing with the known release, address, duration and app link, without replay', () => {
   const html = draw()
-  for (const text of ['Release 7 is live', 'https://club.example.test', 'Landing took 1m 12s', 'Open the app']) expect(html).toContain(text)
+  for (const text of ['Release 7', 'https://club.example.test', 'Landing took 1m 12s', 'Open the app']) expect(html).toContain(text)
   expect(html).not.toContain('celebrate')
   expect(draw(step, { ...view, evidence: { ...view.evidence, releases: [] } })).toContain("It&#x27;s live!")
 })
@@ -36,16 +36,17 @@ it('names the recorded failed stage and reason, and says the app is down only on
 it('orders the finished scene, live heading, host, facts and primary action', () => {
   const el = document.createElement('div'); el.innerHTML = draw()
   const result = el.querySelector('.ch-deploy-result')!
-  expect(result.querySelectorAll('.deploy-stages')).toHaveLength(0)
-  expect(result.querySelector('h3')?.classList.contains('ok')).toBe(true)
+  expect(result.querySelectorAll('.deploy-stages-compact li')).toHaveLength(6)
+  expect(result.querySelector('.ch-deploy-heading strong')?.classList.contains('ok')).toBe(true)
   expect([...result.querySelectorAll('a')].map(a => a.textContent)).toEqual(['club.example.test', 'Open the app ↗'])
+  expect(result.querySelectorAll('.deploy-stages:not(.deploy-stages-compact)')).toHaveLength(0)
   // Both ways to the app open it beside AppTown, not in place of it.
   expect([...result.querySelectorAll('a')].map(a => a.getAttribute('target'))).toEqual(['_blank', '_blank'])
   expect(result.querySelector('a.app-address')?.getAttribute('href')).toBe('https://club.example.test')
   expect(result.querySelector('a.app-address')?.getAttribute('rel')).toContain('noopener')
-  expect(result.querySelector('a.app-address')?.getAttribute('target')).toBe('_blank')
+  expect(result.textContent?.match(/Landing took/g)).toHaveLength(1)
   expect(result.querySelector('a.primary')).not.toBeNull()
-  const order = ['.deploy-scene', 'h3', 'p a', '.small', 'a.primary'].map(s => result.querySelector(s)!)
+  const order = ['.ch-deploy-heading', '.deploy-scene', '.ch-deploy-backup', 'p a', 'a.primary'].map(s => result.querySelector(s)!)
   for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 })
 
@@ -66,7 +67,8 @@ it('includes a previous landing that finished after this run began but before de
   const previous = { ...current, number: 7, runId: 'old', state: 'released', createdAt: '2026-11-05T01:00:30Z', releasedAt: '2026-11-05T01:00:30Z' } as typeof current
   const html = draw({ ...step, status: 'running' }, { ...view, evidence: { ...view.evidence, releases: [{ number: 8 }] } } as ChangeView, true, [current, previous])
   expect(html).toContain('Last deploy took 1m 12s')
-  expect(html).toContain('Release 8')
+  expect(html).toContain('Deploying')
+  expect(html).not.toContain('Release 8')
   expect(html).not.toContain('Deploying release')
 })
 
@@ -76,7 +78,7 @@ it('counts elapsed seconds between server progress reads', async () => {
     ? { running: true, stage: 'building', elapsedMs: 8000, lines: [], total: 0 } : []))))
   const el = document.createElement('div'), root = createRoot(el), client = newQueryClient()
   try {
-    await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><DeployResult view={view} step={{ ...step, status: 'running' }} showRunning /></QueryClientProvider></MemoryRouter>))
+    await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><DeployResult slug={view.projectSlug} changeId={view.change.id!} release={view.evidence?.releases?.[0]?.number} runStartedAt={view.detail?.run.createdAt} step={{ ...step, status: 'running' }} /></QueryClientProvider></MemoryRouter>))
     await act(async () => { await vi.advanceTimersByTimeAsync(100) })
     expect(el.querySelector('.ch-deploy-times')?.textContent).toBe('8s')
     await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
@@ -85,12 +87,12 @@ it('counts elapsed seconds between server progress reads', async () => {
   } finally { act(() => root.unmount()); client.clear(); vi.useRealTimers(); vi.unstubAllGlobals() }
 })
 
-it('names the configured deployment or its main default before a release number is recorded', () => {
+it('names running deploys without allocating or predicting a release number', () => {
   const v = { ...view, evidence: { ...view.evidence, releases: [] } }
-  for (const [config, name] of [[{}, 'main'], [{ deployment: 'staff' }, 'staff']] as const) {
+  for (const [config] of [[{}, 'main'], [{ deployment: 'staff' }, 'staff']] as const) {
     const el = document.createElement('div')
     el.innerHTML = draw({ ...step, config, status: 'running' }, v, true)
-    expect(el.querySelector('.ch-deploy-heading strong')?.textContent).toBe(name)
+    expect(el.querySelector('.ch-deploy-heading strong')?.textContent).toBe('Deploying')
   }
 })
 
@@ -100,7 +102,7 @@ it('claims a backup only for a complete set, linking to that recorded copy', () 
   const line = el.querySelector('.ch-deploy-backup')!
   expect(line.textContent).toBe('Backed up before this deploy · 2 KB →')
   expect(line.querySelector('a')?.getAttribute('href')).toBe('/deployments/backups#backup-copy-7')
-  expect(el.querySelector('h3')!.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(el.querySelector('.ch-deploy-heading')!.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 })
 it.each([
   ['partial', 'partial', 'Backup incomplete'], ['ok', 'partial', 'Backup incomplete'],
@@ -116,7 +118,7 @@ it('states no data separately from missing evidence and an unaccepted incomplete
   el.innerHTML = draw({ ...step, evidence: { ...step.evidence, backup: { outcome: 'no-data', reason: 'nothing to copy' } } })
   expect(el.querySelector('.ch-deploy-backup')?.textContent).toBe('No data to back up')
   el.innerHTML = draw()
-  expect(el.querySelector('.ch-deploy-backup')).toBeNull()
+  expect(el.querySelector('.ch-deploy-backup')?.textContent).toBe('Backup outcome not recorded')
   el.innerHTML = draw({ ...step, status: 'fail', evidence: { backup: { outcome: 'partial', set: { id: 'copy', takenAt: '', bytes: 0, status: 'partial' }, reason: 'Volume unreadable' } } })
   expect(el.querySelector('.ch-deploy-backup')?.textContent).toBe('Backup incomplete: Volume unreadable')
 })

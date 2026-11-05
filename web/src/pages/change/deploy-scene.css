@@ -122,8 +122,6 @@
 .ch-deploy-result[hidden] { display: none; }
 
 .ch-deploy-result-facts { min-width: 0; width: 100%; overflow-wrap: normal; }
-.ch-deploy-result-facts h3 { margin: 0 0 8px; }
-.ch-deploy-result-facts h3.ok { font-size: var(--fs-xl); color: var(--ok); }
 .ch-deploy-result-facts p { margin: 4px 0; }
 .ch-open-app { display: inline-flex; align-items: center; min-height: 44px; box-sizing: border-box; padding: 8px 18px; margin-top: 12px; text-decoration: none; }
 .ch-deploy-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; width: 100%; }

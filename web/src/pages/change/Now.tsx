@@ -7,7 +7,6 @@ import { ReadStatus, StaleNote } from '../../ReadGate'
 import { fmtDuration, fmtStamp } from '../../format'
 import { stepTitle } from './Evidence'
 import { approversOf } from './next'
-import { DeployScene } from './DeployScene'
 
 const checks = new Set(['scan', 'tests', 'guidance/conformance'])
 const failed = (s: Step) => ['fail', 'error', 'needs_human'].includes(s.status)
@@ -26,11 +25,6 @@ function CalledRun({ id, receive }: { id: string; receive: (id: string, detail: 
     if (t?.run) receive(id, { ...t, run: t.run, steps: t.steps.filter(Boolean) as Step[], events: t.events as RunDetail['events'], next: [], landingMeans: [] })
   }, [id, q.data, receive])
   return <><ReadStatus q={q} what="called workflow" /><StaleNote q={q} /></>
-}
-
-function RunningDeploy({ step }: { step: Step }) {
-  const live = useGet<StepProgress>(`/steps/${step.id}/live?from=0`, { poll: 3000 })
-  return <DeployScene stage={live.data?.stage} outcome={live.current && live.data?.running && live.data.stage ? 'running' : 'paused'} />
 }
 
 function StepFact({ step: s }: { step: Step }) {
@@ -86,10 +80,9 @@ export function Now({ view }: { view: ChangeView }) {
   const name = view.runs?.find(r => r.id === root.run.id)?.role === 'landing' ? 'Landing' : 'Work'
   return <section className="ch-now" aria-label="Now" aria-live="polite">
     <h2>Now</h2>
-    <h3>{name}{steps.some(s => s.type === 'deploy' && s.status === 'running') && view.evidence?.releases?.[0]?.number ? ` · Release ${view.evidence.releases[0].number}` : ''}{position > 0 && ` — step ${position} of ${stageSteps.length}`}</h3>
+    <h3>{name}{position > 0 && ` — step ${position} of ${stageSteps.length}`}</h3>
     {root.run.createdAt && <p className="small muted">Started {fmtStamp(root.run.createdAt)}</p>}
     {children.map(id => <CalledRun key={id} id={id} receive={receive} />)}
-    {steps.filter(s => s.type === 'deploy' && s.status === 'running').map(s => <RunningDeploy key={s.id} step={s} />)}
     {details.map(d => <div key={d.run.id}>
       {d !== root && <p className="small muted">{d.run.workflowName}</p>}
       <ol className="ch-now-steps">{nowRows(currentSteps(d)).map(group => <li key={group[0].id}>

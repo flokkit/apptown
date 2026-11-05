@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import css from './deploy-scene.css?inline'
+import cardCss from '../project/deployment-deploys.css?inline'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { DeployScene, DeploySceneScope, deployWords } from './DeployScene'
+import { DeployScene, deployWords } from './DeployScene'
 import type { DeployStage } from '../../wire.gen'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -44,27 +45,6 @@ it('never celebrates on an already-live mount; celebrates once after observing r
     })
     draw('live', 'passed')
     expect(el.querySelector('.celebrate')).toBeNull()
-  } finally { act(() => root.unmount()) }
-})
-
-it('shares one celebration between the page and dialog, including closing it mid-animation', () => {
-  const el = document.createElement('div'), root = createRoot(el)
-  const draw = (passed: boolean, open = true) => act(() => root.render(<DeploySceneScope>
-    <div hidden={open} data-page><DeployScene stage={passed ? 'live' : 'checking'} outcome={passed ? 'passed' : 'running'} /></div>
-    <div hidden={!open} data-dialog><DeployScene stage={passed ? 'live' : 'checking'} outcome={passed ? 'passed' : 'running'} /></div>
-  </DeploySceneScope>))
-  try {
-    draw(false)
-    draw(true)
-    act(() => {
-      const e = new Event('webkitAnimationStart', { bubbles: true })
-      Object.defineProperty(e, 'animationName', { value: 'deploy-raise' })
-      el.querySelector('[data-dialog] .flag')!.dispatchEvent(e)
-    })
-    expect(el.querySelector('[data-dialog] .celebrate')).not.toBeNull()
-    expect(el.querySelector('[data-page] .celebrate')).toBeNull()
-    draw(true, false)
-    expect(el.querySelector('[data-page] .celebrate')).toBeNull()
   } finally { act(() => root.unmount()) }
 })
 
@@ -195,15 +175,15 @@ it('keeps the jib still while trolleys carry and hoist each load', () => {
   } finally { el.remove(); style.remove() }
 })
 
-it('makes the live result heading page-title size in the existing OK colour', () => {
+it('uses the existing OK colour for the deployment card live heading', () => {
   const style = document.createElement('style')
-  style.textContent = css.slice(css.indexOf('.ch-deploy-result {'), css.lastIndexOf('}'))
+  style.textContent = cardCss.replace('@layer pages {', '').replace(/}\s*$/, '')
   document.head.append(style)
   const el = document.createElement('div'); document.body.append(el)
   try {
-    el.innerHTML = '<div class="ch-deploy-result-facts"><h3 class="ok">It’s live!</h3></div>'
-    const heading = getComputedStyle(el.querySelector('h3')!)
-    expect(heading.fontSize).toBe('var(--fs-xl)')
+    el.innerHTML = '<div class="deployment-deploy-card"><div class="ch-deploy-heading"><strong class="ok">It’s live!</strong></div></div>'
+    const heading = getComputedStyle(el.querySelector('strong')!)
+    expect(heading.fontSize).toBe('var(--fs-lg)')
     expect(heading.color).toBe('var(--ok)')
   } finally { el.remove(); style.remove() }
 })
@@ -229,4 +209,19 @@ it('carries a copy to a persistent shed without darkening the house', () => {
     el.innerHTML = renderToStaticMarkup(<DeployScene outcome="passed" />)
     expect(getComputedStyle(el.querySelector('.backup-shed')!).opacity).toBe('1')
   } finally { el.remove(); style.remove() }
+})
+
+// The deployment card keeps every short stage visible, including the backup.
+it('keeps compact backup progress and the shared spinner on deployment cards', () => {
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<DeployScene stage="backing-up" outcome="running" compactStages />)
+  const rows = [...el.querySelectorAll('.deploy-stages-compact li')]
+  expect(rows.map(row => row.querySelector('span + span')?.textContent)).toEqual(['Code', 'Backup', 'Build', 'Start', 'Check', 'Live'])
+  expect(rows[0].querySelector('.ok')?.textContent).toBe('✓')
+  expect(rows[1].getAttribute('aria-current')).toBe('step')
+  expect(rows[1].querySelector('.spinner[aria-label="running"]')).not.toBeNull()
+  expect(el.querySelector('.backing-up.has-backup-shed')).not.toBeNull()
+  el.innerHTML = renderToStaticMarkup(<DeployScene outcome="paused" compactStages />)
+  expect(el.querySelectorAll('.deploy-stages-compact li')).toHaveLength(6)
+  expect(el.querySelector('[aria-current], .spinner')).toBeNull()
 })

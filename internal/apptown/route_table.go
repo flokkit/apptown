@@ -331,6 +331,7 @@ func appRoutes(a *App) []routeSpec {
 		publicRoute("GET /api/v1/workflows/schema", workflowCatalog.WorkflowSchema, "workflowCatalog.WorkflowSchema: shared workflow format schema"),
 		publicRoute("POST /api/v1/workflows/validate", workflowCatalog.ValidateWorkflow, "workflowCatalog.ValidateWorkflow: validate caller-supplied workflow without publication"),
 		requireRoute("GET /api/v1/projects/{slug}/board", changes.Board, access.CapProjectRead, "project-slug"),
+		requireRoute("GET /api/v1/projects/{slug}/deployments/{name}/deploys", deploymentListing.Deploys, access.CapDeploymentRead, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/deployments", deploymentListing.Deployments, access.CapDeploymentRead, "project-slug"),
 		ownerRoute("GET /api/v1/projects/{slug}/release/default", deployments.ReleaseDefault, "deployments.ReleaseDefault"),
 		ownerRoute("PUT /api/v1/projects/{slug}/release/default", deployments.SetReleaseDefault, "deployments.SetReleaseDefault"),

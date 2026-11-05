@@ -57,7 +57,6 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
   const data = activityQ.data
   const app = deployments.find(d => d.running && !d.hostOnly) ?? deployments.find(d => d.url)
   const events = data ? overviewActivity(data, deployments, backups, releasesQ.data ?? [], slug) : []
-  const open = data ? data.active.length + (data.open?.length ?? 0) : null
   return <div className="application-overview">
     <header className="application-heading">
       <PageHead page="projectOverview" title={project.name} actions={app?.url && <AppAddress className="btn primary application-open" url={app.url} hostOnly={app.hostOnly}>Open app ↗</AppAddress>} />
@@ -65,23 +64,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       {app?.url && <AppAddress url={app.url} hostOnly={app.hostOnly} />}
     </header>
     {data?.notes && <ProjectNotes slug={slug} notes={data.notes} writable={activityQ.current && (project.lifecycle?.state ?? 'active') === 'active'} />}
-    <Section title="Changes" count={open ?? undefined} action={(project.lifecycle?.state ?? 'active') === 'active' ? <BigChangeBox slug={slug} inline /> : undefined}>
-      <ReadStatus q={activityQ} what="activity" />
-      {data && !open && <p className="muted">No open changes.</p>}
-      {data && <ActiveRunList runs={data.active} />}
-      {/* An open change with no run yet: the same row as a run, its number
-          before its title, its one action on the right. */}
-      {data?.open?.map(c => (
-        <div key={c.changeId} className="card row application-overview-card">
-          <Link to={`/changes/${c.changeId}`} className="row grow application-overview-card">
-            <span className="row-status"><ChangeStatus waiting={c.waitingOn} /></span>
-            <strong><span className="muted application-overview-span">#{c.changeNumber} </span>{c.title}</strong>
-            {c.editing > 0 && <span className="muted small">{c.editing} file{c.editing === 1 ? '' : 's'} being edited</span>}
-          </Link>
-          <span className="row-action">{c.waitingOn.kind === 'chat' ? <Link to={`/projects/${slug}/console?change=${c.changeId}`} className="btn">Continue chat</Link> : <Link to={`/changes/${c.changeId}`} className="btn">Open</Link>}</span>
-        </div>
-      ))}
-    </Section>
+    <Link to={`/projects/${slug}/changes`}>Changes →</Link>
     <ScheduleRows slug={slug} />
     <Section title="Activity">
       <ReadStatus q={releasesQ} what="releases" /><StaleNote q={releasesQ} />
@@ -138,3 +121,31 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
 }
 
 // An open change with no run yet is worked in its chat: say so, not "waiting".
+
+export function ProjectChanges({ project }: { project: ProjectDetail }) {
+ const slug = project.slug
+ const activityQ = useGet<OverviewData>(`/projects/${slug}/overview`, { poll: 5000 })
+ const data = activityQ.data
+ const open = data ? data.active.length + (data.open?.length ?? 0) : null
+ return <><StaleNote q={activityQ} />
+    <Section title="Changes" count={open ?? undefined} action={(project.lifecycle?.state ?? 'active') === 'active' ? <BigChangeBox slug={slug} inline /> : undefined}>
+      <ReadStatus q={activityQ} what="activity" />
+      {data && !open && <p className="muted">No open changes.</p>}
+      {data && <ActiveRunList runs={data.active} />}
+      {/* An open change with no run yet: the same row as a run, its number
+          before its title, its one action on the right. */}
+      {data?.open?.map(c => (
+        <div key={c.changeId} className="card row application-overview-card">
+          <Link to={`/changes/${c.changeId}`} className="row grow application-overview-card">
+            <span className="row-status"><ChangeStatus waiting={c.waitingOn} /></span>
+            <strong><span className="muted application-overview-span">#{c.changeNumber} </span>{c.title}</strong>
+            {c.editing > 0 && <span className="muted small">{c.editing} file{c.editing === 1 ? '' : 's'} being edited</span>}
+          </Link>
+          <span className="row-action">{c.waitingOn.kind === 'chat' ? <Link to={`/projects/${slug}/console?change=${c.changeId}`} className="btn">Continue chat</Link> : <Link to={`/changes/${c.changeId}`} className="btn">Open</Link>}</span>
+        </div>
+      ))}
+    </Section>
+<Section title="Finished changes">
+ {data?.history.map(c => <div className="card" key={c.changeId}><Link to={`/changes/${c.changeId}`}>#{c.changeNumber} {c.title}</Link> · {c.statusLabel} · {fmtWhen(c.when)}</div>)}
+ </Section></>
+}

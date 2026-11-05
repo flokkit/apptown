@@ -25,7 +25,7 @@ function fixtures({ backup = 'none', lowDisk = false, readiness = 'reconciled' }
     '/changes/change-1': { change: { number: 12, title: 'Fix lunch' } },
     '/projects/lunch/secrets': { deployments: [], choosable: [] },
     '/projects/lunch/retained': { retained: [] },
-    '/projects/lunch/releases': [{ deployment: 'main', number: 9, serving: false, state: 'failed', createdAt: at }, { deployment: 'main', number: 8, serving: true, releasedAt: at }],
+    '/projects/lunch/releases': [{ deployment: 'main', number: 9, changes: [], serving: false, state: 'failed', createdAt: at }, { deployment: 'main', number: 8, changes: [], serving: true, releasedAt: at }],
     [`${base}/main/resources`]: { reading, parts: [], limits: [], limitsKnown: true, share: { elastic: true, lowDisk } },
     [`${base}/main/diagnostics`]: { reading, parts: [], events: [], eventsKnown: true },
     [`${base}/main/protection`]: { reading, items: [{ need: 'postgres', copy: backup, copyLabel: backup === 'none' ? 'missing' : 'fresh' }], recent: [], restoredCopies: [], coverage: { assessed: [], notAssessed: [] } },
@@ -71,7 +71,7 @@ it('omits healthy backups and keeps disk and readiness warnings short', () => {
 
 it('routes to the full card with footer controls and the TopBar breadcrumb', async () => {
   const data = fixtures()
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(data[String(url).replace(/^\/api\/v1/, '')] ?? {}))))
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(data[String(url).replace(/^\/api\/v1/, '')] ?? (String(url).endsWith('/deploys') ? [] : {})))))
   const client = newQueryClient()
   const el = document.createElement('div')
   const root = createRoot(el)
@@ -79,9 +79,10 @@ it('routes to the full card with footer controls and the TopBar breadcrumb', asy
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`${base}/main`]}><TopBar me={null} /><Routes><Route path="/projects/:slug/deployments/:name" element={<DeploymentPage />} /></Routes></MemoryRouter></QueryClientProvider>))
     await vi.waitFor(() => expect(el.querySelector('.deploy-entry')).not.toBeNull())
     await vi.waitFor(() => expect(el.querySelector('.topbar')?.textContent).toContain('AppTown›Projects›Lunch›Deployments›Lunch Orders'))
-    expect(el.querySelector('.topbar a[href="/projects/lunch/settings/deployments"]')).not.toBeNull()
+    expect(el.querySelector('.topbar a[href="/projects/lunch/deployments"]')).not.toBeNull()
     expect(el.querySelector('.topbar a[href="/projects"]')?.textContent).toBe('Projects')
-    expect(el.querySelector('.deploy-head h1')?.textContent).toBe('Lunch Orders')
+    expect(el.querySelector('.deployment-page-heading')?.textContent).toContain('Lunch Orders')
+    expect(el.querySelectorAll('h1')).toHaveLength(1)
     expect(el.querySelector('.deployment-address a')?.getAttribute('href')).toBe('https://lunch.example')
     expect(el.querySelector('.deploy-head .deploy-trailer')).toBeNull()
     expect(el.querySelector('.deploy-more')?.textContent).toContain('Edit display name')

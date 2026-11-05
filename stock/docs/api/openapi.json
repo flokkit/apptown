@@ -2617,6 +2617,104 @@
         ],
         "type": "object"
       },
+      "LandingDeployAttempt": {
+        "properties": {
+          "attempt": {
+            "type": "integer"
+          },
+          "changeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changeNumber": {
+            "type": "integer"
+          },
+          "changeTitle": {
+            "type": "string"
+          },
+          "outcomeKnown": {
+            "type": "boolean"
+          },
+          "runStartedAt": {
+            "type": "string"
+          },
+          "step": {
+            "$ref": "#/components/schemas/LandingDeployStep"
+          }
+        },
+        "required": [
+          "outcomeKnown",
+          "step",
+          "attempt",
+          "changeId",
+          "changeNumber",
+          "changeTitle",
+          "runStartedAt"
+        ],
+        "type": "object"
+      },
+      "LandingDeployStep": {
+        "properties": {
+          "config": {},
+          "evidence": {},
+          "finishedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "const": ""
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "const": ""
+              }
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "runId",
+          "type",
+          "status",
+          "config",
+          "evidence",
+          "startedAt",
+          "finishedAt"
+        ],
+        "type": "object"
+      },
       "LastRelease": {
         "properties": {
           "at": {
@@ -12050,6 +12148,56 @@
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/projects/{slug}/deployments/{name}/deploys": {
+      "get": {
+        "operationId": "getProjectsSlugDeploymentsNameDeploys",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LandingDeployAttempt"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "capability": "deployment:read",
+          "kind": "capability",
+          "scope": "project-slug"
+        },
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/diagnostics": {

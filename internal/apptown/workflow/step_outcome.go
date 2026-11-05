@@ -85,6 +85,10 @@ func (s stepAttempts) finishIn(ctx context.Context, tx *database.Tx, claim *Step
 	if err := json.Unmarshal(encoded, &details); err != nil {
 		return finishedAttempt{}, err
 	}
+	// Deploy history keeps the exact outcome after a retry resets the step.
+	if current.Type == "deploy" {
+		details["deployEvidence"] = evidence
+	}
 	payload, err := json.Marshal(details)
 	if err != nil {
 		return finishedAttempt{}, err
