@@ -1,9 +1,10 @@
+@layer pages {
 /* Settings › Secrets and Members: rows inside section panels. */
 .secrets-page > .page-section:first-of-type { margin-top: 24px; }
 .secrets-profile { display: inline-flex; align-items: center; gap: 6px; }
 .secrets-profile select { padding: 2px 6px; min-height: 0; height: auto; font-size: var(--fs-sm); }
 .secret-what { flex: 1 1 12em; min-width: 0; overflow-wrap: anywhere; }
-.secret-acts { flex: 0 0 auto; gap: 6px; align-items: center; }
+.secret-acts { flex: 0 0 11em; gap: 6px; align-items: center; }
 .section-head h2 .status-help, .section-head h2 .chip { font-size: var(--fs-sm); font-weight: 400; }
 .member-row .member-who { flex: 0 0 12em; min-width: 0; overflow-wrap: anywhere; }
 .member-row .member-roles { flex: 1; min-width: 0; }
@@ -22,4 +23,9 @@
   .member-row .member-roles { flex-basis: 100%; order: 3; }
   .adr-row { flex-wrap: wrap; }
   .adr-row .adr-num { flex: 0 0 auto; }
+}
+@media (max-width: 800px) {
+  .secret-acts { flex-basis: auto; }
+  .secrets-profile select { min-height: 44px; }
+}
 }

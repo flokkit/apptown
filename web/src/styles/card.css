@@ -1,0 +1,91 @@
+@layer components {
+.card { border: 1px solid var(--border);
+  border-radius: var(--radius); grid-template-columns: minmax(0, 1fr); border-width: 0 0 1px; padding: 12px 0; background: transparent; margin-bottom: 0;
+}
+/* A card laid out as a grid keeps its one column within the card, so a wide
+   table inside scrolls rather than stretching the card past the page. */
+/* A card in a state: a stripe and a wash, so the page's state paints the
+   page. tone-accent is for "here is the thing to do", not a state. */
+.card.tone-ok     { border-color: var(--ok); background: transparent; box-shadow: none; border-left: 2px solid var(--ok); padding-left: 12px; }
+.card.tone-bad    { border-color: var(--bad); background: transparent; box-shadow: none; border-left: 2px solid var(--bad); padding-left: 12px; }
+.card.tone-warn   { border-color: var(--warn-mark); background: transparent; box-shadow: none; border-left: 2px solid var(--warn-mark); padding-left: 12px; }
+.card.tone-busy   { border-color: var(--busy); background: transparent; box-shadow: none; border-left: 2px solid var(--busy); padding-left: 12px; }
+.card.tone-accent { border-color: var(--accent); background: transparent; box-shadow: none; border-left: 2px solid var(--accent); padding-left: 12px; }
+.card.tone-note   { border-color: var(--note); background: transparent; box-shadow: none; border-left: 2px solid var(--note); padding-left: 12px; }
+
+/* Integrations: sectioned grid of compact connector cards */
+.conn-section { margin-bottom: 26px; }
+.conn-section-head {
+  display: flex; align-items: baseline; gap: 10px;
+  border-bottom: 1px solid var(--rule); padding-bottom: 6px; margin-bottom: 12px;
+}
+.conn-section-head h2 { margin: 0; font-size: 19px; }
+.conn-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr));
+  gap: 12px; align-items: start;
+}
+.conn-card { border: 1px solid var(--border);
+  overflow: hidden; transition: border-color 0.12s; border-width: 0 0 1px; border-radius: 0; background: transparent; box-shadow: none;
+}
+.conn-card:hover { border-color: var(--border-strong); }
+.conn-card .kv { width: 100%; }
+.conn-foot {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-top: 1px solid var(--rule); background: var(--chrome);
+}
+
+/* A card whose state nobody has confirmed: the unknown stamp, as a card. */
+.card.tone-unknown { border-color: var(--unknown); border-style: dashed; background: var(--unknown-bg), var(--panel); }
+
+/* Project cards */
+/* The way-of-working chooser: an even grid of cards, the chosen one ruled in accent. */
+.pack-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: 0; }
+.pack-card { margin: 0; cursor: pointer; }
+.pack-card:hover { border-color: var(--border-strong); }
+.pack-card.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* Cards in a row are one height, their footers on one line. */
+.conn-grid.even { align-items: stretch; grid-template-columns: minmax(0,1fr); gap: 0; }
+.proj-card .conn-foot { margin-top: auto; }
+.proj-card {
+  display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; color: var(--text);
+  transition: border-color 0.12s, transform 0.12s;
+}
+.proj-card:hover { border-color: var(--accent); text-decoration: none; transform: translateY(-1px); }
+
+/* Integrations: big-ticket cards (Settings › Services › Connected to). */
+.integ-grid { display: grid; margin-bottom: 14px; grid-template-columns: minmax(0,1fr); gap: 0; }
+.integ-card { border: 1px solid var(--border);
+  padding: 16px 18px 12px; display: flex; flex-direction: column; border-width: 0 0 1px; border-radius: 0; background: transparent; box-shadow: none;
+}
+.integ-card.tone-accent { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
+.integ-icon {
+  font-size: 30px; line-height: 1; width: 48px; height: 48px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--radius); background: var(--panel2); border: 1px solid var(--border);
+}
+.integ-foot { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--rule); }
+/* A link marked .tap-open opens its whole card (or, on a phone, its stacked
+   row): the card is its target. Other controls in the card sit above it. */
+.card:has(a.tap-open) { position: relative; }
+.card a.tap-open::after { content: ""; position: absolute; inset: 0; }
+.card:has(a.tap-open) :is(a:not(.tap-open), button, select, input) { position: relative; z-index: 1; }
+.card:has(a.tap-open):hover { border-color: var(--accent); }
+.modal .card { padding: 12px; }
+.overview-actions.card { padding: 0; margin: 0; border: 0; max-width: none; }
+.pack-grid > .card { display: grid; grid-template-columns: minmax(180px,1fr) minmax(0,2fr) auto; column-gap: 24px; align-items: baseline; padding: 12px 0; }
+.pack-grid > .card > .small { grid-column: 2; }
+@media (max-width: 1000px) {
+  .pack-grid > .card { grid-template-columns: minmax(0,1fr); gap: 8px; }
+}
+@media (max-width: 800px) {
+  .conn-foot { flex-wrap: wrap; }
+}
+
+@media (max-width: 800px) {
+  .main :is(td, dd, .card) { overflow-wrap: anywhere; }
+}
+.card, .int-sheet, .ch-tabs-sheet, .ch-ledger, .ch-state, .modal-panel, .conn-card, .diff-file { --ground: var(--panel); }
+.card.warn-line { background: transparent; border-left-width: 0; margin-bottom: 0; padding: 12px 0; }
+}

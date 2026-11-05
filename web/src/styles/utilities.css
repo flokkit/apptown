@@ -1,0 +1,30 @@
+@layer utilities {
+/* For screen readers only: the word beside a status dot. */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Folds keep their calm even when someone put muted/small on the summary. */
+details > summary.muted, details > summary.small { color: var(--text); font-size: 14px; }
+@media (max-width: 800px) {
+  /* A lone link in a fact row or a note is a tap target of its own. */
+  a.tap { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+}
+
+/* Spacing utilities on the --space scale, for the margins pages set most
+   often; anything rarer stays a style naming a token. Last in the file so
+   they win over a component's own margin. */
+.mt-0 { margin-top: 0; }
+.mt-1 { margin-top: var(--space-1); }
+.mt-2 { margin-top: var(--space-2); }
+.mt-3 { margin-top: var(--space-3); }
+.mt-4 { margin-top: var(--space-4); }
+.mb-0 { margin-bottom: 0; }
+.mb-1 { margin-bottom: var(--space-1); }
+.mb-2 { margin-bottom: var(--space-2); }
+.mb-3 { margin-bottom: var(--space-3); }
+.mb-4 { margin-bottom: var(--space-4); }
+.grow { flex: 1; }
+
+@media (max-width: 800px) {
+  .phone-secondary:not(.row-action) { display: none; }
+  .main .mono { white-space: normal; overflow-wrap: anywhere; }
+}
+}

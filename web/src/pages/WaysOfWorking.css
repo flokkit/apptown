@@ -1,5 +1,6 @@
+@layer pages {
 /* Ways of working lists: filters as quiet toggles beside the count. */
-.guidance-filters { gap: 4px; flex-wrap: wrap; }
+.guidance-filters { gap: 8px; flex-wrap: wrap; }
 .guidance-filters button[aria-pressed="true"] { background: var(--panel2); color: var(--text); border-color: var(--border-strong); font-weight: var(--fw-strong); }
 .section-body .project-rows > .list-row-open:last-child > .list-row { border-bottom: 0; }
 /* On a phone the search and New guidance take their own line under the heading. */
@@ -17,4 +18,5 @@
 @media (max-width: 800px) {
   .policy-head { flex-wrap: wrap; row-gap: 4px; }
   .policy-head .row-status { flex: 1 1 100%; }
+}
 }

@@ -1,13 +1,15 @@
+@layer pages {
 /* Settings › Services: one row per service kind inside the section's panel. */
-.service-pick { display: flex; align-items: flex-start; gap: 16px; padding: 12px 0; }
+.service-pick { display: block; align-items: flex-start; gap: 4px 16px; padding: 12px; }
 .service-pick .service-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .service-pick .service-controls { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
 .service-pick button.service-on { border-color: var(--accent); color: var(--accent); }
 .service-connection { margin-top: 6px; }
 .service-connection .integ-grid { margin-bottom: 0; }
-.service-save { gap: 10px; align-items: center; padding: 12px 0; flex-wrap: wrap; }
+.service-save { gap: 8px; align-items: center; padding: 12px 0; flex-wrap: wrap; }
 .service-attach { padding: 12px 0; }
 .service-connection .service-attach { padding: 4px 0 0; }
 @media (max-width: 600px) {
   .service-pick .service-controls { flex-direction: column-reverse; align-items: flex-end; gap: 6px; }
+}
 }

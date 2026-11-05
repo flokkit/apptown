@@ -1,0 +1,16 @@
+@layer pages {
+@media (max-width: 800px) {
+  /* Wide things scroll inside their own box, never the page; the box's
+     edge shades while there is more to see that way (the scroll cue).
+     A list table marked .stack becomes a stack of cards instead (below);
+     key-value and diff tables fit or scroll in their own box already. */
+  .main table:not(.stack):not(.kv):not(.diff-table) {
+    display: block; overflow-x: auto; position: relative;
+    background:
+      linear-gradient(to right, var(--ground), transparent) left center / 24px 100% no-repeat local,
+      linear-gradient(to left, var(--ground), transparent) right center / 24px 100% no-repeat local,
+      radial-gradient(farthest-side at 0 50%, var(--scroll-shade), transparent) left center / 12px 100% no-repeat scroll,
+      radial-gradient(farthest-side at 100% 50%, var(--scroll-shade), transparent) right center / 12px 100% no-repeat scroll;
+  }
+}
+}

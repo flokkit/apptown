@@ -16,7 +16,7 @@ export function MoreMenu({ label, items }: { label: string; items: MoreItem[] })
       <button className="subtle more-menu-button" aria-label={`More actions for ${label}`} aria-haspopup="menu" aria-expanded={open}
         onClick={() => setOpen((o) => !o)}>⋯</button>
       {open && (
-        <div className="card more-menu-list" role="menu">
+        <div className="more-menu-list" role="menu">
           {items.map((it) => (
             <button key={it.label} className={`subtle${it.danger ? ' danger' : ''}`} role="menuitem" disabled={it.disabled}
               onClick={() => { setOpen(false); it.onClick() }}>

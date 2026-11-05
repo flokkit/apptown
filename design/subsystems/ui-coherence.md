@@ -34,7 +34,7 @@ remain in the release record.
 
 The look is "Ledger": warm paper, ink text, ruled lines and serif headings.
 Every colour, font, size and radius is a token at the top of
-`web/src/styles.css`; components name a role (`--ok`, `--rule`,
+`web/src/styles/tokens.css`; components name a role (`--ok`, `--rule`,
 `--font-serif`), never a value. Status colours each have one job, and
 unknown state has its own dashed, hatched stamp so it never reads
 as passed, stopped or empty. Fonts are bundled by the build

@@ -1,0 +1,135 @@
+@layer components {
+.layout { display: flex; min-height: 100vh; padding-top: var(--topbar-h); }
+/* The sidebar's column runs the full height of the page however long it is
+   (the nav stretches with the layout); its contents stay in view while the
+   page scrolls (the inner part is sticky). */
+.sidebar { flex-shrink: 0;
+  border-right: 1px solid var(--border); width: 210px; background: var(--bg);
+}
+.sidebar-inner {
+  position: sticky; top: var(--topbar-h); max-height: calc(100vh - var(--topbar-h)); min-height: calc(100vh - var(--topbar-h));
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 4px; padding: 12px 8px;
+}
+.sidebar-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 4px 0; border-top: 1px solid var(--rule); }
+/* The name gives way before "sign out" does: a long name is cut short, and
+   the line wraps under the theme switch when the menu is narrow. */
+.sidebar-foot .topbar-user { margin-left: auto; min-width: 0; max-width: 100%; }
+.sidebar-foot .topbar-user > button { flex-shrink: 0; }
+.topbar-user-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.sidebar .topbar-find { margin-bottom: 8px; }
+.sidebar .topbar-find input, .sidebar .topbar-find input:focus { width: 100%; }
+
+/* The top bar: AppTown › project › page · state — the one fixed anchor. */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h); z-index: 70;
+  display: flex; align-items: center; padding: 0 16px 0 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px; white-space: nowrap; gap: 16px; background: var(--bg);
+}
+.topbar-logo { font-family: var(--font-heading); font-weight: var(--fw-strong); color: var(--text); margin-right: 4px; font-size: 17px; letter-spacing: -.04em; }
+.topbar-logo span { color: var(--accent); }
+.topbar-logo:hover { text-decoration: none; }
+.topbar-crumb { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.topbar-crumb a { color: var(--text); }
+.topbar-sep { color: var(--faint); }
+.topbar-here { font-weight: 600; overflow: hidden; text-overflow: ellipsis; max-width: 48vw; }
+.topbar-user { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: var(--fs-sm); margin-left: 6px; }
+.topbar-user button { padding: 3px 8px; font-size: var(--fs-xs); }
+.topbar-find { position: relative; }
+.topbar-find input { width: 220px; padding: 5px 10px; font-size: var(--fs-sm); border-radius: var(--radius-sm); }
+.topbar-find input:focus { width: 320px; }
+.theme-switch { display: flex; gap: 2px; }
+.theme-switch button { padding: 3px 8px; font-size: var(--fs-xs); }
+.theme-switch button.active { color: var(--accent); background: var(--accent-bg); }
+.sidebar :is(a, button).nav {
+  padding: 7px 10px; color: var(--muted); font-size: var(--fs-sm); border-radius: 0; display: flex; align-items: center; gap: 10px;
+}
+.sidebar :is(a, button).nav:hover { background: var(--panel2); color: var(--text); text-decoration: none; }
+.sidebar :is(a, button).nav.active { color: var(--text); font-weight: var(--fw-strong); background: transparent; box-shadow: none; border-left: 2px solid var(--text); }
+.sidebar .spacer { flex: 1; }
+.sidebar .user { padding: 8px 10px; font-size: var(--fs-xs); color: var(--muted); }
+.sidebar .user input {
+  width: 100%; margin-top: 4px; background: var(--bg); color: var(--text);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 4px 6px; font-size: var(--fs-xs);
+}
+
+/* min-width: 0 lets the page column shrink below its widest child, so a wide
+   table or a long line scrolls in its own box instead of the whole page. */
+.main { flex: 1; min-width: 0; max-width: none; padding: 16px 28px 48px; }
+.topbar-menu { font-size: 18px; padding: 2px 8px; line-height: 1; color: var(--text); }
+.topbar-chip { margin-left: 6px; }
+.sidebar-backdrop { display: none; }
+@media (max-width: 800px) {
+  .topbar { padding: 0 10px 0 6px; height: auto; min-height: var(--topbar-h); gap: 6px; padding-inline: 8px; }
+  .topbar-crumb { overflow: hidden; display: none; }
+  .topbar-crumb a, .topbar-here { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40vw; }
+  .topbar-crumb:not(.last) { display: none; }
+  .topbar-chip { max-width: 30vw; overflow: hidden; text-overflow: ellipsis; }
+  .sidebar {
+    position: fixed; top: var(--topbar-h); bottom: 0; left: 0; z-index: 65; overflow-y: auto;
+    transform: translateX(-100%); visibility: hidden;
+    transition: transform .16s ease, visibility 0s linear .16s; width: min(280px, 85vw);
+  }
+  .sidebar.open { transform: none; visibility: visible; transition: transform .16s ease; box-shadow: var(--shadow-pop); }
+  .sidebar-inner { position: static; max-height: none; min-height: 100%; padding-bottom: 12px; }
+  .sidebar-backdrop { display: block; position: fixed; inset: var(--topbar-h) 0 0 0; z-index: 60; background: var(--overlay); }
+  .main { width: 100%; padding: 16px 18px 48px; }
+}
+
+/* Sidebar group divider: the loop above, setup below (design/subsystems/ui-coherence.md). */
+.sidebar .nav-group {
+  margin: 14px 10px 4px; padding-top: 10px; border-top: 1px solid var(--border);
+  font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--subtle);
+}
+@media (max-width: 800px), (pointer: coarse) {
+  .topbar-menu { min-width: 44px; min-height: 44px; font-size: 22px; }
+  .sidebar :is(a, button).nav { padding: 11px 12px; }
+  .theme-switch button, .topbar-user button { min-height: 44px; min-width: 44px; padding: 6px 12px; font-size: var(--fs-sm); white-space: nowrap; }
+  .sidebar .topbar-find input { min-height: 44px; }
+  .topbar-logo { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; }
+  .topbar-crumb a, .ch-crumb a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+}
+@media (max-width: 600px) { .topbar-chip { display: none; } }
+.sidebar :is(a, button).nav.muted.active { border-left-color: transparent; font-weight: var(--fw-regular); }
+.sidebar-project { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 10px; padding: 10px 10px 6px; min-width: 0; }
+
+@media (max-width: 700px) {
+  .topbar > a[href="/projects"] { display: none; }
+}
+.attention-lights { gap: 4px; flex-wrap: nowrap; flex-shrink: 0; }
+.attention-light { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; color: var(--bad); background: var(--bad-bg, transparent); }
+.attention-light.low { color: var(--warn, #b7791f); background: var(--warn-bg, transparent); }
+.attention-light.off { color: var(--faint); background: transparent; }
+.attention-light:hover { outline: 1px solid currentColor; }
+@media (max-width: 800px) {
+  /* The four lights stay one row beside the logo on a phone. */
+  .attention-lights { gap: 0; }
+  .attention-light { width: 26px; height: 26px; }
+  .topbar .topbar-user-name { white-space: normal; overflow-wrap: anywhere; }
+}
+
+.sidebar button.nav { border: 0; background: transparent; text-align: left; font-family: inherit; font-weight: var(--fw-regular); }
+
+/* ---- The menu: icons on areas, drawers for areas with pages, help and
+   you at the bottom. Icons are single-colour line icons, top level only. */
+.sidebar :is(a, button).nav > svg { flex: 0 0 auto; opacity: .75; }
+.sidebar :is(a, button).nav.active > svg, .sidebar a.nav.active-area > svg { opacity: 1; }
+.sidebar a.nav.active-area { color: var(--text); font-weight: var(--fw-strong); }
+.nav-drawer-head { display: flex; align-items: center; }
+.nav-drawer-head > a.nav { flex: 1; min-width: 0; }
+.nav-drawer-toggle { background: none; border: 0; color: var(--muted); padding: 6px; min-height: 0; cursor: pointer; border-radius: 4px; }
+.nav-drawer-toggle:hover { color: var(--text); background: var(--panel2); }
+.nav-drawer-items { display: flex; flex-direction: column; margin: 2px 0 6px 19px; padding-left: 8px; border-left: 1px solid var(--border); }
+.sidebar a.nav.nav-sub { padding-top: 6px; padding-bottom: 6px; font-size: var(--fs-sm); }
+.nav-group { margin-top: 18px; }
+.nav-bottom { display: flex; flex-direction: column; border-top: 1px solid var(--rule); padding-top: 8px; margin-top: 12px; }
+.sidebar-project strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-project .project-avatar { width: 24px; height: 24px; font-size: var(--fs-xs); flex: 0 0 auto; }
+@media (max-width: 800px) {
+  .topbar > .account-menu { flex-shrink: 0; }
+}
+@media (max-width: 800px) {
+  .topbar > .account-menu:last-child { min-width: 44px; max-width: 76px; flex-shrink: 1; }
+}
+}

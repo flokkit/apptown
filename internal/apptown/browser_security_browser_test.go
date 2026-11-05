@@ -3116,7 +3116,7 @@ func TestWebUICapture(t *testing.T) {
 	if boot.Code != http.StatusOK {
 		t.Fatalf("bootstrap: %d %s", boot.Code, boot.Body.String())
 	}
-	scene := &tourScene{t: t, a: a, runtime: runtime, password: password, cookies: map[string]*http.Cookie{}}
+	scene := &tourScene{t: t, a: a, runtime: runtime, password: password, cookies: map[string]*http.Cookie{}, refuseRun: new(atomic.Bool)}
 	for _, user := range []string{"priya", "tom"} {
 		scene.call("sam", "POST", "/api/v1/users", map[string]string{"username": user, "role": "member", "password": password})
 	}

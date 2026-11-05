@@ -1,0 +1,7 @@
+@layer components {
+.small { font-size: var(--fs-xs); }
+.muted { color: var(--muted); font-size: var(--fs-xs); }
+@media (max-width: 800px) {
+  .muted { font-size: var(--fs-sm); }
+}
+}

@@ -1,0 +1,76 @@
+@layer components {
+@media (max-width: 800px) {
+  .chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+}
+
+/* Chips are the ledger's stamps: a ruled edge in the state's colour over
+   its wash. No capitals, because chips also carry URLs and ids. Neutral
+   (draft, queued, stopped) is a plain grey stamp; UNKNOWN is dashed and
+   hatched so it never reads as neutral or passed. */
+/* Important layer order is reversed: these component properties keep the
+   stamp transparent even when a page supplies a state wash or border. */
+.chip {
+  display: inline-block; padding: 1px 7px;
+  font-size: var(--fs-xs); font-weight: var(--fw-strong); letter-spacing: 0.01em;
+  line-height: 1.5; border: 1px solid var(--border-strong); color: var(--subtle); white-space: nowrap; background: transparent !important; border-color: transparent !important; padding-left: 0; border-radius: 0;
+}
+.chip.pass
+  { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); }
+.chip.fail
+  { color: var(--bad); border-color: var(--bad); background: var(--bad-bg); }
+.chip.pending
+  { color: var(--warn); border-color: var(--warn-mark); background: var(--warn-bg); }
+.chip.running
+  { color: var(--busy); border-color: var(--busy); background: var(--busy-bg); }
+.chip.unknown
+  { color: var(--unknown); border-style: dashed; border-color: var(--unknown); background: var(--unknown-bg); }
+.chip.draft { color: var(--muted); }
+/* A shown answer whose refresh failed: a quiet amber stamp, not a red
+   line, so old data reads differently from an error with nothing shown. */
+.chip.out-of-date, .chip.moves-back { color: var(--warn); border-color: var(--warn-mark); background: var(--warn-bg); font-weight: var(--fw-regular); }
+.stale-note { margin: 0 0 6px; }
+.warn-line.stale-notice { margin: 0 0 10px; }
+.chip.deprecated, .chip.superseded, .chip.skipped { color: var(--subtle); text-decoration: line-through; }
+.chip.overridden { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+/* "you are here": the room you are in, the tab you are on — a place, not a state. */
+.chip.accent, .chip.here { color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
+
+/* An error line. Not a chip whose state is error: that keeps the chip's
+   size, in line with the chips beside it. */
+.error:not(.chip) { color: var(--bad); font-size: 14px; padding: 8px 0; }
+/* A line in a log that went partly wrong: a step skipped, the rest fine. */
+.warn-line { color: var(--warn); background: var(--warn-bg); border-left: 3px solid var(--warn-mark); padding: 2px 8px; margin: 2px 0; }
+
+/* Status dots and key–value tables (integration settings, model slots) */
+.dot {
+  width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0;
+}
+.dot.ok { background: var(--ok); }
+.dot.bad { background: var(--bad); }
+.dot.warn { background: var(--warn-mark); }
+.dot.unknown { background: transparent; border: 1.5px dashed var(--unknown); }
+@media (max-width: 800px), (pointer: coarse) {
+  /* A chip that is a link keeps its stamp size; its tap area reaches past
+     its edge to a fingertip's 44px. */
+  a.chip { position: relative; }
+  a.chip::after { content: ""; position: absolute; inset: -11px -4px; }
+}
+
+/* Status reasons stay one tap away on touch screens too. */
+.status-help { position: relative; display: inline-block; vertical-align: baseline; max-width: 100%; margin: 0; }
+.status-help > summary { display: inline; cursor: pointer; list-style: none; padding: 0; border: 0; background: none; }
+.status-help > summary::before, .status-help[open] > summary::before { content: none; }
+.status-help[open] > summary { margin: 0; }
+.status-help > summary::-webkit-details-marker { display: none; }
+.status-help > div { position: absolute; z-index: 100; top: 100%; left: 0; width: min(32rem, calc(100vw - 32px)); max-width: calc(100vw - 32px); box-sizing: border-box; white-space: normal; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
+.status-help > summary .chip { text-decoration: underline dotted var(--muted); text-underline-offset: 4px; }
+.chip:is(.unknown,.stale) > span[aria-hidden] { font-size: 0; display: inline-block; width: 8px; height: 8px; border: 1px dashed currentColor; border-radius: 50%; margin-right: 6px; }
+
+/* Metadata labels do not classify health. Status alone owns status colours. */
+.badge {
+  display: inline-block; font-size: var(--fs-xs); color: var(--muted);
+  font-weight: var(--fw-regular); line-height: 1.5; overflow-wrap: anywhere;
+}
+
+.finding-count { color: var(--warn); font-size: var(--fs-xs); }
+}

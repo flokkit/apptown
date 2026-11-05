@@ -1,5 +1,7 @@
+@layer pages {
 /* Settings › General: the form and the code rows sit inside their section's panel. */
 .settings-general .settings-form { padding: 0 0 14px; }
 .settings-general .repo-clone { background: var(--code-bg); padding: 6px 10px; border-radius: var(--radius-sm); flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .settings-general .repo-head { min-width: 0; overflow-wrap: anywhere; }
 .settings-general .card.row { flex-wrap: wrap; gap: 8px 12px; }
+}

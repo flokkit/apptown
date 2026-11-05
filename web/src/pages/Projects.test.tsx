@@ -8,7 +8,7 @@ import { getKey, newQueryClient } from '../data'
 import Projects from './Projects'
 // @ts-expect-error -- this package has no Node types; only this read is used.
 import { readFileSync } from 'node:fs'
-const css = readFileSync('src/styles.css', 'utf8')
+const css = readFileSync('src/styles/projects.css', 'utf8')
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 

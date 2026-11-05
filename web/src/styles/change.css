@@ -1,0 +1,193 @@
+@layer components {
+/* ---- The change page (pages/ChangePage.tsx) --------------------------------
+   Four bands in the order a person asks: what this is, where it is and the
+   one next action, the evidence as ruled receipts, then tabs for the rest. */
+.ch-page { display: flex; flex-direction: column; max-width: none; gap: 16px; }
+.ch-page h2 { margin: 0; }
+.ch-head { display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+.ch-crumb { font-size: var(--fs-sm); color: var(--subtle); }
+.ch-crumb a { color: var(--subtle); }
+.ch-sep { color: var(--faint); margin: 0 6px; }
+.ch-title-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.ch-title-row h1 { margin: 0; overflow-wrap: anywhere; font-size: var(--fs-xl); }
+.ch-meta { font-size: 14px; color: var(--muted); }
+.ch-oneline { font-size: var(--fs-base); color: var(--text); max-width: 900px; }
+.ch-label-inline {
+  display: inline-block; min-width: 72px; margin-right: 8px;
+  font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--subtle); text-transform: uppercase; letter-spacing: 0.06em;
+}
+.ch-label { font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--subtle); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+
+/* The state: a sheet with a dot, a headline, who it waits on, one primary act. */
+.ch-state {
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; gap: 12px; border-width: 1px 0; background-image: none; box-shadow: none; padding: 12px;
+}
+.ch-state.tone-warn { border-color: var(--warn-mark); box-shadow: none; }
+.ch-state.tone-bad { border-color: var(--bad); box-shadow: none; }
+.ch-state.tone-busy { border-color: var(--busy); box-shadow: none; }
+.ch-state.tone-ok { border-color: var(--ok); box-shadow: none; }
+.ch-state.tone-unknown { border-color: var(--unknown); border-style: dashed; background: var(--unknown-bg), var(--panel); }
+.ch-state-main { display: flex; align-items: flex-start; gap: 10px; }
+.ch-dot { width: 12px; height: 12px; border-radius: 6px; flex-shrink: 0; margin-top: 8px; background: var(--faint); }
+.ch-dot.warn { background: var(--warn-mark); }
+.ch-dot.bad { background: var(--bad); }
+.ch-dot.busy { background: var(--busy); }
+.ch-dot.ok { background: var(--ok); }
+.ch-dot.unknown { background: transparent; border: 1.5px dashed var(--unknown); }
+.ch-state-words { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ch-state-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ch-headline { font-size: var(--fs-md); font-weight: var(--fw-strong); overflow-wrap: anywhere; }
+.ch-sentence { color: var(--muted); overflow-wrap: anywhere; white-space: pre-wrap; }
+.ch-quote { color: var(--text); }
+.ch-waiting { font-size: 14px; color: var(--muted); }
+.ch-waiting strong { color: var(--text); font-weight: var(--fw-medium); }
+.ch-stale { font-size: var(--fs-sm); color: var(--unknown); }
+.ch-state-body { padding-left: 28px; }
+.ch-primary { gap: 12px; }
+.ch-quiet { padding-left: 28px; padding-top: 10px; border-top: 1px solid var(--rule); gap: 10px; }
+.ch-approve-evidence { margin-bottom: 4px; }
+/* AppTown's screenshots of a preview, where a person approves. */
+.ch-shots { margin-top: 10px; display: grid; gap: 6px; min-width: 0; }
+.ch-shots .warn { color: var(--warn); }
+.shot-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+.shot-img { display: block; padding: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: transparent; cursor: zoom-in; width: 200px; height: 125px; }
+.shot-img img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.shot-empty { display: grid; place-items: center; cursor: default; padding: 6px; text-align: center; }
+@media (max-width: 520px) { .shot-img { width: calc(50vw - 30px); height: calc((50vw - 30px) * 0.625); } }
+.ch-shortfall { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--bad); border-left-width: 4px; border-radius: 6px; background: var(--bad-bg); color: var(--text); font-size: 14px; line-height: 1.45; }
+.ch-unchecked { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--warn-mark); border-left-width: 4px; border-radius: 6px; background: var(--warn-bg); color: var(--text); font-size: 14px; line-height: 1.45; }
+.ch-shortfall strong { color: var(--bad); }
+.ch-sendback textarea { font-family: var(--font-sans); font-size: var(--fs-sm); }
+
+/* Section heads: a serif title with a muted line beside it. */
+.ch-section-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+
+/* The disagreement: the checks' case beside the implementer's claim. */
+.ch-dispute { background: var(--panel); border: 1px solid var(--bad); border-radius: var(--radius); padding: 18px 22px; }
+.ch-dispute-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+.ch-dispute-side { min-width: 0; }
+.ch-verdict { margin-bottom: 12px; }
+.ch-verdict-text { white-space: pre-wrap; font-family: var(--font-sans); font-size: 14px; margin: 6px 0; color: var(--text); }
+.ch-findings { margin: 4px 0 0 20px; padding: 0; font-size: 14px; }
+.ch-claim { max-height: 420px; overflow-y: auto; border-left: 3px solid var(--rule); padding-left: 12px; }
+
+/* The evidence: a ledger of receipts. */
+.ch-ledger { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; border-width: 1px 0; box-shadow: none; }
+.ch-targets { margin: 0 0 10px; }
+.ch-ledger-group + .ch-ledger-group { border-top: 1px solid var(--border); }
+.ch-ledger-head {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 9px 18px;
+  background: var(--chrome); border-bottom: 1px solid var(--rule); font-size: var(--fs-sm); color: var(--subtle);
+}
+.ch-ledger-head strong { color: var(--text); font-family: var(--font-heading); font-size: 15px; }
+.ch-line {
+  display: grid; grid-template-columns: 116px minmax(0, 1fr) minmax(0, 210px) minmax(0, max-content) max-content; gap: 14px; align-items: baseline; border-bottom: 1px solid var(--rule-faint); padding: 10px 12px;
+}
+.ch-line:last-child { border-bottom: none; }
+.ch-line > .chip { justify-self: start; max-width: 100%; white-space: normal; }
+.ch-line-what { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.ch-line-title { font-weight: var(--fw-strong); }
+.ch-line-name { font-weight: var(--fw-regular); color: var(--subtle); font-family: var(--font-mono); font-size: var(--fs-xs); }
+.ch-line-sentence { color: var(--muted); overflow-wrap: anywhere; font-size: var(--fs-sm); }
+.ch-line-by { font-size: var(--fs-sm); color: var(--subtle); overflow-wrap: anywhere; }
+.ch-line-when { font-size: var(--fs-sm); color: var(--subtle); overflow-wrap: anywhere; }
+.ch-line-link { font-size: var(--fs-sm); text-align: right; }
+.ch-line:target { background: var(--accent-bg); }
+
+/* The tabs: one sheet, the tab strip ruled across its top. */
+.ch-tabs-sheet { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); border-width: 1px 0; box-shadow: none; }
+.ch-tabs { padding: 0 14px; margin-bottom: 0; flex-wrap: nowrap; overflow-x: auto; }
+.ch-tab-body { min-width: 0; padding: 12px 0; }
+.ch-tab-stack { display: flex; flex-direction: column; gap: 14px; }
+.ch-tab-stack h3 { margin-top: 0; }
+.ch-runpick { margin-bottom: 14px; gap: 6px; }
+.ch-runchip { font-size: var(--fs-sm); padding: 3px 9px; border: 1px solid var(--border); border-radius: var(--radius-xs); color: var(--muted); }
+.ch-runchip.on { border-color: var(--accent); color: var(--text); background: var(--accent-bg); }
+.ch-runchip:hover { text-decoration: none; border-color: var(--accent); }
+.step-head > strong { overflow-wrap: anywhere; min-width: 0; }
+/* The state column is one width, so step names line up whatever each state says. */
+.step-head > .chip:first-child, .step-head > .status-help:first-child { min-width: 9.5em; }
+@media (max-width: 800px) { .step-head > .chip:first-child, .step-head > .status-help:first-child { min-width: 0; } }
+.step-acts { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.step-acts:empty { display: none; }
+@media (max-width: 800px) {
+  .step-card { padding: 12px 0; }
+  .step-head { row-gap: 2px; }
+  .step-head > .muted { flex: 1 1 100%; }
+  .step-acts { flex: 1 1 100%; border-top: 1px solid var(--rule-faint); margin-top: 6px; padding-top: 4px; }
+}
+.ch-brief { display: flex; flex-direction: column; gap: 12px; }
+.ch-sheet { border: 1px solid var(--rule); border-radius: var(--radius); padding: 14px 16px; }
+
+@media (max-width: 800px) {
+  .ch-state { overflow: visible; }
+  .ch-state-body, .ch-quiet { padding-left: 0; }
+  .ch-dispute-grid { grid-template-columns: minmax(0, 1fr); }
+  .ch-line { grid-template-columns: 100px minmax(0, 1fr); display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; }
+  .ch-line-by, .ch-line-when { grid-column: 2; display: none; }
+  .ch-line-link { grid-column: 2; order: 1; margin-left: auto; min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: flex-end; text-align: right; }
+}
+
+/* ---- Phones and touch ------------------------------------------------------
+   One layout for everyone; on a narrow screen it reflows rather than hides.
+   Under the shell's breakpoint (chrome.ts NARROW_QUERY) the type steps up a
+   size so nothing a person reads is under 14px (chips and meta lines stay a
+   step smaller than body, as on a desk), and on any touch screen every
+   control is at least 44px tall: the size a fingertip hits first time. */
+@media (max-width: 800px) {
+  /* A receipt keeps its name, state and one fact; the full record is a tap away. */
+  .ch-line > .chip { order: 0; }
+  .ch-line-what { order: 2; flex: 1 1 100%; }
+  .ch-line > :empty { display: none; }
+  .ch-ledger-head { padding: 9px 14px; }
+  /* The tab strip is one line that scrolls sideways, shaded where more is. */
+  .ch-tabs { padding: 0 4px;
+    background:
+      linear-gradient(to right, var(--ground), transparent) left center / 24px 100% no-repeat local,
+      linear-gradient(to left, var(--ground), transparent) right center / 24px 100% no-repeat local,
+      radial-gradient(farthest-side at 0 50%, var(--scroll-shade), transparent) left center / 12px 100% no-repeat scroll,
+      radial-gradient(farthest-side at 100% 50%, var(--scroll-shade), transparent) right center / 12px 100% no-repeat scroll; }
+  /* A sticky thing stays inside its parent's box, so the boxes between the
+     bar and the approval's panel step out of the way: the bar can then
+     travel the whole panel. */
+  .ch-state-body:has(> .decision-form), .decision-form { display: contents; }
+}
+@media (max-width: 800px), (pointer: coarse) {
+  .ch-crumb { margin: -10px 0; }
+  .check-tap { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; cursor: pointer; }
+  .ch-runchip { min-height: 44px; display: inline-flex; align-items: center; }
+}
+
+.event-log { overflow-wrap: anywhere; }
+.event-log .ch-line { grid-template-columns: minmax(0, 1fr) auto 12px; }
+.event-payload { max-height: 320px; overflow: auto; white-space: pre; font-size: 11px; }
+.check-title { flex-wrap: nowrap; }
+.check-title > span:last-child { min-width: 0; }
+
+@media (max-width: 800px) {
+  .ch-sheet .kv-val, .ch-sheet .kv-val code { white-space: normal; overflow: visible; overflow-wrap: anywhere; max-width: none; }
+}
+/* Change navigation stays above the selected record, on one scrollable row. */
+.ch-tabs .tab { flex-shrink: 0; white-space: nowrap; }
+
+/* A receipt opens from its own row, without a second disclosure control. */
+.ch-receipt > summary { cursor: pointer; list-style: none; border: 0; border-radius: 0; background: transparent; }
+.ch-receipt > summary::-webkit-details-marker { display: none; }
+.ch-receipt > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ch-receipt-body { padding: 0 18px 14px; border-bottom: 1px solid var(--rule-faint); }
+@media (max-width: 700px) {
+  .ch-receipt > .ch-line > .receipt-state { order: 0; }
+  .ch-receipt > .ch-line > .ch-line-what { flex: 1 1 0; order: 1; }
+  .ch-receipt > .ch-line > [aria-hidden] { order: 2; }
+}
+.ch-receipt { margin: 0; }
+.ch-receipt[open] > summary { margin-bottom: 0; }
+.check-heading .check-title { display: grid; grid-template-columns: 8px minmax(0, 1fr); align-items: baseline; gap: 8px; white-space: normal; }
+
+.ch-mark { font-weight: 600; }
+.ch-mark.ok { color: var(--ok); }
+.ch-mark.bad { color: var(--bad); }
+.ch-mark.warn { color: var(--warn); }
+.shot { margin: 0; display: grid; gap: 3px; min-width: 0; }
+.ch-meta, .ch-crumb, .nav-group { font-family: var(--font-mono); font-size: var(--fs-xs); }
+}

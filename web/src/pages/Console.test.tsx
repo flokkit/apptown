@@ -79,7 +79,7 @@ describe('a chat says which kind it is from its first paint', () => {
 })
 
 // On a phone, what the chat is about steps aside while you type
-// (styles.css hides .console-extra while the message box has focus); the
+// (styles/console.css hides .console-extra while the message box has focus); the
 // conversation's own controls never do.
 describe('the chat keeps its input when the intro steps aside', () => {
   it('the intro is in the part that steps aside', () => {
@@ -93,7 +93,7 @@ describe('the chat keeps its input when the intro steps aside', () => {
 
 // On a phone the conversation keeps the room: what the chat is about folds
 // to one line that says where the change stands, and opens on a tap. On a
-// desk the fold is open (its line hidden by styles.css), as the cards
+// desk the fold is open (its line hidden by styles/console.css), as the cards
 // always were.
 describe('what the chat is about folds to one line on a phone', () => {
   const parse = (html: string) => { const el = document.createElement('div'); el.innerHTML = html; return el }

@@ -2,7 +2,7 @@
 // from a CDN at runtime (an offline or locked-down AppTown looks the same).
 // Each file declares its subsets with unicode-range, so a browser downloads
 // only the subsets a page uses. Only the weights the tokens name are loaded:
-// see --fw-* and the font stacks in styles.css.
+// see --fw-* and the font stacks in styles/tokens.css.
 import '@fontsource/ibm-plex-sans/400.css'
 import '@fontsource/ibm-plex-sans/400-italic.css'
 import '@fontsource/ibm-plex-sans/500.css'

@@ -1,14 +1,17 @@
-.attention-summary { margin: 8px 0 0; font-size: var(--fs-sm); }
-.attention-row { display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; }
+@layer pages {
+.attention-summary { margin: 8px 0 0; font-size: var(--fs-xs); }
+@media (max-width: 800px) { .attention-summary { font-size: var(--fs-sm); } }
+.attention-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .attention-what { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .attention-what > a { font-weight: var(--fw-strong); }
 .attention-what details { margin-top: 4px; }
 .attention-lines { margin: 4px 0 0; padding-left: 18px; }
 .attention-seen { flex: 0 0 auto; white-space: nowrap; }
 @media (max-width: 800px) {
-  .attention-row { flex-wrap: wrap; row-gap: 4px; }
+  .attention-row { flex-wrap: wrap; row-gap: 8px; }
   .attention-row .attention-what { order: -1; flex: 1 1 100%; }
   .attention-row .row-action { margin-left: auto; }
 }
 
 .attention-group { scroll-margin-top: calc(var(--topbar-h, 56px) + 12px); }
+}

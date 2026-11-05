@@ -1,0 +1,67 @@
+@layer components {
+/* Infrastructure: a card per deployment target (InfrastructureHome.tsx).
+   A line glyph for the kind, the name, a status chip; the address held
+   to two lines so every card's stat strip sits on the same line; the
+   strip with the number above its word; what needs attention; a footer
+   pinned to the bottom. Structured so a person scans, never reads. */
+.infra-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: 0; align-items: start; }
+.infra-card { display: flex; flex-direction: column; gap: 10px; text-decoration: none; color: inherit; height: 100%; box-sizing: border-box; padding: 16px 0; border-width: 0 0 1px; border-radius: 0; background: transparent; box-shadow: none; }
+.infra-head { display: flex; align-items: center; gap: 12px; }
+.infra-glyph { border-radius: var(--radius); display: grid; place-items: center; color: var(--accent); flex: none; width: 24px; height: 24px; background: transparent; }
+.infra-glyph svg { width: 24px; height: 24px; }
+.infra-title { font-family: var(--font-heading); font-weight: var(--fw-strong); font-size: 18px; line-height: 1.2; }
+.infra-kind { color: var(--muted); font-size: var(--fs-xs); }
+.infra-facts { font-size: var(--fs-xs); color: var(--muted); min-height: 2.7em; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.infra-stats { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.infra-stat { padding: 8px 4px; text-align: center; }
+.infra-stat + .infra-stat { border-left: 1px solid var(--border); }
+.infra-stat b { display: block; font-variant-numeric: tabular-nums; line-height: 1.1; font-size: var(--fs-md); }
+.infra-stat span { font-size: var(--fs-xs); color: var(--subtle); }
+.infra-attention { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-height: 22px; }
+.infra-foot { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: var(--fs-xs); margin-top: auto; padding-top: 6px; border-top: 1px solid var(--border); }
+.infra-foot span { display: block; }
+.infra-foot small { display: block; color: var(--subtle); font-size: var(--fs-xs); }
+.infra-add { display: flex; flex-direction: column; gap: 8px; justify-content: center; align-items: flex-start; border-style: dashed; height: 100%; box-sizing: border-box; text-decoration: none; color: inherit; padding: 16px 0; border: 0; }
+/* A card is one link: hover highlights the card, never underlines its words. */
+a.infra-card:hover, a.infra-add:hover { text-decoration: none; border-color: var(--accent); color: inherit; }
+.infra-grid > a.infra-card { grid-template-columns: minmax(230px,1fr) minmax(170px,1fr) minmax(200px,1fr); gap: 12px 24px; display: block; padding: 16px 0; }
+.infra-grid > a.infra-card .infra-head { grid-column: 1; grid-row: 1 / span 2; }
+.infra-grid > a.infra-card .infra-stats { grid-column: 2; grid-row: 1; border: 0; margin: 0; }
+.infra-grid > a.infra-card .infra-facts { grid-column: 2; grid-row: 2; }
+.infra-grid > a.infra-card .infra-attention { grid-column: 3; grid-row: 1; margin: 0; }
+.infra-grid > a.infra-card .infra-foot { grid-column: 3; grid-row: 2; border: 0; padding: 0; }
+@media (max-width: 1000px) {
+  .infra-grid > a.infra-card { grid-template-columns: minmax(200px,1fr) minmax(0,1fr); }
+  .infra-grid > a.infra-card .infra-attention, .infra-grid > a.infra-card .infra-foot { grid-column: 1 / -1; grid-row: auto; }
+}
+@media (max-width: 800px) {
+  .infra-grid > a.infra-card { flex-direction: column; gap: 12px; align-items: stretch; }
+  .infra-foot { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+
+/* Operational lists lead with a name, a light and one useful fact. */
+.host-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(100px, .6fr); gap: 8px 20px; align-items: center; }
+.host-row > * { min-width: 0; overflow-wrap: anywhere; }
+.host-disk { border: 0; border-bottom: 1px solid var(--rule); border-radius: 0; margin: 0; }
+.host-disk > summary { display: grid; padding: 14px 0; list-style: none; }
+.host-disk > summary::before, .host-disk[open] > summary::before { content: none; }
+.host-disk > div { padding: 0 0 16px; }
+.capacity-summary { display: grid; grid-template-columns: 75px minmax(0, 1fr); gap: 8px 16px; margin: 12px 0; }
+.capacity-summary dt { color: var(--muted); }
+.capacity-summary dd { margin: 0; font-variant-numeric: tabular-nums; }
+.capacity-warning { color: var(--text); border-left: 3px solid var(--warn); padding-left: 10px; }
+.capacity-details { margin-top: 12px; }
+.target-settings, .target-deployments, .target-resources { margin-top: 16px; }
+.target-settings > div { overflow-wrap: anywhere; }
+@media (max-width: 800px) {
+  .host-row { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
+  .host-row > :last-child { grid-column: 1 / -1; }
+  .host-row > strong { font-size: var(--fs-base); }
+  .resource-details { margin-top: 6px; }
+}
+
+.host-disk > summary strong::after { content: " ›"; color: var(--muted); font-weight: 400; }
+.service-pick .host-row { width: 100%; grid-template-columns: minmax(0, 1fr) auto; }
+.service-pick .host-row > :last-child { grid-column: 2; grid-row: 1; }
+.resource-evidence { overflow-wrap: anywhere; }
+}
