@@ -405,21 +405,23 @@
 }
 
 /* Deploy scenes use colour only for working, live and stopped. */
-.deploy-scene { width: 100%; color: var(--scene-ink); }
+.deploy-scene { width: 100%; max-width: 420px; margin-inline: auto; color: var(--scene-ink); }
 .deploy-scene svg { display: block; width: 100%; height: auto; }
 .deploy-scene .ink { fill: none; stroke: var(--scene-ink); stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
 .deploy-scene .ground { stroke: var(--scene-ground); }
 .deploy-scene :is(.plan,.blk,.crane,.door,.visitor,.flag,.pole,.spark,.sign,.roof,.win,.tilt) { opacity: 0; }
 .deploy-scene :is(.blk,.roof,.door,.tilt,.flag,.spark,.visitor,.jib) { transform-box: fill-box; transform-origin: center; }
 .deploy-scene .flag { transform-origin: left bottom; }
-.deploy-scene :is(.jib,.door) { transform-origin: left center; }
+.deploy-scene .door { transform-origin: left center; }
+/* The jib turns on the mast top, not on its own end. */
+.deploy-scene .jib { transform-box: view-box; transform-origin: 240px 20px; }
 .deploy-scene.g1 .plan { opacity: 1; stroke-dasharray: 4 3; }
 .deploy-scene.n1 .plan { animation: deploy-fade .3s ease-out both; }
-.deploy-scene.g3 .plan { opacity: 0; }
+.deploy-scene.g2 .plan { opacity: 0; transition: opacity .4s; }
 .deploy-scene.n2 .crane { opacity: 1; animation: deploy-fade .3s ease-out both; }
 .deploy-scene.n2 .jib { animation: deploy-swing 2.4s ease-in-out infinite; }
 .deploy-scene.g2 :is(.blk,.roof) { opacity: 1; }
-.deploy-scene.n2 :is(.blk,.roof) { animation: deploy-drop .4s ease-out both; }
+.deploy-scene.n2 :is(.blk,.roof) { animation: deploy-drop .45s cubic-bezier(.2,.8,.3,1) both; }
 .deploy-scene.g4 .win { opacity: 1; stroke: var(--busy); fill: var(--busy); fill-opacity: .25; }
 .deploy-scene.n4 .win { animation: deploy-light 2.4s ease-in-out infinite both; }
 .deploy-scene.n4 .w2 { animation-delay: .15s; }
@@ -458,12 +460,12 @@
 .deploy-scene.fail .deploy-stages [aria-current="step"] { color: var(--bad); }
 .deploy-scene.g5 .deploy-stages [aria-current="step"] { color: var(--ok); }
 
-.deploy-scene.n2 .b2 { animation-delay: .04s; }
-.deploy-scene.n2 .b3 { animation-delay: .08s; }
-.deploy-scene.n2 .b4 { animation-delay: .12s; }
-.deploy-scene.n2 .b5 { animation-delay: .16s; }
-.deploy-scene.n2 .b6 { animation-delay: .2s; }
-.deploy-scene.n2 .roof { animation-delay: .24s; }
+.deploy-scene.n2 .b2 { animation-delay: .3s; }
+.deploy-scene.n2 .b3 { animation-delay: .6s; }
+.deploy-scene.n2 .b4 { animation-delay: .9s; }
+.deploy-scene.n2 .b5 { animation-delay: 1.2s; }
+.deploy-scene.n2 .b6 { animation-delay: 1.5s; }
+.deploy-scene.n2 .roof { animation-delay: 1.8s; }
 .deploy-scene.n4 .visitor { transform: translateX(16px); }
 .deploy-scene .sign-label { fill: var(--bad); font-size: 7px; }
 .deploy-scene.fail.g4 .visitor { opacity: 1; transform: translateX(16px); }
@@ -478,3 +480,6 @@
 @media (max-width: 600px) {
   .ch-deploy-result { grid-template-columns: 100px minmax(0, 1fr); gap: 12px; }
 }
+
+/* In the progress screen its title already says what is happening. */
+.ch-decision-screen .ch-now > h2 { display: none; }
