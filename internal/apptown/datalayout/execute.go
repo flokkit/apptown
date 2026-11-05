@@ -18,7 +18,9 @@ import (
 // daemon's database exclusion, before constructing application recovery or
 // serving requests. oldRoot is the durable archive manifest's data directory
 // on restore and root otherwise; with the same root there is nothing to do.
-func Relocate(ctx context.Context, db *database.DB, root, oldRoot, instance string, observers Observers) error {
+// restore skips runtime writer checks: the restored copy has no writers on this
+// host. Moving an existing installation still requires observing stopped writers.
+func Relocate(ctx context.Context, db *database.DB, root, oldRoot, instance string, observers Observers, restore bool) error {
 	if _, err := readVersion(root); err != nil {
 		return err
 	}
@@ -33,7 +35,7 @@ func Relocate(ctx context.Context, db *database.DB, root, oldRoot, instance stri
 		if !filepath.IsAbs(root) || filepath.Clean(root) != root || !filepath.IsAbs(oldRoot) || filepath.Clean(oldRoot) != oldRoot || instance == "" {
 			return errors.New("relocation requires installation identity and absolute clean roots")
 		}
-		inventory, err := inspect(ctx, db, root, oldRoot, observers)
+		inventory, err := inspect(ctx, db, root, oldRoot, observers, restore)
 		if err != nil {
 			return err
 		}
@@ -51,8 +53,10 @@ func Relocate(ctx context.Context, db *database.DB, root, oldRoot, instance stri
 		if err := j.verifyOwners(ctx, db); err != nil {
 			return err
 		}
-		if err := refuseWriters(ctx, db, root, observers); err != nil {
-			return err
+		if !restore {
+			if err := refuseWriters(ctx, db, root, observers); err != nil {
+				return err
+			}
 		}
 	}
 	for {

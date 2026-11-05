@@ -197,8 +197,9 @@ func consoleAdmissionFor(a *App) *conversation.Admission {
 // observation-only adapters before New can create application recovery
 // state. The caller holds exclusive database ownership.
 // A missing local backend stays unavailable; NoLocal's absent answer is not
-// evidence that a previously local writer stopped.
-func RelocateDataLayout(ctx context.Context, db *database.DB, input Config, originalRoot string) error {
+// evidence that a previously local writer stopped. When restore is true, runtime
+// writer checks are skipped because this is a fresh copy of the source data.
+func RelocateDataLayout(ctx context.Context, db *database.DB, input Config, originalRoot string, restore bool) error {
 	cfg, err := input.prepare()
 	if err != nil {
 		return err
@@ -236,7 +237,7 @@ func RelocateDataLayout(ctx context.Context, db *database.DB, input Config, orig
 		observers.Tasks = execution.DockerTasks{Namespace: namespace, Daemon: daemon, Files: filepath.Join(cfg.dataDir, "task-files"), Now: cfg.clock.Now}
 		observers.TaskBackend = "local-docker " + namespace + " on " + daemon.Backend()
 	}
-	return datalayout.Relocate(ctx, db, cfg.dataDir, originalRoot, instance, observers)
+	return datalayout.Relocate(ctx, db, cfg.dataDir, originalRoot, instance, observers, restore)
 }
 
 // FinalizeDataLayout finishes relocation journal cleanup after any restore continuation

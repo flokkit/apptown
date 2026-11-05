@@ -288,7 +288,7 @@ func main() {
 		if restored != nil {
 			originalRoot = restored.DataDir
 		}
-		if err := apptown.RelocateDataLayout(ctx, db, cfg, originalRoot); err != nil {
+		if err := apptown.RelocateDataLayout(ctx, db, cfg, originalRoot, restored != nil); err != nil {
 			log.Fatalf("data directory relocation: %v", err)
 		}
 		if restored == nil {
