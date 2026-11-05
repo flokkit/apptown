@@ -23,5 +23,5 @@ func (s *Outcomes) InputsFor(ctx context.Context, at Attempt) (Inputs, error) {
 		return Inputs{}, err
 	}
 	applied, err := appliedFrom(r.Applied)
-	return Inputs{Address: address, ReleaseID: r.ReleaseID, ReleaseRun: r.ReleaseRun, Revision: r.Revision, ImageDigest: r.ImageDigest, ArtifactHash: r.ArtifactHash, DockerSource: r.DockerSource, Rebuild: r.Rebuild, BundleID: r.BundleID, Applied: applied}, err
+	return Inputs{Backup: r.BackupID, Address: address, ReleaseID: r.ReleaseID, ReleaseRun: r.ReleaseRun, Revision: r.Revision, ImageDigest: r.ImageDigest, ArtifactHash: r.ArtifactHash, DockerSource: r.DockerSource, Rebuild: r.Rebuild, BundleID: r.BundleID, Applied: applied}, err
 }

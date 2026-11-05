@@ -1218,6 +1218,7 @@ export type ProjectBackup = {
   storeEndpoint?: string
   storeBucket?: string
   project: string
+  beforeRelease?: number
 }
 
 export type ProjectCleanupList = {
@@ -1457,6 +1458,8 @@ export type ReleaseDefault = {
 }
 
 export type ReleaseDetail = {
+  backupReason?: string
+  backup?: BackupReference | null
   statusLabel: ReleaseLabel
   release: Release | null
   changes: ReleaseChange[]
@@ -1468,6 +1471,7 @@ export type ReleaseDetail = {
 
 export type ReleaseListed = {
   statusLabel: ReleaseLabel
+  backupId?: string | null
   id: string | null
   projectId: string | null
   number: number
@@ -3883,7 +3887,15 @@ export type workflowSummary = {
   stages: workflowStageSummary[]
 }
 
+export type BackupReference = {
+  id: string | null
+  takenAt: string
+  bytes: number
+  status: BackupState
+}
+
 export type Release = {
+  backupId?: string | null
   id: string | null
   projectId: string | null
   number: number
@@ -4128,7 +4140,7 @@ export type CheckReading = {
   unreadable?: string
 }
 
-export type DeployStage = "preparing" | "building" | "starting" | "checking" | "live"
+export type DeployStage = "preparing" | "backing-up" | "building" | "starting" | "checking" | "live"
 
 export type SystemWorkflowBinding = {
   stock: string

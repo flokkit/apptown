@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/ids"
 
+	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -20,10 +22,11 @@ type ReleaseHistory struct {
 	work       *workflow.Service
 	deployment *deployment.Service
 	db         *database.DB
+	backups    *dataprotection.Backups
 }
 
-func NewReleaseHistory(projects *project.Projects, work *workflow.Service, deployment *deployment.Service, db *database.DB) ReleaseHistory {
-	return ReleaseHistory{projects: projects, work: work, deployment: deployment, db: db}
+func NewReleaseHistory(projects *project.Projects, work *workflow.Service, deployment *deployment.Service, backups *dataprotection.Backups, db *database.DB) ReleaseHistory {
+	return ReleaseHistory{projects: projects, work: work, deployment: deployment, backups: backups, db: db}
 }
 
 // ReleaseListed is one release in a project's list, with the titles of the
@@ -160,6 +163,41 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	events := append([]deployment.ReleaseEvent{}, logged...)
 	out := ReleaseDetail{Release: rel, StatusLabel: rel.State.Display(), Changes: changes, IsLive: live, Events: events}
+	if !rel.BackupID.IsZero() {
+		out.Backup, err = h.backups.Reference(r.Context(), p.ID, rel.BackupID)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+	}
+	if rel.BackupID.IsZero() && !rel.RunID.IsZero() {
+		snapshot, err := h.work.Snapshot(r.Context(), rel.RunID, workflow.DetailView)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		for _, step := range snapshot.Steps {
+			if step.Type != "deploy" || step.Status != workflow.StatusPass {
+				continue
+			}
+			var evidence struct {
+				Backup *struct {
+					Reason   string                           `json:"reason"`
+					Accepted *workflow.UncopiedDataAcceptance `json:"accepted"`
+				} `json:"backup"`
+			}
+			if err := json.Unmarshal(step.Evidence, &evidence); err != nil {
+				WriteFault(w, err)
+				return
+			}
+			if evidence.Backup != nil {
+				out.BackupReason = evidence.Backup.Reason
+				if evidence.Backup.Accepted != nil {
+					out.BackupReason += "; went ahead: accepted by " + evidence.Backup.Accepted.By
+				}
+			}
+		}
+	}
 	// The bundle's form and images, so a person can see before promoting
 	// whether the release can go where only images by digest go.
 	if !rel.BundleID.IsZero() {
@@ -185,13 +223,15 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 // ReleaseDetail is one release: what it is, the changes it carried, whether
 // it is what the deployment serves now, and its log.
 type ReleaseDetail struct {
-	StatusLabel  deployment.ReleaseLabel   `json:"statusLabel"`
-	Release      *deployment.Release       `json:"release"`
-	Changes      []ReleaseChange           `json:"changes"`
-	IsLive       bool                      `json:"isLive"`
-	Events       []deployment.ReleaseEvent `json:"events"`
-	SBOMArtifact ids.ID                    `json:"sbomArtifact,omitzero"`
-	Bundle       *ReleaseBundleView        `json:"bundle,omitempty"`
+	BackupReason string                          `json:"backupReason,omitempty"`
+	Backup       *dataprotection.BackupReference `json:"backup,omitempty"`
+	StatusLabel  deployment.ReleaseLabel         `json:"statusLabel"`
+	Release      *deployment.Release             `json:"release"`
+	Changes      []ReleaseChange                 `json:"changes"`
+	IsLive       bool                            `json:"isLive"`
+	Events       []deployment.ReleaseEvent       `json:"events"`
+	SBOMArtifact ids.ID                          `json:"sbomArtifact,omitzero"`
+	Bundle       *ReleaseBundleView              `json:"bundle,omitempty"`
 }
 
 // ReleaseBundleView is the bundle a release ships, by its form. By digest,

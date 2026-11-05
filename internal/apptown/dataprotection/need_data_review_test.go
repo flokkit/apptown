@@ -21,3 +21,17 @@ func TestDataNamedButAbsentDoesNotPassTheCopyGate(t *testing.T) {
 		t.Fatalf("uncopied declared data passed: %s", w.CopyWords())
 	}
 }
+
+func TestAReleaseWithNoDataRecordsNothingToBackUp(t *testing.T) {
+	t.Parallel()
+	s, _, _, _, pid := backupWorld(t, "nodata", 40128)
+	releaseMain(t, s, "nodata", "app:\n  web:\n    image: x:1\n    public: true\n")
+	w, err := s.Service.BeforeRelease(t.Context(), pid, "main", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := w.CopyOutcome()
+	if !w.Complete() || out.Outcome != "no-data" || out.Set != nil || !strings.Contains(out.Reason, "nothing to back up") {
+		t.Fatalf("no data: %+v", out)
+	}
+}

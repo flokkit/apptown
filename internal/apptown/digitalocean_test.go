@@ -255,7 +255,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 			t.Fatalf("only the release the deployment served is taken down: %+v", rows)
 		}
 	}
-	w = tgReq(httpapi.NewReleaseHistory(a.Projects, a.Work, a.Deployment, a.DB).ReleaseDetail, "GET", fmt.Sprintf("/api/v1/projects/expense/releases/%d", number), "", map[string]string{"slug": "expense", "number": fmt.Sprint(number)})
+	w = tgReq(httpapi.NewReleaseHistory(a.Projects, a.Work, a.Deployment, a.backupRecords, a.DB).ReleaseDetail, "GET", fmt.Sprintf("/api/v1/projects/expense/releases/%d", number), "", map[string]string{"slug": "expense", "number": fmt.Sprint(number)})
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"isLive":false`) {
 		t.Fatalf("the permalink of a taken-down release: %d %s", w.Code, w.Body.String())
 	}

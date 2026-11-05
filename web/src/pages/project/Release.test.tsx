@@ -189,3 +189,32 @@ it('keeps choosing a preference separate from a refused release', async () => {
     expect(el.textContent).toContain('Release preference saved')
   } finally { act(() => root.unmount()); client.clear(); el.remove(); vi.unstubAllGlobals() }
 })
+
+it.each([
+  ['ok', 'Backed up before this release →'],
+  ['partial', 'Backup before this release was incomplete →'],
+  ['failed', 'Backup before this release was incomplete →'],
+  ['pruned', 'Backup before this release was removed →'],
+])('describes the recorded %s backup and links its set', async (status, label) => {
+  const client = newQueryClient()
+  const body = { release: { id: B14, number: 14, state: 'released', deployment: 'main', createdAt: '2026-11-05T00:00:00Z' }, statusLabel: 'released', isLive: false, changes: [], events: [], backup: { id: B3, takenAt: '2026-11-05T00:00:00Z', bytes: 32, status } }
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(body))))
+  const view = render(<QueryClientProvider client={client}><MemoryRouter><ReleasePermalinkPage slug="shop" number="14" /></MemoryRouter></QueryClientProvider>)
+  try {
+    await vi.waitFor(() => expect(view.el.textContent).toContain(label))
+    const link = [...view.el.querySelectorAll('a')].find(a => a.textContent === label)
+    expect(link?.getAttribute('href')).toBe(`/deployments/backups#backup-${B3}`)
+    if (status !== 'ok') expect(view.el.textContent).not.toContain('Backed up before')
+  } finally { act(() => view.root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+it('shows an unlinked reason for a copy that could not be assessed', async () => {
+  const client = newQueryClient()
+  const reason = 'Could not read the data; went ahead: accepted by Sam'
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ release: { id: B14, number: 14, state: 'released', createdAt: '2026-11-05T00:00:00Z' }, changes: [], events: [], backupReason: reason }))))
+  const view = render(<QueryClientProvider client={client}><MemoryRouter><ReleasePermalinkPage slug="shop" number="14" /></MemoryRouter></QueryClientProvider>)
+  try {
+    await vi.waitFor(() => expect(view.el.textContent).toContain(reason))
+    expect(view.el.textContent).not.toContain('Backed up before')
+    expect(view.el.querySelector('a[href*="backup-"]')).toBeNull()
+  } finally { act(() => view.root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

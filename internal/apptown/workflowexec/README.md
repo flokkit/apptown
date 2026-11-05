@@ -32,7 +32,10 @@ does not make every runner one owner.
 `Shipping` claims deploy/preview steps, selects their source, invokes Deployment,
 and translates the result into evidence and settlement. Deployment owns provider
 execution and generation guards; a narrow backup requester admits the existing
-durable follow-up. No model service or App is available to these runners.
+durable follow-up. Dataprotection supplies the pre-release copy outcome and set reference for deploy
+evidence. Deployment stores the reference with the attempt and links it to the
+numbered workflow release on completion. No model service or App is available to
+these runners.
 On an AppTown with a worker (`ReleaseBuilds`, `release_build.go`) a landing's
 deploy step first refuses what would stop the release (no container
 registry, `-private-docker=false`, `main` not on a Docker host, an unknown or

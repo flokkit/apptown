@@ -588,3 +588,6 @@ WHERE r.subject=sqlc.arg(subject) AND r.kind='host-snapshot' AND r.identity=sqlc
 
 -- name: ActiveDockerTargets :many
 SELECT * FROM targets WHERE kind='docker-host' AND status<>'retired' ORDER BY name;
+
+-- name: ReleasesBeforeBackups :many
+SELECT backup_id, number FROM releases WHERE project_id=sqlc.arg(project_id) AND backup_id=ANY(sqlc.arg(backup_ids)::uuid[]);

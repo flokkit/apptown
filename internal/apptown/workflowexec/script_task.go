@@ -98,6 +98,11 @@ type TaskRunner struct {
 	// minute). Zero keeps the step's own.
 	ScriptWallClock time.Duration
 
+	// failureBackup is set only on a per-release copy of the runner, so
+	// task infrastructure failures retain the copy result already observed
+	// by that deploy attempt. Shared runners carry no step evidence.
+	failureBackup *backupEvidence
+
 	commands *commands // bound by NewCommands
 }
 
@@ -1444,6 +1449,9 @@ func (r *TaskRunner) holdResult(task *workflow.Execution, attempt tasks.Attempt,
 // recorded for a restarted AppTown.
 func (r *TaskRunner) failStep(task *workflow.Execution, operation, reason string) bool {
 	evidence := map[string]any{"reason": reason}
+	if r.failureBackup != nil {
+		evidence["backup"] = r.failureBackup
+	}
 	// A deploy's worker task builds release images; infrastructure failures
 	// of that task stop the same building stage as a nonzero build exit.
 	if task.Step().Type == "deploy" {

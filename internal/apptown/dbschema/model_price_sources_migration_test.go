@@ -8,7 +8,7 @@ import (
 
 func TestMigration205KeepsHistoricalAmountsWithoutInventingSources(t *testing.T) {
 	db := releaseDB(t)
-	if _, err := applyMigrations(t.Context(), db, migrations[:len(migrations)-1]); err != nil {
+	if _, err := applyMigrations(t.Context(), db, migrations[:migrationIndex(t, 205)]); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: this is the old ledger shape; current writers include source counts.

@@ -24,6 +24,7 @@ import (
 
 // Release is one row of the release ledger.
 type Release struct {
+	BackupID    ids.ID       `json:"backupId,omitzero"`
 	ID          ids.ID       `json:"id"`
 	ProjectID   ids.ID       `json:"projectId"`
 	Number      int64        `json:"number"`
@@ -78,6 +79,7 @@ func releaseRecord(r deploymentsql.Release, err error) (*Release, error) {
 		return nil, err
 	}
 	v := &Release{
+		BackupID:     r.BackupID,
 		ID:           r.ID,
 		ProjectID:    r.ProjectID,
 		Number:       r.Number,
@@ -238,4 +240,17 @@ func RepairInterruptedReleasesIn(ctx context.Context, tx *database.Tx, queuedRel
 		return 0, 0, fmt.Errorf("counting releases preserved for recovery: %w", err)
 	}
 	return failed, durable, nil
+}
+
+// BeforeBackups reads only explicit release associations within this project.
+func (s *Releases) BeforeBackups(ctx context.Context, projectID ids.ID, backups []ids.ID) (map[ids.ID]int64, error) {
+	rows, err := deploymentsql.New(s.db.SQL()).ReleasesBeforeBackups(ctx, deploymentsql.ReleasesBeforeBackupsParams{ProjectID: projectID, BackupIds: backups})
+	if err != nil {
+		return nil, err
+	}
+	out := map[ids.ID]int64{}
+	for _, r := range rows {
+		out[r.BackupID] = r.Number
+	}
+	return out, nil
 }

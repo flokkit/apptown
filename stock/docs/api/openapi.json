@@ -764,6 +764,33 @@
         ],
         "type": "string"
       },
+      "BackupReference": {
+        "properties": {
+          "bytes": {
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/BackupState"
+          },
+          "takenAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "takenAt",
+          "bytes",
+          "status"
+        ],
+        "type": "object"
+      },
       "BackupState": {
         "enum": [
           "ok",
@@ -3780,6 +3807,13 @@
           "artifactHash": {
             "type": "string"
           },
+          "backupId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "bundleId": {
             "format": "uuid",
             "type": [
@@ -3961,6 +3995,19 @@
       },
       "ReleaseDetail": {
         "properties": {
+          "backup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BackupReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "backupReason": {
+            "type": "string"
+          },
           "bundle": {
             "anyOf": [
               {

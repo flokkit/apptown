@@ -9,7 +9,7 @@ import { createContext, useContext, useId, useRef, useState, type ReactNode } fr
 import type { DeployStage } from '../../wire.gen'
 
 export const deployWords: Record<DeployStage, string> = {
-  preparing: 'getting the code ready', building: 'building the app',
+  preparing: 'getting the code ready', 'backing-up': 'backing up the data', building: 'building the app',
   starting: 'starting the app', checking: 'checking the app answers', live: 'live',
 }
 // Overview and its dialog keep separate drawings mounted. The first visible
@@ -29,7 +29,7 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true }: 
   const instance = useId()
   const lastStage = useRef<DeployStage>()
   const buildingArrived = useRef(false)
-  if (stage === 'building' && lastStage.current === 'preparing' && outcome === 'running') buildingArrived.current = true
+  if (stage === 'building' && (lastStage.current === 'preparing' || lastStage.current === 'backing-up') && outcome === 'running') buildingArrived.current = true
   if (stage && stage !== 'building') buildingArrived.current = false
   if (stage) lastStage.current = stage
   const sawRunning = useRef(false)
@@ -37,11 +37,13 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true }: 
   if (outcome === 'running' && stage && stage !== 'live') sawRunning.current = true
   const current = outcome === 'failed' ? failedStage : outcome === 'passed' ? 'live' : lastStage.current
   const stages = Object.keys(deployWords) as DeployStage[]
-  const index = current ? stages.indexOf(current) + 1 : 0
+  // Keep the existing scene frames until the backup scene is added.
+  const frames: DeployStage[] = ['preparing', 'building', 'starting', 'checking', 'live']
+  const index = current ? frames.indexOf(current === 'backing-up' ? 'preparing' : current) + 1 : 0
   const celebrate = outcome === 'passed' && sawRunning.current && !celebrated && (!celebration?.owner || celebration.owner === instance)
   const label = outcome === 'failed' ? `Stopped while ${current ? deployWords[current] : 'deploying'}`
     : current === 'live' ? 'The app is live' : current ? `Deploying: ${deployWords[current]}` : 'Waiting for deployment progress'
-  const classes = ['deploy-scene', ...stages.slice(0, index).map((_, i) => `g${i + 1}`),
+  const classes = ['deploy-scene', ...frames.slice(0, index).map((_, i) => `g${i + 1}`),
     (outcome === 'running' || outcome === 'paused') && index < 5 ? `n${index}` : '', outcome === 'failed' ? 'fail' : '',
     outcome === 'paused' ? 'paused' : '', celebrate ? 'celebrate' : 'rest', buildingArrived.current ? 'arrive-building' : ''].filter(Boolean).join(' ')
   return <div className={classes} onAnimationStart={() => {
@@ -102,7 +104,7 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true }: 
     {showStages && current && <ol className="deploy-stages" aria-label="Deployment stages">
       {stages.map((s, i) => {
         const stopped = s === current && outcome === 'failed'
-        const finished = i < index - 1 || outcome === 'passed'
+        const finished = (current ? i < stages.indexOf(current) : false) || outcome === 'passed'
         const running = s === current && outcome === 'running'
         return <li key={s} aria-current={s === current ? 'step' : undefined}>
           <span className={`deploy-stage-mark ${stopped ? 'bad' : finished ? 'ok' : running ? 'busy' : 'muted'}`}>

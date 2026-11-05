@@ -19,7 +19,7 @@ func backupPruningFixture(t *testing.T) (*Backups, string, ids.ID, []Backup) {
 
 func backupPruningFixtureWithFirstPath(t *testing.T, kind string) (*Backups, string, ids.ID, []Backup) {
 	t.Helper()
-	store := NewBackups(testDB(t))
+	store := NewBackups(testDB(t), nil)
 	dir := t.TempDir()
 	pid := createTestProject(t, store.db, "pruning", "Pruning")
 	var backups []Backup
@@ -150,4 +150,58 @@ func TestBackupPruningDoesNotWaitForOrDeleteARestoresFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantN(t, "pruned backups", backupsWhere(t, store.db, backupIn(backupPruned)), 1)
+}
+
+// Ten deploys add two sets each. Pre-release copies have their own count;
+// failed builds consume that count too, without a release association.
+func TestPruningKeepsThreePreReleaseSetsOutsideTheOrdinaryKeep(t *testing.T) {
+	t.Parallel()
+	store, dir, pid, _ := backupPruningFixture(t)
+	var before []ids.ID
+	for i := 0; i < 10; i++ {
+		for _, trigger := range []string{TriggerPreRelease, "release"} {
+			path := filepath.Join(dir, "backups", fmt.Sprintf("%d-%s", i, trigger))
+			if err := os.MkdirAll(path, 0700); err != nil {
+				t.Fatal(err)
+			}
+			status := BackupOK
+			if i%2 == 0 {
+				status = BackupPartial
+			}
+			id, err := store.Record(t.Context(), &Backup{ProjectID: pid, Deployment: "main", Path: path, Status: status, Trigger: trigger, TakenAt: "2026-11-05T00:00:00Z"}, "test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if trigger == TriggerPreRelease {
+				before = append(before, id)
+			}
+		}
+		if _, err := store.pruneBackups(t.Context(), filepath.Join(dir, "backups"), pid, "main", BackupKeep); err != nil {
+			t.Fatal(err)
+		}
+	}
+	keptPre, keptOther := 0, 0
+	rows, err := store.ForDeployment(t.Context(), pid, "main", 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, b := range rows {
+		if b.Status == backupPruned {
+			continue
+		}
+		if b.Trigger == TriggerPreRelease {
+			keptPre++
+		} else {
+			keptOther++
+		}
+	}
+	if keptPre != 3 || keptOther != BackupKeep {
+		t.Fatalf("kept pre-release %d, ordinary %d", keptPre, keptOther)
+	}
+	for i, id := range before {
+		b, err := store.ByID(t.Context(), pid, "main", id)
+		if err != nil || (b.Status == backupPruned) != (i < 7) {
+			t.Fatalf("pre-release set %d: %+v %v", i, b, err)
+		}
+	}
 }

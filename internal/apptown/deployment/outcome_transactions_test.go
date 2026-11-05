@@ -311,6 +311,7 @@ func TestDeploymentReleaseAdmissionPersistsImmutableInputs(t *testing.T) {
 	f, dep := deploymentOutcomeFixture(t)
 	s := f.outcomes
 	start := deploymentStartFor(dep, "immutable", "selected")
+	start.Inputs.Backup = idstest.N(7301)
 	start.Inputs.Address = &AddressSnapshot{DeploymentID: dep.ID, TargetID: dep.TargetID, Revision: 1, Ingress: deploy.Ingress{Hosts: []string{"selected.apps.example"}, URL: "https://selected.apps.example", CertificateDomain: "apps.example"}}
 	dbtest.FailNextStatement(t, f.db, "INSERT INTO deployment_attempt_inputs")
 	if _, _, err := s.Admit(context.Background(), start); !errors.Is(err, dbtest.ErrInjectedFailure) {

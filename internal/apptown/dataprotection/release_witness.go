@@ -34,8 +34,9 @@ type releaseWitness struct {
 	// copy is the set taken before the release; nil when none was needed,
 	// and Passed says why (never released, holds no data, its target keeps
 	// its own backups).
-	copy   *Backup
-	passed string
+	copy    *Backup
+	passed  string
+	outcome string
 	// missing is why no copy could be taken of data the deployment names:
 	// not a pass, and not complete.
 	missing string
@@ -45,6 +46,34 @@ type releaseWitness struct {
 	synthetic bool
 	dk        docker.Scope
 	needs     []needFacts
+}
+
+// BackupReference is the recorded set, including its current availability.
+type BackupReference struct {
+	ID      ids.ID      `json:"id"`
+	TakenAt string      `json:"takenAt"`
+	Bytes   int64       `json:"bytes"`
+	Status  BackupState `json:"status"`
+}
+
+func (b *Backup) Reference() *BackupReference {
+	return &BackupReference{ID: b.ID, TakenAt: b.TakenAt, Bytes: b.Bytes, Status: b.Status}
+}
+
+// CopyOutcome keeps no-copy reasons separate from an incomplete or unknown copy.
+type CopyOutcome struct {
+	Outcome string           `json:"outcome"`
+	Set     *BackupReference `json:"set,omitempty"`
+	Reason  string           `json:"reason"`
+}
+
+func (w *releaseWitness) CopyOutcome() CopyOutcome {
+	out := CopyOutcome{Outcome: w.outcome, Reason: w.CopyWords()}
+	if w.copy != nil {
+		out.Set = w.copy.Reference()
+		out.Outcome = w.copy.Status.String()
+	}
+	return out
 }
 
 // needFacts is one need service's data as read before the release.
@@ -94,6 +123,7 @@ func (s *Service) BeforeRelease(ctx context.Context, projectID ids.ID, deploymen
 	w := &releaseWitness{synthetic: synthetic}
 	dep, err := s.deployments.ByName(ctx, projectID, deploymentName)
 	if errors.Is(err, sql.ErrNoRows) {
+		w.outcome = "first-release"
 		w.passed = "it has never been released"
 		return w, nil
 	}
@@ -101,6 +131,7 @@ func (s *Service) BeforeRelease(ctx context.Context, projectID ids.ID, deploymen
 		return nil, fmt.Errorf("reading the deployment %s: %w", deploymentName, err)
 	}
 	if !dep.Standing() || dep.ReleaseSHA == "" {
+		w.outcome = "first-release"
 		w.passed = "nothing is released there yet"
 		return w, nil
 	}
@@ -109,6 +140,7 @@ func (s *Service) BeforeRelease(ctx context.Context, projectID ids.ID, deploymen
 		return nil, fmt.Errorf("%s: reading its deployment target: %w", deploymentName, err)
 	}
 	if err := t.HoldsBackups(); err != nil {
+		w.outcome = "target-managed"
 		w.passed = err.Error()
 		w.notes = append(w.notes, "its data is on "+t.Name+", which AppTown does not witness")
 		return w, nil
@@ -116,10 +148,12 @@ func (s *Service) BeforeRelease(ctx context.Context, projectID ids.ID, deploymen
 	b, err := s.takeBackup(ctx, projectID, deploymentName, TriggerPreRelease, "apptown-system")
 	switch {
 	case errors.Is(err, errNothingToBackUp):
-		w.passed = "it holds no data"
+		w.outcome = "no-data"
+		w.passed = "nothing to back up: it holds no data"
 	case errors.Is(err, errHeldDataAbsent):
 		// Named and not there is not "nothing to copy": the release could
 		// boot on new, empty storage in its place.
+		w.outcome = "missing-data"
 		w.missing = "the data its release names is not on its host"
 	case err != nil:
 		return nil, fmt.Errorf("taking the copy before this release: %w", err)

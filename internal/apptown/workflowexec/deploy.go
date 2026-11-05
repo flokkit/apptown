@@ -14,6 +14,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -41,12 +42,24 @@ func (a *shipping) RunDeploy(task *workflow.Execution) {
 	if cfg.Deployment == "" {
 		cfg.Deployment = "main" // the standing env that tracks main (design/subsystems/deployment.md)
 	}
+	var backup *backupEvidence
 	stage := deploy.Preparing
 	reportStage := func(next deploy.DeployStage) {
 		stage = next
 		a.progress.SetStage(stepID, next.String())
 	}
 	finish := func(status workflow.StepState, evidence any) {
+		if backup != nil {
+			switch e := evidence.(type) {
+			case map[string]any:
+				e["backup"] = backup
+			case deployment.LandingEvidence:
+				evidence = struct {
+					deployment.LandingEvidence
+					Backup *backupEvidence `json:"backup"`
+				}{e, backup}
+			}
+		}
 		if status != workflow.StatusPass {
 			if feed, ok := a.progress.Read(stepID, 0); ok {
 				if reported, err := deploy.ParseDeployStage(feed.Stage); err == nil {
@@ -187,17 +200,21 @@ func (a *shipping) RunDeploy(task *workflow.Execution) {
 	logf("Preflight passed for %s on commit %s at %s; boot checks again", check.Deployment, check.Commit, check.CheckedAt.UTC().Format(time.RFC3339))
 	// The data it already holds is copied before anything is built or
 	// booted, and read so it can be checked afterwards.
+	reportStage(deploy.BackingUp)
 	dataClass := a.deploymentDataClass(task.Context(), run.ProjectID, cfg.Deployment)
 	var witness ReleaseWitness
 	if a.releaseData != nil {
 		logf("Copying the data %s holds before releasing onto it", cfg.Deployment)
 		w, err := a.releaseData.BeforeRelease(task.Context(), run.ProjectID, cfg.Deployment, dataClass == "synthetic")
+		backup = &backupEvidence{CopyOutcome: dataprotection.CopyOutcome{Outcome: "unavailable", Reason: "the copy could not be assessed"}}
 		copied, words := w != nil && w.Complete(), ""
 		switch {
 		case err != nil:
 			words = "the copy before this release could not be taken: " + err.Error()
+			backup.Reason = words
 		case w != nil:
 			words = w.CopyWords()
+			backup.CopyOutcome = w.CopyOutcome()
 			witness = w
 		}
 		logf("%s", words)
@@ -206,19 +223,21 @@ func (a *shipping) RunDeploy(task *workflow.Execution) {
 			if accepted != nil && accepted.Attempt != int64(step.Attempt) {
 				accepted = nil // given for another attempt
 			}
+			backup.Accepted = accepted
 			if refused := releaseOverUncopied(cfg.Deployment, dataClass, accepted, words, logf); refused != "" {
 				finish(workflow.StatusError, map[string]any{"reason": refused, "copy": words})
 				return
 			}
 		}
 	}
+	reportStage(deploy.Building)
 	// On an AppTown with a worker the release is built there, published and
 	// committed as a digest bundle before anything is deployed; the host
 	// pulls it.
 	var bundle *deployment.ReleaseBundle
 	if a.builds != nil {
 		var ok bool
-		if bundle, ok = a.buildRelease(task, releaseTarget{deployment: env, repository: ws, commit: relSHA, tree: selectedTree, contract: selectedContract, raw: raw}); !ok {
+		if bundle, ok = a.buildRelease(task, releaseTarget{deployment: env, repository: ws, commit: relSHA, tree: selectedTree, contract: selectedContract, raw: raw}, backup, finish); !ok {
 			return
 		}
 	}
@@ -253,6 +272,9 @@ func (a *shipping) RunDeploy(task *workflow.Execution) {
 	ws = art.Source.Workspace
 	c := art.Source.Contract
 	inputs := deployment.Inputs{ReleaseRun: run.ID, Revision: relSHA, ArtifactHash: art.Hash, DockerSource: string(art.Body)}
+	if backup != nil && backup.Set != nil {
+		inputs.Backup = backup.Set.ID
+	}
 	if bundle != nil {
 		inputs.BundleID = bundle.ID // the generation runs this bundle, whatever a later attempt commits
 	}
@@ -378,4 +400,10 @@ type deployConfig struct {
 	// AcceptUncopiedData is read by its exact key (acceptanceIn): JSON
 	// would take any casing of it.
 	AcceptUncopiedData json.RawMessage `json:"acceptUncopiedData,omitempty"`
+}
+
+// backupEvidence records the observed copy independently of deployment success.
+type backupEvidence struct {
+	dataprotection.CopyOutcome
+	Accepted *workflow.UncopiedDataAcceptance `json:"accepted,omitempty"`
 }

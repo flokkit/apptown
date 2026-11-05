@@ -12,13 +12,14 @@ type DeployStage uint8
 
 const (
 	Preparing DeployStage = iota + 1
+	BackingUp
 	Building
 	Starting
 	Checking
 	Live
 )
 
-var deployStages = enum.Set[DeployStage]{Names: []string{"preparing", "building", "starting", "checking", "live"}, Invalid: "invalid-deploy-stage", Err: errors.New("invalid deploy stage")}
+var deployStages = enum.Set[DeployStage]{Names: []string{"preparing", "backing-up", "building", "starting", "checking", "live"}, Invalid: "invalid-deploy-stage", Err: errors.New("invalid deploy stage")}
 
 func (s DeployStage) String() string                 { return deployStages.String(s) }
 func ParseDeployStage(s string) (DeployStage, error) { return deployStages.Parse(s) }

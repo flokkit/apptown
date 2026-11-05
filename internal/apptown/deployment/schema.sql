@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS releases (
   -- restored, the provider was found running something else, recorded as
   -- what runs and never as something AppTown shipped (external_ref names it).
   origin TEXT NOT NULL DEFAULT 'shipped' CONSTRAINT release_origin CHECK (origin IN ('shipped', 'observed-after-restore')),
+  backup_id UUID,
   UNIQUE(project_id, number)
 );
 CREATE TABLE IF NOT EXISTS release_changes (
@@ -164,7 +165,8 @@ CREATE TABLE IF NOT EXISTS deployment_attempt_inputs (
   -- the environment the profile changed, and what each part runs on. A
   -- rebuild reapplies it; '{}' is a generation from before it was kept.
   applied JSONB NOT NULL DEFAULT '{}'::jsonb,
-  ingress_json JSONB
+  ingress_json JSONB,
+  backup_id UUID
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_deployment_inputs_release ON deployment_attempt_inputs(release_id) WHERE release_id IS NOT NULL;
 -- One need of one project fulfilled in one deployment (§2.5).

@@ -880,7 +880,9 @@ Copy cadence itself remains the data protection rule below.
   ready for one, and drills it when any item it would fill has no drill
   on this deployment, or its own last drill failed or is a week old;
   ordinary store sets keep the newest 14 (production) or 7, final copies 30
-  days.
+  days. Pre-release sets have a separate count: the newest three per deployment
+  are kept and do not count toward the ordinary keep. This keeps sets, including
+  those taken before a later build failure, rather than three successful releases.
 
 **Restore rehearsals** (`dataprotection/rehearsal.go`, `docker/sealed.go`).
 A rehearsal is a data operation on the deployment it rehearses
@@ -1042,6 +1044,14 @@ name on that target is refused (`ErrNameHeldByData`). The release the
 deployment was serving gets a last line in its log: "taken down — <who>
 deleted the deployment <name> on <target>; it no longer serves this
 release".
+
+A landing reports `backing-up` between preparing and building. Its deploy
+step records the copy outcome, optional set with its status, reason and any
+per-attempt acceptance on success and failure. A successful deployment does
+not certify a complete backup. Workflow completion links the numbered release
+to the successful deployment attempt's stored backup ID. Release detail reads
+that set's current availability; backup history labels the explicit reverse
+association. Neither direction is inferred from timestamps or names.
 
 A release is live (`isLive` on its detail) only while it is the newest
 released on its deployment and that deployment still stands; a deployment

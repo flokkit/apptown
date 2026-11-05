@@ -695,7 +695,7 @@ func TestAfterARestoreTheRecordsSayWhatTheFirstStartDoes(t *testing.T) {
 		t.Fatal(err)
 	}
 	old := "/srv/old/data"
-	set, err := dataprotection.NewBackups(a.DB).Record(ctx, &dataprotection.Backup{ProjectID: idstest.N(1), Deployment: "main", TakenAt: "2026-10-23T00:00:00Z",
+	set, err := dataprotection.NewBackups(a.DB, a.cfg.clock.Now).Record(ctx, &dataprotection.Backup{ProjectID: idstest.N(1), Deployment: "main", TakenAt: "2026-10-23T00:00:00Z",
 		Trigger: dataprotection.TriggerPreRelease, Path: old + "/backups/p/main/2026-10-23", Status: dataprotection.BackupOK, Store: dataprotection.StoreAppTownDisk}, "test")
 	if err != nil {
 		t.Fatal(err)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/ids"
 
+	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/preview"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -88,6 +89,7 @@ type releaseData interface {
 // (problems fail the step; notes are what was not compared).
 type ReleaseWitness interface {
 	Complete() bool
+	CopyOutcome() dataprotection.CopyOutcome
 	CopyWords() string
 	After(ctx context.Context, declared []string) (problems, notes []string)
 }
