@@ -270,7 +270,7 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
 
       <RepoCard slug={project.slug} />
 
-      <Section title="Import a branch" note="Adopt a branch pushed elsewhere as a change of this project.">
+      <Section title="Import a branch">
         <div className="card row general-general-tab-card">
           <input aria-label="Branch name" value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="branch name"
             onKeyDown={(e) => e.key === 'Enter' && importBranch()} className="general-danger-zone-input" />
@@ -296,8 +296,7 @@ export function RepoCard({ slug }: { slug: string }) {
   if (!data.repo) return <StaleNote q={q} />
   const repo = data.repo
   return (
-    <Section title="Code" action={<a className="btn" href={`/api/v1/projects/${slug}/repo/bundle`} download={`${slug}.bundle`}>Download code</a>}
-      note={`The download holds the ${repo.defaultBranch} branch and tags; import it to start another project.`}>
+    <Section title="Code" action={<a className="btn" href={`/api/v1/projects/${slug}/repo/bundle`} download={`${slug}.bundle`}>Download code</a>}>
       <StaleNote q={q} />
       <div className="card row general-general-tab-card">
         <span className="badge">{repo.defaultBranch}</span>

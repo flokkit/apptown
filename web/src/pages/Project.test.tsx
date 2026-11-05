@@ -148,3 +148,74 @@ it('shows the public app host and path beneath the description as an https link'
     expect([...el.querySelectorAll('.app-address')].map(a => a.textContent)).toEqual([label, label])
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+// Every page reachable from the project menu explains itself beside its
+// title, including when its content cannot be read.
+it.each([
+  ['', 'Overview', null, 'changes-and-main'],
+  ['security', 'Findings', 'Security', 'monitoring'],
+  ['security/suppressions', 'Suppressions', 'Security', 'glossary'],
+  ['settings', 'General', 'Settings', 'project-settings'],
+  ['settings/working', 'Way of working', 'Settings', 'packs-and-what-if'],
+  ['settings/services', 'Services', 'Settings', 'services-and-data'],
+  ['settings/deployments', 'Deployments', 'Settings', 'container-lifecycle'],
+  ['settings/secrets', 'Secrets', 'Settings', 'secrets'],
+  ['settings/members', 'Members', 'Settings', 'people-and-roles'],
+  ['settings/decisions', 'Decisions', 'Settings', 'glossary'],
+  ['settings/usage', 'Usage', 'Settings', 'monitoring'],
+])('has page help at /projects/a/%s', async (path, title, area, guide) => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/projects/a')
+    ? new Response(JSON.stringify(project(1, 'a', 'Alpha')))
+    : new Response(JSON.stringify({ error: 'Unavailable' }), { status: 503 })))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  document.body.append(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/projects/a/${path}`]}><Routes><Route path="/projects/:slug/:tab?/:stab?" element={<Project />} /></Routes></MemoryRouter></QueryClientProvider>))
+    const button = await vi.waitFor(() => {
+      const b = el.querySelector<HTMLButtonElement>(`button[aria-label="About ${title}"]`)
+      expect(b).not.toBeNull()
+      return b!
+    })
+    expect(button.closest('.page-head-row')?.querySelector('h1')?.textContent).toBe(area ? title : 'Alpha')
+    expect(el.querySelector('.page-area')?.textContent ?? null).toBe(area)
+    expect(el.querySelector('.page-help-pop')).toBeNull()
+    act(() => button.click())
+    const popover = el.querySelector('.page-help-pop')!
+    expect(popover.querySelector('a')?.getAttribute('href')).toBe(`/docs/guides/${guide}`)
+    if (title === 'Secrets') {
+      expect(popover.textContent).toContain('Secrets are values your app needs but should not be part of the code: passwords, API keys, signing keys. AppTown keeps them and gives them to the app when it runs.')
+      expect(popover.textContent).toContain('Project secrets are declared in secretspec.toml.')
+      expect(popover.textContent).toContain('Entered values will not be shown again.')
+    }
+    const link = popover.querySelector('a')!
+    act(() => link.focus())
+    act(() => link.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
+    expect(el.querySelector('.page-help-pop')).toBeNull()
+    expect(document.activeElement).toBe(button)
+  } finally { act(() => root.unmount()); el.remove(); client.clear(); vi.unstubAllGlobals() }
+})
+
+it('shows secret bindings and warnings without the introduction or secret count', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    const data = url.endsWith('/projects/a') ? project(1, 'a', 'Alpha')
+      : url.endsWith('/secrets') ? {
+        declared: true, spec: 'secretspec.toml', project: 'a', stores: [], profiles: ['default'],
+        ignored: ['providers'], secrets: [{ name: 'API_KEY', allParts: true }],
+        deployments: [{ name: 'main', profile: 'default', missing: ['API_KEY'], secrets: [{ name: 'API_KEY', required: true, bound: false }] }],
+      } : {}
+    return new Response(JSON.stringify(data))
+  }))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/a/settings/secrets']}><Routes><Route path="/projects/:slug/:tab/:stab" element={<Project />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.textContent).toContain('API_KEY'))
+    expect(el.textContent).not.toContain('declares 1 secret')
+    expect(el.textContent).not.toContain('A value you put here')
+    expect(el.querySelector('.section-count')).toBeNull()
+    expect(el.textContent).toContain('does not use these parts of the declaration: providers')
+    expect(el.textContent).toContain('Nothing provides API_KEY here.')
+    expect(el.querySelector('select[aria-label="Secrets profile for main"]')).not.toBeNull()
+    act(() => [...el.querySelectorAll('button')].find(b => b.textContent === 'Set…')!.click())
+    expect(el.querySelector('textarea')).not.toBeNull()
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

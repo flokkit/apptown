@@ -98,6 +98,30 @@ export const PAGE_HELP = {
     help: <p>An eval re-runs finished changes in throwaway copies. One copy runs as its project runs now. The other uses the model profile or pack version you choose. You read the two results side by side. An eval approves nothing.</p>,
     guide: 'packs-and-what-if',
   },
+  projectOverview: {
+    title: 'Overview',
+    help: <>
+      <p>The overview shows this project's open changes, recent activity and deployments.</p>
+      <p>Open a change to see its work and what it needs next. Start a change to ask for new work. Each deployment shows its current state and address.</p>
+    </>,
+    guide: 'changes-and-main',
+  },
+  projectSecurity: {
+    title: 'Security',
+    help: <>
+      <p>Security shows the latest scan results for this project's accepted code.</p>
+      <p>Findings lists problems the scans found. Suppressions lists recorded decisions to accept findings for a time. A missing or unreadable report leaves checks incomplete.</p>
+    </>,
+    guide: 'monitoring',
+  },
+  projectSettings: {
+    title: 'Settings',
+    help: <>
+      <p>Settings are the choices for this project's setup and who can work on it.</p>
+      <p>Choose a page to edit its details, way of working, services, deployments, secrets or members, or to read decisions and model usage.</p>
+    </>,
+    guide: 'project-settings',
+  },
 } satisfies Record<string, PageHelp>
 
 export type HelpPage = keyof typeof PAGE_HELP
@@ -105,6 +129,53 @@ export type HelpPage = keyof typeof PAGE_HELP
 // Pages inside an area say what they themselves are for; the area's help
 // would only repeat the area. Keyed by area and page title.
 export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode; guide: string }>>> = {
+  projectSecurity: {
+    Findings: { guide: 'monitoring', body: <>
+      <p>Findings are problems reported by security scans of this project's accepted code.</p>
+      <p>Read the latest scan results and open a finding to fix it or record a suppression. If main has changed since the scan, open a change to scan the latest code. Missing or unreadable reports leave checks incomplete.</p>
+    </> },
+    Suppressions: { guide: 'glossary', body: <>
+      <p>Suppressions are recorded decisions to accept security findings for a time.</p>
+      <p>Create one from Findings, with a reason and an expiry. Each matches findings by fingerprint or identifier and package. When it expires, the finding fails the gate again. Revoke one here to make the finding actionable immediately, or export the records as OpenVEX.</p>
+    </> },
+  },
+  projectSettings: {
+    General: { guide: 'project-settings', body: <>
+      <p>General holds the project's name, address, icon, group and description.</p>
+      <p>Edit these details here. You can also download the code, import a branch as a change, or delete the project. The code download includes the default branch and tags; import it to start another project.</p>
+    </> },
+    'Way of working': { guide: 'packs-and-what-if', body: <>
+      <p>A way of working is the set of packs this project has adopted, with their workflows, guidance, policies and checks.</p>
+      <p>Read what the project uses, compare versions and choose updates. Adopting a pack selects its standards. A conformance review checks whether the app meets them.</p>
+    </> },
+    Services: { guide: 'services-and-data', body: <>
+      <p>Services are the systems this app uses, such as a database, AI models or error reporting.</p>
+      <p>Changing a declared service opens a change to update the app's contract for approval. Connections attach outside services to the project. Each deployment and preview gets its own credentials.</p>
+    </> },
+    Deployments: { guide: 'container-lifecycle', body: <>
+      <p>A deployment is a named copy of this app on a deployment target.</p>
+      <p>See where the app runs, add a deployment on a target offered to this project, and choose where Release sends it. Open a deployment for its resources, backups and actions.</p>
+      <p>Old resources lists data without a final copy and resources that could not be deleted. Delete them at the provider, then confirm here to free the deployment name.</p>
+    </> },
+    Secrets: { guide: 'secrets', body: <>
+      <p>Secrets are values your app needs but should not be part of the code: passwords, API keys, signing keys. {PRODUCT} keeps them and gives them to the app when it runs.</p>
+      <p>Project secrets are declared in <code>secretspec.toml</code>.</p>
+      <p>Entered values will not be shown again.</p>
+    </> },
+    Members: { guide: 'people-and-roles', body: <>
+      <p>Members are the people and groups with roles on this project.</p>
+      <p>A contributor opens changes and hands them off. A maintainer also lands them and changes the project's setup. An approver says yes at approval steps. An owner manages the project and its members.</p>
+      <p>Add or remove roles here, and choose whether another person must approve the author's change. The Approval section shows who can approve and who can land changes.</p>
+    </> },
+    Decisions: { guide: 'glossary', body: <>
+      <p>Decisions are records of what this project chose and why.</p>
+      <p>Open a record to read it and its status. Start a draft with a title and optional tags to record a new decision.</p>
+    </> },
+    Usage: { guide: 'monitoring', body: <>
+      <p>Usage is this project's AI model use and estimated cost.</p>
+      <p>Choose a period to see tokens and cost by model, daily use and time spent in workflow steps. Workflow use comes from runs; interactive use comes from chats. Unpriced use is shown separately.</p>
+    </> },
+  },
   deployments: {
     Departures: { guide: 'container-lifecycle', body: <>
       <p>See every deploy, newest first: which app went where, when, and whether it came up.</p>
@@ -146,14 +217,14 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
 // that is about one thing of its own (a kind of integration) passes its own
 // help in place of the area's.
 // line is the page's one-sentence subtitle, kept with its title.
-export function PageHead({ page, actions, sub, help, line }: { page: HelpPage; actions?: ReactNode; sub?: string; help?: { body: ReactNode; guide: string }; line?: ReactNode }) {
+export function PageHead({ page, actions, sub, help, line, title }: { page: HelpPage; title?: ReactNode; actions?: ReactNode; sub?: string; help?: { body: ReactNode; guide: string }; line?: ReactNode }) {
   const h: PageHelp = PAGE_HELP[page]
   help = help ?? (sub ? SUB_HELP[page]?.[sub] : undefined)
   return (
     <div className="page-head">
       {sub && <div className="page-area">{h.title}</div>}
       <div className="page-head-row">
-        <h1>{sub ?? h.title}</h1>
+        <h1>{title ?? sub ?? h.title}</h1>
         {help ? <HelpButton about={sub ?? h.title} guide={help.guide}>{help.body}</HelpButton>
           : <HelpButton about={h.title} guide={h.guide}>{h.line && <p>{h.line}</p>}{h.help}</HelpButton>}
         {actions && <><span className="grow" />{actions}</>}

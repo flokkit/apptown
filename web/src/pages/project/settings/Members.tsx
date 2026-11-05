@@ -43,10 +43,7 @@ export function MembersTab({ slug }: { slug: string }) {
   return (
     <>
       {err && <div className="error small">{err}</div>}
-      <Section title="People" count={subjects.length || undefined}
-        note={<>A <b>contributor</b> opens changes and hands them off; a <b>maintainer</b> also lands
-          them and changes the project's setup; an <b>approver</b> says yes at approval steps; an{' '}
-          <b>owner</b> manages the project and its members. Everyone signed in can read.</>}>
+      <Section title="People" count={subjects.length || undefined}>
         {open && (
           <div className="card row small" style={{ display: 'flex' }}>
             <span className="badge">open to everyone</span>

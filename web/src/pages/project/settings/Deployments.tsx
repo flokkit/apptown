@@ -64,8 +64,7 @@ export function DeploymentsTab({ slug }: { slug: string }) {
       <ReleaseDefaultPicker slug={slug} deployments={envs.filter(e => e.kind !== 'preview')} />
 
       {(open.length > 0 || settled.length > 0) && (
-        <Section title="Old resources" count={open.length || undefined}
-          note="Data without a final copy and resources that could not be deleted. Delete them at the provider, then confirm here to free the deployment name.">
+        <Section title="Old resources" count={open.length || undefined}>
           <table className="stack deployments-deployments-tab-table">
             <thead><tr><th>What</th><th>From</th><th>Torn down</th><th>Status</th><th></th></tr></thead>
             <tbody>

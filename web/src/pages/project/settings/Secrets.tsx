@@ -39,7 +39,7 @@ export function SecretsTab({ slug }: { slug: string }) {
 
   if (data.problem) {
     return (
-      <Section title="Secrets" note={<>Declared in <code>{data.spec}</code> on main. Edit through a Change.</>}>
+      <Section title="Secrets">
         <StaleNote q={q} />
         <p className="error">{data.problem}</p>
       </Section>
@@ -48,8 +48,7 @@ export function SecretsTab({ slug }: { slug: string }) {
   if (!data.declared) {
     return (
       <>
-        <Section title="Secrets" action={<button className="link" onClick={() => setAdding(true)}>Add secret</button>}
-          note={<>When the app needs a signing key or an API key, it names the secret (never its value) in a <code>secretspec.toml</code>; each deployment gets its value here. {PRODUCT} makes keys it can make itself.</>}>
+        <Section title="Secrets" action={<button className="link" onClick={() => setAdding(true)}>Add secret</button>}>
           <StaleNote q={q} />
           <p className="muted">This app declares no secrets.</p>
         </Section>
@@ -61,13 +60,7 @@ export function SecretsTab({ slug }: { slug: string }) {
 
   return (
     <div className="secrets-page">
-      <p className="muted small secrets-secrets-tab-p">
-        <code>{data.spec}</code> declares {data.secrets?.length ?? 0} secret{data.secrets?.length === 1 ? '' : 's'} for <strong>{data.project}</strong>.
-        A value you put here goes into the built-in store and is never shown again; a value in Infisical is named, not copied.
-        {(data.ignored?.length ?? 0) > 0 && (
-          <> {PRODUCT} does not use these parts of the declaration: {data.ignored!.join('; ')}.</>
-        )}
-      </p>
+      {(data.ignored?.length ?? 0) > 0 && <p className="muted small">{PRODUCT} does not use these parts of the declaration: {data.ignored!.join('; ')}.</p>}
       <StaleNote q={q} />
       {err && <div className="error">{err}</div>}
 
@@ -105,7 +98,7 @@ function DeploymentSection({ env, profiles, declared, onProfile, onEdit, onUnbin
   }
   const missing = env.missing.length > 0
   return (
-    <Section label={`Secrets for ${env.name}`} count={env.secrets.length}
+    <Section label={`Secrets for ${env.name}`}
       title={<>{env.name}{missing && <Status word="failed" help={`${env.missing.length} required secrets are missing. Set them below before deploying.`} />}</>}
       action={<label className="secrets-profile small"><span className="muted">profile</span>
         <select aria-label={`Secrets profile for ${env.name}`} value={env.chosen || env.profile} onChange={(e) => onProfile(e.target.value)}>
