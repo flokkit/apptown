@@ -82,7 +82,7 @@ export function DeployResult({ view, step, hidden = false, showRunning = false }
       <DeployBackupLine backup={step.evidence.backup} />
       {step.evidence.url && <p><AppAddress url={step.evidence.url} /></p>}
       {duration && <p className="small muted">Landing took {duration}</p>}
-      {step.evidence.url && <a className="btn primary ch-open-app" href={step.evidence.url}>Open the app</a>}
+      {step.evidence.url && <a className="btn primary ch-open-app" href={step.evidence.url} target="_blank" rel="noopener noreferrer">Open the app <span aria-hidden="true">↗</span></a>}
     </> : <>
       <h3>Stopped while {step.evidence.failedStage ? deployWords[step.evidence.failedStage] : 'deploying'}</h3>
       {step.evidence.reason && <p>{step.evidence.reason}</p>}
