@@ -14,12 +14,11 @@ const dep = (project: string, over: Partial<Dep> = {}): Dep => ({
 const empty = { needsYou: 0, running: 0, deployments: [], operations: { count: 0, known: true } }
 
 describe('the home status strip', () => {
-  it.each([true, false])('labels work and both attention counts with their destinations (known: %s)', known => {
+  it.each([true, false])('labels work and problems with their destinations, never a could-not-read count (known: %s)', known => {
     expect(homeStatusParts({ ...empty, needsYou: 3, running: 2, operations: { count: 8, unknown: 4, known } })).toEqual([
       { label: 'Waiting on you', value: 3, to: '#waiting-on-you' },
       { label: 'Other work', value: 2, to: '#other-work' },
       { label: 'Problems', value: 8, to: '/attention' },
-      { label: "Couldn't check", value: 4, to: '/attention' },
     ])
   })
   it('omits zero counts when everything is read and empty', () => {
@@ -64,7 +63,6 @@ it('renders every label above its value inside the matching link', () => {
     { label: 'Apps live', value: '1', to: '/deployments/table' },
     { label: 'Apps not checked', value: '1', to: '/deployments/table' },
     { label: 'Problems', value: '8', to: '/attention' },
-    { label: "Couldn't check", value: '4', to: '/attention' },
   ])
 })
 

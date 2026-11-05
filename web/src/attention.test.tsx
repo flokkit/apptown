@@ -166,9 +166,10 @@ describe('Attention surfaces share authorized current evidence', () => {
     })
     const v = mount(<><AttentionLights /><Dashboard /></>, '/'); await settled(v.client)
     const lead = v.el.querySelector('.dash-lead')?.textContent
-    expect(lead).toBe("Apps live1Couldn't check1")
-    // Each part links to the page that lists exactly what it counts.
-    expect(v.el.querySelector('.dash-lead a[href="/attention"]')?.textContent).toBe("Couldn't check1")
+    // A condition that could not be read is listed on Attention, not counted
+    // on Home; it still keeps Home from saying All quiet.
+    expect(lead).toBe('Apps live1')
+    expect(v.el.querySelector('.dash-lead a[href="/attention"]')).toBeNull()
     expect(v.el.querySelector('.dash-lead a[href="/deployments/table"]')?.textContent).toBe('Apps live1')
     expect(v.el.textContent).not.toContain('All quiet')
     // A check that could not run lights nothing in the top bar.
@@ -324,7 +325,7 @@ it('counts the rows shown consistently in the header, Attention and Home', async
  // Home keeps the same row counts as Attention's summary.
  expect(v.el.textContent).toContain('2 to fix · 1 not known')
  expect([...v.el.querySelectorAll('.dash-lead a[href="/attention"]')].map(a => [a.children[0]?.textContent, a.children[1]?.textContent])).toEqual([
-   ['Problems', '2'], ["Couldn't check", '1'],
+   ['Problems', '2'],
  ])
  expect(v.el.querySelector('article small')?.textContent).toContain('checked ')
 })
