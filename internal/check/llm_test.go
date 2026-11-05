@@ -248,3 +248,22 @@ func TestTreeEvidenceBudgetsKeepMatchingCounts(t *testing.T) {
 		t.Fatalf("batch budget: bytes=%d, omitted=%v", total, omitted)
 	}
 }
+
+// Supplied verdicts cannot promote project-authored assertions to evidence.
+func TestJudgementRequiresEvidenceBeyondProjectClaims(t *testing.T) {
+	for _, citation := range []string{"PROJECT-NOTES.md:2", "AGENTS.md:7", "./PROJECT-NOTES.md:2 and docs/AGENTS.md:3"} {
+		for _, verdict := range []string{"pass", "fail", "unclear"} {
+			it := check.Item{}
+			got := check.Judgement(it, check.Verdict{Verdict: verdict, Evidence: citation}, true, nil, check.Gate)
+			if got.Outcome != check.CannotAssess || len(got.Findings) != 0 {
+				t.Fatalf("%s %s: %+v", verdict, citation, got)
+			}
+		}
+	}
+	for _, tc := range []struct{ use, evidence string }{{"", "PROJECT-NOTES.md:2 and app.go:3"}, {"wording", "PROJECT-NOTES.md:2"}} {
+		it := check.Item{Declared: check.Declared{Declaration: check.Declaration{EvidenceUse: tc.use}}}
+		if got := check.Judgement(it, check.Verdict{Verdict: "pass", Evidence: tc.evidence}, true, nil, check.Gate); got.Outcome != check.Conforms {
+			t.Fatalf("%+v: %+v", tc, got)
+		}
+	}
+}

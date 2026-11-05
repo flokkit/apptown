@@ -15,6 +15,7 @@ guides.
 | `mise.toml`, `.mise.toml` or `.config/mise/config.toml` | the development tools a chat or step installs ([Project toolchains](toolchains.md)) |
 | a `Dockerfile` in each build context | how a `build` part's image is made |
 | `.agents/skills/` | skills the project gives AppTown's agents |
+| `PROJECT-NOTES.md` | [reviewed project facts and preferences](project-notes.md), included when adopted guidance declares them |
 
 Everything else under `.apptown/` is AppTown's working space for a change
 (reports, plans, chat sessions, attachments). It never lands on `main`, even

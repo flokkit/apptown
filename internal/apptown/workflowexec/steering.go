@@ -13,7 +13,9 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/repocontext"
 
 	"github.com/flokkit/apptown/internal/apptown/complaint"
 
@@ -156,6 +158,11 @@ func (a *Executor) composeSteering(ctx context.Context, run *workflow.Run, cfg *
 			steer.WriteString("\n")
 		}
 	}
+	contextBrief, err := a.repositoryContext(ctx, run, resolved.Context)
+	if err != nil {
+		return steeringFile{}, nil, err
+	}
+	steer.WriteString(contextBrief)
 	if delegation != "" {
 		steer.WriteString(delegation + "\n")
 	}
@@ -314,4 +321,35 @@ func (a *Executor) restartFromBase(ctx context.Context, run *workflow.Run, step 
 		return fmt.Errorf("restart: rewinding branch %s: %w", source.Branch, err)
 	}
 	return nil
+}
+
+// repositoryContext uses the change's starting commit throughout its work;
+// newly proposed notes cannot steer another session before acceptance.
+func (a *Executor) repositoryContext(ctx context.Context, run *workflow.Run, declarations []wow.RepositoryContext) (string, error) {
+	if len(declarations) == 0 {
+		return "", nil
+	}
+	source, err := workflow.ReadSourceIn(ctx, a.db, workflow.RunRef{ID: run.ID, ProjectID: run.ProjectID})
+	if err != nil {
+		return "", err
+	}
+	if !source.RepoBacked() {
+		return "", nil
+	}
+	commit := source.RunBaseSHA
+	if !source.ChangeID.IsZero() {
+		commit = source.ChangeBaseSHA
+	}
+	if commit == "" {
+		return "", nil
+	} // a new repository has no starting tree
+	repo, err := source.Repository(a.cfg.DataDir)
+	if err != nil {
+		return "", err
+	}
+	files := make([]repocontext.File, 0, len(declarations))
+	for _, f := range declarations {
+		files = append(files, repocontext.File{Path: f.Path, MaxBytes: f.MaxBytes})
+	}
+	return repocontext.Brief(ctx, repo, commit, files)
 }

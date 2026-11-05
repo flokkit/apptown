@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"github.com/flokkit/apptown/internal/projectnotes"
 	"net/http"
 	"strings"
 
@@ -35,11 +36,39 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 
 	// repo card
 	var repo *OverviewRepo
+	var notes *ProjectNotesView
 	if p.DefaultBranch != "" {
 		dir, err := p.Repository(h.dataDir)
 		if err != nil {
 			WriteFault(w, err)
 			return
+		}
+		notes = &ProjectNotesView{Notes: []ProjectNoteView{}}
+		commit, readErr := gitexec.Run(ctx, dir, "rev-parse", "--verify", "refs/heads/"+p.DefaultBranch+"^{commit}")
+		if readErr != nil {
+			notes.Error = "Could not read project notes: " + readErr.Error()
+		} else {
+			notes.Commit = commit
+			parsed, present, readErr := projectnotes.Read(ctx, dir, commit)
+			notes.Present = present
+			if readErr != nil {
+				notes.Error = readErr.Error()
+			} else {
+				sources := map[int64]ProjectNoteView{}
+				for _, n := range parsed {
+					source, ok := sources[n.Change]
+					if !ok {
+						acceptance, e := work.AcceptanceByNumber(ctx, p.ID, p.Slug, n.Change)
+						source = ProjectNoteView{ChangeID: acceptance.ChangeID, AcceptedBy: acceptance.AcceptedBy}
+						if e != nil {
+							source.SourceError = "Source acceptance unavailable"
+						}
+						sources[n.Change] = source
+					}
+					source.Note = n
+					notes.Notes = append(notes.Notes, source)
+				}
+			}
 		}
 		remote, _, hasRemote := scm.Origin(ctx, dir)
 		sha, _ := gitexec.Run(ctx, dir, "rev-parse", "--short", "HEAD")
@@ -91,7 +120,7 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 		open = append(open, oc)
 	}
 
-	WriteJSON(w, 200, ProjectOverviewView{Repo: repo, Active: active, Open: open, History: changes})
+	WriteJSON(w, 200, ProjectOverviewView{Notes: notes, Repo: repo, Active: active, Open: open, History: changes})
 }
 
 // OpenChange is an open change with no running run, and how many files it is
@@ -108,7 +137,21 @@ type OpenChange struct {
 
 // ProjectOverviewView is a project's front page: its repository, what is
 // running, what is open, and finished changes.
+type ProjectNoteView struct {
+	projectnotes.Note
+	ChangeID    ids.ID   `json:"changeId"`
+	AcceptedBy  []string `json:"acceptedBy"`
+	SourceError string   `json:"sourceError,omitempty"`
+}
+type ProjectNotesView struct {
+	Present bool              `json:"present"`
+	Commit  string            `json:"commit"`
+	Notes   []ProjectNoteView `json:"notes"`
+	Error   string            `json:"error,omitempty"`
+}
 type ProjectOverviewView struct {
+	Notes *ProjectNotesView `json:"notes"`
+
 	Repo    *OverviewRepo            `json:"repo"`
 	Active  []runRowView             `json:"active"`
 	Open    []OpenChange             `json:"open"`

@@ -70,6 +70,7 @@ func workflowHTTPFixtureWithData(t *testing.T, withRun bool, definitions map[str
 	ctx := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "bls", Via: "session"}, Verified: true})
 	work := workflow.New(context.Background(), db, workflow.Dependencies{
 		DataDir:      dataDir,
+		Git:          workflow.GitWorkspace{DataDir: dataDir},
 		Authority:    access.Checked{Authority: identity.Scoped(directory, "workflow"), Projects: projects},
 		Abandonment:  workflowHTTPAbandonRecorder{},
 		Repositories: &scm.RepositoryLocks{},

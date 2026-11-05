@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/flokkit/apptown/internal/projectnotes"
 	"net/http"
 	"slices"
 	"strings"
@@ -110,6 +111,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 	head := ""
 	diffstat := ""
 	comparison := CommittedComparison{Status: "unavailable", Message: "No committed comparison is available yet."}
+	var notesDiff *projectnotes.Diff
 	var hub string
 	if slug != "" {
 		hub, err = slugMeta.Repository(h.dataDir)
@@ -143,6 +145,14 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 			diffstat = diff.Stat
 			head = diff.Head
 			commits = commitsBetween(r.Context(), repo, diff.Base, diff.Head)
+			raw, notesErr := gitexec.Run(r.Context(), repo, "diff", "--no-ext-diff", "--no-textconv", "--unified=0", diff.Base, diff.Head, "--", projectnotes.Path)
+			if notesErr != nil {
+				comparison.Status = "unavailable"
+				comparison.Message = "Project notes comparison unavailable: " + notesErr.Error()
+			} else {
+				notesDiff = projectnotes.FromDiff(raw)
+			}
+
 		}
 	}
 
@@ -187,7 +197,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	WriteJSON(w, 200, ChangeCockpit{WaitingOn: h.work.ChangeWaitingOn(r.Context(), item, detail), Change: *item, ProjectSlug: slug, Detail: detail, ADRs: adrRecords, Evidence: evidence,
+	WriteJSON(w, 200, ChangeCockpit{NotesDiff: notesDiff, WaitingOn: h.work.ChangeWaitingOn(r.Context(), item, detail), Change: *item, ProjectSlug: slug, Detail: detail, ADRs: adrRecords, Evidence: evidence,
 		Runs: runs, Commits: commits, Head: head, Diffstat: diffstat, CommittedDiff: comparison, Report: report, Editing: editing,
 		StatusLabel: item.Display(detail), State: state, StateDetail: stateDetail, Approval: h.approvalStanding(r, detail), MainConflict: mainConflict,
 		Usage: ChangeUsage{Total: spend.Total, CostMicros: spend.CostMicros, Unpriced: spend.Unpriced}, Next: workflow.ChangeActs(item, detail, evidence.Merged, h.work.MayAbandon(r.Context(), id) == nil)})
@@ -229,6 +239,7 @@ func (h ChangeDetail) approvalStanding(r *http.Request, detail *workflow.RunSnap
 type (
 	ChangeCockpit struct {
 		WaitingOn   workflow.WaitingOn    `json:"waitingOn"`
+		NotesDiff   *projectnotes.Diff    `json:"notesDiff,omitempty"`
 		Change      workflow.Change       `json:"change"`
 		ProjectSlug string                `json:"projectSlug"`
 		Detail      *workflow.RunSnapshot `json:"detail"`

@@ -18,6 +18,7 @@ packs:
       - deploy/health-declared
       - deploy/browser-values
       - deploy/memory-declared
+      - repo/project-notes
       - repo/no-build-artifacts
       - repo/contract-matches-code
     workflows: [land, ship, adopt-integration, retire-integration]
