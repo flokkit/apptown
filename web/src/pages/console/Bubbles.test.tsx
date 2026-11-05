@@ -268,3 +268,28 @@ describe('whose turn it is', () => {
     expect(await busyFor('handed-back')).toBe(false)
   })
 })
+
+
+it('does not restore a failed send from a previous session into a fresh chat', async () => {
+  let refuse!: (r: Response) => void
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => String(url).endsWith('/say')
+    ? new Promise<Response>(resolve => { refuse = resolve })
+    : new Response('{"messages":[]}')))
+  const client = newQueryClient()
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  const show = async (id: string) => act(async () => root.render(<QueryClientProvider client={client}><Bubbles sessionId={id} /></QueryClientProvider>))
+  const type = async (words: string) => act(async () => {
+    const box = el.querySelector('textarea')!
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(box, words)
+    box.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  try {
+    await show('s1'); await type('Old message')
+    await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Send')!.click())
+    await show('s2'); await type('New draft')
+    await act(async () => refuse(new Response('{"error":"Old send failed"}', { status: 400 })))
+    await vi.waitFor(() => expect(el.querySelector('textarea')!.value).toBe('New draft'))
+    expect(el.textContent).not.toContain('Old send failed')
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

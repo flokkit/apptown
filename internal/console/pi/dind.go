@@ -29,7 +29,11 @@ func dindName(id string) string { return "apptown-dind-console-" + id }
 // ensureDind is called under the session's attachMu (or before initial
 // publication). It never replaces a surviving daemon: its nested images and
 // containers are session state. Missing resources are reconstructed.
-func (r *Runtime) ensureDind(in console.Launch) error {
+func (r *Runtime) ensureDind(in console.Launch) (prepareErr error) {
+	started := r.cfg.Now()
+	defer func() {
+		logf("startup session=%s phase=private_docker_prepare duration=%s error=%v", in.ID, r.cfg.Now().Sub(started), prepareErr)
+	}()
 	ctx, cancel := context.WithTimeout(r.ctx, 60*time.Second)
 	defer cancel()
 	name := dindName(in.ID)

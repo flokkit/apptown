@@ -116,7 +116,12 @@ type Resumption struct {
 
 // Open creates a session: its directory and record, then its agent (created,
 // not yet started; the first message or terminal starts it).
-func (s *Service) Open(ctx context.Context, in OpenRequest) (*Session, error) {
+func (s *Service) Open(ctx context.Context, in OpenRequest) (session *Session, openErr error) {
+	started := s.now()
+	id := in.ID
+	defer func() {
+		log.Printf("console open session=%s phase=session_open duration=%s error=%v", id, s.now().Sub(started), openErr)
+	}()
 	if in.Scope == "" {
 		return nil, fmt.Errorf("a session needs a scope")
 	}
@@ -129,7 +134,6 @@ func (s *Service) Open(ctx context.Context, in OpenRequest) (*Session, error) {
 	}
 	defer release()
 
-	id := in.ID
 	if id == "" {
 		id = s.NewSessionID()
 	} else if !validSessionID(id) {
@@ -177,7 +181,9 @@ func (s *Service) Open(ctx context.Context, in OpenRequest) (*Session, error) {
 	if err := sess.persist(); err != nil {
 		return nil, fmt.Errorf("recording the session: %w", err)
 	}
+	prepareStarted := s.now()
 	launch, err := s.launch(ctx, sess)
+	log.Printf("console open session=%s phase=launch_prepare duration=%s error=%v", id, s.now().Sub(prepareStarted), err)
 	if err != nil {
 		return nil, err
 	}

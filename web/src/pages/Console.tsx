@@ -61,7 +61,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
   const introKey = `chat-intro-seen-${slug}`
   const [introSeen, setIntroSeen] = useState(() => localStorage.getItem(introKey) === '1')
   const termRef = useRef<HTMLDivElement>(null)
-  const status = useTerminal(session?.id ?? null, !!session?.mayAct, termRef)
+  const status = useTerminal(session?.id ?? null, !!session?.mayAct, termRef, zoom === 'terminal')
 
   // Two visually distinct kinds of chat:
   // the project chat (questions, setup, starting work) and the change chat
@@ -119,9 +119,6 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           ? (narrow ? null : <Link className="badge here" to={`/changes/${shopId}`}
               title="What you and the helper change here is saved onto this change.">{shopName}</Link>)
           : <span className="badge here" title="This chat answers questions, helps set things up and starts work. Building happens in a change chat; the helper gives you the link.">questions &amp; setup</span>}
-        {session?.mayAct && status !== 'attached' && (
-          <Status word="not checked yet" help="Connecting to this chat. If it does not connect, reload the page." />
-        )}
         {compactHead && change.data && <span className="console-state"><Status word={change.data.statusLabel} /></span>}
         {compactHead && <button className="change-controls-toggle" aria-expanded={expanded} aria-label={toggleName} onClick={toggleControls}>{expanded ? '▴' : '▾'}</button>}
         <span className="console-head-space grow" />
@@ -211,19 +208,17 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
         {session?.changeId ? <WorkerSaveLine slug={slug} session={session} /> : null}
         {session && <StartedChanges sessionId={session.id} />}
       </div>
-      {session && zoom === 'chat' && (
-        <Bubbles key={session.id} sessionId={session.id} onBusy={setRobotBusy} onHasMessages={setHasMessages} actionsSwitch={!actionsBesideAbout}
-          readOnly={session.mayAct ? undefined : session.openedBy}
-          starters={session.changeId ? undefined : [
+      <Bubbles hidden={zoom !== 'chat'} sessionId={session?.id ?? null} attached={status === 'attached'}
+          starting={status !== 'attached' || !session ? <StartingLine opening={!session} /> : undefined} onBusy={setRobotBusy} onHasMessages={setHasMessages} actionsSwitch={!actionsBesideAbout}
+          readOnly={!session || session.mayAct ? undefined : session.openedBy}
+          starters={shopId ? undefined : [
             // The project chat's three jobs, as things you could say (the
             // empty page's next action, design/subsystems/ui-coherence.md).
             'What does this project do right now?',
             'I want to change something',
             'Set up a database for it',
           ]} />
-      )}
-      <div className="console-term" ref={termRef}
-        style={zoom === 'terminal' ? undefined : { position: 'absolute', top: 0, left: -9999, width: 600, height: 400 }} />
+      <div className={`console-term${zoom === 'terminal' ? '' : ' console-term-offscreen'}`} ref={termRef} />
     </div>
   )
 }
@@ -266,4 +261,17 @@ function ChatIntro({ slug, onDismiss }: { slug: string; onDismiss: () => void })
       <button className="subtle" onClick={onDismiss}>Dismiss</button>
     </div>
   )
+}
+
+// Count real elapsed seconds without motion or guessed progress.
+function StartingLine({ opening }: { opening: boolean }) {
+  const [since] = useState(() => Date.now())
+  const [seconds, setSeconds] = useState(0)
+  useEffect(() => {
+    const timer = setInterval(() => setSeconds(Math.floor((Date.now() - since) / 1000)), 1000)
+    return () => clearInterval(timer)
+  }, [since])
+  return <div className="chat-starting" role="status">
+    {opening ? 'Starting your helper…' : 'Connecting…'} <span className="muted small" aria-hidden="true">{seconds}s</span>
+  </div>
 }

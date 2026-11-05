@@ -4,7 +4,7 @@ import { act, useRef } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useTerminal } from './useTerminal'
 
-const terminal = vi.hoisted(() => ({ sizes: [] as number[], options: { fontSize: 0 }, fit: vi.fn() }))
+const terminal = vi.hoisted(() => ({ sizes: [] as number[], options: { fontSize: 0 }, fit: vi.fn(), focus: vi.fn() }))
 
 // The terminal's socket belongs to a session: a page that renders again with
 // the same session keeps its connection; another session gets a new one.
@@ -17,7 +17,7 @@ vi.mock('@xterm/xterm', () => ({
       terminal.sizes.push(options.fontSize)
       this.options = terminal.options = options
     }
-    loadAddon() {} open() {} focus() {} reset() {} write() {} dispose() {}
+    loadAddon() {} open() {} focus = terminal.focus; reset() {} write() {} dispose() {}
     onData() { return { dispose() {} } }
     onResize() { return { dispose() {} } }
   },
@@ -30,6 +30,7 @@ vi.mock('@xterm/xterm/css/xterm.css', () => ({}))
 afterEach(() => vi.unstubAllGlobals())
 
 it('opens one socket per session, not one per render', async () => {
+  terminal.focus.mockClear()
   const opened: string[] = []
   vi.stubGlobal('WebSocket', class {
     static OPEN = 1
@@ -39,15 +40,19 @@ it('opens one socket per session, not one per render', async () => {
     send() {} close() {}
   })
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
-  function T({ id, mayAct, n }: { id: string; mayAct: boolean; n: number }) {
+  function T({ id, mayAct, n, visible = false }: { id: string; mayAct: boolean; n: number; visible?: boolean }) {
     const ref = useRef<HTMLDivElement>(null)
-    const status = useTerminal(id, mayAct, ref)
+    const status = useTerminal(id, mayAct, ref, visible)
     return <div ref={ref} data-n={n}>{status}</div>
   }
   const el = document.createElement('div')
   const root = createRoot(el)
   await act(async () => { root.render(<T id="s1" mayAct n={1} />) })
   await act(async () => { root.render(<T id="s1" mayAct n={2} />) })
+  expect(opened).toHaveLength(1)
+  expect(terminal.focus).not.toHaveBeenCalled() // attaching must leave a draft focused
+  await act(async () => { root.render(<T id="s1" mayAct n={2} visible />) })
+  expect(terminal.focus).toHaveBeenCalledTimes(1)
   expect(opened).toHaveLength(1)
   await act(async () => { root.render(<T id="s2" mayAct n={3} />) })
   expect(opened).toHaveLength(2)
@@ -99,4 +104,31 @@ it('resolves the rem token through an element and refits on size changes without
     computed.mockRestore()
     document.documentElement.removeAttribute('data-size')
   }
+})
+
+it('never reports the previous session as attached while rendering a new session', async () => {
+  let attach!: () => void
+  vi.stubGlobal('WebSocket', class {
+    onopen?: () => void
+    constructor() { attach = () => this.onopen?.() }
+    send() {} close() {}
+  })
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+  const seen: string[] = []
+  function T({ id }: { id: string }) {
+    const ref = useRef<HTMLDivElement>(null)
+    const status = useTerminal(id, true, ref)
+    seen.push(`${id}:${status}`)
+    return <div ref={ref} />
+  }
+  const root = createRoot(document.createElement('div'))
+  try {
+    await act(async () => root.render(<T id="s1" />))
+    await act(async () => attach())
+    expect(seen).toContain('s1:attached')
+    await act(async () => root.render(<T id="s2" />))
+    expect(seen).not.toContain('s2:attached')
+    await act(async () => attach())
+    expect(seen).toContain('s2:attached')
+  } finally { act(() => root.unmount()) }
 })

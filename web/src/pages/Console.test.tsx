@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+// @ts-expect-error -- this package has no Node types; only this read is used.
+import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -48,6 +50,8 @@ describe('a chat says which kind it is from its first paint', () => {
     expect(html).not.toContain('connecting…')
     expect(html).toContain('Loading…')
     expect(html).toContain('Change chat')
+    expect(html).toContain('Starting your helper…')
+    expect(html).toContain('aria-label="your message"')
     // A change chat carries no intro card: its box says what to do.
     expect(html).not.toContain('Checks and an approval come before it lands.')
     expect(html).not.toContain('Project chat')
@@ -64,8 +68,9 @@ describe('a chat says which kind it is from its first paint', () => {
     const el = document.createElement('div')
     el.innerHTML = firstPaint('')
     const terminal = el.querySelector<HTMLElement>('.console-term')!
-    expect(terminal.style.position).toBe('absolute')
-    expect(terminal.style.top).toBe('0px')
+    expect(terminal.classList.contains('console-term-offscreen')).toBe(true)
+    const css = readFileSync('src/pages/Console.css', 'utf8')
+    expect(css).toMatch(/\.console-term-offscreen\s*\{[^}]*position:\s*absolute;\s*top:\s*0;/)
   })
   // The intro uses the glossary's names for the two chats, not room names.
   it('neither chat calls itself a workshop or a front desk', () => {
@@ -180,13 +185,16 @@ describe('what the chat is about folds to one line on a phone', () => {
 // preview or landing actions. The choice belongs to this page view only.
 describe('phone change controls', () => {
   let messageCount = 1
+  let messagesReady = Promise.resolve()
   beforeEach(() => {
+    messagesReady = Promise.resolve()
     localStorage.clear()
     vi.stubGlobal('matchMedia', (q: string) => ({ matches: q === NARROW_QUERY, media: q, addEventListener() {}, removeEventListener() {} }))
     vi.stubGlobal('WebSocket', class { send() {} close() {} })
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       const u = String(url)
+      if (u.includes('/messages')) await messagesReady
       const data = u.endsWith('/projects/p/console')
         ? { sessions: [{ id: 's1', projectSlug: 'p', state: 'detached', changeId: CHANGE, openedBy: 'ana', mayAct: true }] }
         : u.endsWith(`/changes/${CHANGE}`)
@@ -231,10 +239,16 @@ describe('phone change controls', () => {
   }
   it('folds after a message, opens from either toggle, and always keeps the main actions', async () => {
     messageCount = 1
+    // Preview readiness does not mean the independent conversation read has
+    // arrived. Hold it back to exercise that ordering on every run.
+    let releaseMessages!: () => void
+    messagesReady = new Promise<void>(resolve => { releaseMessages = resolve })
     const { el, done } = await mount()
     try {
       const toggle = el.querySelector<HTMLButtonElement>('.change-controls-toggle')!
-      expect(toggle?.getAttribute('aria-expanded')).toBe('false')
+      expect(toggle?.getAttribute('aria-expanded')).toBe('true')
+      await act(async () => { releaseMessages() })
+      await vi.waitFor(() => expect(toggle?.getAttribute('aria-expanded')).toBe('false'))
       expect(toggle.getAttribute('aria-label')).toBe('Show change controls')
       secondary(el, true); mainActions(el)
       act(() => toggle.click())
@@ -274,6 +288,122 @@ describe('phone change controls', () => {
       expect(el.querySelector<HTMLDetailsElement>('.head-menu')!.hidden).toBe(false)
       expect(el.querySelector<HTMLDetailsElement>('.console-about')!.open).toBe(true)
       mainActions(el)
+    } finally { done() }
+  })
+})
+
+// Opening and attaching must leave the same composer (and its draft) in place.
+describe('writing while the helper starts', () => {
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); localStorage.clear(); sessionStorage.clear() })
+  async function mount(fail = false, sayFails = false) {
+    localStorage.clear(); sessionStorage.clear()
+    let opened!: (r: Response) => void
+    const sockets: { onopen?: () => void; onclose?: () => void }[] = []
+    const said: string[] = []
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+    vi.stubGlobal('WebSocket', class {
+      constructor() { sockets.push(this) }
+      send() {} close() {}
+      onopen?: () => void
+      onclose?: () => void
+    })
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      const u = String(url)
+      if (u.endsWith('/projects/p/console')) {
+        if (init?.method === 'POST') return new Promise<Response>(resolve => { opened = resolve })
+        return new Response('{"sessions":[]}')
+      }
+      if (u.endsWith('/say')) { said.push(JSON.parse(String(init?.body)).text); return sayFails ? new Response('{"error":"Could not send"}', { status: 400 }) : new Response('{}') }
+      if (u.includes('/messages')) return new Response('{"messages":[]}')
+      return new Response('{"changes":[]}')
+    }))
+    const client = newQueryClient()
+    const el = document.createElement('div')
+    const root = createRoot(el)
+    await act(async () => root.render(<MemoryRouter initialEntries={['/projects/p/console']}>
+      <QueryClientProvider client={client}><Routes><Route path="/projects/:slug/console" element={<Console />} /></Routes></QueryClientProvider>
+    </MemoryRouter>))
+    await vi.waitFor(() => expect(opened).toBeDefined())
+    return { el, said, client,
+      open: async () => act(async () => opened(new Response(JSON.stringify(fail ? { error: 'No helper here' } : {
+        session: { id: 's1', projectSlug: 'p', state: 'detached', openedBy: 'ana', mayAct: true },
+      }), { status: fail ? 400 : 200 }))),
+      attach: () => act(() => sockets[sockets.length - 1].onopen!()),
+      done: () => { act(() => root.unmount()); client.clear() },
+    }
+  }
+  async function type(el: HTMLElement, words: string) {
+    await act(async () => {
+      const box = el.querySelector('textarea')!
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(box, words)
+      box.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  }
+  it('keeps the composer enabled, appends to one queued bubble, and sends once across reconnects', async () => {
+    const { el, said, open, attach, done } = await mount()
+    try {
+      const composer = el.querySelector('textarea')!
+      expect(composer.disabled).toBe(false)
+      expect(el.querySelector('.chat-starting')?.textContent).toContain('Starting your helper…')
+      for (const words of ['Make it blue', 'And larger']) {
+        await type(el, words)
+        await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Send')!.click())
+      }
+      expect(said).toEqual([])
+      expect(el.querySelectorAll('.bubble.you.pending')).toHaveLength(1)
+      expect(el.textContent).toContain('will send when your helper is ready')
+      await type(el, 'Still writing')
+      await open()
+      expect(el.querySelector('.chat-starting')?.textContent).toContain('Connecting…')
+      expect(el.querySelector('textarea')).toBe(composer)
+      expect(composer.value).toBe('Still writing')
+      expect(said).toEqual([])
+      await attach()
+      expect(el.querySelector('.chat-starting')).toBeNull()
+      expect(said).toEqual(['Make it blue\n\nAnd larger'])
+      await attach()
+      expect(said).toHaveLength(1)
+      expect(el.textContent).not.toContain('will send when your helper is ready')
+    } finally { done() }
+  })
+  it('keeps a queued message and the newer draft when zooming into the terminal', async () => {
+    const { el, said, open, attach, done } = await mount()
+    try {
+      await type(el, 'Make it blue')
+      await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Send')!.click())
+      await type(el, 'Still writing')
+      const composer = el.querySelector('textarea')!
+      await open()
+      await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Terminal ▾')!.click())
+      expect(el.querySelector<HTMLElement>('.chat-pane')!.hidden).toBe(true)
+      await attach()
+      expect(said).toEqual(['Make it blue'])
+      await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === '← back to the chat')!.click())
+      expect(el.querySelector('textarea')).toBe(composer)
+      expect(composer.value).toBe('Still writing')
+      expect(el.querySelector<HTMLElement>('.chat-pane')!.hidden).toBe(false)
+    } finally { done() }
+  })
+  it('restores a refused queued message beside the newer draft without resending it', async () => {
+    const { el, said, open, attach, done } = await mount(false, true)
+    try {
+      await type(el, 'Make it blue')
+      await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Send')!.click())
+      await type(el, 'Still writing')
+      await open(); await attach()
+      await vi.waitFor(() => expect(el.textContent).toContain('Could not send'))
+      expect(el.querySelector('textarea')!.value).toBe('Make it blue\n\nStill writing')
+      await attach()
+      expect(said).toEqual(['Make it blue'])
+    } finally { done() }
+  })
+  it('keeps the existing error and project link when opening fails', async () => {
+    const { el, open, done } = await mount(true)
+    try {
+      await open()
+      await vi.waitFor(() => expect(el.textContent).toContain("Chat can't open here: No helper here"))
+      expect(el.querySelector('a')?.getAttribute('href')).toBe('/projects/p')
+      expect(el.querySelector('.chat-starting')).toBeNull()
     } finally { done() }
   })
 })
