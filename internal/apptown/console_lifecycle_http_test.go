@@ -307,6 +307,10 @@ func TestAnEndedChatsPicturesStayVisibleToItsReaders(t *testing.T) {
 		t.Fatal(err)
 	}
 	png := "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+	picture, err := base64.StdEncoding.DecodeString(png)
+	if err != nil {
+		t.Fatal(err)
+	}
 	pasted := func(body string) string {
 		t.Helper()
 		w := authzCall(h, "owner", "POST", "/api/v1/projects/game/console", body)
@@ -314,7 +318,7 @@ func TestAnEndedChatsPicturesStayVisibleToItsReaders(t *testing.T) {
 		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || w.Code != 201 {
 			t.Fatalf("open: %d %s", w.Code, w.Body.String())
 		}
-		if w := authzCall(h, "owner", "POST", "/api/v1/console/"+out.Session.ID+"/upload", fmt.Sprintf(`{"data":"data:image/png;base64,%s"}`, png)); w.Code != 200 {
+		if w := consoleUploadCall(t, h, "owner", "/api/v1/console/"+out.Session.ID+"/upload", "picture-1.png", picture); w.Code != 200 {
 			t.Fatalf("paste: %d %s", w.Code, w.Body.String())
 		}
 		if w := authzCall(h, "owner", "DELETE", "/api/v1/console/"+out.Session.ID, ""); w.Code != 200 {
@@ -336,7 +340,6 @@ func TestAnEndedChatsPicturesStayVisibleToItsReaders(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(movedDir, console.EndedFile), raw, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	picture, _ := base64.StdEncoding.DecodeString(png)
 	if err := os.WriteFile(filepath.Join(movedDir, "uploads", "picture-1.png"), picture, 0o644); err != nil {
 		t.Fatal(err)
 	}

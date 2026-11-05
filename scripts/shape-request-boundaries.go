@@ -65,6 +65,7 @@ func main() {
 			// which its owner spools within the operator's limit
 			// (projectlifecycle.SeedFromBundle).
 			if base == "json_command.go" && fn.Name.Name == "jsonCommand" ||
+				base == "multipart_command.go" && fn.Name.Name == "multipartFileCommand" ||
 				base == "repository_setup.go" && fn.Name.Name == "SeedFromBundle" {
 				continue
 			}

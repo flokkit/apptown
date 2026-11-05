@@ -216,7 +216,7 @@ describe('the conversation as read', () => {
     try {
       const box = el.querySelector('textarea')!
       expect(box.rows).toBe(2)
-      expect(box.placeholder).toBe('Say what to change. You can paste images.')
+      expect(box.placeholder).toBe('Say what to change. Attach, drop or paste files.')
       Object.defineProperty(box, 'scrollHeight', { configurable: true, get: () => box.value ? 120 : 56 })
       await act(async () => {
         Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(box, 'A longer draft\nwith several lines')
@@ -292,4 +292,66 @@ it('does not restore a failed send from a previous session into a fresh chat', a
     await vi.waitFor(() => expect(el.querySelector('textarea')!.value).toBe('New draft'))
     expect(el.textContent).not.toContain('Old send failed')
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+// Every file entry point sends bytes in multipart form and names the stored
+// file in the next message; text never embeds a large base64 data URL.
+describe('files in the composer', () => {
+ afterEach(() => { vi.unstubAllGlobals() })
+ const mount = async () => {
+  Element.prototype.scrollIntoView = () => {}
+  const uploads: FormData[] = []
+  const said: { text: string; attachments: string[] }[] = []
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+   if (String(url).endsWith('/upload')) {
+    uploads.push(init!.body as FormData)
+    return new Response(JSON.stringify({ name: 'data.csv', path: '/console/uploads/data.csv', size: 8, picture: false }))
+   }
+   if (String(url).endsWith('/say')) { said.push(JSON.parse(String(init?.body))); return new Response('{}') }
+   return new Response(JSON.stringify({ messages: [], turn: 'handed-back' }))
+  }))
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  const client = newQueryClient()
+  await act(async () => root.render(<QueryClientProvider client={client}><Bubbles sessionId="s1" /></QueryClientProvider>))
+  return { el, uploads, said, done: () => { act(() => root.unmount()); client.clear() } }
+ }
+ it.each(['attach', 'drop', 'paste'])('sends a CSV through %s', async (entry) => {
+  const f = await mount()
+  const file = new File(['a,b\n1,2\n'], 'data.csv', { type: 'text/csv' })
+  await act(async () => {
+   if (entry === 'attach') {
+    const input = f.el.querySelector('input[type="file"]')!
+    Object.defineProperty(input, 'files', { value: [file] })
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+   } else {
+    const event = new Event(entry === 'paste' ? 'paste' : 'drop', { bubbles: true, cancelable: true })
+    Object.defineProperty(event, entry === 'paste' ? 'clipboardData' : 'dataTransfer', { value: { files: [file] } })
+    f.el.querySelector(entry === 'paste' ? 'textarea' : '.chat-input')!.dispatchEvent(event)
+   }
+  })
+  expect(f.el.textContent).toContain('data.csv (8 bytes)')
+  await act(async () => { [...f.el.querySelectorAll('button')].find((b) => b.textContent === 'Send')!.click() })
+  expect(f.uploads).toHaveLength(1)
+  expect(f.uploads[0].get('file')).toBeInstanceOf(File)
+  expect(f.said).toEqual([{ text: '', attachments: ['data.csv'] }])
+  f.done()
+ })
+ it('refuses empty files, files over 25 MB and more than ten files', async () => {
+  const f = await mount()
+  for (const [files, reason] of [
+   [[new File([], 'empty')], 'empty'],
+   [[new File([new Uint8Array(26 * 1024 * 1024)], 'large')], '25 MB is the cap'],
+   [Array.from({ length: 11 }, () => new File(['x'], 'one')), 'cap is 10'],
+  ] as [File[], string][]) {
+   await act(async () => {
+    const event = new Event('drop', { bubbles: true, cancelable: true })
+    Object.defineProperty(event, 'dataTransfer', { value: { files } })
+    f.el.querySelector('.chat-input')!.dispatchEvent(event)
+   })
+   expect(f.el.textContent).toContain(reason)
+  }
+  expect(f.uploads).toHaveLength(0)
+  f.done()
+ })
 })

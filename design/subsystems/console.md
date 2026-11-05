@@ -67,8 +67,8 @@ head while typing. Expanded controls scroll within the available space.
 A chat is not private to the person who opened it.
 Anyone who can read its project may look at it: its conversation, its
 terminal's screen and who opened it. Acting on it needs `change:invoke-lane`
-on its project, the authority that opens a chat: saying something, pasting a
-picture, stopping its turn, typing into its terminal, ending it (which saves
+on its project, the authority that opens a chat: saying something, attaching a
+file, stopping its turn, typing into its terminal, ending it (which saves
 its work). A chat wakes only through one of those acts (a message, or a
 terminal opened to type), so its waking is recorded under whoever woke it.
 A chat's own credential reaches its own chat and no other, for reading as
@@ -110,21 +110,41 @@ listed in neither. A chat folder whose record or words cannot be read is not
 left out silently and does not stop the others: both reads return the chats
 they could read and say how many records on AppTown could not be read
 (`unreadable`; administrators also see the folders), because any of them may
-belong here. Pictures pasted into a chat stay visible with its words:
+belong here. Files attached to a chat stay available with its words:
 `GET /changes/{id}/transcript/{chat}/pictures/{name}` and
 `GET /projects/{slug}/transcript/{chat}/pictures/{name}`, with the same
-evidence read, name a picture by its chat and the name the chat's words give
-it (`console.Service.RecordedPicture`), only from a chat of that change or
+evidence read, name a file by its chat and the name the chat's words give
+it (`console.Service.RecordedAttachment`), only from a chat of that change or
 project, and list nothing. A deleted project's cleanup removes its ended
 chats' folders, words and pictures included (`console.Service.RemoveEnded`).
 
 Chats are shared, not yet multiplayer. The conversation does not say which
-person typed each message (the ledger does), and the agent is not told who is
-speaking. Explicitly multiplayer chats would need: the speaker carried into
+person typed each message (the ledger does), and plain messages do not tell the agent who is
+speaking. File notices name who attached the file. Explicitly multiplayer chats would need: the speaker carried into
 each message the agent sees and the page shows, a decision on whose
 authority the agent then acts with (the opener's, or the speaker's for that
 turn), and presence (who else has the chat open). Nothing here blocks that:
 the rule already admits several people acting on one chat.
+
+## Files in a chat
+
+Use Attach, drop files on the composer, or paste files and pictures. A message
+can include up to 10 files, each non-empty and at most 25 MB. Any file type is
+accepted. AppTown removes paths and unsafe characters from names and keeps each
+name unique within the chat.
+
+Files are stored in the chat's `uploads` folder beside its conversation, outside
+the repository. For worker chats, AppTown transfers the files to the worker before
+delivering the message. The agent receives who attached each file, its safe name,
+its byte size and its path under `/console/uploads/`. Pictures keep their inline
+previews and the agent can read them as images. Other files appear by name and
+size with a download link in the conversation and retained history. Downloads
+use the untrusted-file handler: only recognised raster pictures display inline.
+
+A file is not committed unless the change includes it. The agent and person
+decide whether it belongs in the repository; copying it into the change is an
+ordinary edit visible in the diff. AppTown does not scan files. File scanning
+is planned.
 
 ## Runtime preparation
 

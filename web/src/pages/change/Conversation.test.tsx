@@ -63,3 +63,15 @@ describe('a chat record that cannot be read is said, never hidden', () => {
     expect(html).toContain('Folders: abc, def.')
   })
 })
+
+it('retains named file downloads with their sizes in ended chat history', () => {
+  const client = newQueryClient()
+  const entry = chat({ id: 'c1', messages: [{ i: 0, role: 'you', text: 'sam attached report.pdf (120 bytes): /console/uploads/report.pdf' }] } as Partial<ChatHistoryEntry>)
+  client.setQueryData(getKey(`/changes/${CHANGE}/transcript`), { sessions: [entry] })
+  const html = renderToStaticMarkup(<QueryClientProvider client={client}><ConversationLog changeId={CHANGE} /></QueryClientProvider>)
+  expect(html).toContain(`href="/api/v1/changes/${CHANGE}/transcript/c1/pictures/report.pdf"`)
+  expect(html).toContain('download=""')
+  expect(html).toContain('report.pdf</a> (120 bytes)')
+  expect(html).not.toContain('<img')
+  expect(chatOpening(entry)).toBe('report.pdf')
+})

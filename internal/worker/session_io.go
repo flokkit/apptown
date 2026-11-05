@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bufio"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -50,7 +51,7 @@ const (
 
 // workerOwned are the console directory's names the worker and the chat
 // write; AppTown's files never replace them.
-var workerOwned = []string{"sessions", "scratch", "docker-client", "docker-runtime", "run-pi.sh", "tmux.conf", filesManifest}
+var workerOwned = []string{"uploads", "sessions", "scratch", "docker-client", "docker-runtime", "run-pi.sh", "tmux.conf", filesManifest}
 
 const filesManifest = "forge-files.json"
 
@@ -796,4 +797,56 @@ func readFrames(r *bufio.Reader, term console.Terminal) error {
 			}
 		}
 	}
+}
+
+// putUpload receives one bounded file outside the repository. A failed transfer
+// leaves the previous file intact; all reads and writes stay inside uploads.
+func (s *Server) putUpload(w http.ResponseWriter, r *http.Request) {
+	if !s.sessionRuntime(w) {
+		return
+	}
+	id, name := r.PathValue("id"), r.PathValue("name")
+	if !console.ValidAttachmentName(name) {
+		http.Error(w, "invalid file name", 400)
+		return
+	}
+	defer s.lockSession(id)()
+	rec, ok := s.knownSession(w, id)
+	if !ok {
+		return
+	}
+	sessionRoot, err := os.OpenRoot(s.launch(rec).Dir)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	defer sessionRoot.Close()
+	if err := sessionRoot.Mkdir("uploads", 0o755); err != nil && !errors.Is(err, os.ErrExist) {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	root, err := sessionRoot.OpenRoot("uploads")
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	defer root.Close()
+	temp := ".upload-" + rand.Text()
+	f, err := root.OpenFile(temp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	defer root.Remove(temp)
+	n, err := io.Copy(f, io.LimitReader(r.Body, console.MaxUploadBytes+1))
+	closeErr := f.Close()
+	if err != nil || closeErr != nil || n == 0 || n > console.MaxUploadBytes {
+		http.Error(w, "file empty, unreadable or too big — 25 MB is the cap", 400)
+		return
+	}
+	if err := root.Rename(temp, name); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

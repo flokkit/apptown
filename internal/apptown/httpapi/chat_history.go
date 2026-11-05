@@ -116,7 +116,7 @@ func (h ChatHistory) ProjectPicture(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h ChatHistory) picture(w http.ResponseWriter, r *http.Request, scope string) {
-	path, err := h.sessions.RecordedPicture(scope, r.PathValue("chat"), r.PathValue("name"))
+	path, err := h.sessions.RecordedAttachment(scope, r.PathValue("chat"), r.PathValue("name"))
 	if err != nil {
 		WriteError(w, 404, "no such picture")
 		return

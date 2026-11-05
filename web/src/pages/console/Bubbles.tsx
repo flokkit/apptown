@@ -8,7 +8,7 @@ import { pastedPictures } from '../../pictures'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { AgentActionsSwitch, ToolFold, foldTools, useAgentActions } from '../../AgentActions'
 export { foldTools, toolSummary } from '../../AgentActions'
-import type { PastedPicture } from '../../wire.gen'
+import type { ChatUpload } from '../../wire.gen'
 
 // ---- the bubble surface ----------------------------------------------------
 // A projection of pi's own session record: user words right, helper words
@@ -18,6 +18,8 @@ import type { PastedPicture } from '../../wire.gen'
 
 // The mark on AppTown's own check messages in a chat, either spelling.
 const CHECK_MARK = /^\[(?:apptown|forge) check\]/
+type DraftFile = { file: File; name: string; path: string; thumb: string }
+
 export type Bubble = { i: number; role: 'you' | 'helper'; text?: string; tools?: { name: string; detail?: string }[]; error?: boolean; stopped?: boolean }
 
 // retired says the record holds the message just sent: any "you" message at
@@ -59,30 +61,29 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
   const [sendErr, setSendErr] = useState('')
   // Pasted pictures waiting to go with the next message: server path + a
   // local thumbnail. Before a session exists, delivery uploads the picture.
-  const [images, setImages] = useState<{ path: string; thumb: string }[]>([])
-  const queuedImages = useRef<{ path: string; thumb: string }[]>([])
+  const [images, setImages] = useState<DraftFile[]>([])
+  const queuedImages = useRef<DraftFile[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
   const stick = useRef(true) // autoscroll unless the reader scrolled up
 
-  const addImage = (file: File) => {
-    const reader = new FileReader()
-    reader.onload = async () => {
-      const dataUrl = reader.result as string
-      try {
-        const r = sessionId ? await post<PastedPicture>(`/console/${sessionId}/upload`, { data: dataUrl }) : { path: '' }
-        if (sessionId && previousSession.current !== sessionId) return
-        setImages((cur) => [...cur, { path: r.path, thumb: dataUrl }])
-      } catch (e) { if (!sessionId || previousSession.current === sessionId) setSendErr((e as Error).message) }
-    }
-    reader.readAsDataURL(file)
+  const fileInput = useRef<HTMLInputElement>(null)
+  const previewURLs = useRef<string[]>([])
+  useEffect(() => () => { previewURLs.current.forEach((url) => URL.revokeObjectURL(url)) }, [])
+  const addFiles = (files: File[]) => {
+    if (images.length + queuedImages.current.length + files.length > 10) { setSendErr('Too many files in one message — the cap is 10.'); return }
+    if (files.some((f) => f.size > 25 * 1024 * 1024)) { setSendErr('File too big — 25 MB is the cap.'); return }
+    if (files.some((f) => f.size === 0)) { setSendErr('The file is empty. Choose a file with something in it.'); return }
+    setSendErr('')
+    const added = files.map((file) => {
+      const thumb = /^image\/(png|jpeg|webp|gif)$/.test(file.type) ? URL.createObjectURL(file) : ''
+      if (thumb) previewURLs.current.push(thumb)
+      return { file, name: file.name, path: '', thumb }
+    })
+    setImages((cur) => [...cur, ...added])
   }
   const onPaste = (e: React.ClipboardEvent) => {
-    for (const item of Array.from(e.clipboardData.items)) {
-      if (item.type.startsWith('image/')) {
-        const f = item.getAsFile()
-        if (f) { addImage(f); e.preventDefault() }
-      }
-    }
+    const files = Array.from(e.clipboardData.files)
+    if (files.length) { e.preventDefault(); addFiles(files) }
   }
 
   const record = useGet<{ messages: Bubble[]; turn?: string }>(sessionId ? `/console/${sessionId}/messages?from=0` : null, { poll: 2000 })
@@ -95,14 +96,21 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
   // /say waits for pi's input readiness, just as it does for kickoff.
   // Consume the queue before starting the request: effect replays and terminal
   // reconnects must never submit the same words twice.
-  const deliver = useCallback(async (t: string, pictures: { path: string; thumb: string }[]) => {
+  const deliver = useCallback(async (t: string, pictures: DraftFile[]) => {
     if (!sessionId) return
-    setSendErr(''); setSent({ text: t || '(Picture)', at: msgs.length })
+    setSendErr(''); setSent({ text: t || '(File)', at: msgs.length })
     try {
-      const paths = await Promise.all(pictures.map(async (im) => im.path ||
-        (await post<PastedPicture>(`/console/${sessionId}/upload`, { data: im.thumb })).path))
-      const message = t + (paths.length ? `${t ? ' ' : ''}(I pasted ${paths.length === 1 ? 'a picture' : paths.length + ' pictures'} — look at ${paths.join(' and ')})` : '')
-      await post(`/console/${sessionId}/say`, { text: message })
+      const names: string[] = []
+      for (const file of pictures) {
+        if (!file.path) {
+          const body = new FormData()
+          body.append('file', file.file)
+          const uploaded = await post<ChatUpload>(`/console/${sessionId}/upload`, body)
+          file.path = uploaded.path; file.name = uploaded.name
+        }
+        names.push(file.name)
+      }
+      await post(`/console/${sessionId}/say`, { text: t, attachments: names })
     } catch (e) {
       if (previousSession.current !== sessionId) return
       setSendErr((e as Error).message); setSent(null)
@@ -119,11 +127,12 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
   const send = () => {
     const t = text.trim()
     if (!t && !images.length) return
+    if (images.length + queuedImages.current.length > 10) { setSendErr('Too many files in one message — the cap is 10.'); return }
     setText(''); setImages([])
     if (!sessionId || !attached) {
       queuedRef.current = [queuedRef.current, t].filter(Boolean).join('\n\n')
       queuedImages.current.push(...images)
-      setQueued(queuedRef.current || '(Picture)')
+      setQueued(queuedRef.current || '(File)')
     } else void deliver(t, images)
   }
 
@@ -222,10 +231,11 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
                     // A pasted picture travels as "(I pasted a picture —
                     // look at /console/uploads/picture-N.png)"; show the
                     // picture itself, not the plumbing sentence.
-                    const { names, display } = pastedPictures(m.text)
+                    const { names, files, display } = pastedPictures(m.text)
                     return (
                       <div>
                         {display && <div className="bubbles-div-4">{display}</div>}
+                        {files.map((f) => <div key={f.name}><a href={`/api/v1/console/${sessionId}/uploads/${f.name}`} download>{f.name}</a> ({f.size} bytes)</div>)}
                         {names.map((n) => (
                           <img key={n} src={`/api/v1/console/${sessionId}/uploads/${n}`} alt="pasted picture"
                             style={{ marginTop: display ? 6 : 0 }} className="bubbles-img" />
@@ -264,9 +274,9 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
         <div className="row mt-2 bubbles-div-5">
           {images.map((im, i) => (
             <span key={`${im.path}-${i}`} className="bubbles-span">
-              <img src={im.thumb} alt="picture to send" className="bubbles-img-2" />
+              {im.thumb ? <img src={im.thumb} alt="picture to send" className="bubbles-img-2" /> : <span>{im.name} ({im.file.size} bytes)</span>}
               <button onClick={() => setImages(images.filter((_, j) => j !== i))}
-                title="don't send this picture" aria-label="don't send this picture"
+                title="don't send this file" aria-label="don't send this file"
                  className="bubbles-button">×</button>
             </span>
           ))}
@@ -278,7 +288,11 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
           Viewing only: this is {readOnly || 'someone else'}’s chat. Saying something to this chat needs the
           Project contributor role.
         </div>
-      ) : <div className="row chat-input mt-2" >
+      ) : <div className="row chat-input mt-2"
+        onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }}
+        onDrop={(e) => { e.preventDefault(); addFiles(Array.from(e.dataTransfer.files)) }}>
+        <input ref={fileInput} type="file" multiple hidden onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = '' }} />
+        <button type="button" onClick={() => fileInput.current?.click()}>Attach</button>
         <textarea
           ref={inputRef}
           rows={narrow ? 2 : 1}
@@ -286,7 +300,7 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
           onChange={(e) => setText(e.target.value)}
           onPaste={onPaste}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-          placeholder="Say what to change. You can paste images."
+          placeholder="Say what to change. Attach, drop or paste files."
           aria-label="your message"
         />
         <button className="primary" onClick={send} disabled={!text.trim() && images.length === 0}>Send</button>

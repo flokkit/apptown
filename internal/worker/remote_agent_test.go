@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -694,6 +695,51 @@ func sessionMessages(t *testing.T, sessions *console.Service, session *console.S
 		}
 	}
 	return nil
+}
+
+// Files uploaded to a warm worker chat arrive before the message, at the
+// advertised container path, even when their combined size exceeds the settings
+// tar cap. They never enter the worker's checkout.
+func TestAWorkerChatReceivesFilesBesideTheChatBeforeTheirMessage(t *testing.T) {
+	c := startRemoteChats(t, nil)
+	session := c.open(t)
+	defer c.service.End(t.Context(), session.ID)
+	var names []string
+	for _, name := range []string{"customers.csv", "plan.pdf", "extra.bin"} {
+		body := bytes.Repeat([]byte("x"), 23<<20)
+		att, err := c.service.Upload(t.Context(), session.ID, console.File{Name: name, Body: body})
+		if err != nil {
+			t.Fatal(err)
+		}
+		names = append(names, att.Name)
+	}
+	text, err := c.service.AttachmentMessage(t.Context(), session.ID, "alice", "Use these files", names)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.service.Send(t.Context(), session.ID, text); err != nil {
+		t.Fatal(err)
+	}
+	launch := c.runtime.Started(session.ID)
+	for _, name := range names {
+		path := filepath.Join(launch.Dir, "uploads", name)
+		st, err := os.Stat(path)
+		if err != nil || st.Size() != 23<<20 {
+			t.Fatalf("file not in worker environment: %s %v", path, err)
+		}
+		if _, err := os.Stat(filepath.Join(launch.Workspace.Path, name)); !os.IsNotExist(err) {
+			t.Fatalf("upload entered repository: %v", err)
+		}
+		want := fmt.Sprintf("alice attached %s (%d bytes): /console/uploads/%s", name, st.Size(), name)
+		eventually(t, "file path in agent conversation", func() bool {
+			for _, message := range sessionMessages(t, c.service, session) {
+				if strings.Contains(message.Text, want) {
+					return true
+				}
+			}
+			return false
+		})
+	}
 }
 
 // Given-secret metadata and the created container identity must survive the

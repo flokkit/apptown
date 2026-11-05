@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"encoding/base64"
 	"log"
 	"net/http"
 	"strings"
@@ -22,7 +21,7 @@ type ConsoleMessages struct {
 }
 
 // NewConsoleMessages serves a chat's conversation to anyone who may look at
-// it, and takes words, pictures and interruptions through chats, which
+// it, and takes words, files and interruptions through chats, which
 // decides who may act on it. work names a change from its chat's first
 // message.
 func NewConsoleMessages(chats conversation.Chats, work *workflow.Service, db *database.DB, dataDir string, mask mask) ConsoleMessages {
@@ -57,14 +56,15 @@ func (h ConsoleMessages) ConsoleSay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonCommand(w, r, jsonBody{errorText: "say something"}, func(in struct {
-		Text string `json:"text"`
+		Text        string   `json:"text"`
+		Attachments []string `json:"attachments"`
 	}) {
-		if strings.TrimSpace(in.Text) == "" {
+		if strings.TrimSpace(in.Text) == "" && len(in.Attachments) == 0 {
 			WriteError(w, 400, "say something")
 			return
 		}
 
-		actor, err := h.chats.Say(r.Context(), s, in.Text)
+		actor, err := h.chats.SayWithAttachments(r.Context(), s, in.Text, in.Attachments)
 		if err != nil {
 			WriteFault(w, err)
 			return
@@ -100,52 +100,29 @@ func (h ConsoleMessages) ConsoleUpload(w http.ResponseWriter, r *http.Request) {
 	if s == nil {
 		return
 	}
-	jsonCommand(w, r, jsonBody{limit: 20 << 20, errorFormat: "bad upload: %v"}, func(in struct {
-		Data string `json:"data"` // data: URL from the browser clipboard
-	}) {
-		ext := ""
-		for prefix, e := range map[string]string{
-			"data:image/png;base64,":  "png",
-			"data:image/jpeg;base64,": "jpg",
-			"data:image/webp;base64,": "webp",
-			"data:image/gif;base64,":  "gif",
-		} {
-			if strings.HasPrefix(in.Data, prefix) {
-				in.Data, ext = in.Data[len(prefix):], e
-				break
-			}
-		}
-		if ext == "" {
-			WriteError(w, 422, "only pictures can be pasted (png, jpeg, webp, gif)")
-			return
-		}
-		raw, err := base64.StdEncoding.DecodeString(in.Data)
-		if err != nil {
-			WriteError(w, 400, "the picture data didn't decode")
-			return
-		}
-		if len(raw) > 12<<20 {
-			WriteError(w, 413, "picture too big — 12MB is the cap")
-			return
-		}
-		att, err := h.chats.Upload(r.Context(), s, console.File{Ext: ext, Body: raw})
+	if _, err := h.chats.Act(r.Context(), s, "attaching a file to"); err != nil {
+		WriteFault(w, err)
+		return
+	}
+	multipartFileCommand(w, r, func(file console.File) {
+		att, err := h.chats.Upload(r.Context(), s, file)
 		if err != nil {
 			WriteFault(w, err)
 			return
 		}
-		WriteJSON(w, 200, PastedPicture{Name: att.Name, Path: att.Path})
+		WriteJSON(w, 200, att)
 	})
 }
 
-// ConsoleUploadGet serves a pasted picture back to the chat page.
+// ConsoleUploadGet serves a file back to the chat page.
 func (h ConsoleMessages) ConsoleUploadGet(w http.ResponseWriter, r *http.Request) {
 	s := ConsoleFromPath(h.sessions, w, r)
 	if s == nil {
 		return
 	}
 	name := r.PathValue("name")
-	if !console.ValidPictureName(name) {
-		WriteError(w, 404, "no such picture")
+	if !console.ValidAttachmentName(name) {
+		WriteError(w, 404, "no such file")
 		return
 	}
 	path, err := h.sessions.UploadPath(r.Context(), s.ID, name)
@@ -163,10 +140,5 @@ type (
 		Messages []console.Message `json:"messages"`
 		State    console.State     `json:"state"`
 		Turn     string            `json:"turn"`
-	}
-	// PastedPicture names a picture pasted into a chat.
-	PastedPicture struct {
-		Name string `json:"name"`
-		Path string `json:"path"`
 	}
 )

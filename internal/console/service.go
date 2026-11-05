@@ -7,9 +7,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"maps"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -787,58 +789,154 @@ func cleanupCheckout(sess *Session, purge bool) error {
 	return nil
 }
 
-// Upload stores a pasted picture under the session, server-named, and says
-// where the agent will find it.
+// File is an original file name and its bytes, bounded by MaxUploadBytes.
 type File struct {
-	Ext  string // png, jpg, webp, gif
+	Name string
 	Body []byte
 }
 
+const MaxUploadBytes = 25 << 20
+const maxAttachments = 10
+
 type Attachment struct {
-	Name string // picture-N.ext
-	Path string // where the agent sees it: UploadsMount/name
+	Name    string `json:"name"`
+	Path    string `json:"path"`
+	Size    int64  `json:"size"`
+	Picture bool   `json:"picture"`
 }
 
+// Upload stores a file beside the chat, never in its repository. Exclusive
+// creation keeps simultaneous uploads from replacing an earlier file.
 func (s *Service) Upload(ctx context.Context, id string, f File) (Attachment, error) {
 	sess, err := s.admit(id)
 	if err != nil {
 		return Attachment{}, err
 	}
+	if len(f.Body) == 0 {
+		return Attachment{}, fault.New(fault.Invalid, "The file is empty. Choose a file with something in it.")
+	}
+	if len(f.Body) > MaxUploadBytes {
+		return Attachment{}, fault.New(fault.Invalid, "File too big — 25 MB is the cap.")
+	}
+	name := strings.ReplaceAll(f.Name, "\\", "/")
+	name = filepath.Base(name)
+	name = unsafeAttachmentCharacters.ReplaceAllString(name, "_")
+	name = strings.TrimLeft(name, ".")
+	if len(name) > 180 {
+		name = name[:180]
+	}
+	if name == "" {
+		name = "file"
+	}
 	dir := filepath.Join(sess.Dir, "uploads")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return Attachment{}, err
 	}
-	entries, _ := os.ReadDir(dir)
-	name := fmt.Sprintf("picture-%d.%s", len(entries)+1, f.Ext)
-	if err := os.WriteFile(filepath.Join(dir, name), f.Body, 0o644); err != nil {
+	root, err := os.OpenRoot(sess.Dir)
+	if err != nil {
 		return Attachment{}, err
 	}
-	return Attachment{Name: name, Path: UploadsMount + "/" + name}, nil
+	defer root.Close()
+	uploads, err := root.OpenRoot("uploads")
+	if err != nil {
+		return Attachment{}, err
+	}
+	defer uploads.Close()
+	original := name
+	for n := 2; ; n++ {
+		out, err := uploads.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+		if errors.Is(err, os.ErrExist) {
+			ext := filepath.Ext(original)
+			name = fmt.Sprintf("%s-%d%s", strings.TrimSuffix(original, ext), n, ext)
+			continue
+		}
+		if err != nil {
+			return Attachment{}, err
+		}
+		_, err = out.Write(f.Body)
+		closeErr := out.Close()
+		if err != nil || closeErr != nil {
+			_ = uploads.Remove(name)
+			return Attachment{}, errors.Join(err, closeErr)
+		}
+		return attachment(name, int64(len(f.Body)), f.Body), nil
+	}
 }
 
-// errNoPicture: the chat has no picture by that name, or the name is not one
-// the console gives.
-var errNoPicture = errors.New("no such picture")
+func attachment(name string, size int64, head []byte) Attachment {
+	typ := http.DetectContentType(head)
+	picture := typ == "image/png" || typ == "image/jpeg" || typ == "image/webp" || typ == "image/gif"
+	return Attachment{Name: name, Path: UploadsMount + "/" + name, Size: size, Picture: picture}
+}
 
-var pictureName = regexp.MustCompile(`^picture-\d+\.(png|jpg|webp|gif)$`)
+// AttachmentMessage resolves only files in this chat. The agent receives the
+// speaker, original safe name, byte size and the path in its own environment.
+func (s *Service) AttachmentMessage(ctx context.Context, id, actor, text string, names []string) (string, error) {
+	if len(names) > maxAttachments {
+		return "", fault.New(fault.Invalid, "Too many files in one message — the cap is 10.")
+	}
+	sess, err := s.admit(id)
+	if err != nil {
+		return "", err
+	}
+	var pictures []string
+	for _, name := range names {
+		if !ValidAttachmentName(name) {
+			return "", fault.New(fault.Invalid, "No such file in this chat.")
+		}
+		root, err := os.OpenRoot(sess.Dir)
+		if err != nil {
+			return "", err
+		}
+		f, err := root.Open(filepath.Join("uploads", name))
+		root.Close()
+		if err != nil {
+			return "", fault.New(fault.Invalid, "No such file in this chat.")
+		}
+		st, err := f.Stat()
+		var head [512]byte
+		n, readErr := f.Read(head[:])
+		f.Close()
+		if err != nil || !st.Mode().IsRegular() || (readErr != nil && readErr != io.EOF) {
+			return "", fault.New(fault.Invalid, "Could not read the file in this chat.")
+		}
+		att := attachment(name, st.Size(), head[:n])
+		text += fmt.Sprintf("\n%s attached %s (%d bytes): %s", actor, att.Name, att.Size, att.Path)
+		if att.Picture {
+			text += " (picture)"
+			pictures = append(pictures, att.Path)
+		}
+	}
+	if len(pictures) > 0 {
+		text += " (I pasted a picture — look at " + strings.Join(pictures, " and ") + ")"
+	}
+	return text, nil
+}
 
-// ValidPictureName reports whether name is one Upload gives a pasted
-// picture: never a path.
-func ValidPictureName(name string) bool { return pictureName.MatchString(name) }
+var unsafeAttachmentCharacters = regexp.MustCompile(`[^a-zA-Z0-9._-]`)
 
-// RecordedPicture is where a pasted picture of a scope's chat lives on disk,
+var attachmentName = regexp.MustCompile(`^[a-zA-Z0-9_-][a-zA-Z0-9._-]*$`)
+
+// ValidAttachmentName accepts a safe file name, never a path.
+func ValidAttachmentName(name string) bool {
+	return len(name) <= 200 && attachmentName.MatchString(name)
+}
+
+var errNoAttachment = errors.New("no such file")
+
+// RecordedAttachment is where a file of a scope's chat lives on disk,
 // live or ended, read from the chat's record without registering or waking
-// it: the chat's words stay readable after it ends, and so do its pictures.
+// it: the chat's words stay readable after it ends, and so do its files.
 // The chat must belong to the scope and the name must be one Upload gives;
 // nothing is listed.
-func (s *Service) RecordedPicture(scope, id, name string) (string, error) {
-	if !validSessionID(id) || !ValidPictureName(name) {
-		return "", errNoPicture
+func (s *Service) RecordedAttachment(scope, id, name string) (string, error) {
+	if !validSessionID(id) || !ValidAttachmentName(name) {
+		return "", errNoAttachment
 	}
 	dir := filepath.Join(s.root(), id)
 	meta, err := readAnyMeta(dir)
 	if err != nil || meta.Scope != scope {
-		return "", errNoPicture
+		return "", errNoAttachment
 	}
 	// Whether the file is there, and that reading it stays inside the
 	// chat's uploads, is the serving read's (httpapi.ServeUntrustedFile).
@@ -893,6 +991,9 @@ func (s *Service) purgeEnded(id string, m Match) error {
 
 // UploadPath is where a named upload lives on disk, for serving it back.
 func (s *Service) UploadPath(ctx context.Context, id, name string) (string, error) {
+	if !ValidAttachmentName(name) {
+		return "", errNoAttachment
+	}
 	sess, err := s.admit(id)
 	if err != nil {
 		return "", err
