@@ -58,3 +58,14 @@ func TestChatRequestBoundsWholeMessagesAndExplainsOmissions(t *testing.T) {
 		t.Fatalf("request bound: %s", got)
 	}
 }
+
+func TestRequestMessagesRetainOnlyPersonWordsInConversationOrder(t *testing.T) {
+	chats := []console.Conversation{
+		{ID: "later", Messages: []console.Message{{I: 2, Role: "you", At: "2026-01-02", Text: "Also keep keyboard controls."}, {I: 3, Role: "helper", Text: "All checks passed."}}},
+		{ID: "first", Messages: []console.Message{{I: 1, Role: "you", At: "2026-01-01", Text: "Bring distant cards into view."}}},
+	}
+	got := RequestMessages(chats)
+	if len(got) != 2 || got[0].Session != "first" || got[0].Index != 1 || got[1].Text != "Also keep keyboard controls." {
+		t.Fatalf("request source: %+v", got)
+	}
+}

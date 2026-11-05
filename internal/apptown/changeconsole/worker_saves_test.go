@@ -41,6 +41,16 @@ func TestAWorkerChatsTurnIsSavedWhenItHandsBack(t *testing.T) {
 	if got := gittest.Run(t, w.folder, "rev-parse", "HEAD"); got != want {
 		t.Fatalf("the change's folder is at %s, want the saved commit %s", got, want)
 	}
+	eventually(t, "the first candidate asks for its narrative", func() bool { return len(w.narratives.asked()) == 1 })
+	if asked := w.narratives.asked(); asked[0] != w.change.ID {
+		t.Fatalf("candidate narrative: %v", asked)
+	}
+	// A follow-up may add requirements without adding a commit. The builder
+	// compares the person's messages before deciding to spend another call.
+	w.chats.SaveAfterTurn(s.ID)
+	if asked := w.narratives.asked(); len(asked) != 2 {
+		t.Fatalf("unchanged candidate lost follow-up request: %v", asked)
+	}
 }
 
 // A refused save is recorded and told to the chat, with how to fix it.

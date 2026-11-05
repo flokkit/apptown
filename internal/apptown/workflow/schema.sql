@@ -44,8 +44,11 @@ CREATE TABLE IF NOT EXISTS changes (
   -- nothing to change) is 'nothing-to-change'; a change a later landing
   -- shipped is 'shipped-with'; one a record run (research, a
   -- specification) shipped with nothing to land is 'record'; '' otherwise.
-  -- Only the engine writes it. Last, where migration 148 added it.
+  -- Only the engine writes it.
   closed_as          TEXT NOT NULL DEFAULT '' CONSTRAINT change_closed_as CHECK(closed_as IN ('','nothing-to-change','shipped-with','record')),
+  chat_request BOOLEAN NOT NULL DEFAULT false,
+  request_summary JSONB NOT NULL DEFAULT '{}',
+  request_gap_quote TEXT NOT NULL DEFAULT '',
   UNIQUE(project_id, number)
 );
 -- The last number given to a change and to a run in each project. A

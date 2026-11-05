@@ -186,6 +186,11 @@ func (c *Service) saveTurn(ctx context.Context, s *console.Session) repositoryed
 	// The boot rehearsal reads what was saved, queued in save order while
 	// the save's lock is held.
 	if save.Outcome == repositoryedit.ChatSaved || save.Outcome == repositoryedit.ChatSaveNoChange {
+		// A committed candidate is ready to describe before approval. An
+		// unchanged candidate can still have new requests in this turn.
+		if err := c.narratives.Request(ctx, conversation.Of(s).ChangeID); err != nil {
+			log.Printf("console %s: asking for the narrative: %v", s.ID, err)
+		}
 		c.queueRehearsal(s, save.Saved)
 	}
 	if save.Outcome == repositoryedit.ChatSaveRefused && (prev.Outcome != repositoryedit.ChatSaveRefused || prev.Commit != save.Commit) {

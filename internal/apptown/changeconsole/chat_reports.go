@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/strs"
 )
@@ -65,4 +66,18 @@ func chatRequest(messages []console.Message) string {
 		note = fmt.Sprintf("Writer input bound: %d whole messages omitted to fit %d bytes. The person’s messages were not cut off; this is a limit on what you were given. Do not judge omitted requests as unmet.\n", omitted, budget)
 	}
 	return "PERSON'S CHAT REQUEST (messages in order; part of the ask):\n" + note + request.String()
+}
+
+// RequestMessages keeps the exact person messages and their retained locations.
+func RequestMessages(chats []console.Conversation) []workflow.RequestMessage {
+	var messages []workflow.RequestMessage
+	for _, chat := range chats {
+		for _, m := range chat.Messages {
+			if m.Role == "you" && strings.TrimSpace(m.Text) != "" {
+				messages = append(messages, workflow.RequestMessage{Session: chat.ID, Index: m.I, At: m.At, Text: m.Text})
+			}
+		}
+	}
+	slices.SortStableFunc(messages, func(a, b workflow.RequestMessage) int { return strings.Compare(a.At, b.At) })
+	return messages
 }

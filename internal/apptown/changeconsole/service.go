@@ -144,6 +144,10 @@ func (c *Service) Rehearse(ctx context.Context, s *console.Session) {
 				}
 			}
 		}
+		// New conversation words can revise the ask even without new files.
+		if err := c.narratives.Request(c.engine, conversation.Of(s).ChangeID); err != nil {
+			log.Printf("console %s: asking for the narrative: %v", s.ID, err)
+		}
 		fp := docker.WorktreeFingerprint(ws)
 		if rehearsed == "" {
 			// Rehearsal memory survives restarts on disk: without it, every
@@ -154,11 +158,6 @@ func (c *Service) Rehearse(ctx context.Context, s *console.Session) {
 		}
 		if rehearsed == fp {
 			continue
-		}
-		// The turn just handed back with a NEW worktree state: refresh the
-		// change's narrative too, once per state.
-		if err := c.narratives.Request(c.engine, conversation.Of(s).ChangeID); err != nil {
-			log.Printf("console %s: asking for the narrative: %v", s.ID, err)
 		}
 		_, bootErr := c.previews.RehearseChange(c.engine, previewOf(ch), false)
 		if bootErr != nil && !preview.IsAppBootFailure(bootErr) {

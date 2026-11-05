@@ -44,15 +44,15 @@ UPDATE changes SET title=sqlc.arg(title),title_ownership=sqlc.arg(title_ownershi
 WHERE id=sqlc.arg(id) AND project_id=sqlc.arg(project_id) AND title IS NOT DISTINCT FROM sqlc.arg(old_title) AND title_ownership IS NOT DISTINCT FROM sqlc.arg(old_title_ownership);
 
 -- name: InsertChange :one
-INSERT INTO changes(id,number,project_id,type,title,body,external_ref,acceptance_json,state,title_ownership,branch,base_sha,provenance,expected_revision,opened_by,opened_by_principal,opened_by_via,created_at)
-VALUES(sqlc.arg(id),sqlc.arg(number),sqlc.arg(project_id),sqlc.arg(type),sqlc.arg(title),sqlc.arg(body),sqlc.arg(external_ref),sqlc.arg(acceptance_json),sqlc.arg(state),sqlc.arg(title_ownership),sqlc.arg(branch),sqlc.arg(base_sha),sqlc.arg(provenance),sqlc.arg(expected_revision),sqlc.arg(opened_by),sqlc.arg(opened_by_principal),sqlc.arg(opened_by_via),sqlc.arg(created_at)::timestamptz) RETURNING *;
+INSERT INTO changes(id,number,project_id,type,title,body,external_ref,acceptance_json,state,title_ownership,chat_request,branch,base_sha,provenance,expected_revision,opened_by,opened_by_principal,opened_by_via,created_at)
+VALUES(sqlc.arg(id),sqlc.arg(number),sqlc.arg(project_id),sqlc.arg(type),sqlc.arg(title),sqlc.arg(body),sqlc.arg(external_ref),sqlc.arg(acceptance_json),sqlc.arg(state),sqlc.arg(title_ownership),sqlc.arg(chat_request),sqlc.arg(branch),sqlc.arg(base_sha),sqlc.arg(provenance),sqlc.arg(expected_revision),sqlc.arg(opened_by),sqlc.arg(opened_by_principal),sqlc.arg(opened_by_via),sqlc.arg(created_at)::timestamptz) RETURNING *;
 
 -- name: NameChangeWorkspaceBranch :execrows
 UPDATE changes SET branch=sqlc.arg(branch)
 WHERE id=sqlc.arg(change_id) AND project_id=sqlc.arg(project_id) AND branch='';
 
 -- name: PublishChangeNarrative :execrows
-UPDATE changes SET summary=sqlc.arg(summary),request_met=sqlc.arg(request_met),request_gap=sqlc.arg(request_gap) WHERE id=sqlc.arg(id) AND project_id=sqlc.arg(project_id) AND body=sqlc.arg(body) AND state=sqlc.arg(state) AND run_id IS NOT DISTINCT FROM sqlc.arg(run_id) AND branch=sqlc.arg(branch) AND base_sha=sqlc.arg(base_sha) AND summary IS NOT DISTINCT FROM sqlc.arg(old_summary);
+UPDATE changes SET summary=sqlc.arg(summary),request_met=sqlc.arg(request_met),request_gap=sqlc.arg(request_gap),request_gap_quote=sqlc.arg(request_gap_quote) WHERE id=sqlc.arg(id) AND project_id=sqlc.arg(project_id) AND body=sqlc.arg(body) AND state=sqlc.arg(state) AND run_id IS NOT DISTINCT FROM sqlc.arg(run_id) AND branch=sqlc.arg(branch) AND base_sha=sqlc.arg(base_sha) AND summary IS NOT DISTINCT FROM sqlc.arg(old_summary);
 
 -- name: RecordSupersededChange :execrows
 UPDATE changes SET summary=sqlc.arg(summary) WHERE id=sqlc.arg(id) AND project_id=sqlc.arg(project_id) AND state=sqlc.arg(state);
@@ -107,7 +107,7 @@ FROM changes wi LEFT JOIN runs r ON wi.run_id=r.id AND r.project_id=wi.project_i
 WHERE wi.project_id=sqlc.arg(project_id) AND (sqlc.arg(state)::text='' OR wi.state=sqlc.arg(state)) ORDER BY wi.number DESC LIMIT NULLIF(sqlc.arg(limit_count)::integer,0);
 
 -- name: ChangeTargetAdoptionMeta :one
-SELECT target_adoption_id FROM changes WHERE id=$1 AND project_id=$2;
+SELECT target_adoption_id FROM changes WHERE changes.id=$1 AND changes.project_id=$2;
 
 -- Workspace source needs only repository/Change identity and state; Change body
 -- and acceptance can be large and are not part of the snapshot comparison.
@@ -219,3 +219,14 @@ SELECT id,project_id,state FROM changes WHERE state=sqlc.arg(open_state) OR id=A
 
 -- name: PreviewObservationChange :one
 SELECT id,project_id,state FROM changes WHERE id=$1;
+
+-- name: PublishRequestSummary :execrows
+UPDATE changes SET request_summary=sqlc.arg(request_summary)
+WHERE changes.id=sqlc.arg(id) AND changes.project_id=sqlc.arg(project_id) AND chat_request
+AND state IN ('in_progress','landing') AND request_summary=sqlc.arg(old_request_summary)
+AND NOT EXISTS (SELECT 1 FROM runs r JOIN steps s ON s.run_id=r.id WHERE r.change_id=changes.id AND s.type='approval' AND s.status='pass');
+
+-- name: RequestSummaryOpen :one
+SELECT chat_request AND state IN ('in_progress','landing')
+AND NOT EXISTS (SELECT 1 FROM runs r JOIN steps s ON s.run_id=r.id WHERE r.change_id=changes.id AND s.type='approval' AND s.status='pass') AS open
+FROM changes WHERE changes.id=$1 AND changes.project_id=$2;

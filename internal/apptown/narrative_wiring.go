@@ -22,6 +22,10 @@ func narrativeFor(a *App) narrativeBuilder {
 	sessions, dataDir := a.Console, a.cfg.dataDir
 
 	return narrativeBuilder{
+		requestResolve: func(ctx context.Context, projectID ids.ID) (string, string, error) {
+			pattern, slot, _, err := models.Resolve(ctx, projectID, "fast")
+			return pattern, slot, err
+		},
 		work:   a.Work,
 		models: a.inference,
 		resolve: func(ctx context.Context, projectID ids.ID) (string, string, error) {
@@ -41,6 +45,7 @@ func narrativeFor(a *App) narrativeBuilder {
 			if len(unreadable) > 0 {
 				return narrativeEvidence{}, fmt.Errorf("reading narrative chat requests: unreadable chats: %s", strings.Join(unreadable, ", "))
 			}
+			diff.Messages = changeconsole.RequestMessages(chats)
 			diff.Text += changeconsole.ChatReports(chats)
 			return diff, nil
 		},

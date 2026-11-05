@@ -6,11 +6,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/flokkit/apptown/internal/ids"
-
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
-
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // The Change's summary
@@ -25,10 +23,11 @@ import (
 // model completion. Persistence and publication remain private Work operations.
 // Configure a value before use; tests do not replace a global provider or App.
 type narrativeBuilder struct {
-	work     *workflow.Service
-	resolve  func(context.Context, ids.ID) (string, string, error)
-	evidence func(context.Context, workflow.NarrativeSource) (narrativeEvidence, error)
-	models   modelcall.Completer
+	work           *workflow.Service
+	requestResolve func(context.Context, ids.ID) (string, string, error)
+	resolve        func(context.Context, ids.ID) (string, string, error)
+	evidence       func(context.Context, workflow.NarrativeSource) (narrativeEvidence, error)
+	models         modelcall.Completer
 }
 
 // Empty is set only by a successful committed-tree comparison, never inferred
@@ -36,6 +35,7 @@ type narrativeBuilder struct {
 type narrativeEvidence struct {
 	Stat, Patch string // the committed diff
 	Text        string // the chats' requests and reports
+	Messages    []workflow.RequestMessage
 	Empty       bool
 }
 
@@ -59,7 +59,11 @@ func (b narrativeBuilder) refresh(ctx context.Context, changeID ids.ID) (err err
 	if extra.Empty {
 		return b.work.PublishNarrative(ctx, workflow.NarrativePublication{Source: source, Draft: workflow.NarrativeDraft{Note: workflow.EmptyCommittedChange}, Model: "forge/committed-diff"})
 	}
+	if err := b.work.SummarizeRequest(ctx, source, extra.Messages, b.requestResolve, b.models); err != nil {
+		log.Printf("change %d: request summary: %v", changeID, err)
+	}
 	source.Stat, source.Patch = extra.Stat, extra.Patch
+	source.Messages = extra.Messages
 	pattern, slot, err := b.resolve(ctx, ch.ProjectID)
 	if err != nil {
 		return fmt.Errorf("choosing the narrative's model: %w", err)

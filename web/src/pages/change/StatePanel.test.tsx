@@ -14,8 +14,8 @@ describe('the approval says when the summary reads the work as short of the requ
   // A change whose summary says the request is unfinished must say so next
   // to the approve buttons, not only in the prose above them.
   it('warns with the shortfall when the request is not met or only partly met', () => {
-    expect(requestShortfall({ requestMet: 'no', requestGap: 'only the tab title changed' })).toBe('only the tab title changed.')
-    expect(requestShortfall({ requestMet: 'partly', requestGap: '' })).toBe('it does only part of what was asked.')
+    expect(requestShortfall({ requestMet: 'no', requestGap: 'only the tab title changed', requestGapQuote: 'Change the heading' })).toBe('only the tab title changed.')
+    expect(requestShortfall({ requestMet: 'partly', requestGap: '', requestGapQuote: 'Change the heading' })).toBeUndefined()
   })
   // Met and unknown say nothing: unknown is not a warning, nor a pass.
   it.each(['yes', 'unknown', undefined])('says nothing when the reading is %s', (met) => {
@@ -114,3 +114,9 @@ describe('handover checks', () => {
   expect(el.querySelector('.ch-headline')?.textContent).toBe('boot failed')
   expect(el.textContent).not.toContain('Fix it')
  })
+
+it('does not show a shortfall without the person’s words', () => {
+  for (const requestMet of ['no', 'partly']) {
+    expect(requestShortfall({ requestMet, requestGap: 'Demo editing is missing' })).toBeUndefined()
+  }
+})

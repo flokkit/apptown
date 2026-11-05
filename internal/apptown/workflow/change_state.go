@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/flokkit/apptown/internal/ids"
-
 	"github.com/flokkit/apptown/internal/enum"
+	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/stamp"
 )
 
@@ -121,23 +120,34 @@ func (s ChangeState) Label(closedAs string) string {
 	return strings.ReplaceAll(s.String(), "_", " ")
 }
 
+// requestSummary retains the exact ordered person messages used by the writer.
+type requestSummary struct {
+	Text     string           `json:"text"`
+	Model    string           `json:"model"`
+	Slot     string           `json:"slot"`
+	Messages []RequestMessage `json:"messages"`
+}
+
 type Change struct {
-	ID          ids.ID      `json:"id"`
-	Number      int64       `json:"number"` // within its project
-	ProjectID   ids.ID      `json:"projectId"`
-	Type        string      `json:"type"`
-	Title       string      `json:"title"`
-	Body        string      `json:"body"`
-	RunID       ids.ID      `json:"runId"`
-	State       ChangeState `json:"state"`
-	Branch      string      `json:"branch,omitempty"`
-	BaseSHA     string      `json:"baseSha,omitempty"`
-	LandedSHA   string      `json:"landedSha,omitempty"` // the commit the landing merged as, written with its merge receipt; "" until landed
-	ExternalRef string      `json:"externalRef,omitempty"`
-	Summary     string      `json:"summary,omitempty"`
-	Provenance  string      `json:"provenance,omitempty"`
-	CreatedAt   string      `json:"createdAt"`
-	ClosedAt    stamp.Time  `json:"closedAt,omitzero"`
+	ChatRequest          bool            `json:"chatRequest,omitempty"`
+	RequestSummary       string          `json:"requestSummary,omitempty"`
+	RequestSummarySource *requestSummary `json:"-"`
+	ID                   ids.ID          `json:"id"`
+	Number               int64           `json:"number"` // within its project
+	ProjectID            ids.ID          `json:"projectId"`
+	Type                 string          `json:"type"`
+	Title                string          `json:"title"`
+	Body                 string          `json:"body"`
+	RunID                ids.ID          `json:"runId"`
+	State                ChangeState     `json:"state"`
+	Branch               string          `json:"branch,omitempty"`
+	BaseSHA              string          `json:"baseSha,omitempty"`
+	LandedSHA            string          `json:"landedSha,omitempty"` // the commit the landing merged as, written with its merge receipt; "" until landed
+	ExternalRef          string          `json:"externalRef,omitempty"`
+	Summary              string          `json:"summary,omitempty"`
+	Provenance           string          `json:"provenance,omitempty"`
+	CreatedAt            string          `json:"createdAt"`
+	ClosedAt             stamp.Time      `json:"closedAt,omitzero"`
 	// ClosedAs is how a closed change was closed, when that is more than its
 	// state: ClosedNothingToChange, ClosedShippedWith, closedRecord, or "".
 	ClosedAs string `json:"closedAs,omitempty"`
@@ -165,8 +175,10 @@ type Change struct {
 	OpenedByPrincipal ids.ID `json:"openedByPrincipal,omitzero"`
 	// RequestMet is whether the change does what was asked, as its narrative
 	// read the request against the work; RequestGap says what falls short.
-	RequestMet RequestMet `json:"requestMet"`
-	RequestGap string     `json:"requestGap,omitempty"`
+	// RequestGapQuote is the verbatim person excerpt supporting a shortfall.
+	RequestMet      RequestMet `json:"requestMet"`
+	RequestGap      string     `json:"requestGap,omitempty"`
+	RequestGapQuote string     `json:"requestGapQuote,omitempty"`
 }
 
 // LandsWithoutCode: the change's landing does something besides the merge,
@@ -187,15 +199,15 @@ type RequestMet string
 const (
 	requestMetYes     RequestMet = "yes"
 	requestMetPartly  RequestMet = "partly"
-	RequestMetNo      RequestMet = "no"
-	RequestMetUnknown RequestMet = "unknown"
+	requestMetNo      RequestMet = "no"
+	requestMetUnknown RequestMet = "unknown"
 )
 
 // parseRequestMet reads a stored or written answer; anything else is unknown.
 func parseRequestMet(text string) RequestMet {
 	switch m := RequestMet(strings.ToLower(strings.TrimSpace(text))); m {
-	case requestMetYes, requestMetPartly, RequestMetNo:
+	case requestMetYes, requestMetPartly, requestMetNo:
 		return m
 	}
-	return RequestMetUnknown
+	return requestMetUnknown
 }

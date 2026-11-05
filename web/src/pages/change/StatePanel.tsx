@@ -41,10 +41,10 @@ export function StatePanel({ view, reading }: { view: ChangeView; reading?: Gate
 // was asked, when the summary's writer read the work as falling short.
 // 'yes' and 'unknown' say nothing here: unknown is not a warning, and it is
 // never shown as met either.
-export function requestShortfall(ch: { requestMet?: string; requestGap?: string }): string | undefined {
-  if (ch.requestMet !== 'no' && ch.requestMet !== 'partly') return undefined
+export function requestShortfall(ch: { requestMet?: string; requestGap?: string; requestGapQuote?: string }): string | undefined {
+  if ((ch.requestMet !== 'no' && ch.requestMet !== 'partly') || !ch.requestGapQuote?.trim()) return undefined
   const gap = ch.requestGap?.trim()
-  if (!gap) return ch.requestMet === 'no' ? 'it does not do what was asked.' : 'it does only part of what was asked.'
+  if (!gap) return undefined
   return /[.!?]$/.test(gap) ? gap : gap + '.'
 }
 

@@ -167,7 +167,7 @@ func insertChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who st
 	}
 	row, err := workflowsql.New(tx.SQL()).InsertChange(ctx, workflowsql.InsertChangeParams{ID: ids.New(at), Number: number,
 		ProjectID: in.ProjectID, Type: in.Type, Title: in.Title, Body: in.Body, ExternalRef: in.ExternalRef,
-		AcceptanceJson: acceptance, State: state.String(), TitleOwnership: ownerValue.(string),
+		AcceptanceJson: acceptance, State: state.String(), TitleOwnership: ownerValue.(string), ChatRequest: in.TitleFromChat,
 		Branch: origin.branch, BaseSha: origin.base, Provenance: origin.provenance, ExpectedRevision: origin.expectedRevision, OpenedBy: who, OpenedByPrincipal: opener.Principal, OpenedByVia: opener.Via, CreatedAt: at})
 	if err != nil {
 		return CreatedChange{}, err

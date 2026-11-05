@@ -8,13 +8,12 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/flokkit/apptown/internal/ids"
-
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
+	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/strs"
 )
 
@@ -42,6 +41,8 @@ type NarrativeSource struct {
 	// Stat and Patch are the committed diff: the stat whole, the patch bounded
 	// by narrativeBudget when laid out.
 	Stat, Patch string
+	// Messages contains only the person's exact conversation messages.
+	Messages []RequestMessage
 }
 
 // agentReportKind is the artifact kind of an agent's own report on its work.
@@ -59,12 +60,14 @@ const narrativeBudget = 120_000
 const EmptyCommittedChange = "No committed changes since this change started."
 
 // NarrativeDraft is the writer's output: a title, the note, and its reading
-// of whether the work does what was asked (Met, with Gap saying what falls
-// short). A draft that does not say is unknown, never met.
+// of whether the work does what was asked (met, with gap saying what falls
+// short, with gapQuote attributing it to the person). A draft that does not
+// say is unknown, never met.
 type NarrativeDraft struct {
 	Title, Note string
-	Met         RequestMet
-	Gap         string
+	met         RequestMet
+	gap         string
+	gapQuote    string
 }
 
 type NarrativePublication struct {
@@ -113,7 +116,7 @@ type narrativeReceipt struct {
 // against the request; without one, or with a word it does not know, the
 // answer is unknown.
 func ParseNarrative(out string) (NarrativeDraft, error) {
-	draft := NarrativeDraft{Note: strings.TrimSpace(out), Met: RequestMetUnknown}
+	draft := NarrativeDraft{Note: strings.TrimSpace(out), met: requestMetUnknown}
 	if rest, ok := strings.CutPrefix(draft.Note, "TITLE:"); ok {
 		title, body, _ := strings.Cut(rest, "\n")
 		title = strings.Trim(strings.TrimSpace(title), `"'.`)
@@ -125,16 +128,21 @@ func ParseNarrative(out string) (NarrativeDraft, error) {
 	if rest, ok := strings.CutPrefix(draft.Note, "ASKED:"); ok {
 		line, body, _ := strings.Cut(rest, "\n")
 		word, gap, _ := strings.Cut(strings.TrimSpace(line), " ")
-		draft.Met = parseRequestMet(strings.Trim(word, ".,:;—-"))
-		if draft.Met != requestMetYes {
-			draft.Gap = bound(strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(gap), "—–-:")), maxGap)
+		draft.met = parseRequestMet(strings.Trim(word, ".,:;—-"))
+		if draft.met != requestMetYes {
+			draft.gap = bound(strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(gap), "—–-:")), maxGap)
 		}
+		draft.Note = strings.TrimSpace(body)
+	}
+	if rest, ok := strings.CutPrefix(draft.Note, "QUOTE:"); ok {
+		quote, body, _ := strings.Cut(rest, "\n")
+		draft.gapQuote = strings.TrimSpace(quote)
 		draft.Note = strings.TrimSpace(body)
 	}
 	if draft.Note == "" {
 		return NarrativeDraft{}, errNarrativeEmpty
 	}
-	if !utf8.ValidString(draft.Title) || !utf8.ValidString(draft.Note) || !utf8.ValidString(draft.Gap) {
+	if !utf8.ValidString(draft.Title) || !utf8.ValidString(draft.Note) || !utf8.ValidString(draft.gap) || !utf8.ValidString(draft.gapQuote) {
 		return NarrativeDraft{}, fmt.Errorf("invalid narrative text")
 	}
 	draft.Note = bound(draft.Note, 2000)
@@ -142,7 +150,7 @@ func ParseNarrative(out string) (NarrativeDraft, error) {
 }
 
 // NarrativePrompt is the writer's instruction: the output shape
-// ParseNarrative reads (a TITLE line, an ASKED line, a blank line, then the
+// ParseNarrative reads (TITLE, ASKED and QUOTE lines, a blank line, then the
 // "So far" note) and what the note must say.
 const NarrativePrompt = `You maintain the record of a software change. Output EXACTLY this shape:
 line 1: TITLE: a short label for the change, at most 8 plain words,
@@ -165,9 +173,18 @@ or evidence of them in ASKED or "To satisfy it:". Workflow steps only limit
 what you may demand: never list something as missing, such as an independent
 review, that the workflow has no step for. For a person's change, TITLE is their
 request even when FOR is absent; FOR adds detail when supplied. When
-PERSON'S CHAT REQUEST is present, those messages are the person's request
-in order; TITLE may only be a shortened label. FOR and any SEND-BACK NOTE
-remain part of the ask. A writer input bound means you were not given all messages, not that the person sent an incomplete request. Never ask the
+PERSON'S CHAT REQUEST is present, read those messages in order to find
+what the person asked to change in the application; TITLE may only be a
+shortened label. Questions or remarks about the preview, testing, credentials,
+access or the agent's process are not requirements. For example, after the
+agent used a read-only /demo page because it could not sign in, "Hm how is
+the demo board read-only? It shouldn't be? The preview should be fully live.
+Do you have access to the password in your environment?" is about testing
+access, not a request to change the application's demo board. It must not
+produce a gap. When unsure whether something is an application requirement,
+do not mark a shortfall; say unknown if that prevents assessment.
+FOR and any SEND-BACK NOTE can also contain application requests; apply the
+same distinction to them. A writer input bound means you were not given all messages, not that the person sent an incomplete request. Never ask the
 person to complete a request because of that bound; say unknown if the omitted
 messages prevent assessment. Never replace
 that request with the workflow's generic purpose. Only for scheduled or system
@@ -179,7 +196,11 @@ If the evidence says part of the diff or an artifact was not read, you have not 
 could be in the unread part. Say yes only if what you read
 satisfies the whole request; otherwise unknown. Say "partly" or "no" only
 for a shortfall the text you did read positively shows.
-line 3: blank.
+line 3: QUOTE: then a short verbatim excerpt of the person's own words
+that asks for the missing application change when ASKED is partly or no.
+Copy the exact text, without surrounding quotation marks. Leave QUOTE empty
+for yes or unknown. Never quote an agent, a workflow or a generated title.
+line 4: blank.
 then the "So far" note: answer ONE question for the person who asked —
 how is the software different now, and what, if anything, is unfinished
 or newly discovered? 3-6 plain sentences. Describe behavior someone
@@ -386,7 +407,7 @@ func (s narratives) publish(ctx context.Context, in NarrativePublication) error 
 	}
 	observed := *source.Change
 	ch := &observed
-	if ch.ID.IsZero() || ch.ProjectID.IsZero() || strings.TrimSpace(draft.Note) == "" || len(draft.Note) > 2000 || len(draft.Title) > 90 || len(draft.Gap) > maxGap || !utf8.ValidString(draft.Gap) || !utf8.ValidString(draft.Note) || !utf8.ValidString(draft.Title) {
+	if ch.ID.IsZero() || ch.ProjectID.IsZero() || strings.TrimSpace(draft.Note) == "" || len(draft.Note) > 2000 || len(draft.Title) > 90 || len(draft.gap) > maxGap || !utf8.ValidString(draft.gap) || !utf8.ValidString(draft.Note) || !utf8.ValidString(draft.Title) {
 		return fmt.Errorf("invalid narrative publication")
 	}
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
@@ -398,12 +419,8 @@ func (s narratives) publish(ctx context.Context, in NarrativePublication) error 
 		if project.Slug != source.Slug || project.DefaultBranch != source.DefaultBranch {
 			return ErrNarrativeChanged
 		}
-		met := parseRequestMet(string(draft.Met))
-		gap := ""
-		if met != requestMetYes {
-			gap = draft.Gap
-		}
-		n, err := records.PublishChangeNarrative(ctx, workflowsql.PublishChangeNarrativeParams{Summary: draft.Note, RequestMet: string(met), RequestGap: gap, ID: ch.ID, ProjectID: ch.ProjectID, Body: ch.Body, State: ch.State.String(), RunID: ch.RunID, Branch: ch.Branch, BaseSha: ch.BaseSHA, OldSummary: ch.Summary})
+		met, gap, quote := narrativeAssessment(source, draft)
+		n, err := records.PublishChangeNarrative(ctx, workflowsql.PublishChangeNarrativeParams{Summary: draft.Note, RequestMet: string(met), RequestGap: gap, RequestGapQuote: quote, ID: ch.ID, ProjectID: ch.ProjectID, Body: ch.Body, State: ch.State.String(), RunID: ch.RunID, Branch: ch.Branch, BaseSha: ch.BaseSHA, OldSummary: ch.Summary})
 		if err != nil {
 			return err
 		}
@@ -436,4 +453,36 @@ type narratives struct {
 
 func newNarratives(db *database.DB, notes narrativeReleaseNotes) narratives {
 	return narratives{db: db, notes: notes}
+}
+
+// A model's shortfall must be attributable to the person's exact words.
+// Do not match across messages, against reports, or against generated labels.
+func narrativeAssessment(source NarrativeSource, draft NarrativeDraft) (RequestMet, string, string) {
+	met := parseRequestMet(string(draft.met))
+	if met == requestMetYes {
+		return met, "", ""
+	}
+	if met == requestMetUnknown {
+		return met, draft.gap, ""
+	}
+	quote := draft.gapQuote
+	valid := strings.TrimSpace(quote) != "" && len(quote) <= maxGap && utf8.ValidString(quote) && strings.TrimSpace(draft.gap) != ""
+	found := false
+	if valid {
+		for _, message := range source.Messages {
+			found = found || strings.Contains(message.Text, quote)
+		}
+		if !source.Change.ChatRequest && source.Change.Type != "scheduled" && source.Change.Type != "system" {
+			found = found || strings.Contains(source.Change.Title, quote) || strings.Contains(source.Change.Body, quote)
+		}
+		for _, run := range source.Runs {
+			if run.Asked != nil {
+				found = found || strings.Contains(run.Asked.Note, quote)
+			}
+		}
+	}
+	if !found {
+		return requestMetUnknown, "", ""
+	}
+	return met, draft.gap, quote
 }

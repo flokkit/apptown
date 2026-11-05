@@ -9,6 +9,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -53,7 +54,7 @@ func TestNarrativeDiffReadsWorkspaceWithoutPublishingAndFallsBackAfterRemoval(t 
 	}
 	gittest.Run(t, repo, "merge", "--ff-only", "change")
 	after, err := narrativeDiff(context.Background(), dir, source)
-	if err != nil || before != after {
+	if err != nil || !reflect.DeepEqual(before, after) {
 		t.Fatalf("landed historical diff changed: %+v %v", after, err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -62,11 +63,11 @@ func TestNarrativeDiffReadsWorkspaceWithoutPublishingAndFallsBackAfterRemoval(t 
 		t.Fatalf("cancelled source: %v", err)
 	}
 	source.Change.Branch = "absent"
-	if got, err := narrativeDiff(context.Background(), dir, source); err == nil || got != (narrativeEvidence{}) {
+	if got, err := narrativeDiff(context.Background(), dir, source); err == nil || !reflect.DeepEqual(got, narrativeEvidence{}) {
 		t.Fatalf("missing source became empty evidence: %+v %v", got, err)
 	}
 	source.Change.Branch = ""
-	if got, err := narrativeDiff(context.Background(), dir, source); err == nil || got != (narrativeEvidence{}) {
+	if got, err := narrativeDiff(context.Background(), dir, source); err == nil || !reflect.DeepEqual(got, narrativeEvidence{}) {
 		t.Fatalf("repository-free Change: %+v %v", got, err)
 	}
 }

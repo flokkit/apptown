@@ -2415,6 +2415,8 @@ export type BackupStore = {
 }
 
 export type Change = {
+  chatRequest?: boolean
+  requestSummary?: string
   id: string | null
   number: number
   projectId: string | null
@@ -2442,6 +2444,7 @@ export type Change = {
   openedByPrincipal?: string | null
   requestMet: string
   requestGap?: string
+  requestGapQuote?: string
 }
 
 export type Run = {
@@ -4548,6 +4551,8 @@ export type CatalogParam = {
 
 export type ChangeSummary = {
   waitingOn: WaitingOn
+  chatRequest?: boolean
+  requestSummary?: string
   id: string | null
   number: number
   projectId: string | null
@@ -4575,6 +4580,7 @@ export type ChangeSummary = {
   openedByPrincipal?: string | null
   requestMet: string
   requestGap?: string
+  requestGapQuote?: string
   stage: string
   runStatus: RunState | ""
   workflowName: string

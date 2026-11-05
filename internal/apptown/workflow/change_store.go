@@ -48,14 +48,25 @@ func changeRecord(row workflowsql.Change, err error) (*Change, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Change{ID: row.ID, Number: row.Number, ProjectID: row.ProjectID, Type: row.Type, Title: row.Title, Body: row.Body,
+	var request *requestSummary
+	if string(row.RequestSummary) != "{}" {
+		request = &requestSummary{}
+		if err := json.Unmarshal(row.RequestSummary, request); err != nil {
+			return nil, err
+		}
+	}
+	text := ""
+	if request != nil {
+		text = request.Text
+	}
+	return &Change{ChatRequest: row.ChatRequest, RequestSummary: text, RequestSummarySource: request, ID: row.ID, Number: row.Number, ProjectID: row.ProjectID, Type: row.Type, Title: row.Title, Body: row.Body,
 		RunID: row.RunID, State: state, Branch: row.Branch, BaseSHA: row.BaseSha, LandedSHA: row.LandedSha,
 		ExternalRef: row.ExternalRef, Summary: row.Summary, Provenance: row.Provenance,
 		CreatedAt: row.CreatedAt.Format(time.RFC3339Nano), ClosedAt: stamp.Time{NullTime: row.ClosedAt}, ClosedAs: row.ClosedAs,
 		StateLabel: state.Label(row.ClosedAs), TargetAdoptionID: row.TargetAdoptionID, AcceptanceJSON: string(row.AcceptanceJson),
 		ExpectedRevision: row.ExpectedRevision, AdoptedRevision: row.AdoptedRevision, TargetCandidateJSON: string(row.TargetCandidateJson),
 		EditRevision: row.EditRevision, OpenedBy: row.OpenedBy, OpenedByPrincipal: row.OpenedByPrincipal,
-		RequestMet: parseRequestMet(row.RequestMet), RequestGap: row.RequestGap}, nil
+		RequestMet: parseRequestMet(row.RequestMet), RequestGap: row.RequestGap, RequestGapQuote: row.RequestGapQuote}, nil
 }
 
 func ReadChangeIn(ctx context.Context, db database.Queryer, id ids.ID) (*Change, error) {

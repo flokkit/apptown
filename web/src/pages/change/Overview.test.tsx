@@ -345,7 +345,7 @@ it('uses two named cards and separates the fixed label, value and evidence colum
   const el = document.createElement('div'); el.innerHTML = render(view())
   expect(el.querySelector('.ch-change-card')?.getAttribute('aria-label')).toBe('The change')
   expect([...el.querySelectorAll('.ch-overview > section > h2')].map(e => e.textContent)).toEqual(['Your decision'])
-  expect([...el.querySelectorAll('.ch-change-card .ch-row-label')].map(e => e.textContent)).toEqual(['Preview', 'You asked', 'What was made', 'Checks', 'Reviewer', 'Release'])
+  expect([...el.querySelectorAll('.ch-change-card .ch-row-label')].map(e => e.textContent)).toEqual(['Preview', 'You asked', 'What was made', 'Checks', 'Goes live', 'Who decides', 'Reviewer', 'Release'])
   for (const row of el.querySelectorAll('.ch-change-card .ch-overview-line')) {
     expect(row.children).toHaveLength(3)
     expect(row.children[1].classList.contains('ch-value')).toBe(true)
@@ -622,8 +622,12 @@ it.each(['no', 'partly', 'unknown', 'yes'])('keeps the request assessment in the
   const v = view()
   v.change.requestMet = met
   v.change.requestGap = 'The rest of the calendar was not read.'
+  v.change.requestGapQuote = 'Read the whole calendar.'
   const html = render(v)
-  if (met === 'no' || met === 'partly') expect(html).toContain('falls short of the request: The rest of the calendar was not read.')
+  if (met === 'no' || met === 'partly') {
+    expect(html).toContain('falls short of the request: The rest of the calendar was not read.')
+    expect(html).toContain('Based on: “Read the whole calendar.”')
+  }
   else if (met === 'unknown') expect(html).toContain('could not check all of the request: The rest of the calendar was not read.')
   else expect(html).not.toContain('The rest of the calendar was not read.')
 })
@@ -871,6 +875,16 @@ it('labels every approval fact, omits the internal step and keeps its meaning an
     await act(async () => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
     const dialog = el.querySelector('dialog')!
     expect([...dialog.querySelectorAll('.ch-row-label')].map(row => row.textContent)).toEqual(['You asked', 'What it does', 'Checks', 'Goes live', 'Who decides'])
+    const card = el.querySelector('.ch-change-card')!
+    for (const label of ['You asked', 'What it does', 'Checks', 'Goes live', 'Who decides']) {
+      const value = (parent: Element) => {
+        const cell = [...parent.querySelectorAll('.ch-overview-line')].find(row => row.querySelector('.ch-row-label')?.textContent === label)?.querySelector('.ch-value')?.cloneNode(true) as Element | undefined
+        cell?.querySelectorAll('.ch-technical').forEach(e => e.remove())
+        return cell?.textContent
+      }
+      if (label === 'You asked') expect(value(dialog)).toContain(value(card))
+      else expect(value(card), label).toBe(value(dialog))
+    }
     expect(dialog.querySelector('.ch-accept-rows')?.textContent).toContain(v.change.body)
     expect(dialog.textContent).toContain('club.example.test for everyone')
     expect(dialog.textContent).toContain('You or another approver')
@@ -881,8 +895,49 @@ it('labels every approval fact, omits the internal step and keeps its meaning an
   } finally { await act(async () => root.unmount()); client.clear() }
 })
 
-it('navigates from accepting the change to the named deployment, without a progress dialog', async () => {
+
+it('keeps project notes beside the short conversation request and first Markdown report paragraph', async () => {
+  const v = view(); v.change.summary = ''; v.report = ''
+  v.change.chatRequest = true
+  v.change.requestSummary = 'Make distant cards easy to reach.'
+  v.notesDiff = { added: ['- Keep cards reachable. (Sam · change 9)'], removed: ['- Use fixed cards. (Sam · change 4)'] }
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/transcript')
+    ? { sessions: [{ messages: [{ role: 'helper', text: 'All checks passed. [Review the approval](https://example.test/review).\n\nMore implementation detail.' }] }], unreadable: 0 }
+    : String(url).endsWith('/brief') ? { brief: 'Brings distant cards into view.' } : []))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
+    await vi.waitFor(async () => { await act(async () => {}); expect(el.querySelector('.ch-chat-excerpt a')?.getAttribute('href')).toBe('https://example.test/review') })
+    const card = el.querySelector('.ch-change-card')!
+    expect(card.querySelectorAll('ins')).toHaveLength(1)
+    expect(card.querySelectorAll('del')).toHaveLength(1)
+    expect(card.querySelector('ins')?.textContent).toBe(v.notesDiff!.added[0])
+    expect(card.querySelector('del')?.textContent).toBe(v.notesDiff!.removed[0])
+    expect(card.querySelector('.ch-request .ch-value')?.textContent).toBe('Make distant cards easy to reach.')
+    expect(card.querySelector('.ch-request a')?.getAttribute('href')).toBe(`/changes/${id}?tab=conversation`)
+    expect(card.textContent).toContain('What it doesBrings distant cards into view.')
+    expect(card.textContent).toContain('The agent saysAll checks passed.')
+    expect(card.textContent).not.toContain('[Review the approval]')
+    expect(card.textContent).not.toContain('More implementation detail.')
+    expect(card.querySelector('a.ch-trailer[href$="tab=conversation"]')?.textContent).toBe('request →')
+    expect([...card.querySelectorAll('a')].some(a => a.textContent === 'full conversation →')).toBe(true)
+  } finally { await act(async () => root.unmount()); client.clear() }
+})
+
+
+it('renders the first agent report paragraph without cutting Markdown links', () => {
+  const v = view(); v.change.summary = ''
+  const address = 'https://example.test/' + 'approval/'.repeat(30)
+  v.report = `[Review the approval](${address}).\n\nSecond paragraph stays in the full report.`
+  const el = document.createElement('div'); el.innerHTML = render(v)
+  expect(el.querySelector('.ch-chat-excerpt a')?.getAttribute('href')).toBe(address)
+  expect(el.textContent).not.toContain('Second paragraph stays')
+})
+
+it('navigates from accepting the summarized chat change to the named deployment, without a progress dialog', async () => {
  const v=view()
+ v.change.chatRequest = true
+ v.change.requestSummary = 'Keep cards reachable.'
  vi.stubGlobal('fetch',vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/deployments') ? [{name:'staff',feed:'landing',url:'https://staff.example'}] : {}))))
  const client=newQueryClient(),el=document.createElement('div'),root=createRoot(el)
  try {
@@ -890,6 +945,8 @@ it('navigates from accepting the change to the named deployment, without a progr
    <Route path="/changes/:id" element={<ChangeOverview view={v} current steps={v.detail!.steps} onChange={()=>{}} workTab={()=>'?tab=details'} />} />
    <Route path="/projects/club/deployments/staff" element={<p>Watching the staff deployment</p>} />
   </Routes></QueryClientProvider></MemoryRouter>))
+  expect(el.querySelector('.ch-request .ch-value')?.textContent).toBe('Keep cards reachable.')
+  expect(el.querySelector('.ch-request a')?.getAttribute('href')).toBe(`/changes/${id}?tab=conversation`)
   await act(async()=>el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
   await vi.waitFor(()=>expect(el.querySelector<HTMLButtonElement>('dialog .primary')?.disabled).toBe(false))
   vi.spyOn(el.querySelector<HTMLElement>('dialog .decision-meaning')!,'getBoundingClientRect').mockReturnValue({top:100,bottom:140} as DOMRect)
