@@ -38,7 +38,7 @@ it('draws status lights only in the shared Status component', () => {
 })
 
 it('keeps help out of table layout and resets the global disclosure box', () => {
- const css = readFileSync('src/styles.css', 'utf8') as string
+ const css = readFileSync('src/styles/chip.css', 'utf8') as string
  expect(css).toMatch(/\.status-help\s*\{[^}]*margin: 0/)
  expect(css).toMatch(/\.status-help > summary\s*\{[^}]*padding: 0; border: 0; background: none/)
  expect(css).toMatch(/\.status-help\[open\] > summary::before\s*\{ content: none/)

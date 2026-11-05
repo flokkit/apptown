@@ -1,3 +1,4 @@
+@layer pages {
 /* Usage: the totals as figures in one panel, the range as quiet toggles on
    the heading line, the chart in its own panel. */
 .usage-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 14px 0; }
@@ -15,3 +16,7 @@
   .usage-totals > :first-child { grid-column: 1 / -1; }
 }
 .page-section:has(.usage-totals) + .tabs { margin-top: 28px; }
+@media (max-width: 800px) {
+  .usage-range button { min-height: 44px; }
+}
+}

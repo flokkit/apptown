@@ -1,0 +1,51 @@
+@layer components {
+.terminal-block { margin-top: 10px; }
+.terminal-head { cursor: pointer; gap: 8px; align-items: center; padding: 4px 2px; user-select: none; }
+.terminal-head:hover { color: var(--text); }
+pre.terminal {
+  margin: 4px 0 0; background: var(--term-bg); color: var(--term-fg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 10px 12px; font-size: var(--fs-xs); line-height: 1.45; max-height: 340px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+}
+pre.log {
+  background: var(--code-bg); border: 1px solid var(--rule); border-radius: var(--radius-sm);
+  padding: 10px; overflow-x: auto; max-height: 240px; overflow-y: auto; white-space: pre-wrap;
+}
+
+.diff-file {
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  margin-bottom: 8px; overflow: hidden;
+}
+.diff-file > summary {
+  padding: 8px 12px; cursor: pointer; display: flex; gap: 8px; align-items: center;
+  font-size: var(--fs-sm); background: var(--chrome);
+}
+.diff-file > summary code { flex: 1; }
+.diff-body { overflow-x: auto; }
+.diff-table {
+  border-collapse: collapse; width: 100%;
+  font-family: var(--font-mono); font-size: var(--fs-xs);
+}
+.diff-table td { border: none; padding: 0 8px; line-height: 1.5; white-space: pre; }
+.diff-num {
+  width: 1%; min-width: 36px; text-align: right; color: var(--muted);
+  user-select: none; background: var(--chrome);
+  border-right: 1px solid var(--rule) !important;
+}
+.diff-sign { width: 1%; user-select: none; color: var(--muted); }
+.diff-text { width: 98%; }
+.diff-add { background: var(--diff-add-bg); }
+.diff-add .diff-sign { color: var(--ok); }
+.diff-del { background: var(--diff-del-bg); }
+.diff-del .diff-sign { color: var(--bad); }
+.diff-hunk td { background: var(--diff-hunk-bg); color: var(--accent); padding-top: 3px; padding-bottom: 3px; }
+@media (max-width: 800px) {
+  /* Code reads down the screen: long lines wrap inside the diff. */
+  .diff-table td { white-space: pre-wrap; overflow-wrap: anywhere; vertical-align: top; }
+  .diff-num { min-width: 0; padding: 0 4px !important; white-space: nowrap !important; overflow-wrap: normal !important; }
+  .diff-sign { padding: 0 2px !important; white-space: nowrap !important; }
+}
+@media (max-width: 800px), (pointer: coarse) {
+  .terminal-head { min-height: 44px; }
+}
+.main table, .diff-body { background-image: none; }
+}

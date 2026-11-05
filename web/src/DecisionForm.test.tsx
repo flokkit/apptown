@@ -51,7 +51,7 @@ describe('an acceptance shows what the landing would ask', () => {
 })
 
 // On a phone the comment and the two decisions are one bar held at the foot
-// of the screen while the approval is in view (styles.css .decision-bar);
+// of the screen while the approval is in view (styles/decision.css .decision-bar);
 // what approving means stays above it, in the same panel.
 describe('the decision bar', () => {
   const doc = (compact?: boolean) => {

@@ -1,0 +1,26 @@
+@layer components {
+.decision-bar > input { flex: 1; }
+.adds-head { font-weight: var(--fw-strong); }
+.adds-lines { margin: 6px 0 0; padding: 0; list-style: none; }
+.adds-lines li { padding-left: 1.4em; text-indent: -1.4em; overflow-wrap: anywhere; }
+.adds-lines li::before { display: inline-block; width: 1.4em; text-indent: 0; font-family: var(--font-mono); }
+.adds-added::before { content: "+"; color: var(--ok); }
+.adds-removed::before { content: "\2212"; color: var(--bad); }
+.adds-unknown::before { content: "?"; color: var(--warn); }
+.adds-unknown { color: var(--warn); }
+.adds-contract .adds-lines li::before { content: none; }
+@media (max-width: 800px) {
+  /* The decision: a comment field over two equal buttons, held at the foot
+     of the screen while its approval is in view. */
+  .decision-bar { bottom: 0; z-index: 5;
+    background: var(--panel); border-top: 1px solid var(--rule); position: static; inset: auto; margin: 12px 0 0; padding: 12px 0 0; border: 0; box-shadow: none;
+  }
+  .decision-bar > input { flex: 1 1 100%; }
+  .decision-bar > button { flex: 1 1 0; }
+}
+.decision-bar { box-shadow: none; }
+/* What the approval's commit adds (DecisionForm AddsSection): above the
+   decision, with a marker per line so added, removed and unknown read
+   differently without colour alone. */
+.adds { margin-top: 10px; padding: 8px 12px; border: 1px solid var(--rule); border-left: 4px solid var(--accent); border-radius: var(--radius); background: var(--panel); }
+}

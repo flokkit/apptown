@@ -1,0 +1,68 @@
+@layer pages {
+/* Deploy scenes use colour only for working, live and stopped. */
+.deploy-scene { width: 100%; max-width: 420px; margin-inline: auto; color: var(--scene-ink); }
+.deploy-scene svg { display: block; width: 100%; height: auto; }
+.deploy-scene .ink { fill: none; stroke: var(--scene-ink); stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+.deploy-scene .ground { stroke: var(--scene-ground); }
+.deploy-scene :is(.plan,.blk,.crane,.door,.visitor,.flag,.pole,.spark,.sign,.roof,.win,.tilt) { opacity: 0; }
+.deploy-scene :is(.blk,.roof,.door,.tilt,.flag,.spark,.visitor,.jib) { transform-box: fill-box; transform-origin: center; }
+.deploy-scene .flag { transform-origin: left bottom; }
+.deploy-scene .door { transform-origin: left center; }
+/* The jib turns on the mast top, not on its own end. */
+.deploy-scene .jib { transform-box: view-box; transform-origin: 240px 20px; }
+.deploy-scene.g1 .plan { opacity: 1; stroke-dasharray: 4 3; }
+.deploy-scene.n1 .plan { animation: deploy-fade .3s ease-out both; }
+.deploy-scene.g2 .plan { opacity: 0; transition: opacity .4s; }
+.deploy-scene.n2 .crane { opacity: 1; animation: deploy-fade .3s ease-out both; }
+.deploy-scene.n2 .jib { animation: deploy-swing 2.4s ease-in-out infinite; }
+.deploy-scene.g2 :is(.blk,.roof) { opacity: 1; }
+.deploy-scene.n2 :is(.blk,.roof) { animation: deploy-drop .45s cubic-bezier(.2,.8,.3,1) both; }
+.deploy-scene.g4 .win { opacity: 1; stroke: var(--busy); fill: var(--busy); fill-opacity: .25; }
+.deploy-scene.n4 .win { animation: deploy-light 2.4s ease-in-out infinite both; }
+.deploy-scene.n4 .w2 { animation-delay: .15s; }
+.deploy-scene.n4 .w3 { animation-delay: .3s; }
+.deploy-scene.n4 .w4 { animation-delay: .45s; }
+.deploy-scene.n4 .w5 { animation-delay: .6s; }
+.deploy-scene.n4 .w6 { animation-delay: .75s; }
+.deploy-scene.g4 .door { opacity: 1; transform: scaleX(.25); }
+.deploy-scene.n4 .door { animation: deploy-open .3s ease-out both; }
+.deploy-scene.n4 .visitor { opacity: 1; animation: deploy-walk 2.4s ease-in-out infinite; }
+.deploy-scene.g5 .win { stroke: var(--ok); fill: var(--ok); fill-opacity: .25; }
+.deploy-scene.g5 :is(.pole,.flag) { opacity: 1; }
+.deploy-scene.g5 .flag { stroke: var(--ok); fill: var(--ok); fill-opacity: .25; }
+.deploy-scene.celebrate .flag { animation: deploy-raise .4s ease-out both; }
+.deploy-scene.celebrate .spark { stroke: var(--ok); animation: deploy-burst .9s ease-out .4s both; }
+.deploy-scene.fail * { animation: none; }
+.deploy-scene.fail .crane { opacity: 1; }
+.deploy-scene.fail .tilt { opacity: 1; stroke: var(--bad); transform: rotate(-9deg) translate(-2px,2px); animation: deploy-nudge .35s ease-out both; }
+.deploy-scene.fail .sign { opacity: 1; stroke: var(--bad); }
+.deploy-scene.paused * { animation-play-state: paused !important; }
+@keyframes deploy-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes deploy-drop { from { opacity: 0; transform: translateY(-26px); } to { opacity: 1; transform: none; } }
+@keyframes deploy-swing { 0%,100% { transform: rotate(0); } 50% { transform: rotate(-4deg); } }
+@keyframes deploy-light { 0%,100% { fill-opacity: 0; } 50% { fill-opacity: .35; } }
+@keyframes deploy-open { from { transform: scaleX(1); } to { transform: scaleX(.25); } }
+@keyframes deploy-walk { 0%,100% { transform: translateX(12px); opacity: .2; } 50% { transform: translateX(16px); opacity: 1; } }
+@keyframes deploy-raise { from { transform: translateY(18px) scaleY(.2); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes deploy-burst { 0% { opacity: 0; transform: scale(.3); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.5); } }
+@keyframes deploy-nudge { 0% { transform: none; } 60% { transform: rotate(-11deg) translate(-2px,2px); } 100% { transform: rotate(-9deg) translate(-2px,2px); } }
+@media (prefers-reduced-motion: reduce) {
+  .deploy-scene * { animation: none !important; transition: none !important; }
+}
+.deploy-stages { margin: 8px 0; padding-left: 20px; color: var(--muted); font-size: var(--fs-sm); }
+.deploy-stages [aria-current="step"] { color: var(--busy); font-weight: 600; }
+
+.deploy-scene.fail .deploy-stages [aria-current="step"] { color: var(--bad); }
+.deploy-scene.g5 .deploy-stages [aria-current="step"] { color: var(--ok); }
+
+.deploy-scene.n2 .b2 { animation-delay: .3s; }
+.deploy-scene.n2 .b3 { animation-delay: .6s; }
+.deploy-scene.n2 .b4 { animation-delay: .9s; }
+.deploy-scene.n2 .b5 { animation-delay: 1.2s; }
+.deploy-scene.n2 .b6 { animation-delay: 1.5s; }
+.deploy-scene.n2 .roof { animation-delay: 1.8s; }
+.deploy-scene.n4 .visitor { transform: translateX(16px); }
+.deploy-scene .sign-label { fill: var(--bad); font-size: 7px; }
+.deploy-scene.fail.g4 .visitor { opacity: 1; transform: translateX(16px); }
+
+}

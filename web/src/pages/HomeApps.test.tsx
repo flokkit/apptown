@@ -9,7 +9,10 @@ import { ProjectListRow, projectHue } from '../ProjectListRow'
 import type { ProjectRow } from '../wire.gen'
 // @ts-expect-error -- only the stylesheet read needs Node.
 import { readFileSync } from 'node:fs'
-const css = readFileSync('src/styles.css', 'utf8')
+// jsdom does not parse cascade layers; inspect the owning component rules.
+const css = ['list-row', 'projects'].map(name =>
+  readFileSync(`src/styles/${name}.css`, 'utf8').replace(/^@layer components \{/, '').replace(/\}\s*$/, ''),
+).join('\n')
 
 const project = (slug: string, over: Partial<ProjectRow> = {}): ProjectRow => ({
   id: slug, slug, name: slug, icon: '', blurb: '', lastRunAt: '',

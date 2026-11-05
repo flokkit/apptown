@@ -1,4 +1,4 @@
-@import "../../../overview-line.css";
+@layer pages {
 /* The change Overview grid: label | value | trailer, stacked on phones. */
 .deploy-entry .deploy-head { border-top: 0; padding-top: 0; }
 .deploy-entry .deploy-status { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -27,4 +27,5 @@
   .deployment-row.list-row { grid-template-columns: auto minmax(0, 1fr) auto; }
   .deployment-row > .list-detail { grid-column: 2; grid-row: 2; }
   .deployment-row > .list-action { grid-column: 3; }
+}
 }

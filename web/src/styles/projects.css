@@ -1,0 +1,115 @@
+@layer components {
+/* The dashboard: what this is and the next thing to do, then the work. */
+.dash-head { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.dash-head > div { flex: 1; min-width: min(320px, 100%); }
+.dash-head h1 { margin-bottom: 4px; }
+.dash-lead { margin: 0 0 14px; font-size: var(--fs-sm); border-block: 1px solid var(--border); padding: 8px 0; max-width: none; width: 100%; }
+.dash-start { max-width: 640px; }
+.dash-start p { margin: 0 0 12px; }
+.home-finished { display: flex; flex-direction: column; gap: 4px; color: inherit; overflow-wrap: anywhere; }
+.dash-head > a { margin-bottom: 12px; }
+@media (max-width: 800px), (pointer: coarse) {
+  a.dash-app { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 44px; }
+}
+
+/* A project's schedules (pages/project/Schedules.tsx): workflow, cadence,
+   next and last firing in aligned columns; two to a line on a phone. */
+.schedule-rows { display: grid; grid-template-columns: max-content max-content max-content 1fr; gap: 6px 22px; align-items: baseline; margin-top: 8px; }
+.schedule-name { font-weight: var(--fw-medium); }
+@media (max-width: 700px) {
+  .schedule-rows { grid-template-columns: max-content 1fr; gap: 2px 14px; }
+  .schedule-rows > .schedule-name, .schedule-rows > .schedule-name + span { margin-top: 8px; }
+}
+.application-overview { display: grid; grid-template-columns: minmax(0,1fr); }
+.application-heading { padding-bottom: 12px; }
+.application-heading p { margin: 0 0 8px; }
+.application-title { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.application-title h1 { margin: 0 0 8px; }
+.application-open { white-space: nowrap; }
+/* A host-only address is words, not a link: framed, but not a button. */
+span.application-open { color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 8px 14px; font-size: 14px; }
+.application-address { font: var(--fs-sm) var(--font-mono); color: var(--muted); overflow-wrap: anywhere; }
+.application-status { border-block: 1px solid var(--border-strong); padding: 8px 0; display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; }
+.application-section-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0 12px; }
+.application-section-head h2 { margin: 0; }
+.overview-actions > .row { gap: 8px !important; justify-content: flex-start; }
+.overview-actions .split-button { flex: 0 1 auto; }
+/* Beside the page's other actions the door is a standard button, not a big one. */
+.overview-actions .btn-door { font-size: 14px; padding: 8px 14px; text-align: left; }
+.overview-actions .btn-sub { display: none; }
+.application-request { display: grid; grid-template-columns: 140px minmax(0,1fr) auto auto; gap: 8px 16px; padding: 12px 0; border-bottom: 1px solid var(--border); color: var(--text); }
+.application-details { margin-top: 28px; border-top: 1px solid var(--border-strong); display: grid; grid-template-columns: 1.5fr 1fr 1fr; column-gap: 24px; }
+.application-details > h2 { grid-column: 1 / -1; font-size: var(--fs-lg); margin: 16px 0; }
+.application-details section { min-width: 0; padding: 12px 0 20px; border-bottom: 1px solid var(--rule); }
+.application-details h3 { font: var(--fs-xs) var(--font-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 16px; }
+.application-details p { font-size: var(--fs-sm); margin: 8px 0; }
+.application-deployment { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; margin: 0 0 20px; }
+.application-deployment a { grid-column: 1 / -1; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.activity-ledger { width: 100%; background: transparent; }
+.activity-ledger :is(th,td) { padding: 9px 10px; border-bottom: 1px solid var(--border); }
+.activity-ledger th { text-transform: uppercase; letter-spacing: .04em; font: var(--fs-xs) var(--font-mono); background: var(--panel2); }
+.activity-ledger td:first-child { white-space: nowrap; font-size: var(--fs-xs); color: var(--muted); }
+.activity-ledger td:nth-child(3) { font-size: var(--fs-xs); color: var(--muted); max-width: 240px; overflow-wrap: anywhere; }
+.activity-ledger a { color: var(--text); }
+.project-status-strip { border-block: 1px solid var(--border); padding: 8px 0; }
+@media(max-width: 800px) {
+  .application-title, .application-section-head { flex-wrap: wrap; gap: 8px; }
+  .application-title { margin-bottom: 12px; }
+  .application-status { gap: 12px; }
+  .application-request { grid-template-columns: minmax(0,1fr) auto; }
+  .application-request strong, .application-request > .muted { grid-column: 1; }
+  .application-details { display: block; }
+  .main .activity-ledger, .activity-ledger :is(tbody,tr,td) { display: block; }
+  .activity-ledger thead { display: none; }
+  .activity-ledger tr { padding: 12px 0; border-top: 1px solid var(--border); }
+  .activity-ledger td { padding: 3px 0; border: 0; }
+}
+.project-description { margin-top: 4px; max-width: 48ch; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* Summary spans the work surface; metadata shares one quiet line on phones. */
+.dash-lead a { color: inherit; }
+@media (max-width: 700px) {
+  .activity-ledger tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 8px; }
+  .activity-ledger td:nth-child(2) { grid-column: 1 / -1; grid-row: 1; }
+  .activity-ledger td:first-child, .activity-ledger td:nth-child(3), .activity-ledger td:nth-child(4) { grid-row: 2; font-size: var(--fs-xs); }
+  .activity-ledger td:nth-child(3) { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+}
+
+/* Library and project summaries keep long authored text out of the first view. */
+.project-description, .guidance-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 36rem;
+  white-space: nowrap;
+}
+.activity-ledger td { font-family: var(--font-sans); }
+.project-last-change { margin-top: 4px; }
+
+/* Home and Projects share identity, state/age and action columns. */
+.project-rows { display: grid; grid-template-columns: minmax(0, 1fr); }
+.project-row { display: grid; grid-template-columns: minmax(0, 1fr) 180px 150px; gap: 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border); position: relative; }
+.project-identity { display: flex; align-items: center; min-width: 0; gap: 12px; }
+.project-copy { min-width: 0; }
+.project-name { color: var(--text); overflow-wrap: anywhere; }
+.project-row .project-description { display: block; max-width: 100%; }
+.project-summary { margin-top: 4px; }
+.project-state { min-width: 0; }
+.project-action { justify-self: end; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
+.project-action .btn { min-height: 44px; display: inline-flex; gap: 4px; align-items: center; justify-content: center; padding: 10px 20px; font-weight: var(--fw-strong); }
+.project-avatar { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; background: var(--panel); border: 1px solid var(--border); flex-shrink: 0; }
+.project-letter { background: hsl(var(--project-hue) 45% 88%); color: hsl(var(--project-hue) 45% 24%); border-color: transparent; }
+@media (max-width: 800px) {
+  .project-avatar { width: 28px; height: 28px; align-self: start; }
+  .project-name { overflow-wrap: anywhere; }
+  .project-action .btn { padding: 8px 10px; font-size: var(--fs-sm); }
+}
+a.project-avatar, a.project-avatar:hover { text-decoration: none; color: inherit; }
+/* A project row opens its project from anywhere on it: the name's link
+   stretches over the row; the icon link and actions sit above it. */
+.project-row .project-name::after { content: ''; position: absolute; inset: 0; }
+.deployment-rows > .row { display: flex; flex-direction: column; align-items: flex-start; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .project-letter { background: hsl(var(--project-hue) 35% 24%); color: hsl(var(--project-hue) 45% 88%); }
+}
+:root[data-theme="dark"] .project-letter { background: hsl(var(--project-hue) 35% 24%); color: hsl(var(--project-hue) 45% 88%); }
+}

@@ -1,3 +1,4 @@
+@layer pages {
 /* Accounts: name | role | last seen | Manage on a wide screen; on a phone,
    name and role on one line, last seen and Manage on the next. */
 .people-accounts .list-row { grid-template-columns: minmax(0, 1fr) 11em auto; padding: 10px 0; }
@@ -30,3 +31,7 @@ button.link.people-quiet:hover { color: var(--accent); }
   .tab-strip .tabs.people-tabs a.tab { padding-left: 10px; padding-right: 10px; }
 }
 .people-accounts > .list-row:last-child { border-bottom: 0; }
+@media (max-width: 800px) {
+  .people-accounts .account-actions > summary, .people-form > input, .people-form > select, .people-form > button, button.link.people-quiet { min-height: 44px; }
+}
+}

@@ -51,7 +51,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
   const [controlsOpen, setControlsOpen] = useState<boolean | null>(null)
   const [composing, setComposing] = useState(false)
   // What the chat is about is one tap down on a phone, open on a desk
-  // (styles.css hides the fold's line on a desk). React writes `open` only
+  // (styles/console.css hides the fold's line on a desk). React writes `open` only
   // when this changes, so a tap holds until the screen crosses the breakpoint.
   const narrow = useNarrow()
   useChatViewport(narrow)
@@ -177,7 +177,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
       )}
       {/* What the chat is about sits above it, folded to one line on a
           phone, and steps aside while you type, so the conversation keeps
-          the room (styles.css .console-extra, .chat-pane). The worker's
+          the room (styles/console.css .console-extra, .chat-pane). The worker's
           save line and the changes this chat started stay outside the fold:
           one qualifies the conversation, the other may be the next thing to
           do. */}

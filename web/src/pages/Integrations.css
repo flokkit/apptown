@@ -1,3 +1,4 @@
+@layer pages {
 /* Integrations: groups are quiet sentence-case labels, as in other lists;
    each service is one row that opens its page. */
 .int-kind-group .group-label { text-transform: none; letter-spacing: 0; font-size: var(--fs-sm); font-weight: var(--fw-strong); padding-bottom: 2px; }
@@ -35,3 +36,7 @@
   .int-list-row .list-identity .muted.small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 .int-kind-group [role="list"] > .int-row:last-child > .list-row, .section-body > [role="list"] > .int-row:last-child > .list-row { border-bottom: 0; }
+@media (max-width: 800px) {
+  .int-row .list-action button { min-height: 44px; }
+}
+}

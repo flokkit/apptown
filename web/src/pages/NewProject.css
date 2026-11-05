@@ -1,3 +1,4 @@
+@layer pages {
 /* The wizard: the steps under the title with the current one marked, and
    each step's form in one panel, labels above their fields. */
 .np-steps { display: flex; flex-wrap: wrap; gap: 6px 24px; list-style: none; padding: 0; margin: 10px 0 20px; font-size: var(--fs-sm); color: var(--muted); }
@@ -8,3 +9,4 @@
 .np-field input { width: 100%; box-sizing: border-box; }
 .np-panel textarea { width: 100%; box-sizing: border-box; }
 @media (max-width: 600px) { .np-panel { padding: 16px; } }
+}

@@ -1,4 +1,6 @@
+@layer pages {
 /* The "?" keeps its full tap target on a phone but sits beside the title. */
 @media (max-width: 800px) {
   .evals-page .page-head-row button.page-help-q { margin-left: -10px; background: radial-gradient(circle, transparent 11px, var(--border-strong) 11px, var(--border-strong) 12px, transparent 12.5px); }
+}
 }

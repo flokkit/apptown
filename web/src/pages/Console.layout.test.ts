@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { expect, it } from 'vitest'
 
-const css = (readFileSync('src/styles.css', 'utf8') as string).replace(/\/\*[\s\S]*?\*\//g, '')
+const css = (readFileSync('src/styles/console.css', 'utf8') as string).replace(/\/\*[\s\S]*?\*\//g, '')
 const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
 const declarations = (selector: string) => rules.filter(r => r[1].trim() === selector).map(r => r[2]).join('\n')
 

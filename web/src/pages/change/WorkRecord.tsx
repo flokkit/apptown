@@ -1,3 +1,6 @@
+import './work-record.css'
+import './deploy-scene.css'
+import '../../overview-line.css'
 import { dump } from 'js-yaml'
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'

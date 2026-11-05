@@ -1,0 +1,151 @@
+@layer tokens {
+/* Precision instrument. Typography and fine rules establish hierarchy;
+   colour identifies state. Fonts ship locally with the application. */
+:root {
+  /* Sans for reading and headings; mono for identifiers. */
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-heading: var(--font-sans);
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --fs-xs: 12px;     /* meta lines, chips, table heads */
+  --fs-sm: 13px;     /* dense tables, secondary text */
+  --fs-base: 14px;   /* body */
+  --fs-md: 18px;     /* a card's lead sentence */
+  --fs-lg: 18px;     /* section headings */
+  --fs-xl: 26px;     /* page titles */
+  --lh-tight: 1.2;
+  --lh-body: 1.5;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-strong: 600;
+
+  /* Space. Margins and gaps step along this scale rather than picking a
+     pixel count per element; the utilities below name the common ones. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* Shape. Paper does not float: rules and borders, almost no shadow. */
+  --radius-xs: 2px;  /* chips, inline code */
+  --radius-sm: 2px;  /* buttons, inputs, code blocks */
+  --radius: 0px;     /* cards, panels, dialogs */
+  --shadow-pop: none;  /* menus and dialogs only */
+  --topbar-h: 44px;
+
+  /* Surfaces: the paper, the sheet on it, a raised fill, the page chrome. */
+  --bg: #F5F6F6;
+  --panel: #FFFFFF;
+  --panel2: #EEF0F0;
+  --chrome: #EEF0F0;
+  --scene-ink: var(--muted);
+  --scene-ground: var(--border);
+  --border: #CFD4D5;         /* the edge of a sheet */
+  --border-strong: #9EA8AC;  /* controls: buttons, inputs */
+  --rule: #DFE3E4;           /* ruled lines inside a sheet */
+  --rule-faint: #E9ECED;     /* between table rows */
+
+  /* Ink. */
+  --text: #202729;
+  --muted: #535F63;          /* secondary text */
+  --subtle: #606D72;         /* meta lines, table heads */
+  --faint: #8A877C;          /* decoration only (separators); too light for words */
+
+  /* One colour, one job. ACCENT (ledger green): you can act on it, or you
+     are here. BUSY (ink blue): the machine is working. WARN (ochre): a
+     person is needed. OK (green): passed, live, shipped. BAD (brick): failed,
+     stuck, dangerous. NOTE (plum): an exception on the record. UNKNOWN:
+     nobody has looked, or the last look is old — never drawn like success
+     or like an empty, stopped thing (chips get a dashed edge and hatching).
+     Each has a wash (-bg) for fills. */
+  --accent: #283D43;
+  --accent-hover: #102A32;
+  --accent-bg: #E4EAEC;
+  --on-accent: #FFFFFF;
+  --busy: #2C5B87;
+  --busy-bg: rgba(44, 91, 135, 0.10);
+  --warn: #8A5A14;
+  --warn-mark: #B7791F;      /* dots, edges and stripes for WARN */
+  --warn-bg: #FBF6EC;
+  --ok: #2F6B3A;
+  --ok-bg: #E6F0EA;
+  --bad: #A63A2B;
+  --bad-bg: #F8E9E5;
+  --note: #6B4C8A;
+  --note-bg: rgba(107, 76, 138, 0.10);
+  --unknown: #6B6960;
+  --unknown-bg: transparent;
+
+  /* Code, diffs and terminals. A terminal stays dark in both themes. */
+  --code-bg: #EEF0F0;
+  --diff-add-bg: #E6F0EA;
+  --diff-del-bg: #F8E9E5;
+  --diff-hunk-bg: rgba(47, 93, 74, 0.07);
+  --term-bg: #202729;
+  --term-fg: #E9E5DA;
+  --term-cursor: #D4E0E4;
+  --term-selection: #3B454A;
+  --overlay: rgba(28, 27, 24, 0.40);
+  --hover: rgba(28, 27, 24, 0.03);
+  --scroll-shade: rgba(28, 27, 24, 0.22);  /* the edge of a box that scrolls further */
+  --ground: var(--bg);  /* what a box sits on; sheets set it to --panel */
+  color-scheme: light;
+
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: var(--lh-body);
+  --cap-deployment: #2E8B67; --cap-previews: #3B72C4; --cap-work: #8A6BD1; --cap-apptown: #C2622F;
+  --cap-other: #8A877C; --cap-host: #B9B5A9; --cap-free: var(--panel2, #E9ECED);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171B1D; --panel: #1D2225; --panel2: #272E32; --chrome: #14181A;
+    --scene-ink: var(--muted); --scene-ground: var(--border);
+    --border: #3B454A; --border-strong: #66747B; --rule: #333D42; --rule-faint: #293237;
+    --text: #D2D9DC; --muted: #98A4AA; --subtle: #8E9AA0; --faint: #7A766B;
+    --accent: #D4E0E4; --accent-hover: #FFFFFF; --accent-bg: #313D43; --on-accent: #182126;
+    --busy: #8FB6DD; --busy-bg: rgba(143, 182, 221, 0.13);
+    --warn: #E0AE58; --warn-mark: #D99A2B; --warn-bg: rgba(224, 174, 88, 0.12);
+    --ok: #8FC48F; --ok-bg: rgba(143, 196, 143, 0.13);
+    --bad: #EE8E7C; --bad-bg: rgba(238, 142, 124, 0.13);
+    --note: #C0A6DC; --note-bg: rgba(192, 166, 220, 0.13);
+    --unknown: #A39E90;
+    --unknown-bg: transparent;
+    --code-bg: #171B1D;
+    --diff-add-bg: rgba(143, 196, 143, 0.12); --diff-del-bg: rgba(238, 142, 124, 0.12); --diff-hunk-bg: rgba(134, 187, 160, 0.08);
+    --term-bg: #12110E; --term-selection: #3B454A;
+    --overlay: rgba(0, 0, 0, 0.55); --hover: rgba(255, 255, 255, 0.03); --scroll-shade: rgba(0, 0, 0, 0.6);
+    --shadow-pop: none;
+    color-scheme: dark;
+    --cap-deployment: #3E9C77; --cap-previews: #5E94DE; --cap-work: #9277D9; --cap-apptown: #C8703F;
+    --cap-other: #7A766B; --cap-host: #5A574E; --cap-free: #171B1D;
+  }
+}
+:root[data-theme="dark"] {
+    --bg: #171B1D; --panel: #1D2225; --panel2: #272E32; --chrome: #14181A;
+    --scene-ink: var(--muted); --scene-ground: var(--border);
+    --border: #3B454A; --border-strong: #66747B; --rule: #333D42; --rule-faint: #293237;
+    --text: #D2D9DC; --muted: #98A4AA; --subtle: #8E9AA0; --faint: #7A766B;
+    --accent: #D4E0E4; --accent-hover: #FFFFFF; --accent-bg: #313D43; --on-accent: #182126;
+    --busy: #8FB6DD; --busy-bg: rgba(143, 182, 221, 0.13);
+    --warn: #E0AE58; --warn-mark: #D99A2B; --warn-bg: rgba(224, 174, 88, 0.12);
+    --ok: #8FC48F; --ok-bg: rgba(143, 196, 143, 0.13);
+    --bad: #EE8E7C; --bad-bg: rgba(238, 142, 124, 0.13);
+    --note: #C0A6DC; --note-bg: rgba(192, 166, 220, 0.13);
+    --unknown: #A39E90;
+    --unknown-bg: transparent;
+    --code-bg: #171B1D;
+    --diff-add-bg: rgba(143, 196, 143, 0.12); --diff-del-bg: rgba(238, 142, 124, 0.12); --diff-hunk-bg: rgba(134, 187, 160, 0.08);
+    --term-bg: #12110E; --term-selection: #3B454A;
+    --overlay: rgba(0, 0, 0, 0.55); --hover: rgba(255, 255, 255, 0.03); --scroll-shade: rgba(0, 0, 0, 0.6);
+    --shadow-pop: none;
+    color-scheme: dark;
+  --cap-deployment: #3E9C77; --cap-previews: #5E94DE; --cap-work: #9277D9; --cap-apptown: #C8703F;
+  --cap-other: #7A766B; --cap-host: #5A574E; --cap-free: #171B1D;
+}
+@media (max-width: 800px) {
+  :root { --fs-md: 18px; --fs-base: 16px; --fs-sm: 14px; --fs-xs: 13px; }
+}
+
+}

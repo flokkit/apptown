@@ -14,7 +14,7 @@ export const usePageContext = pageContext.use
 // The shell's one breakpoint: under it the sidebar folds into a menu button
 // and the top bar keeps only the menu, the name and where you are; finding,
 // the theme and who you are move into the menu. Kept in step with the
-// @media (max-width: 800px) rules in styles.css.
+// @media (max-width: 800px) rules in styles/shell.css.
 export const NARROW_QUERY = '(max-width: 800px)'
 
 export function useNarrow(): boolean {

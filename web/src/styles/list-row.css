@@ -1,0 +1,118 @@
+@layer components {
+/* A card's secondary actions: one compact line of small text buttons. */
+.pack-actions { gap: 16px; }
+.pack-actions button { padding: 3px 6px; font-size: var(--fs-sm); }
+
+.pack-description { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pack-grid .pack-description { margin: 0; max-height: none; }
+.pack-grid .pack-actions { margin-top: 0 !important; grid-column: 3; grid-row: 1 / span 2; }
+@media (max-width: 1000px) {
+  .pack-grid > .card > .small, .pack-grid .pack-actions { grid-column: 1; grid-row: auto; }
+}
+@media (max-width: 800px) {
+  .pack-actions button { min-height: 44px; padding-inline: 8px; }
+}
+/* Shared list cells keep actions aligned, regardless of authored text. */
+.list-row { display: grid; grid-template-columns: minmax(0, 1fr) 180px 240px; gap: 12px 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.list-identity, .list-state, .list-action { min-width: 0; overflow-wrap: anywhere; }
+.list-identity strong { font-weight: var(--fw-strong); }
+.list-action { justify-self: end; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.list-action .btn, .list-action button, .list-action > a, .list-detail > summary { min-height: 44px; display: inline-flex; align-items: center; }
+.list-detail { grid-column: 1 / -1; margin: 0; padding: 0; border: 0; background: transparent; }
+.list-detail > summary { padding: 0; cursor: pointer; }
+.list-detail dl { display: grid; gap: 8px; }
+.list-detail dt { color: var(--muted); font-size: var(--fs-sm); }
+.list-detail dd { margin: 0; }
+.list-table { width: 100%; }
+.list-table > thead { display: none; }
+.list-table-row > td { padding: 0; border: 0; }
+@media (max-width: 800px) {
+  .list-row { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 12px 0; }
+  .list-action { justify-self: start; }
+  .list-action:empty, .list-state:empty { display: none; }
+  .list-table, .list-table tbody, .list-table-row, .list-table-row > td { display: block; width: 100%; }
+}
+
+/* Lists of work line up: the state and the action take fixed columns, so
+   titles start, and actions end, at the same place on every row. */
+.row-status { flex: 0 0 13em; }
+.row-action { flex: 0 0 11em; display: flex; justify-content: flex-end; white-space: nowrap; }
+@media (max-width: 800px) { .row-status, .row-action { flex: 0 0 auto; } }
+
+/* A list's header: its count on the left, the action for the whole list on
+   the right, ruled off from the first row. */
+.list-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0 12px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+/* Text actions under a row start where its name starts. */
+.pack-actions button.link { padding-left: 0; padding-right: 0; }
+
+/* A list row that opens on click: a quiet highlight says so. */
+.list-row-open { cursor: pointer; border-radius: 6px; }
+.list-row-open:hover { background: var(--hover); }
+.list-row-open a.pack-name { color: inherit; text-decoration: none; }
+.list-row-open button.pack-name { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-align: left; min-height: 0; }
+
+/* Pack rows read as one line: name, then purpose on the same line, wrapping
+   when narrow; badges and the ⋯ menu keep their place on the right at every
+   width. */
+.list-row.pack-row { grid-template-columns: minmax(0, 1fr) auto auto; padding: 12px 0; }
+.pack-row .list-identity { display: grid; grid-template-columns: 15rem minmax(0, 1fr); align-items: baseline; column-gap: 16px; }
+/* The name leads; the purpose is clearly secondary, in one column down the list. */
+.pack-row .pack-purpose { color: var(--muted); font-size: var(--fs-sm); }
+.pack-row .pack-name strong { font-size: var(--fs-base); }
+.pack-row .list-state { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 800px) { .pack-row .list-state:empty { display: none; } }
+.pack-row .list-action { justify-self: end; }
+.pack-row .list-detail { grid-column: 1 / -1; }
+/* An opened library row: its full detail at reading size, long text scrolls. */
+.pack-row .list-detail .library-detail { color: var(--text); font-size: var(--fs-sm); padding: 4px 0 8px; }
+.library-detail pre.log { max-height: 420px; overflow: auto; }
+/* A library item's own text (guidance) sits in the same box as a workflow's
+   definition, set apart from the facts around it. */
+.text-box { background: var(--code-bg); border: 1px solid var(--rule); border-radius: var(--radius-sm); padding: 4px 14px; max-height: 420px; overflow: auto; margin-bottom: 8px; }
+.library-detail > :first-child { margin-top: 0; }
+@media (max-width: 800px) {
+  .list-row.pack-row { grid-template-columns: minmax(0, 1fr) auto; padding: 12px 4px; }
+  .pack-row .list-state { grid-column: 1; grid-row: 2; justify-content: flex-start; }
+  .pack-row .list-action { grid-column: 2; grid-row: 1; justify-self: end; align-self: start; }
+}
+.pack-title { display: inline-flex; align-items: center; gap: 8px; }
+@media (max-width: 800px) { .pack-row .list-identity { grid-template-columns: minmax(0, 1fr); row-gap: 2px; } }
+.section-group .list-table { margin: 0; }
+.section-group .list-table td, .section-group .list-table th { padding-left: 0; padding-right: 0; }
+.section-body > .card, .section-body .project-rows > .list-row, .section-body > .section-group { background: transparent; }
+/* Inside a section's surface, the surface's edge is the last line: no row
+   draws its own divider against it, and a table runs to the edges. */
+.section-body > .card:last-child, .section-body > :last-child > .card:last-child, .section-body .project-rows > .list-row:last-child,
+.section-body tr:last-child > td, .section-body .list-table-row:last-child td { border-bottom: 0; }
+
+/* Credentials stay visible in compact shared rows, including on phones. */
+.credential-list .credential-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; padding: 6px 0; }
+.credential-list .list-state:empty { display: none; }
+.credential-stores .credential-row, .credential-uses .credential-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+.credential-row .list-state { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.credential-stores.credential-uses .list-state { display: grid; grid-template-columns: 1fr 1fr; }
+.credential-row .list-action { max-width: 100%; }
+.credential-add { flex-wrap: wrap; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.credential-add input { width: 220px; max-width: 100%; }
+@media (max-width: 800px) {
+  .credential-list .credential-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .credential-row .list-action { grid-column: 2; grid-row: 1 / span 2; }
+  .credential-row .list-state { grid-column: 1; }
+}
+/* Each row's action cell is lifted above the row's full-row link; while its
+   menu is open it also sits above the rows after it. */
+.project-row .list-action:has([aria-expanded="true"]) { z-index: 31; }
+.project-row .list-action, .project-row a.project-avatar, .project-row .status-help { position: relative; z-index: 1; }
+
+.inline-detail { display: inline-block; padding: 0; border: 0; margin: 0; background: none; }
+.inline-detail summary { padding: 0; }
+
+.phone-details { display: contents; }
+.phone-details > summary { display: none; }
+@media (max-width: 800px) {
+  .phone-details { display: block; width: 100%; }
+}
+@media (max-width: 800px) {
+  .phone-details > summary { display: list-item; }
+}
+}

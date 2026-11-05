@@ -14,7 +14,7 @@ const row = (over: Partial<ChangeRow> = {}): ChangeRow => ({
   project: 'demo-smoke', workflows: 'quick-change', runs: 2, when: '2026-10-01T08:50:00Z', tookS: 120, ...over,
 })
 
-// On a phone the history is a stack of cards (styles.css table.stack): the
+// On a phone the history is a stack of cards (styles/tables.css table.stack): the
 // change's title leads each card and opens it from anywhere on the card,
 // and the cells under it say what they are without the column heads.
 describe('the change history on a phone', () => {

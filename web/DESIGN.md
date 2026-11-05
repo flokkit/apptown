@@ -1,6 +1,6 @@
 # Precision instrument
 
-AppTown uses one visual system on every page. `src/styles.css` owns its tokens;
+AppTown uses one visual system on every page. `src/styles/tokens.css` owns its tokens;
 `src/theme.ts` selects light, dark or the system preference. IBM Plex Sans and
 IBM Plex Mono ship with the application.
 
@@ -30,6 +30,21 @@ Avoid gradients, decorative metrics, heavy shadows, excessive rounding,
 competing primary actions and collections of cards. Expert detail deserves the
 same care as the overview. Every screen answers where the reader is, what is
 happening, what needs attention, what they can do next and where detail lives.
+
+## Stylesheet ownership
+
+`src/layers.css` loads first and declares tokens, base, components, pages and
+utilities in that order. Shared styles live by owner in `src/styles/`, with
+phone rules beside their desktop rules. Page styles use the pages layer.
+Every source stylesheet wraps its rules in one declared layer and stays within
+400 lines; `make check-web-css` checks both rules. Xterm’s external CSS stays
+unlayered. Important declarations reverse layer priority: keep chip and utility
+overrides deliberate when moving rules.
+
+Run the focused browser check for row geometry, phone form heights and change headings with
+`APPTOWN_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node web/test/css-cascade.mjs`
+from the repository root. It uses the entrypoint's stylesheet order in both
+themes at desktop and phone widths, without starting a server.
 
 ## Whole-site review
 

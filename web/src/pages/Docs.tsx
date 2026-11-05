@@ -80,7 +80,7 @@ export default function DocsPage() {
       {!first ? <div className="muted">{PRODUCT} ships no documentation.</div> : (
         <div className="docs-layout">
           {/* On a phone the list is a picker above the page, so the page
-              keeps the screen's width (styles.css .docs-pick). */}
+              keeps the screen's width (styles/markdown.css .docs-pick). */}
           <select className="docs-pick" aria-label="document" value={section && slug ? `/docs/${section}/${slug}` : ''}
             onChange={(e) => nav(e.target.value)}>
             {manifest.groups.map((group) => (

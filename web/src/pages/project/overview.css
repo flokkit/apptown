@@ -1,3 +1,5 @@
+@layer pages {
 /* Project overview: rows wrap their meta under the title on a phone. */
 .application-overview .card.row { flex-wrap: wrap; gap: 4px 12px; }
 .application-overview a.card.row { color: var(--text); }
+}
