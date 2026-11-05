@@ -46,6 +46,36 @@
   --shadow-pop: none;  /* menus and dialogs only */
   --topbar-h: 44px;
 
+  /* Existing shapes retain their reference geometry. */
+  --radius-bar: 3px;
+  --radius-control: 4px;
+  --radius-preview: 6px;
+  --radius-section-inner: 7px;
+  --radius-section: 8px;
+  --radius-bubble: 10px;
+  --radius-dialog: 12px;
+  --radius-tab: 14px;
+  /* Depth roles preserve the order within each stacking context. */
+  --z-base: 1;
+  --z-sticky: 2;
+  --z-sticky-decision: 5;
+  --z-popover-help: 20;
+  --z-sticky-action: 30;
+  --z-popover-row: 31;
+  --z-modal: 40;
+  --z-sidebar-backdrop: 60;
+  --z-sidebar: 65;
+  --z-topbar: 70;
+  --z-modal-phone: 90;
+  --z-popover-status: 100;
+  --z-popover: 200;
+  --z-toast: 300;
+  --logo-surface: #FFFFFF;
+  --on-warn: #1b1408;
+  --progress-stripe: rgba(255,255,255,0.28);
+  --decision-glow-clear: rgba(217, 154, 43, 0);
+  --decision-glow: rgba(217, 154, 43, 0.6);
+
   /* Surfaces: the paper, the sheet on it, a raised fill, the page chrome. */
   --bg: #F5F6F6;
   --panel: #FFFFFF;
@@ -164,5 +194,12 @@
   --cap-deployment: #3E9C77; --cap-previews: #5E94DE; --cap-work: #9277D9; --cap-apptown: #C8703F;
   --cap-other: #7A766B; --cap-host: #5A574E; --cap-free: #171B1D;
 }
+
+/* Resolve the per-project hue where its inline custom property is defined. */
+.project-letter { --project-letter-bg: hsl(var(--project-hue) 45% 88%); --project-letter-ink: hsl(var(--project-hue) 45% 24%); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .project-letter { --project-letter-bg: hsl(var(--project-hue) 35% 24%); --project-letter-ink: hsl(var(--project-hue) 45% 88%); }
+}
+:root[data-theme="dark"] .project-letter { --project-letter-bg: hsl(var(--project-hue) 35% 24%); --project-letter-ink: hsl(var(--project-hue) 45% 88%); }
 
 }

@@ -5,7 +5,7 @@
 
 /* The state panel uses amber only for the viewer’s turn.
    Unknown keeps its dashed edge so it never reads as a settled state. */
-.ch-page section.ch-state { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; box-shadow: none; display: flex; flex-direction: column; gap: 12px; }
+.ch-page section.ch-state { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-section); padding: 16px; box-shadow: none; display: flex; flex-direction: column; gap: 12px; }
 .ch-page section.ch-state.tone-unknown { border-style: dashed; border-color: var(--unknown); }
 .ch-page .ch-state-head { gap: 10px; flex-wrap: nowrap; align-items: flex-start; }
 .ch-page .ch-state-head .ch-dot { margin-top: 0.6em; width: 10px; height: 10px; }
@@ -75,7 +75,7 @@
 .ch-page .ch-overview-summary h3 { margin: 0 0 8px; }
 .ch-page .ch-overview-summary > .muted { margin: 0 0 10px; }
 .ch-page .ch-preview { padding: 16px 0; }
-.ch-page #decision { scroll-margin-top: 70px; }
+.ch-page .ch-decision { scroll-margin-top: 70px; }
 .ch-page .ch-decision { border-top: 1px solid var(--border); }
 .ch-page .ch-decision h3 { margin: 20px 0 8px; }
 .ch-page .ch-check-exception { margin: 12px 0; overflow-wrap: anywhere; }
@@ -162,7 +162,7 @@
 .ch-story-entry [id] { scroll-margin-top: 90px; }
 
 /* Shared columns keep values and their evidence links aligned across rows. */
-.ch-change-card, .ch-page .ch-decision { border: 1px solid var(--border); border-radius: 8px; background: var(--panel); padding: 20px; margin: 0 0 20px; min-width: 0; }
+.ch-change-card, .ch-page .ch-decision { border: 1px solid var(--border); border-radius: var(--radius-section); background: var(--panel); padding: 20px; margin: 0 0 20px; min-width: 0; }
 .ch-overview h2 { font-size: var(--fs-md); }
 
 .ch-row-label { color: var(--muted); }
@@ -218,11 +218,11 @@
 .ch-detail-row:last-child { border-bottom: 0; }
 .ch-details .ch-technical { display: block; margin-top: 4px; }
 .ch-details .ch-technical[aria-hidden="true"], .ch-overview .ch-technical[aria-hidden="true"] { display: none; }
-.ch-request-row > #request { display: contents; }
-.ch-request-row #request > .ch-story-line { display: contents; }
-.ch-request-row #request > .ch-story-line > span { grid-column: 3; }
-.ch-request-row #request > .ch-story-line > time { display: none; }
-.ch-request-row #request > .ch-request, .ch-request-row #request > div:not(.ch-story-line), .ch-request-row #request > p { grid-column: 3; margin: 0; }
+.ch-request-row > .ch-request-content { display: contents; }
+.ch-request-row .ch-request-content > .ch-story-line { display: contents; }
+.ch-request-row .ch-request-content > .ch-story-line > span { grid-column: 3; }
+.ch-request-row .ch-request-content > .ch-story-line > time { display: none; }
+.ch-request-row .ch-request-content > .ch-request, .ch-request-row .ch-request-content > div:not(.ch-story-line), .ch-request-row .ch-request-content > p { grid-column: 3; margin: 0; }
 .ch-check-facts { grid-column: 3 / -1; }
 .ch-detail-row .ch-items-table { margin: 0; table-layout: auto; width: 100%; }
 .ch-detail-row .ch-items-table th { max-width: 18ch; overflow-wrap: anywhere; }
@@ -237,7 +237,7 @@
   .ch-detail-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
   .ch-detail-row > time, .ch-detail-row > time span { display: inline; }
   .ch-detail-row > time span { margin-right: 8px; }
-  .ch-detail-facts, .ch-check-facts, .ch-request-row #request > .ch-story-line > span, .ch-request-row #request > .ch-request, .ch-request-row #request > div:not(.ch-story-line), .ch-request-row #request > p { grid-column: 1; }
+  .ch-detail-facts, .ch-check-facts, .ch-request-row .ch-request-content > .ch-story-line > span, .ch-request-row .ch-request-content > .ch-request, .ch-request-row .ch-request-content > div:not(.ch-story-line), .ch-request-row .ch-request-content > p { grid-column: 1; }
   .ch-detail-actions { justify-content: flex-start; text-align: left; }
   .ch-detail-row .ch-items-table { table-layout: auto; }
   .ch-detail-row .ch-items-table th { width: auto; }
@@ -248,10 +248,10 @@
   .ch-detail-row .ch-check-actions { grid-column: 1 / -1; width: auto; text-align: left; }
   .ch-check-actions .step-acts { justify-content: flex-start; }
 }
-.ch-request-row #request > .ch-story-line > button { grid-column: 4; grid-row: 1; justify-self: end; }
+.ch-request-row .ch-request-content > .ch-story-line > button { grid-column: 4; grid-row: 1; justify-self: end; }
 .ch-details .ch-story-record:has(.ch-story-evidence) { text-align: left; }
 @container change-details (max-width: 48rem) {
-  .ch-request-row #request > .ch-story-line > button { grid-column: 1; grid-row: auto; justify-self: start; }
+  .ch-request-row .ch-request-content > .ch-story-line > button { grid-column: 1; grid-row: auto; justify-self: start; }
 }
 @container change-details (max-width: 48rem) {
   .main .ch-page .ch-details table.ch-items-table, .ch-detail-row .ch-items-table tbody { display: block; width: 100%; }
@@ -292,12 +292,12 @@
 .ch-preview-switches { display: flex; justify-content: flex-end; align-items: center; gap: 16px; flex-wrap: wrap; }
 .ch-preview-switches .ch-technical-switch { margin: 0; }
 .ch-overview [hidden] { display: none; }
-.ch-turn-floater { position: fixed; bottom: 0; z-index: 30; box-sizing: border-box; padding: 16px; display: flex; justify-content: flex-end; pointer-events: none; }
+.ch-turn-floater { position: fixed; bottom: 0; z-index: var(--z-sticky-action); box-sizing: border-box; padding: 16px; display: flex; justify-content: flex-end; pointer-events: none; }
 .ch-turn-floater button { pointer-events: auto; font-size: var(--fs-md); padding: 14px 28px; box-shadow: var(--shadow-pop); }
 /* The turn colour: the same amber as "Your turn", so the button reads as the thing to do now. */
-.ch-turn-floater .ch-decide { background: var(--warn-mark); border-color: var(--warn-mark); color: #1b1408; font-weight: var(--fw-strong); }
+.ch-turn-floater .ch-decide { background: var(--warn-mark); border-color: var(--warn-mark); color: var(--on-warn); font-weight: var(--fw-strong); }
 .ch-turn-floater .ch-decide:hover { background: var(--warn); border-color: var(--warn); }
-.ch-decision-screen { box-sizing: border-box; width: min(960px, calc(var(--page-width, 100vw) - 32px)); margin-left: calc(var(--page-left, 0px) + (var(--page-width, 100vw) - min(960px, calc(var(--page-width, 100vw) - 32px))) / 2); margin-right: auto; max-height: calc(100dvh - 48px); padding: 28px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow-y: auto; overscroll-behavior: contain; }
+.ch-decision-screen { box-sizing: border-box; width: min(960px, calc(var(--page-width, 100vw) - 32px)); margin-left: calc(var(--page-left, 0px) + (var(--page-width, 100vw) - min(960px, calc(var(--page-width, 100vw) - 32px))) / 2); margin-right: auto; max-height: calc(100dvh - 48px); padding: 28px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-dialog); overflow-y: auto; overscroll-behavior: contain; }
 .ch-decision-screen::backdrop { background: var(--overlay); }
 .ch-decision-screen header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .ch-decision-screen .ch-decision-choices { grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); }
@@ -311,12 +311,12 @@
 /* Three breaths when the page opens, then one every ten seconds. */
 .ch-decide { animation: ch-decide-breathe 2s ease-in-out 0s 3, ch-decide-rest 10s ease-in-out 6s infinite; }
 @keyframes ch-decide-breathe {
-  0%, 100% { transform: scale(1); box-shadow: var(--shadow-pop), 0 0 0 0 rgba(217, 154, 43, 0); }
-  50% { transform: scale(1.03); box-shadow: var(--shadow-pop), 0 0 20px 5px rgba(217, 154, 43, 0.6); }
+  0%, 100% { transform: scale(1); box-shadow: var(--shadow-pop), 0 0 0 0 var(--decision-glow-clear); }
+  50% { transform: scale(1.03); box-shadow: var(--shadow-pop), 0 0 20px 5px var(--decision-glow); }
 }
 @keyframes ch-decide-rest {
-  0%, 20%, 100% { transform: scale(1); box-shadow: var(--shadow-pop), 0 0 0 0 rgba(217, 154, 43, 0); }
-  10% { transform: scale(1.03); box-shadow: var(--shadow-pop), 0 0 20px 5px rgba(217, 154, 43, 0.6); }
+  0%, 20%, 100% { transform: scale(1); box-shadow: var(--shadow-pop), 0 0 0 0 var(--decision-glow-clear); }
+  10% { transform: scale(1.03); box-shadow: var(--shadow-pop), 0 0 20px 5px var(--decision-glow); }
 }
 @media (prefers-reduced-motion: reduce) { .ch-decide { animation: none; } }
 .ch-title-row .ch-number { color: var(--muted); font-weight: inherit; }
@@ -332,7 +332,7 @@
 .ch-items-table tr.ch-check-evidence-row > td { padding-top: 0; border-top: 0; }
 .ch-check-evidence-row .ch-story-evidence { margin: 0 0 8px; }
 /* An opened check's evidence starts under the time column, so it has the card's whole width. */
-@media (min-width: 641px) {
+@media (width > 600px) {
   .ch-check-evidence-row .ch-story-evidence { margin-left: calc(-5.125rem - 6.25rem - 28px - 8px); }
 }
 /* Rows here are read, not clicked: no hover band. */
@@ -341,7 +341,7 @@
 .ch-check-about { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 6px 16px; margin: 4px 0 12px; }
 .ch-check-about dt { color: var(--muted); }
 .ch-check-about dd { margin: 0; }
-@media (max-width: 640px) { .ch-check-about { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) { .ch-check-about { grid-template-columns: minmax(0, 1fr); } }
 
 .ch-review-text { white-space: pre-wrap; }
 .ch-tabs-sheet { box-sizing: border-box; }
@@ -360,7 +360,7 @@
 .ch-overview-line.ch-line-bad { border-left: 4px solid var(--bad); background: color-mix(in srgb, var(--bad) 8%, transparent); padding-left: 12px; margin-left: -16px; }
 .ch-bad-text { color: var(--bad); }
 
-.ch-now { border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+.ch-now { border: 1px solid var(--border); border-radius: var(--radius-section); padding: 20px; margin-bottom: 20px; }
 .ch-now h2 { margin-top: 0; }
 .ch-now-steps { list-style: none; padding: 0; margin: 12px 0 0; }
 .ch-now-steps li { display: grid; grid-template-columns: 64px minmax(100px, 180px) 1fr auto; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); align-items: start; }

@@ -70,13 +70,13 @@
    row): the card is its target. Other controls in the card sit above it. */
 .card:has(a.tap-open) { position: relative; }
 .card a.tap-open::after { content: ""; position: absolute; inset: 0; }
-.card:has(a.tap-open) :is(a:not(.tap-open), button, select, input) { position: relative; z-index: 1; }
+.card:has(a.tap-open) :is(a:not(.tap-open), button, select, input) { position: relative; z-index: var(--z-base); }
 .card:has(a.tap-open):hover { border-color: var(--accent); }
 .modal .card { padding: 12px; }
 .overview-actions.card { padding: 0; margin: 0; border: 0; max-width: none; }
 .pack-grid > .card { display: grid; grid-template-columns: minmax(180px,1fr) minmax(0,2fr) auto; column-gap: 24px; align-items: baseline; padding: 12px 0; }
 .pack-grid > .card > .small { grid-column: 2; }
-@media (max-width: 1000px) {
+@media (max-width: 800px) {
   .pack-grid > .card { grid-template-columns: minmax(0,1fr); gap: 8px; }
 }
 @media (max-width: 800px) {

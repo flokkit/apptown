@@ -1,14 +1,10 @@
+import { productionCSS } from './production-css.mjs'
 import assert from 'node:assert/strict'
-import { readFile, readdir, mkdir } from 'node:fs/promises'
+import { mkdir } from 'node:fs/promises'
 import { build } from 'esbuild'
 import { wrappedRowActions } from './row-action-lines.mjs'
 const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE)
-async function styles(directory) {
-  const entries = await readdir(directory, { withFileTypes: true })
-  return (await Promise.all(entries.map(entry => entry.isDirectory() ? styles(new URL(`${entry.name}/`, directory))
-    : entry.name.endsWith('.css') ? readFile(new URL(entry.name, directory), 'utf8') : ''))).join('\n')
-}
-const css = await styles(new URL('./src/', import.meta.url))
+const css = await productionCSS()
 const fixture = await build({
   absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic',
   stdin: { loader: 'tsx', resolveDir: new URL('./src/', import.meta.url).pathname, contents: `

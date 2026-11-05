@@ -1,6 +1,6 @@
 @layer components {
 .popover {
-  position: fixed; z-index: 200; width: max-content; min-width: 12rem;
+  position: fixed; z-index: var(--z-popover); width: max-content; min-width: 12rem;
   max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); overflow: auto;
   padding: 8px; color: var(--text); background: var(--panel);
   border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow-pop);
@@ -19,7 +19,7 @@
 .account-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .popover:has(.account-switches) .popover-content > div { display: grid; gap: 12px; justify-items: start; padding: 4px; }
 .account-switches { display: grid; justify-items: start; gap: 8px; }
-.account-switches .ch-goggles { padding: 3px 8px; font-size: var(--fs-xs); border-radius: 4px; background: color-mix(in srgb, var(--text) 14%, transparent); }
+.account-switches .ch-goggles { padding: 3px 8px; font-size: var(--fs-xs); border-radius: var(--radius-control); background: color-mix(in srgb, var(--text) 14%, transparent); }
 .account-switches .ch-goggles:hover { background: color-mix(in srgb, var(--text) 22%, transparent); }
 .account-switches .ch-goggles.active { background: color-mix(in srgb, var(--text) 30%, transparent); box-shadow: inset 0 0 0 1px var(--warn-mark); }
 .goggles-mark { margin-left: 6px; font-size: var(--fs-sm); opacity: .55; }

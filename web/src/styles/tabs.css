@@ -1,7 +1,7 @@
 @layer components {
 .stagebar { display: flex; gap: 6px; margin: 12px 0 20px; flex-wrap: wrap; }
 .stagebar .stage {
-  padding: 4px 12px; border-radius: 14px; font-size: var(--fs-xs);
+  padding: 4px 12px; border-radius: var(--radius-tab); font-size: var(--fs-xs);
   border: 1px solid var(--border); color: var(--muted);
 }
 .stagebar .stage.current { border-color: transparent; background: var(--busy-bg); color: var(--busy); font-weight: 600; }
@@ -32,7 +32,7 @@
 .tab-strip .tabs { flex-wrap: nowrap; overflow-x: auto; scroll-padding: 12px; }
 .tab-strip.more-tabs::after { content: ''; position: absolute; right: 0; top: 0; bottom: 16px; width: 12px; pointer-events: none; background: linear-gradient(to right, transparent, var(--bg)); }
 .tabs a.tab, .tabs button { min-height: 44px; display: inline-flex; align-items: center; gap: 0.3em; }
-.tab-strip.previous-tabs::before { content: ''; position: absolute; left: 0; top: 0; bottom: 16px; width: 16px; pointer-events: none; z-index: 1; background: linear-gradient(to left, transparent, var(--bg)); }
+.tab-strip.previous-tabs::before { content: ''; position: absolute; left: 0; top: 0; bottom: 16px; width: 16px; pointer-events: none; z-index: var(--z-base); background: linear-gradient(to left, transparent, var(--bg)); }
 @media(max-width:800px) {
   .tabs, .ch-tabs { flex-wrap: nowrap; overflow-x: auto; }
 }

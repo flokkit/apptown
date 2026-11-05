@@ -5,7 +5,7 @@
 .usage-figure .stat-label { font-size: var(--fs-sm); color: var(--muted); }
 .usage-figure .stat-value { font-size: var(--fs-title-md); margin: 2px 0 0; }
 .usage-range { display: flex; gap: 2px; }
-.usage-range button { min-height: 0; padding: 2px 8px; border: 0; background: transparent; color: var(--muted); font-size: inherit; border-radius: 4px; }
+.usage-range button { min-height: 0; padding: 2px 8px; border: 0; background: transparent; color: var(--muted); font-size: inherit; border-radius: var(--radius-control); }
 .usage-range button.on { color: var(--text); background: var(--panel2); font-weight: var(--fw-strong); }
 .usage-chart-panel { padding: 12px 0; }
 .usage-legend { display: flex; gap: 12px; margin-bottom: 8px; }
@@ -25,7 +25,7 @@
 .usage-div { justify-content: space-between; }
 .usage-h3 { margin: 0; }
 .usage-span { white-space: nowrap; }
-.usage-div-2 { display: flex; height: 8px; background: var(--rule); border-radius: 2px; overflow: hidden; }
+.usage-div-2 { display: flex; height: 8px; background: var(--rule); border-radius: var(--radius-xs); overflow: hidden; }
 .usage-div-3 { background: var(--accent); }
 .usage-div-4 { margin-top: calc(var(--space-1) * 1.5); }
 .usage-span-2 { color: var(--note); }

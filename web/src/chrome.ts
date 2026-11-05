@@ -15,7 +15,9 @@ export const usePageContext = pageContext.use
 // and the top bar keeps only the menu, the name and where you are; finding,
 // the theme and who you are move into the menu. Kept in step with the
 // @media (max-width: 800px) rules in styles/shell.css.
-export const NARROW_QUERY = '(max-width: 800px)'
+// Local reflow and shell widths match the stylesheet allow-list.
+export const BREAKPOINTS = { compact: 600, narrow: 800 } as const
+export const NARROW_QUERY = `(max-width: ${BREAKPOINTS.narrow}px)`
 
 export function useNarrow(): boolean {
   const query = () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia(NARROW_QUERY).matches

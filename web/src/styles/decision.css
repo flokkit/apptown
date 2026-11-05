@@ -12,7 +12,7 @@
 @media (max-width: 800px) {
   /* The decision: a comment field over two equal buttons, held at the foot
      of the screen while its approval is in view. */
-  .decision-bar { bottom: 0; z-index: 5;
+  .decision-bar { bottom: 0; z-index: var(--z-sticky-decision);
     background: var(--panel); border-top: 1px solid var(--rule); position: static; inset: auto; margin: 12px 0 0; padding: 12px 0 0; border: 0; box-shadow: none;
   }
   .decision-bar > input { flex: 1 1 100%; }

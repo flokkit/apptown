@@ -30,7 +30,7 @@ a.infra-card:hover, a.infra-add:hover { text-decoration: none; border-color: var
 .infra-grid > a.infra-card .infra-facts { grid-column: 2; grid-row: 2; }
 .infra-grid > a.infra-card .infra-attention { grid-column: 3; grid-row: 1; margin: 0; }
 .infra-grid > a.infra-card .infra-foot { grid-column: 3; grid-row: 2; border: 0; padding: 0; }
-@media (max-width: 1000px) {
+@media (max-width: 800px) {
   .infra-grid > a.infra-card { grid-template-columns: minmax(200px,1fr) minmax(0,1fr); }
   .infra-grid > a.infra-card .infra-attention, .infra-grid > a.infra-card .infra-foot { grid-column: 1 / -1; grid-row: auto; }
 }

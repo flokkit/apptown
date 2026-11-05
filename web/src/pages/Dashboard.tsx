@@ -189,7 +189,7 @@ export default function Dashboard() {
 
       {!act && <ReadStatus q={actQ} what="activity" />}
       {!dash && <ReadStatus q={dashQ} what="what is waiting on you" />}
-      <div id="waiting-on-you">{(waiting.length > 0 || ended.length > 0) && <Section title={ended.length > 0 ? "Waiting on you" : "Changes waiting on you"} label="Waiting on you" count={needsYouCount}>
+      <div id="waiting-on-you" className="dashboard-work-group">{(waiting.length > 0 || ended.length > 0) && <Section title={ended.length > 0 ? "Waiting on you" : "Changes waiting on you"} label="Waiting on you" count={needsYouCount}>
         {ended.map((op) => <EndedOperation key={op.id} op={op} />)}
         <ActiveRunList runs={waiting} showProject names={projectNames} />
       </Section>}</div>
@@ -202,7 +202,7 @@ export default function Dashboard() {
       </Section>}
 
       {!noProjects && <>
-      <div id="other-work">{happening.length > 0 && <Section title="Other work" count={happening.length}>
+      <div id="other-work" className="dashboard-work-group">{happening.length > 0 && <Section title="Other work" count={happening.length}>
         <ActiveRunList runs={happening} showProject names={projectNames} />
       </Section>}</div>
 

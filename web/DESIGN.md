@@ -1,76 +1,59 @@
-# Precision instrument
+# Web design
 
-AppTown uses one visual system on every page. `src/styles/tokens.css` owns its tokens;
-`src/theme.ts` selects light, dark or the system preference. IBM Plex Sans and
-IBM Plex Mono ship with the application.
+Use the shared patterns before adding page-specific CSS. Preserve every field,
+link and action, and keep loading, empty, failed, stale and unknown distinct.
+The [web data contract](../design/architecture/web-data.md) owns reads and editor guards.
 
-Show outcomes before mechanisms. Reveal detail progressively. Stay calm in
-normal operation and explicit about uncertainty, failures and decisions. Spend
-density deliberately. Keep development, AI work, checks and operation attached
-to the application. Proposed, working, verified, approved and deployed are
-separate facts.
+## Component map
 
-Typography and fine rules establish hierarchy. Colour communicates state.
-Use ruled collections, compact headings and status strips. Controls have 2px
-corners; work surfaces have square corners and no shadows. Use 4, 8, 12, 16 and
-24px spacing. Desktop body text is 14px, metadata 12px, sections 18px and titles
-26px. Phones use 16px body text and controls at least 44px high.
+| Need | Use |
+| --- | --- |
+| Inventory row: identity, state, action, optional detail | `ListRow`; `ProjectListRow` for projects and `LibraryRow` for ways of working |
+| Compact expandable facts | `GlanceRow`; retain semantic tables for tabular records |
+| Page section | `Section` |
+| Action menu or disclosure panel | `MoreMenu`, `SplitButton`, `Disclosure` from `Popover.tsx` |
+| Dialog | `Modal`; change decisions use the native dialog in `pages/change/Turn.tsx` |
+| Labelled field in a form grid | `FieldRow` with native input, select or textarea |
+| State and its explanation | Components in `Status.tsx`; domain status owners supply meaning and freshness |
+| Wrapping horizontal group or vertical stack | `.row` or `.stack`, with `.row-1`–`.row-6` or `.stack-1`–`.stack-6` for gaps |
 
-The light page, sheet and chrome are #F5F6F6, #FFFFFF and #EEF0F0. Dark uses
-#171B1D, #1D2225 and #14181A. Semantic colours keep their existing roles:
-green for success, blue for machine work, amber for a person, red for failure,
-purple for exceptions and an open dashed light for unknown state.
+Rows have two contracts: `ListRow` aligns inventory cells; `GlanceRow` expands
+compact facts. Choose by content rather than inventing a universal row.
+`.stack` on a table retains the responsive table contract; gap utilities apply
+to non-table stacks. Use native links and buttons for actions.
 
-Use fewer words. A status has a state word and a light; its meaning opens from
-the word. Required approval meaning and consequential warnings stay visible.
-Loading, empty, denied, failed, stale and unknown stay distinct. The shared
-data layer owns reads, identities and editor guards.
+## Tokens and CSS
 
-Avoid gradients, decorative metrics, heavy shadows, excessive rounding,
-competing primary actions and collections of cards. Expert detail deserves the
-same care as the overview. Every screen answers where the reader is, what is
-happening, what needs attention, what they can do next and where detail lives.
+`src/styles/tokens.css` owns colours, typography, spacing, radii and depth.
+`src/theme.ts` and `src/size.ts` select the viewer's theme and text size.
+Small is the 14px reference; rem tokens scale with the viewer's choice.
+Use `--space-1` through `--space-6` for 4, 8, 12, 16, 24 and 32 reference pixels.
+Use named depth roles (`--z-base`, `--z-sticky`, `--z-topbar`, `--z-popover`,
+`--z-modal`, `--z-toast`) and their contextual variants rather than numbers.
+Responsive widths are 600px and 800px, mirrored in `src/chrome.ts`;
+use `(width > 800px)` for the desktop complement.
 
-## Stylesheet ownership
+`src/layers.css` declares tokens, base, components, pages and utilities.
+Shared CSS lives by owner in `src/styles/`; page CSS uses the pages layer.
+Keep phone rules beside their desktop rules. Every source stylesheet wraps
+its rules in one declared layer and stays within 400 lines. Xterm's external
+CSS stays unlayered. Important declarations reverse layer priority.
 
-`src/layers.css` loads first and declares tokens, base, components, pages and
-utilities in that order. Shared styles live by owner in `src/styles/`, with
-phone rules beside their desktop rules. Page styles use the pages layer.
-Every source stylesheet wraps its rules in one declared layer and stays within
-400 lines; `make check-web-css` checks both rules. Xterm’s external CSS stays
-unlayered. Important declarations reverse layer priority: keep chip and utility
-overrides deliberate when moving rules.
+`make check-web-css` runs Stylelint over every source stylesheet. IDs are
+anchors, not selectors. Specificity stays at or below `0,5,3`. Colours, radius,
+font size and z-index use custom properties outside `tokens.css`. Existing
+`!important` and pixel-spacing debt is counted per file in `css-baseline.json`;
+remove debt and lower its entry together. New files have no allowance.
+Exceptions are zero, auto, inherit, currentColor, transparent, hairlines and
+border widths, circle radii (50% or 999px), and safe-area or viewport arithmetic.
+Do not copy pixel spacing, add importance or raise a baseline to pass.
 
-Run the focused browser check for row geometry, phone form heights and change headings with
-`APPTOWN_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node web/test/css-cascade.mjs`
-from the repository root. It uses the entrypoint's stylesheet order in both
-themes at desktop and phone widths, without starting a server.
+## Checking appearance
 
-## Whole-site review
-
-`internal/apptown/web_ui_browser_test.go` and `testdata/web-ui.mjs` capture the
-real UI against disposable seeded application records. Restart the web dev server
-on a loopback port, then run:
-
-```sh
-APPTOWN_DESIGN_VITE=http://127.0.0.1:5180 \
-APPTOWN_DESIGN_OUT=/tmp/apptown-ui-shots \
-go test -tags browser ./internal/apptown -run '^TestWebUICapture$' -count=1 -v
-```
-
-The camera captures desktop 1440×1000 and phone 390×844 in both themes. It records
-rendered word counts and checks one page heading, horizontal overflow, and that
-approval controls leave assent meaning visible. It also rejects an account
-control clipped by the top bar. Inspect the images as well as the assertions. Use `APPTOWN_DESIGN_BASELINE=1` only to measure the original UI;
-its existing layout defects are recorded rather than rejected.
-
-## Measuring visible words
-
-Compare the camera's `pages.json` records from the original and updated UI with
-the same seed, route, viewport and theme. Its word count splits rendered
-`body.innerText` on whitespace, including content below the first viewport.
-Closed disclosures and hidden navigation are excluded; CSS-generated labels
-are excluded too. Numbers and control labels count. Record every page and all
-four variants, since responsive navigation and asynchronous records can differ.
-Keep the baseline revision with the comparison. The initial rollout covers 81
-page states and 324 screenshots, compared with `7d87e51e`.
+Install the lockfile's browser with `cd web && npx playwright install chromium`,
+then run `make check-web-layout`. Its fixtures bundle the production entry's
+CSS order and check text sizes, phone fields, rows and disclosures.
+The whole-page camera is `internal/apptown/web_ui_browser_test.go` with
+`testdata/web-ui.mjs`; inspect its screenshots at phone and desktop widths in
+both themes as well as running assertions. Fixture checks do not replace
+looking at real pages.

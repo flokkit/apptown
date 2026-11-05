@@ -18,7 +18,7 @@
 
 /* A section's content sits on its own surface, one shade off the page: the
    heading stays on the page, so each block reads as one thing at a glance. */
-.section-body { margin-top: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 2px 16px; }
+.section-body { margin-top: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-section); padding: 2px 16px; }
 .section-body > .card { border-left: 0; border-right: 0; border-top: 0; border-radius: 0; margin-left: 0; margin-right: 0; }
 .section-body > .section-group:first-child { margin-top: 12px; }
 .section-body > p.muted { margin: 12px 0; }
@@ -27,8 +27,8 @@
 .section-body > table thead th:first-child, .section-body > table td:first-child { padding-left: 16px; }
 .section-body > table thead th:last-child, .section-body > table td:last-child { padding-right: 16px; }
 .section-body > table thead th { border-top-left-radius: 0; border-top-right-radius: 0; }
-.section-body > table thead tr:first-child th:first-child { border-top-left-radius: 7px; }
-.section-body > table thead tr:first-child th:last-child { border-top-right-radius: 7px; }
+.section-body > table thead tr:first-child th:first-child { border-top-left-radius: var(--radius-section-inner); }
+.section-body > table thead tr:first-child th:last-child { border-top-right-radius: var(--radius-section-inner); }
 
 /* ---- Rows select as rows ---------------------------------------------------
    A row is one target: it highlights as a whole, and nothing inside it is
