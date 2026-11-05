@@ -116,15 +116,24 @@ it('marks finished, running, unreached and stopped stages beside a separate draw
   el.innerHTML = renderToStaticMarkup(<DeployScene failedStage="starting" outcome="failed" />)
   expect(el.querySelector('.deploy-stage-mark.bad')?.textContent).toBe('✗')
 })
-it('sets blocks down only after observing the building stage begin', () => {
-  const el = document.createElement('div'), root = createRoot(el)
-  const draw = (stage: DeployStage) => act(() => root.render(<DeployScene stage={stage} outcome="running" />))
+it('carries blocks whenever the server reports building, including a running mount', () => {
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<DeployScene stage="building" outcome="running" />)
+  expect(el.querySelectorAll('.delivery')).toHaveLength(7)
+  expect(el.querySelectorAll('.delivery .cable')).toHaveLength(7)
+})
+it('keeps the door shut for checking and opens it only for live', () => {
+  const style = document.createElement('style')
+  style.textContent = css.slice(css.indexOf('/* Deploy scenes'), css.indexOf('@keyframes deploy-fade'))
+  document.head.append(style)
+  const el = document.createElement('div'); document.body.append(el)
   try {
-    draw('building')
-    expect(el.querySelector('.arrive-building')).toBeNull()
-    draw('preparing'); draw('building')
-    expect(el.querySelector('.arrive-building')).not.toBeNull()
-  } finally { act(() => root.unmount()) }
+    el.innerHTML = renderToStaticMarkup(<DeployScene stage="checking" outcome="running" />)
+    expect(getComputedStyle(el.querySelector('.door')!).transform).not.toContain('scaleX')
+    expect(el.querySelector('.door')?.getAttribute('data-door')).toBe('closed')
+    el.innerHTML = renderToStaticMarkup(<DeployScene outcome="passed" />)
+    expect(getComputedStyle(el.querySelector('.door')!).transform).toBe('scaleX(.25)')
+  } finally { el.remove(); style.remove() }
 })
 
 it.each(Object.keys(deployWords) as DeployStage[])('keeps stage marks factual when %s is stopped or progress pauses', stage => {
@@ -147,5 +156,77 @@ it('leaves the finished building lit and flagged after the crane and visitor fin
     el.innerHTML = renderToStaticMarkup(<DeployScene outcome="passed" />)
     for (const part of ['.blk', '.roof', '.win', '.door', '.pole', '.flag']) expect(getComputedStyle(el.querySelector(part)!).opacity).toBe('1')
     for (const part of ['.crane', '.visitor', '.spark']) expect(getComputedStyle(el.querySelector(part)!).opacity).toBe('0')
+  } finally { el.remove(); style.remove() }
+})
+
+it('celebrates a reported live stage once and does not restart when the completed step arrives', () => {
+  const el = document.createElement('div'), root = createRoot(el)
+  try {
+    act(() => root.render(<DeployScene stage="checking" outcome="running" />))
+    act(() => root.render(<DeployScene stage="live" outcome="running" />))
+    expect(el.querySelector('.celebrate')).not.toBeNull()
+    act(() => {
+      const e = new Event('webkitAnimationEnd', { bubbles: true })
+      Object.defineProperty(e, 'animationName', { value: 'deploy-burst' })
+      el.querySelector('.spark')!.dispatchEvent(e)
+    })
+    act(() => root.render(<DeployScene outcome="passed" />))
+    expect(el.querySelector('.celebrate')).toBeNull()
+  } finally { act(() => root.unmount()) }
+})
+
+// The level jib and independently hoisted hook are the crane's visual contract.
+it('keeps the jib still while trolleys carry and hoist each load', () => {
+  const style = document.createElement('style')
+  style.textContent = css.slice(css.indexOf('/* Deploy scenes'), css.indexOf('@keyframes deploy-fade'))
+  document.head.append(style)
+  const el = document.createElement('div'); document.body.append(el)
+  try {
+    el.innerHTML = renderToStaticMarkup(<DeployScene stage="building" outcome="running" />)
+    expect(getComputedStyle(el.querySelector('.jib')!).animation).toBe('none')
+    expect(el.querySelectorAll('.delivery .trolley')).toHaveLength(7)
+    expect(el.querySelectorAll('.delivery .hoist')).toHaveLength(7)
+    expect(el.querySelector('.jib .delivery')).toBeNull()
+    for (const cable of el.querySelectorAll('.delivery .cable')) {
+      expect(cable.getAttribute('x1')).toBe(cable.getAttribute('x2'))
+    }
+    expect(getComputedStyle(el.querySelector('.idle-trolley')!).animation).toContain('deploy-shuttle')
+    expect(getComputedStyle(el.querySelector('.hoist')!).animation).toContain('deploy-hoist')
+  } finally { el.remove(); style.remove() }
+})
+
+it('makes the live result heading page-title size in the existing OK colour', () => {
+  const style = document.createElement('style')
+  style.textContent = css.slice(css.indexOf('.ch-deploy-result {'), css.lastIndexOf('}'))
+  document.head.append(style)
+  const el = document.createElement('div'); document.body.append(el)
+  try {
+    el.innerHTML = '<div class="ch-deploy-result-facts"><h3 class="ok">It’s live!</h3></div>'
+    const heading = getComputedStyle(el.querySelector('h3')!)
+    expect(heading.fontSize).toBe('var(--fs-xl)')
+    expect(heading.color).toBe('var(--ok)')
+  } finally { el.remove(); style.remove() }
+})
+
+// Copying must keep the source lit and retain the destination in later frames.
+it('carries a copy to a persistent shed without darkening the house', () => {
+  const style = document.createElement('style')
+  style.textContent = css.slice(css.indexOf('/* Deploy scenes'), css.indexOf('@keyframes deploy-copy'))
+  document.head.append(style)
+  const el = document.createElement('div'); document.body.append(el)
+  try {
+    for (const stage of ['backing-up', 'building', 'starting', 'checking', 'live'] as const) {
+      el.innerHTML = renderToStaticMarkup(<DeployScene stage={stage} outcome="running" />)
+      expect(getComputedStyle(el.querySelector('.backup-shed')!).opacity).toBe('1')
+      expect(getComputedStyle(el.querySelector('.backup-box')!).opacity).toBe('1')
+      if (stage === 'backing-up') {
+        expect(getComputedStyle(el.querySelector('.win')!).opacity).toBe('1')
+        expect(getComputedStyle(el.querySelector('.plan')!).opacity).toBe('0')
+        expect(el.querySelector('.n1')).toBeNull()
+        expect(getComputedStyle(el.querySelector('.backup-box')!).animation).toContain('deploy-copy')
+      }
+    }
+    el.innerHTML = renderToStaticMarkup(<DeployScene outcome="passed" />)
+    expect(getComputedStyle(el.querySelector('.backup-shed')!).opacity).toBe('1')
   } finally { el.remove(); style.remove() }
 })
