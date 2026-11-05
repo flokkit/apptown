@@ -19,6 +19,7 @@ import (
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/repocontext"
 
 	"github.com/flokkit/apptown/internal/apptown/model"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -275,6 +276,23 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 			return nil, fmt.Errorf("reading change attachments: %w", err)
 		}
 		req.Steering = c.steering.Workshop(ctx, p, c.harness.Delegation(ctx), guidance) + changeSteering
+	}
+	if len(guidance.Context) > 0 && p.DefaultBranch != "" {
+		commit := "refs/heads/" + p.DefaultBranch
+		if change != nil {
+			commit = change.BaseSHA
+		}
+		if commit != "" {
+			files := make([]repocontext.File, 0, len(guidance.Context))
+			for _, f := range guidance.Context {
+				files = append(files, repocontext.File{Path: f.Path, MaxBytes: f.MaxBytes})
+			}
+			brief, err := repocontext.Brief(ctx, src, commit, files)
+			if err != nil {
+				return nil, fmt.Errorf("reading repository context: %w", err)
+			}
+			req.Steering += brief
+		}
 	}
 	if diverged {
 		req.Steering += "\n\nThis change's folder and its branch as published have both moved (someone published to the branch while this folder had its own commits). Merge the published branch before anything else: `git merge " + workflow.PublishedRef + "`, resolve any conflict, and commit.\n"

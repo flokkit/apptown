@@ -106,6 +106,9 @@ func (s *Service) EditBlock(ctx context.Context, id ids.ID, patch BlockPatch, ac
 // bumpBlockIn records the block's next version, stamped at (the owner's
 // clock: adoptions resolve blocks as of their own time by it).
 func bumpBlockIn(ctx context.Context, tx *database.Tx, r wowsql.GuidanceBlock, body, checks, who string, at time.Time) error {
+	if _, _, err := SplitContext(body); err != nil {
+		return err
+	}
 	if _, _, err := SplitSkill(r.Name, body); err != nil {
 		return err
 	}

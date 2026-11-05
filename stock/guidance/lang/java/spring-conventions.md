@@ -4,23 +4,17 @@ tags: lang,java,spring,style
 ---
 Spring the boring way:
 
-- Constructor injection only — no field `@Autowired`. Beans are final
-  fields; if a constructor gets crowded, the class is doing too much.
-- `@ConfigurationProperties` records over sprinkled `@Value`. Java records
-  for DTOs and value types; no Lombok — records and plain code cover it.
-- Postgres via Spring Data JPA + Flyway migrations under
-  `src/main/resources/db/migration` (never `ddl-auto=update` outside local
-  dev). Tests run against the real Postgres service container the workflow
-  provides, not H2.
-- Controllers stay thin: bind, validate (`jakarta.validation`), delegate to
-  a service, return DTO records. Exceptions map in one
-  `@RestControllerAdvice`.
+- Constructor injection only, with final bean fields; no field `@Autowired`.
+  A crowded constructor means the class does too much.
+- `@ConfigurationProperties` records over scattered `@Value`; Java records for
+  DTOs and value types. No Lombok: use records and plain code.
+- Spring Data JPA and Flyway in `src/main/resources/db/migration` for Postgres.
+  Never `ddl-auto=update` outside local dev. Test on the workflow's real Postgres
+  service container, never H2.
+- Thin controllers bind, validate with `jakarta.validation`, delegate to services
+  and return DTO records. Map exceptions in one `@RestControllerAdvice`.
 - Actuator health at `/actuator/health` is the deploy contract's probe.
-- TWO toolchain declarations, keep them consistent. `mise.toml` pins the
-  JDK AppTown uses to build and test your app in its steps (dev/build time).
-  The `Dockerfile` is the DEPLOY artifact and carries its own JVM — a build
-  stage (`maven:…-temurin-N`, recompiles cold at deploy) and a runtime stage
-  (`eclipse-temurin:N-jre`, runs the jar). mise is NOT present at deploy. So the
-  Dockerfile's base Java version MUST match `mise.toml`'s `java` — otherwise you
-  test on one JVM and ship on another. (Multi-stage: build with the JDK, run on
-  the JRE — the runtime is the last FROM.)
+- Keep both Java toolchains consistent: `mise.toml` selects the JDK for AppTown's
+  build/tests; the Dockerfile recompiles cold in a `maven:…-temurin-N` JDK stage
+  and runs the jar in a final `eclipse-temurin:N-jre` stage. Match both to mise's
+  `java` version. mise is absent at deploy.

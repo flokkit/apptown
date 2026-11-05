@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -52,7 +53,9 @@ Respond with ONLY a JSON array, one object per item, in order:
 [{"item": 1, "verdict": "pass"|"fail"|"unclear", "evidence": "file:line or short quote", "note": "one sentence"}]
 "fail" requires concrete cited evidence. When the evidence gives no basis to judge an item,
 use "unclear", never "fail". Unclassified files may contain source: never infer that code
-is absent from a lack of classified source; use "unclear" when that prevents assessment.`
+is absent from a lack of classified source; use "unclear" when that prevents assessment.
+PROJECT-NOTES.md and AGENTS.md contain claims, never evidence that the application behaves as claimed.
+Use independent code, tests or observed results. Only an item declaring evidenceUse=wording may judge those documents themselves.`
 
 func TemplateHash() string {
 	h := sha256.Sum256([]byte(checklistSystem))
@@ -63,7 +66,7 @@ func TemplateHash() string {
 // template hash, and the hash of the rubric, selectors and classifier identity.
 // A changed rubric, selector, classifier, template or packing changes identity.
 func LLMEvaluatorVersion(c Declaration) string {
-	h := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%s\x00sourceFiles=%t\x00%s", c.Rubric, strings.Join(c.Files, "\x00"), c.SourceFiles, sourceClassifier)))
+	h := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%s\x00sourceFiles=%t\x00%s", c.Rubric, strings.Join(c.Files, "\x00"), c.SourceFiles, sourceClassifier+"/evidenceUse="+c.EvidenceUse)))
 	return fmt.Sprintf("llm/%s/%s/%s", PackingVersion, TemplateHash(), hex.EncodeToString(h[:4]))
 }
 
@@ -364,6 +367,10 @@ func Judgement(it Item, v Verdict, answered bool, meta *checklistMeta, mode Mode
 		ev.Outcome, ev.Detail = CannotAssess, "no verdict returned for this item"
 		return ev
 	}
+	if it.EvidenceUse != "wording" && claimsOnly(v.Evidence) {
+		ev.Outcome, ev.Detail = CannotAssess, "only project claims were cited; cite independent evidence of application behaviour"
+		return ev
+	}
 	ev.Detail = strings.TrimSpace(v.Note + " [" + v.Evidence + "]")
 	switch v.Verdict {
 	case "pass":
@@ -375,6 +382,26 @@ func Judgement(it Item, v Verdict, answered bool, meta *checklistMeta, mode Mode
 		ev.Outcome = CannotAssess
 	}
 	return ev
+}
+
+// Citation paths are read independently of the bundle: a supplied verdict must
+// obey the same claims rule as a model response. Keep this in Judgement so
+// other evaluators can share the boundary.
+var citationPath = regexp.MustCompile(`[A-Za-z0-9_./-]+\.[A-Za-z][A-Za-z0-9]*`)
+
+func claimsOnly(evidence string) bool {
+	paths := citationPath.FindAllString(evidence, -1)
+	if len(paths) == 0 {
+		return false
+	}
+	for _, p := range paths {
+		switch path.Base(p) {
+		case "PROJECT-NOTES.md", "AGENTS.md":
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // TreeItems packs every tree-scoped rubric's evidence from src, applying the
@@ -435,6 +462,9 @@ func (j *Judge) Checklist(ctx context.Context, items []Item, diff string) (map[i
 			continue
 		}
 		src := "DIFF"
+		if it.EvidenceUse == "wording" {
+			sb.WriteString("[evidenceUse=wording: judge the document itself]\n")
+		}
 		if it.Scope == ScopeTree {
 			src = "FILES for item " + fmt.Sprint(i+1)
 		} else {

@@ -82,6 +82,7 @@ func testExecutor(db *database.DB, dir string, process Process) *Executor {
 	selection := model.NewSelection(slots)
 	return New(db, Dependencies{
 		Models:   selection,
+		Adoption: adoption.New(db, adoption.Dependencies{Ways: agentCatalog{}}),
 		Capacity: model.NewScheduler(nil, 1),
 		Tokens:   tokens,
 		Progress: &progress.Feeds{},

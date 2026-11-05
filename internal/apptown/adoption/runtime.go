@@ -40,6 +40,7 @@ func (source Source) receipt(subject string) (*RecordedRevision, error) {
 type Resolved struct {
 	Text, Hash string
 	Skills     []wow.Skill
+	Context    []wow.RepositoryContext
 	Imports    []Import
 }
 
@@ -92,7 +93,12 @@ func compileGuidance(ctx context.Context, cat catalog, imports []Import, where s
 		heading := fmt.Sprintf("# %s v%d\n\n", im.Name, im.Version)
 		body := strings.TrimSpace(block.Body)
 		whole = append(whole, heading+body)
-		rules, skill, err := wow.SplitSkill(im.Name, body)
+		prose, contextFiles, err := wow.SplitContext(body)
+		if err != nil {
+			return result, err
+		}
+		result.Context = append(result.Context, contextFiles...)
+		rules, skill, err := wow.SplitSkill(im.Name, prose)
 		if err != nil {
 			return result, fmt.Errorf("%s%s v%d: %w", where, im.Name, im.Version, err)
 		}
@@ -117,6 +123,7 @@ func compileGuidance(ctx context.Context, cat catalog, imports []Import, where s
 // CheckDeclaration is the authored data pinned by a block version. Conformance
 // owns validation and evaluation; Adoption supplies the exact declaration.
 type CheckDeclaration struct {
+	EvidenceUse string   `json:"evidenceUse,omitempty"`
 	Name        string   `json:"name"`
 	Title       string   `json:"title,omitempty"`
 	Expects     string   `json:"expects"`

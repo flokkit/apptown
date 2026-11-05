@@ -242,6 +242,7 @@ export type ChangeBoard = {
 
 export type ChangeCockpit = {
   waitingOn: WaitingOn
+  notesDiff?: Diff | null
   change: Change
   projectSlug: string
   detail: RunSnapshot | null
@@ -1340,6 +1341,7 @@ export type ProjectMemberList = {
 }
 
 export type ProjectOverviewView = {
+  notes: ProjectNotesView | null
   repo: OverviewRepo | null
   active: RunRow[]
   open: OpenChange[]
@@ -2488,6 +2490,11 @@ export type WaitingOn = {
   tone: string
 }
 
+export type Diff = {
+  added: string[]
+  removed: string[]
+}
+
 export type RunSnapshot = {
   waitingOn: WaitingOn
   run: Run | null
@@ -3319,6 +3326,7 @@ export type BlockUse = {
 }
 
 export type Declaration = {
+  evidenceUse?: string
   name: string
   title?: string
   expects: string
@@ -3812,6 +3820,13 @@ export type Policy = {
   with: Record<string, unknown>
   origin?: string
   createdAt: string
+}
+
+export type ProjectNotesView = {
+  present: boolean
+  commit: string
+  notes: ProjectNoteView[]
+  error?: string
 }
 
 export type OverviewRepo = {
@@ -4830,6 +4845,16 @@ export type PackageRef = {
 export type Location = {
   file: string
   line?: number
+}
+
+export type ProjectNoteView = {
+  text: string
+  author: string
+  change: number
+  line: string
+  changeId: string | null
+  acceptedBy: string[]
+  sourceError?: string
 }
 
 export type OverviewHead = {

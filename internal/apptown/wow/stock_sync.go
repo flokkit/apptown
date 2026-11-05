@@ -147,6 +147,9 @@ func parseStockGuidance(raw string) (StockBlock, error) {
 	if b.Name == "" {
 		return b, fmt.Errorf("frontmatter missing name")
 	}
+	if _, _, err := SplitContext(b.Body); err != nil {
+		return b, err
+	}
 	if _, _, err := SplitSkill(b.Name, b.Body); err != nil {
 		return b, err
 	}

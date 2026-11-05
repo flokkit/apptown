@@ -1095,6 +1095,16 @@
             },
             "type": "array"
           },
+          "notesDiff": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Diff"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "projectSlug": {
             "type": "string"
           },
@@ -2169,6 +2179,27 @@
           "targetName",
           "observationStale",
           "protected"
+        ],
+        "type": "object"
+      },
+      "Diff": {
+        "properties": {
+          "added": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "removed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "added",
+          "removed"
         ],
         "type": "object"
       },

@@ -162,6 +162,9 @@ func (s *library) Create(ctx context.Context, name, body, tags, who string) (*Bl
 	if !blockNameRe.MatchString(name) {
 		return nil, fmt.Errorf("%w (%s)", errBlockName, errBlockNameShape)
 	}
+	if _, _, err := SplitContext(body); err != nil {
+		return nil, err
+	}
 	if _, _, err := SplitSkill(name, body); err != nil {
 		return nil, err
 	}

@@ -1,3 +1,4 @@
+import { NotesDiff } from "./NotesDiff"
 import { DeploySceneScope } from './DeployScene'
 import { DeployResult } from './DeployResult'
 import { Now, nowRunning } from './Now'
@@ -134,6 +135,7 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
       <TryIt changeId={ch.id!} label="Open it and try it" />
       {!boot?.evidence.screenshots?.shots?.length && <p className="small muted">{boot?.evidence.screenshots?.unavailable || 'No screenshots were recorded for this preview.'}</p>}
     </div>{trailer(detail + '#preview', `${boot?.evidence.screenshots?.commit ? `built from ${boot.evidence.screenshots.commit.slice(0, 7)} · ` : ''}logs →`)}</div>
+    <NotesDiff diff={view.notesDiff} />
     <div className="ch-overview-line ch-request"><div className="ch-row-label">You asked</div><div className="ch-value">{firstLine(ch.body || ch.title)}</div>{trailer(detail + '#request-text', (ch.body || ch.title) !== firstLine(ch.body || ch.title) ? 'full request →' : 'request →')}</div>
     <div className="ch-overview-line"><div className="ch-row-label">{summary ? 'What was made' : 'The agent says'}</div><div className="ch-value">{report?.length ? <ul>{report.map((line, i) => <li key={i}>{line}</li>)}</ul> : reply ? <p className="ch-chat-excerpt">{reply.split('\n').slice(0, 4).join('\n')}</p> : <p className="muted">{transcript.err ? `The conversation could not be read: ${transcript.err}` : transcript.data?.unreadable ? 'Some of the conversation could not be read.' : !transcript.data ? 'Reading the conversation…' : 'No report from the agent'}</p>}
       {!summary && <StaleNote q={transcript} />}<TechnicalWords shown={technical}>{d && `${d.run.workflowName} v${d.run.workflowVersion} · run ${d.run.number}`} · {ch.branch} · {view.head}{steps.flatMap(s => s.type === 'agent/pi' && s.evidence.model ? [` · ${s.evidence.model}`] : []).join('')}{view.usage && ` · ${fmtPrice(view.usage.costMicros, view.usage.unpriced)}`}</TechnicalWords>
@@ -145,6 +147,7 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
     <TurnDecision outcome={resultOnOverview ? <DeployResult key={landingDeploy.id} view={view} step={landingDeploy} showRunning /> : undefined} progress={nowRunning(view) && !landingDeploy ? <Now view={view} /> : undefined} progressTitle={nowRunning(view) ? progressTitle(view, steps) : undefined} doneTitle={landingDeploy?.status === 'pass' ? 'Deploy complete' : landingDeploy && ['fail', 'error'].includes(landingDeploy.status) ? 'Deploy stopped' : undefined} approvalWaiting={!!approval && !!turn} active={!!turn} shown={shown && (!nowRunning(view) || !!turn)} ready={approval && turn ? <div className="ch-accept-rows">
       <div className="ch-overview-line"><div className="ch-row-label">You asked</div><div className="ch-value">{ch.body || ch.title}</div></div>
       {!!briefParts?.length && <div className="ch-overview-line"><div className="ch-row-label">What it does</div><div className="ch-value">{briefParts.map((paragraph, i) => <p key={i}>{paragraph}</p>)}</div></div>}
+      <NotesDiff diff={view.notesDiff} />
       <div className="ch-overview-line"><div className="ch-row-label">Checks</div><div className="ch-value"><CheckSummary steps={steps} contractNeedsAttention={contractUnread(adds)} /></div></div>
       <div className="ch-overview-line"><div className="ch-row-label">Goes live</div><div className="ch-value">{deployments.current ? destination ? destination.url ? `${new URL(destination.url).host} for everyone` : 'For everyone; the deployment has no address yet.' : 'This adds it to the app’s main version.' : 'Reading where accepting puts this change…'}</div></div>
       <div className="ch-overview-line"><div className="ch-row-label">Who decides</div><div className="ch-value">You or another approver</div></div>

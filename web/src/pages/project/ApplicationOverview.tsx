@@ -1,3 +1,4 @@
+import { ProjectNotes } from "./ProjectNotes"
 import './ApplicationOverview.css'
 import { PageHead } from '../../PageHead'
 import { useState } from 'react'
@@ -63,6 +64,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       {project.blurb && <p className="muted">{project.blurb}</p>}
       {app?.url && <AppAddress url={app.url} hostOnly={app.hostOnly} />}
     </header>
+    {data?.notes && <ProjectNotes slug={slug} notes={data.notes} writable={activityQ.current && (project.lifecycle?.state ?? 'active') === 'active'} />}
     <Section title="Changes" count={open ?? undefined} action={(project.lifecycle?.state ?? 'active') === 'active' ? <BigChangeBox slug={slug} inline /> : undefined}>
       <ReadStatus q={activityQ} what="activity" />
       {data && !open && <p className="muted">No open changes.</p>}

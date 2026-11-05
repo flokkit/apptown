@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"log"
 	"os"
 	"path/filepath"
@@ -416,6 +417,19 @@ func (a *Executor) reviewBrief(ctx context.Context, run *workflow.Run, source wo
 	}
 	b.files = files
 	b.notes = mandatedOutputsNote(steps) + note + undecidedFindingsNote(steps) + previewNote
+	receipt, err := adoption.ProjectAdoptionIn(ctx, a.db, run.ProjectID, run.AdoptionID)
+	if err != nil {
+		return reviewBrief{}, err
+	}
+	resolved, err := a.adoption.Resolve(ctx, adoption.Source{ProjectID: run.ProjectID, Revision: receipt})
+	if err != nil {
+		return reviewBrief{}, err
+	}
+	contextBrief, err := a.repositoryContext(ctx, run, resolved.Context)
+	if err != nil {
+		return reviewBrief{}, err
+	}
+	b.notes += contextBrief
 
 	if cfg.Prompt != "" {
 		b.extra = "\nADDITIONAL REVIEW FOCUS:\n" + workflow.Interpolate(ctx, a.db, cfg.Prompt, run, item, slug) + "\n"

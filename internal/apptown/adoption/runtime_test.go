@@ -147,3 +147,23 @@ func TestRuntimeEmptyAndInvalidPinsDoNotResolveLatest(t *testing.T) {
 		t.Fatal("invalid pins reached catalog")
 	}
 }
+
+func TestPinnedGuidanceDeclaresContextWithoutUpgradingExistingProjects(t *testing.T) {
+	cat := &runtimeCatalog{blocks: map[int]wow.BlockObservation{
+		1: {Body: "Existing rules."},
+		2: {Body: "<!-- context: [{\"path\":\"PROJECT-NOTES.md\",\"maxBytes\":6144}] -->\nKeep durable facts."},
+	}}
+	imports := []Import{{Name: "rules/plain", BlockID: idstest.N(7), Version: 1}}
+	old, err := compileGuidance(t.Context(), cat, imports, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	imports[0].Version = 2
+	current, err := compileGuidance(t.Context(), cat, imports, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(old.Context) != 0 || len(current.Context) != 1 || current.Context[0].MaxBytes != 6144 || old.Hash == current.Hash || strings.Contains(current.Text, "<!-- context:") {
+		t.Fatalf("old=%+v new=%+v", old, current)
+	}
+}

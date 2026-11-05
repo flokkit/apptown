@@ -298,3 +298,22 @@ instead.
 - [internal/console/pi/runtime.go](../../internal/console/pi/runtime.go)
 - [internal/apptown/agentenv/cli.go](../../internal/apptown/agentenv/cli.go)
 - [internal/apptown/workflowexec/environment.go](../../internal/apptown/workflowexec/environment.go)
+
+## Declared repository context
+
+Guidance can declare repository files with a body line such as
+`<!-- context: [{"path":"PROJECT-NOTES.md","maxBytes":6144}] -->`.
+The declaration belongs to the guidance version; adoption compiles it alongside
+rules and skills. It permits 1–16 unique repository-relative regular files per
+declaration, each bounded to 1–65536 bytes. Invalid declarations fail publication
+and compilation. No file is included implicitly.
+
+Workflowexec includes declared files from the change's starting commit (the
+run's base for repository runs without a change). Conversation includes them in
+the initial steering for writable chats from the change's base, and for project
+chats from the default branch. The retained briefing identifies the resolved
+commit, file and any truncation. Missing files add nothing; unreadable repositories
+and non-regular entries fail session preparation. Files describe project claims;
+the adopted guidance and workflow take precedence. The declaration itself is
+removed from the guidance prose. See the [project notes guide](../../stock/docs/guides/project-notes.md)
+for the stock convention using this capability.

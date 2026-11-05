@@ -75,6 +75,7 @@ it('keeps unknown evidence, exceptions, skips, non-applicability and required ap
 it('opens Overview by default and keeps code, conversation, full records and editors reachable in four tabs', async () => {
   const scroll = vi.fn(); Element.prototype.scrollIntoView = scroll
   const v = view()
+  v.notesDiff = { added: ['- Credit photos. (agent · change 9)'], removed: ['- Use illustrations. (Sam · change 4)'] }
   v.mainConflict = { mainBranch: 'main', step: 'implement', files: ['calendar.ts'], catchUp: 'git merge origin/main' } as ChangeView['mainConflict']
   v.detail!.artifacts[0].body = 'Report start.'
   v.detail!.artifacts[0].bodyBytes = 8000
@@ -86,12 +87,17 @@ it('opens Overview by default and keeps code, conversation, full records and edi
   }))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   document.body.append(el)
-  const settle = () => act(async () => { for (let i = 0; i < 25; i++) await new Promise(r => setTimeout(r, 0)) })
+  const settle = () => vi.waitFor(async () => {
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    expect(client.isFetching()).toBe(0)
+  })
   await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/changes/${id}`]}><Routes><Route path="/changes/:id" element={<ChangePage />} /></Routes></MemoryRouter></QueryClientProvider>))
   await settle()
   await settle()
   expect([...el.querySelectorAll('.ch-tabs a')].map(a => a.textContent)).toEqual(['Overview', 'Code', 'Conversation', 'Details'])
   expect(el.querySelector('.ch-tabs [aria-current]')?.textContent).toBe('Overview')
+  expect(el.querySelector('.ch-change-card')?.textContent).toContain('Project notes: adds 1, removes 1')
+  expect(el.querySelector('.ch-change-card ins')?.textContent).toBe(v.notesDiff!.added[0])
   expect(el.querySelectorAll('.step-card')).toHaveLength(0)
   expect(el.querySelector('details')).toBeNull()
   expect(el.querySelector('.ch-state .ch-quiet')).toBeNull()
@@ -136,6 +142,9 @@ it('opens Overview by default and keeps code, conversation, full records and edi
   await settle()
   expect(el.querySelector('.ch-tabs [aria-current]')?.textContent).toBe('Code')
   expect(el.querySelector('dialog[open] h2')?.textContent).toBe('Accept this change?')
+  expect(el.querySelector('dialog[open]')?.textContent).toContain('Project notes: adds 1, removes 1')
+  expect(el.querySelector('dialog[open] ins')?.textContent).toBe(v.notesDiff!.added[0])
+  expect(el.querySelector('dialog[open] del')?.textContent).toBe(v.notesDiff!.removed[0])
   expect([...el.querySelectorAll('dialog .ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept', 'Send back…', 'Abandon change'])
   expect(el.querySelector('#decision button')).toBeNull()
   await act(async () => el.querySelector<HTMLAnchorElement>('dialog a[href$="tab=conversation"]')!.click())

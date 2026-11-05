@@ -10,15 +10,17 @@ import (
 // Declaration is what must hold and how it is judged. The JSON tags are the
 // authored form: a way of working carries its checks in this shape.
 type Declaration struct {
-	Name      string `json:"name"`
-	Title     string `json:"title,omitempty"`     // authored action title for a remediation; identity remains Name
-	Expects   string `json:"expects"`             // one plain sentence: what conformance looks like
-	Severity  string `json:"severity,omitempty"`  // note|low|medium|high (default note)
-	Evaluator string `json:"evaluator,omitempty"` // sh|llm|runtime|tool (default sh when sh set, llm when rubric set, tool when tool set)
-	Sh        string `json:"sh,omitempty"`
-	Rubric    string `json:"rubric,omitempty"`
-	Probe     string `json:"probe,omitempty"` // runtime evaluator: a probe against the booted app
-	Tool      string `json:"tool,omitempty"`  // tool evaluator: names a scanner binding to run (design/subsystems/conformance.md §13)
+	// EvidenceUse may be wording for checks about a document itself.
+	EvidenceUse string `json:"evidenceUse,omitempty"`
+	Name        string `json:"name"`
+	Title       string `json:"title,omitempty"`     // authored action title for a remediation; identity remains Name
+	Expects     string `json:"expects"`             // one plain sentence: what conformance looks like
+	Severity    string `json:"severity,omitempty"`  // note|low|medium|high (default note)
+	Evaluator   string `json:"evaluator,omitempty"` // sh|llm|runtime|tool (default sh when sh set, llm when rubric set, tool when tool set)
+	Sh          string `json:"sh,omitempty"`
+	Rubric      string `json:"rubric,omitempty"`
+	Probe       string `json:"probe,omitempty"` // runtime evaluator: a probe against the booted app
+	Tool        string `json:"tool,omitempty"`  // tool evaluator: names a scanner binding to run (design/subsystems/conformance.md §13)
 	// Scope says what the check is ABOUT (design/subsystems/conformance-surface.md §2):
 	// "tree" — a state of the committed tree, judged at the gate AND in every
 	// fleet review; "diff" — a transition made by one change, judged at the gate
@@ -119,6 +121,9 @@ func Validate(checks []Declaration) error {
 			return fmt.Errorf("check %q: duplicate name", c.Name)
 		}
 		seen[c.Name] = true
+		if c.EvidenceUse != "" && c.EvidenceUse != "wording" {
+			return fmt.Errorf("check %q: evidenceUse must be wording or absent", c.Name)
+		}
 		c.Evaluator = Evaluator(*c)
 		if kinds := Evaluators(); !slices.Contains(kinds, c.Evaluator) {
 			return fmt.Errorf("check %q: evaluator must be %s or %s", c.Name, strings.Join(kinds[:len(kinds)-1], ", "), kinds[len(kinds)-1])
