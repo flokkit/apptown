@@ -99,6 +99,9 @@ func splitApplicable(checks []conformance.DeclaredCheck, evaluator string, src c
 		}
 		res := resultOf(*ev)
 		res.Detail = ev.Detail
+		if evaluator == "llm" && src.PartsErr != nil {
+			res.AgentEvidence = &check.AgentEvidence{SourceReadFailure: true}
+		}
 		settled = append(settled, decided{Check: sc, Receipt: res})
 	}
 	return judge, settled

@@ -36,6 +36,13 @@ means “this credential's workload”, not “the named human intended these wo
   changed project, inactive run or stale attempt; AppTown separately checks the
   owner's account and the trusted network. Tokens live in daemon memory, so an
   interrupted step cannot reuse one after restart.
+- A check credential is minted for one check task, its project/run attribution,
+  one selected model, expiry and token allowance. It opens inference only,
+  carries no workflow or console authority, and is revoked when the task ends.
+  It is not recovered after a daemon restart. The gateway counts provider usage
+  across turns; an exhausted or incomplete session cannot supply a verdict.
+  Eval-comparison tasks use the recorded judge's admission door; ordinary checks
+  use ordinary model admission. Both retain the caller's spend purpose.
 - A continued chat receives its own chat identity and token, retaining the
   originating run, producing step and attempt as attribution. Its inference
   does not depend on the old run remaining active.
@@ -108,7 +115,9 @@ counts retain provider semantics; they are not a normalized bill. A restart
 locks in AppTown's own calls still pending as unknown spend without inventing
 final usage.
 
-Agent and chat spend has one writer: transcript accounting. Pi calculates model
+Agent-step and chat spend has one writer: transcript accounting. Check-session
+spend is written by the gateway, once per provider request, before dispatch
+and at settlement; its retained transcript does not write another spend line. Pi calculates model
 costs from its model definitions and marks a provider-reported total explicitly.
 Generated built-in definitions use the pinned Pi catalog rates; custom endpoints
 keep their declared rates. The Usage ledger retains counts by price source and

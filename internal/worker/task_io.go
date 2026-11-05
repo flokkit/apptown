@@ -189,6 +189,7 @@ func copyFile(src, dst string, mode fs.FileMode) error {
 
 // declaredResults is what a task declared, kept from its ensure.
 type declaredResults struct {
+	Work      string `json:"work,omitempty"` // writable /work when the source is mounted at /src
 	Workspace string `json:"workspace"`
 	// State is the task's own state folder, mounted at /apptown/state, when
 	// it has no workspace (taskStatePath); "" for a task in a workspace.
@@ -236,6 +237,9 @@ func (s *Server) resultRoot(d declaredResults, p string) (string, string) {
 			return d.State, rel
 		}
 		return s.statePath(d.Workspace), rel
+	}
+	if d.Work != "" {
+		return d.Work, strings.TrimPrefix(p, "/work/")
 	}
 	return s.workspacePath(d.Workspace), strings.TrimPrefix(p, "/work/")
 }

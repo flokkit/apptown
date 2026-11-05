@@ -78,7 +78,7 @@ func (q *Queries) AdjudicationsForVerdicts(ctx context.Context, dollar_1 []ids.I
 }
 
 const allReviews = `-- name: AllReviews :many
-SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate FROM conformance_reviews ORDER BY id DESC
+SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate, recheck FROM conformance_reviews ORDER BY id DESC
 `
 
 func (q *Queries) AllReviews(ctx context.Context) ([]ConformanceReview, error) {
@@ -112,6 +112,7 @@ func (q *Queries) AllReviews(ctx context.Context) ([]ConformanceReview, error) {
 			&i.BuildBudget,
 			&i.SourceRun,
 			&i.Candidate,
+			&i.Recheck,
 		); err != nil {
 			return nil, err
 		}
@@ -127,7 +128,7 @@ func (q *Queries) AllReviews(ctx context.Context) ([]ConformanceReview, error) {
 }
 
 const claimQueuedReview = `-- name: ClaimQueuedReview :one
-UPDATE conformance_reviews SET status = $1 WHERE id=$2 AND status = $3 RETURNING id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate
+UPDATE conformance_reviews SET status = $1 WHERE id=$2 AND status = $3 RETURNING id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate, recheck
 `
 
 type ClaimQueuedReviewParams struct {
@@ -162,6 +163,7 @@ func (q *Queries) ClaimQueuedReview(ctx context.Context, arg ClaimQueuedReviewPa
 		&i.BuildBudget,
 		&i.SourceRun,
 		&i.Candidate,
+		&i.Recheck,
 	)
 	return i, err
 }
@@ -277,7 +279,7 @@ func (q *Queries) ConformanceProjects(ctx context.Context, arg ConformanceProjec
 }
 
 const currentProblemFacts = `-- name: CurrentProblemFacts :many
-SELECT v.id, v.review_id, v.project_id, v.project_slug, v.sha, v.block, v.version, v.check_name, v.evaluator, v.evaluator_ver, v.mode, v.state, v.severity, v.detail, v.created_at, v.excepted_by, v.evidence_hash, p.name AS project_name, p.slug AS current_slug, m.sha AS current_sha,
+SELECT v.id, v.review_id, v.project_id, v.project_slug, v.sha, v.block, v.version, v.check_name, v.evaluator, v.evaluator_ver, v.mode, v.state, v.severity, v.detail, v.created_at, v.excepted_by, v.evidence_hash, v.agent_evidence, p.name AS project_name, p.slug AS current_slug, m.sha AS current_sha,
  EXISTS(SELECT 1 FROM conformance_adjudications a WHERE a.verdict_id=v.id AND a.kind='confirmed') AS confirmed,
  EXISTS(SELECT 1 FROM dispositions d WHERE d.id::text = (NULLIF(v.excepted_by,'')::jsonb->>'id') AND (d.expires_at IS NULL OR d.expires_at > $1::timestamptz)) AS exception_active
 FROM conformance_verdicts v
@@ -338,6 +340,7 @@ func (q *Queries) CurrentProblemFacts(ctx context.Context, arg CurrentProblemFac
 			&i.ConformanceVerdict.CreatedAt,
 			&i.ConformanceVerdict.ExceptedBy,
 			&i.ConformanceVerdict.EvidenceHash,
+			&i.ConformanceVerdict.AgentEvidence,
 			&i.ProjectName,
 			&i.CurrentSlug,
 			&i.CurrentSha,
@@ -359,8 +362,8 @@ func (q *Queries) CurrentProblemFacts(ctx context.Context, arg CurrentProblemFac
 
 const currentVerdicts = `-- name: CurrentVerdicts :many
 
-SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash FROM (
-  SELECT DISTINCT ON (v.project_id, v.block, v.version, v.check_name) v.id, v.review_id, v.project_id, v.project_slug, v.sha, v.block, v.version, v.check_name, v.evaluator, v.evaluator_ver, v.mode, v.state, v.severity, v.detail, v.created_at, v.excepted_by, v.evidence_hash
+SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash, agent_evidence FROM (
+  SELECT DISTINCT ON (v.project_id, v.block, v.version, v.check_name) v.id, v.review_id, v.project_id, v.project_slug, v.sha, v.block, v.version, v.check_name, v.evaluator, v.evaluator_ver, v.mode, v.state, v.severity, v.detail, v.created_at, v.excepted_by, v.evidence_hash, v.agent_evidence
   FROM conformance_verdicts v
   JOIN (
     SELECT ($1::uuid[])[i] AS project_id, ($2::text[])[i] AS block, ($3::bigint[])[i] AS version, ($4::text[])[i] AS check_name
@@ -412,6 +415,7 @@ func (q *Queries) CurrentVerdicts(ctx context.Context, arg CurrentVerdictsParams
 			&i.CreatedAt,
 			&i.ExceptedBy,
 			&i.EvidenceHash,
+			&i.AgentEvidence,
 		); err != nil {
 			return nil, err
 		}
@@ -855,8 +859,8 @@ func (q *Queries) InsertFix(ctx context.Context, arg InsertFixParams) (Conforman
 }
 
 const insertReview = `-- name: InsertReview :one
-INSERT INTO conformance_reviews (id, number, trigger, actor, actor_principal, actor_via, started_at, status, selected_projects, build, build_budget)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::text::jsonb, $10, $11) RETURNING id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate
+INSERT INTO conformance_reviews (id, number, trigger, actor, actor_principal, actor_via, started_at, status, selected_projects, build, build_budget, recheck)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::text::jsonb, $10, $11, $12) RETURNING id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate, recheck
 `
 
 type InsertReviewParams struct {
@@ -871,6 +875,7 @@ type InsertReviewParams struct {
 	SelectedProjects string
 	Build            bool
 	BuildBudget      int64
+	Recheck          bool
 }
 
 func (q *Queries) InsertReview(ctx context.Context, arg InsertReviewParams) (ConformanceReview, error) {
@@ -886,6 +891,7 @@ func (q *Queries) InsertReview(ctx context.Context, arg InsertReviewParams) (Con
 		arg.SelectedProjects,
 		arg.Build,
 		arg.BuildBudget,
+		arg.Recheck,
 	)
 	var i ConformanceReview
 	err := row.Scan(
@@ -910,6 +916,7 @@ func (q *Queries) InsertReview(ctx context.Context, arg InsertReviewParams) (Con
 		&i.BuildBudget,
 		&i.SourceRun,
 		&i.Candidate,
+		&i.Recheck,
 	)
 	return i, err
 }
@@ -980,28 +987,29 @@ func (q *Queries) InsertReviewException(ctx context.Context, arg InsertReviewExc
 const insertVerdict = `-- name: InsertVerdict :one
 
 INSERT INTO conformance_verdicts (id, review_id, project_id, project_slug, sha, block, version, check_name,
-  evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash)
-VALUES ($17, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash
+  evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash, agent_evidence)
+VALUES ($17, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $18::jsonb) RETURNING id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash, agent_evidence
 `
 
 type InsertVerdictParams struct {
-	ReviewID     ids.ID
-	ProjectID    ids.ID
-	ProjectSlug  string
-	Sha          string
-	Block        string
-	Version      int64
-	CheckName    string
-	Evaluator    string
-	EvaluatorVer string
-	Mode         string
-	State        string
-	Severity     string
-	Detail       string
-	CreatedAt    time.Time
-	ExceptedBy   string
-	EvidenceHash string
-	ID           ids.ID
+	ReviewID      ids.ID
+	ProjectID     ids.ID
+	ProjectSlug   string
+	Sha           string
+	Block         string
+	Version       int64
+	CheckName     string
+	Evaluator     string
+	EvaluatorVer  string
+	Mode          string
+	State         string
+	Severity      string
+	Detail        string
+	CreatedAt     time.Time
+	ExceptedBy    string
+	EvidenceHash  string
+	ID            ids.ID
+	AgentEvidence *json.RawMessage
 }
 
 // ===== verdicts =======================================================
@@ -1024,6 +1032,7 @@ func (q *Queries) InsertVerdict(ctx context.Context, arg InsertVerdictParams) (C
 		arg.ExceptedBy,
 		arg.EvidenceHash,
 		arg.ID,
+		arg.AgentEvidence,
 	)
 	var i ConformanceVerdict
 	err := row.Scan(
@@ -1044,6 +1053,7 @@ func (q *Queries) InsertVerdict(ctx context.Context, arg InsertVerdictParams) (C
 		&i.CreatedAt,
 		&i.ExceptedBy,
 		&i.EvidenceHash,
+		&i.AgentEvidence,
 	)
 	return i, err
 }
@@ -1191,7 +1201,7 @@ func (q *Queries) LandingResultsRecorded(ctx context.Context, sourceRun ids.ID) 
 }
 
 const latestVerdictForCheck = `-- name: LatestVerdictForCheck :one
-SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash FROM conformance_verdicts
+SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash, agent_evidence FROM conformance_verdicts
 WHERE project_id = $1 AND block = $2 AND version = $3 AND check_name = $4
 ORDER BY id DESC LIMIT 1
 `
@@ -1229,12 +1239,13 @@ func (q *Queries) LatestVerdictForCheck(ctx context.Context, arg LatestVerdictFo
 		&i.CreatedAt,
 		&i.ExceptedBy,
 		&i.EvidenceHash,
+		&i.AgentEvidence,
 	)
 	return i, err
 }
 
 const latestVerdictsForProject = `-- name: LatestVerdictsForProject :many
-SELECT v.id, v.review_id, v.project_id, v.project_slug, v.sha, v.block, v.version, v.check_name, v.evaluator, v.evaluator_ver, v.mode, v.state, v.severity, v.detail, v.created_at, v.excepted_by, v.evidence_hash FROM conformance_verdicts v
+SELECT v.id, v.review_id, v.project_id, v.project_slug, v.sha, v.block, v.version, v.check_name, v.evaluator, v.evaluator_ver, v.mode, v.state, v.severity, v.detail, v.created_at, v.excepted_by, v.evidence_hash, v.agent_evidence FROM conformance_verdicts v
 WHERE v.project_id = $1 AND v.review_id = (SELECT latest.review_id FROM conformance_verdicts latest WHERE latest.project_id = $1 ORDER BY latest.review_id DESC LIMIT 1)
 ORDER BY v.id
 `
@@ -1266,6 +1277,7 @@ func (q *Queries) LatestVerdictsForProject(ctx context.Context, projectID ids.ID
 			&i.CreatedAt,
 			&i.ExceptedBy,
 			&i.EvidenceHash,
+			&i.AgentEvidence,
 		); err != nil {
 			return nil, err
 		}
@@ -1429,7 +1441,7 @@ func (q *Queries) PriorAdjudicatedVerdicts(ctx context.Context, dollar_1 []ids.I
 }
 
 const priorReviewBefore = `-- name: PriorReviewBefore :one
-SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate FROM conformance_reviews WHERE id < $1 AND status = $2 ORDER BY id DESC LIMIT 1
+SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate, recheck FROM conformance_reviews WHERE id < $1 AND status = $2 ORDER BY id DESC LIMIT 1
 `
 
 type PriorReviewBeforeParams struct {
@@ -1462,6 +1474,7 @@ func (q *Queries) PriorReviewBefore(ctx context.Context, arg PriorReviewBeforePa
 		&i.BuildBudget,
 		&i.SourceRun,
 		&i.Candidate,
+		&i.Recheck,
 	)
 	return i, err
 }
@@ -1515,7 +1528,7 @@ func (q *Queries) RecentWhatIfs(ctx context.Context, maxRows int32) ([]WhatIfRev
 }
 
 const reviewByID = `-- name: ReviewByID :one
-SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate FROM conformance_reviews WHERE id = $1
+SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate, recheck FROM conformance_reviews WHERE id = $1
 `
 
 func (q *Queries) ReviewByID(ctx context.Context, id ids.ID) (ConformanceReview, error) {
@@ -1543,12 +1556,13 @@ func (q *Queries) ReviewByID(ctx context.Context, id ids.ID) (ConformanceReview,
 		&i.BuildBudget,
 		&i.SourceRun,
 		&i.Candidate,
+		&i.Recheck,
 	)
 	return i, err
 }
 
 const reviewByIDForUpdate = `-- name: ReviewByIDForUpdate :one
-SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate FROM conformance_reviews WHERE id = $1 FOR UPDATE
+SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate, recheck FROM conformance_reviews WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) ReviewByIDForUpdate(ctx context.Context, id ids.ID) (ConformanceReview, error) {
@@ -1576,6 +1590,7 @@ func (q *Queries) ReviewByIDForUpdate(ctx context.Context, id ids.ID) (Conforman
 		&i.BuildBudget,
 		&i.SourceRun,
 		&i.Candidate,
+		&i.Recheck,
 	)
 	return i, err
 }
@@ -1672,7 +1687,7 @@ WITH page AS (
   SELECT id FROM page
   UNION (SELECT r.id FROM conformance_reviews r WHERE r.status = $2 AND r.id < (SELECT page.id FROM page ORDER BY page.id LIMIT 1) ORDER BY r.id DESC LIMIT 1)
 )
-SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate FROM conformance_reviews WHERE id IN (SELECT id FROM needed) ORDER BY id DESC
+SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate, recheck FROM conformance_reviews WHERE id IN (SELECT id FROM needed) ORDER BY id DESC
 `
 
 type ReviewSummariesPageParams struct {
@@ -1714,6 +1729,7 @@ func (q *Queries) ReviewSummariesPage(ctx context.Context, arg ReviewSummariesPa
 			&i.BuildBudget,
 			&i.SourceRun,
 			&i.Candidate,
+			&i.Recheck,
 		); err != nil {
 			return nil, err
 		}
@@ -1729,7 +1745,7 @@ func (q *Queries) ReviewSummariesPage(ctx context.Context, arg ReviewSummariesPa
 }
 
 const reviewsTouchingProject = `-- name: ReviewsTouchingProject :many
-SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate FROM conformance_reviews
+SELECT id, number, trigger, actor, actor_principal, actor_via, started_at, finished_at, projects, verdicts, errors, cost, status, projects_total, projects_done, current_project, selected_projects, build, build_budget, source_run, candidate, recheck FROM conformance_reviews
 WHERE id IN (SELECT DISTINCT review_id FROM conformance_verdicts WHERE project_id = $1 ORDER BY review_id DESC LIMIT $2)
 ORDER BY id
 `
@@ -1770,6 +1786,7 @@ func (q *Queries) ReviewsTouchingProject(ctx context.Context, arg ReviewsTouchin
 			&i.BuildBudget,
 			&i.SourceRun,
 			&i.Candidate,
+			&i.Recheck,
 		); err != nil {
 			return nil, err
 		}
@@ -1812,7 +1829,7 @@ func (q *Queries) UpdateReviewProgress(ctx context.Context, arg UpdateReviewProg
 }
 
 const verdictByID = `-- name: VerdictByID :one
-SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash FROM conformance_verdicts WHERE id = $1
+SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash, agent_evidence FROM conformance_verdicts WHERE id = $1
 `
 
 func (q *Queries) VerdictByID(ctx context.Context, id ids.ID) (ConformanceVerdict, error) {
@@ -1836,6 +1853,7 @@ func (q *Queries) VerdictByID(ctx context.Context, id ids.ID) (ConformanceVerdic
 		&i.CreatedAt,
 		&i.ExceptedBy,
 		&i.EvidenceHash,
+		&i.AgentEvidence,
 	)
 	return i, err
 }
@@ -1852,7 +1870,7 @@ func (q *Queries) VerdictCountForReview(ctx context.Context, reviewID ids.ID) (i
 }
 
 const verdictInProjectForUpdate = `-- name: VerdictInProjectForUpdate :one
-SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash FROM conformance_verdicts WHERE id = $1 AND project_id = $2 FOR UPDATE
+SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash, agent_evidence FROM conformance_verdicts WHERE id = $1 AND project_id = $2 FOR UPDATE
 `
 
 type VerdictInProjectForUpdateParams struct {
@@ -1881,12 +1899,13 @@ func (q *Queries) VerdictInProjectForUpdate(ctx context.Context, arg VerdictInPr
 		&i.CreatedAt,
 		&i.ExceptedBy,
 		&i.EvidenceHash,
+		&i.AgentEvidence,
 	)
 	return i, err
 }
 
 const verdictsByIDsForShare = `-- name: VerdictsByIDsForShare :many
-SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash FROM conformance_verdicts WHERE id=ANY($1::uuid[]) ORDER BY id FOR SHARE
+SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash, agent_evidence FROM conformance_verdicts WHERE id=ANY($1::uuid[]) ORDER BY id FOR SHARE
 `
 
 func (q *Queries) VerdictsByIDsForShare(ctx context.Context, dollar_1 []ids.ID) ([]ConformanceVerdict, error) {
@@ -1916,6 +1935,7 @@ func (q *Queries) VerdictsByIDsForShare(ctx context.Context, dollar_1 []ids.ID) 
 			&i.CreatedAt,
 			&i.ExceptedBy,
 			&i.EvidenceHash,
+			&i.AgentEvidence,
 		); err != nil {
 			return nil, err
 		}
@@ -1931,7 +1951,7 @@ func (q *Queries) VerdictsByIDsForShare(ctx context.Context, dollar_1 []ids.ID) 
 }
 
 const verdictsForReview = `-- name: VerdictsForReview :many
-SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash FROM conformance_verdicts WHERE review_id = $1 ORDER BY id
+SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash, agent_evidence FROM conformance_verdicts WHERE review_id = $1 ORDER BY id
 `
 
 func (q *Queries) VerdictsForReview(ctx context.Context, reviewID ids.ID) ([]ConformanceVerdict, error) {
@@ -1961,6 +1981,7 @@ func (q *Queries) VerdictsForReview(ctx context.Context, reviewID ids.ID) ([]Con
 			&i.CreatedAt,
 			&i.ExceptedBy,
 			&i.EvidenceHash,
+			&i.AgentEvidence,
 		); err != nil {
 			return nil, err
 		}
@@ -1976,7 +1997,7 @@ func (q *Queries) VerdictsForReview(ctx context.Context, reviewID ids.ID) ([]Con
 }
 
 const verdictsForReviews = `-- name: VerdictsForReviews :many
-SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash FROM conformance_verdicts
+SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash, agent_evidence FROM conformance_verdicts
 WHERE review_id=ANY($1::uuid[]) AND ($2::uuid IS NULL OR project_id = $2) ORDER BY id
 `
 
@@ -2012,6 +2033,7 @@ func (q *Queries) VerdictsForReviews(ctx context.Context, arg VerdictsForReviews
 			&i.CreatedAt,
 			&i.ExceptedBy,
 			&i.EvidenceHash,
+			&i.AgentEvidence,
 		); err != nil {
 			return nil, err
 		}

@@ -116,6 +116,8 @@ type App struct {
 	docker        docker.Scope
 	processRunner execution.Runner // its project processes go through projectProcesses
 	runTok        identity.RuntimeTokens
+	checkSessions inference.CheckSessions
+	checkJudge    verification.CheckInvoker
 	DB            *database.DB
 	Deployment    *deployment.Service // architecture.md §5.6; built once in New
 	Preview       *preview.Service    // previews of changes, runs and releases; built once in New
@@ -380,7 +382,9 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.deletion = projectDeletionFor(a)
 	a.agents = agentExecutionFor(a, agentenv.NewModelProcess(projectProcesses(a), a.providers, cfg.inferenceURL != "", cfg.clock.Now))
 	// Construct runner owners before binding their method values into Work.
-	a.evaluator = verification.NewEffects(checksFor(a).Run, runtimeFor(a), a.inference)
+	a.checkSessions.Now = cfg.clock.Now
+	a.checkJudge = checkJudgeFor(a)
+	a.evaluator = verification.NewEffects(checksFor(a).Run, runtimeFor(a))
 	a.scanners = scannersFor(a)
 	a.scanSteps = scanStepsFor(a)
 	a.verification = changesFor(a)

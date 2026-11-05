@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
+	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -118,5 +119,47 @@ func TestAppCheckDeferralsRaiseNoAttention(t *testing.T) {
 				t.Fatalf("launch failure: %+v", got)
 			}
 		})
+	}
+}
+
+func TestUndecidedAIChecksStayOnConformanceWithoutRaisingAttention(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		state  conformance.Outcome
+		source bool
+		want   int
+	}{
+		{conformance.EvaluationError, false, 0}, {conformance.CannotAssess, false, 0}, {conformance.EvaluationError, true, 1},
+	} {
+		v := conformance.Verdict{Evaluator: "llm", Check: "root-toolchain", State: tc.state, Detail: "could not decide", AgentEvidence: &check.AgentEvidence{SourceReadFailure: tc.source}}
+		p := conformance.SummarizeProject(idstest.N(1), "fixture", conformance.RecordedObservations([]conformance.Verdict{v}, nil))
+		if tc.state == conformance.EvaluationError && (len(p.NotKnown) != 1 || p.NotKnown[0].Evaluator != "llm") {
+			t.Fatalf("standing lost structured AI reason: %+v", p)
+		}
+		got, err := (Checks{Conformance: &checkEvidence{standing: []conformance.ProjectStanding{p}}}).Snapshot(t.Context(), nil)
+		if err != nil || len(got.Items) != tc.want {
+			t.Fatalf("source=%t state=%v attention=%+v %v", tc.source, tc.state, got, err)
+		}
+	}
+}
+
+func TestAppTownAICheckFailuresRemainActionable(t *testing.T) {
+	t.Parallel()
+	for _, fault := range []bool{false, true} {
+		v := conformance.Verdict{Evaluator: "llm", Check: "rubric", State: conformance.CannotAssess,
+			Detail:        "no checks model is set up. An administrator must select a checks model",
+			AgentEvidence: &check.AgentEvidence{AppTownFault: fault}}
+		p := conformance.SummarizeProject(idstest.N(1), "app", conformance.RecordedObservations([]conformance.Verdict{v}, nil))
+		got, err := (Checks{Conformance: &checkEvidence{standing: []conformance.ProjectStanding{p}}}).Snapshot(t.Context(), nil)
+		want := 0
+		if fault {
+			want = 1
+		}
+		if err != nil || len(got.Items) != want {
+			t.Fatalf("fault=%t: %+v %v", fault, got, err)
+		}
+		if fault && (!got.Items[0].Unknown || !strings.Contains(got.Items[0].Detail, "administrator must select")) {
+			t.Fatalf("missing next action: %+v", got)
+		}
 	}
 }

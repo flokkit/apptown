@@ -18,7 +18,7 @@ type spendLines struct{ requests *usage.Requests }
 // open writes an AppTown call's pending spend line before anything is sent
 // and returns the call's id. The line stays pending for the given time.
 func (a spendLines) open(ctx context.Context, w identity.Workload, purpose, provider, model string, pending time.Duration) (ids.ID, error) {
-	return a.requests.OpenCall(ctx, usage.Entry{Kind: purpose, ProjectID: w.ProjectID, RunID: w.RunID, Actor: w.Actor, Provider: provider, Model: model}, pending)
+	return a.requests.OpenCall(ctx, usage.Entry{Kind: purpose, ProjectID: w.ProjectID, RunID: w.RunID, SessionID: w.SessionID, Actor: w.Actor, Provider: provider, Model: model}, pending)
 }
 
 // settle settles an AppTown call's spend line.

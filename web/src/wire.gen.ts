@@ -355,6 +355,7 @@ export type ConformanceHistory = {
 }
 
 export type ConformanceObservation = {
+  agentEvidence?: AgentEvidence | null
   id: string | null
   reviewId: string | null
   projectId: string | null
@@ -2167,6 +2168,7 @@ export type UserList = {
 }
 
 export type Verdict = {
+  agentEvidence?: AgentEvidence | null
   id: string | null
   reviewId: string | null
   projectId: string | null
@@ -2678,6 +2680,26 @@ export type HistoryPoint = {
   standing: string
 }
 
+export type AgentEvidence = {
+  appTownFault?: boolean
+  sourceReadFailure?: boolean
+  session: string
+  commit: string
+  tree: string
+  diffHash?: string
+  rubricHash: string
+  rubricIdentity: string
+  templateHash: string
+  runtime: string
+  requestedModel: string
+  servedModel: string
+  tokensIn: number
+  tokensOut: number
+  durationMs: number
+  usageIncomplete?: string
+  reused?: boolean
+}
+
 export type Outcome = "conforms" | "does-not-conform" | "excepted" | "not-applicable" | "cannot-assess" | "error"
 
 export type CheckLabel = "unknown" | "passed" | "failed" | "excepted" | "not applicable" | "needs review"
@@ -2755,7 +2777,7 @@ export type ProjectStanding = {
   sentence: string
   lanes: Lanes
   total: number
-  notKnown: string[]
+  notKnown: UnknownCheck[]
   judged: number
   high: number
   adopted: string[]
@@ -4663,6 +4685,13 @@ export type Lanes = {
   na: number
 }
 
+export type UnknownCheck = {
+  appTownFault?: boolean
+  detail: string
+  evaluator: string
+  sourceReadFailure?: boolean
+}
+
 export type DispositionKind = "accepted" | "false_positive"
 
 export type ConnectorField = {
@@ -4941,6 +4970,7 @@ export type ScheduleFiringView = {
 }
 
 export type CheckReceipt = {
+  agentEvidence?: AgentEvidence | null
   scanner?: string
   carried?: number
   carriedNote?: string
@@ -4976,6 +5006,7 @@ export type Placement = {
 }
 
 export type checkReceiptView = {
+  agentEvidence?: AgentEvidence | null
   scanner?: string
   carried?: number
   carriedNote?: string

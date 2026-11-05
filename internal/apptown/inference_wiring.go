@@ -9,7 +9,7 @@ import (
 )
 
 func inferenceIdentityFor(a *App) inference.Identity {
-	return inference.Identity{DB: a.DB, Console: a.Console, Tokens: &a.runTok}
+	return inference.Identity{Checks: &a.checkSessions, DB: a.DB, Console: a.Console, Tokens: &a.runTok}
 }
 
 // piModelConfiguration renders the catalog's public view in Pi's models.json

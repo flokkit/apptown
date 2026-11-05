@@ -18,6 +18,7 @@ import (
 
 // Identity checks the current lifecycle and account authority of an admitted workload.
 type Identity struct {
+	Checks  *CheckSessions
 	DB      *database.DB
 	Console *console.Service
 	Tokens  *identity.RuntimeTokens
@@ -26,6 +27,9 @@ type Identity struct {
 func (a Identity) Authenticate(ctx context.Context, token string) (identity.Workload, error) {
 	if token == "" {
 		return identity.Workload{}, errDenied
+	}
+	if strings.HasPrefix(token, "check_") {
+		return a.checkSession(token)
 	}
 	var who identity.Workload
 	if s, ok := a.Console.Identity(token); ok {

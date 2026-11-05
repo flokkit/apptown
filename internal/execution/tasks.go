@@ -95,6 +95,10 @@ type TaskSpec struct {
 	// driver shares no files with AppTown and refuses all three.
 	Workspace   string
 	WorkspaceRO bool
+	// ReadOnlySource is a local tree mounted read-only at /src, beside writable /work.
+	ReadOnlySource string `json:",omitempty"`
+	// SourceAtSrc presents a remote Source at /src instead of /work.
+	SourceAtSrc bool `json:",omitempty"`
 	Mounts      []string
 	ExtraHosts  []string
 	Labels      []string
@@ -210,6 +214,14 @@ func (s TaskSpec) Validate(now time.Time) error {
 	case NetworkNone, NetworkDefault:
 	default:
 		return fmt.Errorf("%w: network policy %q", ErrUnsupported, s.Admission.Network)
+	}
+	if s.SourceAtSrc || s.ReadOnlySource != "" {
+		if err := ValidSourceFiles(s.Files); err != nil {
+			return err
+		}
+	}
+	if s.SourceAtSrc && (s.Source == nil || s.AgentGit != nil || s.SharedWorkspace != "" || s.Private != nil || len(s.Images) > 0 || s.WorkspaceRO) {
+		return fmt.Errorf("a source at /src needs its own source and writable work, without agent Git, shared workspace, private Docker or images")
 	}
 	if s.AgentGit != nil && (s.Source == nil || s.AgentGit.Branch == "" || (s.AgentGit.Base == "") != (s.AgentGit.BaseCommit == "")) {
 		return fmt.Errorf("a task's own repository needs its source, its branch, and its base with the base's commit")

@@ -20,6 +20,11 @@ together. Findings are amber; “N not known” is red in the standing chip and
 summary note, including on phones. Findings retain priority in standing without
 hiding incomplete evaluation. An attempted check that cannot give an answer is not known,
 with its reason, and contributes no confirmed problem or judged check.
+AI unclear and cannot-assess results remain on project Conformance with their
+reason, Re-check and Record a decision. Recording a decision uses the existing
+accepted-risk disposition for that check version: it does not turn uncertainty
+into a pass. The decision remains attributed and revocable.
+
 Routine deferrals stay not yet assessed and contribute no not-known count.
 Conformance classifies each observation once when it is built, using the
 exact verdict confirmation. Transports render that lane, including in live

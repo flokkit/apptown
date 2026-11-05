@@ -21,7 +21,8 @@ type assessInput struct {
 	tool toolContext // the tree, its commit, exceptions and whether an image may be built
 	// sh is the shell image of the unit's tool versions snapshot: one
 	// what-if or one comparison uses one for every tree it judges.
-	sh string
+	sh         string
+	repository string
 	// label names the containers the checks run in.
 	label string
 	// running is the app serving exactly this commit, when one does:
@@ -29,7 +30,7 @@ type assessInput struct {
 	// assessed, for NoApp's reason and detail.
 	running *runningApp
 	noApp   string
-	// judge judges model rubrics, one checklist for all of them; nil leaves
+	// judge invokes one session per model rubric; nil leaves
 	// them not assessed for NoJudge. Diff is the change a diff rubric
 	// judges; without one a diff rubric judges nothing here.
 	judge   func(items []check.Item, diff string) (map[int]check.Verdict, *llmMetadata, error)
@@ -46,7 +47,7 @@ type runningApp struct {
 
 // assessChecks answers every check once. Shell and tool checks run on the
 // tree (an image tool builds within the caller's allowance); runtime probes
-// ask the running app; model rubrics go to the judge in one checklist; a
+// ask the running app; model rubrics get independent sessions; a
 // check nothing here can judge says why.
 func (f Fleet) assessChecks(ctx context.Context, checks []conformance.DeclaredCheck, in assessInput) []treeAssessment {
 	var posture, tools, rubrics, runtime []conformance.DeclaredCheck
@@ -134,9 +135,8 @@ func probeRunning(ctx context.Context, sc conformance.DeclaredCheck, app running
 	return a
 }
 
-// judgeRubrics sends every rubric in one checklist, or none: without a
-// judge each says why, and a call that failed leaves each one unanswered
-// with the provider's words.
+// judgeRubrics interprets independently judged rubrics. Missing execution
+// or a failed session leaves that check unassessed with its reason.
 func judgeRubrics(rubrics []conformance.DeclaredCheck, in assessInput) []treeAssessment {
 	var out []treeAssessment
 	if in.judge == nil {
@@ -146,7 +146,10 @@ func judgeRubrics(rubrics []conformance.DeclaredCheck, in assessInput) []treeAss
 		return out
 	}
 	declared := declaredAll(rubrics)
-	items := append(check.TreeItems(declared, CheckSource(in.tool.BuildDir)), check.DiffItems(declared, in.diff)...)
+	items := append(check.TreeItems(declared), check.DiffItems(declared, in.diff)...)
+	for i := range items {
+		items[i].Repository, items[i].Commit = in.repository, in.tool.SHA
+	}
 	byItem, meta, err := in.judge(items, in.diff)
 	for i, it := range items {
 		sc := adoptedFor(rubrics, it.Declared)
@@ -155,12 +158,18 @@ func judgeRubrics(rubrics []conformance.DeclaredCheck, in assessInput) []treeAss
 			continue
 		}
 		v, answered := byItem[i+1]
-		ev := check.Judgement(it, v, answered, nil, check.Gate)
-		a := treeAssessment{Check: sc, State: outcomeOf(ev.Outcome), Detail: llmVerdictDetail(v, it, meta), Findings: ev.Findings}
+		ev := check.Judgement(it, v, answered, check.Gate)
+		a := treeAssessment{Check: sc, State: outcomeOf(ev.Outcome), Detail: llmVerdictDetail(v, meta, i+1), Findings: ev.Findings}
 		if ev.Outcome != check.Conforms && ev.Outcome != check.DoesNotConform {
 			a.State, a.Reason = conformance.CannotAssess, conformance.NotAssessedError
-			if it.Unreadable != "" || !answered {
+			if !answered {
 				a.Detail = ev.Detail
+			}
+			if meta != nil && meta.Results[i+1].Reason != "" {
+				a.Detail = meta.Results[i+1].Reason
+				if why := meta.NotAssessed[i+1]; why != "" {
+					a.Reason, a.Detail = why, ""
+				}
 			}
 		}
 		out = append(out, a)

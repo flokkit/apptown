@@ -65,7 +65,7 @@ type tokens struct {
 // identity, the hash of the exact material it looked at, and its output.
 type evidence struct {
 	EvaluatorVersion string // the identity a verdict keys on; unchanged strings
-	Hash             string // hash of the evidence bundle judged
+	Hash             string // hash of the exact source or transition judged
 	PromptHash       string // model calls only
 	Report           string // the report a tool wrote and the judge read; "" = none
 	Image            string // the image (by ID) an exec-image check ran in; "" = none

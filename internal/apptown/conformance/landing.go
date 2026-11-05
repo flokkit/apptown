@@ -16,6 +16,7 @@ import (
 // LandingReceipt is one guidance check's saved judgement. The landing adapter
 // translates Work's receipt; conformance owns interpreting it as standing.
 type LandingReceipt struct {
+	AgentEvidence                    *check.AgentEvidence
 	Block                            string
 	Version                          int
 	Check, Verdict                   string
@@ -99,7 +100,7 @@ func (s *Service) RecordLandingResults(ctx context.Context, projectID ids.ID, la
 				ID: ids.New(at.Time), ReviewID: review.ID, ProjectID: projectID, ProjectSlug: p.Slug, Sha: landed,
 				Block: c.Block, Version: int64(c.Version), CheckName: c.Check.Name, Evaluator: check.Evaluator(c.Check),
 				EvaluatorVer: r.EvaluatorVer, Mode: "gate", State: state.String(), Severity: severity,
-				Detail: detail, CreatedAt: at.Time, ExceptedBy: ref, EvidenceHash: r.EvidenceHash,
+				Detail: detail, CreatedAt: at.Time, ExceptedBy: ref, EvidenceHash: r.EvidenceHash, AgentEvidence: agentEvidenceJSON(r.AgentEvidence),
 			}); err != nil {
 				return err
 			}

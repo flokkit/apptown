@@ -396,12 +396,10 @@ func AppliesHere(words []string, src Source) (string, error) {
 // when it does not apply, or nil when it does (an error is the check's
 // error, never a pass).
 func NotApplicableHere(d Declared, src Source, mode Mode) *Evaluation {
-	if d.SourceFiles {
-		if _, err := sourceFolders(d.Declaration, src); err != nil {
-			// The collector records missing source context as cannot-assess,
-			// rather than treating an absent contract as no applicable code.
-			return nil
-		}
+	// A missing contract is not proof that application source is absent.
+	// The agent can inspect the committed tree and judge the rubric itself.
+	if d.SourceFiles && (src.PartsErr != nil || src.NoContract || len(src.Parts) == 0) {
+		return nil
 	}
 	why, err := AppliesHere(d.AppliesTo, src)
 	switch {

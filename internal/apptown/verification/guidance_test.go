@@ -109,7 +109,6 @@ func TestEveryEvaluatorKindIsJudgedAtTheGate(t *testing.T) {
 	f := newScannerOwnerFixture(t)
 	f.semgrep(t)
 	f.Effects.report = scannerSARIF(0)
-	f.Effects.answer = `[{"item":1,"verdict":"conforms","detail":"the readme says what it is"}]`
 	src := t.TempDir()
 	if err := os.WriteFile(filepath.Join(src, "README.md"), []byte("# shop\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -128,8 +127,8 @@ func TestEveryEvaluatorKindIsJudgedAtTheGate(t *testing.T) {
 			func() bool { return f.Effects.ran(stock.Images().Sh) }},
 		"tool": {check.Declaration{AppliesTo: []string{"repository"}, Name: "sast", Expects: "no sast findings", Tool: "semgrep-django", Severity: "high"}, "pass",
 			func() bool { return f.Effects.ran("semgrep/semgrep:test") }},
-		"llm": {check.Declaration{AppliesTo: []string{"repository"}, Name: "readme", Expects: "says what it is", Rubric: "the readme names the app", Scope: check.ScopeTree, Files: []string{"README.md"}}, "unclear", // "conforms" is not a checklist word
-			func() bool { return f.Effects.asked("openrouter/test-model") }},
+		"llm": {check.Declaration{AppliesTo: []string{"repository"}, Name: "readme", Expects: "says what it is", Rubric: "the readme names the app", Scope: check.ScopeTree, Files: []string{"README.md"}}, "cannot-assess", // no check agent is installed in this owner-routing fixture
+			func() bool { return true }},
 		"runtime": {check.Declaration{AppliesTo: []string{"repository"}, Name: "ready", Expects: "answers readiness", Probe: "readiness", Severity: "medium"}, "cannot-assess",
 			func() bool { return previews.asked(fmt.Sprintf("change-%d", created.Change.ID)) }},
 	}
@@ -312,34 +311,7 @@ func TestGateAppTownFaultIsNotRework(t *testing.T) {
 	}
 }
 
-// A checklist's receipt carries the model's pass or fail; any other answer,
-// a missing word included, is the model not saying: unclear, which never
-// reads as a pass and is always a word the receipt's readers know.
-func TestAChecklistAnswerOutsideItsWordsIsUnclear(t *testing.T) {
-	t.Parallel()
-	f := newScannerOwnerFixture(t)
-	f.Effects.answer = `[{"item":1,"verdict":"pass"},{"item":2,"verdict":"fail"},{"item":3,"evidence":"README.md:1"},{"item":4,"verdict":"conforms"},{"item":5,"verdict":"unclear"}]`
-	src := t.TempDir()
-	if err := os.WriteFile(filepath.Join(src, "README.md"), []byte("# shop\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	a := NewGuidance(GuidanceDependencies{DB: f.DB, Scanners: f.Scanners, Evaluator: NewEvaluator(f.Effects, nil, stock.Versions()),
-		Selection: selectionWithDefault(t, f.DB, "openrouter/test-model")})
-	var checks []conformance.DeclaredCheck
-	for _, name := range []string{"one", "two", "three", "four", "five"} {
-		checks = append(checks, conformance.DeclaredCheck{Block: "style", Version: 1, Check: check.Declaration{AppliesTo: []string{"repository"}, Name: name, Evaluator: "llm", Rubric: name, Scope: check.ScopeTree, Files: []string{"README.md"}}})
-	}
-	results, _, _ := a.runLLMChecklist(t.Context(), workflow.Source{RunID: idstest.N(1), ProjectID: f.ProjectID}, checks, checked{Src: src})
-	var got []string
-	for _, r := range results {
-		got = append(got, r.Check+"="+r.Verdict.String())
-	}
-	if want := []string{"one=pass", "two=fail", "three=unclear", "four=unclear", "five=unclear"}; !slices.Equal(got, want) {
-		t.Fatalf("receipts %v, want %v", got, want)
-	}
-}
-
-func TestLLMChecklistSkipsWithoutModel(t *testing.T) {
+func TestLLMCheckCannotAssessWithoutModel(t *testing.T) {
 	t.Parallel()
 	a := &Guidance{selection: model.NewSelection(model.New(testDB(t))), evaluator: NewEvaluator(nil, nil, stock.Versions())}
 	source := workflow.Source{RunID: idstest.N(1), ProjectID: ids.Nil}
@@ -347,7 +319,7 @@ func TestLLMChecklistSkipsWithoutModel(t *testing.T) {
 		{Block: "style", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "tone", Evaluator: "llm", Rubric: "kind wording"}},
 	}
 	results, findings, meta := a.runLLMChecklist(context.Background(), source, checks, checked{Src: t.TempDir()})
-	if len(results) != 1 || results[0].Verdict != workflow.VerdictSkipped {
+	if len(results) != 1 || results[0].Verdict != workflow.VerdictCannotAssess {
 		t.Fatalf("llm check should be skipped without a model: %+v", results)
 	}
 	if len(findings) != 0 || meta != nil {
@@ -387,27 +359,5 @@ func TestGateJudgesTheMemoryContractAndSkipsTheStandingCheck(t *testing.T) {
 	res, _, _ = a.runRuntimeChecksForRun(t.Context(), &workflow.Run{ID: idstest.N(1), ProjectID: idstest.N(1), ChangeID: ids.Nil}, checks[:1], "", "", "medium", "")
 	if len(res) != 1 || res[0].Verdict != workflow.VerdictCannotAssess || !strings.Contains(res[0].Detail, "checked tree is not available") {
 		t.Errorf("no tree to judge: %+v", res)
-	}
-}
-
-// Guidance receipts expose budget omissions for the same evidence as reviews.
-func TestGuidanceRubricReceiptsReportBudgetOmissions(t *testing.T) {
-	t.Parallel()
-	f := newScannerOwnerFixture(t)
-	f.Effects.answer = `[{"item":1,"verdict":"unclear"},{"item":2,"verdict":"unclear"},{"item":3,"verdict":"unclear"},{"item":4,"verdict":"unclear"},{"item":5,"verdict":"unclear"},{"item":6,"verdict":"unclear"}]`
-	src := t.TempDir()
-	files := map[string]string{}
-	for _, name := range []string{"a.go", "b.go", "c.go", "d.go", "e.go", "f.go"} {
-		files[name] = strings.Repeat("x", 20*1024)
-	}
-	writeTree(t, src, files)
-	a := NewGuidance(GuidanceDependencies{DB: f.DB, Scanners: f.Scanners, Evaluator: NewEvaluator(f.Effects, nil, stock.Versions()), Selection: selectionWithDefault(t, f.DB, "openrouter/test-model")})
-	var checks []conformance.DeclaredCheck
-	for _, name := range []string{"one", "two", "three", "four", "five", "six"} {
-		checks = append(checks, conformance.DeclaredCheck{Block: "state", Version: 1, Check: check.Declaration{AppliesTo: []string{"repository"}, Name: name, Evaluator: "llm", Rubric: name, Scope: check.ScopeTree, Files: []string{"**/*.go"}}})
-	}
-	results, _, _ := a.runLLMChecklist(t.Context(), workflow.Source{RunID: idstest.N(1), ProjectID: f.ProjectID}, checks, checked{Src: src})
-	if len(results) != 6 || !strings.Contains(results[0].Detail, "judged on 3 of 6 matching files") || !strings.Contains(results[5].Detail, "judged on 0 of 6 matching files") {
-		t.Fatalf("budget details: %+v", results)
 	}
 }

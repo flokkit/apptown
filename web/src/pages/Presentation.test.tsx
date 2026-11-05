@@ -117,7 +117,7 @@ it('keeps a broken check red beside amber findings', async () => {
 })
 
 it.each([false, true])('keeps failed execution beside findings in list and project notes (phone=%s)', async narrow => {
-  const p = { notKnown: ['scanner: no Docker executor'], slug: 'calendar', name: 'Calendar', standing: 'does-not-conform', statusLabel: 'failed', sentence: '2 findings · 1 could not run', lanes: { findings: 2, broken: 1, conforms: 0, excepted: 0, flagged: 0, unassessed: 0, na: 0 }, total: 3, adopted: [] }
+  const p = { notKnown: [{ detail: 'scanner: no Docker executor', evaluator: 'tool' }], slug: 'calendar', name: 'Calendar', standing: 'does-not-conform', statusLabel: 'failed', sentence: '2 findings · 1 could not run', lanes: { findings: 2, broken: 1, conforms: 0, excepted: 0, flagged: 0, unassessed: 0, na: 0 }, total: 3, adopted: [] }
   const view = { openRemediations: [], projects: [p], byProject: {}, exceptions: {}, adjudications: {}, checkDefs: {} } as unknown as ConformanceView
   // The findings count is the status; what could not run is said once, in the meta line.
   for (const ui of [<ProjectsList view={view} base="/conformance" />, <ConformanceProject view={view} slug="calendar" readOnly onRunOne={() => {}} />]) {

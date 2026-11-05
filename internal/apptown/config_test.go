@@ -318,6 +318,7 @@ var lazyOwners = map[string]func(*App) any{
 	"infrastructureChecksFor": func(a *App) any { return infrastructureChecksFor(a) },
 	"changePreviewViewsFor":   func(a *App) any { return changePreviewViewsFor(a) },
 	"chatsFor":                func(a *App) any { return chatsFor(a) },
+	"checkEvaluatorFor":       func(a *App) any { return checkEvaluatorFor(a) },
 	"checksFor":               func(a *App) any { return checksFor(a) },
 	"connectorHealthFor":      func(a *App) any { return connectorHealthFor(a) },
 	"contributionsFor":        func(a *App) any { return contributionsFor(a) },

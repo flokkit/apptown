@@ -12,7 +12,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
-	"github.com/flokkit/apptown/internal/apptown/modelcall"
 	"github.com/flokkit/apptown/internal/execution"
 )
 
@@ -69,19 +68,15 @@ func LocalExecutor(runner execution.Runner, dk *docker.Scope, agentImage string,
 type checkEffects struct {
 	run      checkRun
 	observer *Runtime
-	models   modelcall.Completer
 }
 
-// NewEffects binds what checks do; models answers their model calls (the
-// inference gateway).
-func NewEffects(run checkRun, observer *Runtime, models modelcall.Completer) Effects {
-	return checkEffects{run, observer, models}
+// NewEffects binds deterministic execution and runtime observation. AI
+// sessions are bound explicitly through CheckJudge.
+func NewEffects(run checkRun, observer *Runtime) Effects {
+	return checkEffects{run, observer}
 }
 func (e checkEffects) Run(ctx context.Context, req execution.Request) execution.Outcome {
 	return e.run(ctx, req)
-}
-func (e checkEffects) Ask(ctx context.Context, call modelcall.Call) (string, *modelcall.Usage, error) {
-	return e.models.Ask(ctx, call)
 }
 func (e checkEffects) Observe(ctx context.Context, id ids.ID, source, probe string) (conformance.Outcome, string) {
 	return e.observer.observe(ctx, id, source, probe)

@@ -239,6 +239,7 @@ export function Evidence({ v, exceptions, adj }: { v: Verdict; exceptions: Dispo
         </div>
       )}
       {v.detail && <pre className="mono conformance-code">{v.detail}</pre>}
+      {v.agentEvidence?.reused && <p className="small muted">Reused result: source and evaluator inputs are unchanged.</p>}
       {exc && (
         <div className="small conformance-exception">
           <span className="badge conformance-evidence-badge">{exc.status.replace('_', ' ')}</span>

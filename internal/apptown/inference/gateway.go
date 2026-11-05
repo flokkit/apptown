@@ -36,6 +36,7 @@ import (
 // Gateway owns transport and admission. Authentication, bindings and
 // spend lines are narrow dependencies; the proxy never has an App or a database.
 type Gateway struct {
+	checks       *CheckSessions
 	networks     []netip.Prefix
 	authenticate func(context.Context, string) (identity.Workload, error)
 	providers    func(context.Context) (map[string]*inferenceProvider, error)
@@ -91,7 +92,7 @@ func New(networks []netip.Prefix, identities Identity, catalog *Catalog, request
 	transport.Proxy = nil
 	transport.ResponseHeaderTimeout = 2 * time.Minute
 	accounting := spendLines{requests: requests}
-	g := &Gateway{networks: append([]netip.Prefix(nil), networks...),
+	g := &Gateway{checks: identities.Checks, networks: append([]netip.Prefix(nil), networks...),
 		authenticate: identities.Authenticate, providers: catalog.providers, open: accounting.open, settle: accounting.settle,
 		client: &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 		active: map[string]int{}, slots: make(chan struct{}, 64), timeout: 20 * time.Minute}
@@ -267,9 +268,23 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 		fail(401, "runtime credential was revoked before inference admission")
 		return
 	}
-	if g.models != nil {
-		if err := g.models(r.Context(), who.ProjectID, p.name+"/"+model); err != nil {
+	choose := g.models
+	if who.Kind == "check" && g.checks.isJudge(token) {
+		choose = g.judge
+		if choose == nil {
+			fail(403, "evaluation judge is unavailable")
+			return
+		}
+	}
+	if choose != nil {
+		if err := choose(r.Context(), who.ProjectID, p.name+"/"+model); err != nil {
 			fail(403, err.Error())
+			return
+		}
+	}
+	if who.Kind == "check" {
+		if err := g.checks.begin(r.Context(), token, p.name+"/"+model); err != nil {
+			fail(429, err.Error())
 			return
 		}
 	}
@@ -287,7 +302,22 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 		attribute.String("apptown.workload.kind", who.Kind), attribute.String("apptown.project", who.ProjectID.String()), attribute.String("apptown.run", who.RunID.String()), attribute.String("apptown.step", who.StepID.String())))...)
 	r = r.WithContext(spanCtx)
 	defer func() {
-		g.observe(spanCtx, span, p.name, model, status, outcome, usage.result(), g.now().Sub(started))
+		u := usage.result()
+		if who.Kind == "check" {
+			p.price(model, &u)
+		}
+		g.observe(spanCtx, span, p.name, model, status, outcome, u, g.now().Sub(started))
+		if who.Kind == "check" {
+			incomplete := ""
+			if outcome != "complete" {
+				incomplete = "check inference did not complete"
+			}
+			counted := u
+			if api != "anthropic-messages" {
+				counted.CacheRead, counted.CacheWrite = 0, 0
+			}
+			g.checks.finish(token, usage.served, counted, incomplete, status >= 200 && status < 300)
+		}
 	}()
 	ctx, cancel := context.WithTimeout(r.Context(), g.timeout)
 	defer cancel()
@@ -315,6 +345,30 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 		if v := r.Header.Get(h); v != "" {
 			protocol.Set(h, v)
 		}
+	}
+	if who.Kind == "check" {
+		receipt, err := g.open(ctx, who, g.checks.purpose(token), p.name, model, g.timeout+settleWithin)
+		if err != nil {
+			fail(503, "check inference spend could not be recorded")
+			return
+		}
+		defer func() {
+			settleCtx, done := context.WithTimeout(context.WithoutCancel(ctx), settleWithin)
+			defer done()
+			incomplete := ""
+			if outcome != "complete" {
+				incomplete = "check inference did not complete"
+			}
+			u := usage.result()
+			p.price(model, &u)
+			if incomplete == "" && !u.Priced && u.Input+u.Output > 0 {
+				incomplete = "the provider reported tokens with no price"
+			}
+			settled, settleErr := g.settle(settleCtx, receipt, u, incomplete)
+			if settleErr != nil || !settled {
+				g.checks.finish(token, "", inferenceUsage{}, "check spend could not be settled", true)
+			}
+		}()
 	}
 	resp, err := g.dispatch(ctx, p, api, path, body, r.Header.Get("Accept"), protocol)
 	var rejected upstreamRejected

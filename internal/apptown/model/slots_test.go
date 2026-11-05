@@ -204,7 +204,7 @@ func TestTasksUseBasicChoicesUntilIndividuallySet(t *testing.T) {
 	for task, base := range map[string]string{
 		"main-strong": "main-strong", "plan": "main-strong", "implement": "main-strong", "chat": "main-strong", "worker": "main-strong",
 		"fast": "main-fast", "scout": "main-fast", "review": "secondary-strong", "security": "secondary-strong",
-		"main-fast": "main-fast", "secondary-strong": "secondary-strong", "secondary-fast": "secondary-fast",
+		"checks": "secondary-fast", "main-fast": "main-fast", "secondary-strong": "secondary-strong", "secondary-fast": "secondary-fast",
 	} {
 		want := "vendor/" + base
 		if base == "main-strong" {

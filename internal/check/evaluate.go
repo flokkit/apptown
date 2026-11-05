@@ -7,9 +7,9 @@ import (
 
 // Evaluate judges every declaration against one source, in one mode.
 //
-// sh: one container run per check against the staged tree. llm: every rubric
-// in the batch into ONE checklist call, prompt hash and evidence hash
-// recorded. runtime: probe the source's app through both doors. tool: the
+// sh: one container run per check against the staged tree. AI rubrics are
+// judged by AppTown against a committed checkout. runtime: probe the source's
+// app through both doors. tool: the
 // scanner the check names, from the catalogue the caller gave the judge.
 //
 // A capability the judge or the source lacks is cannot-assess with the reason,
@@ -56,33 +56,11 @@ func (j *Judge) namePrefix() string {
 	return j.prefix
 }
 
-// evaluateRubrics judges every rubric in the batch in one checklist call.
+// evaluateRubrics invokes each rubric independently.
 func (j *Judge) evaluateRubrics(ctx context.Context, checks []Declared, src Source, mode Mode) []Evaluation {
-	items := append(TreeItems(checks, src), DiffItems(checks, src.Diff)...)
-	if len(items) == 0 {
-		return nil
-	}
-	skipAll := func(why string) []Evaluation {
-		var out []Evaluation
-		for _, it := range items {
-			ev := cannot(it.Declared, mode, why)
-			ev.Evidence.EvaluatorVersion = LLMEvaluatorVersion(it.Declaration)
-			ev.Evidence.Hash, ev.Evidence.Files = it.Hash, it.Files
-			out = append(out, ev)
-		}
-		return out
-	}
-	if j.Complete == nil {
-		return skipAll("no model bound: rubrics cannot be judged here")
-	}
-	byItem, meta, err := j.Checklist(ctx, items, src.Diff)
-	if err != nil {
-		return skipAll(err.Error())
-	}
 	var out []Evaluation
-	for i, it := range items {
-		v, answered := byItem[i+1]
-		out = append(out, Judgement(it, v, answered, meta, mode))
+	for _, d := range checks {
+		out = append(out, cannot(d, mode, "AI rubrics are judged by AppTown against a committed checkout"))
 	}
 	return out
 }

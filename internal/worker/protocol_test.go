@@ -37,16 +37,16 @@ func TestAWorkerServesOnlyAppTownProtocolsInItsRange(t *testing.T) {
 		t.Cleanup(func() { resp.Body.Close() })
 		return resp
 	}
-	for _, p := range []string{"1", "2"} {
+	for _, p := range []string{"2", "3"} {
 		if resp := get(p); resp.StatusCode != 200 {
 			t.Errorf("the worker refused protocol %q: %s", p, resp.Status)
 		}
 	}
-	for _, p := range []string{"3", "0", "x", ""} {
+	for _, p := range []string{"1", "4", "0", "x", ""} {
 		resp := get(p)
 		raw, _ := io.ReadAll(resp.Body)
 		body := string(raw)
-		if resp.StatusCode != http.StatusUpgradeRequired || !strings.Contains(body, "serves AppTown protocols 1 to 2") || !strings.Contains(body, "same release") {
+		if resp.StatusCode != http.StatusUpgradeRequired || !strings.Contains(body, "serves AppTown protocols 2 to 3") || !strings.Contains(body, "same release") {
 			t.Errorf("the worker served protocol %q: %s %q", p, resp.Status, body)
 		}
 	}
@@ -80,7 +80,7 @@ func TestAnAppTownStatesItsProtocolToItsWorker(t *testing.T) {
 		}
 		resp.Body.Close()
 	}
-	if len(got) != 2 || got[0] != "2" || got[1] != "2" {
+	if len(got) != 2 || got[0] != "3" || got[1] != "3" {
 		t.Fatalf("protocol sent: %q", got)
 	}
 }

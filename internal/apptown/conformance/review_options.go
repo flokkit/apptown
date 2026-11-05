@@ -6,6 +6,7 @@ import "github.com/flokkit/apptown/internal/ids"
 // whether a cache miss on an exec-image tool may BUILD the app image (bounded
 // by a per-review budget; design/subsystems/conformance-surface.md §6).
 type ReviewOptions struct {
+	Recheck     bool // bypass exact-input reuse for an explicit Re-check
 	Projects    []ids.ID
 	Build       bool
 	BuildBudget int // 0 → default

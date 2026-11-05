@@ -11,7 +11,7 @@ import { laneOf } from './parts'
 export function projectFact(p: ProjectStanding, view: ConformanceView): string {
   const observations = view.byProject[p.slug] ?? []
   const lane = (v: typeof observations[number]) => laneOf(v)
-  if (p.notKnown.length && !p.lanes.findings) return `Not known: ${p.notKnown.join('; ')}`
+  if (p.notKnown.length && !p.lanes.findings) return `Not known: ${p.notKnown.map((u) => u.detail).join('; ')}`
   const problem = observations.find(v => lane(v) === 'findings')
     ?? observations.find(v => lane(v) === 'broken')
     ?? observations.find(v => lane(v) === 'flagged')

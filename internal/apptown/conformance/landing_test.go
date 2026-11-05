@@ -2,6 +2,8 @@ package conformance
 
 import (
 	"encoding/json"
+	"github.com/flokkit/apptown/internal/check"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -72,7 +74,7 @@ func TestLandingResultsPreserveEveryReceiptOutcome(t *testing.T) {
 			t.Parallel()
 			f := newProjectionFixture(t)
 			id := f.project(t, "landing", "rules", 1, noFixme)
-			receipt := LandingReceipt{Block: "rules", Version: 1, Check: "no-fixme", Verdict: tc.receipt, Detail: "saved detail", EvaluatorVer: "exact-evaluator", EvidenceHash: "exact-evidence"}
+			receipt := LandingReceipt{AgentEvidence: &check.AgentEvidence{AppTownFault: tc.receipt == "cannot-assess", Session: "retained-session", Commit: "checked", Tree: "exact-tree", DiffHash: "exact-diff", Runtime: "runtime-contract", TemplateHash: "template", RequestedModel: "requested", ServedModel: "served", TokensIn: 100, TokensOut: 20, DurationMs: 42, Reused: true}, Block: "rules", Version: 1, Check: "no-fixme", Verdict: tc.receipt, Detail: "saved detail", EvaluatorVer: "exact-evaluator", EvidenceHash: "exact-evidence"}
 			if tc.receipt == "excepted" {
 				receipt.ExceptedBy = `{"id":"` + idstest.N(33).String() + `","status":"accepted-risk","by":"decider"}`
 			}
@@ -85,7 +87,7 @@ func TestLandingResultsPreserveEveryReceiptOutcome(t *testing.T) {
 				t.Fatal(err)
 			}
 			rows := view.ByProject["landing"]
-			if len(rows) != 1 || rows[0].Record.State != tc.want || rows[0].Record.Detail != receipt.Detail || rows[0].Record.ExceptedBy != receipt.ExceptedBy || rows[0].Record.EvaluatorVer != receipt.EvaluatorVer || rows[0].Record.EvidenceHash != receipt.EvidenceHash {
+			if len(rows) != 1 || rows[0].Record.State != tc.want || rows[0].Record.Detail != receipt.Detail || rows[0].Record.ExceptedBy != receipt.ExceptedBy || rows[0].Record.EvaluatorVer != receipt.EvaluatorVer || rows[0].Record.EvidenceHash != receipt.EvidenceHash || !reflect.DeepEqual(rows[0].Record.AgentEvidence, receipt.AgentEvidence) {
 				t.Fatalf("receipt changed: %+v", rows)
 			}
 		})

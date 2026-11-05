@@ -271,9 +271,9 @@ type fakeModels struct{}
 
 func (fakeModels) ArmSlots(ctx context.Context, projectID ids.ID, profile string) (map[string]string, error) {
 	if !projectID.IsZero() {
-		return map[string]string{"main-strong": "openrouter/standard/model", "fast": "openrouter/standard/fast", "secondary-fast": "openrouter/standard/judge"}, nil
+		return map[string]string{"main-strong": "openrouter/standard/model", "fast": "openrouter/standard/fast", "secondary-fast": "openrouter/standard/judge", "checks": "openrouter/standard/judge"}, nil
 	}
-	return map[string]string{"main-strong": "openrouter/" + profile + "/model", "fast": "openrouter/" + profile + "/model", "secondary-fast": "openrouter/" + profile + "/judge"}, nil
+	return map[string]string{"main-strong": "openrouter/" + profile + "/model", "fast": "openrouter/" + profile + "/model", "secondary-fast": "openrouter/" + profile + "/judge", "checks": "openrouter/" + profile + "/judge"}, nil
 }
 func (fakeModels) OfferedProfile(ctx context.Context, profile string) (bool, error) {
 	return profile == "frontier", nil

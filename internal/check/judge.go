@@ -6,8 +6,8 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 )
 
-// A Judge holds the three capabilities evaluating a check can need: run a
-// command in a container, ask a model a checklist, probe a URL. A capability
+// A Judge runs deterministic checks: commands, scanners and URL probes.
+// AppTown owns isolated AI check sessions. A capability
 // it was not given is not an error — the checks that need it report
 // cannot-assess with the reason.
 type Judge struct {
@@ -18,8 +18,6 @@ type Judge struct {
 	// ShImage is the image sh checks run in, the tool versions' shell, from
 	// the snapshot the caller's unit of work took. "": they error.
 	ShImage string
-	// Complete asks a model for one answer. nil: rubrics cannot be assessed.
-	Complete completer
 	// Probe makes one HTTP request. nil: runtime checks cannot be assessed.
 	Probe prober
 	// Scanners resolves a tool check's name to the tool it names. nil: tool

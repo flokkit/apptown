@@ -442,6 +442,76 @@
         ],
         "type": "object"
       },
+      "AgentEvidence": {
+        "properties": {
+          "appTownFault": {
+            "type": "boolean"
+          },
+          "commit": {
+            "type": "string"
+          },
+          "diffHash": {
+            "type": "string"
+          },
+          "durationMs": {
+            "type": "integer"
+          },
+          "requestedModel": {
+            "type": "string"
+          },
+          "reused": {
+            "type": "boolean"
+          },
+          "rubricHash": {
+            "type": "string"
+          },
+          "rubricIdentity": {
+            "type": "string"
+          },
+          "runtime": {
+            "type": "string"
+          },
+          "servedModel": {
+            "type": "string"
+          },
+          "session": {
+            "type": "string"
+          },
+          "sourceReadFailure": {
+            "type": "boolean"
+          },
+          "templateHash": {
+            "type": "string"
+          },
+          "tokensIn": {
+            "type": "integer"
+          },
+          "tokensOut": {
+            "type": "integer"
+          },
+          "tree": {
+            "type": "string"
+          },
+          "usageIncomplete": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "session",
+          "commit",
+          "tree",
+          "rubricHash",
+          "rubricIdentity",
+          "templateHash",
+          "runtime",
+          "requestedModel",
+          "servedModel",
+          "tokensIn",
+          "tokensOut",
+          "durationMs"
+        ],
+        "type": "object"
+      },
       "AppliedAttempt": {
         "properties": {
           "at": {
@@ -6118,6 +6188,16 @@
       },
       "checkReceiptView": {
         "properties": {
+          "agentEvidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "apptownFault": {
             "type": "boolean"
           },

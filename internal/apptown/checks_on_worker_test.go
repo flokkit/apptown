@@ -129,7 +129,7 @@ func localDockerTripwire(t *testing.T, a *App, calls string) {
 // again, as a start with that configuration does.
 func recomposeChecks(t *testing.T, a *App) {
 	t.Helper()
-	a.evaluator = verification.NewEffects(checksFor(a).Run, runtimeFor(a), a.inference)
+	a.evaluator = verification.NewEffects(checksFor(a).Run, runtimeFor(a))
 	a.scanners = scannersFor(a)
 	a.scanSteps = scanStepsFor(a)
 	a.verification = changesFor(a)

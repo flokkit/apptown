@@ -90,7 +90,7 @@ ALLOWED = {
     "workflowexec":     {"adoption", "agentenv", "agentharness", "changeactions", "complaint", "console", "dataprotection", "deployment",
                          "inference", "integration", "model", "preview", "project", "repositoryedit", "scm", "secret", "tasks", "usage",
                          "verification", "workflow", "wow"},
-    "verification":     {"adoption", "agentenv", "conformance", "deployment", "integration", "model", "modelcall",
+    "verification":     {"adoption", "agentenv", "agentharness", "conformance", "deployment", "inference", "integration", "model", "modelcall",
                          "preview", "project", "remediation", "repositoryedit", "scm", "secret", "usage", "workflow"},
     "maintenance":      {"agentenv", "console", "conversation", "deployment", "project", "scm", "tasks", "workflow"},
     "workcommands":     {"adoption", "conformance", "integration", "preview", "project", "projectlifecycle",
@@ -202,7 +202,8 @@ def transport():
 # invisible there, and facades are exempt from arrow checks altogether. On
 # 17 September inference imported agentharness/pi to render Pi's models.json
 # and no gate noticed.
-HARNESS_IMPORTERS = {"apptown", "agentharness", "workflowexec", "conversation"}
+# Verification orchestrates isolated check sessions without workflow-step settlement.
+HARNESS_IMPORTERS = {"apptown", "agentharness", "workflowexec", "conversation", "verification"}
 
 
 def harness_imports():

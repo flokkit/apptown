@@ -98,3 +98,10 @@ refuses with its reason is `ErrStartRefused`.
 rests on; `Changed` says how a later measurement differs. The profile is
 observed facts: AppTown records it with each attempt and passes no
 verdict on it.
+
+Check tasks can present their committed source read-only at `/src`, beside a
+writable `/work` for the agent's session and result. A local task supplies
+`ReadOnlySource`; a worker task supplies `Source` and `SourceAtSrc`. Worker
+protocol 3 is required, so older workers refuse instead of silently changing
+the source arrangement. Source-at-/src tasks have their own workspace and no
+agent Git, shared workspace, private Docker or output images.

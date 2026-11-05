@@ -79,3 +79,10 @@ AppTown could not reach the provider; an empty answer with no reported error
 names the model that returned nothing. SDK errors supply their HTTP status when
 there is no structured status. Raw provider text belongs in transcript evidence
 and logs, never in these headlines.
+
+Check sessions count each turn's full input, including Anthropic cache reads,
+against one cumulative token cap. A refused request without usage leaves the
+session open for the harness to retry within its time and token limits. An
+accepted response with unknown usage ends the session, because another request
+could exceed the allowance. Known usage from an interrupted response still
+counts toward the cap. Closing the task revokes its inference credential.

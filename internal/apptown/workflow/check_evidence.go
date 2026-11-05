@@ -9,7 +9,7 @@ import (
 	"slices"
 
 	"github.com/flokkit/apptown/internal/apptown/status"
-
+	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/enum"
 )
 
@@ -26,7 +26,7 @@ const (
 	VerdictCannotAssess
 	VerdictSkipped
 	VerdictExcepted
-	VerdictUnclear
+	_ // Reserved for stored unclear receipts. New AI receipts use Judgement outcomes.
 	// VerdictNotApplicable: the check applies to nothing this app declares;
 	// Detail says why. Never a pass, never an error, never gating.
 	VerdictNotApplicable
@@ -41,8 +41,7 @@ var checkVerdictCodec = enum.Set[CheckVerdict]{
 	ScanLabel: "value",
 }
 
-func (v CheckVerdict) String() string                     { return checkVerdictCodec.String(v) }
-func ParseCheckVerdict(text string) (CheckVerdict, error) { return checkVerdictCodec.Parse(text) }
+func (v CheckVerdict) String() string { return checkVerdictCodec.String(v) }
 
 // Value is not for storage (a verdict is never a column): it is how the wire
 // generator recognises a word enum and writes its TypeScript union.
@@ -55,29 +54,30 @@ func (v *CheckVerdict) UnmarshalJSON(data []byte) error { return checkVerdictCod
 // Pointer scalars distinguish an actual exit 0 / zero duration / non-gating
 // judgment from fields that do not apply to an evaluator.
 type CheckReceipt struct {
-	Scanner      string       `json:"scanner,omitempty"`
-	Carried      int          `json:"carried,omitempty"`
-	CarriedNote  string       `json:"carriedNote,omitempty"`
-	BaseNote     string       `json:"baseNote,omitempty"`
-	Block        string       `json:"block"`
-	Version      int          `json:"version"`
-	Check        string       `json:"check"`
-	Evaluator    string       `json:"evaluator"`
-	Verdict      CheckVerdict `json:"verdict"`
-	ExitCode     *int         `json:"exitCode,omitempty"`
-	DurationMs   *int64       `json:"durationMs,omitempty"`
-	Output       string       `json:"output,omitempty"`
-	Detail       string       `json:"detail,omitempty"`
-	Note         string       `json:"note,omitempty"`
-	Tool         string       `json:"tool,omitempty"`
-	ExceptedBy   string       `json:"exceptedBy,omitempty"`
-	Scope        string       `json:"scope,omitempty"`
-	Gates        *bool        `json:"gates,omitempty"`
-	EvaluatorVer string       `json:"evaluatorVer,omitempty"`
-	EvidenceHash string       `json:"evidenceHash,omitempty"`
-	Evidence     string       `json:"evidence,omitempty"`
-	Files        []string     `json:"files,omitempty"`
-	Occurrences  []string     `json:"occurrences,omitempty"`
+	AgentEvidence *check.AgentEvidence `json:"agentEvidence,omitempty"`
+	Scanner       string               `json:"scanner,omitempty"`
+	Carried       int                  `json:"carried,omitempty"`
+	CarriedNote   string               `json:"carriedNote,omitempty"`
+	BaseNote      string               `json:"baseNote,omitempty"`
+	Block         string               `json:"block"`
+	Version       int                  `json:"version"`
+	Check         string               `json:"check"`
+	Evaluator     string               `json:"evaluator"`
+	Verdict       CheckVerdict         `json:"verdict"`
+	ExitCode      *int                 `json:"exitCode,omitempty"`
+	DurationMs    *int64               `json:"durationMs,omitempty"`
+	Output        string               `json:"output,omitempty"`
+	Detail        string               `json:"detail,omitempty"`
+	Note          string               `json:"note,omitempty"`
+	Tool          string               `json:"tool,omitempty"`
+	ExceptedBy    string               `json:"exceptedBy,omitempty"`
+	Scope         string               `json:"scope,omitempty"`
+	Gates         *bool                `json:"gates,omitempty"`
+	EvaluatorVer  string               `json:"evaluatorVer,omitempty"`
+	EvidenceHash  string               `json:"evidenceHash,omitempty"`
+	Evidence      string               `json:"evidence,omitempty"`
+	Files         []string             `json:"files,omitempty"`
+	Occurrences   []string             `json:"occurrences,omitempty"`
 	// AppTownFault: AppTown could not run the check; the commit is not at fault.
 	AppTownFault bool `json:"apptownFault,omitempty"`
 	// Preexisting and Undecided: how a failure read against main — already

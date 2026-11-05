@@ -35,20 +35,20 @@ const (
 )
 
 type ProjectStanding struct {
-	ProjectID   ids.ID     `json:"projectId"`
-	Slug        string     `json:"slug"`
-	Name        string     `json:"name"` // the name people know the project by
-	StatusLabel CheckLabel `json:"statusLabel"`
-	Standing    Standing   `json:"standing"`
-	Sentence    string     `json:"sentence"`
-	Lanes       Lanes      `json:"lanes"`
-	Total       int        `json:"total"`    // M: adopted checks excluding n/a
-	NotKnown    []string   `json:"notKnown"` // attempted checks without an answer, with their reasons
-	Judged      int        `json:"judged"`
-	High        int        `json:"high"` // findings at severity high
-	Adopted     []string   `json:"adopted"`
-	SHA         string     `json:"sha"`
-	JudgedAt    string     `json:"judgedAt"`
+	ProjectID   ids.ID         `json:"projectId"`
+	Slug        string         `json:"slug"`
+	Name        string         `json:"name"` // the name people know the project by
+	StatusLabel CheckLabel     `json:"statusLabel"`
+	Standing    Standing       `json:"standing"`
+	Sentence    string         `json:"sentence"`
+	Lanes       Lanes          `json:"lanes"`
+	Total       int            `json:"total"`    // M: adopted checks excluding n/a
+	NotKnown    []UnknownCheck `json:"notKnown"` // attempted checks without an answer, with their reasons
+	Judged      int            `json:"judged"`
+	High        int            `json:"high"` // findings at severity high
+	Adopted     []string       `json:"adopted"`
+	SHA         string         `json:"sha"`
+	JudgedAt    string         `json:"judgedAt"`
 }
 
 // Adjudication is a human confirmation of one immutable verdict.
@@ -168,15 +168,21 @@ func standingRank(s Standing) int {
 // SummarizeProject counts each adopted check once and derives standing from its
 // interpretation. Saved evidence supplies the latest judged SHA/time.
 func SummarizeProject(projectID ids.ID, slug string, vs []Observation) ProjectStanding {
-	ps := ProjectStanding{ProjectID: projectID, Slug: slug, NotKnown: []string{}}
+	ps := ProjectStanding{ProjectID: projectID, Slug: slug, NotKnown: []UnknownCheck{}}
 	adopted := map[string]bool{}
 	for _, v := range vs {
 		if v.Block != "" {
 			adopted[fmt.Sprintf("%s@%d", v.Block, v.Version)] = true
 		}
 		lane := v.lane
-		if lane == laneBroken {
-			ps.NotKnown = append(ps.NotKnown, v.Check+": "+v.Detail())
+		if lane == laneBroken || (v.Record != nil && v.Record.AgentEvidence != nil && v.Record.AgentEvidence.AppTownFault) {
+			u := UnknownCheck{Detail: v.Check + ": " + v.Detail()}
+			if v.Record != nil {
+				u.Evaluator = v.Record.Evaluator
+				u.AppTownFault = v.Record.AgentEvidence != nil && v.Record.AgentEvidence.AppTownFault
+				u.SourceReadFailure = v.Record.AgentEvidence != nil && v.Record.AgentEvidence.SourceReadFailure
+			}
+			ps.NotKnown = append(ps.NotKnown, u)
 		}
 		switch lane {
 		case laneConforms:
@@ -209,7 +215,7 @@ func SummarizeProject(projectID ids.ID, slug string, vs []Observation) ProjectSt
 	ps.Judged = ps.Total - ps.Lanes.Unassessed - ps.Lanes.Broken
 	ps.Standing, ps.Sentence = standingFor(ps.Lanes, ps.High, ps.Total)
 	if len(ps.NotKnown) > 0 {
-		ps.Sentence += ": " + strings.Join(ps.NotKnown, "; ")
+		ps.Sentence += ": " + strings.Join(unknownDetails(ps.NotKnown), "; ")
 	}
 	ps.StatusLabel = ps.Standing.label()
 	return ps
@@ -298,4 +304,21 @@ func sortProjects(projects []ProjectStanding) {
 		return projects[i].Slug < projects[j].Slug
 	})
 
+}
+
+// UnknownCheck carries evaluator classification across the Attention boundary.
+// Source failures remain actionable even when the intended evaluator was AI.
+type UnknownCheck struct {
+	AppTownFault      bool   `json:"appTownFault,omitempty"`
+	Detail            string `json:"detail"`
+	Evaluator         string `json:"evaluator"`
+	SourceReadFailure bool   `json:"sourceReadFailure,omitempty"`
+}
+
+func unknownDetails(in []UnknownCheck) []string {
+	out := make([]string, 0, len(in))
+	for _, u := range in {
+		out = append(out, u.Detail)
+	}
+	return out
 }

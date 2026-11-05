@@ -24,7 +24,7 @@ func TestAQueuedReviewIsClaimedOnceWithItsSavedRequest(t *testing.T) {
 	service := newServiceWithAuthority(db, testAuthority{}, unavailableHeadSource{testCheckSource{}})
 	ctx := caller("reviewer")
 	for _, in := range []ReviewRequest{
-		{Trigger: "manual", Build: true, BuildBudget: 3},
+		{Trigger: "manual", Build: true, BuildBudget: 3, Recheck: true},
 		{Trigger: "manual", Projects: []ids.ID{}},
 		{Trigger: "manual", Projects: []ids.ID{project}},
 	} {
@@ -37,7 +37,7 @@ func TestAQueuedReviewIsClaimedOnceWithItsSavedRequest(t *testing.T) {
 			t.Fatal(err)
 		}
 		got := execution.Options()
-		if (got.Projects == nil) != (in.Projects == nil) || !slices.Equal(got.Projects, in.Projects) || got.Build != in.Build || got.BuildBudget != in.BuildBudget {
+		if (got.Projects == nil) != (in.Projects == nil) || !slices.Equal(got.Projects, in.Projects) || got.Build != in.Build || got.BuildBudget != in.BuildBudget || got.Recheck != in.Recheck {
 			t.Fatalf("asked %+v, claimed %+v", in, got)
 		}
 		if execution.Review().Status != ReviewRunning {

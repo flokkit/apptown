@@ -63,7 +63,7 @@ func (s reviewStore) create(ctx context.Context, q database.Queryer, in ReviewRe
 	}
 	row, err := queries(db).InsertReview(ctx, conformancesql.InsertReviewParams{ID: ids.New(stamp.Of(s.now()).Time), Number: number,
 		Trigger: trigger, Actor: actor, ActorPrincipal: starter.Principal, ActorVia: starter.Via, StartedAt: stamp.Of(s.now()).Time, Status: status.String(),
-		SelectedProjects: string(selected), Build: in.Build, BuildBudget: int64(in.BuildBudget),
+		Recheck: in.Recheck, SelectedProjects: string(selected), Build: in.Build, BuildBudget: int64(in.BuildBudget),
 	})
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func (s reviewStore) create(ctx context.Context, q database.Queryer, in ReviewRe
 
 // reviewRequest is what a saved review was asked to do.
 func reviewRequest(row conformancesql.ConformanceReview) (ReviewRequest, error) {
-	in := ReviewRequest{Trigger: row.Trigger, Build: row.Build, BuildBudget: int(row.BuildBudget)}
+	in := ReviewRequest{Recheck: row.Recheck, Trigger: row.Trigger, Build: row.Build, BuildBudget: int(row.BuildBudget)}
 	if err := json.Unmarshal(row.SelectedProjects, &in.Projects); err != nil {
 		return ReviewRequest{}, fmt.Errorf("review %d's selection: %w", row.ID, err)
 	}
@@ -213,7 +213,7 @@ func (s reviewStore) recordVerdict(ctx context.Context, req verdictAdmission) (V
 			ReviewID: v.ReviewID, ProjectID: v.ProjectID, ProjectSlug: v.ProjectSlug, Sha: v.SHA,
 			Block: v.Block, Version: int64(v.Version), CheckName: v.Check, Evaluator: v.Evaluator,
 			EvaluatorVer: v.EvaluatorVer, Mode: v.Mode, State: v.State.String(), Severity: v.Severity,
-			Detail: v.Detail, CreatedAt: at.Time, ExceptedBy: v.ExceptedBy, EvidenceHash: v.EvidenceHash,
+			Detail: v.Detail, CreatedAt: at.Time, ExceptedBy: v.ExceptedBy, EvidenceHash: v.EvidenceHash, AgentEvidence: agentEvidenceJSON(v.AgentEvidence),
 		})
 		if err != nil {
 			return Verdict{}, err

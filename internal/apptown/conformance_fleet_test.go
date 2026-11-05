@@ -960,21 +960,21 @@ func runWhatIf(t *testing.T, a *App, ctx context.Context, id ids.ID) *conformanc
 }
 
 // A what-if sends model rubrics only when its starter included them with a
-// spend limit, and asks the limit before each project's checklist: once
+// spend limit, and asks the limit before each check session: once
 // observed spend reaches it, or any call's spend is unknown, the rest are
-// not sent and say why. The overshoot is one project's checklist, which may
-// be two paid calls when the first answer is not JSON. What it cost is on
+// not sent and say why. The overshoot is one capped session. What it cost is on
 // the what-if ("at least" when unknown), from the usage each call returns;
 // on the usage ledger it is the gateway's one line per paid call, and no
 // second line of the what-if's own. The calls go through the real gateway
 // to a fake provider.
 //
 // Kills: rubrics sent without the starter including them; the limit read
-// once at the start, or not at all; a retry's spend dropped; unknown spend
+// once at the start, or not at all; a failed session's spend dropped; unknown spend
 // treated as none; rubric spend missing from the ledger, or written twice.
 func TestAWhatIfSpendsOnModelRubricsOnlyUnderItsLimit(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	installGatewayChecks(t, a)
 	tgLocalSh(t, a)
 	ctx := testConformanceContext("boss")
 	var projects []ids.ID
@@ -991,7 +991,7 @@ func TestAWhatIfSpendsOnModelRubricsOnlyUnderItsLimit(t *testing.T) {
 	}
 	var answers []string
 	calls := 0
-	setSecondaryFastSlot(t, a, fakeModelProvider(t, a.Integrations.Bindings, func(providerQuestion) (int, string) {
+	setChecksSlot(t, a, fakeModelProvider(t, a.Integrations.Bindings, func(providerQuestion) (int, string) {
 		body := answers[min(calls, len(answers)-1)]
 		calls++
 		return 200, body
@@ -1028,12 +1028,12 @@ func TestAWhatIfSpendsOnModelRubricsOnlyUnderItsLimit(t *testing.T) {
 
 	answers = []string{chatAnswer("prose, not JSON", 4, 2, 0.4), chatAnswer(pass, 4, 2, 0.4)}
 	got := run(conformance.WhatIfRequest{Rubrics: true, SpendLimitMicros: 500_000})
-	if calls != 2 || got[""] != 1 || got[conformance.NotAssessedSpendLimit] != 2 {
-		t.Fatalf("one checklist (asked twice) spends past the limit, the rest are not sent: %d calls, reasons %v", calls, got)
+	if calls != 2 || got[""] != 1 || got[conformance.NotAssessedSpendLimit] != 1 || got[conformance.NotAssessedError] != 1 {
+		t.Fatalf("a failed session retains its spend, the next crosses the limit, and the rest are not sent: %d calls, reasons %v", calls, got)
 	}
 	latest, err := a.conformance.LatestWhatIf(ctx, "judged-pack", 1)
 	if err != nil || latest.CostMicros != 800_000 || latest.Incomplete != 0 {
-		t.Fatalf("the retried checklist's whole spend is on the what-if: %+v %v", latest, err)
+		t.Fatalf("the sessions' whole spend is on the what-if: %+v %v", latest, err)
 	}
 	report, err := a.Usage.Ledger.Summary(ctx, 1, ids.Nil, "")
 	if err != nil {
@@ -1051,7 +1051,7 @@ func TestAWhatIfSpendsOnModelRubricsOnlyUnderItsLimit(t *testing.T) {
 
 	answers = []string{`{"choices":[{"message":{"content":"` + strings.ReplaceAll(pass, `"`, `\"`) + `"}}]}`}
 	got = run(conformance.WhatIfRequest{Rubrics: true, SpendLimitMicros: 10_000_000})
-	if calls != 1 || got[""] != 1 || got[conformance.NotAssessedSpendUnknown] != 2 {
+	if calls != 1 || got[conformance.NotAssessedError] != 1 || got[conformance.NotAssessedSpendUnknown] != 2 {
 		t.Fatalf("unknown spend stops further checklists: %d calls, reasons %v", calls, got)
 	}
 	if latest, err := a.conformance.LatestWhatIf(ctx, "judged-pack", 1); err != nil || latest.Incomplete != 1 {
@@ -1171,6 +1171,7 @@ func TestFleetReviewSkipsAProjectBeingDeleted(t *testing.T) {
 func TestAWhatIfStoppedWhileItRunsEndsInterrupted(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	installGatewayChecks(t, a)
 	tgLocalSh(t, a)
 	ctx := testConformanceContext("boss")
 	var projects []ids.ID
@@ -1188,7 +1189,7 @@ func TestAWhatIfStoppedWhileItRunsEndsInterrupted(t *testing.T) {
 	job, stop := context.WithCancel(context.Background())
 	defer stop()
 	calls := 0
-	setSecondaryFastSlot(t, a, fakeModelProvider(t, a.Integrations.Bindings, func(providerQuestion) (int, string) {
+	setChecksSlot(t, a, fakeModelProvider(t, a.Integrations.Bindings, func(providerQuestion) (int, string) {
 		if calls++; calls == 2 {
 			stop()
 		}

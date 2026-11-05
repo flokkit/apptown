@@ -17,6 +17,14 @@ fails closed; an unavailable source is reported separately from the conditions
 it can still describe. Neither a failed read nor incomplete observation coverage
 means all clear.
 
+App-check conditions use the evaluator classification supplied by Conformance.
+Undecided AI evaluations stay on project Conformance, with their reasons and
+actions. Evidence-related uncertainty, provider session failures and caps generate no
+Attention or Home item. AppTown setup and execution failures remain visible
+with the reason and next action, as do deterministic operational errors and
+source-read failures. Stored classifications identify these failures rather
+than inferring them from their text.
+
 ## Conditions and evidence
 
 - Controller, worker and deployment-host disks retain each filesystem's own

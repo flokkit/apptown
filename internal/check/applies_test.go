@@ -119,10 +119,6 @@ func panicking(t *testing.T) *check.Judge {
 			t.Fatal("probed for a check that does not apply")
 			return 0, nil
 		}),
-		Complete: check.CompleterFunc(func(context.Context, string, string) (check.Completion, error) {
-			t.Fatal("asked a model about a check that does not apply")
-			return check.Completion{}, nil
-		}),
 		Scanners: check.ScannersFunc(func(name string) (check.Scanner, bool) {
 			return check.Scanner{Name: name, Image: "x", Target: map[bool]string{true: "exec-image"}[name == "inside"], Command: []string{"true"}}, true
 		}),

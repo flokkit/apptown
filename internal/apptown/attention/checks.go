@@ -35,8 +35,14 @@ func (s Checks) Snapshot(ctx context.Context, projects []ids.ID) (Snapshot, erro
 		if count := p.Lanes.Findings; count > 0 {
 			out.Items = append(out.Items, Item{Count: count, Key: p.ProjectID.String(), Title: fmt.Sprintf("%s · app checks · %d confirmed problems", p.Name, count), Detail: "Review the app checks and fix the confirmed problems.", Severity: SeverityWarning, Href: href, ObservedAt: at})
 		}
-		if count := len(p.NotKnown); count > 0 {
-			out.Items = append(out.Items, Item{Count: count, Key: p.ProjectID.String() + "/unknown", Title: fmt.Sprintf("%s · app checks · %d not known", p.Name, count), Detail: strings.Join(p.NotKnown, "; "), Unknown: true, Severity: SeverityWarning, Href: href, ObservedAt: at})
+		var actionable []string
+		for _, u := range p.NotKnown {
+			if u.Evaluator != "llm" || u.SourceReadFailure || u.AppTownFault {
+				actionable = append(actionable, u.Detail)
+			}
+		}
+		if count := len(actionable); count > 0 {
+			out.Items = append(out.Items, Item{Count: count, Key: p.ProjectID.String() + "/unknown", Title: fmt.Sprintf("%s · app checks · %d not known", p.Name, count), Detail: strings.Join(actionable, "; "), Unknown: true, Severity: SeverityWarning, Href: href, ObservedAt: at})
 		}
 	}
 	return out, nil

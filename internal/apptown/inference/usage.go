@@ -22,6 +22,7 @@ type inferenceUsage struct {
 }
 
 type inferenceUsageReader struct {
+	served                           string
 	sse                              bool
 	pending                          []byte
 	overflow                         bool
@@ -70,12 +71,19 @@ func (u *inferenceUsageReader) observe(b []byte) {
 	if json.Unmarshal(b, &event) != nil {
 		return
 	}
+	u.observeModel(event["model"])
+	if v, ok := event["modelVersion"]; ok {
+		u.observeModel(v)
+	}
 	usage := event["usage"]
 	for _, k := range []string{"message", "response"} {
 		if len(event[k]) > 0 {
 			var nested map[string]json.RawMessage
 			if json.Unmarshal(event[k], &nested) == nil && len(nested["usage"]) > 0 {
 				usage = nested["usage"]
+				if v, ok := nested["model"]; ok {
+					u.observeModel(v)
+				}
 			}
 		}
 	}
@@ -136,5 +144,13 @@ func (u *inferenceUsageReader) observe(b []byte) {
 				u.usage.CacheWrite = n
 			}
 		}
+	}
+}
+
+// Malformed model fields leave the last valid served identity intact.
+func (u *inferenceUsageReader) observeModel(raw json.RawMessage) {
+	var model string
+	if json.Unmarshal(raw, &model) == nil && model != "" {
+		u.served = model
 	}
 }
