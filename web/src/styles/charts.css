@@ -17,17 +17,17 @@
 .usage-col { flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 3px; }
 .usage-col:hover { background: var(--hover); }
 /* The picked day: its column boxed in the accent. */
-.usage-col.on { background: var(--accent-bg); outline: 1.5px solid var(--accent); outline-offset: 1px; border-radius: 2px; }
+.usage-col.on { background: var(--accent-bg); outline: 1.5px solid var(--accent); outline-offset: 1px; border-radius: var(--radius-xs); }
 .usage-day { margin-top: 8px; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 .usage-stack {
-  width: 100%; display: flex; flex-direction: column; border-radius: 2px 2px 0 0; overflow: hidden;
+  width: 100%; display: flex; flex-direction: column; border-radius: var(--radius-xs) var(--radius-xs) 0 0; overflow: hidden;
   min-height: 3px;
 }
 .bar-row { margin-bottom: 8px; }
 .bar-row-head { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-xs); margin-bottom: 3px; }
 .bar-row-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bar-track { height: 6px; background: var(--panel2); border-radius: 3px; overflow: hidden; }
-.bar-fill { height: 100%; background: var(--accent); border-radius: 3px; opacity: 0.85; }
+.bar-track { height: 6px; background: var(--panel2); border-radius: var(--radius-bar); overflow: hidden; }
+.bar-fill { height: 100%; background: var(--accent); border-radius: var(--radius-bar); opacity: 0.85; }
 @media (max-width: 800px) {
   .usage-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .usage-stats > span:empty { display: none; }
@@ -60,9 +60,9 @@
   position: relative; flex: 1; display: flex; gap: 2px; height: 16px; min-width: 0;
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1px; overflow: visible;
 }
-.cap-seg { display: block; height: 100%; min-width: 2px; border-radius: 2px; overflow: hidden; }
+.cap-seg { display: block; height: 100%; min-width: 2px; border-radius: var(--radius-xs); overflow: hidden; }
 .cap-in { display: block; padding: 0 6px; font-size: var(--fs-2xs); line-height: 1.2727272727; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cap-seg:hover, .cap-seg:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; z-index: 1; }
+.cap-seg:hover, .cap-seg:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; z-index: var(--z-base); }
 .cap-deployment { background: var(--cap-deployment); }
 .cap-previews { background: var(--cap-previews); }
 .cap-work { background: var(--cap-work); }
@@ -86,7 +86,7 @@
 }
 .cap-unknown { font-size: var(--fs-xs); color: var(--muted); margin-top: 3px; }
 .cap-unknown span { text-decoration: underline dotted; cursor: help; }
-.cap-swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: baseline; }
+.cap-swatch { display: inline-block; width: 9px; height: 9px; border-radius: var(--radius-xs); margin-right: 6px; vertical-align: baseline; }
 .cap-table td:not(:first-child), .cap-table th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
 .cap-details { margin-top: 4px; }
 @media (max-width: 600px) {
@@ -99,7 +99,7 @@
 /* A progress bar's segment for work under way moves; one for work waiting
    its turn is striped and still. Without motion, both are still stripes. */
 .bar-moving, .bar-waiting {
-  background-image: repeating-linear-gradient(-45deg, rgba(255,255,255,0.28) 0 4px, transparent 4px 8px);
+  background-image: repeating-linear-gradient(-45deg, var(--progress-stripe) 0 4px, transparent 4px 8px);
   background-size: 11.3px 11.3px;
 }
 .bar-waiting { background-image: repeating-linear-gradient(-45deg, var(--muted) 0 3px, transparent 3px 7px); }

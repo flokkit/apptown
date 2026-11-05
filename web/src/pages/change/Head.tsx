@@ -127,7 +127,7 @@ export function RequestEntry({ view, current = true, reload }: { view: ChangeVie
   }
   const discard = () => { setEditing(false); setConflict(false); setSaveErr('') }
   return (
-    <div id="request">
+    <div id="request" className="ch-request-content">
       <div className="ch-story-line">
         <span>{ch.openedBy ? `by ${ch.openedBy}` : 'Requested'}</span><button className="link" disabled={!editing && !current} onClick={() => (editing ? discard() : open())}>{editing ? 'Cancel' : started ? (ch.externalRef ? 'Edit ticket link' : 'Add ticket link') : 'Edit'}</button>
         <time dateTime={ch.createdAt}>{fmtStamp(ch.createdAt)}</time>

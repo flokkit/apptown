@@ -2,7 +2,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { useChatViewport } from './chrome'
+import { BREAKPOINTS, NARROW_QUERY, useChatViewport } from './chrome'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -71,4 +71,9 @@ it('leaves the CSS viewport default in place when visualViewport is absent', () 
     expect(document.documentElement.style.getPropertyValue('--viewport-h')).toBe('')
     expect(document.documentElement.style.getPropertyValue('--viewport-top')).toBe('')
   } finally { act(() => root.unmount()) }
+})
+
+it('uses the stylesheet compact and shell widths', () => {
+  expect(BREAKPOINTS).toEqual({ compact: 600, narrow: 800 })
+  expect(NARROW_QUERY).toBe('(max-width: 800px)')
 })

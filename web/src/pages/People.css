@@ -26,7 +26,7 @@ button.link.people-quiet:hover { color: var(--accent); }
 
 /* Four short tabs: on a phone they wrap to a second line rather than
    hiding the last one off the edge. */
-@media (max-width: 480px) {
+@media (max-width: 600px) {
   .tab-strip .tabs.people-tabs { flex-wrap: wrap; overflow-x: visible; row-gap: 0; }
   .tab-strip .tabs.people-tabs a.tab { padding-left: 10px; padding-right: 10px; }
 }

@@ -14,5 +14,5 @@
 .bubbles-div-5 { gap: var(--space-2); flex-wrap: wrap; }
 .bubbles-span { position: relative; display: inline-block; }
 .bubbles-img-2 { height: 64px; border-radius: var(--radius-sm); display: block; }
-.bubbles-button { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; line-height: 1.3333333333; border-radius: 10px; padding: 0; font-size: var(--fs-xs); cursor: pointer; }
+.bubbles-button { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; line-height: 1.3333333333; border-radius: var(--radius-bubble); padding: 0; font-size: var(--fs-xs); cursor: pointer; }
 }

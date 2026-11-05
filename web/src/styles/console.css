@@ -5,7 +5,7 @@
 .bubble-row { display: flex; justify-content: flex-start; margin: 6px 0; }
 .bubble-row.you { justify-content: flex-end; }
 .bubble {
-  max-width: 75%; border-radius: 10px; padding: 8px 12px; font-size: var(--fs-base);
+  max-width: 75%; border-radius: var(--radius-bubble); padding: 8px 12px; font-size: var(--fs-base);
   background: var(--panel); color: var(--text); border: 1px solid var(--border);
 }
 .bubble.you { background: var(--accent); color: var(--on-accent); border: none; }
@@ -59,7 +59,7 @@ body:has(.console) { position: fixed; inset: 0; overflow: clip; }
 /* What the chat is about (Console.tsx): one fold, open on a desk with its
    line hidden, so a desk shows the cards as they always were. */
 details.console-about { margin: 0; }
-@media (min-width: 801px) {
+@media (width > 800px) {
   .console-about > summary { display: none; }
 }
 
@@ -155,7 +155,7 @@ details.console-about { margin: 0; }
   .console-about-line > details.console-about > summary { width: auto; min-height: 44px; padding: 0; margin: 0; font-size: var(--fs-xs); }
   .console-about > summary { min-height: 44px; padding: 2px 0; gap: 4px; font-size: var(--fs-xs); flex-wrap: wrap; }
   .console-about-line > .agent-actions-switch {
-    flex: 0 0 auto; z-index: 1; min-height: 44px;
+    flex: 0 0 auto; z-index: var(--z-base); min-height: 44px;
     margin: 0; gap: 4px; font-size: var(--fs-xs); white-space: nowrap;
   }
   .console .agent-actions-switch input { width: 14px; height: 14px; padding: 0; }

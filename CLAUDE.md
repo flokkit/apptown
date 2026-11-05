@@ -137,7 +137,8 @@ generated queries for production operations, regenerate affected output and
 include it with the change. Do not silently discard database failures. Legitimate
 best-effort operations still need an explicit failure contract.
 
-For web work, follow the [shared data contract](design/architecture/web-data.md).
+For web work, follow the [shared data contract](design/architecture/web-data.md)
+and [component map and stylesheet rules](web/DESIGN.md).
 Reuse the data layer and generated response types; preserve loading, empty, error,
 stale and identity-change semantics. Editors must not overwrite newer state
 silently. Dependency versions and component layout belong in the source tree.

@@ -3,7 +3,7 @@
    each step's form in one panel, labels above their fields. */
 .np-steps { display: flex; flex-wrap: wrap; gap: 6px 24px; list-style: none; padding: 0; margin: 10px 0 20px; font-size: var(--fs-sm); color: var(--muted); }
 .np-steps li.current { color: var(--text); font-weight: var(--fw-strong); }
-.np-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px 24px; }
+.np-panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-section); padding: 20px 24px; }
 .np-panel .np-label { display: block; margin-bottom: 6px; }
 .np-field { display: flex; flex-direction: column; gap: 6px; }
 .np-field input { width: 100%; box-sizing: border-box; }

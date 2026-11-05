@@ -267,9 +267,11 @@ check-test-root-b:
 
 check-web: check-web-css check-web-inline-style check-web-type check-web-layout check-web-tsc check-web-build check-web-lint check-web-test
 
-check-web-css:         ## source CSS uses declared cascade layers and stays within 400 lines per file
+check-web-css:         ## source CSS uses tokens, bounded selectors and shrinking per-file debt
 	python3 scripts/web-css-check_test.py
 	python3 scripts/web-css-check.py
+	node --test web/css-check.test.mjs
+	node web/css-check.mjs
 
 check-web-inline-style: ## inline styles and pixel lengths may only decrease per file
 	python3 scripts/web-inline-style-check_test.py
@@ -279,13 +281,14 @@ check-web-type:        ## typography uses rem tokens and unitless line heights
 	python3 scripts/web-type-check_test.py
 	python3 scripts/web-type-check.py
 
-# The same browser module used by the camera; absence is a gate failure.
-APPTOWN_PLAYWRIGHT_MODULE ?= $(HOME)/.local/share/forge-nightly/playwright/node_modules/playwright/index.mjs
+# The lockfile pins Playwright and its Chromium revision; absence is a gate failure.
+APPTOWN_PLAYWRIGHT_MODULE ?= $(CURDIR)/web/node_modules/playwright/index.mjs
 check-web-layout:       ## content-sized rows and phone fields hold at every text size
 	python3 scripts/web-grid-check_test.py
 	python3 scripts/web-grid-check.py
 	APPTOWN_PLAYWRIGHT_MODULE="$(APPTOWN_PLAYWRIGHT_MODULE)" node web/type-scale.browser-test.mjs
 	APPTOWN_PLAYWRIGHT_MODULE="$(APPTOWN_PLAYWRIGHT_MODULE)" node web/layout.browser-test.mjs
+	APPTOWN_PLAYWRIGHT_MODULE="$(APPTOWN_PLAYWRIGHT_MODULE)" node web/test/css-cascade.mjs
 
 check-web-tsc:
 	cd web && npx tsc --noEmit

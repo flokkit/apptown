@@ -31,4 +31,12 @@ details > summary.muted, details > summary.small { color: var(--text); font-size
   .phone-secondary:not(.row-action) { display: none; }
   .main .mono { white-space: normal; overflow-wrap: anywhere; }
 }
+/* Explicit gaps for wrapping rows and non-table column stacks. */
+.row.row-1, :not(table).stack.stack-1 { gap: var(--space-1); }
+.row.row-2, :not(table).stack.stack-2 { gap: var(--space-2); }
+.row.row-3, :not(table).stack.stack-3 { gap: var(--space-3); }
+.row.row-4, :not(table).stack.stack-4 { gap: var(--space-4); }
+.row.row-5, :not(table).stack.stack-5 { gap: var(--space-5); }
+.row.row-6, :not(table).stack.stack-6 { gap: var(--space-6); }
+
 }

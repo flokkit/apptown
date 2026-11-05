@@ -11,7 +11,7 @@
   overflow-y: auto;
   display: flex; flex-direction: column; gap: 4px; padding: 12px 8px;
 }
-@media (min-width: 801px) {
+@media not all and (max-width: 800px) {
   .sidebar-inner { scrollbar-width: thin; scrollbar-color: var(--rule) transparent; scrollbar-gutter: stable; }
   .sidebar-inner::-webkit-scrollbar { width: var(--space-2); }
   .sidebar-inner::-webkit-scrollbar-track { background: transparent; }
@@ -28,7 +28,7 @@
 
 /* The top bar: AppTown › project › page · state — the one fixed anchor. */
 .topbar {
-  position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h); z-index: 70;
+  position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h); z-index: var(--z-topbar);
   display: flex; align-items: center; padding: 0 16px 0 14px;
   border-bottom: 1px solid var(--border);
   font-size: var(--fs-base); white-space: nowrap; gap: 16px; background: var(--bg);
@@ -74,13 +74,13 @@
   .topbar-crumb:not(.last) { display: none; }
   .topbar-chip { max-width: 30vw; overflow: hidden; text-overflow: ellipsis; }
   .sidebar {
-    position: fixed; top: var(--topbar-h); bottom: 0; left: 0; z-index: 65; overflow-y: auto;
+    position: fixed; top: var(--topbar-h); bottom: 0; left: 0; z-index: var(--z-sidebar); overflow-y: auto;
     transform: translateX(-100%); visibility: hidden;
     transition: transform .16s ease, visibility 0s linear .16s; width: min(280px, 85vw);
   }
   .sidebar.open { transform: none; visibility: visible; transition: transform .16s ease; box-shadow: var(--shadow-pop); }
   .sidebar-inner { position: static; max-height: none; min-height: 100%; padding-bottom: 12px; }
-  .sidebar-backdrop { display: block; position: fixed; inset: var(--topbar-h) 0 0 0; z-index: 60; background: var(--overlay); }
+  .sidebar-backdrop { display: block; position: fixed; inset: var(--topbar-h) 0 0 0; z-index: var(--z-sidebar-backdrop); background: var(--overlay); }
   .main { width: 100%; padding: 16px 18px 48px; }
 }
 
@@ -101,12 +101,12 @@
 .sidebar :is(a, button).nav.muted.active { border-left-color: transparent; font-weight: var(--fw-regular); }
 .sidebar-project { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 10px; padding: 10px 10px 6px; min-width: 0; }
 
-@media (max-width: 700px) {
+@media (max-width: 800px) {
   .topbar > a[href="/projects"] { display: none; }
 }
 .attention-lights { gap: 4px; flex-wrap: nowrap; flex-shrink: 0; }
 .attention-light { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; color: var(--bad); background: var(--bad-bg, transparent); }
-.attention-light.low { color: var(--warn, #b7791f); background: var(--warn-bg, transparent); }
+.attention-light.low { color: var(--warn); background: var(--warn-bg, transparent); }
 .attention-light.off { color: var(--faint); background: transparent; }
 .attention-light:hover { outline: 1px solid currentColor; }
 @media (max-width: 800px) {
@@ -125,7 +125,7 @@
 .sidebar a.nav.active-area { color: var(--text); font-weight: var(--fw-strong); }
 .nav-drawer-head { display: flex; align-items: center; }
 .nav-drawer-head > a.nav { flex: 1; min-width: 0; }
-.nav-drawer-toggle { background: none; border: 0; color: var(--muted); padding: 6px; min-height: 0; cursor: pointer; border-radius: 4px; }
+.nav-drawer-toggle { background: none; border: 0; color: var(--muted); padding: 6px; min-height: 0; cursor: pointer; border-radius: var(--radius-control); }
 .nav-drawer-toggle:hover { color: var(--text); background: var(--panel2); }
 .nav-drawer-items { display: flex; flex-direction: column; margin: 2px 0 6px 19px; padding-left: 8px; border-left: 1px solid var(--border); }
 .sidebar a.nav.nav-sub { padding-top: 6px; padding-bottom: 6px; font-size: var(--fs-sm); }

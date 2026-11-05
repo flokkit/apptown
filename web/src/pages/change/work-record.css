@@ -3,7 +3,7 @@
 .work-page header { margin-bottom: 24px; }
 .work-page h1 { margin: 12px 0 8px; }
 .work-byline { font-size: var(--fs-sm); line-height: 1.7; color: var(--muted); }
-.work-mini { position: sticky; top: var(--topbar-h); z-index: 2; background: var(--panel, var(--bg)); border-block: 1px solid var(--rule); padding: 10px 0; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: var(--fs-xs); }
+.work-mini { position: sticky; top: var(--topbar-h); z-index: var(--z-sticky); background: var(--panel, var(--bg)); border-block: 1px solid var(--rule); padding: 10px 0; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: var(--fs-xs); }
 .work-mini button { font-size: var(--fs-xs); }
 .work-mini button[aria-pressed=true] { background: var(--text); color: var(--bg); }
 .work-events { list-style: none; padding: 0; margin: 0; }
@@ -14,13 +14,13 @@
 .work-event pre { margin: 6px 0; }
 .work-event a + a { margin-left: 12px; }
 .work-full, .work-events [id] { scroll-margin-top: calc(var(--topbar-h) + 60px); }
-@media (max-width: 640px) {
+@media (max-width: 600px) {
   .work-event { grid-template-columns: 24px 56px minmax(0,1fr); gap: 6px; }
 }
-@media (max-width: 640px) {
+@media (max-width: 600px) {
   .work-event > :last-child { grid-column: 3; font-size: var(--fs-2xs); }
 }
-@media (max-width: 640px) {
+@media (max-width: 600px) {
   .work-page .ch-facts-table th { width: 100px; }
 }
 }

@@ -8,7 +8,7 @@
   display: inline-flex; align-items: center; justify-content: center;
   /* Service logos are drawn for a white ground, so the tile stays white
      in both themes. */
-  background: #FFFFFF; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--logo-surface); border: 1px solid var(--border); border-radius: var(--radius);
   flex-shrink: 0;
 }
 
@@ -85,11 +85,11 @@ a.int-name:hover { color: var(--accent-hover); }
 .int-table { display: table; width: 100%; }
 
 .int-used > span { display: block; max-width: 28rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 700px) { .int-used > span { max-width: calc(100vw - 64px); } }
+@media (max-width: 800px) { .int-used > span { max-width: calc(100vw - 64px); } }
 /* Dense collections share a ruled reading order. */
 .status-strip, .int-summary { border-block: 1px solid var(--border-strong); padding: 8px 0; margin: 12px 0; font-size: var(--fs-sm); }
 
-@media (max-width: 700px) {
+@media (max-width: 800px) {
   .slots-table td { width: auto !important; max-width: 100% !important; }
   .slots-table td[data-label] { display: flex; align-items: center; gap: 8px; }
   .slots-table td select { max-width: 100%; }

@@ -1,17 +1,9 @@
+import { productionCSS } from './production-css.mjs'
 // Run with APPTOWN_PLAYWRIGHT_MODULE pointing to the installed Playwright module.
 // Uses the shipped CSS, without a server or seeded application records.
 import assert from 'node:assert/strict'
-import { readFile, readdir } from 'node:fs/promises'
 const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE)
-const source = new URL('./src/', import.meta.url)
-async function styles(directory) {
-  const entries = await readdir(directory, { withFileTypes: true })
-  const files = await Promise.all(entries.map(entry => entry.isDirectory()
-    ? styles(new URL(`${entry.name}/`, directory))
-    : entry.name.endsWith('.css') ? readFile(new URL(entry.name, directory), 'utf8') : ''))
-  return files.join('\n')
-}
-const css = await styles(source)
+const css = await productionCSS()
 const browser = await chromium.launch({ headless: true })
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
@@ -26,6 +18,7 @@ try {
     <div id="spacing-slice" class="evals-note mt-2"></div>
     <table class="stack"><tbody><tr><td>Retained table layout</td></tr></tbody></table>
     <div class="stack" id="column-stack"><span>One</span><span>Two</span></div>
+    ${[1, 2, 3, 4, 5, 6].map(step => `<div class="row row-${step}" data-gap="${step}"><span>One</span><span>Two</span></div><div class="stack stack-${step}" data-gap="${step}"><span>One</span><span>Two</span></div>`).join('')}
     <div class="md"><h1>Heading</h1><h2>Subheading</h2><h3>Lead</h3></div>
     <aside class="sidebar open"><div class="sidebar-inner">
       <div class="popover"><div class="popover-content"><div>
@@ -51,6 +44,9 @@ try {
     assert.ok(Math.abs(measured.pageSpacing - 6 * root / 14) < 0.001, `${size}: extracted page spacing follows the viewer size`)
     assert.ok(Math.abs(measured.spacing - 8 * root / 14) < 0.001, `${size}: utility margin follows the viewer size`)
     for (const field of measured.fields) assert.equal(field.pixels, Math.max(root, 16), `${size} ${field.name}`)
+    for (const gap of await page.locator('[data-gap]').evaluateAll(elements => elements.map(element => ({
+      step: Number(element.dataset.gap), gap: parseFloat(getComputedStyle(element).gap),
+    })))) assert.ok(Math.abs(gap.gap - [4, 8, 12, 16, 24, 32][gap.step - 1] * root / 14) < 0.001, `${size}: gap step ${gap.step}`)
     results.push({ size, ...measured })
   }
   // Small keeps the desktop reference, including steps between the original named tokens.

@@ -77,6 +77,11 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci --no-audit --no-fund
         working-directory: web
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - run: make check-web-layout
+        env:
+          APPTOWN_PLAYWRIGHT_MODULE: ${{ github.workspace }}/web/node_modules/playwright/index.mjs
       # The guides' checks: docs-links.py reads Markdown with web/'s library.
       - run: make check-docs
       - run: make check-web-css check-web-inline-style check-web-type

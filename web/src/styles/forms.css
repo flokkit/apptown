@@ -71,11 +71,11 @@ textarea.prose { font-family: var(--font-sans); font-size: var(--fs-base); }
   display: inline-flex; align-items: center; gap: 5px;
   font-family: var(--font-mono); font-size: var(--fs-xs);
   background: var(--panel2); border: 1px solid var(--border);
-  border-radius: 12px; padding: 2px 4px 2px 9px; color: var(--text);
+  border-radius: var(--radius-dialog); padding: 2px 4px 2px 9px; color: var(--text);
 }
 .model-chip button {
   background: none; border: none; color: var(--muted); cursor: pointer;
-  font-size: var(--fs-sm); line-height: 1; padding: 1px 4px; border-radius: 8px;
+  font-size: var(--fs-sm); line-height: 1; padding: 1px 4px; border-radius: var(--radius-section);
 }
 .model-chip button:hover { color: var(--bad); background: var(--bg); }
 
