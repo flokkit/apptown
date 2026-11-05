@@ -38,7 +38,9 @@ it('orders the finished scene, live heading, host, facts and primary action', ()
   const result = el.querySelector('.ch-deploy-result')!
   expect(result.querySelectorAll('.deploy-stages')).toHaveLength(0)
   expect(result.querySelector('h3')?.classList.contains('ok')).toBe(true)
-  expect([...result.querySelectorAll('a')].map(a => a.textContent)).toEqual(['club.example.test', 'Open the app'])
+  expect([...result.querySelectorAll('a')].map(a => a.textContent)).toEqual(['club.example.test', 'Open the app ↗'])
+  // Both ways to the app open it beside AppTown, not in place of it.
+  expect([...result.querySelectorAll('a')].map(a => a.getAttribute('target'))).toEqual(['_blank', '_blank'])
   expect(result.querySelector('a.app-address')?.getAttribute('href')).toBe('https://club.example.test')
   expect(result.querySelector('a.app-address')?.getAttribute('rel')).toContain('noopener')
   expect(result.querySelector('a.app-address')?.getAttribute('target')).toBe('_blank')
