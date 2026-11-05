@@ -92,8 +92,8 @@ export default function GuidanceLibrary() {
         </span>}>
         {adding && (
           <form onSubmit={create} className="card row" style={{ flexWrap: 'wrap' }}>
-            <input placeholder="name, e.g. prose/terse-style" value={name} onChange={(e) => setName(e.target.value)} required style={{ width: 260 }} autoFocus />
-            <input placeholder="tags, comma-separated" value={tags} onChange={(e) => setTags(e.target.value)} />
+            <input aria-label="Guidance name" placeholder="name, e.g. prose/terse-style" value={name} onChange={(e) => setName(e.target.value)} required style={{ width: 260 }} autoFocus />
+            <input aria-label="Guidance tags" placeholder="tags, comma-separated" value={tags} onChange={(e) => setTags(e.target.value)} />
             <button className="primary" type="submit" disabled={busy}>Create v1</button>
             <button type="button" onClick={() => setAdding(false)}>Cancel</button>
           </form>

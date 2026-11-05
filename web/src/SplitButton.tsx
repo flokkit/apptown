@@ -1,41 +1,35 @@
-import { useCallback, useRef, useState } from 'react'
-import { useDismiss } from './Modal'
+import { Disclosure } from './Popover'
 
 export function SplitButton({ icon, label, sub, busy, primary, green, compact = false, onMain, items }: {
   icon: string; label: string; sub?: string; compact?: boolean; busy?: boolean; primary?: boolean; green?: boolean
   onMain: () => void
   items: { label: string; hint?: string; onClick?: () => void; disabled?: boolean }[]
 }) {
-  const [open, setOpen] = useState(false)
-  const box = useRef<HTMLDivElement>(null)
-  const close = useCallback(() => setOpen(false), [])
-  useDismiss(box, close, open)
   const face = primary ? 'primary' : ''
   const toneStyle = green ? { background: 'var(--ok-bg)', border: '1px solid var(--ok)' } : {}
   return (
-    <div ref={box} style={{ position: 'relative', display: 'flex', flex: compact ? undefined : '1 1 300px', alignItems: 'stretch' }}>
+    <div className="split-button" style={{ position: 'relative', display: 'flex', flex: compact ? undefined : '1 1 300px', alignItems: 'stretch' }}>
       <button className={`${face}${compact ? '' : ' btn-door'}`} onClick={onMain} disabled={busy}
         style={{ flex: 1, borderTopRightRadius: items.length > 0 ? 0 : undefined, borderBottomRightRadius: items.length > 0 ? 0 : undefined, ...toneStyle }}>
-        {busy ? '…' : `${icon ? icon + ' ' : ''}${label}`}
+        <span className="action-label">{busy ? '…' : `${icon ? icon + ' ' : ''}${label}`}</span>
         {sub && <div className="btn-sub">{sub}</div>}
       </button>
       {items.length > 0 && (
-        <button className={face} onClick={() => setOpen((o) => !o)} aria-label={`${label}: more options`}
-          aria-expanded={open} aria-haspopup="menu" title="more options"
+        <Disclosure trigger={<button className={face} aria-label={`${label}: more options`}
+          title="more options"
           style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0, padding: compact ? '0 8px' : '0 14px', fontSize: 'var(--fs-base)',
-                   borderLeft: '1px solid var(--overlay)', ...toneStyle }}>▾</button>
-      )}
-      {open && (
-        <div className="split-menu" role="menu">
+                   borderLeft: '1px solid var(--overlay)', ...toneStyle }}>▾</button>}>
+        <div className="split-menu">
           {items.map((it) => (
-            <button key={it.label} className="subtle" role="menuitem" disabled={it.disabled}
+            <button key={it.label} className="subtle" disabled={it.disabled}
               style={{ opacity: it.disabled ? 0.45 : 1, cursor: it.disabled ? 'default' : undefined }}
-              onClick={() => { if (it.disabled) return; setOpen(false); it.onClick?.() }}>
+              onClick={() => { if (it.disabled) return; it.onClick?.() }}>
               {it.label}
               {it.hint && <div className="muted small" style={{ marginTop: 2 }}>{it.hint}</div>}
             </button>
           ))}
         </div>
+        </Disclosure>
       )}
     </div>
   )

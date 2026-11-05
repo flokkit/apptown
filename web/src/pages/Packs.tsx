@@ -202,11 +202,11 @@ function PackEditor({ draft, existing, onDone }: { draft: Draft; existing: boole
       <h2>{existing ? `Edit pack: ${draft.name}` : 'New pack'}</h2>
       <div className="form-grid" style={{ marginBottom: 12 }}>
         <label>Name</label>
-        <input value={p.name} onChange={(e) => setP({ ...p, name: e.target.value })} placeholder="my-way" autoFocus disabled={existing} />
+        <input aria-label="Name" value={p.name} onChange={(e) => setP({ ...p, name: e.target.value })} placeholder="my-way" autoFocus disabled={existing} />
         <label>Description</label>
-        <input value={p.description} onChange={(e) => setP({ ...p, description: e.target.value })} />
+        <input aria-label="Description" value={p.description} onChange={(e) => setP({ ...p, description: e.target.value })} />
         <label>Version name</label>
-        <input value={p.versionName} onChange={(e) => setP({ ...p, versionName: e.target.value })} placeholder="optional, e.g. stricter deps" />
+        <input aria-label="Version name" value={p.versionName} onChange={(e) => setP({ ...p, versionName: e.target.value })} placeholder="optional, e.g. stricter deps" />
       </div>
       {existing && <div className="muted small" style={{ marginBottom: 8 }}>Saving creates a version. Recommend it on the pack page.</div>}
       {keptAsWritten(p).length > 0 && <div className="muted small" style={{ marginBottom: 8 }}>Kept as written, not edited here: {keptAsWritten(p).join('; ')}.</div>}

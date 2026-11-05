@@ -37,7 +37,7 @@ function SecretRefPicker({ value, onChange, help }: {
       {unknown && <div className="error small" style={{ marginBottom: 6 }}>The secret store could not be read: {namesQ.err}</div>}
       <div className="row">
         {manual === null ? (
-          <select value="" onChange={(e) => {
+          <select aria-label="Secret key" value="" onChange={(e) => {
             if (e.target.value === '__other__') setManual('')
             else if (e.target.value) onChange([...value, e.target.value])
           }}>
@@ -47,7 +47,7 @@ function SecretRefPicker({ value, onChange, help }: {
           </select>
         ) : (
           <>
-            <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="KEY_NAME" autoFocus
+            <input aria-label="Secret key name" value={manual} onChange={(e) => setManual(e.target.value)} placeholder="KEY_NAME" autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault()
@@ -115,7 +115,7 @@ function ModelListPicker({ value, onChange, providerName, config, help }: {
       ) : (
         <>
           <div className="row" style={{ margin: '6px 0' }}>
-            <input value={q} placeholder={`filter ${available.length} models…`} autoFocus
+            <input aria-label="Filter models" value={q} placeholder={`filter ${available.length} models…`} autoFocus
               onChange={(e) => setQ(e.target.value)} style={{ width: 300 }} />
             <span className="muted small">{value.length} enabled</span>
             <button className="subtle" onClick={() => setAvailable(null)}>done</button>
@@ -216,7 +216,7 @@ export function ConnectorForm({ spec, icon, initialName, initialConfig, onDone }
         <div className="form-grid" style={{ maxWidth: 660 }}>
           <label>Name</label>
           <span>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="my-scanner" autoFocus style={{ width: '100%' }} />
+            <input aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="my-scanner" autoFocus style={{ width: '100%' }} />
             <div className="muted small">Workflows refer to this integration by name; runs record which version they used.</div>
           </span>
           {fields.map((f) => (
@@ -240,20 +240,20 @@ export function ConnectorForm({ spec, icon, initialName, initialConfig, onDone }
                   onChange={(e) => setCfg({ ...cfg, [f.key]: e.target.checked })} /> {f.help}</label></span>
               ) : f.type === 'number' ? (
                 <span>
-                  <input type="number" min={1} step={1} value={typeof cfg[f.key] === 'number' ? String(cfg[f.key]) : ''} placeholder={f.placeholder}
+                  <input aria-label={f.label} type="number" min={1} step={1} value={typeof cfg[f.key] === 'number' ? String(cfg[f.key]) : ''} placeholder={f.placeholder}
                     onChange={(e) => setCfg({ ...cfg, [f.key]: asNumber(e.target.value) })} style={{ width: 120 }} />
                   {f.help && <HelpButton about={f.label || f.key} guide="server-setup">{f.help}</HelpButton>}
                 </span>
               ) : f.type === 'select' ? (
                 <span>
-                  <select value={String(cfg[f.key] ?? '')} onChange={(e) => setCfg({ ...cfg, [f.key]: e.target.value })}>
+                  <select aria-label={f.label} value={String(cfg[f.key] ?? '')} onChange={(e) => setCfg({ ...cfg, [f.key]: e.target.value })}>
                     {(f.options ?? '').split(',').map((o) => <option key={o} value={o}>{o || '(none)'}</option>)}
                   </select>
                   {f.help && <HelpButton about={f.label || f.key} guide="server-setup">{f.help}</HelpButton>}
                 </span>
               ) : (
                 <span>
-                  <input value={String(cfg[f.key] ?? '')} placeholder={f.placeholder}
+                  <input aria-label={f.label} value={String(cfg[f.key] ?? '')} placeholder={f.placeholder}
                     onChange={(e) => setCfg({ ...cfg, [f.key]: e.target.value })}
                     style={{ width: '100%', fontFamily: f.type === 'command' ? 'var(--font-mono)' : undefined }} />
                   {f.help && <HelpButton about={f.label || f.key} guide="server-setup">{f.help}</HelpButton>}

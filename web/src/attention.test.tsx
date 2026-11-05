@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { QueryClientProvider, focusManager } from '@tanstack/react-query'
 import { newQueryClient, getKey } from './data'
 import { settled } from './settled'
@@ -244,11 +244,12 @@ it.each([false, true])('search has its own visible control (narrow=%s)', async n
  responses(() => json(known))
  const v = mount(<TopBar me={{ mode: 'internal', user: 'alice' }} narrow={narrow} />)
  await settled(v.client)
- const search = v.el.querySelector('summary[aria-label="Search"]')!
+ const search = v.el.querySelector('button[aria-label="Search"]')!
  expect(search).not.toBeNull()
  expect(search.closest('details')).not.toBe(v.el.querySelector('summary[aria-label="Account menu"]')?.closest('details'))
  act(() => search.dispatchEvent(new MouseEvent('click', { bubbles: true })))
- expect(v.el.querySelector<HTMLInputElement>('input[aria-label="find"]')?.closest('details')?.open).toBe(true)
+ expect(search.getAttribute('aria-expanded')).toBe('true')
+ expect(document.getElementById(search.getAttribute('aria-controls')!)?.querySelector('input[aria-label="find"]')).not.toBeNull()
 })
 it('identifies sidebar links while the project name loads and after a failed read', async () => {
  let release!: (r: Response) => void
@@ -409,4 +410,31 @@ it('folds working checks into one line and keeps the rest in view', async () => 
  expect(fold.textContent).toContain('Backups · 1')
  const outside = [...all.querySelectorAll(':scope > * .attention-row, :scope .attention-row')].filter(r => !fold.contains(r))
  expect(outside.map(r => r.textContent)).toEqual([expect.stringContaining('Never read')])
+})
+
+it('Find keeps focus while typing, follows the first match on Enter and returns focus to its trigger', async () => {
+ responses(() => json(known), { '/projects?limit=6&q=library': { projects: [{ slug: 'library', name: 'Library' }] } })
+ function Address() { return <output>{useLocation().pathname}</output> }
+ const v = mount(<><TopBar me={{ mode: 'internal', user: 'alice' }} /><Address /></>)
+ const trigger = v.el.querySelector<HTMLButtonElement>('[aria-label="Search"]')!
+ act(() => trigger.click())
+ const input = document.querySelector<HTMLInputElement>('#find-projects')!
+ expect(document.activeElement).toBe(input)
+ act(() => {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'library')
+  input.dispatchEvent(new Event('input', { bubbles: true }))
+ })
+ await settled(v.client)
+ expect(document.activeElement).toBe(input)
+ expect(document.querySelector('.topbar-find-menu')?.textContent).toContain('Library')
+ const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+ act(() => input.dispatchEvent(enter))
+ expect(enter.defaultPrevented).toBe(true)
+ expect(v.el.querySelector('output')?.textContent).toBe('/projects/library')
+ expect(document.querySelector('#find-projects')).toBeNull()
+ expect(document.activeElement).toBe(trigger)
+ act(() => trigger.click())
+ act(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
+ expect(trigger.getAttribute('aria-expanded')).toBe('false')
+ expect(document.activeElement).toBe(trigger)
 })

@@ -97,18 +97,20 @@ export function CatalogPicker({ slug, onClose }: { slug: string; onClose: () => 
         ) : (
           <div key={e.name} className="card" style={{
             cursor: 'pointer', borderColor: picked?.name === e.name ? 'var(--accent)' : undefined,
-          }} onClick={() => setPicked(picked?.name === e.name ? null : e)}>
+          }}>
+            <button className="catalog-entry subtle" aria-expanded={picked?.name === e.name} onClick={() => setPicked(picked?.name === e.name ? null : e)}>
             <div className="row">
               <strong><code>{e.name}</code></strong>
             </div>
             <div className="small" style={{ marginTop: 4 }}>{e.description}</div>
+            </button>
             {picked?.name === e.name && <ReadStatus q={defQ} what="the change's definition" className="small" />}
             {picked?.name === e.name && def && (
               <div style={{ marginTop: 10 }} onClick={(ev) => ev.stopPropagation()}>
                 {(def.params ?? []).map((p) => (
                   <div className="row" key={p.name} style={{ marginBottom: 6 }}>
                     <label className="small" style={{ minWidth: 110 }}>{p.name}{p.required ? ' *' : ''}</label>
-                    <input value={params[p.name] ?? ''} placeholder={p.description ?? p.default ?? ''}
+                    <input aria-label={p.name} value={params[p.name] ?? ''} placeholder={p.description ?? p.default ?? ''}
                       onChange={(ev) => setParams({ ...params, [p.name]: ev.target.value })} style={{ flex: 1 }} />
                   </div>
                 ))}

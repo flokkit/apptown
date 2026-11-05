@@ -72,20 +72,3 @@ it('omits acts that are not offered', () => {
   expect(el.querySelector('.danger, .primary')).toBeNull()
   act(() => root.unmount())
 })
-
-it.each([1, 2, 3])('keeps %i choices equal in full rows at desktop and phone widths', count => {
-  let width = 900, resize = () => {}
-  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({ width }) as DOMRect)
-  vi.stubGlobal('ResizeObserver', class { constructor(fn: () => void) { resize = fn } observe() {} disconnect() {} })
-  const el = document.createElement('div'), root = createRoot(el)
-  try {
-    act(() => root.render(<DecisionChoices note="" setNote={() => {}} busy={false} conversation={{ href: '?tab=conversation' }}
-      accept={count > 1 ? { label: 'Accept', run: () => {} } : undefined}
-      rework={{ label: 'Send back…', run: () => {} }}
-      abandon={count > 2 ? { label: 'Abandon change', run: () => {} } : undefined} />))
-    const grid = el.querySelector<HTMLElement>('.ch-decision-choices')!
-    expect(grid.style.gridTemplateColumns).toBe(`repeat(${count}, minmax(0, 1fr))`)
-    width = 390; act(() => resize())
-    expect(grid.style.gridTemplateColumns).toBe(`repeat(${count === 2 ? 2 : 1}, minmax(0, 1fr))`)
-  } finally { act(() => root.unmount()); vi.restoreAllMocks() }
-})

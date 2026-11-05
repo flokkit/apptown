@@ -87,7 +87,7 @@ span.application-open { color: var(--text); border: 1px solid var(--border-stron
 
 /* Home and Projects share identity, state/age and action columns. */
 .project-rows { display: grid; grid-template-columns: minmax(0, 1fr); }
-.project-row { display: grid; grid-template-columns: minmax(0, 1fr) 180px 150px; gap: 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border); position: relative; }
+.project-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 13ch) auto; gap: 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border); position: relative; }
 .project-identity { display: flex; align-items: center; min-width: 0; gap: 12px; }
 .project-copy { min-width: 0; }
 .project-name { color: var(--text); overflow-wrap: anywhere; }
@@ -112,4 +112,8 @@ a.project-avatar, a.project-avatar:hover { text-decoration: none; color: inherit
   :root:not([data-theme="light"]) .project-letter { background: hsl(var(--project-hue) 35% 24%); color: hsl(var(--project-hue) 45% 88%); }
 }
 :root[data-theme="dark"] .project-letter { background: hsl(var(--project-hue) 35% 24%); color: hsl(var(--project-hue) 45% 88%); }
+@container rows (max-width: 48rem) {
+  .project-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .project-row > :is(.project-identity, .project-state, .project-action) { grid-column: 1; justify-self: start; }
+}
 }

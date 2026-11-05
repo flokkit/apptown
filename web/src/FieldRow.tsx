@@ -1,10 +1,8 @@
-// A label and its control, as one row of a .form-grid.
+import { cloneElement, useId, type ReactElement } from 'react'
 
-export function FieldRow({ label, help, children }: { label: string; help?: string; children: React.ReactNode }) {
-  return (
-    <>
-      <label title={help}>{label}</label>
-      {children}
-    </>
-  )
+// Keep the label association even when callers do not supply an id.
+export function FieldRow({ label, help, children }: { label: string; help?: string; children: ReactElement<{ id?: string }> }) {
+  const generated = useId()
+  const id = children.props.id ?? generated
+  return <><label htmlFor={id} title={help}>{label}</label>{cloneElement(children, { id })}</>
 }

@@ -61,7 +61,7 @@ export function ProjectsList({ view, base }: { view: ConformanceView; base: stri
     <Section title="Projects" count={view.projects.length || undefined}>
       {view.projects.length === 0 && <p className="muted small">No repo-backed projects yet.</p>}
       {view.projects.length > 8 && (
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a project by name, slug, standing or way of working…"
+        <input aria-label="Find a project" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a project by name, slug, standing or way of working…"
           style={{ maxWidth: 420, width: '100%', margin: '12px 0 4px' }} />
       )}
       {needle && all.length === 0 && <p className="muted small">Nothing matches "{q}".</p>}

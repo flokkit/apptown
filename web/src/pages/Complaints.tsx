@@ -24,7 +24,7 @@ function AnswerBox({ id }: { id: string }) {
   if (!open) return <div style={{ marginTop: 6 }}><button className="subtle" onClick={() => setOpen(true)}>↳ answer…</button></div>
   return (
     <div className="row" style={{ marginTop: 8, gap: 8 }}>
-      <input value={text} placeholder="what was done about it (goes on the record)" style={{ flex: 1 }}
+      <input aria-label="What was done about it" value={text} placeholder="what was done about it (goes on the record)" style={{ flex: 1 }}
         onChange={(e) => setText(e.target.value)} autoFocus />
       <button className="primary" disabled={busy || !text.trim()} onClick={() => void run(() => post(`/complaints/${id}/answer`, { answer: text.trim() }))}>{busy ? '…' : 'answer'}</button>
       <button className="subtle" onClick={() => setOpen(false)}>cancel</button>

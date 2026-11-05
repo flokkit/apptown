@@ -1,4 +1,4 @@
-import { ReactNode, RefObject, useEffect, useRef } from 'react'
+import { ReactNode, RefObject, useEffect, useId, useRef } from 'react'
 
 // One dialog for the whole app (debt review, finding 8): a backdrop and a
 // panel with a real dialog role, Escape and click-outside close it, focus
@@ -15,6 +15,7 @@ export function Modal({ title, head, onClose, children, maxWidth }: {
   children: ReactNode
   maxWidth?: number
 }) {
+  const titleId = useId()
   const panel = useRef<HTMLDivElement>(null)
   useDismiss(panel, onClose)
 
@@ -41,10 +42,10 @@ export function Modal({ title, head, onClose, children, maxWidth }: {
   return (
     <div className="modal-backdrop">
       <div ref={panel} className="modal-panel" role="dialog" aria-modal="true" tabIndex={-1}
-        aria-label={typeof title === 'string' ? title : undefined}
+        aria-labelledby={titleId}
         style={maxWidth ? { maxWidth } : undefined} onKeyDown={onKeyDown}>
         <div className="row" style={{ marginBottom: 10 }}>
-          {typeof title === 'string' ? <h2 style={{ margin: 0 }}>{title}</h2> : title}
+          <div id={titleId}>{typeof title === 'string' ? <h2 style={{ margin: 0 }}>{title}</h2> : title}</div>
           <span style={{ flex: 1 }} />
           {head}
           <button className="subtle" onClick={onClose} aria-label="close" title="close">✕</button>

@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises';
+import { wrappedRowActions } from '../../../web/row-action-lines.mjs';
 const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE);
 const base = process.env.DESIGN_URL, out = process.env.DESIGN_OUT;
 const browser = await chromium.launch({ headless: true, args: ['--no-proxy-server'] });
@@ -233,7 +234,7 @@ try {
           }
         }
         if (screen === 'home-search') {
-          await page.locator('summary[aria-label="Search"]').click();
+          await page.locator('button[aria-label="Search"]').click();
           await page.getByRole('textbox', { name: 'find', exact: true }).fill('club');
           await page.locator('.topbar-find-menu').waitFor();
           const clipped = await page.locator('.topbar-find-menu button').evaluateAll(els => els.some(el => el.scrollWidth > el.clientWidth + 1));
@@ -277,7 +278,7 @@ try {
           if (covered) throw new Error('decision controls cover the approval meaning');
         }
         if (!process.env.DESIGN_BASELINE) {
-          const clipped = await page.locator('.topbar > .account-menu > summary').evaluateAll(els => els.some(el => {
+          const clipped = await page.locator('.topbar > .account-menu > button').evaluateAll(els => els.some(el => {
             const r = el.getBoundingClientRect(); return r.left < 0 || r.right > innerWidth;
           }));
           if (clipped) throw new Error(screen + ': account control clipped by the topbar');
@@ -352,6 +353,18 @@ try {
           if (screen === 'docs') {
             const exposed = await page.locator('.docs-group:not([open]) .conn-subnav-item').evaluateAll(els => els.some(el => el.getClientRects().length && el.checkVisibility()));
             if (exposed) throw new Error('closed docs group exposes its contents');
+          }
+        }
+        if (size === 'desktop') {
+          const original = await page.evaluate(() => document.documentElement.dataset.size);
+          try {
+            for (const textSize of ['medium', 'large']) {
+              await page.evaluate(value => { document.documentElement.dataset.size = value; }, textSize);
+              const wrapped = await page.evaluate(wrappedRowActions);
+              if (wrapped.length) throw new Error(`${screen} ${textSize}: wrapped action labels ${JSON.stringify(wrapped)}`);
+            }
+          } finally {
+            await page.evaluate(value => { if (value) document.documentElement.dataset.size = value; else delete document.documentElement.dataset.size; }, original);
           }
         }
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);

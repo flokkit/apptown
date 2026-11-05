@@ -76,7 +76,7 @@ export function ServiceKindsPanel() {
         <button onClick={() => setEditing(KIND_EXAMPLE)}>+ Define a shared service</button>
       ) : (
         <div className="card">
-          <textarea value={editing} onChange={(e) => setEditing(e.target.value)} rows={20}
+          <textarea aria-label="Service kind definition" value={editing} onChange={(e) => setEditing(e.target.value)} rows={20}
             style={{ width: '100%', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }} />
           <div className="row" style={{ marginTop: 8 }}>
             <span style={{ flex: 1 }} />

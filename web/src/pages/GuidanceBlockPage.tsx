@@ -68,9 +68,9 @@ export default function GuidanceBlockPage() {
         <div>
           <div className="form-grid" style={{ marginBottom: 8, maxWidth: 700 }}>
             <label>Tags</label>
-            <input value={tags} onChange={(e) => setTags(e.target.value)} />
+            <input aria-label="Tags" value={tags} onChange={(e) => setTags(e.target.value)} />
           </div>
-          <textarea rows={16} value={body} onChange={(e) => setBody(e.target.value)}
+          <textarea aria-label="Guidance" rows={16} value={body} onChange={(e) => setBody(e.target.value)}
             placeholder="One convention, stated plainly. Agents receive this text exactly as written." />
           <div className="row" style={{ marginTop: 8 }}>
             <button className="primary" disabled={busy} onClick={() => void save()}>Save as v{block.latestVersion + 1}</button>

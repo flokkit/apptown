@@ -20,15 +20,8 @@ it('bounds the chat shell and gives the console remaining flex space without pix
   expect(declarations('body:has(.console)')).toMatch(/overflow:\s*clip/)
 })
 
-it('keeps the phone primary actions on one line and restart beside Open when expanded', () => {
-  expect(declarations('.console-controls:is(.controls-open, .controls-folded)')).toContain('display: grid')
-  for (const selector of [
-    '.console-controls:is(.controls-open, .controls-folded) .workshop-actions .finish',
-    '.console-controls:is(.controls-open, .controls-folded) .change-controls-toggle',
-  ]) expect(declarations(selector)).toContain('grid-row: 1')
-  for (const selector of [
-    '.console-controls.controls-open .tryit > button:not(.tryit-restart)',
-    '.console-controls.controls-open .tryit-restart',
-    '.console-controls.controls-open .workshop-actions .finish',
-  ]) expect(declarations(selector)).toContain('grid-row: 2')
+it('wraps phone controls and keeps their touch targets', () => {
+  expect(declarations('.console-controls:is(.controls-open, .controls-folded)')).toContain('display: flex')
+  expect(declarations('.console-controls:is(.controls-open, .controls-folded)')).toContain('flex-wrap: wrap')
+  expect(declarations('.console-controls:is(.controls-open, .controls-folded) button')).toContain('min-height: 44px')
 })

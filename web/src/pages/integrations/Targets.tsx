@@ -57,12 +57,12 @@ export function OfferForm({ target, groups, onDone }: { target: string; groups: 
     <div className="card" style={{ padding: 10, marginTop: 4 }}>
       <div className="form-grid" style={{ maxWidth: 'none' }}>
         <label>To</label>
-        <select value={group} onChange={(e) => setGroup(e.target.value)}>
+        <select aria-label="Offer to" value={group} onChange={(e) => setGroup(e.target.value)}>
           <option value="*">everyone</option>
           {groups.map((g) => <option key={g} value={g}>{g}</option>)}
         </select>
         <label title="leave empty for no limit">At most</label>
-        <span className="row"><input value={maxStanding} onChange={(e) => setMaxStanding(e.target.value)} placeholder="no limit" style={{ width: 90 }} inputMode="numeric" /> <span className="muted small">standing deployments per project</span></span>
+        <span className="row"><input aria-label="At most standing deployments per project" value={maxStanding} onChange={(e) => setMaxStanding(e.target.value)} placeholder="no limit" style={{ width: 90 }} inputMode="numeric" /> <span className="muted small">standing deployments per project</span></span>
         <label title="leave all unticked to allow any">Audiences</label>
         <span className="row">{AUDIENCES.map((x) => (
           <label key={x} className="small"><input type="checkbox" checked={audiences.includes(x)} onChange={() => toggle(audiences, setAudiences, x)} /> {x}</label>

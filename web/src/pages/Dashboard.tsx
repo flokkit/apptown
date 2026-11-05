@@ -54,11 +54,11 @@ function SetupCard() {
             that use that provider.
           </div>
           <div className="row">
-            <select value={provider} onChange={(e) => setProvider(e.target.value)}>
+            <select aria-label="Model provider" value={provider} onChange={(e) => setProvider(e.target.value)}>
               <option value="anthropic">Anthropic</option>
               <option value="openrouter">OpenRouter</option>
             </select>
-            <input type="password" value={key} onChange={(e) => setKey(e.target.value)}
+            <input aria-label="API key" type="password" value={key} onChange={(e) => setKey(e.target.value)}
               placeholder="paste your API key" style={{ flex: 1, maxWidth: 420 }}
               onKeyDown={(e) => e.key === 'Enter' && key && save()} />
             <button className="primary" disabled={busy || !key} onClick={save}>{busy ? '…' : 'Save'}</button>

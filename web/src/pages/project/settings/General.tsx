@@ -101,7 +101,7 @@ export function DangerZone({ slug }: { slug: string }) {
             </tbody>
           </table>
           <div className="row" style={{ marginTop: 10 }}>
-            <input value={confirm} onChange={(e) => setConfirm(e.target.value)}
+            <input aria-label="Confirm project address" value={confirm} onChange={(e) => setConfirm(e.target.value)}
               placeholder={`type "${slug}" to confirm`} style={{ width: 260, maxWidth: '100%' }} />
             <button className="danger" disabled={busy || confirm !== slug || envs === null} onClick={askDelete}>Delete {slug}</button>
             <button className="subtle" onClick={() => { setOpen(false); setConfirm('') }}>Cancel</button>
@@ -232,13 +232,7 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
           <FieldRow label="Name"><input value={shown?.name ?? ''} onChange={(e) => edit('name')(e.target.value)} /></FieldRow>
           <FieldRow label="Icon" help="an emoji"><input value={shown?.icon ?? ''} onChange={(e) => edit('icon')(e.target.value)} maxLength={8} style={{ width: 90 }} /></FieldRow>
           <FieldRow label={project.blurbSource === 'person' ? 'Description (edited by you)' : 'Description (suggested)'}>
-            <div>
-              <div className="row" style={{ gap: 8 }}>
-                <input value={shown?.blurb ?? ''} onChange={(e) => edit('blurb')(e.target.value)} maxLength={140} placeholder="a few words" style={{ flex: 1, minWidth: 0 }} />
-
-              </div>
-
-            </div>
+            <input value={shown?.blurb ?? ''} onChange={(e) => edit('blurb')(e.target.value)} maxLength={140} placeholder="a few words" style={{ flex: 1, minWidth: 0 }} />
           </FieldRow>
           <FieldRow label="Group" help="how projects are grouped on the front page">
             <input value={shown?.namespace ?? ''} onChange={(e) => edit('namespace')(e.target.value)} list="known-namespaces" placeholder="(none)" style={{ width: 200 }} />

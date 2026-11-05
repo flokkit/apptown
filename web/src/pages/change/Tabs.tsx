@@ -62,13 +62,13 @@ export function AdrLinks({ view, onChange }: { view: ChangeView; onChange: () =>
         </div>
       ))}
       <div className="row" style={{ marginTop: 4 }}>
-        <select value={pick} onChange={(e) => setPick(e.target.value)}>
+        <select aria-label="Decision to link" value={pick} onChange={(e) => setPick(e.target.value)}>
           <option value="">link existing ADR…</option>
           {unlinked.map((a) => <option key={a.id} value={a.id ?? ''}>ADR-{String(a.number).padStart(3, '0')} {a.title} ({a.status})</option>)}
         </select>
         <button onClick={link} disabled={!pick}>Link</button>
         <form onSubmit={createLinked} className="row">
-          <input placeholder="…or new ADR title" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input aria-label="New ADR title" placeholder="…or new ADR title" value={title} onChange={(e) => setTitle(e.target.value)} />
           <button type="submit" disabled={!title.trim()}>Create draft</button>
         </form>
       </div>
@@ -88,9 +88,9 @@ export function AddArtifact({ runId, onChange }: { runId: string; onChange: () =
   }
   return (
  <form onSubmit={add} className="row" style={{ padding: '12px 0', flexWrap: 'wrap' }}>
-      <input placeholder="Kind (for example notes)" value={kind} onChange={(e) => setKind(e.target.value)} required />
-      <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-      <input placeholder="Link (optional)" value={ref} onChange={(e) => setRef(e.target.value)} style={{ width: 220, maxWidth: '100%' }} />
+      <input aria-label="Record kind" placeholder="Kind (for example notes)" value={kind} onChange={(e) => setKind(e.target.value)} required />
+      <input aria-label="Record name" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+      <input aria-label="Record link" placeholder="Link (optional)" value={ref} onChange={(e) => setRef(e.target.value)} style={{ width: 220, maxWidth: '100%' }} />
       <button type="submit">Attach</button>
       {err && <span className="error">{err}</span>}
     </form>

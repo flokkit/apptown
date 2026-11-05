@@ -96,7 +96,8 @@ describe('choosing a chat', () => {
   it("takes this change's chat when AppTown has one, opening none", async () => {
     const opens = fakeAppTown(() => ({ body: { sessions: [chat('mine', C1)] } }))
     const { el, done } = await page(`?change=${C1}`)
-    await vi.waitFor(() => expect(el.querySelector('[title="mine"]')).not.toBeNull())
+    await act(async () => (el.querySelector('.head-menu > button') as HTMLButtonElement).click())
+    await vi.waitFor(() => expect(document.querySelector('[title="mine"]')).not.toBeNull())
     await settle()
     expect(opens).toEqual([])
     done()
@@ -133,7 +134,8 @@ describe('choosing a chat', () => {
     let answer: Reply = { body: { sessions: [chat('one', C1)] } }
     const opens = fakeAppTown(() => answer)
     const { el, done } = await page(`?change=${C1}`)
-    await vi.waitFor(() => expect(el.querySelector('[title="one"]')).not.toBeNull())
+    await act(async () => (el.querySelector('.head-menu > button') as HTMLButtonElement).click())
+    await vi.waitFor(() => expect(document.querySelector('[title="one"]')).not.toBeNull())
     // The next reading is on its way: the answer held from change 1's
     // reading (no chat for change 2) must not open one.
     let release!: (r: { body: unknown }) => void
@@ -143,14 +145,16 @@ describe('choosing a chat', () => {
     expect(opens).toEqual([])
     // It answers with change 2's chat, opened elsewhere meanwhile.
     await act(async () => { release({ body: { sessions: [chat('one', C1), chat('two', C2)] } }) })
-    await vi.waitFor(() => expect(el.querySelector('[title="two"]')).not.toBeNull())
+    if (el.querySelector('.head-menu > button')?.getAttribute('aria-expanded') === 'false') await act(async () => (el.querySelector('.head-menu > button') as HTMLButtonElement).click())
+    await vi.waitFor(() => expect(document.querySelector('[title="two"]')).not.toBeNull())
     // And back to the project's chat, which also waits for its own reading.
     answer = new Promise((r) => { release = r })
     await act(async () => { navigate('/projects/p/console') })
     await settle()
     expect(opens).toEqual([])
     await act(async () => { release({ body: { sessions: [chat('one', C1), chat('two', C2), chat('desk', null)] } }) })
-    await vi.waitFor(() => expect(el.querySelector('[title="desk"]')).not.toBeNull())
+    if (el.querySelector('.head-menu > button')?.getAttribute('aria-expanded') === 'false') await act(async () => (el.querySelector('.head-menu > button') as HTMLButtonElement).click())
+    await vi.waitFor(() => expect(document.querySelector('[title="desk"]')).not.toBeNull())
     await settle()
     expect(opens).toEqual([])
     done()
@@ -199,8 +203,9 @@ describe('ending a chat', () => {
       return answered(url, init)
     }))
     const { el, done } = await page(`?change=${C1}`)
-    await vi.waitFor(() => expect(el.querySelector('[title="mine"]')).not.toBeNull())
-    const button = [...el.querySelectorAll('button')].find((b) => b.textContent === 'end chat')!
+    await act(async () => (el.querySelector('.head-menu > button') as HTMLButtonElement).click())
+    await vi.waitFor(() => expect(document.querySelector('[title="mine"]')).not.toBeNull())
+    const button = [...document.querySelectorAll<HTMLButtonElement>('.popover button')].find((b) => b.textContent === 'end chat')!
     await act(async () => { button.click() })
     await settle()
     expect(deletes).toEqual(['/api/v1/console/mine'])
