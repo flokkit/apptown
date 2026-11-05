@@ -104,8 +104,7 @@ export function SuppressionsTab({ slug }: { slug: string }) {
       <StaleNote q={q} />
       {err && <div className="error">{err}</div>}
       <Section title="Recorded" count={list.length || undefined}
-        action={<a href={`/api/v1/projects/${slug}/dispositions/openvex`} target="_blank" rel="noreferrer">OpenVEX export ↗</a>}
-        note="Made from the Findings page. Each matches findings by fingerprint or identifier and package, and expires on schedule; an expired one fails the gate again.">
+        action={<a href={`/api/v1/projects/${slug}/dispositions/openvex`} target="_blank" rel="noreferrer">OpenVEX export ↗</a>}>
         {list.length === 0 && <p className="muted">No suppressions.</p>}
         {list.map((d) => (
           <div className="card row security-suppression" key={d.id} style={{ display: 'flex' }}>

@@ -1,3 +1,4 @@
+import { PageHead } from '../PageHead'
 import { PRODUCT } from '../brand'
 import { useParams } from 'react-router-dom'
 import { post } from '../api'
@@ -78,7 +79,7 @@ export default function Project() {
       {tab === 'security' && (
         <>
           {/* The menu's Security drawer holds these pages; the heading says which. */}
-          <SubPageHead area="Security" label={secTab[0].toUpperCase() + secTab.slice(1)} />
+          <PageHead key={secTab} page="projectSecurity" sub={secTab[0].toUpperCase() + secTab.slice(1)} />
           {secTab === 'findings' && <FindingsTab slug={slug!} />}
           {secTab === 'suppressions' && <SuppressionsTab slug={slug!} />}
         </>
@@ -88,7 +89,7 @@ export default function Project() {
       {tab === 'settings' && (
         <>
           {/* The menu's Settings drawer holds these pages; the heading says which. */}
-          <SubPageHead area="Settings" label={SETTINGS_LABEL[setTab]} />
+          <PageHead key={setTab} page="projectSettings" sub={SETTINGS_LABEL[setTab]} />
           {setTab === 'general' && <GeneralTab project={project} current={projectCurrent} onChanged={load} />}
           {setTab === 'working' && <GuidanceTab slug={slug!} />}
           {setTab === 'services' && (
@@ -118,8 +119,4 @@ function ProjectHeader({ project }: { project: ProjectT }) {
       {project.namespace && <span className="badge" style={{ marginLeft: 10 }} title="namespace (display grouping)">{project.namespace}</span>}
     </h1>
   )
-}
-
-function SubPageHead({ area, label }: { area: string; label: string }) {
-  return <div className="sub-page-head"><div className="page-area">{area}</div><h2>{label}</h2></div>
 }

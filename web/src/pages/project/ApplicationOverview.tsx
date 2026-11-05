@@ -1,4 +1,5 @@
 import './ApplicationOverview.css'
+import { PageHead } from '../../PageHead'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
@@ -58,7 +59,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
   const open = data ? data.active.length + (data.open?.length ?? 0) : null
   return <div className="application-overview">
     <header className="application-heading">
-      <div className="application-title"><h1>{project.name}</h1>{app?.url && <AppAddress className="btn primary application-open" url={app.url} hostOnly={app.hostOnly}>Open app ↗</AppAddress>}</div>
+      <PageHead page="projectOverview" title={project.name} actions={app?.url && <AppAddress className="btn primary application-open" url={app.url} hostOnly={app.hostOnly}>Open app ↗</AppAddress>} />
       {project.blurb && <p className="muted">{project.blurb}</p>}
       {app?.url && <AppAddress url={app.url} hostOnly={app.hostOnly} />}
     </header>
