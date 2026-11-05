@@ -155,13 +155,16 @@ function NavBottom({ cls, complaints, me }: { cls: (a: { isActive: boolean }) =>
 // Drawer is an area of the product with pages of its own: the area opens
 // where you are in it, and its pages are the menu's map of the area.
 function Drawer({ label, icon, to, active, items }: { label: string; icon: ReactNode; to: string; active: boolean; items: { to: string; label: string; active: boolean }[] }) {
-  const [open, setOpen] = useState(active)
-  useEffect(() => { if (active) setOpen(true) }, [active])
+  const { pathname } = useLocation()
+  const [choice, setChoice] = useState({ pathname, open: active })
+  // Manual choices belong to this page, including closing its current area.
+  const open = choice.pathname === pathname ? choice.open : active
+  if (choice.pathname !== pathname) setChoice({ pathname, open: active })
   return (
     <div className={'nav-drawer' + (open ? ' open' : '')}>
       <div className="nav-drawer-head">
         <NavLink to={to} className={() => 'nav' + (active ? ' active-area' : '')}>{icon}{label}</NavLink>
-        <button className="nav-drawer-toggle" aria-expanded={open} aria-label={`${open ? 'Close' : 'Open'} ${label}`} onClick={() => setOpen(o => !o)}>
+        <button className="nav-drawer-toggle" aria-expanded={open} aria-label={`${open ? 'Close' : 'Open'} ${label}`} onClick={() => setChoice({ pathname, open: !open })}>
           {open ? <ChevronDown aria-hidden size={14} /> : <ChevronRight aria-hidden size={14} />}
         </button>
       </div>
