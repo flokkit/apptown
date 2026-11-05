@@ -4,7 +4,7 @@ heavy-main.yml runs these jobs (scripts/ci_workflows_test.py).
 """
 from collections import Counter
 
-EXECUTION_JOBS = {'web', 'heavy-ok', 'journeys', 'opt-in-tiers'} | {
+EXECUTION_JOBS = {'web', 'heavy-ok', 'journeys', 'opt-in-tiers', 'web-ui'} | {
     'race-' + part for part in ('root', 'backup', 'workflow', 'rest')} | {
     'integration-' + part for part in ('root-a', 'root-b', 'root-c', 'dependency', 'worker', 'rest')}
 

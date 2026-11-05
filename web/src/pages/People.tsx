@@ -213,7 +213,7 @@ export function TokensCard() {
             onYes={() => { void run(() => del(`/tokens/${t.Name}`)) }} />
         </div>
       ))}
-      <div className="people-tokens-card-div">
+      <div className="people-form">
         <input aria-label="Token name" placeholder="token name (e.g. laptop-cli)" value={name} onChange={e => setName(e.target.value)} />
         <select aria-label="Record actions as" value={actsAs} onChange={e => setActsAs(e.target.value)} title="whose name the token's actions are recorded under">
           <option value="">acts as you</option>

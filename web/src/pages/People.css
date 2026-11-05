@@ -16,20 +16,15 @@
 }
 
 /* One control height across a form's inputs, select and button. */
-.people-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: stretch; }
+.people-form { min-width: 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: stretch; }
 .people-form > input, .people-form > select, .people-form > button { height: 40px; min-height: 40px; box-sizing: border-box; margin: 0; }
+.people-form > select { min-width: 0; max-width: 100%; }
 .people-form > input { flex: 1 1 10em; min-width: 0; }
 .people-invite { display: grid; gap: 10px; padding: 12px 0; }
 .people-by-password { display: grid; gap: 8px; }
 button.link.people-quiet { justify-self: start; padding: 0; min-height: 0; color: var(--muted); font-size: var(--fs-sm); text-decoration: none; }
 button.link.people-quiet:hover { color: var(--accent); }
 
-/* Four short tabs: on a phone they wrap to a second line rather than
-   hiding the last one off the edge. */
-@media (max-width: 600px) {
-  .tab-strip .tabs.people-tabs { flex-wrap: wrap; overflow-x: visible; row-gap: 0; }
-  .tab-strip .tabs.people-tabs a.tab { padding-left: 10px; padding-right: 10px; }
-}
 .people-accounts > .list-row:last-child { border-bottom: 0; }
 @media (max-width: 800px) {
   .people-accounts .account-actions > summary, .people-form > input, .people-form > select, .people-form > button, button.link.people-quiet { min-height: 44px; }

@@ -81,6 +81,10 @@ jobs:
           - name: journeys
             args: test -tags=journey ./internal/apptown/ -run TestJourney -timeout 30m -v
             require: ""
+          # Full local camera: 24m58s; 45m leaves 80% headroom.
+          - name: web-ui
+            args: camera -timeout 45m
+            require: TestWebUICapture
           # The test image carries Playwright's Chromium and the pinned Pi.
           # A skip is not evidence: the job fails unless each test passed.
           # One package at a time (-p 1): Chromium runs on the host network,
@@ -153,6 +157,13 @@ jobs:
         env:
           CI_HEAVY_PREBUILT: "1"
         run: eval "sh scripts/ci-heavy.sh ${{ matrix.args }}"
+      - if: always() && matrix.name == 'web-ui'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-ui-captures
+          path: /tmp/apptown-ci-web-ui/captures/
+          if-no-files-found: error
+          retention-days: 7
       - if: always()
         run: sh scripts/ci-heavy.sh cleanup
       - if: github.ref == 'refs/heads/main'

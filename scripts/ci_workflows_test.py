@@ -93,6 +93,18 @@ class TestCache(unittest.TestCase):
             r = subprocess.run(['sh', '-c', script], env={'RESULTS': results}, capture_output=True)
             self.assertEqual(r.returncode == 0, results == 'success success success', results)
 
+    def test_camera_is_required_and_keeps_captures_before_cleanup(self):
+        main = text('heavy-main.yml')
+        self.assertRegex(main, r'name: web-ui\n            args: camera -timeout \d+m\n            require: TestWebUICapture')
+        tier = job(main, 'tier')
+        self.assertLess(tier.index('name: web-ui-captures'), tier.index('sh scripts/ci-heavy.sh cleanup'))
+        self.assertIn("if: always() && matrix.name == 'web-ui'", tier)
+        self.assertIn('path: /tmp/apptown-ci-web-ui/captures/', tier)
+        self.assertIn('if-no-files-found: error', tier)
+        runner = (HERE / 'ci-web-camera.mjs').read_text()
+        for value in ['web/dist', 'APPTOWN_DESIGN_VITE:', 'APPTOWN_DESIGN_OUT:', "server.listen(0, '127.0.0.1'", "'^TestWebUICapture$'"]:
+            self.assertIn(value, runner)
+
     def test_main_executes_fresh_and_alone_saves(self):
         main, ci = text('heavy-main.yml'), text('ci.yml')
         # heavy-main: on main and by hand only; every test job fresh.

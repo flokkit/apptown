@@ -62,7 +62,7 @@
 .status-help > summary::before, .status-help[open] > summary::before { content: none; }
 .status-help[open] > summary { margin: 0; }
 .status-help > summary::-webkit-details-marker { display: none; }
-.status-help > div { position: absolute; z-index: var(--z-popover-status); top: 100%; left: 0; width: min(32rem, calc(100vw - 32px)); max-width: calc(100vw - 32px); box-sizing: border-box; white-space: normal; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
+.status-help > div { position: absolute; z-index: var(--z-popover-status); top: 100%; left: 0; width: min(32rem, calc(100vw - 2rem)); max-width: calc(100vw - 2rem); box-sizing: border-box; white-space: normal; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
 .status-help > summary .chip { text-decoration: underline dotted var(--muted); text-underline-offset: 4px; }
 .chip:is(.unknown,.stale) > span[aria-hidden] { font-size: 0; display: inline-block; width: 8px; height: 8px; border: 1px dashed currentColor; border-radius: 50%; margin-right: 6px; }
 

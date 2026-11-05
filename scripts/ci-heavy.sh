@@ -4,6 +4,7 @@
 # tour (candidate.yml's tour job):
 #   ci-heavy.sh test <go test arguments...>
 #   ci-heavy.sh test-partition integration <group>   (scripts/ci-test-partition.sh)
+#   ci-heavy.sh camera <go test arguments...>   serve built web/ and capture UI
 #   ci-heavy.sh tour           make tour, with site/tour and web/dist left in
 #                              the checkout, owned by the caller
 #   ci-heavy.sh cleanup        (the job's last step; also run on exit)
@@ -70,6 +71,8 @@ cleanup_probes() {
 cleanup() {
 	cleanup_probes
 	docker rm -f "$name" >/dev/null 2>&1 || true
+	# The camera job uploads even failed captures before its explicit cleanup step.
+	[ "${mode:-}" != camera ] || return 0
 	# What the tests' containers wrote is root's; only a root container
 	# removes it. The pinned busybox (diskspace.DFImage) is one the
 	# integration tests pull anyway.
@@ -84,12 +87,12 @@ cleanup)
 	cleanup
 	exit 0
 	;;
-test | test-partition | tour)
+test | test-partition | camera | tour)
 	mode=$1
 	shift
 	;;
 *)
-	echo "usage: $0 test <go test arguments...> | test-partition integration <group> | tour | cleanup | pull" >&2
+	echo "usage: $0 test <go test arguments...> | test-partition integration <group> | camera <go test arguments...> | tour | cleanup | pull" >&2
 	exit 2
 	;;
 esac
@@ -207,6 +210,7 @@ fi
 case "$mode" in
  test) set -- go test "$@" ;;
  test-partition) set -- sh scripts/ci-test-partition.sh "$@" ;;
+ camera) set -- node scripts/ci-web-camera.mjs "$@" ;;
 esac
 [ -z "${CI_TEST_RESULTS:-}" ] || set -- sh -c 'sh scripts/ci-test-environment.sh "$CI_TEST_RESULTS" && exec "$@"' sh "$@"
 status=0
