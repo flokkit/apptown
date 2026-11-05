@@ -168,3 +168,17 @@ func sameFiles(dir string, files []File) error {
 	}
 	return nil
 }
+
+// ValidSourceFiles also reserves /src when a task presents committed source
+// there. Other task kinds keep the ordinary generated-file contract.
+func ValidSourceFiles(files []File) error {
+	if err := ValidFiles(files); err != nil {
+		return err
+	}
+	for _, f := range files {
+		if f.Path == "/src" || strings.HasPrefix(f.Path, "/src/") {
+			return fmt.Errorf("a generated file cannot replace committed source: %q", f.Path)
+		}
+	}
+	return nil
+}

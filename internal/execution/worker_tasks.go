@@ -62,9 +62,10 @@ type WorkerTaskRequest struct {
 	Source string `json:"source,omitempty"`
 	// Request is the client's identity for what the task runs. The worker
 	// holds a key to it; without one, to the request as sent.
-	Request  string   `json:"request,omitempty"`
-	ReadOnly bool     `json:"readOnly,omitempty"`
-	Labels   []string `json:"labels,omitempty"`
+	Request     string   `json:"request,omitempty"`
+	SourceAtSrc bool     `json:"sourceAtSrc,omitempty"`
+	ReadOnly    bool     `json:"readOnly,omitempty"`
+	Labels      []string `json:"labels,omitempty"`
 	// Files are generated files the task sees read-only, kept in the
 	// task's own folder until it is released.
 	Files []File `json:"files,omitempty"`
@@ -118,7 +119,7 @@ func (w WorkerTasks) Ensure(ctx context.Context, spec TaskSpec) (TaskObservation
 	if err := spec.Validate(clock.Or(w.Now)()); err != nil {
 		return TaskObservation{}, err
 	}
-	if spec.Workspace != "" || len(spec.Mounts) > 0 || len(spec.ExtraHosts) > 0 || spec.Network != "" {
+	if spec.ReadOnlySource != "" || spec.Workspace != "" || len(spec.Mounts) > 0 || len(spec.ExtraHosts) > 0 || spec.Network != "" {
 		return TaskObservation{}, fmt.Errorf("%w: a worker shares no files or host routes with AppTown", ErrUnsupported)
 	}
 	if err := ValidFiles(spec.Files); err != nil {
@@ -126,7 +127,7 @@ func (w WorkerTasks) Ensure(ctx context.Context, spec TaskSpec) (TaskObservation
 	}
 	// The generated files travel with the request: the worker keeps them
 	// in the task's own folder. Inputs travel ahead of it, as blobs.
-	req := WorkerTaskRequest{Key: spec.Key, Admission: spec.Admission, Image: spec.Image, Argv: spec.Argv, Env: spec.Env, ReadOnly: spec.WorkspaceRO, Labels: spec.Labels, Request: spec.Digest(), Files: spec.Files,
+	req := WorkerTaskRequest{Key: spec.Key, Admission: spec.Admission, Image: spec.Image, Argv: spec.Argv, Env: spec.Env, ReadOnly: spec.WorkspaceRO, SourceAtSrc: spec.SourceAtSrc, Labels: spec.Labels, Request: spec.Digest(), Files: spec.Files,
 		Inputs: spec.Inputs, Results: spec.Results, Images: spec.Images, Private: spec.Private}
 	// A task's workspace is its own, under its key, unless it names one it
 	// shares: the worker leaves a shared workspace when the task is released.

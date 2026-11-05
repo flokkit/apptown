@@ -22,6 +22,7 @@ import (
 // cache miss on an exec-image tool build the app image, within BuildBudget
 // builds (0 is the default budget).
 type ReviewRequest struct {
+	Recheck     bool
 	Trigger     string
 	Projects    []ids.ID
 	Build       bool
@@ -103,7 +104,7 @@ func (s *Service) execution(review Review, in ReviewRequest) *Execution {
 
 // Options is how the review was asked to run.
 func (e *Execution) Options() ReviewOptions {
-	return ReviewOptions{Projects: slices.Clone(e.request.Projects), Build: e.request.Build, BuildBudget: e.request.BuildBudget}
+	return ReviewOptions{Recheck: e.request.Recheck, Projects: slices.Clone(e.request.Projects), Build: e.request.Build, BuildBudget: e.request.BuildBudget}
 }
 
 func (e *Execution) Review() Review { e.mu.Lock(); defer e.mu.Unlock(); return e.review }
@@ -259,6 +260,7 @@ func (e *Execution) Finish(ctx context.Context, result Completion, state ReviewS
 // Assessment supplies evaluation results, not record identity or authority.
 // The execution fills identity, source, declaration and recording time itself.
 type Assessment struct {
+	AgentEvidence                              *check.AgentEvidence
 	ProjectID                                  ids.ID
 	Check                                      CheckIdentity
 	State                                      Outcome
@@ -306,7 +308,7 @@ func (e *Execution) PrepareVerdict(ctx context.Context, in Assessment) (*pending
 	if err != nil {
 		return nil, err
 	}
-	v := Verdict{ReviewID: id, ProjectID: p.ID, ProjectSlug: p.Slug, SHA: source.SHA, Block: declared.Block, Version: declared.Version, Check: declared.Check.Name,
+	v := Verdict{AgentEvidence: in.AgentEvidence, ReviewID: id, ProjectID: p.ID, ProjectSlug: p.Slug, SHA: source.SHA, Block: declared.Block, Version: declared.Version, Check: declared.Check.Name,
 		Evaluator: check.Evaluator(declared.Check), EvaluatorVer: in.EvaluatorVersion, Mode: check.ModeFor(declared.Check), State: in.State, Severity: declared.Check.Severity, Detail: in.Detail, At: stamp.Of(e.service.records.now()).String(), ExceptedBy: in.ExceptedBy, EvidenceHash: in.EvidenceHash}
 	if v.Severity == "" {
 		v.Severity = "note"

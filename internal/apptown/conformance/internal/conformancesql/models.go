@@ -61,6 +61,7 @@ type ConformanceReview struct {
 	BuildBudget      int64
 	SourceRun        ids.ID
 	Candidate        string
+	Recheck          bool
 }
 
 type ConformanceReviewException struct {
@@ -81,23 +82,24 @@ type ConformanceReviewException struct {
 }
 
 type ConformanceVerdict struct {
-	ID           ids.ID
-	ReviewID     ids.ID
-	ProjectID    ids.ID
-	ProjectSlug  string
-	Sha          string
-	Block        string
-	Version      int64
-	CheckName    string
-	Evaluator    string
-	EvaluatorVer string
-	Mode         string
-	State        string
-	Severity     string
-	Detail       string
-	CreatedAt    time.Time
-	ExceptedBy   string
-	EvidenceHash string
+	ID            ids.ID
+	ReviewID      ids.ID
+	ProjectID     ids.ID
+	ProjectSlug   string
+	Sha           string
+	Block         string
+	Version       int64
+	CheckName     string
+	Evaluator     string
+	EvaluatorVer  string
+	Mode          string
+	State         string
+	Severity      string
+	Detail        string
+	CreatedAt     time.Time
+	ExceptedBy    string
+	EvidenceHash  string
+	AgentEvidence *json.RawMessage
 }
 
 type Disposition struct {

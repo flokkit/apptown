@@ -20,7 +20,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
-	"github.com/flokkit/apptown/internal/apptown/modelcall"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -30,18 +29,14 @@ import (
 	"github.com/flokkit/apptown/stock"
 )
 
-// scannerEffects answers commands with report, and model questions with
-// answer when one is set. It keeps the image of every command and the model
-// of every question it was asked.
+// scannerEffects answers commands with report and keeps each command image.
 type scannerEffects struct {
 	t      *testing.T
 	report string
-	answer string
 	exit   int // the exit every run answers with
 
 	mu       sync.Mutex
 	images   []string
-	models   []string
 	requests []execution.Request
 }
 
@@ -49,12 +44,6 @@ func (e *scannerEffects) ran(image string) bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return slices.Contains(e.images, image)
-}
-
-func (e *scannerEffects) asked(model string) bool {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return slices.Contains(e.models, model)
 }
 
 func (e *scannerEffects) Run(ctx context.Context, req execution.Request) execution.Outcome {
@@ -77,15 +66,6 @@ func (e *scannerEffects) Run(ctx context.Context, req execution.Request) executi
 		out.Report, out.ReportErr = execution.ReadReport(req.Workspace, req.Report)
 	}
 	return out
-}
-func (e *scannerEffects) Ask(_ context.Context, call modelcall.Call) (string, *modelcall.Usage, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.models = append(e.models, call.Model)
-	if e.answer == "" {
-		return "", nil, errors.New("scanner fixtures make no model calls")
-	}
-	return e.answer, &modelcall.Usage{}, nil
 }
 func (*scannerEffects) Observe(context.Context, ids.ID, string, string) (conformance.Outcome, string) {
 	return conformance.CannotAssess, ""

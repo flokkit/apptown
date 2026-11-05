@@ -148,7 +148,7 @@ func (f Fleet) evalJudgeFor(ctx context.Context, in ArmComparison) func([]check.
 		if in.Judge == "" {
 			return nil, nil, errors.New("no judge model: the baseline names no secondary fast model")
 		}
-		return f.evaluator.checklist(ctx, modelcall.Call{Purpose: "eval-score", ProjectID: in.ProjectID, Judge: true, Model: in.Judge}, items, diff)
+		return f.evaluator.judgeChecks(ctx, modelcall.Call{Purpose: "eval-score", ProjectID: in.ProjectID, Judge: true, Model: in.Judge}, items, diff)
 	}
 }
 
@@ -159,6 +159,7 @@ func (f Fleet) answersAt(ctx context.Context, repo, sha string, checks []conform
 		return nil, fmt.Errorf("reading %s: %w", strs.ShortSHA(sha), err)
 	}
 	defer cleanup()
+	in.repository = repo
 	in.tool = toolContext{Context: ctx, Exceptions: []conformance.Disposition{}, ProjectID: projectID, SHA: sha, BuildDir: src, AllowBuild: true}
 	out := []CheckAnswer{}
 	for _, a := range f.assessChecks(ctx, checks, in) {

@@ -6,10 +6,35 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/access"
+	piharness "github.com/flokkit/apptown/internal/apptown/agentharness/pi"
+	"github.com/flokkit/apptown/internal/apptown/conformance"
+	"github.com/flokkit/apptown/internal/apptown/inference"
+	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
+	"github.com/flokkit/apptown/internal/apptown/schema"
+	"github.com/flokkit/apptown/internal/apptown/scm"
+	"github.com/flokkit/apptown/internal/apptown/tasks"
+	"github.com/flokkit/apptown/internal/apptown/verification"
+	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/console/consoletest"
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
+	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/gitexec/gittest"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,26 +42,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
-
-	"github.com/flokkit/apptown/internal/execfile"
-	"github.com/flokkit/apptown/internal/ids"
-	"github.com/flokkit/apptown/stock"
-
-	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
-	"github.com/flokkit/apptown/internal/apptown/schema"
-	"github.com/flokkit/apptown/internal/apptown/scm"
-	"github.com/flokkit/apptown/internal/apptown/tasks"
-	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
-	"github.com/flokkit/apptown/internal/execution"
-	"github.com/flokkit/apptown/internal/gitexec"
-	"github.com/flokkit/apptown/internal/gitexec/gittest"
-	"github.com/flokkit/apptown/internal/poll"
-	"github.com/flokkit/apptown/internal/worker"
-	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
 // The composed proof of agent and review steps on a worker. What is real and what is controlled:
@@ -467,4 +472,208 @@ func awaitStepFor(t *testing.T, a *App, id ids.ID, want workflow.StepState, with
 	if step.Status != want {
 		t.Fatalf("step %d is %s, want %s: %s", id, step.Status, want, step.Evidence)
 	}
+}
+
+type checkMeasurementModels []byte
+
+func (m checkMeasurementModels) ModelsJSON(context.Context) ([]byte, error) { return m, nil }
+
+// TestCheckSessionMeasurement runs the real Pi harness on Docker against a fake
+// streaming provider, through the real gateway, fleet review and claimed
+// guidance step. Its counts are synthetic provider tokens, not tokenizer or
+// model-quality measurements. Limits are explicit measurement allowances.
+func TestCheckSessionMeasurement(t *testing.T) {
+	a := conformanceTestApp(t)
+	a.Work.Stop()
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			http.NotFound(w, r)
+			return
+		}
+		raw, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		var request struct {
+			Messages []struct {
+				Role    string
+				Content json.RawMessage
+			}
+		}
+		if err := json.Unmarshal(raw, &request); err != nil {
+			t.Error(err)
+			return
+		}
+		tools := 0
+		observed := ""
+		for _, m := range request.Messages {
+			if m.Role == "tool" {
+				tools++
+				observed = string(m.Content)
+			}
+		}
+		delta := map[string]any{"role": "assistant"}
+		finish := "stop"
+		switch tools {
+		case 0:
+			args, _ := json.Marshal(map[string]string{"command": "ls -a /src; if test -f /src/mise.toml; then echo ROOT_PRESENT; else echo ROOT_ABSENT; fi; rg -n 'state' /src || true; node -e \"require('fs').readFileSync('/src/README.md','utf8')\""})
+			delta["tool_calls"] = []map[string]any{{"index": 0, "id": "check_lookup", "type": "function", "function": map[string]string{"name": "bash", "arguments": string(args)}}}
+			finish = "tool_calls"
+		case 1:
+			verdict := "fail"
+			if strings.Contains(observed, "ROOT_PRESENT") {
+				verdict = "pass"
+			}
+			report, _ := json.Marshal(map[string]string{"verdict": verdict, "evidence": "/src/mise.toml; ls -a /src and test -f /src/mise.toml", "note": "checked the root toolchain declaration"})
+			args, _ := json.Marshal(map[string]string{"path": "/work/.apptown/check.json", "content": string(report)})
+			delta["tool_calls"] = []map[string]any{{"index": 0, "id": "check_report", "type": "function", "function": map[string]string{"name": "write", "arguments": string(args)}}}
+			finish = "tool_calls"
+		default:
+			delta["content"] = "The check result is recorded."
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		send := func(v any) { b, _ := json.Marshal(v); fmt.Fprintf(w, "data: %s\n\n", b) }
+		send(map[string]any{"id": "check-fixture", "object": "chat.completion.chunk", "model": "fixture-served", "choices": []map[string]any{{"index": 0, "delta": delta, "finish_reason": nil}}})
+		send(map[string]any{"id": "check-fixture", "object": "chat.completion.chunk", "model": "fixture-served", "choices": []map[string]any{{"index": 0, "delta": map[string]any{}, "finish_reason": finish}}, "usage": map[string]any{"prompt_tokens": (len(raw) + 3) / 4, "completion_tokens": 100, "cost": 0.001}})
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	t.Cleanup(provider.Close)
+	cfg, _ := json.Marshal(map[string]any{"baseUrl": provider.URL, "api": "openai-completions", "models": []string{"judge"}})
+	if _, err := a.Integrations.Bindings.Save(t.Context(), "fixture", "model", "fixture", string(cfg), "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Models.Set(t.Context(), "checks", "standard", "fixture/judge", "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	gateway := inference.New([]netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")}, inferenceIdentityFor(a), a.providers, a.Usage.Requests)
+	gatewayServer := httptest.NewServer(gateway)
+	t.Cleanup(gatewayServer.Close)
+	parsed, _ := url.Parse(gatewayServer.URL)
+	config, err := piharness.ModelsJSON([]piharness.Provider{{Name: "fixture", URL: "http://host.docker.internal:" + parsed.Port() + "/providers/fixture", API: "openai-completions", Models: []map[string]any{{"id": "judge", "name": "Fixture judge", "reasoning": false, "input": []string{"text"}, "contextWindow": 128000, "maxTokens": 4096, "cost": map[string]int{"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	j := &verification.CheckJudge{Driver: execution.DockerTasks{Namespace: "check-measure-" + ids.New(time.Now()).String(), Daemon: execution.SelectDocker(), Files: t.TempDir(), CallerAdmitsDisk: true}, Image: func(context.Context) (string, error) { return "apptown-agent:latest", nil }, Models: checkMeasurementModels(config), Sessions: &a.checkSessions, Capacity: a.capacity, Directory: t.TempDir(), Profile: "local-docker", Limits: execution.Limits{CPUs: 1, MemoryBytes: 1 << 30, PIDs: 128}, TimeLimit: 10 * time.Minute, TokenLimit: 1000000}
+	a.checkJudge = j
+	installCheckEffects(t, a, checkOverrides{})
+	absent, _, _ := fleetRepo(t, a, "absent", map[string]string{"README.md": "fixture app\nstate is external\n"})
+	present, _, _ := fleetRepo(t, a, "present", map[string]string{"README.md": "fixture app\n", "mise.toml": "[tools]\nnode='24'\n"})
+	for _, pid := range []ids.ID{absent, present} {
+		adopt(t, a, pid, "toolchain", 1, checksJSON(treeRubric("root-toolchain", "a root mise.toml exists", "README.md"), treeRubric("root-toolchain-again", "a root mise.toml exists", "README.md")))
+	}
+	measure := func(label string, want int, elapsed time.Duration) {
+		t.Helper()
+		files, err := filepath.Glob(filepath.Join(j.Directory, "sessions", "*.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var tokensIn, tokensOut, duration, maxDuration, maxTokens int64
+		byCommit := map[string]int{}
+		for _, f := range files {
+			b, err := os.ReadFile(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var row struct {
+				Result     verification.CheckResult
+				Transcript []byte
+				Events     []byte
+			}
+			if err := json.Unmarshal(b, &row); err != nil {
+				t.Fatal(err)
+			}
+			if row.Result.Reason != "" {
+				t.Fatalf("session %s: %+v", f, row.Result)
+			}
+			if !bytes.Contains(row.Transcript, []byte("rg -n")) || !bytes.Contains(row.Transcript, []byte("readFileSync")) || bytes.Contains(b, []byte(`"filesRead"`)) {
+				t.Fatalf("session must keep recursive/script observations without a complete read list: %s", f)
+			}
+			e := row.Result.Evidence
+			byCommit[e.Commit]++
+			if e.TokensIn+e.TokensOut > maxTokens {
+				maxTokens = e.TokensIn + e.TokensOut
+			}
+			tokensIn += e.TokensIn
+			tokensOut += e.TokensOut
+			duration += e.DurationMs
+			if e.DurationMs > maxDuration {
+				maxDuration = e.DurationMs
+			}
+		}
+		if len(files) != want {
+			t.Fatalf("%s: sessions=%d want %d", label, len(files), want)
+		}
+		t.Logf("MEASURE %s: sessions=%d wall=%s total-session-ms=%d max-session-ms=%d input=%d output=%d max-session-tokens=%d sessions-by-commit=%v", label, len(files), elapsed, duration, maxDuration, tokensIn, tokensOut, maxTokens, byCommit)
+	}
+	started := time.Now()
+	_, verdicts, err := fleetReviewsFor(a).RunFleetReviewWith(testConformanceContext("t"), "manual", conformance.ReviewOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range verdicts {
+		if v.State != conformance.Conforms && v.State != conformance.DoesNotConform {
+			t.Fatalf("fleet: %+v", v)
+		}
+	}
+	measure("fleet", 4, time.Since(started))
+	// A fresh evaluator cache exposes the conditional base wave independently
+	// from the fleet's already-judged base tree.
+	j.Directory = t.TempDir()
+	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "check", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{{Name: "guidance", Uses: "guidance/conformance"}}}}}})
+	recordFixtureAdoptions(t, a)
+	ctx := a.asEngine(t.Context())
+	a.Work.Stop()
+	change, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: absent, Title: "update the description"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws := (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(change.ID)
+	writeFile(t, ws, "README.md", "fixture app updated\nstate is external\n")
+	gittest.Run(t, ws, "add", "README.md")
+	gittest.Run(t, ws, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "description")
+	run, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: change.ID, Workflow: "check"})
+	if !errors.Is(err, workflow.ErrDispatchStopped) {
+		t.Fatal(err)
+	}
+	snap, err := a.Work.Snapshot(ctx, run.ID, workflow.DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := mirrorBranchForTest(a.projectRepoPath("absent"), ws, change.Branch); err != nil {
+		t.Fatal(err)
+	}
+	started = time.Now()
+	if err := a.Work.ExecuteStep(ctx, snap.Steps[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := workflow.ReadStepIn(ctx, a.DB, snap.Steps[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var evidence struct{ Checks verification.Results }
+	if err := json.Unmarshal(saved.Evidence, &evidence); err != nil {
+		t.Fatal(err)
+	}
+	if len(evidence.Checks) != 2 || !evidence.Checks[0].Preexisting {
+		t.Fatalf("claimed guidance and baseline: %s", saved.Evidence)
+	}
+	measure("guidance-head-and-base", 4, time.Since(started))
+	ca := workertest.NewCA(t)
+	backend := execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: "check-worker-" + ids.New(time.Now()).String(), Daemon: execution.SelectDocker(), CallerAdmitsDisk: true}
+	server := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Tasks: backend, Sessions: consoletest.NewAgent()})
+	j.Driver = execution.WorkerTasks{URL: server.URL, Client: workertest.Client(t, ca, workertest.Installation)}
+	j.Remote = true
+	j.Directory = t.TempDir()
+	started = time.Now()
+	_, verdicts, err = fleetReviewsFor(a).RunFleetReviewWith(testConformanceContext("t"), "manual", conformance.ReviewOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range verdicts {
+		if v.State != conformance.Conforms && v.State != conformance.DoesNotConform {
+			t.Fatalf("worker fleet: %+v", v)
+		}
+	}
+	measure("worker-fleet", 4, time.Since(started))
 }

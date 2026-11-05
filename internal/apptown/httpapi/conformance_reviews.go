@@ -26,11 +26,12 @@ func (h ConformanceReviews) RunConformanceReview(w http.ResponseWriter, r *http.
 	// strict: an unknown key ("project" for "projects") must not read as
 	// no projects named, which is the whole estate.
 	jsonCommand(w, r, jsonBody{optional: true, strict: true}, func(in struct {
+		Recheck  bool     `json:"recheck"`
 		Projects []string `json:"projects"`
 		Build    *bool    `json:"build"`
 	}) {
 		// an empty body is the whole estate
-		opts := conformance.ReviewOptions{Build: true}
+		opts := conformance.ReviewOptions{Build: true, Recheck: in.Recheck}
 		if in.Build != nil {
 			opts.Build = *in.Build
 		}

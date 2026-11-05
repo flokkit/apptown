@@ -69,8 +69,8 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
   const running = isRunning(view?.lens.review) ? view?.lens.review : view?.reviews?.find(isRunning)
   if (running?.id && !following) setFollowing(running.id)
 
-  const run = async (projects?: string[]) => {
-    const rev = await act(() => post<Review>('/conformance/review', projects ? { projects, build: true } : { build: true }))
+  const run = async (projects?: string[], recheck = false) => {
+    const rev = await act(() => post<Review>('/conformance/review', { projects, build: true, ...(recheck ? { recheck: true } : {}) }))
     if (rev?.id) setFollowing(rev.id)
   }
   // The page's own acts' failures; a read with an answer stays shown under a
@@ -116,7 +116,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
       {/* Keyed by what they show: a refresh keeps the person's open folds,
           moving to another review or project starts its own. */}
       {view && tab === 'projects' && <ProjectsList key={base} view={view} base={base} />}
-      {view && tab === 'project' && slug && <ProjectPage key={`${base}/projects/${slug}`} view={view} slug={slug} readOnly={readOnly} onRunOne={(sl) => run([sl])} />}
+      {view && tab === 'project' && slug && <ProjectPage key={`${base}/projects/${slug}`} view={view} slug={slug} readOnly={readOnly} onRunOne={(sl) => run([sl], true)} />}
       {tab === 'reviews' && <ReviewsList />}
       {view && tab === 'checks' && <ChecksList key={base} view={view} base={base} />}
       {tab === 'remediations' && <RemediationsList />}

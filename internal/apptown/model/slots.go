@@ -20,7 +20,7 @@ import (
 const StandardProfile = "standard"
 
 // StockSlots are the purposes AppTown itself names, in page order.
-var StockSlots = []string{"main-strong", "main-fast", "secondary-strong", "secondary-fast", "plan", "implement", "review", "security", "fast", "chat", "worker", "scout"}
+var StockSlots = []string{"main-strong", "main-fast", "secondary-strong", "secondary-fast", "plan", "implement", "review", "checks", "security", "fast", "chat", "worker", "scout"}
 
 // IsBase reports whether a slot is one of the four basic profile choices.
 func IsBase(slot string) bool {
@@ -40,6 +40,7 @@ var Gloss = map[string]string{
 	"plan":             "thinking a task through before the work starts",
 	"implement":        "writing the code",
 	"review":           "a second set of eyes on finished work",
+	"checks":           "AI conformance checks",
 	"security":         "looking for ways the work could be unsafe",
 	"fast":             "quick jobs: approval briefs, project descriptions, setup interviews",
 	"chat":             "the helper people talk to on a project page",
@@ -69,8 +70,8 @@ var StockUses = []stockUse{
 	{Slot: "fast", Job: "conversation request labels", Sources: []string{"narrative_wiring.go"}},
 	{Slot: "fast", Job: "project descriptions", Sources: []string{"projectlifecycle/description.go"}},
 	{Slot: "fast", Job: "ways-of-working setup interviews", Sources: []string{"httpapi/pack_assistance.go"}},
-	{Slot: "secondary-fast", Job: "ways-of-working model checks", Sources: []string{"verification/guidance_models.go"}},
-	{Slot: "secondary-fast", Job: "fleet dependency checks", Sources: []string{"verification/fleet_dependencies.go"}},
+	{Slot: "checks", Job: "ways-of-working model checks", Sources: []string{"verification/guidance_models.go"}},
+	{Slot: "checks", Job: "fleet conformance checks", Sources: []string{"verification/fleet_dependencies.go"}},
 }
 
 // stockFallbacks: where an unmapped slot degrades to. Seeded as data so
@@ -79,7 +80,7 @@ var StockUses = []stockUse{
 var stockFallbacks = map[string]string{
 	"plan": "main-strong", "implement": "main-strong", "review": "secondary-strong",
 	"security": "review", "fast": "main-fast", "chat": "main-strong",
-	"worker": "main-strong", "scout": "fast",
+	"worker": "main-strong", "scout": "fast", "checks": "secondary-fast",
 	"main-fast": "main-strong", "secondary-strong": "main-strong", "secondary-fast": "main-fast",
 }
 

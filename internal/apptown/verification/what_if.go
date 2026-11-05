@@ -281,7 +281,7 @@ func (f Fleet) whatIfProject(ctx context.Context, run *conformance.WhatIfRun, in
 		if allowBuild {
 			*builds++
 		}
-		assess := assessInput{sh: sh, tool: toolContext{Context: ctx, Exceptions: append([]conformance.Disposition{}, exceptions...), ProjectID: p.ID, SHA: head.SHA, BuildDir: src, AllowBuild: allowBuild},
+		assess := assessInput{sh: sh, repository: repo, tool: toolContext{Context: ctx, Exceptions: append([]conformance.Disposition{}, exceptions...), ProjectID: p.ID, SHA: head.SHA, BuildDir: src, AllowBuild: allowBuild},
 			label: fmt.Sprintf("apptown-what-if-%d-%d", run.ID(), p.ID)}
 		if runtime > 0 {
 			assess.running, assess.noApp = f.servingCommit(ctx, p.ID, head.SHA)
@@ -409,14 +409,10 @@ func (f Fleet) servingCommit(ctx context.Context, projectID ids.ID, sha string) 
 	return &runningApp{target: t, still: still}, ""
 }
 
-// whatIfJudge is how a project's model rubrics are judged in a what-if:
-// not at all unless the starter included them, and then only while the
-// what-if's observed spend is under its limit and every earlier call's
-// spend is known. The rule is asked before the project's one checklist;
-// that checklist may be two paid calls (the evaluator asks again when an
-// answer is not JSON), which is the accepted overshoot. What it cost is
-// added to spend; each paid call's own line in the usage ledger is the
-// gateway's, charged to the project assessed with the what-if as actor.
+// whatIfJudge admits model rubrics only when requested, under the what-if's
+// observed spend allowance. Each check is admitted separately; one capped
+// session may cross the allowance, and its spend remains recorded even when
+// it cannot return a verdict. The gateway writes every paid request's line.
 func (f Fleet) whatIfJudge(ctx context.Context, run *conformance.WhatIfRun, in conformance.WhatIfRequest, projectID ids.ID, spend *conformance.WhatIfSpend) (func([]check.Item, string) (map[int]check.Verdict, *llmMetadata, error), conformance.NotAssessed, error) {
 	if !in.Rubrics {
 		return nil, conformance.NotAssessedRubricsNotIncluded, nil
@@ -431,15 +427,50 @@ func (f Fleet) whatIfJudge(ctx context.Context, run *conformance.WhatIfRun, in c
 	case spent.CostMicros >= limit:
 		return nil, conformance.NotAssessedSpendLimit, nil
 	}
+	judge := func(items []check.Item, diff string) (map[int]check.Verdict, *llmMetadata, error) {
+		return f.judgeChecks(ctx, modelcall.Call{Purpose: "what-if", ProjectID: projectID, Actor: fmt.Sprintf("what-if/%d", run.ID())}, items, diff)
+	}
+	return budgetedRubrics(spent, limit, spend, judge), "", nil
+}
+
+func budgetedRubrics(prior conformance.WhatIfSpend, limit int64, spend *conformance.WhatIfSpend, judge func([]check.Item, string) (map[int]check.Verdict, *llmMetadata, error)) func([]check.Item, string) (map[int]check.Verdict, *llmMetadata, error) {
 	return func(items []check.Item, diff string) (map[int]check.Verdict, *llmMetadata, error) {
-		by, meta, err := f.judgeChecklist(ctx, modelcall.Call{Purpose: "what-if", ProjectID: projectID, Actor: fmt.Sprintf("what-if/%d", run.ID())}, items, diff)
-		if meta != nil && meta.Usage != nil {
-			u := meta.Usage
-			spend.CostMicros += int64(u.Cost * 1e6)
-			if u.Incomplete != "" {
-				spend.Incomplete++
+		by := map[int]check.Verdict{}
+		meta := &llmMetadata{Items: len(items), Results: map[int]CheckResult{}, NotAssessed: map[int]conformance.NotAssessed{}, Usage: &modelcall.Usage{}}
+		for i, it := range items {
+			var reason conformance.NotAssessed
+			switch {
+			case prior.Incomplete+spend.Incomplete > 0:
+				reason = conformance.NotAssessedSpendUnknown
+			case prior.CostMicros+spend.CostMicros >= limit:
+				reason = conformance.NotAssessedSpendLimit
+			}
+			if reason != "" {
+				meta.Results[i+1] = CheckResult{Reason: reason.Words()}
+				meta.NotAssessed[i+1] = reason
+				continue
+			}
+			single, m, err := judge([]check.Item{it}, diff)
+			if err != nil {
+				meta.Results[i+1] = CheckResult{Reason: err.Error()}
+				continue
+			}
+			if v, ok := single[1]; ok {
+				by[i+1] = v
+			}
+			if m != nil {
+				meta.Pattern, meta.Served, meta.PromptHash = m.Pattern, m.Served, m.PromptHash
+				meta.Results[i+1] = m.Results[1]
+				meta.Usage.Add(m.Usage)
+				if m.Usage != nil {
+					spend.CostMicros += int64(m.Usage.Cost * 1e6)
+					if m.Usage.Incomplete != "" {
+						spend.Incomplete++
+					}
+				}
 			}
 		}
-		return by, meta, err
-	}, "", nil
+		meta.Cost = meta.Usage.Cost
+		return by, meta, nil
+	}
 }

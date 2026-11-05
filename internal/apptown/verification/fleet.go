@@ -118,7 +118,7 @@ func (f Fleet) RequestAdoptionReviewIn(ctx context.Context, tx *database.Tx, rec
 }
 
 func reviewRequest(trigger string, opts conformance.ReviewOptions) conformance.ReviewRequest {
-	return conformance.ReviewRequest{Trigger: trigger, Projects: opts.Projects, Build: opts.Build, BuildBudget: opts.BuildBudget}
+	return conformance.ReviewRequest{Recheck: opts.Recheck, Trigger: trigger, Projects: opts.Projects, Build: opts.Build, BuildBudget: opts.BuildBudget}
 }
 
 // RunReviewJob runs the review its key names, if this delivery claims it,
@@ -230,7 +230,7 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 
 		// Classify by evaluation mode. Posture (sh) checks batch through one
 		// staged tree; tool checks run their binding; runtime checks probe a
-		// booted app; AI tree rubrics are judged on packed evidence; AI diff
+		// booted app; AI tree rubrics are judged by an agent on the checkout; AI diff
 		// rubrics are transitions — not applicable in a review.
 		var posture, toolChecks, llmTree, runtimeChecks []conformance.DeclaredCheck
 		for _, sc := range checks {
@@ -267,7 +267,11 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 		src, cleanup, err := scm.StageTreeAt(ctx, repo, sha)
 		if err != nil {
 			for _, sc := range append(append(append(append([]conformance.DeclaredCheck{}, posture...), toolChecks...), llmTree...), runtimeChecks...) {
-				v, err := f.recordVerdict(ctx, execution, p.ID, sc, conformance.EvaluationError, strs.Truncate(err.Error(), 200), verdictExtra{ShImage: sh})
+				extra := verdictExtra{ShImage: sh}
+				if check.Evaluator(sc.Check) == "llm" {
+					extra.AgentEvidence = &check.AgentEvidence{SourceReadFailure: true}
+				}
+				v, err := f.recordVerdict(ctx, execution, p.ID, sc, conformance.EvaluationError, strs.Truncate(err.Error(), 200), extra)
 				if err != nil {
 					return verdicts, err
 				}
@@ -319,7 +323,7 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 				verdicts = append(verdicts, v)
 			}
 			if len(llmTree) > 0 {
-				judged, err := f.judgeTreeRubrics(ctx, execution, rev, p.ID, llmTree, src)
+				judged, err := f.judgeTreeRubrics(ctx, execution, rev, p.ID, llmTree, src, repo, sha, opts.Recheck)
 				verdicts = append(verdicts, judged...)
 				if err != nil {
 					return err
@@ -336,12 +340,11 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 	return verdicts, nil
 }
 
-// judgeTreeRubrics runs ONE checklist call for a project's tree-scoped AI
-// rubrics and records a verdict per rubric carrying its evaluator identity and
-// evidence hash. A failed model call is an evaluation error; a fail is recorded
+// judgeTreeRubrics invokes one agent session per tree rubric and records
+// each result with its evaluator and committed-source identity. A failed model call is an evaluation error; a fail is recorded
 // as does-not-conform, which the projection keeps in the "flagged by AI
 // review" lane until a person confirms it (conformance_lens.go).
-func (f Fleet) judgeTreeRubrics(ctx context.Context, execution *conformance.Execution, rev *conformance.Review, projectID ids.ID, checks []conformance.DeclaredCheck, src string) ([]conformance.Verdict, error) {
+func (f Fleet) judgeTreeRubrics(ctx context.Context, execution *conformance.Execution, rev *conformance.Review, projectID ids.ID, checks []conformance.DeclaredCheck, src, repo, commit string, recheck bool) ([]conformance.Verdict, error) {
 	out := []conformance.Verdict{}
 	checks, settled := splitApplicable(checks, "llm", CheckSource(src), check.Posture)
 	for _, d := range settled {
@@ -350,31 +353,43 @@ func (f Fleet) judgeTreeRubrics(ctx context.Context, execution *conformance.Exec
 			state = conformance.EvaluationError
 			rev.Errors++
 		}
-		v, err := f.recordVerdict(ctx, execution, projectID, d.Check, state, d.Receipt.Detail, verdictExtra{})
+		v, err := f.recordVerdict(ctx, execution, projectID, d.Check, state, d.Receipt.Detail, verdictExtra{AgentEvidence: d.Receipt.AgentEvidence})
 		if err != nil {
 			return out, err
 		}
 		out = append(out, v)
 	}
-	items := check.TreeItems(declaredAll(checks), CheckSource(src))
-	byItem, meta, judgeErr := f.judgeChecklist(ctx, modelcall.Call{Purpose: "conformance-review", ProjectID: projectID}, items, "")
+	items := check.TreeItems(declaredAll(checks))
+	for i := range items {
+		items[i].Repository, items[i].Commit, items[i].Recheck = repo, commit, recheck
+	}
+	byItem, meta, judgeErr := f.judgeChecks(ctx, modelcall.Call{Purpose: "conformance-review", ProjectID: projectID}, items, "")
 	if meta != nil && meta.Usage != nil {
 		rev.Cost += meta.Usage.Cost
 	}
 	for i, it := range items {
 		extra := verdictExtra{EvaluatorVer: check.LLMEvaluatorVersion(it.Declaration), EvidenceHash: it.Hash}
-		state, detail := conformance.EvaluationError, "no verdict returned for this item"
-		if it.Unreadable != "" {
-			detail = "its evidence could not be read: " + it.Unreadable
+		if meta != nil {
+			r := meta.Results[i+1]
+			extra.AgentEvidence = &r.Evidence
+			extra.EvaluatorVer = agentEvaluatorVersion(r.Evidence)
+			extra.EvidenceHash = r.Evidence.Tree
+		}
+		state, detail := conformance.CannotAssess, "no verdict returned for this check"
+		if meta != nil && meta.Results[i+1].Reason != "" {
+			detail = meta.Results[i+1].Reason
+			if meta.Results[i+1].SourceError {
+				state = conformance.EvaluationError
+			}
 		} else if judgeErr != nil {
 			detail = judgeErr.Error()
-		} else if v, ok := byItem[i+1]; ok {
-			detail = llmVerdictDetail(v, it, meta)
-			switch v.Verdict {
-			case "pass":
-				state = conformance.Conforms
-			case "fail":
-				state = conformance.DoesNotConform
+			extra.AgentEvidence = &check.AgentEvidence{AppTownFault: true}
+		} else {
+			v, answered := byItem[i+1]
+			ev := check.Judgement(it, v, answered, check.Posture)
+			state, detail = outcomeOf(ev.Outcome), ev.Detail
+			if ev.Outcome == check.Conforms || ev.Outcome == check.DoesNotConform {
+				detail = llmVerdictDetail(v, meta, i+1)
 			}
 		}
 		if state == conformance.EvaluationError {
@@ -468,10 +483,11 @@ func (f Fleet) assessTree(ctx context.Context, sh string, posture, tools []confo
 
 // verdictExtra carries the optional identity facts a verdict records.
 type verdictExtra struct {
-	ExceptedBy   string
-	EvidenceHash string
-	EvaluatorVer string // overrides evaluatorVersion(check) when set (AI checks)
-	ShImage      string // the review's shell image, which a posture check's version names
+	AgentEvidence *check.AgentEvidence
+	ExceptedBy    string
+	EvidenceHash  string
+	EvaluatorVer  string // overrides evaluatorVersion(check) when set (AI checks)
+	ShImage       string // the review's shell image, which a posture check's version names
 }
 
 // recordVerdict appends one immutable verdict and returns it.
@@ -479,7 +495,7 @@ type verdictExtra struct {
 func (f Fleet) recordVerdict(ctx context.Context, execution *conformance.Execution, projectID ids.ID, sc conformance.DeclaredCheck, state conformance.Outcome, detail string, x verdictExtra) (conformance.Verdict, error) {
 	pending, err := execution.PrepareVerdict(ctx, conformance.Assessment{
 		ProjectID: projectID, Check: conformance.CheckIdentity{Block: sc.Block, Version: sc.Version, Check: sc.Check.Name},
-		State: state, Detail: detail, EvaluatorVersion: strs.FirstNonBlank(x.EvaluatorVer, evaluatorVersion(sc.Check, x.ShImage)), ExceptedBy: x.ExceptedBy, EvidenceHash: x.EvidenceHash,
+		AgentEvidence: x.AgentEvidence, State: state, Detail: detail, EvaluatorVersion: strs.FirstNonBlank(x.EvaluatorVer, evaluatorVersion(sc.Check, x.ShImage)), ExceptedBy: x.ExceptedBy, EvidenceHash: x.EvidenceHash,
 	})
 	if err != nil {
 		return conformance.Verdict{}, err

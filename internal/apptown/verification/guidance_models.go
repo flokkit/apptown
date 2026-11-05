@@ -14,23 +14,22 @@ import (
 	"github.com/flokkit/apptown/internal/gitexec"
 )
 
-// runLLMChecklist judges every llm rubric in ONE checklist call (conformance_llm.go):
-// tree-scoped rubrics on their packed evidence from the proposed tree, diff-
-// scoped rubrics on the change's diff. Failures are findings only (never gate)
-// while the false-positive rate is being measured. Absent model/slot: checks
-// are recorded as skipped — conformance must not depend on a model being up.
+// runLLMChecklist invokes each rubric independently on the candidate commit.
+// Tree checks see the checkout; transition checks also receive the exact diff.
+// AI findings are recorded without gating. An unavailable agent or model is
+// cannot-assess with its reason, never a passing verdict.
 func (a *Guidance) runLLMChecklist(ctx context.Context, source workflow.Source, checks []conformance.DeclaredCheck, at checked) (results Results, findings []conformance.Finding, meta map[string]any) {
-	src := at.Src
-	items := append(check.TreeItems(declaredAll(checks), CheckSource(src)), check.DiffItems(declaredAll(checks), "")...)
+	items := append(check.TreeItems(declaredAll(checks)), check.DiffItems(declaredAll(checks), "")...)
 	if len(items) == 0 {
 		return nil, nil, nil
 	}
-	// An item AppTown could not put to a model at all: the evaluation says
-	// cannot-assess, and the receipt word for it is "skipped".
+	// An unavailable check is AppTown's inability to execute, not a fault
+	// in the candidate. Preserve that distinction for carried acceptance.
 	skipped := func(it check.Item, why string) workflow.CheckReceipt {
 		res := resultOf(check.Evaluation{Declared: it.Declared, Mode: check.Gate,
-			Outcome: check.CannotAssess, Detail: why})
-		res.Scope, res.Verdict, res.Note = it.Scope, workflow.VerdictSkipped, why
+			Outcome: check.CannotAssess, Detail: why, Fault: true})
+		res.AgentEvidence = &check.AgentEvidence{AppTownFault: true}
+		res.Scope, res.Verdict, res.Note, res.Gates = it.Scope, workflow.VerdictCannotAssess, why, new(false)
 		return res
 	}
 	skipAll := func(why string) {
@@ -75,15 +74,15 @@ func (a *Guidance) runLLMChecklist(ctx context.Context, source workflow.Source, 
 		}
 	}
 
-	byItem, m, err := a.judgeChecklist(ctx, source, items, diff)
+	for i := range items {
+		items[i].Repository, items[i].Commit = at.Repo, at.Commit
+	}
+	byItem, m, err := a.judgeChecks(ctx, source, items, diff)
 	if m != nil {
 		meta = map[string]any{"model": m.Pattern, "promptHash": m.PromptHash, "items": m.Items,
-			"packing": check.PackingVersion, "template": check.TemplateHash()}
+			"template": checkTemplateHash(), "sessions": m.Results}
 		if m.Served != "" {
 			meta["servedModel"] = m.Served
-		}
-		if m.ParseError {
-			meta["parseError"] = true
 		}
 	}
 	if err != nil {
@@ -92,22 +91,25 @@ func (a *Guidance) runLLMChecklist(ctx context.Context, source workflow.Source, 
 	}
 	for i, it := range items {
 		v, answered := byItem[i+1]
-		ev := check.Judgement(it, v, answered, nil, check.Gate)
+		ev := check.Judgement(it, v, answered, check.Gate)
 		res := resultOf(ev)
+		if m != nil {
+			r := m.Results[i+1]
+			res.AgentEvidence = &r.Evidence
+			res.AppTownFault = r.Evidence.AppTownFault
+			res.EvaluatorVer = agentEvaluatorVersion(r.Evidence)
+			res.EvidenceHash = r.Evidence.Tree
+		}
 		// Calibration posture: an llm verdict is recorded and never gates.
 		res.Scope, res.Gates = it.Scope, new(bool)
-		if !answered {
-			// The checklist passed this item over; silence is not a pass.
-			res.Verdict, res.Note = workflow.VerdictSkipped, ev.Detail
+		res.Evidence, res.Note, res.Detail = v.Evidence, v.Note, ev.Detail
+		if ev.Outcome == check.Conforms || ev.Outcome == check.DoesNotConform {
+			res.Detail = llmVerdictDetail(v, m, i+1)
 		} else {
-			// The checklist's own word rides on the receipt — "unclear"
-			// included, which is a model declining to say. Any other word
-			// is a model not saying either (the outcome is cannot-assess).
-			res.Verdict, res.Evidence, res.Note = workflow.VerdictUnclear, v.Evidence, v.Note
-			res.Detail = llmVerdictDetail(v, it, m)
-			if v.Verdict == "pass" || v.Verdict == "fail" {
-				res.Verdict, _ = workflow.ParseCheckVerdict(v.Verdict)
-			}
+			res.Note = ev.Detail
+		}
+		if m != nil && m.Results[i+1].Reason != "" {
+			res.Note, res.Detail = m.Results[i+1].Reason, m.Results[i+1].Reason
 		}
 		findings = append(findings, conformance.WrapFindings(ev.Findings)...)
 		results = append(results, res)
@@ -116,12 +118,12 @@ func (a *Guidance) runLLMChecklist(ctx context.Context, source workflow.Source, 
 }
 
 // llmBaseline judges on the change's base tree the tree-scoped rubrics the
-// change failed, in one more checklist call, so a rubric main already failed
-// is not labelled the change's. Only the failing rubrics are asked, packed
-// from the base tree exactly as the change's tree was. A base the model could
+// change failed, in separate sessions, so a rubric main already failed
+// is not labelled the change's. Only failing rubrics are asked, on the exact
+// base checkout. A base the model could
 // not judge is cannot-assess with the reason, which leaves the change's
 // finding undecided. A diff-scoped rubric judges the change itself and has no
-// base. No call is made when no tree rubric failed.
+// base. No session is started when no tree rubric failed.
 func (a *Guidance) llmBaseline(ctx context.Context, source workflow.Source, checks []conformance.DeclaredCheck, findings []conformance.Finding, base string) []check.Evaluation {
 	failing := failingChecks(checks, findings, func(d check.Declaration) bool {
 		return check.Evaluator(d) == "llm" && check.Scope(d) == conformance.ScopeTree
@@ -132,7 +134,7 @@ func (a *Guidance) llmBaseline(ctx context.Context, source workflow.Source, chec
 	unassessed := func(why string) []check.Evaluation {
 		out := make([]check.Evaluation, 0, len(failing))
 		for _, sc := range failing {
-			out = append(out, check.Evaluation{Declared: sc.Declared(), Mode: check.Gate, Outcome: check.CannotAssess, Detail: why})
+			out = append(out, check.Evaluation{Declared: sc.Declared(), Mode: check.Gate, Outcome: check.CannotAssess, Detail: why, Fault: true})
 		}
 		return out
 	}
@@ -159,16 +161,22 @@ func (a *Guidance) llmBaseline(ctx context.Context, source workflow.Source, chec
 	if len(failing) == 0 {
 		return out
 	}
-	items := check.TreeItems(declaredAll(failing), CheckSource(src))
-	byItem, _, err := a.judgeChecklist(ctx, source, items, "")
+	items := check.TreeItems(declaredAll(failing))
+	for i := range items {
+		items[i].Repository, items[i].Commit = repository, base
+	}
+	byItem, m, err := a.judgeChecks(ctx, source, items, "")
 	if err != nil {
 		return append(out, unassessed("the model could not judge main's tree: "+err.Error())...)
 	}
 	for i, it := range items {
 		v, answered := byItem[i+1]
-		ev := check.Judgement(it, v, answered, nil, check.Gate)
+		ev := check.Judgement(it, v, answered, check.Gate)
 		if ev.Outcome != check.Conforms && ev.Outcome != check.DoesNotConform {
 			ev.Outcome, ev.Findings = check.CannotAssess, nil
+			if m != nil && m.Results[i+1].Reason != "" {
+				ev.Detail = m.Results[i+1].Reason
+			}
 			ev.Detail = "the model did not judge main's tree: " + strs.FirstNonBlank(ev.Detail, "no verdict")
 		}
 		out = append(out, ev)
@@ -191,14 +199,14 @@ func workflowDiffText(ctx context.Context, source workflow.Source, at checked) (
 	return gitexec.Run(ctx, at.Repo, "diff", comparison)
 }
 
-// judgeChecklist asks the source project's secondary fast model, for the run.
-func (a *Guidance) judgeChecklist(ctx context.Context, source workflow.Source, items []check.Item, diff string) (map[int]check.Verdict, *llmMetadata, error) {
+// judgeChecks uses the source project's checks slot, for the run.
+func (a *Guidance) judgeChecks(ctx context.Context, source workflow.Source, items []check.Item, diff string) (map[int]check.Verdict, *llmMetadata, error) {
 	if len(items) == 0 {
 		return nil, nil, nil
 	}
-	pattern, _, _, err := a.selection.Resolve(ctx, source.ProjectID, "secondary-fast")
+	pattern, _, _, err := a.selection.Resolve(ctx, source.ProjectID, "checks")
 	if err != nil {
 		return nil, nil, err
 	}
-	return a.evaluator.checklist(ctx, modelcall.Call{Purpose: "guidance-checklist", ProjectID: source.ProjectID, RunID: source.RunID, Model: pattern}, items, diff)
+	return a.evaluator.judgeChecks(ctx, modelcall.Call{Purpose: "guidance-checklist", ProjectID: source.ProjectID, RunID: source.RunID, Model: pattern}, items, diff)
 }

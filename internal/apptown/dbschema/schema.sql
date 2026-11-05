@@ -908,7 +908,8 @@ CREATE TABLE IF NOT EXISTS conformance_reviews (
   build             BOOLEAN NOT NULL DEFAULT false,
   build_budget      BIGINT NOT NULL DEFAULT 0,
   source_run UUID,
-  candidate TEXT NOT NULL DEFAULT ''
+  candidate TEXT NOT NULL DEFAULT '',
+  recheck BOOLEAN NOT NULL DEFAULT false
 );
 CREATE TABLE IF NOT EXISTS conformance_verdicts (
   id UUID PRIMARY KEY,
@@ -927,7 +928,8 @@ CREATE TABLE IF NOT EXISTS conformance_verdicts (
   detail        TEXT NOT NULL DEFAULT '',
   created_at    TIMESTAMPTZ NOT NULL,
   excepted_by   TEXT NOT NULL DEFAULT '', -- exception reference when state=excepted; detail keeps the failure
-  evidence_hash TEXT NOT NULL DEFAULT ''  -- AI verdicts: hash of the exact evidence bundle judged
+  evidence_hash TEXT NOT NULL DEFAULT '', -- AI verdicts: committed tree hash
+  agent_evidence JSONB
 );
 -- A confirmation is an immutable adjudication of ONE verdict ("this AI flag is
 -- real"), keyed to the verdict id — never a disposition, never applied to a

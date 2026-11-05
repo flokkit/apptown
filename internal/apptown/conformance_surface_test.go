@@ -12,17 +12,17 @@ import (
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
 
+	"github.com/flokkit/apptown/internal/apptown/attention"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/check"
 )
 
 // Conformance (design/subsystems/conformance-surface.md):
-// tree rubrics are judged in a review and at the gate on the same packed
-// evidence. The lens, delta and expired-exception projections are the
+// tree rubrics are judged in a review and at the gate on the same committed
+// checkout. The lens, delta and expired-exception projections are the
 // conformance owner's (conformance/review_projections_test.go).
 
 func stubLLM(t *testing.T, a *App, answer string, seen *[]string) {
@@ -61,8 +61,8 @@ func standingOf(t *testing.T, view *conformance.View, slug string) conformance.P
 	return conformance.ProjectStanding{}
 }
 
-// A tree rubric is judged in a review and at the gate from the SAME packed
-// evidence (same evidence hash, same evaluator identity); a diff rubric is
+// A tree rubric is judged in a review and at the gate from the same committed
+// source (same tree hash and evaluator identity); a diff rubric is
 // not-applicable in a review; the verdict names the served model.
 func TestTreeRubricJudgedInReviewAndAtGate(t *testing.T) {
 	t.Parallel()
@@ -93,7 +93,7 @@ func TestTreeRubricJudgedInReviewAndAtGate(t *testing.T) {
 	if !ok || rp.State != conformance.DoesNotConform {
 		t.Fatalf("tree rubric should be judged (fail → does-not-conform), got %+v", rp)
 	}
-	if !strings.HasPrefix(rp.EvaluatorVer, "llm/"+check.PackingVersion+"/") || rp.EvidenceHash == "" {
+	if !strings.HasPrefix(rp.EvaluatorVer, "agent-check/") || rp.EvidenceHash == "" {
 		t.Fatalf("AI verdict must carry evaluator identity + evidence hash: %+v", rp)
 	}
 	if !strings.Contains(rp.Detail, "judged by vendor/test-model-2026-01-01") || !strings.Contains(rp.Detail, "README.md") {
@@ -103,7 +103,7 @@ func TestTreeRubricJudgedInReviewAndAtGate(t *testing.T) {
 		t.Fatalf("diff rubric in a review must be not-applicable, got %+v", tc)
 	}
 	if len(prompts) != 1 || !strings.Contains(prompts[0], "marketing-free readme") || strings.Contains(prompts[0], "must never be evidence") {
-		t.Fatalf("the prompt must carry the packed file and exclude node_modules: %d prompts", len(prompts))
+		t.Fatalf("the fixture agent must observe the requested source file: %d prompts", len(prompts))
 	}
 	if rev.Cost <= 0 {
 		t.Fatalf("review should record model spend, got %v", rev.Cost)
@@ -155,8 +155,8 @@ func TestTreeRubricJudgedInReviewAndAtGate(t *testing.T) {
 	if result.EvidenceHash != rp.EvidenceHash || result.EvaluatorVer != rp.EvaluatorVer {
 		t.Fatalf("gate and review must ask the same question: gate %v/%v vs review %s/%s", result.EvidenceHash, result.EvaluatorVer, rp.EvidenceHash, rp.EvaluatorVer)
 	}
-	if evidence.LLM["packing"] != check.PackingVersion {
-		t.Fatalf("gate meta should record packing: %+v", evidence.LLM)
+	if evidence.LLM["sessions"] == nil {
+		t.Fatalf("gate meta should record isolated sessions: %+v", evidence.LLM)
 	}
 
 	// A view under the current lens: the AI fail is FLAGGED, not a finding.
@@ -287,7 +287,7 @@ func TestAModelRubricIsComparedWithMain(t *testing.T) {
 	}
 }
 
-func TestReviewModelCallFailureIsRecordedAsEvaluationError(t *testing.T) {
+func TestReviewModelFailureIsRecordedAsCannotAssess(t *testing.T) {
 	t.Parallel()
 	a := conformanceTestApp(t)
 	tgLocalSh(t, a)
@@ -301,7 +301,7 @@ func TestReviewModelCallFailureIsRecordedAsEvaluationError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(vs) != 1 || vs[0].State != conformance.EvaluationError || !strings.Contains(vs[0].Detail, "provider unavailable") || rev.Errors != 1 {
+	if len(vs) != 1 || vs[0].State != conformance.CannotAssess || !strings.Contains(vs[0].Detail, "provider unavailable") || rev.Errors != 0 {
 		t.Fatalf("failed model attempt: %+v %+v", rev, vs)
 	}
 	view, err := a.conformance.View(testConformanceContext("t"), rev.ID)
@@ -309,7 +309,79 @@ func TestReviewModelCallFailureIsRecordedAsEvaluationError(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := standingOf(t, view, "proj")
-	if len(p.NotKnown) != 1 || p.Lanes.Broken != 1 || p.Lanes.Unassessed != 0 {
+	if len(p.NotKnown) != 0 || p.Lanes.Broken != 0 || p.Lanes.Unassessed != 1 {
 		t.Fatalf("model failure standing: %+v", p)
+	}
+}
+
+// Project assertions cannot support application verdicts, even when supplied
+// directly by a judge. Both record paths retain evidence-related inability.
+func TestProjectClaimsCannotEarnFleetOrGuidanceVerdicts(t *testing.T) {
+	for _, verdict := range []string{"pass", "fail", "unclear"} {
+		t.Run(verdict, func(t *testing.T) {
+			t.Parallel()
+			a := conformanceTestApp(t)
+			tgLocalSh(t, a)
+			bindSecondaryFastSlot(t, a)
+			pid, _, _ := fleetRepo(t, a, "claims", map[string]string{"PROJECT-NOTES.md": "State is external.\n"})
+			adopt(t, a, pid, "state", 1, checksJSON(treeRubric("external-state", "State is external", "PROJECT-NOTES.md")))
+			stubLLM(t, a, `[{"item":1,"verdict":"`+verdict+`","evidence":"PROJECT-NOTES.md:1","note":"State is external"}]`, nil)
+			rev, vs, err := fleetReviewsFor(a).RunFleetReviewWith(testConformanceContext("t"), "manual", conformance.ReviewOptions{Projects: []ids.ID{pid}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(vs) != 1 || vs[0].State != conformance.CannotAssess || rev.Errors != 0 || !strings.Contains(vs[0].Detail, "only project claims") || vs[0].AgentEvidence == nil || vs[0].AgentEvidence.AppTownFault || vs[0].AgentEvidence.SourceReadFailure {
+				t.Errorf("claims must record evidence-related cannot-assess: review=%+v verdicts=%+v", rev, vs)
+			}
+			view, err := a.conformance.View(testConformanceContext("t"), rev.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			standing := standingOf(t, view, "claims")
+			if standing.Lanes.Unassessed != 1 || standing.Lanes.Flagged != 0 || standing.Lanes.Findings != 0 || standing.Lanes.Broken != 0 {
+				t.Errorf("claims standing: %+v", standing)
+			}
+			snapshot, err := (attention.Checks{Conformance: a.conformance}).Snapshot(testConformanceContext("t"), []ids.ID{pid})
+			if err != nil || len(snapshot.Items) != 0 {
+				t.Errorf("evidence inability raised Attention: %+v %v", snapshot, err)
+			}
+			defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "check", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{{Name: "guidance", Uses: "guidance/conformance"}}}}}})
+			recordFixtureAdoptions(t, a)
+			ctx := a.asEngine(t.Context())
+			a.Work.Stop()
+			change, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: pid, Title: "check independent evidence"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			run, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: change.ID, Workflow: "check"})
+			if !errors.Is(err, workflow.ErrDispatchStopped) {
+				t.Fatal(err)
+			}
+			snap, err := a.Work.Snapshot(ctx, run.ID, workflow.DetailView)
+			if err != nil || len(snap.Steps) != 1 {
+				t.Fatalf("admission: %+v %v", snap, err)
+			}
+			if err := mirrorBranchForTest(a.projectRepoPath("claims"), (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(change.ID), change.Branch); err != nil {
+				t.Fatal(err)
+			}
+			if err := a.Work.ExecuteStep(ctx, snap.Steps[0].ID); err != nil {
+				t.Fatal(err)
+			}
+			saved, err := workflow.ReadStepIn(ctx, a.DB, snap.Steps[0].ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var evidence struct{ Checks verification.Results }
+			if err := json.Unmarshal(saved.Evidence, &evidence); err != nil {
+				t.Fatal(err)
+			}
+			if len(evidence.Checks) != 1 {
+				t.Fatalf("receipts: %s", saved.Evidence)
+			}
+			r := evidence.Checks[0]
+			if r.Verdict != workflow.VerdictCannotAssess || r.AppTownFault || r.AgentEvidence == nil || r.AgentEvidence.AppTownFault || r.AgentEvidence.SourceReadFailure || r.Gates == nil || *r.Gates || !strings.Contains(r.Detail, "only project claims") || r.Evidence != "PROJECT-NOTES.md:1" {
+				t.Errorf("claims must remain evidence-related cannot-assess in saved guidance: %s", saved.Evidence)
+			}
+		})
 	}
 }

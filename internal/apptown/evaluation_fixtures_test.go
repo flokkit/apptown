@@ -7,17 +7,23 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/inference"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
+	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/apptown/usage"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -34,12 +40,6 @@ func (e checkOverrides) Run(ctx context.Context, r execRequest) execOutcome {
 	}
 	return e.Effects.Run(context.Background(), r)
 }
-func (e checkOverrides) Ask(ctx context.Context, c modelcall.Call) (string, *modelcall.Usage, error) {
-	if e.complete != nil {
-		return e.complete(c.Model, c.System, c.User)
-	}
-	return e.Effects.Ask(ctx, c)
-}
 func (e checkOverrides) Observe(ctx context.Context, id ids.ID, source, p string) (conformance.Outcome, string) {
 	if e.observe != nil {
 		return e.observe(id, source, p)
@@ -52,6 +52,9 @@ func (e checkOverrides) Observe(ctx context.Context, id ids.ID, source, p string
 func installCheckEffects(t *testing.T, a *App, o checkOverrides) {
 	t.Helper()
 	a.Work.Stop()
+	if o.complete != nil {
+		a.checkJudge = fixtureCheckInvoker{o.complete}
+	}
 	o.Effects = a.evaluator
 	a.evaluator = o
 	a.scanners = scannersFor(a)
@@ -151,11 +154,67 @@ func setFastSlot(t *testing.T, a *App, pattern string) {
 	}
 }
 
-// setSecondaryFastSlot chooses the independent judge without configuring the
-// primary fast model, so checks accidentally asking for fast fail.
-func setSecondaryFastSlot(t *testing.T, a *App, pattern string) {
+// fixtureCheckInvoker stands in for the isolated agent in owner assembly tests.
+// Source is read from the exact commit, including baseline invocations; the
+// checkout/task/gateway contracts have their own tests at those owners.
+type fixtureCheckInvoker struct {
+	complete func(string, string, string) (string, *modelcall.Usage, error)
+}
+
+func (j fixtureCheckInvoker) JudgeCheck(ctx context.Context, item check.Item, call modelcall.Call, diff string) verification.CheckResult {
+	return invokeFixtureCheck(ctx, item, call, diff, func(call modelcall.Call) (string, *modelcall.Usage, error) {
+		return j.complete(call.Model, call.System, call.User)
+	})
+}
+
+type gatewayFixtureCheckInvoker struct{ gateway modelcall.Completer }
+
+func (j gatewayFixtureCheckInvoker) JudgeCheck(ctx context.Context, item check.Item, call modelcall.Call, diff string) verification.CheckResult {
+	return invokeFixtureCheck(ctx, item, call, diff, func(call modelcall.Call) (string, *modelcall.Usage, error) { return j.gateway.Ask(ctx, call) })
+}
+
+func invokeFixtureCheck(ctx context.Context, item check.Item, call modelcall.Call, diff string, complete func(modelcall.Call) (string, *modelcall.Usage, error)) verification.CheckResult {
+	src, cleanup, err := scm.StageTreeAt(ctx, item.Repository, item.Commit)
+	defer cleanup()
+	if err != nil {
+		return verification.CheckResult{Reason: err.Error()}
+	}
+	content, _ := os.ReadFile(filepath.Join(src, "README.md"))
+	call.System = "one isolated check"
+	call.User = item.Rubric + "\n" + string(content) + "\n" + diff
+	text, u, err := complete(call)
+	r := verification.CheckResult{}
+	if u != nil {
+		r.Usage = *u
+		if u.Incomplete != "" {
+			r.Reason = u.Incomplete
+			return r
+		}
+	}
+	if err != nil {
+		r.Reason = err.Error()
+		return r
+	}
+	var vs []check.Verdict
+	if err := json.Unmarshal([]byte(text), &vs); err != nil || len(vs) == 0 {
+		r.Reason = "fake agent left no verdict"
+		return r
+	}
+	r.Verdict = vs[0]
+	tree, _ := gitexec.Run(ctx, item.Repository, "rev-parse", item.Commit+"^{tree}")
+	r.Evidence = check.AgentEvidence{Session: "fixture", Commit: item.Commit, Tree: strings.TrimSpace(tree), TemplateHash: "fixture-prompt", Runtime: "fixture-agent", RequestedModel: call.Model, ServedModel: r.Usage.Model}
+	return r
+}
+
+func installGatewayChecks(t *testing.T, a *App) {
 	t.Helper()
-	if err := a.Models.Set(t.Context(), "secondary-fast", "standard", pattern, "fixture"); err != nil {
+	a.checkJudge = gatewayFixtureCheckInvoker{a.inference}
+	installCheckEffects(t, a, checkOverrides{})
+}
+
+func setChecksSlot(t *testing.T, a *App, pattern string) {
+	t.Helper()
+	if err := a.Models.Set(t.Context(), "checks", "standard", pattern, "fixture"); err != nil {
 		t.Fatal(err)
 	}
 }

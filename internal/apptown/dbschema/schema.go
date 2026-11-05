@@ -573,6 +573,10 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		`ALTER TABLE changes ADD COLUMN request_gap_quote TEXT NOT NULL DEFAULT ''`,
 		`UPDATE changes SET request_met='unknown', request_gap='' WHERE request_met IN ('partly','no')`,
 	}},
+	{n: 210, note: "retain check session evidence and recheck admission", stmts: []string{
+		`ALTER TABLE conformance_verdicts ADD COLUMN agent_evidence JSONB`,
+		`ALTER TABLE conformance_reviews ADD COLUMN recheck BOOLEAN NOT NULL DEFAULT false`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

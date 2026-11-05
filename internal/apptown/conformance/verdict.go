@@ -1,6 +1,7 @@
 package conformance
 
 import (
+	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -8,27 +9,28 @@ import (
 // verdict is keyed by (§2): project, exact SHA, expectation version, check and
 // evaluator version, evaluation mode, and timestamp.
 type Verdict struct {
-	ID           ids.ID  `json:"id"`
-	ReviewID     ids.ID  `json:"reviewId"`
-	ProjectID    ids.ID  `json:"projectId"`
-	ProjectSlug  string  `json:"projectSlug"`
-	SHA          string  `json:"sha"`
-	Block        string  `json:"block"` // the adopted guidance block (the expectation's home)
-	Version      int     `json:"version"`
-	Check        string  `json:"check"`
-	Evaluator    string  `json:"evaluator"`
-	EvaluatorVer string  `json:"evaluatorVer"`
-	Mode         string  `json:"mode"`
-	State        Outcome `json:"state"`
-	Severity     string  `json:"severity"`
-	Detail       string  `json:"detail"`
-	At           string  `json:"at"`
+	AgentEvidence *check.AgentEvidence `json:"agentEvidence,omitempty"`
+	ID            ids.ID               `json:"id"`
+	ReviewID      ids.ID               `json:"reviewId"`
+	ProjectID     ids.ID               `json:"projectId"`
+	ProjectSlug   string               `json:"projectSlug"`
+	SHA           string               `json:"sha"`
+	Block         string               `json:"block"` // the adopted guidance block (the expectation's home)
+	Version       int                  `json:"version"`
+	Check         string               `json:"check"`
+	Evaluator     string               `json:"evaluator"`
+	EvaluatorVer  string               `json:"evaluatorVer"`
+	Mode          string               `json:"mode"`
+	State         Outcome              `json:"state"`
+	Severity      string               `json:"severity"`
+	Detail        string               `json:"detail"`
+	At            string               `json:"at"`
 	// ExceptedBy names the exception behind an `excepted` verdict (JSON: the
 	// disposition id, status, by); Detail keeps the failure underneath so an
 	// expired exception reveals the original finding without re-evaluation.
 	ExceptedBy string `json:"exceptedBy,omitempty"`
-	// EvidenceHash is the hash of the exact evidence bundle an AI verdict
-	// judged (design/subsystems/conformance-surface.md §9 item 4).
+	// EvidenceHash is the committed tree hash for an agent check. Its exact
+	// transition and evaluator identities are in AgentEvidence.
 	EvidenceHash string `json:"evidenceHash,omitempty"`
 }
 

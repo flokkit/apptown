@@ -57,7 +57,7 @@ func TestAnAssessmentSaysWhyEachCheckWasNotJudged(t *testing.T) {
 		t.Errorf("an item the judge passed over: %+v", a)
 	}
 	got = reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{tree, diff}, assessInput{diff: "+line", tool: toolContext{BuildDir: projectTree(t)}, judge: func(items []check.Item, _ string) (map[int]check.Verdict, *llmMetadata, error) {
-		return map[int]check.Verdict{1: {Item: 1, Verdict: "fail", Note: "curt"}, 2: {Item: 2, Verdict: "pass"}}, nil, nil
+		return map[int]check.Verdict{1: {Item: 1, Verdict: "fail", Evidence: "README.md:1", Note: "curt"}, 2: {Item: 2, Verdict: "pass"}}, nil, nil
 	}}))
 	if a := got["tone"]; a.State != conformance.DoesNotConform || a.Reason != "" || len(a.Findings) != 1 {
 		t.Errorf("a rubric the judge failed: %+v", a)

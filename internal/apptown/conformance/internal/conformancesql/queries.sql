@@ -15,8 +15,8 @@ ON CONFLICT (id) DO UPDATE SET last = conformance_review_numbers.last + 1
 RETURNING last;
 
 -- name: InsertReview :one
-INSERT INTO conformance_reviews (id, number, trigger, actor, actor_principal, actor_via, started_at, status, selected_projects, build, build_budget)
-VALUES (sqlc.arg(id), sqlc.arg(number), sqlc.arg(trigger), sqlc.arg(actor), sqlc.arg(actor_principal), sqlc.arg(actor_via), sqlc.arg(started_at), sqlc.arg(status), sqlc.arg(selected_projects)::text::jsonb, sqlc.arg(build), sqlc.arg(build_budget)) RETURNING *;
+INSERT INTO conformance_reviews (id, number, trigger, actor, actor_principal, actor_via, started_at, status, selected_projects, build, build_budget, recheck)
+VALUES (sqlc.arg(id), sqlc.arg(number), sqlc.arg(trigger), sqlc.arg(actor), sqlc.arg(actor_principal), sqlc.arg(actor_via), sqlc.arg(started_at), sqlc.arg(status), sqlc.arg(selected_projects)::text::jsonb, sqlc.arg(build), sqlc.arg(build_budget), sqlc.arg(recheck)) RETURNING *;
 
 -- One claimant wins: a review leaves queued once, for running.
 -- name: ClaimQueuedReview :one
@@ -74,8 +74,8 @@ SELECT
 
 -- name: InsertVerdict :one
 INSERT INTO conformance_verdicts (id, review_id, project_id, project_slug, sha, block, version, check_name,
-  evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash)
-VALUES ($17, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *;
+  evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash, agent_evidence)
+VALUES ($17, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, sqlc.narg(agent_evidence)::jsonb) RETURNING *;
 
 -- name: VerdictsForReview :many
 SELECT * FROM conformance_verdicts WHERE review_id = $1 ORDER BY id;

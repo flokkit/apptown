@@ -2,7 +2,6 @@ package check_test
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -112,12 +111,6 @@ func TestCheckEvaluationsStayWithTheirApplication(t *testing.T) {
 				req.Env = append(req.Env, "REVIEWER="+verdict)
 				return execution.Runner{}.Run(context.Background(), execution.Local, req)
 			},
-			Complete: check.CompleterFunc(func(context.Context, string, string) (check.Completion, error) {
-				return check.Completion{
-					Text:  fmt.Sprintf(`[{"item":1,"verdict":%q,"evidence":"a.txt:1","note":"judged"}]`, verdict),
-					Model: verdict,
-				}, nil
-			}),
 		}
 		t.Run(verdict, func(t *testing.T) {
 			t.Parallel()
@@ -129,11 +122,6 @@ func TestCheckEvaluationsStayWithTheirApplication(t *testing.T) {
 			}
 			if len(evs) != 1 || evs[0].Outcome != want || (len(evs[0].Findings) == 1) != (verdict == "fail") {
 				t.Fatalf("command result crossed applications: %+v", evs)
-			}
-			decl.Declaration = check.Declaration{AppliesTo: repoWide, Name: "clean", Evaluator: "llm", Rubric: "clean", Scope: check.ScopeDiff}
-			judged, meta, err := j.Checklist(context.Background(), check.DiffItems([]check.Declared{decl}, "diff"), "diff")
-			if err != nil || meta == nil || meta.Served != verdict || judged[1].Verdict != verdict {
-				t.Fatalf("model result crossed applications: %+v %+v %v", judged, meta, err)
 			}
 		})
 	}

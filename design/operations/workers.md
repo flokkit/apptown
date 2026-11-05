@@ -254,7 +254,9 @@ behaviour, not only admitting its number: a break that cannot keep the old
 behaviour for a release is a stop-both-and-upgrade change, said in its notes. Protocol 2: a task's
 observation says whether Docker killed it at its memory limit, so an AppTown
 speaking 2 never hears a worker that cannot say (which would read such a
-kill as an ordinary exit); a worker serves 1 and 2.
+kill as an ordinary exit). Protocol 3 adds task source mounted read-only at
+`/src` beside writable `/work`, with results collected from the scratch
+workspace. This worker serves protocols 2 and 3.
 
 Behind a company's TLS-inspecting proxy, give the worker the company
 authority's certificate as a PEM file: `-trust-deployments` for its

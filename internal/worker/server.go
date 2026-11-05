@@ -595,6 +595,16 @@ func (s *Server) ensure(w http.ResponseWriter, r *http.Request) {
 		}
 		spec.Workspace = s.workspacePath(req.Workspace)
 	}
+	if req.SourceAtSrc && (req.Workspace == "" || req.ReadOnly || req.Private != nil || len(req.Images) > 0) {
+		http.Error(w, "a source at /src needs a workspace, writable work, and no private Docker or images", http.StatusBadRequest)
+		return
+	}
+	if req.SourceAtSrc {
+		if err := execution.ValidSourceFiles(req.Files); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
 	if err := execution.ValidFiles(req.Files); err != nil {
 		http.Error(w, "the task's generated files: "+err.Error(), http.StatusBadRequest)
 		return
@@ -705,6 +715,14 @@ func (s *Server) ensure(w http.ResponseWriter, r *http.Request) {
 		spec.Mounts = append(spec.Mounts, s.statePath(req.Workspace)+":"+execution.StateRoot)
 	}
 	declared := declaredResults{Workspace: req.Workspace, Results: req.Results, Images: req.Images}
+	if req.SourceAtSrc {
+		declared.Work = filepath.Join(s.statePath(req.Workspace), "check-work")
+		if err := os.MkdirAll(declared.Work, 0o755); err != nil {
+			httpError(w, err)
+			return
+		}
+		spec.ReadOnlySource, spec.Workspace = spec.Workspace, declared.Work
+	}
 	if ownState {
 		declared.State = s.taskStatePath(req.Key)
 		if err := os.MkdirAll(declared.State, 0o755); err != nil {

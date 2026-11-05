@@ -2,8 +2,6 @@ package verification
 
 import (
 	"context"
-	"errors"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -14,58 +12,6 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/stock"
 )
-
-// The test supplies only completion; an unexpected command or runtime probe
-// fails instead of silently providing another service through the fixture.
-type checklistEffects struct {
-	Effects
-	complete func(string, string, string) (string, *modelcall.Usage, error)
-}
-
-func (e checklistEffects) Ask(_ context.Context, c modelcall.Call) (string, *modelcall.Usage, error) {
-	return e.complete(c.Model, c.System, c.User)
-}
-func TestChecklistAsksAgainForJSON(t *testing.T) {
-	t.Parallel()
-	calls := 0
-	e := NewEvaluator(checklistEffects{complete: func(pattern, system, user string) (string, *modelcall.Usage, error) {
-		calls++
-		if calls == 1 {
-			return "Sure! Here is my assessment in prose.", &modelcall.Usage{}, nil
-		}
-		if !strings.Contains(user, "JSON array only") {
-			t.Errorf("the second ask says what was wrong")
-		}
-		return `[{"item":1,"verdict":"conforms","detail":"fine"}]`, &modelcall.Usage{}, nil
-	}}, nil, stock.Versions())
-	sc := conformance.DeclaredCheck{Block: "b", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "c", Expects: "e", Rubric: "r", Evaluator: "llm", Scope: "diff"}}
-	items := check.DiffItems(declaredAll([]conformance.DeclaredCheck{sc}), "diff")
-	by, meta, err := e.checklist(context.Background(), modelcall.Call{Purpose: "guidance-checklist", Model: "openrouter/test-model"}, items, "diff")
-	if err != nil || meta == nil || len(by) != 1 || !meta.Retried || calls != 2 {
-		t.Fatalf("want one retried verdict from two calls: err=%v by=%v meta=%+v calls=%d", err, by, meta, calls)
-	}
-}
-
-// A checklist call that failed after it was sent still owes its spend: the
-// usage comes back with the error, so the guidance check records it as
-// unknown rather than nothing, and a retry's spend adds to the first's.
-func TestChecklistKeepsTheSpendOfAFailedCall(t *testing.T) {
-	t.Parallel()
-	calls := 0
-	e := NewEvaluator(checklistEffects{complete: func(pattern, system, user string) (string, *modelcall.Usage, error) {
-		calls++
-		if calls == 1 {
-			return "prose, not JSON", &modelcall.Usage{Prompt: 4, Completion: 2, Cost: 0.5}, nil
-		}
-		return "", &modelcall.Usage{Incomplete: "the call ended after it was sent"}, errors.New("timeout")
-	}}, nil, stock.Versions())
-	sc := conformance.DeclaredCheck{Block: "b", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "c", Expects: "e", Rubric: "r", Evaluator: "llm", Scope: "diff"}}
-	items := check.DiffItems(declaredAll([]conformance.DeclaredCheck{sc}), "diff")
-	_, meta, err := e.checklist(context.Background(), modelcall.Call{Purpose: "guidance-checklist", Model: "openrouter/test-model"}, items, "diff")
-	if err == nil || meta == nil || meta.Usage == nil || meta.Usage.Incomplete == "" || meta.Usage.Prompt != 4 || meta.Usage.Cost != 0.5 {
-		t.Fatalf("spend of a failed retry kept and marked unknown: err=%v meta=%+v", err, meta)
-	}
-}
 
 // timedRun runs every command in seven seconds of AppTown's clock.
 type timedRun struct {
@@ -94,34 +40,25 @@ func TestAShellChecksDurationIsAppTownsClock(t *testing.T) {
 	}
 }
 
-// Even an unclear verdict must say how much matching evidence the model saw.
-func TestRubricDetailReportsBudgetOmissions(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	files := map[string]string{}
-	for _, name := range []string{"a.go", "b.go", "c.go", "d.go", "e.go", "f.go"} {
-		files[name] = strings.Repeat("x", 20*1024)
-	}
-	writeTree(t, dir, files)
-	sc := conformance.DeclaredCheck{Block: "test", Version: 1, Check: check.Declaration{Name: "state", Evaluator: "llm", Scope: "tree", Files: []string{"**/*.go"}}}
-	checks := []conformance.DeclaredCheck{sc, sc, sc, sc, sc, sc}
-	items := check.TreeItems(declaredAll(checks), CheckSource(dir))
-	meta := &llmMetadata{Served: "test-model"}
-	v := check.Verdict{Verdict: "unclear", Note: "insufficient evidence"}
-	for _, i := range []int{0, 5} {
-		detail := llmVerdictDetail(v, items[i], meta)
-		want := "judged on 3 of 6 matching files"
-		if i == 5 {
-			want = "judged on 0 of 6 matching files"
+func TestWhatIfChecksObserveSpendBetweenSessions(t *testing.T) {
+	for _, unknown := range []bool{false, true} {
+		calls := 0
+		spend := conformance.WhatIfSpend{}
+		judge := budgetedRubrics(conformance.WhatIfSpend{}, 500000, &spend, func(items []check.Item, _ string) (map[int]check.Verdict, *llmMetadata, error) {
+			calls++
+			if len(items) != 1 {
+				t.Fatal("checks were batched")
+			}
+			u := &modelcall.Usage{Cost: 0.8}
+			if unknown {
+				u.Cost = 0
+				u.Incomplete = "provider usage missing"
+			}
+			return map[int]check.Verdict{1: {Verdict: "pass"}}, &llmMetadata{Usage: u, Results: map[int]CheckResult{1: {Verdict: check.Verdict{Verdict: "pass"}}}}, nil
+		})
+		by, meta, err := judge([]check.Item{{}, {}}, "")
+		if err != nil || calls != 1 || len(by) != 1 || meta.Results[2].Reason == "" || meta.NotAssessed[2] == "" {
+			t.Fatalf("allowance was not checked between sessions: calls=%d by=%v meta=%+v err=%v", calls, by, meta, err)
 		}
-		if !strings.Contains(detail, want) {
-			t.Fatalf("detail %q lacks %q", detail, want)
-		}
-	}
-	got := judgeRubrics(checks[:1], assessInput{tool: toolContext{BuildDir: dir}, judge: func([]check.Item, string) (map[int]check.Verdict, *llmMetadata, error) {
-		return map[int]check.Verdict{1: v}, meta, nil
-	}})
-	if len(got) != 1 || !strings.Contains(got[0].Detail, "judged on 3 of 6 matching files") {
-		t.Fatalf("unclear assessment: %+v", got)
 	}
 }

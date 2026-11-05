@@ -11,12 +11,14 @@ import { Section } from '../../Section'
 
 // --- one project ---------------------------------------------------------------------------------
 
-function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, covered }: {
+function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, onRecheck, onDecision, covered }: {
   covered?: ConformanceView['openRemediations'][number]; v: Verdict; def?: CheckDefinition; exceptions: Disposition[]; adj?: Adjudication; prior?: PriorConfirmation; readOnly: boolean
-  onConfirm?: (v: Verdict) => void; onFix?: (v: Verdict) => void
+  onConfirm?: (v: Verdict) => void; onFix?: (v: Verdict) => void; onRecheck?: () => void; onDecision?: (v: Verdict) => void
 }) {
   const [open, setOpen] = useState(false)
   const lane = laneOf(v)
+  const undecidedAI = v.evaluator === 'llm' && (lane === 'broken' || lane === 'unassessed')
+  const decision = exceptions.find(d => d.fingerprint === `guidance|${v.block}@${v.version}|${v.check}|`)
   return (
     <>
       <div className="card row check-row project-page-check-row-card-check-row">
@@ -24,17 +26,22 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, 
           {/* A check that has not judged anything is neither a pass nor a problem: it says why instead. */}
           <span className="row-status">{lane === 'unassessed' ? <span className="muted small">not judged yet</span> : <StateChip finding={v.lane === 'findings'} label={v.statusLabel} />}</span>
           <strong>{def?.title || v.check}</strong>
-          <span className="muted small">{lane === 'unassessed'
+          <span className="muted small">{lane === 'unassessed' || undecidedAI
             ? (v.detail ? v.detail.charAt(0).toUpperCase() + v.detail.slice(1) : 'Not run yet')
             : [`from ${v.block}`, lane === 'flagged' && prior ? `confirmed before at ${shortSha(prior.sha)} by ${prior.by}` : ''].filter(Boolean).join(' · ')}</span>
         </button>
         {covered && <BeingFixed change={covered} />}
+        {!readOnly && undecidedAI && <div className="row project-page-check-row-div-2">
+          <button onClick={onRecheck}>Re-check</button>
+          {!decision && <button onClick={() => onDecision?.(v)}>Record a decision</button>}
+        </div>}
       </div>
       {open && (
         <div className="check-results">
           <div className="project-page-check-row-div">
             <div className="small muted">{v.block} version {v.version} · {v.check}</div>
             <Evidence v={v} exceptions={exceptions} adj={adj} />
+            {undecidedAI && decision && <p className="small">Recorded decision: {decision.status === 'accepted' ? 'accepted risk' : 'false positive'} — {decision.justification} · {decision.by}. This check remains undecided.</p>}
             {!readOnly && (lane === 'findings' || lane === 'flagged') && (
               <div className="row mt-3 project-page-check-row-div-2">
                 {lane === 'flagged' && onConfirm && <button onClick={() => onConfirm(v)}>Confirm finding</button>}
@@ -83,10 +90,10 @@ const bySev = (a: Verdict, b: Verdict) => (['high', 'medium', 'low', 'note'].ind
 // component of its own, not one defined inside ProjectPage: a component made
 // during a render is a new type each render, so every poll of a running
 // review remounted the lanes and closed whatever the person had opened.
-function LaneSection({ lane, title, hint, groups, view, exceptions, readOnly, onConfirm, onFix }: {
+function LaneSection({ lane, title, hint, groups, view, exceptions, readOnly, onConfirm, onFix, onRecheck, onDecision }: {
   lane: keyof Lanes; title: string; hint?: string
   groups: Record<keyof Lanes, Verdict[]>; view: ConformanceView; exceptions: Disposition[]; readOnly: boolean
-  onConfirm: (v: Verdict) => void; onFix: (v: Verdict) => void
+  onConfirm: (v: Verdict) => void; onFix: (v: Verdict) => void; onRecheck: () => void; onDecision: (v: Verdict) => void
 }) {
   const list = [...groups[lane]].sort(bySev)
   if (list.length === 0) return null
@@ -95,7 +102,7 @@ function LaneSection({ lane, title, hint, groups, view, exceptions, readOnly, on
       {list.map((v) => (
         <CheckRow key={v.id || `${v.block}${v.check}`} v={v} def={view.checkDefs[`${v.block}@${v.version}·${v.check}`]} exceptions={exceptions}
           covered={coveringChange(view, v)} adj={view.adjudications[String(v.id)]} prior={view.priorConfirmations[String(v.id)]} readOnly={readOnly}
-          onConfirm={onConfirm} onFix={onFix} />
+          onConfirm={onConfirm} onFix={onFix} onRecheck={onRecheck} onDecision={onDecision} />
       ))}
     </Section>
   )
@@ -127,8 +134,13 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
     if (r) nav(`/changes/${r.change.id}`)
   }
 
+  const recordDecision = async (v: Verdict) => {
+    const justification = window.prompt(`Accept the risk that ${v.check} may not be met for ${v.block} version ${v.version}. This decision covers this check version until revoked. An undecided result stays undecided. Reason:`, '')
+    if (!justification?.trim()) return
+    await run(() => post(`/projects/${slug}/dispositions`, { fingerprint: `guidance|${v.block}@${v.version}|${v.check}|`, status: 'accepted', justification }))
+  }
   const fixable = fixableFindings(view, vs)
-  const sectionProps = { groups, view, exceptions, readOnly: readOnly || busy, onConfirm: confirm, onFix: fix }
+  const sectionProps = { groups, view, exceptions, readOnly: readOnly || busy, onConfirm: confirm, onFix: fix, onRecheck: () => onRunOne(slug), onDecision: recordDecision }
 
   return (
     <div>

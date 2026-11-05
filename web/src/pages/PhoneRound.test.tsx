@@ -118,7 +118,7 @@ it('asks for review of an unconfirmed AI flag before asking to fix it', () => {
 })
 
 it('does not describe an evaluator error as a confirmed problem in the app', () => {
-  const p = { slug: 'shop', lanes: { broken: 1 }, notKnown: ['scanner: scanner unavailable'], total: 1 } as unknown as ProjectStanding
+  const p = { slug: 'shop', lanes: { broken: 1 }, notKnown: [{ detail: 'scanner: scanner unavailable', evaluator: 'tool' }], total: 1 } as unknown as ProjectStanding
   const view = { byProject: { shop: [{ lane: 'broken', state: 'error', detail: 'scanner unavailable' }] } } as unknown as ConformanceView
   expect(projectFact(p, view)).toBe('Not known: scanner: scanner unavailable')
 })

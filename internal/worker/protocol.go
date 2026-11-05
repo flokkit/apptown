@@ -18,17 +18,14 @@ import (
 // AppTown it replaces.
 const (
 	protocolHeader = "X-AppTown-Worker-Protocol"
-	// Protocol is what this build's AppTown speaks. 2: a task's observation
-	// says whether Docker killed it at its memory limit (OOMKilled), and a
-	// AppTown that settles scripts by it must not hear a worker that cannot
-	// say, which would read every such kill as an ordinary exit. Exported
-	// for scripts/release-facts.go, which writes it into the release
-	// manifest (daemonWorkerProtocol).
-	Protocol = 2
-	// ProtocolMin and ProtocolMax are what this build's worker serves: 1
+	// Protocol 3 adds a read-only /src beside writable /work for check
+	// sessions. An older worker must refuse these tasks, never silently
+	// present the source writable at /work.
+	Protocol = 3
+	// ProtocolMin and ProtocolMax are what this build's worker serves: 2
 	// for one release, so a worker installed first serves its old AppTown.
-	ProtocolMin = 1
-	ProtocolMax = 2
+	ProtocolMin = 2
+	ProtocolMax = 3
 )
 
 // VersionReport is GET /v1/version.

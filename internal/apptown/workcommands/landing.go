@@ -66,7 +66,7 @@ func (m LandingEffects) recordLandingResults(ctx context.Context, result scm.Res
 			return err
 		}
 		for _, r := range evidence.Checks {
-			receipts = append(receipts, conformance.LandingReceipt{
+			receipts = append(receipts, conformance.LandingReceipt{AgentEvidence: r.AgentEvidence,
 				Block: r.Block, Version: r.Version, Check: r.Check, Verdict: r.Verdict.String(),
 				EvaluatorVer: r.EvaluatorVer, EvidenceHash: r.EvidenceHash,
 				Detail: r.Detail, Output: r.Output, Note: r.Note, ExceptedBy: r.ExceptedBy,

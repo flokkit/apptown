@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance/internal/conformancesql"
@@ -24,7 +25,13 @@ func verdict(r conformancesql.ConformanceVerdict) (Verdict, error) {
 	if err != nil {
 		return Verdict{}, err
 	}
-	return Verdict{
+	var agent *check.AgentEvidence
+	if r.AgentEvidence != nil {
+		if err := json.Unmarshal(*r.AgentEvidence, &agent); err != nil {
+			return Verdict{}, fmt.Errorf("reading check session evidence: %w", err)
+		}
+	}
+	return Verdict{AgentEvidence: agent,
 		ID: r.ID, ReviewID: r.ReviewID, ProjectID: r.ProjectID, ProjectSlug: r.ProjectSlug,
 		SHA: r.Sha, Block: r.Block, Version: int(r.Version), Check: r.CheckName,
 		Evaluator: r.Evaluator, EvaluatorVer: r.EvaluatorVer, Mode: r.Mode, State: state,
@@ -135,4 +142,13 @@ func fix(r conformancesql.FixesForProjectRow) (Fix, error) {
 		f.ChangeNumbers = []int64{}
 	}
 	return f, nil
+}
+
+func agentEvidenceJSON(e *check.AgentEvidence) *json.RawMessage {
+	if e == nil {
+		return nil
+	}
+	b, _ := json.Marshal(e)
+	raw := json.RawMessage(b)
+	return &raw
 }

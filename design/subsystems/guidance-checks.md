@@ -23,31 +23,53 @@ or globs), `sourceFiles: true`, or both. For example:
 {"name":"state","expects":"state lives in declared services","evaluator":"llm","scope":"tree","appliesTo":["container"],"sourceFiles":true,"files":[".apptown/app.yaml","**/pom.xml"],"rubric":"Judge where application state is stored."}
 ```
 
-`sourceFiles` selects programming-language source within each applicable part's
-folder, including tests and mixed-language code. A repository check selects the
-union of all declared part folders. Parts supplied by images have no source
-folder. Part `tools` determine applicability but do not narrow source languages.
-Verification supplies the checked tree's resolved contract to every evaluation,
-including baselines, fleet reviews and what-ifs. Missing or unreadable contract
-context is cannot-assess; collection never guesses a repository-wide scope.
+`files` and `sourceFiles` are hints for the agent's exploration, not an
+excerpt boundary. Each rubric gets one isolated Pi session on the exact commit,
+with the source mounted read-only at `/src` and writable scratch at `/work`.
+Diff rubrics also receive the complete supplied diff as a read-only file. The
+agent records pass, fail or unclear with a citation and a short explanation.
+Absence can be cited by the checked path and the directory/tree lookup that
+showed it absent. Deterministic checks keep their existing execution rules.
 
-The pure Go implementation of go-enry v2.9.6 classifies full file content with
-its language type data. Source discovery excludes its vendor, generated,
-documentation and binary matches, the contract's `notAppCode` folders, and the
-collector's dependency, build and runtime directories. These exclusions are
-heuristics. Unknown files are reported as unclassified, never as proof that no
-code exists. Explicit `files` select context independently, so an explicitly
-requested README remains evidence.
+`PROJECT-NOTES.md` and `AGENTS.md` describe project intent and claims.
+Application behaviour requires independent code, tests or observed results.
+A verdict citing only those documents records evidence-related cannot-assess
+in fleet reviews and guidance receipts, without raising Attention. A check
+that declares `evidenceUse: "wording"` may judge the documents themselves.
+The declaration's `evidenceUse` is included in the agent prompt and evaluator
+identity; changing it prevents reuse.
 
-The collector resolves a symlink tree root and excludes links within the tree.
-It sorts and deduplicates paths before packing. Content contributes at most
-12 KiB per file, 48 KiB per rubric and 160 KiB per batch, with explicit omission
-markers. Budget omissions report “judged on N of M matching files”; M counts
-eligible source and explicit context before caps. Unclassified paths are a
-bounded report in the bundle, separate from eligible matching-file counts.
-Evaluator identity includes selector semantics and classifier version. Evidence
-records the included paths and exact bundle hash. Stock sync publishes changed
-checks as new versions; adoption remains explicit.
+Verification's `CheckJudge.JudgeCheck` claims and settles no workflow or review.
+Guidance retains its claimed step and receipts; Fleet retains its admitted
+conformance execution. Failing tree checks are separately judged on the base
+checkout so existing findings are not attributed to the change.
+
+Each result identifies the committed tree, optional exact diff hash, adopted
+block/version/check, rubric and prompt hashes, runtime/tool contract, requested
+and served model, duration and gateway-observed tokens. The session transcript
+and tool observations are retained under the data directory's `check-sessions`.
+These observations make no claim to list every file read: searches and scripts
+can read files without emitting a complete path list.
+
+A result can be reused for the same project, tree, transition when applicable,
+adopted rubric and evaluator. A changed block version or model reruns it even
+when the text is unchanged. An explicit Re-check bypasses reuse. Ordinary fleet reviews reuse unchanged
+inputs; review admission retains the Re-check choice across queueing. Failed sessions
+and unavailable evaluations are never cached as reusable verdicts; an unclear
+model verdict can be reused. Reuse is recorded with the original session's
+source identity; the caller's receipt separately names the current commit.
+
+AI checks require the private inference gateway to be configured and reachable
+from their task containers, on both local Docker and a worker. They use the
+`checks` model slot, falling back to `secondary-fast`. Eval
+comparisons retain their recorded judge; new evals pin the baseline's `checks`
+model. Each session takes one slot from the shared model-binding capacity pool.
+The task's wall-clock allowance is three minutes; its inference allowance is
+65,536 provider-reported input/cache/output tokens. The gateway sums usage
+across turns and admits no further turn after exhaustion. A turn can cross the
+allowance before its final usage arrives; the session then supplies no verdict.
+Timeout, token exhaustion, agent failure and missing model access are recorded
+as cannot-assess with their reason. No wrap-up or automatic retry follows a cap.
 
 ## Feedback and evidence
 
@@ -96,8 +118,7 @@ How main is judged depends on the evaluator:
   A check that lists occurrences is judged by them: only new occurrences are
   the change's. One that lists none and fails on both trees is undecided.
 - **Model rubrics** scoped to the tree are judged on main's tree too, in one
-  more checklist call for the rubrics the change failed (none when nothing
-  failed). Failing on main as well is preexisting; passing there is introduced.
+  separate session per rubric the change failed (none when nothing failed). Failing on main as well is preexisting; passing there is introduced.
   A model that cannot judge main's tree leaves the finding undecided. A
   diff-scoped rubric judges the change itself and has no base.
 - **Running-app checks** (runtime probes such as readiness or the front page)

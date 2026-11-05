@@ -66,7 +66,7 @@ exit 1
 	// Every scan goes through the fake, main's tree's included, so a
 	// comparison with main would find the same finding there.
 	a.processRunner = execution.Runner{DockerBinary: fake}
-	a.evaluator = verification.NewEffects(checksFor(a).Run, runtimeFor(a), a.inference)
+	a.evaluator = verification.NewEffects(checksFor(a).Run, runtimeFor(a))
 	a.scanners = scannersFor(a)
 	a.scanSteps = scanStepsFor(a)
 	rebuildWork(t, a, func(*workflow.Dependencies) {})

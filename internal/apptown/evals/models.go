@@ -45,8 +45,8 @@ func (g *Gate) AdmitModel(ctx context.Context, projectID ids.ID, pattern string)
 var errNotTheJudge = fault.New(fault.Unprocessable, "could not assess: the judge's door admits only an eval's recorded judge for its copies")
 
 // AdmitJudge is the model choice of the judge's door: the one door an eval's comparison sends its rubric calls through. It admits only
-// the judge recorded for the copy's Change at start (the baseline's fast
-// model, the same for both arms, so the judge is not what varies), only
+// the judge recorded for the copy's Change at start (the baseline's
+// check model, the same for both arms, so the judge is not what varies), only
 // for a copy, and only while the eval may proceed; the spend is the
 // copy's, inside the eval's budget. The arm's own models do not grow:
 // nothing a copy's agents or checks reach goes through this door, so a

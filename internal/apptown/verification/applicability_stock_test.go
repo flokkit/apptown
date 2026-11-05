@@ -96,10 +96,6 @@ func panickingJudge(t *testing.T, scanners []check.Scanner) *check.Judge {
 			return 0, ""
 		},
 		Probe: check.ProberFunc(func(context.Context, string) (int, error) { t.Error("probed an empty project"); return 0, nil }),
-		Complete: check.CompleterFunc(func(context.Context, string, string) (check.Completion, error) {
-			t.Error("asked a model about an empty project")
-			return check.Completion{}, nil
-		}),
 		Scanners: check.ScannersFunc(func(name string) (check.Scanner, bool) {
 			i := slices.IndexFunc(scanners, func(m check.Scanner) bool { return m.Name == name })
 			if i < 0 {

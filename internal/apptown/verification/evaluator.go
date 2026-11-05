@@ -21,14 +21,19 @@ import (
 // claim or settle workflow work, boot deployments, or read provider credentials.
 type Effects interface {
 	Run(context.Context, execution.Request) execution.Outcome
-	// Ask is AppTown's own model call (inference.Gateway.Ask), which
-	// admits it, sends it and writes its one spend line.
-	Ask(ctx context.Context, call modelcall.Call) (string, *modelcall.Usage, error)
 	Observe(ctx context.Context, projectID ids.ID, source, probe string) (conformance.Outcome, string)
 }
 
 // evaluator translates library judgments into the receipts shared by all checks.
+type CheckInvoker interface {
+	JudgeCheck(context.Context, check.Item, modelcall.Call, string) CheckResult
+}
+
+// Evaluator composes deterministic effects and isolated check invocation.
+type Evaluator = evaluator
+
 type evaluator struct {
+	agent   CheckInvoker
 	effects Effects
 	clock   func() time.Time // AppTown's clock, which times a shell check; nil is the real one
 	// tools names the shell image sh checks run in: each unit of work (a
@@ -56,15 +61,14 @@ func (e *evaluator) observe(ctx context.Context, projectID ids.ID, source, probe
 }
 
 type llmMetadata struct {
-	Pattern    string  `json:"model"`
-	Served     string  `json:"servedModel,omitempty"`
-	PromptHash string  `json:"promptHash"`
-	Items      int     `json:"items"`
-	Cost       float64 `json:"cost,omitempty"`
-	Usage      *modelcall.Usage
-	ParseError bool `json:"parseError,omitempty"`
-	Retried    bool `json:"retried,omitempty"` // the answer was asked for twice: the first was not JSON
-	Truncated  bool `json:"bundleTruncated,omitempty"`
+	Pattern     string  `json:"model"`
+	Served      string  `json:"servedModel,omitempty"`
+	PromptHash  string  `json:"promptHash"`
+	Items       int     `json:"items"`
+	Cost        float64 `json:"cost,omitempty"`
+	Usage       *modelcall.Usage
+	NotAssessed map[int]conformance.NotAssessed `json:"-"`
+	Results     map[int]CheckResult             `json:"sessions,omitempty"`
 }
 
 // judge runs its commands on ctx, the caller's; sh checks in sh, the
@@ -87,40 +91,37 @@ func (e *evaluator) runShChecks(ctx context.Context, sh string, checks []conform
 	return results, findings, shErrors
 }
 
-// checklist judges items in one checklist question, asked as call (its
-// purpose, project, run and model; Judge for an eval comparison's rubric).
-// Each paid attempt writes its own spend line in the gateway; the metadata
-// adds up what the attempts cost, failed ones included, for callers' own
-// budgets.
-func (e *evaluator) checklist(ctx context.Context, call modelcall.Call, items []check.Item, diff string) (map[int]check.Verdict, *llmMetadata, error) {
-	if call.Model == "" {
-		return nil, nil, fmt.Errorf("no secondary fast model is set up")
-	}
-	meta := &llmMetadata{Pattern: call.Model}
-	judge := &check.Judge{Complete: check.CompleterFunc(func(ctx context.Context, system, user string) (check.Completion, error) {
-		c := call
-		c.System, c.User = system, user
-		out, usage, err := e.effects.Ask(ctx, c)
-		// Spend is owed even when the call failed after it was sent.
-		if usage != nil {
-			if meta.Usage == nil {
-				meta.Usage, meta.Served = usage, usage.Model
-			} else {
-				meta.Usage.Add(usage)
-			}
-			meta.Cost = meta.Usage.Cost
+// WithCheckJudge binds isolated check execution; every caller uses the same
+// operation and capacity pool. Shell and runtime checks are unaffected.
+func (e *evaluator) WithCheckJudge(j CheckInvoker) *evaluator { e.agent = j; return e }
+
+func (e *evaluator) judgeChecks(ctx context.Context, call modelcall.Call, items []check.Item, diff string) (map[int]check.Verdict, *llmMetadata, error) {
+	meta := &llmMetadata{Pattern: call.Model, Items: len(items), PromptHash: checkTemplateHash(), Results: map[int]CheckResult{}, Usage: &modelcall.Usage{}}
+	by := map[int]check.Verdict{}
+	for i, it := range items {
+		var r CheckResult
+		if call.Model == "" {
+			r.Reason = "no checks model is set up. An administrator must select a checks model"
+			r.Evidence.AppTownFault = true
+		} else if e.agent == nil {
+			r.Reason = "check agent is unavailable. An administrator must check the agent and worker configuration"
+			r.Evidence.AppTownFault = true
+		} else {
+			r = e.agent.JudgeCheck(ctx, it, call, diff)
 		}
-		if err != nil {
-			return check.Completion{}, err
+		meta.Results[i+1] = r
+		meta.Usage.Add(&r.Usage)
+		if r.Evidence.ServedModel != "" {
+			meta.Served = r.Evidence.ServedModel
 		}
-		return check.Completion{Text: out, Model: meta.Served}, nil
-	})}
-	by, m, err := judge.Checklist(ctx, items, diff)
-	if m != nil {
-		meta.PromptHash, meta.Items, meta.ParseError, meta.Retried = m.PromptHash, m.Items, m.ParseError, m.Retried
+		if r.assessed() {
+			by[i+1] = r.Verdict
+		}
 	}
-	return by, meta, err
+	meta.Cost = meta.Usage.Cost
+	return by, meta, nil
 }
+
 func declaredAll(checks []conformance.DeclaredCheck) []check.Declared {
 	out := make([]check.Declared, 0, len(checks))
 	for _, sc := range checks {
@@ -136,31 +137,17 @@ func adoptedFor(checks []conformance.DeclaredCheck, d check.Declared) conformanc
 	}
 	return conformance.DeclaredCheck{Block: d.Namespace, Version: d.Version, Check: d.Declaration}
 }
-func llmVerdictDetail(v check.Verdict, it check.Item, meta *llmMetadata) string {
-	var parts []string
-	if strings.TrimSpace(v.Note) != "" {
-		parts = append(parts, strings.TrimSpace(v.Note))
-	}
-	if strings.TrimSpace(v.Evidence) != "" {
-		parts = append(parts, "["+strings.TrimSpace(v.Evidence)+"]")
-	}
-	s := strings.Join(parts, " ")
+func llmVerdictDetail(v check.Verdict, meta *llmMetadata, item int) string {
+	detail := strings.TrimSpace(v.Note + " [" + v.Evidence + "]")
 	if meta != nil {
 		served := meta.Served
-		if served == "" {
-			served = meta.Pattern
-		}
-		s += fmt.Sprintf("\n— judged by %s", served)
-		if it.Scope == check.ScopeTree {
-			if it.MatchingFiles > len(it.Files) {
-				s += fmt.Sprintf("; judged on %d of %d matching files", len(it.Files), it.MatchingFiles)
-			} else {
-				s += fmt.Sprintf(" on %d file(s)", len(it.Files))
-			}
-			if len(it.Files) > 0 {
-				s += ": " + strs.Truncate(strings.Join(it.Files, ", "), 200)
+		if r, ok := meta.Results[item]; ok {
+			served = r.Evidence.ServedModel
+			if r.Evidence.Reused {
+				detail += "\nReused: source and evaluator inputs are unchanged."
 			}
 		}
+		detail += fmt.Sprintf("\n— judged by %s", strs.FirstNonBlank(served, meta.Pattern))
 	}
-	return strings.TrimSpace(s)
+	return detail
 }

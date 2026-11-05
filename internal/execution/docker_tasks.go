@@ -210,7 +210,10 @@ func (d DockerTasks) Ensure(ctx context.Context, spec TaskSpec) (TaskObservation
 	}
 	name := d.taskName(spec.Key)
 	digest := spec.Digest()
-	mounts := spec.Mounts
+	mounts := slices.Clone(spec.Mounts)
+	if spec.ReadOnlySource != "" {
+		mounts = append(mounts, spec.ReadOnlySource+":/src:ro")
+	}
 	if len(spec.Files) > 0 {
 		if d.Files == "" {
 			return TaskObservation{}, fmt.Errorf("%w: this backend keeps no generated files", ErrUnsupported)
