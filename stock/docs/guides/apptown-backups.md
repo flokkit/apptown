@@ -143,8 +143,11 @@ permanently deletes its database bytes.
 
 Once loading succeeds, AppTown keeps the original manifest until relocation and restore
 bookkeeping finish. Starting with the same flags retries that remaining work and
-exits; it does not reload the dump or begin normal recovery. Stop surviving writers
-or resolve the named ownership/configuration problem if relocation refuses. An
+exits; it does not reload the dump or begin normal recovery. Restore relocation
+skips runtime writer checks because the destination is a fresh copy; source chats
+and tasks cannot write to it. Moving an existing installation still requires
+stopping its writers. Resolve the named ownership/configuration problem if
+relocation refuses. An
 admitted task that retains a local path being moved must first be settled and
 released under its original path; do not edit its saved request or digest.
 

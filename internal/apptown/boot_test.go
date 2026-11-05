@@ -910,7 +910,7 @@ func upgradeAppTown(t *testing.T, db *database.DB, dataDir string) {
 	if err := jobs.Migrate(t.Context(), db.Pool()); err != nil {
 		t.Fatal(err)
 	}
-	if err := RelocateDataLayout(t.Context(), db, upgradeConfig(t, dataDir, consoletest.NewAgent()), dataDir); err != nil {
+	if err := RelocateDataLayout(t.Context(), db, upgradeConfig(t, dataDir, consoletest.NewAgent()), dataDir, false); err != nil {
 		t.Fatalf("starting on the release's data directory: %v", err)
 	}
 	if err := FinalizeDataLayout(dataDir); err != nil {

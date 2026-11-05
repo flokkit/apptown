@@ -45,7 +45,7 @@ type inventory struct {
 	Git          []gitexec.ConfigRelocation
 }
 
-func inspect(ctx context.Context, db *database.DB, root, oldRoot string, observers Observers) (inventory, error) {
+func inspect(ctx context.Context, db *database.DB, root, oldRoot string, observers Observers, restore bool) (inventory, error) {
 	var out inventory
 	owners, err := project.RepositoryOwnersIn(ctx, db)
 	if err != nil {
@@ -108,8 +108,10 @@ func inspect(ctx context.Context, db *database.DB, root, oldRoot string, observe
 		if err := request.RefuseMovedPaths(out.References, oldRoot, root); err != nil {
 			return out, err
 		}
-		if err := request.RefuseWriter(ctx, observers.Tasks, observers.TaskBackend); err != nil {
-			return out, err
+		if !restore {
+			if err := request.RefuseWriter(ctx, observers.Tasks, observers.TaskBackend); err != nil {
+				return out, err
+			}
 		}
 	}
 	records, err := console.RelocationRecords(root)
@@ -156,12 +158,14 @@ func inspect(ctx context.Context, db *database.DB, root, oldRoot string, observe
 		if !matched {
 			return out, fmt.Errorf("console %s checkout has no identified local owner", record.Meta.ID)
 		}
-		agent := observers.Local
-		if conversation.OnWorkerRecord(record.Meta) {
-			agent = observers.Remote
-		}
-		if err := record.RefuseWriter(ctx, agent); err != nil {
-			return out, err
+		if !restore {
+			agent := observers.Local
+			if conversation.OnWorkerRecord(record.Meta) {
+				agent = observers.Remote
+			}
+			if err := record.RefuseWriter(ctx, agent); err != nil {
+				return out, err
+			}
 		}
 		if after != record.Meta.Checkout {
 			edit, err := record.CheckoutEdit(after)

@@ -91,7 +91,7 @@ func TestRelocationKeepsDatabaseEvidenceAndMain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := Relocate(t.Context(), db, root, original, "instance", Observers{}); err != nil {
+	if err := Relocate(t.Context(), db, root, original, "instance", Observers{}, false); err != nil {
 		t.Fatal(err)
 	}
 	after, err := dbtest.Snapshot(t.Context(), db, nil)
@@ -109,13 +109,13 @@ func TestRelocationKeepsDatabaseEvidenceAndMain(t *testing.T) {
 	if version, err := readVersion(root); err != nil || version != Version {
 		t.Fatalf("layout marker: %d %v", version, err)
 	}
-	if err := Relocate(t.Context(), nil, root, original, "instance", Observers{}); err != nil {
+	if err := Relocate(t.Context(), nil, root, original, "instance", Observers{}, false); err != nil {
 		t.Fatalf("completed relocation not idempotent: %v", err)
 	}
 	if err := Finalize(root, "instance"); err != nil {
 		t.Fatal(err)
 	}
-	if err := Relocate(t.Context(), nil, root, root, "instance", Observers{}); err != nil {
+	if err := Relocate(t.Context(), nil, root, root, "instance", Observers{}, false); err != nil {
 		t.Fatalf("an ordinary start did work: %v", err)
 	}
 }
@@ -129,38 +129,85 @@ func (o installedConsoleObserver) Status(context.Context, string) (console.Statu
 	return o.status, nil
 }
 
-func TestSurvivingConsoleSidecarRefusesBeforeRelocationIntent(t *testing.T) {
-	db, original, owner, _ := installedProject(t)
-	checkout := filepath.Join(original, "console", "checkout-owned")
-	recordDir := filepath.Join(original, "console", "chat")
-	for _, path := range []string{checkout, recordDir} {
-		if err := os.MkdirAll(path, 0o700); err != nil {
-			t.Fatal(err)
-		}
-	}
-	meta := console.Meta{ID: "chat", Scope: conversation.Key(owner.ID, ids.Nil), Labels: conversation.LabelsFor(&owner, nil), Checkout: checkout, OwnsCheckout: true, LastUsed: time.Now()}
-	raw, err := json.Marshal(meta)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(recordDir, console.MetaFile), raw, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	root := restoredInto(t, original)
-	record := filepath.Join(root, "console", "chat", console.MetaFile)
-	err = Relocate(t.Context(), db, root, original, "instance", Observers{Local: installedConsoleObserver{status: console.Status{SidecarRunning: true}}})
-	if err == nil {
-		t.Fatal("absent primary hid surviving sidecar")
-	}
-	if _, err := os.Lstat(filepath.Join(root, journalName)); !os.IsNotExist(err) {
-		t.Fatalf("refusal wrote its journal: %v", err)
-	}
-	after, err := os.ReadFile(record)
-	if err != nil || string(after) != string(raw) {
-		t.Fatal("refusal changed console record")
-	}
-	if err := Relocate(t.Context(), db, root, original, "instance", Observers{Local: installedConsoleObserver{}}); err != nil {
-		t.Fatal(err)
+// A restore rewrites live chat paths without consulting source runtimes; an
+// installation move must still prove every writer stopped.
+func TestRelocationChecksWritersOnlyForInstallationMoves(t *testing.T) {
+	for _, tc := range []struct {
+		name                               string
+		restore, worker, samePath, refused bool
+		agent                              console.Agent
+	}{
+		{name: "move without observer", refused: true},
+		{name: "move with running agent", refused: true, agent: installedConsoleObserver{status: console.Status{Running: true}}},
+		{name: "move with surviving sidecar", refused: true, agent: installedConsoleObserver{status: console.Status{SidecarRunning: true}}},
+		{name: "move with stopped runtime", agent: installedConsoleObserver{}},
+		{name: "restore local without observer", restore: true},
+		{name: "restore worker without observer", restore: true, worker: true},
+		{name: "restore local with source writer", restore: true, agent: installedConsoleObserver{status: console.Status{Running: true}}},
+		{name: "restore worker with source writer", restore: true, worker: true, agent: installedConsoleObserver{status: console.Status{Running: true}}},
+		{name: "restore same path", restore: true, samePath: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			db, original, owner, _ := installedProject(t)
+			checkout := filepath.Join(original, "console", "checkout-owned")
+			recordDir := filepath.Join(original, "console", "chat")
+			for _, path := range []string{checkout, recordDir} {
+				if err := os.MkdirAll(path, 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			meta := console.Meta{ID: "chat", Scope: conversation.Key(owner.ID, ids.Nil), Labels: conversation.LabelsFor(&owner, nil), Checkout: checkout, OwnsCheckout: true, LastUsed: time.Now().UTC()}
+			if tc.worker {
+				meta.Labels[conversation.PlacementLabel] = conversation.OnWorker
+			}
+			raw, err := json.Marshal(meta)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(recordDir, console.MetaFile), raw, 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			root := original
+			if !tc.samePath {
+				root = restoredInto(t, original)
+			}
+			record := filepath.Join(root, "console", "chat", console.MetaFile)
+			observers := Observers{Local: tc.agent}
+			if tc.worker {
+				observers = Observers{Remote: tc.agent}
+			}
+			err = Relocate(t.Context(), db, root, original, "instance", observers, tc.restore)
+			if tc.refused {
+				if err == nil {
+					t.Fatal("installation move accepted without proof writers stopped")
+				}
+				if _, err := os.Lstat(filepath.Join(root, journalName)); !os.IsNotExist(err) {
+					t.Fatalf("refusal wrote its journal: %v", err)
+				}
+				after, err := os.ReadFile(record)
+				if err != nil || string(after) != string(raw) {
+					t.Fatal("refusal changed console record")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			after, err := os.ReadFile(record)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got console.Meta
+			if err := json.Unmarshal(after, &got); err != nil {
+				t.Fatal(err)
+			}
+			meta.Checkout = filepath.Join(root, "console", "checkout-owned")
+			if !reflect.DeepEqual(got, meta) {
+				t.Fatalf("relocated record = %+v, want %+v", got, meta)
+			}
+		})
 	}
 }
 
@@ -170,7 +217,7 @@ func TestInitializedMissingRepositoryRefusesWithoutCreatingAnEmptyReplacement(t 
 	if err := os.RemoveAll(filepath.Join(root, "workspaces", "project-"+owner.ID.String())); err != nil {
 		t.Fatal(err)
 	}
-	if err := Relocate(t.Context(), db, root, original, "instance", Observers{}); err == nil {
+	if err := Relocate(t.Context(), db, root, original, "instance", Observers{}, false); err == nil {
 		t.Fatal("initialized missing repository accepted")
 	}
 	for _, name := range []string{journalName, filepath.Join("workspaces", "project-"+owner.ID.String())} {
@@ -203,12 +250,12 @@ func TestPublicationRelocationResumesAfterDatabaseFailure(t *testing.T) {
 	}
 	root := restoredInto(t, original)
 	restore = dbtest.NextStatementFailure(db, "-- name: RelocatePublication")
-	err = Relocate(t.Context(), db, root, original, "instance", Observers{})
+	err = Relocate(t.Context(), db, root, original, "instance", Observers{}, false)
 	restore()
 	if err == nil {
 		t.Fatal("database relocation failure hidden")
 	}
-	if err := Relocate(t.Context(), db, root, original, "instance", Observers{}); err != nil {
+	if err := Relocate(t.Context(), db, root, original, "instance", Observers{}, false); err != nil {
 		t.Fatalf("relocation did not resume: %v", err)
 	}
 	after, err := scm.PublicationLocationsIn(t.Context(), db)
@@ -229,7 +276,7 @@ func TestPublicationRelocationResumesAfterDatabaseFailure(t *testing.T) {
 	}
 	// AfterRestore has settled and its intent was removed: a restart passes
 	// this root as the original one; only the completed journal remains.
-	if err := Relocate(t.Context(), nil, root, root, "instance", Observers{}); err != nil {
+	if err := Relocate(t.Context(), nil, root, root, "instance", Observers{}, false); err != nil {
 		t.Fatalf("complete journal could not finish after restore intent removal: %v", err)
 	}
 	if err := Finalize(root, "instance"); err != nil {
@@ -273,7 +320,7 @@ func TestLinkedOrBorrowedWorkspaceMetadataRefusesBeforeRelocationIntent(t *testi
 				t.Fatal(err)
 			}
 			root := restoredInto(t, original)
-			err = Relocate(t.Context(), db, root, original, "instance", Observers{Local: installedConsoleObserver{}})
+			err = Relocate(t.Context(), db, root, original, "instance", Observers{Local: installedConsoleObserver{}}, false)
 			if err == nil || !strings.Contains(err.Error(), "does not relocate") {
 				t.Fatalf("pre-layout-2 metadata accepted: %v", err)
 			}
