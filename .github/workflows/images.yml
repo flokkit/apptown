@@ -111,6 +111,8 @@ jobs:
           done
       - if: env.PUBLIC == 'true'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: 'v3.0.6'
       - if: env.PUBLIC == 'true'
         env:
           DIGEST: ${{ steps.index.outputs.digest }}
@@ -140,6 +142,8 @@ jobs:
           gh run download "${{ needs.candidate.outputs.run }}" -R "$GITHUB_REPOSITORY" -n upgrade-fixture -D dist
       - if: env.PUBLIC == 'true'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: 'v3.0.6'
       - if: env.PUBLIC == 'true'
         run: cosign sign-blob --yes --bundle dist/SHA256SUMS.sigstore.json dist/SHA256SUMS
       - run: |

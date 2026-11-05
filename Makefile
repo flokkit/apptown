@@ -126,6 +126,7 @@ check-ci-heavy:         ## the heavy tiers' runner: a required test that skipped
 
 check-pins:             ## the tools the apptown runs for projects have one version each (deploy/tool-pins.txt), and AppTown's own Dockerfiles name every base image by digest
 	python3 scripts/pins-check_test.py
+	python3 scripts/action-pins-check_test.py
 	python3 scripts/pins-check.py
 
 check-npm-scripts:      ## no dependency's install script runs in AppTown's own npm installs: web/.npmrc, web/install-scripts.txt

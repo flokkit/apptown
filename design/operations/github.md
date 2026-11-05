@@ -69,6 +69,19 @@ an app builds or runs on. Dashboard approval opens a proposal; maintainers
 still qualify it before landing. Lockfile maintenance proposes transitive npm
 and Composer updates within the manifest constraints.
 
+### Workflow action pins
+
+Every `uses:` in `.github/workflows/*.yml` names a full 40-hex commit and
+its release as `owner/repo[/path]@<commit> # vX.Y.Z`. Local `./` actions and
+`docker://` images pinned by SHA-256 digest are allowed. `make check-pins`
+checks this format offline and reports the file and line of each violation.
+The heavy workflow runs `scripts/action-pins-check.py` in its `web` job:
+`git ls-remote --tags` resolves each distinct repository and comment tag,
+using the peeled commit for annotated tags. Missing tags, resolution failures
+and commits that differ from the pin fail the job and its `heavy-ok` aggregate.
+Setup Go and Node inputs name exact versions or version files; cosign-installer
+names an exact `cosign-release`.
+
 ### Pin inventory and exceptions
 
 The inventory below covers the public tracked tree. The extraction test checks
