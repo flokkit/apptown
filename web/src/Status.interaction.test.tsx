@@ -34,6 +34,7 @@ it('keeps one help open beside its chip and dismisses on outside taps or Escape'
   const viewport = window.innerWidth
   Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true })
   details[1].getBoundingClientRect = () => ({ left: 300 }) as DOMRect
+  details[1].querySelector('div')!.getBoundingClientRect = () => ({ width: 358 }) as DOMRect
   act(() => summaries[0].click())
   expect(details[0].open).toBe(true)
   act(() => summaries[1].click())
@@ -49,4 +50,29 @@ it('keeps one help open beside its chip and dismisses on outside taps or Escape'
   act(() => root.unmount())
   el.remove()
   Object.defineProperty(window, 'innerWidth', { value: viewport, configurable: true })
+})
+
+
+it('clamps help using its rendered width at Large size', () => {
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  act(() => root.render(<Status word="unknown" help="No runtime reading." />))
+  const details = el.querySelector('details')!
+  const panel = details.querySelector('div')!
+  const viewport = window.innerWidth
+  Object.defineProperty(window, 'innerWidth', { value: 1440, configurable: true })
+  details.getBoundingClientRect = () => ({ left: 900 }) as DOMRect
+  panel.getBoundingClientRect = () => {
+    expect(details.open).toBe(true)
+    return { width: 576 } as DOMRect
+  }
+  try {
+    act(() => el.querySelector('summary')!.click())
+    expect(details.open).toBe(true)
+    expect(panel.style.left).toBe('-52px')
+    expect(900 + Number.parseFloat(panel.style.left) + 576).toBe(1424)
+  } finally {
+    act(() => root.unmount())
+    Object.defineProperty(window, 'innerWidth', { value: viewport, configurable: true })
+  }
 })

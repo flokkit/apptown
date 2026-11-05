@@ -82,7 +82,27 @@ trusting a pass; the other two fail without their prerequisites.
 
 **Web** — `make check-web`: `tsc --noEmit` and the Vite build; `vitest` for
 the pure functions (formatting, diff rendering, markdown, ranking; eleven
-test files). Layout is verified by looking at rendered pages, not by tests.
+test files). `web/layout.browser-test.mjs` checks shared layout behaviour in Chromium.
+The heavy `web-ui` job serves the built front end and runs
+`TestWebUICapture` against disposable tour records. It captures desktop and
+phone pages in both themes at Medium and Large sizes, including each page's
+first disclosure where present, and checks overflow and row-action labels.
+Every literal route in `web/src/App.tsx` must appear in the captures' final
+browser URLs or have a reason in `cameraRouteExclusions` beside the test. Content questions have explicit reasons in
+`cameraContentExclusions` in the browser script and are emitted with the captures;
+those states still receive every layout check.
+The job requires the test to pass (a skip fails) and uploads its captures,
+including partial output on failure, before cleanup. The public tour remains
+separate.
+
+For a local camera run, build `web/`, create a short writable temporary folder,
+and run `TMPDIR=/tmp/apptown-camera node scripts/ci-web-camera.mjs -timeout 45m`.
+The script serves `web/dist` and sets `APPTOWN_DESIGN_VITE` and
+`APPTOWN_DESIGN_OUT`; captures go under `$TMPDIR/captures`. Chromium needs
+`APPTOWN_PLAYWRIGHT_MODULE` as in the browser tier. For a local Vite server,
+set those two design variables directly and run `TestWebUICapture` with the
+`browser` tag. `APPTOWN_DESIGN_PAGES` selects named pages for focused checks;
+only an unfiltered run checks route completeness.
 
 **Live-fire** — not a test target. Real model calls, the private Docker
 daemon, cloud reconciles, GitLab pushes, PTY chat sessions. These are

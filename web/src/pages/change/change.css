@@ -23,9 +23,9 @@
 .ch-page .ch-dispute-grid .ch-verdict { padding-top: 0; }
 .ch-claim-label { font-size: var(--fs-sm); color: var(--muted); margin-bottom: 6px; }
 
-/* The tabs sit on the page; on a phone they wrap rather than clip. */
+/* The tabs sit on the page and use the shared scrolling strip. */
 .ch-page .ch-tabs-sheet { background: transparent; border: 0; border-radius: 0; }
-.ch-page .tab-strip .ch-tabs, .ch-page .ch-tabs { padding: 0; flex-wrap: wrap; background: none; overflow: visible; }
+.ch-page .tab-strip .ch-tabs, .ch-page .ch-tabs { padding: 0; flex-wrap: nowrap; background: none; overflow-x: auto; }
 .ch-page .ch-tab-body { padding: 0; }
 .ch-page .ch-tab-body > .page-section:first-child { margin-top: 8px; }
 

@@ -79,6 +79,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
 
   const s = view?.summary
   const fixable = view ? fixableFindings(view, Object.values(view.byProject).flat()) : 0
+  const fleetReviews = view?.reviews?.filter(isFleetReview).length ?? 0
   const readOnly = rid !== ''
   const active = tab === 'project' ? 'projects' : tab === 'remediation' ? 'remediations' : tab
 
@@ -101,9 +102,10 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
       <StaleNote q={[viewQ, liveQ]} />
       {following !== '' && <ReadStatus q={liveQ} what="the running review" className="small" />}
 
-      <Tabs className="tabs conformance-tabs">
+      {/* A loaded count changes tab widths; remount to reveal the active tab again. */}
+      <Tabs key={fleetReviews} className="tabs conformance-tabs">
         <Link to={base} className={tabClass(active === 'projects')}>Projects</Link>
-        <Link to="/conformance/reviews" className={tabClass(active === 'reviews')}>Fleet reviews{view?.reviews?.filter(isFleetReview).length ? ` (${view.reviews.filter(isFleetReview).length})` : ''}</Link>
+        <Link to="/conformance/reviews" className={tabClass(active === 'reviews')}>Fleet reviews{fleetReviews ? ` (${fleetReviews})` : ''}</Link>
         <Link to={`${base}/checks`} className={tabClass(active === 'checks')}>Checks</Link>
         {!readOnly && <Link to="/conformance/remediations" className={tabClass(active === 'remediations')}>Remediations</Link>}
         {!readOnly && <Link to="/conformance/ways" className={tabClass(active === 'ways')}>Ways of working</Link>}

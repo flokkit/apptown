@@ -71,11 +71,13 @@ export function Status({ word, help, staleAt, observation = false, old = false, 
       if (!details.open) {
         document.querySelectorAll<HTMLDetailsElement>('.status-help[open]').forEach(other => { other.open = false })
         const help = details.querySelector('div')!
-        const width = Math.min(512, window.innerWidth - 32)
+        details.open = true
+        const width = help.getBoundingClientRect().width
         const left = details.getBoundingClientRect().left
         help.style.left = `${Math.max(16 - left, Math.min(0, window.innerWidth - 16 - left - width))}px`
+      } else {
+        details.open = false
       }
-      details.open = !details.open
     }}>{chip}</summary>
     <div className="small muted">{help}</div>
   </details>

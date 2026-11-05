@@ -86,6 +86,20 @@ class RequiredTests(unittest.TestCase):
         return subprocess.run(["sh", SCRIPT] + args, env=env, capture_output=True, text=True,
                               cwd=os.path.dirname(os.path.dirname(SCRIPT)))
 
+    def test_camera_runs_with_writable_shared_output_and_requires_a_pass(self):
+        for output, passed in [('--- PASS: TestWebUICapture (1.00s)\n', True),
+                               ('--- SKIP: TestWebUICapture (0.00s)\n', False)]:
+            r = self.run_job(output, mode='camera', require='TestWebUICapture')
+            self.assertEqual(r.returncode == 0, passed, r.stdout + r.stderr)
+            with open(os.path.join(self.dir.name, 'calls')) as f:
+                command = f.read()
+            self.assertIn('apptown-ci-heavy node scripts/ci-web-camera.mjs', command)
+            with open(self.pulled) as f:
+                self.assertEqual(f.read(), '')
+            # The EXIT trap leaves captures for upload; explicit cleanup owns removal.
+            self.assertNotIn('rm -rf /host-tmp/', command)
+            self.assertRegex(command, r'-v (/tmp/apptown-ci-[^: ]+):\1 -e TMPDIR=\1')
+
     # CI names the result mode; the environment decides, in the test image,
     # before go test, which stored results stand.
     def test_a_result_mode_checks_the_environment_before_the_tests(self):

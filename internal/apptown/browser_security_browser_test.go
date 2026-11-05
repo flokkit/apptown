@@ -417,15 +417,33 @@ func TestGarage(t *testing.T) {
 		}
 	}
 	for k, n := range want {
-		// The failed deploy removed main's running container before the
-		// host refused the new one: the inventory misses it as well as
-		// tour-unknown's database.
-		if k == "inventory/" && n == 2 {
-			continue
+		expected := 1
+		if k == "inventory/" {
+			expected = 2 // main's refused replacement and tour-unknown's database
 		}
-		if n != 1 {
-			t.Errorf("the garage shows %d of %q on the attention list, want 1", n, k)
+		if n != expected {
+			t.Errorf("the garage shows %d of %q on the attention list, want %d", n, k, expected)
 		}
+	}
+	// The other runtime examples exist on the host. Only the refused
+	// replacement and the deliberately removed database are missing.
+	target, err := w.a.targets.ByName(t.Context(), "built-in-docker")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reading, err := w.a.Deployment.InventoryFor(t.Context(), target)
+	if err != nil || reading.Unknown || reading.Invalidated {
+		t.Fatalf("garage inventory: %+v %v", reading, err)
+	}
+	var missing []string
+	for _, resource := range reading.Missing {
+		for _, host := range resource.Hosts {
+			missing = append(missing, resource.Kind+"/"+host.Project+"/"+host.Deployment+"/"+host.Need)
+		}
+	}
+	slices.Sort(missing)
+	if !slices.Equal(missing, []string{"container/lunch-orders/main/", "container/lunch-orders/tour-unknown/postgres"}) {
+		t.Fatalf("garage missing resources: %v", missing)
 	}
 }
 
@@ -451,50 +469,9 @@ const tourAgentImage = "apptown-agent"
 // Semgrep version that does not exist.
 const garageScannerImage = "semgrep/semgrep:1.999.0"
 
-// newTourWorld builds the tour's AppTown; garage adds its trouble.
-func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tourWorld {
-	root, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
-	}
-	tourDir := filepath.Join(root, "site", "tour")
-
-	server := httptest.NewUnstartedServer(nil)
-	t.Cleanup(server.Close)
-	// APPTOWN_DESIGN_HOLD keeps the tour open on a fixed local address, over
-	// plain HTTP, with web pages from the APPTOWN_DESIGN_VITE dev server, for
-	// a person to look at instead of photographing it.
-	hold, vite := os.Getenv("APPTOWN_DESIGN_HOLD"), os.Getenv("APPTOWN_DESIGN_VITE")
-	if hold != "" {
-		l, err := net.Listen("tcp", hold)
-		if err != nil {
-			t.Fatal(err)
-		}
-		server.Listener.Close()
-		server.Listener = l
-	}
-	_, port, err := net.SplitHostPort(server.Listener.Addr().String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	runtime := consoletest.NewAgent()
-	// The data folder, which the infrastructure page names. Each running
-	// scene makes its own and removes only that one, so any number of tours
-	// and garages can be open, or photographed, together. It is in TMPDIR:
-	// the landings' source scans bind-mount folders under it into real
-	// containers, and a daemon reads the path on its own host. ci-heavy.sh
-	// runs the tour in a container beside the host's daemon and shares only
-	// TMPDIR (and the checkout) at the same path; a folder in that
-	// container's own /tmp reaches the scanners empty.
-	scene := "tour"
-	if garage {
-		scene = "garage"
-	}
-	dataDir, err := os.MkdirTemp("", "apptown-"+scene+"-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(dataDir) })
+// newSceneDocker supplies the tour and camera with the same reachable runtime.
+func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointer[[]deploy.Resource], *atomic.Bool) {
+	t.Helper()
 	// The tour's apps run on no real Docker: the fake answers AppTown's
 	// commands as a working host would. (The landings' source scans, which
 	// run where AppTown's checks run, use this machine's Docker for real.) It has the executor's image (not in the garage),
@@ -504,8 +481,8 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 	// server, which is up and says the release a static part was told.
 	// The garage's extra deployments, seeded below, are on the host as
 	// recorded (onHost).
-	var onHost atomic.Pointer[[]deploy.Resource]
-	var refuseRun atomic.Bool
+	onHost := new(atomic.Pointer[[]deploy.Resource])
+	refuseRun := new(atomic.Bool)
 	// listening is each started container's server on its published port.
 	listening := struct {
 		sync.Mutex
@@ -566,6 +543,20 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 		}
 		return false
 	}
+	seededRuntime := func(ref string) string {
+		if seeded := onHost.Load(); seeded != nil {
+			for _, resource := range *seeded {
+				if resource.Kind == "container" && resource.Name == ref {
+					for _, host := range resource.Hosts {
+						if host.Need == "" && strings.HasPrefix(host.Deployment, "tour-") {
+							return strings.TrimPrefix(host.Deployment, "tour-")
+						}
+					}
+				}
+			}
+		}
+		return ""
+	}
 	// The one streamed question the scene's AppTown asks is the
 	// inventory's: which of the recorded images the host holds.
 	daemon.command = func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
@@ -579,7 +570,7 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 						for _, r := range *seeded {
 							if r.Kind == "container" && r.Name == ref {
 								c := docker.HostContainer{ID: dockerfake.ContainerID(ref), Name: "/" + ref}
-								c.State.Running = ref != "tour-runtime-stopped"
+								c.State.Running = seededRuntime(ref) != "stopped"
 								c.State.Status = "running"
 								if !c.State.Running {
 									c.State.Status = "exited"
@@ -831,8 +822,8 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 			return strings.Join(lines, "\n"), nil, true
 		}
 		switch {
-		case len(args) > 0 && args[0] == "inspect" && !slices.Contains(args, "{{json .}}") && strings.HasPrefix(args[len(args)-1], "tour-runtime-"):
-			switch strings.TrimPrefix(args[len(args)-1], "tour-runtime-") {
+		case len(args) > 0 && args[0] == "inspect" && !slices.Contains(args, "{{json .}}") && seededRuntime(args[len(args)-1]) != "":
+			switch seededRuntime(args[len(args)-1]) {
 			case "stopped":
 				return `{"id":"tour-stopped","running":false}`, nil, true
 			case "unreachable":
@@ -893,7 +884,7 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 					switch {
 					case args[0] == "ps" && r.Kind == "container":
 						status := "Up 2 days"
-						if r.Name == "tour-runtime-stopped" {
+						if seededRuntime(r.Name) == "stopped" {
 							status = "Exited (0) 3 hours ago"
 						}
 						line("container", r.Name, status, nil)
@@ -907,6 +898,83 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 		}
 		return "", nil, false
 	}
+	return daemon, appPort, onHost, refuseRun
+}
+
+// A scene's cold-container check must reach the actual published port and
+// read back the release passed to that container, rather than a canned probe.
+func TestSceneDockerServesColdContainer(t *testing.T) {
+	daemon, _, _, _ := newSceneDocker(t, false)
+	if _, err := daemon.run("run", "--name", "camera-cold", "-p", "127.0.0.1::8080", "-e", appcontract.ReleaseEnvVar+"=camera-release", "camera-image"); err != nil {
+		t.Fatal(err)
+	}
+	port, err := daemon.run("port", "camera-cold", "8080")
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := http.Get("http://" + strings.TrimSpace(string(port)) + appcontract.ReleasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil || string(body) != "camera-release" {
+		t.Fatalf("release %q: %v", body, err)
+	}
+	if _, err := daemon.run("rm", "-f", "camera-cold"); err != nil {
+		t.Fatal(err)
+	}
+	if response, err := http.Get("http://" + strings.TrimSpace(string(port)) + "/"); err == nil {
+		response.Body.Close()
+		t.Fatal("removed container still serves its published port")
+	}
+}
+
+// newTourWorld builds the tour's AppTown; garage adds its trouble.
+func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tourWorld {
+	root, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tourDir := filepath.Join(root, "site", "tour")
+
+	server := httptest.NewUnstartedServer(nil)
+	t.Cleanup(server.Close)
+	// APPTOWN_DESIGN_HOLD keeps the tour open on a fixed local address, over
+	// plain HTTP, with web pages from the APPTOWN_DESIGN_VITE dev server, for
+	// a person to look at instead of photographing it.
+	hold, vite := os.Getenv("APPTOWN_DESIGN_HOLD"), os.Getenv("APPTOWN_DESIGN_VITE")
+	if hold != "" {
+		l, err := net.Listen("tcp", hold)
+		if err != nil {
+			t.Fatal(err)
+		}
+		server.Listener.Close()
+		server.Listener = l
+	}
+	_, port, err := net.SplitHostPort(server.Listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime := consoletest.NewAgent()
+	// The data folder, which the infrastructure page names. Each running
+	// scene makes its own and removes only that one, so any number of tours
+	// and garages can be open, or photographed, together. It is in TMPDIR:
+	// the landings' source scans bind-mount folders under it into real
+	// containers, and a daemon reads the path on its own host. ci-heavy.sh
+	// runs the tour in a container beside the host's daemon and shares only
+	// TMPDIR (and the checkout) at the same path; a folder in that
+	// container's own /tmp reaches the scanners empty.
+	scene := "tour"
+	if garage {
+		scene = "garage"
+	}
+	dataDir, err := os.MkdirTemp("", "apptown-"+scene+"-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dataDir) })
+	daemon, appPort, onHost, refuseRun := newSceneDocker(t, garage)
 	// The garage has its own host name: browsers share cookies across ports
 	// on one host, so a tour session would otherwise reach the garage.
 	host := "apptown.localhost"
@@ -994,7 +1062,7 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 	if boot.Code != http.StatusOK {
 		t.Fatalf("bootstrap: %d %s", boot.Code, boot.Body.String())
 	}
-	s := &tourScene{t: t, a: a, runtime: runtime, password: password, cookies: map[string]*http.Cookie{}, garage: garage, refuseRun: &refuseRun}
+	s := &tourScene{t: t, a: a, runtime: runtime, password: password, cookies: map[string]*http.Cookie{}, garage: garage, refuseRun: refuseRun}
 	// configureConsoleModel supplied an explicit fixture binding; no provider is contacted.
 	// The team: Sam runs AppTown; Priya and Tom make apps.
 	for _, u := range []string{"priya", "tom"} {
@@ -1041,6 +1109,30 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 		t.Fatalf("the garage found no database container of tour-unknown to remove: %+v", recorded)
 	}
 	onHost.Store(&present)
+	lunch, err := a.Projects.BySlug(asPerson("sam"), "lunch-orders")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Deployment.ObserveRuntime(asPerson("sam")); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := a.Deployment.List(asPerson("sam"), lunch.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, row := range rows {
+		if strings.HasPrefix(row.Name, "tour-") {
+			want := strings.TrimPrefix(row.Name, "tour-")
+			if row.Observation.State.String() != want {
+				t.Fatalf("tour %s: %+v", want, row.Observation)
+			}
+			seen[want] = true
+		}
+	}
+	if len(seen) != len(runtimeStates) {
+		t.Fatalf("tour runtime states: %v, want %v", seen, runtimeStates)
+	}
 	if garage {
 		// Sam adds a Semgrep scanner with a mistyped version: its image
 		// cannot be pulled.
@@ -1172,30 +1264,15 @@ func tourRuntimeDeployments(t *testing.T, a *App, states []string) []deploy.Reso
 		if err != nil {
 			t.Fatal(err)
 		}
-		// sql-guarantee: seed an existing container pointer; no owner operation imports one without creating release evidence.
-		if _, err := a.DB.SQL().ExecContext(ctx, `UPDATE deployments SET container=$1 WHERE id=$2`, "tour-runtime-"+word, d.ID); err != nil {
+		names, err := d.HostNames()
+		if err != nil {
 			t.Fatal(err)
 		}
-	}
-	if err := a.Deployment.ObserveRuntime(ctx); err != nil {
-		t.Fatal(err)
-	}
-	rows, err := a.Deployment.List(ctx, p.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	seen := map[string]bool{}
-	for _, row := range rows {
-		if strings.HasPrefix(row.Name, "tour-") {
-			want := strings.TrimPrefix(row.Name, "tour-")
-			if row.Observation.State.String() != want {
-				t.Fatalf("tour %s: %+v", want, row.Observation)
-			}
-			seen[want] = true
+		// Use the host naming protocol so inventory can confirm these containers.
+		// sql-guarantee: seed an existing container pointer; no owner operation imports one without creating release evidence.
+		if _, err := a.DB.SQL().ExecContext(ctx, `UPDATE deployments SET container=$1 WHERE id=$2`, names.App(), d.ID); err != nil {
+			t.Fatal(err)
 		}
-	}
-	if len(seen) != len(states) {
-		t.Fatalf("tour runtime states: %v, want %v", seen, states)
 	}
 	recorded, err := a.Deployment.Inventory.Recorded(ctx, target)
 	if err != nil {
@@ -3053,6 +3130,117 @@ var newsletterNeon = map[string]string{
  @media(max-width:700px) { .badge{position:static; width:auto;height:auto;border-radius:0;transform:none;padding:12px}.cards{grid-template-columns:1fr}header{padding:14px} }`,
 }
 
+// Redirects are covered at their destinations. The wildcard has no finite
+// address set; a separate not-found capture exercises its rendered page.
+var cameraRouteExclusions = map[string]string{
+	"/docs":                       "redirects to the first guide; docs captures /docs/guides/quickstart",
+	"/infrastructure/new":         "redirects to /integrations/targets/new",
+	"/projects/:slug/workflows/*": "redirects to /projects/:slug/settings/working",
+	"*":                           "unbounded unknown addresses; camera-not-found captures the not-found page",
+}
+
+func cameraRouteCoverage(source string, paths []string, exclusions map[string]string) error {
+	matches := regexp.MustCompile(`\bpath="([^"]+)"`).FindAllStringSubmatch(source, -1)
+	if len(matches) != len(regexp.MustCompile(`\bpath\s*=`).FindAllString(source, -1)) {
+		return fmt.Errorf("camera route inventory requires literal path= values")
+	}
+	routes := make([]string, 0, len(matches))
+	for _, m := range matches {
+		routes = append(routes, m[1])
+	}
+	for route, reason := range exclusions {
+		if !slices.Contains(routes, route) || strings.TrimSpace(reason) == "" {
+			return fmt.Errorf("invalid camera exclusion %q: %q", route, reason)
+		}
+	}
+	// React Router prefers literal segments, then parameters, then splats.
+	score := func(route string) int {
+		n := 0
+		for _, part := range strings.Split(route, "/") {
+			switch {
+			case part == "*":
+				n -= 2
+			case strings.HasPrefix(part, ":"):
+				n += 4
+			case part != "":
+				n += 11
+			default:
+				n += 2
+			}
+		}
+		return n
+	}
+	slices.SortStableFunc(routes, func(a, b string) int { return score(b) - score(a) })
+	covered := map[string]bool{}
+	for _, path := range paths {
+		for _, route := range routes {
+			parts := strings.Split(route, "/")
+			for i, part := range parts {
+				switch {
+				case part == "*":
+					parts[i] = ".*"
+				case strings.HasPrefix(part, ":"):
+					parts[i] = "[^/]+"
+				default:
+					parts[i] = regexp.QuoteMeta(part)
+				}
+			}
+			if regexp.MustCompile("^" + strings.Join(parts, "/") + "/?$").MatchString(path) {
+				covered[route] = true
+				break
+			}
+		}
+	}
+	var missing []string
+	for _, route := range routes {
+		if !covered[route] && exclusions[route] == "" {
+			missing = append(missing, route)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("routes without final-page captures or reasoned exclusions: %v", missing)
+	}
+	return nil
+}
+
+func TestWebUICameraRouteCoverage(t *testing.T) {
+	if err := cameraRouteCoverage(`<Route path={dynamic} />`, nil, nil); err == nil {
+		t.Fatal("dynamic route escaped inventory")
+	}
+	source := `<Route path="/"/><Route path="/integrations/:name"/><Route path="/integrations/profiles/:profile"/><Route path="/integrations/targets/new"/>`
+	for _, paths := range [][]string{{"/", "/integrations/profiles/standard", "/integrations/targets/new"}, {"/", "/integrations/scm", "/integrations/profiles/standard"}} {
+		if err := cameraRouteCoverage(source, paths, nil); err == nil {
+			t.Fatal("missing route passed coverage")
+		}
+	}
+	if err := cameraRouteCoverage(source, []string{"/", "/integrations/scm", "/integrations/profiles/standard", "/integrations/targets/new"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := cameraRouteCoverage(source, nil, map[string]string{"/gone": "removed"}); err == nil {
+		t.Fatal("stale exclusion passed")
+	}
+	if err := cameraRouteCoverage(source, nil, map[string]string{"/": ""}); err == nil {
+		t.Fatal("unexplained exclusion passed")
+	}
+}
+
+func TestWebUICameraCoversDocsAtItsRedirectDestination(t *testing.T) {
+	t.Parallel()
+	source := `<Route path="/docs"/><Route path="/docs/:section/:slug"/>`
+	if err := cameraRouteCoverage(source, []string{"/docs/guides/quickstart"}, map[string]string{"/docs": cameraRouteExclusions["/docs"]}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func cameraAppRoutes(t *testing.T) string {
+	t.Helper()
+	source, err := os.ReadFile("../../web/src/App.tsx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(source)
+}
+
 // TestWebUICapture photographs every web page against
 // real disposable tour records. No API responses are replaced by the camera.
 // Run with APPTOWN_DESIGN_VITE=http://127.0.0.1:5180 and APPTOWN_DESIGN_OUT set.
@@ -3083,7 +3271,7 @@ func TestWebUICapture(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime := consoletest.NewAgent()
-	daemon := newFakeDocker()
+	daemon, appPort, _, refuseRun := newSceneDocker(t, false)
 	cloud := &dofake.API{}
 	cloudAPI := httptest.NewServer(cloud.Handler())
 	t.Cleanup(cloudAPI.Close)
@@ -3092,10 +3280,20 @@ func TestWebUICapture(t *testing.T) {
 	if hold != "" {
 		publicHost = "http://" + publicHost
 	}
-	a, h := internalApp(t, Config{DataDir: t.TempDir(), PublicHost: publicHost,
+	// Keep bind mounts in TMPDIR, shared with the heavy runner's daemon,
+	// and leave room for SSH's Unix socket suffix on attached targets.
+	dataDir, err := os.MkdirTemp("", "c-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dataDir) })
+	a, h := internalApp(t, Config{DataDir: dataDir, PublicHost: publicHost,
 		SSHConfigPath: filepath.Join(t.TempDir(), "ssh-config"),
-		TierDomains:   []string{"preview=preview.localhost", "main=apps.example.test"}, DockerClient: daemon,
+		TierDomains:   []string{"preview=preview.localhost", fmt.Sprintf("main=http://apps.localhost:%d", appPort)}, DockerClient: daemon,
 		DigitalOcean: digitalocean.Options{APIBase: cloudAPI.URL},
+		HostMemory: func() (hostmem.Memory, error) {
+			return hostmem.Memory{TotalBytes: 2072321720, AvailableBytes: 1 << 30}, nil
+		},
 		ConsoleAgent: runtime, ConsoleCLI: fixtureCLI(t), InferenceURL: "http://worker.test:7779",
 		InferenceNetworks: []string{"127.0.0.1/32"}})
 	y, m, d := a.cfg.clock.Now().UTC().Date()
@@ -3116,11 +3314,25 @@ func TestWebUICapture(t *testing.T) {
 	if boot.Code != http.StatusOK {
 		t.Fatalf("bootstrap: %d %s", boot.Code, boot.Body.String())
 	}
-	scene := &tourScene{t: t, a: a, runtime: runtime, password: password, cookies: map[string]*http.Cookie{}, refuseRun: new(atomic.Bool)}
+	scene := &tourScene{t: t, a: a, runtime: runtime, password: password, cookies: map[string]*http.Cookie{}, refuseRun: refuseRun}
 	for _, user := range []string{"priya", "tom"} {
 		scene.call("sam", "POST", "/api/v1/users", map[string]string{"username": user, "role": "member", "password": password})
 	}
 	scene.play(start)
+	// The camera needs a real, actionable finding for the remediation family.
+	// The tour excepts the game's external font; revoke that exception here.
+	var exceptions struct {
+		Dispositions []struct {
+			ID ids.ID `json:"id"`
+		} `json:"dispositions"`
+	}
+	if err := json.Unmarshal(scene.call("sam", "GET", "/api/v1/projects/rocket-garden/dispositions", nil), &exceptions); err != nil {
+		t.Fatal(err)
+	}
+	if len(exceptions.Dispositions) != 1 {
+		t.Fatal("camera expects the tour's one font exception")
+	}
+	scene.call("sam", "DELETE", "/api/v1/dispositions/"+exceptions.Dispositions[0].ID.String(), nil)
 	var pending struct {
 		Active []struct {
 			RunID ids.ID `json:"runId"`
@@ -3135,7 +3347,11 @@ func TestWebUICapture(t *testing.T) {
 	reviewWorkflow := tourWorkflow
 	reviewWorkflow.Workflow.Name = "design-review"
 	reviewWorkflow.Spec.Role = "working"
-	defineWorkflows(t, a, tourWorkflow, reviewWorkflow)
+	// The evaluation replays an adopted working lane. Its local execution
+	// uses the same script fixture; the project already adopts implement.
+	evalWorkflow := reviewWorkflow
+	evalWorkflow.Workflow.Name = "implement"
+	defineWorkflows(t, a, tourWorkflow, reviewWorkflow, evalWorkflow)
 	scene.call("sam", "POST", "/api/v1/workflows/library", map[string]string{"yaml": `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
@@ -3183,7 +3399,7 @@ app:
 					ID ids.ID `json:"id"`
 				} `json:"run"`
 			}
-			if err := json.Unmarshal(scene.call("tom", "POST", "/api/v1/changes/"+c.ID.String()+"/runs", map[string]string{"workflow": "design-review"}), &started); err != nil {
+			if err := json.Unmarshal(scene.call("tom", "POST", "/api/v1/changes/"+c.ID.String()+"/runs", map[string]string{"workflow": "implement"}), &started); err != nil {
 				t.Fatal(err)
 			}
 			a.Work.Wait()
@@ -3236,7 +3452,7 @@ app:
 	if err != nil {
 		t.Fatal(err)
 	}
-	productionHost, err := a.Deployment.Targets.Put(ctx, &deployment.Target{Name: "design-production", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady, Ingress: map[string]any{"domain": "apps.example.test"}})
+	productionHost, err := a.Deployment.Targets.ByName(ctx, deployment.BuiltInTargetName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3245,7 +3461,7 @@ app:
 	if err != nil {
 		t.Fatal(err)
 	}
-	prod, err := a.Deployment.Deployments.EnsureStanding(ctx, project.ID, "main", productionHost.ID, deployment.Attributes{Feed: "manual", Audience: "public", DataClass: "production"})
+	prod, err := a.Deployment.Deployments.ByName(ctx, project.ID, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3300,7 +3516,8 @@ app:
 		captureDeps = append(captureDeps, dep)
 		daemon.markStarted(docker.ByKey(dep.ID).App())
 	}
-	daemon.command = func(_ context.Context, host string, req docker.Command) ([]byte, error) {
+	sceneDockerCommand := daemon.command
+	daemon.command = func(ctx context.Context, host string, req docker.Command) ([]byte, error) {
 		if host != "" {
 			return nil, deploy.Unreachable(errors.New("SSH connection refused by the local test transport"))
 		}
@@ -3340,11 +3557,11 @@ app:
 			return []byte(strings.Join(rows, "\n")), nil
 		}
 
-		if req.Stdout != nil {
+		if req.Stdout != nil && len(req.Args) > 0 && (req.Args[0] == "run" || req.Args[0] == "exec") {
 			_, err := containerresulttest.WriteString(req.Stdout, "disposable local backup data")
 			return nil, err
 		}
-		return daemon.run(req.Args...)
+		return sceneDockerCommand(ctx, host, req)
 	}
 	// Real local release receipts and exported backups reproduce the volume
 	// of automated copies seen with five releases. The provider is the test daemon.
@@ -3359,6 +3576,7 @@ app:
 			if err != nil {
 				t.Fatal(err)
 			}
+			continue // Keep the actual landing serving, including its release narrative.
 		}
 		scene.later(time.Minute)
 		draft := deployment.ReleaseDraft{Source: deployment.ReleaseFromBranch, ProjectID: project.ID, DeploymentID: prod.ID,
@@ -3590,6 +3808,12 @@ app:
 	}
 	// Page reads use recorded background evidence. Collect the disposable
 	// hosts before the camera checks their capacity and inventory.
+	// Seeding the cloud connection also syncs the built-in target. Read its
+	// current revision so the observer does not discard an obsolete request.
+	productionHost, err = a.Deployment.Targets.ByID(ctx, productionHost.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := a.capacityObserver.Run(ctx, productionHost.ID, productionHost.SettingsRevision); err != nil {
 		t.Fatal(err)
 	}
@@ -3774,11 +3998,24 @@ spec:
 		Env: []string{"APPTOWN_PLAYWRIGHT_MODULE=" + module, "DESIGN_URL=https://" + a.cfg.publicHost,
 			"DESIGN_AUDIT=" + os.Getenv("APPTOWN_DESIGN_AUDIT"), "DESIGN_PAGES=" + os.Getenv("APPTOWN_DESIGN_PAGES"), "DESIGN_BASELINE=" + os.Getenv("APPTOWN_DESIGN_BASELINE"), "DESIGN_PASSWORD=" + password, "DESIGN_CHANGE=" + approvalChange, "DESIGN_OUT=" + out,
 			"TMPDIR=" + t.TempDir(), "PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME")},
-		Timeout: 10 * time.Minute,
+		Timeout: 45 * time.Minute,
 	})
 	t.Log(string(run.Output))
 	if run.RunErr != nil {
 		t.Fatal(fmt.Errorf("web UI camera: %w", run.RunErr))
+	}
+	if os.Getenv("APPTOWN_DESIGN_PAGES") == "" && os.Getenv("APPTOWN_DESIGN_AUDIT") == "" {
+		data, err := os.ReadFile(filepath.Join(out, "final-paths.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var paths []string
+		if err := json.Unmarshal(data, &paths); err != nil {
+			t.Fatal(err)
+		}
+		if err := cameraRouteCoverage(cameraAppRoutes(t), paths, cameraRouteExclusions); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 

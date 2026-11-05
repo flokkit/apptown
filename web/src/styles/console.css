@@ -129,11 +129,11 @@ details.console-about { margin: 0; }
 
 .agent-activity { padding: 4px 6px; white-space: nowrap; }
 @media(max-width:800px) {
-  /* One line: the title gives way (ellipsis) before the state or the menu. */
-  .console-head { flex-wrap: nowrap; min-width: 0; }
+  /* Wrap the header before shortening its activity label or menu. */
+  .console-head { flex-wrap: wrap; min-width: 0; }
   .console-head h1 { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-md); }
   .console-head h1 a { color: inherit; text-decoration: none; }
-  .console-head > .chip { flex: none; }
+  .console-head > .chip, .console-head > .agent-activity { flex: none; }
 }
 
 .agent-activity.compact .chip { font-size: 0; }
