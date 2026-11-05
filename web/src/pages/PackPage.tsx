@@ -69,7 +69,7 @@ export default function PackPage() {
               {v.name && <span>“{v.name}”</span>}
               {v.version === h.recommended && <span className="badge">recommended</span>}
               <span className="muted small">{lineage(v)}</span>
-              <span style={{ flex: 1 }} />
+              <span className="grow" />
               <span className="muted small" title={v.at}>{relTime(v.at)}</span>
               <button className="subtle" aria-expanded={open === v.version} onClick={() => setOpen(open === v.version ? null : v.version)}>{open === v.version ? 'Hide contents' : 'Contents'}</button>
               {v.version !== h.recommended && (
@@ -78,7 +78,7 @@ export default function PackPage() {
                   onYes={() => recommend(v.version)} />
               )}
             </div>
-            {v.note && v.note !== 'published contents' && v.note !== v.name && <div className="small" style={{ marginTop: 4 }}>{v.note}</div>}
+            {v.note && v.note !== 'published contents' && v.note !== v.name && <div className="small mt-1" >{v.note}</div>}
             {open === v.version && <Contents v={v} />}
             {open === v.version && <Limits v={v} base={h.versions.find((b) => b.version === v.basedOn)} />}
             {open === v.version && <WhatIfPanel pack={h.name} version={v.version} />}
@@ -99,7 +99,7 @@ function lineage(v: Publication): string {
 function Contents({ v }: { v: Publication }) {
   const s = v.spec
   return (
-    <div className="small" style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+    <div className="small mt-2" style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
       <div><strong>Guidance</strong> ({s.guidance.length}): {s.guidance.map((g, i) => <span key={g}>{i > 0 ? ', ' : ''}<code>{g}</code>{v.pins.blocks[g] ? ` v${v.pins.blocks[g]}` : ''}</span>)}</div>
       <div><strong>Workflows</strong> ({s.workflows.length}): {s.workflows.map((w, i) => <span key={w}>{i > 0 ? ', ' : ''}<code>{w}</code>{v.pins.workflows[w] ? ` v${v.pins.workflows[w]}` : ''}</span>)}</div>
       <div><strong>Policies</strong> ({s.policies.length}): {s.policies.map((p, i) => <span key={p.name}>{i > 0 ? ', ' : ''}<code>{p.name}</code></span>)}</div>
@@ -119,7 +119,7 @@ function Limits({ v, base }: { v: Publication; base?: Publication }) {
     ...base.spec.policies.filter((p) => !v.spec.policies.some((q) => q.name === p.name)).map((p) => `policy ${p.name}`),
   ] : []
   return (
-    <div className="small muted" style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+    <div className="small muted mt-2" style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
       <strong>When a project adopts it.</strong>{' '}
       {kept.length > 0
         ? <>Projects on v{base?.version} keep {kept.map((k, i) => <span key={k}>{i > 0 ? ', ' : ''}<code>{k}</code></span>)} after adopting, though this version no longer carries {kept.length === 1 ? 'it' : 'them'}; removing {kept.length === 1 ? 'it' : 'them'} is an edit on each project.</>

@@ -1,3 +1,4 @@
+import { Spinner } from '../../Spinner'
 import { useCallback, useEffect, useState } from 'react'
 import type { ChangeView, RunDetail, Step } from '../../api'
 import type { RunTrace, StepProgress } from '../../wire.gen'
@@ -49,7 +50,7 @@ function Timing({ steps }: { steps: Step[] }) {
 }
 function Mark({ steps }: { steps: Step[] }) {
   if (steps.some(failed)) return <span className="bad" aria-label="failed">✗</span>
-  if (steps.some(s => s.status === 'running')) return <span className="ch-now-spinner" role="status" aria-label="running" />
+  if (steps.some(s => s.status === 'running')) return <Spinner />
   if (steps.every(done)) return <span className="ok" aria-label="done">✓</span>
   return <span className="muted">pending</span>
 }

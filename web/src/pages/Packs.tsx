@@ -1,3 +1,4 @@
+import './Packs.css'
 import { LibraryRow, LibraryRows, firstSentence } from '../LibraryRow'
 import { Section } from '../Section'
 import { MoreMenu } from '../MoreMenu'
@@ -49,19 +50,19 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
 
   const body = (
       <div>
-        <div className="small" style={{ marginBottom: 12 }}>{pack.description}</div>
-        {loadErr && <div className="error small" style={{ marginBottom: 12 }}>The library could not be read, so sizes and details may be missing: {loadErr}</div>}
+        <div className="small mb-3" >{pack.description}</div>
+        {loadErr && <div className="error small mb-3" >The library could not be read, so sizes and details may be missing: {loadErr}</div>}
 
         <div className="conn-section-head"><h2>Guidance blocks</h2><span className="muted small" title={sizeTitle(packBytes)}>{pack.guidance.length} · {fmtSize(packBytes)} per step</span></div>
         {pack.guidance.map((name) => {
           const b = blocks.find((x) => x.name === name)
           return (
-            <div key={name} className="card" style={{ padding: '8px 12px' }}>
+            <div key={name} className="card packs-entry">
               <div className="row" style={{ cursor: b ? 'pointer' : 'default' }} onClick={() => b && showBlock(b.id)}>
                 <code>{name}</code>
                 {b ? <span className="muted small">v{b.latestVersion} · <span title={sizeTitle(b.bytes)}>{fmtSize(b.bytes)}</span> · {b.tags}</span>
                    : <Status word="failed" help="This adopted pack is missing from the library. Ask an administrator to restore the pack or change the project’s adoption." />}
-                <span style={{ flex: 1 }} />
+                <span className="grow" />
                 {b && <span className="muted small">{openBlock === b.id ? 'hide' : 'read'}</span>}
               </div>
               {b && openBlock === b.id && <BlockBody id={b.id} />}
@@ -69,38 +70,38 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
           )
         })}
 
-        <div className="conn-section-head" style={{ marginTop: 16 }}><h2>Workflows</h2><span className="muted small">{pack.workflows.length}</span></div>
+        <div className="conn-section-head mt-4" ><h2>Workflows</h2><span className="muted small">{pack.workflows.length}</span></div>
         {packWf.map((w) => (
-          <div key={w.name} className="card" style={{ padding: '8px 12px' }}>
-            <div className="row" style={{ cursor: 'pointer' }} onClick={() => setOpenWf(openWf === w.name ? null : w.name)}>
+          <div key={w.name} className="card packs-entry">
+            <div className="row packs-entry-action"  onClick={() => setOpenWf(openWf === w.name ? null : w.name)}>
               <strong>{w.name}</strong>
               <span className="badge">{w.kind}</span>
               <span className="muted small">{w.stages.join(' → ')}</span>
-              <span style={{ flex: 1 }} />
+              <span className="grow" />
               <span className="muted small">{openWf === w.name ? 'hide' : 'yaml'}</span>
             </div>
-            <div className="muted small" style={{ marginTop: 2 }}>{w.description}</div>
+            <div className="muted small packs-entry-note">{w.description}</div>
             {openWf === w.name && (
-              <pre style={{ fontSize: 'var(--fs-xs)', marginTop: 8, maxHeight: 360, overflow: 'auto', borderTop: '1px solid var(--border)', paddingTop: 8 }}>{w.yaml}</pre>
+              <pre className="mt-2 packs-source">{w.yaml}</pre>
             )}
           </div>
         ))}
 
-        <div className="conn-section-head" style={{ marginTop: 16 }}><h2>Policies</h2><span className="muted small">{(pack.policies ?? []).length}</span></div>
+        <div className="conn-section-head mt-4" ><h2>Policies</h2><span className="muted small">{(pack.policies ?? []).length}</span></div>
         {packPol.map((pp) => (
-          <div key={pp.name} className="card" style={{ padding: '8px 12px' }}>
+          <div key={pp.name} className="card packs-entry">
             <div className="row">
               <strong>{pp.name}</strong>
               <span className="badge">{pp.rule}</span>
               <span className="muted small">{Object.entries(pp.with ?? {}).map(([k, v]) => `${k}=${String(v)}`).join(' · ')}</span>
             </div>
-            <div className="muted small" style={{ marginTop: 2 }}>{pp.description}</div>
+            <div className="muted small packs-entry-note">{pp.description}</div>
           </div>
         ))}
       </div>
   )
   return (
-    <Modal onClose={onClose} title={<><h2 style={{ margin: 0 }}>{pack.name}</h2><OriginChip origin={pack.origin} /></>}>{body}</Modal>
+    <Modal onClose={onClose} title={<><h2 className="packs-title">{pack.name}</h2><OriginChip origin={pack.origin} /></>}>{body}</Modal>
   )
 }
 
@@ -133,7 +134,7 @@ export default function Packs() {
 
   return (
     <div>
-      {msg && <div className="muted small" style={{ marginBottom: 8 }}>{msg}</div>}
+      {msg && <div className="muted small mb-2" >{msg}</div>}
       <StaleNote q={packsQ} />
       {actErr && <div className="error">{actErr}</div>}
 
@@ -198,9 +199,9 @@ function PackEditor({ draft, existing, onDone }: { draft: Draft; existing: boole
   })
 
   return (
-    <div style={{ maxWidth: 860 }}>
+    <div className="packs-editor">
       <h2>{existing ? `Edit pack: ${draft.name}` : 'New pack'}</h2>
-      <div className="form-grid" style={{ marginBottom: 12 }}>
+      <div className="form-grid mb-3" >
         <label>Name</label>
         <input aria-label="Name" value={p.name} onChange={(e) => setP({ ...p, name: e.target.value })} placeholder="my-way" autoFocus disabled={existing} />
         <label>Description</label>
@@ -208,14 +209,14 @@ function PackEditor({ draft, existing, onDone }: { draft: Draft; existing: boole
         <label>Version name</label>
         <input aria-label="Version name" value={p.versionName} onChange={(e) => setP({ ...p, versionName: e.target.value })} placeholder="optional, e.g. stricter deps" />
       </div>
-      {existing && <div className="muted small" style={{ marginBottom: 8 }}>Saving creates a version. Recommend it on the pack page.</div>}
-      {keptAsWritten(p).length > 0 && <div className="muted small" style={{ marginBottom: 8 }}>Kept as written, not edited here: {keptAsWritten(p).join('; ')}.</div>}
+      {existing && <div className="muted small mb-2" >Saving creates a version. Recommend it on the pack page.</div>}
+      {keptAsWritten(p).length > 0 && <div className="muted small mb-2" >Kept as written, not edited here: {keptAsWritten(p).join('; ')}.</div>}
 
       <h2>Workflows ({p.workflows.length})</h2>
-      <div className="row" style={{ gap: 6 }}>
+      <div className="row packs-editor-actions">
         {allWorkflows.map((w) => (
-          <span key={w.name} className="badge"
-            style={{ cursor: 'pointer' }} title={w.description}
+          <span key={w.name} className="badge packs-entry-action"
+             title={w.description}
             onClick={() => setP({ ...p, workflows: toggle(p.workflows, w.name) })}>
             {p.workflows.includes(w.name) ? '✓ ' : ''}{w.name}
           </span>
@@ -223,13 +224,13 @@ function PackEditor({ draft, existing, onDone }: { draft: Draft; existing: boole
       </div>
 
       <h2>Guidance blocks ({p.guidance.length}, {fmtSize(allGuidance.filter((g) => p.guidance.includes(g.name)).reduce((n, g) => n + (g.bytes ?? 0), 0))})</h2>
-      <div className="muted small" style={{ marginBottom: 6 }}>
+      <div className="muted small packs-editor-label">
         Selected blocks go to every project agent. Sizes show their context cost.
       </div>
-      <div className="row" style={{ gap: 6 }}>
+      <div className="row packs-editor-actions">
         {allGuidance.map((g) => (
-          <span key={g.name} className="badge"
-            style={{ cursor: 'pointer' }} title={`${g.tags ? g.tags + ' · ' : ''}${sizeTitle(g.bytes ?? 0)}`}
+          <span key={g.name} className="badge packs-entry-action"
+             title={`${g.tags ? g.tags + ' · ' : ''}${sizeTitle(g.bytes ?? 0)}`}
             onClick={() => setP({ ...p, guidance: toggle(p.guidance, g.name) })}>
             {p.guidance.includes(g.name) ? '✓ ' : ''}{g.name} <span className="muted">{fmtSize(g.bytes ?? 0)}</span>
           </span>
@@ -237,15 +238,15 @@ function PackEditor({ draft, existing, onDone }: { draft: Draft; existing: boole
       </div>
 
       <h2>Policies ({p.policies.length})</h2>
-      <div className="muted small" style={{ marginBottom: 6 }}>
+      <div className="muted small packs-editor-label">
         From the policy library (add or clone policies on the Policies tab).
       </div>
-      <div className="row" style={{ gap: 6 }}>
+      <div className="row packs-editor-actions">
         {allPolicies.map((pol) => {
           const on = p.policies.some((x) => x.name === pol.name)
           return (
-            <span key={pol.name} className="badge"
-              style={{ cursor: 'pointer' }} title={pol.description}
+            <span key={pol.name} className="badge packs-entry-action"
+               title={pol.description}
               onClick={() => setP({
                 ...p,
                 policies: on
@@ -259,14 +260,14 @@ function PackEditor({ draft, existing, onDone }: { draft: Draft; existing: boole
       </div>
 
       {warnings.length > 0 && (
-        <div className="card tone-warn" style={{ marginTop: 12 }}>
+        <div className="card tone-warn mt-3" >
           <div className="small">Saved with warnings:</div>
           {warnings.map((w, i) => <div key={i} className="muted small">⚠ {w}</div>)}
-          <button className="subtle" style={{ marginTop: 6 }} onClick={() => onDone(p.name)}>OK</button>
+          <button className="subtle packs-add"  onClick={() => onDone(p.name)}>OK</button>
         </div>
       )}
       {err && <div className="error">{err}</div>}
-      <div className="row" style={{ marginTop: 16 }}>
+      <div className="row mt-4" >
         <button className="primary" onClick={() => void save()} disabled={busy || !p.name.trim()}>Save pack</button>
         <button onClick={() => onDone()}>Cancel</button>
       </div>
@@ -282,7 +283,7 @@ function BlockBody({ id }: { id: string }) {
   return (
     <>
       <StaleNote q={q} />
-      <div className="md-doc" style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}
+      <div className="md-doc mt-2 packs-block-body"
         dangerouslySetInnerHTML={{ __html: renderMd(q.data.block.bodyMd || '(empty)') }} />
     </>
   )

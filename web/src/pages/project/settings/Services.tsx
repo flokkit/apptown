@@ -1,3 +1,4 @@
+import './services.css'
 import { Fragment } from 'react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -9,7 +10,6 @@ import { useAction, useGet } from '../../../data'
 import { ReadStatus, StaleNote } from '../../../ReadGate'
 import { relTime } from '../../../format'
 import { Section } from '../../../Section'
-import './services.css'
 import type { Attachable, AttachableList, AttachmentList, AttachmentView, DependencyKind, DependencyList, IntegrationWiring, ProjectServiceList, ServicesProposed } from '../../../wire.gen'
 
 // The service selector: the databases and backing services this app runs
@@ -169,7 +169,7 @@ export function ServicesTab({ slug }: { slug: string }) {
         return (
           <div key={k.capability} className={'card service-pick' + (on ? ' on' : '')}>
             <div className="service-main">
-              <div><strong>{k.title}</strong>{k.status === 'experimental' && <span className="badge" style={{ marginLeft: 8 }}>Experimental</span>}</div>
+              <div><strong>{k.title}</strong>{k.status === 'experimental' && <span className="badge services-badge">Experimental</span>}</div>
               {tileLine(k) && <div className="muted small">{tileLine(k)}</div>}
               <div className="muted small">Runs on: {fulfilledBy(k).join(' · ')}</div>
               {k.register?.connector && <div className="service-connection"><ProjectIntegrationsTab slug={slug} onlyCapability={k.capability} /></div>}
@@ -177,8 +177,8 @@ export function ServicesTab({ slug }: { slug: string }) {
             <div className="service-controls">
               {on && version !== undefined && (
                 <label className="muted small">Version{' '}
-                  <input value={version} style={{ width: 56, fontSize: 'var(--fs-xs)', textAlign: 'center' }}
-                    onChange={(e) => setVersion(k.capability, e.target.value)} />
+                  <input value={version}
+                    onChange={(e) => setVersion(k.capability, e.target.value)} className="services-input" />
                 </label>
               )}
               <button role="switch" aria-label={k.title} aria-checked={on} className={on ? 'service-on' : undefined} onClick={() => toggleNeed(k)}>{on ? 'On' : 'Off'}</button>
@@ -190,12 +190,12 @@ export function ServicesTab({ slug }: { slug: string }) {
         <p className="muted small">None declared · fine for a client-only site or a stateless service.</p>}
 
       {conflict && draft && (
-        <div className="card tone-warn" style={{ margin: '10px 0' }}>
+        <div className="card tone-warn services-services-tab-card-tone-warn">
           <div>The app's services changed on main after you started. Your picks are kept here, unsaved.</div>
-          {newer && now && <div className="muted small" style={{ marginTop: 4 }}>
+          {newer && now && <div className="muted small mt-1" >
             Declared now: {said(now.needs || [])} (it was {said(base.needs)} when you started). Keeping your edits gives {said(onto(now.needs || [], base.needs, draft))}.
           </div>}
-          <div className="row" style={{ marginTop: 8 }}>
+          <div className="row mt-2" >
             <button onClick={keepMine} disabled={!newer}>Keep my edits on top of theirs</button>
             {!newer && <span className="muted small">reading the current services…</span>}
             <button className="subtle" onClick={discard}>Discard my edits</button>
@@ -293,11 +293,11 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
         const last = i.lastEvent ? relTime(i.lastEvent) : ''
         return (
         <div key={i.capability} className={'integ-card' + (justAttached === i.capability && i.wirable ? ' tone-accent' : '')}>
-          <div className="row" style={{ alignItems: 'flex-start', gap: 12 }}>
+          <div className="row services-div">
             <span className="integ-icon" aria-hidden>{INTEG_ICON[i.capability] ?? '🔌'}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="row" style={{ gap: 8 }}>
-                <strong style={{ fontSize: 'var(--fs-md)' }}>{i.title}</strong>
+            <div className="grow services-div-2">
+              <div className="row services-div-3">
+                <strong className="services-strong">{i.title}</strong>
                 <span className="badge"
                   title={i.provenance === 'provisioned' ? `provisioned via connector ${i.connector}`
                     : i.connector ? `configured from connector ${i.connector}; nothing provisioned` : 'resource entered directly'}>
@@ -309,9 +309,9 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
           </div>
 
           {justAttached === i.capability && i.wirable ? (
-            <div style={{ margin: '12px 0 4px' }}>
+            <div className="services-div-4">
               <strong>Attached. Now the app has to use it.</strong>
-              <div className="muted small" style={{ margin: '2px 0 8px' }}>
+              <div className="muted small services-div-5">
                 The app gets the connection details in every container from now on, but nothing in the code
                 reads them yet. Wiring it in is an ordinary change.
               </div>
@@ -324,7 +324,7 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
               </div>
             </div>
           ) : i.wirable && (
-            <div className="row" style={{ marginTop: 12, gap: 8 }}>
+            <div className="row mt-3 services-div-3">
               {i.wire ? (
                 <Link to={`/changes/${i.wire.changeId}`} className="row small" title={i.wire.title}>
                   <Status word={i.wire.statusLabel} help={i.wire.title} /> wiring · change {i.wire.changeNumber}
@@ -339,7 +339,7 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
               )}
               {(!i.wire || i.wire.state === 'abandoned') && (
                 <>
-                  <span style={{ flex: 1 }} />
+                  <span className="grow" />
                   <button className="primary" disabled={wiring !== ''} onClick={() => wire(i.capability, 'workflow')}>
                     {wiring === i.capability ? '…' : 'Wire it in →'}
                   </button>
@@ -350,21 +350,21 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
           )}
 
           {Array.isArray(i.resource.unresolved) && i.resource.unresolved.length > 0 && (
-            <div className="small" style={{ marginTop: 8 }}>
+            <div className="small mt-2" >
               {(i.resource.unresolved as { title: string; count: string; lastSeen: string }[]).slice(0, 3).map((u, n) => (
                 <div key={n} className="muted small">⚠ {u.title} ×{u.count}</div>
               ))}
             </div>
           )}
           {/* The connection's own settings, shown and labelled rather than folded. */}
-          <dl className="facts small" style={{ marginTop: 8, overflowWrap: 'anywhere' }}>
+          <dl className="facts small mt-2 services-facts">
             {Object.entries(i.resource)
               .filter(([k]) => !['unresolved', 'issuesError'].includes(k))
               .map(([k, v]) => <Fragment key={k}><dt>{RESOURCE_LABEL[k] ?? k}</dt><dd>{String(v)}</dd></Fragment>)}
           </dl>
           <div className="row integ-foot">
             {i.docs && <Link to={i.docs} className="small">Guide: how it is wired in and how to test it</Link>}
-            <span style={{ flex: 1 }} />
+            <span className="grow" />
             <QuietConfirm label="Detach" ask={`Detach ${i.capability}? The app and agents stop receiving its settings; nothing is deleted at the provider.`} onYes={() => detach(i.capability)} />
           </div>
         </div>
@@ -375,7 +375,7 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
 
       <ReadStatus q={catalogQ} what="the service catalogue" /><StaleNote q={catalogQ} />
       {adding === null ? (
-        <div className="row service-attach" style={{ gap: 8, flexWrap: 'wrap' }}>
+        <div className="row service-attach services-project-integrations-tab-service-attach">
           {catalogQ.data && !catalogQ.refreshFailed && unattached.map((a) => (
             <button key={a.capability} onClick={() => openAdd(a)} title={a.description}>+ {a.title}</button>
           ))}
@@ -383,15 +383,15 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
       ) : (
         <div className="card">
           <strong>Attach {adding.title}</strong>
-          <div className="muted small" style={{ margin: '4px 0 8px' }}>{adding.description}</div>
+          <div className="muted small services-project-integrations-tab-div">{adding.description}</div>
           {adding.provisionable && adding.resourceFields.length > 0 && (
-            <label className="row" style={{ gap: 6, marginBottom: 6 }}>
+            <label className="row services-project-integrations-tab-label">
               <input type="checkbox" checked={direct} onChange={(e) => setDirect(e.target.checked)} />
               <span className="small">direct · enter the resource myself instead of provisioning via a connector</span>
             </label>
           )}
           {(!direct || !adding.provisionable) && adding.connectors.length > 0 && (
-            <label className="row" style={{ gap: 6 }}>
+            <label className="row services-project-integrations-tab-label-2">
               <span className="muted small">via connector</span>
               <select value={connector} onChange={(e) => setConnector(e.target.value)}>
                 {adding.connectors.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -399,7 +399,7 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
             </label>
           )}
           {(direct || !adding.provisionable) && (
-            <div className="form-grid" style={{ marginTop: 8 }}>
+            <div className="form-grid mt-2" >
               {adding.resourceFields.map((f) => (
                 <FieldRow key={f.key} label={f.label + (f.optional ? ' (optional)' : '')} help={f.help}>
                   <input value={fields[f.key] ?? ''} placeholder={f.placeholder ?? (f.type === 'secretRef' ? 'SECRET_NAME (never a value)' : '')}
@@ -409,8 +409,8 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
             </div>
           )}
           {err && <div className="error">{err}</div>}
-          <div className="row" style={{ marginTop: 10 }}>
-            <span style={{ flex: 1 }} />
+          <div className="row services-project-integrations-tab-div-2">
+            <span className="grow" />
             <button onClick={() => setAdding(null)}>Cancel</button>
             <button className="primary" onClick={attach} disabled={busy}>{busy ? 'Attaching…' : 'Attach'}</button>
           </div>

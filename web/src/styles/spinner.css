@@ -1,0 +1,11 @@
+@layer components {
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spinner-turn 1s linear infinite; }
+.spinner-small, .spinner-tiny { border-color: var(--border-strong); border-top-color: transparent; animation-duration: 0.8s; }
+.spinner-small { width: 13px; height: 13px; }
+.spinner-tiny { width: 11px; height: 11px; }
+@keyframes spinner-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+  .spinner-normal { border-right-color: currentColor; }
+}
+}

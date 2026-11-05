@@ -1,3 +1,4 @@
+import './InfrastructureHome.css'
 import { ListRow } from '../ListRow'
 import { Tabs } from '../Tabs'
 import { useState } from 'react'
@@ -54,13 +55,13 @@ export function InfrastructureHome() {
     <div>
       <StaleNote q={[infra, targets, attention]} />
       <PageHead page="infrastructure" />
-      <Tabs className="tabs" style={{ marginTop: 10 }}>
+      <Tabs className="tabs infrastructure-home-tabs">
         <NavLink to="/infrastructure" end className={() => 'tab' + (tab === 'targets' ? ' active' : '')}>Deployment targets</NavLink>
         <NavLink to="/infrastructure/jobs" className={() => 'tab' + (tab === 'jobs' ? ' active' : '')}>Job queue</NavLink>
       </Tabs>
       {tab === 'targets' && <OwnDisks />}
-      {tab === 'targets' && <div style={{ marginTop: 16 }}><DeletedProjects /></div>}
-      {tab === 'jobs' ? <JobQueue /> : <div className="project-rows" role="list" style={{ marginTop: 16 }}>
+      {tab === 'targets' && <div className="mt-4"><DeletedProjects /></div>}
+      {tab === 'jobs' ? <JobQueue /> : <div className="project-rows mt-4" role="list" >
         {live.map((t) => {
           const v = byName.get(t.target)
           const res = t.resources ?? []
@@ -86,9 +87,9 @@ export function InfrastructureHome() {
 // A deployment target's own disk is on its page (its capacity).
 export function OwnDisks() {
   const q = useGet<DiskReadings>('/infrastructure/disks', { poll: 60000 })
-  if (!q.data) return <div style={{ marginTop: 16 }}><ReadStatus q={q} what={`${PRODUCT}'s disks`} className="small" /></div>
+  if (!q.data) return <div className="mt-4"><ReadStatus q={q} what={`${PRODUCT}'s disks`} className="small" /></div>
   return (
-    <div style={{ marginTop: 16 }}>
+    <div className="mt-4">
       <StaleNote q={q} />
       {q.data.disks.length === 0 && <p className="muted small">Waiting for the first disk check.</p>}
       <div className="host-disks">
@@ -138,19 +139,19 @@ function JobQueue() {
   const [count, setCount] = useState(10)
   const jobs = useGet<JobList>('/jobs?limit=500', { poll: 10000 })
 
-  if (!jobs.data) return <div style={{ marginTop: 14 }}><ReadStatus q={jobs} what="the job queue" /></div>
+  if (!jobs.data) return <div className="infrastructure-home-job-queue-div"><ReadStatus q={jobs} what="the job queue" /></div>
   const groups = groupJobs(jobs.data.jobs)
   const latest = jobs.data.jobs.find(j => j.finishedAt)?.finishedAt
   const open = jobs.data.jobs.filter((j) => ['available', 'pending', 'running', 'retryable', 'scheduled'].includes(j.state)).length
   return (
-    <div style={{ marginTop: 14 }}>
+    <div className="infrastructure-home-job-queue-div">
       <StaleNote q={jobs} />
-      <p className="muted small" style={{ margin: '0 0 8px', maxWidth: 760 }}>{open > 0 ? `${open} open now.` : `Nothing open now.${latest ? ` Last ran ${relTime(latest)}.` : ''}`}</p>
+      <p className="muted small infrastructure-home-job-queue-p">{open> 0 ? `${open} open now.` : `Nothing open now.${latest ? ` Last ran ${relTime(latest)}.` : ''}`}</p>
       {jobs.data.jobs.length === 0
         ? <div className="muted small">No jobs yet.</div>
         : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="small stack job-table" style={{ fontVariantNumeric: 'tabular-nums' }}>
+          <div className="infrastructure-home-job-queue-div-2">
+            <table className="small stack job-table infrastructure-home-job-queue-job-table">
               <thead><tr><th>Job</th><th>State</th><th>When</th><th>Outcome</th></tr></thead>
               <tbody>
                 {groups.slice(0, count).map(({ job: j, count: repeats }) => (

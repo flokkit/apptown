@@ -51,7 +51,7 @@ export function ServiceKindsPanel() {
 
   return (
     <div>
-      <div className="muted small" style={{ marginBottom: 12 }}>
+      <div className="muted small mb-3" >
         Projects attach these under Project settings › Services.
       </div>
       <ReadStatus q={kindsQ} what="the shared services" />
@@ -62,12 +62,12 @@ export function ServiceKindsPanel() {
             <strong>{k.title}</strong>
             <span className="badge">{k.capability}</span>
             {k.error && <Status word="failed" help={`${k.error} Correct its definition.`} />}
-            <span style={{ flex: 1 }} />
+            <span className="grow" />
             <button className="subtle" onClick={() => setEditing(k.yaml)}>Edit</button>
             <QuietConfirm label="Delete" ask={`Delete the shared service "${k.capability}"?`} onYes={() => void remove(k.capability)} />
           </div>
-          {k.description && <div className="muted small" style={{ marginTop: 4 }}>{k.description}</div>}
-          <div className="muted small" style={{ marginTop: 4 }}>
+          {k.description && <div className="muted small mt-1" >{k.description}</div>}
+          <div className="muted small mt-1" >
             {(k.env ?? []).map((e) => e.key).join(', ') || 'no environment variables'}
           </div>
         </div>
@@ -78,8 +78,8 @@ export function ServiceKindsPanel() {
         <div className="card">
           <textarea aria-label="Service kind definition" value={editing} onChange={(e) => setEditing(e.target.value)} rows={20}
             style={{ width: '100%', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }} />
-          <div className="row" style={{ marginTop: 8 }}>
-            <span style={{ flex: 1 }} />
+          <div className="row mt-2" >
+            <span className="grow" />
             <button onClick={() => setEditing(null)}>Cancel</button>
             <button className="primary" disabled={busy} onClick={() => void save()}>Save</button>
           </div>

@@ -9,4 +9,13 @@
 .np-field input { width: 100%; box-sizing: border-box; }
 .np-panel textarea { width: 100%; box-sizing: border-box; }
 @media (max-width: 600px) { .np-panel { padding: 16px; } }
+
+.new-project-fieldset { border: 0; padding: 0; margin: 0; }
+.new-project-project-setup-div { max-width: 760px; }
+.new-project-project-setup-primary { font-size: var(--fs-base); padding: calc(var(--space-1) * 2.5) calc(var(--space-1) * 6.5); }
+.new-project-project-setup-div-2 { max-width: 720px; }
+.new-project-project-setup-h1 { margin: 0; }
+.new-project-manifest-view-div { gap: var(--space-1); }
+.new-project-manifest-view-div-2 { line-height: 1.5; }
+.new-project-manifest-view-primary { font-size: var(--fs-md); padding: var(--space-3) calc(var(--space-1) * 7.5); }
 }

@@ -110,7 +110,7 @@ export function DiagnosticsLines({ slug, name }: { slug: string; name: string })
 
 function DiagnosticsDetail({ d, busy, onLog }: { d: Diag; busy: boolean; onLog: (part: string) => void }) {
   return (
-    <div style={{ marginTop: 4 }}>
+    <div className="mt-1">
       <div className="muted">
         generation {d.generation}{d.commit ? <> · commit <code>{d.commit.slice(0, 12)}</code></> : null}
         {' · '}observed {d.runtime.state}{d.runtime.observedAt ? ` ${at(d.runtime.observedAt)}` : ''}{d.runtime.reason ? ` (${d.runtime.reason})` : ''}
@@ -180,7 +180,7 @@ function EventLines({ d }: { d: Diag }) {
 // its bounds; it is not refreshed and not kept.
 function LogView({ log, onClose }: { log: PartLog; onClose: () => void }) {
   return (
-    <div style={{ marginTop: 4 }}>
+    <div className="mt-1">
       <div className="row" style={{ gap: 6 }}>
         <b>{partName(log)}</b>
         <span className="muted">{log.generation == null ? `log of container ${log.container.slice(0, 12)} (generation not known)` : `log of generation ${log.generation}`}, read {fmtStamp(log.readAt)} · newest {log.maxLines} lines, at most {fmtBytes(log.maxBytes)}{log.truncated ? '; older output not shown' : ''}</span>

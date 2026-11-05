@@ -88,7 +88,7 @@ export default function AttentionPage() {
   const ready = !!q.data
   useEffect(() => { if (ready && hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' }) }, [ready, hash])
   return <div>
-    <div className="row"><h1 style={{ flex: 1, margin: 0 }}>Attention</h1></div>
+    <div className="row"><h1 style={{ margin: 0 }} className="grow">Attention</h1></div>
     <ReadStatus q={q} what="conditions that need action" />
     <StaleNote q={q} />
     {q.data && <>

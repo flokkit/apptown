@@ -44,8 +44,8 @@ function BarList({ title, rows, labelKey, hasCost, mapLabel }: {
   if (!rows || rows.length === 0) return null
   const max = Math.max(1, ...rows.map((r) => Number(r.total)))
   return (
-    <div className="card" style={{ flex: 1, minWidth: 300 }}>
-      <h3 style={{ marginTop: 0 }}>{title}</h3>
+    <div className="card grow usage-bar-list-card">
+      <h3 className="mt-0">{title}</h3>
       {rows.map((r, i) => {
         const label = mapLabel ? mapLabel(String(r[labelKey])) : String(r[labelKey])
         return (
@@ -85,15 +85,15 @@ export function TimingView({ days }: { days: number }) {
   // A measured time under a second is said so, never rounded down to a 0 that reads as missing.
   const sec = (ms: number) => ms > 0 && ms < 1000 ? 'under 1s' : fmtDuration(Math.round(ms / 1000))
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div className="stack usage-timing-view-div">
       <StaleNote q={tq} />
       {wfs.map((wf) => {
         const max = Math.max(1, ...wf.steps.map((s) => s.waitMedianMs + s.medianMs))
         const cost = spend(wf.steps.reduce((a, s) => a + s.costMicros, 0), wf.steps.reduce((a, s) => a + s.costIncomplete, 0))
         return (
           <div key={wf.workflow} className="card">
-            <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
-              <h3 style={{ margin: 0 }}>{wf.workflow === 'land' ? 'Landing a change' : wf.workflow.replaceAll('-', ' ')}</h3>
+            <div className="row mb-2 usage-div">
+              <h3 className="usage-h3">{wf.workflow === 'land' ? 'Landing a change' : wf.workflow.replaceAll('-', ' ')}</h3>
               <span className="muted small">
                 {wf.runs} run{wf.runs === 1 ? '' : 's'} · a typical run takes {sec(wf.totalMedianMs)} from open to its last step
                 {cost ? ` · ${cost} in agent time` : ''}
@@ -110,25 +110,25 @@ export function TimingView({ days }: { days: number }) {
                       {s.name.replaceAll('-', ' ')}
                       {s.reworks > 0 && <span className="muted"> · reworked {s.reworks}×</span>}
                     </span>
-                    <span className="muted" style={{ whiteSpace: 'nowrap' }}>
+                    <span className="muted usage-span">
                       {isApproval
                         ? `waited ${sec(s.waitMedianMs)} for a person`
                         : `waited ${sec(s.waitMedianMs)} · took ${sec(s.medianMs)}`}
                       {spend(s.costMicros, s.costIncomplete) && ` · ${spend(s.costMicros, s.costIncomplete)}`}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', height: 8, background: 'var(--rule)', borderRadius: 2, overflow: 'hidden' }}
-                    title={`median wait ${sec(s.waitMedianMs)}, median duration ${sec(s.medianMs)} over ${s.runs} runs`}>
+                  <div
+                    title={`median wait ${sec(s.waitMedianMs)}, median duration ${sec(s.medianMs)} over ${s.runs} runs`} className="usage-div-2">
                     <div style={{ width: `${waitPct}%`, background: isApproval ? 'var(--warn)' : 'var(--note)' }} />
-                    <div style={{ width: `${tookPct}%`, background: 'var(--accent)' }} />
+                    <div style={{ width: `${tookPct}%` }} className="usage-div-3" />
                   </div>
                 </div>
               )
             })}
-            <div className="muted small" style={{ marginTop: 6 }}>
-              <span style={{ color: 'var(--note)' }}>■</span> waiting to start&nbsp;
-              <span style={{ color: 'var(--warn)' }}>■</span> waiting for a person&nbsp;
-              <span style={{ color: 'var(--accent)' }}>■</span> running · medians over the window
+            <div className="muted small usage-div-4">
+              <span className="usage-span-2">■</span> waiting to start&nbsp;
+              <span className="usage-span-3">■</span> waiting for a person&nbsp;
+              <span className="usage-span-4">■</span> running · medians over the window
             </div>
           </div>
         )
@@ -196,7 +196,7 @@ function DailyChart({ days, perDay, shownFrom }: { days: string[]; perDay: Map<s
           )
         })}
       </div>
-      <div className="row" style={{ justifyContent: 'space-between' }}>
+      <div className="row usage-div">
         <span className="muted small">{shownFrom?.slice(5)}</span>
         <span className="muted small">{days[days.length - 1]?.slice(5)}</span>
       </div>
@@ -266,7 +266,7 @@ export function UsageView({ project }: { project?: string }) {
       <p className="muted small">{fmtTokens(data.totals.total)} tokens · {fmtTokens(data.totals.cacheRead)} from saved responses</p>
       <DailyChart days={days} perDay={perDay} shownFrom={shownDays[0]} />
 
-      <div className="row" style={{ alignItems: 'stretch', gap: 12 }}>
+      <div className="row usage-usage-view-div">
         <BarList title="By model" rows={data.byModel} labelKey="model" hasCost={hasCost}
           mapLabel={(m) => m.split('/').at(-1)!.replaceAll('-', ' ')} />
         <BarList title={project ? 'By workflow' : 'By project'}
@@ -284,7 +284,7 @@ export function UsageView({ project }: { project?: string }) {
       )}
 
       {data.totals.total === 0 && (
-        <div className="muted" style={{ marginTop: 12 }}>
+        <div className="muted mt-3" >
           No usage recorded yet.
         </div>
       )}

@@ -156,7 +156,7 @@ export function PageHead({ page, actions, sub, help, line }: { page: HelpPage; a
         <h1>{sub ?? h.title}</h1>
         {help ? <HelpButton about={sub ?? h.title} guide={help.guide}>{help.body}</HelpButton>
           : <HelpButton about={h.title} guide={h.guide}>{h.line && <p>{h.line}</p>}{h.help}</HelpButton>}
-        {actions && <><span style={{ flex: 1 }} />{actions}</>}
+        {actions && <><span className="grow" />{actions}</>}
       </div>
       {line && <p className="page-head-line">{line}</p>}
     </div>

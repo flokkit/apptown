@@ -109,7 +109,7 @@ export function AdoptPanel({ slug, packs, onChanged }: { slug: string; packs: Pr
           <div key={p.pack} className="card row wow-row">
             <strong>{p.pack}</strong>
             <span className="muted small">version {p.version}{update ? ` · version ${p.recommended} recommended` : ''}</span>
-            <span style={{ flex: 1 }} />
+            <span className="grow" />
             {update && !cand && (
               <span className="row-action">
                 <button className="subtle" disabled={busy} onClick={() => setVersion(p.pack, p.recommended)} title="see what moving would change; nothing moves yet">
@@ -135,7 +135,7 @@ export function AdoptPanel({ slug, packs, onChanged }: { slug: string; packs: Pr
           <div className="card row wow-row small">
             <strong>{cand.packs.map((p) => `${p.pack} v${p.version}`).join(' · ') || 'no pack'}</strong>
             {cand.additions.length > 0 && <span className="muted">+ {cand.additions.length} of its own</span>}
-            <span style={{ flex: 1 }} />
+            <span className="grow" />
             {cand.packs.map((p) => <button key={p.pack} className="subtle" disabled={busy} onClick={() => drop(p.pack)} title={`prepare without ${p.pack}`}>− {p.pack}</button>)}
             <button className="subtle" onClick={() => { setCand(null); setPicks(null); setErr('') }}>Cancel</button>
           </div>
@@ -149,7 +149,7 @@ export function AdoptPanel({ slug, packs, onChanged }: { slug: string; packs: Pr
             {cand.newChecks.length > 0 && <div>{cand.newChecks.length} new check{cand.newChecks.length === 1 ? '' : 's'}: <span className="muted">{cand.newChecks.map((c) => c.title || c.expects || c.check).join(', ')}</span></div>}
             <div className="muted">Adopting selects these standards. A conformance review establishes whether the application meets them.</div>
             {cand.problems.length === 0 && (
-              <div className="row" style={{ marginTop: 8 }}>
+              <div className="row mt-2" >
                 <button className="primary" disabled={busy} onClick={() => adopt(false)} title="the project moves now; the conformance review then says what is outstanding">Adopt now</button>
                 {needsWork && <button disabled={busy} onClick={() => adopt(true)} title="an ordinary change carries the target; the project moves when it lands, and its gate must pass the new checks">Adopt through a change</button>}
               </div>

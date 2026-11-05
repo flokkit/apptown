@@ -1,3 +1,4 @@
+import './InfrastructureNew.css'
 import { changedTargetSettings, editTarget, offerTarget, targetOffer, NEEDS_MODES, type TargetSettings } from '../targetCommands'
 import { PRODUCT } from '../brand'
 import { useState } from 'react'
@@ -33,10 +34,10 @@ export function InfrastructureNew() {
   const [saved, setSaved] = useState<Target | null>(null)
   const chosen = KINDS.find((k) => k.kind === kind)
   return (
-    <div style={{ maxWidth: 860 }}>
-      <div className="row" style={{ gap: 8, alignItems: 'baseline' }}>
+    <div className="infrastructure-new-div">
+      <div className="row infrastructure-new-div-2">
         <Link to="/integrations/targets" className="small">Deployment targets</Link><span className="muted small">/</span>
-        <h1 style={{ margin: 0 }}>Add a deployment target</h1>
+        <h1 className="infrastructure-new-h1">Add a deployment target</h1>
       </div>
       <ol className="wiz-steps">
         <li className={step === 1 ? 'current' : 'done'}>Kind{chosen && step > 1 ? <small>{chosen.title}</small> : null}</li>
@@ -53,7 +54,7 @@ export function InfrastructureNew() {
 function KindStep({ kind, onPick }: { kind: Kind | null; onPick: (k: Kind) => void }) {
   return (
     <div>
-      <p className="muted small" style={{ marginTop: 0 }}>Target kind</p>
+      <p className="muted small mt-0" >Target kind</p>
       <div className="infra-grid">
         {KINDS.map((k) => (
           <button key={k.kind} className={'card infra-card wiz-kind' + (kind === k.kind ? ' active' : '')} onClick={() => onPick(k.kind)}>
@@ -64,7 +65,7 @@ function KindStep({ kind, onPick }: { kind: Kind | null; onPick: (k: Kind) => vo
                 <div className="infra-kind">{k.vendor}</div>
               </div>
             </div>
-            <div className="small muted" style={{ textAlign: 'left' }}>{k.blurb}</div>
+            <div className="small muted infrastructure-new-div-3">{k.blurb}</div>
           </button>
         ))}
       </div>
@@ -112,8 +113,8 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
     <label className="small">{label}<input value={value} onChange={(e) => set(e.target.value)} placeholder={placeholder} style={{ width }} /></label>
   )
   return (
-    <div className="card" style={{ padding: 14 }}>
-      <p className="muted small" style={{ marginTop: 0 }}>
+    <div className="card infrastructure-new-connection-step-card">
+      <p className="muted small mt-0" >
         {KINDS.find((k) => k.kind === kind)?.blurb} Enter secret names. Set missing values below; saved values are hidden.
       </p>
       <div className="wiz-fields">
@@ -139,7 +140,7 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
           <label className="small">region<select value={region} onChange={(e) => setRegion(e.target.value)}>{DO_REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}</select></label>
         </>}
       </div>
-      <div style={{ marginTop: 8, display: 'grid', gap: 4 }}>
+      <div className="mt-2 infrastructure-new-connection-step-div">
         {(kind === 'docker-host' ? [keyFrom] : kind === 'portainer' ? [urlFrom, apiKeyFrom] : kind === 's3-bucket' ? [accessKeyFrom, secretKeyFrom] : [tokenFrom]).map((n, i) => <SecretNameStatus key={i} name={n} />)}
       </div>
       <div className="wiz-answer">
@@ -150,12 +151,12 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
           : <span className="muted small">not checked yet</span>}
       </div>
       {kind === 'do-app' && checked && answer.registry === '' && (
-        <div className="wiz-fields" style={{ marginTop: 8 }}>
+        <div className="wiz-fields mt-2" >
           {field('container registry to create', registry, setRegistry, 'apptown', 200)}
           <span className="muted small">The account has no container registry. App Platform pulls images from one, so {PRODUCT} creates it on the first release. Names are unique across DigitalOcean.</span>
         </div>
       )}
-      <div className="row" style={{ gap: 8, marginTop: 10, alignItems: 'center' }}>
+      <div className="row infrastructure-new-connection-step-div-2">
         <button className="subtle" onClick={onBack} disabled={busy}>Back</button>
         <button onClick={check} disabled={busy || !filled}>Check</button>
         <button className="primary" onClick={add} disabled={busy || !checked} title={checked ? '' : 'check first'}>Add target</button>
@@ -230,11 +231,11 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
   }
   const cloud = target.kind === 'do-app'
   return (
-    <div className="card" style={{ padding: 14 }}>
-      <p className="muted small" style={{ marginTop: 0 }}><b>{target.name}</b> added. Set its offers and capabilities.</p>
-      <fieldset disabled={busy} style={{ border: 0, padding: 0, margin: 0 }}>
+    <div className="card infrastructure-new-connection-step-card">
+      <p className="muted small mt-0" ><b>{target.name}</b> added. Set its offers and capabilities.</p>
+      <fieldset disabled={busy} className="infrastructure-new-offer-step-fieldset">
       <div className="wiz-section">Offer</div>
-      <div className="form-grid" style={{ maxWidth: 'none' }}>
+      <div className="form-grid infrastructure-new-offer-step-form-grid">
         <label>To</label>
         <span className="row">
           <select aria-label="Offer to" value={offer ? group : ''} onChange={(e) => { if (e.target.value === '') setOffer(false); else { setOffer(true); setGroup(e.target.value) } }}>
@@ -245,7 +246,7 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
         </span>
         {offer && <>
           <label title="leave empty for no limit">At most</label>
-          <span className="row"><input aria-label="At most standing deployments per project" value={maxStanding} onChange={(e) => setMaxStanding(e.target.value)} placeholder="no limit" style={{ width: 90 }} inputMode="numeric" /> <span className="muted small">standing deployments per project</span></span>
+          <span className="row"><input aria-label="At most standing deployments per project" value={maxStanding} onChange={(e) => setMaxStanding(e.target.value)} placeholder="no limit"  inputMode="numeric" className="infrastructure-new-offer-step-input" /> <span className="muted small">standing deployments per project</span></span>
           <label title="leave all unticked to allow any">Audiences</label>
           <span className="row">{AUDIENCES.map((x) => <label key={x} className="small"><input type="checkbox" checked={audiences.includes(x)} onChange={() => toggle(audiences, setAudiences, x)} /> {x}</label>)}</span>
           <label title="leave all unticked to allow any">Data</label>
@@ -253,10 +254,10 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
         </>}
       </div>
       <div className="wiz-section">Facts</div>
-      <div className="form-grid" style={{ maxWidth: 'none' }}>
+      <div className="form-grid infrastructure-new-offer-step-form-grid">
         {!cloud && <>
           <label>Apps domain</label>
-          <span className="row"><input aria-label="Apps domain" value={draft.domain} onChange={(e) => set('domain', e.target.value)} placeholder="apps.example.com" style={{ width: 220 }} /> <span className="muted small">apps are reached at name.domain; empty means host:port</span></span>
+          <span className="row"><input aria-label="Apps domain" value={draft.domain} onChange={(e) => set('domain', e.target.value)} placeholder="apps.example.com" className="infrastructure-new-offer-step-input-2" /> <span className="muted small">apps are reached at name.domain; empty means host:port</span></span>
         </>}
         <label>Disks</label>
         <span><label className="small"><input type="checkbox" checked={draft.persistentVolumes} onChange={(e) => set('persistentVolumes', e.target.checked)} /> keeps disks (a dataDir may bind)</label></span>
@@ -276,7 +277,7 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
         <button disabled={!current || busy} onClick={() => resolve(false)}>Discard my fact edits</button>
         <button disabled={busy || currentQ.refreshing} onClick={() => void currentQ.reload()}>Read current settings</button>
       </div>}
-      <div className="row" style={{ gap: 8, marginTop: 12, alignItems: 'center' }}>
+      <div className="row mt-3 infrastructure-new-offer-step-div">
         <button className="primary" onClick={finish} disabled={busy || conflict}>{busy ? 'saving…' : 'Finish'}</button>
         <Link to={`/integrations/targets/${target.name}`} className="small">skip for now</Link>
         {err && <span className="error small">{err}</span>}

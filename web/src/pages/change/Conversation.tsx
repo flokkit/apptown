@@ -1,3 +1,4 @@
+import './Conversation.css'
 import { AgentActionsSwitch, ToolFold, foldTools, useAgentActions } from '../../AgentActions'
 import { Section } from '../../Section'
 import { fmtWhen } from '../../format'
@@ -32,14 +33,14 @@ export function ConversationLog({ changeId, chatHref, request, report, rounds = 
       <StaleNote q={q} />
       {data && <UnreadableNote view={data} />}
       {none && (request ? <>
-        <div className="bubble-row you"><div className="bubble you" style={{ whiteSpace: 'pre-wrap' }}>{request}</div></div>
+        <div className="bubble-row you"><div className="bubble you conversation-conversation-log-bubble-you">{request}</div></div>
         {report && <div className="bubble-row"><div className="bubble"><div className="md" dangerouslySetInnerHTML={{ __html: renderMd(report, true) }} /></div></div>}
       </> : <p className="muted">No chat yet.</p>)}
       {earlierRuns.map(id => <RunRounds key={id} id={id} changeId={changeId} />)}
       {rounds.map((e, i) => <p key={e.key}><Link to={workRecordHref(changeId, e)}>Agent round {i + 1} · work record</Link></p>)}
       {sessions?.map((se) => (
-        <div key={se.id} style={{ margin: '12px 0' }}>
-          <div className="muted small" style={{ margin: '6px 0' }}>{chatByline(se)}</div>
+        <div key={se.id} className="conversation-div">
+          <div className="muted small conversation-div-2">{chatByline(se)}</div>
           <ChatMessages chat={se} pictures={`/api/v1/changes/${changeId}/transcript/${se.id}/pictures/`} />
         </div>
       ))}
@@ -103,11 +104,11 @@ export function PastChats({ slug, section = false }: { slug: string; section?: b
       {open && <ReadStatus q={q} what="the past chats" className="small" />}
       {open && <StaleNote q={q} />}
       {data && <UnreadableNote view={data} />}
-      {sessions?.length === 0 && !data?.unreadable && <div className="muted small" style={{ margin: '12px 0' }}>No ended chats on this project.</div>}
+      {sessions?.length === 0 && !data?.unreadable && <div className="muted small conversation-div">No ended chats on this project.</div>}
       {sessions?.map((se) => (
-        <details key={se.id} style={{ margin: '8px 0 0 12px' }}>
-          <summary><span>{chatOpening(se)}<span className="muted small" style={{ display: 'block' }}>{chatByline(se)}</span></span></summary>
-          <div style={{ paddingLeft: 12 }}><ChatMessages chat={se} pictures={`/api/v1/projects/${slug}/transcript/${se.id}/pictures/`} /></div>
+        <details key={se.id} className="conversation-details">
+          <summary><span>{chatOpening(se)}<span className="muted small conversation-span">{chatByline(se)}</span></span></summary>
+          <div className="conversation-div-3"><ChatMessages chat={se} pictures={`/api/v1/projects/${slug}/transcript/${se.id}/pictures/`} /></div>
         </details>
       ))}
   </>
@@ -120,7 +121,7 @@ export function PastChats({ slug, section = false }: { slug: string; section?: b
     )
   }
   return (
-    <details style={{ marginTop: 18 }} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
+    <details  onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)} className="conversation-past-chats-details">
       {/* One child: the fold's summary is a flex row, which would split the
           words into columns on a phone. */}
       <summary><span><strong>Past chats</strong></span></summary>
@@ -133,11 +134,11 @@ function YourWords({ text, pictures }: { text: string; pictures: string }) {
   const { display, names } = pastedPictures(text)
   return (
     <div>
-      {display && <div style={{ whiteSpace: 'pre-wrap' }}>{display}</div>}
+      {display && <div className="conversation-conversation-log-bubble-you">{display}</div>}
       {names.map((n) => (
         <a key={n} href={pictures + n} target="_blank" rel="noreferrer" title="open the picture full size">
           <img src={pictures + n} alt="pasted picture" loading="lazy"
-            style={{ display: 'block', maxWidth: '100%', width: 320, maxHeight: 240, objectFit: 'contain', borderRadius: 'var(--radius-sm)', marginTop: display ? 6 : 0 }} />
+            style={{ marginTop: display ? 6 : 0 }} className="conversation-img" />
         </a>
       ))}
     </div>
@@ -150,7 +151,7 @@ export function UnreadableNote({ view }: { view: ChatHistoryView }) {
   if (!view.unreadable) return null
   const n = view.unreadable
   return (
-    <div className="small" style={{ margin: '6px 0', color: 'var(--warn, var(--muted))' }}>
+    <div className="small conversation-unreadable-note-div">
       {n} chat record{n === 1 ? '' : 's'} in {PRODUCT} could not be read; some chats may be missing here.
       {(view.unreadableFolders?.length ?? 0) > 0 && <> Folders: {view.unreadableFolders!.join(', ')}.</>}
     </div>

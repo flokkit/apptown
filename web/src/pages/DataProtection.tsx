@@ -1,3 +1,4 @@
+import './DataProtection.css'
 import { TechnicalWords, useTechnicalDetail } from './change/TechnicalDetail'
 import { DeploymentLine } from './project/settings/DeploymentLine'
 import { Section } from '../Section'
@@ -167,7 +168,7 @@ export function copyHead(c: RestoredCopy, source: string): string {
 export function CoverageLines({ c, unknown }: { c: Coverage; unknown?: boolean }) {
   const [technical] = useTechnicalDetail()
   return (
-    <div style={{ overflowWrap: 'anywhere' }}>
+    <div className="data-protection-coverage-lines-div">
       <TechnicalWords shown={technical}>covers: {c.assessed.length ? [...new Set(c.assessed.map(n => /postgres|maria|database|volume/.test(n) ? 'database' : n))].join(', ') : unknown ? 'nothing assessed' : `no data ${PRODUCT} knows of`}</TechnicalWords>
       {c.notAssessed.length > 0 && <><div className="muted">Not covered: anything the app stores outside its declared needs</div><TechnicalWords shown={technical}>{c.notAssessed.map(n => <div key={n}><Status observation word={c.statusLabel} /> {n}</div>)}</TechnicalWords></>}
     </div>
@@ -242,18 +243,18 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
       {(p.restoreTest || !ops || applies(ops.restore)) && <div className={!old && p.restoreTest && !(p.restoreTest.outcome ?? '').startsWith('passed') ? 'error' : 'muted'}>{restoreTestLine(p.restoreTest, p.restoreTestNote)}{p.restoreTest && asRead}</div>}
       {p.restoredCopies.filter((c) => !c.endedAt).map((c) => <RestoredCopyLines key={c.id} slug={slug} source={name} copy={c} asRead={asRead} />)}
       {p.running && (
-        <div style={{ marginTop: 4 }}>
+        <div className="mt-1">
           <Status word={old ? 'unknown' : p.running.statusLabel} help={stateWords(p.running) + asRead} /> <Link to={`/operations/${p.running.id}`}>{currentStep(p.running)}</Link>
-          {writesStopped(p.running) && <span className="muted" style={{ marginLeft: 6 }}>writes stopped{asRead}</span>}
+          {writesStopped(p.running) && <span className="muted data-protection-protection-lines-span">writes stopped{asRead}</span>}
         </div>
       )}
       {!p.running && last && (
-        <div className="muted" style={{ marginTop: 4 }}>
+        <div className="muted mt-1" >
           last: <Link to={`/operations/${last.id}`}>{kindWords[last.kind] ?? last.kind} {stateWords(last)}</Link>{last.finishedAt ? ` ${fmtWhen(last.finishedAt)}` : ''}
         </div>
       )}
       {ops && !p.running && (
-        <div className="row" style={{ gap: 6, marginTop: 4 }}>
+        <div className="row mt-1 data-protection-protection-lines-div">
           {applies(ops.copy) && <button className="subtle" disabled={busy || !ops.copy.available} onClick={() => start('copies')} title={ops.copy.why || 'copy its data to the backup store now'}>Copy now</button>}
           {applies(ops.check) && <button className="subtle" disabled={busy || !ops.check.available} onClick={() => start('drills')} title={ops.check.why || 'fill the newest copy into a new database, check it, and remove it'}>Check it comes back</button>}
           {(p.rehearsalNote !== 'never rehearsed: no rehearsal place' || missingBackup) && (
@@ -266,12 +267,12 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
         </div>
       )}
       {!p.running && whyNot.length > 0 && (
-        <div className="muted" role="note" style={{ marginTop: 4 }}>
+        <div className="muted mt-1" role="note" >
           {whyNot.map((w) => <div key={w}>{w}</div>)}
           {runnerMissing && canEditTargets && <Link to={`/infrastructure/${p.target}`}>Open {p.target}'s settings</Link>}
         </div>
       )}
-      {p.takeDown && !ops?.finalCopy.available && <div className="error" style={{ marginTop: 4 }}>{p.takeDown}</div>}
+      {p.takeDown && !ops?.finalCopy.available && <div className="error mt-1" >{p.takeDown}</div>}
     </div>
   )
 }
@@ -284,14 +285,14 @@ const restoreTestTitle = `start its release from its newest copy on its own plat
 function RestoredCopyLines({ slug, source, copy: c, asRead }: { slug: string; source: string; copy: RestoredCopy; asRead: string }) {
   const { run, busy, err } = useAction()
   return (
-    <div style={{ marginTop: 4, marginLeft: 12 }}>
+    <div className="mt-1 data-protection-restored-copy-lines-div">
       <div><Status word="working" help={`Testing a restored copy${asRead}. Open the operation to follow its checks.`} /> {copyHead(c, source)}</div>
       {c.outcome && <div className={c.outcome === 'failed' ? 'error' : 'muted'}>checked through the gate: {c.outcome}{c.facts.checks.length ? ` (${c.facts.checks.map((k) => `${k.path} ${k.status}`).join(', ')})` : ''}{gateLine(c) ? ` · ${gateLine(c)}` : ''}</div>}
       {c.protection && <div className="muted">protected by {c.protection}</div>}
       <div className="muted">{c.warning}</div>
       <div className="muted">{c.boundary}</div>
       {c.endDetail && <div className="error">{c.endDetail}</div>}
-      <div className="row" style={{ gap: 6, marginTop: 4 }}>
+      <div className="row mt-1 data-protection-protection-lines-div">
         {c.checkedAt && <button className="subtle" disabled={busy} onClick={() => run(() => del(`/projects/${slug}/restored-copies/${c.id}`))} title="take it down now; no final copy is taken">Take down</button>}
         {err && <span className="error small">{err}</span>}
       </div>
@@ -311,23 +312,23 @@ export function OperationPage() {
   const old = q.refreshFailed
   const asRead = old ? ` as read ${elapsed(new Date(q.answeredAt).toISOString())} ago` : ''
   return (
-    <div style={{ maxWidth: 820 }}>
+    <div className="data-protection-operation-page-div">
       <StaleNote q={q} />
       <div className="muted small">operation {op.number}{op.subject ? ` · ${op.subject}` : ''}</div>
-      <h1 style={{ marginBottom: 4 }}>{kindWords[op.kind] ?? op.kind} of {deploymentOf(op)}</h1>
-      <div className="row status-strip" style={{ gap: 8, alignItems: 'center' }}>
+      <h1 className="mb-1">{kindWords[op.kind] ?? op.kind} of {deploymentOf(op)}</h1>
+      <div className="row status-strip data-protection-operation-page-status-strip">
         <Status word={old ? 'unknown' : op.statusLabel} help={stateWords(op) + asRead} />
         <span className="muted small">asked by {op.askedBy} {fmtWhen(op.createdAt)}{op.finishedAt ? `, ended ${fmtWhen(op.finishedAt)}` : old || !op.startedAt ? '' : ` · running for ${elapsed(op.startedAt)}`}</span>
         {writesStopped(op) && <span className="muted">writes stopped{asRead}</span>}
       </div>
-      {op.detail && <p style={{ marginTop: 10 }}>{op.detail}</p>}
-      <table className="small" style={{ marginTop: 10 }}>
+      {op.detail && <p className="data-protection-operation-page-p">{op.detail}</p>}
+      <table className="small data-protection-operation-page-p">
         <thead><tr><th>Step</th><th>Started</th><th>Took</th><th></th></tr></thead>
         <tbody>
           {op.steps.map((st, i) => (
             <GlanceRow name={0} state={3} fact={1} labels={["Step", "Started", "Took", "Details"]} key={i}>
               <td>{st.name}{st.detail && <div className={st.failed ? 'error' : 'muted'}>{st.detail}</div>}</td>
-              <td className="muted" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(st.started)}</td>
+              <td className="muted data-protection-td">{fmtWhen(st.started)}</td>
               <td className="muted">{st.ended ? elapsed(st.started, new Date(st.ended).getTime()) : elapsed(st.started)}{st.bytes ? ` · ${fmtBytes(st.bytes)}` : ''}</td>
               <td>{!st.ended ? <Status word="working" staleAt={old ? st.started : undefined} /> : st.unknown ? <Status word="unknown" help="The operation did not record an outcome. Open its details before starting another restore." /> : st.failed ? <Status word={"failed"} /> : <Status word="finished" />}</td>
             </GlanceRow>
@@ -336,12 +337,12 @@ export function OperationPage() {
         </tbody>
       </table>
       {op.cancellable && !op.cancelRequested && (
-        <div className="row" style={{ marginTop: 10 }}>
+        <div className="row data-protection-operation-page-p">
           <button className="subtle" disabled={busy} onClick={() => run(() => post(`/operations/${op.id}/cancel`, {}))} title="stop before the next step; a step under way finishes">{op.state === 'queued' ? 'Cancel' : 'Stop before the next step'}</button>
           {err && <span className="error small">{err}</span>}
         </div>
       )}
-      {op.cancelRequested && op.state === 'running' && <div className="muted small" style={{ marginTop: 10 }}>stopping after the item under way</div>}
+      {op.cancelRequested && op.state === 'running' && <div className="muted small data-protection-operation-page-p">stopping after the item under way</div>}
     </div>
   )
 }
@@ -364,7 +365,7 @@ export function StoreSection({ canAttach }: { canAttach: boolean }) {
   const field = (k: keyof typeof form, label: string, hint: string) => (
     <>
       <label>{label}</label>
-      <input aria-label={label} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value.trim() })} placeholder={hint} style={{ width: 320, maxWidth: '100%' }} />
+      <input aria-label={label} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value.trim() })} placeholder={hint} className="data-protection-field-input" />
     </>
   )
   const action = canAttach && !open ? <button onClick={() => setOpen(true)}>{st ? 'Attach another' : 'Attach backup store'}</button> : undefined
@@ -381,7 +382,7 @@ export function StoreSection({ canAttach }: { canAttach: boolean }) {
           </dl>
         : !open && <p className="muted small">No backup store attached. Copies stay on each app's host.</p>}
       {open && (
-        <div style={{ margin: '12px 0' }}>
+        <div className="data-protection-store-section-div">
           <div className="form-grid">
             {field('endpoint', 'Endpoint', 'https://syd1.digitaloceanspaces.com')}
             {field('region', 'Region', 'syd1')}
@@ -389,7 +390,7 @@ export function StoreSection({ canAttach }: { canAttach: boolean }) {
             {field('accessKeyFrom', 'Access key secret', 'the secret holding the access key')}
             {field('secretKeyFrom', 'Secret key secret', 'the secret holding the secret key')}
           </div>
-          <div className="row" style={{ marginTop: 8 }}>
+          <div className="row mt-2" >
             <button className="primary" disabled={busy} onClick={attach}>{busy ? 'checking…' : 'Check and attach'}</button>
             <button className="subtle" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
             {err && <span className="error small">{err}</span>}

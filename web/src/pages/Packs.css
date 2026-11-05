@@ -1,0 +1,13 @@
+@layer pages {
+
+.packs-entry { padding: var(--space-2) var(--space-3); }
+.packs-entry-action { cursor: pointer; }
+.packs-entry-note { margin-top: calc(var(--space-1) * 0.5); }
+.packs-source { font-size: var(--fs-xs); max-height: 360px; overflow: auto; border-top: 1px solid var(--border); padding-top: var(--space-2); }
+.packs-title { margin: 0; }
+.packs-editor { max-width: 860px; }
+.packs-editor-actions { gap: calc(var(--space-1) * 1.5); }
+.packs-editor-label { margin-bottom: calc(var(--space-1) * 1.5); }
+.packs-add { margin-top: calc(var(--space-1) * 1.5); }
+.packs-block-body { border-top: 1px solid var(--border); padding-top: var(--space-2); }
+}

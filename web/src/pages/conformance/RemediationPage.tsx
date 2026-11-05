@@ -1,3 +1,4 @@
+import './RemediationPage.css'
 import { Status } from '../../Status'
 import { Link } from 'react-router-dom'
 import { post } from '../../api'
@@ -11,7 +12,7 @@ function ItemReason({ item }: { item: Item }) {
   const waiting = item.state === 'queued' ? item.waiting : undefined
   const reason = item.state === 'queued' ? waiting?.reason : item.reason
   if (!reason) return null
-  return <div className="small" style={{ marginTop: 'var(--space-1)', color: item.state === 'stuck' ? 'var(--bad)' : 'var(--muted)', whiteSpace: 'pre-wrap' }}>
+  return <div className="small mt-1 remediation-page-item-reason-div" style={{ color: item.state === 'stuck' ? 'var(--bad)' : 'var(--muted)' }}>
     {reason}
     {waiting?.changes?.map((change) => <span key={change.id}> · <Link to={`/changes/${change.id}`}>change {change.number}</Link></span>)}
     {waiting?.remediationId && <span> · <Link to={`/conformance/remediations/${waiting.remediationId}`}>remediation {waiting.remediationNumber}</Link></span>}
@@ -31,16 +32,16 @@ export function RemediationPage({ id }: { id: string }) {
     <div>
       <StaleNote q={q} />
       <Link to="/conformance/remediations" className="subtle small">← all remediations</Link>
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)', margin: '8px 0 12px' }}>
+      <div className="row remediation-page-div">
         <div>
-          <div className="row" style={{ gap: 'var(--space-2)', alignItems: 'center' }}>
-            <h2 style={{ margin: 0, textTransform: 'none', letterSpacing: 0 }}>Remediation #{m.number}</h2>
+          <div className="row remediation-page-div-2">
+            <h2 className="remediation-page-h2">Remediation #{m.number}</h2>
             <Status word={m.statusLabel} help={m.status.replaceAll('_', ' ')} />
             <JobBar counts={m.counts} />
           </div>
           <div className="muted small mt-1">{m.sentence} · {m.actor} · {fmtWhen(m.createdAt)} · {m.mode}{m.cost ? ` · $${m.cost.toFixed(3)} so far` : ''}</div>
         </div>
-        <span className="row" style={{ gap: 'var(--space-2)' }}>
+        <span className="row remediation-page-span">
           {m.status === 'running' && <button disabled={busy} onClick={() => act(`/conformance/remediations/${m.id}/pause`)}>Pause</button>}
           {m.status === 'paused' && <button disabled={busy} onClick={() => act(`/conformance/remediations/${m.id}/resume`)}>Resume</button>}
           {(m.status === 'running' || m.status === 'paused') && <button disabled={busy} onClick={() => act(`/conformance/remediations/${m.id}/cancel`)}>Cancel</button>}
@@ -48,23 +49,23 @@ export function RemediationPage({ id }: { id: string }) {
       </div>
       {err && <div className="error small mb-3">{err}</div>}
       {Object.entries(byProject).map(([slug, items]) => (
-        <div key={slug} className="card" style={{ padding: 0, marginBottom: 'var(--space-3)', overflow: 'hidden' }}>
-          <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
-            <Link to={`/conformance/projects/${slug}`} style={{ fontWeight: 600, textDecoration: 'none', color: 'inherit' }}>{slug}</Link>
+        <div key={slug} className="card mb-3 remediation-page-card">
+          <div className="remediation-page-div-3">
+            <Link to={`/conformance/projects/${slug}`} className="remediation-page-link">{slug}</Link>
           </div>
           {items.map((it) => {
             const tries = data.attempts[it.id ?? ''] ?? []
             return (
-              <div key={it.id} style={{ padding: '8px 14px', borderTop: '1px solid var(--border)' }}>
-                <div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)' }}>
-                  <span className="row" style={{ gap: 'var(--space-2)', alignItems: 'center', minWidth: 0 }}>
+              <div key={it.id} className="remediation-page-div-4">
+                <div className="row remediation-page-div-5">
+                  <span className="row remediation-page-span-2">
                     <Status word={it.statusLabel} help={it.state === 'queued' ? it.waiting?.reason : (it.reason || it.state)} />
-                    <span className="mono" style={{ fontSize: 'var(--fs-sm)' }}>{it.check}</span>
+                    <span className="mono remediation-page-mono">{it.check}</span>
                     {it.changeId ? <Link to={`/changes/${it.changeId}`} className="subtle small">{it.changeNumber ? `change ${it.projectSlug}#${it.changeNumber}` : 'the change'}</Link> : null}
                     {it.attempt > 1 && <span className="muted small">attempt {it.attempt}</span>}
                     {it.doing && <span className="muted small">· on {it.doing}</span>}
                   </span>
-                  <span className="row" style={{ gap: 'var(--space-2)' }}>
+                  <span className="row remediation-page-span">
                     {it.state === 'stuck' && <button disabled={busy} onClick={() => { const n = window.prompt('Retry with a note for the agent (optional):', ''); if (n !== null) act(`/conformance/remediations/${m.id}/items/${it.id}/retry`, { note: n }) }}>Retry</button>}
                     {(it.state === 'stuck' || it.state === 'queued') && <button className="subtle" disabled={busy} onClick={() => { const r = window.prompt('Skip it · why?', ''); if (r) act(`/conformance/remediations/${m.id}/items/${it.id}/skip`, { reason: r }) }}>Skip</button>}
                   </span>

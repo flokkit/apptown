@@ -1,0 +1,14 @@
+@layer pages {
+
+.connector-form-div { margin-bottom: calc(var(--space-1) * 1.5); }
+.connector-form-secret-ref-picker-input { width: 220px; }
+.connector-form-model-list-picker-div { margin: calc(var(--space-1) * 1.5) 0; }
+.connector-form-model-list-picker-input { width: 300px; }
+.connector-form-model-list-picker-div-2 { padding: calc(var(--space-1) * 1.5); }
+.connector-form-div-2 { max-width: 700px; }
+.connector-form-h1 { margin-bottom: calc(var(--space-1) * 0.5); }
+.connector-form-form-grid { max-width: 660px; }
+.connector-form-input { width: 100%; }
+.connector-form-span { display: contents; }
+.connector-form-input-2 { width: 120px; }
+}

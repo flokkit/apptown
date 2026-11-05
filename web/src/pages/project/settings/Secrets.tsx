@@ -1,3 +1,4 @@
+import './Secrets.css'
 import { Status } from '../../../Status'
 import { NewChangeButton } from '../NewChange'
 import { PRODUCT } from '../../../brand'
@@ -60,7 +61,7 @@ export function SecretsTab({ slug }: { slug: string }) {
 
   return (
     <div className="secrets-page">
-      <p className="muted small" style={{ maxWidth: 680, margin: 0 }}>
+      <p className="muted small secrets-secrets-tab-p">
         <code>{data.spec}</code> declares {data.secrets?.length ?? 0} secret{data.secrets?.length === 1 ? '' : 's'} for <strong>{data.project}</strong>.
         A value you put here goes into the built-in store and is never shown again; a value in Infisical is named, not copied.
         {(data.ignored?.length ?? 0) > 0 && (
@@ -117,7 +118,7 @@ function DeploymentSection({ env, profiles, declared, onProfile, onEdit, onUnbin
         const shown = revealed[`${env.name}/${s.name}`]
         const goes = consumersOf(s.name)
         return (
-          <div key={s.name} className="card row secret-row" style={{ display: 'flex' }}>
+          <div key={s.name} className="card row secret-row secrets-card-secret-row">
             <div className="secret-what">
               <code>{s.name}</code>{!s.required && <span className="muted small"> optional</span>}
               <div className="muted small">{goes}{goes && ' · '}<Source s={s} /></div>
@@ -170,25 +171,25 @@ function BindModal({ slug, env, name, stores, onClose, onDone }: {
     if (r) onDone()
   }
   return (
-    <Modal onClose={onClose} title={<h2 style={{ margin: 0 }}>{name} <span className="muted small">in {env}</span></h2>}>
-      <div className="row" style={{ gap: 6, marginBottom: 10 }}>
+    <Modal onClose={onClose} title={<h2 className="secrets-bind-modal-h2">{name} <span className="muted small">in {env}</span></h2>}>
+      <div className="row secrets-bind-modal-div">
         <button className={store === 'internal' ? 'primary' : 'subtle'} onClick={() => setStore('internal')}>Type a value</button>
         <button className={store === 'infisical' ? 'primary' : 'subtle'} disabled={!infisical?.available}
           title={infisical?.available ? '' : infisical?.note} onClick={() => setStore('infisical')}>Name an Infisical key</button>
       </div>
       {store === 'internal' ? (
         <>
-          <textarea aria-label="Secret value" rows={3} value={value} onChange={(e) => setValue(e.target.value)} placeholder="the value · pasted once, never shown again" autoFocus style={{ width: '100%' }} />
+          <textarea aria-label="Secret value" rows={3} value={value} onChange={(e) => setValue(e.target.value)} placeholder="the value · pasted once, never shown again" autoFocus className="secrets-bind-modal-textarea" />
           <p className="muted small">Database backups include the encryption key and can reveal all secret values. Use Infisical for team secrets.</p>
         </>
       ) : (
         <>
-          <input aria-label="Infisical key name" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="KEY_NAME in Infisical" autoFocus style={{ width: '100%' }} />
+          <input aria-label="Infisical key name" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="KEY_NAME in Infisical" autoFocus className="secrets-bind-modal-textarea" />
           <p className="muted small">The key must exist in the configured Infisical project and environment.</p>
         </>
       )}
       {err && <div className="error">{err}</div>}
-      <div className="row" style={{ marginTop: 10 }}>
+      <div className="row secrets-bind-modal-div-2">
         <button className="primary" onClick={save} disabled={busy || (store === 'internal' ? !value.trim() : !ref.trim())}>Save</button>
         <button onClick={onClose}>Cancel</button>
       </div>
@@ -200,8 +201,8 @@ function StoresNote({ internal, infisical }: { internal?: SecretStore; infisical
   if (!internal && !infisical) return null
   return (
     <Section title="Secret stores">
-      {internal && <div className="card row" style={{ display: 'flex' }}><div><strong>{internal.title}</strong><div className="muted small">{internal.note}</div></div></div>}
-      {infisical && <div className="card row" style={{ display: 'flex' }}><div><strong>{infisical.title}</strong>{!infisical.available && <span className="muted small"> not configured</span>}<div className="muted small">{infisical.note}</div></div></div>}
+      {internal && <div className="card row secrets-card-secret-row"><div><strong>{internal.title}</strong><div className="muted small">{internal.note}</div></div></div>}
+      {infisical && <div className="card row secrets-card-secret-row"><div><strong>{infisical.title}</strong>{!infisical.available && <span className="muted small"> not configured</span>}<div className="muted small">{infisical.note}</div></div></div>}
     </Section>
   )
 }

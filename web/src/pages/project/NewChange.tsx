@@ -1,3 +1,4 @@
+import './NewChange.css'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Workflow, post } from '../../api'
@@ -36,10 +37,10 @@ export function NewChangeButton({ slug, external, request }: { slug: string; req
 
   return (
     <>
-      {!external && <button className="subtle" style={{ fontSize: 'var(--fs-sm)' }} onClick={() => setOpen(true)}>+ new change, detailed</button>}
+      {!external && <button className="subtle new-change-new-change-button-subtle"  onClick={() => setOpen(true)}>+ new change, detailed</button>}
       {open && (
         <Modal title="New change" onClose={() => setOpen(false)} maxWidth={560}>
-          <div style={{ fontSize: 'var(--fs-base)', fontWeight: 'normal' }}>
+          <div className="new-change-new-change-button-div">
             <div className="form-grid">
               <label>Title</label>
               <input aria-label="Title" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -49,21 +50,21 @@ export function NewChangeButton({ slug, external, request }: { slug: string; req
               <label>Reference</label>
               <input aria-label="Reference" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Jira key / ticket URL (optional)" />
             </div>
-            <div style={{ marginTop: 10 }}>
-              <div className="muted small" style={{ marginBottom: 6 }}>Workflow</div>
+            <div className="new-change-new-change-button-div-2">
+              <div className="muted small new-change-new-change-button-div-3">Workflow</div>
               {START_OPTIONS.filter((l) => workflows.some((w) => w.name === l.wf)).map((l) => (
-                <label key={l.wf} className="row" style={{ gap: 8, padding: '3px 0', cursor: 'pointer' }}>
+                <label key={l.wf} className="row new-change-label">
                   <input type="radio" name="lane" checked={wf === l.wf} onChange={() => setWf(l.wf)} />
                   <strong style={{ fontWeight: wf === l.wf ? 600 : 400 }}>{l.label}</strong>
                   <span className="muted small">{l.hint}</span>
                 </label>
               ))}
-              <label className="row" style={{ gap: 8, padding: '3px 0', cursor: 'pointer' }}>
+              <label className="row new-change-label">
                 <input type="radio" name="lane" checked={wf === ''} onChange={() => setWf('')} />
                 <strong style={{ fontWeight: wf === '' ? 600 : 400 }}>Just open it</strong>
                 <span className="muted small">no run yet; use the chat or a workflow later</span>
               </label>
-              <label className="row" style={{ gap: 8, padding: '3px 0' }}>
+              <label className="row new-change-new-change-button-label">
                 <span className="muted small">other workflow</span>
                 <select value={START_OPTIONS.some((l) => l.wf === wf) || wf === '' ? '' : wf}
                   onChange={(e) => e.target.value && setWf(e.target.value)}>
@@ -73,7 +74,7 @@ export function NewChangeButton({ slug, external, request }: { slug: string; req
                 </select>
               </label>
             </div>
-            <div className="row" style={{ marginTop: 14 }}>
+            <div className="row new-change-new-change-button-div-4">
               <button className="primary" disabled={busy} onClick={() => create()}>
                 {busy ? '…' : wf ? `Start · ${START_OPTIONS.find((l) => l.wf === wf)?.label ?? wf}` : 'Start change'}
               </button>

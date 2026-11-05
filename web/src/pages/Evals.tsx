@@ -41,11 +41,11 @@ export function EvalsPage() {
 function EvalRow({ e }: { e: Eval }) {
   return (
     <div className="card">
-      <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+      <div className="row evals-row">
         <Link className="tap-open" to={`/evals/${e.id}`}><strong>Eval {e.number}</strong></Link>
         <span>{e.subject} against what projects run now</span>
         <Status word={e.statusLabel} help={e.reason || e.state} />
-        <span style={{ flex: 1 }} />
+        <span className="grow" />
         <span className="muted small">started by {e.startedBy} {relTime(e.startedAt)}</span>
       </div>
     </div>
@@ -85,47 +85,47 @@ export function EvalStartPage() {
   })
 
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div className="evals-form">
       <h1>Start an eval</h1>
       <ReadStatus q={formQ} what="the start form" denied={EVALS_DENIED} />
       <StaleNote q={[formQ, projectsQ, changesQ]} />
       {form && (
         <>
-          <section className="card" style={{ marginBottom: 12 }}>
-            <h3 style={{ marginTop: 0 }}>1. What to compare</h3>
-            <div className="row small" style={{ gap: 12, flexWrap: 'wrap' }}>
+          <section className="card mb-3" >
+            <h3 className="mt-0">1. What to compare</h3>
+            <div className="row small evals-choices">
               <label><input type="radio" name="varies" checked={varies === 'pack'} onChange={() => { setVaries('pack'); setConfirming(false) }} /> a pack version</label>
               <label><input type="radio" name="varies" checked={varies === 'model'} onChange={() => { setVaries('model'); setConfirming(false) }} /> an AI setup</label>
             </div>
             {varies === 'model' && (
-              <label className="small" style={{ display: 'block', marginTop: 6 }}>Compare what projects run now with
-                <select value={profile} onChange={(e) => { setProfile(e.target.value); setConfirming(false) }} style={{ marginLeft: 6 }}>
+              <label className="small evals-compare-label">Compare what projects run now with
+                <select value={profile} onChange={(e) => { setProfile(e.target.value); setConfirming(false) }} className="evals-inline-field">
                   <option value="">an AI setup…</option>
                   {form.profiles.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               </label>
             )}
             {varies === 'pack' && (
-              <div className="small" style={{ marginTop: 6 }}>
+              <div className="small evals-note">
                 <label>Compare what projects run now with
-                  <select value={pack} onChange={(e) => { const c = form.packs.find((p) => p.name === e.target.value); setPack(e.target.value); setVersion(c?.latest ?? 0); setConfirming(false) }} style={{ marginLeft: 6 }}>
+                  <select value={pack} onChange={(e) => { const c = form.packs.find((p) => p.name === e.target.value); setPack(e.target.value); setVersion(c?.latest ?? 0); setConfirming(false) }} className="evals-inline-field">
                     <option value="">a pack…</option>
                     {form.packs.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
                   </select>
                 </label>
                 {choice && (
-                  <label style={{ marginLeft: 6 }}>version
-                    <select value={version} onChange={(e) => { setVersion(Number(e.target.value)); setConfirming(false) }} style={{ marginLeft: 6 }}>
+                  <label className="evals-inline-field">version
+                    <select value={version} onChange={(e) => { setVersion(Number(e.target.value)); setConfirming(false) }} className="evals-inline-field">
                       {Array.from({ length: choice.latest }, (_, i) => choice.latest - i).map((v) => <option key={v} value={v}>v{v}{v === choice.recommended ? ' (recommended now)' : ''}</option>)}
                     </select>
                   </label>
                 )}
-                <div className="muted" style={{ marginTop: 6 }}>Compare two setups on the same work, using the same AI model. Both runs check the current and proposed rules.</div>
+                <div className="muted evals-note">Compare two setups on the same work, using the same AI model. Both runs check the current and proposed rules.</div>
               </div>
             )}
           </section>
-          <section className="card" style={{ marginBottom: 12 }}>
-            <h3 style={{ marginTop: 0 }}>2. The work to re-run (up to {max} landed Changes)</h3>
+          <section className="card mb-3" >
+            <h3 className="mt-0">2. The work to re-run (up to {max} landed Changes)</h3>
             <ReadStatus q={projectsQ} what="your projects" />
             {projectsQ.data && (
               <select aria-label="Project" value={slug} onChange={(e) => { setSlug(e.target.value); setConfirming(false) }}>
@@ -134,27 +134,27 @@ export function EvalStartPage() {
               </select>
             )}
             {slug && <ReadStatus q={changesQ} what="its Changes" />}
-            {slug && changesQ.data && landed.length === 0 && <div className="muted small" style={{ marginTop: 6 }}>No landed Change of this project can be re-run (it needs a base commit).</div>}
+            {slug && changesQ.data && landed.length === 0 && <div className="muted small evals-note">No landed Change of this project can be re-run (it needs a base commit).</div>}
             {landed.map((c) => c.id && (
-              <label key={c.id} className="row small" style={{ gap: 6, marginTop: 4 }}>
+              <label key={c.id} className="row small mt-1 evals-pick">
                 <input type="checkbox" checked={picked.includes(c.id)} disabled={!picked.includes(c.id) && picked.length >= max} onChange={() => { toggle(c.id!); setConfirming(false) }} />
                 <span>#{c.number} {c.title}</span>
               </label>
             ))}
-            {picked.length > 0 && <div className="muted small" style={{ marginTop: 6 }}>{picked.length} picked{pickedHere.length ? `: ${pickedHere.join(', ')}` : ''}</div>}
+            {picked.length> 0 && <div className="muted small evals-note">{picked.length} picked{pickedHere.length ? `: ${pickedHere.join(', ')}` : ''}</div>}
           </section>
-          <section className="card" style={{ marginBottom: 12 }}>
-            <h3 style={{ marginTop: 0 }}>3. Budget</h3>
-            <label className="small">Budget $ <input type="number" min="0.01" step="0.5" value={budget} onChange={(e) => { setBudget(e.target.value); setConfirming(false) }} style={{ width: 90 }} /></label>
-            <div className="muted small" style={{ marginTop: 6 }}>Includes checks and summaries. Work already running can exceed the budget; missing prices pause further work.</div>
+          <section className="card mb-3" >
+            <h3 className="mt-0">3. Budget</h3>
+            <label className="small">Budget $ <input type="number" min="0.01" step="0.5" value={budget} onChange={(e) => { setBudget(e.target.value); setConfirming(false) }} className="evals-budget" /></label>
+            <div className="muted small evals-note">Includes checks and summaries. Work already running can exceed the budget; missing prices pause further work.</div>
           </section>
           {!confirming && <button disabled={!ready} onClick={() => setConfirming(true)}>Review and start…</button>}
           {confirming && (
-            <section className="card" style={{ borderLeft: '3px solid var(--warn)' }}>
-              <p style={{ marginTop: 0 }}>Each of the {picked.length} Change{picked.length === 1 ? '' : 's'} is re-run twice in throwaway copies: as its project runs now, and with <strong>{varies === 'model' ? `model profile ${profile}` : `pack version ${subject}`}</strong>. Copies land and deploy with no one approving them, on the eval domain only, and are deleted with the eval. Budget ${budgetDollars.toFixed(2)}, checked before each arm and step.</p>
+            <section className="card evals-warning">
+              <p className="mt-0">Each of the {picked.length} Change{picked.length === 1 ? '' : 's'} is re-run twice in throwaway copies: as its project runs now, and with <strong>{varies === 'model' ? `model profile ${profile}` : `pack version ${subject}`}</strong>. Copies land and deploy with no one approving them, on the eval domain only, and are deleted with the eval. Budget ${budgetDollars.toFixed(2)}, checked before each arm and step.</p>
               <p><strong>Starting means: “{form.meaning}”</strong></p>
               {actErr && <div className="error">{actErr}</div>}
-              <div className="row" style={{ gap: 8 }}>
+              <div className="row evals-actions">
                 <button disabled={busy} onClick={start}>Start the eval</button>
                 <button className="subtle" onClick={() => setConfirming(false)}>Not yet</button>
               </div>
@@ -175,29 +175,29 @@ export function EvalScorecardPage() {
   const variantWords = e ? (e.subjectKind === 'pack' ? `with ${e.subject}` : `on ${e.subject}`) : ''
   return (
     <div>
-      <div className="row" style={{ marginBottom: 8 }}><Link to="/evals" className="small">← Evals</Link></div>
+      <div className="row mb-2" ><Link to="/evals" className="small">← Evals</Link></div>
       <ReadStatus q={q} what="this eval" denied={EVALS_DENIED} />
       <StaleNote q={q} />
       {actErr && <div className="error small">{actErr}</div>}
       {e && (
         <>
-          <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-            <h1 style={{ margin: 0 }}>Eval {e.number}: {e.subject}</h1>
+          <div className="row evals-row">
+            <h1 className="evals-title">Eval {e.number}: {e.subject}</h1>
             <Status word={e.statusLabel} help={e.reason || e.state} />
           </div>
-          <div className="muted small" style={{ marginTop: 4 }}>
+          <div className="muted small mt-1" >
             Started by {e.startedBy} {relTime(e.startedAt)}, meaning “{e.meaning}”
             {e.subjectDigest && <> · tested exactly <code title="digest of the version's resolved spec and pins at start">{e.subjectDigest}</code></>}
           </div>
-          <div className="row" style={{ gap: 16, flexWrap: 'wrap', margin: '10px 0' }}>
+          <div className="row evals-summary">
             <span>Spent <strong>{dollars(e.costMicros, e.incomplete)}</strong> of ${(e.budgetMicros / 1e6).toFixed(2)}</span>
             {e.incomplete > 0 && <span className="muted small">{e.incomplete} model {e.incomplete === 1 ? 'call' : 'calls'} spent an unknown amount</span>}
           </div>
-          {e.reason && e.state !== 'held' && <div className="small" style={{ marginBottom: 8 }}>{e.reason}</div>}
+          {e.reason && e.state !== 'held' && <div className="small mb-2" >{e.reason}</div>}
           {e.state === 'held' && (
-            <div className="card" style={{ borderLeft: '3px solid var(--warn)', marginBottom: 12 }}>
+            <div className="card mb-3 evals-warning">
               <div>Held: the next arm waits. Continuing says you answer for spend {PRODUCT} could not count; the cost stays “at least”.</div>
-              <button disabled={busy} style={{ marginTop: 6 }} onClick={() => run(() => post(`/evals/${e.id}/continue`))}>Continue</button>
+              <button disabled={busy}  onClick={() => run(() => post(`/evals/${e.id}/continue`))} className="evals-note">Continue</button>
             </div>
           )}
           <Tallies e={e} variant={variantWords} />
@@ -206,13 +206,13 @@ export function EvalScorecardPage() {
             <ChangeSection key={change} e={e} change={change} arms={arms} variant={variantWords} />
           ))}
           <ComplaintsByAbout complaints={e.complaints} arms={e.arms} />
-          <div style={{ marginTop: 16 }}>
+          <div className="mt-4">
             <button className="subtle" disabled={busy} onClick={() => {
               if (window.confirm(`Delete eval ${e.number}? Its arms stop and its copies are deleted; what it cost and what was said in it are kept.`)) {
                 run(async () => { await del(`/evals/${e.id}`); nav('/evals') })
               }
             }}>Delete this eval</button>
-            <span className="muted small" style={{ marginLeft: 8 }}>its starter, while managing packs, or an administrator</span>
+            <span className="muted small evals-aside">its starter, while managing packs, or an administrator</span>
           </div>
         </>
       )}
@@ -225,16 +225,16 @@ export function EvalScorecardPage() {
 // stated and no claim of significance.
 function Tallies({ e, variant }: { e: EvalScorecard; variant: string }) {
   if (e.comparable === 0) {
-    return <div className="muted small" style={{ marginBottom: 8 }}>No Change has both arms finished comparably yet{e.notComparable > 0 ? `; ${e.notComparable} not comparable` : ''}.</div>
+    return <div className="muted small mb-2" >No Change has both arms finished comparably yet{e.notComparable > 0 ? `; ${e.notComparable} not comparable` : ''}.</div>
   }
   return (
-    <section className="card" style={{ marginBottom: 10 }}>
-      <h3 style={{ marginTop: 0 }}>{variant} against as it runs now</h3>
+    <section className="card evals-tally">
+      <h3 className="mt-0">{variant} against as it runs now</h3>
       <div className="muted small">Over {e.comparable} Change{e.comparable === 1 ? '' : 's'}{e.notComparable > 0 ? ` (${e.notComparable} not comparable, left out)` : ''}. Observed in this run: a small sample, and a flaky check can move it.</div>
-      <table className="small" style={{ marginTop: 6 }}>
-        <thead><tr><th style={{ textAlign: 'left' }}>Measure</th><th>better</th><th>same</th><th>worse</th><th>unknown</th></tr></thead>
+      <table className="small evals-note">
+        <thead><tr><th className="evals-tally-heading">Measure</th><th>better</th><th>same</th><th>worse</th><th>unknown</th></tr></thead>
         <tbody>{e.tallies.map((t: Tally) => (
-          <tr key={t.measure}><td>{t.measure}</td><td style={{ textAlign: 'center' }}>{t.better}</td><td style={{ textAlign: 'center' }}>{t.same}</td><td style={{ textAlign: 'center' }}>{t.worse}</td><td style={{ textAlign: 'center' }} className="muted">{t.unknown}</td></tr>
+          <tr key={t.measure}><td>{t.measure}</td><td className="evals-tally-cell">{t.better}</td><td className="evals-tally-cell">{t.same}</td><td className="evals-tally-cell">{t.worse}</td><td className="muted evals-tally-cell">{t.unknown}</td></tr>
         ))}</tbody>
       </table>
     </section>
@@ -253,13 +253,13 @@ function ChangeSection({ e, change, arms, variant }: { e: EvalScorecard; change:
   const baseline = arms.find((a) => a.arm === 'baseline')
   const varied = arms.find((a) => a.arm === 'variant')
   return (
-    <section className="card" style={{ marginBottom: 10 }}>
-      <h3 style={{ marginTop: 0 }}>{arms[0]?.sourceChangeNumber ? <>Change <Link to={`/changes/${change}`}>{arms[0].sourceChangeNumber}</Link>, re-run</> : 'A Change, re-run'}</h3>
+    <section className="card evals-tally">
+      <h3 className="mt-0">{arms[0]?.sourceChangeNumber ? <>Change <Link to={`/changes/${change}`}>{arms[0].sourceChangeNumber}</Link>, re-run</> : 'A Change, re-run'}</h3>
       <div className="eval-arms">
         <div className="eval-arm">
           <strong>The original</strong>
-          <div className="muted small" style={{ marginTop: 4 }}>The accepted work, shown for reference; not re-run.</div>
-          <div className="small" style={{ marginTop: 4 }}><Link to={`/changes/${change}`}>its Change and diff</Link></div>
+          <div className="muted small mt-1" >The accepted work, shown for reference; not re-run.</div>
+          <div className="small mt-1" ><Link to={`/changes/${change}`}>its Change and diff</Link></div>
         </div>
         {[baseline, varied].map((a) => a && (
           <ArmCard key={a.id} e={e} a={a} label={a.arm === 'baseline' ? 'As it runs now' : variant} cost={e.armCosts[a.id ?? '']} complaints={e.complaints.filter((c) => c.armId === a.id)} />
@@ -278,13 +278,13 @@ function ArmCard({ e, a, label, cost, complaints }: { e: EvalScorecard; a: Arm; 
   const counts = compareCounts(s.compared?.rows ?? [])
   return (
     <div className="eval-arm">
-      <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+      <div className="row evals-arm-heading">
         <strong>{label}</strong>
         <span className="muted small">{a.profile}</span>
         <Status word={a.statusLabel} help={a.reason || a.state} />
         {s.notComparable && <span className="badge">not comparable</span>}
       </div>
-      {a.reason && <div className="small" style={{ marginTop: 4 }}>{a.reason}</div>}
+      {a.reason && <div className="small mt-1" >{a.reason}</div>}
       {started && s.unreadable && (
         <dl className="eval-facts small">
           <dt>Score</dt><dd className="muted">not known: {s.unreadable}</dd>
@@ -306,20 +306,20 @@ function ArmCard({ e, a, label, cost, complaints }: { e: EvalScorecard; a: Arm; 
         </dl>
       )}
       {(s.checks ?? []).length > 0 && (
-        <div className="row small" style={{ gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+        <div className="row small mt-1 evals-arm-meta">
           <span className="muted">landing gates:</span>
           {(s.checks ?? []).map((c) => <span key={c.step}>{c.step}: <Status word={c.statusLabel} /></span>)}
         </div>
       )}
       {a.projectId ? (
-        <div className="small" style={{ marginTop: 4 }}>
+        <div className="small mt-1" >
           <button className="subtle" onClick={() => setShowDiff(!showDiff)}>{showDiff ? 'Hide its diff' : 'Show its diff'}</button>
           {a.changeId ? <> · <Link to={`/changes/${a.changeId}`}>the copy's Change{a.changeNumber ? ` ${a.changeNumber}` : ''}</Link></> : null}
         </div>
       ) : null}
       {showDiff && (diff.loading ? <div className="muted small">Reading the diff…</div>
         : diff.err ? <div className="error small">The diff could not be read: {diff.err}</div>
-          : <pre className="small" style={{ whiteSpace: 'pre-wrap', maxHeight: 360, overflow: 'auto' }}>{diff.data || '(no change from the base)'}</pre>)}
+          : <pre className="small evals-arm-output">{diff.data || '(no change from the base)'}</pre>)}
     </div>
   )
 }
@@ -347,10 +347,10 @@ function CheckTable({ baseline, variant, variantWords }: { baseline: Arm; varian
   }
   keys.sort((p, q) => Number(changed(q)) - Number(changed(p)) || p.localeCompare(q))
   return (
-    <details open style={{ marginTop: 8 }}>
+    <details open className="mt-2">
       <summary className="small">Checks, finding by finding, against the Change's base ({keys.length})</summary>
-      <table className="small" style={{ marginTop: 6, width: '100%' }}>
-        <thead><tr><th style={{ textAlign: 'left' }}>Check</th><th style={{ textAlign: 'left' }}>Base</th><th style={{ textAlign: 'left' }}>As it runs now</th><th style={{ textAlign: 'left' }}>{variantWords}</th></tr></thead>
+      <table className="small evals-checks">
+        <thead><tr><th className="evals-tally-heading">Check</th><th className="evals-tally-heading">Base</th><th className="evals-tally-heading">As it runs now</th><th className="evals-tally-heading">{variantWords}</th></tr></thead>
         <tbody>{keys.map((k) => {
           const any = (b.get(k) ?? v.get(k))!
           const only = declares(baseline, any.block, any.version) === declares(variant, any.block, any.version) ? ''
@@ -393,12 +393,12 @@ function ComplaintsByAbout({ complaints, arms }: { complaints: Complaint[]; arms
   for (const c of complaints) groups.set(c.about, [...(groups.get(c.about) ?? []), c])
   return (
     <section className="card">
-      <h3 style={{ marginTop: 0 }}>Complaints filed in the eval</h3>
-      <p className="muted small" style={{ marginTop: 0 }}>Reports about {PRODUCT} also enter its queue.</p>
+      <h3 className="mt-0">Complaints filed in the eval</h3>
+      <p className="muted small mt-0" >Reports about {PRODUCT} also enter its queue.</p>
       {[...groups.entries()].map(([about, list]) => (
-        <div key={about} style={{ marginBottom: 8 }}>
+        <div key={about} className="mb-2">
           <strong className="small">About {ABOUT_WORDS[about] ?? about} ({list.length})</strong>
-          {list.map((c) => <div key={c.id} className="small" style={{ marginTop: 2 }}>#{c.number} ({armLabel(arms, c.armId)}{c.packVersion ? `, ${c.packVersion}` : ''}): {c.text}</div>)}
+          {list.map((c) => <div key={c.id} className="small evals-detail">#{c.number} ({armLabel(arms, c.armId)}{c.packVersion ? `, ${c.packVersion}` : ''}): {c.text}</div>)}
         </div>
       ))}
     </section>

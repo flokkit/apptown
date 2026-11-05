@@ -1,3 +1,4 @@
+import './WayOfWorkingStep.css'
 import { PRODUCT } from '../../brand'
 import { useEffect, useMemo, useRef, useState, type Dispatch } from 'react'
 import { Link } from 'react-router-dom'
@@ -71,12 +72,12 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
           <div className="muted small mb-3">
             {PRODUCT} can use your description to suggest a way of working, or you can choose one yourself.
           </div>
-          <textarea aria-label="Software description" className="prose" rows={3} value={d.description} onChange={(e) => act({ type: 'describe', description: e.target.value })} autoFocus
+          <textarea aria-label="Software description" className="prose way-of-working-step-prose" rows={3} value={d.description} onChange={(e) => act({ type: 'describe', description: e.target.value })} autoFocus
             placeholder={`e.g. "a game where you catch falling eggs and try to beat your high score"`}
-            style={{ width: '100%', boxSizing: 'border-box', fontSize: 'var(--fs-base)' }} />
+             />
           <div className="row mt-3">
-            <button className="primary" disabled={pickBusy || !packsQ.data || !d.description.trim()}
-              style={{ fontSize: 'var(--fs-base)', padding: '10px 26px' }}
+            <button className="primary way-of-working-step-primary" disabled={pickBusy || !packsQ.data || !d.description.trim()}
+
               onClick={() => interview(false)}>{pickBusy ? 'Thinking…' : 'Next →'}</button>
             <button className="subtle" onClick={() => act({ type: 'choosing', on: true })}>Choose a way of working myself →</button>
           </div>
@@ -90,19 +91,19 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
           {questions.map((q) => (
             <div key={q} className="mb-3">
               <div className="small mb-1">{q}</div>
-              <div className="row" style={{ gap: 'var(--space-2)' }}>
+              <div className="row way-of-working-step-div">
                 {['yes', 'no', 'not sure'].map((opt) => (
                   <button key={opt}
-                    className={answers[q] === opt ? 'primary' : undefined}
-                    style={{ padding: '6px 18px' }}
+                    className={(answers[q] === opt ? 'primary' : undefined) + " way-of-working-step-button"}
+
                     onClick={() => act({ type: 'answer', question: q, answer: opt })}>{opt}</button>
                 ))}
               </div>
             </div>
           ))}
           <div className="row mt-3">
-            <button className="primary" disabled={pickBusy || !packsQ.data || questions.some((q) => !answers[q])}
-              style={{ fontSize: 'var(--fs-base)', padding: '10px 26px' }}
+            <button className="primary way-of-working-step-primary" disabled={pickBusy || !packsQ.data || questions.some((q) => !answers[q])}
+
               onClick={() => interview(true)}>{pickBusy ? 'Thinking…' : 'Done →'}</button>
             <button className="subtle" onClick={() => act({ type: 'unask' })}>← change my description</button>
           </div>
@@ -123,12 +124,12 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
           </div>
 
           {selected.some((p) => p.staticStarter) ? (
-            <div className="muted small" style={{ borderTop: '1px solid var(--border)', margin: '18px 0 0', paddingTop: 'var(--space-4)' }}>
+            <div className="muted small way-of-working-step-div-2">
               Static files. No server services.
             </div>
           ) : (
-          <div style={{ borderTop: '1px solid var(--border)', margin: '18px 0 0', paddingTop: 'var(--space-4)' }}>
-            <div style={{ fontSize: 'var(--fs-base)', fontWeight: 650 }}>Services</div>
+          <div className="way-of-working-step-div-2">
+            <div className="way-of-working-step-div-3">Services</div>
             <div className="pick-grid">
               {catalog.map((k) => {
                 const on = d.services.some((n) => n.capability === k.capability)
@@ -141,7 +142,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
                     <div className="pick-icon">{k.icon}</div>
                     <div className="pick-title">{k.title}</div>
                     <div className="muted small">{k.description}</div>
-                    <div className="muted small" style={{ marginTop: 'var(--space-1)', opacity: 0.7, fontSize: 'var(--fs-xs)' }}>{k.defaults?.version ? `v${k.defaults.version}` : ' '}</div>
+                    <div className="muted small mt-1 way-of-working-step-div-4">{k.defaults?.version ? `v${k.defaults.version}` : ' '}</div>
                   </div>
                 )
               })}
@@ -183,7 +184,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
                   </div>
 
                   {missing.length > 0 && (
-                    <div className="row" style={{ gap: 'var(--space-1)' }}>
+                    <div className="row way-of-working-step-div-5">
                       {missing.map((r) => (
                         <span key={r.capability} className="badge" title="no integration provides this yet">
                           needs {r.capability} — not configured
@@ -223,8 +224,8 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
             phases have their own submit button, so the step-level Next
             appears only once a way of working is actually chosen. */}
         {chosen !== null && (
-          <button className="primary" disabled={!readsKnown} title={readsKnown ? undefined : 'Reading the ways of working and the service list first'} onClick={() => act({ type: 'step', step: 3 })}
-            style={{ fontSize: 'var(--fs-base)', padding: '10px 26px' }}>Next →</button>
+          <button className="primary way-of-working-step-primary" disabled={!readsKnown} title={readsKnown ? undefined : 'Reading the ways of working and the service list first'} onClick={() => act({ type: 'step', step: 3 })}
+>Next →</button>
         )}
       </div>
     </div>

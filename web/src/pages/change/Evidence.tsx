@@ -284,7 +284,7 @@ export function Evidence({ view, runs, workTab, extraErr }: {
       </p>}
       {!!proof?.targets.length && <details className="ch-targets">
         <summary>{proof.targets.length === 1 ? 'The requirement this change answers to' : `${proof.targets.length} requirements this change answers to`}</summary>
-        {proof.targets.map(t => <div key={`${t.block}:${t.check}`} style={{ marginTop: 8 }}>
+        {proof.targets.map(t => <div key={`${t.block}:${t.check}`} className="mt-2">
           <strong>{t.title || t.expects || t.check}</strong>
           <div className="muted small"><code>{t.block}{t.version ? `@${t.version}` : ''} · {t.check}</code></div>
           {t.title && t.expects && <p className="small">{t.expects}</p>}

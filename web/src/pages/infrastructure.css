@@ -8,4 +8,13 @@
   .resource-row > .row-action { order: 4; }
   .resource-row > .resource-evidence { order: 5; }
 }
+
+.infrastructure-card { display: flex; }
+.infrastructure-link { display: flex; min-width: 0; }
+.infrastructure-deleted-projects-p { margin: var(--space-1) 0 var(--space-2); }
+.infrastructure-div { gap: calc(var(--space-1) * 2.5); align-items: baseline; margin: calc(var(--space-1) * 1.5) 0; }
+.infrastructure-resource-row-card-resource-row { display: flex; flex-wrap: wrap; }
+.infrastructure-resource-row-strong { overflow-wrap: anywhere; }
+.infrastructure-resource-row-span { min-width: 0; }
+.infrastructure-resource-row-resource-evidence { flex-basis: 100%; margin: var(--space-1) 0 var(--space-2); }
 }

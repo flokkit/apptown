@@ -4,4 +4,16 @@
 .settings-general .repo-clone { background: var(--code-bg); padding: 6px 10px; border-radius: var(--radius-sm); flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .settings-general .repo-head { min-width: 0; overflow-wrap: anywhere; }
 .settings-general .card.row { flex-wrap: wrap; gap: 8px 12px; }
+
+.general-danger-zone-div { margin-top: calc(var(--space-1) * 2.5); }
+.general-danger-zone-card { margin-top: calc(var(--space-1) * 7); }
+.general-danger-zone-span { display: block; }
+.general-danger-zone-input { width: 260px; max-width: 100%; }
+.general-lifecycle-note-card-tone-bad { margin: var(--space-2) 0; }
+.general-general-tab-settings-general { max-width: 760px; }
+.general-general-tab-fieldset { border: none; margin: 0; padding: 0; }
+.general-general-tab-input { width: 90px; }
+.general-general-tab-input-2 { min-width: 0; }
+.general-general-tab-input-3 { width: 200px; }
+.general-general-tab-card { display: flex; }
 }

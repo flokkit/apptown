@@ -51,7 +51,7 @@ export default function People() {
   const act = (fn: () => Promise<unknown>) => { void run(fn) }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 20, maxWidth: 860 }}>
+    <div className="people-div">
       <PageHead page="people" />
       {err && <div className="card error">{err}</div>}
 
@@ -98,7 +98,7 @@ export function AgentsCard({ canEdit }: { canEdit: boolean }) {
   const { run, err } = useAction()
   return (
     <Section title="Connected coding agents" note="Coding agents that signed in through the browser. Each acts as the person who connected it, within what they allowed.">
-    <div style={{ display: 'grid', gap: 10 }}>
+    <div className="people-agents-card-div">
       {err && <div className="error small">{err}</div>}
       <ReadStatus q={q} what="the connected agents" className="small" />
       <StaleNote q={q} />
@@ -110,12 +110,12 @@ export function AgentsCard({ canEdit }: { canEdit: boolean }) {
           <div className="host-row"><strong>{newest.clientName}{connections.length > 1 ? ` ×${connections.length}` : ''} as {newest.user}</strong><span>Connected</span><span className="muted small">Latest connection {fmtStamp(newest.createdAt)}</span></div>
           <details><summary>Connections and permissions</summary>
       {connections.map(d => (
-        <div key={d.id} className="row small" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div key={d.id} className="row small people-div-2">
           <span className="badge">{d.clientName}</span>
           <span>as <b>{d.user}</b></span>
           <span className="muted">· {d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.includes('apptown:change:create') && d.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</span>
           <span className="muted">Connected {fmtStamp(d.createdAt)}{d.lastUsed ? `, last used ${fmtStamp(d.lastUsed)}` : ''}</span><details><summary>Permissions</summary><p>{d.scopes.join(', ')}</p></details>
-          <span style={{ flex: 1 }} />
+          <span className="grow" />
           <QuietConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user})? It stops working at once; they can sign in again.`}
             onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} />
         </div>
@@ -145,14 +145,14 @@ export function AdminNetworksCard({ canEdit }: { canEdit: boolean }) {
   const save = async (networks: string[]) => (await run(() => put('/auth/admin-networks', { expected: nets, networks }))) !== undefined
   return (
     <Section title="Where administrators may sign in" note={`An administrator account can sign in, connect a coding agent, or use an administrator token only from these networks. Members are not limited. Empty means anywhere; the machine ${PRODUCT} runs on always passes.`}>
-    <div style={{ display: 'grid', gap: 10 }}>
+    <div className="people-agents-card-div">
       <div className="muted small">
         You are connecting from <code>{you || '…'}</code>{nets.length > 0 && (inside ? ', which is inside' : ', which is outside the list')}.
       </div>
       {err && <div className="error small">{err}</div>}
       <ReadStatus q={q} what="the administrator networks" className="small" />
       <StaleNote q={q} />
-      {q.data && <div className="row small" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      {q.data && <div className="row small people-admin-networks-card-div">
         {nets.length === 0 && <span className="muted">Anywhere</span>}
         {nets.map((n) => (
           <span key={n} className="badge">{n}{editable && <>{' '}
@@ -161,7 +161,7 @@ export function AdminNetworksCard({ canEdit }: { canEdit: boolean }) {
         ))}
         {editable && (
           <>
-            <input aria-label="Network" placeholder="network, e.g. 192.168.1.0/24" value={draft} onChange={(e) => setDraft(e.target.value)} style={{ width: 220 }} />
+            <input aria-label="Network" placeholder="network, e.g. 192.168.1.0/24" value={draft} onChange={(e) => setDraft(e.target.value)} className="people-admin-networks-card-input" />
             <button disabled={!draft.trim()} onClick={async () => { if (await save([...nets, draft.trim()])) setDraft('') }}>Add</button>
           </>
         )}
@@ -193,14 +193,14 @@ export function TokensCard() {
   const { run, err } = useAction()
   return (
     <Section title="Access tokens" note={<>A command-line token is for your own <code>apptown</code> CLI (set <code>APPTOWN_TOKEN</code>). An agent token is for a coding agent's MCP connection. A token is shown once.</>}>
-    <div style={{ display: 'grid', gap: 10 }}>
+    <div className="people-agents-card-div">
       {err && <div className="error small">{err}</div>}
       <ReadStatus q={[tokensQ, usersQ]} what="the tokens" className="small" />
       <StaleNote q={[tokensQ, usersQ]} />
       {minted && (
         <div className="card tone-ok">
           <div className="small">Copy it now · it is not retrievable again:</div>
-          <code style={{ userSelect: 'all', wordBreak: 'break-all' }}>{minted}</code>
+          <code className="people-tokens-card-code">{minted}</code>
         </div>
       )}
       {tokensQ.data && activeTokens.length === 0 && <p className="muted small">No access tokens yet.</p>}
@@ -208,12 +208,12 @@ export function TokensCard() {
         <div key={t.Name} className="row small">
           <span className="badge">{t.Name}</span>
           <span className="muted">{t.User} · {t.Role} · {tokenPurposes[t.Purpose] ?? 'no purpose'} · last used {t.LastUsed ? fmtWhen(t.LastUsed) : 'never'}</span>
-          <span style={{ flex: 1 }} />
+          <span className="grow" />
           <QuietConfirm label="revoke" ask={`Revoke token ${t.Name}? Anything using it stops working.`}
             onYes={() => { void run(() => del(`/tokens/${t.Name}`)) }} />
         </div>
       ))}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div className="people-tokens-card-div">
         <input aria-label="Token name" placeholder="token name (e.g. laptop-cli)" value={name} onChange={e => setName(e.target.value)} />
         <select aria-label="Record actions as" value={actsAs} onChange={e => setActsAs(e.target.value)} title="whose name the token's actions are recorded under">
           <option value="">acts as you</option>
@@ -257,7 +257,7 @@ function RolesCard({ roles, grants, users, groups, act, canEdit }: {
     byRole.set(k, [...(byRole.get(k) || []), g])
   }
   return (
-    <div className="card" style={{ display: 'grid', gap: 10 }}>
+    <div className="card people-agents-card-div">
       <b>Roles in {PRODUCT}</b>
       <div className="muted small">
         Roles grant permissions. Project roles are under Settings › Members.
@@ -271,7 +271,7 @@ function RolesCard({ roles, grants, users, groups, act, canEdit }: {
       </details>
       {byRole.size === 0 && <p className="muted small">No roles assigned.</p>}
       {[...byRole.entries()].map(([title, gs]) => (
-        <div key={title} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div key={title} className="row">
           <span className="badge" title={roles.find(r => r.title === title)?.description}>{title}</span>
           {gs.map(g => (
             <span key={g.id} className="badge" title={[g.reason, g.origin && `origin: ${g.origin}`, `granted by ${g.grantedBy}`].filter(Boolean).join(' · ')}>
@@ -287,7 +287,7 @@ function RolesCard({ roles, grants, users, groups, act, canEdit }: {
         </div>
       ))}
       {canEdit && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="people-tokens-card-div">
           <select aria-label="Subject" value={subject} onChange={e => setSubject(e.target.value)}>
             <option value="">who…</option>
             {grantees.map(g => <option key={g} value={g}>{g.startsWith('group:') ? groupLabel(g.slice(6)) : g}</option>)}
@@ -406,16 +406,16 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
           </summary>
           {accounts.some(u => u.disabled) && <><h3>Disabled accounts</h3>{accountRows(accounts.filter(u => u.disabled))}</>}
           {seen.length > 0 && <h3>Names without an account ({seen.length})</h3>}
-          <div className="muted small" style={{ margin: '6px 0' }}>
+          <div className="muted small people-users-card-div">
             Names that never signed in or acted. Set a password to claim one
             as a real account; remove the rest.
           </div>
           {seen.map(u => (
-            <div key={u.username} className="row small" style={{ padding: '2px 0' }}>
+            <div key={u.username} className="row small people-div-3">
               <span>{u.username}</span>
               {u.role === 'admin' && <span className="badge">admin</span>}
               <span className="muted">last seen {u.lastSeen ? fmtWhen(u.lastSeen) : '—'}</span>
-              <span style={{ flex: 1 }} />
+              <span className="grow" />
               {canEdit && <>
                 <QuietPrompt label="claim" yes="Claim"
                   ask={`Set a password for ${u.username} · this makes it a sign-in account.`}
@@ -479,16 +479,16 @@ export function InvitePerson({ children }: { children?: React.ReactNode }) {
         <button className="primary" disabled={!name.trim() || busy} onClick={() => { void create() }}>Create invite link</button>
       </div>
       {pending.length > 0 && (
-        <div style={{ display: 'grid', gap: 4 }}>
+        <div className="people-invite-person-div">
           <div className="muted small">Waiting to be used</div>
           {pending.map(i => (
-            <div key={i.id} className="row small" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div key={i.id} className="row small people-admin-networks-card-div">
               <span className="badge">{i.username}</span>
               {i.label && <span>{i.label}</span>}
               <span className="muted">
                 {i.purpose === 'password' ? `password reset · made by ${i.invitedBy}` : `${i.role} · invited by ${i.invitedBy}`} · expires {fmtWhen(i.expiresAt)}
               </span>
-              <span style={{ flex: 1 }} />
+              <span className="grow" />
               <QuietConfirm label="withdraw" ask={`Withdraw the ${i.purpose === 'password' ? 'password reset link' : 'invite'} for ${i.username}? The link stops working.`}
                 onYes={() => { void run(() => del(`/invites/${i.id}`)) }} />
             </div>
@@ -512,10 +512,10 @@ function OneTimeLink({ made, onDone, children }: { made: InviteLink; onDone: () 
     try { await navigator.clipboard.writeText(made.link); setCopiedLink(made.link) } catch { setCopiedLink('') }
   }
   return (
-    <div className="card tone-ok" style={{ display: 'grid', gap: 6 }}>
+    <div className="card tone-ok people-one-time-link-card-tone-ok">
       <div className="small">{children}</div>
-      <code style={{ userSelect: 'all', wordBreak: 'break-all' }}>{made.link}</code>
-      <div className="row small" style={{ gap: 8 }}>
+      <code className="people-tokens-card-code">{made.link}</code>
+      <div className="row small people-one-time-link-div">
         <button onClick={() => { void copy() }}>{copied ? 'Copied' : 'Copy link'}</button>
         <button className="subtle" onClick={onDone}>Done</button>
       </div>
@@ -528,11 +528,11 @@ function GroupsCard({ groups, users, act, canEdit }: {
 }) {
   const [name, setName] = useState('')
   return (
-    <div className="card" style={{ display: 'grid', gap: 10 }}>
+    <div className="card people-agents-card-div">
       <b>Groups</b>
       {groups.length === 0 && <div className="muted small">No groups yet.</div>}
       {groups.filter(g => g.kind === 'built-in' || g.kind === 'personal').map(g => (
-        <div key={g.name} className="row small" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div key={g.name} className="row small people-div-4">
           <span className="badge">{groupLabel(g.name)}</span>
           <span className="muted">
             {g.kind === 'built-in' ? 'everyone who is signed in; grant this group a role to give everyone that access'
@@ -541,12 +541,12 @@ function GroupsCard({ groups, users, act, canEdit }: {
         </div>
       ))}
       {groups.filter(g => g.kind !== 'built-in' && g.kind !== 'personal').map(g => (
-        <div key={g.name} style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div key={g.name} className="people-div-5">
           <span className="badge">{groupLabel(g.name)}</span>
           {canEdit ? users.map(u => {
             const inG = g.members.includes(u.username)
             return (
-              <label key={u.username} className="small" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <label key={u.username} className="small people-label">
                 <input type="checkbox" checked={inG}
                   onChange={() => act(() => post('/groups', {
                     name: g.name, description: g.description,
@@ -556,14 +556,14 @@ function GroupsCard({ groups, users, act, canEdit }: {
               </label>
             )
           }) : <span className="muted small">{g.members.join(', ') || 'no members'}</span>}
-          <span style={{ flex: 1 }} />
+          <span className="grow" />
           {canEdit && (
             <QuietConfirm label="delete" ask={`Delete group ${g.name}? Approval steps naming group:${g.name} will stop matching anyone.`}
               onYes={() => act(() => del(`/groups/${g.name}`))} />
           )}
         </div>
       ))}
-      {canEdit && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      {canEdit && <div className="people-tokens-card-div">
         <input aria-label="New group name" placeholder="new group name (e.g. reviewers)" value={name} onChange={e => setName(e.target.value)} />
         <button disabled={!name}
           onClick={() => act(() => post('/groups', { name, members: [] }).then(() => setName('')))}>

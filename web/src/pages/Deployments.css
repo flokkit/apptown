@@ -1,0 +1,10 @@
+@layer pages {
+
+.deployments-span { margin-right: calc(var(--space-1) * 1.5); }
+.deployments-div { font-variant-numeric: tabular-nums; }
+.deployments-departures-board-button { margin-top: calc(var(--space-1) * 2.5); }
+.deployments-fleet-table-div { margin: 0 0 calc(var(--space-1) * 2.5); gap: var(--space-2); flex-wrap: wrap; }
+.deployments-fleet-table-input { width: 280px; max-width: 100%; }
+.deployments-card { display: flex; }
+.deployments-link { display: flex; min-width: 0; }
+}

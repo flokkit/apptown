@@ -99,7 +99,7 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu }:
           {c.to ? <Link to={c.to}>{c.label}</Link> : <span className="topbar-here">{c.label}</span>}
         </span>
       ))}
-      <span style={{ flex: 1 }} />
+      <span className="grow" />
       {me && <AttentionLights />}
       <Disclosure className="account-menu topbar-search" closeOnAction={false} trigger={<button id="open-find" className="subtle" aria-label="Search">Find</button>}>
         {close => <Find onNavigate={close} />}

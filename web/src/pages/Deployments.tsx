@@ -1,3 +1,4 @@
+import './Deployments.css'
 import { ListRow } from '../ListRow'
 import { Section } from '../Section'
 import { Status } from '../Status'
@@ -73,19 +74,19 @@ function DeparturesBoard() {
               return (
                 <ListRow key={i} listItem className="departure-row"
                   identity={<>
-                    <span>{d.icon && <span aria-hidden style={{ marginRight: 6 }}>{d.icon}</span>}<Link className="int-name" to={`/projects/${d.slug}`}>{d.name || d.slug}</Link></span>
+                    <span>{d.icon && <span aria-hidden className="deployments-span">{d.icon}</span>}<Link className="int-name" to={`/projects/${d.slug}`}>{d.name || d.slug}</Link></span>
                     {/* A release says where it went; anything else carries its own words. */}
                     <div className="muted small">{d.releaseNumber ? `${release} to ${d.tier}` : release}{d.who ? ` · by ${d.who}` : ''}{d.url ? <> · <a href={d.url} target="_blank" rel="noreferrer">open</a></> : null}</div>
                   </>}
                   state={<><Status word={d.state} help={d.reason && d.reason.toLowerCase() !== d.state ? d.reason : undefined} />
-                    <div className="muted small" style={{ fontVariantNumeric: 'tabular-nums' }}>{d.at ? fmtStamp(d.at) : 'not yet'}</div></>}
+                    <div className="muted small deployments-div">{d.at ? fmtStamp(d.at) : 'not yet'}</div></>}
                   action={<Link className="btn" to={to}>{d.state === 'failed' ? 'Review failure' : d.releaseNumber ? 'View release' : 'View app'}</Link>} />
               )
             })}
           </div>
       </Section>
     })()}
-    {moves.length > count && <button style={{ marginTop: 10 }} onClick={() => setCount(n => n + 10)}>Show 10 more</button>}
+    {moves.length> count && <button  onClick={() => setCount(n => n + 10)} className="deployments-departures-board-button">Show 10 more</button>}
     </>
   )
 }
@@ -149,9 +150,9 @@ function FleetTable() {
   return (
     <div>
       <StaleNote q={[tiersQ, projectsQ]} />
-      <div className="row" style={{ margin: '0 0 10px', gap: 8, flexWrap: 'wrap' }}>
+      <div className="row deployments-fleet-table-div">
         <input aria-label="Find an app" value={filter} onChange={(e) => setFilter(e.target.value)}
-          placeholder="Find an app" style={{ width: 280, maxWidth: '100%' }} />
+          placeholder="Find an app" className="deployments-fleet-table-input" />
         {(['all', 'running', 'stopped', 'nowhere'] as Show[]).map((k) => (
           <button key={k} className={'subtle' + (show === k ? ' active' : '')} aria-pressed={show === k}
             style={{ fontWeight: show === k ? 700 : 400 }} onClick={() => setShow(k)}>
@@ -161,10 +162,10 @@ function FleetTable() {
       </div>
       <Section title="Apps" count={shown.length === all.length ? all.length : undefined} note={shown.length !== all.length ? `${shown.length} of ${all.length} apps` : undefined}>
         {shown.map((r) => (
-          <div key={r.slug} className="card row" style={{ display: 'flex' }}>
-            <Link to={`/projects/${r.slug}`} className="row" style={{ display: 'flex', flex: 1, minWidth: 0 }}>
+          <div key={r.slug} className="card row deployments-card">
+            <Link to={`/projects/${r.slug}`} className="row grow deployments-link">
               <span className="row-status">{state(r)}</span>
-              <strong>{r.icon && <span aria-hidden style={{ marginRight: 6 }}>{r.icon}</span>}{r.name}</strong>
+              <strong>{r.icon && <span aria-hidden className="deployments-span">{r.icon}</span>}{r.name}</strong>
               <span className="muted small">{meta(r)}</span>
             </Link>
             <span className="row-action"><Link className="btn" to={`/projects/${r.slug}`}>View app</Link></span>

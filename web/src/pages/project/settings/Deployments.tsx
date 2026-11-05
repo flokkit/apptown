@@ -1,3 +1,4 @@
+import './deployments.css'
 import '../../../overview-line.css'
 import { useDeploymentStatus } from '../../../deploymentStatus'
 import { ListRow } from '../../../ListRow'
@@ -21,7 +22,6 @@ import { AUDIENCES, DATA_CLASSES, OfferedTarget, Retained, capsWords, placeOf, p
 import { ProtectionLines } from '../../DataProtection'
 import { DiagnosticsLines } from './Diagnostics'
 import { Section } from '../../../Section'
-import './deployments.css'
 import type { AIModelsKey, DeploymentAIModels, DeploymentProtection, DeploymentResources, DeploymentDiagnostics, OverrideResult, ProjectSecrets, DeploymentView, DeploymentChecked, DeploymentRemoved, FinalCopies, OperationAdmitted, ProjectTargets, ReleaseRequested, RetainedList, ReleaseListed } from '../../../wire.gen'
 
 // Project deployments (design/subsystems/deployment.md §2.3, §2.7, §15.7): the
@@ -66,7 +66,7 @@ export function DeploymentsTab({ slug }: { slug: string }) {
       {(open.length > 0 || settled.length > 0) && (
         <Section title="Old resources" count={open.length || undefined}
           note="Data without a final copy and resources that could not be deleted. Delete them at the provider, then confirm here to free the deployment name.">
-          <table className="stack" style={{ fontVariantNumeric: 'tabular-nums' }}>
+          <table className="stack deployments-deployments-tab-table">
             <thead><tr><th>What</th><th>From</th><th>Torn down</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {[...open, ...settled].map((r) => <RetainedRow key={r.id} slug={slug} r={r} onChanged={load} />)}
@@ -195,7 +195,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
           <div>
             <span className="muted">backed by</span>{' '}
             {e.needs.map((n) => (
-              <span key={n.need} title={n.id ? `the provider's id: ${n.id}` : undefined} style={{ marginRight: 8 }}>
+              <span key={n.need} title={n.id ? `the provider's id: ${n.id}` : undefined} className="deployments-span">
                 {n.need} <b>{n.name}</b>
                 <span className="muted"> {[n.region, n.version && (n.need === 'postgres' ? `pg ${n.version}` : n.version), n.size].filter(Boolean).join(' · ')}</span>
                 {n.status !== 'ready' && <Status word={n.statusLabel} help={`Service: ${n.status}.`} />}
@@ -299,14 +299,14 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
       <strong>New deployment</strong>
       <div className="form-grid">
         <label>Name</label>
-        <input aria-label="Deployment name" value={name} onChange={(e) => setName(e.target.value)} placeholder="staging, cloud, demo…" style={{ width: 240 }} />
+        <input aria-label="Deployment name" value={name} onChange={(e) => setName(e.target.value)} placeholder="staging, cloud, demo…" className="deployments-add-deployment-input" />
         <label>Deployment target</label>
         <div>
           <select aria-label="Target" value={picked?.name ?? ''} onChange={(e) => setTarget(e.target.value)} disabled={choices.length === 0}>
             {choices.map((t) => <option key={t.name} value={t.name}>{t.name} — {placeOf(t.kindInfo, t.address)}</option>)}
           </select>
           {picked?.offer && (
-            <div className="muted small" style={{ marginTop: 4 }}>
+            <div className="muted small mt-1" >
               offered {picked.offer.implicit ? 'to everyone (built in)' : `to ${picked.offer.group === '*' ? 'everyone' : picked.offer.group}`}
               {capsWords(picked.offer.caps) ? ` · ${capsWords(picked.offer.caps)}` : ''}
               {picked.bound > 0 ? ` · ${picked.bound} of this project's deployments already here` : ''}
@@ -334,7 +334,7 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
               ))}
             </select>
             {startFrom !== '' && (
-              <div className="muted small" style={{ marginTop: 4 }}>
+              <div className="muted small mt-1" >
                 Putting a copy's data in needs the restore grant here and where it came from. A copy of production data goes only into a deployment that holds production data.
               </div>
             )}
@@ -342,11 +342,11 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
         </>}
       </div>
       {protectedPick && (
-        <div className="muted small" style={{ marginTop: 8 }}>
+        <div className="muted small mt-2" >
           This makes the deployment <b>protected</b>: deploying to it takes the release grant, and its target and protection cannot be changed once something runs there.
         </div>
       )}
-      <div className="row" style={{ marginTop: 10 }}>
+      <div className="row deployments-add-deployment-div">
         <button className="primary" disabled={busy || !picked} onClick={add}>Create</button>
         <button className="subtle" disabled={busy} onClick={() => { setErr(''); onDone(false) }}>Cancel</button>
         {err && <span className="error small">{err}</span>}
@@ -372,7 +372,7 @@ export function RetainedRow({ slug, r, onChanged }: { slug: string; r: Retained;
         {r.target && <div className="muted small">on {r.target}</div>}
       </td>
       <td>{r.deployment}</td>
-      <td className="muted small" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(r.retainedAt)} by {r.retainedBy}</td>
+      <td className="muted small deployments-retained-row-td">{fmtWhen(r.retainedAt)} by {r.retainedBy}</td>
       <td>
         {r.disposition === 'retained'
           ? <span className="badge">still at the provider</span>
@@ -380,8 +380,8 @@ export function RetainedRow({ slug, r, onChanged }: { slug: string; r: Retained;
       </td>
       <td>
         {r.disposition === 'retained' && (
-          <span className="row" style={{ gap: 6 }}>
-            <input aria-label="Deployment note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="note (optional)" style={{ width: 160 }} />
+          <span className="row deployments-retained-row-span">
+            <input aria-label="Deployment note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="note (optional)" className="deployments-retained-row-input" />
             <button className="subtle" disabled={busy} onClick={settle} title="you deleted it at the provider">I deleted it</button>
             {err && <span className="error small">{err}</span>}
           </span>
@@ -430,7 +430,7 @@ function AIModelsLine({ slug, name }: { slug: string; name: string }) {
       {q.loading ? <span className="muted">reading the allowance…</span>
         : !q.data ? <span className="error">allowance unknown · {q.err || 'no answer'}</span>
         : q.data.keys.map((k) => (
-          <span key={k.name} title={`OpenRouter key ${k.name}`} style={{ marginRight: 8 }}>
+          <span key={k.name} title={`OpenRouter key ${k.name}`} className="deployments-span">
             {k.allowance ? allowanceWords(k) : <span className="muted">{allowanceWords(k)}</span>} {k.reading?.stale && <span className="muted">(old)</span>} {k.reading?.failure}
           </span>
         ))}
@@ -490,12 +490,12 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
         <span className="muted">profile</span>{' '}
         {r.recorded ? <><b>{r.profile}</b> <span className="muted">({howWords[r.how || ''] || r.how})</span></> : <span className="muted">not recorded</span>}
         {mine && choice.data && choice.data.choosable.length > 1 && (
-          <select aria-label="Profile" style={{ marginLeft: 8 }} value={mine.chosen} disabled={busy || r.reading?.unknown} onChange={(ev) => choose(ev.target.value)}
-            title="the profile this deployment uses from its next deploy, for app.yaml and secretspec.toml alike">
+          <select aria-label="Profile"  value={mine.chosen} disabled={busy || r.reading?.unknown} onChange={(ev) => choose(ev.target.value)}
+            title="the profile this deployment uses from its next deploy, for app.yaml and secretspec.toml alike" className="deployments-resource-lines-select">
             {choice.data.choosable.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         )}
-        {mine && r.recorded && mine.chosen !== r.profile && <span className="badge" style={{ marginLeft: 6 }} title="takes effect at the next deploy">next: {mine.chosen}</span>}
+        {mine && r.recorded && mine.chosen !== r.profile && <span className="badge deployments-resource-lines-badge"  title="takes effect at the next deploy">next: {mine.chosen}</span>}
       </div>
       {r.parts.map(p => <div key={p.part || 'app'} className="deploy-resource-part">
         <b>{p.part || 'app'}</b>{p.public && p.part ? ' (front door)' : ''}{p.need ? ' (service)' : ''}{p.suppliedService ? ' (workflow service)' : ''}: memory {p.memory}{p.size && <span className="muted deploy-fact">size {p.size}</span>}{p.memoryDefault && <span className="muted deploy-fact">{p.memoryDefault.kind === 'catalogue' ? `catalogue ${p.memoryDefault.name}` : (p.memoryDefault.kind === 'apptown' || p.memoryDefault.kind === 'forge') ? PRODUCT : p.memoryDefault.kind} default</span>}{p.memoryUnlimited && <span className="badge">explicit no limit</span>}{p.runsOn && <span className="muted deploy-fact">{p.runsOn}</span>} · CPU {p.cpu} · {p.observed.known ? `uses ${fmtBytes(p.observed.usedBytes)}${p.observed.limitBytes > 0 ? ` of ${fmtBytes(p.observed.limitBytes)}` : ''}` : <span className="muted" title={p.observed.reason}>Memory use unknown</span>}
@@ -511,14 +511,14 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
       <LimitEventLines r={r} />
       {parts.length > 0 && !open && !r.reading?.unknown && <button className="link small" onClick={() => setOpen(true)}>Override memory…</button>}
       {open && picked && (
-        <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+        <div className="row deployments-resource-lines-div">
           {parts.length > 1 && (
             <select aria-label="App part" value={picked} onChange={(ev) => setPart(ev.target.value)}>
               {parts.map((p) => <option key={p.part} value={p.part}>{p.part}</option>)}
             </select>
           )}
-          <input aria-label="Memory limit" placeholder="memory, e.g. 2Gi or none" value={memory} onChange={(ev) => setMemory(ev.target.value)} style={{ width: 120 }} />
-          <input aria-label="Reason for override" placeholder="why" value={reason} onChange={(ev) => setReason(ev.target.value)} style={{ minWidth: 220 }} />
+          <input aria-label="Memory limit" placeholder="memory, e.g. 2Gi or none" value={memory} onChange={(ev) => setMemory(ev.target.value)} className="deployments-resource-lines-input" />
+          <input aria-label="Reason for override" placeholder="why" value={reason} onChange={(ev) => setReason(ev.target.value)} className="deployments-resource-lines-input-2" />
           <button className="primary" disabled={busy || r.reading?.unknown || !memory || !reason.trim()} onClick={set} title="records who and why, then redeploys what runs so it applies now">Override and redeploy</button>
           <button className="link small" onClick={() => setOpen(false)}>cancel</button>
         </div>

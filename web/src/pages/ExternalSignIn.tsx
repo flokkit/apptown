@@ -83,7 +83,7 @@ export function MyExternalSignIn({ embedded = false }: { embedded?: boolean }) {
     {err && <p className="error">{err}</p>}
     </div>
     <ReadGate q={q} what="your external identities">{q.data?.bindings.map(b => <div key={b.id} className="card row" style={{ display: 'flex' }}>
-      <span style={{ flex: 1, overflowWrap: 'anywhere' }}>{b.issuer} / {b.subject}</span>
+      <span style={{ overflowWrap: 'anywhere' }} className="grow">{b.issuer} / {b.subject}</span>
       <span className="row-action">{b.revoked ? <span className="muted small">revoked</span> : <button className="subtle" disabled={!password} title={password ? undefined : 'Enter your password above first'} onClick={() => { void run(async () => { await post(`/auth/external/bindings/${b.id}/unlink`, { password }); setPassword('') }) }}>Unlink</button>}</span>
     </div>)}</ReadGate>
   </Section></>

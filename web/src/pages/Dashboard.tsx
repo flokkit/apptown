@@ -1,3 +1,4 @@
+import './Dashboard.css'
 import { Status } from '../Status'
 import { useAttention, attentionState, attentionSummary, useOperator } from '../attention'
 import { PRODUCT } from '../brand'
@@ -40,16 +41,16 @@ function SetupCard() {
   return (
     <>
       {setup.openNonLoopback && (
-        <div className="card tone-warn" style={{ marginBottom: 10 }}>
+        <div className="card tone-warn dashboard-setup-card-card-tone-warn">
           ⚠ {PRODUCT} is listening on a non-loopback address with open auth · anyone who can
           reach the port has full control. Bind to 127.0.0.1, or put an authenticating proxy
           in front and use trusted-header auth.
         </div>
       )}
       {setup.needsModel && (
-        <div className="card tone-accent" style={{ padding: 18, marginBottom: 12 }}>
-          <strong style={{ fontSize: 'var(--fs-md)' }}>Add a model API key to start building</strong>
-          <div className="muted small" style={{ margin: '4px 0 10px' }}>
+        <div className="card tone-accent mb-3 dashboard-setup-card-card-tone-accent">
+          <strong className="dashboard-setup-card-strong">Add a model API key to start building</strong>
+          <div className="muted small dashboard-setup-card-div">
             It is kept in {PRODUCT}'s secrets file, is not shown again, and is sent only to steps
             that use that provider.
           </div>
@@ -59,28 +60,28 @@ function SetupCard() {
               <option value="openrouter">OpenRouter</option>
             </select>
             <input aria-label="API key" type="password" value={key} onChange={(e) => setKey(e.target.value)}
-              placeholder="paste your API key" style={{ flex: 1, maxWidth: 420 }}
-              onKeyDown={(e) => e.key === 'Enter' && key && save()} />
+              placeholder="paste your API key"
+              onKeyDown={(e) => e.key === 'Enter' && key && save()} className="grow dashboard-setup-card-input" />
             <button className="primary" disabled={busy || !key} onClick={save}>{busy ? '…' : 'Save'}</button>
           </div>
-          {err && <div className="error small" style={{ marginTop: 6 }}>{err}</div>}
-          <div style={{ marginTop: 10 }}><LocalTrialNote /></div>
+          {err && <div className="error small dashboard-setup-card-error">{err}</div>}
+          <div className="dashboard-setup-card-div-2"><LocalTrialNote /></div>
         </div>
       )}
       {setup.agentImage === 'building' && (
-        <div className="card" style={{ marginBottom: 10 }} >
+        <div className="card dashboard-setup-card-card-tone-warn">
           <Status word={"working"} /> Building the agent image (first run only) · a few
           minutes; agents queue until it finishes.
         </div>
       )}
       {setup.agentImage === 'pulling' && (
-        <div className="card" style={{ marginBottom: 10 }} >
+        <div className="card dashboard-setup-card-card-tone-warn">
           <Status word={"working"} /> Downloading the agent image (first run only) · a few
           minutes; agents queue until it finishes.
         </div>
       )}
       {(setup.agentImage === 'failed' || setup.agentImage === 'missing') && (
-        <div className="card tone-bad" style={{ marginBottom: 10 }}>
+        <div className="card tone-bad dashboard-setup-card-card-tone-warn">
           ✗ The agent image is not available: {setup.agentImageError || 'unknown reason'}
         </div>
       )}
@@ -212,8 +213,8 @@ export default function Dashboard() {
           status chip would say nothing. */}
       {finished.length > 0 && <Section title="Recently landed" label="Recently landed">
         {finished.slice(0, 5).map(c => (
-          <Link key={c.changeId} to={`/changes/${c.changeId}`} className="card row" style={{ display: 'flex' }}>
-            <strong>{c.changeNumber ? <span className="muted" style={{ fontWeight: 400 }}>#{c.changeNumber} </span> : null}{c.title}</strong>
+          <Link key={c.changeId} to={`/changes/${c.changeId}`} className="card row dashboard-card">
+            <strong>{c.changeNumber ? <span className="muted dashboard-span">#{c.changeNumber} </span> : null}{c.title}</strong>
             <span className="muted small">{projectNames[c.project ?? ''] ?? c.project} · {relTime(c.when)}</span>
           </Link>
         ))}
@@ -228,11 +229,11 @@ export default function Dashboard() {
 function EndedOperation({ op }: { op: Operation }) {
   const { run, busy } = useAction(undefined, { affects: ['/dashboard'] })
   return (
-    <div className="card row" style={{ display: 'flex' }}>
+    <div className="card row dashboard-card">
       <Status word={op.statusLabel} help={op.detail} />
       <Link to={`/operations/${op.id}`}><strong>{endedWords(op)}</strong></Link>
       {op.detail && <span className="muted small">{op.detail}</span>}
-      <span style={{ flex: 1 }} />
+      <span className="grow" />
       <button className="subtle" disabled={busy} onClick={() => run(() => post(`/operations/${op.id}/dismiss`, {}))}>Put away</button>
     </div>
   )

@@ -1,0 +1,11 @@
+@layer pages {
+
+.change-button-error { margin-top: calc(var(--space-1) * 2.5); }
+.change-button-catalog-picker-h2 { margin: 0; }
+.change-button-catalog-picker-div { font-size: var(--fs-base); font-weight: normal; }
+.change-button-card { opacity: 0.6; }
+.change-button-div { margin-top: calc(var(--space-1) * 1.5); }
+.change-button-card-2 { cursor: pointer; }
+.change-button-div-2 { margin-bottom: calc(var(--space-1) * 1.5); }
+.change-button-label { min-width: 110px; }
+}

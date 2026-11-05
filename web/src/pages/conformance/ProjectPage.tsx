@@ -1,3 +1,4 @@
+import './ProjectPage.css'
 import { Fragment, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { post } from '../../api'
@@ -18,7 +19,7 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, 
   const lane = laneOf(v)
   return (
     <>
-      <div className="card row check-row" style={{ display: 'flex' }}>
+      <div className="card row check-row project-page-check-row-card-check-row">
         <button className="row subtle check-open" aria-expanded={open} onClick={() => setOpen(!open)}>
           {/* A check that has not judged anything is neither a pass nor a problem: it says why instead. */}
           <span className="row-status">{lane === 'unassessed' ? <span className="muted small">not judged yet</span> : <StateChip finding={v.lane === 'findings'} label={v.statusLabel} />}</span>
@@ -31,11 +32,11 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, 
       </div>
       {open && (
         <div className="check-results">
-          <div style={{ padding: '0 0 10px 16px' }}>
+          <div className="project-page-check-row-div">
             <div className="small muted">{v.block} version {v.version} · {v.check}</div>
             <Evidence v={v} exceptions={exceptions} adj={adj} />
             {!readOnly && (lane === 'findings' || lane === 'flagged') && (
-              <div className="row" style={{ gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+              <div className="row mt-3 project-page-check-row-div-2">
                 {lane === 'flagged' && onConfirm && <button onClick={() => onConfirm(v)}>Confirm finding</button>}
                 {onFix && !covered && <button className={lane === 'findings' ? 'primary' : ''} onClick={() => onFix(v)}>Open a change to fix</button>}
                 <span className="muted small">{covered ? '' : lane === 'flagged' ? 'A possible problem counts as a finding only after a person confirms it.' : 'Opens a change with this check as its acceptance test.'}</span>
@@ -60,7 +61,7 @@ function HistoryStrip({ slug }: { slug: string }) {
   return (
     <Section title="Reviews" count={hist.length} note="Oldest to newest. Red: findings. Amber: possible problems. Select a bar to open that review.">
       <StaleNote q={q} />
-      <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 36, margin: '12px 0' }}>
+      <div className="project-page-history-strip-div">
         {hist.map((h) => {
           const tot = h.findings + h.flagged
           const hgt = tot === 0 ? 3 : Math.max(6, (tot / max) * 36)
@@ -68,7 +69,7 @@ function HistoryStrip({ slug }: { slug: string }) {
           return (
             <Link key={h.reviewId} to={`/conformance/reviews/${h.reviewId}/projects/${slug}`}
               title={`review of ${fmtWhen(h.at)} · ${h.findings} findings · ${h.flagged} flagged · ${h.unassessed} not judged`}
-              style={{ width: 14, height: hgt, background: color, borderRadius: 2, display: 'block', opacity: 0.9 }} />
+              style={{ height: hgt, background: color }} className="project-page-link" />
           )
         })}
       </div>
@@ -111,7 +112,7 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
   const exceptions = view.exceptions[slug] ?? []
   const busy = acting || remediation.busy
   const err = actErr || remediation.err
-  if (!p) return <div className="muted" style={{ padding: '30px 0' }}>No conformance record for <span className="mono">{slug}</span>.</div>
+  if (!p) return <div className="muted project-page-div">No conformance record for <span className="mono">{slug}</span>.</div>
 
   const groups: Record<keyof Lanes, Verdict[]> = { findings: [], flagged: [], broken: [], excepted: [], unassessed: [], na: [], conforms: [] }
   for (const v of vs) groups[laneOf(v)].push(v)
@@ -131,10 +132,10 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
 
   return (
     <div>
-      <div className="row" style={{ gap: 'var(--space-3)', alignItems: 'center', flexWrap: 'wrap', marginTop: 'var(--space-3)' }}>
-        <h2 style={{ margin: 0, flex: 1, textTransform: 'none', letterSpacing: 0 }}>{p.name || slug}</h2>
+      <div className="row mt-3 project-page-div-2">
+        <h2 className="grow project-page-h2">{p.name || slug}</h2>
         {!readOnly && (
-          <span className="row" style={{ gap: 'var(--space-2)' }}>
+          <span className="row project-page-check-row-div-2">
             {fixable > 0 && <button disabled={busy} onClick={() => remediation.start('project', slug)}>Fix {fixable} {fixable === 1 ? 'problem' : 'problems'}</button>}
             <button disabled={busy} onClick={() => onRunOne(slug)}>Check this project</button>
           </span>

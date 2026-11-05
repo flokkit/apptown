@@ -12,4 +12,20 @@
 @media (max-width: 600px) {
   .service-pick .service-controls { flex-direction: column-reverse; align-items: flex-end; gap: 6px; }
 }
+
+.services-badge { margin-left: var(--space-2); }
+.services-input { width: 56px; font-size: var(--fs-xs); text-align: center; }
+.services-services-tab-card-tone-warn { margin: calc(var(--space-1) * 2.5) 0; }
+.services-div { align-items: flex-start; gap: var(--space-3); }
+.services-div-2 { min-width: 0; }
+.services-div-3 { gap: var(--space-2); }
+.services-strong { font-size: var(--fs-md); }
+.services-div-4 { margin: var(--space-3) 0 var(--space-1); }
+.services-div-5 { margin: calc(var(--space-1) * 0.5) 0 var(--space-2); }
+.services-facts { overflow-wrap: anywhere; }
+.services-project-integrations-tab-service-attach { gap: var(--space-2); flex-wrap: wrap; }
+.services-project-integrations-tab-div { margin: var(--space-1) 0 var(--space-2); }
+.services-project-integrations-tab-label { gap: calc(var(--space-1) * 1.5); margin-bottom: calc(var(--space-1) * 1.5); }
+.services-project-integrations-tab-label-2 { gap: calc(var(--space-1) * 1.5); }
+.services-project-integrations-tab-div-2 { margin-top: calc(var(--space-1) * 2.5); }
 }

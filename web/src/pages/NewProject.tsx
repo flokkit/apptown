@@ -40,7 +40,7 @@ export default function NewProject() {
   </>
   return <>
     {!identity.current && <ReadStatus q={identity} what="your current account" />}
-    <fieldset disabled={!identity.current} style={{ border: 0, padding: 0, margin: 0 }}>
+    <fieldset disabled={!identity.current} className="new-project-fieldset">
       <ProjectSetup key={actorId} actorId={actorId} identityCurrent={identity.current} />
     </fieldset>
   </>
@@ -106,20 +106,20 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
   }
   if (manifest) {
     return (
-      <div style={{ maxWidth: 760 }}>
+      <div className="new-project-project-setup-div">
         <h1>{manifest.project.name || manifest.project.slug} <span className="badge">created</span></h1>
         <div className="card mt-3">
           <ProgressLog lines={progress} />
         </div>
         <div className="row mt-4">
-          <button className="primary" style={{ fontSize: 'var(--fs-base)', padding: '10px 26px' }}
+          <button className="primary new-project-project-setup-primary"
             onClick={() => setShowManifest(true)}>Continue →</button>
         </div>
       </div>
     )
   }
 
-  if (saved) return <div style={{ maxWidth: 720 }}>
+  if (saved) return <div className="new-project-project-setup-div-2">
     <h1>Saved project setup</h1>
     <p><strong>{saved.draft.name}</strong> — {saved.draft.description}</p>
     {saved.project ? <p>Project <Link to={`/projects/${saved.project.slug}`}>{saved.project.slug}</Link> exists.</p>
@@ -138,9 +138,9 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
   </div>
 
   return (
-    <div style={{ maxWidth: 720 }}>
-      <h1 style={{ margin: 0 }}>New project</h1>
-      <fieldset disabled={busy} style={{ border: 0, padding: 0, margin: 0 }}>
+    <div className="new-project-project-setup-div-2">
+      <h1 className="new-project-project-setup-h1">New project</h1>
+      <fieldset disabled={busy} className="new-project-fieldset">
       <StepChips step={d.step} />
       {d.step === 1 && <NameStep d={d} act={act} />}
       {d.step === 2 && <WayOfWorkingStep d={d} act={act} />}
@@ -182,7 +182,7 @@ function ProgressLog({ lines }: { lines: { text: string; warn?: boolean }[] }) {
 // admitted (what was available then, not what the run read).
 export function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuildV0: () => void; onConsole: () => void }) {
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div className="new-project-project-setup-div">
       <h1>{m.project.name} <span className="badge">created</span></h1>
 
       <div className="card">
@@ -198,7 +198,7 @@ export function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuild
         <strong>Way of working</strong>
         {m.packs.length === 0 && <div className="muted small mt-1">no pack · bare project</div>}
         {m.packs.map((p) => <div key={p.name} className="muted small mt-1">pack <code>{p.name}</code></div>)}
-        <div className="row" style={{ marginTop: 'var(--space-2)', gap: 'var(--space-1)' }}>
+        <div className="row mt-2 new-project-manifest-view-div">
           {m.workflows.map((w) => (
             <span key={w.name} className="badge" title={w.origin}>{w.name} v{w.version}</span>
           ))}
@@ -222,7 +222,7 @@ export function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuild
 
       <div className="card">
         <strong>Bindings</strong>
-        <div className="row" style={{ marginTop: 'var(--space-2)', gap: 'var(--space-1)' }}>
+        <div className="row mt-2 new-project-manifest-view-div">
           {m.bindings.map((b) => (
             <span key={`${b.capability}/${b.binding}`} className="badge" title={`config sha256:${b.configHash}`}>
               {b.capability} → {b.binding} v{b.version}
@@ -234,9 +234,9 @@ export function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuild
         <div className="muted small mt-1">Whether each is set up: <Link to="/integrations">Integrations</Link></div>
       </div>
 
-      <div className="card tone-accent" style={{ marginTop: 'var(--space-5)' }}>
+      <div className="card tone-accent mt-5" >
         <strong>Next</strong>
-        <div className="small" style={{ marginTop: 'var(--space-2)', lineHeight: 1.5 }}>
+        <div className="small mt-2 new-project-manifest-view-div-2">
           <strong>Build the first version</strong> opens a chat on a new change with what you wrote
           about {m.project.name}, and the helper starts building. Try it when the helper says it is
           ready; {PRODUCT} checks the work before it goes live.
@@ -244,7 +244,7 @@ export function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuild
       </div>
 
       <div className="row mt-4">
-        <button className="primary" style={{ fontSize: 'var(--fs-md)', padding: '12px 30px' }}
+        <button className="primary new-project-manifest-view-primary"
           onClick={onBuildV0}>🔨 Build the first version →</button>
         <button onClick={onConsole}>Open the chat</button>
         <Link to={`/projects/${m.project.slug}`}><button className="subtle">project page</button></Link>

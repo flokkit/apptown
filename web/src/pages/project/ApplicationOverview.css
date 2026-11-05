@@ -1,0 +1,7 @@
+@layer pages {
+
+.application-overview-card { display: flex; }
+.application-overview-span { font-weight: 400; }
+.application-overview-p { white-space: pre-wrap; margin: var(--space-3) 0; }
+.application-overview-span-2 { display: block; }
+}

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type HTMLAttributes } from 'react'
 
 const activeTab = (strip: HTMLElement) => strip.querySelector<HTMLElement>('.active, [aria-selected="true"], [aria-current="page"]')
-function reveal(strip: HTMLElement) {
+export function revealActiveTab(strip: HTMLElement) {
   const active = activeTab(strip)
   if (!active) return
   const box = strip.getBoundingClientRect(), item = active.getBoundingClientRect()
@@ -23,7 +23,7 @@ export function Tabs({ children, className = 'tabs', ...props }: HTMLAttributes<
   useEffect(() => {
     const strip = ref.current
     if (!strip) return
-    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { reveal(strip); hint() }) : null
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { revealActiveTab(strip); hint() }) : null
     observer?.observe(strip)
     return () => observer?.disconnect()
   }, [])
@@ -33,7 +33,7 @@ export function Tabs({ children, className = 'tabs', ...props }: HTMLAttributes<
     const active = activeTab(strip)
     if (active !== activeRef.current) {
       activeRef.current = active
-      reveal(strip)
+      revealActiveTab(strip)
     }
     hint()
   })

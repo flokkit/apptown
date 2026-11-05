@@ -83,7 +83,7 @@ export function RemediationsList() {
           <Link key={m.id} to={`/conformance/remediations/${m.id}`} className="card row" style={{ display: 'flex' }}>
             <span className="row-status"><Status word={m.statusLabel} /></span>
             <strong><span className="muted" style={{ fontWeight: 400 }}>#{m.number} </span>{m.sentence}</strong>
-            <span className="muted small" style={{ flex: 1 }}>{m.actor} · {fmtWhen(m.createdAt)} · {m.mode}{m.cost ? ` · $${m.cost.toFixed(3)}` : ''}</span>
+            <span className="muted small grow" >{m.actor} · {fmtWhen(m.createdAt)} · {m.mode}{m.cost ? ` · $${m.cost.toFixed(3)}` : ''}</span>
             <span className="row-action phone-secondary"><JobBar counts={m.counts} /></span>
           </Link>
         ))}

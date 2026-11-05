@@ -30,7 +30,7 @@ function RemovalNotice({ slug, onDismiss }: { slug: string; onDismiss: () => voi
     return (
       <div className="card tone-ok row" style={{ maxWidth: 760 }}>
         <span><strong>{slug}</strong> has been removed: its app, previews and folders are cleaned up.</span>
-        <span style={{ flex: 1 }} />
+        <span className="grow" />
         <button className="subtle" onClick={onDismiss}>Dismiss</button>
       </div>
     )
@@ -46,7 +46,7 @@ function RemovalNotice({ slug, onDismiss }: { slug: string; onDismiss: () => voi
   return (
     <div className="card tone-busy" style={{ maxWidth: 760 }}>
       <strong>{slug}</strong> is being removed: its app, previews and folders are being cleaned up.
-      {q.err && <div className="error small" style={{ marginTop: 4 }}>The cleanup's progress could not be read: {q.err}</div>}
+      {q.err && <div className="error small mt-1" >The cleanup's progress could not be read: {q.err}</div>}
     </div>
   )
 }
@@ -93,8 +93,8 @@ export default function Projects() {
     <div>
       {/* The same shape as Home: the page and its main action, then the list
           as a section with its count and its filter, rows on one surface. */}
-      <div className="row" style={{ marginBottom: 4, gap: 10 }}>
-        <h1 style={{ margin: 0, flex: 1 }}>Projects</h1>
+      <div className="row mb-1" style={{ gap: 10 }}>
+        <h1 style={{ margin: 0 }} className="grow">Projects</h1>
         <Link to="/projects/_new"><button className="primary">+ New project</button></Link>
       </div>
       <StaleNote q={pageQ} />
@@ -116,7 +116,7 @@ export default function Projects() {
 
       {/* Paging only when the list does not fit on one page; the section's
           count already says how many there are. */}
-      {(offset > 0 || (page?.total ?? 0) > 50) && <div className="row" style={{ gap: 12, marginTop: 12 }}>
+      {(offset > 0 || (page?.total ?? 0) > 50) && <div className="row mt-3" style={{ gap: 12 }}>
         <button disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 50))}>Previous</button>
         <span className="muted small">{projects.length ? `${offset + 1}–${offset + projects.length} of ${page?.total}` : `0 of ${page?.total}`} projects</span>
         <button disabled={offset + 50 >= (page?.total ?? 0)} onClick={() => setOffset(offset + 50)}>Next</button>

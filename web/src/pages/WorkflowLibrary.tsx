@@ -84,7 +84,7 @@ export default function WorkflowLibrary() {
   return (
     <div>
       {editor && (
-        <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card mb-4" >
           <div className="row" style={{ marginBottom: 6 }}>
             <strong>Custom workflow</strong>
             <span className="muted small">Stock names are read-only.</span>
@@ -92,7 +92,7 @@ export default function WorkflowLibrary() {
           <textarea aria-label="Workflow YAML" rows={16} value={editor.yaml} onChange={(e) => setEditor({ yaml: e.target.value })}
             style={{ width: '100%', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }} />
           {saveErr && <div className="error" style={{ marginTop: 6 }}>{saveErr}</div>}
-          <div className="row" style={{ marginTop: 8 }}>
+          <div className="row mt-2" >
             <button className="primary" disabled={saving} onClick={() => void saveCustom()}>Save</button>
             <button onClick={() => setEditor(null)}>Cancel</button>
           </div>

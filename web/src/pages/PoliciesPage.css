@@ -1,0 +1,12 @@
+@layer pages {
+
+.policies-page-policy-card-span { color: var(--bad); }
+.policies-page-policy-card-div { margin: var(--space-2) 0; }
+.policies-page-policy-card-div-2 { margin-bottom: calc(var(--space-1) * 0.5); }
+.policies-page-policy-card-summary { cursor: pointer; }
+.policies-page-policy-card-pre { margin: calc(var(--space-1) * 1.5) 0 0; padding: var(--space-2); background: var(--code-bg); border-radius: var(--radius-sm); overflow-x: auto; }
+.policies-page-div { padding: calc(var(--space-1) * 0.75) 0; }
+.policies-page-div-2 { margin-left: calc(var(--space-1) * 4.5); color: var(--bad); }
+.policies-page-policy-editor-div { max-width: 640px; }
+.policies-page-span { display: contents; }
+}

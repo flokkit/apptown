@@ -53,7 +53,7 @@ export function ActiveRunList({ runs, showProject, names = {} }: { runs: RunRow[
           return (
             <div key={r.runId} className="card row" style={{ display: 'flex' }}>
               {body}
-              <span style={{ flex: 1 }} />
+              <span className="grow" />
               <StopRun runId={r.runId!} />
             </div>
           )

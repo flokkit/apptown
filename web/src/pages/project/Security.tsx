@@ -37,7 +37,7 @@ export function FindingsTab({ slug }: { slug: string }) {
       <Section title="Latest scan" count={data.sources.length || undefined}>
         <div className="card row" style={{ display: 'flex' }}>
           <span className="row-status"><Status observation word={data.statusLabel} help={data.repo?.stale ? "Main changed since the last scan. Open a change to scan the latest code." : undefined} /></span>
-          <span style={{ flex: 1, minWidth: 0 }}>{unread.length > 0
+          <span style={{ minWidth: 0 }} className="grow">{unread.length > 0
             ? (unread.length === 1 ? "One scan report couldn't be read; security checks are incomplete." : `${unread.length} scan reports couldn't be read; security checks are incomplete.`)
             : data.summary.actionable > 0 ? `${data.summary.actionable} problems to fix` : data.sources.length ? data.repo?.stale ? 'No problems found in the last scan; main has changed since.' : 'No problems found in the last scan.' : 'Scan results not available.'}</span>
         </div>
@@ -45,7 +45,7 @@ export function FindingsTab({ slug }: { slug: string }) {
         {data.sources.length === 0 && <p className="muted small">No scans yet.</p>}
         {data.sources.map(s => <div key={s.binding} className="card row small security-source" style={{ display: 'flex' }}>
           <code>{s.binding}</code>
-          <span className={s.unreadable ? 'error' : 'muted'} style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{s.unreadable || `${s.findings} problems`} · {fmtWhen(s.at)}</span>
+          <span className={(s.unreadable ? 'error' : 'muted') + " grow"} style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{s.unreadable || `${s.findings} problems`} · {fmtWhen(s.at)}</span>
           {s.changeId && <Link to={`/changes/${s.changeId}`}>{s.changeNumber ? `change ${s.changeNumber}` : 'its change'}</Link>}
         </div>)}
       </Section>
@@ -110,7 +110,7 @@ export function SuppressionsTab({ slug }: { slug: string }) {
         {list.map((d) => (
           <div className="card row security-suppression" key={d.id} style={{ display: 'flex' }}>
             <span className="row-status"><Status observation word={d.statusLabel} help={`${d.status}${d.expiresAt ? ` · until ${fmtDay(d.expiresAt)}` : ''}`} /></span>
-            <div style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
+            <div style={{ minWidth: 0, overflowWrap: 'anywhere' }} className="grow">
               <span>{d.identifier || d.fingerprint}</span>{d.package && <span className="muted small"> · {d.package}</span>}
               <div className="muted small" title={d.justification}>“{d.justification.length > 70 ? `${d.justification.slice(0, 70)}…` : d.justification}” · {d.by}{d.expiresAt ? `, until ${fmtDay(d.expiresAt)}` : ''}</div>
             </div>

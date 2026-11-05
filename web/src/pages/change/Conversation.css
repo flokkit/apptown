@@ -1,0 +1,12 @@
+@layer pages {
+
+.conversation-conversation-log-bubble-you { white-space: pre-wrap; }
+.conversation-div { margin: var(--space-3) 0; }
+.conversation-div-2 { margin: calc(var(--space-1) * 1.5) 0; }
+.conversation-details { margin: var(--space-2) 0 0 var(--space-3); }
+.conversation-span { display: block; }
+.conversation-div-3 { padding-left: var(--space-3); }
+.conversation-past-chats-details { margin-top: calc(var(--space-1) * 4.5); }
+.conversation-img { display: block; max-width: 100%; width: 320px; max-height: 240px; object-fit: contain; border-radius: var(--radius-sm); }
+.conversation-unreadable-note-div { margin: calc(var(--space-1) * 1.5) 0; color: var(--warn, var(--muted)); }
+}

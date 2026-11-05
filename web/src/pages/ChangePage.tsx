@@ -2,7 +2,7 @@ import './change/deploy-scene.css'
 import '../overview-line.css'
 import { runStory } from './change/story'
 import { InlineHelp } from '../InlineHelp'
-import { Tabs } from '../Tabs'
+import { Tabs, revealActiveTab } from '../Tabs'
 import { useEffect } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { setProjectScope } from '../projectScope'
@@ -50,12 +50,8 @@ export default function ChangePage() {
   useEffect(() => () => setPageContext({}), [])
 
   useEffect(() => {
-    const tab = document.querySelector<HTMLElement>('.ch-tabs [aria-current="page"]')
-    const nav = tab?.parentElement
-    if (!tab || !nav) return
-    const item = tab.getBoundingClientRect(), frame = nav.getBoundingClientRect()
-    if (item.left < frame.left) nav.scrollLeft += item.left - frame.left
-    else if (item.right > frame.right) nav.scrollLeft += item.right - frame.right
+    const strip = document.querySelector<HTMLElement>('.ch-tabs')
+    if (strip) revealActiveTab(strip)
   }, [tab, view?.change.id])
 
   useEffect(() => {

@@ -1,3 +1,4 @@
+import './Release.css'
 import { Status } from '../../Status'
 import { Fragment, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -38,34 +39,32 @@ function ReleasePage({ slug }: { slug: string }) {
   const blocker = !plan.head ? 'Nothing has landed yet.' : ''
 
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div className="release-page">
       <StaleNote q={planQ} />
       {choiceSaved && <p role="status">Release preference saved. No release has started; review the plan before releasing.</p>}
       {choiceOpen && <ReleaseChoice slug={slug} onConfigured={() => { setChoiceSaved(true); setChoiceOpen(false) }} />}
-      <div className="card" style={{ padding: 20, marginTop: 14 }}>
-        <h2 style={{ marginTop: 0 }}>{plan.configured ? `Release to ${plan.deploymentLabel || plan.deployment}` : 'Choose where to release'}</h2>
-        <p className="muted" style={{ marginTop: 4 }}>
+      <div className="card release-summary">
+        <h2 className="mt-0">{plan.configured ? `Release to ${plan.deploymentLabel || plan.deployment}` : 'Choose where to release'}</h2>
+        <p className="muted mt-1" >
           Release checks run before deployment.
         </p>
         {plan?.url && (
-          <div style={{ margin: '14px 0' }}>
-            <div className="muted small" style={{ marginBottom: 4 }}>It will live at</div>
+          <div className="release-block">
+            <div className="muted small mb-1" >It will live at</div>
             <a href={plan.url} target="_blank" rel="noreferrer"
-              style={{ display: 'inline-block', fontSize: 'var(--fs-lg)', fontWeight: 700,
-                       color: 'var(--accent)', textDecoration: 'underline',
-                       textUnderlineOffset: 4, wordBreak: 'break-all' }}>
+               className="release-address">
               {plan.url}
             </a>
           </div>
         )}
         {plan?.head && (
-          <details className="muted small" style={{ margin: '6px 0' }}><summary>Build details</summary>
-            Shipping main as of: “{plan.head.subject}” <code style={{ fontSize: 'var(--fs-xs)' }}>{plan.head.sha.slice(0, 10)}</code>
+          <details className="muted small release-disclosure"><summary>Build details</summary>
+            Shipping main as of: “{plan.head.subject}” <code className="release-reference">{plan.head.sha.slice(0, 10)}</code>
           </details>
         )}
         {plan && plan.changesSinceLast.length > 0 && (
-          <div style={{ margin: '12px 0' }}>
-            <div className="muted small" style={{ marginBottom: 4 }}>
+          <div className="release-section">
+            <div className="muted small mb-1" >
               New since the last release:
             </div>
             {plan.changesSinceLast.slice(0, 3).map((c) => (
@@ -75,20 +74,20 @@ function ReleasePage({ slug }: { slug: string }) {
           </div>
         )}
         {plan && plan.lastRelease && plan.changesSinceLast.length === 0 && (
-          <div className="muted small" style={{ margin: '10px 0' }}>
+          <div className="muted small release-facts">
             Nothing new has shipped since release #{plan.lastRelease.number}; releasing again ships the same commit.
           </div>
         )}
         {!plan.configured && !choiceOpen && <button onClick={() => setChoiceOpen(true)}>Choose release preference</button>}
         {!plan.configured ? <details><summary>Release setup</summary>{plan.configError && <p>{plan.configError}</p>}<Link to={`/projects/${slug}/settings/deployments`}>Deployment settings</Link></details> : blocker
-          ? <div className="error" style={{ marginTop: 12 }}>{blocker}</div>
+          ? <div className="error mt-3" >{blocker}</div>
           : (
-            <button className="primary btn-door" disabled={busy} onClick={fire} style={{ marginTop: 12 }}>
+            <button className="primary btn-door mt-3" disabled={busy} onClick={fire} >
               {busy ? 'Releasing…' : '🏢 Release it'}
             </button>
           )}
-        {err && <div className="error" style={{ marginTop: 10 }}>{err}</div>}
-        <div style={{ marginTop: 14 }}>
+        {err && <div className="error release-error">{err}</div>}
+        <div className="release-next">
           <Link className="muted small" to={`/projects/${slug}`}>← back to the project</Link>
         </div>
       </div>
@@ -120,17 +119,17 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
   const r = data.release
   const when = r.releasedAt || r.createdAt
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div className="release-page">
       <StaleNote q={q} />
-      <div className="card" style={{ padding: 20, marginTop: 14 }}>
+      <div className="card release-summary">
         <div className="row">
-          <h2 style={{ margin: 0 }}>Release #{r.number}</h2>
+          <h2 className="release-title">Release #{r.number}</h2>
           {r.deployment && <span className="badge">{r.deployment}</span>}
           <Status word={data.statusLabel} />
           {data.isLive && <span className="badge">current release</span>}
           {r.origin === 'observed-after-restore' && <span className="badge" title={`found running after ${PRODUCT} was restored; ${PRODUCT} did not ship it`}>found after restore</span>}
         </div>
-        <div style={{ margin: '10px 0' }}>
+        <div className="release-facts">
           {r.state === 'releasing'
             ? <>Deploying{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null}.</>
             : r.state === 'failed'
@@ -147,39 +146,39 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
         {!data.backup && data.backupReason && <p>{data.backupReason}</p>}
         {data.backup && <p><Link to={`/deployments/backups#backup-${data.backup.id}`}>{data.backup.status === 'ok' ? 'Backed up before this release →' : data.backup.status === 'pruned' ? 'Backup before this release was removed →' : 'Backup before this release was incomplete →'}</Link></p>}
         {data.changes.length > 0 && (
-          <div style={{ margin: '16px 0' }}>
-            <h3 style={{ margin: '0 0 6px' }}>Changes</h3>
+          <div className="release-record">
+            <h3 className="release-heading">Changes</h3>
             {data.changes.map((c) => (
-              <div key={c.id} style={{ padding: '4px 0' }}><Link to={`/changes/${c.id}`}>{c.title}</Link></div>
+              <div key={c.id} className="release-volume"><Link to={`/changes/${c.id}`}>{c.title}</Link></div>
             ))}
           </div>
         )}
         {/* One list of facts: where it runs, what it is built from, what it
             contains. Empty facts are left out rather than folded away. */}
-        <dl className="facts" style={{ margin: '16px 0' }}>
+        <dl className="facts release-record">
           {data.bundle && <BundleFacts bundle={data.bundle} />}
           {r.commitSha && <><dt>Commit</dt><dd><code>{r.commitSha.slice(0, 12)}</code></dd></>}
           {!data.bundle && r.externalRef && <><dt>Image</dt><dd><ImageReference value={r.externalRef} /></dd></>}
           {data.sbomArtifact && <><dt>Software list</dt><dd><a href={`/api/v1/artifacts/${data.sbomArtifact}`} target="_blank" rel="noreferrer">Components in this release (SBOM)</a></dd></>}
         </dl>
         {data.events.length > 0 && (
-          <details style={{ margin: '14px 0' }}><summary>Release log</summary><div>
-            <div style={{ background: 'var(--code-bg)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }}>
+          <details className="release-block"><summary>Release log</summary><div>
+            <div className="release-log">
               {data.events.map((e, i) => (
-                <div key={i} style={{ margin: '2px 0', color: e.text.startsWith('FAILED') ? 'var(--bad)' : undefined }}>
+                <div key={i} style={{ color: e.text.startsWith('FAILED') ? 'var(--bad)' : undefined }} className="release-event">
                   <span className="muted">{fmtStamp(e.at)}</span>  {e.text}
                 </div>
               ))}
-              {r.state === 'releasing' && <div className="muted" style={{ margin: '2px 0' }}>…</div>}
+              {r.state === 'releasing' && <div className="muted release-event">…</div>}
             </div>
           </div></details>
         )}
         {r.state === 'released' && r.externalRef && r.externalRef.includes('/') && (
-          <div style={{ marginTop: 14 }}>
+          <div className="release-next">
             <OpenThisVersion slug={slug} number={r.number} isLive={data.isLive} />
           </div>
         )}
-        <div style={{ marginTop: 14 }}>
+        <div className="release-next">
           <Link className="muted small" to={`/projects/${slug}`}>← back to the project</Link>
         </div>
       </div>
@@ -192,7 +191,7 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
 export function OpenThisVersion({ slug, number, isLive }: { slug: string; number: number; isLive: boolean }) {
   const { run, busy, err } = useAction()
   return (
-    <span className="row" style={{ gap: 8 }}>
+    <span className="row release-preview-action">
       <button disabled={busy} onClick={() => run(() =>
         openAfter(async () => (await post<ReleasePreviewStarted>(`/projects/${slug}/releases/${number}/preview`, {})).url))}>
         {busy ? 'starting…' : isLive ? '▶ open this version' : '▶ open this old version'}</button>
@@ -236,8 +235,8 @@ export function BundleFacts({ bundle }: { bundle: ReleaseBundleView }) {
 function ImageReference({ value }: { value: string }) {
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
-  return <span className="row" style={{ gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
-    <code style={{ overflowWrap: 'anywhere', flex: '1 1 260px' }}>{value}</code>
+  return <span className="row release-image">
+    <code className="release-image-name">{value}</code>
     <button className="subtle" onClick={async () => { try { await navigator.clipboard.writeText(value); setCopied(true); setError('') } catch { setError('Could not copy; select the reference instead.') } }}>{copied ? 'Copied' : 'Copy'}</button>
     {error && <span className="error small">{error}</span>}
   </span>

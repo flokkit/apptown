@@ -43,12 +43,12 @@ function IntegrityBanner({ slug, files, onResolved }: {
   return (
     <div className="card" style={{ border: '1px solid var(--bad)', marginBottom: 14 }}>
       <div style={{ fontWeight: 600 }}>Someone changed this project's stored files directly, outside {PRODUCT}.</div>
-      <div className="muted small" style={{ marginTop: 4 }}>
+      <div className="muted small mt-1" >
         There is no authorized way to do that · until an admin explains it, treat it as tampering.
         {PRODUCT} will not merge or ship over it. Changed: {files.join(', ')}.
         The audit log holds what was found.
       </div>
-      <div className="row" style={{ marginTop: 8, gap: 8 }}>
+      <div className="row mt-2" style={{ gap: 8 }}>
         <button disabled={busy} onClick={() => resolve('adopt')}>Keep the edits (recorded as your decision)</button>
         <button className="subtle" disabled={busy} onClick={() => resolve('discard')}>Discard the edits</button>
         {err && <span className="error small">{err}</span>}

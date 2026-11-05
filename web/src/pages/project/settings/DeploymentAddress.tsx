@@ -15,7 +15,7 @@ function AddressForm({ path }: { path: string }) {
   const { run, busy, err } = useAction()
   if (!current.data) return <ReadStatus q={current} what="the deployment addresses" />
   const settings = current.data
-  return <section className="small" style={{ marginTop: 12 }}>
+  return <section className="small mt-3" >
     <h4 style={{ marginBottom: 6 }}>Addresses</h4>
     <StaleNote q={current} />
     <p className="muted">Address changes take effect on the next release. Previous hostnames stay reserved until this deployment is taken down.</p>

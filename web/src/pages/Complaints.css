@@ -3,4 +3,14 @@
 .complaint { padding: 12px 0; }
 .complaint-steering { padding: 12px 0; }
 .complaint-steering pre { max-width: 100%; }
+
+.complaints-answer-box-div { margin-top: calc(var(--space-1) * 1.5); }
+.complaints-answer-box-div-2 { gap: var(--space-2); }
+.complaints-div { max-width: 900px; }
+.complaints-h1 { margin: 0; }
+.complaints-div-2 { font-weight: 600; }
+.complaints-pre { white-space: pre-wrap; font-size: var(--fs-xs); overflow-x: auto; }
+.complaints-div-3 { margin-top: calc(var(--space-1) * 0.5); }
+.complaints-div-4 { padding: var(--space-2) calc(var(--space-1) * 2.5); border-left: 3px solid var(--ok); background: var(--ok-bg); }
+.complaints-div-5 { margin-top: calc(var(--space-1) * 1.5); gap: var(--space-3); }
 }

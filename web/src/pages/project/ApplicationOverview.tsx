@@ -1,3 +1,4 @@
+import './ApplicationOverview.css'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
@@ -68,10 +69,10 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       {/* An open change with no run yet: the same row as a run, its number
           before its title, its one action on the right. */}
       {data?.open?.map(c => (
-        <div key={c.changeId} className="card row" style={{ display: 'flex' }}>
-          <Link to={`/changes/${c.changeId}`} className="row" style={{ display: 'flex', flex: 1 }}>
+        <div key={c.changeId} className="card row application-overview-card">
+          <Link to={`/changes/${c.changeId}`} className="row grow application-overview-card">
             <span className="row-status"><ChangeStatus waiting={c.waitingOn} /></span>
-            <strong><span className="muted" style={{ fontWeight: 400 }}>#{c.changeNumber} </span>{c.title}</strong>
+            <strong><span className="muted application-overview-span">#{c.changeNumber} </span>{c.title}</strong>
             {c.editing > 0 && <span className="muted small">{c.editing} file{c.editing === 1 ? '' : 's'} being edited</span>}
           </Link>
           <span className="row-action">{c.waitingOn.kind === 'chat' ? <Link to={`/projects/${slug}/console?change=${c.changeId}`} className="btn">Continue chat</Link> : <Link to={`/changes/${c.changeId}`} className="btn">Open</Link>}</span>
@@ -82,10 +83,10 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
     <Section title="Activity">
       <ReadStatus q={releasesQ} what="releases" /><StaleNote q={releasesQ} />
       {events.slice(0, activityCount).map(e => (
-        <div key={e.id} className="card row" style={{ display: 'flex' }}>
-          <Link to={e.to} className="row" style={{ display: 'flex', flex: 1 }}>
+        <div key={e.id} className="card row application-overview-card">
+          <Link to={e.to} className="row grow application-overview-card">
             <span className="row-status">{e.waitingOn ? <ChangeStatus waiting={e.waitingOn} /> : <Status word={e.word} help={e.help} />}</span>
-            <strong>{e.number !== undefined && <span className="muted" style={{ fontWeight: 400 }}>#{e.number} </span>}{e.title}</strong>
+            <strong>{e.number !== undefined && <span className="muted application-overview-span">#{e.number} </span>}{e.title}</strong>
             <span className="muted small">{fmtWhen(e.when)}</span>
           </Link>
           <span className="muted small">{e.release && <><Link to={e.release.to}>{e.release.label}</Link>{e.source ? ' · ' : ''}</>}{e.source}</span>
@@ -101,7 +102,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       <ReadStatus q={deploymentsQ} what="deployments" /><StaleNote q={deploymentsQ} />
       {deploymentsQ.data && !deployments.length && <p className="muted">Not deployed yet.</p>}
       {deployments.map(d => (
-        <div key={d.id} className="card row" style={{ display: 'flex' }}>
+        <div key={d.id} className="card row application-overview-card">
           <span className="row-status"><DeploymentStatus slug={slug} env={d} /></span>
           <strong>{d.displayLabel || d.name}</strong>
           <span className="muted small">
@@ -119,7 +120,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       <ReadStatus q={backupQ} what="backups" /><StaleNote q={backupQ} />
       {backupQ.data && !backups.length && <p className="muted">No backups yet.</p>}
       {backups.slice(0, 1).map(b => (
-        <div key={b.id} className="card row" style={{ display: 'flex' }}>
+        <div key={b.id} className="card row application-overview-card">
           <span className="row-status"><Status word={b.statusLabel} help={b.error} /></span>
           <span>{b.deployment} · {fmtWhen(b.takenAt)}</span>
         </div>
@@ -127,7 +128,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
     </Section>}
     <Section title="About" action={<><Link to={`/projects/${slug}/settings/working`}>Way of working →</Link><Link to={`/projects/${slug}/settings`}>Settings →</Link></>}>
       {project.originalRequest
-        ? <p style={{ whiteSpace: 'pre-wrap', margin: '12px 0' }}><span className="muted small" style={{ display: 'block', marginBottom: 4 }}>What was first asked for</span>{project.originalRequest}</p>
+        ? <p className="application-overview-p"><span className="muted small mb-1 application-overview-span-2">What was first asked for</span>{project.originalRequest}</p>
         : <p className="muted">No original request recorded.</p>}
     </Section>
   </div>

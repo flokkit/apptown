@@ -63,10 +63,10 @@ export function Terminal({ stepId, name, running, startedAt, finishedAt, default
         <span className="mono muted small" style={{ width: 12 }}>{open ? '▾' : '▸'}</span>
         <strong className="small">{name}</strong>
         {running
-          ? <span className="small" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          ? <span className="small grow" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {last || 'starting…'}
             </span>
-          : <span className="muted small" style={{ flex: 1 }}>
+          : <span className="muted small grow" >
               {elapsed ? `${fmtElapsed(elapsed)} · ` : ''}{keptErr ? 'terminal output could not be read' : !feed ? '…' : total > 0 ? `${total} line${total === 1 ? '' : 's'}` : 'no terminal output kept'}{feed?.status ? ` · ${feed.status}` : ''}
             </span>}
         <span className="muted small">{running ? `${fmtElapsed(elapsed)} · ${total} line${total === 1 ? '' : 's'}` : (open ? 'close' : 'open the terminal')}</span>
@@ -83,7 +83,7 @@ export function Terminal({ stepId, name, running, startedAt, finishedAt, default
           </pre>
           {!running && keptErr && <div className="error small">The terminal output could not be read: {keptErr}</div>}
           {running && !follow && (
-            <div className="row" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
+            <div className="row mt-1" style={{ justifyContent: 'flex-end' }}>
               <button className="small" onClick={() => { setFollow(true); if (pane.current) pane.current.scrollTop = pane.current.scrollHeight }}>follow ↓</button>
             </div>
           )}

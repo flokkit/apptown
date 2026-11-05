@@ -115,7 +115,7 @@ export function ChangeContext({ view: v }: { view: ChangeView }) {
   const chip = changeChip(v)
   const soFar = v.change.summary || v.report
   return (
-    <div className="card" style={{ marginBottom: 8, padding: '8px 12px' }}>
+    <div className="card mb-2" style={{ padding: '8px 12px' }}>
       <div className="row">
         {chip}
         <strong className="small">{v.change.title}</strong>
@@ -126,12 +126,12 @@ export function ChangeContext({ view: v }: { view: ChangeView }) {
           {(v.commits?.length ?? 0) > 0 && ` · ${v.commits!.length} commit${v.commits!.length === 1 ? '' : 's'}`}
           {run?.status === 'running' && v.stateDetail ? ` · ${v.stateDetail}` : ''}
         </span>
-        <span style={{ flex: 1 }} />
+        <span className="grow" />
       </div>
       {soFar && (
-        <details style={{ marginTop: 4 }}>
+        <details className="mt-1">
           <summary className="muted small">what's in it so far</summary>
-          <div className="small" style={{ whiteSpace: 'pre-wrap', maxHeight: 160, overflowY: 'auto', marginTop: 4 }}>
+          <div className="small mt-1" style={{ whiteSpace: 'pre-wrap', maxHeight: 160, overflowY: 'auto' }}>
             {soFar.slice(0, 1200)}
           </div>
         </details>
@@ -160,15 +160,15 @@ export function StartedChanges({ sessionId }: { sessionId: string }) {
   if (changes.length === 0) return <StaleNote q={q} />
   const chip = (c: StartedChange) => <Status word={c.statusLabel} help={c.detail || undefined} />
   return (
-    <div style={{ marginBottom: 8 }}>
+    <div className="mb-2">
       <StaleNote q={q} />
       {changes.map((c) => (
-        <Link key={c.changeId} to={`/changes/${c.changeId}`} className="card row"
-          style={{ display: 'flex', padding: '8px 12px', marginBottom: 4 }}>
+        <Link key={c.changeId} to={`/changes/${c.changeId}`} className="card row mb-1"
+          style={{ display: 'flex', padding: '8px 12px' }}>
           {chip(c)}
           <strong className="small">{c.title}</strong>
           <span className="muted small">started from this chat{c.detail ? ` · ${c.detail}` : ''}</span>
-          <span style={{ flex: 1 }} />
+          <span className="grow" />
           <span className="muted small">open →</span>
         </Link>
       ))}

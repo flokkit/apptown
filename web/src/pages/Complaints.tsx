@@ -21,11 +21,11 @@ function AnswerBox({ id }: { id: string }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const { run, busy, err } = useAction(() => setOpen(false))
-  if (!open) return <div style={{ marginTop: 6 }}><button className="subtle" onClick={() => setOpen(true)}>↳ answer…</button></div>
+  if (!open) return <div className="complaints-answer-box-div"><button className="subtle" onClick={() => setOpen(true)}>↳ answer…</button></div>
   return (
-    <div className="row" style={{ marginTop: 8, gap: 8 }}>
-      <input aria-label="What was done about it" value={text} placeholder="what was done about it (goes on the record)" style={{ flex: 1 }}
-        onChange={(e) => setText(e.target.value)} autoFocus />
+    <div className="row mt-2 complaints-answer-box-div-2">
+      <input aria-label="What was done about it" value={text} placeholder="what was done about it (goes on the record)"
+        onChange={(e) => setText(e.target.value)} autoFocus className="grow" />
       <button className="primary" disabled={busy || !text.trim()} onClick={() => void run(() => post(`/complaints/${id}/answer`, { answer: text.trim() }))}>{busy ? '…' : 'answer'}</button>
       <button className="subtle" onClick={() => setOpen(false)}>cancel</button>
       {err && <span className="error small">{err}</span>}
@@ -61,10 +61,10 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
 
   if (!rowsQ.data) return <ReadStatus q={rowsQ} what="the complaints" />
   return (
-    <div style={{ maxWidth: 900 }}>
+    <div className="complaints-div">
       <StaleNote q={rowsQ} />
       <div className="row">
-        <h1 style={{ flex: 1, margin: 0 }}>Complaints</h1>
+        <h1 className="grow complaints-h1">Complaints</h1>
         {unseen > 0 && <button className="subtle" disabled={busy} onClick={markSeen}>Mark {unseen} read</button>}
         {canEdit && tab !== 'archived' && older > 0 && (
           <QuietConfirm label={`Archive older than a day (${older})`} className="subtle"
@@ -86,11 +86,11 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
           {!steering && <ReadStatus q={steeringQ} what="the instructions agents are given" />}
           {steering && (
             <>
-              <p className="muted small" style={{ marginTop: 0 }}>{steering.note}</p>
-              <div className="small" style={{ fontWeight: 600 }}>Given to every workflow step:</div>
-              <pre style={{ whiteSpace: 'pre-wrap', fontSize: 'var(--fs-xs)', overflowX: 'auto' }}>{steering.step.trim()}</pre>
-              <div className="small" style={{ fontWeight: 600, marginTop: 8 }}>Given to every chat session (inside its ground rules):</div>
-              <pre style={{ whiteSpace: 'pre-wrap', fontSize: 'var(--fs-xs)', overflowX: 'auto' }}>{steering.console.trim()}</pre>
+              <p className="muted small mt-0" >{steering.note}</p>
+              <div className="small complaints-div-2">Given to every workflow step:</div>
+              <pre className="complaints-pre">{steering.step.trim()}</pre>
+              <div className="small mt-2 complaints-div-2">Given to every chat session (inside its ground rules):</div>
+              <pre className="complaints-pre">{steering.console.trim()}</pre>
             </>
           )}
         </div>
@@ -109,22 +109,22 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
             {!!c.changeId && <Link className="small" to={`/changes/${c.changeId}`}>{c.changeNumber ? `change ${c.project ? `${c.project}#` : ''}${c.changeNumber}` : 'the change'}</Link>}
             {c.about && c.about !== 'apptown' && <span className="badge">about the {c.about === 'way-of-working' ? `way of working${c.packVersion ? ` (${c.packVersion})` : ''}` : 'project'}</span>}
             {!!c.evalId && <Link className="small" to={`/evals/${c.evalId}`}>from an eval</Link>}
-            <span style={{ flex: 1 }} />
+            <span className="grow" />
             <span className="muted small">{c.actor && c.actor !== 'anonymous' ? `${c.actor} · ` : ''}{fmtWhen(c.at)}</span>
           </div>
-          <div style={{ marginTop: 6, fontWeight: c.seen ? 400 : 600 }}>{c.text}</div>
-          {c.why && <div className="muted small" style={{ marginTop: 4 }}><strong>why:</strong> {c.why}</div>}
-          {c.wish && <div className="muted small" style={{ marginTop: 2 }}><strong>wish:</strong> {c.wish}</div>}
+          <div style={{ fontWeight: c.seen ? 400 : 600 }} className="complaints-answer-box-div">{c.text}</div>
+          {c.why && <div className="muted small mt-1" ><strong>why:</strong> {c.why}</div>}
+          {c.wish && <div className="muted small complaints-div-3"><strong>wish:</strong> {c.wish}</div>}
           {c.answer && (
-            <div className="small" style={{ marginTop: 8, padding: '8px 10px', borderLeft: '3px solid var(--ok)', background: 'var(--ok-bg)' }}>
+            <div className="small mt-2 complaints-div-4">
               <strong>↳ answered</strong> <span className="muted">by {c.answeredBy} · {c.answeredAt ? fmtWhen(c.answeredAt) : ''}</span>
-              <div style={{ marginTop: 4 }}>{c.answer}</div>
+              <div className="mt-1">{c.answer}</div>
             </div>
           )}
           {c.state === 'new' && <AnswerBox id={c.id!} />}
-          {c.state === 'archived' && <div className="muted small" style={{ marginTop: 6 }}>archived{c.answer ? '' : ' without an answer'} · {fmtWhen(c.archivedAt!)}</div>}
+          {c.state === 'archived' && <div className="muted small complaints-answer-box-div">archived{c.answer ? '' : ' without an answer'} · {fmtWhen(c.archivedAt!)}</div>}
           {canEdit && (
-            <div className="row small" style={{ marginTop: 6, gap: 12 }}>
+            <div className="row small complaints-div-5">
               {c.state !== 'archived' && <button className="subtle" disabled={busy} onClick={() => void run(() => post(`/complaints/${c.id}/archive`, {}))}>archive</button>}
               <QuietConfirm label="delete" ask="Delete this complaint for good? The text goes; the record keeps a line saying it was deleted."
                 onYes={() => void run(() => del(`/complaints/${c.id}`))} />

@@ -1,0 +1,13 @@
+@layer pages {
+
+.head-request-entry-div { padding: var(--space-3) 0; }
+.head-request-entry-textarea { width: 100%; }
+.head-request-entry-div-2 { margin-top: calc(var(--space-1) * 1.5); flex-wrap: wrap; }
+.head-request-entry-div-3 { white-space: pre-wrap; }
+.head-attachments-input { display: none; }
+.head-card { display: flex; }
+.head-a { min-width: 0; overflow-wrap: anywhere; }
+.head-run-diff-div { margin-bottom: calc(var(--space-1) * 1.5); }
+.head-diff-block-log { max-height: 200px; }
+.head-diff-block-div { max-height: 560px; overflow-y: auto; }
+}
