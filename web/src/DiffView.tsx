@@ -73,8 +73,8 @@ export default function DiffView({ raw, unfolded = false }: { raw: string; unfol
   const File = unfolded ? 'section' : 'details'
   const Heading = unfolded ? 'div' : 'summary'
   return (
-    <div style={{ marginTop: 8 }}>
-      <div className="row" style={{ marginBottom: 8 }}>
+    <div className="mt-2">
+      <div className="row mb-2" >
         <span className="small">{files.length} file{files.length === 1 ? '' : 's'} changed</span>
         <span className="small" style={{ color: 'var(--ok)' }}>+{totalAdds}</span>
         <span className="small" style={{ color: 'var(--bad)' }}>−{totalDels}</span>

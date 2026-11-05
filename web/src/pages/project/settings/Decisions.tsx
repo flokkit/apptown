@@ -27,7 +27,7 @@ export function AdrsTab({ slug }: { slug: string }) {
             <Link key={a.id} to={`/adrs/${a.id}`} className="card row adr-row" style={{ display: 'flex' }}>
               <span className="row-status"><Status word={a.statusLabel} help={`Decision: ${a.status}.`} /></span>
               <span className="adr-num muted small">ADR-{String(a.number).padStart(3, '0')}</span>
-              <strong style={{ flex: 1, minWidth: 0 }}>{a.title}</strong>
+              <strong style={{ minWidth: 0 }} className="grow">{a.title}</strong>
               {a.tags && <span className="muted small">{a.tags}</span>}
             </Link>
           ))}

@@ -1,3 +1,4 @@
+import './ConnectorForm.css'
 import { HelpButton } from '../../PageHead'
 import { useState } from 'react'
 import { post } from '../../api'
@@ -26,7 +27,7 @@ function SecretRefPicker({ value, onChange, help }: {
   return (
     <span>
       {value.map((n) => (
-        <div className="row" key={n} style={{ marginBottom: 6 }}>
+        <div className="row connector-form-div" key={n}>
           <span className={`dot ${unknown ? '' : available.includes(n) ? 'ok' : 'bad'}`}
             title={unknown ? 'unknown · the secret store could not be read' : available.includes(n) ? `held in ${storeWords(namesQ.data?.stores?.[n])}` : 'not in the secret store yet · add this key to it'} />
           <code>{n}</code>
@@ -34,7 +35,7 @@ function SecretRefPicker({ value, onChange, help }: {
           <button className="subtle danger" onClick={() => onChange(value.filter((v) => v !== n))}>remove</button>
         </div>
       ))}
-      {unknown && <div className="error small" style={{ marginBottom: 6 }}>The secret store could not be read: {namesQ.err}</div>}
+      {unknown && <div className="error small connector-form-div">The secret store could not be read: {namesQ.err}</div>}
       <div className="row">
         {manual === null ? (
           <select aria-label="Secret key" value="" onChange={(e) => {
@@ -56,7 +57,7 @@ function SecretRefPicker({ value, onChange, help }: {
                   setManual(null)
                 }
                 if (e.key === 'Escape') setManual(null)
-              }} style={{ width: 220 }} />
+              }} className="connector-form-secret-ref-picker-input" />
             <button className="subtle" onClick={() => {
               const k = manual.trim()
               if (k && !value.includes(k)) onChange([...value, k])
@@ -114,9 +115,9 @@ function ModelListPicker({ value, onChange, providerName, config, help }: {
         </div>
       ) : (
         <>
-          <div className="row" style={{ margin: '6px 0' }}>
+          <div className="row connector-form-model-list-picker-div">
             <input aria-label="Filter models" value={q} placeholder={`filter ${available.length} models…`} autoFocus
-              onChange={(e) => setQ(e.target.value)} style={{ width: 300 }} />
+              onChange={(e) => setQ(e.target.value)} className="connector-form-model-list-picker-input" />
             <span className="muted small">{value.length} enabled</span>
             <button className="subtle" onClick={() => setAvailable(null)}>done</button>
           </div>
@@ -127,7 +128,7 @@ function ModelListPicker({ value, onChange, providerName, config, help }: {
                 <code>{id}</code>
               </label>
             ))}
-            {listed.length > 200 && <div className="muted small" style={{ padding: 6 }}>…{listed.length - 200} more · narrow the filter</div>}
+            {listed.length> 200 && <div className="muted small connector-form-model-list-picker-div-2">…{listed.length - 200} more · narrow the filter</div>}
           </div>
         </>
       )}
@@ -203,24 +204,24 @@ export function ConnectorForm({ spec, icon, initialName, initialConfig, onDone }
   const save = () => !invalidDefault && void saver.run(() => post('/integrations', { name, capability: spec.capability, provider: spec.provider, config: cfg }))
 
   return (
-    <div style={{ maxWidth: 700 }}>
+    <div className="connector-form-div-2">
       <div className="row">
         <ConnIcon name={icon} size={30} />
         <div>
-          <h1 style={{ marginBottom: 2 }}>{spec.title}</h1>
+          <h1 className="connector-form-h1">{spec.title}</h1>
           <div className="muted small">{spec.description}</div>
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="form-grid" style={{ maxWidth: 660 }}>
+      <div className="card mt-4" >
+        <div className="form-grid connector-form-form-grid">
           <label>Name</label>
           <span>
-            <input aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="my-scanner" autoFocus style={{ width: '100%' }} />
+            <input aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="my-scanner" autoFocus className="connector-form-input" />
             <div className="muted small">Workflows refer to this integration by name; runs record which version they used.</div>
           </span>
           {fields.map((f) => (
-            <span key={f.key} style={{ display: 'contents' }}>
+            <span key={f.key} className="connector-form-span">
               <label>{f.label}</label>
               {isModel && f.key === 'model' ? (
                 <span><DefaultModelPicker value={String(cfg.model ?? '')} enabled={enabled} name={name} config={cfg} catalog={defaultCatalog} onCatalog={setDefaultCatalog} onChange={v => setCfg({ ...cfg, model: v })} />
@@ -241,7 +242,7 @@ export function ConnectorForm({ spec, icon, initialName, initialConfig, onDone }
               ) : f.type === 'number' ? (
                 <span>
                   <input aria-label={f.label} type="number" min={1} step={1} value={typeof cfg[f.key] === 'number' ? String(cfg[f.key]) : ''} placeholder={f.placeholder}
-                    onChange={(e) => setCfg({ ...cfg, [f.key]: asNumber(e.target.value) })} style={{ width: 120 }} />
+                    onChange={(e) => setCfg({ ...cfg, [f.key]: asNumber(e.target.value) })} className="connector-form-input-2" />
                   {f.help && <HelpButton about={f.label || f.key} guide="server-setup">{f.help}</HelpButton>}
                 </span>
               ) : f.type === 'select' ? (
@@ -255,7 +256,7 @@ export function ConnectorForm({ spec, icon, initialName, initialConfig, onDone }
                 <span>
                   <input aria-label={f.label} value={String(cfg[f.key] ?? '')} placeholder={f.placeholder}
                     onChange={(e) => setCfg({ ...cfg, [f.key]: e.target.value })}
-                    style={{ width: '100%', fontFamily: f.type === 'command' ? 'var(--font-mono)' : undefined }} />
+                    style={{ fontFamily: f.type === 'command' ? 'var(--font-mono)' : undefined }} className="connector-form-input" />
                   {f.help && <HelpButton about={f.label || f.key} guide="server-setup">{f.help}</HelpButton>}
                 </span>
               )}
@@ -276,9 +277,9 @@ export function ConnectorForm({ spec, icon, initialName, initialConfig, onDone }
       ))}
       {invalidDefault && <div className="error">{builtIn || enabled.length ? 'Choose a default model from Enabled models.' : 'Browse the live catalog and choose a default model.'}</div>}
       {err && <div className="error">{err}</div>}
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row mt-3" >
         <button onClick={runTest} disabled={testing}>{testing ? 'Testing…' : 'Test connection'}</button>
-        <span style={{ flex: 1 }} />
+        <span className="grow" />
         <button onClick={() => onDone()}>Cancel</button>
         <button className="primary" onClick={save} disabled={saver.busy || !name.trim() || invalidDefault}>Save</button>
       </div>

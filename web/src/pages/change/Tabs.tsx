@@ -61,7 +61,7 @@ export function AdrLinks({ view, onChange }: { view: ChangeView; onChange: () =>
           <span className="muted small">{a.tags}</span>
         </div>
       ))}
-      <div className="row" style={{ marginTop: 4 }}>
+      <div className="row mt-1" >
         <select aria-label="Decision to link" value={pick} onChange={(e) => setPick(e.target.value)}>
           <option value="">link existing ADR…</option>
           {unlinked.map((a) => <option key={a.id} value={a.id ?? ''}>ADR-{String(a.number).padStart(3, '0')} {a.title} ({a.status})</option>)}

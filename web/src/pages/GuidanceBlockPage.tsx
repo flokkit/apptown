@@ -1,3 +1,4 @@
+import './GuidanceBlockPage.css'
 import { PRODUCT } from '../brand'
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
@@ -49,12 +50,12 @@ export default function GuidanceBlockPage() {
   return (
     <div>
       <div className="muted small"><Link to="/guidance">Guidance</Link></div>
-      <div className="row" style={{ alignItems: 'baseline', flexWrap: 'wrap' }}>
-        <h1 style={{ flex: 1, margin: 0 }}>{block.name.split('/').at(-1)!.replaceAll('-', ' ')}</h1>
+      <div className="row guidance-block-page-div">
+        <h1 className="grow guidance-block-page-h1">{block.name.split('/').at(-1)!.replaceAll('-', ' ')}</h1>
         {canEdit && <button disabled={!current} title={current ? undefined : 'Reading the current text first'} onClick={() => setEditing(true)}>Edit</button>}
       </div>
       {/* What it is, in one line: its full name, version, size, who ships it and its tags. */}
-      <p className="muted small" style={{ marginTop: 4 }}>
+      <p className="muted small mt-1" >
         <code>{block.name}</code> · v{shownVersion}{viewingOld ? ` (latest is v${block.latestVersion})` : ''}
         {' · '}<span title={sizeTitle(block.bytes)}>{fmtSize(block.bytes)} per step</span>
         {' · '}{block.origin === 'stock' ? `included with ${PRODUCT}, read-only` : 'yours'}
@@ -66,13 +67,13 @@ export default function GuidanceBlockPage() {
 
       {editing ? (
         <div>
-          <div className="form-grid" style={{ marginBottom: 8, maxWidth: 700 }}>
+          <div className="form-grid mb-2 guidance-block-page-form-grid">
             <label>Tags</label>
             <input aria-label="Tags" value={tags} onChange={(e) => setTags(e.target.value)} />
           </div>
           <textarea aria-label="Guidance" rows={16} value={body} onChange={(e) => setBody(e.target.value)}
             placeholder="One convention, stated plainly. Agents receive this text exactly as written." />
-          <div className="row" style={{ marginTop: 8 }}>
+          <div className="row mt-2" >
             <button className="primary" disabled={busy} onClick={() => void save()}>Save as v{block.latestVersion + 1}</button>
             <button onClick={() => { setEditing(false); load() }}>Cancel</button>
           </div>
@@ -87,7 +88,7 @@ export default function GuidanceBlockPage() {
       {versions.length > 1 && (
         <Section title="Versions" count={versions.length}>
           {versions.map((v) => (
-            <button key={v.version} className="card row" style={{ width: '100%', textAlign: 'left' }} aria-pressed={v.version === shownVersion}
+            <button key={v.version} className="card row guidance-block-page-card"  aria-pressed={v.version === shownVersion}
               onClick={() => setParams(v.version === block.latestVersion ? {} : { version: String(v.version) })}>
               <strong>v{v.version}</strong>{v.version === block.latestVersion && <span className="muted small">latest</span>}
               {v.version === shownVersion && <span className="muted small">shown</span>}
@@ -109,7 +110,7 @@ export default function GuidanceBlockPage() {
         <Section title="Checks" count={checks.length} note="Checked on every change; versioned with this text.">
           {checks.map((c) => (
             <div key={c.name} className="card">
-              <div className="row" style={{ flexWrap: 'wrap' }}>
+              <div className="row guidance-block-page-div-2">
                 <strong className="small">{c.title || c.name}</strong>
                 <span className="badge">{c.severity}</span>
                 <span className="muted small">
@@ -119,11 +120,11 @@ export default function GuidanceBlockPage() {
                     : 'judged at landing and in every review'}
                 </span>
               </div>
-              <div className="muted small" style={{ marginTop: 2 }}>{c.expects}</div>
-              {c.sh && <pre className="log" style={{ maxHeight: 120, marginTop: 4 }}>{c.sh}</pre>}
-              {c.tool && <div className="small mono" style={{ marginTop: 4 }}>tool: {c.tool}</div>}
-              {c.rubric && <div className="small" style={{ marginTop: 4, fontStyle: 'italic' }}>{c.rubric}</div>}
-              {c.files && c.files.length > 0 && <div className="muted small mono" style={{ marginTop: 2 }}>judged on: {c.files.join(', ')}</div>}
+              <div className="muted small guidance-block-page-div-3">{c.expects}</div>
+              {c.sh && <pre className="log mt-1 guidance-block-page-log">{c.sh}</pre>}
+              {c.tool && <div className="small mono mt-1" >tool: {c.tool}</div>}
+              {c.rubric && <div className="small mt-1 guidance-block-page-div-4">{c.rubric}</div>}
+              {c.files && c.files.length> 0 && <div className="muted small mono guidance-block-page-div-3">judged on: {c.files.join(', ')}</div>}
             </div>
           ))}
         </Section>

@@ -148,7 +148,7 @@ function IntegrationDoc({ capability, provider }: { capability: string; provider
   return (
     <div>
       <StaleNote q={q} />
-      <Tabs className="tabs" style={{ marginBottom: 12 }}>
+      <Tabs className="tabs mb-3" >
         <button className={'tab' + (tab === 'developer' ? ' active' : '')} onClick={() => setTab('developer')}>Developer</button>
         <button className={'tab' + (tab === 'admin' ? ' active' : '')} onClick={() => setTab('admin')}>Admin</button>
       </Tabs>

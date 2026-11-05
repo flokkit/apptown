@@ -467,7 +467,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
       </div>
       <div className="int-detail-head">
         <ConnIcon name={iconForBinding(b)} size={22} />
-        <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ minWidth: 0 }} className="grow">
           <h1>{b.displayLabel || b.name}</h1>
           <div className="int-sub">{usedFor(b, spec)}</div>
         </div>
@@ -502,7 +502,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
             </button>
           )}
           {docs && <button className="subtle" onClick={() => onDocs(docs)}>Docs</button>}
-          <span style={{ flex: 1 }} />
+          <span className="grow" />
           {!b.managed && b.capability !== 'cloud-account' && (
             <QuietConfirm label="Remove" ask={`Remove “${b.name}”? Past runs keep the configuration they recorded.`}
               onYes={() => remove.run(() => del(`/integrations/${b.name}`))} />

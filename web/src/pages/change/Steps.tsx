@@ -1,3 +1,4 @@
+import './Steps.css'
 import { Status } from '../../Status'
 import { Link } from 'react-router-dom'
 import { Run, Step, currentUser, post, type ApprovalConfig } from '../../api'
@@ -33,7 +34,7 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
 
   return (
     // Every step has the same sides, so states and names line up.
-    <div id={`step-${step.id}`} className="card step-card" style={{ paddingLeft: 12, paddingRight: 12 }}>
+    <div id={`step-${step.id}`} className="card step-card step-card-inset">
       {!evidenceOnly && <div className="row step-head">
         {/* The tests' note is said beside the chip, so the chip carries no
             help that would repeat it. */}
@@ -62,15 +63,15 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
       )}
 
       {/* Names, times and ids are for people wearing the goggles. */}
-      {technical && <section className="small muted" style={{ marginTop: 8 }}>
+      {technical && <section className="small muted mt-2" >
         <p>{step.name} · {step.type}</p>{(step.startedAt || step.finishedAt) && <p>{[step.startedAt && `Started ${fmtStamp(step.startedAt)}`, step.finishedAt && `Finished ${fmtStamp(step.finishedAt)}`].filter(Boolean).join(' · ')}</p>}
         <p>Step: {step.id} · Run: {step.runId}</p>
       </section>}
       {step.type === 'policy/current' && step.status === 'needs_human' && (
-        <div style={{ marginTop: 8 }}>
+        <div className="mt-2">
           <div>{step.evidence.reason ?? 'The rules changed while this landing waited.'}</div>
           {(step.evidence.violations ?? []).map((v, i) => (
-            <div key={i} className="muted small" style={{ marginTop: 4 }}>• {v.policy}: {v.reading}</div>
+            <div key={i} className="muted small mt-1" >• {v.policy}: {v.reading}</div>
           ))}
 
         </div>
@@ -113,7 +114,7 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
       )}
 
       {step.type === 'agent/review' && (
-        <div style={{ marginTop: 6 }}>
+        <div className="step-note">
           {step.status === 'running' && <LiveFeed stepId={stepId} />}
           {step.evidence.verdict != null && (
             <div>
@@ -121,10 +122,10 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
                 verdict: <strong>{step.evidence.verdict}</strong> · {step.evidence.provider}/{step.evidence.model} · {step.evidence.durationMs}ms
                 {step.evidence.reviewedReport ? <> · audited “{step.evidence.reviewedReport}” claim vs diff</> : null}
               </div>
-              {step.evidence.summary != null && <div className="small" style={{ marginTop: 4 }}>{step.evidence.summary}</div>}
-              {step.evidence.reviewerSummary && <div className="small muted" style={{ marginTop: 4 }}>The reviewer itself passed it: {step.evidence.reviewerSummary}</div>}
+              {step.evidence.summary != null && <div className="small mt-1" >{step.evidence.summary}</div>}
+              {step.evidence.reviewerSummary && <div className="small muted mt-1" >The reviewer itself passed it: {step.evidence.reviewerSummary}</div>}
               {(step.evidence.findings?.length ?? 0) > 0 && (
-                <ul className="small" style={{ margin: '4px 0 0 18px' }}>
+                <ul className="small step-list">
                   {step.evidence.findings!.map((f, i) => <li key={i}>{String(f)}</li>)}
                 </ul>
               )}
@@ -142,17 +143,17 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
         <FinishedFeed stepId={stepId} omitEmpty={evidenceOnly} />
       )}
       {step.type === 'agent/pi' && step.evidence.output != null && (
-        <section style={{ marginTop: 8 }}>
+        <section className="mt-2">
           <h4>
             {step.evidence.provider}/{step.evidence.model} · {step.evidence.durationMs}ms
             {step.evidence.guidanceHash ? <> · guidance sha256:{step.evidence.guidanceHash.slice(0, 12)}…</> : null}
             {step.evidence.skills && Object.keys(step.evidence.skills).length > 0 ? <> · skills: {Object.keys(step.evidence.skills).join(', ')}</> : null}
           </h4>
-          <pre className="log" style={{ maxHeight: 400 }}>{step.evidence.output}</pre>
+          <pre className="log step-log">{step.evidence.output}</pre>
         </section>
       )}
       {(step.type === 'preview' || step.type === 'deploy') && step.evidence.url != null && (
-        <div className="muted small" style={{ marginTop: 6 }}>
+        <div className="muted small step-note">
           <a href={step.evidence.url} target="_blank" rel="noreferrer">{step.evidence.url}</a>
           {step.evidence.commit && <> · built from commit <code>{step.evidence.commit.slice(0, 7)}</code>{head ? <> ({sameCommitWords(step.evidence.commit, head).text})</> : null}</>}
         </div>
@@ -165,26 +166,26 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
       )}
 
       {step.type === 'tests' && (step.evidence.skippedTests?.length ?? 0) > 0 && (
-        <div className="muted small" style={{ marginTop: 6 }}>
+        <div className="muted small step-note">
           skipped: {step.evidence.skippedTests!.join(', ')}
           {(step.evidence.testCounts?.skipped ?? 0) > step.evidence.skippedTests!.length && ', …'}
         </div>
       )}
       {step.type === 'tests' && !step.evidence.testCounts && step.evidence.testReport && (
-        <div className="muted small" style={{ marginTop: 6 }}>{step.evidence.testReport}</div>
+        <div className="muted small step-note">{step.evidence.testReport}</div>
       )}
       {(step.type === 'script' || step.type === 'tests') && (step.evidence.log ?? step.evidence.logTail) != null && (
-        <section style={{ marginTop: 8 }}>
+        <section className="mt-2">
           {/* What the check said comes first; how it ran is a grey line for the goggles. */}
           <pre className="log">{step.evidence.log ?? step.evidence.logTail}</pre>
-          {technical && <p className="muted small" style={{ margin: '4px 0 0' }}>
+          {technical && <p className="muted small step-summary">
             {[step.evidence.exitCode != null && `exit ${step.evidence.exitCode}`, step.evidence.durationMs != null && `${step.evidence.durationMs}ms`].filter(Boolean).join(' · ')}
           </p>}
         </section>
       )}
 
       {step.type === 'scan' && step.evidence.binding != null && (
-        <div style={{ marginTop: 6 }}>
+        <div className="step-note">
           <div className="muted small">
             {step.evidence.binding} v{step.evidence.bindingVersion} ({step.evidence.image}) · exit {step.evidence.exitCode} ·
             {' '}{step.evidence.durationMs}ms · config sha256:{step.evidence.configHash}
@@ -195,7 +196,7 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
             )}
           </div>
           {step.evidence.findings != null && step.evidence.findings.total > 0 && (
-            <section style={{ marginTop: 4 }}>
+            <section className="mt-1">
               <h4>Findings</h4>
               <RunFindings runId={runId} onChange={onChange} />
             </section>
@@ -205,12 +206,12 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
       )}
 
       {step.type === 'guidance/conformance' && step.checkReading && (
-        <div style={{ marginTop: 6 }}>
+        <div className="step-note">
           {step.checkReading.unreadable && (
             <div className="row"><Status word="unknown" /> <span className="muted small">{step.checkReading.unreadable}</span></div>
           )}
           {(step.checkReading.checks ?? []).map((c, i) => (
-            <div key={i} className="row" style={{ marginTop: 2 }}>
+            <div key={i} className="row step-detail">
               <Status word={c.statusLabel} />
               {c.undecided && <span className="badge" title="Not known whether this change introduced it; it does not block">undecided</span>}
               {c.preexisting && <span className="badge" title="Main already fails this check; it does not block">already on main</span>}
@@ -226,7 +227,7 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
           ))}
           {ev.reason != null && step.status !== 'pass' && <div className="error">{ev.reason}</div>}
           {step.evidence.findingsSummary != null && step.evidence.findingsSummary.total > 0 && (
-            <section style={{ marginTop: 4 }}>
+            <section className="mt-1">
               <h4>Findings</h4>
               <RunFindings runId={runId} onChange={onChange} />
             </section>
@@ -248,7 +249,7 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
       )}
 
       {(step.type === 'adr/require' || step.type === 'artifact/require' || step.type === 'scm/merged') && (
-        <div className="muted small" style={{ marginTop: 6 }}>
+        <div className="muted small step-note">
           {ev.reason != null && <span>{ev.reason}</span>}
           {step.evidence.adrs?.map((m) => (
             <span key={m.id}> satisfied by <Link to={`/adrs/${m.id}`}>ADR-{String(m.number).padStart(3, '0')} {m.title}</Link></span>
@@ -299,21 +300,21 @@ export function ChildRunSteps({ childId, childNumber, workflow, live, onChange }
   const { run: act, err } = useAction(onChange)
 
   return (
-    <div className="ch-child-steps" style={{ marginTop: 8, borderLeft: '2px solid var(--border)', paddingLeft: 12 }}>
+    <div className="ch-child-steps mt-2 step-children">
       <div className="muted small">↳ {workflow} · child run{childNumber ? ` ${childNumber}` : trace?.run ? ` ${trace.run.number}` : ''}</div>
       <ReadStatus q={read} what="the called workflow" /><StaleNote q={read} />
       {steps.map((s) => {
         const url = (s.type === 'preview' || s.type === 'deploy') ? s.evidence?.url : undefined
         const reason = s.evidence?.reason
         return (
-          <div key={s.id} className="row" style={{ marginTop: 4, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <div key={s.id} className="row mt-1 step-actions">
             <Status word={s.statusLabel} />
             <span className="small">{s.name}</span>
             <span className="muted small">{s.type}</span>
             {url != null && <a href={url} target="_blank" rel="noreferrer" className="small">{url}</a>}
             {reason != null && s.status !== 'pass' && <span className="muted small">{reason.slice(0, 90)}</span>}
             {s.checkReading?.unreadable && <Status word="unknown" help={`${s.checkReading.unreadable} Re-run the check to replace the unreadable evidence.`} />}
-            <span style={{ flex: 1 }} />
+            <span className="grow" />
             {s.type === 'approval' && s.status === 'pending' && checksRunning(steps, trace?.run?.currentStage) && <p>Checks are running; you can accept when they finish.</p>}
             {s.type === 'approval' && s.status === 'pending' && !failed && live && read.current && trace?.run?.status === 'running' && s.stage === trace.run.currentStage && !checksRunning(steps, trace.run.currentStage) && (
               <DecisionForm stepId={s.id!} means={s.config.means} instructions={s.config.instructions} onDone={onChange} approveLabel="Accept" rejectLabel="Send back with a note" />
@@ -331,7 +332,7 @@ export function ChildRunSteps({ childId, childNumber, workflow, live, onChange }
         )
       })}
       {steps.some((s) => s.type === 'scan') && (
-        <section style={{ marginTop: 6 }}>
+        <section className="step-note">
           <h4>Findings</h4>
           <RunFindings runId={childId} onChange={onChange} />
         </section>
@@ -351,13 +352,13 @@ export function LiveFeed({ stepId, label }: { stepId: string; label?: string }) 
   const elapsed = data?.elapsedMs ?? 0
 
   return (
-    <section style={{ marginTop: 8 }}>
+    <section className="mt-2">
       <h4>Agent activity</h4>
       <div className="muted small">
         {label ?? 'agent working'}… {Math.round(elapsed / 1000)}s{total > 0 ? ` · ${total} line${total === 1 ? '' : 's'}` : ''}
       </div>
       {lines.length > 0 && (
-        <pre className="log" style={{ maxHeight: 260 }} ref={(el) => { if (el) el.scrollTop = el.scrollHeight }}>
+        <pre className="log step-live-log"  ref={(el) => { if (el) el.scrollTop = el.scrollHeight }}>
           {lines.join('\n')}
         </pre>
       )}
@@ -372,12 +373,12 @@ export function FinishedFeed({ stepId, omitEmpty = false }: { stepId: string; om
   const lines = data ? data.lines ?? [] : null
   if (omitEmpty && lines?.length === 0 && !err) return null
   return (
-    <section style={{ marginTop: 6 }}>
+    <section className="step-note">
       <h4>Terminal</h4>
       {err ? <div className="error small">The activity could not be read: {err}</div>
         : lines === null ? <div className="muted small">…</div>
         : lines.length === 0 ? <div className="muted small">no terminal output recorded</div>
-        : <pre className="small" style={{ maxHeight: 300, overflow: 'auto', whiteSpace: 'pre-wrap' }}>{lines.join('\n')}</pre>}
+        : <pre className="small step-finished-log">{lines.join('\n')}</pre>}
     </section>
   )
 }

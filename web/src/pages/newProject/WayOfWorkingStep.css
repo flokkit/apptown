@@ -1,0 +1,11 @@
+@layer pages {
+
+.way-of-working-step-prose { width: 100%; box-sizing: border-box; font-size: var(--fs-base); }
+.way-of-working-step-primary { font-size: var(--fs-base); padding: calc(var(--space-1) * 2.5) calc(var(--space-1) * 6.5); }
+.way-of-working-step-div { gap: var(--space-2); }
+.way-of-working-step-button { padding: calc(var(--space-1) * 1.5) calc(var(--space-1) * 4.5); }
+.way-of-working-step-div-2 { border-top: 1px solid var(--border); margin: calc(var(--space-1) * 4.5) 0 0; padding-top: var(--space-4); }
+.way-of-working-step-div-3 { font-size: var(--fs-base); font-weight: 650; }
+.way-of-working-step-div-4 { opacity: 0.7; font-size: var(--fs-xs); }
+.way-of-working-step-div-5 { gap: var(--space-1); }
+}

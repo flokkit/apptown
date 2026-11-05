@@ -46,7 +46,7 @@ export function Modal({ title, head, onClose, children, maxWidth }: {
         style={maxWidth ? { maxWidth } : undefined} onKeyDown={onKeyDown}>
         <div className="row" style={{ marginBottom: 10 }}>
           <div id={titleId}>{typeof title === 'string' ? <h2 style={{ margin: 0 }}>{title}</h2> : title}</div>
-          <span style={{ flex: 1 }} />
+          <span className="grow" />
           {head}
           <button className="subtle" onClick={onClose} aria-label="close" title="close">✕</button>
         </div>

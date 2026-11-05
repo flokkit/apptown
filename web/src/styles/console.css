@@ -47,7 +47,6 @@ body:has(.console) { position: fixed; inset: 0; overflow: clip; }
 @media (prefers-reduced-motion: no-preference) {
   .robot-busy { animation: robot-pulse 1.6s ease-in-out infinite; }
   @keyframes robot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
-  @keyframes spin { to { transform: rotate(360deg); } }
 }
 .console-term {
   flex: 1; min-height: 0; background: var(--term-bg);

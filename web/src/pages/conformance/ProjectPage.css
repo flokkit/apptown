@@ -1,0 +1,11 @@
+@layer pages {
+
+.project-page-check-row-card-check-row { display: flex; }
+.project-page-check-row-div { padding: 0 0 calc(var(--space-1) * 2.5) var(--space-4); }
+.project-page-check-row-div-2 { gap: var(--space-2); }
+.project-page-history-strip-div { display: flex; gap: calc(var(--space-1) * 0.75); align-items: flex-end; height: 36px; margin: var(--space-3) 0; }
+.project-page-link { width: 14px; border-radius: 2px; display: block; opacity: 0.9; }
+.project-page-div { padding: calc(var(--space-1) * 7.5) 0; }
+.project-page-div-2 { gap: var(--space-3); align-items: center; flex-wrap: wrap; }
+.project-page-h2 { margin: 0; text-transform: none; letter-spacing: 0; }
+}

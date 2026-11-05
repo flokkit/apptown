@@ -1,3 +1,4 @@
+import { Spinner } from '../../Spinner'
 /* Every movement reports a server stage; no timers or guessed progress. Unreadable
  * progress freezes the frame. 1.5px round lines, light washes, 300×150, phone first.
  * Existing variables only: busy = working, ok = live, bad = stopped; scene ink/ground.
@@ -136,7 +137,7 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true }: 
         const running = s === current && outcome === 'running'
         return <li key={s} aria-current={s === current ? 'step' : undefined}>
           <span className={`deploy-stage-mark ${stopped ? 'bad' : finished ? 'ok' : running ? 'busy' : 'muted'}`}>
-            {running ? <span className="ch-now-spinner" role="status" aria-label="running" /> : stopped ? '✗' : finished ? '✓' : '·'}
+            {running ? <Spinner /> : stopped ? '✗' : finished ? '✓' : '·'}
           </span>
           <span>{deployWords[s][0].toUpperCase() + deployWords[s].slice(1)}</span>
           <small className="muted">{stopped ? 'stopped' : running ? 'now' : ''}</small>

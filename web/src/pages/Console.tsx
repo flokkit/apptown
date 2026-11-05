@@ -1,3 +1,4 @@
+import './Console.css'
 import { Disclosure } from '../Popover'
 import { Status } from '../Status'
 import { PRODUCT } from '../brand'
@@ -89,7 +90,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
   // person came from: the change, or the project for its own chat.
   if (!session && openErr) return <div>
     <h1>{isWorkshop ? 'Change chat' : 'Project chat'}</h1>
-    <p className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+    <p className="row console-chat-page-p">
       <span>Chat can't open here: {openErr}</span>
       <Link to={shopId ? `/changes/${shopId}` : `/projects/${slug}`}>{shopId ? `Back to ${change.data ? shopName : 'the change'}` : 'Back to the project'}</Link>
       {appTownInstead && <button onClick={() => void open('apptown')}>Open it on {PRODUCT} instead</button>}
@@ -104,13 +105,13 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           where am I → what is this chat about → (only if degraded) connection.
           The robot buddy owns the turn state; plumbing (model, session, reset
           actions) lives behind ⋯ where those who need it can find it. */}
-      <div className="row console-head" style={{ marginBottom: 8 }}>
+      <div className="row console-head mb-2" >
         {/* The phone title also opens the secondary controls. */}
         {narrow && shopId
-          ? <h1 style={{ margin: 0 }}>{compactHead
+          ? <h1 className="console-chat-page-h1">{compactHead
             ? <button className="change-controls-title" aria-expanded={expanded} aria-label={toggleName} onClick={toggleControls}>{shopName.charAt(0).toUpperCase() + shopName.slice(1)}</button>
             : <Link to={`/changes/${shopId}`}>{shopName.charAt(0).toUpperCase() + shopName.slice(1)}</Link>}</h1>
-          : <h1 style={{ margin: 0 }}>{isWorkshop ? 'Change chat' : 'Project chat'}</h1>}
+          : <h1 className="console-chat-page-h1">{isWorkshop ? 'Change chat' : 'Project chat'}</h1>}
         {/* The address names the change before the session answers: a
             change chat says it is one from its first paint, never the
             project chat while it connects. */}
@@ -123,14 +124,14 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
         )}
         {compactHead && change.data && <span className="console-state"><Status word={change.data.statusLabel} /></span>}
         {compactHead && <button className="change-controls-toggle" aria-expanded={expanded} aria-label={toggleName} onClick={toggleControls}>{expanded ? '▴' : '▾'}</button>}
-        <span className="console-head-space" style={{ flex: 1 }} />
+        <span className="console-head-space grow" />
         {session?.mayAct && zoom === 'chat' && <AgentActivity busy={robotBusy} connected={status === 'attached'} />}
         {(!narrow || zoom !== 'chat') && <button disabled={!session} className="subtle" onClick={() => setZoomKeep(zoom === 'chat' ? 'terminal' : 'chat')}>
           {zoom === 'chat' ? 'Terminal ▾' : '← back to the chat'}
         </button>}
         <Disclosure className="head-menu" hidden={compactHead && !expanded} trigger={<button className="subtle" aria-label="Session details and resets">⋯</button>}>
           <div className="head-menu-card">
-            <div className="muted small" style={{ padding: '4px 6px' }}>
+            <div className="muted small console-chat-page-div">
               {session?.openedBy && <>opened by {session.openedBy}<br /></>}
               {session?.model || 'default model'}<br />
               {session?.continuedFrom && <>continuing {session.continuedFrom}<br /></>}
@@ -193,7 +194,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
               {!shopId && !introSeen && <ChatIntro slug={slug}
                 onDismiss={() => { localStorage.setItem(introKey, '1'); setIntroSeen(true) }} />}
               {session?.continuedFrom && (
-                <div className="muted small" style={{ marginBottom: 8 }}>
+                <div className="muted small mb-2" >
                   This chat continues {session.continuedFrom}: it remembers what it did in the lane. That earlier work is on the change page.
                 </div>
               )}
@@ -258,8 +259,8 @@ function useKickoff(kickoff: string, slug: string, changeId: string, session: Co
 // chat has none: its box says what to do, and the change shows the rest.
 function ChatIntro({ slug, onDismiss }: { slug: string; onDismiss: () => void }) {
   return (
-    <div className="card row tone-accent" style={{ marginBottom: 8 }}>
-      <span className="small" style={{ flex: 1, lineHeight: 1.5 }}>
+    <div className="card row tone-accent mb-2" >
+      <span className="small grow console-chat-intro-span">
         Ask about <strong>{slug}</strong> or describe what to build. The helper opens a change for the work.
       </span>
       <button className="subtle" onClick={onDismiss}>Dismiss</button>

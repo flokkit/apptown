@@ -62,7 +62,7 @@ export function WorkerSaveLine({ slug, session }: { slug: string; session: Conso
   const routine = s && s.state !== 'unavailable' && (!s.saved || s.saved.outcome === 'saved' || s.saved.outcome === 'nothing-new')
   if (routine && !list.err) return null
   return (
-    <div className="muted small" style={{ marginBottom: 8 }} data-testid="worker-save-line">
+    <div className="muted small mb-2"  data-testid="worker-save-line">
       Runs on the worker.{' '}
       {s && <SaveStatus s={s} />}
       <ReadStatus q={list} what="where its work stands" className="small" />

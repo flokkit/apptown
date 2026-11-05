@@ -1,3 +1,4 @@
+import './PoliciesPage.css'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { del, post } from '../api'
@@ -78,7 +79,7 @@ function PolicyCard({ p, totalProjects, onClone, onEdit, onRemove }: {
   const who = p.adoptedBy === 0 ? <span className="muted">no projects</span>
     : usage === null ? <span className="muted">{p.adoptedBy} project{p.adoptedBy === 1 ? '' : 's'}</span>
       : <>{names.slice(0, 3).join(', ')}{names.length > 3 ? ` and ${names.length - 3} more` : ''}
-        {p.nonConformant > 0 && <span style={{ color: 'var(--bad)' }}> · {p.nonConformant} not following it</span>}</>
+        {p.nonConformant> 0 && <span className="policies-page-policy-card-span"> · {p.nonConformant} not following it</span>}</>
   const [deleting, setDeleting] = useState(false)
   return (
     <LibraryRow name={p.name} open={open} onToggle={() => setOpen(!open)}
@@ -95,19 +96,19 @@ function PolicyCard({ p, totalProjects, onClone, onEdit, onRemove }: {
       detail={<>
           <div className="muted small"><OriginChip origin={p.origin} />
             {p.packs.length > 0 && <> · in packs: {p.packs.join(', ')}</>}</div>
-          <div style={{ margin: '8px 0' }}>
-            <div className="muted small" style={{ marginBottom: 2 }}>The rule</div>
+          <div className="policies-page-policy-card-div">
+            <div className="muted small policies-page-policy-card-div-2">The rule</div>
             {p.reading}
           </div>
           {p.fix && (
-            <div style={{ margin: '8px 0' }}>
-              <div className="muted small" style={{ marginBottom: 2 }}>If it blocks you</div>
+            <div className="policies-page-policy-card-div">
+              <div className="muted small policies-page-policy-card-div-2">If it blocks you</div>
               {p.fix}
             </div>
           )}
-          <details style={{ margin: '8px 0' }}>
-            <summary className="muted small" style={{ cursor: 'pointer' }}>definition</summary>
-            <pre style={{ margin: '6px 0 0', padding: 8, background: 'var(--code-bg)', borderRadius: 'var(--radius-sm)', overflowX: 'auto' }}>
+          <details className="policies-page-policy-card-div">
+            <summary className="muted small policies-page-policy-card-summary">definition</summary>
+            <pre className="policies-page-policy-card-pre">
 {['rule: ' + p.rule,
   ...(Object.keys(p.with ?? {}).length
     ? ['with:', ...Object.entries(p.with).map(([k, v]) => `  ${k}: ${JSON.stringify(v)}`)]
@@ -115,8 +116,8 @@ function PolicyCard({ p, totalProjects, onClone, onEdit, onRemove }: {
             </pre>
           </details>
           {p.adoptedBy > 0 && (
-            <div style={{ margin: '8px 0' }}>
-              <div className="muted small" style={{ marginBottom: 4 }}>Who it applies to</div>
+            <div className="policies-page-policy-card-div">
+              <div className="muted small mb-1" >Who it applies to</div>
               {p.nonConformant === 0
                 ? <div>✓ {scope}</div>
                 : <>
@@ -124,10 +125,10 @@ function PolicyCard({ p, totalProjects, onClone, onEdit, onRemove }: {
                     {usageErr ? <div className="error small">Could not list which projects: {usageErr}</div>
                       : usage === null && <div className="muted small">checking…</div>}
                     {usage?.filter((u) => !u.conformant).map((u) => (
-                      <div key={u.slug} style={{ padding: '3px 0' }}>
+                      <div key={u.slug} className="policies-page-div">
                         ✗ <Link to={`/projects/${u.slug}`}>{u.project}</Link>
                         {u.violations.map((v, i) => (
-                          <div key={i} className="small" style={{ marginLeft: 18, color: 'var(--bad)' }}>
+                          <div key={i} className="small policies-page-div-2">
                             workflow “{v.workflow}” {v.detail} — <span className="muted">{p.fix}</span>
                           </div>
                         ))}
@@ -154,9 +155,9 @@ function PolicyEditor({ policy, onDone }: { policy: PolicyLibraryEntry; onDone: 
   const save = () => run(() => post('/policy-library', { name: p.name, description: p.description, rule: p.rule, with: p.with }))
 
   return (
-    <div style={{ maxWidth: 640 }}>
+    <div className="policies-page-policy-editor-div">
       <h2>{policy.name && policy.origin === '' && policy.name === p.name ? `Edit: ${policy.name}` : 'New policy'}</h2>
-      <div className="form-grid" style={{ marginBottom: 12 }}>
+      <div className="form-grid mb-3" >
         <label>Name</label>
         <input aria-label="Name" value={p.name} onChange={(e) => setP({ ...p, name: e.target.value })} placeholder="my-rule" autoFocus />
         <label>Description</label>
@@ -166,7 +167,7 @@ function PolicyEditor({ policy, onDone }: { policy: PolicyLibraryEntry; onDone: 
           {RULES.map((r) => <option key={r.rule} value={r.rule}>{r.label}</option>)}
         </select>
         {form.params.map((param) => (
-          <span key={param} style={{ display: 'contents' }}>
+          <span key={param} className="policies-page-span">
             <label>{param}</label>
             <input aria-label={param} value={String(p.with?.[param] ?? '')}
               onChange={(e) => setP({ ...p, with: { ...p.with, [param]: e.target.value } })} />

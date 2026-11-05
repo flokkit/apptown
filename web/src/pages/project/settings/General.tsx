@@ -1,3 +1,4 @@
+import './general.css'
 import { RepositoryAttachment } from './RepositoryAttachment'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -12,7 +13,6 @@ import type { ChangeEnvelope, Lifecycle, ProjectDeletionState, ProjectRow } from
 import { fmtDay, fmtStamp } from '../../../format'
 import { QuietConfirm } from '../../../QuietConfirm'
 import { Section } from '../../../Section'
-import './general.css'
 
 // Deleting a project, as its deletion stands: facts and the acts each
 // state allows, a greyed act saying in one line why not. The lifecycle is
@@ -36,7 +36,7 @@ export function DangerZone({ slug }: { slug: string }) {
     return (
       <div className="card">
         <div className="row"><strong>Deleting</strong> <span className="badge">{stopped ? 'stopped' : 'in progress'}</span></div>
-        <table className="kv" style={{ marginTop: 8 }}>
+        <table className="kv mt-2" >
           <tbody>
             {row('Asked', <>{st.requestedAt ? fmtStamp(st.requestedAt) : ''} by {st.requestedBy}</>)}
             {row('Still to take down', st.remaining && st.remaining.length > 0 ? st.remaining.join(', ') : 'nothing')}
@@ -45,7 +45,7 @@ export function DangerZone({ slug }: { slug: string }) {
             {st.bindingRevoked && row('Authority', 'withdrawn', 'error')}
           </tbody>
         </table>
-        <div className="row" style={{ marginTop: 10 }}>
+        <div className="row general-danger-zone-div">
           {stopped && <button className="subtle danger" disabled={busy} onClick={askDelete}>Delete again</button>}
           <button className="subtle" disabled={busy || st.takeDownsStarted} onClick={() => run(() => post(`/projects/${slug}/deletion/cancel`, {}))}>Cancel deletion</button>
           {st.takeDownsStarted && <span className="muted small">a take-down has started</span>}
@@ -59,7 +59,7 @@ export function DangerZone({ slug }: { slug: string }) {
     return (
       <div className="card">
         <div className="row"><strong>Deleted</strong> <span className="badge">{purging ? 'purging' : 'kept'}</span></div>
-        <table className="kv" style={{ marginTop: 8 }}>
+        <table className="kv mt-2" >
           <tbody>
             {row('Deleted', <>{st.deletedAt ? fmtDay(st.deletedAt) : ''} by {st.requestedBy}</>)}
             {row('Kept until', st.keptUntil ? fmtDay(st.keptUntil) : 'unknown')}
@@ -68,7 +68,7 @@ export function DangerZone({ slug }: { slug: string }) {
             {st.bindingRevoked && row('Authority', 'withdrawn: no scheduled purge', 'error')}
           </tbody>
         </table>
-        <div className="row" style={{ marginTop: 10 }}>
+        <div className="row general-danger-zone-div">
           <button className="subtle" disabled={busy || purging} onClick={() => run(() => post(`/projects/${slug}/restore`, {}))}>Restore project</button>
           {purging && <span className="muted small">purge has started; restoring is no longer available</span>}
           <QuietConfirm label="Purge now" ask={`Purge ${slug} now? Its backups, repository and records go for good; its GitLab copy is archived.`}
@@ -79,19 +79,19 @@ export function DangerZone({ slug }: { slug: string }) {
     )
   }
   if (st.state !== 'active') {
-    return <div className="card" style={{ marginTop: 28 }}><strong>{st.state}</strong></div>
+    return <div className="card general-danger-zone-card"><strong>{st.state}</strong></div>
   }
   return (
     <div className="card">
       <div className="row">
-        <span>Delete this project<span className="muted small" style={{ display: 'block' }}>Kept, restorable, for 30 days; then purged.</span></span>
-        <span style={{ flex: 1 }} />
+        <span>Delete this project<span className="muted small general-danger-zone-span">Kept, restorable, for 30 days; then purged.</span></span>
+        <span className="grow" />
         {!open && <button className="danger" onClick={() => setOpen(true)}>Delete…</button>}
       </div>
       {open && (
         <>
           <StaleNote q={envsQ} />
-          <table className="kv" style={{ marginTop: 8 }}>
+          <table className="kv mt-2" >
             <tbody>
               {row('New work', 'stops at once')}
               {row('Can be cancelled', 'for 10 minutes')}
@@ -100,9 +100,9 @@ export function DangerZone({ slug }: { slug: string }) {
               {row('Then purged', 'backups, repository, records')}
             </tbody>
           </table>
-          <div className="row" style={{ marginTop: 10 }}>
+          <div className="row general-danger-zone-div">
             <input aria-label="Confirm project address" value={confirm} onChange={(e) => setConfirm(e.target.value)}
-              placeholder={`type "${slug}" to confirm`} style={{ width: 260, maxWidth: '100%' }} />
+              placeholder={`type "${slug}" to confirm`} className="general-danger-zone-input" />
             <button className="danger" disabled={busy || confirm !== slug || envs === null} onClick={askDelete}>Delete {slug}</button>
             <button className="subtle" onClick={() => { setOpen(false); setConfirm('') }}>Cancel</button>
             {err && <span className="error small">{err}</span>}
@@ -123,7 +123,7 @@ export function LifecycleNote({ slug, lifecycle }: { slug: string; lifecycle?: L
     ? <>Being deleted{lifecycle.stalled ? ' · stopped' : ''}. No new work.</>
     : <>Being imported. No new work until it ends.</>
   return (
-    <div className="card tone-bad small" style={{ margin: '8px 0' }}>
+    <div className="card tone-bad small general-lifecycle-note-card-tone-bad">
       {said} <Link className="tap" to={`/projects/${slug}/settings/general`}>Details</Link>
     </div>
   )
@@ -224,18 +224,18 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
   }
 
   return (
-    <div className="settings-general" style={{ maxWidth: 760 }}>
+    <div className="settings-general general-general-tab-settings-general">
       <Section title="Name and icon">
       <div className="settings-form">
-        <fieldset disabled={!shown || saving} style={{ border: 'none', margin: 0, padding: 0 }}>
-        <div className="form-grid" style={{ marginTop: 12 }}>
+        <fieldset disabled={!shown || saving} className="general-general-tab-fieldset">
+        <div className="form-grid mt-3" >
           <FieldRow label="Name"><input value={shown?.name ?? ''} onChange={(e) => edit('name')(e.target.value)} /></FieldRow>
-          <FieldRow label="Icon" help="an emoji"><input value={shown?.icon ?? ''} onChange={(e) => edit('icon')(e.target.value)} maxLength={8} style={{ width: 90 }} /></FieldRow>
+          <FieldRow label="Icon" help="an emoji"><input value={shown?.icon ?? ''} onChange={(e) => edit('icon')(e.target.value)} maxLength={8} className="general-general-tab-input" /></FieldRow>
           <FieldRow label={project.blurbSource === 'person' ? 'Description (edited by you)' : 'Description (suggested)'}>
-            <input value={shown?.blurb ?? ''} onChange={(e) => edit('blurb')(e.target.value)} maxLength={140} placeholder="a few words" style={{ flex: 1, minWidth: 0 }} />
+            <input value={shown?.blurb ?? ''} onChange={(e) => edit('blurb')(e.target.value)} maxLength={140} placeholder="a few words" className="grow general-general-tab-input-2" />
           </FieldRow>
           <FieldRow label="Group" help="how projects are grouped on the front page">
-            <input value={shown?.namespace ?? ''} onChange={(e) => edit('namespace')(e.target.value)} list="known-namespaces" placeholder="(none)" style={{ width: 200 }} />
+            <input value={shown?.namespace ?? ''} onChange={(e) => edit('namespace')(e.target.value)} list="known-namespaces" placeholder="(none)" className="general-general-tab-input-3" />
           </FieldRow>
           <FieldRow label="Address" help="the short name in project links; old links stop working when it changes. Running apps keep their addresses.">
             <input aria-label="Address" value={shown?.slug ?? ''} onChange={(e) => edit('slug')(e.target.value)} />
@@ -244,21 +244,21 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
         </fieldset>
         <datalist id="known-namespaces">{namespaces.map((n) => <option key={n} value={n} />)}</datalist>
         {conflict && base && draft && (
-          <div className="card tone-warn" style={{ marginTop: 10 }}>
+          <div className="card tone-warn general-danger-zone-div">
             <div>Someone saved these settings after you started editing. Your edits are kept here, unsaved.</div>
             {(Object.keys(faceLabels) as (keyof Face)[]).filter((k) => faceOf(project)[k] !== base.face[k]).map((k) => (
-              <div key={k} className="muted small" style={{ marginTop: 4 }}>
+              <div key={k} className="muted small mt-1" >
                 {faceLabels[k]} is now {said(faceOf(project)[k])} (it was {said(base.face[k])} when you started{changed.includes(k) ? `; you have ${said(draft[k])}` : ''}).
               </div>
             ))}
-            <div className="row" style={{ marginTop: 8 }}>
+            <div className="row mt-2" >
               <button onClick={keepMine} disabled={!newer}>Keep my edits on top of theirs</button>
               {!newer && <span className="muted small">reading the current settings…</span>}
               <button className="subtle" onClick={discard}>Discard my edits</button>
             </div>
           </div>
         )}
-        <div className="row" style={{ marginTop: 10 }}>
+        <div className="row general-danger-zone-div">
           <button className="primary" onClick={save} disabled={changed.length === 0 || saving || conflict}>{saving ? 'Saving…' : 'Save'}</button>
           {!shown && <span className="muted small">reading the current settings before editing…</span>}
           {draft && changed.length > 0 && !conflict && <span className="muted small">unsaved: {changed.map((k) => faceLabels[k].toLowerCase()).join(', ')}</span>}
@@ -271,9 +271,9 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
       <RepoCard slug={project.slug} />
 
       <Section title="Import a branch" note="Adopt a branch pushed elsewhere as a change of this project.">
-        <div className="card row" style={{ display: 'flex' }}>
-          <input aria-label="Branch name" value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="branch name" style={{ width: 260, maxWidth: '100%' }}
-            onKeyDown={(e) => e.key === 'Enter' && importBranch()} />
+        <div className="card row general-general-tab-card">
+          <input aria-label="Branch name" value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="branch name"
+            onKeyDown={(e) => e.key === 'Enter' && importBranch()} className="general-danger-zone-input" />
           <button disabled={!branch.trim()} onClick={importBranch}>Adopt as a change</button>
         </div>
         {err && <div className="error">{err}</div>}
@@ -299,15 +299,15 @@ export function RepoCard({ slug }: { slug: string }) {
     <Section title="Code" action={<a className="btn" href={`/api/v1/projects/${slug}/repo/bundle`} download={`${slug}.bundle`}>Download code</a>}
       note={`The download holds the ${repo.defaultBranch} branch and tags; import it to start another project.`}>
       <StaleNote q={q} />
-      <div className="card row" style={{ display: 'flex' }}>
+      <div className="card row general-general-tab-card">
         <span className="badge">{repo.defaultBranch}</span>
         <span className="muted small">{repo.commits} commits</span>
         <span className="muted small repo-head">{repo.head.sha} {repo.head.subject.slice(0, 60)} · {repo.head.when}</span>
-        <span style={{ flex: 1 }} />
+        <span className="grow" />
         {repo.webUrl && <a href={repo.webUrl} target="_blank" rel="noreferrer">GitLab ↗</a>}
       </div>
       {repo.cloneCmd && (
-        <div className="card row" style={{ display: 'flex' }}>
+        <div className="card row general-general-tab-card">
           <code className="repo-clone">{repo.cloneCmd}</code>
           <button className="subtle" onClick={() => {
             navigator.clipboard.writeText(repo.cloneCmd!)

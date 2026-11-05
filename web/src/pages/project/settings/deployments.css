@@ -28,4 +28,17 @@
   .deployment-row > :is(.list-state, .list-identity, .list-detail, .list-action) { grid-column: 1; grid-row: auto; justify-self: start; }
   .deployment-row > .list-identity { grid-row: 1; }
 }
+
+.deployments-deployments-tab-table { font-variant-numeric: tabular-nums; }
+.deployments-span { margin-right: var(--space-2); }
+.deployments-add-deployment-input { width: 240px; }
+.deployments-add-deployment-div { margin-top: calc(var(--space-1) * 2.5); }
+.deployments-retained-row-td { white-space: nowrap; }
+.deployments-retained-row-span { gap: calc(var(--space-1) * 1.5); }
+.deployments-retained-row-input { width: 160px; }
+.deployments-resource-lines-select { margin-left: var(--space-2); }
+.deployments-resource-lines-badge { margin-left: calc(var(--space-1) * 1.5); }
+.deployments-resource-lines-div { gap: calc(var(--space-1) * 1.5); flex-wrap: wrap; }
+.deployments-resource-lines-input { width: 120px; }
+.deployments-resource-lines-input-2 { min-width: 220px; }
 }

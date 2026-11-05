@@ -22,6 +22,10 @@ try {
     <input aria-label="Inline" style="font-size: var(--fs-xs)">
     <div class="ch-sendback"><textarea aria-label="Send back"></textarea></div>
     <div class="console"><div class="chat-input"><textarea aria-label="Composer"></textarea></div></div>
+    <div id="page-spacing" class="evals-note"></div>
+    <div id="spacing-slice" class="evals-note mt-2"></div>
+    <table class="stack"><tbody><tr><td>Retained table layout</td></tr></tbody></table>
+    <div class="stack" id="column-stack"><span>One</span><span>Two</span></div>
     <div class="md"><h1>Heading</h1><h2>Subheading</h2><h3>Lead</h3></div>
     <aside class="sidebar open"><div class="sidebar-inner">
       <div class="popover"><div class="popover-content"><div>
@@ -36,12 +40,16 @@ try {
     const measured = await page.evaluate(() => ({
       root: parseFloat(getComputedStyle(document.documentElement).fontSize),
       body: parseFloat(getComputedStyle(document.body).fontSize),
+      pageSpacing: parseFloat(getComputedStyle(document.querySelector('#page-spacing')).marginTop),
+      spacing: parseFloat(getComputedStyle(document.querySelector('#spacing-slice')).marginTop),
       fields: [...document.querySelectorAll('input, textarea, select')].map(field => ({
         name: field.getAttribute('aria-label'), pixels: parseFloat(getComputedStyle(field).fontSize),
       })),
     }))
     assert.equal(measured.root, root)
     assert.equal(measured.body, root)
+    assert.ok(Math.abs(measured.pageSpacing - 6 * root / 14) < 0.001, `${size}: extracted page spacing follows the viewer size`)
+    assert.ok(Math.abs(measured.spacing - 8 * root / 14) < 0.001, `${size}: utility margin follows the viewer size`)
     for (const field of measured.fields) assert.equal(field.pixels, Math.max(root, 16), `${size} ${field.name}`)
     results.push({ size, ...measured })
   }
@@ -51,6 +59,14 @@ try {
   const desktop = await page.evaluate(() => [...document.querySelectorAll('.md h1, .md h2, .md h3')]
     .map(element => parseFloat(getComputedStyle(element).fontSize)))
   assert.deepEqual(desktop, [22, 19, 15])
+  const layouts = await page.evaluate(() => ({
+    table: getComputedStyle(document.querySelector('table.stack')).display,
+    stack: getComputedStyle(document.querySelector('#column-stack')).display,
+    pageMargin: parseFloat(getComputedStyle(document.querySelector('#spacing-slice')).marginTop),
+  }))
+  assert.equal(layouts.table, 'table', 'column stacks preserve desktop tables')
+  assert.equal(layouts.stack, 'grid', 'column stacks use the existing utility')
+  assert.equal(layouts.pageMargin, 8, 'utility spacing wins over page spacing')
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 1000 })
     for (const size of ['small', 'medium', 'large']) {

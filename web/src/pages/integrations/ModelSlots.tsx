@@ -1,3 +1,4 @@
+import './ModelSlots.css'
 import { useState } from 'react'
 import { put } from '../../api'
 import { fmtTokens as fmtTokensShared } from '../../format'
@@ -62,10 +63,10 @@ export function ModelProfiles({ help, title }: { help?: Help; title: string }) {
     <div>
       <PageHead page="integrations" sub={title} help={help} line="Which AI model does each task, for each kind of project"
         actions={adding === null ? <button className="primary" onClick={() => setAdding('')}>Add a profile</button>
-          : <span className="row" style={{ gap: 6 }}>
+          : <span className="row model-slots-model-profiles-span">
             <input autoFocus value={adding} placeholder="name, e.g. high" aria-label="profile name"
               onChange={(e) => setAdding(e.target.value.toLowerCase())}
-              onKeyDown={(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') setAdding(null) }} style={{ width: 150 }} />
+              onKeyDown={(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') setAdding(null) }} className="model-slots-model-profiles-input" />
             <button className="primary" disabled={!adding} onClick={add}>Add</button>
             <button className="subtle" onClick={() => setAdding(null)}>Cancel</button>
           </span>} />
@@ -78,7 +79,7 @@ export function ModelProfiles({ help, title }: { help?: Help; title: string }) {
             return (
               <div key={p} role="listitem" className="list-row-open int-row" onClick={() => nav(to)}>
                 <ListRow className="int-list-row"
-                  identity={<div style={{ minWidth: 0 }}>
+                  identity={<div className="model-slots-div">
                     <Link to={to} className="int-name" onClick={(e) => e.stopPropagation()}>{p}</Link>
                     <div className="muted small">{differs(data, p)}</div>
                   </div>}
@@ -123,11 +124,11 @@ export function ModelProfilePage() {
     const mapped = row.patterns[profile] ?? ''
     if (custom === row.slot) {
       return (
-        <span className="row" style={{ gap: 6 }}>
+        <span className="row model-slots-model-profiles-span">
           <input autoFocus value={customVal} placeholder="provider/model-pattern" aria-label={`${jobName(row.slot)} model`}
             onChange={(e) => setCustomVal(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && customVal.includes('/')) set(row.slot, customVal); if (e.key === 'Escape') setCustom(null) }}
-            style={{ width: 200 }} />
+             className="model-slots-cell-input" />
           <button className="subtle" disabled={!customVal.includes('/')} onClick={() => set(row.slot, customVal)}>Set</button>
           <button className="subtle" onClick={() => setCustom(null)}>Cancel</button>
         </span>
@@ -153,7 +154,7 @@ export function ModelProfilePage() {
             if (v === '__custom__') { setCustom(row.slot); setCustomVal(mapped) }
             else set(row.slot, v)
           }}
-          style={{ maxWidth: 280 }}>
+           className="model-slots-cell-select">
           <option value="">{unset}</option>
           {models.map((m) => <option key={m.pattern} value={m.pattern}>{m.pattern}</option>)}
           {mapped && !models.some((m) => m.pattern === mapped) && <option value="__custom_current__">{mapped}</option>}
@@ -168,7 +169,7 @@ export function ModelProfilePage() {
     <div>
       {crumb}
       <h1>{profile}</h1>
-      <div className="page-head-line" style={{ marginBottom: 14 }}>
+      <div className="page-head-line model-slots-model-profile-page-page-head-line">
         {profile === 'standard' ? 'The default profile: every project uses it unless moved to another.'
           : isNew ? "A new profile. Choose a model for any task to keep it; tasks left unset follow this profile's basic choices, then standard's models."
             : "Tasks left unset follow this profile's basic choices, then standard's models."}
@@ -183,24 +184,24 @@ export function ModelProfilePage() {
       {actErr && <div className="error">{actErr}</div>}
 
       <Section title="Tasks" count={data.slots.length}>
-        <table className="stack slots-table" style={{ width: '100%' }}>
+        <table className="stack slots-table model-slots-model-profile-page-slots-table">
           <thead>
             <tr>
-              <th className="small muted" style={{ textAlign: 'left' }}>Task</th>
-              <th className="small muted" style={{ textAlign: 'left' }}>Model</th>
-              {spent && <th className="small muted" style={{ textAlign: 'left' }} title={data.spendNote}>Spent (7 days)</th>}
+              <th className="small muted model-slots-model-profile-page-th">Task</th>
+              <th className="small muted model-slots-model-profile-page-th">Model</th>
+              {spent && <th className="small muted model-slots-model-profile-page-th"  title={data.spendNote}>Spent (7 days)</th>}
             </tr>
           </thead>
           <tbody>
             {data.slots.map((row) => (
               <tr key={row.slot}>
-                <td className="stack-lead" style={{ verticalAlign: 'top', paddingRight: 16 }}>
+                <td className="stack-lead model-slots-stack-lead">
                   <strong>{jobName(row.slot)}</strong>
                   <div className="muted small">{jobName(row.gloss)}</div>
                   <div className="muted small">Used by: {row.consumers?.length ? row.consumers.join(', ') : 'no jobs request it directly'}</div>
                 </td>
-                <td style={{ verticalAlign: 'top', paddingRight: 8 }}>{cell(row)}</td>
-                {spent && <td className="small muted" style={{ verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                <td className="model-slots-td">{cell(row)}</td>
+                {spent && <td className="small muted model-slots-td-2">
                   {row.spend7d ? `${fmtTokens(row.spend7d.input)} in · ${fmtTokens(row.spend7d.output)} out` : ''}
                 </td>}
               </tr>
@@ -213,7 +214,7 @@ export function ModelProfilePage() {
         {on.length === 0 ? <p className="muted small">No projects use it.</p>
           : <p>{on.map((x, i) => <span key={x.slug}>{i > 0 && ', '}<Link to={`/projects/${x.slug}`}>{x.name || x.slug}</Link></span>)}</p>}
         {others.length > 0 && (
-          <p className="row" style={{ gap: 8 }}>
+          <p className="row model-slots-model-profile-page-p">
             <span className="small">Move</span>
             <select aria-label="project" value={moving} onChange={(e) => setMoving(e.target.value)}>
               <option value="">a project…</option>

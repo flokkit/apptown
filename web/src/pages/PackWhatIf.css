@@ -1,0 +1,11 @@
+@layer pages {
+
+.pack-what-if-what-if-panel-div { border-top: 1px solid var(--border); padding-top: var(--space-2); }
+.pack-what-if-what-if-panel-div-2 { flex-wrap: wrap; gap: calc(var(--space-1) * 1.5); }
+.pack-what-if-what-if-panel-card { padding: calc(var(--space-1) * 1.5) calc(var(--space-1) * 2.5); margin-top: calc(var(--space-1) * 1.5); }
+.pack-what-if-what-if-panel-div-3 { flex-wrap: wrap; gap: var(--space-2); margin-top: calc(var(--space-1) * 0.5); }
+.pack-what-if-what-if-panel-div-4 { margin-top: calc(var(--space-1) * 1.5); }
+.pack-what-if-what-if-panel-div-5 { gap: calc(var(--space-1) * 1.5); flex-wrap: wrap; margin-top: calc(var(--space-1) * 0.5); }
+.pack-what-if-what-if-panel-input { width: 70px; }
+.pack-what-if-latest-div { flex-wrap: wrap; gap: calc(var(--space-1) * 1.5); margin-top: calc(var(--space-1) * 1.5); }
+}

@@ -1,0 +1,306 @@
+{
+  "web/src/App.tsx": {
+    "styles": 3,
+    "numericPx": 2
+  },
+  "web/src/DecisionForm.tsx": {
+    "styles": 3,
+    "numericPx": 3
+  },
+  "web/src/DiffView.tsx": {
+    "styles": 5,
+    "numericPx": 1
+  },
+  "web/src/DisplayLabel.tsx": {
+    "styles": 1,
+    "numericPx": 1
+  },
+  "web/src/ErrorBoundary.tsx": {
+    "styles": 4,
+    "numericPx": 6
+  },
+  "web/src/FindingsTable.tsx": {
+    "styles": 2,
+    "numericPx": 2
+  },
+  "web/src/Modal.tsx": {
+    "styles": 2,
+    "numericPx": 1
+  },
+  "web/src/ProjectListRow.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/QuietConfirm.tsx": {
+    "styles": 4,
+    "numericPx": 3
+  },
+  "web/src/Screenshots.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/SplitButton.tsx": {
+    "styles": 5,
+    "numericPx": 5
+  },
+  "web/src/TopBar.tsx": {
+    "styles": 2,
+    "numericPx": 3
+  },
+  "web/src/TryIt.tsx": {
+    "styles": 5,
+    "numericPx": 5
+  },
+  "web/src/UpdateNote.tsx": {
+    "styles": 1,
+    "numericPx": 1
+  },
+  "web/src/icons.tsx": {
+    "styles": 2,
+    "numericPx": 0
+  },
+  "web/src/instancePages.tsx": {
+    "styles": 3,
+    "numericPx": 3
+  },
+  "web/src/pages/AdrPage.tsx": {
+    "styles": 1,
+    "numericPx": 1
+  },
+  "web/src/pages/Attention.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/pages/Backups.tsx": {
+    "styles": 3,
+    "numericPx": 3
+  },
+  "web/src/pages/Complaints.tsx": {
+    "styles": 2,
+    "numericPx": 0
+  },
+  "web/src/pages/Conformance.tsx": {
+    "styles": 2,
+    "numericPx": 1
+  },
+  "web/src/pages/Deployments.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/pages/ExternalSignIn.tsx": {
+    "styles": 4,
+    "numericPx": 0
+  },
+  "web/src/pages/GuidanceLibrary.tsx": {
+    "styles": 4,
+    "numericPx": 2
+  },
+  "web/src/pages/Infrastructure.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/pages/InfrastructureNew.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/pages/Integrations.tsx": {
+    "styles": 3,
+    "numericPx": 0
+  },
+  "web/src/pages/Invite.tsx": {
+    "styles": 6,
+    "numericPx": 5
+  },
+  "web/src/pages/Janitor.tsx": {
+    "styles": 6,
+    "numericPx": 1
+  },
+  "web/src/pages/Login.tsx": {
+    "styles": 6,
+    "numericPx": 3
+  },
+  "web/src/pages/PackPage.tsx": {
+    "styles": 6,
+    "numericPx": 6
+  },
+  "web/src/pages/Packs.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/pages/Project.tsx": {
+    "styles": 6,
+    "numericPx": 6
+  },
+  "web/src/pages/Projects.tsx": {
+    "styles": 6,
+    "numericPx": 5
+  },
+  "web/src/pages/Updates.tsx": {
+    "styles": 1,
+    "numericPx": 1
+  },
+  "web/src/pages/Usage.tsx": {
+    "styles": 7,
+    "numericPx": 0
+  },
+  "web/src/pages/WorkerChat.tsx": {
+    "styles": 5,
+    "numericPx": 5
+  },
+  "web/src/pages/WorkflowLibrary.tsx": {
+    "styles": 4,
+    "numericPx": 4
+  },
+  "web/src/pages/change/Conversation.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/pages/change/Findings.tsx": {
+    "styles": 1,
+    "numericPx": 1
+  },
+  "web/src/pages/change/StatePanel.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/pages/change/Tabs.tsx": {
+    "styles": 3,
+    "numericPx": 3
+  },
+  "web/src/pages/change/TechnicalDetail.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/pages/change/Terminal.tsx": {
+    "styles": 3,
+    "numericPx": 1
+  },
+  "web/src/pages/change/Turn.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/pages/conformance/Checks.tsx": {
+    "styles": 3,
+    "numericPx": 6
+  },
+  "web/src/pages/conformance/FleetVersions.tsx": {
+    "styles": 3,
+    "numericPx": 2
+  },
+  "web/src/pages/conformance/ProjectPage.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/pages/conformance/Projects.tsx": {
+    "styles": 3,
+    "numericPx": 3
+  },
+  "web/src/pages/conformance/RemediationPage.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/pages/conformance/Remediations.tsx": {
+    "styles": 7,
+    "numericPx": 4
+  },
+  "web/src/pages/conformance/Reviews.tsx": {
+    "styles": 8,
+    "numericPx": 7
+  },
+  "web/src/pages/conformance/WhatIfs.tsx": {
+    "styles": 4,
+    "numericPx": 2
+  },
+  "web/src/pages/console/Bubbles.tsx": {
+    "styles": 2,
+    "numericPx": 0
+  },
+  "web/src/pages/console/ChangeBar.tsx": {
+    "styles": 4,
+    "numericPx": 5
+  },
+  "web/src/pages/integrations/Capacity.tsx": {
+    "styles": 1,
+    "numericPx": 1
+  },
+  "web/src/pages/integrations/CapacityBars.tsx": {
+    "styles": 2,
+    "numericPx": 0
+  },
+  "web/src/pages/integrations/Catalog.tsx": {
+    "styles": 7,
+    "numericPx": 2
+  },
+  "web/src/pages/integrations/ConnectorForm.tsx": {
+    "styles": 2,
+    "numericPx": 0
+  },
+  "web/src/pages/integrations/InstanceSecrets.tsx": {
+    "styles": 5,
+    "numericPx": 5
+  },
+  "web/src/pages/integrations/ServiceKinds.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/pages/integrations/Targets.tsx": {
+    "styles": 4,
+    "numericPx": 2
+  },
+  "web/src/pages/newProject/NameStep.tsx": {
+    "styles": 2,
+    "numericPx": 1
+  },
+  "web/src/pages/project/ChangeButton.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/pages/project/NewChange.tsx": {
+    "styles": 2,
+    "numericPx": 0
+  },
+  "web/src/pages/project/Overview.tsx": {
+    "styles": 3,
+    "numericPx": 3
+  },
+  "web/src/pages/project/Release.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/pages/project/Schedules.tsx": {
+    "styles": 1,
+    "numericPx": 0
+  },
+  "web/src/pages/project/Security.tsx": {
+    "styles": 6,
+    "numericPx": 0
+  },
+  "web/src/pages/project/settings/Decisions.tsx": {
+    "styles": 2,
+    "numericPx": 0
+  },
+  "web/src/pages/project/settings/DeploymentAddress.tsx": {
+    "styles": 1,
+    "numericPx": 1
+  },
+  "web/src/pages/project/settings/Diagnostics.tsx": {
+    "styles": 5,
+    "numericPx": 7
+  },
+  "web/src/pages/project/settings/Members.tsx": {
+    "styles": 5,
+    "numericPx": 0
+  },
+  "web/src/pages/project/settings/ReleaseDefault.tsx": {
+    "styles": 1,
+    "numericPx": 1
+  },
+  "web/src/parts/Glyph.tsx": {
+    "styles": 2,
+    "numericPx": 0
+  },
+  "web/src/parts/runActivity.tsx": {
+    "styles": 8,
+    "numericPx": 1
+  }
+}

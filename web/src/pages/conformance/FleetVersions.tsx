@@ -19,7 +19,7 @@ export function FleetVersionsTab() {
   return (
     <div>
       <StaleNote q={q} />
-      <p className="muted small" style={{ maxWidth: 720, marginTop: 0 }}>
+      <p className="muted small mt-0" style={{ maxWidth: 720 }}>
         {behind.length > 0 ? `Updates available for: ${behind.join(', ')}.` : ' Every project is on its recommended version.'}
       </p>
       <div style={{ overflowX: 'auto' }}>

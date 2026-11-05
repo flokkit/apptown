@@ -110,7 +110,7 @@ export function Capacity({ name }: { name: string }) {
   const shown = reasons.slice(0, 3)
   return (
     <div className="small">
-      {c.readAt && bars && <p className="muted" style={{ marginTop: 0 }}>Read {readingAge(c.readAt, c.stale).replace(/^checked /, '')}</p>}
+      {c.readAt && bars && <p className="muted mt-0" >Read {readingAge(c.readAt, c.stale).replace(/^checked /, '')}</p>}
       {!c.elastic && !bars && <dl className="facts capacity-summary">
         {m && <><dt>Memory use</dt><dd>{memoryWords}</dd></>}
         {c.disk && <><dt>Disk</dt><dd>{`${c.disk.free.known ? briefBytes(c.disk.free.value) : 'unknown'} free of ${c.disk.total.known ? briefBytes(c.disk.total.value) : 'unknown'}${c.disk.free.stale && c.disk.free.readAt ? ` · ${lastSeen(c.disk.free.readAt)}` : ''}`}</dd></>}
@@ -123,7 +123,7 @@ export function Capacity({ name }: { name: string }) {
       {shown.length > 0 && <p className="error small">Part of the capacity check failed: {shown.join('; ')}{reasons.length > shown.length ? `; and ${reasons.length - shown.length} more (App resource details)` : ''}</p>}
       {bars ? <Bars c={c} /> : <details className="capacity-details"><summary>Details</summary>
       {c.memory && c.cpu && (
-        <table className="small" style={{ marginTop: 4 }}>
+        <table className="small mt-1" >
           <thead><tr><th></th><th>has</th><th>{c.kind === 'portainer' ? `declared by ${PRODUCT}'s deployments` : 'app resource limits'}</th><th>in use by containers</th></tr></thead>
           <tbody>
             <ResourceRow label="memory" r={c.memory} format={fmtBytes} />
@@ -133,7 +133,7 @@ export function Capacity({ name }: { name: string }) {
       )}
       {c.disk && <DiskLine d={c.disk} />}
       {c.elastic && (
-        <table className="small" style={{ marginTop: 4 }}>
+        <table className="small mt-1" >
           <thead><tr><th>deployment</th><th>part</th><th>runs on</th><th>listed per month</th></tr></thead>
           <tbody>
             {(c.parts ?? []).map((p) => (
@@ -149,7 +149,7 @@ export function Capacity({ name }: { name: string }) {
       )}
       </details>}
       {c.estimate && (
-        <div style={{ marginTop: 4 }}>
+        <div className="mt-1">
           Estimated <b><FigureWords f={c.estimate} format={usd} /></b> a month (databases extra)
           <details><summary>Estimate details</summary>{c.estimate.reason}</details>
         </div>
@@ -177,7 +177,7 @@ function DiskState({ d }: { d: DiskCapacity }) {
 function DiskLine({ d }: { d: DiskCapacity }) {
   const why = !d.free.known ? d.free.reason : !d.total.known ? d.total.reason : ''
   return (
-    <div style={{ marginTop: 4 }}>
+    <div className="mt-1">
       <span className="muted">{diskLabel(d)}</span>{' '}
       {why && !d.free.known && !d.total.known ? <>unknown <span className="muted">— {why}</span></> : <><FigureWords f={d.free} format={fmtBytes} /> free of <FigureWords f={d.total} format={fmtBytes} /></>}
       {d.readAt && <span className="muted"> · {readingAge(d.readAt, d.free.stale)}</span>}

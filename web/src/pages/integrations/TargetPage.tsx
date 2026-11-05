@@ -1,3 +1,4 @@
+import './TargetPage.css'
 import { useHostStates } from '../../hostState'
 import { Status } from '../../Status'
 import { changedTargetSettings, editTarget, NEEDS_MODES, type TargetSettings as SettingsCommand } from '../../targetCommands'
@@ -38,11 +39,11 @@ import { shownActor } from '../../systemActors'
 // when it was read.
 export function RegistryLine({ r }: { r: RegistryReading }) {
   const when = r.readAt ? ` · read ${fmtStamp(r.readAt)}` : ''
-  if (r.unknown) return <div className="small" style={{ marginTop: 6 }}>Container registry{r.registry ? ` ${r.registry}` : ''}: <span className="error">unknown</span> — {r.unknown}<span className="muted">{when}</span></div>
-  if (r.none) return <div className="small muted" style={{ marginTop: 6 }}>No container registry yet; the first release creates it{when}</div>
+  if (r.unknown) return <div className="small target-page-registry-line-div">Container registry{r.registry ? ` ${r.registry}` : ''}: <span className="error">unknown</span> — {r.unknown}<span className="muted">{when}</span></div>
+  if (r.none) return <div className="small muted target-page-registry-line-div">No container registry yet; the first release creates it{when}</div>
   const used = r.included > 0 ? `${r.used} of ${r.included} repositories` : `${r.used} repositories, no limit`
   return (
-    <div className="small" style={{ marginTop: 6 }}>
+    <div className="small target-page-registry-line-div">
       Container registry {r.registry}: {r.tier} plan, {used}
       {r.gate && <span className="muted"> (one holds {PRODUCT}'s gate image, for restored copies)</span>}
       {r.full && <> · <Status observation word="failed" help="The registry plan is full. Upgrade the plan or remove an unused repository before deploying another app." /> a project that has not released here before cannot until the plan is upgraded or a deployment is taken down</>}
@@ -103,15 +104,15 @@ export function TargetPage() {
   // is about, except a failed connection, which is about the whole host.
   return (
     <div>
-      <div className="muted small" style={{ marginBottom: 8 }}><Link to="/deployments/infrastructure">Infrastructure</Link> › {t.name}</div>
+      <div className="muted small mb-2" ><Link to="/deployments/infrastructure">Infrastructure</Link> › {t.name}</div>
       <StaleNote q={pageQ} />
-      <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
-        <h1 style={{ flex: 1, margin: 0 }}>{t.displayLabel || t.name}</h1>
+      <div className="row target-page-div">
+        <h1 className="grow target-page-h1">{t.displayLabel || t.name}</h1>
         <Status observation word={state.word} help={state.help.startsWith('Host connection') ? undefined : state.help} />
         {!retired && <button className="primary" disabled={busy} onClick={() => void run(async () => { await post(`/targets/${t.name}/check`, {}); await load() })}>Check target</button>}
         <Link className="btn" to={`/integrations/targets/${t.name}`}>Settings</Link>
       </div>
-      <div className="muted small" style={{ marginTop: 4 }}>{[domain ? `*.${domain}` : '', t.kind === 'do-app' ? 'Cloud hosting: apps update without downtime' : '', state.word === 'unknown' || t.statusLabel === 'failed' ? state.summary : ''].filter(Boolean).join(' · ')}</div>
+      <div className="muted small mt-1" >{[domain ? `*.${domain}` : '', t.kind === 'do-app' ? 'Cloud hosting: apps update without downtime' : '', state.word === 'unknown' || t.statusLabel === 'failed' ? state.summary : ''].filter(Boolean).join(' · ')}</div>
       {actErr && <div className="error small">{actErr}</div>}
       {t.retained > 0 && <p className="error">{t.retained} old {t.retained === 1 ? 'resource may still cost' : 'resources may still cost'} money. <a href="#target-resources">Review {t.retained === 1 ? 'it' : 'them'}.</a></p>}
       {resources.some(r => r.record === 'missing') && <p>Check missing resources below.</p>}
@@ -124,10 +125,10 @@ export function TargetPage() {
           const mine = resources.filter((r) => (r.hosts ?? []).some((h) => h.project === e.project && h.deployment === e.name))
           const meta = [e.url ? e.url.replace(/^https?:\/\//, '') : '', e.audience, e.data, mine.map(resourceWord).join(', ')].filter(Boolean).join(' · ')
           return (
-            <div key={e.project + '/' + e.name} className="card row" style={{ display: 'flex' }}>
-              <Link to={`/projects/${e.project}/settings/deployments`} className="row" style={{ display: 'flex', flex: 1, minWidth: 0 }}>
+            <div key={e.project + '/' + e.name} className="card row target-page-card">
+              <Link to={`/projects/${e.project}/settings/deployments`} className="row grow target-page-link">
                 <span className="row-status"><Status observation word={e.statusLabel} /></span>
-                <strong>{e.project}/{e.name}{e.generation ? <span className="muted" style={{ fontWeight: 400 }}> gen {e.generation}</span> : null}</strong>
+                <strong>{e.project}/{e.name}{e.generation ? <span className="muted target-page-span"> gen {e.generation}</span> : null}</strong>
                 <span className="muted small">{meta}</span>
               </Link>
               <span className="row-action"><Link className="btn" to={`/projects/${e.project}/settings/deployments`}>View deployment</Link></span>
@@ -151,8 +152,8 @@ export function TargetPage() {
         {data.history.length === 0
           ? <p className="muted small">No history yet.</p>
           : data.history.map((e, i) => (
-            <div key={i} className="card row small" style={{ display: 'flex' }}>
-              <span className="muted" style={{ flex: '0 0 auto' }}>{fmtStamp(e.at)}</span>
+            <div key={i} className="card row small target-page-card">
+              <span className="muted target-page-span-2">{fmtStamp(e.at)}</span>
               <span>{EVENT_WORDS[e.kind] ?? e.kind} by {shownActor(e.actor)}
                 {e.kind === 'target.checked' && <> — {(e.payload as Record<string, unknown>).ok ? '✓' : '✗'} {String((e.payload as Record<string, unknown>).detail ?? '')}</>}
                 {e.kind === 'target.offered' && <> — to {String((e.payload as Record<string, unknown>).group) === '*' ? 'everyone' : String((e.payload as Record<string, unknown>).group)}</>}
@@ -193,8 +194,8 @@ export function TargetSettingsPage() {
     <div>
       <div className="muted small int-crumb"><Link to="/integrations">Integrations</Link> › <Link to="/integrations/targets">Deployment targets</Link></div>
       <StaleNote q={pageQ} />
-      <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
-        <h1 style={{ flex: 1, margin: 0 }}>{t.displayLabel || t.name}</h1>
+      <div className="row target-page-div">
+        <h1 className="grow target-page-h1">{t.displayLabel || t.name}</h1>
         <Status observation word={state.word} help={state.help} />
         <Link className="btn" to={`/infrastructure/${t.name}`}>What runs here</Link>
       </div>
@@ -213,7 +214,7 @@ export function TargetSettingsPage() {
         {t.kindInfo.environment && !t.providerScope && !retired && <p className="small">Provider endpoint: <b>unknown</b>. Releases are refused until {PRODUCT} reads the endpoint.</p>}
         {data.registry && <RegistryLine r={data.registry} />}
         {!retired && !data.builtIn && <EditTarget t={t} current={pageQ.current} onSaved={load} />}
-        {!retired && !data.builtIn && <div style={{ margin: '10px 0' }}><QuietConfirm label="Retire this target" ask={`Retire ${t.name}? This fails while any deployment uses it; its offers are withdrawn.`} onYes={retire} yes="Retire" className="subtle" /></div>}
+        {!retired && !data.builtIn && <div className="target-page-target-settings-page-div"><QuietConfirm label="Retire this target" ask={`Retire ${t.name}? This fails while any deployment uses it; its offers are withdrawn.`} onYes={retire} yes="Retire" className="subtle" /></div>}
         {data.builtIn && <p className="muted small">This is {PRODUCT}'s own host; it cannot be retired.</p>}
       </Section></div>
 
@@ -223,10 +224,10 @@ export function TargetSettingsPage() {
         {t.offers.length === 0
           ? <p className="muted small">Not offered to anyone, so projects cannot deploy here.</p>
           : t.offers.map((o) => (
-            <div key={o.id || 'implicit'} className="card row small" style={{ display: 'flex' }}>
+            <div key={o.id || 'implicit'} className="card row small target-page-card">
               <span className="badge accent">{o.group === '*' ? 'everyone' : o.group}</span>
               <span>{capsWords(o.caps) || <span className="muted">no limits</span>}</span>
-              <span className="muted" style={{ flex: 1 }}>{o.implicit ? 'by construction' : `by ${o.createdBy}`}</span>
+              <span className="muted grow" >{o.implicit ? 'by construction' : `by ${o.createdBy}`}</span>
               {!o.implicit && <QuietConfirm label="Withdraw" ask={`Withdraw the offer to ${o.group === '*' ? 'everyone' : o.group}? Deployments already here stay.`}
                 onYes={() => void withdraw(o.id!)} yes="Withdraw" className="subtle" />}
             </div>
@@ -255,9 +256,9 @@ export const copyRunnerMeaning = 'A copy runner is a Docker host that runs the c
 // here cannot start without one.
 export function CopyRunnerLine({ t }: { t: TargetView }) {
   const runner = typeof t.address?.copyRunner === 'string' ? t.address.copyRunner : ''
-  if (t.copies?.available) return <div className="small" style={{ marginTop: 6 }}>Copy runner: <Link to={`/infrastructure/${runner}`}>{runner}</Link></div>
+  if (t.copies?.available) return <div className="small target-page-registry-line-div">Copy runner: <Link to={`/infrastructure/${runner}`}>{runner}</Link></div>
   return (
-    <div className="card tone-warn small" role="note" style={{ marginTop: 8 }}>
+    <div className="card tone-warn small mt-2" role="note" >
       <b>No copy runner chosen: backups and restore tests of deployments on this target are unavailable.</b> {t.copies?.why}
     </div>
   )
@@ -304,7 +305,7 @@ export function EditTarget({ t, current = true, onSaved }: { t: TargetView; curr
     setBase(start); setDraft(start.settings); setConflict(false)
   }
   if (!base || !draft) return (
-    <div style={{ marginTop: 14 }}>
+    <div className="target-page-edit-target-div">
       <button className="subtle" onClick={openEditor} disabled={!current}>Edit target</button>
       {!current && <span className="muted small"> reading the current settings before editing…</span>}
     </div>
@@ -324,9 +325,9 @@ export function EditTarget({ t, current = true, onSaved }: { t: TargetView; curr
     setConflict(false); setErr('')
   }
   return (
-    <div className="card" style={{ padding: 12, marginTop: 14 }}>
-      <div className="row" style={{ gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <label className="small">apps domain <input value={draft.domain} disabled={busy} onChange={(e) => set('domain', e.target.value)} placeholder="none" style={{ width: 200 }} /></label>
+    <div className="card target-page-edit-target-card">
+      <div className="row target-page-edit-target-div-2">
+        <label className="small">apps domain <input value={draft.domain} disabled={busy} onChange={(e) => set('domain', e.target.value)} placeholder="none" className="target-page-edit-target-input" /></label>
         <label className="small"><input type="checkbox" checked={draft.persistentVolumes} disabled={busy} onChange={(e) => set('persistentVolumes', e.target.checked)} /> keeps disks (a dataDir may bind)</label>
         <label className="small"><input type="checkbox" checked={draft.previews} disabled={busy} onChange={(e) => set('previews', e.target.checked)} /> previews may bind</label>
         <label className="small">needs are <select value={draft.needsMode} disabled={busy} onChange={(e) => set('needsMode', e.target.value)}>
@@ -334,12 +335,12 @@ export function EditTarget({ t, current = true, onSaved }: { t: TargetView; curr
         </select></label>
         {t.copies && (
           <label className="small" title={copyRunnerMeaning}>
-            copy runner <input value={draft.copyRunner} disabled={busy} onChange={(e) => set('copyRunner', e.target.value.trim())} placeholder="a Docker host target" style={{ width: 160 }} />
+            copy runner <input value={draft.copyRunner} disabled={busy} onChange={(e) => set('copyRunner', e.target.value.trim())} placeholder="a Docker host target" className="target-page-edit-target-input-2" />
           </label>
         )}
         {t.kindInfo.environment && (
           <label className="small" title="The Portainer environment this target releases to, as Portainer lists it.">
-            Portainer environment <input value={draft.environment} disabled={busy || Boolean(t.providerScope)} onChange={(e) => set('environment', e.target.value)} placeholder="local" style={{ width: 140 }} />
+            Portainer environment <input value={draft.environment} disabled={busy || Boolean(t.providerScope)} onChange={(e) => set('environment', e.target.value)} placeholder="local" className="target-page-edit-target-input-3" />
             {Boolean(t.providerScope) && <span className="muted"> Verified endpoint; attach another target to change it.</span>}
           </label>
         )}
@@ -349,22 +350,22 @@ export function EditTarget({ t, current = true, onSaved }: { t: TargetView; curr
           </label>
         )}
       </div>
-      {t.copies && <div className="muted small" style={{ marginTop: 6 }}>{copyRunnerMeaning}{draft.copyRunner === '' ? ' Without one, backups and restore tests of deployments on this target are unavailable.' : ''}</div>}
-      {draft.rehearsals && !base.settings.rehearsals && <div className="card tone-warn small" style={{ marginTop: 8 }}>{rehearsalHostMeaning}</div>}
+      {t.copies && <div className="muted small target-page-registry-line-div">{copyRunnerMeaning}{draft.copyRunner === '' ? ' Without one, backups and restore tests of deployments on this target are unavailable.' : ''}</div>}
+      {draft.rehearsals && !base.settings.rehearsals && <div className="card tone-warn small mt-2" >{rehearsalHostMeaning}</div>}
       {conflict && (
-        <div className="card tone-warn" style={{ marginTop: 8 }}>
+        <div className="card tone-warn mt-2" >
           <div>Someone changed this target's settings after you started. Your edits are kept here, unsaved.</div>
           {(Object.keys(now) as (keyof TargetSettings)[]).filter((k) => now[k] !== base.settings[k]).map((k) => (
-            <div key={k} className="muted small" style={{ marginTop: 4 }}>{k} is now {said(String(now[k]))} (it was {said(String(base.settings[k]))} when you started).</div>
+            <div key={k} className="muted small mt-1" >{k} is now {said(String(now[k]))} (it was {said(String(base.settings[k]))} when you started).</div>
           ))}
-          <div className="row" style={{ marginTop: 8 }}>
+          <div className="row mt-2" >
             <button onClick={keepMine} disabled={t.settingsRevision <= base.revision}>Keep my edits on top of theirs</button>
             {t.settingsRevision <= base.revision && <span className="muted small">reading the current settings…</span>}
             <button className="subtle" onClick={close}>Discard my edits</button>
           </div>
         </div>
       )}
-      <div className="row" style={{ gap: 8, marginTop: 8, alignItems: 'center' }}>
+      <div className="row mt-2 target-page-edit-target-div-3">
         <button onClick={save} disabled={busy || conflict}>{busy ? 'Saving…' : 'Save'}</button>
         <button className="subtle" onClick={close} disabled={busy}>cancel</button>
         {err && !conflict && <span className="error small">{err}</span>}
@@ -382,11 +383,11 @@ export function Unaccounted({ here, onChanged }: { here: TargetInfra; onChanged:
   return (
     <>
       {here.asOf && <div className="muted small">Inventory {readingAge(here.asOf, !here.live)}{here.invalidated ? " · before the latest change" : ""}</div>}
-      {failed && <div className="error small" style={{ marginBottom: 6 }}>Inventory {here.unknown ? 'is unknown' : 'check failed or is out of date'}: {here.error}{here.asOf ? ` · showing the inventory ${lastSeen(here.asOf)}.` : ' · nothing has been read from it, so what is unaccounted for is not known.'}</div>}
+      {failed && <div className="error small target-page-unaccounted-error">Inventory {here.unknown ? 'is unknown' : 'check failed or is out of date'}: {here.error}{here.asOf ? ` · showing the inventory ${lastSeen(here.asOf)}.` : ' · nothing has been read from it, so what is unaccounted for is not known.'}</div>}
       {here.live || here.asOf
         ? <ResourceTables t={here} onChanged={onChanged} only={(r) => r.record !== 'recorded'} empty={here.live ? 'Nothing unaccounted for.' : `Nothing unaccounted for in the inventory ${lastSeen(here.asOf!)}.`} />
         : !failed && <div className="muted small">checking…</div>}
-      {here.shared && <div className="muted small" style={{ marginTop: 6 }}>{here.shared}</div>}
+      {here.shared && <div className="muted small target-page-registry-line-div">{here.shared}</div>}
     </>
   )
 }

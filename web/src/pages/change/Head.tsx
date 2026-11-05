@@ -1,3 +1,4 @@
+import './Head.css'
 import { Link, useLocation } from 'react-router-dom'
 import { shortName } from '../newProject/draft'
 import { useFailureAdvice, recommendationWords } from './advice'
@@ -134,19 +135,19 @@ export function RequestEntry({ view, current = true, reload }: { view: ChangeVie
       {!editing && <div id={full ? 'request-text' : undefined} className="ch-request">{full ? request : lines.slice(0, 4).join('\n')}{!full && lines.length > 4 && <><br /><Link to={`${location.pathname}?tab=details#request-text`}>full request</Link></>}</div>}
       {!editing && ch.externalRef && <p className="muted small">Ticket: {ch.externalRef}</p>}
         {editing && (
-          <div style={{ padding: '12px 0' }}>
-            {!started && <textarea rows={4} style={{ width: '100%' }} value={draft.body} disabled={saving} aria-label="what was asked for" onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))} />}
-            <div className="row" style={{ marginTop: 6, flexWrap: 'wrap' }}>
+          <div className="head-request-entry-div">
+            {!started && <textarea rows={4}  value={draft.body} disabled={saving} aria-label="what was asked for" onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))} className="head-request-entry-textarea" />}
+            <div className="row head-request-entry-div-2">
               <input aria-label="Ticket key or link" placeholder="Ticket key or link" value={draft.externalRef} disabled={saving} onChange={(e) => setDraft((d) => ({ ...d, externalRef: e.target.value }))} />
               <button className="primary" onClick={save} disabled={saving || conflict}>{saving ? 'Saving…' : 'Save'}</button>
               {saveErr && !conflict && <span className="error small">{saveErr}</span>}
             </div>
             {conflict && base && (
-              <div className="card tone-warn" style={{ marginTop: 8 }}>
+              <div className="card tone-warn mt-2" >
                 <div>Someone edited this change after you started. Your edits are kept here, unsaved.</div>
-                {briefOf(ch).body !== base.brief.body && <div className="muted small" style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>What was asked for is now: “{briefOf(ch).body}”</div>}
-                {briefOf(ch).externalRef !== base.brief.externalRef && <div className="muted small" style={{ marginTop: 4 }}>The external reference is now “{briefOf(ch).externalRef}”.</div>}
-                <div className="row" style={{ marginTop: 8 }}>
+                {briefOf(ch).body !== base.brief.body && <div className="muted small mt-1 head-request-entry-div-3">What was asked for is now: “{briefOf(ch).body}”</div>}
+                {briefOf(ch).externalRef !== base.brief.externalRef && <div className="muted small mt-1" >The external reference is now “{briefOf(ch).externalRef}”.</div>}
+                <div className="row mt-2" >
                   <button onClick={keepMine} disabled={!newer}>Keep my edits on top of theirs</button>
                   {!newer && <span className="muted small">reading the current change…</span>}
                   <button className="subtle" onClick={discard}>Discard my edits</button>
@@ -179,8 +180,8 @@ export function Attachments({ changeId, readOnly }: { changeId: string; readOnly
   const attach = !readOnly && (
     <label className="link ch-attach">
       attach a file →
-      <input type="file" style={{ display: 'none' }} disabled={busy}
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
+      <input type="file"  disabled={busy}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} className="head-attachments-input" />
     </label>
   )
   return (
@@ -188,8 +189,8 @@ export function Attachments({ changeId, readOnly }: { changeId: string; readOnly
       <ReadStatus q={itemsQ} what="the attachments" className="small" />
       <StaleNote q={itemsQ} />
       {items.map((i) => (
-        <div key={i.name} className="card row" style={{ display: 'flex' }}>
-          <a style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }} href={`/api/v1/changes/${changeId}/attachments/${encodeURIComponent(i.name)}`} target="_blank" rel="noreferrer">{i.name}</a>
+        <div key={i.name} className="card row head-card">
+          <a  href={`/api/v1/changes/${changeId}/attachments/${encodeURIComponent(i.name)}`} target="_blank" rel="noreferrer" className="grow head-a">{i.name}</a>
           <span className="muted small">{(i.bytes / 1024).toFixed(1)} KB</span>
           {!readOnly && <span className="row-action"><button className="subtle" aria-label={`remove ${i.name}`} disabled={busy} onClick={() => remove(i.name)}>Remove</button></span>}
         </div>
@@ -243,7 +244,7 @@ function RunDiff({ runId, number }: { runId: string; number: number }) {
   return (
     <section>
       <h4>The latest run's workspace (run {number})</h4>
-      <div className="row" style={{ marginBottom: 6 }}>
+      <div className="row head-run-diff-div">
         <a href={`/api/v1/runs/${runId}/workspace/`} target="_blank" rel="noreferrer" className="btn">Browse the workspace ↗</a>
       </div>
       <RunDiffBody runId={runId} />
@@ -273,8 +274,8 @@ function DiffBlock({ path, what, empty }: { path: string; what: string; empty: s
     {!diff
       ? <div className="muted small">{empty}</div>
       : !diff.startsWith('diff --git')
-        ? <pre className="log" style={{ maxHeight: 200, marginTop: 8 }}>{diff}</pre>
-        : <div style={{ maxHeight: 560, overflowY: 'auto' }}><DiffView raw={diff} unfolded /></div>}
+        ? <pre className="log mt-2 head-diff-block-log">{diff}</pre>
+        : <div className="head-diff-block-div"><DiffView raw={diff} unfolded /></div>}
   </>
 }
 

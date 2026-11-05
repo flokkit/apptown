@@ -1,3 +1,4 @@
+import './Bubbles.css'
 import React, { useEffect, useRef, useState } from 'react'
 import { post } from '../../api'
 import { useNarrow } from '../../chrome'
@@ -117,13 +118,13 @@ export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, re
           const el = e.currentTarget
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
         }}
-        className="chat-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        className="chat-scroll grow bubbles-chat-scroll">
         <ReadStatus q={record} what="the conversation" className="small" />
         <StaleNote q={record} />
         {record.data && msgs.length === 0 && !pending && (
-          <div className="muted" style={{ padding: 20, textAlign: 'center' }}>
+          <div className="muted bubbles-div">
             {readOnly === undefined && starters && starters.length > 0 && (
-              <div className="row" style={{ justifyContent: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+              <div className="row bubbles-div-2">
                 {starters.map((st) => (
                   <button key={st} className="subtle chat-starter"
                     onClick={() => setText(st)}>{st}</button>
@@ -149,9 +150,9 @@ export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, re
           if (m.stopped) {
             return (
               <div key={m.i} className="bubble-row">
-                <div className="bubble" style={{ opacity: 0.8 }}>
-                  <div className="small" style={{ opacity: 0.8, marginBottom: 2 }}>⏹ stopped</div>
-                  <div style={{ whiteSpace: 'pre-wrap' }}>{m.text}</div>
+                <div className="bubble bubbles-bubble">
+                  <div className="small bubbles-div-3">⏹ stopped</div>
+                  <div className="bubbles-div-4">{m.text}</div>
                 </div>
               </div>
             )
@@ -160,8 +161,8 @@ export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, re
             return (
               <div key={m.i} className="bubble-row">
                 <div className="bubble error">
-                  <div className="small" style={{ opacity: 0.8, marginBottom: 2 }}>⚠ the helper stopped</div>
-                  <div style={{ whiteSpace: 'pre-wrap' }}>{m.text}</div>
+                  <div className="small bubbles-div-3">⚠ the helper stopped</div>
+                  <div className="bubbles-div-4">{m.text}</div>
                 </div>
               </div>
             )
@@ -170,8 +171,8 @@ export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, re
             return (
               <div key={m.i} className="bubble-row">
                 <div className="bubble check">
-                  <div className="small" style={{ opacity: 0.8, marginBottom: 2 }}>⚙ Boot check: the app did not start</div>
-                  <div style={{ whiteSpace: 'pre-wrap' }}>{(m.text ?? '').replace(CHECK_MARK, '').trim()}</div>
+                  <div className="small bubbles-div-3">⚙ Boot check: the app did not start</div>
+                  <div className="bubbles-div-4">{(m.text ?? '').replace(CHECK_MARK, '').trim()}</div>
                 </div>
               </div>
             )
@@ -190,10 +191,10 @@ export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, re
                     const { names, display } = pastedPictures(m.text)
                     return (
                       <div>
-                        {display && <div style={{ whiteSpace: 'pre-wrap' }}>{display}</div>}
+                        {display && <div className="bubbles-div-4">{display}</div>}
                         {names.map((n) => (
                           <img key={n} src={`/api/v1/console/${sessionId}/uploads/${n}`} alt="pasted picture"
-                            style={{ maxWidth: 260, maxHeight: 200, borderRadius: 'var(--radius-sm)', marginTop: display ? 6 : 0, display: 'block' }} />
+                            style={{ marginTop: display ? 6 : 0 }} className="bubbles-img" />
                         ))}
                       </div>
                     )
@@ -211,8 +212,8 @@ export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, re
       </div>
       {/* Keep this slot for the session, including pauses between tool calls.
           Visibility preserves its height without offering an idle stop button. */}
-      <div className="row chat-working" style={{ margin: '6px 0', gap: 10, flexShrink: 0, visibility: helperBusy ? 'visible' : 'hidden' }} aria-hidden={!helperBusy}>
-        <span className="small robot-busy" style={{ border: 'none', padding: 0 }}>Working…</span>
+      <div className="row chat-working bubbles-chat-working" style={{ visibility: helperBusy ? 'visible' : 'hidden' }} aria-hidden={!helperBusy}>
+        <span className="small robot-busy bubbles-robot-busy">Working…</span>
         {readOnly === undefined && <button className="subtle" title="Stop what it's doing right now · then tell it what you'd rather have"
           onClick={() => { setStopErr(''); post(`/console/${sessionId}/interrupt`, {}).catch((e) => setStopErr(`It could not be stopped: ${(e as Error).message}`)) }}>
           ⏹ stop
@@ -221,27 +222,24 @@ export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, re
       {footer}
       {sendErr && <div className="error">{sendErr}</div>}
       {images.length > 0 && (
-        <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: 'wrap' }}>
+        <div className="row mt-2 bubbles-div-5">
           {images.map((im, i) => (
-            <span key={im.path} style={{ position: 'relative', display: 'inline-block' }}>
-              <img src={im.thumb} alt="picture to send" style={{ height: 64, borderRadius: 'var(--radius-sm)', display: 'block' }} />
+            <span key={im.path} className="bubbles-span">
+              <img src={im.thumb} alt="picture to send" className="bubbles-img-2" />
               <button onClick={() => setImages(images.filter((_, j) => j !== i))}
                 title="don't send this picture" aria-label="don't send this picture"
-                style={{
-                  position: 'absolute', top: -6, right: -6, width: 20, height: 20, lineHeight: '16px',
-                  borderRadius: 10, padding: 0, fontSize: 'var(--fs-xs)', cursor: 'pointer',
-                }}>×</button>
+                 className="bubbles-button">×</button>
             </span>
           ))}
           <span className="muted small">going with your next message</span>
         </div>
       )}
       {readOnly !== undefined ? (
-        <div className="muted small chat-readonly" style={{ marginTop: 8 }}>
+        <div className="muted small chat-readonly mt-2" >
           Viewing only: this is {readOnly || 'someone else'}’s chat. Saying something to this chat needs the
           Project contributor role.
         </div>
-      ) : <div className="row chat-input" style={{ marginTop: 8 }}>
+      ) : <div className="row chat-input mt-2" >
         <textarea
           ref={inputRef}
           rows={narrow ? 2 : 1}

@@ -34,7 +34,7 @@ export function ReviewsList() {
     <div>
       <StaleNote q={q} />
       <PhoneDetails>{trend.length > 1 && (
-        <div className="card" style={{ marginBottom: 'var(--space-4)', padding: '10px 14px' }}>
+        <div className="card mb-4" style={{ padding: '10px 14px' }}>
           <div className="muted small mb-2">Findings per fleet review, oldest → newest (red findings, amber AI flags; grey = no recorded problems).</div>
           <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 40 }}>
             {trend.map((r) => {
@@ -48,9 +48,9 @@ export function ReviewsList() {
         </div>
       )}
       </PhoneDetails>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+      <div style={{ gap: 'var(--space-2)' }} className="stack">
         {rows.slice(0, limit).map((r) => (
-          <div key={r.id} className={`card${r.status === 'queued' || r.status === 'running' ? ' tone-busy' : ''}`} style={{ marginBottom: 0, textDecoration: 'none', color: 'inherit', display: 'block' }}>
+          <div key={r.id} className={(`card${r.status === 'queued' || r.status === 'running' ? ' tone-busy' : ''}`) + " mb-0"} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
             <div className="host-row">
               <Link to={`/conformance/reviews/${r.id}`}><strong>{fmtWhen(r.finishedAt || r.startedAt)}</strong></Link>
               {/* A review that finished with checks that could not run is incomplete, never a green finish. */}

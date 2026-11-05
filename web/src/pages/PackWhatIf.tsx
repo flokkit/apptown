@@ -1,3 +1,4 @@
+import './PackWhatIf.css'
 import { Status } from '../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -46,14 +47,14 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
   const start = () => run(() => post<WhatIfStarted>('/conformance/what-if', { pack, version, ...(choosing ? { projects: chosen } : {}), rubrics, spendLimitMicros: rubrics ? limitMicros : 0, advanceWorkflows: advance, ...(also.length > 0 ? { also } : {}) }))
 
   return (
-    <div className="small" style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
-      <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+    <div className="small mt-2 pack-what-if-what-if-panel-div">
+      <div className="row pack-what-if-what-if-panel-div-2">
         <strong>What-if</strong>
         <span className="muted">hypothetical: never a project's standing</span>
       </div>
-      <div className="card" style={{ padding: '6px 10px', marginTop: 6 }}>
+      <div className="card pack-what-if-what-if-panel-card">
         {!choosing && (
-          <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+          <div className="row pack-what-if-what-if-panel-div-2">
             <span>Eligible (on an earlier version{also.length > 0 ? ', of this pack or their own' : ''}):</span>
             {eligible === null
               ? <span className="muted">{q.err ? 'could not be read' : 'reading…'}</span>
@@ -68,7 +69,7 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
             <>
               <div>Projects <button className="subtle" onClick={() => setChoosing(false)}>eligible only</button></div>
               {onPack.length === 0 && added.length === 0 && <div className="muted">No project you can see is on this pack; add one to ask what joining it would say.</div>}
-              <div className="row" style={{ flexWrap: 'wrap', gap: 8, marginTop: 2 }}>
+              <div className="row pack-what-if-what-if-panel-div-3">
                 {onPack.map((s) => (
                   <label key={s}><input type="checkbox" checked={!left.includes(s)} onChange={(e) => setLeft(e.target.checked ? left.filter((x) => x !== s) : [...left, s])} /> {s}</label>
                 ))}
@@ -85,32 +86,32 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
               </div>
             </>
           ))}
-        <div style={{ marginTop: 6 }}>
+        <div className="pack-what-if-what-if-panel-div-4">
           <label><input type="checkbox" checked={advance} onChange={(e) => setAdvance(e.target.checked)} /> Also move each project's other workflows to the newest version</label>
           <div className="muted">Workflows this pack does not pin otherwise keep the version each project is on.</div>
         </div>
         {offered.length > 0 && (
-          <div style={{ marginTop: 6 }}>
+          <div className="pack-what-if-what-if-panel-div-4">
             <label><input type="checkbox" checked={ownPacks} onChange={(e) => setOwnPacks(e.target.checked)} /> Also move each project's own pack to its newest version</label>
             <div className="muted">{offered.map((a) => `${a.pack} v${a.version}`).join(', ')}: for projects already on them. Moving one pack alone takes the other's rules back to the version the project recorded.</div>
           </div>
         )}
-        <div style={{ marginTop: 6 }}>
+        <div className="pack-what-if-what-if-panel-div-4">
           <label><input type="checkbox" checked={rubrics} onChange={(e) => setRubrics(e.target.checked)} /> Include AI reviews (costs money)</label>
           {rubrics && (
-            <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
-              <label>Spend limit $<input style={{ width: 70 }} value={limit} onChange={(e) => setLimit(e.target.value)} aria-label="spend limit in dollars" /></label>
+            <div className="row pack-what-if-what-if-panel-div-5">
+              <label>Spend limit $<input  value={limit} onChange={(e) => setLimit(e.target.value)} aria-label="spend limit in dollars" className="pack-what-if-what-if-panel-input" /></label>
               <span className="muted">{chosen.length} project{chosen.length === 1 ? '' : 's'}, up to {2 * chosen.length} calls; one project's calls may pass the limit.</span>
             </div>
           )}
         </div>
-        <button className="subtle" style={{ marginTop: 6 }} disabled={busy || w?.state === 'queued' || w?.state === 'running' || chosen.length === 0 || !limitOK} onClick={start}>
+        <button className="subtle pack-what-if-what-if-panel-div-4"  disabled={busy || w?.state === 'queued' || w?.state === 'running' || chosen.length === 0 || !limitOK} onClick={start}>
           Run on {chosen.length}{choosing ? '' : ' eligible'} project{chosen.length === 1 ? '' : 's'}
         </button>
       </div>
       {err && <div className="error">{err}</div>}
-      {q.data && !w && <div className="muted" style={{ marginTop: 4 }}>None run on this version.</div>}
-      {!q.data && !q.err && <div className="muted" style={{ marginTop: 4 }}>reading what-ifs…</div>}
+      {q.data && !w && <div className="muted mt-1" >None run on this version.</div>}
+      {!q.data && !q.err && <div className="muted mt-1" >reading what-ifs…</div>}
       {w && <Latest w={w} />}
     </div>
   )
@@ -122,7 +123,7 @@ function Latest({ w }: { w: WhatIf }) {
   const counts: Record<string, number> = {}
   for (const p of w.projects) counts[p.outcome] = (counts[p.outcome] ?? 0) + 1
   return (
-    <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+    <div className="row pack-what-if-latest-div">
       <Link to={`/conformance/what-ifs/${w.id}`}>Open the what-if</Link>
       <Status word={w.statusLabel} help={w.detail || w.state} />
       <span className="muted">{w.requestedBy} · {relTime(w.createdAt)}</span>

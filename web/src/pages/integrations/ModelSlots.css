@@ -1,0 +1,15 @@
+@layer pages {
+
+.model-slots-model-profiles-span { gap: calc(var(--space-1) * 1.5); }
+.model-slots-model-profiles-input { width: 150px; }
+.model-slots-div { min-width: 0; }
+.model-slots-cell-input { width: 200px; }
+.model-slots-cell-select { max-width: 280px; }
+.model-slots-model-profile-page-page-head-line { margin-bottom: calc(var(--space-1) * 3.5); }
+.model-slots-model-profile-page-slots-table { width: 100%; }
+.model-slots-model-profile-page-th { text-align: left; }
+.model-slots-stack-lead { vertical-align: top; padding-right: var(--space-4); }
+.model-slots-td { vertical-align: top; padding-right: var(--space-2); }
+.model-slots-td-2 { vertical-align: top; white-space: nowrap; }
+.model-slots-model-profile-page-p { gap: var(--space-2); }
+}

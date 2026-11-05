@@ -1,3 +1,4 @@
+import './WhatIfPage.css'
 import { GlanceRow } from '../GlanceRow'
 import { Status } from '../Status'
 import { Fragment, useEffect, useRef, useState } from 'react'
@@ -52,11 +53,11 @@ export default function WhatIfPage() {
   if (w && running !== (w.state === 'queued' || w.state === 'running')) setRunning(!running)
   if (!w) return <ReadStatus q={q} what="the what-if" />
   return (
-    <div style={{ maxWidth: 1000 }}>
+    <div className="what-if-page-div">
       <div className="muted small"><Link to="/conformance/what-ifs">What-ifs</Link> · <Link to="/packs">Packs</Link> › <Link to={`/packs/${w.pack}`}>{w.pack}</Link></div>
-      <h1 style={{ marginBottom: 4 }}>What-if: {w.pack} v{w.version}</h1>
+      <h1 className="mb-1">What-if: {w.pack} v{w.version}</h1>
       <StaleNote q={q} />
-      <details><summary>Test details</summary><div className="row small" style={{ flexWrap: 'wrap', gap: 8 }}>
+      <details><summary>Test details</summary><div className="row small what-if-page-div-2">
         <State w={w} />
         <span className="muted">{w.requestedBy} · {relTime(w.createdAt)}</span>
         <span className="muted">
@@ -95,7 +96,7 @@ function Decide({ w }: { w: WhatIf }) {
       : holds === undefined ? (meQ.err ? `what you may do could not be read: ${meQ.reason || meQ.err}` : 'reading what you may do…')
         : !holds ? 'Ask an administrator to recommend this version' : ''
   return (
-    <div className="row" style={{ flexWrap: 'wrap', gap: 8, margin: '12px 0' }}>
+    <div className="row what-if-page-decide-div">
       {why
         ? <button className="subtle" disabled title={why}>Recommend v{w.version}</button>
         : <QuietConfirm label={`Recommend v${w.version}`} className="subtle" yes="Recommend it" disabled={busy}
@@ -114,7 +115,7 @@ function Summary({ w }: { w: WhatIf }) {
   const counts: Record<string, number> = {}
   for (const p of projects) counts[p.outcome] = (counts[p.outcome] ?? 0) + 1
   return (
-    <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+    <div className="row mb-2 what-if-page-summary-div">
       <strong>{projects.length} project{projects.length === 1 ? '' : 's'}</strong>
       {OUTCOME_ORDER.filter((o) => counts[o]).map((o) => <span key={o}>{counts[o]} <Status word={w.outcomeLabels[o]} help={OUTCOME_WORDS[o]} /></span>)}
       {w.movesBackProjects > 0 && <span className="badge moves-back">{w.movesBackProjects} move rules back</span>}
@@ -129,11 +130,11 @@ function Fleet({ gaps, projects }: { gaps: WhatIfFleetGap[], projects: number })
   if (gaps.length === 0) return null
   const shown = gaps.slice(0, 8)
   return (
-    <details className="card" style={{ padding: '6px 10px', margin: '8px 0' }} >
+    <details className="card what-if-page-fleet-card">
       <summary><strong>Checks that could not run</strong> <span className="muted small">{gaps.length} check{gaps.length === 1 ? '' : 's'}</span></summary>
       {shown.map((g, i) => (
-        <div key={i} className="small" style={{ marginTop: 6 }}>
-          <div>{g.block ? <code style={{ overflowWrap: 'anywhere' }}>{g.block} · {g.check}</code> : <span>the whole project</span>} <strong>{g.projects} of {projects}</strong> <span className="muted">— {g.words}</span></div>
+        <div key={i} className="small what-if-page-div-3">
+          <div>{g.block ? <code className="what-if-page-code">{g.block} · {g.check}</code> : <span>the whole project</span>} <strong>{g.projects} of {projects}</strong> <span className="muted">— {g.words}</span></div>
           <div>To assess: {g.remedy}</div>
         </div>
       ))}
@@ -165,7 +166,7 @@ function Moves({ moves }: { moves: WhatIfMove[] }) {
   if (moves.length === 0) return null
   const ordered = [...moves.filter((m) => m.back), ...moves.filter((m) => !m.back)]
   return (
-    <div className="card" style={{ padding: '6px 10px', marginTop: 6 }}>
+    <div className="card what-if-page-moves-card">
       <strong>Rule changes</strong>
       {ordered.map((m, i) => (
         <div key={i} className={m.back ? 'warn-line' : 'muted'}>{m.back && 'moves back: '}<code>{moveWords(m)}</code></div>
@@ -224,7 +225,7 @@ function Table({ w }: { w: WhatIf }) {
   })
   return (
     <>
-      <div className="row" style={{ gap: 8, margin: '8px 0' }}>
+      <div className="row what-if-page-table-div">
         <QuietConfirm label={`Adopt v${w.version} on ${chosen.length} project${chosen.length === 1 ? '' : 's'}`} className="subtle" yes="Open the Changes"
           disabled={asking || chosen.length === 0}
           ask={`Opens one adoption Change per project, taking ${w.pack} v${w.version}${(w.also ?? []).length > 0 ? ` with ${alsoWords(w)} where the project is on them` : ''} as assessed in this what-if${w.advanceWorkflows ? ", with each project's other workflows at the newest version" : ''}. ${inAdvance ? 'Where a project offers it, you accept it now, in the words below; any other Change waits for a person.' : 'Each lands through its own review.'}${backWords}`}
@@ -235,8 +236,8 @@ function Table({ w }: { w: WhatIf }) {
         </label>
         {asking && <span className="muted small">asking each project in turn…</span>}
       </div>
-      <div style={{ overflowX: 'auto' }}>
-      <table className="small stack whatif-table" style={{ width: '100%' }}>
+      <div className="what-if-page-table-div-2">
+      <table className="small stack whatif-table what-if-page-table-whatif-table">
         <thead>
           <tr><th /><th>Project</th><th>Answer</th><th>Score</th><th>Details</th><th>Adoption</th><th /></tr>
         </thead>
@@ -252,7 +253,7 @@ function Table({ w }: { w: WhatIf }) {
                 <GlanceRow name={1} state={2} summary={p.candidateDigest ? <>{p.newFailures.length} new {p.newFailures.length === 1 ? 'failure' : 'failures'}</> : 'Not assessed yet'} labels={["Select", "Project", "Answer", "Score", "Details", "Adoption", "Actions"]}>
                   <td><input type="checkbox" aria-label={`adopt on ${p.projectSlug}`} title={cannot || undefined} disabled={!!cannot || asking}
                     checked={ticked.includes(pid)} onChange={(e) => setTicked(e.target.checked ? [...ticked, pid] : ticked.filter((x) => x !== pid))} /></td>
-                  <td><Link to={`/conformance/projects/${p.projectSlug}`}>{p.projectSlug}</Link>{p.joins && <span className="badge" style={{ marginLeft: 6 }}>would join</span>}</td>
+                  <td><Link to={`/conformance/projects/${p.projectSlug}`}>{p.projectSlug}</Link>{p.joins && <span className="badge what-if-page-badge">would join</span>}</td>
                   <td><Status word={p.statusLabel} help={OUTCOME_WORDS[p.outcome]} /></td>
                   <td><ScoreLine s={p.score} />{p.fixed > 0 && <div className="muted">{p.fixed} fixed</div>}</td>
                   <td><details><summary>Check details</summary>
@@ -339,21 +340,21 @@ function Row({ r }: { r: WhatIfRow }) {
   const what = r.block ? <code>{r.block} · {r.check}</code> : <span>the whole project</span>
   const sides = r.block ? `adopted: ${r.current || 'not required'} → this version: ${r.proposed || 'not required'}` : ''
   return (
-    <div className="card" style={{ padding: '6px 10px', marginTop: 6 }}>
-      <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+    <div className="card what-if-page-moves-card">
+      <div className="row what-if-page-summary-div">
         {what}
         <Status word={r.statusLabel} help={RESULT_WORDS[r.result] ?? r.result} />
         <span className="muted">{sides}</span>
       </div>
-      {r.detail && <div className="muted" style={{ marginTop: 2 }}>{r.detail}</div>}
+      {r.detail && <div className="muted what-if-page-row-div">{r.detail}</div>}
       {r.result === 'would-fail' && (
-        <div className="muted" style={{ marginTop: 2 }}>
+        <div className="muted what-if-page-row-div">
           {r.history
             ? `Past fixes of this check: ${r.history.attempts}, median ${r.history.medianMinutes.toFixed(0)} min and $${r.history.medianCost.toFixed(2)}, ${Math.round(r.history.succeededShare * 100)}% landed.`
             : 'Past fixes of this check: no history.'}
         </div>
       )}
-      {r.brief && <details style={{ marginTop: 4 }}><summary>The brief a fix would start from</summary><pre style={{ whiteSpace: 'pre-wrap', fontSize: 'var(--fs-xs)' }}>{r.brief}</pre></details>}
+      {r.brief && <details className="mt-1"><summary>The brief a fix would start from</summary><pre className="what-if-page-row-pre">{r.brief}</pre></details>}
     </div>
   )
 }

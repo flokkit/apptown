@@ -1,5 +1,5 @@
-import { Section, Group } from '../Section'
 import './infrastructure.css'
+import { Section, Group } from '../Section'
 import { useHostStates } from '../hostState'
 import { useId, useState } from 'react'
 import { Status } from '../Status'
@@ -46,8 +46,8 @@ export function InfrastructureView() {
           const state = hostState(t.target, t.statusLabel)
           const help = state.help.startsWith('Host connection') ? (t.status ? `Target check: ${t.status}` : undefined) : state.help
           return (
-            <div key={t.target} className="card row" style={{ display: 'flex' }}>
-              <Link to={`/infrastructure/${t.target}`} className="row" style={{ display: 'flex', flex: 1, minWidth: 0 }}>
+            <div key={t.target} className="card row infrastructure-card">
+              <Link to={`/infrastructure/${t.target}`} className="row grow infrastructure-link">
                 <span className="row-status"><Status observation word={state.word} help={help} /></span>
                 <strong>{t.target}</strong>
                 <span className="muted small">{[t.place, state.summary, t.kind === 'docker-host' ? (t.asOf ? `read ${Math.max(0, Math.floor((Date.now() - Date.parse(t.asOf)) / 1000))} s ago, took ${Math.round(t.tookSeconds)} s` : 'never read') : t.asOf && !t.live && !state.summary.startsWith('last seen') ? lastSeen(t.asOf) : '', t.invalidated ? 'before the latest change' : ''].filter(Boolean).join(' · ')}</span>
@@ -71,19 +71,19 @@ export function DeletedProjects() {
   const q = useGet<ProjectCleanupList>(admin ? '/project-cleanups' : null, { poll: 20000 })
   const { run, busy, err: actErr } = useAction()
   if (!admin) return null
-  if (!q.data) return <div style={{ marginBottom: 16 }}><ReadStatus q={q} what="deleted projects' cleanup" /></div>
+  if (!q.data) return <div className="mb-4"><ReadStatus q={q} what="deleted projects' cleanup" /></div>
   const open = q.data.cleanups.filter((c) => c.state !== 'done')
   // None open, as last read: if that read may be old, say so.
   if (open.length === 0) return <StaleNote q={q} className="mb-4" />
   return (
-    <div className="card" style={{ marginBottom: 16 }}>
+    <div className="card mb-4" >
       <StaleNote q={q} />
       <strong>Deleted projects still being cleaned up</strong>
-      <p className="muted small" style={{ margin: '4px 0 8px' }}>
+      <p className="muted small infrastructure-deleted-projects-p">
         Cleanup removes containers, volumes and workspaces, then frees the project address.
       </p>
       {open.map((c) => (
-        <div key={c.projectId} className="row" style={{ gap: 10, alignItems: 'baseline', margin: '6px 0' }}>
+        <div key={c.projectId} className="row infrastructure-div">
           <b>{c.slug}</b>
           {c.state === 'needs-attention'
             ? <span className="error small">cleanup stopped after {c.attempts} tries: {c.detail}</span>
@@ -170,12 +170,12 @@ function ResourceRow({ r, target, onChanged, confirmed, invalidated, seenAt }: {
     seenAt ? lastSeen(seenAt) : '',
   ].filter(Boolean).join(' · ')
   return (
-    <div className="card row resource-row" style={{ display: 'flex', flexWrap: 'wrap', opacity: r.record === 'missing' ? 0.7 : undefined }}>
+    <div className="card row resource-row infrastructure-resource-row-card-resource-row" style={{ opacity: r.record === 'missing' ? 0.7 : undefined }}>
       <span className="row-status">{state}</span>
-      <strong style={{ overflowWrap: 'anywhere' }}>{r.name || `Unlinked ${r.kind}`}</strong>
-      <span className="muted small" style={{ flex: 1, minWidth: 0 }}>{meta}</span>
+      <strong className="infrastructure-resource-row-strong">{r.name || `Unlinked ${r.kind}`}</strong>
+      <span className="muted small grow infrastructure-resource-row-span">{meta}</span>
       <span className="row-action"><button aria-expanded={open} aria-controls={detailId} onClick={() => setOpen(!open)}>{open ? 'Hide resource' : 'View resource'}</button></span>
-      {open && <div id={detailId} className="resource-evidence small" style={{ flexBasis: '100%', margin: '4px 0 8px' }}>
+      {open && <div id={detailId} className="resource-evidence small infrastructure-resource-row-resource-evidence">
         {r.url && <div><a href={r.url} target="_blank" rel="noreferrer">{host}</a></div>}
         {r.id && <div className="muted" title="the provider's id">{r.id}</div>}
         {r.detail && <div className="muted">{r.detail}</div>}
@@ -189,7 +189,7 @@ function ResourceRow({ r, target, onChanged, confirmed, invalidated, seenAt }: {
         <div className="muted">{r.record === 'unrecorded' ? `At the provider, not in ${PRODUCT}'s records: made outside ${PRODUCT}, or before ${PRODUCT} lost its record.` : `${PRODUCT} records ownership of this resource.`}</div>
         {r.tags && r.tags.length > 0 && <div className="muted" title="the provider's tags">Tags: {r.tags.join(', ')}</div>}
         {removable && (
-          <div style={{ marginTop: 4 }}>
+          <div className="mt-1">
             <QuietConfirm label="Remove" ask={`Remove ${r.kind} ${r.name} from ${target}? ${PRODUCT} has no record of it${r.kind === 'volume' ? ', and a volume\'s data goes with it' : ''}.`}
               onYes={remove} yes="Remove" className="subtle danger" title={`Remove it; ${PRODUCT} has no record of it`} disabled={busy} />
             {err && <div className="error small">{err}</div>}

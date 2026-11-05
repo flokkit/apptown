@@ -1,0 +1,13 @@
+@layer pages {
+
+.step-card-inset { padding-left: var(--space-3); padding-right: var(--space-3); }
+.step-note { margin-top: calc(var(--space-1) * 1.5); }
+.step-list { margin: var(--space-1) 0 0 calc(var(--space-1) * 4.5); }
+.step-log { max-height: 400px; }
+.step-summary { margin: var(--space-1) 0 0; }
+.step-detail { margin-top: calc(var(--space-1) * 0.5); }
+.step-children { border-left: 2px solid var(--border); padding-left: var(--space-3); }
+.step-actions { flex-wrap: wrap; align-items: flex-start; }
+.step-live-log { max-height: 260px; }
+.step-finished-log { max-height: 300px; overflow: auto; white-space: pre-wrap; }
+}

@@ -58,6 +58,16 @@ field sizes at all three settings using the installed Playwright module
 `make precheck`, runs it alongside the row and disclosure browser checks.
 The pixel grid-track count may only decrease from `scripts/web-grid-baseline.json`.
 
+Static page styles belong in the page's stylesheet under `@layer pages`;
+repeated spacing and layout use the existing shared classes. Converted spacing
+names the rem space tokens, retaining the Small reference lengths. Dynamic
+lengths and colours use CSS custom properties where practical. `Spinner` owns
+the shared progress ring. `make check-web-inline-style` limits inline style
+objects and pixel lengths per production TSX file against
+`scripts/web-style-baseline.json`. Both counts may only decrease; a new file
+starts at zero and deleted files no longer contribute. Check, precheck and CI
+run the ratchet.
+
 ## Phones and touch
 
 One interface serves every screen; a narrow one reflows rather than hides.

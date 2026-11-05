@@ -1,0 +1,17 @@
+@layer pages {
+
+.what-if-page-div { max-width: 1000px; }
+.what-if-page-div-2 { flex-wrap: wrap; gap: var(--space-2); }
+.what-if-page-decide-div { flex-wrap: wrap; gap: var(--space-2); margin: var(--space-3) 0; }
+.what-if-page-summary-div { flex-wrap: wrap; gap: calc(var(--space-1) * 1.5); }
+.what-if-page-fleet-card { padding: calc(var(--space-1) * 1.5) calc(var(--space-1) * 2.5); margin: var(--space-2) 0; }
+.what-if-page-div-3 { margin-top: calc(var(--space-1) * 1.5); }
+.what-if-page-code { overflow-wrap: anywhere; }
+.what-if-page-moves-card { padding: calc(var(--space-1) * 1.5) calc(var(--space-1) * 2.5); margin-top: calc(var(--space-1) * 1.5); }
+.what-if-page-table-div { gap: var(--space-2); margin: var(--space-2) 0; }
+.what-if-page-table-div-2 { overflow-x: auto; }
+.what-if-page-table-whatif-table { width: 100%; }
+.what-if-page-badge { margin-left: calc(var(--space-1) * 1.5); }
+.what-if-page-row-div { margin-top: calc(var(--space-1) * 0.5); }
+.what-if-page-row-pre { white-space: pre-wrap; font-size: var(--fs-xs); }
+}

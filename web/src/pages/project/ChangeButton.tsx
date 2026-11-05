@@ -1,3 +1,4 @@
+import './ChangeButton.css'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { get, post } from '../../api'
@@ -28,7 +29,7 @@ export function ChangeButton({ slug, chatAvailable, compact = false, primary = f
         { label: 'Catalog change', hint: 'run one of the prepared changes', onClick: () => setCatalogOpen(true) },
         ...(chatAvailable ? [{ label: 'New change, detailed', hint: 'pick the title and workflow yourself', onClick: () => setDetailedOpen(true) }] : []),
       ]} />
-    {err && <div className="error" style={{ marginTop: 10 }}>{err}</div>}
+    {err && <div className="error change-button-error">{err}</div>}
     {catalogOpen && <CatalogPicker slug={slug} onClose={() => setCatalogOpen(false)} />}
     {detailedOpen && <NewChangeButton slug={slug} external={{ open: true, onClose: () => setDetailedOpen(false) }} />}
   </>
@@ -73,18 +74,18 @@ export function CatalogPicker({ slug, onClose }: { slug: string; onClose: () => 
 
   return (
     <Modal onClose={onClose} maxWidth={640}
-      title={<><h2 style={{ margin: 0 }}>Catalog change</h2><span className="muted small">prepared changes, run the same way every time</span></>}>
-      <div style={{ fontSize: 'var(--fs-base)', fontWeight: 'normal' }}>
+      title={<><h2 className="change-button-catalog-picker-h2">Catalog change</h2><span className="muted small">prepared changes, run the same way every time</span></>}>
+      <div className="change-button-catalog-picker-div">
         <ReadStatus q={entriesQ} what="the catalog" className="small" />
         <StaleNote q={entriesQ} />
         {entriesQ.data && entries.length === 0 && <div className="muted small">The catalog is empty.</div>}
         {entries.map((e) => e.missingWorkflow ? (
-          <div key={e.name} className="card" style={{ opacity: 0.6 }}>
+          <div key={e.name} className="card change-button-card">
             <div className="row">
               <strong><code>{e.name}</code></strong>
             </div>
-            <div className="small" style={{ marginTop: 4 }}>{e.description}</div>
-            <div className="small" style={{ marginTop: 6 }}>
+            <div className="small mt-1" >{e.description}</div>
+            <div className="small change-button-div">
               needs the <code>{e.missingWorkflow}</code> workflow
               {e.fromPack ? <> — it comes with the latest <code>{e.fromPack}</code> pack.{' '}
                 <QuietConfirm label="Pull latest pack…" className="subtle" yes="Pull it"
@@ -95,23 +96,21 @@ export function CatalogPicker({ slug, onClose }: { slug: string; onClose: () => 
             </div>
           </div>
         ) : (
-          <div key={e.name} className="card" style={{
-            cursor: 'pointer', borderColor: picked?.name === e.name ? 'var(--accent)' : undefined,
-          }}>
+          <div key={e.name} className="card change-button-card-2" style={{ borderColor: picked?.name === e.name ? 'var(--accent)' : undefined }}>
             <button className="catalog-entry subtle" aria-expanded={picked?.name === e.name} onClick={() => setPicked(picked?.name === e.name ? null : e)}>
             <div className="row">
               <strong><code>{e.name}</code></strong>
             </div>
-            <div className="small" style={{ marginTop: 4 }}>{e.description}</div>
+            <div className="small mt-1" >{e.description}</div>
             </button>
             {picked?.name === e.name && <ReadStatus q={defQ} what="the change's definition" className="small" />}
             {picked?.name === e.name && def && (
-              <div style={{ marginTop: 10 }} onClick={(ev) => ev.stopPropagation()}>
+              <div  onClick={(ev) => ev.stopPropagation()} className="change-button-error">
                 {(def.params ?? []).map((p) => (
-                  <div className="row" key={p.name} style={{ marginBottom: 6 }}>
-                    <label className="small" style={{ minWidth: 110 }}>{p.name}{p.required ? ' *' : ''}</label>
+                  <div className="row change-button-div-2" key={p.name}>
+                    <label className="small change-button-label">{p.name}{p.required ? ' *' : ''}</label>
                     <input aria-label={p.name} value={params[p.name] ?? ''} placeholder={p.description ?? p.default ?? ''}
-                      onChange={(ev) => setParams({ ...params, [p.name]: ev.target.value })} style={{ flex: 1 }} />
+                      onChange={(ev) => setParams({ ...params, [p.name]: ev.target.value })} className="grow" />
                   </div>
                 ))}
                 <div className="row">

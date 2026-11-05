@@ -55,7 +55,7 @@ function UpdateDetails() {
   const failedCheck = !!data?.lastAttempt && (!data.lastSuccess || Date.parse(data.lastAttempt) - Date.parse(data.lastSuccess) > 1000)
   return <div>
     <div className="page-head-row" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <h1 style={{ flex: 1 }}>Updates</h1>
+      <h1 className="grow">Updates</h1>
       {/* A development build is updated by deploying it; a release channel
           has nothing to say about it. */}
       {!development && <button className="primary" disabled={checking || data?.state === 'checking'} onClick={() => void check()}>{checking ? 'Checking…' : 'Check for updates'}</button>}

@@ -1,0 +1,8 @@
+@layer pages {
+
+.infrastructure-home-tabs { margin-top: calc(var(--space-1) * 2.5); }
+.infrastructure-home-job-queue-div { margin-top: calc(var(--space-1) * 3.5); }
+.infrastructure-home-job-queue-p { margin: 0 0 var(--space-2); max-width: 760px; }
+.infrastructure-home-job-queue-div-2 { overflow-x: auto; }
+.infrastructure-home-job-queue-job-table { font-variant-numeric: tabular-nums; }
+}

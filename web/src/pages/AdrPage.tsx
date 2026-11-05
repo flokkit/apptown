@@ -86,17 +86,17 @@ export default function AdrPage() {
         <Link to={`/projects/${adr.projectSlug}/settings/decisions`}>{adr.projectSlug} · decisions</Link>
       </div>
       <div className="row">
-        <h1 style={{ marginBottom: 0 }}>ADR-{String(adr.number).padStart(3, '0')} — {adr.title}</h1>
+        <h1 className="mb-0">ADR-{String(adr.number).padStart(3, '0')} — {adr.title}</h1>
         <Status word={adr.statusLabel} help={`Decision: ${adr.status}.`} />
       </div>
-      <div className="muted small" style={{ marginBottom: 12 }}>
+      <div className="muted small mb-3" >
         tags: {adr.tags || '—'} · updated {fmtWhen(adr.updatedAt)}
         {adr.changeId && <> · linked to <Link to={`/changes/${adr.changeId}`}>{adr.changeNumber ? `change ${adr.changeNumber}` : 'a change'}</Link></>}
         {adr.supersedesId && <> · supersedes <Link to={`/adrs/${adr.supersedesId}`}>ADR</Link></>}
         {supersededBy && <> · superseded by <Link to={`/adrs/${supersededBy}`}>ADR</Link></>}
       </div>
 
-      <div className="row" style={{ marginBottom: 16 }}>
+      <div className="row mb-4" >
         {options.transitions.map((t) => confirmTransition[t]
           ? <QuietConfirm key={t} label={`→ ${t}`} className="" ask={confirmTransition[t]} onYes={() => void transition(t)} />
           : (
@@ -115,7 +115,7 @@ export default function AdrPage() {
           <div className="error">{actErr}</div>
           <div className="muted small">The decision as it is now:</div>
           <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(`**${adr.title}** (tags: ${adr.tags || '—'})\n\n${adr.bodyMd}`) }} />
-          <div className="row mt-2">
+          <div className="row mt-2" >
             <button disabled={!current} onClick={keepMine}>Keep my edits</button>
             <button onClick={discard}>Discard mine</button>
           </div>
@@ -124,14 +124,14 @@ export default function AdrPage() {
 
       {editing ? (
         <div>
-          <div className="form-grid" style={{ marginBottom: 8, maxWidth: 700 }}>
+          <div className="form-grid mb-2" style={{ maxWidth: 700 }}>
             <label>Title</label>
             <input aria-label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
             <label>Tags</label>
             <input aria-label="Tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="comma,separated" />
           </div>
           <textarea aria-label="Decision" rows={18} value={body} onChange={(e) => setBody(e.target.value)} placeholder="# Context&#10;…&#10;# Decision&#10;…&#10;# Consequences&#10;…" />
-          <div className="row" style={{ marginTop: 8 }}>
+          <div className="row mt-2" >
             <button className="primary" disabled={busy || moved} onClick={() => void save()}>Save</button>
             <button onClick={() => { setEditing(false); load() }}>Cancel</button>
           </div>

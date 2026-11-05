@@ -27,6 +27,6 @@ it('shows a queued review as waiting, with no spinner and no "of ?"', () => {
   const queued = render('queued')
   expect(queued.textContent).toContain('Queued')
   expect(queued.textContent).not.toContain('?')
-  expect(queued.querySelector('[style*="spin"]')).toBeNull()
-  expect(render('running').querySelector('[style*="spin"]')).not.toBeNull()
+  expect(queued.querySelector('[role="status"][aria-label="running"]')).toBeNull()
+  expect(render('running').querySelector('[role="status"][aria-label="running"]')).not.toBeNull()
 })

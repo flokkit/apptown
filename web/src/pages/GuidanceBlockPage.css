@@ -1,0 +1,11 @@
+@layer pages {
+
+.guidance-block-page-div { align-items: baseline; flex-wrap: wrap; }
+.guidance-block-page-h1 { margin: 0; }
+.guidance-block-page-form-grid { max-width: 700px; }
+.guidance-block-page-card { width: 100%; text-align: left; }
+.guidance-block-page-div-2 { flex-wrap: wrap; }
+.guidance-block-page-div-3 { margin-top: calc(var(--space-1) * 0.5); }
+.guidance-block-page-log { max-height: 120px; }
+.guidance-block-page-div-4 { font-style: italic; }
+}

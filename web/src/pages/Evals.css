@@ -3,4 +3,26 @@
 @media (max-width: 800px) {
   .evals-page .page-head-row button.page-help-q { margin-left: -10px; background: radial-gradient(circle, transparent 11px, var(--border-strong) 11px, var(--border-strong) 12px, transparent 12.5px); }
 }
+
+.evals-row { flex-wrap: wrap; gap: var(--space-2); }
+.evals-form { max-width: 760px; }
+.evals-choices { gap: var(--space-3); flex-wrap: wrap; }
+.evals-compare-label { display: block; margin-top: calc(var(--space-1) * 1.5); }
+.evals-inline-field { margin-left: calc(var(--space-1) * 1.5); }
+.evals-note { margin-top: calc(var(--space-1) * 1.5); }
+.evals-pick { gap: calc(var(--space-1) * 1.5); }
+.evals-budget { width: 90px; }
+.evals-warning { border-left: 3px solid var(--warn); }
+.evals-actions { gap: var(--space-2); }
+.evals-title { margin: 0; }
+.evals-summary { gap: var(--space-4); flex-wrap: wrap; margin: calc(var(--space-1) * 2.5) 0; }
+.evals-aside { margin-left: var(--space-2); }
+.evals-tally { margin-bottom: calc(var(--space-1) * 2.5); }
+.evals-tally-heading { text-align: left; }
+.evals-tally-cell { text-align: center; }
+.evals-arm-heading { gap: calc(var(--space-1) * 1.5); flex-wrap: wrap; }
+.evals-arm-meta { gap: var(--space-1); flex-wrap: wrap; }
+.evals-arm-output { white-space: pre-wrap; max-height: 360px; overflow: auto; }
+.evals-checks { margin-top: calc(var(--space-1) * 1.5); width: 100%; }
+.evals-detail { margin-top: calc(var(--space-1) * 0.5); }
 }

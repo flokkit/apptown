@@ -37,7 +37,7 @@ function ProjectRow({ p, fact, base }: { p: ProjectStanding; fact: string; base:
   const meta = [fact.replace(/\.$/, ''), p.lanes.broken > 0 ? `${p.lanes.broken} couldn't run` : '', p.judgedAt ? `checked ${relTime(p.judgedAt)}` : 'not checked yet'].filter(Boolean).join(' · ')
   return (
     <div className="card row" style={{ display: 'flex' }}>
-      <Link to={`${base}/projects/${p.slug}`} className="row" style={{ display: 'flex', flex: 1, minWidth: 0 }}>
+      <Link to={`${base}/projects/${p.slug}`} className="row grow" style={{ display: 'flex', minWidth: 0 }}>
         <span className="row-status">{findings > 0
           ? <span className="finding-count" title={p.sentence}>{findings} {findings === 1 ? 'finding' : 'findings'}</span>
           : <Status word={p.statusLabel} help={p.sentence} />}</span>

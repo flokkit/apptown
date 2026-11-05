@@ -54,7 +54,7 @@ export function OfferForm({ target, groups, onDone }: { target: string; groups: 
     if (r) onDone(true)
   }
   return (
-    <div className="card" style={{ padding: 10, marginTop: 4 }}>
+    <div className="card mt-1" style={{ padding: 10 }}>
       <div className="form-grid" style={{ maxWidth: 'none' }}>
         <label>To</label>
         <select aria-label="Offer to" value={group} onChange={(e) => setGroup(e.target.value)}>
@@ -72,7 +72,7 @@ export function OfferForm({ target, groups, onDone }: { target: string; groups: 
           <label key={x} className="small"><input type="checkbox" checked={data.includes(x)} onChange={() => toggle(data, setData, x)} /> {x}</label>
         ))}</span>
       </div>
-      <div className="row" style={{ marginTop: 8 }}>
+      <div className="row mt-2" >
         <button className="primary" disabled={busy} onClick={save}>Offer</button>
         <button className="subtle" disabled={busy} onClick={() => onDone(false)}>Cancel</button>
         {err && <span className="error small">{err}</span>}

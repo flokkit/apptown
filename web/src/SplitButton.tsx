@@ -9,8 +9,8 @@ export function SplitButton({ icon, label, sub, busy, primary, green, compact = 
   const toneStyle = green ? { background: 'var(--ok-bg)', border: '1px solid var(--ok)' } : {}
   return (
     <div className="split-button" style={{ position: 'relative', display: 'flex', flex: compact ? undefined : '1 1 300px', alignItems: 'stretch' }}>
-      <button className={`${face}${compact ? '' : ' btn-door'}`} onClick={onMain} disabled={busy}
-        style={{ flex: 1, borderTopRightRadius: items.length > 0 ? 0 : undefined, borderBottomRightRadius: items.length > 0 ? 0 : undefined, ...toneStyle }}>
+      <button className={(`${face}${compact ? '' : ' btn-door'}`) + " grow"} onClick={onMain} disabled={busy}
+        style={{ borderTopRightRadius: items.length > 0 ? 0 : undefined, borderBottomRightRadius: items.length > 0 ? 0 : undefined, ...toneStyle }}>
         <span className="action-label">{busy ? '…' : `${icon ? icon + ' ' : ''}${label}`}</span>
         {sub && <div className="btn-sub">{sub}</div>}
       </button>
