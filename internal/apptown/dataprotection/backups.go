@@ -18,8 +18,9 @@ import (
 
 // Backups (design/subsystems/deployment.md §8.3a as built): a set is one
 // directory per take with a manifest, recorded as a row with its items and
-// its state. AppTown keeps the newest BackupKeep per deployment. Taking a
-// set runs at the target; this is the ledger of what was taken.
+// its state. AppTown keeps the newest BackupKeep ordinary sets and three
+// pre-release sets per deployment. Taking a set runs at the target; this is
+// the ledger of what was taken.
 
 const BackupKeep = 7
 
@@ -107,7 +108,8 @@ type BackupItem struct {
 // ProjectBackup is a set with its project's name, for the fleet list.
 type ProjectBackup struct {
 	Backup
-	Project string `json:"project"`
+	Project       string `json:"project"`
+	BeforeRelease int64  `json:"beforeRelease,omitempty"`
 }
 
 type Backups struct {
@@ -117,7 +119,9 @@ type Backups struct {
 
 func (s *Backups) now() time.Time { return clock.Or(s.clock)().UTC() }
 
-func NewBackups(db *database.DB) *Backups { return &Backups{db: db} }
+func NewBackups(db *database.DB, now func() time.Time) *Backups {
+	return &Backups{db: db, clock: now}
+}
 
 // Record writes a taken set and its receipt together and returns its id.
 func (s *Backups) Record(ctx context.Context, b *Backup, who string) (ids.ID, error) {
@@ -314,6 +318,16 @@ func (b ProjectBackup) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(struct {
 		backupFields
-		Project string `json:"project"`
-	}{out, b.Project})
+		Project       string `json:"project"`
+		BeforeRelease int64  `json:"beforeRelease,omitempty"`
+	}{out, b.Project, b.BeforeRelease})
+}
+
+// Reference reads the set in its owning project, including pruned records.
+func (s *Backups) Reference(ctx context.Context, projectID, id ids.ID) (*BackupReference, error) {
+	b, err := s.inProject(ctx, projectID, id)
+	if err != nil {
+		return nil, err
+	}
+	return b.Reference(), nil
 }

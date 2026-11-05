@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
+	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
 )
@@ -13,10 +15,11 @@ import (
 type Backups struct {
 	projects *project.Projects
 	data     *dataprotection.Service
+	releases *deployment.Releases
 }
 
-func NewBackups(projects *project.Projects, data *dataprotection.Service) Backups {
-	return Backups{projects: projects, data: data}
+func NewBackups(projects *project.Projects, data *dataprotection.Service, releases *deployment.Releases) Backups {
+	return Backups{projects: projects, data: data, releases: releases}
 }
 
 // The backup routes' responses.
@@ -121,6 +124,24 @@ func (h Backups) AllBackups(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		WriteFault(w, err)
 		return
+	}
+	byProject := map[ids.ID][]ids.ID{}
+	for _, b := range out {
+		if b.Trigger == dataprotection.TriggerPreRelease {
+			byProject[b.ProjectID] = append(byProject[b.ProjectID], b.ID)
+		}
+	}
+	for projectID, ids := range byProject {
+		numbers, err := h.releases.BeforeBackups(r.Context(), projectID, ids)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		for i := range out {
+			if out[i].ProjectID == projectID {
+				out[i].BeforeRelease = numbers[out[i].ID]
+			}
+		}
 	}
 	WriteJSON(w, 200, AllBackups{Backups: out, Keep: dataprotection.BackupKeep, Where: h.data.BackupDirectory()})
 }

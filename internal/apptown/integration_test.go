@@ -624,7 +624,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 	if err := os.MkdirAll(backupPath, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	setID, err := dataprotection.NewBackups(db).Record(ctx, &dataprotection.Backup{ProjectID: pid, Deployment: "main", TakenAt: time.Now().UTC().Format(time.RFC3339Nano), Trigger: dataprotection.TriggerPreRelease, Path: backupPath, Status: dataprotection.BackupOK, Store: dataprotection.StoreAppTownDisk}, "restore-fixture")
+	setID, err := dataprotection.NewBackups(db, nil).Record(ctx, &dataprotection.Backup{ProjectID: pid, Deployment: "main", TakenAt: time.Now().UTC().Format(time.RFC3339Nano), Trigger: dataprotection.TriggerPreRelease, Path: backupPath, Status: dataprotection.BackupOK, Store: dataprotection.StoreAppTownDisk}, "restore-fixture")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -729,7 +729,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 	if err != nil || string(raw) != "untracked content\n" {
 		t.Fatalf("untracked content lost: %q %v", raw, err)
 	}
-	set, err := dataprotection.NewBackups(restored).ByID(ctx, pid, "main", setID)
+	set, err := dataprotection.NewBackups(restored, nil).ByID(ctx, pid, "main", setID)
 	if err != nil || set.Path != filepath.Join(target, "backups", "restore-project", "main", "recorded-set") {
 		t.Fatalf("backup reference not relocated: %+v %v", set, err)
 	}

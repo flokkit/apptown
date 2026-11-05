@@ -58,7 +58,7 @@ func deploymentInputsIn(ctx context.Context, tx *database.Tx, at Attempt) (Input
 		return Inputs{}, err
 	}
 	applied, err := appliedFrom(r.Applied)
-	return Inputs{Address: address, ReleaseID: r.ReleaseID, ReleaseRun: r.ReleaseRun, Revision: r.Revision,
+	return Inputs{Backup: r.BackupID, Address: address, ReleaseID: r.ReleaseID, ReleaseRun: r.ReleaseRun, Revision: r.Revision,
 		ImageDigest: r.ImageDigest, ArtifactHash: r.ArtifactHash, DockerSource: r.DockerSource, Rebuild: r.Rebuild, BundleID: r.BundleID, Applied: applied}, err
 }
 
@@ -76,7 +76,7 @@ func insertDeploymentInputsIn(ctx context.Context, tx *database.Tx, at Attempt, 
 		addressInput = &address
 	}
 	n, err := releasesql.New(tx.SQL()).InsertDeploymentInputs(ctx, releasesql.InsertDeploymentInputsParams{
-		AttemptID: at.ID, ReleaseID: in.ReleaseID, ReleaseRun: in.ReleaseRun, Revision: in.Revision,
+		BackupID: in.Backup, AttemptID: at.ID, ReleaseID: in.ReleaseID, ReleaseRun: in.ReleaseRun, Revision: in.Revision,
 		ImageDigest: in.ImageDigest, ArtifactHash: in.ArtifactHash, DockerSource: in.DockerSource, Rebuild: in.Rebuild, BundleID: in.BundleID,
 		Applied: applied, IngressJson: addressInput,
 	})

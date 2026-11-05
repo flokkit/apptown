@@ -75,7 +75,7 @@ func purgeFixtureState(t *testing.T, live bool) (*App, *fakeDocker, []string) {
 	if err := usage.New(a.DB).Record(context.Background(), usage.Entry{ProjectID: idstest.N(1), RunID: fx.Run, RootRunID: fx.Run, Kind: "agent", Actor: "owner"}, usage.Totals{Total: 123}, ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := dataprotection.NewBackups(a.DB).Record(context.Background(), &dataprotection.Backup{ProjectID: idstest.N(1), Deployment: "main", TakenAt: now(), Trigger: "test", Actor: "owner", Path: filepath.Join(a.cfg.dataDir, "backups", "retained-backup"), Status: dataprotection.BackupOK}, "owner"); err != nil {
+	if _, err := dataprotection.NewBackups(a.DB, a.cfg.clock.Now).Record(context.Background(), &dataprotection.Backup{ProjectID: idstest.N(1), Deployment: "main", TakenAt: now(), Trigger: "test", Actor: "owner", Path: filepath.Join(a.cfg.dataDir, "backups", "retained-backup"), Status: dataprotection.BackupOK}, "owner"); err != nil {
 		t.Fatal(err)
 	}
 	paths := []string{a.projectRepoPath("game"), filepath.Join(a.cfg.dataDir, "workspaces", "run-"+fx.Run.String()), filepath.Join(a.cfg.dataDir, "workspaces", "change-"+fx.Change.String())}
@@ -348,7 +348,7 @@ func TestProjectPurgeReceiptPrecedesCleanupAndPreservesAccounting(t *testing.T) 
 	}
 	// Its backups went with it: the final copy main's take-down made, and
 	// the ordinary set no newer set would ever have pruned.
-	if kept, err := dataprotection.NewBackups(a.DB).ForDeployment(context.Background(), idstest.N(1), "main", 10); err != nil || len(kept) != 0 {
+	if kept, err := dataprotection.NewBackups(a.DB, a.cfg.clock.Now).ForDeployment(context.Background(), idstest.N(1), "main", 10); err != nil || len(kept) != 0 {
 		t.Fatalf("purged project's backups: %+v %v", kept, err)
 	}
 	if cells, err := model.New(a.DB).Cells(context.Background()); err != nil || cells["purge"]["default"] != "provider/x" {
@@ -1061,7 +1061,7 @@ func TestADeletedProjectIsKeptUntilItIsRestored(t *testing.T) {
 	if after := purgeRemovalCounts(t, a); after != before {
 		t.Fatalf("a kept project's records changed: %+v, want %+v", after, before)
 	}
-	if kept, err := dataprotection.NewBackups(a.DB).ForDeployment(context.Background(), idstest.N(1), "main", 10); err != nil || len(kept) == 0 {
+	if kept, err := dataprotection.NewBackups(a.DB, a.cfg.clock.Now).ForDeployment(context.Background(), idstest.N(1), "main", 10); err != nil || len(kept) == 0 {
 		t.Fatalf("a kept project's backups: %+v %v", kept, err)
 	}
 	if _, err := os.Stat(paths[0]); err != nil {

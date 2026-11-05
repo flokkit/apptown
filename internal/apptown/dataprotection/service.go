@@ -186,9 +186,8 @@ type Dependencies struct {
 // and registers its operation kinds with the ledger.
 func New(starter *starter, deps Dependencies) *Service {
 	s := &Service{core: starter.core, starter: starter, deployments: deps.Deployments, releases: deps.Releases, bundles: deps.Bundles,
-		retained: deps.Retained, outcomes: deps.Outcomes, backups: NewBackups(starter.db), projects: deps.Projects, integrations: deps.Integrations,
+		retained: deps.Retained, outcomes: deps.Outcomes, backups: NewBackups(starter.db, starter.clock), projects: deps.Projects, integrations: deps.Integrations,
 		ops: deps.Operations, restored: deps.RestoredCopies, applied: deps.Applied, nativeFresh: nativeReadFor}
-	s.backups.clock = starter.clock
 	s.registerKinds()
 	return s
 }

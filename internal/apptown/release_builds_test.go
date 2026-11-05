@@ -423,6 +423,7 @@ type releaseWorker struct {
 	released map[string]bool
 	block    bool
 	exit     int
+	refused  bool
 	// open, if set, runs before each image file is served; an error is
 	// the transfer's.
 	open func(ctx context.Context, key, image, file string) error
@@ -433,6 +434,9 @@ func (w *releaseWorker) Capabilities() execution.Capabilities {
 }
 
 func (w *releaseWorker) Ensure(ctx context.Context, spec execution.TaskSpec) (execution.TaskObservation, error) {
+	if w.refused {
+		return execution.TaskObservation{}, fmt.Errorf("%w: release build refused", execution.ErrUnsupported)
+	}
 	if err := spec.Validate(time.Now()); err != nil {
 		return execution.TaskObservation{}, err
 	}
@@ -1273,6 +1277,26 @@ func TestInTheNoLocalDockerModeADigestBundleGoesToAnyAttachedHost(t *testing.T) 
 
 // A release build that fails fails the step with the end of its output;
 // nothing is published or deployed, and its task is settled and released.
+func TestARefusedWorkerBuildKeepsTheBackupResult(t *testing.T) {
+	t.Parallel()
+	w := newReleaseWorld(t, nil)
+	w.mainOn(t, w.lab)
+	_, stepID := w.landingRun(t)
+	w.worker.refused = true
+	w.a.Work.ExecuteStep(w.a.asEngine(t.Context()), stepID)
+	step := w.step(t, stepID)
+	var evidence struct {
+		FailedStage string `json:"failedStage"`
+		Backup      struct {
+			Outcome string `json:"outcome"`
+			Reason  string `json:"reason"`
+		} `json:"backup"`
+	}
+	if err := json.Unmarshal(step.Evidence, &evidence); err != nil || step.Status != workflow.StatusError || evidence.FailedStage != "building" || evidence.Backup.Outcome != "first-release" || evidence.Backup.Reason == "" {
+		t.Fatalf("worker refusal lost the backup result: %s %s %v", step.Status, step.Evidence, err)
+	}
+}
+
 func TestAFailedReleaseBuildFailsTheStepAndPublishesNothing(t *testing.T) {
 	t.Parallel()
 	w := newReleaseWorld(t, nil)
@@ -1283,6 +1307,16 @@ func TestAFailedReleaseBuildFailsTheStepAndPublishesNothing(t *testing.T) {
 	step := w.step(t, stepID)
 	if step.Status != workflow.StatusFail || !strings.Contains(string(step.Evidence), "the release build failed (exit 2)") || !strings.Contains(string(step.Evidence), "building") {
 		t.Fatalf("deploy step: %s %s", step.Status, step.Evidence)
+	}
+	var evidence struct {
+		FailedStage string `json:"failedStage"`
+		Backup      struct {
+			Outcome string `json:"outcome"`
+			Reason  string `json:"reason"`
+		} `json:"backup"`
+	}
+	if err := json.Unmarshal(step.Evidence, &evidence); err != nil || evidence.FailedStage != "building" || evidence.Backup.Outcome != "first-release" || evidence.Backup.Reason == "" {
+		t.Fatalf("worker build lost the earlier backup result: %s %v", step.Evidence, err)
 	}
 	if b, err := w.a.Deployment.Bundles.OfRun(context.Background(), idstest.N(1), run.ID); err != nil || b != nil {
 		t.Errorf("a failed build committed %+v %v", b, err)

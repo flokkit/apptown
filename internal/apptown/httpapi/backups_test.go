@@ -39,7 +39,7 @@ func backupHTTPFixture(t *testing.T, slug string) (Backups, ids.ID, *dataprotect
 	starter := dataprotection.NewStarter(db, dataprotection.StarterDependencies{Targets: targets, Hosts: hosts, Environment: environment, Catalog: catalog, DataDir: dir})
 	svc := deployment.New(context.Background(), db, deployment.Dependencies{Targets: targets, Hosts: hosts, Environment: environment, CopyStarter: starter})
 	data := dataprotection.New(starter, dataprotection.Dependencies{Deployments: svc.Deployments, Releases: svc.Releases, Bundles: svc.Bundles, Retained: svc.Retained, Outcomes: svc.Outcomes, Projects: projects})
-	return NewBackups(projects, data), pid, dataprotection.NewBackups(db)
+	return NewBackups(projects, data, deployment.NewReleases(db)), pid, dataprotection.NewBackups(db, nil)
 }
 
 func TestBackupListHTTPIncludesSetsPlanAndRetention(t *testing.T) {

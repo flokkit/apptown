@@ -73,6 +73,7 @@ type DeploymentAttemptInput struct {
 	BundleID     ids.ID
 	Applied      json.RawMessage
 	IngressJson  *json.RawMessage
+	BackupID     ids.ID
 }
 
 type DeploymentLimitEvent struct {
@@ -163,6 +164,7 @@ type Release struct {
 	Generation   int64
 	ArtifactHash string
 	Origin       string
+	BackupID     ids.ID
 }
 
 type ReleaseBundle struct {

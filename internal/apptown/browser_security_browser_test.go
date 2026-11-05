@@ -3631,7 +3631,7 @@ app:
 	if os.Getenv("APPTOWN_DESIGN_AUDIT") != "" {
 		// Imported backup metadata exercises retained final and partial sets.
 		// The camera never executes a restore of these records.
-		store := dataprotection.NewBackups(a.DB)
+		store := dataprotection.NewBackups(a.DB, a.cfg.clock.Now)
 		copies, err := store.ForDeployment(ctx, project.ID, "main", 1)
 		if err != nil || len(copies) == 0 {
 			t.Fatalf("capture backup: %v", err)

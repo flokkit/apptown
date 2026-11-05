@@ -297,7 +297,7 @@ func TestARestoredDeploymentIsRebuiltWithItsDataBeforeItsAppStarts(t *testing.T)
 					b.Status = dataprotection.BackupPartial
 					b.Items = []dataprotection.BackupItem{{Kind: "need", Name: "postgres", File: "postgres.dump", Error: "pg_dump: connection refused"}}
 				}
-				if set, err = dataprotection.NewBackups(a.DB).Record(ctx, b, "test"); err != nil {
+				if set, err = dataprotection.NewBackups(a.DB, a.cfg.clock.Now).Record(ctx, b, "test"); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -396,7 +396,7 @@ func TestRestoredDatabaseBindsNewStorageBeforeEngineAndImport(t *testing.T) {
 				item.SHA256 = strings.Repeat("0", 64)
 			}
 			b := &dataprotection.Backup{ProjectID: dep.ProjectID, Deployment: dep.Name, TakenAt: "2026-10-25T00:00:00Z", Trigger: dataprotection.TriggerPreRelease, Path: dir, Status: dataprotection.BackupOK, Store: dataprotection.StoreAppTownDisk, Items: []dataprotection.BackupItem{item}}
-			set, err := dataprotection.NewBackups(a.DB).Record(t.Context(), b, "test")
+			set, err := dataprotection.NewBackups(a.DB, a.cfg.clock.Now).Record(t.Context(), b, "test")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -513,7 +513,7 @@ func TestARestoredAppTownFillsEachAppFromItsNewestWholeSet(t *testing.T) {
 				if status != dataprotection.BackupOK {
 					b.Items = []dataprotection.BackupItem{{Kind: "volume", Name: "data", File: "data.tar", Error: "copy failed"}}
 				}
-				id, err := dataprotection.NewBackups(a.DB).Record(ctx, b, "test")
+				id, err := dataprotection.NewBackups(a.DB, a.cfg.clock.Now).Record(ctx, b, "test")
 				if err != nil {
 					t.Fatal(err)
 				}

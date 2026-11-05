@@ -43,5 +43,6 @@ type statusItem remediation.Item
 type StatusBackup dataprotection.Backup
 type statusProjectBackup struct {
 	StatusBackup
-	Project string `json:"project"`
+	Project       string `json:"project"`
+	BeforeRelease int64  `json:"beforeRelease,omitempty"`
 }

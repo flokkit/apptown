@@ -11,7 +11,7 @@ import type { DeployStage } from '../../wire.gen'
 it.each(Object.keys(deployWords) as DeployStage[])('draws only the reported %s frame and names it in words', stage => {
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<DeployScene stage={stage} outcome="running" />)
-  const index = Object.keys(deployWords).indexOf(stage) + 1
+  const index = ['preparing', 'building', 'starting', 'checking', 'live'].indexOf(stage === 'backing-up' ? 'preparing' : stage) + 1
   expect(el.querySelector('.deploy-scene')?.classList.contains(`g${index}`)).toBe(true)
   expect(el.querySelector('.deploy-scene')?.classList.contains(`g${index + 1}`)).toBe(false)
   expect(el.querySelector('[role="img"]')?.getAttribute('aria-label')).toContain(deployWords[stage])
@@ -94,13 +94,24 @@ it.each(['starting', 'checking', 'live'] as const)('shows the cumulative windows
   } finally { el.remove(); style.remove() }
 })
 
+it('shows the backup stage between preparing and building, including a stopped copy', () => {
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<DeployScene stage="backing-up" outcome="running" />)
+  const rows = [...el.querySelectorAll('.deploy-stages li')].map(row => row.textContent)
+  expect(rows[0]).toContain('Getting the code ready')
+  expect(rows[1]).toContain('Backing up the datanow')
+  expect(rows[2]).toContain('Building the app')
+  el.innerHTML = renderToStaticMarkup(<DeployScene failedStage="backing-up" outcome="failed" />)
+  expect(el.querySelectorAll('.deploy-stages li')[1].textContent).toContain('Backing up the datastopped')
+})
+
 it('marks finished, running, unreached and stopped stages beside a separate drawing panel', () => {
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<DeployScene stage="starting" outcome="running" />)
   const rows = [...el.querySelectorAll('.deploy-stages li')]
-  expect(rows.map(row => row.querySelector('.deploy-stage-mark')?.textContent)).toEqual(['✓', '✓', '', '·', '·'])
-  expect(rows[2].querySelector('[aria-label="running"]')).not.toBeNull()
-  expect(rows[2].textContent).toContain('Starting the appnow')
+  expect(rows.map(row => row.querySelector('.deploy-stage-mark')?.textContent)).toEqual(['✓', '✓', '✓', '', '·', '·'])
+  expect(rows[3].querySelector('[aria-label="running"]')).not.toBeNull()
+  expect(rows[3].textContent).toContain('Starting the appnow')
   expect(el.querySelector('.deploy-scene-panel + .deploy-stages')).not.toBeNull()
   el.innerHTML = renderToStaticMarkup(<DeployScene failedStage="starting" outcome="failed" />)
   expect(el.querySelector('.deploy-stage-mark.bad')?.textContent).toBe('✗')

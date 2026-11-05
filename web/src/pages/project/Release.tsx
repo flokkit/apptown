@@ -144,6 +144,8 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
             <> Open it at <a href={r.notes} target="_blank" rel="noreferrer"><strong>{r.notes}</strong></a></>
           )}
         </div>
+        {!data.backup && data.backupReason && <p>{data.backupReason}</p>}
+        {data.backup && <p><Link to={`/deployments/backups#backup-${data.backup.id}`}>{data.backup.status === 'ok' ? 'Backed up before this release →' : data.backup.status === 'pruned' ? 'Backup before this release was removed →' : 'Backup before this release was incomplete →'}</Link></p>}
         {data.changes.length > 0 && (
           <div style={{ margin: '16px 0' }}>
             <h3 style={{ margin: '0 0 6px' }}>Changes</h3>

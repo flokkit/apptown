@@ -16,6 +16,7 @@ type Inputs struct {
 	Address    *AddressSnapshot
 	ReleaseID  ids.ID
 	ReleaseRun ids.ID
+	Backup     ids.ID
 	// BundleID pins the release bundle a generation runs, ahead of its
 	// release's or its landing run's: a recovery clears ReleaseID, which
 	// settles one release once, and names its bundle here; a landing whose
@@ -38,7 +39,7 @@ func (in Inputs) same(other Inputs) bool {
 	if (in.Address == nil) != (other.Address == nil) || (in.Address != nil && !in.Address.same(*other.Address)) {
 		return false
 	}
-	if in.ReleaseID != other.ReleaseID || in.ReleaseRun != other.ReleaseRun || in.BundleID != other.BundleID ||
+	if in.Backup != other.Backup || in.ReleaseID != other.ReleaseID || in.ReleaseRun != other.ReleaseRun || in.BundleID != other.BundleID ||
 		in.Revision != other.Revision || in.ImageDigest != other.ImageDigest || in.ArtifactHash != other.ArtifactHash ||
 		in.DockerSource != other.DockerSource || in.Rebuild != other.Rebuild {
 		return false

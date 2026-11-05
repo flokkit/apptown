@@ -23,10 +23,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/dbschema"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/console/consoletest"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
@@ -1300,6 +1302,7 @@ func TestALandingDoesNotReleaseOverDataItCouldNotCopy(t *testing.T) {
 	t.Parallel()
 	a, f := bootWorld(t)
 	runID, stepID := deployRun(t, a)
+	keepDeploySourceForBackups(t, a, runID)
 	// main holds production data.
 	attrs := deployment.Attributes{Feed: "landing", Audience: "team", DataClass: "production"}
 	target, err := a.Deployment.LandingTarget(t.Context(), idstest.N(1), "main", attrs)
@@ -1347,6 +1350,19 @@ func TestALandingDoesNotReleaseOverDataItCouldNotCopy(t *testing.T) {
 		}
 	}
 
+	var failed struct {
+		FailedStage string `json:"failedStage"`
+		Backup      struct {
+			dataprotection.CopyOutcome
+			Accepted *workflow.UncopiedDataAcceptance `json:"accepted"`
+		} `json:"backup"`
+	}
+	if err := json.Unmarshal(s.Evidence, &failed); err != nil {
+		t.Fatal(err)
+	}
+	if failed.FailedStage != "backing-up" || failed.Backup.Set == nil || failed.Backup.Set.Status == dataprotection.BackupOK {
+		t.Fatalf("failed copy evidence: %s", s.Evidence)
+	}
 	// Acting for bls is not bls's decision: not an agent's connection, nor
 	// a chat that may otherwise retry the step.
 	for _, p := range []access.Principal{
@@ -1369,6 +1385,18 @@ func TestALandingDoesNotReleaseOverDataItCouldNotCopy(t *testing.T) {
 	if err != nil || s.Status != workflow.StatusPass {
 		t.Fatalf("a person's acceptance did not release: %+v %v", s, err)
 	}
+	var passed struct {
+		Backup struct {
+			dataprotection.CopyOutcome
+			Accepted *workflow.UncopiedDataAcceptance `json:"accepted"`
+		} `json:"backup"`
+	}
+	if err := json.Unmarshal(s.Evidence, &passed); err != nil {
+		t.Fatal(err)
+	}
+	if passed.Backup.Set == nil || passed.Backup.Set.Status == dataprotection.BackupOK || passed.Backup.Accepted == nil || passed.Backup.Accepted.By != "bls" {
+		t.Fatalf("accepted copy became success: %s", s.Evidence)
+	}
 	logs, err := a.Work.RunArtifacts(asPerson("bls"), runID, workflow.ArtifactSelection{Kinds: []string{"agent-log"}})
 	if err != nil {
 		t.Fatal(err)
@@ -1388,6 +1416,43 @@ func TestALandingDoesNotReleaseOverDataItCouldNotCopy(t *testing.T) {
 	a.Work.ExecuteStep(engine, stepID)
 	if s, err := workflow.ReadStepIn(t.Context(), a.DB, stepID); err != nil || s.Status != workflow.StatusError {
 		t.Fatalf("an earlier acceptance carried over to a later attempt: %+v %v", s, err)
+	}
+	// A copy that cannot even be assessed keeps its reason and acceptance without a set.
+	if err := retry(asPerson("bls"), true); err != nil {
+		t.Fatal(err)
+	}
+	dbtest.FailNextStatement(t, a.DB, "-- name: OwnedByDeployment")
+	a.Work.ExecuteStep(engine, stepID)
+	s, err = workflow.ReadStepIn(t.Context(), a.DB, stepID)
+	if err != nil || s.Status != workflow.StatusPass {
+		t.Fatalf("accepted unknown copy: %+v %v", s, err)
+	}
+	passed = struct {
+		Backup struct {
+			dataprotection.CopyOutcome
+			Accepted *workflow.UncopiedDataAcceptance `json:"accepted"`
+		} `json:"backup"`
+	}{}
+	if err := json.Unmarshal(s.Evidence, &passed); err != nil {
+		t.Fatal(err)
+	}
+	if passed.Backup.Outcome != "unavailable" || passed.Backup.Set != nil || passed.Backup.Accepted == nil || passed.Backup.Accepted.By != "bls" || passed.Backup.Reason == "" {
+		t.Fatalf("unknown copy evidence: %s", s.Evidence)
+	}
+	run, err := a.Work.Snapshot(asPerson("bls"), runID, workflow.DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out, err := a.Work.AdvanceFrom(engine, run.Run); err != nil || out.RunStatus != workflow.RunDone {
+		t.Fatalf("accepted workflow completion: %+v %v", out, err)
+	}
+	detail := authzCall(a.Handler(), "bls", "GET", "/api/v1/projects/p/releases/1", "")
+	var view struct {
+		Backup *dataprotection.BackupReference `json:"backup"`
+		Reason string                          `json:"backupReason"`
+	}
+	if err := json.Unmarshal(detail.Body.Bytes(), &view); err != nil || detail.Code != 200 || view.Backup != nil || !strings.Contains(view.Reason, passed.Backup.Reason) || !strings.Contains(view.Reason, "accepted by bls") {
+		t.Fatalf("accepted unknown copy on release: %d %s %v", detail.Code, detail.Body.String(), err)
 	}
 }
 
@@ -1424,5 +1489,169 @@ secrets = ["WP_ADMIN_PASSWORD"]
 	}
 	if saved.Status != workflow.StatusNeedsHuman || len(evidence.Actions) != 1 || !strings.Contains(evidence.Actions[0], "WP_ADMIN_PASSWORD") || !strings.Contains(evidence.Actions[0], "Settings") {
 		t.Fatalf("missing secret must name the person's action: %s %s", saved.Status, saved.Evidence)
+	}
+}
+
+func TestWorkflowCompletionLinksOnlyTheSuccessfulAttemptsBackup(t *testing.T) {
+	t.Parallel()
+	a, f := bootWorld(t)
+	runID, stepID := deployRun(t, a)
+	source, err := workflow.ReadSourceIn(t.Context(), a.DB, workflow.RunRef{ID: runID, ProjectID: idstest.N(1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws, err := source.Workspace(a.cfg.dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Keep only app data so the test copies one volume through the streaming adapter.
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("app:\n  web:\n    build: .\n    public: true\n    ports: [\"8080\"]\n    dataDir: /data\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	commitFolder(t, ws)
+	sawCopy := false
+	f.command = func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
+		if req.Stdout != nil && strings.Contains(strings.Join(req.Args, " "), "/src:ro") {
+			feed, ok := a.progress.Read(stepID, 0)
+			if !ok || feed.Stage != "backing-up" {
+				t.Errorf("copy stage: %+v", feed)
+			}
+			sawCopy = true
+			_, err := containerresulttest.WriteString(req.Stdout, "volume data")
+			return nil, err
+		}
+		if len(req.Args) > 0 && req.Args[0] == "build" && sawCopy {
+			feed, ok := a.progress.Read(stepID, 0)
+			if !ok || feed.Stage != "building" {
+				t.Errorf("build stage after copy: %+v", feed)
+			}
+		}
+		out, err := f.run(req.Args...)
+		if req.Stdout != nil {
+			_, writeErr := req.Stdout.Write(out)
+			return nil, errors.Join(err, writeErr)
+		}
+		return out, err
+	}
+
+	keepDeploySourceForBackups(t, a, runID)
+	engine := a.asEngine(t.Context())
+	a.Work.ExecuteStep(engine, stepID) // first release has no previous data
+	retry := func() {
+		t.Helper()
+		if _, err := a.Work.RunStep(asPerson("bls"), workflow.RetryCommand{StepID: stepID}); err != nil && !errors.Is(err, workflow.ErrDispatchStopped) {
+			t.Fatal(err)
+		}
+		a.Work.ExecuteStep(engine, stepID)
+	}
+	f.reply = func(args []string) (string, error, bool) {
+		if len(args) > 0 && args[0] == "build" {
+			return "build failed", errFakeExit, true
+		}
+		return "", nil, false
+	}
+	retry()
+	read := func() (ids.ID, workflow.StepState) {
+		t.Helper()
+		step, err := workflow.ReadStepIn(t.Context(), a.DB, stepID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var evidence struct {
+			Backup struct {
+				Set *dataprotection.BackupReference `json:"set"`
+			} `json:"backup"`
+		}
+		if err := json.Unmarshal(step.Evidence, &evidence); err != nil {
+			t.Fatal(err)
+		}
+		if evidence.Backup.Set == nil || evidence.Backup.Set.Status != dataprotection.BackupOK {
+			t.Fatalf("copy lost after deploy: %s", step.Evidence)
+		}
+		return evidence.Backup.Set.ID, step.Status
+	}
+	failedID, status := read()
+	if status == workflow.StatusPass {
+		t.Fatal("build failure passed")
+	}
+	f.reply = nil
+	retry()
+	successfulID, status := read()
+	if !sawCopy {
+		t.Fatal("no copy ran")
+	}
+	if status != workflow.StatusPass || successfulID == failedID {
+		t.Fatalf("retry: %s %s %s", status, failedID, successfulID)
+	}
+	run, err := a.Work.Snapshot(asPerson("bls"), runID, workflow.DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out, err := a.Work.AdvanceFrom(engine, run.Run); err != nil || out.RunStatus != workflow.RunDone {
+		t.Fatalf("workflow completion: %+v %v", out, err)
+	}
+	receipt := workflow.ReleaseReceipt{Number: 1}
+	release, err := a.Deployment.Releases.ByNumber(t.Context(), run.Run.ProjectID, receipt.Number)
+	if err != nil || release.BackupID != successfulID {
+		t.Fatalf("release did not select successful attempt %s: %+v %v", successfulID, release, err)
+	}
+	numbers, err := a.Deployment.Releases.BeforeBackups(t.Context(), run.Run.ProjectID, []ids.ID{failedID, successfulID})
+	if err != nil || numbers[successfulID] != receipt.Number || numbers[failedID] != 0 {
+		t.Fatalf("reverse association: %v %v", numbers, err)
+	}
+	detail := authzCall(a.Handler(), "bls", "GET", fmt.Sprintf("/api/v1/projects/p/releases/%d", receipt.Number), "")
+	var view struct {
+		Backup *dataprotection.BackupReference `json:"backup"`
+	}
+	if err := json.Unmarshal(detail.Body.Bytes(), &view); err != nil || detail.Code != 200 || view.Backup == nil || view.Backup.ID != successfulID || view.Backup.Status != dataprotection.BackupOK {
+		t.Fatalf("release backup API: %d %s %v", detail.Code, detail.Body.String(), err)
+	}
+	listed := authzCall(a.Handler(), "bls", "GET", "/api/v1/backups", "")
+	var list struct {
+		Backups []dataprotection.ProjectBackup `json:"backups"`
+	}
+	if err := json.Unmarshal(listed.Body.Bytes(), &list); err != nil || listed.Code != 200 {
+		t.Fatalf("backups API: %d %s %v", listed.Code, listed.Body.String(), err)
+	}
+	found := false
+	for _, b := range list.Backups {
+		if b.ID == successfulID {
+			found = b.BeforeRelease == receipt.Number
+		}
+		if b.ID == failedID && b.BeforeRelease != 0 {
+			t.Fatal("failed attempt associated with release")
+		}
+	}
+	if !found {
+		t.Fatalf("backup missing reverse label: %s", listed.Body.String())
+	}
+
+}
+
+// Backup reads the running release from the canonical project repository.
+// The deploy fixture's fake clone creates only its run workspace.
+func keepDeploySourceForBackups(t *testing.T, a *App, runID ids.ID) {
+	t.Helper()
+	source, err := workflow.ReadSourceIn(t.Context(), a.DB, workflow.RunRef{ID: runID, ProjectID: idstest.N(1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws, err := source.Workspace(a.cfg.dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := a.Projects.ByID(t.Context(), idstest.N(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo, err := p.Repository(a.cfg.dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(repo), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := gitexec.Run(t.Context(), "", "clone", "-q", ws, repo); err != nil {
+		t.Fatalf("retain release source: %s %v", out, err)
 	}
 }

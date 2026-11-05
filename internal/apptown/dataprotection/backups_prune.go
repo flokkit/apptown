@@ -12,8 +12,8 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dataprotection/internal/protectionsql"
 )
 
-// pruneSets removes a deployment's ordinary sets past keep, counted across
-// both places a set can be (AppTown's disk and the backup store), each
+// pruneSets removes a deployment's ordinary sets past keep and pre-release
+// sets past three, across both places (AppTown's disk and the backup store), each
 // deleted where it is: files on the disk (Backups.Prune), objects in the
 // store (pruneStore).
 func (s *Service) pruneSets(ctx context.Context, projectID ids.ID, deployment string, keep int) error {
@@ -21,8 +21,8 @@ func (s *Service) pruneSets(ctx context.Context, projectID ids.ID, deployment st
 	return errors.Join(err, s.pruneStore(ctx, inStore))
 }
 
-// pruneBackups selects a deployment's ordinary sets past keep, counted across
-// both places, and removes those on AppTown's disk: files first, then
+// pruneBackups selects a deployment's ordinary sets past keep and pre-release
+// sets past three, across both places, and removes those on AppTown's disk: files first, then
 // the record, under the exclusive lock restores share. Filesystem removal
 // cannot share a transaction with its database receipt, so removal comes
 // first and success is recorded after; a missing directory is safe to

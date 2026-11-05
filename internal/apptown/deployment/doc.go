@@ -3,6 +3,11 @@
 // reconciliation records. Driver protocols and contract parsing belong to the
 // internal/deploy libraries; HTTP adapters belong to internal/apptown/httpapi.
 //
+// Workflow releases record the pre-release backup ID from their run's successful
+// deployment attempt. Attempts retain that immutable input; failed attempts do
+// not associate their backup with a numbered release. Backup availability and
+// status belong to dataprotection; Releases owns the reverse association.
+//
 // # Records and authority
 //
 // A [Target] is a place an application can run. A [Deployment] is a named placement

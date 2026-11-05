@@ -1046,7 +1046,9 @@ func (q *Queries) ProjectBackupsToPurge(ctx context.Context, arg ProjectBackupsT
 }
 
 const prunableBackups = `-- name: PrunableBackups :many
-SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket FROM backups WHERE project_id=$1 AND deployment=$2 AND status IN ($3,$4) AND trigger<>$5 ORDER BY id DESC OFFSET $6::bigint
+(SELECT b.id, b.project_id, b.deployment, b.taken_at, b.trigger, b.actor, b.actor_principal, b.actor_via, b.path, b.bytes, b.items_json, b.status, b.error, b.store, b.data_class, b.store_endpoint, b.store_bucket FROM backups b WHERE b.project_id=$1 AND b.deployment=$2 AND b.status IN ($3,$4) AND b.trigger<>$5 AND b.trigger<>'pre-release' ORDER BY b.id DESC OFFSET $6::bigint
+) UNION ALL (
+SELECT b.id, b.project_id, b.deployment, b.taken_at, b.trigger, b.actor, b.actor_principal, b.actor_via, b.path, b.bytes, b.items_json, b.status, b.error, b.store, b.data_class, b.store_endpoint, b.store_bucket FROM backups b WHERE b.project_id=$1 AND b.deployment=$2 AND b.status IN ($3,$4) AND b.trigger='pre-release' ORDER BY b.id DESC OFFSET 3)
 `
 
 type PrunableBackupsParams struct {

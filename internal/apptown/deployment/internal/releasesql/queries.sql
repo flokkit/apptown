@@ -6,12 +6,12 @@ SELECT id, project_id, number, deployment_id, generation, run_id, state, deploym
   approved_by, commit_sha, external_ref, artifact_hash FROM releases WHERE id = $1 FOR UPDATE;
 
 -- name: DeploymentInputs :one
-SELECT release_id, release_run, revision, image_digest, artifact_hash, docker_source, rebuild, bundle_id, applied, ingress_json
+SELECT backup_id, release_id, release_run, revision, image_digest, artifact_hash, docker_source, rebuild, bundle_id, applied, ingress_json
 FROM deployment_attempt_inputs WHERE attempt_id = $1;
 
 -- name: InsertDeploymentInputs :execrows
 INSERT INTO deployment_attempt_inputs(attempt_id, release_id, release_run, revision,
-  image_digest, artifact_hash, docker_source, rebuild, bundle_id, applied, ingress_json) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+  image_digest, artifact_hash, docker_source, rebuild, bundle_id, applied, ingress_json, backup_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: SettleReleaseAttempt :execrows
 UPDATE releases SET state = sqlc.arg(state), deployment_id = sqlc.arg(deployment_id), generation = sqlc.arg(generation),
@@ -42,7 +42,7 @@ SELECT EXISTS(SELECT 1 FROM releases WHERE project_id=sqlc.arg(project_id) AND s
 
 -- name: CreateRelease :one
 INSERT INTO releases(id, project_id,number,state,deployment,approved_by,run_id,created_at,released_at,
-  notes,commit_sha,source_sha,bundle_id,deployment_id)
+  notes,commit_sha,source_sha,bundle_id,deployment_id,backup_id)
 VALUES (sqlc.arg(id), sqlc.arg(project_id),
   (SELECT COALESCE(MAX(r.number),0)+1 FROM releases r WHERE r.project_id=sqlc.arg(project_id)),
   sqlc.arg(state),
@@ -56,7 +56,11 @@ VALUES (sqlc.arg(id), sqlc.arg(project_id),
       AND b.contract_revision=sqlc.arg(revision) ORDER BY b.id DESC LIMIT 1)
     ELSE sqlc.arg(bundle_id)::uuid END,
   CASE WHEN sqlc.arg(from_workflow)::boolean THEN (SELECT d.id FROM deployments d
-    WHERE d.project_id=sqlc.arg(project_id) AND d.name='main') ELSE sqlc.arg(deployment_id)::uuid END)
+    WHERE d.project_id=sqlc.arg(project_id) AND d.name='main') ELSE sqlc.arg(deployment_id)::uuid END,
+  CASE WHEN sqlc.arg(from_workflow)::boolean THEN (SELECT i.backup_id
+    FROM deployment_attempt_inputs i JOIN deployment_attempts a ON a.id=i.attempt_id
+    WHERE i.release_run=sqlc.arg(run_id) AND a.status='done'
+    ORDER BY a.id DESC LIMIT 1) ELSE NULL END)
 RETURNING id,number;
 
 -- name: LinkReleaseChanges :one

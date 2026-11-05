@@ -558,6 +558,10 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		// Old observations cannot establish provenance; keep their amounts as recorded.
 		`UPDATE token_usage SET unpriced=1 WHERE total>0`,
 	}},
+	{n: 206, note: "link workflow releases to their pre-release backup", stmts: []string{
+		`ALTER TABLE deployment_attempt_inputs ADD COLUMN backup_id UUID`,
+		`ALTER TABLE releases ADD COLUMN backup_id UUID`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

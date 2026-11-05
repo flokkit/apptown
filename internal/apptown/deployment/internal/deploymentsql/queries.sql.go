@@ -253,7 +253,7 @@ func (q *Queries) AttemptForUpdate(ctx context.Context, arg AttemptForUpdatePara
 }
 
 const attemptInputs = `-- name: AttemptInputs :one
-SELECT i.attempt_id, i.release_id, i.release_run, i.revision, i.image_digest, i.artifact_hash, i.docker_source, i.rebuild, i.bundle_id, i.applied, i.ingress_json FROM deployment_attempt_inputs i JOIN deployment_attempts a ON a.id=i.attempt_id WHERE a.id=$1 AND a.deployment_id=$2 AND a.generation=$3
+SELECT i.attempt_id, i.release_id, i.release_run, i.revision, i.image_digest, i.artifact_hash, i.docker_source, i.rebuild, i.bundle_id, i.applied, i.ingress_json, i.backup_id FROM deployment_attempt_inputs i JOIN deployment_attempts a ON a.id=i.attempt_id WHERE a.id=$1 AND a.deployment_id=$2 AND a.generation=$3
 `
 
 type AttemptInputsParams struct {
@@ -277,6 +277,7 @@ func (q *Queries) AttemptInputs(ctx context.Context, arg AttemptInputsParams) (D
 		&i.BundleID,
 		&i.Applied,
 		&i.IngressJson,
+		&i.BackupID,
 	)
 	return i, err
 }
@@ -1966,7 +1967,7 @@ func (q *Queries) InvalidateReading(ctx context.Context, arg InvalidateReadingPa
 }
 
 const lastRelease = `-- name: LastRelease :one
-SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin FROM releases WHERE project_id=$1 AND deployment=$2 ORDER BY number DESC LIMIT 1
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id FROM releases WHERE project_id=$1 AND deployment=$2 ORDER BY number DESC LIMIT 1
 `
 
 type LastReleaseParams struct {
@@ -1996,6 +1997,7 @@ func (q *Queries) LastRelease(ctx context.Context, arg LastReleaseParams) (Relea
 		&i.Generation,
 		&i.ArtifactHash,
 		&i.Origin,
+		&i.BackupID,
 	)
 	return i, err
 }
@@ -2041,7 +2043,7 @@ func (q *Queries) LatestLimitEventOnTarget(ctx context.Context, targetID ids.ID)
 }
 
 const latestReleasedForDeployment = `-- name: LatestReleasedForDeployment :one
-SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin FROM releases WHERE deployment_id=$1 AND state=$2 ORDER BY number DESC LIMIT 1
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id FROM releases WHERE deployment_id=$1 AND state=$2 ORDER BY number DESC LIMIT 1
 `
 
 type LatestReleasedForDeploymentParams struct {
@@ -2073,6 +2075,7 @@ func (q *Queries) LatestReleasedForDeployment(ctx context.Context, arg LatestRel
 		&i.Generation,
 		&i.ArtifactHash,
 		&i.Origin,
+		&i.BackupID,
 	)
 	return i, err
 }
@@ -2095,7 +2098,7 @@ func (q *Queries) LatestReleasedNumber(ctx context.Context, arg LatestReleasedNu
 }
 
 const latestReleasedOn = `-- name: LatestReleasedOn :many
-SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin FROM releases r WHERE r.deployment=$1 AND r.state=$2 AND r.number=(SELECT MAX(number) FROM releases WHERE project_id=r.project_id AND deployment=r.deployment AND state=$2) ORDER BY r.project_id
+SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin, r.backup_id FROM releases r WHERE r.deployment=$1 AND r.state=$2 AND r.number=(SELECT MAX(number) FROM releases WHERE project_id=r.project_id AND deployment=r.deployment AND state=$2) ORDER BY r.project_id
 `
 
 type LatestReleasedOnParams struct {
@@ -2131,6 +2134,7 @@ func (q *Queries) LatestReleasedOn(ctx context.Context, arg LatestReleasedOnPara
 			&i.Generation,
 			&i.ArtifactHash,
 			&i.Origin,
+			&i.BackupID,
 		); err != nil {
 			return nil, err
 		}
@@ -3018,7 +3022,7 @@ func (q *Queries) Reading(ctx context.Context, arg ReadingParams) (ReadingRow, e
 }
 
 const recentReleases = `-- name: RecentReleases :many
-SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin FROM releases WHERE project_id=ANY($1::uuid[]) ORDER BY id DESC LIMIT $2::bigint
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id FROM releases WHERE project_id=ANY($1::uuid[]) ORDER BY id DESC LIMIT $2::bigint
 `
 
 type RecentReleasesParams struct {
@@ -3056,6 +3060,7 @@ func (q *Queries) RecentReleases(ctx context.Context, arg RecentReleasesParams) 
 			&i.Generation,
 			&i.ArtifactHash,
 			&i.Origin,
+			&i.BackupID,
 		); err != nil {
 			return nil, err
 		}
@@ -3433,7 +3438,7 @@ func (q *Queries) RefreshTarget(ctx context.Context, arg RefreshTargetParams) (T
 }
 
 const releaseByNumber = `-- name: ReleaseByNumber :one
-SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin FROM releases WHERE project_id=$1 AND number=$2
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id FROM releases WHERE project_id=$1 AND number=$2
 `
 
 type ReleaseByNumberParams struct {
@@ -3463,6 +3468,7 @@ func (q *Queries) ReleaseByNumber(ctx context.Context, arg ReleaseByNumberParams
 		&i.Generation,
 		&i.ArtifactHash,
 		&i.Origin,
+		&i.BackupID,
 	)
 	return i, err
 }
@@ -3538,7 +3544,7 @@ func (q *Queries) ReleaseStartFrom(ctx context.Context, releaseID ids.ID) (ids.I
 }
 
 const releasedBefore = `-- name: ReleasedBefore :one
-SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin FROM releases WHERE project_id=$1 AND deployment=$2 AND state=$3 AND number<$4 ORDER BY number DESC LIMIT 1
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id FROM releases WHERE project_id=$1 AND deployment=$2 AND state=$3 AND number<$4 ORDER BY number DESC LIMIT 1
 `
 
 type ReleasedBeforeParams struct {
@@ -3576,6 +3582,7 @@ func (q *Queries) ReleasedBefore(ctx context.Context, arg ReleasedBeforeParams) 
 		&i.Generation,
 		&i.ArtifactHash,
 		&i.Origin,
+		&i.BackupID,
 	)
 	return i, err
 }
@@ -3608,8 +3615,45 @@ func (q *Queries) ReleasedGeneration(ctx context.Context, arg ReleasedGeneration
 	return i, err
 }
 
+const releasesBeforeBackups = `-- name: ReleasesBeforeBackups :many
+SELECT backup_id, number FROM releases WHERE project_id=$1 AND backup_id=ANY($2::uuid[])
+`
+
+type ReleasesBeforeBackupsParams struct {
+	ProjectID ids.ID
+	BackupIds []ids.ID
+}
+
+type ReleasesBeforeBackupsRow struct {
+	BackupID ids.ID
+	Number   int64
+}
+
+func (q *Queries) ReleasesBeforeBackups(ctx context.Context, arg ReleasesBeforeBackupsParams) ([]ReleasesBeforeBackupsRow, error) {
+	rows, err := q.db.QueryContext(ctx, releasesBeforeBackups, arg.ProjectID, pq.Array(arg.BackupIds))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReleasesBeforeBackupsRow
+	for rows.Next() {
+		var i ReleasesBeforeBackupsRow
+		if err := rows.Scan(&i.BackupID, &i.Number); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const releasesForChange = `-- name: ReleasesForChange :many
-SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin FROM releases r JOIN release_changes rc ON rc.release_id=r.id WHERE rc.change_id IS NOT DISTINCT FROM $1 AND r.project_id=$2 ORDER BY r.number DESC
+SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin, r.backup_id FROM releases r JOIN release_changes rc ON rc.release_id=r.id WHERE rc.change_id IS NOT DISTINCT FROM $1 AND r.project_id=$2 ORDER BY r.number DESC
 `
 
 type ReleasesForChangeParams struct {
@@ -3645,6 +3689,7 @@ func (q *Queries) ReleasesForChange(ctx context.Context, arg ReleasesForChangePa
 			&i.Generation,
 			&i.ArtifactHash,
 			&i.Origin,
+			&i.BackupID,
 		); err != nil {
 			return nil, err
 		}
@@ -3660,7 +3705,7 @@ func (q *Queries) ReleasesForChange(ctx context.Context, arg ReleasesForChangePa
 }
 
 const releasesForProject = `-- name: ReleasesForProject :many
-SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin FROM releases WHERE project_id=$1 ORDER BY number DESC LIMIT $2::bigint
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id FROM releases WHERE project_id=$1 ORDER BY number DESC LIMIT $2::bigint
 `
 
 type ReleasesForProjectParams struct {
@@ -3696,6 +3741,7 @@ func (q *Queries) ReleasesForProject(ctx context.Context, arg ReleasesForProject
 			&i.Generation,
 			&i.ArtifactHash,
 			&i.Origin,
+			&i.BackupID,
 		); err != nil {
 			return nil, err
 		}
@@ -3883,7 +3929,7 @@ func (q *Queries) RepositoryOwned(ctx context.Context, arg RepositoryOwnedParams
 }
 
 const requestedReleaseForUpdate = `-- name: RequestedReleaseForUpdate :one
-SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin,q.release_id, q.target_id, q.base_generation, q.attributes_json, q.claimed_at, q.start_from_backup, q.provider_binding_json, q.ingress_json, q.authority_json, q.require_promotion FROM releases r JOIN release_requests q ON q.release_id=r.id
+SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin, r.backup_id,q.release_id, q.target_id, q.base_generation, q.attributes_json, q.claimed_at, q.start_from_backup, q.provider_binding_json, q.ingress_json, q.authority_json, q.require_promotion FROM releases r JOIN release_requests q ON q.release_id=r.id
 WHERE r.id=$1 FOR UPDATE OF q
 `
 
@@ -3914,6 +3960,7 @@ func (q *Queries) RequestedReleaseForUpdate(ctx context.Context, id ids.ID) (Req
 		&i.Release.Generation,
 		&i.Release.ArtifactHash,
 		&i.Release.Origin,
+		&i.Release.BackupID,
 		&i.ReleaseRequest.ReleaseID,
 		&i.ReleaseRequest.TargetID,
 		&i.ReleaseRequest.BaseGeneration,

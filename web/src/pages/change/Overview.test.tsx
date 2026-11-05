@@ -882,7 +882,7 @@ it('keeps only deployment facts in the running dialog and retains Details access
     expect(dialog.querySelector('.ch-now-steps')).toBeNull()
     expect(dialog.textContent).not.toMatch(/step 1 of|Started|pending|Release created/)
     expect(dialog.querySelector('a[href$="tab=details"]')?.textContent).toBe('Details →')
-    expect(dialog.querySelectorAll('.deploy-stages li')).toHaveLength(5)
+    expect(dialog.querySelectorAll('.deploy-stages li')).toHaveLength(6)
     liveStep.status = 'pass'
     v.waitingOn = { ...v.waitingOn, kind: 'closed' }
     await draw({ ...v })

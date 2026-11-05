@@ -121,6 +121,7 @@ type App struct {
 	Preview       *preview.Service    // previews of changes, runs and releases; built once in New
 	// DataProtection holds copies, restores, restored copies and take-downs; built once in New.
 	DataProtection *dataprotection.Service
+	backupRecords  *dataprotection.Backups
 	// Deployment's shared records and collaborators (deployment.Dependencies).
 	targets             *deployment.Targets
 	deployments         *deployment.Deployments
@@ -373,6 +374,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.HostReaders = deployment.HostReaders{Snapshots: a.hostSnapshots, Targets: a.targets, Hosts: a.hosts, Providers: a.targetProviders, Inventory: a.Deployment.Inventory}
 	a.vhostRules.deployments = a.Deployment.Deployments // standing hostnames route by its records
 	a.DataProtection = dataprotection.New(starter, dataProtectionDependencies(a))
+	a.backupRecords = dataprotection.NewBackups(db, cfg.clock.Now)
 	a.Backups = instancebackup.New(instanceBackupDependencies(a))
 	a.Preview = preview.New(db, previewDependencies(a, changes))
 	a.deletion = projectDeletionFor(a)

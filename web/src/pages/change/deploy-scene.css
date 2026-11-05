@@ -53,7 +53,7 @@
   .deploy-scene * { animation: none !important; transition: none !important; }
 }
 .deploy-stages { margin: 12px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: var(--fs-sm); }
-.deploy-stages li { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 24px; }
+.deploy-stages li { display: grid; grid-template-columns: 1.25rem minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 24px; }
 .deploy-stage-mark { display: flex; justify-content: center; }
 .deploy-stages li:has(.deploy-stage-mark.ok) { color: var(--text); }
 .deploy-stages [aria-current="step"] { color: var(--text); font-weight: 600; }

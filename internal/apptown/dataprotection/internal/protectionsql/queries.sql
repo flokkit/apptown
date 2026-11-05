@@ -17,7 +17,9 @@ SELECT * FROM backups WHERE project_id=sqlc.arg(project_id) AND deployment=sqlc.
 -- name: PrunableBackups :many
 -- Counted across both places (AppTown's disk and the backup store): a
 -- deployment keeps its newest sets wherever they are.
-SELECT * FROM backups WHERE project_id=sqlc.arg(project_id) AND deployment=sqlc.arg(deployment) AND status IN (sqlc.arg(ok_state),sqlc.arg(partial_state)) AND trigger<>sqlc.arg(final_trigger) ORDER BY id DESC OFFSET sqlc.arg(keep_rows)::bigint;
+(SELECT b.* FROM backups b WHERE b.project_id=sqlc.arg(project_id) AND b.deployment=sqlc.arg(deployment) AND b.status IN (sqlc.arg(ok_state),sqlc.arg(partial_state)) AND b.trigger<>sqlc.arg(final_trigger) AND b.trigger<>'pre-release' ORDER BY b.id DESC OFFSET sqlc.arg(keep_rows)::bigint
+) UNION ALL (
+SELECT b.* FROM backups b WHERE b.project_id=sqlc.arg(project_id) AND b.deployment=sqlc.arg(deployment) AND b.status IN (sqlc.arg(ok_state),sqlc.arg(partial_state)) AND b.trigger='pre-release' ORDER BY b.id DESC OFFSET 3);
 
 -- name: FinalStoreSets :many
 SELECT * FROM backups WHERE project_id=sqlc.arg(project_id) AND store=sqlc.arg(store) AND trigger=sqlc.arg(final_trigger) AND status=sqlc.arg(ok_state) ORDER BY id DESC;

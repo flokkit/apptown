@@ -1,8 +1,8 @@
 import { Section } from '../Section'
 import { GlanceRow } from '../GlanceRow'
 import { Status } from '../Status'
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { post } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
@@ -34,6 +34,10 @@ export function BackupsView() {
   const store = useGet<BackupStoreState>('/backup-store')
   const { data, reload } = q
   const [historyCount, setHistoryCount] = useState(10)
+  const { hash } = useLocation()
+  const linkedIndex = data?.backups.findIndex(b => `#backup-${b.id}` === hash) ?? -1
+  const shown = Math.max(historyCount, linkedIndex + 1)
+  useEffect(() => { if (linkedIndex >= 0) document.getElementById(hash.slice(1))?.scrollIntoView?.() }, [hash, linkedIndex])
   const [note, setNote] = useState<{ text: string; done: boolean; operation?: string } | null>(null)
   const { run, busy, err: actErr } = useAction()
   if (!data) return <ReadStatus q={q} what="the backups" />
@@ -61,7 +65,7 @@ export function BackupsView() {
       <StoreSection canAttach />
       {note && <p>{note.text}{note.operation && <> <Link to={`/operations/${note.operation}`}>Follow it</Link></>}</p>}
       {actErr && <p className="error">{actErr}</p>}
-      <Section title="Latest backups" count={latest.size || undefined} note={store.data?.store ? `Keeps the last ${data.keep} copies (14 for live apps)` : undefined}>
+      <Section title="Latest backups" count={latest.size || undefined} note={store.data?.store ? `Keeps the last ${data.keep} copies (14 for live apps), plus the newest 3 pre-release copies` : undefined}>
       {latest.size === 0 ? <p className="muted small">No backups yet.</p> : <>
       <table className="stack small">
         <thead><tr><th>App</th><th>State</th><th>Taken</th><th></th></tr></thead>
@@ -84,11 +88,11 @@ export function BackupsView() {
       </Section>
       {data.backups.length > 0 && <Section title="All backups" count={data.backups.length}>
         <table className="stack small"><thead><tr><th>App</th><th>State</th><th>Taken</th><th>Details</th></tr></thead>
-          <tbody>{data.backups.slice(0, historyCount).map(b => <GlanceRow key={b.id} name={0} state={1} fact={2} labels={['App', 'State', 'Taken', 'Details']}>
+          <tbody>{data.backups.slice(0, shown).map(b => <GlanceRow id={`backup-${b.id}`} key={b.id} name={0} state={1} fact={2} labels={['App', 'State', 'Taken', 'Details']}>
             <td>{b.project} · {b.deployment}</td>
             <td><Status word={b.statusLabel} help={b.error || (b.status === 'pruned' ? 'This old copy has been removed.' : undefined)} /></td>
             <td>{fmtWhen(b.takenAt)}</td>
-            <td>{b.deployment} · {b.trigger} · {b.actor}{b.status === 'pruned' ? <p>Copy removed</p> : <>
+            <td>{b.deployment} · {b.beforeRelease ? <Link to={`/projects/${b.project}/releases/${b.beforeRelease}`}>before release {b.beforeRelease}</Link> : b.trigger} · {b.actor}{b.status === 'pruned' ? <p>Copy removed</p> : <>
               <KeptOn b={b} /><details><summary>Location</summary><code>{setPlace(b, data.where)}</code></details>
               {(b.status === 'ok' || b.status === 'partial') && !managed(b) && (b.trigger === 'take-down'
                 ? <RestoreInto b={b} busy={busy} onRestore={into => restore(b, into)} />
@@ -97,7 +101,7 @@ export function BackupsView() {
           </GlanceRow>)}</tbody>
         </table>
       </Section>}
-      {data.backups.length > historyCount && <button style={{ marginTop: 10 }} onClick={() => setHistoryCount(n => n + 10)}>Show 10 more</button>}
+      {data.backups.length > shown && <button style={{ marginTop: 10 }} onClick={() => setHistoryCount(shown + 10)}>Show 10 more</button>}
 
     </div>
   )

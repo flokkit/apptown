@@ -124,7 +124,7 @@ func TestBackupPlanAndTake(t *testing.T) {
 	if err != nil || b.Status != BackupOK || len(b.Items) != 2 || b.Bytes == 0 || b.Items[1].SHA256 == "" {
 		t.Fatalf("take: %+v %v", b, err)
 	}
-	saved, err := NewBackups(db).ByID(t.Context(), pid, "main", b.ID)
+	saved, err := NewBackups(db, nil).ByID(t.Context(), pid, "main", b.ID)
 	if err != nil || saved.Trigger != "manual" || saved.Actor != "bls" {
 		t.Fatalf("manual backup attribution: %+v %v", saved, err)
 	}
