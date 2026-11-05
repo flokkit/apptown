@@ -16,9 +16,13 @@ import urllib.error
 import urllib.request
 
 # Fields of a change's page that are computed at read time from the live
-# state of the folder, the run or the clock, not recorded. Stored reports and
-# usage are records and are compared.
-VOLATILE = {"editing", "next", "stateDetail", "diffstat", "committedDiff"}
+# state of the folder, the run or the clock, not recorded. A change's state
+# words are a classification of its recorded runs and steps, and a newer
+# AppTown may classify the same records differently (rc.14 reads a failed
+# check holding the stage as "waiting", where rc.12 said "blocked"); the runs,
+# steps and events they come from are compared. Stored reports and usage are
+# records and are compared.
+VOLATILE = {"editing", "next", "state", "stateDetail", "diffstat", "committedDiff"}
 
 
 def get(base, path, token=None):
@@ -61,6 +65,8 @@ def recorded_change(base, cid):
     # ago") and a release's current observation of its deployment.
     for c in out.get("commits") or []:
         c.pop("when", None)
+    for words in ("state", "stateDetail"):
+        (out.get("detail") or {}).pop(words, None)
     for r in (out.get("evidence") or {}).get("releases") or []:
         for live in ("observed", "observedAt", "observationStale", "serving", "reason"):  # the reason explains the observation
             r.pop(live, None)
