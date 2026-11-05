@@ -273,7 +273,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
 
 // The address stays available when resource warnings need attention.
 function DeploymentFact({ env }: { env: DeploymentView }) {
-  return <span className="muted">{env.url ? <AppAddress url={env.url} hostOnly={env.hostOnly}>{env.hostOnly ? null : env.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</AppAddress> : 'no address yet'}</span>
+  return <span className="muted">{env.url ? <AppAddress url={env.url} hostOnly={env.hostOnly} /> : 'no address yet'}</span>
 }
 
 function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choices: OfferedTarget[]; existing: string[]; onDone: (added: boolean) => void }) {

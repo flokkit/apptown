@@ -4,6 +4,7 @@ import type { ReleaseListed, StepProgress, RunTrace } from '../../wire.gen'
 import { useGet } from '../../data'
 import { Link } from 'react-router-dom'
 import { fmtBytes } from '../../format'
+import { AppAddress } from '../../runtime'
 import { StaleNote } from '../../ReadGate'
 import { DeployScene, deployWords } from './DeployScene'
 
@@ -79,7 +80,7 @@ export function DeployResult({ view, step, hidden = false, showRunning = false }
       <h3 className="ok">It's live!</h3>
       {release && <p>Release {release} is live</p>}
       <DeployBackupLine backup={step.evidence.backup} />
-      {step.evidence.url && <p><a href={step.evidence.url}>{new URL(step.evidence.url).host.split('.').map((part, i) => <span key={i}>{i > 0 && <>.<wbr /></>}{part}</span>)}</a></p>}
+      {step.evidence.url && <p><AppAddress url={step.evidence.url} /></p>}
       {duration && <p className="small muted">Landing took {duration}</p>}
       {step.evidence.url && <a className="btn primary ch-open-app" href={step.evidence.url}>Open the app</a>}
     </> : <>

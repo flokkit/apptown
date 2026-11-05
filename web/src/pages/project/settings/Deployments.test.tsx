@@ -129,3 +129,14 @@ it('says checking once and keeps old readings and the address on the card', () =
  expect(html).not.toContain('class="error')
  expect(html).not.toContain('host did not answer')
 })
+
+it('shows the deployment host and path without the scheme and keeps the full link', () => {
+  const client = newQueryClient()
+  const url = 'https://game.apps.example.test/path'
+  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><EnvCard slug="game" env={{ name: 'main', kind: 'standing', url, feed: 'landing', readiness: 'reconciled' } as DeploymentView} onChanged={() => {}} /></MemoryRouter></QueryClientProvider>)
+  expect(html).toContain(`href="${url}" target="_blank" rel="noopener noreferrer" class="app-address"`)
+  expect(html.replace(/<[^>]*>/g, '')).toContain('game.apps.example.test/path')
+  expect(html.replace(/<[^>]*>/g, '')).not.toContain('https://')
+  expect(html).toContain('<wbr/>')
+  client.clear()
+})

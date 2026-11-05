@@ -60,7 +60,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
     <header className="application-heading">
       <div className="application-title"><h1>{project.name}</h1>{app?.url && <AppAddress className="btn primary application-open" url={app.url} hostOnly={app.hostOnly}>Open app ↗</AppAddress>}</div>
       {project.blurb && <p className="muted">{project.blurb}</p>}
-      {app?.url && <AppAddress className="application-address" url={app.url} hostOnly={app.hostOnly}>{app.url.replace(/^https?:\/\//, '')}</AppAddress>}
+      {app?.url && <AppAddress url={app.url} hostOnly={app.hostOnly} />}
     </header>
     <Section title="Changes" count={open ?? undefined} action={(project.lifecycle?.state ?? 'active') === 'active' ? <BigChangeBox slug={slug} inline /> : undefined}>
       <ReadStatus q={activityQ} what="activity" />
@@ -106,7 +106,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
           <span className="row-status"><DeploymentStatus slug={slug} env={d} /></span>
           <strong>{d.displayLabel || d.name}</strong>
           <span className="muted small">
-            {d.url ? <AppAddress url={d.url} hostOnly={d.hostOnly}>{d.url.replace(/^https?:\/\//, '')}</AppAddress> : 'no address yet'}
+            {d.url ? <AppAddress url={d.url} hostOnly={d.hostOnly} /> : 'no address yet'}
             {d.targetName && ` · ${d.targetName}`}
           </span>
         </div>

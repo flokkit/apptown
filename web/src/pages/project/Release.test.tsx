@@ -218,3 +218,17 @@ it('shows an unlinked reason for a copy that could not be assessed', async () =>
     expect(view.el.querySelector('a[href*="backup-"]')).toBeNull()
   } finally { act(() => view.root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+it('shows the release host without the scheme and keeps the full link', async () => {
+  const url = 'https://shop.apps.example.test'
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ configured: true, deployment: 'main', url, changesSinceLast: [] }))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><NewReleasePage slug="shop" /></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('a.app-address')?.textContent).toBe('shop.apps.example.test'))
+    const address = el.querySelector('a.app-address') as HTMLAnchorElement
+    expect(address.getAttribute('href')).toBe(url)
+    expect(address.target).toBe('_blank')
+    expect(address.rel.split(' ')).toContain('noopener')
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

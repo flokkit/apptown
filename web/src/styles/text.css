@@ -1,4 +1,13 @@
 @layer components {
+.app-address {
+  color: var(--link);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+.app-address:hover { color: var(--link-hover); text-decoration: underline; }
+
 .small { font-size: var(--fs-xs); }
 .muted { color: var(--muted); font-size: var(--fs-xs); }
 @media (max-width: 800px) {

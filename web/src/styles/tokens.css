@@ -58,6 +58,10 @@
   --rule: #DFE3E4;           /* ruled lines inside a sheet */
   --rule-faint: #E9ECED;     /* between table rows */
 
+  /* Public app addresses. */
+  --link: #1F5FBF;
+  --link-hover: #174A96;
+
   /* Ink. */
   --text: #202729;
   --muted: #535F63;          /* secondary text */
@@ -119,6 +123,7 @@
     --border: #3B454A; --border-strong: #66747B; --rule: #333D42; --rule-faint: #293237;
     --text: #D2D9DC; --muted: #98A4AA; --subtle: #8E9AA0; --faint: #7A766B;
     --accent: #D4E0E4; --accent-hover: #FFFFFF; --accent-bg: #313D43; --on-accent: #182126;
+    --link: #7FB2FF; --link-hover: #A8CBFF;
     --busy: #8FB6DD; --busy-bg: rgba(143, 182, 221, 0.13);
     --warn: #E0AE58; --warn-mark: #D99A2B; --warn-bg: rgba(224, 174, 88, 0.12);
     --ok: #8FC48F; --ok-bg: rgba(143, 196, 143, 0.13);
@@ -142,6 +147,7 @@
     --border: #3B454A; --border-strong: #66747B; --rule: #333D42; --rule-faint: #293237;
     --text: #D2D9DC; --muted: #98A4AA; --subtle: #8E9AA0; --faint: #7A766B;
     --accent: #D4E0E4; --accent-hover: #FFFFFF; --accent-bg: #313D43; --on-accent: #182126;
+    --link: #7FB2FF; --link-hover: #A8CBFF;
     --busy: #8FB6DD; --busy-bg: rgba(143, 182, 221, 0.13);
     --warn: #E0AE58; --warn-mark: #D99A2B; --warn-bg: rgba(224, 174, 88, 0.12);
     --ok: #8FC48F; --ok-bg: rgba(143, 196, 143, 0.13);
