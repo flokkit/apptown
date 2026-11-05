@@ -55,7 +55,7 @@ export function DeployScene({ stage, failedStage, outcome }: {
             <g className="jib">
               <line className="ink" x1="240" y1="20" x2="150" y2="20"></line>
               <line className="ink" x1="240" y1="20" x2="262" y2="20"></line>
-              <line className="ink" x1="160" y1="20" x2="160" y2="38"></line>
+              <line className="ink" x1="172" y1="20" x2="172" y2="32"></line>
             </g>
           </g>
           <rect className="ink blk b1" x="112" y="104" width="38" height="26"></rect>

@@ -12,7 +12,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { getKey, newQueryClient } from '../../data'
 import type { ChangeView, Step } from '../../api'
 import ChangePage from '../ChangePage'
-import { CheckSummary, ChangeOverview, approvalBrief, checkAttention, checksVerdict } from './Overview'
+import { CheckSummary, ChangeOverview, approvalBrief, checkAttention, checksVerdict, progressTitle } from './Overview'
 import { nextStep, checksRunning } from './next'
 import { TurnDecision, viewerTurn } from './Turn'
 import { DecisionChoices } from '../../DecisionChoices'
@@ -703,6 +703,8 @@ it('uses WaitingOn for decision status and hides Next steps during landing deplo
   v.waitingOn = { ...v.waitingOn, kind: 'work', run: 'run', step: 'deploy', says: 'Landing: deploying — step 1 of 2', you: 'no' }
   let el = document.createElement('div'); el.innerHTML = render(v)
   expect(el.querySelector('[aria-label="Now"] h3')?.textContent).toBe('Landing — step 1 of 2')
+  expect(progressTitle(v, v.detail!.steps)).toBe('Deploying')
+  expect(progressTitle(v, [step('tests', 'running')])).toBe('Landing')
   expect(el.querySelector('#decision')?.hasAttribute('hidden')).toBe(true)
   expect(el.textContent).not.toContain('Checks are running; you can accept when they finish.')
   v.detail!.steps[0].status = 'error'
@@ -710,6 +712,18 @@ it('uses WaitingOn for decision status and hides Next steps during landing deplo
   el = document.createElement('div'); el.innerHTML = render(v)
   expect(el.querySelector('#decision')?.hasAttribute('hidden')).toBe(false)
   expect(el.querySelector('.ch-overview > .ch-deploy-result')?.textContent).toContain('Stopped while deploying')
+})
+
+it('names a finished landing deploy and leaves the summary request note out once the change is closed', () => {
+  const v = view()
+  v.runs = [{ id: 'run', role: 'landing' }] as ChangeView['runs']
+  v.detail!.steps = [step('deploy', 'pass', { url: 'https://app.example.test' })]
+  v.detail!.next = []
+  v.change.requestMet = 'unknown'; v.change.requestGap = 'the request is cut off.'
+  v.waitingOn = { ...v.waitingOn, kind: 'closed', run: null, step: null, says: 'landed', you: 'no' }
+  const el = document.createElement('div'); el.innerHTML = render(v)
+  expect(el.querySelector('.ch-decision h2')?.textContent).toBe('Deploy complete')
+  expect(el.textContent).not.toContain('could not check all of the request')
 })
 
 // Only the reading's explicit gates=false makes a result advisory.

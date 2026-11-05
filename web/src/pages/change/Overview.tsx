@@ -142,14 +142,14 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
     {review?.type === 'agent/review' && <div className="ch-overview-line"><div className="ch-row-label">Reviewer</div><p className="ch-value">{review.status === 'running' || review.status === 'pending' ? 'working' : review.checkReading?.unreadable ? 'could not be read' : review.evidence.verdict === 'approve' ? 'approves' : ['fail', 'error', 'needs_human'].includes(review.status) && !review.overrideBy ? <strong className="ch-bad-text"><span className="ch-mark bad">✗</span> Rejected</strong> : review.evidence.verdict || review.status} — {firstLine(review.evidence.reviewerSummary || review.evidence.summary || review.evidence.reason || 'No review conclusion recorded.').split(/(?<=[.!?])\s+/)[0]}</p>{trailer(workTab(undefined, review.runId) + '#review', 'full review →')}</div>}
     {checked && contractChanged(adds) && adds && <div className="ch-overview-line"><div className="ch-row-label">App contract</div><div className="ch-value"><InlineHelp.Provider value={false}><AddsSection adds={adds} /></InlineHelp.Provider></div><span /></div>}
     </section>
-    <TurnDecision outcome={resultOnOverview ? <DeployResult key={landingDeploy.id} view={view} step={landingDeploy} /> : undefined} progress={nowRunning(view) ? <Now view={view} /> : undefined} approvalWaiting={!!approval && !!turn} active={!!turn} shown={shown && (!nowRunning(view) || !!turn)} ready={<>{briefParts?.length ? <>
+    <TurnDecision outcome={resultOnOverview ? <DeployResult key={landingDeploy.id} view={view} step={landingDeploy} /> : undefined} progress={nowRunning(view) ? <Now view={view} /> : undefined} progressTitle={progressTitle(view, steps)} doneTitle={landingDeploy?.status === 'pass' ? 'Deploy complete' : landingDeploy && ['fail', 'error'].includes(landingDeploy.status) ? 'Deploy stopped' : undefined} approvalWaiting={!!approval && !!turn} active={!!turn} shown={shown && (!nowRunning(view) || !!turn)} ready={<>{briefParts?.length ? <>
         {briefParts.map((paragraph, i) => <p key={i}>{paragraph}</p>)}
       </> : approval && turn ? <p>You asked: {firstLine(ch.body || ch.title)}</p> : null}{turn && !next.recovery && <CheckSummary steps={steps} contractNeedsAttention={contractUnread(adds)} />}</>} actions={approval ? [destination ? 'Accept and put live' : 'Accept', ...(offered(view.next, 'send-back') || offered(d?.next, 'rework') ? ['Send back…'] : []), ...(offered(view.next, 'abandon') ? ['Abandon change'] : [])] : heldLabels(view)}>
       {next.sentBack && <p>{next.sentBack.by} sent it back: “{next.sentBack.note}”</p>}
       {view.mainConflict && <p>{view.mainConflict.mainBranch} conflicts with this change: {view.mainConflict.files.join(', ')}. <Link to={detail} onClick={e => e.currentTarget.closest('dialog')?.close()}>Open Details for the catch-up command</Link>.</p>}
       {extraErr && <p className="error">The work this landing carries could not be read: {extraErr}</p>}
       {shortfall && <p>The summary says this change falls short of the request: {shortfall}</p>}
-      {unchecked && <p>The summary could not check all of the request: {unchecked}</p>}
+      {unchecked && view.waitingOn.kind !== 'closed' && <p>The summary could not check all of the request: {unchecked}</p>}
       {steps.filter(s => s.type === 'workflow/call' && s.evidence.childRunId).map(s => <ChildOverview key={s.id} step={s} onChange={onChange} />)}
       {!landingDeploy && <p>{view.waitingOn.says}{view.stateDetail && ` · ${view.stateDetail}`}</p>}
       {landingDeploy && !resultOnOverview && <DeployResult key={landingDeploy.id} view={view} step={landingDeploy} />}
@@ -214,4 +214,10 @@ function ChildOverview({ step, onChange }: { step: Step; onChange: () => void })
 export function approvalBrief(text?: string): string[] | undefined {
   const paragraphs = text?.trim().split(/\n\s*\n/).map(p => p.trim()).filter(Boolean)
   return paragraphs?.length ? paragraphs : undefined
+}
+
+// The progress screen's title: what the running work is doing now.
+export function progressTitle(view: ChangeView, steps: Step[]): string {
+  if (steps.some(s => s.type === 'deploy' && s.status === 'running')) return 'Deploying'
+  return view.runs?.find(r => r.id === view.detail?.run.id)?.role === 'landing' ? 'Landing' : 'Working'
 }
