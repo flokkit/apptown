@@ -4953,6 +4953,12 @@
       },
       "SecretStatus": {
         "properties": {
+          "agentEligible": {
+            "type": "boolean"
+          },
+          "agentVisible": {
+            "type": "boolean"
+          },
           "bound": {
             "type": "boolean"
           },
@@ -4985,6 +4991,8 @@
           }
         },
         "required": [
+          "agentVisible",
+          "agentEligible",
           "name",
           "required",
           "bound"
@@ -14302,6 +14310,54 @@
         "x-apptown-stability": "experimental"
       }
     },
+    "/api/v1/projects/{slug}/secrets/{deployment}/{name}/agent-visibility": {
+      "put": {
+        "operationId": "putProjectsSlugSecretsDeploymentNameAgentVisibility",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "deployment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "capability": "secret:bind",
+          "kind": "capability",
+          "scope": "project-slug"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
     "/api/v1/projects/{slug}/secrets/{deployment}/{name}/reveal": {
       "get": {
         "operationId": "getProjectsSlugSecretsDeploymentNameReveal",
@@ -14344,6 +14400,54 @@
         ],
         "x-apptown-access": {
           "kind": "administrator"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/projects/{slug}/secrets/{deployment}/{name}/separate-preview": {
+      "post": {
+        "operationId": "postProjectsSlugSecretsDeploymentNameSeparatePreview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "deployment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "capability": "secret:bind",
+          "kind": "capability",
+          "scope": "project-slug"
         },
         "x-apptown-stability": "experimental"
       }

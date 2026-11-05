@@ -146,6 +146,51 @@ profile. Remember that its data can still hold
 credentials and webhook addresses of its own: withholding secrets reduces
 what it can do outside, it does not stop it.
 
+## Values agents can see
+
+In Settings → Secrets, a bound value in the preview group has an off-by-default
+option: “Agents working on changes can see this”. Turning it on gives that
+value, under its declared name, to workflow agent steps on changes and writable
+change chats, including continuations. Chats check the current selection at every
+wake and recreate their container when it changes, once rebuilding is safe. This works on AppTown and
+on workers. Project chats and review agents receive no direct delivery.
+Deployment bindings have no such option.
+
+“Agents working on changes can see this value. Don't reuse a password from a
+real deployment.” This warning applies to typed values, generated values and
+Infisical keys. AppTown does not compare their values with deployment passwords.
+
+A project-scoped generated value is shared with main. Choose “Give previews their
+own value” to generate an independent preview value before enabling agent access.
+For a typed value, use Change… to supply a separate preview value. Main's value
+and version stay unchanged. An Infisical preview key is eligible only when it is not used by a deployment
+in any project outside previews, including bindings under
+other names. Delivery checks this again at each launch. Rebinding to a different
+store or reference turns agent access off; enable it again for the new reference.
+
+Each agent launch records the names, preview profile, stores and actual versions
+given to that agent, with its workflow attempt. Before starting a new container,
+a chat records the expected secret metadata and its digest. It then records
+delivery with the container's identity, or no delivery if creation fails. Both
+records name the same chat wake. A pending record means the outcome is unknown.
+Restarting an unchanged container records no new delivery. Container
+freshness uses a digest of secret metadata, never values. Infisical supplies its
+own version numbers; values without that metadata are withheld.
+
+A value that cannot be resolved is skipped. Its record says “not given” with the
+reason, and the session starts with the values that could be resolved. An invalid
+secret declaration or unavailable profile selection withholds all selected values.
+The record never contains values. If the record cannot be written, delivery
+fails. Turning the option off stops future delivery; it cannot recall values an
+agent already received.
+
+Short, memorable preview passwords are allowed. Values shorter than eight
+characters are not masked. Masking is best effort; session files and live
+terminals retain what the agent saw. Docker keeps the environment in the
+container configuration. For chats on workers, the worker also persists the
+values in its chat records' session specification (`Env`), alongside the session
+token. Removing access does not erase those existing copies.
+
 ## What AppTown records
 
 Every preview and deploy records which secrets it delivered, to which

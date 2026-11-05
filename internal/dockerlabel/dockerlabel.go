@@ -104,10 +104,16 @@ const (
 // spelled outside this list.
 var keys = []string{
 	Class, ReadyFor, Owner, Created, Expires, Deadline, Instance, Stack, Source, Incarnation, Writes, Step, Task,
-	Profile, Request, Worker, Inference, Console, Built, ConsoleDind, ConsoleModel, ConsoleMounts,
+	Profile, Request, Worker, Inference, Console, Built, ConsoleDind, ConsoleModel, ConsoleMounts, ConsoleSecrets, ConsoleInstance,
 	Deployment, Generation, Artifact, infoProject, infoDeployment, infoChange,
 	PiVersion, PiSubagentsVersion, PiLSPVersion, GlabVersion,
 }
 
 // imageKeys are the keys the agent image's build writes.
 var imageKeys = []string{PiVersion, PiSubagentsVersion, PiLSPVersion, GlabVersion}
+
+// ConsoleSecrets identifies the metadata of secrets supplied at creation.
+const ConsoleSecrets = "apptown.console.secrets"
+
+// ConsoleInstance distinguishes successive containers for a session.
+const ConsoleInstance = "apptown.console.instance"

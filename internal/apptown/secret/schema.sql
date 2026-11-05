@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS secret_bindings (
   -- The binder's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
   updated_by_principal UUID,
   updated_by_via TEXT NOT NULL DEFAULT '',
+  agent_visible BOOLEAN NOT NULL DEFAULT false CHECK (NOT agent_visible OR deployment = 'preview'),
   PRIMARY KEY (project_id, deployment, name)
 );
 CREATE TABLE IF NOT EXISTS secret_profiles (

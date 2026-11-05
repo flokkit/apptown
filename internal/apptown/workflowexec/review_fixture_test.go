@@ -88,7 +88,7 @@ func testExecutor(db *database.DB, dir string, process Process) *Executor {
 		Progress: &progress.Feeds{},
 		Docker:   scope,
 		Home:     piharness.NewPreparer(gatewayModels{}, selection, adoption.New(db, adoption.Dependencies{Ways: agentCatalog{}}), scope, "apptown-agent"),
-		Secrets:  secret.NewService(db, secret.Config{DataDir: dir}),
+		Secrets:  secret.NewService(db, secret.Config{Projects: testSecretProjectScope{db}, DataDir: dir}),
 		Ledger:   usage.New(db),
 		CLI:      noReviewCLI{},
 		Process:  process,

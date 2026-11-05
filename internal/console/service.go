@@ -188,7 +188,7 @@ func (s *Service) Open(ctx context.Context, in OpenRequest) (session *Session, o
 		return nil, err
 	}
 	// A failed open removes what it started even when its caller has gone.
-	if err := s.agent.Start(ctx, launch); err != nil {
+	if err := s.start(ctx, launch, Status{}); err != nil {
 		_ = s.agent.Remove(context.WithoutCancel(ctx), id)
 		return nil, err
 	}
@@ -238,6 +238,7 @@ func (s *Service) launch(ctx context.Context, sess *Session) (Launch, error) {
 		return Launch{}, err
 	}
 	l.Model, l.Env, l.Mounts = sess.Model, p.Env, p.Mounts
+	l.SecretDigest, l.Creating, l.Created = p.SecretDigest, p.Creating, p.Created
 	return l, nil
 }
 
@@ -246,6 +247,8 @@ func (s *Service) launch(ctx context.Context, sess *Session) (Launch, error) {
 // restart after a stop is never silent: the prompt gets a resume notice
 // before the agent starts, so it knows its shell state is gone.
 func (s *Service) wake(ctx context.Context, sess *Session) error {
+	sess.wakeMu.Lock()
+	defer sess.wakeMu.Unlock()
 	// A wake is admitted only while no end is under way, and an end refuses
 	// while a wake it admitted is still starting the runtime.
 	s.mu.Lock()
@@ -281,8 +284,37 @@ func (s *Service) wake(ctx context.Context, sess *Session) error {
 		if err := s.agent.Remove(ctx, sess.ID); err != nil {
 			return err
 		}
+		st = Status{}
 	}
-	return s.agent.Start(ctx, launch)
+	return s.start(ctx, launch, st)
+}
+
+// start records the expected delivery before a new runtime can receive values.
+// Restarting or retaining a container cannot deliver a new environment.
+func (s *Service) start(ctx context.Context, launch Launch, before Status) error {
+	if before.Exists || launch.Creating == nil {
+		return s.agent.Start(ctx, launch)
+	}
+	if err := launch.Creating(ctx); err != nil {
+		return err
+	}
+	startErr := s.agent.Start(ctx, launch)
+	if launch.Created == nil {
+		return startErr
+	}
+	settleCtx := context.WithoutCancel(ctx)
+	after, err := s.agent.Status(settleCtx, launch.ID)
+	if err != nil {
+		return errors.Join(startErr, err, s.agent.Remove(settleCtx, launch.ID))
+	}
+	container := ""
+	if after.Exists {
+		container = after.Container
+	}
+	if err := launch.Created(settleCtx, container); err != nil {
+		return errors.Join(startErr, err, s.agent.Remove(settleCtx, launch.ID))
+	}
+	return startErr
 }
 
 const resumeNotice = "This session resumed in a restarted container. Background processes and shell state " +

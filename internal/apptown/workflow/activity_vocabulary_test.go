@@ -334,7 +334,7 @@ func TestTheChangeOffersLandingAndSendingBack(t *testing.T) {
 	run := func(status RunState, state ActivityState, queued bool) *RunSnapshot {
 		return &RunSnapshot{Run: &Run{Status: status}, State: state, LandingQueued: queued}
 	}
-	land, sendBack, abandon := NextAct{Act: NextLand}, NextAct{Act: nextSendBack}, NextAct{Act: nextAbandon}
+	land, sendBack, abandon := NextAct{Act: nextLand}, NextAct{Act: nextSendBack}, NextAct{Act: nextAbandon}
 	for _, c := range []struct {
 		name    string
 		state   ChangeState

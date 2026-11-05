@@ -28,6 +28,7 @@ import (
 // environment prepares a launch without owning session lifetime or provider keys.
 // The console runtime calls it again on restart, so model and service facts are live.
 type environment struct {
+	secrets      agentEnvironment
 	db           *database.DB
 	projects     *project.Projects
 	models       model.Selection
@@ -48,6 +49,7 @@ type credentialCheck interface {
 	CheckEnvironment(context.Context, []string) error
 }
 type EnvironmentDependencies struct {
+	Secrets      agentEnvironment
 	Projects     *project.Projects
 	Models       model.Selection
 	Bindings     *integration.Bindings
@@ -67,7 +69,7 @@ type EnvironmentConfig struct {
 }
 
 func NewEnvironment(db *database.DB, deps EnvironmentDependencies, cfg EnvironmentConfig) *environment {
-	return &environment{db: db, projects: deps.Projects, models: deps.Models, bindings: deps.Bindings, instructions: deps.Instructions, home: deps.Home, cli: deps.CLI, credentials: deps.Credentials, identity: deps.Identity, cfg: cfg, clock: deps.Now}
+	return &environment{secrets: deps.Secrets, db: db, projects: deps.Projects, models: deps.Models, bindings: deps.Bindings, instructions: deps.Instructions, home: deps.Home, cli: deps.CLI, credentials: deps.Credentials, identity: deps.Identity, cfg: cfg, clock: deps.Now}
 }
 func (e *environment) Prepare(ctx context.Context, s *console.Session) (console.Provision, error) {
 	if err := agentenv.RequireInferenceRuntime(e.cfg.InferenceEnabled, execution.Docker); err != nil {
@@ -180,10 +182,20 @@ func (e *environment) Prepare(ctx context.Context, s *console.Session) (console.
 		mounts = append(mounts, cli+":"+agentenv.CLIDir+"/apptown:ro")
 		env = agentenv.WithCLIPath(env)
 	}
+	var delivery AgentEnvironment
+	if s.Writable && !Of(s).ChangeID.IsZero() {
+		given, err := e.secrets.Prepare(ctx, Of(s).ProjectID, Of(s).ChangeID, s.Checkout, s.ID, ids.New(clock.Or(e.clock)()).String())
+		if err != nil {
+			return console.Provision{}, err
+		}
+		delivery = given
+		env = append(env, given.Env...)
+	}
+
 	if err := e.credentials.CheckEnvironment(ctx, env); err != nil {
 		return console.Provision{}, err
 	}
-	return console.Provision{Model: model, Env: env, Mounts: mounts, Files: files, Notes: notes}, nil
+	return console.Provision{SecretDigest: delivery.Digest, Creating: delivery.Creating, Created: delivery.Created, Model: model, Env: env, Mounts: mounts, Files: files, Notes: notes}, nil
 }
 
 // chatModelFor is the model a session should run on now: its own when the
@@ -252,3 +264,14 @@ was saved, so commit before asking. Previews work the same way: ` + "`apptown pr
 saves first and boots what was saved, and after each saved turn AppTown
 boots your saved commit like the try-it button and tells you if it fails.
 `
+
+// AgentEnvironment is the environment and delivery evidence for one chat wake.
+type AgentEnvironment struct {
+	Env      []string
+	Digest   string
+	Creating func(context.Context) error
+	Created  func(context.Context, string) error
+}
+type agentEnvironment interface {
+	Prepare(ctx context.Context, projectID, changeID ids.ID, workspace, session, invocation string) (AgentEnvironment, error)
+}

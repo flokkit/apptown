@@ -22,6 +22,7 @@ type SecretBinding struct {
 	UpdatedBy          string
 	UpdatedByPrincipal ids.ID
 	UpdatedByVia       string
+	AgentVisible       bool
 }
 
 type SecretProfile struct {

@@ -553,6 +553,8 @@ func appRoutes(a *App) []routeSpec {
 		// Secrets: declarations and bindings, never values.
 		requireRoute("GET /api/v1/projects/{slug}/secrets", secrets.ProjectSecrets, access.CapSecretRead, "project-slug"),
 		requireRoute("PUT /api/v1/projects/{slug}/secrets/{deployment}", secrets.SetSecretProfile, access.CapSecretBind, "project-slug"),
+		requireRoute("PUT /api/v1/projects/{slug}/secrets/{deployment}/{name}/agent-visibility", secrets.SetSecretAgentVisibility, access.CapSecretBind, "project-slug"),
+		requireRoute("POST /api/v1/projects/{slug}/secrets/{deployment}/{name}/separate-preview", secrets.SeparatePreviewSecret, access.CapSecretBind, "project-slug"),
 		requireRoute("PUT /api/v1/projects/{slug}/secrets/{deployment}/{name}", secrets.BindSecret, access.CapSecretBind, "project-slug"),
 		requireRoute("DELETE /api/v1/projects/{slug}/secrets/{deployment}/{name}", secrets.UnbindSecret, access.CapSecretBind, "project-slug"),
 		adminRoute("GET /api/v1/projects/{slug}/secrets/{deployment}/{name}/reveal", secrets.RevealSecret),

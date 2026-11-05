@@ -235,7 +235,7 @@ func (f *taskAppTown) agentExecutor(t *testing.T) *Executor {
 	}
 	scope := &docker.Scope{Client: newDockerFake()}
 	feeds := &progress.Feeds{}
-	secrets := secret.NewService(f.db, secret.Config{DataDir: f.dir})
+	secrets := secret.NewService(f.db, secret.Config{Projects: testSecretProjectScope{f.db}, DataDir: f.dir})
 	integrations := integration.NewService(f.db, integration.Dependencies{Projects: project.New(f.db, nil), Secrets: secrets})
 	adoptions := adoption.New(f.db, adoption.Dependencies{Ways: agentCatalog{}})
 	models := selectionWithDefault(t, f.db, "fake/model")

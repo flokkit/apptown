@@ -73,3 +73,73 @@ func TestSecretHTTPSeparatesBindingFromRevealAndKeepsDeploymentScope(t *testing.
 		t.Fatalf("neighbor lost: %d %s", w.Code, w.Body.String())
 	}
 }
+
+func TestPreviewAgentVisibilityHTTPEnforcesAuthorityAndStorageScope(t *testing.T) {
+	t.Parallel()
+	a := authzActors(t)
+	h := a.Handler()
+	const base = "/api/v1/projects/game/secrets/"
+	for _, who := range []string{"owner", "outsider"} {
+		response := authzCall(h, who, "GET", "/api/v1/authz/me?project=game", "")
+		var holdings struct {
+			Project map[string]bool `json:"project"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &holdings); err != nil || response.Code != 200 || holdings.Project["secret:bind"] != (who == "owner") {
+			t.Fatalf("secret binding control authority: %d %s", response.Code, response.Body.String())
+		}
+	}
+	for _, dep := range []string{"main", "preview"} {
+		w := authzCall(h, "owner", "PUT", base+dep+"/NEXTUP_PASSWORD", `{"value":"typed-preview-password"}`)
+		if w.Code != 200 {
+			t.Fatalf("bind: %d %s", w.Code, w.Body.String())
+		}
+	}
+	path := base + "preview/NEXTUP_PASSWORD/agent-visibility"
+	for _, tc := range []struct {
+		who, path string
+		code      int
+	}{{"outsider", path, 403}, {"owner", base + "main/NEXTUP_PASSWORD/agent-visibility", 400}, {"owner", base + "preview/MISSING/agent-visibility", 404}, {"owner", path, 200}} {
+		w := authzCall(h, tc.who, "PUT", tc.path, `{"agentVisible":true}`)
+		if w.Code != tc.code {
+			t.Fatalf("toggle: %d %s, want %d", w.Code, w.Body.String(), tc.code)
+		}
+	}
+	b := boundSecrets(t, a, idstest.N(1), "preview")["NEXTUP_PASSWORD"]
+	if !b.AgentVisible {
+		t.Fatal("toggle not persisted")
+	}
+	// Changing a typed value preserves the preview binding's explicit choice.
+	if w := authzCall(h, "owner", "PUT", base+"preview/NEXTUP_PASSWORD", `{"value":"replacement-preview"}`); w.Code != 200 {
+		t.Fatal(w.Code)
+	}
+	if !boundSecrets(t, a, idstest.N(1), "preview")["NEXTUP_PASSWORD"].AgentVisible {
+		t.Fatal("value change cleared choice")
+	}
+	if _, err := a.Secrets.Vault.Put(t.Context(), "project:game", "KEY", "shared-project-key", "boss"); err != nil {
+		t.Fatal(err)
+	}
+	for _, dep := range []string{"main", "preview"} {
+		if err := a.Secrets.Bindings.Put(t.Context(), idstest.N(1), secret.Binding{Deployment: dep, Name: "KEY", Store: secret.StoreInternal, Ref: "project:game", Version: "1", Generated: true, UpdatedBy: "boss"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w := authzCall(h, "owner", "PUT", base+"preview/KEY/agent-visibility", `{"agentVisible":true}`)
+	if w.Code != 409 || !strings.Contains(w.Body.String(), "This value is used by a deployment. Give previews their own value to let agents see it") {
+		t.Fatalf("shared toggle: %d %s", w.Code, w.Body.String())
+	}
+	if w := authzCall(h, "outsider", "POST", base+"preview/KEY/separate-preview", `{}`); w.Code != 403 {
+		t.Fatalf("separation authority: %d", w.Code)
+	}
+	if w := authzCall(h, "owner", "POST", base+"main/KEY/separate-preview", `{}`); w.Code != 422 {
+		t.Fatalf("main separation: %d", w.Code)
+	}
+	if w := authzCall(h, "owner", "POST", base+"preview/KEY/separate-preview", `{}`); w.Code != 200 {
+		t.Fatalf("separate: %d %s", w.Code, w.Body.String())
+	}
+	if w := authzCall(h, "owner", "PUT", base+"preview/KEY/agent-visibility", `{"agentVisible":true}`); w.Code != 200 {
+		t.Fatalf("independent toggle: %d %s", w.Code, w.Body.String())
+	}
+	if b := boundSecrets(t, a, idstest.N(1), "main")["KEY"]; b.Ref != "project:game" || b.Version != "1" || b.AgentVisible {
+		t.Fatal("main binding changed")
+	}
+}

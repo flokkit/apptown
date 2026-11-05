@@ -40,6 +40,33 @@
 // with deployment consumer scopes. It reads no bindings or stores, persists nothing,
 // and names withheld credentials. Each call generates new values.
 //
+// # Agent preview delivery
+//
+// [Service.SetAgentVisible] enforces secret:bind itself and commits the preview
+// binding's flag and receipt together. It defaults off. [Service.SeparatePreview]
+// gives a shared generated binding its own preview-scoped value without changing
+// main. Infisical preview keys must have no non-preview reference in any project.
+// Neither operation compares plaintext values. Unbinding or rebinding to another
+// store/reference removes the flag.
+//
+// The composition root supplies current project slugs through Config.Projects;
+// secret owns profile selection and bindings and does not read project records.
+// [Service.AgentEnv] and [Service.AgentEnvAt] resolve only opted-in bindings from
+// the selected preview profile, rechecking storage scope. They never generate or
+// require unrelated secrets. Callers identify a change agent invocation or writable
+// change-chat wake; project chats and reviews receive nothing. Resolution failures
+// omit affected values and record "not given" reasons without blocking the session.
+// Agent steps record name/profile/store/actual-version evidence before returning
+// plaintext. Chats use [Service.PrepareAgentEnv] to resolve without claiming delivery,
+// then [Service.RecordChatAgentDelivery] records the expected digest before Start
+// and the outcome afterward, naming the created container or marking no delivery.
+// A pending record means the outcome is unknown. The metadata digest makes changed grants or versions stale;
+// no values enter it. Infisical agent delivery requires provider version metadata.
+// Evidence errors fail delivery. Turning sharing off affects future delivery only.
+// Masking remains best effort for current values of at least eight characters;
+// session files, live terminals, container environments and worker chat session
+// specifications retain disclosed values.
+//
 // # Stores and runtime resolution
 //
 // [Vault] encrypts values with a key in the same database's secret_store_key table.

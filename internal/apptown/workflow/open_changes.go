@@ -88,7 +88,7 @@ func (s *Service) OpenChanges(ctx context.Context) ([]PersonalOpenChange, int64,
 				item.State, item.Reason = openRunning, "being edited in a chat"
 			default:
 				for _, act := range ChangeActs(ch, current, false, false) {
-					if act.Act == NextLand {
+					if act.Act == nextLand {
 						item.State, item.Reason = openWaitingReader, "ready to land"
 					}
 				}

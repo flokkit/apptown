@@ -137,6 +137,7 @@ type Session struct {
 	Meta
 	Dir string // <data>/console/<id>
 
+	wakeMu   sync.Mutex // serializes preparation, creation and delivery evidence
 	mu       sync.Mutex
 	lastUsed time.Time
 	now      func() time.Time // the console's clock; nil is the real one

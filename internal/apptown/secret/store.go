@@ -281,14 +281,15 @@ func (v *Vault) Delete(ctx context.Context, scope, name string) error {
 
 // Binding: where one secret of one deployment comes from (§5).
 type Binding struct {
-	Deployment string `json:"deployment"`
-	Name       string `json:"name"`
-	Store      string `json:"store"`   // internal | infisical
-	Ref        string `json:"ref"`     // internal: the scope; infisical: the key
-	Version    string `json:"version"` // opaque; internal: the value version
-	Generated  bool   `json:"generated"`
-	UpdatedAt  string `json:"updatedAt"`
-	UpdatedBy  string `json:"updatedBy"`
+	AgentVisible bool   `json:"agentVisible"`
+	Deployment   string `json:"deployment"`
+	Name         string `json:"name"`
+	Store        string `json:"store"`   // internal | infisical
+	Ref          string `json:"ref"`     // internal: the scope; infisical: the key
+	Version      string `json:"version"` // opaque; internal: the value version
+	Generated    bool   `json:"generated"`
+	UpdatedAt    string `json:"updatedAt"`
+	UpdatedBy    string `json:"updatedBy"`
 	// UpdatedByPrincipal is the binder's principal as recorded; zero for
 	// AppTown, or one not resolved to a person. Put resolves it itself.
 	UpdatedByPrincipal ids.ID `json:"updatedByPrincipal,omitzero"`
