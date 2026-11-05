@@ -38,7 +38,7 @@
     "declaration-no-important": 1
   },
   "web/src/pages/change/deploy-scene.css": {
-    "apptown/pixel-spacing": 9,
+    "apptown/pixel-spacing": 8,
     "declaration-no-important": 3
   },
   "web/src/pages/change/work-record.css": {

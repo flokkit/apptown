@@ -111,7 +111,7 @@ it.each([true, false])('shows open chats without a Past chats section (chat=%s)'
   }))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
-    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/a']}><Routes><Route path="/projects/:slug" element={<Project />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/a/changes']}><Routes><Route path="/projects/:slug/:tab" element={<Project />} /></Routes></MemoryRouter></QueryClientProvider>))
     await vi.waitFor(() => expect(el.textContent).toContain(chat ? 'Add lunch orders' : 'No open changes.'))
     if (chat) {
       expect(el.querySelector('.row-status .chip')?.textContent).toContain('chat open')
@@ -126,12 +126,12 @@ it.each([true, false])('shows open chats without a Past chats section (chat=%s)'
 })
 
 // Public app addresses omit the scheme in text and keep it in the safe new-tab link.
-it('shows the public app host and path beneath the description as an https link', async () => {
+it('keeps project notes and the Changes link beside the public app address on Overview', async () => {
   const url = 'https://alpha.apps.example.test/public/path'
   const label = 'alpha.apps.example.test/public/path'
   vi.stubGlobal('fetch', vi.fn(async (path: string) => new Response(JSON.stringify(
     path.endsWith('/projects/a') ? { ...project(1, 'a', 'Alpha'), blurb: 'Our app' }
-      : path.endsWith('/overview') ? { active: [], history: [], open: [] }
+      : path.endsWith('/overview') ? { active: [], history: [], open: [], notes: { present: true, commit: 'abc', notes: [{ text: 'Credit photos.', author: 'Sam', change: 4, line: '- Credit photos. (Sam · change 4)', changeId: 'source-change', acceptedBy: ['Priya'] }] } }
       : path.endsWith('/deployments') ? [{ id: 'main', name: 'main', url, running: true, observation: 'running' }]
       : path.endsWith('/schedules') ? { schedules: [] } : []
   ))))
@@ -140,6 +140,13 @@ it('shows the public app host and path beneath the description as an https link'
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/a']}><Routes><Route path="/projects/:slug" element={<Project />} /></Routes></MemoryRouter></QueryClientProvider>))
     await vi.waitFor(() => expect(el.querySelector('.application-heading .app-address')?.textContent).toBe(label))
     const address = el.querySelector('.application-heading .app-address') as HTMLAnchorElement
+    expect(el.querySelector('a[href="/projects/a/changes"]')?.textContent).toBe('Changes →')
+    const notes = el.querySelector('section[aria-label="What agents know about this project"]')!
+    expect(notes.textContent).toContain('Credit photos.')
+    expect(notes.textContent).toContain('Accepted by Priya')
+    expect(notes.querySelector('a')?.getAttribute('href')).toBe('/changes/source-change')
+    expect([...notes.querySelectorAll('button')].map(b => b.textContent)).toContain('Add a note')
+    expect(el.textContent).not.toContain('No open changes.')
     expect(address.tagName).toBe('A')
     expect(address.getAttribute('href')).toBe(url)
     expect(address.target).toBe('_blank')
@@ -182,6 +189,10 @@ it.each([
     act(() => button.click())
     const popover = el.querySelector('.page-help-pop')!
     expect(popover.querySelector('a')?.getAttribute('href')).toBe(`/docs/guides/${guide}`)
+    if (title === 'Overview') {
+      expect(popover.textContent).toContain('notes, recent activity and deployments')
+      expect(popover.textContent).toContain('Open Changes')
+    }
     if (title === 'Secrets') {
       expect(popover.textContent).toContain('Secrets are values your app needs but should not be part of the code: passwords, API keys, signing keys. AppTown keeps them and gives them to the app when it runs.')
       expect(popover.textContent).toContain('Project secrets are declared in secretspec.toml.')

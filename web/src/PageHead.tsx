@@ -101,8 +101,8 @@ export const PAGE_HELP = {
   projectOverview: {
     title: 'Overview',
     help: <>
-      <p>The overview shows this project's open changes, recent activity and deployments.</p>
-      <p>Open a change to see its work and what it needs next. Start a change to ask for new work. Each deployment shows its current state and address.</p>
+      <p>The overview shows this project's notes, recent activity and deployments.</p>
+      <p>Open Changes to see work in progress or ask for new work. Each deployment shows its current state and address.</p>
     </>,
     guide: 'changes-and-main',
   },

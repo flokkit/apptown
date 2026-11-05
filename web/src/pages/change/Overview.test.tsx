@@ -345,7 +345,7 @@ it('uses two named cards and separates the fixed label, value and evidence colum
   const el = document.createElement('div'); el.innerHTML = render(view())
   expect(el.querySelector('.ch-change-card')?.getAttribute('aria-label')).toBe('The change')
   expect([...el.querySelectorAll('.ch-overview > section > h2')].map(e => e.textContent)).toEqual(['Your decision'])
-  expect([...el.querySelectorAll('.ch-change-card .ch-row-label')].map(e => e.textContent)).toEqual(['Preview', 'You asked', 'What was made', 'Checks', 'Reviewer'])
+  expect([...el.querySelectorAll('.ch-change-card .ch-row-label')].map(e => e.textContent)).toEqual(['Preview', 'You asked', 'What was made', 'Checks', 'Reviewer', 'Release'])
   for (const row of el.querySelectorAll('.ch-change-card .ch-overview-line')) {
     expect(row.children).toHaveLength(3)
     expect(row.children[1].classList.contains('ch-value')).toBe(true)
@@ -547,32 +547,7 @@ it.each([undefined, 'Malformed app declaration', 'Starting app declaration unrea
     const vote = vi.mocked(fetch).mock.calls.find(([url, init]) => String(url).endsWith('/steps/approval/approve') && init?.method === 'POST')
     expect(vote).toBeDefined()
     expect(JSON.parse(vote![1]!.body as string)).toMatchObject({ decision: 'approve', adds: 'shown-digest', alsoApproves: ['Merge and release the accepted work.'] })
-    if (!unread) {
-      const redraw = async () => act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={{ ...v }} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
-      v.runs = [{ id: 'landing', role: 'landing' }] as ChangeView['runs']
-      v.detail!.run = { ...v.detail!.run, id: 'landing' }
-      v.detail!.steps = [step('approval', 'pass', { approver: 'sam' }), step('deploy', 'running')]
-      v.waitingOn = { ...v.waitingOn, kind: 'work', run: 'landing', step: 'deploy', says: 'Landing: deploying — step 2 of 2', you: 'no' }
-      await redraw()
-      await vi.waitFor(async () => { await act(async () => {}); expect(dialog.textContent).toContain('Building the accepted image') })
-      expect(el.querySelector('dialog')).toBe(dialog)
-      expect((dialog as HTMLDialogElement).open).toBe(true)
-      expect(dialog.querySelector('[aria-label="Now"]')?.textContent).toContain('Landing — step 2 of 2')
-      v.detail!.steps[1].status = 'error'
-      v.detail!.steps[1].evidence = { reason: 'The image could not be built.' }
-      v.detail!.next = [{ act: 'retry', stepId: 'deploy' }] as NonNullable<ChangeView['detail']>['next']
-      v.waitingOn = { ...v.waitingOn, kind: 'check', step: 'deploy', says: 'deploy could not run', you: 'yes' }
-      await redraw()
-      expect((dialog as HTMLDialogElement).open).toBe(true)
-      expect(dialog.textContent).toContain('The image could not be built.')
-      expect([...dialog.querySelectorAll('button')].map(b => b.textContent)).toContain('Try again')
-      v.change.state = 'shipped'; v.detail!.run.status = 'done'
-      v.waitingOn = { ...v.waitingOn, kind: 'closed', says: 'landed', you: 'no' }
-      await redraw()
-      expect((dialog as HTMLDialogElement).open).toBe(true)
-      expect(dialog.textContent?.match(/landed/g)).toHaveLength(1)
-      expect(dialog.querySelector('[aria-label="Now"]')).toBeNull()
-    }
+
 
   } finally { await act(async () => root.unmount()); client.clear() }
 })
@@ -711,7 +686,7 @@ it('uses WaitingOn for decision status and hides Next steps during landing deplo
   v.detail!.next = []
   v.waitingOn = { ...v.waitingOn, kind: 'work', run: 'run', step: 'deploy', says: 'Landing: deploying — step 1 of 2', you: 'no' }
   let el = document.createElement('div'); el.innerHTML = render(v)
-  expect(el.querySelector('[aria-label="Now"] h3')?.textContent).toBe('Landing — step 1 of 2')
+  expect(el.querySelector('[aria-label="Now"]')).toBeNull()
   expect(progressTitle(v, v.detail!.steps)).toBe('Deploying')
   expect(progressTitle(v, [step('tests', 'running')])).toBe('Landing')
   expect(el.querySelector('#decision')?.hasAttribute('hidden')).toBe(true)
@@ -720,7 +695,8 @@ it('uses WaitingOn for decision status and hides Next steps during landing deplo
   v.waitingOn = { ...v.waitingOn, kind: 'check', says: 'Deploy could not run', you: 'no' }
   el = document.createElement('div'); el.innerHTML = render(v)
   expect(el.querySelector('#decision')?.hasAttribute('hidden')).toBe(false)
-  expect(el.querySelector('.ch-overview > .ch-deploy-result')?.textContent).toContain('Stopped while deploying')
+  expect(el.querySelector('.ch-deploy-result')).toBeNull()
+  expect(el.querySelector('.ch-change-card')?.textContent).toContain('Deploy stopped at deployment')
 })
 
 it('names a finished landing deploy and leaves the summary request note out once the change is closed', () => {
@@ -731,7 +707,7 @@ it('names a finished landing deploy and leaves the summary request note out once
   v.change.requestMet = 'unknown'; v.change.requestGap = 'the request is cut off.'
   v.waitingOn = { ...v.waitingOn, kind: 'closed', run: null, step: null, says: 'landed', you: 'no' }
   const el = document.createElement('div'); el.innerHTML = render(v)
-  expect(el.querySelector('.ch-decision h2')?.textContent).toBe('Deploy complete')
+  expect(el.querySelector('.ch-decision h2')?.textContent).toBe('Next steps')
   expect(el.textContent).not.toContain('could not check all of the request')
 })
 
@@ -821,35 +797,36 @@ function landingResult(status: 'pass' | 'fail', held = false) {
   v.detail!.next = held ? [{ act: 'override', stepId: 'deploy' }] as NonNullable<ChangeView['detail']>['next'] : []
   v.next = held ? [{ act: 'send-back' }, { act: 'abandon' }] as ChangeView['next'] : []
   v.runs = [{ ...v.detail!.run, role: 'landing' }] as ChangeView['runs']
-  v.evidence!.releases = [{ number: 7 }] as NonNullable<ChangeView['evidence']>['releases']
+  v.evidence!.releases = [{ number: 7, deployment: 'main' }] as NonNullable<ChangeView['evidence']>['releases']
   return v
 }
 
 it('says a held deploy failure once and keeps recovery actions without the acceptance conversation link', async () => {
   const v = landingResult('fail', true)
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify([]))))
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).includes('/advice') ? { text: 'The app container exited during startup.' } : []))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
     await act(async () => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
+    await vi.waitFor(() => expect(client.getQueryData(getKey('/steps/deploy/advice?attempt=0'))).toMatchObject({ text: 'The app container exited during startup.' }))
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
     const dialog = el.querySelector('dialog[open]')!
     expect(dialog.textContent?.match(/The app container exited during startup\./g)).toHaveLength(1)
     expect(dialog.textContent).not.toContain('Deploy failed')
-    expect(dialog.textContent).toContain('Stopped while starting the app')
+    expect(dialog.querySelector('.deploy-scene')).toBeNull()
     expect([...dialog.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept anyway', 'Send back…', 'Abandon change'])
     expect(dialog.querySelector('a[href$="tab=conversation"]')).toBeNull()
   } finally { await act(async () => root.unmount()); client.clear() }
 })
 
-it.each(['pass', 'fail'] as const)('puts an unheld %s landing result above the change on a later visit without celebration', status => {
-  const el = document.createElement('div'); el.innerHTML = render(landingResult(status))
-  const result = el.querySelector('.ch-overview > .ch-deploy-result')
-  expect(result).not.toBeNull()
-  expect(result!.hasAttribute('hidden')).toBe(false)
-  expect(result!.compareDocumentPosition(el.querySelector('.ch-change-card')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  expect(result!.querySelector('.celebrate')).toBeNull()
-  expect(el.querySelectorAll('.ch-deploy-result')).toHaveLength(1)
-  for (const text of status === 'pass' ? ['Release 7 is live', 'club.example.test', 'Landing took 1m 12s', 'Open the app'] : ['Stopped while starting the app', 'The app container exited during startup.']) expect(result!.textContent).toContain(text)
+it.each(['pass', 'fail'] as const)('keeps an unheld %s landing in the fixed Release row without a scene', status => {
+ const el = document.createElement('div'); el.innerHTML = render(landingResult(status))
+ expect(el.querySelector('.ch-deploy-result')).toBeNull()
+ const rows = [...el.querySelectorAll('.ch-change-card .ch-overview-line')]
+ const row = rows.find(row => row.querySelector('.ch-row-label')?.textContent === 'Release')!
+ expect(row).toBeDefined()
+ expect(row.textContent).toContain(status === 'pass' ? 'Release 7 · live' : 'Deploy stopped at starting the app')
+ expect(row.querySelector('a')?.getAttribute('href')).toBe(status === 'pass' ? 'https://club.example.test' : '/projects/club/deployments/main')
 })
 
 it('locks the page while a decision is open and restores styles on close and unmount', () => {
@@ -871,40 +848,15 @@ it('locks the page while a decision is open and restores styles on close and unm
   document.documentElement.style.overflow = ''
 })
 
-it('keeps only deployment facts in the running dialog and retains Details access', async () => {
-  const v = landingResult('pass')
-  const liveStep = v.detail!.steps[0]
-  liveStep.status = 'running'
-  v.change.state = 'landing'
-  v.detail!.run.status = 'running'
-  v.waitingOn = { ...v.waitingOn, kind: 'work', you: 'no' }
-  v.next = [{ act: 'abandon' }] as ChangeView['next']
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).includes('/live')
-    ? { running: true, stage: 'building', lines: ['Building the release image'], elapsedMs: 8000, total: 1 } : []))))
-  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
-  const draw = (value: ChangeView) => act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={value} current steps={value.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
-  try {
-    await draw(view())
-    await act(async () => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
-    await draw(v)
-    await vi.waitFor(async () => { await act(async () => {}); expect(el.querySelector('dialog')?.textContent).toContain('Building the release image') })
-    const dialog = el.querySelector('dialog')!
-    expect(dialog.querySelector('.ch-deploy-heading')?.textContent).toBe('Release 78s')
-    expect(dialog.querySelector('.ch-now-steps')).toBeNull()
-    expect(dialog.textContent).not.toMatch(/step 1 of|Started|pending|Release created/)
-    expect(dialog.querySelector('a[href$="tab=details"]')?.textContent).toBe('Details →')
-    expect(dialog.querySelectorAll('.deploy-stages li')).toHaveLength(6)
-    expect([...dialog.querySelectorAll('button')].map(b => b.textContent)).toContain('Abandon change')
-    expect(dialog.textContent).not.toContain('Want to talk it through first?')
-    liveStep.status = 'pass'
-    v.change.state = 'shipped'
-    v.waitingOn = { ...v.waitingOn, kind: 'closed' }
-    await draw({ ...v })
-    expect(dialog.querySelector('.ch-deploy-result h3')?.textContent).toBe("It's live!")
-    expect(dialog.querySelector('h2')?.textContent).toBe('Deploy complete')
-    expect(dialog.querySelector('.celebrate')).not.toBeNull()
-    expect(dialog.textContent).not.toContain('Want to talk it through first?')
-  } finally { await act(async () => root.unmount()); client.clear() }
+it('links the running Release row to its deployment without displaying a number or scene', () => {
+ const v = landingResult('pass')
+ v.detail!.steps[0].status = 'running'
+ v.waitingOn = { ...v.waitingOn, kind: 'work', you: 'no' }
+ const el = document.createElement('div'); el.innerHTML = render(v)
+ const row = [...el.querySelectorAll('.ch-overview-line')].find(row => row.querySelector('.ch-row-label')?.textContent === 'Release')!
+ expect(row.textContent).toBe('ReleaseDeploying…watch →')
+ expect(row.querySelector('a')?.getAttribute('href')).toBe('/projects/club/deployments/main')
+ expect(el.querySelector('.deploy-scene')).toBeNull()
 })
 
 it('labels every approval fact, omits the internal step and keeps its meaning and actions', async () => {
@@ -927,4 +879,22 @@ it('labels every approval fact, omits the internal step and keeps its meaning an
     expect([...dialog.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept and put live', 'Send back…', 'Abandon change'])
     expect(dialog.querySelector('a[href$="tab=conversation"]')).not.toBeNull()
   } finally { await act(async () => root.unmount()); client.clear() }
+})
+
+it('navigates from accepting the change to the named deployment, without a progress dialog', async () => {
+ const v=view()
+ vi.stubGlobal('fetch',vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/deployments') ? [{name:'staff',feed:'landing',url:'https://staff.example'}] : {}))))
+ const client=newQueryClient(),el=document.createElement('div'),root=createRoot(el)
+ try {
+  await act(async()=>root.render(<MemoryRouter initialEntries={['/changes/change']}><QueryClientProvider client={client}><Routes>
+   <Route path="/changes/:id" element={<ChangeOverview view={v} current steps={v.detail!.steps} onChange={()=>{}} workTab={()=>'?tab=details'} />} />
+   <Route path="/projects/club/deployments/staff" element={<p>Watching the staff deployment</p>} />
+  </Routes></QueryClientProvider></MemoryRouter>))
+  await act(async()=>el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
+  await vi.waitFor(()=>expect(el.querySelector<HTMLButtonElement>('dialog .primary')?.disabled).toBe(false))
+  vi.spyOn(el.querySelector<HTMLElement>('dialog .decision-meaning')!,'getBoundingClientRect').mockReturnValue({top:100,bottom:140} as DOMRect)
+  await act(async()=>el.querySelector<HTMLButtonElement>('dialog .primary')!.click())
+  await vi.waitFor(()=>expect(el.textContent).toBe('Watching the staff deployment'))
+  expect(el.querySelector('dialog')).toBeNull()
+ } finally {act(()=>root.unmount());client.clear()}
 })

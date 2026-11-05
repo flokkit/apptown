@@ -6,28 +6,18 @@ import { Spinner } from '../../Spinner'
  * Failure closes calmly; checking knocks once more and turns away. Reduced motion keeps still frames.
  * The image names the current stage; the stage list remains text.
  */
-import { createContext, useContext, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useRef, useState, type CSSProperties } from 'react'
 import type { DeployStage } from '../../wire.gen'
 
 export const deployWords: Record<DeployStage, string> = {
   preparing: 'getting the code ready', 'backing-up': 'backing up the data', building: 'building the app',
   starting: 'starting the app', checking: 'checking the app answers', live: 'live',
 }
-// Overview and its dialog keep separate drawings mounted. The first visible
-// celebration claims the page so closing the dialog cannot play another one.
-const Celebration = createContext<{ owner: string | null; claim: (id: string) => void } | null>(null)
-export function DeploySceneScope({ children }: { children: ReactNode }) {
-  const [owner, setOwner] = useState<string | null>(null)
-  return <Celebration.Provider value={{ owner, claim: id => setOwner(old => old ?? id) }}>{children}</Celebration.Provider>
-}
-
 export type DeployOutcome = 'running' | 'passed' | 'failed' | 'paused'
 
-export function DeployScene({ stage, failedStage, outcome, showStages = true }: {
-  stage?: DeployStage; failedStage?: DeployStage; outcome: DeployOutcome; showStages?: boolean
+export function DeployScene({ stage, failedStage, outcome, showStages = true, compactStages = false }: {
+  stage?: DeployStage; failedStage?: DeployStage; outcome: DeployOutcome; showStages?: boolean; compactStages?: boolean
 }) {
-  const celebration = useContext(Celebration)
-  const instance = useId()
   const lastStage = useRef<DeployStage>()
   if (stage) lastStage.current = stage
   const sawRunning = useRef(false)
@@ -37,17 +27,26 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true }: 
   const stages = Object.keys(deployWords) as DeployStage[]
   const frames: DeployStage[] = ['preparing', 'building', 'starting', 'checking', 'live']
   const index = current ? frames.indexOf(current === 'backing-up' ? 'preparing' : current) + 1 : 0
-  const celebrate = (outcome === 'passed' || outcome === 'running' && stage === 'live') && sawRunning.current && !celebrated && (!celebration?.owner || celebration.owner === instance)
+  const celebrate = (outcome === 'passed' || outcome === 'running' && stage === 'live') && sawRunning.current && !celebrated
   const label = outcome === 'failed' ? `Stopped while ${current ? deployWords[current] : 'deploying'}`
     : current === 'live' ? 'The app is live' : current ? `Deploying: ${deployWords[current]}` : 'Waiting for deployment progress'
   const classes = ['deploy-scene', ...frames.slice(0, index).map((_, i) => `g${i + 1}`),
     (outcome === 'running' || outcome === 'paused') && current !== 'backing-up' && index < 5 ? `n${index}` : '', outcome === 'failed' ? 'fail' : '',
     outcome === 'paused' ? 'paused' : '', current === 'backing-up' ? 'backing-up' : '',
     current && stages.indexOf(current) >= stages.indexOf('backing-up') ? 'has-backup-shed' : '', celebrate ? 'celebrate' : 'rest'].filter(Boolean).join(' ')
-  return <div className={classes} onAnimationStart={e => {
-    // The modal owns the visible payoff when the page drawing is behind it.
-    if (celebrate && (!document.querySelector('dialog[open] .deploy-scene') || e.currentTarget.closest('dialog[open]'))) celebration?.claim(instance)
-  }} onAnimationEnd={e => {
+  const stageRows = () => stages.map((s, i) => {
+    const stopped = s === current && outcome === 'failed'
+    const finished = (current ? i < stages.indexOf(current) : false) || outcome === 'passed'
+    const running = s === current && outcome === 'running'
+    return <li key={s} aria-current={s === current ? 'step' : undefined}>
+      <span className={`deploy-stage-mark ${stopped ? 'bad' : finished ? 'ok' : running ? 'busy' : 'muted'}`}>
+        {running ? <Spinner /> : stopped ? '✗' : finished ? '✓' : '·'}
+      </span>
+      <span>{compactStages ? ['Code', 'Backup', 'Build', 'Start', 'Check', 'Live'][i] : deployWords[s][0].toUpperCase() + deployWords[s].slice(1)}</span>
+      <small className="muted">{stopped ? 'stopped' : running ? 'now' : ''}</small>
+    </li>
+  })
+  return <div className={classes} onAnimationEnd={e => {
     if (e.animationName === 'deploy-burst') setCelebrated(true)
   }}>
     <div className="deploy-scene-panel"><svg viewBox="0 0 300 150" role="img" aria-label={label}>
@@ -130,19 +129,8 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true }: 
               x2={150 + Math.cos(angle) * 39} y2={34 + Math.sin(angle) * 29} />
           })}</g>
     </svg></div>
-    {showStages && current && <ol className="deploy-stages" aria-label="Deployment stages">
-      {stages.map((s, i) => {
-        const stopped = s === current && outcome === 'failed'
-        const finished = (current ? i < stages.indexOf(current) : false) || outcome === 'passed'
-        const running = s === current && outcome === 'running'
-        return <li key={s} aria-current={s === current ? 'step' : undefined}>
-          <span className={`deploy-stage-mark ${stopped ? 'bad' : finished ? 'ok' : running ? 'busy' : 'muted'}`}>
-            {running ? <Spinner /> : stopped ? '✗' : finished ? '✓' : '·'}
-          </span>
-          <span>{deployWords[s][0].toUpperCase() + deployWords[s].slice(1)}</span>
-          <small className="muted">{stopped ? 'stopped' : running ? 'now' : ''}</small>
-        </li>
-      })}
-    </ol>}
+    {showStages && (current || compactStages) && <>
+      <ol className={`deploy-stages${compactStages ? ' deploy-stages-compact' : ''}`} aria-label="Deployment stages">{stageRows()}</ol>
+    </>}
   </div>
 }

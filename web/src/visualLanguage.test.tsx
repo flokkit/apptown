@@ -92,3 +92,12 @@ it('keeps workflow purpose and suitability visible before maintenance', async ()
   await act(async () => (el.querySelector('.more-menu-button') as HTMLElement).click())
   expect([...document.querySelectorAll('.popover button')].map((b) => b.firstChild?.textContent)).toContain('Copy')
 })
+
+
+it('distinguishes the project overview, changes and deployments with their icons', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response('{}')))
+  const el = await mount(<SidebarNav />)
+  expect(el.querySelector('a[href="/projects/app"] svg')?.classList.contains('lucide-layout-dashboard')).toBe(true)
+  expect(el.querySelector('a[href="/projects/app/changes"] svg')?.classList.contains('lucide-git-pull-request')).toBe(true)
+  expect(el.querySelector('a[href="/projects/app/deployments"] svg')?.classList.contains('lucide-rocket')).toBe(true)
+})

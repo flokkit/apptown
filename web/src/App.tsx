@@ -2,7 +2,7 @@ import { DeploymentPage } from './pages/project/settings/Deployments'
 import WorkRecordPage from './pages/change/WorkRecord'
 import { SECURITY_TABS, SETTINGS_TABS, SETTINGS_LABEL } from './pages/project/tabs'
 import { projectHue } from './ProjectListRow'
-import { Blocks, BookOpen, BookText, ChartColumn, ChevronDown, ChevronRight, FlaskConical, FolderKanban, House, LayoutDashboard, MessageSquare, MessageSquareWarning, Plug, RefreshCw, Rocket, Settings, Shield, ShieldCheck, Users } from 'lucide-react'
+import { Blocks, BookOpen, BookText, ChartColumn, ChevronDown, ChevronRight, FlaskConical, FolderKanban, GitPullRequest, House, LayoutDashboard, MessageSquare, MessageSquareWarning, Plug, RefreshCw, Rocket, Settings, Shield, ShieldCheck, Users } from 'lucide-react'
 import { createChatChange } from './pages/project/ChangeButton'
 import Janitor from './pages/Janitor'
 import { PRODUCT } from './brand'
@@ -91,6 +91,8 @@ export function SidebarNav() {
           <strong>{name}</strong>
         </div>
         <NavLink to={base} end className={cls}><LayoutDashboard aria-hidden size={16} />Overview</NavLink>
+        <NavLink to={`${base}/changes`} className={cls}><GitPullRequest aria-hidden size={16} />Changes</NavLink>
+        <NavLink to={`${base}/deployments`} className={cls}><Rocket aria-hidden size={16} />Deployments</NavLink>
         {project?.chatAvailable && canCreate && canChat && <button className="nav" disabled={chat.busy} onClick={() => void chat.run(async () => {
           const r = await createChatChange(slug)
           nav(`${base}/console?change=${r.change.id}`)

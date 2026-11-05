@@ -1,4 +1,4 @@
-import type { ChangeView, Step } from '../../api'
+import type { Step } from '../../api'
 import { useEffect, useState } from 'react'
 import type { ReleaseListed, StepProgress, RunTrace } from '../../wire.gen'
 import { useGet } from '../../data'
@@ -28,8 +28,8 @@ export function landingDuration(trace: RunTrace | null | undefined) {
   return Number.isFinite(ms) && ms >= 0 ? deployDuration(ms) : undefined
 }
 
-function DeployBackupLine({ backup }: { backup: Extract<Step, { type: 'deploy' }>['evidence']['backup'] }) {
-  if (!backup) return null
+export function DeployBackupLine({ backup }: { backup: Extract<Step, { type: 'deploy' }>['evidence']['backup'] }) {
+  if (!backup) return <p className="ch-deploy-backup small muted">Backup outcome not recorded</p>
   const set = backup.set
   const complete = backup.outcome === 'ok' && set?.status === 'ok'
   return <p className="ch-deploy-backup small">{complete
@@ -39,14 +39,13 @@ function DeployBackupLine({ backup }: { backup: Extract<Step, { type: 'deploy' }
   </p>
 }
 
-// Kept mounted while the dialog shows progress, so only a page that saw the
-// deploy running can celebrate its completion.
-export function DeployResult({ view, step, hidden = false, showRunning = false }: { view: ChangeView; step: Extract<Step, { type: 'deploy' }>; hidden?: boolean; showRunning?: boolean }) {
+// Keep the scene mounted through completion so only a page that observed
+// running progress celebrates the deploy.
+export function DeployResult({ slug, changeId, release, runStartedAt, step }: { slug: string; changeId: string; release?: number; runStartedAt?: string; step: Extract<Step, { type: 'deploy' }> }) {
   const running = step.status === 'running'
   const live = useGet<StepProgress>(running ? `/steps/${step.id}/live?from=0` : null, { poll: 3000 })
   const passed = step.status === 'pass'
-  const releases = useGet<ReleaseListed[]>(view.projectSlug ? `/projects/${view.projectSlug}/releases` : null, { poll: running ? 3000 : 0 })
-  const release = view.evidence?.releases?.[0]?.number
+  const releases = useGet<ReleaseListed[]>(slug ? `/projects/${slug}/releases` : null, { poll: running ? 3000 : 0 })
   // The deploy config's default is main, as in the deploy executor.
   const deployment = typeof step.config?.deployment === 'string' && step.config.deployment ? step.config.deployment : 'main'
   const previous = previousLanding(releases.data ?? [], deployment, step.startedAt)
@@ -59,32 +58,31 @@ export function DeployResult({ view, step, hidden = false, showRunning = false }
     return () => window.clearInterval(timer)
   }, [running])
   const elapsed = live.data?.elapsedMs != null ? live.data.elapsedMs + Math.max(0, now - live.answeredAt) : undefined
-  const start = view.detail?.run.createdAt
+  const start = runStartedAt
   const finish = step.finishedAt
   const elapsedLanding = start && finish ? Date.parse(finish) - Date.parse(start) : NaN
   const duration = Number.isFinite(elapsedLanding) && elapsedLanding >= 0 ? deployDuration(elapsedLanding) : undefined
-  return <div hidden={(!showRunning && running) || hidden} className="ch-deploy-result">
-    {running && showRunning && <div className="ch-deploy-heading"><strong>{release ? `Release ${release}` : deployment}</strong>
-      <span className="ch-deploy-times small muted">{elapsed != null && <span>{deployDuration(elapsed)}</span>}
-        {previousDuration && <span>Last deploy took {previousDuration}</span>}</span>
-    </div>}
-    <DeployScene showStages={!passed} stage={live.data?.stage} failedStage={step.evidence.failedStage}
+  const timing = <span className="ch-deploy-times small muted">{running && elapsed != null && <span>{deployDuration(elapsed)}</span>}
+    {!running && duration && <span>Landing took {duration}</span>}
+    {previousDuration && <span>Last deploy took {previousDuration}</span>}</span>
+  return <div className="ch-deploy-result">
+    <div className="ch-deploy-heading"><strong className={passed ? 'ok' : undefined}>{running ? 'Deploying' : passed ? "It's live!" : 'Deploy stopped'}</strong>
+      {passed && release && <span> Release {release}</span>}
+    </div>
+    <DeployScene compactStages stage={live.data?.stage} failedStage={step.evidence.failedStage}
       outcome={running ? live.current && live.data?.running && live.data.stage ? 'running' : 'paused' : passed ? 'passed' : 'failed'} />
-    {running && showRunning && <>
+    {running && <>
       {!!live.data?.lines?.length && <p className="ch-deploy-caption small muted">{live.data.lines.at(-1)}</p>}
       <StaleNote q={live} />
       {live.err && <p className="error">Progress could not be read: {live.err}</p>}
-      <Link className="small muted" to={`/changes/${view.change.id}?tab=details`} onClick={e => e.currentTarget.closest('dialog')?.close()}>Details →</Link>
+      <Link className="small muted" to={`/changes/${changeId}?tab=details`} onClick={e => e.currentTarget.closest('dialog')?.close()}>Details →</Link>
     </>}
-    <div className="ch-deploy-result-facts">{!running && (passed ? <>
-      <h3 className="ok">It's live!</h3>
-      {release && <p>Release {release} is live</p>}
+    <div className="ch-deploy-result-facts">{timing}{!running && (passed ? <>
       <DeployBackupLine backup={step.evidence.backup} />
       {step.evidence.url && <p><AppAddress url={step.evidence.url} /></p>}
-      {duration && <p className="small muted">Landing took {duration}</p>}
       {step.evidence.url && <a className="btn primary ch-open-app" href={step.evidence.url} target="_blank" rel="noopener noreferrer">Open the app <span aria-hidden="true">↗</span></a>}
     </> : <>
-      <h3>Stopped while {step.evidence.failedStage ? deployWords[step.evidence.failedStage] : 'deploying'}</h3>
+      <p>Stopped while {step.evidence.failedStage ? deployWords[step.evidence.failedStage] : 'deploying'}</p>
       {step.evidence.reason && <p>{step.evidence.reason}</p>}
       <DeployBackupLine backup={step.evidence.backup} />
       {/* A landing removes the running app when it starts the new one; before that the old one still runs, so only a stop at the answer check says the app is down. */}

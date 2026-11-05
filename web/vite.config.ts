@@ -12,7 +12,7 @@ export default defineConfig({
     // (// @vitest-environment jsdom).
     environment: 'node',
     setupFiles: ['./test-setup.ts'],
-    css: { include: [/(?:change|deploy-scene)\.css/] },
+    css: { include: [/(?:change|deploy-scene|deployment-deploys)\.css/] },
     include: ['src/**/*.test.{ts,tsx}'],
   },
 })

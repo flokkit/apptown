@@ -103,6 +103,11 @@
 // recording the failure separately. A first partial check takes its read time
 // from successfully read figures. Inventory owns its stale/unknown classification;
 // transports render that decision.
+// DeployHistory reads landing invocations from Work's scoped evidence port,
+// including failures before provider admission and separate retries. The read
+// never reserves a release number; successful landings create releases through
+// completion. Work retains each finished deploy's evidence in its immutable
+// finish event so a retry cannot erase the earlier backup outcome.
 // Deployment reads expose LastApplied from the completed attempt of the observed
 // generation. Detail readings keep prior payloads and their identity and age
 // after a change, marked unknown and old for display only. Post-act detail,

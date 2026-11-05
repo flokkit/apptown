@@ -1,12 +1,14 @@
 package apptown
 
 import (
+	"context"
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/instancebackup"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // Composition: what Deployment asks of the world, supplied by AppTown once
@@ -19,6 +21,7 @@ func (a *App) deploymentDependencies(changes workflow.Changes) deployment.Depend
 		// AppTown's one clock, the one project deletion reads too: an
 		// orphaned copy's age is its taking against the deletion's.
 		Now:           a.cfg.clock.Now,
+		Landings:      landingDeployReads{changes},
 		Authority:     authority,
 		Groups:        a.Access,
 		Targets:       a.targets,
@@ -87,4 +90,21 @@ func environmentDependenciesFor(a *App) deployment.EnvironmentDependencies {
 func providerDependenciesFor(a *App, digitalOcean digitalocean.Options) deployment.ProviderDependencies {
 	return deployment.ProviderDependencies{Projects: a.Projects, Secrets: a.Secrets, Integrations: a.Integrations, DigitalOcean: digitalOcean,
 		AfterRelease: (backupRequests{db: a.DB, life: a.life}).AfterRelease, DatabaseContainer: builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Container, Applied: a.infrastructure.Applied, Now: a.cfg.clock.Now, Installation: a.docker.Instance}
+}
+
+// Work retains invocation outcomes; Deployment selects the named placement.
+type landingDeployReads struct{ changes workflow.Changes }
+
+func (r landingDeployReads) LandingDeployAttempts(ctx context.Context, project ids.ID) ([]deployment.LandingDeployAttempt, error) {
+	attempts, err := r.changes.LandingDeployAttempts(ctx, project)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]deployment.LandingDeployAttempt, 0, len(attempts))
+	for _, a := range attempts {
+		step := a.Step
+		out = append(out, deployment.LandingDeployAttempt{OutcomeKnown: a.OutcomeKnown, Attempt: a.Attempt, ChangeID: a.ChangeID, ChangeNumber: a.ChangeNumber, ChangeTitle: a.ChangeTitle, RunStartedAt: a.RunStartedAt,
+			Step: deployment.LandingDeployStep{ID: step.ID, RunID: step.RunID, Type: step.Type, Status: step.Status.String(), Config: step.Config, Evidence: step.Evidence, StartedAt: step.StartedAt, FinishedAt: step.FinishedAt}})
+	}
+	return out, nil
 }

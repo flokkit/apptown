@@ -142,3 +142,17 @@ type DeploymentTargetView struct {
 	Family       string `json:"family"`
 	Region       string `json:"region"`
 }
+
+// Deploys reads landing invocations independently of runtime observation.
+func (h DeploymentListing) Deploys(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	attempts, err := h.deployment.DeployHistory(r.Context(), p.ID, r.PathValue("name"))
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, attempts)
+}

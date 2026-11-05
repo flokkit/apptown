@@ -36,3 +36,9 @@ describe('resolveProjectTabs', () => {
     expect(resolveProjectTabs('release', undefined).tab).toBe('release')
   })
 })
+
+it('opens the project change and deployment lists, including old board links', () => {
+ expect(resolveProjectTabs('changes', undefined).tab).toBe('changes')
+ expect(resolveProjectTabs('deployments', undefined).tab).toBe('deployments')
+ expect(resolveProjectTabs('board', undefined).tab).toBe('changes')
+})

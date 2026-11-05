@@ -20,6 +20,7 @@ it('shows landing progress, ordered plain titles, approval fact and timings duri
  const text = html(v)
  expect(text).toContain('Landing — step 3 of 4')
  expect(text).toContain('aria-label="Now"')
+ expect(text).not.toContain('deploy-scene')
  expect(text).toContain('bls')
  expect(text).toContain('10s')
  expect(text).toContain('Started')

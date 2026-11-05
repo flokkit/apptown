@@ -989,6 +989,16 @@ export type JobList = {
   jobs: Job[]
 }
 
+export type LandingDeployAttempt = {
+  outcomeKnown: boolean
+  step: LandingDeployStep
+  attempt: number
+  changeId: string | null
+  changeNumber: number
+  changeTitle: string
+  runStartedAt: string
+}
+
 export type LandingStarted = {
   runId: string | null
   message: string
@@ -3474,6 +3484,17 @@ export type Job = {
   startedAt?: string
   finishedAt?: string
   runAfter?: string
+}
+
+export type LandingDeployStep = {
+  id: string | null
+  runId: string | null
+  type: string
+  status: string
+  config: unknown
+  evidence: unknown
+  startedAt: string
+  finishedAt: string
 }
 
 export type PackVersion = {

@@ -1,8 +1,8 @@
-// The project's shape (design/subsystems/ui-coherence.md): Overview · Chat · Security ·
+// The project's shape (design/subsystems/ui-coherence.md): Overview · Changes · Deployments · Security ·
 // Settings. Board retired (Overview tells the same story), the tier map
 // retired (the Open button and header chips carry it), Usage moved into
 // Settings. Old links still land somewhere sensible.
-export const PROJECT_TABS = ['overview', 'security', 'settings', 'release', 'releases'] as const
+export const PROJECT_TABS = ['overview', 'changes', 'deployments', 'security', 'settings', 'release', 'releases'] as const
 export const SECURITY_TABS = ['findings', 'suppressions'] as const
 export const SETTINGS_TABS = ['general', 'working', 'services', 'deployments', 'secrets', 'members', 'decisions', 'usage'] as const
 export const SETTINGS_LABEL: Record<string, string> = {
@@ -25,7 +25,7 @@ export function resolveProjectTabs(rawTab: string | undefined, rawStab: string |
   tab: ProjectTab; secTab: SecurityTab; setTab: SettingsTab
 } {
   const tab = (PROJECT_TABS as readonly string[]).includes(rawTab ?? '') ? rawTab as ProjectTab
-    : rawTab === 'usage' ? 'settings' : 'overview'
+    : rawTab === 'usage' ? 'settings' : rawTab === 'board' ? 'changes' : 'overview'
   const secTab = (SECURITY_TABS as readonly string[]).includes(rawStab ?? '') ? rawStab as SecurityTab : 'findings'
   const setTab = rawTab === 'usage' ? 'usage'
     : (SETTINGS_TABS as readonly string[]).includes(rawStab ?? '') ? rawStab as SettingsTab

@@ -86,16 +86,18 @@ failure reason. Cancel restores the choices. Sending back an approval records th
 Abandon asks inline: “Abandon this change? The branch is kept; the workspace is
 removed.” The acceptance screen labels the request, approval brief when available, checks,
 landing destination and who decides, then keeps the stated meaning beside the
-choices. Deploying shows the reported stages and their marks below a cumulative
-scene, with timing and the current detail; full run rows stay in Details. A
-finished deployment stacks its scene, live heading at page-title size in
-the OK colour, release, address, timing and app link.
+choices. The deployment page leads with its name and current deploy state. Its
+latest deploy card fills the content width, with the scene beside the text on
+desktop and stacked on phones. The card keeps a fixed height and scene size.
+A compact labelled list shows the reported stages inline. Timing, current detail,
+backup outcome and recovery choices stay in the card. Success names the recorded release, address
+and Open the app link. Full run rows stay in the change's Details.
 While building, the crane keeps its jib level: its trolley carries each block
 into position, lowers it on a vertical cable, and raises the empty hook before
 returning. After building it shuttles the empty trolley slowly.
 The checking door stays shut until the server reports live. A page that observes
 running celebrates once on completion; a later visit shows the finished frame.
-The running header counts elapsed time and, when the previous successful release retains its landing trace,
+The running card counts elapsed time and, when the previous successful release retains its landing trace,
 shows that landing’s duration for the same deployment.
 During backing up, a box moves from the lit house to a shed that stays in later frames.
 Results read the deploy step’s backup evidence: only a complete set says “Backed up”,
@@ -251,6 +253,15 @@ start with a bounded selection and offer the next ten records. Successful jobs
 with the same operation and subject collapse; failures and open jobs stay apart.
 The change page keeps its full evidence in Details, after the tab navigation.
 
+The project sidebar orders Overview, Changes, Deployments, Security and Settings.
+Changes owns the project's change list; Overview links to it. Deployments lists
+placements with their live state, serving release and last deploy outcome.
+Settings › Deployments keeps configuration. The deployment page leads with the
+latest deploy card, then invocation history with outcome, time, source change,
+backup outcome and links to releases that were created. The deployment owner's
+`deploys` read includes invocations before provider admission; the scene reads
+the same step progress feed as Work.
+
 Project Settings › Deployments lists each deployment with its status, display
 name, address, backup warning when needed, and serving release or preview change.
 Disk warnings and uncertain readiness stay visible in the summary. Rows place
@@ -280,15 +291,16 @@ Running called workflows include their current stages. Consecutive scans, tests
 and conformance checks share a Checks row with their names; a running or failed
 check expands that group automatically. Each row keeps its status, plain title,
 short fact and duration or start time visible. Now is absent while idle.
-After Accept or Continue, an open decision screen stays open and shows the same
-progress until work finishes or stops, then the outcome or failure and its
-offered decision. Close remains available throughout. A landing deploy result names
-its recorded failure stage and reason once; its recovery choices and conversation
-link follow without another failure heading or reason. Windows light only once
-starting has completed. A completed landing without a held decision leads Overview
-with a compact still scene, release and address when known, landing duration and
-Open the app link for success. Opening an already completed landing does not
-replay celebration.
+Accepting a change with a landing deployment opens that deployment's page.
+The decision screen does not show its deploy progress or result. A landing deploy
+result names its recorded failure stage and reason once, followed by its recovery
+choices. The change retains its recovery choices and omits Now while a landing deploy is active. Windows light only once
+starting has completed. A visit to an already completed deploy does not replay
+celebration. The change Overview keeps a Release row after acceptance or while
+landing: Not released yet, Deploying… with a watch link, Deploy stopped at the
+recorded stage with a see why link, or Release N · live with Open the app and
+the backup outcome. Running and stopped landing deploys have no release number.
+Details retains the landing record and the release link.
 
 Overview has two bordered cards: The change and an action card. The change uses
 shared label, value and evidence-link columns, with preview thumbnails first,
