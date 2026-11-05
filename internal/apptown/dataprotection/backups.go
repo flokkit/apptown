@@ -329,5 +329,5 @@ func (s *Backups) Reference(ctx context.Context, projectID, id ids.ID) (*BackupR
 	if err != nil {
 		return nil, err
 	}
-	return b.Reference(), nil
+	return b.reference(), nil
 }

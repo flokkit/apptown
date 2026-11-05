@@ -4885,6 +4885,8 @@ export type OverviewHead = {
 }
 
 export type SecretStatus = {
+  agentVisible: boolean
+  agentEligible: boolean
   name: string
   required: boolean
   bound: boolean

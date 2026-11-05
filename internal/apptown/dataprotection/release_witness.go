@@ -56,7 +56,7 @@ type BackupReference struct {
 	Status  BackupState `json:"status"`
 }
 
-func (b *Backup) Reference() *BackupReference {
+func (b *Backup) reference() *BackupReference {
 	return &BackupReference{ID: b.ID, TakenAt: b.TakenAt, Bytes: b.Bytes, Status: b.Status}
 }
 
@@ -70,7 +70,7 @@ type CopyOutcome struct {
 func (w *releaseWitness) CopyOutcome() CopyOutcome {
 	out := CopyOutcome{Outcome: w.outcome, Reason: w.CopyWords()}
 	if w.copy != nil {
-		out.Set = w.copy.Reference()
+		out.Set = w.copy.reference()
 		out.Outcome = w.copy.Status.String()
 	}
 	return out

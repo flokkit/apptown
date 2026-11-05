@@ -308,7 +308,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	}
 	a.Projects = project.NewWithClock(db, identity.Scoped(a.Access, "project"), cfg.clock.Now)
 	a.vhostRules = &vhostRules{db: db, projects: a.Projects, now: cfg.clock.Now}
-	a.Secrets = secret.NewService(db, secret.Config{DataDir: cfg.dataDir, Client: input.SecretsHTTPClient, Now: cfg.clock.Now})
+	a.Secrets = secret.NewService(db, secret.Config{Projects: secretProjectScope{a.Projects}, Authority: access.Checked{Authority: a.Access, Projects: a.Projects}, DataDir: cfg.dataDir, Client: input.SecretsHTTPClient, Now: cfg.clock.Now})
 	a.repositoryAttachments = scm.NewRepositoryAttachments(db, scm.AttachmentDependencies{Projects: a.Projects, Authority: access.Checked{Authority: identity.Scoped(a.Access, "scm"), Projects: a.Projects}, Provider: repositoryProvider{bindings: integration.NewWithClock(db, cfg.clock.Now), secrets: a.Secrets}, Locks: &a.repositories, DataDir: cfg.dataDir, Now: cfg.clock.Now})
 	a.Dependencies = dependency.NewCatalog(db, cfg.clock.Now)
 	a.Integrations = integration.NewService(db, integration.Dependencies{Jobs: jobQueue{}, Kinds: a.Dependencies, Projects: a.Projects, Secrets: a.Secrets, SCMRepositories: scmRepositoryTokens{a.repositoryAttachments}, Now: cfg.clock.Now})

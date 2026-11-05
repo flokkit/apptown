@@ -13,7 +13,7 @@ import (
 )
 
 const bindingByName = `-- name: BindingByName :one
-SELECT project_id, deployment, name, store, ref, version, generated, updated_at, updated_by, updated_by_principal, updated_by_via FROM secret_bindings WHERE project_id = $1 AND deployment = $2 AND name = $3
+SELECT project_id, deployment, name, store, ref, version, generated, updated_at, updated_by, updated_by_principal, updated_by_via, agent_visible FROM secret_bindings WHERE project_id = $1 AND deployment = $2 AND name = $3
 `
 
 type BindingByNameParams struct {
@@ -37,13 +37,14 @@ func (q *Queries) BindingByName(ctx context.Context, arg BindingByNameParams) (S
 		&i.UpdatedBy,
 		&i.UpdatedByPrincipal,
 		&i.UpdatedByVia,
+		&i.AgentVisible,
 	)
 	return i, err
 }
 
 const bindingsForDeployment = `-- name: BindingsForDeployment :many
 
-SELECT project_id, deployment, name, store, ref, version, generated, updated_at, updated_by, updated_by_principal, updated_by_via FROM secret_bindings WHERE project_id = $1 AND deployment = $2
+SELECT project_id, deployment, name, store, ref, version, generated, updated_at, updated_by, updated_by_principal, updated_by_via, agent_visible FROM secret_bindings WHERE project_id = $1 AND deployment = $2
 `
 
 type BindingsForDeploymentParams struct {
@@ -73,6 +74,7 @@ func (q *Queries) BindingsForDeployment(ctx context.Context, arg BindingsForDepl
 			&i.UpdatedBy,
 			&i.UpdatedByPrincipal,
 			&i.UpdatedByVia,
+			&i.AgentVisible,
 		); err != nil {
 			return nil, err
 		}
@@ -135,7 +137,7 @@ func (q *Queries) CurrentSecretValues(ctx context.Context) ([]string, error) {
 }
 
 const deleteBinding = `-- name: DeleteBinding :one
-DELETE FROM secret_bindings WHERE project_id=$1 AND deployment = $2 AND name = $3 RETURNING project_id, deployment, name, store, ref, version, generated, updated_at, updated_by, updated_by_principal, updated_by_via
+DELETE FROM secret_bindings WHERE project_id=$1 AND deployment = $2 AND name = $3 RETURNING project_id, deployment, name, store, ref, version, generated, updated_at, updated_by, updated_by_principal, updated_by_via, agent_visible
 `
 
 type DeleteBindingParams struct {
@@ -159,6 +161,7 @@ func (q *Queries) DeleteBinding(ctx context.Context, arg DeleteBindingParams) (S
 		&i.UpdatedBy,
 		&i.UpdatedByPrincipal,
 		&i.UpdatedByVia,
+		&i.AgentVisible,
 	)
 	return i, err
 }
@@ -365,6 +368,33 @@ func (q *Queries) LockSecretValue(ctx context.Context, arg LockSecretValueParams
 	return err
 }
 
+const nonPreviewReferences = `-- name: NonPreviewReferences :many
+SELECT ref FROM secret_bindings WHERE deployment <> 'preview' AND store = 'infisical'
+`
+
+func (q *Queries) NonPreviewReferences(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, nonPreviewReferences)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var ref string
+		if err := rows.Scan(&ref); err != nil {
+			return nil, err
+		}
+		items = append(items, ref)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const secretValueVersionExists = `-- name: SecretValueVersionExists :one
 SELECT EXISTS(SELECT 1 FROM secret_values WHERE scope = $1 AND name = $2 AND version::text = $3::text)
 `
@@ -380,6 +410,37 @@ func (q *Queries) SecretValueVersionExists(ctx context.Context, arg SecretValueV
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const setAgentVisible = `-- name: SetAgentVisible :exec
+UPDATE secret_bindings SET agent_visible = $4, updated_at = $5, updated_by = $6,
+ updated_by_principal = $7, updated_by_via = $8
+WHERE project_id = $1 AND deployment = $2 AND name = $3
+`
+
+type SetAgentVisibleParams struct {
+	ProjectID          ids.ID
+	Deployment         string
+	Name               string
+	AgentVisible       bool
+	UpdatedAt          time.Time
+	UpdatedBy          string
+	UpdatedByPrincipal ids.ID
+	UpdatedByVia       string
+}
+
+func (q *Queries) SetAgentVisible(ctx context.Context, arg SetAgentVisibleParams) error {
+	_, err := q.db.ExecContext(ctx, setAgentVisible,
+		arg.ProjectID,
+		arg.Deployment,
+		arg.Name,
+		arg.AgentVisible,
+		arg.UpdatedAt,
+		arg.UpdatedBy,
+		arg.UpdatedByPrincipal,
+		arg.UpdatedByVia,
+	)
+	return err
 }
 
 const setProfile = `-- name: SetProfile :exec
@@ -415,9 +476,10 @@ const upsertBinding = `-- name: UpsertBinding :one
 INSERT INTO secret_bindings (project_id, deployment, name, store, ref, version, generated, updated_at, updated_by, updated_by_principal, updated_by_via)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 ON CONFLICT (project_id, deployment, name) DO UPDATE SET store = excluded.store, ref = excluded.ref,
+  agent_visible = secret_bindings.agent_visible AND secret_bindings.store = excluded.store AND secret_bindings.ref = excluded.ref,
   version = excluded.version, generated = excluded.generated, updated_at = excluded.updated_at,
   updated_by = excluded.updated_by, updated_by_principal = excluded.updated_by_principal, updated_by_via = excluded.updated_by_via
-RETURNING project_id, deployment, name, store, ref, version, generated, updated_at, updated_by, updated_by_principal, updated_by_via
+RETURNING project_id, deployment, name, store, ref, version, generated, updated_at, updated_by, updated_by_principal, updated_by_via, agent_visible
 `
 
 type UpsertBindingParams struct {
@@ -461,6 +523,7 @@ func (q *Queries) UpsertBinding(ctx context.Context, arg UpsertBindingParams) (S
 		&i.UpdatedBy,
 		&i.UpdatedByPrincipal,
 		&i.UpdatedByVia,
+		&i.AgentVisible,
 	)
 	return i, err
 }

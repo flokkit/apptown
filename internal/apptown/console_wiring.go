@@ -12,8 +12,11 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/datalayout"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/maintenance"
+	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/conversation"
 
@@ -72,7 +75,7 @@ func (a *App) consoleDependencies(agent console.Agent, remote *worker.RemoteAgen
 	ledger := a.Usage.Ledger
 	return console.Dependencies{
 		Agent:       agent,
-		Environment: conversation.NewEnvironment(a.DB, conversation.EnvironmentDependencies{Projects: a.Projects, Models: a.modelSelection, Bindings: a.Integrations.Bindings, Instructions: a.steering, Home: piHomeFor(a), CLI: a.cli, Credentials: a.providers, Identity: a.Access, Now: a.cfg.clock.Now}, conversation.EnvironmentConfig{DataDir: a.cfg.dataDir, APIURL: a.cfg.consoleAPIURL, InferenceEnabled: a.cfg.inferenceURL != "", NoPrivateDocker: !a.cfg.privateDocker}),
+		Environment: conversation.NewEnvironment(a.DB, conversation.EnvironmentDependencies{Secrets: chatAgentEnvironment{a.Secrets}, Projects: a.Projects, Models: a.modelSelection, Bindings: a.Integrations.Bindings, Instructions: a.steering, Home: piHomeFor(a), CLI: a.cli, Credentials: a.providers, Identity: a.Access, Now: a.cfg.clock.Now}, conversation.EnvironmentConfig{DataDir: a.cfg.dataDir, APIURL: a.cfg.consoleAPIURL, InferenceEnabled: a.cfg.inferenceURL != "", NoPrivateDocker: !a.cfg.privateDocker}),
 		// An end records the chat's spend from its last record before the
 		// record is archived or removed.
 		Settle: func(ctx context.Context, s *console.Session) error {
@@ -248,4 +251,32 @@ func FinalizeDataLayout(dataDir string) error {
 		return err
 	}
 	return datalayout.Finalize(dataDir, instance)
+}
+
+type secretProjectScope struct{ projects *project.Projects }
+
+func (s secretProjectScope) Slug(ctx context.Context, id ids.ID) (string, error) {
+	p, err := s.projects.ByID(ctx, id)
+	return p.Slug, err
+}
+
+type chatAgentEnvironment struct{ secrets *secret.Service }
+
+func (e chatAgentEnvironment) Prepare(ctx context.Context, projectID, changeID ids.ID, workspace, session, invocation string) (conversation.AgentEnvironment, error) {
+	launch := secret.AgentLaunch{Kind: "change-chat", ChangeID: changeID, Session: session, Invocation: invocation}
+	given, err := e.secrets.PrepareAgentEnv(ctx, projectID, workspace, launch)
+	if err != nil {
+		return conversation.AgentEnvironment{}, err
+	}
+	return conversation.AgentEnvironment{Env: given.Env, Digest: given.Digest(),
+		Creating: func(ctx context.Context) error {
+			return e.secrets.RecordChatAgentDelivery(ctx, projectID, launch, given, "pending", "")
+		},
+		Created: func(ctx context.Context, container string) error {
+			state := "delivered"
+			if container == "" {
+				state = "not-delivered"
+			}
+			return e.secrets.RecordChatAgentDelivery(ctx, projectID, launch, given, state, container)
+		}}, nil
 }

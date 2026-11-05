@@ -180,6 +180,8 @@ type inspection struct {
 	image           string
 	dind            string // AppTown.console.dind label: "0" | "1"
 	model           string // AppTown.console.model label
+	secrets         string
+	instance        string
 	mounts          string // AppTown.console.mounts label
 }
 
@@ -209,6 +211,7 @@ func (r *Runtime) inspect(id string) (inspection, error) {
 		if err := json.Unmarshal([]byte(f[3]), &labels); err != nil {
 			return inspection{}, fmt.Errorf("reading %s's labels: %w", ContainerName(id), err)
 		}
+		in.secrets, in.instance = labels[dockerlabel.ConsoleSecrets], labels[dockerlabel.ConsoleInstance]
 		in.dind, in.model, in.mounts = labels[dockerlabel.ConsoleDind], labels[dockerlabel.ConsoleModel], labels[dockerlabel.ConsoleMounts]
 	}
 	return in, nil
@@ -245,7 +248,7 @@ func dindMode(in console.Launch) string {
 
 // Stale: the container pins the image it was created from, the model its
 // run script names, the Docker mode its network was built for and its bind
-// mounts; if any moved, it should be rebuilt when safe. A worker sends the
+// mounts and given-secret metadata; if any moved, it should be rebuilt when safe. A worker sends the
 // apptown CLI as a content-named blob, so a new CLI is a new mount that only a
 // rebuilt container sees.
 func (r *Runtime) Stale(ctx context.Context, in console.Launch) (bool, error) {
@@ -257,6 +260,9 @@ func (r *Runtime) Stale(ctx context.Context, in console.Launch) (bool, error) {
 		return true, nil
 	}
 	if cur.model != in.Model {
+		return true, nil
+	}
+	if cur.secrets != in.SecretDigest {
 		return true, nil
 	}
 	if cur.mounts != r.mountsDigest(in) {
@@ -286,7 +292,11 @@ func (r *Runtime) Status(ctx context.Context, id string) (console.Status, error)
 	st.mu.Lock()
 	attached := st.ptmx != nil
 	st.mu.Unlock()
-	return console.Status{Exists: cur.exists, SidecarExists: sidecar, SidecarRunning: sidecarRunning, ScriptExists: script, Running: cur.running, EverStarted: cur.everStarted, Attached: attached}, nil
+	container := ""
+	if cur.exists {
+		container = ContainerName(id) + ":" + cur.instance
+	}
+	return console.Status{Container: container, Exists: cur.exists, SidecarExists: sidecar, SidecarRunning: sidecarRunning, ScriptExists: script, Running: cur.running, EverStarted: cur.everStarted, Attached: attached}, nil
 }
 
 // Start makes the agent run: provision the container if it is gone, ensure

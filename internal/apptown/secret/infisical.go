@@ -50,6 +50,7 @@ const (
 // provider's error: a failed refresh never answers the last values it read.
 // Only the refreshing caller receives a health transition, for one receipt.
 type secretResolution struct {
+	Versions   map[string]int
 	Values     map[string]string
 	Transition refreshTransition
 }
@@ -57,6 +58,7 @@ type secretResolution struct {
 type secretFlight struct {
 	done      chan struct{}
 	config    infisicalSettings
+	versions  map[string]int
 	values    map[string]string
 	err       error
 	cancelled bool
@@ -69,6 +71,7 @@ type infisical struct {
 	config      infisicalSettings
 	token       string
 	tokenExpiry time.Time
+	versions    map[string]int
 	values      map[string]string
 	fetched     time.Time
 	failed      bool
@@ -115,18 +118,19 @@ func (s *infisical) resolve(ctx context.Context, config infisicalSettings, clien
 			if flight.config != config || flight.cancelled {
 				continue
 			}
-			return secretResolution{Values: maps.Clone(flight.values)}, flight.err
+			return secretResolution{Values: maps.Clone(flight.values), Versions: maps.Clone(flight.versions)}, flight.err
 		}
 		if s.config != config {
 			s.config = config
 			s.token = ""
 			s.tokenExpiry = time.Time{}
 			s.values = nil
+			s.versions = nil
 			s.fetched = time.Time{}
 			s.failed = false
 		}
 		if s.values != nil && s.now().Sub(s.fetched) < time.Minute {
-			result := secretResolution{Values: maps.Clone(s.values)}
+			result := secretResolution{Values: maps.Clone(s.values), Versions: maps.Clone(s.versions)}
 			s.mu.Unlock()
 			if err := ctx.Err(); err != nil {
 				return secretResolution{}, err
@@ -138,7 +142,7 @@ func (s *infisical) resolve(ctx context.Context, config infisicalSettings, clien
 		token, expiry := s.token, s.tokenExpiry
 		s.mu.Unlock()
 
-		values, token, expiry, err := fetchInfisical(ctx, client, config, token, expiry, s.now)
+		values, versions, token, expiry, err := fetchInfisical(ctx, client, config, token, expiry, s.now)
 		s.mu.Lock()
 		result := secretResolution{}
 		if ctx.Err() != nil {
@@ -157,9 +161,12 @@ func (s *infisical) resolve(ctx context.Context, config infisicalSettings, clien
 				}
 				s.failed = false
 				s.values = values
+				s.versions = versions
 				s.fetched = s.now()
 				flight.values = s.values
+				flight.versions = s.versions
 				result.Values = maps.Clone(s.values)
+				result.Versions = maps.Clone(s.versions)
 			}
 		}
 		flight.err = err
@@ -181,7 +188,7 @@ func (s *infisical) lastKnown(config infisicalSettings) map[string]string {
 	return maps.Clone(s.values)
 }
 
-func fetchInfisical(ctx context.Context, client HTTPClient, c infisicalSettings, token string, expiry time.Time, now func() time.Time) (map[string]string, string, time.Time, error) {
+func fetchInfisical(ctx context.Context, client HTTPClient, c infisicalSettings, token string, expiry time.Time, now func() time.Time) (map[string]string, map[string]int, string, time.Time, error) {
 	if token == "" || now().After(expiry) {
 		body, _ := json.Marshal(struct {
 			ClientID     string `json:"clientId"`
@@ -193,10 +200,10 @@ func fetchInfisical(ctx context.Context, client HTTPClient, c infisicalSettings,
 		}
 		_, err := infisicalRequest(ctx, client, "POST", c.URL+"/api/v1/auth/universal-auth/login", "", body, 1<<20, &login)
 		if err != nil {
-			return nil, token, expiry, err
+			return nil, nil, token, expiry, err
 		}
 		if login.AccessToken == "" || login.ExpiresIn <= 0 {
-			return nil, token, expiry, errors.New("Infisical login returned invalid token metadata")
+			return nil, nil, token, expiry, errors.New("Infisical login returned invalid token metadata")
 		}
 		token = login.AccessToken
 		expiry = now().Add(time.Duration(login.ExpiresIn)*time.Second - 30*time.Second)
@@ -204,8 +211,9 @@ func fetchInfisical(ctx context.Context, client HTTPClient, c infisicalSettings,
 	query := url.Values{"workspaceId": {c.ProjectID}, "environment": {c.Environment}, "secretPath": {c.Path}}
 	var out struct {
 		Secrets []struct {
-			Key   string `json:"secretKey"`
-			Value string `json:"secretValue"`
+			Version int    `json:"version"`
+			Key     string `json:"secretKey"`
+			Value   string `json:"secretValue"`
 		} `json:"secrets"`
 	}
 	status, err := infisicalRequest(ctx, client, "GET", c.URL+"/api/v3/secrets/raw?"+query.Encode(), token, nil, 4<<20, &out)
@@ -213,16 +221,18 @@ func fetchInfisical(ctx context.Context, client HTTPClient, c infisicalSettings,
 		token = ""
 	}
 	if err != nil {
-		return nil, token, expiry, err
+		return nil, nil, token, expiry, err
 	}
 	if out.Secrets == nil {
-		return nil, token, expiry, errors.New("Infisical returned no secrets collection")
+		return nil, nil, token, expiry, errors.New("Infisical returned no secrets collection")
 	}
 	values := make(map[string]string, len(out.Secrets))
+	versions := make(map[string]int, len(out.Secrets))
 	for _, v := range out.Secrets {
 		values[v.Key] = v.Value
+		versions[v.Key] = v.Version
 	}
-	return values, token, expiry, nil
+	return values, versions, token, expiry, nil
 }
 
 // Bounded, checked reads. Response bodies can contain secrets and are never

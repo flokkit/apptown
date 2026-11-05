@@ -2,6 +2,7 @@ package pi
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -80,6 +81,8 @@ func (r *Runtime) provision(in console.Launch) error {
 	args := []string{"create", "-it", "--init", "--name", ContainerName(in.ID), "-w", console.WorkMount,
 		"--label", dockerlabel.Class + "=console", "--label", dockerlabel.Inference + "=1", "--label", dockerlabel.Owner + "=" + in.ID, "--label", dockerlabel.Created + "=" + r.created(),
 		"--label", dockerlabel.ConsoleDind + "=" + dindMode(in), "--label", dockerlabel.ConsoleModel + "=" + in.Model, "--label", dockerlabel.ConsoleMounts + "=" + r.mountsDigest(in),
+		"--label", dockerlabel.ConsoleSecrets + "=" + in.SecretDigest,
+		"--label", dockerlabel.ConsoleInstance + "=" + rand.Text(),
 		"--add-host", "host.docker.internal:host-gateway",
 		"-v", work,
 		"-v", in.Dir + ":" + console.Mount + ":ro",

@@ -110,6 +110,10 @@ func (a *Service) StepEnv(ctx context.Context) ([]string, error) {
 // infisicalFetch adapts the resolver's health transitions to existing
 // best-effort receipts. No receipt or network I/O holds the resolver mutex.
 func (a *Service) infisicalFetch(ctx context.Context, cfg infisicalSettings) (map[string]string, error) {
+	result, err := a.infisicalResolution(ctx, cfg)
+	return result.Values, err
+}
+func (a *Service) infisicalResolution(ctx context.Context, cfg infisicalSettings) (secretResolution, error) {
 	result, err := a.infisical.resolve(ctx, cfg, a.client)
 	kind, subject := "", ""
 	var payload any
@@ -132,9 +136,9 @@ func (a *Service) infisicalFetch(ctx context.Context, cfg infisicalSettings) (ma
 		}
 	}
 	if ctx.Err() != nil {
-		return nil, ctx.Err()
+		return secretResolution{}, ctx.Err()
 	}
-	return result.Values, err
+	return result, err
 }
 
 // record preserves the broker's existing best-effort metadata receipts.

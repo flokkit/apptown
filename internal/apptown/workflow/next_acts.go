@@ -25,8 +25,8 @@ const (
 	// after they changed while the landing waited
 	// (POST /runs/{id}/restart-landing).
 	nextRestartLanding NextActKind = "restart-landing"
-	// NextLand starts the change's landing (POST /changes/{id}/land).
-	NextLand NextActKind = "land"
+	// nextLand starts the change's landing (POST /changes/{id}/land).
+	nextLand NextActKind = "land"
 	// nextSendBack sends the change's work back to its agent with a note
 	// (POST /changes/{id}/sendback).
 	nextSendBack NextActKind = "send-back"
@@ -130,7 +130,7 @@ func ChangeActs(ch *Change, current *RunSnapshot, merged, mayAbandon bool) []Nex
 	running := current != nil && current.Run != nil && current.Run.Status == RunRunning
 	queued := current != nil && current.LandingQueued
 	if ch.State == ChangeInProgress && current != nil && !running && !queued {
-		acts = append(acts, NextAct{Act: NextLand})
+		acts = append(acts, NextAct{Act: nextLand})
 	}
 	if ch.State.canRun() && current == nil && mayAbandon {
 		acts = append(acts, NextAct{Act: nextAbandon})

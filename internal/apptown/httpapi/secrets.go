@@ -117,16 +117,18 @@ type (
 		Missing []string       `json:"missing"`
 	}
 	SecretStatus struct {
-		Name      string `json:"name"`
-		Required  bool   `json:"required"`
-		Bound     bool   `json:"bound"`
-		Store     string `json:"store,omitempty"`
-		Ref       string `json:"ref,omitempty"`
-		Version   string `json:"version,omitempty"`
-		Generated bool   `json:"generated,omitempty"`
-		Default   bool   `json:"default,omitempty"` // unbound but the declaration carries a default
-		UpdatedAt string `json:"updatedAt,omitempty"`
-		UpdatedBy string `json:"updatedBy,omitempty"`
+		AgentVisible  bool   `json:"agentVisible"`
+		AgentEligible bool   `json:"agentEligible"`
+		Name          string `json:"name"`
+		Required      bool   `json:"required"`
+		Bound         bool   `json:"bound"`
+		Store         string `json:"store,omitempty"`
+		Ref           string `json:"ref,omitempty"`
+		Version       string `json:"version,omitempty"`
+		Generated     bool   `json:"generated,omitempty"`
+		Default       bool   `json:"default,omitempty"` // unbound but the declaration carries a default
+		UpdatedAt     string `json:"updatedAt,omitempty"`
+		UpdatedBy     string `json:"updatedBy,omitempty"`
 	}
 	SecretProfileSet struct {
 		Deployment string `json:"deployment"`
@@ -253,6 +255,11 @@ func (h Secrets) ProjectSecrets(w http.ResponseWriter, r *http.Request) {
 	}
 	out.Secrets = secrets
 
+	refs, err := h.secrets.NonPreviewReferences(r.Context())
+	if err != nil {
+		WriteFaultOr(w, err, http.StatusServiceUnavailable)
+		return
+	}
 	// Per deployment: the profile in use and each secret's binding status.
 	envs := []SecretDeployment{}
 	for _, env := range names {
@@ -271,6 +278,7 @@ func (h Secrets) ProjectSecrets(w http.ResponseWriter, r *http.Request) {
 		for _, s := range spec.SecretsIn(profile) {
 			st := SecretStatus{Name: s.Name, Required: s.Required}
 			if b, ok := bindings[s.Name]; ok {
+				st.AgentVisible, st.AgentEligible = b.AgentVisible, b.PreviewOwned(p.Slug, refs)
 				st.Bound, st.Store, st.Version, st.Generated, st.UpdatedAt, st.UpdatedBy = true, b.Store, b.Version, b.Generated, b.UpdatedAt, b.UpdatedBy
 				if b.Store == secret.StoreInfisical {
 					st.Ref = b.Ref
@@ -466,4 +474,38 @@ func (h Secrets) RevealSecret(w http.ResponseWriter, r *http.Request) {
 	default:
 		WriteJSON(w, 200, SecretRevealed{Name: name, Deployment: env, Version: got.Version, Value: got.Value})
 	}
+}
+
+// SetSecretAgentVisibility changes disclosure authority on a preview binding.
+func (h Secrets) SetSecretAgentVisibility(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	jsonCommand(w, r, jsonBody{}, func(in struct {
+		AgentVisible bool `json:"agentVisible"`
+	}) {
+		if err := h.secrets.SetAgentVisible(r.Context(), p.ID, r.PathValue("deployment"), r.PathValue("name"), in.AgentVisible); err != nil {
+			WriteFault(w, err)
+			return
+		}
+		WriteJSON(w, 200, Done{OK: true})
+	})
+}
+
+// SeparatePreviewSecret replaces only a preview's shared generated binding.
+func (h Secrets) SeparatePreviewSecret(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	if r.PathValue("deployment") != "preview" {
+		WriteError(w, 422, "Only previews can have their own preview value")
+		return
+	}
+	if err := h.secrets.SeparatePreview(r.Context(), p.ID, r.PathValue("name")); err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, Done{OK: true})
 }

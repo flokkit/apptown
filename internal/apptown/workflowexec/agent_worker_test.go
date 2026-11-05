@@ -21,6 +21,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 
+	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	piharness "github.com/flokkit/apptown/internal/apptown/agentharness/pi"
@@ -37,6 +38,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
@@ -267,7 +269,7 @@ func agentOnWorkerFixtureFor(t *testing.T, purpose project.Purpose, config map[s
 		Integrations: integrations,
 		Catalog:      catalog,
 		Instructions: agentenv.NewInstructions(db, integrations),
-		Secrets:      secret.NewService(db, secret.Config{DataDir: dir}),
+		Secrets:      secret.NewService(db, secret.Config{Projects: testSecretProjectScope{db}, DataDir: dir}),
 		Models:       selectionWithDefault(t, db, "fake/model"),
 		Capacity:     model.NewScheduler(nil, 1),
 		Tokens:       tokens,
@@ -1049,4 +1051,78 @@ func TestSteeringRefusesUnavailableAttachments(t *testing.T) {
 	if _, err := executor.buildSteering(t.Context(), &workflow.Run{ChangeID: id}, nil, nil, root, agentKnobs{}); err == nil || !strings.Contains(err.Error(), "reading change attachments") {
 		t.Fatalf("unavailable attachments not refused before steering: %v", err)
 	}
+}
+
+// Both launch builders give a change agent only opted-in preview values. Worker
+// reviews bypass the resolver entirely, including when its store is unavailable.
+func TestPreviewSecretsReachLocalAndWorkerAgentsButNotReviews(t *testing.T) {
+	f := agentOnWorkerFixture(t, nil)
+	ctx := t.Context()
+	accounts := identity.New(f.exec.db, identity.Config{OpenInstance: true})
+	if err := accounts.SeedAdministrator(ctx, "boss"); err != nil {
+		t.Fatal(err)
+	}
+	ctx = access.WithCaller(ctx, access.Caller{Principal: access.Principal{Kind: "user", Name: "boss", Via: "session"}, Verified: true})
+	f.exec.secrets = secret.NewService(f.exec.db, secret.Config{Projects: testSecretProjectScope{f.exec.db}, DataDir: f.dir, Authority: access.Checked{Authority: accounts, Projects: project.New(f.exec.db, accounts)}})
+	s := f.exec.secrets
+	for _, dep := range []string{"main", "preview"} {
+		value := "main-only-canary"
+		if dep == "preview" {
+			value = "preview-only-canary"
+		}
+		if _, err := s.BindStored(ctx, f.call.run.ProjectID, "agents", dep, "NEXTUP_PASSWORD", value, "boss"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.SetAgentVisible(ctx, f.call.run.ProjectID, "preview", "NEXTUP_PASSWORD", true); err != nil {
+		t.Fatal(err)
+	}
+	declaration := "[project]\nname = \"agents\"\nrevision = \"1.0\"\n[profiles.preview]\nNEXTUP_PASSWORD = { required = true }\nUNRELATED = { required = true }\n"
+	f.call.commit = hubCommit(t, f.hub, map[string]string{secret.SpecFile: declaration})
+	ws := t.TempDir()
+	if err := os.WriteFile(filepath.Join(ws, secret.SpecFile), []byte(declaration), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, enabled := range []bool{true, false} {
+		if err := s.SetAgentVisible(ctx, f.call.run.ProjectID, "preview", "NEXTUP_PASSWORD", enabled); err != nil {
+			t.Fatal(err)
+		}
+		local, _, err := f.exec.agentEnv(ctx, f.call.run, f.call.step, &agentConfig{}, ws, "fake/model", agentKnobs{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		remote := f.build(t).spec.Env
+		for _, env := range [][]string{local, remote} {
+			if slices.Contains(env, "NEXTUP_PASSWORD=preview-only-canary") != enabled {
+				t.Fatal("preview opt-in missing from launch")
+			}
+			if strings.Contains(strings.Join(env, "\n"), "main-only-canary") {
+				t.Fatal("main value reached agent")
+			}
+		}
+	}
+	if err := s.SetAgentVisible(ctx, f.call.run.ProjectID, "preview", "NEXTUP_PASSWORD", true); err != nil {
+		t.Fatal(err)
+	}
+	restore := dbtest.NextStatementFailure(f.exec.db, "-- name: AppendReceipt")
+	env, _, err := f.exec.agentEnv(ctx, f.call.run, f.call.step, &agentConfig{}, ws, "fake/model", agentKnobs{})
+	restore()
+	if err == nil || len(env) != 0 {
+		t.Fatal("local launch ignored failed delivery evidence")
+	}
+	f.call.review = &reviewCall{cfg: reviewConfig{Of: "report", Model: "fake/reviewer"}, brief: reviewBrief{request: "review", claim: "claim", diff: "diff"}}
+	f.call.invocation = "review"
+	restore = dbtest.NextStatementFailure(f.exec.db, "-- name: BindingsForDeployment")
+	req := f.build(t)
+	restore()
+	if slices.Contains(req.spec.Env, "NEXTUP_PASSWORD=preview-only-canary") {
+		t.Fatal("review received preview secret")
+	}
+}
+
+type testSecretProjectScope struct{ db *database.DB }
+
+func (s testSecretProjectScope) Slug(ctx context.Context, id ids.ID) (string, error) {
+	p, err := project.ByIDIn(ctx, s.db, id)
+	return p.Slug, err
 }

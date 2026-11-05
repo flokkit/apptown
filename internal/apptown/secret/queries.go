@@ -15,7 +15,7 @@ func queries(q database.Queryer) *secretsql.Queries { return secretsql.New(q.SQL
 func binding(r secretsql.SecretBinding) Binding {
 	return Binding{
 		Deployment: r.Deployment, Name: r.Name, Store: r.Store, Ref: r.Ref,
-		Version: r.Version, Generated: r.Generated != 0,
+		AgentVisible: r.AgentVisible, Version: r.Version, Generated: r.Generated != 0,
 		UpdatedAt: stamp.Of(r.UpdatedAt).String(), UpdatedBy: r.UpdatedBy, UpdatedByPrincipal: r.UpdatedByPrincipal,
 	}
 }

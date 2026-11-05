@@ -99,7 +99,7 @@ func (a *RemoteAgent) spec(ctx context.Context, in console.Launch) (SessionSpec,
 	if image == "" {
 		image = a.Image
 	}
-	spec := SessionSpec{Image: image, Model: in.Model, AgentSession: in.AgentSession, Docker: in.Docker, Mirror: in.Mirror, Env: slices.Clone(in.Env)}
+	spec := SessionSpec{SecretDigest: in.SecretDigest, Image: image, Model: in.Model, AgentSession: in.AgentSession, Docker: in.Docker, Mirror: in.Mirror, Env: slices.Clone(in.Env)}
 	for _, m := range in.Mounts {
 		parts := strings.Split(m, ":")
 		if len(parts) != 3 || parts[2] != "ro" || !filepath.IsAbs(parts[0]) {
@@ -229,7 +229,7 @@ func (a *RemoteAgent) Status(ctx context.Context, id string) (console.Status, er
 	if err != nil {
 		return console.Status{}, err
 	}
-	return console.Status{Exists: st.Agent.Exists, Running: st.Agent.Running, EverStarted: st.Agent.EverStarted,
+	return console.Status{Container: st.Agent.Container, Exists: st.Agent.Exists, Running: st.Agent.Running, EverStarted: st.Agent.EverStarted,
 		Attached: st.Agent.Attached, SidecarExists: st.Docker.Exists, SidecarRunning: st.Docker.Running, ScriptExists: st.Script.Exists}, nil
 }
 

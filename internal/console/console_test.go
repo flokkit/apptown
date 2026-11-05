@@ -575,3 +575,54 @@ func TestFilesPlacedAtOpenOutliveRestarts(t *testing.T) {
 		t.Fatal("a placed file outside the session was accepted")
 	}
 }
+
+// Simultaneous wakes must share the creation decision: a second wake cannot
+// prepare or claim another delivery while the first is still starting.
+func TestSessionWakesSerializePreparationAndDeliveryEvidence(t *testing.T) {
+	agent := consoletest.NewAgent()
+	entered := make(chan struct{}, 2)
+	release := make(chan struct{})
+	env := &blockingWakeEnvironment{entered: entered, release: release}
+	chats := console.New(console.Dependencies{Agent: agent, Environment: env, Config: console.Config{DataDir: t.TempDir()}})
+	sess, err := chats.Open(t.Context(), console.OpenRequest{Scope: "change:1", Workspace: console.Workspace{Path: t.TempDir()}, Actor: "boss"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	env.block = true
+	done := make(chan error, 2)
+	go func() { done <- chats.Warm(t.Context(), sess.ID) }()
+	<-entered
+	go func() { done <- chats.Warm(t.Context(), sess.ID) }()
+	select {
+	case <-entered:
+		close(release)
+		<-done
+		<-done
+		t.Fatal("another wake prepared while the first still owned creation")
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(release)
+	for range 2 {
+		if err := <-done; err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+type blockingWakeEnvironment struct {
+	block   bool
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (e *blockingWakeEnvironment) Prepare(ctx context.Context, _ *console.Session) (console.Provision, error) {
+	if e.block {
+		e.entered <- struct{}{}
+		select {
+		case <-e.release:
+		case <-ctx.Done():
+			return console.Provision{}, ctx.Err()
+		}
+	}
+	return console.Provision{}, nil
+}

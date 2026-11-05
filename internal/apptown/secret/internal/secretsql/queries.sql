@@ -55,6 +55,9 @@ SELECT EXISTS(SELECT 1 FROM secret_values WHERE scope = $1 AND name = $2 AND ver
 -- name: BindingsForDeployment :many
 SELECT * FROM secret_bindings WHERE project_id = $1 AND deployment = $2;
 
+-- name: NonPreviewReferences :many
+SELECT ref FROM secret_bindings WHERE deployment <> 'preview' AND store = 'infisical';
+
 -- name: BindingByName :one
 SELECT * FROM secret_bindings WHERE project_id = $1 AND deployment = $2 AND name = $3;
 
@@ -62,6 +65,7 @@ SELECT * FROM secret_bindings WHERE project_id = $1 AND deployment = $2 AND name
 INSERT INTO secret_bindings (project_id, deployment, name, store, ref, version, generated, updated_at, updated_by, updated_by_principal, updated_by_via)
 VALUES (sqlc.arg(project_id), sqlc.arg(deployment), sqlc.arg(name), sqlc.arg(store), sqlc.arg(ref), sqlc.arg(version), sqlc.arg(generated), sqlc.arg(updated_at), sqlc.arg(updated_by), sqlc.arg(updated_by_principal), sqlc.arg(updated_by_via))
 ON CONFLICT (project_id, deployment, name) DO UPDATE SET store = excluded.store, ref = excluded.ref,
+  agent_visible = secret_bindings.agent_visible AND secret_bindings.store = excluded.store AND secret_bindings.ref = excluded.ref,
   version = excluded.version, generated = excluded.generated, updated_at = excluded.updated_at,
   updated_by = excluded.updated_by, updated_by_principal = excluded.updated_by_principal, updated_by_via = excluded.updated_by_via
 RETURNING *;
@@ -102,3 +106,8 @@ DELETE FROM secret_bindings WHERE project_id=$1;
 
 -- name: DeleteProjectProfiles :exec
 DELETE FROM secret_profiles WHERE project_id=$1;
+
+-- name: SetAgentVisible :exec
+UPDATE secret_bindings SET agent_visible = $4, updated_at = $5, updated_by = $6,
+ updated_by_principal = $7, updated_by_via = $8
+WHERE project_id = $1 AND deployment = $2 AND name = $3;

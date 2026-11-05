@@ -11,6 +11,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
@@ -46,6 +47,14 @@ func (a *Executor) agentEnv(ctx context.Context, run *workflow.Run, step *workfl
 		return nil, "", err
 	}
 	env = append(env, a.apptownEnv(ctx, run, step)...)
+	if !run.ChangeID.IsZero() {
+		given, err := a.secrets.AgentEnv(ctx, run.ProjectID, ws, secret.AgentLaunch{Kind: "agent", ChangeID: run.ChangeID, RunID: run.ID, StepID: step.ID, Attempt: step.Attempt, Invocation: "agent"})
+		if err != nil {
+			return nil, "", err
+		}
+		env = append(env, given...)
+	}
+
 	if k.useDind {
 		// Implementation agents get what the APP containers get from the
 		// project's attached integrations (the errors DSN, the feedback key,

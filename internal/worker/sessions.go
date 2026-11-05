@@ -55,9 +55,10 @@ type SessionSpec struct {
 	Docker       bool   `json:"docker,omitempty"`
 	// Mirror is the Docker Hub mirror the chat's private daemon and its
 	// builder pull through ("" none); its resolvers are the worker's own.
-	Mirror string         `json:"mirror,omitempty"`
-	Env    []string       `json:"env,omitempty"`
-	Mounts []SessionMount `json:"mounts,omitempty"`
+	Mirror       string         `json:"mirror,omitempty"`
+	SecretDigest string         `json:"secretDigest,omitempty"`
+	Env          []string       `json:"env,omitempty"`
+	Mounts       []SessionMount `json:"mounts,omitempty"`
 }
 
 // SessionMount mounts a blob's content, read-only, at Target in the chat's
@@ -126,9 +127,10 @@ type SessionStatus struct {
 	Removed bool   `json:"removed,omitempty"`
 	// Agent is the chat's container; Docker its private daemon.
 	Agent struct {
-		Exists      bool `json:"exists"`
-		Running     bool `json:"running"`
-		EverStarted bool `json:"everStarted"`
+		Container   string `json:"container,omitempty"`
+		Exists      bool   `json:"exists"`
+		Running     bool   `json:"running"`
+		EverStarted bool   `json:"everStarted"`
 		// Attached: the worker holds the chat's terminal.
 		Attached bool `json:"attached"`
 	} `json:"agent"`
@@ -189,6 +191,7 @@ func (s *Server) launch(rec sessionRecord) console.Launch {
 		Docker:       rec.Spec.Docker,
 		Mirror:       rec.Spec.Mirror,
 		Env:          slices.Clone(rec.Spec.Env),
+		SecretDigest: rec.Spec.SecretDigest,
 		Image:        rec.Spec.Image,
 	}
 }
@@ -505,6 +508,7 @@ func (s *Server) status(ctx context.Context, rec sessionRecord, known, stale boo
 	if err != nil {
 		return st, err
 	}
+	st.Agent.Container = cur.Container
 	st.Agent.Exists, st.Agent.Running, st.Agent.EverStarted, st.Agent.Attached = cur.Exists, cur.Running, cur.EverStarted, cur.Attached
 	st.Docker.Exists, st.Docker.Running = cur.SidecarExists, cur.SidecarRunning
 	st.Script.Exists = cur.ScriptExists

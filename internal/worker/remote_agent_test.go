@@ -695,3 +695,44 @@ func sessionMessages(t *testing.T, sessions *console.Service, session *console.S
 	}
 	return nil
 }
+
+// Given-secret metadata and the created container identity must survive the
+// worker protocol so the chat service rebuilds and records only real deliveries.
+func TestWorkerChatCarriesSecretVersionsAndContainerIdentity(t *testing.T) {
+	var containers []string
+	env := &changingSecretEnvironment{p: console.Provision{SecretDigest: "version-1", Env: []string{"PASSWORD=one"}}}
+	env.p.Creating = func(context.Context) error { return nil }
+	env.p.Created = func(_ context.Context, id string) error { containers = append(containers, id); return nil }
+	c := startRemoteChats(t, env)
+	s := c.open(t)
+	if len(containers) != 1 || containers[0] == "" {
+		t.Fatal("worker creation was not recorded")
+	}
+	if err := c.service.Warm(t.Context(), s.ID); err != nil {
+		t.Fatal(err)
+	}
+	if len(containers) != 1 {
+		t.Fatal("unchanged wake recorded delivery")
+	}
+	if err := c.service.Stop(t.Context(), s.ID); err != nil {
+		t.Fatal(err)
+	}
+	env.p.SecretDigest = "version-2"
+	env.p.Env = []string{"PASSWORD=two"}
+	if err := c.service.Warm(t.Context(), s.ID); err != nil {
+		t.Fatal(err)
+	}
+	got := c.runtime.Started(s.ID)
+	if got.SecretDigest != "version-2" || len(got.Env) != 1 || got.Env[0] != "PASSWORD=two" {
+		t.Fatal("worker did not receive current secret version")
+	}
+	if len(containers) != 2 || containers[0] == containers[1] {
+		t.Fatal("worker rebuild did not record a distinct container")
+	}
+}
+
+type changingSecretEnvironment struct{ p console.Provision }
+
+func (e *changingSecretEnvironment) Prepare(context.Context, *console.Session) (console.Provision, error) {
+	return e.p, nil
+}

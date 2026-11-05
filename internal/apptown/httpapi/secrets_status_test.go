@@ -136,3 +136,58 @@ secrets:
 	}
 }
 func secretStatusJSON(value any) string { raw, _ := json.Marshal(value); return string(raw) }
+
+// Eligibility must account for the instance-wide Infisical connection.
+func TestInfisicalPreviewEligibilityChecksOtherProjects(t *testing.T) {
+	db := databaseSuite.New(t)
+	dir := t.TempDir()
+	secrets := secret.NewService(db, secret.Config{DataDir: dir})
+	id := httpTestProject(t, db, "preview-project", "Preview")
+	other := httpTestProject(t, db, "production-project", "Production")
+	repo := filepath.Join(dir, "workspaces", "project-"+id.String())
+	if err := os.MkdirAll(repo, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, secret.SpecFile), []byte("[project]\nname='preview-project'\nrevision='1.0'\n[profiles.default]\nPASSWORD={required=true}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, binding := range []struct {
+		production       bool
+		deployment, name string
+	}{
+		{false, "preview", "PASSWORD"}, {true, "main", "STRIPE_SECRET"},
+	} {
+		target := id
+		if binding.production {
+			target = other
+		}
+		if err := secrets.Bindings.Put(t.Context(), target, secret.Binding{Deployment: binding.deployment, Name: binding.name, Store: secret.StoreInfisical, Ref: "STRIPE_SECRET", Version: "infisical", UpdatedBy: "boss"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h := NewSecrets(secrets, project.New(db, nil), nil, db, dir, nil)
+	req := httptest.NewRequest("GET", "/api/v1/projects/preview-project/secrets", nil)
+	req.SetPathValue("slug", "preview-project")
+	response := httptest.NewRecorder()
+	h.ProjectSecrets(response, req)
+	if response.Code != 200 {
+		t.Fatalf("%d: %s", response.Code, response.Body.String())
+	}
+	var out struct{ Deployments []SecretDeployment }
+	if err := json.Unmarshal(response.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	for _, deployment := range out.Deployments {
+		if deployment.Name == "preview" {
+			for _, status := range deployment.Secrets {
+				if status.Name == "PASSWORD" {
+					if !status.Bound || status.AgentEligible {
+						t.Fatalf("shared key eligibility: %+v", status)
+					}
+					return
+				}
+			}
+		}
+	}
+	t.Fatalf("preview binding missing from API response: %s", response.Body.String())
+}

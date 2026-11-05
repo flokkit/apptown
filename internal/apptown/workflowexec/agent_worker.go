@@ -21,6 +21,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/scm"
+	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -510,6 +511,17 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 		// As on AppTown's host: what the app's containers get from the
 		// project's integrations. No registry credential travels.
 		given, err := a.integrations.Environment(ctx, run.ProjectID)
+		if err != nil {
+			return workerAgentRequest{}, err
+		}
+		env = append(env, given...)
+	}
+	if c.review == nil && !run.ChangeID.IsZero() {
+		repo, err := c.source.Repository(a.cfg.DataDir)
+		if err != nil {
+			return workerAgentRequest{}, err
+		}
+		given, err := a.secrets.AgentEnvAt(ctx, run.ProjectID, repo, c.commit, secret.AgentLaunch{Kind: "agent", ChangeID: run.ChangeID, RunID: run.ID, StepID: step.ID, Attempt: step.Attempt, Invocation: c.invocation})
 		if err != nil {
 			return workerAgentRequest{}, err
 		}

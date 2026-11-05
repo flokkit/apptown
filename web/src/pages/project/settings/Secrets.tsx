@@ -3,7 +3,7 @@ import { Status } from '../../../Status'
 import { NewChangeButton } from '../NewChange'
 import { PRODUCT } from '../../../brand'
 import { useState } from 'react'
-import { del, get, put } from '../../../api'
+import { del, get, post, put } from '../../../api'
 import type { ProjectSecrets, SecretDeployment, SecretRevealed, SecretStatus, SecretStoreInfo as SecretStore } from '../../../wire.gen'
 import { Modal } from '../../../Modal'
 import { QuietConfirm } from '../../../QuietConfirm'
@@ -25,6 +25,7 @@ export function SecretsTab({ slug }: { slug: string }) {
   const { run, err } = useAction(reload)
   const [editing, setEditing] = useState<{ env: string; name: string } | null>(null)
   const canReveal = useHolds('secret:reveal')
+  const canBind = useHolds('secret:bind', slug)
   const [revealed, setRevealed] = useState<Record<string, string>>({})
   const reveal = async (env: string, name: string) => {
     try {
@@ -69,7 +70,9 @@ export function SecretsTab({ slug }: { slug: string }) {
           onProfile={(p) => run(() => put(`/projects/${slug}/secrets/${env.name}`, { profile: p }))}
           onEdit={(name) => setEditing({ env: env.name, name })}
           onUnbind={(name) => run(() => del(`/projects/${slug}/secrets/${env.name}/${name}`))}
-          canReveal={canReveal} revealed={revealed}
+          canReveal={canReveal} canBind={canBind} revealed={revealed}
+          onAgentVisible={(name, agentVisible) => run(() => put(`/projects/${slug}/secrets/${env.name}/${name}/agent-visibility`, { agentVisible }))}
+          onSeparate={(name) => run(() => post(`/projects/${slug}/secrets/${env.name}/${name}/separate-preview`, {}))}
           onReveal={(name) => reveal(env.name, name)}
           onHide={(name) => setRevealed((m) => { const c = { ...m }; delete c[`${env.name}/${name}`]; return c })} />
       ))}
@@ -77,7 +80,7 @@ export function SecretsTab({ slug }: { slug: string }) {
       <StoresNote internal={internal} infisical={infisical} />
 
       {editing && (
-        <BindModal slug={slug} env={editing.env} name={editing.name} stores={data.stores}
+        <BindModal slug={slug} env={editing.env} name={editing.name} stores={data.stores} agentVisible={editing.env === 'preview' && !!data.deployments.find((e) => e.name === editing.env)?.secrets.find((s) => s.name === editing.name)?.agentVisible}
           onClose={() => setEditing(null)} onDone={() => { setEditing(null); reload() }} />
       )}
     </div>
@@ -86,9 +89,10 @@ export function SecretsTab({ slug }: { slug: string }) {
 
 // One section per deployment; each secret one row: its name, then where it
 // goes and where its value comes from on a muted line, its acts on the right.
-function DeploymentSection({ env, profiles, declared, onProfile, onEdit, onUnbind, canReveal, revealed, onReveal, onHide }: {
+function DeploymentSection({ env, profiles, declared, onProfile, onEdit, onUnbind, canReveal, canBind, onAgentVisible, onSeparate, revealed, onReveal, onHide }: {
   env: SecretDeployment; profiles: string[]; declared: ProjectSecrets
   onProfile: (p: string) => void; onEdit: (name: string) => void; onUnbind: (name: string) => void
+  canBind: boolean; onAgentVisible: (name: string, visible: boolean) => void; onSeparate: (name: string) => void
   canReveal: boolean; revealed: Record<string, string>; onReveal: (name: string) => void; onHide: (name: string) => void
 }) {
   const consumersOf = (name: string) => {
@@ -115,6 +119,17 @@ function DeploymentSection({ env, profiles, declared, onProfile, onEdit, onUnbin
             <div className="secret-what">
               <code>{s.name}</code>{!s.required && <span className="muted small"> optional</span>}
               <div className="muted small">{goes}{goes && ' · '}<Source s={s} /></div>
+              {env.name === 'preview' && s.bound && (
+                <div className="secret-agent-access small">
+                  {s.agentEligible ? <>
+                    <label><input type="checkbox" checked={s.agentVisible} disabled={!canBind} onChange={(e) => onAgentVisible(s.name, e.target.checked)} /> Agents working on changes can see this</label>
+                    {s.agentVisible && <><div>agents can see this</div><p className="muted">{agentWarning}</p></>}
+                  </> : <>
+                    <p className="muted">This value is shared with main. Give previews their own value to let agents see it</p>
+                    <button className="link" disabled={!canBind} onClick={() => s.generated ? onSeparate(s.name) : onEdit(s.name)}>Give previews their own value</button>
+                  </>}
+                </div>
+              )}
               {shown !== undefined && <div className="small"><code>{shown}</code> <button className="link" onClick={() => onHide(s.name)}>Hide</button></div>}
             </div>
             <span className="row-action secret-acts">
@@ -150,8 +165,10 @@ function Source({ s }: { s: SecretStatus }) {
   return <Status word="failed" help="A required secret is missing. Set or bind this secret before deploying." />
 }
 
-function BindModal({ slug, env, name, stores, onClose, onDone }: {
-  slug: string; env: string; name: string; stores: SecretStore[]; onClose: () => void; onDone: () => void
+const agentWarning = "Agents working on changes can see this value. Don’t reuse a password from a real deployment."
+
+function BindModal({ slug, env, name, stores, agentVisible, onClose, onDone }: {
+  slug: string; env: string; name: string; stores: SecretStore[]; agentVisible: boolean; onClose: () => void; onDone: () => void
 }) {
   const infisical = stores.find((s) => s.name === 'infisical')
   const [store, setStore] = useState<'internal' | 'infisical'>('internal')
@@ -181,6 +198,7 @@ function BindModal({ slug, env, name, stores, onClose, onDone }: {
           <p className="muted small">The key must exist in the configured Infisical project and environment.</p>
         </>
       )}
+      {agentVisible && <p className="muted small">{agentWarning}</p>}
       {err && <div className="error">{err}</div>}
       <div className="row secrets-bind-modal-div-2">
         <button className="primary" onClick={save} disabled={busy || (store === 'internal' ? !value.trim() : !ref.trim())}>Save</button>

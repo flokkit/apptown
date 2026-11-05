@@ -562,6 +562,9 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		`ALTER TABLE deployment_attempt_inputs ADD COLUMN backup_id UUID`,
 		`ALTER TABLE releases ADD COLUMN backup_id UUID`,
 	}},
+	{n: 207, note: "allow explicit agent access to preview secret bindings", stmts: []string{
+		`ALTER TABLE secret_bindings ADD COLUMN agent_visible BOOLEAN NOT NULL DEFAULT false CHECK (NOT agent_visible OR deployment = 'preview')`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

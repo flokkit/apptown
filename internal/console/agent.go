@@ -53,9 +53,12 @@ type Launch struct {
 	Docker       bool // a private Docker daemon for the agent's own builds
 	// Mirror is the Docker Hub mirror that daemon and its builder pull
 	// through ("" none): data from AppTown, on its machine or a worker's.
-	Mirror string
-	Env    []string
-	Mounts []string
+	Mirror       string
+	Creating     func(context.Context) error         `json:"-"`
+	Created      func(context.Context, string) error `json:"-"`
+	SecretDigest string                              // digest of given secret metadata; never values
+	Env          []string
+	Mounts       []string
 	// Image is the agent image to create from; empty means the runtime's
 	// own. A worker runs the image its AppTown names.
 	Image string
@@ -63,7 +66,8 @@ type Launch struct {
 
 // Status is the runtime's view of a session's agent.
 type Status struct {
-	Exists bool
+	Exists    bool
+	Container string // unique identity of the actual container, empty when absent
 	// SidecarExists: the agent's private Docker daemon exists, which also
 	// mounts the workspace.
 	SidecarExists bool
@@ -94,11 +98,16 @@ type Terminal interface {
 // agent gets a model name, environment variables, mounted files and one
 // block of text; this is that, and nothing more.
 type Provision struct {
-	Model  string
-	Env    []string
-	Mounts []string
-	Files  map[string]Staged // path under the session dir → what to put there
-	Notes  string            // prose about the provision, refreshed each wake
+	SecretDigest string
+	// Creating records the expected delivery before Start may create a container.
+	Creating func(context.Context) error
+	// Created settles that record: an empty identity means no container was created.
+	Created func(context.Context, string) error
+	Model   string
+	Env     []string
+	Mounts  []string
+	Files   map[string]Staged // path under the session dir → what to put there
+	Notes   string            // prose about the provision, refreshed each wake
 }
 
 // Staged is one file the provision places: bytes, or a symbolic link.

@@ -6,6 +6,7 @@ package consoletest
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 )
 
 type agent struct {
+	container   string
 	launch      console.Launch
 	exists      bool
 	running     bool
@@ -77,6 +79,9 @@ func (f *Agent) Start(ctx context.Context, in console.Launch) error {
 		return err
 	}
 	a := f.get(in.ID)
+	if !a.exists {
+		a.container = rand.Text()
+	}
 	a.launch, a.exists, a.running, a.stale, a.everStarted, a.screenEnded = in, true, true, false, true, false
 	f.screenChanged().Broadcast()
 	return nil
@@ -89,7 +94,7 @@ func (f *Agent) Stale(ctx context.Context, in console.Launch) (bool, error) {
 	if a == nil || !a.exists {
 		return false, nil
 	}
-	return a.stale || a.launch.Model != in.Model || a.launch.Docker != in.Docker, nil
+	return a.stale || a.launch.Model != in.Model || a.launch.Docker != in.Docker || a.launch.SecretDigest != in.SecretDigest, nil
 }
 
 func (f *Agent) Status(ctx context.Context, id string) (console.Status, error) {
@@ -99,7 +104,11 @@ func (f *Agent) Status(ctx context.Context, id string) (console.Status, error) {
 	if a == nil {
 		return console.Status{}, nil
 	}
-	return console.Status{Exists: a.exists, Running: a.running, EverStarted: a.everStarted && a.exists, Attached: a.attached > 0}, nil
+	container := ""
+	if a.exists {
+		container = a.container
+	}
+	return console.Status{Container: container, Exists: a.exists, Running: a.running, EverStarted: a.everStarted && a.exists, Attached: a.attached > 0}, nil
 }
 
 // Deliver appends the user's words to the session record, as pi does when
