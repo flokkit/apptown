@@ -1,4 +1,3 @@
-import { ProjectNotes } from "./ProjectNotes"
 import './ApplicationOverview.css'
 import { PageHead } from '../../PageHead'
 import { useState } from 'react'
@@ -63,8 +62,6 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       {project.blurb && <p className="muted">{project.blurb}</p>}
       {app?.url && <AppAddress url={app.url} hostOnly={app.hostOnly} />}
     </header>
-    {data?.notes && <ProjectNotes slug={slug} notes={data.notes} writable={activityQ.current && (project.lifecycle?.state ?? 'active') === 'active'} />}
-    <Link to={`/projects/${slug}/changes`}>Changes →</Link>
     <ScheduleRows slug={slug} />
     <Section title="Activity">
       <ReadStatus q={releasesQ} what="releases" /><StaleNote q={releasesQ} />

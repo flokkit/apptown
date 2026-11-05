@@ -98,7 +98,7 @@ try {
     home: '/', 'home-search': '/', 'overview-navigation': '/projects/club-newsletter', projects: '/projects', deployments: '/deployments', backups: '/deployments/backups',
     fleet: '/deployments/table', 'deployment-infrastructure': '/deployments/infrastructure', attention: '/attention', updates: '/updates',
     'target-offers': '/integrations/targets', 'release-detail': '/projects/club-newsletter/releases/' + facts.releases.find(r => r.serving).number,
-    'settings-decisions-empty': '/projects/shared-notes/settings/decisions', 'target-cloud': '/infrastructure/design-cloud', infrastructure: '/infrastructure', jobs: '/infrastructure/jobs', 'infrastructure-new': '/infrastructure/new',
+    'memory-decisions-empty': '/projects/shared-notes/memory/decisions', 'target-cloud': '/infrastructure/design-cloud', infrastructure: '/infrastructure', jobs: '/infrastructure/jobs', 'infrastructure-new': '/infrastructure/new',
     conformance: '/conformance', checks: '/conformance/checks', reviews: '/conformance/reviews',
     'what-ifs': '/conformance/what-ifs', remediations: '/conformance/remediations', 'fleet-ways': '/conformance/ways',
     integrations: '/integrations', slots: '/integrations/slots', 'service-kinds': '/integrations/services', secrets: '/integrations/secrets',
@@ -111,6 +111,9 @@ try {
     'camera-not-found': '/camera-missing-page',
     'new-project': '/projects/_new', docs: '/docs', invite: '/invite',
     overview: '/projects/club-newsletter', console: '/projects/club-newsletter/console',
+    'memory-notes': '/projects/club-newsletter/memory/notes',
+    'memory-decisions': '/projects/club-newsletter/memory/decisions',
+    'overview-help': '/projects/club-newsletter',
     security: '/projects/club-newsletter/security', suppressions: '/projects/club-newsletter/security/suppressions',
     janitor: '/projects/club-newsletter/janitor', release: '/projects/club-newsletter/release',
     'change-delivery': `/changes/${seeded.delivered}`,
@@ -130,13 +133,13 @@ try {
     'review-project': `/conformance/reviews/${seeded.review}/projects/club-newsletter`,
 
   };
-  for (const tab of ['general', 'working', 'services', 'deployments', 'secrets', 'members', 'decisions', 'usage']) routes['settings-' + tab] = '/projects/club-newsletter/settings/' + tab;
+  for (const tab of ['general', 'working', 'services', 'deployments', 'secrets', 'members', 'usage']) routes['settings-' + tab] = '/projects/club-newsletter/settings/' + tab;
   // Detail links come from the actual seeded records.
   for (const [screen, path, pattern] of [
     ['pack', '/packs', /^\/packs\/[^/]+$/],
     ['target', '/infrastructure', /^\/infrastructure\/(?!new|jobs)[^/]+$/],
     ['integration', '/integrations', /^\/integrations\/(?!slots|services|secrets|targets)[^/]+$/],
-    ['adr', '/projects/club-newsletter/settings/decisions', /^\/adrs\/[^/]+$/],
+    ['adr', '/projects/club-newsletter/memory/decisions', /^\/adrs\/[^/]+$/],
     ['doc', '/docs', /^\/docs\/[^/]+\/[^/]+$/],
   ]) {
     await page.goto(base + path, { waitUntil: 'networkidle' });
@@ -187,6 +190,13 @@ try {
         await page.goto(`${base}${path}${path.includes('?') ? '&' : '?'}theme=${theme}&size=${size.endsWith('-large') ? 'large' : 'medium'}`, { waitUntil: 'networkidle' });
         await page.locator('#root > *').first().waitFor({ state: 'visible' });
         await page.waitForFunction(() => ![...document.querySelectorAll('main .muted')].some(el => el.textContent === 'Loading…'));
+        if (['overview-help', 'memory-notes', 'memory-decisions'].includes(screen)) {
+          const title = screen === 'overview-help' ? 'Overview' : screen === 'memory-notes' ? 'Notes' : 'Decisions';
+          await page.getByRole('button', { name: 'About ' + title, exact: true }).click();
+          if (!await page.locator('.page-help-pop a').isVisible()) throw new Error('missing guide link');
+          if (screen === 'overview-help' && await page.locator('main').getByText('What agents know about this project', { exact: true }).count()) throw new Error('notes remain on Overview');
+          if (screen === 'overview-help' && await page.locator('main').getByText('Changes →', { exact: true }).count()) throw new Error('Changes link remains on Overview');
+        }
         if (screen === 'infrastructure-expanded') {
           const summary = page.locator('.host-disk > summary').first();
           const before = await summary.locator('strong').boundingBox();

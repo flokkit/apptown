@@ -104,3 +104,14 @@ it("shows a page's own help inside its area, not the area's", () => {
   expect(el.querySelector('.page-help-pop a')?.getAttribute('href')).toBe('/docs/guides/deployment-backups')
   act(() => root.unmount()); el.remove()
 })
+
+it('explains Memory as project context and leaves decisions out of Settings help', () => {
+  const memory = render(<PageHead page="projectMemory" />)
+  act(() => q(memory).click())
+  expect(pop(memory)?.textContent).toContain('what agents carry into their work on this project')
+  expect(pop(memory)?.querySelector('a')?.getAttribute('href')).toBe('/docs/guides/project-notes')
+  const settings = render(<PageHead page="projectSettings" />)
+  act(() => q(settings).click())
+  expect(pop(settings)?.textContent).not.toContain('decisions')
+  expect(SUB_HELP.projectSettings).not.toHaveProperty('Decisions')
+})

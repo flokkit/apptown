@@ -10,7 +10,7 @@ import { groupJobs } from './InfrastructureHome'
 import { Evidence } from './change/Evidence'
 import { ProjectIntegrationsTab } from './project/settings/Services'
 import { NewChangeButton } from './project/NewChange'
-import { AdrsTab } from './project/settings/Decisions'
+import { AdrsTab } from './project/Decisions'
 import type { ChangeView, Run, Step } from '../api'
 import type { Job } from '../wire.gen'
 

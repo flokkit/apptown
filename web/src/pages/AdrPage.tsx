@@ -83,7 +83,7 @@ export default function AdrPage() {
   return (
     <div>
       <div className="muted small">
-        <Link to={`/projects/${adr.projectSlug}/settings/decisions`}>{adr.projectSlug} · decisions</Link>
+        <Link to={`/projects/${adr.projectSlug}/memory/decisions`}>{adr.projectSlug} · decisions</Link>
       </div>
       <div className="row">
         <h1 className="mb-0">ADR-{String(adr.number).padStart(3, '0')} — {adr.title}</h1>

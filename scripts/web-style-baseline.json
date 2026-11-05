@@ -275,7 +275,7 @@
     "styles": 6,
     "numericPx": 0
   },
-  "web/src/pages/project/settings/Decisions.tsx": {
+  "web/src/pages/project/Decisions.tsx": {
     "styles": 2,
     "numericPx": 0
   },

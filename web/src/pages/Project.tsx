@@ -15,7 +15,8 @@ import { ServicesTab, ProjectIntegrationsTab } from './project/settings/Services
 import { MembersTab } from './project/settings/Members'
 import { SecretsTab } from './project/settings/Secrets'
 import { DeploymentsTab } from './project/settings/Deployments'
-import { AdrsTab } from './project/settings/Decisions'
+import { AdrsTab } from './project/Decisions'
+import { NotesTab } from './project/ProjectNotes'
 import { SETTINGS_LABEL, resolveProjectTabs } from './project/tabs'
 import type { ProjectDetail as ProjectT, MainStanding } from '../wire.gen'
 
@@ -61,7 +62,7 @@ function IntegrityBanner({ slug, files, onResolved }: {
 
 export default function Project() {
   const { slug, tab: rawTab, stab: rawStab } = useParams()
-  const { tab, secTab, setTab } = resolveProjectTabs(rawTab, rawStab)
+  const { tab, secTab, setTab, memTab } = resolveProjectTabs(rawTab, rawStab)
   const q = useGet<ProjectT>(slug ? `/projects/${slug}` : null, { poll: 5000 })
   const { data: project, reload: load, current: projectCurrent } = q
 
@@ -72,7 +73,7 @@ export default function Project() {
   return (
     <div>
       <StaleNote q={q} />
-      {tab !== 'overview' && <ProjectHeader project={project} />}
+      {tab !== 'overview' && <ProjectHeader project={project} secondary={tab === 'memory'} />}
       <LifecycleNote slug={project.slug} lifecycle={project.lifecycle} />
       <IntegrityBanner slug={project.slug} files={project.outOfBandEdits} onResolved={load} />
       <MainNote main={project.main} />
@@ -89,6 +90,11 @@ export default function Project() {
       )}
       {tab === 'release' && <NewReleasePage slug={slug!} />}
       {tab === 'releases' && <ReleasePermalinkPage slug={slug!} number={rawStab} />}
+      {tab === 'memory' && <>
+        <PageHead key={memTab} page="projectMemory" sub={memTab === 'notes' ? 'Notes' : 'Decisions'} />
+        {memTab === 'notes' && <NotesTab project={project} />}
+        {memTab === 'decisions' && <AdrsTab slug={slug!} />}
+      </>}
       {tab === 'settings' && (
         <>
           {/* The menu's Settings drawer holds these pages; the heading says which. */}
@@ -104,7 +110,6 @@ export default function Project() {
           {setTab === 'deployments' && <DeploymentsTab slug={slug!} />}
           {setTab === 'secrets' && <SecretsTab slug={slug!} />}
           {setTab === 'members' && <MembersTab slug={slug!} />}
-          {setTab === 'decisions' && <AdrsTab slug={slug!} />}
           {setTab === 'usage' && <UsageView project={slug!} />}
         </>
       )}
@@ -114,12 +119,13 @@ export default function Project() {
 
 // The project's name above every sub-page. Its deployments are not repeated
 // here: the overview has a Deployments section, Settings › Deployments the rest.
-function ProjectHeader({ project }: { project: ProjectT }) {
+function ProjectHeader({ project, secondary = false }: { project: ProjectT; secondary?: boolean }) {
+  const Heading = secondary ? 'h2' : 'h1'
   return (
-    <h1>
+    <Heading>
       {project.icon && <span style={{ marginRight: 8 }} aria-hidden>{project.icon}</span>}
       {project.name}
       {project.namespace && <span className="badge" style={{ marginLeft: 10 }} title="namespace (display grouping)">{project.namespace}</span>}
-    </h1>
+    </Heading>
   )
 }

@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes, useNavigate, type NavigateFunction } from 
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../data'
 import Project from './Project'
+import TopBar from '../TopBar'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -126,7 +127,7 @@ it.each([true, false])('shows open chats without a Past chats section (chat=%s)'
 })
 
 // Public app addresses omit the scheme in text and keep it in the safe new-tab link.
-it('keeps project notes and the Changes link beside the public app address on Overview', async () => {
+it('shows the public app address on Overview without notes or a Changes link', async () => {
   const url = 'https://alpha.apps.example.test/public/path'
   const label = 'alpha.apps.example.test/public/path'
   vi.stubGlobal('fetch', vi.fn(async (path: string) => new Response(JSON.stringify(
@@ -140,12 +141,9 @@ it('keeps project notes and the Changes link beside the public app address on Ov
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/a']}><Routes><Route path="/projects/:slug" element={<Project />} /></Routes></MemoryRouter></QueryClientProvider>))
     await vi.waitFor(() => expect(el.querySelector('.application-heading .app-address')?.textContent).toBe(label))
     const address = el.querySelector('.application-heading .app-address') as HTMLAnchorElement
-    expect(el.querySelector('a[href="/projects/a/changes"]')?.textContent).toBe('Changes →')
-    const notes = el.querySelector('section[aria-label="What agents know about this project"]')!
-    expect(notes.textContent).toContain('Credit photos.')
-    expect(notes.textContent).toContain('Accepted by Priya')
-    expect(notes.querySelector('a')?.getAttribute('href')).toBe('/changes/source-change')
-    expect([...notes.querySelectorAll('button')].map(b => b.textContent)).toContain('Add a note')
+    expect(el.querySelector('a[href="/projects/a/changes"]')).toBeNull()
+    expect(el.textContent).not.toContain('Credit photos.')
+    expect(el.textContent).not.toContain('notes')
     expect(el.textContent).not.toContain('No open changes.')
     expect(address.tagName).toBe('A')
     expect(address.getAttribute('href')).toBe(url)
@@ -168,7 +166,8 @@ it.each([
   ['settings/deployments', 'Deployments', 'Settings', 'container-lifecycle'],
   ['settings/secrets', 'Secrets', 'Settings', 'secrets'],
   ['settings/members', 'Members', 'Settings', 'people-and-roles'],
-  ['settings/decisions', 'Decisions', 'Settings', 'glossary'],
+  ['memory/notes', 'Notes', 'Memory', 'project-notes'],
+  ['memory/decisions', 'Decisions', 'Memory', 'glossary'],
   ['settings/usage', 'Usage', 'Settings', 'monitoring'],
 ])('has page help at /projects/a/%s', async (path, title, area, guide) => {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/projects/a')
@@ -190,8 +189,20 @@ it.each([
     const popover = el.querySelector('.page-help-pop')!
     expect(popover.querySelector('a')?.getAttribute('href')).toBe(`/docs/guides/${guide}`)
     if (title === 'Overview') {
-      expect(popover.textContent).toContain('notes, recent activity and deployments')
+      expect(popover.textContent).toContain('recent activity and deployments')
       expect(popover.textContent).toContain('Open Changes')
+      expect(popover.textContent).not.toContain('notes')
+    }
+    if (area === 'Memory') expect(el.querySelectorAll('h1')).toHaveLength(1)
+    if (title === 'Notes') {
+      expect(popover.textContent).toContain('PROJECT-NOTES.md')
+      expect(popover.textContent).toContain('every session')
+      expect(popover.textContent).toContain('author and change number')
+      expect(popover.textContent).toContain('claims, never evidence')
+    }
+    if (title === 'Decisions') {
+      expect(popover.textContent).toContain('what this project chose and why')
+      expect(popover.textContent).toContain('status')
     }
     if (title === 'Secrets') {
       expect(popover.textContent).toContain('Secrets are values your app needs but should not be part of the code: passwords, API keys, signing keys. AppTown keeps them and gives them to the app when it runs.')
@@ -228,5 +239,48 @@ it('shows secret bindings and warnings without the introduction or secret count'
     expect(el.querySelector('select[aria-label="Secrets profile for main"]')).not.toBeNull()
     act(() => [...el.querySelectorAll('button')].find(b => b.textContent === 'Set…')!.click())
     expect(el.querySelector('textarea')).not.toBeNull()
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+
+it.each([false, true])('Memory Notes keeps attributed notes and governed actions (present=%s)', async present => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+    url.endsWith('/projects/a') ? project(1, 'a', 'Alpha')
+      : { notes: { present, commit: 'abc', notes: present ? [{ text: 'Credit photos.', author: 'Sam', change: 4, line: '- Credit photos. (Sam · change 4)', changeId: 'source-change', acceptedBy: ['Priya'] }] : [] } }
+  ))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/a/memory/notes']}><Routes><Route path="/projects/:slug/:tab/:stab" element={<Project />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.textContent).toContain('What agents know about this project'))
+    if (present) {
+      expect(el.textContent).toContain('Credit photos.')
+      expect(el.textContent).toContain('Sam · change 4')
+      expect(el.textContent).toContain('Accepted by Priya')
+      expect(el.querySelector('section a')?.getAttribute('href')).toBe('/changes/source-change')
+      expect(el.textContent).toContain('Add a note')
+    } else {
+      expect(el.textContent).toContain('No notes yet')
+      expect(el.textContent).toContain("Write this project's notes")
+    }
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+// The loaded Memory page must keep its project context without introducing
+// a second page title; the camera requires exactly one level-one heading.
+it.each([['notes', 'Notes'], ['decisions', 'Decisions']])('loaded Memory %s has a labelled breadcrumb and one page title', async (tab, title) => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+    url.endsWith('/projects/a') ? project(1, 'a', 'Alpha')
+      : url.endsWith('/overview') ? { notes: { present: false, notes: [] } } : []
+  ))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/projects/a/memory/${tab}`]}>
+      <TopBar me={null} /><main><Routes><Route path="/projects/:slug/:tab/:stab" element={<Project />} /></Routes></main>
+    </MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('main h1')?.textContent).toBe(title))
+    expect(el.querySelector('.topbar-crumb.last')?.textContent).toBe('›Memory')
+    expect([...el.querySelectorAll('main h1')].map(h => h.textContent)).toEqual([title])
+    expect(el.querySelector('main h2')?.textContent).toBe('Alpha')
+    expect(el.textContent).toContain(tab === 'notes' ? 'No notes yet' : 'No decisions recorded yet.')
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

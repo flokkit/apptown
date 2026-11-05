@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { post } from '../../api'
-import { useAction } from '../../data'
-import type { CatalogApplied, ProjectNotesView } from '../../wire.gen'
+import { ReadStatus, StaleNote } from '../../ReadGate'
+import type { OverviewData } from '../../parts/runActivity'
+import { useAction, useGet } from '../../data'
+import type { CatalogApplied, ProjectNotesView, ProjectDetail } from '../../wire.gen'
 
 export function ProjectNotes({ slug, notes, writable }: { slug: string; notes: ProjectNotesView; writable: boolean }) {
   const nav = useNavigate()
@@ -31,4 +33,15 @@ export function ProjectNotes({ slug, notes, writable }: { slug: string; notes: P
     </>}
     {err && <p className="error">{err}</p>}
   </section>
+}
+
+
+export function NotesTab({ project }: { project: ProjectDetail }) {
+  const q = useGet<OverviewData>(`/projects/${project.slug}/overview`, { poll: 5000 })
+  return <>
+    <ReadStatus q={q} what="project notes" />
+    <StaleNote q={q} />
+    {q.data?.notes && <ProjectNotes slug={project.slug} notes={q.data.notes}
+      writable={q.current && (project.lifecycle?.state ?? 'active') === 'active'} />}
+  </>
 }

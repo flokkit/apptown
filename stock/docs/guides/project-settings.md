@@ -19,3 +19,6 @@ Eval copies keep their fixed description and do not generate suggestions.
 
 Manage the project's [packs and adopted versions](packs-and-what-if.md) under
 **Settings → Way of working**.
+
+Project notes and decision records are under **Memory → Notes** and
+**Memory → Decisions**.

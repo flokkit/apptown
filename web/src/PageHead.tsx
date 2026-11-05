@@ -101,7 +101,7 @@ export const PAGE_HELP = {
   projectOverview: {
     title: 'Overview',
     help: <>
-      <p>The overview shows this project's notes, recent activity and deployments.</p>
+      <p>The overview shows this project's recent activity and deployments.</p>
       <p>Open Changes to see work in progress or ask for new work. Each deployment shows its current state and address.</p>
     </>,
     guide: 'changes-and-main',
@@ -114,11 +114,16 @@ export const PAGE_HELP = {
     </>,
     guide: 'monitoring',
   },
+  projectMemory: {
+    title: 'Memory',
+    help: <p>Memory is what agents carry into their work on this project: its notes and records of decisions.</p>,
+    guide: 'project-notes',
+  },
   projectSettings: {
     title: 'Settings',
     help: <>
       <p>Settings are the choices for this project's setup and who can work on it.</p>
-      <p>Choose a page to edit its details, way of working, services, deployments, secrets or members, or to read decisions and model usage.</p>
+      <p>Choose a page to edit its details, way of working, services, deployments, secrets or members, or to read model usage.</p>
     </>,
     guide: 'project-settings',
   },
@@ -137,6 +142,16 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
     Suppressions: { guide: 'glossary', body: <>
       <p>Suppressions are recorded decisions to accept security findings for a time.</p>
       <p>Create one from Findings, with a reason and an expiry. Each matches findings by fingerprint or identifier and package. When it expires, the finding fails the gate again. Revoke one here to make the finding actionable immediately, or export the records as OpenVEX.</p>
+    </> },
+  },
+  projectMemory: {
+    Notes: { guide: 'project-notes', body: <>
+      <p><code>PROJECT-NOTES.md</code> records durable facts and preferences about this project. Agents read it in every session.</p>
+      <p>Entries change through changes, with an author and change number. Notes are claims, never evidence.</p>
+    </> },
+    Decisions: { guide: 'glossary', body: <>
+      <p>Decisions are records of what this project chose and why.</p>
+      <p>Open a record to read it and its status. Start a draft with a title and optional tags to record a new decision.</p>
     </> },
   },
   projectSettings: {
@@ -166,10 +181,6 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
       <p>Members are the people and groups with roles on this project.</p>
       <p>A contributor opens changes and hands them off. A maintainer also lands them and changes the project's setup. An approver says yes at approval steps. An owner manages the project and its members.</p>
       <p>Add or remove roles here, and choose whether another person must approve the author's change. The Approval section shows who can approve and who can land changes.</p>
-    </> },
-    Decisions: { guide: 'glossary', body: <>
-      <p>Decisions are records of what this project chose and why.</p>
-      <p>Open a record to read it and its status. Start a draft with a title and optional tags to record a new decision.</p>
     </> },
     Usage: { guide: 'monitoring', body: <>
       <p>Usage is this project's AI model use and estimated cost.</p>
