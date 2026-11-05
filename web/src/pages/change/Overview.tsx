@@ -1,4 +1,5 @@
-import { NotesDiff } from "./NotesDiff"
+import { renderMd } from '../../md'
+import { NotesDiff } from './NotesDiff'
 import { deployWords } from './DeployScene'
 import { DeployBackupLine } from './DeployResult'
 import { Now, nowRunning } from './Now'
@@ -106,7 +107,8 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
   const summary = changeReport({ ...view, report: '' }, true)
   const agent = agentReport(changeReport(view) ?? '')
   const made = summary || agent
-  const brief = useGet<{ brief: string }>(approval && turn ? `/steps/${approval.id}/brief` : null)
+  const briefApproval = approval ?? [...steps].reverse().find(s => s.type === 'approval')
+  const brief = useGet<{ brief: string }>(briefApproval ? `/steps/${briefApproval.id}/brief` : null)
   const briefParts = approvalBrief(brief.data?.brief)
   const transcript = useGet<ChatHistoryView>(!made ? `/changes/${ch.id}/transcript` : null, { poll: 3000 })
   const reply = transcript.data?.sessions?.flatMap(s => s.messages).filter(m => m.role === 'helper' && m.text?.trim()).at(-1)?.text
@@ -122,7 +124,7 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
   const destination = deployments.current ? deployments.data?.find(e => e.feed === 'landing') : undefined
   const plannedDeploy = steps.find(s => s.type === 'deploy' && view.runs?.some(r => r.id === s.runId && r.role === 'landing'))
   const destinationName = plannedDeploy ? typeof plannedDeploy.config?.deployment === 'string' && plannedDeploy.config.deployment ? plannedDeploy.config.deployment : 'main' : destination?.name
-  const report = made?.split(/\n+/).map(s => s.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, '').trim()).filter(s => s && !s.startsWith('#')).flatMap(s => s.split(/(?<=[.!?])\s+/)).slice(0, 4).map(line => firstLine(line))
+  const report = summary?.split(/\n+/).map(s => s.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, '').trim()).filter(s => s && !s.startsWith('#')).flatMap(s => s.split(/(?<=[.!?])\s+/)).slice(0, 4).map(line => firstLine(line))
   const checks = steps.filter(s => checkTypes.has(s.type))
   const checked = checks.some(s => !['pending', 'skipped'].includes(s.status))
   const detail = workTab()
@@ -136,11 +138,16 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
       {!boot?.evidence.screenshots?.shots?.length && <p className="small muted">{boot?.evidence.screenshots?.unavailable || 'No screenshots were recorded for this preview.'}</p>}
     </div>{trailer(detail + '#preview', `${boot?.evidence.screenshots?.commit ? `built from ${boot.evidence.screenshots.commit.slice(0, 7)} · ` : ''}logs →`)}</div>
     <NotesDiff diff={view.notesDiff} />
-    <div className="ch-overview-line ch-request"><div className="ch-row-label">You asked</div><div className="ch-value">{firstLine(ch.body || ch.title)}</div>{trailer(detail + '#request-text', (ch.body || ch.title) !== firstLine(ch.body || ch.title) ? 'full request →' : 'request →')}</div>
-    <div className="ch-overview-line"><div className="ch-row-label">{summary ? 'What was made' : 'The agent says'}</div><div className="ch-value">{report?.length ? <ul>{report.map((line, i) => <li key={i}>{line}</li>)}</ul> : reply ? <p className="ch-chat-excerpt">{reply.split('\n').slice(0, 4).join('\n')}</p> : <p className="muted">{transcript.err ? `The conversation could not be read: ${transcript.err}` : transcript.data?.unreadable ? 'Some of the conversation could not be read.' : !transcript.data ? 'Reading the conversation…' : 'No report from the agent'}</p>}
+    <div className="ch-overview-line ch-request"><div className="ch-row-label">You asked</div><div className="ch-value">{ch.requestSummary || firstLine(ch.body || ch.title)}</div>{trailer(ch.chatRequest ? `/changes/${ch.id}?tab=conversation` : detail + '#request-text', !ch.chatRequest && (ch.body || ch.title) !== firstLine(ch.body || ch.title) ? 'full request →' : 'request →')}</div>
+    {!!briefParts?.length && <div className="ch-overview-line"><div className="ch-row-label">What it does</div><div className="ch-value">{briefParts.map((paragraph, i) => <p key={i}>{paragraph}</p>)}<StaleNote q={brief} /></div><span /></div>}
+    <div className="ch-overview-line"><div className="ch-row-label">{summary ? 'What was made' : 'The agent says'}</div><div className="ch-value">{report?.length ? <ul>{report.map((line, i) => <li key={i}>{line}</li>)}</ul> : (agent || reply) ? <div className="ch-chat-excerpt md" dangerouslySetInnerHTML={{ __html: renderMd((agent || reply || '').trim().split(/\n\s*\n/)[0]) }} /> : <p className="muted">{transcript.err ? `The conversation could not be read: ${transcript.err}` : transcript.data?.unreadable ? 'Some of the conversation could not be read.' : !transcript.data ? 'Reading the conversation…' : 'No report from the agent'}</p>}
       {!summary && <StaleNote q={transcript} />}<TechnicalWords shown={technical}>{d && `${d.run.workflowName} v${d.run.workflowVersion} · run ${d.run.number}`} · {ch.branch} · {view.head}{steps.flatMap(s => s.type === 'agent/pi' && s.evidence.model ? [` · ${s.evidence.model}`] : []).join('')}{view.usage && ` · ${fmtPrice(view.usage.costMicros, view.usage.unpriced)}`}</TechnicalWords>
     </div>{!summary && reply ? trailer(`/changes/${ch.id}?tab=conversation`, 'full conversation →') : trailer(`/changes/${ch.id}?tab=changes`, `${shortDiffstat(view.diffstat).replace(/^(.*) in (\d+ files?)$/, '$2 $1') || 'Code'}${view.head ? ` · ${view.head.slice(0, 7)}` : ''} →`)}</div>
     <div className={`ch-overview-line${checksVerdict(steps)?.tone === 'bad' ? ' ch-line-bad' : ''}`}><div className="ch-row-label">Checks</div><div className="ch-value"><CheckSummary technical={technical} steps={steps} contractNeedsAttention={contractUnread(adds)} /><TechnicalWords shown={technical}>{checks.filter(s => s.status !== 'not_applicable').map(s => s.name).join(' · ')}</TechnicalWords></div>{checked && trailer(detail + '#checks', 'details →')}</div>
+    {approval && <>
+      <div className="ch-overview-line"><div className="ch-row-label">Goes live</div><div className="ch-value">{deployments.current ? destination ? destination.url ? `${new URL(destination.url).host} for everyone` : 'For everyone; the deployment has no address yet.' : 'This adds it to the app’s main version.' : 'Reading where accepting puts this change…'}</div><span /></div>
+      <div className="ch-overview-line"><div className="ch-row-label">Who decides</div><div className="ch-value">You or another approver</div><span /></div>
+    </>}
     {review?.type === 'agent/review' && <div className="ch-overview-line"><div className="ch-row-label">Reviewer</div><p className="ch-value">{review.status === 'running' || review.status === 'pending' ? 'working' : review.checkReading?.unreadable ? 'could not be read' : review.evidence.verdict === 'approve' ? 'approves' : ['fail', 'error', 'needs_human'].includes(review.status) && !review.overrideBy ? <strong className="ch-bad-text"><span className="ch-mark bad">✗</span> Rejected</strong> : review.evidence.verdict || review.status} — {firstLine(review.evidence.reviewerSummary || review.evidence.summary || review.evidence.reason || 'No review conclusion recorded.').split(/(?<=[.!?])\s+/)[0]}</p>{trailer(workTab(undefined, review.runId) + '#review', 'full review →')}</div>}
     {checked && contractChanged(adds) && adds && <div className="ch-overview-line"><div className="ch-row-label">App contract</div><div className="ch-value"><InlineHelp.Provider value={false}><AddsSection adds={adds} /></InlineHelp.Provider></div><span /></div>}
     {(landingDeploy || ch.state === 'landing' || ch.state === 'shipped' || steps.some(s => s.type === 'approval' && s.status === 'pass')) && <ReleaseRow view={view} step={landingDeploy} />}
@@ -156,7 +163,7 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
       {next.sentBack && <p>{next.sentBack.by} sent it back: “{next.sentBack.note}”</p>}
       {view.mainConflict && <p>{view.mainConflict.mainBranch} conflicts with this change: {view.mainConflict.files.join(', ')}. <Link to={detail} onClick={e => e.currentTarget.closest('dialog')?.close()}>Open Details for the catch-up command</Link>.</p>}
       {extraErr && <p className="error">The work this landing carries could not be read: {extraErr}</p>}
-      {shortfall && <p>The summary says this change falls short of the request: {shortfall}</p>}
+      {shortfall && <><p>The summary says this change falls short of the request: {shortfall}</p><p>Based on: “{ch.requestGapQuote}”</p></>}
       {unchecked && view.waitingOn.kind !== 'closed' && <p>The summary could not check all of the request: {unchecked}</p>}
       {steps.filter(s => s.type === 'workflow/call' && s.evidence.childRunId).map(s => <ChildOverview key={s.id} step={s} onChange={onChange} />)}
       {!landingDeploy && !approval && <p>{view.waitingOn.says}{view.stateDetail && ` · ${view.stateDetail}`}</p>}

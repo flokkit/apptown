@@ -126,8 +126,8 @@ Evidence links stay on the row that produced the evidence; plain links open the
 record in place. Attach a record ends the Work card. About this change contains
 only valued Branch, Started from, Kind, Cost and Attachments rows, with an attach
 a file link when allowed. Workflow names and versions appear as technical detail
-inside the event facts. Empty rows and sections are omitted. Overview shows the
-request's first line and links to its full text in Details. Details shows the
+inside the event facts. Empty rows and sections are omitted. Overview shows the short conversation request summary when available, otherwise the
+request's first line. Chat requests link to the person's full conversation; other requests link to their full text in Details. Details shows the
 first four request lines once, with a full request link for longer text.
 Rejected reviews show a red failure mark and Rejected before the complete recorded
 explanation. Structured findings lead when present; sentences are not selected
@@ -309,9 +309,9 @@ Details retains the landing record and the release link.
 
 Overview has two bordered cards: The change and an action card. The change uses
 shared label, value and evidence-link columns, with preview thumbnails first,
-followed by the request, report, checks, reviewer when present and app contract
+followed by the request, approval brief when available, report, checks, landing destination and approver when approval waits, reviewer when present and app contract
 when checked and changed. Without a report, the latest chat reply appears as
-“The agent says”, with its first few lines and a full conversation link. Only an
+“The agent says”, with its first paragraph rendered as sanitized Markdown and a full conversation link. The approval brief uses the same source as the acceptance screen and does not replace the agent’s report. Only an
 empty report and empty chat show “No report from the agent”. Before any checks
 run, the check row says “Not checked yet. Checks run when you press Check and
 land.” Unread app-contract comparisons do not create a separate heading then. Once checks start, unfinished checks and an unread app contract share one “Still running” line. Failed checks show their title and the first sentence of the recorded finding, with a Details link; evaluator instructions stay out of the summary. Rejected agent

@@ -30,6 +30,21 @@ automatic rework and running work before requesting a summary. Advancement
 queues the request in the transaction recording its blocked receipt; neither
 record survives if that transaction fails.
 
+Request summaries are generated through `Service.SummarizeRequest` using the
+fast model slot and ordered `workflow.RequestMessage` values. Workflow owns reuse,
+acceptance checks and publication; the stored summary type and publication
+helpers stay private. The composition root supplies model resolution, completion
+and transcript evidence as part of the narrative refresh.
+
+Narratives assess what the person asked to change in the application. Preview,
+testing, credentials, access and process remarks do not add requirements; an
+unclear requirement cannot justify a shortfall. A `partly` or `no` assessment
+stores a short verbatim excerpt in `requestGapQuote` with `requestGap`. Publication
+checks the quote against individual person messages (or the written request and
+send-back notes), never helper reports or generated titles. Missing or unmatched
+quotes make the assessment `unknown` and clear the unsupported gap. The result
+shows a shortfall's quote as “Based on: …”.
+
 ## Start here
 
 Construct `Service` once with `New(db, Dependencies{...})`. Both are in

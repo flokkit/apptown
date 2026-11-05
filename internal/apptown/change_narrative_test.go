@@ -8,19 +8,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/model"
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
-	"github.com/flokkit/apptown/internal/dbtest"
-	"github.com/flokkit/apptown/internal/ids"
-	"github.com/flokkit/apptown/internal/ids/idstest"
-
-	"github.com/flokkit/apptown/internal/apptown/audit"
-	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/usage"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 func narrativeBuilderFixture(t *testing.T) (*database.DB, *workflow.Service, workflow.NarrativeSource) {
@@ -59,7 +58,7 @@ func narrativeBuilderFixture(t *testing.T) (*database.DB, *workflow.Service, wor
 
 func TestNarrativeBuilderAccountsForRejectedAndEmptyResults(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []string{"success", "empty", "changed", "receipt", "cancelled", "evidence failure"} {
+	for _, mode := range []string{"success", "missing quote", "invented quote", "helper quote", "testing context", "empty", "changed", "receipt", "cancelled", "evidence failure"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Parallel()
 			db, work, source := narrativeBuilderFixture(t)
@@ -91,7 +90,26 @@ func TestNarrativeBuilderAccountsForRejectedAndEmptyResults(t *testing.T) {
 				case "receipt":
 					dbtest.FailNextStatement(t, db, "INSERT INTO audit_log")
 				}
-				out := "TITLE: generated\nASKED: no — the visible heading was asked for; only the tab title changed\n\nGenerated note"
+				out := "TITLE: generated\nASKED: no — the visible heading was asked for; only the tab title changed\nQUOTE: Change the visible heading\n\nGenerated note"
+				switch mode {
+				case "missing quote":
+					out = strings.ReplaceAll(out, "QUOTE: Change the visible heading\n", "")
+				case "invented quote":
+					out = strings.ReplaceAll(out, "QUOTE: Change the visible heading", "QUOTE: Enable card editing on the demo board")
+				case "helper quote":
+					out = strings.ReplaceAll(out, "QUOTE: Change the visible heading", "QUOTE: I enabled editing")
+				case "testing context":
+					// The model contract must distinguish testing access from an app request.
+					for _, rule := range []string{"Questions or remarks about the preview, testing, credentials,", "It must not\nproduce a gap", "When unsure whether something is an application requirement"} {
+						if !strings.Contains(q.System, rule) {
+							t.Errorf("missing narrative rule %q", rule)
+						}
+					}
+					if !strings.Contains(q.User, "The preview should be fully live.") {
+						t.Error("testing context lost")
+					}
+					out = "TITLE: generated\nASKED: yes\nQUOTE:\n\nGenerated note"
+				}
 				if mode == "empty" {
 					out = "TITLE: title without note"
 				}
@@ -107,11 +125,19 @@ func TestNarrativeBuilderAccountsForRejectedAndEmptyResults(t *testing.T) {
 					if mode == "evidence failure" {
 						return narrativeEvidence{}, errors.New("source unavailable")
 					}
-					return narrativeEvidence{Text: "LIVE EVIDENCE"}, nil
+					messages := []workflow.RequestMessage{
+						{Text: "Change the visible heading"},
+						{Text: "Hm how is the demo board read-only? It shouldn't be? The preview should be fully live. Do you have access to the password in your environment?"},
+					}
+					if mode == "testing context" || mode == "invented quote" {
+						messages[0].Text = "When a card is way down the board, bring it into view so I can move it."
+					}
+					return narrativeEvidence{Text: "LIVE EVIDENCE\nPERSON'S CHAT REQUEST:\n" + messages[0].Text + "\n" + messages[1].Text + "\nHELPER'S REPORT: I could not sign in to the preview, so I used the read-only /demo page. I enabled editing", Messages: messages}, nil
 				},
 			}
 			err := b.refresh(ctx, source.Change.ID)
-			if (err == nil) != (mode == "success") {
+			published := mode == "success" || mode == "missing quote" || mode == "invented quote" || mode == "helper quote" || mode == "testing context"
+			if (err == nil) != published {
 				t.Fatalf("refresh %s: %v", mode, err)
 			}
 			want := 1
@@ -132,22 +158,28 @@ func TestNarrativeBuilderAccountsForRejectedAndEmptyResults(t *testing.T) {
 				t.Fatalf("incurred usage: %+v %v", report.Totals, err)
 			}
 			receipts := 0
-			if mode == "success" {
+			if published {
 				receipts = 1
 			}
 			entries, err := audit.Recent(context.Background(), db, audit.Filter{KindPrefix: "change.narrative-updated"})
 			if err != nil || len(entries) != receipts+1 {
 				t.Fatalf("publication receipts: %+v %v", entries, err)
 			}
-			if mode == "success" {
+			if published {
+				wantMet, wantGap, wantQuote := workflow.RequestMet("unknown"), "", ""
+				if mode == "success" {
+					wantMet, wantGap, wantQuote = workflow.RequestMet("no"), "the visible heading was asked for; only the tab title changed", "Change the visible heading"
+				} else if mode == "testing context" {
+					wantMet = "yes"
+				}
 				ch, err := work.Change(asPerson("test"), source.Change.ID)
-				if err != nil || ch.Summary != "Generated note" || ch.RequestMet != workflow.RequestMetNo || ch.RequestGap != "the visible heading was asked for; only the tab title changed" {
+				if err != nil || ch.Summary != "Generated note" || ch.RequestMet != wantMet || ch.RequestGap != wantGap || ch.RequestGapQuote != wantQuote {
 					t.Fatalf("published reading of the request: %+v %v", ch, err)
 				}
 			}
-			if mode != "success" {
+			if !published {
 				ch, err := work.Change(asPerson("test"), source.Change.ID)
-				if err != nil || ch.Title != "automatic" || ch.Summary != "previous" || ch.RequestMet != workflow.RequestMetUnknown {
+				if err != nil || ch.Title != "automatic" || ch.Summary != "previous" || ch.RequestMet != workflow.RequestMet("unknown") {
 					t.Fatalf("failed generation changed prose: %+v %v", ch, err)
 				}
 			}
@@ -302,5 +334,40 @@ func TestNarrativeResolvesMainStrong(t *testing.T) {
 	pattern, slot, err := b.resolve(t.Context(), ids.Nil)
 	if err != nil || pattern != "vendor/strong" || slot != "main-strong" {
 		t.Fatalf("summary chose %q %q: %v", pattern, slot, err)
+	}
+}
+
+func TestNarrativeRefreshIncludesRequestSummaryAndSurvivesItsFailure(t *testing.T) {
+	t.Parallel()
+	for _, fail := range []bool{false, true} {
+		t.Run(fmt.Sprint(fail), func(t *testing.T) {
+			_, work, source := narrativeBuilderFixture(t)
+			requests, narratives := 0, 0
+			b := narrativeBuilder{work: work,
+				requestResolve: func(context.Context, ids.ID) (string, string, error) { return "quick", "main-fast", nil },
+				resolve:        func(context.Context, ids.ID) (string, string, error) { return "strong", "main-strong", nil },
+				evidence: func(context.Context, workflow.NarrativeSource) (narrativeEvidence, error) {
+					return narrativeEvidence{Patch: "candidate", Messages: []workflow.RequestMessage{{Text: "Bring cards into view."}}}, nil
+				},
+				models: askFunc(func(_ context.Context, call modelcall.Call) (string, *modelcall.Usage, error) {
+					if call.Purpose == "request-summary" {
+						requests++
+						if fail {
+							return "", nil, errors.New("provider unavailable")
+						}
+						return `{"title":"Reach cards","summary":"Bring cards into view."}`, nil, nil
+					}
+					narratives++
+					return "The cards are easier to reach.", nil, nil
+				}),
+			}
+			if err := b.refresh(asPerson("test"), source.Change.ID); err != nil {
+				t.Fatal(err)
+			}
+			ch, err := work.Change(asPerson("test"), source.Change.ID)
+			if err != nil || requests != 1 || narratives != 1 || ch.Summary != "The cards are easier to reach." || (ch.RequestSummarySource != nil) == fail {
+				t.Fatalf("requests=%d narratives=%d change=%+v err=%v", requests, narratives, ch, err)
+			}
+		})
 	}
 }

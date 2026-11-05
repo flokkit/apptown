@@ -565,6 +565,14 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 	{n: 207, note: "allow explicit agent access to preview secret bindings", stmts: []string{
 		`ALTER TABLE secret_bindings ADD COLUMN agent_visible BOOLEAN NOT NULL DEFAULT false CHECK (NOT agent_visible OR deployment = 'preview')`,
 	}},
+	{n: 208, note: "retain conversation request summaries and their model inputs", stmts: []string{
+		`ALTER TABLE changes ADD COLUMN chat_request BOOLEAN NOT NULL DEFAULT false, ADD COLUMN request_summary JSONB NOT NULL DEFAULT '{}'`,
+		`UPDATE changes SET chat_request=true WHERE title_ownership IN ('awaiting_chat','generated')`,
+	}},
+	{n: 209, note: "attribute narrative shortfalls to the person's words", stmts: []string{
+		`ALTER TABLE changes ADD COLUMN request_gap_quote TEXT NOT NULL DEFAULT ''`,
+		`UPDATE changes SET request_met='unknown', request_gap='' WHERE request_met IN ('partly','no')`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

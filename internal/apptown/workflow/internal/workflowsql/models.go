@@ -53,6 +53,9 @@ type Change struct {
 	RequestMet          string
 	RequestGap          string
 	ClosedAs            string
+	ChatRequest         bool
+	RequestSummary      json.RawMessage
+	RequestGapQuote     string
 }
 
 type Project struct {

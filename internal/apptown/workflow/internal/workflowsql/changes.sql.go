@@ -77,7 +77,7 @@ func (q *Queries) AttachUpliftTarget(ctx context.Context, arg AttachUpliftTarget
 
 const changeByID = `-- name: ChangeByID :one
 
-SELECT id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as FROM changes WHERE id=$1 AND ($2::uuid IS NULL OR project_id=$2)
+SELECT id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as, chat_request, request_summary, request_gap_quote FROM changes WHERE id=$1 AND ($2::uuid IS NULL OR project_id=$2)
 `
 
 type ChangeByIDParams struct {
@@ -119,12 +119,15 @@ func (q *Queries) ChangeByID(ctx context.Context, arg ChangeByIDParams) (Change,
 		&i.RequestMet,
 		&i.RequestGap,
 		&i.ClosedAs,
+		&i.ChatRequest,
+		&i.RequestSummary,
+		&i.RequestGapQuote,
 	)
 	return i, err
 }
 
 const changeForUpdate = `-- name: ChangeForUpdate :one
-SELECT id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as FROM changes WHERE id=$1 AND ($2::uuid IS NULL OR project_id=$2) FOR UPDATE
+SELECT id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as, chat_request, request_summary, request_gap_quote FROM changes WHERE id=$1 AND ($2::uuid IS NULL OR project_id=$2) FOR UPDATE
 `
 
 type ChangeForUpdateParams struct {
@@ -165,6 +168,9 @@ func (q *Queries) ChangeForUpdate(ctx context.Context, arg ChangeForUpdateParams
 		&i.RequestMet,
 		&i.RequestGap,
 		&i.ClosedAs,
+		&i.ChatRequest,
+		&i.RequestSummary,
+		&i.RequestGapQuote,
 	)
 	return i, err
 }
@@ -342,7 +348,7 @@ func (q *Queries) ChangeSummaries(ctx context.Context, arg ChangeSummariesParams
 }
 
 const changeTargetAdoptionMeta = `-- name: ChangeTargetAdoptionMeta :one
-SELECT target_adoption_id FROM changes WHERE id=$1 AND project_id=$2
+SELECT target_adoption_id FROM changes WHERE changes.id=$1 AND changes.project_id=$2
 `
 
 type ChangeTargetAdoptionMetaParams struct {
@@ -475,8 +481,8 @@ func (q *Queries) HasOpenUplift(ctx context.Context, arg HasOpenUpliftParams) (b
 }
 
 const insertChange = `-- name: InsertChange :one
-INSERT INTO changes(id,number,project_id,type,title,body,external_ref,acceptance_json,state,title_ownership,branch,base_sha,provenance,expected_revision,opened_by,opened_by_principal,opened_by_via,created_at)
-VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::timestamptz) RETURNING id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as
+INSERT INTO changes(id,number,project_id,type,title,body,external_ref,acceptance_json,state,title_ownership,chat_request,branch,base_sha,provenance,expected_revision,opened_by,opened_by_principal,opened_by_via,created_at)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::timestamptz) RETURNING id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as, chat_request, request_summary, request_gap_quote
 `
 
 type InsertChangeParams struct {
@@ -490,6 +496,7 @@ type InsertChangeParams struct {
 	AcceptanceJson    json.RawMessage
 	State             string
 	TitleOwnership    string
+	ChatRequest       bool
 	Branch            string
 	BaseSha           string
 	Provenance        string
@@ -512,6 +519,7 @@ func (q *Queries) InsertChange(ctx context.Context, arg InsertChangeParams) (Cha
 		arg.AcceptanceJson,
 		arg.State,
 		arg.TitleOwnership,
+		arg.ChatRequest,
 		arg.Branch,
 		arg.BaseSha,
 		arg.Provenance,
@@ -552,6 +560,9 @@ func (q *Queries) InsertChange(ctx context.Context, arg InsertChangeParams) (Cha
 		&i.RequestMet,
 		&i.RequestGap,
 		&i.ClosedAs,
+		&i.ChatRequest,
+		&i.RequestSummary,
+		&i.RequestGapQuote,
 	)
 	return i, err
 }
@@ -1087,21 +1098,22 @@ func (q *Queries) ProjectWorkBlockers(ctx context.Context, arg ProjectWorkBlocke
 }
 
 const publishChangeNarrative = `-- name: PublishChangeNarrative :execrows
-UPDATE changes SET summary=$1,request_met=$2,request_gap=$3 WHERE id=$4 AND project_id=$5 AND body=$6 AND state=$7 AND run_id IS NOT DISTINCT FROM $8 AND branch=$9 AND base_sha=$10 AND summary IS NOT DISTINCT FROM $11
+UPDATE changes SET summary=$1,request_met=$2,request_gap=$3,request_gap_quote=$4 WHERE id=$5 AND project_id=$6 AND body=$7 AND state=$8 AND run_id IS NOT DISTINCT FROM $9 AND branch=$10 AND base_sha=$11 AND summary IS NOT DISTINCT FROM $12
 `
 
 type PublishChangeNarrativeParams struct {
-	Summary    string
-	RequestMet string
-	RequestGap string
-	ID         ids.ID
-	ProjectID  ids.ID
-	Body       string
-	State      string
-	RunID      ids.ID
-	Branch     string
-	BaseSha    string
-	OldSummary string
+	Summary         string
+	RequestMet      string
+	RequestGap      string
+	RequestGapQuote string
+	ID              ids.ID
+	ProjectID       ids.ID
+	Body            string
+	State           string
+	RunID           ids.ID
+	Branch          string
+	BaseSha         string
+	OldSummary      string
 }
 
 func (q *Queries) PublishChangeNarrative(ctx context.Context, arg PublishChangeNarrativeParams) (int64, error) {
@@ -1109,6 +1121,7 @@ func (q *Queries) PublishChangeNarrative(ctx context.Context, arg PublishChangeN
 		arg.Summary,
 		arg.RequestMet,
 		arg.RequestGap,
+		arg.RequestGapQuote,
 		arg.ID,
 		arg.ProjectID,
 		arg.Body,
@@ -1117,6 +1130,33 @@ func (q *Queries) PublishChangeNarrative(ctx context.Context, arg PublishChangeN
 		arg.Branch,
 		arg.BaseSha,
 		arg.OldSummary,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const publishRequestSummary = `-- name: PublishRequestSummary :execrows
+UPDATE changes SET request_summary=$1
+WHERE changes.id=$2 AND changes.project_id=$3 AND chat_request
+AND state IN ('in_progress','landing') AND request_summary=$4
+AND NOT EXISTS (SELECT 1 FROM runs r JOIN steps s ON s.run_id=r.id WHERE r.change_id=changes.id AND s.type='approval' AND s.status='pass')
+`
+
+type PublishRequestSummaryParams struct {
+	RequestSummary    json.RawMessage
+	ID                ids.ID
+	ProjectID         ids.ID
+	OldRequestSummary json.RawMessage
+}
+
+func (q *Queries) PublishRequestSummary(ctx context.Context, arg PublishRequestSummaryParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, publishRequestSummary,
+		arg.RequestSummary,
+		arg.ID,
+		arg.ProjectID,
+		arg.OldRequestSummary,
 	)
 	if err != nil {
 		return 0, err
@@ -1199,6 +1239,24 @@ func (q *Queries) ReleaseChangeLabels(ctx context.Context, arg ReleaseChangeLabe
 		return nil, err
 	}
 	return items, nil
+}
+
+const requestSummaryOpen = `-- name: RequestSummaryOpen :one
+SELECT chat_request AND state IN ('in_progress','landing')
+AND NOT EXISTS (SELECT 1 FROM runs r JOIN steps s ON s.run_id=r.id WHERE r.change_id=changes.id AND s.type='approval' AND s.status='pass') AS open
+FROM changes WHERE changes.id=$1 AND changes.project_id=$2
+`
+
+type RequestSummaryOpenParams struct {
+	ID        ids.ID
+	ProjectID ids.ID
+}
+
+func (q *Queries) RequestSummaryOpen(ctx context.Context, arg RequestSummaryOpenParams) (sql.NullBool, error) {
+	row := q.db.QueryRowContext(ctx, requestSummaryOpen, arg.ID, arg.ProjectID)
+	var open sql.NullBool
+	err := row.Scan(&open)
+	return open, err
 }
 
 const setChangeBranch = `-- name: SetChangeBranch :execrows
@@ -1461,7 +1519,7 @@ func (q *Queries) TransitionChange(ctx context.Context, arg TransitionChangePara
 }
 
 const visibleChanges = `-- name: VisibleChanges :many
-SELECT id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as FROM changes WHERE project_id=ANY($1::uuid[]) AND id=ANY($2::uuid[]) ORDER BY id
+SELECT id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as, chat_request, request_summary, request_gap_quote FROM changes WHERE project_id=ANY($1::uuid[]) AND id=ANY($2::uuid[]) ORDER BY id
 `
 
 type VisibleChangesParams struct {
@@ -1508,6 +1566,9 @@ func (q *Queries) VisibleChanges(ctx context.Context, arg VisibleChangesParams) 
 			&i.RequestMet,
 			&i.RequestGap,
 			&i.ClosedAs,
+			&i.ChatRequest,
+			&i.RequestSummary,
+			&i.RequestGapQuote,
 		); err != nil {
 			return nil, err
 		}

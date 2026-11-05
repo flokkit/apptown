@@ -66,6 +66,7 @@ var StockUses = []stockUse{
 	{Slot: "chat", Job: "project chat", Sources: []string{"conversation/admission.go", "conversation/open.go", "conversation/environment.go"}},
 	{Slot: "worker", Job: "helpers' written briefs", Sources: []string{"agentharness/pi/preparation.go"}},
 	{Slot: "scout", Job: "helpers' quick lookups", Sources: []string{"agentharness/pi/preparation.go"}},
+	{Slot: "fast", Job: "conversation request labels", Sources: []string{"narrative_wiring.go"}},
 	{Slot: "fast", Job: "project descriptions", Sources: []string{"projectlifecycle/description.go"}},
 	{Slot: "fast", Job: "ways-of-working setup interviews", Sources: []string{"httpapi/pack_assistance.go"}},
 	{Slot: "secondary-fast", Job: "ways-of-working model checks", Sources: []string{"verification/guidance_models.go"}},

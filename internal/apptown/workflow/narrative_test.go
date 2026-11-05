@@ -36,17 +36,17 @@ func TestNarrativeParserRequiresACompleteValidNote(t *testing.T) {
 		out, note, gap string
 		met            RequestMet
 	}{
-		{"TITLE: t\nASKED: no — only the tab title changed\n\nThe note.", "The note.", "only the tab title changed", RequestMetNo},
+		{"TITLE: t\nASKED: no — only the tab title changed\n\nThe note.", "The note.", "only the tab title changed", requestMetNo},
 		{"TITLE: t\nASKED: partly, the second button is missing\n\nThe note.", "The note.", "the second button is missing", requestMetPartly},
 		{"TITLE: t\nASKED: yes\n\nThe note.", "The note.", "", requestMetYes},
 		{"TITLE: t\nASKED: Yes. all of it\n\nThe note.", "The note.", "", requestMetYes},
-		{"TITLE: t\nASKED: unknown\n\nThe note.", "The note.", "", RequestMetUnknown},
-		{"TITLE: t\nASKED: probably\n\nThe note.", "The note.", "", RequestMetUnknown},
-		{"TITLE: t\n\nThe note.", "The note.", "", RequestMetUnknown},
-		{"The note.", "The note.", "", RequestMetUnknown},
+		{"TITLE: t\nASKED: unknown\n\nThe note.", "The note.", "", requestMetUnknown},
+		{"TITLE: t\nASKED: probably\n\nThe note.", "The note.", "", requestMetUnknown},
+		{"TITLE: t\n\nThe note.", "The note.", "", requestMetUnknown},
+		{"The note.", "The note.", "", requestMetUnknown},
 	} {
 		got, err := ParseNarrative(tc.out)
-		if err != nil || got.Note != tc.note || got.Met != tc.met || got.Gap != tc.gap {
+		if err != nil || got.Note != tc.note || got.met != tc.met || got.gap != tc.gap {
 			t.Fatalf("request reading %q: %+v %v", tc.out, got, err)
 		}
 	}
@@ -120,11 +120,11 @@ func TestNarrativeEvidenceStatesUnreadArtifactAndKeepsWholeRequest(t *testing.T)
 func TestNarrativeKeepsWhatWouldSatisfyForUnknown(t *testing.T) {
 	t.Parallel()
 	d, err := ParseNarrative("TITLE: t\nASKED: unknown — the rest of the diff was not read. To satisfy it: the rest of the diff, files X and Y.\n\nNote")
-	if err != nil || d.Met != RequestMetUnknown || !strings.Contains(d.Gap, "To satisfy it: the rest of the diff") {
+	if err != nil || d.met != requestMetUnknown || !strings.Contains(d.gap, "To satisfy it: the rest of the diff") {
 		t.Fatalf("unknown lost what would settle it: %+v %v", d, err)
 	}
 	d, err = ParseNarrative("TITLE: t\nASKED: yes — done\n\nNote")
-	if err != nil || d.Gap != "" {
+	if err != nil || d.gap != "" {
 		t.Fatalf("a met request carries no gap: %+v %v", d, err)
 	}
 }
@@ -142,6 +142,56 @@ func TestNarrativePromptJudgesSoftwareRatherThanPendingProcess(t *testing.T) {
 	} {
 		if !strings.Contains(strings.Join(strings.Fields(NarrativePrompt), " "), rule) {
 			t.Errorf("prompt lacks request judgement rule %q", rule)
+		}
+	}
+}
+
+// Quote attribution is exact and message-local; matching evidence is not enough.
+func TestNarrativeShortfallsRequireVerbatimPersonWords(t *testing.T) {
+	t.Parallel()
+	for _, met := range []RequestMet{requestMetPartly, requestMetNo} {
+		for _, tc := range []struct {
+			name, quote string
+			valid       bool
+		}{
+			{"exact excerpt", "Bring distant cards into view", true},
+			{"missing", "", false},
+			{"whitespace", " ", false},
+			{"paraphrase", "Bring faraway cards into view", false},
+			{"case changed", "bring distant cards into view", false},
+			{"across messages", "view. Keep", false},
+			{"agent report", "Enable demo board editing", false},
+			{"generated title", "Generated label", false},
+		} {
+			t.Run(string(met)+"/"+tc.name, func(t *testing.T) {
+				source := NarrativeSource{Change: &Change{ChatRequest: true, Title: "Generated label"}, Messages: []RequestMessage{{Text: "Bring distant cards into view."}, {Text: "Keep keyboard controls."}}, AgentReport: "Enable demo board editing"}
+				draft, err := ParseNarrative("TITLE: label\nASKED: " + string(met) + " — distant cards still cannot be reached. To satisfy it: scroll to the card.\nQUOTE: " + tc.quote + "\n\nThe board changed.")
+				if err != nil || draft.gapQuote != strings.TrimSpace(tc.quote) || draft.Note != "The board changed." {
+					t.Fatalf("parse: %+v %v", draft, err)
+				}
+				got, gap, quote := narrativeAssessment(source, draft)
+				if tc.valid {
+					if got != met || gap != draft.gap || quote != tc.quote {
+						t.Fatalf("lost supported shortfall: %s %q %q", got, gap, quote)
+					}
+				} else if got != requestMetUnknown || gap != "" || quote != "" {
+					t.Fatalf("unsupported shortfall published: %s %q %q", got, gap, quote)
+				}
+			})
+		}
+	}
+}
+
+func TestNarrativeAttributesWrittenRequestsAndSendBacks(t *testing.T) {
+	t.Parallel()
+	for _, source := range []NarrativeSource{
+		{Change: &Change{Title: "Keep keyboard controls"}},
+		{Change: &Change{Body: "Keep keyboard controls"}},
+		{Change: &Change{ChatRequest: true}, Runs: []narrativeRunView{{Asked: &PersonFeedback{Note: "Keep keyboard controls"}}}},
+	} {
+		met, _, quote := narrativeAssessment(source, NarrativeDraft{met: requestMetNo, gap: "Keyboard controls are absent.", gapQuote: "Keep keyboard controls"})
+		if met != requestMetNo || quote != "Keep keyboard controls" {
+			t.Fatalf("person-written request lost: %s %q", met, quote)
 		}
 	}
 }

@@ -861,6 +861,9 @@
           "branch": {
             "type": "string"
           },
+          "chatRequest": {
+            "type": "boolean"
+          },
           "closedAs": {
             "type": "string"
           },
@@ -923,7 +926,13 @@
           "requestGap": {
             "type": "string"
           },
+          "requestGapQuote": {
+            "type": "string"
+          },
           "requestMet": {
+            "type": "string"
+          },
+          "requestSummary": {
             "type": "string"
           },
           "runId": {
@@ -1359,6 +1368,9 @@
           "branch": {
             "type": "string"
           },
+          "chatRequest": {
+            "type": "boolean"
+          },
           "closedAs": {
             "type": "string"
           },
@@ -1421,7 +1433,13 @@
           "requestGap": {
             "type": "string"
           },
+          "requestGapQuote": {
+            "type": "string"
+          },
           "requestMet": {
+            "type": "string"
+          },
+          "requestSummary": {
             "type": "string"
           },
           "runId": {
