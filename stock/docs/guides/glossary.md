@@ -347,7 +347,7 @@ Filing one triggers nothing; the list exists to be read and acted on by
 people.
 
 **Decision (ADR)** — architecture decision record: a short document stating
-a decision and why it was made. Kept under a project's Settings › Decisions;
+a decision and why it was made. Kept under a project's Memory › Decisions;
 agents read them before they build.
 
 **Artifact** — a file or record a run produces and attaches as evidence: a

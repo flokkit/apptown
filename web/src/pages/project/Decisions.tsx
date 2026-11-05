@@ -1,11 +1,11 @@
-import { Status } from '../../../Status'
+import { Status } from '../../Status'
 import { FormEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Adr, post } from '../../../api'
-import { useAction, useGet } from '../../../data'
-import { ReadGate } from '../../../ReadGate'
-import { Section } from '../../../Section'
-import './people.css'
+import { Adr, post } from '../../api'
+import { useAction, useGet } from '../../data'
+import { ReadGate } from '../../ReadGate'
+import { Section } from '../../Section'
+import './settings/people.css'
 
 export function AdrsTab({ slug }: { slug: string }) {
   const q = useGet<Adr[]>(`/projects/${slug}/adrs`)

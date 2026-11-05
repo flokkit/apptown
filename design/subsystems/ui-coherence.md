@@ -21,6 +21,11 @@ open or close other areas; those choices last while they stay on that page.
 Desktop navigation scrolls within the window when needed, using a thin ruled
 scrollbar and reserving its gutter so links stay in place.
 
+The project sidebar starts with Overview, Changes and Deployments, followed by
+the Security, Settings and Memory groups. Memory holds Notes and Decisions.
+Overview shows the project's work and deployments; the notes agents read are
+under Memory › Notes.
+
 ## Activity and release summaries
 
 Home's Recently finished shows landed and failed changes. The history response

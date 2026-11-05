@@ -294,7 +294,7 @@ schedule. *Workflow YAML `on:`.*
 **B15 Record a decision.** An owner starts a decision (ADR) as a draft,
 proposes and accepts it, supersedes it later; agents read accepted
 decisions before they build, and a lane may refuse to start without one.
-*Project → Settings → Decisions; decision page.*
+*Project → Memory → Decisions; decision page.*
 
 ## Publishing the rules
 

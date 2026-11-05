@@ -1,6 +1,6 @@
 import { DeploymentPage } from './pages/project/settings/Deployments'
 import WorkRecordPage from './pages/change/WorkRecord'
-import { SECURITY_TABS, SETTINGS_TABS, SETTINGS_LABEL } from './pages/project/tabs'
+import { MEMORY_TABS, SECURITY_TABS, SETTINGS_TABS, SETTINGS_LABEL } from './pages/project/tabs'
 import { projectHue } from './ProjectListRow'
 import { Blocks, BookOpen, BookText, ChartColumn, ChevronDown, ChevronRight, FlaskConical, FolderKanban, GitPullRequest, House, LayoutDashboard, MessageSquare, MessageSquareWarning, Plug, RefreshCw, Rocket, Settings, Shield, ShieldCheck, Users } from 'lucide-react'
 import { createChatChange } from './pages/project/ChangeButton'
@@ -102,6 +102,8 @@ export function SidebarNav() {
           { to: `${base}/security/${t}`, label: t[0].toUpperCase() + t.slice(1), active: pathname === `${base}/security/${t}` || (t === 'findings' && pathname === `${base}/security`) }))} />
         <Drawer label="Settings" icon={<Settings aria-hidden size={16} />} to={`${base}/settings`} active={pathname.startsWith(`${base}/settings`)} items={SETTINGS_TABS.map(t => (
           { to: `${base}/settings/${t}`, label: SETTINGS_LABEL[t], active: pathname === `${base}/settings/${t}` || (t === 'general' && pathname === `${base}/settings`) }))} />
+        <Drawer label="Memory" icon={<BookOpen aria-hidden size={16} />} to={`${base}/memory`} active={pathname.startsWith(`${base}/memory`)} items={MEMORY_TABS.map(t => (
+          { to: `${base}/memory/${t}`, label: t[0].toUpperCase() + t.slice(1), active: pathname === `${base}/memory/${t}` || (t === 'notes' && pathname === `${base}/memory`) }))} />
         <div className="spacer" />
         <NavBottom cls={cls} complaints={mayOpen('complaints')} me={me ?? null} />
       </>

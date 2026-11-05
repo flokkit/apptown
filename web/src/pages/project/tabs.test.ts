@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { resolveProjectTabs } from './tabs'
+import { resolveProjectTabs, SETTINGS_TABS } from './tabs'
 
-// Old links land somewhere sensible (design/subsystems/ui-coherence.md): every URL
-// the project page ever had still opens the right tab.
+// Project navigation keeps each page in its owning group.
 describe('resolveProjectTabs', () => {
   it('defaults to the overview, findings and general', () => {
-    expect(resolveProjectTabs(undefined, undefined)).toEqual({ tab: 'overview', secTab: 'findings', setTab: 'general' })
-    expect(resolveProjectTabs('bogus', 'whatever')).toEqual({ tab: 'overview', secTab: 'findings', setTab: 'general' })
+    expect(resolveProjectTabs(undefined, undefined)).toEqual({ tab: 'overview', secTab: 'findings', setTab: 'general', memTab: 'notes' })
+    expect(resolveProjectTabs('bogus', 'whatever')).toEqual({ tab: 'overview', secTab: 'findings', setTab: 'general', memTab: 'notes' })
   })
 
   it('sends the old /usage tab to Settings › Usage', () => {
@@ -17,12 +16,11 @@ describe('resolveProjectTabs', () => {
     ['workflows', 'working'],
     ['guidance', 'working'],
     ['integrations', 'services'],
-    ['adrs', 'decisions'],
   ])('sends the old settings sub-tab %s to %s', (old, now) => {
     expect(resolveProjectTabs('settings', old).setTab).toBe(now)
   })
 
-  it.each(['general', 'working', 'services', 'deployments', 'secrets', 'members', 'decisions', 'usage'])('keeps the settings tab %s', (t) => {
+  it.each(['general', 'working', 'services', 'deployments', 'secrets', 'members', 'usage'])('keeps the settings tab %s', (t) => {
     expect(resolveProjectTabs('settings', t)).toMatchObject({ tab: 'settings', setTab: t })
   })
 
@@ -32,7 +30,7 @@ describe('resolveProjectTabs', () => {
   })
 
   it('treats a release number as the releases tab, not a settings tab', () => {
-    expect(resolveProjectTabs('releases', '12')).toEqual({ tab: 'releases', secTab: 'findings', setTab: 'general' })
+    expect(resolveProjectTabs('releases', '12')).toEqual({ tab: 'releases', secTab: 'findings', setTab: 'general', memTab: 'notes' })
     expect(resolveProjectTabs('release', undefined).tab).toBe('release')
   })
 })
@@ -41,4 +39,12 @@ it('opens the project change and deployment lists, including old board links', (
  expect(resolveProjectTabs('changes', undefined).tab).toBe('changes')
  expect(resolveProjectTabs('deployments', undefined).tab).toBe('deployments')
  expect(resolveProjectTabs('board', undefined).tab).toBe('changes')
+})
+
+it('places notes and decisions only in Memory', () => {
+  expect(resolveProjectTabs('memory', 'notes')).toMatchObject({ tab: 'memory', memTab: 'notes' })
+  expect(resolveProjectTabs('memory', 'decisions')).toMatchObject({ tab: 'memory', memTab: 'decisions' })
+  expect(SETTINGS_TABS).not.toContain('decisions')
+  expect(resolveProjectTabs('settings', 'decisions').setTab).not.toBe('decisions')
+  expect(resolveProjectTabs('settings', 'adrs').setTab).not.toBe('decisions')
 })

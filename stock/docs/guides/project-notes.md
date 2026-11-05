@@ -5,7 +5,7 @@ They live in the repository's root `PROJECT-NOTES.md`, so proposing or changing
 a note goes through a change and review. General rules belong in the project's
 way of working.
 
-The project Overview shows **What agents know about this project**, read from
+Memory › Notes shows **What agents know about this project**, read from
 the default branch. Each note names its author and source change. Acceptance
 comes from that change's recorded approval decisions, not from the note's text.
 If the source cannot be read, the card says so. Missing notes show **No notes yet**;
