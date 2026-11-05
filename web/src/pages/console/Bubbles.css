@@ -1,5 +1,7 @@
 @layer pages {
 
+.chat-pane[hidden] { display: none; }
+.chat-input textarea { height: auto; }
 .bubbles-chat-scroll { min-height: 0; overflow-y: auto; }
 .bubbles-div { padding: calc(var(--space-1) * 5); text-align: center; }
 .bubbles-div-2 { justify-content: center; gap: var(--space-2); margin-top: calc(var(--space-1) * 3.5); flex-wrap: wrap; }

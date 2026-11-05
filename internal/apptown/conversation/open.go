@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -85,7 +86,11 @@ type WorkerPlacement interface {
 func NewAdmission(db *database.DB, deps AdmissionDependencies, dataDir string) *Admission {
 	return &Admission{work: deps.Work, sessions: deps.Sessions, models: deps.Models, steering: deps.Briefing, harness: deps.Harness, effects: deps.Effects, db: db, dataDir: dataDir, presence: deps.Presence, workers: deps.Workers, noLocal: deps.NoLocal, clock: deps.Now}
 }
-func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen, who string) (*console.Session, error) {
+func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen, who string) (session *console.Session, openErr error) {
+	started := clock.Or(c.clock)()
+	defer func() {
+		log.Printf("console open project=%s change=%s phase=total duration=%s error=%v", p.ID, in.ChangeID, clock.Or(c.clock)().Sub(started), openErr)
+	}()
 	chosen, pinned := in.Model, in.Model != ""
 	if chosen == "" {
 		// Chat gets its own slot: quality-per-word matters most here, while
@@ -209,6 +214,7 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 	if err != nil {
 		return nil, err
 	}
+	workspaceStarted := clock.Or(c.clock)()
 	diverged := false
 	if change != nil {
 		if err := c.work.PrepareWorkspace(ctx, change.ID); errors.Is(err, workflow.ErrFolderDiverged) {
@@ -254,6 +260,8 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 		}
 		req.Workspace = console.Workspace{Path: snapshot, Owned: true}
 	}
+
+	log.Printf("console open session=%s phase=workspace_prepare duration=%s", id, clock.Or(c.clock)().Sub(workspaceStarted))
 
 	guidance, err := c.steering.guidance(ctx, p)
 	if err != nil {

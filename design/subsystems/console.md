@@ -38,6 +38,18 @@ Workflowexec owns step execution and settlement through Workflow.
 
 ## Looking and acting
 
+The composer is available from the first paint. Messages sent before the
+terminal attaches combine into one pending bubble and are sent through the
+same input-readiness path as kickoff once attached. The draft stays in place
+while the session opens and when switching to Terminal zoom. The conversation shows “Starting your helper…” while
+opening and “Connecting…” while attaching, with elapsed seconds, until attached.
+
+Session startup logs include workspace preparation, launch preparation,
+container creation/start and the wait for Pi to accept input. The console owner
+logs the whole open; worker logs include checkout preparation and console start.
+Helper readiness is measured when delivering a message, including kickoff;
+terminal attachment alone does not establish that Pi can accept input.
+
 The chat page fills the space below the topbar at every width without page
 scrolling. On narrow screens it follows the visual viewport, including while
 the keyboard is open. Only the conversation scrolls as messages arrive, and it follows new activity only while the reader is already at the

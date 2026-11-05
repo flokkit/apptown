@@ -1,5 +1,5 @@
 import './Bubbles.css'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { post } from '../../api'
 import { useNarrow } from '../../chrome'
 import { useGet } from '../../data'
@@ -29,17 +29,27 @@ export function retired(sent: { at: number } | null, msgs: Bubble[]): boolean {
 
 // readOnly names whose chat it is when the reader may look but not act:
 // the conversation shows, the ways to act on it do not.
-export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, readOnly, actionsSwitch = true }: { sessionId: string; onHasMessages?: (hasMessages: boolean) => void; actionsSwitch?: boolean; onBusy?: (b: boolean) => void; footer?: React.ReactNode; starters?: string[]; readOnly?: string }) {
+export function Bubbles({ sessionId, attached = true, starting, hidden = false, onBusy, onHasMessages, footer, starters, readOnly, actionsSwitch = true }: { sessionId: string | null; attached?: boolean; starting?: React.ReactNode; hidden?: boolean; onHasMessages?: (hasMessages: boolean) => void; actionsSwitch?: boolean; onBusy?: (b: boolean) => void; footer?: React.ReactNode; starters?: string[]; readOnly?: string }) {
   // The conversation is the record's answer; the only local message is the
-  // one just sent, until the record holds it.
+  // queued message and the one just sent, until the record holds it.
   const [sent, setSent] = useState<{ text: string; at: number } | null>(null)
   const [text, setText] = useState('')
+  const [queued, setQueued] = useState('')
+  const queuedRef = useRef('')
+  const previousSession = useRef(sessionId)
+  useEffect(() => {
+    if (previousSession.current && previousSession.current !== sessionId) {
+      queuedRef.current = ''; queuedImages.current = []; setQueued(''); setText(''); setSent(null); setImages([]); setSendErr('')
+    }
+    previousSession.current = sessionId
+  }, [sessionId])
   const narrow = useNarrow()
   const inputRef = useRef<HTMLTextAreaElement>(null)
   // Measure wrapping and pasted text too; the CSS cap leaves long drafts scrollable.
   useEffect(() => {
     const input = inputRef.current
-    if (!narrow || !input) return
+    if (!input) return
+    if (!narrow) { input.style.height = 'auto'; return }
     const fit = () => { input.style.height = 'auto'; input.style.height = `${input.scrollHeight + 2}px` }
     fit()
     const observer = new ResizeObserver(fit)
@@ -48,8 +58,9 @@ export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, re
   }, [narrow, text])
   const [sendErr, setSendErr] = useState('')
   // Pasted pictures waiting to go with the next message: server path + a
-  // local thumbnail. The file is already uploaded; send() names it.
+  // local thumbnail. Before a session exists, delivery uploads the picture.
   const [images, setImages] = useState<{ path: string; thumb: string }[]>([])
+  const queuedImages = useRef<{ path: string; thumb: string }[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
   const stick = useRef(true) // autoscroll unless the reader scrolled up
 
@@ -58,9 +69,10 @@ export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, re
     reader.onload = async () => {
       const dataUrl = reader.result as string
       try {
-        const r = await post<PastedPicture>(`/console/${sessionId}/upload`, { data: dataUrl })
+        const r = sessionId ? await post<PastedPicture>(`/console/${sessionId}/upload`, { data: dataUrl }) : { path: '' }
+        if (sessionId && previousSession.current !== sessionId) return
         setImages((cur) => [...cur, { path: r.path, thumb: dataUrl }])
-      } catch (e) { setSendErr((e as Error).message) }
+      } catch (e) { if (!sessionId || previousSession.current === sessionId) setSendErr((e as Error).message) }
     }
     reader.readAsDataURL(file)
   }
@@ -73,25 +85,46 @@ export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, re
     }
   }
 
-  const record = useGet<{ messages: Bubble[]; turn?: string }>(`/console/${sessionId}/messages?from=0`, { poll: 2000 })
+  const record = useGet<{ messages: Bubble[]; turn?: string }>(sessionId ? `/console/${sessionId}/messages?from=0` : null, { poll: 2000 })
   const msgs = record.data?.messages ?? []
   const pending = retired(sent, msgs) ? null : sent?.text ?? null
-  const hasMessages = msgs.length > 0 || pending !== null
+  const hasMessages = msgs.length > 0 || pending !== null || !!queued
   useEffect(() => { onHasMessages?.(hasMessages) }, [hasMessages, onHasMessages])
   const [stopErr, setStopErr] = useState('')
 
-  const send = async () => {
-    let t = text.trim()
-    if (!t && images.length === 0) return
-    if (images.length > 0) {
-      const files = images.map((im) => im.path).join(' and ')
-      t = (t ? t + ' ' : '') +
-        `(I pasted ${images.length === 1 ? 'a picture' : images.length + ' pictures'} — look at ${files})`
+  // /say waits for pi's input readiness, just as it does for kickoff.
+  // Consume the queue before starting the request: effect replays and terminal
+  // reconnects must never submit the same words twice.
+  const deliver = useCallback(async (t: string, pictures: { path: string; thumb: string }[]) => {
+    if (!sessionId) return
+    setSendErr(''); setSent({ text: t || '(Picture)', at: msgs.length })
+    try {
+      const paths = await Promise.all(pictures.map(async (im) => im.path ||
+        (await post<PastedPicture>(`/console/${sessionId}/upload`, { data: im.thumb })).path))
+      const message = t + (paths.length ? `${t ? ' ' : ''}(I pasted ${paths.length === 1 ? 'a picture' : paths.length + ' pictures'} — look at ${paths.join(' and ')})` : '')
+      await post(`/console/${sessionId}/say`, { text: message })
+    } catch (e) {
+      if (previousSession.current !== sessionId) return
+      setSendErr((e as Error).message); setSent(null)
+      setText((draft) => [t, draft].filter(Boolean).join('\n\n')); setImages((draft) => [...pictures, ...draft])
     }
-    const held = images
-    setText(''); setImages([]); setSendErr(''); setSent({ text: t, at: msgs.length })
-    try { await post(`/console/${sessionId}/say`, { text: t }) }
-    catch (e) { setSendErr((e as Error).message); setSent(null); setText(text); setImages(held) }
+  }, [sessionId, msgs.length])
+  useEffect(() => {
+    if (!sessionId || !attached || readOnly !== undefined || (!queuedRef.current && !queuedImages.current.length)) return
+    const message = queuedRef.current
+    const pictures = queuedImages.current
+    queuedRef.current = ''; queuedImages.current = []; setQueued('')
+    void deliver(message, pictures)
+  }, [sessionId, attached, readOnly, deliver, queued])
+  const send = () => {
+    const t = text.trim()
+    if (!t && !images.length) return
+    setText(''); setImages([])
+    if (!sessionId || !attached) {
+      queuedRef.current = [queuedRef.current, t].filter(Boolean).join('\n\n')
+      queuedImages.current.push(...images)
+      setQueued(queuedRef.current || '(Picture)')
+    } else void deliver(t, images)
   }
 
   const [showActions, setShowActions] = useAgentActions()
@@ -107,10 +140,10 @@ export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, re
     // Only the conversation moves. Scrolling a descendant into view also
     // pans Safari's page, leaving the head behind and space below the input.
     if (box && stick.current) box.scrollTop = box.scrollHeight
-  }, [record.data?.messages, pending, showActions])
+  }, [record.data?.messages, pending, queued, showActions, hidden])
 
   return (
-    <div className="chat-pane">
+    <div className="chat-pane" hidden={hidden}>
       {actionsSwitch && <AgentActionsSwitch shown={showActions} onChange={setShowActions} />}
       <div
         ref={scrollRef}
@@ -119,7 +152,8 @@ export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, re
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
         }}
         className="chat-scroll grow bubbles-chat-scroll">
-        <ReadStatus q={record} what="the conversation" className="small" />
+        {starting}
+        {(!starting || !record.loading) && <ReadStatus q={record} what="the conversation" className="small" />}
         <StaleNote q={record} />
         {record.data && msgs.length === 0 && !pending && (
           <div className="muted bubbles-div">
@@ -203,6 +237,11 @@ export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, re
             </div>
           )
         })}
+        {queued && <div className="bubble-row you">
+          <div className="bubble you pending bubbles-div-4">{queued}
+            <div className="small">will send when your helper is ready</div>
+          </div>
+        </div>}
         {pending && (
           <div className="bubble-row you">
             <div className="bubble you pending">{pending}</div>
@@ -212,7 +251,7 @@ export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, re
       </div>
       {/* Keep this slot for the session, including pauses between tool calls.
           Visibility preserves its height without offering an idle stop button. */}
-      <div className="row chat-working bubbles-chat-working" style={{ visibility: helperBusy ? 'visible' : 'hidden' }} aria-hidden={!helperBusy}>
+      <div className="row chat-working bubbles-chat-working" style={{ visibility: helperBusy && !starting ? 'visible' : 'hidden' }} aria-hidden={!helperBusy || !!starting}>
         <span className="small robot-busy bubbles-robot-busy">Working…</span>
         {readOnly === undefined && <button className="subtle" title="Stop what it's doing right now · then tell it what you'd rather have"
           onClick={() => { setStopErr(''); post(`/console/${sessionId}/interrupt`, {}).catch((e) => setStopErr(`It could not be stopped: ${(e as Error).message}`)) }}>
@@ -224,7 +263,7 @@ export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, re
       {images.length > 0 && (
         <div className="row mt-2 bubbles-div-5">
           {images.map((im, i) => (
-            <span key={im.path} className="bubbles-span">
+            <span key={`${im.path}-${i}`} className="bubbles-span">
               <img src={im.thumb} alt="picture to send" className="bubbles-img-2" />
               <button onClick={() => setImages(images.filter((_, j) => j !== i))}
                 title="don't send this picture" aria-label="don't send this picture"
@@ -243,7 +282,6 @@ export function Bubbles({ sessionId, onBusy, onHasMessages, footer, starters, re
         <textarea
           ref={inputRef}
           rows={narrow ? 2 : 1}
-          style={narrow ? undefined : { height: 'auto' }}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onPaste={onPaste}

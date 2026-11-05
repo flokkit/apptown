@@ -27,12 +27,14 @@ function termTheme() {
 // reconnects when the socket drops. It reconnects for another session or a
 // change in whether the reader may type, never for a new copy of the same
 // session's view.
-export function useTerminal(sessionId: string | null, mayAct: boolean, into: RefObject<HTMLDivElement | null>): TerminalStatus {
-  const [status, setStatus] = useState<TerminalStatus>('connecting')
+export function useTerminal(sessionId: string | null, mayAct: boolean, into: RefObject<HTMLDivElement | null>, visible = false): TerminalStatus {
+  const [connection, setConnection] = useState<{ id: string | null; status: TerminalStatus }>({ id: null, status: 'connecting' })
+  const terminalRef = useRef<Terminal | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
     if (!sessionId || !into.current) return
+    const setStatus = (status: TerminalStatus) => setConnection({ id: sessionId, status })
     setStatus('connecting')
     // Resolve rem through an element: xterm requires a size in CSS pixels.
     const fontProbe = document.createElement('span')
@@ -47,11 +49,11 @@ export function useTerminal(sessionId: string | null, mayAct: boolean, into: Ref
       scrollback: 5000,
       allowProposedApi: true,
     })
+    terminalRef.current = term
     const fit = new FitAddon()
     term.loadAddon(fit)
     term.open(into.current)
     fit.fit()
-    term.focus()
 
     const enc = new TextEncoder()
     let closed = false
@@ -113,9 +115,14 @@ export function useTerminal(sessionId: string | null, mayAct: boolean, into: Ref
       dataSub.dispose()
       resizeSub.dispose()
       wsRef.current?.close()
+      terminalRef.current = null
       term.dispose()
     }
   }, [sessionId, mayAct, into])
 
-  return status
+  // Opening the hidden terminal must not take focus from a draft. Zooming
+  // into the terminal still puts the cursor there, ready to type.
+  useEffect(() => { if (visible) terminalRef.current?.focus() }, [visible, sessionId, mayAct])
+
+  return connection.id === sessionId ? connection.status : 'connecting'
 }

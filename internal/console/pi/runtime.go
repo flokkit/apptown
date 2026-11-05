@@ -142,7 +142,22 @@ func (r *Runtime) command(ctx context.Context, args ...string) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	started := r.cfg.Now()
 	out, err := r.cfg.Run(ctx, args...)
+	if len(args) > 0 && (args[0] == "create" || args[0] == "start") {
+		// Only the container name is logged: launch args can contain credentials.
+		name := ""
+		if args[0] == "start" && len(args) > 1 {
+			name = args[1]
+		}
+		for i := 1; i+1 < len(args); i++ {
+			if args[i] == "--name" {
+				name = args[i+1]
+				break
+			}
+		}
+		logf("startup container=%s phase=container_%s duration=%s error=%v", name, args[0], r.cfg.Now().Sub(started), err)
+	}
 	if err != nil {
 		return out, fmt.Errorf("docker %s: %w: %s", args[0], err, strs.Truncate(strings.TrimSpace(string(out)), 500))
 	}
@@ -370,7 +385,11 @@ const piStartWait = 10 * time.Minute
 // reach pi's editor as a paste when it starts, every Enter pressed in the
 // meantime a blank line in it, and nothing is sent (the desktop trial's
 // first chat, 20 Oct 2026: 39 seconds of toolchain install).
-func (r *Runtime) awaitPi(ctx context.Context, id string) error {
+func (r *Runtime) awaitPi(ctx context.Context, id string) (readyErr error) {
+	started := r.cfg.Now()
+	defer func() {
+		logf("startup session=%s phase=helper_ready duration=%s error=%v", id, r.cfg.Now().Sub(started), readyErr)
+	}()
 	// Each question runs under the request and the wait's own bound, so a
 	// Docker call that never answers ends with either.
 	ctx, cancel := context.WithTimeout(ctx, piStartWait)

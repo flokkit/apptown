@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -337,6 +338,10 @@ func (s *Server) putSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PathValue("id")
+	started := s.now()
+	defer func() {
+		log.Printf("worker console session=%s phase=checkout_prepare duration=%s", id, s.now().Sub(started))
+	}()
 	branch, commit := r.URL.Query().Get("branch"), r.URL.Query().Get("commit")
 	if !branchPattern.MatchString(branch) || strings.Contains(branch, "..") || !commitPattern.MatchString(commit) {
 		http.Error(w, "a source needs its branch and commit", http.StatusBadRequest)

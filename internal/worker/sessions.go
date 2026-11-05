@@ -308,6 +308,10 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	started := s.now()
+	defer func() {
+		log.Printf("worker console session=%s phase=start_total duration=%s", id, s.now().Sub(started))
+	}()
 	in := s.launch(rec)
 	// The record's directory exists before the runtime provisions, so the
 	// chat's first record file is made for pi to find, as on AppTown.
@@ -336,6 +340,7 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	log.Printf("worker console session=%s phase=start_prepare duration=%s", id, s.now().Sub(started))
 	if err := s.Sessions.Start(r.Context(), in); err != nil {
 		http.Error(w, "starting the session: "+err.Error(), http.StatusInternalServerError)
 		return
