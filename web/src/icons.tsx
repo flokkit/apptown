@@ -53,7 +53,7 @@ export function ConnIcon({ name, size = 26 }: { name: string; size?: number }) {
           <path d={glyph.d} fill={`#${glyph.hex}`} fillRule="evenodd" />
         </svg>
       ) : (
-        <span style={{ fontWeight: 700, fontSize: size * 0.7, color: 'var(--muted)' }}>{(name[0] ?? '?').toUpperCase()}</span>
+        <span style={{ fontWeight: 700, fontSize: `calc(var(--fs-base) * ${size / 20})`, color: 'var(--muted)' }}>{(name[0] ?? '?').toUpperCase()}</span>
       )}
     </span>
   )

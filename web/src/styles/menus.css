@@ -40,10 +40,10 @@
 .ch-receipt > summary::before, .account-actions > summary::before { content: none; }
 .ch-receipt[open] > summary::before, .account-actions[open] > summary::before { content: none; }
 @media (max-width: 800px) {
-  .topbar .account-menu > summary { min-height: 44px; line-height: 36px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar .account-menu > summary { min-height: 44px; line-height: 2.5714285714; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 .more-menu { position: relative; }
-.more-menu-button { font-size: 20px; line-height: 1; padding: 4px 12px; }
+.more-menu-button { font-size: var(--fs-symbol); line-height: 1; padding: 4px 12px; }
 .more-menu-list { background: var(--panel); border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(0,0,0,.28); position: absolute; top: 100%; right: 0; z-index: 30; margin-top: 4px; min-width: 300px; padding: 6px; display: flex; flex-direction: column; gap: 2px; }
 .more-menu-list button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 10px 12px; font-size: var(--fs-base); }
 
@@ -65,10 +65,10 @@
 .split-menu > button { display: block; width: 100%; text-align: left; padding: 10px 12px; font-size: var(--fs-base); white-space: normal; }
 .split-menu > button:hover { background: var(--hover); }
 /* Goggles sit beside the theme buttons, set apart, on a light backing so dark glasses show on a dark menu. */
-.account-switches { display: flex; align-items: center; gap: 10px; }
+.account-switches { display: grid; justify-items: start; gap: 8px; }
 .account-switches .ch-goggles { padding: 3px 8px; font-size: var(--fs-xs); border-radius: 4px; background: color-mix(in srgb, var(--text) 14%, transparent); }
 .account-switches .ch-goggles:hover { background: color-mix(in srgb, var(--text) 22%, transparent); }
 .account-switches .ch-goggles.active { background: color-mix(in srgb, var(--text) 30%, transparent); box-shadow: inset 0 0 0 1px var(--warn-mark); }
-.goggles-mark { margin-left: 6px; font-size: 13px; opacity: 0.55; }
+.goggles-mark { margin-left: 6px; font-size: var(--fs-sm); opacity: 0.55; }
 
 }

@@ -3,7 +3,7 @@
    the heading line, the chart in its own panel. */
 .usage-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 14px 0; }
 .usage-figure .stat-label { font-size: var(--fs-sm); color: var(--muted); }
-.usage-figure .stat-value { font-size: 24px; margin: 2px 0 0; }
+.usage-figure .stat-value { font-size: var(--fs-title-md); margin: 2px 0 0; }
 .usage-range { display: flex; gap: 2px; }
 .usage-range button { min-height: 0; padding: 2px 8px; border: 0; background: transparent; color: var(--muted); font-size: inherit; border-radius: 4px; }
 .usage-range button.on { color: var(--text); background: var(--panel2); font-weight: var(--fw-strong); }

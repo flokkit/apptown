@@ -19,7 +19,7 @@
   display: flex; align-items: baseline; gap: 10px;
   border-bottom: 1px solid var(--rule); padding-bottom: 6px; margin-bottom: 12px;
 }
-.conn-section-head h2 { margin: 0; font-size: 19px; }
+.conn-section-head h2 { margin: 0; font-size: var(--fs-subheading); }
 .conn-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr));
   gap: 12px; align-items: start;
@@ -61,7 +61,7 @@
 }
 .integ-card.tone-accent { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
 .integ-icon {
-  font-size: 30px; line-height: 1; width: 48px; height: 48px; flex-shrink: 0;
+  font-size: var(--fs-2xl); line-height: 1; width: 48px; height: 48px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: var(--radius); background: var(--panel2); border: 1px solid var(--border);
 }

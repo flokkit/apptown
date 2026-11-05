@@ -2,15 +2,15 @@
 .work-page { max-width: none; }
 .work-page header { margin-bottom: 24px; }
 .work-page h1 { margin: 12px 0 8px; }
-.work-byline { font-size: 13px; line-height: 1.7; color: var(--muted); }
-.work-mini { position: sticky; top: var(--topbar-h); z-index: 2; background: var(--panel, var(--bg)); border-block: 1px solid var(--rule); padding: 10px 0; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 12px; }
-.work-mini button { font-size: 12px; }
+.work-byline { font-size: var(--fs-sm); line-height: 1.7; color: var(--muted); }
+.work-mini { position: sticky; top: var(--topbar-h); z-index: 2; background: var(--panel, var(--bg)); border-block: 1px solid var(--rule); padding: 10px 0; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: var(--fs-xs); }
+.work-mini button { font-size: var(--fs-xs); }
 .work-mini button[aria-pressed=true] { background: var(--text); color: var(--bg); }
 .work-events { list-style: none; padding: 0; margin: 0; }
-.work-event { display: grid; grid-template-columns: 48px 76px minmax(0,1fr) 110px; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--rule); font-size: 12px; align-items: baseline; }
+.work-event { display: grid; grid-template-columns: 48px 76px minmax(0,1fr) 110px; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--rule); font-size: var(--fs-xs); align-items: baseline; }
 .work-event strong { font-weight: 500; }
 .work-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.work-event pre, .work-full pre, pre.work-full { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; max-height: none; }
+.work-event pre, .work-full pre, pre.work-full { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-xs); max-height: none; }
 .work-event pre { margin: 6px 0; }
 .work-event a + a { margin-left: 12px; }
 .work-full, .work-events [id] { scroll-margin-top: calc(var(--topbar-h) + 60px); }
@@ -18,7 +18,7 @@
   .work-event { grid-template-columns: 24px 56px minmax(0,1fr); gap: 6px; }
 }
 @media (max-width: 640px) {
-  .work-event > :last-child { grid-column: 3; font-size: 11px; }
+  .work-event > :last-child { grid-column: 3; font-size: var(--fs-2xs); }
 }
 @media (max-width: 640px) {
   .work-page .ch-facts-table th { width: 100px; }

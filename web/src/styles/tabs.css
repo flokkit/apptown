@@ -15,7 +15,7 @@
 }
 .tabs button.active { color: var(--text); font-weight: var(--fw-strong); border-bottom-color: var(--accent); }
 .tabs a.tab {
-  border-bottom: 2px solid transparent; padding: 8px 14px; color: var(--muted); font-size: 14px;
+  border-bottom: 2px solid transparent; padding: 8px 14px; color: var(--muted); font-size: var(--fs-base);
 }
 .tabs a.tab:hover { text-decoration: none; color: var(--text); }
 .tabs a.tab.active { color: var(--text); font-weight: var(--fw-strong); border-bottom-color: var(--accent); }

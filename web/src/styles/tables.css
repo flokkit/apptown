@@ -1,7 +1,7 @@
 @layer components {
 table { border-collapse: collapse; width: 100%; }
 /* Ledger tables: plain column heads over a rule, faint rules between rows. */
-th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--rule-faint); font-size: 14px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--rule-faint); font-size: var(--fs-base); }
 th { color: var(--subtle); font-size: var(--fs-sm); font-weight: var(--fw-medium); border-bottom-color: var(--rule); }
 tbody tr:hover td { background: var(--hover); }
 .kv { width: 100%; border-top: 1px solid var(--rule); }

@@ -6,12 +6,24 @@
   --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-heading: var(--font-sans);
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --fs-xs: 12px;     /* meta lines, chips, table heads */
-  --fs-sm: 13px;     /* dense tables, secondary text */
-  --fs-base: 14px;   /* body */
-  --fs-md: 18px;     /* a card's lead sentence */
-  --fs-lg: 18px;     /* section headings */
-  --fs-xl: 26px;     /* page titles */
+  /* Type and space use the 14px Small reference. */
+  --fs-xs: calc(12rem / 14);     /* meta lines, chips, table heads */
+  --fs-sm: calc(13rem / 14);     /* dense tables, secondary text */
+  --fs-base: 1rem;   /* body */
+  --fs-md: calc(18rem / 14);     /* a card's lead sentence */
+  --fs-lg: calc(18rem / 14);     /* section headings */
+  --fs-xl: calc(26rem / 14);     /* page titles */
+  --fs-scene: 0.5rem;
+  --fs-2xs: calc(11rem / 14);
+  --fs-button: calc(15rem / 14);
+  --fs-input: calc(16rem / 14);
+  --fs-logo: calc(17rem / 14);
+  --fs-subheading: calc(19rem / 14);
+  --fs-symbol: calc(20rem / 14);
+  --fs-title-sm: calc(22rem / 14);
+  --fs-title-md: calc(24rem / 14);
+  --fs-2xl: calc(30rem / 14);
+  --fs-field: max(1rem, 16px); /* iOS focus must not zoom phone fields. */
   --lh-tight: 1.2;
   --lh-body: 1.5;
   --fw-regular: 400;
@@ -20,12 +32,12 @@
 
   /* Space. Margins and gaps step along this scale rather than picking a
      pixel count per element; the utilities below name the common ones. */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
+  --space-1: calc(4rem / 14);
+  --space-2: calc(8rem / 14);
+  --space-3: calc(12rem / 14);
+  --space-4: calc(16rem / 14);
+  --space-5: calc(24rem / 14);
+  --space-6: calc(32rem / 14);
 
   /* Shape. Paper does not float: rules and borders, almost no shadow. */
   --radius-xs: 2px;  /* chips, inline code */
@@ -93,11 +105,13 @@
   color-scheme: light;
 
   font-family: var(--font-sans);
-  font-size: var(--fs-base);
+  font-size: 100%;
   line-height: var(--lh-body);
   --cap-deployment: #2E8B67; --cap-previews: #3B72C4; --cap-work: #8A6BD1; --cap-apptown: #C2622F;
   --cap-other: #8A877C; --cap-host: #B9B5A9; --cap-free: var(--panel2, #E9ECED);
 }
+:root[data-size="small"] { font-size: 87.5%; }
+:root[data-size="large"] { font-size: 112.5%; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #171B1D; --panel: #1D2225; --panel2: #272E32; --chrome: #14181A;
@@ -143,9 +157,6 @@
     color-scheme: dark;
   --cap-deployment: #3E9C77; --cap-previews: #5E94DE; --cap-work: #9277D9; --cap-apptown: #C8703F;
   --cap-other: #7A766B; --cap-host: #5A574E; --cap-free: #171B1D;
-}
-@media (max-width: 800px) {
-  :root { --fs-md: 18px; --fs-base: 16px; --fs-sm: 14px; --fs-xs: 13px; }
 }
 
 }

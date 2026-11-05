@@ -25,9 +25,9 @@
   position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h); z-index: 70;
   display: flex; align-items: center; padding: 0 16px 0 14px;
   border-bottom: 1px solid var(--border);
-  font-size: 14px; white-space: nowrap; gap: 16px; background: var(--bg);
+  font-size: var(--fs-base); white-space: nowrap; gap: 16px; background: var(--bg);
 }
-.topbar-logo { font-family: var(--font-heading); font-weight: var(--fw-strong); color: var(--text); margin-right: 4px; font-size: 17px; letter-spacing: -.04em; }
+.topbar-logo { font-family: var(--font-heading); font-weight: var(--fw-strong); color: var(--text); margin-right: 4px; font-size: var(--fs-logo); letter-spacing: -.04em; }
 .topbar-logo span { color: var(--accent); }
 .topbar-logo:hover { text-decoration: none; }
 .topbar-crumb { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
@@ -41,6 +41,7 @@
 .topbar-find input:focus { width: 320px; }
 .theme-switch { display: flex; gap: 2px; }
 .theme-switch button { padding: 3px 8px; font-size: var(--fs-xs); }
+.size-switch button { padding: 3px 5px; }
 .theme-switch button.active { color: var(--accent); background: var(--accent-bg); }
 .sidebar :is(a, button).nav {
   padding: 7px 10px; color: var(--muted); font-size: var(--fs-sm); border-radius: 0; display: flex; align-items: center; gap: 10px;
@@ -57,7 +58,7 @@
 /* min-width: 0 lets the page column shrink below its widest child, so a wide
    table or a long line scrolls in its own box instead of the whole page. */
 .main { flex: 1; min-width: 0; max-width: none; padding: 16px 28px 48px; }
-.topbar-menu { font-size: 18px; padding: 2px 8px; line-height: 1; color: var(--text); }
+.topbar-menu { font-size: var(--fs-md); padding: 2px 8px; line-height: 1; color: var(--text); }
 .topbar-chip { margin-left: 6px; }
 .sidebar-backdrop { display: none; }
 @media (max-width: 800px) {
@@ -83,7 +84,7 @@
   font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--subtle);
 }
 @media (max-width: 800px), (pointer: coarse) {
-  .topbar-menu { min-width: 44px; min-height: 44px; font-size: 22px; }
+  .topbar-menu { min-width: 44px; min-height: 44px; font-size: var(--fs-title-sm); }
   .sidebar :is(a, button).nav { padding: 11px 12px; }
   .theme-switch button, .topbar-user button { min-height: 44px; min-width: 44px; padding: 6px 12px; font-size: var(--fs-sm); white-space: nowrap; }
   .sidebar .topbar-find input { min-height: 44px; }

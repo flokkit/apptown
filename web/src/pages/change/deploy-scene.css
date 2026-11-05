@@ -62,7 +62,7 @@
 .deploy-scene.n2 .b6 { animation-delay: 1.5s; }
 .deploy-scene.n2 .roof { animation-delay: 1.8s; }
 .deploy-scene.n4 .visitor { transform: translateX(16px); }
-.deploy-scene .sign-label { fill: var(--bad); font-size: 7px; }
+.deploy-scene .sign-label { fill: var(--bad); font-size: var(--fs-scene); }
 .deploy-scene.fail.g4 .visitor { opacity: 1; transform: translateX(16px); }
 
 }

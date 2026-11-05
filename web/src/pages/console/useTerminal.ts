@@ -34,9 +34,14 @@ export function useTerminal(sessionId: string | null, mayAct: boolean, into: Ref
   useEffect(() => {
     if (!sessionId || !into.current) return
     setStatus('connecting')
+    // Resolve rem through an element: xterm requires a size in CSS pixels.
+    const fontProbe = document.createElement('span')
+    fontProbe.hidden = true
+    fontProbe.style.fontSize = 'var(--fs-sm)'
+    into.current.append(fontProbe)
+    const fontSize = () => parseFloat(getComputedStyle(fontProbe).fontSize)
     const term = new Terminal({
-      // The terminal takes a number, so it reads the size token's value.
-      fontSize: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs-sm')) || 13,
+      fontSize: fontSize(),
       fontFamily: getComputedStyle(document.documentElement).getPropertyValue('--font-mono').trim(),
       theme: termTheme(),
       scrollback: 5000,
@@ -91,12 +96,20 @@ export function useTerminal(sessionId: string | null, mayAct: boolean, into: Ref
         wsRef.current.send(JSON.stringify({ type: 'resize', cols, rows }))
       }
     })
-    const ro = new ResizeObserver(() => fit.fit())
+    const refit = () => {
+      term.options.fontSize = fontSize()
+      fit.fit()
+    }
+    const sizeObserver = new MutationObserver(refit)
+    sizeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-size'] })
+    const ro = new ResizeObserver(refit)
     ro.observe(into.current)
 
     return () => {
       closed = true
       ro.disconnect()
+      sizeObserver.disconnect()
+      fontProbe.remove()
       dataSub.dispose()
       resizeSub.dispose()
       wsRef.current?.close()
