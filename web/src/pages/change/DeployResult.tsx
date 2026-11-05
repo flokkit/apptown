@@ -20,12 +20,17 @@ export function previousLanding(releases: ReleaseListed[], deployment: string | 
     .sort((a, b) => b.number - a.number)[0]
 }
 
-export function landingDuration(trace: RunTrace | null | undefined) {
+export function landingDurationMs(trace: RunTrace | null | undefined) {
   const finished = trace?.steps.filter(s => s?.type === 'deploy' && s.status === 'pass').at(-1)?.finishedAt
   const start = trace?.run?.createdAt
   if (!start || !finished) return undefined
   const ms = Date.parse(finished) - Date.parse(start)
-  return Number.isFinite(ms) && ms >= 0 ? deployDuration(ms) : undefined
+  return Number.isFinite(ms) && ms >= 0 ? ms : undefined
+}
+
+export function landingDuration(trace: RunTrace | null | undefined) {
+  const ms = landingDurationMs(trace)
+  return ms === undefined ? undefined : deployDuration(ms)
 }
 
 export function DeployBackupLine({ backup }: { backup: Extract<Step, { type: 'deploy' }>['evidence']['backup'] }) {
@@ -51,6 +56,10 @@ export function DeployResult({ slug, changeId, release, runStartedAt, step }: { 
   const previous = previousLanding(releases.data ?? [], deployment, step.startedAt)
   const previousTrace = useGet<RunTrace>(previous?.runId ? `/runs/${previous.runId}/trace` : null, { kind: 'immutable' })
   const previousDuration = landingDuration(previousTrace.data)
+  // Stage durations are not retained. Reserve a fifth of the previous landing
+  // for preparation, backup, startup and checking rather than budgeting it all to build.
+  const previousMs = landingDurationMs(previousTrace.data)
+  const expectedBuildMs = previousMs ? previousMs * .8 : undefined
   const [now, setNow] = useState(Date.now)
   useEffect(() => {
     if (!running) return
@@ -69,7 +78,8 @@ export function DeployResult({ slug, changeId, release, runStartedAt, step }: { 
     <div className="ch-deploy-heading"><strong className={passed ? 'ok' : undefined}>{running ? 'Deploying' : passed ? "It's live!" : 'Deploy stopped'}</strong>
       {passed && release && <span> Release {release}</span>}
     </div>
-    <DeployScene compactStages stage={live.data?.stage} failedStage={step.evidence.failedStage}
+    <DeployScene compactStages expectedBuildMs={expectedBuildMs}
+      buildElapsedMs={live.data?.stage === 'building' && live.data.stageElapsedMs != null ? live.data.stageElapsedMs + Math.max(0, now - live.answeredAt) : undefined} stage={live.data?.stage} failedStage={step.evidence.failedStage}
       outcome={running ? live.current && live.data?.running && live.data.stage ? 'running' : 'paused' : passed ? 'passed' : 'failed'} />
     {running && <>
       {!!live.data?.lines?.length && <p className="ch-deploy-caption small muted">{live.data.lines.at(-1)}</p>}

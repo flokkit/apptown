@@ -14,19 +14,22 @@
 .deploy-scene.n1 .plan { animation: deploy-fade .3s ease-out both; }
 .deploy-scene.g3 .plan { opacity: 0; transition: opacity .4s; }
 .deploy-scene.n2 .crane { opacity: 1; animation: deploy-fade .3s ease-out both; }
-.deploy-scene.n2 .idle-trolley { animation: deploy-shuttle 4s ease-in-out 7s infinite; }
-.deploy-scene.g2 :is(.blk,.roof) { opacity: 1; }
-.deploy-scene.n2 :is(.blk,.roof) { animation: deploy-set 1s ease-out both; }
-.deploy-scene .deliveries { opacity: 0; }
-.deploy-scene.n2 .deliveries { opacity: 1; }
+.deploy-scene :is(.blk,.roof).placed { opacity: 1; }
+.deploy-scene .deliveries { opacity: 1; }
 .deploy-scene .delivery { opacity: 0; }
-.deploy-scene.n2 .delivery { animation: deploy-carry 1s step-end var(--delay) forwards; }
-.deploy-scene.n2 .trolley { animation: deploy-trolley 1s ease-in-out var(--delay) both; }
-.deploy-scene.n2 .load { animation: deploy-lower 1s ease-in-out var(--delay) both; }
-.deploy-scene.n2 .hoist { animation: deploy-hoist 1s ease-in-out var(--delay) both; }
+.deploy-scene .delivery.active { animation: deploy-carry var(--duration) step-end var(--delay) forwards paused; }
+.deploy-scene .active .trolley { animation: deploy-trolley var(--duration) ease-in-out var(--delay) both paused; }
+.deploy-scene .active .load { animation: deploy-lower var(--duration) ease-in-out var(--delay) both paused; }
+.deploy-scene .active .hoist { animation: deploy-hoist var(--duration) ease-in-out var(--delay) both paused; }
 .deploy-scene .cable { transform-origin: 0 0; }
-.deploy-scene.n2 .cable { animation: deploy-cable 1s ease-in-out var(--delay) both; }
-.deploy-scene.n2 .idle-rig { animation: deploy-empty 7s step-end both; }
+.deploy-scene .active .cable { animation: deploy-cable var(--duration) ease-in-out var(--delay) both paused; }
+/* The final load waits over its place until the server ends building. */
+.deploy-scene .delivery.holding { opacity: 1; animation: deploy-adjust 4s ease-in-out infinite; }
+.deploy-scene .holding .trolley { animation: none; }
+.deploy-scene .holding :is(.load,.hoist) { animation: none; transform: translateY(-6px); opacity: 1; }
+.deploy-scene .holding .cable { animation: none; transform: scaleY(.78); }
+.deploy-scene.carrying .idle-rig { opacity: 0; }
+.deploy-scene.finishing-build .crane { opacity: 1; }
 .deploy-scene.g3 .win { opacity: 1; stroke: var(--busy); fill: var(--busy); fill-opacity: .25; }
 .deploy-scene.n3 .win { animation: deploy-light 3s ease-in-out infinite both; }
 .deploy-scene.n3 .w2 { animation-delay: .15s; }
@@ -74,14 +77,12 @@
 }
 @keyframes deploy-fade { from { opacity: 0; } to { opacity: 1; } }
 /* Each delivery traverses, lowers, releases, hoists, then returns empty. */
-@keyframes deploy-set { 0%,59% { opacity: 0; } 60%,100% { opacity: 1; } }
 @keyframes deploy-carry { 0%,99% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes deploy-trolley { 0%,10%,100% { transform: translateX(var(--travel)); } 30%,85% { transform: translateX(0); } }
 @keyframes deploy-lower { 0%,30% { transform: translateY(var(--lift)); opacity: 1; } 60% { transform: none; opacity: 1; } 61%,100% { transform: none; opacity: 0; } }
 @keyframes deploy-hoist { 0%,30%,85%,100% { transform: translateY(var(--lift)); } 60%,65% { transform: translateY(0); } }
 @keyframes deploy-cable { 0%,30%,85%,100% { transform: scaleY(var(--cable)); } 60%,65% { transform: scaleY(1); } }
-@keyframes deploy-empty { 0% { opacity: 0; } 100% { opacity: 1; } }
-@keyframes deploy-shuttle { 0%,100% { transform: translateX(0); } 50% { transform: translateX(-76px); } }
+@keyframes deploy-adjust { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
 @keyframes deploy-light { 0%,100% { fill-opacity: 0; } 8% { fill-opacity: .35; } 14% { fill-opacity: 0; } 20%,80% { fill-opacity: .25; } 90% { fill-opacity: .08; } }
 @keyframes deploy-open { from { transform: scaleX(1); } to { transform: scaleX(.25); } }
 @keyframes deploy-visit { 0% { transform: translateX(-38px); } 100% { transform: translateX(4px); } }
@@ -108,12 +109,6 @@
 .deploy-stages .busy { color: var(--busy); }
 .deploy-stages .bad { color: var(--bad); }
 
-.deploy-scene.n2 .b2 { animation-delay: 1s; }
-.deploy-scene.n2 .b3 { animation-delay: 2s; }
-.deploy-scene.n2 .b4 { animation-delay: 3s; }
-.deploy-scene.n2 .b5 { animation-delay: 4s; }
-.deploy-scene.n2 .b6 { animation-delay: 5s; }
-.deploy-scene.n2 .roof { animation-delay: 6s; }
 .deploy-scene.n4 .visitor { transform: translateX(4px); }
 .deploy-scene .sign-label { fill: var(--bad); font-size: var(--fs-scene); }
 .deploy-scene.fail.g4 .visitor { opacity: 1; transform: translateX(-38px) scaleX(-1); }

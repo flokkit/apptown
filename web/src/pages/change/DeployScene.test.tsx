@@ -4,7 +4,7 @@ import cardCss from '../project/deployment-deploys.css?inline'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { DeployScene, deployWords } from './DeployScene'
 import type { DeployStage } from '../../wire.gen'
 
@@ -170,8 +170,8 @@ it('keeps the jib still while trolleys carry and hoist each load', () => {
     for (const cable of el.querySelectorAll('.delivery .cable')) {
       expect(cable.getAttribute('x1')).toBe(cable.getAttribute('x2'))
     }
-    expect(getComputedStyle(el.querySelector('.idle-trolley')!).animation).toContain('deploy-shuttle')
-    expect(getComputedStyle(el.querySelector('.hoist')!).animation).toContain('deploy-hoist')
+    expect(getComputedStyle(el.querySelector('.idle-rig')!).opacity).toBe('0')
+    expect(getComputedStyle(el.querySelector('.active .hoist')!).animation).toContain('deploy-hoist')
   } finally { el.remove(); style.remove() }
 })
 
@@ -224,4 +224,66 @@ it('keeps compact backup progress and the shared spinner on deployment cards', (
   el.innerHTML = renderToStaticMarkup(<DeployScene outcome="paused" compactStages />)
   expect(el.querySelectorAll('.deploy-stages-compact li')).toHaveLength(6)
   expect(el.querySelector('[aria-current], .spinner')).toBeNull()
+})
+
+// Pacing may estimate block placement, but only the server can finish the roof.
+it('paces a 60 second build and restores the elapsed frame on a mid-build visit', () => {
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<DeployScene stage="building" outcome="running" expectedBuildMs={60000} buildElapsedMs={15000} />)
+  expect(el.querySelectorAll('.blk.placed')).toHaveLength(2)
+  expect(el.querySelector('.roof.placed')).toBeNull()
+  el.innerHTML = renderToStaticMarkup(<DeployScene stage="building" outcome="running" expectedBuildMs={60000} buildElapsedMs={90000} />)
+  expect(el.querySelectorAll('.blk.placed')).toHaveLength(5)
+  expect(el.querySelector('.delivery.holding .load rect')).not.toBeNull()
+  expect(el.querySelector('.roof.placed')).toBeNull()
+})
+
+it('uses ten second deliveries without history', () => {
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<DeployScene stage="building" outcome="running" buildElapsedMs={25000} />)
+  expect(el.querySelectorAll('.blk.placed')).toHaveLength(3)
+  expect(el.querySelector('.roof.placed')).toBeNull()
+})
+
+
+it('keeps the roof off through an overrun, then catches up in order when starting is reported', () => {
+  vi.useFakeTimers()
+  const el = document.createElement('div'), root = createRoot(el)
+  const draw = (stage: DeployStage) => act(() => root.render(<DeployScene stage={stage} outcome="running" expectedBuildMs={60000} buildElapsedMs={15000} />))
+  try {
+    draw('building')
+    expect(el.querySelectorAll('.blk.placed')).toHaveLength(2)
+    act(() => vi.advanceTimersByTime(75000))
+    expect(el.querySelectorAll('.blk.placed')).toHaveLength(5)
+    expect(el.querySelector('.delivery.holding')).not.toBeNull()
+    expect(el.querySelector('.roof.placed')).toBeNull()
+    draw('starting')
+    act(() => vi.advanceTimersByTime(150))
+    expect(el.querySelectorAll('.blk.placed')).toHaveLength(6)
+    expect(el.querySelector('.roof.placed')).toBeNull()
+    act(() => vi.advanceTimersByTime(200))
+    expect(el.querySelector('.roof.placed')).not.toBeNull()
+  } finally { act(() => root.unmount()); vi.useRealTimers() }
+})
+
+it('finishes an unexpectedly short build within a moment and freezes unreadable building progress', () => {
+  vi.useFakeTimers()
+  const el = document.createElement('div'), root = createRoot(el)
+  const draw = (stage: DeployStage, outcome: 'running' | 'paused') => act(() => root.render(<DeployScene stage={stage} outcome={outcome} expectedBuildMs={60000} buildElapsedMs={15000} />))
+  try {
+    draw('building', 'running')
+    draw('building', 'paused')
+    act(() => vi.advanceTimersByTime(60000))
+    expect(el.querySelectorAll('.blk.placed')).toHaveLength(2)
+    expect(el.querySelector('.roof.placed')).toBeNull()
+    draw('starting', 'running')
+    const counts = []
+    for (let i = 0; i < 5; i++) {
+      act(() => vi.advanceTimersByTime(180))
+      counts.push(el.querySelectorAll('.blk.placed').length)
+      if (i < 4) expect(el.querySelector('.roof.placed')).toBeNull()
+    }
+    expect(counts).toEqual([3, 4, 5, 6, 6])
+    expect(el.querySelector('.roof.placed')).not.toBeNull()
+  } finally { act(() => root.unmount()); vi.useRealTimers() }
 })

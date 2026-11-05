@@ -122,3 +122,23 @@ it('states no data separately from missing evidence and an unaccepted incomplete
   el.innerHTML = draw({ ...step, status: 'fail', evidence: { backup: { outcome: 'partial', set: { id: 'copy', takenAt: '', bytes: 0, status: 'partial' }, reason: 'Volume unreadable' } } })
   expect(el.querySelector('.ch-deploy-backup')?.textContent).toBe('Backup incomplete: Volume unreadable')
 })
+
+it('paces from stage elapsed time and the same deployment’s previous landing estimate', async () => {
+  vi.useFakeTimers()
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).includes('/live')
+    ? { running: true, stage: 'building', elapsedMs: 90000, stageElapsedMs: 15000, lines: [], total: 0 }
+    : String(url).includes('/releases')
+      ? [{ number: 6, deployment: 'main', state: 'released', releasedAt: '2026-11-04T01:01:15Z', runId: 'old' }]
+      : { run: { createdAt: '2026-11-04T01:00:00Z' }, steps: [{ type: 'deploy', status: 'pass', finishedAt: '2026-11-04T01:01:15Z' }] }))))
+  const el = document.createElement('div'), root = createRoot(el), client = newQueryClient()
+  try {
+    await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><DeployResult slug="club" changeId="change" step={{ ...step, status: 'running' }} /></QueryClientProvider></MemoryRouter>))
+    await act(async () => { await vi.advanceTimersByTimeAsync(100) })
+    expect(el.querySelectorAll('.blk.placed')).toHaveLength(2)
+    expect(el.querySelector('.roof.placed')).toBeNull()
+    // 80% of a 75s landing is a 60s estimate: the third block arrives at 20.6s.
+    await act(async () => { await vi.advanceTimersByTimeAsync(6000) })
+    expect(el.querySelectorAll('.blk.placed')).toHaveLength(3)
+    expect(el.querySelector('.ch-deploy-times')?.textContent).toContain('Last deploy took 1m 15s')
+  } finally { act(() => root.unmount()); client.clear(); vi.useRealTimers(); vi.unstubAllGlobals() }
+})

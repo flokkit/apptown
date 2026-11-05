@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -130,16 +131,18 @@ func TestDeployStagesRoundTripThroughLiveRead(t *testing.T) {
 	t.Parallel()
 	f := newWorkflowHTTPFixtureWithSpec(t, true, workflowLiveSpec(), nil, nil)
 	id := workflowLiveStep(t, f)
-	var feeds progress.Feeds
+	now := time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)
+	feeds := progress.Feeds{Now: func() time.Time { return now }}
 	feeds.Start(id)
 	for _, stage := range []deploy.DeployStage{deploy.Preparing, deploy.Building, deploy.Starting, deploy.Checking, deploy.Live} {
 		feeds.SetStage(id, stage.String())
+		now = now.Add(15 * time.Second)
 		r := httptest.NewRequest("GET", "/steps/"+id.String()+"/live?from=50", nil).WithContext(f.Context)
 		r.SetPathValue("id", id.String())
 		w := httptest.NewRecorder()
 		NewRunProgress(f.Work, &feeds).StepLive(w, r)
 		var got StepProgress
-		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil || w.Code != 200 || got.Stage != stage || !got.Running || len(got.Lines) != 0 {
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil || w.Code != 200 || got.Stage != stage || got.StageElapsedMs == nil || *got.StageElapsedMs != 15000 || !got.Running || len(got.Lines) != 0 {
 			t.Fatalf("stage %s: %d %s (%v)", stage, w.Code, w.Body.String(), err)
 		}
 	}

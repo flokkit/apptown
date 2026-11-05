@@ -14,10 +14,11 @@ import (
 const maxLines = 500
 
 type feed struct {
-	stage   string
-	lines   []string
-	total   int
-	started time.Time
+	stage        string
+	stageStarted time.Time
+	lines        []string
+	total        int
+	started      time.Time
 }
 
 // Feeds is ready to use at its zero value. Do not copy it after first use.
@@ -34,10 +35,11 @@ func (f *Feeds) now() time.Time { return clock.Or(f.Now)() }
 
 // snapshotFor is a detached copy; callers may retain or edit Lines safely.
 type snapshotFor struct {
-	Stage     string
-	Lines     []string
-	Total     int
-	ElapsedMs int64
+	Stage          string
+	StageElapsedMs int64
+	Lines          []string
+	Total          int
+	ElapsedMs      int64
 }
 
 func (f *Feeds) Start(id ids.ID) {
@@ -69,12 +71,16 @@ func (f *Feeds) Append(id ids.ID, lines ...string) {
 	b.lines = append(b.lines, lines...)
 }
 
-// SetStage records the caller's named milestone independently of output lines.
+// SetStage records the caller's named milestone and its start on the feeds' clock.
+// Repeating the current milestone preserves its start independently of output lines.
 func (f *Feeds) SetStage(id ids.ID, stage string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if b := f.feeds[id]; b != nil {
-		b.stage = stage
+		if b.stage != stage {
+			b.stage = stage
+			b.stageStarted = f.now()
+		}
 	}
 }
 
@@ -114,5 +120,9 @@ func snapshot(b *feed, from int, now time.Time) snapshotFor {
 	if start < len(b.lines) {
 		lines = append(lines, b.lines[start:]...)
 	}
-	return snapshotFor{Stage: b.stage, Lines: lines, Total: b.total, ElapsedMs: now.Sub(b.started).Milliseconds()}
+	stageElapsedMs := int64(0)
+	if !b.stageStarted.IsZero() {
+		stageElapsedMs = now.Sub(b.stageStarted).Milliseconds()
+	}
+	return snapshotFor{StageElapsedMs: stageElapsedMs, Stage: b.stage, Lines: lines, Total: b.total, ElapsedMs: now.Sub(b.started).Milliseconds()}
 }

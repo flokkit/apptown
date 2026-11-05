@@ -2026,6 +2026,7 @@ export type StepInterrupted = {
 }
 
 export type StepProgress = {
+  stageElapsedMs?: number | null
   stage?: DeployStage
   running: boolean
   status?: StepState | null
