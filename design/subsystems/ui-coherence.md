@@ -16,6 +16,11 @@ The interface should show the ordinary action and current result first, with
 configuration and execution detail available when needed. This is a presentation
 rule, not authority to remove required approval, error or uncertainty information.
 
+The sidebar starts each page with only its current area expanded. A person can
+open or close other areas; those choices last while they stay on that page.
+Desktop navigation scrolls within the window when needed, using a thin ruled
+scrollbar and reserving its gutter so links stay in place.
+
 ## Activity and release summaries
 
 Home's Recently finished shows landed and failed changes. The history response

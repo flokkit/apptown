@@ -109,6 +109,37 @@ describe('pages about the whole AppTown', () => {
     expect(all()).toContain('Backups')
   })
 
+  it.each([
+    ['/', []],
+    ['/integrations/scm', ['Integrations']],
+    ['/workflows', ['Ways of working']],
+    ['/deployments/table', ['Deployments']],
+  ])('starts only the current group expanded at %s', async (path, expanded) => {
+    answer(admin)
+    const { el } = await render(<SidebarNav />, path)
+    await vi.waitFor(() => expect(el.textContent).toContain('People'))
+    expect([...el.querySelectorAll('.nav-drawer.open .nav-drawer-head a')].map(a => a.textContent)).toEqual(expanded)
+  })
+
+  it('keeps manual toggles on the page and resets groups when navigating', async () => {
+    answer(admin)
+    const { el, client } = await render(<SidebarNav />, '/integrations/scm')
+    await vi.waitFor(() => expect(el.textContent).toContain('People'))
+    const toggle = (label: string) => el.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!
+    await act(async () => toggle('Open Ways of working').click())
+    await act(async () => toggle('Close Integrations').click())
+    await act(async () => { await client.invalidateQueries() })
+    expect(toggle('Close Ways of working')).not.toBeNull()
+    expect(toggle('Open Integrations')).not.toBeNull()
+    await act(async () => el.querySelector<HTMLAnchorElement>('a[href="/"]')!.click())
+    expect(el.querySelectorAll('.nav-drawer.open')).toHaveLength(0)
+    await act(async () => el.querySelector<HTMLAnchorElement>('a[href="/integrations"]')!.click())
+    await act(async () => el.querySelector<HTMLAnchorElement>('a[href="/"]')!.click())
+    expect(el.querySelectorAll('.nav-drawer.open')).toHaveLength(0)
+    await act(async () => el.querySelector<HTMLAnchorElement>('a[href="/integrations"]')!.click())
+    expect([...el.querySelectorAll('.nav-drawer.open .nav-drawer-head a')].map(a => a.textContent)).toEqual(['Integrations'])
+  })
+
   // Deployments keeps the caller's own departures and deployments; the hosts
   // and every deployment's backups are infrastructure.
   it('leaves infrastructure out of Deployments for a project member', async () => {

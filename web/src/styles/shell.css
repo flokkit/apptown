@@ -11,6 +11,12 @@
   overflow-y: auto;
   display: flex; flex-direction: column; gap: 4px; padding: 12px 8px;
 }
+@media (min-width: 801px) {
+  .sidebar-inner { scrollbar-width: thin; scrollbar-color: var(--rule) transparent; scrollbar-gutter: stable; }
+  .sidebar-inner::-webkit-scrollbar { width: var(--space-2); }
+  .sidebar-inner::-webkit-scrollbar-track { background: transparent; }
+  .sidebar-inner::-webkit-scrollbar-thumb { background: var(--rule); border-radius: var(--radius-sm); }
+}
 .sidebar-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 4px 0; border-top: 1px solid var(--rule); }
 /* The name gives way before "sign out" does: a long name is cut short, and
    the line wraps under the theme switch when the menu is narrow. */
