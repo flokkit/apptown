@@ -70,6 +70,31 @@ class PinsCheckTest(unittest.TestCase):
         out = self.run_check()
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
 
+    def test_every_workflow_action_needs_a_full_hash_and_release_comment(self):
+        for ref in ["owner/action@v1.2.3 # v1.2.3", "owner/action@abc123 # v1.2.3",
+                    "owner/action@" + "a" * 40, "owner/action@" + "g" * 40 + " # v1.2.3",
+                    "owner/action@" + "a" * 40 + " # v1",
+                    "owner/action@" + "a" * 41 + " # v1.2.3"]:
+            with self.subTest(ref=ref):
+                self.write(".github/workflows/another.yml", "steps:\n  - uses: " + ref + "\n")
+                self.assertFails(".github/workflows/another.yml:2:", "40-hex commit", "# vX.Y.Z")
+
+    def test_pinned_subpaths_reusable_workflows_and_allowed_action_sources_pass(self):
+        self.write(".github/workflows/another.yml", "\n".join([
+            "# uses: ignored/example@main",
+            "  - uses: owner/action/path@" + "A1" * 20 + " # v1.2.3",
+            "    uses: 'owner/repo/.github/workflows/test.yml@" + "b" * 40 + "' # v2.3.4-rc.1",
+            "  - uses: ./local/action",
+            '  - uses: "./another/action"',
+            "  - uses: docker://alpine@sha256:" + "c" * 64,
+        ]))
+        out = self.run_check()
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+
+    def test_docker_actions_need_a_digest(self):
+        self.write(".github/workflows/another.yml", "  - uses: docker://alpine:latest\n")
+        self.assertFails(".github/workflows/another.yml:1:")
+
     def test_each_checksum_release_matches_the_download_version(self):
         hashes = """\
 # renovate: checksum=astral-sh/uv version=0.13.0

@@ -6,6 +6,8 @@ where the agent Dockerfile or stock/scanners.yaml pins a tool the list does
 not name, and where a listed tool is pinned nowhere. The list's own header
 says what each line means.
 
+Workflow actions name a full commit hash and a release comment (# vX.Y.Z).
+
 Also fails where a Dockerfile AppTown builds itself starts FROM an image
 without a digest: a tag can be moved to other contents, a digest cannot.
 
@@ -15,6 +17,8 @@ import os
 import re
 import sys
 from pathlib import Path
+
+from workflow_pins import workflow_pins
 
 PINS = "deploy/tool-pins.txt"
 DOCKERFILE = "deploy/apptown-agent/Dockerfile"
@@ -197,6 +201,7 @@ def check(root):
             errors.append(f"{SCANNERS}:{line}: the image {repository(m.group(1))} is not in {PINS}")
     errors += unpinned_bases(root)
     errors += checksum_versions(root)
+    errors += workflow_pins(root)[1]
     return errors
 
 
@@ -206,7 +211,7 @@ def main(argv):
     for e in errors:
         print(e)
     if errors:
-        print(f"{len(errors)} problem(s): tool versions that disagree with {PINS}, or base images without a digest")
+        print(f"{len(errors)} problem(s): tool versions that disagree with {PINS}, base images without a digest, or workflow actions without a commit and release comment")
         return 1
     return 0
 

@@ -34,6 +34,22 @@ def save_guards(section):
 
 
 class TestCache(unittest.TestCase):
+    def test_heavy_checks_action_release_tags(self):
+        web = job(text('heavy-main.yml'), 'web')
+        self.assertIn('python3 scripts/action-pins-check.py', web)
+
+    def test_setup_actions_select_exact_tool_versions_or_a_version_file(self):
+        for path in sorted(WORKFLOWS.glob('*.yml')):
+            for step in re.split(r'\n      - ', path.read_text()):
+                match = re.search(r'uses: (actions/setup-go|actions/setup-node|sigstore/cosign-installer)@', step)
+                if not match:
+                    continue
+                key = {'actions/setup-go': 'go-version', 'actions/setup-node': 'node-version',
+                       'sigstore/cosign-installer': 'cosign-release'}[match.group(1)]
+                if key != 'cosign-release' and re.search(rf'^          {key}-file: \S+', step, re.M):
+                    continue
+                self.assertRegex(step, rf"(?m)^          {key}: ['\"]?v?\d+\.\d+\.\d+['\"]?\s*$", str(path))
+
     def test_web_layout_runs_with_the_locked_browser(self):
         web = job(text('ci.yml'), 'web')
         self.assertIn('npx playwright install --with-deps chromium', web)
