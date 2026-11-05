@@ -68,6 +68,9 @@ async function shoot(p, deadline) {
   const out = { name: p.name, url: p.url, finalUrl: '', failedResources: [] }
   const requests = new Map()
   const failures = new Map()
+  // CDP does not order ExtraInfo against requestWillBeSent: a status can
+  // arrive before its request is known, so it waits here for the request.
+  const earlyStatus = new Map()
   const resourceTypes = new Set(['Stylesheet', 'Script', 'Image', 'Font'])
   const failed = (id, result) => {
     const request = requests.get(id)
@@ -98,6 +101,7 @@ async function shoot(p, deadline) {
     if (msg.method === 'Page.frameNavigated' && !msg.params.frame.parentId) { out.finalUrl = msg.params.frame.url; offOrigin(msg.params.frame.url) }
     if (msg.method === 'Network.requestWillBeSent' && resourceTypes.has(msg.params.type)) {
       requests.set(msg.params.requestId, { type: msg.params.type, url: msg.params.request.url })
+      if (earlyStatus.has(msg.params.requestId)) failed(msg.params.requestId, { status: earlyStatus.get(msg.params.requestId) })
     }
     if (msg.method === 'Network.responseReceived' && resourceTypes.has(msg.params.type) && msg.params.response.status >= 400) {
       failed(msg.params.requestId, { status: msg.params.response.status })
@@ -105,7 +109,8 @@ async function shoot(p, deadline) {
     // Chromium can abort a stylesheet on its MIME check before emitting
     // responseReceived. ExtraInfo still carries the HTTP failure status.
     if (msg.method === 'Network.responseReceivedExtraInfo' && msg.params.statusCode >= 400) {
-      failed(msg.params.requestId, { status: msg.params.statusCode })
+      if (requests.has(msg.params.requestId)) failed(msg.params.requestId, { status: msg.params.statusCode })
+      else earlyStatus.set(msg.params.requestId, msg.params.statusCode)
     }
     if (msg.method === 'Network.loadingFailed' && !msg.params.canceled && !failures.has(msg.params.requestId)) {
       failed(msg.params.requestId, { error: msg.params.errorText })
