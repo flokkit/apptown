@@ -126,7 +126,8 @@ export function homeStatusParts({ needsYou, running, deployments, operations }: 
   if (deployments.length > 0) parts.push({ label: 'Apps live', value: live.size, to: '/deployments/table' })
   if (unknown.size > 0) parts.push({ label: 'Apps not checked', value: unknown.size, to: '/deployments/table' })
   if (operations.count) parts.push({ label: 'Problems', value: operations.count, to: '/attention' })
-  if (operations.unknown) parts.push({ label: "Couldn't check", value: operations.unknown, to: '/attention' })
+  // Conditions AppTown could not read are listed with their reasons on
+  // Attention; a bare count of them on Home tells a person nothing to do.
   return parts
 }
 
