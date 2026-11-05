@@ -94,7 +94,12 @@ backup outcome and recovery choices stay in the card. Success names the recorded
 and Open the app link. Full run rows stay in the change's Details.
 While building, the crane keeps its jib level: its trolley carries each block
 into position, lowers it on a vertical cable, and raises the empty hook before
-returning. After building it shuttles the empty trolley slowly.
+returning. Blocks are spaced across 80% of the previous successful landing’s
+recorded duration for the same deployment, or ten seconds apart without history.
+The frame uses the current building stage’s elapsed time, including on a mid-build
+visit. The final block waits above its place with a slow adjustment if building
+runs longer. Only a server stage after building releases it and adds the roof;
+an early finish places the remaining blocks and roof in a quick sequence.
 The checking door stays shut until the server reports live. A page that observes
 running celebrates once on completion; a later visit shows the finished frame.
 The running card counts elapsed time and, when the previous successful release retains its landing trace,

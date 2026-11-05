@@ -1,12 +1,12 @@
 import { Spinner } from '../../Spinner'
-/* Every movement reports a server stage; no timers or guessed progress. Unreadable
+/* Block pacing estimates build time; the roof reports the server stage. Unreadable
  * progress freezes the frame. 1.5px round lines, light washes, 300×150, phone first.
  * Existing variables only: busy = working, ok = live, bad = stopped; scene ink/ground.
  * Arrive in 200–450ms ease-out; small 2–3s idle loops; celebrate once under 1.5s.
  * Failure closes calmly; checking knocks once more and turns away. Reduced motion keeps still frames.
  * The image names the current stage; the stage list remains text.
  */
-import { useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { DeployStage } from '../../wire.gen'
 
 export const deployWords: Record<DeployStage, string> = {
@@ -15,8 +15,8 @@ export const deployWords: Record<DeployStage, string> = {
 }
 export type DeployOutcome = 'running' | 'passed' | 'failed' | 'paused'
 
-export function DeployScene({ stage, failedStage, outcome, showStages = true, compactStages = false }: {
-  stage?: DeployStage; failedStage?: DeployStage; outcome: DeployOutcome; showStages?: boolean; compactStages?: boolean
+export function DeployScene({ stage, failedStage, outcome, showStages = true, compactStages = false, expectedBuildMs, buildElapsedMs }: {
+  stage?: DeployStage; failedStage?: DeployStage; outcome: DeployOutcome; showStages?: boolean; compactStages?: boolean; expectedBuildMs?: number; buildElapsedMs?: number
 }) {
   const lastStage = useRef<DeployStage>()
   if (stage) lastStage.current = stage
@@ -27,13 +27,49 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true, co
   const stages = Object.keys(deployWords) as DeployStage[]
   const frames: DeployStage[] = ['preparing', 'building', 'starting', 'checking', 'live']
   const index = current ? frames.indexOf(current === 'backing-up' ? 'preparing' : current) + 1 : 0
+  const interval = Math.max(1000, (expectedBuildMs ?? 60000) / 6)
+  // Re-anchor only on a new server reading. The local clock fills the gaps
+  // between reads; a paused or failed feed keeps its last witnessed frame.
+  const build = useRef({ reading: buildElapsedMs, at: Date.now(), elapsed: buildElapsedMs ?? 0, frame: buildElapsedMs ?? 0, seen: false })
+  const finish = useRef<{ at: number; placed: number }>()
+  const [, tick] = useState(0)
+  const now = Date.now()
+  const placedDuringBuild = (elapsed: number) => Math.min(5, Math.max(0, Math.floor((elapsed - 600) / interval) + 1))
+  if (current === 'building') {
+    if (build.current.reading !== buildElapsedMs) {
+      build.current = { ...build.current, reading: buildElapsedMs, elapsed: buildElapsedMs ?? 0, at: now }
+    }
+    if (outcome === 'running') {
+      build.current.frame = build.current.elapsed + Math.max(0, now - build.current.at)
+      build.current.seen = true
+    }
+  } else if (index >= 3 && build.current.seen && !finish.current) {
+    finish.current = { at: now, placed: placedDuringBuild(build.current.frame) }
+  }
+  const finishing = finish.current ? Math.max(0, now - finish.current.at) : 0
+  const catchingUp = finish.current !== undefined && finishing < (7 - finish.current.placed) * 180
+  useEffect(() => {
+    if (!(current === 'building' && outcome === 'running') && !catchingUp) return
+    const timer = window.setInterval(() => tick(n => n + 1), 50)
+    return () => window.clearInterval(timer)
+  }, [current, outcome, catchingUp])
+  const deliveryFrame = (i: number) => {
+    if (index < 2) return { placed: false, active: false, holding: false, phase: -1, duration: 1000 }
+    const complete = index >= 3
+    const duration = complete ? 180 : 1000
+    const phase = complete ? finish.current ? finishing - (i - finish.current.placed) * duration : duration : build.current.frame - i * interval
+    const alreadyPlaced = complete && (!finish.current || i < finish.current.placed)
+    const holding = !complete && i === 5 && phase >= 550
+    const placed = alreadyPlaced || !holding && (i < 6 || complete) && phase >= duration * .6
+    return { placed, holding, phase, duration, active: !alreadyPlaced && phase >= 0 && (holding || phase < duration) && (i < 6 || complete) }
+  }
   const celebrate = (outcome === 'passed' || outcome === 'running' && stage === 'live') && sawRunning.current && !celebrated
   const label = outcome === 'failed' ? `Stopped while ${current ? deployWords[current] : 'deploying'}`
     : current === 'live' ? 'The app is live' : current ? `Deploying: ${deployWords[current]}` : 'Waiting for deployment progress'
   const classes = ['deploy-scene', ...frames.slice(0, index).map((_, i) => `g${i + 1}`),
     (outcome === 'running' || outcome === 'paused') && current !== 'backing-up' && index < 5 ? `n${index}` : '', outcome === 'failed' ? 'fail' : '',
     outcome === 'paused' ? 'paused' : '', current === 'backing-up' ? 'backing-up' : '',
-    current && stages.indexOf(current) >= stages.indexOf('backing-up') ? 'has-backup-shed' : '', celebrate ? 'celebrate' : 'rest'].filter(Boolean).join(' ')
+    current && stages.indexOf(current) >= stages.indexOf('backing-up') ? 'has-backup-shed' : '', catchingUp ? 'finishing-build' : '', Array.from({ length: 7 }, (_, i) => deliveryFrame(i)).some(f => f.active) ? 'carrying' : '', celebrate ? 'celebrate' : 'rest'].filter(Boolean).join(' ')
   const stageRows = () => stages.map((s, i) => {
     const stopped = s === current && outcome === 'failed'
     const finished = (current ? i < stages.indexOf(current) : false) || outcome === 'passed'
@@ -77,9 +113,10 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true, co
             [150, 78, 38, 26], [112, 52, 38, 26], [150, 52, 38, 26], [106, 30, 88, 22],
           ].map(([x, y, width, height], i) => {
             const cx = x + width / 2
+            const frame = deliveryFrame(i)
             // The trolley starts beside the mast with the hook raised. Only
             // its cable and hook move vertically; the jib always stays level.
-            return <g className="delivery" key={i} style={{ '--delay': `${i}s`, '--lift': `${26 - y}px`, '--travel': `${228 - cx}px`, '--cable': 2 / (y - 24) } as CSSProperties}>
+            return <g className={`delivery${frame.active ? ' active' : ''}${frame.holding ? ' holding' : ''}`} key={i} style={{ '--delay': `${-Math.max(0, frame.phase)}ms`, '--duration': `${frame.duration}ms`, '--lift': `${26 - y}px`, '--travel': `${228 - cx}px`, '--cable': 2 / (y - 24) } as CSSProperties}>
               <g className="trolley">
                 <rect className="ink" x={cx - 4} y="18" width="8" height="4" />
                 <g transform={`translate(${cx} 22)`}>
@@ -94,13 +131,13 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true, co
               </g>
             </g>
           })}</g>
-          <rect className="ink blk b1" x="112" y="104" width="38" height="26"></rect>
-          <rect className="ink blk b2" x="150" y="104" width="38" height="26"></rect>
-          <rect className="ink blk b3" x="112" y="78" width="38" height="26"></rect>
-          <rect className="ink blk b4" x="150" y="78" width="38" height="26"></rect>
-          <rect className="ink blk b5" x="112" y="52" width="38" height="26"></rect>
-          <rect className="ink blk b6" x="150" y="52" width="38" height="26"></rect>
-          <path className="ink roof" d="M106 52 L150 30 L194 52"></path>
+          <rect className={`ink blk b1${deliveryFrame(0).placed ? ' placed' : ''}`} x="112" y="104" width="38" height="26"></rect>
+          <rect className={`ink blk b2${deliveryFrame(1).placed ? ' placed' : ''}`} x="150" y="104" width="38" height="26"></rect>
+          <rect className={`ink blk b3${deliveryFrame(2).placed ? ' placed' : ''}`} x="112" y="78" width="38" height="26"></rect>
+          <rect className={`ink blk b4${deliveryFrame(3).placed ? ' placed' : ''}`} x="150" y="78" width="38" height="26"></rect>
+          <rect className={`ink blk b5${deliveryFrame(4).placed ? ' placed' : ''}`} x="112" y="52" width="38" height="26"></rect>
+          <rect className={`ink blk b6${deliveryFrame(5).placed ? ' placed' : ''}`} x="150" y="52" width="38" height="26"></rect>
+          <path className={`ink roof${deliveryFrame(6).placed ? ' placed' : ''}`} d="M106 52 L150 30 L194 52"></path>
           <rect className="ink win w1" x="121" y="59" width="10" height="10"></rect>
           <rect className="ink win w2" x="169" y="59" width="10" height="10"></rect>
           <rect className="ink win w3" x="121" y="85" width="10" height="10"></rect>

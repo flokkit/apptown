@@ -55,16 +55,17 @@ func (h RunProgress) StepLive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	stage, _ := deploy.ParseDeployStage(feed.Stage)
-	WriteJSON(w, 200, StepProgress{Stage: stage, Running: true, Lines: feed.Lines, Total: feed.Total, ElapsedMs: &feed.ElapsedMs})
+	WriteJSON(w, 200, StepProgress{Stage: stage, Running: true, Lines: feed.Lines, Total: feed.Total, ElapsedMs: &feed.ElapsedMs, StageElapsedMs: &feed.StageElapsedMs})
 }
 
 // StepProgress is a step's live output. A finished step carries its status;
-// a running one how long it has run.
+// a running one how long it and its current named stage have run.
 type StepProgress struct {
-	Stage     deploy.DeployStage  `json:"stage,omitempty"`
-	Running   bool                `json:"running"`
-	Status    *workflow.StepState `json:"status,omitempty"`
-	Lines     []string            `json:"lines"`
-	Total     int                 `json:"total"`
-	ElapsedMs *int64              `json:"elapsedMs,omitempty"`
+	StageElapsedMs *int64              `json:"stageElapsedMs,omitempty"`
+	Stage          deploy.DeployStage  `json:"stage,omitempty"`
+	Running        bool                `json:"running"`
+	Status         *workflow.StepState `json:"status,omitempty"`
+	Lines          []string            `json:"lines"`
+	Total          int                 `json:"total"`
+	ElapsedMs      *int64              `json:"elapsedMs,omitempty"`
 }
