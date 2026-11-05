@@ -25,3 +25,14 @@ it('names the recorded failed stage and reason, and says the app is down only on
   expect(html).not.toContain('still serving')
   expect(html).not.toContain('Open the app')
 })
+
+it('orders the finished scene, live heading, host, facts and primary action', () => {
+  const el = document.createElement('div'); el.innerHTML = draw()
+  const result = el.querySelector('.ch-deploy-result')!
+  expect(result.querySelectorAll('.deploy-stages')).toHaveLength(0)
+  expect(result.querySelector('h3')?.classList.contains('ok')).toBe(true)
+  expect([...result.querySelectorAll('a')].map(a => a.textContent)).toEqual(['club.example.test', 'Open the app'])
+  expect(result.querySelector('a.primary')).not.toBeNull()
+  const order = ['.deploy-scene', 'h3', 'p a', '.small', 'a.primary'].map(s => result.querySelector(s)!)
+  for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+})

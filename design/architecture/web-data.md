@@ -84,7 +84,13 @@ buttons in place with What should change?, a focused field, Send to agent and
 Cancel. Sending stays disabled until there is text; held decisions prefill the
 failure reason. Cancel restores the choices. Sending back an approval records the approver’s rejection and comment on the approval step; held recovery uses the offered send-back or rework operation. Acceptance has no optional note.
 Abandon asks inline: “Abandon this change? The branch is kept; the workspace is
-removed.” A plain conversation link sits below the choices and closes the
+removed.” The acceptance screen labels the request, approval brief when available, checks,
+landing destination and who decides, then keeps the stated meaning beside the
+choices. Deploying shows the reported stages and their marks below a cumulative
+scene, with timing and the current detail; full run rows stay in Details. A
+finished deployment stacks its scene, release, address, timing and app link. The
+decision dialog owns scrolling while open; closing it restores the page position.
+A plain conversation link sits below the choices and closes the
 screen. When the Conversation tab cannot resume a stuck agent, that link opens
 the existing worker console continuation. Stop this attempt stays only in
 non-decision Next steps for a running run.

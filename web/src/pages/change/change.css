@@ -300,7 +300,7 @@
 /* The turn colour: the same amber as "Your turn", so the button reads as the thing to do now. */
 .ch-turn-floater .ch-decide { background: var(--warn-mark); border-color: var(--warn-mark); color: #1b1408; font-weight: var(--fw-strong); }
 .ch-turn-floater .ch-decide:hover { background: var(--warn); border-color: var(--warn); }
-.ch-decision-screen { box-sizing: border-box; width: min(960px, calc(var(--page-width, 100vw) - 32px)); margin-left: calc(var(--page-left, 0px) + (var(--page-width, 100vw) - min(960px, calc(var(--page-width, 100vw) - 32px))) / 2); margin-right: auto; max-height: calc(100dvh - 48px); padding: 28px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow-y: auto; }
+.ch-decision-screen { box-sizing: border-box; width: min(960px, calc(var(--page-width, 100vw) - 32px)); margin-left: calc(var(--page-left, 0px) + (var(--page-width, 100vw) - min(960px, calc(var(--page-width, 100vw) - 32px))) / 2); margin-right: auto; max-height: calc(100dvh - 48px); padding: 28px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow-y: auto; overscroll-behavior: contain; }
 .ch-decision-screen::backdrop { background: var(--overlay); }
 .ch-decision-screen header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .ch-decision-screen .ch-decision-choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -370,25 +370,21 @@
 .ch-now-fact { min-width: 0; overflow-wrap: anywhere; }
 .ch-now-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: ch-now-spin 1s linear infinite; }
 @keyframes ch-now-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .ch-now-spinner { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .ch-now-spinner { animation: none; border-right-color: currentColor; } }
 @media (max-width: 600px) {
   .ch-now-steps li { grid-template-columns: 64px 1fr; }
   .ch-now-fact, .ch-now-steps time, .ch-now-steps li > :last-child { grid-column: 2; }
 }
 
 
-.ch-deploy-result { display: grid; grid-template-columns: minmax(120px, 220px) minmax(0, 1fr); gap: 16px; align-items: center; margin-bottom: 20px; }
-.ch-deploy-result[hidden] { display: none; }
-.ch-deploy-result .deploy-stages { display: none; }
-.ch-overview > .ch-deploy-result .deploy-scene * { animation: none; }
-.ch-deploy-result-facts { min-width: 0; overflow-wrap: anywhere; }
-.ch-deploy-result-facts h3 { margin: 0 0 8px; }
-.ch-deploy-result-facts p { margin: 4px 0; }
+.ch-accept-rows { border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.ch-accept-rows .ch-overview-line { grid-template-columns: 9rem minmax(0, 1fr); }
+.ch-accept-rows .ch-value { white-space: pre-line; }
+.ch-accept-rows .ch-value p { margin: 0 0 8px; }
 @media (max-width: 600px) {
-  .ch-deploy-result { grid-template-columns: 100px minmax(0, 1fr); gap: 12px; }
+  .ch-accept-rows .ch-overview-line { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* In the progress screen its title already says what is happening. */
 .ch-decision-screen .ch-now > h2 { display: none; }
 @media (max-width: 800px) {
   .ch-check-links button.link, .ch-detail-actions button.link { min-height: 44px; }

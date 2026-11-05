@@ -22,12 +22,15 @@ export function DeploySceneScope({ children }: { children: ReactNode }) {
 
 export type DeployOutcome = 'running' | 'passed' | 'failed' | 'paused'
 
-export function DeployScene({ stage, failedStage, outcome }: {
-  stage?: DeployStage; failedStage?: DeployStage; outcome: DeployOutcome
+export function DeployScene({ stage, failedStage, outcome, showStages = true }: {
+  stage?: DeployStage; failedStage?: DeployStage; outcome: DeployOutcome; showStages?: boolean
 }) {
   const celebration = useContext(Celebration)
   const instance = useId()
   const lastStage = useRef<DeployStage>()
+  const buildingArrived = useRef(false)
+  if (stage === 'building' && lastStage.current === 'preparing' && outcome === 'running') buildingArrived.current = true
+  if (stage && stage !== 'building') buildingArrived.current = false
   if (stage) lastStage.current = stage
   const sawRunning = useRef(false)
   const [celebrated, setCelebrated] = useState(false)
@@ -40,23 +43,25 @@ export function DeployScene({ stage, failedStage, outcome }: {
     : current === 'live' ? 'The app is live' : current ? `Deploying: ${deployWords[current]}` : 'Waiting for deployment progress'
   const classes = ['deploy-scene', ...stages.slice(0, index).map((_, i) => `g${i + 1}`),
     (outcome === 'running' || outcome === 'paused') && index < 5 ? `n${index}` : '', outcome === 'failed' ? 'fail' : '',
-    outcome === 'paused' ? 'paused' : '', celebrate ? 'celebrate' : 'rest'].filter(Boolean).join(' ')
+    outcome === 'paused' ? 'paused' : '', celebrate ? 'celebrate' : 'rest', buildingArrived.current ? 'arrive-building' : ''].filter(Boolean).join(' ')
   return <div className={classes} onAnimationStart={() => {
     if (celebrate) celebration?.claim(instance)
   }} onAnimationEnd={e => {
     if (e.animationName === 'deploy-burst') setCelebrated(true)
   }}>
-    <svg viewBox="0 0 300 150" role="img" aria-label={label}>
+    <div className="deploy-scene-panel"><svg viewBox="0 0 300 150" role="img" aria-label={label}>
           <line className="ink ground" x1="10" y1="130" x2="290" y2="130"></line>
           <rect className="ink plan" x="110" y="52" width="80" height="78"></rect>
           <g className="crane">
             <line className="ink" x1="240" y1="130" x2="240" y2="18"></line>
             <line className="ink" x1="234" y1="130" x2="246" y2="130"></line>
-            <g className="jib">
-              <line className="ink" x1="240" y1="20" x2="150" y2="20"></line>
-              <line className="ink" x1="240" y1="20" x2="262" y2="20"></line>
-              <line className="ink" x1="172" y1="20" x2="172" y2="32"></line>
-            </g>
+            <g transform="translate(240 20)"><g className="jib">
+              <line className="ink" x1="0" y1="0" x2="-90" y2="0"></line>
+              <line className="ink" x1="0" y1="0" x2="22" y2="0"></line>
+              <g transform="translate(-80 0)"><g className="hook">
+                <line className="ink" x1="0" y1="0" x2="0" y2="18"></line>
+              </g></g>
+            </g></g>
           </g>
           <rect className="ink blk b1" x="112" y="104" width="38" height="26"></rect>
           <rect className="ink blk b2" x="150" y="104" width="38" height="26"></rect>
@@ -93,9 +98,20 @@ export function DeployScene({ stage, failedStage, outcome }: {
             <line className="ink" x1="170" y1="16" x2="176" y2="16"></line>
             <line className="ink" x1="130" y1="16" x2="124" y2="16"></line>
           </g>
-    </svg>
-    {current && <ol className="deploy-stages" aria-label="Deployment stages">
-      {stages.map(s => <li key={s} aria-current={s === current ? 'step' : undefined}>{deployWords[s]}{s === current && (outcome === 'failed' ? ' · stopped' : outcome === 'passed' || s === 'live' ? '' : ' · now')}</li>)}
+    </svg></div>
+    {showStages && current && <ol className="deploy-stages" aria-label="Deployment stages">
+      {stages.map((s, i) => {
+        const stopped = s === current && outcome === 'failed'
+        const finished = i < index - 1 || outcome === 'passed'
+        const running = s === current && outcome === 'running'
+        return <li key={s} aria-current={s === current ? 'step' : undefined}>
+          <span className={`deploy-stage-mark ${stopped ? 'bad' : finished ? 'ok' : running ? 'busy' : 'muted'}`}>
+            {running ? <span className="ch-now-spinner" role="status" aria-label="running" /> : stopped ? '✗' : finished ? '✓' : '·'}
+          </span>
+          <span>{deployWords[s][0].toUpperCase() + deployWords[s].slice(1)}</span>
+          <small className="muted">{stopped ? 'stopped' : running ? 'now' : ''}</small>
+        </li>
+      })}
     </ol>}
   </div>
 }
