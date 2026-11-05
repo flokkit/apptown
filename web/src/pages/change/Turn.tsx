@@ -43,8 +43,24 @@ export function TurnDecision({ active, actions, children, approvalWaiting = acti
     if (open) dialog.current?.showModal()
     else { dialog.current?.close(); setOpen(false) }
   }, [open])
+  useEffect(() => {
+    if (!open) return
+    const root = document.documentElement
+    const body = document.body
+    const x = window.scrollX, y = window.scrollY
+    const overflow = root.style.overflow
+    const saved = { position: body.style.position, top: body.style.top, left: body.style.left, width: body.style.width }
+    root.style.overflow = 'hidden'
+    // Fixing the body also holds the document on iOS Safari, including rubber-band gestures.
+    Object.assign(body.style, { position: 'fixed', top: `${-y}px`, left: `${-x}px`, width: '100%' })
+    return () => {
+      root.style.overflow = overflow
+      Object.assign(body.style, saved)
+      if (window.scrollX !== x || window.scrollY !== y) window.scrollTo(x, y)
+    }
+  }, [open])
   // The screen is named for what it shows: the decision, the work in progress, or what comes next.
-  const title = approvalWaiting ? 'Accept this change?' : progress && progressTitle ? progressTitle : doneTitle ?? 'Next steps'
+  const title = approvalWaiting ? 'Accept this change?' : progressTitle ? progressTitle : doneTitle ?? 'Next steps'
   return <OpenDecision.Provider value={() => setOpen(true)}>
     {/* While it is the viewer's turn the decision lives in the Decide… screen; the page keeps an anchor for measuring. */}
     <section id="decision" ref={card} hidden={!shown || active || open} className={`ch-decision${active ? ' ch-your-turn' : ''}`}>

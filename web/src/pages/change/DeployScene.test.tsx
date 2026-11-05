@@ -16,7 +16,7 @@ it.each(Object.keys(deployWords) as DeployStage[])('draws only the reported %s f
   expect(el.querySelector('.deploy-scene')?.classList.contains(`g${index + 1}`)).toBe(false)
   expect(el.querySelector('[role="img"]')?.getAttribute('aria-label')).toContain(deployWords[stage])
   expect(el.querySelector('.celebrate')).toBeNull()
-  expect(el.querySelector('[aria-current="step"]')?.textContent).toContain(deployWords[stage])
+  expect(el.querySelector('[aria-current="step"]')?.textContent?.toLowerCase()).toContain(deployWords[stage])
 })
 it('freezes unreadable progress and uses the recorded failure stage', () => {
   const paused = renderToStaticMarkup(<DeployScene stage="building" outcome="paused" />)
@@ -79,7 +79,7 @@ it('holds the last reported frame when the feed closes before the change read re
   } finally { act(() => root.unmount()) }
 })
 
-it.each(['starting', 'checking', 'live'] as const)('lights the windows only after starting completes (%s)', stage => {
+it.each(['starting', 'checking', 'live'] as const)('shows the cumulative windows from starting onwards (%s)', stage => {
   const style = document.createElement('style')
   style.textContent = css.slice(css.indexOf('/* Deploy scenes'), css.indexOf('@keyframes deploy-fade'))
   document.head.append(style)
@@ -89,7 +89,52 @@ it.each(['starting', 'checking', 'live'] as const)('lights the windows only afte
     for (const outcome of ['running', 'failed', 'passed'] as const) {
       if (outcome === 'passed' && stage !== 'live') continue
       el.innerHTML = renderToStaticMarkup(<DeployScene stage={stage} failedStage={stage} outcome={outcome} />)
-      expect(getComputedStyle(el.querySelector('.win')!).opacity).toBe(stage === 'starting' ? '0' : '1')
+      expect(getComputedStyle(el.querySelector('.win')!).opacity).toBe('1')
     }
+  } finally { el.remove(); style.remove() }
+})
+
+it('marks finished, running, unreached and stopped stages beside a separate drawing panel', () => {
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<DeployScene stage="starting" outcome="running" />)
+  const rows = [...el.querySelectorAll('.deploy-stages li')]
+  expect(rows.map(row => row.querySelector('.deploy-stage-mark')?.textContent)).toEqual(['✓', '✓', '', '·', '·'])
+  expect(rows[2].querySelector('[aria-label="running"]')).not.toBeNull()
+  expect(rows[2].textContent).toContain('Starting the appnow')
+  expect(el.querySelector('.deploy-scene-panel + .deploy-stages')).not.toBeNull()
+  el.innerHTML = renderToStaticMarkup(<DeployScene failedStage="starting" outcome="failed" />)
+  expect(el.querySelector('.deploy-stage-mark.bad')?.textContent).toBe('✗')
+})
+it('sets blocks down only after observing the building stage begin', () => {
+  const el = document.createElement('div'), root = createRoot(el)
+  const draw = (stage: DeployStage) => act(() => root.render(<DeployScene stage={stage} outcome="running" />))
+  try {
+    draw('building')
+    expect(el.querySelector('.arrive-building')).toBeNull()
+    draw('preparing'); draw('building')
+    expect(el.querySelector('.arrive-building')).not.toBeNull()
+  } finally { act(() => root.unmount()) }
+})
+
+it.each(Object.keys(deployWords) as DeployStage[])('keeps stage marks factual when %s is stopped or progress pauses', stage => {
+  const el = document.createElement('div')
+  const index = Object.keys(deployWords).indexOf(stage)
+  for (const outcome of ['failed', 'paused'] as const) {
+    el.innerHTML = renderToStaticMarkup(<DeployScene stage={stage} failedStage={stage} outcome={outcome} />)
+    const marks = [...el.querySelectorAll('.deploy-stage-mark')].map(e => e.textContent)
+    expect(marks).toEqual(Object.keys(deployWords).map((_, i) => i < index ? '✓' : i === index && outcome === 'failed' ? '✗' : '·'))
+    expect(el.querySelector('[aria-label="running"]')).toBeNull()
+  }
+})
+
+it('leaves the finished building lit and flagged after the crane and visitor finish their work', () => {
+  const style = document.createElement('style')
+  style.textContent = css.slice(css.indexOf('/* Deploy scenes'), css.indexOf('@keyframes deploy-fade'))
+  document.head.append(style)
+  const el = document.createElement('div'); document.body.append(el)
+  try {
+    el.innerHTML = renderToStaticMarkup(<DeployScene outcome="passed" />)
+    for (const part of ['.blk', '.roof', '.win', '.door', '.pole', '.flag']) expect(getComputedStyle(el.querySelector(part)!).opacity).toBe('1')
+    for (const part of ['.crane', '.visitor', '.spark']) expect(getComputedStyle(el.querySelector(part)!).opacity).toBe('0')
   } finally { el.remove(); style.remove() }
 })

@@ -46,7 +46,7 @@ it('leads with the preview, separates request from report and links every eviden
   const facts = ['The change', 'Preview', 'Open it and try it', 'You asked', 'What was made', 'Checks', 'Reviewer', 'Your decision']
   for (let i = 1; i < facts.length; i++) expect(html.indexOf(facts[i])).toBeGreaterThan(html.indexOf(facts[i - 1]))
   for (const fact of ['#preview', '#checks', '#review', '?tab=changes', 'How it was done']) expect(html).toContain(fact)
-  expect(html).not.toContain('Keep the dinner invitation.')
+  expect(html).toContain('Keep the dinner invitation.')
   expect(html).not.toContain('No review recorded')
 })
 
@@ -219,7 +219,7 @@ it('shows a missing report honestly and uses the request once', () => {
   const el = document.createElement('div'); el.innerHTML = render(v)
   expect(el.querySelector('.ch-request')?.textContent).toContain('Show all the winter ride times.')
   expect(el.textContent).toContain('Reading the conversation…')
-  expect(el.textContent).not.toContain('Keep the dinner invitation.')
+  expect(el.querySelector('.ch-change-card')?.textContent).not.toContain('Keep the dinner invitation.')
   // Once where it can be seen: the hidden decision card is the Decide… screen's source.
   el.querySelectorAll('[hidden]').forEach(n => n.remove())
   expect(el.textContent?.split('Show all the winter ride times.').length).toBe(2)
@@ -231,7 +231,7 @@ it('shows a long request excerpt with a link to the complete request', () => {
   const v = view(); v.change.summary = ''; v.report = ''; v.change.body = 'First line.\nSecond line.\nThird line.\nFourth line.\nLast request line.'
   const el = document.createElement('div'); el.innerHTML = render(v)
   expect(el.textContent).toContain('First line.')
-  expect(el.textContent).not.toContain('Last request line.')
+  expect(el.querySelector('.ch-change-card')?.textContent).not.toContain('Last request line.')
   const link = [...el.querySelectorAll('a')].find(a => a.textContent === 'full request →')!
   expect(link.getAttribute('href')).toBe('/?tab=details#request-text')
 })
@@ -267,12 +267,12 @@ it.each([[true, true], [true, false], [false, true], [false, false]])('states ac
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
   for (let j = 0; j < 3; j++) await act(async () => { for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0)) })
-  expect(el.textContent).toContain(deploys ? 'This puts it live at https://school.example.test for everyone.' : 'This adds it to the app’s main version.')
+  expect(el.textContent).toContain(deploys ? 'school.example.test for everyone' : 'This adds it to the app’s main version.')
   const label = deploys ? 'Accept and put live' : 'Accept'
   expect(el.querySelector('#decision button')).toBeNull()
   expect(el.querySelector<HTMLElement>('#decision')!.hidden).toBe(true)
   await act(async () => el.querySelector<HTMLButtonElement>('.ch-turn-floater button')!.click())
-  expect(el.querySelector('dialog[open]')?.textContent).toContain(deploys ? 'This puts it live at https://school.example.test for everyone.' : 'This adds it to the app’s main version.')
+  expect(el.querySelector('dialog[open]')?.textContent).toContain(deploys ? 'school.example.test for everyone' : 'This adds it to the app’s main version.')
   expect(el.querySelector('dialog[open]')).not.toBeNull()
   expect(el.querySelector('dialog .decision-meaning')!.compareDocumentPosition(el.querySelector('dialog .ch-decision-choices')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(el.querySelector('dialog .decision-meaning')?.textContent).toContain('By accepting, you confirm: “I accept this work in full.”')
@@ -336,8 +336,8 @@ it('uses two named cards and separates the fixed label, value and evidence colum
   const el = document.createElement('div'); el.innerHTML = render(view())
   expect(el.querySelector('.ch-change-card')?.getAttribute('aria-label')).toBe('The change')
   expect([...el.querySelectorAll('.ch-overview > section > h2')].map(e => e.textContent)).toEqual(['Your decision'])
-  expect([...el.querySelectorAll('.ch-row-label')].map(e => e.textContent)).toEqual(['Preview', 'You asked', 'What was made', 'Checks', 'Reviewer'])
-  for (const row of el.querySelectorAll('.ch-overview-line')) {
+  expect([...el.querySelectorAll('.ch-change-card .ch-row-label')].map(e => e.textContent)).toEqual(['Preview', 'You asked', 'What was made', 'Checks', 'Reviewer'])
+  for (const row of el.querySelectorAll('.ch-change-card .ch-overview-line')) {
     expect(row.children).toHaveLength(3)
     expect(row.children[1].classList.contains('ch-value')).toBe(true)
     expect(row.querySelector('.ch-technical')?.closest('.ch-value')).toBe(row.querySelector('.ch-technical') ? row.children[1] : undefined)
@@ -661,7 +661,7 @@ it.each([
   expect(shield.textContent).toBe(text)
   expect(shield.querySelector('a, button')).toBeNull()
   expect(shield.querySelector('svg')).not.toBeNull()
-  const row = [...el.querySelectorAll('.ch-overview-line')].find(e => e.querySelector('.ch-row-label')?.textContent === 'Checks')!
+  const row = [...el.querySelectorAll('.ch-change-card .ch-overview-line')].find(e => e.querySelector('.ch-row-label')?.textContent === 'Checks')!
   expect(row.classList.contains('ch-line-bad')).toBe(tone === 'bad')
 })
 
@@ -681,7 +681,7 @@ it('keeps a called approval on the approval path without parent recovery control
 it('labels an unsummarized agent report and excludes verification claims while keeping identifiers', () => {
   const v = view(); v.change.summary = ''; v.report = 'Set WP_HOME for HTTPS.\nVerified with curl.\nKept WP_SITEURL unchanged.'
   const el = document.createElement('div'); el.innerHTML = render(v)
-  const row = [...el.querySelectorAll('.ch-overview-line')].find(r => r.querySelector('.ch-row-label')?.textContent === 'The agent says')!
+  const row = [...el.querySelectorAll('.ch-change-card .ch-overview-line')].find(r => r.querySelector('.ch-row-label')?.textContent === 'The agent says')!
   expect(row.textContent).toContain('WP_HOME')
   expect(row.textContent).toContain('WP_SITEURL')
   expect(row.textContent).not.toContain('Verified with')
@@ -796,7 +796,7 @@ it.each(['empty', 'failed'])('shows the original ask when the approval brief is 
   try {
     await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
     await act(async () => { for (let i = 0; i < 12; i++) await new Promise(r => setTimeout(r, 0)) })
-    expect(el.querySelector('#decision')?.textContent).toContain(`You asked: ${(v.change.body || v.change.title).split('\n')[0]}`)
+    expect(el.querySelector('#decision')?.textContent).toContain(`You asked${v.change.body || v.change.title}`)
   } finally {
     await act(async () => root.unmount()); client.clear()
   }
@@ -840,5 +840,75 @@ it.each(['pass', 'fail'] as const)('puts an unheld %s landing result above the c
   expect(result!.compareDocumentPosition(el.querySelector('.ch-change-card')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(result!.querySelector('.celebrate')).toBeNull()
   expect(el.querySelectorAll('.ch-deploy-result')).toHaveLength(1)
-  for (const text of status === 'pass' ? ['Release 7 is live', 'https://club.example.test', 'Landing took 72s', 'Open the app'] : ['Stopped while starting the app', 'The app container exited during startup.']) expect(result!.textContent).toContain(text)
+  for (const text of status === 'pass' ? ['Release 7 is live', 'club.example.test', 'Landing took 72s', 'Open the app'] : ['Stopped while starting the app', 'The app container exited during startup.']) expect(result!.textContent).toContain(text)
+})
+
+it('locks the page while a decision is open and restores styles on close and unmount', () => {
+  document.documentElement.style.overflow = 'auto'
+  const el = document.createElement('div'), root = createRoot(el)
+  try {
+    act(() => root.render(<div className="ch-page"><TurnDecision active actions={[]}><p>Decision</p></TurnDecision></div>))
+    act(() => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
+    expect(document.documentElement.style.overflow).toBe('hidden')
+    expect(document.body.style.position).toBe('fixed')
+    expect(document.body.style.top).toBe('0px')
+    act(() => el.querySelector<HTMLDialogElement>('dialog')!.close())
+    expect(document.documentElement.style.overflow).toBe('auto')
+    expect(document.body.style.position).toBe('')
+    act(() => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
+  } finally { act(() => root.unmount()) }
+  expect(document.documentElement.style.overflow).toBe('auto')
+  expect(document.body.style.position).toBe('')
+  document.documentElement.style.overflow = ''
+})
+
+it('keeps only deployment facts in the running dialog and retains Details access', async () => {
+  const v = landingResult('pass')
+  const liveStep = v.detail!.steps[0]
+  liveStep.status = 'running'
+  v.detail!.run.status = 'running'
+  v.waitingOn = { ...v.waitingOn, kind: 'work', you: 'no' }
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).includes('/live')
+    ? { running: true, stage: 'building', lines: ['Building the release image'], elapsedMs: 8000, total: 1 } : []))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  const draw = (value: ChangeView) => act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={value} current steps={value.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
+  try {
+    await draw(view())
+    await act(async () => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
+    await draw(v)
+    await vi.waitFor(async () => { await act(async () => {}); expect(el.querySelector('dialog')?.textContent).toContain('Building the release image') })
+    const dialog = el.querySelector('dialog')!
+    expect(dialog.querySelector('.ch-deploy-heading')?.textContent).toBe('Deploying release 78s')
+    expect(dialog.querySelector('.ch-now-steps')).toBeNull()
+    expect(dialog.textContent).not.toMatch(/step 1 of|Started|pending|Release created/)
+    expect(dialog.querySelector('a[href$="tab=details"]')?.textContent).toBe('Details →')
+    expect(dialog.querySelectorAll('.deploy-stages li')).toHaveLength(5)
+    liveStep.status = 'pass'
+    v.waitingOn = { ...v.waitingOn, kind: 'closed' }
+    await draw({ ...v })
+    expect(dialog.querySelector('.ch-deploy-result h3')?.textContent).toBe('Release 7 is live')
+    expect(dialog.querySelector('.celebrate')).not.toBeNull()
+  } finally { await act(async () => root.unmount()); client.clear() }
+})
+
+it('labels every approval fact, omits the internal step and keeps its meaning and actions', async () => {
+  const v = view()
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/brief') ? { brief: 'Adds the November newsletter.' }
+    : String(url).endsWith('/deployments') ? [{ feed: 'landing', url: 'https://club.example.test' }]
+    : String(url).endsWith('/question') ? { adds: { rows: ['secrets', 'services', 'app parts'].map(name => ({ name, added: [], removed: [] })), digest: 'current' } } : []))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
+    await vi.waitFor(async () => { await act(async () => {}); expect(el.textContent).toContain('Adds the November newsletter.') })
+    await act(async () => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
+    const dialog = el.querySelector('dialog')!
+    expect([...dialog.querySelectorAll('.ch-row-label')].map(row => row.textContent)).toEqual(['You asked', 'What it does', 'Checks', 'Goes live', 'Who decides'])
+    expect(dialog.querySelector('.ch-accept-rows')?.textContent).toContain(v.change.body)
+    expect(dialog.textContent).toContain('club.example.test for everyone')
+    expect(dialog.textContent).toContain('You or another approver')
+    expect(dialog.textContent).not.toContain('· accept')
+    expect(dialog.textContent).toContain('By accepting, you confirm: “I accept this work in full.”')
+    expect([...dialog.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept and put live', 'Send back…', 'Abandon change'])
+    expect(dialog.querySelector('a[href$="tab=conversation"]')).not.toBeNull()
+  } finally { await act(async () => root.unmount()); client.clear() }
 })
