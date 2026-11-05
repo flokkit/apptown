@@ -226,6 +226,13 @@ needs a guard instead, as the ADR editor has.
 
 ## Reading at a glance
 
+Home labels its status counts above their values: Waiting on you, Other work,
+Apps live, Apps not checked, Problems and Couldn't check. Each links to the list
+it counts. Apps count projects once, with a current running deployment taking
+precedence over stale or unknown deployments. Zero counts are omitted except
+Apps live when deployments exist. Unread waiting counts say “couldn't read”.
+All quiet replaces the strip only when its counts are empty and all reads are known.
+
 Home and Projects share app rows: identity and optional one-line purpose, state
 and age when stale, then Open app for running production. Fresh observations omit
 the age line; unreachable, unchecked and undeployed rows retain their context. Phones keep the name and state

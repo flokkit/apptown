@@ -3,7 +3,11 @@
 .dash-head { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .dash-head > div { flex: 1; min-width: min(320px, 100%); }
 .dash-head h1 { margin-bottom: 4px; }
-.dash-lead { margin: 0 0 14px; font-size: var(--fs-sm); border-block: 1px solid var(--border); padding: 8px 0; max-width: none; width: 100%; }
+.dash-lead { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-5); margin: 0 0 var(--space-4); border-block: 1px solid var(--border); padding: var(--space-2) 0; }
+.home-stat { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; overflow-wrap: anywhere; }
+.home-stat .muted { font-size: var(--fs-xs); }
+#waiting-on-you, #other-work { scroll-margin-top: calc(var(--topbar-h) + var(--space-3)); }
+.home-stat-value { font-size: var(--fs-lg); font-variant-numeric: tabular-nums; }
 .dash-start { max-width: 640px; }
 .dash-start p { margin: 0 0 12px; }
 .home-finished { display: flex; flex-direction: column; gap: 4px; color: inherit; overflow-wrap: anywhere; }

@@ -1,6 +1,6 @@
 import './Dashboard.css'
 import { Status } from '../Status'
-import { useAttention, attentionState, attentionSummary, useOperator } from '../attention'
+import { useAttention, attentionState, useOperator } from '../attention'
 import { PRODUCT } from '../brand'
 import { RuntimeObservation } from '../runtime'
 import { ProjectListRow } from '../ProjectListRow'
@@ -89,31 +89,30 @@ function SetupCard() {
   )
 }
 
-// The sentence at the top of the home page: what needs you, what is
-// running, how many apps are live. It counts only what was read: an
-// unread or unreadable count is left out or said to be unknown, never
-// shown as 0, and "All quiet" needs both needs-you and running to be read
-// and empty.
+// Counts describe only what was read. Unknown never becomes zero.
 type HomeStatusInput = {
   needsYou: number | null; running: number; deployments: Activity['deployments']; operations: { count: number | null; known: boolean; unknown?: number }
 }
+type HomeStatusPart = { label: string; value: number | string; to: string }
 
-export function homeStatus(input: HomeStatusInput): string {
-  const s = homeStatusParts(input).map(p => p.text).join(' · ')
-  return s.charAt(0).toUpperCase() + s.slice(1)
+export function HomeStatus(input: HomeStatusInput) {
+  const parts = homeStatusParts(input)
+  const quiet = parts.length === 0 && input.needsYou === 0 && input.running === 0 && input.operations.known && input.operations.count === 0
+  return <div className="dash-lead">
+    {quiet ? 'All quiet' : parts.map(p => {
+      const content = <><span className="muted">{p.label}</span><span className="home-stat-value">{p.value}</span></>
+      return p.to.startsWith('#')
+        ? <a className="home-stat" key={p.label} href={p.to}>{content}</a>
+        : <Link className="home-stat" key={p.label} to={p.to}>{content}</Link>
+    })}
+  </div>
 }
 
-// homeStatusParts is the sentence in parts, each with where it is shown in
-// full: what waits on you and other change work are the sections below, the
-// conditions to fix are Attention, and running apps are the Apps list. A
-// part links only to a page that lists exactly what it counts.
-export function homeStatusParts({ needsYou, running, deployments, operations }: HomeStatusInput): { text: string; to?: string }[] {
-  const parts: { text: string; to?: string }[] = []
-  if (needsYou === null) parts.push({ text: 'could not read what is waiting on you' })
-  else if (needsYou > 0) parts.push({ text: `${needsYou} waiting on you` })
-  if (running > 0) parts.push({ text: `${running} other work item${running === 1 ? '' : 's'}` })
-  if (operations.count || operations.unknown) parts.push({ text: attentionSummary(operations.count, operations.unknown ?? 0), to: '/attention' })
-  if (needsYou === 0 && running === 0 && operations.known && operations.count === 0) parts.unshift({ text: 'All quiet' })
+// Each count links to the list of exactly what it counts.
+export function homeStatusParts({ needsYou, running, deployments, operations }: HomeStatusInput): HomeStatusPart[] {
+  const parts: HomeStatusPart[] = []
+  if (needsYou === null || needsYou > 0) parts.push({ label: 'Waiting on you', value: needsYou ?? "couldn't read", to: '#waiting-on-you' })
+  if (running > 0) parts.push({ label: 'Other work', value: running, to: '#other-work' })
   // An app is live when one of its deployments was seen running on the
   // latest check. One whose status is not current (stale or unknown) and
   // has no live deployment is counted apart, so unknown never reads as down.
@@ -124,9 +123,10 @@ export function homeStatusParts({ needsYou, running, deployments, operations }: 
   for (const d of deployments) {
     if (!live.has(d.project) && (d.observationStale || d.running === null)) unknown.add(d.project)
   }
-  // The projects that are running, in the list's own word: projects.
-  if (live.size > 0) parts.push({ text: `${live.size} running`, to: '/deployments/table' })
-  if (unknown.size > 0) parts.push({ text: `${unknown.size} running status unknown`, to: '/deployments/table' })
+  if (deployments.length > 0) parts.push({ label: 'Apps live', value: live.size, to: '/deployments/table' })
+  if (unknown.size > 0) parts.push({ label: 'Apps not checked', value: unknown.size, to: '/deployments/table' })
+  if (operations.count) parts.push({ label: 'Problems', value: operations.count, to: '/attention' })
+  if (operations.unknown) parts.push({ label: "Couldn't check", value: operations.unknown, to: '/attention' })
   return parts
 }
 
@@ -154,18 +154,18 @@ export default function Dashboard() {
   const waiting = act?.waitingOnYou ?? []
   const needsYouCount = waiting.length + ended.length
 
-  // The page leads with one sentence about the situation, then only the
+  // The page leads with labelled counts, then only the
   // sections that have something in them. With no projects yet it says
   // what a project here is for and offers to make one.
   const noProjects = projects !== null && listed.length === 0
   // Conditions only people who can fix them are told about; for everyone
-  // else they are not part of Home's sentence.
-  const status = homeStatusParts({
+  // else they are not part of Home's counts.
+  const status = {
     operations: operator ? attentionState(operationsQ) : { count: 0, known: true, unknown: 0 },
     needsYou: act && dash ? needsYouCount : null,
     running: happening.length,
     deployments: act?.deployments ?? [],
-  })
+  }
   return (
     <div>
       <SetupCard />
@@ -177,10 +177,7 @@ export default function Dashboard() {
         {!noProjects && <Link to="/projects/_new"><button className="primary">+ New project</button></Link>}
       </div>
 
-      {!noProjects && act && projects !== null && (dash || dashErr) && <div className="dash-lead">{status.map((p, i) => {
-        const text = i === 0 ? p.text.charAt(0).toUpperCase() + p.text.slice(1) : p.text
-        return <span key={p.text}>{i > 0 && ' · '}{p.to ? <Link to={p.to}>{text} →</Link> : text}</span>
-      })}</div>}
+      {!noProjects && act && projects !== null && (dash || dashErr) && <HomeStatus {...status} />}
       {operator && <><ReadStatus q={operationsQ} what="hosts" /><StaleNote q={operationsQ} /></>}
 
       {noProjects && (
@@ -192,10 +189,10 @@ export default function Dashboard() {
 
       {!act && <ReadStatus q={actQ} what="activity" />}
       {!dash && <ReadStatus q={dashQ} what="what is waiting on you" />}
-      {(waiting.length > 0 || ended.length > 0) && <Section title={ended.length > 0 ? "Waiting on you" : "Changes waiting on you"} label="Waiting on you" count={needsYouCount}>
+      <div id="waiting-on-you">{(waiting.length > 0 || ended.length > 0) && <Section title={ended.length > 0 ? "Waiting on you" : "Changes waiting on you"} label="Waiting on you" count={needsYouCount}>
         {ended.map((op) => <EndedOperation key={op.id} op={op} />)}
         <ActiveRunList runs={waiting} showProject names={projectNames} />
-      </Section>}
+      </Section>}</div>
       {!noProjects && <Section title="Recent projects"
         action={<Link to="/projects">All projects{projectsQ.data ? ` (${projectsQ.data.total})` : ''} →</Link>}>
         {!projects && <ReadStatus q={projectsQ} what="the projects" />}
@@ -205,9 +202,9 @@ export default function Dashboard() {
       </Section>}
 
       {!noProjects && <>
-      {happening.length > 0 && <Section title="Other work" count={happening.length}>
+      <div id="other-work">{happening.length > 0 && <Section title="Other work" count={happening.length}>
         <ActiveRunList runs={happening} showProject names={projectNames} />
-      </Section>}
+      </Section>}</div>
 
       {/* Number and title, project and when: every row here landed, so a
           status chip would say nothing. */}

@@ -166,10 +166,10 @@ describe('Attention surfaces share authorized current evidence', () => {
     })
     const v = mount(<><AttentionLights /><Dashboard /></>, '/'); await settled(v.client)
     const lead = v.el.querySelector('.dash-lead')?.textContent
-    expect(lead).toBe('1 not known → · 1 running →')
+    expect(lead).toBe("Apps live1Couldn't check1")
     // Each part links to the page that lists exactly what it counts.
-    expect(v.el.querySelector('.dash-lead a[href="/attention"]')?.textContent).toBe('1 not known →')
-    expect(v.el.querySelector('.dash-lead a[href="/deployments/table"]')?.textContent).toBe('1 running →')
+    expect(v.el.querySelector('.dash-lead a[href="/attention"]')?.textContent).toBe("Couldn't check1")
+    expect(v.el.querySelector('.dash-lead a[href="/deployments/table"]')?.textContent).toBe('Apps live1')
     expect(v.el.textContent).not.toContain('All quiet')
     // A check that could not run lights nothing in the top bar.
     expect(badge(v.el)).toBeNull()
@@ -184,6 +184,11 @@ describe('Attention surfaces share authorized current evidence', () => {
     const v = mount(<Dashboard />, '/'); await settled(v.client)
     const personal = v.el.querySelector('section[aria-label="Waiting on you"]')!
     expect(personal.querySelector('.section-count')?.textContent).toBe('1')
+    const workLinks = [...v.el.querySelectorAll('.dash-lead a')]
+    expect(workLinks.slice(0, 2).map(a => [a.children[0]?.textContent, a.children[1]?.textContent, a.getAttribute('href')])).toEqual([
+      ['Waiting on you', '1', '#waiting-on-you'], ['Other work', '2', '#other-work'],
+    ])
+    for (const a of workLinks.slice(0, 2)) expect(v.el.querySelector(a.getAttribute('href')!)?.querySelector('section')).not.toBeNull()
     expect(personal.textContent).toContain('My check')
     expect(personal.textContent).toContain('review failed')
     expect(personal.textContent).not.toContain('Another')
@@ -316,8 +321,11 @@ it('counts the rows shown consistently in the header, Attention and Home', async
  expect(badge(v.el).getAttribute('aria-label')).toBe('2 to fix')
  expect(v.el.querySelectorAll('article')).toHaveLength(3)
  expect(v.el.textContent).not.toContain('host issues')
- // Attention's own summary and Home's sentence agree; the top bar shows lights, not words.
- expect(v.el.textContent?.match(/2 to fix · 1 not known/g)?.length).toBeGreaterThanOrEqual(2)
+ // Home keeps the same row counts as Attention's summary.
+ expect(v.el.textContent).toContain('2 to fix · 1 not known')
+ expect([...v.el.querySelectorAll('.dash-lead a[href="/attention"]')].map(a => [a.children[0]?.textContent, a.children[1]?.textContent])).toEqual([
+   ['Problems', '2'], ["Couldn't check", '1'],
+ ])
  expect(v.el.querySelector('article small')?.textContent).toContain('checked ')
 })
 
