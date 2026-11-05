@@ -1,8 +1,11 @@
 package apptown
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"mime/multipart"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -58,7 +61,7 @@ func TestConsoleRoutesIsolateProjectMessagesAndAttachments(t *testing.T) {
 	}
 	h := a.Handler()
 	base := "/api/v1/console/" + session.ID
-	w := authzCall(h, "owner", "POST", base+"/upload", `{"data":"data:image/png;base64,cHJpdmF0ZSBhdHRhY2htZW50"}`)
+	w := consoleUploadCall(t, h, "owner", base+"/upload", "private.txt", []byte("private attachment"))
 	var uploaded struct{ Name string }
 	if err := json.Unmarshal(w.Body.Bytes(), &uploaded); err != nil || w.Code != 200 || uploaded.Name == "" {
 		t.Fatalf("owner upload: %d %s (%v)", w.Code, w.Body.String(), err)
@@ -68,7 +71,7 @@ func TestConsoleRoutesIsolateProjectMessagesAndAttachments(t *testing.T) {
 		{"GET", "/uploads/" + uploaded.Name, ""},
 		{"POST", "/say", `{"text":"unauthorized message"}`},
 		{"POST", "/interrupt", `{}`},
-		{"POST", "/upload", `{"data":"data:image/png;base64,cHVibGlj"}`},
+		{"POST", "/upload", `{}`},
 	} {
 		t.Run(tc.method+tc.path, func(t *testing.T) {
 			// outsider belongs to project 2, not this session's project 1.
@@ -118,4 +121,26 @@ func sessionMessages(t *testing.T, sessions *console.Service, session *console.S
 		}
 	}
 	return nil
+}
+
+func consoleUploadCall(t *testing.T, h http.Handler, who, path, name string, body []byte) *httptest.ResponseRecorder {
+	t.Helper()
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	part, err := writer.CreateFormFile("file", name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write(body); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest("POST", path, &buf)
+	r.Header.Set("X-AppTown-Actor", who)
+	r.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	return w
 }

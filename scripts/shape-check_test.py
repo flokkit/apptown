@@ -532,6 +532,13 @@ class RequestBoundariesTest(unittest.TestCase):
         result = self.check('package httpapi; import "net/http"; func f(r *http.Request) { consume(r.Body) }')
         self.assertEqual(len(result["jsondecode"]), 1)
 
+    def test_multipart_adapter_owns_request_body_reads(self):
+        source = 'package httpapi; import "net/http"; func multipartFileCommand(r *http.Request) { consume(r.Body) }'
+        self.assertEqual(self.check(source, "multipart_command.go")["jsondecode"], [])
+        self.assertEqual(len(self.check(source)["jsondecode"]), 1)
+        source = source.replace("func multipartFileCommand", "func handler")
+        self.assertEqual(len(self.check(source, "multipart_command.go")["jsondecode"]), 1)
+
     def test_report_body_is_not_a_request(self):
         result = self.check('package httpapi; type Report struct { Body string }; func f(r Report) { consume(r.Body) }')
         self.assertEqual(result["jsondecode"], [])

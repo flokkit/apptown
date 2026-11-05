@@ -1,11 +1,13 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -138,42 +140,153 @@ func TestConsoleMessageHTTPRejectsEndedAndUnknownSessions(t *testing.T) {
 	}
 }
 
-func TestConsoleUploadHTTPValidatesAndServesUntrustedBytes(t *testing.T) {
+// Refused uploads must not attempt to consume a multipart request body.
+func TestConsoleUploadChecksAuthorityBeforeReadingBody(t *testing.T) {
 	t.Parallel()
 	_, _, session, h := consoleHTTPFixture(t, nil)
+	for _, otherChat := range []bool{false, true} {
+		t.Run(fmt.Sprint(otherChat), func(t *testing.T) {
+			h.chats.Authority = viewingOnlyAuthority{}
+			r := httptest.NewRequest("POST", "/", nil)
+			r.SetPathValue("sid", session.ID)
+			r.Header.Set("Content-Type", "multipart/form-data; boundary=test")
+			body := &unreadUploadBody{}
+			r.Body = body
+			want := "Viewing only: attaching a file to this chat needs the Project contributor role."
+			if otherChat {
+				r = r.WithContext(access.WithCaller(r.Context(), access.Caller{Principal: access.Principal{Kind: "instrument", Instrument: "console", ConsoleID: "another-chat"}}))
+				want = "a chat may only act on its own session"
+			}
+			w := httptest.NewRecorder()
+			h.ConsoleUpload(w, r)
+			if w.Code != 403 || !strings.Contains(w.Body.String(), want) || body.read {
+				t.Fatalf("authority before body: %d %s; body read: %v", w.Code, w.Body.String(), body.read)
+			}
+		})
+	}
+}
+
+type viewingOnlyAuthority struct{}
+
+func (viewingOnlyAuthority) Require(context.Context, access.Permission) (access.Caller, error) {
+	return access.Caller{}, &access.Denied{Code: access.DenyMissingCapability}
+}
+
+type unreadUploadBody struct{ read bool }
+
+func (b *unreadUploadBody) Read([]byte) (int, error) {
+	b.read = true
+	return 0, io.EOF
+}
+func (*unreadUploadBody) Close() error { return nil }
+
+// Uploads retain bytes and safe names, reach the agent by a path outside its
+// repository, and remain downloadable from history with untrusted-file headers.
+func TestConsoleUploadHTTPValidatesAndServesUntrustedBytes(t *testing.T) {
+	t.Parallel()
+	sessions, _, session, h := consoleHTTPFixture(t, nil)
 	for _, tc := range []struct {
-		body   string
-		status int
+		name, content string
+		picture       bool
 	}{
-		{`{"data":`, 400},
-		{`{"data":"data:text/html;base64,SGk="}`, 422},
-		{`{"data":"data:image/png;base64,not base64"}`, 400},
+		{"../reports/customers.csv", "name,total\nsam,42\n", false},
+		{`C:\reports\plan.pdf`, "%PDF-1.7\nexample", false},
+		{"cat.png", "\x89PNG\r\n\x1a\n", true},
+		{"page.png", "<!doctype html><script>alert(1)</script>", false},
 	} {
-		w := consoleHTTPRequest(h.ConsoleUpload, session.ID, "POST", "/", tc.body)
-		if w.Code != tc.status {
-			t.Fatalf("bad upload: %d %s", w.Code, w.Body.String())
+		w := uploadFile(t, h, session.ID, tc.name, []byte(tc.content))
+		var att console.Attachment
+		if err := json.Unmarshal(w.Body.Bytes(), &att); err != nil || w.Code != 200 {
+			t.Fatalf("upload: %d %s (%v)", w.Code, w.Body.String(), err)
+		}
+		if !console.ValidAttachmentName(att.Name) || strings.ContainsAny(att.Name, `/\`) || att.Size != int64(len(tc.content)) || att.Picture != tc.picture {
+			t.Fatalf("file facts: %+v", att)
+		}
+		stored, err := os.ReadFile(filepath.Join(session.Dir, "uploads", att.Name))
+		if err != nil || string(stored) != tc.content {
+			t.Fatalf("stored bytes: %q %v", stored, err)
+		}
+		w = consoleHTTPRequest(h.ConsoleSay, session.ID, "POST", "/", fmt.Sprintf(`{"attachments":[%q]}`, att.Name))
+		if w.Code != 200 {
+			t.Fatalf("say: %d %s", w.Code, w.Body.String())
+		}
+		messages := sessionMessages(t, sessions, session)
+		want := fmt.Sprintf("bls attached %s (%d bytes): %s", att.Name, att.Size, att.Path)
+		if !strings.Contains(messages[len(messages)-1].Text, want) {
+			t.Fatalf("agent never received %q: %+v", want, messages)
+		}
+		if tc.picture && !strings.Contains(messages[len(messages)-1].Text, "I pasted a picture — look at "+att.Path) {
+			t.Fatal("picture instruction lost")
+		}
+		r := httptest.NewRequest("GET", "/", nil)
+		r.SetPathValue("sid", session.ID)
+		r.SetPathValue("name", att.Name)
+		w = httptest.NewRecorder()
+		h.ConsoleUploadGet(w, r)
+		disposition := "attachment;"
+		if tc.picture {
+			disposition = "inline;"
+		}
+		if w.Code != 200 || w.Body.String() != tc.content || !strings.HasPrefix(w.Header().Get("Content-Disposition"), disposition) || w.Header().Get("X-Content-Type-Options") != "nosniff" || !strings.Contains(w.Header().Get("Content-Security-Policy"), "sandbox") || w.Header().Get("Cache-Control") != "private, no-store" {
+			t.Fatalf("unsafe download: %d %v", w.Code, w.Header())
+		}
+		path, err := sessions.RecordedAttachment(session.Scope, session.ID, att.Name)
+		if err != nil || path != filepath.Join(session.Dir, "uploads", att.Name) {
+			t.Fatalf("history cannot serve file: %s %v", path, err)
 		}
 	}
-	files, err := os.ReadDir(filepath.Join(session.Dir, "uploads"))
-	if err != nil || len(files) != 0 {
-		t.Fatalf("invalid upload wrote files: %v %v", files, err)
+	first := uploadFile(t, h, session.ID, "customers.csv", []byte("other"))
+	if !strings.Contains(first.Body.String(), "customers-2.csv") {
+		t.Fatalf("file replaced instead of kept unique: %s", first.Body.String())
 	}
-	// The caller's image label must not turn active content into an inline page.
-	content := "<!doctype html><script>alert('upload')</script>"
-	body := `{"data":"data:image/png;base64,` + base64.StdEncoding.EncodeToString([]byte(content)) + `"}`
-	w := consoleHTTPRequest(h.ConsoleUpload, session.ID, "POST", "/", body)
-	var upload struct{ Name, Path string }
-	if err := json.Unmarshal(w.Body.Bytes(), &upload); err != nil || w.Code != 200 || upload.Name == "" || upload.Path == "" {
-		t.Fatalf("upload: %d %s (%v)", w.Code, w.Body.String(), err)
+	for _, tc := range []struct {
+		body   []byte
+		status int
+		reason string
+	}{
+		{nil, 400, "empty"},
+		{bytes.Repeat([]byte("x"), 26<<20), 413, "25 MB is the cap"},
+	} {
+		w := uploadFile(t, h, session.ID, "file.bin", tc.body)
+		if w.Code != tc.status || !strings.Contains(w.Body.String(), tc.reason) {
+			t.Fatalf("refusal: %d %s", w.Code, w.Body.String())
+		}
 	}
-	r := httptest.NewRequest("GET", "/", nil)
-	r.SetPathValue("sid", session.ID)
-	r.SetPathValue("name", upload.Name)
-	w = httptest.NewRecorder()
-	h.ConsoleUploadGet(w, r)
-	if w.Code != 200 || w.Body.String() != content || w.Header().Get("Content-Type") != "application/octet-stream" || !strings.HasPrefix(w.Header().Get("Content-Disposition"), "attachment;") || w.Header().Get("X-Content-Type-Options") != "nosniff" {
-		t.Fatalf("untrusted upload served unsafely: %d %v %s", w.Code, w.Header(), w.Body.String())
+	names := make([]string, 11)
+	for i := range names {
+		names[i] = "customers.csv"
 	}
+	raw, _ := json.Marshal(map[string]any{"attachments": names})
+	w := consoleHTTPRequest(h.ConsoleSay, session.ID, "POST", "/", string(raw))
+	if w.Code != 400 || !strings.Contains(w.Body.String(), "cap is 10") {
+		t.Fatalf("message cap: %d %s", w.Code, w.Body.String())
+	}
+	if _, err := sessions.End(t.Context(), session.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sessions.RecordedAttachment(session.Scope, session.ID, "customers.csv"); err != nil {
+		t.Fatalf("ended history lost file: %v", err)
+	}
+}
+
+func uploadFile(t *testing.T, h ConsoleMessages, sid, name string, body []byte) *httptest.ResponseRecorder {
+	t.Helper()
+	var buf bytes.Buffer
+	multipartBody := multipart.NewWriter(&buf)
+	part, err := multipartBody.CreateFormFile("file", name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write(body); err != nil {
+		t.Fatal(err)
+	}
+	multipartBody.Close()
+	r := httptest.NewRequest("POST", "/", &buf)
+	r.Header.Set("Content-Type", multipartBody.FormDataContentType())
+	r.SetPathValue("sid", sid)
+	w := httptest.NewRecorder()
+	h.ConsoleUpload(w, r)
+	return w
 }
 
 // A chat's view masks known secret values; the record the agent writes, which

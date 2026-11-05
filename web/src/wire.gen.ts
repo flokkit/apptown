@@ -297,6 +297,13 @@ export type ChatHistoryView = {
   unreadableFolders?: string[]
 }
 
+export type ChatUpload = {
+  name: string
+  path: string
+  size: number
+  picture: boolean
+}
+
 export type CloudAccountCheck = {
   ok: boolean
   detail: string
@@ -1171,11 +1178,6 @@ export type PartLog = {
   maxLines: number
   maxBytes: number
   readAt: string
-}
-
-export type PastedPicture = {
-  name: string
-  path: string
 }
 
 export type PolicyLibraryList = {

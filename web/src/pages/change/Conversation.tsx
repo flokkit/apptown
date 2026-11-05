@@ -65,8 +65,8 @@ export function chatByline(se: ChatHistoryEntry): string {
 // A chat's opening words, for a list of chats.
 export function chatOpening(se: ChatHistoryEntry): string {
   const first = se.messages.find((m) => m.role === 'you' && m.text)?.text ?? se.messages[0]?.text ?? ''
-  const { display, names } = pastedPictures(first)
-  const line = display.split('\n')[0] || (names.length > 0 ? '(a pasted picture)' : '')
+  const { display, names, files } = pastedPictures(first)
+  const line = display.split('\n')[0] || (files[0]?.name ?? (names.length > 0 ? '(a pasted picture)' : ''))
   return line.length > 90 ? line.slice(0, 89) + '…' : line || '(no words)'
 }
 
@@ -131,10 +131,11 @@ export function PastChats({ slug, section = false }: { slug: string; section?: b
 }
 
 function YourWords({ text, pictures }: { text: string; pictures: string }) {
-  const { display, names } = pastedPictures(text)
+  const { display, names, files } = pastedPictures(text)
   return (
     <div>
       {display && <div className="conversation-conversation-log-bubble-you">{display}</div>}
+      {files.map((f) => <div key={f.name}><a href={pictures + f.name} download>{f.name}</a> ({f.size} bytes)</div>)}
       {names.map((n) => (
         <a key={n} href={pictures + n} target="_blank" rel="noreferrer" title="open the picture full size">
           <img src={pictures + n} alt="pasted picture" loading="lazy"

@@ -154,7 +154,7 @@ func TestAViewerLooksAtAnotherPersonsChatAndCannotActOnIt(t *testing.T) {
 	vicAgent := tokenFor(t, w.a, "vic-agent", "vic", "member", access.TokenAgent)
 	acts := []struct{ method, path, body, what string }{
 		{"POST", "/say", `{"text":"the viewer's words"}`, "saying something to"},
-		{"POST", "/upload", `{"data":"data:image/png;base64,cHVibGlj"}`, "pasting a picture into"},
+		{"POST", "/upload", `{}`, "attaching a file to"},
 		{"POST", "/interrupt", `{}`, "stopping"},
 		{"DELETE", "", ``, "ending"},
 	}
@@ -189,7 +189,7 @@ func TestAViewerLooksAtAnotherPersonsChatAndCannotActOnIt(t *testing.T) {
 		t.Fatalf("a viewer pasted into the chat: %v", files)
 	}
 	// The chat's owner layer refuses whichever door asks.
-	if _, err := chatsFor(w.a).Say(asPerson("vic"), s, "through no route"); notRefused(err) {
+	if _, err := chatsFor(w.a).SayWithAttachments(asPerson("vic"), s, "through no route", nil); notRefused(err) {
 		t.Fatalf("conversation.Chats let a viewer say: %v", err)
 	}
 	if err := w.a.changeConsole.EndBy(asPerson("vic"), w.chat); notRefused(err) {

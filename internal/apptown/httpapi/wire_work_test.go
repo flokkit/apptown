@@ -7,6 +7,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
+	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/wiregen"
 )
 
@@ -57,7 +58,7 @@ func init() {
 		wiregen.Named{Name: "ConsoleSessionList", Value: ConsoleSessionList{}},
 		wiregen.Named{Name: "ConsoleOpened", Value: ConsoleOpened{}},
 		wiregen.Named{Name: "ConsoleMessagePage", Value: ConsoleMessagePage{}},
-		wiregen.Named{Name: "PastedPicture", Value: PastedPicture{}},
+		wiregen.Named{Name: "ChatUpload", Value: console.Attachment{}},
 		wiregen.Named{Name: "ChatHistoryView", Value: ChatHistoryView{}},
 		wiregen.Named{Name: "ConsoleChangeList", Value: ConsoleChangeList{}},
 		wiregen.Named{Name: "LandingStarted", Value: LandingStarted{}},

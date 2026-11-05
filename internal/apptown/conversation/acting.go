@@ -101,11 +101,15 @@ func (c Chats) record(ctx context.Context, actor string, s *console.Session, kin
 	audit.At(clock.Or(c.Now)()).BestEffort(ctx, c.DB, actor, Of(s).ProjectID, kind, s.ID, out)
 }
 
-// Say types words into the chat.
-func (c Chats) Say(ctx context.Context, s *console.Session, text string) (string, error) {
+// SayWithAttachments delivers words and files resolved within this chat.
+func (c Chats) SayWithAttachments(ctx context.Context, s *console.Session, text string, names []string) (string, error) {
 	actor, err := c.Act(ctx, s, "saying something to")
 	if err != nil {
 		return "", err
+	}
+	text, err = c.Sessions.AttachmentMessage(ctx, s.ID, actor, text, names)
+	if err != nil {
+		return actor, err
 	}
 	if err := c.Sessions.Send(ctx, s.ID, text); err != nil {
 		return actor, err
@@ -127,9 +131,9 @@ func (c Chats) Interrupt(ctx context.Context, s *console.Session) error {
 	return nil
 }
 
-// Upload pastes a picture into the chat.
+// Upload stores a file beside the chat.
 func (c Chats) Upload(ctx context.Context, s *console.Session, f console.File) (console.Attachment, error) {
-	actor, err := c.Act(ctx, s, "pasting a picture into")
+	actor, err := c.Act(ctx, s, "attaching a file to")
 	if err != nil {
 		return console.Attachment{}, err
 	}

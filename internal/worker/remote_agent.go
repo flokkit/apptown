@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -157,6 +159,26 @@ func (a *RemoteAgent) Start(ctx context.Context, in console.Launch) error {
 	if hex.EncodeToString(raw[:]) != st.FilesDigest {
 		if _, err := a.Sessions.putFiles(ctx, in.ID, bytes.NewReader(files)); err != nil {
 			return err
+		}
+	}
+	// Uploads travel one file at a time, independently of the settings tar's
+	// aggregate cap. Start is called before every delivery, including a warm chat.
+	entries, err := os.ReadDir(filepath.Join(in.Dir, "uploads"))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	for _, entry := range entries {
+		if !console.ValidAttachmentName(entry.Name()) || !entry.Type().IsRegular() {
+			return fmt.Errorf("invalid chat upload %q", entry.Name())
+		}
+		f, err := os.Open(filepath.Join(in.Dir, "uploads", entry.Name()))
+		if err != nil {
+			return err
+		}
+		err = a.Sessions.send(ctx, http.MethodPut, sessionPath(in.ID, "/uploads/"+url.PathEscape(entry.Name())), f, nil)
+		f.Close()
+		if err != nil {
+			return fmt.Errorf("sending the chat's file: %w", err)
 		}
 	}
 	if st.Source == "" && a.Source != nil {
