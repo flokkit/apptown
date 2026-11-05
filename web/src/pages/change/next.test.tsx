@@ -13,7 +13,7 @@ import { changeChip, nextStep } from './next'
 it.each([
   ['check', 'review failed', 'bad', 'fail'],
   ['approval', 'waiting for you or Reviewers', 'warn', 'pending'],
-  ['chat', 'chat open', 'neutral', ''],
+  ['chat', 'chat open', 'busy', 'running'],
   ['ready', 'ready to continue', 'warn', 'pending'],
 ])('prints the owner wording and tone for %s in the row and change head', (kind, says, tone, cls) => {
   const waitingOn: WaitingOn = { kind, says, tone, run: 'child', step: 'review', checks: 1, who: [], you: 'no' }
