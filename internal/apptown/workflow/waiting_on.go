@@ -125,7 +125,9 @@ func sayWaitingOn(w WaitingOn, a Activity, ch *Change) WaitingOn {
 	case "person":
 		w.Says, w.Tone = a.Detail, "warn"
 	case "chat":
-		w.Says = "chat open"
+		// The change is being worked on in its chat: in progress, not
+		// waiting on anyone, so it carries the busy tone.
+		w.Says, w.Tone = "chat open", "busy"
 	case "work":
 		w.Says = a.workPhrase
 		if w.Says == "" {

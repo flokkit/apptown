@@ -200,7 +200,8 @@ func TestFinishedRunsWithoutOpenChangesAreClosed(t *testing.T) {
 	svc := newService(db, allowProject(run.ProjectID), Runtime{})
 	transitionScopeChange(t, db, workflowsql.TransitionChangeParams{At: time.Now(), ID: run.ChangeID, RunID: run.ID})
 	changes, err := svc.Changes(t.Context(), run.ProjectID, ChangeList{})
-	if err != nil || len(changes) != 1 || changes[0].WaitingOn.Kind != "chat" {
+	// A change open in its chat is in progress: the busy tone, not neutral.
+	if err != nil || len(changes) != 1 || changes[0].WaitingOn.Kind != "chat" || changes[0].WaitingOn.Says != "chat open" || changes[0].WaitingOn.Tone != "busy" {
 		t.Fatalf("open change list: %+v %v", changes, err)
 	}
 	rows, err := svc.Runs(t.Context(), RunQuery{})
