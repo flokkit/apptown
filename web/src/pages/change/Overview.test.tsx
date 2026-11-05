@@ -816,7 +816,7 @@ function landingResult(status: 'pass' | 'fail', held = false) {
   return v
 }
 
-it('says a held deploy failure once and keeps recovery actions and conversation', async () => {
+it('says a held deploy failure once and keeps recovery actions without the acceptance conversation link', async () => {
   const v = landingResult('fail', true)
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify([]))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
@@ -828,7 +828,7 @@ it('says a held deploy failure once and keeps recovery actions and conversation'
     expect(dialog.textContent).not.toContain('Deploy failed')
     expect(dialog.textContent).toContain('Stopped while starting the app')
     expect([...dialog.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept anyway', 'Send back…', 'Abandon change'])
-    expect(dialog.querySelector('a[href$="tab=conversation"]')).not.toBeNull()
+    expect(dialog.querySelector('a[href$="tab=conversation"]')).toBeNull()
   } finally { await act(async () => root.unmount()); client.clear() }
 })
 
@@ -840,7 +840,7 @@ it.each(['pass', 'fail'] as const)('puts an unheld %s landing result above the c
   expect(result!.compareDocumentPosition(el.querySelector('.ch-change-card')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(result!.querySelector('.celebrate')).toBeNull()
   expect(el.querySelectorAll('.ch-deploy-result')).toHaveLength(1)
-  for (const text of status === 'pass' ? ['Release 7 is live', 'club.example.test', 'Landing took 72s', 'Open the app'] : ['Stopped while starting the app', 'The app container exited during startup.']) expect(result!.textContent).toContain(text)
+  for (const text of status === 'pass' ? ['Release 7 is live', 'club.example.test', 'Landing took 1m 12s', 'Open the app'] : ['Stopped while starting the app', 'The app container exited during startup.']) expect(result!.textContent).toContain(text)
 })
 
 it('locks the page while a decision is open and restores styles on close and unmount', () => {
@@ -866,8 +866,10 @@ it('keeps only deployment facts in the running dialog and retains Details access
   const v = landingResult('pass')
   const liveStep = v.detail!.steps[0]
   liveStep.status = 'running'
+  v.change.state = 'landing'
   v.detail!.run.status = 'running'
   v.waitingOn = { ...v.waitingOn, kind: 'work', you: 'no' }
+  v.next = [{ act: 'abandon' }] as ChangeView['next']
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).includes('/live')
     ? { running: true, stage: 'building', lines: ['Building the release image'], elapsedMs: 8000, total: 1 } : []))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
@@ -878,16 +880,21 @@ it('keeps only deployment facts in the running dialog and retains Details access
     await draw(v)
     await vi.waitFor(async () => { await act(async () => {}); expect(el.querySelector('dialog')?.textContent).toContain('Building the release image') })
     const dialog = el.querySelector('dialog')!
-    expect(dialog.querySelector('.ch-deploy-heading')?.textContent).toBe('Deploying release 78s')
+    expect(dialog.querySelector('.ch-deploy-heading')?.textContent).toBe('Release 78s')
     expect(dialog.querySelector('.ch-now-steps')).toBeNull()
     expect(dialog.textContent).not.toMatch(/step 1 of|Started|pending|Release created/)
     expect(dialog.querySelector('a[href$="tab=details"]')?.textContent).toBe('Details →')
     expect(dialog.querySelectorAll('.deploy-stages li')).toHaveLength(6)
+    expect([...dialog.querySelectorAll('button')].map(b => b.textContent)).toContain('Abandon change')
+    expect(dialog.textContent).not.toContain('Want to talk it through first?')
     liveStep.status = 'pass'
+    v.change.state = 'shipped'
     v.waitingOn = { ...v.waitingOn, kind: 'closed' }
     await draw({ ...v })
-    expect(dialog.querySelector('.ch-deploy-result h3')?.textContent).toBe('Release 7 is live')
+    expect(dialog.querySelector('.ch-deploy-result h3')?.textContent).toBe("It's live!")
+    expect(dialog.querySelector('h2')?.textContent).toBe('Deploy complete')
     expect(dialog.querySelector('.celebrate')).not.toBeNull()
+    expect(dialog.textContent).not.toContain('Want to talk it through first?')
   } finally { await act(async () => root.unmount()); client.clear() }
 })
 

@@ -88,10 +88,23 @@ removed.” The acceptance screen labels the request, approval brief when availa
 landing destination and who decides, then keeps the stated meaning beside the
 choices. Deploying shows the reported stages and their marks below a cumulative
 scene, with timing and the current detail; full run rows stay in Details. A
-finished deployment stacks its scene, release, address, timing and app link. The
+finished deployment stacks its scene, live heading at page-title size in
+the OK colour, release, address, timing and app link.
+While building, the crane keeps its jib level: its trolley carries each block
+into position, lowers it on a vertical cable, and raises the empty hook before
+returning. After building it shuttles the empty trolley slowly.
+The checking door stays shut until the server reports live. A page that observes
+running celebrates once on completion; a later visit shows the finished frame.
+The running header counts elapsed time and, when the previous successful release retains its landing trace,
+shows that landing’s duration for the same deployment.
+During backing up, a box moves from the lit house to a shed that stays in later frames.
+Results read the deploy step’s backup evidence: only a complete set says “Backed up”,
+with its size and a link to the recorded copy. Incomplete or absent copies keep
+the reason and any person who accepted proceeding; no data says so.
+Reduced motion keeps the scene still. The
 decision dialog owns scrolling while open; closing it restores the page position.
-A plain conversation link sits below the choices and closes the
-screen. When the Conversation tab cannot resume a stuck agent, that link opens
+A plain conversation link sits below the acceptance choices and closes the
+screen; deploying and deployment results omit it. When the Conversation tab cannot resume a stuck agent, that link opens
 the existing worker console continuation. Stop this attempt stays only in
 non-decision Next steps for a running run.
 Details keeps conflict catch-up commands and

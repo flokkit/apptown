@@ -5,55 +5,101 @@
 .deploy-scene svg { display: block; width: 100%; height: auto; }
 .deploy-scene .ink { fill: none; stroke: var(--scene-ink); stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
 .deploy-scene .ground { stroke: var(--scene-ground); }
-.deploy-scene :is(.plan,.blk,.crane,.door,.visitor,.flag,.pole,.spark,.sign,.roof,.win,.tilt) { opacity: 0; }
-.deploy-scene :is(.blk,.roof,.door,.tilt,.flag,.spark,.visitor,.jib) { transform-box: fill-box; transform-origin: center; }
+.deploy-scene :is(.backup-shed,.backup-box,.plan,.blk,.crane,.door,.visitor,.flag,.pole,.spark,.sign,.roof,.win,.tilt) { opacity: 0; }
+.deploy-scene :is(.blk,.roof,.door,.tilt,.flag,.spark,.visitor) { transform-box: fill-box; transform-origin: center; }
 .deploy-scene .flag { transform-origin: left bottom; }
 .deploy-scene .door { transform-origin: left center; }
-/* Local SVG origins put the hinge on the mast; the hook hangs vertically. */
-.deploy-scene :is(.jib,.hook) { transform-box: view-box; transform-origin: 0px 0px; }
+.deploy-scene .jib { animation: none; }
 .deploy-scene.g1 .plan { opacity: 1; stroke-dasharray: 4 3; }
 .deploy-scene.n1 .plan { animation: deploy-fade .3s ease-out both; }
 .deploy-scene.g3 .plan { opacity: 0; transition: opacity .4s; }
 .deploy-scene.n2 .crane { opacity: 1; animation: deploy-fade .3s ease-out both; }
-.deploy-scene.n2 .jib { animation: deploy-swing 2.4s ease-in-out infinite; }
-.deploy-scene.n2 .hook { animation: deploy-hang 2.4s ease-in-out infinite; }
+.deploy-scene.n2 .idle-trolley { animation: deploy-shuttle 4s ease-in-out 7s infinite; }
 .deploy-scene.g2 :is(.blk,.roof) { opacity: 1; }
-.deploy-scene.n2.arrive-building :is(.blk,.roof) { animation: deploy-drop .45s cubic-bezier(.2,.8,.3,1) both; }
+.deploy-scene.n2 :is(.blk,.roof) { animation: deploy-set 1s ease-out both; }
+.deploy-scene .deliveries { opacity: 0; }
+.deploy-scene.n2 .deliveries { opacity: 1; }
+.deploy-scene .delivery { opacity: 0; }
+.deploy-scene.n2 .delivery { animation: deploy-carry 1s step-end var(--delay) forwards; }
+.deploy-scene.n2 .trolley { animation: deploy-trolley 1s ease-in-out var(--delay) both; }
+.deploy-scene.n2 .load { animation: deploy-lower 1s ease-in-out var(--delay) both; }
+.deploy-scene.n2 .hoist { animation: deploy-hoist 1s ease-in-out var(--delay) both; }
+.deploy-scene .cable { transform-origin: 0 0; }
+.deploy-scene.n2 .cable { animation: deploy-cable 1s ease-in-out var(--delay) both; }
+.deploy-scene.n2 .idle-rig { animation: deploy-empty 7s step-end both; }
 .deploy-scene.g3 .win { opacity: 1; stroke: var(--busy); fill: var(--busy); fill-opacity: .25; }
-.deploy-scene.n3 .win { animation: deploy-light 2.4s ease-in-out infinite both; }
+.deploy-scene.n3 .win { animation: deploy-light 3s ease-in-out infinite both; }
 .deploy-scene.n3 .w2 { animation-delay: .15s; }
 .deploy-scene.n3 .w3 { animation-delay: .3s; }
 .deploy-scene.n3 .w4 { animation-delay: .45s; }
 .deploy-scene.n3 .w5 { animation-delay: .6s; }
 .deploy-scene.n3 .w6 { animation-delay: .75s; }
-.deploy-scene.g4 .door { opacity: 1; transform: scaleX(.25); }
-.deploy-scene.n4 .door { animation: deploy-open .3s ease-out both; }
-.deploy-scene.n4 .visitor { opacity: 1; animation: deploy-walk 2.4s ease-in-out infinite; }
+.deploy-scene.g4 .door { opacity: 1; }
+.deploy-scene.n4 .door { animation: deploy-knock 3s ease-in-out .65s infinite; }
+.deploy-scene.n4 .visitor { opacity: 1; animation: deploy-visit .65s ease-out both; }
+.deploy-scene.g5 .door { transform: scaleX(.25); }
+.deploy-scene.celebrate .door { animation: deploy-open .3s ease-out both; }
+.deploy-scene.celebrate .visitor { animation: deploy-enter .65s ease-in .2s both; }
+.deploy-scene.celebrate .win { animation: deploy-green .2s ease-out both; }
+.deploy-scene.celebrate .w2 { animation-delay: .1s; }
+.deploy-scene.celebrate .w3 { animation-delay: .2s; }
+.deploy-scene.celebrate .w4 { animation-delay: .3s; }
+.deploy-scene.celebrate .w5 { animation-delay: .4s; }
+.deploy-scene.celebrate .w6 { animation-delay: .5s; }
 .deploy-scene.g5 .win { stroke: var(--ok); fill: var(--ok); fill-opacity: .25; }
 .deploy-scene.g5 :is(.pole,.flag) { opacity: 1; }
 .deploy-scene.g5 .flag { stroke: var(--ok); fill: var(--ok); fill-opacity: .25; }
-.deploy-scene.celebrate .flag { animation: deploy-raise .4s ease-out both; }
-.deploy-scene.celebrate .spark { stroke: var(--ok); animation: deploy-burst .9s ease-out .4s both; }
+.deploy-scene.celebrate .flag { animation: deploy-raise .3s ease-out .6s both; }
+.deploy-scene.celebrate .spark { animation: deploy-burst .7s ease-out .8s both; }
 .deploy-scene.fail * { animation: none; }
 .deploy-scene.fail .crane { opacity: 1; }
 .deploy-scene.fail .tilt { opacity: 1; stroke: var(--bad); transform: rotate(-9deg) translate(-2px,2px); animation: deploy-nudge .35s ease-out both; }
 .deploy-scene.fail .sign { opacity: 1; stroke: var(--bad); }
+.deploy-scene.fail.g4 .crane, .deploy-scene.fail.g4 .tilt { opacity: 0; }
+.deploy-scene.fail.g4 .visitor { animation: deploy-leave 1.2s ease-out both; }
+.deploy-scene.fail.g4 .door { animation: deploy-last-knock 1.2s ease-out both; }
+.deploy-scene.fail.g4 .sign { animation: deploy-closed .2s ease-out 1s both; }
 .deploy-scene.paused * { animation: none !important; }
+/* A copy leaves the lit house; the original data stays in place. */
+.deploy-scene.has-backup-shed :is(.backup-shed,.backup-box) { opacity: 1; }
+.deploy-scene.backing-up :is(.blk,.roof,.door,.win) { opacity: 1; }
+.deploy-scene.backing-up .win { stroke: var(--busy); fill: var(--busy); fill-opacity: .25; }
+.deploy-scene.backing-up .plan { opacity: 0; }
+.deploy-scene.backing-up:not(.paused):not(.fail) .backup-box { animation: deploy-copy 2.4s ease-in-out both; }
+@keyframes deploy-copy {
+  0%,15% { transform: translate(116px,-14px); }
+  30% { transform: translate(116px,-24px); }
+  75% { transform: translate(0,-24px); }
+  100% { transform: none; }
+}
 @keyframes deploy-fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes deploy-drop { from { opacity: 0; transform: translateY(-26px); } to { opacity: 1; transform: none; } }
-@keyframes deploy-swing { 0%,100% { transform: rotate(0); } 50% { transform: rotate(-4deg); } }
-@keyframes deploy-hang { 0%,100% { transform: rotate(0); } 50% { transform: rotate(4deg); } }
-@keyframes deploy-light { 0%,100% { fill-opacity: 0; } 50% { fill-opacity: .35; } }
+/* Each delivery traverses, lowers, releases, hoists, then returns empty. */
+@keyframes deploy-set { 0%,59% { opacity: 0; } 60%,100% { opacity: 1; } }
+@keyframes deploy-carry { 0%,99% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes deploy-trolley { 0%,10%,100% { transform: translateX(var(--travel)); } 30%,85% { transform: translateX(0); } }
+@keyframes deploy-lower { 0%,30% { transform: translateY(var(--lift)); opacity: 1; } 60% { transform: none; opacity: 1; } 61%,100% { transform: none; opacity: 0; } }
+@keyframes deploy-hoist { 0%,30%,85%,100% { transform: translateY(var(--lift)); } 60%,65% { transform: translateY(0); } }
+@keyframes deploy-cable { 0%,30%,85%,100% { transform: scaleY(var(--cable)); } 60%,65% { transform: scaleY(1); } }
+@keyframes deploy-empty { 0% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes deploy-shuttle { 0%,100% { transform: translateX(0); } 50% { transform: translateX(-76px); } }
+@keyframes deploy-light { 0%,100% { fill-opacity: 0; } 8% { fill-opacity: .35; } 14% { fill-opacity: 0; } 20%,80% { fill-opacity: .25; } 90% { fill-opacity: .08; } }
 @keyframes deploy-open { from { transform: scaleX(1); } to { transform: scaleX(.25); } }
-@keyframes deploy-walk { 0% { transform: translateX(-38px); opacity: 0; } 20% { opacity: 1; } 70% { transform: translateX(16px); opacity: 1; } 100% { transform: translateX(22px); opacity: 0; } }
+@keyframes deploy-visit { 0% { transform: translateX(-38px); } 100% { transform: translateX(4px); } }
+@keyframes deploy-knock { 0%,30%,36%,43%,69%,75%,82%,100% { transform: none; } 33%,40%,72%,79% { transform: translateX(1px); } }
+@keyframes deploy-enter { 0% { opacity: 1; transform: translateX(4px); } 75% { opacity: 1; } 100% { opacity: 0; transform: translateX(23px); } }
+@keyframes deploy-green { from { stroke: var(--busy); fill: var(--busy); fill-opacity: .1; } to { stroke: var(--ok); fill: var(--ok); fill-opacity: .25; } }
+@keyframes deploy-leave { 0%,40% { opacity: 1; transform: translateX(4px); } 50% { transform: translateX(4px) scaleX(-1); } 100% { opacity: 1; transform: translateX(-38px) scaleX(-1); } }
+@keyframes deploy-last-knock { 0%,10%,24%,100% { transform: none; } 6%,20% { transform: translateX(1px); } }
+@keyframes deploy-closed { from { opacity: 0; } to { opacity: 1; } }
 @keyframes deploy-raise { from { transform: translateY(18px) scaleY(.2); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes deploy-burst { 0% { opacity: 0; transform: scale(.3); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.5); } }
 @keyframes deploy-nudge { 0% { transform: none; } 60% { transform: rotate(-11deg) translate(-2px,2px); } 100% { transform: rotate(-9deg) translate(-2px,2px); } }
 @media (prefers-reduced-motion: reduce) {
   .deploy-scene * { animation: none !important; transition: none !important; }
+  .deploy-scene .deliveries { display: none; }
 }
 .deploy-stages { margin: 12px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: var(--fs-sm); }
-.deploy-stages li { display: grid; grid-template-columns: 1.25rem minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 24px; }
+.deploy-stages li { display: grid; grid-template-columns: 1.5em minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 24px; }
 .deploy-stage-mark { display: flex; justify-content: center; }
 .deploy-stages li:has(.deploy-stage-mark.ok) { color: var(--text); }
 .deploy-stages [aria-current="step"] { color: var(--text); font-weight: 600; }
@@ -62,25 +108,26 @@
 .deploy-stages .busy { color: var(--busy); }
 .deploy-stages .bad { color: var(--bad); }
 
-.deploy-scene.n2 .b2 { animation-delay: .3s; }
-.deploy-scene.n2 .b3 { animation-delay: .6s; }
-.deploy-scene.n2 .b4 { animation-delay: .9s; }
-.deploy-scene.n2 .b5 { animation-delay: 1.2s; }
-.deploy-scene.n2 .b6 { animation-delay: 1.5s; }
-.deploy-scene.n2 .roof { animation-delay: 1.8s; }
-.deploy-scene.n4 .visitor { transform: translateX(16px); }
+.deploy-scene.n2 .b2 { animation-delay: 1s; }
+.deploy-scene.n2 .b3 { animation-delay: 2s; }
+.deploy-scene.n2 .b4 { animation-delay: 3s; }
+.deploy-scene.n2 .b5 { animation-delay: 4s; }
+.deploy-scene.n2 .b6 { animation-delay: 5s; }
+.deploy-scene.n2 .roof { animation-delay: 6s; }
+.deploy-scene.n4 .visitor { transform: translateX(4px); }
 .deploy-scene .sign-label { fill: var(--bad); font-size: var(--fs-scene); }
-.deploy-scene.fail.g4 .visitor { opacity: 1; transform: translateX(16px); }
+.deploy-scene.fail.g4 .visitor { opacity: 1; transform: translateX(-38px) scaleX(-1); }
 
 .ch-deploy-result { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 420px; margin: 0 auto 20px; }
 .ch-deploy-result[hidden] { display: none; }
-.ch-overview > .ch-deploy-result .deploy-scene * { animation: none; }
+
 .ch-deploy-result-facts { min-width: 0; width: 100%; overflow-wrap: normal; }
 .ch-deploy-result-facts h3 { margin: 0 0 8px; }
-.ch-deploy-result-facts h3.ok { color: var(--ok); }
+.ch-deploy-result-facts h3.ok { font-size: var(--fs-xl); color: var(--ok); }
 .ch-deploy-result-facts p { margin: 4px 0; }
 .ch-open-app { display: inline-flex; align-items: center; min-height: 44px; box-sizing: border-box; padding: 8px 18px; margin-top: 12px; text-decoration: none; }
 .ch-deploy-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; width: 100%; }
+.ch-deploy-times { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
 .ch-deploy-heading .small, .ch-deploy-caption { font-family: var(--font-mono); }
 .ch-deploy-caption { margin: 0; }
 

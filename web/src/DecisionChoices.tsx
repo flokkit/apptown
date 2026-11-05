@@ -10,7 +10,8 @@ export function DecisionGrid({ children }: { children: ReactNode }) {
 export type DecisionChoice = { label: string; run: () => unknown; disabled?: boolean; prompt?: { ask: string; run: (reason: string) => unknown } }
 
 // The page words and places only the acts AppTown offers.
-export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, conversation, busy, highlight }: {
+export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, conversation, busy, highlight, showConversation = true }: {
+  showConversation?: boolean
   highlight?: 'accept' | 'rework' | 'none'
   note: string; setNote: (note: string) => void
   // chat: a change worked in a chat continues there; it takes the send-back place.
@@ -54,7 +55,7 @@ export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, 
       {abandon && <button className="danger" disabled={busy} onClick={() => setMode('abandon')}>Abandon change</button>}
     </DecisionGrid>}
     </div>
-    {!chat && <p>Want to talk it through first? <a href={conversation.href} onClick={e => {
+    {showConversation && !chat && <p>Want to talk it through first? <a href={conversation.href} onClick={e => {
       e.currentTarget.closest('dialog')?.close()
       if (conversation.run) { e.preventDefault(); conversation.run() }
     }}>Open the conversation →</a></p>}

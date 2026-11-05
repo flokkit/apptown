@@ -177,7 +177,7 @@ export function ChangeOverview({ view, onChange, workTab, steps, extraErr, curre
           onYes={() => act(() => post(`/runs/${d.run.id}/abandon`, { reason: 'stopped from the change page' }))} />}
       </div>}</DecisionContextOnly.Consumer>
       {actionErr && <p className="error">{actionErr}</p>}
-      {!approval && !turn && !deciding && !['shipped', 'abandoned'].includes(ch.state) && <DecisionChoices note={note} setNote={setNote} busy={actionBusy || !current}
+      {!approval && !turn && !deciding && !['shipped', 'abandoned'].includes(ch.state) && <DecisionChoices showConversation={!landingDeploy} note={note} setNote={setNote} busy={actionBusy || !current}
         accept={d && offered(view.next, 'land') ? { label: 'Check and land', run: () => act(() => post(`/changes/${ch.id}/land`, {})) } : undefined}
         conversation={{ href: `/changes/${ch.id}?tab=conversation`, run: () => nav(`/changes/${ch.id}?tab=conversation`) }}
         chat={!d ? { label: 'Continue chat', run: () => nav(`/projects/${view.projectSlug}/console?change=${ch.id}`) } : undefined}
