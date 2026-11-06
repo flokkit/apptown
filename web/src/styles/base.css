@@ -11,8 +11,8 @@ pre { max-width: 100%; overflow-x: auto; }
   code { overflow-wrap: anywhere; }
 }
 /* Headings use size and weight to establish hierarchy. */
-h1, h2 { font-family: var(--font-heading); font-weight: var(--fw-strong); color: var(--text); }
-h1 { font-size: var(--fs-xl); line-height: var(--lh-tight); letter-spacing: -0.015em; margin: 0 0 16px; }
+h1, h2, .project-heading { font-family: var(--font-heading); font-weight: var(--fw-strong); color: var(--text); }
+h1, .project-heading { font-size: var(--fs-xl); line-height: var(--lh-tight); letter-spacing: -0.015em; margin: 0 0 16px; }
 h2 { font-size: var(--fs-lg); line-height: var(--lh-tight); margin: 28px 0 10px; }
 h3 { font-size: var(--fs-base); font-weight: var(--fw-strong); margin: 14px 0 6px; }
 

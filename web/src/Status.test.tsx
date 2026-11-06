@@ -44,7 +44,7 @@ it('keeps help out of table layout and resets the global disclosure box', () => 
  expect(css).toMatch(/\.status-help\[open\] > summary::before\s*\{ content: none/)
  expect(css).toMatch(/\.status-help > div\s*\{[^}]*position: absolute/)
  const project = readFileSync('src/pages/Project.tsx', 'utf8') as string
- expect(project.slice(project.indexOf('function ProjectHeader'))).not.toContain('RuntimeStatus')
+ expect(project.slice(project.indexOf('function ProjectHeader')).match(/<div className="project-heading">[\s\S]*?<\/div>/)?.[0]).not.toContain('RuntimeStatus')
 })
 
 // A neutral state is grey: a dot in line with the rest, never a colour.

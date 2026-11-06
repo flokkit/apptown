@@ -73,7 +73,11 @@ export default function Project() {
   return (
     <div>
       <StaleNote q={q} />
-      {tab !== 'overview' && <ProjectHeader project={project} secondary={tab === 'memory'} />}
+      {tab !== 'overview' && <ProjectHeader project={project} />}
+      {tab === 'changes' && <h1>Changes</h1>}
+      {tab === 'deployments' && <h1>Deployments</h1>}
+      {tab === 'release' && <h1>Release</h1>}
+      {tab === 'releases' && <h1>Release #{rawStab}</h1>}
       <LifecycleNote slug={project.slug} lifecycle={project.lifecycle} />
       <IntegrityBanner slug={project.slug} files={project.outOfBandEdits} onResolved={load} />
       <MainNote main={project.main} />
@@ -119,13 +123,13 @@ export default function Project() {
 
 // The project's name above every sub-page. Its deployments are not repeated
 // here: the overview has a Deployments section, Settings › Deployments the rest.
-function ProjectHeader({ project, secondary = false }: { project: ProjectT; secondary?: boolean }) {
-  const Heading = secondary ? 'h2' : 'h1'
+// The page title owns the heading; the project name is context.
+function ProjectHeader({ project }: { project: ProjectT }) {
   return (
-    <Heading>
+    <div className="project-heading">
       {project.icon && <span style={{ marginRight: 8 }} aria-hidden>{project.icon}</span>}
       {project.name}
       {project.namespace && <span className="badge" style={{ marginLeft: 10 }} title="namespace (display grouping)">{project.namespace}</span>}
-    </Heading>
+    </div>
   )
 }
