@@ -1716,3 +1716,35 @@ for the person's actions.
 Deploy history lists only changes new since the previous successful release on
 the same deployment identity. Failed and waiting releases do not advance that
 boundary. Full release membership remains available on the release record.
+
+## Starting, stopping and restarting
+
+Deployment owns runtime control. A person with deployment operate permission can
+start, stop or restart a standing deployment from its page header or with
+`apptown deployment start|stop|restart <project> <deployment>`. Stop asks for a
+short confirmation on the page. Start and Restart act immediately. These actions
+are recorded with the actor, credential, deployment, generation and time.
+
+Stop preserves data, address, secrets and settings. It is separate from taking
+a deployment down. Docker hosts and Portainer control only application parts;
+needs stay up. Restart stops then starts the current release, without rebuilding,
+running initialization steps or making a pre-deploy backup. App Platform uses
+DigitalOcean's documented app restart API; Start and Stop are unavailable because
+App Platform cannot keep an app stopped. Bucket websites cannot start, stop or
+restart, and show that reason beside disabled buttons.
+
+Runtime intent is separate from release readiness and provider observations.
+An intentional stop stays stopped across AppTown restarts and stale or missing
+runtime readings. Health enforcement and boot recovery do not restart it. A
+release from any feed, including promotion or rollback, replaces its code and
+leaves it stopped. The page names the release that will run when started.
+Docker prepares its new app containers without starting them. Portainer updates
+the same stack with app replicas at zero, retaining needs and configuration;
+Start restores those app replicas with the selected images.
+
+Runtime actions and releases exclude each other while effects are underway.
+An interrupted action retains its transition and error. Refresh status observes
+what happened without repeating effects; a failed action can also be retried.
+A failed replacement can be stopped, but must be deployed successfully before
+Start or Restart can run its parts. The deployment list shows state and links
+to the deployment page for actions.

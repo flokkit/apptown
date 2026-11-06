@@ -55,7 +55,9 @@ var sections = []section{
                                         a run id that names no run but a change waits on the change;
                                         a run that ended without finishing is named with why and what next`, cmdWait},
 			{[]string{"approve"}, `  approve <step-id> [-m comment] [-y]   show what approving means, then approve`, func(args []string) error { return cmdDecide(args, "approve") }},
-			{[]string{"deployment"}, `  deployment confirm-feed <project> <deployment> | --all
+			{[]string{"deployment"}, `  deployment start|stop|restart <project> <deployment>
+                                        change the app runtime; keeps data, address, secrets and settings
+  deployment confirm-feed <project> <deployment> | --all
   deployment set-feed <project> <deployment> main|manual|promotion [--from <deployment>]
                                         choose how a deployment updates; --approval-role <role>|none sets approval
                                         main authorizes automatic releases

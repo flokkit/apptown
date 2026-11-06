@@ -7,6 +7,7 @@ import "github.com/flokkit/apptown/internal/ids"
 // of a deployment; a driver is handed this. Whose it is, the driver never
 // asks: its collaborators were built knowing.
 type Placement struct {
+	Stopped    bool           // Explicit operator intent; reconciliation must not start application parts.
 	ID         ids.ID         // the deployment's record identity: need records; opaque to the driver
 	Label      HostLabel      // the deployment's name on its host: container labels, boot proofs
 	Name       string         // the deployment's name (main, cloud, preview-12)

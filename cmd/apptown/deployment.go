@@ -3,11 +3,21 @@ package main
 import "fmt"
 
 func cmdDeployment(args []string) error {
+	if len(args) > 0 && (args[0] == "start" || args[0] == "stop" || args[0] == "restart") {
+		if len(args) != 3 {
+			return usagef("usage: apptown deployment %s <project> <deployment>", args[0])
+		}
+		if err := api.post("/projects/"+args[1]+"/deployments/"+args[2]+"/"+args[0], map[string]any{}, nil); err != nil {
+			return err
+		}
+		fmt.Printf("Deployment %s/%s: %s completed\n", args[1], args[2], args[0])
+		return nil
+	}
 	if len(args) > 0 && args[0] == "set-feed" {
 		return cmdSetFeed(args[1:])
 	}
 	if len(args) == 0 || args[0] != "confirm-feed" {
-		return usagef("usage: apptown deployment confirm-feed <project> <deployment> | --all")
+		return usagef("usage: apptown deployment start|stop|restart <project> <deployment> | confirm-feed <project> <deployment> | --all")
 	}
 	return cmdConfirmFeed(args[1:])
 }

@@ -98,7 +98,7 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 		}
 		// A fresh running observation supersedes an old stop receipt. An unread
 		// runtime retains the exact-generation hold as stale evidence.
-		held := d.Hold != nil && (unknown || r.Stale || r.State != deployment.RuntimeRunning)
+		held := d.RuntimeState != "stopped" && d.Hold != nil && (unknown || r.Stale || r.State != deployment.RuntimeRunning)
 		if held {
 			title, detail := "Check whether the app stopped", "AppTown attempted to stop this generation after repeated crashes."
 			if d.Hold.Confirmed {
@@ -113,6 +113,7 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 		// A queued first check is incomplete coverage, not an actionable failure.
 		pending := d.LastApplied == nil && r.AttemptedAt.IsZero() && r.ObservedAt.IsZero() && r.Err == nil
 		switch {
+		case d.RuntimeState == "stopped": // The owner has recorded an intentional stop.
 		case (unknown || r.Stale) && !pending && !late && !down:
 			add("runtime", "App status not known", "The latest runtime observation is unavailable or out of date.", SeverityWarning, r.ObservedAt, true)
 		case r.State == deployment.RuntimeStopped && !held && !(down && (unknown || r.Stale)):

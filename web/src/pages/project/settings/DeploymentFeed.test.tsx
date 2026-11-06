@@ -12,7 +12,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
-it('words each feed and disables promotion with the source reason', () => {
+it('words each feed and keeps promotion actions off list rows', () => {
   expect(feedWords({ feed: 'main', promotionSource: '' })).toBe('Follows main')
   expect(feedWords({ feed: 'manual', promotionSource: '' })).toBe('By hand')
   const client = newQueryClient()
@@ -22,12 +22,12 @@ it('words each feed and disables promotion with the source reason', () => {
   el.innerHTML = html
   expect(el.textContent).toContain('Promoted from Staging')
   expect(el.textContent).toContain(e.promotionBlocked)
-  expect([...el.querySelectorAll('button')].find(b => b.textContent === 'Promote')?.disabled).toBe(true)
+  expect(el.querySelectorAll('button')).toHaveLength(0)
   expect(el.textContent).not.toContain('Deploy latest')
   client.clear()
 })
 
-it.each(['row', 'card'])('names the source last successful release on the Promote %s control', view => {
+it.each(['card'])('names the source last successful release on the Promote %s control', view => {
   const client = newQueryClient()
   const e = { id: 'prod', name: 'production', kind: 'standing', feed: 'promotion', promotionSource: 'Staging', promotionRelease: 17, target: { kind: 'docker-host' } } as DeploymentView
   const el = document.createElement('div')
@@ -39,7 +39,7 @@ it.each(['row', 'card'])('names the source last successful release on the Promot
   client.clear()
 })
 
-it.each(['row', 'card'])('binds the Promote %s request to the displayed bundle and shows a stale refusal', async view => {
+it.each(['card'])('binds the Promote %s request to the displayed bundle and shows a stale refusal', async view => {
   const bundle = '00000000-0000-4000-8000-000000000017'
   const sent: unknown[] = []
   vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {

@@ -160,3 +160,28 @@ A deployment that reads **uncertain** (its last attempt was cut off, or its
 records disagree) takes no new deploy until it is settled. Press **Check
 again** on its card: AppTown asks the host what runs and records the
 answer.
+
+## Start, stop and restart
+
+Open a deployment to use **Start**, **Stop** or **Restart** beside its name and
+status. Stop asks once before acting. It keeps the deployment's data, address,
+secrets and settings. Restart runs the current release again without a rebuild
+or a pre-deploy backup. These actions need deployment operate permission and
+record who acted and when.
+
+Docker hosts and Portainer stop only the app's containers; databases and other
+needs stay up. App Platform supports Restart; Start and Stop are disabled because
+it cannot keep an app stopped. Bucket websites show all three disabled with a
+reason.
+
+Deploying new code to a stopped deployment leaves it stopped. Its page says which
+release will run when someone starts it. This applies to automatic deploys,
+promotions and rollbacks too.
+
+The command line has the same actions:
+
+```sh
+apptown deployment start <project> <deployment>
+apptown deployment stop <project> <deployment>
+apptown deployment restart <project> <deployment>
+```

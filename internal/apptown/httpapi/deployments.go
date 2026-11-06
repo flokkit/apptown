@@ -352,3 +352,30 @@ func (h Deployments) SetFeed(w http.ResponseWriter, r *http.Request) {
 		WriteJSON(w, 200, dep)
 	})
 }
+
+// controlRuntime changes runtime state through Deployment's checked operation.
+func (h Deployments) controlRuntime(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	_, err := h.deployment.ControlRuntime(r.Context(), p.ID, r.PathValue("name"), r.PathValue("action"))
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, map[string]bool{"ok": true})
+}
+
+func (h Deployments) StartRuntime(w http.ResponseWriter, r *http.Request) {
+	r.SetPathValue("action", "start")
+	h.controlRuntime(w, r)
+}
+func (h Deployments) StopRuntime(w http.ResponseWriter, r *http.Request) {
+	r.SetPathValue("action", "stop")
+	h.controlRuntime(w, r)
+}
+func (h Deployments) RestartRuntime(w http.ResponseWriter, r *http.Request) {
+	r.SetPathValue("action", "restart")
+	h.controlRuntime(w, r)
+}

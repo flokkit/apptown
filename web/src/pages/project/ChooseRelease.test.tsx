@@ -8,6 +8,7 @@ import { getKey, newQueryClient } from '../../data'
 import { fmtStamp } from '../../format'
 import { settled } from '../../settled'
 import { DeploymentDeploys } from './DeploymentDeploys'
+import type { DeploymentView } from '../../wire.gen'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const cleanups: (() => void)[] = []
@@ -39,7 +40,7 @@ async function fixture(recorded = true, options: { backup?: boolean; reason?: st
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   document.body.appendChild(el)
   cleanups.push(() => { act(() => root.unmount()); client.clear(); el.remove() })
-  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><DeploymentDeploys slug="shop" name="production" displayLabel="Customer office" /></MemoryRouter></QueryClientProvider>))
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><DeploymentDeploys slug="shop" name="production" displayLabel="Customer office" env={{ id: 'production', name: 'production', runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { start: '', stop: '', restart: '' }, observation: 'running', generation: 0, kind: 'standing', displayLabel: 'Customer office', servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', promotionBlocked: '', approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown', targetId: null, url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observationStale: false, protected: false } as DeploymentView} current reload={async () => {}} /></MemoryRouter></QueryClientProvider>))
   await settled(client)
   const click = async (text: string) => { await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === text)!.click() }); await settled(client) }
   return { el, sent, click, fetcher, client }

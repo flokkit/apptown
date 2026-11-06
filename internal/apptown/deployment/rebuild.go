@@ -276,6 +276,9 @@ func (s *Service) BootReconcile(ctx context.Context, present func(targetID ids.I
 		return
 	}
 	for _, e := range envs {
+		if e.RuntimeState != "running" {
+			continue
+		}
 		if e.Container == "" {
 			continue // served elsewhere: nothing local to rebuild
 		}

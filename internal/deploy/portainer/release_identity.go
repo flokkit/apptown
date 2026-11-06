@@ -22,6 +22,7 @@ const (
 // expectedRelease is checkpointed before apply. SubmittedHash identifies the
 // labeled execution bytes; ArtifactHash identifies the original admitted bytes.
 type expectedRelease struct {
+	Stopped       bool      `json:"stopped,omitempty"`
 	Readiness     Readiness `json:"readiness"`
 	Generation    int64     `json:"generation"`
 	ArtifactHash  string    `json:"artifactHash"`

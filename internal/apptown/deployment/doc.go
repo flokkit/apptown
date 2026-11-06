@@ -97,6 +97,19 @@
 // one transaction, blocking fresh attempt admission until resolved. These database
 // guards do not cancel external effects or stop an uncooperative old provider call.
 //
+// # Runtime controls
+//
+// [Service.ControlRuntime] checks deployment operate authority, records intent
+// and actor/time, changes only application parts, then records the outcome.
+// Provider I/O stays outside transactions. Runtime intent excludes release and
+// removal admission while an action is in progress. An explicit stop survives
+// releases, health enforcement, boot recovery and missing runtime observations.
+// Drivers reconcile stopped placements without starting their application parts.
+// Restart uses current containers/images without a rebuild or pre-release copy.
+// Interrupted actions retain their transition; CheckAgain confirms every app
+// part controlled by the action, excluding needs. A part in the wrong state or
+// an unassessable part retains the transition and error.
+//
 // # Recovery and observations
 //
 // [PrepareRecovery] checks settlement consistency and queues interrupted attempts

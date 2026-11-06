@@ -622,6 +622,11 @@ export type DeploymentResources = {
 }
 
 export type DeploymentView = {
+  runtimeState: string
+  runtimeActor: string
+  runtimeAt?: string
+  runtimeError?: string
+  runtimeControls: Record<string, string>
   servingRelease: Release | null
   promotedFromId?: string | null
   promotionBundleId: string | null

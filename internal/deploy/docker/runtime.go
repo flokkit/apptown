@@ -84,6 +84,12 @@ func decodeRuntime(output []byte, err error, name string) (Runtime, error) {
 // verifyDockerIdentity checks that a running container is the one the
 // deployment was admitted for: labels, image and liveness.
 func verifyIdentity(id deploy.DockerIdentity, runtime Runtime, image string) error {
+	if !runtime.Running {
+		return errors.New("the selected deployment container is not running")
+	}
+	return verifyContainerIdentity(id, runtime, image)
+}
+func verifyContainerIdentity(id deploy.DockerIdentity, runtime Runtime, image string) error {
 	if id.Deployment == "" || id.Generation <= 0 || id.Artifact == "" {
 		return errors.New("deployment has incomplete Docker identity")
 	}
@@ -96,18 +102,18 @@ func verifyIdentity(id deploy.DockerIdentity, runtime Runtime, image string) err
 	if image == "" || runtime.Image != image {
 		return errors.New("container image differs from the selected deployment image")
 	}
-	if !runtime.Running {
-		return errors.New("the selected deployment container is not running")
-	}
 	return nil
 }
 
-func recordBoot(ctx context.Context, dk Scope, id deploy.DockerIdentity, name, image, url string, port int, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
+func recordBoot(ctx context.Context, dk Scope, id deploy.DockerIdentity, name, image, url string, port int, stopped bool, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 	runtime, err := Inspect(ctx, dk, name)
 	if err != nil {
 		return deploy.Observation{}, err
 	}
-	if err := verifyIdentity(id, runtime, image); err != nil {
+	if runtime.Running == stopped {
+		return deploy.Observation{}, errors.New("application runtime differs from requested state")
+	}
+	if err := verifyContainerIdentity(id, runtime, image); err != nil {
 		return deploy.Observation{}, err
 	}
 	if err := ctx.Err(); err != nil {
@@ -115,6 +121,9 @@ func recordBoot(ctx context.Context, dk Scope, id deploy.DockerIdentity, name, i
 	}
 	o := deploy.Observation{Generation: id.Generation, ImageDigest: runtime.Image, Rollout: "active", Health: "healthy", URL: url,
 		Handle: map[string]any{"container": name, "hostPort": port}}
+	if stopped {
+		o.Rollout, o.Health = "stopped", "unknown"
+	}
 	if err := checkpoint(map[string]any{"dockerReady": o}); err != nil {
 		return deploy.Observation{}, fmt.Errorf("recording Docker boot proof: %w", err)
 	}
@@ -146,7 +155,7 @@ func resume(ctx context.Context, dk Scope, p deploy.Placement, generation int64,
 	if err != nil {
 		return deploy.Observation{}, deploy.Terminal(fmt.Errorf("the attempt's record cannot be read: %w", err))
 	}
-	if proof.Container == "" || proof.Identity.Deployment != p.Label || proof.Identity.Generation != generation || proof.Ready.Generation != generation || proof.Ready.Rollout != "active" {
+	if proof.Container == "" || proof.Identity.Deployment != p.Label || proof.Identity.Generation != generation || proof.Ready.Generation != generation || (proof.Ready.Rollout != "active" && !(p.Stopped && proof.Ready.Rollout == "stopped")) {
 		return deploy.Observation{}, deploy.Terminal(errors.New("this attempt never recorded that its new version came up, so it did not finish"))
 	}
 	handle, ok := proof.Ready.Handle.(map[string]any)
@@ -162,7 +171,10 @@ func resume(ctx context.Context, dk Scope, p deploy.Placement, generation int64,
 	if err != nil {
 		return deploy.Observation{}, err // the host could not be asked
 	}
-	if err := verifyIdentity(proof.Identity, runtime, proof.Ready.ImageDigest); err != nil {
+	if runtime.Running == p.Stopped {
+		return deploy.Observation{}, deploy.Terminal(errors.New("application runtime differs from the recorded boot"))
+	}
+	if err := verifyContainerIdentity(proof.Identity, runtime, proof.Ready.ImageDigest); err != nil {
 		return deploy.Observation{}, deploy.Terminal(err)
 	}
 	// Successful cold boot is recorded evidence; current health belongs to the

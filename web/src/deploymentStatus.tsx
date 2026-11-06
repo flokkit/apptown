@@ -1,3 +1,4 @@
+import { fmtWhen } from './format'
 import { useGet } from './data'
 import { RuntimeStatus, runtimeDescription } from './runtime'
 import { Status } from './Status'
@@ -7,6 +8,8 @@ import type { DeploymentDiagnostics, DeploymentView, ReleaseListed } from './wir
 // Release progress takes precedence while containers are being replaced.
 // Otherwise diagnostics qualify the host-level runtime observation.
 export function deploymentStatus(env: DeploymentView, diagnostics?: DeploymentDiagnostics | null, unavailable = false, releases: ReleaseListed[] = []): ComponentProps<typeof Status> {
+  if (env.runtimeState === 'stopped') return { word: 'stopped', reason: `stopped by ${env.runtimeActor} · ${fmtWhen(env.runtimeAt || '')}` }
+  if (['starting', 'stopping', 'restarting'].includes(env.runtimeState)) return { word: 'deploying', reason: env.runtimeState, help: env.runtimeError || undefined }
   const release = releases.find(r => r.deployment === env.name && r.state === 'releasing')
   if (release) return { word: 'deploying', help: `Release ${release.number}` }
   // A target that runs no containers (a bucket website) never reports part

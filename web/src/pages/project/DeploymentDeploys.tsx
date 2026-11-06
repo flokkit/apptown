@@ -1,3 +1,6 @@
+import { DeploymentRuntimeActions } from './DeploymentRuntimeActions'
+import { deploymentStatus } from '../../deploymentStatus'
+import type { DeploymentDiagnostics, DeploymentView } from '../../wire.gen'
 import { ReleaseApprovalActions, ReleaseAssent } from './ReleaseApproval'
 import { ChooseRelease, RollbackBefore, type ReleaseChoice } from './ChooseRelease'
 import { useState } from 'react'
@@ -13,25 +16,30 @@ import { Section } from '../../Section'
 import './deployment-deploys.css'
 
 // Every deploy is a release request, including requests from a landing.
-type DeployHistoryProps = { slug: string; name: string; url?: string; displayLabel?: string }
+type DeployHistoryProps = { slug: string; name: string; url?: string; displayLabel?: string; env: DeploymentView; current: boolean; reload: () => Promise<void> }
 export function DeploymentDeploys(props: DeployHistoryProps) {
-  return <DeploymentHistory key={`${props.slug}/${props.name}`} {...props} />
+  return <DeploymentHistory key={`${props.slug}/${props.name}/${props.env.id}`} {...props} />
 }
-function DeploymentHistory({ slug, name, url, displayLabel }: DeployHistoryProps) {
+function DeploymentHistory({ slug, name, url, displayLabel, env, current, reload }: DeployHistoryProps) {
   const releases = useGet<ReleaseListed[]>(`/projects/${slug}/releases`, { poll: 3000 })
+  const diagnostics = useGet<DeploymentDiagnostics>(env.generation ? `/projects/${slug}/deployments/${name}/diagnostics` : null, { poll: 5000 })
+  const [pending, setPending] = useState<string>()
+  const shown = pending ? { ...env, runtimeState: pending } : env
+  const status = deploymentStatus(shown, diagnostics.data, diagnostics.refreshFailed, releases.data ?? [])
   const [choice, setChoice] = useState<ReleaseChoice | 'list' | null>(null)
   const [count, setCount] = useState(10)
   const history = releases.data?.filter(r => r.deployment === name) ?? []
   const latest = history[0]
-  const state = !releases.data || releases.refreshFailed ? 'unknown'
-    : !latest ? 'none' : latest.state === 'released' ? 'passed' : latest.state === 'releasing' ? 'deploying' : latest.state === 'waiting for approval' ? 'waiting' : latest.state === 'failed' ? 'stopped' : latest.state
   return <>
-    <h1 className="deployment-page-heading">{displayLabel || name} <Status word={state} reason={state === 'passed' ? 'live' : state === 'none' ? 'not deployed' : undefined} /></h1>
+    <div className="deployment-page-heading"><h1>{displayLabel || name} <Status observation {...status} reason={status.word === 'running' ? 'running' : status.reason} /></h1>
+      <DeploymentRuntimeActions key={env.id} slug={slug} env={shown} current={current} reload={reload} onPending={setPending} />
+    </div>
+    {env.runtimeState === 'stopped' && env.servingRelease && <p>stopped · will run release {env.servingRelease.number} when started</p>}
     <section className="card deployment-deploy-card" aria-label="Latest deploy">
       <ReadStatus q={releases} what="latest deploy" /><StaleNote q={releases} />
-      {latest ? <ReleaseDeploy key={latest.number} slug={slug} release={latest} url={url} current={releases.current} /> : releases.data && <div className="ch-deploy-result"><div className="ch-deploy-heading"><strong>No deploys yet.</strong></div><DeployScene outcome="paused" compactStages /></div>}
+      {latest ? <ReleaseDeploy key={latest.number} slug={slug} release={latest} url={url} current={current && releases.current} stopped={env.runtimeState === 'stopped'} /> : releases.data && <div className="ch-deploy-result"><div className="ch-deploy-heading"><strong>No deploys yet.</strong></div><DeployScene outcome="paused" compactStages /></div>}
     </section>
-    <ChooseRelease key={`${slug}/${name}`} slug={slug} name={name} displayLabel={displayLabel} releases={releases.data ?? []} current={releases.current} choice={choice} onChoose={setChoice} />
+    <ChooseRelease key={`${slug}/${name}`} slug={slug} name={name} displayLabel={displayLabel} releases={releases.data ?? []} current={current && releases.current} choice={choice} onChoose={setChoice} />
     <Section title="Deploy history">
       <ReadStatus q={releases} what="releases" />
       {history.slice(0, count).map(r => <div className="card" key={r.number}>
@@ -39,7 +47,7 @@ function DeploymentHistory({ slug, name, url, displayLabel }: DeployHistoryProps
         {r.state === 'waiting for approval' ? <p>Waiting for approval from {r.approvalRole}.</p> : <ReleaseAssent approval={r.approval} />}
         {r.state === 'released' && r.number !== history.find(h => h.state === 'released')?.number && r.bundleId && <button disabled={!releases.current} onClick={() => setChoice({ release: r })}>Deploy this again</button>}
         {r.changes.map(c => <div key={c.id}><Link to={`/changes/${c.id}`}>Change {c.number}: {c.title}</Link></div>)}
-        {r.backupId && <><Link to={`/backups#backup-${r.backupId}`}>Backup →</Link> <RollbackBefore slug={slug} name={name} release={r} current={releases.current} onChoose={() => setChoice({ before: r })} /></>}
+        {r.backupId && <><Link to={`/backups#backup-${r.backupId}`}>Backup →</Link> <RollbackBefore slug={slug} name={name} release={r} current={current && releases.current} onChoose={() => setChoice({ before: r })} /></>}
       </div>)}
       {history.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more</button>}
       {releases.data && history.length === 0 && <p className="muted">No deploys yet.</p>}
@@ -47,12 +55,13 @@ function DeploymentHistory({ slug, name, url, displayLabel }: DeployHistoryProps
   </>
 }
 
-function ReleaseDeploy({ slug, release: r, url, current }: { slug: string; release: ReleaseListed; url?: string; current: boolean }) {
-  const running = r.state === 'releasing', passed = r.state === 'released'
+function ReleaseDeploy({ slug, release: r, url, current, stopped }: { slug: string; release: ReleaseListed; url?: string; current: boolean; stopped?: boolean }) {
+  const ready = stopped && r.state === 'released'
+  const running = r.state === 'releasing', passed = !stopped && r.state === 'released'
   const duration = r.releasedAt ? Date.parse(r.releasedAt) - Date.parse(r.createdAt) : undefined
   return <div className="ch-deploy-result">
-    <div className="ch-deploy-heading"><strong className={passed ? 'ok' : undefined}>{passed ? "It's live!" : running ? 'Deploying' : r.state === 'waiting for approval' ? 'Waiting for approval' : r.state === 'cancelled' ? 'Release cancelled' : r.state === 'superseded' ? 'Release superseded' : 'Deploy stopped'}</strong>{passed && <span> Release {r.number}</span>}</div>
-    <DeployScene outcome={running || r.state === 'waiting for approval' || r.state === 'cancelled' || r.state === 'superseded' ? 'paused' : passed ? 'passed' : 'failed'} compactStages />
+    <div className="ch-deploy-heading"><strong className={passed ? 'ok' : undefined}>{ready ? `Release ${r.number} is ready to start` : passed ? "It's live!" : running ? 'Deploying' : r.state === 'waiting for approval' ? 'Waiting for approval' : r.state === 'cancelled' ? 'Release cancelled' : r.state === 'superseded' ? 'Release superseded' : 'Deploy stopped'}</strong>{passed && <span> Release {r.number}</span>}</div>
+    <DeployScene outcome={ready || running || r.state === 'waiting for approval' || r.state === 'cancelled' || r.state === 'superseded' ? 'paused' : passed ? 'passed' : 'failed'} compactStages />
     <ReleaseApprovalActions slug={slug} release={r} decision={r.decision} current={current} />
     <div className="ch-deploy-result-facts">
       {r.failure && <p>{r.failure}</p>}
