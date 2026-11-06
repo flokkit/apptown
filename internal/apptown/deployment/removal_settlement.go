@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -78,7 +80,7 @@ func (e *Deployment) matchesRemoval(selected *Deployment, withProject bool) erro
 // caller's transaction: the project's release lock, then the deployment's
 // row lock, and the placement's own refusals (main outside a project's
 // deletion, work under way, an open attempt, a release in flight, a
-// restored copy, which goes by its own door). withProject is a project's
+// restored copy, which goes by its own door, and incoming promotion feeds). withProject is a project's
 // deletion, which takes main too.
 func SelectRemovalIn(ctx context.Context, tx *database.Tx, projectID ids.ID, name string, withProject bool) (*Deployment, error) {
 	if _, err := releasesql.New(tx.SQL()).LockReleaseProject(ctx, projectID); err != nil {
@@ -98,6 +100,22 @@ func SelectRemovalIn(ctx context.Context, tx *database.Tx, projectID ids.ID, nam
 	}
 	if err != nil {
 		return nil, err
+	}
+	// Feed edits hold the same project lock. Check both before effects and
+	// when settlement selects again, before any retention or deletion writes.
+	rows, err := q.LockFeedSettings(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	var downstream []string
+	for _, row := range rows {
+		if row.PromotedFromID == dep.ID {
+			downstream = append(downstream, row.Name)
+		}
+	}
+	if len(downstream) != 0 {
+		sort.Strings(downstream)
+		return nil, fault.New(fault.Conflict, fmt.Sprintf("deployment %s is the promotion source for %s; change their feeds first", dep.Name, strings.Join(downstream, ", ")))
 	}
 	if err := dep.removableNow(withProject); err != nil {
 		return nil, err

@@ -1,6 +1,7 @@
 package deployment
 
 import (
+	"context"
 	"errors"
 	"github.com/flokkit/apptown/internal/access"
 	"testing"
@@ -70,5 +71,57 @@ func TestFeedVocabularyHasNoCompatibilityValues(t *testing.T) {
 		if (err == nil) != (feed == "main" || feed == "promotion" || feed == "manual") {
 			t.Fatalf("feed %s: %v", feed, err)
 		}
+	}
+}
+
+// An agent's deploy grant permits requests, never standing human assent.
+type agentFeedAuthority struct{ access.Authorizer }
+
+func (a agentFeedAuthority) Require(ctx context.Context, permission access.Permission) (access.Caller, error) {
+	caller, err := a.Authorizer.Require(ctx, permission)
+	caller.Principal.Via = "token"
+	caller.Principal.Purpose = access.TokenAgent
+	caller.Principal.Credential = "token:agent"
+	return caller, err
+}
+
+func TestAgentCannotRecordFollowsMainSetter(t *testing.T) {
+	for _, path := range []string{"set-feed", "confirm-feed", "confirm-all-feeds"} {
+		t.Run(path, func(t *testing.T) {
+			t.Parallel()
+			s, in, authority, _ := requestFixture(t)
+			dep, err := s.Deployments.ByName(t.Context(), in.ProjectID, in.DeploymentName)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if path != "set-feed" {
+				dep, err = s.Deployments.EnsureStanding(t.Context(), in.ProjectID, dep.Name, dep.TargetID, Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			s.release.Authority = agentFeedAuthority{authority}
+			switch path {
+			case "set-feed":
+				_, err = s.SetFeed(t.Context(), in.ProjectID, dep.Name, FeedSettings{Revision: dep.FeedRevision, Feed: "main"})
+			case "confirm-feed":
+				_, err = s.ConfirmFeed(t.Context(), in.ProjectID, dep.Name, dep.FeedRevision)
+			case "confirm-all-feeds":
+				confirmed, refused, bulkErr := s.ConfirmAllFeeds(t.Context())
+				if bulkErr != nil || len(confirmed) != 0 || len(refused) != 1 {
+					t.Fatalf("bulk confirmation: confirmed=%v refused=%v err=%v", confirmed, refused, bulkErr)
+				}
+			}
+			if path != "confirm-all-feeds" && !errors.Is(err, errReleaseAuthority) {
+				t.Fatalf("agent must be refused standing authority: %v", err)
+			}
+			saved, err := s.Deployments.ByID(t.Context(), dep.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if saved.FeedConfirmed || len(saved.feedAuthority) != 0 || saved.FeedRevision != dep.FeedRevision || saved.Feed != dep.Feed {
+				t.Fatalf("refused agent changed feed or recorded assent: %+v", saved)
+			}
+		})
 	}
 }

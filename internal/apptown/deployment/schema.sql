@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS releases (
   -- what runs and never as something AppTown shipped (external_ref names it).
   origin TEXT NOT NULL DEFAULT 'shipped' CONSTRAINT release_origin CHECK (origin IN ('shipped', 'observed-after-restore')),
   backup_id UUID,
+  from_deployment_id UUID,
   UNIQUE(project_id, number)
 );
 CREATE TABLE IF NOT EXISTS release_changes (

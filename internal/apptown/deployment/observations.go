@@ -85,7 +85,7 @@ func (o *observations) read(r listingRecord, now time.Time) RuntimeObservation {
 	return overlayReadiness(v, r, health, now)
 }
 
-// RunObservations owns the display-only observer. It starts immediately and
+// RunObservations owns the cached runtime observer. It starts immediately and
 // never overlaps sweeps. Docker health enforcement runs independently.
 func (s *Service) RunObservations(ctx context.Context) {
 	for ctx.Err() == nil {

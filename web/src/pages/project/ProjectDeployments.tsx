@@ -9,7 +9,7 @@ export function ProjectDeployments({ slug }: { slug: string }) {
   const q = useGet<DeploymentView[]>(`/projects/${slug}/deployments`, { poll: 5000 })
   return <Section title="Deployments" action={<Link to={`/projects/${slug}/settings/deployments`}>Configure →</Link>}>
     <ReadStatus q={q} what="deployments" /><StaleNote q={q} />
-    <div role="list">{q.data?.map(e => <div key={e.id}><DeploymentRow slug={slug} env={q.refreshFailed ? { ...e, observation: 'unknown' } : e} /><LastDeploy slug={slug} name={e.name} /></div>)}</div>
+    <div role="list">{q.data?.map(e => <div key={e.id}><DeploymentRow slug={slug} current={q.current} env={q.refreshFailed ? { ...e, observation: 'unknown' } : e} /><LastDeploy slug={slug} name={e.name} /></div>)}</div>
     {q.data?.length === 0 && <p className="muted">Not deployed yet.</p>}
   </Section>
 }

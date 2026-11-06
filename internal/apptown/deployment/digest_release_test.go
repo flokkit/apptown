@@ -188,7 +188,7 @@ func TestPromotionAndRecoveryRefuseAHostOfAnotherOrUnknownPlatform(t *testing.T)
 			w := newDigestWorld(t, "", nil)
 			b := w.publish(t)
 			w.mainOf(t, b)
-			dep, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "staging", w.lab2.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+			dep, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "staging", w.lab2.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
 			if err != nil {
 				t.Fatal(err)
 			}

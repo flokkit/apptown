@@ -217,7 +217,7 @@ func TestDefaultPortainerReleaseRemovalRevokesOnlyItsIssuedKey(t *testing.T) {
 	deps := make([]*deployment.Deployment, 2)
 	ownedKeys := make([]deploy.Owned, 2)
 	for i, name := range []string{"customer-a", "customer-b"} {
-		deps[i], err = w.s.Deployments.EnsureStanding(t.Context(), w.project, name, target.ID, deployment.Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"})
+		deps[i], err = w.s.Deployments.EnsureStanding(t.Context(), w.project, name, target.ID, deployment.Attributes{Feed: "manual", Audience: "organisation", DataClass: "non-production"})
 		if err != nil {
 			t.Fatal(err)
 		}

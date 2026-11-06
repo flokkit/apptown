@@ -133,7 +133,7 @@ func (p *promotionTargets) lastStack(t *testing.T) (string, int) {
 func TestANamedReleaseToPortainerCarriesTheAppsNeeds(t *testing.T) {
 	t.Parallel()
 	p, b, asked := newPortainerNeeds(t)
-	lan, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", p.target(t, IntranetTargetName).ID, Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"})
+	lan, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", p.target(t, IntranetTargetName).ID, Attributes{Feed: "manual", Audience: "organisation", DataClass: "non-production"})
 	if err != nil || lan.URL != "" || lan.Placement().Handle["stack"] != nil {
 		t.Fatalf("the new deployment: %+v %v", lan, err)
 	}
@@ -248,7 +248,7 @@ func TestANamedPortainerReleaseRecordsTheAddressItRoutes(t *testing.T) {
 	t.Parallel()
 	p, b, _ := newPortainerNeeds(t)
 	intranet := p.target(t, IntranetTargetName)
-	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", intranet.ID, Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"}); err != nil {
+	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", intranet.ID, Attributes{Feed: "manual", Audience: "organisation", DataClass: "non-production"}); err != nil {
 		t.Fatal(err)
 	}
 	if rel, err := p.releaseByName(t, "lan", b); err != nil || rel.State != Released {
@@ -301,7 +301,7 @@ func TestCustomerPortainerDeploymentsKeepIndependentReleaseOwnership(t *testing.
 			for i, target := range []*Target{firstTarget, secondTarget} {
 				name := []string{"customer-a", "customer-b"}[i]
 				var err error
-				deps[i], err = p.s.Deployments.EnsureStanding(t.Context(), p.project, name, target.ID, Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"})
+				deps[i], err = p.s.Deployments.EnsureStanding(t.Context(), p.project, name, target.ID, Attributes{Feed: "manual", Audience: "organisation", DataClass: "non-production"})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -415,7 +415,7 @@ func TestCustomerPortainerDeploymentsKeepIndependentReleaseOwnership(t *testing.
 func TestANamedPortainerReleaseRefusesImagesItCannotRun(t *testing.T) {
 	t.Parallel()
 	p, b, _ := newPortainerNeeds(t)
-	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", p.target(t, IntranetTargetName).ID, Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"}); err != nil {
+	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", p.target(t, IntranetTargetName).ID, Attributes{Feed: "manual", Audience: "organisation", DataClass: "non-production"}); err != nil {
 		t.Fatal(err)
 	}
 	arm := `{"Os":"linux","Arch":"arm64"}`
@@ -578,7 +578,7 @@ func TestAPortainerStackGivesTheAppItsIntegrationValues(t *testing.T) {
 func TestANamedPortainerReleaseOfAnUnpublishedBundleIsRefusedWhenAsked(t *testing.T) {
 	t.Parallel()
 	p := newPromotionTargets(t, false)
-	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", p.target(t, IntranetTargetName).ID, Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"}); err != nil {
+	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", p.target(t, IntranetTargetName).ID, Attributes{Feed: "manual", Audience: "organisation", DataClass: "non-production"}); err != nil {
 		t.Fatal(err)
 	}
 	byID := cutBundleFixture(t, p.db, p.project, p.revision, BundleOrigin{})

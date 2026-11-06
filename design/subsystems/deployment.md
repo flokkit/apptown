@@ -143,6 +143,38 @@ for this deployment”. The deployment card and `deployment confirm-feed` record
 fresh authorization. Removal and hand-deploy protections follow feed `main`,
 regardless of the deployment’s name.
 
+`SetFeed` saves the feed and promotion source together against the revision the
+caller read. The source is a standing deployment in the same project; cycles
+are refused. Project locking serializes graph edits. New deployments default
+to manual. Existing feed edits use this operation rather than the general
+binding write; `ConfirmFeed` uses it to renew standing authorization.
+
+Promotion requests select the source's last settled bundle, even when a newer
+project bundle exists. A fresh runtime observation that says the source is
+stopped or taken down refuses promotion and names the source. Stale or unknown
+runtime observations do not block selection of a known settled bundle. The
+release log records that it takes the source's last settled release. With no
+known settled bundle, promotion is refused with a reason. Selection reads the
+existing cached observation without polling the provider.
+
+The web Promote controls send `expectedSourceBundleId`, the bundle of the
+source release they display. If the source’s last successful bundle differs,
+the owner refuses with “<source> now runs release M; promote again”. A matching
+expectation selects exactly that bundle, under the same eligibility checks.
+
+The selected bundle is pinned at request time, and `releases.from_deployment_id`
+preserves the source identity. The request uses the same admission, execution,
+backup and current-authority checks as a manual release.
+`apptown release <project> <deployment>` chooses promotion or latest according to
+that deployment's feed at request time, without a displayed-bundle expectation.
+Its log prints which source release it promoted.
+
+Removal and take-down refuse a deployment while another deployment in the
+project uses it as a promotion source. The refusal names the downstream
+deployments and asks the person to change their feeds first. This check runs
+before provider or data-protection effects and again in the removal settlement
+transaction under the project's release lock.
+
 ## Release bundles
 
 A release bundle is what a landing produced and every later release ships.

@@ -59,9 +59,35 @@ protected-release permission where needed. The card's creation form adds a
 manual-release deployment. Migrated follows-main settings need **Confirm follows
 main** before automatic releases can run.
 
-Other deployments take manual releases. **Deploy latest** on a deployment's
-card and `apptown release <project> <deployment>` request the latest runtime
-bundle. `apptown release <project>` uses the project's chosen release
+Each deployment's **Settings** section chooses how it updates:
+**Follows main**, **Promoted from** another deployment of the same project,
+or **By hand**. Promotion sources cannot form a cycle. Saving a feed requires
+deploy permission, plus protected-release permission for a protected deployment.
+Settings refuse an edit if someone has changed the feed since it was read.
+
+**Promote release N** deploys the release the source last deployed successfully,
+even when a newer bundle exists. It is disabled with a reason when the source
+has been taken down, has never deployed, or is currently observed stopped.
+The web Promote button selects the release it shows. If the source has since
+deployed a different bundle, AppTown refuses and asks you to promote again.
+The CLI selects the source’s last successful release when you request it and
+prints which release it promoted in the log.
+
+Unknown or stale health does not block promotion. The release records
+“promoted release N from <source>”.
+**Deploy latest** on a by-hand deployment requests the latest runtime bundle.
+`apptown release <project> <deployment>` performs the action its feed selects.
+Set the feed from the command line with:
+
+```sh
+apptown deployment set-feed <project> <deployment> main
+apptown deployment set-feed <project> <deployment> manual
+apptown deployment set-feed <project> <deployment> promotion --from <source-deployment>
+```
+
+New deployments default to **By hand**. Choosing **Follows main** records you
+and your credential as its standing authorization. AppTown checks your current
+permissions again before each automatic release. `apptown release <project>` uses the project's chosen release
 preference. Each release has its own log and outcome.
 
 A release checks its pre-release copy before starting services, running init

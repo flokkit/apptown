@@ -11,7 +11,7 @@ func TestQueuedPortainerReleaseRefusesMissingOrChangedBinding(t *testing.T) {
 		t.Run(fixture, func(t *testing.T) {
 			p, b, _ := newPortainerNeeds(t)
 			target := p.target(t, IntranetTargetName)
-			if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", target.ID, Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"}); err != nil {
+			if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", target.ID, Attributes{Feed: "manual", Audience: "organisation", DataClass: "non-production"}); err != nil {
 				t.Fatal(err)
 			}
 			accepted, err := p.s.RequestRelease(t.Context(), DeploySelection{ProjectID: p.project, DeploymentName: "lan", BundleID: b.ID})

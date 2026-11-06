@@ -613,6 +613,11 @@ export type DeploymentResources = {
 }
 
 export type DeploymentView = {
+  promotedFromId?: string | null
+  promotionBundleId: string | null
+  promotionRelease: number
+  promotionSource: string
+  promotionBlocked: string
   feedRevision: number
   feedConfirmed: boolean
   lastApplied?: AppliedAttempt | null
@@ -1489,6 +1494,7 @@ export type ReleaseDetail = {
 
 export type ReleaseListed = {
   statusLabel: ReleaseLabel
+  fromDeploymentId?: string | null
   backupId?: string | null
   id: string | null
   projectId: string | null
@@ -3962,6 +3968,7 @@ export type BackupReference = {
 }
 
 export type Release = {
+  fromDeploymentId?: string | null
   backupId?: string | null
   id: string | null
   projectId: string | null

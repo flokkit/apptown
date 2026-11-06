@@ -38,7 +38,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	t.Parallel()
 	a, f, p, b := doWorld(t)
 	tg, _ := a.Deployment.Targets.ByName(t.Context(), "do-syd")
-	env, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", tg.ID, deployment.Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"})
+	env, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", tg.ID, deployment.Attributes{Feed: "manual", Audience: "organisation", DataClass: "non-production"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +227,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	// The release's images were copied into the project's DOCR repository,
 	// which a second deployment on the same account also runs from.
 	f.SeedRepository("expense", 23_950_000)
-	if _, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "staging", tg.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"}); err != nil {
+	if _, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "staging", tg.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}); err != nil {
 		t.Fatal(err)
 	}
 	// With no backup store no final copy can be taken, so the take-down is

@@ -9,7 +9,7 @@ import (
 
 func TestPortainerOwnerRefusesNeedSecretCollisionsBeforeCompose(t *testing.T) {
 	p := newPromotionTargets(t, false)
-	dep, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "collision", p.target(t, IntranetTargetName).ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+	dep, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "collision", p.target(t, IntranetTargetName).ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}

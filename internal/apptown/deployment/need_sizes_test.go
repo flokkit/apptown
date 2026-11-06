@@ -60,7 +60,7 @@ needs:
 		t.Fatal(err)
 	}
 	defer cleanup()
-	dep, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "legacy", w.lab.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+	dep, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "legacy", w.lab.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}

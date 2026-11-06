@@ -21,6 +21,7 @@ var policyEvidence = map[string]func(*testing.T){
 	"accounts.CreateToken":              TestTokenHTTPKeepsMetadataAndRoleBounds,
 	"accounts.ListTokens":               TestTokenHTTPKeepsMetadataAndRoleBounds,
 	"accounts.RevokeToken":              TestTokenHTTPKeepsMetadataAndRoleBounds,
+	"deployments.SetFeed":               TestDeploymentConfigurationHTTP,
 	"deployments.ConfirmFeed":           TestDeploymentConfigurationHTTP,
 	"deployments.ConfirmAllFeeds":       TestDeploymentConfigurationHTTP,
 	"deployments.CreateDeployment":      TestDeploymentConfigurationHTTP,

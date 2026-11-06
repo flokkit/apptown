@@ -342,6 +342,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("PUT /api/v1/integrations/{id}/label", connectors.EditConnectionLabel, access.CapIntegrationConnector, "instance"),
 		ownerRoute("POST /api/v1/deployments/confirm-feed", deployments.ConfirmAllFeeds, "deployments.ConfirmAllFeeds"),
 		ownerRoute("POST /api/v1/projects/{slug}/deployments/{name}/confirm-feed", deployments.ConfirmFeed, "deployments.ConfirmFeed"),
+		ownerRoute("PUT /api/v1/projects/{slug}/deployments/{name}/feed", deployments.SetFeed, "deployments.SetFeed"),
 		ownerRoute("POST /api/v1/projects/{slug}/deployments", deployments.CreateDeployment, "deployments.CreateDeployment"),
 		ownerRoute("DELETE /api/v1/projects/{slug}/deployments/{name}", deployments.DeleteDeployment, "deployments.DeleteDeployment"),
 		ownerRoute("POST /api/v1/projects/{slug}/deployments/{name}/deploy", deployments.DeployDeployment, "deployments.DeployDeployment"),

@@ -72,7 +72,7 @@ func TestInfrastructurePagesOnlyReadBackgroundEvidence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dep, err := a.deployments.EnsureStanding(ctx, project.ID, "cloud", target.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "non-production"})
+	dep, err := a.deployments.EnsureStanding(ctx, project.ID, "cloud", target.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "non-production"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestAttentionInventoryObservesActualProviderLossFailureAndRecovery(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	dep, err := a.deployments.EnsureStanding(ctx, p.ID, "cloud", target.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "non-production"})
+	dep, err := a.deployments.EnsureStanding(ctx, p.ID, "cloud", target.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "non-production"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +278,7 @@ func TestInfrastructureScheduleChecksAllTargetsWithoutReaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.deployments.EnsureStanding(t.Context(), project.ID, "cloud", target.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "production"}); err != nil {
+	if _, err := a.deployments.EnsureStanding(t.Context(), project.ID, "cloud", target.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "production"}); err != nil {
 		t.Fatal(err)
 	}
 	targets, err := a.targets.All(t.Context())
@@ -439,7 +439,7 @@ func TestAnActQueuesDeploymentDetailAndProtectionWithoutThePeriodicPass(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	dep, err := a.deployments.EnsureStanding(t.Context(), p.ID, "cloud", target.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "production"})
+	dep, err := a.deployments.EnsureStanding(t.Context(), p.ID, "cloud", target.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "production"})
 	if err != nil {
 		t.Fatal(err)
 	}

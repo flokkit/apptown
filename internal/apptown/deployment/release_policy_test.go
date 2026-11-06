@@ -38,7 +38,7 @@ func TestReleaseAdmissionCapturesLockedProtectionAndExecutionKeepsBothGates(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, dep.Name, dep.TargetID, Attributes{Feed: "promotion", Audience: "team", DataClass: "production"}); err != nil {
+	if _, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, dep.Name, dep.TargetID, Attributes{Feed: "manual", Audience: "team", DataClass: "production"}); err != nil {
 		t.Fatal(err)
 	}
 	accepted, err := s.RequestRelease(t.Context(), in)
@@ -49,7 +49,7 @@ func TestReleaseAdmissionCapturesLockedProtectionAndExecutionKeepsBothGates(t *t
 	if err != nil || !recorded.ReleaseRequest.RequirePromotion {
 		t.Fatalf("locked protection not captured: %+v %v", recorded.ReleaseRequest, err)
 	}
-	unprotected, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, "other", dep.TargetID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+	unprotected, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, "other", dep.TargetID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestReleaseAdmissionRefusesPromotionWithdrawnBeforeLockedProtectionCheck(t 
 	}
 	sources.before = func() {
 		sources.before = nil
-		if _, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, dep.Name, dep.TargetID, Attributes{Feed: "promotion", Audience: "team", DataClass: "production"}); err != nil {
+		if _, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, dep.Name, dep.TargetID, Attributes{Feed: "manual", Audience: "team", DataClass: "production"}); err != nil {
 			t.Fatal(err)
 		}
 		auth.denied = access.CapReleasePromote

@@ -36,7 +36,7 @@ func TestDeployableByHand(t *testing.T) {
 	if err := (&Deployment{Kind: Standing, Name: "main", Feed: "main"}).deployableByHand(); !errors.Is(err, errFedByLanding) || !strings.HasPrefix(err.Error(), "main is") {
 		t.Fatalf("a landing-fed deployment is deployed by landing: %v", err)
 	}
-	if err := (&Deployment{Kind: Standing, Name: "staging", Feed: "promotion"}).deployableByHand(); err != nil {
+	if err := (&Deployment{Kind: Standing, Name: "staging", Feed: "manual"}).deployableByHand(); err != nil {
 		t.Fatalf("a promotion-fed deployment takes a deploy by hand: %v", err)
 	}
 }

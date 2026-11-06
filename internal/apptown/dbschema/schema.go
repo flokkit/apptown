@@ -585,6 +585,9 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		`ALTER TABLE release_requests ADD COLUMN feed_revision BIGINT, ADD COLUMN landing_approvers TEXT NOT NULL DEFAULT '', ADD COLUMN backup_evidence_json JSONB`,
 		`ALTER TABLE release_requests ADD COLUMN uncopied_acceptance_json JSONB`,
 	}},
+	{n: 212, note: "record promotion source on releases", stmts: []string{
+		`ALTER TABLE releases ADD COLUMN from_deployment_id UUID`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

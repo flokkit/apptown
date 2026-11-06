@@ -100,7 +100,7 @@ func TestExplicitUnlimitedOverrideIsAnActDistinctFromClear(t *testing.T) {
 	t.Parallel()
 	w, _ := profiledWorld(t)
 	b := w.publish(t)
-	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "prod", w.lab.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"}); err != nil {
+	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "prod", w.lab.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.promote(t, b.ID, "prod", w.lab); err != nil {

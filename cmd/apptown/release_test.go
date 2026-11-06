@@ -33,3 +33,21 @@ func TestDefaultReleaseWithoutAPreferenceNamesTheWayForward(t *testing.T) {
 		t.Fatalf("release configured a preference: %+v", *seen)
 	}
 }
+
+// The CLI deliberately sends no displayed-release expectation; the owner's
+// selected source release is printed from its persisted log.
+func TestNamedReleaseSelectsAtRequestTimeAndPrintsPromotedSource(t *testing.T) {
+	seen := jsonAppTown(t, func(method, path string) (int, string) {
+		if method == "POST" {
+			return 202, `{"number":19,"state":"releasing"}`
+		}
+		return 200, `{"release":{"state":"released"},"events":[{"text":"promoted release 18 from staging"}]}`
+	})
+	out, err := run(t, "release", "shop", "production")
+	if err != nil || !strings.Contains(out, "promoted release 18 from staging") {
+		t.Fatalf("promotion log: %q %v", out, err)
+	}
+	if len(*seen) != 2 || (*seen)[0].Path != "/projects/shop/deployments/production/deploy" || len((*seen)[0].Body) != 0 {
+		t.Fatalf("request-time selection: %+v", *seen)
+	}
+}

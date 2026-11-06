@@ -278,7 +278,7 @@ func noLocalDockerWorld(t *testing.T, yaml string) *noLocalWorld {
 
 func (w *noLocalWorld) deployment(t *testing.T, s *Service, name string, target *Target) *Deployment {
 	t.Helper()
-	dep, err := s.Deployments.EnsureStanding(t.Context(), w.project, name, target.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+	dep, err := s.Deployments.EnsureStanding(t.Context(), w.project, name, target.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -84,7 +84,7 @@ func TestConfigureDefaultsAndContractAssessment(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if dep.TargetID != target.ID || dep.Feed != "promotion" || dep.Audience != "team" || dep.DataClass != "non-production" {
+			if dep.TargetID != target.ID || dep.Feed != "manual" || dep.Audience != "team" || dep.DataClass != "non-production" {
 				t.Fatalf("defaults: %+v", dep)
 			}
 			if result.ContractChecked != (scenario == "compatible" || scenario == "incompatible") || (result.ContractIssue == "") != (scenario == "compatible") {

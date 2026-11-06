@@ -79,7 +79,7 @@ func TestADeploymentRunsItsProfileAndARebuildRunsWhatItsGenerationApplied(t *tes
 	t.Parallel()
 	w, secrets := profiledWorld(t)
 	b := w.publish(t)
-	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "prod", w.lab.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"}); err != nil {
+	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "prod", w.lab.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := secrets.Profiles.Set(t.Context(), w.project, "prod", "production", "test"); err != nil {
@@ -143,7 +143,7 @@ func TestAnOverrideIsARecordedActAndTheCommittedProfileClearsIt(t *testing.T) {
 	t.Parallel()
 	w, secrets := profiledWorld(t)
 	b := w.publish(t)
-	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "prod", w.lab.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"}); err != nil {
+	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "prod", w.lab.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}); err != nil {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
@@ -251,7 +251,7 @@ func TestMemoryUseIsWhatTheHostReportsOrUnknown(t *testing.T) {
 	t.Parallel()
 	w, _ := profiledWorld(t)
 	b := w.publish(t)
-	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "prod", w.lab.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"}); err != nil {
+	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "prod", w.lab.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}); err != nil {
 		t.Fatal(err)
 	}
 	if rel, err := w.promote(t, b.ID, "prod", w.lab); err != nil || rel.State != Released {
@@ -765,7 +765,7 @@ func TestMemoryIsObservedOnlyWhileTheRecordedGenerationRuns(t *testing.T) {
 	t.Parallel()
 	w, _ := profiledWorld(t)
 	b := w.publish(t)
-	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "prod", w.lab.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"}); err != nil {
+	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "prod", w.lab.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}); err != nil {
 		t.Fatal(err)
 	}
 	if rel, err := w.promote(t, b.ID, "prod", w.lab); err != nil || rel.State != Released {
@@ -864,7 +864,7 @@ func TestOverrideKeepsUnknownRunningSoftwareDistinctFromAnEmptyDeployment(t *tes
 	t.Parallel()
 	w, _ := profiledWorld(t)
 	b := w.publish(t)
-	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "prod", w.lab.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"}); err != nil {
+	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "prod", w.lab.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}); err != nil {
 		t.Fatal(err)
 	}
 	if rel, err := w.promote(t, b.ID, "prod", w.lab); err != nil || rel.State != Released {

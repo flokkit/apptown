@@ -233,6 +233,36 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	if stale.Code != 409 {
 		t.Fatalf("stale confirmation: %d %s", stale.Code, stale.Body.String())
 	}
+	// Any same-project source is accepted only if it is a standing deployment.
+	// The existing deployment's literal name is read from its owner below.
+	all, err := a.service.Deployments.ForProject(t.Context(), a.project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceName := ""
+	for _, d := range all {
+		if d.Name != auto.Name && d.Standing() {
+			sourceName = d.Name
+			break
+		}
+	}
+	settingsBody := fmt.Sprintf(`{"revision":%d,"feed":"promotion","from":%q}`, auto.FeedRevision+1, sourceName)
+	denied = authenticatedRequest(deployments.SetFeed, "outsider", "PUT", "/", settingsBody, values)
+	if denied.Code != 403 {
+		t.Fatalf("unauthorized settings: %d %s", denied.Code, denied.Body.String())
+	}
+	feedSaved := authenticatedRequest(deployments.SetFeed, "owner", "PUT", "/", settingsBody, values)
+	if feedSaved.Code != 200 {
+		t.Fatalf("settings: %d %s", feedSaved.Code, feedSaved.Body.String())
+	}
+	stale = authenticatedRequest(deployments.SetFeed, "owner", "PUT", "/", settingsBody, values)
+	if stale.Code != 409 {
+		t.Fatalf("stale settings: %d %s", stale.Code, stale.Body.String())
+	}
+	missing := authenticatedRequest(deployments.SetFeed, "owner", "PUT", "/", `{"feed":"manual"}`, values)
+	if missing.Code != 409 {
+		t.Fatalf("revision omitted: %d %s", missing.Code, missing.Body.String())
+	}
 	bulk := authenticatedRequest(deployments.ConfirmAllFeeds, "owner", "POST", "/", `{}`, nil)
 	if bulk.Code != 200 {
 		t.Fatalf("bulk confirmation: %d %s", bulk.Code, bulk.Body.String())

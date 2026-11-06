@@ -245,3 +245,32 @@ func TestATakeDownIsStampedByAppTownsClock(t *testing.T) {
 		t.Fatalf("receipt %+v %v, want it stamped %v", lines, err, at)
 	}
 }
+
+// A promotion reference refuses removal before a provider call; all
+// dependants are named so their feeds can be changed.
+func TestPromotionSourceRemovalRefusesBeforeEffects(t *testing.T) {
+	t.Parallel()
+	s, _, driver, dep := removalFixture(t)
+	for _, name := range []string{"production", "production-west"} {
+		downstream, err := s.Deployments.EnsureStanding(t.Context(), dep.ProjectID, name, dep.TargetID, deployment.Attributes{}.WithDefaults())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.SetFeed(t.Context(), dep.ProjectID, name, deployment.FeedSettings{Revision: downstream.FeedRevision, Feed: "promotion", From: dep.Name}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	_, err := s.Remove(t.Context(), removeSelection(dep))
+	if err == nil || !strings.Contains(err.Error(), "production, production-west") || !strings.Contains(err.Error(), "change their feeds first") {
+		t.Errorf("source removal refusal: %v", err)
+	}
+	if driver.calls.Load() != 0 {
+		t.Errorf("refused source removal called provider %d times", driver.calls.Load())
+	}
+	if !deploymentExists(t, s.db, dep.ID) {
+		t.Fatal("source deployment disappeared")
+	}
+	wantN(t, "need instances", needInstances(t, s.db, dep.ID), 1)
+	wantN(t, "torn-down receipts", receipts(t, s.db, "deployment.torn-down", bySubject(dep.Name)), 0)
+}

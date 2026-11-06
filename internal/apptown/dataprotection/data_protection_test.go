@@ -442,7 +442,7 @@ func (w *dataWorld) nameRunner(name string) {
 // bind binds a deployment on the App Platform target, starting from a set
 // when from is not 0.
 func (w *dataWorld) bind(project ids.ID, name, data string, from ids.ID) (*deployment.Deployment, error) {
-	res, err := w.s.Configure(context.Background(), deployment.ConfigureDeployment{ProjectID: project, Name: name, Target: "do-syd", Attributes: deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: data}, StartFrom: from})
+	res, err := w.s.Configure(context.Background(), deployment.ConfigureDeployment{ProjectID: project, Name: name, Target: "do-syd", Attributes: deployment.Attributes{Feed: "manual", Audience: "team", DataClass: data}, StartFrom: from})
 	if err != nil {
 		return nil, err
 	}

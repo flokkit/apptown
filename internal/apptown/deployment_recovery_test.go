@@ -140,7 +140,7 @@ func TestRestartMidDeployFinishesTheAttemptFromWhatWasNoted(t *testing.T) {
 	t.Parallel()
 	a, f, p, b := doWorld(t)
 	tg, _ := a.Deployment.Targets.ByName(t.Context(), "do-syd")
-	env, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", tg.ID, deployment.Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"})
+	env, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", tg.ID, deployment.Attributes{Feed: "manual", Audience: "organisation", DataClass: "non-production"})
 	if err != nil {
 		t.Fatal(err)
 	}
