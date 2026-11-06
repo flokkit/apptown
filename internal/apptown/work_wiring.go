@@ -60,35 +60,36 @@ func (a *App) workDependencies() workflow.Dependencies {
 	runners[workflowexec.AgentKind] = a.agents.Run
 	runners[workflowexec.ReviewKind] = a.agents.Review
 	return workflow.Dependencies{Jobs: jobQueue{},
-		StepContext:   projectCacheScope(a.DB),
-		Masker:        a.Secrets.Masker,
-		Authority:     access.Checked{Authority: identity.Scoped(a.Access, "work"), Projects: a.Projects},
-		Scanners:      verification.StageScanners{},
-		Laws:          workflowLawRules{},
-		Abandonment:   abandonmentEffects{now: a.cfg.clock.Now},
-		Completion:    workflowCompletionEffects{now: a.cfg.clock.Now},
-		Merge:         mergeEffectsFor(a),
-		Landings:      landingAdoptions{},
-		LandingMeans:  workcommands.LandingSentences{DB: a.DB, Lanes: a.lifecycle},
-		InAdvance:     workcommands.LandingSentences{DB: a.DB, Lanes: a.lifecycle},
-		ChangeAdds:    changeadds.Comparer{},
-		Budget:        remediation.LandingRetryBudget{Now: a.cfg.clock.Now},
-		EvalGate:      evalStepGate{a.evalGate},
-		Narratives:    narrativeReleaseNotes{},
-		HeldSummaries: narratives{},
-		Resolve:       a.preparation.Resolve,
-		LandingWork:   a.preparation,
-		Runners:       runners,
-		Recoverers:    map[string]workflow.Runner{workflowexec.ScriptKind: commands.RecoverScript, workflowexec.AgentKind: a.agents.RecoverAgent, workflowexec.ReviewKind: a.agents.RecoverAgent},
-		Chats:         holderPresenceFor(a),
-		Report:        selfErrorsFor(a).Workflow,
-		Hold:          a.newWork.Wait,
-		Slots:         a.capacity.Waiting,
-		Git:           (workflow.GitWorkspace{DataDir: a.cfg.dataDir}),
-		Repositories:  &a.repositories,
-		Automatic:     autoStepTypes(),
-		ModelRefusal:  workflowexec.ModelRefusal(a.modelSelection),
-		DataDir:       a.cfg.dataDir,
+		WorkspaceChats: a.Console,
+		StepContext:    projectCacheScope(a.DB),
+		Masker:         a.Secrets.Masker,
+		Authority:      access.Checked{Authority: identity.Scoped(a.Access, "work"), Projects: a.Projects},
+		Scanners:       verification.StageScanners{},
+		Laws:           workflowLawRules{},
+		Abandonment:    abandonmentEffects{now: a.cfg.clock.Now},
+		Completion:     workflowCompletionEffects{now: a.cfg.clock.Now},
+		Merge:          mergeEffectsFor(a),
+		Landings:       landingAdoptions{},
+		LandingMeans:   workcommands.LandingSentences{DB: a.DB, Lanes: a.lifecycle},
+		InAdvance:      workcommands.LandingSentences{DB: a.DB, Lanes: a.lifecycle},
+		ChangeAdds:     changeadds.Comparer{},
+		Budget:         remediation.LandingRetryBudget{Now: a.cfg.clock.Now},
+		EvalGate:       evalStepGate{a.evalGate},
+		Narratives:     narrativeReleaseNotes{},
+		HeldSummaries:  narratives{},
+		Resolve:        a.preparation.Resolve,
+		LandingWork:    a.preparation,
+		Runners:        runners,
+		Recoverers:     map[string]workflow.Runner{workflowexec.ScriptKind: commands.RecoverScript, workflowexec.AgentKind: a.agents.RecoverAgent, workflowexec.ReviewKind: a.agents.RecoverAgent},
+		Chats:          holderPresenceFor(a),
+		Report:         selfErrorsFor(a).Workflow,
+		Hold:           a.newWork.Wait,
+		Slots:          a.capacity.Waiting,
+		Git:            (workflow.GitWorkspace{DataDir: a.cfg.dataDir}),
+		Repositories:   &a.repositories,
+		Automatic:      autoStepTypes(),
+		ModelRefusal:   workflowexec.ModelRefusal(a.modelSelection),
+		DataDir:        a.cfg.dataDir,
 
 		Placement: taskPlacement(a.cfg),
 		// AppTown's clock writes every time Work's rules compare: step
@@ -136,7 +137,15 @@ func (a *App) asEngine(ctx context.Context) context.Context {
 // lifecycle for copies and their deletion, the model owner for what an arm
 // runs, the ledger and complaint box for what it cost and what was said.
 func evalsDependencies(a *App) evals.Dependencies {
+	cacheDocker := a.docker
 	return evals.Dependencies{
+		RemoveCache: func(ctx context.Context, id ids.ID) error {
+			// The no-local-Docker mode has no local caches, just as for project deletion.
+			if cacheDocker.Absent() {
+				return nil
+			}
+			return agentenv.RemoveProjectCache(ctx, cacheDocker, id)
+		},
 		Authority: access.Checked{Authority: identity.Scoped(a.Access, "evals"), Projects: a.Projects},
 		Projects:  a.Projects, Work: a.Work, Copier: a.lifecycle,
 		Models:       evalModels{selection: a.modelSelection, slots: a.Models},

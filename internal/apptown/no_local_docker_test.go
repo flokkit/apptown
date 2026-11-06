@@ -19,6 +19,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/execution/executionfake"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
@@ -248,4 +249,12 @@ type unconfirmedStops struct{ execution.TaskDriver }
 
 func (unconfirmedStops) Stop(context.Context, execution.TaskRef) error {
 	return execution.ErrWorkerUnavailable
+}
+
+func TestEvalCacheRetirementWithNoLocalDockerHasNothingToRemove(t *testing.T) {
+	t.Parallel()
+	a := modeApp(t, testDB(t), "")
+	if err := evalsDependencies(a).RemoveCache(t.Context(), idstest.N(1)); err != nil {
+		t.Fatalf("eval completion blocked by a local cache that cannot exist: %v", err)
+	}
 }

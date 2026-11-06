@@ -169,6 +169,9 @@ type deleter interface {
 }
 
 type Dependencies struct {
+	// RemoveCache retires a copy project cache through Execution. In-use caches return an error and are retried on the next pass.
+	RemoveCache func(context.Context, ids.ID) error
+
 	Authority  access.Authorizer
 	Projects   *project.Projects
 	Work       work

@@ -17,8 +17,9 @@ import (
 // Service is the supported caller-facing Work API. Its stores and query plans
 // are private; actor strings in commands never establish permission.
 type Service struct {
-	stepCtx       func(context.Context, ids.ID) context.Context
-	heldSummaries heldSummaryRequests
+	workspaceChats workspaceOwnership
+	stepCtx        func(context.Context, ids.ID) context.Context
+	heldSummaries  heldSummaryRequests
 	// attemptWatch is how often a running step's run is looked at.
 	attemptWatch time.Duration
 	// beforeFence is a test seam: it runs after a fenced transaction's
@@ -77,7 +78,8 @@ type Service struct {
 // context, the sources it reads over time, and the recorders other
 // subsystems supply for the effects Work's transactions carry.
 type Dependencies struct {
-	HeldSummaries heldSummaryRequests
+	WorkspaceChats workspaceOwnership
+	HeldSummaries  heldSummaryRequests
 
 	Jobs         jobs.Enqueuer
 	Authority    access.ReadAuthorizer
@@ -157,7 +159,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	automatic := slices.Clone(deps.Automatic)
 	isAutomatic := func(kind string) bool { return slices.Contains(automatic, kind) }
 	authority := commandAuthority{db: db, checked: deps.Authority, visibility: deps.Authority, clocked: clocked{deps.Now}}
-	s := &Service{heldSummaries: deps.HeldSummaries, life: life, db: db, authority: authority, wait: deps.Slots, means: deps.LandingMeans, inAdvance: deps.InAdvance, runners: maps.Clone(deps.Runners), recoverers: maps.Clone(deps.Recoverers), placement: deps.Placement, evalGate: deps.EvalGate, stepCtx: deps.StepContext, masker: deps.Masker, clocked: clocked{deps.Now}, attemptWatch: deps.AttemptWatch}
+	s := &Service{workspaceChats: deps.WorkspaceChats, heldSummaries: deps.HeldSummaries, life: life, db: db, authority: authority, wait: deps.Slots, means: deps.LandingMeans, inAdvance: deps.InAdvance, runners: maps.Clone(deps.Runners), recoverers: maps.Clone(deps.Recoverers), placement: deps.Placement, evalGate: deps.EvalGate, stepCtx: deps.StepContext, masker: deps.Masker, clocked: clocked{deps.Now}, attemptWatch: deps.AttemptWatch}
 	if s.attemptWatch <= 0 {
 		s.attemptWatch = defaultAttemptWatch
 	}

@@ -8,3 +8,6 @@ VALUES ($1,$2,$3,$4,$5)
 ON CONFLICT (subject,kind) DO UPDATE SET identity=EXCLUDED.identity, payload=EXCLUDED.payload
 WHERE maintenance_readings.identity=EXCLUDED.identity OR maintenance_readings.generation=0;
 
+
+-- name: DatabaseBytes :one
+SELECT pg_database_size(current_database())::bigint;

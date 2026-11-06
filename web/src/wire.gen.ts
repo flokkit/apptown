@@ -3255,6 +3255,7 @@ export type DevStaticBuild = {
 }
 
 export type Reading = {
+  categories?: Category[]
   stale?: boolean
   failedAt?: string
   error?: string
@@ -4902,6 +4903,13 @@ export type PartMemory = {
   limitBytes: number
   known: boolean
   reason?: string
+}
+
+export type Category = {
+  name: string
+  bytes: number
+  unknown?: string
+  readAt: string
 }
 
 export type DocLink = {

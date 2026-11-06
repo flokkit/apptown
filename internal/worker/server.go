@@ -755,6 +755,12 @@ func (s *Server) disks(w http.ResponseWriter, r *http.Request) {
 		root, space, err := d.DataDisk(r.Context())
 		out = append(out, diskspace.NewReading("the worker's Docker data (tasks, images, private Docker)", root, space, err, s.now()))
 	}
+	out[0].Categories = []diskspace.Category{diskspace.Folder(r.Context(), "Workspaces", filepath.Join(s.State, "workspaces"), s.now())}
+	if d, ok := s.Tasks.(interface {
+		DiskCategories(context.Context) []diskspace.Category
+	}); ok && len(out) > 1 {
+		out[1].Categories = d.DiskCategories(r.Context())
+	}
 	writeJSON(w, out)
 }
 

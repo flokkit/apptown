@@ -120,7 +120,7 @@ it('says checking once and keeps old readings and the address on the card', () =
  client.setQueryData(getKey(`${base}/ai-models`),{keys:[{reading,name:'models',allowance:{limit:5,remaining:4,lifetimeSpend:1}}]})
  const html=renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><EnvCard slug="game" env={{name:'main',kind:'standing',feed:'main',audience:'team',data:'synthetic',generation:2,readiness:'reconciled',url:'https://game.example',aiModels:['models'],target:{kind:'docker-host',name:'local'},lastApplied:{at:'2026-11-03T08:01:00Z',generation:2}} as DeploymentView} onChanged={()=>{}} /></MemoryRouter></QueryClientProvider>)
  expect(html.match(/Checking after the release/g)).toHaveLength(1)
- expect(html.match(/10.00 GB requested; host total 8.00 GB/g)).toHaveLength(1)
+ expect(html.match(/10 GB requested; host total 8 GB/g)).toHaveLength(1)
  expect(html).toContain('game.example')
  expect(html).toContain('512Mi')
  expect(html).toContain('$4.00 of $5.00')

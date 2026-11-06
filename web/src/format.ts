@@ -38,9 +38,9 @@ export const fmtTokens = (n: number): string =>
 export const fmtCost = (micros: number): string => `$${(micros / 1e6).toFixed(micros >= 1e6 ? 2 : 4)}`
 
 // fmtBytes is a stored size a person reads (a backup, a copy): 812 B,
-// 12 KB, 3.4 MB, 1.20 GB. Guidance sizes use fmtSize, which counts context.
+// 12 KB, 3.4 MB, 1.2 GB. Guidance sizes use fmtSize, which counts context.
 export const fmtBytes = (n: number): string =>
-  n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(0)} KB` : n < 1024 * 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`
+  n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(0)} KB` : n < 1024 * 1024 * 1024 ? `${Number((n / 1024 / 1024).toFixed(1))} MB` : `${Number((n / 1024 / 1024 / 1024).toFixed(2))} GB`
 
 // Guidance sizes: what a block costs an agent's context. 812 B · 4.2k · 21k.
 export const fmtSize = (bytes: number): string =>

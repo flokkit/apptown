@@ -10,6 +10,7 @@ The [web data contract](../design/architecture/web-data.md) owns reads and edito
 | --- | --- |
 | Inventory row: identity, state, action, optional detail | `ListRow`; `ProjectListRow` for projects and `LibraryRow` for ways of working |
 | Compact expandable facts | `GlanceRow`; retain semantic tables for tabular records |
+| Disk name, used / total and capacity bar | `CapacityStrip` |
 | Page section | `Section` |
 | Action menu or disclosure panel | `MoreMenu`, `SplitButton`, `Disclosure` from `Popover.tsx` |
 | Dialog | `Modal`; change decisions use the native dialog in `pages/change/Turn.tsx` |

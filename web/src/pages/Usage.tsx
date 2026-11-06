@@ -1,3 +1,4 @@
+import { UsageDisk } from './UsageDisk'
 import { Tabs } from '../Tabs'
 import { useState } from 'react'
 import { fmtCost, fmtPrice as price, fmtDuration, fmtTokens } from '../format'
@@ -297,6 +298,7 @@ export default function UsagePage() {
     <div>
       <PageHead page="usage" />
       <UsageView />
+ <UsageDisk />
     </div>
   )
 }

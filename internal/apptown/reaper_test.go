@@ -129,7 +129,7 @@ func TestReapWorkspacesKeepsTranscripts(t *testing.T) {
 	liveWS := mk(fmt.Sprintf("change-%d", open), true)
 	hub := mk("project-ws-hub", false)
 	// Log-only names it and touches nothing.
-	if got := a.reaper.Workspaces(context.Background(), true); len(got) != 1 || got[0] != filepath.Base(oldWS) {
+	if got := a.Work.Workspaces(context.Background(), true); len(got) != 1 || got[0] != filepath.Base(oldWS) {
 		t.Fatalf("log-only: %v", got)
 	}
 	if _, err := os.Stat(oldWS); err != nil {
@@ -140,7 +140,7 @@ func TestReapWorkspacesKeepsTranscripts(t *testing.T) {
 	if err := os.WriteFile(blocked, []byte("blocked destination"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	a.reaper.Workspaces(context.Background(), false)
+	a.Work.Workspaces(context.Background(), false)
 	original := filepath.Join(oldWS, ".apptown", "sessions", "step-00000000-0001-7000-8000-000000000000.jsonl")
 	if data, err := os.ReadFile(original); err != nil || string(data) != `{"tool":"bash"}` {
 		t.Fatalf("failed preservation lost transcript: %q %v", data, err)
@@ -148,7 +148,7 @@ func TestReapWorkspacesKeepsTranscripts(t *testing.T) {
 	if err := os.Remove(blocked); err != nil {
 		t.Fatal(err)
 	}
-	a.reaper.Workspaces(context.Background(), false)
+	a.Work.Workspaces(context.Background(), false)
 	if _, err := os.Stat(oldWS); !os.IsNotExist(err) {
 		t.Fatal("the closed change's worktree stands")
 	}
@@ -183,6 +183,13 @@ func TestReapWorkspacesRetainsRecoveredConversationCheckout(t *testing.T) {
 	if err := os.WriteFile(canary, []byte("saved chat work"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	transcript := filepath.Join(ws, ".apptown", "sessions", "chat.jsonl")
+	if err := os.MkdirAll(filepath.Dir(transcript), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(transcript, []byte("workspace-only transcript"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	// A change console: its checkout is the change's worktree, which ending
 	// the conversation keeps (a project console's snapshot goes with it).
 	sessionID := a.Console.NewSessionID()
@@ -199,8 +206,11 @@ func TestReapWorkspacesRetainsRecoveredConversationCheckout(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, logOnly := range []bool{true, false, false} {
-		if got := a.reaper.Workspaces(context.Background(), logOnly); len(got) != 0 {
+		if got := a.Work.Workspaces(context.Background(), logOnly); len(got) != 0 {
 			t.Fatalf("saved conversation checkout reaped: %v", got)
+		}
+		if raw, err := os.ReadFile(transcript); err != nil || string(raw) != "workspace-only transcript" {
+			t.Fatalf("saved chat transcript lost: %q %v", raw, err)
 		}
 		if raw, err := os.ReadFile(canary); err != nil || string(raw) != "saved chat work" {
 			t.Fatalf("saved work changed: %v", err)
@@ -214,11 +224,18 @@ func TestReapWorkspacesRetainsRecoveredConversationCheckout(t *testing.T) {
 	sm := consoleMetaFor(a.Console.NewSessionID(), ids.Nil, ids.Nil)
 	sm.Checkout = ws + "-other"
 	a.Console.Restore(sm)
-	if got := a.reaper.Workspaces(context.Background(), false); len(got) != 1 {
+	if got := a.Work.Workspaces(context.Background(), false); len(got) != 1 {
 		t.Fatalf("ended conversation still retains workspace: %v", got)
 	}
 	if _, err := os.Stat(ws); !os.IsNotExist(err) {
 		t.Fatalf("released workspace remains: %v", err)
+	}
+	kept := filepath.Join(a.cfg.dataDir, "transcripts", filepath.Base(ws), "chat.jsonl")
+	if raw, err := os.ReadFile(kept); err != nil || string(raw) != "workspace-only transcript" {
+		t.Fatalf("released chat transcript lost: %q %v", raw, err)
+	}
+	if c, err := workflow.ReadChangeIn(t.Context(), a.DB, id); err != nil || c == nil || c.State != workflow.ChangeAbandoned {
+		t.Fatalf("cleanup changed the record: %+v %v", c, err)
 	}
 }
 

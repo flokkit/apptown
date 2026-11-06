@@ -43,7 +43,7 @@ describe("a target's capacity", () => {
     expect(html).toContain('title="docker stats: cannot connect">unknown')
     expect(html).toContain('title="docker info: cannot connect">unknown')
     expect(html).toContain('2 GB requested; host total 1 GB')
-    expect(html).toContain('low: under 10.00 GB free')
+    expect(html).toContain('low: under 10 GB free')
   })
   // A host's disk says which filesystem it is and when it was read; below
   // its floor it says new releases are refused, and a disk it could not
@@ -51,7 +51,7 @@ describe("a target's capacity", () => {
   it("says which disk it read, when, and when new releases are refused", () => {
     const refused = render({ disk: { total: fig(100 * 2 ** 30), free: {...fig(2 ** 30), stale:true}, low: true, refuses: true, floor: 5 * 2 ** 30, path: '/var/lib/docker', readAt: '2026-10-13T01:58:00Z' } })
     expect(refused).toContain("Docker&#x27;s storage (images and containers, /var/lib/docker)")
-    expect(refused).toContain('new releases refused: under 5.00 GB free')
+    expect(refused).toContain('new releases refused: under 5 GB free')
     expect(refused).toContain('last seen')
     const unread = render({ disk: { total: none('reading the disk: no space left on device'), free: none('reading the disk: no space left on device'), low: false, refuses: false, path: '/var/lib/docker' } })
     expect(unread).toContain('unknown <span class="muted">— reading the disk: no space left on device</span>')
@@ -128,15 +128,15 @@ it('draws a Docker host as bars in view, with app details one fold down', () => 
   const c = { memory, disk: { total: fig(49 * 2 ** 30), free: fig(23 * 2 ** 30), path: '/var/lib/docker', low: false, refuses: false }, tenants: Array.from({ length: 9 }, (_, i) => ({ name: `app-${i}`, kind: 'deployment', containers: 1, used: fig(0), promised: fig(i === 0 ? 10 * 2 ** 30 : 0), unlimited: 1, cpus: 0, cpuUnlimited: 1, cpuUnread: 0 })) }
   const html = render(c)
   const front = html.split('<details')[0]
-  expect(front).toContain('6.00 GB free of 8.00 GB')
-  expect(front).toContain('23.00 GB free of 49.00 GB')
+  expect(front).toContain('6 GB free of 8 GB')
+  expect(front).toContain('23 GB free of 49 GB')
   expect(front).toContain('10 GB requested; host total 8 GB')
   expect(front).toContain('role="img"')
   expect(front).not.toContain('<dt>')
   expect(front).not.toContain('app-0</td>')
   expect(html).toContain('App resource details')
   expect(html).not.toContain('<summary>Details</summary>')
-  expect(html).toContain('over by 2.00 GB')
+  expect(html).toContain('over by 2 GB')
   // A reading that could not be made says why, in the card.
   expect(render({ ...c, memory: { ...memory, total: none('host unavailable') } })).toContain('Part of the capacity check failed: Memory total: host unavailable')
 })
@@ -197,7 +197,7 @@ it('describes attached container readings and names failed tenants, including re
   const memory = { total: fig(2 ** 30), promised: { sum: { apptown: fig(0), other: fig(0) }, limited: count(0, 0), unlimited: count(0, 0), unread: count(0, 0) }, inUse: { apptown: fig(20 * 2 ** 20), other: fig(0) }, overcommitted: false }
   const tenant = { kind: 'deployment', name: 'shop/main', containers: 1, used: fig(20 * 2 ** 20), promised: fig(0), unlimited: 1, cpus: 0, cpuUnlimited: 1, cpuUnread: 0 }
   const html = render({ memory, tenants: [tenant] })
-  expect(html).toContain('20.0 MB used by containers; whole-host use is not measured')
+  expect(html).toContain('20 MB used by containers; whole-host use is not measured')
   expect(html).not.toContain('Not measured on attached hosts')
   const failed = render({ memory, tenants: [{ ...tenant, used: { ...tenant.used, stale: true, readAt: '2026-11-02T09:00:00Z', reason: 'the daemon did not report app-shop-db' } }] })
   expect(failed).toContain('(partial)')

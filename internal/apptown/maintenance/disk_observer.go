@@ -105,10 +105,18 @@ func (o *DiskObserver) Run(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	own, worker, workerErr := o.disks.read(ctx)
+	databaseBytes, databaseErr := maintenancesql.New(o.db.SQL()).DatabaseBytes(ctx)
+	databaseCategory := diskspace.Category{Name: "Database", Bytes: databaseBytes, ReadAt: o.now()}
+	if databaseErr != nil {
+		databaseCategory.Bytes = 0
+		databaseCategory.Unknown = "The database could not be measured."
+	}
+	own.Categories = append(own.Categories, databaseCategory)
 	if errors.Is(ctx.Err(), context.Canceled) {
 		return ctx.Err()
 	}
-	readings := []diskspace.Reading{own}
+	readings := append([]diskspace.Reading{own}, o.disks.local(ctx)...)
+	controllerCount := len(readings)
 	if workerErr == nil {
 		readings = append(readings, worker...)
 	}
@@ -140,7 +148,7 @@ func (o *DiskObserver) Run(ctx context.Context) error {
 			if reading.TotalReadAt.IsZero() {
 				reading.TotalReadAt = reading.ReadAt
 			}
-			fresh := DiskObservation{Reading: reading, Controller: i == 0}
+			fresh := DiskObservation{Reading: reading, Controller: i < controllerCount}
 			for _, old := range prior {
 				if old.Reading.What == reading.What && old.Reading.Path == reading.Path {
 					fresh.LastFailedAt, fresh.LastFailure = old.LastFailedAt, old.LastFailure
@@ -155,8 +163,8 @@ func (o *DiskObserver) Run(ctx context.Context) error {
 		// The controller is the first reading; individually unread worker
 		// filesystems retain only their own matching evidence.
 		retained := false
-		for j, old := range prior {
-			if i == 0 && j != 0 || i != 0 && j == 0 {
+		for _, old := range prior {
+			if (i < controllerCount) != old.Controller {
 				continue
 			}
 			if old.Reading.What == reading.What && old.Reading.Path == reading.Path {
@@ -169,15 +177,24 @@ func (o *DiskObserver) Run(ctx context.Context) error {
 			}
 		}
 		if !retained {
-			next.Disks = append(next.Disks, failedDisk(DiskObservation{Reading: reading, Controller: i == 0}, now, "The disk check failed."))
+			next.Disks = append(next.Disks, failedDisk(DiskObservation{Reading: reading, Controller: i < controllerCount}, now, "The disk check failed."))
 		}
 	}
 	if workerErr != nil {
 		next.Unknown = true
 		next.LastFailedAt = now
 		next.LastFailure = "The disk check failed."
-		if len(prior) > 1 {
-			for _, old := range prior[1:] {
+		hasPriorWorker := false
+		for _, old := range prior {
+			if !old.Controller {
+				hasPriorWorker = true
+			}
+		}
+		if hasPriorWorker {
+			for _, old := range prior {
+				if old.Controller {
+					continue
+				}
 				old.FailedAt = now
 				old.Reason = "The disk check failed."
 				old.LastFailedAt = now

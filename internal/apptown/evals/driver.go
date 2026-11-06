@@ -201,6 +201,26 @@ func plural(n int64, one, many string) string {
 }
 
 func (s *Service) finish(ctx context.Context, e evalssql.Eval, state, reason string) error {
+	rows, err := queries(s.db).ArmsOfEval(ctx, e.ID)
+	if err != nil {
+		return err
+	}
+	var failures []error
+	for _, row := range rows {
+		if !row.EvalArm.ProjectID.IsZero() {
+			if s.deps.RemoveCache == nil {
+				return errors.New("eval cache retirement is unavailable")
+			}
+			if err := s.deps.RemoveCache(ctx, row.EvalArm.ProjectID); err != nil {
+				failures = append(failures, fmt.Errorf("retiring eval arm %s cache: %w", row.EvalArm.ID, err))
+			} else {
+				log.Printf("eval %s: retired arm %s cache (eval finished)", e.ID, row.EvalArm.ID)
+			}
+		}
+	}
+	if err := errors.Join(failures...); err != nil {
+		return err
+	}
 	now := s.now()
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		if _, err := queries(tx).SetEvalState(ctx, evalssql.SetEvalStateParams{ID: e.ID, State: state, Reason: reason, FinishedAt: sql.NullTime{Time: now, Valid: true}}); err != nil {

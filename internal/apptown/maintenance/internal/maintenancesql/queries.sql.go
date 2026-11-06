@@ -12,6 +12,17 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
+const databaseBytes = `-- name: DatabaseBytes :one
+SELECT pg_database_size(current_database())::bigint
+`
+
+func (q *Queries) DatabaseBytes(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, databaseBytes)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const reading = `-- name: Reading :one
 SELECT identity, generation, invalidated, payload FROM maintenance_readings WHERE subject=$1 AND kind=$2
 `

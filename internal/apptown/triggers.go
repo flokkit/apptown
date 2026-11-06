@@ -30,7 +30,7 @@ func (a *App) RunScheduler(ctx context.Context) {
 				func() { a.Preview.Tend(ctx, a.cfg.disableReap) },
 				func() { a.reaper.Images(ctx, a.cfg.disableReap) },
 				func() { a.reaper.Cache(ctx, a.cfg.disableReap) },
-				func() { a.reaper.Workspaces(ctx, a.cfg.disableReap) },
+				func() { a.Work.Workspaces(ctx, a.cfg.disableReap) },
 				func() { a.sweepExpiredCredentials(ctx) }, func() { a.sweepOldComplaints(ctx) },
 				// Kept transcripts a crash left without a receipt, a day on,
 				// judged by the files' modification times: the system clock.

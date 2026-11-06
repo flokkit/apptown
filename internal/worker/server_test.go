@@ -510,3 +510,35 @@ func TestAnInterruptedReleaseIsFinishedAndNeverUndone(t *testing.T) {
 		t.Errorf("the finished release left the task's record: %v", err)
 	}
 }
+
+func TestWorkerDiskReadingsIncludeWorkspaceAndDockerCategories(t *testing.T) {
+	t.Parallel()
+	ca := workertest.NewCA(t)
+	state := t.TempDir()
+	path := filepath.Join(state, "workspaces", "task", "source")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("workspace bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tasks := categoryTasks{dockerShortOfDisk{&executionfake.Tasks{}}}
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Tasks: tasks})
+	driver := execution.WorkerTasks{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
+	disks, err := driver.Disks(t.Context())
+	if err != nil || len(disks) != 2 {
+		t.Fatalf("disks: %+v %v", disks, err)
+	}
+	if len(disks[0].Categories) != 1 || disks[0].Categories[0].Bytes != 15 {
+		t.Fatalf("workspace size: %+v", disks)
+	}
+	if len(disks[1].Categories) != 1 || disks[1].Categories[0].Name != "Images" || disks[1].Categories[0].Bytes != 1234 {
+		t.Fatalf("Docker size: %+v", disks)
+	}
+}
+
+type categoryTasks struct{ dockerShortOfDisk }
+
+func (categoryTasks) DiskCategories(context.Context) []diskspace.Category {
+	return []diskspace.Category{{Name: "Images", Bytes: 1234, ReadAt: time.Now()}}
+}

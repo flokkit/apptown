@@ -118,20 +118,21 @@ func parseDF(out []byte) (Space, error) {
 // read. A filesystem not read is Unknown with the reason and refuses new
 // work; it is never shown as empty or full.
 type Reading struct {
-	Stale        bool      `json:"stale,omitempty"`
-	FailedAt     time.Time `json:"failedAt,omitzero"`
-	Error        string    `json:"error,omitempty"`
-	TotalReadAt  time.Time `json:"totalReadAt,omitzero"`
-	What         string    `json:"what"`
-	Path         string    `json:"path,omitempty"`
-	TotalBytes   int64     `json:"totalBytes,omitempty"`
-	FreeBytes    int64     `json:"freeBytes,omitempty"`
-	FloorBytes   int64     `json:"floorBytes,omitempty"`
-	WarningBytes int64     `json:"warningBytes,omitempty"`
-	Refuses      bool      `json:"refuses"`
-	Low          bool      `json:"low"`
-	Unknown      string    `json:"unknown,omitempty"`
-	ReadAt       time.Time `json:"readAt"`
+	Categories   []Category `json:"categories,omitempty"`
+	Stale        bool       `json:"stale,omitempty"`
+	FailedAt     time.Time  `json:"failedAt,omitzero"`
+	Error        string     `json:"error,omitempty"`
+	TotalReadAt  time.Time  `json:"totalReadAt,omitzero"`
+	What         string     `json:"what"`
+	Path         string     `json:"path,omitempty"`
+	TotalBytes   int64      `json:"totalBytes,omitempty"`
+	FreeBytes    int64      `json:"freeBytes,omitempty"`
+	FloorBytes   int64      `json:"floorBytes,omitempty"`
+	WarningBytes int64      `json:"warningBytes,omitempty"`
+	Refuses      bool       `json:"refuses"`
+	Low          bool       `json:"low"`
+	Unknown      string     `json:"unknown,omitempty"`
+	ReadAt       time.Time  `json:"readAt"`
 }
 
 // NewReading is what was read of the filesystem holding path at at: s, or
@@ -146,4 +147,9 @@ func NewReading(what, path string, s Space, err error, at time.Time) Reading {
 	r.WarningBytes = s.Warning()
 	r.Refuses, r.Low = s.Refuses(), s.Low()
 	return r
+}
+
+// AboveWarning reports the fixed 80% advisory threshold, independently of admission.
+func (r Reading) AboveWarning() bool {
+	return r.Unknown == "" && r.TotalBytes > 0 && float64(r.FreeBytes)/float64(r.TotalBytes) < 0.2
 }

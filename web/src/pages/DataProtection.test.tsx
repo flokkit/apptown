@@ -12,7 +12,7 @@ const item = (over: Partial<ItemProtection>): ItemProtection => ({ need: 'postgr
 describe('how a cloud deployment\'s data is protected, in words', () => {
   it('tells fresh, stale, unknown and none apart, with the newest copy where there is one', () => {
     const last = { backup: SET, takenAt: '2026-10-08T06:10:00Z', bytes: 3 * 1024 * 1024, sha256: 'ab' }
-    expect(copyLine(item({ copy: 'fresh', copyLabel: 'fresh', lastCopy: last }))).toMatch(/^AppTown copies: newest copy .*, 3\.0 MB$/)
+    expect(copyLine(item({ copy: 'fresh', copyLabel: 'fresh', lastCopy: last }))).toMatch(/^AppTown copies: newest copy .*, 3 MB$/)
     expect(copyLine(item({ copy: 'stale', copyLabel: 'overdue', copyNote: 'the last copy failed: could not connect', lastCopy: last }))).toContain('AppTown copies: the last copy failed: could not connect; newest copy')
     expect(copyLine(item({ copy: 'unknown', copyLabel: 'unknown', copyNote: 'the last copy was interrupted' }))).toBe('AppTown copies: the last copy was interrupted')
     expect(copyLine(item({ copy: 'none', copyLabel: 'missing' }))).toBe('no copy')
