@@ -175,7 +175,7 @@ export default function Dashboard() {
         <div>
           <h1>Home</h1>
         </div>
-        {!noProjects && <Link to="/projects/_new"><button className="primary">+ New project</button></Link>}
+        {!noProjects && <Link to="/projects/_new"><button className="primary">+ Create project</button></Link>}
       </div>
 
       {!noProjects && act && projects !== null && (dash || dashErr) && <HomeStatus {...status} />}
@@ -183,7 +183,7 @@ export default function Dashboard() {
 
       {noProjects && (
         <div className="dash-start">
-          <Link to="/projects/_new"><button className="primary btn-big">+ New project</button></Link>
+          <Link to="/projects/_new"><button className="primary btn-big">+ Create project</button></Link>
         </div>
       )}
 

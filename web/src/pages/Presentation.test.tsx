@@ -7,6 +7,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from '../data'
 import { settled } from '../settled'
 import Projects from './Projects'
+import TopBar from '../TopBar'
 import Packs from './Packs'
 import Deployments from './Deployments'
 import { ResourceTables } from './Infrastructure'
@@ -53,6 +54,7 @@ it('gives not applicable a neutral dot', async () => {
 })
 it.each([false, true])('gives each project identity, a live address and the last change title (phone=%s)', async narrow => {
   const el = await show(<Projects />, { '/projects?limit=50&offset=0&q=': { total: 1, projects: [{ id: 'one', slug: 'calendar', name: 'Calendar', icon: '', activeItems: 0, doneRuns: 2, lastChangeTitle: 'Add school holidays', lastRunAt: '', hasDeployments: true, observation: 'running', observationStale: false, productionUrl: 'https://calendar.example', prodRunning: true }] } }, narrow)
+  expect(el.querySelector('a[href="/projects/_new"]')?.textContent).toBe('+ Create project')
   expect(el.querySelector('.project-avatar')?.textContent).toBe('C')
   expect(el.querySelector('a[href="https://calendar.example"]')?.textContent).toBe('Open app ↗')
   expect(el.textContent).toContain('Add school holidays')
@@ -154,4 +156,9 @@ it.each([false, true])('offers only uncovered fixes and keeps evidence and links
   expect(el.textContent).toContain('hygiene version 1 · clean')
   expect(el.querySelector('a[href="/conformance/reviews/review"]')).not.toBeNull()
   expect(el.textContent).not.toContain('Open a change to fix')
+})
+
+it('names project creation in the top bar', async () => {
+  const el = await show(<TopBar me={null} />, {}, false, '/projects/_new')
+  expect(el.querySelector('.topbar-here')?.textContent).toBe('Create project')
 })
