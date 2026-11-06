@@ -192,7 +192,7 @@ func TestEveryMutatingRouteRefusesWhatItsRuleDoesNotGrant(t *testing.T) {
 	configureConsoleModel(t, a)
 	work := fixtureWork(t, a)
 	a.addGrant("user", "viewer", access.RoleProjectViewer, "", access.ScopeProject, idstest.N(1).String(), "boss", "")
-	// The fixture's everyone-is-a-release-manager grant would give the viewer
+	// The fixture's everyone-may-promote grant would give the viewer
 	// release:promote; this test's viewer holds Project viewer alone.
 	grants, err := a.Access.GrantsAt(context.Background(), access.ScopeTarget, "*")
 	if err != nil {

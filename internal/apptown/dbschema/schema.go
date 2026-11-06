@@ -588,6 +588,10 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 	{n: 212, note: "record promotion source on releases", stmts: []string{
 		`ALTER TABLE releases ADD COLUMN from_deployment_id UUID`,
 	}},
+	{n: 213, note: "require human approval before a deployment takes a release", stmts: []string{
+		`ALTER TABLE deployments ADD COLUMN approval_role TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE releases ADD COLUMN approval_role TEXT NOT NULL DEFAULT '', ADD COLUMN approval_json JSONB, ADD COLUMN superseded_by UUID`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

@@ -37,3 +37,31 @@ it('shows an empty release history without manufacturing a deploy', () => {
   expect(html).not.toContain('Release details')
   client.clear()
 })
+
+it.each([true, false])('shows waiting release doors only when offered to this viewer: %s', eligible => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/projects/lunch/releases'), [{ number: 12, deployment: 'production', state: 'waiting for approval', approvalRole: 'release-manager', createdAt: '2026-11-05T01:00:00Z', changes: [], decision: { meaning: 'I accept release 12 running on production', canApprove: eligible, canCancel: eligible } }])
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="production" /></QueryClientProvider></MemoryRouter>)
+  expect(el.textContent).toContain('Waiting for approval')
+  expect(el.textContent).not.toContain('Deploy stopped')
+  const history = el.querySelector('section:last-child')!
+  expect(history.textContent).toContain('Waiting for approval from release-manager.')
+  expect(history.querySelectorAll('button')).toHaveLength(0)
+  expect(el.textContent).not.toContain('See the release for its backup outcome.')
+  const buttons = [...el.querySelectorAll('button')]
+  expect(buttons.filter(b => b.textContent === 'Approve')).toHaveLength(eligible ? 1 : 0)
+  expect(buttons.filter(b => b.textContent === 'Cancel')).toHaveLength(eligible ? 1 : 0)
+  expect(el.textContent?.includes('I accept release 12 running on production')).toBe(eligible)
+  client.clear()
+})
+
+it('retains human assent on the deployment card and its history', () => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/projects/lunch/releases'), [{ number: 12, deployment: 'production', state: 'released', createdAt: '2026-11-05T01:00:00Z', changes: [], approval: { actor: { name: 'Priya', via: 'token-cli:laptop' }, at: '2026-11-05T01:02:00Z', meaning: 'I accept release 12 running on production' } }])
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="production" /></QueryClientProvider></MemoryRouter>)
+  expect(el.textContent?.match(/Approved by Priya via token-cli:laptop/g)).toHaveLength(2)
+  expect(el.textContent?.match(/I accept release 12 running on production/g)).toHaveLength(2)
+  client.clear()
+})

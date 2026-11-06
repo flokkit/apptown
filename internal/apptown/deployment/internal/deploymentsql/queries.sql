@@ -628,8 +628,28 @@ SELECT * FROM deployments WHERE project_id=$1 ORDER BY id FOR UPDATE;
 
 -- name: SetDeploymentFeed :execrows
 UPDATE deployments SET feed=sqlc.arg(feed), promoted_from_id=sqlc.narg(promoted_from_id),
- feed_authority_json=sqlc.narg(authority), feed_revision=feed_revision+1
+ approval_role=sqlc.arg(approval_role), feed_authority_json=sqlc.narg(authority), feed_revision=feed_revision+1
 WHERE id=sqlc.arg(id) AND feed_revision=sqlc.arg(revision);
 
 -- name: RecordPromotionSource :execrows
 UPDATE releases SET from_deployment_id=$2 WHERE id=$1;
+
+-- name: SetReleaseApprovalRule :execrows
+UPDATE releases SET approval_role=$2, state=$3 WHERE id=$1;
+
+-- name: SupersedeWaitingReleases :many
+UPDATE releases SET state='superseded', superseded_by=sqlc.arg(new_release)
+WHERE deployment_id=sqlc.arg(deployment_id) AND state='waiting for approval' AND id<>sqlc.arg(new_release)
+RETURNING id;
+
+-- name: DecideWaitingRelease :execrows
+UPDATE releases SET state=sqlc.arg(state), approval_json=sqlc.narg(approval)
+WHERE id=sqlc.arg(id) AND state='waiting for approval';
+
+-- name: WaitingReleases :many
+SELECT * FROM releases WHERE state='waiting for approval' ORDER BY created_at;
+
+-- name: CancelWaitingReleasesForRemoval :many
+UPDATE releases SET state='cancelled'
+WHERE deployment_id=$1 AND state='waiting for approval'
+RETURNING id;

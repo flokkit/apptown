@@ -98,7 +98,7 @@ func TestReleasePlanHTTPProjectsActualHeadPublicationAndConfiguration(t *testing
 		}
 	}
 	selectDefault(localDep.ID.String(), 0)
-	promotionGrant := testGrantID(t, a.DB, "group", identity.GroupAllUsers, access.RoleReleaseManager, "", access.ScopeTarget, "*")
+	promotionGrant := testGrantID(t, a.DB, "group", identity.GroupAllUsers, "", string(access.CapReleasePromote), access.ScopeTarget, "*")
 	if promotionGrant.IsZero() || !revokeTestGrant(t, a, promotionGrant, "boss") {
 		t.Fatal("remove inherited promotion permission")
 	}

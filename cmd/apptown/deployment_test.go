@@ -55,3 +55,33 @@ func TestSetFeedRefusesMissingOrUnrelatedSourceBeforeWriting(t *testing.T) {
 		}
 	}
 }
+
+func TestFeedEditsKeepOrExplicitlyChangeTheApprovalRule(t *testing.T) {
+	for _, role := range []string{"", "none", "project-approver"} {
+		t.Run("role="+role, func(t *testing.T) {
+			seen := jsonAppTown(t, func(method, path string) (int, string) {
+				if method == "GET" {
+					return 200, `[{"name":"production","feedRevision":7,"approvalRole":"release-manager"}]`
+				}
+				return 200, `{}`
+			})
+			args := []string{"deployment", "set-feed", "shop", "production", "manual"}
+			if role != "" {
+				args = append(args, "--approval-role", role)
+			}
+			if _, err := run(t, args...); err != nil {
+				t.Fatal(err)
+			}
+			want := role
+			if role == "" {
+				want = "release-manager"
+			}
+			if role == "none" {
+				want = ""
+			}
+			if len(*seen) != 2 || (*seen)[1].Body["approvalRole"] != want {
+				t.Fatalf("settings lost approval rule: %+v", *seen)
+			}
+		})
+	}
+}

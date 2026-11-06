@@ -21,6 +21,12 @@ func (s ReleaseLabel) String() string {
 		return "deployed"
 	case ReleaseFailed:
 		return "failed"
+	case releaseWaiting:
+		return "waiting for approval"
+	case releaseCancelled:
+		return "cancelled"
+	case releaseSuperseded:
+		return "superseded"
 	default:
 		return "unknown"
 	}
@@ -42,7 +48,7 @@ func (s *ReleaseLabel) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &word); err != nil {
 		return err
 	}
-	for state := Releasing; state <= ReleaseFailed; state++ {
+	for state := Releasing; state <= releaseSuperseded; state++ {
 		if state.Display().String() == word {
 			*s = state.Display()
 			return nil
@@ -59,9 +65,12 @@ const (
 	departureDeploying
 	departureDeployed
 	departureFailed
+	departureWaiting
+	departureCancelled
+	departureSuperseded
 )
 
-var departureCodec = enum.Set[DepartureLabel]{Names: []string{"running", "deploying", "deployed", "failed"}, Invalid: "invalid-departure-label", Err: errors.New("invalid departure label"), ScanLabel: "value"}
+var departureCodec = enum.Set[DepartureLabel]{Names: []string{"running", "deploying", "deployed", "failed", "waiting for approval", "cancelled", "superseded"}, Invalid: "invalid-departure-label", Err: errors.New("invalid departure label"), ScanLabel: "value"}
 
 func (s DepartureLabel) String() string                { return departureCodec.String(s) }
 func (s DepartureLabel) Value() (driver.Value, error)  { return departureCodec.Value(s) }
@@ -75,6 +84,12 @@ func (s ReleaseState) DepartureLabel() DepartureLabel {
 		return departureDeployed
 	case ReleaseFailed:
 		return departureFailed
+	case releaseWaiting:
+		return departureWaiting
+	case releaseCancelled:
+		return departureCancelled
+	case releaseSuperseded:
+		return departureSuperseded
 	default:
 		return 0
 	}

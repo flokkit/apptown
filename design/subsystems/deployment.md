@@ -1655,3 +1655,33 @@ URL stays unset for that boot, including init and commands inheriting the
 running container environment. No port reservation or environment refresh takes
 place. The [contract reference](../../stock/docs/guides/contract-reference.md#the-environment-an-app-gets)
 describes the environment apps receive.
+
+
+## Release approval
+
+The deployment settings write stores `approval_role` with the feed under one
+revision. A release captures that rule and waits for approval without a queued
+execution job. The approval sentence names the deployment by its displayed label.
+Approval validates the displayed sentence and records that exact text; later label
+edits do not rewrite recorded assent. Approval records the person's assent and queues the release in
+one transaction. The project release lock serializes requests, approval,
+cancellation and supersession. A newer request supersedes only waiting releases. A take-down
+cancels waiting releases in the transaction that admits removal, before backups
+or provider effects, recording who removed the deployment and the reason
+"cancelled: the deployment was taken down". Cancellation remains recorded if the
+take-down later fails or is stopped. Approval tasks disappear; release history
+remains readable after the deployment is removed. Home and Attention approval
+titles use the deployment's display label.
+
+Execution checks both the admitted requester and the recorded approver against
+current authority before provider preparation, backups and attempt execution.
+The approver needs the required project role and `release:approve` on the
+deployment, and cannot be the requester. The same rule applies to follows-main
+requests after their landing completes. Approval-rule changes require a new
+request. See [authorization](authorization-capabilities.md) for credential and
+role boundaries and [the deployment guide](../../stock/docs/guides/container-lifecycle.md)
+for the person's actions.
+
+Deploy history lists only changes new since the previous successful release on
+the same deployment identity. Failed and waiting releases do not advance that
+boundary. Full release membership remains available on the release record.

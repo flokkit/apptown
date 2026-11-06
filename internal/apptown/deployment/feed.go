@@ -29,7 +29,7 @@ func (s *Service) ConfirmFeed(ctx context.Context, projectID ids.ID, name string
 	if dep.Feed != "main" || !dep.Standing() {
 		return nil, errFeedMoved
 	}
-	return s.SetFeed(ctx, projectID, name, FeedSettings{Revision: revision, Feed: "main"})
+	return s.SetFeed(ctx, projectID, name, FeedSettings{Revision: revision, Feed: "main", ApprovalRole: dep.ApprovalRole})
 }
 
 // ConfirmAllFeeds confirms only unconfirmed follows-main settings this caller
@@ -63,15 +63,19 @@ func (s *Service) ConfirmAllFeeds(ctx context.Context) (confirmed, refused []str
 // FeedSettings is one revision-guarded edit of a deployment's release feed.
 // From names a standing deployment in the same project for promotion only.
 type FeedSettings struct {
-	Revision int64  `json:"revision"`
-	Feed     string `json:"feed"`
-	From     string `json:"from,omitempty"`
+	ApprovalRole string `json:"approvalRole"`
+	Revision     int64  `json:"revision"`
+	Feed         string `json:"feed"`
+	From         string `json:"from,omitempty"`
 }
 
 // SetFeed changes the feed and its standing authorization together. All feed
 // edits in a project lock the graph in identity order, so concurrent edits
 // cannot introduce a cycle.
 func (s *Service) SetFeed(ctx context.Context, projectID ids.ID, name string, in FeedSettings) (*Deployment, error) {
+	if in.ApprovalRole != "" && (access.RoleByName(in.ApprovalRole) == nil || access.RoleByName(in.ApprovalRole).Scope != access.ScopeProject) {
+		return nil, fault.New(fault.Invalid, "choose a role from the access catalog, or none")
+	}
 	if in.Feed != "main" && in.Feed != "manual" && in.Feed != "promotion" {
 		return nil, fault.New(fault.Invalid, "choose main, manual or promotion")
 	}
@@ -162,7 +166,7 @@ func (s *Service) SetFeed(ctx context.Context, projectID ids.ID, name string, in
 		if err := preserveDefaultConfiguration(ctx, tx, &changed); err != nil {
 			return err
 		}
-		n, err := q.SetDeploymentFeed(ctx, deploymentsql.SetDeploymentFeedParams{ID: current.ID, Revision: in.Revision, Feed: in.Feed, PromotedFromID: from, Authority: captured})
+		n, err := q.SetDeploymentFeed(ctx, deploymentsql.SetDeploymentFeedParams{ID: current.ID, Revision: in.Revision, Feed: in.Feed, ApprovalRole: in.ApprovalRole, PromotedFromID: from, Authority: captured})
 		if err != nil {
 			return err
 		}

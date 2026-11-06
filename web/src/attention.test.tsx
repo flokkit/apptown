@@ -447,3 +447,24 @@ it('Find keeps focus while typing, follows the first match on Enter and returns 
  expect(trigger.getAttribute('aria-expanded')).toBe('false')
  expect(document.activeElement).toBe(trigger)
 })
+
+
+it('shows a pending release on Home and Attention with its deployment as the action door', async () => {
+ const href = '/projects/game/deployments/production'
+ const task = { project: 'game', href, deploymentLabel: 'Production service', release: { id: 'release-12', number: 12, deployment: 'production', state: 'waiting for approval' } }
+ responses(() => json({ ...known, items: [{ key: 'release-approval/release-12', title: 'Release 12 to Production service needs your approval', detail: 'game', href, statusLabel: 'waiting', severity: 'warning', observedAt: at, stale: false }] }), {
+  '/activity': { ...emptyActivity, releaseApprovals: [task] },
+  '/dashboard': emptyDashboard,
+  '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'game', name: 'Game' }], total: 1 }, '/projects/game/deployments': [],
+ })
+ const v = mount(<><AttentionLights /><AttentionPage /><Dashboard /></>); await settled(v.client)
+ const article = v.el.querySelector('article')!
+ expect(article.querySelector('.chip.pending')?.textContent).toContain('waiting for approval')
+ expect(article.querySelector('.chip.fail')).toBeNull()
+ expect(article.querySelector('a')?.getAttribute('href')).toBe(href)
+ expect(v.el.querySelector('.attention-light.low')).not.toBeNull()
+ const personal = v.el.querySelector('section[aria-label="Waiting on you"]')!
+ expect(personal.querySelector('.section-count')?.textContent).toBe('1')
+ expect(personal.querySelector('a')?.getAttribute('href')).toBe(href)
+ expect(personal.textContent).toContain('Release 12 to Production service needs your approval')
+})

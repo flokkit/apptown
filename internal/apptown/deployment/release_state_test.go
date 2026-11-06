@@ -42,7 +42,7 @@ func TestReleaseStateStorage(t *testing.T) {
 			t.Fatalf("scan %q: %s %v", word, s, err)
 		}
 	}
-	if err := s.Scan("superseded"); !errors.Is(err, errReleaseState) {
+	if err := s.Scan("unrecognised"); !errors.Is(err, errReleaseState) {
 		t.Fatalf("an unknown stored word is refused: %v", err)
 	}
 }

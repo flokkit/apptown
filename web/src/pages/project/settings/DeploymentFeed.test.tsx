@@ -69,6 +69,7 @@ it('keeps the draft and starting revision through refresh and failed saves', asy
   let current = [{ id: 'prod', name: 'production', kind: 'standing', feed: 'manual', feedRevision: 4 }, { id: 'stage', name: 'staging', displayLabel: 'Staging', kind: 'standing', feed: 'main', feedRevision: 1 }]
   const sent: unknown[] = []
   vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+    if (_url === '/api/v1/authz/roles') return new Response(JSON.stringify({ roles: [{ name: 'release-manager', title: 'Release manager', scope: 'project' }], capabilities: {} }))
     if (init?.method === 'PUT') {
       sent.push(JSON.parse(String(init.body)))
       return new Response('{"error":"deployment feed changed; read its settings again"}', { status: 409 })
@@ -92,11 +93,11 @@ it('keeps the draft and starting revision through refresh and failed saves', asy
     current = [{ ...current[0], feed: 'main', feedRevision: 5 }, current[1]]
     await act(async () => { await client.refetchQueries({ queryKey: getKey(path) }); await new Promise(resolve => setTimeout(resolve, 0)) })
     expect(el.querySelector<HTMLSelectElement>('[aria-label="Release feed"]')!.value).toBe('promotion')
-    expect(el.textContent).toContain('The feed changed while you were editing')
-    expect([...el.querySelectorAll('button')].find(b => b.textContent === 'Save feed')?.disabled).toBe(true)
+    expect(el.textContent).toContain('The settings changed while you were editing')
+    expect([...el.querySelectorAll('button')].find(b => b.textContent === 'Save settings')?.disabled).toBe(true)
     await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Keep my edits on the current settings')!.click() })
     await act(async () => { el.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })) })
-    await vi.waitFor(() => expect(sent).toEqual([{ revision: 5, feed: 'promotion', from: 'staging' }]))
+    await vi.waitFor(() => expect(sent).toEqual([{ revision: 5, feed: 'promotion', from: 'staging', approvalRole: '' }]))
     expect(el.querySelector<HTMLSelectElement>('[aria-label="Source deployment"]')!.value).toBe('staging')
     await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Discard changes')!.click() })
     expect(el.querySelector<HTMLSelectElement>('[aria-label="Release feed"]')!.value).toBe('main')
@@ -112,6 +113,7 @@ it('applies saved feed settings without replacing runtime facts with the setting
   let saving = false
   let releaseRead: (() => void) | undefined
   vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+    if (_url === '/api/v1/authz/roles') return new Response(JSON.stringify({ roles: [{ name: 'release-manager', title: 'Release manager', scope: 'project' }], capabilities: {} }))
     if (init?.method === 'PUT') {
       saving = true
       return new Response(JSON.stringify({ feed: 'manual', feedRevision: 8, feedConfirmed: false, readiness: 'uncertain', url: 'https://older.example' }))

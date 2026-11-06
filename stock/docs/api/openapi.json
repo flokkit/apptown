@@ -660,6 +660,67 @@
         ],
         "type": "string"
       },
+      "Authority": {
+        "properties": {
+          "credential": {
+            "type": "string"
+          },
+          "delegationId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "instrument": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "person": {
+            "type": "string"
+          },
+          "principal": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "projectId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "via": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "credential"
+        ],
+        "type": "object"
+      },
       "Backup": {
         "properties": {
           "actor": {
@@ -1898,6 +1959,9 @@
       },
       "Deployment": {
         "properties": {
+          "approvalRole": {
+            "type": "string"
+          },
           "audience": {
             "type": "string"
           },
@@ -2032,6 +2096,7 @@
           "desiredGeneration",
           "observedGeneration",
           "readiness",
+          "approvalRole",
           "feedRevision",
           "feedConfirmed",
           "feed",
@@ -2151,6 +2216,9 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "approvalRole": {
+            "type": "string"
           },
           "audience": {
             "type": "string"
@@ -2330,6 +2398,7 @@
           "promotionRelease",
           "promotionSource",
           "promotionBlocked",
+          "approvalRole",
           "feedRevision",
           "feedConfirmed",
           "readinessLabel",
@@ -2624,6 +2693,9 @@
       "FeedSettings": {
         "additionalProperties": false,
         "properties": {
+          "approvalRole": {
+            "type": "string"
+          },
           "feed": {
             "type": "string"
           },
@@ -2692,6 +2764,12 @@
           "openTotal": {
             "type": "integer"
           },
+          "releaseApprovals": {
+            "items": {
+              "$ref": "#/components/schemas/WaitingRelease"
+            },
+            "type": "array"
+          },
           "waitingOnYou": {
             "items": {
               "$ref": "#/components/schemas/runRowView"
@@ -2700,6 +2778,7 @@
           }
         },
         "required": [
+          "releaseApprovals",
           "waitingOnYou",
           "open",
           "openTotal",
@@ -4048,6 +4127,19 @@
       },
       "Release": {
         "properties": {
+          "approval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReleaseApproval"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approvalRole": {
+            "type": "string"
+          },
           "approvedBy": {
             "type": "string"
           },
@@ -4143,9 +4235,17 @@
           },
           "state": {
             "$ref": "#/components/schemas/ReleaseState"
+          },
+          "supersededBy": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
+          "approvalRole",
           "id",
           "projectId",
           "number",
@@ -4154,6 +4254,39 @@
           "createdAt",
           "origin"
         ],
+        "type": "object"
+      },
+      "ReleaseApproval": {
+        "properties": {
+          "actor": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "authority": {
+            "$ref": "#/components/schemas/Authority"
+          },
+          "meaning": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor",
+          "at",
+          "meaning",
+          "authority"
+        ],
+        "type": "object"
+      },
+      "ReleaseApprovalRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "meaning": {
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "ReleaseBundleView": {
@@ -4218,6 +4351,25 @@
         ],
         "type": "object"
       },
+      "ReleaseDecision": {
+        "properties": {
+          "canApprove": {
+            "type": "boolean"
+          },
+          "canCancel": {
+            "type": "boolean"
+          },
+          "meaning": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "meaning",
+          "canApprove",
+          "canCancel"
+        ],
+        "type": "object"
+      },
       "ReleaseDefault": {
         "properties": {
           "deploymentId": {
@@ -4278,6 +4430,9 @@
             },
             "type": "array"
           },
+          "decision": {
+            "$ref": "#/components/schemas/ReleaseDecision"
+          },
           "events": {
             "items": {
               "$ref": "#/components/schemas/ReleaseEvent"
@@ -4319,6 +4474,7 @@
           }
         },
         "required": [
+          "decision",
           "statusLabel",
           "release",
           "changes",
@@ -4361,7 +4517,10 @@
         "enum": [
           "deploying",
           "deployed",
-          "failed"
+          "failed",
+          "waiting for approval",
+          "cancelled",
+          "superseded"
         ],
         "type": "string"
       },
@@ -4502,7 +4661,10 @@
         "enum": [
           "releasing",
           "released",
-          "failed"
+          "failed",
+          "waiting for approval",
+          "cancelled",
+          "superseded"
         ],
         "type": "string"
       },
@@ -6187,6 +6349,29 @@
           "you",
           "says",
           "tone"
+        ],
+        "type": "object"
+      },
+      "WaitingRelease": {
+        "properties": {
+          "deploymentLabel": {
+            "type": "string"
+          },
+          "href": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "release": {
+            "$ref": "#/components/schemas/Release"
+          }
+        },
+        "required": [
+          "release",
+          "deploymentLabel",
+          "href",
+          "project"
         ],
         "type": "object"
       },
@@ -14030,6 +14215,110 @@
           "capability": "release:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/projects/{slug}/releases/{number}/approve": {
+      "post": {
+        "operationId": "postProjectsSlugReleasesNumberApprove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseApprovalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Done"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployment.ApproveRelease",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/projects/{slug}/releases/{number}/cancel": {
+      "post": {
+        "operationId": "postProjectsSlugReleasesNumberCancel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Done"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployment.CancelRelease",
+          "kind": "owner"
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"

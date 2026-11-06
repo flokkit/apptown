@@ -526,3 +526,14 @@ func scopesCover(scopes []string, c Capability) bool {
 	}
 	return false
 }
+
+// HoldsRole checks an explicit active role grant at the resource's scope.
+// Root authority does not stand in for a specifically required role.
+func HoldsRole(grants []Grant, role string, capability Capability, resource Resource) bool {
+	for _, grant := range grants {
+		if grant.RoleName == role && grantApplies(grant, capability, resource) {
+			return true
+		}
+	}
+	return false
+}

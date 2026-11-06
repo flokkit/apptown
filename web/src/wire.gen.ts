@@ -618,6 +618,7 @@ export type DeploymentView = {
   promotionRelease: number
   promotionSource: string
   promotionBlocked: string
+  approvalRole: string
   feedRevision: number
   feedConfirmed: boolean
   lastApplied?: AppliedAttempt | null
@@ -847,6 +848,7 @@ export type InfrastructureTargets = {
 }
 
 export type InstanceActivity = {
+  releaseApprovals: WaitingRelease[]
   waitingOnYou: RunRow[]
   open: PersonalOpenChange[]
   openTotal: number
@@ -1486,6 +1488,7 @@ export type ReleaseDefault = {
 }
 
 export type ReleaseDetail = {
+  decision: ReleaseDecision
   request?: RequestMetadata | null
   backupReason?: string
   backup?: BackupReference | null
@@ -1499,7 +1502,11 @@ export type ReleaseDetail = {
 }
 
 export type ReleaseListed = {
+  decision: ReleaseDecision
   statusLabel: ReleaseLabel
+  approvalRole: string
+  approval?: ReleaseApproval | null
+  supersededBy?: string | null
   fromDeploymentId?: string | null
   backupId?: string | null
   id: string | null
@@ -2599,9 +2606,9 @@ export type MainConflict = {
   catchUp: string
 }
 
-export type ReleaseLabel = "deploying" | "deployed" | "failed"
+export type ReleaseLabel = "deploying" | "deployed" | "failed" | "waiting for approval" | "cancelled" | "superseded"
 
-export type ReleaseState = "releasing" | "released" | "failed"
+export type ReleaseState = "releasing" | "released" | "failed" | "waiting for approval" | "cancelled" | "superseded"
 
 export type ChatHistoryEntry = {
   id: string
@@ -3418,6 +3425,13 @@ export type InfrastructureView = {
   shared?: string
 }
 
+export type WaitingRelease = {
+  release: Release
+  deploymentLabel: string
+  href: string
+  project: string
+}
+
 export type PersonalOpenChange = {
   id: string | null
   number: number
@@ -3961,6 +3975,12 @@ export type workflowSummary = {
   stages: workflowStageSummary[]
 }
 
+export type ReleaseDecision = {
+  meaning: string
+  canApprove: boolean
+  canCancel: boolean
+}
+
 export type RequestMetadata = {
   feed: string
   settingsRevision: number
@@ -3980,6 +4000,9 @@ export type BackupReference = {
 }
 
 export type Release = {
+  approvalRole: string
+  approval?: ReleaseApproval | null
+  supersededBy?: string | null
   fromDeploymentId?: string | null
   backupId?: string | null
   id: string | null
@@ -4020,6 +4043,13 @@ export type ReleaseBundleView = {
   platform?: string
   parts: Record<string, string>
   init: Record<string, string>
+}
+
+export type ReleaseApproval = {
+  actor: StandingActor
+  at: string
+  meaning: string
+  authority: Authority
 }
 
 export type ReleaseChangeTitle = {
@@ -4734,7 +4764,7 @@ export type ConnectorPreset = {
   config: Record<string, unknown>
 }
 
-export type DepartureLabel = "running" | "deploying" | "deployed" | "failed"
+export type DepartureLabel = "running" | "deploying" | "deployed" | "failed" | "waiting for approval" | "cancelled" | "superseded"
 
 export type Reach = {
   how: string
@@ -4969,6 +4999,21 @@ export type workflowStageSummary = {
   name: string
   steps: workflowStepSummary[]
   gateText: string
+}
+
+export type Authority = {
+  principal?: string | null
+  kind: string
+  name: string
+  via?: string
+  instrument?: string
+  person?: string
+  projectId?: string | null
+  role?: string
+  purpose?: string
+  delegationId?: string | null
+  scopes?: string[]
+  credential: string
 }
 
 export type RestoreOutcome = "verified" | "loaded" | "copied" | "failed" | "skipped"

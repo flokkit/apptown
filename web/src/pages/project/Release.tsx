@@ -1,4 +1,5 @@
 import './Release.css'
+import { ReleaseAssent } from './ReleaseApproval'
 import { AppAddress } from '../../runtime'
 import { Status } from '../../Status'
 import { Fragment, useEffect, useState } from 'react'
@@ -110,7 +111,7 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
   const state = data?.release?.state
   const live = data?.isLive
   useEffect(() => {
-    if (state) setCadence({ path, poll: state === 'releasing' ? 2000 : live ? 8000 : 0 })
+    if (state) setCadence({ path, poll: state === 'releasing' || state === 'waiting for approval' ? 2000 : live ? 8000 : 0 })
   }, [path, state, live])
 
   if (!data || !data.release) return <ReadStatus q={q} what="the release" />
@@ -128,7 +129,7 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
           {r.origin === 'observed-after-restore' && <span className="badge" title={`found running after ${PRODUCT} was restored; ${PRODUCT} did not ship it`}>found after restore</span>}
         </div>
         <div className="release-facts">
-          {r.state === 'releasing'
+          {r.state === 'waiting for approval' ? <>Waiting for approval from {r.approvalRole}. <Link to={`/projects/${slug}/deployments/${r.deployment}`}>Review on the deployment page →</Link></> : r.state === 'cancelled' || r.state === 'superseded' ? <>Release {r.state}.</> : r.state === 'releasing'
             ? <>Deploying{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null}.</>
             : r.state === 'failed'
               ? <>This release attempt{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null} failed. See the log for the failed step.</>
@@ -141,6 +142,7 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
             <> Open it at <a href={r.notes} target="_blank" rel="noreferrer"><strong>{r.notes}</strong></a></>
           )}
         </div>
+        <ReleaseAssent approval={r.approval} />
         {!data.backup && data.backupReason && <p>{data.backupReason}</p>}
         {data.backup && <p><Link to={`/deployments/backups#backup-${data.backup.id}`}>{data.backup.status === 'ok' ? 'Backed up before this release →' : data.backup.status === 'pruned' ? 'Backup before this release was removed →' : 'Backup before this release was incomplete →'}</Link></p>}
         {data.changes.length > 0 && (

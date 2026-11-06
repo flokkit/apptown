@@ -4,7 +4,7 @@ import { DatabaseBackup, Plug, Server, ShieldCheck } from 'lucide-react'
 import { useHolds } from './instancePages'
 import { useGet, type Read } from './data'
 import { StaleNote } from './ReadGate'
-import type { AttentionView, AuthMe } from './wire.gen'
+import type { AttentionView, AttentionItem, AuthMe } from './wire.gen'
 
 export function useAttention() {
   const me = useGet<AuthMe>('/auth/me').data
@@ -30,6 +30,9 @@ export function attentionSummary(count: number | null, unknown: number): string 
   if (count === null) return 'Status not known'
   return [count > 0 ? `${count} to fix` : '', unknown > 0 ? `${unknown} not known` : ''].filter(Boolean).join(' · ') || 'All quiet'
 }
+
+// Release approval is a person's pending decision, identified by its source key.
+export const attentionItemWord = (item: AttentionItem) => item.unknown ? 'unknown' : item.key.startsWith('release-approval/') ? 'waiting for approval' : item.statusLabel === 'low' ? 'low' : item.severity === 'advisory' ? 'not checked yet' : 'failed'
 
 // The four kinds of condition Attention groups, each with the icon its area
 // uses in the menu. A key's prefix says which kind it is.
@@ -68,9 +71,9 @@ export function AttentionLights() {
   const state = attentionState(q)
   return <span className="row small attention-lights" role="group" aria-label={total > 0 ? `${total} to fix` : attentionSummary(state.count, state.unknown)}>
     {groups.map((g) => {
-      // Low disk is amber, like its row on Attention; everything else is red.
+      // Low disk and pending approvals are amber, like their Attention rows.
       const off = g.items.length === 0
-      const low = !off && g.items.every((i) => i.statusLabel === 'low')
+      const low = !off && g.items.every((i) => i.statusLabel === 'low' || attentionItemWord(i) === 'waiting for approval')
       const words = off ? `${g.title}: no known issues` : `${g.title}: ${g.items.length} to fix`
       return <Link key={g.key} className={`attention-light${off ? ' off' : low ? ' low' : ''}`} to={`/attention#${g.key}`} title={words} aria-label={words}>
         <g.icon aria-hidden size={16} />

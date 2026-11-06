@@ -266,6 +266,11 @@ func (s *Service) admit(ctx context.Context, dep *deployment.Deployment, kind st
 				return nil, err
 			}
 		}
+		if kind == OperationTakeDown {
+			if err := deployment.CancelWaitingForRemovalIn(ctx, tx, dep.ID, actor, s.now()); err != nil {
+				return nil, err
+			}
+		}
 		return s.ops.AdmitIn(ctx, tx, operations.Spec{Kind: kind, ProjectID: dep.ProjectID, Subject: deployment.SubjectOf(dep), Holds: holds, Authority: actor, Input: input})
 	})
 }

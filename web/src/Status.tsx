@@ -8,7 +8,7 @@ import { InlineHelp } from './InlineHelp'
 export const STATUS_WORD = {
   'not set up': 'not configured', low: 'low', blocked: 'blocked', running: 'in progress', working: 'in progress', deploying: 'deploying',
   'waiting for you': 'waiting for you', 'waiting for checks': 'waiting for checks', stopped: 'stopped', unknown: 'unknown', unreachable: 'unreachable',
-  waiting: 'waiting', failed: 'failed', landed: 'landed', finished: 'finished', deployed: 'deployed', passed: 'passed', excepted: 'excepted',
+  'waiting for approval': 'waiting for approval', cancelled: 'cancelled', superseded: 'superseded', waiting: 'waiting', failed: 'failed', landed: 'landed', finished: 'finished', deployed: 'deployed', passed: 'passed', excepted: 'excepted',
   'not applicable': 'not applicable', none: 'not configured', current: 'current', available: 'update available', fresh: 'working', overdue: 'failed', missing: 'failed', disposable: 'not applicable',
   'not checked yet': 'not checked yet', 'no automatic check': 'no automatic check', 'in progress': 'in progress', abandoned: 'abandoned',
   incomplete: 'incomplete', 'nothing connected': 'nothing connected', 'needs review': 'needs review',
@@ -19,7 +19,7 @@ export const STATUS_WORD = {
 export const STATUS_LIGHT: Record<keyof typeof STATUS_WORD, string> = {
   'not set up': '', low: 'pending', blocked: 'pending', running: 'running', working: 'running', deploying: 'running',
   'waiting for you': 'pending', 'waiting for checks': 'pending', stopped: '', unknown: 'unknown', unreachable: 'fail',
-  waiting: 'pending', failed: 'fail', landed: 'pass', finished: 'pass', deployed: 'pass', passed: 'pass', excepted: 'overridden',
+  'waiting for approval': 'pending', cancelled: 'pending', superseded: 'pending', waiting: 'pending', failed: 'fail', landed: 'pass', finished: 'pass', deployed: 'pass', passed: 'pass', excepted: 'overridden',
   'not applicable': '', none: '', current: 'pass', available: 'pending', fresh: 'pass', overdue: 'fail', missing: 'fail', disposable: '',
   // Not checked yet is a fact about us, not a warning about the thing.
   'not checked yet': '', 'no automatic check': '', 'in progress': 'running', abandoned: '',

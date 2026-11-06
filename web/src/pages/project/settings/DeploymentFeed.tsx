@@ -7,9 +7,9 @@ import { ReadStatus, StaleNote } from '../../../ReadGate'
 import { Section } from '../../../Section'
 import { FieldRow } from '../../../FieldRow'
 import { HelpButton } from '../../../PageHead'
-import type { DeploymentView } from '../../../wire.gen'
+import type { DeploymentView, RoleCatalog } from '../../../wire.gen'
 
-type Draft = { revision: number; feed: string; from: string }
+type Draft = { revision: number; feed: string; from: string; approvalRole: string }
 
 export function feedWords(e: Pick<DeploymentView, 'feed' | 'promotionSource'>) {
   return e.feed === 'main' ? 'Follows main' : e.feed === 'promotion' ? `Promoted from ${e.promotionSource || 'a source not yet chosen'}` : e.feed === 'manual' ? 'By hand' : 'Feed unknown'
@@ -18,6 +18,7 @@ export function feedWords(e: Pick<DeploymentView, 'feed' | 'promotionSource'>) {
 export function DeploymentFeed({ slug, name }: { slug: string; name: string }) {
   const path = `/projects/${slug}/deployments`
   const current = useGet<DeploymentView[]>(path, { poll: 5000 })
+  const roles = useGet<RoleCatalog>('/authz/roles')
   const cache = useQueryClient()
   const [draft, setDraft] = useState<Draft | null>(null)
   const { run, busy, err } = useAction()
@@ -25,7 +26,7 @@ export function DeploymentFeed({ slug, name }: { slug: string; name: string }) {
   if (!e) return <ReadStatus q={current} what="deployment settings" />
   if (e.kind !== 'standing') return null
   const from = current.data?.find(d => d.id === e.promotedFromId)?.name || ''
-  const base = { revision: e.feedRevision, feed: e.feed || '', from }
+  const base = { revision: e.feedRevision, feed: e.feed || '', from, approvalRole: e.approvalRole || '' }
   const value = draft || base
   const moved = !!draft && e.feedRevision !== draft.revision
   const edit = (change: Partial<Draft>) => setDraft({ ...value, ...change })
@@ -36,11 +37,11 @@ export function DeploymentFeed({ slug, name }: { slug: string; name: string }) {
     <StaleNote q={current} />
     <form className="stack stack-3" onSubmit={async event => {
       event.preventDefault()
-      const saved = await run(() => put<{ feed: string; feedRevision: number; feedConfirmed: boolean; promotedFromId?: string }>(`${path}/${name}/feed`, {
-        revision: value.revision, feed: value.feed, from: value.feed === 'promotion' ? value.from : '',
+      const saved = await run(() => put<{ feed: string; feedRevision: number; feedConfirmed: boolean; promotedFromId?: string; approvalRole: string }>(`${path}/${name}/feed`, {
+        revision: value.revision, feed: value.feed, approvalRole: value.approvalRole, from: value.feed === 'promotion' ? value.from : '',
       }))
       if (saved) {
-        cache.setQueryData<DeploymentView[]>(getKey(path), old => old?.map(d => d.id === e.id && d.feedRevision <= saved.feedRevision ? { ...d, feed: saved.feed, feedRevision: saved.feedRevision, feedConfirmed: saved.feedConfirmed, promotedFromId: saved.promotedFromId,
+        cache.setQueryData<DeploymentView[]>(getKey(path), old => old?.map(d => d.id === e.id && d.feedRevision <= saved.feedRevision ? { ...d, approvalRole: saved.approvalRole, feed: saved.feed, feedRevision: saved.feedRevision, feedConfirmed: saved.feedConfirmed, promotedFromId: saved.promotedFromId,
           promotionSource: saved.feed === 'promotion' ? (current.data?.find(source => source.name === value.from)?.displayLabel || value.from) : '',
           promotionRelease: 0,
           promotionBlocked: saved.feed === 'promotion' ? 'Checking the source deployment…' : '',
@@ -55,11 +56,16 @@ export function DeploymentFeed({ slug, name }: { slug: string; name: string }) {
         <option value="">Choose a source</option>
         {current.data?.filter(d => d.kind === 'standing' && d.id !== e.id).map(d => <option key={d.id} value={d.name}>{d.displayLabel || d.name}</option>)}
       </select></FieldRow>}
-      {moved && <div role="alert">The feed changed while you were editing. Current setting: {feedWords(e)}.
+      <FieldRow label="Needs approval"><select aria-label="Needs approval" disabled={busy || !current.current} value={value.approvalRole} onChange={event => edit({ approvalRole: event.target.value })}>
+        <option value="">None</option>
+        {roles.data?.roles.filter(role => role.scope === 'project').map(role => <option key={role.name} value={role.name}>{role.title}</option>)}
+      </select></FieldRow>
+      <ReadStatus q={roles} what="approval roles" />
+      {moved && <div role="alert">The settings changed while you were editing. Current setting: {feedWords(e)}.
         <button type="button" onClick={() => setDraft({ ...value, revision: e.feedRevision })}>Keep my edits on the current settings</button>
       </div>}
       <div className="row row-2">
-        <button className="primary" disabled={busy || !current.current || !draft || moved || (value.feed === 'promotion' && !value.from)} type="submit">Save feed</button>
+        <button className="primary" disabled={busy || !current.current || !draft || moved || (value.feed === 'promotion' && !value.from)} type="submit">Save settings</button>
         {draft && <button type="button" disabled={busy} onClick={() => setDraft(null)}>Discard changes</button>}
       </div>
       {err && <div className="error" role="alert">{err}</div>}

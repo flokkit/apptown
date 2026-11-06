@@ -415,10 +415,16 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 				return err
 			}
 		}
-		if err := s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID); err != nil {
+		state, err := s.admitApprovalIn(ctx, tx, current, rel)
+		if err != nil {
 			return err
 		}
-		admitted = AcceptedRelease{NumberedRelease: rel, Deployment: dep.Name, State: Releasing}
+		if state == Releasing {
+			if err := s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID); err != nil {
+				return err
+			}
+		}
+		admitted = AcceptedRelease{NumberedRelease: rel, Deployment: dep.Name, State: state}
 		if address != nil {
 			admitted.URL = address.Ingress.URL
 		}

@@ -41,6 +41,7 @@ type Deployment struct {
 	FeedRevision       int64
 	FeedAuthorityJson  *json.RawMessage
 	PromotedFromID     ids.ID
+	ApprovalRole       string
 }
 
 type DeploymentAddressSetting struct {
@@ -169,6 +170,9 @@ type Release struct {
 	Origin           string
 	BackupID         ids.ID
 	FromDeploymentID ids.ID
+	ApprovalRole     string
+	ApprovalJson     *json.RawMessage
+	SupersededBy     ids.ID
 }
 
 type ReleaseBundle struct {

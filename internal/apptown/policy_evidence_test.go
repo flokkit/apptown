@@ -40,6 +40,8 @@ var policyEvidence = map[string]func(*testing.T){
 	"standingApprovals.Enable":          TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,
 	"standingApprovals.History":         TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,
 	"standingApprovals.Disable":         TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,
+	"deployment.ApproveRelease":         TestReleaseApprovalRequiresCurrentIndependentHumanAssent,
+	"deployment.CancelRelease":          TestReleaseApprovalRequiresCurrentIndependentHumanAssent,
 	"deployment.RequestDefaultRelease":  TestReleasePlanHTTPProjectsActualHeadPublicationAndConfiguration,
 	"deployments.ReleaseDefault":        TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity,
 	"deployments.SetReleaseDefault":     TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity,

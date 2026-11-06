@@ -12,7 +12,7 @@ import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
 import { Section } from '../Section'
 import { ActiveRunList, ChangeRow, RunRow } from '../parts/runActivity'
-import type { Operation, ProjectPage, SetupState } from '../wire.gen'
+import type { Operation, ProjectPage, SetupState, WaitingRelease } from '../wire.gen'
 import { endedWords } from './DataProtection'
 import { LocalTrialNote } from '../LocalTrialNote'
 
@@ -20,6 +20,7 @@ import { LocalTrialNote } from '../LocalTrialNote'
 
 export type Activity = {
   agents: { project: string; runId: string | null; changeId: string | null; title: string; step: string; type: string; elapsedS: number }[]
+  releaseApprovals?: WaitingRelease[]
   waitingOnYou: RunRow[]
   active: RunRow[]
   history: ChangeRow[]
@@ -153,7 +154,8 @@ export default function Dashboard() {
   const ended = dash?.endedOperations ?? []
   const happening = act?.active ?? []
   const waiting = act?.waitingOnYou ?? []
-  const needsYouCount = waiting.length + ended.length
+  const releaseApprovals = act?.releaseApprovals ?? []
+  const needsYouCount = waiting.length + ended.length + releaseApprovals.length
 
   // The page leads with labelled counts, then only the
   // sections that have something in them. With no projects yet it says
@@ -190,7 +192,8 @@ export default function Dashboard() {
 
       {!act && <ReadStatus q={actQ} what="activity" />}
       {!dash && <ReadStatus q={dashQ} what="what is waiting on you" />}
-      <div id="waiting-on-you" className="dashboard-work-group">{(waiting.length > 0 || ended.length > 0) && <Section title={ended.length > 0 ? "Waiting on you" : "Changes waiting on you"} label="Waiting on you" count={needsYouCount}>
+      <div id="waiting-on-you" className="dashboard-work-group">{(needsYouCount > 0) && <Section title={ended.length > 0 || releaseApprovals.length > 0 ? "Waiting on you" : "Changes waiting on you"} label="Waiting on you" count={needsYouCount}>
+        {releaseApprovals.map(task => <Link key={task.release.id} to={task.href} className="card row dashboard-card"><strong>Release {task.release.number} to {task.deploymentLabel} needs your approval</strong><span>{projectNames[task.project] || task.project}</span></Link>)}
         {ended.map((op) => <EndedOperation key={op.id} op={op} />)}
         <ActiveRunList runs={waiting} showProject names={projectNames} />
       </Section>}</div>

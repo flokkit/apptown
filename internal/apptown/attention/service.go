@@ -74,6 +74,9 @@ type hostReachabilityReader interface {
 // Sources is the complete finite source set. Missing sources remain unassessed,
 // rather than silently shrinking what an empty Attention view claims to cover.
 type Sources struct {
+	ReleaseApprovals interface {
+		WaitingReleases(context.Context) ([]deployment.WaitingRelease, error)
+	}
 	Integrations instanceReader
 	Checks       interface {
 		Snapshot(context.Context, []ids.ID) (Snapshot, error)
@@ -139,6 +142,19 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 	}
 	ctx = context.WithValue(ctx, hostReadCacheKey{}, make(hostReadCache))
 	out := empty
+	if s.sources.ReleaseApprovals != nil {
+		waiting, err := s.sources.ReleaseApprovals.WaitingReleases(ctx)
+		if err != nil {
+			return empty, err
+		}
+		for _, task := range waiting {
+			at, err := time.Parse(time.RFC3339Nano, task.Release.CreatedAt)
+			if err != nil {
+				return empty, err
+			}
+			out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: "release-approval/" + task.Release.ID.String(), Title: fmt.Sprintf("Release %d to %s needs your approval", task.Release.Number, task.DeploymentLabel), Detail: task.Project, Href: task.Href, ObservedAt: at})
+		}
+	}
 	if instanceErr == nil {
 		for _, source := range []struct {
 			key, name string

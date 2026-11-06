@@ -473,6 +473,8 @@ var cliOperations = map[string]described{
 	"POST /api/v1/projects/{slug}/deployments/{name}/confirm-feed": {request: httpapi.FeedConfirmationRequest{}, strict: true, status: 200, response: deployment.Deployment{}},
 	"POST /api/v1/deployments/confirm-feed":                        {status: 200, response: httpapi.FeedsConfirmed{}},
 	"POST /api/v1/projects/{slug}/deployments/{name}/deploy":       {request: httpapi.DeployRequest{}, strict: true, status: 202, response: httpapi.ReleaseRequested{}},
+	"POST /api/v1/projects/{slug}/releases/{number}/approve":       {request: httpapi.ReleaseApprovalRequest{}, strict: true, status: 202, response: httpapi.Done{}},
+	"POST /api/v1/projects/{slug}/releases/{number}/cancel":        {status: 200, response: httpapi.Done{}},
 	"GET /api/v1/projects/{slug}/releases/{number}":                {status: 200, response: httpapi.ReleaseDetail{}},
 	"POST /api/v1/complaints":                                      {request: httpapi.ComplaintText{}, status: 201, response: httpapi.ComplaintFiled{}},
 	"GET /api/v1/operations/{id}":                                  {status: 200, response: httpapi.Operation{}},

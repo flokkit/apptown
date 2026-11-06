@@ -44,8 +44,8 @@ func TestGrantsSitOnlyWhereTheyCanApply(t *testing.T) {
 			t.Fatalf("a grant at %s with %q was recorded", spec.Scope, spec.Role+spec.Capability)
 		}
 	}
-	if _, err := g.add(context.Background(), Spec{SubjectType: "user", Subject: "alice", Role: access.RoleReleaseManager, Scope: access.ScopeTarget, ScopeID: "*", By: "ops"}, ""); err != nil {
-		t.Fatalf("a release manager is granted at a release target: %v", err)
+	if _, err := g.add(context.Background(), Spec{SubjectType: "user", Subject: "alice", Capability: string(access.CapReleasePromote), Scope: access.ScopeTarget, ScopeID: "*", By: "ops"}, ""); err != nil {
+		t.Fatalf("a release promotion capability is granted at a release target: %v", err)
 	}
 }
 

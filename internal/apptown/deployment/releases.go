@@ -25,19 +25,22 @@ import (
 
 // Release is one row of the release ledger.
 type Release struct {
-	FromDeploymentID ids.ID       `json:"fromDeploymentId,omitzero"`
-	BackupID         ids.ID       `json:"backupId,omitzero"`
-	ID               ids.ID       `json:"id"`
-	ProjectID        ids.ID       `json:"projectId"`
-	Number           int64        `json:"number"`
-	State            ReleaseState `json:"state"`
-	Deployment       string       `json:"deployment"`
-	ExternalRef      string       `json:"externalRef,omitempty"`
-	ApprovedBy       string       `json:"approvedBy,omitempty"`
-	RunID            ids.ID       `json:"runId,omitzero"`
-	CreatedAt        string       `json:"createdAt"`
-	ReleasedAt       stamp.Time   `json:"releasedAt,omitzero"`
-	Notes            string       `json:"notes,omitempty"`
+	ApprovalRole     string           `json:"approvalRole"`
+	Approval         *ReleaseApproval `json:"approval,omitempty"`
+	SupersededBy     ids.ID           `json:"supersededBy,omitzero"`
+	FromDeploymentID ids.ID           `json:"fromDeploymentId,omitzero"`
+	BackupID         ids.ID           `json:"backupId,omitzero"`
+	ID               ids.ID           `json:"id"`
+	ProjectID        ids.ID           `json:"projectId"`
+	Number           int64            `json:"number"`
+	State            ReleaseState     `json:"state"`
+	Deployment       string           `json:"deployment"`
+	ExternalRef      string           `json:"externalRef,omitempty"`
+	ApprovedBy       string           `json:"approvedBy,omitempty"`
+	RunID            ids.ID           `json:"runId,omitzero"`
+	CreatedAt        string           `json:"createdAt"`
+	ReleasedAt       stamp.Time       `json:"releasedAt,omitzero"`
+	Notes            string           `json:"notes,omitempty"`
 	// Failure is the recorded failure event, separate from release notes.
 	Failure   string `json:"failure,omitempty"`
 	CommitSHA string `json:"commitSha,omitempty"`
@@ -81,6 +84,7 @@ func releaseRecord(r deploymentsql.Release, err error) (*Release, error) {
 		return nil, err
 	}
 	v := &Release{
+		ApprovalRole: r.ApprovalRole, SupersededBy: r.SupersededBy,
 		BackupID:         r.BackupID,
 		FromDeploymentID: r.FromDeploymentID,
 		ID:               r.ID,
@@ -100,6 +104,12 @@ func releaseRecord(r deploymentsql.Release, err error) (*Release, error) {
 		Generation:       r.Generation,
 		ArtifactHash:     r.ArtifactHash,
 		Origin:           r.Origin,
+	}
+	if r.ApprovalJson != nil {
+		v.Approval = &ReleaseApproval{}
+		if err := json.Unmarshal(*r.ApprovalJson, v.Approval); err != nil {
+			return nil, err
+		}
 	}
 	if err := v.State.Scan(r.State); err != nil {
 		return nil, err
@@ -314,6 +324,25 @@ func (s *Releases) RequestMetadata(ctx context.Context, releaseID ids.ID) (*Requ
 	}
 	if row.UncopiedAcceptanceJson != nil {
 		out.UncopiedAcceptance = *row.UncopiedAcceptanceJson
+	}
+	return out, nil
+}
+
+// NewChanges lists membership new since each release's previous successful
+// release on the same deployment identity. Branch receipts are incremental, so
+// earlier successful receipts also contribute to that boundary. Full membership
+// stays immutable.
+func (s *Releases) NewChanges(ctx context.Context, projectID ids.ID, releaseIDs []ids.ID) (map[ids.ID]map[ids.ID]bool, error) {
+	rows, err := releasesql.New(s.db.SQL()).NewReleaseChanges(ctx, releasesql.NewReleaseChangesParams{ProjectID: projectID, ReleaseIds: releaseIDs})
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[ids.ID]map[ids.ID]bool)
+	for _, row := range rows {
+		if out[row.ReleaseID] == nil {
+			out[row.ReleaseID] = make(map[ids.ID]bool)
+		}
+		out[row.ReleaseID][row.ChangeID] = true
 	}
 	return out, nil
 }

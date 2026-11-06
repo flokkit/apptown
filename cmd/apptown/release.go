@@ -3,13 +3,18 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
+	"strconv"
 	"time"
 )
 
 // cmdRelease releases to the named deployment or the explicitly selected default.
 // The default is chosen in project settings; this command only admits and follows a release.
 func cmdRelease(args []string) error {
+	if len(args) > 0 && (args[0] == "approve" || args[0] == "cancel") {
+		return cmdReleaseDecision(args)
+	}
 	fs := newFlags("release")
 	domain := fs.String("domain", "", "default deployment: an extra hostname to serve on (kept for later releases)")
 	asJSON := fs.Bool("json", false, "print the release as JSON once AppTown accepts it (no following)")
@@ -95,6 +100,10 @@ func cmdRelease(args []string) error {
 		}
 		return printJSON(r)
 	}
+	if state == "waiting for approval" {
+		fmt.Printf("Release %d to %s is waiting for approval.\n", number, where)
+		return nil
+	}
 	fmt.Printf("%s release r%d to %s started; following its log:\n", bold("▶"), number, where)
 	switch state, err := followRelease(slug, number, 2*time.Second); {
 	case err != nil:
@@ -146,9 +155,49 @@ func followRelease(slug string, number int64, interval time.Duration) (string, e
 			fmt.Printf("  %s  %s\n", at, d.Events[seen].Text)
 		}
 		switch d.Release.State {
-		case "released", "failed":
+		case "released", "failed", "waiting for approval", "cancelled", "superseded":
 			return d.Release.State, nil
 		}
 		pause(interval)
 	}
+}
+
+func cmdReleaseDecision(args []string) error {
+	fs := newFlags("release " + args[0])
+	yes := fs.Bool("y", false, "accept the displayed release approval meaning")
+	action := args[0]
+	args = parseArgs(fs, args[1:])
+	if len(args) != 2 {
+		return usagef("usage: apptown release %s <project> <release-number> [-y]", action)
+	}
+	number, err := strconv.ParseInt(args[1], 10, 64)
+	if err != nil || number <= 0 {
+		return usagef("use a positive release number")
+	}
+	path := fmt.Sprintf("/projects/%s/releases/%d", url.PathEscape(args[0]), number)
+	body := map[string]any{}
+	if action == "approve" {
+		var detail struct {
+			Decision struct {
+				Meaning    string `json:"meaning"`
+				CanApprove bool   `json:"canApprove"`
+			} `json:"decision"`
+		}
+		if err := api.get(path, &detail); err != nil {
+			return err
+		}
+		fmt.Println(detail.Decision.Meaning)
+		if !detail.Decision.CanApprove {
+			return fmt.Errorf("you cannot approve this release; open its deployment to see who can")
+		}
+		if !*yes {
+			return fmt.Errorf("to accept this meaning, run the command again with -y")
+		}
+		body["meaning"] = detail.Decision.Meaning
+	}
+	if err := api.post(path+"/"+action, body, nil); err != nil {
+		return err
+	}
+	fmt.Printf("Release %d %s.\n", number, map[string]string{"approve": "approved", "cancel": "cancelled"}[action])
+	return nil
 }

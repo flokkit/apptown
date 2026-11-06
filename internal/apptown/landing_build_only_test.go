@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/workflowexec"
@@ -124,7 +125,7 @@ func TestNoRuntimeBuildLandsWithoutReleaseRequests(t *testing.T) {
 }
 
 func TestLandingWithoutVotesRequestsUnderFeedSetter(t *testing.T) {
-	for _, scenario := range []string{"confirmed", "revoked setter", "reconfirmed setting"} {
+	for _, scenario := range []string{"confirmed", "revoked setter", "reconfirmed setting", "approval required"} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()
 			w := newReleaseWorld(t, nil)
@@ -141,6 +142,16 @@ func TestLandingWithoutVotesRequestsUnderFeedSetter(t *testing.T) {
 			if _, err = w.a.Deployment.ConfirmFeed(verifiedContext(t.Context(), person), dep.ProjectID, dep.Name, dep.FeedRevision); err != nil {
 				t.Fatal(err)
 			}
+			if scenario == "approval required" {
+				dep, err = w.a.Deployment.Deployments.ByID(t.Context(), dep.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := w.a.Deployment.SetFeed(verifiedContext(t.Context(), person), dep.ProjectID, dep.Name, deployment.FeedSettings{Revision: dep.FeedRevision, Feed: "main", ApprovalRole: access.RoleReleaseManager}); err != nil {
+					t.Fatal(err)
+				}
+			}
+
 			run, stepID := w.landingRun(t) // bls holds change:land; the lane has no approval step.
 			w.a.Work.ExecuteStep(w.a.asEngine(t.Context()), stepID)
 			if step := w.step(t, stepID); step.Status != workflow.StatusPass {
@@ -157,6 +168,21 @@ func TestLandingWithoutVotesRequestsUnderFeedSetter(t *testing.T) {
 			metadata, err := w.a.Deployment.Releases.RequestMetadata(t.Context(), requests[0].ID)
 			if err != nil || metadata == nil || metadata.Approvers != "" {
 				t.Fatalf("provenance: %+v %v", metadata, err)
+			}
+
+			if scenario == "approval required" {
+				if requests[0].State.String() != "waiting for approval" {
+					t.Fatalf("automatic request did not wait: %+v", requests[0])
+				}
+				if err := w.a.Deployment.ExecuteRelease(t.Context(), requests[0].ID); err != nil {
+					t.Fatal(err)
+				}
+				requireReleaseWord(t, w.a, run.ProjectID, requests[0].Number, "waiting for approval")
+				stored, err := w.a.Work.Change(asPerson("bls"), run.ChangeID)
+				if err != nil || stored.State != workflow.ChangeShipped {
+					t.Fatalf("approval blocked landing: %+v %v", stored, err)
+				}
+				return
 			}
 
 			if scenario == "revoked setter" {

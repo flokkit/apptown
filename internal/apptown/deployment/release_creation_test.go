@@ -243,3 +243,70 @@ func TestReleaseCreationConcurrencyAndScope(t *testing.T) {
 	}
 	wantN(t, "releases", everyRelease(t, db), 2)
 }
+
+// History shows only newly included Changes; a failed release cannot consume
+// them.
+func TestReleaseHistoryChangesSincePreviousSuccess(t *testing.T) {
+	t.Parallel()
+	for _, mode := range []string{"bundle", "branch then bundle", "failed middle"} {
+		failMiddle := mode == "failed middle"
+		t.Run(mode, func(t *testing.T) {
+			db, store, draft := releaseCreationFixture(t, ReleaseFromBundle)
+			now := steppingClock()
+			store.clock = now
+			bundles := newBundles(db)
+			bundles.clock = now
+			outcomes := NewOutcomes(db, nil)
+			var changes, releases []ids.ID
+			for i := range 3 {
+				changes = append(changes, shippedChangeAt(t, db, draft.ProjectID, now()))
+				var err error
+				draft.BundleID, err = bundles.Cut(t.Context(), draft.ProjectID, fmt.Sprint(i), nil, nil, nil, BundleOrigin{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if mode == "branch then bundle" && i < 2 {
+					draft.Source = ReleaseFromBranch
+				} else {
+					draft.Source = ReleaseFromBundle
+				}
+				r, err := store.Start(t.Context(), draft, "history")
+				if err != nil {
+					t.Fatal(err)
+				}
+				releases = append(releases, r.ID)
+				got, err := store.NewChanges(t.Context(), draft.ProjectID, []ids.ID{r.ID})
+				want := changes[i : i+1]
+				if i == 2 && failMiddle {
+					want = changes[1:]
+				}
+				if err != nil || len(got[r.ID]) != len(want) {
+					t.Fatalf("release %d new changes: %v, want %v: %v", i+1, got, want, err)
+				}
+				for _, c := range want {
+					if !got[r.ID][c] {
+						t.Fatalf("release %d missing new change %s", i+1, c)
+					}
+				}
+				if i == 1 && failMiddle {
+					if _, err := outcomes.FailUnstartedRelease(t.Context(), r.ID, errors.New("provider refused")); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					attempt, _, err := outcomes.Admit(t.Context(), Start{DeploymentID: draft.DeploymentID, Key: fmt.Sprint(i), Inputs: Inputs{ReleaseID: r.ID, Revision: draft.Revision}})
+					if err != nil {
+						t.Fatal(err)
+					}
+					if _, err := outcomes.Complete(t.Context(), Completion{Attempt: attempt, Observed: deploy.Observation{Generation: attempt.Generation, Rollout: "active"}}); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			// Querying old history after later releases preserves each boundary.
+			got, err := store.NewChanges(t.Context(), draft.ProjectID, releases)
+			if err != nil || len(got[releases[0]]) != 1 || len(got[releases[1]]) != 1 || len(got[releases[2]]) != map[bool]int{false: 1, true: 2}[failMiddle] {
+				t.Fatalf("history: %v %v", got, err)
+			}
+		})
+	}
+}

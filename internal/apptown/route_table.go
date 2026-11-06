@@ -415,6 +415,8 @@ func appRoutes(a *App) []routeSpec {
 		ownerRoute("POST /api/v1/projects/{slug}/release", releaseOperations.LANRelease, "deployment.RequestDefaultRelease"),
 		requireRoute("GET /api/v1/projects/{slug}/release/plan", releaseOperations.ReleasePlan, access.CapReleaseRead, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/releases/{number}", releaseHistory.ReleaseDetail, access.CapReleaseRead, "project-slug"),
+		ownerRoute("POST /api/v1/projects/{slug}/releases/{number}/approve", releaseOperations.ApproveRelease, "deployment.ApproveRelease"),
+		ownerRoute("POST /api/v1/projects/{slug}/releases/{number}/cancel", releaseOperations.CancelRelease, "deployment.CancelRelease"),
 		requireRoute("POST /api/v1/projects/{slug}/releases/{number}/preview", releaseOperations.ReleasePreview, access.CapDeploymentOperate, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/adrs", adrs.ListProjectADRs, access.CapProjectRead, "project-slug"),
 		requireRoute("POST /api/v1/projects/{slug}/adrs", adrs.CreateADR, access.CapChangeAttach, "project-slug"),

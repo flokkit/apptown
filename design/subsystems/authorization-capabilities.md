@@ -15,7 +15,24 @@ The merge checks that authority at admission (`workflow/assent.go`).
 Deployment requires `deployment:deploy` and, for protected deployments,
 `release:promote`. Automatic requests use the follows-main setting's recorded
 setter and credential, rechecked at execution; landing approvers supply
-provenance only. Starting a run whose definition would merge before a required approval is also refused early to a caller without
+provenance only.
+
+A deployment's `approval_role` requires an explicit grant of that role on the
+project, plus `release:approve` on the deployment (`release-target` resource).
+The release-manager role is project-scoped, includes project viewer reads and
+that capability;
+`release:approve` does not inherit from instance or group grants. Root still
+needs the named role and cannot approve its own release request. Approval also
+requires a verified person's own assent: a browser session, trusted header,
+open-mode identity or CLI-purpose token. Agent tokens, OAuth clients and
+instruments cannot supply it. Deployment owns these checks at approval and
+again at execution, before provider effects or backups. A release records the
+principal, way of acting, credential bounds, time and exact meaning accepted:
+“I accept release N running on <deployment>”. The requester or an eligible
+approver may cancel a waiting release. The deployment settings write changes
+its feed and approval role under one revision and the same deploy authority.
+
+Starting a run whose definition would merge before a required approval is also refused early to a caller without
 `change:land`. Agents, consoles, step runs and AppTown's own triggers hold no
 landing authority and cannot approve. Root may approve its own Change. Non-root approval follows
 project eligibility, the independent-approval rule and quorum requirements.
@@ -78,7 +95,7 @@ project's address reveals nothing about it.
 
 - Only a current instance-administrator grant confers root, and root reaches
   every project through one grant rule, after credential limits. Identity and
-  grant administration require root. Root is exempt from approver eligibility
+  grant administration require root. For workflow approvals, root is exempt from approver eligibility
   and from the self-approval refusal; named approvers and author segregation
   still constrain everyone else.
 - A token exercises root only when its ceiling permits it and its owner still

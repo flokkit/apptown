@@ -100,6 +100,7 @@ const (
 	CapProjectModelProfile Capability = "project:configure-model-profile"
 	CapReleaseRead         Capability = "release:read"
 	CapReleasePromote      Capability = "release:promote"
+	CapReleaseApprove      Capability = "release:approve"
 	CapDeploymentRead      Capability = "deployment:read"
 	CapDeploymentOperate   Capability = "deployment:operate"
 	// The deployment verbs (design/subsystems/deployment.md).
@@ -200,6 +201,7 @@ var Definitions = map[Capability]definition{
 	CapProjectIntegrations: {"attach or wire integrations to the project", nil, "execute"},
 	CapProjectModelProfile: {"choose the project's model profile", nil, "execute"},
 	CapReleaseRead:         {"read releases", readInherits, "read"},
+	CapReleaseApprove:      {Description: "Approve a release running on a deployment", Risk: "approve"},
 	CapReleasePromote:      {"promote a release to a wider tier", nil, "release"},
 	CapDeploymentRead:      {"read deployments", readInherits, "read"},
 	CapDeploymentOperate:   {"restart or rebuild a deployment, and read its parts' recent logs", nil, "mutate"},
@@ -318,9 +320,9 @@ var StockRoles = []role{
 	{Name: roleExecutionAdmin, Title: "Execution administrator", Scope: ScopeInstance,
 		Description: "Manages executable workflow definitions.",
 		Caps:        []Capability{CapExecWorkflows}},
-	{Name: RoleReleaseManager, Title: "Release manager", Scope: ScopeTarget,
-		Description: "Promotes releases to wider tiers (the releaser).",
-		Caps:        []Capability{CapReleaseRead, CapReleasePromote, CapDeploymentRead, CapDeploymentDeploy}},
+	{Name: RoleReleaseManager, Title: "Release manager", Scope: ScopeProject, Surfaced: true,
+		Description: "Reads the project, promotes releases and approves deployments that require this role.",
+		Caps:        append(append([]Capability{}, readCaps...), CapReleaseApprove, CapReleasePromote, CapDeploymentDeploy)},
 	{Name: RoleAuditor, Title: "Auditor", Scope: ScopeInstance,
 		Description: "Reads everything, changes nothing.",
 		Caps:        append(append([]Capability{}, readCaps...), CapInstitutionRead, CapAuditRead, CapStandardsEvals)},

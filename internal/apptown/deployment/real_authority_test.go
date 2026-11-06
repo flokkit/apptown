@@ -132,12 +132,12 @@ func TestReleaseRequestChecksInternalAuthority(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	grantReal(t, a, "owner", access.RoleReleaseManager, "", access.ScopeTarget, "*")
+	grantReal(t, a, "owner", access.RoleReleaseManager, "", access.ScopeProject, pid.String())
 	revoked := 0
 	for _, sc := range []struct {
 		kind access.ScopeKind
 		id   string
-	}{{access.ScopeProject, "1"}, {access.ScopeTarget, dep.Name}, {access.ScopeTarget, "*"}} {
+	}{{access.ScopeProject, pid.String()}, {access.ScopeTarget, dep.Name}, {access.ScopeTarget, "*"}} {
 		grants, err := a.GrantsAt(context.Background(), sc.kind, sc.id)
 		if err != nil {
 			t.Fatal(err)

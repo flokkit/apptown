@@ -97,6 +97,13 @@ func (s *Service) RequestLandingReleases(ctx context.Context, projectID, runID, 
 			if err := appendReleaseEvent(ctx, tx, rel.ID, fmt.Sprintf("follows main, set by %s; landing approvers: %s", setter, approvers), s.now()); err != nil {
 				return err
 			}
+			state, err := s.admitApprovalIn(ctx, tx, dep, rel)
+			if err != nil {
+				return err
+			}
+			if state == releaseWaiting {
+				return nil
+			}
 			return s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID)
 		})
 		if err != nil {

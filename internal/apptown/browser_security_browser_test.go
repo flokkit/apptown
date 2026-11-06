@@ -3780,6 +3780,34 @@ app:
 		moveClock(a, time.Minute)
 	}
 
+	// The deployment camera shows a real request waiting for another person's
+	// assent. Sam can approve Tom's request, and no job is created before that.
+	for _, spec := range []identity.Spec{
+		{SubjectType: "user", Subject: "sam", Role: access.RoleReleaseManager, Scope: access.ScopeProject, ScopeID: project.ID.String(), By: "camera"},
+		{SubjectType: "user", Subject: "tom", Capability: string(access.CapDeploymentDeploy), Scope: access.ScopeProject, ScopeID: project.ID.String(), By: "camera"},
+		{SubjectType: "user", Subject: "tom", Capability: string(access.CapReleasePromote), Scope: access.ScopeProject, ScopeID: project.ID.String(), By: "camera"},
+	} {
+		if _, err := a.Access.Grant(ctx, spec, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	prod, err = a.Deployment.Deployments.ByID(ctx, prod.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sam := verifiedContext(ctx, access.Principal{ID: testPrincipalOf(t, a.DB, "sam"), Kind: "user", Name: "sam", Via: "header", Credential: identity.HeaderCredential("sam")})
+	if _, err := a.Deployment.SetFeed(sam, project.ID, prod.Name, deployment.FeedSettings{Revision: prod.FeedRevision, Feed: prod.Feed, ApprovalRole: access.RoleReleaseManager}); err != nil {
+		t.Fatal(err)
+	}
+	last, err := a.Deployment.Releases.LastReleasedForDeployment(ctx, prod.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tom := verifiedContext(ctx, access.Principal{ID: testPrincipalOf(t, a.DB, "tom"), Kind: "user", Name: "tom", Via: "header", Credential: identity.HeaderCredential("tom")})
+	waitingRelease, err := a.Deployment.RequestRelease(tom, deployment.DeploySelection{ProjectID: project.ID, DeploymentName: prod.Name, BundleID: last.BundleID})
+	if err != nil || waitingRelease.State.String() != "waiting for approval" {
+		t.Fatalf("camera approval request: %+v %v", waitingRelease, err)
+	}
 	moveClock(a, -a.cfg.clock.ahead)
 	if err := a.Deployment.ObserveRuntime(ctx); err != nil {
 		t.Fatal(err)
