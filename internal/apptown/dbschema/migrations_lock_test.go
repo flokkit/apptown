@@ -1,10 +1,15 @@
 package dbschema
 
 import (
+	"bytes"
 	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
 	"fmt"
+	"go/ast"
+	"go/format"
+	"go/parser"
+	"go/token"
 	"strings"
 	"testing"
 )
@@ -12,12 +17,64 @@ import (
 //go:embed migrations.lock
 var migrationsLock string
 
+//go:embed schema.go
+var migrationsGo string
+
+//go:embed retired_workflows215.go
+var retirement215Go string
+
 // migrationDigest is what a migration says: its number and statements.
 func migrationDigest(m migration) string {
 	h := sha256.New()
 	fmt.Fprintf(h, "%d\x00", m.n)
 	for _, s := range m.stmts {
 		fmt.Fprintf(h, "%d:%s\x00", len(s), s)
+	}
+	if m.data != nil {
+		// Data migrations are locked as code as well as SQL. Keep the frozen
+		// helper with its migration rather than depending on current readers.
+		file, err := parser.ParseFile(token.NewFileSet(), "schema.go", migrationsGo, 0)
+		if err != nil {
+			panic(err)
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			lit, ok := n.(*ast.CompositeLit)
+			if !ok {
+				return true
+			}
+			var number string
+			var body ast.Expr
+			for _, field := range lit.Elts {
+				kv, ok := field.(*ast.KeyValueExpr)
+				if !ok {
+					continue
+				}
+				key, ok := kv.Key.(*ast.Ident)
+				if !ok {
+					continue
+				}
+				if key.Name == "n" {
+					if v, ok := kv.Value.(*ast.BasicLit); ok {
+						number = v.Value
+					}
+				}
+				if key.Name == "data" {
+					body = kv.Value
+				}
+			}
+			if number == fmt.Sprint(m.n) && body != nil {
+				var source bytes.Buffer
+				if err := format.Node(&source, token.NewFileSet(), body); err != nil {
+					panic(err)
+				}
+				fmt.Fprintf(h, "data:%s\x00", source.String())
+				return false
+			}
+			return true
+		})
+		if m.n == 215 {
+			fmt.Fprintf(h, "helpers:%s\x00", retirement215Go)
+		}
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
