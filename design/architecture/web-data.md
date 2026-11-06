@@ -261,6 +261,10 @@ The change page keeps its full evidence in Details, after the tab navigation.
 The project sidebar orders Overview, Changes, Deployments, Security and Settings.
 Changes owns the project's change list; Overview links to it. Deployments lists
 placements with their live state, serving release and last deploy outcome.
+The serving release comes from the deployment listing’s own release record,
+independently of bounded project history. Unknown or stale runtime observations
+keep serving status unknown; a stopped deployment retains its recorded release.
+“No serving release recorded” requires a known observation and no release record.
 Settings › Deployments keeps configuration. The deployment page leads with the
 latest deploy card, then invocation history with outcome, time, source change,
 backup outcome and links to releases that were created. The deployment owner's

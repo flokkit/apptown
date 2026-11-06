@@ -39,8 +39,8 @@ A new project gets a `main` deployment that follows main on the default target
 when its creator has permission to deploy. With local Docker enabled, this is
 the built-in Docker host; without it, this is the single eligible attached
 Docker host. The setting records the creating person and credential. An agent
-credential leaves it unconfirmed: a person chooses **Confirm follows main**
-before automatic releases run. Without a default target or deploy permission,
+credential leaves it unconfirmed: a person saves **Follows main** in the
+deployment’s **Release feed** setting before automatic releases run. Without a default target or deploy permission,
 nothing deploys yet.
 
 A project adds deployments under **Settings › Deployments**, choosing a name,

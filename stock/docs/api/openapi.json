@@ -2373,6 +2373,16 @@
               }
             ]
           },
+          "servingRelease": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Release"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "static": {
             "type": "boolean"
           },
@@ -2407,6 +2417,7 @@
           }
         },
         "required": [
+          "servingRelease",
           "promotionBundleId",
           "promotionRelease",
           "promotionSource",

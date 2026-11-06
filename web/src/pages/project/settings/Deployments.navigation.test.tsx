@@ -15,7 +15,7 @@ import type { DeploymentView } from '../../../wire.gen'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const base = '/projects/lunch/deployments'
 const at = '2026-11-03T08:00:00Z'
-const env = { name: 'main', displayLabel: 'Lunch Orders', generation: 1, kind: 'standing', feed: 'main', audience: 'team', data: 'production', observation: 'running', observedAt: at, readiness: 'reconciled', url: 'https://lunch.example', target: { kind: 'docker-host', name: 'local' } } as DeploymentView
+const env = { name: 'main', displayLabel: 'Lunch Orders', generation: 1, kind: 'standing', feed: 'main', audience: 'team', data: 'production', observation: 'running', servingRelease: { number: 8, releasedAt: at }, observedAt: at, readiness: 'reconciled', url: 'https://lunch.example', target: { kind: 'docker-host', name: 'local' } } as DeploymentView
 const reading = { waiting: false, stale: false, unknown: false, observedAt: at }
 function fixtures({ backup = 'none', lowDisk = false, readiness = 'reconciled' } = {}): Record<string, unknown> {
   return {
@@ -48,14 +48,15 @@ it('summarises each deployment, including previews, and opens its page', () => {
   expect(rows).toHaveLength(2)
   expect(rows[0].textContent).toContain('Lunch Orders')
   expect(rows[0].classList.contains('deployment-row')).toBe(true)
-  expect(rows[0].querySelector('.list-identity')?.textContent).not.toContain('Release #8')
-  expect(rows[0].querySelector('.list-detail')?.textContent).toContain('Release #8')
+  expect(rows[0].querySelector('.list-identity')?.textContent).not.toContain('Running release 8')
+  expect(rows[0].querySelector('.list-detail')?.textContent).toContain('Running release 8')
   expect(rows[0].textContent).toContain('working')
   expect(rows[0].textContent).toContain('no backup yet')
-  expect(rows[0].textContent).toContain(`Release #8 · ${fmtStamp(at)}`)
-  expect(rows[0].textContent).not.toContain('Release #9')
+  expect(rows[0].textContent).toContain(`Running release 8 · ${fmtStamp(at)}`)
+  expect(rows[0].textContent).not.toContain('Running release 9')
   expect(rows[0].querySelector('a[href="https://lunch.example"]')).not.toBeNull()
-  expect(rows[0].querySelector('.list-action button')?.textContent).toBe('Confirm follows main')
+  expect(rows[0].querySelector('.list-action button')).toBeNull()
+  expect(rows[0].textContent).toContain('Automatic deploys are paused until a person saves the Release feed setting.')
   expect(rows[1].querySelector('a[href="/changes/change-1"]')?.textContent).toBe('Preview of change #12: Fix lunch')
   expect(el.textContent).toContain('New deployment')
   expect(el.querySelector('.deploy-entry')).toBeNull()

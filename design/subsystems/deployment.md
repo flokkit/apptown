@@ -139,8 +139,9 @@ write requires deployment permission and protected-release permission where
 applicable. Automatic execution checks that setting revision and the setter’s
 current grants again. Landing approvers are provenance, never deploy authority.
 An unconfirmed setting refuses execution with “follows main is not confirmed
-for this deployment”. The deployment card and `deployment confirm-feed` record
-fresh authorization. Removal and hand-deploy protections follow feed `main`,
+for this deployment”. Saving **Follows main** in the deployment’s **Release feed** setting records
+fresh authorization, even when the value is unchanged. The upgrade command
+`deployment confirm-feed` also records fresh authorization. Removal and hand-deploy protections follow feed `main`,
 regardless of the deployment’s name.
 
 `SetFeed` saves the feed and promotion source together against the revision the

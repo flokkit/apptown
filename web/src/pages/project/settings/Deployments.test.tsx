@@ -141,10 +141,11 @@ it('shows the deployment host and path without the scheme and keeps the full lin
   client.clear()
 })
 
-it.each(['main', 'staging'])('offers follows-main confirmation for %s by feed', name => {
+it.each(['main', 'staging'])('explains paused automatic deploys for %s by feed', name => {
   const client = newQueryClient()
   const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><EnvCard slug="game" env={{ name, kind: 'standing', feed: 'main', feedConfirmed: false, feedRevision: 1, readiness: 'reconciled' } as DeploymentView} onChanged={() => {}} /></MemoryRouter></QueryClientProvider>)
-  expect(html).toContain('Confirm follows main')
+  expect(html).not.toContain('Confirm follows main')
+  expect(html).toContain('Automatic deploys are paused until a person saves the Release feed setting.')
   expect(html).not.toContain('Deploy latest')
   client.clear()
 })

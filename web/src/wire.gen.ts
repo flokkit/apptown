@@ -614,6 +614,7 @@ export type DeploymentResources = {
 }
 
 export type DeploymentView = {
+  servingRelease: Release | null
   promotedFromId?: string | null
   promotionBundleId: string | null
   promotionRelease: number
@@ -3168,6 +3169,34 @@ export type LimitCount = {
   last: string
 }
 
+export type Release = {
+  rollbackOf?: string | null
+  restoreBackupId?: string | null
+  approvalRole: string
+  approval?: ReleaseApproval | null
+  supersededBy?: string | null
+  fromDeploymentId?: string | null
+  backupId?: string | null
+  id: string | null
+  projectId: string | null
+  number: number
+  state: ReleaseState
+  deployment: string
+  externalRef?: string
+  approvedBy?: string
+  runId?: string | null
+  createdAt: string
+  releasedAt?: string
+  notes?: string
+  failure?: string
+  commitSha?: string
+  bundleId?: string | null
+  deploymentId?: string | null
+  generation?: number
+  artifactHash?: string
+  origin: string
+}
+
 export type AppliedAttempt = {
   at: string
   generation: number
@@ -4026,34 +4055,6 @@ export type BackupReference = {
   takenAt: string
   bytes: number
   status: BackupState
-}
-
-export type Release = {
-  rollbackOf?: string | null
-  restoreBackupId?: string | null
-  approvalRole: string
-  approval?: ReleaseApproval | null
-  supersededBy?: string | null
-  fromDeploymentId?: string | null
-  backupId?: string | null
-  id: string | null
-  projectId: string | null
-  number: number
-  state: ReleaseState
-  deployment: string
-  externalRef?: string
-  approvedBy?: string
-  runId?: string | null
-  createdAt: string
-  releasedAt?: string
-  notes?: string
-  failure?: string
-  commitSha?: string
-  bundleId?: string | null
-  deploymentId?: string | null
-  generation?: number
-  artifactHash?: string
-  origin: string
 }
 
 export type ReleaseChange = {
