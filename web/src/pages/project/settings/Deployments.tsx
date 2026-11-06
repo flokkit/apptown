@@ -58,7 +58,7 @@ export function DeploymentsTab({ slug }: { slug: string }) {
         note={choices.length === 0 ? 'No deployment target has been offered to this project.' : undefined}
         action={!adding && choices.length > 0 ? <button onClick={() => setAdding(true)}>New deployment</button> : undefined}>
         {adding && <AddDeployment slug={slug} choices={choices} existing={envs.map((e) => e.name)} onDone={(added) => { setAdding(false); if (added) load() }} />}
-        {envs.length === 0 && !adding && <p className="muted">Not deployed yet.</p>}
+        {envs.length === 0 && !adding && <p className="muted">Nothing deploys yet. {choices.length === 0 ? 'Ask an administrator to offer a deployment target, then choose New deployment.' : 'Choose New deployment to add one.'}</p>}
         <div role="list">{envs.map((e) => <DeploymentRow key={e.name} slug={slug} env={envsQ.refreshFailed ? { ...e, observation: 'unknown' } : e} />)}</div>
       </Section>
 

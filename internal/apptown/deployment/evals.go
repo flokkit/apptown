@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -59,12 +60,12 @@ func (s *Service) refusesPlacement(ctx context.Context, projectID ids.ID, t *Tar
 	return nil
 }
 
-// evallandingTarget is the target an eval copy's landing creates its
-// missing deployment on: the one Docker host attached for evals, else this
+// evallandingTarget is the build host and default placement for an eval
+// copy: the one Docker host attached for evals, else this
 // AppTown's own host when it has local Docker and an eval domain. With none,
 // or several attached for evals, the refusal names the choice.
-func (s *Service) evallandingTarget(ctx context.Context, name string) (*Target, error) {
-	targets, err := s.Targets.All(ctx)
+func (s *Service) evallandingTarget(ctx context.Context, q database.Queryer, name string) (*Target, error) {
+	targets, err := targetsIn(ctx, q)
 	if err != nil {
 		return nil, err
 	}

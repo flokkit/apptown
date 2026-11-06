@@ -19,6 +19,13 @@ Choose an install first, then the targets where its apps run. The
 Use the trial to try AppTown on your computer. For production, use the
 setup below.
 
+A new project gets a `main` deployment that follows main on the default target
+when its creator has permission to deploy. With local Docker enabled, that
+target is the built-in Docker host. Agent-created projects need a person to
+choose **Confirm follows main** before automatic releases run. Without a
+default target or deploy permission, nothing deploys yet; add a deployment
+under **Settings › Deployments** with **New deployment**.
+
 ## Recommended setup
 
 Keep AppTown on the tailnet and put production apps on a separate Docker

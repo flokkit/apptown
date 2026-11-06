@@ -7,7 +7,6 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
-	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
@@ -30,14 +29,8 @@ func (s *Service) ConfirmFeed(ctx context.Context, projectID ids.ID, name string
 	if err != nil {
 		return nil, err
 	}
-	if !actor.Verified {
-		return nil, errReleaseAuthority
-	}
-	raw, err := json.Marshal(operations.AuthorityOf(actor.Principal))
+	raw, err := confirmedFeedAuthority(actor)
 	if err != nil {
-		return nil, err
-	}
-	if _, err := releasePrincipal(raw); err != nil {
 		return nil, err
 	}
 	err = s.db.InTx(ctx, func(tx *database.Tx) error {

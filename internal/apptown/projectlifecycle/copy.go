@@ -47,7 +47,7 @@ type CopyDraft struct {
 // members, its repository started from a bundle of the source's history
 // cut at Commit, and exactly the adoption the source is on now, or would
 // have with in.Packs (adoption.Service.PrepareCopyWith). It is given nothing else: no secrets, no
-// integrations, no deployments. Its purpose (project.EvalCopy) is in the
+// integrations, no inherited deployments. Its own default deployment uses the eval target. Its purpose (project.EvalCopy) is in the
 // project's own INSERT, and the eval's copy record is written in the same
 // transaction. A failure after the project exists returns the project with the
 // error, so the caller can account for it and delete it.
@@ -97,6 +97,11 @@ func (s *Service) CreateCopy(ctx context.Context, in CopyDraft) (*project.Projec
 		}
 		if err := audit.At(at).RecordIn(ctx, tx, in.Who, id, "project.copied", in.Slug, map[string]any{"from": source.Slug, "commit": in.Commit}); err != nil {
 			return err
+		}
+		if s.deployments != nil {
+			if err := s.deployments.InitializeProjectIn(ctx, tx, id); err != nil {
+				return err
+			}
 		}
 		p, err = project.ByIDIn(ctx, tx, id)
 		return err

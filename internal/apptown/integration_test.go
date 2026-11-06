@@ -26,6 +26,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/instancebackup"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -247,8 +248,20 @@ func TestIntegrationDeployReconcileAndVHost(t *testing.T) {
 	a := testApp(t, Config{TierDomains: []string{"main=main.itest.example"}})
 	a.SeedTargets(t.Context())
 	slug := fmt.Sprintf("itest-%d", os.Getpid())
-	plainTestProject(t, a.DB, slug, "IT")
-	p, _ := a.Projects.BySlug(context.Background(), slug)
+	creator := asLander(t, a)
+	caller, _ := access.CallerFrom(creator)
+	caller.Principal.ID = testPrincipalOf(t, a.DB, caller.Principal.Name)
+	caller.Principal.Credential = identity.HeaderCredential(caller.Principal.Name)
+	creator = access.WithCaller(creator, caller)
+	created, err := a.lifecycle.Create(creator, projectlifecycle.Draft{Slug: slug, Name: "IT", Actor: caller.Principal.Name})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := *created
+	initial, err := a.Deployment.Deployments.ByName(creator, p.ID, "main")
+	if err != nil || !initial.FeedConfirmed {
+		t.Fatalf("new project's main: %+v %v", initial, err)
+	}
 	if err := a.lifecycle.InitializeRepository(t.Context(), &p, "", ""); err != nil {
 		t.Fatal(err)
 	}
@@ -298,6 +311,19 @@ func TestIntegrationDeployReconcileAndVHost(t *testing.T) {
 	step := selected.Step
 	if step.Status != workflow.StatusPass {
 		t.Fatalf("deploy step: %q %s", step.Status, step.Evidence)
+	}
+	if out, err := a.Work.AdvanceFrom(creator, run); err != nil || !out.Advanced {
+		t.Fatalf("complete first landing: %+v %v", out, err)
+	}
+	if err := a.Deployment.RequestLandingReleases(ctx, p.ID, run.ID, change.ID, caller.Principal.Name); err != nil {
+		t.Fatal(err)
+	}
+	requests, err := a.Deployment.Releases.LandingRequests(ctx, p.ID, change.ID)
+	if err != nil || len(requests) != 1 {
+		t.Fatalf("first landing releases: %+v %v", requests, err)
+	}
+	if err := a.Deployment.ExecuteRelease(a.asEngine(t.Context()), requests[0].ID); err != nil {
+		t.Fatal(err)
 	}
 	environment, err := a.Deployment.Deployments.ByName(ctx, p.ID, "main")
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/database"
 )
 
@@ -23,7 +24,30 @@ func (s *Service) Require(ctx context.Context, pr access.Principal, p access.Per
 		return access.Principal{}, err
 	}
 	if p.Context.Consequential {
-		if err = s.denials.record(ctx, pr, p, dec, now); err != nil {
+		if err := s.denials.record(ctx, pr, p, dec, now); err != nil {
+			return access.Principal{}, err
+		}
+	}
+	if !dec.Allow {
+		return access.Principal{}, &access.Denied{Code: dec.Code, Reason: dec.Reason}
+	}
+	return pr, nil
+}
+
+// RequireIn checks current authority using the caller's transaction, including
+// grants and project ownership created in that transaction. Consequential
+// denials are recorded there too.
+func (s *Service) RequireIn(ctx context.Context, tx *database.Tx, pr access.Principal, p access.Permission) (access.Principal, error) {
+	if pr.Name == "" {
+		return access.Principal{}, access.ErrPrincipalRequired
+	}
+	now := s.now()
+	dec, err := explainWithFacts(ctx, pr, access.DelegationOf(pr), p, &serviceFacts{ctx: ctx, q: tx, at: now})
+	if err != nil {
+		return access.Principal{}, err
+	}
+	if p.Context.Consequential && !dec.Allow {
+		if err := audit.At(now).RecordIn(ctx, tx, pr.Name, p.Resource.ProjectID, "authz.denied", string(p.Capability), map[string]any{"code": dec.Code, "reason": dec.Reason, "resource": p.Resource.Type + ":" + p.Resource.ID, "route": p.Context.Route}); err != nil {
 			return access.Principal{}, err
 		}
 	}

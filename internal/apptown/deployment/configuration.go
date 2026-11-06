@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/operations"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -143,14 +142,8 @@ func (s *Service) Configure(ctx context.Context, in ConfigureDeployment) (config
 			if err != nil {
 				return configurationResult{}, err
 			}
-			if !setter.Verified {
-				return configurationResult{}, errReleaseAuthority
-			}
-			raw, err := json.Marshal(operations.AuthorityOf(setter.Principal))
+			raw, err := confirmedFeedAuthority(setter)
 			if err != nil {
-				return configurationResult{}, err
-			}
-			if _, err := releasePrincipal(raw); err != nil {
 				return configurationResult{}, err
 			}
 			captured := json.RawMessage(raw)

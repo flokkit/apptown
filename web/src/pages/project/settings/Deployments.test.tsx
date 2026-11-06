@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../../../data'
 import type { DeploymentView } from '../../../wire.gen'
-import { EnvCard, RetainedRow, allowanceWords, tearDownWords } from './Deployments'
+import { DeploymentsTab, EnvCard, RetainedRow, allowanceWords, tearDownWords } from './Deployments'
 import type { Retained } from '../../../targets'
 
 // Record ids are UUIDv7 strings.
@@ -147,4 +147,17 @@ it.each(['main', 'staging'])('offers follows-main confirmation for %s by feed', 
   expect(html).toContain('Confirm follows main')
   expect(html).not.toContain('Deploy latest')
   client.clear()
+})
+
+
+it('says nothing deploys and how to add a deployment when there is no default target', () => {
+ const client = newQueryClient()
+ client.setQueryData(getKey('/projects/game/deployments'), [])
+ client.setQueryData(getKey('/projects/game/targets'), { targets: [] })
+ client.setQueryData(getKey('/projects/game/retained'), { retained: [] })
+ const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><DeploymentsTab slug="game" /></MemoryRouter></QueryClientProvider>)
+ expect(html).toContain('Nothing deploys yet.')
+ expect(html).toContain('New deployment')
+ expect(html).toContain('No deployment target has been offered to this project.')
+ client.clear()
 })

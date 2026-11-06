@@ -17,20 +17,21 @@ func (a *App) deploymentDependencies() deployment.Dependencies {
 	return deployment.Dependencies{
 		// AppTown's one clock, the one project deletion reads too: an
 		// orphaned copy's age is its taking against the deletion's.
-		Now:           a.cfg.clock.Now,
-		Authority:     authority,
-		Groups:        a.Access,
-		Targets:       a.targets,
-		Deployments:   a.deployments,
-		Hosts:         a.hosts,
-		Environment:   a.environment,
-		Providers:     a.targetProviders,
-		Projects:      a.Projects,
-		Configuration: deployment.ConfigurationDependencies{Authority: authority, Projects: sources, Contracts: sources},
-		Releases:      deployment.ReleaseDependencies{Authority: authority, Still: a.Access, Sources: sources, Secrets: releaseSecrets{secrets: a.Secrets}, Queue: releaseJobs{}, Data: &releaseData{data: a.DataProtection, after: (backupRequests{db: a.DB, life: a.life}).AfterRelease}},
-		Followups:     jobQueue{},
-		Declared:      sources,
-		Applied:       a.infrastructure.Applied,
+		Now:               a.cfg.clock.Now,
+		Authority:         authority,
+		CreationAuthority: a.Access,
+		Groups:            a.Access,
+		Targets:           a.targets,
+		Deployments:       a.deployments,
+		Hosts:             a.hosts,
+		Environment:       a.environment,
+		Providers:         a.targetProviders,
+		Projects:          a.Projects,
+		Configuration:     deployment.ConfigurationDependencies{Authority: authority, Projects: sources, Contracts: sources},
+		Releases:          deployment.ReleaseDependencies{Authority: authority, Still: a.Access, Sources: sources, Secrets: releaseSecrets{secrets: a.Secrets}, Queue: releaseJobs{}, Data: &releaseData{data: a.DataProtection, after: (backupRequests{db: a.DB, life: a.life}).AfterRelease}},
+		Followups:         jobQueue{},
+		Declared:          sources,
+		Applied:           a.infrastructure.Applied,
 	}
 }
 

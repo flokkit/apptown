@@ -1638,7 +1638,7 @@ func (s *tourScene) approve(runID ids.ID, who string) {
 
 // ship is a change with its checks passing, approved after wait and
 // landed.
-func (s *tourScene) ship(c *tourChange, asker, approver string, wait time.Duration) {
+func (s *tourScene) ship(c *tourChange, asker, approver string, wait time.Duration) ids.ID {
 	s.t.Helper()
 	run := s.land(c, asker, map[string]string{"tests": "pass", "style": "pass"})
 	s.later(wait)
@@ -1647,6 +1647,7 @@ func (s *tourScene) ship(c *tourChange, asker, approver string, wait time.Durati
 	if err != nil || ch.State.String() != "shipped" {
 		s.t.Fatalf("change %s did not ship: %+v %v", c.ID, ch, err)
 	}
+	return run
 }
 
 // chat opens a chat on a change as who.
@@ -3566,12 +3567,14 @@ app:
 	// Real local release receipts and exported backups reproduce the volume
 	// of automated copies seen with five releases. The provider is the test daemon.
 	var delivered *tourChange
+	var deliveredRun ids.ID
 	for i := 0; i < 15; i++ {
 		if i == 14 {
 			delivered = scene.open("tom", "club-newsletter", "Publish the winter ride times", "Publish the winter ride times on the club website.")
 			scene.write(delivered, map[string]string{"public/winter.html": "<!doctype html><title>Winter rides</title><h1>Winter rides at 9 am</h1>"})
 			scene.commit(delivered, "tom", "Winter ride times")
-			scene.ship(delivered, "tom", "priya", 5*time.Minute)
+			deliveredRun = scene.ship(delivered, "tom", "priya", 5*time.Minute)
+
 			head, err = gitexec.Run(ctx, a.projectRepoPath(project.Slug), "rev-parse", "HEAD")
 			if err != nil {
 				t.Fatal(err)
@@ -3625,6 +3628,24 @@ app:
 		t.Fatal(err)
 	}
 
+	if _, err := workflowFollowUps(a).Complete(ctx, fmt.Sprintf("%s/release", deliveredRun), map[string]any{"approvedBy": "priya"}); err != nil {
+		t.Fatal(err)
+	}
+	releases, err := a.Deployment.Releases.LandingRequests(ctx, project.ID, delivered.ID)
+	if err != nil || len(releases) != 1 {
+		t.Fatalf("camera serving release: %+v %v", releases, err)
+	}
+	// Like the historical releases above, this camera records a completed
+	// outcome on its stand-in daemon. An empty URL leaves its notes available
+	// for the change narrative published below.
+	attempt, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: prod.ID, TargetID: prod.TargetID, Key: "camera-serving", Inputs: deployment.Inputs{ReleaseID: releases[0].ID, BundleID: releases[0].BundleID, Revision: strings.TrimSpace(string(head))}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: attempt, Observed: deploy.Observation{Generation: attempt.Generation, Rollout: "active", Health: "healthy", Handle: map[string]any{"container": docker.ByKey(prod.ID).App(), "hostPort": 43210}}}); err != nil {
+		t.Fatal(err)
+	}
+
 	// Publish the same sort of narrative that can fill empty release notes;
 	// it belongs in the release record, not the overview card.
 	source, err := a.Work.NarrativeSource(asPerson("sam"), delivered.ID)
@@ -3641,6 +3662,7 @@ app:
 	}); err != nil {
 		t.Fatal(err)
 	}
+
 	if _, err := a.DataProtection.TakeBackup(ctx, project.ID, "main", "sam"); err != nil {
 		t.Fatal(err)
 	}

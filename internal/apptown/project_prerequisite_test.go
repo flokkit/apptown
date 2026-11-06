@@ -2,6 +2,11 @@ package apptown
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"strings"
 	"testing"
 	"time"
@@ -174,4 +179,113 @@ func nextFixtureProject(t *testing.T, db *database.DB) ids.ID {
 		t.Fatal(err)
 	}
 	return idstest.N(uint64(made + 1))
+}
+
+// Every public creation path shares this owner command. The replayable wizard
+// and the CLI/MCP command both retain the actual creating credential.
+func TestNewProjectGetsDefaultFollowsMain(t *testing.T) {
+	for _, scenario := range []string{"person", "wizard", "agent token", "no default target", "attached default", "write failure"} {
+		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+			var a *App
+			if scenario == "no default target" || scenario == "attached default" {
+				a = infrastructureModeApp(t)
+			} else {
+				a = testApp(t)
+			}
+			testAdministrator(t, a, "creator")
+			pr := access.Principal{ID: testPrincipalOf(t, a.DB, "creator"), Kind: "user", Name: "creator", Via: "token", Purpose: access.TokenCLI, Credential: "token:creator-cli"}
+			if scenario == "agent token" {
+				pr.Purpose = access.TokenAgent
+				pr.Credential = "token:creator-agent"
+			}
+			targetName := deployment.BuiltInTargetName
+			if scenario == "attached default" {
+				targetName = "apps"
+				target, err := a.Deployment.Targets.Put(t.Context(), &deployment.Target{Name: targetName, Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, Status: deployment.TargetReady})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := a.Deployment.Targets.Offer(t.Context(), target, "*", deployment.OfferCaps{}, "creator"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			in := projectlifecycle.Draft{Slug: "new-app", Name: "New app", Actor: "creator"}
+			if scenario == "wizard" {
+				in.RequestID = ids.New(a.cfg.clock.Now())
+			}
+			if scenario == "write failure" {
+				dbtest.FailNextStatement(t, a.DB, "INSERT INTO deployments")
+			}
+			p, err := a.lifecycle.Create(verifiedContext(t.Context(), pr), in)
+			if scenario == "write failure" {
+				if err == nil {
+					t.Fatalf("creation did not report deployment write failure: %v", err)
+				}
+				if _, err := a.Projects.BySlug(t.Context(), in.Slug); !errors.Is(err, sql.ErrNoRows) {
+					t.Fatalf("project survived failed creation: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			dep, err := a.Deployment.Deployments.ByName(t.Context(), p.ID, "main")
+			if scenario == "no default target" {
+				if !errors.Is(err, sql.ErrNoRows) {
+					t.Fatalf("deployment without a default target: %+v %v", dep, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if dep.Feed != "main" || dep.FeedConfirmed != (scenario != "agent token") {
+				t.Fatalf("default feed: %+v", dep)
+			}
+			target, err := a.Deployment.Targets.ByID(t.Context(), dep.TargetID)
+			if err != nil || target.Name != targetName {
+				t.Fatalf("default target: %+v %v", target, err)
+			}
+			if scenario == "agent token" {
+				change, err := a.Work.Create(verifiedContext(t.Context(), pr), workflow.ChangeDraft{ProjectID: p.ID, Title: "First landing"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := a.lifecycle.InitializeRepository(t.Context(), p, "", ""); err != nil {
+					t.Fatal(err)
+				}
+				recordFixtureAdoptions(t, a)
+				defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "first-build", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "build", Steps: []schema.Step{{Name: "build", Uses: "build"}}}}}})
+				a.Work.Stop()
+				run, err := a.Work.StartRun(asPerson("creator"), workflow.StartChangeRun{ChangeID: change.ID, Workflow: "first-build"})
+				if !errors.Is(err, workflow.ErrDispatchStopped) {
+					t.Fatal(err)
+				}
+				if _, err := a.Deployment.Bundles.Cut(t.Context(), p.ID, "first-tree", map[string]string{"web": "test-image"}, nil, []byte("contract"), deployment.BundleOrigin{ChangeID: change.ID, RunID: run.ID}); err != nil {
+					t.Fatal(err)
+				}
+				if err := a.Deployment.RequestLandingReleases(t.Context(), p.ID, run.ID, change.ID, ""); err != nil {
+					t.Fatal(err)
+				}
+				requests, err := a.Deployment.Releases.LandingRequests(t.Context(), p.ID, change.ID)
+				if err != nil || len(requests) != 1 {
+					t.Fatalf("agent landing: %+v %v", requests, err)
+				}
+				if err := a.Deployment.ExecuteRelease(a.asEngine(t.Context()), requests[0].ID); err == nil || !strings.Contains(err.Error(), "not confirmed") {
+					t.Fatalf("agent landing was not refused as unconfirmed: %v", err)
+				}
+
+			}
+			if scenario == "wizard" {
+				if _, err := a.lifecycle.Create(verifiedContext(context.Background(), pr), in); err != nil {
+					t.Fatal(err)
+				}
+				after, err := a.Deployment.Deployments.ByID(t.Context(), dep.ID)
+				if err != nil || after.FeedRevision != dep.FeedRevision {
+					t.Fatalf("replay reconfirmed feed: %+v %v", after, err)
+				}
+			}
+		})
+	}
 }

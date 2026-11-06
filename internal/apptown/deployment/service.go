@@ -21,6 +21,7 @@ import (
 // execution operations with their configured drivers and collaborators. Its
 // exposed record owners are not independently authenticated user entry points.
 type Service struct {
+	creationAuthority creationAuthority
 	// healthParts is the public part read at each release revision the
 	// health controller has asked about; a revision's contract never changes.
 	healthMu    sync.Mutex
@@ -77,19 +78,20 @@ type Service struct {
 // Docker, providers or registered needs (a standalone tool or a test):
 // New builds empty ones over the same records.
 type Dependencies struct {
-	Targets       *Targets
-	Deployments   *Deployments
-	Hosts         *Hosts
-	Environment   *Environment
-	Providers     *Providers
-	Projects      *project.Projects
-	Authority     access.Authorizer
-	Groups        groupDirectory
-	Releases      ReleaseDependencies
-	Configuration ConfigurationDependencies
-	Followups     jobs.Enqueuer // settlement's after-commit work
-	Declared      declarations  // the app's declaration, for what a target holds
-	Applied       func(ids.ID)  // called after a deployment is applied; nil is fine
+	CreationAuthority creationAuthority
+	Targets           *Targets
+	Deployments       *Deployments
+	Hosts             *Hosts
+	Environment       *Environment
+	Providers         *Providers
+	Projects          *project.Projects
+	Authority         access.Authorizer
+	Groups            groupDirectory
+	Releases          ReleaseDependencies
+	Configuration     ConfigurationDependencies
+	Followups         jobs.Enqueuer // settlement's after-commit work
+	Declared          declarations  // the app's declaration, for what a target holds
+	Applied           func(ids.ID)  // called after a deployment is applied; nil is fine
 	// Operations is the ledger data protection's operations run through,
 	// which a release reads for a take-down holding its deployment; nil:
 	// none runs.
@@ -140,6 +142,7 @@ func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
 		hostMemory:         deps.HostMemory,
 		records:            context.WithoutCancel(ctx),
 		hosts:              hosts,
+		creationAuthority:  deps.CreationAuthority,
 		env:                env,
 		providers:          providers,
 		projects:           deps.Projects,
