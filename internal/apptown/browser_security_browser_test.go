@@ -4517,3 +4517,66 @@ func (s *tourScene) progress(freeze chan struct{}, frozen <-chan struct{}, daemo
 		t.Logf("%s in progress: /changes/%s", slug, changes[slug].ID)
 	}
 }
+
+func TestPolicyLibraryUpgradeBrowser(t *testing.T) {
+	out := os.Getenv("APPTOWN_POLICY_UPGRADE_CAPTURE")
+	if out == "" {
+		t.Skip("set APPTOWN_POLICY_UPGRADE_CAPTURE to capture the migrated Policies page")
+	}
+	a := policyLibraryUpgradeFixture(t)
+	app := a.Handler()
+	dist, err := filepath.Abs("../../web/dist")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dist, "index.html")); err != nil {
+		t.Fatal("build web before the browser capture: ", err)
+	}
+	files := http.FileServer(http.Dir(dist))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			r.Header.Set("X-AppTown-Actor", "boss")
+			app.ServeHTTP(w, r)
+			return
+		}
+		if r.URL.Path == "/policies" {
+			r.URL.Path = "/"
+		}
+		files.ServeHTTP(w, r)
+	}))
+	defer server.Close()
+	module := os.Getenv("APPTOWN_PLAYWRIGHT_MODULE")
+	if module == "" {
+		home, _ := os.UserHomeDir()
+		module = filepath.Join(home, ".local/share/forge-nightly/playwright/node_modules/playwright/index.mjs")
+	}
+	script := filepath.Join(t.TempDir(), "capture.mjs")
+	if err := os.WriteFile(script, []byte(`
+const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE);
+const browser = await chromium.launch({headless:true});
+try {
+ const page = await browser.newPage({viewport:{width:1440,height:1050}});
+ const errors=[];
+ page.on('pageerror',err=>errors.push(String(err)));
+ const response=page.waitForResponse(r=>r.url().endsWith('/api/v1/policy-library'));
+ await page.goto(process.env.CAPTURE_URL+'/policies');
+ const policies=await response;
+ if(policies.status()!==200) throw new Error('policy-library returned '+policies.status());
+ await page.getByRole('button',{name:'New policy',exact:true}).waitFor();
+ await page.getByText('approval',{exact:true}).waitFor();
+ if(errors.length) throw new Error(errors.join('\n'));
+ await page.screenshot({path:process.env.CAPTURE_OUT,fullPage:true});
+ console.log('policy-library: 200; Policies rendered; screenshot: '+process.env.CAPTURE_OUT);
+} finally {await browser.close();}
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	run := (execution.Runner{}).Run(t.Context(), execution.Local, execution.Request{Argv: []string{"node", script}, Env: []string{"APPTOWN_PLAYWRIGHT_MODULE=" + module, "CAPTURE_URL=" + server.URL, "CAPTURE_OUT=" + out, "PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME")}, Timeout: time.Minute})
+	t.Log(string(run.Output))
+	if run.RunErr != nil {
+		t.Fatal(run.RunErr)
+	}
+	if run.ExitCode != 0 {
+		t.Fatalf("browser exit %d", run.ExitCode)
+	}
+}

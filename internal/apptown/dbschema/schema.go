@@ -25,6 +25,7 @@ type migration struct {
 	n     int
 	note  string
 	stmts []string
+	data  func(context.Context, *database.Tx) error
 }
 
 // schemaBaseline is the oldest supported installation: 1.0.0-rc.7.
@@ -596,6 +597,91 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		`ALTER TABLE releases ADD COLUMN rollback_of UUID, ADD COLUMN restore_backup_id UUID`,
 		`ALTER TABLE backups ADD COLUMN running_release_id UUID`,
 	}},
+	{n: 215, note: "remove retired deployment workflows and their selections", data: func(ctx context.Context, tx *database.Tx) error {
+		rows, err := tx.SQL().QueryContext(ctx, `SELECT l.name,l.origin,v.yaml,v.version,l.latest_version FROM lib_workflows l JOIN lib_workflow_versions v ON v.lib_id=l.id`)
+		if err != nil {
+			return err
+		}
+		var definitions []workflow215
+		for rows.Next() {
+			var w workflow215
+			if err := rows.Scan(&w.name, &w.origin, &w.yaml, &w.version, &w.latest); err != nil {
+				rows.Close()
+				return err
+			}
+			definitions = append(definitions, w)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return err
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		removed, err := removedWorkflows215(definitions)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.SQL().ExecContext(ctx, `CREATE TEMP TABLE retired_workflows215(name TEXT PRIMARY KEY) ON COMMIT DROP; CREATE TEMP TABLE retired_publications215(name TEXT,version BIGINT,PRIMARY KEY(name,version)) ON COMMIT DROP; CREATE TEMP TABLE workflow_receipts215(id UUID PRIMARY KEY,body JSONB,digest TEXT) ON COMMIT DROP; CREATE TEMP TABLE workflow_candidates215(id UUID PRIMARY KEY,body JSONB) ON COMMIT DROP`); err != nil {
+			return err
+		}
+		for pub := range removed.publications {
+			if _, err := tx.SQL().ExecContext(ctx, `INSERT INTO retired_publications215(name,version) VALUES($1,$2)`, pub.name, pub.version); err != nil {
+				return err
+			}
+		}
+		for name := range removed.names {
+			if _, err := tx.SQL().ExecContext(ctx, `INSERT INTO retired_workflows215(name) VALUES($1)`, name); err != nil {
+				return err
+			}
+		}
+		patches, err := receiptPatches215(ctx, tx, removed)
+		if err != nil {
+			return err
+		}
+		for _, p := range patches {
+			if _, err := tx.SQL().ExecContext(ctx, `INSERT INTO workflow_receipts215(id,body,digest) VALUES($1,$2,$3)`, p.id, string(p.body), p.digest); err != nil {
+				return err
+			}
+		}
+		candidates, err := candidatePatches215(ctx, tx, removed)
+		if err != nil {
+			return err
+		}
+		for _, p := range candidates {
+			if _, err := tx.SQL().ExecContext(ctx, `INSERT INTO workflow_candidates215(id,body) VALUES($1,$2)`, p.id, string(p.body)); err != nil {
+				return err
+			}
+		}
+		return nil
+	}, stmts: []string{
+		`CREATE FUNCTION pg_temp.clean_workflow_refs215(doc JSONB) RETURNS JSONB LANGUAGE plpgsql AS $$ BEGIN
+          IF jsonb_typeof(doc->'workflows')='array' THEN
+            doc := jsonb_set(doc,'{workflows}',COALESCE((SELECT jsonb_agg(w ORDER BY ord) FROM jsonb_array_elements(doc->'workflows') WITH ORDINALITY a(w,ord) WHERE NOT EXISTS(SELECT 1 FROM retired_workflows215 r WHERE r.name=w#>>'{}')),'[]'));
+          END IF;
+          IF jsonb_typeof(doc->'schedules')='array' THEN
+            doc := jsonb_set(doc,'{schedules}',COALESCE((SELECT jsonb_agg(w ORDER BY ord) FROM jsonb_array_elements(doc->'schedules') WITH ORDINALITY a(w,ord) WHERE NOT EXISTS(SELECT 1 FROM retired_workflows215 r WHERE r.name=w#>>'{}')),'[]'));
+          END IF;
+          RETURN doc;
+        END $$`,
+		`UPDATE packs SET spec_json=pg_temp.clean_workflow_refs215(spec_json)`,
+		`CREATE FUNCTION pg_temp.clean_pinned_workflow_refs215(doc JSONB,pins JSONB) RETURNS JSONB LANGUAGE plpgsql AS $$ DECLARE field TEXT; BEGIN
+          FOR field IN SELECT unnest(ARRAY['workflows','schedules']) LOOP
+            IF jsonb_typeof(doc->field)='array' THEN
+              doc := jsonb_set(doc,ARRAY[field],COALESCE((SELECT jsonb_agg(w ORDER BY ord) FROM jsonb_array_elements(doc->field) WITH ORDINALITY a(w,ord) WHERE NOT EXISTS(SELECT 1 FROM retired_publications215 r WHERE r.name=w#>>'{}' AND r.version=(pins->'workflows'->>(w#>>'{}'))::bigint) AND NOT EXISTS(SELECT 1 FROM retired_workflows215 r WHERE r.name=w#>>'{}')),'[]'));
+            END IF;
+          END LOOP;
+          RETURN doc;
+        END $$`,
+		`UPDATE pack_versions SET spec_json=pg_temp.clean_pinned_workflow_refs215(spec_json,pins_json), declaration_json=pg_temp.clean_pinned_workflow_refs215(declaration_json,pins_json), pins_json=CASE WHEN jsonb_typeof(pins_json->'workflows')='object' THEN jsonb_set(pins_json,'{workflows}',COALESCE((SELECT jsonb_object_agg(key,value) FROM jsonb_each(pins_json->'workflows') WHERE NOT EXISTS(SELECT 1 FROM retired_publications215 r WHERE r.name=key AND r.version=(value#>>'{}')::bigint) AND NOT EXISTS(SELECT 1 FROM retired_workflows215 r WHERE r.name=key)),'{}')) ELSE pins_json END`,
+		`UPDATE project_adoptions a SET receipt_json=p.body,digest=p.digest FROM workflow_receipts215 p WHERE a.id=p.id`,
+		`UPDATE changes c SET target_candidate_json=p.body FROM workflow_candidates215 p WHERE c.id=p.id`,
+		`DELETE FROM workflow_schedules WHERE workflow_name IN (SELECT name FROM retired_workflows215)`,
+		`DELETE FROM system_workflows WHERE name IN (SELECT name FROM retired_workflows215) OR stock_name='ship'`,
+		`DELETE FROM lib_workflow_versions v USING lib_workflows l,retired_publications215 r WHERE v.lib_id=l.id AND l.name=r.name AND v.version=r.version`,
+		`DELETE FROM lib_workflows WHERE origin='stock' AND name IN (SELECT name FROM retired_workflows215)`,
+		`UPDATE lib_workflows l SET latest_version=(SELECT max(v.version) FROM lib_workflow_versions v WHERE v.lib_id=l.id) WHERE EXISTS(SELECT 1 FROM retired_publications215 r WHERE r.name=l.name AND r.version=l.latest_version)`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.
@@ -686,11 +772,17 @@ func applyMigration(ctx context.Context, db *database.DB, m migration) error {
 		if _, err := tx.SQL().ExecContext(ctx, `SELECT set_config('migration.build', $1, true)`, version.String()); err != nil {
 			return err
 		}
+		if m.data != nil {
+			if err := m.data(ctx, tx); err != nil {
+				return err
+			}
+		}
 		for _, q := range m.stmts {
 			if _, err := tx.SQL().ExecContext(ctx, q); err != nil {
 				return err
 			}
 		}
+
 		if _, err := tx.SQL().ExecContext(ctx, `UPDATE schema_version SET version=$1`, m.n); err != nil {
 			return err
 		}

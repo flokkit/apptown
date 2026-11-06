@@ -3,9 +3,13 @@ package apptown
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/dbschema"
+	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -86,4 +90,60 @@ spec: {kind: lifecycle, stages: [{name: work, steps: [{name: accept, uses: appro
 			t.Fatalf("remove project policy: want %d, got %d %s", code, w.Code, w.Body.String())
 		}
 	}
+}
+
+// A withdrawn workflow with a removed step must be repaired in storage before
+// the policy projection reads it; no reader exemption is part of the upgrade.
+func TestPolicyLibraryUpgradeRemovesPreBuildShip(t *testing.T) { policyLibraryUpgradeFixture(t) }
+
+func policyLibraryUpgradeFixture(t *testing.T) *App {
+	t.Helper()
+	a := authzActors(t)
+	raw, err := os.ReadFile("dbschema/testdata/ship.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: restore the old stock row; publishing rejects its removed step.
+	if _, err := a.DB.SQL().ExecContext(t.Context(), `INSERT INTO lib_workflows(id,name,origin,updated_at) VALUES('00000000-0000-7000-8000-000000000301','ship','stock',now())`); err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: restore the released YAML that the publisher now rejects.
+	if _, err := a.DB.SQL().ExecContext(t.Context(), `INSERT INTO lib_workflow_versions(id,lib_id,version,yaml,created_at,source,signer) VALUES('00000000-0000-7000-8000-000000000302','00000000-0000-7000-8000-000000000301',1,$1,now(),'flokkit','old stock')`, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: this data-only migration needs the pre-upgrade schema stamp.
+	if _, err := a.DB.SQL().ExecContext(t.Context(), `UPDATE schema_version SET version=214`); err != nil {
+		t.Fatal(err)
+	}
+	h := a.Handler()
+	policy := `{"name":"approval","rule":"requireCapabilityBound","with":{"capability":"scanner"}}`
+	if w := authzCall(h, "boss", "POST", "/api/v1/policy-library", policy); w.Code != 200 {
+		t.Fatalf("create policy: %d %s", w.Code, w.Body.String())
+	}
+	// Install through storage because adoption itself is blocked by the stale
+	// workflow. The policy-library report must have a project to judge.
+	// sql-guarantee: reproduce a pre-upgrade adopted policy alongside the old row.
+	if _, err := a.DB.SQL().ExecContext(t.Context(), `INSERT INTO policies(id,project_id,name,rule,config_json,created_at) VALUES('00000000-0000-7000-8000-000000000303','00000000-0001-7000-8000-000000000000','approval','requireCapabilityBound','{"capability":"scanner"}',now())`); err != nil {
+		t.Fatal(err)
+	}
+	before := authzCall(h, "owner", "GET", "/api/v1/policy-library", "")
+	if before.Code != 500 || !strings.Contains(before.Body.String(), `unsupported uses`) {
+		t.Fatalf("old state did not reproduce failure: %d %s", before.Code, before.Body.String())
+	}
+	if _, err := dbschema.Migrate(t.Context(), a.DB); err != nil {
+		t.Fatal(err)
+	}
+	a.Ways.SyncStock(t.Context())
+	after := authzCall(h, "owner", "GET", "/api/v1/policy-library", "")
+	if after.Code != 200 {
+		t.Fatalf("upgraded policy library: %d %s", after.Code, after.Body.String())
+	}
+	_, land, err := a.Ways.WorkflowVersion(t.Context(), "land", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := schema.ParseWorkflowStored([]byte(land)); err != nil {
+		t.Fatalf("replacement land: %v", err)
+	}
+	return a
 }

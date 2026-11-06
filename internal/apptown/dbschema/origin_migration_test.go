@@ -41,7 +41,7 @@ func TestMigration168RecordsEachVersionsSourceAndSigner(t *testing.T) {
 			t.Fatalf("%s: %v", s, err)
 		}
 	}
-	if _, err := Migrate(t.Context(), db); err != nil {
+	if _, err := applyMigrations(t.Context(), db, migrations[:migrationIndex(t, 168)+1]); err != nil {
 		t.Fatal(err)
 	}
 	signer := "shipped with AppTown before " + version.String() + ", unsigned"

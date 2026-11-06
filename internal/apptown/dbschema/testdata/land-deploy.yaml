@@ -1,0 +1,82 @@
+# Stock workflow: land — the landing contract (design/subsystems/dev-loop.md). The ONLY
+# path a Change's branch takes to main and prod: gates, one human approval,
+# merge (on entry to ship, role: landing), deploy, release record. Working
+# workflows (quick-change, implement, ...) accrue commits to the branch and
+# never merge; hardening every landing means editing this file once.
+apiVersion: apptown.dev/v1
+kind: Workflow
+metadata:
+  name: land
+  system: true
+  category: landing
+  description: >-
+    Land a change: bring it up to date with main, run its tests, scans and guidance checks, get a person's approval, merge, deploy and record the release. The only way from a change's branch to main.
+spec:
+  kind: pipeline
+  role: landing
+  workspace: project
+  stages:
+    - name: gates
+      steps:
+        - name: catch-up-with-main
+          # Land preflight (reconcile.go): the branch must already contain
+          # main, so every gate below includes the main revision read here.
+          # A branch behind main fails here, early, not at the final merge,
+          # and ends the landing with the change back in progress; the chat
+          # catches up in the change's folder and lands again. The landing
+          # itself never merges or publishes.
+          uses: reconcile
+        - name: tests
+          # The committed tree runs its own tests before anything else looks
+          # at it — the receipt lives on the change, not in a pipeline
+          # somewhere. A test command found always runs. With none, a part
+          # built with one of these tools (tools: in .apptown/app.yaml) is
+          # a failure, and an app with no such part is not applicable;
+          # require: true makes absence a failure whatever the app declares.
+          uses: tests
+          with:
+            appliesTo: [tool:go, tool:node, tool:python, tool:ruby, tool:java, tool:dotnet, tool:rust]
+        - name: scan-source
+          # A scan POINT, not a scanner: every attached scanner that reads
+          # source (osv, gitleaks, syft today) runs here, each as its own
+          # step with its own receipt. Attach a scanner and it joins every
+          # landing — no edit to this file (design/decisions/workflows-as-lanes.md).
+          uses: scan
+          with: { on: source }
+        - name: guidance-conformance
+          # The way of working's own checks, judged against the revision
+          # this run reads (ways-of-working-versions.md §4.1): a finding
+          # this change introduced fails here; one already on main is
+          # reported, not blamed; an uplift's or remediation's acceptance
+          # checks must pass outright.
+          uses: guidance/conformance
+        - name: scan-image
+          # The image scan point: every attached scanner with target: image
+          # (trivy) looks at the public part's image (pulled by reference, or
+          # built or cached for this commit). The release resolves its own
+          # images, so the receipt names the image it scanned and how, not
+          # the release's digest, and lists the parts and init steps it did
+          # not scan. A public static site is skipped with a note.
+          uses: scan
+          with: { on: image, failOn: high }
+    - name: approval
+      steps:
+        - name: approve-landing
+          uses: approval
+          with:
+            approvers: ["role:project-approver"]
+            means: "I am the human answerable for this landing: it merges and ships on my say-so."
+            # A yes given before the work exists (an adoption's opener can give
+            # one): what it means, on the condition AppTown witnesses.
+            inAdvance: "I answer for this landing before it runs, on a condition AppTown checks: it merges no code, and every gate passes with every check passing or not applicable, none excused."
+            inAdvanceAdmitsNotApplicable: true
+            instructions: "Read what changed (the summary and the diff) and the checks before you decide."
+    - name: ship
+      onEnter:
+        - name: deploy
+          uses: deploy
+          with: { deployment: main }
+      steps:
+        - name: release-exists
+          uses: artifact/require
+          with: { kind: release }

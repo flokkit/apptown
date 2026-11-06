@@ -42,7 +42,8 @@ identity remains.
 Schema 167 (1.0.0-rc.7) is the oldest supported installation. Earlier
 migrations are folded into the fragments; their history remains in Git.
 Migrations above the baseline only append: a released migration keeps its
-number and statements. `migrations.lock` records each,
+number and statements. `migrations.lock` records each migration's SQL and,
+where needed, its frozen data transformation.
 `TestMigrationsMatchTheirLock` holds the chain to it, and
 `make check-migrations` compares the lock with `origin/main` before landing.
 A deliberate baseline advance may retire a released prefix, but must retain
