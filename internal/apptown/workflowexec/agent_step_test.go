@@ -853,3 +853,112 @@ func TestAnAgentDeclaringNoBlockersProceedsToChecks(t *testing.T) {
 		})
 	}
 }
+
+// Amending published work gets one automatic continuation. The agent must
+// rebuild on the branch tip; another refusal leaves the work for a person.
+func TestSendBackAmendGetsOnePublicationRecoveryRound(t *testing.T) {
+	for _, repair := range []bool{true, false} {
+		t.Run(fmt.Sprintf("repair=%v", repair), func(t *testing.T) {
+			t.Parallel()
+			sendBackAmendRecovery(t, repair)
+		})
+	}
+}
+
+func sendBackAmendRecovery(t *testing.T, repair bool) {
+	a, runID, stepID := admittedAgentStep(t, `{"prompt":"work"}`, schema.Step{Name: "accept", Uses: "approval"})
+	run, err := workflow.ReadRunIn(a.ctx, a.db, runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := a.source(t, run)
+	hub, ws := requireLocation(t)(source.Repository(a.dir)), requireLocation(t)(source.Workspace(a.dir))
+	var published, amended string
+	calls := 0
+	installFakePi(a, func(n int, req execution.Request) execution.Outcome {
+		calls = n
+		piKeepsSession(t, req, "done")
+		if n == 2 && gittest.Run(t, ws, "rev-parse", "HEAD") != published {
+			t.Fatal("rework did not start at the published tip")
+		}
+		if n == 3 {
+			if got := gittest.Run(t, hub, "rev-parse", "refs/heads/"+source.Branch); got != published {
+				t.Fatalf("refusal changed branch: %s", got)
+			}
+			for _, want := range []string{"does not build on", "new commits on top", "Preserve the unpublished commit"} {
+				if !strings.Contains(strings.Join(req.Argv, " "), want) {
+					t.Fatalf("recovery prompt missing %q: %s", want, strings.Join(req.Argv, " "))
+				}
+			}
+			if repair {
+				gittest.Run(t, ws, "reset", "--hard", published)
+			}
+		}
+		if err := os.WriteFile(filepath.Join(ws, "work.txt"), []byte(fmt.Sprintf("attempt %d\n", n)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		gittest.Run(t, ws, "add", "work.txt")
+		if n == 1 || (n == 3 && repair) {
+			gittest.Run(t, ws, "commit", "-qm", "work")
+		} else {
+			gittest.Run(t, ws, "commit", "--amend", "--no-edit", "-q")
+			amended = gittest.Run(t, ws, "rev-parse", "HEAD")
+		}
+		return execution.Outcome{Output: piSays("done")}
+	})
+	if err := a.work.ExecuteStep(a.ctx, stepID); err != nil {
+		t.Fatal(err)
+	}
+	if status, ev := stepStatus(t, a, stepID); status != workflow.StatusPass {
+		t.Fatalf("first attempt: %s %v", status, ev)
+	}
+	published = gittest.Run(t, hub, "rev-parse", "refs/heads/"+source.Branch)
+	if _, err := a.work.SendBack(a.ctx, workflow.SendBack{ChangeID: run.ChangeID, Note: "correct the work"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.work.ExecuteStep(a.ctx, stepID); err != nil {
+		t.Fatal(err)
+	}
+	if status, ev := stepStatus(t, a, stepID); status != workflow.StatusPending {
+		t.Fatalf("first refusal should queue another round: %s %v", status, ev)
+	}
+	if err := a.work.ExecuteStep(a.ctx, stepID); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 3 {
+		t.Fatalf("invocations = %d; want 3", calls)
+	}
+	if rounds := runIDEvents(t, a, runID, "step.rework"); len(rounds) != 1 {
+		t.Fatalf("automatic rounds: %v", rounds)
+	}
+	if repair {
+		if status, ev := stepStatus(t, a, stepID); status != workflow.StatusPass {
+			t.Fatalf("repaired work: %s %v", status, ev)
+		}
+		tip := gittest.Run(t, hub, "rev-parse", "refs/heads/"+source.Branch)
+		if tip != gittest.Run(t, ws, "rev-parse", "HEAD") || tip == published {
+			t.Fatal("new work not published")
+		}
+		gittest.Run(t, hub, "merge-base", "--is-ancestor", published, tip)
+		return
+	}
+	status, ev := stepStatus(t, a, stepID)
+	if status != workflow.StatusNeedsHuman {
+		t.Fatalf("publication conflict: %s %v; want needs_human", status, ev)
+	}
+	if reason, _ := ev["reason"].(string); !strings.Contains(reason, "agent completed") || !strings.Contains(reason, "does not build on") {
+		t.Fatalf("missing publication explanation: %v", ev)
+	}
+	if actions, ok := ev["actions"].([]any); !ok || len(actions) == 0 {
+		t.Fatalf("missing recovery action: %v", ev)
+	}
+	if got := gittest.Run(t, hub, "rev-parse", "refs/heads/"+source.Branch); got != published {
+		t.Fatalf("published branch moved: %s", got)
+	}
+	if got := gittest.Run(t, ws, "rev-parse", "HEAD"); got != amended || amended == published {
+		t.Fatalf("amended work not preserved: %s", got)
+	}
+	if notices := runIDEvents(t, a, runID, "commit.unpublished"); len(notices) != 2 || notices[0]["sha"] != amended {
+		t.Fatalf("missing unpublished commit: %v", notices)
+	}
+}

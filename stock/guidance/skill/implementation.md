@@ -85,6 +85,8 @@ You implement applications from accepted specifications.
    - Run the formatter, build and tests (the BUILD.md commands) green, and
      commit: gates judge the committed tree. Commit only source: never
      `git add -f`, nothing under `.apptown/` but `app.yaml`.
+   - Never amend, rebase or force-push commits already on the change branch.
+     Add new commits on top of the published branch tip.
    - Run `apptown check` (give it at least 10 minutes, or run it in the
      background to a file) and fix what it flags as yours. A finding marked
      **preexisting** already fails on main: leave it, mention it. On a worker it

@@ -22,6 +22,17 @@ type StepOutcome struct {
 	// records the outcome. A later step that reads a passing producer finds
 	// its artifacts; a failed artifact write records no outcome at all.
 	Artifacts []StepArtifact
+	// Rework, when Key is set, requests continuation of this agent after a needs_human
+	// outcome. Once Limit rounds of Key have run since the last person retry,
+	// the outcome remains needs_human. The evidence reason becomes feedback.
+	Rework boundedRework
+}
+
+// boundedRework gives a runner a separate, durable allowance for one reason
+// to continue its agent. Key identifies the reason within this step.
+type boundedRework struct {
+	Key   string
+	Limit int
 }
 
 // StepArtifact is one artifact recorded with a step's outcome. By, when

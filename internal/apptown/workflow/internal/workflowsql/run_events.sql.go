@@ -532,10 +532,11 @@ WITH person AS (
     (SELECT e.id FROM run_events e WHERE e.run_id=$1::uuid AND e.kind=$3::text AND e.payload_json->>'step'=$4::text ORDER BY e.id DESC LIMIT 1)::uuid AS trigger_event,
     (SELECT e.id FROM run_events e WHERE e.run_id=$1::uuid AND e.kind='step.started' AND e.payload_json->>'step'=$4::text ORDER BY e.id DESC LIMIT 1)::uuid AS check_start,
     (SELECT e.id FROM run_events e WHERE e.run_id=$1::uuid AND e.kind='step.started' AND e.payload_json->>'step'=$5::text ORDER BY e.id DESC LIMIT 1)::uuid AS agent_start,
-    (SELECT COUNT(*) FROM run_events e, person WHERE e.run_id=$1::uuid AND e.kind='step.rework' AND (person.since IS NULL OR e.id > person.since)) AS rounds
+    (SELECT COUNT(*) FROM run_events e, person WHERE e.run_id=$1::uuid AND e.kind='step.rework' AND e.payload_json->>'key' IS NULL AND (person.since IS NULL OR e.id > person.since)) AS rounds,
+    (SELECT COUNT(*) FROM run_events e, person WHERE e.run_id=$1::uuid AND e.kind='step.rework' AND e.payload_json->>'key'=$6::text AND e.payload_json->>'triggerStep'=$2::uuid::text AND (person.since IS NULL OR e.id > person.since)) AS key_rounds
   FROM person
 )
-SELECT history.trigger_event, history.check_start, history.agent_start, history.rounds, EXISTS (
+SELECT history.trigger_event, history.check_start, history.agent_start, history.rounds, history.key_rounds, EXISTS (
   SELECT 1 FROM run_events e WHERE e.run_id=$1::uuid AND e.kind='step.rework'
     AND e.payload_json->>'triggerStep'=$2::uuid::text
     AND e.payload_json->>'triggerEvent'=history.trigger_event::text
@@ -548,6 +549,7 @@ type ReworkHistoryParams struct {
 	TriggerKind string
 	SourceName  string
 	AgentName   string
+	ReworkKey   string
 }
 
 type ReworkHistoryRow struct {
@@ -555,11 +557,13 @@ type ReworkHistoryRow struct {
 	CheckStart   ids.ID
 	AgentStart   ids.ID
 	Rounds       int64
+	KeyRounds    int64
 	Seen         bool
 }
 
-// rounds counts the automatic reworks since a person last retried a step
-// (apptown retry, retry -m, a send-back): their act starts a fresh allowance.
+// rounds counts unkeyed reworks; keyed recovery has its own allowance.
+// Both count since a person last retried a step (apptown retry, retry -m,
+// a send-back): their act starts fresh allowances.
 func (q *Queries) ReworkHistory(ctx context.Context, arg ReworkHistoryParams) (ReworkHistoryRow, error) {
 	row := q.db.QueryRowContext(ctx, reworkHistory,
 		arg.RunID,
@@ -567,6 +571,7 @@ func (q *Queries) ReworkHistory(ctx context.Context, arg ReworkHistoryParams) (R
 		arg.TriggerKind,
 		arg.SourceName,
 		arg.AgentName,
+		arg.ReworkKey,
 	)
 	var i ReworkHistoryRow
 	err := row.Scan(
@@ -574,6 +579,7 @@ func (q *Queries) ReworkHistory(ctx context.Context, arg ReworkHistoryParams) (R
 		&i.CheckStart,
 		&i.AgentStart,
 		&i.Rounds,
+		&i.KeyRounds,
 		&i.Seen,
 	)
 	return i, err

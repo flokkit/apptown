@@ -26,9 +26,9 @@ type reworkedResult struct {
 
 // requestIn records a single continuation. Pending agent state is the durable
 // dispatch intent, understood by normal stage recovery without another worker.
-func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, source *Step, human bool) (reworkedResult, error) {
+func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, source *Step, human bool, bounded *boundedRework) (reworkedResult, error) {
 	result := reworkedResult{runID: run.ID}
-	if run.Status != RunRunning || run.CurrentStage != source.Stage || source.Status != StatusFail || source.OverrideBy != "" {
+	if run.Status != RunRunning || run.CurrentStage != source.Stage || (source.Status != StatusFail && !(bounded != nil && source.Status == StatusNeedsHuman)) || source.OverrideBy != "" {
 		return result, nil
 	}
 	agent, err := stepResult(workflowsql.New(tx.SQL()).StageAgentForUpdate(ctx, workflowsql.StageAgentForUpdateParams{RunID: run.ID, Stage: source.Stage}))
@@ -38,7 +38,7 @@ func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, s
 	if err != nil {
 		return result, err
 	}
-	if agent.Status != StatusPass && agent.Status != StatusFail {
+	if agent.Status != StatusPass && agent.Status != StatusFail && !(bounded != nil && agent.ID == source.ID && agent.Status == StatusNeedsHuman) {
 		return result, nil
 	}
 	kind := "step.finished"
@@ -48,8 +48,15 @@ func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, s
 	if human {
 		kind = "approval"
 	}
+	key := ""
+	if bounded != nil {
+		if bounded.Key == "" || bounded.Limit < 1 {
+			return result, fmt.Errorf("bounded rework needs a key and positive limit")
+		}
+		key = bounded.Key
+	}
 	history, err := workflowsql.New(tx.SQL()).ReworkHistory(ctx, workflowsql.ReworkHistoryParams{
-		RunID: run.ID, SourceID: source.ID, TriggerKind: kind, SourceName: source.Name, AgentName: agent.Name,
+		RunID: run.ID, SourceID: source.ID, TriggerKind: kind, SourceName: source.Name, AgentName: agent.Name, ReworkKey: key,
 	})
 	if err != nil {
 		return result, err
@@ -58,7 +65,7 @@ func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, s
 		return result, nil
 	}
 	if !human {
-		if history.Rounds >= 3 {
+		if (bounded == nil && history.Rounds >= 3) || (bounded != nil && history.KeyRounds >= int64(bounded.Limit)) {
 			return result, nil
 		}
 		// A late verdict cannot start another revision of work it never examined.
@@ -87,14 +94,18 @@ func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, s
 	if _, err := agent.Status.transition(moveStepReset, StatusPending); err != nil {
 		return result, err
 	}
-	if err := requireAttemptWrite(workflowsql.New(tx.SQL()).ReworkAgent(ctx, workflowsql.ReworkAgentParams{ID: agent.ID, Attempt: agent.Attempt})); err != nil {
+	feedback := ""
+	if bounded != nil {
+		feedback = evidenceReason(source.Evidence)
+	}
+	if err := requireAttemptWrite(workflowsql.New(tx.SQL()).ReworkAgent(ctx, workflowsql.ReworkAgentParams{ID: agent.ID, Attempt: agent.Attempt, Feedback: feedback})); err != nil {
 		return result, err
 	}
 	reason := strs.Truncate(evidenceReason(source.Evidence), 600)
 	if human {
 		reason = strs.Truncate(renderFeedback(source), 600)
 	}
-	if err := recordReceiptIn(ctx, tx, run.ID, "step.rework", reworkReceipt{source.Name, agent.ID, reason, source.ID, history.TriggerEvent, agent.OverrideBy, agent.OverrideReason}, s.now()); err != nil {
+	if err := recordReceiptIn(ctx, tx, run.ID, "step.rework", reworkReceipt{key, source.Name, agent.ID, reason, source.ID, history.TriggerEvent, agent.OverrideBy, agent.OverrideReason}, s.now()); err != nil {
 		return result, err
 	}
 	if err := invalidateRunDecisionIn(ctx, tx, run, s.now()); err != nil {
@@ -112,7 +123,11 @@ func (s reworkStore) fail(ctx context.Context, claim *Step, outcome StepOutcome)
 		if err != nil {
 			return reworkedResult{}, err
 		}
-		return s.requestIn(ctx, tx, finished.Run, finished.Step, false)
+		var bounded *boundedRework
+		if outcome.Rework.Key != "" {
+			bounded = &outcome.Rework
+		}
+		return s.requestIn(ctx, tx, finished.Run, finished.Step, false, bounded)
 	})
 }
 
@@ -199,7 +214,7 @@ func (s reworkStore) approveIn(ctx context.Context, tx *database.Tx, run *Run, s
 		if err != nil {
 			return result, err
 		}
-		result, err = s.requestIn(ctx, tx, run, step, true)
+		result, err = s.requestIn(ctx, tx, run, step, true, nil)
 		if err != nil {
 			return result, err
 		}
@@ -218,6 +233,8 @@ type approvalReceipt struct {
 }
 
 type reworkReceipt struct {
+	Key string `json:"key,omitempty"`
+
 	Step                        string `json:"step"`
 	AgentStep                   ids.ID `json:"agentStep"`
 	Reason                      string `json:"reason"`

@@ -307,7 +307,7 @@ func (s *Service) finishAttempt(ctx context.Context, claim *Step, outcome StepOu
 		return fmt.Errorf("recording where the step ran: %w", err)
 	}
 	outcome.Evidence = s.masked(ctx, evidence)
-	if outcome.Status != StatusFail {
+	if outcome.Status != StatusFail && outcome.Rework.Key == "" {
 		return s.stepAttempts.finish(ctx, claim, outcome)
 	}
 	result, err := (reworkStore{s.db, s.clocked}).fail(ctx, claim, outcome)
