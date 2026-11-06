@@ -1151,7 +1151,8 @@ Background target checks require two consecutive failures before marking a targe
 unreachable. A successful check clears the failure count. An explicit Check target
 records its result immediately. Background checks add an audit entry only when
 the target changes between ready and unreachable; explicit checks always record
-who asked.
+who asked. The target page shows the recorded target-check detail, its freshness
+and any failure beside the host state.
 
 Deployment detail and protection readings bind to settled placement, generation
 and their configuration inputs. Admission, readiness changes and restore holds do

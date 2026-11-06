@@ -1,5 +1,6 @@
 import './TargetPage.css'
 import { useHostStates } from '../../hostState'
+import { BackgroundReading } from '../../BackgroundReading'
 import { Status } from '../../Status'
 import { changedTargetSettings, editTarget, NEEDS_MODES, type TargetSettings as SettingsCommand } from '../../targetCommands'
 import { DisplayLabelEdit } from '../../DisplayLabel'
@@ -111,6 +112,7 @@ export function TargetPage() {
         {!retired && <button className="primary" disabled={busy} onClick={() => void run(async () => { await post(`/targets/${t.name}/check`, {}); await load() })}>Check target</button>}
       </div>
       <div className="muted small mt-1" >{[domain ? `*.${domain}` : '', t.kind === 'do-app' ? 'Cloud hosting: apps update without downtime' : '', state.word === 'unknown' || t.statusLabel === 'failed' ? state.summary : ''].filter(Boolean).join(' · ')}</div>
+      <p className="small" data-testid="target-check">Target check: {t.check.detail !== t.check.failure && t.check.detail} <BackgroundReading reading={t.check} /></p>
       {actErr && <div className="error small">{actErr}</div>}
       {t.retained > 0 && <p className="error">{t.retained} old {t.retained === 1 ? 'resource may still cost' : 'resources may still cost'} money. <a href="#target-retained">Review {t.retained === 1 ? 'it' : 'them'}.</a></p>}
       {resources.some(r => r.record === 'missing') && <p>Check missing resources below.</p>}

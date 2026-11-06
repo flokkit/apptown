@@ -12,6 +12,7 @@ it.each([false, true])('leads with the host name, state and app address, and lin
   client.setQueryData(getKey('/attention'), { sources: [], items: unknown ? [{ key: 'inventory', title: 'Kitchen: resources not known', detail: 'Inventory could not be checked.', href: '/targets/kitchen', statusLabel: 'unknown', stale: true }] : [] })
   client.setQueryData(getKey('/targets/kitchen'), {
     target: { id: 'host-id', name: 'kitchen', displayLabel: 'Kitchen', status: 'ready', statusLabel: 'working',
+      check: { detail: 'Docker daemon answers', observedAt: '2026-10-29T00:00:00Z', stale: true, failure: 'SSH connection refused', unknown: true, waiting: false },
       kind: 'docker-host', kindInfo: { title: 'Docker host' }, ingress: { domain: 'apps.example.test' },
       address: { hostname: '10.0.0.4', user: 'root', keyFrom: 'HOST_KEY' },
       capabilities: { needs: ['postgres'], rollout: ['replace'], persistentVolumes: true },
@@ -30,6 +31,9 @@ it.each([false, true])('leads with the host name, state and app address, and lin
   el.querySelectorAll('section').forEach(d => d.remove())
   el.querySelectorAll('.status-help > div').forEach(d => d.remove())
   const first = el.textContent
+  expect(first).toContain('Target check: Docker daemon answers')
+  expect(first).toContain('SSH connection refused')
+  expect(first).toContain('(old)')
   expect(first).toContain('Kitchen')
   expect(first).toContain('*.apps.example.test')
   expect(html).toContain(`${unknown ? 'unknown' : 'working'}</span>`)
