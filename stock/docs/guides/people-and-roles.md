@@ -1,14 +1,20 @@
 # People, invites, roles and grants
 
-Accounts are on the **People** page.
+People has separate **Accounts**, **Groups**, **Roles**, **Sign-in** and
+**Agents and tokens** pages. Accounts lists active accounts first, then disabled
+accounts and names that have never signed in. Each name opens its account page.
+
+Groups lists everyone, personal and team groups, with member counts and roles.
+Open a team group to add an account, remove a member from its row menu, or delete
+the group from its page menu. Everyone and personal groups cannot be changed here.
 
 - **Invites.** With `-auth internal`, an administrator invites a person
-  from **People → Invite a person** or with
+  from **People → Accounts → Invite** or with
   `apptown invite <username> [--role member|admin] [--days N]`. The link is
   shown once and works for 1 to 30 days (7 by default); the person sets
   their own password. AppTown sends no email.
 - **Password reset links.** For an account that already has a password,
-  an administrator uses **People → reset password** or
+  an administrator uses **People → Accounts → Manage → reset password** or
   `apptown password-link <username> [--days N]`. The link is shown once,
   works for 1 to 30 days (3 by default), and you hand it over yourself; a
   newer link for the same person withdraws the older one. Until it is used
@@ -22,7 +28,7 @@ Accounts are on the **People** page.
   refuses: reset the password in your identity provider.
 - **Roles and grants.** A role is a named set of things a person may do.
   Roles on the whole AppTown (instance administrator, auditor, project
-  creator and others) are granted on **People → Roles on this AppTown**;
+  creator and others) are granted on **People → Roles**;
   roles on one project are on its **Settings → Members**. A grant can name
   a person or a group. Nothing is implied: a power nobody was granted,
   nobody holds.
@@ -30,7 +36,7 @@ Accounts are on the **People** page.
   *all authenticated users* the Auditor role on the whole AppTown: everyone
   signed in reads every project, change and record. It suits a team that
   works in the open. To keep projects private, revoke that grant on
-  **People → Roles on this AppTown** (the row for *all authenticated users*,
+  **People → Roles** (the row for *all authenticated users*,
   Auditor); then people read the projects they are members of. AppTown
   never puts the grant back. In open mode (`-auth open`, loopback only by
   default) anyone who can reach AppTown reads everything as well.

@@ -186,6 +186,11 @@ func (d *directoryStore) users(ctx context.Context) ([]Account, error) {
 	for i, r := range rows {
 		a := account(r)
 		a.Acted = acted[r.Username]
+		// Recording a name or provisioning its password is not activity by
+		// that person. Only sign-in and recorded actions count.
+		if !a.Acted {
+			a.LastSeen = stamp.Time{}
+		}
 		if roots[r.Username] {
 			a.Role = "admin"
 		}

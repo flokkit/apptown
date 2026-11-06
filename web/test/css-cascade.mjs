@@ -29,6 +29,8 @@ try {
         gap: row.rowGap,
         padding: row.paddingTop,
         actionWidth: document.querySelector('.list-action').getBoundingClientRect().width,
+        controlHeights: [...document.querySelectorAll('.people-form > *')].map(el => el.getBoundingClientRect().height),
+        rootSize: parseFloat(getComputedStyle(document.documentElement).fontSize),
         buttonHeight: document.querySelector('.people-form button').getBoundingClientRect().height,
         headingMargins: [...document.querySelectorAll('.ch-page h2')].map(h => getComputedStyle(h).marginBottom),
       }
@@ -39,7 +41,8 @@ try {
     if (!phone) assert.ok(Math.abs(parseFloat(actual.columns[2]) - actual.actionWidth) < 1, `${label}: action track fits its content`)
     assert.equal(actual.gap, phone ? '8px' : '12px', `${label}: shared list gap`)
     assert.equal(actual.padding, phone ? '12px' : '16px', `${label}: shared list padding`)
-    assert.equal(actual.buttonHeight, phone ? 44 : 40, `${label}: invite button height`)
+    assert.ok(Math.abs(actual.buttonHeight - actual.rootSize * 40 / 14) < 1, `${label}: invite controls follow text size`)
+    assert.ok(actual.controlHeights.every(height => height === actual.buttonHeight), `${label}: invite controls have equal heights`)
     assert.deepEqual(actual.headingMargins, ['0px', '0px'], `${label}: change heading margins`)
   }
   console.log('CSS cascade: project lists, invite controls and change headings match at both widths and themes')

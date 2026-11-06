@@ -380,3 +380,30 @@ func TestAGrantRecordsThePersonsAccount(t *testing.T) {
 		t.Fatalf("the granted person may act: %v %v", err, disabled)
 	}
 }
+
+// A referenced name can have a storage sighting without ever signing in or
+// acting. The People reader must not present that as the person's activity.
+func TestNeverUsedNameHasNoLastSeen(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := New(testDB(t), Config{})
+	if _, err := s.EnsureUser(ctx, "unused"); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := queries(s.db).UserByName(ctx, "unused")
+	if err != nil || !stored.LastSeen.Valid {
+		t.Fatalf("recorded sighting: %v %+v", err, stored)
+	}
+	users, err := s.Users(ctx)
+	if err != nil || len(users) != 1 || users[0].Acted || users[0].HasPassword || users[0].LastSeen.Valid {
+		t.Fatalf("unused name must have no last activity: %v %+v", err, users)
+	}
+	// Actual actions retain the recorded activity time.
+	if err := audit.At(time.Now()).Record(ctx, s.db, "unused", ids.Nil, "test.acted", "", nil); err != nil {
+		t.Fatal(err)
+	}
+	users, err = s.Users(ctx)
+	if err != nil || len(users) != 1 || !users[0].Acted || !users[0].LastSeen.Valid {
+		t.Fatalf("actor keeps last activity: %v %+v", err, users)
+	}
+}

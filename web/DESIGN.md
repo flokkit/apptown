@@ -8,6 +8,7 @@ The [web data contract](../design/architecture/web-data.md) owns reads and edito
 
 | Need | Use |
 | --- | --- |
+| Table of records | `ListTable` beside `ListRow`; column headers, one desktop line and at most two phone lines. Status keeps its dot and word, technical values use monospace, numbers align right and relative time comes before the final, unlabelled action column. Put the primary action in the section or page header. |
 | Inventory row: identity, state, action, optional detail | `ListRow`; `ProjectListRow` for projects and `LibraryRow` for ways of working |
 | Compact expandable facts | `GlanceRow`; retain semantic tables for tabular records |
 | Disk name, used / total and capacity bar | `CapacityStrip` |

@@ -521,6 +521,8 @@ func appRoutes(a *App) []routeSpec {
 		protocolRoute("POST /api/v1/auth/invite/accept", credentialDoor(a, invites.AcceptInvite), "invites.AcceptInvite: the invite token in the body is the credential"),
 		requireRoute("GET /api/v1/groups", accounts.ListGroups, access.CapInstitutionRead, "instance"),
 		requireRoute("POST /api/v1/groups", accounts.SaveGroup, access.CapIdentityGroups, "instance"),
+		requireRoute("POST /api/v1/groups/{name}/members/{user}", accounts.AddGroupMember, access.CapIdentityGroups, "instance"),
+		requireRoute("DELETE /api/v1/groups/{name}/members/{user}", accounts.RemoveGroupMember, access.CapIdentityGroups, "instance"),
 		requireRoute("DELETE /api/v1/groups/{name}", accounts.DeleteGroup, access.CapIdentityGroups, "instance"),
 		requireRoute("GET /api/v1/auth/admin-networks", administratorNetworks.AdminNetworks, access.CapInstanceReadPublic, "instance"),
 		requireRoute("PUT /api/v1/auth/admin-networks", administratorNetworks.AdminNetworks, access.CapIdentityAuth, "instance"), // decides inside

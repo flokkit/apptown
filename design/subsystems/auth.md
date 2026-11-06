@@ -26,6 +26,10 @@ disconnects their own connected coding agents there. Personal token commands
 act only as the current person and cannot widen their credential’s role. People
 lists everyone’s tokens and connected agents for administrators.
 
+People shows account status and last seen from recorded sign-ins and actions.
+An administrator setting a password does not count as activity by that person.
+A password makes an account permanent even before its first sign-in.
+
 Personal bearer tokens work alongside these modes. On `/api/`, a
 present but invalid bearer token is refused; it does not fall back to a cookie or
 open identity. Otherwise authentication checks the mode's identity source. In

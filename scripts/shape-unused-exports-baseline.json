@@ -203,7 +203,6 @@
   "internal/apptown/identity/oauth.go:TicketKindGit (const)",
   "internal/apptown/identity/oauth.go:TicketPrefix (const)",
   "internal/apptown/identity/oauth_authorization.go:ConsentAllow (const)",
-  "internal/apptown/identity/service.go:Service.ActiveGrants (func)",
   "internal/apptown/identity/service.go:Service.Connection (func)",
   "internal/apptown/identity/service.go:Service.PersonalGroup (func)",
   "internal/apptown/identity/service.go:Service.PutGrant (func)",

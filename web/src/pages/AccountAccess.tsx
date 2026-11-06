@@ -4,9 +4,25 @@ import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { Section } from '../Section'
 import { QuietConfirm } from '../QuietConfirm'
-import { fmtStamp, fmtWhen } from '../format'
+import { Disclosure } from '../Popover'
+import { Modal } from '../Modal'
+import { ListTable } from '../ListTable'
+import { fmtStamp, fmtWhen, relTime } from '../format'
 import type { AuthMe, DelegationList, IssuedToken, TokenList } from '../wire.gen'
 import './People.css'
+
+// Keep credential consequences outside the table's fixed-width action cell.
+function CredentialConfirm({ label, ask, onYes }: { label: string; ask: string; onYes: () => void }) {
+  return <Disclosure closeOnAction={false} trigger={<button className="subtle danger">{label}</button>}>
+    {close => <>
+      <p>{ask}</p>
+      <div className="row row-2">
+        <button className="danger" onClick={() => { onYes(); close() }}>Yes</button>
+        <button className="subtle" onClick={close}>No</button>
+      </div>
+    </>}
+  </Disclosure>
+}
 
 // Coding agents people have connected through the browser sign-in
 // (Docs → Connect a coding agent). Yours, or everyone's for an admin.
@@ -14,6 +30,7 @@ import './People.css'
 export function AgentsCard({ canEdit }: { canEdit: boolean }) {
   const q = useGet<DelegationList>(canEdit ? '/auth/delegations?all=1' : '/auth/delegations')
   const list = q.data?.delegations ?? []
+  const [selected, setSelected] = useState<typeof list[number] | null>(null)
   const { run, err } = useAction()
   return (
     <Section title="Connected coding agents" note="Coding agents that signed in through the browser. Each acts as the person who connected it, within what they allowed.">
@@ -26,8 +43,15 @@ export function AgentsCard({ canEdit }: { canEdit: boolean }) {
         const connections = list.filter(d => `${d.clientName}\0${d.user}` === key).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         const newest = connections[0]
         return <div key={key} className="agent-group">
-          <div className="host-row"><strong>{newest.clientName}{connections.length > 1 ? ` ×${connections.length}` : ''} as {newest.user}</strong><span>Connected</span><span className="muted small">Latest connection {fmtStamp(newest.createdAt)}</span></div>
-          <details><summary>Connections and permissions</summary>
+          <div className="host-row"><strong>{newest.clientName}{connections.length > 1 ? ` ×${connections.length}` : ''} as {newest.user}</strong><span>Connected</span><span className="muted small">Latest connection {fmtStamp(newest.createdAt ?? '')}</span></div>
+          {canEdit ? <ListTable label={`${newest.clientName} connections for ${newest.user}`} rows={connections} rowKey={d => String(d.id)} columns={[
+            { key: 'client', label: 'Agent', phone: 'name', render: d => d.clientName },
+            { key: 'user', label: 'Account', phone: 'state', render: d => d.user },
+            { key: 'permissions', label: 'Permissions', phone: 'detail', render: d => <button className="link" aria-label={`Permissions for ${d.clientName} as ${d.user}`} onClick={() => setSelected(d)}>Access</button> },
+            { key: 'connected', label: 'Connected', phone: 'extra', render: d => <span title={fmtStamp(d.createdAt ?? '')}><span className="record-wide">{fmtStamp(d.createdAt ?? '')}</span><span className="record-phone">{relTime(d.createdAt ?? '') || '—'}</span></span> },
+            { key: 'used', label: 'Last used', phone: 'time', kind: 'time', render: d => <span title={fmtStamp(d.lastUsed ?? '')}>{relTime(d.lastUsed ?? '') || 'never'}</span> },
+            { key: 'action', label: '', phone: 'action', render: d => <CredentialConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user})? It stops working at once; they can sign in again.`} onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} /> },
+          ]} /> : <details><summary>Connections and permissions</summary>
       {connections.map(d => (
         <div key={d.id} className="row small people-div-2">
           <span className="badge">{d.clientName}</span>
@@ -38,8 +62,14 @@ export function AgentsCard({ canEdit }: { canEdit: boolean }) {
           <QuietConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user})? It stops working at once; they can sign in again.`}
             onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} />
         </div>
-      ))}</details></div>
+      ))}</details>}
+        </div>
       })}
+      {selected && <Modal title={`${selected.clientName} as ${selected.user}`} onClose={() => setSelected(null)}>
+        <p>Connected {fmtStamp(selected.createdAt)} · last used {selected.lastUsed ? fmtStamp(selected.lastUsed) : 'never'}</p>
+        <p>{selected.scopes.includes('apptown:user:read') && selected.scopes.length === 1 ? 'Read only' : selected.scopes.includes('apptown:change:create') && selected.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</p>
+        <ul>{selected.scopes.map(scope => <li key={scope}><code>{scope}</code></li>)}</ul>
+      </Modal>}
     </div>
     </Section>
   )
@@ -76,7 +106,15 @@ export function TokensCard({ personal = false }: { personal?: boolean }) {
         </div>
       )}
       {(personal ? meQ.data : tokensQ.data) && activeTokens.length === 0 && <p className="muted small">No access tokens yet.</p>}
-      {activeTokens.map(t => (
+      {!personal && <ListTable label="Access tokens" rows={activeTokens} rowKey={t => t.Name} columns={[
+        { key: 'name', label: 'Name', phone: 'name', kind: 'technical', render: t => t.Name },
+        { key: 'user', label: 'Account', phone: 'state', render: t => t.User },
+        { key: 'role', label: 'Role', phone: 'detail', render: t => t.Role },
+        { key: 'purpose', label: 'Purpose', phone: 'extra', render: t => <span title={tokenPurposes[t.Purpose] ?? 'no purpose'}>{t.Purpose === 'cli' ? 'CLI' : t.Purpose === 'agent' ? 'Agent' : 'No purpose'}</span> },
+        { key: 'used', label: 'Last used', kind: 'time', phone: 'time', render: t => <span title={fmtStamp(t.LastUsed ?? '')}>{relTime(t.LastUsed ?? '') || 'never'}</span> },
+        { key: 'action', label: '', phone: 'action', render: t => <CredentialConfirm label="revoke" ask={`Revoke token ${t.Name}? Anything using it stops working.`} onYes={() => { void run(() => del(`${personal ? '/account/tokens' : '/tokens'}/${t.Name}`)) }} /> },
+      ]} />}
+      {personal && activeTokens.map(t => (
         <div key={t.Name} className="row small">
           <span className="badge">{t.Name}</span>
           <span className="muted">{t.User} · {t.Role} · {tokenPurposes[t.Purpose] ?? 'no purpose'} · last used {t.LastUsed ? fmtWhen(t.LastUsed) : 'never'}</span>

@@ -88,3 +88,8 @@ export const waitingTone = (tone: string): string => ({ ok: 'pass', bad: 'fail',
 export function ChangeStatus({ waiting }: { waiting: import('./wire.gen').WaitingOn }) {
   return <span className={`chip ${waitingTone(waiting.tone)}`}><span aria-hidden="true">● </span>{waiting.says}</span>
 }
+
+export function AccountStatus({ disabled, acted }: { disabled?: boolean; acted?: boolean; hasPassword?: boolean }) {
+  const state = disabled ? 'disabled' : acted ? 'active' : 'never signed in'
+  return <span className={`list-status ${state === 'active' ? 'active' : 'inactive'}`}><span aria-hidden="true" />{state}</span>
+}

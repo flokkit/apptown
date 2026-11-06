@@ -34,7 +34,7 @@ import { InfrastructureHome } from './pages/InfrastructureHome'
 import { InfrastructureNew } from './pages/InfrastructureNew'
 import Conformance from './pages/Conformance'
 import UsagePage from './pages/Usage'
-import People from './pages/People'
+import People, { PEOPLE_PAGES } from './pages/People'
 import { MyExternalSignIn, externalSignInFailure } from './pages/ExternalSignIn'
 import Login from './pages/Login'
 import InvitePage from './pages/Invite'
@@ -135,7 +135,7 @@ export function SidebarNav() {
           active={new RegExp(`^/${g.key}(/|$)`).test(pathname)}
           items={g.items.map((i) => ({ to: `/${g.key}/${i.key}`, label: i.title, active: pathname === `/${g.key}/${i.key}` }))} />))}
       {mayOpen('evals') && <NavLink to="/evals" className={cls}><FlaskConical aria-hidden size={16} />Evals</NavLink>}
-      {mayOpen('people') && <NavLink to="/people" className={cls}><Users aria-hidden size={16} />People</NavLink>}
+      {mayOpen('people') && <Drawer label="People" icon={<Users aria-hidden size={16} />} to="/people/accounts" active={pathname.startsWith('/people')} items={PEOPLE_PAGES.map(([key, label]) => ({ to: `/people/${key}`, label, active: pathname.startsWith(`/people/${key}`) }))} />}
       <NavLink to="/usage" className={cls}><ChartColumn aria-hidden size={16} />Usage</NavLink>
       {mayUpdate && <NavLink to="/updates" className={cls}><RefreshCw aria-hidden size={16} />Updates</NavLink>}
       <div className="spacer" />
@@ -300,7 +300,13 @@ export default function App() {
           <Route path="/packs" element={<WaysOfWorking tab="packs" />} />
           <Route path="/packs/:name" element={<PackPage />} />
           <Route path="/account" element={<MyExternalSignIn />} />
-          <Route path="/people" element={<InstanceGate page="people"><People /></InstanceGate>} />
+          <Route path="/people/accounts" element={<InstanceGate page="people"><People view="accounts" /></InstanceGate>} />
+          <Route path="/people/accounts/:name" element={<InstanceGate page="people"><People view="accounts" /></InstanceGate>} />
+          <Route path="/people/groups" element={<InstanceGate page="people"><People view="groups" /></InstanceGate>} />
+          <Route path="/people/groups/:name" element={<InstanceGate page="people"><People view="groups" /></InstanceGate>} />
+          <Route path="/people/roles" element={<InstanceGate page="people"><People view="roles" /></InstanceGate>} />
+          <Route path="/people/sign-in" element={<InstanceGate page="people"><People view="sign-in" /></InstanceGate>} />
+          <Route path="/people/agents-and-tokens" element={<InstanceGate page="people"><People view="agents-and-tokens" /></InstanceGate>} />
           <Route path="/usage" element={<UsagePage />} />
           <Route path="/evals" element={<InstanceGate page="evals"><EvalsPage /></InstanceGate>} />
           <Route path="/evals/new" element={<InstanceGate page="evals"><EvalStartPage /></InstanceGate>} />

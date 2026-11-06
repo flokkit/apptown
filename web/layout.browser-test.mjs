@@ -1,8 +1,12 @@
 import { productionCSS } from './production-css.mjs'
 import assert from 'node:assert/strict'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import { build } from 'esbuild'
 import { wrappedRowActions } from './row-action-lines.mjs'
+// People navigation is a route contract, independent of rendered tab state.
+const app = await readFile(new URL('./src/App.tsx', import.meta.url), 'utf8')
+for (const path of ['/people/accounts', '/people/accounts/:name', '/people/groups', '/people/groups/:name', '/people/roles', '/people/sign-in', '/people/agents-and-tokens']) assert.ok(app.includes(`path="${path}"`), `missing People route: ${path}`)
+assert.ok(!app.includes('path="/people"') && !app.includes('/people?tab='), 'old People tab route remains')
 const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE)
 const css = await productionCSS()
 const fixture = await build({
@@ -47,7 +51,7 @@ const peopleFixture = await build({
     import { TokensCard } from './pages/AccountAccess'
     window.fetch = async path => new Response(JSON.stringify(String(path).includes('/authz/me')
       ? {instance:{'identity:manage-auth':true}} : {users:[{username:'sam'}],tokens:[],delegations:[],groups:[],roles:[],grants:[]}), {headers:{'Content-Type':'application/json'}})
-    createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={['/people?tab=agents']}><main style={{padding:12}}><People /><TokensCard personal /></main></MemoryRouter></QueryClientProvider>)
+    createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={['/people/agents-and-tokens']}><main style={{padding:12}}><People view="agents-and-tokens" /><TokensCard personal /></main></MemoryRouter></QueryClientProvider>)
   ` },
 })
 const conformanceFixture = await build({
@@ -155,12 +159,6 @@ try {
       await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
       await page.addScriptTag({ content: peopleFixture.outputFiles[0].text })
       await page.getByRole('button', { name: 'Mint token', exact: true }).waitFor()
-      await page.waitForFunction(() => {
-        const strip = document.querySelector('.people-tabs'), active = strip.querySelector('.active')
-        const box = strip.getBoundingClientRect(), item = active.getBoundingClientRect()
-        return item.left >= box.left - 1 && item.right <= box.right + 1
-      })
-      assert.equal(await page.locator('.people-tabs').evaluate(strip => new Set([...strip.children].map(tab => Math.round(tab.getBoundingClientRect().top))).size), 1, `People tabs stay on one row at ${width}, ${size}`)
       assert.ok(await page.getByRole('region', { name: 'Access tokens' }).locator('input, select, button').evaluateAll(controls => controls.length === 3 && controls.every(control => {
         const r = control.getBoundingClientRect()
         return r.left >= 0 && r.right <= innerWidth && r.width > 0
