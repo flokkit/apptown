@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from './data'
-import { FleetDeploymentStatus } from './deploymentStatus'
+import { FleetDeploymentStatus, deploymentStatus } from './deploymentStatus'
 import { ApplicationOverview } from './pages/project/ApplicationOverview'
 import { DeploymentRow, EnvCard } from './pages/project/settings/Deployments'
 import type { DeploymentView, ProjectDetail } from './wire.gen'
@@ -67,4 +67,15 @@ it('keeps observations without generation diagnostics and downgrades a failed di
   const env = { observation: 'running', generation: 0 } as DeploymentView
   expect(deploymentStatus(env).word).toBe('running')
   expect(deploymentStatus({ ...env, generation: 1 }, { parts: [] } as never, true).word).toBe('unknown')
+})
+
+// A bucket website runs no containers, so its parts are never reported; the
+// witnessed answer from its address decides, and a stale reading still does not.
+it.each([
+  [{}, 'running'],
+  [{ stale: true }, 'unknown'],
+] as const)('a target without containers reads its observation (%j)', (reading, word) => {
+  const env = { id: 'd', name: 'site', observation: 'running', generation: 1, kind: 'standing' } as DeploymentView
+  const diagnostics = { reading, containers: false, parts: [{ part: 'catalog', presence: 'unknown' }], events: [], eventsKnown: false } as never
+  expect(deploymentStatus(env, diagnostics).word).toBe(word)
 })
