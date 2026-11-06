@@ -31,6 +31,9 @@ type agentEvidence struct {
 	Resources       map[string]int `json:"resources"`
 	Image           string         `json:"image,omitempty"`
 	Reason          string         `json:"reason,omitempty"`
+	// PublicationNotForward lets a continuation repair the preserved local
+	// folder when preparation encounters the same publication refusal.
+	PublicationNotForward bool `json:"publicationNotForward,omitempty"`
 	// NothingToChange: the step declared that an empty result is a complete
 	// answer and left the change empty; the run ends without landing
 	// (workflow.NothingToChangeEvidence reads it).

@@ -2,6 +2,7 @@ package workflowexec
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -99,6 +100,16 @@ func (a *Executor) mergeMainInFolder(ctx context.Context, run *workflow.Run, ste
 	defer proposed.Discard(ctx)
 	from, err := proposed.Publish(ctx, a.branches, run, step)
 	if err != nil {
+		// A refused publication continuation must reach the agent with its
+		// original work intact so it can rebuild on the published tip. No
+		// source or main merge is published in this recovery path.
+		var earlier agentEvidence
+		if decodeErr := json.Unmarshal(step.Evidence, &earlier); decodeErr != nil {
+			return decodeErr
+		}
+		if earlier.PublicationNotForward && scm.NotForward(err) {
+			return nil
+		}
 		return err
 	}
 	start := from

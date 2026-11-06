@@ -21,6 +21,17 @@ The different ordering is deliberate; there is no universal runner algorithm.
 An agent's or reviewer's outcome is recorded after its paid invocation and
 publication. Provider failure headlines come from `inference.Failure`; the Pi
 adapter supplies the failed turn's identity and raw transcript evidence.
+When a completed agent's work does not build on the published branch tip, the
+refusal queues one automatic continuation through Workflow's rework mechanism.
+The feedback tells the agent to preserve the unpublished commit and rebuild its
+work as new commits on top of the branch tip. A local continuation can work in
+the refused folder to reconcile it; preparation publishes neither that source
+nor a main merge. Publication still requires a fast-forward.
+The allowance is recorded with the rework receipt and resets when a person
+retries or sends work back. A second refusal waits at `needs_human` with the
+refusal and recovery action. Other explicit publication refusals wait for human
+help immediately. The unpublished commit stays available.
+Publication failures whose outcome is unknown remain errors, not refusals.
 A failed recording is retried with the same outcome, under the
 attempt fence and a bounded backoff (`settleProduced`); the invocation is never
 repeated for it. Past the bound the step is an error saying its result could

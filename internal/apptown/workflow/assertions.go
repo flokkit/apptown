@@ -159,7 +159,7 @@ func (s assertions) evaluate(ctx context.Context, request Assertion, expected *a
 			return nil, err
 		}
 		if next == StatusFail {
-			reworked, err = (reworkStore{s.db, s.clocked}).requestIn(ctx, tx, run, current, false)
+			reworked, err = (reworkStore{s.db, s.clocked}).requestIn(ctx, tx, run, current, false, nil)
 			if err != nil {
 				return nil, err
 			}

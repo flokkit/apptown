@@ -63,8 +63,8 @@ including an assertion, asks the stage's agent to repair the work with the
 failing step's full evidence. The engine applies this rule; runners report
 outcomes rather than choose retries. A `needs_human` outcome names the person's
 actions; an `error` says AppTown or infrastructure could not run the check.
-Either outcome holds the stage: later checks stay pending until the person
-resolves it. Neither spends an automatic round. Work blocked by an earlier
+Both outcomes hold the stage: later checks stay pending until the person
+resolves it, except for the bounded publication recovery below. Work blocked by an earlier
 failure also stays pending, including a review waiting for boot; it runs once
 the blocker is resolved. A check that did not run cannot let the gate through.
 
@@ -73,6 +73,15 @@ person's retry. A further failure waits for a person. Each `step.rework` event
 keeps its check and a short reason so the change page can show what was tried
 after later checks replace their evidence. The continuing agent receives the
 complete evidence from the check that requested its revision.
+
+When a completed agent's commit does not build on the change branch tip,
+AppTown gives that agent one automatic round to rebuild its work as new commits
+on top of the tip. The refusal and continuation commit together through the
+same rework mechanism. This allowance is separate from failed-check rounds and
+resets on a person's retry or send-back. A second refusal stays `needs_human`
+with instructions to preserve the unpublished commit, reconcile with the branch
+and retry. Other publication refusals wait for a person immediately; unknown
+publication outcomes remain errors.
 
 An agent may instead finish its declared report with a `Blockers:` field:
 following bullets, each on one line, name everything it cannot do and what it

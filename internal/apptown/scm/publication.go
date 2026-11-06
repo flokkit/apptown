@@ -63,6 +63,13 @@ func Refused(err error) bool {
 	return errors.As(err, &moved) || errors.Is(err, errAuthoritySuperseded) || errors.Is(err, ErrNotPublished)
 }
 
+// NotForward reports a refusal because the proposed commit does not build on
+// the published branch tip. Other authority and publication failures stay distinct.
+func NotForward(err error) bool {
+	var moved *branchMoved
+	return errors.As(err, &moved) && moved.NotForward
+}
+
 // branchMoved means the branch was not where the publisher expected, or the
 // proposed commit does not descend from it. Nothing was published.
 type branchMoved struct {

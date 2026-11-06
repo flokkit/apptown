@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/strs"
 
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
+	"github.com/flokkit/apptown/internal/apptown/scm"
 
 	piharness "github.com/flokkit/apptown/internal/apptown/agentharness/pi"
 
@@ -144,6 +145,15 @@ func (a *Executor) recordAgentOutcome(ctx context.Context, r agentRecord) (workf
 	if published != nil && status == workflow.StatusPass {
 		status = workflow.StatusError
 		evidence.Reason = "the step's work could not be published: " + published.Error()
+		if scm.Refused(published) {
+			status = workflow.StatusNeedsHuman
+			evidence.Reason = "the agent completed, but publishing its work was refused: " + published.Error()
+			if scm.NotForward(published) {
+				evidence.PublicationNotForward = true
+				evidence.Reason += ". Preserve the unpublished commit. Fetch the change branch tip and rebuild your work as new commits on top of it. Never amend, rebase or force-push commits already on the change branch."
+			}
+			evidence.Actions = []string{"Resolve the publication refusal above, then retry this step. Keep the unpublished commit while reconciling the work with the published branch."}
+		}
 	}
 	if status == workflow.StatusPass && r.cfg.Output.Kind != "" {
 		if actions := reportBlockers(r.files.Output); len(actions) > 0 {
@@ -174,6 +184,10 @@ func (a *Executor) recordAgentOutcome(ctx context.Context, r agentRecord) (workf
 		}
 	}
 	outcome, encodeErr := workflow.EncodeOutcome(status, evidence, map[string]any{"model": r.pi.Model, "provider": r.pi.Provider})
+	if evidence.PublicationNotForward {
+		outcome.Rework.Key = "publication-not-forward"
+		outcome.Rework.Limit = 1
+	}
 	switch {
 	case status == workflow.StatusPass:
 		outcome.Artifacts = agentArtifacts(r.cfg, r.files, step.Name)
@@ -181,7 +195,9 @@ func (a *Executor) recordAgentOutcome(ctx context.Context, r agentRecord) (workf
 		// Keep the agent's account of an empty attempt or a request for a
 		// person's help. Failures use the same rework rule as every step;
 		// person actions wait. The continuing agent and person need the report.
-		outcome.Artifacts = agentArtifacts(r.cfg, r.files, step.Name)[:1]
+		if noChange || r.cfg.Output.Kind != "" {
+			outcome.Artifacts = agentArtifacts(r.cfg, r.files, step.Name)[:1]
+		}
 	}
 	// The invocation and the publication are done; only the recording is
 	// tried again if it fails (settleProduced).
