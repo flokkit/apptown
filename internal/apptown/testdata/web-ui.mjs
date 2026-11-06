@@ -9,7 +9,6 @@ const page = await context.newPage();
 // These exclusions concern status meaning and help wording, not layout.
 // The affected pages still receive every viewport and disclosure check.
 const cameraContentExclusions = {
-  'deployment-infrastructure-help': 'The first target help shows stale host-observation details rather than a Target check prefix; whether connection facts must also appear there is an open content decision.',
   'target-unknown': 'The unreachable target shows a capacity-check failure without a memory summary; whether unknown memory must always be shown is an open content decision.',
   conformance: 'Overview uses unknown states; whether unavailable execution needs a separate red marker is an open content decision.',
   'conformance-project-mixed': 'Project detail groups unavailable execution under Couldn’t run with unknown states; whether it needs a separate red marker is the same open content decision.',
@@ -140,7 +139,7 @@ try {
     'invite-pending': seeded.invite,
     'conformance-project': '/conformance/projects/club-newsletter',
     'conformance-project-mixed': '/conformance/projects/lunch-orders',
-    'deployment-infrastructure-help': '/targets',
+    'deployment-infrastructure-help': '/targets/built-in-docker',
     'people-actions': '/people/accounts',
     'review': `/conformance/reviews/${seeded.review}`,
     'review-checks': `/conformance/reviews/${seeded.review}/checks`,
@@ -236,10 +235,12 @@ try {
           if (colors.some(color => color !== red)) throw new Error('failed execution must stay red beside amber findings');
         }
         if (screen === 'deployment-infrastructure-help') {
-          const help = page.locator('main .row-status .status-help').first();
-          await help.locator('summary').click();
-          if (!await help.locator('div').isVisible()) throw new Error('target check help is missing');
-          if (!cameraContentExclusions[screen] && !(await help.innerText()).includes('Target check:')) throw new Error('target check facts are missing');
+          const check = page.getByTestId('target-check');
+          await check.waitFor({ state: 'visible' });
+          const reading = await page.evaluate(async () => (await (await fetch('/api/v1/targets/built-in-docker')).json()).target.check);
+          const facts = [reading.detail, reading.failure].filter(Boolean);
+          const words = await check.innerText();
+          if (!words.startsWith('Target check:') || !facts.length || facts.some(fact => !words.includes(fact))) throw new Error('target check facts are missing');
         }
         if (screen === 'target-resources') await page.locator('#target-resources').getByRole('button', { name: 'View resource', exact: true }).first().click();
         if (!process.env.DESIGN_BASELINE && screen === 'packs') {

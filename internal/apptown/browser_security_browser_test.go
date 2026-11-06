@@ -3135,7 +3135,6 @@ var newsletterNeon = map[string]string{
 // address set; a separate not-found capture exercises its rendered page.
 var cameraRouteExclusions = map[string]string{
 	"/docs":                       "redirects to the first guide; docs captures /docs/guides/quickstart",
-	"/infrastructure/new":         "redirects to /integrations/targets/new",
 	"/projects/:slug/workflows/*": "redirects to /projects/:slug/settings/working",
 	"*":                           "unbounded unknown addresses; camera-not-found captures the not-found page",
 }
@@ -3222,6 +3221,16 @@ func TestWebUICameraRouteCoverage(t *testing.T) {
 	}
 	if err := cameraRouteCoverage(source, nil, map[string]string{"/": ""}); err == nil {
 		t.Fatal("unexplained exclusion passed")
+	}
+}
+
+func TestWebUICameraExclusionsNameCurrentRoutes(t *testing.T) {
+	t.Parallel()
+	source := cameraAppRoutes(t)
+	for route := range cameraRouteExclusions {
+		if !strings.Contains(source, `path="`+route+`"`) {
+			t.Errorf("camera exclusion names a removed route: %s", route)
+		}
 	}
 }
 
