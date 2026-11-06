@@ -221,6 +221,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
       <div className="deploy-lines">
         {e.kind === 'standing' && <DeploymentLine label="Release"><ServingRelease slug={slug} env={e} /><FeedPause env={e} /></DeploymentLine>}
         <DeploymentLine label="Runs on">
+          {e.target && <Link to={`/targets/${encodeURIComponent(e.target.name)}/resources?deployment=${encodeURIComponent(`${slug}/${e.name}`)}`}>Resources</Link>}{' '}
           {meta}{' '}<TechnicalWords shown={technical}>{e.generation ? `generation ${e.generation}` : ''}</TechnicalWords>
         {waiting && e.lastApplied && <div className="muted">Checking after the release (since {fmtWhen(e.lastApplied.at)})</div>}
         {e.needs && e.needs.length > 0 && (

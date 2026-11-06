@@ -5,7 +5,6 @@ import type { OfferCaps, TargetEdited } from './wire.gen'
 export type TargetSettings = {
   domain: string
   persistentVolumes: boolean
-  previews: boolean
   needsMode: string
   evals: boolean
   rehearsals: boolean

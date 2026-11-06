@@ -105,6 +105,7 @@ func appRoutes(a *App) []routeSpec {
 	var deploymentListing httpapi.DeploymentListing
 	var infrastructure httpapi.Infrastructure
 	var disks httpapi.Disks
+	var executor httpapi.Executor
 	var setupStatus httpapi.SetupStatus
 	var setupModel httpapi.SetupModel
 	var browserErrors httpapi.BrowserErrors
@@ -152,6 +153,11 @@ func appRoutes(a *App) []routeSpec {
 		setupStatus = httpapi.NewSetupStatus(&a.setup, a.modelSelection, a.authModeName() == "open" && a.cfg.listenAddr != "" && !loopbackAddr(a.cfg.listenAddr))
 		infrastructure = httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, inventorySourcesFor(a), a.cfg.usingBuiltinDB, builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Container, builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Volume, a.cfg.clock.Now)
 		disks = httpapi.NewDisks(a.diskObserver)
+		workerAddress := ""
+		if a.cfg.worker != nil {
+			workerAddress = a.cfg.worker.URL
+		}
+		executor = httpapi.NewExecutor(a.workerObserver, workerAddress, a.Preview, a.Work)
 		deploymentListing = httpapi.NewDeploymentListing(a.Projects, a.Deployment, a.cfg.dataDir, a.DataProtection.FillsOf)
 		targets = httpapi.NewTargets(a.Deployment, a.targetProviders, a.Projects, a.Access, a.DB, a.cfg.clock.Now)
 		backups = httpapi.NewBackups(a.Projects, a.DataProtection, a.Deployment.Releases)
@@ -386,6 +392,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/targets", targets.ProjectTargets, access.CapDeploymentRead, "project-slug"),
 		requireRoute("GET /api/v1/retained", retention.Retained, access.CapDeploymentRead, "instance"),
 		requireRoute("GET /api/v1/infrastructure", infrastructure.Infrastructure, access.CapDeploymentRead, "instance"),
+		requireRoute("GET /api/v1/executor", executor.Get, access.CapRunRead, "instance"),
 		requireRoute("GET /api/v1/infrastructure/disks", disks.Disks, access.CapDeploymentRead, "instance"),
 		requireRoute("GET /api/v1/jobs", jobs.ListJobs, access.CapDeploymentRead, "instance"),
 		requireRoute("GET /api/v1/projects/{slug}/retained", retention.ProjectRetained, access.CapDeploymentRead, "project-slug"),

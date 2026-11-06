@@ -13,17 +13,14 @@ import { QuietConfirm } from '../../QuietConfirm'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { TargetView, capsWords, placeOf } from '../../targets'
-import { ResourceTables, type Resource, type TargetInfra } from '../Infrastructure'
+import type { TargetInfra } from '../Infrastructure'
+import { TargetResourcesTable } from './TargetResources'
 import { Capacity } from './Capacity'
+import { CapacityStrip, targetCapacityReadings } from '../../CapacityStrip'
+import type { TargetCapacity } from '../../wire.gen'
+import { ListTable } from '../../ListTable'
 import { Section } from '../../Section'
 
-// resourceWord: one word per resource for the "made of" column — a stack,
-// a container, a data volume, an app, a database, its need's name when it has one.
-const resourceWord = (r: Resource) => {
-  const need = (r.hosts ?? []).find((h) => h.need)?.need
-  const noun = r.kind === 'volume' ? 'data volume' : r.kind
-  return need ? `${noun} for ${need}` : noun
-}
 import { fmtStamp, lastSeen, readingAge } from '../../format'
 import type { InfrastructureTargets, RegistryReading, TargetList, TargetPage } from '../../wire.gen'
 import { OfferForm } from './Targets'
@@ -67,11 +64,10 @@ function targetFacts(t: TargetView) {
   if (caps.needs?.length) facts.push(`provides ${caps.needs.join(', ')}`)
   if (caps.rollout?.length) facts.push(caps.rollout.join(', '))
   facts.push(caps.persistentVolumes ? 'has disks' : 'no disks · networked databases only')
-  if (caps.previews) facts.push('previews may bind here')
   if (caps.ownLiveness) facts.push('restarts its own containers')
   const addr = t.address as Record<string, string | number | undefined>
   const concrete: string[] = []
-  if (addr.user && addr.hostname) concrete.push(`ssh ${addr.user}@${addr.hostname}${addr.port && addr.port !== 22 ? ':' + addr.port : ''}`)
+  if (addr.host) concrete.push(String(addr.host))
   if (addr.url) concrete.push(String(addr.url))
   if (addr.urlFrom) concrete.push(`URL from secret ${addr.urlFrom}`)
   if (addr.apiKeyFrom) concrete.push(`API key from secret ${addr.apiKeyFrom}`)
@@ -81,7 +77,7 @@ function targetFacts(t: TargetView) {
 }
 
 // TargetPage owns the target: inventory, settings, offers and checks.
-export function TargetPage() {
+export function TargetPage({ tab = 'overview' }: { tab?: 'overview' | 'capacity' | 'history' }) {
   const { name } = useParams()
   const hostState = useHostStates()
   const pageQ = useGet<TargetPage>(`/targets/${name}`)
@@ -90,6 +86,7 @@ export function TargetPage() {
   const { run, busy, err: actErr } = useAction()
   const infra = useGet<InfrastructureTargets>('/infrastructure', { poll: 30000 })
   const here = infra.data?.targets.find((x) => x.target === name)
+  const capacity = useGet<TargetCapacity>(`/targets/${name}/capacity`)
 
   usePageName(`/targets/${name}`, data?.target?.displayLabel || name)
   if (!data || !data.target) return <ReadStatus q={pageQ} what="the deployment target" />
@@ -107,51 +104,25 @@ export function TargetPage() {
   return (
     <div>
       <StaleNote q={pageQ} />
+      <StaleNote q={infra} />
       <div className="row target-page-div">
-        <h1 className="grow target-page-h1">{t.displayLabel || t.name}</h1>
+        <h1 className="grow target-page-h1">{tab === 'overview' ? t.displayLabel || t.name : tab === 'capacity' ? 'Capacity' : 'History'}</h1>
         <Status observation word={state.word} help={state.help.startsWith('Host connection') ? undefined : state.help} />
         {!retired && <button className="primary" disabled={busy} onClick={() => void run(async () => { await post(`/targets/${t.name}/check`, {}); await load() })}>Check target</button>}
       </div>
       <div className="muted small mt-1" >{[domain ? `*.${domain}` : '', t.kind === 'do-app' ? 'Cloud hosting: apps update without downtime' : '', state.word === 'unknown' || t.statusLabel === 'failed' ? state.summary : ''].filter(Boolean).join(' · ')}</div>
       <p className="small" data-testid="target-check">Target check: {t.check.detail !== t.check.failure && t.check.detail} <BackgroundReading reading={t.check} /></p>
       {actErr && <div className="error small">{actErr}</div>}
-      {t.retained > 0 && <p className="error">{t.retained} old {t.retained === 1 ? 'resource may still cost' : 'resources may still cost'} money. <a href="#target-retained">Review {t.retained === 1 ? 'it' : 'them'}.</a></p>}
+      {t.retained > 0 && <p className="error">{t.retained} old {t.retained === 1 ? 'resource may still cost' : 'resources may still cost'} money. <a href={tab === 'overview' ? '#target-retained' : `/targets/${t.name}#target-retained`}>Review {t.retained === 1 ? 'it' : 'them'}.</a></p>}
       {resources.some(r => r.record === 'missing') && <p>Check missing resources below.</p>}
 
-      {!retired && <CapacitySection name={t.name} />}
-
-      <Section title="What runs here" count={t.deployments.length}>
-        {t.deployments.length === 0 && <p className="muted small">No deployments on this target.</p>}
-        {t.deployments.map((e) => {
-          const mine = resources.filter((r) => (r.hosts ?? []).some((h) => h.project === e.project && h.deployment === e.name))
-          const meta = [e.url ? e.url.replace(/^https?:\/\//, '') : '', e.audience, e.data, mine.map(resourceWord).join(', ')].filter(Boolean).join(' · ')
-          return (
-            <div key={e.project + '/' + e.name} className="card row target-page-card">
-              <Link to={`/projects/${e.project}/deployments/${e.name}`} className="row grow target-page-link">
-                <span className="row-status"><Status observation word={e.statusLabel} /></span>
-                <strong>{e.project}/{e.displayLabel || e.name}{e.generation ? <span className="muted target-page-span"> gen {e.generation}</span> : null}</strong>
-                <span className="muted small">{meta}</span>
-              </Link>
-              <span className="row-action"><Link className="btn" to={`/projects/${e.project}/deployments/${e.name}`}>View deployment</Link></span>
-            </div>
-          )
-        })}
-      </Section>
-
-      <Section title="Not accounted for" count={here && (here.live || here.asOf) ? unaccounted : undefined} label="Resources not accounted for">
-        {here
-          ? <Unaccounted here={here} onChanged={reloadAll} />
-          : retired ? <p className="muted small">Retired: not checked.</p>
-            : infra.err ? <p className="error small">The target's inventory could not be read: {infra.reason}</p>
-              : <p className="muted small">Checking…</p>}
-      </Section>
-      {here && resources.length > 0 && <div id="target-resources"><Section title="Recorded resources" count={resources.filter(r => r.record === 'recorded').length}>
-        <ResourceTables t={here} onChanged={reloadAll} only={r => r.record === 'recorded'} />
-      </Section></div>}
-
-      <TargetRetained name={t.name} />
-      <TargetSettings />
-      <Section title="History" count={data.history.length}>
+      <nav className="row row-3 mt-3" aria-label="Target pages">
+        <Link to={`/targets/${t.name}`}>Overview</Link>
+        <Link to={`/targets/${t.name}/resources`}>Resources</Link>
+        <Link to={`/targets/${t.name}/capacity`}>Capacity</Link>
+        <Link to={`/targets/${t.name}/history`}>History</Link>
+      </nav>
+      {tab === 'capacity' ? <Capacity name={t.name} /> : tab === 'history' ? <>      <Section title="History" count={data.history.length}>
         {data.history.length === 0
           ? <p className="muted small">No history yet.</p>
           : data.history.map((e, i) => (
@@ -164,7 +135,38 @@ export function TargetPage() {
               </span>
             </div>
           ))}
+      </Section></> : <>
+      {!retired && <><div className="stack stack-3 mt-3">{targetCapacityReadings(capacity.refreshFailed ? undefined : capacity.data ?? undefined).map(r => <CapacityStrip key={r.label} name={r.label} used={r.used} total={r.total} format={r.format} />)}</div><StaleNote q={capacity} /></>}
+
+      <Section title="What runs here" count={t.deployments.length}>
+        {t.deployments.length === 0 && <p className="muted small">No deployments on this target.</p>}
+        {!!t.deployments.length && <ListTable className="target-deployments-table" label="What runs here" rows={t.deployments} rowKey={e => `${e.project}/${e.name}`} columns={[
+          { key: 'name', label: 'Deployment', phone: 'name', render: e => <Link to={`/projects/${e.project}/deployments/${e.name}`}>{e.project}/{e.displayLabel || e.name}</Link> },
+          { key: 'state', label: 'State', phone: 'state', render: e => <Status observation word={e.statusLabel} /> },
+          { key: 'address', label: 'Address', kind: 'technical', phone: 'detail', render: e => e.url?.replace(/^https?:\/\//, '') || 'unknown' },
+          { key: 'resources', label: 'Resources', kind: 'number', phone: 'extra', render: e => {
+            // Recorded resources remain counted when the host cannot be reached.
+            if (!here) return 'unknown'
+            const count = resources.filter(r => (r.hosts ?? []).some(h => h.project === e.project && h.deployment === e.name)).length
+            return <Link to={`/targets/${t.name}/resources?deployment=${encodeURIComponent(`${e.project}/${e.name}`)}`}>{count}<span className="record-phone"> {count === 1 ? 'resource' : 'resources'}</span></Link>
+          } },
+          { key: 'generation', label: 'Generation', kind: 'number', phone: 'time', render: e => e.generation || 'unknown' },
+        ]} />}
+
       </Section>
+
+      <Section title="Not accounted for" count={here && (here.live || here.asOf) ? unaccounted : undefined} label="Resources not accounted for">
+        {here
+          ? <Unaccounted here={here} onChanged={reloadAll} />
+          : retired ? <p className="muted small">Retired: not checked.</p>
+            : infra.err ? <p className="muted small">Inventory is unknown: {infra.reason}</p>
+              : <p className="muted small">Checking…</p>}
+      </Section>
+
+      <TargetRetained name={t.name} />
+      <TargetSettings />
+      </>}
+
     </div>
   )
 }
@@ -201,7 +203,7 @@ function TargetSettings() {
         <DisplayLabelEdit keyLabel="Target ID" value={t.displayLabel || t.name} machineKey={t.name} path={`/targets/${t.id}/label`} />
         <dl className="facts">
           <dt>Kind</dt><dd>{placeOf(t.kindInfo, t.address)}</dd>
-          <dt>Provides</dt><dd>{facts.join(' · ')} · needs are {t.needsMode}</dd>
+          <dt>Provides</dt><dd>{facts.join(' · ')} · needs are {t.needsMode || 'unknown'}</dd>
           {(concrete.length > 0 || t.provider) && <><dt>Address</dt><dd>{concrete.join(' · ')}{t.provider && <> · through the <Link to="/integrations">{t.provider}</Link> connection</>}</dd></>}
           {addr.keyFrom && <><dt>SSH key</dt><dd>secret <code>{addr.keyFrom}</code> · <Link to="/integrations/secrets">Edit secret</Link></dd></>}
         </dl>
@@ -234,16 +236,6 @@ function TargetSettings() {
   )
 }
 
-// CapacitySection: how full the host is; a reading that failed says why
-// beside it.
-function CapacitySection({ name }: { name: string }) {
-  return (
-    <Section title="Capacity">
-      <Capacity name={name} />
-    </Section>
-  )
-}
-
 // What a copy runner is, said beside the field that names one.
 export const copyRunnerMeaning = 'A copy runner is a Docker host that runs the commands that copy this target’s databases to the backup store, check a copy comes back, and fill a restored copy.'
 
@@ -261,14 +253,13 @@ export function CopyRunnerLine({ t }: { t: TargetView }) {
 }
 
 // EditTarget: the facts AppTown cannot read off a target and the owner
-// must state — the apps domain, whether it keeps disks, whether previews
-// may bind, how needs are met. Each save is an audit row with before and after.
+// must state — the apps domain, whether it keeps disks, how needs are met. Each save is an audit row with before and after.
 // said quotes a value for a sentence, and names an empty one.
 const said = (v: string) => (v === '' ? 'empty' : `“${v}”`)
 type TargetSettings = Omit<SettingsCommand, 'evals'>
 const settingsOf = (t: TargetView): TargetSettings => ({
   domain: typeof t.ingress?.domain === 'string' ? t.ingress.domain : '',
-  persistentVolumes: t.capabilities.persistentVolumes, previews: t.capabilities.previews, needsMode: t.needsMode,
+  persistentVolumes: t.capabilities.persistentVolumes, needsMode: t.needsMode,
   copyRunner: typeof t.address?.copyRunner === 'string' ? t.address.copyRunner : '',
   rehearsals: t.ingress?.rehearsals === true,
   environment: typeof t.address?.environment === 'string' ? t.address.environment : '',
@@ -325,7 +316,6 @@ export function EditTarget({ t, current = true, onSaved }: { t: TargetView; curr
       <div className="row target-page-edit-target-div-2">
         <label className="small">apps domain <input value={draft.domain} disabled={busy} onChange={(e) => set('domain', e.target.value)} placeholder="none" className="target-page-edit-target-input" /></label>
         <label className="small"><input type="checkbox" checked={draft.persistentVolumes} disabled={busy} onChange={(e) => set('persistentVolumes', e.target.checked)} /> keeps disks (a dataDir may bind)</label>
-        <label className="small"><input type="checkbox" checked={draft.previews} disabled={busy} onChange={(e) => set('previews', e.target.checked)} /> previews may bind</label>
         <label className="small">needs are <select value={draft.needsMode} disabled={busy} onChange={(e) => set('needsMode', e.target.value)}>
           {NEEDS_MODES.map(({ value, title }) => <option key={value} value={value}>{title}</option>)}
         </select></label>
@@ -374,14 +364,14 @@ export function EditTarget({ t, current = true, onSaved }: { t: TargetView; curr
 // accounted for" is an answer only the provider can give: under a read that
 // failed it says what failed and how old the list shown is, and with no list
 // yet it claims nothing.
-export function Unaccounted({ here, onChanged }: { here: TargetInfra; onChanged: () => void }) {
+export function Unaccounted({ here }: { here: TargetInfra; onChanged: () => void }) {
   const failed = !here.live && !!here.error
   return (
     <>
       {here.asOf && <div className="muted small">Inventory {readingAge(here.asOf, !here.live)}{here.invalidated ? " · before the latest change" : ""}</div>}
-      {failed && <div className="error small target-page-unaccounted-error">Inventory {here.unknown ? 'is unknown' : 'check failed or is out of date'}: {here.error}{here.asOf ? ` · showing the inventory ${lastSeen(here.asOf)}.` : ' · nothing has been read from it, so what is unaccounted for is not known.'}</div>}
+      {failed && <div className="muted small target-page-unaccounted-error">Inventory is unknown: {here.error}{here.asOf ? ` · showing the inventory ${lastSeen(here.asOf)}.` : ' · nothing has been read from it, so what is unaccounted for is not known.'}</div>}
       {here.live || here.asOf
-        ? <ResourceTables t={here} onChanged={onChanged} only={(r) => r.record !== 'recorded'} empty={here.live ? 'Nothing unaccounted for.' : `Nothing unaccounted for in the inventory ${lastSeen(here.asOf!)}.`} />
+        ? <TargetResourcesTable t={here} only={(r) => r.record !== 'recorded'} empty={here.live ? 'Nothing unaccounted for.' : `Nothing unaccounted for in the inventory ${lastSeen(here.asOf!)}.`} />
         : !failed && <div className="muted small">checking…</div>}
       {here.shared && <div className="muted small target-page-registry-line-div">{here.shared}</div>}
     </>

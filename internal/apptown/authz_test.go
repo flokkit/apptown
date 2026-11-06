@@ -1078,3 +1078,31 @@ func TestAttentionHTTPColdInfrastructureSourcesNeitherCollectNorRequestChecks(t 
 		t.Fatal("unconfigured worker admitted a probe", got)
 	}
 }
+
+func TestExecutorInventoryRequiresInstanceExecutionRead(t *testing.T) {
+	t.Parallel()
+	a := authzFixture(t)
+	if err := a.Preview.ObservePreviews(t.Context(), nil, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: no owner operation inserts stored readings; preview boot is not under test.
+	if _, err := a.DB.SQL().ExecContext(t.Context(), `UPDATE preview_readings SET payload=payload || '{"Other":[{"project":"open","release":4,"Worker":false,"Name":"release-preview"}]}'::jsonb WHERE subject='instance'`); err != nil {
+		t.Fatal(err)
+	}
+	mux, err := newRouteMux(a, appRoutes(a))
+	if err != nil {
+		t.Fatal(err)
+	}
+	step := &authIdentity{User: "run/" + fixtureWork(t, a).Run.String(), Role: "member", Via: "run", ProjectID: idstest.N(1)}
+	if w := callAs(t, mux, step, "GET", "/api/v1/projects/open", nil); w.Code != 403 {
+		t.Fatalf("fixture must deny other project: %d %s", w.Code, w.Body.String())
+	}
+	w := callAs(t, mux, step, "GET", "/api/v1/executor", nil)
+	if w.Code != 403 {
+		t.Fatalf("step must not read the executor: %d %s", w.Code, w.Body.String())
+	}
+	w = callAs(t, mux, &authIdentity{User: "owner", Via: "session"}, "GET", "/api/v1/executor", nil)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"project":"open","release":4`) {
+		t.Fatalf("authorized instance reader lost the executor inventory: %d %s", w.Code, w.Body.String())
+	}
+}

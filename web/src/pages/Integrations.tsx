@@ -25,6 +25,7 @@ import {
   type Area, HealthState, INTEGRATION_MENU, MENU_KINDS, PAGE_KEYS, areaOf, builtInModel, kindPath, pageKinds, capabilityMeta, credentialKeys, fmtVal, healthState, specFor, usedFor,
 } from './integrations/kinds'
 import './Integrations.css'
+import { ExecutorObservation } from './integrations/Executor'
 
 // Integrations: the outside services this AppTown works with. The list says,
 // for each, what it is, what it is for and whether it is working right now;
@@ -359,6 +360,7 @@ function KindPage({ which, area, bindings, catalog, offered, catalogErr, reading
             })}
         </Section>
       )}
+      {which === 'executor' && <ExecutorObservation />}
       {which === 'model' && <p className="muted small">Which workflows use which model is set in <Link to="/integrations/profiles">Model profiles</Link>.</p>}
       {which === 'secrets' && <InstanceSecretsPanel bindings={reading.q.err ? [] : bindings} catalog={catalogErr ? [] : catalog} />}
       {which === 'shared' && <Section title="Definitions"><ServiceKindsPanel /></Section>}

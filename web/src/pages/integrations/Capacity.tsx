@@ -1,4 +1,3 @@
-import { GlanceRow } from '../../GlanceRow'
 import { PRODUCT } from '../../brand'
 import { useGet } from '../../data'
 import { StaleNote } from '../../ReadGate'
@@ -39,7 +38,7 @@ function countWords(r: Resource): string {
 function ResourceRow({ label, r, format }: { label: string; r: Resource; format: (v: number) => string }) {
   const p = r.promised.sum
   return (
-    <GlanceRow labels={["Resource", "Total", "Limits", "Used"]}>
+    <tr>
       <td>{label}</td>
       <td><FigureWords f={r.total} format={format} /></td>
       <td>
@@ -51,7 +50,7 @@ function ResourceRow({ label, r, format }: { label: string; r: Resource; format:
       <td>
         {r.inUse ? <><FigureWords f={r.inUse.apptown} format={format} /> <span className="muted">{PRODUCT}</span>{' + '}<FigureWords f={r.inUse.other} format={format} /> <span className="muted">other</span></> : <span className="muted">—</span>}
       </td>
-    </GlanceRow>
+    </tr>
   )
 }
 
@@ -98,6 +97,10 @@ export function Capacity({ name }: { name: string }) {
     : m.hostUsed.known && m.total.known ? `${briefBytes(m.hostUsed.value)} used of ${briefBytes(m.total.value)}${m.hostUsed.stale && m.hostUsed.readAt ? ` · ${lastSeen(m.hostUsed.readAt)}` : ''}`
       : m.hostUsed.known ? `${briefBytes(m.hostUsed.value)} used; host total could not be read` : 'Memory use could not be read'
   const reasons = [
+    ...[['CPU total', c.cpu?.total], [`CPU limits for ${PRODUCT}`, c.cpu?.promised.sum.apptown], ['CPU limits for other apps', c.cpu?.promised.sum.other], [`Memory limits for ${PRODUCT}`, m?.promised.sum.apptown], ['Memory limits for other apps', m?.promised.sum.other], ['Disk total', c.disk?.total]].flatMap(([label, value]) => {
+      const figure = value as Figure | undefined
+      return figure && !figure.known && figure.reason ? [`${label} could not be read: ${figure.reason}`] : []
+    }),
     m?.hostUsed && !m.hostUsed.known && m.hostUsed.reason ? `Memory use: ${m.hostUsed.reason}` : '',
     m && !m.total.known && m.total.reason ? `Memory total: ${m.total.reason}` : '',
     c.disk && !c.disk.free.known && c.disk.free.reason ? `Disk: ${c.disk.free.reason}` : '',
@@ -107,7 +110,7 @@ export function Capacity({ name }: { name: string }) {
   // A Docker host with per-app readings is drawn as bars, always in view;
   // the bars say what a summary table would, so there is none above them.
   const bars = !!(c.tenants && c.tenants.length > 0)
-  const shown = reasons.slice(0, 3)
+  const shown = reasons
   return (
     <div className="small">
       {c.readAt && bars && <p className="muted mt-0" >Read {readingAge(c.readAt, c.stale).replace(/^checked /, '')}</p>}
@@ -120,8 +123,8 @@ export function Capacity({ name }: { name: string }) {
       {c.disk?.refuses ? <p className="capacity-warning">Free disk space before starting a new release.</p>
         : c.disk?.low && <p className="capacity-warning">Low on disk. Free some space.</p>}
       {c.elastic && <p>{c.words}{c.readAt && <span className="muted"> · {readingAge(c.readAt, c.stale)}</span>}</p>}
-      {shown.length > 0 && <p className="error small">Part of the capacity check failed: {shown.join('; ')}{reasons.length > shown.length ? `; and ${reasons.length - shown.length} more (App resource details)` : ''}</p>}
-      {bars ? <Bars c={c} /> : <section className="capacity-details"><h3>Details</h3>
+      {shown.length > 0 && <p className="error small">Some capacity readings could not be read: {shown.join('; ')}{reasons.length > shown.length ? `; and ${reasons.length - shown.length} more (App resource details)` : ''}</p>}
+      {bars ? <Bars c={c} /> : <div className="capacity-details" role="region" aria-label="Capacity detail tables" tabIndex={0}>
       {c.memory && c.cpu && (
         <table className="small mt-1" >
           <thead><tr><th></th><th>has</th><th>{c.kind === 'portainer' ? `declared by ${PRODUCT}'s deployments` : 'app resource limits'}</th><th>in use by containers</th></tr></thead>
@@ -137,21 +140,21 @@ export function Capacity({ name }: { name: string }) {
           <thead><tr><th>deployment</th><th>part</th><th>runs on</th><th>listed per month</th></tr></thead>
           <tbody>
             {(c.parts ?? []).map((p, i) => (
-              <GlanceRow labels={["App", "Part", "Size", "Monthly price"]} key={`${p.deployment}/${p.part}/${i}`}>
+              <tr key={`${p.deployment}/${p.part}/${i}`}>
                 <td>{p.deployment}</td>
                 <td>{p.part || 'app'}{p.need ? <span className="muted"> (service)</span> : null}</td>
                 <td>{p.runsOn}</td>
                 <td><FigureWords f={p.usdPerMonth} format={usd} /></td>
-              </GlanceRow>
+              </tr>
             ))}
           </tbody>
         </table>
       )}
-      </section>}
+      </div>}
       {c.estimate && (
         <div className="mt-1">
           Estimated <b><FigureWords f={c.estimate} format={usd} /></b> a month (databases extra)
-          <section><h3>Estimate details</h3>{c.estimate.reason}</section>
+          <p>{c.estimate.reason}</p>
         </div>
       )}
       <StaleNote q={q} inline />
@@ -232,8 +235,8 @@ function Bars({ c }: { c: TargetCapacity }) {
           <DiskState d={c.disk} />
         </>
       ) : c.disk && <DiskLine d={c.disk} />}
-      <section className="cap-details">
-        <h3 className="muted">App resource details</h3>
+      <div className="cap-details" role="region" aria-label="App resource table" tabIndex={0}>
+        <h2>App resource details</h2>
         <CapacityTable heads={['containers', 'memory used', 'memory limits', 'without a set limit', 'CPU limits']}
           rows={[
             ...tenants.map((t) => ({
@@ -246,7 +249,7 @@ function Bars({ c }: { c: TargetCapacity }) {
             { name: 'what the host has', kind: 'free', cells: ['', f(m.total, fmtBytes), '', '', c.cpu ? f(c.cpu.total, cpuWords) : ''] },
           ]} />
         {host && !host.known && <div className="muted small">the whole host's use: unknown · {host.reason}</div>}
-      </section>
+      </div>
     </div>
   )
 }

@@ -42,3 +42,25 @@ func (w WorkerTasks) Availability(ctx context.Context) (WorkerAvailability, erro
 	}
 	return WorkerAvailable, nil
 }
+
+// Version reads the worker build as part of the existing protocol observation.
+func (w WorkerTasks) Version(ctx context.Context) (string, error) {
+	resp, err := w.do(ctx, http.MethodGet, "/v1/version", nil, "")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", errors.New("worker version response was not successful")
+	}
+	var report struct {
+		Version string `json:"version"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&report); err != nil {
+		return "", err
+	}
+	if report.Version == "" {
+		return "", errors.New("worker version response has no version")
+	}
+	return report.Version, nil
+}

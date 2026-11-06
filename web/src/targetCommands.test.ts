@@ -7,7 +7,7 @@ afterEach(() => vi.unstubAllGlobals())
 it('sends explicit clears against the captured settings revision without unchanged fields', async () => {
   const fetch = vi.fn(async () => new Response('{"ok":true,"target":{"settingsRevision":8}}'))
   vi.stubGlobal('fetch', fetch)
-  const base = { domain: 'old.example', persistentVolumes: true, previews: true, needsMode: 'emulators' }
+  const base = { domain: 'old.example', persistentVolumes: true, needsMode: 'emulators' }
   const draft = { ...base, domain: '', persistentVolumes: false }
   const saved = await editTarget('host', 7, changedTargetSettings(base, draft))
   expect(saved.target?.settingsRevision).toBe(8)

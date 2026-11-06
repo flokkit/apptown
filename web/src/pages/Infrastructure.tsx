@@ -86,6 +86,16 @@ export function ResourceTables({ t: tIn, onChanged, only, empty }: { t: TargetIn
 
 const HEALTH_KINDS = ['container', 'stack', 'app', 'database']
 
+// Presence is the state of resources, such as volumes, that have no running health.
+export function ResourceStatus({ r, confirmed, invalidated, compact = false }: { r: Resource; confirmed: boolean; invalidated: boolean; compact?: boolean }) {
+  const unknownReason = invalidated ? 'Inventory predates the latest change. The next inventory check must confirm this resource; ask an administrator to check the target if it cannot finish.' : 'No current inventory confirms presence. Ask an administrator to check this target.'
+  return !confirmed ? <Status observation word="unknown" help={compact ? undefined : unknownReason} />
+    : r.record === 'missing' ? <Status observation word="failed" help={compact ? undefined : "The provider did not find this recorded resource. Check the target and restore or release the app."} />
+      : HEALTH_KINDS.includes(r.kind) ? <Status observation word={r.statusLabel} help={!compact && r.status && !['working', 'running'].includes(r.statusLabel) && r.status.toLowerCase() !== r.statusLabel ? r.status : undefined} />
+        : <span className="muted">present</span>
+}
+
+
 function ResourceRow({ r, target, onChanged, confirmed, invalidated, seenAt }: { r: Resource; target: string; onChanged: () => void; confirmed: boolean; invalidated: boolean; seenAt?: string }) {
   const unknownReason = invalidated ? 'Inventory predates the latest change. The next inventory check must confirm this resource; ask an administrator to check the target if it cannot finish.' : 'No current inventory confirms presence. Ask an administrator to check this target.'
   const host = r.url?.replace(/^https?:\/\//, '').replace(/\/$/, '')
@@ -100,10 +110,7 @@ function ResourceRow({ r, target, onChanged, confirmed, invalidated, seenAt }: {
   // failed when the provider has lost a recorded resource, otherwise its
   // health, or present for a resource with nothing running to check. The
   // time of the reading is in the meta line, once.
-  const state = !confirmed ? <Status observation word="unknown" help={unknownReason} />
-    : r.record === 'missing' ? <Status observation word="failed" help="The provider did not find this recorded resource. Check the target and restore or release the app." />
-      : HEALTH_KINDS.includes(r.kind) ? <Status observation word={r.statusLabel} help={r.status && !['working', 'running'].includes(r.statusLabel) && r.status.toLowerCase() !== r.statusLabel ? r.status : undefined} />
-        : <span className="muted">present</span>
+
   const holders = (r.hosts ?? []).map((h) => h.project.startsWith('(') ? h.project : `${h.project}/${h.deploymentLabel || h.deployment}${h.need ? ` (its ${h.need})` : ''}`)
   const meta = [
     holders.join(', ') || (r.retained ? `kept from ${r.retained.project}/${r.retained.deployment}` : ''),
@@ -113,7 +120,7 @@ function ResourceRow({ r, target, onChanged, confirmed, invalidated, seenAt }: {
   ].filter(Boolean).join(' · ')
   return (
     <div className="card row resource-row infrastructure-resource-row-card-resource-row" style={{ opacity: r.record === 'missing' ? 0.7 : undefined }}>
-      <span className="row-status">{state}</span>
+      <span className="row-status"><ResourceStatus r={r} confirmed={confirmed} invalidated={invalidated} /></span>
       <strong className="infrastructure-resource-row-strong">{r.name || `Unlinked ${r.kind}`}</strong>
       <span className="muted small grow infrastructure-resource-row-span">{meta}</span>
       {<div id={detailId} className="resource-evidence small infrastructure-resource-row-resource-evidence">

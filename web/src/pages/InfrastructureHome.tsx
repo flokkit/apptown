@@ -1,45 +1,20 @@
 import './InfrastructureHome.css'
-import { ListRow } from '../ListRow'
-import { useState } from 'react'
+import { ListTable } from '../ListTable'
 import { useHostStates } from '../hostState'
 import { useAttention } from '../attention'
-import { GlanceRow } from '../GlanceRow'
 import { Status } from '../Status'
-import { PRODUCT } from '../brand'
 import { Link } from 'react-router-dom'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
-import { fmtBytes, relTime, readingAge, lastSeen } from '../format'
+import { lastSeen } from '../format'
 import { DeletedProjects } from './Infrastructure'
-import type { DiskReadings, InfrastructureTargets, Job, JobList, Reading, TargetList } from '../wire.gen'
+import type { InfrastructureTargets, TargetList } from '../wire.gen'
 import { familyRank } from '../targets'
 import { PageHead } from '../PageHead'
+import { TargetConnections } from './integrations/TargetConnections'
 
 // Infrastructure lists hosts by name, state and one summary. Each host's
 // page keeps its capacity, inventory, settings and backup details.
-
-const JOB_WORDS: Record<string, string> = {
-  backup: 'Back up apps', inventory: 'Check resources', rebuild: 'Rebuild an app', 'backup-sweep': 'Check backups', 'db-backup': `Back up ${PRODUCT}`,
-  narrative: 'Write a change summary', 'protection-observation': 'Check backups', 'capacity-observation': 'Check server memory',
-  'worker-observation': 'Check worker', 'disk-observation': 'Check storage', operation: 'Copy or restore data', 'remediation-pass': 'Fix findings', 'what-if': 'Compare rules',
-  'eval-pass': 'Compare changes', 'project-description': 'Describe a project', 'workflow-completion': 'Finish a workflow',
-  'workflow-abandonment': 'Stop a workflow', 'conformance-review': 'Review projects',
-  'deployment-release': 'Release an app', 'deployment-recovery': 'Restore an app', 'restore-check': 'Check restored apps', 'restored-copy-sweep': 'Remove expired test copies',
-  'installation-marks': 'Record installed resources', 'project-cleanup': 'Clean up project files',
-  'project-deletion-pass': 'Remove deleted apps', 'project-purge-pass': 'Remove expired projects',
-}
-const jobReceipt = (j: Job) => {
-  if (j.error) return j.error
-  const r = j.receipt ?? {}
-  if (typeof r.skipped === 'string') return `skipped: ${r.skipped}`
-  if (typeof r.asked === 'number') return `asked for ${r.asked} backup(s)`
-  if (typeof r.took === 'string') return r.took
-  if (typeof r.url === 'string') return `running again at ${r.url}`
-  if (typeof r.resources === 'number') return `${r.resources} resources`
-  if (typeof r.bytes === 'number') return `${r.items ?? ''} item(s), ${Math.round((r.bytes as number) / 1024)} KB`
-  return ''
-}
-
 
 export function InfrastructureHome() {
   const attention = useAttention()
@@ -52,120 +27,22 @@ export function InfrastructureHome() {
   return (
     <div>
       <StaleNote q={[infra, targets, attention]} />
-      <PageHead page="infrastructure" />
-      <div className="row row-2"><Link className="btn primary" to="/targets/new">Add a deployment target</Link></div>
-      <OwnDisks />
+      <PageHead page="infrastructure" title={<>Targets <span className="section-count">{targets.data.targets.length}</span></>} actions={<Link className="btn primary" to="/targets/new">Add a deployment target</Link>} />
+      <ListTable className="target-list" label="Targets" rows={[
+        ...live.map(t => ({ t, v: byName.get(t.target)! })),
+        ...targets.data.targets.filter(v => !live.some(t => t.target === v.name)).map(v => ({ t: undefined, v })),
+      ]} rowKey={({ t, v }) => t?.target || v.name} columns={[
+        { key: 'name', label: 'Target', phone: 'name', render: ({ t, v }) => <Link to={`/targets/${t?.target || v.name}`}>{v?.displayLabel || t?.target || v.name}</Link> },
+        { key: 'state', label: 'State', phone: 'state', render: ({ t, v }) => { const state = hostState(t?.target || v.name, t?.statusLabel || v.statusLabel); return <Status observation word={state.word} /> } },
+        { key: 'place', label: 'Place', phone: 'detail', render: ({ t, v }) => <><span className="record-wide">{t?.place || 'unknown'}</span><span className="record-phone">{hostState(t?.target || v.name, t?.statusLabel || v.statusLabel).summary || t?.place || 'Inventory not known'}</span></> },
+        { key: 'apps', label: 'Apps', kind: 'number', phone: 'extra', render: ({ v }) => <>{v?.deployments.length ?? 'unknown'}<span className="record-phone"> {v?.deployments.length === 1 ? 'app' : 'apps'}</span></> },
+        { key: 'detail', label: 'Observation', phone: 'time', render: ({ t, v }) => {
+          const state = hostState(t?.target || v.name, t?.statusLabel || v.statusLabel)
+          return state.summary || (t?.asOf && !t.live ? lastSeen(t.asOf) : v?.status === 'retired' ? 'Retired' : !t ? 'Inventory not known' : t.resources?.some(r => r.record === 'missing') ? 'Check missing resources' : t.resources?.some(r => r.record === 'unrecorded') ? 'Review resources' : '')
+        } },
+      ]} />
       <div className="mt-4"><DeletedProjects /></div>
-      <div className="project-rows mt-4" role="list">
-        {live.map((t) => {
-          const v = byName.get(t.target)
-          const res = t.resources ?? []
-          const envs = v?.deployments ?? []
-          const unrecorded = res.filter((r) => r.record === 'unrecorded').length
-          const missing = res.filter((r) => r.record === 'missing').length
-          const state = hostState(t.target, t.statusLabel)
-          return (
-            <ListRow listItem key={t.target} identity={<><strong>{v?.displayLabel || t.target}</strong><div className="muted small">{t.place}</div></>}
-              state={<><Status observation word={state.word} help={state.help} />
-                <div className="muted small">{state.summary || (t.asOf && !t.live ? lastSeen(t.asOf) : missing > 0 ? 'Check missing resources' : unrecorded > 0 ? 'Review resources' : `${envs.length} ${envs.length === 1 ? 'app' : 'apps'}`)}</div></>}
-              action={<Link className="btn" to={`/targets/${t.target}`}>View target</Link>} />
-          )
-        })}
-        {targets.data.targets.filter(t => !live.some(i => i.target === t.name)).map(t => <ListRow listItem key={t.name}
-          identity={<strong>{t.displayLabel || t.name}</strong>}
-          state={<><Status observation word={t.statusLabel} /><div className="muted small">{t.status === 'retired' ? 'Retired' : 'Inventory not known'}</div></>}
-          action={<Link className="btn" to={`/targets/${t.name}`}>View target</Link>} />)}
-      </div>
-      <h2>Job queue</h2><JobQueue />
-    </div>
-  )
-}
-
-// OwnDisks: the filesystems this AppTown and its worker write to, each its
-// own reading with the time it was read, and what it means for new work.
-// A deployment target's own disk is on its page (its capacity).
-export function OwnDisks() {
-  const q = useGet<DiskReadings>('/infrastructure/disks', { poll: 60000 })
-  if (!q.data) return <div className="mt-4"><ReadStatus q={q} what={`${PRODUCT}'s disks`} className="small" /></div>
-  return (
-    <div className="mt-4">
-      <StaleNote q={q} />
-      {q.data.disks.length === 0 && <p className="muted small">Waiting for the first disk check.</p>}
-      <div className="host-disks">
-        {q.data.disks.map(d => <section key={d.what + (d.path ?? '')} className="host-disk">
-          <h3 className="host-row">
-            {/* Each disk is named for what it holds, so two readings of one machine are not mistaken for one disk. */}
-            <strong>{d.what.startsWith('this ') ? `${PRODUCT}'s data` : d.what.includes('Docker') ? 'Worker apps' : d.what.includes('worker') ? 'Worker storage' : d.what}</strong>
-            <DiskChip d={d} />
-            <span className="muted small">{d.unknown ? 'Disk not known' : d.low ? 'Low on disk' : `${Math.round(100 * (d.freeBytes ?? 0) / (d.totalBytes || 1))}% disk free`}</span>
-          </h3>
-          <div className="small">{d.what}{d.path && <p><code>{d.path}</code></p>}
-            {d.unknown || `${fmtBytes(d.freeBytes ?? 0)} free of ${fmtBytes(d.totalBytes ?? 0)}`} · {readingAge(d.readAt, d.stale)}
-            {d.unknown && !!d.totalBytes && <p>Disk size: {fmtBytes(d.totalBytes)}</p>}
-            {d.error && <p className="error">{d.error}</p>}
-            {d.refuses && <p>New work is blocked. Check the disk and free space.</p>}
-            {d.warningBytes ? <p>Free some space when less than {fmtBytes(d.warningBytes)} is free.</p> : null}
-            {d.floorBytes ? <p>New work stops below {fmtBytes(d.floorBytes)} free.</p> : null}
-          </div>
-        </section>)}
-      </div>
-    </div>
-  )
-}
-
-// DiskChip keeps a blocked disk distinct from an unknown reading or low room.
-
-function DiskChip({ d }: { d: Reading }) {
-  const word = d.refuses ? 'blocked' : d.unknown ? 'unknown' : d.low ? 'low' : 'working'
-  return <Status observation word={word} />
-}
-
-// JobQueue: AppTown's own work (design/subsystems/jobs.md) — open jobs
-// first, then the recent ones, each with its receipt or its failure.
-export function groupJobs(jobs: Job[]): { job: Job; count: number }[] {
-  const groups = new Map<string, { job: Job; count: number }>()
-  for (const job of jobs) {
-    // Only successful repeats collapse; failures and open work stay separate.
-    const key = job.state === 'completed' ? job.kind : String(job.id)
-    const group = groups.get(key)
-    if (group) group.count++
-    else groups.set(key, { job, count: 1 })
-  }
-  return [...groups.values()]
-}
-
-function JobQueue() {
-  const [count, setCount] = useState(10)
-  const jobs = useGet<JobList>('/jobs?limit=500', { poll: 10000 })
-
-  if (!jobs.data) return <div className="infrastructure-home-job-queue-div"><ReadStatus q={jobs} what="the job queue" /></div>
-  const groups = groupJobs(jobs.data.jobs)
-  const latest = jobs.data.jobs.find(j => j.finishedAt)?.finishedAt
-  const open = jobs.data.jobs.filter((j) => ['available', 'pending', 'running', 'retryable', 'scheduled'].includes(j.state)).length
-  return (
-    <div className="infrastructure-home-job-queue-div">
-      <StaleNote q={jobs} />
-      <p className="muted small infrastructure-home-job-queue-p">{open> 0 ? `${open} open now.` : `Nothing open now.${latest ? ` Last ran ${relTime(latest)}.` : ''}`}</p>
-      {jobs.data.jobs.length === 0
-        ? <div className="muted small">No jobs yet.</div>
-        : (
-          <div className="infrastructure-home-job-queue-div-2">
-            <table className="small stack job-table infrastructure-home-job-queue-job-table">
-              <thead><tr><th>Job</th><th>State</th><th>When</th><th>Outcome</th></tr></thead>
-              <tbody>
-                {groups.slice(0, count).map(({ job: j, count: repeats }) => (
-                  <GlanceRow labels={["Job", "State", "When", "Outcome"]} key={j.id}>
-                    <td className="stack-lead">{JOB_WORDS[j.kind] ?? j.kind.replaceAll('-', ' ')}{repeats === 1 && typeof j.receipt?.target === 'string' && <> on {j.receipt.target}</>}{repeats > 1 && <span className="muted"> · {repeats} done</span>}</td>
-                    <td className="stack-end"><Status word={j.statusLabel} help={j.error || j.state} />{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</td>
-                    <td className="muted">{j.finishedAt ? 'Finished ' : j.startedAt ? 'Started ' : 'Queued '}{relTime(j.finishedAt || j.startedAt || j.createdAt)}</td>
-                    <td data-label="outcome" className={j.error ? 'error' : ''}>{jobReceipt(j)}<section className="inline-detail"><h3>Technical details</h3><div>{j.kind}</div><code className="job-key">{j.key}</code></section></td>
-                  </GlanceRow>
-                ))}
-              </tbody>
-            </table>
-            {groups.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more</button>}
-          </div>
-        )}
+      <TargetConnections targets={targets.data.targets} />
     </div>
   )
 }

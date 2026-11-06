@@ -34,9 +34,11 @@ import PackPage from './pages/PackPage'
 import WhatIfPage from './pages/WhatIfPage'
 import NewProject from './pages/NewProject'
 import Integrations from './pages/Integrations'
+import { TargetResourcesPage } from './pages/integrations/TargetResources'
 import { TargetPage } from './pages/integrations/TargetPage'
 import { INTEGRATION_MENU } from './pages/integrations/kinds'
 import { ModelProfilePage } from './pages/integrations/ModelSlots'
+import { JobsPage } from './pages/Jobs'
 import { InfrastructureHome } from './pages/InfrastructureHome'
 import { InfrastructureNew } from './pages/InfrastructureNew'
 import Conformance from './pages/Conformance'
@@ -329,8 +331,13 @@ export default function App() {
           <Route path="/projects/:slug/console" element={<Console />} />
           <Route path="/integrations" element={<InstanceGate page="integrations"><Integrations /></InstanceGate>} />
           <Route path="/integrations/profiles/:profile" element={<InstanceGate page="integrations"><ModelProfilePage /></InstanceGate>} />
+          <Route path="/jobs" element={<InstanceGate page="infrastructure"><JobsPage /></InstanceGate>} />
           <Route path="/targets" element={<InstanceGate page="infrastructure"><InfrastructureHome /></InstanceGate>} />
           <Route path="/targets/new" element={<InstanceGate page="infrastructure"><InfrastructureNew /></InstanceGate>} />
+          <Route path="/targets/:name/resources" element={<InstanceGate page="infrastructure"><TargetResourcesPage /></InstanceGate>} />
+          <Route path="/targets/:name/resources/:id" element={<InstanceGate page="infrastructure"><TargetResourcesPage detail /></InstanceGate>} />
+          <Route path="/targets/:name/capacity" element={<InstanceGate page="infrastructure"><TargetPage tab="capacity" /></InstanceGate>} />
+          <Route path="/targets/:name/history" element={<InstanceGate page="infrastructure"><TargetPage tab="history" /></InstanceGate>} />
           <Route path="/targets/:name" element={<InstanceGate page="infrastructure"><TargetPage /></InstanceGate>} />
           <Route path="/integrations/:name" element={<InstanceGate page="integrations"><Integrations /></InstanceGate>} />
           <Route path="/services" element={<InstanceGate page="integrations"><Integrations /></InstanceGate>} />

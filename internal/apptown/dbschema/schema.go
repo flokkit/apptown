@@ -685,6 +685,9 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 	{n: 216, note: "retain deployment runtime intent and attribution", stmts: []string{
 		`ALTER TABLE deployments ADD COLUMN runtime_state TEXT NOT NULL DEFAULT 'running' CHECK (runtime_state IN ('running','stopped','starting','stopping','restarting')), ADD COLUMN runtime_actor TEXT NOT NULL DEFAULT '', ADD COLUMN runtime_at TIMESTAMPTZ, ADD COLUMN runtime_error TEXT NOT NULL DEFAULT ''`,
 	}},
+	{n: 217, note: "remove unused target preview setting", stmts: []string{
+		`UPDATE targets SET capabilities_json=capabilities_json - 'previews' WHERE capabilities_json ? 'previews'`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

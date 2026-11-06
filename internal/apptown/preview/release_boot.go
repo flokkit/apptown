@@ -51,11 +51,12 @@ func (h releaseBoots) BootReleasePreview(ctx context.Context, selected Release) 
 	}
 	label := docker.ReleasePreviewLabel(p.ServingLabel, n)
 	name := docker.PreviewLabelName(label)
+	discards := s.discardsSoFar(name)
 	stackID := docker.ReleaseStackID(p.ServingLabel, n)
 	b := selected.Bundle
 	s.Viewed(ctx, name) // a boot is a look
 	if b != nil && s.PreviewsOnWorker() {
-		return s.bootReleaseOnWorker(ctx, selected.ProjectID, p.Slug, label, stackID, staged, committed, b, tree.Revision)
+		return s.bootReleaseOnWorker(ctx, selected.ProjectID, p.Slug, label, stackID, staged, committed, b, tree.Revision, n)
 	}
 	// Held while it boots: the release of ended previews' keys leaves a
 	// booting preview alone.
@@ -75,6 +76,7 @@ func (h releaseBoots) BootReleasePreview(ctx context.Context, selected Release) 
 	}
 	incarnation := what + "+" + prepared.Public().Digest()
 	if port, _ := docker.ContainerHostPort(ctx, s.hosts.Local(), name, 0); port > 0 && s.servedIncarnation(ctx, name) == incarnation {
+		s.recordServedSince(name, discards, servedRecord{execution: &ExecutionPreview{Project: p.Slug, Release: n}, incarnation: incarnation, source: tree.Revision, at: s.now()})
 		return ReleaseResult{Result: Result{URL: s.env.RoutesFor(ctx, selected.ProjectID).PreviewURL(label, port), HostPort: port, Revision: tree.Revision}, Reused: true}, nil
 	}
 	// Asked of this machine's daemon, which runs this look whatever runs
@@ -112,6 +114,7 @@ func (h releaseBoots) BootReleasePreview(ctx context.Context, selected Release) 
 		}
 		return ReleaseResult{}, fmt.Errorf("could not start this version: %w", err)
 	}
+	s.recordServedSince(name, discards, servedRecord{execution: &ExecutionPreview{Project: p.Slug, Release: n}, incarnation: incarnation, source: tree.Revision, at: s.now()})
 	return ReleaseResult{Result: Result{URL: s.env.RoutesFor(ctx, selected.ProjectID).PreviewURL(label, res.HostPort), HostPort: res.HostPort, Revision: tree.Revision}}, nil
 }
 
@@ -120,7 +123,7 @@ func (h releaseBoots) BootReleasePreview(ctx context.Context, selected Release) 
 // (the preview credential among them). The worker keeps a running
 // incarnation that matches. AppTown keeps its record, so the worker's
 // reconciliation leaves it and visitors are forwarded to it.
-func (s *Service) bootReleaseOnWorker(ctx context.Context, projectID ids.ID, slug, label, stackID, tree string, c *appcontract.Contract, b *deployment.ReleaseBundle, revision string) (ReleaseResult, error) {
+func (s *Service) bootReleaseOnWorker(ctx context.Context, projectID ids.ID, slug, label, stackID, tree string, c *appcontract.Contract, b *deployment.ReleaseBundle, revision string, number int64) (ReleaseResult, error) {
 	name := docker.PreviewLabelName(label)
 	defer s.holdPreview(name)()
 	discards := s.discardsSoFar(name)
@@ -140,7 +143,7 @@ func (s *Service) bootReleaseOnWorker(ctx context.Context, projectID ids.ID, slu
 		Images: &worker.PreviewImages{Parts: b.Parts, Init: b.Init}}, prepared, tree); err != nil {
 		return ReleaseResult{}, fmt.Errorf("could not start this version: %w", err)
 	}
-	if !s.recordServedSince(name, discards, servedRecord{incarnation: incarnation, source: revision, public: public, at: s.now()}) {
+	if !s.recordServedSince(name, discards, servedRecord{onWorker: true, execution: &ExecutionPreview{Project: slug, Release: number}, incarnation: incarnation, source: revision, public: public, at: s.now()}) {
 		log.Printf("%s: its preview was discarded while it booted; AppTown keeps no record of it", name)
 	}
 	return ReleaseResult{Result: Result{URL: s.env.RoutesFor(ctx, projectID).PreviewURL(label, 0), Revision: revision, Incarnation: incarnation, Public: &public}}, nil
@@ -152,6 +155,6 @@ func (s *Service) servedOnWorker(name string) bool {
 	if !s.PreviewsOnWorker() {
 		return false
 	}
-	_, ok := s.servedRecordOf(name)
-	return ok
+	r, ok := s.servedRecordOf(name)
+	return ok && r.onWorker
 }

@@ -110,14 +110,14 @@ try {
   }, !!process.env.DESIGN_AUDIT);
   if (process.env.DESIGN_AUDIT) await page.goto(base + '/?cameraPrepare=1', { waitUntil: 'networkidle' });
   const routes = {
-    'infrastructure-expanded': '/targets', 'target-settings': '/targets/design-preview', 'target-resources': '/targets/built-in-docker',
+    'infrastructure-expanded': '/targets', 'target-settings': '/targets/design-preview', 'target-resources': '/targets/built-in-docker/resources', 'target-capacity': '/targets/built-in-docker/capacity', 'target-capacity-unknown': '/targets/design-preview/capacity', 'target-history': '/targets/built-in-docker/history', 'executor': '/integrations/executor',
     'backup-store-details': '/backups', 'release-invalid': '/releases/6', 'usage-90': '/usage', 'usage-details': '/usage', 'usage-timing': '/usage', 'people-agents-expanded': '/people/agents-and-tokens', 'people-revoke': '/people/agents-and-tokens', 'people-disconnect': '/people/agents-and-tokens',
 
     'guidance-block': '/guidance/' + seeded.guidance, 'guidance-missing': '/guidance/lang%2Fselection%2Fdjango-fullstack', 'release-record': '/projects/club-newsletter/releases/1',
     home: '/', 'home-search': '/', 'overview-navigation': '/projects/club-newsletter', projects: '/projects', releases: '/releases', deployments: '/deployments', backups: '/backups',
     'project-deployments': '/projects/club-newsletter/deployments', fleet: '/deployments', 'deployment-infrastructure': '/targets', attention: '/attention', 'attention-checks': '/attention/checks', 'attention-condition': '/attention/checks/' + encodeURIComponent(infraCases.pending.items[0].key), updates: '/updates',
     'target-offers': '/targets', 'release-detail': '/projects/club-newsletter/releases/' + facts.releases.find(r => r.serving).number,
-    'memory-decisions-empty': '/projects/shared-notes/memory/decisions', 'target-cloud': '/targets/design-cloud', infrastructure: '/targets', jobs: '/targets', 'infrastructure-new': '/targets/new',
+    'memory-decisions-empty': '/projects/shared-notes/memory/decisions', 'target-cloud': '/targets/design-cloud', infrastructure: '/targets', jobs: '/jobs', 'infrastructure-new': '/targets/new',
     conformance: '/conformance', checks: '/conformance/checks', reviews: '/conformance/reviews',
     'what-ifs': '/conformance/what-ifs', remediations: '/conformance/remediations', 'fleet-ways': '/conformance/ways',
     integrations: '/integrations', slots: '/integrations/slots', 'service-kinds': '/integrations/services', secrets: '/integrations/secrets',
@@ -194,6 +194,13 @@ try {
   Object.assign(routes, { 'new-project-way': '/projects/_new', 'new-project-repository': '/projects/_new', 'pack-new': '/packs', 'policy-new': '/policies', 'workflow-new': '/workflows', 'infrastructure-connection': '/targets/new' });
   if (process.env.DESIGN_AUDIT) routes['change-advisory'] = `/changes/${seeded.advisory}`;
   if (process.env.DESIGN_AUDIT) routes['reviews-running'] = '/conformance/reviews?cameraRunning=1';
+  const resource = await page.evaluate(async () => {
+    const data = await (await fetch('/api/v1/infrastructure')).json();
+    return data.targets.find(t => t.target === 'built-in-docker').resources.find(r => r.id);
+  });
+  if (!resource) throw new Error('resource detail seed missing');
+  routes['target-resource'] = '/targets/built-in-docker/resources/' + encodeURIComponent(resource.kind + ':' + resource.id);
+  routes['target-resources-filtered'] = '/targets/built-in-docker/resources?deployment=club-newsletter%2Fmain';
   const linked = await page.evaluate(async () => {
     const read = async path => { const r = await fetch('/api/v1' + path); if (!r.ok) throw new Error(path + ': ' + r.status); return r.json(); };
     const [policies, workflows, generated, integrations, conformance, transcript, docs] = await Promise.all([
@@ -264,10 +271,32 @@ try {
           if (screen === 'overview-help' && await page.locator('main').getByText('What agents know about this project', { exact: true }).count()) throw new Error('notes remain on Overview');
           if (screen === 'overview-help' && await page.locator('main').getByText('Changes →', { exact: true }).count()) throw new Error('Changes link remains on Overview');
         }
+        if (screen === 'target') {
+          const recorded = await page.evaluate(async () => {
+            const target = await (await fetch('/api/v1/targets/built-in-docker')).json();
+            const infra = await (await fetch('/api/v1/infrastructure')).json();
+            const dep = target.target.deployments.find(d => d.project === 'club-newsletter' && d.name === 'main');
+            const resources = infra.targets.find(t => t.target === 'built-in-docker').resources;
+            return { ...dep, count: resources.filter(r => r.hosts?.some(h => h.project === dep.project && h.deployment === dep.name)).length };
+          });
+          if (!recorded.generation || recorded.count < 2) throw new Error('target seed must have recorded generation and resources');
+          const row = page.locator('.target-deployments-table tbody tr').filter({ has: page.locator('a[href="/projects/club-newsletter/deployments/main"]') });
+          if (await row.locator('.phone-extra a').textContent() !== `${recorded.count} resources`) throw new Error('recorded resource count disappeared');
+          if (await row.locator('.phone-time').textContent() !== String(recorded.generation)) throw new Error('recorded generation disappeared');
+          if (await row.locator('.phone-detail').textContent() !== (recorded.url?.replace(/^https?:\/\//, '') || 'unknown')) throw new Error('recorded address disappeared');
+        }
+        if (screen === 'infrastructure' && size.startsWith('desktop')) {
+          const aligned = await page.locator('section').evaluateAll(sections => sections.every(section => {
+            const rows = [...section.querySelectorAll('.record-table tr')];
+            if (rows.length < 2) return true;
+            const reference = [...rows[0].children].map(cell => cell.getBoundingClientRect().left);
+            return rows.every(row => [...row.children].every((cell, i) => Math.abs(cell.getBoundingClientRect().left - reference[i]) <= 1));
+          }));
+          if (!aligned) throw new Error('connection column headers and rows are misaligned');
+        }
         if (screen === 'deployment') {
           if (await page.getByRole('button', { name: 'Approve', exact: true }).count() !== 1 || !(await page.locator('main').innerText()).includes('running on Production')) throw new Error('waiting release is missing its approval meaning or doors');
         }
-        if (screen === 'infrastructure-expanded' && await page.locator('.host-disk h3').count() === 0) throw new Error('disk facts are missing');
         if (!process.env.DESIGN_BASELINE && !cameraContentExclusions[screen] && (screen === 'conformance' || screen === 'conformance-project-mixed')) {
           const notes = page.locator('.conformance-broken');
           if (!(await notes.count())) throw new Error('unavailable checks must remain visible');
@@ -287,7 +316,7 @@ try {
           const words = await check.innerText();
           if (!words.startsWith('Target check:') || !facts.length || facts.some(fact => !words.includes(fact))) throw new Error('target check facts are missing');
         }
-        if (screen === 'target-resources' && !await page.locator('#target-resources .resource-evidence').first().isVisible()) throw new Error('resource facts are missing');
+        if (screen === 'target-resources' && !await page.locator('th').filter({ hasText: 'Owned' }).count()) throw new Error('resource table is missing');
         if (!process.env.DESIGN_BASELINE && screen === 'packs') {
           const boxed = await page.locator('.pack-actions button').evaluateAll(els => els.some(el => getComputedStyle(el).borderTopWidth !== '0px'));
           if (boxed) throw new Error('pack actions must be plain links');
@@ -394,7 +423,8 @@ try {
         await page.addStyleTag({ content: '*,*::before,*::after { animation: none !important; transition: none !important; caret-color: transparent !important; }' });
         const words = await page.locator('body').innerText();
         await writeFile(`${out}/${screen}/${size}-${theme}.txt`, words);
-        if (screen === 'target' && !process.env.DESIGN_BASELINE && !words.includes('over by')) throw new Error('host memory warning missing before Details');
+        if (screen === 'target' && await page.locator('.capacity-strip-track').count() !== 3) throw new Error('target capacity strip is missing');
+        if (screen === 'target-capacity' && !words.includes('over by')) throw new Error('capacity limit warning missing');
         if ((screen === 'change' || screen === 'change-non-approver') && !process.env.DESIGN_BASELINE) {
           const eligible = screen === 'change';
           if (await page.getByRole('button', { name: 'Decide…', exact: true }).count() !== (eligible ? 1 : 0)) throw new Error(screen + ': wrong approval eligibility');
@@ -447,8 +477,8 @@ try {
           }
         }
         if (screen === 'target' || screen === 'target-unknown') {
-          const capacity = page.getByRole('region', { name: 'Capacity', exact: true });
-          if (!cameraContentExclusions[screen] && !/memory/i.test(await capacity.innerText())) throw new Error(screen + ': capacity reading missing');
+          const capacity = page.locator('.capacity-strip');
+          if (!cameraContentExclusions[screen] && !/memory/i.test((await capacity.allTextContents()).join(' '))) throw new Error(screen + ': capacity reading missing');
         }
         if (screen.startsWith('people')) {
           if (await page.locator('main details').count()) throw new Error('People has a fold-down');
@@ -519,6 +549,16 @@ try {
             await page.evaluate(value => { if (value) document.documentElement.dataset.size = value; else delete document.documentElement.dataset.size; }, original);
           }
         }
+        if (screen === 'target' && size.startsWith('phone')) {
+          const namesFit = await page.locator('.target-deployments-table .phone-name').evaluateAll(cells => cells.every(cell => cell.scrollWidth <= cell.clientWidth + 1));
+          if (!namesFit) throw new Error('deployment names must remain readable on phones');
+        }
+        const capacityAligned = await page.locator('.capacity-strip').evaluateAll(strips => strips.every(strip => {
+          const value = strip.querySelector('.capacity-strip-label > span');
+          const bar = strip.querySelector('.capacity-strip-track');
+          return value && bar && Math.abs(value.getBoundingClientRect().right - bar.getBoundingClientRect().right) <= 1;
+        }));
+        if (!capacityAligned) throw new Error(screen + ': capacity values must align with the right edge of their bars');
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
         if (overflow) {
           await page.screenshot({path:`${out}/${screen}/${size}-${theme}-overflow.png`,fullPage:true});
@@ -533,6 +573,8 @@ try {
         const clipped = await page.locator('main *').evaluateAll(els => els.filter(el => {
           if (el.matches('.record-table td') && getComputedStyle(el).textOverflow === 'ellipsis' && el.querySelector('a[href], [title]')) return false;
           if (!el.getClientRects().length || el.closest('pre, .xterm, .diff, .log') || el.matches('.tabs') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return false;
+          // These labelled, focusable regions intentionally keep full table columns scrollable.
+          if (el.matches('.target-resource-scroll[tabindex="0"], .cap-details[tabindex="0"], .capacity-details[tabindex="0"]')) return false;
           const style = getComputedStyle(el);
           return ['auto', 'scroll', 'hidden'].includes(style.overflowX) && el.clientWidth > 4 && el.scrollWidth > el.clientWidth + 2;
         }).map(el => ({ tag: el.tagName, class: el.className, text: el.textContent.slice(0, 100) })));
@@ -544,6 +586,12 @@ try {
         await writeFile(`${out}/pages-progress.json`, JSON.stringify(captures, null, 2));
         await writeFile(`${out}/layout-errors.json`, JSON.stringify(errors, null, 2));
         console.log('captured', screen, size, theme, overflow ? 'OVERFLOW' : '');
+        if (['infrastructure', 'infrastructure-expanded', 'target-resources', 'target-resources-filtered'].includes(screen)) {
+          const label = screen.startsWith('infrastructure') ? 'Targets' : 'Resources';
+          const table = page.getByRole('table', { name: label, exact: true });
+          const firstRow = await table.locator('tbody tr').first().boundingBox();
+          if (firstRow && firstRow.height > 120) throw new Error(label + ' columns are squeezing words into vertical text');
+        }
         // The navigation capture deliberately covers main with its backdrop.
         // Preserve that screenshot, then restore main before its disclosure check.
         if (screen === 'overview-navigation' && size.startsWith('phone')) {

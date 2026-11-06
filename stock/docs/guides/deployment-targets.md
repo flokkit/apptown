@@ -40,7 +40,23 @@ A project's deployments are made on the project's **Deployments**.
 What each kind runs, and what a deployment owns and deletes when taken
 down, is in [Previews and deployments](container-lifecycle.md).
 
-**How full a target is** is on its page, under Capacity:
+Each target opens with its status, a capacity strip, deployments and their
+resource counts, resources not accounted for, settings and offers. Its
+**Resources** page lists resources and filters by deployment; opening a resource
+shows its full reference, ownership and generation. **History** keeps checks
+and settings changes. A deployment's **Resources** link opens the same filtered
+resource table.
+
+The capacity strip has one thin bar for CPU, memory and disk. Each shows used
+and total, or **unknown** with an empty bar when the complete current reading
+is unavailable. Usage above 80% colours the bar. Limits do not stand in for use.
+
+Previews run on the executor. **Integrations › Executor** shows where work runs,
+the worker's address, connection check and version, running work and previews,
+and its disks. A different worker version is marked beside AppTown's version.
+Without a worker, work runs on AppTown's own server.
+
+**How full a target is** is in detail on its **Capacity** page:
 - **A Docker host** shows stacked bars, with the same numbers in a table
   beneath ("the numbers"):
   - **memory used**: what each holder's containers use, then the host
@@ -98,9 +114,7 @@ disk is read again when the work starts, not taken from the page's reading:
 
 Stopping, taking down and removing are never refused. This keeps room for
 the next piece of work; it does not reserve it, so two at once or one
-larger than its free space can still fill a disk. Targets lists this
-AppTown's data folder and its worker's state folder and Docker data, each
-with what is free and when it was read; a target's own disk is on its page.
+larger than its free space can still fill a disk. The Executor page shows the disks where work runs; a target’s own disk is on its Capacity page.
 
 To free space on a Docker host, remove what you know is unused: stopped
 previews (AppTown stops and removes them itself after their idle time),

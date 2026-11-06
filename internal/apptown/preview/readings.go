@@ -5,12 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/preview/internal/previewsql"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/worker"
 )
 
 // Subject is local work identity selected by Work for background collection.
@@ -31,6 +33,7 @@ type Reading struct {
 type previewReading struct {
 	Absent bool `json:"-"`
 	Reading
+	Other []observedExecutionPreview
 	Live  []LiveChange
 	Value observation
 }
@@ -76,6 +79,10 @@ func (s *Service) ObservePreviews(ctx context.Context, subjects []Subject, start
 			live = append(live, LiveChange{ChangeID: subject.ID, StartedAt: r.Value.StartedAt})
 		}
 	}
+	other, otherErr := s.observeExecutionPreviews(ctx)
+	if otherErr != nil {
+		errs = append(errs, otherErr)
+	}
 	if errors.Is(ctx.Err(), context.Canceled) {
 		return ctx.Err()
 	}
@@ -91,6 +98,7 @@ func (s *Service) ObservePreviews(ctx context.Context, subjects []Subject, start
 	} else {
 		r.ObservedAt = s.now()
 		r.Live = live
+		r.Other = other
 		r.Failure = ""
 	}
 	raw, err := json.Marshal(r)
@@ -242,3 +250,87 @@ func (s *Service) LiveChangePreviews(ctx context.Context) ([]LiveChange, error) 
 type storedObservation observation
 
 func (o storedObservation) ObservePreview(context.Context) observation { return observation(o) }
+
+// ExecutionPreview identifies an observed running release or workflow preview.
+type ExecutionPreview struct {
+	Project string `json:"project"`
+	Release int64  `json:"release,omitempty"`
+	RunID   ids.ID `json:"runId,omitzero"`
+}
+
+type observedExecutionPreview struct {
+	ExecutionPreview
+	Name   string
+	Worker bool
+}
+
+// observeExecutionPreviews extends the existing preview observation, using the
+// boot records for identity and the runtime for current presence.
+func (s *Service) observeExecutionPreviews(ctx context.Context) ([]observedExecutionPreview, error) {
+	prior, err := s.loadReading(ctx, "instance")
+	if err != nil {
+		return nil, err
+	}
+	candidates := map[string]observedExecutionPreview{}
+	for _, p := range prior.Other {
+		candidates[p.Name] = p
+	}
+	s.served.m.Range(func(key, value any) bool {
+		r := value.(servedRecord)
+		if r.execution != nil {
+			candidates[key.(string)] = observedExecutionPreview{ExecutionPreview: *r.execution, Name: key.(string), Worker: r.onWorker}
+		}
+		return true
+	})
+	out := []observedExecutionPreview{}
+	var errs []error
+	for name, candidate := range candidates {
+		running := false
+		var err error
+		if candidate.Worker {
+			var st worker.PreviewState
+			st, err = s.PreviewOnWorker(ctx, name)
+			running = st.Running
+		} else {
+			_, running, _, err = s.localPreview(ctx, name)
+		}
+		if err != nil {
+			errs = append(errs, err)
+		} else if running {
+			out = append(out, candidate)
+		}
+		if ctx.Err() != nil {
+			break
+		}
+	}
+
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Project != out[j].Project {
+			return out[i].Project < out[j].Project
+		}
+		if out[i].Release != out[j].Release {
+			return out[i].Release < out[j].Release
+		}
+		return out[i].RunID.String() < out[j].RunID.String()
+	})
+	return out, errors.Join(errs...)
+}
+
+// ExecutionPreviews reads the same background reading as change previews.
+func (s *Service) ExecutionPreviews(ctx context.Context, onWorker bool) ([]ExecutionPreview, error) {
+	r, err := s.loadReading(ctx, "instance")
+	if err != nil {
+		return nil, err
+	}
+	reading := s.readingAt(r.Reading)
+	if reading.Stale || reading.Unknown || reading.Failure != "" {
+		return nil, errors.New("Running previews could not be read.")
+	}
+	out := make([]ExecutionPreview, 0, len(r.Other))
+	for _, p := range r.Other {
+		if p.Worker == onWorker {
+			out = append(out, p.ExecutionPreview)
+		}
+	}
+	return out, nil
+}

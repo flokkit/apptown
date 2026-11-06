@@ -60,11 +60,11 @@ func (t *Target) String() string { return t.Name + " (" + t.Kind + ")" }
 // TargetCapabilities is what a target can express (§2.2). A contract that
 // asks for more is refused at the door with a sentence.
 type TargetCapabilities struct {
-	PersistentVolumes bool     `json:"persistentVolumes"` // §0.1a: a dataDir contract needs one
-	Previews          bool     `json:"previews"`          // may previews bind here (§5, §13.3)
-	OwnLiveness       bool     `json:"ownLiveness"`       // the target restarts and probes; the health controller steps back
-	Rollout           []string `json:"rollout"`           // replicas, rolling, traffic, drain, rollback, zero-downtime
-	Needs             []string `json:"needs"`             // need kinds it can fulfil in its needs mode
+	PersistentVolumes bool `json:"persistentVolumes"` // §0.1a: a dataDir contract needs one
+
+	OwnLiveness bool     `json:"ownLiveness"` // the target restarts and probes; the health controller steps back
+	Rollout     []string `json:"rollout"`     // replicas, rolling, traffic, drain, rollback, zero-downtime
+	Needs       []string `json:"needs"`       // need kinds it can fulfil in its needs mode
 }
 
 // Offer is one row of target_offers (§15.7): a target made available to a

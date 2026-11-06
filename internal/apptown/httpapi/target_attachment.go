@@ -69,23 +69,23 @@ type (
 )
 
 // EditTarget: PATCH /targets/{name} {domain?, persistentVolumes?,
-// previews?, needsMode?, evals?, rehearsals?, copyRunner?} — the facts AppTown cannot read off a target
+// needsMode?, evals?, rehearsals?, copyRunner?} — the facts AppTown cannot read off a target
 // and the owner must state. Attached targets only; every change is an
 // audit row carrying before and after.
 func (h Targets) EditTarget(w http.ResponseWriter, r *http.Request) {
-	jsonCommand(w, r, jsonBody{}, func(in struct {
+	jsonCommand(w, r, jsonBody{strict: true}, func(in struct {
 		ExpectedRevision  *int64  `json:"expectedRevision"`
 		Domain            *string `json:"domain"`
 		PersistentVolumes *bool   `json:"persistentVolumes"`
-		Previews          *bool   `json:"previews"`
-		NeedsMode         *string `json:"needsMode"`
-		Evals             *bool   `json:"evals"`
-		Rehearsals        *bool   `json:"rehearsals"`
-		CopyRunner        *string `json:"copyRunner"`
-		Environment       *string `json:"environment"`
+
+		NeedsMode   *string `json:"needsMode"`
+		Evals       *bool   `json:"evals"`
+		Rehearsals  *bool   `json:"rehearsals"`
+		CopyRunner  *string `json:"copyRunner"`
+		Environment *string `json:"environment"`
 	}) {
 		saved, err := h.deployment.Targets.EditSettings(r.Context(), r.PathValue("name"), deployment.TargetSettingsEdit{
-			ExpectedRevision: in.ExpectedRevision, Domain: in.Domain, PersistentVolumes: in.PersistentVolumes, Previews: in.Previews, NeedsMode: in.NeedsMode, Evals: in.Evals, Rehearsals: in.Rehearsals, CopyRunner: in.CopyRunner, Environment: in.Environment,
+			ExpectedRevision: in.ExpectedRevision, Domain: in.Domain, PersistentVolumes: in.PersistentVolumes, NeedsMode: in.NeedsMode, Evals: in.Evals, Rehearsals: in.Rehearsals, CopyRunner: in.CopyRunner, Environment: in.Environment,
 		}, actor(r))
 		if err != nil {
 			WriteFault(w, err)

@@ -65,10 +65,10 @@ export const PAGE_HELP = {
   },
   infrastructure: {
     title: 'Targets',
-    line: `The deployment targets apps run on, and ${PRODUCT}'s own background jobs.`,
+    line: 'The places your apps run.',
     help: <>
       <p>A deployment target is a place deployments run, such as a Docker host, a Portainer environment or a DigitalOcean account. Each target's page shows what runs there and how full it is.</p>
-      <p>The job queue is {PRODUCT}'s background work, such as backups, inventories and workflow follow-ups. Jobs that are safe to repeat retry by themselves. A stopped or failed job may need someone to run it again.</p>
+      <p>Previews run on the <Link to="/integrations/executor">executor</Link>.</p>
     </>,
     guide: 'deployment-targets',
   },

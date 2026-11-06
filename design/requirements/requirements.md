@@ -119,7 +119,7 @@ environment, or a DigitalOcean account whose App Platform is the target
 door is a short wizard: the kind, then the connection with credentials
 named as secrets AppTown already holds, then the offer and the facts
 AppTown cannot read off the target (the apps domain, whether it keeps
-disks, whether previews may bind, how needs are met). The target must
+disks, how needs are met). The target must
 answer before anything is recorded, and the words it answered with are
 kept. A cloud account's connector is made with its target and goes when
 the last target on it is retired. *Infrastructure → Add a deployment

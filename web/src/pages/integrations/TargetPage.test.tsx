@@ -14,7 +14,7 @@ import type { InfrastructureView } from '../../wire.gen'
 
 const target = (domain: string, disks: boolean, settingsRevision = 0) => ({
   name: 'lan', ingress: { domain }, needsMode: 'emulators', settingsRevision, kindInfo: { environment: false },
-  capabilities: { persistentVolumes: disks, previews: false },
+  capabilities: { persistentVolumes: disks },
 } as unknown as TargetView)
 
 describe('the target editor', () => {

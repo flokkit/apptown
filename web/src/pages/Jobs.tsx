@@ -1,0 +1,87 @@
+import './InfrastructureHome.css'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { GlanceRow } from '../GlanceRow'
+import { Status } from '../Status'
+import { PRODUCT } from '../brand'
+import { useGet } from '../data'
+import { ReadStatus, StaleNote } from '../ReadGate'
+import { relTime } from '../format'
+import type { Job, JobList } from '../wire.gen'
+
+export function JobsPage() {
+  return <div><h1>Background jobs</h1><p>Backups, resource checks and workflow follow-ups run here. Safe jobs retry by themselves.</p><p><Link to="/usage">Usage</Link></p><JobQueue /></div>
+}
+
+const JOB_WORDS: Record<string, string> = {
+  backup: 'Back up apps', inventory: 'Check resources', rebuild: 'Rebuild an app', 'backup-sweep': 'Check backups', 'db-backup': `Back up ${PRODUCT}`,
+  narrative: 'Write a change summary', 'protection-observation': 'Check backups', 'capacity-observation': 'Check server memory',
+  'worker-observation': 'Check worker', 'disk-observation': 'Check storage', operation: 'Copy or restore data', 'remediation-pass': 'Fix findings', 'what-if': 'Compare rules',
+  'eval-pass': 'Compare changes', 'project-description': 'Describe a project', 'workflow-completion': 'Finish a workflow',
+  'workflow-abandonment': 'Stop a workflow', 'conformance-review': 'Review projects',
+  'deployment-release': 'Release an app', 'deployment-recovery': 'Restore an app', 'restore-check': 'Check restored apps', 'restored-copy-sweep': 'Remove expired test copies',
+  'installation-marks': 'Record installed resources', 'project-cleanup': 'Clean up project files',
+  'project-deletion-pass': 'Remove deleted apps', 'project-purge-pass': 'Remove expired projects',
+}
+const jobReceipt = (j: Job) => {
+  if (j.error) return ''
+  const r = j.receipt ?? {}
+  if (typeof r.skipped === 'string') return `skipped: ${r.skipped}`
+  if (typeof r.asked === 'number') return `asked for ${r.asked} backup(s)`
+  if (typeof r.took === 'string') return r.took
+  if (typeof r.url === 'string') return `running again at ${r.url}`
+  if (typeof r.resources === 'number') return `${r.resources} ${r.resources === 1 ? 'resource' : 'resources'}`
+  if (typeof r.bytes === 'number') return `${r.items ?? ''} item(s), ${Math.round((r.bytes as number) / 1024)} KB`
+  return ''
+}
+
+
+// JobQueue: AppTown's own work (design/subsystems/jobs.md) — open jobs
+// first, then the recent ones, each with its receipt or its failure.
+export function groupJobs(jobs: Job[]): { job: Job; count: number }[] {
+  const groups = new Map<string, { job: Job; count: number }>()
+  for (const job of jobs) {
+    // Only successful repeats collapse; failures and open work stay separate.
+    const key = job.state === 'completed' ? job.kind : String(job.id)
+    const group = groups.get(key)
+    if (group) group.count++
+    else groups.set(key, { job, count: 1 })
+  }
+  return [...groups.values()]
+}
+
+export function JobQueue() {
+  const [count, setCount] = useState(10)
+  const jobs = useGet<JobList>('/jobs?limit=500', { poll: 10000 })
+
+  if (!jobs.data) return <div className="infrastructure-home-job-queue-div"><ReadStatus q={jobs} what="the job queue" /></div>
+  const groups = groupJobs(jobs.data.jobs)
+  const latest = jobs.data.jobs.find(j => j.finishedAt)?.finishedAt
+  const open = jobs.data.jobs.filter((j) => ['available', 'pending', 'running', 'retryable', 'scheduled'].includes(j.state)).length
+  return (
+    <div className="infrastructure-home-job-queue-div">
+      <StaleNote q={jobs} />
+      <p className="muted small infrastructure-home-job-queue-p">{open> 0 ? `${open} open now.` : `Nothing open now.${latest ? ` Last ran ${relTime(latest)}.` : ''}`}</p>
+      {jobs.data.jobs.length === 0
+        ? <div className="muted small">No jobs yet.</div>
+        : (
+          <div className="infrastructure-home-job-queue-div-2">
+            <table className="small stack job-table infrastructure-home-job-queue-job-table">
+              <thead><tr><th>Job</th><th>State</th><th>When</th><th>Outcome</th></tr></thead>
+              <tbody>
+                {groups.slice(0, count).map(({ job: j, count: repeats }) => (
+                  <GlanceRow labels={["Job", "State", "When", "Outcome"]} key={j.id}>
+                    <td className="stack-lead">{JOB_WORDS[j.kind] ?? j.kind.replaceAll('-', ' ')}{repeats === 1 && typeof j.receipt?.target === 'string' && <> on {j.receipt.target}</>}{repeats > 1 && <span className="muted"> · {repeats} done</span>}</td>
+                    <td className="stack-end"><Status word={j.statusLabel} /> <span className="muted">{j.state}</span>{j.error && <> <span className="error">{j.error}</span></>}{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</td>
+                    <td className="muted">{j.finishedAt ? 'Finished ' : j.startedAt ? 'Started ' : 'Queued '}{relTime(j.finishedAt || j.startedAt || j.createdAt)}</td>
+                    <td data-label="outcome">{jobReceipt(j)}<div className="muted small">{j.kind} · <code className="job-key">{j.key}</code></div></td>
+                  </GlanceRow>
+                ))}
+              </tbody>
+            </table>
+            {groups.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more</button>}
+          </div>
+        )}
+    </div>
+  )
+}

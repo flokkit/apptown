@@ -15,6 +15,8 @@ import (
 // against today's settings (design/operations/workers.md, "Previews on the
 // worker").
 type servedRecord struct {
+	execution *ExecutionPreview
+	onWorker  bool
 	// made numbers the record among all records, as they are made: a claim
 	// forgets only records made before it began.
 	made        int64

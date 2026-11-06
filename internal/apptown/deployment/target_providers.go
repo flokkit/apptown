@@ -96,15 +96,15 @@ func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
 // stockCapabilities is what a kind of target offers as AppTown records it
 // (deploy-targets.md, "What each target supports"); emulators are the need
 // kinds this AppTown can run locally. An administrator may later change
-// PersistentVolumes and Previews on a target (target_settings.go).
+// PersistentVolumes on a target (target_settings.go).
 func stockCapabilities(kind string, emulators []string) TargetCapabilities {
 	switch kind {
 	case KindDockerHost:
-		return TargetCapabilities{PersistentVolumes: true, Previews: true, OwnLiveness: false, Rollout: []string{"replace"}, Needs: emulators}
+		return TargetCapabilities{PersistentVolumes: true, OwnLiveness: false, Rollout: []string{"replace"}, Needs: emulators}
 	case KindPortainer:
-		return TargetCapabilities{PersistentVolumes: true, Previews: false, OwnLiveness: true, Rollout: []string{"replace"}, Needs: emulators}
+		return TargetCapabilities{PersistentVolumes: true, OwnLiveness: true, Rollout: []string{"replace"}, Needs: emulators}
 	case KindDOApp:
-		return TargetCapabilities{PersistentVolumes: false, Previews: false, OwnLiveness: true, Rollout: []string{"rolling", "rollback"}, Needs: []string{"postgres", "s3"}}
+		return TargetCapabilities{PersistentVolumes: false, OwnLiveness: true, Rollout: []string{"rolling", "rollback"}, Needs: []string{"postgres", "s3"}}
 	}
 	return TargetCapabilities{}
 }

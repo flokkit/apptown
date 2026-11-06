@@ -14,7 +14,7 @@ const target = (revision = 7, domain = 'old.example'): Target => ({
   id: 'target-id', provider: '', origin: 'attached', status: 'ready',
   name: 'test-host', displayLabel: 'Test host', kind: 'docker-host', ingress: { domain }, address: {},
   settingsRevision: revision, needsMode: 'emulators',
-  capabilities: { persistentVolumes: true, previews: false, ownLiveness: false, rollout: [], needs: [] },
+  capabilities: { persistentVolumes: true, ownLiveness: false, rollout: [], needs: [] },
 })
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status })
 const disposals: (() => void)[] = []
@@ -36,7 +36,7 @@ async function setup(options: { conflict?: boolean; failOffer?: boolean; failRea
     writes.push({ method, body })
     if (method === 'PATCH') {
       if (conflict) {
-        current = { ...target(8, 'their.example'), capabilities: { ...current.capabilities, previews: true } }
+        current = { ...target(8, 'their.example'), capabilities: { ...current.capabilities, persistentVolumes: false } }
         return new Response('{"error":"settings moved"}', { status: 409, headers: { 'X-AppTown-Deny-Code': 'settings-moved' } })
       }
       if (body.expectedRevision !== current.settingsRevision) return json({ error: 'revision required' }, 422)

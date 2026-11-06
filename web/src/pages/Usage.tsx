@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { UsageDisk } from './UsageDisk'
 import { Tabs } from '../Tabs'
 import { useState } from 'react'
@@ -298,6 +299,7 @@ export default function UsagePage() {
     <div>
       <PageHead page="usage" />
       <UsageView />
+ <p><Link to="/jobs">Background jobs</Link></p>
  <UsageDisk />
     </div>
   )
