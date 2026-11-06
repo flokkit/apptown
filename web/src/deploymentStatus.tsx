@@ -9,7 +9,10 @@ import type { DeploymentDiagnostics, DeploymentView, ReleaseListed } from './wir
 export function deploymentStatus(env: DeploymentView, diagnostics?: DeploymentDiagnostics | null, unavailable = false, releases: ReleaseListed[] = []): ComponentProps<typeof Status> {
   const release = releases.find(r => r.deployment === env.name && r.state === 'releasing')
   if (release) return { word: 'deploying', help: `Release ${release.number}` }
-  const uncertain = !!env.generation && (unavailable || !diagnostics || diagnostics.reading?.unknown || diagnostics.reading?.stale || diagnostics.parts.some(p => p.presence === 'unknown'))
+  // A target that runs no containers (a bucket website) never reports part
+  // presence; its runtime reading is the witnessed answer, not an unknown part.
+  const partsUnknown = diagnostics?.containers !== false && diagnostics?.parts.some(p => p.presence === 'unknown')
+  const uncertain = !!env.generation && (unavailable || !diagnostics || diagnostics.reading?.unknown || diagnostics.reading?.stale || partsUnknown)
   const word = env.observation === 'running' && uncertain ? 'unknown' : env.observation
   return { word, help: runtimeDescription(env), staleAt: env.observationStale && word !== 'unknown' ? env.observedAt : undefined }
 }
