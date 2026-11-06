@@ -140,8 +140,8 @@ it:
   approvals bubbling up (`design/subsystems/composition.md`).
 - **Landing** is the one path to `main`: catch up with main, tests, scans,
   guidance conformance, the approval, the current-rules check, the merge,
-  the deploy, the release record. Failed and abandoned changes leave their
-  branches unmerged.
+  the runtime bundle or clean-tree build, the landing record. Failed and
+  abandoned changes leave their branches unmerged.
 
 There is no fan-out, compare or select; `fanout`, `compare`, `select` and
 `effect` are not in the schema.
@@ -162,8 +162,8 @@ materializations produce rubber stamps.** The ladder:
 The **preview / release split**: a preview
 materializes a branch (disposable, built from the working tree, never
 cached); a release is an effect (committed tree only, exact digest,
-never rebuilt at deploy). Environments sit between: committed `main`,
-redeployed per landing.
+never rebuilt at deploy). A deployment that follows main requests each
+completed landing’s bundle and releases it separately.
 
 ### 4.2 Servable HTML artifacts
 
@@ -257,7 +257,7 @@ Workflows carry an **origin** (`stock/…` or
 library at boot with a versioned receipt when they change, a customised
 copy is a clone plus a binding rather than an edit, and the run records
 what ran. `metadata.system: true` marks the workflows nobody picks —
-`land`, `ship`, `adopt-integration`, `retire-integration` — and the
+`land`, `adopt-integration`, `retire-integration` — and the
 platform pack pins them.
 
 AppTown's own maintenance is the conformance reviews and the remediation

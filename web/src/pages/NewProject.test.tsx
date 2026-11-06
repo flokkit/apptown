@@ -74,7 +74,9 @@ describe('new project from existing code', () => {
   it('uploads the chosen bundle instead of starting empty', async () => {
     const calls = stubAppTown(false)
     const { el, root } = await mount()
-    expect(el.querySelector('h1')?.textContent).toBe('Create a project')
+    expect(el.querySelector('h1')?.textContent).toBe('Create project')
+    expect(el.textContent).toContain('Start a new app or import existing code.')
+    expect(el.querySelector('label[for=project-description]')?.textContent).toBe('What does the app do?')
     await toStep3(el)
     await act(async () => { radio(el, 'Existing code').click() })
     expect(button(el, 'Create project')!.disabled).toBe(true)
@@ -358,7 +360,7 @@ describe('description-first creation', () => {
     const { el, root } = await mount()
     try {
       const area = el.querySelector('#project-description') as HTMLTextAreaElement
-      expect(el.querySelector('label[for="project-description"]')?.textContent).toContain('What would you like to build?')
+      expect(el.querySelector('label[for="project-description"]')?.textContent).toContain('What does the app do?')
       await type(area, 'Lunch orders')
       expect((el.querySelector('input') as HTMLInputElement).value).toBe('Lunch orders')
       expect(el.textContent).toContain('/lunch-orders')

@@ -40,13 +40,6 @@ All "before" lines are real.
 - After: In `open` mode there is no sign-in: anyone who can reach AppTown can
   say they are anyone.
 
-**Error when releasing to main**
-- Before: a deployment fed by every landing is deployed by no person; start a
-  promotion-fed deployment from a copy
-- After: main deploys every change that lands, so it can't be released by
-  hand. To choose when an app goes out, make a separate deployment and
-  release to that.
-
 **Permissions page**
 - Before: Nothing is implied: a power nobody was granted, nobody holds.
 - After: Nobody gets a permission by default. If no one was given it, no one

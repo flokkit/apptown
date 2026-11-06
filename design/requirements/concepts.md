@@ -34,7 +34,7 @@ below use the first word in each row.
 | **fleet** | the store (A12); sometimes heard as "estate" | every project on the instance; see [fleet](#fleet) |
 | **need** | service (B24), dependency | what an app declares it needs to run (a database); see [need](#need). Not the same as an [integration](#integration), which B Services also calls a service |
 | **integration** | service (A2, B26–A3), connector, binding, capability | a connection to an outside service; see [integration](#integration) |
-| **capability** | — | two senses: what an integration provides (error reporting) in B Services, and a unit of authority (`change:approve`) in A People and authority; see [integration](#integration) and [capability](#capability) |
+| **capability** | — | two senses: what an integration provides (error reporting) in B Services, and a unit of authority (`change:approve`) in A People and authority; see [integration](#integration) and [capability](#account-group-role-grant-capability) |
 | **provider** | cloud provider (A6), the provider (B28) | two senses: a cloud account's vendor (DigitalOcean) and an integration's vendor (one error tracker) |
 | **token** | credential, key | two senses: an API token minted for a person (C21) and a provider's secret held in a store (A6, B26) |
 | **exception** | suppression | two records: an exception accepts a conformance finding with an expiry and a second approver (B22); a suppression accepts a scanner finding with a reason (C17); see [finding](#finding) |
@@ -53,7 +53,7 @@ administrator** (publishes ways of working, approves weakening),
 *integration administrator* and *identity administrator* for the same
 seat, scoped by role), the [helper](#helper), a [coding agent](#coding-agent),
 and **AppTown** itself. *Mental model:* a role is a job title; a
-[capability](#capability) is the key on the ring. *Appears:* the preamble,
+[capability](#account-group-role-grant-capability) is the key on the ring. *Appears:* the preamble,
 every use case.
 
 ### Helper
@@ -77,7 +77,7 @@ set than the person: it opens and works changes and hands them off; it
 never approves, lands, releases or administers. *Lifecycle:* connected by
 OAuth, listed and revoked under People. *Appears:* C9, C20, C21, the table Who can drive each journey.
 
-### Account, group, role, grant, capability {#capability}
+### Account, group, role, grant, capability
 An **account** is a sign-in; a **group** is a named set of people that may
 own projects and may be an approver; a **role** is a named bundle of
 capabilities at instance, group or project scope; a **grant** gives a role
@@ -185,7 +185,7 @@ its origin (`stock/quick-change@10`); a project selects, never copies.
 
 ### System workflow
 A workflow marked `system: true` that the apptown runs for every project
-and nobody picks: land, ship, adopt-integration, retire-integration. The
+and nobody picks: land, adopt-integration, retire-integration. The
 instance may **bind** a custom one in place of a stock one for every
 project at once (a system binding). The platform pack pins them.
 *Appears:* C13, A13, B27, B30.

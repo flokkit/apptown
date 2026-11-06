@@ -1102,7 +1102,7 @@ The main tier, `get_project` and the conformance runtime check observe a
 
 
 On an AppTown with a worker, in the no-local-Docker mode or not, **every
-landing builds its release on the worker**. The build step fixes the
+landing builds its runtime bundle on the worker**. The build step fixes the
 commit and runs one `release-build` task on the worker in private
 Docker (`buildx`, one platform, no provenance or SBOM attestations). The
 task carries the commit and the generated build files only: no secrets,
@@ -1121,7 +1121,7 @@ that bundle separately and pulls its digests.
 Readable tags are added for people, never used as evidence:
 `change-<change>-<image>` (or `run-<run>-<image>`) at landing, and
 `release-<number>-<image>` when a promotion or an intranet release of the
-bundle goes live. The landing's own release carries only the change tag;
+bundle goes live. The landing's bundle images carry only the change tag;
 DOCR copies carry a commit-based tag. Images are named `part-<part>` and
 `init-<step>`.
 

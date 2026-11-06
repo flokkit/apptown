@@ -5,8 +5,8 @@ in-flight landings finish or drain them. Admitted runs retain their workflow
 definition; the new build does not execute the removed step kind.
 
 Existing `main` deployments, or `prod` where there is no `main`, follow main.
-Other landing-fed deployments follow main too. Promotion and schedule feeds
-become promotion feeds from a follows-main deployment when one exists, and
+Other deployments set to follow main keep that setting too. Promotion and
+schedule feeds become promotion feeds from a follows-main deployment when one exists, and
 manual feeds otherwise. Migration records no setter for follows-main settings.
 
 After installing, sign in as a person with deployment permission on the

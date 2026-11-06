@@ -44,6 +44,6 @@ progress and successful settlement must not be conflated. Use the common
 
 ## Implementation references
 
-- [internal/apptown/deployment/intranet_release.go](../../internal/apptown/deployment/intranet_release.go)
+- [internal/apptown/deployment/portainer_release.go](../../internal/apptown/deployment/portainer_release.go)
 - [internal/apptown/deployment/providers.go](../../internal/apptown/deployment/providers.go)
-- [internal/apptown/deployment/intranet_release_test.go](../../internal/apptown/deployment/intranet_release_test.go)
+- [internal/apptown/deployment/portainer_release_test.go](../../internal/apptown/deployment/portainer_release_test.go)

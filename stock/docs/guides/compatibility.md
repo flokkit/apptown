@@ -173,7 +173,7 @@ says so at the start of its description, wherever you choose it.
   `apptown` platform pack.
 - Needs: `postgres`, `mariadb` and `s3`, fulfilled on a Docker host.
 - Targets: the Docker host, built in or attached over SSH.
-- Workflows: `land`, `ship`, `quick-change`, `implement`, `fix-bug`,
+- Workflows: `land`, `quick-change`, `implement`, `fix-bug`,
   `plan-execute`, `dependency-uplift`, `adopt-integration` and
   `retire-integration`.
 - Integrations: error reporting (GlitchTip), GitLab, the pi agent harness and its model providers, the

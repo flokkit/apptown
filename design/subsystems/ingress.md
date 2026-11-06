@@ -50,8 +50,8 @@ changing a target domain does not move an existing deployment. See
 behavior.
 
 Every standing deployment on a Docker host is published at one host port,
-picked and recorded before its first start, whether a landing or a release
-starts it (`deployment.Deployments.StablePort`). Docker keeps a port it was
+picked and recorded before its first release starts it
+(`deployment.Deployments.StablePort`). Docker keeps a port it was
 given at every start of the container, and picks a port it chose itself
 again at every start, so AppTown records the port and probes and shows that
 one. Previews take a

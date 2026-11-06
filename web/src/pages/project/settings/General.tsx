@@ -216,7 +216,7 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
 
   return (
     <div className="settings-general general-general-tab-settings-general">
-      <Section title="Name and icon">
+      <Section title="Project details">
       <div className="settings-form">
         <fieldset disabled={!shown || saving} className="general-general-tab-fieldset">
         <div className="form-grid mt-3" >
@@ -278,7 +278,7 @@ export function RepoCard({ slug }: { slug: string }) {
   if (!data.repo) return <StaleNote q={q} />
   const repo = data.repo
   return (
-    <Section title="Code" action={<a className="btn" href={`/api/v1/projects/${slug}/repo/bundle`} download={`${slug}.bundle`}>Download code</a>}>
+    <Section title="Repository" action={<a className="btn" href={`/api/v1/projects/${slug}/repo/bundle`} download={`${slug}.bundle`}>Download code</a>}>
       <StaleNote q={q} />
       <div className="card row general-general-tab-card">
         <span className="badge">{repo.defaultBranch}</span>

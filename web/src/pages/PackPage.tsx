@@ -64,7 +64,7 @@ export default function PackPage() {
         </>}
       </div>}
       {/* An empty part says nothing: the count line above the parts is enough. */}
-      {d.guidance.length > 0 && <Section title="Rules" count={d.guidance.length}>
+      {d.guidance.length > 0 && <Section title="Guidance" count={d.guidance.length}>
         {d.guidance.map((g) => (
           <div key={g} className="card row"><span>{g.split('/').at(-1)!.replaceAll('-', ' ')}</span><span className="muted small">{g}</span></div>
         ))}

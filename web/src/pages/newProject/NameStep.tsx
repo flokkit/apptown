@@ -8,7 +8,7 @@ export function NameStep({ d, act }: { d: Draft; act: Dispatch<DraftAct> }) {
   const next = () => act({ type: 'step', step: 2 })
   return (
     <div className="np-panel">
-      <label htmlFor="project-description" className="np-label"><strong>What would you like to build?</strong></label>
+      <label htmlFor="project-description" className="np-label"><strong>What does the app do?</strong></label>
       <textarea id="project-description" className="prose" rows={4} autoFocus
         value={d.description} onChange={(e) => act({ type: 'describe', description: e.target.value })}
         placeholder="A lunch ordering app for our office"

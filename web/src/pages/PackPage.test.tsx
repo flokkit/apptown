@@ -12,7 +12,7 @@ import PackPage from './PackPage'
 afterEach(() => vi.unstubAllGlobals())
 it.each([true, false])('owns visibility, edit, delete and recommendation (enabled=%s)', async enabled => {
   const sent: [string, unknown][] = []
-  const declaration = { guidance: [], workflows: [], policies: [] }
+  const declaration = { guidance: ['team/code-review'], workflows: [], policies: [] }
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     if (init?.method === 'POST') { sent.push([url, JSON.parse(String(init.body))]); return new Response('{}') }
     const data = url.endsWith('/authz/me') ? { instance: { 'standards:manage-packs': true } }
@@ -29,6 +29,7 @@ it.each([true, false])('owns visibility, edit, delete and recommendation (enable
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/packs/team?whatIf=assessment']}><Routes><Route path="/packs/:name" element={<PackPage />} /></Routes></MemoryRouter></QueryClientProvider>))
     await settled(client)
+    expect([...el.querySelectorAll('h2')].map(h => h.textContent)).toContain('Guidance1')
     expect(button('Edit')).toBeDefined()
     expect(button('Delete…')).toBeDefined()
     await act(async () => button(enabled ? 'Hide' : 'Make available').click())
