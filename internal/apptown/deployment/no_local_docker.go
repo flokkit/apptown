@@ -10,6 +10,8 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
+	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/fault"
 )
@@ -84,34 +86,34 @@ func refusesBuiltPlatform(built, target, platform string, asked error) error {
 	return nil
 }
 
-// landingTarget is the target a landing creates its missing deployment
-// name on, with attrs. Outside the mode it is the built-in host. In an AppTown
+// landingTarget selects the build host and the default placement for a new
+// project, with attrs. With local Docker it is the built-in host. In an AppTown
 // with no local Docker it is the one attached Docker host offered to the
 // project for attrs: with none or several there is no choice AppTown can
 // make, and the refusal names the one a person makes.
 func (s *Service) landingTarget(ctx context.Context, projectID ids.ID, name string, attrs Attributes) (*Target, error) {
-	purpose, err := s.env.Purpose(ctx, projectID)
+	p, err := project.ByIDIn(ctx, s.db, projectID)
 	if err != nil {
 		return nil, err
 	}
-	if purpose.EvalDomainOnly() {
-		return s.evallandingTarget(ctx, name)
+	return s.landingTargetIn(ctx, s.db, p, name, attrs)
+}
+
+func (s *Service) landingTargetIn(ctx context.Context, q database.Queryer, p project.Project, name string, attrs Attributes) (*Target, error) {
+	if p.Purpose.EvalDomainOnly() {
+		return s.evallandingTarget(ctx, q, name)
 	}
 	if !s.hosts.settings.NoLocalDocker {
-		t, err := s.Targets.ByName(ctx, s.hosts.settings.BuiltInTarget)
+		t, err := targetRecord(deploymentsql.New(q.SQL()).TargetByName(ctx, s.hosts.settings.BuiltInTarget))
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("deployment %s does not exist and this AppTown has no built-in Docker host to create it on; attach a Docker host and create %s there", name, name)
+			return nil, fmt.Errorf("%w: deployment %s does not exist and this AppTown has no built-in Docker host to create it on; attach a Docker host and create %s there", ErrNoTarget, name, name)
+		}
+		if err == nil && !t.Status.Offerable() {
+			return nil, refused("default target %s is %s", t.Name, t.Status)
 		}
 		return t, err
 	}
-	if s.configuration.Projects == nil {
-		return nil, errors.New("deployment configuration is not configured")
-	}
-	project, err := s.configuration.Projects.Project(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-	targets, err := s.Targets.All(ctx)
+	targets, err := targetsIn(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -120,16 +122,19 @@ func (s *Service) landingTarget(ctx context.Context, projectID ids.ID, name stri
 		if t.Kind != KindDockerHost || t.Origin != OriginAttached || !t.Status.Offerable() || t.reserved() != "" {
 			continue
 		}
-		offer, why := s.Targets.OfferFor(ctx, t, project.OwnerGroup)
-		if offer == nil {
-			_ = why // not offered to this project: not a candidate
-			continue
+		offer, err := s.Targets.offerFor(ctx, deploymentsql.New(q.SQL()), t, p.OwnerGroup)
+		if err != nil {
+			var denied *offerDeniedError
+			if errors.As(err, &denied) {
+				continue
+			}
+			return nil, err
 		}
-		standing, err := s.Deployments.StandingCount(ctx, projectID, t.ID, name)
+		standing, err := deploymentsql.New(q.SQL()).StandingCount(ctx, deploymentsql.StandingCountParams{ProjectID: p.ID, TargetID: t.ID, Kind: Standing.String(), Excluding: name})
 		if err != nil {
 			return nil, err
 		}
-		if offer.permits(t, project.Slug, attrs, standing) == "" {
+		if offer.permits(t, p.Slug, attrs, int(standing)) == "" {
 			offered = append(offered, t)
 		}
 	}
@@ -137,13 +142,13 @@ func (s *Service) landingTarget(ctx context.Context, projectID ids.ID, name stri
 	case 1:
 		return offered[0], nil
 	case 0:
-		return nil, refused("deployment %s does not exist and no attached Docker host is offered to %s for it; offer one to the project under Integrations → Deployment targets, then land again", name, project.Slug)
+		return nil, refused("deployment %s does not exist and no attached Docker host is offered to %s for it; offer one to the project under Integrations → Deployment targets, then land again", name, p.Slug)
 	default:
 		names := make([]string, len(offered))
 		for i, t := range offered {
 			names[i] = t.Name
 		}
-		return nil, refused("deployment %s does not exist and several attached Docker hosts are offered to %s (%s); create %s on the one it should run on, then land again", name, project.Slug, strings.Join(names, ", "), name)
+		return nil, refused("deployment %s does not exist and several attached Docker hosts are offered to %s (%s); create %s on the one it should run on, then land again", name, p.Slug, strings.Join(names, ", "), name)
 	}
 }
 

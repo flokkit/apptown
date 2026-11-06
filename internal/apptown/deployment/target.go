@@ -167,7 +167,11 @@ func (s *Targets) ByName(ctx context.Context, name string) (*Target, error) {
 }
 
 func (s *Targets) All(ctx context.Context) ([]*Target, error) {
-	rows, err := deploymentsql.New(s.db.SQL()).Targets(ctx, nil)
+	return targetsIn(ctx, s.db)
+}
+
+func targetsIn(ctx context.Context, q database.Queryer) ([]*Target, error) {
+	rows, err := deploymentsql.New(q.SQL()).Targets(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -24,6 +24,13 @@
 // receipts; [Service.OfferTarget] owns checked group and offer admission. Transports
 // decode these commands and render their results without constructing target policy.
 //
+// [Service.InitializeProjectIn] joins project creation after ownership is
+// recorded. It creates main on the default target only with current deploy
+// authority; agent credentials create it unconfirmed. A person and their
+// credential are the setter, using the same validation as ConfirmFeed. Missing
+// defaults and denied authority leave no placement; storage failures abort
+// project creation.
+//
 // Three concrete collaborators hold the implementation releases share with
 // previews and copies: [Hosts] reaches Docker daemons, [Environment] prepares
 // what a boot is given (secrets, needs, registered keys through a

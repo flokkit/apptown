@@ -66,7 +66,12 @@ type supersededUplifts interface {
 type publisher interface {
 	PushBranch(ctx context.Context, projectID ids.ID, repoDir, branch string)
 }
+type initialDeployment interface {
+	InitializeProjectIn(context.Context, *database.Tx, ids.ID) error
+}
+
 type Dependencies struct {
+	Deployments  initialDeployment
 	Jobs         jobs.Enqueuer
 	Identity     *identity.Service
 	Adoption     *adoption.Service
@@ -93,6 +98,7 @@ type Config struct {
 	Now func() time.Time
 }
 type Service struct {
+	deployments  initialDeployment
 	jobs         jobs.Enqueuer
 	identity     *identity.Service
 	now          func() time.Time
@@ -115,7 +121,7 @@ type Service struct {
 }
 
 func New(db *database.DB, deps Dependencies, cfg Config) *Service {
-	return &Service{db: db, jobs: deps.Jobs, identity: deps.Identity, adoption: deps.Adoption, projects: deps.Projects, ways: deps.Ways, repositories: deps.Repositories, publisher: deps.Publisher, changes: deps.Changes, superseded: deps.Superseded, secrets: deps.Secrets, seeding: cfg.Seeding, resolve: cfg.resolve, dataDir: cfg.DataDir, extensions: slices.Clone(cfg.Extensions), projectNamesBusy: make(map[string]bool), now: clock.Or(cfg.Now)}
+	return &Service{deployments: deps.Deployments, db: db, jobs: deps.Jobs, identity: deps.Identity, adoption: deps.Adoption, projects: deps.Projects, ways: deps.Ways, repositories: deps.Repositories, publisher: deps.Publisher, changes: deps.Changes, superseded: deps.Superseded, secrets: deps.Secrets, seeding: cfg.Seeding, resolve: cfg.resolve, dataDir: cfg.DataDir, extensions: slices.Clone(cfg.Extensions), projectNamesBusy: make(map[string]bool), now: clock.Or(cfg.Now)}
 }
 
 // Create is the application command behind the wizard, `apptown new` and the
@@ -211,6 +217,11 @@ func (s *Service) createIn(ctx context.Context, tx *database.Tx, in Draft, group
 	}
 	if err := s.queueDescriptionIn(ctx, tx, id, "created"); err != nil {
 		return out, err
+	}
+	if s.deployments != nil {
+		if err := s.deployments.InitializeProjectIn(ctx, tx, id); err != nil {
+			return out, err
+		}
 	}
 	return project.ByIDIn(ctx, tx, id)
 }
